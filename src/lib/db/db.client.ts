@@ -23,13 +23,24 @@ class DBClient {
    * Initializes the SQLite Worker and sets up the OPFS database file.
    */
   async init(dbPath: string = "/inventoria.db"): Promise<void> {
-    if (this.initialized) return;
+    console.log("dbClient: init() started for path", dbPath);
+    if (this.initialized) {
+      console.log("dbClient: already initialized");
+      return;
+    }
 
     // Instantiate worker using Vite's ?worker import syntax
+    console.log("dbClient: instantiating DBWorker...");
     this.worker = new DBWorker();
 
     this.worker.onmessage = (event: MessageEvent) => {
       const { id, type, status, data, error, payload } = event.data;
+      console.log("dbClient: worker message received:", {
+        id,
+        type,
+        status,
+        error,
+      });
 
       // Handle invalidation broadcasts (does not correspond to a pending request ID)
       if (type === "broadcast_invalidation") {
@@ -54,7 +65,9 @@ class DBClient {
     this.initialized = true;
 
     // Trigger initialization inside the worker
+    console.log("dbClient: sending init request to worker");
     await this.send("init", { dbPath });
+    console.log("dbClient: worker finished initialization");
   }
 
   /**

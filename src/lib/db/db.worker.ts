@@ -6,10 +6,12 @@ let initialized = false;
 // Handle messages from the main thread
 self.onmessage = async (event: MessageEvent) => {
   const { id, type, payload } = event.data;
+  console.log("worker: received message type =", type, "id =", id);
 
   try {
     if (type === "init") {
       if (initialized) {
+        console.log("worker: already initialized, responding ok");
         self.postMessage({ id, status: "ok" });
         return;
       }
@@ -20,11 +22,14 @@ self.onmessage = async (event: MessageEvent) => {
         printErr: console.error,
       });
 
-      if (!(sqlite3 as any).opfs) {
+      const opfsVfs = sqlite3.capi.sqlite3_vfs_find("opfs");
+      if (!opfsVfs) {
         throw new Error("OPFS is not supported in this browser environment");
       }
 
+      console.log("worker: opfs is supported. opening db...");
       db = new (sqlite3 as any).oo1.OpfsDb(dbPath);
+      console.log("worker: db opened successfully");
 
       // Auto-create the datoms table and indexes
       db.exec(`
@@ -45,7 +50,9 @@ self.onmessage = async (event: MessageEvent) => {
         CREATE INDEX IF NOT EXISTS idx_ave ON datoms (attribute, value, entity);
       `);
 
+      console.log("worker: table and indices initialized");
       initialized = true;
+      console.log("worker: sending status ok response for init");
       self.postMessage({ id, status: "ok" });
     } else if (type === "query") {
       if (!db) {

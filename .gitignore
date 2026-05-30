@@ -41,3 +41,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Playwright E2E testing outputs
+playwright-report/
+test-results/
+

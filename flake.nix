@@ -21,9 +21,13 @@
               nodejs_latest
               pnpm
               sqlite
+              playwright-driver.browsers
             ];
 
             shellHook = ''
+              export PLAYWRIGHT_BROWSERS_PATH=${pkgs.playwright-driver.browsers}
+              export PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=true
+
               echo "=== Inventoria Dev Environment ==="
               echo "Node:   $(node --version)"
               echo "pnpm:   $(pnpm --version)"
