@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
+    "test:unit": "vitest run tests/unit",
     "test:e2e": "playwright test",
     "prepare": "husky"
   },
@@ -17,6 +18,7 @@
     "@total-typescript/shoehorn": "^0.1.2",
     "@tsconfig/svelte": "^5.0.8",
     "@types/node": "^24.12.3",
+    "@vitest/coverage-v8": "^4.1.7",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.5",
     "prettier": "^3.8.3",
@@ -24,7 +26,8 @@
     "svelte": "^5.55.5",
     "svelte-check": "^4.4.8",
     "typescript": "~6.0.2",
-    "vite": "^8.0.12"
+    "vite": "^8.0.12",
+    "vitest": "^4.1.7"
   },
   "dependencies": {
     "@sqlite.org/sqlite-wasm": "3.53.0-build1"
