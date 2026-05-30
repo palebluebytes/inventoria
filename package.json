@@ -12,6 +12,7 @@
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
+    "@total-typescript/shoehorn": "^0.1.2",
     "@tsconfig/svelte": "^5.0.8",
     "@types/node": "^24.12.3",
     "husky": "^9.1.7",
@@ -22,5 +23,8 @@
     "svelte-check": "^4.4.8",
     "typescript": "~6.0.2",
     "vite": "^8.0.12"
+  },
+  "dependencies": {
+    "@sqlite.org/sqlite-wasm": "3.53.0-build1"
   }
 }
