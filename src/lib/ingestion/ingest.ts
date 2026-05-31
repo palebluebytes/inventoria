@@ -2,7 +2,7 @@ import type { Datom } from "../db/db.client";
 
 export interface EntityPayload {
   entity: string;
-  attributes: Record<string, string>;
+  attributes: Record<string, any>;
 }
 
 /**
