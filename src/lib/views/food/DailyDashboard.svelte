@@ -448,16 +448,18 @@
     font-size: var(--step-3);
     font-weight: 800;
     color: var(--text-primary);
-    line-height: 0.9;
+    line-height: 0.85;
     letter-spacing: -0.04em;
+    margin: 0;
   }
   .calories-sub {
-    font-size: var(--step-n3);
+    font-size: var(--step-n2);
     color: var(--text-secondary);
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     margin-top: var(--space-3xs);
+    line-height: 1;
     white-space: nowrap;
   }
 
