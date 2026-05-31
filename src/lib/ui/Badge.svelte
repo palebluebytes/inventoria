@@ -23,35 +23,36 @@
     display: inline-flex;
     align-items: center;
     padding: var(--space-3xs) var(--space-2xs);
-    border-radius: 99px;
+    border-radius: 0;
     font-size: var(--step-n2);
     font-weight: 600;
     line-height: 1;
     white-space: nowrap;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
   }
 
   .badge-default {
-    background: rgba(139, 92, 246, 0.15);
-    color: var(--accent-light);
-    border: 1px solid rgba(139, 92, 246, 0.2);
+    background: #000;
+    color: #fff;
+    border: 1px solid #000;
   }
 
   .badge-success {
     background: var(--green-bg);
     color: var(--green);
-    border: 1px solid rgba(52, 211, 153, 0.2);
+    border: 1px solid #000;
   }
 
   .badge-error {
     background: var(--red-bg);
     color: var(--red);
-    border: 1px solid rgba(248, 113, 113, 0.2);
+    border: 1px solid #000;
   }
 
   .badge-warning {
     background: var(--amber-bg);
     color: var(--amber);
-    border: 1px solid rgba(251, 191, 36, 0.2);
+    border: 1px solid #000;
   }
 </style>

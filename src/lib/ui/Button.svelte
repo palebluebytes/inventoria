@@ -45,7 +45,7 @@
     justify-content: center;
     gap: var(--space-2xs);
     padding: var(--space-2xs) var(--space-m);
-    border-radius: 12px;
+    border-radius: 0;
     font-size: var(--step-n1);
     font-weight: 600;
     font-family: inherit;
@@ -101,37 +101,33 @@
 
   /* Variants */
   .btn-primary {
-    background: linear-gradient(135deg, var(--accent), #6d28d9);
+    background: #000;
     color: #fff;
-    box-shadow: 0 4px 12px var(--accent-glow);
+    border-color: #000;
   }
   .btn-primary:hover:not(:disabled) {
-    background: linear-gradient(135deg, #9f7aea, #7c3aed);
-    box-shadow: 0 6px 16px var(--accent-glow);
-    transform: translateY(-1px);
+    background: #fff;
+    color: #000;
   }
 
   .btn-secondary {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: var(--border);
-    color: var(--text-primary);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    background: transparent;
+    border-color: #000;
+    color: #000;
   }
   .btn-secondary:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.15);
-    transform: translateY(-1px);
+    background: #000;
+    color: #fff;
   }
 
   .btn-danger {
-    background: linear-gradient(135deg, var(--red), #dc2626);
-    color: #fff;
-    box-shadow: 0 4px 12px rgba(248, 113, 113, 0.2);
+    background: #fff;
+    color: #000;
+    border-color: #000;
   }
   .btn-danger:hover:not(:disabled) {
-    background: linear-gradient(135deg, #fca5a5, #ef4444);
-    box-shadow: 0 6px 16px rgba(248, 113, 113, 0.3);
-    transform: translateY(-1px);
+    background: #000;
+    color: #fff;
   }
 
   .btn-ghost {
@@ -139,7 +135,7 @@
     color: var(--text-secondary);
   }
   .btn-ghost:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(0, 0, 0, 0.05);
     color: var(--text-primary);
   }
 </style>

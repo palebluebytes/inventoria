@@ -155,13 +155,16 @@
   .page-header {
     margin-bottom: var(--space-m);
     animation: fadeIn 0.4s ease-out;
+    border-bottom: 2px solid #000;
+    padding-bottom: var(--space-s);
   }
   h1 {
     font-size: var(--step-2);
     font-weight: 700;
     color: var(--text-primary);
     margin-bottom: var(--space-3xs);
-    letter-spacing: -0.02em;
+    letter-spacing: -0.05em;
+    text-transform: uppercase;
   }
   h2 {
     font-size: var(--step-0);
@@ -170,6 +173,8 @@
     margin-bottom: var(--space-xs);
     display: flex;
     align-items: center;
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
   }
   p {
     color: var(--text-secondary);
@@ -185,12 +190,12 @@
     display: flex;
     align-items: center;
     gap: var(--space-m);
-    padding: var(--space-2xs) 0;
+    padding: var(--space-s) 0;
     border-bottom: 1px solid var(--border);
     transition: background 0.2s;
   }
   .twin-item:hover {
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(0, 0, 0, 0.02);
   }
   .twin-item:last-child {
     border-bottom: none;
@@ -220,57 +225,59 @@
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(255, 255, 255, 0.9);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 998;
-    backdrop-filter: blur(8px);
   }
   .menu-modal-card {
-    background: var(--bg-card, #121214);
-    border: 1px solid var(--border);
-    border-radius: 20px;
+    background: #fff;
+    border: 2px solid #000;
+    border-radius: 0;
     width: 90%;
     max-width: 450px;
     padding: var(--space-m);
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
-    animation: zoomIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 8px 8px 0 rgba(0, 0, 0, 1);
+    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .menu-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 2px solid #000;
     padding-bottom: var(--space-xs);
   }
   .menu-header h3 {
     font-size: var(--step-0);
     font-weight: 700;
-    color: var(--text-primary);
+    color: #000;
+    text-transform: uppercase;
   }
   .close-btn {
     background: none;
     border: none;
-    color: var(--text-muted);
+    color: #000;
     font-size: var(--step-2);
     cursor: pointer;
+    line-height: 1;
   }
   .close-btn:hover {
-    color: var(--text-primary);
+    transform: scale(1.1);
   }
 
   .menu-options {
     display: flex;
     flex-direction: column;
-    gap: var(--space-s);
+    gap: 0;
   }
   .menu-option-btn {
     width: 100%;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: var(--space-s);
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    padding: var(--space-s) 0;
     display: flex;
     align-items: center;
     gap: var(--space-s);
@@ -278,13 +285,16 @@
     text-align: left;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
+  .menu-option-btn:last-child {
+    border-bottom: none;
+  }
   .menu-option-btn:hover {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: var(--accent);
-    transform: translateY(-2px);
+    background: #f4f4f5;
+    padding-left: var(--space-xs);
   }
   .menu-icon {
     font-size: var(--step-2);
+    filter: grayscale(100%);
   }
   .menu-text {
     display: flex;
@@ -293,11 +303,12 @@
   .menu-title {
     font-size: var(--step-n1);
     font-weight: 700;
-    color: var(--text-primary);
+    color: #000;
+    text-transform: uppercase;
   }
   .menu-desc {
     font-size: var(--step-n3);
-    color: var(--text-muted);
+    color: var(--text-secondary);
     margin-top: 2px;
   }
 
@@ -313,14 +324,14 @@
       opacity: 1;
     }
   }
-  @keyframes zoomIn {
+  @keyframes slideUp {
     from {
       opacity: 0;
-      transform: scale(0.95);
+      transform: translateY(20px);
     }
     to {
       opacity: 1;
-      transform: scale(1);
+      transform: translateY(0);
     }
   }
 </style>

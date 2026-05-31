@@ -28,7 +28,6 @@
     {onkeydown}
     class="input"
   />
-  <div class="input-glow"></div>
 </div>
 
 <style>
@@ -40,9 +39,9 @@
 
   .input {
     width: 100%;
-    background: var(--bg-input);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
+    background: transparent;
+    border: 1px solid var(--border-accent);
+    border-radius: 0;
     padding: var(--space-2xs) var(--space-s);
     color: var(--text-primary);
     font-size: var(--step-n1);
@@ -51,7 +50,6 @@
     font-family: inherit;
     position: relative;
     z-index: 1;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
   }
 
   .input::placeholder {
@@ -64,15 +62,13 @@
   }
 
   .input:hover:not(:disabled) {
-    border-color: rgba(255, 255, 255, 0.15);
+    background: rgba(0, 0, 0, 0.02);
   }
 
   .input:focus {
-    border-color: var(--accent);
-    box-shadow:
-      inset 0 2px 4px rgba(0, 0, 0, 0.2),
-      0 0 0 2px var(--bg-base),
-      0 0 0 4px var(--accent-glow);
+    border-color: #000;
+    box-shadow: 0 0 0 1px #000;
+    background: #fff;
   }
 
   .input:disabled {

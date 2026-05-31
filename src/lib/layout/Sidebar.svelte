@@ -49,9 +49,8 @@
   .sidebar {
     width: clamp(12rem, 10rem + 5vw, 15rem);
     flex-shrink: 0;
-    background: rgba(14, 16, 24, 0.4);
-    backdrop-filter: blur(20px);
-    border-right: 1px solid var(--border);
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border-accent);
     display: flex;
     flex-direction: column;
     padding: var(--space-m) 0;
@@ -61,34 +60,34 @@
     align-items: center;
     gap: var(--space-xs);
     padding: 0 var(--space-s) var(--space-m);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: var(--space-s);
   }
   .logo-icon {
     font-size: var(--step-1);
-    background: linear-gradient(135deg, var(--accent-light), var(--accent));
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: #000;
   }
   .logo-text {
     font-weight: 700;
     font-size: var(--step-0);
-    color: var(--text-primary);
-    letter-spacing: -0.02em;
+    color: #000;
+    letter-spacing: -0.05em;
+    text-transform: uppercase;
   }
   nav {
     display: flex;
     flex-direction: column;
-    gap: var(--space-3xs);
-    padding: 0 var(--space-2xs);
+    gap: 0;
+    padding: 0;
     flex: 1;
   }
   .nav-item {
     display: flex;
     align-items: center;
     gap: var(--space-xs);
-    padding: var(--space-2xs) var(--space-xs);
-    border-radius: 10px;
+    padding: var(--space-s) var(--space-s);
     border: none;
+    border-bottom: 1px solid var(--border);
     background: transparent;
     color: var(--text-secondary);
     cursor: pointer;
@@ -99,23 +98,32 @@
   }
   .nav-item .icon {
     font-size: 1.1em;
+    filter: grayscale(100%);
+    opacity: 0.7;
     transition: transform 0.2s;
   }
+  .nav-item:first-child {
+    border-top: 1px solid var(--border);
+  }
   .nav-item:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--text-primary);
+    background: #f4f4f5;
+    color: #000;
   }
   .nav-item:hover .icon {
     transform: scale(1.1) rotate(-5deg);
+    opacity: 1;
   }
   .nav-item.active {
-    background: linear-gradient(90deg, rgba(139, 92, 246, 0.15), transparent);
-    color: var(--text-primary);
+    background: #000;
+    color: #fff;
     font-weight: 600;
-    box-shadow: inset 3px 0 0 var(--accent);
+  }
+  .nav-item.active .icon {
+    opacity: 1;
   }
   .sidebar-footer {
     padding: var(--space-s) var(--space-s) 0;
+    border-top: 1px solid var(--border);
   }
   :global(.w-full) {
     width: 100%;

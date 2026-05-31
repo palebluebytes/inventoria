@@ -21,7 +21,7 @@ pnpm install
 3. Launch the Svelte development server:
 
 ```bash
-pnpm run dev
+pnpm dev
 ```
 
 ## AI Agent Development

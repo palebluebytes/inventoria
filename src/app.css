@@ -37,37 +37,38 @@
 
 /* ── Colour tokens ───────────────────────────────────────────────────────── */
 :root {
-  --bg-base: #090a0f;
-  --bg-surface: #11131c;
-  --bg-card: #171a26;
-  --bg-input: #0c0d14;
+  --bg-base: #fafafa;
+  --bg-surface: #ffffff;
+  --bg-card: #ffffff;
+  --bg-input: #f4f4f5;
 
-  --border: rgba(255, 255, 255, 0.08);
-  --border-accent: rgba(139, 92, 246, 0.5);
+  --border: #e4e4e7;
+  --border-accent: #000000;
 
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #475569;
+  --text-primary: #09090b;
+  --text-secondary: #52525b;
+  --text-muted: #a1a1aa;
 
-  --accent: #8b5cf6;
-  --accent-light: #a78bfa;
-  --accent-glow: rgba(139, 92, 246, 0.25);
+  --accent: #09090b;
+  --accent-light: #52525b;
+  --accent-glow: rgba(0, 0, 0, 0.1);
 
-  --green: #10b981;
-  --green-bg: rgba(16, 185, 129, 0.15);
-  --red: #ef4444;
-  --red-bg: rgba(239, 68, 68, 0.15);
-  --amber: #f59e0b;
-  --amber-bg: rgba(245, 158, 11, 0.15);
+  /* Minimal Brutalist Semantic Colors */
+  --green: #000;
+  --green-bg: #ccff00; /* Sharp acid green for success */
+  --red: #fff;
+  --red-bg: #ff3333; /* Pure striking red for error */
+  --amber: #000;
+  --amber-bg: #ffcc00; /* Sharp yellow for warning */
 
   /* ── Font ──────────────────────────────────────────────────────────────── */
   font-family:
-    "Inter",
+    "Epilogue",
     system-ui,
     -apple-system,
     sans-serif;
   font-size: var(--step-0);
-  line-height: 1.6;
+  line-height: 1.5;
   color: var(--text-primary);
   background: var(--bg-base);
   -webkit-font-smoothing: antialiased;
@@ -85,6 +86,7 @@
 body {
   min-height: 100svh;
   background: var(--bg-base);
+  color: var(--text-primary);
 }
 
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Epilogue:wght@300;400;500;600;700&display=swap");
