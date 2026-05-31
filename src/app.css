@@ -37,28 +37,28 @@
 
 /* ── Colour tokens ───────────────────────────────────────────────────────── */
 :root {
-  --bg-base: #0b0d14;
-  --bg-surface: #12141f;
-  --bg-card: #181b2a;
-  --bg-input: #0f1119;
+  --bg-base: #090a0f;
+  --bg-surface: #11131c;
+  --bg-card: #171a26;
+  --bg-input: #0c0d14;
 
-  --border: rgba(255, 255, 255, 0.06);
-  --border-accent: rgba(139, 92, 246, 0.4);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-accent: rgba(139, 92, 246, 0.5);
 
-  --text-primary: #f0f2ff;
-  --text-secondary: #8b90aa;
-  --text-muted: #484d63;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #475569;
 
   --accent: #8b5cf6;
   --accent-light: #a78bfa;
-  --accent-glow: rgba(139, 92, 246, 0.2);
+  --accent-glow: rgba(139, 92, 246, 0.25);
 
-  --green: #34d399;
-  --green-bg: rgba(52, 211, 153, 0.1);
-  --red: #f87171;
-  --red-bg: rgba(248, 113, 113, 0.1);
-  --amber: #fbbf24;
-  --amber-bg: rgba(251, 191, 36, 0.1);
+  --green: #10b981;
+  --green-bg: rgba(16, 185, 129, 0.15);
+  --red: #ef4444;
+  --red-bg: rgba(239, 68, 68, 0.15);
+  --amber: #f59e0b;
+  --amber-bg: rgba(245, 158, 11, 0.15);
 
   /* ── Font ──────────────────────────────────────────────────────────────── */
   font-family:
