@@ -44,8 +44,8 @@
 
   // SVG Progress Ring calculations
   let calProgress = $derived(Math.min(totalCalories / targetCalories, 1));
-  const ringRadius = 60;
-  const ringCircumference = 2 * Math.PI * ringRadius; // 376.991
+  const ringRadius = 90;
+  const ringCircumference = 2 * Math.PI * ringRadius; // 565.487
   let ringOffset = $derived(
     ringCircumference - calProgress * ringCircumference
   );
@@ -164,7 +164,7 @@
   <!-- Circle progress -->
   <Card class="ring-card">
     <div class="ring-container">
-      <svg class="progress-ring" width="160" height="160">
+      <svg class="progress-ring" width="240" height="240">
         <!-- Subtle radial tick marks to add a premium, precision-instrument layout -->
         <circle
           class="progress-ring-ticks"
@@ -172,9 +172,9 @@
           stroke-width="1"
           stroke-dasharray="2 6"
           fill="transparent"
-          r={ringRadius - 8}
-          cx="80"
-          cy="80"
+          r={ringRadius - 12}
+          cx="120"
+          cy="120"
           opacity="0.25"
         />
         <circle
@@ -183,8 +183,8 @@
           stroke-width="4"
           fill="transparent"
           r={ringRadius}
-          cx="80"
-          cy="80"
+          cx="120"
+          cy="120"
         />
         <circle
           class="progress-ring-circle"
@@ -192,8 +192,8 @@
           stroke-width="8"
           fill="transparent"
           r={ringRadius}
-          cx="80"
-          cy="80"
+          cx="120"
+          cy="120"
           stroke-dasharray={ringCircumference}
           stroke-dashoffset={ringOffset}
           stroke-linecap="round"
@@ -342,6 +342,7 @@
     padding: var(--space-xs);
     cursor: pointer;
     transition: color 0.2s;
+    flex-shrink: 0;
   }
   .nav-arrow:hover {
     color: var(--accent);
@@ -349,8 +350,14 @@
   .week-days {
     display: flex;
     flex: 1;
-    justify-content: space-around;
+    justify-content: space-between;
     gap: var(--space-3xs);
+    overflow-x: auto;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+  }
+  .week-days::-webkit-scrollbar {
+    display: none; /* Chrome/Safari/Opera */
   }
   .day-btn {
     display: flex;
@@ -363,6 +370,7 @@
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     color: #000;
+    flex-shrink: 0;
   }
   .day-btn:hover {
     background: #f4f4f5;
@@ -418,16 +426,16 @@
   }
   .ring-container {
     position: relative;
-    width: 160px;
-    height: 160px;
+    width: 240px;
+    height: 240px;
     display: flex;
     align-items: center;
     justify-content: center;
   }
   .progress-ring {
     transform: rotate(-90deg);
-    width: 160px;
-    height: 160px;
+    width: 240px;
+    height: 240px;
   }
   .progress-ring-circle {
     transition: stroke-dashoffset 0.35s cubic-bezier(0.4, 0, 0.2, 1);
@@ -445,7 +453,7 @@
     pointer-events: none;
   }
   .calories-num {
-    font-size: var(--step-3);
+    font-size: var(--step-4);
     font-weight: 800;
     color: var(--text-primary);
     line-height: 0.85;
@@ -453,7 +461,7 @@
     margin: 0;
   }
   .calories-sub {
-    font-size: var(--step-n2);
+    font-size: var(--step-n1);
     color: var(--text-secondary);
     font-weight: 600;
     text-transform: uppercase;
