@@ -21,6 +21,7 @@ Consult these files for deep domain context rather than hallucinating structures
 
 - **Immutability First:** The database is an append-only ledger. NEVER generate `UPDATE` or `DELETE` statements. State shifts are managed solely by appending newer timestamps (`time`).
 - **Thread Isolation:** All SQLite execution must occur inside a dedicated Web Worker. The main thread only receives read-only views or emits append actions.
+- **Naming Casing:** Always use snake_case for EAVT ledger attributes and associated client variables/store properties (e.g., `meal_type` and `selected_meal_type`). NEVER introduce camelCase equivalents like `mealType`.
 
 ## Agent skills
 
