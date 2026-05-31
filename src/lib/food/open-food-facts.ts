@@ -13,7 +13,8 @@ export interface OFFNutriments {
 
 export interface OFFProduct {
   code: string;
-  status: 0 | 1;
+  /** v3 API uses string status: "success" | "failure" */
+  status: "success" | "failure" | 0 | 1;
   product: {
     product_name?: string;
     nutriments?: OFFNutriments;
@@ -69,9 +70,16 @@ const OFF_BASE = "https://world.openfoodfacts.org/api/v3/product";
  */
 export async function lookupBarcode(barcode: string): Promise<EntityPayload> {
   const res = await fetch(`${OFF_BASE}/${barcode}.json`);
+
+  // v3 returns HTTP 404 for unknown barcodes (empty body), catch it first
+  if (!res.ok) {
+    throw new ProductNotFoundError(barcode);
+  }
+
   const data: OFFProduct = await res.json();
 
-  if (data.status === 0) {
+  // v3 uses string "failure"; v2 used integer 0 — handle both
+  if (data.status === "failure" || data.status === 0) {
     throw new ProductNotFoundError(barcode);
   }
 

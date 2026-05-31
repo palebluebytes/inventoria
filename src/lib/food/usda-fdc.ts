@@ -48,10 +48,16 @@ export function mapFdcFoodToPayload(food: FdcFood): EntityPayload {
     entity: `fdc:${food.fdcId}`,
     attributes: {
       "food/name": food.description,
-      "food/calories": energy ? `${energy.value} kcal` : "0 kcal",
-      "food/protein": protein ? `${protein.value} g` : "0 g",
-      "food/fat": fat ? `${fat.value} g` : "0 g",
-      "food/carbs": carbs ? `${carbs.value} g` : "0 g",
+      "food/calories": energy
+        ? `${energy.value} ${energy.unitName.toLowerCase()}`
+        : "0 kcal",
+      "food/protein": protein
+        ? `${protein.value} ${protein.unitName.toLowerCase()}`
+        : "0 g",
+      "food/fat": fat ? `${fat.value} ${fat.unitName.toLowerCase()}` : "0 g",
+      "food/carbs": carbs
+        ? `${carbs.value} ${carbs.unitName.toLowerCase()}`
+        : "0 g",
     },
   };
 }
@@ -67,11 +73,11 @@ const FDC_BASE = "https://api.nal.usda.gov/fdc/v1/foods/search";
  * EntityPayloads.
  *
  * @param query  - Free-text search query (e.g. "banana").
- * @param apiKey - USDA FDC API key.
+ * @param apiKey - USDA FDC API key. Defaults to VITE_USDA_FDC_API_KEY env var.
  */
 export async function searchFdc(
   query: string,
-  apiKey: string
+  apiKey: string = (import.meta.env?.VITE_USDA_FDC_API_KEY as string) ?? ""
 ): Promise<EntityPayload[]> {
   const url = `${FDC_BASE}?query=${encodeURIComponent(query)}&api_key=${apiKey}`;
   const res = await fetch(url);

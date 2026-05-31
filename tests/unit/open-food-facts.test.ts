@@ -87,7 +87,7 @@ describe("lookupBarcode", () => {
       ok: true,
       json: async () => ({
         code: "737628064502",
-        status: 1,
+        status: "success",
         product: {
           product_name: "Test Food",
           nutriments: { "energy-kcal_100g": 100, proteins_100g: 5 },
@@ -102,7 +102,16 @@ describe("lookupBarcode", () => {
     );
   });
 
-  it("throws ProductNotFoundError when status is 0", async () => {
+  it("throws ProductNotFoundError when v3 status is 'failure'", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: "failure", code: "000", product: {} }),
+    } as Response);
+
+    await expect(lookupBarcode("000")).rejects.toThrow(ProductNotFoundError);
+  });
+
+  it("throws ProductNotFoundError when legacy v2 status is 0", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
       json: async () => ({ status: 0, code: "000", product: {} }),
@@ -111,12 +120,24 @@ describe("lookupBarcode", () => {
     await expect(lookupBarcode("000")).rejects.toThrow(ProductNotFoundError);
   });
 
+  it("throws ProductNotFoundError on HTTP 404 (unknown barcode)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: async () => ({}),
+    } as Response);
+
+    await expect(lookupBarcode("9999999")).rejects.toThrow(
+      ProductNotFoundError
+    );
+  });
+
   it("returns a valid EntityPayload on success", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
       json: async () => ({
         code: "737628064502",
-        status: 1,
+        status: "success",
         product: {
           product_name: "Test Food",
           nutriments: { "energy-kcal_100g": 100, proteins_100g: 5 },

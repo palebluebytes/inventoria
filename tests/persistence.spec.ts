@@ -17,6 +17,18 @@ test("OPFS Persistence Test survival across page reload", async ({ page }) => {
   // Navigate to root
   await page.goto("/");
 
+  // Switch to the Dev tab so harness elements become visible
+  await page.locator(".nav-item", { hasText: "Dev" }).click();
+
+  // Wait for the DB connection to be fully ready
+  await page.waitForFunction(
+    () => {
+      const badge = document.querySelector(".db-badge");
+      return badge?.textContent?.includes("DB Ready");
+    },
+    { timeout: 10000 }
+  );
+
   // Enable Developer / Testing Mode
   const devToggle = page.locator("#dev-mode-toggle");
   await devToggle.check();
