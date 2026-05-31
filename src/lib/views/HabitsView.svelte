@@ -108,14 +108,16 @@
 
 <Card class="mt-4">
   <h2>
-    Habit Blueprints <Badge variant="default" class="ml-2"
-      >{$habitsStore.length}</Badge
+    Habit Blueprints <Badge
+      id="habits-blueprints-count"
+      variant="default"
+      class="ml-2">{$habitsStore.length}</Badge
     >
   </h2>
   {#if $habitsStore.length === 0}
     <p class="empty">No habits yet. Add one above.</p>
   {:else}
-    <ul class="twin-list">
+    <ul id="habits-blueprints-list" class="twin-list">
       {#each $habitsStore as row}
         <li class="twin-item">
           <span class="twin-entity">{row.entity}</span>
@@ -132,14 +134,16 @@
 
 <Card class="mt-4">
   <h2>
-    Recent Executions <Badge variant="default" class="ml-2"
-      >{$execsStore.length}</Badge
+    Recent Executions <Badge
+      id="recent-executions-count"
+      variant="default"
+      class="ml-2">{$execsStore.length}</Badge
     >
   </h2>
   {#if $execsStore.length === 0}
     <p class="empty">No executions logged yet.</p>
   {:else}
-    <ul class="twin-list">
+    <ul id="recent-executions-list" class="twin-list">
       {#each $execsStore.slice(0, 10) as row}
         <li class="twin-item">
           <span class="twin-entity">{row.entity}</span>
