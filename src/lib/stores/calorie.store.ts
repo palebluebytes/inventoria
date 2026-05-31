@@ -36,11 +36,16 @@ export async function getEventsForDay(date: Date) {
       });
     }
     const event = eventsMap.get(row.entity);
-    const key = row.attribute.replace("event/", ""); // e.g. "target", "quantity", "calories"
+    let key = row.attribute.replace("event/", ""); // e.g. "target", "quantity", "calories"
+    let parsedValue;
     try {
-      event[key] = JSON.parse(row.value);
+      parsedValue = JSON.parse(row.value);
     } catch {
-      event[key] = row.value;
+      parsedValue = row.value;
+    }
+    event[key] = parsedValue;
+    if (key === "meal_type") {
+      event["mealType"] = parsedValue;
     }
   }
 
@@ -85,6 +90,7 @@ export async function getEventsForDay(date: Date) {
         event.photoBase64 = twin.photo_base64 || twin.photo;
         event.description = twin.description;
         event.scrapeUrl = twin.scrape_url;
+        event.sourceUrl = twin.source_url || twin.source;
         event.ingredients = twin.ingredients;
       }
     }
@@ -218,12 +224,13 @@ export async function saveRecipe(
   calories: number,
   protein: number,
   fat: number,
-  carbs: number
+  carbs: number,
+  sourceUrl?: string
 ): Promise<string> {
   const timestamp = Date.now();
   const entityId = `recipe:${Math.random().toString(36).substring(2, 9)}_${timestamp}`;
 
-  const payload = {
+  const payload: any = {
     entity: entityId,
     attributes: {
       "food/name": name,
@@ -236,6 +243,10 @@ export async function saveRecipe(
       "recipe/ingredients": ingredients, // Store direct JSON array, ingestEntity/worker stringifies it
     },
   };
+
+  if (sourceUrl) {
+    payload.attributes["recipe/source_url"] = sourceUrl;
+  }
 
   await dbClient.append(ingestEntity(payload));
   return entityId;

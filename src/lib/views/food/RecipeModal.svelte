@@ -41,6 +41,7 @@
   let recipeName = $state("");
   let recipeDesc = $state("");
   let scrapeUrl = $state("");
+  let sourceUrl = $state("");
   let recipeSteps = $state("");
   let selectedMealType = $state(mealType);
 
@@ -226,7 +227,8 @@
         totalCalories,
         totalProtein,
         totalFat,
-        totalCarbs
+        totalCarbs,
+        sourceUrl.trim()
       );
 
       // 4. Log consumption event for this recipe
@@ -277,6 +279,15 @@
             bind:value={recipeDesc}
             class="custom-textarea"
           ></textarea>
+        </div>
+
+        <div class="form-field">
+          <label for="recipe-source">Source (Optional URL)</label>
+          <Input
+            id="recipe-source"
+            placeholder="https://example.com/recipe-source"
+            bind:value={sourceUrl}
+          />
         </div>
 
         <div class="form-field">

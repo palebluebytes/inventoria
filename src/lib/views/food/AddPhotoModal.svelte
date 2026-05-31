@@ -211,7 +211,7 @@
           onclick={handleLog}
           disabled={uploadStatus === "loading" ||
             !name.trim() ||
-            !calories.trim()}
+            String(calories).trim() === ""}
           loading={uploadStatus === "loading"}
         >
           Log Food
