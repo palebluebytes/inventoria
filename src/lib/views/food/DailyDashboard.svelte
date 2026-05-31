@@ -201,7 +201,7 @@
       </svg>
       <div class="ring-label">
         <span class="calories-num">{totalCalories}</span>
-        <span class="calories-sub">/ {targetCalories} kcal</span>
+        <span class="calories-sub">{targetCalories} kcal</span>
       </div>
     </div>
   </Card>
