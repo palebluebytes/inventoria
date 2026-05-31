@@ -27,12 +27,12 @@
 
   let {
     dbReady,
-    mealType,
+    meal_type,
     selectedDate,
     onClose,
   }: {
     dbReady: boolean;
-    mealType: "breakfast" | "lunch" | "dinner" | "snack";
+    meal_type: "breakfast" | "lunch" | "dinner" | "snack";
     selectedDate: Date;
     onClose: () => void;
   } = $props();
@@ -43,7 +43,7 @@
   let scrapeUrl = $state("");
   let sourceUrl = $state("");
   let recipeSteps = $state("");
-  let selectedMealType = $state(mealType);
+  let selected_meal_type = $state(meal_type);
 
   // Ingredients List
   let ingredients = $state<Ingredient[]>([]);
@@ -235,7 +235,7 @@
       await logFoodConsumption(
         recipeId,
         "1 serving",
-        selectedMealType,
+        selected_meal_type,
         totalCalories,
         totalProtein,
         totalFat,
@@ -383,7 +383,7 @@
           <label for="recipe-meal-select">Meal Type to Log</label>
           <select
             id="recipe-meal-select"
-            bind:value={selectedMealType}
+            bind:value={selected_meal_type}
             class="custom-select"
           >
             <option value="breakfast">Breakfast</option>

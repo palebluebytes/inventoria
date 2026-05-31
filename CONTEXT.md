@@ -23,3 +23,11 @@ _Avoid_: Routine, habit definition, plan
 **Execution Event**:
 A logged instance of a behavior or habit completion recorded as a timestamped action in the ledger.
 _Avoid_: Activity log, workout record, check-in
+
+**Consumption Event**:
+A logged instance of a digital twin or recipe intake recorded as a timestamped action in the ledger.
+_Avoid_: Food log, meal record
+
+**Meal Type**:
+A standardized classification (`meal_type`) used to organize Consumption Events chronologically and logically in UI timelines.
+_Avoid_: mealType, meal-type

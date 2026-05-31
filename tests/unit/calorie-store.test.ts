@@ -83,10 +83,10 @@ describe("Calorie Store Actions", () => {
       );
       expect(quantityDatom?.value).toBe("150g");
 
-      const mealTypeDatom = appendedDatoms.find(
+      const meal_typeDatom = appendedDatoms.find(
         (d) => d.attribute === "event/meal_type"
       );
-      expect(mealTypeDatom?.value).toBe("breakfast");
+      expect(meal_typeDatom?.value).toBe("breakfast");
 
       const caloriesDatom = appendedDatoms.find(
         (d) => d.attribute === "event/calories"

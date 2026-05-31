@@ -16,12 +16,12 @@
 
   let {
     dbReady,
-    mealType,
+    meal_type,
     selectedDate,
     onClose,
   }: {
     dbReady: boolean;
-    mealType: "breakfast" | "lunch" | "dinner" | "snack";
+    meal_type: "breakfast" | "lunch" | "dinner" | "snack";
     selectedDate: Date;
     onClose: () => void;
   } = $props();
@@ -40,7 +40,7 @@
   let selectedFood = $state<any | null>(null);
   let loggedGrams = $state("100");
   let factor = $derived((parseFloat(loggedGrams) || 0) / 100);
-  let selectedMealType = $state(mealType);
+  let selected_meal_type = $state(meal_type);
 
   function parseAttrValue(val: string | number | undefined): number {
     if (typeof val === "number") return val;
@@ -123,7 +123,7 @@
       await logFoodConsumption(
         selectedFood.entity,
         `${loggedGrams}g`,
-        selectedMealType,
+        selected_meal_type,
         calcCalories,
         calcProtein,
         calcFat,
@@ -250,7 +250,7 @@
             <label for="meal-type-select">Meal Type</label>
             <select
               id="meal-type-select"
-              bind:value={selectedMealType}
+              bind:value={selected_meal_type}
               class="custom-select"
             >
               <option value="breakfast">Breakfast</option>

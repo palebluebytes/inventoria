@@ -7,3 +7,5 @@
 - [x] **USDA FoodData Central API Integration:** Integrate the USDA FoodData Central API to search and retrieve nutrient/ingredient data for food-related twins, mapping payloads to standard digital twins in the ledger.
 - [x] **Habit & Event Wiring:** Finish the structural behavioral tracking modules, outputting automated timestamped event records targeting designated component entities.
 - [x] **Reactive UI Layer:** Build reactive Svelte stores that subscribe to the Web Worker's RPC queries, verifying that user interface components redraw immediately upon database updates.
+- [x] **Calorie Tracking & Recipe Management:** Build Fud-AI-styled dashboard, add food/ingredient searches, photo-based logs, and recipe creations with multiple USDA/OFF ingredients and source scraper links.
+- [x] **Naming Standardization:** Standardize on snake_case `meal_type` across database schema attributes, stores, components, and tests.

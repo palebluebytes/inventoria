@@ -9,11 +9,11 @@
   import Alert from "../../ui/Alert.svelte";
 
   let {
-    mealType,
+    meal_type,
     selectedDate,
     onClose,
   }: {
-    mealType: "breakfast" | "lunch" | "dinner" | "snack";
+    meal_type: "breakfast" | "lunch" | "dinner" | "snack";
     selectedDate: Date;
     onClose: () => void;
   } = $props();
@@ -23,7 +23,7 @@
   let protein = $state("");
   let fat = $state("");
   let carbs = $state("");
-  let selectedMealType = $state(mealType);
+  let selected_meal_type = $state(meal_type);
 
   let photoBase64 = $state<string | null>(null);
   let uploadStatus = $state<"idle" | "loading" | "error">("idle");
@@ -76,7 +76,7 @@
       await logFoodConsumption(
         twinId,
         "1 serving",
-        selectedMealType,
+        selected_meal_type,
         parsedCal,
         parsedProt,
         parsedFat,
@@ -189,7 +189,7 @@
         <label for="photo-meal-select">Meal Type</label>
         <select
           id="photo-meal-select"
-          bind:value={selectedMealType}
+          bind:value={selected_meal_type}
           class="custom-select"
         >
           <option value="breakfast">Breakfast</option>

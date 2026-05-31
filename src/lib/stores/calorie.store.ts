@@ -44,9 +44,6 @@ export async function getEventsForDay(date: Date) {
       parsedValue = row.value;
     }
     event[key] = parsedValue;
-    if (key === "meal_type") {
-      event["mealType"] = parsedValue;
-    }
   }
 
   const events = Array.from(eventsMap.values());
@@ -136,7 +133,7 @@ export function createCalorieTrackerStore(date: Date): Readable<any[]> {
 export async function logFoodConsumption(
   targetEntity: string,
   quantity: string,
-  mealType: string,
+  meal_type: string,
   calories: number,
   protein: number,
   fat: number,
@@ -162,7 +159,7 @@ export async function logFoodConsumption(
       "event/type": "ConsumeAction",
       "event/target": targetEntity,
       "event/quantity": quantity,
-      "event/meal_type": mealType,
+      "event/meal_type": meal_type,
       "event/calories": calories,
       "event/protein": protein,
       "event/fat": fat,

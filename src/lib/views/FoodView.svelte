@@ -13,7 +13,7 @@
 
   let selectedDate = $state(new Date());
   let activeModal = $state<"menu" | "search" | "photo" | "recipe" | null>(null);
-  let activeMealType = $state<"breakfast" | "lunch" | "dinner" | "snack">(
+  let active_meal_type = $state<"breakfast" | "lunch" | "dinner" | "snack">(
     "breakfast"
   );
 
@@ -26,8 +26,8 @@
     "SELECT entity, attribute, value FROM datoms WHERE attribute = 'food/name' ORDER BY time DESC LIMIT 20"
   );
 
-  function openMenu(mealType: "breakfast" | "lunch" | "dinner" | "snack") {
-    activeMealType = mealType;
+  function openMenu(meal_type: "breakfast" | "lunch" | "dinner" | "snack") {
+    active_meal_type = meal_type;
     activeModal = "menu";
   }
 </script>
@@ -80,7 +80,7 @@
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div class="menu-modal-card" onclick={(e) => e.stopPropagation()}>
       <div class="menu-header">
-        <h3>Log {activeMealType.toUpperCase()}</h3>
+        <h3>Log {active_meal_type.toUpperCase()}</h3>
         <button class="close-btn" onclick={() => (activeModal = null)}
           >&times;</button
         >
@@ -128,7 +128,7 @@
 {#if activeModal === "search"}
   <FoodSearchModal
     {dbReady}
-    mealType={activeMealType}
+    meal_type={active_meal_type}
     {selectedDate}
     onClose={() => (activeModal = null)}
   />
@@ -136,7 +136,7 @@
 
 {#if activeModal === "photo"}
   <AddPhotoModal
-    mealType={activeMealType}
+    meal_type={active_meal_type}
     {selectedDate}
     onClose={() => (activeModal = null)}
   />
@@ -145,7 +145,7 @@
 {#if activeModal === "recipe"}
   <RecipeModal
     {dbReady}
-    mealType={activeMealType}
+    meal_type={active_meal_type}
     {selectedDate}
     onClose={() => (activeModal = null)}
   />

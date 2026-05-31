@@ -15,7 +15,7 @@
     dbReady: boolean;
     selectedDate: Date;
     onOpenLogFlow: (
-      mealType: "breakfast" | "lunch" | "dinner" | "snack"
+      meal_type: "breakfast" | "lunch" | "dinner" | "snack"
     ) => void;
   } = $props();
 
@@ -94,9 +94,9 @@
   }
 
   // Group events by meal type
-  const mealTypes = ["breakfast", "lunch", "dinner", "snack"] as const;
+  const meal_types = ["breakfast", "lunch", "dinner", "snack"] as const;
   let groupedMeals = $derived.by(() => {
-    const groups: Record<(typeof mealTypes)[number], any[]> = {
+    const groups: Record<(typeof meal_types)[number], any[]> = {
       breakfast: [],
       lunch: [],
       dinner: [],
@@ -104,8 +104,8 @@
     };
     for (const item of $trackerStore) {
       const type = (
-        item.mealType || "snack"
-      ).toLowerCase() as (typeof mealTypes)[number];
+        item.meal_type || "snack"
+      ).toLowerCase() as (typeof meal_types)[number];
       if (groups[type]) {
         groups[type].push(item);
       } else {
@@ -253,26 +253,26 @@
 
 <!-- Timeline & Logged Meals -->
 <div class="timeline mt-6">
-  {#each mealTypes as mealType}
+  {#each meal_types as meal_type}
     <div class="meal-section">
       <div class="meal-section-header">
-        <h3 class="meal-title">{mealType.toUpperCase()}</h3>
+        <h3 class="meal-title">{meal_type.toUpperCase()}</h3>
         <Button
           variant="secondary"
           disabled={!dbReady}
-          onclick={() => onOpenLogFlow(mealType)}
+          onclick={() => onOpenLogFlow(meal_type)}
         >
-          + Add {mealType}
+          + Add {meal_type}
         </Button>
       </div>
 
-      {#if groupedMeals[mealType].length === 0}
+      {#if groupedMeals[meal_type].length === 0}
         <div class="empty-meal">
-          <p>No {mealType} logged yet.</p>
+          <p>No {meal_type} logged yet.</p>
         </div>
       {:else}
         <div class="meal-items-list">
-          {#each groupedMeals[mealType] as item}
+          {#each groupedMeals[meal_type] as item}
             <div class="meal-item-card">
               {#if item.photoBase64}
                 <!-- svelte-ignore a11y_click_events_have_key_events -->
