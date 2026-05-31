@@ -65,6 +65,32 @@
   // Scraper status
   let scrapeStatus = $state<"idle" | "loading" | "success" | "error">("idle");
 
+  let debounceTimer: ReturnType<typeof setTimeout>;
+
+  $effect(() => {
+    if (!showSearch || searchTab !== "usda") {
+      clearTimeout(debounceTimer);
+      return;
+    }
+
+    const trimmed = query.trim();
+    if (trimmed.length >= 3) {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        handleUsdaSearch();
+      }, 400);
+    } else if (trimmed.length === 0) {
+      clearTimeout(debounceTimer);
+      searchResults = [];
+      searchStatus = "idle";
+      searchError = "";
+    }
+
+    return () => {
+      clearTimeout(debounceTimer);
+    };
+  });
+
   function parseAttrValue(val: string | number | undefined): number {
     if (typeof val === "number") return val;
     if (!val) return 0;
@@ -73,6 +99,7 @@
   }
 
   async function handleUsdaSearch() {
+    clearTimeout(debounceTimer);
     if (!query.trim()) return;
     searchStatus = "loading";
     searchError = "";

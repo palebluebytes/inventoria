@@ -11,6 +11,7 @@ describe("mapFdcFoodToPayload", () => {
   const baseFood: FdcFood = {
     fdcId: 171705,
     description: "Bananas, raw",
+    dataType: "Foundation",
     foodNutrients: [
       { nutrientId: 1008, nutrientName: "Energy", value: 89, unitName: "kcal" },
       { nutrientId: 1003, nutrientName: "Protein", value: 1.09, unitName: "g" },
@@ -87,6 +88,7 @@ describe("searchFdc", () => {
           {
             fdcId: 171705,
             description: "Bananas, raw",
+            dataType: "Foundation",
             foodNutrients: [],
           },
         ],
@@ -96,7 +98,7 @@ describe("searchFdc", () => {
     await searchFdc("banana", "TEST_KEY");
 
     expect(fetchSpy).toHaveBeenCalledWith(
-      "https://api.nal.usda.gov/fdc/v1/foods/search?query=banana&api_key=TEST_KEY"
+      "https://api.nal.usda.gov/fdc/v1/foods/search?query=banana&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
     );
   });
 
@@ -108,6 +110,7 @@ describe("searchFdc", () => {
           {
             fdcId: 171705,
             description: "Bananas, raw",
+            dataType: "Foundation",
             foodNutrients: [
               {
                 nutrientId: 1008,
@@ -134,5 +137,51 @@ describe("searchFdc", () => {
 
     const results = await searchFdc("zzznomatch", "KEY");
     expect(results).toHaveLength(0);
+  });
+
+  it("deduplicates results preferring Foundation and sorts raw foods to the top", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        foods: [
+          {
+            fdcId: 101,
+            description: "Bananas, dehydrated",
+            dataType: "SR Legacy",
+            foodNutrients: [],
+          },
+          {
+            fdcId: 102,
+            description: "Bananas, raw",
+            dataType: "SR Legacy", // duplicate, but Foundation exists below
+            foodNutrients: [],
+          },
+          {
+            fdcId: 103,
+            description: "Bananas, raw",
+            dataType: "Foundation", // will overwrite fdcId 102
+            foodNutrients: [],
+          },
+          {
+            fdcId: 104,
+            description: "Bananas, overripe, raw",
+            dataType: "Foundation",
+            foodNutrients: [],
+          },
+        ],
+      }),
+    } as Response);
+
+    const results = await searchFdc("banana", "KEY");
+
+    // Deduplication should leave 3 entries: dehydrated, raw (Foundation), overripe raw
+    expect(results).toHaveLength(3);
+
+    // Sorting order should prioritize "Bananas, raw" (ends in ', raw', 1 comma -> score 3)
+    // then "Bananas, overripe, raw" (ends in ', raw', 2 commas -> score 2)
+    // then "Bananas, dehydrated" (score 0)
+    expect(results[0].entity).toBe("fdc:103"); // Bananas, raw
+    expect(results[1].entity).toBe("fdc:104"); // Bananas, overripe, raw
+    expect(results[2].entity).toBe("fdc:101"); // Bananas, dehydrated
   });
 });

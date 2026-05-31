@@ -59,15 +59,26 @@
 <style>
   .app {
     display: flex;
-    min-height: 100svh;
+    flex-direction: column-reverse;
+    height: 100svh;
     background: var(--bg-base);
   }
 
   .main {
     flex: 1;
-    padding: var(--space-l) var(--space-xl);
-    max-width: 54rem;
+    padding: var(--space-m) var(--space-s);
+    width: 100%;
     overflow-y: auto;
     position: relative;
+  }
+
+  @media (min-width: 768px) {
+    .app {
+      flex-direction: row;
+    }
+    .main {
+      padding: var(--space-l) var(--space-xl);
+      max-width: 54rem;
+    }
   }
 </style>

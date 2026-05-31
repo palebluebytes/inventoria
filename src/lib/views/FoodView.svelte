@@ -191,11 +191,11 @@
     align-items: center;
     gap: var(--space-m);
     padding: var(--space-s) 0;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid #000;
     transition: background 0.2s;
   }
   .twin-item:hover {
-    background: rgba(0, 0, 0, 0.02);
+    background: #f4f4f5;
   }
   .twin-item:last-child {
     border-bottom: none;
@@ -211,6 +211,7 @@
     font-size: var(--step-n1);
     font-weight: 500;
     flex: 1;
+    word-break: break-word;
   }
   .empty {
     color: var(--text-muted);
@@ -275,9 +276,9 @@
     width: 100%;
     background: transparent;
     border: none;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid #000;
     border-radius: 0;
-    padding: var(--space-s) 0;
+    padding: var(--space-s) var(--space-xs);
     display: flex;
     align-items: center;
     gap: var(--space-s);
@@ -290,7 +291,6 @@
   }
   .menu-option-btn:hover {
     background: #f4f4f5;
-    padding-left: var(--space-xs);
   }
   .menu-icon {
     font-size: var(--step-2);

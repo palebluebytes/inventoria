@@ -42,6 +42,32 @@
   let factor = $derived((parseFloat(loggedGrams) || 0) / 100);
   let selected_meal_type = $state(meal_type);
 
+  let debounceTimer: ReturnType<typeof setTimeout>;
+
+  $effect(() => {
+    if (activeTab !== "usda") {
+      clearTimeout(debounceTimer);
+      return;
+    }
+
+    const trimmed = query.trim();
+    if (trimmed.length >= 3) {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        handleUsdaSearch();
+      }, 400);
+    } else if (trimmed.length === 0) {
+      clearTimeout(debounceTimer);
+      searchResults = [];
+      searchStatus = "idle";
+      searchError = "";
+    }
+
+    return () => {
+      clearTimeout(debounceTimer);
+    };
+  });
+
   function parseAttrValue(val: string | number | undefined): number {
     if (typeof val === "number") return val;
     if (!val) return 0;
@@ -50,6 +76,7 @@
   }
 
   async function handleUsdaSearch() {
+    clearTimeout(debounceTimer);
     if (!query.trim()) return;
     searchStatus = "loading";
     searchError = "";
@@ -331,22 +358,22 @@
     backdrop-filter: blur(8px);
   }
   .modal-card {
-    background: var(--bg-card, #121214);
-    border: 1px solid var(--border);
-    border-radius: 16px;
+    background: #fff;
+    border: 2px solid #000;
+    border-radius: 0;
     width: 90%;
     max-width: 500px;
     max-height: 85vh;
     overflow-y: auto;
     padding: var(--space-m);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    box-shadow: 8px 8px 0 rgba(0, 0, 0, 1);
     animation: zoomIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
   .modal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 2px solid #000;
     padding-bottom: var(--space-xs);
   }
   .modal-header h2 {
@@ -367,7 +394,7 @@
 
   .tabs {
     display: flex;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 2px solid #000;
     gap: var(--space-xs);
   }
   .tab-btn {
@@ -378,12 +405,12 @@
     color: var(--text-secondary);
     font-weight: 600;
     cursor: pointer;
-    border-bottom: 2px solid transparent;
+    border-bottom: 3px solid transparent;
     transition: all 0.2s;
   }
   .tab-btn.active {
-    color: var(--accent);
-    border-bottom-color: var(--accent);
+    color: #000;
+    border-bottom-color: #000;
   }
 
   .input-row {
@@ -407,9 +434,9 @@
   }
   .result-item-btn {
     width: 100%;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid var(--border);
-    border-radius: 12px;
+    background: #fff;
+    border: 1px solid #000;
+    border-radius: 0;
     padding: var(--space-xs) var(--space-s);
     text-align: left;
     display: flex;
@@ -419,7 +446,7 @@
     transition: background 0.2s;
   }
   .result-item-btn:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: #f4f4f5;
   }
   .result-details {
     display: flex;
@@ -441,9 +468,9 @@
   }
 
   .food-banner {
-    background: rgba(255, 255, 255, 0.01);
-    border: 1px solid var(--border);
-    border-radius: 12px;
+    background: #f4f4f5;
+    border: 1px solid #000;
+    border-radius: 0;
     padding: var(--space-s);
   }
   .food-banner h3 {
@@ -473,11 +500,11 @@
     color: var(--text-secondary);
   }
   .custom-select {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    background: #fff;
+    border: 1px solid #000;
+    border-radius: 0;
     padding: var(--space-xs);
-    color: var(--text-primary);
+    color: #000;
     font-size: var(--step-n1);
     outline: none;
   }
@@ -497,9 +524,9 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    background: #fff;
+    border: 1px solid #000;
+    border-radius: 0;
     padding: var(--space-2xs);
   }
   .pill-label {

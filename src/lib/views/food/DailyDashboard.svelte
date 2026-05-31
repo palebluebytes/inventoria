@@ -44,8 +44,8 @@
 
   // SVG Progress Ring calculations
   let calProgress = $derived(Math.min(totalCalories / targetCalories, 1));
-  const ringRadius = 50;
-  const ringCircumference = 2 * Math.PI * ringRadius; // 314.159
+  const ringRadius = 60;
+  const ringCircumference = 2 * Math.PI * ringRadius; // 376.991
   let ringOffset = $derived(
     ringCircumference - calProgress * ringCircumference
   );
@@ -164,30 +164,36 @@
   <!-- Circle progress -->
   <Card class="ring-card">
     <div class="ring-container">
-      <svg class="progress-ring" width="140" height="140">
-        <defs>
-          <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="var(--accent)" />
-            <stop offset="100%" stop-color="var(--accent-light, #ec4899)" />
-          </linearGradient>
-        </defs>
+      <svg class="progress-ring" width="160" height="160">
+        <!-- Subtle radial tick marks to add a premium, precision-instrument layout -->
+        <circle
+          class="progress-ring-ticks"
+          stroke="var(--text-muted)"
+          stroke-width="1"
+          stroke-dasharray="2 6"
+          fill="transparent"
+          r={ringRadius - 8}
+          cx="80"
+          cy="80"
+          opacity="0.25"
+        />
         <circle
           class="progress-ring-bg"
-          stroke="rgba(255, 255, 255, 0.05)"
-          stroke-width="10"
+          stroke="var(--border)"
+          stroke-width="4"
           fill="transparent"
           r={ringRadius}
-          cx="70"
-          cy="70"
+          cx="80"
+          cy="80"
         />
         <circle
           class="progress-ring-circle"
-          stroke="url(#ringGrad)"
-          stroke-width="10"
+          stroke="var(--accent)"
+          stroke-width="8"
           fill="transparent"
           r={ringRadius}
-          cx="70"
-          cy="70"
+          cx="80"
+          cy="80"
           stroke-dasharray={ringCircumference}
           stroke-dashoffset={ringOffset}
           stroke-linecap="round"
@@ -323,16 +329,15 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid var(--border);
-    border-radius: 16px;
+    background: #fff;
+    border: 1px solid #000;
+    border-radius: 0;
     padding: var(--space-xs);
-    backdrop-filter: blur(10px);
   }
   .nav-arrow {
     background: none;
     border: none;
-    color: var(--text-secondary);
+    color: #000;
     font-size: var(--step-0);
     padding: var(--space-xs);
     cursor: pointer;
@@ -352,25 +357,25 @@
     flex-direction: column;
     align-items: center;
     background: none;
-    border: none;
+    border: 1px solid transparent;
     padding: var(--space-xs) var(--space-s);
-    border-radius: 12px;
+    border-radius: 0;
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    color: var(--text-secondary);
+    color: #000;
   }
   .day-btn:hover {
-    background: rgba(255, 255, 255, 0.04);
-    color: var(--text-primary);
+    background: #f4f4f5;
   }
   .day-btn.active {
-    background: var(--accent);
+    background: #000;
     color: #fff;
-    box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3);
+    border: 1px solid #000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   }
   .day-btn.is-today:not(.active) {
-    border: 1px solid var(--accent);
-    color: var(--accent);
+    border: 1px solid #000;
+    color: #000;
   }
   .day-label {
     font-size: var(--step-n3);
@@ -413,14 +418,19 @@
   }
   .ring-container {
     position: relative;
-    width: 140px;
-    height: 140px;
+    width: 160px;
+    height: 160px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   .progress-ring {
     transform: rotate(-90deg);
+    width: 160px;
+    height: 160px;
   }
   .progress-ring-circle {
-    transition: stroke-dashoffset 0.35s;
+    transition: stroke-dashoffset 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .ring-label {
     position: absolute;
@@ -430,17 +440,25 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
+    width: 100%;
+    pointer-events: none;
   }
   .calories-num {
-    font-size: var(--step-2);
+    font-size: var(--step-3);
     font-weight: 800;
     color: var(--text-primary);
-    line-height: 1;
+    line-height: 0.9;
+    letter-spacing: -0.04em;
   }
   .calories-sub {
     font-size: var(--step-n3);
-    color: var(--text-muted);
-    margin-top: 4px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: var(--space-3xs);
+    white-space: nowrap;
   }
 
   .macros-subgrid {
@@ -477,24 +495,24 @@
   .progress-bar-bg {
     width: 100%;
     height: 6px;
-    background: rgba(255, 255, 255, 0.04);
-    border-radius: 3px;
+    background: #e4e4e7;
+    border-radius: 0;
     overflow: hidden;
   }
   .progress-bar-fill {
     height: 100%;
-    border-radius: 3px;
+    border-radius: 0;
     transition: width 0.35s ease-out;
   }
 
   :global(.macro-item.protein) .progress-bar-fill {
-    background: var(--accent);
+    background: #000;
   }
   :global(.macro-item.fat) .progress-bar-fill {
-    background: #f59e0b; /* Amber */
+    background: #000;
   }
   :global(.macro-item.carbs) .progress-bar-fill {
-    background: #10b981; /* Emerald */
+    background: #000;
   }
 
   .timeline {
@@ -523,9 +541,9 @@
   .empty-meal {
     padding: var(--space-m);
     text-align: center;
-    background: rgba(255, 255, 255, 0.01);
-    border: 1px dashed var(--border);
-    border-radius: 12px;
+    background: #fff;
+    border: 1px dashed #000;
+    border-radius: 0;
   }
   .empty-meal p {
     color: var(--text-muted);
@@ -541,9 +559,9 @@
     display: flex;
     align-items: center;
     gap: var(--space-s);
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid var(--border);
-    border-radius: 12px;
+    background: #fff;
+    border: 1px solid #000;
+    border-radius: 0;
     padding: var(--space-s);
     transition: background 0.2s;
   }
@@ -553,10 +571,10 @@
   .meal-item-thumb {
     width: 48px;
     height: 48px;
-    border-radius: 8px;
+    border-radius: 0;
     object-fit: cover;
     cursor: pointer;
-    border: 1px solid var(--border);
+    border: 1px solid #000;
     transition: transform 0.2s;
   }
   .meal-item-thumb:hover {
@@ -613,8 +631,9 @@
   .photo-modal-img {
     max-width: 100%;
     max-height: 80vh;
-    border-radius: 12px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    border-radius: 0;
+    border: 2px solid #000;
+    box-shadow: 8px 8px 0 #000;
   }
   .photo-modal-close {
     position: absolute;

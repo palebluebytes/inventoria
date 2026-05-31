@@ -11,24 +11,84 @@ Physical items represent static or slowly changing physical properties derived f
 
 ### Ingestion Shapes (JSON to Datoms)
 
+#### 1. Standard Digital Twins (Open Food Facts & USDA)
+
 ```typescript
-// Incoming digital twin data structure
-const foodTwin = {
+// Open Food Facts (GTIN)
+const offTwin = {
   entity: "gtin:3017620422003",
   attributes: {
     "food/name": "Nutella",
     "food/calories": "539 kcal",
     "food/protein": "6.3 g",
+    "food/fat": "30.9 g",
+    "food/carbs": "57.5 g",
   },
 };
 
-// Logged Consumption Event
+// USDA FoodData Central (FDC)
+const usdaTwin = {
+  entity: "fdc:170416",
+  attributes: {
+    "food/name": "Broccoli, raw",
+    "food/calories": "34 kcal",
+    "food/protein": "2.82 g",
+  },
+};
+```
+
+#### 2. Custom & Photo-Based Foods
+
+```typescript
+const customFoodTwin = {
+  entity: "food:custom_xyz890_1717140000000",
+  attributes: {
+    "food/name": "Homemade Sandwich",
+    "food/calories": "450 kcal",
+    "food/protein": "20 g",
+    "food/fat": "15 g",
+    "food/carbs": "50 g",
+    "food/photo_base64": "data:image/jpeg;base64,/9j/4AAQSkZJRg...",
+  },
+};
+```
+
+#### 3. Recipe Twins (Composed Entities)
+
+```typescript
+const recipeTwin = {
+  entity: "recipe:abc123_1717140000000",
+  attributes: {
+    "food/name": "Avocado Toast",
+    "food/calories": "250 kcal",
+    "food/protein": "5 g",
+    "food/fat": "12 g",
+    "food/carbs": "20 g",
+    "recipe/description": "Classic smashed avocado on sourdough",
+    "recipe/scrape_url": "https://example.com/recipe/avo-toast",
+    "recipe/ingredients": [
+      { id: "fdc:170372", amount: "50g", name: "Avocado" },
+      { id: "fdc:174092", amount: "1 slice", name: "Sourdough bread" },
+    ], // Stored as a stringified JSON array
+  },
+};
+```
+
+#### 4. The Consumption Event
+
+```typescript
+// Logged Consumption Event with structural macros & naming standard
 const consumeEvent = {
-  entity: "event:consume_abc123",
+  entity: "event:consume_abc123_1717140000000",
   attributes: {
     "event/type": "ConsumeAction",
-    "event/target": "gtin:3017620422003",
+    "event/target": "gtin:3017620422003", // References any twin (gtin, fdc, custom, recipe)
     "event/quantity": "30g",
+    "event/meal_type": "breakfast", // Strictly snake_case enforcing architectural standard
+    "event/calories": 161, // Numerical snapshots for rapid dashboard aggregations
+    "event/protein": 1.8,
+    "event/fat": 9.2,
+    "event/carbs": 17.2,
   },
 };
 ```

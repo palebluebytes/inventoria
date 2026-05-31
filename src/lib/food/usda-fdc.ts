@@ -14,6 +14,7 @@ export interface FdcNutrient {
 export interface FdcFood {
   fdcId: number;
   description: string;
+  dataType: string;
   foodNutrients: FdcNutrient[];
 }
 
@@ -79,8 +80,39 @@ export async function searchFdc(
   query: string,
   apiKey: string = (import.meta.env?.VITE_USDA_FDC_API_KEY as string) ?? ""
 ): Promise<EntityPayload[]> {
-  const url = `${FDC_BASE}?query=${encodeURIComponent(query)}&api_key=${apiKey}`;
+  const url = `${FDC_BASE}?query=${encodeURIComponent(query)}&dataType=Foundation,SR%20Legacy&api_key=${apiKey}`;
   const res = await fetch(url);
   const data: { foods: FdcFood[] } = await res.json();
-  return (data.foods ?? []).map(mapFdcFoodToPayload);
+
+  // Deduplicate by description, preferring Foundation over SR Legacy
+  const foodMap = new Map<string, FdcFood>();
+  for (const food of data.foods ?? []) {
+    const key = food.description.toLowerCase().trim();
+    if (foodMap.has(key)) {
+      const existing = foodMap.get(key)!;
+      // If the existing one is SR Legacy and the new one is Foundation, replace it.
+      if (existing.dataType === "SR Legacy" && food.dataType === "Foundation") {
+        foodMap.set(key, food);
+      }
+    } else {
+      foodMap.set(key, food);
+    }
+  }
+
+  const uniqueFoods = Array.from(foodMap.values());
+
+  // Prioritize raw foods (e.g., "Bananas, raw" over "Bananas, overripe, raw" and others)
+  uniqueFoods.sort((a, b) => {
+    const getScore = (desc: string) => {
+      const d = desc.toLowerCase().trim();
+      if (d.endsWith(", raw")) {
+        const commas = (d.match(/,/g) || []).length;
+        return commas === 1 ? 3 : 2;
+      }
+      return /\braw\b/.test(d) ? 1 : 0;
+    };
+    return getScore(b.description) - getScore(a.description);
+  });
+
+  return uniqueFoods.map(mapFdcFoodToPayload);
 }
