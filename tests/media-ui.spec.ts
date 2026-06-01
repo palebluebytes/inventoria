@@ -82,10 +82,6 @@ test("Media Library UI - search, save, and log engagement for books and movies",
   // Click on Ingest Media button
   await page.locator("#ingest-media-btn").click();
 
-  // Set TMDB API Key in modal (since it is required for TMDB searches)
-  await page.locator("#tmdb-key-input").fill("test_api_key");
-  await page.locator("button", { hasText: "Save Key" }).click();
-
   // Search Movie "Dark Knight"
   await page.locator("#media-search-input").fill("Dark Knight");
   await page.locator("button[type='submit']", { hasText: "Search" }).click();

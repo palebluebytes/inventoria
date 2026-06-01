@@ -70,7 +70,8 @@ const TMDB_BASE = "https://api.themoviedb.org/3";
 
 export async function searchTmdbMovies(
   query: string,
-  apiKey: string = (import.meta.env?.VITE_TMDB_API_KEY as string) ?? ""
+  apiKey: string = (import.meta.env?.VITE_TMDB_API_KEY as string) ||
+    ""
 ): Promise<EntityPayload[]> {
   try {
     const url = `${TMDB_BASE}/search/movie?query=${encodeURIComponent(query)}&api_key=${apiKey}`;
@@ -85,7 +86,8 @@ export async function searchTmdbMovies(
 
 export async function searchTmdbTv(
   query: string,
-  apiKey: string = (import.meta.env?.VITE_TMDB_API_KEY as string) ?? ""
+  apiKey: string = (import.meta.env?.VITE_TMDB_API_KEY as string) ||
+    ""
 ): Promise<EntityPayload[]> {
   try {
     const url = `${TMDB_BASE}/search/tv?query=${encodeURIComponent(query)}&api_key=${apiKey}`;
@@ -100,7 +102,8 @@ export async function searchTmdbTv(
 
 export async function lookupTmdbMovie(
   id: number,
-  apiKey: string = (import.meta.env?.VITE_TMDB_API_KEY as string) ?? ""
+  apiKey: string = (import.meta.env?.VITE_TMDB_API_KEY as string) ||
+    ""
 ): Promise<EntityPayload> {
   const url = `${TMDB_BASE}/movie/${id}?append_to_response=credits&api_key=${apiKey}`;
   const res = await fetch(url);
@@ -113,7 +116,8 @@ export async function lookupTmdbMovie(
 
 export async function lookupTmdbTv(
   id: number,
-  apiKey: string = (import.meta.env?.VITE_TMDB_API_KEY as string) ?? ""
+  apiKey: string = (import.meta.env?.VITE_TMDB_API_KEY as string) ||
+    ""
 ): Promise<EntityPayload> {
   const url = `${TMDB_BASE}/tv/${id}?api_key=${apiKey}`;
   const res = await fetch(url);

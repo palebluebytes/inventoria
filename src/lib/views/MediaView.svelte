@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import {
     mediaLibraryStore,
     saveMediaTwin,
@@ -34,17 +33,6 @@
   let isSearching = $state(false);
   let savingId = $state<string | null>(null);
   let searchError = $state("");
-
-  // TMDB API Key settings
-  let tmdbApiKey = $state("");
-
-  onMount(() => {
-    tmdbApiKey = localStorage.getItem("inventoria_tmdb_api_key") || "";
-  });
-
-  function saveTmdbKey() {
-    localStorage.setItem("inventoria_tmdb_api_key", tmdbApiKey);
-  }
 
   // Active Media Item for Engagement Dialog
   let selectedMedia = $state<EnrichedMedia | null>(null);
@@ -87,15 +75,8 @@
           type: "book",
         }));
       } else {
-        const apiKey = tmdbApiKey.trim();
-        if (!apiKey) {
-          searchError = "TMDB API Key is required to search movies/TV.";
-          isSearching = false;
-          return;
-        }
-
         if (searchType === "movie") {
-          const results = await searchTmdbMovies(searchQuery, apiKey);
+          const results = await searchTmdbMovies(searchQuery);
           searchResults = results.map((payload) => ({
             id: payload.entity,
             payload,
@@ -106,7 +87,7 @@
             type: "movie",
           }));
         } else {
-          const results = await searchTmdbTv(searchQuery, apiKey);
+          const results = await searchTmdbTv(searchQuery);
           searchResults = results.map((payload) => ({
             id: payload.entity,
             payload,
@@ -131,15 +112,15 @@
     try {
       let finalPayload = { ...item.payload };
 
-      // For Movie/TV, we perform details lookup to enrich credits/creator information if API key is present
-      if (item.type !== "book" && tmdbApiKey.trim()) {
+      // For Movie/TV, we perform details lookup to enrich credits/creator information
+      if (item.type !== "book") {
         const rawId = parseInt(item.id.split(":").pop() ?? "0");
         if (rawId > 0) {
           if (item.type === "movie") {
-            const enriched = await lookupTmdbMovie(rawId, tmdbApiKey.trim());
+            const enriched = await lookupTmdbMovie(rawId);
             finalPayload = enriched;
           } else {
-            const enriched = await lookupTmdbTv(rawId, tmdbApiKey.trim());
+            const enriched = await lookupTmdbTv(rawId);
             finalPayload = enriched;
           }
         }
@@ -514,23 +495,6 @@
           📖 Books
         </button>
       </div>
-
-      <!-- Config API Key for TMDB -->
-      {#if searchType !== "book"}
-        <div class="api-key-config">
-          <label for="tmdb-key-input">TMDB API Key (saved in browser):</label>
-          <div class="flex gap-2 mt-1">
-            <input
-              id="tmdb-key-input"
-              type="password"
-              placeholder="Enter TMDB API Key"
-              bind:value={tmdbApiKey}
-              class="retro-input flex-1"
-            />
-            <Button variant="secondary" onclick={saveTmdbKey}>Save Key</Button>
-          </div>
-        </div>
-      {/if}
 
       <!-- Search Bar -->
       <form
@@ -1021,17 +985,6 @@
     background: #fafafa;
   }
 
-  .api-key-config {
-    background: #f4f4f5;
-    border: 1px solid #000;
-    padding: var(--space-xs);
-    font-size: var(--step-n2);
-  }
-
-  .api-key-config label {
-    font-weight: 600;
-  }
-
   .search-results {
     flex: 1;
     overflow-y: auto;
@@ -1227,9 +1180,7 @@
   .gap-2 {
     gap: var(--space-xs);
   }
-  .mt-1 {
-    margin-top: 4px;
-  }
+
   .mt-4 {
     margin-top: var(--space-s);
   }
