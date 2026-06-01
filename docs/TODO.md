@@ -12,3 +12,11 @@
 - [x] **Media Twin Ingestion:** Build TMDB and Open Library API integrations, mapping payloads to standard media digital twins in the ledger.
 - [x] **Engagement Event Wiring:** Implement UI and schema support for `WatchAction` and `ReadAction` Engagement Events, including the shared media status enum (`saved`, `started`, `progress`, `completed`).
 - [x] **Media Dashboard UI:** Build the unified Media Library dashboard for tracking movies, books, and TV shows. Include Kanban-style grouping based on the shared media status enum (`saved`, `started`, `progress`, `completed`).
+
+# V2 Milestones & Execution Order
+
+- [x] **V2 - Camera & AI Autofill:** Add camera barcode scanner UI, manual entry fallback form, and AI autofill via package photo stub.
+- [x] **V2 - Open Food Facts Contribution:** Implement contribution stub to push manually entered nutritional details back to Open Food Facts API.
+- [ ] **V2 - Production AI Pipeline:** Wire up the AI autofill feature to a real multimodal LLM endpoint.
+- [ ] **V2 - WebRTC/Native Camera Integration:** Replace the mocked camera overlay with real device camera streams using the MediaDevices API.
+- [ ] **V2 - Data Export & Sync:** Build local-first synchronization and export options for the EAVT ledger.
