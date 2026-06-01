@@ -103,7 +103,7 @@ Habits are structural observation profiles coupled with a time-series record of 
 
 Ingestion Shapes (JSON to Datoms)
 
-```typescript
+````typescript
 // Incoming Habit Blueprint
 const swingHabit = {
   entity: "habit:swing_01",
@@ -125,4 +125,80 @@ const workoutEvent = {
     "event/status": "completed",
   },
 };
+
+## Module C: Media Tracking (Digital Twins & Engagement Events)
+
+Media items (Movies, TV Series, Books) are tracked as Digital Twins, ingested from TMDB and Open Library. Interacting with them generates an Engagement Event.
+
+### Ingestion Shapes (JSON to Datoms)
+
+#### 1. Media Twins (TMDB & Open Library)
+
+```typescript
+// Movie Twin
+const movieTwin = {
+  entity: "tmdb:movie_155",
+  attributes: {
+    "media/title": "The Dark Knight",
+    "media/director": "Christopher Nolan",
+    "media/release_date": "2008-07-16",
+    "media/poster_url": "https://image.tmdb.org/t/p/w500/...poster.jpg",
+  }
+};
+
+// Book Twin
+const bookTwin = {
+  entity: "isbn:9780141187761",
+  attributes: {
+    "media/title": "1984",
+    "media/author": "George Orwell",
+    "media/release_date": "1949-06-08",
+    "media/poster_url": "https://covers.openlibrary.org/b/id/8358482-L.jpg",
+  }
+};
+````
+
+#### 2. The Engagement Event
+
+All media engagements share a unified status enum: `["saved", "started", "progress", "completed"]`.
+
+```typescript
+// Movie Watch Event
+const watchEvent = {
+  entity: "event:engage_xyz123_1717140000000",
+  attributes: {
+    "event/type": "WatchAction",
+    "event/target": "tmdb:movie_155",
+    "event/status": "completed",
+    "event/rating": 5, // Optional 1-5 scale
+    "event/review": "Incredible.", // Optional text
+  },
+};
+
+// TV Episode Watch Event (Progress)
+const tvEvent = {
+  entity: "event:engage_xyz124_1717140000000",
+  attributes: {
+    "event/type": "WatchAction",
+    "event/target": "tmdb:tv_1399", // Game of Thrones
+    "event/status": "progress",
+    "event/season": 1,
+    "event/episode": 1,
+  },
+};
+
+// Book Read Event (Started / Progress)
+const readEvent = {
+  entity: "event:engage_xyz125_1717140000000",
+  attributes: {
+    "event/type": "ReadAction",
+    "event/target": "isbn:9780141187761",
+    "event/status": "started",
+    "event/pages_read": 50, // Optional page count for session tracking
+  },
+};
+```
+
+```
+
 ```

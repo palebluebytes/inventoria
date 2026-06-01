@@ -19,4 +19,8 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ["@sqlite.org/sqlite-wasm"],
   },
+  // @ts-ignore
+  test: {
+    exclude: ["node_modules", "dist", ".idea", ".git", ".cache", ".direnv"],
+  },
 });

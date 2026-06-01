@@ -3,6 +3,7 @@
   import { dbClient } from "./lib/db/db.client";
   import Sidebar from "./lib/layout/Sidebar.svelte";
   import FoodView from "./lib/views/FoodView.svelte";
+  import MediaView from "./lib/views/MediaView.svelte";
   import HabitsView from "./lib/views/HabitsView.svelte";
   import LedgerView from "./lib/views/LedgerView.svelte";
   import DevView from "./lib/views/DevView.svelte";
@@ -21,7 +22,7 @@
   });
 
   // ── Navigation ───────────────────────────────────────────────────────────
-  type Tab = "food" | "habits" | "ledger" | "dev";
+  type Tab = "food" | "habits" | "ledger" | "dev" | "media";
   let activeTab = $state<Tab>("food");
 </script>
 
@@ -39,6 +40,10 @@
   <main class="main">
     {#if activeTab === "food"}
       <FoodView {dbReady} />
+    {/if}
+
+    {#if activeTab === "media"}
+      <MediaView {dbReady} />
     {/if}
 
     {#if activeTab === "habits"}

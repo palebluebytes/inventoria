@@ -9,3 +9,6 @@
 - [x] **Reactive UI Layer:** Build reactive Svelte stores that subscribe to the Web Worker's RPC queries, verifying that user interface components redraw immediately upon database updates.
 - [x] **Calorie Tracking & Recipe Management:** Build Fud-AI-styled dashboard, add food/ingredient searches, photo-based logs, and recipe creations with multiple USDA/OFF ingredients and source scraper links.
 - [x] **Naming Standardization:** Standardize on snake_case `meal_type` across database schema attributes, stores, components, and tests.
+- [x] **Media Twin Ingestion:** Build TMDB and Open Library API integrations, mapping payloads to standard media digital twins in the ledger.
+- [x] **Engagement Event Wiring:** Implement UI and schema support for `WatchAction` and `ReadAction` Engagement Events, including the shared media status enum (`saved`, `started`, `progress`, `completed`).
+- [x] **Media Dashboard UI:** Build the unified Media Library dashboard for tracking movies, books, and TV shows. Include Kanban-style grouping based on the shared media status enum (`saved`, `started`, `progress`, `completed`).
