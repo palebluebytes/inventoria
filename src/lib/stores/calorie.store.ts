@@ -186,10 +186,13 @@ export async function saveCustomFood(
   protein: number,
   fat: number,
   carbs: number,
-  photoBase64?: string
+  photoBase64?: string,
+  customEntityId?: string
 ): Promise<string> {
   const timestamp = Date.now();
-  const entityId = `food:custom_${Math.random().toString(36).substring(2, 9)}_${timestamp}`;
+  const entityId =
+    customEntityId ||
+    `food:custom_${Math.random().toString(36).substring(2, 9)}_${timestamp}`;
 
   const payload: any = {
     entity: entityId,
@@ -247,4 +250,29 @@ export async function saveRecipe(
 
   await dbClient.append(ingestEntity(payload));
   return entityId;
+}
+
+/**
+ * Retrieves a local digital twin by its entity ID if it exists in the database.
+ */
+export async function getLocalFoodTwin(entityId: string): Promise<any | null> {
+  const rows = await dbClient.query<{ attribute: string; value: string }>(
+    "SELECT attribute, value FROM datoms WHERE entity = ?",
+    [entityId]
+  );
+  if (rows.length === 0) return null;
+
+  const attributes: Record<string, any> = {};
+  for (const row of rows) {
+    try {
+      attributes[row.attribute] = JSON.parse(row.value);
+    } catch {
+      attributes[row.attribute] = row.value;
+    }
+  }
+
+  return {
+    entity: entityId,
+    attributes,
+  };
 }

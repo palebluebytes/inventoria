@@ -85,3 +85,36 @@ export async function lookupBarcode(barcode: string): Promise<EntityPayload> {
 
   return mapOffProductToPayload(data);
 }
+
+// ---------------------------------------------------------------------------
+// V2 STUB: Submit to Open Food Facts
+// ---------------------------------------------------------------------------
+
+/**
+ * V2 Feature Stub: Submits manually entered product data back to the Open Food
+ * Facts database to contribute to the global dataset.
+ */
+export async function submitToOpenFoodFacts(
+  barcode: string,
+  details: {
+    name: string;
+    calories: number;
+    protein: number;
+    fat: number;
+    carbs: number;
+  }
+): Promise<boolean> {
+  console.info(
+    `[V2 STUB] submitToOpenFoodFacts called for barcode: ${barcode}`,
+    details
+  );
+
+  // Simulate network delay
+  await new Promise((resolve) => setTimeout(resolve, 800));
+
+  // In a real implementation, this would use the OFF v3 product write API
+  // https://openfoodfacts.github.io/openfoodfacts-server/api/tutorial-write/
+  console.info("[V2 STUB] Successfully simulated submission to OFF.");
+
+  return true;
+}
