@@ -3,10 +3,16 @@
   import {
     lookupBarcode,
     ProductNotFoundError,
+    submitToOpenFoodFacts,
   } from "../../food/open-food-facts";
   import { searchFdc } from "../../food/usda-fdc";
   import { ingestEntity } from "../../ingestion/ingest";
-  import { logFoodConsumption } from "../../stores/calorie.store";
+  import {
+    logFoodConsumption,
+    getLocalFoodTwin,
+    saveCustomFood,
+  } from "../../stores/calorie.store";
+  import { autofillFromPackageImage } from "../../food/ai-autofill";
 
   import Button from "../../ui/Button.svelte";
   import Input from "../../ui/Input.svelte";
@@ -42,6 +48,22 @@
   let factor = $derived((parseFloat(loggedGrams) || 0) / 100);
   let selected_meal_type = $state(meal_type);
 
+  // Manual entry mode (fallback)
+  let manualMode = $state(false);
+  let manualName = $state("");
+  let manualCal = $state("");
+  let manualProt = $state("");
+  let manualFat = $state("");
+  let manualCarb = $state("");
+  let contributeToOff = $state(false);
+
+  // Camera scanner
+  let videoEl = $state<HTMLVideoElement | null>(null);
+  let scanning = $state(false);
+  let stream: MediaStream | null = null;
+  let detector: any = null;
+  let scanError = $state("");
+
   let debounceTimer: ReturnType<typeof setTimeout>;
 
   $effect(() => {
@@ -67,6 +89,69 @@
       clearTimeout(debounceTimer);
     };
   });
+
+  // Camera effect
+  $effect(() => {
+    if (activeTab === "barcode" && !selectedFood && !manualMode) {
+      startCamera();
+    } else {
+      stopCamera();
+    }
+    return () => stopCamera();
+  });
+
+  async function startCamera() {
+    if (scanning || !videoEl) return;
+    try {
+      if (!("BarcodeDetector" in window)) {
+        scanError =
+          "Barcode scanning is not supported by your browser. Please enter manually.";
+        return;
+      }
+      detector = new (window as any).BarcodeDetector({
+        formats: ["ean_13", "ean_8", "upc_a", "upc_e"],
+      });
+
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      videoEl.srcObject = stream;
+      videoEl.play();
+      scanning = true;
+      scanError = "";
+      requestAnimationFrame(scanFrame);
+    } catch (e: any) {
+      scanError = "Camera access denied or unavailable.";
+      scanning = false;
+    }
+  }
+
+  function stopCamera() {
+    if (stream) {
+      stream.getTracks().forEach((t) => t.stop());
+      stream = null;
+    }
+    scanning = false;
+  }
+
+  async function scanFrame() {
+    if (!scanning || !videoEl || !detector) return;
+    if (videoEl.readyState >= 2) {
+      try {
+        const barcodes = await detector.detect(videoEl);
+        if (barcodes.length > 0) {
+          const code = barcodes[0].rawValue;
+          barcode = code;
+          stopCamera();
+          await handleBarcodeLookup();
+          return;
+        }
+      } catch (e) {
+        // ignore detection errors frame by frame
+      }
+    }
+    requestAnimationFrame(scanFrame);
+  }
 
   function parseAttrValue(val: string | number | undefined): number {
     if (typeof val === "number") return val;
@@ -110,6 +195,25 @@
     searchResults = [];
     selectedFood = null;
     try {
+      // 1. Check local ledger first
+      const localTwin = await getLocalFoodTwin(`gtin:${barcode.trim()}`);
+      if (localTwin) {
+        const mapped = {
+          entity: localTwin.entity,
+          name: localTwin.attributes["food/name"],
+          calories: parseAttrValue(localTwin.attributes["food/calories"]),
+          protein: parseAttrValue(localTwin.attributes["food/protein"]),
+          fat: parseAttrValue(localTwin.attributes["food/fat"]),
+          carbs: parseAttrValue(localTwin.attributes["food/carbs"]),
+          payload: localTwin,
+        };
+        searchResults = [mapped];
+        selectedFood = mapped; // auto select local barcode match
+        searchStatus = "idle";
+        return;
+      }
+
+      // 2. Fetch from Open Food Facts
       const payload = await lookupBarcode(barcode.trim());
       const mapped = {
         entity: payload.entity,
@@ -129,6 +233,77 @@
         e instanceof ProductNotFoundError
           ? "Barcode not found in Open Food Facts database."
           : (e.message ?? String(e));
+    }
+  }
+
+  async function handleManualLog() {
+    const parsedCal = parseFloat(manualCal);
+    if (!manualName.trim() || isNaN(parsedCal)) return;
+    searchStatus = "loading";
+    searchError = "";
+    try {
+      const parsedProt = parseFloat(manualProt) || 0;
+      const parsedFat = parseFloat(manualFat) || 0;
+      const parsedCarbs = parseFloat(manualCarb) || 0;
+
+      let customEntityId: string | undefined;
+      if (barcode.trim()) {
+        customEntityId = `gtin:${barcode.trim()}`;
+      }
+
+      const twinId = await saveCustomFood(
+        manualName.trim(),
+        parsedCal,
+        parsedProt,
+        parsedFat,
+        parsedCarbs,
+        undefined,
+        customEntityId
+      );
+
+      if (contributeToOff && barcode.trim()) {
+        await submitToOpenFoodFacts(barcode.trim(), {
+          name: manualName.trim(),
+          calories: parsedCal,
+          protein: parsedProt,
+          fat: parsedFat,
+          carbs: parsedCarbs,
+        });
+      }
+
+      await logFoodConsumption(
+        twinId,
+        `${loggedGrams}g`,
+        selected_meal_type,
+        parsedCal,
+        parsedProt,
+        parsedFat,
+        parsedCarbs,
+        selectedDate
+      );
+
+      onClose();
+    } catch (e: any) {
+      searchStatus = "error";
+      searchError = e.message ?? String(e);
+    }
+  }
+
+  async function handleAutofill() {
+    searchStatus = "loading";
+    try {
+      // Stub: in reality, would capture an image or upload one
+      const mockImageBase64 = "data:image/jpeg;base64,mock...";
+      const res = await autofillFromPackageImage(mockImageBase64);
+      manualName = res.name;
+      manualCal = res.calories.toString();
+      manualProt = res.protein.toString();
+      manualFat = res.fat.toString();
+      manualCarb = res.carbs.toString();
+      searchStatus = "idle";
+    } catch (e: any) {
+      searchStatus = "error";
+      searchError = "AI Autofill failed: " + (e.message ?? String(e));
     }
   }
 
@@ -213,21 +388,147 @@
             </Button>
           </div>
         {:else}
-          <div class="input-row">
-            <Input
-              id="barcode-modal-input"
-              placeholder="Enter 13-digit barcode (e.g. 3017620422003)"
-              bind:value={barcode}
-              onkeydown={(e) => e.key === "Enter" && handleBarcodeLookup()}
-            />
-            <Button
-              onclick={handleBarcodeLookup}
-              disabled={searchStatus === "loading" || !dbReady}
-              loading={searchStatus === "loading"}
-            >
-              Lookup
-            </Button>
-          </div>
+          {#if manualMode}
+            <div class="manual-form mt-4">
+              <div class="actions-row mb-4" style="gap: var(--space-xs);">
+                <Button variant="secondary" onclick={() => (manualMode = false)}
+                  >Back</Button
+                >
+                <Button onclick={handleAutofill}
+                  >✨ Autofill via Package Photo (V2)</Button
+                >
+              </div>
+
+              <div class="form-field">
+                <label for="manual-barcode">Barcode (Optional)</label>
+                <Input
+                  id="manual-barcode"
+                  bind:value={barcode}
+                  placeholder="Optional barcode"
+                />
+              </div>
+
+              <div class="form-field mt-2">
+                <label for="manual-name">Food Name</label>
+                <Input
+                  id="manual-name"
+                  bind:value={manualName}
+                  placeholder="e.g. Avocado Toast"
+                />
+              </div>
+
+              <div class="macros-row mt-2">
+                <div class="form-field flex-1">
+                  <label for="manual-cal">Calories (kcal)</label>
+                  <Input
+                    id="manual-cal"
+                    type="number"
+                    placeholder="0"
+                    bind:value={manualCal}
+                  />
+                </div>
+                <div class="form-field flex-1">
+                  <label for="manual-prot">Protein (g)</label>
+                  <Input
+                    id="manual-prot"
+                    type="number"
+                    placeholder="0"
+                    bind:value={manualProt}
+                  />
+                </div>
+              </div>
+
+              <div class="macros-row mt-2">
+                <div class="form-field flex-1">
+                  <label for="manual-fat">Fat (g)</label>
+                  <Input
+                    id="manual-fat"
+                    type="number"
+                    placeholder="0"
+                    bind:value={manualFat}
+                  />
+                </div>
+                <div class="form-field flex-1">
+                  <label for="manual-carb">Carbs (g)</label>
+                  <Input
+                    id="manual-carb"
+                    type="number"
+                    placeholder="0"
+                    bind:value={manualCarb}
+                  />
+                </div>
+              </div>
+
+              {#if barcode.trim()}
+                <div class="form-field mt-2">
+                  <label class="checkbox-label">
+                    <input type="checkbox" bind:checked={contributeToOff} />
+                    Contribute to Open Food Facts (V2)
+                  </label>
+                </div>
+              {/if}
+
+              <div class="actions-row mt-4">
+                <Button
+                  onclick={handleManualLog}
+                  disabled={searchStatus === "loading" ||
+                    !manualName.trim() ||
+                    manualCal === ""}
+                  loading={searchStatus === "loading"}
+                  class="full-width-btn"
+                >
+                  Save & Log Food
+                </Button>
+              </div>
+            </div>
+          {:else}
+            <!-- Camera / Barcode Lookup -->
+            <div class="camera-container mt-4">
+              {#if scanError}
+                <Alert variant="warning">{scanError}</Alert>
+              {/if}
+              <div class="video-wrapper">
+                <!-- svelte-ignore a11y_media_has_caption -->
+                <video bind:this={videoEl} class="scanner-video" playsinline
+                ></video>
+                <div class="scanner-overlay"></div>
+              </div>
+            </div>
+
+            <div class="input-row mt-4">
+              <Input
+                id="barcode-modal-input"
+                placeholder="Enter 13-digit barcode (e.g. 3017620422003)"
+                bind:value={barcode}
+                onkeydown={(e) => e.key === "Enter" && handleBarcodeLookup()}
+              />
+              <Button
+                onclick={handleBarcodeLookup}
+                disabled={searchStatus === "loading" || !dbReady}
+                loading={searchStatus === "loading"}
+              >
+                Lookup
+              </Button>
+            </div>
+
+            {#if searchStatus === "error"}
+              <div class="mt-4 text-center">
+                <Button
+                  variant="secondary"
+                  onclick={() => (manualMode = true)}
+                  class="full-width-btn"
+                >
+                  Enter Details Manually
+                </Button>
+              </div>
+            {:else}
+              <div class="mt-2 text-center">
+                <button class="text-btn" onclick={() => (manualMode = true)}
+                  >Or enter details manually</button
+                >
+              </div>
+            {/if}
+          {/if}
         {/if}
       </div>
 
@@ -555,5 +856,86 @@
       opacity: 1;
       transform: scale(1);
     }
+  }
+
+  .camera-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+  .video-wrapper {
+    position: relative;
+    width: 100%;
+    background: #000;
+    border: 1px solid #000;
+    border-radius: 0;
+    overflow: hidden;
+    height: 200px;
+  }
+  .scanner-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .scanner-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    height: 80px;
+    border: 2px solid #ff3333;
+    box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+  }
+
+  .text-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: var(--step-n2);
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .text-btn:hover {
+    color: #000;
+  }
+  .text-center {
+    text-align: center;
+  }
+  :global(.full-width-btn) {
+    width: 100%;
+  }
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3xs);
+    font-size: var(--step-n2);
+    color: var(--text-primary);
+    cursor: pointer;
+  }
+  .checkbox-label input[type="checkbox"] {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 1px solid #000;
+    border-radius: 0;
+    position: relative;
+    cursor: pointer;
+  }
+  .checkbox-label input[type="checkbox"]:checked {
+    background: #000;
+  }
+  .checkbox-label input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 5px;
+    width: 4px;
+    height: 8px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
   }
 </style>
