@@ -7,6 +7,8 @@ export interface OpenLibraryBook {
   first_publish_year?: number;
   cover_i?: number | null;
   isbn?: string[];
+  subject?: string[];
+  description?: string | { type: string; value: string };
 }
 
 /**
@@ -32,6 +34,14 @@ export function mapOpenLibraryBookToPayload(
     ? `https://covers.openlibrary.org/b/id/${book.cover_i}-L.jpg`
     : "";
 
+  const blurb = !book.description
+    ? ""
+    : typeof book.description === "object"
+      ? book.description.value
+      : book.description;
+
+  const subject = JSON.stringify(book.subject || []);
+
   return {
     entity,
     attributes: {
@@ -39,6 +49,11 @@ export function mapOpenLibraryBookToPayload(
       "media/author": author,
       "media/release_date": releaseDate,
       "media/poster_url": posterUrl,
+      "media/blurb": blurb,
+      "media/subject": subject,
+      "media/first_publish_year": book.first_publish_year
+        ? String(book.first_publish_year)
+        : "",
     },
   };
 }
@@ -49,7 +64,7 @@ export async function searchOpenLibrary(
   query: string
 ): Promise<EntityPayload[]> {
   try {
-    const url = `${OL_SEARCH_BASE}?q=${encodeURIComponent(query)}&limit=15`;
+    const url = `${OL_SEARCH_BASE}?q=${encodeURIComponent(query)}&fields=key,title,author_name,first_publish_year,cover_i,isbn,subject,description&limit=15`;
     const res = await fetch(url);
     if (!res.ok) return [];
     const data = await res.json();

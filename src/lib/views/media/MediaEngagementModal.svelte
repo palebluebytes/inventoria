@@ -1,0 +1,470 @@
+<script lang="ts">
+  import type { EnrichedMedia } from "../../media/state";
+  import { updateMediaStatus } from "../../stores/media.store";
+  import Badge from "../../ui/Badge.svelte";
+  import Button from "../../ui/Button.svelte";
+
+  let {
+    media,
+    onClose,
+  }: {
+    media: EnrichedMedia;
+    onClose: () => void;
+  } = $props();
+
+  let formStatus = $state<"saved" | "started" | "progress" | "completed">(
+    media.status
+  );
+  let formRating = $state<number | undefined>(media.rating);
+  let formReview = $state(media.review || "");
+  let formSeason = $state<number | undefined>(media.season);
+  let formEpisode = $state<number | undefined>(media.episode);
+  let formPagesRead = $state<number | undefined>(media.pages_read);
+  let imageError = $state(false);
+
+  let subjects = $derived.by(() => {
+    if (!media.subject) return [];
+    if (Array.isArray(media.subject)) return media.subject;
+    try {
+      return JSON.parse(media.subject as any);
+    } catch {
+      return [];
+    }
+  });
+
+  async function submitEngagement() {
+    try {
+      await updateMediaStatus(media.id, media.type, formStatus, {
+        rating: formRating,
+        review: formReview,
+        season: formSeason,
+        episode: formEpisode,
+        pages_read: formPagesRead,
+      });
+      onClose();
+    } catch (err: any) {
+      alert(`Failed to log engagement: ${err.message ?? err}`);
+    }
+  }
+</script>
+
+<div class="modal-overlay" onclick={onClose} role="dialog" aria-modal="true">
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+  <div class="modal-card" onclick={(e) => e.stopPropagation()}>
+    <div class="modal-header">
+      <h2>Log Engagement Event</h2>
+      <button class="close-btn" onclick={onClose}>&times;</button>
+    </div>
+
+    <div class="media-details-banner">
+      {#if media.poster_url && !imageError}
+        <img
+          src={media.poster_url}
+          alt={media.title}
+          class="banner-poster"
+          onerror={() => (imageError = true)}
+          referrerpolicy="no-referrer"
+          crossorigin="anonymous"
+        />
+      {/if}
+      <div class="banner-info">
+        <h3>{media.title}</h3>
+        <p>
+          {#if media.type === "book"}
+            Author: {media.author || "Unknown"}
+          {:else}
+            Director: {media.director || "Unknown"}
+          {/if}
+        </p>
+        {#if media.type === "book" && media.first_publish_year}
+          <p class="publish-year">
+            First Published: {media.first_publish_year}
+          </p>
+        {/if}
+        <Badge variant="default">{media.type.toUpperCase()}</Badge>
+      </div>
+    </div>
+
+    {#if media.blurb || subjects.length > 0}
+      <div class="media-extra-details">
+        {#if media.blurb}
+          <div class="blurb-section">
+            <h4>Synopsis</h4>
+            <p>{media.blurb}</p>
+          </div>
+        {/if}
+        {#if subjects.length > 0}
+          <div class="subjects-section">
+            <h4>Subjects</h4>
+            <div class="subjects-list">
+              {#each subjects.slice(0, 8) as subj}
+                <Badge variant="default">{subj}</Badge>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      </div>
+    {/if}
+
+    <form
+      onsubmit={(e) => {
+        e.preventDefault();
+        submitEngagement();
+      }}
+      class="engagement-form mt-4"
+    >
+      <!-- Status -->
+      <div class="form-group">
+        <label for="event-status-select">Status</label>
+        <select
+          id="event-status-select"
+          bind:value={formStatus}
+          class="retro-select"
+        >
+          <option value="saved">Saved (To watch/read)</option>
+          <option value="started">Started</option>
+          <option value="progress">In Progress</option>
+          <option value="completed">Completed</option>
+        </select>
+      </div>
+
+      <!-- Book progress fields -->
+      {#if media.type === "book" && (formStatus === "started" || formStatus === "progress")}
+        <div class="form-group">
+          <label for="event-pages-read">Pages Read (Optional)</label>
+          <input
+            id="event-pages-read"
+            type="number"
+            min="0"
+            bind:value={formPagesRead}
+            class="retro-input"
+          />
+        </div>
+      {/if}
+
+      <!-- TV progress fields -->
+      {#if media.type === "tv" && (formStatus === "started" || formStatus === "progress")}
+        <div class="flex gap-2">
+          <div class="form-group flex-1">
+            <label for="event-season">Season</label>
+            <input
+              id="event-season"
+              type="number"
+              min="1"
+              bind:value={formSeason}
+              class="retro-input"
+            />
+          </div>
+          <div class="form-group flex-1">
+            <label for="event-episode">Episode</label>
+            <input
+              id="event-episode"
+              type="number"
+              min="1"
+              bind:value={formEpisode}
+              class="retro-input"
+            />
+          </div>
+        </div>
+      {/if}
+
+      <!-- Rating & Review -->
+      <div class="form-group">
+        <label for="event-rating">Rating (1-5)</label>
+        <select id="event-rating" bind:value={formRating} class="retro-select">
+          <option value={undefined}>No Rating</option>
+          <option value={1}>1 - Poor</option>
+          <option value={2}>2 - Fair</option>
+          <option value={3}>3 - Good</option>
+          <option value={4}>4 - Very Good</option>
+          <option value={5}>5 - Outstanding</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="event-review">Review / Comments</label>
+        <textarea
+          id="event-review"
+          rows="3"
+          bind:value={formReview}
+          class="retro-textarea"
+          placeholder="Add your thoughts..."
+        ></textarea>
+      </div>
+
+      <div class="modal-footer mt-6">
+        <Button variant="secondary" onclick={onClose}>Cancel</Button>
+        <Button type="submit">Log Event</Button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(255, 255, 255, 0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: var(--space-s);
+  }
+
+  .modal-card {
+    background: #fff;
+    border: 4px solid #000;
+    width: 100%;
+    max-width: 600px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    box-shadow: 12px 12px 0 #000;
+    animation: slideUp 0.1s step-end;
+    overflow: hidden;
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 4px solid #000;
+    padding: var(--space-s) var(--space-m);
+    background: #000;
+    color: #fff;
+    margin-bottom: 0;
+  }
+
+  .modal-header h2 {
+    font-size: var(--step-1);
+    font-weight: 900;
+    text-transform: uppercase;
+    margin: 0;
+  }
+
+  .close-btn {
+    background: #fff;
+    border: 2px solid #000;
+    width: 40px;
+    height: 40px;
+    font-size: 2rem;
+    cursor: pointer;
+    line-height: 1;
+    color: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.1s step-end;
+  }
+
+  .close-btn:hover {
+    background: #e4e4e7;
+    transform: translate(-2px, -2px);
+    box-shadow: 4px 4px 0 #000;
+  }
+
+  .publish-year {
+    font-family: monospace;
+    font-size: var(--step-n1);
+    font-weight: 700;
+    color: #64748b;
+    margin: 0;
+  }
+
+  .media-extra-details {
+    padding: var(--space-s) var(--space-m);
+    border-bottom: 4px solid #000;
+    background: #f8fafc;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-s);
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .blurb-section h4,
+  .subjects-section h4 {
+    margin: 0 0 var(--space-3xs) 0;
+    font-family: monospace;
+    font-size: var(--step-n1);
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #000;
+  }
+
+  .blurb-section p {
+    margin: 0;
+    font-size: var(--step-n1);
+    line-height: 1.4;
+    color: #3f3f46;
+  }
+
+  .subjects-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3xs);
+  }
+
+  .media-details-banner {
+    display: flex;
+    gap: var(--space-s);
+    background: #fff;
+    border-bottom: 4px solid #000;
+    padding: var(--space-m);
+  }
+
+  .banner-poster {
+    width: 80px;
+    height: 120px;
+    object-fit: cover;
+    border: 2px solid #000;
+    box-shadow: 4px 4px 0 #000;
+  }
+
+  .banner-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .banner-info h3 {
+    margin: 0;
+    font-size: var(--step-1);
+    font-weight: 900;
+    line-height: 1.1;
+    text-transform: uppercase;
+  }
+
+  .banner-info p {
+    margin: 0;
+    font-family: monospace;
+    font-size: var(--step-n1);
+    font-weight: 700;
+    color: #000;
+  }
+
+  .banner-info :global(.badge) {
+    align-self: flex-start;
+  }
+
+  .engagement-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-m);
+    overflow-y: auto;
+    padding: var(--space-m);
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-group label {
+    font-family: monospace;
+    font-size: var(--step-n1);
+    font-weight: 700;
+    text-transform: uppercase;
+    background: #000;
+    color: #fff;
+    padding: 2px 6px;
+    align-self: flex-start;
+  }
+
+  .retro-input {
+    border: 2px solid #000;
+    padding: var(--space-s);
+    font-size: var(--step-0);
+    font-family: monospace;
+    font-weight: 700;
+    border-radius: 0;
+    background: #fff;
+    box-shadow: inset 2px 2px 0 #e4e4e7;
+    transition: all 0.1s step-end;
+  }
+
+  .retro-input:focus {
+    outline: none;
+    background: #000;
+    color: #fff;
+    box-shadow: none;
+  }
+
+  .retro-select {
+    border: 2px solid #000;
+    padding: var(--space-s);
+    font-size: var(--step-0);
+    font-family: monospace;
+    font-weight: 700;
+    border-radius: 0;
+    background: #fff;
+    cursor: pointer;
+    box-shadow: 4px 4px 0 #e4e4e7;
+    transition: all 0.1s step-end;
+  }
+
+  .retro-select:focus {
+    outline: none;
+    border-color: #000;
+    box-shadow: 4px 4px 0 #000;
+  }
+
+  .retro-textarea {
+    border: 2px solid #000;
+    padding: var(--space-s);
+    font-size: var(--step-0);
+    font-family: monospace;
+    font-weight: 700;
+    border-radius: 0;
+    resize: vertical;
+    box-shadow: inset 2px 2px 0 #e4e4e7;
+  }
+
+  .retro-textarea:focus {
+    outline: none;
+    background: #000;
+    color: #fff;
+    box-shadow: none;
+  }
+
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-xs);
+  }
+
+  .flex {
+    display: flex;
+  }
+  .flex-1 {
+    flex: 1;
+  }
+  .gap-2 {
+    gap: var(--space-xs);
+  }
+  .mt-4 {
+    margin-top: var(--space-s);
+  }
+  .mt-6 {
+    margin-top: var(--space-m);
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+</style>

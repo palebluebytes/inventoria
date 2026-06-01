@@ -58,6 +58,8 @@ test("Media Library UI - search, save, and log engagement for books and movies",
             first_publish_year: 1949,
             cover_i: 12345,
             isbn: ["9780141187761"],
+            subject: ["Classic Literature", "Dystopian"],
+            description: "A dystopian social science fiction novel.",
           },
         ],
       }),
@@ -76,11 +78,14 @@ test("Media Library UI - search, save, and log engagement for books and movies",
     { timeout: 10000 }
   );
 
-  // Click on the Media Twins tab in Sidebar
-  await page.locator(".nav-item", { hasText: "Media Twins" }).click();
+  // Click on the Media tab in Sidebar
+  await page.locator(".nav-item", { hasText: "Media" }).click();
 
-  // Click on Ingest Media button
-  await page.locator("#ingest-media-btn").click();
+  // Click on "+" button in the Saved column
+  await page
+    .locator(".kanban-column", { hasText: "Saved" })
+    .locator("button.add-btn")
+    .click();
 
   // Search Movie "Dark Knight"
   await page.locator("#media-search-input").fill("Dark Knight");
@@ -118,8 +123,13 @@ test("Media Library UI - search, save, and log engagement for books and movies",
   ).toBeVisible();
 
   // Now search for the Book "1984"
-  await page.locator("#ingest-media-btn").click();
-  await page.locator(".modal-tabs button", { hasText: "Books" }).click();
+  // First switch tab to Books in the Media page
+  await page.locator(".tab-btn", { hasText: "Books" }).click();
+  // Click on "+" button in the Saved column
+  await page
+    .locator(".kanban-column", { hasText: "Saved" })
+    .locator("button.add-btn")
+    .click();
   await page.locator("#media-search-input").fill("1984");
   await page.locator("button[type='submit']", { hasText: "Search" }).click();
 
@@ -142,6 +152,18 @@ test("Media Library UI - search, save, and log engagement for books and movies",
 
   // Click the card to open detail modal
   await bookCard.click();
+
+  // Verify first publish year, subjects, and blurb/synopsis are visible
+  await expect(page.locator(".publish-year")).toHaveText(
+    "First Published: 1949"
+  );
+  await expect(page.locator(".blurb-section p")).toHaveText(
+    "A dystopian social science fiction novel."
+  );
+  await expect(page.locator(".subjects-list")).toContainText(
+    "Classic Literature"
+  );
+  await expect(page.locator(".subjects-list")).toContainText("Dystopian");
 
   // Inside modal, update status to "progress", and pages read to 100
   await page.locator("#event-status-select").selectOption("progress");

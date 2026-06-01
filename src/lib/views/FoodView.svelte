@@ -17,6 +17,8 @@
     "breakfast"
   );
 
+  let entityName = "Food";
+
   // Keep query of raw twins for debugging/viewing all stored twins
   const foodTwinsStore = createQueryStore<{
     entity: string;
@@ -33,7 +35,7 @@
 </script>
 
 <header class="page-header">
-  <h1>Food Tracker</h1>
+  <h1>{entityName}</h1>
   <p>
     Track your daily nutritional intake, build custom recipes, and log food
     photos locally.
@@ -46,10 +48,9 @@
 <!-- Secondary: Saved Digital Twins Ledger -->
 <Card class="mt-6">
   <h2>
-    Saved Food Twins <Badge
-      id="saved-twins-count"
-      variant="default"
-      class="ml-2">{$foodTwinsStore.length}</Badge
+    {entityName}
+    <Badge id="saved-twins-count" variant="default" class="ml-2"
+      >{$foodTwinsStore.length}</Badge
     >
   </h2>
   {#if $foodTwinsStore.length === 0}

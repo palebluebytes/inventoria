@@ -293,7 +293,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // Verify page header
     const dashboardTitle = page.getByRole("heading", {
-      name: "Food Tracker",
+      name: "Food",
       exact: true,
     });
     await expect(dashboardTitle).toBeVisible();

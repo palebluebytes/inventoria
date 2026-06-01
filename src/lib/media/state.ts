@@ -15,6 +15,9 @@ export interface EnrichedMedia {
   episode?: number;
   pages_read?: number;
   last_engaged: number;
+  blurb?: string;
+  subject?: string[];
+  first_publish_year?: number | string;
 }
 
 export function computeMediaLibraryState(datoms: Datom[]): EnrichedMedia[] {
@@ -33,6 +36,7 @@ export function computeMediaLibraryState(datoms: Datom[]): EnrichedMedia[] {
         "media/director",
         "media/release_date",
         "media/poster_url",
+        "media/blurb",
         "event/review",
       ];
       if (
