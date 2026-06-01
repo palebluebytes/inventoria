@@ -4,6 +4,8 @@ import {
   mapTmdbTvToPayload,
   searchTmdbMovies,
   searchTmdbTv,
+  lookupTmdbMovie,
+  lookupTmdbTv,
 } from "../../src/lib/media/tmdb";
 import {
   mapOpenLibraryBookToPayload,
@@ -278,6 +280,88 @@ describe("searchTmdbTv", () => {
 
     const results = await searchTmdbTv("Game of Thrones", "invalid-key");
     expect(results).toEqual([]);
+  });
+});
+
+describe("lookupTmdbMovie", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("calls details movie endpoint and returns a mapped movie twin payload", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: 155,
+        title: "The Dark Knight",
+        release_date: "2008-07-16",
+        poster_path: "/qJ2tWGB2Z1YECBiQx1qOYdcb5Un.jpg",
+        credits: {
+          crew: [{ job: "Director", name: "Christopher Nolan" }],
+        },
+      }),
+    } as Response);
+
+    const payload = await lookupTmdbMovie(155, "test-key");
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://api.themoviedb.org/3/movie/155?append_to_response=credits&api_key=test-key"
+    );
+    expect(payload.entity).toBe("tmdb:movie:155");
+    expect(payload.attributes["media/title"]).toBe("The Dark Knight");
+    expect(payload.attributes["media/director"]).toBe("Christopher Nolan");
+  });
+
+  it("throws error when response is not ok", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: async () => ({}),
+    } as Response);
+
+    await expect(lookupTmdbMovie(999999, "invalid-key")).rejects.toThrow(
+      "Movie details not found for id: 999999"
+    );
+  });
+});
+
+describe("lookupTmdbTv", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("calls details tv endpoint and returns a mapped tv twin payload", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: 1399,
+        name: "Game of Thrones",
+        first_air_date: "2011-04-17",
+        poster_path: "/u3bZ6oqGRv8w6u5HGv9R16eii6m.jpg",
+        created_by: [{ name: "David Benioff" }],
+      }),
+    } as Response);
+
+    const payload = await lookupTmdbTv(1399, "test-key");
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://api.themoviedb.org/3/tv/1399?api_key=test-key"
+    );
+    expect(payload.entity).toBe("tmdb:tv:1399");
+    expect(payload.attributes["media/title"]).toBe("Game of Thrones");
+    expect(payload.attributes["media/director"]).toBe("David Benioff");
+  });
+
+  it("throws error when response is not ok", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: async () => ({}),
+    } as Response);
+
+    await expect(lookupTmdbTv(999999, "invalid-key")).rejects.toThrow(
+      "TV details not found for id: 999999"
+    );
   });
 });
 

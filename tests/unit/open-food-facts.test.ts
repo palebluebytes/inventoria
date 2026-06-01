@@ -3,6 +3,7 @@ import {
   mapOffProductToPayload,
   lookupBarcode,
   ProductNotFoundError,
+  submitToOpenFoodFacts,
   type OFFProduct,
 } from "../../src/lib/food/open-food-facts";
 
@@ -72,6 +73,20 @@ describe("mapOffProductToPayload", () => {
     };
     const payload = mapOffProductToPayload(product);
     expect(payload.attributes["food/calories"]).toBe("0 kcal");
+  });
+
+  it("falls back to '0 g' when proteins, fat, or carbs are missing", () => {
+    const product: OFFProduct = {
+      ...baseProduct,
+      product: {
+        ...baseProduct.product,
+        nutriments: {} as any,
+      },
+    };
+    const payload = mapOffProductToPayload(product);
+    expect(payload.attributes["food/protein"]).toBe("0 g");
+    expect(payload.attributes["food/fat"]).toBe("0 g");
+    expect(payload.attributes["food/carbs"]).toBe("0 g");
   });
 });
 
@@ -148,5 +163,29 @@ describe("lookupBarcode", () => {
     const payload = await lookupBarcode("737628064502");
     expect(payload.entity).toBe("gtin:737628064502");
     expect(payload.attributes["food/name"]).toBe("Test Food");
+  });
+});
+
+// ---- unit: submitToOpenFoodFacts -------------------------------------------
+
+describe("submitToOpenFoodFacts", () => {
+  it("simulates successfully submitting manual product details", async () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+    const result = await submitToOpenFoodFacts("3017620422003", {
+      name: "Nutella",
+      calories: 539,
+      protein: 6.3,
+      fat: 30.9,
+      carbs: 57.5,
+    });
+
+    expect(result).toBe(true);
+    expect(infoSpy).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "submitToOpenFoodFacts called for barcode: 3017620422003"
+      ),
+      expect.any(Object)
+    );
+    infoSpy.mockRestore();
   });
 });

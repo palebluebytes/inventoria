@@ -71,6 +71,13 @@ describe("mapFdcFoodToPayload", () => {
     const payload = mapFdcFoodToPayload(food);
     expect(payload.attributes["food/protein"]).toBe("0 g");
   });
+
+  it("falls back to '0 g' when Fat or Carbs nutrients are absent", () => {
+    const food: FdcFood = { ...baseFood, foodNutrients: [] };
+    const payload = mapFdcFoodToPayload(food);
+    expect(payload.attributes["food/fat"]).toBe("0 g");
+    expect(payload.attributes["food/carbs"]).toBe("0 g");
+  });
 });
 
 // ---- unit: searchFdc -------------------------------------------------------
