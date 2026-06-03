@@ -39,3 +39,7 @@ WHERE attribute = 'event/details'
   AND json_extract(value, '$.type') = 'ExerciseAction'
   AND json_extract(value, '$.instrument_id') = 'twin:kettlebell_16kg';
 ```
+
+## Ingestion & External Data
+
+While the primary architecture is offline-first, users can ingest external data (like e-commerce products) to generate local entities. To bypass browser CORS constraints and strict e-commerce payload limitations, the application relies on a lightweight serverless proxy architecture. See [ADR-0006: Serverless Proxy and Metadata Fallback](adr/0006-serverless-proxy-and-metadata-fallback.md) for full context on these design constraints.
