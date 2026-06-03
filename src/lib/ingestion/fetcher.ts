@@ -3,10 +3,17 @@
  */
 export async function fetchHtml(url: string): Promise<string> {
   const isBrowser = typeof window !== "undefined";
-  // In browser, route through corsproxy.io to avoid CORS blocks
-  const targetUrl = isBrowser
-    ? `https://corsproxy.io/?${encodeURIComponent(url)}`
-    : url;
+  let targetUrl = url;
+
+  if (isBrowser) {
+    const customProxy = import.meta.env.VITE_SCRAPER_PROXY_URL;
+    if (customProxy) {
+      targetUrl = `${customProxy}${encodeURIComponent(url)}`;
+    } else {
+      // In browser, route through corsproxy.io to avoid CORS blocks
+      targetUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+    }
+  }
 
   const response = await fetch(targetUrl, {
     headers: {
@@ -15,13 +22,27 @@ export async function fetchHtml(url: string): Promise<string> {
     },
   });
 
+  const text = await response.text();
+
   if (!response.ok) {
-    throw new Error(
-      `Failed to fetch URL: ${response.statusText} (${response.status})`
-    );
+    let errorMessage = `Failed to fetch URL: ${response.statusText} (${response.status})`;
+    if (response.status === 413 || text.includes("exceeds 1MB size limit")) {
+      errorMessage =
+        "The product page is too large for the current proxy limit (1MB).";
+    } else if (
+      response.status === 403 ||
+      response.status === 503 ||
+      response.status === 520
+    ) {
+      errorMessage =
+        "The target e-commerce site blocked the scraper connection.";
+    }
+
+    const error = new Error(errorMessage);
+    (error as any).status = response.status;
+    (error as any).statusText = response.statusText;
+    throw error;
   }
 
-  // If using allorigins or other proxy formats, we might need to parse JSON.
-  // corsproxy.io returns the raw response directly, so we just call .text()
-  return await response.text();
+  return text;
 }
