@@ -9,31 +9,41 @@ test("Physical Digital Twins UI - manual create, scrape, status toggling, and we
     console.log("PAGE UNCAUGHT ERROR:", err.message)
   );
 
-  // Mock corsproxy.io requests for scraping
+  // Mock proxy requests for scraping
+  const mockBody = `
+    <html>
+      <head>
+        <script type="application/ld+json">
+          {
+            "@context": "https://schema.org",
+            "@type": "Product",
+            "@id": "did:dpp:eu:custom_lamp_999",
+            "name": "Scraped Brutalist Lamp",
+            "image": "https://example.com/lamp.jpg",
+            "description": "Concrete lamp with raw aesthetics.",
+            "brand": {
+              "@type": "Brand",
+              "name": "ConcreteLab"
+            }
+          }
+        </script>
+      </head>
+    </html>
+  `;
+
   await page.route("**/corsproxy.io/**", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "text/html",
-      body: `
-        <html>
-          <head>
-            <script type="application/ld+json">
-              {
-                "@context": "https://schema.org",
-                "@type": "Product",
-                "@id": "did:dpp:eu:custom_lamp_999",
-                "name": "Scraped Brutalist Lamp",
-                "image": "https://example.com/lamp.jpg",
-                "description": "Concrete lamp with raw aesthetics.",
-                "brand": {
-                  "@type": "Brand",
-                  "name": "ConcreteLab"
-                }
-              }
-            </script>
-          </head>
-        </html>
-      `,
+      body: mockBody,
+    });
+  });
+
+  await page.route("**/api/proxy?url=*", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "text/html",
+      body: mockBody,
     });
   });
 
@@ -58,7 +68,9 @@ test("Physical Digital Twins UI - manual create, scrape, status toggling, and we
   // Fill manual entry fields
   await page.locator("#manual-name").fill("Manual Keychron K2");
   await page.locator("#manual-brand").fill("Keychron");
+  await page.locator("#manual-tags").fill("keyboard, electronics");
   await page.locator("#manual-desc").fill("Wireless mechanical keyboard.");
+  await page.locator("#manual-note").fill("Original manual note.");
   await page.locator("#manual-status").selectOption("wanted");
 
   // Submit manual form
@@ -69,14 +81,34 @@ test("Physical Digital Twins UI - manual create, scrape, status toggling, and we
   // Verify it exists in the Wanted tab
   await page.locator("#tab-wanted-btn").click();
   const wantedLibrary = page.locator("#twins-library");
-  await expect(
-    wantedLibrary.locator(".item-card", { hasText: "Manual Keychron K2" })
-  ).toBeVisible();
-
-  // Change status of the Keychron keyboard to Owned (Acquired)
   const itemCard = wantedLibrary.locator(".item-card", {
     hasText: "Manual Keychron K2",
   });
+  await expect(itemCard).toBeVisible();
+
+  // Verify tags and note are visible
+  await expect(itemCard.locator(".item-tags")).toContainText("keyboard");
+  await expect(itemCard.locator(".item-tags")).toContainText("electronics");
+  await expect(itemCard.locator(".item-note-box")).toContainText(
+    "Original manual note."
+  );
+
+  // Test editing tags and note
+  await itemCard.locator("button", { hasText: "Edit" }).click();
+  await page.locator("#edit-tags").fill("keyboard, mechanical, custom");
+  await page.locator("#edit-note").fill("Updated manual note.");
+  await page
+    .locator("button[type='submit']", { hasText: "Save Changes" })
+    .click();
+
+  // Verify edited values on card
+  await expect(itemCard.locator(".item-tags")).toContainText("mechanical");
+  await expect(itemCard.locator(".item-tags")).toContainText("custom");
+  await expect(itemCard.locator(".item-note-box")).toContainText(
+    "Updated manual note."
+  );
+
+  // Change status of the Keychron keyboard to Owned (Acquired)
   await itemCard.locator("button", { hasText: "Acquired" }).click();
 
   // Switch to Owned tab and verify it's there
