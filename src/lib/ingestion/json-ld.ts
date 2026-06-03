@@ -43,7 +43,39 @@ export function extractJsonLd(
   });
 
   if (!productObj) {
-    return null;
+    const name =
+      getMetaTag(html, "og:title") ||
+      getMetaTag(html, "twitter:title") ||
+      getMetaTag(html, "title") ||
+      getTitleTag(html);
+
+    if (!name) {
+      return null;
+    }
+
+    const image =
+      getAmazonLandingImage(html) ||
+      getMetaTag(html, "og:image") ||
+      getMetaTag(html, "twitter:image");
+
+    const description =
+      getMetaTag(html, "og:description") ||
+      getMetaTag(html, "twitter:description") ||
+      getMetaTag(html, "description");
+
+    const brand = getMetaTag(html, "og:site_name") || "";
+
+    const entityId = pageUrl
+      ? `url:${simpleHash(pageUrl)}`
+      : `url:temp_${Date.now()}`;
+
+    return {
+      entityId,
+      name,
+      image,
+      description,
+      brand,
+    };
   }
 
   // Determine the identifier based on priority:
@@ -128,4 +160,51 @@ function simpleHash(str: string): string {
     hash |= 0; // Convert to 32bit integer
   }
   return Math.abs(hash).toString(36);
+}
+
+function decodeHtmlEntities(str: string): string {
+  return str
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'");
+}
+
+function getMetaTag(html: string, nameOrProperty: string): string {
+  const regexes = [
+    new RegExp(
+      `<meta\\s+[^>]*(?:property|name)=["']${nameOrProperty}["'][^>]*content=["']([^"']*)["']`,
+      "i"
+    ),
+    new RegExp(
+      `<meta\\s+[^>]*content=["']([^"']*)["'][^>]*(?:property|name)=["']${nameOrProperty}["']`,
+      "i"
+    ),
+  ];
+  for (const regex of regexes) {
+    const match = html.match(regex);
+    if (match) return decodeHtmlEntities(match[1].trim());
+  }
+  return "";
+}
+
+function getTitleTag(html: string): string {
+  const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  return match ? decodeHtmlEntities(match[1].trim()) : "";
+}
+
+function getAmazonLandingImage(html: string): string {
+  const imgRegex = /<img\s+[^>]*id=["']landingImage["'][^>]*>/i;
+  const match = html.match(imgRegex);
+  if (match) {
+    const tag = match[0];
+    const hiresMatch = tag.match(/data-old-hires=["']([^"']*)["']/i);
+    if (hiresMatch && hiresMatch[1]) return hiresMatch[1].trim();
+
+    const srcMatch = tag.match(/src=["']([^"']*)["']/i);
+    if (srcMatch && srcMatch[1]) return srcMatch[1].trim();
+  }
+  return "";
 }

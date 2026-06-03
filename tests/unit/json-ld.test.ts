@@ -130,6 +130,50 @@ describe("extractJsonLd - Mock tests", () => {
     expect(product!.name).toBe("Graph Product");
     expect(product!.entityId).toBe("sku:GRAPH-123");
   });
+
+  it("falls back to Open Graph/Meta tags if no JSON-LD is present", () => {
+    const html = `
+      <html>
+        <head>
+          <meta property="og:title" content="Open Graph Product" />
+          <meta property="og:image" content="https://example.com/og-image.jpg" />
+          <meta name="description" content="Open Graph Description" />
+          <meta property="og:site_name" content="OG Brand" />
+        </head>
+      </html>
+    `;
+
+    const product = extractJsonLd(html, "https://example.com/products/og");
+    expect(product).not.toBeNull();
+    expect(product!.name).toBe("Open Graph Product");
+    expect(product!.image).toBe("https://example.com/og-image.jpg");
+    expect(product!.description).toBe("Open Graph Description");
+    expect(product!.brand).toBe("OG Brand");
+    expect(product!.entityId).toBe("url:92z9lq");
+  });
+
+  it("extracts Amazon-specific landing image and title fallback", () => {
+    const html = `
+      <html>
+        <head>
+          <title>Amazon Product &amp; Stuff</title>
+          <meta name="description" content="Product Description" />
+        </head>
+        <body>
+          <img id="landingImage" src="https://m.media-amazon.com/images/I/image_low.jpg" data-old-hires="https://m.media-amazon.com/images/I/image_high.jpg" />
+        </body>
+      </html>
+    `;
+
+    const product = extractJsonLd(html, "https://amazon.es/dp/B0GY7PR6NK");
+    expect(product).not.toBeNull();
+    expect(product!.name).toBe("Amazon Product & Stuff");
+    expect(product!.image).toBe(
+      "https://m.media-amazon.com/images/I/image_high.jpg"
+    );
+    expect(product!.description).toBe("Product Description");
+    expect(product!.entityId).toBe("url:n6lfhz");
+  });
 });
 
 describe("extractJsonLd - Real e-commerce URLs", () => {
