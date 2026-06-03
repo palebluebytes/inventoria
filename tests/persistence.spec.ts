@@ -17,8 +17,8 @@ test("OPFS Persistence Test survival across page reload", async ({ page }) => {
   // Navigate to root
   await page.goto("/");
 
-  // Switch to the Dev tab so harness elements become visible
-  await page.locator(".nav-item", { hasText: "Dev" }).click();
+  // Switch to the Settings tab so harness elements become visible
+  await page.locator(".nav-item", { hasText: "Settings" }).click();
 
   // Wait for the DB connection to be fully ready
   await page.waitForFunction(

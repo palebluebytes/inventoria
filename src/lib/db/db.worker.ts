@@ -129,6 +129,31 @@ self.onmessage = async (event: MessageEvent) => {
         type: "broadcast_invalidation",
         payload: { attributes },
       });
+    } else if (type === "clear") {
+      if (!db) {
+        throw new Error("Database not initialized. Please call 'init' first.");
+      }
+      db.exec("DROP TABLE IF EXISTS datoms;");
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS datoms (
+          entity TEXT NOT NULL,
+          attribute TEXT NOT NULL,
+          value TEXT NOT NULL,
+          time INTEGER NOT NULL,
+          PRIMARY KEY (entity, attribute, time)
+        ) WITHOUT ROWID;
+      `);
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_eav ON datoms (entity, attribute, time);
+      `);
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_ave ON datoms (attribute, value, entity);
+      `);
+      self.postMessage({ id, status: "ok" });
+      self.postMessage({
+        type: "broadcast_invalidation",
+        payload: { attributes: [] },
+      });
     } else {
       throw new Error(`Unsupported message type: ${type}`);
     }

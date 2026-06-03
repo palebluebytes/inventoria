@@ -285,6 +285,18 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     );
   }
 
+  async function setupApiKeys(page: import("@playwright/test").Page) {
+    await page.locator(".nav-item", { hasText: "Settings" }).click();
+    await page.locator("#usda-api-key").fill("test-usda-key");
+    await page.locator("#tmdb-api-key").fill("test-tmdb-key");
+    await page.locator("#scraper-proxy-url").fill("/api/proxy?url=");
+    await page
+      .locator("button[type='submit']", { hasText: "Save Settings" })
+      .click();
+    await expect(page.locator(".saved-badge")).toBeVisible();
+    await page.locator(".nav-item", { hasText: "Food Twins" }).click();
+  }
+
   test("loads the calorie tracker dashboard with initial empty target progress", async ({
     page,
   }) => {
@@ -308,6 +320,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   }) => {
     await page.goto("/");
     await waitForDbReady(page);
+    await setupApiKeys(page);
 
     // Open logging menu for Breakfast
     await page.locator("button", { hasText: "+ Add breakfast" }).click();
@@ -386,6 +399,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   }) => {
     await page.goto("/");
     await waitForDbReady(page);
+    await setupApiKeys(page);
 
     // Open logging menu for Dinner
     await page.locator("button", { hasText: "+ Add dinner" }).click();
@@ -444,6 +458,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   }) => {
     await page.goto("/");
     await waitForDbReady(page);
+    await setupApiKeys(page);
 
     // Open logging menu for Dinner
     await page.locator("button", { hasText: "+ Add dinner" }).click();

@@ -5,8 +5,7 @@
   import FoodView from "./lib/views/FoodView.svelte";
   import MediaView from "./lib/views/MediaView.svelte";
   import HabitsView from "./lib/views/HabitsView.svelte";
-  import LedgerView from "./lib/views/LedgerView.svelte";
-  import DevView from "./lib/views/DevView.svelte";
+  import SettingsView from "./lib/views/SettingsView.svelte";
   import ItemsView from "./lib/views/ItemsView.svelte";
   import ReloadPrompt from "./lib/ui/ReloadPrompt.svelte";
 
@@ -15,6 +14,9 @@
   let dbError = $state("");
 
   onMount(async () => {
+    if (typeof window !== "undefined") {
+      (window as any).dbClient = dbClient;
+    }
     try {
       await dbClient.init("/inventoria.db");
       dbReady = true;
@@ -33,7 +35,7 @@
   });
 
   // ── Navigation ───────────────────────────────────────────────────────────
-  type Tab = "food" | "habits" | "ledger" | "dev" | "media" | "items";
+  type Tab = "food" | "habits" | "media" | "items" | "settings";
   let activeTab = $state<Tab>("food");
 </script>
 
@@ -65,13 +67,9 @@
       <HabitsView {dbReady} />
     {/if}
 
-    {#if activeTab === "ledger"}
-      <LedgerView />
-    {/if}
-
-    <!-- Dev — always rendered so Playwright can find the harness elements -->
-    <div hidden={activeTab !== "dev"}>
-      <DevView {dbReady} />
+    <!-- Settings — always rendered so Playwright can find the harness elements -->
+    <div hidden={activeTab !== "settings"}>
+      <SettingsView {dbReady} />
     </div>
   </main>
 

@@ -59,6 +59,16 @@ test("Physical Digital Twins UI - manual create, scrape, status toggling, and we
     { timeout: 10000 }
   );
 
+  // Switch to Settings tab and set credentials
+  await page.locator(".nav-item", { hasText: "Settings" }).click();
+  await page.locator("#usda-api-key").fill("test-usda-key");
+  await page.locator("#tmdb-api-key").fill("test-tmdb-key");
+  await page.locator("#scraper-proxy-url").fill("/api/proxy?url=");
+  await page
+    .locator("button[type='submit']", { hasText: "Save Settings" })
+    .click();
+  await expect(page.locator(".saved-badge")).toBeVisible();
+
   // Click on the Items tab in Sidebar
   await page.locator(".nav-item", { hasText: "Items" }).click();
 

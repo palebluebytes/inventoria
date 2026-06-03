@@ -7,6 +7,7 @@
     lookupTmdbTv,
   } from "../../media/tmdb";
   import { saveMediaTwin } from "../../stores/media.store";
+  import { settingsStore } from "../../stores/settings.store";
   import Button from "../../ui/Button.svelte";
   import Alert from "../../ui/Alert.svelte";
 
@@ -128,11 +129,22 @@
       <button class="close-btn" onclick={onClose}>&times;</button>
     </div>
 
+    {#if initialType !== "book" && !$settingsStore.tmdb_api_key}
+      <div class="mt-4">
+        <Alert variant="warning">
+          TMDB API key is not configured. Please set your key in Settings to
+          search and ingest Movie/TV twins.
+        </Alert>
+      </div>
+    {/if}
+
     <form
       class="search-form mt-4"
       onsubmit={(e) => {
         e.preventDefault();
-        handleSearch();
+        if (initialType === "book" || $settingsStore.tmdb_api_key) {
+          handleSearch();
+        }
       }}
     >
       <input
@@ -141,8 +153,14 @@
         placeholder="Search title, author or keywords..."
         bind:value={searchQuery}
         class="retro-input flex-1"
+        disabled={initialType !== "book" && !$settingsStore.tmdb_api_key}
       />
-      <Button type="submit" loading={isSearching}>Search</Button>
+      <Button
+        type="submit"
+        loading={isSearching}
+        disabled={initialType !== "book" && !$settingsStore.tmdb_api_key}
+        >Search</Button
+      >
     </form>
 
     {#if initialType === "book"}

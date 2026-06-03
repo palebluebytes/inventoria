@@ -1,3 +1,10 @@
+import { settingsStore } from "../stores/settings.store";
+
+let activeProxyUrl = "";
+settingsStore.subscribe(($settings) => {
+  activeProxyUrl = $settings.scraper_proxy_url;
+});
+
 /**
  * Fetches HTML from a URL, automatically routing through a CORS proxy if in a browser environment.
  */
@@ -5,16 +12,13 @@ export async function fetchHtml(url: string): Promise<string> {
   const isBrowser = typeof window !== "undefined";
   let targetUrl = url;
 
-  let customProxyUsed = false;
   if (isBrowser) {
-    const customProxy = import.meta.env.VITE_SCRAPER_PROXY_URL;
-    if (customProxy) {
-      targetUrl = `${customProxy}${encodeURIComponent(url)}`;
-      customProxyUsed = true;
-    } else {
-      // In browser, route through corsproxy.io to avoid CORS blocks
-      targetUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+    if (!activeProxyUrl) {
+      throw new Error(
+        "Scraper proxy URL is not configured. Please set it in Settings."
+      );
     }
+    targetUrl = `${activeProxyUrl}${encodeURIComponent(url)}`;
   }
 
   let response: Response;
@@ -26,25 +30,7 @@ export async function fetchHtml(url: string): Promise<string> {
       },
     });
   } catch (err) {
-    if (customProxyUsed) {
-      console.warn(
-        "Custom proxy failed to connect, falling back to corsproxy.io:",
-        err
-      );
-      const fallbackUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-      try {
-        response = await fetch(fallbackUrl, {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          },
-        });
-      } catch (fallbackErr) {
-        throw new Error("Failed to connect to the scraping proxy.");
-      }
-    } else {
-      throw new Error("Failed to connect to the scraping proxy.");
-    }
+    throw new Error("Failed to connect to the scraping proxy.");
   }
 
   const text = await response.text();
@@ -87,11 +73,10 @@ export function getProxyImageUrl(imageUrl: string | undefined): string {
     return imageUrl;
   }
 
-  const customProxy = import.meta.env.VITE_SCRAPER_PROXY_URL;
-  if (customProxy) {
-    return `${customProxy}${encodeURIComponent(imageUrl)}`;
+  if (activeProxyUrl) {
+    return `${activeProxyUrl}${encodeURIComponent(imageUrl)}`;
   }
 
-  // Fallback to corsproxy.io (which appends Access-Control-Allow-Origin: *)
-  return `https://corsproxy.io/?${encodeURIComponent(imageUrl)}`;
+  // Without a proxy configured, return raw image URL (corsproxy.io is completely removed)
+  return imageUrl;
 }

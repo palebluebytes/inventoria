@@ -1,4 +1,10 @@
 import type { EntityPayload } from "../ingestion/ingest";
+import { settingsStore } from "../stores/settings.store";
+
+let activeApiKey = "";
+settingsStore.subscribe(($settings) => {
+  activeApiKey = $settings.usda_api_key;
+});
 
 // ---------------------------------------------------------------------------
 // Types
@@ -78,8 +84,11 @@ const FDC_BASE = "https://api.nal.usda.gov/fdc/v1/foods/search";
  */
 export async function searchFdc(
   query: string,
-  apiKey: string = (import.meta.env?.VITE_USDA_FDC_API_KEY as string) ?? ""
+  apiKey: string = activeApiKey
 ): Promise<EntityPayload[]> {
+  if (!apiKey) {
+    throw new Error("USDA API Key is not configured.");
+  }
   const url = `${FDC_BASE}?query=${encodeURIComponent(query)}&dataType=Foundation,SR%20Legacy&api_key=${apiKey}`;
   const res = await fetch(url);
   const data: { foods: FdcFood[] } = await res.json();

@@ -29,10 +29,10 @@ test.describe("Reactive store — live updates without page reload", () => {
     await page.goto("/");
     await waitForDbReady(page);
 
-    // Inject a food twin via the already-initialised dbClient singleton
+    // Inject a food twin via the already-initialised dbClient singleton on window
     await page.evaluate(async () => {
-      const { dbClient } = await import("/src/lib/db/db.client.ts");
-      await dbClient.append([
+      const client = (window as any).dbClient;
+      await client.append([
         {
           entity: "gtin:e2e_test_food",
           attribute: "food/name",
@@ -43,8 +43,8 @@ test.describe("Reactive store — live updates without page reload", () => {
     });
 
     const rows = await page.evaluate(async () => {
-      const { dbClient } = await import("/src/lib/db/db.client.ts");
-      return dbClient.query(
+      const client = (window as any).dbClient;
+      return client.query(
         "SELECT entity, attribute, value FROM datoms WHERE entity = 'gtin:e2e_test_food'"
       );
     });
@@ -60,20 +60,20 @@ test.describe("Reactive store — live updates without page reload", () => {
     await waitForDbReady(page);
 
     const eventEntity = await page.evaluate(async () => {
-      const { dbClient } = await import("/src/lib/db/db.client.ts");
+      const client = (window as any).dbClient;
       const { logExecution } = await import("/src/lib/habits/habits.ts");
       const datoms = logExecution(
         "habit:swing_01",
         "twin:kettlebell_16kg",
         Date.now()
       );
-      await dbClient.append(datoms);
+      await client.append(datoms);
       return datoms[0].entity;
     });
 
     const rows = await page.evaluate(async (entityId) => {
-      const { dbClient } = await import("/src/lib/db/db.client.ts");
-      return dbClient.query(
+      const client = (window as any).dbClient;
+      return client.query(
         "SELECT attribute, value FROM datoms WHERE entity = ? AND attribute = 'event/type'",
         [entityId]
       );

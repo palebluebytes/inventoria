@@ -7,6 +7,7 @@
   import { searchFdc } from "../../food/usda-fdc";
   import { ingestEntity } from "../../ingestion/ingest";
   import { saveRecipe, logFoodConsumption } from "../../stores/calorie.store";
+  import { settingsStore } from "../../stores/settings.store";
 
   import Button from "../../ui/Button.svelte";
   import Input from "../../ui/Input.svelte";
@@ -456,16 +457,29 @@
 
         <div class="search-section mt-4">
           {#if searchTab === "usda"}
+            {#if !$settingsStore.usda_api_key}
+              <div class="mb-4">
+                <Alert variant="warning">
+                  USDA API key is not configured. Please set your key in
+                  Settings to search the USDA database.
+                </Alert>
+              </div>
+            {/if}
             <div class="input-row">
               <Input
                 id="recipe-usda-input"
                 placeholder="Search ingredient (e.g. banana, oats...)"
                 bind:value={query}
-                onkeydown={(e) => e.key === "Enter" && handleUsdaSearch()}
+                onkeydown={(e) =>
+                  e.key === "Enter" &&
+                  $settingsStore.usda_api_key &&
+                  handleUsdaSearch()}
+                disabled={!$settingsStore.usda_api_key}
               />
               <Button
                 onclick={handleUsdaSearch}
-                disabled={searchStatus === "loading"}
+                disabled={searchStatus === "loading" ||
+                  !$settingsStore.usda_api_key}
                 loading={searchStatus === "loading"}
               >
                 Search

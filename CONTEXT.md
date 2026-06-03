@@ -16,16 +16,20 @@ _Avoid_: Relational database, mutable table, state table
 A virtual representation of a physical or distinct external item, tracked via static or slowly-changing attributes derived from external databases (e.g. Open Food Facts for food, TMDB for media).
 _Avoid_: Product, item, asset
 
+**Habit Lineage**:
+A conceptual continuous habit that spans multiple immutable Habit Blueprints linked together chronologically.
+_Avoid_: Habit history, habit chain
+
 **Habit Blueprint**:
-A definition profile establishing goals, schedules, and instrument requirements for a tracked behavior.
+A strictly immutable definition profile establishing goals, schedules, and instrument requirements for a tracked behavior. Changes to a schedule create a new Blueprint in the Lineage.
 _Avoid_: Routine, habit definition, plan
 
 **Execution Event**:
-A logged instance of a behavior or habit completion recorded as a timestamped action in the ledger.
+A logged instance of a behavior or habit completion recorded as a timestamped action in the ledger. Qualitative and quantitative metrics are stored as a flexible JSON blob.
 _Avoid_: Activity log, workout record, check-in
 
 **Consumption Event**:
-A logged instance of a digital twin or recipe intake recorded as a timestamped action in the ledger.
+A logged instance of a digital twin or recipe intake recorded as a timestamped action in the ledger. Nutritional metrics are stored as a flexible JSON blob.
 _Avoid_: Food log, meal record
 
 **Meal Type**:

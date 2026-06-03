@@ -96,6 +96,13 @@ class DBClient {
   }
 
   /**
+   * Clears all data from the ledger by dropping and recreating the datoms table.
+   */
+  async clear(): Promise<void> {
+    return this.send<void>("clear", {});
+  }
+
+  /**
    * Sends a typed message to the worker and returns a Promise.
    */
   private send<T>(type: string, payload: any): Promise<T> {

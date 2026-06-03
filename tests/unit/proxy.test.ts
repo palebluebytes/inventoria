@@ -1,4 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+
+// Use vi.hoisted to declare and initialize mockSettings before vi.mock executes
+const { mockSettings } = vi.hoisted(() => {
+  const { writable } = require("svelte/store");
+  return {
+    mockSettings: writable({
+      usda_api_key: "",
+      tmdb_api_key: "",
+      scraper_proxy_url: "",
+    }),
+  };
+});
+
+vi.mock("../../src/lib/stores/settings.store", () => ({
+  settingsStore: mockSettings,
+}));
+
 import { fetchHtml, getProxyImageUrl } from "../../src/lib/ingestion/fetcher";
 
 // Helper to mimic worker regex behavior
@@ -60,9 +77,34 @@ describe("Worker HTML regex cleanup", () => {
 describe("fetchHtml Proxy Error handling", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    // Default to a configured proxy url for fetchHtml success/error path testing
+    mockSettings.set({
+      usda_api_key: "test-usda-key",
+      tmdb_api_key: "test-tmdb-key",
+      scraper_proxy_url: "https://my-proxy.com/?url=",
+    });
+  });
+
+  it("throws configuration error if proxy is empty in browser", async () => {
+    // Set proxy URL to empty
+    mockSettings.set({
+      usda_api_key: "test-usda-key",
+      tmdb_api_key: "test-tmdb-key",
+      scraper_proxy_url: "",
+    });
+
+    // Mock window to simulate browser environment
+    vi.stubGlobal("window", {});
+
+    await expect(fetchHtml("https://example.com/blocked")).rejects.toThrow(
+      "Scraper proxy URL is not configured. Please set it in Settings."
+    );
+
+    vi.unstubAllGlobals();
   });
 
   it("translates 413 or payload messages into friendly error message", async () => {
+    vi.stubGlobal("window", {});
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: false,
       status: 413,
@@ -73,9 +115,11 @@ describe("fetchHtml Proxy Error handling", () => {
     await expect(fetchHtml("https://example.com/huge")).rejects.toThrow(
       "The product page is too large for the current proxy limit (1MB)."
     );
+    vi.unstubAllGlobals();
   });
 
   it("translates 403 or 503 bot blocks into friendly error message", async () => {
+    vi.stubGlobal("window", {});
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: false,
       status: 503,
@@ -86,6 +130,7 @@ describe("fetchHtml Proxy Error handling", () => {
     await expect(fetchHtml("https://example.com/blocked")).rejects.toThrow(
       "The target e-commerce site blocked the scraper connection."
     );
+    vi.unstubAllGlobals();
   });
 });
 
@@ -105,17 +150,27 @@ describe("getProxyImageUrl utility", () => {
     );
   });
 
-  it("prefixes cross-origin URLs with the scraper proxy URL from environment if present", () => {
-    // Vite defines import.meta.env, which vitest supports. Let's mock it if needed or test with current value
-    const expectedPrefix = import.meta.env.VITE_SCRAPER_PROXY_URL;
-    if (expectedPrefix) {
-      expect(getProxyImageUrl("https://example.com/img.jpg")).toBe(
-        `${expectedPrefix}${encodeURIComponent("https://example.com/img.jpg")}`
-      );
-    } else {
-      expect(getProxyImageUrl("https://example.com/img.jpg")).toBe(
-        `https://corsproxy.io/?${encodeURIComponent("https://example.com/img.jpg")}`
-      );
-    }
+  it("prefixes cross-origin URLs with the scraper proxy URL if configured", () => {
+    mockSettings.set({
+      usda_api_key: "test-usda-key",
+      tmdb_api_key: "test-tmdb-key",
+      scraper_proxy_url: "https://my-custom-proxy.com/?u=",
+    });
+
+    expect(getProxyImageUrl("https://example.com/img.jpg")).toBe(
+      `https://my-custom-proxy.com/?u=${encodeURIComponent("https://example.com/img.jpg")}`
+    );
+  });
+
+  it("returns raw cross-origin URLs as-is if no proxy is configured", () => {
+    mockSettings.set({
+      usda_api_key: "test-usda-key",
+      tmdb_api_key: "test-tmdb-key",
+      scraper_proxy_url: "",
+    });
+
+    expect(getProxyImageUrl("https://example.com/img.jpg")).toBe(
+      "https://example.com/img.jpg"
+    );
   });
 });

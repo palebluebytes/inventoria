@@ -7,6 +7,7 @@
   } from "../../food/open-food-facts";
   import { searchFdc } from "../../food/usda-fdc";
   import { ingestEntity } from "../../ingestion/ingest";
+  import { settingsStore } from "../../stores/settings.store";
   import {
     logFoodConsumption,
     getLocalFoodTwin,
@@ -372,16 +373,30 @@
       <!-- Search fields -->
       <div class="search-section mt-4">
         {#if activeTab === "usda"}
+          {#if !$settingsStore.usda_api_key}
+            <div class="mb-4">
+              <Alert variant="warning">
+                USDA API key is not configured. Please set your key in Settings
+                to search the USDA database.
+              </Alert>
+            </div>
+          {/if}
           <div class="input-row">
             <Input
               id="usda-modal-input"
               placeholder="Search food by name (e.g. banana, oats...)"
               bind:value={query}
-              onkeydown={(e) => e.key === "Enter" && handleUsdaSearch()}
+              onkeydown={(e) =>
+                e.key === "Enter" &&
+                $settingsStore.usda_api_key &&
+                handleUsdaSearch()}
+              disabled={!$settingsStore.usda_api_key}
             />
             <Button
               onclick={handleUsdaSearch}
-              disabled={searchStatus === "loading" || !dbReady}
+              disabled={searchStatus === "loading" ||
+                !dbReady ||
+                !$settingsStore.usda_api_key}
               loading={searchStatus === "loading"}
             >
               Search
