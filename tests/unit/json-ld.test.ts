@@ -191,6 +191,25 @@ describe("extractJsonLd - Mock tests", () => {
       expect(product!.entityId).toBe("asin:B0GY7PR6NK");
     }
   });
+
+  it("normalizes standard URLs by stripping query parameters and hashes before hashing", () => {
+    const html = `<html><head><title>Test Product</title></head></html>`;
+
+    const urlClean = "https://blenheimforge.co.uk/product/santoku/";
+    const urlWithParams =
+      "https://blenheimforge.co.uk/product/santoku/?utm_source=ref&discount=10#specifications";
+
+    const productClean = extractJsonLd(html, urlClean);
+    const productParams = extractJsonLd(html, urlWithParams);
+
+    expect(productClean).not.toBeNull();
+    expect(productParams).not.toBeNull();
+
+    // They must have the exact same entityId since the query parameters and hashes are stripped before generating simpleHash
+    expect(productClean!.entityId).toBe(productParams!.entityId);
+    expect(productClean!.entityId).not.toContain("?");
+    expect(productClean!.entityId).not.toContain("#");
+  });
 });
 
 describe("extractJsonLd - Real e-commerce URLs", () => {
