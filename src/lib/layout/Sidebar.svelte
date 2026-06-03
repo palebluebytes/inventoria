@@ -6,7 +6,7 @@
     dbReady,
     dbError,
   }: {
-    activeTab: "food" | "habits" | "ledger" | "dev" | "media";
+    activeTab: "food" | "habits" | "ledger" | "dev" | "media" | "items";
     dbReady: boolean;
     dbError: string;
   } = $props();
@@ -14,6 +14,7 @@
   const tabs = [
     { id: "food", icon: "🥦", label: "Food Twins" },
     { id: "media", icon: "🎬", label: "Media" },
+    { id: "items", icon: "📦", label: "Items" },
     { id: "habits", icon: "🔥", label: "Habits" },
     { id: "ledger", icon: "📒", label: "Ledger" },
     { id: "dev", icon: "🧪", label: "Dev" },

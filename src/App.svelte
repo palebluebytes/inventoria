@@ -7,6 +7,7 @@
   import HabitsView from "./lib/views/HabitsView.svelte";
   import LedgerView from "./lib/views/LedgerView.svelte";
   import DevView from "./lib/views/DevView.svelte";
+  import ItemsView from "./lib/views/ItemsView.svelte";
   import ReloadPrompt from "./lib/ui/ReloadPrompt.svelte";
 
   // ── DB init ──────────────────────────────────────────────────────────────
@@ -17,13 +18,22 @@
     try {
       await dbClient.init("/inventoria.db");
       dbReady = true;
+
+      // Handle Web Share Target redirection
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        const sharedUrl = params.get("url") || params.get("text") || "";
+        if (sharedUrl) {
+          activeTab = "items";
+        }
+      }
     } catch (e: any) {
       dbError = e.message ?? String(e);
     }
   });
 
   // ── Navigation ───────────────────────────────────────────────────────────
-  type Tab = "food" | "habits" | "ledger" | "dev" | "media";
+  type Tab = "food" | "habits" | "ledger" | "dev" | "media" | "items";
   let activeTab = $state<Tab>("food");
 </script>
 
@@ -45,6 +55,10 @@
 
     {#if activeTab === "media"}
       <MediaView {dbReady} />
+    {/if}
+
+    {#if activeTab === "items"}
+      <ItemsView {dbReady} />
     {/if}
 
     {#if activeTab === "habits"}
