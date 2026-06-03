@@ -7,6 +7,7 @@
   import HabitsView from "./lib/views/HabitsView.svelte";
   import LedgerView from "./lib/views/LedgerView.svelte";
   import DevView from "./lib/views/DevView.svelte";
+  import ReloadPrompt from "./lib/ui/ReloadPrompt.svelte";
 
   // ── DB init ──────────────────────────────────────────────────────────────
   let dbReady = $state(false);
@@ -59,6 +60,8 @@
       <DevView {dbReady} />
     </div>
   </main>
+
+  <ReloadPrompt />
 </div>
 
 <style>
