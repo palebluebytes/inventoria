@@ -35,3 +35,7 @@ _Avoid_: mealType, meal-type
 **Engagement Event**:
 A logged instance of watching a movie/show or reading a book, recorded as a timestamped action in the ledger linking to a media Digital Twin.
 _Avoid_: Consumption event (when referring to media), activity log
+
+**Acquisition Event**:
+A logged instance representing the ownership state of a physical Digital Twin, recorded as a timestamped action in the ledger with a status of either `owned` or `wanted`.
+_Avoid_: Ownership event, item status, inventory log
