@@ -1,0 +1,131 @@
+export interface ScrapedProduct {
+  entityId: string;
+  name: string;
+  image: string;
+  description: string;
+  brand: string;
+}
+
+export function extractJsonLd(
+  html: string,
+  pageUrl?: string
+): ScrapedProduct | null {
+  // Regex to extract application/ld+json contents
+  const scriptRegex =
+    /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let match;
+  const products: any[] = [];
+
+  while ((match = scriptRegex.exec(html)) !== null) {
+    try {
+      const parsed = JSON.parse(match[1].trim());
+      // The parsed JSON-LD could be a single object, an array of objects, or a graph
+      if (Array.isArray(parsed)) {
+        products.push(...parsed);
+      } else if (parsed["@graph"] && Array.isArray(parsed["@graph"])) {
+        products.push(...parsed["@graph"]);
+      } else {
+        products.push(parsed);
+      }
+    } catch (e) {
+      // Ignore syntax errors in individual JSON-LD blocks
+    }
+  }
+
+  // Find the first object that is a schema:Product (case insensitive comparison)
+  const productObj = products.find((obj) => {
+    if (!obj || typeof obj !== "object") return false;
+    const type = obj["@type"];
+    if (Array.isArray(type)) {
+      return type.some((t) => String(t).toLowerCase() === "product");
+    }
+    return String(type).toLowerCase() === "product";
+  });
+
+  if (!productObj) {
+    return null;
+  }
+
+  // Determine the identifier based on priority:
+  // 1. DPP standard URI: @id if it starts with "did:" or "gs1:"
+  // 2. Legacy barcode/sku: gtin13, gtin8, gtin12, gtin14, isbn, sku, mpn
+  // 3. Fallback: url hash
+  let entityId = "";
+
+  const atId = productObj["@id"];
+  if (
+    typeof atId === "string" &&
+    (atId.startsWith("did:") || atId.startsWith("gs1:"))
+  ) {
+    entityId = atId;
+  } else {
+    const rawGtin =
+      productObj.gtin13 ||
+      productObj.gtin ||
+      productObj.gtin8 ||
+      productObj.gtin12 ||
+      productObj.gtin14;
+    if (rawGtin) {
+      entityId = `gtin:${String(rawGtin).trim()}`;
+    } else if (productObj.isbn) {
+      entityId = `isbn:${String(productObj.isbn).trim()}`;
+    } else if (productObj.sku) {
+      entityId = `sku:${String(productObj.sku).trim()}`;
+    } else if (productObj.mpn) {
+      entityId = `sku:${String(productObj.mpn).trim()}`;
+    } else if (pageUrl) {
+      entityId = `url:${simpleHash(pageUrl)}`;
+    } else {
+      entityId = `url:temp_${Date.now()}`;
+    }
+  }
+
+  // Extract name
+  const name = String(productObj.name || "").trim();
+
+  // Extract image
+  let image = "";
+  if (productObj.image) {
+    if (typeof productObj.image === "string") {
+      image = productObj.image;
+    } else if (Array.isArray(productObj.image) && productObj.image.length > 0) {
+      image =
+        typeof productObj.image[0] === "string"
+          ? productObj.image[0]
+          : productObj.image[0].url || "";
+    } else if (typeof productObj.image === "object") {
+      image = productObj.image.url || "";
+    }
+  }
+
+  // Extract description
+  const description = String(productObj.description || "").trim();
+
+  // Extract brand
+  let brand = "";
+  if (productObj.brand) {
+    if (typeof productObj.brand === "string") {
+      brand = productObj.brand;
+    } else if (typeof productObj.brand === "object") {
+      brand = productObj.brand.name || "";
+    }
+  }
+
+  return {
+    entityId,
+    name,
+    image,
+    description,
+    brand,
+  };
+}
+
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash |= 0; // Convert to 32bit integer
+  }
+  return Math.abs(hash).toString(36);
+}
