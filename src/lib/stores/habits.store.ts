@@ -2,17 +2,17 @@ import { readable, type Readable } from "svelte/store";
 import { dbClient, type Datom } from "../db/db.client";
 import { ingestEntity } from "../ingestion/ingest";
 import {
-  logExecution,
+  logExecution as rawLogExecution,
   computeHabitScore,
   computeStreak,
+  type ScheduleRule,
 } from "../habits/habits";
 
 export interface HabitBlueprint {
   entity: string;
   name: string;
   category: string;
-  schedule_type: "daily" | "weekly";
-  schedule_value: number;
+  schedule_rules: ScheduleRule;
   status: "active" | "archived";
   replaces?: string;
   time: number;
@@ -23,7 +23,8 @@ export interface ExecutionEvent {
   entity: string;
   type: string;
   target: string;
-  status: string;
+  status: "completed" | "exempt";
+  target_id?: string;
   time: number;
   instrument_used?: string;
   metadata?: {
@@ -94,17 +95,35 @@ function createHabitsStore() {
 
         const allBlueprints: HabitBlueprint[] = Array.from(
           blueprintsMap.values()
-        ).map((bp) => ({
-          entity: bp.entity,
-          name: bp.name || "",
-          category: bp.category || "Fitness",
-          schedule_type: bp.schedule_type || "daily",
-          schedule_value: bp.schedule_value ? Number(bp.schedule_value) : 1,
-          status: bp.status || "active",
-          replaces: bp.replaces || undefined,
-          time: bp.time,
-          instrument: bp.instrument || undefined,
-        }));
+        ).map((bp) => {
+          let rules: ScheduleRule = { type: "daily_multiple", count: 1 };
+          if (bp.schedule_rules) {
+            rules =
+              typeof bp.schedule_rules === "string"
+                ? JSON.parse(bp.schedule_rules)
+                : bp.schedule_rules;
+          } else if (bp.schedule_type) {
+            // Fallback for legacy
+            if (bp.schedule_type === "weekly") {
+              rules = {
+                type: "weekly_flexible",
+                count: bp.schedule_value ? Number(bp.schedule_value) : 1,
+              };
+            } else {
+              rules = { type: "daily_multiple", count: 1 };
+            }
+          }
+          return {
+            entity: bp.entity,
+            name: bp.name || "",
+            category: bp.category || "Fitness",
+            schedule_rules: rules,
+            status: bp.status || "active",
+            replaces: bp.replaces || undefined,
+            time: bp.time,
+            instrument: bp.instrument || undefined,
+          };
+        });
 
         // Group execution datoms by event entity
         const execsMap = new Map<string, any>();
@@ -132,6 +151,7 @@ function createHabitsStore() {
             type: ev.type || "ExerciseAction",
             target: ev.target || "",
             status: ev.status || "completed",
+            target_id: ev.target_id || undefined,
             time: ev.time,
             instrument_used: ev.instrument_used || undefined,
             metadata: ev.metadata || undefined,
@@ -176,7 +196,7 @@ function createHabitsStore() {
           );
 
           const score = computeHabitScore(chain, chainExecs);
-          const streak = computeStreak(chainExecs);
+          const streak = computeStreak(chainExecs, chain);
 
           lineages.push({
             head,
@@ -211,8 +231,7 @@ function createHabitsStore() {
     async createHabit(
       name: string,
       category: string,
-      schedule_type: "daily" | "weekly",
-      schedule_value: number,
+      schedule_rules: ScheduleRule,
       instrument: string
     ) {
       const now = Date.now();
@@ -224,8 +243,7 @@ function createHabitsStore() {
         attributes: {
           "habit/name": name.trim(),
           "habit/category": category,
-          "habit/schedule_type": schedule_type,
-          "habit/schedule_value": schedule_value,
+          "habit/schedule_rules": JSON.stringify(schedule_rules),
           "habit/status": "active",
           ...(instrument.trim()
             ? { "habit/instrument": instrument.trim() }
@@ -242,8 +260,7 @@ function createHabitsStore() {
       oldEntity: HabitBlueprint,
       name: string,
       category: string,
-      schedule_type: "daily" | "weekly",
-      schedule_value: number,
+      schedule_rules: ScheduleRule,
       instrument: string
     ) {
       const now = Date.now();
@@ -267,8 +284,7 @@ function createHabitsStore() {
         attributes: {
           "habit/name": name.trim(),
           "habit/category": category,
-          "habit/schedule_type": schedule_type,
-          "habit/schedule_value": schedule_value,
+          "habit/schedule_rules": JSON.stringify(schedule_rules),
           "habit/status": "active",
           "habit/replaces": oldEntity.entity,
           ...(instrument.trim()
@@ -302,9 +318,17 @@ function createHabitsStore() {
         note?: string;
         difficulty?: "easy" | "medium" | "hard";
         duration?: number;
-      }
+      },
+      status: "completed" | "exempt" = "completed",
+      target_id?: string
     ) {
-      const datoms = logExecution(habitId, instrumentId, metadata);
+      const datoms = rawLogExecution(
+        habitId,
+        instrumentId,
+        metadata,
+        status,
+        target_id
+      );
       await dbClient.append(datoms);
     },
   };

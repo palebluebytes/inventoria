@@ -3,9 +3,34 @@ import type { Datom } from "../db/db.client";
 
 export type { EntityPayload };
 
+export interface DailyMultipleRule {
+  type: "daily_multiple";
+  count?: number;
+  targets?: { id: string; time_hint?: string }[];
+}
+
+export type DayOfWeek = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+
+export interface WeeklyDaysRule {
+  type: "weekly_days";
+  days: DayOfWeek[];
+}
+
+export interface WeeklyFlexibleRule {
+  type: "weekly_flexible";
+  count: number;
+}
+
+export type ScheduleRule =
+  | DailyMultipleRule
+  | WeeklyDaysRule
+  | WeeklyFlexibleRule;
+
 export interface ExecutionRow {
   time: number;
   target?: string;
+  status?: string;
+  target_id?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -30,11 +55,6 @@ export function ingestHabit(
 /**
  * Creates an immutable execution event record (ExerciseAction) referencing
  * a habit entity.
- *
- * @param habitId      - Entity ID of the habit blueprint (e.g. "habit:swing_01").
- * @param instrumentId - Entity ID of the instrument used (e.g. "twin:kettlebell_16kg").
- * @param metadata     - Optional rich metadata (note, difficulty, duration).
- * @param now          - Unix ms timestamp; defaults to Date.now().
  */
 export function logExecution(
   habitId: string,
@@ -44,6 +64,8 @@ export function logExecution(
     difficulty?: "easy" | "medium" | "hard";
     duration?: number;
   },
+  status: "completed" | "exempt" = "completed",
+  target_id?: string,
   now: number = Date.now()
 ): Datom[] {
   const eventId = `event:execute_${now}_${Math.random().toString(36).slice(2, 9)}`;
@@ -59,10 +81,19 @@ export function logExecution(
     {
       entity: eventId,
       attribute: "event/status",
-      value: "completed",
+      value: status,
       time: now,
     },
   ];
+
+  if (target_id) {
+    datoms.push({
+      entity: eventId,
+      attribute: "event/target_id",
+      value: target_id,
+      time: now,
+    });
+  }
 
   if (instrumentId) {
     datoms.push({
@@ -94,69 +125,35 @@ export function toUTCDateStr(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
-/**
- * Computes the current consecutive-day streak from an array of execution rows
- * ordered by time (most recent first or any order — the function sorts).
- *
- * Rules:
- * - If the most recent execution is not from today or yesterday, streak = 0.
- * - Counts consecutive distinct calendar days working backwards from the most
- *   recent execution.
- */
-export function computeStreak(rows: ExecutionRow[]): number {
-  if (rows.length === 0) return 0;
-
-  // Collect unique UTC date strings, sorted descending (newest first)
-  const uniqueDays = Array.from(
-    new Set(rows.map((r) => toUTCDateStr(r.time)))
-  ).sort((a, b) => (a > b ? -1 : 1));
-
-  const today = toUTCDateStr(Date.now());
-  const yesterday = toUTCDateStr(Date.now() - 86_400_000);
-
-  // Streak only counts if most recent execution is today or yesterday
-  if (uniqueDays[0] !== today && uniqueDays[0] !== yesterday) return 0;
-
-  let streak = 1;
-  for (let i = 1; i < uniqueDays.length; i++) {
-    // Compute expected previous day
-    const prev = new Date(uniqueDays[i - 1]);
-    prev.setUTCDate(prev.getUTCDate() - 1);
-    const expectedPrev = prev.toISOString().slice(0, 10);
-
-    if (uniqueDays[i] === expectedPrev) {
-      streak++;
-    } else {
-      break;
-    }
-  }
-
-  return streak;
+export interface DayState {
+  status: "completed" | "exempt" | "off" | "failed";
+  fraction: number;
+  blueprintId: string;
 }
 
-/**
- * Computes a habit strength score between 0.00 and 1.00 by walking the Habit Lineage.
- * Each completion grows strength; days without completions decay it.
- * Respects changing schedules across blueprints in the lineage.
- */
-export function computeHabitScore(
+export function getDailyLineageStates(
   lineageBlueprints: {
     entity: string;
     time: number;
-    schedule_type: string;
-    schedule_value?: number;
+    schedule_rules: string | object;
   }[],
-  executions: { time: number; target: string }[],
+  executions: {
+    time: number;
+    target: string;
+    status?: string;
+    target_id?: string;
+  }[],
   asOfTimestamp: number = Date.now()
-): number {
-  if (lineageBlueprints.length === 0) return 0;
+): Map<string, DayState> {
+  const states = new Map<string, DayState>();
+  if (lineageBlueprints.length === 0) return states;
 
-  // Sort blueprints chronologically by their time
+  // Sort blueprints chronologically
   const sortedBlueprints = [...lineageBlueprints].sort(
     (a, b) => a.time - b.time
   );
 
-  // The start timestamp is the minimum of the first blueprint's time or the first execution's time
+  // Determine start boundary
   let startMs = sortedBlueprints[0].time;
   if (executions.length > 0) {
     const firstExecTime = Math.min(...executions.map((e) => e.time));
@@ -165,65 +162,253 @@ export function computeHabitScore(
     }
   }
 
-  // Convert startMs and asOfTimestamp to calendar days (UTC to avoid timezone boundary shifts)
   const startDayStr = toUTCDateStr(startMs);
   const endDayStr = toUTCDateStr(asOfTimestamp);
 
   const startDay = new Date(startDayStr + "T00:00:00Z");
   const endDay = new Date(endDayStr + "T00:00:00Z");
 
-  // Create a set of execution dates for O(1) daily lookup
-  const execDates = new Set(executions.map((e) => toUTCDateStr(e.time)));
+  // Map executions by date
+  const execsByDate = new Map<string, typeof executions>();
+  for (const exec of executions) {
+    const dateStr = toUTCDateStr(exec.time);
+    if (!execsByDate.has(dateStr)) {
+      execsByDate.set(dateStr, []);
+    }
+    execsByDate.get(dateStr)!.push(exec);
+  }
 
-  // We also keep the actual execution timestamps for weekly rolling window calculations
-  const execTimestamps = executions.map((e) => e.time).sort((a, b) => a - b);
-
-  let score = 0;
-
-  // Iterate day by day from startDay to endDay
   const currentDay = new Date(startDay);
   while (currentDay <= endDay) {
     const currentMs = currentDay.getTime();
     const currentDayStr = toUTCDateStr(currentMs);
 
-    // Find the active blueprint on this day (the most recent blueprint that has time <= currentMs)
+    // Find active blueprint on this day
     let activeBlueprint = sortedBlueprints[0];
     for (const bp of sortedBlueprints) {
-      if (bp.time <= currentMs) {
+      if (bp.time <= currentMs + 86400000 - 1) {
         activeBlueprint = bp;
       } else {
         break;
       }
     }
 
-    const schedType = activeBlueprint.schedule_type || "daily";
-    const schedVal = activeBlueprint.schedule_value ?? 1;
-
-    let targetMet = false;
-
-    if (schedType === "daily") {
-      // Completed if there's an execution on this day
-      targetMet = execDates.has(currentDayStr);
-    } else if (schedType === "weekly") {
-      // Completed if there are at least schedVal executions in the rolling 7 days ending at currentMs (inclusive of current day's end)
-      const weekStartMs = currentMs - 6 * 24 * 60 * 60 * 1000;
-      const weekEndMs = currentMs + 24 * 60 * 60 * 1000 - 1; // end of current day
-
-      const countInWeek = execTimestamps.filter(
-        (t) => t >= weekStartMs && t <= weekEndMs
-      ).length;
-
-      targetMet = countInWeek >= Number(schedVal);
+    // Parse schedule rules
+    let rules: any = { type: "daily_multiple", count: 1 };
+    if (activeBlueprint.schedule_rules) {
+      rules =
+        typeof activeBlueprint.schedule_rules === "string"
+          ? JSON.parse(activeBlueprint.schedule_rules)
+          : activeBlueprint.schedule_rules;
     }
 
-    if (targetMet) {
-      score = score + (1 - score) * 0.15;
+    const dayExecs = dayExecsFiltered(dayExecsRaw(execsByDate, currentDayStr));
+    const hasExempt = dayExecsRaw(execsByDate, currentDayStr).some(
+      (e) => e.status === "exempt"
+    );
+
+    if (hasExempt) {
+      states.set(currentDayStr, {
+        status: "exempt",
+        fraction: 1.0,
+        blueprintId: activeBlueprint.entity,
+      });
     } else {
+      let status: DayState["status"] = "failed";
+      let fraction = 0;
+
+      if (rules.type === "daily_multiple") {
+        if (
+          rules.targets &&
+          Array.isArray(rules.targets) &&
+          rules.targets.length > 0
+        ) {
+          const completedTargets = new Set<string>();
+          for (const e of dayExecs) {
+            if (e.target_id) {
+              completedTargets.add(e.target_id);
+            }
+          }
+          let matched = 0;
+          for (const target of rules.targets) {
+            if (completedTargets.has(target.id)) {
+              matched++;
+            }
+          }
+          fraction = matched / rules.targets.length;
+          status = matched === rules.targets.length ? "completed" : "failed";
+        } else {
+          const requiredCount = rules.count ?? 1;
+          const completedCount = dayExecs.length;
+          fraction =
+            requiredCount > 0
+              ? Math.min(1.0, completedCount / requiredCount)
+              : 1.0;
+          status = completedCount >= requiredCount ? "completed" : "failed";
+        }
+      } else if (rules.type === "weekly_days") {
+        const daysOfWeek = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+        const dayStr = daysOfWeek[currentDay.getUTCDay()];
+        const scheduledDays = Array.isArray(rules.days)
+          ? rules.days.map((d: string) => d.toLowerCase())
+          : [];
+
+        if (scheduledDays.includes(dayStr)) {
+          const completedCount = dayExecs.length;
+          fraction = completedCount >= 1 ? 1.0 : 0.0;
+          status = completedCount >= 1 ? "completed" : "failed";
+        } else {
+          status = "off";
+          fraction = 1.0;
+        }
+      } else if (rules.type === "weekly_flexible") {
+        const requiredCount = rules.count ?? 1;
+        let completedDays = 0;
+
+        for (let offset = 0; offset < 7; offset++) {
+          const checkDay = new Date(currentMs - offset * 24 * 60 * 60 * 1000);
+          const checkDayStr = toUTCDateStr(checkDay.getTime());
+          const checkExecs = execsByDate.get(checkDayStr) || [];
+
+          const checkCompleted = checkExecs.some((e) => e.status !== "exempt");
+          const checkExempt = checkExecs.some((e) => e.status === "exempt");
+          if (checkCompleted || checkExempt) {
+            completedDays++;
+          }
+        }
+        fraction =
+          requiredCount > 0
+            ? Math.min(1.0, completedDays / requiredCount)
+            : 1.0;
+        status = completedDays >= requiredCount ? "completed" : "failed";
+      }
+
+      states.set(currentDayStr, {
+        status,
+        fraction,
+        blueprintId: activeBlueprint.entity,
+      });
+    }
+
+    currentDay.setUTCDate(currentDay.getUTCDate() + 1);
+  }
+
+  return states;
+}
+
+function dayExecsRaw(execsByDate: Map<string, any[]>, dateStr: string): any[] {
+  return execsByDate.get(dateStr) || [];
+}
+
+function dayExecsFiltered(rawExecs: any[]): any[] {
+  return rawExecs.filter((e) => e.status !== "exempt");
+}
+
+export function computeStreak(
+  executions: { time: number; status?: string; target_id?: string }[],
+  lineageBlueprints: {
+    entity: string;
+    time: number;
+    schedule_rules: string | object;
+  }[] = [],
+  asOfTimestamp: number = Date.now()
+): number {
+  let blueprints = [...lineageBlueprints];
+  if (blueprints.length === 0 && executions.length > 0) {
+    const earliest = Math.min(...executions.map((e) => e.time));
+    blueprints = [
+      {
+        entity: "legacy_habit",
+        time: earliest - 1000,
+        schedule_rules: { type: "daily_multiple", count: 1 },
+      },
+    ];
+  }
+
+  if (blueprints.length === 0) return 0;
+
+  const states = getDailyLineageStates(
+    blueprints,
+    executions as any,
+    asOfTimestamp
+  );
+  if (states.size === 0) return 0;
+
+  const todayStr = toUTCDateStr(asOfTimestamp);
+  const yesterdayStr = toUTCDateStr(asOfTimestamp - 86400000);
+
+  const sortedDays = Array.from(states.entries()).sort((a, b) =>
+    b[0].localeCompare(a[0])
+  );
+
+  let startIndex = -1;
+  const todayState = states.get(todayStr);
+  const yesterdayState = states.get(yesterdayStr);
+
+  if (
+    todayState &&
+    (todayState.status === "completed" ||
+      todayState.status === "exempt" ||
+      todayState.status === "off")
+  ) {
+    startIndex = 0;
+  } else if (
+    yesterdayState &&
+    (yesterdayState.status === "completed" ||
+      yesterdayState.status === "exempt" ||
+      yesterdayState.status === "off")
+  ) {
+    startIndex = sortedDays.findIndex((d) => d[0] === yesterdayStr);
+  }
+
+  if (startIndex === -1) return 0;
+
+  let streak = 0;
+  for (let i = startIndex; i < sortedDays.length; i++) {
+    const dayState = sortedDays[i][1];
+    if (dayState.status === "completed") {
+      streak++;
+    } else if (dayState.status === "exempt" || dayState.status === "off") {
+      continue;
+    } else {
+      break;
+    }
+  }
+
+  return streak;
+}
+
+export function computeHabitScore(
+  lineageBlueprints: {
+    entity: string;
+    time: number;
+    schedule_rules: string | object;
+  }[],
+  executions: {
+    time: number;
+    target: string;
+    status?: string;
+    target_id?: string;
+  }[],
+  asOfTimestamp: number = Date.now()
+): number {
+  if (lineageBlueprints.length === 0) return 0;
+  const states = getDailyLineageStates(
+    lineageBlueprints,
+    executions,
+    asOfTimestamp
+  );
+  if (states.size === 0) return 0;
+
+  const sortedStates = Array.from(states.values());
+
+  let score = 0;
+  for (const dayState of sortedStates) {
+    if (dayState.status === "completed") {
+      score = score + (1 - score) * 0.15;
+    } else if (dayState.status === "failed") {
       score = score * 0.85;
     }
-
-    // Move to next day (UTC)
-    currentDay.setUTCDate(currentDay.getUTCDate() + 1);
   }
 
   return Math.round(score * 100) / 100;

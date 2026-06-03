@@ -24,8 +24,16 @@ _Avoid_: Habit history, habit chain
 A strictly immutable definition profile establishing goals, schedules, and instrument requirements for a tracked behavior. Changes to a schedule create a new Blueprint in the Lineage.
 _Avoid_: Routine, habit definition, plan
 
+**Schedule Rule**:
+A flexible JSON definition on a Habit Blueprint describing its frequency and constraints. It can specify pure quantitative goals (e.g., 3 times daily) or strict temporal Sub-Targets (e.g., Morning, Afternoon, Evening).
+_Avoid_: Frequency, time settings, schedule values
+
+**Sub-Target**:
+A distinct, strictly identified temporal requirement within a Schedule Rule (e.g., "morning"). If a Habit Blueprint uses Sub-Targets, an Execution Event must explicitly fulfill one.
+_Avoid_: Time slot, session, checklist item
+
 **Execution Event**:
-A logged instance of a behavior or habit completion recorded as a timestamped action in the ledger. Qualitative and quantitative metrics are stored as a flexible JSON blob.
+A logged instance of a behavior or habit completion recorded as a timestamped action in the ledger. Qualitative and quantitative metrics are stored as a flexible JSON blob. It has a strict status of either `completed` or `exempt` (used to pause a streak gracefully without breaking it).
 _Avoid_: Activity log, workout record, check-in
 
 **Consumption Event**:
