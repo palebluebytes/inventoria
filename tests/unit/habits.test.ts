@@ -3,6 +3,7 @@ import {
   ingestHabit,
   logExecution,
   computeStreak,
+  computeHabitScore,
   type ExecutionRow,
 } from "../../src/lib/habits/habits";
 
@@ -122,5 +123,107 @@ describe("computeStreak", () => {
   it("returns 0 when most recent execution is more than 1 day ago", () => {
     const rows: ExecutionRow[] = [{ time: daysAgo(2) }];
     expect(computeStreak(rows)).toBe(0);
+  });
+});
+
+// ---- unit: computeHabitScore -----------------------------------------------
+
+describe("computeHabitScore", () => {
+  function daysAgo(n: number): number {
+    const d = new Date();
+    d.setUTCHours(12, 0, 0, 0);
+    d.setUTCDate(d.getUTCDate() - n);
+    return d.getTime();
+  }
+
+  it("returns 0 for empty blueprints", () => {
+    expect(computeHabitScore([], [])).toBe(0);
+  });
+
+  it("returns low score for a single execution on a daily habit", () => {
+    const blueprints = [
+      {
+        entity: "habit:1",
+        time: daysAgo(1),
+        schedule_type: "daily",
+      },
+    ];
+    const execs = [{ time: daysAgo(0), target: "habit:1" }];
+    const score = computeHabitScore(blueprints, execs, daysAgo(0));
+    expect(score).toBe(0.15); // first day score = 0.15
+  });
+
+  it("grows score with daily completions", () => {
+    const blueprints = [
+      {
+        entity: "habit:1",
+        time: daysAgo(3),
+        schedule_type: "daily",
+      },
+    ];
+    const execs = [
+      { time: daysAgo(3), target: "habit:1" },
+      { time: daysAgo(2), target: "habit:1" },
+      { time: daysAgo(1), target: "habit:1" },
+      { time: daysAgo(0), target: "habit:1" },
+    ];
+    const score = computeHabitScore(blueprints, execs, daysAgo(0));
+    // S0 = 0.15
+    // S1 = 0.15 + 0.85 * 0.15 = 0.2775
+    // S2 = 0.2775 + 0.7225 * 0.15 = 0.385875
+    // S3 = 0.385875 + 0.614125 * 0.15 = 0.47799375 -> 0.48
+    expect(score).toBe(0.48);
+  });
+
+  it("decays score when daily habit is missed", () => {
+    const blueprints = [
+      {
+        entity: "habit:1",
+        time: daysAgo(2),
+        schedule_type: "daily",
+      },
+    ];
+    const execs = [{ time: daysAgo(2), target: "habit:1" }]; // completed day 2, missed day 1 & day 0
+    const score = computeHabitScore(blueprints, execs, daysAgo(0));
+    // S_2 = 0.15
+    // S_1 = 0.15 * 0.85 = 0.1275
+    // S_0 = 0.1275 * 0.85 = 0.108375 -> 0.11
+    expect(score).toBe(0.11);
+  });
+
+  it("works with weekly habit rolling window target", () => {
+    const blueprints = [
+      {
+        entity: "habit:1",
+        time: daysAgo(7),
+        schedule_type: "weekly",
+        schedule_value: 3,
+      },
+    ];
+    // Executed 3 times inside the 7 days
+    const execs = [
+      { time: daysAgo(6), target: "habit:1" },
+      { time: daysAgo(4), target: "habit:1" },
+      { time: daysAgo(2), target: "habit:1" },
+    ];
+    const score = computeHabitScore(blueprints, execs, daysAgo(0));
+    // It should have grown on days because the rolling 7-day window had completions.
+    expect(score).toBeGreaterThan(0.2);
+  });
+});
+
+describe("logExecution with metadata", () => {
+  it("includes event/metadata datom when metadata is passed", () => {
+    const datoms = logExecution(
+      "habit:swing_01",
+      "twin:kettlebell_16kg",
+      { note: "Felt heavy", difficulty: "hard" },
+      9000
+    );
+    const metaDatom = datoms.find((d) => d.attribute === "event/metadata");
+    expect(metaDatom?.value).toEqual({
+      note: "Felt heavy",
+      difficulty: "hard",
+    });
   });
 });
