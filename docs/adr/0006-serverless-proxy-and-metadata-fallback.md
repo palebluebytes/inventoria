@@ -19,8 +19,9 @@ Inventoria allows users to input external URLs to automatically generate "Digita
 
 1. **Proxy Layer:** We deployed a lightweight Cloudflare Worker proxy (`worker/src/index.ts`). This worker mimics a standard desktop `User-Agent`, bypasses simple bot filters, and fetches the target HTML on the server.
 2. **Payload Pruning:** The Cloudflare Worker applies regular expressions to strip out heavy elements (`<style>`, `<svg>`, and non-JSON-LD `<script>`) before transmitting the HTML back to the client. This typically shrinks a 2.5MB payload down to under 100KB, easily bypassing payload limits.
-3. **Client-Side Fallback Parser:** We updated our ingestion pipeline (`src/lib/ingestion/json-ld.ts`) to fall back to `og:title`, `og:image`, and `description` meta tags when JSON-LD is missing. We also added Amazon-specific parsing logic to locate the high-resolution image (`<img id="landingImage">`).
-4. **ASIN Extraction & Normalization:** When processing Amazon URLs, the client extracts the 10-character Amazon Standard Identification Number (ASIN) from the URL path. This normalizes the `entityId` to `asin:ASIN` (instead of hashing the localized URL), allowing multiple regional or tracking-tagged links to resolve to the same canonical digital twin in the ledger.
+3. **Local Dev DevServer Middleware:** To ensure out-of-the-box local development compatibility (particularly under NixOS where Wrangler's precompiled `workerd` binary fails to run due to dynamic linking issues), we added `localScraperProxyPlugin` to `vite.config.ts`. This middleware mimics the Cloudflare Worker HTML cleanup logic directly inside the Vite Dev and Preview servers under the `/api/proxy` path, removing local external process dependencies (like `wrangler dev` and `concurrently`) during development.
+4. **Client-Side Fallback Parser:** We updated our ingestion pipeline (`src/lib/ingestion/json-ld.ts`) to fall back to `og:title`, `og:image`, and `description` meta tags when JSON-LD is missing. We also added Amazon-specific parsing logic to locate the high-resolution image (`<img id="landingImage">`).
+5. **ASIN Extraction & Normalization:** When processing Amazon URLs, the client extracts the 10-character Amazon Standard Identification Number (ASIN) from the URL path. This normalizes the `entityId` to `asin:ASIN` (instead of hashing the localized URL), allowing multiple regional or tracking-tagged links to resolve to the same canonical digital twin in the ledger.
 
 ## Note on Direct Device Scraping Issues & Future Alternatives
 
@@ -36,4 +37,5 @@ If a future requirement demands that scraping must execute entirely locally on t
 
 - Successfully stabilized e-commerce scraping, particularly for heavy and non-standard sites like Amazon.
 - Drastically reduced bandwidth consumption for the client.
-- Introduced a server-side dependency (Cloudflare Workers) into an otherwise local-first application logic loop.
+- Eliminated dev-time OS and platform binary compatibility issues (like NixOS dynamic linker error with Wrangler) by routing local development proxy requests through standard Node.js/Vite middleware.
+- Introduced a server-side dependency (Cloudflare Workers) only for production deployment, keeping local development completely self-contained.
