@@ -66,7 +66,7 @@ describe("Calorie Store Actions", () => {
       expect(mockAppend).toHaveBeenCalledTimes(1);
 
       const appendedDatoms = mockAppend.mock.calls[0][0];
-      expect(appendedDatoms.length).toBeGreaterThanOrEqual(8);
+      expect(appendedDatoms.length).toBeGreaterThanOrEqual(5);
 
       const typeDatom = appendedDatoms.find(
         (d) => d.attribute === "event/type"
@@ -88,10 +88,15 @@ describe("Calorie Store Actions", () => {
       );
       expect(meal_typeDatom?.value).toBe("breakfast");
 
-      const caloriesDatom = appendedDatoms.find(
-        (d) => d.attribute === "event/calories"
+      const metricsDatom = appendedDatoms.find(
+        (d) => d.attribute === "event/metrics"
       );
-      expect(caloriesDatom?.value).toBe(250);
+      expect(metricsDatom?.value).toEqual({
+        calories: 250,
+        protein: 5,
+        fat: 2,
+        carbs: 45,
+      });
     });
   });
 

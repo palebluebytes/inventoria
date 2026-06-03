@@ -36,14 +36,24 @@ export async function getEventsForDay(date: Date) {
       });
     }
     const event = eventsMap.get(row.entity);
-    let key = row.attribute.replace("event/", ""); // e.g. "target", "quantity", "calories"
+    let key = row.attribute.replace("event/", ""); // e.g. "target", "quantity", "metrics"
     let parsedValue;
     try {
       parsedValue = JSON.parse(row.value);
     } catch {
       parsedValue = row.value;
     }
-    event[key] = parsedValue;
+    if (key === "metrics") {
+      event.metrics = parsedValue;
+      if (parsedValue) {
+        event.calories = parsedValue.calories;
+        event.protein = parsedValue.protein;
+        event.fat = parsedValue.fat;
+        event.carbs = parsedValue.carbs;
+      }
+    } else {
+      event[key] = parsedValue;
+    }
   }
 
   const events = Array.from(eventsMap.values());
@@ -160,10 +170,12 @@ export async function logFoodConsumption(
       "event/target": targetEntity,
       "event/quantity": quantity,
       "event/meal_type": meal_type,
-      "event/calories": calories,
-      "event/protein": protein,
-      "event/fat": fat,
-      "event/carbs": carbs,
+      "event/metrics": {
+        calories,
+        protein,
+        fat,
+        carbs,
+      },
     },
   });
 
