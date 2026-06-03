@@ -4,6 +4,7 @@
     acquisitionLibraryStore,
     saveAcquisitionTwin,
     updateAcquisitionStatus,
+    updateAcquisitionMetadata,
   } from "../stores/acquisition.store";
   import { fetchHtml, getProxyImageUrl } from "../ingestion/fetcher";
   import { extractJsonLd } from "../ingestion/json-ld";
@@ -31,6 +32,44 @@
   let manualDescription = $state("");
   let manualImage = $state("");
   let manualStatus = $state<"owned" | "wanted">("wanted");
+  let manualTags = $state("");
+  let manualNote = $state("");
+
+  // Edit details modal states
+  let showEditModal = $state(false);
+  let editingItem = $state<any>(null);
+  let editTags = $state("");
+  let editNote = $state("");
+  let editError = $state("");
+
+  function openEditModal(item: any) {
+    editingItem = item;
+    editTags = item.tags ? item.tags.join(", ") : "";
+    editNote = item.note || "";
+    editError = "";
+    showEditModal = true;
+  }
+
+  async function handleEditSubmit(e: SubmitEvent) {
+    e.preventDefault();
+    if (!editingItem) return;
+    try {
+      const parsedTags = editTags
+        .split(",")
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0);
+
+      await updateAcquisitionMetadata(
+        editingItem.id,
+        parsedTags,
+        editNote.trim()
+      );
+      showEditModal = false;
+      editingItem = null;
+    } catch (err: any) {
+      editError = err.message || "Failed to save edits.";
+    }
+  }
 
   // Computed lists based on derived store
   let items = $derived($acquisitionLibraryStore || []);
@@ -104,6 +143,11 @@
 
     try {
       const entityId = `twin:manual_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+      const parsedTags = manualTags
+        .split(",")
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0);
+
       await saveAcquisitionTwin(
         {
           entity: entityId,
@@ -112,6 +156,8 @@
             "twin/image": manualImage.trim(),
             "twin/description": manualDescription.trim(),
             "twin/brand": manualBrand.trim(),
+            "twin/tags": parsedTags,
+            "twin/note": manualNote.trim(),
           },
         },
         manualStatus
@@ -122,6 +168,8 @@
       manualBrand = "";
       manualDescription = "";
       manualImage = "";
+      manualTags = "";
+      manualNote = "";
       showManualForm = false;
       scrapeSuccess = "Physical Digital Twin saved successfully!";
       scrapeError = "";
@@ -236,12 +284,31 @@
         </select>
       </div>
 
+      <div class="form-group">
+        <label for="manual-tags">Tags (comma-separated)</label>
+        <Input
+          id="manual-tags"
+          type="text"
+          bind:value={manualTags}
+          placeholder="e.g. tech, home, setup"
+        />
+      </div>
+
       <div class="form-group full-width">
         <label for="manual-desc">Description</label>
         <textarea
           id="manual-desc"
           bind:value={manualDescription}
           placeholder="Details about this twin..."
+        ></textarea>
+      </div>
+
+      <div class="form-group full-width">
+        <label for="manual-note">Note</label>
+        <textarea
+          id="manual-note"
+          bind:value={manualNote}
+          placeholder="Personal notes about this item..."
         ></textarea>
       </div>
 
@@ -315,23 +382,108 @@
           {#if item.brand}
             <span class="item-brand">{item.brand}</span>
           {/if}
+          {#if item.tags && item.tags.length > 0}
+            <div class="item-tags">
+              {#each item.tags as tag}
+                <Badge variant="default">{tag}</Badge>
+              {/each}
+            </div>
+          {/if}
           {#if item.description}
             <p class="item-desc">{item.description}</p>
           {/if}
+          {#if item.note}
+            <div class="item-note-box">
+              <span class="note-label">Note:</span>
+              <p class="note-text">{item.note}</p>
+            </div>
+          {/if}
           <div class="item-meta">
             <span class="item-id" title={item.id}>{item.id}</span>
-            <Button
-              variant="secondary"
-              onclick={() => toggleStatus(item.id, item.status)}
-            >
-              {item.status === "wanted" ? "Acquired" : "Move to Wanted"}
-            </Button>
+            <div class="btn-group">
+              <Button variant="secondary" onclick={() => openEditModal(item)}>
+                ✏️ Edit
+              </Button>
+              <Button
+                variant="secondary"
+                onclick={() => toggleStatus(item.id, item.status)}
+              >
+                {item.status === "wanted" ? "Acquired" : "Move to Wanted"}
+              </Button>
+            </div>
           </div>
         </div>
       </Card>
     {/each}
   {/if}
 </div>
+
+<!-- Edit Modal -->
+{#if showEditModal && editingItem}
+  <div
+    class="modal-overlay"
+    onclick={() => {
+      showEditModal = false;
+      editingItem = null;
+    }}
+    role="dialog"
+    aria-modal="true"
+  >
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <div class="modal-card" onclick={(e) => e.stopPropagation()}>
+      <div class="modal-header">
+        <h2>✏️ Edit Tags & Note</h2>
+        <button
+          class="close-btn"
+          onclick={() => {
+            showEditModal = false;
+            editingItem = null;
+          }}>&times;</button
+        >
+      </div>
+
+      <form onsubmit={handleEditSubmit} class="form mt-4">
+        <div class="form-group">
+          <label for="edit-item-name">Item Name</label>
+          <div class="read-only-value">{editingItem.name}</div>
+        </div>
+
+        <div class="form-group">
+          <label for="edit-tags">Tags (comma-separated)</label>
+          <Input
+            id="edit-tags"
+            type="text"
+            bind:value={editTags}
+            placeholder="e.g. tech, home, setup"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="edit-note">Note</label>
+          <textarea
+            id="edit-note"
+            bind:value={editNote}
+            placeholder="Write personal notes about this item..."
+            rows="3"
+          ></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <Button
+            variant="secondary"
+            type="button"
+            onclick={() => {
+              showEditModal = false;
+              editingItem = null;
+            }}>Cancel</Button
+          >
+          <Button type="submit">Save Changes</Button>
+        </div>
+      </form>
+    </div>
+  </div>
+{/if}
 
 <style>
   .page-header {
@@ -581,5 +733,121 @@
   }
   :global(.ml-2) {
     margin-left: var(--space-xs);
+  }
+
+  /* Button Group */
+  .btn-group {
+    display: flex;
+    gap: var(--space-2xs);
+  }
+
+  /* Tags rendering on card */
+  .item-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: var(--space-xs);
+  }
+
+  /* Note box rendering on card */
+  .item-note-box {
+    margin-top: var(--space-s);
+    background: #fef08a; /* Soft retro yellow post-it */
+    border: 2px solid #000;
+    padding: 8px var(--space-xs);
+    box-shadow: 2px 2px 0 #000;
+    color: #000;
+  }
+  .note-label {
+    font-size: var(--step-n2);
+    font-weight: 700;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .note-text {
+    font-size: var(--step-n1);
+    margin: 0;
+    line-height: 1.4;
+    white-space: pre-wrap;
+  }
+
+  /* Edit Modal Styling */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    backdrop-filter: blur(4px);
+  }
+  .modal-card {
+    background: var(--bg-surface, #fff);
+    border: 3px solid #000;
+    box-shadow: 8px 8px 0 #000;
+    width: 90%;
+    max-width: 500px;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: var(--space-m);
+    animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #000;
+    padding-bottom: var(--space-xs);
+    margin-bottom: var(--space-s);
+  }
+  .modal-header h2 {
+    font-size: var(--step-1);
+    font-weight: 700;
+    margin: 0;
+    text-transform: uppercase;
+  }
+  .close-btn {
+    background: none;
+    border: none;
+    color: #000;
+    font-size: 2rem;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .close-btn:hover {
+    transform: scale(1.1);
+  }
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-s);
+    margin-top: var(--space-m);
+  }
+  .read-only-value {
+    padding: 10px;
+    background: #f4f4f5;
+    border: 2px solid #000;
+    font-weight: 600;
+    font-size: var(--step-n1);
+  }
+  .form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-s);
+  }
+  @keyframes popIn {
+    from {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
   }
 </style>
