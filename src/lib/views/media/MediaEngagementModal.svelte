@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { EnrichedMedia } from "../../media/state";
-  import { updateMediaStatus } from "../../stores/media.store";
+  import { updateMediaStatus, enrichMediaTwin } from "../../stores/media.store";
   import Badge from "../../ui/Badge.svelte";
   import Button from "../../ui/Button.svelte";
 
@@ -21,6 +21,7 @@
   let formEpisode = $state<number | undefined>(media.episode);
   let formPagesRead = $state<number | undefined>(media.pages_read);
   let imageError = $state(false);
+  let isEnriching = $state(false);
 
   let subjects = $derived.by(() => {
     if (!media.subject) return [];
@@ -29,6 +30,23 @@
       return JSON.parse(media.subject as any);
     } catch {
       return [];
+    }
+  });
+
+  $effect(() => {
+    if (
+      media.type === "book" &&
+      (!media.blurb || !subjects || subjects.length === 0) &&
+      !isEnriching
+    ) {
+      isEnriching = true;
+      enrichMediaTwin(media.id, "book")
+        .catch((err) => {
+          console.error("Failed to enrich book details:", err);
+        })
+        .finally(() => {
+          isEnriching = false;
+        });
     }
   });
 

@@ -16,10 +16,15 @@
   let ingestTargetStatus = $state<
     "saved" | "started" | "progress" | "completed" | null
   >(null);
-  let selectedMedia = $state<EnrichedMedia | null>(null);
+  let selectedMediaId = $state<string | null>(null);
+  let selectedMedia = $derived(
+    selectedMediaId
+      ? $mediaLibraryStore.find((m) => m.id === selectedMediaId) || null
+      : null
+  );
 
   function openEngagementModal(media: EnrichedMedia) {
-    selectedMedia = media;
+    selectedMediaId = media.id;
   }
 
   async function handleQuickAdvance(
@@ -220,7 +225,7 @@
 {#if selectedMedia}
   <MediaEngagementModal
     media={selectedMedia}
-    onClose={() => (selectedMedia = null)}
+    onClose={() => (selectedMediaId = null)}
   />
 {/if}
 

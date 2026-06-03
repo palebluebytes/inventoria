@@ -90,3 +90,44 @@ export async function updateMediaStatus(
 
   await dbClient.append(datoms);
 }
+
+/**
+ * Enriches an existing media twin with details from the API (if missing).
+ */
+export async function enrichMediaTwin(
+  id: string,
+  type: "movie" | "tv" | "book"
+): Promise<void> {
+  const now = Date.now();
+  let payload: EntityPayload;
+
+  if (type === "book") {
+    const { lookupOpenLibraryBook } = await import("../media/open-library");
+    payload = await lookupOpenLibraryBook(id);
+  } else if (type === "movie") {
+    const { lookupTmdbMovie } = await import("../media/tmdb");
+    const rawId = parseInt(id.replace("tmdb:movie:", ""));
+    payload = await lookupTmdbMovie(rawId);
+  } else if (type === "tv") {
+    const { lookupTmdbTv } = await import("../media/tmdb");
+    const rawId = parseInt(id.replace("tmdb:tv:", ""));
+    payload = await lookupTmdbTv(rawId);
+  } else {
+    return;
+  }
+
+  // Construct datoms for missing or enriched attributes:
+  // we filter to only append attributes that aren't empty/falsy.
+  const twinDatoms = ingestEntity(payload);
+  const validDatoms = twinDatoms.filter(
+    (d) => d.value !== undefined && d.value !== null && d.value !== ""
+  );
+
+  for (const d of validDatoms) {
+    d.time = now;
+  }
+
+  if (validDatoms.length > 0) {
+    await dbClient.append(validDatoms);
+  }
+}

@@ -73,3 +73,31 @@ export async function searchOpenLibrary(
     return [];
   }
 }
+
+export async function lookupOpenLibraryBook(
+  id: string
+): Promise<EntityPayload> {
+  const parts = id.split(":");
+  const prefix = parts[0];
+  const value = parts[1];
+
+  let query = "";
+  if (prefix === "isbn") {
+    query = `isbn:${value}`;
+  } else if (prefix === "olid") {
+    query = `key:${encodeURIComponent("/works/" + value)}`;
+  } else {
+    throw new Error(`Unsupported book ID format: ${id}`);
+  }
+
+  const url = `${OL_SEARCH_BASE}?q=${query}&fields=key,title,author_name,first_publish_year,cover_i,isbn,subject,description&limit=1`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Book details not found for id: ${id}`);
+  }
+  const data = await res.json();
+  if (!data.docs || data.docs.length === 0) {
+    throw new Error(`Book details not found for id: ${id}`);
+  }
+  return mapOpenLibraryBookToPayload(data.docs[0]);
+}

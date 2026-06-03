@@ -10,6 +10,7 @@ import {
 import {
   mapOpenLibraryBookToPayload,
   searchOpenLibrary,
+  lookupOpenLibraryBook,
 } from "../../src/lib/media/open-library";
 import { logWatchEvent, logReadEvent } from "../../src/lib/media/engagement";
 import { computeMediaLibraryState } from "../../src/lib/media/state";
@@ -180,7 +181,7 @@ describe("searchOpenLibrary", () => {
     const results = await searchOpenLibrary("1984");
 
     expect(fetchSpy).toHaveBeenCalledWith(
-      "https://openlibrary.org/search.json?q=1984&limit=15"
+      "https://openlibrary.org/search.json?q=1984&fields=key,title,author_name,first_publish_year,cover_i,isbn,subject,description&limit=15"
     );
     expect(results.length).toBe(1);
     expect(results[0].entity).toBe("isbn:9780141187761");
@@ -196,6 +197,93 @@ describe("searchOpenLibrary", () => {
 
     const results = await searchOpenLibrary("fails");
     expect(results).toEqual([]);
+  });
+});
+
+describe("lookupOpenLibraryBook", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("fetches book by isbn and maps payload correctly", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        docs: [
+          {
+            key: "/works/OL27479W",
+            title: "1984",
+            author_name: ["George Orwell"],
+            first_publish_year: 1949,
+            cover_i: 8358482,
+            isbn: ["9780141187761"],
+            subject: ["Classic", "Dystopian"],
+            description: "Dystopian classic",
+          },
+        ],
+      }),
+    } as Response);
+
+    const result = await lookupOpenLibraryBook("isbn:9780141187761");
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://openlibrary.org/search.json?q=isbn:9780141187761&fields=key,title,author_name,first_publish_year,cover_i,isbn,subject,description&limit=1"
+    );
+    expect(result.entity).toBe("isbn:9780141187761");
+    expect(result.attributes["media/title"]).toBe("1984");
+    expect(result.attributes["media/blurb"]).toBe("Dystopian classic");
+    expect(JSON.parse(result.attributes["media/subject"])).toEqual([
+      "Classic",
+      "Dystopian",
+    ]);
+  });
+
+  it("fetches book by olid and maps payload correctly", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        docs: [
+          {
+            key: "/works/OL27479W",
+            title: "1984",
+            author_name: ["George Orwell"],
+            first_publish_year: 1949,
+            cover_i: 8358482,
+            isbn: ["9780141187761"],
+            subject: ["Classic", "Dystopian"],
+            description: "Dystopian classic",
+          },
+        ],
+      }),
+    } as Response);
+
+    const result = await lookupOpenLibraryBook("olid:OL27479W");
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://openlibrary.org/search.json?q=key:%2Fworks%2FOL27479W&fields=key,title,author_name,first_publish_year,cover_i,isbn,subject,description&limit=1"
+    );
+    expect(result.entity).toBe("isbn:9780141187761");
+  });
+
+  it("throws error if response is not ok", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+    } as Response);
+
+    await expect(lookupOpenLibraryBook("isbn:123")).rejects.toThrow(
+      "Book details not found"
+    );
+  });
+
+  it("throws error if no docs are returned", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ docs: [] }),
+    } as Response);
+
+    await expect(lookupOpenLibraryBook("isbn:123")).rejects.toThrow(
+      "Book details not found"
+    );
   });
 });
 
