@@ -45,6 +45,20 @@ export default {
         });
       }
 
+      const contentType = response.headers.get("content-type") || "";
+      if (contentType.includes("image/")) {
+        const body = await response.arrayBuffer();
+        const headers = {
+          ...corsHeaders,
+          "Content-Type": contentType,
+          "Cache-Control": "public, max-age=86400",
+        };
+        return new Response(body, {
+          status: 200,
+          headers,
+        });
+      }
+
       let html = await response.text();
 
       // HTML Minification via Regex to bypass size limitations and save bandwidth

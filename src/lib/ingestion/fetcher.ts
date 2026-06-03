@@ -71,3 +71,27 @@ export async function fetchHtml(url: string): Promise<string> {
 
   return text;
 }
+
+/**
+ * Resolves an image URL through the scraper proxy if it is a cross-origin absolute URL,
+ * ensuring it bypasses CORS and COEP (Cross-Origin-Embedder-Policy) restrictions in the PWA.
+ */
+export function getProxyImageUrl(imageUrl: string | undefined): string {
+  if (!imageUrl) return "";
+  // Return relative, data URLs, or already-proxied URLs as-is
+  if (
+    imageUrl.startsWith("/") ||
+    imageUrl.startsWith("data:") ||
+    imageUrl.startsWith("blob:")
+  ) {
+    return imageUrl;
+  }
+
+  const customProxy = import.meta.env.VITE_SCRAPER_PROXY_URL;
+  if (customProxy) {
+    return `${customProxy}${encodeURIComponent(imageUrl)}`;
+  }
+
+  // Fallback to corsproxy.io (which appends Access-Control-Allow-Origin: *)
+  return `https://corsproxy.io/?${encodeURIComponent(imageUrl)}`;
+}

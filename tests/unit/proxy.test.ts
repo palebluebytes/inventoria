@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fetchHtml } from "../../src/lib/ingestion/fetcher";
+import { fetchHtml, getProxyImageUrl } from "../../src/lib/ingestion/fetcher";
 
 // Helper to mimic worker regex behavior
 function workerCleanup(html: string): string {
@@ -86,5 +86,36 @@ describe("fetchHtml Proxy Error handling", () => {
     await expect(fetchHtml("https://example.com/blocked")).rejects.toThrow(
       "The target e-commerce site blocked the scraper connection."
     );
+  });
+});
+
+describe("getProxyImageUrl utility", () => {
+  it("returns empty string for falsy/empty values", () => {
+    expect(getProxyImageUrl(undefined)).toBe("");
+    expect(getProxyImageUrl("")).toBe("");
+  });
+
+  it("returns same-origin, data URLs, and blob URLs as-is", () => {
+    expect(getProxyImageUrl("/images/item.jpg")).toBe("/images/item.jpg");
+    expect(getProxyImageUrl("data:image/png;base64,123")).toBe(
+      "data:image/png;base64,123"
+    );
+    expect(getProxyImageUrl("blob:http://localhost/123")).toBe(
+      "blob:http://localhost/123"
+    );
+  });
+
+  it("prefixes cross-origin URLs with the scraper proxy URL from environment if present", () => {
+    // Vite defines import.meta.env, which vitest supports. Let's mock it if needed or test with current value
+    const expectedPrefix = import.meta.env.VITE_SCRAPER_PROXY_URL;
+    if (expectedPrefix) {
+      expect(getProxyImageUrl("https://example.com/img.jpg")).toBe(
+        `${expectedPrefix}${encodeURIComponent("https://example.com/img.jpg")}`
+      );
+    } else {
+      expect(getProxyImageUrl("https://example.com/img.jpg")).toBe(
+        `https://corsproxy.io/?${encodeURIComponent("https://example.com/img.jpg")}`
+      );
+    }
   });
 });
