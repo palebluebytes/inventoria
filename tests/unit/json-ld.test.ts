@@ -172,7 +172,24 @@ describe("extractJsonLd - Mock tests", () => {
       "https://m.media-amazon.com/images/I/image_high.jpg"
     );
     expect(product!.description).toBe("Product Description");
-    expect(product!.entityId).toBe("url:n6lfhz");
+    expect(product!.entityId).toBe("asin:B0GY7PR6NK");
+  });
+
+  it("extracts ASINs from different Amazon URL formats", () => {
+    const html = `<html><head><title>Test Product</title></head></html>`;
+
+    const formats = [
+      "https://www.amazon.es/-/en/Meet-Beauty-Magnetic-Mosquito-Mosquitoes/dp/B0GY7PR6NK?th=1",
+      "https://www.amazon.com/dp/B0GY7PR6NK",
+      "https://www.amazon.co.uk/gp/product/B0GY7PR6NK",
+      "https://amazon.de/gp/aw/d/B0GY7PR6NK",
+    ];
+
+    for (const url of formats) {
+      const product = extractJsonLd(html, url);
+      expect(product).not.toBeNull();
+      expect(product!.entityId).toBe("asin:B0GY7PR6NK");
+    }
   });
 });
 

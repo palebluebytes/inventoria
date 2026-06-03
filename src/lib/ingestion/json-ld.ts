@@ -65,9 +65,13 @@ export function extractJsonLd(
 
     const brand = getMetaTag(html, "og:site_name") || "";
 
-    const entityId = pageUrl
-      ? `url:${simpleHash(pageUrl)}`
-      : `url:temp_${Date.now()}`;
+    let entityId = "";
+    if (pageUrl) {
+      const asin = extractAsin(pageUrl);
+      entityId = asin ? `asin:${asin}` : `url:${simpleHash(pageUrl)}`;
+    } else {
+      entityId = `url:temp_${Date.now()}`;
+    }
 
     return {
       entityId,
@@ -106,7 +110,8 @@ export function extractJsonLd(
     } else if (productObj.mpn) {
       entityId = `sku:${String(productObj.mpn).trim()}`;
     } else if (pageUrl) {
-      entityId = `url:${simpleHash(pageUrl)}`;
+      const asin = extractAsin(pageUrl);
+      entityId = asin ? `asin:${asin}` : `url:${simpleHash(pageUrl)}`;
     } else {
       entityId = `url:temp_${Date.now()}`;
     }
@@ -207,4 +212,9 @@ function getAmazonLandingImage(html: string): string {
     if (srcMatch && srcMatch[1]) return srcMatch[1].trim();
   }
   return "";
+}
+
+function extractAsin(url: string): string | null {
+  const match = url.match(/(?:dp|gp\/product|gp\/aw\/d)\/([A-Z0-9]{10})/i);
+  return match ? match[1].toUpperCase() : null;
 }
