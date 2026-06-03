@@ -5,6 +5,8 @@
  * https://utopia.fyi
  */
 
+@import url("https://fonts.googleapis.com/css2?family=Epilogue:wght@300;400;500;600;700&display=swap");
+
 /* ── Utopia fluid type scale ─────────────────────────────────────────────── */
 :root {
   --step-n2: clamp(0.7813rem, 0.7736rem + 0.0341vw, 0.8rem);
@@ -88,5 +90,3 @@ body {
   background: var(--bg-base);
   color: var(--text-primary);
 }
-
-@import url("https://fonts.googleapis.com/css2?family=Epilogue:wght@300;400;500;600;700&display=swap");
