@@ -4,6 +4,8 @@ import {
   logExecution,
   computeStreak,
   computeHabitScore,
+  getDailyLineageStates,
+  toUTCDateStr,
   type ExecutionRow,
 } from "../../src/lib/habits/habits";
 
@@ -41,19 +43,40 @@ describe("ingestHabit", () => {
 
 describe("logExecution", () => {
   it("emits datoms with event/type = ExerciseAction", () => {
-    const datoms = logExecution("habit:swing_01", "twin:kettlebell_16kg", 9000);
+    const datoms = logExecution(
+      "habit:swing_01",
+      "twin:kettlebell_16kg",
+      undefined,
+      "completed",
+      undefined,
+      9000
+    );
     const typeDatom = datoms.find((d) => d.attribute === "event/type");
     expect(typeDatom?.value).toBe("ExerciseAction");
   });
 
   it("sets event/target to the habitId", () => {
-    const datoms = logExecution("habit:swing_01", "twin:kettlebell_16kg", 9000);
+    const datoms = logExecution(
+      "habit:swing_01",
+      "twin:kettlebell_16kg",
+      undefined,
+      "completed",
+      undefined,
+      9000
+    );
     const targetDatom = datoms.find((d) => d.attribute === "event/target");
     expect(targetDatom?.value).toBe("habit:swing_01");
   });
 
   it("sets event/instrument_used to the instrumentId", () => {
-    const datoms = logExecution("habit:swing_01", "twin:kettlebell_16kg", 9000);
+    const datoms = logExecution(
+      "habit:swing_01",
+      "twin:kettlebell_16kg",
+      undefined,
+      "completed",
+      undefined,
+      9000
+    );
     const instrDatom = datoms.find(
       (d) => d.attribute === "event/instrument_used"
     );
@@ -61,19 +84,47 @@ describe("logExecution", () => {
   });
 
   it("sets event/status to completed", () => {
-    const datoms = logExecution("habit:swing_01", "twin:kettlebell_16kg", 9000);
+    const datoms = logExecution(
+      "habit:swing_01",
+      "twin:kettlebell_16kg",
+      undefined,
+      "completed",
+      undefined,
+      9000
+    );
     const statusDatom = datoms.find((d) => d.attribute === "event/status");
     expect(statusDatom?.value).toBe("completed");
   });
 
   it("entity uses event: prefix with unique suffix", () => {
-    const datoms = logExecution("habit:swing_01", "twin:kettlebell_16kg", 9000);
+    const datoms = logExecution(
+      "habit:swing_01",
+      "twin:kettlebell_16kg",
+      undefined,
+      "completed",
+      undefined,
+      9000
+    );
     expect(datoms[0].entity).toMatch(/^event:/);
   });
 
   it("two calls produce unique entity IDs", () => {
-    const a = logExecution("habit:swing_01", "twin:k16", 1000);
-    const b = logExecution("habit:swing_01", "twin:k16", 2000);
+    const a = logExecution(
+      "habit:swing_01",
+      "twin:k16",
+      undefined,
+      "completed",
+      undefined,
+      1000
+    );
+    const b = logExecution(
+      "habit:swing_01",
+      "twin:k16",
+      undefined,
+      "completed",
+      undefined,
+      2000
+    );
     expect(a[0].entity).not.toBe(b[0].entity);
   });
 });
@@ -145,7 +196,7 @@ describe("computeHabitScore", () => {
       {
         entity: "habit:1",
         time: daysAgo(1),
-        schedule_type: "daily",
+        schedule_rules: { type: "daily_multiple" as const, count: 1 },
       },
     ];
     const execs = [{ time: daysAgo(0), target: "habit:1" }];
@@ -158,7 +209,7 @@ describe("computeHabitScore", () => {
       {
         entity: "habit:1",
         time: daysAgo(3),
-        schedule_type: "daily",
+        schedule_rules: { type: "daily_multiple" as const, count: 1 },
       },
     ];
     const execs = [
@@ -180,7 +231,7 @@ describe("computeHabitScore", () => {
       {
         entity: "habit:1",
         time: daysAgo(2),
-        schedule_type: "daily",
+        schedule_rules: { type: "daily_multiple" as const, count: 1 },
       },
     ];
     const execs = [{ time: daysAgo(2), target: "habit:1" }]; // completed day 2, missed day 1 & day 0
@@ -196,8 +247,7 @@ describe("computeHabitScore", () => {
       {
         entity: "habit:1",
         time: daysAgo(7),
-        schedule_type: "weekly",
-        schedule_value: 3,
+        schedule_rules: { type: "weekly_flexible" as const, count: 3 },
       },
     ];
     // Executed 3 times inside the 7 days
@@ -218,6 +268,8 @@ describe("logExecution with metadata", () => {
       "habit:swing_01",
       "twin:kettlebell_16kg",
       { note: "Felt heavy", difficulty: "hard" },
+      "completed",
+      undefined,
       9000
     );
     const metaDatom = datoms.find((d) => d.attribute === "event/metadata");
@@ -225,5 +277,141 @@ describe("logExecution with metadata", () => {
       note: "Felt heavy",
       difficulty: "hard",
     });
+  });
+});
+
+describe("advanced scheduling and exempt calculations", () => {
+  function daysAgo(n: number): number {
+    const d = new Date();
+    d.setUTCHours(12, 0, 0, 0);
+    d.setUTCDate(d.getUTCDate() - n);
+    return d.getTime();
+  }
+
+  it("handles daily_multiple with sub-targets", () => {
+    const blueprints = [
+      {
+        entity: "habit:subtargets",
+        time: daysAgo(3),
+        schedule_rules: {
+          type: "daily_multiple" as const,
+          targets: [
+            { id: "morning", time_hint: "08:00" },
+            { id: "evening", time_hint: "20:00" },
+          ],
+        },
+      },
+    ];
+
+    const execs = [
+      { time: daysAgo(2), target: "habit:subtargets", target_id: "morning" },
+      { time: daysAgo(1), target: "habit:subtargets", target_id: "morning" },
+      { time: daysAgo(1), target: "habit:subtargets", target_id: "evening" },
+      { time: daysAgo(0), target: "habit:subtargets", target_id: "morning" },
+      { time: daysAgo(0), target: "habit:subtargets", target_id: "evening" },
+    ];
+
+    const states = getDailyLineageStates(blueprints, execs, daysAgo(0));
+    expect(states.get(toUTCDateStr(daysAgo(2)))?.status).toBe("failed");
+    expect(states.get(toUTCDateStr(daysAgo(1)))?.status).toBe("completed");
+    expect(states.get(toUTCDateStr(daysAgo(0)))?.status).toBe("completed");
+
+    const streak = computeStreak(execs, blueprints, daysAgo(0));
+    expect(streak).toBe(2);
+  });
+
+  it("handles weekly_days schedule", () => {
+    const now = new Date();
+    const daysSinceMonday = (now.getUTCDay() + 6) % 7;
+    const mondayMs = now.getTime() - daysSinceMonday * 86400000;
+
+    const blueprints = [
+      {
+        entity: "habit:days",
+        time: mondayMs - 86400000,
+        schedule_rules: {
+          type: "weekly_days" as const,
+          days: ["mon" as const, "wed" as const, "fri" as const],
+        },
+      },
+    ];
+
+    const execs = [
+      { time: mondayMs, target: "habit:days", status: "completed" },
+      {
+        time: mondayMs + 2 * 86400000,
+        target: "habit:days",
+        status: "completed",
+      },
+      { time: mondayMs + 4 * 86400000, target: "habit:days", status: "exempt" },
+    ];
+
+    const states = getDailyLineageStates(
+      blueprints,
+      execs,
+      mondayMs + 4 * 86400000
+    );
+
+    expect(states.get(toUTCDateStr(mondayMs))?.status).toBe("completed");
+    expect(states.get(toUTCDateStr(mondayMs + 86400000))?.status).toBe("off");
+    expect(states.get(toUTCDateStr(mondayMs + 2 * 86400000))?.status).toBe(
+      "completed"
+    );
+    expect(states.get(toUTCDateStr(mondayMs + 3 * 86400000))?.status).toBe(
+      "off"
+    );
+    expect(states.get(toUTCDateStr(mondayMs + 4 * 86400000))?.status).toBe(
+      "exempt"
+    );
+
+    const streak = computeStreak(execs, blueprints, mondayMs + 4 * 86400000);
+    expect(streak).toBe(2);
+  });
+
+  it("handles weekly_flexible schedule", () => {
+    const blueprints = [
+      {
+        entity: "habit:flex",
+        time: daysAgo(10),
+        schedule_rules: {
+          type: "weekly_flexible" as const,
+          count: 3,
+        },
+      },
+    ];
+
+    const execs = [
+      { time: daysAgo(6), target: "habit:flex" },
+      { time: daysAgo(4), target: "habit:flex" },
+      { time: daysAgo(2), target: "habit:flex" },
+    ];
+
+    const states = getDailyLineageStates(blueprints, execs, daysAgo(0));
+    expect(states.get(toUTCDateStr(daysAgo(2)))?.status).toBe("completed");
+    expect(states.get(toUTCDateStr(daysAgo(1)))?.status).toBe("completed");
+    expect(states.get(toUTCDateStr(daysAgo(0)))?.status).toBe("completed");
+  });
+
+  it("pauses streak on exempt executions", () => {
+    const blueprints = [
+      {
+        entity: "habit:exempt",
+        time: daysAgo(5),
+        schedule_rules: { type: "daily_multiple" as const, count: 1 },
+      },
+    ];
+
+    const execs = [
+      { time: daysAgo(3), target: "habit:exempt", status: "completed" },
+      { time: daysAgo(2), target: "habit:exempt", status: "completed" },
+      { time: daysAgo(1), target: "habit:exempt", status: "exempt" },
+      { time: daysAgo(0), target: "habit:exempt", status: "completed" },
+    ];
+
+    const streak = computeStreak(execs, blueprints, daysAgo(0));
+    expect(streak).toBe(3);
+
+    const states = getDailyLineageStates(blueprints, execs, daysAgo(0));
+    expect(states.get(toUTCDateStr(daysAgo(1)))?.status).toBe("exempt");
   });
 });

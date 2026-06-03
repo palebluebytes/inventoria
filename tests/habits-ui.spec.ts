@@ -34,7 +34,7 @@ test("Habits UI - create habit blueprint, log execution, view details, and edit 
 
   // Select Category and Schedule
   await page.selectOption("#habit-category", "Mind");
-  await page.selectOption("#habit-schedule", "daily");
+  await page.selectOption("#habit-schedule", "daily_multiple");
 
   const instrumentInput = page.locator("#habit-instrument-input");
   await instrumentInput.fill(instrumentName);

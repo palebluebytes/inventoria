@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { dbClient } from "../../src/lib/db/db.client";
 import { habitsStore } from "../../src/lib/stores/habits.store";
+import type { ScheduleRule } from "../../src/lib/habits/habits";
 
 vi.mock("../../src/lib/db/db.client", () => {
   return {
@@ -23,11 +24,12 @@ describe("Habits Store Client Actions", () => {
         .spyOn(dbClient, "append")
         .mockResolvedValue(undefined);
 
+      const rules: ScheduleRule = { type: "weekly_flexible", count: 4 };
+
       const entityId = await habitsStore.createHabit(
         "Kettlebell Swings",
         "Fitness",
-        "weekly",
-        4,
+        rules,
         "twin:kettlebell_16kg"
       );
 
@@ -35,7 +37,7 @@ describe("Habits Store Client Actions", () => {
       expect(mockAppend).toHaveBeenCalledTimes(1);
 
       const appendedDatoms = mockAppend.mock.calls[0][0];
-      expect(appendedDatoms.length).toBe(6); // name, category, schedule_type, schedule_value, status, instrument
+      expect(appendedDatoms.length).toBe(5); // name, category, schedule_rules, status, instrument
 
       const nameDatom = appendedDatoms.find(
         (d) => d.attribute === "habit/name"
@@ -47,15 +49,10 @@ describe("Habits Store Client Actions", () => {
       );
       expect(categoryDatom?.value).toBe("Fitness");
 
-      const typeDatom = appendedDatoms.find(
-        (d) => d.attribute === "habit/schedule_type"
+      const rulesDatom = appendedDatoms.find(
+        (d) => d.attribute === "habit/schedule_rules"
       );
-      expect(typeDatom?.value).toBe("weekly");
-
-      const valDatom = appendedDatoms.find(
-        (d) => d.attribute === "habit/schedule_value"
-      );
-      expect(valDatom?.value).toBe(4);
+      expect(rulesDatom?.value).toBe(JSON.stringify(rules));
 
       const statusDatom = appendedDatoms.find(
         (d) => d.attribute === "habit/status"
@@ -79,18 +76,18 @@ describe("Habits Store Client Actions", () => {
         entity: "habit:kettlebell_swings_12345",
         name: "Kettlebell Swings",
         category: "Fitness",
-        schedule_type: "weekly" as const,
-        schedule_value: 3,
+        schedule_rules: { type: "weekly_flexible", count: 3 } as ScheduleRule,
         status: "active" as const,
         time: 12345,
       };
+
+      const newRules: ScheduleRule = { type: "daily_multiple", count: 1 };
 
       const newEntityId = await habitsStore.updateHabit(
         oldBlueprint,
         "Kettlebell Swings (Heavy)",
         "Fitness",
-        "daily",
-        1,
+        newRules,
         "twin:kettlebell_24kg"
       );
 
@@ -98,8 +95,8 @@ describe("Habits Store Client Actions", () => {
       expect(mockAppend).toHaveBeenCalledTimes(1);
 
       const appendedDatoms = mockAppend.mock.calls[0][0];
-      // 1 status datom for old archive + 7 datoms for new blueprint (name, category, type, val, status, replaces, instrument)
-      expect(appendedDatoms.length).toBe(8);
+      // 1 status datom for old archive + 6 datoms for new blueprint (name, category, schedule_rules, status, replaces, instrument)
+      expect(appendedDatoms.length).toBe(7);
 
       // Verify archiving
       const archiveDatom = appendedDatoms.find(
@@ -118,6 +115,12 @@ describe("Habits Store Client Actions", () => {
         (d) => d.entity === newEntityId && d.attribute === "habit/name"
       );
       expect(nameDatom?.value).toBe("Kettlebell Swings (Heavy)");
+
+      const rulesDatom = appendedDatoms.find(
+        (d) =>
+          d.entity === newEntityId && d.attribute === "habit/schedule_rules"
+      );
+      expect(rulesDatom?.value).toBe(JSON.stringify(newRules));
 
       const instrDatom = appendedDatoms.find(
         (d) => d.entity === newEntityId && d.attribute === "habit/instrument"
