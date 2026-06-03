@@ -210,6 +210,36 @@ describe("extractJsonLd - Mock tests", () => {
     expect(productClean!.entityId).not.toContain("?");
     expect(productClean!.entityId).not.toContain("#");
   });
+
+  it("normalizes minus signs and temperature ranges in the product name", () => {
+    const html1 = `
+      <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "Product",
+          "name": "RAPT - Bluetooth Thermometer -20 to 300C - 20cm HTC Probe"
+        }
+      </script>
+    `;
+    const product1 = extractJsonLd(html1);
+    expect(product1).not.toBeNull();
+    expect(product1!.name).toBe(
+      "RAPT - Bluetooth Thermometer -20°C to 300°C - 20cm HTC Probe"
+    );
+
+    const html2 = `
+      <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "Product",
+          "name": "Bluetooth Thermometer - 20 to 300C"
+        }
+      </script>
+    `;
+    const product2 = extractJsonLd(html2);
+    expect(product2).not.toBeNull();
+    expect(product2!.name).toBe("Bluetooth Thermometer -20°C to 300°C");
+  });
 });
 
 describe("extractJsonLd - Real e-commerce URLs", () => {

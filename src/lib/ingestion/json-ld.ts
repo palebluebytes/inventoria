@@ -43,11 +43,15 @@ export function extractJsonLd(
   });
 
   if (!productObj) {
-    const name =
-      getMetaTag(html, "og:title") ||
-      getMetaTag(html, "twitter:title") ||
-      getMetaTag(html, "title") ||
-      getTitleTag(html);
+    const name = normalize_temperature_ranges(
+      (
+        getMetaTag(html, "og:title") ||
+        getMetaTag(html, "twitter:title") ||
+        getMetaTag(html, "title") ||
+        getTitleTag(html) ||
+        ""
+      ).trim()
+    );
 
     if (!name) {
       return null;
@@ -120,7 +124,9 @@ export function extractJsonLd(
   }
 
   // Extract name
-  const name = String(productObj.name || "").trim();
+  const name = normalize_temperature_ranges(
+    String(productObj.name || "").trim()
+  );
 
   // Extract image
   let image = "";
@@ -237,4 +243,16 @@ function cleanUrl(url: string): string {
     }
     return url;
   }
+}
+
+function normalize_temperature_ranges(text: string): string {
+  // Format temperature ranges like "-20 to 300C", "- 20 to 300C", "20 to - 30C", etc. to "-20°C to 300°C"
+  return text.replace(
+    /([\-\u2212\u2013\u2014]\s*\d+|\d+)\s*(?:to|-)\s*([\-\u2212\u2013\u2014]\s*\d+|\d+)\s*°?[Cc]\b/g,
+    (match, min_val, max_val) => {
+      const clean_min = min_val.replace(/[\-\u2212\u2013\u2014]\s*/, "-");
+      const clean_max = max_val.replace(/[\-\u2212\u2013\u2014]\s*/, "-");
+      return `${clean_min}°C to ${clean_max}°C`;
+    }
+  );
 }

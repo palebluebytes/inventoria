@@ -80,21 +80,26 @@ test("Physical Digital Twins UI - manual create, scrape, status toggling, and we
 
   // Verify it exists in the Wanted tab
   await page.locator("#tab-wanted-btn").click();
-  const wantedLibrary = page.locator("#twins-library");
-  const itemCard = wantedLibrary.locator(".item-card", {
-    hasText: "Manual Keychron K2",
-  });
-  await expect(itemCard).toBeVisible();
+  const slot = page.locator(
+    'button.inventory-slot[aria-label="Manual Keychron K2"]'
+  );
+  await expect(slot).toBeVisible();
+
+  // Click slot to open inspector
+  await slot.click();
+
+  const inspector = page.locator(".inspector-panel");
+  await expect(inspector).toBeVisible();
 
   // Verify tags and note are visible
-  await expect(itemCard.locator(".item-tags")).toContainText("keyboard");
-  await expect(itemCard.locator(".item-tags")).toContainText("electronics");
-  await expect(itemCard.locator(".item-note-box")).toContainText(
+  await expect(inspector.locator(".item-tags")).toContainText("keyboard");
+  await expect(inspector.locator(".item-tags")).toContainText("electronics");
+  await expect(inspector.locator(".item-note-box")).toContainText(
     "Original manual note."
   );
 
   // Test editing tags and note
-  await itemCard.locator("button", { hasText: "Edit" }).click();
+  await inspector.locator("button", { hasText: "Edit" }).click();
   await page.locator("#edit-tags").fill("keyboard, mechanical, custom");
   await page.locator("#edit-note").fill("Updated manual note.");
   await page
@@ -102,21 +107,21 @@ test("Physical Digital Twins UI - manual create, scrape, status toggling, and we
     .click();
 
   // Verify edited values on card
-  await expect(itemCard.locator(".item-tags")).toContainText("mechanical");
-  await expect(itemCard.locator(".item-tags")).toContainText("custom");
-  await expect(itemCard.locator(".item-note-box")).toContainText(
+  await expect(inspector.locator(".item-tags")).toContainText("mechanical");
+  await expect(inspector.locator(".item-tags")).toContainText("custom");
+  await expect(inspector.locator(".item-note-box")).toContainText(
     "Updated manual note."
   );
 
   // Change status of the Keychron keyboard to Owned (Acquired)
-  await itemCard.locator("button", { hasText: "Acquired" }).click();
+  await inspector.locator("button", { hasText: "Mark Acquired" }).click();
 
   // Switch to Owned tab and verify it's there
   await page.locator("#tab-owned-btn").click();
-  const ownedLibrary = page.locator("#twins-library");
-  await expect(
-    ownedLibrary.locator(".item-card", { hasText: "Manual Keychron K2" })
-  ).toBeVisible();
+  const ownedSlot = page.locator(
+    'button.inventory-slot[aria-label="Manual Keychron K2"]'
+  );
+  await expect(ownedSlot).toBeVisible();
 
   // 2. Test URL Ingestion via the Input Field
   await page
@@ -125,22 +130,21 @@ test("Physical Digital Twins UI - manual create, scrape, status toggling, and we
   await page.locator("#scrape-submit-btn").click();
 
   // Wait for scraping success message
-  await expect(page.locator(".alert-success")).toContainText(
-    "Successfully imported"
-  );
+  await expect(
+    page.locator(".alert-success", { hasText: "Successfully imported" })
+  ).toBeVisible();
 
   // Scraped item should default to Wanted
   await page.locator("#tab-wanted-btn").click();
-  await expect(
-    wantedLibrary.locator(".item-card", { hasText: "Scraped Brutalist Lamp" })
-  ).toBeVisible();
+  const lampSlot = page.locator(
+    'button.inventory-slot[aria-label="Scraped Brutalist Lamp"]'
+  );
+  await expect(lampSlot).toBeVisible();
 
   // Verify brand and description are displayed
-  const scrapedCard = wantedLibrary.locator(".item-card", {
-    hasText: "Scraped Brutalist Lamp",
-  });
-  await expect(scrapedCard.locator(".item-brand")).toHaveText("ConcreteLab");
-  await expect(scrapedCard.locator(".item-desc")).toContainText(
+  await lampSlot.click();
+  await expect(inspector.locator(".item-brand")).toHaveText("ConcreteLab");
+  await expect(inspector.locator(".item-desc")).toContainText(
     "Concrete lamp with raw aesthetics."
   );
 
