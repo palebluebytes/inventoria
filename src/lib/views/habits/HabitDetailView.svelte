@@ -310,13 +310,8 @@
 </script>
 
 <div class="habit-detail-view">
-  <div class="header-nav">
-    <Button variant="secondary" onclick={onBack}>← Back to Habits</Button>
-  </div>
-
-  <header class="detail-header mt-4">
+  <header class="detail-header mt-2">
     <div class="header-title-row">
-      <h1>{lineage.head.name}</h1>
       <span
         class="badge-custom"
         style={getCategoryColor(lineage.head.category)}
@@ -869,11 +864,6 @@
     display: grid;
     grid-template-columns: 1fr;
     gap: var(--space-m);
-  }
-  @media (min-width: 768px) {
-    .view-columns {
-      grid-template-columns: 1fr 1fr;
-    }
   }
   .height-full {
     height: 100%;
