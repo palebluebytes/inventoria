@@ -115,4 +115,66 @@ describe("computeAcquisitionState", () => {
     expect(shirt.status).toBe("owned");
     expect(shirt.last_updated).toBe(3000);
   });
+
+  it("extracts and aggregates tags and notes from the ledger, preferring the latest", () => {
+    const datoms = [
+      {
+        entity: "gtin:9999",
+        attribute: "twin/name",
+        value: "Eco Notebook",
+        time: 1000,
+      },
+      {
+        entity: "gtin:9999",
+        attribute: "twin/tags",
+        value: JSON.stringify(["stationery", "paper"]),
+        time: 1000,
+      },
+      {
+        entity: "gtin:9999",
+        attribute: "twin/note",
+        value: "First note draft.",
+        time: 1000,
+      },
+      // Event: Acquire wanted
+      {
+        entity: "event:acquire_3",
+        attribute: "event/type",
+        value: "AcquisitionAction",
+        time: 1500,
+      },
+      {
+        entity: "event:acquire_3",
+        attribute: "event/target",
+        value: "gtin:9999",
+        time: 1500,
+      },
+      {
+        entity: "event:acquire_3",
+        attribute: "event/status",
+        value: "wanted",
+        time: 1500,
+      },
+      // Later metadata updates
+      {
+        entity: "gtin:9999",
+        attribute: "twin/tags",
+        value: JSON.stringify(["stationery", "recycled", "office"]),
+        time: 2000,
+      },
+      {
+        entity: "gtin:9999",
+        attribute: "twin/note",
+        value: "Updated note context.",
+        time: 2500,
+      },
+    ];
+
+    const result = computeAcquisitionState(datoms);
+    expect(result).toHaveLength(1);
+    const item = result[0];
+    expect(item.tags).toEqual(["stationery", "recycled", "office"]);
+    expect(item.note).toBe("Updated note context.");
+    expect(item.last_updated).toBe(2500);
+  });
 });

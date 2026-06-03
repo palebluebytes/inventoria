@@ -1,6 +1,6 @@
 import { createQueryStore } from "./datoms.store";
 import { derived } from "svelte/store";
-import { dbClient } from "../db/db.client";
+import { dbClient, type Datom } from "../db/db.client";
 import { ingestEntity, type EntityPayload } from "../ingestion/ingest";
 import { computeAcquisitionState } from "../acquisition/state";
 import { logAcquisitionEvent } from "../ingestion/acquisition";
@@ -51,5 +51,31 @@ export async function updateAcquisitionStatus(
 ): Promise<void> {
   const now = Date.now();
   const datoms = logAcquisitionEvent(targetId, status, now);
+  await dbClient.append(datoms);
+}
+
+/**
+ * Appends new tag and note datoms to update the digital twin's metadata.
+ */
+export async function updateAcquisitionMetadata(
+  targetId: string,
+  tags: string[],
+  note: string
+): Promise<void> {
+  const now = Date.now();
+  const datoms: Datom[] = [
+    {
+      entity: targetId,
+      attribute: "twin/tags",
+      value: tags,
+      time: now,
+    },
+    {
+      entity: targetId,
+      attribute: "twin/note",
+      value: note,
+      time: now,
+    },
+  ];
   await dbClient.append(datoms);
 }

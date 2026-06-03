@@ -9,6 +9,8 @@ export interface EnrichedAcquisition {
   source_url?: string;
   status: "wanted" | "owned";
   last_updated: number;
+  tags?: string[];
+  note?: string;
 }
 
 export function computeAcquisitionState(
@@ -29,6 +31,7 @@ export function computeAcquisitionState(
         "twin/description",
         "twin/brand",
         "twin/source_url",
+        "twin/note",
       ];
       if (
         stringAttributes.includes(attribute) &&
@@ -49,10 +52,15 @@ export function computeAcquisitionState(
           description: "",
           brand: "",
           source_url: "",
+          tags: [],
+          note: "",
           last_updated: time,
         });
       }
       const twin = twinsMap.get(entity);
+      if (time > twin.last_updated) {
+        twin.last_updated = time;
+      }
       const field = attribute.replace("twin/", "");
       twin[field] = parsedValue;
     } else if (attribute.startsWith("event/")) {
@@ -81,7 +89,9 @@ export function computeAcquisitionState(
       if (event.status) {
         twin.status = event.status as "wanted" | "owned";
       }
-      twin.last_updated = event.time;
+      if (event.time > twin.last_updated) {
+        twin.last_updated = event.time;
+      }
     }
   }
 
