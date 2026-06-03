@@ -1,6 +1,12 @@
 <script lang="ts">
   import { habitsStore, type HabitLineage } from "../../stores/habits.store";
   import { dbClient } from "../../db/db.client";
+  import {
+    getDailyLineageStates,
+    toUTCDateStr,
+    type ScheduleRule,
+    type DayOfWeek,
+  } from "../../habits/habits";
   import Card from "../../ui/Card.svelte";
   import Input from "../../ui/Input.svelte";
   import Button from "../../ui/Button.svelte";
@@ -21,12 +27,64 @@
   // Form states for editing
   let habitName = $state(lineage.head.name);
   let habitCategory = $state(lineage.head.category);
-  let habitScheduleType = $state<"daily" | "weekly">(
-    lineage.head.schedule_type
-  );
-  let habitScheduleValue = $state(lineage.head.schedule_value);
-  let habitInstrument = $state(lineage.head.instrument || "");
+  let habitScheduleType = $state<
+    "daily_multiple" | "weekly_days" | "weekly_flexible"
+  >(lineage.head.schedule_rules?.type || "daily_multiple");
 
+  // daily_multiple options:
+  let dailyCount = $state(
+    lineage.head.schedule_rules?.type === "daily_multiple"
+      ? (lineage.head.schedule_rules.count ?? 1)
+      : 1
+  );
+  let dailyUseSubtargets = $state(
+    lineage.head.schedule_rules?.type === "daily_multiple" &&
+      !!lineage.head.schedule_rules.targets
+  );
+  let dailySubtargets = $state<{ id: string; time_hint: string }[]>(
+    lineage.head.schedule_rules?.type === "daily_multiple" &&
+      lineage.head.schedule_rules.targets
+      ? lineage.head.schedule_rules.targets.map((t) => ({
+          id: t.id,
+          time_hint: t.time_hint || "",
+        }))
+      : [
+          { id: "morning", time_hint: "08:00" },
+          { id: "evening", time_hint: "20:00" },
+        ]
+  );
+
+  // weekly_days options:
+  let weeklyDaysSelected = $state<{ [key: string]: boolean }>(
+    lineage.head.schedule_rules?.type === "weekly_days"
+      ? {
+          mon: lineage.head.schedule_rules.days.includes("mon"),
+          tue: lineage.head.schedule_rules.days.includes("tue"),
+          wed: lineage.head.schedule_rules.days.includes("wed"),
+          thu: lineage.head.schedule_rules.days.includes("thu"),
+          fri: lineage.head.schedule_rules.days.includes("fri"),
+          sat: lineage.head.schedule_rules.days.includes("sat"),
+          sun: lineage.head.schedule_rules.days.includes("sun"),
+        }
+      : {
+          mon: true,
+          tue: true,
+          wed: true,
+          thu: true,
+          fri: true,
+          sat: false,
+          sun: false,
+        }
+  );
+
+  // weekly_flexible options:
+  let weeklyFlexCount = $state(
+    lineage.head.schedule_rules?.type === "weekly_flexible"
+      ? lineage.head.schedule_rules.count
+      : 3
+  );
+
+  let habitInstrument = $state(lineage.head.instrument || "");
   let saveStatus = $state<"idle" | "loading" | "error" | "success">("idle");
   let saveError = $state("");
 
@@ -34,38 +92,47 @@
   let logNote = $state("");
   let logDifficulty = $state<"easy" | "medium" | "hard">("medium");
   let logDuration = $state<number | undefined>(undefined);
+  let logStatusValue = $state<"completed" | "exempt">("completed");
+  let logTargetId = $state<string>("");
   let logStatus = $state<"idle" | "loading" | "error" | "success">("idle");
   let logError = $state("");
+
+  // Derived: map of dateStr -> DailyState
+  let dailyStates = $derived.by(() => {
+    return getDailyLineageStates(
+      lineage.blueprints,
+      lineage.executions,
+      Date.now()
+    );
+  });
 
   // Generate heatmap days (last 12 weeks, ending today)
   let heatmapDays = $derived.by(() => {
     const today = new Date();
-    // Monday of current week
     const currentDayOfWeek = today.getDay();
     const distanceToMonday = (currentDayOfWeek + 6) % 7;
     const startOfWeek = new Date(today);
     startOfWeek.setHours(0, 0, 0, 0);
     startOfWeek.setDate(today.getDate() - distanceToMonday);
 
-    // Monday of 11 weeks ago
     const heatmapStart = new Date(startOfWeek);
     heatmapStart.setDate(startOfWeek.getDate() - 11 * 7);
 
     const cells = [];
     const temp = new Date(heatmapStart);
-    const execDates = new Set(
-      lineage.executions.map((e) => new Date(e.time).toISOString().slice(0, 10))
-    );
 
     for (let i = 0; i < 84; i++) {
       const cellDate = new Date(temp);
-      const dateStr = cellDate.toISOString().slice(0, 10);
-      const isToday = dateStr === today.toISOString().slice(0, 10);
+      const dateStr = toUTCDateStr(cellDate.getTime());
+      const isToday = dateStr === toUTCDateStr(today.getTime());
+
+      const state = dailyStates.get(dateStr);
+      const status = state?.status || "off";
 
       cells.push({
         date: cellDate,
         dateStr,
-        completed: execDates.has(dateStr),
+        status, // 'completed', 'failed', 'exempt', 'off'
         isFuture: cellDate.getTime() > today.getTime(),
         isToday,
       });
@@ -75,7 +142,12 @@
   });
 
   // Calculate stats
-  let totalCompletions = $derived(lineage.executions.length);
+  let totalCompletions = $derived(
+    lineage.executions.filter((e) => e.status !== "exempt").length
+  );
+  let totalExemptions = $derived(
+    lineage.executions.filter((e) => e.status === "exempt").length
+  );
 
   async function handleSaveBlueprint() {
     if (!habitName.trim()) {
@@ -86,13 +158,47 @@
 
     saveStatus = "loading";
     saveError = "";
+
+    // Construct schedule rules
+    let scheduleRules: ScheduleRule;
+    if (habitScheduleType === "daily_multiple") {
+      if (dailyUseSubtargets) {
+        scheduleRules = {
+          type: "daily_multiple",
+          targets: dailySubtargets
+            .filter((t) => t.id.trim() !== "")
+            .map((t) => ({
+              id: t.id.trim(),
+              time_hint: t.time_hint.trim() || undefined,
+            })),
+        };
+      } else {
+        scheduleRules = {
+          type: "daily_multiple",
+          count: dailyCount,
+        };
+      }
+    } else if (habitScheduleType === "weekly_days") {
+      const days = (Object.keys(weeklyDaysSelected) as DayOfWeek[]).filter(
+        (d) => weeklyDaysSelected[d]
+      );
+      scheduleRules = {
+        type: "weekly_days",
+        days,
+      };
+    } else {
+      scheduleRules = {
+        type: "weekly_flexible",
+        count: weeklyFlexCount,
+      };
+    }
+
     try {
       const newId = await habitsStore.updateHabit(
         lineage.head,
         habitName.trim(),
         habitCategory,
-        habitScheduleType,
-        habitScheduleValue,
+        scheduleRules,
         habitInstrument
       );
       saveStatus = "success";
@@ -124,12 +230,16 @@
       await habitsStore.logExecution(
         lineage.head.entity,
         habitInstrument.trim(),
-        metadata
+        metadata,
+        logStatusValue,
+        logTargetId || undefined
       );
 
       logNote = "";
       logDuration = undefined;
       logDifficulty = "medium";
+      logTargetId = "";
+      logStatusValue = "completed";
       logStatus = "success";
 
       setTimeout(() => {
@@ -180,6 +290,23 @@
         return "background-color: #94a3b8; color: #fff; border-color: var(--border-accent);";
     }
   }
+
+  function formatSchedule(rules: ScheduleRule | undefined): string {
+    if (!rules) return "Daily";
+    switch (rules.type) {
+      case "daily_multiple":
+        if (rules.targets) {
+          return `Daily: ${rules.targets.map((t) => t.id).join(", ")}`;
+        }
+        return `Daily: ${rules.count ?? 1}x/day`;
+      case "weekly_days":
+        return `Weekly: ${rules.days.map((d) => d.toUpperCase()).join(", ")}`;
+      case "weekly_flexible":
+        return `Weekly: ${rules.count}x/week`;
+      default:
+        return "Daily";
+    }
+  }
 </script>
 
 <div class="habit-detail-view">
@@ -198,9 +325,7 @@
       </span>
     </div>
     <p class="schedule-summary">
-      Schedule: {lineage.head.schedule_type === "daily"
-        ? "Daily"
-        : `Weekly (${lineage.head.schedule_value}x/week)`}
+      Schedule: {formatSchedule(lineage.head.schedule_rules)}
       {#if lineage.head.instrument}
         • Instrument: <code class="instrument-code"
           >{lineage.head.instrument}</code
@@ -221,7 +346,11 @@
     </Card>
     <Card class="stat-card shadow-brutal">
       <span class="stat-value">{totalCompletions}</span>
-      <span class="stat-label">Total Logged 📈</span>
+      <span class="stat-label">Logged Completions 📈</span>
+    </Card>
+    <Card class="stat-card shadow-brutal">
+      <span class="stat-value">{totalExemptions}</span>
+      <span class="stat-label">Exemptions ⏳</span>
     </Card>
   </div>
 
@@ -238,28 +367,37 @@
         {#each heatmapDays as cell}
           <div
             class="heatmap-cell"
-            class:completed={cell.completed}
+            class:completed={cell.status === "completed"}
+            class:failed={cell.status === "failed"}
+            class:exempt={cell.status === "exempt"}
+            class:off={cell.status === "off"}
             class:future={cell.isFuture}
             class:today={cell.isToday}
-            title="{cell.dateStr}: {cell.completed
-              ? 'Completed'
-              : 'Not completed'}"
+            title="{cell.dateStr}: {cell.status.toUpperCase()}"
           ></div>
         {/each}
       </div>
     </div>
     <div class="heatmap-legend mt-2">
       <span class="legend-item"
-        ><div class="heatmap-cell legend-cell"></div>
-         Missed</span
+        ><div class="heatmap-cell legend-cell off"></div>
+        Off-day / No Schedule</span
       >
       <span class="legend-item"
         ><div class="heatmap-cell legend-cell completed"></div>
-         Completed</span
+        Completed</span
+      >
+      <span class="legend-item"
+        ><div class="heatmap-cell legend-cell failed"></div>
+        Failed / Incomplete</span
+      >
+      <span class="legend-item"
+        ><div class="heatmap-cell legend-cell exempt"></div>
+        Exempt / Skipped</span
       >
       <span class="legend-item"
         ><div class="heatmap-cell legend-cell today"></div>
-         Today</span
+        Today</span
       >
     </div>
   </Card>
@@ -270,6 +408,41 @@
       <Card class="shadow-brutal height-full">
         <h2>Log Completion</h2>
         <div class="form-group mt-2">
+          <div class="row-group">
+            <!-- Logging Status Selector -->
+            <div class="col-group">
+              <label for="log-status-val" class="field-label">Log Status</label>
+              <select
+                id="log-status-val"
+                bind:value={logStatusValue}
+                class="select-brutal"
+              >
+                <option value="completed">Completed</option>
+                <option value="exempt">Exempt (Sick/Travel/Rest)</option>
+              </select>
+            </div>
+
+            <!-- Optional Subtarget Selector -->
+            {#if lineage.head.schedule_rules?.type === "daily_multiple" && lineage.head.schedule_rules.targets}
+              <div class="col-group">
+                <label for="log-target" class="field-label">Target Area</label>
+                <select
+                  id="log-target"
+                  bind:value={logTargetId}
+                  class="select-brutal"
+                >
+                  <option value="">General / Unspecified</option>
+                  {#each lineage.head.schedule_rules.targets as tgt}
+                    <option value={tgt.id}
+                      >{tgt.id}
+                      {tgt.time_hint ? `(${tgt.time_hint})` : ""}</option
+                    >
+                  {/each}
+                </select>
+              </div>
+            {/if}
+          </div>
+
           <label for="log-note" class="field-label">Qualitative Notes</label>
           <textarea
             id="log-note"
@@ -354,30 +527,130 @@
             </div>
 
             <div class="col-group">
-              <label for="edit-sched-type" class="field-label">Schedule</label>
+              <label for="edit-sched-type" class="field-label"
+                >Schedule Type</label
+              >
               <select
                 id="edit-sched-type"
                 bind:value={habitScheduleType}
                 class="select-brutal"
               >
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
+                <option value="daily_multiple">Daily (Single / Multiple)</option
+                >
+                <option value="weekly_days">Weekly (Specific Days)</option>
+                <option value="weekly_flexible">Weekly (Flexible Count)</option>
               </select>
             </div>
           </div>
 
-          {#if habitScheduleType === "weekly"}
-            <label for="edit-sched-val" class="field-label"
-              >Target Days per Week</label
-            >
-            <input
-              id="edit-sched-val"
-              type="number"
-              min="1"
-              max="7"
-              bind:value={habitScheduleValue}
-              class="input-number-brutal"
-            />
+          <!-- Contextual schedule editors -->
+          {#if habitScheduleType === "daily_multiple"}
+            <div class="col-group section-inner">
+              <div class="row-group align-center">
+                <input
+                  id="edit-use-subtargets"
+                  type="checkbox"
+                  bind:checked={dailyUseSubtargets}
+                />
+                <label for="edit-use-subtargets" class="field-label mt-0"
+                  >Define specific time-of-day targets</label
+                >
+              </div>
+
+              {#if dailyUseSubtargets}
+                <div class="subtargets-editor mt-2">
+                  <label class="field-label">Time Targets</label>
+                  <div class="subtargets-list mt-1">
+                    {#each dailySubtargets as tgt, idx}
+                      <div class="subtarget-row">
+                        <input
+                          type="text"
+                          placeholder="Target ID (e.g. morning)"
+                          bind:value={tgt.id}
+                          class="input-brutal-small"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Time hint (optional)"
+                          bind:value={tgt.time_hint}
+                          class="input-brutal-small"
+                        />
+                        <button
+                          type="button"
+                          class="btn-danger-small"
+                          onclick={() =>
+                            (dailySubtargets = dailySubtargets.filter(
+                              (_, i) => i !== idx
+                            ))}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    {/each}
+                  </div>
+                  <button
+                    type="button"
+                    class="btn-secondary-small mt-1"
+                    onclick={() =>
+                      (dailySubtargets = [
+                        ...dailySubtargets,
+                        { id: "", time_hint: "" },
+                      ])}
+                  >
+                    + Add Target
+                  </button>
+                </div>
+              {:else}
+                <div class="col-group mt-2">
+                  <label for="edit-daily-count" class="field-label"
+                    >Target repetitions per day</label
+                  >
+                  <input
+                    id="edit-daily-count"
+                    type="number"
+                    min="1"
+                    bind:value={dailyCount}
+                    class="input-number-brutal"
+                  />
+                </div>
+              {/if}
+            </div>
+          {/if}
+
+          {#if habitScheduleType === "weekly_days"}
+            <div class="col-group section-inner">
+              <label class="field-label">Select Scheduled Days</label>
+              <div class="days-grid mt-1">
+                {#each ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as day}
+                  <label
+                    class="day-btn"
+                    class:selected={weeklyDaysSelected[day]}
+                  >
+                    <input
+                      type="checkbox"
+                      bind:checked={weeklyDaysSelected[day]}
+                    />
+                    {day.toUpperCase()}
+                  </label>
+                {/each}
+              </div>
+            </div>
+          {/if}
+
+          {#if habitScheduleType === "weekly_flexible"}
+            <div class="col-group section-inner">
+              <label for="edit-weekly-count" class="field-label"
+                >Target completions per week</label
+              >
+              <input
+                id="edit-weekly-count"
+                type="number"
+                min="1"
+                max="7"
+                bind:value={weeklyFlexCount}
+                class="input-number-brutal"
+              />
+            </div>
           {/if}
 
           <label for="edit-instrument" class="field-label"
@@ -428,6 +701,12 @@
             <div class="timeline-content">
               <div class="timeline-header">
                 <span class="timeline-time">{formatTime(exec.time)}</span>
+                <span class="badge-status {exec.status || 'completed'}">
+                  {exec.status || "completed"}
+                </span>
+                {#if exec.target_id}
+                  <span class="badge-target">{exec.target_id}</span>
+                {/if}
                 {#if exec.metadata?.difficulty}
                   <span class="badge-difficulty {exec.metadata.difficulty}">
                     {exec.metadata.difficulty}
@@ -491,7 +770,7 @@
   }
   .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
     gap: var(--space-s);
   }
   .stat-card {
@@ -513,6 +792,7 @@
     font-weight: 500;
     margin-top: var(--space-3xs);
     text-transform: uppercase;
+    line-height: 1.2;
   }
   .heatmap-container {
     display: flex;
@@ -550,6 +830,18 @@
     background-color: var(--green-bg);
     border-color: var(--border-accent);
   }
+  .heatmap-cell.failed {
+    background-color: var(--red-bg);
+    border-color: var(--border-accent);
+  }
+  .heatmap-cell.exempt {
+    background-color: var(--amber-bg);
+    border-color: var(--border-accent);
+  }
+  .heatmap-cell.off {
+    background-color: var(--bg-input);
+    border-color: var(--border);
+  }
   .heatmap-cell.today {
     outline: 2px solid var(--border-accent);
     outline-offset: -1px;
@@ -563,6 +855,7 @@
     gap: var(--space-s);
     font-size: var(--step-n2);
     color: var(--text-secondary);
+    flex-wrap: wrap;
   }
   .legend-item {
     display: flex;
@@ -598,9 +891,15 @@
     letter-spacing: 0.05em;
     margin-bottom: -4px;
   }
+  .field-label.mt-0 {
+    margin-top: 0;
+  }
   .row-group {
     display: flex;
     gap: var(--space-s);
+  }
+  .row-group.align-center {
+    align-items: center;
   }
   .col-group {
     display: flex;
@@ -731,6 +1030,28 @@
     padding: 1px 4px;
     font-weight: 500;
   }
+  .badge-status {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 1px 4px;
+    border: 1px solid var(--border-accent);
+  }
+  .badge-status.completed {
+    background: var(--green-bg);
+    color: var(--green);
+  }
+  .badge-status.exempt {
+    background: var(--amber-bg);
+    color: var(--amber);
+  }
+  .badge-target {
+    font-size: 10px;
+    font-weight: 600;
+    background: var(--bg-input);
+    border: 1px solid var(--border-accent);
+    padding: 1px 4px;
+  }
   .timeline-note {
     font-size: var(--step-n1);
     color: var(--text-primary);
@@ -753,5 +1074,75 @@
       opacity: 1;
       transform: translateY(0);
     }
+  }
+
+  /* Advanced inner editor styling */
+  .section-inner {
+    border: 1px dashed var(--border-accent);
+    padding: var(--space-s);
+    background: rgba(0, 0, 0, 0.02);
+  }
+  .subtarget-row {
+    display: flex;
+    gap: var(--space-3xs);
+    align-items: center;
+    margin-bottom: var(--space-3xs);
+  }
+  .input-brutal-small {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--border-accent);
+    padding: var(--space-3xs) var(--space-2xs);
+    font-family: inherit;
+    font-size: var(--step-n2);
+    color: var(--text-primary);
+    outline: none;
+    border-radius: 0;
+  }
+  .input-brutal-small:focus {
+    background: #fff;
+  }
+  .btn-danger-small {
+    background: var(--red-bg);
+    color: var(--red);
+    border: 1px solid var(--border-accent);
+    padding: var(--space-3xs) var(--space-2xs);
+    cursor: pointer;
+    font-weight: 700;
+  }
+  .btn-secondary-small {
+    background: var(--bg-input);
+    border: 1px solid var(--border-accent);
+    padding: var(--space-3xs) var(--space-2xs);
+    cursor: pointer;
+    font-size: var(--step-n2);
+    font-weight: 600;
+  }
+  .days-grid {
+    display: flex;
+    gap: var(--space-3xs);
+    flex-wrap: wrap;
+  }
+  .day-btn {
+    flex: 1;
+    min-width: 40px;
+    text-align: center;
+    padding: var(--space-2xs);
+    border: 1px solid var(--border-accent);
+    cursor: pointer;
+    font-size: var(--step-n2);
+    font-weight: 700;
+    background: var(--bg-input);
+    user-select: none;
+    transition: all 0.1s;
+  }
+  .day-btn.selected {
+    background: var(--green-bg);
+    color: var(--green);
+    box-shadow: 2px 2px 0px 0px var(--border-accent);
+    transform: translate(-1px, -1px);
+  }
+  .day-btn input {
+    display: none;
   }
 </style>
