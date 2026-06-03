@@ -5,22 +5,47 @@ export async function fetchHtml(url: string): Promise<string> {
   const isBrowser = typeof window !== "undefined";
   let targetUrl = url;
 
+  let customProxyUsed = false;
   if (isBrowser) {
     const customProxy = import.meta.env.VITE_SCRAPER_PROXY_URL;
     if (customProxy) {
       targetUrl = `${customProxy}${encodeURIComponent(url)}`;
+      customProxyUsed = true;
     } else {
       // In browser, route through corsproxy.io to avoid CORS blocks
       targetUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
     }
   }
 
-  const response = await fetch(targetUrl, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(targetUrl, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      },
+    });
+  } catch (err) {
+    if (customProxyUsed) {
+      console.warn(
+        "Custom proxy failed to connect, falling back to corsproxy.io:",
+        err
+      );
+      const fallbackUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+      try {
+        response = await fetch(fallbackUrl, {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          },
+        });
+      } catch (fallbackErr) {
+        throw new Error("Failed to connect to the scraping proxy.");
+      }
+    } else {
+      throw new Error("Failed to connect to the scraping proxy.");
+    }
+  }
 
   const text = await response.text();
 
