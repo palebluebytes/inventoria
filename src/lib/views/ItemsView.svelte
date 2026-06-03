@@ -5,7 +5,7 @@
     saveAcquisitionTwin,
     updateAcquisitionStatus,
   } from "../stores/acquisition.store";
-  import { fetchHtml } from "../ingestion/fetcher";
+  import { fetchHtml, getProxyImageUrl } from "../ingestion/fetcher";
   import { extractJsonLd } from "../ingestion/json-ld";
   import Card from "../ui/Card.svelte";
   import Badge from "../ui/Badge.svelte";
@@ -288,7 +288,11 @@
       <Card class="item-card">
         <div class="item-image-wrapper">
           {#if item.image}
-            <img src={item.image} alt={item.name} crossorigin="anonymous" />
+            <img
+              src={getProxyImageUrl(item.image)}
+              alt={item.name}
+              crossorigin="anonymous"
+            />
           {:else}
             <div class="image-placeholder">📦</div>
           {/if}
