@@ -12,6 +12,7 @@
 - [x] **Media Twin Ingestion:** Build TMDB and Open Library API integrations, mapping payloads to standard media digital twins in the ledger.
 - [x] **Engagement Event Wiring:** Implement UI and schema support for `WatchAction` and `ReadAction` Engagement Events, including the shared media status enum (`saved`, `started`, `progress`, `completed`).
 - [x] **Media Dashboard UI:** Build the unified Media Library dashboard for tracking movies, books, and TV shows. Include Kanban-style grouping based on the shared media status enum (`saved`, `started`, `progress`, `completed`).
+- [x] **E-commerce Proxy & Metadata Fallback:** Deploy Cloudflare Worker proxy for circumventing CORS/payload limits and build Open Graph/HTML fallback parsing for sites like Amazon.
 - [x] **Personal Deployment & PWA:** Configure static asset serving via Cloudflare Workers assets binding, enable cross-origin isolation headers for SQLite WASM, and establish a PWA with "prompt for update" notification.
 
 # V2 Milestones & Execution Order
