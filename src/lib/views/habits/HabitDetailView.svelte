@@ -50,8 +50,8 @@
           time_hint: t.time_hint || "",
         }))
       : [
-          { id: "morning", time_hint: "08:00" },
-          { id: "evening", time_hint: "20:00" },
+          { id: "slot_1", time_hint: "08:00" },
+          { id: "slot_2", time_hint: "20:00" },
         ]
   );
 
@@ -168,10 +168,12 @@
         scheduleRules = {
           type: "daily_multiple",
           targets: dailySubtargets
-            .filter((t) => t.id.trim() !== "")
+            .filter((t) => t.time_hint.trim() !== "")
             .map((t) => ({
-              id: t.id.trim(),
-              time_hint: t.time_hint.trim() || undefined,
+              id:
+                t.id.trim() ||
+                "slot_" + Math.random().toString(36).substring(2, 9),
+              time_hint: t.time_hint.trim(),
             })),
         };
       } else {
@@ -561,14 +563,7 @@
                     {#each dailySubtargets as tgt, idx}
                       <div class="subtarget-row">
                         <input
-                          type="text"
-                          placeholder="Target ID (e.g. morning)"
-                          bind:value={tgt.id}
-                          class="input-brutal-small"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Time hint (optional)"
+                          type="time"
                           bind:value={tgt.time_hint}
                           class="input-brutal-small"
                         />
@@ -591,7 +586,12 @@
                     onclick={() =>
                       (dailySubtargets = [
                         ...dailySubtargets,
-                        { id: "", time_hint: "" },
+                        {
+                          id:
+                            "slot_" +
+                            Math.random().toString(36).substring(2, 9),
+                          time_hint: "",
+                        },
                       ])}
                   >
                     + Add Target
