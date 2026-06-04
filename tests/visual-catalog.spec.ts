@@ -257,18 +257,19 @@ test.describe("Visual Catalog Generator", () => {
 
     // 3. Populate Habits Dashboard (Add blueprint & log execution)
     await page.locator(".nav-item", { hasText: "Habits" }).click();
+    await page.locator(".fab-btn").click();
     await page.locator("#habit-name-input").fill("Read Philosophy");
     await page.selectOption("#habit-category", "Mind");
     await page.selectOption("#habit-schedule", "daily_multiple");
-    await page.locator("button", { hasText: "Add Habit Blueprint" }).click();
+    await page.locator(".btn-agenda-submit").click();
 
     // Quick Log habit
-    const habitItem = page.locator("#habits-blueprints-list .habit-item", {
+    const habitItem = page.locator(".agenda-row", {
       hasText: "Read Philosophy",
     });
     await expect(habitItem).toBeVisible();
-    await habitItem.locator("button", { hasText: "1" }).click();
-    await expect(habitItem.locator(".mini-stat.streak")).toContainText("🔥 1d");
+    await habitItem.click();
+    await expect(habitItem.locator(".meta-stats")).toContainText("🔥 1d");
 
     // Take Habits Dashboard Screenshot
     await takeFullPageScreenshot(page, "habits-dashboard.png");

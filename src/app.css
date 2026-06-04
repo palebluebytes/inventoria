@@ -39,6 +39,9 @@
 
 /* ── Colour tokens ───────────────────────────────────────────────────────── */
 :root {
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    monospace;
   --bg-base: #fafafa;
   --bg-surface: #ffffff;
   --bg-card: #ffffff;
