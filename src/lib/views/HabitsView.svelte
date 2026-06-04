@@ -135,17 +135,15 @@
 <header class="agenda-view-header">
   <div class="agenda-ascii-box">
     <div class="agenda-ascii-title">=== DAILY AGENDA ===</div>
-    <div class="agenda-ascii-date">DATE: {dateTodayStr.toUpperCase()}</div>
+    <div class="agenda-ascii-date">{dateTodayStr.toUpperCase()}</div>
   </div>
 </header>
 
-<HabitStats {avgStrength} {maxStreak} {totalHabitsCount} />
-
-<div class="agenda-container">
+<div class="agenda-container" id="habits-blueprints-list">
   <!-- Timed Timeline -->
   <section class="agenda-section">
     <div class="section-title-bar">
-      <h2>* SCHEDULED TIMELINE</h2>
+      <h2>SCHEDULE</h2>
       <Badge id="timed-habits-count" variant="default" class="mono-badge">
         {timedHabitItems.length}
       </Badge>
@@ -171,7 +169,7 @@
   <!-- General Habits -->
   <section class="agenda-section">
     <div class="section-title-bar">
-      <h2>* GENERAL TASKS / HABITS</h2>
+      <h2>HABITS</h2>
       <Badge id="general-habits-count" variant="default" class="mono-badge">
         {generalHabitItems.length}
       </Badge>
@@ -289,10 +287,10 @@
 
   .agenda-ascii-box {
     border: 2px solid var(--border-accent);
-    box-shadow: 4px 4px 0px 0px var(--border-accent);
     padding: var(--space-s) var(--space-m);
     background: var(--bg-surface);
     font-family: var(--font-mono);
+    text-align: center;
   }
 
   .agenda-ascii-title {
@@ -371,8 +369,8 @@
     height: 56px;
     border-radius: 50%;
     border: 3px solid var(--border-accent);
-    background: var(--green-bg);
-    color: var(--green);
+    background: var(--amber-bg);
+    color: var(--amber);
     font-size: 32px;
     font-weight: 700;
     display: flex;

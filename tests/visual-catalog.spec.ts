@@ -351,9 +351,7 @@ test.describe("Visual Catalog Generator", () => {
     });
     await expect(readPhilosophyItem).toBeVisible();
     await readPhilosophyItem.click();
-    await expect(readPhilosophyItem.locator(".state-indicator")).toHaveText(
-      "[X]"
-    );
+    await expect(readPhilosophyItem).toHaveClass(/completed/);
 
     // Log Pushups Daily once
     const pushupsItem = page.locator(".agenda-row", {
@@ -361,7 +359,7 @@ test.describe("Visual Catalog Generator", () => {
     });
     await expect(pushupsItem).toBeVisible();
     await pushupsItem.click();
-    await expect(pushupsItem.locator(".rep-box.checked")).toHaveCount(1);
+    await expect(pushupsItem.locator(".reps-count-display")).toHaveText("1/3");
 
     // Log Hydration Routine morning target (08:00)
     const hydrationMorningTarget = page.locator(".agenda-row", {
@@ -369,9 +367,7 @@ test.describe("Visual Catalog Generator", () => {
     });
     await expect(hydrationMorningTarget).toBeVisible();
     await hydrationMorningTarget.click();
-    await expect(hydrationMorningTarget.locator(".state-indicator")).toHaveText(
-      "[X]"
-    );
+    await expect(hydrationMorningTarget).toHaveClass(/completed/);
 
     // Log Read 20 Pages once
     const read20PagesItem = page.locator(".agenda-row", {
@@ -379,7 +375,9 @@ test.describe("Visual Catalog Generator", () => {
     });
     await expect(read20PagesItem).toBeVisible();
     await read20PagesItem.click();
-    await expect(read20PagesItem.locator(".rep-box.checked")).toHaveCount(1);
+    await expect(read20PagesItem.locator(".reps-count-display")).toHaveText(
+      "1/3"
+    );
 
     // Take Habits Dashboard Screenshot
     await takeFullPageScreenshot(page, "habits-dashboard.png");

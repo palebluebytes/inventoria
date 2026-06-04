@@ -1,9 +1,6 @@
 <script lang="ts">
   import { habitsStore } from "../../stores/habits.store";
   import type { ScheduleRule, DayOfWeek } from "../../habits/habits";
-  import Input from "../../ui/Input.svelte";
-  import Button from "../../ui/Button.svelte";
-  import Alert from "../../ui/Alert.svelte";
 
   let { dbReady, onClose }: { dbReady: boolean; onClose: () => void } =
     $props();
@@ -39,6 +36,17 @@
   let habitInstrument = $state("");
   let habitStatus = $state<"idle" | "loading" | "error">("idle");
   let habitError = $state("");
+
+  // Custom Dropdown states
+  let categoryDropdownOpen = $state(false);
+  let scheduleDropdownOpen = $state(false);
+
+  const categories = ["Fitness", "Mind", "Productivity", "Health", "Other"];
+  const scheduleTypes = [
+    { value: "daily_multiple", label: "DAILY" },
+    { value: "weekly_days", label: "WEEKLY DAYS" },
+    { value: "weekly_flexible", label: "WEEKLY FLEXIBLE" },
+  ];
 
   async function addHabit() {
     if (!habitName.trim()) return;
@@ -95,70 +103,104 @@
 </script>
 
 <div class="add-screen">
-  <header class="agenda-header">
+  <div class="header-container">
     <button class="back-btn" onclick={onClose} aria-label="Go back">
-      &larr; BACK
+      &lt; BACK
     </button>
-    <div class="header-title">*** CREATE BLUEPRINT ***</div>
-    <div style="width: 60px;"></div>
-    <!-- visual spacer -->
-  </header>
+    <div class="header-banner">*** CREATE BLUEPRINT ***</div>
+  </div>
 
   <main class="form-container">
     <div class="form-section">
       <label for="habit-name-input" class="label-mono">Habit Name</label>
-      <Input
+      <input
         id="habit-name-input"
-        placeholder="e.g., Kettlebell Swings"
+        placeholder="[ ENTER HABIT TITLE... ]"
         bind:value={habitName}
-        class="input-agenda"
+        class="input-brutal"
       />
     </div>
 
     <div class="grid-2">
       <div class="form-section">
-        <label for="habit-category" class="label-mono">Category</label>
-        <select
-          id="habit-category"
-          bind:value={habitCategory}
-          class="select-agenda"
-        >
-          <option value="Fitness">Fitness</option>
-          <option value="Mind">Mind</option>
-          <option value="Productivity">Productivity</option>
-          <option value="Health">Health</option>
-          <option value="Other">Other</option>
-        </select>
+        <span class="label-mono">Category</span>
+        <div class="custom-select-container">
+          <button
+            type="button"
+            class="custom-select-trigger"
+            onclick={() => {
+              categoryDropdownOpen = !categoryDropdownOpen;
+              scheduleDropdownOpen = false;
+            }}
+          >
+            [ {habitCategory.toUpperCase()} [ ▼] ]
+          </button>
+          {#if categoryDropdownOpen}
+            <div class="custom-select-options">
+              {#each categories as cat}
+                <button
+                  type="button"
+                  class="custom-select-option"
+                  onclick={() => {
+                    habitCategory = cat;
+                    categoryDropdownOpen = false;
+                  }}
+                >
+                  {cat.toUpperCase()}
+                </button>
+              {/each}
+            </div>
+          {/if}
+        </div>
       </div>
 
       <div class="form-section">
-        <label for="habit-schedule" class="label-mono">Schedule Type</label>
-        <select
-          id="habit-schedule"
-          bind:value={habitScheduleType}
-          class="select-agenda"
-        >
-          <option value="daily_multiple">Daily (Count / Targets)</option>
-          <option value="weekly_days">Weekly (Specific Days)</option>
-          <option value="weekly_flexible">Weekly (Flexible Count)</option>
-        </select>
+        <span class="label-mono">Schedule Type</span>
+        <div class="custom-select-container">
+          <button
+            type="button"
+            class="custom-select-trigger"
+            onclick={() => {
+              scheduleDropdownOpen = !scheduleDropdownOpen;
+              categoryDropdownOpen = false;
+            }}
+          >
+            [ {scheduleTypes.find((t) => t.value === habitScheduleType)
+              ?.label ?? "DAILY"} [ ▼] ]
+          </button>
+          {#if scheduleDropdownOpen}
+            <div class="custom-select-options">
+              {#each scheduleTypes as type}
+                <button
+                  type="button"
+                  class="custom-select-option"
+                  onclick={() => {
+                    habitScheduleType = type.value as any;
+                    scheduleDropdownOpen = false;
+                  }}
+                >
+                  {type.label}
+                </button>
+              {/each}
+            </div>
+          {/if}
+        </div>
       </div>
     </div>
 
     <!-- Daily options -->
     {#if habitScheduleType === "daily_multiple"}
       <div class="schedule-editor-box">
-        <div class="checkbox-row">
-          <input
-            id="use-subtargets"
-            type="checkbox"
-            bind:checked={dailyUseSubtargets}
-            class="checkbox-agenda"
-          />
-          <label for="use-subtargets" class="label-mono checkbox-label">
-            Use Specific Time Sub-Targets (e.g. morning at 08:00)
-          </label>
-        </div>
+        <button
+          type="button"
+          class="checkbox-brutal-box"
+          onclick={() => (dailyUseSubtargets = !dailyUseSubtargets)}
+        >
+          <span class="checkbox-label-text">USE SPECIFIC TIME SUB-TARGETS</span>
+          <span class="checkbox-indicator"
+            >{dailyUseSubtargets ? "[X]" : "[ ]"}</span
+          >
+        </button>
 
         {#if dailyUseSubtargets}
           <div class="subtargets-editor">
@@ -168,15 +210,15 @@
                 <div class="subtarget-row">
                   <input
                     type="text"
-                    placeholder="ID (e.g., morning)"
+                    placeholder="[ ID (E.G. MORNING) ]"
                     bind:value={tgt.id}
-                    class="input-agenda-small"
+                    class="input-brutal small-input"
                   />
                   <input
                     type="text"
-                    placeholder="Time (e.g., 08:00)"
+                    placeholder="[ TIME (E.G. 08:00) ]"
                     bind:value={tgt.time_hint}
-                    class="input-agenda-small"
+                    class="input-brutal small-input"
                   />
                   <button
                     type="button"
@@ -213,7 +255,7 @@
               type="number"
               min="1"
               bind:value={dailyCount}
-              class="input-agenda-number"
+              class="input-brutal"
             />
           </div>
         {/if}
@@ -248,7 +290,7 @@
             min="1"
             max="7"
             bind:value={weeklyFlexCount}
-            class="input-agenda-number"
+            class="input-brutal"
           />
         </div>
       </div>
@@ -258,27 +300,28 @@
       <label for="habit-instrument-input" class="label-mono"
         >Instrument ID (Optional)</label
       >
-      <Input
+      <input
         id="habit-instrument-input"
-        placeholder="e.g., twin:kettlebell_16kg"
+        placeholder="[ E.G. TWIN:KETTLEBELL_16KG ]"
         bind:value={habitInstrument}
-        class="input-agenda"
+        class="input-brutal"
       />
     </div>
 
     {#if habitStatus === "error"}
-      <Alert variant="error" class="error-alert">{habitError}</Alert>
+      <div class="error-box">
+        ERROR: {habitError.toUpperCase()}
+      </div>
     {/if}
 
     <div class="action-footer">
-      <Button
+      <button
         onclick={addHabit}
         disabled={habitStatus === "loading" || !dbReady}
-        loading={habitStatus === "loading"}
-        class="btn-agenda-submit"
+        class="btn-submit-brutal"
       >
         SAVE BLUEPRINT
-      </Button>
+      </button>
     </div>
   </main>
 </div>
@@ -307,16 +350,15 @@
     }
   }
 
-  .agenda-header {
+  .header-container {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 2px solid var(--border-accent);
-    padding: var(--space-s) var(--space-m);
-    background: var(--bg-surface);
+    flex-direction: column;
+    padding: var(--space-s) var(--space-m) 0 var(--space-m);
+    background: var(--bg-base);
   }
 
   .back-btn {
+    align-self: flex-start;
     background: none;
     border: none;
     font-family: var(--font-mono);
@@ -325,19 +367,23 @@
     color: var(--text-primary);
     cursor: pointer;
     padding: var(--space-3xs) var(--space-2xs);
-    border: 1px solid transparent;
+    margin-bottom: var(--space-xs);
+    outline: none;
   }
 
   .back-btn:hover {
-    border-color: var(--border-accent);
-    background: var(--bg-input);
+    text-decoration: underline;
   }
 
-  .header-title {
+  .header-banner {
+    background: #000;
+    color: #fff;
     font-family: var(--font-mono);
     font-size: var(--step-n1);
     font-weight: 700;
-    color: var(--text-primary);
+    text-align: center;
+    padding: var(--space-s);
+    border: 2px solid #000;
   }
 
   .form-container {
@@ -349,6 +395,7 @@
     margin: 0 auto;
     width: 100%;
     flex: 1;
+    padding-bottom: var(--space-2xl);
   }
 
   .form-section {
@@ -370,15 +417,7 @@
     margin-bottom: var(--space-xs);
   }
 
-  :global(.input-agenda) {
-    font-family: var(--font-mono) !important;
-    border: 2px solid var(--border-accent) !important;
-    border-radius: 0 !important;
-    background: var(--bg-surface) !important;
-  }
-
-  .select-agenda,
-  .input-agenda-number {
+  .input-brutal {
     width: 100%;
     background: var(--bg-surface);
     border: 2px solid var(--border-accent);
@@ -390,39 +429,90 @@
     border-radius: 0;
   }
 
-  .select-agenda:focus,
-  .input-agenda-number:focus {
-    box-shadow: 0px 0px 0px 1px var(--border-accent);
-  }
-
   .grid-2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--space-s);
   }
 
-  .schedule-editor-box {
-    border: 2px dashed var(--border-accent);
-    padding: var(--space-s);
-    background: rgba(0, 0, 0, 0.02);
+  .custom-select-container {
+    position: relative;
+    width: 100%;
   }
 
-  .checkbox-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2xs);
-    margin-bottom: var(--space-2xs);
-  }
-
-  .checkbox-agenda {
-    width: 18px;
-    height: 18px;
-    accent-color: var(--border-accent);
-  }
-
-  .checkbox-label {
-    margin-bottom: 0;
+  .custom-select-trigger {
+    width: 100%;
+    background: var(--bg-surface);
+    border: 2px solid var(--border-accent);
+    padding: var(--space-xs) var(--space-s);
+    font-family: var(--font-mono);
+    font-size: var(--step-n1);
+    color: var(--text-primary);
+    text-align: left;
     cursor: pointer;
+    border-radius: 0;
+    outline: none;
+  }
+
+  .custom-select-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-surface);
+    border: 2px solid var(--border-accent);
+    border-top: none;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .custom-select-option {
+    width: 100%;
+    background: none;
+    border: none;
+    padding: var(--space-xs) var(--space-s);
+    padding-left: var(--space-m); /* Indent options like mockup */
+    font-family: var(--font-mono);
+    font-size: var(--step-n1);
+    color: var(--text-primary);
+    text-align: left;
+    cursor: pointer;
+    outline: none;
+  }
+
+  .custom-select-option:hover,
+  .custom-select-option:focus {
+    background: var(--bg-input);
+  }
+
+  .schedule-editor-box {
+    border: 2px solid var(--border-accent);
+    padding: var(--space-s);
+    background: var(--bg-surface);
+  }
+
+  .checkbox-brutal-box {
+    width: 100%;
+    background: var(--bg-surface);
+    border: 2px solid var(--border-accent);
+    padding: var(--space-s);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: var(--step-n2);
+    font-weight: 700;
+    outline: none;
+  }
+
+  .checkbox-label-text {
+    text-align: left;
+  }
+
+  .checkbox-indicator {
+    font-size: var(--step-0);
   }
 
   .subtargets-editor {
@@ -444,16 +534,9 @@
     align-items: center;
   }
 
-  .input-agenda-small {
-    flex: 1;
-    background: var(--bg-surface);
-    border: 1px solid var(--border-accent);
+  .small-input {
     padding: var(--space-2xs);
-    font-family: var(--font-mono);
     font-size: var(--step-n2);
-    color: var(--text-primary);
-    border-radius: 0;
-    outline: none;
   }
 
   .btn-agenda-delete {
@@ -469,8 +552,8 @@
 
   .btn-agenda-action {
     align-self: flex-start;
-    background: var(--bg-input);
-    border: 1px solid var(--border-accent);
+    background: var(--bg-surface);
+    border: 2px solid var(--border-accent);
     padding: var(--space-3xs) var(--space-xs);
     font-family: var(--font-mono);
     font-size: var(--step-n2);
@@ -479,7 +562,7 @@
   }
 
   .btn-agenda-action:hover {
-    background: var(--border);
+    background: var(--bg-input);
   }
 
   .days-flex {
@@ -493,51 +576,58 @@
     min-width: 45px;
     text-align: center;
     padding: var(--space-2xs);
-    border: 1px solid var(--border-accent);
+    border: 2px solid var(--border-accent);
     cursor: pointer;
     font-family: var(--font-mono);
     font-size: var(--step-n2);
     font-weight: 700;
-    background: var(--bg-input);
+    background: var(--bg-surface);
     user-select: none;
   }
 
   .day-chip.selected {
-    background: var(--green-bg);
-    color: var(--green);
-    box-shadow: 2px 2px 0px 0px var(--border-accent);
-    transform: translate(-1px, -1px);
+    background: var(--amber-bg);
+    color: var(--amber);
   }
 
   .day-chip input {
     display: none;
   }
 
-  :global(.error-alert) {
-    margin-top: var(--space-s) !important;
+  .error-box {
+    border: 2px solid var(--red-bg);
+    background: var(--red-bg);
+    color: #fff;
+    padding: var(--space-s);
+    font-family: var(--font-mono);
+    font-size: var(--step-n1);
+    font-weight: 700;
   }
 
   .action-footer {
-    margin-top: var(--space-l);
+    margin-top: var(--space-xl);
     display: flex;
-    justify-content: flex-end;
+    justify-content: center;
   }
 
-  :global(.btn-agenda-submit) {
-    width: 100% !important;
-    background: #000 !important;
-    color: #fff !important;
-    font-family: var(--font-mono) !important;
-    font-size: var(--step-n1) !important;
-    font-weight: 700 !important;
-    border-radius: 0 !important;
-    border: 2px solid var(--border-accent) !important;
-    padding: var(--space-s) !important;
+  .btn-submit-brutal {
+    width: 100%;
+    background: #000;
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: var(--step-n1);
+    font-weight: 700;
+    border: 2px solid #000;
+    padding: var(--space-s);
+    text-transform: uppercase;
+    cursor: pointer;
+    -webkit-box-reflect: below 2px
+      linear-gradient(transparent, rgba(0, 0, 0, 0.3));
+    outline: none;
   }
 
-  :global(.btn-agenda-submit:hover:not(:disabled)) {
-    background: var(--green-bg) !important;
-    color: var(--green) !important;
-    box-shadow: 4px 4px 0px 0px var(--border-accent) !important;
+  .btn-submit-brutal:active {
+    background: var(--bg-input);
+    color: var(--text-primary);
   }
 </style>

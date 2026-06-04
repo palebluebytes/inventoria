@@ -24,6 +24,9 @@ test("Habits UI - create habit blueprint, log execution, view details, and edit 
   // Switch to the Habits tab
   await page.locator(".nav-item", { hasText: "Habits" }).click();
 
+  // Open Add Habit screen via FAB button
+  await page.locator(".fab-btn").click();
+
   // Generate a unique habit name to ensure no collision in the local-first database
   const habitName = `Meditate_${Date.now()}`;
   const instrumentName = "twin:cushion";
@@ -32,15 +35,18 @@ test("Habits UI - create habit blueprint, log execution, view details, and edit 
   const nameInput = page.locator("#habit-name-input");
   await nameInput.fill(habitName);
 
-  // Select Category and Schedule
-  await page.selectOption("#habit-category", "Mind");
-  await page.selectOption("#habit-schedule", "daily_multiple");
+  // Select Category and Schedule using custom select buttons
+  await page.locator(".custom-select-trigger").nth(0).click();
+  await page.locator(".custom-select-option", { hasText: "MIND" }).click();
+
+  await page.locator(".custom-select-trigger").nth(1).click();
+  await page.locator(".custom-select-option", { hasText: "DAILY" }).click();
 
   const instrumentInput = page.locator("#habit-instrument-input");
   await instrumentInput.fill(instrumentName);
 
   // Click the Add Habit Blueprint button
-  const addBtn = page.locator("button", { hasText: "Add Habit Blueprint" });
+  const addBtn = page.locator("button", { hasText: "SAVE BLUEPRINT" });
   await addBtn.click();
 
   // Verify the habit blueprint is displayed in the list
@@ -50,22 +56,18 @@ test("Habits UI - create habit blueprint, log execution, view details, and edit 
   await expect(habitItem).toBeVisible({ timeout: 5000 });
 
   // Verify category badge color/text
-  const categoryBadge = habitItem.locator(".badge-custom");
-  await expect(categoryBadge).toHaveText("Mind");
+  const categoryBadge = habitItem.locator(".habit-category");
+  await expect(categoryBadge).toHaveText("MIND");
 
-  // Click the "1" button for the new habit (first repetition of daily_multiple)
-  const quickLogBtn = habitItem.locator("button", { hasText: "1" });
-  await quickLogBtn.click();
+  // Click the habit item to log execution
+  await habitItem.click();
 
-  // Verify that the streak mini-stat updates to 1d
-  const streakStat = habitItem.locator(".mini-stat.streak");
-  await expect(streakStat).toContainText("🔥 1d", { timeout: 5000 });
-
-  // Click the habit info panel to open the detail view bottom sheet
-  await habitItem.locator(".habit-info-panel").click();
+  // Right click to open context menu and click View Details & History
+  await habitItem.click({ button: "right" });
+  await page.locator(".detail-action").click();
 
   // Inside Detail View: check for title
-  const detailTitle = page.locator(".bottom-sheet-header h2");
+  const detailTitle = page.locator(".bottom-sheet-header h2").first();
   await expect(detailTitle).toHaveText(habitName);
 
   // Verify heatmap is visible

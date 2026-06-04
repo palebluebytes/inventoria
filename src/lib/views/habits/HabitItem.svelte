@@ -50,6 +50,45 @@
   let completedCount = $derived(completedReps.length);
   let rules = $derived(lineage.head.schedule_rules);
 
+  let last7DaysExecs = $derived(
+    lineage.executions.filter(
+      (e) => e.time >= Date.now() - 7 * 24 * 60 * 60 * 1000
+    )
+  );
+  let weeklyDoneDays = $derived(
+    new Set(last7DaysExecs.map((e) => toUTCDateStr(e.time))).size
+  );
+
+  let isDone = $derived.by(() => {
+    if (isExempt) return false;
+    if (targetId) return isCompleted;
+    if (rules) {
+      if (rules.type === "daily_multiple" && !rules.targets) {
+        return completedCount >= (rules.count ?? 1);
+      }
+      if (rules.type === "weekly_flexible") {
+        return weeklyDoneDays >= (rules.count ?? 1);
+      }
+    }
+    return isCompleted;
+  });
+
+  let isInProgress = $derived.by(() => {
+    if (isExempt) return false;
+    if (targetId) return false;
+    if (rules) {
+      if (rules.type === "daily_multiple" && !rules.targets) {
+        const target = rules.count ?? 1;
+        return completedCount > 0 && completedCount < target;
+      }
+      if (rules.type === "weekly_flexible") {
+        const target = rules.count ?? 1;
+        return weeklyDoneDays > 0 && weeklyDoneDays < target;
+      }
+    }
+    return false;
+  });
+
   // Gestures
   let longPressTimer: any;
   let isLongPressActive = false;
@@ -142,8 +181,9 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
-  class="agenda-row"
-  class:completed={isCompleted}
+  class="agenda-row habit-item"
+  class:completed={isDone}
+  class:in-progress={isInProgress}
   class:exempt={isExempt}
   onclick={handleClick}
   ontouchstart={handleTouchStart}
@@ -155,96 +195,39 @@
 >
   {#if targetId}
     <!-- Timed Habit Target Layout -->
-    <div class="row-left time-col">
-      {getTimeHint()}
-    </div>
-    <div class="row-middle">
-      <div class="habit-title">
-        <span class="habit-name">{lineage.head.name}</span>
-        <span class="target-name">({targetId})</span>
-      </div>
-      <div class="meta-row">
-        <span class="meta-tag">{getCategoryLabel(lineage.head.category)}</span>
-        <span class="meta-stats">🔥 {lineage.streak}d</span>
-      </div>
-    </div>
-    <div class="row-right">
-      {#if isCompleted}
-        <span class="state-indicator done">[X]</span>
-      {:else if isExempt}
-        <span class="state-indicator exempt">[~]</span>
-      {:else}
-        <span class="state-indicator todo">[ ]</span>
-      {/if}
+    <span class="time-col">{getTimeHint()}</span>
+
+    <div class="habit-details">
+      <span class="habit-name">{lineage.head.name.toUpperCase()}</span>
+      <span class="habit-category">{lineage.head.category.toUpperCase()}</span>
     </div>
   {:else}
     <!-- General / Untimed Habit Layout -->
-    <div class="row-middle pl-s">
-      <div class="habit-title">
-        <span class="habit-name">{lineage.head.name}</span>
-      </div>
-      <div class="meta-row">
-        <span class="meta-tag">{getCategoryLabel(lineage.head.category)}</span>
-        <span class="meta-stats">🔥 {lineage.streak}d</span>
-        {#if rules && rules.type === "weekly_flexible"}
-          {@const last7DaysExecs = lineage.executions.filter(
-            (e) => e.time >= Date.now() - 7 * 24 * 60 * 60 * 1000
-          )}
-          {@const weeklyDoneDays = new Set(
-            last7DaysExecs.map((e) => toUTCDateStr(e.time))
-          ).size}
-          <span class="meta-weekly">{weeklyDoneDays}/{rules.count} wky</span>
-        {/if}
-      </div>
+    <div class="habit-details">
+      <span class="habit-name">{lineage.head.name.toUpperCase()}</span>
+      <span class="habit-category">{lineage.head.category.toUpperCase()}</span>
     </div>
-    <div class="row-right">
-      {#if rules && rules.type === "daily_multiple" && !rules.targets}
-        <div class="reps-indicator">
-          {#each Array(rules.count ?? 1) as _, idx}
-            <span class="rep-box" class:checked={idx < completedCount}>
-              {idx < completedCount ? "■" : "□"}
-            </span>
-          {/each}
+
+    <div class="spacer"></div>
+
+    {#if rules && rules.type === "daily_multiple" && !rules.targets}
+      <div class="reps-count-display">
+        {completedCount}/{rules.count ?? 1}
+      </div>
+    {:else if rules && rules.type === "weekly_days"}
+      {@const daysOfWeek = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]}
+      {@const utcDayStr = daysOfWeek[new Date().getUTCDay()] as DayOfWeek}
+      {@const isScheduledToday = rules.days.includes(utcDayStr)}
+      {#if !isScheduledToday}
+        <div class="off-day-indicator">
+          <span class="off-label">OFF</span>
         </div>
-      {:else if rules && rules.type === "weekly_days"}
-        {@const daysOfWeek = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]}
-        {@const utcDayStr = daysOfWeek[new Date().getUTCDay()] as DayOfWeek}
-        {@const isScheduledToday = rules.days.includes(utcDayStr)}
-        {#if isScheduledToday}
-          {#if isCompleted}
-            <span class="state-indicator done">[X]</span>
-          {:else if isExempt}
-            <span class="state-indicator exempt">[~]</span>
-          {:else}
-            <span class="state-indicator todo">[ ]</span>
-          {/if}
-        {:else}
-          <div class="off-day-indicator">
-            <span class="off-label">OFF</span>
-            {#if isCompleted}
-              <span class="state-indicator done">[X]</span>
-            {/if}
-          </div>
-        {/if}
-      {:else if rules && rules.type === "weekly_flexible"}
-        {#if isCompleted}
-          <span class="state-indicator done">[X]</span>
-        {:else if isExempt}
-          <span class="state-indicator exempt">[~]</span>
-        {:else}
-          <span class="state-indicator todo">[ ]</span>
-        {/if}
-      {:else}
-        <!-- Fallback standard indicator -->
-        {#if isCompleted}
-          <span class="state-indicator done">[X]</span>
-        {:else if isExempt}
-          <span class="state-indicator exempt">[~]</span>
-        {:else}
-          <span class="state-indicator todo">[ ]</span>
-        {/if}
       {/if}
-    </div>
+    {:else if rules && rules.type === "weekly_flexible"}
+      <div class="reps-count-display">
+        {weeklyDoneDays}/{rules.count ?? 1}
+      </div>
+    {/if}
   {/if}
 </div>
 
@@ -252,26 +235,36 @@
   .agenda-row {
     display: flex;
     align-items: center;
-    border: 1px solid var(--border-accent);
-    border-bottom: 2px solid var(--border-accent);
+    gap: var(--space-s);
+    border: 2px solid var(--border-accent);
+    margin-top: -2px; /* collapses borders when stacked */
     background: var(--bg-surface);
     padding: var(--space-xs) var(--space-s);
     cursor: pointer;
     user-select: none;
     outline: none;
-    transition:
-      background-color 0.1s,
-      transform 0.05s;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    transition: background-color 0.1s;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  .agenda-row.completed {
+    background-color: var(--green-bg);
+  }
+  .agenda-row.completed:active {
+    background-color: #b3e600; /* slightly darker green */
+  }
+
+  .agenda-row.in-progress {
+    background-color: var(--amber-bg);
+  }
+  .agenda-row.in-progress:active {
+    background-color: #e6b800; /* slightly darker yellow */
   }
 
   .agenda-row:active {
     background-color: var(--bg-input);
-    transform: translateY(1px);
-  }
-
-  .agenda-row.completed {
-    border-color: var(--border-accent);
   }
 
   .agenda-row.exempt {
@@ -279,133 +272,53 @@
     background-color: var(--bg-input);
   }
 
-  .row-left {
-    flex-shrink: 0;
-    width: 60px;
-    font-family: var(--font-mono);
-    font-size: var(--step-n1);
-    font-weight: 700;
-    color: var(--text-secondary);
-    border-right: 1px dashed var(--border-accent);
-    padding-right: var(--space-xs);
-    margin-right: var(--space-s);
-  }
-
   .time-col {
+    font-weight: 700;
     color: var(--text-primary);
+    padding-right: var(--space-2xs);
   }
 
-  .row-middle {
-    flex: 1;
+  .habit-details {
     display: flex;
     flex-direction: column;
-    gap: var(--space-3xs);
-    min-width: 0; /* Prevents overflow of text */
-  }
-
-  .pl-s {
-    padding-left: var(--space-xs);
-  }
-
-  .habit-title {
-    display: flex;
-    align-items: baseline;
-    gap: var(--space-3xs);
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
   }
 
   .habit-name {
-    font-size: var(--step-n1);
     font-weight: 700;
     color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    width: 100%;
   }
 
-  .target-name {
-    font-family: var(--font-mono);
+  .habit-category {
     font-size: var(--step-n2);
-    color: var(--text-secondary);
+    font-weight: 500;
+    opacity: 0.7;
+    text-transform: uppercase;
   }
 
-  .meta-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-xs);
-    font-size: var(--step-n2);
-    color: var(--text-secondary);
+  .spacer {
+    flex: 1;
   }
 
-  .meta-tag {
-    font-family: var(--font-mono);
+  .reps-count-display {
     font-weight: 700;
-    background: var(--bg-input);
-    border: 1px solid var(--border-accent);
-    padding: 0px 4px;
-  }
-
-  .meta-stats {
-    font-size: var(--step-n2);
-  }
-
-  .meta-weekly {
     font-family: var(--font-mono);
-    opacity: 0.8;
-  }
-
-  .row-right {
-    flex-shrink: 0;
-    margin-left: var(--space-s);
-  }
-
-  .state-indicator {
-    font-family: var(--font-mono);
-    font-size: var(--step-0);
-    font-weight: 700;
-    display: inline-block;
-    padding: var(--space-3xs) var(--space-2xs);
-  }
-
-  .state-indicator.todo {
-    color: var(--text-muted);
-  }
-
-  .state-indicator.done {
-    color: var(--green);
-    background: var(--green-bg);
-    border: 1px solid var(--border-accent);
-  }
-
-  .state-indicator.exempt {
-    color: var(--amber);
-    background: var(--amber-bg);
-    border: 1px solid var(--border-accent);
-  }
-
-  .reps-indicator {
-    display: flex;
-    gap: 2px;
-  }
-
-  .rep-box {
-    font-family: var(--font-mono);
-    font-size: var(--step-0);
-    line-height: 1;
-  }
-
-  .rep-box.checked {
-    color: var(--green-bg);
-    text-shadow: 1px 1px 0px var(--border-accent);
+    color: var(--text-primary);
   }
 
   .off-day-indicator {
     display: flex;
     align-items: center;
-    gap: var(--space-3xs);
   }
 
   .off-label {
-    font-family: var(--font-mono);
     font-size: var(--step-n2);
     color: var(--text-muted);
     border: 1px dashed var(--text-muted);
