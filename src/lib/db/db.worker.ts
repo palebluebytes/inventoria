@@ -24,12 +24,16 @@ self.onmessage = async (event: MessageEvent) => {
 
       const opfsVfs = sqlite3.capi.sqlite3_vfs_find("opfs");
       if (!opfsVfs) {
-        throw new Error("OPFS is not supported in this browser environment");
+        console.warn(
+          "worker: OPFS is not supported in this browser environment. Falling back to in-memory database."
+        );
+        db = new (sqlite3 as any).oo1.DB();
+        console.log("worker: in-memory db opened successfully");
+      } else {
+        console.log("worker: opfs is supported. opening db...");
+        db = new (sqlite3 as any).oo1.OpfsDb(dbPath);
+        console.log("worker: db opened successfully");
       }
-
-      console.log("worker: opfs is supported. opening db...");
-      db = new (sqlite3 as any).oo1.OpfsDb(dbPath);
-      console.log("worker: db opened successfully");
 
       // Auto-create the datoms table and indexes
       db.exec(`

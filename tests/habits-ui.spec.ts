@@ -53,20 +53,19 @@ test("Habits UI - create habit blueprint, log execution, view details, and edit 
   const categoryBadge = habitItem.locator(".badge-custom");
   await expect(categoryBadge).toHaveText("Mind");
 
-  // Click the "Quick Log ✓" button for the new habit
-  const quickLogBtn = habitItem.locator("button", { hasText: "Quick Log ✓" });
+  // Click the "1" button for the new habit (first repetition of daily_multiple)
+  const quickLogBtn = habitItem.locator("button", { hasText: "1" });
   await quickLogBtn.click();
 
   // Verify that the streak mini-stat updates to 1d
   const streakStat = habitItem.locator(".mini-stat.streak");
   await expect(streakStat).toContainText("🔥 1d", { timeout: 5000 });
 
-  // Click "Details & Logs" to enter the detail view
-  const detailsBtn = habitItem.locator("button", { hasText: "Details & Logs" });
-  await detailsBtn.click();
+  // Click the habit info panel to open the detail view bottom sheet
+  await habitItem.locator(".habit-info-panel").click();
 
   // Inside Detail View: check for title
-  const detailTitle = page.locator(".detail-header h1");
+  const detailTitle = page.locator(".bottom-sheet-header h2");
   await expect(detailTitle).toHaveText(habitName);
 
   // Verify heatmap is visible
@@ -100,7 +99,7 @@ test("Habits UI - create habit blueprint, log execution, view details, and edit 
   await expect(detailTitle).toHaveText(updatedHabitName);
 
   // Back to habits list
-  const backBtn = page.locator("button", { hasText: "← Back to Habits" });
+  const backBtn = page.locator(".bottom-sheet-header .close-btn");
   await backBtn.click();
 
   // Verify updated habit is listed in the main view
