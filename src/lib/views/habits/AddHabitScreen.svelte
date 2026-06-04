@@ -2,18 +2,27 @@
   import { habitsStore } from "../../stores/habits.store";
   import type { ScheduleRule, DayOfWeek } from "../../habits/habits";
 
-  let { dbReady, onClose }: { dbReady: boolean; onClose: () => void } =
-    $props();
+  let {
+    dbReady,
+    onClose,
+    initialScheduleType = "daily_multiple",
+    initialUseSubtargets = false,
+  }: {
+    dbReady: boolean;
+    onClose: () => void;
+    initialScheduleType?: "daily_multiple" | "weekly_days" | "weekly_flexible";
+    initialUseSubtargets?: boolean;
+  } = $props();
 
   let habitName = $state("");
   let habitCategory = $state("Fitness");
   let habitScheduleType = $state<
     "daily_multiple" | "weekly_days" | "weekly_flexible"
-  >("daily_multiple");
+  >(initialScheduleType);
 
   // daily_multiple options:
   let dailyCount = $state(1);
-  let dailyUseSubtargets = $state(false);
+  let dailyUseSubtargets = $state(initialUseSubtargets);
   let dailySubtargets = $state<{ id: string; time_hint: string }[]>([
     { id: "morning", time_hint: "08:00" },
     { id: "evening", time_hint: "20:00" },

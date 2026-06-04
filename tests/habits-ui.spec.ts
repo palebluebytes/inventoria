@@ -24,8 +24,11 @@ test("Habits UI - create habit blueprint, log execution, view details, and edit 
   // Switch to the Habits tab
   await page.locator(".nav-item", { hasText: "Habits" }).click();
 
-  // Open Add Habit screen via FAB button
-  await page.locator(".fab-btn").click();
+  // Open Add Habit screen via inline add row button
+  await page
+    .locator("section:has-text('HABITS')")
+    .locator("button", { hasText: "Click to add" })
+    .click();
 
   // Generate a unique habit name to ensure no collision in the local-first database
   const habitName = `Meditate_${Date.now()}`;

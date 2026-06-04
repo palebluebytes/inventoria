@@ -145,18 +145,22 @@ describe("computeStreak", () => {
   });
 
   it("returns 1 for a single execution today", () => {
-    const rows: ExecutionRow[] = [{ time: daysAgo(0) }];
+    const rows: ExecutionRow[] = [{ time: daysAgo(0), status: "completed" }];
     expect(computeStreak(rows)).toBe(1);
   });
 
   it("returns 2 for executions today and yesterday", () => {
-    const rows: ExecutionRow[] = [{ time: daysAgo(0) }, { time: daysAgo(1) }];
+    const rows: ExecutionRow[] = [
+      { time: daysAgo(0), status: "completed" },
+      { time: daysAgo(1), status: "completed" },
+    ];
     expect(computeStreak(rows)).toBe(2);
   });
 
   it("returns streak of 5 for five consecutive days", () => {
     const rows: ExecutionRow[] = [0, 1, 2, 3, 4].map((n) => ({
       time: daysAgo(n),
+      status: "completed",
     }));
     expect(computeStreak(rows)).toBe(5);
   });
@@ -164,15 +168,15 @@ describe("computeStreak", () => {
   it("breaks streak on gap day", () => {
     // Today, yesterday, then gap, then 3 days ago
     const rows: ExecutionRow[] = [
-      { time: daysAgo(0) },
-      { time: daysAgo(1) },
-      { time: daysAgo(3) }, // gap on day 2
+      { time: daysAgo(0), status: "completed" },
+      { time: daysAgo(1), status: "completed" },
+      { time: daysAgo(3), status: "completed" }, // gap on day 2
     ];
     expect(computeStreak(rows)).toBe(2);
   });
 
   it("returns 0 when most recent execution is more than 1 day ago", () => {
-    const rows: ExecutionRow[] = [{ time: daysAgo(2) }];
+    const rows: ExecutionRow[] = [{ time: daysAgo(2), status: "completed" }];
     expect(computeStreak(rows)).toBe(0);
   });
 });
@@ -199,7 +203,9 @@ describe("computeHabitScore", () => {
         schedule_rules: { type: "daily_multiple" as const, count: 1 },
       },
     ];
-    const execs = [{ time: daysAgo(0), target: "habit:1" }];
+    const execs = [
+      { time: daysAgo(0), target: "habit:1", status: "completed" },
+    ];
     const score = computeHabitScore(blueprints, execs, daysAgo(0));
     expect(score).toBe(0.15); // first day score = 0.15
   });
@@ -213,10 +219,10 @@ describe("computeHabitScore", () => {
       },
     ];
     const execs = [
-      { time: daysAgo(3), target: "habit:1" },
-      { time: daysAgo(2), target: "habit:1" },
-      { time: daysAgo(1), target: "habit:1" },
-      { time: daysAgo(0), target: "habit:1" },
+      { time: daysAgo(3), target: "habit:1", status: "completed" },
+      { time: daysAgo(2), target: "habit:1", status: "completed" },
+      { time: daysAgo(1), target: "habit:1", status: "completed" },
+      { time: daysAgo(0), target: "habit:1", status: "completed" },
     ];
     const score = computeHabitScore(blueprints, execs, daysAgo(0));
     // S0 = 0.15
@@ -234,7 +240,9 @@ describe("computeHabitScore", () => {
         schedule_rules: { type: "daily_multiple" as const, count: 1 },
       },
     ];
-    const execs = [{ time: daysAgo(2), target: "habit:1" }]; // completed day 2, missed day 1 & day 0
+    const execs = [
+      { time: daysAgo(2), target: "habit:1", status: "completed" },
+    ]; // completed day 2, missed day 1 & day 0
     const score = computeHabitScore(blueprints, execs, daysAgo(0));
     // S_2 = 0.15
     // S_1 = 0.15 * 0.85 = 0.1275
@@ -252,9 +260,9 @@ describe("computeHabitScore", () => {
     ];
     // Executed 3 times inside the 7 days
     const execs = [
-      { time: daysAgo(6), target: "habit:1" },
-      { time: daysAgo(4), target: "habit:1" },
-      { time: daysAgo(2), target: "habit:1" },
+      { time: daysAgo(6), target: "habit:1", status: "completed" },
+      { time: daysAgo(4), target: "habit:1", status: "completed" },
+      { time: daysAgo(2), target: "habit:1", status: "completed" },
     ];
     const score = computeHabitScore(blueprints, execs, daysAgo(0));
     // It should have grown on days because the rolling 7-day window had completions.
@@ -304,11 +312,36 @@ describe("advanced scheduling and exempt calculations", () => {
     ];
 
     const execs = [
-      { time: daysAgo(2), target: "habit:subtargets", target_id: "morning" },
-      { time: daysAgo(1), target: "habit:subtargets", target_id: "morning" },
-      { time: daysAgo(1), target: "habit:subtargets", target_id: "evening" },
-      { time: daysAgo(0), target: "habit:subtargets", target_id: "morning" },
-      { time: daysAgo(0), target: "habit:subtargets", target_id: "evening" },
+      {
+        time: daysAgo(2),
+        target: "habit:subtargets",
+        target_id: "morning",
+        status: "completed",
+      },
+      {
+        time: daysAgo(1),
+        target: "habit:subtargets",
+        target_id: "morning",
+        status: "completed",
+      },
+      {
+        time: daysAgo(1),
+        target: "habit:subtargets",
+        target_id: "evening",
+        status: "completed",
+      },
+      {
+        time: daysAgo(0),
+        target: "habit:subtargets",
+        target_id: "morning",
+        status: "completed",
+      },
+      {
+        time: daysAgo(0),
+        target: "habit:subtargets",
+        target_id: "evening",
+        status: "completed",
+      },
     ];
 
     const states = getDailyLineageStates(blueprints, execs, daysAgo(0));
@@ -318,6 +351,37 @@ describe("advanced scheduling and exempt calculations", () => {
 
     const streak = computeStreak(execs, blueprints, daysAgo(0));
     expect(streak).toBe(2);
+  });
+
+  it("handles uncompleted status to toggle/cycle done state", () => {
+    const blueprints = [
+      {
+        entity: "habit:toggle",
+        time: daysAgo(3),
+        schedule_rules: {
+          type: "daily_multiple" as const,
+          targets: [{ id: "morning", time_hint: "08:00" }],
+        },
+      },
+    ];
+
+    const execs = [
+      {
+        time: daysAgo(1),
+        target: "habit:toggle",
+        target_id: "morning",
+        status: "completed",
+      },
+      {
+        time: daysAgo(1) + 1000,
+        target: "habit:toggle",
+        target_id: "morning",
+        status: "uncompleted",
+      },
+    ];
+
+    const states = getDailyLineageStates(blueprints, execs, daysAgo(0));
+    expect(states.get(toUTCDateStr(daysAgo(1)))?.status).toBe("failed");
   });
 
   it("handles weekly_days schedule", () => {
@@ -381,9 +445,9 @@ describe("advanced scheduling and exempt calculations", () => {
     ];
 
     const execs = [
-      { time: daysAgo(6), target: "habit:flex" },
-      { time: daysAgo(4), target: "habit:flex" },
-      { time: daysAgo(2), target: "habit:flex" },
+      { time: daysAgo(6), target: "habit:flex", status: "completed" },
+      { time: daysAgo(4), target: "habit:flex", status: "completed" },
+      { time: daysAgo(2), target: "habit:flex", status: "completed" },
     ];
 
     const states = getDailyLineageStates(blueprints, execs, daysAgo(0));

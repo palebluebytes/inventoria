@@ -23,7 +23,7 @@ export interface ExecutionEvent {
   entity: string;
   type: string;
   target: string;
-  status: "completed" | "exempt";
+  status: "completed" | "exempt" | "uncompleted";
   target_id?: string;
   time: number;
   instrument_used?: string;
@@ -150,7 +150,7 @@ function createHabitsStore() {
             entity: ev.entity,
             type: ev.type || "ExerciseAction",
             target: ev.target || "",
-            status: ev.status || "completed",
+            status: ev.status,
             target_id: ev.target_id || undefined,
             time: ev.time,
             instrument_used: ev.instrument_used || undefined,
@@ -319,15 +319,17 @@ function createHabitsStore() {
         difficulty?: "easy" | "medium" | "hard";
         duration?: number;
       },
-      status: "completed" | "exempt" = "completed",
-      target_id?: string
+      status: "completed" | "exempt" | "uncompleted" = "completed",
+      target_id?: string,
+      custom_time?: number
     ) {
       const datoms = rawLogExecution(
         habitId,
         instrumentId,
         metadata,
         status,
-        target_id
+        target_id,
+        custom_time
       );
       await dbClient.append(datoms);
     },

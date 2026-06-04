@@ -202,6 +202,12 @@ test.describe("Visual Catalog Generator", () => {
         .sidebar {
           position: static !important;
         }
+        .add-screen {
+          position: absolute !important;
+          height: auto !important;
+          min-height: 100% !important;
+          overflow-y: visible !important;
+        }
       `,
     });
     try {
@@ -259,7 +265,10 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator(".nav-item", { hasText: "Habits" }).click();
 
     // 3.1. General Daily - Logged (Read Philosophy)
-    await page.locator(".fab-btn").click();
+    await page
+      .locator("section:has-text('HABITS')")
+      .locator("button", { hasText: "Click to add" })
+      .click();
     await page.locator("#habit-name-input").fill("Read Philosophy");
     await page.locator(".custom-select-trigger").nth(0).click();
     await page.locator(".custom-select-option", { hasText: "MIND" }).click();
@@ -270,7 +279,10 @@ test.describe("Visual Catalog Generator", () => {
     await expect(page.locator(".add-screen")).not.toBeVisible();
 
     // 3.2. General Daily - Unlogged (Morning Meditation)
-    await page.locator(".fab-btn").click();
+    await page
+      .locator("section:has-text('HABITS')")
+      .locator("button", { hasText: "Click to add" })
+      .click();
     await page.locator("#habit-name-input").fill("Morning Meditation");
     await page.locator(".custom-select-trigger").nth(0).click();
     await page.locator(".custom-select-option", { hasText: "MIND" }).click();
@@ -280,7 +292,10 @@ test.describe("Visual Catalog Generator", () => {
     await expect(page.locator(".add-screen")).not.toBeVisible();
 
     // 3.3. Daily with Multiple Reps - Logged 1/3 (Pushups Daily)
-    await page.locator(".fab-btn").click();
+    await page
+      .locator("section:has-text('HABITS')")
+      .locator("button", { hasText: "Click to add" })
+      .click();
     await page.locator("#habit-name-input").fill("Pushups Daily");
     await page.locator(".custom-select-trigger").nth(0).click();
     await page.locator(".custom-select-option", { hasText: "FITNESS" }).click();
@@ -291,7 +306,10 @@ test.describe("Visual Catalog Generator", () => {
     await expect(page.locator(".add-screen")).not.toBeVisible();
 
     // 3.4. Daily with Specific Subtargets (Hydration Routine)
-    await page.locator(".fab-btn").click();
+    await page
+      .locator("section:has-text('HABITS')")
+      .locator("button", { hasText: "Click to add" })
+      .click();
     await page.locator("#habit-name-input").fill("Hydration Routine");
     await page.locator(".custom-select-trigger").nth(0).click();
     await page.locator(".custom-select-option", { hasText: "HEALTH" }).click();
@@ -306,7 +324,10 @@ test.describe("Visual Catalog Generator", () => {
     await expect(page.locator(".add-screen")).not.toBeVisible();
 
     // 3.5. Weekly Days - Active (Gym Workout)
-    await page.locator(".fab-btn").click();
+    await page
+      .locator("section:has-text('HABITS')")
+      .locator("button", { hasText: "Click to add" })
+      .click();
     await page.locator("#habit-name-input").fill("Gym Workout");
     await page.locator(".custom-select-trigger").nth(0).click();
     await page.locator(".custom-select-option", { hasText: "FITNESS" }).click();
@@ -318,7 +339,10 @@ test.describe("Visual Catalog Generator", () => {
     await expect(page.locator(".add-screen")).not.toBeVisible();
 
     // 3.6. Weekly Days - OFF Today (Weekend Hike)
-    await page.locator(".fab-btn").click();
+    await page
+      .locator("section:has-text('HABITS')")
+      .locator("button", { hasText: "Click to add" })
+      .click();
     await page.locator("#habit-name-input").fill("Weekend Hike");
     await page.locator(".custom-select-trigger").nth(0).click();
     await page.locator(".custom-select-option", { hasText: "FITNESS" }).click();
@@ -331,7 +355,10 @@ test.describe("Visual Catalog Generator", () => {
     await expect(page.locator(".add-screen")).not.toBeVisible();
 
     // 3.7. Weekly Flexible - Logged 1/3 (Read 20 Pages)
-    await page.locator(".fab-btn").click();
+    await page
+      .locator("section:has-text('HABITS')")
+      .locator("button", { hasText: "Click to add" })
+      .click();
     await page.locator("#habit-name-input").fill("Read 20 Pages");
     await page.locator(".custom-select-trigger").nth(0).click();
     await page

@@ -4,6 +4,7 @@
   import {
     getDailyLineageStates,
     toUTCDateStr,
+    getActiveExecutions,
     type ScheduleRule,
     type DayOfWeek,
   } from "../../habits/habits";
@@ -142,11 +143,12 @@
   });
 
   // Calculate stats
+  let activeExecs = $derived(getActiveExecutions(lineage.executions));
   let totalCompletions = $derived(
-    lineage.executions.filter((e) => e.status !== "exempt").length
+    activeExecs.filter((e) => e.status === "completed").length
   );
   let totalExemptions = $derived(
-    lineage.executions.filter((e) => e.status === "exempt").length
+    activeExecs.filter((e) => e.status === "exempt").length
   );
 
   async function handleSaveBlueprint() {

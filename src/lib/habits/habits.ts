@@ -29,7 +29,7 @@ export type ScheduleRule =
 export interface ExecutionRow {
   time: number;
   target?: string;
-  status?: string;
+  status: "completed" | "exempt" | "uncompleted";
   target_id?: string;
 }
 
@@ -64,7 +64,7 @@ export function logExecution(
     difficulty?: "easy" | "medium" | "hard";
     duration?: number;
   },
-  status: "completed" | "exempt" = "completed",
+  status: "completed" | "exempt" | "uncompleted" = "completed",
   target_id?: string,
   now: number = Date.now()
 ): Datom[] {
@@ -140,7 +140,7 @@ export function getDailyLineageStates(
   executions: {
     time: number;
     target: string;
-    status?: string;
+    status: string;
     target_id?: string;
   }[],
   asOfTimestamp: number = Date.now()
@@ -202,10 +202,11 @@ export function getDailyLineageStates(
           : activeBlueprint.schedule_rules;
     }
 
-    const dayExecs = dayExecsFiltered(dayExecsRaw(execsByDate, currentDayStr));
-    const hasExempt = dayExecsRaw(execsByDate, currentDayStr).some(
-      (e) => e.status === "exempt"
+    const activeExecs = getActiveExecutions(
+      dayExecsRaw(execsByDate, currentDayStr)
     );
+    const dayExecs = activeExecs.filter((e) => e.status === "completed");
+    const hasExempt = activeExecs.some((e) => e.status === "exempt");
 
     if (hasExempt) {
       states.set(currentDayStr, {
@@ -300,12 +301,27 @@ function dayExecsRaw(execsByDate: Map<string, any[]>, dateStr: string): any[] {
   return execsByDate.get(dateStr) || [];
 }
 
+export function getActiveExecutions<
+  T extends { status: string; target_id?: string; time: number },
+>(executions: T[]): T[] {
+  const sorted = [...executions].sort((a, b) => a.time - b.time);
+  let active: T[] = [];
+  for (const e of sorted) {
+    if (e.status === "completed" || e.status === "exempt") {
+      active.push(e);
+    } else if (e.status === "uncompleted") {
+      active = active.filter((x) => x.target_id !== e.target_id);
+    }
+  }
+  return active;
+}
+
 function dayExecsFiltered(rawExecs: any[]): any[] {
   return rawExecs.filter((e) => e.status !== "exempt");
 }
 
 export function computeStreak(
-  executions: { time: number; status?: string; target_id?: string }[],
+  executions: { time: number; status: string; target_id?: string }[],
   lineageBlueprints: {
     entity: string;
     time: number;
@@ -387,7 +403,7 @@ export function computeHabitScore(
   executions: {
     time: number;
     target: string;
-    status?: string;
+    status: string;
     target_id?: string;
   }[],
   asOfTimestamp: number = Date.now()

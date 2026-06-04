@@ -11,6 +11,21 @@
 
   // Fullscreen Add Habit Overlay
   let isAddingHabit = $state(false);
+  let initialScheduleType = $state<
+    "daily_multiple" | "weekly_days" | "weekly_flexible"
+  >("daily_multiple");
+  let initialUseSubtargets = $state(false);
+
+  function openAddHabit(type: "schedule" | "habit") {
+    if (type === "schedule") {
+      initialScheduleType = "daily_multiple";
+      initialUseSubtargets = true;
+    } else {
+      initialScheduleType = "daily_multiple";
+      initialUseSubtargets = false;
+    }
+    isAddingHabit = true;
+  }
 
   // Detail View State
   let selectedHabitId = $state<string | null>(null);
@@ -59,24 +74,6 @@
     return Math.max(...$habitsStore.map((l) => l.streak));
   });
 
-  async function logHabitEvent(
-    habitId: string,
-    status: "completed" | "exempt",
-    targetId?: string
-  ) {
-    try {
-      await habitsStore.logExecution(
-        habitId,
-        "", // instrumentId
-        undefined, // metadata
-        status,
-        targetId
-      );
-    } catch (e: any) {
-      console.error(e);
-    }
-  }
-
   // Emacs Agenda Header Date
   const daysOfWeekLong = [
     "Sunday",
@@ -101,10 +98,40 @@
     "Nov",
     "Dec",
   ];
-  let dateTodayStr = $derived.by(() => {
-    const d = new Date();
-    return `${daysOfWeekLong[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+
+  let currentDate = $state(new Date());
+
+  function navigateDay(direction: number) {
+    const nextDate = new Date(currentDate);
+    nextDate.setDate(nextDate.getDate() + direction);
+    currentDate = nextDate;
+  }
+
+  let selected_date_str = $derived.by(() => {
+    const y = currentDate.getFullYear();
+    const m = String(currentDate.getMonth() + 1).padStart(2, "0");
+    const d = String(currentDate.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
   });
+
+  let selected_date_ms = $derived(
+    new Date(selected_date_str + "T00:00:00Z").getTime()
+  );
+
+  let dateTodayStr = $derived.by(() => {
+    return `${daysOfWeekLong[currentDate.getDay()]}, ${months[currentDate.getMonth()]} ${currentDate.getDate()}, ${currentDate.getFullYear()}`;
+  });
+
+  function getHybridTimestamp(selectedDateStr: string): number {
+    const now = new Date();
+    const utcHours = String(now.getUTCHours()).padStart(2, "0");
+    const utcMinutes = String(now.getUTCMinutes()).padStart(2, "0");
+    const utcSeconds = String(now.getUTCSeconds()).padStart(2, "0");
+    const utcMs = String(now.getUTCMilliseconds()).padStart(3, "0");
+    return new Date(
+      `${selectedDateStr}T${utcHours}:${utcMinutes}:${utcSeconds}.${utcMs}Z`
+    ).getTime();
+  }
 
   // Derived timeline bifurcation
   let timedHabitItems = $derived.by(() => {
@@ -130,11 +157,49 @@
       return !(rules && rules.type === "daily_multiple" && rules.targets);
     });
   });
+
+  async function logHabitEvent(
+    habitId: string,
+    status: "completed" | "exempt" | "uncompleted",
+    targetId?: string
+  ) {
+    try {
+      const clickTime = getHybridTimestamp(selected_date_str);
+      await habitsStore.logExecution(
+        habitId,
+        "", // instrumentId
+        undefined, // metadata
+        status,
+        targetId,
+        clickTime
+      );
+    } catch (e: any) {
+      console.error(e);
+    }
+  }
 </script>
 
 <header class="agenda-view-header">
   <div class="agenda-ascii-box">
-    <div class="agenda-ascii-title">=== DAILY AGENDA ===</div>
+    <div class="agenda-ascii-title-container">
+      <button
+        type="button"
+        class="nav-arrow"
+        onclick={() => navigateDay(-1)}
+        aria-label="Previous day"
+      >
+        [&lt;]
+      </button>
+      <div class="agenda-ascii-title">DAILY AGENDA</div>
+      <button
+        type="button"
+        class="nav-arrow"
+        onclick={() => navigateDay(1)}
+        aria-label="Next day"
+      >
+        [&gt;]
+      </button>
+    </div>
     <div class="agenda-ascii-date">{dateTodayStr.toUpperCase()}</div>
   </div>
 </header>
@@ -149,21 +214,26 @@
       </Badge>
     </div>
 
-    {#if timedHabitItems.length === 0}
-      <div class="empty-agenda-box">No timed targets scheduled for today.</div>
-    {:else}
-      <div class="agenda-list">
-        {#each timedHabitItems as item (item.lineage.head.entity + "-" + item.targetId)}
-          <HabitItem
-            lineage={item.lineage}
-            targetId={item.targetId}
-            onSelect={selectHabit}
-            onLog={logHabitEvent}
-            onLongPress={handleLongPress}
-          />
-        {/each}
-      </div>
-    {/if}
+    <div class="agenda-list">
+      {#each timedHabitItems as item (item.lineage.head.entity + "-" + item.targetId)}
+        <HabitItem
+          lineage={item.lineage}
+          targetId={item.targetId}
+          {selected_date_str}
+          {selected_date_ms}
+          onSelect={selectHabit}
+          onLog={logHabitEvent}
+          onLongPress={handleLongPress}
+        />
+      {/each}
+      <button
+        type="button"
+        class="add-agenda-row"
+        onclick={() => openAddHabit("schedule")}
+      >
+        Click to add
+      </button>
+    </div>
   </section>
 
   <!-- General Habits -->
@@ -175,39 +245,36 @@
       </Badge>
     </div>
 
-    {#if generalHabitItems.length === 0}
-      <div class="empty-agenda-box">
-        No general habits defined. Click [+] to create one.
-      </div>
-    {:else}
-      <div class="agenda-list">
-        {#each generalHabitItems as lineage (lineage.head.entity)}
-          <HabitItem
-            {lineage}
-            onSelect={selectHabit}
-            onLog={logHabitEvent}
-            onLongPress={handleLongPress}
-          />
-        {/each}
-      </div>
-    {/if}
+    <div class="agenda-list">
+      {#each generalHabitItems as lineage (lineage.head.entity)}
+        <HabitItem
+          {lineage}
+          {selected_date_str}
+          {selected_date_ms}
+          onSelect={selectHabit}
+          onLog={logHabitEvent}
+          onLongPress={handleLongPress}
+        />
+      {/each}
+      <button
+        type="button"
+        class="add-agenda-row"
+        onclick={() => openAddHabit("habit")}
+      >
+        Click to add
+      </button>
+    </div>
   </section>
 </div>
 
-<!-- Floating Action Button for Adding Habit -->
-<button
-  type="button"
-  class="fab-btn"
-  onclick={() => (isAddingHabit = true)}
-  aria-label="Add Habit"
-  title="Create Habit Blueprint"
->
-  +
-</button>
-
 <!-- Fullscreen Add Habit modal -->
 {#if isAddingHabit}
-  <AddHabitScreen {dbReady} onClose={() => (isAddingHabit = false)} />
+  <AddHabitScreen
+    {dbReady}
+    {initialScheduleType}
+    {initialUseSubtargets}
+    onClose={() => (isAddingHabit = false)}
+  />
 {/if}
 
 <!-- Detail view bottom sheet -->
@@ -293,6 +360,29 @@
     text-align: center;
   }
 
+  .agenda-ascii-title-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-m);
+  }
+
+  .nav-arrow {
+    background: none;
+    border: none;
+    font-family: var(--font-mono);
+    font-size: var(--step-0);
+    font-weight: 900;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0 var(--space-xs);
+    transition: color 0.1s ease;
+  }
+
+  .nav-arrow:hover {
+    color: var(--text-primary);
+  }
+
   .agenda-ascii-title {
     font-size: var(--step-0);
     font-weight: 900;
@@ -311,7 +401,7 @@
     flex-direction: column;
     gap: var(--space-l);
     margin-top: var(--space-m);
-    padding-bottom: 80px; /* buffer for FAB */
+    padding-bottom: var(--space-l);
   }
 
   .agenda-section {
@@ -350,7 +440,8 @@
     gap: var(--space-3xs);
   }
 
-  .empty-agenda-box {
+  .add-agenda-row {
+    width: 100%;
     border: 1px dashed var(--text-muted);
     padding: var(--space-m);
     text-align: center;
@@ -358,44 +449,25 @@
     font-family: var(--font-mono);
     font-size: var(--step-n1);
     background: rgba(0, 0, 0, 0.01);
-  }
-
-  /* FAB styling */
-  .fab-btn {
-    position: fixed;
-    bottom: 80px;
-    right: 24px;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    border: 3px solid var(--border-accent);
-    background: var(--amber-bg);
-    color: var(--amber);
-    font-size: 32px;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     cursor: pointer;
-    box-shadow: 4px 4px 0px 0px var(--border-accent);
-    z-index: 101;
-    transition:
-      transform 0.1s,
-      box-shadow 0.1s;
-    user-select: none;
     outline: none;
+    transition:
+      background-color 0.1s,
+      color 0.1s;
+    user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
 
-  @media (min-width: 768px) {
-    .fab-btn {
-      bottom: 24px;
-    }
+  .add-agenda-row:hover,
+  .add-agenda-row:focus {
+    background: var(--bg-input);
+    color: var(--text-primary);
+    border-color: var(--border-accent);
   }
 
-  .fab-btn:active {
-    transform: translate(2px, 2px);
-    box-shadow: 2px 2px 0px 0px var(--border-accent);
+  .add-agenda-row:active {
+    background: var(--border-accent);
+    color: var(--bg-surface);
   }
 
   /* Context Menu Styling */

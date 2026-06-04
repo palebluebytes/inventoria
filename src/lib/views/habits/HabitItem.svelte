@@ -1,29 +1,36 @@
 <script lang="ts">
-  import { toUTCDateStr } from "../../habits/habits";
+  import { toUTCDateStr, getActiveExecutions } from "../../habits/habits";
   import type { HabitLineage } from "../../stores/habits.store";
   import type { ScheduleRule, DayOfWeek } from "../../habits/habits";
 
   let {
     lineage,
     targetId,
+    selected_date_str,
+    selected_date_ms,
     onSelect,
     onLog,
     onLongPress,
   }: {
     lineage: HabitLineage;
     targetId?: string;
+    selected_date_str: string;
+    selected_date_ms: number;
     onSelect: (id: string) => void;
     onLog: (
       habitId: string,
-      status: "completed" | "exempt",
+      status: "completed" | "exempt" | "uncompleted",
       targetId?: string
     ) => Promise<void>;
     onLongPress: (habitId: string, targetId?: string) => void;
   } = $props();
 
-  let todayStr = $derived(toUTCDateStr(Date.now()));
   let todayExecs = $derived(
-    lineage.executions.filter((e) => toUTCDateStr(e.time) === todayStr)
+    getActiveExecutions(
+      lineage.executions.filter(
+        (e) => toUTCDateStr(e.time) === selected_date_str
+      )
+    )
   );
 
   // Status check for this specific row (could be target-specific or general)
@@ -51,8 +58,12 @@
   let rules = $derived(lineage.head.schedule_rules);
 
   let last7DaysExecs = $derived(
-    lineage.executions.filter(
-      (e) => e.time >= Date.now() - 7 * 24 * 60 * 60 * 1000
+    getActiveExecutions(
+      lineage.executions.filter(
+        (e) =>
+          e.time >= selected_date_ms - 6 * 24 * 60 * 60 * 1000 &&
+          e.time < selected_date_ms + 24 * 60 * 60 * 1000
+      )
     )
   );
   let weeklyDoneDays = $derived(
@@ -135,7 +146,9 @@
 
     if (targetId) {
       // Timed Habit target
-      if (!isCompleted) {
+      if (isCompleted) {
+        onLog(lineage.head.entity, "uncompleted", targetId);
+      } else {
         onLog(lineage.head.entity, "completed", targetId);
       }
     } else {
@@ -145,19 +158,20 @@
           const limit = rules.count ?? 1;
           if (completedCount < limit) {
             onLog(lineage.head.entity, "completed");
+          } else {
+            onLog(lineage.head.entity, "uncompleted");
           }
         } else if (rules.type === "weekly_days") {
-          const daysOfWeek = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-          const utcDayStr = daysOfWeek[new Date().getUTCDay()] as DayOfWeek;
-          const isScheduledToday = rules.days.includes(utcDayStr);
-          if (isScheduledToday && completedCount === 0) {
+          if (completedCount === 0) {
             onLog(lineage.head.entity, "completed");
-          } else if (!isScheduledToday) {
-            onLog(lineage.head.entity, "completed");
+          } else {
+            onLog(lineage.head.entity, "uncompleted");
           }
         } else if (rules.type === "weekly_flexible") {
           if (completedCount === 0) {
             onLog(lineage.head.entity, "completed");
+          } else {
+            onLog(lineage.head.entity, "uncompleted");
           }
         }
       }
@@ -209,7 +223,9 @@
       </div>
     {:else if rules && rules.type === "weekly_days"}
       {@const daysOfWeek = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]}
-      {@const utcDayStr = daysOfWeek[new Date().getUTCDay()] as DayOfWeek}
+      {@const utcDayStr = daysOfWeek[
+        new Date(selected_date_str + "T00:00:00Z").getUTCDay()
+      ] as DayOfWeek}
       {@const isScheduledToday = rules.days.includes(utcDayStr)}
       {#if !isScheduledToday}
         <div class="off-day-indicator">
