@@ -217,6 +217,28 @@ test.describe("Visual Catalog Generator", () => {
     // 1. Initial Load & Setup
     await page.goto("/");
     await waitForDbReady(page);
+
+    // Verify all registered screens are covered by this visual catalog test
+    const EXPECTED_SCREENS = [
+      "food twins",
+      "media",
+      "items",
+      "habits",
+      "settings",
+    ];
+    const navItems = await page.locator(".sidebar nav .nav-item").all();
+    const discoveredScreens: string[] = [];
+    for (const item of navItems) {
+      const text = await item.innerText();
+      const cleaned = text
+        .replace(/[^a-zA-Z0-9\s]/g, "")
+        .replace(/\s+/g, " ")
+        .toLowerCase()
+        .trim();
+      discoveredScreens.push(cleaned);
+    }
+    expect(discoveredScreens.sort()).toEqual(EXPECTED_SCREENS.sort());
+
     await resetDatabase(page);
     await setupApiKeys(page);
 
