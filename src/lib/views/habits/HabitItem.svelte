@@ -208,8 +208,6 @@
       <span class="habit-category">{lineage.head.category.toUpperCase()}</span>
     </div>
 
-    <div class="spacer"></div>
-
     {#if rules && rules.type === "daily_multiple" && !rules.targets}
       <div class="reps-count-display">
         {completedCount}/{rules.count ?? 1}
@@ -301,10 +299,6 @@
     font-weight: 500;
     opacity: 0.7;
     text-transform: uppercase;
-  }
-
-  .spacer {
-    flex: 1;
   }
 
   .reps-count-display {
