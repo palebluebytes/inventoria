@@ -1,6 +1,7 @@
 <script lang="ts">
   // @ts-expect-error - virtual module provided by vite-plugin-pwa
   import { useRegisterSW } from "virtual:pwa-register/svelte";
+  import Button from "./Button.svelte";
 
   const { needRefresh, updateServiceWorker } = useRegisterSW({
     onRegistered(r: any) {
@@ -23,10 +24,10 @@
       <span>Reload to get the latest version.</span>
     </div>
     <div class="actions">
-      <button class="reload" onclick={() => updateServiceWorker(true)}
-        >Reload</button
-      >
-      <button class="dismiss" onclick={close}>Dismiss</button>
+      <Button variant="primary" onclick={() => updateServiceWorker(true)}>
+        Reload
+      </Button>
+      <Button variant="secondary" onclick={close}>Dismiss</Button>
     </div>
   </div>
 {/if}
@@ -36,17 +37,17 @@
     position: fixed;
     right: 1rem;
     bottom: 1rem;
-    background: var(--bg-surface);
-    color: var(--text-base);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-m);
+    background: var(--bg-surface, #fff);
+    color: var(--text-primary, #000);
+    border: 2px solid #000;
+    border-radius: 0;
     padding: var(--space-m);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    box-shadow: 4px 4px 0 #000;
     z-index: 9999;
     display: flex;
     flex-direction: column;
     gap: var(--space-m);
-    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: slide-up 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .message {
@@ -60,32 +61,6 @@
     display: flex;
     gap: var(--space-s);
     justify-content: flex-end;
-  }
-
-  button {
-    background: transparent;
-    border: 1px solid var(--border-subtle);
-    color: var(--text-base);
-    padding: var(--space-xs) var(--space-s);
-    border-radius: var(--radius-s);
-    cursor: pointer;
-    font-size: var(--text-sm);
-    transition: background 0.2s;
-  }
-
-  button.reload {
-    background: var(--brand-base);
-    color: white;
-    border-color: var(--brand-base);
-    font-weight: 600;
-  }
-
-  button:hover {
-    background: var(--bg-surface-hover);
-  }
-
-  button.reload:hover {
-    background: var(--brand-hover);
   }
 
   @keyframes slide-up {
