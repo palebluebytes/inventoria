@@ -265,6 +265,7 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator(".custom-select-option", { hasText: "MIND" }).click();
     await page.locator(".custom-select-trigger").nth(1).click();
     await page.locator(".custom-select-option", { hasText: "DAILY" }).click();
+    await takeFullPageScreenshot(page, "add-habit-screen.png");
     await page.locator(".btn-submit-brutal").click();
     await expect(page.locator(".add-screen")).not.toBeVisible();
 
