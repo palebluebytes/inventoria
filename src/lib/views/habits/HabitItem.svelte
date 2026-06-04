@@ -193,21 +193,17 @@
   role="button"
   tabindex="0"
 >
-  {#if targetId}
-    <!-- Timed Habit Target Layout -->
-    <span class="time-col">{getTimeHint()}</span>
-
-    <div class="habit-details">
-      <span class="habit-name">{lineage.head.name.toUpperCase()}</span>
+  <div class="habit-details">
+    <span class="habit-name">{lineage.head.name.toUpperCase()}</span>
+    <div class="habit-sub-row">
       <span class="habit-category">{lineage.head.category.toUpperCase()}</span>
+      {#if targetId}
+        <span class="habit-time-hint">{getTimeHint()}</span>
+      {/if}
     </div>
-  {:else}
-    <!-- General / Untimed Habit Layout -->
-    <div class="habit-details">
-      <span class="habit-name">{lineage.head.name.toUpperCase()}</span>
-      <span class="habit-category">{lineage.head.category.toUpperCase()}</span>
-    </div>
+  </div>
 
+  {#if !targetId}
     {#if rules && rules.type === "daily_multiple" && !rules.targets}
       <div class="reps-count-display">
         {completedCount}/{rules.count ?? 1}
@@ -270,10 +266,17 @@
     background-color: var(--bg-input);
   }
 
-  .time-col {
+  .habit-sub-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+
+  .habit-time-hint {
+    font-size: var(--step-n2);
     font-weight: 700;
     color: var(--text-primary);
-    padding-right: var(--space-2xs);
   }
 
   .habit-details {
