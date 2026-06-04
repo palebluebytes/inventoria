@@ -199,6 +199,9 @@ test.describe("Visual Catalog Generator", () => {
           overflow-y: visible !important;
           height: auto !important;
         }
+        .sidebar {
+          position: static !important;
+        }
       `,
     });
     try {
