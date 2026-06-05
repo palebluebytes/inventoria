@@ -4,7 +4,7 @@
   import Sidebar from "./lib/layout/Sidebar.svelte";
   import FoodView from "./lib/views/FoodView.svelte";
   import MediaView from "./lib/views/MediaView.svelte";
-  import HabitsView from "./lib/views/HabitsView.svelte";
+  import AgendaView from "./lib/views/AgendaView.svelte";
   import SettingsView from "./lib/views/SettingsView.svelte";
   import ItemsView from "./lib/views/ItemsView.svelte";
   import ReloadPrompt from "./lib/ui/ReloadPrompt.svelte";
@@ -35,7 +35,7 @@
   });
 
   // ── Navigation ───────────────────────────────────────────────────────────
-  type Tab = "food" | "habits" | "media" | "items" | "settings";
+  type Tab = "food" | "agenda" | "media" | "items" | "settings";
   let activeTab = $state<Tab>("food");
 </script>
 
@@ -63,8 +63,8 @@
       <ItemsView {dbReady} />
     {/if}
 
-    {#if activeTab === "habits"}
-      <HabitsView {dbReady} />
+    {#if activeTab === "agenda"}
+      <AgendaView {dbReady} />
     {/if}
 
     <!-- Settings — always rendered so Playwright can find the harness elements -->

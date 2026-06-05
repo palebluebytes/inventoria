@@ -30,7 +30,13 @@
   let habitCategory = $state(lineage.head.category);
   let habitScheduleType = $state<
     "daily_multiple" | "weekly_days" | "weekly_flexible"
-  >(lineage.head.schedule_rules?.type || "daily_multiple");
+  >(
+    lineage.head.schedule_rules?.type === "daily_multiple" ||
+      lineage.head.schedule_rules?.type === "weekly_days" ||
+      lineage.head.schedule_rules?.type === "weekly_flexible"
+      ? lineage.head.schedule_rules.type
+      : "daily_multiple"
+  );
 
   // daily_multiple options:
   let dailyCount = $state(

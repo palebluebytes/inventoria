@@ -229,7 +229,7 @@ test.describe("Visual Catalog Generator", () => {
       "food twins",
       "media",
       "items",
-      "habits",
+      "agenda",
       "settings",
     ];
     const navItems = await page.locator(".sidebar nav .nav-item").all();
@@ -262,18 +262,16 @@ test.describe("Visual Catalog Generator", () => {
     await takeFullPageScreenshot(page, "food-dashboard.png");
 
     // 3. Populate Habits Dashboard (Add blueprints & log executions)
-    await page.locator(".nav-item", { hasText: "Habits" }).click();
+    await page.locator(".nav-item", { hasText: "Agenda" }).click();
 
     // 3.1. General Daily - Logged (Read Philosophy)
     await page
       .locator("section:has-text('HABITS')")
-      .locator("button", { hasText: "Click to add" })
+      .locator("button", { hasText: "+ ADD HABIT" })
       .click();
     await page.locator("#habit-name-input").fill("Read Philosophy");
-    await page.locator(".custom-select-trigger").nth(0).click();
-    await page.locator(".custom-select-option", { hasText: "MIND" }).click();
-    await page.locator(".custom-select-trigger").nth(1).click();
-    await page.locator(".custom-select-option", { hasText: "DAILY" }).click();
+    await page.locator(".category-chip", { hasText: "MIND" }).click();
+    await page.locator(".segment-btn", { hasText: "DAILY" }).click();
     await takeFullPageScreenshot(page, "add-habit-screen.png");
     await page.locator(".btn-submit-brutal").click();
     await expect(page.locator(".add-screen")).not.toBeVisible();
@@ -281,94 +279,84 @@ test.describe("Visual Catalog Generator", () => {
     // 3.2. General Daily - Unlogged (Morning Meditation)
     await page
       .locator("section:has-text('HABITS')")
-      .locator("button", { hasText: "Click to add" })
+      .locator("button", { hasText: "+ ADD HABIT" })
       .click();
     await page.locator("#habit-name-input").fill("Morning Meditation");
-    await page.locator(".custom-select-trigger").nth(0).click();
-    await page.locator(".custom-select-option", { hasText: "MIND" }).click();
-    await page.locator(".custom-select-trigger").nth(1).click();
-    await page.locator(".custom-select-option", { hasText: "DAILY" }).click();
+    await page.locator(".category-chip", { hasText: "MIND" }).click();
+    await page.locator(".segment-btn", { hasText: "DAILY" }).click();
     await page.locator(".btn-submit-brutal").click();
     await expect(page.locator(".add-screen")).not.toBeVisible();
 
     // 3.3. Daily with Multiple Reps - Logged 1/3 (Pushups Daily)
     await page
       .locator("section:has-text('HABITS')")
-      .locator("button", { hasText: "Click to add" })
+      .locator("button", { hasText: "+ ADD HABIT" })
       .click();
     await page.locator("#habit-name-input").fill("Pushups Daily");
-    await page.locator(".custom-select-trigger").nth(0).click();
-    await page.locator(".custom-select-option", { hasText: "FITNESS" }).click();
-    await page.locator(".custom-select-trigger").nth(1).click();
-    await page.locator(".custom-select-option", { hasText: "DAILY" }).click();
-    await page.locator("#habit-daily-count").fill("3");
+    await page.locator(".category-chip", { hasText: "FITNESS" }).click();
+    await page.locator(".segment-btn", { hasText: "DAILY" }).click();
+    await page
+      .locator(".reps-counter-container")
+      .filter({ hasText: "TARGET REPS PER DAY" })
+      .locator("button", { hasText: "+" })
+      .click();
+    await page
+      .locator(".reps-counter-container")
+      .filter({ hasText: "TARGET REPS PER DAY" })
+      .locator("button", { hasText: "+" })
+      .click();
     await page.locator(".btn-submit-brutal").click();
     await expect(page.locator(".add-screen")).not.toBeVisible();
 
     // 3.4. Daily with Specific Subtargets (Hydration Routine)
     await page
       .locator("section:has-text('HABITS')")
-      .locator("button", { hasText: "Click to add" })
+      .locator("button", { hasText: "+ ADD HABIT" })
       .click();
     await page.locator("#habit-name-input").fill("Hydration Routine");
-    await page.locator(".custom-select-trigger").nth(0).click();
-    await page.locator(".custom-select-option", { hasText: "HEALTH" }).click();
-    await page.locator(".custom-select-trigger").nth(1).click();
-    await page.locator(".custom-select-option", { hasText: "DAILY" }).click();
-    await page.locator(".checkbox-brutal-box").click(); // Toggle specific subtargets
-    await page.locator("button", { hasText: "+ ADD TARGET" }).click();
-    const subtargetRows = page.locator(".subtarget-row");
-    await subtargetRows.nth(2).locator("input").nth(0).fill("night");
-    await subtargetRows.nth(2).locator("input").nth(1).fill("22:00");
+    await page.locator(".category-chip", { hasText: "HEALTH" }).click();
+    await page.locator(".segment-btn", { hasText: "DAILY" }).click();
+    await page.locator(".specific-times-btn").click();
+    await page.locator("button", { hasText: "+ ADD TIME SLOT" }).click();
+    await page
+      .locator(".subtarget-row-brutal")
+      .nth(2)
+      .locator("input")
+      .fill("22:00");
     await page.locator(".btn-submit-brutal").click();
     await expect(page.locator(".add-screen")).not.toBeVisible();
 
     // 3.5. Weekly Days - Active (Gym Workout)
     await page
       .locator("section:has-text('HABITS')")
-      .locator("button", { hasText: "Click to add" })
+      .locator("button", { hasText: "+ ADD HABIT" })
       .click();
     await page.locator("#habit-name-input").fill("Gym Workout");
-    await page.locator(".custom-select-trigger").nth(0).click();
-    await page.locator(".custom-select-option", { hasText: "FITNESS" }).click();
-    await page.locator(".custom-select-trigger").nth(1).click();
-    await page
-      .locator(".custom-select-option", { hasText: "WEEKLY DAYS" })
-      .click();
+    await page.locator(".category-chip", { hasText: "FITNESS" }).click();
+    await page.locator(".segment-btn", { hasText: "SPECIFIC DAYS" }).click();
     await page.locator(".btn-submit-brutal").click();
     await expect(page.locator(".add-screen")).not.toBeVisible();
 
     // 3.6. Weekly Days - OFF Today (Weekend Hike)
     await page
       .locator("section:has-text('HABITS')")
-      .locator("button", { hasText: "Click to add" })
+      .locator("button", { hasText: "+ ADD HABIT" })
       .click();
     await page.locator("#habit-name-input").fill("Weekend Hike");
-    await page.locator(".custom-select-trigger").nth(0).click();
-    await page.locator(".custom-select-option", { hasText: "FITNESS" }).click();
-    await page.locator(".custom-select-trigger").nth(1).click();
-    await page
-      .locator(".custom-select-option", { hasText: "WEEKLY DAYS" })
-      .click();
-    await page.locator(".day-chip", { hasText: "THU" }).click(); // Deselect Thursday to make it OFF today
+    await page.locator(".category-chip", { hasText: "FITNESS" }).click();
+    await page.locator(".segment-btn", { hasText: "SPECIFIC DAYS" }).click();
+    await page.locator(".day-btn-brutal", { hasText: "THU" }).click(); // Deselect Thursday to make it OFF today
     await page.locator(".btn-submit-brutal").click();
     await expect(page.locator(".add-screen")).not.toBeVisible();
 
     // 3.7. Weekly Flexible - Logged 1/3 (Read 20 Pages)
     await page
       .locator("section:has-text('HABITS')")
-      .locator("button", { hasText: "Click to add" })
+      .locator("button", { hasText: "+ ADD HABIT" })
       .click();
     await page.locator("#habit-name-input").fill("Read 20 Pages");
-    await page.locator(".custom-select-trigger").nth(0).click();
-    await page
-      .locator(".custom-select-option", { hasText: "PRODUCTIVITY" })
-      .click();
-    await page.locator(".custom-select-trigger").nth(1).click();
-    await page
-      .locator(".custom-select-option", { hasText: "WEEKLY FLEXIBLE" })
-      .click();
-    await page.locator("#habit-weekly-count").fill("3");
+    await page.locator(".category-chip", { hasText: "PRODUCTIVITY" }).click();
+    await page.locator(".segment-btn", { hasText: "FLEXIBLE" }).click();
     await page.locator(".btn-submit-brutal").click();
     await expect(page.locator(".add-screen")).not.toBeVisible();
 
@@ -390,9 +378,12 @@ test.describe("Visual Catalog Generator", () => {
     await expect(pushupsItem.locator(".reps-count-display")).toHaveText("1/3");
 
     // Log Hydration Routine morning target (08:00)
-    const hydrationMorningTarget = page.locator(".agenda-row", {
-      hasText: "08:00",
-    });
+    // In the time-gutter layout the time lives in .time-gutter; select the row then the habit inside
+    const hydrationMorningTarget = page
+      .locator(".schedule-row")
+      .filter({ hasText: "08:00" })
+      .locator(".agenda-row")
+      .first();
     await expect(hydrationMorningTarget).toBeVisible();
     await hydrationMorningTarget.click();
     await expect(hydrationMorningTarget).toHaveClass(/completed/);
@@ -408,7 +399,7 @@ test.describe("Visual Catalog Generator", () => {
     );
 
     // Take Habits Dashboard Screenshot
-    await takeFullPageScreenshot(page, "habits-dashboard.png");
+    await takeFullPageScreenshot(page, "agenda-dashboard.png");
 
     // 4. Populate Media Dashboard (Add Movie & Book)
     await page.locator(".nav-item", { hasText: "Media" }).click();

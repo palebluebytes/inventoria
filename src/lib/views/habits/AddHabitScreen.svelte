@@ -194,7 +194,7 @@
       onclick={onClose}
       aria-label="Close Screen"
     >
-      [X] CLOSE
+      ✕ CLOSE
     </button>
     <div class="header-blueprint-title">NEW BLUEPRINT</div>
   </div>
@@ -205,61 +205,12 @@
       <input
         id="habit-name-input"
         type="text"
-        placeholder="WHAT WILL YOU BUILD?"
+        placeholder="NAME"
         bind:value={habit_name}
         class="input-hero"
         autocomplete="off"
         required
       />
-    </div>
-
-    <!-- Category Section -->
-    <div class="section-card">
-      <h3 class="section-legend">Category</h3>
-      <div class="category-grid">
-        {#each custom_categories as cat}
-          <button
-            type="button"
-            class="category-chip"
-            class:selected={habit_category === cat}
-            onclick={() => (habit_category = cat)}
-          >
-            {cat.toUpperCase()}
-          </button>
-        {/each}
-
-        {#if show_add_category_input}
-          <div class="inline-add-category">
-            <input
-              type="text"
-              placeholder="NEW CATEGORY..."
-              bind:value={new_category_name}
-              class="input-inline-cat"
-              maxlength="15"
-              onkeydown={(e) => {
-                if (e.key === "Enter") add_custom_category();
-                if (e.key === "Escape") show_add_category_input = false;
-              }}
-              autofocus
-            />
-            <button
-              type="button"
-              class="btn-inline-save"
-              onclick={add_custom_category}
-            >
-              [+]
-            </button>
-          </div>
-        {:else if custom_categories.length < 10}
-          <button
-            type="button"
-            class="category-chip add-chip"
-            onclick={() => (show_add_category_input = true)}
-          >
-            [+ ADD CATEGORY]
-          </button>
-        {/if}
-      </div>
     </div>
 
     <!-- Schedule Type -->
@@ -292,8 +243,8 @@
           class:active={daily_use_subtargets}
           onclick={() => (daily_use_subtargets = !daily_use_subtargets)}
         >
-          <span class="toggle-icon">{daily_use_subtargets ? "[X]" : "[ ]"}</span
-          >
+          <span class="custom-checkbox" class:checked={daily_use_subtargets}
+          ></span>
           <span class="toggle-label">SPECIFIC TIMES?</span>
         </button>
 
@@ -425,6 +376,55 @@
       </div>
     {/if}
 
+    <!-- Category Section -->
+    <div class="section-card">
+      <h3 class="section-legend">Category</h3>
+      <div class="category-grid">
+        {#each custom_categories as cat}
+          <button
+            type="button"
+            class="category-chip"
+            class:selected={habit_category === cat}
+            onclick={() => (habit_category = cat)}
+          >
+            {cat.toUpperCase()}
+          </button>
+        {/each}
+
+        {#if show_add_category_input}
+          <div class="inline-add-category">
+            <input
+              type="text"
+              placeholder="NEW CATEGORY..."
+              bind:value={new_category_name}
+              class="input-inline-cat"
+              maxlength="15"
+              onkeydown={(e) => {
+                if (e.key === "Enter") add_custom_category();
+                if (e.key === "Escape") show_add_category_input = false;
+              }}
+              autofocus
+            />
+            <button
+              type="button"
+              class="btn-inline-save"
+              onclick={add_custom_category}
+            >
+              +
+            </button>
+          </div>
+        {:else if custom_categories.length < 10}
+          <button
+            type="button"
+            class="category-chip add-chip"
+            onclick={() => (show_add_category_input = true)}
+          >
+            + ADD CATEGORY
+          </button>
+        {/if}
+      </div>
+    </div>
+
     <!-- Equipment Link Section -->
     <div class="section-card">
       <button
@@ -436,7 +436,7 @@
           if (!use_equipment) clear_equipment();
         }}
       >
-        <span class="toggle-icon">{use_equipment ? "[X]" : "[ ]"}</span>
+        <span class="custom-checkbox" class:checked={use_equipment}></span>
         <span class="toggle-label">EQUIPMENT REQUIRED?</span>
       </button>
 
@@ -474,7 +474,7 @@
                     onclick={() => select_equipment(twin)}
                   >
                     <span class="twin-name">{twin.name.toUpperCase()}</span>
-                    <span class="twin-tag">[{twin.status.toUpperCase()}]</span>
+                    <span class="twin-tag">{twin.status.toUpperCase()}</span>
                   </button>
                 {/each}
                 {#if filtered_equipment.length === 0}
