@@ -384,9 +384,29 @@
       </button>
     </div>
 
-    <!-- Start -->
-    <div class="field-card">
-      <label class="field-label">START</label>
+    <!-- Date/Time Selection -->
+    <div class="field-card" class:error={!!endError}>
+      <div
+        class="field-header"
+        style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: var(--space-sm);"
+      >
+        <label class="field-label" style="margin-bottom: 0;">
+          {hasEnd ? "START & END" : "START"}
+        </label>
+        <button
+          type="button"
+          class="text-btn"
+          style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; background: none; border: none; cursor: pointer; color: var(--text-primary); text-decoration: underline; padding: 0;"
+          onclick={() => {
+            hasEnd = !hasEnd;
+            endError = null;
+          }}
+        >
+          {hasEnd ? "✕ REMOVE END" : "+ ADD END"}
+        </button>
+      </div>
+
+      <!-- Start -->
       <div class="field-row">
         <div class="input-wrapper">
           <input
@@ -419,38 +439,13 @@
           </div>
         {/if}
       </div>
-    </div>
 
-    <!-- End Date/Time Toggle -->
-    <div class="field-card">
-      <button
-        type="button"
-        class="toggle-row"
-        onclick={() => {
-          hasEnd = !hasEnd;
-          endError = null;
-        }}
-        aria-pressed={hasEnd}
-      >
-        <div class="checkbox" class:checked={hasEnd}>
-          {#if hasEnd}✓{/if}
-        </div>
-        <div class="toggle-text">
-          <span class="toggle-label">SET END DATE & TIME</span>
-          <span class="toggle-hint">
-            {hasEnd
-              ? "Event has a specific duration and ending slot"
-              : "Point-in-time event — single timestamp"}
-          </span>
-        </div>
-      </button>
-    </div>
-
-    <!-- End -->
-    {#if hasEnd}
-      <div class="field-card" class:error={!!endError}>
-        <label class="field-label">END</label>
-        <div class="field-row">
+      <!-- End -->
+      {#if hasEnd}
+        <div
+          class="field-row end-row"
+          style="margin-top: var(--space-sm); padding-top: var(--space-sm); border-top: 2px dashed var(--border-accent);"
+        >
           <div class="input-wrapper">
             <input
               class="date-input"
@@ -482,11 +477,15 @@
             </div>
           {/if}
         </div>
-        {#if endError}
-          <span class="field-error">{endError}</span>
-        {/if}
-      </div>
-    {/if}
+      {/if}
+
+      {#if endError}
+        <span
+          class="field-error"
+          style="display: block; margin-top: var(--space-xs);">{endError}</span
+        >
+      {/if}
+    </div>
 
     <!-- Requires confirmation -->
     <div class="field-card">
