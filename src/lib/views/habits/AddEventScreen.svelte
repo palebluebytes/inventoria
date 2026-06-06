@@ -131,18 +131,32 @@
   }
 
   // Time slots (for point-in-time multi-slot events like medication)
-  let timeSlots = $state<string[]>([startTime]);
+  let _extraTimeSlots = $state<string[]>([]);
+  let timeSlots = $derived([startTime, ..._extraTimeSlots]);
 
   function addTimeSlot() {
-    timeSlots = [...timeSlots, "20:00"];
+    _extraTimeSlots = [..._extraTimeSlots, "20:00"];
   }
 
   function removeTimeSlot(i: number) {
-    timeSlots = timeSlots.filter((_, idx) => idx !== i);
+    if (i === 0) {
+      if (_extraTimeSlots.length > 0) {
+        startTime = _extraTimeSlots[0];
+        _extraTimeSlots = _extraTimeSlots.slice(1);
+      }
+    } else {
+      _extraTimeSlots = _extraTimeSlots.filter((_, idx) => idx !== i - 1);
+    }
   }
 
   function updateTimeSlot(i: number, val: string) {
-    timeSlots = timeSlots.map((t, idx) => (idx === i ? val : t));
+    if (i === 0) {
+      startTime = val;
+    } else {
+      _extraTimeSlots = _extraTimeSlots.map((t, idx) =>
+        idx === i - 1 ? val : t
+      );
+    }
   }
 
   // Recurrence
@@ -509,48 +523,16 @@
       </button>
     </div>
 
-    <!-- Time slots (only for point-in-time + daily or none) -->
-    {#if timed && !hasEnd && (recurType === "none" || recurType === "daily")}
-      <div class="field-card">
-        <label class="field-label">TIME SLOTS</label>
-        {#each timeSlots as slot, i}
-          <div class="slot-row">
-            <div class="input-wrapper">
-              <input
-                class="time-input flex-1"
-                type="text"
-                use:timePicker={{
-                  value: slot,
-                  onChange: (val) => updateTimeSlot(i, val),
-                }}
-              />
-              <span class="input-icon">🕒</span>
-            </div>
-            {#if timeSlots.length > 1}
-              <button
-                class="remove-btn"
-                onclick={() => removeTimeSlot(i)}
-                aria-label="Remove">✕</button
-              >
-            {/if}
-          </div>
-        {/each}
-        <button class="add-slot-btn" onclick={addTimeSlot}
-          >+ ADD TIME SLOT</button
-        >
-      </div>
-    {/if}
-
-    <!-- Recurrence -->
+    <!-- Schedule: Recurrence & Time slots -->
     <div class="field-card">
       <label class="field-label">RECURRENCE</label>
-      <div class="seg-control seg-wrap">
-        {#each [["none", "NONE"], ["daily", "DAILY"], ["specific_days", "DAYS"], ["weekly", "WEEKLY"], ["monthly", "MONTHLY"], ["yearly", "YEARLY"]] as [val, label]}
+      <div class="seg-control seg-wrap" style="margin-bottom: var(--space-s);">
+        {#each [["daily", "DAILY"], ["specific_days", "DAYS"], ["weekly", "WEEKLY"], ["monthly", "MONTHLY"], ["yearly", "YEARLY"]] as [val, label]}
           <button
             class="seg-btn"
             class:active={recurType === val}
             onclick={() => {
-              recurType = val as RecurType;
+              recurType = recurType === val ? "none" : (val as RecurType);
             }}>{label}</button
           >
         {/each}
@@ -590,7 +572,10 @@
       {/if}
 
       {#if recurType !== "none"}
-        <div class="field-row until-row">
+        <div
+          class="field-row until-row"
+          style="margin-top: var(--space-s); margin-bottom: var(--space-s);"
+        >
           <span class="field-sublabel">UNTIL (OPTIONAL)</span>
           <div class="input-wrapper">
             <input
@@ -605,6 +590,43 @@
             />
             <span class="input-icon">📅</span>
           </div>
+        </div>
+      {/if}
+
+      <!-- Time slots (only for point-in-time + daily or none) -->
+      {#if timed && !hasEnd && (recurType === "none" || recurType === "daily")}
+        <div
+          class="time-slots-section"
+          style={recurType !== "none"
+            ? "border-top: 2px dashed var(--border-accent); padding-top: var(--space-sm); margin-top: var(--space-sm);"
+            : ""}
+        >
+          <label class="field-sublabel">TIME SLOTS</label>
+          {#each timeSlots as slot, i}
+            <div class="slot-row" style="margin-bottom: var(--space-xs);">
+              <div class="input-wrapper">
+                <input
+                  class="time-input flex-1"
+                  type="text"
+                  use:timePicker={{
+                    value: slot,
+                    onChange: (val) => updateTimeSlot(i, val),
+                  }}
+                />
+                <span class="input-icon">🕒</span>
+              </div>
+              {#if timeSlots.length > 1}
+                <button
+                  class="remove-btn"
+                  onclick={() => removeTimeSlot(i)}
+                  aria-label="Remove">✕</button
+                >
+              {/if}
+            </div>
+          {/each}
+          <button class="add-slot-btn" onclick={addTimeSlot}
+            >+ ADD TIME SLOT</button
+          >
         </div>
       {/if}
     </div>
