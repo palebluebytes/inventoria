@@ -498,11 +498,12 @@
     <!-- Schedule: Recurrence & Time slots -->
     <div class="field-card">
       <label class="field-label">RECURRENCE</label>
-      <div class="seg-control seg-wrap" style="margin-bottom: var(--space-s);">
-        {#each [["daily", "DAILY"], ["specific_days", "DAYS"], ["weekly", "WEEKLY"], ["monthly", "MONTHLY"], ["yearly", "YEARLY"]] as [val, label]}
+      <div class="seg-control seg-grid" style="margin-bottom: var(--space-s);">
+        {#each [["daily", "DAILY"], ["weekly", "WEEKLY"], ["monthly", "MONTHLY"], ["yearly", "YEARLY"], ["specific_days", "DAYS"]] as [val, label]}
           <button
             class="seg-btn"
             class:active={recurType === val}
+            class:span-2={val === "specific_days"}
             onclick={() => {
               recurType = recurType === val ? "none" : (val as RecurType);
             }}>{label}</button
@@ -827,6 +828,19 @@
   }
   .seg-wrap {
     flex-wrap: wrap;
+  }
+  .seg-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2px;
+    background: #000;
+    border: 2px solid #000;
+  }
+  .seg-grid .seg-btn {
+    border: none !important;
+  }
+  .seg-grid .span-2 {
+    grid-column: span 2;
   }
 
   .seg-btn {
