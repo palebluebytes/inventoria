@@ -601,31 +601,37 @@
             ? "border-top: 2px dashed var(--border-accent); padding-top: var(--space-sm); margin-top: var(--space-sm);"
             : ""}
         >
-          <label class="field-sublabel">TIME SLOTS</label>
-          {#each timeSlots as slot, i}
-            <div class="slot-row" style="margin-bottom: var(--space-xs);">
-              <div class="input-wrapper">
-                <input
-                  class="time-input flex-1"
-                  type="text"
-                  use:timePicker={{
-                    value: slot,
-                    onChange: (val) => updateTimeSlot(i, val),
-                  }}
-                />
-                <span class="input-icon">🕒</span>
-              </div>
-              {#if timeSlots.length > 1}
+          {#if _extraTimeSlots.length > 0}
+            <label
+              class="field-sublabel"
+              style="margin-bottom: var(--space-xs); display: block;"
+              >ADDITIONAL TIMES</label
+            >
+            {#each _extraTimeSlots as slot, i}
+              <div class="slot-row" style="margin-bottom: var(--space-xs);">
+                <div class="input-wrapper">
+                  <input
+                    class="time-input flex-1"
+                    type="text"
+                    use:timePicker={{
+                      value: slot,
+                      onChange: (val) => updateTimeSlot(i + 1, val),
+                    }}
+                  />
+                  <span class="input-icon">🕒</span>
+                </div>
                 <button
                   class="remove-btn"
-                  onclick={() => removeTimeSlot(i)}
+                  onclick={() => removeTimeSlot(i + 1)}
                   aria-label="Remove">✕</button
                 >
-              {/if}
-            </div>
-          {/each}
-          <button class="add-slot-btn" onclick={addTimeSlot}
-            >+ ADD TIME SLOT</button
+              </div>
+            {/each}
+          {/if}
+          <button
+            class="add-slot-btn"
+            style={_extraTimeSlots.length === 0 ? "margin-top: 0;" : ""}
+            onclick={addTimeSlot}>+ ADD ANOTHER TIME</button
           >
         </div>
       {/if}
