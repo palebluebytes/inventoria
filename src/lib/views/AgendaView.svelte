@@ -240,14 +240,19 @@
       }
     }
 
-    // Sort by time
-    raw.sort((a, b) => a.time.localeCompare(b.time));
+    // Sort by time (with "ALL DAY" / untimed events first)
+    raw.sort((a, b) => {
+      if (a.time === "ALL DAY" && b.time !== "ALL DAY") return -1;
+      if (b.time === "ALL DAY" && a.time !== "ALL DAY") return 1;
+      return a.time.localeCompare(b.time);
+    });
 
     // Annotate: isDuring (point-in-time item falls within a block event's window)
     const blocks = raw.filter((item) => item.hasEnd && item.dtendTime);
     return raw.map((item) => {
       const isDuring =
         !item.hasEnd &&
+        item.time !== "ALL DAY" &&
         blocks.some(
           (block) =>
             block !== item &&
@@ -321,19 +326,21 @@
         onclick={() => navigateDay(-1)}
         aria-label="Previous day"
       >
-        ‹
+        &lt;
       </button>
-      <div class="agenda-ascii-title">DAILY AGENDA</div>
+      <div class="agenda-ascii-center">
+        <div class="agenda-ascii-title">DAILY AGENDA</div>
+        <div class="agenda-ascii-date">{dateTodayStr.toUpperCase()}</div>
+      </div>
       <button
         type="button"
         class="nav-arrow"
         onclick={() => navigateDay(1)}
         aria-label="Next day"
       >
-        ›
+        &gt;
       </button>
     </div>
-    <div class="agenda-ascii-date">{dateTodayStr.toUpperCase()}</div>
   </div>
 </header>
 
@@ -374,9 +381,6 @@
                   class="habit-wrap"
                   class:is-overlap={(item as HabitSlot).isOverlap}
                 >
-                  {#if (item as HabitSlot).isOverlap}
-                    <span class="overlap-badge">⚡ OVERLAP</span>
-                  {/if}
                   <HabitItem
                     lineage={(item as HabitSlot).lineage}
                     targetId={(item as HabitSlot).targetId}
@@ -392,9 +396,6 @@
                   class="event-wrap"
                   class:is-overlap={(item as EventSlot).isOverlap}
                 >
-                  {#if (item as EventSlot).isOverlap}
-                    <span class="overlap-badge">⚡ OVERLAP</span>
-                  {/if}
                   <EventItem
                     blueprint={(item as EventSlot).blueprint}
                     slot={(item as EventSlot).slot}
@@ -410,22 +411,16 @@
       {/each}
 
       <!-- Add buttons -->
-      <div class="add-row-group">
-        <button
-          type="button"
-          class="add-agenda-row"
-          onclick={() => (isAddingEvent = true)}
-        >
-          + ADD EVENT
-        </button>
-        <button
-          type="button"
-          class="add-agenda-row add-habit-row"
-          onclick={() => openAddHabit("schedule")}
-        >
-          + ADD TIMED HABIT
-        </button>
-      </div>
+    </div>
+
+    <div class="add-row-group">
+      <button
+        type="button"
+        class="add-agenda-row"
+        onclick={() => (isAddingEvent = true)}
+      >
+        + ADD EVENT
+      </button>
     </div>
   </section>
 
@@ -550,9 +545,9 @@
   }
 
   .agenda-ascii-box {
-    border: 2px solid var(--border-accent);
     padding: var(--space-s) var(--space-m);
-    background: var(--bg-surface);
+    background: #000;
+    color: #fff;
     font-family: var(--font-mono);
     text-align: center;
   }
@@ -560,34 +555,40 @@
   .agenda-ascii-title-container {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: var(--space-m);
+    justify-content: space-between;
+    width: 100%;
   }
 
   .nav-arrow {
     background: none;
     border: none;
     font-family: var(--font-mono);
-    font-size: var(--step-1);
+    font-size: var(--step-3);
     font-weight: 900;
-    color: var(--text-secondary);
+    color: #999;
     cursor: pointer;
-    padding: 0 var(--space-xs);
+    padding: var(--space-2xs) var(--space-xs);
   }
   .nav-arrow:hover {
-    color: var(--text-primary);
+    color: #fff;
+  }
+
+  .agenda-ascii-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
 
   .agenda-ascii-title {
     font-size: var(--step-0);
     font-weight: 900;
-    color: var(--text-primary);
+    color: #fff;
   }
 
   .agenda-ascii-date {
     font-size: var(--step-n2);
     font-weight: 700;
-    color: var(--text-secondary);
+    color: #999;
     margin-top: 4px;
   }
 
@@ -610,23 +611,23 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 2px solid var(--border-accent);
-    padding-bottom: var(--space-3xs);
     margin-bottom: var(--space-3xs);
   }
 
   .section-title-bar h2 {
     font-family: var(--font-mono);
-    font-size: var(--step-n1);
-    font-weight: 700;
-    color: var(--text-primary);
+    font-size: var(--step-0);
+    font-weight: 800;
+    color: #000;
     margin: 0;
   }
 
   :global(.mono-badge) {
     font-family: var(--font-mono) !important;
     font-weight: 700 !important;
-    border: 1px solid var(--border-accent) !important;
+    border: none !important;
+    background: #000 !important;
+    color: #fff !important;
     border-radius: 0 !important;
   }
 
@@ -634,13 +635,16 @@
   .schedule-timeline {
     display: flex;
     flex-direction: column;
+    border: 2px solid #000;
   }
 
   .schedule-row {
     display: grid;
     grid-template-columns: 52px 1fr;
-    border: 2px solid var(--border-accent);
-    margin-top: -2px; /* collapse borders */
+    border-bottom: 2px solid #000;
+  }
+  .schedule-row:last-child {
+    border-bottom: none;
   }
 
   /* Continuation bar: item falls within an active block */
@@ -653,75 +657,71 @@
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    padding: var(--space-xs) var(--space-2xs);
-    border-right: 2px solid var(--border-accent);
+    padding: var(--space-xs) 0;
+    border-right: 2px solid #000;
     font-family: var(--font-mono);
     font-size: var(--step-n2);
     font-weight: 700;
-    color: var(--text-secondary);
-    background: var(--bg-base);
+    color: #666;
+    background: #fff;
     gap: 2px;
     min-height: 48px;
   }
 
   .time-start {
-    color: var(--text-primary);
+    color: #000;
   }
 
   .time-pipe {
-    color: var(--text-muted);
+    color: #999;
     font-size: 10px;
     line-height: 1;
   }
 
   .time-end {
-    color: var(--text-muted);
+    color: #999;
     font-size: 10px;
   }
 
   .time-slot-items {
     display: flex;
     flex-direction: column;
+    align-items: stretch;
+    flex: 1;
     min-width: 0;
   }
 
   .habit-wrap,
   .event-wrap {
     position: relative;
-    border-top: 1px solid var(--border);
+    border-top: 2px solid #000;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
   }
   .habit-wrap:first-child,
   .event-wrap:first-child {
     border-top: none;
   }
 
-  .overlap-badge {
-    position: absolute;
-    top: 4px;
-    right: 6px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    background: var(--amber-bg);
-    color: #000;
-    padding: 1px 4px;
-    z-index: 1;
-    pointer-events: none;
+  .habit-wrap.is-overlap,
+  .event-wrap.is-overlap {
+    border-left: 8px solid #000;
   }
 
   /* ── Add buttons ── */
   .add-row-group {
     display: flex;
     gap: var(--space-xs);
-    margin-top: var(--space-xs);
+    margin-top: var(--space-3xs);
   }
 
   .add-agenda-row {
     flex: 1;
-    border: 1px dashed var(--text-muted);
+    border: 2px dashed #000;
     padding: var(--space-s);
     text-align: center;
-    color: var(--text-secondary);
+    color: #000;
     font-family: var(--font-mono);
     font-size: var(--step-n2);
     font-weight: 700;
@@ -734,17 +734,10 @@
   .add-agenda-row:hover,
   .add-agenda-row:focus {
     background: var(--bg-input);
-    color: var(--text-primary);
-    border-color: var(--border-accent);
   }
   .add-agenda-row:active {
-    background: var(--border-accent);
-    color: var(--bg-surface);
-  }
-
-  .add-habit-row {
-    border-style: dashed;
-    border-color: var(--border);
+    background: #000;
+    color: #fff;
   }
 
   /* ── General habits list ── */

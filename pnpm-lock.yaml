@@ -11,6 +11,9 @@ importers:
       '@sqlite.org/sqlite-wasm':
         specifier: 3.53.0-build1
         version: 3.53.0-build1
+      air-datepicker:
+        specifier: ^3.6.0
+        version: 3.6.0
       workbox-window:
         specifier: ^7.4.1
         version: 7.4.1
@@ -1000,6 +1003,9 @@ packages:
     resolution: {integrity: sha512-UVJyE9MttOsBQIDKw1skb9nAwQuR5wuGD3+82K6JgJlm/Y+KI92oNsMNGZCYdDsVtRHSak0pcV5Dno5+4jh9sw==}
     engines: {node: '>=0.4.0'}
     hasBin: true
+
+  air-datepicker@3.6.0:
+    resolution: {integrity: sha512-+txUkqa949rXBJDmkQAIb/GehZECJYF4rm9XJxVYtEX22C9WvBpE/XwCUQZBopKIkpg4ycAySJ9lH3JOg9qQTw==}
 
   ajv@8.20.0:
     resolution: {integrity: sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==}
@@ -3351,6 +3357,8 @@ snapshots:
       tinyrainbow: 3.1.0
 
   acorn@8.16.0: {}
+
+  air-datepicker@3.6.0: {}
 
   ajv@8.20.0:
     dependencies:

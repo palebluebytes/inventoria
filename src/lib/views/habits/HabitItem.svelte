@@ -209,46 +209,47 @@
 >
   <div class="habit-details">
     <span class="habit-name">{lineage.head.name.toUpperCase()}</span>
-    <span class="habit-category">{lineage.head.category.toUpperCase()}</span>
   </div>
 
-  {#if targetId}
-    <div class="reps-count-display">
-      {getTimeHint()}
-    </div>
-  {:else}
-    {#if rules && rules.type === "daily_multiple" && !rules.targets}
-      <div class="reps-count-display">
-        {completedCount}/{rules.count ?? 1}
+  <div class="habit-meta">
+    {#if targetId}
+      <div class="time-hint-pill">
+        {getTimeHint()}
       </div>
-    {:else if rules && rules.type === "weekly_days"}
-      {@const daysOfWeek = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]}
-      {@const utcDayStr = daysOfWeek[
-        new Date(selected_date_str + "T00:00:00Z").getUTCDay()
-      ] as DayOfWeek}
-      {@const isScheduledToday = rules.days.includes(utcDayStr)}
-      {#if !isScheduledToday}
-        <div class="off-day-indicator">
-          <span class="off-label">OFF</span>
+    {:else}
+      {#if rules && rules.type === "daily_multiple" && !rules.targets}
+        <div class="reps-pill">
+          {completedCount}/{rules.count ?? 1}
+        </div>
+      {:else if rules && rules.type === "weekly_days"}
+        {@const daysOfWeek = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]}
+        {@const utcDayStr = daysOfWeek[
+          new Date(selected_date_str + "T00:00:00Z").getUTCDay()
+        ] as DayOfWeek}
+        {@const isScheduledToday = rules.days.includes(utcDayStr)}
+        {#if !isScheduledToday}
+          <div class="off-day-pill">OFF</div>
+        {/if}
+      {:else if rules && rules.type === "weekly_flexible"}
+        <div class="reps-pill">
+          {weeklyDoneDays}/{rules.count ?? 1}
         </div>
       {/if}
-    {:else if rules && rules.type === "weekly_flexible"}
-      <div class="reps-count-display">
-        {weeklyDoneDays}/{rules.count ?? 1}
-      </div>
     {/if}
-  {/if}
+    <span class="habit-category-pill"
+      >{lineage.head.category.toUpperCase()}</span
+    >
+  </div>
 </div>
 
 <style>
   .agenda-row {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: var(--space-s);
-    border: 2px solid var(--border-accent);
-    margin-top: -2px; /* collapses borders when stacked */
     background: var(--bg-surface);
-    padding: var(--space-xs) var(--space-s);
+    padding: 0 var(--space-s);
     cursor: pointer;
     user-select: none;
     outline: none;
@@ -256,6 +257,9 @@
     text-transform: uppercase;
     transition: background-color 0.1s;
     -webkit-tap-highlight-color: transparent;
+    min-height: 48px;
+    width: 100%;
+    flex: 1;
   }
 
   .agenda-row.completed {
@@ -283,44 +287,45 @@
 
   .habit-details {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
+    align-items: center;
     min-width: 0;
     flex: 1;
   }
 
   .habit-name {
-    font-weight: 700;
-    color: var(--text-primary);
+    font-weight: 800;
+    font-size: var(--step-0);
+    color: #000;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    width: 100%;
   }
 
-  .habit-category {
-    font-size: var(--step-n2);
-    font-weight: 500;
-    opacity: 0.7;
-    text-transform: uppercase;
-  }
-
-  .reps-count-display {
-    font-weight: 700;
-    font-family: var(--font-mono);
-    color: var(--text-primary);
-  }
-
-  .off-day-indicator {
+  .habit-meta {
     display: flex;
     align-items: center;
+    gap: var(--space-xs);
+    flex-shrink: 0;
   }
 
-  .off-label {
+  .habit-category-pill {
     font-size: var(--step-n2);
-    color: var(--text-muted);
-    border: 1px dashed var(--text-muted);
-    padding: 1px 4px;
+    font-weight: 700;
+    color: #666;
+    border: 1px solid #999;
+    padding: 2px 6px;
+    border-radius: 12px;
+  }
+
+  .time-hint-pill,
+  .reps-pill,
+  .off-day-pill {
+    font-size: var(--step-n2);
+    font-weight: 700;
+    color: #000;
+    background: #e5e5e5;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
   }
 </style>

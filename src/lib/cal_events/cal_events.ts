@@ -15,6 +15,7 @@ export interface CalEventBlueprint {
   dtend?: string; // Optional — block events only
   description?: string;
   tracking: boolean; // true = Compliance Event, false = Appointment
+  timed: boolean; // true = has specific time of day, false = all day / untimed event
   schedule_rules?: ScheduleRule; // Absent = single occurrence on dtstart date
   time: number; // Blueprint creation timestamp (ms)
 }
@@ -22,7 +23,7 @@ export interface CalEventBlueprint {
 export interface ProjectedSlot {
   calEventId: string;
   slotId?: string; // Sub-target ID for multi-slot events
-  scheduledTime: string; // "HH:MM"
+  scheduledTime: string; // "HH:MM" or "ALL DAY"
   dtendTime?: string; // "HH:MM" for block events
   isTracking: boolean;
   hasEnd: boolean;
@@ -97,8 +98,14 @@ export function isActiveOnDate(
 
   const rules = blueprint.schedule_rules;
 
-  // Single occurrence: only fires on the exact dtstart date
-  if (!rules) return dateStr === startDateStr;
+  // Single occurrence: fires on dates spanning dtstart to dtend
+  if (!rules) {
+    if (blueprint.dtend) {
+      const endDateStr = toDateStr(blueprint.dtend);
+      return dateStr >= startDateStr && dateStr <= endDateStr;
+    }
+    return dateStr === startDateStr;
+  }
 
   // Respect until
   if (rules.until && dateStr > rules.until) return false;
@@ -153,6 +160,36 @@ export function projectSlotsForDate(
 ): ProjectedSlot[] {
   if (!isActiveOnDate(blueprint, dateStr)) return [];
 
+  const startDateStr = toDateStr(blueprint.dtstart);
+  const endDateStr = blueprint.dtend ? toDateStr(blueprint.dtend) : undefined;
+
+  // If it has dtend and spans multiple days
+  if (endDateStr && startDateStr < endDateStr) {
+    let scheduledTime = "00:00";
+    let dtendTime: string | undefined = "23:59";
+
+    if (dateStr === startDateStr) {
+      scheduledTime = toHHMM(blueprint.dtstart);
+      dtendTime = "23:59";
+    } else if (dateStr === endDateStr) {
+      scheduledTime = "00:00";
+      dtendTime = toHHMM(blueprint.dtend!);
+    } else {
+      scheduledTime = "00:00";
+      dtendTime = "23:59";
+    }
+
+    return [
+      {
+        calEventId: blueprint.entity,
+        scheduledTime: blueprint.timed ? scheduledTime : "ALL DAY",
+        dtendTime: blueprint.timed ? dtendTime : undefined,
+        isTracking: blueprint.tracking,
+        hasEnd: blueprint.timed,
+      },
+    ];
+  }
+
   const baseTime = toHHMM(blueprint.dtstart);
   const dtendTime = blueprint.dtend ? toHHMM(blueprint.dtend) : undefined;
 
@@ -167,10 +204,12 @@ export function projectSlotsForDate(
     return rules.targets.map((target) => ({
       calEventId: blueprint.entity,
       slotId: target.id,
-      scheduledTime: target.time_hint ?? baseTime,
-      dtendTime,
+      scheduledTime: blueprint.timed
+        ? (target.time_hint ?? baseTime)
+        : "ALL DAY",
+      dtendTime: blueprint.timed ? dtendTime : undefined,
       isTracking: blueprint.tracking,
-      hasEnd: !!blueprint.dtend,
+      hasEnd: blueprint.timed ? !!blueprint.dtend : false,
     }));
   }
 
@@ -178,10 +217,10 @@ export function projectSlotsForDate(
   return [
     {
       calEventId: blueprint.entity,
-      scheduledTime: baseTime,
-      dtendTime,
+      scheduledTime: blueprint.timed ? baseTime : "ALL DAY",
+      dtendTime: blueprint.timed ? dtendTime : undefined,
       isTracking: blueprint.tracking,
-      hasEnd: !!blueprint.dtend,
+      hasEnd: blueprint.timed ? !!blueprint.dtend : false,
     },
   ];
 }
@@ -200,6 +239,7 @@ export function ingestCalEvent(
       "cal_event/title": blueprint.title,
       "cal_event/dtstart": blueprint.dtstart,
       "cal_event/tracking": blueprint.tracking,
+      "cal_event/timed": blueprint.timed,
       ...(blueprint.dtend ? { "cal_event/dtend": blueprint.dtend } : {}),
       ...(blueprint.description
         ? { "cal_event/description": blueprint.description }

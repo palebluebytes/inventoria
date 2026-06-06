@@ -83,21 +83,23 @@
 >
   {#if slot.isTracking}
     <div
-      class="tracking-dot"
+      class="tracking-box"
       class:confirmed={isConfirmed}
       class:missed={isMissed}
     >
       {#if isConfirmed}✓{:else if isMissed}✕{:else}!{/if}
     </div>
-  {:else}
-    <div class="appt-dot"></div>
   {/if}
 
   <div class="event-content">
-    <span class="event-title">{blueprint.title.toUpperCase()}</span>
-    {#if blueprint.description}
-      <span class="event-desc">{blueprint.description}</span>
-    {/if}
+    <span class="event-title">
+      {#if !slot.isTracking}
+        {blueprint.title.toUpperCase()}
+      {:else}
+        {blueprint.title.toUpperCase()}{#if blueprint.description}
+          <span class="event-desc">({blueprint.description})</span>{/if}
+      {/if}
+    </span>
   </div>
 
   <div class="event-meta">
@@ -109,7 +111,7 @@
       <span class="now-badge">● NOW</span>
     {:else if !slot.isTracking && slot.hasEnd}
       {#if durationLabel}
-        <span class="duration-badge">{durationLabel}</span>
+        <span class="duration-pill">{durationLabel}</span>
       {/if}
       <span class="appt-badge">APPT</span>
     {:else if !slot.isTracking}
@@ -121,9 +123,7 @@
 <style>
   .event-item {
     display: flex;
-    align-items: center;
-    gap: var(--space-s);
-    padding: var(--space-xs) var(--space-s);
+    align-items: stretch;
     background: var(--bg-surface);
     font-family: var(--font-mono);
     user-select: none;
@@ -132,18 +132,16 @@
     -webkit-tap-highlight-color: transparent;
     min-height: 48px;
     width: 100%;
+    flex: 1;
   }
 
   /* Compliance Event — tappable */
   .event-item.is-tracking {
     cursor: pointer;
-    background-color: #fffbea;
+    background-color: var(--bg-surface);
   }
   .event-item.is-tracking:active {
-    background-color: var(--amber-bg);
-  }
-  .event-item.is-tracking.is-imminent {
-    background-color: #fff8d6;
+    background-color: var(--bg-input);
   }
 
   /* Confirmed */
@@ -160,13 +158,7 @@
 
   /* Appointment — informational */
   .event-item.is-appointment {
-    background: repeating-linear-gradient(
-      -45deg,
-      #f4f4f5,
-      #f4f4f5 4px,
-      #e4e4e7 4px,
-      #e4e4e7 8px
-    );
+    background: #e5e5e5; /* solid grey like mockup */
     cursor: default;
   }
   .event-item.is-appointment.is-past {
@@ -174,34 +166,25 @@
   }
 
   /* Dots / indicators */
-  .tracking-dot {
-    width: 24px;
-    height: 24px;
-    min-width: 24px;
-    background: var(--amber-bg);
-    border: 2px solid #000;
+  .tracking-box {
+    width: 48px;
+    min-width: 48px;
+    background: var(--amber);
+    border-right: 2px solid #000;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 900;
-    font-size: var(--step-n2);
+    font-size: var(--step-0);
     color: #000;
     flex-shrink: 0;
   }
-  .tracking-dot.confirmed {
-    background: var(--green-bg);
+  .tracking-box.confirmed {
+    background: var(--green);
   }
-  .tracking-dot.missed {
-    background: var(--red-bg);
+  .tracking-box.missed {
+    background: var(--red);
     color: #fff;
-  }
-
-  .appt-dot {
-    width: 8px;
-    height: 8px;
-    min-width: 8px;
-    background: var(--text-muted);
-    flex-shrink: 0;
   }
 
   /* Content */
@@ -209,38 +192,38 @@
     flex: 1;
     min-width: 0;
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    align-items: center;
+    padding: 0 var(--space-s);
   }
 
   .event-title {
-    font-weight: 700;
-    font-size: var(--step-n1);
-    color: var(--text-primary);
+    font-weight: 800;
+    font-size: var(--step-0);
+    color: #000;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
   .event-item.is-appointment .event-title {
-    color: var(--text-secondary);
+    color: #666;
   }
   .event-item.is-past .event-title {
     color: var(--text-muted);
   }
 
   .event-desc {
-    font-size: var(--step-n2);
-    color: var(--text-muted);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-weight: 400;
+    font-size: var(--step-n1);
+    color: #666;
+    margin-left: 4px;
   }
 
   /* Meta / badges */
   .event-meta {
     display: flex;
     align-items: center;
-    gap: var(--space-2xs);
+    gap: var(--space-xs);
+    padding-right: var(--space-s);
     flex-shrink: 0;
   }
 
@@ -271,19 +254,22 @@
     letter-spacing: 0.05em;
   }
 
-  .duration-badge {
+  .duration-pill {
     font-size: var(--step-n2);
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-    padding: 1px 4px;
+    font-weight: 700;
+    color: #666;
+    border: 1px solid #999;
+    padding: 2px 6px;
+    border-radius: 12px;
   }
 
   .appt-badge {
     font-size: var(--step-n2);
     font-weight: 700;
-    background: var(--text-secondary);
+    background: #000;
     color: #fff;
     padding: 2px 6px;
+    border-radius: 4px;
     letter-spacing: 0.05em;
   }
 </style>

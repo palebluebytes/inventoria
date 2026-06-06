@@ -1,5 +1,8 @@
 <script lang="ts">
   import type { ScheduleRule, DayOfWeek } from "../../habits/habits";
+  import AirDatepicker from "air-datepicker";
+  import "air-datepicker/air-datepicker.css";
+  import localeEn from "air-datepicker/locale/en";
 
   let {
     onSave,
@@ -11,6 +14,7 @@
       dtend?: string;
       description?: string;
       tracking: boolean;
+      timed: boolean;
       schedule_rules?: ScheduleRule;
     }) => Promise<void>;
     onClose: () => void;
@@ -26,26 +30,104 @@
   let startDate = $state(today.toISOString().slice(0, 10));
   let startTime = $state("08:00");
 
-  // Duration mode
-  let durationMode = $state<"point" | "block">("point");
-  let endTime = $state("09:00");
+  // Timed or untimed
+  let timed = $state(true);
 
-  // Tracking (smart default: point → true, block → false)
+  // End Date/Time Toggle
+  let hasEnd = $state(false);
+  let endDate = $state(today.toISOString().slice(0, 10));
+  let endTime = $state("09:00");
+  let endError = $state<string | null>(null);
+
+  // Tracking (smart default: point/no-end → true, block/has-end → false)
   let trackingOverridden = $state(false);
   let tracking = $derived.by(() => {
     if (trackingOverridden) return _trackingManual;
-    return durationMode === "point";
+    return !hasEnd;
   });
   let _trackingManual = $state(true);
-
-  function handleDurationChange(mode: "point" | "block") {
-    durationMode = mode;
-    trackingOverridden = false; // reset override so smart default kicks in
-  }
 
   function toggleTracking() {
     _trackingManual = !tracking;
     trackingOverridden = true;
+  }
+
+  // Svelte Pickers Actions
+  function datePicker(
+    node: HTMLInputElement,
+    options: { value: string; onChange: (val: string) => void }
+  ) {
+    const dp = new AirDatepicker(node, {
+      locale: localeEn,
+      selectedDates: options.value
+        ? [new Date(options.value + "T00:00:00")]
+        : [],
+      dateFormat: "yyyy-MM-dd",
+      autoClose: true,
+      onSelect({ date }) {
+        if (date) {
+          const d = Array.isArray(date) ? date[0] : date;
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth() + 1).padStart(2, "0");
+          const dd = String(d.getDate()).padStart(2, "0");
+          options.onChange(`${yyyy}-${mm}-${dd}`);
+        }
+      },
+    });
+    return {
+      update(newOptions: { value: string; onChange: (val: string) => void }) {
+        if (newOptions.value) {
+          dp.selectDate(new Date(newOptions.value + "T00:00:00"), {
+            updateTime: false,
+            silent: true,
+          });
+        } else {
+          dp.clear();
+        }
+      },
+      destroy() {
+        dp.destroy();
+      },
+    };
+  }
+
+  // Timepicker configuration and action
+  function timePicker(
+    node: HTMLInputElement,
+    options: { value: string; onChange: (val: string) => void }
+  ) {
+    const [hours, minutes] = (options.value || "08:00").split(":").map(Number);
+    const initialDate = new Date();
+    initialDate.setHours(hours, minutes, 0, 0);
+
+    const dp = new AirDatepicker(node, {
+      locale: localeEn,
+      timepicker: true,
+      onlyTimepicker: true,
+      timeFormat: "HH:mm",
+      selectedDates: [initialDate],
+      onSelect({ date }) {
+        if (date) {
+          const d = Array.isArray(date) ? date[0] : date;
+          const hh = String(d.getHours()).padStart(2, "0");
+          const mm = String(d.getMinutes()).padStart(2, "0");
+          options.onChange(`${hh}:${mm}`);
+        }
+      },
+    });
+    return {
+      update(newOptions: { value: string; onChange: (val: string) => void }) {
+        if (newOptions.value) {
+          const [hh, mm] = newOptions.value.split(":").map(Number);
+          const d = new Date();
+          d.setHours(hh, mm, 0, 0);
+          dp.selectDate(d, { updateTime: true, silent: true });
+        }
+      },
+      destroy() {
+        dp.destroy();
+      },
+    };
   }
 
   // Time slots (for point-in-time multi-slot events like medication)
@@ -137,9 +219,15 @@
   let description = $state("");
 
   // --------------- Derived dtstart ISO ---------------
-  let dtstart = $derived(`${startDate}T${startTime}:00Z`);
+  let dtstart = $derived(
+    timed ? `${startDate}T${startTime}:00Z` : `${startDate}T00:00:00Z`
+  );
   let dtend = $derived(
-    durationMode === "block" ? `${startDate}T${endTime}:00Z` : undefined
+    hasEnd
+      ? timed
+        ? `${endDate}T${endTime}:00Z`
+        : `${endDate}T00:00:00Z`
+      : undefined
   );
 
   // --------------- Build schedule_rules ---------------
@@ -149,7 +237,7 @@
       case "none":
         return undefined;
       case "daily":
-        if (durationMode === "point" && timeSlots.length > 1) {
+        if (timed && !hasEnd && timeSlots.length > 1) {
           return {
             type: "daily_multiple",
             targets: timeSlots.map((t, i) => ({
@@ -197,6 +285,26 @@
       return;
     }
     titleError = false;
+
+    if (hasEnd) {
+      let startMs: number;
+      let endMs: number;
+      if (timed) {
+        startMs = new Date(`${startDate}T${startTime}:00Z`).getTime();
+        endMs = new Date(`${endDate}T${endTime}:00Z`).getTime();
+      } else {
+        startMs = new Date(`${startDate}T00:00:00Z`).getTime();
+        endMs = new Date(`${endDate}T00:00:00Z`).getTime();
+      }
+      if (endMs <= startMs) {
+        endError = timed
+          ? "END TIME MUST BE LATER THAN START TIME"
+          : "END DATE MUST BE LATER THAN START DATE";
+        return;
+      }
+    }
+    endError = null;
+
     saving = true;
     try {
       await onSave({
@@ -205,6 +313,7 @@
         dtend,
         description: description.trim() || undefined,
         tracking,
+        timed,
         schedule_rules: buildScheduleRules(),
       });
       onClose();
@@ -250,43 +359,139 @@
       {#if titleError}<span class="field-error">REQUIRED</span>{/if}
     </div>
 
+    <!-- Timed Toggle -->
+    <div class="field-card">
+      <button
+        type="button"
+        class="toggle-row"
+        onclick={() => {
+          timed = !timed;
+          endError = null;
+        }}
+        aria-pressed={timed}
+      >
+        <div class="checkbox" class:checked={timed}>
+          {#if timed}✓{/if}
+        </div>
+        <div class="toggle-text">
+          <span class="toggle-label">TIMED EVENT</span>
+          <span class="toggle-hint">
+            {timed
+              ? "Occurs at a specific time of day"
+              : "All-day event — displays at the top of the schedule"}
+          </span>
+        </div>
+      </button>
+    </div>
+
     <!-- Start -->
     <div class="field-card">
       <label class="field-label">START</label>
       <div class="field-row">
-        <input class="date-input" type="date" bind:value={startDate} />
-        <input class="time-input" type="time" bind:value={startTime} />
+        <div class="input-wrapper">
+          <input
+            class="date-input"
+            type="text"
+            use:datePicker={{
+              value: startDate,
+              onChange: (val) => {
+                startDate = val;
+                endError = null;
+              },
+            }}
+          />
+          <span class="input-icon">📅</span>
+        </div>
+        {#if timed}
+          <div class="input-wrapper">
+            <input
+              class="time-input"
+              type="text"
+              use:timePicker={{
+                value: startTime,
+                onChange: (val) => {
+                  startTime = val;
+                  endError = null;
+                },
+              }}
+            />
+            <span class="input-icon">🕒</span>
+          </div>
+        {/if}
       </div>
     </div>
 
-    <!-- Duration mode -->
+    <!-- End Date/Time Toggle -->
     <div class="field-card">
-      <label class="field-label">DURATION</label>
-      <div class="seg-control">
-        <button
-          class="seg-btn"
-          class:active={durationMode === "point"}
-          onclick={() => handleDurationChange("point")}>POINT IN TIME</button
-        >
-        <button
-          class="seg-btn"
-          class:active={durationMode === "block"}
-          onclick={() => handleDurationChange("block")}>BLOCK</button
-        >
-      </div>
-      {#if durationMode === "block"}
-        <div class="field-row" style="margin-top: var(--space-xs);">
-          <span class="field-sublabel">END TIME</span>
-          <input class="time-input" type="time" bind:value={endTime} />
+      <button
+        type="button"
+        class="toggle-row"
+        onclick={() => {
+          hasEnd = !hasEnd;
+          endError = null;
+        }}
+        aria-pressed={hasEnd}
+      >
+        <div class="checkbox" class:checked={hasEnd}>
+          {#if hasEnd}✓{/if}
         </div>
-      {:else}
-        <p class="field-hint">No end time — tap to confirm each occurrence</p>
-      {/if}
+        <div class="toggle-text">
+          <span class="toggle-label">SET END DATE & TIME</span>
+          <span class="toggle-hint">
+            {hasEnd
+              ? "Event has a specific duration and ending slot"
+              : "Point-in-time event — single timestamp"}
+          </span>
+        </div>
+      </button>
     </div>
+
+    <!-- End -->
+    {#if hasEnd}
+      <div class="field-card" class:error={!!endError}>
+        <label class="field-label">END</label>
+        <div class="field-row">
+          <div class="input-wrapper">
+            <input
+              class="date-input"
+              type="text"
+              use:datePicker={{
+                value: endDate,
+                onChange: (val) => {
+                  endDate = val;
+                  endError = null;
+                },
+              }}
+            />
+            <span class="input-icon">📅</span>
+          </div>
+          {#if timed}
+            <div class="input-wrapper">
+              <input
+                class="time-input"
+                type="text"
+                use:timePicker={{
+                  value: endTime,
+                  onChange: (val) => {
+                    endTime = val;
+                    endError = null;
+                  },
+                }}
+              />
+              <span class="input-icon">🕒</span>
+            </div>
+          {/if}
+        </div>
+        {#if endError}
+          <span class="field-error">{endError}</span>
+        {/if}
+      </div>
+    {/if}
 
     <!-- Requires confirmation -->
     <div class="field-card">
       <button
+        type="button"
         class="toggle-row"
         onclick={toggleTracking}
         aria-pressed={tracking}
@@ -306,18 +511,22 @@
     </div>
 
     <!-- Time slots (only for point-in-time + daily or none) -->
-    {#if durationMode === "point" && (recurType === "none" || recurType === "daily")}
+    {#if timed && !hasEnd && (recurType === "none" || recurType === "daily")}
       <div class="field-card">
         <label class="field-label">TIME SLOTS</label>
         {#each timeSlots as slot, i}
           <div class="slot-row">
-            <input
-              class="time-input flex-1"
-              type="time"
-              value={slot}
-              oninput={(e) =>
-                updateTimeSlot(i, (e.target as HTMLInputElement).value)}
-            />
+            <div class="input-wrapper">
+              <input
+                class="time-input flex-1"
+                type="text"
+                use:timePicker={{
+                  value: slot,
+                  onChange: (val) => updateTimeSlot(i, val),
+                }}
+              />
+              <span class="input-icon">🕒</span>
+            </div>
             {#if timeSlots.length > 1}
               <button
                 class="remove-btn"
@@ -384,7 +593,19 @@
       {#if recurType !== "none"}
         <div class="field-row until-row">
           <span class="field-sublabel">UNTIL (OPTIONAL)</span>
-          <input class="date-input" type="date" bind:value={untilDate} />
+          <div class="input-wrapper">
+            <input
+              class="date-input"
+              type="text"
+              use:datePicker={{
+                value: untilDate,
+                onChange: (val) => {
+                  untilDate = val;
+                },
+              }}
+            />
+            <span class="input-icon">📅</span>
+          </div>
         </div>
       {/if}
     </div>
@@ -505,6 +726,10 @@
     flex-direction: column;
     gap: var(--space-xs);
     box-shadow: 3px 3px 0 #000;
+    position: relative;
+  }
+  .field-card.error {
+    border-color: var(--red-bg);
   }
 
   .field-label {
@@ -534,6 +759,27 @@
     display: flex;
     align-items: center;
     gap: var(--space-xs);
+  }
+
+  /* Input wrapper & icons */
+  .input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1;
+  }
+
+  .input-wrapper .input-icon {
+    position: absolute;
+    right: var(--space-xs);
+    pointer-events: none;
+    font-size: var(--step-n1);
+    color: var(--text-secondary);
+  }
+
+  .input-wrapper input {
+    padding-right: calc(var(--space-xs) + 24px) !important;
+    width: 100%;
   }
 
   /* Inputs */
@@ -640,6 +886,7 @@
     display: flex;
     align-items: center;
     gap: var(--space-xs);
+    width: 100%;
   }
 
   .flex-1 {
@@ -750,5 +997,132 @@
   }
   .save-btn:active:not(:disabled) {
     background: #333;
+  }
+
+  /* Air Datepicker Brutalist Overrides */
+  :global(.air-datepicker) {
+    --adp-font-family: var(--font-mono) !important;
+    --adp-font-size: var(--step-n1) !important;
+    --adp-border-color: #000 !important;
+    --adp-border-radius: 0 !important;
+    --adp-background-color: var(--bg-surface) !important;
+    --adp-background-color-hover: var(--bg-input) !important;
+    --adp-color: var(--text-primary) !important;
+    --adp-color-secondary: var(--text-secondary) !important;
+    --adp-color-current-date: #000 !important;
+    --adp-cell-border-radius: 0 !important;
+    --adp-cell-background-color-selected: var(--green-bg) !important;
+    --adp-cell-background-color-selected-hover: var(--green-bg) !important;
+    --adp-accent-color: #000 !important;
+    --adp-day-name-color: #000 !important;
+
+    border: 2px solid #000 !important;
+    box-shadow: 4px 4px 0 #000 !important;
+  }
+
+  :global(.air-datepicker-nav) {
+    border-bottom: 2px solid #000 !important;
+    background: #000 !important;
+    color: #fff !important;
+  }
+
+  :global(.air-datepicker-nav--title),
+  :global(.air-datepicker-nav--title i) {
+    color: #fff !important;
+    font-weight: 700 !important;
+    font-family: var(--font-mono) !important;
+  }
+
+  :global(.air-datepicker-nav--action) {
+    color: #fff !important;
+  }
+  :global(.air-datepicker-nav--action:hover) {
+    background: var(--text-secondary) !important;
+    color: #000 !important;
+  }
+
+  :global(.air-datepicker-body--day-name) {
+    font-weight: 700 !important;
+    color: #000 !important;
+  }
+
+  :global(.air-datepicker-cell.-current-) {
+    border: 2px solid #000 !important;
+    font-weight: 700 !important;
+    text-decoration: underline !important;
+  }
+
+  :global(.air-datepicker-cell.-selected-) {
+    background: var(--green-bg) !important;
+    color: #000 !important;
+    border: 2px solid #000 !important;
+    font-weight: 900 !important;
+  }
+
+  /* Time Picker styling overrides */
+  :global(.air-datepicker-time) {
+    --adp-time-track-height: 4px !important;
+    --adp-time-track-color: #000 !important;
+    --adp-time-track-color-hover: #000 !important;
+    --adp-time-thumb-size: 16px !important;
+    border-top: 2px solid #000 !important;
+    padding: var(--space-s) !important;
+    background: var(--bg-surface) !important;
+  }
+
+  /* Target the native range inputs of the timepicker */
+  :global(.air-datepicker-time--row input[type="range"]) {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    background: transparent !important;
+    width: 100% !important;
+  }
+
+  /* Focus outline */
+  :global(.air-datepicker-time--row input[type="range"]:focus) {
+    outline: none !important;
+  }
+
+  /* Webkit thumb (Chrome, Safari, Edge) */
+  :global(.air-datepicker-time--row input[type="range"]::-webkit-slider-thumb) {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    height: 18px !important;
+    width: 18px !important;
+    border: 2px solid #000 !important;
+    background: var(--green-bg) !important;
+    cursor: pointer !important;
+    margin-top: -7px !important; /* Center the thumb on track */
+    border-radius: 0 !important; /* Brutalist square */
+  }
+
+  /* Firefox thumb */
+  :global(.air-datepicker-time--row input[type="range"]::-moz-range-thumb) {
+    height: 18px !important;
+    width: 18px !important;
+    border: 2px solid #000 !important;
+    background: var(--green-bg) !important;
+    cursor: pointer !important;
+    border-radius: 0 !important; /* Brutalist square */
+  }
+
+  /* Webkit track */
+  :global(
+    .air-datepicker-time--row input[type="range"]::-webkit-slider-runnable-track
+  ) {
+    width: 100% !important;
+    height: 4px !important;
+    cursor: pointer !important;
+    background: #000 !important;
+    border: none !important;
+  }
+
+  /* Firefox track */
+  :global(.air-datepicker-time--row input[type="range"]::-moz-range-track) {
+    width: 100% !important;
+    height: 4px !important;
+    cursor: pointer !important;
+    background: #000 !important;
+    border: none !important;
   }
 </style>

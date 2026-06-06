@@ -67,6 +67,7 @@ function createCalEventsStore() {
             dtend: (bp.dtend as string | undefined) ?? undefined,
             description: (bp.description as string | undefined) ?? undefined,
             tracking: (bp.tracking as boolean) ?? true,
+            timed: (bp.timed as boolean) ?? true,
             schedule_rules: bp.schedule_rules
               ? typeof bp.schedule_rules === "string"
                 ? (JSON.parse(bp.schedule_rules) as ScheduleRule)

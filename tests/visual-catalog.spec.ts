@@ -220,6 +220,9 @@ test.describe("Visual Catalog Generator", () => {
   test("generates visual catalog screenshots of all dashboards", async ({
     page,
   }) => {
+    // Install deterministic clock
+    await page.clock.install({ time: new Date("2026-06-05T08:30:00Z") });
+
     // 1. Initial Load & Setup
     await page.goto("/");
     await waitForDbReady(page);
@@ -360,7 +363,126 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator(".btn-submit-brutal").click();
     await expect(page.locator(".add-screen")).not.toBeVisible();
 
+    // Helper to add calendar events
+    async function addCalendarEvent(payload: {
+      title: string;
+      timed?: boolean;
+      startTime?: string;
+      endTime?: string;
+      tracking?: boolean;
+      timeSlots?: string[];
+    }) {
+      await page
+        .locator("section:has-text('SCHEDULE')")
+        .locator("button", { hasText: "+ ADD EVENT" })
+        .click();
+      await page.locator(".hero-input").fill(payload.title);
+
+      if (payload.timed === false) {
+        await page.locator(".toggle-row:has-text('TIMED EVENT')").click();
+      } else {
+        if (payload.startTime) {
+          await page
+            .locator(".field-card:has-text('START')")
+            .locator("input.time-input")
+            .fill(payload.startTime);
+        }
+        if (payload.endTime) {
+          await page
+            .locator(".field-card:has-text('DURATION')")
+            .locator("button", { hasText: "BLOCK" })
+            .click();
+          await page
+            .locator(".field-card:has-text('DURATION')")
+            .locator("input.time-input")
+            .fill(payload.endTime);
+        }
+        if (payload.timeSlots) {
+          // Fill first time slot into the START input
+          await page
+            .locator(".field-card:has-text('START')")
+            .locator("input.time-input")
+            .fill(payload.timeSlots[0]);
+          // Add remaining slots
+          for (let i = 1; i < payload.timeSlots.length; i++) {
+            await page.locator("button:has-text('+ ADD TIME SLOT')").click();
+            await page
+              .locator(".slot-row")
+              .nth(i)
+              .locator("input.time-input")
+              .fill(payload.timeSlots[i]);
+          }
+        }
+      }
+
+      if (payload.tracking !== undefined) {
+        const isChecked = await page
+          .locator(".field-card:has-text('REQUIRES CONFIRMATION') .checkbox")
+          .evaluate((el) => el.classList.contains("checked"));
+        if (isChecked !== payload.tracking) {
+          await page
+            .locator(
+              ".field-card:has-text('REQUIRES CONFIRMATION') button.toggle-row"
+            )
+            .click();
+        }
+      }
+
+      await page.locator(".save-btn").click();
+      await expect(page.locator(".add-event-screen")).not.toBeVisible();
+    }
+
+    // Add overlapping events, block durations, untimed events
+    await addCalendarEvent({
+      title: "Take Medication",
+      timed: true,
+      tracking: true,
+      timeSlots: ["08:00", "20:00"],
+    });
+    await addCalendarEvent({
+      title: "Deep Work Session",
+      timed: true,
+      startTime: "09:00",
+      endTime: "12:00",
+      tracking: false,
+    });
+    await addCalendarEvent({
+      title: "Team Standup",
+      timed: true,
+      startTime: "09:30",
+      endTime: "10:00",
+      tracking: false,
+    });
+    await addCalendarEvent({
+      title: "Coffee Break",
+      timed: true,
+      startTime: "10:15",
+      tracking: true,
+    });
+    await addCalendarEvent({
+      title: "Project Sync",
+      timed: true,
+      startTime: "11:00",
+      endTime: "12:30",
+      tracking: false,
+    });
+    await addCalendarEvent({
+      title: "Read Book",
+      timed: false,
+      tracking: true,
+    });
+
     // 3.8. Execute Quick Logs to show progress states
+    // Log Take Medication morning target (08:00)
+    const medicationMorningTarget = page
+      .locator(".schedule-row")
+      .filter({ hasText: "08:00" })
+      .locator(".event-item.is-tracking")
+      .first();
+    await expect(medicationMorningTarget).toBeVisible();
+    await medicationMorningTarget.click();
+    await expect(medicationMorningTarget).toHaveClass(/is-confirmed/);
+
     // Log Read Philosophy
     const readPhilosophyItem = page.locator(".agenda-row", {
       hasText: "Read Philosophy",
@@ -375,7 +497,7 @@ test.describe("Visual Catalog Generator", () => {
     });
     await expect(pushupsItem).toBeVisible();
     await pushupsItem.click();
-    await expect(pushupsItem.locator(".reps-count-display")).toHaveText("1/3");
+    await expect(pushupsItem.locator(".reps-pill")).toHaveText("1/3");
 
     // Log Hydration Routine morning target (08:00)
     // In the time-gutter layout the time lives in .time-gutter; select the row then the habit inside
@@ -394,9 +516,7 @@ test.describe("Visual Catalog Generator", () => {
     });
     await expect(read20PagesItem).toBeVisible();
     await read20PagesItem.click();
-    await expect(read20PagesItem.locator(".reps-count-display")).toHaveText(
-      "1/3"
-    );
+    await expect(read20PagesItem.locator(".reps-pill")).toHaveText("1/3");
 
     // Take Habits Dashboard Screenshot
     await takeFullPageScreenshot(page, "agenda-dashboard.png");
