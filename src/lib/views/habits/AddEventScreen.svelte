@@ -39,17 +39,11 @@
   let endTime = $state("09:00");
   let endError = $state<string | null>(null);
 
-  // Tracking (smart default: point/no-end → true, block/has-end → false)
-  let trackingOverridden = $state(false);
-  let tracking = $derived.by(() => {
-    if (trackingOverridden) return _trackingManual;
-    return !hasEnd;
-  });
-  let _trackingManual = $state(true);
+  // Tracking (default: unchecked)
+  let tracking = $state(false);
 
   function toggleTracking() {
-    _trackingManual = !tracking;
-    trackingOverridden = true;
+    tracking = !tracking;
   }
 
   // Svelte Pickers Actions
@@ -501,28 +495,6 @@
       {/if}
     </div>
 
-    <!-- Requires confirmation -->
-    <div class="field-card">
-      <button
-        type="button"
-        class="toggle-row"
-        onclick={toggleTracking}
-        aria-pressed={tracking}
-      >
-        <div class="checkbox" class:checked={tracking}>
-          {#if tracking}✓{/if}
-        </div>
-        <div class="toggle-text">
-          <span class="toggle-label">REQUIRES CONFIRMATION</span>
-          <span class="toggle-hint">
-            {tracking
-              ? "Will show as MISSED if not tapped in time"
-              : "Informational — auto-fades when time passes"}
-          </span>
-        </div>
-      </button>
-    </div>
-
     <!-- Schedule: Recurrence & Time slots -->
     <div class="field-card">
       <label class="field-label">RECURRENCE</label>
@@ -635,6 +607,28 @@
           >
         </div>
       {/if}
+    </div>
+
+    <!-- Requires confirmation -->
+    <div class="field-card">
+      <button
+        type="button"
+        class="toggle-row"
+        onclick={toggleTracking}
+        aria-pressed={tracking}
+      >
+        <div class="checkbox" class:checked={tracking}>
+          {#if tracking}✓{/if}
+        </div>
+        <div class="toggle-text">
+          <span class="toggle-label">REQUIRES CONFIRMATION</span>
+          <span class="toggle-hint">
+            {tracking
+              ? "Will show as MISSED if not tapped in time"
+              : "Informational — auto-fades when time passes"}
+          </span>
+        </div>
+      </button>
     </div>
 
     <!-- Description -->
