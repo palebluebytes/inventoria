@@ -130,8 +130,11 @@ self.onmessage = async (event: MessageEvent) => {
 
       db.exec("BEGIN TRANSACTION;");
       try {
+        // Plain INSERT (not INSERT OR REPLACE): the ledger is append-only, so a
+        // PRIMARY KEY (entity, attribute, time) collision must surface as an
+        // error rather than silently overwriting an existing immutable datom.
         const stmt = db.prepare(
-          "INSERT OR REPLACE INTO datoms (entity, attribute, value, time) VALUES (?, ?, ?, ?);"
+          "INSERT INTO datoms (entity, attribute, value, time) VALUES (?, ?, ?, ?);"
         );
         try {
           for (const datom of datoms) {
