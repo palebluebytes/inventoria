@@ -41,8 +41,8 @@
   // Recipe Meta
   let recipeName = $state("");
   let recipeDesc = $state("");
-  let scrapeUrl = $state("");
-  let sourceUrl = $state("");
+  let scrape_url = $state("");
+  let source_url = $state("");
   let recipeSteps = $state("");
   let selected_meal_type = $state(meal_type);
 
@@ -187,7 +187,7 @@
 
   // Simulated CORS-safe scraper for recipe steps
   async function scrapeRecipeSteps() {
-    if (!scrapeUrl.trim()) return;
+    if (!scrape_url.trim()) return;
     scrapeStatus = "loading";
     recipeSteps = "";
     try {
@@ -203,7 +203,7 @@
         "6. Garnish as desired and serve warm.",
       ].join("\n");
 
-      recipeSteps = `[Scraped from: ${scrapeUrl.trim()}]\n\n${mockSteps}`;
+      recipeSteps = `[Scraped from: ${scrape_url.trim()}]\n\n${mockSteps}`;
       scrapeStatus = "success";
     } catch (e: any) {
       scrapeStatus = "error";
@@ -250,13 +250,13 @@
       const recipeId = await saveRecipe(
         recipeName.trim(),
         recipeDesc.trim() || recipeSteps, // fallback description to steps
-        scrapeUrl.trim(),
+        scrape_url.trim(),
         ingPayload,
         totalCalories,
         totalProtein,
         totalFat,
         totalCarbs,
-        sourceUrl.trim()
+        source_url.trim()
       );
 
       // 4. Log consumption event for this recipe
@@ -314,7 +314,7 @@
           <Input
             id="recipe-source"
             placeholder="https://example.com/recipe-source"
-            bind:value={sourceUrl}
+            bind:value={source_url}
           />
         </div>
 
@@ -324,12 +324,12 @@
             <Input
               id="recipe-url"
               placeholder="https://epicurious.com/pasta..."
-              bind:value={scrapeUrl}
+              bind:value={scrape_url}
             />
             <Button
               variant="secondary"
               onclick={scrapeRecipeSteps}
-              disabled={!scrapeUrl.trim() || scrapeStatus === "loading"}
+              disabled={!scrape_url.trim() || scrapeStatus === "loading"}
             >
               {#if scrapeStatus === "loading"}Scraping...{:else}Scrape{/if}
             </Button>

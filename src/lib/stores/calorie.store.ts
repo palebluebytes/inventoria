@@ -93,11 +93,11 @@ export async function getEventsForDay(date: Date) {
     for (const event of events) {
       const twin = twinsMap.get(event.target);
       if (twin) {
-        event.foodName = twin.name;
-        event.photoBase64 = twin.photo_base64 || twin.photo;
+        event.food_name = twin.name;
+        event.photo_base64 = twin.photo_base64 || twin.photo;
         event.description = twin.description;
-        event.scrapeUrl = twin.scrape_url;
-        event.sourceUrl = twin.source_url || twin.source;
+        event.scrape_url = twin.scrape_url;
+        event.source_url = twin.source_url || twin.source;
         event.ingredients = twin.ingredients;
       }
     }
@@ -141,7 +141,7 @@ export function createCalorieTrackerStore(date: Date): Readable<any[]> {
  * Creates and appends a Consumption Event datoms to the ledger.
  */
 export async function logFoodConsumption(
-  targetEntity: string,
+  target_entity: string,
   quantity: string,
   meal_type: string,
   calories: number,
@@ -167,7 +167,7 @@ export async function logFoodConsumption(
     entity: entityId,
     attributes: {
       "event/type": "ConsumeAction",
-      "event/target": targetEntity,
+      "event/target": target_entity,
       "event/quantity": quantity,
       "event/meal_type": meal_type,
       "event/metrics": {
@@ -198,12 +198,12 @@ export async function saveCustomFood(
   protein: number,
   fat: number,
   carbs: number,
-  photoBase64?: string,
-  customEntityId?: string
+  photo_base64?: string,
+  custom_entity_id?: string
 ): Promise<string> {
   const timestamp = Date.now();
   const entityId =
-    customEntityId ||
+    custom_entity_id ||
     `food:custom_${Math.random().toString(36).substring(2, 9)}_${timestamp}`;
 
   const payload: any = {
@@ -217,8 +217,8 @@ export async function saveCustomFood(
     },
   };
 
-  if (photoBase64) {
-    payload.attributes["food/photo_base64"] = photoBase64;
+  if (photo_base64) {
+    payload.attributes["food/photo_base64"] = photo_base64;
   }
 
   await dbClient.append(ingestEntity(payload));
@@ -231,13 +231,13 @@ export async function saveCustomFood(
 export async function saveRecipe(
   name: string,
   description: string,
-  scrapeUrl: string,
+  scrape_url: string,
   ingredients: any[],
   calories: number,
   protein: number,
   fat: number,
   carbs: number,
-  sourceUrl?: string
+  source_url?: string
 ): Promise<string> {
   const timestamp = Date.now();
   const entityId = `recipe:${Math.random().toString(36).substring(2, 9)}_${timestamp}`;
@@ -251,13 +251,13 @@ export async function saveRecipe(
       "food/fat": `${fat} g`,
       "food/carbs": `${carbs} g`,
       "recipe/description": description,
-      "recipe/scrape_url": scrapeUrl,
+      "recipe/scrape_url": scrape_url,
       "recipe/ingredients": ingredients, // Store direct JSON array, ingestEntity/worker stringifies it
     },
   };
 
-  if (sourceUrl) {
-    payload.attributes["recipe/source_url"] = sourceUrl;
+  if (source_url) {
+    payload.attributes["recipe/source_url"] = source_url;
   }
 
   await dbClient.append(ingestEntity(payload));

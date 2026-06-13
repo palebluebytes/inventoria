@@ -64,6 +64,7 @@
   let stream: MediaStream | null = null;
   let detector: any = null;
   let scanError = $state("");
+  let rafId: number | null = null;
 
   let debounceTimer: ReturnType<typeof setTimeout>;
 
@@ -120,7 +121,7 @@
       videoEl.play();
       scanning = true;
       scanError = "";
-      requestAnimationFrame(scanFrame);
+      rafId = requestAnimationFrame(scanFrame);
     } catch (e: any) {
       scanError = "Camera access denied or unavailable.";
       scanning = false;
@@ -128,6 +129,10 @@
   }
 
   function stopCamera() {
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
     if (stream) {
       stream.getTracks().forEach((t) => t.stop());
       stream = null;
@@ -151,7 +156,7 @@
         // ignore detection errors frame by frame
       }
     }
-    requestAnimationFrame(scanFrame);
+    rafId = requestAnimationFrame(scanFrame);
   }
 
   function parseAttrValue(val: string | number | undefined): number {
@@ -247,9 +252,9 @@
       const parsedFat = parseFloat(manualFat) || 0;
       const parsedCarbs = parseFloat(manualCarb) || 0;
 
-      let customEntityId: string | undefined;
+      let custom_entity_id: string | undefined;
       if (barcode.trim()) {
-        customEntityId = `gtin:${barcode.trim()}`;
+        custom_entity_id = `gtin:${barcode.trim()}`;
       }
 
       const twinId = await saveCustomFood(
@@ -259,7 +264,7 @@
         parsedFat,
         parsedCarbs,
         undefined,
-        customEntityId
+        custom_entity_id
       );
 
       if (contributeToOff && barcode.trim()) {

@@ -280,19 +280,19 @@
         <div class="meal-items-list">
           {#each groupedMeals[meal_type] as item}
             <div class="meal-item-card">
-              {#if item.photoBase64}
+              {#if item.photo_base64}
                 <!-- svelte-ignore a11y_click_events_have_key_events -->
                 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
                 <img
-                  src={item.photoBase64}
-                  alt={item.foodName}
+                  src={item.photo_base64}
+                  alt={item.food_name}
                   class="meal-item-thumb"
-                  onclick={() => (previewPhoto = item.photoBase64)}
+                  onclick={() => (previewPhoto = item.photo_base64)}
                 />
               {/if}
               <div class="meal-item-details">
                 <span class="meal-item-name"
-                  >{item.foodName || "Unknown Food"}</span
+                  >{item.food_name || "Unknown Food"}</span
                 >
                 <span class="meal-item-quantity"
                   >{item.quantity || "1 serving"}</span

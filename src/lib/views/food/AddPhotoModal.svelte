@@ -25,7 +25,7 @@
   let carbs = $state("");
   let selected_meal_type = $state(meal_type);
 
-  let photoBase64 = $state<string | null>(null);
+  let photo_base64 = $state<string | null>(null);
   let uploadStatus = $state<"idle" | "loading" | "error">("idle");
   let uploadError = $state("");
 
@@ -39,7 +39,7 @@
     // Convert file to Base64
     const reader = new FileReader();
     reader.onload = (event) => {
-      photoBase64 = event.target?.result as string;
+      photo_base64 = event.target?.result as string;
     };
     reader.onerror = () => {
       uploadStatus = "error";
@@ -69,7 +69,7 @@
         parsedProt,
         parsedFat,
         parsedCarbs,
-        photoBase64 || undefined
+        photo_base64 || undefined
       );
 
       // 2. Log consumption of this custom twin
@@ -112,10 +112,10 @@
         onchange={handleFileChange}
       />
 
-      {#if photoBase64}
+      {#if photo_base64}
         <div class="photo-preview-box">
           <img
-            src={photoBase64}
+            src={photo_base64}
             alt="Food Upload Preview"
             class="photo-preview"
           />
