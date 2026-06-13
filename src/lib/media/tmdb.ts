@@ -1,3 +1,4 @@
+import { get } from "svelte/store";
 import type { EntityPayload } from "../ingestion/ingest";
 import {
   ingestionRegistry,
@@ -5,10 +6,11 @@ import {
 } from "../ingestion/registry";
 import { settingsStore } from "../stores/settings.store";
 
-let activeApiKey = "";
-settingsStore.subscribe(($settings) => {
-  activeApiKey = $settings.tmdb_api_key;
-});
+// Read the current key on demand (default param, evaluated per call) instead of
+// holding a module-level store subscription that is never cleaned up.
+function activeTmdbKey(): string {
+  return get(settingsStore).tmdb_api_key;
+}
 
 export interface TmdbMovie {
   id: number;
@@ -80,7 +82,7 @@ const TMDB_BASE = "https://api.themoviedb.org/3";
 
 export async function searchTmdbMovies(
   query: string,
-  apiKey: string = activeApiKey
+  apiKey: string = activeTmdbKey()
 ): Promise<EntityPayload[]> {
   if (!apiKey) return [];
   try {
@@ -96,7 +98,7 @@ export async function searchTmdbMovies(
 
 export async function searchTmdbTv(
   query: string,
-  apiKey: string = activeApiKey
+  apiKey: string = activeTmdbKey()
 ): Promise<EntityPayload[]> {
   if (!apiKey) return [];
   try {
@@ -114,8 +116,9 @@ export const tmdbMovieAdapter: IngestionAdapter<TmdbMovie> = {
   scheme: "tmdb:movie",
   map: mapTmdbMovieToPayload,
   fetch: async (idValue: string) => {
-    if (!activeApiKey) throw new Error("TMDB API Key is not configured.");
-    const url = `${TMDB_BASE}/movie/${idValue}?append_to_response=credits&api_key=${activeApiKey}`;
+    const apiKey = activeTmdbKey();
+    if (!apiKey) throw new Error("TMDB API Key is not configured.");
+    const url = `${TMDB_BASE}/movie/${idValue}?append_to_response=credits&api_key=${apiKey}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Movie details not found for id: ${idValue}`);
     return res.json();
@@ -126,8 +129,9 @@ export const tmdbTvAdapter: IngestionAdapter<TmdbTv> = {
   scheme: "tmdb:tv",
   map: mapTmdbTvToPayload,
   fetch: async (idValue: string) => {
-    if (!activeApiKey) throw new Error("TMDB API Key is not configured.");
-    const url = `${TMDB_BASE}/tv/${idValue}?api_key=${activeApiKey}`;
+    const apiKey = activeTmdbKey();
+    if (!apiKey) throw new Error("TMDB API Key is not configured.");
+    const url = `${TMDB_BASE}/tv/${idValue}?api_key=${apiKey}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`TV details not found for id: ${idValue}`);
     return res.json();

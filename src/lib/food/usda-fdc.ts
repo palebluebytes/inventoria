@@ -1,10 +1,12 @@
+import { get } from "svelte/store";
 import type { EntityPayload } from "../ingestion/ingest";
 import { settingsStore } from "../stores/settings.store";
 
-let activeApiKey = "";
-settingsStore.subscribe(($settings) => {
-  activeApiKey = $settings.usda_api_key;
-});
+// Read the current key on demand (default param, evaluated per call) instead of
+// holding a module-level store subscription that is never cleaned up.
+function activeUsdaKey(): string {
+  return get(settingsStore).usda_api_key;
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -84,7 +86,7 @@ const FDC_BASE = "https://api.nal.usda.gov/fdc/v1/foods/search";
  */
 export async function searchFdc(
   query: string,
-  apiKey: string = activeApiKey
+  apiKey: string = activeUsdaKey()
 ): Promise<EntityPayload[]> {
   if (!apiKey) {
     throw new Error("USDA API Key is not configured.");

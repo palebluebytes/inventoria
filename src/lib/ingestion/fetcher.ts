@@ -1,9 +1,11 @@
+import { get } from "svelte/store";
 import { settingsStore } from "../stores/settings.store";
 
-let activeProxyUrl = "";
-settingsStore.subscribe(($settings) => {
-  activeProxyUrl = $settings.scraper_proxy_url;
-});
+// Read the proxy URL on demand instead of holding a module-level subscription
+// that is never cleaned up.
+function activeProxyUrl(): string {
+  return get(settingsStore).scraper_proxy_url;
+}
 
 /**
  * Fetches HTML from a URL, automatically routing through a CORS proxy if in a browser environment.
@@ -13,12 +15,13 @@ export async function fetchHtml(url: string): Promise<string> {
   let targetUrl = url;
 
   if (isBrowser) {
-    if (!activeProxyUrl) {
+    const proxyUrl = activeProxyUrl();
+    if (!proxyUrl) {
       throw new Error(
         "Scraper proxy URL is not configured. Please set it in Settings."
       );
     }
-    targetUrl = `${activeProxyUrl}${encodeURIComponent(url)}`;
+    targetUrl = `${proxyUrl}${encodeURIComponent(url)}`;
   }
 
   let response: Response;
@@ -73,8 +76,9 @@ export function getProxyImageUrl(imageUrl: string | undefined): string {
     return imageUrl;
   }
 
-  if (activeProxyUrl) {
-    return `${activeProxyUrl}${encodeURIComponent(imageUrl)}`;
+  const proxyUrl = activeProxyUrl();
+  if (proxyUrl) {
+    return `${proxyUrl}${encodeURIComponent(imageUrl)}`;
   }
 
   // Without a proxy configured, return raw image URL (corsproxy.io is completely removed)
