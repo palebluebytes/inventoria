@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { extractJsonLd } from "../../src/lib/ingestion/json-ld";
 import { fetchHtml } from "../../src/lib/ingestion/fetcher";
 
@@ -242,24 +242,39 @@ describe("extractJsonLd - Mock tests", () => {
   });
 });
 
-describe("extractJsonLd - Real e-commerce URLs", () => {
-  it("fetches and extracts product details from a real e-commerce page", async () => {
-    // We fetch a product from a public Shopify store or equivalent that we know has JSON-LD
-    // Using a known Shopify demo store/product page to ensure stability:
-    const url = "https://kavehome.com/en/en/p/quinby-chair-mustard";
-    try {
-      const html = await fetchHtml(url);
-      const product = extractJsonLd(html, url);
+describe("fetchHtml + extractJsonLd integration (mocked network)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
-      expect(product).not.toBeNull();
-      expect(product!.name).toBeTruthy();
-      expect(product!.entityId).toBeTruthy();
-      console.log("Successfully fetched real e-commerce twin:", product);
-    } catch (error) {
-      console.warn(
-        "Skipping real-world fetch test due to network/scraping issue:",
-        error
-      );
-    }
+  it("fetches HTML and extracts product details without a real network call", async () => {
+    const url = "https://shop.example.com/p/quinby-chair-mustard";
+    const cannedHtml = `<html><head><script type="application/ld+json">${JSON.stringify(
+      {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "@id": "did:example:quinby-chair",
+        name: "Quinby Chair Mustard",
+        offers: {
+          "@type": "Offer",
+          price: "199.00",
+          priceCurrency: "EUR",
+        },
+      }
+    )}</script></head><body><h1>Quinby Chair</h1></body></html>`;
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      text: async () => cannedHtml,
+    } as Response);
+
+    const html = await fetchHtml(url);
+    const product = extractJsonLd(html, url);
+
+    expect(product).not.toBeNull();
+    expect(product!.name).toBe("Quinby Chair Mustard");
+    expect(product!.entityId).toBeTruthy();
   });
 });

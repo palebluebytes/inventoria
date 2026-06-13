@@ -9,7 +9,7 @@ export interface Datom {
 
 export type InvalidationListener = (attributes: string[]) => void;
 
-class DBClient {
+export class DBClient {
   private worker: Worker | null = null;
   private pendingRequests = new Map<
     string,
