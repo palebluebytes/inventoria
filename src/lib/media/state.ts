@@ -1,5 +1,11 @@
 import type { Datom } from "../db/db.client";
 
+/** Coerce a stored value to a finite number, dropping NaN from corrupt data. */
+function toFiniteNumber(value: unknown): number | undefined {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 export interface EnrichedMedia {
   id: string;
   type: "movie" | "tv" | "book";
@@ -98,19 +104,23 @@ export function computeMediaLibraryState(datoms: Datom[]): EnrichedMedia[] {
         twin.status = event.status;
       }
       if (event.rating !== undefined && event.rating !== null) {
-        twin.rating = Number(event.rating);
+        const n = toFiniteNumber(event.rating);
+        if (n !== undefined) twin.rating = n;
       }
       if (event.review !== undefined) {
         twin.review = event.review;
       }
       if (event.season !== undefined && event.season !== null) {
-        twin.season = Number(event.season);
+        const n = toFiniteNumber(event.season);
+        if (n !== undefined) twin.season = n;
       }
       if (event.episode !== undefined && event.episode !== null) {
-        twin.episode = Number(event.episode);
+        const n = toFiniteNumber(event.episode);
+        if (n !== undefined) twin.episode = n;
       }
       if (event.pages_read !== undefined && event.pages_read !== null) {
-        twin.pages_read = Number(event.pages_read);
+        const n = toFiniteNumber(event.pages_read);
+        if (n !== undefined) twin.pages_read = n;
       }
       twin.last_engaged = event.time;
     }
