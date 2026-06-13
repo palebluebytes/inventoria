@@ -33,7 +33,7 @@ A distinct, strictly identified temporal slot within a Schedule Rule (e.g., a sp
 _Avoid_: Time slot, session, checklist item
 
 **Execution Event**:
-A logged instance of a behavior or habit completion recorded as a timestamped action in the ledger. Qualitative and quantitative metrics are stored as a flexible JSON blob. It has a strict status of either `completed` or `exempt` (used to pause a streak gracefully without breaking it). The datom `time` field captures the exact millisecond the user confirmed completion.
+A logged instance of a behavior or habit completion recorded as a timestamped action in the ledger. Qualitative and quantitative metrics are stored as a flexible JSON blob. Its status is `completed`, `exempt` (used to pause a streak gracefully without breaking it), or `uncompleted` (an append-only undo: a later datom that cancels the single most recent matching completion, since the ledger is never mutated in place). The datom `time` field captures the exact millisecond the user confirmed completion.
 _Avoid_: Activity log, workout record, check-in
 
 **Calendar Event Blueprint**:

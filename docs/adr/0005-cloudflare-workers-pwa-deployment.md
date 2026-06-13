@@ -1,4 +1,8 @@
+<<<<<<<< HEAD:docs/adr/0005-cloudflare-workers-pwa-deployment.md
 # 5. Cloudflare Workers PWA Deployment Flow
+========
+# 10. Cloudflare Workers PWA Deployment Flow
+>>>>>>>> 7146722 (docs: renumber duplicate ADR and document the uncompleted status):docs/adr/0010-cloudflare-workers-pwa-deployment.md
 
 We have configured a personal deployment pipeline utilizing Cloudflare Workers static asset serving paired with a Progressive Web App (PWA) "Prompt for Update" strategy.
 
