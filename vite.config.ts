@@ -1,22 +1,9 @@
 import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { VitePWA } from "vite-plugin-pwa";
-
-// Simple helper to clean up HTML exactly like the Cloudflare worker
-function cleanHtml(html: string): string {
-  html = html.replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, "");
-  html = html.replace(/<svg[^>]*>([\s\S]*?)<\/svg>/gi, "");
-  html = html.replace(
-    /<script([^>]*)>([\s\S]*?)<\/script>/gi,
-    (match, attrs) => {
-      const isJsonLd = /type\s*=\s*['"]?application\/ld\+json['"]?/i.test(
-        attrs
-      );
-      return isJsonLd ? match : "";
-    }
-  );
-  return html;
-}
+// Shared with the Cloudflare worker so the dev proxy and prod proxy never drift.
+import { cleanHtml } from "./src/lib/ingestion/html-clean";
+import { checkProxyTarget } from "./src/lib/ingestion/url-guard";
 
 const handleProxyRequest = async (req: any, res: any, next: any) => {
   const urlObj = new URL(
@@ -31,8 +18,16 @@ const handleProxyRequest = async (req: any, res: any, next: any) => {
       return;
     }
 
+    // SSRF guard: same internal/loopback/scheme checks as the prod worker.
+    const guard = checkProxyTarget(targetUrl);
+    if (!guard.ok) {
+      res.statusCode = 400;
+      res.end(`Refused target URL: ${guard.reason}`);
+      return;
+    }
+
     try {
-      const fetchRes = await fetch(targetUrl, {
+      const fetchRes = await fetch(guard.url.toString(), {
         headers: {
           "User-Agent":
             "Mozilla/5.5 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",

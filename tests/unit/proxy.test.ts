@@ -17,30 +17,9 @@ vi.mock("../../src/lib/stores/settings.store", () => ({
 }));
 
 import { fetchHtml, getProxyImageUrl } from "../../src/lib/ingestion/fetcher";
+import { cleanHtml } from "../../src/lib/ingestion/html-clean";
 
-// Helper to mimic worker regex behavior
-function workerCleanup(html: string): string {
-  // 1. Remove all style tags
-  html = html.replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, "");
-
-  // 2. Remove all svg tags
-  html = html.replace(/<svg[^>]*>([\s\S]*?)<\/svg>/gi, "");
-
-  // 3. Remove all script tags *except* type="application/ld+json"
-  html = html.replace(
-    /<script([^>]*)>([\s\S]*?)<\/script>/gi,
-    (match, attrs) => {
-      const isJsonLd = /type\s*=\s*['"]?application\/ld\+json['"]?/i.test(
-        attrs
-      );
-      return isJsonLd ? match : "";
-    }
-  );
-
-  return html;
-}
-
-describe("Worker HTML regex cleanup", () => {
+describe("cleanHtml (shared proxy cleaner)", () => {
   it("strips style and svg tags but keeps application/ld+json script tags", () => {
     const mockHtml = `
       <html>
@@ -58,7 +37,7 @@ describe("Worker HTML regex cleanup", () => {
       </html>
     `;
 
-    const cleaned = workerCleanup(mockHtml);
+    const cleaned = cleanHtml(mockHtml);
 
     // style should be gone
     expect(cleaned).not.toContain("body { color: red; }");
@@ -71,6 +50,30 @@ describe("Worker HTML regex cleanup", () => {
     // application/ld+json script MUST remain
     expect(cleaned).toContain('type="application/ld+json"');
     expect(cleaned).toContain("Clean Product");
+  });
+
+  it("removes multiple non-LD scripts without swallowing content between them", () => {
+    const html =
+      `<p>before</p><script>a()</script><p>middle</p>` +
+      `<script type="text/javascript">b()</script><p>after</p>`;
+    const cleaned = cleanHtml(html);
+    expect(cleaned).not.toContain("a()");
+    expect(cleaned).not.toContain("b()");
+    expect(cleaned).toContain("before");
+    expect(cleaned).toContain("middle");
+    expect(cleaned).toContain("after");
+  });
+
+  it("keeps ld+json even with single quotes and extra attributes", () => {
+    const html = `<script type='application/ld+json' id="x">{"a":1}</script>`;
+    expect(cleanHtml(html)).toContain('{"a":1}');
+  });
+
+  it("handles a closing tag with whitespace (</script >)", () => {
+    const html = `<script>evil()</script ><h1>kept</h1>`;
+    const cleaned = cleanHtml(html);
+    expect(cleaned).not.toContain("evil()");
+    expect(cleaned).toContain("kept");
   });
 });
 
