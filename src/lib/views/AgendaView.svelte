@@ -3,6 +3,7 @@
   import { calEventsStore } from "../stores/cal_events.store";
   import { projectSlotsForDate } from "../cal_events/cal_events";
   import { isScheduleRuleActive } from "../recurrence/rules";
+  import { toLocalDateStr } from "../habits/habits";
   import type {
     CalEventBlueprint,
     ProjectedSlot,
@@ -108,7 +109,7 @@
   });
 
   let selected_date_ms = $derived(
-    new Date(selected_date_str + "T00:00:00Z").getTime()
+    new Date(selected_date_str + "T00:00:00").getTime()
   );
 
   let dateTodayStr = $derived(
@@ -124,14 +125,13 @@
     return () => clearInterval(id);
   });
 
-  // ── Hybrid timestamp (logs exact tap time on selected date) ────
-  function getHybridTimestamp(dateStr: string): number {
-    const now = new Date();
-    const hh = String(now.getUTCHours()).padStart(2, "0");
-    const mm = String(now.getUTCMinutes()).padStart(2, "0");
-    const ss = String(now.getUTCSeconds()).padStart(2, "0");
-    const ms = String(now.getUTCMilliseconds()).padStart(3, "0");
-    return new Date(`${dateStr}T${hh}:${mm}:${ss}.${ms}Z`).getTime();
+  // The timestamp an event is recorded with. Logging on today's row uses the
+  // real "now"; for any other selected day we anchor to local noon so the event
+  // buckets onto that local calendar day (consistent with food logging).
+  function eventTimestampForDay(dateStr: string): number {
+    const now = Date.now();
+    if (dateStr === toLocalDateStr(now)) return now;
+    return new Date(dateStr + "T12:00:00").getTime();
   }
 
   // ── Habit log ──────────────────────────────────────────────────
@@ -147,7 +147,7 @@
         undefined,
         status,
         targetId,
-        getHybridTimestamp(selected_date_str)
+        eventTimestampForDay(selected_date_str)
       );
     } catch (e) {
       console.error(e);

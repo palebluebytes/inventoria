@@ -99,9 +99,24 @@ export function logExecution(
 // Streak and Score computation
 // ---------------------------------------------------------------------------
 
-/** Returns the UTC calendar date string "YYYY-MM-DD" for a Unix ms timestamp */
-export function toUTCDateStr(ms: number): string {
-  return new Date(ms).toISOString().slice(0, 10);
+/**
+ * Returns the LOCAL calendar date string "YYYY-MM-DD" for a Unix ms timestamp.
+ *
+ * The user's local day defines which day an event belongs to (consistent with
+ * food logging); the event's `time` timestamp remains the source of truth for
+ * when it actually happened.
+ */
+export function toLocalDateStr(ms: number): string {
+  const d = new Date(ms);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Parses a "YYYY-MM-DD" local date string into a Date at local midnight. */
+export function localDateStrToDate(dateStr: string): Date {
+  return new Date(dateStr + "T00:00:00");
 }
 
 export interface DayState {
@@ -141,16 +156,16 @@ export function getDailyLineageStates(
     }
   }
 
-  const startDayStr = toUTCDateStr(startMs);
-  const endDayStr = toUTCDateStr(asOfTimestamp);
+  const startDayStr = toLocalDateStr(startMs);
+  const endDayStr = toLocalDateStr(asOfTimestamp);
 
-  const startDay = new Date(startDayStr + "T00:00:00Z");
-  const endDay = new Date(endDayStr + "T00:00:00Z");
+  const startDay = localDateStrToDate(startDayStr);
+  const endDay = localDateStrToDate(endDayStr);
 
   // Map executions by date
   const execsByDate = new Map<string, typeof executions>();
   for (const exec of executions) {
-    const dateStr = toUTCDateStr(exec.time);
+    const dateStr = toLocalDateStr(exec.time);
     if (!execsByDate.has(dateStr)) {
       execsByDate.set(dateStr, []);
     }
@@ -160,7 +175,7 @@ export function getDailyLineageStates(
   const currentDay = new Date(startDay);
   while (currentDay <= endDay) {
     const currentMs = currentDay.getTime();
-    const currentDayStr = toUTCDateStr(currentMs);
+    const currentDayStr = toLocalDateStr(currentMs);
 
     // Find active blueprint on this day
     let activeBlueprint = sortedBlueprints[0];
@@ -186,7 +201,7 @@ export function getDailyLineageStates(
           fraction: 1.0,
           blueprintId: activeBlueprint.entity,
         });
-        currentDay.setUTCDate(currentDay.getUTCDate() + 1);
+        currentDay.setDate(currentDay.getDate() + 1);
         continue;
       }
 
@@ -210,18 +225,24 @@ export function getDailyLineageStates(
           const requiredCount = rules.count ?? 1;
           let completedDays = 0;
 
+          // Walk back 7 local calendar days from the current day.
+          const checkDay = new Date(currentDay);
           for (let offset = 0; offset < 7; offset++) {
-            const checkDay = new Date(currentMs - offset * 24 * 60 * 60 * 1000);
-            const checkDayStr = toUTCDateStr(checkDay.getTime());
-            const checkExecs = execsByDate.get(checkDayStr) || [];
-
+            const checkDayStr = toLocalDateStr(checkDay.getTime());
+            // Resolve toggles (a double-tap "uncompleted" cancels a
+            // completion) before counting, and count a day only if it was
+            // actually completed.
+            const checkExecs = getActiveExecutions(
+              execsByDate.get(checkDayStr) || []
+            );
             const checkCompleted = checkExecs.some(
-              (e) => e.status !== "exempt"
+              (e) => e.status === "completed"
             );
             const checkExempt = checkExecs.some((e) => e.status === "exempt");
             if (checkCompleted || checkExempt) {
               completedDays++;
             }
+            checkDay.setDate(checkDay.getDate() - 1);
           }
           fraction =
             requiredCount > 0
@@ -273,7 +294,7 @@ export function getDailyLineageStates(
       }
     }
 
-    currentDay.setUTCDate(currentDay.getUTCDate() + 1);
+    currentDay.setDate(currentDay.getDate() + 1);
   }
 
   return states;
@@ -287,12 +308,20 @@ export function getActiveExecutions<
   T extends { status: string; target_id?: string; time: number },
 >(executions: T[]): T[] {
   const sorted = [...executions].sort((a, b) => a.time - b.time);
-  let active: T[] = [];
+  const active: T[] = [];
   for (const e of sorted) {
     if (e.status === "completed" || e.status === "exempt") {
       active.push(e);
     } else if (e.status === "uncompleted") {
-      active = active.filter((x) => x.target_id !== e.target_id);
+      // Undo exactly one prior completion — the most recent one matching this
+      // target_id (LIFO). For simple/quantitative habits target_id is undefined,
+      // so this removes a single rep rather than wiping the whole day.
+      for (let i = active.length - 1; i >= 0; i--) {
+        if (active[i].target_id === e.target_id) {
+          active.splice(i, 1);
+          break;
+        }
+      }
     }
   }
   return active;
@@ -313,11 +342,14 @@ export function computeStreak(
 ): number {
   let blueprints = [...lineageBlueprints];
   if (blueprints.length === 0 && executions.length > 0) {
+    // Synthesize a blueprint for legacy executions that predate the blueprint
+    // model, anchored just before the earliest execution so it's active for it.
+    const SYNTHETIC_BLUEPRINT_OFFSET_MS = 1000;
     const earliest = Math.min(...executions.map((e) => e.time));
     blueprints = [
       {
         entity: "legacy_habit",
-        time: earliest - 1000,
+        time: earliest - SYNTHETIC_BLUEPRINT_OFFSET_MS,
         schedule_rules: { type: "daily_multiple", count: 1 },
       },
     ];
@@ -332,8 +364,10 @@ export function computeStreak(
   );
   if (states.size === 0) return 0;
 
-  const todayStr = toUTCDateStr(asOfTimestamp);
-  const yesterdayStr = toUTCDateStr(asOfTimestamp - 86400000);
+  const todayStr = toLocalDateStr(asOfTimestamp);
+  const yesterday = localDateStrToDate(todayStr);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = toLocalDateStr(yesterday.getTime());
 
   const sortedDays = Array.from(states.entries()).sort((a, b) =>
     b[0].localeCompare(a[0])

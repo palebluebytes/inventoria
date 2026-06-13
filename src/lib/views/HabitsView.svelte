@@ -6,6 +6,7 @@
   import Badge from "../ui/Badge.svelte";
   import HabitStats from "./habits/HabitStats.svelte";
   import HabitItem from "./habits/HabitItem.svelte";
+  import { toLocalDateStr } from "../habits/habits";
 
   let { dbReady }: { dbReady: boolean } = $props();
 
@@ -48,9 +49,9 @@
     isBottomSheetOpen = true;
   }
 
-  function handleLongPress(habitId: string, targetId?: string) {
+  function handleLongPress(habitId: string, target_id?: string) {
     activeContextHabitId = habitId;
-    activeContextTargetId = targetId;
+    activeContextTargetId = target_id;
     isContextOpen = true;
   }
 
@@ -115,34 +116,33 @@
   });
 
   let selected_date_ms = $derived(
-    new Date(selected_date_str + "T00:00:00Z").getTime()
+    new Date(selected_date_str + "T00:00:00").getTime()
   );
 
   let dateTodayStr = $derived.by(() => {
     return `${daysOfWeekLong[currentDate.getDay()]}, ${months[currentDate.getMonth()]} ${currentDate.getDate()}, ${currentDate.getFullYear()}`;
   });
 
-  function getHybridTimestamp(selectedDateStr: string): number {
-    const now = new Date();
-    const utcHours = String(now.getUTCHours()).padStart(2, "0");
-    const utcMinutes = String(now.getUTCMinutes()).padStart(2, "0");
-    const utcSeconds = String(now.getUTCSeconds()).padStart(2, "0");
-    const utcMs = String(now.getUTCMilliseconds()).padStart(3, "0");
-    return new Date(
-      `${selectedDateStr}T${utcHours}:${utcMinutes}:${utcSeconds}.${utcMs}Z`
-    ).getTime();
+  // The timestamp an event is recorded with. Logging on today's row uses the
+  // real "now"; for any other selected day we anchor to local noon so the event
+  // buckets onto that local calendar day. (A future agenda will let the user
+  // pick an exact time when creating an event.)
+  function eventTimestampForDay(selectedDateStr: string): number {
+    const now = Date.now();
+    if (selectedDateStr === toLocalDateStr(now)) return now;
+    return new Date(selectedDateStr + "T12:00:00").getTime();
   }
 
   // Derived timeline bifurcation
   let timedHabitItems = $derived.by(() => {
-    const list: { lineage: any; targetId: string; time: string }[] = [];
+    const list: { lineage: any; target_id: string; time: string }[] = [];
     for (const lineage of $habitsStore) {
       const rules = lineage.head.schedule_rules;
       if (rules && rules.type === "daily_multiple" && rules.targets) {
         for (const target of rules.targets) {
           list.push({
             lineage,
-            targetId: target.id,
+            target_id: target.id,
             time: target.time_hint ?? "??:??",
           });
         }
@@ -161,16 +161,16 @@
   async function logHabitEvent(
     habitId: string,
     status: "completed" | "exempt" | "uncompleted",
-    targetId?: string
+    target_id?: string
   ) {
     try {
-      const clickTime = getHybridTimestamp(selected_date_str);
+      const clickTime = eventTimestampForDay(selected_date_str);
       await habitsStore.logExecution(
         habitId,
         "", // instrumentId
         undefined, // metadata
         status,
-        targetId,
+        target_id,
         clickTime
       );
     } catch (e: any) {
@@ -215,10 +215,10 @@
     </div>
 
     <div class="agenda-list">
-      {#each timedHabitItems as item (item.lineage.head.entity + "-" + item.targetId)}
+      {#each timedHabitItems as item (item.lineage.head.entity + "-" + item.target_id)}
         <HabitItem
           lineage={item.lineage}
-          targetId={item.targetId}
+          targetId={item.target_id}
           {selected_date_str}
           {selected_date_ms}
           onSelect={selectHabit}

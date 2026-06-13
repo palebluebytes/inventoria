@@ -3,7 +3,7 @@
   import { dbClient } from "../../db/db.client";
   import {
     getDailyLineageStates,
-    toUTCDateStr,
+    toLocalDateStr,
     getActiveExecutions,
     type ScheduleRule,
     type DayOfWeek,
@@ -130,8 +130,8 @@
 
     for (let i = 0; i < 84; i++) {
       const cellDate = new Date(temp);
-      const dateStr = toUTCDateStr(cellDate.getTime());
-      const isToday = dateStr === toUTCDateStr(today.getTime());
+      const dateStr = toLocalDateStr(cellDate.getTime());
+      const isToday = dateStr === toLocalDateStr(today.getTime());
 
       const state = dailyStates.get(dateStr);
       const status = state?.status || "off";

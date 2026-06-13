@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { toUTCDateStr, getActiveExecutions } from "../../habits/habits";
+  import { toLocalDateStr, getActiveExecutions } from "../../habits/habits";
   import type { HabitLineage } from "../../stores/habits.store";
   import type { ScheduleRule, DayOfWeek } from "../../habits/habits";
 
@@ -28,7 +28,7 @@
   let todayExecs = $derived(
     getActiveExecutions(
       lineage.executions.filter(
-        (e) => toUTCDateStr(e.time) === selected_date_str
+        (e) => toLocalDateStr(e.time) === selected_date_str
       )
     )
   );
@@ -67,7 +67,7 @@
     )
   );
   let weeklyDoneDays = $derived(
-    new Set(last7DaysExecs.map((e) => toUTCDateStr(e.time))).size
+    new Set(last7DaysExecs.map((e) => toLocalDateStr(e.time))).size
   );
 
   let isDone = $derived.by(() => {
@@ -101,9 +101,26 @@
   });
 
   // Gestures
-  let longPressTimer: any;
+  let longPressTimer: ReturnType<typeof setTimeout> | undefined;
   let isLongPressActive = false;
   let preventClick = false;
+
+  // Single tap marks done, double tap (within this window) undoes one rep.
+  const DOUBLE_TAP_MS = 280;
+  let tapTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Clear any pending timers if the row unmounts mid-gesture.
+  $effect(() => () => {
+    if (tapTimer !== null) clearTimeout(tapTimer);
+    clearTimeout(longPressTimer);
+  });
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handleClick(e as unknown as MouseEvent);
+    }
+  }
 
   function handleTouchStart(e: TouchEvent) {
     isLongPressActive = false;
@@ -136,46 +153,54 @@
     onLongPress(lineage.head.entity, targetId);
   }
 
+  // Single tap = mark one rep done. Respects the per-type cap so it never
+  // over-completes; re-tapping a finished habit is a no-op.
+  function markCompleted() {
+    if (isExempt) return;
+    if (targetId) {
+      if (!isCompleted) onLog(lineage.head.entity, "completed", targetId);
+      return;
+    }
+    if (!rules) return;
+    if (rules.type === "daily_multiple" && !rules.targets) {
+      const limit = rules.count ?? 1;
+      if (completedCount < limit) onLog(lineage.head.entity, "completed");
+    } else {
+      // Binary day habits (weekly_days, weekly_flexible).
+      if (completedCount === 0) onLog(lineage.head.entity, "completed");
+    }
+  }
+
+  // Double tap = undo a single most-recent rep (getActiveExecutions removes the
+  // latest matching completion). No-op when there is nothing to undo.
+  function undoOne() {
+    if (isExempt) return;
+    if (targetId) {
+      if (isCompleted) onLog(lineage.head.entity, "uncompleted", targetId);
+      return;
+    }
+    if (completedCount > 0) onLog(lineage.head.entity, "uncompleted");
+  }
+
   function handleClick(e: MouseEvent) {
     if (preventClick) {
       e.preventDefault();
       return;
     }
 
-    if (isExempt) return;
-
-    if (targetId) {
-      // Timed Habit target
-      if (isCompleted) {
-        onLog(lineage.head.entity, "uncompleted", targetId);
-      } else {
-        onLog(lineage.head.entity, "completed", targetId);
-      }
-    } else {
-      // General Habit target
-      if (rules) {
-        if (rules.type === "daily_multiple" && !rules.targets) {
-          const limit = rules.count ?? 1;
-          if (completedCount < limit) {
-            onLog(lineage.head.entity, "completed");
-          } else {
-            onLog(lineage.head.entity, "uncompleted");
-          }
-        } else if (rules.type === "weekly_days") {
-          if (completedCount === 0) {
-            onLog(lineage.head.entity, "completed");
-          } else {
-            onLog(lineage.head.entity, "uncompleted");
-          }
-        } else if (rules.type === "weekly_flexible") {
-          if (completedCount === 0) {
-            onLog(lineage.head.entity, "completed");
-          } else {
-            onLog(lineage.head.entity, "uncompleted");
-          }
-        }
-      }
+    // A pending tap means this is the second of a double tap -> undo.
+    if (tapTimer !== null) {
+      clearTimeout(tapTimer);
+      tapTimer = null;
+      undoOne();
+      return;
     }
+
+    // Otherwise wait briefly to see if a second tap arrives; if not, mark done.
+    tapTimer = setTimeout(() => {
+      tapTimer = null;
+      markCompleted();
+    }, DOUBLE_TAP_MS);
   }
 
   // Helpers
@@ -192,20 +217,21 @@
   }
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
   class="agenda-row habit-item"
   class:completed={isDone}
   class:in-progress={isInProgress}
   class:exempt={isExempt}
   onclick={handleClick}
+  onkeydown={handleKeydown}
   ontouchstart={handleTouchStart}
   ontouchend={handleTouchEnd}
   ontouchmove={handleTouchMove}
   oncontextmenu={handleContextMenu}
   role="button"
   tabindex="0"
+  aria-pressed={isDone}
+  aria-label={lineage.head.name}
 >
   <div class="habit-details">
     <span class="habit-name">{lineage.head.name.toUpperCase()}</span>
@@ -223,10 +249,10 @@
         </div>
       {:else if rules && rules.type === "weekly_days"}
         {@const daysOfWeek = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]}
-        {@const utcDayStr = daysOfWeek[
-          new Date(selected_date_str + "T00:00:00Z").getUTCDay()
+        {@const dowStr = daysOfWeek[
+          new Date(selected_date_str + "T00:00:00").getDay()
         ] as DayOfWeek}
-        {@const isScheduledToday = rules.days.includes(utcDayStr)}
+        {@const isScheduledToday = rules.days.includes(dowStr)}
         {#if !isScheduledToday}
           <div class="off-day-pill">OFF</div>
         {/if}

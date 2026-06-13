@@ -5,7 +5,8 @@ import {
   computeStreak,
   computeHabitScore,
   getDailyLineageStates,
-  toUTCDateStr,
+  getActiveExecutions,
+  toLocalDateStr,
   type ExecutionRow,
 } from "../../src/lib/habits/habits";
 
@@ -132,11 +133,11 @@ describe("logExecution", () => {
 // ---- unit: computeStreak ---------------------------------------------------
 
 describe("computeStreak", () => {
-  /** Returns a Unix-ms timestamp for a given number of days ago at noon UTC */
+  /** Returns a Unix-ms timestamp for a given number of days ago at local noon */
   function daysAgo(n: number): number {
     const d = new Date();
-    d.setUTCHours(12, 0, 0, 0);
-    d.setUTCDate(d.getUTCDate() - n);
+    d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() - n);
     return d.getTime();
   }
 
@@ -186,8 +187,8 @@ describe("computeStreak", () => {
 describe("computeHabitScore", () => {
   function daysAgo(n: number): number {
     const d = new Date();
-    d.setUTCHours(12, 0, 0, 0);
-    d.setUTCDate(d.getUTCDate() - n);
+    d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() - n);
     return d.getTime();
   }
 
@@ -291,8 +292,8 @@ describe("logExecution with metadata", () => {
 describe("advanced scheduling and exempt calculations", () => {
   function daysAgo(n: number): number {
     const d = new Date();
-    d.setUTCHours(12, 0, 0, 0);
-    d.setUTCDate(d.getUTCDate() - n);
+    d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() - n);
     return d.getTime();
   }
 
@@ -345,9 +346,9 @@ describe("advanced scheduling and exempt calculations", () => {
     ];
 
     const states = getDailyLineageStates(blueprints, execs, daysAgo(0));
-    expect(states.get(toUTCDateStr(daysAgo(2)))?.status).toBe("failed");
-    expect(states.get(toUTCDateStr(daysAgo(1)))?.status).toBe("completed");
-    expect(states.get(toUTCDateStr(daysAgo(0)))?.status).toBe("completed");
+    expect(states.get(toLocalDateStr(daysAgo(2)))?.status).toBe("failed");
+    expect(states.get(toLocalDateStr(daysAgo(1)))?.status).toBe("completed");
+    expect(states.get(toLocalDateStr(daysAgo(0)))?.status).toBe("completed");
 
     const streak = computeStreak(execs, blueprints, daysAgo(0));
     expect(streak).toBe(2);
@@ -381,13 +382,17 @@ describe("advanced scheduling and exempt calculations", () => {
     ];
 
     const states = getDailyLineageStates(blueprints, execs, daysAgo(0));
-    expect(states.get(toUTCDateStr(daysAgo(1)))?.status).toBe("failed");
+    expect(states.get(toLocalDateStr(daysAgo(1)))?.status).toBe("failed");
   });
 
   it("handles weekly_days schedule", () => {
-    const now = new Date();
-    const daysSinceMonday = (now.getUTCDay() + 6) % 7;
-    const mondayMs = now.getTime() - daysSinceMonday * 86400000;
+    // Build the most recent Monday at local noon. Noon anchoring keeps the
+    // `+ k * 86400000` assertions on the correct local date across DST shifts.
+    const monday = new Date();
+    const daysSinceMonday = (monday.getDay() + 6) % 7;
+    monday.setHours(12, 0, 0, 0);
+    monday.setDate(monday.getDate() - daysSinceMonday);
+    const mondayMs = monday.getTime();
 
     const blueprints = [
       {
@@ -416,15 +421,15 @@ describe("advanced scheduling and exempt calculations", () => {
       mondayMs + 4 * 86400000
     );
 
-    expect(states.get(toUTCDateStr(mondayMs))?.status).toBe("completed");
-    expect(states.get(toUTCDateStr(mondayMs + 86400000))?.status).toBe("off");
-    expect(states.get(toUTCDateStr(mondayMs + 2 * 86400000))?.status).toBe(
+    expect(states.get(toLocalDateStr(mondayMs))?.status).toBe("completed");
+    expect(states.get(toLocalDateStr(mondayMs + 86400000))?.status).toBe("off");
+    expect(states.get(toLocalDateStr(mondayMs + 2 * 86400000))?.status).toBe(
       "completed"
     );
-    expect(states.get(toUTCDateStr(mondayMs + 3 * 86400000))?.status).toBe(
+    expect(states.get(toLocalDateStr(mondayMs + 3 * 86400000))?.status).toBe(
       "off"
     );
-    expect(states.get(toUTCDateStr(mondayMs + 4 * 86400000))?.status).toBe(
+    expect(states.get(toLocalDateStr(mondayMs + 4 * 86400000))?.status).toBe(
       "exempt"
     );
 
@@ -451,9 +456,9 @@ describe("advanced scheduling and exempt calculations", () => {
     ];
 
     const states = getDailyLineageStates(blueprints, execs, daysAgo(0));
-    expect(states.get(toUTCDateStr(daysAgo(2)))?.status).toBe("completed");
-    expect(states.get(toUTCDateStr(daysAgo(1)))?.status).toBe("completed");
-    expect(states.get(toUTCDateStr(daysAgo(0)))?.status).toBe("completed");
+    expect(states.get(toLocalDateStr(daysAgo(2)))?.status).toBe("completed");
+    expect(states.get(toLocalDateStr(daysAgo(1)))?.status).toBe("completed");
+    expect(states.get(toLocalDateStr(daysAgo(0)))?.status).toBe("completed");
   });
 
   it("pauses streak on exempt executions", () => {
@@ -476,6 +481,68 @@ describe("advanced scheduling and exempt calculations", () => {
     expect(streak).toBe(3);
 
     const states = getDailyLineageStates(blueprints, execs, daysAgo(0));
-    expect(states.get(toUTCDateStr(daysAgo(1)))?.status).toBe("exempt");
+    expect(states.get(toLocalDateStr(daysAgo(1)))?.status).toBe("exempt");
+  });
+});
+
+describe("getActiveExecutions (single-undo semantics)", () => {
+  it("removes only the most recent completion on an uncompleted (simple habit)", () => {
+    // Three reps logged for a quantitative habit (no target_id), then one undo.
+    const execs: ExecutionRow[] = [
+      { time: 1000, status: "completed" },
+      { time: 2000, status: "completed" },
+      { time: 3000, status: "completed" },
+      { time: 4000, status: "uncompleted" },
+    ];
+    const active = getActiveExecutions(execs);
+    // Exactly one rep undone, not the whole day.
+    expect(active.filter((e) => e.status === "completed")).toHaveLength(2);
+    // The most recent (t=3000) was the one removed.
+    expect(active.map((e) => e.time)).toEqual([1000, 2000]);
+  });
+
+  it("undoes per target_id for sub-target habits", () => {
+    const execs: ExecutionRow[] = [
+      { time: 1000, status: "completed", target_id: "morning" },
+      { time: 2000, status: "completed", target_id: "evening" },
+      { time: 3000, status: "uncompleted", target_id: "morning" },
+    ];
+    const active = getActiveExecutions(execs);
+    expect(active.map((e) => e.target_id)).toEqual(["evening"]);
+  });
+
+  it("is a no-op when there is nothing to undo", () => {
+    const execs: ExecutionRow[] = [{ time: 1000, status: "uncompleted" }];
+    expect(getActiveExecutions(execs)).toHaveLength(0);
+  });
+});
+
+describe("weekly_flexible counts only completed days", () => {
+  function daysAgo(n: number): number {
+    const d = new Date();
+    d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() - n);
+    return d.getTime();
+  }
+
+  it("does not count a day whose completion was undone", () => {
+    const blueprints = [
+      {
+        entity: "habit:flex",
+        time: daysAgo(10),
+        schedule_rules: { type: "weekly_flexible" as const, count: 3 },
+      },
+    ];
+    // Two real completions, plus today completed-then-undone. With the undone
+    // day excluded the rolling week has only 2 of 3 → today must be "failed".
+    // (The old bug counted the undone day as done, yielding 3 → "completed".)
+    const execs = [
+      { time: daysAgo(2), target: "habit:flex", status: "completed" },
+      { time: daysAgo(1), target: "habit:flex", status: "completed" },
+      { time: daysAgo(0), target: "habit:flex", status: "completed" },
+      { time: daysAgo(0) + 1000, target: "habit:flex", status: "uncompleted" },
+    ];
+    const states = getDailyLineageStates(blueprints, execs, daysAgo(0));
+    expect(states.get(toLocalDateStr(daysAgo(0)))?.status).toBe("failed");
   });
 });
