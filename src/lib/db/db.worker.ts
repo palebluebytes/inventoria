@@ -1,6 +1,11 @@
 import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
 import { computeMediaLibraryState } from "../media/state";
 import { computeAcquisitionState } from "../acquisition/state";
+import {
+  appendDatoms,
+  createLedgerSchema,
+  resetLedgerSchema,
+} from "./db.core";
 
 let db: any = null;
 let initialized = false;
@@ -38,23 +43,7 @@ self.onmessage = async (event: MessageEvent) => {
       }
 
       // Auto-create the datoms table and indexes
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS datoms (
-          entity TEXT NOT NULL,
-          attribute TEXT NOT NULL,
-          value TEXT NOT NULL,
-          time INTEGER NOT NULL,
-          PRIMARY KEY (entity, attribute, time)
-        ) WITHOUT ROWID;
-      `);
-
-      db.exec(`
-        CREATE INDEX IF NOT EXISTS idx_eav ON datoms (entity, attribute, time);
-      `);
-
-      db.exec(`
-        CREATE INDEX IF NOT EXISTS idx_ave ON datoms (attribute, value, entity);
-      `);
+      createLedgerSchema(db);
 
       console.log("worker: table and indices initialized");
       initialized = true;
@@ -124,44 +113,7 @@ self.onmessage = async (event: MessageEvent) => {
       }
 
       const { datoms } = payload;
-      if (!Array.isArray(datoms)) {
-        throw new Error("Payload 'datoms' must be an array");
-      }
-
-      db.exec("BEGIN TRANSACTION;");
-      try {
-        // Plain INSERT (not INSERT OR REPLACE): the ledger is append-only, so a
-        // PRIMARY KEY (entity, attribute, time) collision must surface as an
-        // error rather than silently overwriting an existing immutable datom.
-        const stmt = db.prepare(
-          "INSERT INTO datoms (entity, attribute, value, time) VALUES (?, ?, ?, ?);"
-        );
-        try {
-          for (const datom of datoms) {
-            const { entity, attribute, value, time } = datom;
-            if (!entity || !attribute || value === undefined || !time) {
-              throw new Error(
-                `Invalid datom structure: ${JSON.stringify(datom)}`
-              );
-            }
-            // Bind accepts arrays (1-based mapping inside the driver)
-            stmt.bind([entity, attribute, JSON.stringify(value), time]);
-            stmt.step();
-            stmt.reset();
-          }
-        } finally {
-          stmt.finalize();
-        }
-        db.exec("COMMIT;");
-      } catch (err) {
-        db.exec("ROLLBACK;");
-        throw err;
-      }
-
-      // Collect unique attributes modified
-      const attributes = Array.from(
-        new Set(datoms.map((d: any) => d.attribute))
-      );
+      const attributes = appendDatoms(db, datoms);
 
       self.postMessage({ id, status: "ok" });
 
@@ -174,22 +126,7 @@ self.onmessage = async (event: MessageEvent) => {
       if (!db) {
         throw new Error("Database not initialized. Please call 'init' first.");
       }
-      db.exec("DROP TABLE IF EXISTS datoms;");
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS datoms (
-          entity TEXT NOT NULL,
-          attribute TEXT NOT NULL,
-          value TEXT NOT NULL,
-          time INTEGER NOT NULL,
-          PRIMARY KEY (entity, attribute, time)
-        ) WITHOUT ROWID;
-      `);
-      db.exec(`
-        CREATE INDEX IF NOT EXISTS idx_eav ON datoms (entity, attribute, time);
-      `);
-      db.exec(`
-        CREATE INDEX IF NOT EXISTS idx_ave ON datoms (attribute, value, entity);
-      `);
+      resetLedgerSchema(db);
       self.postMessage({ id, status: "ok" });
       self.postMessage({
         type: "broadcast_invalidation",

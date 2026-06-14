@@ -1,11 +1,7 @@
 import DBWorker from "./db.worker?worker";
+import type { Datom } from "./db.core";
 
-export interface Datom {
-  entity: string;
-  attribute: string;
-  value: any;
-  time: number;
-}
+export type { Datom };
 
 export type InvalidationListener = (attributes: string[]) => void;
 
