@@ -4,7 +4,10 @@
     lookupBarcode,
     ProductNotFoundError,
   } from "../../food/open-food-facts";
-  import { searchFdc } from "../../food/usda-fdc";
+  import {
+    searchUsdaFoods,
+    mapPayloadToFoodResult,
+  } from "../../food/food-search";
   import { ingestEntity } from "../../ingestion/ingest";
   import { saveRecipe, logFoodConsumption } from "../../stores/calorie.store";
   import { settingsStore } from "../../stores/settings.store";
@@ -92,13 +95,6 @@
     };
   });
 
-  function parseAttrValue(val: string | number | undefined): number {
-    if (typeof val === "number") return val;
-    if (!val) return 0;
-    const match = val.match(/([\d.]+)/);
-    return match ? parseFloat(match[1]) : 0;
-  }
-
   async function handleUsdaSearch() {
     clearTimeout(debounceTimer);
     if (!query.trim()) return;
@@ -107,19 +103,7 @@
     searchResults = [];
     selectedResult = null;
     try {
-      const payloads = await searchFdc(query.trim());
-      if (payloads.length === 0) {
-        throw new Error("No foods found matching query.");
-      }
-      searchResults = payloads.map((payload) => ({
-        entity: payload.entity,
-        name: payload.attributes["food/name"],
-        calories: parseAttrValue(payload.attributes["food/calories"]),
-        protein: parseAttrValue(payload.attributes["food/protein"]),
-        fat: parseAttrValue(payload.attributes["food/fat"]),
-        carbs: parseAttrValue(payload.attributes["food/carbs"]),
-        payload,
-      }));
+      searchResults = await searchUsdaFoods(query);
       searchStatus = "idle";
     } catch (e: any) {
       searchStatus = "error";
@@ -135,15 +119,7 @@
     selectedResult = null;
     try {
       const payload = await lookupBarcode(barcode.trim());
-      const mapped = {
-        entity: payload.entity,
-        name: payload.attributes["food/name"],
-        calories: parseAttrValue(payload.attributes["food/calories"]),
-        protein: parseAttrValue(payload.attributes["food/protein"]),
-        fat: parseAttrValue(payload.attributes["food/fat"]),
-        carbs: parseAttrValue(payload.attributes["food/carbs"]),
-        payload,
-      };
+      const mapped = mapPayloadToFoodResult(payload);
       searchResults = [mapped];
       selectedResult = mapped;
       searchStatus = "idle";
