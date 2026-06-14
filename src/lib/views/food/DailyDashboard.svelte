@@ -6,7 +6,7 @@
   import Button from "../../ui/Button.svelte";
   import Card from "../../ui/Card.svelte";
   import Badge from "../../ui/Badge.svelte";
-  import { dismissable } from "../../ui/dismissable";
+  import { Dialog } from "bits-ui";
 
   let {
     dbReady,
@@ -316,20 +316,35 @@
 </div>
 
 <!-- Photo preview Modal -->
-{#if previewPhoto}
-  <div
-    class="photo-modal-overlay"
-    use:dismissable={() => (previewPhoto = null)}
-    role="presentation"
-  >
-    <div class="photo-modal-content">
-      <img src={previewPhoto} alt="Food Log Preview" class="photo-modal-img" />
-      <button class="photo-modal-close" onclick={() => (previewPhoto = null)}
-        >&times;</button
-      >
-    </div>
-  </div>
-{/if}
+<Dialog.Root
+  open={previewPhoto !== null}
+  onOpenChange={(o) => {
+    if (!o) previewPhoto = null;
+  }}
+>
+  <Dialog.Portal>
+    <Dialog.Overlay>
+      {#snippet child({ props })}
+        <div {...props} class="photo-modal-overlay"></div>
+      {/snippet}
+    </Dialog.Overlay>
+    <Dialog.Content aria-label="Food log photo preview">
+      {#snippet child({ props })}
+        <div {...props} class="photo-modal-content">
+          <img
+            src={previewPhoto}
+            alt="Food Log Preview"
+            class="photo-modal-img"
+          />
+          <button
+            class="photo-modal-close"
+            onclick={() => (previewPhoto = null)}>&times;</button
+          >
+        </div>
+      {/snippet}
+    </Dialog.Content>
+  </Dialog.Portal>
+</Dialog.Root>
 
 <style>
   .week-strip-container {
@@ -636,19 +651,17 @@
   /* Photo Modal */
   .photo-modal-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
+    inset: 0;
     background: rgba(0, 0, 0, 0.85);
-    display: flex;
-    align-items: center;
-    justify-content: center;
     z-index: 1000;
     backdrop-filter: blur(8px);
   }
   .photo-modal-content {
-    position: relative;
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1001;
     max-width: 90vw;
     max-height: 90vh;
   }

@@ -1,70 +1,71 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import { fade } from "svelte/transition";
-  import { dismissable } from "./dismissable";
+  import { Dialog } from "bits-ui";
 
   let {
     isOpen = $bindable(false),
     title = "",
     children,
   }: {
-    isOpen: boolean;
+    isOpen?: boolean;
     title?: string;
     children?: Snippet;
   } = $props();
-
-  function close() {
-    isOpen = false;
-  }
 </script>
 
-{#if isOpen}
-  <div
-    class="bottom-sheet-backdrop"
-    use:dismissable={close}
-    transition:fade={{ duration: 150 }}
-    role="presentation"
-  >
-    <div
-      class="bottom-sheet-content"
-      role="dialog"
-      aria-modal="true"
-      tabindex="-1"
-    >
-      <div class="bottom-sheet-handle-bar">
-        <div class="drag-handle"></div>
-      </div>
+<Dialog.Root bind:open={isOpen}>
+  <Dialog.Portal>
+    <Dialog.Overlay>
+      {#snippet child({ props })}
+        <div {...props} class="bottom-sheet-backdrop"></div>
+      {/snippet}
+    </Dialog.Overlay>
+    <Dialog.Content>
+      {#snippet child({ props })}
+        <div {...props} class="bottom-sheet-content">
+          <div class="bottom-sheet-handle-bar">
+            <div class="drag-handle"></div>
+          </div>
 
-      <div class="bottom-sheet-header">
-        <h2>{title}</h2>
-        <button class="close-btn" onclick={close} aria-label="Close"
-          >&times;</button
-        >
-      </div>
+          <div class="bottom-sheet-header">
+            <Dialog.Title>
+              {#snippet child({ props })}
+                <h2 {...props}>{title}</h2>
+              {/snippet}
+            </Dialog.Title>
+            <button
+              class="close-btn"
+              onclick={() => (isOpen = false)}
+              aria-label="Close">&times;</button
+            >
+          </div>
 
-      <div class="bottom-sheet-body">
-        {@render children?.()}
-      </div>
-    </div>
-  </div>
-{/if}
+          <div class="bottom-sheet-body">
+            {@render children?.()}
+          </div>
+        </div>
+      {/snippet}
+    </Dialog.Content>
+  </Dialog.Portal>
+</Dialog.Root>
 
 <style>
+  /* bits-ui renders the backdrop and sheet as siblings: the backdrop only
+     dims, and the sheet pins itself to the bottom. */
   .bottom-sheet-backdrop {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
+    inset: 0;
     background: rgba(0, 0, 0, 0.4);
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
     z-index: 1000;
     backdrop-filter: blur(2px);
   }
 
   .bottom-sheet-content {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1001;
     background: var(--bg-surface, #fff);
     border: 3px solid #000;
     border-bottom: none;
@@ -128,10 +129,10 @@
 
   @keyframes slideUp {
     from {
-      transform: translateY(100%);
+      transform: translateX(-50%) translateY(100%);
     }
     to {
-      transform: translateY(0);
+      transform: translateX(-50%) translateY(0);
     }
   }
 </style>
