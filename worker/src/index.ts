@@ -1,6 +1,41 @@
 import { checkProxyTarget, guardedFetch } from "../../src/lib/ingestion/url-guard";
 import { cleanHtml } from "../../src/lib/ingestion/html-clean";
 
+/** Raised by readCapped when a body exceeds MAX_RESPONSE_BYTES mid-stream. */
+class ResponseTooLargeError extends Error {}
+
+/**
+ * Reads a response body, aborting as soon as it exceeds `max` bytes. This bounds
+ * memory regardless of whether the upstream sent an honest content-length — a
+ * chunked/length-omitted body cannot be trusted, so we must measure while
+ * reading rather than buffering the whole thing first.
+ */
+async function readCapped(response: Response, max: number): Promise<Uint8Array> {
+  const reader = response.body?.getReader();
+  if (!reader) return new Uint8Array(0);
+
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > max) {
+      await reader.cancel();
+      throw new ResponseTooLargeError();
+    }
+    chunks.push(value);
+  }
+
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return out;
+}
+
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024; // 5 MB
 const FETCH_TIMEOUT_MS = 20_000;
 const ALLOWED_IMAGE_TYPES = [
@@ -79,6 +114,7 @@ export default {
       }
 
       // Reject oversized payloads early when the upstream declares a length.
+      // readCapped still enforces the cap for chunked/length-omitted bodies.
       const declaredLength = Number(
         response.headers.get("content-length") || 0
       );
@@ -93,10 +129,7 @@ export default {
         if (!ALLOWED_IMAGE_TYPES.includes(mime)) {
           return errorResponse(`Unsupported image type: ${mime}`, 415);
         }
-        const body = await response.arrayBuffer();
-        if (body.byteLength > MAX_RESPONSE_BYTES) {
-          return errorResponse("Target image exceeds 5MB size limit", 413);
-        }
+        const body = await readCapped(response, MAX_RESPONSE_BYTES);
         return new Response(body, {
           status: 200,
           headers: {
@@ -108,10 +141,9 @@ export default {
         });
       }
 
-      const raw = await response.text();
-      if (raw.length > MAX_RESPONSE_BYTES) {
-        return errorResponse("Target response exceeds 5MB size limit", 413);
-      }
+      const raw = new TextDecoder().decode(
+        await readCapped(response, MAX_RESPONSE_BYTES)
+      );
 
       const html = cleanHtml(raw);
 
@@ -128,6 +160,9 @@ export default {
         },
       });
     } catch (error: any) {
+      if (error instanceof ResponseTooLargeError) {
+        return errorResponse("Target response exceeds 5MB size limit", 413);
+      }
       if (error?.name === "AbortError") {
         return errorResponse("Target request timed out", 504);
       }
