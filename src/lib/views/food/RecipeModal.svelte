@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { dbClient } from "../../db/db.client";
   import {
     lookupBarcode,
@@ -48,7 +49,7 @@
   let scrape_url = $state("");
   let source_url = $state("");
   let recipeSteps = $state("");
-  let selected_meal_type = $state(meal_type);
+  let selected_meal_type = $state(untrack(() => meal_type));
 
   // Ingredients List
   let ingredients = $state<Ingredient[]>([]);

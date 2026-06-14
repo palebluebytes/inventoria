@@ -393,10 +393,6 @@
   .mt-4 {
     margin-top: var(--space-s);
   }
-  .mx-4 {
-    margin-left: var(--space-m);
-    margin-right: var(--space-m);
-  }
   .flex-1 {
     flex: 1;
   }

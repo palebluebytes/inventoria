@@ -158,10 +158,6 @@
     letter-spacing: -0.02em;
     margin-bottom: var(--space-s);
   }
-  .manual-form {
-    border: 2px solid #000;
-    box-shadow: 4px 4px 0 #000;
-  }
   .form-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -211,9 +207,6 @@
   .form-actions {
     display: flex;
     gap: var(--space-s);
-    margin-top: var(--space-s);
-  }
-  .mt-4 {
     margin-top: var(--space-s);
   }
 </style>

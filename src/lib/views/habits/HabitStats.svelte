@@ -33,12 +33,6 @@
     grid-template-columns: repeat(3, 1fr);
     gap: var(--space-s);
   }
-  .summary-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: var(--space-s);
-  }
   .summary-val {
     font-size: var(--step-2);
     font-weight: 800;
@@ -49,10 +43,6 @@
     text-transform: uppercase;
     font-weight: 500;
     margin-top: 2px;
-  }
-  .shadow-brutal {
-    border: 2px solid var(--border-accent) !important;
-    box-shadow: 4px 4px 0px 0px var(--border-accent);
   }
   :global(.mt-4) {
     margin-top: var(--space-m);

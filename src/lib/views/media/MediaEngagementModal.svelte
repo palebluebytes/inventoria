@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import type { EnrichedMedia } from "../../media/state";
   import { updateMediaStatus, enrichMediaTwin } from "../../stores/media.store";
   import Badge from "../../ui/Badge.svelte";
@@ -13,14 +14,15 @@
     onClose: () => void;
   } = $props();
 
+  const init = untrack(() => media);
   let formStatus = $state<"saved" | "started" | "progress" | "completed">(
-    media.status
+    init.status
   );
-  let formRating = $state<number | undefined>(media.rating);
-  let formReview = $state(media.review || "");
-  let formSeason = $state<number | undefined>(media.season);
-  let formEpisode = $state<number | undefined>(media.episode);
-  let formPagesRead = $state<number | undefined>(media.pages_read);
+  let formRating = $state<number | undefined>(init.rating);
+  let formReview = $state(init.review || "");
+  let formSeason = $state<number | undefined>(init.season);
+  let formEpisode = $state<number | undefined>(init.episode);
+  let formPagesRead = $state<number | undefined>(init.pages_read);
   let imageError = $state(false);
   let isEnriching = $state(false);
 

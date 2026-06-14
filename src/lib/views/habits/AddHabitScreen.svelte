@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { habitsStore } from "../../stores/habits.store";
   import { acquisitionLibraryStore } from "../../stores/acquisition.store";
   import type { ScheduleRule, DayOfWeek } from "../../habits/habits";
@@ -21,11 +22,11 @@
   let habit_category = $state(""); // start with none selected
   let habit_schedule_type = $state<
     "daily_multiple" | "weekly_days" | "weekly_flexible"
-  >(initialScheduleType);
+  >(untrack(() => initialScheduleType));
 
   // daily_multiple options:
   let daily_count = $state(1);
-  let daily_use_subtargets = $state(initialUseSubtargets);
+  let daily_use_subtargets = $state(untrack(() => initialUseSubtargets));
   let daily_subtargets = $state<{ id: string; time_hint: string }[]>([
     { id: "slot_1", time_hint: "08:00" },
     { id: "slot_2", time_hint: "20:00" },

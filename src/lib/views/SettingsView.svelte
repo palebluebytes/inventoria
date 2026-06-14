@@ -407,10 +407,6 @@
     align-items: center;
     gap: var(--space-m);
   }
-  .saved-badge {
-    padding: var(--space-xs) var(--space-s);
-    animation: pulse 1s infinite alternate;
-  }
   .card-header {
     display: flex;
     justify-content: space-between;
@@ -500,9 +496,6 @@
   }
   .mt-4 {
     margin-top: var(--space-m);
-  }
-  .ml-2 {
-    margin-left: var(--space-2xs);
   }
 
   @keyframes fadeIn {

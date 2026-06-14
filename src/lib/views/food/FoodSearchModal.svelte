@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { dbClient } from "../../db/db.client";
   import {
     lookupBarcode,
@@ -51,7 +52,7 @@
   let selectedFood = $state<any | null>(null);
   let loggedGrams = $state("100");
   let factor = $derived((parseFloat(loggedGrams) || 0) / 100);
-  let selected_meal_type = $state(meal_type);
+  let selected_meal_type = $state(untrack(() => meal_type));
 
   // Manual entry mode (fallback)
   let manualMode = $state(false);

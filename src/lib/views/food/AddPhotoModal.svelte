@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import {
     saveCustomFood,
     logFoodConsumption,
@@ -24,7 +25,7 @@
   let protein = $state("");
   let fat = $state("");
   let carbs = $state("");
-  let selected_meal_type = $state(meal_type);
+  let selected_meal_type = $state(untrack(() => meal_type));
 
   let photo_base64 = $state<string | null>(null);
   let uploadStatus = $state<"idle" | "loading" | "error">("idle");

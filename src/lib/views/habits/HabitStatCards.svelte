@@ -47,14 +47,6 @@
     grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
     gap: var(--space-s);
   }
-  .stat-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: var(--space-m);
-    text-align: center;
-  }
   .stat-value {
     font-size: var(--step-3);
     font-weight: 800;
@@ -67,9 +59,5 @@
     margin-top: var(--space-3xs);
     text-transform: uppercase;
     line-height: 1.2;
-  }
-  .shadow-brutal {
-    border: 2px solid var(--border-accent) !important;
-    box-shadow: 4px 4px 0px 0px var(--border-accent);
   }
 </style>

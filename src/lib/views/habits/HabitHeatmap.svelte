@@ -171,8 +171,4 @@
   .legend-cell {
     display: inline-block;
   }
-  .shadow-brutal {
-    border: 2px solid var(--border-accent) !important;
-    box-shadow: 4px 4px 0px 0px var(--border-accent);
-  }
 </style>

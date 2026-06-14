@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { habitsStore, type HabitLineage } from "../../stores/habits.store";
   import type { ScheduleRule, DayOfWeek } from "../../habits/habits";
   import Card from "../../ui/Card.svelte";
@@ -22,32 +23,34 @@
   } = $props();
 
   // Form states for editing
-  let habitName = $state(lineage.head.name);
-  let habitCategory = $state(lineage.head.category);
+  // Snapshot the lineage head once so these initializers don't stay reactive.
+  const init = untrack(() => lineage.head);
+  let habitName = $state(init.name);
+  let habitCategory = $state(init.category);
   let habitScheduleType = $state<
     "daily_multiple" | "weekly_days" | "weekly_flexible"
   >(
-    lineage.head.schedule_rules?.type === "daily_multiple" ||
-      lineage.head.schedule_rules?.type === "weekly_days" ||
-      lineage.head.schedule_rules?.type === "weekly_flexible"
-      ? lineage.head.schedule_rules.type
+    init.schedule_rules?.type === "daily_multiple" ||
+      init.schedule_rules?.type === "weekly_days" ||
+      init.schedule_rules?.type === "weekly_flexible"
+      ? init.schedule_rules.type
       : "daily_multiple"
   );
 
   // daily_multiple options:
   let dailyCount = $state(
-    lineage.head.schedule_rules?.type === "daily_multiple"
-      ? (lineage.head.schedule_rules.count ?? 1)
+    init.schedule_rules?.type === "daily_multiple"
+      ? (init.schedule_rules.count ?? 1)
       : 1
   );
   let dailyUseSubtargets = $state(
-    lineage.head.schedule_rules?.type === "daily_multiple" &&
-      !!lineage.head.schedule_rules.targets
+    init.schedule_rules?.type === "daily_multiple" &&
+      !!init.schedule_rules.targets
   );
   let dailySubtargets = $state<{ id: string; time_hint: string }[]>(
-    lineage.head.schedule_rules?.type === "daily_multiple" &&
-      lineage.head.schedule_rules.targets
-      ? lineage.head.schedule_rules.targets.map((t) => ({
+    init.schedule_rules?.type === "daily_multiple" &&
+      init.schedule_rules.targets
+      ? init.schedule_rules.targets.map((t) => ({
           id: t.id,
           time_hint: t.time_hint || "",
         }))
@@ -59,15 +62,15 @@
 
   // weekly_days options:
   let weeklyDaysSelected = $state<{ [key: string]: boolean }>(
-    lineage.head.schedule_rules?.type === "weekly_days"
+    init.schedule_rules?.type === "weekly_days"
       ? {
-          mon: lineage.head.schedule_rules.days.includes("mon"),
-          tue: lineage.head.schedule_rules.days.includes("tue"),
-          wed: lineage.head.schedule_rules.days.includes("wed"),
-          thu: lineage.head.schedule_rules.days.includes("thu"),
-          fri: lineage.head.schedule_rules.days.includes("fri"),
-          sat: lineage.head.schedule_rules.days.includes("sat"),
-          sun: lineage.head.schedule_rules.days.includes("sun"),
+          mon: init.schedule_rules.days.includes("mon"),
+          tue: init.schedule_rules.days.includes("tue"),
+          wed: init.schedule_rules.days.includes("wed"),
+          thu: init.schedule_rules.days.includes("thu"),
+          fri: init.schedule_rules.days.includes("fri"),
+          sat: init.schedule_rules.days.includes("sat"),
+          sun: init.schedule_rules.days.includes("sun"),
         }
       : {
           mon: true,
@@ -82,12 +85,12 @@
 
   // weekly_flexible options:
   let weeklyFlexCount = $state(
-    lineage.head.schedule_rules?.type === "weekly_flexible"
-      ? lineage.head.schedule_rules.count
+    init.schedule_rules?.type === "weekly_flexible"
+      ? init.schedule_rules.count
       : 3
   );
 
-  let habitInstrument = $state(lineage.head.instrument || "");
+  let habitInstrument = $state(init.instrument || "");
   let saveStatus = $state<"idle" | "loading" | "error" | "success">("idle");
   let saveError = $state("");
 
@@ -536,9 +539,6 @@
     grid-template-columns: 1fr;
     gap: var(--space-m);
   }
-  .height-full {
-    height: 100%;
-  }
   .form-group {
     display: flex;
     flex-direction: column;
@@ -609,10 +609,6 @@
   .description-small {
     font-size: var(--step-n2);
     color: var(--text-secondary);
-  }
-  .shadow-brutal {
-    border: 2px solid var(--border-accent) !important;
-    box-shadow: 4px 4px 0px 0px var(--border-accent);
   }
 
   @keyframes fadeIn {

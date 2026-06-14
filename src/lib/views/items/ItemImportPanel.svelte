@@ -125,12 +125,6 @@
     letter-spacing: -0.02em;
     margin-bottom: var(--space-s);
   }
-  .control-panel {
-    background: var(--bg-surface);
-    border: 2px solid #000;
-    box-shadow: 4px 4px 0 #000;
-  }
-
   .input-row {
     display: flex;
     gap: var(--space-s);
