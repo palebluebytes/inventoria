@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { checkProxyTarget } from "../../src/lib/ingestion/url-guard";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { checkProxyTarget, guardedFetch } from "../../src/lib/ingestion/url-guard";
 
 describe("checkProxyTarget (SSRF guard)", () => {
   it("allows normal public http(s) URLs", () => {
@@ -88,5 +88,70 @@ describe("checkProxyTarget (SSRF guard)", () => {
   it("rejects malformed URLs", () => {
     expect(checkProxyTarget("not a url").ok).toBe(false);
     expect(checkProxyTarget("").ok).toBe(false);
+  });
+});
+
+describe("guardedFetch (redirect re-validation)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const redirect = (location: string) =>
+    new Response(null, { status: 302, headers: { location } });
+
+  it("fetches with redirect disabled so each hop is re-checked", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("ok"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await guardedFetch(new URL("https://example.com/"), {});
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ redirect: "manual" });
+  });
+
+  it("refuses a redirect that points at an internal host", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(redirect("http://169.254.169.254/latest/"))
+    );
+
+    await expect(
+      guardedFetch(new URL("https://example.com/"), {})
+    ).rejects.toThrow(/Refused redirect target/);
+  });
+
+  it("refuses a redirect to an IPv4-mapped IPv6 loopback", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(redirect("http://[::ffff:127.0.0.1]/"))
+    );
+
+    await expect(
+      guardedFetch(new URL("https://example.com/"), {})
+    ).rejects.toThrow(/Refused redirect target/);
+  });
+
+  it("follows a redirect to another public host and returns the final body", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(redirect("https://cdn.example.org/page"))
+      .mockResolvedValueOnce(new Response("final", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await guardedFetch(new URL("https://example.com/"), {});
+
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("final");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1][0]).toBe("https://cdn.example.org/page");
+  });
+
+  it("gives up after the hop limit", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(redirect("https://cdn.example.org/loop"))
+    );
+
+    await expect(
+      guardedFetch(new URL("https://example.com/"), {}, 2)
+    ).rejects.toThrow(/Too many redirects/);
   });
 });

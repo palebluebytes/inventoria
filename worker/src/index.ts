@@ -1,4 +1,4 @@
-import { checkProxyTarget } from "../../src/lib/ingestion/url-guard";
+import { checkProxyTarget, guardedFetch } from "../../src/lib/ingestion/url-guard";
 import { cleanHtml } from "../../src/lib/ingestion/html-clean";
 
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -60,9 +60,8 @@ export default {
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
     try {
-      const response = await fetch(guard.url.toString(), {
+      const response = await guardedFetch(guard.url, {
         signal: controller.signal,
-        redirect: "follow",
         headers: {
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",

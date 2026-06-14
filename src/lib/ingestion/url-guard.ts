@@ -147,13 +147,46 @@ export function checkProxyTarget(raw: string): UrlGuardResult {
     return { ok: false, reason: "Malformed target URL" };
   }
 
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    return { ok: false, reason: `Unsupported scheme: ${url.protocol}` };
-  }
+  return checkParsedUrl(url);
+}
 
-  if (isBlockedHostname(url.hostname)) {
-    return { ok: false, reason: `Blocked host: ${url.hostname}` };
-  }
+/**
+ * Fetches a guard-approved URL while re-applying the guard on every redirect.
+ * The platform fetch is told never to follow redirects itself; we resolve each
+ * `Location` and re-check it, so an allowed public host cannot 3xx-bounce the
+ * request to loopback/metadata/private space. Shared by the Worker and Vite
+ * proxies so prod and dev cannot drift. Throws on a refused or malformed
+ * redirect target, or when the hop limit is exceeded.
+ */
+export async function guardedFetch(
+  start: URL,
+  init: RequestInit,
+  maxHops = 5
+): Promise<Response> {
+  let current = start;
+  for (let hop = 0; hop <= maxHops; hop++) {
+    const response = await fetch(current.toString(), {
+      ...init,
+      redirect: "manual",
+    });
+    if (response.status < 300 || response.status >= 400) {
+      return response;
+    }
 
-  return { ok: true, url };
+    const location = response.headers.get("location");
+    if (!location) return response; // 3xx without a target; let the caller 4xx.
+
+    let next: URL;
+    try {
+      next = new URL(location, current);
+    } catch {
+      throw new Error("Redirected to a malformed URL");
+    }
+    const guard = checkParsedUrl(next);
+    if (!guard.ok) {
+      throw new Error(`Refused redirect target: ${guard.reason}`);
+    }
+    current = guard.url;
+  }
+  throw new Error("Too many redirects");
 }

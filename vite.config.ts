@@ -3,7 +3,7 @@ import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { VitePWA } from "vite-plugin-pwa";
 // Shared with the Cloudflare worker so the dev proxy and prod proxy never drift.
 import { cleanHtml } from "./src/lib/ingestion/html-clean";
-import { checkProxyTarget } from "./src/lib/ingestion/url-guard";
+import { checkProxyTarget, guardedFetch } from "./src/lib/ingestion/url-guard";
 
 const handleProxyRequest = async (req: any, res: any, next: any) => {
   const urlObj = new URL(
@@ -27,7 +27,7 @@ const handleProxyRequest = async (req: any, res: any, next: any) => {
     }
 
     try {
-      const fetchRes = await fetch(guard.url.toString(), {
+      const fetchRes = await guardedFetch(guard.url, {
         headers: {
           "User-Agent":
             "Mozilla/5.5 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
