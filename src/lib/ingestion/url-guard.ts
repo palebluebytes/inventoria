@@ -3,7 +3,15 @@
  *
  * The proxy fetches a user-supplied URL, so it must refuse anything that could
  * reach internal infrastructure: non-HTTP schemes, loopback, private/link-local
- * ranges (incl. cloud metadata at 169.254.169.254), and *.internal / *.local.
+ * ranges (incl. cloud metadata at 169.254.169.254, also reachable via
+ * IPv4-mapped IPv6 and the NAT64 prefix), and *.internal / *.local.
+ *
+ * Scope/residual risk: this is a literal-address guard. It does NOT resolve DNS,
+ * so a public hostname that resolves to an internal IP (DNS rebinding, or names
+ * like 127.0.0.1.nip.io) is NOT blocked here — Cloudflare Workers expose no DNS
+ * resolution API, so that defence is out of scope and accepted as residual risk.
+ * The redirect-following helper below re-applies this guard on every hop so an
+ * allowed host cannot bounce the fetch to an internal target.
  *
  * Single source of truth shared by the Cloudflare Worker proxy and the Vite dev
  * proxy middleware.
