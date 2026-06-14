@@ -34,28 +34,98 @@ function isPrivateIpv4(host: string): boolean {
   return false;
 }
 
+/**
+ * Expands an IPv6 literal into its eight 16-bit groups, or null if it does not
+ * parse as one. A trailing dotted-quad (e.g. `::ffff:127.0.0.1`) is folded into
+ * two groups first so both the dotted and the URL-normalized hex form
+ * (`::ffff:7f00:1`) collapse to the same numbers.
+ */
+function expandIpv6(v6: string): number[] | null {
+  let body = v6;
+  const lastColon = body.lastIndexOf(":");
+  if (lastColon !== -1 && body.slice(lastColon + 1).includes(".")) {
+    const quad = ipv4ToOctets(body.slice(lastColon + 1));
+    if (!quad) return null;
+    const hi = ((quad[0] << 8) | quad[1]).toString(16);
+    const lo = ((quad[2] << 8) | quad[3]).toString(16);
+    body = `${body.slice(0, lastColon + 1)}${hi}:${lo}`;
+  }
+
+  const halves = body.split("::");
+  if (halves.length > 2) return null;
+  const head = halves[0] ? halves[0].split(":") : [];
+  const tail = halves.length === 2 && halves[1] ? halves[1].split(":") : [];
+
+  let groups: string[];
+  if (halves.length === 1) {
+    groups = head;
+  } else {
+    const fill = 8 - head.length - tail.length;
+    if (fill < 1) return null;
+    groups = [...head, ...Array(fill).fill("0"), ...tail];
+  }
+  if (groups.length !== 8) return null;
+
+  const nums = groups.map((g) => parseInt(g, 16));
+  if (nums.some((n) => !Number.isInteger(n) || n < 0 || n > 0xffff)) return null;
+  return nums;
+}
+
+/**
+ * Returns the dotted IPv4 string embedded in an IPv6 address that tunnels v4 —
+ * IPv4-mapped (`::ffff:0:0/96`), IPv4-compatible (`::/96`), or NAT64
+ * (`64:ff9b::/96`) — otherwise null. The last two 16-bit groups carry the four
+ * octets.
+ */
+function embeddedIpv4(nums: number[]): string | null {
+  const headZero = nums.slice(0, 5).every((n) => n === 0);
+  const isMappedOrCompat = headZero && (nums[5] === 0xffff || nums[5] === 0);
+  const isNat64 =
+    nums[0] === 0x0064 &&
+    nums[1] === 0xff9b &&
+    nums.slice(2, 6).every((n) => n === 0);
+  if (!isMappedOrCompat && !isNat64) return null;
+
+  const [hi, lo] = [nums[6], nums[7]];
+  return [hi >> 8, hi & 0xff, lo >> 8, lo & 0xff].join(".");
+}
+
 function isBlockedHostname(hostname: string): boolean {
   const host = hostname.toLowerCase().replace(/\.$/, "");
 
   if (host === "localhost" || host.endsWith(".localhost")) return true;
   if (host.endsWith(".internal") || host.endsWith(".local")) return true;
 
-  // IPv6 loopback / link-local / unique-local (URL hostnames keep the brackets
-  // off, but be defensive about them).
+  // IPv6 loopback / link-local / unique-local. URL hostnames keep the brackets
+  // on the literal, so strip them before inspecting.
   const v6 = host.replace(/^\[|\]$/g, "");
   if (v6 === "::1" || v6 === "::") return true;
   if (v6.startsWith("fe80:") || v6.startsWith("fc") || v6.startsWith("fd")) {
     return true;
   }
-  if (v6.startsWith("::ffff:")) {
-    // IPv4-mapped IPv6 — validate the embedded v4.
-    const mapped = v6.slice("::ffff:".length);
-    if (isPrivateIpv4(mapped)) return true;
+  // IPv4 tunnelled inside IPv6 (mapped/compatible/NAT64). The URL parser
+  // normalizes `[::ffff:127.0.0.1]` to the hex form `[::ffff:7f00:1]`, so match
+  // on the expanded numbers rather than the source string.
+  const v6nums = expandIpv6(v6);
+  if (v6nums) {
+    const tunnelled = embeddedIpv4(v6nums);
+    if (tunnelled && isPrivateIpv4(tunnelled)) return true;
   }
 
   if (isPrivateIpv4(host)) return true;
 
   return false;
+}
+
+/** Applies the scheme + host checks to an already-parsed URL. */
+function checkParsedUrl(url: URL): UrlGuardResult {
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return { ok: false, reason: `Unsupported scheme: ${url.protocol}` };
+  }
+  if (isBlockedHostname(url.hostname)) {
+    return { ok: false, reason: `Blocked host: ${url.hostname}` };
+  }
+  return { ok: true, url };
 }
 
 /**

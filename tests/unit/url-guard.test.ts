@@ -54,6 +54,27 @@ describe("checkProxyTarget (SSRF guard)", () => {
     }
   });
 
+  it("rejects IPv4 tunnelled inside IPv6 (mapped / compatible / NAT64)", () => {
+    for (const u of [
+      // IPv4-mapped, both as written and as the URL parser normalizes it.
+      "http://[::ffff:127.0.0.1]/",
+      "http://[::ffff:7f00:1]/",
+      "http://[0:0:0:0:0:ffff:127.0.0.1]/",
+      "http://[::ffff:169.254.169.254]/", // metadata via mapped form
+      "http://[::ffff:10.0.0.1]/",
+      "http://[::ffff:192.168.1.1]/",
+      // NAT64 64:ff9b::/96 translating to loopback / metadata.
+      "http://[64:ff9b::7f00:1]/",
+      "http://[64:ff9b::a9fe:a9fe]/",
+    ]) {
+      expect(checkProxyTarget(u).ok, u).toBe(false);
+    }
+  });
+
+  it("still allows IPv4-mapped IPv6 pointing at a public address", () => {
+    expect(checkProxyTarget("http://[::ffff:8.8.8.8]/").ok).toBe(true);
+  });
+
   it("rejects internal/local TLDs", () => {
     expect(checkProxyTarget("http://db.internal/").ok).toBe(false);
     expect(checkProxyTarget("http://printer.local/").ok).toBe(false);
