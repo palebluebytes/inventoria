@@ -3,7 +3,7 @@
   import Button from "../../ui/Button.svelte";
   import Input from "../../ui/Input.svelte";
   import Alert from "../../ui/Alert.svelte";
-  import { dismissable } from "../../ui/dismissable";
+  import { Dialog } from "bits-ui";
 
   let {
     editingItem = $bindable(),
@@ -13,6 +13,8 @@
     showEditModal: boolean;
   } = $props();
 
+  let open = $state(true);
+
   let editTags = $state("");
   let editNote = $state("");
   let editError = $state("");
@@ -21,6 +23,13 @@
     showEditModal = false;
     editingItem = null;
   }
+
+  // bits-ui only fires onOpenChange for its own close triggers (Escape,
+  // outside-click), not for programmatic `open = false`, so drive the close
+  // from the bound state to cover every close path.
+  $effect(() => {
+    if (!open) closeModal();
+  });
 
   $effect(() => {
     if (editingItem) {
@@ -53,18 +62,26 @@
 </script>
 
 {#if showEditModal && editingItem}
-  <div class="modal-overlay" use:dismissable={closeModal} role="presentation">
-    <div class="modal-card" role="dialog" aria-modal="true" tabindex="-1">
-      <div class="modal-header">
-        <h2>✏️ Edit Tags & Note</h2>
-        <button
-          class="close-btn"
-          onclick={() => {
-            showEditModal = false;
-            editingItem = null;
-          }}>&times;</button
-        >
-      </div>
+  <Dialog.Root bind:open>
+    <Dialog.Portal>
+      <Dialog.Overlay>
+        {#snippet child({ props })}
+          <div {...props} class="modal-overlay"></div>
+        {/snippet}
+      </Dialog.Overlay>
+      <Dialog.Content>
+        {#snippet child({ props })}
+          <div {...props} class="modal-card">
+            <div class="modal-header">
+              <Dialog.Title>
+                {#snippet child({ props })}
+                  <h2 {...props}>✏️ Edit Tags & Note</h2>
+                {/snippet}
+              </Dialog.Title>
+              <button class="close-btn" onclick={() => (open = false)}
+                >&times;</button
+              >
+            </div>
 
       {#if editError}
         <Alert variant="error" class="mb-4">{editError}</Alert>
@@ -100,16 +117,16 @@
           <Button
             variant="secondary"
             type="button"
-            onclick={() => {
-              showEditModal = false;
-              editingItem = null;
-            }}>Cancel</Button
+            onclick={() => (open = false)}>Cancel</Button
           >
           <Button type="submit">Save Changes</Button>
         </div>
       </form>
-    </div>
-  </div>
+          </div>
+        {/snippet}
+      </Dialog.Content>
+    </Dialog.Portal>
+  </Dialog.Root>
 {/if}
 
 <style>
@@ -120,17 +137,19 @@
     width: 100vw;
     height: 100vh;
     background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
     z-index: 999;
     backdrop-filter: blur(4px);
   }
   .modal-card {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
     background: var(--bg-surface, #fff);
     border: 3px solid #000;
     box-shadow: 8px 8px 0 #000;
-    width: 90%;
+    width: calc(100% - 2 * var(--space-s));
     max-width: 500px;
     max-height: 85vh;
     overflow-y: auto;
@@ -214,11 +233,11 @@
   @keyframes popIn {
     from {
       opacity: 0;
-      transform: scale(0.9);
+      transform: translate(-50%, -50%) scale(0.9);
     }
     to {
       opacity: 1;
-      transform: scale(1);
+      transform: translate(-50%, -50%) scale(1);
     }
   }
 </style>

@@ -8,12 +8,20 @@
   import Card from "../ui/Card.svelte";
   import Badge from "../ui/Badge.svelte";
   import Button from "../ui/Button.svelte";
-  import { dismissable } from "../ui/dismissable";
+  import { Dialog } from "bits-ui";
 
   let { dbReady }: { dbReady: boolean } = $props();
 
   let selectedDate = $state(new Date());
   let activeModal = $state<"menu" | "search" | "photo" | "recipe" | null>(null);
+  let menuOpen = $state(true);
+
+  // bits-ui only fires onOpenChange for its own close triggers (Escape,
+  // outside-click), not for programmatic `menuOpen = false`, so drive the menu
+  // close from the bound state to cover every close path.
+  $effect(() => {
+    if (activeModal === "menu" && !menuOpen) activeModal = null;
+  });
   let active_meal_type = $state<"breakfast" | "lunch" | "dinner" | "snack">(
     "breakfast"
   );
@@ -31,6 +39,7 @@
 
   function openMenu(meal_type: "breakfast" | "lunch" | "dinner" | "snack") {
     active_meal_type = meal_type;
+    menuOpen = true;
     activeModal = "menu";
   }
 </script>
@@ -72,19 +81,27 @@
 
 <!-- Overlay menu modal -->
 {#if activeModal === "menu"}
-  <div
-    class="menu-modal-overlay"
-    use:dismissable={() => (activeModal = null)}
-    role="presentation"
-  >
-    <div class="menu-modal-card" role="dialog" aria-modal="true" tabindex="-1">
-      <div class="menu-header">
-        <h3>Log {active_meal_type.toUpperCase()}</h3>
-        <button class="close-btn" onclick={() => (activeModal = null)}
-          >&times;</button
-        >
-      </div>
-      <div class="menu-options mt-4">
+  <Dialog.Root bind:open={menuOpen}>
+    <Dialog.Portal>
+      <Dialog.Overlay>
+        {#snippet child({ props })}
+          <div {...props} class="menu-modal-overlay"></div>
+        {/snippet}
+      </Dialog.Overlay>
+      <Dialog.Content>
+        {#snippet child({ props })}
+          <div {...props} class="menu-modal-card">
+            <div class="menu-header">
+              <Dialog.Title>
+                {#snippet child({ props })}
+                  <h3 {...props}>Log {active_meal_type.toUpperCase()}</h3>
+                {/snippet}
+              </Dialog.Title>
+              <button class="close-btn" onclick={() => (menuOpen = false)}
+                >&times;</button
+              >
+            </div>
+            <div class="menu-options mt-4">
         <button
           class="menu-option-btn"
           onclick={() => (activeModal = "search")}
@@ -119,8 +136,11 @@
           </div>
         </button>
       </div>
-    </div>
-  </div>
+          </div>
+        {/snippet}
+      </Dialog.Content>
+    </Dialog.Portal>
+  </Dialog.Root>
 {/if}
 
 <!-- Sub-Modals -->
@@ -226,16 +246,18 @@
     width: 100vw;
     height: 100vh;
     background: rgba(255, 255, 255, 0.9);
-    display: flex;
-    align-items: center;
-    justify-content: center;
     z-index: 998;
   }
   .menu-modal-card {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 999;
     background: #fff;
     border: 2px solid #000;
     border-radius: 0;
-    width: 90%;
+    width: calc(100% - 2 * var(--space-s));
     max-width: 450px;
     padding: var(--space-m);
     box-shadow: 8px 8px 0 rgba(0, 0, 0, 1);
@@ -326,11 +348,11 @@
   @keyframes slideUp {
     from {
       opacity: 0;
-      transform: translateY(20px);
+      transform: translate(-50%, -50%) translateY(20px);
     }
     to {
       opacity: 1;
-      transform: translateY(0);
+      transform: translate(-50%, -50%);
     }
   }
 </style>

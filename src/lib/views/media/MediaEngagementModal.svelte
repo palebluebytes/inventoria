@@ -15,8 +15,14 @@
   } = $props();
 
   // The parent mounts this component to open it; closing (Escape, backdrop,
-  // close button) flips `open`, and onOpenChange tells the parent to unmount.
+  // close button) flips `open`. bits-ui only fires onOpenChange for its own
+  // close triggers (Escape, outside-click), not for programmatic `open = false`,
+  // so we drive onClose from the bound state to cover every close path.
   let open = $state(true);
+
+  $effect(() => {
+    if (!open) onClose();
+  });
 
   const init = untrack(() => media);
   let formStatus = $state<"saved" | "started" | "progress" | "completed">(
@@ -73,7 +79,7 @@
   }
 </script>
 
-<Dialog.Root bind:open onOpenChange={(o) => !o && onClose()}>
+<Dialog.Root bind:open>
   <Dialog.Portal>
     <Dialog.Overlay>
       {#snippet child({ props })}
