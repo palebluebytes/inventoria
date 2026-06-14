@@ -6,6 +6,7 @@
   import { settingsStore } from "../../stores/settings.store";
   import Button from "../../ui/Button.svelte";
   import Alert from "../../ui/Alert.svelte";
+  import { dismissable } from "../../ui/dismissable";
 
   let {
     onClose,
@@ -108,10 +109,8 @@
   }
 </script>
 
-<div class="modal-overlay" onclick={onClose} role="dialog" aria-modal="true">
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-  <div class="modal-card" onclick={(e) => e.stopPropagation()}>
+<div class="modal-overlay" use:dismissable={onClose} role="presentation">
+  <div class="modal-card" role="dialog" aria-modal="true" tabindex="-1">
     <div class="modal-header">
       <h2>Ingest Digital Twins</h2>
       <button class="close-btn" onclick={onClose}>&times;</button>

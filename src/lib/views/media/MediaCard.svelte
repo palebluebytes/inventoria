@@ -16,14 +16,29 @@
   } = $props();
 
   let imageError = $state(false);
+
+  // Opening the detail view is suppressed when the click lands on the action
+  // bar, so the quick-advance buttons keep working without a separate
+  // stop-propagation handler on a non-interactive element.
+  function handleCardClick(event: MouseEvent) {
+    if ((event.target as HTMLElement).closest(".card-actions")) return;
+    onClick();
+  }
+  function handleCardKey(event: KeyboardEvent) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onClick();
+    }
+  }
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
   class="media-card"
   class:completed={item.status === "completed"}
-  onclick={onClick}
+  role="button"
+  tabindex="0"
+  onclick={handleCardClick}
+  onkeydown={handleCardKey}
 >
   {#if item.poster_url && !imageError}
     <img
@@ -85,7 +100,7 @@
   </div>
 
   {#if item.status !== "completed"}
-    <div class="card-actions" onclick={(e) => e.stopPropagation()}>
+    <div class="card-actions">
       <Button
         variant="secondary"
         class="w-full text-xs"

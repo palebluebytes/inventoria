@@ -3,6 +3,7 @@
   import Button from "../../ui/Button.svelte";
   import Input from "../../ui/Input.svelte";
   import Alert from "../../ui/Alert.svelte";
+  import { dismissable } from "../../ui/dismissable";
 
   let {
     editingItem = $bindable(),
@@ -15,6 +16,11 @@
   let editTags = $state("");
   let editNote = $state("");
   let editError = $state("");
+
+  function closeModal() {
+    showEditModal = false;
+    editingItem = null;
+  }
 
   $effect(() => {
     if (editingItem) {
@@ -47,18 +53,8 @@
 </script>
 
 {#if showEditModal && editingItem}
-  <div
-    class="modal-overlay"
-    onclick={() => {
-      showEditModal = false;
-      editingItem = null;
-    }}
-    role="dialog"
-    aria-modal="true"
-  >
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-    <div class="modal-card" onclick={(e) => e.stopPropagation()}>
+  <div class="modal-overlay" use:dismissable={closeModal} role="presentation">
+    <div class="modal-card" role="dialog" aria-modal="true" tabindex="-1">
       <div class="modal-header">
         <h2>✏️ Edit Tags & Note</h2>
         <button

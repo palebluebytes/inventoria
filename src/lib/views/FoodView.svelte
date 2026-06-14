@@ -8,6 +8,7 @@
   import Card from "../ui/Card.svelte";
   import Badge from "../ui/Badge.svelte";
   import Button from "../ui/Button.svelte";
+  import { dismissable } from "../ui/dismissable";
 
   let { dbReady }: { dbReady: boolean } = $props();
 
@@ -73,13 +74,10 @@
 {#if activeModal === "menu"}
   <div
     class="menu-modal-overlay"
-    onclick={() => (activeModal = null)}
-    role="dialog"
-    aria-modal="true"
+    use:dismissable={() => (activeModal = null)}
+    role="presentation"
   >
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-    <div class="menu-modal-card" onclick={(e) => e.stopPropagation()}>
+    <div class="menu-modal-card" role="dialog" aria-modal="true" tabindex="-1">
       <div class="menu-header">
         <h3>Log {active_meal_type.toUpperCase()}</h3>
         <button class="close-btn" onclick={() => (activeModal = null)}

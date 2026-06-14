@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { fade } from "svelte/transition";
+  import { dismissable } from "./dismissable";
 
   let {
     isOpen = $bindable(false),
@@ -18,17 +19,18 @@
 </script>
 
 {#if isOpen}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <div
     class="bottom-sheet-backdrop"
-    onclick={close}
+    use:dismissable={close}
     transition:fade={{ duration: 150 }}
-    role="dialog"
-    aria-modal="true"
+    role="presentation"
   >
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="bottom-sheet-content" onclick={(e) => e.stopPropagation()}>
+    <div
+      class="bottom-sheet-content"
+      role="dialog"
+      aria-modal="true"
+      tabindex="-1"
+    >
       <div class="bottom-sheet-handle-bar">
         <div class="drag-handle"></div>
       </div>

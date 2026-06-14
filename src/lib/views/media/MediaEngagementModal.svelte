@@ -3,6 +3,7 @@
   import { updateMediaStatus, enrichMediaTwin } from "../../stores/media.store";
   import Badge from "../../ui/Badge.svelte";
   import Button from "../../ui/Button.svelte";
+  import { dismissable } from "../../ui/dismissable";
 
   let {
     media,
@@ -66,10 +67,8 @@
   }
 </script>
 
-<div class="modal-overlay" onclick={onClose} role="dialog" aria-modal="true">
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-  <div class="modal-card" onclick={(e) => e.stopPropagation()}>
+<div class="modal-overlay" use:dismissable={onClose} role="presentation">
+  <div class="modal-card" role="dialog" aria-modal="true" tabindex="-1">
     <div class="modal-header">
       <h2>Log Engagement Event</h2>
       <button class="close-btn" onclick={onClose}>&times;</button>

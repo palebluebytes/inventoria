@@ -564,7 +564,7 @@
 
               {#if dailyUseSubtargets}
                 <div class="subtargets-editor mt-2">
-                  <label class="field-label">Time Targets</label>
+                  <span class="field-label">Time Targets</span>
                   <div class="subtargets-list mt-1">
                     {#each dailySubtargets as tgt, idx}
                       <div class="subtarget-row">
@@ -622,7 +622,7 @@
 
           {#if habitScheduleType === "weekly_days"}
             <div class="col-group section-inner">
-              <label class="field-label">Select Scheduled Days</label>
+              <span class="field-label">Select Scheduled Days</span>
               <div class="days-grid mt-1">
                 {#each ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as day}
                   <label

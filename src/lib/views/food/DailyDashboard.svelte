@@ -6,6 +6,7 @@
   import Button from "../../ui/Button.svelte";
   import Card from "../../ui/Card.svelte";
   import Badge from "../../ui/Badge.svelte";
+  import { dismissable } from "../../ui/dismissable";
 
   let {
     dbReady,
@@ -281,14 +282,18 @@
           {#each groupedMeals[meal_type] as item}
             <div class="meal-item-card">
               {#if item.photo_base64}
-                <!-- svelte-ignore a11y_click_events_have_key_events -->
-                <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-                <img
-                  src={item.photo_base64}
-                  alt={item.food_name}
-                  class="meal-item-thumb"
+                <button
+                  type="button"
+                  class="meal-item-thumb-btn"
+                  aria-label="View {item.food_name} photo"
                   onclick={() => (previewPhoto = item.photo_base64)}
-                />
+                >
+                  <img
+                    src={item.photo_base64}
+                    alt={item.food_name}
+                    class="meal-item-thumb"
+                  />
+                </button>
               {/if}
               <div class="meal-item-details">
                 <span class="meal-item-name"
@@ -312,9 +317,11 @@
 
 <!-- Photo preview Modal -->
 {#if previewPhoto}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-  <div class="photo-modal-overlay" onclick={() => (previewPhoto = null)}>
+  <div
+    class="photo-modal-overlay"
+    use:dismissable={() => (previewPhoto = null)}
+    role="presentation"
+  >
     <div class="photo-modal-content">
       <img src={previewPhoto} alt="Food Log Preview" class="photo-modal-img" />
       <button class="photo-modal-close" onclick={() => (previewPhoto = null)}
@@ -577,6 +584,13 @@
   }
   .meal-item-card:hover {
     background: rgba(255, 255, 255, 0.04);
+  }
+  .meal-item-thumb-btn {
+    display: inline-flex;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
   }
   .meal-item-thumb {
     width: 48px;
