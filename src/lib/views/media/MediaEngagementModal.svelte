@@ -1,10 +1,10 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import { Dialog } from "bits-ui";
   import type { EnrichedMedia } from "../../media/state";
   import { updateMediaStatus, enrichMediaTwin } from "../../stores/media.store";
   import Badge from "../../ui/Badge.svelte";
   import Button from "../../ui/Button.svelte";
-  import { dismissable } from "../../ui/dismissable";
 
   let {
     media,
@@ -13,6 +13,10 @@
     media: EnrichedMedia;
     onClose: () => void;
   } = $props();
+
+  // The parent mounts this component to open it; closing (Escape, backdrop,
+  // close button) flips `open`, and onOpenChange tells the parent to unmount.
+  let open = $state(true);
 
   const init = untrack(() => media);
   let formStatus = $state<"saved" | "started" | "progress" | "completed">(
@@ -69,12 +73,26 @@
   }
 </script>
 
-<div class="modal-overlay" use:dismissable={onClose} role="presentation">
-  <div class="modal-card" role="dialog" aria-modal="true" tabindex="-1">
-    <div class="modal-header">
-      <h2>Log Engagement Event</h2>
-      <button class="close-btn" onclick={onClose}>&times;</button>
-    </div>
+<Dialog.Root bind:open onOpenChange={(o) => !o && onClose()}>
+  <Dialog.Portal>
+    <Dialog.Overlay>
+      {#snippet child({ props })}
+        <div {...props} class="modal-overlay"></div>
+      {/snippet}
+    </Dialog.Overlay>
+    <Dialog.Content>
+      {#snippet child({ props })}
+        <div {...props} class="modal-card">
+          <div class="modal-header">
+            <Dialog.Title>
+              {#snippet child({ props })}
+                <h2 {...props}>Log Engagement Event</h2>
+              {/snippet}
+            </Dialog.Title>
+            <button class="close-btn" onclick={() => (open = false)}
+              >&times;</button
+            >
+          </div>
 
     <div class="media-details-banner">
       {#if media.poster_url && !imageError}
@@ -213,39 +231,41 @@
       </div>
 
       <div class="modal-footer mt-6">
-        <Button variant="secondary" onclick={onClose}>Cancel</Button>
+        <Button variant="secondary" onclick={() => (open = false)}>Cancel</Button>
         <Button type="submit">Log Event</Button>
       </div>
     </form>
-  </div>
-</div>
+        </div>
+      {/snippet}
+    </Dialog.Content>
+  </Dialog.Portal>
+</Dialog.Root>
 
 <style>
+  /* bits-ui renders the overlay (backdrop) and content (card) as siblings, so
+     the backdrop only dims and the card positions itself. */
   .modal-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
+    inset: 0;
     background: rgba(255, 255, 255, 0.95);
-    display: flex;
-    align-items: center;
-    justify-content: center;
     z-index: 1000;
-    padding: var(--space-s);
   }
 
   .modal-card {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1001;
     background: #fff;
     border: 4px solid #000;
-    width: 100%;
+    width: calc(100% - 2 * var(--space-s));
     max-width: 600px;
     max-height: 90vh;
     display: flex;
     flex-direction: column;
     padding: 0;
     box-shadow: 12px 12px 0 #000;
-    animation: slideUp 0.1s step-end;
     overflow: hidden;
   }
 
@@ -474,16 +494,5 @@
   }
   .mt-6 {
     margin-top: var(--space-m);
-  }
-
-  @keyframes slideUp {
-    from {
-      opacity: 0;
-      transform: translateY(10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
   }
 </style>
