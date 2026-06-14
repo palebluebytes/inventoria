@@ -24,7 +24,7 @@
   import Card from "../../ui/Card.svelte";
   import Alert from "../../ui/Alert.svelte";
   import Badge from "../../ui/Badge.svelte";
-  import { Dialog } from "bits-ui";
+  import { Dialog, Tabs } from "bits-ui";
 
   let {
     dbReady,
@@ -349,22 +349,36 @@
 
     {#if !selectedFood}
       <!-- Tabs -->
-      <div class="tabs">
-        <button
-          class="tab-btn"
-          class:active={activeTab === "usda"}
-          onclick={() => (activeTab = "usda")}
-        >
-          🔍 USDA Search
-        </button>
-        <button
-          class="tab-btn"
-          class:active={activeTab === "barcode"}
-          onclick={() => (activeTab = "barcode")}
-        >
-          🏷️ Barcode Lookup
-        </button>
-      </div>
+      <Tabs.Root bind:value={activeTab}>
+        <Tabs.List>
+          {#snippet child({ props })}
+            <div {...props} class="tabs">
+              <Tabs.Trigger value="usda">
+                {#snippet child({ props })}
+                  <button
+                    {...props}
+                    class="tab-btn"
+                    class:active={activeTab === "usda"}
+                  >
+                    🔍 USDA Search
+                  </button>
+                {/snippet}
+              </Tabs.Trigger>
+              <Tabs.Trigger value="barcode">
+                {#snippet child({ props })}
+                  <button
+                    {...props}
+                    class="tab-btn"
+                    class:active={activeTab === "barcode"}
+                  >
+                    🏷️ Barcode Lookup
+                  </button>
+                {/snippet}
+              </Tabs.Trigger>
+            </div>
+          {/snippet}
+        </Tabs.List>
+      </Tabs.Root>
 
       <!-- Search fields -->
       <div class="search-section mt-4">

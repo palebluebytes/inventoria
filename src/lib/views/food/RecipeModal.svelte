@@ -18,7 +18,7 @@
   import Card from "../../ui/Card.svelte";
   import Alert from "../../ui/Alert.svelte";
   import Badge from "../../ui/Badge.svelte";
-  import { Dialog } from "bits-ui";
+  import { Dialog, Tabs } from "bits-ui";
 
   interface Ingredient {
     entity: string;
@@ -437,22 +437,36 @@
       <!-- Add Ingredient search flow -->
       <div class="search-ingredients-box mt-4">
         <h3>Add Ingredient</h3>
-        <div class="tabs">
-          <button
-            class="tab-btn"
-            class:active={searchTab === "usda"}
-            onclick={() => (searchTab = "usda")}
-          >
-            🔍 USDA Search
-          </button>
-          <button
-            class="tab-btn"
-            class:active={searchTab === "barcode"}
-            onclick={() => (searchTab = "barcode")}
-          >
-            🏷️ Barcode Lookup
-          </button>
-        </div>
+        <Tabs.Root bind:value={searchTab}>
+          <Tabs.List>
+            {#snippet child({ props })}
+              <div {...props} class="tabs">
+                <Tabs.Trigger value="usda">
+                  {#snippet child({ props })}
+                    <button
+                      {...props}
+                      class="tab-btn"
+                      class:active={searchTab === "usda"}
+                    >
+                      🔍 USDA Search
+                    </button>
+                  {/snippet}
+                </Tabs.Trigger>
+                <Tabs.Trigger value="barcode">
+                  {#snippet child({ props })}
+                    <button
+                      {...props}
+                      class="tab-btn"
+                      class:active={searchTab === "barcode"}
+                    >
+                      🏷️ Barcode Lookup
+                    </button>
+                  {/snippet}
+                </Tabs.Trigger>
+              </div>
+            {/snippet}
+          </Tabs.List>
+        </Tabs.Root>
 
         <div class="search-section mt-4">
           {#if searchTab === "usda"}
