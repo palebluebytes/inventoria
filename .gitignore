@@ -31,6 +31,9 @@ dist-ssr
 .env.*
 !.env.example
 
+# Local AI agent tooling state
+.claude/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
