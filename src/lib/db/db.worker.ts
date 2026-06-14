@@ -23,16 +23,22 @@ self.onmessage = async (event: MessageEvent) => {
         return;
       }
 
-      const { dbPath } = payload;
+      const { dbPath, forceMemory } = payload;
       const sqlite3 = await (sqlite3InitModule as any)({
         print: console.log,
         printErr: console.error,
       });
 
-      const opfsVfs = sqlite3.capi.sqlite3_vfs_find("opfs");
+      // `forceMemory` is set by the client for the `?mem=1` escape hatch, used
+      // by the e2e suite in headless/CI environments where OPFS writes fail.
+      const opfsVfs = forceMemory
+        ? null
+        : sqlite3.capi.sqlite3_vfs_find("opfs");
       if (!opfsVfs) {
         console.warn(
-          "worker: OPFS is not supported in this browser environment. Falling back to in-memory database."
+          forceMemory
+            ? "worker: forceMemory set — using an in-memory database."
+            : "worker: OPFS is not supported in this browser environment. Falling back to in-memory database."
         );
         db = new (sqlite3 as any).oo1.DB();
         console.log("worker: in-memory db opened successfully");

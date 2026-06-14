@@ -10,7 +10,7 @@ test("Habits UI - create habit blueprint, log execution, view details, and edit 
   );
 
   // Navigate to root
-  await page.goto("/");
+  await page.goto("/?mem=1");
 
   // Wait for the DB connection to be fully ready
   await page.waitForFunction(

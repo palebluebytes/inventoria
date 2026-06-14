@@ -300,7 +300,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("loads the calorie tracker dashboard with initial empty target progress", async ({
     page,
   }) => {
-    await page.goto("/");
+    await page.goto("/?mem=1");
     await waitForDbReady(page);
 
     // Verify page header
@@ -318,7 +318,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("can search USDA and log consumption of a food item", async ({
     page,
   }) => {
-    await page.goto("/");
+    await page.goto("/?mem=1");
     await waitForDbReady(page);
     await setupApiKeys(page);
 
@@ -356,7 +356,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   });
 
   test("can log a custom food with details and a photo", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/?mem=1");
     await waitForDbReady(page);
 
     // Open logging menu for Lunch
@@ -397,7 +397,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("can build a recipe twin, scrape steps, and log it with multiple ingredients", async ({
     page,
   }) => {
-    await page.goto("/");
+    await page.goto("/?mem=1");
     await waitForDbReady(page);
     await setupApiKeys(page);
 
@@ -456,7 +456,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("can build a realistic Dal Makhani recipe twin with custom source URL and multiple ingredients", async ({
     page,
   }) => {
-    await page.goto("/");
+    await page.goto("/?mem=1");
     await waitForDbReady(page);
     await setupApiKeys(page);
 

@@ -60,9 +60,16 @@ export class DBClient {
 
     this.initialized = true;
 
+    // Test-only escape hatch: `?mem=1` forces an in-memory database so the app
+    // is usable in headless/CI environments where OPFS writes fail. Has no
+    // effect in normal use.
+    const forceMemory =
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("mem") === "1";
+
     // Trigger initialization inside the worker
     console.log("dbClient: sending init request to worker");
-    await this.send("init", { dbPath });
+    await this.send("init", { dbPath, forceMemory });
     console.log("dbClient: worker finished initialization");
   }
 

@@ -26,7 +26,7 @@ test.describe("Reactive store — live updates without page reload", () => {
   test("food twin appears in query results after append, without reload", async ({
     page,
   }) => {
-    await page.goto("/");
+    await page.goto("/?mem=1");
     await waitForDbReady(page);
 
     // Inject a food twin via the already-initialised dbClient singleton on window
@@ -56,7 +56,7 @@ test.describe("Reactive store — live updates without page reload", () => {
   test("execution event appears in query results after logExecution append", async ({
     page,
   }) => {
-    await page.goto("/");
+    await page.goto("/?mem=1");
     await waitForDbReady(page);
 
     const eventEntity = await page.evaluate(async () => {

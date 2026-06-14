@@ -48,7 +48,7 @@ test("Physical Digital Twins UI - manual create, scrape, status toggling, and we
   });
 
   // 1. Test basic navigation and manual creation
-  await page.goto("/");
+  await page.goto("/?mem=1");
 
   // Wait for DB ready
   await page.waitForFunction(
@@ -160,7 +160,7 @@ test("Physical Digital Twins UI - manual create, scrape, status toggling, and we
 
   // 3. Test Web Share Target parameter interception
   // Share target sends us to /?url=https://example.com/products/lamp
-  await page.goto("/?url=https%3A%2F%2Fexample.com%2Fproducts%2Flamp");
+  await page.goto("/?url=https%3A%2F%2Fexample.com%2Fproducts%2Flamp&mem=1");
 
   // Wait for DB ready
   await page.waitForFunction(

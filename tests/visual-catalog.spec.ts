@@ -224,7 +224,7 @@ test.describe("Visual Catalog Generator", () => {
     await page.clock.install({ time: new Date("2026-06-05T08:30:00Z") });
 
     // 1. Initial Load & Setup
-    await page.goto("/");
+    await page.goto("/?mem=1");
     await waitForDbReady(page);
 
     // Verify all registered screens are covered by this visual catalog test

@@ -67,7 +67,7 @@ test("Media Library UI - search, save, and log engagement for books and movies",
   });
 
   // Go to page
-  await page.goto("/");
+  await page.goto("/?mem=1");
 
   // Wait for DB ready
   await page.waitForFunction(
