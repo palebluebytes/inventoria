@@ -18,7 +18,8 @@
   import Card from "../../ui/Card.svelte";
   import Alert from "../../ui/Alert.svelte";
   import Badge from "../../ui/Badge.svelte";
-  import { Dialog, Tabs } from "bits-ui";
+  import Modal from "../../ui/Modal.svelte";
+  import { Tabs } from "bits-ui";
 
   interface Ingredient {
     entity: string;
@@ -42,15 +43,6 @@
     selectedDate: Date;
     onClose: () => void;
   } = $props();
-
-  let open = $state(true);
-
-  // bits-ui only fires onOpenChange for its own close triggers (Escape,
-  // outside-click), not for programmatic `open = false`, so drive onClose from
-  // the bound state to cover every close path.
-  $effect(() => {
-    if (!open) onClose();
-  });
 
   // Recipe Meta
   let recipeName = $state("");
@@ -266,26 +258,13 @@
   }
 </script>
 
-<Dialog.Root bind:open>
-  <Dialog.Portal>
-    <Dialog.Overlay>
-      {#snippet child({ props })}
-        <div {...props} class="modal-overlay"></div>
-      {/snippet}
-    </Dialog.Overlay>
-    <Dialog.Content>
-      {#snippet child({ props })}
-        <div {...props} class="modal-card">
-          <div class="modal-header">
-            <Dialog.Title>
-              {#snippet child({ props })}
-                <h2 {...props}>🍲 Create Recipe</h2>
-              {/snippet}
-            </Dialog.Title>
-            <button class="close-btn" onclick={() => (open = false)}
-              >&times;</button
-            >
-          </div>
+<Modal onClose={onClose} title="🍲 Create Recipe">
+  {#snippet children({ props, close })}
+    <div {...props} class="modal-card">
+      <div class="modal-header">
+        <h2>🍲 Create Recipe</h2>
+        <button class="close-btn" onclick={close}>&times;</button>
+      </div>
 
     {#if !showSearch}
       <div class="recipe-form mt-4">
@@ -421,7 +400,7 @@
         </div>
 
         <div class="actions-row mt-6">
-          <Button variant="secondary" onclick={() => (open = false)}>Cancel</Button>
+          <Button variant="secondary" onclick={close}>Cancel</Button>
           <Button
             onclick={handleSaveRecipe}
             disabled={!recipeName.trim() ||
@@ -602,11 +581,9 @@
         </div>
       </div>
     {/if}
-        </div>
-      {/snippet}
-    </Dialog.Content>
-  </Dialog.Portal>
-</Dialog.Root>
+    </div>
+  {/snippet}
+</Modal>
 
 <style>
   .modal-overlay {

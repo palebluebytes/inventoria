@@ -1,10 +1,10 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { Dialog } from "bits-ui";
   import type { EnrichedMedia } from "../../media/state";
   import { updateMediaStatus, enrichMediaTwin } from "../../stores/media.store";
   import Badge from "../../ui/Badge.svelte";
   import Button from "../../ui/Button.svelte";
+  import Modal from "../../ui/Modal.svelte";
 
   let {
     media,
@@ -13,16 +13,6 @@
     media: EnrichedMedia;
     onClose: () => void;
   } = $props();
-
-  // The parent mounts this component to open it; closing (Escape, backdrop,
-  // close button) flips `open`. bits-ui only fires onOpenChange for its own
-  // close triggers (Escape, outside-click), not for programmatic `open = false`,
-  // so we drive onClose from the bound state to cover every close path.
-  let open = $state(true);
-
-  $effect(() => {
-    if (!open) onClose();
-  });
 
   const init = untrack(() => media);
   let formStatus = $state<"saved" | "started" | "progress" | "completed">(
@@ -79,26 +69,13 @@
   }
 </script>
 
-<Dialog.Root bind:open>
-  <Dialog.Portal>
-    <Dialog.Overlay>
-      {#snippet child({ props })}
-        <div {...props} class="modal-overlay"></div>
-      {/snippet}
-    </Dialog.Overlay>
-    <Dialog.Content>
-      {#snippet child({ props })}
-        <div {...props} class="modal-card">
-          <div class="modal-header">
-            <Dialog.Title>
-              {#snippet child({ props })}
-                <h2 {...props}>Log Engagement Event</h2>
-              {/snippet}
-            </Dialog.Title>
-            <button class="close-btn" onclick={() => (open = false)}
-              >&times;</button
-            >
-          </div>
+<Modal onClose={onClose} title="Log Engagement Event">
+  {#snippet children({ props, close })}
+    <div {...props} class="modal-card">
+      <div class="modal-header">
+        <h2>Log Engagement Event</h2>
+        <button class="close-btn" onclick={close}>&times;</button>
+      </div>
 
     <div class="media-details-banner">
       {#if media.poster_url && !imageError}
@@ -237,15 +214,13 @@
       </div>
 
       <div class="modal-footer mt-6">
-        <Button variant="secondary" onclick={() => (open = false)}>Cancel</Button>
+        <Button variant="secondary" onclick={close}>Cancel</Button>
         <Button type="submit">Log Event</Button>
       </div>
     </form>
-        </div>
-      {/snippet}
-    </Dialog.Content>
-  </Dialog.Portal>
-</Dialog.Root>
+    </div>
+  {/snippet}
+</Modal>
 
 <style>
   /* bits-ui renders the overlay (backdrop) and content (card) as siblings, so

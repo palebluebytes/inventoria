@@ -4,9 +4,9 @@
   import { ingestionRegistry } from "../../ingestion/registry";
   import { saveMediaTwin } from "../../stores/media.store";
   import { settingsStore } from "../../stores/settings.store";
-  import { Dialog } from "bits-ui";
   import Button from "../../ui/Button.svelte";
   import Alert from "../../ui/Alert.svelte";
+  import Modal from "../../ui/Modal.svelte";
 
   let {
     onClose,
@@ -17,15 +17,6 @@
     initialStatus?: "saved" | "started" | "progress" | "completed";
     initialType?: "movie" | "tv" | "book";
   } = $props();
-
-  let open = $state(true);
-
-  // bits-ui only fires onOpenChange for its own close triggers (Escape,
-  // outside-click), not for programmatic `open = false`. Drive onClose from the
-  // bound state so every close path (incl. our close/Cancel buttons) unmounts.
-  $effect(() => {
-    if (!open) onClose();
-  });
 
   let searchQuery = $state("");
   let searchResults = $state<any[]>([]);
@@ -118,26 +109,13 @@
   }
 </script>
 
-<Dialog.Root bind:open>
-  <Dialog.Portal>
-    <Dialog.Overlay>
-      {#snippet child({ props })}
-        <div {...props} class="modal-overlay"></div>
-      {/snippet}
-    </Dialog.Overlay>
-    <Dialog.Content>
-      {#snippet child({ props })}
-        <div {...props} class="modal-card">
-          <div class="modal-header">
-            <Dialog.Title>
-              {#snippet child({ props })}
-                <h2 {...props}>Ingest Digital Twins</h2>
-              {/snippet}
-            </Dialog.Title>
-            <button class="close-btn" onclick={() => (open = false)}
-              >&times;</button
-            >
-          </div>
+<Modal onClose={onClose} title="Ingest Digital Twins">
+  {#snippet children({ props, close })}
+    <div {...props} class="modal-card">
+      <div class="modal-header">
+        <h2>Ingest Digital Twins</h2>
+        <button class="close-btn" onclick={close}>&times;</button>
+      </div>
 
     {#if initialType !== "book" && !$settingsStore.tmdb_api_key}
       <div class="mt-4">
@@ -237,11 +215,9 @@
         {/each}
       {/if}
     </div>
-        </div>
-      {/snippet}
-    </Dialog.Content>
-  </Dialog.Portal>
-</Dialog.Root>
+    </div>
+  {/snippet}
+</Modal>
 
 <style>
   .modal-overlay {

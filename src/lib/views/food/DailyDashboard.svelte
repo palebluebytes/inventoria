@@ -6,7 +6,7 @@
   import Button from "../../ui/Button.svelte";
   import Card from "../../ui/Card.svelte";
   import Badge from "../../ui/Badge.svelte";
-  import { Dialog } from "bits-ui";
+  import Modal from "../../ui/Modal.svelte";
 
   let {
     dbReady,
@@ -316,35 +316,20 @@
 </div>
 
 <!-- Photo preview Modal -->
-<Dialog.Root
-  open={previewPhoto !== null}
-  onOpenChange={(o) => {
-    if (!o) previewPhoto = null;
-  }}
->
-  <Dialog.Portal>
-    <Dialog.Overlay>
-      {#snippet child({ props })}
-        <div {...props} class="photo-modal-overlay"></div>
-      {/snippet}
-    </Dialog.Overlay>
-    <Dialog.Content aria-label="Food log photo preview">
-      {#snippet child({ props })}
-        <div {...props} class="photo-modal-content">
-          <img
-            src={previewPhoto}
-            alt="Food Log Preview"
-            class="photo-modal-img"
-          />
-          <button
-            class="photo-modal-close"
-            onclick={() => (previewPhoto = null)}>&times;</button
-          >
-        </div>
-      {/snippet}
-    </Dialog.Content>
-  </Dialog.Portal>
-</Dialog.Root>
+{#if previewPhoto}
+  <Modal
+    onClose={() => (previewPhoto = null)}
+    overlayClass="photo-modal-overlay"
+    title="Food log photo preview"
+  >
+    {#snippet children({ props, close })}
+      <div {...props} class="photo-modal-content">
+        <img src={previewPhoto} alt="Food Log Preview" class="photo-modal-img" />
+        <button class="photo-modal-close" onclick={close}>&times;</button>
+      </div>
+    {/snippet}
+  </Modal>
+{/if}
 
 <style>
   .week-strip-container {

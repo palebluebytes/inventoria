@@ -8,20 +8,12 @@
   import Card from "../ui/Card.svelte";
   import Badge from "../ui/Badge.svelte";
   import Button from "../ui/Button.svelte";
-  import { Dialog } from "bits-ui";
+  import Modal from "../ui/Modal.svelte";
 
   let { dbReady }: { dbReady: boolean } = $props();
 
   let selectedDate = $state(new Date());
   let activeModal = $state<"menu" | "search" | "photo" | "recipe" | null>(null);
-  let menuOpen = $state(true);
-
-  // bits-ui only fires onOpenChange for its own close triggers (Escape,
-  // outside-click), not for programmatic `menuOpen = false`, so drive the menu
-  // close from the bound state to cover every close path.
-  $effect(() => {
-    if (activeModal === "menu" && !menuOpen) activeModal = null;
-  });
   let active_meal_type = $state<"breakfast" | "lunch" | "dinner" | "snack">(
     "breakfast"
   );
@@ -39,7 +31,6 @@
 
   function openMenu(meal_type: "breakfast" | "lunch" | "dinner" | "snack") {
     active_meal_type = meal_type;
-    menuOpen = true;
     activeModal = "menu";
   }
 </script>
@@ -81,66 +72,60 @@
 
 <!-- Overlay menu modal -->
 {#if activeModal === "menu"}
-  <Dialog.Root bind:open={menuOpen}>
-    <Dialog.Portal>
-      <Dialog.Overlay>
-        {#snippet child({ props })}
-          <div {...props} class="menu-modal-overlay"></div>
-        {/snippet}
-      </Dialog.Overlay>
-      <Dialog.Content>
-        {#snippet child({ props })}
-          <div {...props} class="menu-modal-card">
-            <div class="menu-header">
-              <Dialog.Title>
-                {#snippet child({ props })}
-                  <h3 {...props}>Log {active_meal_type.toUpperCase()}</h3>
-                {/snippet}
-              </Dialog.Title>
-              <button class="close-btn" onclick={() => (menuOpen = false)}
-                >&times;</button
+  <Modal
+    onClose={() => (activeModal = null)}
+    overlayClass="menu-modal-overlay"
+    title="Log {active_meal_type.toUpperCase()}"
+  >
+    {#snippet children({ props, close })}
+      <div {...props} class="menu-modal-card">
+        <div class="menu-header">
+          <h3>Log {active_meal_type.toUpperCase()}</h3>
+          <button class="close-btn" onclick={close}>&times;</button>
+        </div>
+        <div class="menu-options mt-4">
+          <button
+            class="menu-option-btn"
+            onclick={() => (activeModal = "search")}
+          >
+            <span class="menu-icon">🔍</span>
+            <div class="menu-text">
+              <span class="menu-title">Search FDC / scan Barcode</span>
+              <span class="menu-desc"
+                >Query USDA foods or Open Food Facts barcode</span
               >
             </div>
-            <div class="menu-options mt-4">
-        <button
-          class="menu-option-btn"
-          onclick={() => (activeModal = "search")}
-        >
-          <span class="menu-icon">🔍</span>
-          <div class="menu-text">
-            <span class="menu-title">Search FDC / scan Barcode</span>
-            <span class="menu-desc"
-              >Query USDA foods or Open Food Facts barcode</span
-            >
-          </div>
-        </button>
+          </button>
 
-        <button class="menu-option-btn" onclick={() => (activeModal = "photo")}>
-          <span class="menu-icon">📷</span>
-          <div class="menu-text">
-            <span class="menu-title">Add Photo / Custom Entry</span>
-            <span class="menu-desc">Take a photo and log custom nutrition</span>
-          </div>
-        </button>
+          <button
+            class="menu-option-btn"
+            onclick={() => (activeModal = "photo")}
+          >
+            <span class="menu-icon">📷</span>
+            <div class="menu-text">
+              <span class="menu-title">Add Photo / Custom Entry</span>
+              <span class="menu-desc"
+                >Take a photo and log custom nutrition</span
+              >
+            </div>
+          </button>
 
-        <button
-          class="menu-option-btn"
-          onclick={() => (activeModal = "recipe")}
-        >
-          <span class="menu-icon">🍲</span>
-          <div class="menu-text">
-            <span class="menu-title">Build Recipe</span>
-            <span class="menu-desc"
-              >Combine multiple ingredients into a recipe twin</span
-            >
-          </div>
-        </button>
+          <button
+            class="menu-option-btn"
+            onclick={() => (activeModal = "recipe")}
+          >
+            <span class="menu-icon">🍲</span>
+            <div class="menu-text">
+              <span class="menu-title">Build Recipe</span>
+              <span class="menu-desc"
+                >Combine multiple ingredients into a recipe twin</span
+              >
+            </div>
+          </button>
+        </div>
       </div>
-          </div>
-        {/snippet}
-      </Dialog.Content>
-    </Dialog.Portal>
-  </Dialog.Root>
+    {/snippet}
+  </Modal>
 {/if}
 
 <!-- Sub-Modals -->

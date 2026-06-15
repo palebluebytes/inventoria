@@ -3,7 +3,7 @@
   import Button from "../../ui/Button.svelte";
   import Input from "../../ui/Input.svelte";
   import Alert from "../../ui/Alert.svelte";
-  import { Dialog } from "bits-ui";
+  import Modal from "../../ui/Modal.svelte";
 
   let {
     editingItem = $bindable(),
@@ -13,8 +13,6 @@
     showEditModal: boolean;
   } = $props();
 
-  let open = $state(true);
-
   let editTags = $state("");
   let editNote = $state("");
   let editError = $state("");
@@ -23,13 +21,6 @@
     showEditModal = false;
     editingItem = null;
   }
-
-  // bits-ui only fires onOpenChange for its own close triggers (Escape,
-  // outside-click), not for programmatic `open = false`, so drive the close
-  // from the bound state to cover every close path.
-  $effect(() => {
-    if (!open) closeModal();
-  });
 
   $effect(() => {
     if (editingItem) {
@@ -62,26 +53,13 @@
 </script>
 
 {#if showEditModal && editingItem}
-  <Dialog.Root bind:open>
-    <Dialog.Portal>
-      <Dialog.Overlay>
-        {#snippet child({ props })}
-          <div {...props} class="modal-overlay"></div>
-        {/snippet}
-      </Dialog.Overlay>
-      <Dialog.Content>
-        {#snippet child({ props })}
-          <div {...props} class="modal-card">
-            <div class="modal-header">
-              <Dialog.Title>
-                {#snippet child({ props })}
-                  <h2 {...props}>✏️ Edit Tags & Note</h2>
-                {/snippet}
-              </Dialog.Title>
-              <button class="close-btn" onclick={() => (open = false)}
-                >&times;</button
-              >
-            </div>
+  <Modal onClose={closeModal} title="✏️ Edit Tags & Note">
+    {#snippet children({ props, close })}
+      <div {...props} class="modal-card">
+        <div class="modal-header">
+          <h2>✏️ Edit Tags & Note</h2>
+          <button class="close-btn" onclick={close}>&times;</button>
+        </div>
 
       {#if editError}
         <Alert variant="error" class="mb-4">{editError}</Alert>
@@ -114,19 +92,15 @@
         </div>
 
         <div class="modal-footer">
-          <Button
-            variant="secondary"
-            type="button"
-            onclick={() => (open = false)}>Cancel</Button
+          <Button variant="secondary" type="button" onclick={close}
+            >Cancel</Button
           >
           <Button type="submit">Save Changes</Button>
         </div>
       </form>
-          </div>
-        {/snippet}
-      </Dialog.Content>
-    </Dialog.Portal>
-  </Dialog.Root>
+      </div>
+    {/snippet}
+  </Modal>
 {/if}
 
 <style>

@@ -1,11 +1,12 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import { Dialog } from "bits-ui";
+  import Modal from "./Modal.svelte";
 
   let {
     isOpen = $bindable(false),
     title = "",
-    children,
+    // Renamed to `body` so it isn't shadowed by Modal's own `children` snippet.
+    children: body,
   }: {
     isOpen?: boolean;
     title?: string;
@@ -13,41 +14,26 @@
   } = $props();
 </script>
 
-<Dialog.Root bind:open={isOpen}>
-  <Dialog.Portal>
-    <Dialog.Overlay>
-      {#snippet child({ props })}
-        <div {...props} class="bottom-sheet-backdrop"></div>
-      {/snippet}
-    </Dialog.Overlay>
-    <Dialog.Content>
-      {#snippet child({ props })}
-        <div {...props} class="bottom-sheet-content">
-          <div class="bottom-sheet-handle-bar">
-            <div class="drag-handle"></div>
-          </div>
+<Modal bind:open={isOpen} overlayClass="bottom-sheet-backdrop" {title}>
+  {#snippet children({ props, close })}
+    <div {...props} class="bottom-sheet-content">
+      <div class="bottom-sheet-handle-bar">
+        <div class="drag-handle"></div>
+      </div>
 
-          <div class="bottom-sheet-header">
-            <Dialog.Title>
-              {#snippet child({ props })}
-                <h2 {...props}>{title}</h2>
-              {/snippet}
-            </Dialog.Title>
-            <button
-              class="close-btn"
-              onclick={() => (isOpen = false)}
-              aria-label="Close">&times;</button
-            >
-          </div>
+      <div class="bottom-sheet-header">
+        <h2>{title}</h2>
+        <button class="close-btn" onclick={close} aria-label="Close"
+          >&times;</button
+        >
+      </div>
 
-          <div class="bottom-sheet-body">
-            {@render children?.()}
-          </div>
-        </div>
-      {/snippet}
-    </Dialog.Content>
-  </Dialog.Portal>
-</Dialog.Root>
+      <div class="bottom-sheet-body">
+        {@render body?.()}
+      </div>
+    </div>
+  {/snippet}
+</Modal>
 
 <style>
   /* bits-ui renders the backdrop and sheet as siblings: the backdrop only
