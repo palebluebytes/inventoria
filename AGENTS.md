@@ -27,7 +27,7 @@ Consult these files for deep domain context rather than hallucinating structures
 
 ### Issue tracker
 
-Issues are tracked locally as markdown files in this repo. See `docs/agents/issue-tracker.md`.
+Issues are tracked on GitHub via the `gh` CLI. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
