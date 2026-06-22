@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { ScheduleRule, DayOfWeek } from "../../habits/habits";
-  import AirDatepicker from "air-datepicker";
-  import "air-datepicker/air-datepicker.css";
-  import localeEn from "air-datepicker/locale/en";
+  import { DatePicker } from "bits-ui";
+  import { CalendarDate, parseDate } from "@internationalized/date";
+  import CalendarBlank from "phosphor-svelte/lib/CalendarBlank";
 
   let {
     onSave,
@@ -26,8 +26,15 @@
   let title = $state("");
 
   // Start date + time
-  const today = new Date();
-  let startDate = $state(today.toISOString().slice(0, 10));
+  const todayDate = new Date();
+  let startDateStr = $state(todayDate.toISOString().slice(0, 10));
+  let startDateVal = $state<CalendarDate | undefined>(parseDate(startDateStr));
+  $effect(() => {
+    if (startDateVal) {
+      startDateStr = startDateVal.toString();
+    }
+  });
+
   let startTime = $state("08:00");
 
   // Timed or untimed
@@ -35,8 +42,15 @@
 
   // End Date/Time Toggle
   let hasEnd = $state(false);
-  let endDate = $state(today.toISOString().slice(0, 10));
-  let endTime = $state("09:00");
+  let endDateStr = $state("");
+  let endDateVal = $state<CalendarDate | undefined>(undefined);
+  $effect(() => {
+    if (endDateVal) {
+      endDateStr = endDateVal.toString();
+    }
+  });
+
+  let endTime = $state("");
   let endError = $state<string | null>(null);
 
   // Tracking (default: unchecked)
@@ -44,84 +58,6 @@
 
   function toggleTracking() {
     tracking = !tracking;
-  }
-
-  // Svelte Pickers Actions
-  function datePicker(
-    node: HTMLInputElement,
-    options: { value: string; onChange: (val: string) => void }
-  ) {
-    const dp = new AirDatepicker(node, {
-      locale: localeEn,
-      selectedDates: options.value
-        ? [new Date(options.value + "T00:00:00")]
-        : [],
-      dateFormat: "yyyy-MM-dd",
-      autoClose: true,
-      onSelect({ date }) {
-        if (date) {
-          const d = Array.isArray(date) ? date[0] : date;
-          const yyyy = d.getFullYear();
-          const mm = String(d.getMonth() + 1).padStart(2, "0");
-          const dd = String(d.getDate()).padStart(2, "0");
-          options.onChange(`${yyyy}-${mm}-${dd}`);
-        }
-      },
-    });
-    return {
-      update(newOptions: { value: string; onChange: (val: string) => void }) {
-        if (newOptions.value) {
-          dp.selectDate(new Date(newOptions.value + "T00:00:00"), {
-            updateTime: false,
-            silent: true,
-          });
-        } else {
-          dp.clear();
-        }
-      },
-      destroy() {
-        dp.destroy();
-      },
-    };
-  }
-
-  // Timepicker configuration and action
-  function timePicker(
-    node: HTMLInputElement,
-    options: { value: string; onChange: (val: string) => void }
-  ) {
-    const [hours, minutes] = (options.value || "08:00").split(":").map(Number);
-    const initialDate = new Date();
-    initialDate.setHours(hours, minutes, 0, 0);
-
-    const dp = new AirDatepicker(node, {
-      locale: localeEn,
-      timepicker: true,
-      onlyTimepicker: true,
-      timeFormat: "HH:mm",
-      selectedDates: [initialDate],
-      onSelect({ date }) {
-        if (date) {
-          const d = Array.isArray(date) ? date[0] : date;
-          const hh = String(d.getHours()).padStart(2, "0");
-          const mm = String(d.getMinutes()).padStart(2, "0");
-          options.onChange(`${hh}:${mm}`);
-        }
-      },
-    });
-    return {
-      update(newOptions: { value: string; onChange: (val: string) => void }) {
-        if (newOptions.value) {
-          const [hh, mm] = newOptions.value.split(":").map(Number);
-          const d = new Date();
-          d.setHours(hh, mm, 0, 0);
-          dp.selectDate(d, { updateTime: true, silent: true });
-        }
-      },
-      destroy() {
-        dp.destroy();
-      },
-    };
   }
 
   // Time slots (for point-in-time multi-slot events like medication)
@@ -154,13 +90,7 @@
   }
 
   // Recurrence
-  type RecurType =
-    | "none"
-    | "daily"
-    | "specific_days"
-    | "weekly"
-    | "monthly"
-    | "yearly";
+  type RecurType = "none" | "specific_days" | "weekly" | "monthly" | "yearly";
   let recurType = $state<RecurType>("none");
 
   // weekly: specific days
@@ -173,7 +103,9 @@
     "sat",
     "sun",
   ];
-  let selectedDays = $state<Set<DayOfWeek>>(new Set());
+  let selectedDays = $state<Set<DayOfWeek>>(
+    new Set(["mon", "tue", "wed", "thu", "fri", "sat", "sun"])
+  );
   function toggleDay(d: DayOfWeek) {
     const next = new Set(selectedDays);
     next.has(d) ? next.delete(d) : next.add(d);
@@ -182,7 +114,7 @@
 
   // monthly sub-type
   let monthlyMode = $state<"fixed" | "relative">("fixed");
-  const startDateObj = $derived(new Date(startDate + "T00:00:00Z"));
+  const startDateObj = $derived(new Date(startDateStr + "T00:00:00Z"));
   const dayOfMonth = $derived(startDateObj.getUTCDate());
   const monthOfYear = $derived(startDateObj.getUTCMonth() + 1);
 
@@ -222,52 +154,71 @@
 
   // Until
   let untilDate = $state("");
+  let untilDateVal = $state<CalendarDate | undefined>(undefined);
+  $effect(() => {
+    if (untilDateVal) {
+      untilDate = untilDateVal.toString();
+    } else {
+      untilDate = "";
+    }
+  });
 
   // Description
   let description = $state("");
 
   // --------------- Derived dtstart ISO ---------------
   let dtstart = $derived(
-    timed ? `${startDate}T${startTime}:00Z` : `${startDate}T00:00:00Z`
+    timed ? `${startDateStr}T${startTime}:00Z` : `${startDateStr}T00:00:00Z`
   );
   let dtend = $derived(
-    hasEnd
-      ? timed
-        ? `${endDate}T${endTime}:00Z`
-        : `${endDate}T00:00:00Z`
+    hasEnd && endDateStr
+      ? timed && endTime
+        ? `${endDateStr}T${endTime}:00Z`
+        : `${endDateStr}T00:00:00Z`
       : undefined
   );
 
   // --------------- Build schedule_rules ---------------
   function buildScheduleRules(): ScheduleRule | undefined {
     const until = untilDate || undefined;
+
+    let targets: { id: string; time_hint?: string }[] | undefined = undefined;
+    if (timed && !hasEnd && timeSlots.length > 1) {
+      targets = timeSlots.map((t, i) => ({
+        id: `slot_${i}`,
+        time_hint: t,
+      }));
+    }
+
     switch (recurType) {
       case "none":
         return undefined;
-      case "daily":
-        if (timed && !hasEnd && timeSlots.length > 1) {
-          return {
-            type: "daily_multiple",
-            targets: timeSlots.map((t, i) => ({
-              id: `slot_${i}`,
-              time_hint: t,
-            })),
-            until,
-          };
-        }
-        return { type: "daily_multiple", count: 1, until };
       case "specific_days":
-        return { type: "weekly_days", days: Array.from(selectedDays), until };
+        if (selectedDays.size === 7) {
+          return { type: "daily_multiple", count: 1, targets, until };
+        }
+        return {
+          type: "weekly_days",
+          days: Array.from(selectedDays),
+          targets,
+          until,
+        };
       case "weekly":
-        return { type: "weekly_flexible", count: 1, until };
+        return { type: "weekly_flexible", count: 1, targets, until };
       case "monthly":
         if (monthlyMode === "fixed") {
-          return { type: "monthly_fixed", day_of_month: dayOfMonth, until };
+          return {
+            type: "monthly_fixed",
+            day_of_month: dayOfMonth,
+            targets,
+            until,
+          };
         } else {
           return {
             type: "monthly_relative",
             week: relativeWeek,
             day: relativeDay,
+            targets,
             until,
           };
         }
@@ -276,6 +227,7 @@
           type: "yearly_fixed",
           month: monthOfYear,
           day_of_month: dayOfMonth,
+          targets,
           until,
         };
       default:
@@ -295,16 +247,24 @@
     titleError = false;
 
     if (hasEnd) {
+      if (!endDateStr) {
+        endError = "END DATE IS REQUIRED";
+        return;
+      }
+      if (timed && !endTime) {
+        endError = "END TIME IS REQUIRED";
+        return;
+      }
       let startMs: number;
       let endMs: number;
       if (timed) {
-        startMs = new Date(`${startDate}T${startTime}:00Z`).getTime();
-        endMs = new Date(`${endDate}T${endTime}:00Z`).getTime();
+        startMs = new Date(`${startDateStr}T${startTime}:00Z`).getTime();
+        endMs = new Date(`${endDateStr}T${endTime}:00Z`).getTime();
       } else {
-        startMs = new Date(`${startDate}T00:00:00Z`).getTime();
-        endMs = new Date(`${endDate}T00:00:00Z`).getTime();
+        startMs = new Date(`${startDateStr}T00:00:00Z`).getTime();
+        endMs = new Date(`${endDateStr}T00:00:00Z`).getTime();
       }
-      if (endMs <= startMs) {
+      if (isNaN(startMs) || isNaN(endMs) || endMs <= startMs) {
         endError = timed
           ? "END TIME MUST BE LATER THAN START TIME"
           : "END DATE MUST BE LATER THAN START DATE";
@@ -342,6 +302,56 @@
 </script>
 
 <div class="add-event-screen">
+  {#snippet calendarContent()}
+    <DatePicker.Portal>
+      <DatePicker.Content sideOffset={4} align="start" class="bits-calendar">
+        <DatePicker.Calendar class="bits-calendar-wrapper">
+          {#snippet children({ months, weekdays })}
+            <DatePicker.Header class="bits-calendar-header">
+              <DatePicker.PrevButton class="bits-nav-btn"
+                >◀</DatePicker.PrevButton
+              >
+              <DatePicker.Heading class="bits-heading" />
+              <DatePicker.NextButton class="bits-nav-btn"
+                >▶</DatePicker.NextButton
+              >
+            </DatePicker.Header>
+            {#each months as month}
+              <DatePicker.Grid class="bits-grid">
+                <DatePicker.GridHead>
+                  <DatePicker.GridRow class="bits-weekdays">
+                    {#each weekdays as weekday}
+                      <DatePicker.HeadCell class="bits-weekday-cell">
+                        {weekday.slice(0, 2)}
+                      </DatePicker.HeadCell>
+                    {/each}
+                  </DatePicker.GridRow>
+                </DatePicker.GridHead>
+                <DatePicker.GridBody>
+                  {#each month.weeks as weekDates}
+                    <DatePicker.GridRow class="bits-grid-row">
+                      {#each weekDates as date}
+                        <DatePicker.Cell
+                          {date}
+                          month={month.value}
+                          class="bits-cell"
+                        >
+                          <DatePicker.Day class="bits-day"
+                            >{date.day}</DatePicker.Day
+                          >
+                        </DatePicker.Cell>
+                      {/each}
+                    </DatePicker.GridRow>
+                  {/each}
+                </DatePicker.GridBody>
+              </DatePicker.Grid>
+            {/each}
+          {/snippet}
+        </DatePicker.Calendar>
+      </DatePicker.Content>
+    </DatePicker.Portal>
+  {/snippet}
+
   <!-- Header -->
   <div class="screen-header">
     <button class="close-btn" onclick={onClose} aria-label="Close"
@@ -367,31 +377,6 @@
       {#if titleError}<span class="field-error">REQUIRED</span>{/if}
     </div>
 
-    <!-- Timed Toggle -->
-    <div class="field-card">
-      <button
-        type="button"
-        class="toggle-row"
-        onclick={() => {
-          timed = !timed;
-          endError = null;
-        }}
-        aria-pressed={timed}
-      >
-        <div class="checkbox" class:checked={timed}>
-          {#if timed}✓{/if}
-        </div>
-        <div class="toggle-text">
-          <span class="toggle-label">TIMED EVENT</span>
-          <span class="toggle-hint">
-            {timed
-              ? "Occurs at a specific time of day"
-              : "All-day event — displays at the top of the schedule"}
-          </span>
-        </div>
-      </button>
-    </div>
-
     <!-- Date/Time Selection -->
     <div class="field-card" class:error={!!endError}>
       <div
@@ -401,90 +386,111 @@
         <label class="field-label" style="margin-bottom: 0;">
           {hasEnd ? "START & END" : "START"}
         </label>
-        <button
-          type="button"
-          class="text-btn"
-          style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; background: none; border: none; cursor: pointer; color: var(--text-primary); text-decoration: underline; padding: 0;"
-          onclick={() => {
-            hasEnd = !hasEnd;
-            endError = null;
-          }}
-        >
-          {hasEnd ? "✕ REMOVE END" : "+ ADD END"}
-        </button>
+
+        <div style="display: flex; align-items: center; gap: var(--space-s);">
+          <button
+            type="button"
+            style="display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; background: none; border: none; cursor: pointer; color: var(--text-primary); padding: 0;"
+            onclick={() => {
+              timed = !timed;
+              endError = null;
+            }}
+          >
+            <div class="inline-checkbox" class:checked={timed}>
+              {#if timed}✓{/if}
+            </div>
+            TIMED
+          </button>
+
+          <button
+            type="button"
+            class="text-btn"
+            style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; background: none; border: none; cursor: pointer; color: var(--text-primary); text-decoration: underline; padding: 0;"
+            onclick={() => {
+              if (!hasEnd) {
+                // Auto-fill end = start + 1 hour
+                endDateVal = startDateVal;
+                if (timed && startTime) {
+                  const [hh, mm] = startTime.split(":").map(Number);
+                  const newHh = hh + 1;
+                  if (newHh >= 24) {
+                    endTime = `${String(newHh - 24).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+                    if (endDateVal) endDateVal = endDateVal.add({ days: 1 });
+                  } else {
+                    endTime = `${String(newHh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+                  }
+                } else {
+                  endTime = "";
+                }
+              } else {
+                endDateVal = undefined;
+                endTime = "";
+              }
+              hasEnd = !hasEnd;
+              endError = null;
+            }}
+          >
+            {hasEnd ? "✕ REMOVE END" : "+ ADD END"}
+          </button>
+        </div>
       </div>
 
       <!-- Start -->
-      <div class="field-row">
-        <div class="input-wrapper">
-          <input
-            class="date-input"
-            type="text"
-            use:datePicker={{
-              value: startDate,
-              onChange: (val) => {
-                startDate = val;
-                endError = null;
-              },
-            }}
-          />
-          <span class="input-icon">📅</span>
-        </div>
-        {#if timed}
-          <div class="input-wrapper">
+      <DatePicker.Root
+        bind:value={startDateVal}
+        onValueChange={() => (endError = null)}
+      >
+        <div class="date-time-row">
+          <DatePicker.Input class="date-input">
+            {#snippet children({ segments })}
+              {#each segments as { part, value }}
+                <DatePicker.Segment {part}>{value}</DatePicker.Segment>
+              {/each}
+            {/snippet}
+          </DatePicker.Input>
+          <DatePicker.Trigger class="bits-trigger" aria-label="Open calendar"
+            ><CalendarBlank size={16} /></DatePicker.Trigger
+          >
+          {#if timed}
             <input
               class="time-input"
-              type="text"
-              use:timePicker={{
-                value: startTime,
-                onChange: (val) => {
-                  startTime = val;
-                  endError = null;
-                },
-              }}
+              type="time"
+              bind:value={startTime}
+              oninput={() => (endError = null)}
             />
-            <span class="input-icon">🕒</span>
-          </div>
-        {/if}
-      </div>
+          {/if}
+        </div>
+        {@render calendarContent()}
+      </DatePicker.Root>
 
       <!-- End -->
       {#if hasEnd}
-        <div
-          class="field-row end-row"
-          style="margin-top: var(--space-sm); padding-top: var(--space-sm); border-top: 2px dashed var(--border-accent);"
+        <DatePicker.Root
+          bind:value={endDateVal}
+          onValueChange={() => (endError = null)}
         >
-          <div class="input-wrapper">
-            <input
-              class="date-input"
-              type="text"
-              use:datePicker={{
-                value: endDate,
-                onChange: (val) => {
-                  endDate = val;
-                  endError = null;
-                },
-              }}
-            />
-            <span class="input-icon">📅</span>
-          </div>
-          {#if timed}
-            <div class="input-wrapper">
+          <div class="date-time-row" style="margin-top: var(--space-sm);">
+            <DatePicker.Input class="date-input">
+              {#snippet children({ segments })}
+                {#each segments as { part, value }}
+                  <DatePicker.Segment {part}>{value}</DatePicker.Segment>
+                {/each}
+              {/snippet}
+            </DatePicker.Input>
+            <DatePicker.Trigger class="bits-trigger" aria-label="Open calendar"
+              ><CalendarBlank size={16} /></DatePicker.Trigger
+            >
+            {#if timed}
               <input
                 class="time-input"
-                type="text"
-                use:timePicker={{
-                  value: endTime,
-                  onChange: (val) => {
-                    endTime = val;
-                    endError = null;
-                  },
-                }}
+                type="time"
+                bind:value={endTime}
+                oninput={() => (endError = null)}
               />
-              <span class="input-icon">🕒</span>
-            </div>
-          {/if}
-        </div>
+            {/if}
+          </div>
+          {@render calendarContent()}
+        </DatePicker.Root>
       {/if}
 
       {#if endError}
@@ -499,11 +505,10 @@
     <div class="field-card">
       <label class="field-label">RECURRENCE</label>
       <div class="seg-control seg-grid" style="margin-bottom: var(--space-s);">
-        {#each [["daily", "DAILY"], ["weekly", "WEEKLY"], ["monthly", "MONTHLY"], ["yearly", "YEARLY"], ["specific_days", "DAYS"]] as [val, label]}
+        {#each [["specific_days", "DAILY"], ["weekly", "WEEKLY"], ["monthly", "MONTHLY"], ["yearly", "YEARLY"]] as [val, label]}
           <button
             class="seg-btn"
             class:active={recurType === val}
-            class:span-2={val === "specific_days"}
             onclick={() => {
               recurType = recurType === val ? "none" : (val as RecurType);
             }}>{label}</button
@@ -525,18 +530,18 @@
       {/if}
 
       {#if recurType === "monthly"}
-        <div class="seg-control" style="margin-top: var(--space-xs);">
+        <div class="seg-control seg-grid" style="margin-top: 2px;">
           <button
             class="seg-btn"
             class:active={monthlyMode === "fixed"}
-            onclick={() => (monthlyMode = "fixed")}>DAY {dayOfMonth}</button
+            onclick={() => (monthlyMode = "fixed")}>ON DAY {dayOfMonth}</button
           >
           <button
             class="seg-btn"
             class:active={monthlyMode === "relative"}
             onclick={() => (monthlyMode = "relative")}
           >
-            {relativeWeek === -1
+            ON {relativeWeek === -1
               ? "LAST"
               : ["", "1ST", "2ND", "3RD", "4TH"][relativeWeek]}
             {relativeDay.toUpperCase()}
@@ -551,28 +556,34 @@
         >
           <span class="field-sublabel">UNTIL (OPTIONAL)</span>
           <div class="input-wrapper">
-            <input
-              class="date-input"
-              type="text"
-              use:datePicker={{
-                value: untilDate,
-                onChange: (val) => {
-                  untilDate = val;
-                },
-              }}
-            />
-            <span class="input-icon">📅</span>
+            <DatePicker.Root bind:value={untilDateVal}>
+              <div class="date-time-row">
+                <DatePicker.Input class="date-input">
+                  {#snippet children({ segments })}
+                    {#each segments as { part, value }}
+                      <DatePicker.Segment {part}>{value}</DatePicker.Segment>
+                    {/each}
+                  {/snippet}
+                </DatePicker.Input>
+                <DatePicker.Trigger
+                  class="bits-trigger"
+                  aria-label="Open calendar"
+                  ><CalendarBlank size={14} /></DatePicker.Trigger
+                >
+              </div>
+              {@render calendarContent()}
+            </DatePicker.Root>
           </div>
         </div>
       {/if}
 
-      <!-- Time slots (only for point-in-time + daily or none) -->
-      {#if timed && !hasEnd && (recurType === "none" || recurType === "daily")}
+      <!-- Time slots: shown for any point-in-time event without a block end -->
+      {#if timed && !hasEnd}
         <div
           class="time-slots-section"
           style={recurType !== "none"
             ? "border-top: 2px dashed var(--border-accent); padding-top: var(--space-sm); margin-top: var(--space-sm);"
-            : ""}
+            : "padding-top: var(--space-sm); margin-top: var(--space-sm);"}
         >
           {#if _extraTimeSlots.length > 0}
             <label
@@ -585,13 +596,14 @@
                 <div class="input-wrapper">
                   <input
                     class="time-input flex-1"
-                    type="text"
-                    use:timePicker={{
-                      value: slot,
-                      onChange: (val) => updateTimeSlot(i + 1, val),
-                    }}
+                    type="time"
+                    value={slot}
+                    oninput={(e) =>
+                      updateTimeSlot(
+                        i + 1,
+                        (e.target as HTMLInputElement).value
+                      )}
                   />
-                  <span class="input-icon">🕒</span>
                 </div>
                 <button
                   class="remove-btn"
@@ -603,7 +615,9 @@
           {/if}
           <button
             class="add-slot-btn"
-            style={_extraTimeSlots.length === 0 ? "margin-top: 0;" : ""}
+            style="display: block; margin: 0 auto; {_extraTimeSlots.length === 0
+              ? ''
+              : 'margin-top: var(--space-xs);'}"
             onclick={addTimeSlot}>+ ADD ANOTHER TIME</button
           >
         </div>
@@ -783,6 +797,14 @@
     gap: var(--space-xs);
   }
 
+  /* Date + trigger + optional time input row */
+  .date-time-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    width: 100%;
+  }
+
   /* Input wrapper & icons */
   .input-wrapper {
     position: relative;
@@ -791,16 +813,7 @@
     flex: 1;
   }
 
-  .input-wrapper .input-icon {
-    position: absolute;
-    right: var(--space-xs);
-    pointer-events: none;
-    font-size: var(--step-n1);
-    color: var(--text-secondary);
-  }
-
   .input-wrapper input {
-    padding-right: calc(var(--space-xs) + 24px) !important;
     width: 100%;
   }
 
@@ -914,6 +927,22 @@
   .toggle-hint {
     font-size: var(--step-n2);
     color: var(--text-muted);
+  }
+
+  /* Inline checkbox for Timed */
+  .inline-checkbox {
+    width: 14px;
+    height: 14px;
+    border: 2px solid #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 900;
+  }
+  .inline-checkbox.checked {
+    background: #000;
+    color: #fff;
   }
 
   /* Time slots */
@@ -1034,130 +1063,108 @@
     background: #333;
   }
 
-  /* Air Datepicker Brutalist Overrides */
-  :global(.air-datepicker) {
-    --adp-font-family: var(--font-mono) !important;
-    --adp-font-size: var(--step-n1) !important;
-    --adp-border-color: #000 !important;
-    --adp-border-radius: 0 !important;
-    --adp-background-color: var(--bg-surface) !important;
-    --adp-background-color-hover: var(--bg-input) !important;
-    --adp-color: var(--text-primary) !important;
-    --adp-color-secondary: var(--text-secondary) !important;
-    --adp-color-current-date: #000 !important;
-    --adp-cell-border-radius: 0 !important;
-    --adp-cell-background-color-selected: var(--green-bg) !important;
-    --adp-cell-background-color-selected-hover: var(--green-bg) !important;
-    --adp-accent-color: #000 !important;
-    --adp-day-name-color: #000 !important;
-
-    border: 2px solid #000 !important;
-    box-shadow: 4px 4px 0 #000 !important;
+  /* Bits UI Calendar Brutalist Styles */
+  :global(.bits-calendar) {
+    background: #fff;
+    border: 2px solid #000;
+    box-shadow: 4px 4px 0 #000;
+    padding: var(--space-s);
+    font-family: var(--font-mono);
+    z-index: 100;
+    /* Suppress any background bits-ui adds to the floating element itself */
+    color: #000;
   }
-
-  :global(.air-datepicker-nav) {
-    border-bottom: 2px solid #000 !important;
-    background: #000 !important;
-    color: #fff !important;
-  }
-
-  :global(.air-datepicker-nav--title),
-  :global(.air-datepicker-nav--title i) {
-    color: #fff !important;
-    font-weight: 700 !important;
-    font-family: var(--font-mono) !important;
-  }
-
-  :global(.air-datepicker-nav--action) {
-    color: #fff !important;
-  }
-  :global(.air-datepicker-nav--action:hover) {
-    background: var(--text-secondary) !important;
-    color: #000 !important;
-  }
-
-  :global(.air-datepicker-body--day-name) {
-    font-weight: 700 !important;
-    color: #000 !important;
-  }
-
-  :global(.air-datepicker-cell.-current-) {
-    border: 2px solid #000 !important;
-    font-weight: 700 !important;
-    text-decoration: underline !important;
-  }
-
-  :global(.air-datepicker-cell.-selected-) {
-    background: var(--green-bg) !important;
-    color: #000 !important;
-    border: 2px solid #000 !important;
-    font-weight: 900 !important;
-  }
-
-  /* Time Picker styling overrides */
-  :global(.air-datepicker-time) {
-    --adp-time-track-height: 4px !important;
-    --adp-time-track-color: #000 !important;
-    --adp-time-track-color-hover: #000 !important;
-    --adp-time-thumb-size: 16px !important;
-    border-top: 2px solid #000 !important;
-    padding: var(--space-s) !important;
-    background: var(--bg-surface) !important;
-  }
-
-  /* Target the native range inputs of the timepicker */
-  :global(.air-datepicker-time--row input[type="range"]) {
-    -webkit-appearance: none !important;
-    appearance: none !important;
+  /* bits-ui wraps Content in a data-bits-* div — reset any inherited bg */
+  :global([data-bits-date-picker-content]) {
     background: transparent !important;
-    width: 100% !important;
+  }
+  :global(.bits-calendar-header) {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-s);
+    padding-bottom: var(--space-xs);
+    border-bottom: 2px solid #000;
+  }
+  :global(.bits-nav-btn) {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: var(--step-0);
+    padding: var(--space-xs);
+  }
+  :global(.bits-trigger) {
+    background: transparent;
+    border: none;
+    border-left: 2px solid #000;
+    cursor: pointer;
+    padding: 0 var(--space-xs);
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    height: 100%;
+    color: var(--text-secondary, #666);
+  }
+  :global(.bits-trigger:hover) {
+    background: var(--bg-input, #f5f5f5);
+  }
+  :global(.bits-nav-btn:hover) {
+    background: var(--bg-input);
+  }
+  :global(.bits-heading) {
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  :global(.bits-weekdays) {
+    display: flex;
+  }
+  :global(.bits-weekday-cell) {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: var(--step-n1);
+  }
+  :global(.bits-grid-row) {
+    display: flex;
+  }
+  :global(.bits-cell) {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  :global(.bits-day) {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--step-n1);
+  }
+  :global(.bits-day:hover) {
+    background: var(--bg-input);
+  }
+  :global(.bits-day[data-selected]) {
+    background: var(--green-bg);
+    border: 2px solid #000;
+    font-weight: 900;
+  }
+  :global(.bits-day[data-today]) {
+    text-decoration: underline;
+    font-weight: 700;
+  }
+  :global(.date-input[data-invalid]) {
+    border-color: red;
   }
 
-  /* Focus outline */
-  :global(.air-datepicker-time--row input[type="range"]:focus) {
-    outline: none !important;
-  }
-
-  /* Webkit thumb (Chrome, Safari, Edge) */
-  :global(.air-datepicker-time--row input[type="range"]::-webkit-slider-thumb) {
-    -webkit-appearance: none !important;
-    appearance: none !important;
-    height: 18px !important;
-    width: 18px !important;
-    border: 2px solid #000 !important;
-    background: var(--green-bg) !important;
-    cursor: pointer !important;
-    margin-top: -7px !important; /* Center the thumb on track */
-    border-radius: 0 !important; /* Brutalist square */
-  }
-
-  /* Firefox thumb */
-  :global(.air-datepicker-time--row input[type="range"]::-moz-range-thumb) {
-    height: 18px !important;
-    width: 18px !important;
-    border: 2px solid #000 !important;
-    background: var(--green-bg) !important;
-    cursor: pointer !important;
-    border-radius: 0 !important; /* Brutalist square */
-  }
-
-  /* Webkit track */
-  :global(
-    .air-datepicker-time--row input[type="range"]::-webkit-slider-runnable-track
-  ) {
-    width: 100% !important;
-    height: 4px !important;
-    cursor: pointer !important;
-    background: #000 !important;
-    border: none !important;
-  }
-
-  /* Firefox track */
-  :global(.air-datepicker-time--row input[type="range"]::-moz-range-track) {
-    width: 100% !important;
-    height: 4px !important;
-    cursor: pointer !important;
-    background: #000 !important;
-    border: none !important;
+  /* Native time input clock icon color */
+  ::-webkit-calendar-picker-indicator {
+    filter: invert(0);
+    cursor: pointer;
   }
 </style>
