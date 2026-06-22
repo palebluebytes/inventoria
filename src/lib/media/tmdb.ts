@@ -1,4 +1,8 @@
 import type { EntityPayload } from "../ingestion/ingest";
+import {
+  ingestionRegistry,
+  type IngestionAdapter,
+} from "../ingestion/registry";
 import { settingsStore } from "../stores/settings.store";
 
 let activeApiKey = "";
@@ -106,34 +110,30 @@ export async function searchTmdbTv(
   }
 }
 
-export async function lookupTmdbMovie(
-  id: number,
-  apiKey: string = activeApiKey
-): Promise<EntityPayload> {
-  if (!apiKey) {
-    throw new Error("TMDB API Key is not configured.");
-  }
-  const url = `${TMDB_BASE}/movie/${id}?append_to_response=credits&api_key=${apiKey}`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Movie details not found for id: ${id}`);
-  }
-  const data = await res.json();
-  return mapTmdbMovieToPayload(data);
-}
+export const tmdbMovieAdapter: IngestionAdapter<TmdbMovie> = {
+  scheme: "tmdb:movie",
+  map: mapTmdbMovieToPayload,
+  fetch: async (idValue: string) => {
+    if (!activeApiKey) throw new Error("TMDB API Key is not configured.");
+    const url = `${TMDB_BASE}/movie/${idValue}?append_to_response=credits&api_key=${activeApiKey}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Movie details not found for id: ${idValue}`);
+    return res.json();
+  },
+};
 
-export async function lookupTmdbTv(
-  id: number,
-  apiKey: string = activeApiKey
-): Promise<EntityPayload> {
-  if (!apiKey) {
-    throw new Error("TMDB API Key is not configured.");
-  }
-  const url = `${TMDB_BASE}/tv/${id}?api_key=${apiKey}`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`TV details not found for id: ${id}`);
-  }
-  const data = await res.json();
-  return mapTmdbTvToPayload(data);
-}
+export const tmdbTvAdapter: IngestionAdapter<TmdbTv> = {
+  scheme: "tmdb:tv",
+  map: mapTmdbTvToPayload,
+  fetch: async (idValue: string) => {
+    if (!activeApiKey) throw new Error("TMDB API Key is not configured.");
+    const url = `${TMDB_BASE}/tv/${idValue}?api_key=${activeApiKey}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`TV details not found for id: ${idValue}`);
+    return res.json();
+  },
+};
+
+// Register adapters automatically when this file is imported
+ingestionRegistry.register(tmdbMovieAdapter);
+ingestionRegistry.register(tmdbTvAdapter);

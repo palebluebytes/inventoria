@@ -71,3 +71,7 @@ _Avoid_: Consumption event (when referring to media), activity log
 **Acquisition Event**:
 A logged instance representing the ownership state of a physical Digital Twin, recorded as a timestamped action in the ledger with a status of either `owned` or `wanted`.
 _Avoid_: Ownership event, item status, inventory log
+
+**Provenance**:
+The immutable, original payload retrieved from an external API or scraper at the moment of ingestion, stored as a JSON blob alongside its extraction metadata (timestamp, source URI, adapter version). Ensures that future schema evolutions (e.g. EU DPP legislation updates) can remap historical data without network loss.
+_Avoid_: Raw data, API response, backup payload

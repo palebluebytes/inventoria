@@ -1,24 +1,15 @@
-import { createQueryStore } from "./datoms.store";
-import { derived } from "svelte/store";
+import { createProjectionStore } from "./datoms.store";
 import { dbClient, type Datom } from "../db/db.client";
 import { ingestEntity, type EntityPayload } from "../ingestion/ingest";
-import { computeMediaLibraryState } from "../media/state";
+import type { EnrichedMedia } from "../media/state";
 import { logWatchEvent, logReadEvent } from "../media/engagement";
 
-// Reactive store of all media datoms
-export const mediaDatomsStore = createQueryStore<{
-  entity: string;
-  attribute: string;
-  value: string;
-  time: number;
-}>(
-  "SELECT entity, attribute, value, time FROM datoms WHERE attribute LIKE 'media/%' OR attribute LIKE 'event/%' ORDER BY time ASC"
+// Reactive store providing fully-enriched media twins from the worker
+export const mediaLibraryStore = createProjectionStore<EnrichedMedia[]>(
+  "MEDIA_LIBRARY",
+  {},
+  []
 );
-
-// Derived store providing fully-enriched media twins
-export const mediaLibraryStore = derived(mediaDatomsStore, ($datoms) => {
-  return computeMediaLibraryState($datoms);
-});
 
 /**
  * Saves a media digital twin to the database and logs its initial status.
@@ -99,22 +90,14 @@ export async function enrichMediaTwin(
   type: "movie" | "tv" | "book"
 ): Promise<void> {
   const now = Date.now();
-  let payload: EntityPayload;
-
   if (type === "book") {
-    const { lookupOpenLibraryBook } = await import("../media/open-library");
-    payload = await lookupOpenLibraryBook(id);
-  } else if (type === "movie") {
-    const { lookupTmdbMovie } = await import("../media/tmdb");
-    const rawId = parseInt(id.replace("tmdb:movie:", ""));
-    payload = await lookupTmdbMovie(rawId);
-  } else if (type === "tv") {
-    const { lookupTmdbTv } = await import("../media/tmdb");
-    const rawId = parseInt(id.replace("tmdb:tv:", ""));
-    payload = await lookupTmdbTv(rawId);
+    await import("../media/open-library");
   } else {
-    return;
+    await import("../media/tmdb");
   }
+
+  const { ingestionRegistry } = await import("../ingestion/registry");
+  const payload = await ingestionRegistry.resolve(id);
 
   // Construct datoms for missing or enriched attributes:
   // we filter to only append attributes that aren't empty/falsy.

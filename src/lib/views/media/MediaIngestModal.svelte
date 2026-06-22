@@ -1,11 +1,7 @@
 <script lang="ts">
   import { searchOpenLibrary } from "../../media/open-library";
-  import {
-    searchTmdbMovies,
-    searchTmdbTv,
-    lookupTmdbMovie,
-    lookupTmdbTv,
-  } from "../../media/tmdb";
+  import { searchTmdbMovies, searchTmdbTv } from "../../media/tmdb";
+  import { ingestionRegistry } from "../../ingestion/registry";
   import { saveMediaTwin } from "../../stores/media.store";
   import { settingsStore } from "../../stores/settings.store";
   import Button from "../../ui/Button.svelte";
@@ -98,16 +94,8 @@
       let finalPayload = { ...item.payload };
 
       if (item.type !== "book") {
-        const rawId = parseInt(item.id.split(":").pop() ?? "0");
-        if (rawId > 0) {
-          if (item.type === "movie") {
-            const enriched = await lookupTmdbMovie(rawId);
-            finalPayload = enriched;
-          } else {
-            const enriched = await lookupTmdbTv(rawId);
-            finalPayload = enriched;
-          }
-        }
+        // Re-resolve via registry to get full payload + immutable provenance
+        finalPayload = await ingestionRegistry.resolve(item.id);
       }
 
       await saveMediaTwin(finalPayload, initialStatus);
