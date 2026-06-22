@@ -21,45 +21,38 @@ test("Habits UI - create habit blueprint, log execution, view details, and edit 
     { timeout: 10000 }
   );
 
-  // Switch to the Habits tab
-  await page.locator(".nav-item", { hasText: "Habits" }).click();
+  // Switch to the Agenda tab
+  await page.locator(".nav-item", { hasText: "Agenda" }).click();
 
   // Open Add Habit screen via inline add row button
   await page
     .locator("section:has-text('HABITS')")
-    .locator("button", { hasText: "Click to add" })
+    .locator("button", { hasText: "+ ADD HABIT" })
     .click();
 
   // Generate a unique habit name to ensure no collision in the local-first database
   const habitName = `Meditate_${Date.now()}`;
-  const instrumentName = "twin:cushion";
 
   // Fill in the habit blueprint form
   const nameInput = page.locator("#habit-name-input");
   await nameInput.fill(habitName);
 
-  // Select Category and Schedule using custom select buttons
-  await page.locator(".custom-select-trigger").nth(0).click();
-  await page.locator(".custom-select-option", { hasText: "MIND" }).click();
-
-  await page.locator(".custom-select-trigger").nth(1).click();
-  await page.locator(".custom-select-option", { hasText: "DAILY" }).click();
-
-  const instrumentInput = page.locator("#habit-instrument-input");
-  await instrumentInput.fill(instrumentName);
+  // Select Category and Schedule using new custom chip/segment controls
+  await page.locator(".category-chip", { hasText: "MIND" }).click();
+  await page.locator(".segment-btn", { hasText: "DAILY" }).click();
 
   // Click the Add Habit Blueprint button
   const addBtn = page.locator("button", { hasText: "SAVE BLUEPRINT" });
   await addBtn.click();
 
   // Verify the habit blueprint is displayed in the list
-  const habitItem = page.locator("#habits-blueprints-list .habit-item", {
+  const habitItem = page.locator(".habit-item", {
     hasText: habitName,
   });
   await expect(habitItem).toBeVisible({ timeout: 5000 });
 
   // Verify category badge color/text
-  const categoryBadge = habitItem.locator(".habit-category");
+  const categoryBadge = habitItem.locator(".habit-category-pill");
   await expect(categoryBadge).toHaveText("MIND");
 
   // Click the habit item to log execution
@@ -108,7 +101,7 @@ test("Habits UI - create habit blueprint, log execution, view details, and edit 
   await backBtn.click();
 
   // Verify updated habit is listed in the main view
-  const updatedHabitItem = page.locator("#habits-blueprints-list .habit-item", {
+  const updatedHabitItem = page.locator(".habit-item", {
     hasText: updatedHabitName,
   });
   await expect(updatedHabitItem).toBeVisible({ timeout: 5000 });

@@ -379,7 +379,11 @@ test.describe("Visual Catalog Generator", () => {
       await page.locator(".hero-input").fill(payload.title);
 
       if (payload.timed === false) {
-        await page.locator(".toggle-row:has-text('TIMED EVENT')").click();
+        await page
+          .locator(".field-card")
+          .filter({ hasText: "START" })
+          .locator("button:has-text('TIMED')")
+          .click();
       } else {
         if (payload.startTime) {
           await page
@@ -388,13 +392,20 @@ test.describe("Visual Catalog Generator", () => {
             .fill(payload.startTime);
         }
         if (payload.endTime) {
+          // Clicking "+ ADD END" auto-fills the end date (= start date) and
+          // an end time of start + 1h. The date field is a bits-ui segmented
+          // control (not a native input), so we only override the end time,
+          // which is the second native time input in the START & END card.
           await page
-            .locator(".field-card:has-text('DURATION')")
-            .locator("button", { hasText: "BLOCK" })
+            .locator(".field-card")
+            .filter({ hasText: "START" })
+            .locator("button:has-text('+ ADD END')")
             .click();
           await page
-            .locator(".field-card:has-text('DURATION')")
+            .locator(".field-card")
+            .filter({ hasText: "START" })
             .locator("input.time-input")
+            .nth(1)
             .fill(payload.endTime);
         }
         if (payload.timeSlots) {
@@ -405,10 +416,10 @@ test.describe("Visual Catalog Generator", () => {
             .fill(payload.timeSlots[0]);
           // Add remaining slots
           for (let i = 1; i < payload.timeSlots.length; i++) {
-            await page.locator("button:has-text('+ ADD TIME SLOT')").click();
+            await page.locator("button:has-text('+ ADD ANOTHER TIME')").click();
             await page
               .locator(".slot-row")
-              .nth(i)
+              .nth(i - 1)
               .locator("input.time-input")
               .fill(payload.timeSlots[i]);
           }
@@ -428,6 +439,7 @@ test.describe("Visual Catalog Generator", () => {
         }
       }
 
+      await page.locator(".screen-title").click();
       await page.locator(".save-btn").click();
       await expect(page.locator(".add-event-screen")).not.toBeVisible();
     }
