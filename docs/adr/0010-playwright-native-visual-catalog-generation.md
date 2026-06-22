@@ -2,7 +2,7 @@
 status: accepted
 ---
 
-# Playwright Native Visual Catalog Generation
+# 10. Playwright Native Visual Catalog Generation
 
 **Context:**
 We want a workflow that saves screen captures for both desktop and mobile devices to enable faster iteration and testing for UI changes. We need a tool that supports both a fast visual catalog and visual regression testing, integrating well with local-first development. We evaluated Lost Pixel, but their recent announcement that the team is joining Figma and sunsetting the service makes it a risky dependency.

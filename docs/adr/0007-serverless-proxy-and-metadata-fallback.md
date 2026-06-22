@@ -1,4 +1,4 @@
-# 6. Serverless Proxy and Metadata Fallback for Web Scraping
+# 7. Serverless Proxy and Metadata Fallback for Web Scraping
 
 We have implemented a serverless proxy pipeline on Cloudflare Workers and a client-side Open Graph metadata fallback parser to securely ingest product data from complex e-commerce websites like Amazon.
 

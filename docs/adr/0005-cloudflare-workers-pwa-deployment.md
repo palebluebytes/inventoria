@@ -1,4 +1,4 @@
-# 4. Cloudflare Workers PWA Deployment Flow
+# 5. Cloudflare Workers PWA Deployment Flow
 
 We have configured a personal deployment pipeline utilizing Cloudflare Workers static asset serving paired with a Progressive Web App (PWA) "Prompt for Update" strategy.
 

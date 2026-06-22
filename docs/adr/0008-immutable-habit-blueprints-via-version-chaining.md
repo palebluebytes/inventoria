@@ -2,7 +2,7 @@
 status: accepted
 ---
 
-# Immutable Habit Blueprints via Version Chaining
+# 8. Immutable Habit Blueprints via Version Chaining
 
 **Context:**
 We are introducing flexible scheduling and advanced "habit strength" scoring to the habit tracking module. To accurately compute historical habit scores without complex temporal logic, the system needs to know exactly what frequency a habit had at any given time. Because our EAVT ledger is append-only, simply appending a new frequency to an existing habit entity would require the UI to walk the ledger chronologically to evaluate past events against past frequencies.
