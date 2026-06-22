@@ -78,6 +78,16 @@ class DBClient {
   }
 
   /**
+   * Run a named projection pipeline against the ledger inside the worker.
+   */
+  async project<T = any>(
+    pipeline: string,
+    params?: Record<string, any>
+  ): Promise<T> {
+    return this.send<T>("project", { pipeline, params });
+  }
+
+  /**
    * Append a list of immutable datoms to the ledger.
    */
   async append(datoms: Datom[]): Promise<void> {

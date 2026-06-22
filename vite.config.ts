@@ -141,6 +141,11 @@ export default defineConfig({
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Embedder-Policy": "require-corp",
     },
+    watch: {
+      // Exclude the Nix flake inputs directory — it contains the entire
+      // Nixpkgs tree and quickly exhausts the inotify watch limit.
+      ignored: ["**/.direnv/**"],
+    },
   },
   preview: {
     headers: {

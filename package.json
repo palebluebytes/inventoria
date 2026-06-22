@@ -31,8 +31,10 @@
     "vitest": "^4.1.7"
   },
   "dependencies": {
+    "@internationalized/date": "^3.12.2",
     "@sqlite.org/sqlite-wasm": "3.53.0-build1",
-    "air-datepicker": "^3.6.0",
+    "bits-ui": "^2.18.1",
+    "phosphor-svelte": "^3.1.0",
     "workbox-window": "^7.4.1"
   }
 }

@@ -1,27 +1,13 @@
-import { createQueryStore } from "./datoms.store";
-import { derived } from "svelte/store";
+import { createProjectionStore } from "./datoms.store";
 import { dbClient, type Datom } from "../db/db.client";
 import { ingestEntity, type EntityPayload } from "../ingestion/ingest";
-import { computeAcquisitionState } from "../acquisition/state";
+import type { EnrichedAcquisition } from "../acquisition/state";
 import { logAcquisitionEvent } from "../ingestion/acquisition";
 
-// Reactive store of all acquisition-related datoms
-export const acquisitionDatomsStore = createQueryStore<{
-  entity: string;
-  attribute: string;
-  value: string;
-  time: number;
-}>(
-  "SELECT entity, attribute, value, time FROM datoms WHERE attribute LIKE 'twin/%' OR attribute LIKE 'event/%' ORDER BY time ASC"
-);
-
-// Derived store providing fully-enriched acquisition twins
-export const acquisitionLibraryStore = derived(
-  acquisitionDatomsStore,
-  ($datoms) => {
-    return computeAcquisitionState($datoms);
-  }
-);
+// Reactive store providing fully-enriched acquisition twins from the worker
+export const acquisitionLibraryStore = createProjectionStore<
+  EnrichedAcquisition[]
+>("ACQUISITION_LIBRARY", {}, []);
 
 /**
  * Saves a new acquisition digital twin to the database and logs its initial status event.

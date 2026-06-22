@@ -23,6 +23,16 @@
               sqlite
               playwright-driver
               playwright-driver.browsers
+
+              # Language servers (LSPs) for the project stack
+              svelte-language-server # Svelte components
+              typescript-language-server # TypeScript / JavaScript
+              vscode-langservers-extracted # HTML, CSS, JSON, ESLint
+              nil # Nix
+              taplo # TOML (e.g. wrangler.toml)
+              yaml-language-server # YAML
+              bash-language-server # Bash (.husky hooks, shell scripts)
+              marksman # Markdown (docs/, AGENTS.md, CONTEXT.md, ADRs)
             ];
 
             shellHook = ''
@@ -35,6 +45,7 @@
               echo "Node:   $(node --version)"
               echo "pnpm:   $(pnpm --version)"
               echo "SQLite: $(sqlite3 --version)"
+              echo "LSPs:   svelte, typescript, css/html/json, nil, taplo, yaml, bash, marksman"
               echo "=================================="
             '';
           };
