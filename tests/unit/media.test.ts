@@ -4,16 +4,24 @@ import {
   mapTmdbTvToPayload,
   searchTmdbMovies,
   searchTmdbTv,
-  lookupTmdbMovie,
-  lookupTmdbTv,
 } from "../../src/lib/media/tmdb";
 import {
   mapOpenLibraryBookToPayload,
   searchOpenLibrary,
-  lookupOpenLibraryBook,
 } from "../../src/lib/media/open-library";
+import { ingestionRegistry } from "../../src/lib/ingestion/registry";
+import { settingsStore } from "../../src/lib/stores/settings.store";
 import { logWatchEvent, logReadEvent } from "../../src/lib/media/engagement";
 import { computeMediaLibraryState } from "../../src/lib/media/state";
+
+vi.mock("../../src/lib/stores/settings.store", () => ({
+  settingsStore: {
+    subscribe: (cb: any) => {
+      cb({ tmdb_api_key: "test-key" });
+      return () => {};
+    },
+  },
+}));
 
 describe("mapTmdbMovieToPayload", () => {
   it("maps basic movie data correctly", () => {
@@ -200,7 +208,7 @@ describe("searchOpenLibrary", () => {
   });
 });
 
-describe("lookupOpenLibraryBook", () => {
+describe("lookupOpenLibraryBook (via Registry)", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
@@ -224,7 +232,7 @@ describe("lookupOpenLibraryBook", () => {
       }),
     } as Response);
 
-    const result = await lookupOpenLibraryBook("isbn:9780141187761");
+    const result = await ingestionRegistry.resolve("isbn:9780141187761");
 
     expect(fetchSpy).toHaveBeenCalledWith(
       "https://openlibrary.org/search.json?q=isbn:9780141187761&fields=key,title,author_name,first_publish_year,cover_i,isbn,subject,description&limit=1"
@@ -257,7 +265,7 @@ describe("lookupOpenLibraryBook", () => {
       }),
     } as Response);
 
-    const result = await lookupOpenLibraryBook("olid:OL27479W");
+    const result = await ingestionRegistry.resolve("olid:OL27479W");
 
     expect(fetchSpy).toHaveBeenCalledWith(
       "https://openlibrary.org/search.json?q=key:%2Fworks%2FOL27479W&fields=key,title,author_name,first_publish_year,cover_i,isbn,subject,description&limit=1"
@@ -270,7 +278,7 @@ describe("lookupOpenLibraryBook", () => {
       ok: false,
     } as Response);
 
-    await expect(lookupOpenLibraryBook("isbn:123")).rejects.toThrow(
+    await expect(ingestionRegistry.resolve("isbn:123")).rejects.toThrow(
       "Book details not found"
     );
   });
@@ -281,7 +289,7 @@ describe("lookupOpenLibraryBook", () => {
       json: async () => ({ docs: [] }),
     } as Response);
 
-    await expect(lookupOpenLibraryBook("isbn:123")).rejects.toThrow(
+    await expect(ingestionRegistry.resolve("isbn:123")).rejects.toThrow(
       "Book details not found"
     );
   });
@@ -371,7 +379,7 @@ describe("searchTmdbTv", () => {
   });
 });
 
-describe("lookupTmdbMovie", () => {
+describe("lookupTmdbMovie (via Registry)", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
@@ -390,7 +398,7 @@ describe("lookupTmdbMovie", () => {
       }),
     } as Response);
 
-    const payload = await lookupTmdbMovie(155, "test-key");
+    const payload = await ingestionRegistry.resolve("tmdb:movie:155");
 
     expect(fetchSpy).toHaveBeenCalledWith(
       "https://api.themoviedb.org/3/movie/155?append_to_response=credits&api_key=test-key"
@@ -407,13 +415,13 @@ describe("lookupTmdbMovie", () => {
       json: async () => ({}),
     } as Response);
 
-    await expect(lookupTmdbMovie(999999, "invalid-key")).rejects.toThrow(
-      "Movie details not found for id: 999999"
-    );
+    await expect(
+      ingestionRegistry.resolve("tmdb:movie:999999")
+    ).rejects.toThrow("Movie details not found for id: 999999");
   });
 });
 
-describe("lookupTmdbTv", () => {
+describe("lookupTmdbTv (via Registry)", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
@@ -430,7 +438,7 @@ describe("lookupTmdbTv", () => {
       }),
     } as Response);
 
-    const payload = await lookupTmdbTv(1399, "test-key");
+    const payload = await ingestionRegistry.resolve("tmdb:tv:1399");
 
     expect(fetchSpy).toHaveBeenCalledWith(
       "https://api.themoviedb.org/3/tv/1399?api_key=test-key"
@@ -447,7 +455,7 @@ describe("lookupTmdbTv", () => {
       json: async () => ({}),
     } as Response);
 
-    await expect(lookupTmdbTv(999999, "invalid-key")).rejects.toThrow(
+    await expect(ingestionRegistry.resolve("tmdb:tv:999999")).rejects.toThrow(
       "TV details not found for id: 999999"
     );
   });
