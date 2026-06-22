@@ -1,56 +1,9 @@
 import { ingestEntity, type EntityPayload } from "../ingestion/ingest";
 import type { Datom } from "../db/db.client";
+import { isScheduleRuleActive } from "../recurrence/rules";
+import type { ScheduleRule, DayOfWeek } from "../recurrence/rules";
 
-export type { EntityPayload };
-
-export interface DailyMultipleRule {
-  type: "daily_multiple";
-  count?: number;
-  targets?: { id: string; time_hint?: string }[];
-  until?: string;
-}
-
-export type DayOfWeek = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
-
-export interface WeeklyDaysRule {
-  type: "weekly_days";
-  days: DayOfWeek[];
-  until?: string;
-}
-
-export interface WeeklyFlexibleRule {
-  type: "weekly_flexible";
-  count: number;
-  until?: string;
-}
-
-export interface MonthlyFixedRule {
-  type: "monthly_fixed";
-  day_of_month: number; // 1–31
-  until?: string;
-}
-
-export interface MonthlyRelativeRule {
-  type: "monthly_relative";
-  week: -1 | 1 | 2 | 3 | 4; // -1 = last
-  day: DayOfWeek;
-  until?: string;
-}
-
-export interface YearlyFixedRule {
-  type: "yearly_fixed";
-  month: number; // 1–12
-  day_of_month: number; // 1–31
-  until?: string;
-}
-
-export type ScheduleRule =
-  | DailyMultipleRule
-  | WeeklyDaysRule
-  | WeeklyFlexibleRule
-  | MonthlyFixedRule
-  | MonthlyRelativeRule
-  | YearlyFixedRule;
+export type { EntityPayload, ScheduleRule, DayOfWeek };
 
 export interface ExecutionRow {
   time: number;
@@ -253,51 +206,7 @@ export function getDailyLineageStates(
         let status: DayState["status"] = "failed";
         let fraction = 0;
 
-        if (rules.type === "daily_multiple") {
-          if (
-            rules.targets &&
-            Array.isArray(rules.targets) &&
-            rules.targets.length > 0
-          ) {
-            const completedTargets = new Set<string>();
-            for (const e of dayExecs) {
-              if (e.target_id) {
-                completedTargets.add(e.target_id);
-              }
-            }
-            let matched = 0;
-            for (const target of rules.targets) {
-              if (completedTargets.has(target.id)) {
-                matched++;
-              }
-            }
-            fraction = matched / rules.targets.length;
-            status = matched === rules.targets.length ? "completed" : "failed";
-          } else {
-            const requiredCount = rules.count ?? 1;
-            const completedCount = dayExecs.length;
-            fraction =
-              requiredCount > 0
-                ? Math.min(1.0, completedCount / requiredCount)
-                : 1.0;
-            status = completedCount >= requiredCount ? "completed" : "failed";
-          }
-        } else if (rules.type === "weekly_days") {
-          const daysOfWeek = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-          const dayStr = daysOfWeek[currentDay.getUTCDay()];
-          const scheduledDays = Array.isArray(rules.days)
-            ? rules.days.map((d: string) => d.toLowerCase())
-            : [];
-
-          if (scheduledDays.includes(dayStr)) {
-            const completedCount = dayExecs.length;
-            fraction = completedCount >= 1 ? 1.0 : 0.0;
-            status = completedCount >= 1 ? "completed" : "failed";
-          } else {
-            status = "off";
-            fraction = 1.0;
-          }
-        } else if (rules.type === "weekly_flexible") {
+        if (rules.type === "weekly_flexible") {
           const requiredCount = rules.count ?? 1;
           let completedDays = 0;
 
@@ -319,47 +228,37 @@ export function getDailyLineageStates(
               ? Math.min(1.0, completedDays / requiredCount)
               : 1.0;
           status = completedDays >= requiredCount ? "completed" : "failed";
-        } else if (rules.type === "monthly_fixed") {
-          if (currentDay.getUTCDate() === rules.day_of_month) {
-            const completedCount = dayExecs.length;
-            fraction = completedCount >= 1 ? 1.0 : 0.0;
-            status = completedCount >= 1 ? "completed" : "failed";
-          } else {
-            status = "off";
-            fraction = 1.0;
-          }
-        } else if (rules.type === "monthly_relative") {
-          const dowIndex: Record<string, number> = {
-            sun: 0,
-            mon: 1,
-            tue: 2,
-            wed: 3,
-            thu: 4,
-            fri: 5,
-            sat: 6,
-          };
-          const targetDate = getNthWeekdayOfMonth(
-            currentDay.getUTCFullYear(),
-            currentDay.getUTCMonth() + 1,
-            dowIndex[rules.day],
-            rules.week
-          );
-          if (currentDay.getUTCDate() === targetDate) {
-            const completedCount = dayExecs.length;
-            fraction = completedCount >= 1 ? 1.0 : 0.0;
-            status = completedCount >= 1 ? "completed" : "failed";
-          } else {
-            status = "off";
-            fraction = 1.0;
-          }
-        } else if (rules.type === "yearly_fixed") {
-          if (
-            currentDay.getUTCMonth() + 1 === rules.month &&
-            currentDay.getUTCDate() === rules.day_of_month
-          ) {
-            const completedCount = dayExecs.length;
-            fraction = completedCount >= 1 ? 1.0 : 0.0;
-            status = completedCount >= 1 ? "completed" : "failed";
+        } else {
+          if (isScheduleRuleActive(rules, currentDayStr)) {
+            if (
+              rules.targets &&
+              Array.isArray(rules.targets) &&
+              rules.targets.length > 0
+            ) {
+              const completedTargets = new Set<string>();
+              for (const e of dayExecs) {
+                if (e.target_id) {
+                  completedTargets.add(e.target_id);
+                }
+              }
+              let matched = 0;
+              for (const target of rules.targets) {
+                if (completedTargets.has(target.id)) {
+                  matched++;
+                }
+              }
+              fraction = matched / rules.targets.length;
+              status =
+                matched === rules.targets.length ? "completed" : "failed";
+            } else {
+              const requiredCount = rules.count ?? 1;
+              const completedCount = dayExecs.length;
+              fraction =
+                requiredCount > 0
+                  ? Math.min(1.0, completedCount / requiredCount)
+                  : 1.0;
+              status = completedCount >= requiredCount ? "completed" : "failed";
+            }
           } else {
             status = "off";
             fraction = 1.0;
@@ -382,29 +281,6 @@ export function getDailyLineageStates(
 
 function dayExecsRaw(execsByDate: Map<string, any[]>, dateStr: string): any[] {
   return execsByDate.get(dateStr) || [];
-}
-
-/** Returns the day-of-month for the Nth (or last) occurrence of a weekday in a month. */
-function getNthWeekdayOfMonth(
-  year: number,
-  month: number, // 1–12
-  dayOfWeek: number, // 0=Sun … 6=Sat
-  n: -1 | 1 | 2 | 3 | 4
-): number {
-  if (n === -1) {
-    const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-    let d = lastDay;
-    while (new Date(Date.UTC(year, month - 1, d)).getUTCDay() !== dayOfWeek)
-      d--;
-    return d;
-  }
-  let count = 0;
-  for (let d = 1; d <= 31; d++) {
-    const date = new Date(Date.UTC(year, month - 1, d));
-    if (date.getUTCMonth() !== month - 1) break;
-    if (date.getUTCDay() === dayOfWeek && ++count === n) return d;
-  }
-  return -1;
 }
 
 export function getActiveExecutions<

@@ -2,6 +2,7 @@
   import { habitsStore } from "../stores/habits.store";
   import { calEventsStore } from "../stores/cal_events.store";
   import { projectSlotsForDate } from "../cal_events/cal_events";
+  import { isScheduleRuleActive } from "../recurrence/rules";
   import type {
     CalEventBlueprint,
     ProjectedSlot,
@@ -310,7 +311,12 @@
   let generalHabitItems = $derived(
     $habitsStore.filter((lineage) => {
       const rules = lineage.head.schedule_rules;
-      return !(rules && rules.type === "daily_multiple" && rules.targets);
+      // Exclude timed sub-target habits — they appear in the SCHEDULE section
+      if (rules && rules.type === "daily_multiple" && rules.targets)
+        return false;
+      // Only show habits that are scheduled for the selected date
+      if (!rules) return false;
+      return isScheduleRuleActive(rules, selected_date_str);
     })
   );
 

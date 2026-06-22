@@ -1,6 +1,7 @@
 import type { Datom } from "../db/db.client";
 import { ingestEntity } from "../ingestion/ingest";
-import type { ScheduleRule } from "../habits/habits";
+import { isScheduleRuleActive } from "../recurrence/rules";
+import type { ScheduleRule } from "../recurrence/rules";
 
 export type { ScheduleRule };
 
@@ -51,38 +52,6 @@ function toDateStr(isoOrMs: string | number): string {
   return d.toISOString().slice(0, 10);
 }
 
-const DOW_INDEX: Record<string, number> = {
-  sun: 0,
-  mon: 1,
-  tue: 2,
-  wed: 3,
-  thu: 4,
-  fri: 5,
-  sat: 6,
-};
-
-function getNthWeekdayOfMonth(
-  year: number,
-  month: number, // 1–12
-  dayOfWeek: number, // 0=Sun…6=Sat
-  n: -1 | 1 | 2 | 3 | 4
-): number {
-  if (n === -1) {
-    const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-    let d = lastDay;
-    while (new Date(Date.UTC(year, month - 1, d)).getUTCDay() !== dayOfWeek)
-      d--;
-    return d;
-  }
-  let count = 0;
-  for (let d = 1; d <= 31; d++) {
-    const date = new Date(Date.UTC(year, month - 1, d));
-    if (date.getUTCMonth() !== month - 1) break;
-    if (date.getUTCDay() === dayOfWeek && ++count === n) return d;
-  }
-  return -1;
-}
-
 /**
  * Determines whether a Calendar Event Blueprint applies on a given calendar date.
  */
@@ -107,47 +76,8 @@ export function isActiveOnDate(
     return dateStr === startDateStr;
   }
 
-  // Respect until
-  if (rules.until && dateStr > rules.until) return false;
-
-  const d = new Date(dateStr + "T00:00:00Z");
-
-  switch (rules.type) {
-    case "daily_multiple":
-      return true;
-
-    case "weekly_days": {
-      const dows = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-      const dow = dows[d.getUTCDay()];
-      return rules.days.includes(dow as any);
-    }
-
-    case "weekly_flexible":
-      // Flexible — active every day (completion is measured over rolling 7 days)
-      return true;
-
-    case "monthly_fixed":
-      return d.getUTCDate() === rules.day_of_month;
-
-    case "monthly_relative": {
-      const target = getNthWeekdayOfMonth(
-        d.getUTCFullYear(),
-        d.getUTCMonth() + 1,
-        DOW_INDEX[rules.day],
-        rules.week
-      );
-      return d.getUTCDate() === target;
-    }
-
-    case "yearly_fixed":
-      return (
-        d.getUTCMonth() + 1 === rules.month &&
-        d.getUTCDate() === rules.day_of_month
-      );
-
-    default:
-      return false;
-  }
+  // Delegate all recurrence logic to the unified engine
+  return isScheduleRuleActive(rules, dateStr);
 }
 
 /**
