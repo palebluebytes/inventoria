@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { checkProxyTarget, guardedFetch } from "../../src/lib/ingestion/url-guard";
+import {
+  checkProxyTarget,
+  guardedFetch,
+} from "../../src/lib/ingestion/url-guard";
 
 describe("checkProxyTarget (SSRF guard)", () => {
   it("allows normal public http(s) URLs", () => {
@@ -80,9 +83,32 @@ describe("checkProxyTarget (SSRF guard)", () => {
     expect(checkProxyTarget("http://printer.local/").ok).toBe(false);
   });
 
+  it("rejects IPv6 link-local and unique-local (ULA) literals", () => {
+    for (const u of [
+      "http://[fe80::1]/", // link-local
+      "http://[fc00::1]/", // ULA fc00::/8
+      "http://[fd12:3456:789a::1]/", // ULA fd00::/8
+    ]) {
+      expect(checkProxyTarget(u).ok, u).toBe(false);
+    }
+  });
+
   it("allows public ranges that merely look adjacent to private ones", () => {
     expect(checkProxyTarget("http://172.32.0.1/").ok).toBe(true); // outside /12
     expect(checkProxyTarget("http://11.0.0.1/").ok).toBe(true);
+  });
+
+  it("allows public domains whose names start with the fc/fd ULA prefixes", () => {
+    // Regression: the ULA prefix check must only apply to IPv6 literals, not to
+    // hostnames that merely begin with those letters.
+    for (const u of [
+      "https://fda.gov/food/123",
+      "https://fdic.gov/",
+      "https://fc-barcelona.com/",
+      "https://fedex.com/", // starts with "fe", not "fe80:"
+    ]) {
+      expect(checkProxyTarget(u).ok, u).toBe(true);
+    }
   });
 
   it("rejects malformed URLs", () => {

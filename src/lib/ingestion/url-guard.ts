@@ -75,7 +75,8 @@ function expandIpv6(v6: string): number[] | null {
   if (groups.length !== 8) return null;
 
   const nums = groups.map((g) => parseInt(g, 16));
-  if (nums.some((n) => !Number.isInteger(n) || n < 0 || n > 0xffff)) return null;
+  if (nums.some((n) => !Number.isInteger(n) || n < 0 || n > 0xffff))
+    return null;
   return nums;
 }
 
@@ -104,20 +105,24 @@ function isBlockedHostname(hostname: string): boolean {
   if (host === "localhost" || host.endsWith(".localhost")) return true;
   if (host.endsWith(".internal") || host.endsWith(".local")) return true;
 
-  // IPv6 loopback / link-local / unique-local. URL hostnames keep the brackets
-  // on the literal, so strip them before inspecting.
+  // IPv6 loopback / link-local / unique-local. Only inspect actual IPv6
+  // literals: a domain name never contains a colon, so gating on `:` keeps the
+  // `fc`/`fd` ULA prefix check from misfiring on hosts like `fda.gov`. URL
+  // hostnames keep the brackets on the literal, so strip them first.
   const v6 = host.replace(/^\[|\]$/g, "");
-  if (v6 === "::1" || v6 === "::") return true;
-  if (v6.startsWith("fe80:") || v6.startsWith("fc") || v6.startsWith("fd")) {
-    return true;
-  }
-  // IPv4 tunnelled inside IPv6 (mapped/compatible/NAT64). The URL parser
-  // normalizes `[::ffff:127.0.0.1]` to the hex form `[::ffff:7f00:1]`, so match
-  // on the expanded numbers rather than the source string.
-  const v6nums = expandIpv6(v6);
-  if (v6nums) {
-    const tunnelled = embeddedIpv4(v6nums);
-    if (tunnelled && isPrivateIpv4(tunnelled)) return true;
+  if (v6.includes(":")) {
+    if (v6 === "::1" || v6 === "::") return true;
+    if (v6.startsWith("fe80:") || v6.startsWith("fc") || v6.startsWith("fd")) {
+      return true;
+    }
+    // IPv4 tunnelled inside IPv6 (mapped/compatible/NAT64). The URL parser
+    // normalizes `[::ffff:127.0.0.1]` to the hex form `[::ffff:7f00:1]`, so
+    // match on the expanded numbers rather than the source string.
+    const v6nums = expandIpv6(v6);
+    if (v6nums) {
+      const tunnelled = embeddedIpv4(v6nums);
+      if (tunnelled && isPrivateIpv4(tunnelled)) return true;
+    }
   }
 
   if (isPrivateIpv4(host)) return true;
