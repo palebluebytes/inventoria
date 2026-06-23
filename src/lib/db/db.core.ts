@@ -47,6 +47,22 @@ const CREATE_DATOMS_TABLE = `
 const CREATE_EAV_INDEX = `CREATE INDEX IF NOT EXISTS idx_eav ON datoms (entity, attribute, time);`;
 const CREATE_AVE_INDEX = `CREATE INDEX IF NOT EXISTS idx_ave ON datoms (attribute, value, entity);`;
 
+/** Runs a SELECT and collects its rows as objects. */
+export function execRows<T = Record<string, unknown>>(
+  db: LedgerDb,
+  sql: string,
+  bind: unknown[] = []
+): T[] {
+  const rows: T[] = [];
+  db.exec({
+    sql,
+    bind,
+    rowMode: "object",
+    callback: (row: any) => rows.push(row),
+  });
+  return rows;
+}
+
 /** Creates the datoms table and its indexes if they do not yet exist. */
 export function createLedgerSchema(db: LedgerDb): void {
   db.exec(CREATE_DATOMS_TABLE);

@@ -1,10 +1,10 @@
 import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
-import { computeMediaLibraryState } from "../media/state";
-import { computeAcquisitionState } from "../acquisition/state";
+import { projections } from "./projections";
 import {
   appendDatoms,
   createLedgerSchema,
   resetLedgerSchema,
+  execRows,
   type LedgerDb,
 } from "./db.core";
 
@@ -71,49 +71,21 @@ self.onmessage = async (event: MessageEvent) => {
         );
       }
 
-      const rows: any[] = [];
-      db.exec({
-        sql,
-        bind: params || [],
-        rowMode: "object",
-        callback: (row: any) => {
-          rows.push(row);
-        },
-      });
-
+      const rows = execRows(db, sql, params || []);
       self.postMessage({ id, status: "ok", data: rows });
     } else if (type === "project") {
       if (!db) {
         throw new Error("Database not initialized. Please call 'init' first.");
       }
 
-      const { pipeline, params } = payload;
-
-      if (pipeline === "MEDIA_LIBRARY") {
-        const rows: any[] = [];
-        db.exec({
-          sql: "SELECT entity, attribute, value, time FROM datoms WHERE attribute LIKE 'media/%' OR attribute LIKE 'event/%' ORDER BY time ASC",
-          rowMode: "object",
-          callback: (row: any) => {
-            rows.push(row);
-          },
-        });
-        const enriched = computeMediaLibraryState(rows);
-        self.postMessage({ id, status: "ok", data: enriched });
-      } else if (pipeline === "ACQUISITION_LIBRARY") {
-        const rows: any[] = [];
-        db.exec({
-          sql: "SELECT entity, attribute, value, time FROM datoms WHERE attribute LIKE 'twin/%' OR attribute LIKE 'event/%' ORDER BY time ASC",
-          rowMode: "object",
-          callback: (row: any) => {
-            rows.push(row);
-          },
-        });
-        const enriched = computeAcquisitionState(rows);
-        self.postMessage({ id, status: "ok", data: enriched });
-      } else {
+      const { pipeline } = payload;
+      const projection = projections[pipeline];
+      if (!projection) {
         throw new Error(`Unknown projection pipeline: ${pipeline}`);
       }
+
+      const enriched = projection.compute(execRows(db, projection.sql));
+      self.postMessage({ id, status: "ok", data: enriched });
     } else if (type === "append") {
       if (!db) {
         throw new Error("Database not initialized. Please call 'init' first.");
