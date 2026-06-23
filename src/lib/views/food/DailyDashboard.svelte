@@ -319,12 +319,16 @@
 {#if previewPhoto}
   <Modal
     onClose={() => (previewPhoto = null)}
-    overlayClass="photo-modal-overlay"
+    overlayBg="rgba(0, 0, 0, 0.85)"
     title="Food log photo preview"
   >
     {#snippet children({ props, close })}
       <div {...props} class="photo-modal-content">
-        <img src={previewPhoto} alt="Food Log Preview" class="photo-modal-img" />
+        <img
+          src={previewPhoto}
+          alt="Food Log Preview"
+          class="photo-modal-img"
+        />
         <button class="photo-modal-close" onclick={close}>&times;</button>
       </div>
     {/snippet}
@@ -634,13 +638,6 @@
   }
 
   /* Photo Modal */
-  .photo-modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.85);
-    z-index: 1000;
-    backdrop-filter: blur(8px);
-  }
   .photo-modal-content {
     position: fixed;
     left: 50%;

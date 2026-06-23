@@ -53,7 +53,12 @@
 </script>
 
 {#if showEditModal && editingItem}
-  <Modal onClose={closeModal} title="✏️ Edit Tags & Note">
+  <Modal
+    onClose={closeModal}
+    title="✏️ Edit Tags & Note"
+    overlayBg="rgba(0, 0, 0, 0.5)"
+    overlayBlur="blur(4px)"
+  >
     {#snippet children({ props, close })}
       <div {...props} class="modal-card">
         <div class="modal-header">
@@ -61,59 +66,49 @@
           <button class="close-btn" onclick={close}>&times;</button>
         </div>
 
-      {#if editError}
-        <Alert variant="error" class="mb-4">{editError}</Alert>
-      {/if}
+        {#if editError}
+          <Alert variant="error" class="mb-4">{editError}</Alert>
+        {/if}
 
-      <form onsubmit={handleEditSubmit} class="form mt-4">
-        <div class="form-group">
-          <label for="edit-item-name">Item Name</label>
-          <div class="read-only-value">{editingItem.name}</div>
-        </div>
+        <form onsubmit={handleEditSubmit} class="form mt-4">
+          <div class="form-group">
+            <label for="edit-item-name">Item Name</label>
+            <div class="read-only-value">{editingItem.name}</div>
+          </div>
 
-        <div class="form-group">
-          <label for="edit-tags">Tags (comma-separated)</label>
-          <Input
-            id="edit-tags"
-            type="text"
-            bind:value={editTags}
-            placeholder="e.g. tech, home, setup"
-          />
-        </div>
+          <div class="form-group">
+            <label for="edit-tags">Tags (comma-separated)</label>
+            <Input
+              id="edit-tags"
+              type="text"
+              bind:value={editTags}
+              placeholder="e.g. tech, home, setup"
+            />
+          </div>
 
-        <div class="form-group">
-          <label for="edit-note">Note</label>
-          <textarea
-            id="edit-note"
-            bind:value={editNote}
-            placeholder="Write personal notes about this item..."
-            rows="3"
-          ></textarea>
-        </div>
+          <div class="form-group">
+            <label for="edit-note">Note</label>
+            <textarea
+              id="edit-note"
+              bind:value={editNote}
+              placeholder="Write personal notes about this item..."
+              rows="3"
+            ></textarea>
+          </div>
 
-        <div class="modal-footer">
-          <Button variant="secondary" type="button" onclick={close}
-            >Cancel</Button
-          >
-          <Button type="submit">Save Changes</Button>
-        </div>
-      </form>
+          <div class="modal-footer">
+            <Button variant="secondary" type="button" onclick={close}
+              >Cancel</Button
+            >
+            <Button type="submit">Save Changes</Button>
+          </div>
+        </form>
       </div>
     {/snippet}
   </Modal>
 {/if}
 
 <style>
-  .modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 999;
-    backdrop-filter: blur(4px);
-  }
   .modal-card {
     position: fixed;
     left: 50%;

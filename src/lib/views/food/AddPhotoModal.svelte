@@ -94,7 +94,7 @@
   }
 </script>
 
-<Modal onClose={onClose} title="📷 Log Food with Photo">
+<Modal {onClose} title="📷 Log Food with Photo">
   {#snippet children({ props, close })}
     <div {...props} class="modal-card">
       <div class="modal-header">
@@ -102,143 +102,133 @@
         <button class="close-btn" onclick={close}>&times;</button>
       </div>
 
-    <div class="photo-upload-section mt-4">
-      <!-- Hidden file input -->
-      <input
-        type="file"
-        accept="image/*"
-        capture="environment"
-        class="hidden-file-input"
-        bind:this={fileInput}
-        onchange={handleFileChange}
-      />
-
-      {#if photo_base64}
-        <div class="photo-preview-box">
-          <img
-            src={photo_base64}
-            alt="Food Upload Preview"
-            class="photo-preview"
-          />
-          <button class="change-photo-btn" onclick={triggerFileSelect}>
-            Change Photo
-          </button>
-        </div>
-      {:else}
-        <div
-          class="upload-placeholder"
-          role="button"
-          tabindex="0"
-          onclick={triggerFileSelect}
-          onkeydown={(e) =>
-            (e.key === "Enter" || e.key === " ") && triggerFileSelect()}
-        >
-          <span class="camera-icon">📷</span>
-          <span class="upload-text">Take a photo or upload from library</span>
-        </div>
-      {/if}
-    </div>
-
-    <div class="form mt-4">
-      <div class="form-field">
-        <label for="photo-name-input">Food Name</label>
-        <Input
-          id="photo-name-input"
-          placeholder="e.g. Avocado Toast"
-          bind:value={name}
+      <div class="photo-upload-section mt-4">
+        <!-- Hidden file input -->
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          class="hidden-file-input"
+          bind:this={fileInput}
+          onchange={handleFileChange}
         />
+
+        {#if photo_base64}
+          <div class="photo-preview-box">
+            <img
+              src={photo_base64}
+              alt="Food Upload Preview"
+              class="photo-preview"
+            />
+            <button class="change-photo-btn" onclick={triggerFileSelect}>
+              Change Photo
+            </button>
+          </div>
+        {:else}
+          <div
+            class="upload-placeholder"
+            role="button"
+            tabindex="0"
+            onclick={triggerFileSelect}
+            onkeydown={(e) =>
+              (e.key === "Enter" || e.key === " ") && triggerFileSelect()}
+          >
+            <span class="camera-icon">📷</span>
+            <span class="upload-text">Take a photo or upload from library</span>
+          </div>
+        {/if}
       </div>
 
-      <div class="macros-row">
-        <div class="form-field flex-1">
-          <label for="photo-cal-input">Calories (kcal)</label>
+      <div class="form mt-4">
+        <div class="form-field">
+          <label for="photo-name-input">Food Name</label>
           <Input
-            id="photo-cal-input"
-            type="number"
-            placeholder="0"
-            bind:value={calories}
+            id="photo-name-input"
+            placeholder="e.g. Avocado Toast"
+            bind:value={name}
           />
         </div>
-        <div class="form-field flex-1">
-          <label for="photo-prot-input">Protein (g)</label>
-          <Input
-            id="photo-prot-input"
-            type="number"
-            placeholder="0"
-            bind:value={protein}
-          />
+
+        <div class="macros-row">
+          <div class="form-field flex-1">
+            <label for="photo-cal-input">Calories (kcal)</label>
+            <Input
+              id="photo-cal-input"
+              type="number"
+              placeholder="0"
+              bind:value={calories}
+            />
+          </div>
+          <div class="form-field flex-1">
+            <label for="photo-prot-input">Protein (g)</label>
+            <Input
+              id="photo-prot-input"
+              type="number"
+              placeholder="0"
+              bind:value={protein}
+            />
+          </div>
+        </div>
+
+        <div class="macros-row">
+          <div class="form-field flex-1">
+            <label for="photo-fat-input">Fat (g)</label>
+            <Input
+              id="photo-fat-input"
+              type="number"
+              placeholder="0"
+              bind:value={fat}
+            />
+          </div>
+          <div class="form-field flex-1">
+            <label for="photo-carb-input">Carbs (g)</label>
+            <Input
+              id="photo-carb-input"
+              type="number"
+              placeholder="0"
+              bind:value={carbs}
+            />
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label for="photo-meal-select">Meal Type</label>
+          <select
+            id="photo-meal-select"
+            bind:value={selected_meal_type}
+            class="custom-select"
+          >
+            <option value="breakfast">Breakfast</option>
+            <option value="lunch">Lunch</option>
+            <option value="dinner">Dinner</option>
+            <option value="snack">Snack</option>
+          </select>
+        </div>
+
+        {#if uploadStatus === "error"}
+          <div class="mt-2">
+            <Alert variant="error">{uploadError}</Alert>
+          </div>
+        {/if}
+
+        <div class="actions-row mt-4">
+          <Button variant="secondary" onclick={close}>Cancel</Button>
+          <Button
+            onclick={handleLog}
+            disabled={uploadStatus === "loading" ||
+              !name.trim() ||
+              String(calories).trim() === ""}
+            loading={uploadStatus === "loading"}
+          >
+            Log Food
+          </Button>
         </div>
       </div>
-
-      <div class="macros-row">
-        <div class="form-field flex-1">
-          <label for="photo-fat-input">Fat (g)</label>
-          <Input
-            id="photo-fat-input"
-            type="number"
-            placeholder="0"
-            bind:value={fat}
-          />
-        </div>
-        <div class="form-field flex-1">
-          <label for="photo-carb-input">Carbs (g)</label>
-          <Input
-            id="photo-carb-input"
-            type="number"
-            placeholder="0"
-            bind:value={carbs}
-          />
-        </div>
-      </div>
-
-      <div class="form-field">
-        <label for="photo-meal-select">Meal Type</label>
-        <select
-          id="photo-meal-select"
-          bind:value={selected_meal_type}
-          class="custom-select"
-        >
-          <option value="breakfast">Breakfast</option>
-          <option value="lunch">Lunch</option>
-          <option value="dinner">Dinner</option>
-          <option value="snack">Snack</option>
-        </select>
-      </div>
-
-      {#if uploadStatus === "error"}
-        <div class="mt-2">
-          <Alert variant="error">{uploadError}</Alert>
-        </div>
-      {/if}
-
-      <div class="actions-row mt-4">
-        <Button variant="secondary" onclick={close}>Cancel</Button>
-        <Button
-          onclick={handleLog}
-          disabled={uploadStatus === "loading" ||
-            !name.trim() ||
-            String(calories).trim() === ""}
-          loading={uploadStatus === "loading"}
-        >
-          Log Food
-        </Button>
-      </div>
-    </div>
     </div>
   {/snippet}
 </Modal>
 
 <style>
-  .modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0, 0, 0, 0.7);
-    z-index: 999;
-    backdrop-filter: blur(8px);
-  }
   .modal-card {
     position: fixed;
     left: 50%;

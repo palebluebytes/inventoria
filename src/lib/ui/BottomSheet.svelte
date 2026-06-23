@@ -14,7 +14,12 @@
   } = $props();
 </script>
 
-<Modal bind:open={isOpen} overlayClass="bottom-sheet-backdrop" {title}>
+<Modal
+  bind:open={isOpen}
+  overlayBg="rgba(0, 0, 0, 0.4)"
+  overlayBlur="blur(2px)"
+  {title}
+>
   {#snippet children({ props, close })}
     <div {...props} class="bottom-sheet-content">
       <div class="bottom-sheet-handle-bar">
@@ -36,16 +41,8 @@
 </Modal>
 
 <style>
-  /* bits-ui renders the backdrop and sheet as siblings: the backdrop only
-     dims, and the sheet pins itself to the bottom. */
-  .bottom-sheet-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.4);
-    z-index: 1000;
-    backdrop-filter: blur(2px);
-  }
-
+  /* The backdrop is owned by Modal; the sheet pins itself to the bottom one
+     z-index above it. */
   .bottom-sheet-content {
     position: fixed;
     bottom: 0;

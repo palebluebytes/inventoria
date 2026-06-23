@@ -74,7 +74,8 @@
 {#if activeModal === "menu"}
   <Modal
     onClose={() => (activeModal = null)}
-    overlayClass="menu-modal-overlay"
+    overlayBg="rgba(255, 255, 255, 0.9)"
+    overlayBlur="none"
     title="Log {active_meal_type.toUpperCase()}"
   >
     {#snippet children({ props, close })}
@@ -224,15 +225,6 @@
   }
 
   /* Log Menu Modal */
-  .menu-modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(255, 255, 255, 0.9);
-    z-index: 998;
-  }
   .menu-modal-card {
     position: fixed;
     left: 50%;

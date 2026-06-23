@@ -258,7 +258,7 @@
   }
 </script>
 
-<Modal onClose={onClose} title="🍲 Create Recipe">
+<Modal {onClose} title="🍲 Create Recipe">
   {#snippet children({ props, close })}
     <div {...props} class="modal-card">
       <div class="modal-header">
@@ -266,336 +266,326 @@
         <button class="close-btn" onclick={close}>&times;</button>
       </div>
 
-    {#if !showSearch}
-      <div class="recipe-form mt-4">
-        <div class="form-field">
-          <label for="recipe-name">Recipe Name</label>
-          <Input
-            id="recipe-name"
-            placeholder="e.g. Grandma's Apple Pie"
-            bind:value={recipeName}
-          />
-        </div>
-
-        <div class="form-field">
-          <label for="recipe-desc">Description (Optional)</label>
-          <textarea
-            id="recipe-desc"
-            placeholder="Brief notes about the recipe..."
-            bind:value={recipeDesc}
-            class="custom-textarea"
-          ></textarea>
-        </div>
-
-        <div class="form-field">
-          <label for="recipe-source">Source (Optional URL)</label>
-          <Input
-            id="recipe-source"
-            placeholder="https://example.com/recipe-source"
-            bind:value={source_url}
-          />
-        </div>
-
-        <div class="form-field">
-          <label for="recipe-url">Scrape Steps Link (Optional)</label>
-          <div class="input-row">
-            <Input
-              id="recipe-url"
-              placeholder="https://epicurious.com/pasta..."
-              bind:value={scrape_url}
-            />
-            <Button
-              variant="secondary"
-              onclick={scrapeRecipeSteps}
-              disabled={!scrape_url.trim() || scrapeStatus === "loading"}
-            >
-              {#if scrapeStatus === "loading"}Scraping...{:else}Scrape{/if}
-            </Button>
-          </div>
-          {#if scrapeStatus === "success"}
-            <span class="success-note"
-              >✓ Steps imported. Review steps in box below.</span
-            >
-          {/if}
-        </div>
-
-        {#if recipeSteps || scrapeStatus === "success"}
+      {#if !showSearch}
+        <div class="recipe-form mt-4">
           <div class="form-field">
-            <label for="recipe-steps">Recipe Steps / Instructions</label>
+            <label for="recipe-name">Recipe Name</label>
+            <Input
+              id="recipe-name"
+              placeholder="e.g. Grandma's Apple Pie"
+              bind:value={recipeName}
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="recipe-desc">Description (Optional)</label>
             <textarea
-              id="recipe-steps"
-              bind:value={recipeSteps}
-              class="custom-textarea steps-area"
+              id="recipe-desc"
+              placeholder="Brief notes about the recipe..."
+              bind:value={recipeDesc}
+              class="custom-textarea"
             ></textarea>
           </div>
-        {/if}
 
-        <div class="ingredients-header mt-4">
-          <h3>Ingredients</h3>
-          <Button variant="secondary" onclick={() => (showSearch = true)}>
-            + Add Ingredient
-          </Button>
-        </div>
-
-        {#if ingredients.length === 0}
-          <div class="empty-list-box">
-            <p>No ingredients added. Click above to search & add.</p>
+          <div class="form-field">
+            <label for="recipe-source">Source (Optional URL)</label>
+            <Input
+              id="recipe-source"
+              placeholder="https://example.com/recipe-source"
+              bind:value={source_url}
+            />
           </div>
-        {:else}
-          <ul class="ingredients-list mt-2">
-            {#each ingredients as ing, index}
-              <li class="ingredient-item">
-                <div class="ing-meta">
-                  <span class="ing-name">{ing.name}</span>
-                  <span class="ing-qty"
-                    >{ing.quantity}g &bull; {ing.calories} kcal</span
-                  >
-                </div>
-                <button
-                  class="remove-ing-btn"
-                  onclick={() => removeIngredient(index)}
-                >
-                  &times;
-                </button>
-              </li>
-            {/each}
-          </ul>
 
-          <!-- Aggregate Nutrition Summary -->
-          <div class="nutrition-preview mt-4">
-            <h4>Total Nutrition (Recipe aggregates)</h4>
-            <div class="preview-grid">
-              <div class="preview-pill cal">
-                <span class="pill-label">Calories</span>
-                <span class="pill-val">{totalCalories} kcal</span>
-              </div>
-              <div class="preview-pill prot">
-                <span class="pill-label">Protein</span>
-                <span class="pill-val">{totalProtein}g</span>
-              </div>
-              <div class="preview-pill fat">
-                <span class="pill-label">Fat</span>
-                <span class="pill-val">{totalFat}g</span>
-              </div>
-              <div class="preview-pill carbs">
-                <span class="pill-label">Carbs</span>
-                <span class="pill-val">{totalCarbs}g</span>
-              </div>
-            </div>
-          </div>
-        {/if}
-
-        <div class="form-field mt-4">
-          <label for="recipe-meal-select">Meal Type to Log</label>
-          <select
-            id="recipe-meal-select"
-            bind:value={selected_meal_type}
-            class="custom-select"
-          >
-            <option value="breakfast">Breakfast</option>
-            <option value="lunch">Lunch</option>
-            <option value="dinner">Dinner</option>
-            <option value="snack">Snack</option>
-          </select>
-        </div>
-
-        <div class="actions-row mt-6">
-          <Button variant="secondary" onclick={close}>Cancel</Button>
-          <Button
-            onclick={handleSaveRecipe}
-            disabled={!recipeName.trim() ||
-              ingredients.length === 0 ||
-              searchStatus === "loading"}
-            loading={searchStatus === "loading"}
-          >
-            Save & Log Recipe
-          </Button>
-        </div>
-      </div>
-    {:else}
-      <!-- Add Ingredient search flow -->
-      <div class="search-ingredients-box mt-4">
-        <h3>Add Ingredient</h3>
-        <Tabs.Root bind:value={searchTab}>
-          <Tabs.List>
-            {#snippet child({ props })}
-              <div {...props} class="tabs">
-                <Tabs.Trigger value="usda">
-                  {#snippet child({ props })}
-                    <button
-                      {...props}
-                      class="tab-btn"
-                      class:active={searchTab === "usda"}
-                    >
-                      🔍 USDA Search
-                    </button>
-                  {/snippet}
-                </Tabs.Trigger>
-                <Tabs.Trigger value="barcode">
-                  {#snippet child({ props })}
-                    <button
-                      {...props}
-                      class="tab-btn"
-                      class:active={searchTab === "barcode"}
-                    >
-                      🏷️ Barcode Lookup
-                    </button>
-                  {/snippet}
-                </Tabs.Trigger>
-              </div>
-            {/snippet}
-          </Tabs.List>
-        </Tabs.Root>
-
-        <div class="search-section mt-4">
-          {#if searchTab === "usda"}
-            {#if !$settingsStore.usda_api_key}
-              <div class="mb-4">
-                <Alert variant="warning">
-                  USDA API key is not configured. Please set your key in
-                  Settings to search the USDA database.
-                </Alert>
-              </div>
-            {/if}
+          <div class="form-field">
+            <label for="recipe-url">Scrape Steps Link (Optional)</label>
             <div class="input-row">
               <Input
-                id="recipe-usda-input"
-                placeholder="Search ingredient (e.g. banana, oats...)"
-                bind:value={query}
-                onkeydown={(e) =>
-                  e.key === "Enter" &&
-                  $settingsStore.usda_api_key &&
-                  handleUsdaSearch()}
-                disabled={!$settingsStore.usda_api_key}
+                id="recipe-url"
+                placeholder="https://epicurious.com/pasta..."
+                bind:value={scrape_url}
               />
               <Button
-                onclick={handleUsdaSearch}
-                disabled={searchStatus === "loading" ||
-                  !$settingsStore.usda_api_key}
-                loading={searchStatus === "loading"}
+                variant="secondary"
+                onclick={scrapeRecipeSteps}
+                disabled={!scrape_url.trim() || scrapeStatus === "loading"}
               >
-                Search
+                {#if scrapeStatus === "loading"}Scraping...{:else}Scrape{/if}
               </Button>
+            </div>
+            {#if scrapeStatus === "success"}
+              <span class="success-note"
+                >✓ Steps imported. Review steps in box below.</span
+              >
+            {/if}
+          </div>
+
+          {#if recipeSteps || scrapeStatus === "success"}
+            <div class="form-field">
+              <label for="recipe-steps">Recipe Steps / Instructions</label>
+              <textarea
+                id="recipe-steps"
+                bind:value={recipeSteps}
+                class="custom-textarea steps-area"
+              ></textarea>
+            </div>
+          {/if}
+
+          <div class="ingredients-header mt-4">
+            <h3>Ingredients</h3>
+            <Button variant="secondary" onclick={() => (showSearch = true)}>
+              + Add Ingredient
+            </Button>
+          </div>
+
+          {#if ingredients.length === 0}
+            <div class="empty-list-box">
+              <p>No ingredients added. Click above to search & add.</p>
             </div>
           {:else}
-            <div class="input-row">
-              <Input
-                id="recipe-barcode-input"
-                placeholder="Barcode (e.g. 3017620422003)"
-                bind:value={barcode}
-                onkeydown={(e) => e.key === "Enter" && handleBarcodeLookup()}
-              />
-              <Button
-                onclick={handleBarcodeLookup}
-                disabled={searchStatus === "loading"}
-                loading={searchStatus === "loading"}
-              >
-                Lookup
-              </Button>
-            </div>
-          {/if}
-        </div>
-
-        {#if !selectedResult}
-          {#if searchResults.length > 0}
-            <div class="results-container mt-4">
-              <ul class="results-list">
-                {#each searchResults as item}
-                  <li>
-                    <button
-                      class="result-item-btn"
-                      onclick={() => (selectedResult = item)}
+            <ul class="ingredients-list mt-2">
+              {#each ingredients as ing, index}
+                <li class="ingredient-item">
+                  <div class="ing-meta">
+                    <span class="ing-name">{ing.name}</span>
+                    <span class="ing-qty"
+                      >{ing.quantity}g &bull; {ing.calories} kcal</span
                     >
-                      <div class="result-details">
-                        <span class="result-name">{item.name}</span>
-                        <span class="result-macros">
-                          100g: {item.calories} kcal | P: {item.protein}g | F: {item.fat}g
-                          | C: {item.carbs}g
-                        </span>
-                      </div>
-                      <span class="select-arrow">&rarr;</span>
-                    </button>
-                  </li>
-                {/each}
-              </ul>
+                  </div>
+                  <button
+                    class="remove-ing-btn"
+                    onclick={() => removeIngredient(index)}
+                  >
+                    &times;
+                  </button>
+                </li>
+              {/each}
+            </ul>
+
+            <!-- Aggregate Nutrition Summary -->
+            <div class="nutrition-preview mt-4">
+              <h4>Total Nutrition (Recipe aggregates)</h4>
+              <div class="preview-grid">
+                <div class="preview-pill cal">
+                  <span class="pill-label">Calories</span>
+                  <span class="pill-val">{totalCalories} kcal</span>
+                </div>
+                <div class="preview-pill prot">
+                  <span class="pill-label">Protein</span>
+                  <span class="pill-val">{totalProtein}g</span>
+                </div>
+                <div class="preview-pill fat">
+                  <span class="pill-label">Fat</span>
+                  <span class="pill-val">{totalFat}g</span>
+                </div>
+                <div class="preview-pill carbs">
+                  <span class="pill-label">Carbs</span>
+                  <span class="pill-val">{totalCarbs}g</span>
+                </div>
+              </div>
             </div>
           {/if}
-        {:else}
-          <!-- Selected ingredient details -->
-          <div class="selected-details mt-4">
-            <div class="food-banner">
-              <h4>{selectedResult.name}</h4>
-              <p class="base-macros">
-                100g base: {selectedResult.calories} kcal | P: {selectedResult.protein}g
-                | F: {selectedResult.fat}g | C: {selectedResult.carbs}g
-              </p>
-            </div>
 
-            <div class="log-form mt-4">
-              <div class="form-field">
-                <label for="ing-quantity-input">Quantity (grams)</label>
+          <div class="form-field mt-4">
+            <label for="recipe-meal-select">Meal Type to Log</label>
+            <select
+              id="recipe-meal-select"
+              bind:value={selected_meal_type}
+              class="custom-select"
+            >
+              <option value="breakfast">Breakfast</option>
+              <option value="lunch">Lunch</option>
+              <option value="dinner">Dinner</option>
+              <option value="snack">Snack</option>
+            </select>
+          </div>
+
+          <div class="actions-row mt-6">
+            <Button variant="secondary" onclick={close}>Cancel</Button>
+            <Button
+              onclick={handleSaveRecipe}
+              disabled={!recipeName.trim() ||
+                ingredients.length === 0 ||
+                searchStatus === "loading"}
+              loading={searchStatus === "loading"}
+            >
+              Save & Log Recipe
+            </Button>
+          </div>
+        </div>
+      {:else}
+        <!-- Add Ingredient search flow -->
+        <div class="search-ingredients-box mt-4">
+          <h3>Add Ingredient</h3>
+          <Tabs.Root bind:value={searchTab}>
+            <Tabs.List>
+              {#snippet child({ props })}
+                <div {...props} class="tabs">
+                  <Tabs.Trigger value="usda">
+                    {#snippet child({ props })}
+                      <button
+                        {...props}
+                        class="tab-btn"
+                        class:active={searchTab === "usda"}
+                      >
+                        🔍 USDA Search
+                      </button>
+                    {/snippet}
+                  </Tabs.Trigger>
+                  <Tabs.Trigger value="barcode">
+                    {#snippet child({ props })}
+                      <button
+                        {...props}
+                        class="tab-btn"
+                        class:active={searchTab === "barcode"}
+                      >
+                        🏷️ Barcode Lookup
+                      </button>
+                    {/snippet}
+                  </Tabs.Trigger>
+                </div>
+              {/snippet}
+            </Tabs.List>
+          </Tabs.Root>
+
+          <div class="search-section mt-4">
+            {#if searchTab === "usda"}
+              {#if !$settingsStore.usda_api_key}
+                <div class="mb-4">
+                  <Alert variant="warning">
+                    USDA API key is not configured. Please set your key in
+                    Settings to search the USDA database.
+                  </Alert>
+                </div>
+              {/if}
+              <div class="input-row">
                 <Input
-                  id="ing-quantity-input"
-                  type="number"
-                  bind:value={ingredientGrams}
+                  id="recipe-usda-input"
+                  placeholder="Search ingredient (e.g. banana, oats...)"
+                  bind:value={query}
+                  onkeydown={(e) =>
+                    e.key === "Enter" &&
+                    $settingsStore.usda_api_key &&
+                    handleUsdaSearch()}
+                  disabled={!$settingsStore.usda_api_key}
                 />
-              </div>
-
-              <!-- Live preview -->
-              <div class="nutrition-preview mt-4">
-                <h5>
-                  Adding: {Math.round(
-                    (selectedResult.calories *
-                      (parseFloat(ingredientGrams) || 0)) /
-                      100
-                  )} kcal ({ingredientGrams}g)
-                </h5>
-              </div>
-
-              <div class="actions-row mt-4">
                 <Button
-                  variant="secondary"
-                  onclick={() => (selectedResult = null)}>Back</Button
+                  onclick={handleUsdaSearch}
+                  disabled={searchStatus === "loading" ||
+                    !$settingsStore.usda_api_key}
+                  loading={searchStatus === "loading"}
                 >
-                <Button
-                  onclick={addIngredient}
-                  disabled={!(parseFloat(ingredientGrams) > 0)}
-                >
-                  Add to Recipe
+                  Search
                 </Button>
               </div>
+            {:else}
+              <div class="input-row">
+                <Input
+                  id="recipe-barcode-input"
+                  placeholder="Barcode (e.g. 3017620422003)"
+                  bind:value={barcode}
+                  onkeydown={(e) => e.key === "Enter" && handleBarcodeLookup()}
+                />
+                <Button
+                  onclick={handleBarcodeLookup}
+                  disabled={searchStatus === "loading"}
+                  loading={searchStatus === "loading"}
+                >
+                  Lookup
+                </Button>
+              </div>
+            {/if}
+          </div>
+
+          {#if !selectedResult}
+            {#if searchResults.length > 0}
+              <div class="results-container mt-4">
+                <ul class="results-list">
+                  {#each searchResults as item}
+                    <li>
+                      <button
+                        class="result-item-btn"
+                        onclick={() => (selectedResult = item)}
+                      >
+                        <div class="result-details">
+                          <span class="result-name">{item.name}</span>
+                          <span class="result-macros">
+                            100g: {item.calories} kcal | P: {item.protein}g | F: {item.fat}g
+                            | C: {item.carbs}g
+                          </span>
+                        </div>
+                        <span class="select-arrow">&rarr;</span>
+                      </button>
+                    </li>
+                  {/each}
+                </ul>
+              </div>
+            {/if}
+          {:else}
+            <!-- Selected ingredient details -->
+            <div class="selected-details mt-4">
+              <div class="food-banner">
+                <h4>{selectedResult.name}</h4>
+                <p class="base-macros">
+                  100g base: {selectedResult.calories} kcal | P: {selectedResult.protein}g
+                  | F: {selectedResult.fat}g | C: {selectedResult.carbs}g
+                </p>
+              </div>
+
+              <div class="log-form mt-4">
+                <div class="form-field">
+                  <label for="ing-quantity-input">Quantity (grams)</label>
+                  <Input
+                    id="ing-quantity-input"
+                    type="number"
+                    bind:value={ingredientGrams}
+                  />
+                </div>
+
+                <!-- Live preview -->
+                <div class="nutrition-preview mt-4">
+                  <h5>
+                    Adding: {Math.round(
+                      (selectedResult.calories *
+                        (parseFloat(ingredientGrams) || 0)) /
+                        100
+                    )} kcal ({ingredientGrams}g)
+                  </h5>
+                </div>
+
+                <div class="actions-row mt-4">
+                  <Button
+                    variant="secondary"
+                    onclick={() => (selectedResult = null)}>Back</Button
+                  >
+                  <Button
+                    onclick={addIngredient}
+                    disabled={!(parseFloat(ingredientGrams) > 0)}
+                  >
+                    Add to Recipe
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
-        {/if}
+          {/if}
 
-        {#if searchStatus === "error"}
-          <div class="mt-4">
-            <Alert variant="error">{searchError}</Alert>
-          </div>
-        {/if}
+          {#if searchStatus === "error"}
+            <div class="mt-4">
+              <Alert variant="error">{searchError}</Alert>
+            </div>
+          {/if}
 
-        <div class="actions-row mt-6">
-          <Button variant="secondary" onclick={() => (showSearch = false)}
-            >Back to Recipe</Button
-          >
+          <div class="actions-row mt-6">
+            <Button variant="secondary" onclick={() => (showSearch = false)}
+              >Back to Recipe</Button
+            >
+          </div>
         </div>
-      </div>
-    {/if}
+      {/if}
     </div>
   {/snippet}
 </Modal>
 
 <style>
-  .modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0, 0, 0, 0.7);
-    z-index: 999;
-    backdrop-filter: blur(8px);
-  }
   .modal-card {
     position: fixed;
     left: 50%;

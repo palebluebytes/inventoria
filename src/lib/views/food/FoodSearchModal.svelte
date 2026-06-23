@@ -318,7 +318,7 @@
   }
 </script>
 
-<Modal onClose={onClose} title="Log Food">
+<Modal {onClose} title="Log Food">
   {#snippet children({ props, close })}
     <div {...props} class="modal-card">
       <div class="modal-header">
@@ -326,340 +326,336 @@
         <button class="close-btn" onclick={close}>&times;</button>
       </div>
 
-    {#if !selectedFood}
-      <!-- Tabs -->
-      <Tabs.Root bind:value={activeTab}>
-        <Tabs.List>
-          {#snippet child({ props })}
-            <div {...props} class="tabs">
-              <Tabs.Trigger value="usda">
-                {#snippet child({ props })}
-                  <button
-                    {...props}
-                    class="tab-btn"
-                    class:active={activeTab === "usda"}
-                  >
-                    🔍 USDA Search
-                  </button>
-                {/snippet}
-              </Tabs.Trigger>
-              <Tabs.Trigger value="barcode">
-                {#snippet child({ props })}
-                  <button
-                    {...props}
-                    class="tab-btn"
-                    class:active={activeTab === "barcode"}
-                  >
-                    🏷️ Barcode Lookup
-                  </button>
-                {/snippet}
-              </Tabs.Trigger>
-            </div>
-          {/snippet}
-        </Tabs.List>
-      </Tabs.Root>
-
-      <!-- Search fields -->
-      <div class="search-section mt-4">
-        {#if activeTab === "usda"}
-          {#if !$settingsStore.usda_api_key}
-            <div class="mb-4">
-              <Alert variant="warning">
-                USDA API key is not configured. Please set your key in Settings
-                to search the USDA database.
-              </Alert>
-            </div>
-          {/if}
-          <div class="input-row">
-            <Input
-              id="usda-modal-input"
-              placeholder="Search food by name (e.g. banana, oats...)"
-              bind:value={query}
-              onkeydown={(e) =>
-                e.key === "Enter" &&
-                $settingsStore.usda_api_key &&
-                handleUsdaSearch()}
-              disabled={!$settingsStore.usda_api_key}
-            />
-            <Button
-              onclick={handleUsdaSearch}
-              disabled={searchStatus === "loading" ||
-                !dbReady ||
-                !$settingsStore.usda_api_key}
-              loading={searchStatus === "loading"}
-            >
-              Search
-            </Button>
-          </div>
-        {:else}
-          {#if manualMode}
-            <div class="manual-form mt-4">
-              <div class="actions-row mb-4" style="gap: var(--space-xs);">
-                <Button variant="secondary" onclick={() => (manualMode = false)}
-                  >Back</Button
-                >
-                <Button onclick={handleAutofill}
-                  >✨ Autofill via Package Photo (V2)</Button
-                >
+      {#if !selectedFood}
+        <!-- Tabs -->
+        <Tabs.Root bind:value={activeTab}>
+          <Tabs.List>
+            {#snippet child({ props })}
+              <div {...props} class="tabs">
+                <Tabs.Trigger value="usda">
+                  {#snippet child({ props })}
+                    <button
+                      {...props}
+                      class="tab-btn"
+                      class:active={activeTab === "usda"}
+                    >
+                      🔍 USDA Search
+                    </button>
+                  {/snippet}
+                </Tabs.Trigger>
+                <Tabs.Trigger value="barcode">
+                  {#snippet child({ props })}
+                    <button
+                      {...props}
+                      class="tab-btn"
+                      class:active={activeTab === "barcode"}
+                    >
+                      🏷️ Barcode Lookup
+                    </button>
+                  {/snippet}
+                </Tabs.Trigger>
               </div>
+            {/snippet}
+          </Tabs.List>
+        </Tabs.Root>
 
-              <div class="form-field">
-                <label for="manual-barcode">Barcode (Optional)</label>
-                <Input
-                  id="manual-barcode"
-                  bind:value={barcode}
-                  placeholder="Optional barcode"
-                />
-              </div>
-
-              <div class="form-field mt-2">
-                <label for="manual-name">Food Name</label>
-                <Input
-                  id="manual-name"
-                  bind:value={manualName}
-                  placeholder="e.g. Avocado Toast"
-                />
-              </div>
-
-              <div class="macros-row mt-2">
-                <div class="form-field flex-1">
-                  <label for="manual-cal">Calories (kcal)</label>
-                  <Input
-                    id="manual-cal"
-                    type="number"
-                    placeholder="0"
-                    bind:value={manualCal}
-                  />
-                </div>
-                <div class="form-field flex-1">
-                  <label for="manual-prot">Protein (g)</label>
-                  <Input
-                    id="manual-prot"
-                    type="number"
-                    placeholder="0"
-                    bind:value={manualProt}
-                  />
-                </div>
-              </div>
-
-              <div class="macros-row mt-2">
-                <div class="form-field flex-1">
-                  <label for="manual-fat">Fat (g)</label>
-                  <Input
-                    id="manual-fat"
-                    type="number"
-                    placeholder="0"
-                    bind:value={manualFat}
-                  />
-                </div>
-                <div class="form-field flex-1">
-                  <label for="manual-carb">Carbs (g)</label>
-                  <Input
-                    id="manual-carb"
-                    type="number"
-                    placeholder="0"
-                    bind:value={manualCarb}
-                  />
-                </div>
-              </div>
-
-              {#if barcode.trim()}
-                <div class="form-field mt-2">
-                  <label class="checkbox-label">
-                    <input type="checkbox" bind:checked={contributeToOff} />
-                    Contribute to Open Food Facts (V2)
-                  </label>
-                </div>
-              {/if}
-
-              <div class="actions-row mt-4">
-                <Button
-                  onclick={handleManualLog}
-                  disabled={searchStatus === "loading" ||
-                    !manualName.trim() ||
-                    manualCal === ""}
-                  loading={searchStatus === "loading"}
-                  class="full-width-btn"
-                >
-                  Save & Log Food
-                </Button>
-              </div>
-            </div>
-          {:else}
-            <!-- Camera / Barcode Lookup -->
-            <div class="camera-container mt-4">
-              {#if scanError}
-                <Alert variant="warning">{scanError}</Alert>
-              {/if}
-              <div class="video-wrapper">
-                <!-- svelte-ignore a11y_media_has_caption -->
-                <video bind:this={videoEl} class="scanner-video" playsinline
-                ></video>
-                <div class="scanner-overlay"></div>
-              </div>
-            </div>
-
-            <div class="input-row mt-4">
-              <Input
-                id="barcode-modal-input"
-                placeholder="Enter 13-digit barcode (e.g. 3017620422003)"
-                bind:value={barcode}
-                onkeydown={(e) => e.key === "Enter" && handleBarcodeLookup()}
-              />
-              <Button
-                onclick={handleBarcodeLookup}
-                disabled={searchStatus === "loading" || !dbReady}
-                loading={searchStatus === "loading"}
-              >
-                Lookup
-              </Button>
-            </div>
-
-            {#if searchStatus === "error"}
-              <div class="mt-4 text-center">
-                <Button
-                  variant="secondary"
-                  onclick={() => (manualMode = true)}
-                  class="full-width-btn"
-                >
-                  Enter Details Manually
-                </Button>
-              </div>
-            {:else}
-              <div class="mt-2 text-center">
-                <button class="text-btn" onclick={() => (manualMode = true)}
-                  >Or enter details manually</button
-                >
+        <!-- Search fields -->
+        <div class="search-section mt-4">
+          {#if activeTab === "usda"}
+            {#if !$settingsStore.usda_api_key}
+              <div class="mb-4">
+                <Alert variant="warning">
+                  USDA API key is not configured. Please set your key in
+                  Settings to search the USDA database.
+                </Alert>
               </div>
             {/if}
-          {/if}
-        {/if}
-      </div>
+            <div class="input-row">
+              <Input
+                id="usda-modal-input"
+                placeholder="Search food by name (e.g. banana, oats...)"
+                bind:value={query}
+                onkeydown={(e) =>
+                  e.key === "Enter" &&
+                  $settingsStore.usda_api_key &&
+                  handleUsdaSearch()}
+                disabled={!$settingsStore.usda_api_key}
+              />
+              <Button
+                onclick={handleUsdaSearch}
+                disabled={searchStatus === "loading" ||
+                  !dbReady ||
+                  !$settingsStore.usda_api_key}
+                loading={searchStatus === "loading"}
+              >
+                Search
+              </Button>
+            </div>
+          {:else}
+            {#if manualMode}
+              <div class="manual-form mt-4">
+                <div class="actions-row mb-4" style="gap: var(--space-xs);">
+                  <Button
+                    variant="secondary"
+                    onclick={() => (manualMode = false)}>Back</Button
+                  >
+                  <Button onclick={handleAutofill}
+                    >✨ Autofill via Package Photo (V2)</Button
+                  >
+                </div>
 
-      <!-- Results list -->
-      {#if searchResults.length > 0}
-        <div class="results-container mt-4">
-          <h3>Results</h3>
-          <ul class="results-list">
-            {#each searchResults as item}
-              <li>
-                <button
-                  class="result-item-btn"
-                  onclick={() => (selectedFood = item)}
-                >
-                  <div class="result-details">
-                    <span class="result-name">{item.name}</span>
-                    <span class="result-macros">
-                      Per 100g: {item.calories} kcal | P: {item.protein}g | F: {item.fat}g
-                      | C: {item.carbs}g
-                    </span>
+                <div class="form-field">
+                  <label for="manual-barcode">Barcode (Optional)</label>
+                  <Input
+                    id="manual-barcode"
+                    bind:value={barcode}
+                    placeholder="Optional barcode"
+                  />
+                </div>
+
+                <div class="form-field mt-2">
+                  <label for="manual-name">Food Name</label>
+                  <Input
+                    id="manual-name"
+                    bind:value={manualName}
+                    placeholder="e.g. Avocado Toast"
+                  />
+                </div>
+
+                <div class="macros-row mt-2">
+                  <div class="form-field flex-1">
+                    <label for="manual-cal">Calories (kcal)</label>
+                    <Input
+                      id="manual-cal"
+                      type="number"
+                      placeholder="0"
+                      bind:value={manualCal}
+                    />
                   </div>
-                  <span class="select-arrow">&rarr;</span>
-                </button>
-              </li>
-            {/each}
-          </ul>
-        </div>
-      {/if}
-    {:else}
-      <!-- Selected food logger view -->
-      <div class="selected-details mt-4">
-        <div class="food-banner">
-          <h3>{selectedFood.name}</h3>
-          <p class="base-macros">
-            Nutrition per 100g: <strong>{selectedFood.calories} kcal</strong> |
-            P: {selectedFood.protein}g | F: {selectedFood.fat}g | C: {selectedFood.carbs}g
-          </p>
+                  <div class="form-field flex-1">
+                    <label for="manual-prot">Protein (g)</label>
+                    <Input
+                      id="manual-prot"
+                      type="number"
+                      placeholder="0"
+                      bind:value={manualProt}
+                    />
+                  </div>
+                </div>
+
+                <div class="macros-row mt-2">
+                  <div class="form-field flex-1">
+                    <label for="manual-fat">Fat (g)</label>
+                    <Input
+                      id="manual-fat"
+                      type="number"
+                      placeholder="0"
+                      bind:value={manualFat}
+                    />
+                  </div>
+                  <div class="form-field flex-1">
+                    <label for="manual-carb">Carbs (g)</label>
+                    <Input
+                      id="manual-carb"
+                      type="number"
+                      placeholder="0"
+                      bind:value={manualCarb}
+                    />
+                  </div>
+                </div>
+
+                {#if barcode.trim()}
+                  <div class="form-field mt-2">
+                    <label class="checkbox-label">
+                      <input type="checkbox" bind:checked={contributeToOff} />
+                      Contribute to Open Food Facts (V2)
+                    </label>
+                  </div>
+                {/if}
+
+                <div class="actions-row mt-4">
+                  <Button
+                    onclick={handleManualLog}
+                    disabled={searchStatus === "loading" ||
+                      !manualName.trim() ||
+                      manualCal === ""}
+                    loading={searchStatus === "loading"}
+                    class="full-width-btn"
+                  >
+                    Save & Log Food
+                  </Button>
+                </div>
+              </div>
+            {:else}
+              <!-- Camera / Barcode Lookup -->
+              <div class="camera-container mt-4">
+                {#if scanError}
+                  <Alert variant="warning">{scanError}</Alert>
+                {/if}
+                <div class="video-wrapper">
+                  <!-- svelte-ignore a11y_media_has_caption -->
+                  <video bind:this={videoEl} class="scanner-video" playsinline
+                  ></video>
+                  <div class="scanner-overlay"></div>
+                </div>
+              </div>
+
+              <div class="input-row mt-4">
+                <Input
+                  id="barcode-modal-input"
+                  placeholder="Enter 13-digit barcode (e.g. 3017620422003)"
+                  bind:value={barcode}
+                  onkeydown={(e) => e.key === "Enter" && handleBarcodeLookup()}
+                />
+                <Button
+                  onclick={handleBarcodeLookup}
+                  disabled={searchStatus === "loading" || !dbReady}
+                  loading={searchStatus === "loading"}
+                >
+                  Lookup
+                </Button>
+              </div>
+
+              {#if searchStatus === "error"}
+                <div class="mt-4 text-center">
+                  <Button
+                    variant="secondary"
+                    onclick={() => (manualMode = true)}
+                    class="full-width-btn"
+                  >
+                    Enter Details Manually
+                  </Button>
+                </div>
+              {:else}
+                <div class="mt-2 text-center">
+                  <button class="text-btn" onclick={() => (manualMode = true)}
+                    >Or enter details manually</button
+                  >
+                </div>
+              {/if}
+            {/if}
+          {/if}
         </div>
 
-        <div class="log-form mt-4">
-          <div class="form-field">
-            <label for="quantity-input">Quantity (grams)</label>
-            <Input id="quantity-input" type="number" bind:value={loggedGrams} />
+        <!-- Results list -->
+        {#if searchResults.length > 0}
+          <div class="results-container mt-4">
+            <h3>Results</h3>
+            <ul class="results-list">
+              {#each searchResults as item}
+                <li>
+                  <button
+                    class="result-item-btn"
+                    onclick={() => (selectedFood = item)}
+                  >
+                    <div class="result-details">
+                      <span class="result-name">{item.name}</span>
+                      <span class="result-macros">
+                        Per 100g: {item.calories} kcal | P: {item.protein}g | F: {item.fat}g
+                        | C: {item.carbs}g
+                      </span>
+                    </div>
+                    <span class="select-arrow">&rarr;</span>
+                  </button>
+                </li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
+      {:else}
+        <!-- Selected food logger view -->
+        <div class="selected-details mt-4">
+          <div class="food-banner">
+            <h3>{selectedFood.name}</h3>
+            <p class="base-macros">
+              Nutrition per 100g: <strong>{selectedFood.calories} kcal</strong>
+              | P: {selectedFood.protein}g | F: {selectedFood.fat}g | C: {selectedFood.carbs}g
+            </p>
           </div>
 
-          <div class="form-field">
-            <label for="meal-type-select">Meal Type</label>
-            <select
-              id="meal-type-select"
-              bind:value={selected_meal_type}
-              class="custom-select"
-            >
-              <option value="breakfast">Breakfast</option>
-              <option value="lunch">Lunch</option>
-              <option value="dinner">Dinner</option>
-              <option value="snack">Snack</option>
-            </select>
-          </div>
+          <div class="log-form mt-4">
+            <div class="form-field">
+              <label for="quantity-input">Quantity (grams)</label>
+              <Input
+                id="quantity-input"
+                type="number"
+                bind:value={loggedGrams}
+              />
+            </div>
 
-          <!-- Dynamic Proportional Nutrition Preview -->
-          <div class="nutrition-preview mt-4">
-            <h4>Logging Preview ({loggedGrams}g)</h4>
-            <div class="preview-grid">
-              <div class="preview-pill cal">
-                <span class="pill-label">Calories</span>
-                <span class="pill-val"
-                  >{Math.round(selectedFood.calories * factor)} kcal</span
-                >
-              </div>
-              <div class="preview-pill prot">
-                <span class="pill-label">Protein</span>
-                <span class="pill-val"
-                  >{Math.round(selectedFood.protein * factor * 10) / 10}g</span
-                >
-              </div>
-              <div class="preview-pill fat">
-                <span class="pill-label">Fat</span>
-                <span class="pill-val"
-                  >{Math.round(selectedFood.fat * factor * 10) / 10}g</span
-                >
-              </div>
-              <div class="preview-pill carbs">
-                <span class="pill-label">Carbs</span>
-                <span class="pill-val"
-                  >{Math.round(selectedFood.carbs * factor * 10) / 10}g</span
-                >
+            <div class="form-field">
+              <label for="meal-type-select">Meal Type</label>
+              <select
+                id="meal-type-select"
+                bind:value={selected_meal_type}
+                class="custom-select"
+              >
+                <option value="breakfast">Breakfast</option>
+                <option value="lunch">Lunch</option>
+                <option value="dinner">Dinner</option>
+                <option value="snack">Snack</option>
+              </select>
+            </div>
+
+            <!-- Dynamic Proportional Nutrition Preview -->
+            <div class="nutrition-preview mt-4">
+              <h4>Logging Preview ({loggedGrams}g)</h4>
+              <div class="preview-grid">
+                <div class="preview-pill cal">
+                  <span class="pill-label">Calories</span>
+                  <span class="pill-val"
+                    >{Math.round(selectedFood.calories * factor)} kcal</span
+                  >
+                </div>
+                <div class="preview-pill prot">
+                  <span class="pill-label">Protein</span>
+                  <span class="pill-val"
+                    >{Math.round(selectedFood.protein * factor * 10) /
+                      10}g</span
+                  >
+                </div>
+                <div class="preview-pill fat">
+                  <span class="pill-label">Fat</span>
+                  <span class="pill-val"
+                    >{Math.round(selectedFood.fat * factor * 10) / 10}g</span
+                  >
+                </div>
+                <div class="preview-pill carbs">
+                  <span class="pill-label">Carbs</span>
+                  <span class="pill-val"
+                    >{Math.round(selectedFood.carbs * factor * 10) / 10}g</span
+                  >
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="actions-row mt-4">
-            <Button variant="secondary" onclick={() => (selectedFood = null)}
-              >Back</Button
-            >
-            <Button
-              onclick={logSelection}
-              disabled={searchStatus === "loading" ||
-                (parseFloat(loggedGrams) || 0) <= 0}
-              loading={searchStatus === "loading"}
-            >
-              Log Food
-            </Button>
+            <div class="actions-row mt-4">
+              <Button variant="secondary" onclick={() => (selectedFood = null)}
+                >Back</Button
+              >
+              <Button
+                onclick={logSelection}
+                disabled={searchStatus === "loading" ||
+                  (parseFloat(loggedGrams) || 0) <= 0}
+                loading={searchStatus === "loading"}
+              >
+                Log Food
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
-    {/if}
+      {/if}
 
-    {#if searchStatus === "error"}
-      <div class="mt-4">
-        <Alert variant="error">{searchError}</Alert>
-      </div>
-    {/if}
+      {#if searchStatus === "error"}
+        <div class="mt-4">
+          <Alert variant="error">{searchError}</Alert>
+        </div>
+      {/if}
     </div>
   {/snippet}
 </Modal>
 
 <style>
-  .modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0, 0, 0, 0.7);
-    z-index: 999;
-    backdrop-filter: blur(8px);
-  }
   .modal-card {
     position: fixed;
     left: 50%;

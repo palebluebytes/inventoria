@@ -109,7 +109,12 @@
   }
 </script>
 
-<Modal onClose={onClose} title="Ingest Digital Twins">
+<Modal
+  {onClose}
+  title="Ingest Digital Twins"
+  overlayBg="rgba(255, 255, 255, 0.95)"
+  overlayBlur="none"
+>
   {#snippet children({ props, close })}
     <div {...props} class="modal-card">
       <div class="modal-header">
@@ -117,119 +122,109 @@
         <button class="close-btn" onclick={close}>&times;</button>
       </div>
 
-    {#if initialType !== "book" && !$settingsStore.tmdb_api_key}
-      <div class="mt-4">
-        <Alert variant="warning">
-          TMDB API key is not configured. Please set your key in Settings to
-          search and ingest Movie/TV twins.
-        </Alert>
-      </div>
-    {/if}
-
-    <form
-      class="search-form mt-4"
-      onsubmit={(e) => {
-        e.preventDefault();
-        if (initialType === "book" || $settingsStore.tmdb_api_key) {
-          handleSearch();
-        }
-      }}
-    >
-      <input
-        id="media-search-input"
-        type="text"
-        placeholder="Search title, author or keywords..."
-        bind:value={searchQuery}
-        class="retro-input flex-1"
-        disabled={initialType !== "book" && !$settingsStore.tmdb_api_key}
-      />
-      <Button
-        type="submit"
-        loading={isSearching}
-        disabled={initialType !== "book" && !$settingsStore.tmdb_api_key}
-        >Search</Button
-      >
-    </form>
-
-    {#if initialType === "book"}
-      <div class="v2-actions">
-        <Button
-          variant="secondary"
-          onclick={() =>
-            alert(
-              "V2 Feature: Barcode and Image scanning for books will be available in the next release."
-            )}
-        >
-          📷 Scan Barcode / Cover (V2)
-        </Button>
-      </div>
-    {/if}
-
-    {#if searchError}
-      <Alert variant="error" class="mt-4 mx-4">{searchError}</Alert>
-    {/if}
-
-    <div class="search-results mt-4">
-      {#if isSearching}
-        <div class="searching-spinner">Searching remote databases...</div>
-      {:else}
-        {#each searchResults as item}
-          <div class="search-result-item">
-            {#if item.poster_url && !item.imageError}
-              <img
-                src={item.poster_url}
-                alt={item.title}
-                class="result-thumbnail"
-                onerror={() => (item.imageError = true)}
-                referrerpolicy="no-referrer"
-                crossorigin="anonymous"
-              />
-            {:else}
-              <div class="result-thumbnail-placeholder">
-                {item.type === "book" ? "📖" : "🎬"}
-              </div>
-            {/if}
-            <div class="result-info">
-              <span class="result-title">{item.title}</span>
-              <span class="result-creator">
-                {#if item.type === "book"}
-                  By {item.creator || "Unknown"}
-                {:else}
-                  Release: {item.release_date || "Unknown"}
-                {/if}
-              </span>
-            </div>
-            <Button
-              variant="secondary"
-              disabled={savingId !== null}
-              loading={savingId === item.id}
-              onclick={() => handleSaveMedia(item)}
-            >
-              Save
-            </Button>
-          </div>
-        {:else}
-          {#if searchQuery && !isSearching}
-            <p class="no-results">No matches found locally or online.</p>
-          {/if}
-        {/each}
+      {#if initialType !== "book" && !$settingsStore.tmdb_api_key}
+        <div class="mt-4">
+          <Alert variant="warning">
+            TMDB API key is not configured. Please set your key in Settings to
+            search and ingest Movie/TV twins.
+          </Alert>
+        </div>
       {/if}
-    </div>
+
+      <form
+        class="search-form mt-4"
+        onsubmit={(e) => {
+          e.preventDefault();
+          if (initialType === "book" || $settingsStore.tmdb_api_key) {
+            handleSearch();
+          }
+        }}
+      >
+        <input
+          id="media-search-input"
+          type="text"
+          placeholder="Search title, author or keywords..."
+          bind:value={searchQuery}
+          class="retro-input flex-1"
+          disabled={initialType !== "book" && !$settingsStore.tmdb_api_key}
+        />
+        <Button
+          type="submit"
+          loading={isSearching}
+          disabled={initialType !== "book" && !$settingsStore.tmdb_api_key}
+          >Search</Button
+        >
+      </form>
+
+      {#if initialType === "book"}
+        <div class="v2-actions">
+          <Button
+            variant="secondary"
+            onclick={() =>
+              alert(
+                "V2 Feature: Barcode and Image scanning for books will be available in the next release."
+              )}
+          >
+            📷 Scan Barcode / Cover (V2)
+          </Button>
+        </div>
+      {/if}
+
+      {#if searchError}
+        <Alert variant="error" class="mt-4 mx-4">{searchError}</Alert>
+      {/if}
+
+      <div class="search-results mt-4">
+        {#if isSearching}
+          <div class="searching-spinner">Searching remote databases...</div>
+        {:else}
+          {#each searchResults as item}
+            <div class="search-result-item">
+              {#if item.poster_url && !item.imageError}
+                <img
+                  src={item.poster_url}
+                  alt={item.title}
+                  class="result-thumbnail"
+                  onerror={() => (item.imageError = true)}
+                  referrerpolicy="no-referrer"
+                  crossorigin="anonymous"
+                />
+              {:else}
+                <div class="result-thumbnail-placeholder">
+                  {item.type === "book" ? "📖" : "🎬"}
+                </div>
+              {/if}
+              <div class="result-info">
+                <span class="result-title">{item.title}</span>
+                <span class="result-creator">
+                  {#if item.type === "book"}
+                    By {item.creator || "Unknown"}
+                  {:else}
+                    Release: {item.release_date || "Unknown"}
+                  {/if}
+                </span>
+              </div>
+              <Button
+                variant="secondary"
+                disabled={savingId !== null}
+                loading={savingId === item.id}
+                onclick={() => handleSaveMedia(item)}
+              >
+                Save
+              </Button>
+            </div>
+          {:else}
+            {#if searchQuery && !isSearching}
+              <p class="no-results">No matches found locally or online.</p>
+            {/if}
+          {/each}
+        {/if}
+      </div>
     </div>
   {/snippet}
 </Modal>
 
 <style>
-  .modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(255, 255, 255, 0.95);
-    z-index: 1000;
-  }
-
   .modal-card {
     position: fixed;
     left: 50%;

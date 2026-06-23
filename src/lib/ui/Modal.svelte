@@ -6,7 +6,8 @@
     open = $bindable(true),
     onClose,
     title,
-    overlayClass = "modal-overlay",
+    overlayBg = "rgba(0, 0, 0, 0.7)",
+    overlayBlur = "blur(8px)",
     children,
   }: {
     /** Bind for externally-controlled sheets; defaults open (parent mounts to show). */
@@ -15,8 +16,10 @@
     onClose?: () => void;
     /** Accessible label for the dialog (sets aria-label on the content). */
     title?: string;
-    /** Class for the backdrop element (modals style their own dimmer). */
-    overlayClass?: string;
+    /** Backdrop dim colour (any CSS colour). */
+    overlayBg?: string;
+    /** Backdrop filter, e.g. `blur(8px)` or `none`. */
+    overlayBlur?: string;
     /** Renders the dialog card. Spread `props` onto your card element and call
         `close()` from close/cancel buttons. */
     children: Snippet<[{ props: Record<string, unknown>; close: () => void }]>;
@@ -35,7 +38,12 @@
   <Dialog.Portal>
     <Dialog.Overlay>
       {#snippet child({ props })}
-        <div {...props} class={overlayClass}></div>
+        <div
+          {...props}
+          class="modal-overlay"
+          style:background={overlayBg}
+          style:backdrop-filter={overlayBlur}
+        ></div>
       {/snippet}
     </Dialog.Overlay>
     <Dialog.Content aria-label={title}>
@@ -45,3 +53,18 @@
     </Dialog.Content>
   </Dialog.Portal>
 </Dialog.Root>
+
+<style>
+  /* Canonical modal backdrop. bits-ui portals the overlay and the card to the
+     end of <body> as siblings, so the overlay only dims while each card pins
+     itself one z-index above (cards use 999+). These styles MUST live here, not
+     in each consumer's scoped block: the overlay element is rendered by this
+     component, so a consumer's scoped `.modal-overlay` selector can never match
+     it — which is why the dimmer previously failed to render. The dim colour and
+     blur vary per modal and arrive as inline styles via the props above. */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 998;
+  }
+</style>

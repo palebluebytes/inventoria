@@ -69,7 +69,12 @@
   }
 </script>
 
-<Modal onClose={onClose} title="Log Engagement Event">
+<Modal
+  {onClose}
+  title="Log Engagement Event"
+  overlayBg="rgba(255, 255, 255, 0.95)"
+  overlayBlur="none"
+>
   {#snippet children({ props, close })}
     <div {...props} class="modal-card">
       <div class="modal-header">
@@ -77,161 +82,156 @@
         <button class="close-btn" onclick={close}>&times;</button>
       </div>
 
-    <div class="media-details-banner">
-      {#if media.poster_url && !imageError}
-        <img
-          src={media.poster_url}
-          alt={media.title}
-          class="banner-poster"
-          onerror={() => (imageError = true)}
-          referrerpolicy="no-referrer"
-          crossorigin="anonymous"
-        />
-      {/if}
-      <div class="banner-info">
-        <h3>{media.title}</h3>
-        <p>
-          {#if media.type === "book"}
-            Author: {media.author || "Unknown"}
-          {:else}
-            Director: {media.director || "Unknown"}
-          {/if}
-        </p>
-        {#if media.type === "book" && media.first_publish_year}
-          <p class="publish-year">
-            First Published: {media.first_publish_year}
-          </p>
+      <div class="media-details-banner">
+        {#if media.poster_url && !imageError}
+          <img
+            src={media.poster_url}
+            alt={media.title}
+            class="banner-poster"
+            onerror={() => (imageError = true)}
+            referrerpolicy="no-referrer"
+            crossorigin="anonymous"
+          />
         {/if}
-        <Badge variant="default">{media.type.toUpperCase()}</Badge>
+        <div class="banner-info">
+          <h3>{media.title}</h3>
+          <p>
+            {#if media.type === "book"}
+              Author: {media.author || "Unknown"}
+            {:else}
+              Director: {media.director || "Unknown"}
+            {/if}
+          </p>
+          {#if media.type === "book" && media.first_publish_year}
+            <p class="publish-year">
+              First Published: {media.first_publish_year}
+            </p>
+          {/if}
+          <Badge variant="default">{media.type.toUpperCase()}</Badge>
+        </div>
       </div>
-    </div>
 
-    {#if media.blurb || subjects.length > 0}
-      <div class="media-extra-details">
-        {#if media.blurb}
-          <div class="blurb-section">
-            <h4>Synopsis</h4>
-            <p>{media.blurb}</p>
+      {#if media.blurb || subjects.length > 0}
+        <div class="media-extra-details">
+          {#if media.blurb}
+            <div class="blurb-section">
+              <h4>Synopsis</h4>
+              <p>{media.blurb}</p>
+            </div>
+          {/if}
+          {#if subjects.length > 0}
+            <div class="subjects-section">
+              <h4>Subjects</h4>
+              <div class="subjects-list">
+                {#each subjects.slice(0, 8) as subj}
+                  <Badge variant="default">{subj}</Badge>
+                {/each}
+              </div>
+            </div>
+          {/if}
+        </div>
+      {/if}
+
+      <form
+        onsubmit={(e) => {
+          e.preventDefault();
+          submitEngagement();
+        }}
+        class="engagement-form mt-4"
+      >
+        <!-- Status -->
+        <div class="form-group">
+          <label for="event-status-select">Status</label>
+          <select
+            id="event-status-select"
+            bind:value={formStatus}
+            class="retro-select"
+          >
+            <option value="saved">Saved (To watch/read)</option>
+            <option value="started">Started</option>
+            <option value="progress">In Progress</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+
+        <!-- Book progress fields -->
+        {#if media.type === "book" && (formStatus === "started" || formStatus === "progress")}
+          <div class="form-group">
+            <label for="event-pages-read">Pages Read (Optional)</label>
+            <input
+              id="event-pages-read"
+              type="number"
+              min="0"
+              bind:value={formPagesRead}
+              class="retro-input"
+            />
           </div>
         {/if}
-        {#if subjects.length > 0}
-          <div class="subjects-section">
-            <h4>Subjects</h4>
-            <div class="subjects-list">
-              {#each subjects.slice(0, 8) as subj}
-                <Badge variant="default">{subj}</Badge>
-              {/each}
+
+        <!-- TV progress fields -->
+        {#if media.type === "tv" && (formStatus === "started" || formStatus === "progress")}
+          <div class="flex gap-2">
+            <div class="form-group flex-1">
+              <label for="event-season">Season</label>
+              <input
+                id="event-season"
+                type="number"
+                min="1"
+                bind:value={formSeason}
+                class="retro-input"
+              />
+            </div>
+            <div class="form-group flex-1">
+              <label for="event-episode">Episode</label>
+              <input
+                id="event-episode"
+                type="number"
+                min="1"
+                bind:value={formEpisode}
+                class="retro-input"
+              />
             </div>
           </div>
         {/if}
-      </div>
-    {/if}
 
-    <form
-      onsubmit={(e) => {
-        e.preventDefault();
-        submitEngagement();
-      }}
-      class="engagement-form mt-4"
-    >
-      <!-- Status -->
-      <div class="form-group">
-        <label for="event-status-select">Status</label>
-        <select
-          id="event-status-select"
-          bind:value={formStatus}
-          class="retro-select"
-        >
-          <option value="saved">Saved (To watch/read)</option>
-          <option value="started">Started</option>
-          <option value="progress">In Progress</option>
-          <option value="completed">Completed</option>
-        </select>
-      </div>
-
-      <!-- Book progress fields -->
-      {#if media.type === "book" && (formStatus === "started" || formStatus === "progress")}
+        <!-- Rating & Review -->
         <div class="form-group">
-          <label for="event-pages-read">Pages Read (Optional)</label>
-          <input
-            id="event-pages-read"
-            type="number"
-            min="0"
-            bind:value={formPagesRead}
-            class="retro-input"
-          />
+          <label for="event-rating">Rating (1-5)</label>
+          <select
+            id="event-rating"
+            bind:value={formRating}
+            class="retro-select"
+          >
+            <option value={undefined}>No Rating</option>
+            <option value={1}>1 - Poor</option>
+            <option value={2}>2 - Fair</option>
+            <option value={3}>3 - Good</option>
+            <option value={4}>4 - Very Good</option>
+            <option value={5}>5 - Outstanding</option>
+          </select>
         </div>
-      {/if}
 
-      <!-- TV progress fields -->
-      {#if media.type === "tv" && (formStatus === "started" || formStatus === "progress")}
-        <div class="flex gap-2">
-          <div class="form-group flex-1">
-            <label for="event-season">Season</label>
-            <input
-              id="event-season"
-              type="number"
-              min="1"
-              bind:value={formSeason}
-              class="retro-input"
-            />
-          </div>
-          <div class="form-group flex-1">
-            <label for="event-episode">Episode</label>
-            <input
-              id="event-episode"
-              type="number"
-              min="1"
-              bind:value={formEpisode}
-              class="retro-input"
-            />
-          </div>
+        <div class="form-group">
+          <label for="event-review">Review / Comments</label>
+          <textarea
+            id="event-review"
+            rows="3"
+            bind:value={formReview}
+            class="retro-textarea"
+            placeholder="Add your thoughts..."
+          ></textarea>
         </div>
-      {/if}
 
-      <!-- Rating & Review -->
-      <div class="form-group">
-        <label for="event-rating">Rating (1-5)</label>
-        <select id="event-rating" bind:value={formRating} class="retro-select">
-          <option value={undefined}>No Rating</option>
-          <option value={1}>1 - Poor</option>
-          <option value={2}>2 - Fair</option>
-          <option value={3}>3 - Good</option>
-          <option value={4}>4 - Very Good</option>
-          <option value={5}>5 - Outstanding</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="event-review">Review / Comments</label>
-        <textarea
-          id="event-review"
-          rows="3"
-          bind:value={formReview}
-          class="retro-textarea"
-          placeholder="Add your thoughts..."
-        ></textarea>
-      </div>
-
-      <div class="modal-footer mt-6">
-        <Button variant="secondary" onclick={close}>Cancel</Button>
-        <Button type="submit">Log Event</Button>
-      </div>
-    </form>
+        <div class="modal-footer mt-6">
+          <Button variant="secondary" onclick={close}>Cancel</Button>
+          <Button type="submit">Log Event</Button>
+        </div>
+      </form>
     </div>
   {/snippet}
 </Modal>
 
 <style>
-  /* bits-ui renders the overlay (backdrop) and content (card) as siblings, so
-     the backdrop only dims and the card positions itself. */
-  .modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(255, 255, 255, 0.95);
-    z-index: 1000;
-  }
-
   .modal-card {
     position: fixed;
     left: 50%;
