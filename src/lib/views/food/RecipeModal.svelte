@@ -19,6 +19,8 @@
   import Alert from "../../ui/Alert.svelte";
   import Badge from "../../ui/Badge.svelte";
   import Modal from "../../ui/Modal.svelte";
+  import FoodResultsList from "./FoodResultsList.svelte";
+  import MacroPills from "./MacroPills.svelte";
   import { Tabs } from "bits-ui";
 
   interface Ingredient {
@@ -364,24 +366,12 @@
             <!-- Aggregate Nutrition Summary -->
             <div class="nutrition-preview mt-4">
               <h4>Total Nutrition (Recipe aggregates)</h4>
-              <div class="preview-grid">
-                <div class="preview-pill cal">
-                  <span class="pill-label">Calories</span>
-                  <span class="pill-val">{totalCalories} kcal</span>
-                </div>
-                <div class="preview-pill prot">
-                  <span class="pill-label">Protein</span>
-                  <span class="pill-val">{totalProtein}g</span>
-                </div>
-                <div class="preview-pill fat">
-                  <span class="pill-label">Fat</span>
-                  <span class="pill-val">{totalFat}g</span>
-                </div>
-                <div class="preview-pill carbs">
-                  <span class="pill-label">Carbs</span>
-                  <span class="pill-val">{totalCarbs}g</span>
-                </div>
-              </div>
+              <MacroPills
+                calories={totalCalories}
+                protein={totalProtein}
+                fat={totalFat}
+                carbs={totalCarbs}
+              />
             </div>
           {/if}
 
@@ -497,29 +487,10 @@
           </div>
 
           {#if !selectedResult}
-            {#if searchResults.length > 0}
-              <div class="results-container mt-4">
-                <ul class="results-list">
-                  {#each searchResults as item}
-                    <li>
-                      <button
-                        class="result-item-btn"
-                        onclick={() => (selectedResult = item)}
-                      >
-                        <div class="result-details">
-                          <span class="result-name">{item.name}</span>
-                          <span class="result-macros">
-                            100g: {item.calories} kcal | P: {item.protein}g | F: {item.fat}g
-                            | C: {item.carbs}g
-                          </span>
-                        </div>
-                        <span class="select-arrow">&rarr;</span>
-                      </button>
-                    </li>
-                  {/each}
-                </ul>
-              </div>
-            {/if}
+            <FoodResultsList
+              results={searchResults}
+              onSelect={(item) => (selectedResult = item)}
+            />
           {:else}
             <!-- Selected ingredient details -->
             <div class="selected-details mt-4">
@@ -599,6 +570,12 @@
     max-width: 550px;
     max-height: 85vh;
     overflow-y: auto;
+    /* Dark-theme overrides for the shared FoodResultsList / MacroPills. */
+    --food-surface-bg: rgba(255, 255, 255, 0.02);
+    --food-surface-border: 1px solid var(--border);
+    --food-surface-hover: rgba(255, 255, 255, 0.04);
+    --food-item-radius: 12px;
+    --food-pill-radius: 8px;
     padding: var(--space-m);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     animation: zoomIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -757,49 +734,6 @@
     border-bottom-color: var(--accent);
   }
 
-  .results-list {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2xs);
-    max-height: 200px;
-    overflow-y: auto;
-  }
-  .result-item-btn {
-    width: 100%;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: var(--space-xs) var(--space-s);
-    text-align: left;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-  .result-item-btn:hover {
-    background: rgba(255, 255, 255, 0.04);
-  }
-  .result-details {
-    display: flex;
-    flex-direction: column;
-  }
-  .result-name {
-    font-size: var(--step-n1);
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-  .result-macros {
-    font-size: var(--step-n3);
-    color: var(--text-muted);
-    margin-top: 2px;
-  }
-  .select-arrow {
-    color: var(--text-muted);
-    font-size: var(--step-0);
-  }
-
   .food-banner {
     background: rgba(255, 255, 255, 0.01);
     border: 1px solid var(--border);
@@ -823,31 +757,6 @@
     font-weight: 600;
     color: var(--text-secondary);
     margin-bottom: var(--space-2xs);
-  }
-  .preview-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: var(--space-3xs);
-  }
-  .preview-pill {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: var(--space-2xs);
-  }
-  .pill-label {
-    font-size: var(--step-n4);
-    color: var(--text-muted);
-    text-transform: uppercase;
-  }
-  .pill-val {
-    font-size: var(--step-n2);
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-top: 2px;
   }
 
   .custom-select {
