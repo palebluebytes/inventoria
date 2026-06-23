@@ -1,6 +1,7 @@
-import { readable, type Readable } from "svelte/store";
+import { type Readable } from "svelte/store";
 import { dbClient } from "../db/db.client";
 import { ingestEntity } from "../ingestion/ingest";
+import { createLedgerStore } from "./datoms.store";
 
 // Helper to get local start/end of a given date
 export function getDayBounds(date: Date) {
@@ -106,31 +107,13 @@ export async function getEventsForDay(date: Date) {
   return events;
 }
 
-// Svelte readable store that live-updates when database invalidates
+// Svelte readable store that live-updates when the database invalidates
 export function createCalorieTrackerStore(date: Date): Readable<any[]> {
-  return readable<any[]>([], (set) => {
-    let live = true;
-
-    async function refresh() {
-      try {
-        const data = await getEventsForDay(date);
-        if (live) set(data);
-      } catch (err) {
-        console.error("Failed to load calorie tracker data:", err);
-      }
-    }
-
-    refresh();
-
-    const unsubscribe = dbClient.onInvalidate(() => {
-      if (live) refresh();
-    });
-
-    return () => {
-      live = false;
-      unsubscribe();
-    };
-  });
+  return createLedgerStore<any[]>(
+    () => getEventsForDay(date),
+    [],
+    (err) => console.error("Failed to load calorie tracker data:", err)
+  );
 }
 
 // ---------------------------------------------------------------------------
