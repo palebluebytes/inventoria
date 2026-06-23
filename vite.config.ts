@@ -1,9 +1,15 @@
 import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { VitePWA } from "vite-plugin-pwa";
-// Shared with the Cloudflare worker so the dev proxy and prod proxy never drift.
-import { cleanHtml } from "./src/lib/ingestion/html-clean";
+// SSRF guard, redirect re-validation, and the post-fetch response policy (size
+// cap, image allowlist, security headers, HTML cleaning) are all shared with the
+// Cloudflare worker so the dev proxy and prod proxy cannot drift.
 import { checkProxyTarget, guardedFetch } from "./src/lib/ingestion/url-guard";
+import {
+  securityHeaders,
+  HTML_CSP,
+  readProxyPayload,
+} from "./src/lib/ingestion/proxy-policy";
 
 const handleProxyRequest = async (req: any, res: any, next: any) => {
   const urlObj = new URL(
@@ -42,24 +48,31 @@ const handleProxyRequest = async (req: any, res: any, next: any) => {
         return;
       }
 
-      const contentType = fetchRes.headers.get("content-type") || "";
       res.setHeader("Access-Control-Allow-Origin", "*");
+      for (const [k, v] of Object.entries(securityHeaders)) {
+        res.setHeader(k, v);
+      }
 
-      if (contentType.includes("image/")) {
-        const arrayBuffer = await fetchRes.arrayBuffer();
-        res.setHeader("Content-Type", contentType);
-        res.setHeader("Cache-Control", "public, max-age=86400");
-        res.statusCode = 200;
-        res.end(Buffer.from(arrayBuffer));
+      const payload = await readProxyPayload(fetchRes);
+
+      if (payload.kind === "error") {
+        res.statusCode = payload.status;
+        res.end(payload.message);
         return;
       }
 
-      const rawHtml = await fetchRes.text();
-      const cleanedHtml = cleanHtml(rawHtml);
+      if (payload.kind === "image") {
+        res.setHeader("Content-Type", payload.mime);
+        res.setHeader("Cache-Control", "public, max-age=86400");
+        res.statusCode = 200;
+        res.end(Buffer.from(payload.body));
+        return;
+      }
 
       res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Content-Security-Policy", HTML_CSP);
       res.statusCode = 200;
-      res.end(cleanedHtml);
+      res.end(payload.html);
     } catch (error: any) {
       res.statusCode = 500;
       res.end(`Proxy error: ${error.message || error}`);

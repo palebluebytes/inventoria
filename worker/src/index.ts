@@ -1,63 +1,15 @@
-import { checkProxyTarget, guardedFetch } from "../../src/lib/ingestion/url-guard";
-import { cleanHtml } from "../../src/lib/ingestion/html-clean";
+import {
+  checkProxyTarget,
+  guardedFetch,
+} from "../../src/lib/ingestion/url-guard";
+import {
+  corsHeaders,
+  securityHeaders,
+  HTML_CSP,
+  readProxyPayload,
+} from "../../src/lib/ingestion/proxy-policy";
 
-/** Raised by readCapped when a body exceeds MAX_RESPONSE_BYTES mid-stream. */
-class ResponseTooLargeError extends Error {}
-
-/**
- * Reads a response body, aborting as soon as it exceeds `max` bytes. This bounds
- * memory regardless of whether the upstream sent an honest content-length — a
- * chunked/length-omitted body cannot be trusted, so we must measure while
- * reading rather than buffering the whole thing first.
- */
-async function readCapped(response: Response, max: number): Promise<Uint8Array> {
-  const reader = response.body?.getReader();
-  if (!reader) return new Uint8Array(0);
-
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > max) {
-      await reader.cancel();
-      throw new ResponseTooLargeError();
-    }
-    chunks.push(value);
-  }
-
-  const out = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    out.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return out;
-}
-
-const MAX_RESPONSE_BYTES = 5 * 1024 * 1024; // 5 MB
 const FETCH_TIMEOUT_MS = 20_000;
-const ALLOWED_IMAGE_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-  "image/avif",
-];
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
-
-// Defence-in-depth headers applied to every response.
-const securityHeaders = {
-  "X-Content-Type-Options": "nosniff",
-  "X-Frame-Options": "DENY",
-  "Referrer-Policy": "no-referrer",
-};
 
 function errorResponse(message: string, status: number): Response {
   return new Response(message, {
@@ -113,56 +65,34 @@ export default {
         );
       }
 
-      // Reject oversized payloads early when the upstream declares a length.
-      // readCapped still enforces the cap for chunked/length-omitted bodies.
-      const declaredLength = Number(
-        response.headers.get("content-length") || 0
-      );
-      if (declaredLength > MAX_RESPONSE_BYTES) {
-        return errorResponse("Target response exceeds 5MB size limit", 413);
+      const payload = await readProxyPayload(response);
+
+      if (payload.kind === "error") {
+        return errorResponse(payload.message, payload.status);
       }
 
-      const contentType = response.headers.get("content-type") || "";
-
-      if (contentType.includes("image/")) {
-        const mime = contentType.split(";")[0].trim().toLowerCase();
-        if (!ALLOWED_IMAGE_TYPES.includes(mime)) {
-          return errorResponse(`Unsupported image type: ${mime}`, 415);
-        }
-        const body = await readCapped(response, MAX_RESPONSE_BYTES);
-        return new Response(body, {
+      if (payload.kind === "image") {
+        return new Response(payload.body, {
           status: 200,
           headers: {
             ...corsHeaders,
             ...securityHeaders,
-            "Content-Type": mime,
+            "Content-Type": payload.mime,
             "Cache-Control": "public, max-age=86400",
           },
         });
       }
 
-      const raw = new TextDecoder().decode(
-        await readCapped(response, MAX_RESPONSE_BYTES)
-      );
-
-      const html = cleanHtml(raw);
-
-      return new Response(html, {
+      return new Response(payload.html, {
         status: 200,
         headers: {
           ...corsHeaders,
           ...securityHeaders,
           "Content-Type": "text/html;charset=UTF-8",
-          // The body is opaque scraped markup; lock rendering down hard in case
-          // it is ever loaded directly in a browser context.
-          "Content-Security-Policy":
-            "default-src 'none'; img-src data: https:; style-src 'unsafe-inline'; frame-ancestors 'none'",
+          "Content-Security-Policy": HTML_CSP,
         },
       });
     } catch (error: any) {
-      if (error instanceof ResponseTooLargeError) {
-        return errorResponse("Target response exceeds 5MB size limit", 413);
-      }
       if (error?.name === "AbortError") {
         return errorResponse("Target request timed out", 504);
       }
