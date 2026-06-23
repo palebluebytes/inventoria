@@ -106,17 +106,17 @@ describe("fetchHtml Proxy Error handling", () => {
     vi.unstubAllGlobals();
   });
 
-  it("translates 413 or payload messages into friendly error message", async () => {
+  it("translates a 413 into the friendly oversized-page message", async () => {
     vi.stubGlobal("window", {});
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: false,
       status: 413,
       statusText: "Payload Too Large",
-      text: async () => "exceeds 1MB size limit",
+      text: async () => "Target response exceeds 5MB size limit",
     } as Response);
 
     await expect(fetchHtml("https://example.com/huge")).rejects.toThrow(
-      "The product page is too large for the current proxy limit (1MB)."
+      "The product page is too large for the current proxy limit (5MB)."
     );
     vi.unstubAllGlobals();
   });

@@ -40,9 +40,9 @@ export async function fetchHtml(url: string): Promise<string> {
 
   if (!response.ok) {
     let errorMessage = `Failed to fetch URL: ${response.statusText} (${response.status})`;
-    if (response.status === 413 || text.includes("exceeds 1MB size limit")) {
+    if (response.status === 413) {
       errorMessage =
-        "The product page is too large for the current proxy limit (1MB).";
+        "The product page is too large for the current proxy limit (5MB).";
     } else if (
       response.status === 403 ||
       response.status === 503 ||
