@@ -139,6 +139,36 @@ export interface DayState {
   blueprintId: string;
 }
 
+/**
+ * Counts the distinct local days in the trailing `windowDays`-day window ending
+ * at `refDayMs` (a local-midnight timestamp) that count toward a weekly_flexible
+ * goal — i.e. days with a completed or exempt execution once per-day undos are
+ * resolved. Shared by the heatmap engine and the agenda pill so they cannot
+ * disagree: resolving undos per day (not across the whole window) means a later
+ * undo never cancels an earlier day's completion.
+ */
+export function countActiveDaysInWindow(
+  executions: { time: number; status: string; target_id?: string }[],
+  refDayMs: number,
+  windowDays = 7
+): number {
+  const cursor = new Date(refDayMs);
+  let count = 0;
+  for (let i = 0; i < windowDays; i++) {
+    const dayStr = toLocalDateStr(cursor.getTime());
+    const dayExecs = getActiveExecutions(
+      executions.filter((e) => toLocalDateStr(e.time) === dayStr)
+    );
+    if (
+      dayExecs.some((e) => e.status === "completed" || e.status === "exempt")
+    ) {
+      count++;
+    }
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return count;
+}
+
 export function getDailyLineageStates(
   lineageBlueprints: {
     entity: string;
@@ -237,27 +267,7 @@ export function getDailyLineageStates(
 
         if (rules.type === "weekly_flexible") {
           const requiredCount = rules.count ?? 1;
-          let completedDays = 0;
-
-          // Walk back 7 local calendar days from the current day.
-          const checkDay = new Date(currentDay);
-          for (let offset = 0; offset < 7; offset++) {
-            const checkDayStr = toLocalDateStr(checkDay.getTime());
-            // Resolve toggles (a double-tap "uncompleted" cancels a
-            // completion) before counting, and count a day only if it was
-            // actually completed.
-            const checkExecs = getActiveExecutions(
-              execsByDate.get(checkDayStr) || []
-            );
-            const checkCompleted = checkExecs.some(
-              (e) => e.status === "completed"
-            );
-            const checkExempt = checkExecs.some((e) => e.status === "exempt");
-            if (checkCompleted || checkExempt) {
-              completedDays++;
-            }
-            checkDay.setDate(checkDay.getDate() - 1);
-          }
+          const completedDays = countActiveDaysInWindow(executions, currentMs);
           fraction =
             requiredCount > 0
               ? Math.min(1.0, completedDays / requiredCount)

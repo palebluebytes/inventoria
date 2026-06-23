@@ -3,6 +3,7 @@
     toLocalDateStr,
     localDateStrToDate,
     getActiveExecutions,
+    countActiveDaysInWindow,
   } from "../../habits/habits";
   import type { HabitLineage } from "../../stores/habits.store";
   import type { ScheduleRule, DayOfWeek } from "../../habits/habits";
@@ -61,17 +62,10 @@
   let completedCount = $derived(completedReps.length);
   let rules = $derived(lineage.head.schedule_rules);
 
-  let last7DaysExecs = $derived(
-    getActiveExecutions(
-      lineage.executions.filter(
-        (e) =>
-          e.time >= selected_date_ms - 6 * 24 * 60 * 60 * 1000 &&
-          e.time < selected_date_ms + 24 * 60 * 60 * 1000
-      )
-    )
-  );
+  // Per-day-resolved trailing-7-day count, shared with the heatmap engine so the
+  // agenda pill and the heatmap agree on weekly_flexible progress.
   let weeklyDoneDays = $derived(
-    new Set(last7DaysExecs.map((e) => toLocalDateStr(e.time))).size
+    countActiveDaysInWindow(lineage.executions, selected_date_ms)
   );
 
   let isDone = $derived.by(() => {

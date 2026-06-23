@@ -6,6 +6,7 @@ import {
   computeHabitScore,
   getDailyLineageStates,
   getActiveExecutions,
+  countActiveDaysInWindow,
   toLocalDateStr,
   type ExecutionRow,
 } from "../../src/lib/habits/habits";
@@ -458,6 +459,31 @@ describe("advanced scheduling and exempt calculations", () => {
     const states = getDailyLineageStates(blueprints, execs, daysAgo(0));
     expect(states.get(toLocalDateStr(daysAgo(2)))?.status).toBe("completed");
     expect(states.get(toLocalDateStr(daysAgo(1)))?.status).toBe("completed");
+    expect(states.get(toLocalDateStr(daysAgo(0)))?.status).toBe("completed");
+  });
+
+  it("counts weekly_flexible days per-day so a later undo can't cancel an earlier day", () => {
+    // A bare uncompleted on day-1 has nothing to undo *that day*; it must not
+    // reach back and cancel day-3's or day-5's completion. This is the engine /
+    // agenda-pill drift that countActiveDaysInWindow fixes: resolving undos
+    // window-wide would (wrongly) leave only one active day.
+    const execs = [
+      { time: daysAgo(5), target: "habit:flex", status: "completed" },
+      { time: daysAgo(3), target: "habit:flex", status: "completed" },
+      { time: daysAgo(1), target: "habit:flex", status: "uncompleted" },
+    ];
+
+    expect(countActiveDaysInWindow(execs, daysAgo(0))).toBe(2);
+
+    // And the heatmap engine agrees, since it shares the same helper.
+    const blueprints = [
+      {
+        entity: "habit:flex",
+        time: daysAgo(10),
+        schedule_rules: { type: "weekly_flexible" as const, count: 2 },
+      },
+    ];
+    const states = getDailyLineageStates(blueprints, execs, daysAgo(0));
     expect(states.get(toLocalDateStr(daysAgo(0)))?.status).toBe("completed");
   });
 
