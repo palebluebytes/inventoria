@@ -3,7 +3,7 @@
   import { calEventsStore } from "../stores/cal_events.store";
   import { projectSlotsForDate } from "../cal_events/cal_events";
   import { isScheduleRuleActive } from "../recurrence/rules";
-  import { toLocalDateStr } from "../habits/habits";
+  import { localDateStrToDate, eventTimestampForDay } from "../habits/habits";
   import type {
     CalEventBlueprint,
     ProjectedSlot,
@@ -109,7 +109,7 @@
   });
 
   let selected_date_ms = $derived(
-    new Date(selected_date_str + "T00:00:00").getTime()
+    localDateStrToDate(selected_date_str).getTime()
   );
 
   let dateTodayStr = $derived(
@@ -124,15 +124,6 @@
     }, 30_000);
     return () => clearInterval(id);
   });
-
-  // The timestamp an event is recorded with. Logging on today's row uses the
-  // real "now"; for any other selected day we anchor to local noon so the event
-  // buckets onto that local calendar day (consistent with food logging).
-  function eventTimestampForDay(dateStr: string): number {
-    const now = Date.now();
-    if (dateStr === toLocalDateStr(now)) return now;
-    return new Date(dateStr + "T12:00:00").getTime();
-  }
 
   // ── Habit log ──────────────────────────────────────────────────
   async function logHabitEvent(

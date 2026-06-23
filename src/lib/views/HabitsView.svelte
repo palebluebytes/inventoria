@@ -6,7 +6,7 @@
   import Badge from "../ui/Badge.svelte";
   import HabitStats from "./habits/HabitStats.svelte";
   import HabitItem from "./habits/HabitItem.svelte";
-  import { toLocalDateStr } from "../habits/habits";
+  import { localDateStrToDate, eventTimestampForDay } from "../habits/habits";
 
   let { dbReady }: { dbReady: boolean } = $props();
 
@@ -116,22 +116,12 @@
   });
 
   let selected_date_ms = $derived(
-    new Date(selected_date_str + "T00:00:00").getTime()
+    localDateStrToDate(selected_date_str).getTime()
   );
 
   let dateTodayStr = $derived.by(() => {
     return `${daysOfWeekLong[currentDate.getDay()]}, ${months[currentDate.getMonth()]} ${currentDate.getDate()}, ${currentDate.getFullYear()}`;
   });
-
-  // The timestamp an event is recorded with. Logging on today's row uses the
-  // real "now"; for any other selected day we anchor to local noon so the event
-  // buckets onto that local calendar day. (A future agenda will let the user
-  // pick an exact time when creating an event.)
-  function eventTimestampForDay(selectedDateStr: string): number {
-    const now = Date.now();
-    if (selectedDateStr === toLocalDateStr(now)) return now;
-    return new Date(selectedDateStr + "T12:00:00").getTime();
-  }
 
   // Derived timeline bifurcation
   let timedHabitItems = $derived.by(() => {

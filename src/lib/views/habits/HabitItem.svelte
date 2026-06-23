@@ -1,5 +1,9 @@
 <script lang="ts">
-  import { toLocalDateStr, getActiveExecutions } from "../../habits/habits";
+  import {
+    toLocalDateStr,
+    localDateStrToDate,
+    getActiveExecutions,
+  } from "../../habits/habits";
   import type { HabitLineage } from "../../stores/habits.store";
   import type { ScheduleRule, DayOfWeek } from "../../habits/habits";
 
@@ -250,7 +254,7 @@
       {:else if rules && rules.type === "weekly_days"}
         {@const daysOfWeek = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]}
         {@const dowStr = daysOfWeek[
-          new Date(selected_date_str + "T00:00:00").getDay()
+          localDateStrToDate(selected_date_str).getDay()
         ] as DayOfWeek}
         {@const isScheduledToday = rules.days.includes(dowStr)}
         {#if !isScheduledToday}

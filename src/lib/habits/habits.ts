@@ -119,6 +119,20 @@ export function localDateStrToDate(dateStr: string): Date {
   return new Date(dateStr + "T00:00:00");
 }
 
+/**
+ * The timestamp an execution event should be recorded with for a selected local
+ * day. Logging on today's row uses the real "now"; for any other day we anchor
+ * to local noon so the event buckets onto that local calendar day (consistent
+ * with food logging).
+ */
+export function eventTimestampForDay(
+  dateStr: string,
+  now: number = Date.now()
+): number {
+  if (dateStr === toLocalDateStr(now)) return now;
+  return new Date(dateStr + "T12:00:00").getTime();
+}
+
 export interface DayState {
   status: "completed" | "exempt" | "off" | "failed";
   fraction: number;
@@ -206,7 +220,7 @@ export function getDailyLineageStates(
       }
 
       const activeExecs = getActiveExecutions(
-        dayExecsRaw(execsByDate, currentDayStr)
+        execsByDate.get(currentDayStr) || []
       );
       const dayExecs = activeExecs.filter((e) => e.status === "completed");
       const hasExempt = activeExecs.some((e) => e.status === "exempt");
@@ -300,10 +314,6 @@ export function getDailyLineageStates(
   return states;
 }
 
-function dayExecsRaw(execsByDate: Map<string, any[]>, dateStr: string): any[] {
-  return execsByDate.get(dateStr) || [];
-}
-
 export function getActiveExecutions<
   T extends { status: string; target_id?: string; time: number },
 >(executions: T[]): T[] {
@@ -325,10 +335,6 @@ export function getActiveExecutions<
     }
   }
   return active;
-}
-
-function dayExecsFiltered(rawExecs: any[]): any[] {
-  return rawExecs.filter((e) => e.status !== "exempt");
 }
 
 export function computeStreak(
