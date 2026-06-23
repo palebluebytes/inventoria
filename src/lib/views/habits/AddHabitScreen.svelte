@@ -2,9 +2,10 @@
   import { untrack } from "svelte";
   import { habitsStore } from "../../stores/habits.store";
   import { acquisitionLibraryStore } from "../../stores/acquisition.store";
-  import type { ScheduleRule, DayOfWeek } from "../../habits/habits";
+  import type { ScheduleRule } from "../../habits/habits";
   import { onMount } from "svelte";
   import { slide } from "svelte/transition";
+  import ScheduleRuleEditor from "./ScheduleRuleEditor.svelte";
 
   let {
     dbReady,
@@ -20,31 +21,23 @@
 
   let habit_name = $state("");
   let habit_category = $state(""); // start with none selected
-  let habit_schedule_type = $state<
-    "daily_multiple" | "weekly_days" | "weekly_flexible"
-  >(untrack(() => initialScheduleType));
-
-  // daily_multiple options:
-  let daily_count = $state(1);
-  let daily_use_subtargets = $state(untrack(() => initialUseSubtargets));
-  let daily_subtargets = $state<{ id: string; time_hint: string }[]>([
-    { id: "slot_1", time_hint: "08:00" },
-    { id: "slot_2", time_hint: "20:00" },
-  ]);
-
-  // weekly_days options:
-  let weekly_days_selected = $state<{ [key: string]: boolean }>({
-    mon: true,
-    tue: true,
-    wed: true,
-    thu: true,
-    fri: true,
-    sat: false,
-    sun: false,
-  });
-
-  // weekly_flexible options:
-  let weekly_flex_count = $state(3);
+  // The schedule editor owns its widget state; seed it from the add flow's
+  // initial type / sub-target hint and read the built rule back on save.
+  let scheduleRule = $state<ScheduleRule>(
+    untrack(() => initialUseSubtargets)
+      ? {
+          type: "daily_multiple",
+          targets: [
+            { id: "slot_1", time_hint: "08:00" },
+            { id: "slot_2", time_hint: "20:00" },
+          ],
+        }
+      : untrack(() => initialScheduleType) === "weekly_days"
+        ? { type: "weekly_days", days: ["mon", "tue", "wed", "thu", "fri"] }
+        : untrack(() => initialScheduleType) === "weekly_flexible"
+          ? { type: "weekly_flexible", count: 3 }
+          : { type: "daily_multiple", count: 1 }
+  );
 
   // Equipment / Digital Twin integration
   let use_equipment = $state(false);
@@ -59,12 +52,6 @@
   let custom_categories = $state<string[]>([]);
   let show_add_category_input = $state(false);
   let new_category_name = $state("");
-
-  const scheduleTypes = [
-    { value: "daily_multiple", label: "DAILY" },
-    { value: "weekly_days", label: "SPECIFIC DAYS" },
-    { value: "weekly_flexible", label: "FLEXIBLE" },
-  ];
 
   onMount(() => {
     const stored = localStorage.getItem("inventoria_habit_categories");
@@ -138,45 +125,11 @@
     habit_status = "loading";
     habit_error = "";
 
-    // Construct schedule rules
-    let scheduleRules: ScheduleRule;
-    if (habit_schedule_type === "daily_multiple") {
-      if (daily_use_subtargets) {
-        scheduleRules = {
-          type: "daily_multiple",
-          targets: daily_subtargets
-            .filter((t) => t.id.trim() !== "")
-            .map((t) => ({
-              id: t.id.trim(),
-              time_hint: t.time_hint.trim() || undefined,
-            })),
-        };
-      } else {
-        scheduleRules = {
-          type: "daily_multiple",
-          count: daily_count,
-        };
-      }
-    } else if (habit_schedule_type === "weekly_days") {
-      const days = (Object.keys(weekly_days_selected) as DayOfWeek[]).filter(
-        (d) => weekly_days_selected[d]
-      );
-      scheduleRules = {
-        type: "weekly_days",
-        days,
-      };
-    } else {
-      scheduleRules = {
-        type: "weekly_flexible",
-        count: weekly_flex_count,
-      };
-    }
-
     try {
       await habitsStore.createHabit(
         habit_name.trim(),
         habit_category,
-        scheduleRules,
+        scheduleRule,
         use_equipment ? selected_equipment_id : ""
       );
       onClose();
@@ -214,168 +167,8 @@
       />
     </div>
 
-    <!-- Schedule Type -->
-    <div class="section-card">
-      <h3 class="section-legend">Schedule Type</h3>
-      <div class="segmented-control">
-        {#each scheduleTypes as type}
-          <button
-            type="button"
-            class="segment-btn"
-            class:active={habit_schedule_type === type.value}
-            onclick={() => {
-              habit_schedule_type = type.value as any;
-            }}
-          >
-            {type.label}
-          </button>
-        {/each}
-      </div>
-    </div>
-
-    <!-- Daily Config -->
-    {#if habit_schedule_type === "daily_multiple"}
-      <div class="section-card" transition:slide={{ duration: 200 }}>
-        <h3 class="section-legend">Daily Schedule</h3>
-
-        <button
-          type="button"
-          class="specific-times-btn"
-          class:active={daily_use_subtargets}
-          onclick={() => (daily_use_subtargets = !daily_use_subtargets)}
-        >
-          <span class="custom-checkbox" class:checked={daily_use_subtargets}
-          ></span>
-          <span class="toggle-label">SPECIFIC TIMES?</span>
-        </button>
-
-        {#if daily_use_subtargets}
-          <div
-            class="subtargets-list-brutal"
-            transition:slide={{ duration: 200 }}
-          >
-            {#each daily_subtargets as tgt, idx}
-              <div class="subtarget-row-brutal">
-                <input
-                  type="time"
-                  bind:value={tgt.time_hint}
-                  class="input-brutal small-input time-input"
-                />
-                <button
-                  type="button"
-                  class="delete-subtarget-btn"
-                  onclick={() => {
-                    daily_subtargets = daily_subtargets.filter(
-                      (_, i) => i !== idx
-                    );
-                  }}
-                  aria-label="Delete slot"
-                >
-                  ✕
-                </button>
-              </div>
-            {/each}
-            <button
-              type="button"
-              class="add-subtarget-btn"
-              onclick={() => {
-                daily_subtargets = [
-                  ...daily_subtargets,
-                  {
-                    id: "slot_" + Math.random().toString(36).substring(2, 9),
-                    time_hint: "",
-                  },
-                ];
-              }}
-            >
-              + ADD TIME SLOT
-            </button>
-          </div>
-        {:else}
-          <div
-            class="reps-counter-container"
-            transition:slide={{ duration: 200 }}
-          >
-            <span class="counter-label-desc">TARGET REPS PER DAY:</span>
-            <div class="reps-counter">
-              <button
-                type="button"
-                class="counter-btn"
-                onclick={() => {
-                  if (daily_count > 1) daily_count--;
-                }}
-              >
-                -
-              </button>
-              <span class="counter-val"
-                >{daily_count} {daily_count === 1 ? "REP" : "REPS"}</span
-              >
-              <button
-                type="button"
-                class="counter-btn"
-                onclick={() => daily_count++}
-              >
-                +
-              </button>
-            </div>
-          </div>
-        {/if}
-      </div>
-    {/if}
-
-    <!-- Weekly Specific Days Config -->
-    {#if habit_schedule_type === "weekly_days"}
-      <div class="section-card" transition:slide={{ duration: 200 }}>
-        <h3 class="section-legend">Scheduled Days</h3>
-        <div class="days-grid-brutal">
-          {#each ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as day}
-            <button
-              type="button"
-              class="day-btn-brutal"
-              class:selected={weekly_days_selected[day]}
-              onclick={() =>
-                (weekly_days_selected[day] = !weekly_days_selected[day])}
-            >
-              {day.toUpperCase()}
-            </button>
-          {/each}
-        </div>
-      </div>
-    {/if}
-
-    <!-- Weekly Flexible Config -->
-    {#if habit_schedule_type === "weekly_flexible"}
-      <div class="section-card" transition:slide={{ duration: 200 }}>
-        <h3 class="section-legend">Flexible Target</h3>
-        <div class="reps-counter-container">
-          <span class="counter-label-desc">COMPLETIONS PER WEEK:</span>
-          <div class="reps-counter">
-            <button
-              type="button"
-              class="counter-btn"
-              onclick={() => {
-                if (weekly_flex_count > 1) weekly_flex_count--;
-              }}
-            >
-              -
-            </button>
-            <span class="counter-val">
-              {weekly_flex_count}
-              {weekly_flex_count === 1 ? "TIME" : "TIMES"} / WEEK
-            </span>
-            <button
-              type="button"
-              class="counter-btn"
-              onclick={() => {
-                if (weekly_flex_count < 7) weekly_flex_count++;
-              }}
-            >
-              +
-            </button>
-          </div>
-        </div>
-      </div>
-    {/if}
+    <!-- Schedule -->
+    <ScheduleRuleEditor bind:value={scheduleRule} />
 
     <!-- Category Section -->
     <div class="section-card">
@@ -698,218 +491,6 @@
     background: #000;
     color: #fff;
     cursor: pointer;
-  }
-
-  /* Segmented Control styling */
-  .segmented-control {
-    display: flex;
-    border: 2px solid #000;
-    background: #000;
-    gap: 2px;
-  }
-
-  .segment-btn {
-    flex: 1;
-    font-family: var(--font-mono);
-    font-size: var(--step-n2);
-    font-weight: 700;
-    padding: var(--space-xs) var(--space-2xs);
-    border: none;
-    background: var(--bg-surface);
-    color: #000;
-    cursor: pointer;
-    text-align: center;
-    text-transform: uppercase;
-    transition:
-      background-color 0.1s ease,
-      color 0.1s ease;
-  }
-
-  .segment-btn:hover {
-    background: var(--bg-input);
-  }
-
-  .segment-btn.active {
-    background: #000;
-    color: #fff;
-  }
-
-  /* Daily Config styling */
-  .specific-times-btn {
-    width: 100%;
-    background: var(--bg-surface);
-    border: 2px solid #000;
-    padding: var(--space-s);
-    display: flex;
-    align-items: center;
-    gap: var(--space-xs);
-    cursor: pointer;
-    font-family: var(--font-mono);
-    font-size: var(--step-n1);
-    font-weight: 700;
-    text-align: left;
-    outline: none;
-    margin-bottom: var(--space-xs);
-    transition: background-color 0.1s ease;
-  }
-
-  .specific-times-btn:hover {
-    background: var(--bg-input);
-  }
-
-  .specific-times-btn.active {
-    background: var(--green-bg);
-  }
-
-  .toggle-icon {
-    font-family: var(--font-mono);
-  }
-
-  .subtargets-list-brutal {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2xs);
-  }
-
-  .subtarget-row-brutal {
-    display: flex;
-    gap: var(--space-3xs);
-  }
-
-  .subtarget-row-brutal .small-input {
-    flex: 2;
-    border: 2px solid #000;
-    padding: var(--space-xs);
-    font-family: var(--font-mono);
-    font-size: var(--step-n1);
-    text-transform: uppercase;
-    outline: none;
-    border-radius: 0;
-  }
-
-  .subtarget-row-brutal .time-input {
-    flex: 1;
-  }
-
-  .delete-subtarget-btn {
-    background: var(--red-bg);
-    color: #fff;
-    border: 2px solid #000;
-    padding: var(--space-xs);
-    font-family: var(--font-mono);
-    font-weight: 700;
-    cursor: pointer;
-    width: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .add-subtarget-btn {
-    width: 100%;
-    background: var(--bg-surface);
-    border: 2px solid #000;
-    padding: var(--space-xs);
-    font-family: var(--font-mono);
-    font-weight: 700;
-    cursor: pointer;
-    text-transform: uppercase;
-  }
-
-  .add-subtarget-btn:hover {
-    background: var(--bg-input);
-  }
-
-  /* Reps Counter styling */
-  .reps-counter-container {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3xs);
-  }
-
-  .counter-label-desc {
-    font-family: var(--font-mono);
-    font-size: var(--step-n2);
-    font-weight: 700;
-    color: var(--text-secondary);
-  }
-
-  .reps-counter {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border: 2px solid #000;
-    background: var(--bg-surface);
-    padding: var(--space-xs);
-  }
-
-  .counter-btn {
-    width: 40px;
-    height: 40px;
-    border: 2px solid #000;
-    background: var(--bg-input);
-    font-family: var(--font-mono);
-    font-size: var(--step-0);
-    font-weight: 700;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .counter-btn:hover {
-    background: #000;
-    color: #fff;
-  }
-
-  .counter-val {
-    font-family: var(--font-mono);
-    font-size: var(--step-0);
-    font-weight: 700;
-  }
-
-  /* Days Grid styling */
-  .days-grid-brutal {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: var(--space-3xs);
-  }
-
-  @media (min-width: 480px) {
-    .days-grid-brutal {
-      grid-template-columns: repeat(7, 1fr);
-    }
-  }
-
-  .day-btn-brutal {
-    font-family: var(--font-mono);
-    font-size: var(--step-n2);
-    font-weight: 700;
-    padding: var(--space-s) var(--space-3xs);
-    border: 2px solid #000;
-    background: var(--bg-surface);
-    color: #000;
-    cursor: pointer;
-    transition:
-      transform 0.05s ease,
-      background-color 0.1s ease;
-    text-align: center;
-  }
-
-  .day-btn-brutal:hover {
-    transform: translate(-1px, -1px);
-    box-shadow: 2px 2px 0 #000;
-  }
-
-  .day-btn-brutal:active {
-    transform: translate(1px, 1px);
-    box-shadow: none;
-  }
-
-  .day-btn-brutal.selected {
-    background: var(--amber-bg);
-    color: #000;
-    box-shadow: 2px 2px 0 #000;
   }
 
   /* Equipment styling */
