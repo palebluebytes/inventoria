@@ -5,9 +5,10 @@ import {
   appendDatoms,
   createLedgerSchema,
   resetLedgerSchema,
+  type LedgerDb,
 } from "./db.core";
 
-let db: any = null;
+let db: LedgerDb | null = null;
 let initialized = false;
 
 // Handle messages from the main thread
@@ -40,11 +41,11 @@ self.onmessage = async (event: MessageEvent) => {
             ? "worker: forceMemory set — using an in-memory database."
             : "worker: OPFS is not supported in this browser environment. Falling back to in-memory database."
         );
-        db = new (sqlite3 as any).oo1.DB();
+        db = new (sqlite3 as any).oo1.DB() as LedgerDb;
         console.log("worker: in-memory db opened successfully");
       } else {
         console.log("worker: opfs is supported. opening db...");
-        db = new (sqlite3 as any).oo1.OpfsDb(dbPath);
+        db = new (sqlite3 as any).oo1.OpfsDb(dbPath) as LedgerDb;
         console.log("worker: db opened successfully");
       }
 

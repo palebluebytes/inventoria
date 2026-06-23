@@ -9,13 +9,22 @@
 export interface Datom {
   entity: string;
   attribute: string;
-  value: any;
+  value: unknown;
   time: number;
+}
+
+/** Options form of the sqlite-wasm `exec`, used for row-returning queries. */
+export interface LedgerExecOptions {
+  sql: string;
+  bind?: unknown[];
+  rowMode?: string;
+  callback?: (row: any) => void;
 }
 
 /** Minimal structural view of the sqlite-wasm oo1 DB handle we depend on. */
 export interface LedgerDb {
   exec(sql: string): unknown;
+  exec(options: LedgerExecOptions): unknown;
   prepare(sql: string): LedgerStatement;
 }
 

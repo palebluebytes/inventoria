@@ -24,7 +24,7 @@ export function computeAcquisitionState(
 
     let parsedValue: any;
     try {
-      parsedValue = JSON.parse(value);
+      parsedValue = JSON.parse(String(value));
       const stringAttributes = [
         "twin/name",
         "twin/image",

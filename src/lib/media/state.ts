@@ -35,7 +35,7 @@ export function computeMediaLibraryState(datoms: Datom[]): EnrichedMedia[] {
 
     let parsedValue: any;
     try {
-      parsedValue = JSON.parse(value);
+      parsedValue = JSON.parse(String(value));
       const stringAttributes = [
         "media/title",
         "media/author",
