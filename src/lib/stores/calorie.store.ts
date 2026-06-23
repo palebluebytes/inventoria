@@ -2,6 +2,7 @@ import { type Readable } from "svelte/store";
 import { dbClient } from "../db/db.client";
 import { ingestEntity } from "../ingestion/ingest";
 import { createLedgerStore } from "./datoms.store";
+import { parseDatomValue } from "../db/datom-fold";
 
 // Helper to get local start/end of a given date
 export function getDayBounds(date: Date) {
@@ -37,13 +38,8 @@ export async function getEventsForDay(date: Date) {
       });
     }
     const event = eventsMap.get(row.entity);
-    let key = row.attribute.replace("event/", ""); // e.g. "target", "quantity", "metrics"
-    let parsedValue;
-    try {
-      parsedValue = JSON.parse(row.value);
-    } catch {
-      parsedValue = row.value;
-    }
+    const key = row.attribute.replace("event/", ""); // e.g. "target", "quantity", "metrics"
+    const parsedValue: any = parseDatomValue(row.attribute, row.value);
     if (key === "metrics") {
       event.metrics = parsedValue;
       if (parsedValue) {
@@ -83,11 +79,7 @@ export async function getEventsForDay(date: Date) {
       }
       const twin = twinsMap.get(row.entity);
       const key = row.attribute.replace("food/", "").replace("recipe/", "");
-      try {
-        twin[key] = JSON.parse(row.value);
-      } catch {
-        twin[key] = row.value;
-      }
+      twin[key] = parseDatomValue(row.attribute, row.value);
     }
 
     // 4. Merge twin details into events

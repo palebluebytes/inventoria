@@ -1,4 +1,15 @@
 import type { Datom } from "../db/db.client";
+import { groupByEntity } from "../db/datom-fold";
+
+const MEDIA_STRING_ATTRIBUTES = [
+  "media/title",
+  "media/author",
+  "media/director",
+  "media/release_date",
+  "media/poster_url",
+  "media/blurb",
+  "event/review",
+];
 
 /** Coerce a stored value to a finite number, dropping NaN from corrupt data. */
 function toFiniteNumber(value: unknown): number | undefined {
@@ -27,74 +38,39 @@ export interface EnrichedMedia {
 }
 
 export function computeMediaLibraryState(datoms: Datom[]): EnrichedMedia[] {
-  const twinsMap = new Map<string, any>();
-  const eventsMap = new Map<string, any>();
+  const { twins: twinGroups, events: eventGroups } = groupByEntity(
+    datoms,
+    "media/",
+    MEDIA_STRING_ATTRIBUTES
+  );
 
-  for (const datom of datoms) {
-    const { entity, attribute, value, time } = datom;
-
-    let parsedValue: any;
-    try {
-      parsedValue = JSON.parse(String(value));
-      const stringAttributes = [
-        "media/title",
-        "media/author",
-        "media/director",
-        "media/release_date",
-        "media/poster_url",
-        "media/blurb",
-        "event/review",
-      ];
-      if (
-        stringAttributes.includes(attribute) &&
-        typeof parsedValue !== "string"
-      ) {
-        parsedValue = value;
-      }
-    } catch {
-      parsedValue = value;
+  const twins = Array.from(twinGroups.values()).map((g) => {
+    let type: "movie" | "tv" | "book" = "movie";
+    if (g.id.startsWith("isbn:") || g.id.startsWith("olid:")) {
+      type = "book";
+    } else if (g.id.startsWith("tmdb:tv:")) {
+      type = "tv";
     }
+    return {
+      id: g.id,
+      type,
+      title: "",
+      release_date: "",
+      poster_url: "",
+      last_engaged: g.firstTime,
+      status: "saved", // Default status; overridden by the latest event below.
+      ...g.fields,
+    } as EnrichedMedia;
+  });
 
-    if (attribute.startsWith("media/")) {
-      if (!twinsMap.has(entity)) {
-        let type: "movie" | "tv" | "book" = "movie";
-        if (entity.startsWith("isbn:") || entity.startsWith("olid:")) {
-          type = "book";
-        } else if (entity.startsWith("tmdb:tv:")) {
-          type = "tv";
-        }
-
-        twinsMap.set(entity, {
-          id: entity,
-          type,
-          title: "",
-          release_date: "",
-          poster_url: "",
-          last_engaged: time,
-        });
-      }
-      const twin = twinsMap.get(entity);
-      const field = attribute.replace("media/", "");
-      twin[field] = parsedValue;
-    } else if (attribute.startsWith("event/")) {
-      if (!eventsMap.has(entity)) {
-        eventsMap.set(entity, {
-          id: entity,
-          time,
-        });
-      }
-      const event = eventsMap.get(entity);
-      const field = attribute.replace("event/", "");
-      event[field] = parsedValue;
-    }
-  }
+  const events = Array.from(eventGroups.values()).map((g) => ({
+    id: g.id,
+    time: g.firstTime,
+    ...g.fields,
+  })) as any[];
 
   // Enrich twins with their events
-  const twins = Array.from(twinsMap.values()) as EnrichedMedia[];
-  const events = Array.from(eventsMap.values());
-
   for (const twin of twins) {
-    twin.status = "saved"; // Default status
     const targetEvents = events
       .filter((e) => e.target === twin.id)
       .sort((a, b) => a.time - b.time);

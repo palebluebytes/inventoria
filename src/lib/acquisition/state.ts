@@ -1,4 +1,14 @@
 import type { Datom } from "../db/db.client";
+import { groupByEntity } from "../db/datom-fold";
+
+const ACQUISITION_STRING_ATTRIBUTES = [
+  "twin/name",
+  "twin/image",
+  "twin/description",
+  "twin/brand",
+  "twin/source_url",
+  "twin/note",
+];
 
 export interface EnrichedAcquisition {
   id: string;
@@ -16,71 +26,36 @@ export interface EnrichedAcquisition {
 export function computeAcquisitionState(
   datoms: Datom[]
 ): EnrichedAcquisition[] {
-  const twinsMap = new Map<string, any>();
-  const eventsMap = new Map<string, any>();
+  const { twins: twinGroups, events: eventGroups } = groupByEntity(
+    datoms,
+    "twin/",
+    ACQUISITION_STRING_ATTRIBUTES
+  );
 
-  for (const datom of datoms) {
-    const { entity, attribute, value, time } = datom;
+  const twins = Array.from(twinGroups.values()).map(
+    (g) =>
+      ({
+        id: g.id,
+        name: "",
+        image: "",
+        description: "",
+        brand: "",
+        source_url: "",
+        tags: [],
+        note: "",
+        last_updated: g.lastTime,
+        status: "wanted", // Default status; overridden by the latest event below.
+        ...g.fields,
+      }) as EnrichedAcquisition
+  );
 
-    let parsedValue: any;
-    try {
-      parsedValue = JSON.parse(String(value));
-      const stringAttributes = [
-        "twin/name",
-        "twin/image",
-        "twin/description",
-        "twin/brand",
-        "twin/source_url",
-        "twin/note",
-      ];
-      if (
-        stringAttributes.includes(attribute) &&
-        typeof parsedValue !== "string"
-      ) {
-        parsedValue = value;
-      }
-    } catch {
-      parsedValue = value;
-    }
-
-    if (attribute.startsWith("twin/")) {
-      if (!twinsMap.has(entity)) {
-        twinsMap.set(entity, {
-          id: entity,
-          name: "",
-          image: "",
-          description: "",
-          brand: "",
-          source_url: "",
-          tags: [],
-          note: "",
-          last_updated: time,
-        });
-      }
-      const twin = twinsMap.get(entity);
-      if (time > twin.last_updated) {
-        twin.last_updated = time;
-      }
-      const field = attribute.replace("twin/", "");
-      twin[field] = parsedValue;
-    } else if (attribute.startsWith("event/")) {
-      if (!eventsMap.has(entity)) {
-        eventsMap.set(entity, {
-          id: entity,
-          time,
-        });
-      }
-      const event = eventsMap.get(entity);
-      const field = attribute.replace("event/", "");
-      event[field] = parsedValue;
-    }
-  }
-
-  const twins = Array.from(twinsMap.values()) as EnrichedAcquisition[];
-  const events = Array.from(eventsMap.values());
+  const events = Array.from(eventGroups.values()).map((g) => ({
+    id: g.id,
+    time: g.firstTime,
+    ...g.fields,
+  })) as any[];
 
   for (const twin of twins) {
-    twin.status = "wanted"; // Default status
     const targetEvents = events
       .filter((e) => e.target === twin.id && e.type === "AcquisitionAction")
       .sort((a, b) => a.time - b.time);
