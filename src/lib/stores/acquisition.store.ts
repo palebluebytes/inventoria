@@ -32,11 +32,11 @@ export async function saveAcquisitionTwin(
  * Appends a new acquisition status event (e.g. changing status from wanted to owned).
  */
 export async function updateAcquisitionStatus(
-  target_id: string,
+  targetId: string,
   status: "wanted" | "owned"
 ): Promise<void> {
   const now = Date.now();
-  const datoms = logAcquisitionEvent(target_id, status, now);
+  const datoms = logAcquisitionEvent(targetId, status, now);
   await dbClient.append(datoms);
 }
 
@@ -44,20 +44,20 @@ export async function updateAcquisitionStatus(
  * Appends new tag and note datoms to update the digital twin's metadata.
  */
 export async function updateAcquisitionMetadata(
-  target_id: string,
+  targetId: string,
   tags: string[],
   note: string
 ): Promise<void> {
   const now = Date.now();
   const datoms: Datom[] = [
     {
-      entity: target_id,
+      entity: targetId,
       attribute: "twin/tags",
       value: tags,
       time: now,
     },
     {
-      entity: target_id,
+      entity: targetId,
       attribute: "twin/note",
       value: note,
       time: now,

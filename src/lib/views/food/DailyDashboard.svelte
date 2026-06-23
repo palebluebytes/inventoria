@@ -281,23 +281,23 @@
         <div class="meal-items-list">
           {#each groupedMeals[meal_type] as item}
             <div class="meal-item-card">
-              {#if item.photo_base64}
+              {#if item.photoBase64}
                 <button
                   type="button"
                   class="meal-item-thumb-btn"
-                  aria-label="View {item.food_name} photo"
-                  onclick={() => (previewPhoto = item.photo_base64)}
+                  aria-label="View {item.foodName} photo"
+                  onclick={() => (previewPhoto = item.photoBase64)}
                 >
                   <img
-                    src={item.photo_base64}
-                    alt={item.food_name}
+                    src={item.photoBase64}
+                    alt={item.foodName}
                     class="meal-item-thumb"
                   />
                 </button>
               {/if}
               <div class="meal-item-details">
                 <span class="meal-item-name"
-                  >{item.food_name || "Unknown Food"}</span
+                  >{item.foodName || "Unknown Food"}</span
                 >
                 <span class="meal-item-quantity"
                   >{item.quantity || "1 serving"}</span

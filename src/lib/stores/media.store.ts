@@ -44,7 +44,7 @@ export async function saveMediaTwin(
  * Appends a new engagement event to update status, ratings, reviews or progress.
  */
 export async function updateMediaStatus(
-  target_id: string,
+  targetId: string,
   type: "movie" | "tv" | "book",
   status: "saved" | "started" | "progress" | "completed",
   opts?: {
@@ -60,14 +60,14 @@ export async function updateMediaStatus(
 
   if (type === "book") {
     datoms = logReadEvent(
-      target_id,
+      targetId,
       status,
       { pages_read: opts?.pages_read },
       now
     );
   } else {
     datoms = logWatchEvent(
-      target_id,
+      targetId,
       status,
       {
         rating: opts?.rating,

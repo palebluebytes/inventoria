@@ -2,7 +2,7 @@ import { ingestEntity } from "../ingestion/ingest";
 import type { Datom } from "../db/db.client";
 
 export function logWatchEvent(
-  target_id: string,
+  targetId: string,
   status: "saved" | "started" | "progress" | "completed",
   opts: {
     rating?: number;
@@ -15,7 +15,7 @@ export function logWatchEvent(
   const eventId = `event:engage_${now}_${Math.random().toString(36).slice(2, 9)}`;
   const attributes: Record<string, string | number> = {
     "event/type": "WatchAction",
-    "event/target": target_id,
+    "event/target": targetId,
     "event/status": status,
   };
 
@@ -37,7 +37,7 @@ export function logWatchEvent(
 }
 
 export function logReadEvent(
-  target_id: string,
+  targetId: string,
   status: "saved" | "started" | "progress" | "completed",
   opts: { pages_read?: number } = {},
   now: number = Date.now()
@@ -45,7 +45,7 @@ export function logReadEvent(
   const eventId = `event:engage_${now}_${Math.random().toString(36).slice(2, 9)}`;
   const attributes: Record<string, string | number> = {
     "event/type": "ReadAction",
-    "event/target": target_id,
+    "event/target": targetId,
     "event/status": status,
   };
 

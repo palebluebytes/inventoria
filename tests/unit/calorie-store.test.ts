@@ -266,10 +266,10 @@ describe("Calorie Store Actions", () => {
         quantity: "100g",
         meal_type: "lunch",
         calories: 200,
-        food_name: "Banana",
-        photo_base64: "data:image/png;base64,banana_pic",
+        foodName: "Banana",
+        photoBase64: "data:image/png;base64,banana_pic",
         description: undefined,
-        scrape_url: undefined,
+        scrapeUrl: undefined,
         ingredients: undefined,
       });
     });
