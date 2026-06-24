@@ -7,6 +7,7 @@
   import AgendaView from "./lib/views/AgendaView.svelte";
   import SettingsView from "./lib/views/SettingsView.svelte";
   import ItemsView from "./lib/views/ItemsView.svelte";
+  import NotesView from "./lib/views/NotesView.svelte";
   import ReloadPrompt from "./lib/ui/ReloadPrompt.svelte";
 
   // ── DB init ──────────────────────────────────────────────────────────────
@@ -35,7 +36,7 @@
   });
 
   // ── Navigation ───────────────────────────────────────────────────────────
-  type Tab = "food" | "agenda" | "media" | "items" | "settings";
+  type Tab = "food" | "agenda" | "media" | "items" | "notes" | "settings";
   let activeTab = $state<Tab>("food");
 </script>
 
@@ -65,6 +66,10 @@
 
     {#if activeTab === "agenda"}
       <AgendaView {dbReady} />
+    {/if}
+
+    {#if activeTab === "notes"}
+      <NotesView {dbReady} />
     {/if}
 
     <!-- Settings — always rendered so Playwright can find the harness elements -->

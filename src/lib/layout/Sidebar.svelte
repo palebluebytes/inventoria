@@ -6,7 +6,7 @@
     dbReady,
     dbError,
   }: {
-    activeTab: "food" | "agenda" | "media" | "items" | "settings";
+    activeTab: "food" | "agenda" | "media" | "items" | "notes" | "settings";
     dbReady: boolean;
     dbError: string;
   } = $props();
@@ -16,6 +16,7 @@
     { id: "media", icon: "🎬", label: "Media" },
     { id: "items", icon: "📦", label: "Items" },
     { id: "agenda", icon: "🗓️", label: "Agenda" },
+    { id: "notes", icon: "✅", label: "Notes" },
     { id: "settings", icon: "⚙️", label: "Settings" },
   ] as const;
 </script>
