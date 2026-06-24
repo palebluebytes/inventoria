@@ -72,6 +72,18 @@ _Avoid_: Consumption event (when referring to media), activity log
 A logged instance representing the ownership state of a physical Digital Twin, recorded as a timestamped action in the ledger with a status of either `owned` or `wanted`.
 _Avoid_: Ownership event, item status, inventory log
 
+**Checklist**:
+An ordered, free-form scratchpad list of manually-ticked Checklist Items. It carries no Schedule Rule, no tracking, and no streak, and it never appears on the Agenda. Deliberately separate from the Agenda's scheduled obligations (Habit Blueprints, Compliance Events).
+_Avoid_: To-do list, task list, agenda
+
+**Checklist Item**:
+A single user-authored entry in a Checklist, carrying a label and a checked/unchecked state. It is never a Habit Blueprint, Compliance Event, or Agenda entry, and ticking it produces no Execution Event or Occurrence Event — the tick is plain state, not a logged behavior.
+_Avoid_: To-Do, Task, habit, completion
+
+**Note**:
+A free-form, user-authored entry with a title and a text body, where the body merges concurrent edits from multiple devices without conflict. Distinct from the `twin/note` annotation attribute on a Digital Twin, which is a single field rather than a standalone entity.
+_Avoid_: twin/note (the Twin annotation field), memo, comment
+
 **Provenance**:
 The immutable, original payload retrieved from an external API or scraper at the moment of ingestion, stored as a JSON blob alongside its extraction metadata (timestamp, source URI, adapter version). Ensures that future schema evolutions (e.g. EU DPP legislation updates) can remap historical data without network loss.
 _Avoid_: Raw data, API response, backup payload
