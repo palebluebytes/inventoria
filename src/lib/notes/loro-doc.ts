@@ -1,5 +1,5 @@
 /**
- * Pure Loro CRDT layer for the Notes / To-Do feature.
+ * Pure Loro CRDT layer for the Notes & Checklist feature.
  *
  * This module owns the conflict-free data model and knows nothing about the DB
  * or Svelte — it is deliberately side-effect-free so it can be unit-tested in
@@ -7,22 +7,28 @@
  * the UI.
  *
  * The document holds two top-level movable lists:
- *   - `todos`: LoroMap { id, text, done, created }
- *   - `notes`: LoroMap { id, title, created, body } where `body` is a nested
- *     LoroText so note bodies merge character-by-character.
+ *   - `items`: a Checklist of LoroMap { id, label, done, created }
+ *   - `notes`: Notes of LoroMap { id, title, created, body } where `body` is a
+ *     nested LoroText so note bodies merge character-by-character.
+ *
+ * Persistence is an append-only op-log (see ADR-0018): each change is exported
+ * as an incremental update *delta* (`exportUpdateBase64`) and on load every
+ * delta is imported (`importUpdateBase64`). Deltas are commutative, so importing
+ * them in any order — including concurrent edits from multiple devices — yields
+ * a correct merge.
  *
  * Every mutation ends with `doc.commit()` so Loro materialises the ops and fires
  * subscribers; uncommitted ops are invisible to both `subscribe` and `export`.
  */
 
-import { LoroDoc, LoroMap, LoroText } from "loro-crdt";
+import { LoroDoc, LoroMap, LoroText, type VersionVector } from "loro-crdt";
 
-const TODOS = "todos";
+const ITEMS = "items";
 const NOTES = "notes";
 
-export interface TodoView {
+export interface ChecklistItemView {
   id: string;
-  text: string;
+  label: string;
   done: boolean;
   created: number;
 }
@@ -35,7 +41,7 @@ export interface NoteView {
 }
 
 export interface NotesSnapshot {
-  todos: TodoView[];
+  items: ChecklistItemView[];
   notes: NoteView[];
 }
 
@@ -45,8 +51,8 @@ export function createNotesDoc(): LoroDoc {
 
 // ── Internals ────────────────────────────────────────────────────────────────
 
-function todoList(doc: LoroDoc) {
-  return doc.getMovableList(TODOS);
+function itemList(doc: LoroDoc) {
+  return doc.getMovableList(ITEMS);
 }
 
 function noteList(doc: LoroDoc) {
@@ -54,55 +60,55 @@ function noteList(doc: LoroDoc) {
 }
 
 /** Loro lists are index-addressed; find the entry index for a stable `id`. */
-function indexOfId(list: ReturnType<typeof todoList>, id: string): number {
+function indexOfId(list: ReturnType<typeof itemList>, id: string): number {
   const entries = list.toJSON() as Array<{ id?: string }>;
   return entries.findIndex((entry) => entry?.id === id);
 }
 
 function mapAt(
-  list: ReturnType<typeof todoList>,
+  list: ReturnType<typeof itemList>,
   index: number
 ): LoroMap | undefined {
   if (index < 0) return undefined;
   return list.get(index) as unknown as LoroMap;
 }
 
-// ── To-dos ───────────────────────────────────────────────────────────────────
+// ── Checklist items ──────────────────────────────────────────────────────────
 
-export function addTodo(
+export function addItem(
   doc: LoroDoc,
-  text: string,
+  label: string,
   now: number = Date.now()
 ): string {
-  const list = todoList(doc);
+  const list = itemList(doc);
   const map = list.insertContainer(list.length, new LoroMap());
   const id = crypto.randomUUID();
   map.set("id", id);
-  map.set("text", text);
+  map.set("label", label);
   map.set("done", false);
   map.set("created", now);
   doc.commit();
   return id;
 }
 
-export function toggleTodo(doc: LoroDoc, id: string): void {
-  const list = todoList(doc);
+export function toggleItem(doc: LoroDoc, id: string): void {
+  const list = itemList(doc);
   const map = mapAt(list, indexOfId(list, id));
   if (!map) return;
   map.set("done", !map.get("done"));
   doc.commit();
 }
 
-export function editTodoText(doc: LoroDoc, id: string, text: string): void {
-  const list = todoList(doc);
+export function editItemLabel(doc: LoroDoc, id: string, label: string): void {
+  const list = itemList(doc);
   const map = mapAt(list, indexOfId(list, id));
   if (!map) return;
-  map.set("text", text);
+  map.set("label", label);
   doc.commit();
 }
 
-export function removeTodo(doc: LoroDoc, id: string): void {
-  const list = todoList(doc);
+export function removeItem(doc: LoroDoc, id: string): void {
+  const list = itemList(doc);
   const index = indexOfId(list, id);
   if (index < 0) return;
   list.delete(index, 1);
@@ -163,20 +169,20 @@ export function removeNote(doc: LoroDoc, id: string): void {
  * validate and coerce shapes.
  */
 export function toView(doc: LoroDoc): NotesSnapshot {
-  const json = doc.toJSON() as { todos?: unknown; notes?: unknown };
+  const json = doc.toJSON() as { items?: unknown; notes?: unknown };
   return {
-    todos: normalizeTodos(json.todos),
+    items: normalizeItems(json.items),
     notes: normalizeNotes(json.notes),
   };
 }
 
-function normalizeTodos(raw: unknown): TodoView[] {
+function normalizeItems(raw: unknown): ChecklistItemView[] {
   if (!Array.isArray(raw)) return [];
   return raw.map((entry) => {
     const item = (entry ?? {}) as Record<string, unknown>;
     return {
       id: String(item.id ?? ""),
-      text: String(item.text ?? ""),
+      label: String(item.label ?? ""),
       done: Boolean(item.done),
       created: Number(item.created ?? 0),
     };
@@ -196,14 +202,23 @@ function normalizeNotes(raw: unknown): NoteView[] {
   });
 }
 
-// ── Snapshot persistence ─────────────────────────────────────────────────────
+// ── Op-log persistence ───────────────────────────────────────────────────────
 
-export function exportSnapshotBase64(doc: LoroDoc): string {
+/**
+ * Exports the operations appended since `from` (the version last persisted) as
+ * a base64 update delta. With no `from`, exports the whole op history. Commits
+ * defensively so pending ops are included.
+ */
+export function exportUpdateBase64(doc: LoroDoc, from?: VersionVector): string {
   doc.commit();
-  return bytesToBase64(doc.export({ mode: "snapshot" }));
+  const bytes = from
+    ? doc.export({ mode: "update", from })
+    : doc.export({ mode: "update" });
+  return bytesToBase64(bytes);
 }
 
-export function importSnapshotBase64(doc: LoroDoc, base64: string): void {
+/** Imports a base64 update delta (or snapshot) into the document. */
+export function importUpdateBase64(doc: LoroDoc, base64: string): void {
   doc.import(base64ToBytes(base64));
 }
 
@@ -212,7 +227,7 @@ const CHUNK = 0x8000;
 export function bytesToBase64(bytes: Uint8Array): string {
   let binary = "";
   for (let i = 0; i < bytes.length; i += CHUNK) {
-    // Chunk the spread so a large snapshot can't blow the call-stack limit.
+    // Chunk the spread so a large delta can't blow the call-stack limit.
     binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
   }
   return btoa(binary);

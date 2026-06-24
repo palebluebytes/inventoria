@@ -1,30 +1,30 @@
 import { describe, it, expect } from "vitest";
 import {
+  addItem,
   addNote,
-  addTodo,
   base64ToBytes,
   bytesToBase64,
   createNotesDoc,
-  editTodoText,
-  exportSnapshotBase64,
-  importSnapshotBase64,
+  editItemLabel,
+  exportUpdateBase64,
+  importUpdateBase64,
+  removeItem,
   removeNote,
-  removeTodo,
   setNoteBody,
   setNoteTitle,
-  toggleTodo,
+  toggleItem,
   toView,
 } from "../../src/lib/notes/loro-doc";
 
-describe("loro-doc to-dos", () => {
-  it("adds a to-do that starts not done", () => {
+describe("loro-doc checklist items", () => {
+  it("adds an item that starts not done", () => {
     const doc = createNotesDoc();
-    const id = addTodo(doc, "buy milk", 1000);
-    const { todos } = toView(doc);
-    expect(todos).toHaveLength(1);
-    expect(todos[0]).toMatchObject({
+    const id = addItem(doc, "buy milk", 1000);
+    const { items } = toView(doc);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
       id,
-      text: "buy milk",
+      label: "buy milk",
       done: false,
       created: 1000,
     });
@@ -32,30 +32,30 @@ describe("loro-doc to-dos", () => {
 
   it("toggles done state", () => {
     const doc = createNotesDoc();
-    const id = addTodo(doc, "task");
-    toggleTodo(doc, id);
-    expect(toView(doc).todos[0].done).toBe(true);
-    toggleTodo(doc, id);
-    expect(toView(doc).todos[0].done).toBe(false);
+    const id = addItem(doc, "task");
+    toggleItem(doc, id);
+    expect(toView(doc).items[0].done).toBe(true);
+    toggleItem(doc, id);
+    expect(toView(doc).items[0].done).toBe(false);
   });
 
-  it("edits and removes a to-do", () => {
+  it("edits and removes an item", () => {
     const doc = createNotesDoc();
-    const a = addTodo(doc, "first");
-    const b = addTodo(doc, "second");
-    editTodoText(doc, a, "first edited");
-    removeTodo(doc, b);
-    const { todos } = toView(doc);
-    expect(todos).toHaveLength(1);
-    expect(todos[0]).toMatchObject({ id: a, text: "first edited" });
+    const a = addItem(doc, "first");
+    const b = addItem(doc, "second");
+    editItemLabel(doc, a, "first edited");
+    removeItem(doc, b);
+    const { items } = toView(doc);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ id: a, label: "first edited" });
   });
 
   it("ignores mutations for unknown ids", () => {
     const doc = createNotesDoc();
-    addTodo(doc, "task");
-    toggleTodo(doc, "nope");
-    removeTodo(doc, "nope");
-    expect(toView(doc).todos).toHaveLength(1);
+    addItem(doc, "task");
+    toggleItem(doc, "nope");
+    removeItem(doc, "nope");
+    expect(toView(doc).items).toHaveLength(1);
   });
 });
 
@@ -83,36 +83,70 @@ describe("loro-doc notes", () => {
   });
 });
 
-describe("snapshot persistence", () => {
-  it("round-trips the whole document through a base64 snapshot", () => {
+describe("op-log persistence", () => {
+  it("round-trips the whole document through update deltas", () => {
     const doc = createNotesDoc();
-    const todoId = addTodo(doc, "ship it", 10);
-    toggleTodo(doc, todoId);
+    const itemId = addItem(doc, "ship it", 10);
+    toggleItem(doc, itemId);
     const noteId = addNote(doc, "Plan", 20);
     setNoteBody(doc, noteId, "step one\nstep two");
 
-    const base64 = exportSnapshotBase64(doc);
+    // Persist as a sequence of deltas, replaying onto a fresh doc.
     const restored = createNotesDoc();
-    importSnapshotBase64(restored, base64);
+    importUpdateBase64(restored, exportUpdateBase64(doc));
 
     expect(toView(restored)).toEqual(toView(doc));
+  });
+
+  it("imports incremental deltas in order", () => {
+    const doc = createNotesDoc();
+    addItem(doc, "one", 1);
+    const firstDelta = exportUpdateBase64(doc);
+    const versionAfterFirst = doc.oplogVersion();
+    addItem(doc, "two", 2);
+    const secondDelta = exportUpdateBase64(doc, versionAfterFirst);
+
+    const restored = createNotesDoc();
+    importUpdateBase64(restored, firstDelta);
+    importUpdateBase64(restored, secondDelta);
+
+    expect(toView(restored).items.map((i) => i.label)).toEqual(["one", "two"]);
+  });
+
+  it("merges concurrent edits from two replicas without loss", () => {
+    // Shared seed.
+    const seed = createNotesDoc();
+    const noteId = addNote(seed, "Shared", 1);
+    const seedDelta = exportUpdateBase64(seed);
+
+    const a = createNotesDoc();
+    importUpdateBase64(a, seedDelta);
+    const b = createNotesDoc();
+    importUpdateBase64(b, seedDelta);
+
+    // Concurrent: A adds an item, B edits the note body.
+    const aBase = a.oplogVersion();
+    addItem(a, "from A", 2);
+    const aDelta = exportUpdateBase64(a, aBase);
+
+    const bBase = b.oplogVersion();
+    setNoteBody(b, noteId, "from B");
+    const bDelta = exportUpdateBase64(b, bBase);
+
+    // A fresh load imports every delta in arbitrary order.
+    const fresh = createNotesDoc();
+    for (const delta of [bDelta, seedDelta, aDelta]) {
+      importUpdateBase64(fresh, delta);
+    }
+
+    const view = toView(fresh);
+    expect(view.items.map((i) => i.label)).toEqual(["from A"]);
+    expect(view.notes[0].body).toBe("from B");
   });
 
   it("base64 helpers are inverse for arbitrary bytes", () => {
     const bytes = new Uint8Array(512);
     for (let i = 0; i < bytes.length; i += 1) bytes[i] = (i * 7 + 3) % 256;
     expect(base64ToBytes(bytesToBase64(bytes))).toEqual(bytes);
-  });
-
-  it("imported docs keep merging edits", () => {
-    const doc = createNotesDoc();
-    const id = addNote(doc, "Doc", 1);
-    setNoteBody(doc, id, "hello");
-
-    const restored = createNotesDoc();
-    importSnapshotBase64(restored, exportSnapshotBase64(doc));
-    setNoteBody(restored, id, "hello world");
-
-    expect(toView(restored).notes[0].body).toBe("hello world");
   });
 });

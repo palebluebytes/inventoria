@@ -1,23 +1,23 @@
 <script lang="ts">
   import { notesStore } from "../stores/notes.store.svelte";
   import Badge from "../ui/Badge.svelte";
-  import TodoItem from "./notes/TodoItem.svelte";
+  import ChecklistItem from "./notes/ChecklistItem.svelte";
   import NoteEditor from "./notes/NoteEditor.svelte";
 
   let { dbReady }: { dbReady: boolean } = $props();
 
-  type Section = "todos" | "notes";
-  let active_section = $state<Section>("todos");
-  let new_todo_text = $state("");
+  type Section = "checklist" | "notes";
+  let active_section = $state<Section>("checklist");
+  let new_item_label = $state("");
   let selected_note_id = $state<string | null>(null);
 
-  // The store loads its snapshot from the ledger once the DB is ready. `init`
+  // The store replays its op-log from the ledger once the DB is ready. `init`
   // is idempotent, so re-running this effect is harmless.
   $effect(() => {
     if (dbReady) void notesStore.init();
   });
 
-  const open_todos = $derived(notesStore.todos.filter((t) => !t.done).length);
+  const open_items = $derived(notesStore.items.filter((i) => !i.done).length);
 
   const selected_note = $derived(
     selected_note_id
@@ -25,10 +25,10 @@
       : null
   );
 
-  function submitTodo(event: Event) {
+  function submitItem(event: Event) {
     event.preventDefault();
-    notesStore.addTodo(new_todo_text);
-    new_todo_text = "";
+    notesStore.addItem(new_item_label);
+    new_item_label = "";
   }
 
   function createNote() {
@@ -43,7 +43,7 @@
 </script>
 
 <header class="page-header">
-  <h1>Notes &amp; To-Dos</h1>
+  <h1>Notes &amp; Checklist</h1>
   <p>
     A conflict-free scratchpad backed by a Loro CRDT, persisted to the local
     ledger.
@@ -53,10 +53,10 @@
 <div class="mobile-tabs">
   <button
     class="tab-btn"
-    class:active={active_section === "todos"}
-    onclick={() => (active_section = "todos")}
+    class:active={active_section === "checklist"}
+    onclick={() => (active_section = "checklist")}
   >
-    To-Dos
+    Checklist
   </button>
   <button
     class="tab-btn"
@@ -67,28 +67,28 @@
   </button>
 </div>
 
-{#if active_section === "todos"}
+{#if active_section === "checklist"}
   <section class="panel">
-    <form class="todo-form" onsubmit={submitTodo}>
+    <form class="item-form" onsubmit={submitItem}>
       <input
-        class="todo-input"
+        class="item-input"
         type="text"
-        placeholder="Add a to-do…"
-        data-testid="new-todo-input"
-        bind:value={new_todo_text}
+        placeholder="Add a checklist item…"
+        data-testid="new-item-input"
+        bind:value={new_item_label}
       />
       <button class="add-btn" type="submit">Add</button>
     </form>
 
-    <div class="todo-count">
-      <Badge variant="default">{open_todos} open</Badge>
+    <div class="item-count">
+      <Badge variant="default">{open_items} open</Badge>
     </div>
 
-    <ul class="todo-list" data-testid="todo-list">
-      {#each notesStore.todos as todo (todo.id)}
-        <TodoItem {todo} />
+    <ul class="checklist" data-testid="checklist">
+      {#each notesStore.items as item (item.id)}
+        <ChecklistItem {item} />
       {:else}
-        <li class="empty">No to-dos yet.</li>
+        <li class="empty">No checklist items yet.</li>
       {/each}
     </ul>
   </section>
@@ -179,18 +179,18 @@
     gap: var(--space-s);
   }
 
-  .todo-form {
+  .item-form {
     display: flex;
     gap: var(--space-s);
   }
-  .todo-input {
+  .item-input {
     flex: 1;
     border: 2px solid #000;
     background: #fff;
     padding: var(--space-xs) var(--space-s);
     font-size: var(--step-0);
   }
-  .todo-input:focus {
+  .item-input:focus {
     outline: 2px solid #000;
     outline-offset: 2px;
   }
@@ -215,11 +215,11 @@
     margin-bottom: var(--space-s);
   }
 
-  .todo-count {
+  .item-count {
     display: flex;
   }
 
-  .todo-list {
+  .checklist {
     list-style: none;
     margin: 0;
     padding: 0;

@@ -7,7 +7,7 @@ async function waitForDbReady(page: import("@playwright/test").Page) {
   });
 }
 
-test.describe("Notes & To-Dos (Loro CRDT)", () => {
+test.describe("Notes & Checklist (Loro CRDT)", () => {
   test.beforeEach(async ({ page }) => {
     page.on("console", (msg) => {
       console.log(`[BROWSER CONSOLE - ${msg.type()}]:`, msg.text());
@@ -18,16 +18,16 @@ test.describe("Notes & To-Dos (Loro CRDT)", () => {
     await page.locator(".nav-item", { hasText: "Notes" }).click();
   });
 
-  test("adds and completes a to-do", async ({ page }) => {
+  test("adds and completes a checklist item", async ({ page }) => {
     await expect(
-      page.getByRole("heading", { name: "Notes & To-Dos" })
+      page.getByRole("heading", { name: "Notes & Checklist" })
     ).toBeVisible();
 
-    const input = page.getByTestId("new-todo-input");
+    const input = page.getByTestId("new-item-input");
     await input.fill("Write the report");
     await input.press("Enter");
 
-    const item = page.getByTestId("todo-item").filter({
+    const item = page.getByTestId("checklist-item").filter({
       hasText: "Write the report",
     });
     await expect(item).toBeVisible();
