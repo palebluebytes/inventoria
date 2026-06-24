@@ -92,6 +92,14 @@ const localScraperProxyPlugin = () => ({
   },
 });
 
+// loro-crdt's `exports` map sends the `development` condition to its `bundler`
+// build, which uses an ESM-WebAssembly import that Vite's dev server can't load.
+// Its `browser` build instead loads the WASM via `new URL(..., import.meta.url)`
+// (handled natively by Vite in both dev and build), so we point the app at it.
+// Unit tests run under Node (no XMLHttpRequest), so we leave them on the default
+// `node` build by skipping the alias when Vitest is driving the config.
+const isVitest = !!process.env.VITEST;
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
@@ -125,6 +133,10 @@ export default defineConfig({
         },
       },
       workbox: {
+        // The Loro CRDT WASM (~3.1 MB) is bundled as an asset and must be
+        // precached so Notes works offline on first load. Raise the precache
+        // size cap above workbox's 2 MiB default to include it.
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         runtimeCaching: [
           {
             urlPattern: ({ request }) => request.destination === "image",
@@ -161,8 +173,13 @@ export default defineConfig({
       "Cross-Origin-Embedder-Policy": "require-corp",
     },
   },
+  resolve: {
+    alias: isVitest ? {} : { "loro-crdt": "loro-crdt/browser" },
+  },
   optimizeDeps: {
-    exclude: ["@sqlite.org/sqlite-wasm"],
+    // Both are WASM-backed and self-load their binaries; let Vite serve them
+    // as-is instead of pre-bundling, which would mangle the WASM URL resolution.
+    exclude: ["@sqlite.org/sqlite-wasm", "loro-crdt/browser"],
   },
   // @ts-ignore
   test: {

@@ -17,6 +17,9 @@ importers:
       bits-ui:
         specifier: ^2.18.1
         version: 2.18.1(@internationalized/date@3.12.2)(svelte@5.55.10)
+      loro-crdt:
+        specifier: ^1.13.6
+        version: 1.13.6
       phosphor-svelte:
         specifier: ^3.1.0
         version: 3.1.0(svelte@5.55.10)(vite@8.0.14(@types/node@24.12.4)(terser@5.48.0)(yaml@2.9.0))
@@ -1713,6 +1716,9 @@ packages:
   log-update@6.1.0:
     resolution: {integrity: sha512-9ie8ItPR6tjY5uYJh8K/Zrv/RMZ5VOlOWvtZdEHYSTFKZfIBPQa9tOAEeAWhd+AnIneLJ22w5fjOYtoutpWq5w==}
     engines: {node: '>=18'}
+
+  loro-crdt@1.13.6:
+    resolution: {integrity: sha512-OsnKW64J+1XdCMafAqR+aASn/wQEgDzwcDwu6dDOVSxxbLPFgnU6LX8ja+hd5PnEcT+kuz9eXSagvlYXsRbQIw==}
 
   lru-cache@11.5.1:
     resolution: {integrity: sha512-RPimw/7aMdv2oqRrxKwvZXcPfwBrn/JZ2xYcY9Hus/6LaS3VOAKVWKWgNLCFSiOm1ESXinjsDlidVU7JlnCN2A==}
@@ -4147,6 +4153,8 @@ snapshots:
       slice-ansi: 7.1.2
       strip-ansi: 7.2.0
       wrap-ansi: 9.0.2
+
+  loro-crdt@1.13.6: {}
 
   lru-cache@11.5.1: {}
 
