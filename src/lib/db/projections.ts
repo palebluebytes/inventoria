@@ -1,5 +1,6 @@
 import { computeMediaLibraryState } from "../media/state";
 import { computeAcquisitionState } from "../acquisition/state";
+import { computeHabitLineages } from "../habits/state";
 
 /**
  * A named projection: the SELECT that pulls its input datoms, paired with the
@@ -20,5 +21,9 @@ export const projections: Record<string, Projection> = {
   ACQUISITION_LIBRARY: {
     sql: "SELECT entity, attribute, value, time FROM datoms WHERE attribute LIKE 'twin/%' OR attribute LIKE 'event/%' ORDER BY time ASC",
     compute: computeAcquisitionState,
+  },
+  HABITS_LINEAGES: {
+    sql: "SELECT entity, attribute, value, time FROM datoms WHERE entity LIKE 'habit:%' OR entity LIKE 'event:execute_%' ORDER BY time ASC",
+    compute: computeHabitLineages,
   },
 };

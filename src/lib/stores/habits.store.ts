@@ -1,229 +1,28 @@
-import { readable, type Readable } from "svelte/store";
 import { dbClient, type Datom } from "../db/db.client";
 import { ingestEntity } from "../ingestion/ingest";
 import {
   logExecution as rawLogExecution,
-  computeHabitScore,
-  computeStreak,
   type ScheduleRule,
 } from "../habits/habits";
+import type { HabitBlueprint, HabitLineage } from "../habits/state";
+import { createProjectionStore } from "./datoms.store";
 
-export interface HabitBlueprint {
-  entity: string;
-  name: string;
-  category: string;
-  schedule_rules: ScheduleRule;
-  status: "active" | "archived";
-  replaces?: string;
-  time: number;
-  instrument?: string;
-}
+export type {
+  HabitBlueprint,
+  ExecutionEvent,
+  HabitLineage,
+} from "../habits/state";
 
-export interface ExecutionEvent {
-  entity: string;
-  type: string;
-  target: string;
-  status: "completed" | "exempt" | "uncompleted";
-  target_id?: string;
-  time: number;
-  instrument_used?: string;
-  metadata?: {
-    note?: string;
-    difficulty?: "easy" | "medium" | "hard";
-    duration?: number;
-  };
-}
-
-export interface HabitLineage {
-  head: HabitBlueprint;
-  blueprints: HabitBlueprint[]; // oldest first
-  executions: ExecutionEvent[]; // all executions targeting any version in lineage
-  score: number; // Habit strength (0.0 to 1.0)
-  streak: number; // Current streak
-}
-
-// Global habits store
+// Global habits store: worker-side HABITS_LINEAGES projection folded by
+// computeHabitLineages, plus the append-only action methods.
 export const habitsStore = createHabitsStore();
 
 function createHabitsStore() {
-  const store = readable<HabitLineage[]>([], (set) => {
-    let live = true;
-
-    async function refresh() {
-      try {
-        // Fetch all habit datoms
-        const habitRows = await dbClient.query<{
-          entity: string;
-          attribute: string;
-          value: string;
-          time: number;
-        }>(
-          "SELECT entity, attribute, value, time FROM datoms WHERE entity LIKE 'habit:%' ORDER BY time ASC"
-        );
-
-        // Fetch all execution event datoms
-        const execRows = await dbClient.query<{
-          entity: string;
-          attribute: string;
-          value: string;
-          time: number;
-        }>(
-          "SELECT entity, attribute, value, time FROM datoms WHERE entity LIKE 'event:execute_%' ORDER BY time ASC"
-        );
-
-        if (!live) return;
-
-        // Group habit datoms by blueprint entity
-        const blueprintsMap = new Map<string, any>();
-        for (const row of habitRows) {
-          if (!blueprintsMap.has(row.entity)) {
-            blueprintsMap.set(row.entity, {
-              entity: row.entity,
-              time: row.time,
-            });
-          }
-          const bp = blueprintsMap.get(row.entity);
-          const key = row.attribute.replace("habit/", ""); // e.g. "name", "category"
-          let val;
-          try {
-            val = JSON.parse(row.value);
-          } catch {
-            val = row.value;
-          }
-          bp[key] = val;
-        }
-
-        const allBlueprints: HabitBlueprint[] = Array.from(
-          blueprintsMap.values()
-        ).map((bp) => {
-          let rules: ScheduleRule = { type: "daily_multiple", count: 1 };
-          if (bp.schedule_rules) {
-            rules =
-              typeof bp.schedule_rules === "string"
-                ? JSON.parse(bp.schedule_rules)
-                : bp.schedule_rules;
-          } else if (bp.schedule_type) {
-            // Fallback for legacy
-            if (bp.schedule_type === "weekly") {
-              rules = {
-                type: "weekly_flexible",
-                count: bp.schedule_value ? Number(bp.schedule_value) : 1,
-              };
-            } else {
-              rules = { type: "daily_multiple", count: 1 };
-            }
-          }
-          return {
-            entity: bp.entity,
-            name: bp.name || "",
-            category: bp.category || "Fitness",
-            schedule_rules: rules,
-            status: bp.status || "active",
-            replaces: bp.replaces || undefined,
-            time: bp.time,
-            instrument: bp.instrument || undefined,
-          };
-        });
-
-        // Group execution datoms by event entity
-        const execsMap = new Map<string, any>();
-        for (const row of execRows) {
-          if (!execsMap.has(row.entity)) {
-            execsMap.set(row.entity, {
-              entity: row.entity,
-              time: row.time,
-            });
-          }
-          const event = execsMap.get(row.entity);
-          const key = row.attribute.replace("event/", "");
-          let val;
-          try {
-            val = JSON.parse(row.value);
-          } catch {
-            val = row.value;
-          }
-          event[key] = val;
-        }
-
-        const allExecs: ExecutionEvent[] = Array.from(execsMap.values())
-          .map((ev) => ({
-            entity: ev.entity,
-            type: ev.type || "ExerciseAction",
-            target: ev.target || "",
-            status: ev.status,
-            target_id: ev.target_id || undefined,
-            time: ev.time,
-            instrument_used: ev.instrument_used || undefined,
-            metadata: ev.metadata || undefined,
-          }))
-          .filter((e) => e.target);
-
-        // Build lineages
-        const lineages: HabitLineage[] = [];
-        const activeBlueprints = allBlueprints.filter(
-          (bp) => bp.status === "active"
-        );
-        const replacedSet = new Set(
-          allBlueprints.map((bp) => bp.replaces).filter(Boolean)
-        );
-
-        // Head blueprints are active ones that aren't replaced by another blueprint
-        const heads = activeBlueprints.filter(
-          (bp) => !replacedSet.has(bp.entity)
-        );
-
-        for (const head of heads) {
-          const chain: HabitBlueprint[] = [head];
-          let current = head;
-          while (current.replaces) {
-            const prev = allBlueprints.find(
-              (bp) => bp.entity === current.replaces
-            );
-            if (prev) {
-              chain.push(prev);
-              current = prev;
-            } else {
-              break;
-            }
-          }
-          // Sort oldest first
-          chain.reverse();
-
-          // Get executions targeting any version in this lineage
-          const chainEntityIds = new Set(chain.map((bp) => bp.entity));
-          const chainExecs = allExecs.filter((e) =>
-            chainEntityIds.has(e.target)
-          );
-
-          const score = computeHabitScore(chain, chainExecs);
-          const streak = computeStreak(chainExecs, chain);
-
-          lineages.push({
-            head,
-            blueprints: chain,
-            executions: chainExecs,
-            score,
-            streak,
-          });
-        }
-
-        set(lineages);
-      } catch (e) {
-        console.error("Error refreshing habits store:", e);
-      }
-    }
-
-    refresh();
-
-    const unsubscribe = dbClient.onInvalidate(() => {
-      if (live) refresh();
-    });
-
-    return () => {
-      live = false;
-      unsubscribe();
-    };
-  });
+  const store = createProjectionStore<HabitLineage[]>(
+    "HABITS_LINEAGES",
+    {},
+    []
+  );
 
   return {
     subscribe: store.subscribe,

@@ -356,25 +356,10 @@ export function computeStreak(
   }[] = [],
   asOfTimestamp: number = Date.now()
 ): number {
-  let blueprints = [...lineageBlueprints];
-  if (blueprints.length === 0 && executions.length > 0) {
-    // Synthesize a blueprint for legacy executions that predate the blueprint
-    // model, anchored just before the earliest execution so it's active for it.
-    const SYNTHETIC_BLUEPRINT_OFFSET_MS = 1000;
-    const earliest = Math.min(...executions.map((e) => e.time));
-    blueprints = [
-      {
-        entity: "legacy_habit",
-        time: earliest - SYNTHETIC_BLUEPRINT_OFFSET_MS,
-        schedule_rules: { type: "daily_multiple", count: 1 },
-      },
-    ];
-  }
-
-  if (blueprints.length === 0) return 0;
+  if (lineageBlueprints.length === 0) return 0;
 
   const states = getDailyLineageStates(
-    blueprints,
+    lineageBlueprints,
     executions as any,
     asOfTimestamp
   );

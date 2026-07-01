@@ -142,13 +142,24 @@ describe("computeStreak", () => {
     return d.getTime();
   }
 
+  /** A daily habit blueprint active from `startDaysAgo` days ago. */
+  function dailyBlueprint(startDaysAgo: number) {
+    return [
+      {
+        entity: "habit:1",
+        time: daysAgo(startDaysAgo),
+        schedule_rules: { type: "daily_multiple" as const, count: 1 },
+      },
+    ];
+  }
+
   it("returns 0 for empty execution list", () => {
-    expect(computeStreak([])).toBe(0);
+    expect(computeStreak([], [])).toBe(0);
   });
 
   it("returns 1 for a single execution today", () => {
     const rows: ExecutionRow[] = [{ time: daysAgo(0), status: "completed" }];
-    expect(computeStreak(rows)).toBe(1);
+    expect(computeStreak(rows, dailyBlueprint(0))).toBe(1);
   });
 
   it("returns 2 for executions today and yesterday", () => {
@@ -156,7 +167,7 @@ describe("computeStreak", () => {
       { time: daysAgo(0), status: "completed" },
       { time: daysAgo(1), status: "completed" },
     ];
-    expect(computeStreak(rows)).toBe(2);
+    expect(computeStreak(rows, dailyBlueprint(1))).toBe(2);
   });
 
   it("returns streak of 5 for five consecutive days", () => {
@@ -164,7 +175,7 @@ describe("computeStreak", () => {
       time: daysAgo(n),
       status: "completed",
     }));
-    expect(computeStreak(rows)).toBe(5);
+    expect(computeStreak(rows, dailyBlueprint(4))).toBe(5);
   });
 
   it("breaks streak on gap day", () => {
@@ -174,12 +185,17 @@ describe("computeStreak", () => {
       { time: daysAgo(1), status: "completed" },
       { time: daysAgo(3), status: "completed" }, // gap on day 2
     ];
-    expect(computeStreak(rows)).toBe(2);
+    expect(computeStreak(rows, dailyBlueprint(3))).toBe(2);
   });
 
   it("returns 0 when most recent execution is more than 1 day ago", () => {
     const rows: ExecutionRow[] = [{ time: daysAgo(2), status: "completed" }];
-    expect(computeStreak(rows)).toBe(0);
+    expect(computeStreak(rows, dailyBlueprint(2))).toBe(0);
+  });
+
+  it("returns 0 when called with executions but no blueprints", () => {
+    const rows: ExecutionRow[] = [{ time: daysAgo(0), status: "completed" }];
+    expect(computeStreak(rows, [])).toBe(0);
   });
 });
 
