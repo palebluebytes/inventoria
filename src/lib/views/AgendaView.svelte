@@ -1,7 +1,13 @@
 <script lang="ts">
   import { habitsStore } from "../stores/habits.store";
-  import { calEventsStore } from "../stores/cal_events.store";
-  import { projectSlotsForDate } from "../cal_events/cal_events";
+  import {
+    calEventsStore,
+    calOccurrencesStore,
+  } from "../stores/cal_events.store";
+  import {
+    projectSlotsForDate,
+    findOccurrence,
+  } from "../cal_events/cal_events";
   import { isScheduleRuleActive } from "../recurrence/rules";
   import { localDateStrToDate, eventTimestampForDay } from "../habits/habits";
   import type {
@@ -215,7 +221,8 @@
     for (const blueprint of $calEventsStore) {
       const slots = projectSlotsForDate(blueprint, selected_date_str);
       for (const slot of slots) {
-        const occurrence = calEventsStore.getOccurrence(
+        const occurrence = findOccurrence(
+          $calOccurrencesStore,
           blueprint.entity,
           slot.slotId,
           selected_date_str

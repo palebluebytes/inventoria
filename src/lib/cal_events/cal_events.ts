@@ -2,6 +2,7 @@ import type { Datom } from "../db/db.client";
 import { ingestEntity } from "../ingestion/ingest";
 import { isScheduleRuleActive } from "../recurrence/rules";
 import type { ScheduleRule } from "../recurrence/rules";
+import { toLocalDateStr } from "../habits/habits";
 
 export type { ScheduleRule };
 
@@ -153,6 +154,39 @@ export function projectSlotsForDate(
       hasEnd: blueprint.timed ? !!blueprint.dtend : false,
     },
   ];
+}
+
+// ---------------------------------------------------------------------------
+// Occurrence lookups
+// ---------------------------------------------------------------------------
+
+/**
+ * All confirmed Occurrence Events that fall on a given local calendar date.
+ * Buckets by the user's local day (matching Habit day math and the Agenda's
+ * local `selected_date_str`), not UTC.
+ */
+export function occurrencesForDate(
+  occurrences: OccurrenceRecord[],
+  dateStr: string
+): OccurrenceRecord[] {
+  return occurrences.filter((o) => toLocalDateStr(o.time) === dateStr);
+}
+
+/**
+ * The confirmed Occurrence Event for a specific projected slot, if any:
+ * matched by Calendar Event Blueprint, optional Sub-Target slot, and local date.
+ */
+export function findOccurrence(
+  occurrences: OccurrenceRecord[],
+  calEventId: string,
+  slotId: string | undefined,
+  dateStr: string
+): OccurrenceRecord | undefined {
+  return occurrences.find((o) => {
+    if (o.target !== calEventId) return false;
+    if (slotId !== undefined && o.slot_id !== slotId) return false;
+    return toLocalDateStr(o.time) === dateStr;
+  });
 }
 
 // ---------------------------------------------------------------------------
