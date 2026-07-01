@@ -1,8 +1,9 @@
-import { type Readable } from "svelte/store";
 import { dbClient } from "../db/db.client";
 import { ingestEntity } from "../ingestion/ingest";
-import { createLedgerStore } from "./datoms.store";
-import { parseDatomValue } from "../db/datom-fold";
+import { createProjectionStore } from "./datoms.store";
+import type { ConsumptionEvent } from "../food/consumption-state";
+
+export type { ConsumptionEvent };
 
 // Helper to get local start/end of a given date
 export function getDayBounds(date: Date) {
@@ -13,99 +14,22 @@ export function getDayBounds(date: Date) {
   return { start: start.getTime(), end: end.getTime() };
 }
 
-// Fetch and structure events for a given day
-export async function getEventsForDay(date: Date) {
+// Live store of every enriched Consumption Event, folded by the worker-side
+// CONSUMPTION projection. The Food dashboard narrows to a day on the main
+// thread (ADR-0019).
+export const consumptionStore = createProjectionStore<ConsumptionEvent[]>(
+  "CONSUMPTION",
+  {},
+  []
+);
+
+/** Filters a consumption list to the events that fall on a given local day. */
+export function consumptionForDay(
+  events: ConsumptionEvent[],
+  date: Date
+): ConsumptionEvent[] {
   const { start, end } = getDayBounds(date);
-
-  // 1. Fetch all datoms for consume events in the day range
-  const eventDatoms = await dbClient.query<{
-    entity: string;
-    attribute: string;
-    value: string;
-    time: number;
-  }>(
-    "SELECT entity, attribute, value, time FROM datoms WHERE entity LIKE 'event:consume_%' AND time >= ? AND time <= ?",
-    [start, end]
-  );
-
-  // 2. Group datoms by event entity
-  const eventsMap = new Map<string, any>();
-  for (const row of eventDatoms) {
-    if (!eventsMap.has(row.entity)) {
-      eventsMap.set(row.entity, {
-        id: row.entity,
-        time: row.time,
-      });
-    }
-    const event = eventsMap.get(row.entity);
-    const key = row.attribute.replace("event/", ""); // e.g. "target", "quantity", "metrics"
-    const parsedValue: any = parseDatomValue(row.attribute, row.value);
-    if (key === "metrics") {
-      event.metrics = parsedValue;
-      if (parsedValue) {
-        event.calories = parsedValue.calories;
-        event.protein = parsedValue.protein;
-        event.fat = parsedValue.fat;
-        event.carbs = parsedValue.carbs;
-      }
-    } else {
-      event[key] = parsedValue;
-    }
-  }
-
-  const events = Array.from(eventsMap.values());
-  if (events.length === 0) return [];
-
-  // 3. Fetch names and macros for target twins
-  const targets = Array.from(
-    new Set(events.map((e) => e.target).filter(Boolean))
-  );
-  if (targets.length > 0) {
-    const placeholders = targets.map(() => "?").join(",");
-    const twinDatoms = await dbClient.query<{
-      entity: string;
-      attribute: string;
-      value: string;
-    }>(
-      `SELECT entity, attribute, value FROM datoms WHERE entity IN (${placeholders})`,
-      targets
-    );
-
-    // Group twin attributes
-    const twinsMap = new Map<string, any>();
-    for (const row of twinDatoms) {
-      if (!twinsMap.has(row.entity)) {
-        twinsMap.set(row.entity, {});
-      }
-      const twin = twinsMap.get(row.entity);
-      const key = row.attribute.replace("food/", "").replace("recipe/", "");
-      twin[key] = parseDatomValue(row.attribute, row.value);
-    }
-
-    // 4. Merge twin details into events
-    for (const event of events) {
-      const twin = twinsMap.get(event.target);
-      if (twin) {
-        event.foodName = twin.name;
-        event.photoBase64 = twin.photo_base64 || twin.photo;
-        event.description = twin.description;
-        event.scrapeUrl = twin.scrape_url;
-        event.sourceUrl = twin.source_url || twin.source;
-        event.ingredients = twin.ingredients;
-      }
-    }
-  }
-
-  return events;
-}
-
-// Svelte readable store that live-updates when the database invalidates
-export function createCalorieTrackerStore(date: Date): Readable<any[]> {
-  return createLedgerStore<any[]>(
-    () => getEventsForDay(date),
-    [],
-    (err) => console.error("Failed to load calorie tracker data:", err)
-  );
+  return events.filter((e) => e.time >= start && e.time <= end);
 }
 
 // ---------------------------------------------------------------------------

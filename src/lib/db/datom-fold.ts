@@ -36,25 +36,29 @@ export interface EntityGroup {
 
 /**
  * Folds a datom stream into per-entity field maps, split into "twins" (entities
- * whose attribute starts with `twinPrefix`) and "events" (attribute starting
- * with `event/`). The matching prefix is stripped from each field name. Shared
- * by the media and acquisition projections, which then enrich twins with their
- * events.
+ * whose attribute starts with any of `twinPrefix`) and "events" (attribute
+ * starting with `event/`). The matching prefix is stripped from each field
+ * name. `twinPrefix` accepts a single prefix or a list — the Consumption
+ * projection passes `["food/", "recipe/"]` since a recipe twin carries both.
+ * Shared by the media, acquisition and consumption projections, which then
+ * enrich twins with their events.
  */
 export function groupByEntity(
   datoms: Datom[],
-  twinPrefix: string,
+  twinPrefix: string | string[],
   stringAttributes: string[] = []
 ): { twins: Map<string, EntityGroup>; events: Map<string, EntityGroup> } {
+  const twinPrefixes = Array.isArray(twinPrefix) ? twinPrefix : [twinPrefix];
   const twins = new Map<string, EntityGroup>();
   const events = new Map<string, EntityGroup>();
 
   for (const { entity, attribute, value, time } of datoms) {
     let target: Map<string, EntityGroup> | undefined;
     let field = "";
-    if (attribute.startsWith(twinPrefix)) {
+    const matchedPrefix = twinPrefixes.find((p) => attribute.startsWith(p));
+    if (matchedPrefix) {
       target = twins;
-      field = attribute.slice(twinPrefix.length);
+      field = attribute.slice(matchedPrefix.length);
     } else if (attribute.startsWith("event/")) {
       target = events;
       field = attribute.slice("event/".length);

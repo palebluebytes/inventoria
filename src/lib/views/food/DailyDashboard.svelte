@@ -1,7 +1,7 @@
 <script lang="ts">
   import {
-    createCalorieTrackerStore,
-    getDayBounds,
+    consumptionStore,
+    consumptionForDay,
   } from "../../stores/calorie.store";
   import Button from "../../ui/Button.svelte";
   import Card from "../../ui/Card.svelte";
@@ -20,8 +20,8 @@
     ) => void;
   } = $props();
 
-  // Selected date store
-  const trackerStore = $derived(createCalorieTrackerStore(selectedDate));
+  // Selected day's consumption, narrowed from the global projection on the main thread
+  let dayItems = $derived(consumptionForDay($consumptionStore, selectedDate));
 
   // Default target goals (typical active adult defaults, premium UI targets)
   const targetCalories = 2000;
@@ -31,16 +31,16 @@
 
   // Derived daily aggregates
   let totalCalories = $derived(
-    $trackerStore.reduce((acc, item) => acc + (Number(item.calories) || 0), 0)
+    dayItems.reduce((acc, item) => acc + (Number(item.calories) || 0), 0)
   );
   let totalProtein = $derived(
-    $trackerStore.reduce((acc, item) => acc + (Number(item.protein) || 0), 0)
+    dayItems.reduce((acc, item) => acc + (Number(item.protein) || 0), 0)
   );
   let totalFat = $derived(
-    $trackerStore.reduce((acc, item) => acc + (Number(item.fat) || 0), 0)
+    dayItems.reduce((acc, item) => acc + (Number(item.fat) || 0), 0)
   );
   let totalCarbs = $derived(
-    $trackerStore.reduce((acc, item) => acc + (Number(item.carbs) || 0), 0)
+    dayItems.reduce((acc, item) => acc + (Number(item.carbs) || 0), 0)
   );
 
   // SVG Progress Ring calculations
@@ -103,7 +103,7 @@
       dinner: [],
       snack: [],
     };
-    for (const item of $trackerStore) {
+    for (const item of dayItems) {
       const type = (
         item.meal_type || "snack"
       ).toLowerCase() as (typeof meal_types)[number];

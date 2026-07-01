@@ -5,8 +5,9 @@ import {
   logFoodConsumption,
   saveCustomFood,
   saveRecipe,
-  getEventsForDay,
+  consumptionForDay,
 } from "../../src/lib/stores/calorie.store";
+import { computeConsumption } from "../../src/lib/food/consumption-state";
 
 vi.mock("../../src/lib/db/db.client", () => {
   return {
@@ -191,87 +192,139 @@ describe("Calorie Store Actions", () => {
       expect(ingredientsDatom?.value).toEqual(ingredients);
     });
   });
+});
 
-  describe("getEventsForDay", () => {
-    it("returns empty array if no events are logged", async () => {
-      vi.spyOn(dbClient, "query").mockResolvedValue([]);
-      const events = await getEventsForDay(new Date());
-      expect(events).toEqual([]);
+describe("computeConsumption", () => {
+  const s = (v: unknown) => JSON.stringify(v);
+
+  it("returns empty array for no datoms", () => {
+    expect(computeConsumption([])).toEqual([]);
+  });
+
+  it("groups events, unpacks the metrics blob, and joins the food twin", () => {
+    const t = 1717070000000;
+    const datoms = [
+      {
+        entity: "event:consume_123",
+        attribute: "event/type",
+        value: s("ConsumeAction"),
+        time: t,
+      },
+      {
+        entity: "event:consume_123",
+        attribute: "event/target",
+        value: s("fdc:456"),
+        time: t,
+      },
+      {
+        entity: "event:consume_123",
+        attribute: "event/quantity",
+        value: s("100g"),
+        time: t,
+      },
+      {
+        entity: "event:consume_123",
+        attribute: "event/meal_type",
+        value: s("lunch"),
+        time: t,
+      },
+      {
+        entity: "event:consume_123",
+        attribute: "event/metrics",
+        value: s({ calories: 200, protein: 5, fat: 1, carbs: 40 }),
+        time: t,
+      },
+      // Food twin (heterogeneous fdc: entity, attribute-scoped into the projection)
+      {
+        entity: "fdc:456",
+        attribute: "food/name",
+        value: s("Banana"),
+        time: 1717000000000,
+      },
+      {
+        entity: "fdc:456",
+        attribute: "food/photo_base64",
+        value: s("data:image/png;base64,banana_pic"),
+        time: 1717000000000,
+      },
+    ];
+
+    const events = computeConsumption(datoms);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      id: "event:consume_123",
+      time: t,
+      type: "ConsumeAction",
+      target: "fdc:456",
+      quantity: "100g",
+      meal_type: "lunch",
+      calories: 200,
+      protein: 5,
+      fat: 1,
+      carbs: 40,
+      foodName: "Banana",
+      photoBase64: "data:image/png;base64,banana_pic",
     });
+  });
 
-    it("fetches, groups, and maps consumption events and twin details", async () => {
-      // Mock dbClient.query to return:
-      // 1. Consumption events
-      // 2. Twin food details
-      const querySpy = vi.spyOn(dbClient, "query");
+  it("joins a recipe twin across both food/ and recipe/ prefixes", () => {
+    const t = 1717080000000;
+    const datoms = [
+      {
+        entity: "event:consume_r",
+        attribute: "event/target",
+        value: s("recipe:abc"),
+        time: t,
+      },
+      {
+        entity: "event:consume_r",
+        attribute: "event/calories",
+        value: s(350),
+        time: t,
+      },
+      {
+        entity: "recipe:abc",
+        attribute: "food/name",
+        value: s("Chili"),
+        time: 1717000000000,
+      },
+      {
+        entity: "recipe:abc",
+        attribute: "recipe/description",
+        value: s("Hearty bean chili"),
+        time: 1717000000000,
+      },
+      {
+        entity: "recipe:abc",
+        attribute: "recipe/ingredients",
+        value: s([{ name: "beans" }]),
+        time: 1717000000000,
+      },
+    ];
 
-      querySpy.mockImplementation(async (sql: string) => {
-        if (sql.includes("event:consume_%")) {
-          return [
-            {
-              entity: "event:consume_123",
-              attribute: "event/type",
-              value: '"ConsumeAction"',
-              time: 1717070000000,
-            },
-            {
-              entity: "event:consume_123",
-              attribute: "event/target",
-              value: '"fdc:456"',
-              time: 1717070000000,
-            },
-            {
-              entity: "event:consume_123",
-              attribute: "event/quantity",
-              value: '"100g"',
-              time: 1717070000000,
-            },
-            {
-              entity: "event:consume_123",
-              attribute: "event/meal_type",
-              value: '"lunch"',
-              time: 1717070000000,
-            },
-            {
-              entity: "event:consume_123",
-              attribute: "event/calories",
-              value: "200",
-              time: 1717070000000,
-            },
-          ] as any;
-        } else if (sql.includes("IN (?)") || sql.includes("IN (")) {
-          return [
-            {
-              entity: "fdc:456",
-              attribute: "food/name",
-              value: '"Banana"',
-            },
-            {
-              entity: "fdc:456",
-              attribute: "food/photo_base64",
-              value: '"data:image/png;base64,banana_pic"',
-            },
-          ] as any;
-        }
-        return [];
-      });
-
-      const events = await getEventsForDay(new Date());
-      expect(events).toHaveLength(1);
-      expect(events[0]).toEqual({
-        id: "event:consume_123",
-        time: 1717070000000,
-        type: "ConsumeAction",
-        target: "fdc:456",
-        quantity: "100g",
-        meal_type: "lunch",
-        calories: 200,
-        foodName: "Banana",
-        photoBase64: "data:image/png;base64,banana_pic",
-        description: undefined,
-        scrapeUrl: undefined,
-        ingredients: undefined,
-      });
+    const events = computeConsumption(datoms);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      target: "recipe:abc",
+      calories: 350,
+      foodName: "Chili",
+      description: "Hearty bean chili",
+      ingredients: [{ name: "beans" }],
     });
+  });
+});
+
+describe("consumptionForDay", () => {
+  it("keeps only events whose local time falls on the given day", () => {
+    const day = new Date("2026-05-31T09:00:00");
+    const inDay = new Date("2026-05-31T20:00:00").getTime();
+    const nextDay = new Date("2026-06-01T00:30:00").getTime();
+    const events = [
+      { id: "a", time: inDay },
+      { id: "b", time: nextDay },
+    ] as any;
+
+    const result = consumptionForDay(events, day);
+    expect(result.map((e) => e.id)).toEqual(["a"]);
   });
 });

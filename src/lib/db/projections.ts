@@ -2,6 +2,7 @@ import { computeMediaLibraryState } from "../media/state";
 import { computeAcquisitionState } from "../acquisition/state";
 import { computeHabitLineages } from "../habits/state";
 import { computeCalEvents } from "../cal_events/state";
+import { computeConsumption } from "../food/consumption-state";
 
 /**
  * A named projection: the SELECT that pulls its input datoms, paired with the
@@ -30,5 +31,12 @@ export const projections: Record<string, Projection> = {
   CAL_EVENTS: {
     sql: "SELECT entity, attribute, value, time FROM datoms WHERE entity LIKE 'cal_event:%' OR entity LIKE 'event:occur_%' ORDER BY time ASC",
     compute: computeCalEvents,
+  },
+  // Consume events are entity-scoped; food/recipe twins are heterogeneously
+  // named (fdc:, gtin:, food:custom_, recipe:) so they're attribute-scoped, as
+  // with media.
+  CONSUMPTION: {
+    sql: "SELECT entity, attribute, value, time FROM datoms WHERE entity LIKE 'event:consume_%' OR attribute LIKE 'food/%' OR attribute LIKE 'recipe/%' ORDER BY time ASC",
+    compute: computeConsumption,
   },
 };
