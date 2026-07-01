@@ -20,7 +20,6 @@ import {
   addItem,
   addNote,
   createNotesDoc,
-  editItemLabel,
   exportUpdateBase64,
   importUpdateBase64,
   removeItem,
@@ -41,7 +40,6 @@ const PERSIST_DEBOUNCE_MS = 400;
 class NotesStore {
   items = $state<ChecklistItemView[]>([]);
   notes = $state<NoteView[]>([]);
-  ready = $state(false);
 
   #doc = createNotesDoc();
   #initialized = false;
@@ -85,11 +83,9 @@ class NotesStore {
     });
 
     if (typeof window !== "undefined") {
-      window.addEventListener("visibilitychange", this.#onHide);
-      window.addEventListener("beforeunload", this.#onHide);
+      document.addEventListener("visibilitychange", this.#onVisibilityChange);
+      window.addEventListener("beforeunload", this.#flushPending);
     }
-
-    this.ready = true;
   }
 
   // ── Actions (delegated; the subscription handles state + persistence) ───────
@@ -101,10 +97,6 @@ class NotesStore {
 
   toggleItem(id: string): void {
     toggleItem(this.#doc, id);
-  }
-
-  editItemLabel(id: string, label: string): void {
-    editItemLabel(this.#doc, id, label);
   }
 
   removeItem(id: string): void {
@@ -143,8 +135,12 @@ class NotesStore {
     }, PERSIST_DEBOUNCE_MS);
   }
 
+  #onVisibilityChange = (): void => {
+    if (document.visibilityState === "hidden") this.#flushPending();
+  };
+
   /** Flush any pending debounced save immediately (tab hidden / unload). */
-  #onHide = (): void => {
+  #flushPending = (): void => {
     if (this.#persist_timer === null) return;
     clearTimeout(this.#persist_timer);
     this.#persist_timer = null;

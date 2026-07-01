@@ -59,7 +59,14 @@ function noteList(doc: LoroDoc) {
   return doc.getMovableList(NOTES);
 }
 
-/** Loro lists are index-addressed; find the entry index for a stable `id`. */
+/**
+ * Loro lists are index-addressed; find the entry index for a stable `id`.
+ *
+ * Note: this deep-serialises the whole list (`toJSON`, including nested note
+ * bodies) on every lookup, so each mutation is O(n · doc). That is fine for a
+ * personal scratchpad — if this feature ever grows, key the list by id via a
+ * parallel LoroMap instead of re-deriving the index from a JSON scan.
+ */
 function indexOfId(list: ReturnType<typeof itemList>, id: string): number {
   const entries = list.toJSON() as Array<{ id?: string }>;
   return entries.findIndex((entry) => entry?.id === id);
@@ -71,6 +78,14 @@ function mapAt(
 ): LoroMap | undefined {
   if (index < 0) return undefined;
   return list.get(index) as unknown as LoroMap;
+}
+
+/** Resolves a note's nested `LoroText` body, keeping the container cast here. */
+function noteBodyAt(doc: LoroDoc, id: string): LoroText | undefined {
+  const list = noteList(doc);
+  const map = mapAt(list, indexOfId(list, id));
+  if (!map) return undefined;
+  return map.get("body") as unknown as LoroText | undefined;
 }
 
 // ── Checklist items ──────────────────────────────────────────────────────────
@@ -96,14 +111,6 @@ export function toggleItem(doc: LoroDoc, id: string): void {
   const map = mapAt(list, indexOfId(list, id));
   if (!map) return;
   map.set("done", !map.get("done"));
-  doc.commit();
-}
-
-export function editItemLabel(doc: LoroDoc, id: string, label: string): void {
-  const list = itemList(doc);
-  const map = mapAt(list, indexOfId(list, id));
-  if (!map) return;
-  map.set("label", label);
   doc.commit();
 }
 
@@ -142,10 +149,7 @@ export function setNoteTitle(doc: LoroDoc, id: string, title: string): void {
 }
 
 export function setNoteBody(doc: LoroDoc, id: string, text: string): void {
-  const list = noteList(doc);
-  const map = mapAt(list, indexOfId(list, id));
-  if (!map) return;
-  const body = map.get("body") as unknown as LoroText | undefined;
+  const body = noteBodyAt(doc, id);
   if (!body) return;
   // `update` diffs against the current text and applies a minimal delta, so
   // concurrent edits to different regions merge instead of clobbering.

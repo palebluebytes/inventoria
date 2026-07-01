@@ -5,7 +5,6 @@ import {
   base64ToBytes,
   bytesToBase64,
   createNotesDoc,
-  editItemLabel,
   exportUpdateBase64,
   importUpdateBase64,
   removeItem,
@@ -39,15 +38,14 @@ describe("loro-doc checklist items", () => {
     expect(toView(doc).items[0].done).toBe(false);
   });
 
-  it("edits and removes an item", () => {
+  it("removes an item", () => {
     const doc = createNotesDoc();
     const a = addItem(doc, "first");
     const b = addItem(doc, "second");
-    editItemLabel(doc, a, "first edited");
     removeItem(doc, b);
     const { items } = toView(doc);
     expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({ id: a, label: "first edited" });
+    expect(items[0]).toMatchObject({ id: a, label: "first" });
   });
 
   it("ignores mutations for unknown ids", () => {
