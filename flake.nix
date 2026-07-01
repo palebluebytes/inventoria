@@ -21,6 +21,7 @@
               nodejs_latest
               pnpm
               sqlite
+              gh # GitHub CLI (issue tracker operations)
               playwright-driver
               playwright-driver.browsers
 
