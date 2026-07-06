@@ -1,4 +1,5 @@
-import type { Datom } from "./db.client";
+import type { StoredDatom } from "./db.client";
+import type { HlcKey } from "./hlc";
 
 /**
  * Parses a stored datom value. Values are JSON-encoded in the ledger, but a few
@@ -26,10 +27,15 @@ export function parseDatomValue(
 
 export interface EntityGroup {
   id: string;
-  /** Time of the first datom seen for this entity. */
+  /** Domain time of the first datom seen for this entity. */
   firstTime: number;
-  /** Time of the most recent datom seen for this entity. */
+  /** Domain time of the most recent datom seen for this entity. */
   lastTime: number;
+  /**
+   * HLC of the entity's earliest datom. Rows arrive in HLC order, so this is the
+   * entity's minimum stamp — the key callers use to order events by `compareHlc`.
+   */
+  firstStamp: HlcKey;
   /** Attribute (prefix stripped) → parsed value. */
   fields: Record<string, unknown>;
 }
@@ -44,7 +50,7 @@ export interface EntityGroup {
  * enrich twins with their events.
  */
 export function groupByEntity(
-  datoms: Datom[],
+  datoms: StoredDatom[],
   twinPrefix: string | string[],
   stringAttributes: string[] = []
 ): { twins: Map<string, EntityGroup>; events: Map<string, EntityGroup> } {
@@ -52,7 +58,15 @@ export function groupByEntity(
   const twins = new Map<string, EntityGroup>();
   const events = new Map<string, EntityGroup>();
 
-  for (const { entity, attribute, value, time } of datoms) {
+  for (const {
+    entity,
+    attribute,
+    value,
+    time,
+    hlc_ms,
+    hlc_ctr,
+    device_id,
+  } of datoms) {
     let target: Map<string, EntityGroup> | undefined;
     let field = "";
     const matchedPrefix = twinPrefixes.find((p) => attribute.startsWith(p));
@@ -67,7 +81,13 @@ export function groupByEntity(
 
     let group = target.get(entity);
     if (!group) {
-      group = { id: entity, firstTime: time, lastTime: time, fields: {} };
+      group = {
+        id: entity,
+        firstTime: time,
+        lastTime: time,
+        firstStamp: { hlc_ms, hlc_ctr, device_id },
+        fields: {},
+      };
       target.set(entity, group);
     }
     group.lastTime = Math.max(group.lastTime, time);

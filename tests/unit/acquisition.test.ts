@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { logAcquisitionEvent } from "../../src/lib/ingestion/acquisition";
 import { computeAcquisitionState } from "../../src/lib/acquisition/state";
+import { asStored } from "./support/stored";
 
 describe("logAcquisitionEvent", () => {
   it("creates an AcquisitionAction event datom list with correct attributes", () => {
@@ -104,7 +105,7 @@ describe("computeAcquisitionState", () => {
       },
     ];
 
-    const result = computeAcquisitionState(datoms);
+    const result = computeAcquisitionState(asStored(datoms));
 
     expect(result).toHaveLength(1);
 
@@ -114,6 +115,49 @@ describe("computeAcquisitionState", () => {
     expect(shirt.brand).toBe("EcoBrand");
     expect(shirt.status).toBe("owned");
     expect(shirt.last_updated).toBe(3000);
+  });
+
+  it("resolves events in HLC order, not domain time, under clock skew (ADR-0020)", () => {
+    // Two acquisition events whose HLC order is the reverse of their `time`.
+    // The HLC-later event ("owned") carries the EARLIER domain time, so a
+    // time-based fold would wrongly pick "wanted". HLC order must win.
+    const acquire = (
+      id: string,
+      status: string,
+      time: number,
+      hlc_ms: number
+    ) =>
+      ["event/type", "event/target", "event/status"].map((attribute) => ({
+        entity: id,
+        attribute,
+        value:
+          attribute === "event/type"
+            ? "AcquisitionAction"
+            : attribute === "event/target"
+              ? "gtin:skew"
+              : status,
+        time,
+        hlc_ms,
+        hlc_ctr: 0,
+        device_id: "dev-a",
+      }));
+
+    const datoms = [
+      {
+        entity: "gtin:skew",
+        attribute: "twin/name",
+        value: "Skewed",
+        time: 1,
+        hlc_ms: 1,
+        hlc_ctr: 0,
+        device_id: "dev-a",
+      },
+      ...acquire("event:acquire_early_hlc", "wanted", 9000, 2000),
+      ...acquire("event:acquire_late_hlc", "owned", 1000, 5000),
+    ];
+
+    const [item] = computeAcquisitionState(datoms);
+    expect(item.status).toBe("owned");
   });
 
   it("extracts and aggregates tags and notes from the ledger, preferring the latest", () => {
@@ -170,7 +214,7 @@ describe("computeAcquisitionState", () => {
       },
     ];
 
-    const result = computeAcquisitionState(datoms);
+    const result = computeAcquisitionState(asStored(datoms));
     expect(result).toHaveLength(1);
     const item = result[0];
     expect(item.tags).toEqual(["stationery", "recycled", "office"]);

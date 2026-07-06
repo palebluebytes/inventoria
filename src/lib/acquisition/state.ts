@@ -1,5 +1,6 @@
-import type { Datom } from "../db/db.client";
+import type { StoredDatom } from "../db/db.client";
 import { groupByEntity } from "../db/datom-fold";
+import { compareHlc } from "../db/hlc";
 
 const ACQUISITION_STRING_ATTRIBUTES = [
   "twin/name",
@@ -24,7 +25,7 @@ export interface EnrichedAcquisition {
 }
 
 export function computeAcquisitionState(
-  datoms: Datom[]
+  datoms: StoredDatom[]
 ): EnrichedAcquisition[] {
   const { twins: twinGroups, events: eventGroups } = groupByEntity(
     datoms,
@@ -52,13 +53,14 @@ export function computeAcquisitionState(
   const events = Array.from(eventGroups.values()).map((g) => ({
     id: g.id,
     time: g.firstTime,
+    stamp: g.firstStamp,
     ...g.fields,
   })) as any[];
 
   for (const twin of twins) {
     const targetEvents = events
       .filter((e) => e.target === twin.id && e.type === "AcquisitionAction")
-      .sort((a, b) => a.time - b.time);
+      .sort((a, b) => compareHlc(a.stamp, b.stamp));
 
     for (const event of targetEvents) {
       if (event.status) {

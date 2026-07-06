@@ -2,6 +2,7 @@ import { createQueryStore } from "./datoms.store";
 import { derived } from "svelte/store";
 import { dbClient } from "../db/db.client";
 import { ingestEntity } from "../ingestion/ingest";
+import { HLC_ORDER_ASC } from "../db/hlc";
 
 // Reactive raw query store for settings datoms
 export const settingsDatomsStore = createQueryStore<{
@@ -9,7 +10,7 @@ export const settingsDatomsStore = createQueryStore<{
   value: string;
   time: number;
 }>(
-  "SELECT attribute, value, time FROM datoms WHERE entity = 'settings:global' ORDER BY hlc_ms ASC, hlc_ctr ASC, device_id ASC"
+  `SELECT attribute, value, time FROM datoms WHERE entity = 'settings:global' ORDER BY ${HLC_ORDER_ASC}`
 );
 
 export interface SettingsState {

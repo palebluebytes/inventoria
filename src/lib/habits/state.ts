@@ -1,4 +1,4 @@
-import type { Datom } from "../db/db.client";
+import type { StoredDatom } from "../db/db.client";
 import { groupByEntity } from "../db/datom-fold";
 import { computeHabitScore, computeStreak } from "./habits";
 import type { ScheduleRule } from "../recurrence/rules";
@@ -46,7 +46,7 @@ export interface HabitLineage {
  * Assumes the canonical `habit/schedule_rules` shape; the pre-blueprint
  * `schedule_type` schema is no longer supported.
  */
-export function computeHabitLineages(datoms: Datom[]): HabitLineage[] {
+export function computeHabitLineages(datoms: StoredDatom[]): HabitLineage[] {
   const { twins: blueprintGroups, events: execGroups } = groupByEntity(
     datoms,
     "habit/"

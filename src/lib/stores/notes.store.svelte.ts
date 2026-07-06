@@ -16,6 +16,7 @@
 
 import { dbClient } from "../db/db.client";
 import { parseDatomValue } from "../db/datom-fold";
+import { HLC_ORDER_ASC } from "../db/hlc";
 import {
   addItem,
   addNote,
@@ -57,7 +58,7 @@ class NotesStore {
       const rows = await dbClient.query<{ value: string }>(
         `SELECT value FROM datoms
          WHERE entity = ? AND attribute = ?
-         ORDER BY hlc_ms ASC, hlc_ctr ASC, device_id ASC`,
+         ORDER BY ${HLC_ORDER_ASC}`,
         [DOC_ENTITY, OP_ATTRIBUTE]
       );
       for (const row of rows) {

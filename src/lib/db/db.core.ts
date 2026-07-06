@@ -11,7 +11,7 @@
  * an event); ordering and the primary key are the HLC's job.
  */
 
-import type { Hlc, HlcMark } from "./hlc";
+import type { Hlc, HlcKey, HlcMark } from "./hlc";
 
 export interface Datom {
   entity: string;
@@ -19,6 +19,9 @@ export interface Datom {
   value: unknown;
   time: number;
 }
+
+/** A datom as read back from the ledger: the write shape plus its HLC key. */
+export interface StoredDatom extends Datom, HlcKey {}
 
 /** Options form of the sqlite-wasm `exec`, used for row-returning queries. */
 export interface LedgerExecOptions {
@@ -177,7 +180,11 @@ export function getOrCreateDeviceId(
   return id;
 }
 
-/** The ledger's current HLC high-water mark, used to seed the clock on init. */
+/**
+ * The ledger's current HLC high-water mark, used to seed the clock on init.
+ * `device_id` is intentionally omitted from the sort: seeding only needs the
+ * greatest `(physical, counter)` seen, not the total order's device tiebreak.
+ */
 export function readHlcHighWater(db: LedgerDb): HlcMark {
   const rows = execRows<{ hlc_ms: number; hlc_ctr: number }>(
     db,

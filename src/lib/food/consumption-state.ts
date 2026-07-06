@@ -1,4 +1,4 @@
-import type { Datom } from "../db/db.client";
+import type { StoredDatom } from "../db/db.client";
 import { groupByEntity } from "../db/datom-fold";
 
 export interface ConsumptionEvent {
@@ -35,7 +35,7 @@ export interface ConsumptionEvent {
  * A Consumption Event stores its macros either as an `event/metrics` blob or as
  * flat `event/<macro>` attributes; both are surfaced as flat fields here.
  */
-export function computeConsumption(datoms: Datom[]): ConsumptionEvent[] {
+export function computeConsumption(datoms: StoredDatom[]): ConsumptionEvent[] {
   const { twins: twinGroups, events: eventGroups } = groupByEntity(datoms, [
     "food/",
     "recipe/",

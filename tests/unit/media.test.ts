@@ -13,6 +13,7 @@ import { ingestionRegistry } from "../../src/lib/ingestion/registry";
 import { settingsStore } from "../../src/lib/stores/settings.store";
 import { logWatchEvent, logReadEvent } from "../../src/lib/media/engagement";
 import { computeMediaLibraryState } from "../../src/lib/media/state";
+import { asStored } from "./support/stored";
 
 vi.mock("../../src/lib/stores/settings.store", () => ({
   settingsStore: {
@@ -696,7 +697,7 @@ describe("computeMediaLibraryState", () => {
       },
     ];
 
-    const result = computeMediaLibraryState(datoms);
+    const result = computeMediaLibraryState(asStored(datoms));
 
     expect(result).toHaveLength(2);
 

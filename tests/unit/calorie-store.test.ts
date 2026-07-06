@@ -8,6 +8,7 @@ import {
   consumptionForDay,
 } from "../../src/lib/stores/calorie.store";
 import { computeConsumption } from "../../src/lib/food/consumption-state";
+import { asStored } from "./support/stored";
 
 vi.mock("../../src/lib/db/db.client", () => {
   return {
@@ -198,7 +199,7 @@ describe("computeConsumption", () => {
   const s = (v: unknown) => JSON.stringify(v);
 
   it("returns empty array for no datoms", () => {
-    expect(computeConsumption([])).toEqual([]);
+    expect(computeConsumption(asStored([]))).toEqual([]);
   });
 
   it("groups events, unpacks the metrics blob, and joins the food twin", () => {
@@ -249,7 +250,7 @@ describe("computeConsumption", () => {
       },
     ];
 
-    const events = computeConsumption(datoms);
+    const events = computeConsumption(asStored(datoms));
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
       id: "event:consume_123",
@@ -302,7 +303,7 @@ describe("computeConsumption", () => {
       },
     ];
 
-    const events = computeConsumption(datoms);
+    const events = computeConsumption(asStored(datoms));
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
       target: "recipe:abc",

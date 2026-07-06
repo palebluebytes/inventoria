@@ -2,6 +2,7 @@
   import { settingsStore, saveSettings } from "../stores/settings.store";
   import { createQueryStore } from "../stores/datoms.store";
   import { dbClient } from "../db/db.client";
+  import { HLC_ORDER_DESC } from "../db/hlc";
   import {
     saveTestState,
     runTestStep,
@@ -84,7 +85,7 @@
     value: string;
     time: number;
   }>(
-    "SELECT entity, attribute, value, time FROM datoms ORDER BY hlc_ms DESC, hlc_ctr DESC, device_id DESC LIMIT 100"
+    `SELECT entity, attribute, value, time FROM datoms ORDER BY ${HLC_ORDER_DESC} LIMIT 100`
   );
 
   // OPFS persistence test harness state

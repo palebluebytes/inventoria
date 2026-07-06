@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { computeHabitLineages } from "../../src/lib/habits/state";
+import { asStored } from "./support/stored";
 
 const dailyRule = { type: "daily_multiple", count: 1 };
 
@@ -63,7 +64,7 @@ describe("computeHabitLineages", () => {
       },
     ];
 
-    const lineages = computeHabitLineages(datoms);
+    const lineages = computeHabitLineages(asStored(datoms));
 
     expect(lineages).toHaveLength(1);
     const lineage = lineages[0];
@@ -137,7 +138,7 @@ describe("computeHabitLineages", () => {
       },
     ];
 
-    const lineages = computeHabitLineages(datoms);
+    const lineages = computeHabitLineages(asStored(datoms));
 
     expect(lineages).toHaveLength(1);
     const lineage = lineages[0];
@@ -172,6 +173,6 @@ describe("computeHabitLineages", () => {
       },
     ];
 
-    expect(computeHabitLineages(datoms)).toHaveLength(0);
+    expect(computeHabitLineages(asStored(datoms))).toHaveLength(0);
   });
 });

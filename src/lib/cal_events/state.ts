@@ -1,4 +1,4 @@
-import type { Datom } from "../db/db.client";
+import type { StoredDatom } from "../db/db.client";
 import { groupByEntity } from "../db/datom-fold";
 import type {
   CalEventBlueprint,
@@ -21,7 +21,7 @@ export interface CalEventsState {
  * status to collapse onto it. The Agenda cross-references the two via the pure
  * lookups in `cal_events.ts`.
  */
-export function computeCalEvents(datoms: Datom[]): CalEventsState {
+export function computeCalEvents(datoms: StoredDatom[]): CalEventsState {
   const { twins: bpGroups, events: occGroups } = groupByEntity(
     datoms,
     "cal_event/"

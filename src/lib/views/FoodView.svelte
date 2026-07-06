@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createQueryStore } from "../stores/datoms.store";
+  import { HLC_ORDER_DESC } from "../db/hlc";
   import DailyDashboard from "./food/DailyDashboard.svelte";
   import FoodSearchModal from "./food/FoodSearchModal.svelte";
   import AddPhotoModal from "./food/AddPhotoModal.svelte";
@@ -26,7 +27,7 @@
     attribute: string;
     value: string;
   }>(
-    "SELECT entity, attribute, value FROM datoms WHERE attribute = 'food/name' ORDER BY hlc_ms DESC, hlc_ctr DESC, device_id DESC LIMIT 20"
+    `SELECT entity, attribute, value FROM datoms WHERE attribute = 'food/name' ORDER BY ${HLC_ORDER_DESC} LIMIT 20`
   );
 
   function openMenu(meal_type: "breakfast" | "lunch" | "dinner" | "snack") {

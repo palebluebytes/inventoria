@@ -1,5 +1,6 @@
-import type { Datom } from "../db/db.client";
+import type { StoredDatom } from "../db/db.client";
 import { groupByEntity } from "../db/datom-fold";
+import { compareHlc } from "../db/hlc";
 
 const MEDIA_STRING_ATTRIBUTES = [
   "media/title",
@@ -37,7 +38,9 @@ export interface EnrichedMedia {
   first_publish_year?: number | string;
 }
 
-export function computeMediaLibraryState(datoms: Datom[]): EnrichedMedia[] {
+export function computeMediaLibraryState(
+  datoms: StoredDatom[]
+): EnrichedMedia[] {
   const { twins: twinGroups, events: eventGroups } = groupByEntity(
     datoms,
     "media/",
@@ -66,14 +69,15 @@ export function computeMediaLibraryState(datoms: Datom[]): EnrichedMedia[] {
   const events = Array.from(eventGroups.values()).map((g) => ({
     id: g.id,
     time: g.firstTime,
+    stamp: g.firstStamp,
     ...g.fields,
   })) as any[];
 
-  // Enrich twins with their events
+  // Enrich twins with their events, applied in HLC order so latest-wins.
   for (const twin of twins) {
     const targetEvents = events
       .filter((e) => e.target === twin.id)
-      .sort((a, b) => a.time - b.time);
+      .sort((a, b) => compareHlc(a.stamp, b.stamp));
 
     for (const event of targetEvents) {
       if (event.status) {

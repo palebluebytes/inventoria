@@ -1,7 +1,7 @@
 import DBWorker from "./db.worker?worker";
-import type { Datom } from "./db.core";
+import type { Datom, StoredDatom } from "./db.core";
 
-export type { Datom };
+export type { Datom, StoredDatom };
 
 export type InvalidationListener = (attributes: string[]) => void;
 

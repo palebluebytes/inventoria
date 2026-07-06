@@ -26,6 +26,13 @@ export interface HlcMark {
   counter: number;
 }
 
+/** An HLC as stored on a ledger row (DB column names), for ordering reads. */
+export interface HlcKey {
+  hlc_ms: number;
+  hlc_ctr: number;
+  device_id: string;
+}
+
 export interface Hlc {
   /** Stamp a local write. Monotonic across calls. */
   now(): HlcStamp;
@@ -80,10 +87,7 @@ export function createHlc(deviceId: string, opts: HlcOptions = {}): Hlc {
 }
 
 /** Total order over HLC-stamped rows: physical, then counter, then device id. */
-export function compareHlc(
-  a: { hlc_ms: number; hlc_ctr: number; device_id: string },
-  b: { hlc_ms: number; hlc_ctr: number; device_id: string }
-): number {
+export function compareHlc(a: HlcKey, b: HlcKey): number {
   return (
     a.hlc_ms - b.hlc_ms ||
     a.hlc_ctr - b.hlc_ctr ||

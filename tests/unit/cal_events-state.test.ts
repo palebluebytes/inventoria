@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { computeCalEvents } from "../../src/lib/cal_events/state";
+import { asStored } from "./support/stored";
 import {
   occurrencesForDate,
   findOccurrence,
@@ -58,7 +59,7 @@ describe("computeCalEvents", () => {
       },
     ];
 
-    const { blueprints, occurrences } = computeCalEvents(datoms);
+    const { blueprints, occurrences } = computeCalEvents(asStored(datoms));
 
     expect(blueprints).toHaveLength(1);
     expect(blueprints[0].entity).toBe("cal_event:meds_1");
@@ -87,7 +88,7 @@ describe("computeCalEvents", () => {
       },
     ];
 
-    const { blueprints, occurrences } = computeCalEvents(datoms);
+    const { blueprints, occurrences } = computeCalEvents(asStored(datoms));
     expect(blueprints).toHaveLength(0);
     expect(occurrences).toHaveLength(0);
   });
