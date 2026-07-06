@@ -11,29 +11,18 @@
 set -euo pipefail
 
 adr_dir="$(cd "$(dirname "$0")/adr" && pwd)"
+site_root="$(dirname "$adr_dir")"
 cd "$adr_dir"
 
-# The site nav, as seen from docs/adr/ (one level below the site root). The ADR
-# entry is always current on these pages. Keep in step with the site nav above.
+# The site nav, extracted from index.html (the canonical copy) and re-rooted for
+# docs/adr/ pages: every href gains ../, except the ADR entry, which becomes the
+# active self-link. One source; nothing to keep in step by hand.
 nav() {
-  cat <<'NAV'
-  <nav class="site-nav">
-    <p class="nav-title">Inventoria</p>
-    <a href="../index.html">Introduction</a>
-    <div class="nav-section">
-      <p class="nav-section-label">Reference</p>
-      <a href="../glossary.html">Glossary</a>
-      <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
-    </div>
-    <div class="nav-section">
-      <p class="nav-section-label">Explanation</p>
-      <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
-    </div>
-    <div class="nav-section">
-      <a href="index.html" class="active">Architectural Decision Records</a>
-    </div>
-  </nav>
-NAV
+  awk '/<nav class="site-nav">/,/<\/nav>/' "$site_root/index.html" \
+    | sed -e 's/ class="active"//g' \
+          -e 's|href="adr/index.html"|__ADR_SELF__|' \
+          -e 's|href="|href="../|g' \
+          -e 's|__ADR_SELF__|href="index.html" class="active"|'
 }
 
 # page <title> <body-html> -> a full site page on stdout.
@@ -72,7 +61,7 @@ for md in $(ls -1 [0-9]*.md | sort); do
   clean="$(printf '%s' "$raw" | sed -E 's/^(ADR )?[0-9]+[.:][[:space:]]*//; s/&/\&amp;/g')"
   body="$(pandoc -f gfm -t html --wrap=none "$md")"
   page "ADR ${num}" "$body" > "${base}.html"
-  printf '        <li><a href="%s.html">ADR %s — %s</a></li>\n' "$base" "$num" "$clean" >> "$items"
+  printf '        <li><a href="%s.html">ADR %s · %s</a></li>\n' "$base" "$num" "$clean" >> "$items"
 done
 
 index_body="$(cat <<BODY
