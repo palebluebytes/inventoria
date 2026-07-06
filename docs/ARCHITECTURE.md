@@ -4,16 +4,21 @@ The application rejects traditional relational tables in favor of a single, immu
 
 ## The Database Schema
 
+Order and identity are a Hybrid Logical Clock, not the wall-clock `time`, per [ADR-0020](adr/0020-logical-clock-ordering-over-wall-clock-key.md). `time` is retained as the domain timestamp; latest-wins reads fold in HLC order.
+
 ```sql
 CREATE TABLE datoms (
     entity TEXT NOT NULL,       -- Unique ID of the Twin, Habit, or Event
     attribute TEXT NOT NULL,    -- The property being declared (e.g., 'food/calories')
     value TEXT NOT NULL,        -- The payload (primitive or stringified JSON)
-    time INTEGER NOT NULL,      -- Unix millisecond timestamp (T)
-    PRIMARY KEY (entity, attribute, time)
+    time INTEGER NOT NULL,      -- Domain timestamp (Unix ms), e.g. when a user confirmed
+    hlc_ms INTEGER NOT NULL,    -- HLC physical component (Unix ms)
+    hlc_ctr INTEGER NOT NULL,   -- HLC logical counter (same-ms tiebreak / causality)
+    device_id TEXT NOT NULL,    -- Originating device, for a deterministic total order
+    PRIMARY KEY (entity, attribute, hlc_ms, hlc_ctr, device_id)
 ) WITHOUT ROWID;
 
-CREATE INDEX idx_eav ON datoms (entity, attribute, time);
+CREATE INDEX idx_eav ON datoms (entity, attribute, hlc_ms, hlc_ctr, device_id);
 CREATE INDEX idx_ave ON datoms (attribute, value, entity);
 ```
 

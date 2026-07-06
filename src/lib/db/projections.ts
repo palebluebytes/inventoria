@@ -17,26 +17,26 @@ export interface Projection {
 
 export const projections: Record<string, Projection> = {
   MEDIA_LIBRARY: {
-    sql: "SELECT entity, attribute, value, time FROM datoms WHERE attribute LIKE 'media/%' OR attribute LIKE 'event/%' ORDER BY time ASC",
+    sql: "SELECT entity, attribute, value, time FROM datoms WHERE attribute LIKE 'media/%' OR attribute LIKE 'event/%' ORDER BY hlc_ms ASC, hlc_ctr ASC, device_id ASC",
     compute: computeMediaLibraryState,
   },
   ACQUISITION_LIBRARY: {
-    sql: "SELECT entity, attribute, value, time FROM datoms WHERE attribute LIKE 'twin/%' OR attribute LIKE 'event/%' ORDER BY time ASC",
+    sql: "SELECT entity, attribute, value, time FROM datoms WHERE attribute LIKE 'twin/%' OR attribute LIKE 'event/%' ORDER BY hlc_ms ASC, hlc_ctr ASC, device_id ASC",
     compute: computeAcquisitionState,
   },
   HABITS_LINEAGES: {
-    sql: "SELECT entity, attribute, value, time FROM datoms WHERE entity LIKE 'habit:%' OR entity LIKE 'event:execute_%' ORDER BY time ASC",
+    sql: "SELECT entity, attribute, value, time FROM datoms WHERE entity LIKE 'habit:%' OR entity LIKE 'event:execute_%' ORDER BY hlc_ms ASC, hlc_ctr ASC, device_id ASC",
     compute: computeHabitLineages,
   },
   CAL_EVENTS: {
-    sql: "SELECT entity, attribute, value, time FROM datoms WHERE entity LIKE 'cal_event:%' OR entity LIKE 'event:occur_%' ORDER BY time ASC",
+    sql: "SELECT entity, attribute, value, time FROM datoms WHERE entity LIKE 'cal_event:%' OR entity LIKE 'event:occur_%' ORDER BY hlc_ms ASC, hlc_ctr ASC, device_id ASC",
     compute: computeCalEvents,
   },
   // Consume events are entity-scoped; food/recipe twins are heterogeneously
   // named (fdc:, gtin:, food:custom_, recipe:) so they're attribute-scoped, as
   // with media.
   CONSUMPTION: {
-    sql: "SELECT entity, attribute, value, time FROM datoms WHERE entity LIKE 'event:consume_%' OR attribute LIKE 'food/%' OR attribute LIKE 'recipe/%' ORDER BY time ASC",
+    sql: "SELECT entity, attribute, value, time FROM datoms WHERE entity LIKE 'event:consume_%' OR attribute LIKE 'food/%' OR attribute LIKE 'recipe/%' ORDER BY hlc_ms ASC, hlc_ctr ASC, device_id ASC",
     compute: computeConsumption,
   },
 };

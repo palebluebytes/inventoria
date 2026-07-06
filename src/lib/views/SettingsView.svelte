@@ -84,7 +84,7 @@
     value: string;
     time: number;
   }>(
-    "SELECT entity, attribute, value, time FROM datoms ORDER BY time DESC LIMIT 100"
+    "SELECT entity, attribute, value, time FROM datoms ORDER BY hlc_ms DESC, hlc_ctr DESC, device_id DESC LIMIT 100"
   );
 
   // OPFS persistence test harness state

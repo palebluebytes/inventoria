@@ -9,7 +9,7 @@ export const settingsDatomsStore = createQueryStore<{
   value: string;
   time: number;
 }>(
-  "SELECT attribute, value, time FROM datoms WHERE entity = 'settings:global' ORDER BY time ASC"
+  "SELECT attribute, value, time FROM datoms WHERE entity = 'settings:global' ORDER BY hlc_ms ASC, hlc_ctr ASC, device_id ASC"
 );
 
 export interface SettingsState {

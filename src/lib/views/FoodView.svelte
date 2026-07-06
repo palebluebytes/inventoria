@@ -26,7 +26,7 @@
     attribute: string;
     value: string;
   }>(
-    "SELECT entity, attribute, value FROM datoms WHERE attribute = 'food/name' ORDER BY time DESC LIMIT 20"
+    "SELECT entity, attribute, value FROM datoms WHERE attribute = 'food/name' ORDER BY hlc_ms DESC, hlc_ctr DESC, device_id DESC LIMIT 20"
   );
 
   function openMenu(meal_type: "breakfast" | "lunch" | "dinner" | "snack") {

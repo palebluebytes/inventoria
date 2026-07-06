@@ -47,9 +47,6 @@ class NotesStore {
   // Version of the ops already written to the ledger; each persist exports only
   // the delta past this point.
   #persisted_version: VersionVector | undefined = undefined;
-  // Monotonic guard: the op-log PK is (entity, attribute, time), so two appends
-  // in the same millisecond would collide. Always advance past the last one.
-  #last_persist_time = 0;
 
   /** Loads and replays the op-log, then starts the live subscription. Idempotent. */
   async init(): Promise<void> {
@@ -60,7 +57,7 @@ class NotesStore {
       const rows = await dbClient.query<{ value: string }>(
         `SELECT value FROM datoms
          WHERE entity = ? AND attribute = ?
-         ORDER BY time ASC`,
+         ORDER BY hlc_ms ASC, hlc_ctr ASC, device_id ASC`,
         [DOC_ENTITY, OP_ATTRIBUTE]
       );
       for (const row of rows) {
@@ -149,15 +146,15 @@ class NotesStore {
 
   async #persist(): Promise<void> {
     const base64 = exportUpdateBase64(this.#doc, this.#persisted_version);
-    const time = Math.max(Date.now(), this.#last_persist_time + 1);
-    this.#last_persist_time = time;
     try {
+      // The op-log PK is the HLC (ADR-0020), so same-millisecond appends no
+      // longer collide; `time` is just the domain timestamp.
       await dbClient.append([
         {
           entity: DOC_ENTITY,
           attribute: OP_ATTRIBUTE,
           value: base64,
-          time,
+          time: Date.now(),
         },
       ]);
       // Only advance the watermark once the delta is durably appended.

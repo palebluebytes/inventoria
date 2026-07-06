@@ -2,13 +2,17 @@ import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
 import { projections } from "./projections";
 import {
   appendDatoms,
-  createLedgerSchema,
+  ensureLedgerSchema,
+  getOrCreateDeviceId,
+  readHlcHighWater,
   resetLedgerSchema,
   execRows,
   type LedgerDb,
 } from "./db.core";
+import { createHlc, type Hlc } from "./hlc";
 
 let db: LedgerDb | null = null;
+let hlc: Hlc | null = null;
 let initialized = false;
 
 // Handle messages from the main thread
@@ -49,8 +53,12 @@ self.onmessage = async (event: MessageEvent) => {
         console.log("worker: db opened successfully");
       }
 
-      // Auto-create the datoms table and indexes
-      createLedgerSchema(db);
+      // Ensure the ledger exists on the HLC schema (migrating a legacy
+      // database in place), then seed the clock from its high-water mark so
+      // stamps stay monotonic across restarts (ADR-0020).
+      const deviceId = getOrCreateDeviceId(db);
+      ensureLedgerSchema(db, deviceId);
+      hlc = createHlc(deviceId, { seed: readHlcHighWater(db) });
 
       console.log("worker: table and indices initialized");
       initialized = true;
@@ -87,12 +95,12 @@ self.onmessage = async (event: MessageEvent) => {
       const enriched = projection.compute(execRows(db, projection.sql));
       self.postMessage({ id, status: "ok", data: enriched });
     } else if (type === "append") {
-      if (!db) {
+      if (!db || !hlc) {
         throw new Error("Database not initialized. Please call 'init' first.");
       }
 
       const { datoms } = payload;
-      const attributes = appendDatoms(db, datoms);
+      const attributes = appendDatoms(db, datoms, hlc);
 
       self.postMessage({ id, status: "ok" });
 
