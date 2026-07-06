@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR 0010 · Inventoria</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+  <nav class="site-nav">
+    <p class="nav-title">Inventoria</p>
+    <a href="../index.html">Introduction</a>
+    <div class="nav-section">
+      <p class="nav-section-label">Reference</p>
+      <a href="../glossary.html">Glossary</a>
+      <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+    </div>
+    <div class="nav-section">
+      <p class="nav-section-label">Explanation</p>
+      <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+    </div>
+    <div class="nav-section">
+      <a href="index.html" class="active">Architectural Decision Records</a>
+    </div>
+  </nav>
+  <div class="content-area">
+    <main>
+<h1 id="10-playwright-native-visual-catalog-generation">10. Playwright Native Visual Catalog Generation</h1>
+<p><strong>Context:</strong> We want a workflow that saves screen captures for both desktop and mobile devices to enable faster iteration and testing for UI changes. We need a tool that supports both a fast visual catalog and visual regression testing, integrating well with local-first development. We evaluated Lost Pixel, but their recent announcement that the team is joining Figma and sunsetting the service makes it a risky dependency.</p>
+<p><strong>Decision:</strong> We will use Playwright's native visual testing capabilities (<code>expect(page).toHaveScreenshot</code>) to capture and verify the UI state. We will define a dedicated <code>tests/visual-catalog.spec.ts</code> test that:</p>
+<ol type="1">
+<li>Seeds realistic data into the local-first database via automated UI interactions.</li>
+<li>Navigates to all primary dashboards.</li>
+<li>Captures full-page screenshots across all target viewports (Desktop Chrome, Mobile Chrome, and Mobile Safari).</li>
+</ol>
+<p>Snapshots are committed to the repository, allowing developers to review changes locally and catch visual regressions in CI.</p>
+<p><strong>Consequences:</strong></p>
+<ul>
+<li><strong>Pros:</strong>
+<ul>
+<li>Standardizes testing on our existing Playwright setup, keeping dependencies lean.</li>
+<li>Fully local-first and works offline, in perfect alignment with Inventoria's architecture.</li>
+<li>No risk of service sunsetting or vendor lock-in.</li>
+<li>Snapshot updates can be run with a single command: <code>pnpm playwright test tests/visual-catalog.spec.ts --update-snapshots</code>.</li>
+</ul></li>
+<li><strong>Cons:</strong>
+<ul>
+<li>committing binary PNG files directly to git can increase the repository size (mitigated by only keeping visual catalog screenshots for key pages).</li>
+<li>Lacks a hosted PR review dashboard out-of-the-box, though visual comparison tools are built directly into HTML report output.</li>
+</ul></li>
+</ul>
+    </main>
+  </div>
+</div>
+</body>
+</html>

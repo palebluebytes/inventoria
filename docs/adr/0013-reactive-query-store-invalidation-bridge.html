@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR 0013 · Inventoria</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+  <nav class="site-nav">
+    <p class="nav-title">Inventoria</p>
+    <a href="../index.html">Introduction</a>
+    <div class="nav-section">
+      <p class="nav-section-label">Reference</p>
+      <a href="../glossary.html">Glossary</a>
+      <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+    </div>
+    <div class="nav-section">
+      <p class="nav-section-label">Explanation</p>
+      <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+    </div>
+    <div class="nav-section">
+      <a href="index.html" class="active">Architectural Decision Records</a>
+    </div>
+  </nav>
+  <div class="content-area">
+    <main>
+<h1 id="13-reactive-query-store-invalidation-bridge">13. Reactive Query Store Invalidation Bridge</h1>
+<p>Date: 2026-06-22</p>
+<h2 id="status">Status</h2>
+<p>Accepted</p>
+<h2 id="context">Context</h2>
+<p>Inventoria uses Svelte's reactive model to automatically update UI screens when state changes. However, SQLite WASM runs inside a dedicated Web Worker to prevent database I/O from blocking the main rendering thread. This introduces an architectural challenge: Svelte's reactivity expects synchronous state updates, while communication across the main thread and the Web Worker (via <code>postMessage</code>) is strictly asynchronous.</p>
+<p>Furthermore, we need to ensure that when a write occurs (e.g. logging a habit execution or adding a food item), all relevant read queries update automatically without requiring manual callback wiring inside components.</p>
+<h2 id="decision">Decision</h2>
+<p>We bridge Svelte's reactivity and the asynchronous Web Worker thread using a custom Query Store Invalidation mechanism:</p>
+<ol type="1">
+<li><strong>Async Query Store (<code>createQueryStore</code>):</strong> We wrap Svelte's native <code>readable</code> store. Upon subscription, the store immediately triggers an asynchronous SQL SELECT query through the <code>dbClient</code> RPC bridge.</li>
+<li><strong>Ledger Mutation Broadcasts:</strong> When new datoms are appended inside <code>db.worker.ts</code>, the database transaction commits. Upon a successful commit, the worker broadcasts a <code>broadcast_invalidation</code> message to the main thread, carrying the list of altered attributes.</li>
+<li><strong>Re-Query Trigger:</strong> The client-side <code>dbClient</code> registers an <code>onInvalidate</code> callback listener. The active query stores subscribe to this invalidation listener. When notified of an invalidation, the stores trigger an asynchronous re-fetch (<code>refresh()</code>), updating the store's value once the database returns the query results.</li>
+</ol>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li><strong>Positives:</strong>
+<ul>
+<li><strong>Clean UI Code:</strong> Svelte components simply use standard Svelte reactivity (e.g. <code>$habits</code>) without manual loading, refreshing, or polling logic.</li>
+<li><strong>Single Source of Truth:</strong> All mutations flow through the append-only ledger worker, ensuring the UI is always a projection of the current database state.</li>
+</ul></li>
+<li><strong>Negatives:</strong>
+<ul>
+<li><strong>Query Storm Risk:</strong> In its current form, any mutation causes all subscribed query stores to re-run their SQL queries. For screens with many active queries or during batch insertions, this can cause a burst of message passing and database queries.</li>
+<li><strong>Race Conditions:</strong> Requires silent handling of query exceptions during startup sequences when query stores might try to execute before the worker database connection is fully active.</li>
+</ul></li>
+</ul>
+    </main>
+  </div>
+</div>
+</body>
+</html>

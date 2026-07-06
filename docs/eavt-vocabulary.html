@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EAVT Vocabulary · Inventoria</title>
+    <link rel="stylesheet" href="assets/style.css" />
+  </head>
+  <body>
+    <div class="page-wrapper">
+      <nav class="site-nav">
+        <p class="nav-title">Inventoria</p>
+        <a href="index.html">Introduction</a>
+        <div class="nav-section">
+          <p class="nav-section-label">Reference</p>
+          <a href="glossary.html">Glossary</a>
+          <a href="eavt-vocabulary.html" class="active">EAVT Vocabulary</a>
+        </div>
+        <div class="nav-section">
+          <p class="nav-section-label">Explanation</p>
+          <a href="append-only-ledger.html">State Is a Reading of the Past</a>
+        </div>
+        <div class="nav-section">
+          <a href="adr/index.html">Architectural Decision Records</a>
+        </div>
+      </nav>
+
+      <div class="content-area">
+        <main>
+          <h1>EAVT Vocabulary</h1>
+          <p class="subtitle">
+            The entity prefixes and attribute namespaces the ledger actually
+            uses.
+          </p>
+
+          <p>
+            Every row in the <code>datoms</code> table is a
+            <a href="glossary.html#term-datom">datom</a> with four fields. The
+            <strong>entity</strong> is a namespaced identifier, the
+            <strong>attribute</strong> is a namespaced key, the
+            <strong>value</strong> is a primitive or a stringified JSON blob,
+            and the <strong>time</strong> is a Unix millisecond timestamp. The
+            datom itself is Rich Hickey's
+            <a href="https://docs.datomic.com/whatis/data-model.html"
+              >Datomic</a
+            >
+            model; the reasoning for storing facts this way is in
+            <a href="append-only-ledger.html">State Is a Reading of the Past</a
+            >.
+          </p>
+
+          <figure
+            class="sketch"
+            aria-label="One datoms-table row split into four cells: entity 'gtin:3017620422003', attribute 'food/calories', value '539 kcal', and time '1717140000000'."
+          >
+            <svg
+              viewBox="0 0 660 150"
+              width="660"
+              height="150"
+              xmlns="http://www.w3.org/2000/svg"
+              role="img"
+            >
+              <text
+                x="122"
+                y="50"
+                text-anchor="middle"
+                font-family="Helvetica, Arial, sans-serif"
+                font-size="10.5"
+                letter-spacing="1"
+                fill="#2a6496"
+              >
+                ENTITY
+              </text>
+              <text
+                x="322"
+                y="50"
+                text-anchor="middle"
+                font-family="Helvetica, Arial, sans-serif"
+                font-size="10.5"
+                letter-spacing="1"
+                fill="#2a6496"
+              >
+                ATTRIBUTE
+              </text>
+              <text
+                x="465"
+                y="50"
+                text-anchor="middle"
+                font-family="Helvetica, Arial, sans-serif"
+                font-size="10.5"
+                letter-spacing="1"
+                fill="#2a6496"
+              >
+                VALUE
+              </text>
+              <text
+                x="585"
+                y="50"
+                text-anchor="middle"
+                font-family="Helvetica, Arial, sans-serif"
+                font-size="10.5"
+                letter-spacing="1"
+                fill="#2a6496"
+              >
+                TIME
+              </text>
+
+              <rect
+                x="15"
+                y="58"
+                width="215"
+                height="52"
+                rx="4"
+                fill="#f3f2ef"
+                stroke="#ccc"
+                stroke-width="1.5"
+              />
+              <text
+                x="122"
+                y="90"
+                text-anchor="middle"
+                font-family="JetBrains Mono, Consolas, monospace"
+                font-size="12"
+                fill="#1a1a1a"
+              >
+                gtin:3017620422003
+              </text>
+
+              <rect
+                x="240"
+                y="58"
+                width="165"
+                height="52"
+                rx="4"
+                fill="#f3f2ef"
+                stroke="#ccc"
+                stroke-width="1.5"
+              />
+              <text
+                x="322"
+                y="90"
+                text-anchor="middle"
+                font-family="JetBrains Mono, Consolas, monospace"
+                font-size="12"
+                fill="#1a1a1a"
+              >
+                food/calories
+              </text>
+
+              <rect
+                x="415"
+                y="58"
+                width="100"
+                height="52"
+                rx="4"
+                fill="#f3f2ef"
+                stroke="#ccc"
+                stroke-width="1.5"
+              />
+              <text
+                x="465"
+                y="90"
+                text-anchor="middle"
+                font-family="JetBrains Mono, Consolas, monospace"
+                font-size="12"
+                fill="#1a1a1a"
+              >
+                539 kcal
+              </text>
+
+              <rect
+                x="525"
+                y="58"
+                width="120"
+                height="52"
+                rx="4"
+                fill="#f3f2ef"
+                stroke="#ccc"
+                stroke-width="1.5"
+              />
+              <text
+                x="585"
+                y="90"
+                text-anchor="middle"
+                font-family="JetBrains Mono, Consolas, monospace"
+                font-size="11"
+                fill="#1a1a1a"
+              >
+                1717140000000
+              </text>
+
+              <text
+                x="15"
+                y="134"
+                font-family="Georgia, serif"
+                font-size="11"
+                fill="#999"
+              >
+                One row of the datoms table.
+              </text>
+            </svg>
+            <figcaption>
+              The four fields of a datom, with a concrete food fact as the
+              example.
+            </figcaption>
+          </figure>
+
+          <h2>Entity prefixes</h2>
+          <p>
+            An entity id begins with a prefix that names what kind of thing it
+            is.
+            <a href="glossary.html#term-projection">Projections</a> scope their
+            reads by these prefixes.
+          </p>
+
+          <h3>Digital Twins</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Prefix</th>
+                <th>Identifies</th>
+                <th>Seeded from</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>gtin:</code></td>
+                <td>
+                  A food
+                  <a href="glossary.html#term-digital-twin">Digital Twin</a>
+                  keyed by barcode
+                </td>
+                <td>Open Food Facts</td>
+              </tr>
+              <tr>
+                <td><code>fdc:</code></td>
+                <td>A food Digital Twin keyed by food id</td>
+                <td>USDA FoodData Central</td>
+              </tr>
+              <tr>
+                <td><code>food:custom_</code></td>
+                <td>A custom or photo-based food Digital Twin</td>
+                <td>Authored locally</td>
+              </tr>
+              <tr>
+                <td><code>recipe:</code></td>
+                <td>
+                  A composed recipe Digital Twin referencing ingredient twins
+                </td>
+                <td>Authored locally</td>
+              </tr>
+              <tr>
+                <td><code>tmdb:movie_</code>, <code>tmdb:tv_</code></td>
+                <td>A film or series media Digital Twin</td>
+                <td>TMDB</td>
+              </tr>
+              <tr>
+                <td><code>isbn:</code></td>
+                <td>A book media Digital Twin</td>
+                <td>Open Library</td>
+              </tr>
+              <tr>
+                <td><code>twin:</code></td>
+                <td>A physical item Digital Twin, such as an instrument</td>
+                <td>Authored locally</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>Blueprints</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Prefix</th>
+                <th>Identifies</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>habit:</code></td>
+                <td>
+                  A
+                  <a href="glossary.html#term-habit-blueprint"
+                    >Habit Blueprint</a
+                  >
+                </td>
+              </tr>
+              <tr>
+                <td><code>cal_event:</code></td>
+                <td>
+                  A
+                  <a href="glossary.html#term-calendar-event-blueprint"
+                    >Calendar Event Blueprint</a
+                  >
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>Events</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Prefix</th>
+                <th>Identifies</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>event:consume_</code></td>
+                <td>
+                  A
+                  <a href="glossary.html#term-consumption-event"
+                    >Consumption Event</a
+                  >
+                </td>
+              </tr>
+              <tr>
+                <td><code>event:execute_</code></td>
+                <td>
+                  An
+                  <a href="glossary.html#term-execution-event"
+                    >Execution Event</a
+                  >
+                </td>
+              </tr>
+              <tr>
+                <td><code>event:engage_</code></td>
+                <td>
+                  An
+                  <a href="glossary.html#term-engagement-event"
+                    >Engagement Event</a
+                  >
+                </td>
+              </tr>
+              <tr>
+                <td><code>event:occur_</code></td>
+                <td>
+                  An
+                  <a href="glossary.html#term-occurrence-event"
+                    >Occurrence Event</a
+                  >
+                </td>
+              </tr>
+              <tr>
+                <td><code>event:acquire_</code></td>
+                <td>
+                  An
+                  <a href="glossary.html#term-acquisition-event"
+                    >Acquisition Event</a
+                  >
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h2>Attribute namespaces</h2>
+          <p>
+            An attribute key begins with a namespace naming the family of facts
+            it belongs to. The representative attributes below are a sample; the
+            source under <code>src/</code> is the exhaustive list.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Namespace</th>
+                <th>Belongs to</th>
+                <th>Representative attributes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>food/</code></td>
+                <td>Food Digital Twins</td>
+                <td>
+                  <code>name</code>, <code>calories</code>,
+                  <code>protein</code>, <code>fat</code>, <code>carbs</code>
+                </td>
+              </tr>
+              <tr>
+                <td><code>recipe/</code></td>
+                <td>Recipe twins</td>
+                <td>
+                  <code>description</code>, <code>ingredients</code>,
+                  <code>scrape_url</code>, <code>source_url</code>
+                </td>
+              </tr>
+              <tr>
+                <td><code>media/</code></td>
+                <td>Media Digital Twins</td>
+                <td>
+                  <code>title</code>, <code>director</code> or
+                  <code>author</code>, <code>release_date</code>,
+                  <code>poster_url</code>
+                </td>
+              </tr>
+              <tr>
+                <td><code>twin/</code></td>
+                <td>Physical item twins</td>
+                <td>
+                  <code>name</code>, <code>brand</code>, <code>image</code>,
+                  <code>note</code>, <code>raw_provenance</code> (the
+                  <a href="glossary.html#term-provenance">Provenance</a> blob)
+                </td>
+              </tr>
+              <tr>
+                <td><code>habit/</code></td>
+                <td>
+                  <a href="glossary.html#term-habit-blueprint"
+                    >Habit Blueprints</a
+                  >
+                </td>
+                <td>
+                  <code>name</code>, <code>category</code>,
+                  <code>instrument</code>, <code>schedule_rules</code>,
+                  <code>replaces</code> (the lineage link)
+                </td>
+              </tr>
+              <tr>
+                <td><code>cal_event/</code></td>
+                <td>
+                  <a href="glossary.html#term-calendar-event-blueprint"
+                    >Calendar Event Blueprints</a
+                  >
+                </td>
+                <td>
+                  <code>dtstart</code>, <code>dtend</code>, <code>title</code>,
+                  <code>tracking</code>, <code>schedule_rules</code>
+                </td>
+              </tr>
+              <tr>
+                <td><code>event/</code></td>
+                <td>Every logged Event</td>
+                <td>
+                  <code>type</code>, <code>target</code>, <code>status</code>,
+                  <code>metrics</code>, <code>meal_type</code> (the
+                  <a href="glossary.html#term-meal-type">Meal Type</a>),
+                  <code>rating</code>, <code>season</code>
+                </td>
+              </tr>
+              <tr>
+                <td><code>settings/</code></td>
+                <td>Application settings</td>
+                <td>
+                  <code>scraper_proxy_url</code>, <code>tmdb_api_key</code>,
+                  <code>usda_api_key</code>
+                </td>
+              </tr>
+              <tr>
+                <td><code>notes/</code></td>
+                <td>
+                  The <a href="glossary.html#term-note">Notes</a> and
+                  <a href="glossary.html#term-checklist">Checklist</a> op-log
+                </td>
+                <td><code>op</code> (one CRDT operation delta)</td>
+              </tr>
+            </tbody>
+          </table>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

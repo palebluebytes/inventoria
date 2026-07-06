@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR 0018 · Inventoria</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+  <nav class="site-nav">
+    <p class="nav-title">Inventoria</p>
+    <a href="../index.html">Introduction</a>
+    <div class="nav-section">
+      <p class="nav-section-label">Reference</p>
+      <a href="../glossary.html">Glossary</a>
+      <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+    </div>
+    <div class="nav-section">
+      <p class="nav-section-label">Explanation</p>
+      <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+    </div>
+    <div class="nav-section">
+      <a href="index.html" class="active">Architectural Decision Records</a>
+    </div>
+  </nav>
+  <div class="content-area">
+    <main>
+<h1 id="adr-0018-notes--checklist-as-a-crdt-op-log-in-the-ledger">ADR 0018: Notes &amp; Checklist as a CRDT Op-Log in the Ledger</h1>
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-06-24</p>
+<h2 id="context">Context</h2>
+<p>A new tab introduces two user-authored, free-form concepts that did not exist in the domain before (see <code>CONTEXT.md</code>):</p>
+<ul>
+<li><strong>Checklist / Checklist Item</strong> — an unscheduled scratchpad list of manually ticked items. It is <strong>not</strong> an Agenda obligation: no Schedule Rule, no tracking, no streak, and ticking an item produces no Execution or Occurrence Event. It is deliberately distinct from the Agenda's Habit Blueprints and Compliance Events, which already own the meaning "things I must do today".</li>
+<li><strong>Note</strong> — a titled entry whose <strong>body must merge concurrent edits from multiple devices without conflict</strong> (character-level), a requirement the ledger's last-write-wins-per-attribute model cannot satisfy.</li>
+</ul>
+<p>The multi-device merge requirement is the forcing function. It pulls in a sequence CRDT (<code>loro-crdt</code>), which raises the central question: how does a self-contained CRDT coexist with the append-only EAVT <strong>Ledger</strong> (ADR-0001), whose every row is supposed to be a single immutable <strong>fact</strong>?</p>
+<p>Three options were considered:</p>
+<ol type="1">
+<li><strong>Decompose into datoms.</strong> Model Checklist Items and Note metadata as ordinary facts (<code>item/text</code>, <code>item/status</code>, …) and use a CRDT only for Note bodies. Keeps everything SQL-projectable and uniform with the rest of the app, but the data has no factual/queryable role: a Checklist Item is explicitly never queried, aggregated, cross-linked, or surfaced on the Agenda. Decomposition would buy queryability the feature does not want, at the cost of two persistence mechanisms inside one feature.</li>
+<li><strong>CRDT op-log in the Ledger (chosen).</strong> Treat the whole feature as one Loro document and persist it as an append-only stream of operation deltas inside the existing <code>datoms</code> table.</li>
+<li><strong>Separate CRDT context.</strong> Keep Loro entirely out of the Ledger with its own OPFS persistence and Loro-native sync. Conceptually cleanest, but introduces a second persistence path and — critically — a <strong>second sync channel</strong>, forfeiting the "rides the ledger for free" benefit that ADR-0014's deterministic-ID offline-sync plan already provides.</li>
+</ol>
+<p>A naive first cut stored the entire Loro document as a single base64 <strong>snapshot</strong> datom, read back with <code>ORDER BY time DESC LIMIT 1</code>. This is a latent multi-device <strong>data-loss bug</strong>: once two devices each append a snapshot and sync (ADR-0014), the ledger's last-write-wins-by-<code>time</code> resolution discards the older snapshot wholesale, <em>before</em> Loro is ever given the chance to merge the two. Last-write-wins sitting above a CRDT defeats the CRDT.</p>
+<h2 id="decision">Decision</h2>
+<p>Adopt <strong>Option 2: a CRDT op-log in the Ledger</strong>, scoped as a self-contained scratchpad that is conceptually walled off from the facts domain.</p>
+<ul>
+<li><p><strong>Source of truth.</strong> One <code>LoroDoc</code> holds the Checklist (a movable list) and the Notes (titled entries with nested <code>LoroText</code> bodies). The document — not decomposed datoms — is the source of truth for this feature. Pure CRDT logic lives in <code>src/lib/notes/loro-doc.ts</code>; the ledger/Svelte bridge lives in <code>src/lib/stores/notes.store.svelte.ts</code>.</p></li>
+<li><p><strong>Persistence is an append-only op-log, not a snapshot.</strong> Each local change appends one immutable datom carrying a Loro <strong>update delta</strong>:</p>
+<ul>
+<li>entity <code>notes:doc</code> (singleton), attribute <code>notes/op</code>, value = base64 of <code>doc.export({ mode: "update", from: lastPersistedVersion })</code>, <code>time</code> = now.</li>
+<li>The <code>(entity, attribute, time)</code> primary key is protected by a monotonic <code>time</code> guard; the store tracks <code>lastPersistedVersion</code> so each append carries only new ops.</li>
+</ul></li>
+<li><p><strong>State is derived by replaying the log.</strong> On load, read <strong>all</strong> <code>notes/op</code> datoms and <code>doc.import</code> each. Loro operations are commutative, so importing every device's deltas (rather than taking the latest) produces a correct merge. This restores the Ledger's "current state is derived by replaying the historical log" principle — replay here means CRDT import rather than SQL fold.</p></li>
+<li><p><strong>Deliberately bypasses the projection engine (ADR-0015).</strong> The feature is opaque to SQL projections by design. Its live UI signal is Loro's own <code>doc.subscribe</code>, not a <code>createProjectionStore</code>. The Ledger provides only durable persistence; the invalidation broadcast is intra-tab (no <code>BroadcastChannel</code>), so it plays no role here.</p></li>
+<li><p><strong>Compaction is deferred.</strong> The op-log grows unbounded, but a personal scratchpad emits tiny deltas. Because the Ledger is append-only, adding snapshot-based compaction later requires <strong>no migration</strong> (begin appending snapshot + watermark datoms; old ops remain importable). Revisit when a single document's op count exceeds roughly 500.</p></li>
+</ul>
+<h2 id="consequences">Consequences</h2>
+<p><strong>Positive:</strong></p>
+<ul>
+<li><strong>One sync channel.</strong> Notes and Checklist ride the native datom replication of ADR-0014's offline-sync plan; there is no second sync mechanism to build.</li>
+<li><strong>Correct multi-device merge.</strong> Importing all deltas is conflict-free; the snapshot + last-write-wins data-loss bug is structurally avoided.</li>
+<li><strong>Clean domain language.</strong> The Checklist/Note vocabulary is explicitly separated from Agenda obligations, preventing the "to-do" collision.</li>
+</ul>
+<p><strong>Negative / Trade-offs:</strong></p>
+<ul>
+<li><strong>Opaque rows in a facts ledger.</strong> Not every row in <code>datoms</code> is now a single fact — <code>notes/op</code> rows are opaque CRDT deltas. This is a scoped, documented exception to the <strong>Datom</strong> definition, justified solely by the sequence-merge requirement. It is confined to one feature under the <code>notes:</code> namespace.</li>
+<li><strong>Not SQL-queryable.</strong> Checklist Items and Notes cannot be filtered, aggregated, or cross-linked in SQL. This is acceptable only because the feature has no such requirement; any future need to query this data would force reconsideration of Option 1.</li>
+<li><strong>Unbounded growth until compaction</strong> is implemented (mitigated as above).</li>
+<li><strong>Build weight.</strong> Pulls in the ~3.1 MB Loro WASM and a Vite/Vitest dual-build configuration (the package's <code>development</code> export resolves to a bundler build Vite's dev server cannot load; the app is aliased to the <code>browser</code> build while tests stay on the Node build).</li>
+</ul>
+    </main>
+  </div>
+</div>
+</body>
+</html>

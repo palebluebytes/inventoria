@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR 0016 · Inventoria</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+  <nav class="site-nav">
+    <p class="nav-title">Inventoria</p>
+    <a href="../index.html">Introduction</a>
+    <div class="nav-section">
+      <p class="nav-section-label">Reference</p>
+      <a href="../glossary.html">Glossary</a>
+      <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+    </div>
+    <div class="nav-section">
+      <p class="nav-section-label">Explanation</p>
+      <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+    </div>
+    <div class="nav-section">
+      <a href="index.html" class="active">Architectural Decision Records</a>
+    </div>
+  </nav>
+  <div class="content-area">
+    <main>
+<h1 id="16-declarative-ingestion-registry-and-provenance-storage">16. Declarative Ingestion Registry and Provenance Storage</h1>
+<p>Date: 2026-06-22</p>
+<h2 id="status">Status</h2>
+<p>Accepted</p>
+<h2 id="context">Context</h2>
+<p>Inventoria tracks physical items and digital media by pulling metadata from external APIs (e.g., OpenLibrary, TMDB) and scraping web schemas. Historically, the network requests (<code>fetch</code>) were tightly coupled to the JSON-to-EAVT mapping logic, scattered across files like <code>tmdb.ts</code> and <code>open-library.ts</code>.</p>
+<p>As we anticipate ingesting more data types (board games, Spotify, etc.) and complying with emerging semantic standards like the EU Digital Product Passport (DPP), we faced two questions:</p>
+<ol type="1">
+<li>How do we cleanly scale the API ingestion logic without splintering the codebase?</li>
+<li>If schema standards change in the future, how do we remap historical data if we've already destructively transformed the original API responses into our flat EAVT format?</li>
+</ol>
+<h2 id="decision">Decision</h2>
+<p>We chose to implement a <strong>Declarative Ingestion Registry</strong> utilizing the Ports &amp; Adapters pattern.</p>
+<ol type="1">
+<li><strong>Strict Decoupling:</strong> Internally, the registry enforces strict <code>Fetcher</code> and <code>Mapper</code> interfaces. External modules are tested in isolation by passing mock JSON to the <code>Mapper</code> without invoking the <code>Fetcher</code>. The UI interacts only with a generic <code>Registry.resolve(input)</code> interface.</li>
+<li><strong>Immutable Provenance Storage:</strong> Whenever an adapter successfully fetches from an external API, the <code>Mapper</code> yields the parsed <code>EntityPayload</code>, but it also creates an immutable <code>Provenance</code> datom (containing the raw JSON API response, the extraction timestamp, and the adapter version).</li>
+<li><strong>Manual Refresh Boundary:</strong> We strictly prohibit the PWA from automatically crawling APIs in the background to refresh metadata. Updating a Digital Twin's provenance is exclusively a user-initiated action to respect rate limits, save battery, and uphold local-first principles.</li>
+</ol>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li>OPFS disk space usage will increase because we are storing raw, potentially bloated JSON responses (Provenance) alongside the normalized EAVT attributes.</li>
+<li>The codebase gains a robust "Anti-Corruption Layer," guaranteeing that messy, proprietary API formats cannot leak into the UI components.</li>
+<li>If legislation or schema standards evolve, we possess the cryptographically undeniable history needed to write a script that safely remaps all historical Provenance blobs into new datom attributes without making a single network request.</li>
+</ul>
+    </main>
+  </div>
+</div>
+</body>
+</html>

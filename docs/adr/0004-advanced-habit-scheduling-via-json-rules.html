@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR 0004 · Inventoria</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+  <nav class="site-nav">
+    <p class="nav-title">Inventoria</p>
+    <a href="../index.html">Introduction</a>
+    <div class="nav-section">
+      <p class="nav-section-label">Reference</p>
+      <a href="../glossary.html">Glossary</a>
+      <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+    </div>
+    <div class="nav-section">
+      <p class="nav-section-label">Explanation</p>
+      <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+    </div>
+    <div class="nav-section">
+      <a href="index.html" class="active">Architectural Decision Records</a>
+    </div>
+  </nav>
+  <div class="content-area">
+    <main>
+<h1 id="4-advanced-habit-scheduling-via-json-rules">4. Advanced Habit Scheduling via JSON Rules</h1>
+<p>Date: 2026-06-03</p>
+<h2 id="status">Status</h2>
+<p>Accepted</p>
+<h2 id="context">Context</h2>
+<p>The initial habit scheduling model used two scalar attributes: <code>habit/schedule_type</code> ("daily" or "weekly") and <code>habit/schedule_value</code> (integer). This model was too rigid to support "world-class" scheduling features like specific days of the week ("Mondays, Wednesdays, Fridays"), quantitative daily targets ("3 times a day"), or specific time-of-day targets ("Morning, Afternoon, Evening").</p>
+<p>Furthermore, missing a single execution broke streaks entirely, punishing users for legitimate exemptions like illness or vacation.</p>
+<h2 id="decision">Decision</h2>
+<p>We are migrating habit scheduling to a flexible <strong>Schedule Rule</strong> stored as a JSON blob under the <code>habit/schedule_rules</code> attribute, deprecating the primitive <code>schedule_type</code> and <code>schedule_value</code> fields.</p>
+<p>The JSON schema supports three paradigms:</p>
+<ol type="1">
+<li><code>daily_multiple</code>: A quantitative target (e.g., count: 3) or an array of distinct <strong>Sub-Targets</strong> (e.g., <code>["morning", "afternoon", "evening"]</code>).</li>
+<li><code>weekly_days</code>: Strict adherence to specific days (e.g., <code>["mon", "wed", "fri"]</code>).</li>
+<li><code>weekly_flexible</code>: A raw count required per week regardless of days (e.g., <code>count: 3</code>).</li>
+</ol>
+<p>Execution Events will now support:</p>
+<ol type="1">
+<li>An optional <code>target_id</code> referencing a specific Sub-Target within the Schedule Rule.</li>
+<li>A strict <code>status</code> of either <code>"completed"</code> or <code>"exempt"</code>. The <code>"exempt"</code> status allows the user to log an authorized skip (e.g., "vacation"), preserving the active streak by pausing the algorithmic expectation.</li>
+</ol>
+<p>We explicitly rejected "rolling intervals" (e.g., "Every 3 days") because they create excessive complexity in streak calculation algorithms and shift unpredictably across calendar boundaries, muddying the UX.</p>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li><strong>Positives</strong>: Extreme flexibility allowing for virtually any realistic scheduling requirement. Streak retention logic becomes significantly more empathetic via the <code>"exempt"</code> status.</li>
+<li><strong>Negatives</strong>: Streak and scoring algorithms (<code>computeHabitScore</code>, <code>computeStreak</code>) must become significantly more complex. We must deserialize JSON on the client when evaluating lineages and iterate over sub-targets.</li>
+<li><strong>Migration</strong>: As with previous migrations (Calorie tracking), the database is append-only. Because we are in early development, we will clear the database locally to test the new schema cleanly rather than writing a backward compatibility shim.</li>
+</ul>
+    </main>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,394 @@
+/* Inventoria docs site stylesheet. Tufte-inspired, seeded from the diataxis skill template. */
+
+:root {
+  --serif: "Georgia", "Times New Roman", serif;
+  --mono: "JetBrains Mono", "Fira Code", "Consolas", "Menlo", monospace;
+  --sans: "Inter", "Helvetica Neue", system-ui, sans-serif;
+
+  --text: #1a1a1a;
+  --muted: #555;
+  --faint: #aaa;
+  --accent: #2a6496;
+  --accent-light: #d9eaf5;
+  --border: #ddd;
+  --bg: #faf9f7;
+  --bg-code: #f3f2ef;
+  --bg-note: #f0f4f8;
+
+  --nav-width: 220px;
+  --content-width: 680px;
+  --margin-width: 280px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 18px;
+}
+
+body {
+  font-family: var(--serif);
+  color: var(--text);
+  background: var(--bg);
+  margin: 0;
+  padding: 0;
+  line-height: 1.6;
+}
+
+/* ── Layout ── */
+
+.page-wrapper {
+  display: flex;
+  min-height: 100vh;
+}
+
+nav.site-nav {
+  width: var(--nav-width);
+  flex-shrink: 0;
+  padding: 2.5rem 1.25rem 2.5rem 1.5rem;
+  border-right: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+nav.site-nav .nav-title {
+  font-family: var(--sans);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 0 0 1rem 0;
+}
+
+nav.site-nav a {
+  display: block;
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 0.25rem 0;
+  line-height: 1.4;
+  border-left: 2px solid transparent;
+  padding-left: 0.6rem;
+  margin-left: -0.6rem;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+
+nav.site-nav a:hover {
+  color: var(--accent);
+}
+
+nav.site-nav a.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  font-weight: 600;
+}
+
+nav.site-nav .nav-section {
+  margin-top: 1.5rem;
+}
+
+nav.site-nav .nav-section-label {
+  font-family: var(--sans);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 0 0 0.4rem 0;
+}
+
+.content-area {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: flex-start;
+  padding: 3rem 2rem 5rem 3rem;
+}
+
+main {
+  width: var(--content-width);
+  max-width: 100%;
+  flex-shrink: 0;
+}
+
+.margin-column {
+  width: var(--margin-width);
+  flex-shrink: 0;
+  padding-left: 2.5rem;
+  padding-top: 0.25rem;
+}
+
+/* ── Typography ── */
+
+h1 {
+  font-family: var(--serif);
+  font-size: 2rem;
+  font-weight: normal;
+  line-height: 1.2;
+  margin: 0 0 0.25rem 0;
+  color: var(--text);
+}
+
+h2 {
+  font-family: var(--serif);
+  font-size: 1.35rem;
+  font-weight: normal;
+  margin: 3rem 0 0.75rem 0;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.3rem;
+}
+
+h3 {
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 2rem 0 0.5rem 0;
+}
+
+p {
+  margin: 0 0 1.1rem 0;
+}
+
+p.subtitle {
+  font-size: 1.05rem;
+  color: var(--muted);
+  margin: 0 0 2.5rem 0;
+  font-style: italic;
+}
+
+p.chapter-argument {
+  font-size: 1.05rem;
+  color: var(--muted);
+  border-left: 3px solid var(--accent);
+  padding-left: 1rem;
+  margin: 0 0 2.5rem 0;
+  font-style: italic;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+strong {
+  font-weight: 700;
+}
+em {
+  font-style: italic;
+}
+
+/* ── Code ── */
+
+code {
+  font-family: var(--mono);
+  font-size: 0.8em;
+  background: var(--bg-code);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+  color: #333;
+}
+
+pre {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  line-height: 1.5;
+  margin: 0 0 1.5rem 0;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* ── Notes & callouts ── */
+
+.note {
+  background: var(--bg-note);
+  border-left: 3px solid var(--accent);
+  padding: 0.75rem 1rem;
+  margin: 0 0 1.5rem 0;
+  font-size: 0.92rem;
+}
+
+.note p:last-child {
+  margin-bottom: 0;
+}
+
+.warning {
+  background: #fff8e1;
+  border-left: 3px solid #e6a817;
+  padding: 0.75rem 1rem;
+  margin: 0 0 1.5rem 0;
+  font-size: 0.92rem;
+}
+
+.warning p:last-child {
+  margin-bottom: 0;
+}
+
+/* ── Margin notes (Tufte-style) ── */
+
+.margin-note {
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+}
+
+.margin-note p:last-child {
+  margin-bottom: 0;
+}
+
+/* ── SVG sketches ── */
+
+figure.sketch {
+  margin: 2rem 0;
+  text-align: left;
+}
+
+figure.sketch figcaption {
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 0.5rem;
+}
+
+figure.sketch svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ── Lists ── */
+
+ul,
+ol {
+  margin: 0 0 1.1rem 0;
+  padding-left: 1.5rem;
+}
+
+li {
+  margin-bottom: 0.35rem;
+}
+
+/* ── Definition lists (glossary) ── */
+
+dl.glossary {
+  margin: 0;
+}
+
+dl.glossary dt {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 1rem;
+  margin: 2rem 0 0.3rem 0;
+  color: var(--text);
+}
+
+dl.glossary dd {
+  margin: 0 0 0 0;
+}
+
+dl.glossary dd p {
+  margin-bottom: 0.5rem;
+}
+
+p.glossary-source {
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  color: var(--faint);
+}
+
+/* ── Tables ── */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  margin: 0 0 1.5rem 0;
+}
+
+th {
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: left;
+  border-bottom: 2px solid var(--border);
+  padding: 0.5rem 0.75rem 0.5rem 0;
+}
+
+td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.6rem 0.75rem 0.6rem 0;
+  vertical-align: top;
+}
+
+/* ── Header bar ── */
+
+.page-header {
+  display: none;
+}
+
+/* ── Responsive ── */
+
+@media (max-width: 1100px) {
+  .margin-column {
+    display: none;
+  }
+}
+
+@media (max-width: 750px) {
+  nav.site-nav {
+    display: none;
+  }
+
+  .content-area {
+    padding: 1.5rem 1rem 3rem 1rem;
+  }
+}
+
+/* Print: the nav is chrome, not content. */
+@media print {
+  .site-nav {
+    display: none;
+  }
+  .page-wrapper {
+    display: block;
+  }
+  .content-area {
+    max-width: none;
+    padding: 0;
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+}

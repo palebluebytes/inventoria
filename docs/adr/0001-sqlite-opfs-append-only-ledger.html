@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR 0001 · Inventoria</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+  <nav class="site-nav">
+    <p class="nav-title">Inventoria</p>
+    <a href="../index.html">Introduction</a>
+    <div class="nav-section">
+      <p class="nav-section-label">Reference</p>
+      <a href="../glossary.html">Glossary</a>
+      <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+    </div>
+    <div class="nav-section">
+      <p class="nav-section-label">Explanation</p>
+      <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+    </div>
+    <div class="nav-section">
+      <a href="index.html" class="active">Architectural Decision Records</a>
+    </div>
+  </nav>
+  <div class="content-area">
+    <main>
+<h1 id="1-sqlite-wasm-in-opfs-with-append-only-ledger-and-worker-isolation">1. SQLite WASM in OPFS with Append-Only Ledger and Worker Isolation</h1>
+<p>We are building a local-first application using Svelte and SQLite. Instead of a standard relational database with mutable tables, we store all states as an append-only chronological log of EAVT (Entity, Attribute, Value, Time) datoms. To avoid blocking the browser's UI thread during complex queries and ledger ingestion, we isolate all SQLite execution inside a dedicated background Web Worker, using a lightweight asynchronous RPC layer for communication and broadcasting state invalidation messages to reactive Svelte stores.</p>
+<h2 id="status">Status</h2>
+<p>Accepted</p>
+<h2 id="considered-options">Considered Options</h2>
+<ul>
+<li><strong>Mutable Relational Tables on Main Thread:</strong> Easy to implement initially, but blocks the UI during queries and runs contrary to local-first sync requirements.</li>
+<li><strong>IndexedDB (e.g. Dexie.js):</strong> Standard browser solution, but lacks SQL's query power and multi-hop aggregation efficiency required for EAVT queries.</li>
+<li><strong>SQLite WASM in Web Worker with OPFS (Selected):</strong> Unlocks persistent high-performance storage via the Origin Private File System, keeps the main thread responsive, and supports SQL-based EAVT queries.</li>
+</ul>
+    </main>
+  </div>
+</div>
+</body>
+</html>

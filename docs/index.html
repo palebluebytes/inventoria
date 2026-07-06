@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Inventoria · one owned ledger for everything you track</title>
+    <link rel="stylesheet" href="assets/style.css" />
+  </head>
+  <body>
+    <div class="page-wrapper">
+      <nav class="site-nav">
+        <p class="nav-title">Inventoria</p>
+        <a href="index.html" class="active">Introduction</a>
+        <div class="nav-section">
+          <p class="nav-section-label">Reference</p>
+          <a href="glossary.html">Glossary</a>
+          <a href="eavt-vocabulary.html">EAVT Vocabulary</a>
+        </div>
+        <div class="nav-section">
+          <p class="nav-section-label">Explanation</p>
+          <a href="append-only-ledger.html">State Is a Reading of the Past</a>
+        </div>
+        <div class="nav-section">
+          <a href="adr/index.html">Architectural Decision Records</a>
+        </div>
+      </nav>
+
+      <div class="content-area">
+        <main>
+          <h1>Inventoria</h1>
+          <p class="subtitle">
+            One local-first ledger for everything you track, owned outright by
+            the person running it.
+          </p>
+
+          <p>
+            Every habit, every meal, every film watched ends up locked inside a
+            different app, each behind its own account and its own server, none
+            of them willing to talk to the others. Inventoria was built to end
+            that: a single local-first ledger that records physical items and
+            daily behaviours in one place and answers to no cloud. The author
+            wanted the whole picture in one file on one device, and wanted to be
+            the one who decides what it can do next.
+          </p>
+
+          <p>
+            So the project is shaped as a substrate, not an app. Nothing is ever
+            overwritten. Every fact is a timestamped row in an append-only
+            <a href="glossary.html#term-ledger">ledger</a>, and the present is
+            only a reading of the past. That shape is deliberate: new
+            capabilities can be added without migrating a schema, and the whole
+            history stays legible to the LLM-driven workflows the author intends
+            to build over it later.
+          </p>
+
+          <p>
+            Concretely, Inventoria is a Progressive Web App built with Svelte
+            and strict TypeScript. It keeps a SQLite database inside the
+            browser, in a background Web Worker over the Origin Private File
+            System, and stores one immutable table of
+            Entity-Attribute-Value-Time facts called
+            <a href="glossary.html#term-datom">datoms</a>. Every view the
+            interface shows is computed by folding that history forward into
+            current state. What the user gets is an offline, installable tracker
+            for food, media, physical goods, habits, and calendar events, all
+            sharing the same store.
+          </p>
+
+          <figure
+            class="sketch"
+            aria-label="External data sources feed a serverless proxy, which seeds an append-only EAVT ledger held in a browser Web Worker; the ledger folds forward into projections that drive the Svelte interface, and a future path reads the same ledger for LLM workflows."
+          >
+            <svg
+              viewBox="0 0 700 360"
+              width="700"
+              height="360"
+              xmlns="http://www.w3.org/2000/svg"
+              role="img"
+            >
+              <defs>
+                <marker
+                  id="arrow"
+                  viewBox="0 0 10 10"
+                  refX="9"
+                  refY="5"
+                  markerWidth="7"
+                  markerHeight="7"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#555" />
+                </marker>
+              </defs>
+
+              <!-- ingestion row -->
+              <rect
+                x="30"
+                y="28"
+                width="180"
+                height="64"
+                rx="4"
+                fill="#f3f2ef"
+                stroke="#ccc"
+                stroke-width="1.5"
+              />
+              <text
+                x="120"
+                y="53"
+                text-anchor="middle"
+                font-family="Georgia, serif"
+                font-size="14"
+                fill="#1a1a1a"
+              >
+                External sources
+              </text>
+              <text
+                x="120"
+                y="74"
+                text-anchor="middle"
+                font-family="Georgia, serif"
+                font-size="11"
+                fill="#555"
+              >
+                Open Food Facts · USDA · TMDB
+              </text>
+
+              <rect
+                x="290"
+                y="28"
+                width="180"
+                height="64"
+                rx="4"
+                fill="#f3f2ef"
+                stroke="#ccc"
+                stroke-width="1.5"
+              />
+              <text
+                x="380"
+                y="53"
+                text-anchor="middle"
+                font-family="Georgia, serif"
+                font-size="14"
+                fill="#1a1a1a"
+              >
+                Serverless proxy
+              </text>
+              <text
+                x="380"
+                y="74"
+                text-anchor="middle"
+                font-family="Georgia, serif"
+                font-size="11"
+                fill="#555"
+              >
+                Cloudflare Worker · CORS bypass
+              </text>
+
+              <line
+                x1="210"
+                y1="60"
+                x2="286"
+                y2="60"
+                stroke="#555"
+                stroke-width="1.5"
+                marker-end="url(#arrow)"
+              />
+              <line
+                x1="380"
+                y1="92"
+                x2="380"
+                y2="146"
+                stroke="#555"
+                stroke-width="1.5"
+                marker-end="url(#arrow)"
+              />
+              <text
+                x="398"
+                y="122"
+                text-anchor="start"
+                font-family="Georgia, serif"
+                font-size="11"
+                fill="#555"
+                font-style="italic"
+              >
+                seeds a twin
+              </text>
+
+              <!-- the ledger, the heart -->
+              <rect
+                x="150"
+                y="150"
+                width="400"
+                height="78"
+                rx="5"
+                fill="#eaf2f8"
+                stroke="#2a6496"
+                stroke-width="2"
+              />
+              <text
+                x="350"
+                y="184"
+                text-anchor="middle"
+                font-family="Georgia, serif"
+                font-size="16"
+                fill="#1a1a1a"
+              >
+                Append-only EAVT ledger
+              </text>
+              <text
+                x="350"
+                y="207"
+                text-anchor="middle"
+                font-family="Georgia, serif"
+                font-size="12"
+                fill="#555"
+              >
+                SQLite WASM · OPFS · in a Web Worker
+              </text>
+
+              <!-- read paths -->
+              <line
+                x1="300"
+                y1="228"
+                x2="215"
+                y2="284"
+                stroke="#555"
+                stroke-width="1.5"
+                marker-end="url(#arrow)"
+              />
+              <rect
+                x="70"
+                y="288"
+                width="200"
+                height="58"
+                rx="4"
+                fill="#f3f2ef"
+                stroke="#ccc"
+                stroke-width="1.5"
+              />
+              <text
+                x="170"
+                y="312"
+                text-anchor="middle"
+                font-family="Georgia, serif"
+                font-size="14"
+                fill="#1a1a1a"
+              >
+                Projections
+              </text>
+              <text
+                x="170"
+                y="331"
+                text-anchor="middle"
+                font-family="Georgia, serif"
+                font-size="11"
+                fill="#555"
+              >
+                fold history into state
+              </text>
+
+              <line
+                x1="270"
+                y1="317"
+                x2="316"
+                y2="317"
+                stroke="#555"
+                stroke-width="1.5"
+                marker-end="url(#arrow)"
+              />
+              <rect
+                x="320"
+                y="288"
+                width="150"
+                height="58"
+                rx="4"
+                fill="#f3f2ef"
+                stroke="#ccc"
+                stroke-width="1.5"
+              />
+              <text
+                x="395"
+                y="323"
+                text-anchor="middle"
+                font-family="Georgia, serif"
+                font-size="14"
+                fill="#1a1a1a"
+              >
+                Svelte UI
+              </text>
+
+              <!-- future LLM path, dashed -->
+              <line
+                x1="490"
+                y1="212"
+                x2="565"
+                y2="284"
+                stroke="#999"
+                stroke-width="1.5"
+                stroke-dasharray="4 4"
+                marker-end="url(#arrow)"
+              />
+              <rect
+                x="510"
+                y="288"
+                width="160"
+                height="58"
+                rx="4"
+                fill="#faf9f7"
+                stroke="#bbb"
+                stroke-width="1.5"
+                stroke-dasharray="4 4"
+              />
+              <text
+                x="590"
+                y="312"
+                text-anchor="middle"
+                font-family="Georgia, serif"
+                font-size="14"
+                fill="#555"
+              >
+                LLM workflows
+              </text>
+              <text
+                x="590"
+                y="331"
+                text-anchor="middle"
+                font-family="Georgia, serif"
+                font-size="11"
+                fill="#999"
+              >
+                a future reader
+              </text>
+            </svg>
+            <figcaption>
+              Everything flows through one store: outside sources seed twins
+              through a thin proxy, writes only append, and every reader folds
+              the same history forward. The dashed path is the intended future.
+            </figcaption>
+          </figure>
+
+          <p>
+            External data enters through that thin proxy and nowhere else. Open
+            Food Facts, USDA FoodData Central, TMDB, and Open Library supply the
+            facts that seed a
+            <a href="glossary.html#term-digital-twin">Digital Twin</a>, and a
+            small Cloudflare Worker relays the requests so the browser can
+            sidestep cross-origin limits.
+          </p>
+          <p>
+            From there the rule is absolute: writes only append. When the worker
+            commits a new datom it broadcasts a signal, and every Svelte store
+            watching a folded view re-runs its query. Depth on any one of these
+            belongs in the explanation pages; this page only sketches the shape.
+          </p>
+
+          <p>
+            Where to go next depends on why you are here. Someone returning to
+            the code after a gap should start with the
+            <a href="glossary.html">Reference glossary</a>, which fixes the
+            vocabulary every other page leans on, and read on from there into
+            the reasoning the source cannot show. Someone weighing the
+            architecture can read the same glossary, then the decisions the
+            project has recorded about why the ledger is shaped this way. The
+            navigation on the left lists every page as the site grows.
+          </p>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

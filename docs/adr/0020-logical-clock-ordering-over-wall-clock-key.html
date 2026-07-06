@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR 0020 · Inventoria</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+  <nav class="site-nav">
+    <p class="nav-title">Inventoria</p>
+    <a href="../index.html">Introduction</a>
+    <div class="nav-section">
+      <p class="nav-section-label">Reference</p>
+      <a href="../glossary.html">Glossary</a>
+      <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+    </div>
+    <div class="nav-section">
+      <p class="nav-section-label">Explanation</p>
+      <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+    </div>
+    <div class="nav-section">
+      <a href="index.html" class="active">Architectural Decision Records</a>
+    </div>
+  </nav>
+  <div class="content-area">
+    <main>
+<h1 id="adr-0020-order-datoms-by-a-conflict-free-logical-clock-not-a-bare-wall-clock-key">ADR 0020: Order Datoms by a Conflict-Free Logical Clock, Not a Bare Wall-Clock Key</h1>
+<p><strong>Status:</strong> Accepted (implementation deferred to the V2 multi-device sync work) <strong>Date:</strong> 2026-07-06</p>
+<h2 id="context">Context</h2>
+<p>The ledger keys and orders datoms by wall-clock <code>time</code> (Unix milliseconds). The <code>datoms</code> table declares <code>PRIMARY KEY (entity, attribute, time)</code>, and current state is read by folding an entity's datoms in <code>time</code> order and letting the latest value for each attribute win (ADR-0015, ADR-0019).</p>
+<p>The datom model derives from Rich Hickey's Datomic but diverges deliberately. Datomic orders facts by a monotonic <strong>transaction id</strong> and removes them with an explicit <strong>retraction</strong> operation. Inventoria orders by wall-clock time and resolves reads by latest-wins, with domain-specific cancelling facts (an <code>uncompleted</code> Execution Event) standing in for retraction.</p>
+<p>Using wall-clock time as both the ordering key and part of datom identity has two weaknesses. Both are latent in single-user use and become sharp under the planned multi-device sync, which ADR-0014 already designs entity IDs to support (deterministic IDs so two devices' datoms "merge cleanly upon sync"):</p>
+<ol type="1">
+<li><strong>Ordering ambiguity under clock skew.</strong> Latest-wins is only correct if two datoms are reliably ordered. Skewed device clocks can invert the real causal order, so a merge can pick the wrong winner.</li>
+<li><strong>Collision on the primary key.</strong> Two datoms for the same <code>(entity, attribute)</code> written in the same millisecond collide on <code>PRIMARY KEY (entity, attribute, time)</code>, and one is rejected. Rare for a single user, more likely under batch imports and sync merges.</li>
+</ol>
+<p>This is not hypothetical. ADR-0018 records that last-write-wins-by-<code>time</code> already discards the older of two synced Note snapshots wholesale, before any merge can run, which is why that feature had to adopt a CRDT.</p>
+<p>The tempting fix is to adopt Datomic's fuller model wholesale. Three options were considered:</p>
+<ol type="1">
+<li><strong>Keep the bare wall-clock key.</strong> Simplest, and adequate for a single online device. It leaves the ordering and collision hazards in place for the sync work to trip over, exactly as ADR-0018 already did.</li>
+<li><strong>Adopt Datomic's full model:</strong> reified transaction entities, an add/retract <code>Op</code> flag with retraction-aware reads, the covering index tuples (AEVT, AVET, VAET) on top of EAVT, and bitemporal <code>as-of</code>/<code>since</code> history. Uniform and powerful, but heavy for a single-writer-per-device, browser-embedded, OPFS/SQLite-WASM ledger at ADR-0015's scale (under ~5,000 entities). It multiplies index storage and write amplification inside a quota-bound OPFS sandbox, pushes retraction reconciliation onto the pure projection folds that ADR-0019 kept simple, sets a second mental model against the plain E-A-V-T seam, and front-loads lock-in on the hardest-to-reverse part of the system against a future shape that has not been validated.</li>
+<li><strong>Keep the minimal model and borrow only the ordering property.</strong> Retain the four-field E-A-V-T datom and latest-wins reads, but replace bare wall-clock <code>time</code> as the ordering and identity key with a conflict-free logical clock.</li>
+</ol>
+<h2 id="decision">Decision</h2>
+<p>We chose <strong>Option 3</strong>.</p>
+<ul>
+<li><strong>Datoms carry a hybrid logical clock (HLC) as their order and identity.</strong> Each datom stores <code>(physical_ms, logical_counter, device_id)</code>. The pair <code>(physical_ms, logical_counter)</code> is a standard HLC: on a local write the physical component tracks wall-clock milliseconds and the logical counter breaks same-millisecond ties; on receiving remote datoms during sync a device advances its clock to the maximum it has seen. That advance-on-receive rule preserves causality, so a write made after observing a remote edit always orders after it, whichever device's wall clock is faster. <code>device_id</code> gives a deterministic tiebreak between genuinely concurrent writes, yielding one total order every device computes identically.</li>
+<li><strong>The naive tuple is the documented fallback.</strong> If the advance-on-receive coupling proves not worth its cost during the sync build, <code>(physical_ms, device_id, counter)</code> with a purely local counter is the step-down: it keeps deterministic convergence and collision-freedom but drops causal correctness under clock skew.</li>
+<li><strong>Latest-wins is defined against the logical order, not raw wall-clock time.</strong> The projection folds are unchanged in shape (ADR-0019); only the comparator they sort by changes.</li>
+<li><strong>Datom identity gains a per-device tiebreaker,</strong> so two same-millisecond writes no longer collide on the primary key.</li>
+<li><strong>Wall-clock time is retained as human-facing metadata,</strong> and the domain meaning of <code>time</code> (for example, the millisecond a user confirmed an Occurrence Event) is unchanged. This ADR governs ordering and identity, not domain timestamps.</li>
+</ul>
+<p>We <strong>explicitly reject the fuller machinery</strong> as standing scope. Reified transactions, a general add/retract <code>Op</code>, the extra covering indexes, and bitemporal history are each deferred until a concrete feature demands that specific piece: retraction only if an attribute must be cleared rather than overwritten; extra indexes only when a measured query is slow; history queries only when a feature reads the past. Concurrent-edit merge remains a CRDT concern (ADR-0018), orthogonal to this decision.</p>
+<p><strong>Implementation is deferred to the V2 multi-device sync work.</strong> Because ledger state is re-derived from the log, adopting the logical order is a one-time backfill rather than a rewrite of the history's meaning.</p>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li><strong>The sync data-loss edge closes.</strong> Ordering becomes well-defined across devices and same-millisecond collisions disappear, removing the class of bug ADR-0018 ran into rather than papering over it per feature.</li>
+<li><strong>The minimal model is preserved.</strong> Projections stay pure <code>compute(datoms)</code> folds; the read path grows no retraction reconciliation. The change is a comparator and a key, not a new data model.</li>
+<li><strong>Cost stays proportional.</strong> No covering-index storage multiplication in OPFS; a logical clock is a few bytes per datom.</li>
+<li><strong>A one-time migration is required.</strong> The primary key moves from <code>(entity, attribute, time)</code> to <code>(entity, attribute, physical_ms, logical_counter, device_id)</code>, and folds order by the HLC. State is re-derived from the log, so this is a backfill, not a reinterpretation of past facts.</li>
+<li><strong>LLM-legibility is protected.</strong> The log stays a uniform E-A-V-T stream. A logical clock is a monotonic key, not a new concept graph, so the history remains easy to read in order.</li>
+<li><strong>The divergence from Datomic is now deliberate and recorded.</strong> Inventoria orders by a logical clock and removes via cancelling facts by choice, and the documentation can say so rather than presenting wall-clock time as an oversight.</li>
+<li><strong>The rejected paths remain open.</strong> This ADR's fuller machinery and ADR-0015's CQRS read-model pivot are documented options, reopenable if scale or a specific feature later justifies them.</li>
+</ul>
+    </main>
+  </div>
+</div>
+</body>
+</html>

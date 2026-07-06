@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR 0006 · Inventoria</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+  <nav class="site-nav">
+    <p class="nav-title">Inventoria</p>
+    <a href="../index.html">Introduction</a>
+    <div class="nav-section">
+      <p class="nav-section-label">Reference</p>
+      <a href="../glossary.html">Glossary</a>
+      <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+    </div>
+    <div class="nav-section">
+      <p class="nav-section-label">Explanation</p>
+      <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+    </div>
+    <div class="nav-section">
+      <a href="index.html" class="active">Architectural Decision Records</a>
+    </div>
+  </nav>
+  <div class="content-area">
+    <main>
+<h1 id="6-service-worker-binary-caching-for-digital-twin-images">6. Service Worker Binary Caching for Digital Twin Images</h1>
+<p>We need to support offline visual tracking of physical Digital Twins by caching external images locally. Rather than fetching and base64-encoding images into the immutable Ledger (which would dramatically bloat the database and impact RPC query performance over the worker thread), we delegate dynamic binary storage to the browser's Cache Storage API via Service Worker Runtime Caching.</p>
+<h2 id="status">Status</h2>
+<p>Accepted</p>
+<h2 id="considered-options">Considered Options</h2>
+<ul>
+<li><strong>Base64 / Blob Storage inside Ledger:</strong> Keeps data fully contained in the SQLite database for replication, but introduces massive size overhead, query latency, and complex serialization.</li>
+<li><strong>Service Worker Runtime Caching via Workbox (Selected):</strong> Automatically intercepts cross-origin image requests using a <code>CacheFirst</code> strategy. Caches external images locally with sensible size/expiration limits (500 items / 30 days) to prevent storage bloat while maintaining offline availability.</li>
+</ul>
+    </main>
+  </div>
+</div>
+</body>
+</html>

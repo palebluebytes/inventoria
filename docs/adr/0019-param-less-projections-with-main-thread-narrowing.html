@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR 0019 · Inventoria</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+  <nav class="site-nav">
+    <p class="nav-title">Inventoria</p>
+    <a href="../index.html">Introduction</a>
+    <div class="nav-section">
+      <p class="nav-section-label">Reference</p>
+      <a href="../glossary.html">Glossary</a>
+      <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+    </div>
+    <div class="nav-section">
+      <p class="nav-section-label">Explanation</p>
+      <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+    </div>
+    <div class="nav-section">
+      <a href="index.html" class="active">Architectural Decision Records</a>
+    </div>
+  </nav>
+  <div class="content-area">
+    <main>
+<h1 id="adr-0019-projections-stay-param-less-narrowing-is-a-main-thread-concern">ADR 0019: Projections Stay Param-less; Narrowing Is a Main-Thread Concern</h1>
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-07-01</p>
+<h2 id="context">Context</h2>
+<p>ADR-0015 established the worker-side projection engine: a named projection pairs a static <code>SELECT</code> over the <code>datoms</code> ledger with a pure <code>compute(rows)</code> fold, run inside the worker on every invalidation, returning the full folded snapshot to a <code>createProjectionStore</code>. The two original projections (<code>MEDIA_LIBRARY</code>, <code>ACQUISITION_LIBRARY</code>) each project <strong>every</strong> entity of their kind; the UI narrows client-side.</p>
+<p>Three stores never adopted this shape. <code>habits.store</code>, <code>cal_events.store</code>, and <code>calorie.store</code> each reimplement the query → group-by-entity → JSON-parse → map dance inside a <code>readable</code> closure, so the folds — habit-lineage building, streak and score, occurrence lookup, the consumption twin-join — sit in untestable closures rather than pure functions. Folding them onto the projection seam raises a question the two original projections never had to answer, because one of the three is <strong>parameterized</strong>: <code>calorie.store</code> is created per-selected-date (<code>createCalorieTrackerStore(date)</code>) and issues a narrow <code>time BETWEEN ?</code> query for that day.</p>
+<p>So: when a projection's input depends on a runtime parameter (the selected day, a slot, a range), does the parameter belong <strong>in the projection</strong> or <strong>in the UI</strong>?</p>
+<p>Two options were considered:</p>
+<ol type="1">
+<li><strong>Extend <code>project()</code> with params.</strong> Thread a params object through the worker <code>project</code> message (today it is accepted by <code>db.client</code> but ignored by <code>db.worker</code>) into a projection whose SQL is a function of those params. The per-day consumption query stays narrow.</li>
+<li><strong>Keep projections param-less; narrow on the main thread.</strong> Every projection returns its full enriched entity set with no parameter. A single global <code>consumptionStore</code> projects all Consumption Events (joined to their food and recipe twins in <code>compute</code>, exactly as <code>MEDIA_LIBRARY</code> joins events to twins); <code>DailyDashboard</code> filters that list to the selected day with a <code>$derived</code>.</li>
+</ol>
+<h2 id="decision">Decision</h2>
+<p>We chose <strong>param-less projections (Option 2)</strong> and adopt it as a standing invariant for the projection engine:</p>
+<ul>
+<li><strong>A projection takes no runtime parameters.</strong> Its <code>SELECT</code> is static and it returns the full enriched set for its kind. Date, slot, and range narrowing are main-thread concerns, expressed as Svelte <code>$derived</code> over the projected value.</li>
+<li>Projections scope their <code>SELECT</code> by <strong>entity prefix</strong> where the entities are cleanly namespaced (<code>habit:</code>, <code>event:execute_</code>, <code>cal_event:</code>, <code>event:occur_</code>, <code>event:consume_</code>, <code>food:</code>, <code>recipe:</code>), pulling only their own entity families. <code>MEDIA_LIBRARY</code>/<code>ACQUISITION_LIBRARY</code> keep attribute-prefix scoping because their twins (<code>tmdb:…</code>, <code>isbn:…</code>) share no common entity prefix to scope by.</li>
+<li>A projection whose fold yields more than one collection returns them together (e.g. <code>CAL_EVENTS</code> returns <code>{ blueprints, occurrences }</code>), so one invalidation drives one refresh and one <code>postMessage</code>. Imperative per-date getters are replaced by pure lookups over the returned arrays.</li>
+</ul>
+<p>We explicitly rejected extending <code>project()</code> with params for now. It would make projection SQL param-dependent, add a cache key per parameter value, and fragment the uniform "project everything, UI narrows" shape that ADR-0015 already established for media and acquisition.</p>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li><strong>One uniform store shape.</strong> All five reactive stores collapse to a <code>createProjectionStore</code> line over a pure <code>compute…State(datoms)</code> fold in a sibling <code>&lt;domain&gt;/state.ts</code>, testable datoms-in/state-out with no <code>dbClient</code> mock — the shape ADR-0015 introduced now covers habits, calendar events, and consumption too.</li>
+<li><strong><code>db.worker</code>'s <code>project</code> handler stays param-less.</strong> The engine is untouched; no per-parameter dispatch or cache to reason about.</li>
+<li><strong>Full history is projected into memory.</strong> <code>consumptionStore</code> folds all Consumption Events, not one day's. This is acceptable at ADR-0015's stated scale (under 5,000 entities) and shares that ADR's escape hatch: if consumption history ever dominates memory or <code>postMessage</code> cost, extending <code>project()</code> with params — or the CQRS read-model pivot ADR-0015 documents — is the sanctioned path. This decision does not foreclose it; it defers it until scale justifies the added surface.</li>
+<li><strong>Latent bugs concentrate and get fixed at the fold.</strong> Moving occurrence lookup into a pure function let us align its date bucketing to <strong>local</strong> time, matching Habit day math (<code>toLocalDateStr</code>) and removing a UTC/local disagreement that the old imperative getter carried.</li>
+<li><strong>Relationship to ADR-0013's query storm.</strong> This ADR does not address the storm (every append still re-runs every store); attribute-aware invalidation remains future work. But by giving every store the same scaffold, it provides the single place such a filter would later hang.</li>
+</ul>
+    </main>
+  </div>
+</div>
+</body>
+</html>

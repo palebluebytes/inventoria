@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR 0005 · Inventoria</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+  <nav class="site-nav">
+    <p class="nav-title">Inventoria</p>
+    <a href="../index.html">Introduction</a>
+    <div class="nav-section">
+      <p class="nav-section-label">Reference</p>
+      <a href="../glossary.html">Glossary</a>
+      <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+    </div>
+    <div class="nav-section">
+      <p class="nav-section-label">Explanation</p>
+      <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+    </div>
+    <div class="nav-section">
+      <a href="index.html" class="active">Architectural Decision Records</a>
+    </div>
+  </nav>
+  <div class="content-area">
+    <main>
+<h1 id="5-cloudflare-workers-pwa-deployment-flow">5. Cloudflare Workers PWA Deployment Flow</h1>
+<p>We have configured a personal deployment pipeline utilizing Cloudflare Workers static asset serving paired with a Progressive Web App (PWA) "Prompt for Update" strategy.</p>
+<h2 id="status">Status</h2>
+<p>Accepted</p>
+<h2 id="context">Context</h2>
+<p>Inventoria is a local-first application using SQLite WASM backed by the Origin Private File System (OPFS) for data persistence. This creates two distinct architectural requirements:</p>
+<ol type="1">
+<li><strong>Cross-Origin Isolation:</strong> Multi-threaded SQLite WASM worker requires <code>SharedArrayBuffer</code>, which relies on <code>Cross-Origin-Opener-Policy</code> (COOP) and <code>Cross-Origin-Embedder-Policy</code> (COEP) headers.</li>
+<li><strong>Offline Capabilities &amp; Updates:</strong> Users expect the application to operate fully offline but also notify them when code updates (fixes, new features) are successfully deployed to the hosting CDN.</li>
+</ol>
+<h2 id="decision">Decision</h2>
+<ol type="1">
+<li><strong>HOSTING LAYER:</strong> We deploy the frontend to Cloudflare Workers using the native <code>[assets]</code> binding to host built assets from the <code>dist/</code> directory.</li>
+<li><strong>SECURITY HEADERS:</strong> We configure a static <code>_headers</code> file in <code>public/</code> (copied to <code>dist/_headers</code>) to emit:
+<pre class="http"><code>Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp</code></pre></li>
+<li><strong>PWA ENABLING:</strong> We use <code>vite-plugin-pwa</code> to register a Service Worker and manifest automatically.</li>
+<li><strong>UPDATE PROPAGATION:</strong> We enforce a <code>"prompt"</code> registration strategy. When a new deployment is compiled, the application displays a local notification toast letting the user trigger an immediate reload, rather than silently updating or leaving them on an old version.</li>
+</ol>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li>Direct integration with Cloudflare dashboard allows automated builds via GitHub webhook triggers.</li>
+<li>Guaranteed access to <code>SharedArrayBuffer</code> for sqlite3-wasm across modern browsers.</li>
+<li>Transparent app lifecycle where the user is informed of updates and controls when the new application code takes effect.</li>
+</ul>
+    </main>
+  </div>
+</div>
+</body>
+</html>

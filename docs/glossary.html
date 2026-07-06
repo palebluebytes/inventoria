@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Glossary · Inventoria</title>
+    <link rel="stylesheet" href="assets/style.css" />
+  </head>
+  <body>
+    <div class="page-wrapper">
+      <nav class="site-nav">
+        <p class="nav-title">Inventoria</p>
+        <a href="index.html">Introduction</a>
+        <div class="nav-section">
+          <p class="nav-section-label">Reference</p>
+          <a href="glossary.html" class="active">Glossary</a>
+          <a href="eavt-vocabulary.html">EAVT Vocabulary</a>
+        </div>
+        <div class="nav-section">
+          <p class="nav-section-label">Explanation</p>
+          <a href="append-only-ledger.html">State Is a Reading of the Past</a>
+        </div>
+        <div class="nav-section">
+          <a href="adr/index.html">Architectural Decision Records</a>
+        </div>
+      </nav>
+
+      <div class="content-area">
+        <main>
+          <h1>Glossary</h1>
+          <p class="subtitle">
+            Every term the project uses with a specific meaning, defined once.
+          </p>
+
+          <p>
+            These definitions are a curated projection of the repository's
+            domain glossary,
+            <code>CONTEXT.md</code>, which stays the source of truth. Where a
+            definition here disagrees with that file, this page is wrong, not
+            the file. Definitions describe what each term is; the reasoning
+            behind the model lives in the
+            <a href="append-only-ledger.html">Explanation</a> pages.
+          </p>
+
+          <h2>Storage core</h2>
+          <dl class="glossary">
+            <dt id="term-datom">Datom</dt>
+            <dd>
+              <p>
+                The atomic unit of storage: a single fact, made of an entity ID,
+                an attribute, a value, and a timestamp.
+              </p>
+              <p class="glossary-source">
+                Used in: <a href="index.html">Introduction</a>,
+                <a href="append-only-ledger.html"
+                  >State Is a Reading of the Past</a
+                >, <a href="eavt-vocabulary.html">EAVT Vocabulary</a>
+              </p>
+            </dd>
+
+            <dt id="term-ledger">Ledger</dt>
+            <dd>
+              <p>
+                The append-only, immutable <code>datoms</code> table holding the
+                full chronological sequence of every datom. Current state is
+                derived by reading this historical log, never by mutating it.
+              </p>
+              <p class="glossary-source">
+                Used in: <a href="index.html">Introduction</a>,
+                <a href="append-only-ledger.html"
+                  >State Is a Reading of the Past</a
+                >, <a href="eavt-vocabulary.html">EAVT Vocabulary</a>
+              </p>
+            </dd>
+
+            <dt id="term-projection">Projection</dt>
+            <dd>
+              <p>
+                A derived, read-only view of current state, produced by folding
+                the Ledger's datoms forward through a pure function. A
+                Projection takes no runtime parameters: it returns the full
+                enriched set for one kind of entity, and any date, slot, or
+                range narrowing is applied afterward by the interface. It is the
+                only way the application reads state.
+              </p>
+              <p class="glossary-source">
+                Used in:
+                <a href="append-only-ledger.html"
+                  >State Is a Reading of the Past</a
+                >, <a href="eavt-vocabulary.html">EAVT Vocabulary</a>
+              </p>
+            </dd>
+
+            <dt id="term-provenance">Provenance</dt>
+            <dd>
+              <p>
+                The immutable original payload retrieved from an external API or
+                scraper at the moment of ingestion, stored as a JSON blob
+                alongside its extraction metadata: timestamp, source URI, and
+                adapter version.
+              </p>
+              <p class="glossary-source">
+                Used in: <a href="eavt-vocabulary.html">EAVT Vocabulary</a>
+              </p>
+            </dd>
+          </dl>
+
+          <h2>Digital Twins</h2>
+          <dl class="glossary">
+            <dt id="term-digital-twin">Digital Twin</dt>
+            <dd>
+              <p>
+                A virtual representation of a physical or distinct external
+                item, tracked through static or slowly-changing attributes drawn
+                from external databases such as Open Food Facts for food or TMDB
+                for media.
+              </p>
+              <p class="glossary-source">
+                Used in: <a href="index.html">Introduction</a>,
+                <a href="eavt-vocabulary.html">EAVT Vocabulary</a>
+              </p>
+            </dd>
+
+            <dt id="term-meal-type">Meal Type</dt>
+            <dd>
+              <p>
+                A standardized classification (<code>meal_type</code>) that
+                organizes Consumption Events chronologically and logically in
+                interface timelines.
+              </p>
+              <p class="glossary-source">
+                Used in: <a href="eavt-vocabulary.html">EAVT Vocabulary</a>
+              </p>
+            </dd>
+          </dl>
+
+          <h2>Habits</h2>
+          <dl class="glossary">
+            <dt id="term-habit-lineage">Habit Lineage</dt>
+            <dd>
+              <p>
+                A single continuous habit that spans multiple immutable Habit
+                Blueprints linked chronologically.
+              </p>
+              <p class="glossary-source">
+                Used in: <a href="eavt-vocabulary.html">EAVT Vocabulary</a>
+              </p>
+            </dd>
+
+            <dt id="term-habit-blueprint">Habit Blueprint</dt>
+            <dd>
+              <p>
+                A strictly immutable definition profile establishing goals,
+                schedules, and instrument requirements for a tracked behavior. A
+                change to a schedule creates a new Blueprint in the Lineage.
+              </p>
+              <p class="glossary-source">
+                Used in: <a href="eavt-vocabulary.html">EAVT Vocabulary</a>
+              </p>
+            </dd>
+
+            <dt id="term-schedule-rule">Schedule Rule</dt>
+            <dd>
+              <p>
+                A flexible JSON definition shared by Habit Blueprints and
+                Calendar Event Blueprints, describing recurrence frequency and
+                constraints. It supports six paradigms
+                (<code>daily_multiple</code>, <code>weekly_days</code>,
+                <code>weekly_flexible</code>, <code>monthly_fixed</code>,
+                <code>monthly_relative</code>, <code>yearly_fixed</code>), each
+                carrying an optional <code>until</code> field, an ISO date
+                marking when the recurrence ends.
+              </p>
+              <p class="glossary-source">
+                Used in: <a href="eavt-vocabulary.html">EAVT Vocabulary</a>
+              </p>
+            </dd>
+
+            <dt id="term-sub-target">Sub-Target</dt>
+            <dd>
+              <p>
+                A distinct, strictly identified temporal slot within a Schedule
+                Rule, such as a specific time like 08:00. When a Blueprint uses
+                Sub-Targets, a logged completion must explicitly reference one.
+              </p>
+              <p class="glossary-source">
+                Used in: <a href="eavt-vocabulary.html">EAVT Vocabulary</a>
+              </p>
+            </dd>
+
+            <dt id="term-execution-event">Execution Event</dt>
+            <dd>
+              <p>
+                A logged instance of a habit completion, recorded as a
+                timestamped action in the Ledger, with qualitative and
+                quantitative metrics held in a JSON blob. Its status is one of
+                <code>completed</code>, <code>exempt</code> (a paused slot), or
+                <code>uncompleted</code> (a later datom cancelling the most
+                recent matching completion).
+              </p>
+              <p class="glossary-source">
+                Used in:
+                <a href="append-only-ledger.html"
+                  >State Is a Reading of the Past</a
+                >, <a href="eavt-vocabulary.html">EAVT Vocabulary</a>
+              </p>
+            </dd>
+          </dl>
+
+          <h2>Calendar</h2>
+          <dl class="glossary">
+            <dt id="term-calendar-event-blueprint">Calendar Event Blueprint</dt>
+            <dd>
+              <p>
+                An immutable scheduled appointment or recurring reminder entity
+                (prefix <code>cal_event:</code>) with a required start datetime
+                (<code>cal_event/dtstart</code>), an optional end datetime and
+                description, a Schedule Rule, and a boolean
+                <code>cal_event/tracking</code> attribute. A non-recurring
+                Blueprint is a single appointment with no Schedule Rule.
+              </p>
+              <p class="glossary-source">
+                Used in: <a href="eavt-vocabulary.html">EAVT Vocabulary</a>
+              </p>
+            </dd>
+
+            <dt id="term-compliance-event">Compliance Event</dt>
+            <dd>
+              <p>
+                A Calendar Event Blueprint with
+                <code>cal_event/tracking: true</code>. It requires explicit user
+                confirmation per projected slot and writes an Occurrence Event
+                on confirmation; a slot whose time passes unconfirmed is marked
+                missed.
+              </p>
+              <p class="glossary-source">
+                Used in: <a href="eavt-vocabulary.html">EAVT Vocabulary</a>
+              </p>
+            </dd>
+
+            <dt id="term-appointment">Appointment</dt>
+            <dd>
+              <p>
+                A Calendar Event Blueprint with
+                <code>cal_event/tracking: false</code>. It is purely
+                informational: it occupies a slot on the Agenda as context but
+                requires no action and writes no Occurrence Event. Once its time
+                passes, the slot fades to past with no failure state.
+              </p>
+              <p class="glossary-source">
+                Used in: <a href="eavt-vocabulary.html">EAVT Vocabulary</a>
+              </p>
+            </dd>
+
+            <dt id="term-occurrence-event">Occurrence Event</dt>
+            <dd>
+              <p>
+                A logged instance confirming that a projected Compliance Event
+                slot actually happened, recorded as an
+                <code>OccurrenceAction</code> in the Ledger. Its
+                <code>time</code> is the millisecond the user confirmed, which
+                may differ from the Blueprint's scheduled slot. Until confirmed,
+                projected slots exist only in memory.
+              </p>
+              <p class="glossary-source">
+                Used in: <a href="eavt-vocabulary.html">EAVT Vocabulary</a>
+              </p>
+            </dd>
+
+            <dt id="term-agenda">Agenda</dt>
+            <dd>
+              <p>
+                The tab and view presenting a unified, date-navigable picture of
+                the day. It holds two sections: SCHEDULE, a chronological
+                timeline mixing projected Calendar Event slots and timed Habit
+                Sub-Targets, and HABITS, the Habit Blueprints without a specific
+                intra-day time.
+              </p>
+              <p class="glossary-source">
+                Used in: <a href="eavt-vocabulary.html">EAVT Vocabulary</a>
+              </p>
+            </dd>
+          </dl>
+
+          <h2>Events</h2>
+          <dl class="glossary">
+            <dt id="term-consumption-event">Consumption Event</dt>
+            <dd>
+              <p>
+                A logged instance of a Digital Twin or recipe intake, recorded
+                as a timestamped action in the Ledger, with nutritional metrics
+                held in a JSON blob.
+              </p>
+              <p class="glossary-source">
+                Used in: <a href="eavt-vocabulary.html">EAVT Vocabulary</a>
+              </p>
+            </dd>
+
+            <dt id="term-engagement-event">Engagement Event</dt>
+            <dd>
+              <p>
+                A logged instance of watching a movie or show, or reading a
+                book, recorded as a timestamped action in the Ledger and linking
+                to a media Digital Twin.
+              </p>
+              <p class="glossary-source">
+                Used in: <a href="eavt-vocabulary.html">EAVT Vocabulary</a>
+              </p>
+            </dd>
+
+            <dt id="term-acquisition-event">Acquisition Event</dt>
+            <dd>
+              <p>
+                A logged instance representing the ownership state of a physical
+                Digital Twin, recorded as a timestamped action in the Ledger
+                with a status of either <code>owned</code> or
+                <code>wanted</code>.
+              </p>
+              <p class="glossary-source">
+                Used in: <a href="eavt-vocabulary.html">EAVT Vocabulary</a>
+              </p>
+            </dd>
+          </dl>
+
+          <h2>Notes</h2>
+          <dl class="glossary">
+            <dt id="term-checklist">Checklist</dt>
+            <dd>
+              <p>
+                An ordered, free-form scratchpad list of manually-ticked
+                Checklist Items. It carries no Schedule Rule, no tracking, and
+                no streak, and never appears on the Agenda.
+              </p>
+              <p class="glossary-source">
+                Used in: <a href="eavt-vocabulary.html">EAVT Vocabulary</a>
+              </p>
+            </dd>
+
+            <dt id="term-checklist-item">Checklist Item</dt>
+            <dd>
+              <p>
+                A single user-authored entry in a Checklist, carrying a label
+                and a checked or unchecked state. Ticking it produces no
+                Execution Event or Occurrence Event; the tick is plain state.
+              </p>
+              <p class="glossary-source">
+                Used in: <a href="eavt-vocabulary.html">EAVT Vocabulary</a>
+              </p>
+            </dd>
+
+            <dt id="term-note">Note</dt>
+            <dd>
+              <p>
+                A free-form, user-authored entry with a title and a text body,
+                where the body merges concurrent edits from several devices
+                without conflict. Distinct from the
+                <code>twin/note</code> annotation attribute on a Digital Twin.
+              </p>
+              <p class="glossary-source">
+                Used in: <a href="eavt-vocabulary.html">EAVT Vocabulary</a>
+              </p>
+            </dd>
+          </dl>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

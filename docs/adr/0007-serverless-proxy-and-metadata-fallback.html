@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR 0007 · Inventoria</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+  <nav class="site-nav">
+    <p class="nav-title">Inventoria</p>
+    <a href="../index.html">Introduction</a>
+    <div class="nav-section">
+      <p class="nav-section-label">Reference</p>
+      <a href="../glossary.html">Glossary</a>
+      <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+    </div>
+    <div class="nav-section">
+      <p class="nav-section-label">Explanation</p>
+      <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+    </div>
+    <div class="nav-section">
+      <a href="index.html" class="active">Architectural Decision Records</a>
+    </div>
+  </nav>
+  <div class="content-area">
+    <main>
+<h1 id="7-serverless-proxy-and-metadata-fallback-for-web-scraping">7. Serverless Proxy and Metadata Fallback for Web Scraping</h1>
+<p>We have implemented a serverless proxy pipeline on Cloudflare Workers and a client-side Open Graph metadata fallback parser to securely ingest product data from complex e-commerce websites like Amazon.</p>
+<h2 id="status">Status</h2>
+<p>Accepted</p>
+<h2 id="context">Context</h2>
+<p>Inventoria allows users to input external URLs to automatically generate "Digital Twins" of items. However, directly fetching these URLs from the browser-based Progressive Web App (PWA) faces multiple strict barriers:</p>
+<ol type="1">
+<li><strong>Browser CORS Policies:</strong> The browser's Same-Origin Policy strictly prohibits a PWA (e.g., hosted on <code>inventoria.app</code>) from reading responses from a different origin like <code>amazon.es</code> without explicit <code>Access-Control-Allow-Origin</code> headers. This restriction applies equally to the Main Thread, Web Workers, and Service Workers within the browser sandbox.</li>
+<li><strong>Payload Size Limits:</strong> E-commerce product pages are massive (often 2MB–5MB). Passing this raw HTML through standard free CORS proxies (like <code>corsproxy.io</code>) exceeds maximum payload thresholds (e.g., 1MB), resulting in <code>413 Payload Too Large</code> failures.</li>
+<li><strong>Anti-Bot Defenses:</strong> E-commerce sites routinely block generic <code>fetch</code> user agents or headless environments returning <code>403 Forbidden</code> or <code>503 Service Unavailable</code>.</li>
+<li><strong>Missing JSON-LD Data:</strong> Some large platforms (notably Amazon) do not emit standard <code>&lt;script type="application/ld+json"&gt;</code> metadata blocks on product pages, relying instead on Open Graph <code>&lt;meta&gt;</code> tags and custom DOM structures.</li>
+</ol>
+<h2 id="decision">Decision</h2>
+<ol type="1">
+<li><strong>Proxy Layer:</strong> We deployed a lightweight Cloudflare Worker proxy (<code>worker/src/index.ts</code>). This worker mimics a standard desktop <code>User-Agent</code>, bypasses simple bot filters, and fetches the target HTML on the server.</li>
+<li><strong>Payload Pruning:</strong> The Cloudflare Worker applies regular expressions to strip out heavy elements (<code>&lt;style&gt;</code>, <code>&lt;svg&gt;</code>, and non-JSON-LD <code>&lt;script&gt;</code>) before transmitting the HTML back to the client. This typically shrinks a 2.5MB payload down to under 100KB, easily bypassing payload limits.</li>
+<li><strong>Local Dev DevServer Middleware:</strong> To ensure out-of-the-box local development compatibility (particularly under NixOS where Wrangler's precompiled <code>workerd</code> binary fails to run due to dynamic linking issues), we added <code>localScraperProxyPlugin</code> to <code>vite.config.ts</code>. This middleware mimics the Cloudflare Worker HTML cleanup logic directly inside the Vite Dev and Preview servers under the <code>/api/proxy</code> path, removing local external process dependencies (like <code>wrangler dev</code> and <code>concurrently</code>) during development.</li>
+<li><strong>Client-Side Fallback Parser:</strong> We updated our ingestion pipeline (<code>src/lib/ingestion/json-ld.ts</code>) to fall back to <code>og:title</code>, <code>og:image</code>, and <code>description</code> meta tags when JSON-LD is missing. We also added Amazon-specific parsing logic to locate the high-resolution image (<code>&lt;img id="landingImage"&gt;</code>).</li>
+<li><strong>ASIN Extraction &amp; Normalization:</strong> When processing Amazon URLs, the client extracts the 10-character Amazon Standard Identification Number (ASIN) from the URL path. This normalizes the <code>entityId</code> to <code>asin:ASIN</code> (instead of hashing the localized URL), allowing multiple regional or tracking-tagged links to resolve to the same canonical digital twin in the ledger.</li>
+</ol>
+<h2 id="note-on-direct-device-scraping-issues--future-alternatives">Note on Direct Device Scraping Issues &amp; Future Alternatives</h2>
+<p>The decision to route scraping through an external serverless proxy is dictated by browser constraints. <strong>It is fundamentally impossible for a web application running in a standard browser environment (PWA) to bypass CORS and scrape third-party websites directly.</strong></p>
+<p>If a future requirement demands that scraping must execute entirely locally on the user's device (e.g., to perfectly mimic the user's IP address, authenticated cookies, or to guarantee 100% privacy without an intermediary proxy), the PWA architecture alone will not suffice. We would have to adopt one of the following alternative deployment models:</p>
+<ol type="1">
+<li><strong>Native App Wrapper (Tauri / Capacitor / Electron):</strong> Wrapping the PWA in a native application shell grants access to the host OS's native HTTP clients. Native HTTP requests operate entirely outside the browser sandbox and ignore CORS.</li>
+<li><strong>Browser Extension Companion:</strong> A companion extension can request host permissions (e.g., <code>*://*.amazon.es/*</code>) in its <code>manifest.json</code>. The extension's background scripts can bypass CORS, scrape the content natively, and securely communicate the JSON payload back to the PWA.</li>
+<li><strong>User-Assisted Bookmarklet:</strong> A bookmarklet executed manually by the user while browsing the target e-commerce site operates under that site's origin, allowing it to scrape the DOM directly and push the data into Inventoria.</li>
+</ol>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li>Successfully stabilized e-commerce scraping, particularly for heavy and non-standard sites like Amazon.</li>
+<li>Drastically reduced bandwidth consumption for the client.</li>
+<li>Eliminated dev-time OS and platform binary compatibility issues (like NixOS dynamic linker error with Wrangler) by routing local development proxy requests through standard Node.js/Vite middleware.</li>
+<li>Introduced a server-side dependency (Cloudflare Workers) only for production deployment, keeping local development completely self-contained.</li>
+</ul>
+    </main>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR 0015 · Inventoria</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+  <nav class="site-nav">
+    <p class="nav-title">Inventoria</p>
+    <a href="../index.html">Introduction</a>
+    <div class="nav-section">
+      <p class="nav-section-label">Reference</p>
+      <a href="../glossary.html">Glossary</a>
+      <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+    </div>
+    <div class="nav-section">
+      <p class="nav-section-label">Explanation</p>
+      <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+    </div>
+    <div class="nav-section">
+      <a href="index.html" class="active">Architectural Decision Records</a>
+    </div>
+  </nav>
+  <div class="content-area">
+    <main>
+<h1 id="15-worker-side-eavt-projection-engine">15. Worker-Side EAVT Projection Engine</h1>
+<p>Date: 2026-06-22</p>
+<h2 id="status">Status</h2>
+<p>Accepted</p>
+<h2 id="context">Context</h2>
+<p>The UI Svelte stores were previously querying raw EAVT <code>datoms</code> and running heavy <span class="math inline"><em>O</em>(<em>N</em>)</span> chronological folding algorithms on the main thread whenever a new event was appended. This risked UI jank when dealing with thousands of Digital Twins or long Habit Lineages.</p>
+<p>We had two primary alternatives to fix this:</p>
+<ol type="1">
+<li><strong>CQRS SQLite Read Models:</strong> Upsert the folded state synchronously into native SQLite tables inside the worker during the <code>append</code> transaction. Svelte stores would issue paginated <code>LIMIT</code> queries directly against these read models.</li>
+<li><strong>Worker RPC Projection:</strong> Keep SQLite purely as an event store, but move the JS folding loops into the web worker. The worker executes the loops on invalidation and passes the full array of enriched entities back to Svelte over <code>postMessage</code>.</li>
+</ol>
+<h2 id="decision">Decision</h2>
+<p>We chose <strong>Worker RPC Projection (Option 2)</strong>.</p>
+<p>We introduced a named projection bridge (<code>createProjectionStore</code>) where the worker parses the datoms and runs <code>computeMediaLibraryState</code> and <code>computeAcquisitionState</code> internally, sending only the final folded snapshot to Svelte stores.</p>
+<p>We explicitly rejected the CQRS approach for now because the serialization cost over <code>postMessage</code> is currently negligible for the scale of tracked entities (under 5,000). The CQRS approach introduces schema migration burdens, data duplication on disk, and complex UI pagination state that the current application scale does not justify.</p>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li>The main UI thread is entirely freed from EAVT timeline folding mathematics.</li>
+<li>Svelte stores are drastically simplified, dropping from 100+ lines of custom mapping to 3-line <code>createProjectionStore</code> declarations.</li>
+<li><strong>Future Development Note:</strong> If the user ever tracks 10,000+ entities and we observe <code>postMessage</code> serialization bottlenecks, we have documented the blueprint to pivot to the CQRS SQLite Read Models approach as the designated scaling path.</li>
+</ul>
+    </main>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR 0003 · Inventoria</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+  <nav class="site-nav">
+    <p class="nav-title">Inventoria</p>
+    <a href="../index.html">Introduction</a>
+    <div class="nav-section">
+      <p class="nav-section-label">Reference</p>
+      <a href="../glossary.html">Glossary</a>
+      <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+    </div>
+    <div class="nav-section">
+      <p class="nav-section-label">Explanation</p>
+      <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+    </div>
+    <div class="nav-section">
+      <a href="index.html" class="active">Architectural Decision Records</a>
+    </div>
+  </nav>
+  <div class="content-area">
+    <main>
+<h1 id="3-grayscale-brutalist-minimal-ui-aesthetic">3. Grayscale Brutalist Minimal UI Aesthetic</h1>
+<p>Date: 2026-05-31</p>
+<h2 id="status">Status</h2>
+<p>Accepted</p>
+<h2 id="context">Context</h2>
+<p>For the MVP of Inventoria, we needed a distinct visual identity that stepped away from generic "AI-generated" aesthetics (such as purple gradients on dark backgrounds, heavily rounded corners, and soft glassmorphism). The UI needed to reflect the core nature of the application: a rigid, technical, and precise append-only ledger for tracking food and habits.</p>
+<h2 id="decision">Decision</h2>
+<p>We adopted a <strong>Monochrome Brutalist Minimal with Semantic Accents</strong> aesthetic for the frontend UI architecture. This decision enforces the following design and CSS rules across the application:</p>
+<ol type="1">
+<li><strong>Typography:</strong> We standardized on <code>Epilogue</code>, a highly structured geometric sans-serif, abandoning overused generic fonts like <code>Inter</code>.</li>
+<li><strong>Color Palette:</strong> The UI is predominantly grayscale (<code>#000</code>, <code>#fff</code>, and specific zinc grays like <code>#fafafa</code>). However, to address usability concerns, we inject highly specific, pure minimal colors for semantic states: an acid green (<code>#ccff00</code>) for success, a pure striking red (<code>#ff3333</code>) for error, and a sharp yellow (<code>#ffcc00</code>) for warnings. These are used sparingly as backgrounds with black text or black borders to maintain the raw brutalist feel.</li>
+<li><strong>Shape &amp; Shadow:</strong> All <code>border-radius</code> values are strictly set to <code>0</code> for sharp, brutalist corners. Soft box-shadows and backdrop blurs were removed entirely, replaced by stark <code>1px</code> or <code>2px</code> solid black borders and solid, un-blurred black dropshadows (e.g., <code>box-shadow: 8px 8px 0 rgba(0, 0, 0, 1)</code>).</li>
+<li><strong>Motion:</strong> Animations are sharp, immediate transforms (snapping positions, inverting colors) rather than soft, floaty transitions.</li>
+</ol>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li><strong>Positive:</strong> The MVP has a striking, premium, and highly recognizable aesthetic that accurately feels like a technical ledger. It avoids the generic SaaS template look and maintains extremely high contrast for readability.</li>
+<li><strong>Positive:</strong> By re-introducing sharp, pure semantic colors (red/green/yellow) in a brutalist style, we resolve the UX trade-off of a purely grayscale UI, ensuring that users can immediately recognize error, success, and warning states without sacrificing the raw aesthetic.</li>
+</ul>
+    </main>
+  </div>
+</div>
+</body>
+</html>
