@@ -1,6 +1,6 @@
 # ADR 0020: Order Datoms by a Conflict-Free Logical Clock, Not a Bare Wall-Clock Key
 
-**Status:** Accepted (implementation deferred to the V2 multi-device sync work)
+**Status:** Accepted; implemented 2026-07-06 (commit `0568955`, `src/lib/db/hlc.ts`)
 **Date:** 2026-07-06
 
 ## Context
@@ -90,9 +90,10 @@ overwritten; extra indexes only when a measured query is slow; history queries
 only when a feature reads the past. Concurrent-edit merge remains a CRDT concern
 (ADR-0018), orthogonal to this decision.
 
-**Implementation is deferred to the V2 multi-device sync work.** Because ledger
-state is re-derived from the log, adopting the logical order is a one-time
-backfill rather than a rewrite of the history's meaning.
+**Implemented 2026-07-06** (commit `0568955`): the primary key and the projection
+folds carry the HLC, with a legacy-to-HLC migration and a per-device id in a
+`meta` table. The advance-on-receive path exists but is not yet wired to any
+sync transport, since none exists; that wiring lands with the V2 sync work.
 
 ## Consequences
 
