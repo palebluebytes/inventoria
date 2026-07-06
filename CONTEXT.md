@@ -12,6 +12,10 @@ _Avoid_: Row, record, database entry
 The append-only, immutable database table (`datoms`) containing the full chronological sequence of all datoms. Current state is derived by querying this historical log.
 _Avoid_: Relational database, mutable table, state table
 
+**Projection**:
+A derived, read-only view of current state, produced by folding the Ledger's datoms forward through a pure function. A Projection takes no runtime parameters: it returns the full enriched set for one kind of entity, and any date, slot, or range narrowing is applied afterward by the UI. It is the only way the application reads state; the Ledger is never queried for "current" rows directly.
+_Avoid_: View, read model, materialized view, query result
+
 **Digital Twin**:
 A virtual representation of a physical or distinct external item, tracked via static or slowly-changing attributes derived from external databases (e.g. Open Food Facts for food, TMDB for media).
 _Avoid_: Product, item, asset
