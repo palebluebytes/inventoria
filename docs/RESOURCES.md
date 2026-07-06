@@ -8,5 +8,5 @@ date of the journal entry that cites them; re-verify before extending a claim.
   discipline. Defines a datom as "an immutable atomic fact" over entity, attribute, value,
   and transaction, and states that "new transactions only Accumulate new data. Existing
   datoms never change." Use for: the lineage claim on `append-only-ledger.html` and the
-  one-line attribution on `eavt-vocabulary.html`, including the note that Inventoria
-  diverges by timestamping with wall-clock `time` and carrying no explicit retraction Op.
+  one-line attribution on `eavt-vocabulary.html`. What Inventoria kept or dropped of the
+  model is a repo fact; read it from ADR-0020, not from this register.

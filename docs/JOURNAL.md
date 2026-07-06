@@ -2,6 +2,37 @@
 
 <!-- Newest entry first. Appended by the diataxis skill; safe to edit by hand. -->
 
+## 2026-07-06 (fix-up) — scope base 0568955
+
+**Scope:** post-mortem corrections after two independent reviews of the first run, plus
+recording that ADR-0020's HLC ordering landed in code (`0568955`).
+
+**Correction of the record:** the entry below claims the glossary Used-in lines "were set
+against the pages linking each term this session". They were not: they were authored
+predictively and ten of twenty-two were wrong. Fixed this session; the new `check-docs.sh`
+now verifies them by grep, so the claim can no longer be hand-waved.
+
+**Done:**
+
+- Seeded `docs/check-docs.sh` (from the diataxis skill's template): style greps, paragraph
+  bounds, link/anchor resolution, nav-vs-index.html consistency, Used-in verification,
+  re-render stability. All checks pass.
+- Fixed the ten Used-in drifts: linked `ledger` and `Habit Lineage` on first use in
+  `eavt-vocabulary.html` (two drifts fixed at the source); Provenance and Note now also
+  name `append-only-ledger.html`; six terms no page links yet say "none yet".
+- `render-adrs.sh` now extracts the nav from `index.html` instead of carrying a fourth
+  hand-maintained copy, and the ADR index separates titles with `·`, not an em-dash
+  (twenty of them shipped in the first run's chrome).
+- Marked ADR-0020 implemented (commit `0568955`, `src/lib/db/hlc.ts`) and re-rendered the
+  corpus; `append-only-ledger.html` no longer narrates the decision as pending direction.
+- `RESOURCES.md`'s Datomic annotation no longer embeds a repo-behavior claim (it had gone
+  stale within hours); repo facts live in ADR-0020.
+- The introduction's closing now sends each audience to a distinct door: returning author
+  to the glossary, architecture reader to the explanation page and the ADR index.
+
+**Deferred:** unchanged from the entry below — the Tutorial and How-to quadrants, the
+Schedule Rule and projection-registry reference pages.
+
 ## 2026-07-06 — 49aeba8
 
 **Scope:** first run, from an empty site tree at HEAD 49aeba8 (no prior journal). Built the

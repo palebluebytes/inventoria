@@ -8,26 +8,26 @@
 </head>
 <body>
 <div class="page-wrapper">
-  <nav class="site-nav">
-    <p class="nav-title">Inventoria</p>
-    <a href="../index.html">Introduction</a>
-    <div class="nav-section">
-      <p class="nav-section-label">Reference</p>
-      <a href="../glossary.html">Glossary</a>
-      <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
-    </div>
-    <div class="nav-section">
-      <p class="nav-section-label">Explanation</p>
-      <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
-    </div>
-    <div class="nav-section">
-      <a href="index.html" class="active">Architectural Decision Records</a>
-    </div>
-  </nav>
+      <nav class="site-nav">
+        <p class="nav-title">Inventoria</p>
+        <a href="../index.html">Introduction</a>
+        <div class="nav-section">
+          <p class="nav-section-label">Reference</p>
+          <a href="../glossary.html">Glossary</a>
+          <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+        </div>
+        <div class="nav-section">
+          <p class="nav-section-label">Explanation</p>
+          <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+        </div>
+        <div class="nav-section">
+          <a href="index.html" class="active">Architectural Decision Records</a>
+        </div>
+      </nav>
   <div class="content-area">
     <main>
 <h1 id="adr-0020-order-datoms-by-a-conflict-free-logical-clock-not-a-bare-wall-clock-key">ADR 0020: Order Datoms by a Conflict-Free Logical Clock, Not a Bare Wall-Clock Key</h1>
-<p><strong>Status:</strong> Accepted (implementation deferred to the V2 multi-device sync work) <strong>Date:</strong> 2026-07-06</p>
+<p><strong>Status:</strong> Accepted; implemented 2026-07-06 (commit <code>0568955</code>, <code>src/lib/db/hlc.ts</code>) <strong>Date:</strong> 2026-07-06</p>
 <h2 id="context">Context</h2>
 <p>The ledger keys and orders datoms by wall-clock <code>time</code> (Unix milliseconds). The <code>datoms</code> table declares <code>PRIMARY KEY (entity, attribute, time)</code>, and current state is read by folding an entity's datoms in <code>time</code> order and letting the latest value for each attribute win (ADR-0015, ADR-0019).</p>
 <p>The datom model derives from Rich Hickey's Datomic but diverges deliberately. Datomic orders facts by a monotonic <strong>transaction id</strong> and removes them with an explicit <strong>retraction</strong> operation. Inventoria orders by wall-clock time and resolves reads by latest-wins, with domain-specific cancelling facts (an <code>uncompleted</code> Execution Event) standing in for retraction.</p>
@@ -53,7 +53,7 @@
 <li><strong>Wall-clock time is retained as human-facing metadata,</strong> and the domain meaning of <code>time</code> (for example, the millisecond a user confirmed an Occurrence Event) is unchanged. This ADR governs ordering and identity, not domain timestamps.</li>
 </ul>
 <p>We <strong>explicitly reject the fuller machinery</strong> as standing scope. Reified transactions, a general add/retract <code>Op</code>, the extra covering indexes, and bitemporal history are each deferred until a concrete feature demands that specific piece: retraction only if an attribute must be cleared rather than overwritten; extra indexes only when a measured query is slow; history queries only when a feature reads the past. Concurrent-edit merge remains a CRDT concern (ADR-0018), orthogonal to this decision.</p>
-<p><strong>Implementation is deferred to the V2 multi-device sync work.</strong> Because ledger state is re-derived from the log, adopting the logical order is a one-time backfill rather than a rewrite of the history's meaning.</p>
+<p><strong>Implemented 2026-07-06</strong> (commit <code>0568955</code>): the primary key and the projection folds carry the HLC, with a legacy-to-HLC migration and a per-device id in a <code>meta</code> table. The advance-on-receive path exists but is not yet wired to any sync transport, since none exists; that wiring lands with the V2 sync work.</p>
 <h2 id="consequences">Consequences</h2>
 <ul>
 <li><strong>The sync data-loss edge closes.</strong> Ordering becomes well-defined across devices and same-millisecond collisions disappear, removing the class of bug ADR-0018 ran into rather than papering over it per feature.</li>
