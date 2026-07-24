@@ -57,6 +57,9 @@ export function computeAcquisitionState(
     ...g.fields,
   })) as any[];
 
+  // Events arrive from the fold already in `firstStamp` order (HLC-ordered rows,
+  // Map insertion order preserved), so this sort defensively re-asserts the
+  // HLC-order/latest-wins invariant rather than reordering.
   for (const twin of twins) {
     const targetEvents = events
       .filter((e) => e.target === twin.id && e.type === "AcquisitionAction")

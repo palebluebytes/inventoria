@@ -73,7 +73,10 @@ export function computeMediaLibraryState(
     ...g.fields,
   })) as any[];
 
-  // Enrich twins with their events, applied in HLC order so latest-wins.
+  // Enrich twins with their events, applied in HLC order so latest-wins. The
+  // fold already yields events in `firstStamp` order (rows arrive HLC-ordered
+  // and Map preserves insertion order), so this sort is a defensive re-assert
+  // of that invariant, not a reordering.
   for (const twin of twins) {
     const targetEvents = events
       .filter((e) => e.target === twin.id)
