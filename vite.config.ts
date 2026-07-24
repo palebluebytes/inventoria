@@ -183,6 +183,11 @@ export default defineConfig({
   },
   // @ts-ignore
   test: {
-    exclude: ["node_modules", "dist", ".idea", ".git", ".cache", ".direnv"],
+    // Vitest owns the unit tests; Playwright owns the rest of tests/ (see
+    // playwright.config.ts `testIgnore: ["**/unit/**"]`). Scoping include to
+    // tests/unit keeps the two runners disjoint — otherwise Vitest's default
+    // glob also collects the Playwright `*.spec.ts` files (which throw under
+    // Vitest) and stray `*.test.js` under nested `worker/node_modules`.
+    include: ["tests/unit/**/*.test.ts"],
   },
 });
