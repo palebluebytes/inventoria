@@ -139,6 +139,46 @@
   }
 </script>
 
+{#snippet revealToggle(revealed: boolean, toggle: () => void, label: string)}
+  <button
+    type="button"
+    class="reveal-toggle"
+    aria-label={label}
+    aria-pressed={revealed}
+    onclick={toggle}
+  >
+    {#if revealed}
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+        ><path
+          d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
+        ></path><line x1="1" y1="1" x2="23" y2="23"></line></svg
+      >
+    {:else}
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+        ><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle
+          cx="12"
+          cy="12"
+          r="3"
+        ></circle></svg
+      >
+    {/if}
+  </button>
+{/snippet}
+
 <header class="page-header">
   <h1>Settings</h1>
   <p>Manage secure API credentials, database ledger, and developer tests.</p>
@@ -155,15 +195,13 @@
           type={showUsda ? "text" : "password"}
           bind:value={usdaKey}
           placeholder="USDA FDC API key..."
-          class="retro-input"
+          class="retro-input has-reveal"
         />
-        <Button
-          type="button"
-          variant="secondary"
-          onclick={() => (showUsda = !showUsda)}
-        >
-          {showUsda ? "Hide" : "Show"}
-        </Button>
+        {@render revealToggle(
+          showUsda,
+          () => (showUsda = !showUsda),
+          showUsda ? "Hide USDA API key" : "Show USDA API key"
+        )}
       </div>
       <span class="help-text"
         >Used for searching ingredients in recipes and food logging.</span
@@ -178,15 +216,13 @@
           type={showTmdb ? "text" : "password"}
           bind:value={tmdbKey}
           placeholder="TMDB API key..."
-          class="retro-input"
+          class="retro-input has-reveal"
         />
-        <Button
-          type="button"
-          variant="secondary"
-          onclick={() => (showTmdb = !showTmdb)}
-        >
-          {showTmdb ? "Hide" : "Show"}
-        </Button>
+        {@render revealToggle(
+          showTmdb,
+          () => (showTmdb = !showTmdb),
+          showTmdb ? "Hide TMDB API key" : "Show TMDB API key"
+        )}
       </div>
       <span class="help-text"
         >Used for importing movie and TV digital twins.</span
@@ -220,7 +256,7 @@
 <Card class="mt-4">
   <div class="card-header">
     <h2>Database Ledger</h2>
-    <div style="display: flex; gap: var(--space-xs);">
+    <div class="header-actions">
       <Button
         variant="secondary"
         id="toggle-ledger-btn"
@@ -273,15 +309,17 @@
 
 <Card class="mt-4">
   <h2>Developer Options</h2>
-  <label class="toggle-label mt-4">
-    <input
-      type="checkbox"
-      id="dev-mode-toggle"
-      checked={testState.enabled}
-      onchange={toggleDevMode}
-    />
-    Enable OPFS Persistence Test
-  </label>
+  <div class="dev-toggle mt-4">
+    <label class="toggle-label">
+      <input
+        type="checkbox"
+        id="dev-mode-toggle"
+        checked={testState.enabled}
+        onchange={toggleDevMode}
+      />
+      <span class="toggle-text">Enable OPFS Persistence Test</span>
+    </label>
+  </div>
 
   <div hidden={!testState.enabled} class="mt-4 border-top">
     <h3 class="mt-4">OPFS Survival Test</h3>
@@ -372,11 +410,54 @@
     text-transform: uppercase;
   }
   .input-wrapper {
+    position: relative;
     display: flex;
-    gap: var(--space-xs);
   }
   .input-wrapper input {
     flex: 1;
+    /* Allow the input to shrink below its intrinsic (monospace placeholder)
+       width so it never overflows the card. */
+    min-width: 0;
+  }
+  /* Leave room for the reveal toggle so masked text never runs under it. */
+  .retro-input.has-reveal {
+    padding-right: 2.75rem;
+  }
+  .reveal-toggle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: 2.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: #000;
+    cursor: pointer;
+  }
+  .reveal-toggle svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  .reveal-toggle:hover {
+    color: var(--text-secondary);
+  }
+  .reveal-toggle:focus-visible {
+    outline: 2px solid #000;
+    outline-offset: -2px;
+  }
+  /* Only the input flips to a black background on focus, so flip the icon to
+     white just for that case. Scoped to the input (not :focus-within) so that
+     focusing the toggle button itself — e.g. clicking it — keeps the icon dark
+     and visible on the still-white input. */
+  .input-wrapper:has(.retro-input:focus) .reveal-toggle {
+    color: #fff;
+  }
+  .input-wrapper:has(.retro-input:focus) .reveal-toggle:hover {
+    color: var(--text-tertiary, #a1a1aa);
   }
   .retro-input {
     border: 2px solid #000;
@@ -410,8 +491,16 @@
   }
   .card-header {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-s);
+  }
+  /* Buttons live below the header on every viewport and wrap instead of
+     overflowing the card on narrow screens. */
+  .header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
   }
   .table-wrap {
     overflow-x: auto;
@@ -464,22 +553,77 @@
     font-family: monospace;
     font-style: italic;
   }
+  /* Container context so the label font can respond to the card's width
+       (not the viewport), keeping the all-caps label on one line even in a
+       narrow card. */
+  .dev-toggle {
+    container-type: inline-size;
+  }
   .toggle-label {
     display: flex;
     align-items: center;
-    gap: var(--space-xs);
-    font-size: var(--step-n1);
+    /* em-based so the checkbox, gap and text scale together as one unit. */
+    gap: 0.65em;
+    /* Full size when the card is wide; shrink with the container so the whole
+       row stays on one line on narrow screens. Everything on the row is
+       em-proportional, so a single cqi ramp keeps it on one line — 5.3cqi was
+       measured against this fixed label text (row ≈ 18.9em wide). */
+    font-size: min(var(--step-n1), 5.3cqi);
     font-weight: 700;
+    line-height: 1.4;
     color: #000;
     cursor: pointer;
     user-select: none;
     text-transform: uppercase;
   }
+  /* The caps sit ~0.08em above the line-box centre (Epilogue's ascent is taller
+     than its cap height), so flex centring alone leaves them floating high.
+     Fallback for engines without text-box-trim: nudge the text down optically. */
+  .toggle-text {
+    position: relative;
+    top: 0.08em;
+  }
+  /* Preferred: trim the text box to the cap height so it hugs the glyphs. The
+     box then *is* the caps, so flex centring aligns it exactly against the
+     checkbox at every font size — no magic nudge, symmetric top and bottom. */
+  @supports (text-box-trim: trim-both) {
+    .toggle-text {
+      text-box-trim: trim-both;
+      text-box-edge: cap alphabetic;
+      top: 0;
+    }
+  }
+  /* Custom retro checkbox: a native checkbox forced to 1.25rem only enlarges its
+     hit box, leaving the ~13px glyph top-left inside it, which reads as
+     misaligned with the label. appearance:none lets the control fill its own box
+     so it centers cleanly against the text, and matches the 2px black borders
+     used elsewhere on this page. */
   .toggle-label input[type="checkbox"] {
-    width: 1.25rem;
-    height: 1.25rem;
-    accent-color: #000;
+    appearance: none;
+    -webkit-appearance: none;
+    flex: 0 0 auto;
+    display: grid;
+    place-content: center;
+    width: 1.35em;
+    height: 1.35em;
+    margin: 0;
+    border: 2px solid #000;
+    background: #fff;
     cursor: pointer;
+  }
+  .toggle-label input[type="checkbox"]::before {
+    content: "";
+    width: 0.62em;
+    height: 0.62em;
+    background: #000;
+    transform: scale(0);
+  }
+  .toggle-label input[type="checkbox"]:checked::before {
+    transform: scale(1);
+  }
+  .toggle-label input[type="checkbox"]:focus-visible {
+    outline: 2px solid #000;
+    outline-offset: 2px;
   }
   .border-top {
     border-top: 2px solid #000;
