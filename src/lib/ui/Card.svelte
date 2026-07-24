@@ -23,7 +23,12 @@
     transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .card:hover {
-    transform: translateY(-2px);
+  /* Only lift on devices with a real hover-capable pointer. On touch screens
+     :hover sticks after a tap, which reads as the card bouncing up with no way
+     to un-hover. */
+  @media (hover: hover) {
+    .card:hover {
+      transform: translateY(-2px);
+    }
   }
 </style>
