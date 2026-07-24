@@ -15,12 +15,28 @@ let db: LedgerDb | null = null;
 let hlc: Hlc | null = null;
 let initialized = false;
 
+// Gate that opens once `init` has finished (whether it succeeded or threw).
+// Non-init messages await it before touching the database. The client posts
+// messages in order, but `init` is async (OPFS/WASM setup), so without this a
+// query/projection dispatched during the app's first render could be processed
+// while `init` is still awaiting and hit a null `db`.
+let resolveReady!: () => void;
+const ready = new Promise<void>((resolve) => {
+  resolveReady = resolve;
+});
+
 // Handle messages from the main thread
 self.onmessage = async (event: MessageEvent) => {
   const { id, type, payload } = event.data;
   console.log("worker: received message type =", type, "id =", id);
 
   try {
+    // Everything except init depends on an open database; hold dependent
+    // operations until init has resolved the `ready` gate above.
+    if (type !== "init") {
+      await ready;
+    }
+
     if (type === "init") {
       if (initialized) {
         console.log("worker: already initialized, responding ok");
@@ -64,6 +80,7 @@ self.onmessage = async (event: MessageEvent) => {
       initialized = true;
       console.log("worker: sending status ok response for init");
       self.postMessage({ id, status: "ok" });
+      resolveReady();
     } else if (type === "query") {
       if (!db) {
         throw new Error("Database not initialized. Please call 'init' first.");
@@ -123,6 +140,11 @@ self.onmessage = async (event: MessageEvent) => {
       throw new Error(`Unsupported message type: ${type}`);
     }
   } catch (error: any) {
+    // If init itself failed, open the gate so any queued messages unblock and
+    // fail fast on the null-db checks rather than hanging on `ready` forever.
+    if (type === "init") {
+      resolveReady();
+    }
     self.postMessage({
       id,
       status: "error",

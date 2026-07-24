@@ -14,12 +14,20 @@
   let dbReady = $state(false);
   let dbError = $state("");
 
+  if (typeof window !== "undefined") {
+    (window as any).dbClient = dbClient;
+  }
+
+  // Kick off worker creation synchronously, before any child view subscribes to
+  // a ledger store. init() assigns dbClient.worker and posts its `init` message
+  // before its first await, so store queries that fire during the initial render
+  // are queued behind that init message (the worker processes messages in order)
+  // instead of racing an unset worker and rejecting with "not initialized".
+  const initPromise = dbClient.init("/inventoria.db");
+
   onMount(async () => {
-    if (typeof window !== "undefined") {
-      (window as any).dbClient = dbClient;
-    }
     try {
-      await dbClient.init("/inventoria.db");
+      await initPromise;
       dbReady = true;
 
       // Handle Web Share Target redirection
