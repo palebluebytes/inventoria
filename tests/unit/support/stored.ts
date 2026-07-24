@@ -8,12 +8,12 @@ import type { Datom, StoredDatom } from "../../../src/lib/db/db.core";
  */
 export function asStored(
   datoms: Datom[],
-  deviceId = "test-device"
+  device_id = "test-device"
 ): StoredDatom[] {
   return datoms.map((d) => ({
     ...d,
     hlc_ms: d.time,
     hlc_ctr: 0,
-    device_id: deviceId,
+    device_id,
   }));
 }

@@ -1,5 +1,6 @@
 import type { StoredDatom } from "../db/db.client";
 import { groupByEntity } from "../db/datom-fold";
+import { compareHlc, type HlcKey } from "../db/hlc";
 import { computeHabitScore, computeStreak } from "./habits";
 import type { ScheduleRule } from "../recurrence/rules";
 
@@ -21,6 +22,8 @@ export interface ExecutionEvent {
   status: "completed" | "exempt" | "uncompleted";
   target_id?: string;
   time: number;
+  /** HLC stamp of the event, the key its ordering (latest-wins, LIFO undo) uses. */
+  stamp: HlcKey;
   instrument_used?: string;
   metadata?: {
     note?: string;
@@ -85,11 +88,16 @@ export function computeHabitLineages(datoms: StoredDatom[]): HabitLineage[] {
         status: f.status,
         target_id: f.target_id || undefined,
         time: g.firstTime,
+        stamp: g.firstStamp,
         instrument_used: f.instrument_used || undefined,
         metadata: f.metadata || undefined,
       };
     })
-    .filter((e) => e.target);
+    .filter((e) => e.target)
+    // Order the execution stream by the logical clock, as the media and
+    // acquisition folds do (ADR-0020). Downstream day-bucketing keys on domain
+    // `time`; a stable sort there preserves this HLC order for same-ms ties.
+    .sort((a, b) => compareHlc(a.stamp, b.stamp));
 
   const lineages: HabitLineage[] = [];
   const activeBlueprints = allBlueprints.filter((bp) => bp.status === "active");

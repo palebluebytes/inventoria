@@ -1,43 +1,39 @@
 /**
  * Hybrid Logical Clock (HLC), per ADR-0020.
  *
- * A datom's order and identity is `(physical_ms, logical_counter, device_id)`
- * rather than a bare wall-clock `time`. The pair `(physical_ms, counter)` is a
- * standard HLC: `now()` stamps a local write, tracking wall-clock milliseconds
- * and breaking same-millisecond ties with the counter; `update()` advances the
- * clock on receiving remote datoms during sync, which preserves causality so a
- * write made after observing a remote edit always orders after it. `device_id`
- * gives a deterministic tiebreak between genuinely concurrent writes, yielding
- * one total order every device computes identically.
+ * A datom's order and identity is `(hlc_ms, hlc_ctr, device_id)` rather than a
+ * bare wall-clock `time`. The pair `(hlc_ms, hlc_ctr)` is a standard HLC:
+ * `now()` stamps a local write, tracking wall-clock milliseconds and breaking
+ * same-millisecond ties with the counter; `update()` advances the clock on
+ * receiving remote datoms during sync, which preserves causality so a write
+ * made after observing a remote edit always orders after it. `device_id` gives
+ * a deterministic tiebreak between genuinely concurrent writes, yielding one
+ * total order every device computes identically.
  *
- * This module is pure and injectable (`wallClock`) so it can be tested without
- * a real clock. Persistence of the high-water mark is the ledger's job: the
- * clock is seeded from the ledger's max stamp on init (see `readHlcHighWater`).
+ * Every shape here speaks the ledger's column names (`hlc_ms`, `hlc_ctr`,
+ * `device_id`), so a stamp is written, compared, and read back without renaming
+ * fields at any boundary. This module is pure and injectable (`wallClock`) so
+ * it can be tested without a real clock. Persistence of the high-water mark is
+ * the ledger's job: the clock is seeded from the ledger's max stamp on init
+ * (see `readHlcHighWater`).
  */
 
-export interface HlcStamp {
-  physical: number;
-  counter: number;
-  deviceId: string;
-}
-
+/** A clock position without a device: the seed, high-water mark, and peek shape. */
 export interface HlcMark {
-  physical: number;
-  counter: number;
-}
-
-/** An HLC as stored on a ledger row (DB column names), for ordering reads. */
-export interface HlcKey {
   hlc_ms: number;
   hlc_ctr: number;
+}
+
+/** An HLC stamp / ledger-row key: a mark plus the device that issued it. */
+export interface HlcKey extends HlcMark {
   device_id: string;
 }
 
 export interface Hlc {
   /** Stamp a local write. Monotonic across calls. */
-  now(): HlcStamp;
+  now(): HlcKey;
   /** Advance on receiving a remote stamp, preserving causality. */
-  update(remote: HlcMark): HlcStamp;
+  update(remote: HlcMark): HlcKey;
   /** The current high-water mark, without advancing. */
   peek(): HlcMark;
 }
@@ -47,46 +43,46 @@ export interface HlcOptions {
   wallClock?: () => number;
 }
 
-export function createHlc(deviceId: string, opts: HlcOptions = {}): Hlc {
-  let physical = opts.seed?.physical ?? 0;
-  let counter = opts.seed?.counter ?? 0;
+export function createHlc(device_id: string, opts: HlcOptions = {}): Hlc {
+  let hlc_ms = opts.seed?.hlc_ms ?? 0;
+  let hlc_ctr = opts.seed?.hlc_ctr ?? 0;
   const wall = opts.wallClock ?? (() => Date.now());
 
   return {
-    now(): HlcStamp {
+    now(): HlcKey {
       const pt = wall();
-      if (pt > physical) {
-        physical = pt;
-        counter = 0;
+      if (pt > hlc_ms) {
+        hlc_ms = pt;
+        hlc_ctr = 0;
       } else {
-        counter += 1;
+        hlc_ctr += 1;
       }
-      return { physical, counter, deviceId };
+      return { hlc_ms, hlc_ctr, device_id };
     },
 
-    update(remote: HlcMark): HlcStamp {
+    update(remote: HlcMark): HlcKey {
       const pt = wall();
-      const prev = physical;
-      physical = Math.max(prev, remote.physical, pt);
-      if (physical === prev && physical === remote.physical) {
-        counter = Math.max(counter, remote.counter) + 1;
-      } else if (physical === prev) {
-        counter = counter + 1;
-      } else if (physical === remote.physical) {
-        counter = remote.counter + 1;
+      const prev = hlc_ms;
+      hlc_ms = Math.max(prev, remote.hlc_ms, pt);
+      if (hlc_ms === prev && hlc_ms === remote.hlc_ms) {
+        hlc_ctr = Math.max(hlc_ctr, remote.hlc_ctr) + 1;
+      } else if (hlc_ms === prev) {
+        hlc_ctr = hlc_ctr + 1;
+      } else if (hlc_ms === remote.hlc_ms) {
+        hlc_ctr = remote.hlc_ctr + 1;
       } else {
-        counter = 0;
+        hlc_ctr = 0;
       }
-      return { physical, counter, deviceId };
+      return { hlc_ms, hlc_ctr, device_id };
     },
 
     peek(): HlcMark {
-      return { physical, counter };
+      return { hlc_ms, hlc_ctr };
     },
   };
 }
 
-/** Total order over HLC-stamped rows: physical, then counter, then device id. */
+/** Total order over HLC-stamped rows: physical ms, then counter, then device id. */
 export function compareHlc(a: HlcKey, b: HlcKey): number {
   return (
     a.hlc_ms - b.hlc_ms ||

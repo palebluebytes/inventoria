@@ -327,6 +327,9 @@ export function getDailyLineageStates(
 export function getActiveExecutions<
   T extends { status: string; target_id?: string; time: number },
 >(executions: T[]): T[] {
+  // Order by domain `time` for the LIFO undo. The input already arrives in HLC
+  // order from `computeHabitLineages` (ADR-0020), and Array.sort is stable, so
+  // same-millisecond executions keep that logical order rather than colliding.
   const sorted = [...executions].sort((a, b) => a.time - b.time);
   const active: T[] = [];
   for (const e of sorted) {

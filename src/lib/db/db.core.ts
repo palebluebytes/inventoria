@@ -117,7 +117,7 @@ function needsHlcMigration(db: LedgerDb): boolean {
  * time)`, so they stay unique under the HLC primary key. State is re-derived
  * from the log, so this rewrites keys, not the meaning of past facts.
  */
-function migrateToHlcSchema(db: LedgerDb, deviceId: string): void {
+function migrateToHlcSchema(db: LedgerDb, device_id: string): void {
   db.exec("BEGIN TRANSACTION;");
   try {
     db.exec("DROP TABLE IF EXISTS datoms_hlc_new;");
@@ -137,7 +137,7 @@ function migrateToHlcSchema(db: LedgerDb, deviceId: string): void {
       db,
       `INSERT INTO datoms_hlc_new (entity, attribute, value, time, hlc_ms, hlc_ctr, device_id)
        SELECT entity, attribute, value, time, time, 0, ? FROM datoms;`,
-      [deviceId]
+      [device_id]
     );
     db.exec("DROP TABLE datoms;");
     db.exec("ALTER TABLE datoms_hlc_new RENAME TO datoms;");
@@ -153,12 +153,12 @@ function migrateToHlcSchema(db: LedgerDb, deviceId: string): void {
 /**
  * Ensures the ledger is present and on the HLC schema, migrating a legacy
  * database in place if needed. Used by the worker on init; the pure unit tests
- * call `createLedgerSchema` directly against a fresh database.
+ * call `createLedgerSchema` directly against a fresh database. The `meta` table
+ * is owned by `getOrCreateDeviceId`, not created here.
  */
-export function ensureLedgerSchema(db: LedgerDb, deviceId: string): void {
-  db.exec(CREATE_META_TABLE);
+export function ensureLedgerSchema(db: LedgerDb, device_id: string): void {
   if (needsHlcMigration(db)) {
-    migrateToHlcSchema(db, deviceId);
+    migrateToHlcSchema(db, device_id);
   } else {
     createLedgerSchema(db);
   }
@@ -183,15 +183,17 @@ export function getOrCreateDeviceId(
 /**
  * The ledger's current HLC high-water mark, used to seed the clock on init.
  * `device_id` is intentionally omitted from the sort: seeding only needs the
- * greatest `(physical, counter)` seen, not the total order's device tiebreak.
+ * greatest `(hlc_ms, hlc_ctr)` seen, not the total order's device tiebreak.
+ * HLC values stay well within `Number.MAX_SAFE_INTEGER`, so sqlite-wasm returns
+ * them as plain numbers — the same values `compareHlc` and the folds consume raw.
  */
 export function readHlcHighWater(db: LedgerDb): HlcMark {
-  const rows = execRows<{ hlc_ms: number; hlc_ctr: number }>(
+  const rows = execRows<HlcMark>(
     db,
     "SELECT hlc_ms, hlc_ctr FROM datoms ORDER BY hlc_ms DESC, hlc_ctr DESC LIMIT 1;"
   );
-  if (rows.length === 0) return { physical: 0, counter: 0 };
-  return { physical: Number(rows[0].hlc_ms), counter: Number(rows[0].hlc_ctr) };
+  if (rows.length === 0) return { hlc_ms: 0, hlc_ctr: 0 };
+  return { hlc_ms: rows[0].hlc_ms, hlc_ctr: rows[0].hlc_ctr };
 }
 
 /**
@@ -223,15 +225,16 @@ export function appendDatoms(
           throw new Error(`Invalid datom structure: ${JSON.stringify(datom)}`);
         }
         const stamp = clock.now();
-        // Bind accepts arrays (1-based mapping inside the driver).
+        // Bind accepts arrays (1-based mapping inside the driver). `stamp`
+        // already carries the ledger's column names, so it binds verbatim.
         stmt.bind([
           entity,
           attribute,
           JSON.stringify(value),
           time,
-          stamp.physical,
-          stamp.counter,
-          stamp.deviceId,
+          stamp.hlc_ms,
+          stamp.hlc_ctr,
+          stamp.device_id,
         ]);
         stmt.step();
         stmt.reset();

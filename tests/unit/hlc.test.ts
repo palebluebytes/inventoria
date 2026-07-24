@@ -6,56 +6,46 @@ describe("hybrid logical clock (ADR-0020)", () => {
     let wall = 1000;
     const hlc = createHlc("dev-a", { wallClock: () => wall });
 
-    expect(hlc.now()).toMatchObject({ physical: 1000, counter: 0 });
+    expect(hlc.now()).toMatchObject({ hlc_ms: 1000, hlc_ctr: 0 });
     wall = 1005;
-    expect(hlc.now()).toMatchObject({ physical: 1005, counter: 0 });
+    expect(hlc.now()).toMatchObject({ hlc_ms: 1005, hlc_ctr: 0 });
   });
 
   it("breaks same-millisecond ties by incrementing the counter", () => {
     const hlc = createHlc("dev-a", { wallClock: () => 1000 });
-    expect(hlc.now()).toMatchObject({ physical: 1000, counter: 0 });
-    expect(hlc.now()).toMatchObject({ physical: 1000, counter: 1 });
-    expect(hlc.now()).toMatchObject({ physical: 1000, counter: 2 });
+    expect(hlc.now()).toMatchObject({ hlc_ms: 1000, hlc_ctr: 0 });
+    expect(hlc.now()).toMatchObject({ hlc_ms: 1000, hlc_ctr: 1 });
+    expect(hlc.now()).toMatchObject({ hlc_ms: 1000, hlc_ctr: 2 });
   });
 
   it("never goes backwards when the wall clock does", () => {
     let wall = 5000;
     const hlc = createHlc("dev-a", { wallClock: () => wall });
-    expect(hlc.now()).toMatchObject({ physical: 5000, counter: 0 });
+    expect(hlc.now()).toMatchObject({ hlc_ms: 5000, hlc_ctr: 0 });
     wall = 4000; // clock jumps backwards
-    expect(hlc.now()).toMatchObject({ physical: 5000, counter: 1 });
+    expect(hlc.now()).toMatchObject({ hlc_ms: 5000, hlc_ctr: 1 });
   });
 
   it("carries the device id on every stamp", () => {
     const hlc = createHlc("dev-xyz", { wallClock: () => 1 });
-    expect(hlc.now().deviceId).toBe("dev-xyz");
+    expect(hlc.now().device_id).toBe("dev-xyz");
   });
 
   it("preserves causality: a write after observing a remote edit orders after it", () => {
     // Device B's wall clock lags, but it has seen A's later stamp.
     let wallB = 900;
     const b = createHlc("dev-b", { wallClock: () => wallB });
-    const remoteFromA = { physical: 1000, counter: 3 };
+    const remoteFromA = { hlc_ms: 1000, hlc_ctr: 3 };
 
     const afterReceive = b.update(remoteFromA);
-    expect(afterReceive.physical).toBe(1000);
-    expect(afterReceive.counter).toBe(4); // ordered strictly after A's (1000,3)
+    expect(afterReceive.hlc_ms).toBe(1000);
+    expect(afterReceive.hlc_ctr).toBe(4); // ordered strictly after A's (1000,3)
 
-    // A local write now still orders after the received remote edit.
+    // A local write now still orders after the received remote edit. Stamps are
+    // already in `HlcKey` shape, so they feed `compareHlc` without reshaping.
     const localAfter = b.now();
     expect(
-      compareHlc(
-        {
-          hlc_ms: remoteFromA.physical,
-          hlc_ctr: remoteFromA.counter,
-          device_id: "dev-a",
-        },
-        {
-          hlc_ms: localAfter.physical,
-          hlc_ctr: localAfter.counter,
-          device_id: localAfter.deviceId,
-        }
-      )
+      compareHlc({ ...remoteFromA, device_id: "dev-a" }, localAfter)
     ).toBeLessThan(0);
   });
 

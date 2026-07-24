@@ -56,9 +56,9 @@ self.onmessage = async (event: MessageEvent) => {
       // Ensure the ledger exists on the HLC schema (migrating a legacy
       // database in place), then seed the clock from its high-water mark so
       // stamps stay monotonic across restarts (ADR-0020).
-      const deviceId = getOrCreateDeviceId(db);
-      ensureLedgerSchema(db, deviceId);
-      hlc = createHlc(deviceId, { seed: readHlcHighWater(db) });
+      const device_id = getOrCreateDeviceId(db);
+      ensureLedgerSchema(db, device_id);
+      hlc = createHlc(device_id, { seed: readHlcHighWater(db) });
 
       console.log("worker: table and indices initialized");
       initialized = true;
