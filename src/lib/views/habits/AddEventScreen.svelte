@@ -823,8 +823,6 @@
     padding: var(--space-2xs) var(--space-xs);
     outline: none;
     flex: 1;
-  }
-  .time-input {
     max-width: 120px;
   }
 

@@ -243,7 +243,7 @@
     font-style: italic;
     color: var(--text-muted);
     margin: 4px 0 0 0;
-    word-break: break-word;
+    overflow-wrap: break-word;
   }
 
   .card-actions {

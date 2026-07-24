@@ -49,7 +49,7 @@
   }
   .item-text {
     font-size: var(--step-n1);
-    word-break: break-word;
+    overflow-wrap: break-word;
   }
   .checklist-item.done .item-text {
     text-decoration: line-through;

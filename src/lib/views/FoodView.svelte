@@ -217,7 +217,7 @@
     font-size: var(--step-n1);
     font-weight: 500;
     flex: 1;
-    word-break: break-word;
+    overflow-wrap: break-word;
   }
   .empty {
     color: var(--text-muted);
