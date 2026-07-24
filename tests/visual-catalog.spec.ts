@@ -233,6 +233,7 @@ test.describe("Visual Catalog Generator", () => {
       "media",
       "items",
       "agenda",
+      "notes",
       "settings",
     ];
     const navItems = await page.locator(".sidebar nav .nav-item").all();
@@ -596,7 +597,27 @@ test.describe("Visual Catalog Generator", () => {
     // Take Items Dashboard Screenshot
     await takeFullPageScreenshot(page, "items-dashboard.png");
 
-    // 6. Settings Page Screenshot
+    // 6. Populate Notes Dashboard (a checklist item & a note)
+    await page.locator(".nav-item", { hasText: "Notes" }).click();
+    const checklistInput = page.getByTestId("new-item-input");
+    await checklistInput.fill("Buy groceries");
+    await checklistInput.press("Enter");
+    await expect(
+      page.getByTestId("checklist-item").filter({ hasText: "Buy groceries" })
+    ).toBeVisible();
+
+    await page.locator(".tab-btn", { hasText: "Notes" }).click();
+    await page.locator("button", { hasText: "+ New note" }).click();
+    const noteBody = page.getByTestId("note-body");
+    await noteBody.fill("Weekly review: ship the settings reveal toggle.");
+    await expect(noteBody).toHaveValue(
+      "Weekly review: ship the settings reveal toggle."
+    );
+
+    // Take Notes Dashboard Screenshot
+    await takeFullPageScreenshot(page, "notes-dashboard.png");
+
+    // 7. Settings Page Screenshot
     await page.locator(".nav-item", { hasText: "Settings" }).click();
     await takeFullPageScreenshot(page, "settings-page.png");
   });
