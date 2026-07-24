@@ -116,38 +116,32 @@ function needsHlcMigration(db: LedgerDb): boolean {
  * device_id = <this device>`. Legacy rows were unique on `(entity, attribute,
  * time)`, so they stay unique under the HLC primary key. State is re-derived
  * from the log, so this rewrites keys, not the meaning of past facts.
+ *
+ * The new table and its indexes come from the canonical `createLedgerSchema`
+ * DDL, so the migrated shape can never drift from a fresh create. Ordering
+ * matters: the legacy table's `idx_eav`/`idx_ave` occupy those global index
+ * names until `datoms_legacy` is dropped, so the indexes are (re)created only
+ * after the drop, once `createLedgerSchema` runs post-commit.
  */
 function migrateToHlcSchema(db: LedgerDb, device_id: string): void {
   db.exec("BEGIN TRANSACTION;");
   try {
-    db.exec("DROP TABLE IF EXISTS datoms_hlc_new;");
-    db.exec(`
-      CREATE TABLE datoms_hlc_new (
-        entity TEXT NOT NULL,
-        attribute TEXT NOT NULL,
-        value TEXT NOT NULL,
-        time INTEGER NOT NULL,
-        hlc_ms INTEGER NOT NULL,
-        hlc_ctr INTEGER NOT NULL,
-        device_id TEXT NOT NULL,
-        PRIMARY KEY (entity, attribute, hlc_ms, hlc_ctr, device_id)
-      ) WITHOUT ROWID;
-    `);
+    db.exec("DROP TABLE IF EXISTS datoms_legacy;");
+    db.exec("ALTER TABLE datoms RENAME TO datoms_legacy;");
+    db.exec(CREATE_DATOMS_TABLE);
     execWrite(
       db,
-      `INSERT INTO datoms_hlc_new (entity, attribute, value, time, hlc_ms, hlc_ctr, device_id)
-       SELECT entity, attribute, value, time, time, 0, ? FROM datoms;`,
+      `INSERT INTO datoms (entity, attribute, value, time, hlc_ms, hlc_ctr, device_id)
+       SELECT entity, attribute, value, time, time, 0, ? FROM datoms_legacy;`,
       [device_id]
     );
-    db.exec("DROP TABLE datoms;");
-    db.exec("ALTER TABLE datoms_hlc_new RENAME TO datoms;");
+    db.exec("DROP TABLE datoms_legacy;");
     db.exec("COMMIT;");
   } catch (err) {
     db.exec("ROLLBACK;");
     throw err;
   }
-  db.exec(CREATE_EAV_INDEX);
-  db.exec(CREATE_AVE_INDEX);
+  createLedgerSchema(db);
 }
 
 /**
