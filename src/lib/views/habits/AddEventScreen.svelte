@@ -26,9 +26,9 @@
   let title = $state("");
 
   // Start date + time
-  const todayDate = new Date();
-  let startDateStr = $state(todayDate.toISOString().slice(0, 10));
-  let startDateVal = $state<CalendarDate | undefined>(parseDate(startDateStr));
+  const todayIso = new Date().toISOString().slice(0, 10);
+  let startDateStr = $state(todayIso);
+  let startDateVal = $state<CalendarDate | undefined>(parseDate(todayIso));
   $effect(() => {
     if (startDateVal) {
       startDateStr = startDateVal.toString();
@@ -383,9 +383,9 @@
         class="field-header"
         style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: var(--space-sm);"
       >
-        <label class="field-label" style="margin-bottom: 0;">
+        <span class="field-label" style="margin-bottom: 0;">
           {hasEnd ? "START & END" : "START"}
-        </label>
+        </span>
 
         <div style="display: flex; align-items: center; gap: var(--space-s);">
           <button
@@ -503,7 +503,7 @@
 
     <!-- Schedule: Recurrence & Time slots -->
     <div class="field-card">
-      <label class="field-label">RECURRENCE</label>
+      <span class="field-label">RECURRENCE</span>
       <div class="seg-control seg-grid" style="margin-bottom: var(--space-s);">
         {#each [["specific_days", "DAILY"], ["weekly", "WEEKLY"], ["monthly", "MONTHLY"], ["yearly", "YEARLY"]] as [val, label]}
           <button
@@ -586,10 +586,10 @@
             : "padding-top: var(--space-sm); margin-top: var(--space-sm);"}
         >
           {#if _extraTimeSlots.length > 0}
-            <label
+            <span
               class="field-sublabel"
               style="margin-bottom: var(--space-xs); display: block;"
-              >ADDITIONAL TIMES</label
+              >ADDITIONAL TIMES</span
             >
             {#each _extraTimeSlots as slot, i}
               <div class="slot-row" style="margin-bottom: var(--space-xs);">
@@ -648,8 +648,8 @@
 
     <!-- Description -->
     <div class="field-card">
-      <label class="field-label"
-        >DESCRIPTION <span class="optional">(OPTIONAL)</span></label
+      <span class="field-label"
+        >DESCRIPTION <span class="optional">(OPTIONAL)</span></span
       >
       <textarea
         class="desc-textarea"
@@ -781,11 +781,6 @@
     white-space: nowrap;
   }
 
-  .field-hint {
-    font-size: var(--step-n2);
-    color: var(--text-muted);
-  }
-
   .optional {
     font-weight: 400;
     color: var(--text-muted);
@@ -818,7 +813,6 @@
   }
 
   /* Inputs */
-  .date-input,
   .time-input {
     font-family: var(--font-mono);
     font-size: var(--step-n1);
@@ -839,9 +833,6 @@
     display: flex;
     border: 2px solid #000;
   }
-  .seg-wrap {
-    flex-wrap: wrap;
-  }
   .seg-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -851,9 +842,6 @@
   }
   .seg-grid .seg-btn {
     border: none !important;
-  }
-  .seg-grid .span-2 {
-    grid-column: span 2;
   }
 
   .seg-btn {

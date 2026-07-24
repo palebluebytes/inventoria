@@ -69,6 +69,9 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<!-- role/tabindex track `isTracking` together (button+0 vs presentation+-1),
+     which the static check can't follow -->
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <div
   class="event-item"
   class:is-tracking={slot.isTracking}

@@ -91,6 +91,12 @@
     );
   });
 
+  // Focus the inline input the moment it is revealed, without the `autofocus`
+  // attribute (which a11y flags and which only applies on initial page load).
+  function focusOnMount(node: HTMLElement) {
+    node.focus();
+  }
+
   function add_custom_category() {
     const name = new_category_name.trim();
     if (!name) return;
@@ -197,7 +203,7 @@
                 if (e.key === "Enter") add_custom_category();
                 if (e.key === "Escape") show_add_category_input = false;
               }}
-              autofocus
+              use:focusOnMount
             />
             <button
               type="button"

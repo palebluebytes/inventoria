@@ -1,13 +1,15 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { notesStore } from "../../stores/notes.store.svelte";
   import type { NoteView } from "../../notes/loro-doc";
 
   // The parent remounts this component via `{#key note.id}`, so local editor
-  // state is seeded once per note and never fights the CRDT round-trip.
+  // state is seeded once per note and never fights the CRDT round-trip. The
+  // seed is a deliberate one-time read of the prop, hence `untrack`.
   let { note }: { note: NoteView } = $props();
 
-  let title = $state(note.title);
-  let body = $state(note.body);
+  let title = $state(untrack(() => note.title));
+  let body = $state(untrack(() => note.body));
 </script>
 
 <div class="note-editor">
