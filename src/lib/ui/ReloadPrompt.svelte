@@ -54,7 +54,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-2xs);
-    font-size: var(--text-sm);
+    font-size: var(--step-n1);
   }
 
   .actions {

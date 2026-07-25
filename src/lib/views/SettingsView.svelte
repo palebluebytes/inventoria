@@ -457,7 +457,7 @@
     color: #fff;
   }
   .input-wrapper:has(.retro-input:focus) .reveal-toggle:hover {
-    color: var(--text-tertiary, #a1a1aa);
+    color: var(--text-muted);
   }
   .retro-input {
     border: 2px solid #000;

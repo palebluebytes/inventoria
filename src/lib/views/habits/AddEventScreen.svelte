@@ -381,7 +381,7 @@
     <div class="field-card" class:error={!!endError}>
       <div
         class="field-header"
-        style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: var(--space-sm);"
+        style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: var(--space-s);"
       >
         <span class="field-label" style="margin-bottom: 0;">
           {hasEnd ? "START & END" : "START"}
@@ -469,7 +469,7 @@
           bind:value={endDateVal}
           onValueChange={() => (endError = null)}
         >
-          <div class="date-time-row" style="margin-top: var(--space-sm);">
+          <div class="date-time-row" style="margin-top: var(--space-s);">
             <DatePicker.Input class="date-input">
               {#snippet children({ segments })}
                 {#each segments as { part, value }}
@@ -582,8 +582,8 @@
         <div
           class="time-slots-section"
           style={recurType !== "none"
-            ? "border-top: 2px dashed var(--border-accent); padding-top: var(--space-sm); margin-top: var(--space-sm);"
-            : "padding-top: var(--space-sm); margin-top: var(--space-sm);"}
+            ? "border-top: 2px dashed var(--border-accent); padding-top: var(--space-s); margin-top: var(--space-s);"
+            : "padding-top: var(--space-s); margin-top: var(--space-s);"}
         >
           {#if _extraTimeSlots.length > 0}
             <span

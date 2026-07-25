@@ -184,7 +184,7 @@
   }
   textarea:focus {
     outline: none;
-    border-color: var(--primary);
+    border-color: var(--accent);
   }
   .modal-footer {
     display: flex;

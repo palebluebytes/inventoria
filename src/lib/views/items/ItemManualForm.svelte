@@ -188,7 +188,7 @@
   }
   .custom-select:focus {
     outline: none;
-    border-color: var(--primary);
+    border-color: var(--accent);
   }
   textarea {
     width: 100%;
@@ -202,7 +202,7 @@
   }
   textarea:focus {
     outline: none;
-    border-color: var(--primary);
+    border-color: var(--accent);
   }
   .form-actions {
     display: flex;
