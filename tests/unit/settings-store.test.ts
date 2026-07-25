@@ -51,6 +51,39 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
     expect(s.scraper_proxy_url).toBe("https://p/?url=");
   });
 
+  it("strips the JSON encoding the ledger stores values with", () => {
+    // db.core persists every value as JSON.stringify(value), so the raw column
+    // holds a quote-wrapped string. The store must decode it, or the key gets
+    // sent to USDA/TMDB as `"key"` (with quotes) and the request 403s.
+    datomsWritable.set([
+      {
+        attribute: "settings/usda_api_key",
+        value: JSON.stringify("c5VBKl3eEuiPmtgaJfpcDS60QMBZ7t7gGDNspXt2"),
+        time: 1,
+      },
+      {
+        attribute: "settings/scraper_proxy_url",
+        value: JSON.stringify("/api/proxy?url="),
+        time: 2,
+      },
+    ]);
+    const s = get(settingsStore);
+    expect(s.usda_api_key).toBe("c5VBKl3eEuiPmtgaJfpcDS60QMBZ7t7gGDNspXt2");
+    expect(s.scraper_proxy_url).toBe("/api/proxy?url=");
+  });
+
+  it("keeps an all-digit key as a string rather than coercing to a number", () => {
+    datomsWritable.set([
+      {
+        attribute: "settings/tmdb_api_key",
+        value: JSON.stringify("0123456789"),
+        time: 1,
+      },
+    ]);
+    const s = get(settingsStore);
+    expect(s.tmdb_api_key).toBe("0123456789");
+  });
+
   it("reflects reactive updates to the underlying datoms", () => {
     datomsWritable.set([
       { attribute: "settings/tmdb_api_key", value: "k1", time: 1 },
