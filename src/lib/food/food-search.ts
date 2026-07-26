@@ -1,5 +1,6 @@
 import type { EntityPayload } from "../ingestion/ingest";
 import { searchFdc } from "./usda-fdc";
+import { macrosFromNutrition, type NutritionInfo } from "./nutrition";
 
 /**
  * Shared food-search helpers for the food and recipe modals. Both turn an
@@ -18,23 +19,20 @@ export interface FoodResult {
   payload: EntityPayload;
 }
 
-/** Pulls the leading number out of an EAVT attribute value like "12.5 g". */
-export function parseAttrValue(val: string | number | undefined): number {
-  if (typeof val === "number") return val;
-  if (!val) return 0;
-  const match = val.match(/([\d.]+)/);
-  return match ? parseFloat(match[1]) : 0;
-}
-
-/** Maps a food twin payload into the result shape both modals render. */
+/**
+ * Maps a food twin payload into the result shape both modals render, reading
+ * its per-serving macros from the `nutrition/info` panel (ADR-0021). The panel
+ * basis is 100 g for searched/scanned foods, which is what the modals scale by.
+ */
 export function mapPayloadToFoodResult(payload: EntityPayload): FoodResult {
+  const info = payload.attributes["nutrition/info"] as
+    | NutritionInfo
+    | undefined;
+  const macros = macrosFromNutrition(info);
   return {
     entity: payload.entity,
     name: payload.attributes["food/name"],
-    calories: parseAttrValue(payload.attributes["food/calories"]),
-    protein: parseAttrValue(payload.attributes["food/protein"]),
-    fat: parseAttrValue(payload.attributes["food/fat"]),
-    carbs: parseAttrValue(payload.attributes["food/carbs"]),
+    ...macros,
     payload,
   };
 }

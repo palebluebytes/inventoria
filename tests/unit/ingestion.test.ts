@@ -56,6 +56,34 @@ describe("ingestEntity — EAVT ingestion layer", () => {
     expect(names).toContain("habit/instrument");
   });
 
+  it("deep-clones object values so reactive proxies never reach the worker", () => {
+    // A staged food twin's `nutrition/info` panel arrives as a Svelte `$state`
+    // proxy in the real app; a proxy cannot be structured-cloned across the Web
+    // Worker boundary. ingestEntity must emit a plain, detached clone.
+    const nutrition = {
+      serving_size: "100 g",
+      calories: 539,
+      protein_content: 6.3,
+    };
+    const [datom] = ingestEntity({
+      entity: "gtin:3017620422003",
+      attributes: { "nutrition/info": nutrition },
+    });
+
+    expect(datom.value).toEqual(nutrition);
+    expect(datom.value).not.toBe(nutrition); // detached, not the same reference
+    // A structured clone (the worker's postMessage) must not throw.
+    expect(() => structuredClone(datom.value)).not.toThrow();
+  });
+
+  it("passes primitive values through untouched", () => {
+    const [datom] = ingestEntity({
+      entity: "food:custom_1",
+      attributes: { "food/photo_base64": "data:image/png;base64,AAAA" },
+    });
+    expect(datom.value).toBe("data:image/png;base64,AAAA");
+  });
+
   it("throws when entity field is missing", () => {
     const payload = {
       entity: "",

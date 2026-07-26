@@ -130,8 +130,20 @@ describe("Calorie Store Actions", () => {
       );
       expect(photoDatom?.value).toBe("data:image/png;base64,dummy");
 
-      const calsDatom = datoms.find((d) => d.attribute === "food/calories");
-      expect(calsDatom?.value).toBe("350 kcal");
+      // Nutrition is a single atomic panel — no food/* macro attributes.
+      const nutritionDatom = datoms.find(
+        (d) => d.attribute === "nutrition/info"
+      );
+      expect(nutritionDatom?.value).toEqual({
+        serving_size: "1 serving",
+        calories: 350,
+        protein_content: 8,
+        fat_content: 15,
+        carbohydrate_content: 30,
+      });
+      expect(
+        datoms.find((d) => d.attribute === "food/calories")
+      ).toBeUndefined();
     });
 
     it("appends custom food without photo", async () => {
@@ -163,10 +175,6 @@ describe("Calorie Store Actions", () => {
       const recipeId = await saveRecipe({
         name: "Oatmeal",
         ingredients,
-        calories: 310,
-        protein: 12,
-        fat: 6,
-        carbs: 52,
         source: "https://example.com/oats",
         notes: "Healthy breakfast oatmeal",
         steps: ["Boil water", "Add oats"],
@@ -178,6 +186,11 @@ describe("Calorie Store Actions", () => {
       const datoms = mockAppend.mock.calls[0][0];
       const nameDatom = datoms.find((d) => d.attribute === "food/name");
       expect(nameDatom?.value).toBe("Oatmeal");
+
+      // A recipe stores no macros of its own — nutrition is derived (ADR-0021).
+      expect(
+        datoms.find((d) => d.attribute === "food/calories")
+      ).toBeUndefined();
 
       const notesDatom = datoms.find((d) => d.attribute === "recipe/notes");
       expect(notesDatom?.value).toBe("Healthy breakfast oatmeal");
@@ -374,6 +387,131 @@ describe("computeConsumption", () => {
       foodName: "Chili",
       description: "Hearty bean chili",
       ingredients: [{ name: "beans" }],
+    });
+  });
+});
+
+describe("store action → computeConsumption round-trip (Seam 2)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.restoreAllMocks();
+  });
+
+  // Values are JSON-encoded at the ledger boundary and parsed back by the
+  // projection. Round-trip the captured write-datoms through that encoding so
+  // the fold sees exactly what the DB would return on read.
+  const asLedger = (datoms: any[]) =>
+    asStored(datoms.map((d) => ({ ...d, value: JSON.stringify(d.value) })));
+
+  function captureAppends() {
+    const appended: any[] = [];
+    vi.spyOn(dbClient, "append").mockImplementation(async (d: any) => {
+      appended.push(...d);
+    });
+    return appended;
+  }
+
+  it("logs a custom food and derives a Consumption Event carrying its macros", async () => {
+    const appended = captureAppends();
+
+    const twinId = await saveCustomFood("Avocado Toast", 350, 8, 15, 30);
+    await logFoodConsumption(
+      twinId,
+      "1 serving",
+      "breakfast",
+      350,
+      8,
+      15,
+      30,
+      new Date("2026-05-31T12:00:00")
+    );
+
+    const events = computeConsumption(asLedger(appended));
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      target: twinId,
+      meal_type: "breakfast",
+      foodName: "Avocado Toast",
+      calories: 350,
+      protein: 8,
+      fat: 15,
+      carbs: 30,
+    });
+  });
+
+  it.each([
+    ["USDA", "fdc:171705"],
+    ["Open Food Facts", "gtin:3017620422003"],
+  ])(
+    "logs a %s food and folds it correctly into the day's totals",
+    async (_source, target) => {
+      const appended = captureAppends();
+
+      await logFoodConsumption(
+        target,
+        "150g",
+        "lunch",
+        134,
+        1.7,
+        0.5,
+        34.2,
+        new Date("2026-05-31T12:00:00")
+      );
+
+      const events = computeConsumption(asLedger(appended));
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({
+        target,
+        meal_type: "lunch",
+        calories: 134,
+        protein: 1.7,
+        fat: 0.5,
+        carbs: 34.2,
+      });
+    }
+  );
+
+  it("logs a recipe and folds it, hiding the ingredient event it replaces", async () => {
+    const appended = captureAppends();
+    const day = new Date("2026-05-31T12:00:00");
+
+    // An ingredient logged earlier, then replaced by a recipe built from it.
+    const ingredientEventId = await logFoodConsumption(
+      "food:custom_oats",
+      "50 g",
+      "breakfast",
+      190,
+      6,
+      3,
+      34,
+      day
+    );
+    const recipeId = await saveRecipe({
+      name: "Oatmeal",
+      ingredients: [{ entity: "food:custom_oats" }],
+    });
+    await logFoodConsumption(
+      recipeId,
+      "1 serving",
+      "breakfast",
+      190,
+      6,
+      3,
+      34,
+      day
+    );
+    await retractConsumptionEvent(ingredientEventId, recipeId);
+
+    const events = computeConsumption(asLedger(appended));
+    // Only the recipe event survives; the replaced ingredient event is hidden.
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      target: recipeId,
+      foodName: "Oatmeal",
+      calories: 190,
+      protein: 6,
+      fat: 3,
+      carbs: 34,
     });
   });
 });

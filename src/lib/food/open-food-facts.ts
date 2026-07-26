@@ -1,14 +1,22 @@
 import type { EntityPayload } from "../ingestion/ingest";
+import { PER_100G, type NutritionInfo } from "./nutrition";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
+// Open Food Facts reports every nutriment per 100 g already in the panel's
+// fixed units (macros in grams, energy in kcal, sodium in grams), so the values
+// map straight across with no conversion.
 export interface OFFNutriments {
   "energy-kcal_100g"?: number;
   proteins_100g?: number;
   fat_100g?: number;
   carbohydrates_100g?: number;
+  fiber_100g?: number;
+  sugars_100g?: number;
+  sodium_100g?: number;
+  "saturated-fat_100g"?: number;
 }
 
 export interface OFFProduct {
@@ -34,24 +42,32 @@ export class ProductNotFoundError extends Error {
 
 /**
  * Maps an Open Food Facts product response to an EntityPayload ready for
- * ingestion into the EAVT ledger.
+ * ingestion into the EAVT ledger. Nutrition is emitted as a single atomic
+ * `nutrition/info` panel (ADR-0021), populated with whatever subset of the
+ * schema.org fields the product carries.
  */
 export function mapOffProductToPayload(product: OFFProduct): EntityPayload {
   const p = product.product;
   const n = p.nutriments ?? {};
 
+  const nutrition: NutritionInfo = { serving_size: PER_100G };
+  const set = (value: number | undefined, key: keyof NutritionInfo) => {
+    if (value != null) (nutrition[key] as number) = value;
+  };
+  set(n["energy-kcal_100g"], "calories");
+  set(n.proteins_100g, "protein_content");
+  set(n.fat_100g, "fat_content");
+  set(n.carbohydrates_100g, "carbohydrate_content");
+  set(n.fiber_100g, "fiber_content");
+  set(n.sugars_100g, "sugar_content");
+  set(n.sodium_100g, "sodium_content");
+  set(n["saturated-fat_100g"], "saturated_fat_content");
+
   return {
     entity: `gtin:${product.code}`,
     attributes: {
       "food/name": p.product_name || "Unknown",
-      "food/calories":
-        n["energy-kcal_100g"] != null
-          ? `${n["energy-kcal_100g"]} kcal`
-          : "0 kcal",
-      "food/protein": n.proteins_100g != null ? `${n.proteins_100g} g` : "0 g",
-      "food/fat": n.fat_100g != null ? `${n.fat_100g} g` : "0 g",
-      "food/carbs":
-        n.carbohydrates_100g != null ? `${n.carbohydrates_100g} g` : "0 g",
+      "nutrition/info": nutrition,
     },
   };
 }

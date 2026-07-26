@@ -4,79 +4,69 @@ import {
   searchFdc,
   type FdcFood,
 } from "../../src/lib/food/usda-fdc";
+import bananaSearch from "./support/fixtures/usda-fdc-banana.json";
+import cheddarSearch from "./support/fixtures/usda-fdc-cheddar.json";
 
-// ---- unit: mapFdcFoodToPayload --------------------------------------------
+// Seam 1 (ADR-0016 isolated-Mapper contract): feed the mapper a saved copy of a
+// real USDA FoodData Central search response and assert the emitted
+// `nutrition/info` panel. Fixtures are real captured DEMO_KEY responses, so the
+// mapping is exercised against the real field shape — uppercase unit names, the
+// full micronutrient list, sodium reported in mg — not a hand-built minimum.
+
+const banana = bananaSearch.foods[0] as unknown as FdcFood;
+const cheddar = cheddarSearch.foods[0] as unknown as FdcFood;
 
 describe("mapFdcFoodToPayload", () => {
-  const baseFood: FdcFood = {
-    fdcId: 171705,
-    description: "Bananas, raw",
-    dataType: "Foundation",
-    foodNutrients: [
-      { nutrientId: 1008, nutrientName: "Energy", value: 89, unitName: "kcal" },
-      { nutrientId: 1003, nutrientName: "Protein", value: 1.09, unitName: "g" },
-      {
-        nutrientId: 1004,
-        nutrientName: "Total lipid (fat)",
-        value: 0.33,
-        unitName: "g",
-      },
-      {
-        nutrientId: 1005,
-        nutrientName: "Carbohydrate, by difference",
-        value: 22.84,
-        unitName: "g",
-      },
-    ],
-  };
-
   it("maps fdcId to entity id with fdc: prefix", () => {
-    const payload = mapFdcFoodToPayload(baseFood);
-    expect(payload.entity).toBe("fdc:171705");
+    expect(mapFdcFoodToPayload(banana).entity).toBe("fdc:1105073");
   });
 
   it("maps description to food/name", () => {
-    const payload = mapFdcFoodToPayload(baseFood);
-    expect(payload.attributes["food/name"]).toBe("Bananas, raw");
+    expect(mapFdcFoodToPayload(banana).attributes["food/name"]).toBe(
+      "Bananas, overripe, raw"
+    );
   });
 
-  it("maps Energy nutrient to food/calories", () => {
-    const payload = mapFdcFoodToPayload(baseFood);
-    expect(payload.attributes["food/calories"]).toBe("89 kcal");
+  it("emits a nutrition/info panel with a 100 g serving basis", () => {
+    const n = mapFdcFoodToPayload(banana).attributes["nutrition/info"];
+    expect(n.serving_size).toBe("100 g");
   });
 
-  it("maps Protein nutrient to food/protein", () => {
-    const payload = mapFdcFoodToPayload(baseFood);
-    expect(payload.attributes["food/protein"]).toBe("1.09 g");
+  it("populates the subset of schema.org fields the food provides", () => {
+    // Banana carries energy, the three macros, fiber and total sugars — but no
+    // sodium and no saturated fat, so those keys are absent (not zeroed).
+    const n = mapFdcFoodToPayload(banana).attributes["nutrition/info"];
+    expect(n).toEqual({
+      serving_size: "100 g",
+      calories: 85,
+      protein_content: 0.73,
+      fat_content: 0.22,
+      carbohydrate_content: 20.1,
+      fiber_content: 1.7,
+      sugar_content: 15.8,
+    });
+    expect(n).not.toHaveProperty("sodium_content");
+    expect(n).not.toHaveProperty("saturated_fat_content");
   });
 
-  it("maps fat nutrient to food/fat", () => {
-    const payload = mapFdcFoodToPayload(baseFood);
-    expect(payload.attributes["food/fat"]).toBe("0.33 g");
+  it("normalises sodium from milligrams to grams", () => {
+    // Cheddar reports Sodium, Na as 654 mg — the panel stores grams.
+    const n = mapFdcFoodToPayload(cheddar).attributes["nutrition/info"];
+    expect(n.sodium_content).toBeCloseTo(0.654, 6);
   });
 
-  it("maps carbohydrate nutrient to food/carbs", () => {
-    const payload = mapFdcFoodToPayload(baseFood);
-    expect(payload.attributes["food/carbs"]).toBe("22.84 g");
+  it("maps saturated fat and total sugars for a food that carries them", () => {
+    const n = mapFdcFoodToPayload(cheddar).attributes["nutrition/info"];
+    expect(n.saturated_fat_content).toBe(19.2);
+    expect(n.sugar_content).toBe(0.33);
+    expect(n.calories).toBe(408);
+    expect(n.protein_content).toBe(23.3);
   });
 
-  it("falls back to '0 kcal' when Energy nutrient is absent", () => {
-    const food: FdcFood = { ...baseFood, foodNutrients: [] };
-    const payload = mapFdcFoodToPayload(food);
-    expect(payload.attributes["food/calories"]).toBe("0 kcal");
-  });
-
-  it("falls back to '0 g' when Protein nutrient is absent", () => {
-    const food: FdcFood = { ...baseFood, foodNutrients: [] };
-    const payload = mapFdcFoodToPayload(food);
-    expect(payload.attributes["food/protein"]).toBe("0 g");
-  });
-
-  it("falls back to '0 g' when Fat or Carbs nutrients are absent", () => {
-    const food: FdcFood = { ...baseFood, foodNutrients: [] };
-    const payload = mapFdcFoodToPayload(food);
-    expect(payload.attributes["food/fat"]).toBe("0 g");
-    expect(payload.attributes["food/carbs"]).toBe("0 g");
+  it("omits every macro when the food carries no nutrients", () => {
+    const empty: FdcFood = { ...banana, foodNutrients: [] };
+    const n = mapFdcFoodToPayload(empty).attributes["nutrition/info"];
+    expect(n).toEqual({ serving_size: "100 g" });
   });
 });
 

@@ -1,4 +1,5 @@
 import type { FoodResult } from "./food-search";
+import { nutritionFromMacros, PER_SERVING } from "./nutrition";
 
 /**
  * A single recipe ingredient. `event_id` is set when the ingredient was seeded
@@ -47,6 +48,10 @@ export function customIngredient(
   carbs: number
 ): RecipeIngredient {
   const entity = `food:custom_${Math.random().toString(36).substring(2, 9)}`;
+  const nutrition = nutritionFromMacros(
+    { calories, protein, fat, carbs },
+    PER_SERVING
+  );
   return {
     entity,
     name,
@@ -59,10 +64,7 @@ export function customIngredient(
       entity,
       attributes: {
         "food/name": name,
-        "food/calories": `${calories} kcal`,
-        "food/protein": `${protein} g`,
-        "food/fat": `${fat} g`,
-        "food/carbs": `${carbs} g`,
+        "nutrition/info": nutrition,
       },
     },
   };

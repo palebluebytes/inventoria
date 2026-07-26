@@ -2,6 +2,7 @@ import { dbClient } from "../db/db.client";
 import { ingestEntity } from "../ingestion/ingest";
 import { createProjectionStore } from "./datoms.store";
 import type { ConsumptionEvent } from "../food/consumption-state";
+import { nutritionFromMacros, PER_SERVING } from "../food/nutrition";
 
 export type { ConsumptionEvent };
 
@@ -105,14 +106,17 @@ export async function saveCustomFood(
     customEntityId ||
     `food:custom_${Math.random().toString(36).substring(2, 9)}_${timestamp}`;
 
+  // Custom foods are entered as absolute totals for one serving, so the panel's
+  // basis is "1 serving" rather than 100 g (ADR-0021).
+  const nutrition = nutritionFromMacros(
+    { calories, protein, fat, carbs },
+    PER_SERVING
+  );
   const payload: any = {
     entity: entityId,
     attributes: {
       "food/name": name,
-      "food/calories": `${calories} kcal`,
-      "food/protein": `${protein} g`,
-      "food/fat": `${fat} g`,
-      "food/carbs": `${carbs} g`,
+      "nutrition/info": nutrition,
     },
   };
 
@@ -127,10 +131,6 @@ export async function saveCustomFood(
 export interface RecipeInput {
   name: string;
   ingredients: any[];
-  calories: number;
-  protein: number;
-  fat: number;
-  carbs: number;
   /** Where the recipe is from (link or free text). */
   source?: string;
   /** Free-text notes. */
@@ -142,8 +142,10 @@ export interface RecipeInput {
 }
 
 /**
- * Saves a Recipe twin. `food/*` attributes carry the aggregate macros (so the
- * recipe folds like any food); `recipe/*` attributes carry the tracker fields.
+ * Saves a Recipe twin. A recipe stores no macros of its own — its nutrition is
+ * derived from the referenced ingredient twins (ADR-0021); the aggregate is
+ * frozen into the Consumption Event's `event/metrics` snapshot at log time.
+ * `recipe/*` attributes carry the tracker fields.
  */
 export async function saveRecipe(input: RecipeInput): Promise<string> {
   const timestamp = Date.now();
@@ -151,10 +153,6 @@ export async function saveRecipe(input: RecipeInput): Promise<string> {
 
   const attributes: Record<string, any> = {
     "food/name": input.name,
-    "food/calories": `${input.calories} kcal`,
-    "food/protein": `${input.protein} g`,
-    "food/fat": `${input.fat} g`,
-    "food/carbs": `${input.carbs} g`,
     // Store direct JSON arrays; ingestEntity/worker stringifies them.
     "recipe/ingredients": input.ingredients,
   };

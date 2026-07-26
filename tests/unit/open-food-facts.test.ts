@@ -6,87 +6,61 @@ import {
   submitToOpenFoodFacts,
   type OFFProduct,
 } from "../../src/lib/food/open-food-facts";
+import nutellaProduct from "./support/fixtures/off-nutella.json";
 
-// ---- unit: mapOffProductToPayload ----------------------------------------
+// Seam 1 (ADR-0016 isolated-Mapper contract): feed the mapper a saved copy of a
+// real Open Food Facts v3 product response and assert the emitted
+// `nutrition/info` panel. The fixture is a real captured response, so the
+// mapping meets the real field shape — including OFF's quirk that `sodium_100g`
+// (0.0428 g) is a separate value from `salt_100g`.
+
+const nutella = nutellaProduct as unknown as OFFProduct;
 
 describe("mapOffProductToPayload", () => {
-  const baseProduct: OFFProduct = {
-    code: "3017620422003",
-    product: {
-      product_name: "Nutella",
-      nutriments: {
-        "energy-kcal_100g": 539,
-        proteins_100g: 6.3,
-        fat_100g: 30.9,
-        carbohydrates_100g: 57.5,
-      },
-    },
-    status: 1,
-  };
-
   it("maps barcode to entity id with gtin: prefix", () => {
-    const payload = mapOffProductToPayload(baseProduct);
-    expect(payload.entity).toBe("gtin:3017620422003");
+    expect(mapOffProductToPayload(nutella).entity).toBe("gtin:3017620422003");
   });
 
   it("maps product_name to food/name", () => {
-    const payload = mapOffProductToPayload(baseProduct);
-    expect(payload.attributes["food/name"]).toBe("Nutella");
+    expect(mapOffProductToPayload(nutella).attributes["food/name"]).toBe(
+      "Nutella"
+    );
   });
 
-  it("maps energy-kcal to food/calories as string", () => {
-    const payload = mapOffProductToPayload(baseProduct);
-    expect(payload.attributes["food/calories"]).toBe("539 kcal");
-  });
-
-  it("maps proteins to food/protein as string", () => {
-    const payload = mapOffProductToPayload(baseProduct);
-    expect(payload.attributes["food/protein"]).toBe("6.3 g");
-  });
-
-  it("maps fat to food/fat", () => {
-    const payload = mapOffProductToPayload(baseProduct);
-    expect(payload.attributes["food/fat"]).toBe("30.9 g");
-  });
-
-  it("maps carbohydrates to food/carbs", () => {
-    const payload = mapOffProductToPayload(baseProduct);
-    expect(payload.attributes["food/carbs"]).toBe("57.5 g");
+  it("emits the nutrition/info panel from the real per-100g nutriments", () => {
+    // Real Nutella carries every field except fiber, so fiber_content is
+    // absent; sodium is OFF's own 0.0428 g, not the salt figure (0.107 g).
+    const n = mapOffProductToPayload(nutella).attributes["nutrition/info"];
+    expect(n).toEqual({
+      serving_size: "100 g",
+      calories: 539,
+      protein_content: 6.3,
+      fat_content: 30.9,
+      carbohydrate_content: 57.5,
+      sugar_content: 56.3,
+      sodium_content: 0.0428,
+      saturated_fat_content: 10.6,
+    });
+    expect(n).not.toHaveProperty("fiber_content");
   });
 
   it("falls back to 'Unknown' when product_name is missing", () => {
     const product: OFFProduct = {
-      ...baseProduct,
-      product: { ...baseProduct.product, product_name: "" },
+      ...nutella,
+      product: { ...nutella.product, product_name: "" },
     };
-    const payload = mapOffProductToPayload(product);
-    expect(payload.attributes["food/name"]).toBe("Unknown");
+    expect(mapOffProductToPayload(product).attributes["food/name"]).toBe(
+      "Unknown"
+    );
   });
 
-  it("falls back to '0 kcal' when energy is missing", () => {
+  it("emits only the serving basis when no nutriments are present", () => {
     const product: OFFProduct = {
-      ...baseProduct,
-      product: {
-        ...baseProduct.product,
-        nutriments: {} as any,
-      },
+      ...nutella,
+      product: { ...nutella.product, nutriments: {} },
     };
-    const payload = mapOffProductToPayload(product);
-    expect(payload.attributes["food/calories"]).toBe("0 kcal");
-  });
-
-  it("falls back to '0 g' when proteins, fat, or carbs are missing", () => {
-    const product: OFFProduct = {
-      ...baseProduct,
-      product: {
-        ...baseProduct.product,
-        nutriments: {} as any,
-      },
-    };
-    const payload = mapOffProductToPayload(product);
-    expect(payload.attributes["food/protein"]).toBe("0 g");
-    expect(payload.attributes["food/fat"]).toBe("0 g");
-    expect(payload.attributes["food/carbs"]).toBe("0 g");
+    const n = mapOffProductToPayload(product).attributes["nutrition/info"];
+    expect(n).toEqual({ serving_size: "100 g" });
   });
 });
 

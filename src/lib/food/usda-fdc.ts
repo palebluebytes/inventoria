@@ -1,6 +1,7 @@
 import { get } from "svelte/store";
 import type { EntityPayload } from "../ingestion/ingest";
 import { settingsStore } from "../stores/settings.store";
+import { PER_100G, type NutritionInfo } from "./nutrition";
 
 // Read the current key on demand (default param, evaluated per call) instead of
 // holding a module-level store subscription that is never cleaned up.
@@ -26,11 +27,23 @@ export interface FdcFood {
   foodNutrients: FdcNutrient[];
 }
 
-// Nutrient IDs used by the FDC database
-const NUTRIENT_ID_ENERGY = 1008;
-const NUTRIENT_ID_PROTEIN = 1003;
-const NUTRIENT_ID_FAT = 1004;
-const NUTRIENT_ID_CARBS = 1005;
+// FDC nutrient IDs mapped onto the schema.org nutrition panel. FDC reports macro
+// masses in grams and sodium in milligrams; `toGrams` normalises whatever unit
+// the source used so every `*_content` field is grams (ADR-0021).
+const NUTRIENT_ID_ENERGY = 1008; // Energy (kcal)
+/** The gram-valued panel fields (everything except serving_size and calories). */
+type MassField = Exclude<keyof NutritionInfo, "serving_size" | "calories">;
+const MASS_NUTRIENTS: { id: number; key: MassField }[] = [
+  { id: 1003, key: "protein_content" }, // Protein
+  { id: 1004, key: "fat_content" }, // Total lipid (fat)
+  { id: 1005, key: "carbohydrate_content" }, // Carbohydrate, by difference
+  { id: 1079, key: "fiber_content" }, // Fiber, total dietary
+  { id: 1258, key: "saturated_fat_content" }, // Fatty acids, total saturated
+  { id: 1093, key: "sodium_content" }, // Sodium, Na (mg)
+];
+// FDC uses either 2000 ("Total Sugars") or the older 1063 ("Sugars, Total");
+// prefer whichever the food carries.
+const SUGAR_IDS = [2000, 1063];
 
 // ---------------------------------------------------------------------------
 // Mapper
@@ -43,30 +56,49 @@ function findNutrient(
   return nutrients.find((n) => n.nutrientId === id);
 }
 
+/** Normalises an FDC mass value to grams from its (case-insensitive) unit. */
+function toGrams(value: number, unitName: string): number {
+  switch (unitName.toUpperCase()) {
+    case "MG":
+      return value / 1000;
+    case "UG":
+    case "µG":
+      return value / 1_000_000;
+    default:
+      return value; // G
+  }
+}
+
 /**
  * Maps a USDA FoodData Central food entry to an EntityPayload ready for
- * ingestion into the EAVT ledger.
+ * ingestion into the EAVT ledger. Nutrition is emitted as a single atomic
+ * `nutrition/info` panel (ADR-0021), populated with whatever subset of the
+ * schema.org fields the food provides.
  */
 export function mapFdcFoodToPayload(food: FdcFood): EntityPayload {
+  const nutrition: NutritionInfo = { serving_size: PER_100G };
+
   const energy = findNutrient(food.foodNutrients, NUTRIENT_ID_ENERGY);
-  const protein = findNutrient(food.foodNutrients, NUTRIENT_ID_PROTEIN);
-  const fat = findNutrient(food.foodNutrients, NUTRIENT_ID_FAT);
-  const carbs = findNutrient(food.foodNutrients, NUTRIENT_ID_CARBS);
+  if (energy) nutrition.calories = energy.value;
+
+  for (const { id, key } of MASS_NUTRIENTS) {
+    const n = findNutrient(food.foodNutrients, id);
+    if (n) nutrition[key] = toGrams(n.value, n.unitName);
+  }
+
+  for (const id of SUGAR_IDS) {
+    const sugar = findNutrient(food.foodNutrients, id);
+    if (sugar) {
+      nutrition.sugar_content = toGrams(sugar.value, sugar.unitName);
+      break;
+    }
+  }
 
   return {
     entity: `fdc:${food.fdcId}`,
     attributes: {
       "food/name": food.description,
-      "food/calories": energy
-        ? `${energy.value} ${energy.unitName.toLowerCase()}`
-        : "0 kcal",
-      "food/protein": protein
-        ? `${protein.value} ${protein.unitName.toLowerCase()}`
-        : "0 g",
-      "food/fat": fat ? `${fat.value} ${fat.unitName.toLowerCase()}` : "0 g",
-      "food/carbs": carbs
-        ? `${carbs.value} ${carbs.unitName.toLowerCase()}`
-        : "0 g",
+      "nutrition/info": nutrition,
     },
   };
 }
