@@ -297,6 +297,37 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.locator(".nav-item", { hasText: "Food Twins" }).click();
   }
 
+  // Long-press a locator to start item selection on the dashboard.
+  async function longPress(
+    page: import("@playwright/test").Page,
+    locator: import("@playwright/test").Locator
+  ) {
+    // page.mouse uses viewport coords and does not auto-scroll, so bring the
+    // element into view first.
+    await locator.scrollIntoViewIfNeeded();
+    const box = await locator.boundingBox();
+    if (!box) throw new Error("element not visible for long-press");
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(600);
+    await page.mouse.up();
+  }
+
+  // Log one USDA food into a meal via the direct log sheet.
+  async function logUsdaFood(
+    page: import("@playwright/test").Page,
+    meal: string,
+    query: string,
+    resultName: string,
+    grams: string
+  ) {
+    await page.locator("button", { hasText: `+ Add ${meal}` }).click();
+    await page.locator("#food-search-input").fill(query);
+    await page.locator(".result-item-btn", { hasText: resultName }).click();
+    await page.locator("#quantity-input").fill(grams);
+    await page.locator("#log-food-btn").click();
+  }
+
   test("loads the calorie tracker dashboard with initial empty target progress", async ({
     page,
   }) => {
@@ -315,78 +346,59 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.locator(".calories-sub")).toContainText("2000");
   });
 
-  test("can search USDA and log consumption of a food item", async ({
+  test("opens the log sheet directly and logs a USDA food", async ({
     page,
   }) => {
     await page.goto("/?mem=1");
     await waitForDbReady(page);
     await setupApiKeys(page);
 
-    // Open logging menu for Breakfast
+    // "+ Add breakfast" opens the log sheet directly — no chooser step.
     await page.locator("button", { hasText: "+ Add breakfast" }).click();
+    await expect(page.locator("#food-search-input")).toBeVisible();
 
-    // Select USDA Search
-    await page.locator(".menu-option-btn", { hasText: "Search FDC" }).click();
-
-    // Query for banana
-    await page.locator("#usda-modal-input").fill("banana");
-
-    // Exact button selector in search-section
-    await page.locator(".search-section button", { hasText: "Search" }).click();
-
-    // Select Mock Banana from results
+    // Search (debounced) and select the result.
+    await page.locator("#food-search-input").fill("banana");
     await page.locator(".result-item-btn", { hasText: "Mock Banana" }).click();
 
-    // Set quantity
+    // Type the quantity (no steppers) and log.
     await page.locator("#quantity-input").fill("150");
+    await page.locator("#log-food-btn").click();
 
-    // Log the food
-    await page.locator("button", { hasText: "Log Food" }).click();
-
-    // Verify food listed on dashboard
+    // Verify on the dashboard.
     const breakfastSection = page.locator(".meal-section", {
       hasText: "BREAKFAST",
     });
     await expect(breakfastSection).toContainText("Mock Banana");
     await expect(breakfastSection).toContainText("150g");
-    await expect(breakfastSection).toContainText("134 kcal"); // 89 * 1.5 = 133.5 -> 134 kcal
-
-    // Verify progress update
+    await expect(breakfastSection).toContainText("134 kcal"); // 89 * 1.5 = 133.5 -> 134
     await expect(page.locator(".calories-num")).toHaveText("134");
   });
 
-  test("can log a custom food with details and a photo", async ({ page }) => {
+  test("logs a custom food with macros and a photo", async ({ page }) => {
     await page.goto("/?mem=1");
     await waitForDbReady(page);
 
-    // Open logging menu for Lunch
+    // Open the sheet for lunch and switch to the Custom method.
     await page.locator("button", { hasText: "+ Add lunch" }).click();
+    await page.locator(".method", { hasText: "Custom" }).click();
 
-    // Select Custom Entry
-    await page.locator(".menu-option-btn", { hasText: "Add Photo" }).click();
+    await page.locator("#custom-name").fill("Avocado Salad");
+    await page.locator("#custom-cal").fill("300");
+    await page.locator("#custom-prot").fill("6");
+    await page.locator("#custom-fat").fill("25");
+    await page.locator("#custom-carb").fill("12");
 
-    // Input details
-    await page.locator("#photo-name-input").fill("Avocado Salad");
-    await page.locator("#photo-cal-input").fill("300");
-    await page.locator("#photo-prot-input").fill("6");
-    await page.locator("#photo-fat-input").fill("25");
-    await page.locator("#photo-carb-input").fill("12");
-
-    // Simulate photo upload
+    // Attach a photo (optional attribute of the custom entry).
     await page.setInputFiles(".hidden-file-input", {
       name: "salad.png",
       mimeType: "image/png",
       buffer: Buffer.from("dummy-image-data-base64"),
     });
+    await expect(page.locator(".photo-preview")).toBeVisible();
 
-    // Check preview is rendered
-    const previewImg = page.locator(".photo-preview");
-    await expect(previewImg).toBeVisible();
+    await page.locator("#log-food-btn").click();
 
-    // Log food
-    await page.locator("button", { hasText: "Log Food" }).click();
-
-    // Verify food twin listed on dashboard with thumbnail
     const lunchSection = page.locator(".meal-section", { hasText: "LUNCH" });
     await expect(lunchSection).toContainText("Avocado Salad");
     await expect(lunchSection).toContainText("1 serving");
@@ -394,152 +406,74 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(lunchSection.locator(".meal-item-thumb")).toBeVisible();
   });
 
-  test("can build a recipe twin, scrape steps, and log it with multiple ingredients", async ({
-    page,
-  }) => {
+  // Select two logged foods and start building a recipe from them.
+  async function selectTwoAndBuild(page: import("@playwright/test").Page) {
+    await logUsdaFood(page, "dinner", "oats", "Mock Oats", "50"); // 379 * .5 = 190
+    await logUsdaFood(page, "dinner", "banana", "Mock Banana", "150"); // 89 * 1.5 = 134
+
+    const dinnerSection = page.locator(".meal-section", { hasText: "DINNER" });
+    await longPress(
+      page,
+      dinnerSection.locator(".meal-item-card", { hasText: "Mock Oats" })
+    );
+    await expect(page.locator(".selbar")).toContainText("1 selected");
+    await dinnerSection
+      .locator(".meal-item-card", { hasText: "Mock Banana" })
+      .click();
+    await expect(page.locator(".selbar")).toContainText("2 selected");
+
+    await page.locator("#build-recipe-btn").click();
+    return dinnerSection;
+  }
+
+  test("builds a recipe that replaces the selected foods", async ({ page }) => {
     await page.goto("/?mem=1");
     await waitForDbReady(page);
     await setupApiKeys(page);
 
-    // Open logging menu for Dinner
-    await page.locator("button", { hasText: "+ Add dinner" }).click();
+    const dinnerSection = await selectTwoAndBuild(page);
 
-    // Select Build Recipe
-    await page.locator(".menu-option-btn", { hasText: "Build Recipe" }).click();
+    // Seeded with both foods: 190 + 134 = 324 kcal.
+    await page.locator("#recipe-name").fill("Dinner Combo");
+    await expect(page.locator(".recipe-total")).toContainText("324 kcal");
+    await page.locator("#save-recipe-btn").click();
 
-    // Recipe Meta details
-    await page.locator("#recipe-name").fill("Oat Smoothie");
-    await page.locator("#recipe-desc").fill("Post-run snack");
-    await page
-      .locator("#recipe-source")
-      .fill("https://epicurious.com/smoothie-source");
-    await page.locator("#recipe-url").fill("https://epicurious.com/smoothie");
-
-    // Scrape steps
-    await page.locator("button", { hasText: "Scrape" }).click();
-    const stepsArea = page.locator("#recipe-steps");
-    await expect(stepsArea).toHaveValue(
-      /Scraped from: https:\/\/epicurious\.com\/smoothie/
-    );
-
-    // 1. Add USDA Ingredient (Oats)
-    await page.locator("button", { hasText: "+ Add Ingredient" }).click();
-    await page.locator("#recipe-usda-input").fill("oats");
-    await page.locator(".search-section button", { hasText: "Search" }).click();
-    await page.locator(".result-item-btn", { hasText: "Mock Oats" }).click();
-    await page.locator("#ing-quantity-input").fill("50");
-    await page.locator("button", { hasText: "Add to Recipe" }).click();
-
-    // 2. Add Barcode Ingredient (Mock Nutella)
-    await page.locator("button", { hasText: "+ Add Ingredient" }).click();
-    await page.locator(".tab-btn", { hasText: "Barcode Lookup" }).click();
-    await page.locator("#recipe-barcode-input").fill("3017620422003");
-    await page.locator(".search-section button", { hasText: "Lookup" }).click();
-    // Nutella returns directly to quantity screen as barcode is exact match
-    await page.locator("#ing-quantity-input").fill("20");
-    await page.locator("button", { hasText: "Add to Recipe" }).click();
-
-    // Verify recipe aggregate totals on form
-    // Oats 50g: (379 * 0.5) = 190 kcal. Nutella 20g: (539 * 0.2) = 108 kcal. Total: 298 kcal
-    const totalCalsText = page.locator(".preview-pill.cal .pill-val");
-    await expect(totalCalsText).toHaveText("298 kcal");
-
-    // Save and Log Recipe
-    await page.locator("button", { hasText: "Save & Log Recipe" }).click();
-
-    // Verify on dashboard
-    const dinnerSection = page.locator(".meal-section", { hasText: "DINNER" });
-    await expect(dinnerSection).toContainText("Oat Smoothie");
-    await expect(dinnerSection).toContainText("298 kcal");
+    // The recipe appears; the two originals are replaced (retracted).
+    await expect(dinnerSection).toContainText("Dinner Combo");
+    await expect(dinnerSection).not.toContainText("Mock Oats");
+    await expect(dinnerSection).not.toContainText("Mock Banana");
+    // Only the recipe is counted now.
+    await expect(page.locator(".calories-num")).toHaveText("324");
   });
 
-  test("can build a realistic Dal Makhani recipe twin with custom source URL and multiple ingredients", async ({
+  test("keeps an ingredient logged when removed from the recipe", async ({
     page,
   }) => {
     await page.goto("/?mem=1");
     await waitForDbReady(page);
     await setupApiKeys(page);
 
-    // Open logging menu for Dinner
-    await page.locator("button", { hasText: "+ Add dinner" }).click();
+    const dinnerSection = await selectTwoAndBuild(page);
 
-    // Select Build Recipe
-    await page.locator(".menu-option-btn", { hasText: "Build Recipe" }).click();
-
-    // Recipe Meta details
-    await page.locator("#recipe-name").fill("Dal Makhani");
+    // Remove Banana from the recipe — it should stay logged on its own.
     await page
-      .locator("#recipe-desc")
-      .fill("Classic buttery, creamy slow cooked black lentils");
-    await page
-      .locator("#recipe-source")
-      .fill("https://www.indianhealthyrecipes.com/dal-makhani-recipe/");
-    await page
-      .locator("#recipe-url")
-      .fill("https://www.indianhealthyrecipes.com/dal-makhani-recipe/");
-
-    // Scrape steps
-    await page.locator("button", { hasText: "Scrape" }).click();
-    const stepsArea = page.locator("#recipe-steps");
-    await expect(stepsArea).toHaveValue(
-      /Scraped from: https:\/\/www\.indianhealthyrecipes\.com\/dal-makhani-recipe\//
-    );
-
-    // 1. Add Urad Dal (200g)
-    await page.locator("button", { hasText: "+ Add Ingredient" }).click();
-    await page.locator("#recipe-usda-input").fill("urad");
-    await page.locator(".search-section button", { hasText: "Search" }).click();
-    await page
-      .locator(".result-item-btn", { hasText: "Black Urad Dal" })
+      .locator(".recipe-ingredient", { hasText: "Mock Banana" })
+      .locator(".remove-ingredient")
       .click();
-    await page.locator("#ing-quantity-input").fill("200");
-    await page.locator("button", { hasText: "Add to Recipe" }).click();
+    await page.locator("#recipe-name").fill("Just Oats");
+    await expect(page.locator(".recipe-total")).toContainText("190 kcal");
 
-    // 2. Add Rajma (55g)
-    await page.locator("button", { hasText: "+ Add Ingredient" }).click();
-    await page.locator("#recipe-usda-input").fill("rajma");
-    await page.locator(".search-section button", { hasText: "Search" }).click();
-    await page
-      .locator(".result-item-btn", { hasText: "Red Kidney Beans (Rajma)" })
-      .click();
-    await page.locator("#ing-quantity-input").fill("55");
-    await page.locator("button", { hasText: "Add to Recipe" }).click();
+    // Add a discrete step for good measure.
+    await page.locator('[data-section="steps"]').click();
+    await page.locator(".recipe-step").first().fill("Soak the oats");
 
-    // 3. Add Butter (42g)
-    await page.locator("button", { hasText: "+ Add Ingredient" }).click();
-    await page.locator("#recipe-usda-input").fill("butter");
-    await page.locator(".search-section button", { hasText: "Search" }).click();
-    await page
-      .locator(".result-item-btn", { hasText: "Unsalted Butter" })
-      .click();
-    await page.locator("#ing-quantity-input").fill("42");
-    await page.locator("button", { hasText: "Add to Recipe" }).click();
+    await page.locator("#save-recipe-btn").click();
 
-    // 4. Add Heavy Cream (80g)
-    await page.locator("button", { hasText: "+ Add Ingredient" }).click();
-    await page.locator("#recipe-usda-input").fill("cream");
-    await page.locator(".search-section button", { hasText: "Search" }).click();
-    await page
-      .locator(".result-item-btn", { hasText: "Heavy Whipping Cream" })
-      .click();
-    await page.locator("#ing-quantity-input").fill("80");
-    await page.locator("button", { hasText: "Add to Recipe" }).click();
-
-    // Verify totals:
-    // Urad Dal: 341 kcal/100g * 2 = 682 kcal
-    // Rajma: 333 kcal/100g * 0.55 = 183.15 kcal -> 183 kcal
-    // Butter: 717 kcal/100g * 0.42 = 301.14 kcal -> 301 kcal
-    // Cream: 345 kcal/100g * 0.8 = 276 kcal
-    // Total = 682 + 183 + 301 + 276 = 1442 kcal
-    const totalCalsText = page.locator(".preview-pill.cal .pill-val");
-    await expect(totalCalsText).toHaveText("1442 kcal");
-
-    // Save and Log Recipe
-    await page.locator("button", { hasText: "Save & Log Recipe" }).click();
-
-    // Verify on dashboard
-    const dinnerSection = page.locator(".meal-section", { hasText: "DINNER" });
-    await expect(dinnerSection).toContainText("Dal Makhani");
-    await expect(dinnerSection).toContainText("1442 kcal");
+    // Oats replaced by the recipe; Banana still logged separately.
+    await expect(dinnerSection).toContainText("Just Oats");
+    await expect(dinnerSection).toContainText("Mock Banana");
+    await expect(dinnerSection).not.toContainText("Mock Oats");
+    // Recipe 190 + kept Banana 134 = 324.
+    await expect(page.locator(".calories-num")).toHaveText("324");
   });
 });

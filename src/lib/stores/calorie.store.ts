@@ -124,43 +124,69 @@ export async function saveCustomFood(
   return entityId;
 }
 
+export interface RecipeInput {
+  name: string;
+  ingredients: any[];
+  calories: number;
+  protein: number;
+  fat: number;
+  carbs: number;
+  /** Where the recipe is from (link or free text). */
+  source?: string;
+  /** Free-text notes. */
+  notes?: string;
+  /** Ordered preparation steps. */
+  steps?: string[];
+  /** Optional recipe photo. */
+  photoBase64?: string;
+}
+
 /**
- * Saves a Recipe twin.
+ * Saves a Recipe twin. `food/*` attributes carry the aggregate macros (so the
+ * recipe folds like any food); `recipe/*` attributes carry the tracker fields.
  */
-export async function saveRecipe(
-  name: string,
-  description: string,
-  scrapeUrl: string,
-  ingredients: any[],
-  calories: number,
-  protein: number,
-  fat: number,
-  carbs: number,
-  sourceUrl?: string
-): Promise<string> {
+export async function saveRecipe(input: RecipeInput): Promise<string> {
   const timestamp = Date.now();
   const entityId = `recipe:${Math.random().toString(36).substring(2, 9)}_${timestamp}`;
 
-  const payload: any = {
-    entity: entityId,
-    attributes: {
-      "food/name": name,
-      "food/calories": `${calories} kcal`,
-      "food/protein": `${protein} g`,
-      "food/fat": `${fat} g`,
-      "food/carbs": `${carbs} g`,
-      "recipe/description": description,
-      "recipe/scrape_url": scrapeUrl,
-      "recipe/ingredients": ingredients, // Store direct JSON array, ingestEntity/worker stringifies it
-    },
+  const attributes: Record<string, any> = {
+    "food/name": input.name,
+    "food/calories": `${input.calories} kcal`,
+    "food/protein": `${input.protein} g`,
+    "food/fat": `${input.fat} g`,
+    "food/carbs": `${input.carbs} g`,
+    // Store direct JSON arrays; ingestEntity/worker stringifies them.
+    "recipe/ingredients": input.ingredients,
   };
+  if (input.source?.trim()) attributes["recipe/source"] = input.source.trim();
+  if (input.notes?.trim()) attributes["recipe/notes"] = input.notes.trim();
+  if (input.steps && input.steps.length)
+    attributes["recipe/steps"] = input.steps;
+  if (input.photoBase64) attributes["recipe/photo_base64"] = input.photoBase64;
 
-  if (sourceUrl) {
-    payload.attributes["recipe/source_url"] = sourceUrl;
-  }
-
-  await dbClient.append(ingestEntity(payload));
+  await dbClient.append(ingestEntity({ entity: entityId, attributes }));
   return entityId;
+}
+
+/**
+ * Retracts a Consumption Event by appending a newer `event/status = "retracted"`
+ * datom (never deletes — the projection's latest-wins fold hides it). Mirrors the
+ * habit soft-archive convention (ADR-0008). `replacedBy` links the retracted event
+ * to whatever supersedes it (e.g. the recipe event) for an auditable trail.
+ */
+export async function retractConsumptionEvent(
+  eventId: string,
+  replacedBy: string
+): Promise<void> {
+  await dbClient.append(
+    ingestEntity({
+      entity: eventId,
+      attributes: {
+        "event/status": "retracted",
+        "event/replaced_by": replacedBy,
+      },
+    })
+  );
 }
 
 /**

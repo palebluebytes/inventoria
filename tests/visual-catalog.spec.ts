@@ -252,15 +252,13 @@ test.describe("Visual Catalog Generator", () => {
     await resetDatabase(page);
     await setupApiKeys(page);
 
-    // 2. Populate Food Dashboard (Log a Breakfast item)
+    // 2. Populate Food Dashboard (Log a Breakfast item via the direct sheet)
     await page.locator(".nav-item", { hasText: "Food Twins" }).click();
     await page.locator("button", { hasText: "+ Add breakfast" }).click();
-    await page.locator(".menu-option-btn", { hasText: "Search FDC" }).click();
-    await page.locator("#usda-modal-input").fill("banana");
-    await page.locator(".search-section button", { hasText: "Search" }).click();
+    await page.locator("#food-search-input").fill("banana");
     await page.locator(".result-item-btn", { hasText: "Mock Banana" }).click();
     await page.locator("#quantity-input").fill("150");
-    await page.locator("button", { hasText: "Log Food" }).click();
+    await page.locator("#log-food-btn").click();
 
     // Take Food Dashboard Screenshot
     await takeFullPageScreenshot(page, "food-dashboard.png");

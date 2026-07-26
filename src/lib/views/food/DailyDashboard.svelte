@@ -7,18 +7,44 @@
   import Card from "../../ui/Card.svelte";
   import Badge from "../../ui/Badge.svelte";
   import Modal from "../../ui/Modal.svelte";
+  import { longpress } from "../../actions/longpress";
 
   let {
     dbReady,
     selectedDate = $bindable(new Date()),
-    onOpenLogFlow,
+    onAddMeal,
+    selectedIds,
+    onLongPressItem,
+    onTapItem,
   }: {
     dbReady: boolean;
     selectedDate: Date;
-    onOpenLogFlow: (
-      meal_type: "breakfast" | "lunch" | "dinner" | "snack"
-    ) => void;
+    onAddMeal: (meal_type: "breakfast" | "lunch" | "dinner" | "snack") => void;
+    selectedIds: Set<string>;
+    onLongPressItem: (id: string) => void;
+    onTapItem: (id: string) => void;
   } = $props();
+
+  // Long-press a logged item to start selecting; while a selection is active,
+  // tapping items toggles them (for building a recipe from them).
+  let selectionActive = $derived(selectedIds.size > 0);
+
+  // A long-press is followed by a synthetic click on release; without this the
+  // click would immediately toggle the item we just selected back off.
+  let suppressNextClick = false;
+
+  function onCardLongPress(id: string) {
+    suppressNextClick = true;
+    onLongPressItem(id);
+  }
+
+  function onCardClick(id: string) {
+    if (suppressNextClick) {
+      suppressNextClick = false;
+      return;
+    }
+    if (selectionActive) onTapItem(id);
+  }
 
   // Selected day's consumption, narrowed from the global projection on the main thread
   let dayItems = $derived(consumptionForDay($consumptionStore, selectedDate));
@@ -267,7 +293,7 @@
         <Button
           variant="secondary"
           disabled={!dbReady}
-          onclick={() => onOpenLogFlow(meal_type)}
+          onclick={() => onAddMeal(meal_type)}
         >
           + Add {meal_type}
         </Button>
@@ -280,13 +306,42 @@
       {:else}
         <div class="meal-items-list">
           {#each groupedMeals[meal_type] as item}
-            <div class="meal-item-card">
+            {@const isSelected = selectedIds.has(item.id)}
+            <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+            <div
+              class="meal-item-card"
+              class:selectable={selectionActive}
+              class:selected={isSelected}
+              use:longpress={{ onlongpress: () => onCardLongPress(item.id) }}
+              onclick={() => onCardClick(item.id)}
+              onkeydown={(e) =>
+                selectionActive &&
+                (e.key === "Enter" || e.key === " ") &&
+                onTapItem(item.id)}
+              role={selectionActive ? "button" : undefined}
+              tabindex={selectionActive ? 0 : undefined}
+            >
+              {#if selectionActive}
+                <span
+                  class="select-check"
+                  class:on={isSelected}
+                  aria-hidden="true">{isSelected ? "✓" : ""}</span
+                >
+              {/if}
               {#if item.photoBase64}
                 <button
                   type="button"
                   class="meal-item-thumb-btn"
                   aria-label="View {item.foodName} photo"
-                  onclick={() => (previewPhoto = item.photoBase64)}
+                  onclick={(e) => {
+                    e.stopPropagation();
+                    if (suppressNextClick) {
+                      suppressNextClick = false;
+                      return;
+                    }
+                    if (selectionActive) onTapItem(item.id);
+                    else previewPhoto = item.photoBase64;
+                  }}
                 >
                   <img
                     src={item.photoBase64}
@@ -588,6 +643,31 @@
   }
   .meal-item-card:hover {
     background: rgba(255, 255, 255, 0.04);
+  }
+  .meal-item-card.selectable {
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+  }
+  .meal-item-card.selected {
+    background: #ffffe0;
+    box-shadow: 4px 4px 0 #000;
+  }
+  .select-check {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border: 2px solid #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 0.85rem;
+  }
+  .select-check.on {
+    background: #000;
+    color: #ccff00;
   }
   .meal-item-thumb-btn {
     display: inline-flex;

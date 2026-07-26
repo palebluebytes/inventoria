@@ -5,6 +5,7 @@ import {
   logFoodConsumption,
   saveCustomFood,
   saveRecipe,
+  retractConsumptionEvent,
   consumptionForDay,
 } from "../../src/lib/stores/calorie.store";
 import { computeConsumption } from "../../src/lib/food/consumption-state";
@@ -159,16 +160,17 @@ describe("Calorie Store Actions", () => {
         { name: "Milk", quantity: "200ml", calories: 120 },
       ];
 
-      const recipeId = await saveRecipe(
-        "Oatmeal",
-        "Healthy breakfast oatmeal",
-        "https://example.com/oats",
+      const recipeId = await saveRecipe({
+        name: "Oatmeal",
         ingredients,
-        310,
-        12,
-        6,
-        52
-      );
+        calories: 310,
+        protein: 12,
+        fat: 6,
+        carbs: 52,
+        source: "https://example.com/oats",
+        notes: "Healthy breakfast oatmeal",
+        steps: ["Boil water", "Add oats"],
+      });
 
       expect(recipeId).toMatch(/^recipe:/);
       expect(mockAppend).toHaveBeenCalledTimes(1);
@@ -177,20 +179,36 @@ describe("Calorie Store Actions", () => {
       const nameDatom = datoms.find((d) => d.attribute === "food/name");
       expect(nameDatom?.value).toBe("Oatmeal");
 
-      const descDatom = datoms.find(
-        (d) => d.attribute === "recipe/description"
-      );
-      expect(descDatom?.value).toBe("Healthy breakfast oatmeal");
+      const notesDatom = datoms.find((d) => d.attribute === "recipe/notes");
+      expect(notesDatom?.value).toBe("Healthy breakfast oatmeal");
 
-      const scrapeUrlDatom = datoms.find(
-        (d) => d.attribute === "recipe/scrape_url"
-      );
-      expect(scrapeUrlDatom?.value).toBe("https://example.com/oats");
+      const sourceDatom = datoms.find((d) => d.attribute === "recipe/source");
+      expect(sourceDatom?.value).toBe("https://example.com/oats");
+
+      const stepsDatom = datoms.find((d) => d.attribute === "recipe/steps");
+      expect(stepsDatom?.value).toEqual(["Boil water", "Add oats"]);
 
       const ingredientsDatom = datoms.find(
         (d) => d.attribute === "recipe/ingredients"
       );
       expect(ingredientsDatom?.value).toEqual(ingredients);
+    });
+  });
+
+  describe("retractConsumptionEvent", () => {
+    it("appends a retracted status + replaced_by link", async () => {
+      const mockAppend = vi
+        .spyOn(dbClient, "append")
+        .mockResolvedValue(undefined);
+
+      await retractConsumptionEvent("event:consume_abc", "recipe:xyz");
+
+      const datoms = mockAppend.mock.calls[0][0];
+      const status = datoms.find((d) => d.attribute === "event/status");
+      expect(status?.entity).toBe("event:consume_abc");
+      expect(status?.value).toBe("retracted");
+      const link = datoms.find((d) => d.attribute === "event/replaced_by");
+      expect(link?.value).toBe("recipe:xyz");
     });
   });
 });
@@ -200,6 +218,51 @@ describe("computeConsumption", () => {
 
   it("returns empty array for no datoms", () => {
     expect(computeConsumption(asStored([]))).toEqual([]);
+  });
+
+  it("hides events whose latest status is retracted", () => {
+    const t = 1717070000000;
+    const datoms = [
+      {
+        entity: "event:consume_a",
+        attribute: "event/type",
+        value: s("ConsumeAction"),
+        time: t,
+      },
+      {
+        entity: "event:consume_a",
+        attribute: "event/meal_type",
+        value: s("lunch"),
+        time: t,
+      },
+      {
+        entity: "event:consume_b",
+        attribute: "event/type",
+        value: s("ConsumeAction"),
+        time: t,
+      },
+      {
+        entity: "event:consume_b",
+        attribute: "event/meal_type",
+        value: s("lunch"),
+        time: t,
+      },
+      // b is retracted by a later datom (append-only "delete").
+      {
+        entity: "event:consume_b",
+        attribute: "event/status",
+        value: s("retracted"),
+        time: t + 1,
+      },
+      {
+        entity: "event:consume_b",
+        attribute: "event/replaced_by",
+        value: s("recipe:z"),
+        time: t + 1,
+      },
+    ];
+    const events = computeConsumption(asStored(datoms));
+    expect(events.map((e) => e.id)).toEqual(["event:consume_a"]);
   });
 
   it("groups events, unpacks the metrics blob, and joins the food twin", () => {

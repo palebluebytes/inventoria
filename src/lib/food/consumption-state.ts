@@ -24,6 +24,13 @@ export interface ConsumptionEvent {
   scrapeUrl?: string;
   sourceUrl?: string;
   ingredients?: unknown;
+  /** "retracted" hides the event from the projection (append-only "delete"). */
+  status?: string;
+  replaced_by?: string;
+  // Recipe tracker fields (enriched from the recipe twin).
+  notes?: string;
+  steps?: string[];
+  source?: string;
 }
 
 /**
@@ -41,8 +48,8 @@ export function computeConsumption(datoms: StoredDatom[]): ConsumptionEvent[] {
     "recipe/",
   ]);
 
-  const events: ConsumptionEvent[] = Array.from(eventGroups.values()).map(
-    (g) => {
+  const events: ConsumptionEvent[] = Array.from(eventGroups.values())
+    .map((g) => {
       const f = g.fields as Record<string, any>;
       const event: ConsumptionEvent = { id: g.id, time: g.firstTime, ...f };
       if (f.metrics) {
@@ -52,8 +59,10 @@ export function computeConsumption(datoms: StoredDatom[]): ConsumptionEvent[] {
         event.carbs = f.metrics.carbs;
       }
       return event;
-    }
-  );
+    })
+    // Retracted events (e.g. foods replaced by a recipe) are hidden but never
+    // deleted — the ledger keeps their datoms.
+    .filter((e) => e.status !== "retracted");
 
   // Enrich each event with its target twin's display fields.
   for (const event of events) {
@@ -67,6 +76,10 @@ export function computeConsumption(datoms: StoredDatom[]): ConsumptionEvent[] {
     event.scrapeUrl = t.scrape_url;
     event.sourceUrl = t.source_url || t.source;
     event.ingredients = t.ingredients;
+    // Recipe tracker fields.
+    event.notes = t.notes;
+    event.steps = t.steps;
+    event.source = t.source;
   }
 
   return events;

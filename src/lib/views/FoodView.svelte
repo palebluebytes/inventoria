@@ -1,27 +1,31 @@
 <script lang="ts">
   import { createQueryStore } from "../stores/datoms.store";
   import { HLC_ORDER_DESC } from "../db/hlc";
+  import { consumptionStore, consumptionForDay } from "../stores/calorie.store";
   import DailyDashboard from "./food/DailyDashboard.svelte";
-  import FoodSearchModal from "./food/FoodSearchModal.svelte";
-  import AddPhotoModal from "./food/AddPhotoModal.svelte";
+  import LogFoodSheet from "./food/LogFoodSheet.svelte";
   import RecipeModal from "./food/RecipeModal.svelte";
 
   import Card from "../ui/Card.svelte";
   import Badge from "../ui/Badge.svelte";
-  import Button from "../ui/Button.svelte";
-  import Modal from "../ui/Modal.svelte";
+
+  type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 
   let { dbReady }: { dbReady: boolean } = $props();
 
   let selectedDate = $state(new Date());
-  let activeModal = $state<"menu" | "search" | "photo" | "recipe" | null>(null);
-  let active_meal_type = $state<"breakfast" | "lunch" | "dinner" | "snack">(
-    "breakfast"
-  );
+  // The meal whose log sheet is open (null = closed). Opening is direct — no
+  // intermediate chooser.
+  let sheetMeal = $state<MealType | null>(null);
+  // Consumption-event ids selected (long-press) for building a recipe.
+  let selected_ids = $state<Set<string>>(new Set());
+  let recipeOpen = $state(false);
+  let recipe_meal_type = $state<MealType>("dinner");
+  let recipe_seed = $state<any[]>([]);
 
-  let entityName = "Food";
+  const entityName = "Food";
 
-  // Keep query of raw twins for debugging/viewing all stored twins
+  // Raw twins ledger view (unchanged secondary panel).
   const foodTwinsStore = createQueryStore<{
     entity: string;
     attribute: string;
@@ -30,9 +34,53 @@
     `SELECT entity, attribute, value FROM datoms WHERE attribute = 'food/name' ORDER BY ${HLC_ORDER_DESC} LIMIT 20`
   );
 
-  function openMenu(meal_type: "breakfast" | "lunch" | "dinner" | "snack") {
-    active_meal_type = meal_type;
-    activeModal = "menu";
+  let dayItems = $derived(consumptionForDay($consumptionStore, selectedDate));
+  let selectedItems = $derived(dayItems.filter((i) => selected_ids.has(i.id)));
+
+  function openSheet(meal_type: MealType) {
+    sheetMeal = meal_type;
+  }
+
+  function longPress(id: string) {
+    const next = new Set(selected_ids);
+    next.add(id);
+    selected_ids = next;
+  }
+
+  function tapItem(id: string) {
+    if (selected_ids.size === 0) return;
+    const next = new Set(selected_ids);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    selected_ids = next;
+  }
+
+  function clearSelection() {
+    selected_ids = new Set();
+  }
+
+  // Turn selected consumption events into recipe ingredients (their logged macros)
+  // carrying each event's id, so the recipe builder can retract the ones that
+  // remain as ingredients. Then open the seeded builder.
+  function buildRecipe() {
+    recipe_seed = selectedItems.map((it) => {
+      const entity = it.target || it.id;
+      const name = it.foodName || "Food";
+      return {
+        entity,
+        name,
+        quantityLabel: it.quantity || "1 serving",
+        calories: Math.round(Number(it.calories) || 0),
+        protein: Number(it.protein) || 0,
+        fat: Number(it.fat) || 0,
+        carbs: Number(it.carbs) || 0,
+        payload: { entity, attributes: { "food/name": name } },
+        event_id: it.id,
+      };
+    });
+    recipe_meal_type = (selectedItems[0]?.meal_type as MealType) || "dinner";
+    recipeOpen = true;
+    clearSelection();
   }
 </script>
 
@@ -45,7 +93,14 @@
 </header>
 
 <!-- Main Dashboard -->
-<DailyDashboard {dbReady} bind:selectedDate onOpenLogFlow={openMenu} />
+<DailyDashboard
+  {dbReady}
+  bind:selectedDate
+  onAddMeal={openSheet}
+  selectedIds={selected_ids}
+  onLongPressItem={longPress}
+  onTapItem={tapItem}
+/>
 
 <!-- Secondary: Saved Digital Twins Ledger -->
 <Card class="mt-6">
@@ -71,89 +126,34 @@
   {/if}
 </Card>
 
-<!-- Overlay menu modal -->
-{#if activeModal === "menu"}
-  <Modal
-    onClose={() => (activeModal = null)}
-    overlayBg="rgba(255, 255, 255, 0.9)"
-    overlayBlur="none"
-    title="Log {active_meal_type.toUpperCase()}"
-  >
-    {#snippet children({ props, close })}
-      <div {...props} class="menu-modal-card">
-        <div class="menu-header">
-          <h3>Log {active_meal_type.toUpperCase()}</h3>
-          <button class="close-btn" onclick={close}>&times;</button>
-        </div>
-        <div class="menu-options mt-4">
-          <button
-            class="menu-option-btn"
-            onclick={() => (activeModal = "search")}
-          >
-            <span class="menu-icon">🔍</span>
-            <div class="menu-text">
-              <span class="menu-title">Search FDC / scan Barcode</span>
-              <span class="menu-desc"
-                >Query USDA foods or Open Food Facts barcode</span
-              >
-            </div>
-          </button>
-
-          <button
-            class="menu-option-btn"
-            onclick={() => (activeModal = "photo")}
-          >
-            <span class="menu-icon">📷</span>
-            <div class="menu-text">
-              <span class="menu-title">Add Photo / Custom Entry</span>
-              <span class="menu-desc"
-                >Take a photo and log custom nutrition</span
-              >
-            </div>
-          </button>
-
-          <button
-            class="menu-option-btn"
-            onclick={() => (activeModal = "recipe")}
-          >
-            <span class="menu-icon">🍲</span>
-            <div class="menu-text">
-              <span class="menu-title">Build Recipe</span>
-              <span class="menu-desc"
-                >Combine multiple ingredients into a recipe twin</span
-              >
-            </div>
-          </button>
-        </div>
-      </div>
-    {/snippet}
-  </Modal>
-{/if}
-
-<!-- Sub-Modals -->
-{#if activeModal === "search"}
-  <FoodSearchModal
+<!-- Log sheet — opens directly from a meal's "+ Add" -->
+{#if sheetMeal}
+  <LogFoodSheet
     {dbReady}
-    meal_type={active_meal_type}
+    meal_type={sheetMeal}
     {selectedDate}
-    onClose={() => (activeModal = null)}
+    onClose={() => (sheetMeal = null)}
   />
 {/if}
 
-{#if activeModal === "photo"}
-  <AddPhotoModal
-    meal_type={active_meal_type}
-    {selectedDate}
-    onClose={() => (activeModal = null)}
-  />
+<!-- Selection action bar — only when foods are selected (long-press) -->
+{#if selected_ids.size > 0}
+  <div class="selbar">
+    <span class="selcount">{selected_ids.size} selected</span>
+    <button class="selclear" onclick={clearSelection}>Clear</button>
+    <button class="selbuild" id="build-recipe-btn" onclick={buildRecipe}
+      >🍲 Build recipe</button
+    >
+  </div>
 {/if}
 
-{#if activeModal === "recipe"}
+<!-- Recipe builder, seeded from the selected foods -->
+{#if recipeOpen}
   <RecipeModal
-    {dbReady}
-    meal_type={active_meal_type}
+    meal_type={recipe_meal_type}
     {selectedDate}
-    onClose={() => (activeModal = null)}
+    initialIngredients={recipe_seed}
+    onClose={() => (recipeOpen = false)}
   />
 {/if}
 
@@ -225,90 +225,41 @@
     padding: var(--space-xl) 0;
   }
 
-  /* Log Menu Modal */
-  .menu-modal-card {
+  /* Selection action bar */
+  .selbar {
     position: fixed;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 999;
-    background: #fff;
-    border: 2px solid #000;
-    border-radius: 0;
-    width: calc(100% - 2 * var(--space-s));
-    max-width: 450px;
-    padding: var(--space-m);
-    box-shadow: 8px 8px 0 rgba(0, 0, 0, 1);
-    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  .menu-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 2px solid #000;
-    padding-bottom: var(--space-xs);
-  }
-  .menu-header h3 {
-    font-size: var(--step-0);
-    font-weight: 700;
-    color: #000;
-    text-transform: uppercase;
-  }
-  .close-btn {
-    background: none;
-    border: none;
-    color: #000;
-    font-size: var(--step-2);
-    cursor: pointer;
-    line-height: 1;
-  }
-  .close-btn:hover {
-    transform: scale(1.1);
-  }
-
-  .menu-options {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-  }
-  .menu-option-btn {
-    width: 100%;
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid #000;
-    border-radius: 0;
-    padding: var(--space-s) var(--space-xs);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 900;
     display: flex;
     align-items: center;
     gap: var(--space-s);
-    cursor: pointer;
-    text-align: left;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: var(--space-s);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-s));
+    background: #000;
+    color: #fff;
+    animation: slideUp 0.2s ease-out;
   }
-  .menu-option-btn:last-child {
-    border-bottom: none;
-  }
-  .menu-option-btn:hover {
-    background: #f4f4f5;
-  }
-  .menu-icon {
-    font-size: var(--step-2);
-    filter: grayscale(100%);
-  }
-  .menu-text {
-    display: flex;
-    flex-direction: column;
-  }
-  .menu-title {
-    font-size: var(--step-n1);
+  .selcount {
     font-weight: 700;
-    color: #000;
-    text-transform: uppercase;
   }
-  .menu-desc {
-    font-size: var(--step-n3);
-    color: var(--text-secondary);
-    margin-top: 2px;
+  .selclear {
+    margin-left: auto;
+    background: none;
+    border: 1px solid #fff;
+    color: #fff;
+    padding: var(--space-2xs) var(--space-s);
+    cursor: pointer;
+  }
+  .selbuild {
+    background: #ccff00;
+    color: #000;
+    border: none;
+    padding: var(--space-xs) var(--space-s);
+    font-weight: 700;
+    cursor: pointer;
+    min-height: 48px;
   }
 
   :global(.mt-6) {
@@ -325,12 +276,10 @@
   }
   @keyframes slideUp {
     from {
-      opacity: 0;
-      transform: translate(-50%, -50%) translateY(20px);
+      transform: translateY(100%);
     }
     to {
-      opacity: 1;
-      transform: translate(-50%, -50%);
+      transform: translateY(0);
     }
   }
 </style>

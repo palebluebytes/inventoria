@@ -1,787 +1,612 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { dbClient } from "../../db/db.client";
-  import {
-    lookupBarcode,
-    ProductNotFoundError,
-  } from "../../food/open-food-facts";
-  import {
-    searchUsdaFoods,
-    mapPayloadToFoodResult,
-  } from "../../food/food-search";
   import { ingestEntity } from "../../ingestion/ingest";
-  import { saveRecipe, logFoodConsumption } from "../../stores/calorie.store";
-  import { settingsStore } from "../../stores/settings.store";
-
-  import Button from "../../ui/Button.svelte";
-  import Input from "../../ui/Input.svelte";
-  import Card from "../../ui/Card.svelte";
-  import Alert from "../../ui/Alert.svelte";
-  import Badge from "../../ui/Badge.svelte";
+  import {
+    saveRecipe,
+    logFoodConsumption,
+    retractConsumptionEvent,
+  } from "../../stores/calorie.store";
+  import type { RecipeIngredient } from "../../food/recipe-ingredient";
   import Modal from "../../ui/Modal.svelte";
-  import FoodResultsList from "./FoodResultsList.svelte";
-  import MacroPills from "./MacroPills.svelte";
-  import { Tabs } from "bits-ui";
+  import Alert from "../../ui/Alert.svelte";
+  import AddIngredientSheet from "./AddIngredientSheet.svelte";
 
-  interface Ingredient {
-    entity: string;
-    name: string;
-    quantity: number; // in grams
-    calories: number; // proportional
-    protein: number;
-    fat: number;
-    carbs: number;
-    payload: any; // original twin payload
-  }
-
+  // Recipe tracker. Builds a recipe from the selected foods and REPLACES the ones
+  // that remain as ingredients (append-only: their consumption events are
+  // retracted). Foods removed from the builder stay logged on their own. Lead with
+  // Name + Ingredients; Source / Notes / Steps / Image are collapsible.
   let {
-    dbReady,
     meal_type,
     selectedDate,
     onClose,
+    initialIngredients = [],
   }: {
-    dbReady: boolean;
     meal_type: "breakfast" | "lunch" | "dinner" | "snack";
     selectedDate: Date;
     onClose: () => void;
+    /** Foods selected on the dashboard, seeded as ingredients (carry event_id). */
+    initialIngredients?: RecipeIngredient[];
   } = $props();
 
-  // Recipe Meta
   let recipeName = $state("");
-  let recipeDesc = $state("");
-  let scrape_url = $state("");
-  let source_url = $state("");
-  let recipeSteps = $state("");
-  let selected_meal_type = $state(untrack(() => meal_type));
-
-  // Ingredients List
-  let ingredients = $state<Ingredient[]>([]);
-
-  // Search Ingredients flow
-  let showSearch = $state(false);
-  let searchTab = $state<"usda" | "barcode">("usda");
-  let query = $state("");
-  let barcode = $state("");
-
-  let searchStatus = $state<"idle" | "loading" | "error">("idle");
-  let searchError = $state("");
-  let searchResults = $state<any[]>([]);
-
-  // Selected result quantity flow
-  let selectedResult = $state<any | null>(null);
-  let ingredientGrams = $state("100");
-
-  // Scraper status
-  let scrapeStatus = $state<"idle" | "loading" | "success" | "error">("idle");
-
-  let debounceTimer: ReturnType<typeof setTimeout>;
-
-  $effect(() => {
-    if (!showSearch || searchTab !== "usda") {
-      clearTimeout(debounceTimer);
-      return;
-    }
-
-    const trimmed = query.trim();
-    if (trimmed.length >= 3) {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        handleUsdaSearch();
-      }, 400);
-    } else if (trimmed.length === 0) {
-      clearTimeout(debounceTimer);
-      searchResults = [];
-      searchStatus = "idle";
-      searchError = "";
-    }
-
-    return () => {
-      clearTimeout(debounceTimer);
-    };
-  });
-
-  async function handleUsdaSearch() {
-    clearTimeout(debounceTimer);
-    if (!query.trim()) return;
-    searchStatus = "loading";
-    searchError = "";
-    searchResults = [];
-    selectedResult = null;
-    try {
-      searchResults = await searchUsdaFoods(query);
-      searchStatus = "idle";
-    } catch (e: any) {
-      searchStatus = "error";
-      searchError = e.message ?? String(e);
-    }
-  }
-
-  async function handleBarcodeLookup() {
-    if (!barcode.trim()) return;
-    searchStatus = "loading";
-    searchError = "";
-    searchResults = [];
-    selectedResult = null;
-    try {
-      const payload = await lookupBarcode(barcode.trim());
-      const mapped = mapPayloadToFoodResult(payload);
-      searchResults = [mapped];
-      selectedResult = mapped;
-      searchStatus = "idle";
-    } catch (e: any) {
-      searchStatus = "error";
-      searchError =
-        e instanceof ProductNotFoundError
-          ? "Barcode not found."
-          : (e.message ?? String(e));
-    }
-  }
-
-  function addIngredient() {
-    const grams = parseFloat(ingredientGrams);
-    if (!selectedResult || isNaN(grams) || grams <= 0) return;
-
-    const factor = grams / 100;
-    const ing: Ingredient = {
-      entity: selectedResult.entity,
-      name: selectedResult.name,
-      quantity: grams,
-      calories: Math.round(selectedResult.calories * factor),
-      protein: Math.round(selectedResult.protein * factor * 10) / 10,
-      fat: Math.round(selectedResult.fat * factor * 10) / 10,
-      carbs: Math.round(selectedResult.carbs * factor * 10) / 10,
-      payload: selectedResult.payload,
-    };
-
-    ingredients.push(ing);
-    // Reset state
-    selectedResult = null;
-    searchResults = [];
-    query = "";
-    barcode = "";
-    showSearch = false;
-  }
-
-  function removeIngredient(index: number) {
-    ingredients.splice(index, 1);
-  }
-
-  // Simulated CORS-safe scraper for recipe steps
-  async function scrapeRecipeSteps() {
-    if (!scrape_url.trim()) return;
-    scrapeStatus = "loading";
-    recipeSteps = "";
-    try {
-      // Simulate network request to crawl the page
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      // Standard local fallback / mock parser
-      const mockSteps = [
-        "1. Prepare and measure all ingredients.",
-        "2. Combine the dry ingredients in a large mixing bowl.",
-        "3. Gently fold in the wet ingredients and mix until smooth.",
-        "4. Heat a pan over medium heat and lightly coat with oil.",
-        "5. Cook until cooked through or golden brown.",
-        "6. Garnish as desired and serve warm.",
-      ].join("\n");
-
-      recipeSteps = `[Scraped from: ${scrape_url.trim()}]\n\n${mockSteps}`;
-      scrapeStatus = "success";
-    } catch (e: any) {
-      scrapeStatus = "error";
-    }
-  }
-
-  // Aggregate macros for the entire recipe
-  let totalCalories = $derived(
-    ingredients.reduce((acc, ing) => acc + ing.calories, 0)
+  let ingredients = $state<RecipeIngredient[]>(
+    untrack(() => initialIngredients.map((i) => ({ ...i })))
   );
+  let showAdd = $state(false);
+
+  let open = $state({
+    source: false,
+    notes: false,
+    steps: false,
+    image: false,
+  });
+  let source = $state("");
+  let notes = $state("");
+  let steps = $state<{ id: string; text: string }[]>([]);
+  let image = $state<string | null>(null);
+  let fileInput = $state<HTMLInputElement | null>(null);
+  let stepSeq = 0;
+
+  let status = $state<"idle" | "loading" | "error">("idle");
+  let error = $state("");
+
+  let totalCalories = $derived(ingredients.reduce((a, i) => a + i.calories, 0));
   let totalProtein = $derived(
-    Math.round(ingredients.reduce((acc, ing) => acc + ing.protein, 0) * 10) / 10
+    Math.round(ingredients.reduce((a, i) => a + i.protein, 0) * 10) / 10
   );
   let totalFat = $derived(
-    Math.round(ingredients.reduce((acc, ing) => acc + ing.fat, 0) * 10) / 10
+    Math.round(ingredients.reduce((a, i) => a + i.fat, 0) * 10) / 10
   );
   let totalCarbs = $derived(
-    Math.round(ingredients.reduce((acc, ing) => acc + ing.carbs, 0) * 10) / 10
+    Math.round(ingredients.reduce((a, i) => a + i.carbs, 0) * 10) / 10
   );
 
-  async function handleSaveRecipe() {
+  function removeIngredient(entity: string) {
+    ingredients = ingredients.filter((i) => i.entity !== entity);
+  }
+  function addIngredient(ing: RecipeIngredient) {
+    ingredients = [...ingredients, ing];
+    showAdd = false;
+  }
+
+  function addStep() {
+    steps = [...steps, { id: `step-${++stepSeq}`, text: "" }];
+  }
+  function removeStep(id: string) {
+    steps = steps.filter((s) => s.id !== id);
+  }
+  function toggleSection(key: keyof typeof open) {
+    const willOpen = !open[key];
+    open = { ...open, [key]: willOpen };
+    if (key === "steps" && willOpen && steps.length === 0) addStep();
+  }
+
+  function onFile(e: Event) {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => (image = ev.target?.result as string);
+    reader.onerror = () => {
+      status = "error";
+      error = "Failed to read image file.";
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function handleSave() {
     if (!recipeName.trim() || ingredients.length === 0) return;
-    searchStatus = "loading";
+    status = "loading";
+    error = "";
     try {
-      // 1. Ingest all ingredient food twins first so they exist in the DB
+      // 1. Ingest each ingredient's food twin so it exists in the ledger.
       for (const ing of ingredients) {
-        const datoms = ingestEntity(ing.payload);
-        await dbClient.append(datoms);
+        await dbClient.append(ingestEntity(ing.payload));
       }
-
-      // 2. Prepare structured ingredients payload
-      const ingPayload = ingredients.map((i) => ({
-        entity: i.entity,
-        name: i.name,
-        quantityValue: i.quantity,
-        quantityUnit: "g",
-        calories: i.calories,
-        protein: i.protein,
-        fat: i.fat,
-        carbs: i.carbs,
-      }));
-
-      // 3. Save the recipe twin
-      const recipeId = await saveRecipe(
-        recipeName.trim(),
-        recipeDesc.trim() || recipeSteps, // fallback description to steps
-        scrape_url.trim(),
-        ingPayload,
-        totalCalories,
-        totalProtein,
-        totalFat,
-        totalCarbs,
-        source_url.trim()
-      );
-
-      // 4. Log consumption event for this recipe
+      // 2. Save the recipe twin.
+      const recipeId = await saveRecipe({
+        name: recipeName.trim(),
+        ingredients: ingredients.map((i) => ({
+          entity: i.entity,
+          name: i.name,
+          quantity: i.quantityLabel,
+          calories: i.calories,
+          protein: i.protein,
+          fat: i.fat,
+          carbs: i.carbs,
+        })),
+        calories: totalCalories,
+        protein: totalProtein,
+        fat: totalFat,
+        carbs: totalCarbs,
+        source,
+        notes,
+        steps: steps.map((s) => s.text.trim()).filter(Boolean),
+        photoBase64: image ?? undefined,
+      });
+      // 3. Log the recipe as a consumption event.
       await logFoodConsumption(
         recipeId,
         "1 serving",
-        selected_meal_type,
+        meal_type,
         totalCalories,
         totalProtein,
         totalFat,
         totalCarbs,
         selectedDate
       );
-
+      // 4. Replace: retract the selection events that remain as ingredients.
+      //    (Foods removed from the builder keep their event_id out of this loop,
+      //    so they stay logged.)
+      for (const ing of ingredients) {
+        if (ing.event_id) await retractConsumptionEvent(ing.event_id, recipeId);
+      }
       onClose();
     } catch (e: any) {
-      searchStatus = "error";
-      searchError = e.message ?? String(e);
+      status = "error";
+      error = e.message ?? String(e);
     }
   }
+
+  const SECTIONS: {
+    key: keyof typeof open;
+    label: string;
+    filled: () => boolean;
+  }[] = [
+    { key: "source", label: "Source", filled: () => !!source.trim() },
+    { key: "notes", label: "Notes", filled: () => !!notes.trim() },
+    {
+      key: "steps",
+      label: "Steps",
+      filled: () => steps.some((s) => s.text.trim()),
+    },
+    { key: "image", label: "Image", filled: () => !!image },
+  ];
 </script>
 
-<Modal {onClose} title="🍲 Create Recipe">
+<Modal {onClose} title="Build recipe">
   {#snippet children({ props, close })}
-    <div {...props} class="modal-card">
-      <div class="modal-header">
-        <h2>🍲 Create Recipe</h2>
-        <button class="close-btn" onclick={close}>&times;</button>
-      </div>
+    <div {...props} class="sheet">
+      <header class="head">
+        <span class="hbtn" aria-hidden="true"></span>
+        <h2>Build recipe</h2>
+        <button class="hbtn x" onclick={close} aria-label="Close">✕</button>
+      </header>
 
-      {#if !showSearch}
-        <div class="recipe-form mt-4">
-          <div class="form-field">
-            <label for="recipe-name">Recipe Name</label>
-            <Input
-              id="recipe-name"
-              placeholder="e.g. Grandma's Apple Pie"
-              bind:value={recipeName}
-            />
-          </div>
+      <div class="body">
+        <label class="fl" for="recipe-name">Name</label>
+        <input
+          id="recipe-name"
+          class="tin big"
+          placeholder="e.g. Overnight oats"
+          bind:value={recipeName}
+        />
 
-          <div class="form-field">
-            <label for="recipe-desc">Description (Optional)</label>
-            <textarea
-              id="recipe-desc"
-              placeholder="Brief notes about the recipe..."
-              bind:value={recipeDesc}
-              class="custom-textarea"
-            ></textarea>
-          </div>
-
-          <div class="form-field">
-            <label for="recipe-source">Source (Optional URL)</label>
-            <Input
-              id="recipe-source"
-              placeholder="https://example.com/recipe-source"
-              bind:value={source_url}
-            />
-          </div>
-
-          <div class="form-field">
-            <label for="recipe-url">Scrape Steps Link (Optional)</label>
-            <div class="input-row">
-              <Input
-                id="recipe-url"
-                placeholder="https://epicurious.com/pasta..."
-                bind:value={scrape_url}
-              />
-              <Button
-                variant="secondary"
-                onclick={scrapeRecipeSteps}
-                disabled={!scrape_url.trim() || scrapeStatus === "loading"}
-              >
-                {#if scrapeStatus === "loading"}Scraping...{:else}Scrape{/if}
-              </Button>
-            </div>
-            {#if scrapeStatus === "success"}
-              <span class="success-note"
-                >✓ Steps imported. Review steps in box below.</span
-              >
-            {/if}
-          </div>
-
-          {#if recipeSteps || scrapeStatus === "success"}
-            <div class="form-field">
-              <label for="recipe-steps">Recipe Steps / Instructions</label>
-              <textarea
-                id="recipe-steps"
-                bind:value={recipeSteps}
-                class="custom-textarea steps-area"
-              ></textarea>
-            </div>
-          {/if}
-
-          <div class="ingredients-header mt-4">
-            <h3>Ingredients</h3>
-            <Button variant="secondary" onclick={() => (showSearch = true)}>
-              + Add Ingredient
-            </Button>
-          </div>
-
-          {#if ingredients.length === 0}
-            <div class="empty-list-box">
-              <p>No ingredients added. Click above to search & add.</p>
-            </div>
-          {:else}
-            <ul class="ingredients-list mt-2">
-              {#each ingredients as ing, index}
-                <li class="ingredient-item">
-                  <div class="ing-meta">
-                    <span class="ing-name">{ing.name}</span>
-                    <span class="ing-qty"
-                      >{ing.quantity}g &bull; {ing.calories} kcal</span
-                    >
-                  </div>
-                  <button
-                    class="remove-ing-btn"
-                    onclick={() => removeIngredient(index)}
-                  >
-                    &times;
-                  </button>
-                </li>
-              {/each}
-            </ul>
-
-            <!-- Aggregate Nutrition Summary -->
-            <div class="nutrition-preview mt-4">
-              <h4>Total Nutrition (Recipe aggregates)</h4>
-              <MacroPills
-                calories={totalCalories}
-                protein={totalProtein}
-                fat={totalFat}
-                carbs={totalCarbs}
-              />
-            </div>
-          {/if}
-
-          <div class="form-field mt-4">
-            <label for="recipe-meal-select">Meal Type to Log</label>
-            <select
-              id="recipe-meal-select"
-              bind:value={selected_meal_type}
-              class="custom-select"
-            >
-              <option value="breakfast">Breakfast</option>
-              <option value="lunch">Lunch</option>
-              <option value="dinner">Dinner</option>
-              <option value="snack">Snack</option>
-            </select>
-          </div>
-
-          <div class="actions-row mt-6">
-            <Button variant="secondary" onclick={close}>Cancel</Button>
-            <Button
-              onclick={handleSaveRecipe}
-              disabled={!recipeName.trim() ||
-                ingredients.length === 0 ||
-                searchStatus === "loading"}
-              loading={searchStatus === "loading"}
-            >
-              Save & Log Recipe
-            </Button>
-          </div>
+        <div class="ing-head">
+          <span class="fl">Ingredients ({ingredients.length})</span>
+          <span class="tot recipe-total"
+            >{totalCalories} kcal · {totalProtein}g P</span
+          >
         </div>
-      {:else}
-        <!-- Add Ingredient search flow -->
-        <div class="search-ingredients-box mt-4">
-          <h3>Add Ingredient</h3>
-          <Tabs.Root bind:value={searchTab}>
-            <Tabs.List>
-              {#snippet child({ props })}
-                <div {...props} class="tabs">
-                  <Tabs.Trigger value="usda">
-                    {#snippet child({ props })}
-                      <button
-                        {...props}
-                        class="tab-btn"
-                        class:active={searchTab === "usda"}
-                      >
-                        🔍 USDA Search
-                      </button>
-                    {/snippet}
-                  </Tabs.Trigger>
-                  <Tabs.Trigger value="barcode">
-                    {#snippet child({ props })}
-                      <button
-                        {...props}
-                        class="tab-btn"
-                        class:active={searchTab === "barcode"}
-                      >
-                        🏷️ Barcode Lookup
-                      </button>
-                    {/snippet}
-                  </Tabs.Trigger>
-                </div>
-              {/snippet}
-            </Tabs.List>
-          </Tabs.Root>
+        <ul class="ings">
+          {#each ingredients as ing (ing.entity)}
+            <li class="recipe-ingredient">
+              <span class="in">
+                <span class="iname">{ing.name}</span>
+                <span class="iqty"
+                  >{ing.quantityLabel} · {ing.calories} kcal</span
+                >
+              </span>
+              <button
+                class="rm remove-ingredient"
+                onclick={() => removeIngredient(ing.entity)}
+                aria-label="Remove {ing.name}">✕</button
+              >
+            </li>
+          {/each}
+          {#if ingredients.length === 0}
+            <li class="empty">No ingredients — add some below.</li>
+          {/if}
+        </ul>
+        <button
+          class="add"
+          id="add-ingredient-btn"
+          onclick={() => (showAdd = true)}>+ Add ingredient</button
+        >
 
-          <div class="search-section mt-4">
-            {#if searchTab === "usda"}
-              {#if !$settingsStore.usda_api_key}
-                <div class="mb-4">
-                  <Alert variant="warning">
-                    USDA API key is not configured. Please set your key in
-                    Settings to search the USDA database.
-                  </Alert>
+        <div class="sections">
+          {#each SECTIONS as s (s.key)}
+            <div class="section" class:open={open[s.key]}>
+              <button
+                class="sec-head"
+                data-section={s.key}
+                aria-expanded={open[s.key]}
+                onclick={() => toggleSection(s.key)}
+              >
+                <span class="chev">{open[s.key] ? "▾" : "▸"}</span>
+                <span class="sec-title">{s.label}</span>
+                {#if s.filled()}<span class="dot" title="has content"
+                  ></span>{/if}
+              </button>
+              {#if open[s.key]}
+                <div class="sec-body">
+                  {#if s.key === "source"}
+                    <input
+                      class="tin"
+                      placeholder="Link or where it's from…"
+                      bind:value={source}
+                    />
+                  {:else if s.key === "notes"}
+                    <textarea
+                      class="tarea"
+                      rows="3"
+                      placeholder="Any notes…"
+                      bind:value={notes}
+                    ></textarea>
+                  {:else if s.key === "steps"}
+                    <ol class="steps">
+                      {#each steps as step, i (step.id)}
+                        <li>
+                          <span class="snum">{i + 1}</span>
+                          <input
+                            class="sin recipe-step"
+                            placeholder="Describe step {i + 1}…"
+                            bind:value={step.text}
+                          />
+                          <button
+                            class="srm"
+                            onclick={() => removeStep(step.id)}
+                            aria-label="Remove step {i + 1}">✕</button
+                          >
+                        </li>
+                      {/each}
+                    </ol>
+                    <button class="add-step" id="add-step-btn" onclick={addStep}
+                      >+ Add step</button
+                    >
+                  {:else}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      class="hidden-file"
+                      bind:this={fileInput}
+                      onchange={onFile}
+                    />
+                    {#if image}
+                      <div class="img-prev">
+                        <img src={image} alt="Recipe" />
+                        <button
+                          class="change"
+                          onclick={() => fileInput?.click()}>Change</button
+                        >
+                      </div>
+                    {:else}
+                      <button class="photo" onclick={() => fileInput?.click()}
+                        >📷 Add image</button
+                      >
+                    {/if}
+                  {/if}
                 </div>
               {/if}
-              <div class="input-row">
-                <Input
-                  id="recipe-usda-input"
-                  placeholder="Search ingredient (e.g. banana, oats...)"
-                  bind:value={query}
-                  onkeydown={(e) =>
-                    e.key === "Enter" &&
-                    $settingsStore.usda_api_key &&
-                    handleUsdaSearch()}
-                  disabled={!$settingsStore.usda_api_key}
-                />
-                <Button
-                  onclick={handleUsdaSearch}
-                  disabled={searchStatus === "loading" ||
-                    !$settingsStore.usda_api_key}
-                  loading={searchStatus === "loading"}
-                >
-                  Search
-                </Button>
-              </div>
-            {:else}
-              <div class="input-row">
-                <Input
-                  id="recipe-barcode-input"
-                  placeholder="Barcode (e.g. 3017620422003)"
-                  bind:value={barcode}
-                  onkeydown={(e) => e.key === "Enter" && handleBarcodeLookup()}
-                />
-                <Button
-                  onclick={handleBarcodeLookup}
-                  disabled={searchStatus === "loading"}
-                  loading={searchStatus === "loading"}
-                >
-                  Lookup
-                </Button>
-              </div>
-            {/if}
-          </div>
-
-          {#if !selectedResult}
-            <FoodResultsList
-              results={searchResults}
-              onSelect={(item) => (selectedResult = item)}
-            />
-          {:else}
-            <!-- Selected ingredient details -->
-            <div class="selected-details mt-4">
-              <div class="food-banner">
-                <h4>{selectedResult.name}</h4>
-                <p class="base-macros">
-                  100g base: {selectedResult.calories} kcal | P: {selectedResult.protein}g
-                  | F: {selectedResult.fat}g | C: {selectedResult.carbs}g
-                </p>
-              </div>
-
-              <div class="log-form mt-4">
-                <div class="form-field">
-                  <label for="ing-quantity-input">Quantity (grams)</label>
-                  <Input
-                    id="ing-quantity-input"
-                    type="number"
-                    bind:value={ingredientGrams}
-                  />
-                </div>
-
-                <!-- Live preview -->
-                <div class="nutrition-preview mt-4">
-                  <h5>
-                    Adding: {Math.round(
-                      (selectedResult.calories *
-                        (parseFloat(ingredientGrams) || 0)) /
-                        100
-                    )} kcal ({ingredientGrams}g)
-                  </h5>
-                </div>
-
-                <div class="actions-row mt-4">
-                  <Button
-                    variant="secondary"
-                    onclick={() => (selectedResult = null)}>Back</Button
-                  >
-                  <Button
-                    onclick={addIngredient}
-                    disabled={!(parseFloat(ingredientGrams) > 0)}
-                  >
-                    Add to Recipe
-                  </Button>
-                </div>
-              </div>
             </div>
-          {/if}
-
-          {#if searchStatus === "error"}
-            <div class="mt-4">
-              <Alert variant="error">{searchError}</Alert>
-            </div>
-          {/if}
-
-          <div class="actions-row mt-6">
-            <Button variant="secondary" onclick={() => (showSearch = false)}
-              >Back to Recipe</Button
-            >
-          </div>
+          {/each}
         </div>
-      {/if}
+
+        {#if status === "error"}
+          <div class="err"><Alert variant="error">{error}</Alert></div>
+        {/if}
+      </div>
+
+      <div class="foot">
+        <button
+          class="save"
+          id="save-recipe-btn"
+          disabled={!recipeName.trim() ||
+            ingredients.length === 0 ||
+            status === "loading"}
+          onclick={handleSave}
+        >
+          {status === "loading" ? "Saving…" : "Save recipe"}
+        </button>
+      </div>
     </div>
+
+    {#if showAdd}
+      <AddIngredientSheet
+        onAdd={addIngredient}
+        onClose={() => (showAdd = false)}
+      />
+    {/if}
   {/snippet}
 </Modal>
 
 <style>
-  .modal-card {
+  .sheet {
     position: fixed;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 1000;
-    background: var(--bg-card, #121214);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    width: calc(100% - 2 * var(--space-s));
-    max-width: 550px;
-    max-height: 85vh;
-    overflow-y: auto;
-    /* Dark-theme overrides for the shared FoodResultsList / MacroPills. */
-    --food-surface-bg: rgba(255, 255, 255, 0.02);
-    --food-surface-border: 1px solid var(--border);
-    --food-surface-hover: rgba(255, 255, 255, 0.04);
-    --food-item-radius: 12px;
-    --food-pill-radius: 8px;
-    padding: var(--space-m);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-    animation: zoomIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-  .modal-header {
+    inset: 0;
+    z-index: 1600;
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
+    background: #fff;
+    animation: up 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes up {
+    from {
+      transform: translateY(6%);
+      opacity: 0.6;
+    }
+  }
+  .head {
+    display: flex;
     align-items: center;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: var(--space-xs);
+    padding: var(--space-2xs) var(--space-s);
+    border-bottom: 2px solid #000;
   }
-  .modal-header h2 {
-    font-size: var(--step-1);
+  .head h2 {
+    flex: 1;
+    text-align: center;
+    font-size: var(--step-0);
     font-weight: 700;
-    color: var(--text-primary);
+    text-transform: uppercase;
   }
-  .close-btn {
+  .hbtn {
+    flex-shrink: 0;
+    width: 2.75rem;
+    height: 2.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: none;
     border: none;
-    color: var(--text-muted);
-    font-size: var(--step-2);
+    font-weight: 700;
+  }
+  .hbtn.x {
     cursor: pointer;
-  }
-  .close-btn:hover {
-    color: var(--text-primary);
+    font-size: var(--step-0);
   }
 
-  .recipe-form,
-  .log-form {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-s);
+  .body {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-s);
   }
-  .form-field {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3xs);
-  }
-  .form-field label {
+  .fl {
+    display: block;
     font-size: var(--step-n2);
-    font-weight: 600;
-    color: var(--text-secondary);
+    font-weight: 700;
+    text-transform: uppercase;
+    margin: var(--space-s) 0 var(--space-3xs);
   }
-  .custom-textarea {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+  .tin {
+    width: 100%;
+    border: 2px solid #000;
     padding: var(--space-xs);
-    color: var(--text-primary);
-    font-size: var(--step-n1);
-    outline: none;
-    resize: vertical;
-    min-height: 80px;
+    font-size: var(--step-0);
     font-family: inherit;
+    background: #fff;
   }
-  .steps-area {
-    min-height: 120px;
-    font-family: monospace;
-    font-size: var(--step-n2);
+  .tin.big {
+    border-width: 3px;
+    padding: var(--space-s);
   }
-
-  .input-row {
-    display: flex;
-    gap: var(--space-2xs);
-  }
-
-  .success-note {
-    font-size: var(--step-n3);
-    color: #10b981;
-    margin-top: var(--space-3xs);
+  .tarea {
+    width: 100%;
+    border: 2px solid #000;
+    padding: var(--space-xs);
+    font-size: var(--step-n1);
+    font-family: inherit;
+    resize: vertical;
   }
 
-  .ingredients-header {
+  .ing-head {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: var(--space-3xs);
+    align-items: baseline;
+    margin-top: var(--space-m);
   }
-  .ingredients-header h3 {
-    font-size: var(--step-n1);
-    font-weight: 700;
-    color: var(--text-primary);
+  .ing-head .fl {
+    margin: 0;
   }
-
-  .empty-list-box {
-    padding: var(--space-m);
-    text-align: center;
-    border: 1px dashed var(--border);
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.01);
+  .tot {
+    font-weight: 800;
   }
-  .empty-list-box p {
-    color: var(--text-muted);
-    font-size: var(--step-n2);
-  }
-
-  .ingredients-list {
+  .ings {
     list-style: none;
     display: flex;
     flex-direction: column;
-    gap: var(--space-3xs);
+    gap: var(--space-2xs);
+    margin-top: var(--space-2xs);
   }
-  .ingredient-item {
+  .ings li {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: var(--space-xs);
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    gap: var(--space-s);
+    border: 1px solid #000;
+    padding: var(--space-xs) var(--space-s);
   }
-  .ing-meta {
+  .ings li.empty {
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: var(--step-n2);
+    border-style: dashed;
+  }
+  .in {
+    flex: 1;
     display: flex;
     flex-direction: column;
+    min-width: 0;
   }
-  .ing-name {
-    font-size: var(--step-n1);
+  .iname {
     font-weight: 600;
-    color: var(--text-primary);
   }
-  .ing-qty {
-    font-size: var(--step-n3);
+  .iqty {
+    font-size: var(--step-n2);
     color: var(--text-muted);
   }
-  .remove-ing-btn {
+  .rm {
     background: none;
     border: none;
-    color: var(--text-muted);
-    font-size: 20px;
+    font-size: var(--step-0);
+    font-weight: 700;
     cursor: pointer;
-    padding: 0 var(--space-2xs);
   }
-  .remove-ing-btn:hover {
-    color: #ef4444;
-  }
-
-  .tabs {
-    display: flex;
-    border-bottom: 1px solid var(--border);
-    gap: var(--space-xs);
-  }
-  .tab-btn {
-    flex: 1;
-    background: none;
-    border: none;
-    padding: var(--space-xs) 0;
-    color: var(--text-secondary);
-    font-weight: 600;
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: all 0.2s;
-  }
-  .tab-btn.active {
-    color: var(--accent);
-    border-bottom-color: var(--accent);
-  }
-
-  .food-banner {
-    background: rgba(255, 255, 255, 0.01);
-    border: 1px solid var(--border);
-    border-radius: 12px;
+  .add {
+    width: 100%;
+    margin-top: var(--space-2xs);
+    border: 2px dashed #000;
+    background: #fff;
     padding: var(--space-s);
+    font-weight: 700;
+    cursor: pointer;
   }
-  .food-banner h4 {
+
+  .sections {
+    margin-top: var(--space-m);
+    border-top: 2px solid #000;
+  }
+  .section {
+    border-bottom: 2px solid #000;
+  }
+  .sec-head {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: var(--space-s);
+    background: #fff;
+    border: none;
+    padding: var(--space-s) var(--space-2xs);
+    cursor: pointer;
+    text-align: left;
+    min-height: 52px;
+  }
+  .section.open .sec-head {
+    background: #f4f4f5;
+  }
+  .chev {
+    font-size: var(--step-n1);
+    width: 1rem;
+  }
+  .sec-title {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: var(--step-n1);
+    flex: 1;
+  }
+  .dot {
+    width: 9px;
+    height: 9px;
+    background: #000;
+    border-radius: 50%;
+  }
+  .sec-body {
+    padding: 0 var(--space-2xs) var(--space-s);
+  }
+  .hidden-file {
+    display: none;
+  }
+  .photo {
+    width: 100%;
+    border: 2px dashed #000;
+    background: #fff;
+    padding: var(--space-s);
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .img-prev {
+    position: relative;
+    border: 2px solid #000;
+    overflow: hidden;
+    max-height: 220px;
+  }
+  .img-prev img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .change {
+    position: absolute;
+    bottom: var(--space-xs);
+    right: var(--space-xs);
+    background: #000;
+    color: #fff;
+    border: none;
+    padding: var(--space-2xs) var(--space-s);
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .steps {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2xs);
+  }
+  .steps li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2xs);
+  }
+  .snum {
+    flex-shrink: 0;
+    width: 1.6rem;
+    height: 1.6rem;
+    background: #000;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: var(--step-n2);
+  }
+  .sin {
+    flex: 1;
+    border: 2px solid #000;
+    padding: var(--space-2xs) var(--space-xs);
+    font-family: inherit;
+    font-size: var(--step-n1);
+    min-width: 0;
+  }
+  .srm {
+    flex-shrink: 0;
+    background: none;
+    border: none;
     font-size: var(--step-n1);
     font-weight: 700;
-    color: var(--text-primary);
+    cursor: pointer;
   }
-  .base-macros {
-    font-size: var(--step-n2);
-    color: var(--text-secondary);
-    margin-top: 4px;
-  }
-
-  .nutrition-preview h4,
-  .nutrition-preview h5 {
-    font-size: var(--step-n2);
-    font-weight: 600;
-    color: var(--text-secondary);
-    margin-bottom: var(--space-2xs);
+  .add-step {
+    margin-top: var(--space-2xs);
+    background: none;
+    border: 2px dashed #000;
+    padding: var(--space-2xs) var(--space-s);
+    font-weight: 700;
+    cursor: pointer;
   }
 
-  .custom-select {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: var(--space-xs);
-    color: var(--text-primary);
-    font-size: var(--step-n1);
-    outline: none;
+  .err {
+    margin-top: var(--space-s);
   }
-
-  .actions-row {
-    display: flex;
-    justify-content: space-between;
+  .foot {
+    border-top: 2px solid #000;
+    padding: var(--space-s);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-s));
+    background: #fafafa;
   }
-
-  @keyframes zoomIn {
-    from {
-      opacity: 0;
-      transform: translate(-50%, -50%) scale(0.95);
-    }
-    to {
-      opacity: 1;
-      transform: translate(-50%, -50%) scale(1);
-    }
+  .save {
+    width: 100%;
+    background: #000;
+    color: #fff;
+    border: 3px solid #000;
+    padding: var(--space-s);
+    font-size: var(--step-1);
+    font-weight: 800;
+    text-transform: uppercase;
+    cursor: pointer;
+    min-height: 60px;
+  }
+  .save:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 </style>
