@@ -124,6 +124,20 @@ export function mapFdcFoodToPayload(food: FdcFood): EntityPayload {
 const FDC_BASE = "https://api.nal.usda.gov/fdc/v1/foods/search";
 
 /**
+ * Turns a free-text query into an FDC prefix search. FDC matches whole words,
+ * so a fragment like "bana" matches nothing on the small Foundation/SR Legacy
+ * datasets; appending a Lucene "*" wildcard to each token makes it prefix-match
+ * ("bana" -> "bana*"), so results appear while the user is still typing.
+ */
+function toPrefixQuery(query: string): string {
+  return query
+    .trim()
+    .split(/\s+/)
+    .map((token) => (token.endsWith("*") ? token : `${token}*`))
+    .join(" ");
+}
+
+/**
  * Searches the USDA FoodData Central API and returns matching foods as
  * EntityPayloads.
  *
@@ -137,7 +151,8 @@ export async function searchFdc(
   if (!apiKey) {
     throw new Error("USDA API Key is not configured.");
   }
-  const url = `${FDC_BASE}?query=${encodeURIComponent(query)}&dataType=Foundation,SR%20Legacy&api_key=${apiKey}`;
+  const search = encodeURIComponent(toPrefixQuery(query));
+  const url = `${FDC_BASE}?query=${search}&dataType=Foundation,SR%20Legacy&api_key=${apiKey}`;
   const res = await fetch(url);
   const data: { foods: FdcFood[] } = await res.json();
 

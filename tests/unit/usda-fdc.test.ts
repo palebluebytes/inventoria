@@ -98,8 +98,8 @@ describe("searchFdc", () => {
     vi.restoreAllMocks();
   });
 
-  it("builds the correct USDA FDC search URL", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+  function mockFetchOk() {
+    return vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
       json: async () => ({
         foods: [
@@ -112,11 +112,37 @@ describe("searchFdc", () => {
         ],
       }),
     } as Response);
+  }
+
+  it("builds the correct USDA FDC search URL with a wildcard query", async () => {
+    // FDC matches whole words on the small Foundation/SR Legacy datasets, so the
+    // query is prefix-wildcarded (banana -> banana*) to match while typing.
+    const fetchSpy = mockFetchOk();
 
     await searchFdc("banana", "TEST_KEY");
 
     expect(fetchSpy).toHaveBeenCalledWith(
-      "https://api.nal.usda.gov/fdc/v1/foods/search?query=banana&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
+      "https://api.nal.usda.gov/fdc/v1/foods/search?query=banana*&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
+    );
+  });
+
+  it("wildcards each token so partial multi-word queries still match", async () => {
+    const fetchSpy = mockFetchOk();
+
+    await searchFdc("  greek yog  ", "TEST_KEY");
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://api.nal.usda.gov/fdc/v1/foods/search?query=greek*%20yog*&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
+    );
+  });
+
+  it("does not double-append a wildcard the caller already supplied", async () => {
+    const fetchSpy = mockFetchOk();
+
+    await searchFdc("bana*", "TEST_KEY");
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://api.nal.usda.gov/fdc/v1/foods/search?query=bana*&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
     );
   });
 
