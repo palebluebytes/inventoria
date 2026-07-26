@@ -68,6 +68,27 @@ describe("mapFdcFoodToPayload", () => {
     const n = mapFdcFoodToPayload(empty).attributes["nutrition/info"];
     expect(n).toEqual({ serving_size: "100 g" });
   });
+
+  it("stores the raw source response as twin/raw_provenance (ADR-0016)", () => {
+    // Provenance keeps the untouched FDC food so any nutrient not surfaced in
+    // the panel today (the full micronutrient list) can be backfilled later
+    // with no network re-fetch. raw_data is the verbatim fixture object.
+    const prov = mapFdcFoodToPayload(banana).attributes["twin/raw_provenance"];
+    expect(prov.raw_data).toEqual(banana);
+  });
+
+  it("wraps provenance in an extraction-metadata envelope", () => {
+    const prov = mapFdcFoodToPayload(banana).attributes["twin/raw_provenance"];
+    expect(prov.source_uri).toBe(
+      "https://api.nal.usda.gov/fdc/v1/food/1105073"
+    );
+    expect(prov.adapter).toBe("fdc");
+    expect(prov.adapter_version).toEqual(expect.any(String));
+    // No live timestamp in the pure mapper: the ledger stamps each Datom's
+    // `time` at ingest, and that IS the capture basis (keeps this deterministic).
+    expect(prov).not.toHaveProperty("timestamp");
+    expect(prov).not.toHaveProperty("captured_at");
+  });
 });
 
 // ---- unit: searchFdc -------------------------------------------------------

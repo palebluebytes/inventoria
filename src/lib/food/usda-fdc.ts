@@ -2,6 +2,11 @@ import { get } from "svelte/store";
 import type { EntityPayload } from "../ingestion/ingest";
 import { settingsStore } from "../stores/settings.store";
 import { PER_100G, type NutritionInfo } from "./nutrition";
+import { buildRawProvenance } from "./provenance";
+
+// Mapper version, bumped when the FDC -> nutrition/info normalisation changes.
+const ADAPTER_VERSION = "1";
+const FDC_FOOD_BASE = "https://api.nal.usda.gov/fdc/v1/food";
 
 // Read the current key on demand (default param, evaluated per call) instead of
 // holding a module-level store subscription that is never cleaned up.
@@ -99,6 +104,15 @@ export function mapFdcFoodToPayload(food: FdcFood): EntityPayload {
     attributes: {
       "food/name": food.description,
       "nutrition/info": nutrition,
+      // Keep the untouched FDC entry as immutable Provenance so any nutrient not
+      // in the panel (the full micronutrient list) can be backfilled later with
+      // no network re-fetch (ADR-0016).
+      "twin/raw_provenance": buildRawProvenance({
+        adapter: "fdc",
+        adapter_version: ADAPTER_VERSION,
+        source_uri: `${FDC_FOOD_BASE}/${food.fdcId}`,
+        raw_data: food,
+      }),
     },
   };
 }

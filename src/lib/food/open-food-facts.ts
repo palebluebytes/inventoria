@@ -1,5 +1,10 @@
 import type { EntityPayload } from "../ingestion/ingest";
 import { PER_100G, type NutritionInfo } from "./nutrition";
+import { buildRawProvenance } from "./provenance";
+
+// Mapper version, bumped when the OFF -> nutrition/info normalisation changes.
+// OFF_BASE (the product endpoint) is defined below and reused for source_uri.
+const ADAPTER_VERSION = "1";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -68,6 +73,15 @@ export function mapOffProductToPayload(product: OFFProduct): EntityPayload {
     attributes: {
       "food/name": p.product_name || "Unknown",
       "nutrition/info": nutrition,
+      // Keep the untouched OFF response as immutable Provenance so nutriments
+      // beyond the eight panel fields can be backfilled later with no network
+      // re-fetch (ADR-0016).
+      "twin/raw_provenance": buildRawProvenance({
+        adapter: "off",
+        adapter_version: ADAPTER_VERSION,
+        source_uri: `${OFF_BASE}/${product.code}.json`,
+        raw_data: product,
+      }),
     },
   };
 }

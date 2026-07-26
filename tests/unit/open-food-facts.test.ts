@@ -62,6 +62,30 @@ describe("mapOffProductToPayload", () => {
     const n = mapOffProductToPayload(product).attributes["nutrition/info"];
     expect(n).toEqual({ serving_size: "100 g" });
   });
+
+  it("stores the raw source response as twin/raw_provenance (ADR-0016)", () => {
+    // Provenance keeps the untouched OFF response — every nutriment, not just
+    // the eight panel fields — so nutrients absent from the panel today can be
+    // backfilled later with no network re-fetch. raw_data is the verbatim
+    // fixture (the full response, including code/status/product).
+    const prov =
+      mapOffProductToPayload(nutella).attributes["twin/raw_provenance"];
+    expect(prov.raw_data).toEqual(nutella);
+  });
+
+  it("wraps provenance in an extraction-metadata envelope", () => {
+    const prov =
+      mapOffProductToPayload(nutella).attributes["twin/raw_provenance"];
+    expect(prov.source_uri).toBe(
+      "https://world.openfoodfacts.org/api/v3/product/3017620422003.json"
+    );
+    expect(prov.adapter).toBe("off");
+    expect(prov.adapter_version).toEqual(expect.any(String));
+    // No live timestamp in the pure mapper: the ledger stamps each Datom's
+    // `time` at ingest, and that IS the capture basis (keeps this deterministic).
+    expect(prov).not.toHaveProperty("timestamp");
+    expect(prov).not.toHaveProperty("captured_at");
+  });
 });
 
 // ---- unit: lookupBarcode ---------------------------------------------------
