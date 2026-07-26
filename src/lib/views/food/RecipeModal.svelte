@@ -11,7 +11,10 @@
     toReferenceIngredient,
     type RecipeIngredient,
   } from "../../food/recipe-ingredient";
-  import { deriveRecipeNutrition } from "../../food/recipe-nutrition";
+  import {
+    deriveRecipeNutrition,
+    deriveIngredientMacros,
+  } from "../../food/recipe-nutrition";
   import type { NutritionInfo } from "../../food/nutrition";
   import Modal from "../../ui/Modal.svelte";
   import Alert from "../../ui/Alert.svelte";
@@ -82,6 +85,18 @@
   let perServing = $derived(
     deriveRecipeNutrition(referenceIngredients, yieldNum, resolvePanel)
   );
+  // A row's derived display: the clean {ref, amount, unit} (its `amount` coerced
+  // once at this boundary, since the inline editor's numeric input is briefly
+  // empty while retyping) and its live macro contribution via the shared food-
+  // domain helper. Deriving rather than storing means an edited amount re-reads
+  // live — the displayed row can never rot against the ingredient it describes.
+  function rowView(ing: RecipeIngredient) {
+    const ref = toReferenceIngredient(ing);
+    return {
+      amount: ref.amount,
+      macros: deriveIngredientMacros(ref, resolvePanel),
+    };
+  }
 
   function removeIngredient(entity: string) {
     ingredients = ingredients.filter((i) => i.entity !== entity);
@@ -206,12 +221,29 @@
         </div>
         <ul class="ings">
           {#each ingredients as ing (ing.entity)}
+            {@const row = rowView(ing)}
             <li class="recipe-ingredient">
               <span class="in">
                 <span class="iname">{ing.name}</span>
-                <span class="iqty"
-                  >{ing.quantityLabel} · {ing.calories} kcal</span
-                >
+                <span class="iqty">
+                  <input
+                    class="amount-in edit-amount"
+                    type="number"
+                    inputmode="decimal"
+                    min="0"
+                    step="any"
+                    bind:value={ing.amount}
+                    aria-label="Amount of {ing.name}"
+                  />
+                  <span class="unit"
+                    >{ing.unit === "g"
+                      ? "g"
+                      : row.amount === 1
+                        ? "serving"
+                        : "servings"}</span
+                  >
+                  <span class="ikcal">· {row.macros.calories} kcal</span>
+                </span>
               </span>
               <button
                 class="rm remove-ingredient"
@@ -478,8 +510,26 @@
     font-weight: 600;
   }
   .iqty {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3xs);
     font-size: var(--step-n2);
     color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .amount-in {
+    width: 3.75rem;
+    border: 1px solid #000;
+    padding: 2px var(--space-3xs);
+    font-family: inherit;
+    font-size: var(--step-n2);
+    font-weight: 700;
+    text-align: right;
+    color: var(--text-primary);
+    background: #fff;
+  }
+  .unit {
+    font-weight: 600;
   }
   .rm {
     background: none;

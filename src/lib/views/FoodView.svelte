@@ -96,10 +96,8 @@
           return {
             entity: target,
             name,
-            quantityLabel: it.quantity || "1 serving",
             amount,
             unit,
-            ...macros,
             payload: twin,
             event_id: it.id,
           };
@@ -115,7 +113,6 @@
         );
         return {
           ...ing,
-          quantityLabel: it.quantity || "1 serving",
           event_id: it.id,
         };
       })

@@ -3,37 +3,49 @@ import { nutritionFromMacros, PER_SERVING } from "./nutrition";
 import type { ReferenceIngredient } from "./recipe-nutrition";
 
 /**
- * A single recipe ingredient in the builder. It carries the display info the
- * builder shows (name, quantity label, its scaled macro contribution) plus the
- * `amount`/`unit` that, with `entity`, form the pure `{ ref, amount, unit }`
- * reference persisted on the recipe twin (ADR-0021). `event_id` is set when the
- * ingredient was seeded from a logged consumption event on the dashboard — on
- * save, such events are retracted (replaced by the recipe) if they remain.
+ * A single recipe ingredient in the builder. It carries only what cannot be
+ * derived: the referenced twin (`entity` + its `payload`), a display `name`, and
+ * the editable `amount`/`unit` that, with `entity`, form the pure
+ * `{ ref, amount, unit }` reference persisted on the recipe twin (ADR-0021).
+ *
+ * It deliberately does NOT store the quantity label or the ingredient's scaled
+ * macros: those are display copies of what the twin's `nutrition/info` panel and
+ * `amount` already imply, and would rot the moment `amount` becomes editable.
+ * The builder derives them per row via {@link deriveRecipeNutrition} over the
+ * real panel — the single-source-of-truth rule #8 applied to the recipe total,
+ * pushed down to each row. `event_id` is set when the ingredient was seeded from
+ * a logged consumption event on the dashboard — on save, such events are
+ * retracted (replaced by the recipe) if they remain.
  */
 export interface RecipeIngredient {
   entity: string;
   name: string;
-  /** Display label, e.g. "50 g" or "1 serving". */
-  quantityLabel: string;
-  /** Amount used, paired with {@link unit} to form the stored reference. */
+  /**
+   * Amount used, paired with {@link unit} to form the stored reference. Always a
+   * number on a constructed ingredient; the inline editor binds it to a numeric
+   * input that is transiently empty (`null` at runtime) while the user retypes,
+   * so it is coerced back to a clean number once at the boundary in
+   * {@link toReferenceIngredient} — no other reader touches the raw value.
+   */
   amount: number;
   /** `g` for scaled foods, `serving` for whole-serving/custom foods. */
   unit: "g" | "serving";
-  calories: number;
-  protein: number;
-  fat: number;
-  carbs: number;
   /** Food-twin payload, ingested when the recipe is saved. */
   payload: any;
   /** Source consumption-event id, if this ingredient came from the day. */
   event_id?: string;
 }
 
-/** Reduces a builder ingredient to the pure reference persisted on the recipe. */
+/**
+ * Reduces a builder ingredient to the pure reference persisted on the recipe.
+ * Coerces `amount` to a non-negative number: the inline editor binds `amount`
+ * to a numeric input, which is momentarily empty (`null`) while the user retypes
+ * a value, and the reference/derivation must stay a clean number throughout.
+ */
 export function toReferenceIngredient(
   ing: RecipeIngredient
 ): ReferenceIngredient {
-  return { ref: ing.entity, amount: ing.amount, unit: ing.unit };
+  return { ref: ing.entity, amount: Number(ing.amount) || 0, unit: ing.unit };
 }
 
 /**
@@ -52,22 +64,20 @@ export function parseLoggedQuantity(quantity: string | undefined): {
   return { amount: 1, unit: "serving" };
 }
 
-/** Scales a searched/scanned food (per-100g) into a proportional ingredient. */
+/**
+ * References a searched/scanned food as an ingredient of `grams` grams. The
+ * scaled macros are not captured here — the builder derives each row's
+ * contribution from the twin's per-100g panel and this `amount` (ADR-0021).
+ */
 export function ingredientFromFood(
   food: FoodResult,
   grams: number
 ): RecipeIngredient {
-  const f = grams / 100;
   return {
     entity: food.entity,
     name: food.name,
-    quantityLabel: `${grams} g`,
     amount: grams,
     unit: "g",
-    calories: Math.round(food.calories * f),
-    protein: Math.round(food.protein * f * 10) / 10,
-    fat: Math.round(food.fat * f * 10) / 10,
-    carbs: Math.round(food.carbs * f * 10) / 10,
     payload: food.payload,
   };
 }
@@ -88,13 +98,8 @@ export function customIngredient(
   return {
     entity,
     name,
-    quantityLabel: "1 serving",
     amount: 1,
     unit: "serving",
-    calories,
-    protein,
-    fat,
-    carbs,
     payload: {
       entity,
       attributes: {

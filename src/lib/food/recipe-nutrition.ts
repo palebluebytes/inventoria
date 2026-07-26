@@ -75,3 +75,19 @@ export function deriveRecipeNutrition(
     carbs: Math.round((total.carbs / y) * 10) / 10,
   };
 }
+
+/**
+ * A single reference ingredient's rounded macro contribution — what it adds to a
+ * recipe's batch total. A one-ingredient recipe at yield 1, so it runs the SAME
+ * `deriveRecipeNutrition` formula (round-then-sum, resolved from the real panel)
+ * the whole-recipe total uses: a builder row's displayed macros are derived by
+ * the identical rule as the total they sum into, and can never rot against the
+ * ingredient's `amount` (ADR-0021). Keeps the derivation in the food domain
+ * layer rather than a `.svelte` file.
+ */
+export function deriveIngredientMacros(
+  ingredient: ReferenceIngredient,
+  resolve: (ref: string) => NutritionInfo | undefined
+): Macros {
+  return deriveRecipeNutrition([ingredient], 1, resolve);
+}

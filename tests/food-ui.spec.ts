@@ -520,4 +520,48 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // Recipe 95 (per serving, yield 2) + kept Banana 134 = 229.
     await expect(page.locator(".calories-num")).toHaveText("229");
   });
+
+  test("editing an ingredient amount re-derives per-serving totals live and freezes them on save", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    const dinnerSection = await selectTwoAndBuild(page);
+    await page.locator("#recipe-name").fill("Dinner Combo");
+
+    // Seeded with oats 50 g (190) + banana 150 g (134); yield 1 → 324 per serving.
+    const perServingCal = page.locator(
+      '[data-testid="per-serving"] .cal .pill-val'
+    );
+    await expect(perServingCal).toHaveText("324 kcal");
+    await expect(page.locator(".recipe-total")).toContainText("324 kcal");
+
+    // The oats row exposes an inline, unit-aware amount editor bound to `amount`.
+    const oatsRow = page.locator(".recipe-ingredient", {
+      hasText: "Mock Oats",
+    });
+    const oatsAmount = oatsRow.locator(".edit-amount");
+    await expect(oatsAmount).toHaveValue("50");
+    await expect(oatsRow).toContainText("190 kcal");
+
+    // Editing the amount re-derives this row AND the totals live — no re-add.
+    // Oats per-100g is 379 kcal, so 100 g → 379. Banana unchanged at 134.
+    await oatsAmount.fill("100");
+    await expect(oatsAmount).toHaveValue("100");
+    await expect(oatsRow).toContainText("379 kcal");
+    await expect(oatsRow).toContainText("g · 379 kcal"); // unit stays "g"
+    await expect(perServingCal).toHaveText("513 kcal"); // 379 + 134
+    await expect(page.locator(".recipe-total")).toContainText("513 kcal");
+
+    // Save (yield 1): the frozen snapshot reflects the edited amounts. Both
+    // ingredients are replaced/retracted, so only the recipe counts.
+    await page.locator("#save-recipe-btn").click();
+
+    await expect(dinnerSection).toContainText("Dinner Combo");
+    await expect(dinnerSection).not.toContainText("Mock Oats");
+    await expect(dinnerSection).not.toContainText("Mock Banana");
+    await expect(page.locator(".calories-num")).toHaveText("513");
+  });
 });
