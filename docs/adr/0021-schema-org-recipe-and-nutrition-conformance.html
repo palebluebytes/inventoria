@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR 0021 · Inventoria</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+      <nav class="site-nav">
+        <p class="nav-title">Inventoria</p>
+        <a href="../index.html">Introduction</a>
+        <div class="nav-section">
+          <p class="nav-section-label">Reference</p>
+          <a href="../glossary.html">Glossary</a>
+          <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+        </div>
+        <div class="nav-section">
+          <p class="nav-section-label">Explanation</p>
+          <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+        </div>
+        <div class="nav-section">
+          <a href="index.html" class="active">Architectural Decision Records</a>
+        </div>
+      </nav>
+  <div class="content-area">
+    <main>
+<h1 id="adr-0021-back-recipes-and-nutrition-with-schema-org-recipe-and-nutritioninformation">ADR 0021: Back Recipes and Nutrition with schema.org/Recipe and NutritionInformation</h1>
+<p><strong>Status:</strong> Accepted; not yet implemented (specced 2026-07-26, this ADR) <strong>Date:</strong> 2026-07-26</p>
+<h2 id="context">Context</h2>
+<p>Inventoria already ingests reputable schemas: physical/media twins are scraped as schema.org JSON-LD (<code>Product</code>, <code>src/lib/ingestion/json-ld.ts</code>), and food ingredient twins are backed by reputable public databases — USDA FoodData Central (<code>fdc:</code>) and Open Food Facts (<code>gtin:</code>).</p>
+<p>The food-logging redesign (commit <code>a4b55aa</code>) added a recipe tracker whose data model does <strong>not</strong> hold that standard:</p>
+<ul>
+<li>The <code>recipe/*</code> namespace is ad-hoc (<code>recipe/source</code>, <code>recipe/notes</code>, <code>recipe/steps</code>) — it maps to no reputable schema, and it silently drifted from the recipe shape documented in <code>docs/V1_REQUIREMENTS.md</code> §3 (<code>recipe/description</code>, <code>recipe/scrape_url</code>). The projection (<code>consumption-state.ts</code>) now reads <em>both</em> vocabularies, so dead branches exist for names nothing emits.</li>
+<li>Recipes store aggregate macros <strong>and</strong> per-ingredient macro snapshots, both duplicating the ingredient twins they are built from — the numbers can rot against their source.</li>
+<li>Nutrition lives only in <code>food/*</code>, coupled to food identity, with no notion of a nutrition panel as a first-class, reputable concept.</li>
+</ul>
+<p>The reputable schema for recipes is <strong>schema.org/Recipe</strong> (with <strong>NutritionInformation</strong>) — the sibling of the <code>Product</code> JSON-LD we already parse. Conforming now means a future scraped-recipe importer is a straight map rather than a second translation, consistent with the remap-on-standard-change rationale in ADR-0016 and <code>CONTEXT.md</code>.</p>
+<h2 id="decision">Decision</h2>
+<p><strong>1. Conform semantically to schema.org/Recipe &amp; NutritionInformation, expressed as snake_case EAVT attributes.</strong> Conformance means a documented lossless mapping (below), not literal JSON-LD storage — the same normalization the USDA and OFF adapters already do (foreign property names → app-local snake_case, per ADR-0014). This honours the snake_case red line in <code>AGENTS.md</code>.</p>
+<p><strong>2. Nutrition is a first-class concept on every food-bearing twin, stored as a single atomic <code>nutrition/info</code> blob</strong> mirroring NutritionInformation:</p>
+<pre><code>"nutrition/info": {
+  "serving_size": "100 g",         // schema.org servingSize — the basis of these values
+  "calories": 539,                 // schema.org calories (kcal)
+  "protein_content": 6.3,          // schema.org proteinContent (g)
+  "fat_content": 30.9,             // schema.org fatContent (g)
+  "carbohydrate_content": 57.5,    // schema.org carbohydrateContent (g)
+  "fiber_content": 0,              // schema.org fiberContent   — when the source provides it
+  "sugar_content": 56.3,           // schema.org sugarContent
+  "sodium_content": 0.107,         // schema.org sodiumContent
+  "saturated_fat_content": 10.6    // schema.org saturatedFatContent
+}</code></pre>
+<ul>
+<li><strong>Atomic (one datom), by design.</strong> A nutrition panel is one coherent reading; a single macro is deliberately <em>not</em> independently correctable. This is the opposite granularity choice to the per-attribute soft-archive of ADR-0008, and it is justified: you correct a panel as a unit, not a macro at a time. The cost — a single-macro fix rewrites the whole blob, and multi-device merge is last-writer-wins on the panel (ADR-0020) — is acceptable for measured panels.</li>
+<li><strong>Trivially extensible.</strong> New nutrients are new keys; no new attribute, no migration, no index change. Storage is already <code>value TEXT</code> holding JSON (<code>db.core.ts</code>), and reads fold in JS (<code>groupByEntity</code>), so a blob is as queryable as flat fields for every real access path.</li>
+<li><strong>Numbers, not unit-strings</strong>, because derivation needs arithmetic; units are fixed per field and reattached only on schema.org export.</li>
+</ul>
+<p><strong>3. Recipe nutrition is derived, never stored.</strong> Per-serving macros = <code>Σ(ingredient nutrition × amount / serving_size) / recipe/yield</code>. Recipe twins carry no <code>nutrition/info</code>. <code>recipe/ingredients</code> holds <strong>pure references</strong> <code>{ ref, amount, unit }</code>; the ingredient's name and nutrition resolve from the referenced (already-persisted) food twin. The ingredient twin is the single source of truth, so nothing can rot.</p>
+<p><strong>4. Food twins gain <code>twin/raw_provenance</code> (ADR-0016 alignment).</strong> The adapters currently discard everything but four macros and — unlike items/media — write no provenance. Storing the raw USDA/OFF JSON makes any nutrient (including beyond-schema.org micronutrients) backfillable with <strong>no network re-fetch</strong>, and closes food being the lone ingested twin type that skips provenance.</p>
+<p><strong>5. <code>recipe/*</code> renamed to schema.org-faithful names.</strong> <code>description</code> (was <code>notes</code>), <code>url</code> (was <code>source</code>/<code>scrape_url</code>), <code>instructions</code> (was <code>steps</code>, an ordered <code>string[]</code> of HowToStep text), plus <code>name</code>, <code>image</code>, <code>yield</code>, <code>ingredients</code>.</p>
+<h3 id="mapping-table-schema-org-eavt">Mapping table (schema.org ⇄ EAVT)</h3>
+<table>
+<thead>
+<tr><th>schema.org/Recipe</th><th>EAVT</th></tr>
+</thead>
+<tbody>
+<tr><td><code>name</code></td><td><code>recipe/name</code></td></tr>
+<tr><td><code>description</code></td><td><code>recipe/description</code></td></tr>
+<tr><td><code>url</code> / <code>isBasedOn</code></td><td><code>recipe/url</code></td></tr>
+<tr><td><code>image</code></td><td><code>recipe/image</code></td></tr>
+<tr><td><code>recipeYield</code></td><td><code>recipe/yield</code> (default 1)</td></tr>
+<tr><td><code>recipeInstructions[].text</code></td><td><code>recipe/instructions[]</code> (<code>string[]</code>)</td></tr>
+<tr><td><code>recipeIngredient</code></td><td>derived from <code>recipe/ingredients</code> refs</td></tr>
+<tr><td><code>nutrition</code></td><td>derived (not stored on the recipe)</td></tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr><th>schema.org/NutritionInformation</th><th><code>nutrition/info.*</code></th></tr>
+</thead>
+<tbody>
+<tr><td><code>servingSize</code></td><td><code>serving_size</code></td></tr>
+<tr><td><code>calories</code></td><td><code>calories</code></td></tr>
+<tr><td><code>proteinContent</code></td><td><code>protein_content</code></td></tr>
+<tr><td><code>fatContent</code></td><td><code>fat_content</code></td></tr>
+<tr><td><code>carbohydrateContent</code></td><td><code>carbohydrate_content</code></td></tr>
+<tr><td><code>fiberContent</code></td><td><code>fiber_content</code></td></tr>
+<tr><td><code>sugarContent</code></td><td><code>sugar_content</code></td></tr>
+<tr><td><code>sodiumContent</code></td><td><code>sodium_content</code></td></tr>
+<tr><td><code>saturatedFatContent</code></td><td><code>saturated_fat_content</code></td></tr>
+</tbody>
+</table>
+<p>Food-bearing twins carry <code>food/name</code>, <code>food/image</code>, <code>nutrition/info</code>, <code>twin/raw_provenance</code>. The consumption event keeps its frozen <code>event/metrics</code> snapshot (an atomic historical record, correctly a blob), with inner keys aligned to the nutrition vocabulary.</p>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li><strong>Supersedes</strong> the recipe twin shape in <code>V1_REQUIREMENTS.md</code> §3 and revises the food twin shape in §1; both must be updated, and new attributes registered in <code>docs/eavt-vocabulary.html</code>.</li>
+<li><strong>No backward compatibility</strong> with <code>a4b55aa</code> recipe/food data — explicitly waived. Readers drop the dead old-vocabulary branches in <code>consumption-state.ts</code>.</li>
+<li>One nutrition model spans USDA/OFF/custom/derived-recipe — no per-source special-casing, ending the drift the redesign introduced.</li>
+<li>Provenance increases OPFS usage (the tradeoff ADR-0016 already accepted) in exchange for lossless, re-fetch-free nutrient history.</li>
+<li><strong>schema.org/Recipe import/export (scraped recipes) is now a straight map</strong> — deferred to a future ticket; this ADR only makes the model conformant.</li>
+<li><code>recipe/yield</code> defaults to 1, preserving the current "build a recipe from today's logged foods → retract them" replace flow (ADR-0008 retraction). Multi-serving batch semantics for that flow are out of scope.</li>
+</ul>
+    </main>
+  </div>
+</div>
+</body>
+</html>

@@ -13,41 +13,63 @@ Physical items represent static or slowly changing physical properties derived f
 
 #### 1. Standard Digital Twins (Open Food Facts & USDA)
 
+Nutrition is a first-class, atomic `nutrition/info` panel on every food-bearing
+twin, mirroring **schema.org/NutritionInformation** in snake_case (ADR-0021).
+Values are plain numbers in a unit fixed per field (calories in kcal, every
+`*_content` in grams); `serving_size` states the basis. An adapter populates
+only the subset of fields its source provides.
+
 ```typescript
 // Open Food Facts (GTIN)
 const offTwin = {
   entity: "gtin:3017620422003",
   attributes: {
     "food/name": "Nutella",
-    "food/calories": "539 kcal",
-    "food/protein": "6.3 g",
-    "food/fat": "30.9 g",
-    "food/carbs": "57.5 g",
+    "nutrition/info": {
+      serving_size: "100 g",
+      calories: 539,
+      protein_content: 6.3,
+      fat_content: 30.9,
+      carbohydrate_content: 57.5,
+      sugar_content: 56.3,
+      sodium_content: 0.0428, // OFF's own sodium figure, not salt (0.107 g)
+      saturated_fat_content: 10.6,
+    },
   },
 };
 
-// USDA FoodData Central (FDC)
+// USDA FoodData Central (FDC) — sodium is normalised from mg to grams
 const usdaTwin = {
   entity: "fdc:170416",
   attributes: {
     "food/name": "Broccoli, raw",
-    "food/calories": "34 kcal",
-    "food/protein": "2.82 g",
+    "nutrition/info": {
+      serving_size: "100 g",
+      calories: 34,
+      protein_content: 2.82,
+      // …plus whatever else the food carries (fiber, sugars, etc.)
+    },
   },
 };
 ```
 
 #### 2. Custom & Photo-Based Foods
 
+Custom foods are entered as totals for one serving, so the panel's basis is
+`"1 serving"` rather than `100 g`.
+
 ```typescript
 const customFoodTwin = {
   entity: "food:custom_xyz890_1717140000000",
   attributes: {
     "food/name": "Homemade Sandwich",
-    "food/calories": "450 kcal",
-    "food/protein": "20 g",
-    "food/fat": "15 g",
-    "food/carbs": "50 g",
+    "nutrition/info": {
+      serving_size: "1 serving",
+      calories: 450,
+      protein_content: 20,
+      fat_content: 15,
+      carbohydrate_content: 50,
+    },
     "food/photo_base64": "data:image/jpeg;base64,/9j/4AAQSkZJRg...",
   },
 };
@@ -55,17 +77,18 @@ const customFoodTwin = {
 
 #### 3. Recipe Twins (Composed Entities)
 
+A recipe stores **no** nutrition of its own — its per-serving macros are derived
+from the referenced ingredient twins (ADR-0021), so the numbers can never rot
+against their source. The full schema.org/Recipe shape (reference ingredients,
+`recipe/yield`, derived nutrition) is specified in ADR-0021 and landed by the
+recipe tickets; the panel below shows only the identity a recipe twin carries.
+
 ```typescript
 const recipeTwin = {
   entity: "recipe:abc123_1717140000000",
   attributes: {
     "food/name": "Avocado Toast",
-    "food/calories": "250 kcal",
-    "food/protein": "5 g",
-    "food/fat": "12 g",
-    "food/carbs": "20 g",
     "recipe/description": "Classic smashed avocado on sourdough",
-    "recipe/scrape_url": "https://example.com/recipe/avo-toast",
     "recipe/ingredients": [
       { id: "fdc:170372", amount: "50g", name: "Avocado" },
       { id: "fdc:174092", amount: "1 slice", name: "Sourdough bread" },

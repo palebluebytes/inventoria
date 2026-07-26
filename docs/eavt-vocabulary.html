@@ -51,7 +51,7 @@
 
           <figure
             class="sketch"
-            aria-label="One datoms-table row split into four cells: entity 'gtin:3017620422003', attribute 'food/calories', value '539 kcal', and time '1717140000000'."
+            aria-label="One datoms-table row split into four cells: entity 'gtin:3017620422003', attribute 'food/name', value 'Nutella', and time '1717140000000'."
           >
             <svg
               viewBox="0 0 660 150"
@@ -144,7 +144,7 @@
                 font-size="12"
                 fill="#1a1a1a"
               >
-                food/calories
+                food/name
               </text>
 
               <rect
@@ -165,7 +165,7 @@
                 font-size="12"
                 fill="#1a1a1a"
               >
-                539 kcal
+                Nutella
               </text>
 
               <rect
@@ -372,9 +372,19 @@
               <tr>
                 <td><code>food/</code></td>
                 <td>Food Digital Twins</td>
+                <td><code>name</code>, <code>photo_base64</code></td>
+              </tr>
+              <tr>
+                <td><code>nutrition/</code></td>
                 <td>
-                  <code>name</code>, <code>calories</code>,
-                  <code>protein</code>, <code>fat</code>, <code>carbs</code>
+                  Nutrition panels on food-bearing twins
+                  (schema.org/NutritionInformation)
+                </td>
+                <td>
+                  <code>info</code> — one atomic panel blob
+                  (<code>serving_size</code>, <code>calories</code>,
+                  <code>protein_content</code>, <code>fat_content</code>,
+                  <code>carbohydrate_content</code>, …)
                 </td>
               </tr>
               <tr>
