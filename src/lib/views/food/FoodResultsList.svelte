@@ -46,8 +46,9 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-2xs);
-    max-height: 250px;
-    overflow-y: auto;
+    /* No own height cap / scroll: the enclosing sheet body (.stage) already
+       scrolls. A local max-height here nested a second scroll area that clipped
+       the list to ~3 rows while the sheet sat mostly empty. */
   }
   .result-item-btn {
     width: 100%;
