@@ -476,4 +476,48 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // Recipe 190 + kept Banana 134 = 324.
     await expect(page.locator(".calories-num")).toHaveText("324");
   });
+
+  test("yield control drives live per-serving totals and freezes them on save", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    const dinnerSection = await selectTwoAndBuild(page);
+    await page.locator("#recipe-name").fill("Dinner Combo");
+
+    // The builder derives per-serving nutrition, not batch totals. Yield defaults
+    // to 1, so per-serving equals the batch: oats 190 + banana 134 = 324.
+    const perServingCal = page.locator(
+      '[data-testid="per-serving"] .cal .pill-val'
+    );
+    await expect(page.locator("#recipe-yield")).toHaveValue("1");
+    await expect(perServingCal).toHaveText("324 kcal");
+    await expect(page.locator(".recipe-total")).toContainText("324 kcal");
+
+    // Raising the yield halves the per-serving totals live — no save needed.
+    await page.locator("#recipe-yield").fill("2");
+    await expect(perServingCal).toHaveText("162 kcal"); // 324 / 2
+    await expect(page.locator(".recipe-total")).toContainText("162 kcal");
+
+    // Removing an ingredient re-derives live too, composing with the yield:
+    // just oats now, 190 / 2 = 95 per serving.
+    await page
+      .locator(".recipe-ingredient", { hasText: "Mock Banana" })
+      .locator(".remove-ingredient")
+      .click();
+    await expect(perServingCal).toHaveText("95 kcal");
+
+    // Save at yield 2: the frozen snapshot is the 95 kcal per-serving figure the
+    // builder showed. Oats (still an ingredient) is replaced/retracted; Banana
+    // (removed from the builder) stays logged on its own.
+    await page.locator("#save-recipe-btn").click();
+
+    await expect(dinnerSection).toContainText("Dinner Combo");
+    await expect(dinnerSection).toContainText("Mock Banana");
+    await expect(dinnerSection).not.toContainText("Mock Oats");
+    // Recipe 95 (per serving, yield 2) + kept Banana 134 = 229.
+    await expect(page.locator(".calories-num")).toHaveText("229");
+  });
 });

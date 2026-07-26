@@ -11,15 +11,18 @@
     toReferenceIngredient,
     type RecipeIngredient,
   } from "../../food/recipe-ingredient";
+  import { deriveRecipeNutrition } from "../../food/recipe-nutrition";
   import type { NutritionInfo } from "../../food/nutrition";
   import Modal from "../../ui/Modal.svelte";
   import Alert from "../../ui/Alert.svelte";
   import AddIngredientSheet from "./AddIngredientSheet.svelte";
+  import MacroPills from "./MacroPills.svelte";
 
   // Recipe tracker. Builds a recipe from the selected foods and REPLACES the ones
   // that remain as ingredients (append-only: their consumption events are
   // retracted). Foods removed from the builder stay logged on their own. Lead with
-  // Name + Ingredients; Source / Notes / Steps / Image are collapsible.
+  // Name + Ingredients + Yield and a live per-serving nutrition panel; Source /
+  // Notes / Steps / Image are collapsible.
   let {
     meal_type,
     selectedDate,
@@ -37,6 +40,14 @@
   let ingredients = $state<RecipeIngredient[]>(
     untrack(() => initialIngredients.map((i) => ({ ...i })))
   );
+  // How many servings the recipe makes (schema.org recipeYield, ADR-0021).
+  // Held loosely so the field can be cleared while typing; yieldNum sanitises it
+  // to a positive number for both the live derivation and the persisted value.
+  let recipeYield = $state<number | string>(1);
+  let yieldNum = $derived.by(() => {
+    const n = Number(recipeYield);
+    return n > 0 ? n : 1;
+  });
   let showAdd = $state(false);
 
   let open = $state({
@@ -55,15 +66,21 @@
   let status = $state<"idle" | "loading" | "error">("idle");
   let error = $state("");
 
-  let totalCalories = $derived(ingredients.reduce((a, i) => a + i.calories, 0));
-  let totalProtein = $derived(
-    Math.round(ingredients.reduce((a, i) => a + i.protein, 0) * 10) / 10
-  );
-  let totalFat = $derived(
-    Math.round(ingredients.reduce((a, i) => a + i.fat, 0) * 10) / 10
-  );
-  let totalCarbs = $derived(
-    Math.round(ingredients.reduce((a, i) => a + i.carbs, 0) * 10) / 10
+  // Pure {ref, amount, unit} references — the shape the recipe twin stores and
+  // the derivation reads (ADR-0021).
+  let referenceIngredients = $derived(ingredients.map(toReferenceIngredient));
+  // Each ingredient's real nutrition/info panel, read in memory from its ingested
+  // payload — never mutating the food twin.
+  function resolvePanel(ref: string): NutritionInfo | undefined {
+    return ingredients.find((i) => i.entity === ref)?.payload?.attributes?.[
+      "nutrition/info"
+    ] as NutritionInfo | undefined;
+  }
+  // Live per-serving macros via the SAME derivation the Consumption projection
+  // and log-time snapshot use: Σ(panel × amount ÷ serving_size) ÷ yield. Tracks
+  // ingredients, amounts, and yield, so the panel updates as any of them change.
+  let perServing = $derived(
+    deriveRecipeNutrition(referenceIngredients, yieldNum, resolvePanel)
   );
 
   function removeIngredient(entity: string) {
@@ -108,10 +125,9 @@
         await dbClient.append(ingestEntity(ing.payload));
       }
       // 2. Save the recipe twin: pure {ref, amount, unit} ingredient references
-      //    and schema.org-faithful fields. Yield is fixed at 1 this ticket, so
-      //    per-serving equals the batch (ADR-0021). UI labels Source/Notes/Steps
-      //    map to recipe/url, recipe/description, recipe/instructions.
-      const referenceIngredients = ingredients.map(toReferenceIngredient);
+      //    and schema.org-faithful fields, including the user's yield (ADR-0021).
+      //    UI labels Source/Notes/Steps map to recipe/url, recipe/description,
+      //    recipe/instructions.
       const recipeId = await saveRecipe({
         name: recipeName.trim(),
         ingredients: referenceIngredients,
@@ -119,26 +135,19 @@
         description: notes,
         instructions: steps.map((s) => s.text.trim()).filter(Boolean),
         image: image ?? undefined,
-        yield: 1,
+        yield: yieldNum,
       });
       // 3. Log the recipe: the store derives its per-serving snapshot with the
-      //    shared formula over each ingredient's REAL nutrition/info panel (from
-      //    its ingested payload), then freezes it. Same helper + panels as the
-      //    projection's live derivation, so the frozen snapshot equals what the
-      //    projection derives at log time. Panels are read in memory, so real
-      //    food twins are never mutated.
-      const panels = new Map<string, NutritionInfo>();
-      for (const ing of ingredients) {
-        const panel = ing.payload?.attributes?.["nutrition/info"] as
-          | NutritionInfo
-          | undefined;
-        if (panel) panels.set(ing.entity, panel);
-      }
+      //    shared formula over each ingredient's REAL nutrition/info panel and
+      //    the same yield, then freezes it. Same helper + panels + yield as the
+      //    live display above and the projection's derivation, so the frozen
+      //    snapshot equals what the builder showed at the moment it was logged.
+      //    Panels are read in memory, so real food twins are never mutated.
       await logRecipeConsumption(
         recipeId,
         referenceIngredients,
-        1,
-        (ref) => panels.get(ref),
+        yieldNum,
+        resolvePanel,
         meal_type,
         selectedDate
       );
@@ -192,7 +201,7 @@
         <div class="ing-head">
           <span class="fl">Ingredients ({ingredients.length})</span>
           <span class="tot recipe-total"
-            >{totalCalories} kcal · {totalProtein}g P</span
+            >{perServing.calories} kcal · {perServing.protein}g P / serving</span
           >
         </div>
         <ul class="ings">
@@ -220,6 +229,28 @@
           id="add-ingredient-btn"
           onclick={() => (showAdd = true)}>+ Add ingredient</button
         >
+
+        <div class="yield-row">
+          <label class="fl" for="recipe-yield">Yield (servings)</label>
+          <input
+            id="recipe-yield"
+            class="tin yield-in"
+            type="number"
+            inputmode="numeric"
+            min="1"
+            bind:value={recipeYield}
+          />
+        </div>
+
+        <div class="per-serving" data-testid="per-serving">
+          <span class="fl">Per serving</span>
+          <MacroPills
+            calories={perServing.calories}
+            protein={perServing.protein}
+            fat={perServing.fat}
+            carbs={perServing.carbs}
+          />
+        </div>
 
         <div class="sections">
           {#each SECTIONS as s (s.key)}
@@ -465,6 +496,28 @@
     padding: var(--space-s);
     font-weight: 700;
     cursor: pointer;
+  }
+
+  .yield-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-s);
+    margin-top: var(--space-m);
+  }
+  .yield-row .fl {
+    margin: 0;
+  }
+  .yield-in {
+    width: 6rem;
+    text-align: center;
+    font-weight: 700;
+  }
+  .per-serving {
+    margin-top: var(--space-s);
+  }
+  .per-serving .fl {
+    margin: 0 0 var(--space-2xs);
   }
 
   .sections {
