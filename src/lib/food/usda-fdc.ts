@@ -154,6 +154,17 @@ export async function searchFdc(
   const search = encodeURIComponent(toPrefixQuery(query));
   const url = `${FDC_BASE}?query=${search}&dataType=Foundation,SR%20Legacy&api_key=${apiKey}`;
   const res = await fetch(url);
+  // A failed request (bad/expired key -> 403, exhausted quota -> 429, outage ->
+  // 5xx) returns a body with no `foods` field. Without this guard that collapses
+  // to an empty result set and surfaces as "No foods found", masking the real
+  // cause; distinguish the common failures so the user can act on them.
+  if (!res.ok) {
+    if (res.status === 403)
+      throw new Error("USDA API rejected the key. Check it in Settings.");
+    if (res.status === 429)
+      throw new Error("USDA API rate limit reached. Try again shortly.");
+    throw new Error(`USDA API request failed (${res.status}).`);
+  }
   const data: { foods: FdcFood[] } = await res.json();
 
   // Deduplicate by description, preferring Foundation over SR Legacy

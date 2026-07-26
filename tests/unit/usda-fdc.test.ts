@@ -173,6 +173,36 @@ describe("searchFdc", () => {
     expect(results[0].entity).toBe("fdc:171705");
   });
 
+  it("throws a key error (not 'no foods') on a 403", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: async () => ({ error: { code: "API_KEY_INVALID" } }),
+    } as Response);
+
+    await expect(searchFdc("banana", "BAD_KEY")).rejects.toThrow(/key/i);
+  });
+
+  it("throws a rate-limit error on a 429", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 429,
+      json: async () => ({ error: { code: "OVER_RATE_LIMIT" } }),
+    } as Response);
+
+    await expect(searchFdc("banana", "KEY")).rejects.toThrow(/rate limit/i);
+  });
+
+  it("throws a generic request error on other failures", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+    } as Response);
+
+    await expect(searchFdc("banana", "KEY")).rejects.toThrow(/500/);
+  });
+
   it("returns empty array when result set is empty", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
