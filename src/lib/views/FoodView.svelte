@@ -1,7 +1,15 @@
 <script lang="ts">
   import { createQueryStore } from "../stores/datoms.store";
   import { HLC_ORDER_DESC } from "../db/hlc";
-  import { consumptionStore, consumptionForDay } from "../stores/calorie.store";
+  import {
+    consumptionStore,
+    consumptionForDay,
+    getLocalFoodTwin,
+  } from "../stores/calorie.store";
+  import {
+    customIngredient,
+    parseLoggedQuantity,
+  } from "../food/recipe-ingredient";
   import DailyDashboard from "./food/DailyDashboard.svelte";
   import LogFoodSheet from "./food/LogFoodSheet.svelte";
   import RecipeModal from "./food/RecipeModal.svelte";
@@ -59,26 +67,60 @@
     selected_ids = new Set();
   }
 
-  // Turn selected consumption events into recipe ingredients (their logged macros)
-  // carrying each event's id, so the recipe builder can retract the ones that
-  // remain as ingredients. Then open the seeded builder.
-  function buildRecipe() {
-    recipe_seed = selectedItems.map((it) => {
-      const entity = it.target || it.id;
-      const name = it.foodName || "Food";
-      return {
-        entity,
-        name,
-        quantityLabel: it.quantity || "1 serving",
-        calories: Math.round(Number(it.calories) || 0),
-        protein: Number(it.protein) || 0,
-        fat: Number(it.fat) || 0,
-        carbs: Number(it.carbs) || 0,
-        payload: { entity, attributes: { "food/name": name } },
-        event_id: it.id,
-      };
-    });
-    recipe_meal_type = (selectedItems[0]?.meal_type as MealType) || "dinner";
+  // Turn selected consumption events into recipe ingredients carrying each
+  // event's id, so the recipe builder can retract the ones that remain as
+  // ingredients. Each seed references its ORIGINAL food twin with the logged
+  // quantity parsed back to {amount, unit}, so the recipe derives from that
+  // twin's real nutrition/info panel (ADR-0021) and keeps the link to its
+  // reputable source. deriveRecipeNutrition rounds each ingredient the same way
+  // it was rounded when logged, so the recipe still totals exactly what these
+  // foods contributed — the replace flow stays neutral. If the twin carries no
+  // panel, synthesize a per-serving twin equal to the logged macros rather than
+  // corrupt the real twin. Then open the seeded builder.
+  async function buildRecipe() {
+    const items = selectedItems;
+    recipe_seed = await Promise.all(
+      items.map(async (it) => {
+        const target = it.target || it.id;
+        const name = it.foodName || "Food";
+        const macros = {
+          calories: Math.round(Number(it.calories) || 0),
+          protein: Number(it.protein) || 0,
+          fat: Number(it.fat) || 0,
+          carbs: Number(it.carbs) || 0,
+        };
+        const twin = await getLocalFoodTwin(target);
+        const panel = twin?.attributes?.["nutrition/info"];
+        if (panel) {
+          const { amount, unit } = parseLoggedQuantity(it.quantity);
+          return {
+            entity: target,
+            name,
+            quantityLabel: it.quantity || "1 serving",
+            amount,
+            unit,
+            ...macros,
+            payload: twin,
+            event_id: it.id,
+          };
+        }
+        // Fallback: no resolvable panel on the real twin — capture the logged
+        // macros as a fresh per-serving twin so derivation stays lossless.
+        const ing = customIngredient(
+          name,
+          macros.calories,
+          macros.protein,
+          macros.fat,
+          macros.carbs
+        );
+        return {
+          ...ing,
+          quantityLabel: it.quantity || "1 serving",
+          event_id: it.id,
+        };
+      })
+    );
+    recipe_meal_type = (items[0]?.meal_type as MealType) || "dinner";
     recipeOpen = true;
     clearSelection();
   }

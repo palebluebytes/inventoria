@@ -77,22 +77,33 @@ const customFoodTwin = {
 
 #### 3. Recipe Twins (Composed Entities)
 
-A recipe stores **no** nutrition of its own — its per-serving macros are derived
-from the referenced ingredient twins (ADR-0021), so the numbers can never rot
-against their source. The full schema.org/Recipe shape (reference ingredients,
-`recipe/yield`, derived nutrition) is specified in ADR-0021 and landed by the
-recipe tickets; the panel below shows only the identity a recipe twin carries.
+A recipe is a **schema.org/Recipe** expressed in snake_case `recipe/*` (ADR-0021):
+`recipe/name`, `recipe/description`, `recipe/url`, `recipe/image`,
+`recipe/instructions` (ordered HowToStep text as a `string[]`), `recipe/yield`
+(default 1), and `recipe/ingredients`. It stores **no** nutrition of its own —
+`recipe/ingredients` holds **pure references** `{ ref, amount, unit }`
+(`unit ∈ g | serving`); each ingredient's name and nutrition resolve from the
+referenced food twin, never duplicated, so the numbers can never rot. Per-serving
+macros are **derived**: `Σ(ingredient nutrition/info × amount ÷ serving_size) ÷ recipe/yield`.
+That derived aggregate is frozen into the Consumption Event's `event/metrics`
+snapshot at log time, so later recipe edits never rewrite logged history.
 
 ```typescript
 const recipeTwin = {
   entity: "recipe:abc123_1717140000000",
   attributes: {
-    "food/name": "Avocado Toast",
+    "recipe/name": "Avocado Toast",
     "recipe/description": "Classic smashed avocado on sourdough",
+    "recipe/url": "https://example.com/avocado-toast",
+    "recipe/yield": 1,
+    "recipe/instructions": [
+      "Toast the sourdough",
+      "Smash and season the avocado",
+    ],
     "recipe/ingredients": [
-      { id: "fdc:170372", amount: "50g", name: "Avocado" },
-      { id: "fdc:174092", amount: "1 slice", name: "Sourdough bread" },
-    ], // Stored as a stringified JSON array
+      { ref: "fdc:170372", amount: 50, unit: "g" },
+      { ref: "fdc:174092", amount: 1, unit: "serving" },
+    ], // Pure references; stored as a stringified JSON array
   },
 };
 ```

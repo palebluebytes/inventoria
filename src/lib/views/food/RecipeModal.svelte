@@ -4,10 +4,14 @@
   import { ingestEntity } from "../../ingestion/ingest";
   import {
     saveRecipe,
-    logFoodConsumption,
+    logRecipeConsumption,
     retractConsumptionEvent,
   } from "../../stores/calorie.store";
-  import type { RecipeIngredient } from "../../food/recipe-ingredient";
+  import {
+    toReferenceIngredient,
+    type RecipeIngredient,
+  } from "../../food/recipe-ingredient";
+  import type { NutritionInfo } from "../../food/nutrition";
   import Modal from "../../ui/Modal.svelte";
   import Alert from "../../ui/Alert.svelte";
   import AddIngredientSheet from "./AddIngredientSheet.svelte";
@@ -103,35 +107,42 @@
       for (const ing of ingredients) {
         await dbClient.append(ingestEntity(ing.payload));
       }
-      // 2. Save the recipe twin.
+      // 2. Save the recipe twin: pure {ref, amount, unit} ingredient references
+      //    and schema.org-faithful fields. Yield is fixed at 1 this ticket, so
+      //    per-serving equals the batch (ADR-0021). UI labels Source/Notes/Steps
+      //    map to recipe/url, recipe/description, recipe/instructions.
+      const referenceIngredients = ingredients.map(toReferenceIngredient);
       const recipeId = await saveRecipe({
         name: recipeName.trim(),
-        ingredients: ingredients.map((i) => ({
-          entity: i.entity,
-          name: i.name,
-          quantity: i.quantityLabel,
-          calories: i.calories,
-          protein: i.protein,
-          fat: i.fat,
-          carbs: i.carbs,
-        })),
-        source,
-        notes,
-        steps: steps.map((s) => s.text.trim()).filter(Boolean),
-        photoBase64: image ?? undefined,
+        ingredients: referenceIngredients,
+        url: source,
+        description: notes,
+        instructions: steps.map((s) => s.text.trim()).filter(Boolean),
+        image: image ?? undefined,
+        yield: 1,
       });
-      // 3. Log the recipe as a consumption event.
-      await logFoodConsumption(
+      // 3. Log the recipe: the store derives its per-serving snapshot with the
+      //    shared formula over each ingredient's REAL nutrition/info panel (from
+      //    its ingested payload), then freezes it. Same helper + panels as the
+      //    projection's live derivation, so the frozen snapshot equals what the
+      //    projection derives at log time. Panels are read in memory, so real
+      //    food twins are never mutated.
+      const panels = new Map<string, NutritionInfo>();
+      for (const ing of ingredients) {
+        const panel = ing.payload?.attributes?.["nutrition/info"] as
+          | NutritionInfo
+          | undefined;
+        if (panel) panels.set(ing.entity, panel);
+      }
+      await logRecipeConsumption(
         recipeId,
-        "1 serving",
+        referenceIngredients,
+        1,
+        (ref) => panels.get(ref),
         meal_type,
-        totalCalories,
-        totalProtein,
-        totalFat,
-        totalCarbs,
         selectedDate
       );
-      // 4. Replace: retract the selection events that remain as ingredients.
+      // 5. Replace: retract the selection events that remain as ingredients.
       //    (Foods removed from the builder keep their event_id out of this loop,
       //    so they stay logged.)
       for (const ing of ingredients) {

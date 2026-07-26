@@ -2,7 +2,15 @@ import { dbClient } from "../db/db.client";
 import { ingestEntity } from "../ingestion/ingest";
 import { createProjectionStore } from "./datoms.store";
 import type { ConsumptionEvent } from "../food/consumption-state";
-import { nutritionFromMacros, PER_SERVING } from "../food/nutrition";
+import {
+  nutritionFromMacros,
+  PER_SERVING,
+  type NutritionInfo,
+} from "../food/nutrition";
+import {
+  deriveRecipeNutrition,
+  type ReferenceIngredient,
+} from "../food/recipe-nutrition";
 
 export type { ConsumptionEvent };
 
@@ -129,41 +137,77 @@ export async function saveCustomFood(
 }
 
 export interface RecipeInput {
+  /** schema.org name. */
   name: string;
-  ingredients: any[];
-  /** Where the recipe is from (link or free text). */
-  source?: string;
-  /** Free-text notes. */
-  notes?: string;
-  /** Ordered preparation steps. */
-  steps?: string[];
-  /** Optional recipe photo. */
-  photoBase64?: string;
+  /** Pure `{ ref, amount, unit }` references to the ingredient food twins. */
+  ingredients: ReferenceIngredient[];
+  /** schema.org description (the "Notes" field in the UI). */
+  description?: string;
+  /** schema.org url / isBasedOn (the "Source" field in the UI). */
+  url?: string;
+  /** schema.org image. */
+  image?: string;
+  /** schema.org recipeInstructions — ordered HowToStep text. */
+  instructions?: string[];
+  /** schema.org recipeYield; defaults to 1 (single-serving) this ticket. */
+  yield?: number;
 }
 
 /**
- * Saves a Recipe twin. A recipe stores no macros of its own — its nutrition is
- * derived from the referenced ingredient twins (ADR-0021); the aggregate is
- * frozen into the Consumption Event's `event/metrics` snapshot at log time.
- * `recipe/*` attributes carry the tracker fields.
+ * Saves a schema.org/Recipe twin (ADR-0021). A recipe stores **no** macros of
+ * its own — `recipe/ingredients` holds pure `{ ref, amount, unit }` references,
+ * and per-serving nutrition is derived from the referenced ingredient twins.
+ * That derived aggregate is frozen into the Consumption Event's `event/metrics`
+ * snapshot at log time, so later recipe edits never rewrite logged history.
  */
 export async function saveRecipe(input: RecipeInput): Promise<string> {
   const timestamp = Date.now();
   const entityId = `recipe:${Math.random().toString(36).substring(2, 9)}_${timestamp}`;
 
   const attributes: Record<string, any> = {
-    "food/name": input.name,
-    // Store direct JSON arrays; ingestEntity/worker stringifies them.
+    "recipe/name": input.name,
+    // Store direct JSON arrays/objects; ingestEntity/worker stringifies them.
     "recipe/ingredients": input.ingredients,
+    "recipe/yield": input.yield ?? 1,
   };
-  if (input.source?.trim()) attributes["recipe/source"] = input.source.trim();
-  if (input.notes?.trim()) attributes["recipe/notes"] = input.notes.trim();
-  if (input.steps && input.steps.length)
-    attributes["recipe/steps"] = input.steps;
-  if (input.photoBase64) attributes["recipe/photo_base64"] = input.photoBase64;
+  if (input.description?.trim())
+    attributes["recipe/description"] = input.description.trim();
+  if (input.url?.trim()) attributes["recipe/url"] = input.url.trim();
+  if (input.instructions && input.instructions.length)
+    attributes["recipe/instructions"] = input.instructions;
+  if (input.image) attributes["recipe/image"] = input.image;
 
   await dbClient.append(ingestEntity({ entity: entityId, attributes }));
   return entityId;
+}
+
+/**
+ * Logs a recipe as a Consumption Event, deriving its per-serving nutrition from
+ * the referenced ingredient twins' real `nutrition/info` panels ÷ `recipeYield`
+ * (ADR-0021) and freezing that into the event's `event/metrics` snapshot. This
+ * is the single store path that computes the snapshot, so a logged recipe's
+ * frozen macros are the true derivation, not hand-supplied. `resolve` yields
+ * each referenced twin's panel (from the in-memory builder, or a test double).
+ */
+export async function logRecipeConsumption(
+  recipeId: string,
+  ingredients: ReferenceIngredient[],
+  recipeYield: number,
+  resolve: (ref: string) => NutritionInfo | undefined,
+  meal_type: string,
+  selectedDate: Date
+): Promise<string> {
+  const snapshot = deriveRecipeNutrition(ingredients, recipeYield, resolve);
+  return logFoodConsumption(
+    recipeId,
+    "1 serving",
+    meal_type,
+    snapshot.calories,
+    snapshot.protein,
+    snapshot.fat,
+    snapshot.carbs,
+    selectedDate
+  );
 }
 
 /**

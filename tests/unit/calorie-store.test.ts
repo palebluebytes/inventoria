@@ -5,10 +5,12 @@ import {
   logFoodConsumption,
   saveCustomFood,
   saveRecipe,
+  logRecipeConsumption,
   retractConsumptionEvent,
   consumptionForDay,
 } from "../../src/lib/stores/calorie.store";
 import { computeConsumption } from "../../src/lib/food/consumption-state";
+import type { ReferenceIngredient } from "../../src/lib/food/recipe-nutrition";
 import { asStored } from "./support/stored";
 
 vi.mock("../../src/lib/db/db.client", () => {
@@ -163,48 +165,60 @@ describe("Calorie Store Actions", () => {
   });
 
   describe("saveRecipe", () => {
-    it("appends recipe twin to the ledger", async () => {
+    it("stores a schema.org recipe twin with reference ingredients and no macros", async () => {
       const mockAppend = vi
         .spyOn(dbClient, "append")
         .mockResolvedValue(undefined);
-      const ingredients = [
-        { name: "Oats", quantity: "50g", calories: 190 },
-        { name: "Milk", quantity: "200ml", calories: 120 },
+      // Ingredients are pure references — name and nutrition resolve from the
+      // referenced food twin, never duplicated on the recipe (ADR-0021).
+      const ingredients: ReferenceIngredient[] = [
+        { ref: "fdc:oats", amount: 50, unit: "g" },
+        { ref: "food:custom_milk", amount: 1, unit: "serving" },
       ];
 
       const recipeId = await saveRecipe({
         name: "Oatmeal",
         ingredients,
-        source: "https://example.com/oats",
-        notes: "Healthy breakfast oatmeal",
-        steps: ["Boil water", "Add oats"],
+        url: "https://example.com/oats",
+        description: "Healthy breakfast oatmeal",
+        instructions: ["Boil water", "Add oats"],
       });
 
       expect(recipeId).toMatch(/^recipe:/);
       expect(mockAppend).toHaveBeenCalledTimes(1);
 
       const datoms = mockAppend.mock.calls[0][0];
-      const nameDatom = datoms.find((d) => d.attribute === "food/name");
-      expect(nameDatom?.value).toBe("Oatmeal");
 
-      // A recipe stores no macros of its own — nutrition is derived (ADR-0021).
-      expect(
-        datoms.find((d) => d.attribute === "food/calories")
-      ).toBeUndefined();
-
-      const notesDatom = datoms.find((d) => d.attribute === "recipe/notes");
-      expect(notesDatom?.value).toBe("Healthy breakfast oatmeal");
-
-      const sourceDatom = datoms.find((d) => d.attribute === "recipe/source");
-      expect(sourceDatom?.value).toBe("https://example.com/oats");
-
-      const stepsDatom = datoms.find((d) => d.attribute === "recipe/steps");
-      expect(stepsDatom?.value).toEqual(["Boil water", "Add oats"]);
-
-      const ingredientsDatom = datoms.find(
-        (d) => d.attribute === "recipe/ingredients"
+      // schema.org-faithful recipe/* vocabulary.
+      expect(datoms.find((d) => d.attribute === "recipe/name")?.value).toBe(
+        "Oatmeal"
       );
-      expect(ingredientsDatom?.value).toEqual(ingredients);
+      expect(
+        datoms.find((d) => d.attribute === "recipe/description")?.value
+      ).toBe("Healthy breakfast oatmeal");
+      expect(datoms.find((d) => d.attribute === "recipe/url")?.value).toBe(
+        "https://example.com/oats"
+      );
+      expect(
+        datoms.find((d) => d.attribute === "recipe/instructions")?.value
+      ).toEqual(["Boil water", "Add oats"]);
+      expect(datoms.find((d) => d.attribute === "recipe/yield")?.value).toBe(1);
+      expect(
+        datoms.find((d) => d.attribute === "recipe/ingredients")?.value
+      ).toEqual(ingredients);
+
+      // Old ad-hoc vocabulary is gone, and a recipe carries no name/macros of
+      // its own — nutrition is derived from the referenced ingredient twins.
+      for (const dead of [
+        "recipe/source",
+        "recipe/notes",
+        "recipe/steps",
+        "food/name",
+        "food/calories",
+        "nutrition/info",
+      ]) {
+        expect(datoms.find((d) => d.attribute === dead)).toBeUndefined();
+      }
     });
   });
 
@@ -344,7 +358,7 @@ describe("computeConsumption", () => {
     });
   });
 
-  it("joins a recipe twin across both food/ and recipe/ prefixes", () => {
+  it("joins a schema.org recipe twin across both food/ and recipe/ prefixes", () => {
     const t = 1717080000000;
     const datoms = [
       {
@@ -353,15 +367,16 @@ describe("computeConsumption", () => {
         value: s("recipe:abc"),
         time: t,
       },
+      // The event surfaces its frozen snapshot, not the twin's live nutrition.
       {
         entity: "event:consume_r",
-        attribute: "event/calories",
-        value: s(350),
+        attribute: "event/metrics",
+        value: s({ calories: 350, protein: 12, fat: 8, carbs: 55 }),
         time: t,
       },
       {
         entity: "recipe:abc",
-        attribute: "food/name",
+        attribute: "recipe/name",
         value: s("Chili"),
         time: 1717000000000,
       },
@@ -373,8 +388,26 @@ describe("computeConsumption", () => {
       },
       {
         entity: "recipe:abc",
+        attribute: "recipe/url",
+        value: s("https://example.com/chili"),
+        time: 1717000000000,
+      },
+      {
+        entity: "recipe:abc",
+        attribute: "recipe/instructions",
+        value: s(["Soak the beans", "Simmer for an hour"]),
+        time: 1717000000000,
+      },
+      {
+        entity: "recipe:abc",
+        attribute: "recipe/yield",
+        value: s(1),
+        time: 1717000000000,
+      },
+      {
+        entity: "recipe:abc",
         attribute: "recipe/ingredients",
-        value: s([{ name: "beans" }]),
+        value: s([{ ref: "fdc:beans", amount: 200, unit: "g" }]),
         time: 1717000000000,
       },
     ];
@@ -386,7 +419,10 @@ describe("computeConsumption", () => {
       calories: 350,
       foodName: "Chili",
       description: "Hearty bean chili",
-      ingredients: [{ name: "beans" }],
+      url: "https://example.com/chili",
+      instructions: ["Soak the beans", "Simmer for an hour"],
+      yield: 1,
+      ingredients: [{ ref: "fdc:beans", amount: 200, unit: "g" }],
     });
   });
 });
@@ -471,48 +507,119 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
     }
   );
 
-  it("logs a recipe and folds it, hiding the ingredient event it replaces", async () => {
+  it("derives a recipe end-to-end: store freezes the snapshot, projection derives live, and history stays immutable", async () => {
     const appended = captureAppends();
     const day = new Date("2026-05-31T12:00:00");
 
-    // An ingredient logged earlier, then replaced by a recipe built from it.
+    // Two ingredient food twins with real per-100g nutrition panels. These are
+    // pre-existing ledger context the recipe references — the projection reads
+    // their panels to derive the recipe's live per-serving nutrition.
+    const oatsPanel = {
+      serving_size: "100 g",
+      calories: 380,
+      protein_content: 13,
+      fat_content: 7,
+      carbohydrate_content: 67,
+    };
+    const milkPanel = {
+      serving_size: "100 g",
+      calories: 64,
+      protein_content: 3.4,
+      fat_content: 3.6,
+      carbohydrate_content: 4.7,
+    };
+    const twinDatoms = [
+      { entity: "fdc:oats", attribute: "food/name", value: "Oats", time: 1 },
+      {
+        entity: "fdc:oats",
+        attribute: "nutrition/info",
+        value: oatsPanel,
+        time: 1,
+      },
+      { entity: "gtin:milk", attribute: "food/name", value: "Milk", time: 1 },
+      {
+        entity: "gtin:milk",
+        attribute: "nutrition/info",
+        value: milkPanel,
+        time: 1,
+      },
+    ];
+
+    // 50 g oats (×0.5) + 200 g milk (×2), yield 1. Expected derived per-serving:
+    // oats×0.5 = 190/6.5/3.5/33.5 ; milk×2 = 128/6.8/7.2/9.4 → Σ = 318/13.3/10.7/42.9.
+    const refs: ReferenceIngredient[] = [
+      { ref: "fdc:oats", amount: 50, unit: "g" },
+      { ref: "gtin:milk", amount: 200, unit: "g" },
+    ];
+    const expected = { calories: 318, protein: 13.3, fat: 10.7, carbs: 42.9 };
+
+    // An ingredient logged earlier, then replaced by the recipe built from it.
     const ingredientEventId = await logFoodConsumption(
-      "food:custom_oats",
+      "fdc:oats",
       "50 g",
       "breakfast",
       190,
-      6,
-      3,
-      34,
+      6.5,
+      3.5,
+      33.5,
       day
     );
-    const recipeId = await saveRecipe({
-      name: "Oatmeal",
-      ingredients: [{ entity: "food:custom_oats" }],
-    });
-    await logFoodConsumption(
+    // Save + log through the real store actions. The store derives the frozen
+    // snapshot itself from the ingredient panels (via the resolver) — the test
+    // never calls deriveRecipeNutrition.
+    const recipeId = await saveRecipe({ name: "Oatmeal", ingredients: refs });
+    const panels = new Map([
+      ["fdc:oats", oatsPanel],
+      ["gtin:milk", milkPanel],
+    ]);
+    await logRecipeConsumption(
       recipeId,
-      "1 serving",
+      refs,
+      1,
+      (ref) => panels.get(ref),
       "breakfast",
-      190,
-      6,
-      3,
-      34,
       day
     );
     await retractConsumptionEvent(ingredientEventId, recipeId);
 
-    const events = computeConsumption(asLedger(appended));
-    // Only the recipe event survives; the replaced ingredient event is hidden.
+    const events = computeConsumption(asLedger([...twinDatoms, ...appended]));
+    // (d) Retraction hides the replaced ingredient event — only the recipe and
+    // the two context twins' events (none) remain.
     expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({
+    const recipeEvent = events[0];
+    // (a) The store path derived and froze the snapshot into event/metrics.
+    expect(recipeEvent).toMatchObject({
       target: recipeId,
       foodName: "Oatmeal",
-      calories: 190,
-      protein: 6,
-      fat: 3,
-      carbs: 34,
     });
+    expect({
+      calories: recipeEvent.calories,
+      protein: recipeEvent.protein,
+      fat: recipeEvent.fat,
+      carbs: recipeEvent.carbs,
+    }).toEqual(expected);
+    // (b) The projection independently derives the recipe's live per-serving
+    // nutrition from the real ingredient panels ÷ yield.
+    expect(recipeEvent.recipe_nutrition).toEqual(expected);
+
+    // (c) A later recipe edit changes the live derivation but NOT the frozen
+    // snapshot — logged history is immutable (ADR-0021).
+    const laterEdit = [
+      {
+        entity: recipeId,
+        attribute: "recipe/ingredients",
+        value: [{ ref: "fdc:oats", amount: 500, unit: "g" }],
+        time: day.getTime() + 1000,
+      },
+    ];
+    const afterEdit = computeConsumption(
+      asLedger([...twinDatoms, ...appended, ...laterEdit])
+    );
+    const edited = afterEdit.find((e) => e.target === recipeId)!;
+    // Frozen macros unchanged…
+    expect(edited.calories).toBe(318);
+    // …while the live derivation follows the edit (500 g oats = 1900 kcal).
+    expect(edited.recipe_nutrition?.calories).toBe(1900);
   });
 });
 

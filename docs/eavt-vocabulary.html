@@ -389,10 +389,14 @@
               </tr>
               <tr>
                 <td><code>recipe/</code></td>
-                <td>Recipe twins</td>
+                <td>Recipe twins (schema.org/Recipe)</td>
                 <td>
-                  <code>description</code>, <code>ingredients</code>,
-                  <code>scrape_url</code>, <code>source_url</code>
+                  <code>name</code>, <code>description</code>, <code>url</code>,
+                  <code>image</code>, <code>instructions</code> (ordered
+                  HowToStep text), <code>yield</code>,
+                  <code>ingredients</code> (pure
+                  <code>{ ref, amount, unit }</code> references — nutrition is
+                  derived, never stored)
                 </td>
               </tr>
               <tr>

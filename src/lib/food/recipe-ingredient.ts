@@ -1,16 +1,24 @@
 import type { FoodResult } from "./food-search";
 import { nutritionFromMacros, PER_SERVING } from "./nutrition";
+import type { ReferenceIngredient } from "./recipe-nutrition";
 
 /**
- * A single recipe ingredient. `event_id` is set when the ingredient was seeded
- * from a logged consumption event on the dashboard — on save, such events are
- * retracted (replaced by the recipe) if they remain in the list.
+ * A single recipe ingredient in the builder. It carries the display info the
+ * builder shows (name, quantity label, its scaled macro contribution) plus the
+ * `amount`/`unit` that, with `entity`, form the pure `{ ref, amount, unit }`
+ * reference persisted on the recipe twin (ADR-0021). `event_id` is set when the
+ * ingredient was seeded from a logged consumption event on the dashboard — on
+ * save, such events are retracted (replaced by the recipe) if they remain.
  */
 export interface RecipeIngredient {
   entity: string;
   name: string;
   /** Display label, e.g. "50 g" or "1 serving". */
   quantityLabel: string;
+  /** Amount used, paired with {@link unit} to form the stored reference. */
+  amount: number;
+  /** `g` for scaled foods, `serving` for whole-serving/custom foods. */
+  unit: "g" | "serving";
   calories: number;
   protein: number;
   fat: number;
@@ -19,6 +27,29 @@ export interface RecipeIngredient {
   payload: any;
   /** Source consumption-event id, if this ingredient came from the day. */
   event_id?: string;
+}
+
+/** Reduces a builder ingredient to the pure reference persisted on the recipe. */
+export function toReferenceIngredient(
+  ing: RecipeIngredient
+): ReferenceIngredient {
+  return { ref: ing.entity, amount: ing.amount, unit: ing.unit };
+}
+
+/**
+ * Parses a logged Consumption Event's quantity ("150g", "1 serving") back into
+ * the `{ amount, unit }` that a reference ingredient scales its twin's panel by
+ * (ADR-0021). A gram amount scales the twin's per-100g panel; anything else is
+ * treated as one whole serving. Used when seeding a recipe from today's logged
+ * foods so the reference resolves losslessly against the original twin.
+ */
+export function parseLoggedQuantity(quantity: string | undefined): {
+  amount: number;
+  unit: "g" | "serving";
+} {
+  const grams = /^\s*([\d.]+)\s*g\b/i.exec(quantity ?? "");
+  if (grams) return { amount: parseFloat(grams[1]), unit: "g" };
+  return { amount: 1, unit: "serving" };
 }
 
 /** Scales a searched/scanned food (per-100g) into a proportional ingredient. */
@@ -31,6 +62,8 @@ export function ingredientFromFood(
     entity: food.entity,
     name: food.name,
     quantityLabel: `${grams} g`,
+    amount: grams,
+    unit: "g",
     calories: Math.round(food.calories * f),
     protein: Math.round(food.protein * f * 10) / 10,
     fat: Math.round(food.fat * f * 10) / 10,
@@ -56,6 +89,8 @@ export function customIngredient(
     entity,
     name,
     quantityLabel: "1 serving",
+    amount: 1,
+    unit: "serving",
     calories,
     protein,
     fat,
