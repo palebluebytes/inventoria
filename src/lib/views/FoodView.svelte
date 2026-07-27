@@ -141,29 +141,33 @@
   onTapItem={tapItem}
 />
 
-<!-- Secondary: Saved Digital Twins Ledger -->
-<Card class="mt-6">
-  <h2>
-    {entityName}
-    <Badge id="saved-twins-count" variant="default" class="ml-2"
-      >{$foodTwinsStore.length}</Badge
-    >
-  </h2>
-  {#if $foodTwinsStore.length === 0}
-    <p class="empty">
-      No digital twins created yet. Try searching or scanning a food above.
-    </p>
-  {:else}
-    <ul id="saved-twins-list" class="twin-list">
-      {#each $foodTwinsStore as row}
-        <li class="twin-item">
-          <span class="twin-entity">{row.entity}</span>
-          <span class="twin-name">{JSON.parse(row.value)}</span>
-        </li>
-      {/each}
-    </ul>
-  {/if}
-</Card>
+<!-- Secondary: Saved Digital Twins Ledger.
+     Hidden for now — presenting the saved twins is a later task. Kept behind
+     `{#if false}` (not deleted) so the markup stays intact for that work. -->
+{#if false}
+  <Card class="mt-6">
+    <h2>
+      {entityName}
+      <Badge id="saved-twins-count" variant="default" class="ml-2"
+        >{$foodTwinsStore.length}</Badge
+      >
+    </h2>
+    {#if $foodTwinsStore.length === 0}
+      <p class="empty">
+        No digital twins created yet. Try searching or scanning a food above.
+      </p>
+    {:else}
+      <ul id="saved-twins-list" class="twin-list">
+        {#each $foodTwinsStore as row}
+          <li class="twin-item">
+            <span class="twin-entity">{row.entity}</span>
+            <span class="twin-name">{JSON.parse(row.value)}</span>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </Card>
+{/if}
 
 <!-- Log sheet — opens directly from a meal's "+ Add" -->
 {#if sheetMeal}
