@@ -11,6 +11,7 @@ import {
 } from "../../src/lib/stores/calorie.store";
 import { computeConsumption } from "../../src/lib/food/consumption-state";
 import type { ReferenceIngredient } from "../../src/lib/food/recipe-nutrition";
+import { round2 } from "../../src/lib/food/nutrition";
 import { asStored } from "./support/stored";
 
 vi.mock("../../src/lib/db/db.client", () => {
@@ -358,8 +359,25 @@ describe("computeConsumption", () => {
     });
   });
 
-  it("joins a schema.org recipe twin across both food/ and recipe/ prefixes", () => {
+  it("joins a recipe twin's display identity but reads the breakdown from the event's snapshot, not the template", () => {
     const t = 1717080000000;
+    // The frozen snapshot the event carries — 200 g beans as actually cooked.
+    const instantiation = {
+      based_on: "recipe:abc",
+      yield: 1,
+      ingredients: [
+        {
+          ref: "fdc:beans",
+          name: "Beans",
+          amount: 200,
+          unit: "g",
+          calories: 350,
+          protein: 12,
+          fat: 8,
+          carbs: 55,
+        },
+      ],
+    };
     const datoms = [
       {
         entity: "event:consume_r",
@@ -367,11 +385,16 @@ describe("computeConsumption", () => {
         value: s("recipe:abc"),
         time: t,
       },
-      // The event surfaces its frozen snapshot, not the twin's live nutrition.
       {
         entity: "event:consume_r",
         attribute: "event/metrics",
         value: s({ calories: 350, protein: 12, fat: 8, carbs: 55 }),
+        time: t,
+      },
+      {
+        entity: "event:consume_r",
+        attribute: "event/instantiation",
+        value: s(instantiation),
         time: t,
       },
       {
@@ -398,22 +421,25 @@ describe("computeConsumption", () => {
         value: s(["Soak the beans", "Simmer for an hour"]),
         time: 1717000000000,
       },
+      // The template has since drifted — a different yield and a bumped amount.
+      // The logged event must ignore all of this and read its own snapshot.
       {
         entity: "recipe:abc",
         attribute: "recipe/yield",
-        value: s(1),
+        value: s(5),
         time: 1717000000000,
       },
       {
         entity: "recipe:abc",
         attribute: "recipe/ingredients",
-        value: s([{ ref: "fdc:beans", amount: 200, unit: "g" }]),
+        value: s([{ ref: "fdc:beans", amount: 999, unit: "g" }]),
         time: 1717000000000,
       },
     ];
 
     const events = computeConsumption(asStored(datoms));
     expect(events).toHaveLength(1);
+    // Display identity joins live from the template…
     expect(events[0]).toMatchObject({
       target: "recipe:abc",
       calories: 350,
@@ -421,9 +447,12 @@ describe("computeConsumption", () => {
       description: "Hearty bean chili",
       url: "https://example.com/chili",
       instructions: ["Soak the beans", "Simmer for an hour"],
-      yield: 1,
-      ingredients: [{ ref: "fdc:beans", amount: 200, unit: "g" }],
+      instantiation,
     });
+    // …but the mutable template breakdown never leaks onto the logged event.
+    expect(events[0]).not.toHaveProperty("ingredients");
+    expect(events[0]).not.toHaveProperty("yield");
+    expect(events[0].instantiation?.yield).toBe(1);
   });
 });
 
@@ -507,13 +536,13 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
     }
   );
 
-  it("derives a recipe end-to-end: store freezes the snapshot, projection derives live, and history stays immutable", async () => {
+  it("logs a recipe end-to-end: store freezes the instantiation snapshot, projection reads it, and neither a template edit nor an ingredient-twin correction can move it", async () => {
     const appended = captureAppends();
     const day = new Date("2026-05-31T12:00:00");
 
-    // Two ingredient food twins with real per-100g nutrition panels. These are
-    // pre-existing ledger context the recipe references — the projection reads
-    // their panels to derive the recipe's live per-serving nutrition.
+    // Two ingredient food twins with real per-100g nutrition panels — the ledger
+    // context the recipe is seeded from. The store reads their panels at log time
+    // to freeze the snapshot; the projection never re-reads them (ADR-0022).
     const oatsPanel = {
       serving_size: "100 g",
       calories: 380,
@@ -545,13 +574,21 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
       },
     ];
 
-    // 50 g oats (×0.5) + 200 g milk (×2), yield 1. Expected derived per-serving:
-    // oats×0.5 = 190/6.5/3.5/33.5 ; milk×2 = 128/6.8/7.2/9.4 → Σ = 318/13.3/10.7/42.9.
+    // 50 g oats (×0.5) + 200 g milk (×2), yield 1. Per-row (round-then-sum):
+    // oats = 190/6.5/3.5/33.5 ; milk = 128/6.8/7.2/9.4 → headline Σ = 318/13.3/10.7/42.9.
     const refs: ReferenceIngredient[] = [
       { ref: "fdc:oats", amount: 50, unit: "g" },
       { ref: "gtin:milk", amount: 200, unit: "g" },
     ];
-    const expected = { calories: 318, protein: 13.3, fat: 10.7, carbs: 42.9 };
+    const headline = { calories: 318, protein: 13.3, fat: 10.7, carbs: 42.9 };
+    const panels = new Map([
+      ["fdc:oats", oatsPanel],
+      ["gtin:milk", milkPanel],
+    ]);
+    const names = new Map([
+      ["fdc:oats", "Oats"],
+      ["gtin:milk", "Milk"],
+    ]);
 
     // An ingredient logged earlier, then replaced by the recipe built from it.
     const ingredientEventId = await logFoodConsumption(
@@ -565,29 +602,26 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
       day
     );
     // Save + log through the real store actions. The store derives the frozen
-    // snapshot itself from the ingredient panels (via the resolver) — the test
-    // never calls deriveRecipeNutrition.
+    // headline AND the snapshot rows itself from the ingredient panels/names
+    // (via the resolvers) — the test never calls the derivation helpers.
     const recipeId = await saveRecipe({ name: "Oatmeal", ingredients: refs });
-    const panels = new Map([
-      ["fdc:oats", oatsPanel],
-      ["gtin:milk", milkPanel],
-    ]);
     await logRecipeConsumption(
       recipeId,
       refs,
       1,
       (ref) => panels.get(ref),
+      (ref) => names.get(ref),
       "breakfast",
       day
     );
+    // logRecipeConsumption logs only — Consolidate's retraction is a separate act.
     await retractConsumptionEvent(ingredientEventId, recipeId);
 
     const events = computeConsumption(asLedger([...twinDatoms, ...appended]));
-    // (d) Retraction hides the replaced ingredient event — only the recipe and
-    // the two context twins' events (none) remain.
+    // Retraction hides the replaced ingredient event — only the recipe remains.
     expect(events).toHaveLength(1);
     const recipeEvent = events[0];
-    // (a) The store path derived and froze the snapshot into event/metrics.
+    // (a) The store froze the headline into event/metrics.
     expect(recipeEvent).toMatchObject({
       target: recipeId,
       foodName: "Oatmeal",
@@ -597,29 +631,159 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
       protein: recipeEvent.protein,
       fat: recipeEvent.fat,
       carbs: recipeEvent.carbs,
-    }).toEqual(expected);
-    // (b) The projection independently derives the recipe's live per-serving
-    // nutrition from the real ingredient panels ÷ yield.
-    expect(recipeEvent.recipe_nutrition).toEqual(expected);
+    }).toEqual(headline);
+    // (b) The store wrote a self-contained event/instantiation snapshot: the
+    // template it was seeded from, the yield, and per-row frozen macros with the
+    // ingredient name denormalized for display resilience.
+    expect(recipeEvent.instantiation).toEqual({
+      based_on: recipeId,
+      yield: 1,
+      ingredients: [
+        {
+          ref: "fdc:oats",
+          name: "Oats",
+          amount: 50,
+          unit: "g",
+          calories: 190,
+          protein: 6.5,
+          fat: 3.5,
+          carbs: 33.5,
+        },
+        {
+          ref: "gtin:milk",
+          name: "Milk",
+          amount: 200,
+          unit: "g",
+          calories: 128,
+          protein: 6.8,
+          fat: 7.2,
+          carbs: 9.4,
+        },
+      ],
+    });
+    // (c) The per-row macros sum to the headline event/metrics (yield 1).
+    const rows = recipeEvent.instantiation!.ingredients;
+    for (const key of ["calories", "protein", "fat", "carbs"] as const) {
+      const rowSum = rows.reduce((a, r) => a + r[key], 0);
+      expect(round2(rowSum)).toBe(headline[key]);
+    }
 
-    // (c) A later recipe edit changes the live derivation but NOT the frozen
-    // snapshot — logged history is immutable (ADR-0021).
-    const laterEdit = [
+    // (d) A later template edit re-seeds only future logs — the logged event's
+    // frozen headline and snapshot never move.
+    const templateEdit = [
       {
         entity: recipeId,
         attribute: "recipe/ingredients",
         value: [{ ref: "fdc:oats", amount: 500, unit: "g" }],
         time: day.getTime() + 1000,
       },
+      {
+        entity: recipeId,
+        attribute: "recipe/yield",
+        value: 4,
+        time: day.getTime() + 1000,
+      },
     ];
-    const afterEdit = computeConsumption(
-      asLedger([...twinDatoms, ...appended, ...laterEdit])
+    const afterTemplateEdit = computeConsumption(
+      asLedger([...twinDatoms, ...appended, ...templateEdit])
+    ).find((e) => e.target === recipeId)!;
+    expect(afterTemplateEdit.calories).toBe(318);
+    expect(afterTemplateEdit.instantiation).toEqual(recipeEvent.instantiation);
+
+    // (e) Correcting an ingredient twin (a newer, different panel + rename) leaves
+    // the already-logged instantiation and headline untouched.
+    const correction = [
+      {
+        entity: "fdc:oats",
+        attribute: "nutrition/info",
+        value: { ...oatsPanel, calories: 9999 },
+        time: day.getTime() + 2000,
+      },
+      {
+        entity: "fdc:oats",
+        attribute: "food/name",
+        value: "Steel-cut oats",
+        time: day.getTime() + 2000,
+      },
+    ];
+    const afterCorrection = computeConsumption(
+      asLedger([...twinDatoms, ...appended, ...correction])
+    ).find((e) => e.target === recipeId)!;
+    expect(afterCorrection.calories).toBe(318);
+    expect(afterCorrection.instantiation).toEqual(recipeEvent.instantiation);
+
+    // (f) Even if the ingredient twins vanish from the stream entirely (deleted),
+    // the snapshot's breakdown — names and macros — survives self-contained.
+    const withoutTwins = computeConsumption(asLedger([...appended])).find(
+      (e) => e.target === recipeId
+    )!;
+    expect(withoutTwins.instantiation).toEqual(recipeEvent.instantiation);
+  });
+
+  it("keeps a >1-yield instantiation self-describing: its rows ÷ its own yield reconstruct the stored headline", async () => {
+    const appended = captureAppends();
+    const day = new Date("2026-05-31T12:00:00");
+
+    // A double batch (yield 2): the snapshot rows are the batch as cooked, while
+    // the headline event/metrics is that batch ÷ yield. The two are reconciled
+    // by the snapshot's OWN `yield`, so the event stays self-describing without
+    // the template.
+    const oatsPanel = {
+      serving_size: "100 g",
+      calories: 380,
+      protein_content: 13,
+      fat_content: 7,
+      carbohydrate_content: 67,
+    };
+    const refs: ReferenceIngredient[] = [
+      { ref: "fdc:oats", amount: 200, unit: "g" },
+    ];
+    const recipeId = await saveRecipe({
+      name: "Batch oats",
+      ingredients: refs,
+      yield: 2,
+    });
+    await logRecipeConsumption(
+      recipeId,
+      refs,
+      2,
+      () => oatsPanel,
+      () => "Oats",
+      "breakfast",
+      day
     );
-    const edited = afterEdit.find((e) => e.target === recipeId)!;
-    // Frozen macros unchanged…
-    expect(edited.calories).toBe(318);
-    // …while the live derivation follows the edit (500 g oats = 1900 kcal).
-    expect(edited.recipe_nutrition?.calories).toBe(1900);
+
+    const event = computeConsumption(asLedger([...appended])).find(
+      (e) => e.target === recipeId
+    )!;
+    const inst = event.instantiation!;
+    expect(inst.yield).toBe(2);
+
+    // Reconstruct the per-serving headline from the snapshot alone, applying the
+    // snapshot's own yield with deriveRecipeNutrition's per-field rounding. It
+    // must equal the frozen event/metrics — proving AC4's row↔headline relation
+    // holds at any yield, not just yield 1.
+    const y = inst.yield;
+    const sum = inst.ingredients.reduce(
+      (a, r) => ({
+        calories: a.calories + r.calories,
+        protein: a.protein + r.protein,
+        fat: a.fat + r.fat,
+        carbs: a.carbs + r.carbs,
+      }),
+      { calories: 0, protein: 0, fat: 0, carbs: 0 }
+    );
+    expect({
+      calories: Math.round(sum.calories / y),
+      protein: Math.round((sum.protein / y) * 10) / 10,
+      fat: Math.round((sum.fat / y) * 10) / 10,
+      carbs: Math.round((sum.carbs / y) * 10) / 10,
+    }).toEqual({
+      calories: event.calories,
+      protein: event.protein,
+      fat: event.fat,
+      carbs: event.carbs,
+    });
   });
 });
 

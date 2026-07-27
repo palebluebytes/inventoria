@@ -11,6 +11,10 @@ import {
   deriveRecipeNutrition,
   type ReferenceIngredient,
 } from "../food/recipe-nutrition";
+import {
+  buildInstantiation,
+  type Instantiation,
+} from "../food/recipe-instantiation";
 
 export type { ConsumptionEvent };
 
@@ -46,7 +50,9 @@ export function consumptionForDay(
 // ---------------------------------------------------------------------------
 
 /**
- * Creates and appends a Consumption Event datoms to the ledger.
+ * Creates and appends a Consumption Event's datoms to the ledger. `instantiation`
+ * is the optional `event/instantiation` snapshot a logged recipe carries beside
+ * its frozen `event/metrics` headline (ADR-0022); a plain food logs without one.
  */
 export async function logFoodConsumption(
   targetEntity: string,
@@ -56,7 +62,8 @@ export async function logFoodConsumption(
   protein: number,
   fat: number,
   carbs: number,
-  selectedDate: Date
+  selectedDate: Date,
+  instantiation?: Instantiation
 ) {
   // Use selected date's time, but keep current hour/minute/second so events don't all cluster at 00:00
   const now = new Date();
@@ -71,21 +78,21 @@ export async function logFoodConsumption(
 
   const entityId = `event:consume_${Math.random().toString(36).substring(2, 9)}_${timestamp}`;
 
-  const datoms = ingestEntity({
-    entity: entityId,
-    attributes: {
-      "event/type": "ConsumeAction",
-      "event/target": targetEntity,
-      "event/quantity": quantity,
-      "event/meal_type": meal_type,
-      "event/metrics": {
-        calories,
-        protein,
-        fat,
-        carbs,
-      },
+  const attributes: Record<string, unknown> = {
+    "event/type": "ConsumeAction",
+    "event/target": targetEntity,
+    "event/quantity": quantity,
+    "event/meal_type": meal_type,
+    "event/metrics": {
+      calories,
+      protein,
+      fat,
+      carbs,
     },
-  });
+  };
+  if (instantiation) attributes["event/instantiation"] = instantiation;
+
+  const datoms = ingestEntity({ entity: entityId, attributes });
 
   // Inject manually since ingestEntity maps all values. Note time is injected inside dbClient.append
   // but datoms array has .time field which dbClient uses.
@@ -182,22 +189,33 @@ export async function saveRecipe(input: RecipeInput): Promise<string> {
 }
 
 /**
- * Logs a recipe as a Consumption Event, deriving its per-serving nutrition from
- * the referenced ingredient twins' real `nutrition/info` panels ÷ `recipeYield`
- * (ADR-0021) and freezing that into the event's `event/metrics` snapshot. This
- * is the single store path that computes the snapshot, so a logged recipe's
- * frozen macros are the true derivation, not hand-supplied. `resolve` yields
- * each referenced twin's panel (from the in-memory builder, or a test double).
+ * Logs a recipe as a Recipe Instantiation — a Consumption Event carrying a frozen
+ * `event/instantiation` snapshot beside its `event/metrics` headline (ADR-0022).
+ * Both are derived from the referenced ingredient twins' real `nutrition/info`
+ * panels ÷ `recipeYield`: the headline via `deriveRecipeNutrition`, the snapshot's
+ * per-row macros via the same `deriveIngredientMacros` those sum from, so the rows
+ * add up to the headline forever. This is the single store path that computes them,
+ * so a logged recipe's numbers are the true derivation, not hand-supplied.
+ * `resolve` yields each referenced twin's panel and `resolveName` its display name
+ * (both from the in-memory builder, or a test double) — read, never mutated.
  */
 export async function logRecipeConsumption(
   recipeId: string,
   ingredients: ReferenceIngredient[],
   recipeYield: number,
   resolve: (ref: string) => NutritionInfo | undefined,
+  resolveName: (ref: string) => string | undefined,
   meal_type: string,
   selectedDate: Date
 ): Promise<string> {
   const snapshot = deriveRecipeNutrition(ingredients, recipeYield, resolve);
+  const instantiation = buildInstantiation(
+    recipeId,
+    ingredients,
+    recipeYield,
+    resolve,
+    resolveName
+  );
   return logFoodConsumption(
     recipeId,
     "1 serving",
@@ -206,7 +224,8 @@ export async function logRecipeConsumption(
     snapshot.protein,
     snapshot.fat,
     snapshot.carbs,
-    selectedDate
+    selectedDate,
+    instantiation
   );
 }
 

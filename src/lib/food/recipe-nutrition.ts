@@ -37,10 +37,10 @@ export function parseServingGrams(serving_size: string | undefined): number {
  * `g` ingredient scales by `amount ÷ (grams in the panel's serving_size)`, a
  * `serving` ingredient by `amount` against a per-serving panel. Pure, and the
  * single derivation formula: the same helper over the same real ingredient
- * panels runs both at log time (`logRecipeConsumption`, freezing the snapshot)
- * and in the Consumption projection (`recipe_nutrition`, live), so a logged
- * recipe's frozen macros equal what the projection would derive at the moment it
- * was logged.
+ * panels runs at log time (`logRecipeConsumption`, freezing the `event/metrics`
+ * headline) and in the live editor / template-browsing paths (`RecipeModal`'s
+ * per-serving panel). A logged recipe reads its frozen snapshot, never this
+ * derivation, so history stays immutable (ADR-0022).
  *
  * Each ingredient's scaled contribution is rounded (calories → integer, grams →
  * 1 dp) **before** it is summed — the same rounding every food gets when logged

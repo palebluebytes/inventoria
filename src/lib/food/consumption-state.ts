@@ -1,10 +1,6 @@
 import type { StoredDatom } from "../db/db.client";
 import { groupByEntity } from "../db/datom-fold";
-import type { NutritionInfo, Macros } from "./nutrition";
-import {
-  deriveRecipeNutrition,
-  type ReferenceIngredient,
-} from "./recipe-nutrition";
+import type { Instantiation } from "./recipe-instantiation";
 
 export interface ConsumptionEvent {
   id: string;
@@ -28,24 +24,24 @@ export interface ConsumptionEvent {
   /** "retracted" hides the event from the projection (append-only "delete"). */
   status?: string;
   replaced_by?: string;
-  // schema.org/Recipe fields, enriched from the recipe twin (ADR-0021). A
-  // logged event's macros come from its frozen `event/metrics` snapshot, never
-  // re-derived from these, so recipe edits don't rewrite logged history.
+  // schema.org/Recipe display fields, enriched live from the recipe twin
+  // (ADR-0021). These are the template's identity, safe to read live; the logged
+  // occasion's nutrition and ingredient breakdown come from `instantiation`, not
+  // from the (mutable) template, so recipe edits never rewrite logged history.
   description?: string;
   url?: string;
   image?: string;
   instructions?: string[];
-  yield?: number;
-  ingredients?: unknown;
   /**
-   * A recipe's **current** per-serving nutrition, derived live from the
-   * referenced ingredient twins' `nutrition/info` panels ÷ `recipe/yield`
-   * (ADR-0021) — a projected value, not stored. Distinct from `calories` et al.,
-   * which for a logged event stay pinned to the frozen `event/metrics` snapshot
-   * so history is immutable. Only present when the target is a recipe twin whose
-   * ingredient twins are in the datom stream.
+   * The frozen Recipe Instantiation snapshot (`event/instantiation`, ADR-0022):
+   * what was actually cooked this occasion — `based_on`, `yield`, and per-row
+   * `{ ref, name, amount, unit, calories, protein, fat, carbs }`. The projection
+   * reads a logged recipe's breakdown and per-serving macros from here rather
+   * than live-deriving from the template, so correcting or deleting an ingredient
+   * twin leaves an already-logged instantiation untouched. Present on recipe
+   * Consumption Events; absent on plain food logs.
    */
-  recipe_nutrition?: Macros;
+  instantiation?: Instantiation;
 }
 
 /**
@@ -55,16 +51,16 @@ export interface ConsumptionEvent {
  * main thread (ADR-0019).
  *
  * A Consumption Event stores its macros as an `event/metrics` blob, surfaced as
- * flat fields here. A recipe target additionally gets its live per-serving
- * nutrition derived from the referenced ingredient twins' panels (ADR-0021).
- * `nutrition/` is folded alongside `food/`/`recipe/` so each ingredient twin's
- * `nutrition/info` panel is available to resolve those references.
+ * flat fields here. A logged recipe additionally carries its frozen
+ * `event/instantiation` snapshot (ADR-0022) — its breakdown and per-serving
+ * macros are read from that snapshot, never live-derived from the (mutable)
+ * template, so logged history is immutable. The twin join only supplies the
+ * recipe's live display identity (name, image, description, …).
  */
 export function computeConsumption(datoms: StoredDatom[]): ConsumptionEvent[] {
   const { twins: twinGroups, events: eventGroups } = groupByEntity(datoms, [
     "food/",
     "recipe/",
-    "nutrition/",
   ]);
 
   const events: ConsumptionEvent[] = Array.from(eventGroups.values())
@@ -94,26 +90,15 @@ export function computeConsumption(datoms: StoredDatom[]): ConsumptionEvent[] {
     // as `t.name`.
     event.foodName = t.name;
     event.photoBase64 = t.photo_base64 || t.photo || t.image;
-    // schema.org/Recipe display fields (ADR-0021).
+    // schema.org/Recipe display identity, read live from the template (ADR-0021).
+    // The logged occasion's nutrition and ingredient breakdown are NOT read here:
+    // they live on the event's frozen `event/instantiation` snapshot (ADR-0022),
+    // surfaced via the field spread above, so a template edit or an ingredient-
+    // twin correction can never rewrite this logged event.
     event.description = t.description;
     event.url = t.url;
     event.image = t.image;
     event.instructions = t.instructions;
-    event.yield = t.yield;
-    event.ingredients = t.ingredients;
-
-    // Derive the recipe's CURRENT per-serving nutrition from its ingredient
-    // twins' real panels ÷ yield (ADR-0021). This is a live projected value and
-    // never overwrites the frozen snapshot in `calories`/`protein`/… above.
-    if (Array.isArray(t.ingredients)) {
-      const refs = t.ingredients as ReferenceIngredient[];
-      const recipeYield = typeof t.yield === "number" ? t.yield : 1;
-      event.recipe_nutrition = deriveRecipeNutrition(
-        refs,
-        recipeYield,
-        (ref) => twinGroups.get(ref)?.fields.info as NutritionInfo | undefined
-      );
-    }
   }
 
   return events;

@@ -79,6 +79,12 @@
       "nutrition/info"
     ] as NutritionInfo | undefined;
   }
+  // The ingredient's display name, denormalized into the frozen instantiation
+  // snapshot so a logged recipe's breakdown survives the twin being renamed or
+  // deleted (ADR-0022).
+  function resolveName(ref: string): string | undefined {
+    return ingredients.find((i) => i.entity === ref)?.name;
+  }
   // Live per-serving macros via the SAME derivation the Consumption projection
   // and log-time snapshot use: Σ(panel × amount ÷ serving_size) ÷ yield. Tracks
   // ingredients, amounts, and yield, so the panel updates as any of them change.
@@ -163,6 +169,7 @@
         referenceIngredients,
         yieldNum,
         resolvePanel,
+        resolveName,
         meal_type,
         selectedDate
       );
