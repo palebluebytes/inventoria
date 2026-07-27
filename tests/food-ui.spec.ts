@@ -322,7 +322,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     resultName: string,
     grams: string
   ) {
-    await page.locator("button", { hasText: `+ Add ${meal}` }).click();
+    await page.getByRole("button", { name: `Add ${meal}` }).click();
     await page.locator("#food-search-input").fill(query);
     await page.locator(".result-item-btn", { hasText: resultName }).click();
     await page.locator("#quantity-input").fill(grams);
@@ -354,8 +354,8 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await waitForDbReady(page);
     await setupApiKeys(page);
 
-    // "+ Add breakfast" opens the log sheet directly — no chooser step.
-    await page.locator("button", { hasText: "+ Add breakfast" }).click();
+    // The breakfast add button opens the log sheet directly — no chooser step.
+    await page.getByRole("button", { name: "Add breakfast" }).click();
     await expect(page.locator("#food-search-input")).toBeVisible();
 
     // Search (debounced) and select the result.
@@ -381,7 +381,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await waitForDbReady(page);
 
     // Open the sheet for lunch and switch to the Custom method.
-    await page.locator("button", { hasText: "+ Add lunch" }).click();
+    await page.getByRole("button", { name: "Add lunch" }).click();
     await page.locator(".method", { hasText: "Custom" }).click();
 
     await page.locator("#custom-name").fill("Avocado Salad");

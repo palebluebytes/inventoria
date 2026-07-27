@@ -3,7 +3,6 @@
     consumptionStore,
     consumptionForDay,
   } from "../../stores/calorie.store";
-  import Button from "../../ui/Button.svelte";
   import Card from "../../ui/Card.svelte";
   import Badge from "../../ui/Badge.svelte";
   import Modal from "../../ui/Modal.svelte";
@@ -300,13 +299,23 @@
     <div class="meal-section">
       <div class="meal-section-header">
         <h3 class="meal-title">{meal_type.toUpperCase()}</h3>
-        <Button
-          variant="secondary"
+        <button
+          class="add-meal"
           disabled={!dbReady}
+          aria-label="Add {meal_type}"
+          title="Add {meal_type}"
           onclick={() => onAddMeal(meal_type)}
         >
-          + Add {meal_type}
-        </Button>
+          <svg
+            class="add-meal-icon"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </button>
       </div>
 
       {#if groupedMeals[meal_type].length === 0}
@@ -624,6 +633,51 @@
     font-weight: 700;
     letter-spacing: 0.05em;
     color: var(--text-primary);
+  }
+  /* Icon-only add action — the meal header already names the meal, so the
+     button just needs to read as "add here". Filled black square to mark it as
+     the section's primary action; inverts on hover like the other buttons. */
+  .add-meal {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    background: #000;
+    color: #fff;
+    border: 1px solid #000;
+    border-radius: 0;
+    cursor: pointer;
+    transition:
+      background 0.15s ease,
+      color 0.15s ease,
+      transform 0.1s ease;
+  }
+  .add-meal:hover:not(:disabled) {
+    background: #fff;
+    color: #000;
+  }
+  .add-meal:active:not(:disabled) {
+    transform: scale(0.92);
+  }
+  .add-meal:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--bg-base),
+      0 0 0 4px var(--accent);
+  }
+  .add-meal:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+  }
+  .add-meal-icon {
+    width: 1.1rem;
+    height: 1.1rem;
+    stroke: currentColor;
+    stroke-width: 2.25;
+    stroke-linecap: square;
   }
   .empty-meal {
     padding: var(--space-m);
