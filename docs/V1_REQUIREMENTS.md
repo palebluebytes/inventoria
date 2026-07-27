@@ -88,8 +88,15 @@ A recipe is a **schema.org/Recipe** expressed in snake_case `recipe/*` (ADR-0021
 (`unit ∈ g | serving`); each ingredient's name and nutrition resolve from the
 referenced food twin, never duplicated, so the numbers can never rot. Per-serving
 macros are **derived**: `Σ(ingredient nutrition/info × amount ÷ serving_size) ÷ recipe/yield`.
-That derived aggregate is frozen into the Consumption Event's `event/metrics`
-snapshot at log time, so later recipe edits never rewrite logged history.
+
+A recipe twin is a reusable **template** (ADR-0022): it only _seeds_ a logging
+and never governs one. Each logging is an editable **Recipe Instantiation** —
+a Consumption Event that captures what was actually made that occasion as a
+self-contained `event/instantiation` snapshot (below), derived from the template
+but free to diverge. The live derivation above is used only for the editor and
+for browsing a template's current per-serving nutrition; a logged occasion reads
+its snapshot, so template edits and ingredient-twin corrections never rewrite
+logged history.
 
 ```typescript
 const recipeTwin = {
@@ -113,8 +120,12 @@ const recipeTwin = {
 
 #### 4. The Consumption Event
 
+A logged intake. Its headline macros are frozen into an atomic `event/metrics`
+blob (ADR-0009) at log time, so the number the dashboard aggregates never drifts
+when a twin is later corrected.
+
 ```typescript
-// Logged Consumption Event with structural macros & naming standard
+// Logged Consumption Event: frozen headline macros, snake_case throughout.
 const consumeEvent = {
   entity: "event:consume_abc123_1717140000000",
   attributes: {
@@ -122,10 +133,45 @@ const consumeEvent = {
     "event/target": "gtin:3017620422003", // References any twin (gtin, fdc, custom, recipe)
     "event/quantity": "30g",
     "event/meal_type": "breakfast", // Strictly snake_case enforcing architectural standard
-    "event/calories": 161, // Numerical snapshots for rapid dashboard aggregations
-    "event/protein": 1.8,
-    "event/fat": 9.2,
-    "event/carbs": 17.2,
+    "event/metrics": { calories: 161, protein: 1.8, fat: 9.2, carbs: 17.2 },
+  },
+};
+```
+
+When the target is a **Recipe Twin**, the event is a **Recipe Instantiation**
+(ADR-0022) and additionally carries an atomic `event/instantiation` snapshot of
+what was cooked that occasion: the template it was seeded from (`based_on`, equal
+to `event/target`), the `yield`, and a per-row breakdown with each ingredient's
+macros frozen and its `name` denormalized for display resilience. The rows sum to
+the `event/metrics` headline. This snapshot is the read source for a logged
+recipe's breakdown and per-serving nutrition, so correcting, renaming, or deleting
+an ingredient twin leaves an already-logged instantiation untouched.
+
+```typescript
+const instantiationEvent = {
+  entity: "event:consume_def456_1717140000000",
+  attributes: {
+    "event/type": "ConsumeAction",
+    "event/target": "recipe:abc123_1717140000000",
+    "event/quantity": "1 serving",
+    "event/meal_type": "breakfast",
+    "event/metrics": { calories: 96, protein: 1.2, fat: 8.8, carbs: 5.1 },
+    "event/instantiation": {
+      based_on: "recipe:abc123_1717140000000",
+      yield: 1,
+      ingredients: [
+        {
+          ref: "fdc:170372",
+          name: "Avocado",
+          amount: 60,
+          unit: "g",
+          calories: 96,
+          protein: 1.2,
+          fat: 8.8,
+          carbs: 5.1,
+        },
+      ],
+    },
   },
 };
 ```
