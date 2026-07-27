@@ -192,6 +192,14 @@ test.describe("Visual Catalog Generator", () => {
   ) {
     const styleHandle = await page.addStyleTag({
       content: `
+        /* Freeze all motion so captures are deterministic. The calorie ring
+           animates its stroke-dashoffset via a CSS transition driven by async
+           DB data; without this the screenshot can land mid-transition and
+           flake run-to-run. Snap every animation/transition to its end state. */
+        *, *::before, *::after {
+          animation: none !important;
+          transition: none !important;
+        }
         .app {
           height: auto !important;
           min-height: 100svh !important;
