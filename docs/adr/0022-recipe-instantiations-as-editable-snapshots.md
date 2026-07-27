@@ -1,7 +1,8 @@
 # ADR 0022: Recipes are templates; each logging is an editable instantiation snapshot
 
-**Status:** Accepted; not yet implemented (specced 2026-07-27, this ADR). Extends
-and revises the read-path stance of ADR-0021.
+**Status:** Accepted; implemented (issues #11 foundation, #12 Instantiate +
+correct, #13 Define + template edit). Extends and revises the read-path stance of
+ADR-0021.
 **Date:** 2026-07-27
 
 ## Context
