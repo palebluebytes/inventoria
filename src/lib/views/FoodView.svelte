@@ -5,6 +5,8 @@
     consumptionStore,
     consumptionForDay,
     getLocalFoodTwin,
+    retractConsumptionEvent,
+    type ConsumptionEvent,
   } from "../stores/calorie.store";
   import {
     customIngredient,
@@ -25,6 +27,9 @@
   // The meal whose log sheet is open (null = closed). Opening is direct — no
   // intermediate chooser.
   let sheetMeal = $state<MealType | null>(null);
+  // The logged event being edited (null = adding). When set, the log sheet opens
+  // in edit mode and saving replaces this event (append-only).
+  let editEvent = $state<ConsumptionEvent | null>(null);
   // Consumption-event ids selected (long-press) for building a recipe.
   let selected_ids = $state<Set<string>>(new Set());
   let recipeOpen = $state(false);
@@ -46,7 +51,24 @@
   let selectedItems = $derived(dayItems.filter((i) => selected_ids.has(i.id)));
 
   function openSheet(meal_type: MealType) {
+    editEvent = null;
     sheetMeal = meal_type;
+  }
+
+  // Open the log sheet in edit mode for a tapped card.
+  function editItem(item: ConsumptionEvent) {
+    editEvent = item;
+    sheetMeal = (item.meal_type as MealType) || "snack";
+  }
+
+  // Remove a logged food (append-only retraction; the projection hides it).
+  function removeItem(id: string) {
+    void retractConsumptionEvent(id);
+  }
+
+  function closeSheet() {
+    sheetMeal = null;
+    editEvent = null;
   }
 
   function longPress(id: string) {
@@ -139,6 +161,8 @@
   selectedIds={selected_ids}
   onLongPressItem={longPress}
   onTapItem={tapItem}
+  onEditItem={editItem}
+  onRemoveItem={removeItem}
 />
 
 <!-- Secondary: Saved Digital Twins Ledger.
@@ -169,13 +193,15 @@
   </Card>
 {/if}
 
-<!-- Log sheet — opens directly from a meal's "+ Add" -->
+<!-- Log sheet — opens directly from a meal's "+ Add", or in edit mode from a
+     tapped food card. -->
 {#if sheetMeal}
   <LogFoodSheet
     {dbReady}
     meal_type={sheetMeal}
     {selectedDate}
-    onClose={() => (sheetMeal = null)}
+    edit={editEvent}
+    onClose={closeSheet}
   />
 {/if}
 

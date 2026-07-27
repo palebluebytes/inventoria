@@ -2,6 +2,7 @@
   import {
     consumptionStore,
     consumptionForDay,
+    type ConsumptionEvent,
   } from "../../stores/calorie.store";
   import Card from "../../ui/Card.svelte";
   import Badge from "../../ui/Badge.svelte";
@@ -15,6 +16,8 @@
     selectedIds,
     onLongPressItem,
     onTapItem,
+    onEditItem,
+    onRemoveItem,
   }: {
     dbReady: boolean;
     selectedDate: Date;
@@ -22,6 +25,10 @@
     selectedIds: Set<string>;
     onLongPressItem: (id: string) => void;
     onTapItem: (id: string) => void;
+    /** Plain click on a card (outside selection mode) opens it for editing. */
+    onEditItem: (item: ConsumptionEvent) => void;
+    /** The card's ✕ removes the logged entry (append-only retraction). */
+    onRemoveItem: (id: string) => void;
   } = $props();
 
   // Long-press a logged item to start selecting; while a selection is active,
@@ -47,12 +54,14 @@
     suppressNextClick = false;
   }
 
-  function onCardClick(id: string) {
+  function onCardClick(item: ConsumptionEvent) {
     if (suppressNextClick) {
       suppressNextClick = false;
       return;
     }
-    if (selectionActive) onTapItem(id);
+    // In selection mode a tap toggles the item; otherwise it opens the editor.
+    if (selectionActive) onTapItem(item.id);
+    else onEditItem(item);
   }
 
   // Selected day's consumption, narrowed from the global projection on the main thread
@@ -333,7 +342,7 @@
               class:selected={isSelected}
               use:longpress={{ onlongpress: () => onCardLongPress(item.id) }}
               onpointerdown={onCardPointerDown}
-              onclick={() => onCardClick(item.id)}
+              onclick={() => onCardClick(item)}
               onkeydown={(e) =>
                 selectionActive &&
                 (e.key === "Enter" || e.key === " ") &&
@@ -378,9 +387,19 @@
                   >{item.quantity || "1 serving"}</span
                 >
               </div>
-              <div class="meal-item-macros">
+              <div class="meal-item-side">
+                <button
+                  type="button"
+                  class="meal-item-remove"
+                  aria-label="Remove {item.foodName || 'food'}"
+                  title="Remove"
+                  onpointerdown={(e) => e.stopPropagation()}
+                  onclick={(e) => {
+                    e.stopPropagation();
+                    onRemoveItem(item.id);
+                  }}>✕</button
+                >
                 <span class="meal-item-cals">{item.calories} kcal</span>
-                <span class="meal-item-protein">{item.protein}g protein</span>
               </div>
             </div>
           {/each}
@@ -767,19 +786,50 @@
     font-size: var(--step-n2);
     color: var(--text-muted);
   }
-  .meal-item-macros {
+  /* Right rail: remove control on top, calories below it. */
+  .meal-item-side {
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
     align-items: flex-end;
+    gap: var(--space-xs);
+  }
+  .meal-item-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    background: none;
+    border: 1px solid #000;
+    border-radius: 0;
+    color: #000;
+    font-size: var(--step-n1);
+    line-height: 1;
+    cursor: pointer;
+    transition:
+      background 0.15s ease,
+      color 0.15s ease,
+      transform 0.1s ease;
+  }
+  .meal-item-remove:hover {
+    background: #000;
+    color: #fff;
+  }
+  .meal-item-remove:active {
+    transform: scale(0.9);
+  }
+  .meal-item-remove:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px #fff,
+      0 0 0 4px var(--accent);
   }
   .meal-item-cals {
     font-size: var(--step-n1);
     font-weight: 700;
     color: var(--text-primary);
-  }
-  .meal-item-protein {
-    font-size: var(--step-n3);
-    color: var(--text-muted);
   }
 
   /* Photo Modal */

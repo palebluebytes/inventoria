@@ -376,6 +376,57 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.locator(".calories-num")).toHaveText("134");
   });
 
+  test("removes a logged food via the card's ✕ button", async ({ page }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    await logUsdaFood(page, "breakfast", "banana", "Mock Banana", "150");
+    const breakfast = page.locator(".meal-section", { hasText: "BREAKFAST" });
+    await expect(breakfast).toContainText("Mock Banana");
+    await expect(page.locator(".calories-num")).toHaveText("134");
+
+    // The ✕ retracts the entry (append-only) — it must not open the editor.
+    await breakfast
+      .locator(".meal-item-card", { hasText: "Mock Banana" })
+      .getByRole("button", { name: /Remove/ })
+      .click();
+
+    await expect(breakfast).not.toContainText("Mock Banana");
+    await expect(breakfast).toContainText("No breakfast logged yet.");
+    await expect(page.locator(".calories-num")).toHaveText("0");
+  });
+
+  test("edits a logged food's amount by tapping its card", async ({ page }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    await logUsdaFood(page, "breakfast", "banana", "Mock Banana", "150"); // 134
+    const breakfast = page.locator(".meal-section", { hasText: "BREAKFAST" });
+
+    // Tapping the card body (not the ✕) opens the sheet in edit mode, pre-staged.
+    await breakfast
+      .locator(".meal-item-card", { hasText: "Mock Banana" })
+      .locator(".meal-item-details")
+      .click();
+    await expect(
+      page.locator("h2", { hasText: "Edit breakfast" })
+    ).toBeVisible();
+    await expect(page.locator("#quantity-input")).toHaveValue("150");
+
+    // Change the amount and save; the entry is replaced (append-only), not dup'd.
+    await page.locator("#quantity-input").fill("300"); // 89 * 3 = 267
+    await page.locator("#log-food-btn").click();
+
+    await expect(
+      breakfast.locator(".meal-item-card", { hasText: "Mock Banana" })
+    ).toHaveCount(1);
+    await expect(breakfast).toContainText("300g");
+    await expect(breakfast).toContainText("267 kcal");
+    await expect(page.locator(".calories-num")).toHaveText("267");
+  });
+
   test("logs a custom food with macros and a photo", async ({ page }) => {
     await page.goto("/?mem=1");
     await waitForDbReady(page);

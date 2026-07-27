@@ -15,7 +15,10 @@
     logFoodConsumption,
     getLocalFoodTwin,
     saveCustomFood,
+    retractConsumptionEvent,
+    type ConsumptionEvent,
   } from "../../stores/calorie.store";
+  import { parseLoggedQuantity } from "../../food/recipe-ingredient";
 
   import Modal from "../../ui/Modal.svelte";
   import Alert from "../../ui/Alert.svelte";
@@ -32,11 +35,19 @@
     meal_type,
     selectedDate,
     onClose,
+    edit = null,
   }: {
     dbReady: boolean;
     meal_type: "breakfast" | "lunch" | "dinner" | "snack";
     selectedDate: Date;
     onClose: () => void;
+    /**
+     * When set, the sheet edits an existing logged event instead of adding a new
+     * one: it opens pre-staged on that event's food (gram amount) or pre-filled
+     * on the custom form (per-serving entry). Saving logs the new event and
+     * retracts `edit` (append-only), so history stays immutable (ADR-0008).
+     */
+    edit?: ConsumptionEvent | null;
   } = $props();
 
   type Method = "search" | "scan" | "custom";
@@ -64,6 +75,33 @@
   let fileInput = $state<HTMLInputElement | null>(null);
 
   let hasKey = $derived(!!$settingsStore.usda_api_key);
+
+  // Editing: pre-load the sheet from the event being edited, once. A gram-logged
+  // food re-stages from its twin's panel (so the amount editor scales the same
+  // way it did originally); a per-serving custom entry re-opens the custom form
+  // pre-filled from the event's frozen macros.
+  let editLoaded = false;
+  $effect(() => {
+    if (!edit || editLoaded) return;
+    editLoaded = true;
+    const e = edit;
+    const { amount, unit } = parseLoggedQuantity(e.quantity);
+    if (unit === "serving") {
+      method = "custom";
+      customName = e.foodName ?? "";
+      customCal = e.calories != null ? String(e.calories) : "";
+      customProt = e.protein != null ? String(e.protein) : "";
+      customFat = e.fat != null ? String(e.fat) : "";
+      customCarb = e.carbs != null ? String(e.carbs) : "";
+      photo_base64 = e.photoBase64 ?? null;
+    } else if (e.target) {
+      void getLocalFoodTwin(e.target).then((twin) => {
+        if (!twin) return;
+        staged = mapPayloadToFoodResult(twin);
+        grams = amount;
+      });
+    }
+  });
 
   let debounceTimer: ReturnType<typeof setTimeout>;
   $effect(() => {
@@ -192,7 +230,7 @@
     try {
       // Ingest the food twin, then append a proportional Consumption Event.
       await dbClient.append(ingestEntity(staged.payload));
-      await logFoodConsumption(
+      const newId = await logFoodConsumption(
         staged.entity,
         `${gramsNum}g`,
         meal_type,
@@ -202,6 +240,7 @@
         Math.round(staged.carbs * factor * 10) / 10,
         selectedDate
       );
+      if (edit) await retractConsumptionEvent(edit.id, newId);
       onClose();
     } catch (e: any) {
       searchStatus = "error";
@@ -225,7 +264,7 @@
         carb,
         photo_base64 || undefined
       );
-      await logFoodConsumption(
+      const newId = await logFoodConsumption(
         twinId,
         "1 serving",
         meal_type,
@@ -235,6 +274,7 @@
         carb,
         selectedDate
       );
+      if (edit) await retractConsumptionEvent(edit.id, newId);
       onClose();
     } catch (e: any) {
       searchStatus = "error";
@@ -268,8 +308,11 @@
   );
 
   function primaryLabel(): string {
-    if (staged) return `Log ${Math.round(staged.calories * factor)} kcal`;
-    if (method === "custom") return "Save & Log";
+    if (staged)
+      return edit
+        ? "Save changes"
+        : `Log ${Math.round(staged.calories * factor)} kcal`;
+    if (method === "custom") return edit ? "Save changes" : "Save & Log";
     if (method === "scan") return "Look up";
     return "Log";
   }
@@ -281,7 +324,7 @@
   }
 </script>
 
-<Modal {onClose} title="Log {meal_type}">
+<Modal {onClose} title={edit ? `Edit ${meal_type}` : `Log ${meal_type}`}>
   {#snippet children({ props, close })}
     <div {...props} class="sheet">
       <div class="grab"></div>
@@ -295,7 +338,7 @@
         {:else}
           <span class="hbtn" aria-hidden="true"></span>
         {/if}
-        <h2>{meal_type}</h2>
+        <h2>{edit ? `Edit ${meal_type}` : meal_type}</h2>
         <button class="hbtn x" onclick={close} aria-label="Close">✕</button>
       </header>
 

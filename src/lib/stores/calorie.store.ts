@@ -214,21 +214,18 @@ export async function logRecipeConsumption(
  * Retracts a Consumption Event by appending a newer `event/status = "retracted"`
  * datom (never deletes — the projection's latest-wins fold hides it). Mirrors the
  * habit soft-archive convention (ADR-0008). `replacedBy` links the retracted event
- * to whatever supersedes it (e.g. the recipe event) for an auditable trail.
+ * to whatever supersedes it (e.g. the recipe event, or the re-logged event of an
+ * edit) for an auditable trail; omit it for a plain user-initiated removal.
  */
 export async function retractConsumptionEvent(
   eventId: string,
-  replacedBy: string
+  replacedBy?: string
 ): Promise<void> {
-  await dbClient.append(
-    ingestEntity({
-      entity: eventId,
-      attributes: {
-        "event/status": "retracted",
-        "event/replaced_by": replacedBy,
-      },
-    })
-  );
+  const attributes: Record<string, string> = {
+    "event/status": "retracted",
+  };
+  if (replacedBy) attributes["event/replaced_by"] = replacedBy;
+  await dbClient.append(ingestEntity({ entity: eventId, attributes }));
 }
 
 /**
