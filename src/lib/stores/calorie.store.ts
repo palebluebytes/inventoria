@@ -1,6 +1,6 @@
 import { dbClient } from "../db/db.client";
 import { ingestEntity } from "../ingestion/ingest";
-import { HLC_ORDER_DESC } from "../db/hlc";
+import { HLC_ORDER_ASC, HLC_ORDER_DESC } from "../db/hlc";
 import { createProjectionStore, createQueryStore } from "./datoms.store";
 import type { ConsumptionEvent } from "../food/consumption-state";
 import {
@@ -16,6 +16,10 @@ import {
   buildInstantiation,
   type Instantiation,
 } from "../food/recipe-instantiation";
+import {
+  ingredientFromTwin,
+  type RecipeIngredient,
+} from "../food/recipe-ingredient";
 
 export type { ConsumptionEvent };
 
@@ -181,10 +185,24 @@ export interface RecipeInput {
  * and per-serving nutrition is derived from the referenced ingredient twins.
  * That derived aggregate is frozen into the Consumption Event's `event/metrics`
  * snapshot at log time, so later recipe edits never rewrite logged history.
+ *
+ * Called two ways (ADR-0022 #13):
+ *   • **Define / Consolidate** (no `entity`): mints a fresh `recipe:<id>`. Empty
+ *     optional fields are skipped, keeping the ledger clean.
+ *   • **Edit** (`entity` given): appends newer `recipe/*` datoms to that SAME
+ *     twin. Latest-wins re-seeds only **future** instantiations; past ones,
+ *     being snapshots, never move. Optional fields are written *unconditionally*
+ *     here — append-only has no delete, so an omitted attribute would keep its
+ *     old value; writing an empty value is how an edit clears a field.
  */
-export async function saveRecipe(input: RecipeInput): Promise<string> {
-  const timestamp = Date.now();
-  const entityId = `recipe:${Math.random().toString(36).substring(2, 9)}_${timestamp}`;
+export async function saveRecipe(
+  input: RecipeInput,
+  entity?: string
+): Promise<string> {
+  const isEdit = entity !== undefined;
+  const entityId =
+    entity ??
+    `recipe:${Math.random().toString(36).substring(2, 9)}_${Date.now()}`;
 
   const attributes: Record<string, any> = {
     "recipe/name": input.name,
@@ -192,12 +210,22 @@ export async function saveRecipe(input: RecipeInput): Promise<string> {
     "recipe/ingredients": input.ingredients,
     "recipe/yield": input.yield ?? 1,
   };
-  if (input.description?.trim())
-    attributes["recipe/description"] = input.description.trim();
-  if (input.url?.trim()) attributes["recipe/url"] = input.url.trim();
-  if (input.instructions && input.instructions.length)
-    attributes["recipe/instructions"] = input.instructions;
-  if (input.image) attributes["recipe/image"] = input.image;
+  // Optional schema.org fields. One rule for all four: write the present value,
+  // or — on edit only — its `empty` sentinel to clear the field (append-only has
+  // no delete). `value` falsy on a Define simply skips the attribute.
+  const optionals: [key: string, value: unknown, empty: unknown][] = [
+    ["recipe/description", input.description?.trim(), ""],
+    ["recipe/url", input.url?.trim(), ""],
+    [
+      "recipe/instructions",
+      input.instructions?.length ? input.instructions : undefined,
+      [],
+    ],
+    ["recipe/image", input.image, ""],
+  ];
+  for (const [key, value, empty] of optionals) {
+    if (isEdit || value) attributes[key] = value ?? empty;
+  }
 
   await dbClient.append(ingestEntity({ entity: entityId, attributes }));
   return entityId;
@@ -300,8 +328,11 @@ export async function retractConsumptionEvent(
  * Retrieves a local digital twin by its entity ID if it exists in the database.
  */
 export async function getLocalFoodTwin(entityId: string): Promise<any | null> {
+  // HLC-ascending so a later append (an edited twin — a corrected food, or a
+  // Recipe Twin template edit, ADR-0022 #13) is folded LAST and therefore wins
+  // per attribute. Without the explicit order the latest value is not guaranteed.
   const rows = await dbClient.query<{ attribute: string; value: string }>(
-    "SELECT attribute, value FROM datoms WHERE entity = ?",
+    `SELECT attribute, value FROM datoms WHERE entity = ? ORDER BY ${HLC_ORDER_ASC}`,
     [entityId]
   );
   if (rows.length === 0) return null;
@@ -319,4 +350,71 @@ export async function getLocalFoodTwin(entityId: string): Promise<any | null> {
     entity: entityId,
     attributes,
   };
+}
+
+/** A frozen instantiation row's display name + macros, for the seed fallback. */
+export interface FrozenRow {
+  name: string;
+  calories: number;
+  protein: number;
+  fat: number;
+  carbs: number;
+}
+
+/**
+ * Resolves a stored `{ ref, amount, unit }` to a builder ingredient off its
+ * **current** twin — the shared seed step behind editing a Recipe Twin template
+ * (#13) and instantiating/correcting one (ADR-0022). Reading the live twin is
+ * what lets an edit re-derive from current ingredient data. When the twin is
+ * gone (a soft/dangling ref) it falls back to a self-contained per-serving twin:
+ * equal to the `frozen` snapshot row when given (a correction — the row still
+ * derives to what was logged rather than vanishing), or a zero-macro placeholder
+ * keyed by the ref (a template edit, where no historical reading exists).
+ */
+export async function seedRowFromRef(
+  ref: string,
+  amount: number,
+  unit: "g" | "serving",
+  frozen?: FrozenRow
+): Promise<RecipeIngredient> {
+  const twin = await getLocalFoodTwin(ref);
+  const ing = ingredientFromTwin(twin, amount, unit);
+  if (ing) return ing;
+  const name = frozen?.name ?? ref;
+  const nutrition = nutritionFromMacros(
+    {
+      calories: frozen?.calories ?? 0,
+      protein: frozen?.protein ?? 0,
+      fat: frozen?.fat ?? 0,
+      carbs: frozen?.carbs ?? 0,
+    },
+    PER_SERVING
+  );
+  return {
+    entity: ref,
+    name,
+    amount: frozen ? 1 : amount,
+    unit: frozen ? "serving" : unit,
+    payload: {
+      entity: ref,
+      attributes: { "food/name": name, "nutrition/info": nutrition },
+    },
+  };
+}
+
+/**
+ * Seeds a builder ingredient list from a Recipe Twin's `recipe/ingredients`,
+ * resolving each stored `{ ref, amount, unit }` off its current twin — the shared
+ * step behind editing a template (#13) and instantiating one (ADR-0022). Rows
+ * resolve concurrently.
+ */
+export function seedRowsFromTemplate(
+  attributes: Record<string, any>
+): Promise<RecipeIngredient[]> {
+  const refs = (attributes["recipe/ingredients"] ?? []) as {
+    ref: string;
+    amount: number;
+    unit: "g" | "serving";
+  }[];
+  return Promise.all(refs.map((r) => seedRowFromRef(r.ref, r.amount, r.unit)));
 }

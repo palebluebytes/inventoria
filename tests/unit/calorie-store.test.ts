@@ -223,6 +223,94 @@ describe("Calorie Store Actions", () => {
         expect(datoms.find((d) => d.attribute === dead)).toBeUndefined();
       }
     });
+
+    // Editing a Recipe Twin (#13, ADR-0022): a template edit is an append of
+    // newer recipe/* datoms to the SAME entity, so latest-wins re-seeds FUTURE
+    // instantiations only. Passing an existing `entity` selects edit-in-place;
+    // no new id is minted, and logged history — being snapshots — never moves.
+    it("edits a template in place: appends to the passed entity, minting no new id", async () => {
+      const mockAppend = vi
+        .spyOn(dbClient, "append")
+        .mockResolvedValue(undefined);
+      const ingredients: ReferenceIngredient[] = [
+        { ref: "fdc:oats", amount: 80, unit: "g" },
+      ];
+
+      const returnedId = await saveRecipe(
+        { name: "Oatmeal", ingredients, yield: 2 },
+        "recipe:existing_123"
+      );
+
+      // The passed entity is reused verbatim — no fresh `recipe:<rand>` id.
+      expect(returnedId).toBe("recipe:existing_123");
+      const datoms = mockAppend.mock.calls[0][0];
+      expect(datoms.every((d) => d.entity === "recipe:existing_123")).toBe(
+        true
+      );
+      expect(datoms.find((d) => d.attribute === "recipe/name")?.value).toBe(
+        "Oatmeal"
+      );
+      expect(
+        datoms.find((d) => d.attribute === "recipe/ingredients")?.value
+      ).toEqual(ingredients);
+      expect(datoms.find((d) => d.attribute === "recipe/yield")?.value).toBe(2);
+    });
+
+    // Append-only has no delete, so an omitted optional attribute would leave its
+    // OLD value winning. On edit the optional schema.org fields are therefore
+    // written unconditionally — an empty value clears the field for future logs.
+    it("clears an optional field on edit by writing an empty value", async () => {
+      const mockAppend = vi
+        .spyOn(dbClient, "append")
+        .mockResolvedValue(undefined);
+
+      await saveRecipe(
+        {
+          name: "Oatmeal",
+          ingredients: [{ ref: "fdc:oats", amount: 80, unit: "g" }],
+          description: "",
+          url: "",
+          instructions: [],
+        },
+        "recipe:existing_123"
+      );
+
+      const datoms = mockAppend.mock.calls[0][0];
+      expect(
+        datoms.find((d) => d.attribute === "recipe/description")?.value
+      ).toBe("");
+      expect(datoms.find((d) => d.attribute === "recipe/url")?.value).toBe("");
+      expect(
+        datoms.find((d) => d.attribute === "recipe/instructions")?.value
+      ).toEqual([]);
+    });
+
+    // A fresh Define (no entity) still keeps the ledger clean: empty optional
+    // fields are skipped rather than written as blanks.
+    it("skips empty optional fields when defining a new twin", async () => {
+      const mockAppend = vi
+        .spyOn(dbClient, "append")
+        .mockResolvedValue(undefined);
+
+      const id = await saveRecipe({
+        name: "Oatmeal",
+        ingredients: [{ ref: "fdc:oats", amount: 80, unit: "g" }],
+        description: "",
+        url: "",
+        instructions: [],
+      });
+
+      expect(id).toMatch(/^recipe:/);
+      const datoms = mockAppend.mock.calls[0][0];
+      for (const skipped of [
+        "recipe/description",
+        "recipe/url",
+        "recipe/instructions",
+        "recipe/image",
+      ]) {
+        expect(datoms.find((d) => d.attribute === skipped)).toBeUndefined();
+      }
+    });
   });
 
   describe("retractConsumptionEvent", () => {

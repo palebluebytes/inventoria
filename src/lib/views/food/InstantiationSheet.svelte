@@ -4,12 +4,12 @@
   import {
     logRecipeConsumption,
     correctInstantiation,
-    getLocalFoodTwin,
+    seedRowFromRef,
+    seedRowsFromTemplate,
     type ConsumptionEvent,
   } from "../../stores/calorie.store";
   import {
     toReferenceIngredient,
-    ingredientFromTwin,
     panelFromIngredients,
     nameFromIngredients,
     type RecipeIngredient,
@@ -18,11 +18,7 @@
     deriveRecipeNutrition,
     sanitizeYield,
   } from "../../food/recipe-nutrition";
-  import {
-    nutritionFromMacros,
-    PER_SERVING,
-    round2,
-  } from "../../food/nutrition";
+  import { round2 } from "../../food/nutrition";
   import Modal from "../../ui/Modal.svelte";
   import Alert from "../../ui/Alert.svelte";
   import IngredientListEditor from "./IngredientListEditor.svelte";
@@ -74,47 +70,6 @@
     )
   );
 
-  // Resolves a stored `{ ref, amount, unit }` to a builder ingredient off its
-  // CURRENT twin. When the twin is gone (a soft/dangling ref), fall back to a
-  // self-contained per-serving twin equal to the frozen row so the row still
-  // derives to what was logged rather than vanishing.
-  async function seedRow(
-    ref: string,
-    amount: number,
-    unit: "g" | "serving",
-    frozen?: {
-      name: string;
-      calories: number;
-      protein: number;
-      fat: number;
-      carbs: number;
-    }
-  ): Promise<RecipeIngredient> {
-    const twin = await getLocalFoodTwin(ref);
-    const ing = ingredientFromTwin(twin, amount, unit);
-    if (ing) return ing;
-    const name = frozen?.name ?? ref;
-    const nutrition = nutritionFromMacros(
-      {
-        calories: frozen?.calories ?? 0,
-        protein: frozen?.protein ?? 0,
-        fat: frozen?.fat ?? 0,
-        carbs: frozen?.carbs ?? 0,
-      },
-      PER_SERVING
-    );
-    return {
-      entity: ref,
-      name,
-      amount: frozen ? 1 : amount,
-      unit: frozen ? "serving" : unit,
-      payload: {
-        entity: ref,
-        attributes: { "food/name": name, "nutrition/info": nutrition },
-      },
-    };
-  }
-
   // Seed once. Async (resolves each ingredient's current twin), so the editor is
   // held behind `ready`.
   let seeded = false;
@@ -133,7 +88,7 @@
         recipeYield = inst.yield || 1;
         ingredients = await Promise.all(
           inst.ingredients.map((r) =>
-            seedRow(r.ref, r.amount, r.unit, {
+            seedRowFromRef(r.ref, r.amount, r.unit, {
               name: r.name,
               calories: r.calories,
               protein: r.protein,
@@ -146,14 +101,7 @@
         based_on = template.entity;
         title = template.attributes["recipe/name"] || "Recipe";
         recipeYield = template.attributes["recipe/yield"] || 1;
-        const refs = (template.attributes["recipe/ingredients"] || []) as {
-          ref: string;
-          amount: number;
-          unit: "g" | "serving";
-        }[];
-        ingredients = await Promise.all(
-          refs.map((r) => seedRow(r.ref, r.amount, r.unit))
-        );
+        ingredients = await seedRowsFromTemplate(template.attributes);
       }
     } catch (e: any) {
       status = "error";
