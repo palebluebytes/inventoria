@@ -818,6 +818,8 @@
   }
   .meal-item-cals {
     flex-shrink: 0;
+    /* Sit at the bottom of the card, clear of the ✕ in the top corner. */
+    align-self: flex-end;
     font-size: var(--step-n1);
     font-weight: 700;
     color: var(--text-primary);
