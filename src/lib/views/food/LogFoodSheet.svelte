@@ -27,6 +27,7 @@
   import Alert from "../../ui/Alert.svelte";
   import FoodResultsList from "./FoodResultsList.svelte";
   import MacroPills from "./MacroPills.svelte";
+  import QuantityGrams from "./QuantityGrams.svelte";
 
   // A single sheet for logging food into one meal. Opens directly on "+ Add"
   // (no chooser); method (Search / Scan / Custom) is switched from the dock at
@@ -114,10 +115,12 @@
   let searchError = $state("");
   let results = $state<FoodResult[]>([]);
 
-  // The result staged for quantifying (a USDA hit or a barcode match).
+  // The result staged for quantifying (a USDA hit or a barcode match). `grams`
+  // is the authoritative amount owned by the QuantityGrams control (ADR-0023);
+  // it stays a clean number, so `gramsNum` simply mirrors it.
   let staged = $state<FoodResult | null>(null);
-  let grams = $state<number | string>(100);
-  let gramsNum = $derived(Number(grams) || 0);
+  let grams = $state(100);
+  let gramsNum = $derived(grams);
   let factor = $derived(gramsNum / 100);
 
   // Custom entry
@@ -419,14 +422,8 @@
                 staged.protein
               )}g · F {round2(staged.fat)}g · C {round2(staged.carbs)}g
             </p>
-            <label class="fl" for="quantity-input">Quantity (grams)</label>
-            <input
-              id="quantity-input"
-              class="qtin"
-              type="number"
-              inputmode="numeric"
-              bind:value={grams}
-            />
+            <span class="fl">Quantity (grams)</span>
+            <QuantityGrams bind:grams />
             <div class="preview">
               <MacroPills
                 calories={Math.round(staged.calories * factor)}
@@ -808,16 +805,6 @@
     font-weight: 700;
     text-transform: uppercase;
     margin: var(--space-m) 0 var(--space-3xs);
-  }
-  .qtin {
-    width: 100%;
-    border: 3px solid #000;
-    padding: var(--space-s);
-    font-size: var(--step-1);
-    font-weight: 700;
-    text-align: center;
-    font-family: inherit;
-    background: #fff;
   }
   .preview {
     margin-top: var(--space-m);

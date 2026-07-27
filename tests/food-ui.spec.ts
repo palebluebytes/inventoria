@@ -325,7 +325,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.getByRole("button", { name: `Add ${meal}` }).click();
     await page.locator("#food-search-input").fill(query);
     await page.locator(".result-item-btn", { hasText: resultName }).click();
-    await page.locator("#quantity-input").fill(grams);
+    await page.getByLabel("Quantity in grams").fill(grams);
     await page.locator("#log-food-btn").click();
   }
 
@@ -365,8 +365,10 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // Staging a food hides the method switcher — the sheet is now just "log this".
     await expect(page.locator(".method")).toHaveCount(0);
 
-    // Type the quantity (no steppers) and log.
-    await page.locator("#quantity-input").fill("150");
+    // Staging uses the numeric+slider amount control (ADR-0023): a real slider
+    // (role="slider", from bits-ui) alongside the typed field. Set 150 g and log.
+    await expect(page.getByRole("slider")).toBeVisible();
+    await page.getByLabel("Quantity in grams").fill("150");
     await page.locator("#log-food-btn").click();
 
     // Verify on the dashboard.
@@ -444,7 +446,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(
       page.locator("h2", { hasText: "Edit breakfast" })
     ).toBeVisible();
-    await expect(page.locator("#quantity-input")).toHaveValue("150");
+    await expect(page.getByLabel("Quantity in grams")).toHaveValue("150");
 
     // Edit mode is a focused amount editor: no back button, no method switcher,
     // and no "Logging <name>" echo (the name already headlines the sheet).
@@ -455,7 +457,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.locator(".sheet")).not.toContainText("Logging");
 
     // Change the amount and save; the entry is replaced (append-only), not dup'd.
-    await page.locator("#quantity-input").fill("300"); // 89 * 3 = 267
+    await page.getByLabel("Quantity in grams").fill("300"); // 89 * 3 = 267
     await page.locator("#log-food-btn").click();
 
     await expect(
