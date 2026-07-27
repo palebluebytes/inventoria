@@ -103,18 +103,29 @@
     }
   });
 
+  // The query whose results are currently held, so returning to the list from a
+  // staged food (via "Change food") shows the cached results instead of firing
+  // the search again. Plain let — not an $effect dependency.
+  let lastQuery = "";
   let debounceTimer: ReturnType<typeof setTimeout>;
   $effect(() => {
     const trimmed = query.trim();
     if (method !== "search" || staged) return;
     clearTimeout(debounceTimer);
-    if (trimmed.length >= 3 && hasKey) {
-      searchStatus = "loading";
-      debounceTimer = setTimeout(() => handleSearch(), 400);
-    } else if (trimmed.length === 0) {
+    if (trimmed.length === 0) {
       results = [];
       searchStatus = "idle";
       searchError = "";
+      lastQuery = "";
+    } else if (
+      trimmed.length >= 3 &&
+      hasKey &&
+      // Skip if these results already match the query (e.g. we just came back
+      // from staging a food); a failed query is not cached, so it can retry.
+      !(trimmed === lastQuery && searchStatus !== "error")
+    ) {
+      searchStatus = "loading";
+      debounceTimer = setTimeout(() => handleSearch(), 400);
     }
     return () => clearTimeout(debounceTimer);
   });
@@ -198,6 +209,7 @@
     staged = null;
     try {
       results = await searchUsdaFoods(query);
+      lastQuery = query.trim();
       searchStatus = "idle";
     } catch (e: any) {
       searchStatus = "error";

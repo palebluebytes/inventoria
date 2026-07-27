@@ -376,6 +376,34 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.locator(".calories-num")).toHaveText("134");
   });
 
+  test("caches search results when returning from a staged food", async ({
+    page,
+  }) => {
+    let searches = 0;
+    page.on("request", (req) => {
+      if (req.url().includes("/fdc/v1/foods/search")) searches++;
+    });
+
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    await page.getByRole("button", { name: "Add breakfast" }).click();
+    await page.locator("#food-search-input").fill("banana");
+    await page.locator(".result-item-btn", { hasText: "Mock Banana" }).click();
+    const afterSearch = searches;
+    expect(afterSearch).toBeGreaterThan(0);
+
+    // "Change food" returns to the list; the cached results show without a
+    // second network search.
+    await page.getByRole("button", { name: "Change food" }).click();
+    await expect(
+      page.locator(".result-item-btn", { hasText: "Mock Banana" })
+    ).toBeVisible();
+    await page.waitForTimeout(700); // past the 400ms debounce
+    expect(searches).toBe(afterSearch);
+  });
+
   test("removes a logged food via the card's ✕ button", async ({ page }) => {
     await page.goto("/?mem=1");
     await waitForDbReady(page);
