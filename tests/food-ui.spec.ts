@@ -362,6 +362,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.locator("#food-search-input").fill("banana");
     await page.locator(".result-item-btn", { hasText: "Mock Banana" }).click();
 
+    // Staging a food hides the method switcher — the sheet is now just "log this".
+    await expect(page.locator(".method")).toHaveCount(0);
+
     // Type the quantity (no steppers) and log.
     await page.locator("#quantity-input").fill("150");
     await page.locator("#log-food-btn").click();

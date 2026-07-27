@@ -512,12 +512,12 @@
           </div>
         {/if}
 
-        {#if !edit}
+        {#if !staged && !edit}
           <div class="methods">
             {#each [["search", "🔍", "Search"], ["scan", "📷", "Scan"], ["custom", "✏️", "Custom"]] as [m, ico, label]}
               <button
                 class="method"
-                class:on={method === m && !staged}
+                class:on={method === m}
                 onclick={() => switchMethod(m as Method)}
               >
                 <span class="mi">{ico}</span><span class="ml">{label}</span>
