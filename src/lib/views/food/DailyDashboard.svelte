@@ -387,20 +387,18 @@
                   >{item.quantity || "1 serving"}</span
                 >
               </div>
-              <div class="meal-item-side">
-                <button
-                  type="button"
-                  class="meal-item-remove"
-                  aria-label="Remove {item.foodName || 'food'}"
-                  title="Remove"
-                  onpointerdown={(e) => e.stopPropagation()}
-                  onclick={(e) => {
-                    e.stopPropagation();
-                    onRemoveItem(item.id);
-                  }}>✕</button
-                >
-                <span class="meal-item-cals">{item.calories} kcal</span>
-              </div>
+              <span class="meal-item-cals">{item.calories} kcal</span>
+              <button
+                type="button"
+                class="meal-item-remove"
+                aria-label="Remove {item.foodName || 'food'}"
+                title="Remove"
+                onpointerdown={(e) => e.stopPropagation()}
+                onclick={(e) => {
+                  e.stopPropagation();
+                  onRemoveItem(item.id);
+                }}>✕</button
+              >
             </div>
           {/each}
         </div>
@@ -716,6 +714,7 @@
     gap: var(--space-xs);
   }
   .meal-item-card {
+    position: relative;
     display: flex;
     align-items: center;
     gap: var(--space-s);
@@ -786,47 +785,39 @@
     font-size: var(--step-n2);
     color: var(--text-muted);
   }
-  /* Right rail: remove control on top, calories below it. */
-  .meal-item-side {
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: var(--space-xs);
-  }
+  /* Borderless ✕ tucked into the card's top-right corner. */
   .meal-item-remove {
+    position: absolute;
+    top: var(--space-3xs);
+    right: var(--space-3xs);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.75rem;
-    height: 1.75rem;
+    width: 1.5rem;
+    height: 1.5rem;
     padding: 0;
     background: none;
-    border: 1px solid #000;
-    border-radius: 0;
-    color: #000;
+    border: none;
+    color: var(--text-primary);
     font-size: var(--step-n1);
     line-height: 1;
     cursor: pointer;
     transition:
-      background 0.15s ease,
       color 0.15s ease,
       transform 0.1s ease;
   }
   .meal-item-remove:hover {
-    background: #000;
-    color: #fff;
+    color: var(--text-muted);
   }
   .meal-item-remove:active {
-    transform: scale(0.9);
+    transform: scale(0.85);
   }
   .meal-item-remove:focus-visible {
     outline: none;
-    box-shadow:
-      0 0 0 2px #fff,
-      0 0 0 4px var(--accent);
+    box-shadow: 0 0 0 2px var(--accent);
   }
   .meal-item-cals {
+    flex-shrink: 0;
     font-size: var(--step-n1);
     font-weight: 700;
     color: var(--text-primary);
