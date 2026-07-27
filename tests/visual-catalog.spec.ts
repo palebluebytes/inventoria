@@ -220,7 +220,14 @@ test.describe("Visual Catalog Generator", () => {
       `,
     });
     try {
-      await expect(page).toHaveScreenshot(name, { fullPage: true });
+      await expect(page).toHaveScreenshot(name, {
+        fullPage: true,
+        // The calorie ring is an SVG arc whose antialiased rounded cap renders
+        // at slightly different sub-pixels run-to-run, flaking the comparison
+        // even frozen. Mask it (a solid box) — its value is asserted directly in
+        // food-ui.spec.ts. The locator is a no-op on non-food dashboards.
+        mask: [page.locator(".ring-container")],
+      });
     } finally {
       await styleHandle.evaluate((el) => (el as Element).remove());
     }
