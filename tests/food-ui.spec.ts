@@ -685,6 +685,49 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.locator("#recipe-name")).toHaveValue("Dinner Combo");
   });
 
+  test("sets an ingredient amount with the quantity control and adds it", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    // Recipe builder open, seeded with oats 50 g (190) + banana 150 g (134) = 324.
+    await selectTwoAndBuild(page);
+    await expect(page.locator(".recipe-total")).toContainText("324 kcal");
+
+    // Open the add-ingredient sheet and stage a food via search.
+    await page.locator("#add-ingredient-btn").click();
+    const addSheet = page.locator(
+      '.sheet:has(> header h2:text-is("Add ingredient"))'
+    );
+    // Stage a food NOT already in the recipe (the seed has oats + banana).
+    await addSheet.locator("#ai-search").fill("urad");
+    await addSheet
+      .locator(".result-item-btn", { hasText: "Black Urad Dal" })
+      .click();
+
+    // The staged card shows the quantity control: a numeric field + a real
+    // slider (role="slider", from bits-ui) + preset chips. Default 100 g of
+    // Black Urad Dal (341 kcal/100 g) → the confirm button reflects 341 kcal.
+    const confirm = addSheet.locator("#add-ingredient-confirm");
+    await expect(addSheet.getByRole("slider")).toBeVisible();
+    await expect(confirm).toHaveText("Add 341 kcal");
+
+    // Typing an exact amount flows straight through (no step snapping): 50 → 171.
+    await addSheet.getByLabel("Quantity in grams").fill("50");
+    await expect(confirm).toHaveText("Add 171 kcal");
+
+    // A preset chip jumps to a common amount: 100 g → 341.
+    await addSheet.getByRole("button", { name: "100", exact: true }).click();
+    await expect(confirm).toHaveText("Add 341 kcal");
+
+    // Adding folds the ingredient into the recipe: 324 + 341 = 665.
+    await confirm.click();
+    await expect(addSheet).toBeHidden();
+    await expect(page.locator(".recipe-total")).toContainText("665 kcal");
+  });
+
   // ── Seam 3: Instantiate a Recipe Twin + correct an instantiation (ADR-0022) ──
 
   // Build and save "Dinner Combo" (oats 50 g = 190 + banana 150 g = 134 = 324)

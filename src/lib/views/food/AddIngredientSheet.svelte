@@ -17,6 +17,7 @@
   } from "../../food/recipe-ingredient";
   import Alert from "../../ui/Alert.svelte";
   import FoodResultsList from "./FoodResultsList.svelte";
+  import QuantityGrams from "./QuantityGrams.svelte";
 
   // Add an ingredient to a recipe using the same Search / Scan / Custom flow as
   // logging a food. Emits the chosen food as a RecipeIngredient; never logs.
@@ -33,8 +34,8 @@
   let error = $state("");
   let results = $state<FoodResult[]>([]);
   let staged = $state<FoodResult | null>(null);
-  let grams = $state<number | string>(100);
-  let gramsNum = $derived(Number(grams) || 0);
+  let grams = $state(100);
+  let gramsNum = $derived(grams);
   let factor = $derived(gramsNum / 100);
 
   let cName = $state("");
@@ -159,14 +160,9 @@
           Per 100g · {staged.calories} kcal · P {staged.protein}g · F {staged.fat}g
           · C {staged.carbs}g
         </p>
-        <label class="fl" for="ai-grams">Quantity (grams)</label>
-        <input
-          id="ai-grams"
-          class="qtin"
-          type="number"
-          inputmode="numeric"
-          bind:value={grams}
-        />
+        <div class="qtwrap">
+          <QuantityGrams bind:grams />
+        </div>
         <div class="preview">
           <span><b>{Math.round(staged.calories * factor)}</b> kcal</span>
           <span><b>{Math.round(staged.protein * factor * 10) / 10}</b>g P</span>
@@ -360,19 +356,15 @@
     text-transform: uppercase;
     margin: var(--space-s) 0 var(--space-3xs);
   }
-  .tin,
-  .qtin {
+  .tin {
     width: 100%;
     border: 2px solid #000;
     padding: var(--space-xs);
     font-size: var(--step-0);
     font-family: inherit;
   }
-  .qtin {
-    border-width: 3px;
-    padding: var(--space-s);
-    font-weight: 700;
-    text-align: center;
+  .qtwrap {
+    margin-top: var(--space-m);
   }
   .grid2 {
     display: grid;
