@@ -1,5 +1,9 @@
 import type { FoodResult } from "./food-search";
-import { nutritionFromMacros, PER_SERVING } from "./nutrition";
+import {
+  nutritionFromMacros,
+  PER_SERVING,
+  type NutritionInfo,
+} from "./nutrition";
 import type { ReferenceIngredient } from "./recipe-nutrition";
 
 /**
@@ -34,6 +38,60 @@ export interface RecipeIngredient {
   payload: any;
   /** Source consumption-event id, if this ingredient came from the day. */
   event_id?: string;
+}
+
+/**
+ * Resolves a builder ingredient's `nutrition/info` panel by its twin ref — the
+ * `resolve` the shared derivation ({@link deriveRecipeNutrition}) reads from. A
+ * builder ingredient carries the referenced twin's real panel inline on its
+ * `payload`, so both the live per-serving display and the log-time snapshot read
+ * the single source of truth without touching the ledger. `undefined` when no
+ * ingredient matches (or it carries no panel).
+ */
+export function panelFromIngredients(
+  ings: RecipeIngredient[],
+  ref: string
+): NutritionInfo | undefined {
+  return ings.find((i) => i.entity === ref)?.payload?.attributes?.[
+    "nutrition/info"
+  ] as NutritionInfo | undefined;
+}
+
+/**
+ * Resolves a builder ingredient's display name by its twin ref — the
+ * `resolveName` {@link buildInstantiation} denormalizes onto each frozen row so a
+ * logged breakdown survives the twin being renamed or deleted (ADR-0022).
+ */
+export function nameFromIngredients(
+  ings: RecipeIngredient[],
+  ref: string
+): string | undefined {
+  return ings.find((i) => i.entity === ref)?.name;
+}
+
+/**
+ * Builds a builder ingredient from a resolved food twin (as returned by
+ * `getLocalFoodTwin`) plus the `amount`/`unit` it is used at — the seed step for
+ * the instantiation editor, which resolves each template/snapshot ref to its
+ * *current* twin so edits re-derive from live ingredient data (ADR-0022). Returns
+ * `null` when the twin is missing or carries no `nutrition/info` panel, so the
+ * caller can fall back (e.g. synthesize from a frozen snapshot row) rather than
+ * seed a row that cannot derive. The `name` falls back to the raw ref.
+ */
+export function ingredientFromTwin(
+  twin: any | null,
+  amount: number,
+  unit: "g" | "serving"
+): RecipeIngredient | null {
+  const panel = twin?.attributes?.["nutrition/info"];
+  if (!panel) return null;
+  return {
+    entity: twin.entity,
+    name: twin.attributes?.["food/name"] ?? twin.entity,
+    amount,
+    unit,
+    payload: twin,
+  };
 }
 
 /**

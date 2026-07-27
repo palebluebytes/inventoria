@@ -31,6 +31,18 @@ export function parseServingGrams(serving_size: string | undefined): number {
 }
 
 /**
+ * Sanitises a `recipeYield` — held loosely in the editor so the field can be
+ * cleared/retyped (`number | string`, transiently empty) — to a positive divisor.
+ * The single rule behind every per-serving division (the live editor, the
+ * log-time headline, and the persisted `recipe/yield`): a non-positive or
+ * unparseable yield falls back to 1 (single-serving).
+ */
+export function sanitizeYield(recipeYield: number | string): number {
+  const n = Number(recipeYield);
+  return n > 0 ? n : 1;
+}
+
+/**
  * Derives a recipe's per-serving macros from its reference ingredients
  * (ADR-0021): `Σ(ingredient panel × amount ÷ serving_size) ÷ yield`. Each
  * ingredient's panel is resolved from its referenced food twin via `resolve`; a
@@ -67,7 +79,7 @@ export function deriveRecipeNutrition(
     total.fat += Math.round(macros.fat * factor * 10) / 10;
     total.carbs += Math.round(macros.carbs * factor * 10) / 10;
   }
-  const y = recipeYield > 0 ? recipeYield : 1;
+  const y = sanitizeYield(recipeYield);
   return {
     calories: Math.round(total.calories / y),
     protein: Math.round((total.protein / y) * 10) / 10,

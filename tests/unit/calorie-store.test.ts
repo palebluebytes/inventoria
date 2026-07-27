@@ -6,9 +6,11 @@ import {
   saveCustomFood,
   saveRecipe,
   logRecipeConsumption,
+  correctInstantiation,
   retractConsumptionEvent,
   consumptionForDay,
 } from "../../src/lib/stores/calorie.store";
+import type { NutritionInfo } from "../../src/lib/food/nutrition";
 import { computeConsumption } from "../../src/lib/food/consumption-state";
 import type { ReferenceIngredient } from "../../src/lib/food/recipe-nutrition";
 import { round2 } from "../../src/lib/food/nutrition";
@@ -238,6 +240,78 @@ describe("Calorie Store Actions", () => {
       const link = datoms.find((d) => d.attribute === "event/replaced_by");
       expect(link?.value).toBe("recipe:xyz");
     });
+  });
+});
+
+describe("correctInstantiation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.restoreAllMocks();
+  });
+
+  const PANELS: Record<string, NutritionInfo> = {
+    "fdc:oats": {
+      serving_size: "100 g",
+      calories: 379,
+      protein_content: 13.1,
+      fat_content: 6.5,
+      carbohydrate_content: 67.7,
+    },
+  };
+  const resolve = (ref: string) => PANELS[ref];
+  const resolveName = (ref: string) =>
+    ref === "fdc:oats" ? "Oats" : undefined;
+
+  it("logs a freshly-derived instantiation and retracts the old event (ADR-0008)", async () => {
+    const mockAppend = vi
+      .spyOn(dbClient, "append")
+      .mockResolvedValue(undefined);
+
+    const newId = await correctInstantiation(
+      "event:consume_old",
+      "recipe:oatmeal",
+      [{ ref: "fdc:oats", amount: 100, unit: "g" }],
+      1,
+      resolve,
+      resolveName,
+      "breakfast",
+      new Date("2026-05-31T08:00:00")
+    );
+
+    expect(newId).toMatch(/^event:consume_/);
+    expect(newId).not.toBe("event:consume_old");
+    // Two appends: (1) the superseding instantiation, (2) the retraction.
+    expect(mockAppend).toHaveBeenCalledTimes(2);
+
+    // (1) The new event re-derives its snapshot from the CURRENT twins.
+    const newDatoms = mockAppend.mock.calls[0][0];
+    expect(newDatoms.find((d) => d.attribute === "event/target")?.value).toBe(
+      "recipe:oatmeal"
+    );
+    const inst = newDatoms.find((d) => d.attribute === "event/instantiation")
+      ?.value as any;
+    expect(inst.based_on).toBe("recipe:oatmeal");
+    expect(inst.ingredients[0]).toMatchObject({
+      ref: "fdc:oats",
+      name: "Oats",
+      amount: 100,
+      calories: 379,
+    });
+    expect(
+      newDatoms.find((d) => d.attribute === "event/metrics")?.value
+    ).toMatchObject({ calories: 379 });
+
+    // (2) The old event is retracted and linked to its replacement.
+    const retract = mockAppend.mock.calls[1][0];
+    expect(retract.find((d) => d.attribute === "event/status")?.entity).toBe(
+      "event:consume_old"
+    );
+    expect(retract.find((d) => d.attribute === "event/status")?.value).toBe(
+      "retracted"
+    );
+    expect(
+      retract.find((d) => d.attribute === "event/replaced_by")?.value
+    ).toBe(newId);
   });
 });
 

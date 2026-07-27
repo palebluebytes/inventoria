@@ -1,6 +1,7 @@
 import { dbClient } from "../db/db.client";
 import { ingestEntity } from "../ingestion/ingest";
-import { createProjectionStore } from "./datoms.store";
+import { HLC_ORDER_DESC } from "../db/hlc";
+import { createProjectionStore, createQueryStore } from "./datoms.store";
 import type { ConsumptionEvent } from "../food/consumption-state";
 import {
   nutritionFromMacros,
@@ -34,6 +35,20 @@ export const consumptionStore = createProjectionStore<ConsumptionEvent[]>(
   "CONSUMPTION",
   {},
   []
+);
+
+/** One saved Recipe Twin, surfaced for the Instantiate browser (ADR-0022). */
+export interface RecipeTwinRow {
+  entity: string;
+  value: string;
+}
+
+// Live list of saved Recipe Twins (by `recipe/name`), newest first — the browse
+// list behind the Instantiate verb. Rows are `{ entity, value }` where `value` is
+// the JSON-encoded name; callers dedupe by entity (a future template rename would
+// append a second name datom, ADR-0022 §Deferred).
+export const recipeTwinsStore = createQueryStore<RecipeTwinRow>(
+  `SELECT entity, value FROM datoms WHERE attribute = 'recipe/name' ORDER BY ${HLC_ORDER_DESC}`
 );
 
 /** Filters a consumption list to the events that fall on a given local day. */
@@ -227,6 +242,40 @@ export async function logRecipeConsumption(
     selectedDate,
     instantiation
   );
+}
+
+/**
+ * Corrects a past Recipe Instantiation by supersession (ADR-0008 / ADR-0022): it
+ * logs a **new** instantiation with a freshly-derived snapshot, then retracts the
+ * old event with `event/replaced_by` pointing at the replacement. A read never
+ * silently drifts — the correction re-derives from the *current* ingredient twins
+ * (via `resolve` / `resolveName`, exactly like editing a logged food), so a stale
+ * frozen row is only ever replaced by a deliberate edit, never rewritten in place.
+ * `based_on` is the template the occasion was seeded from (carried through from
+ * the original instantiation's `based_on`, equal to its `event/target`). Returns
+ * the new event's id.
+ */
+export async function correctInstantiation(
+  editId: string,
+  based_on: string,
+  ingredients: ReferenceIngredient[],
+  recipeYield: number,
+  resolve: (ref: string) => NutritionInfo | undefined,
+  resolveName: (ref: string) => string | undefined,
+  meal_type: string,
+  selectedDate: Date
+): Promise<string> {
+  const newId = await logRecipeConsumption(
+    based_on,
+    ingredients,
+    recipeYield,
+    resolve,
+    resolveName,
+    meal_type,
+    selectedDate
+  );
+  await retractConsumptionEvent(editId, newId);
+  return newId;
 }
 
 /**
