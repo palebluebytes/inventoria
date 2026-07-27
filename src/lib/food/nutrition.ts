@@ -29,6 +29,12 @@ export interface NutritionInfo {
   sodium_content?: number;
   /** schema.org saturatedFatContent (g). */
   saturated_fat_content?: number;
+  /** schema.org transFatContent (g). */
+  trans_fat_content?: number;
+  /** schema.org unsaturatedFatContent (g) — mono + poly unsaturated, summed. */
+  unsaturated_fat_content?: number;
+  /** schema.org cholesterolContent (g). */
+  cholesterol_content?: number;
 }
 
 /** The EAVT attribute that holds a twin's nutrition panel. */

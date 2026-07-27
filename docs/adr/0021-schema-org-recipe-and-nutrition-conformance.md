@@ -52,7 +52,10 @@ single atomic `nutrition/info` blob** mirroring NutritionInformation:
   "fiber_content": 0,              // schema.org fiberContent   — when the source provides it
   "sugar_content": 56.3,           // schema.org sugarContent
   "sodium_content": 0.107,         // schema.org sodiumContent
-  "saturated_fat_content": 10.6    // schema.org saturatedFatContent
+  "saturated_fat_content": 10.6,   // schema.org saturatedFatContent
+  "trans_fat_content": 0.2,        // schema.org transFatContent
+  "unsaturated_fat_content": 12.5, // schema.org unsaturatedFatContent (mono + poly)
+  "cholesterol_content": 0.01      // schema.org cholesterolContent (g)
 }
 ```
 
@@ -100,17 +103,20 @@ ordered `string[]` of HowToStep text), plus `name`, `image`, `yield`,
 | `recipeIngredient`          | derived from `recipe/ingredients` refs |
 | `nutrition`                 | derived (not stored on the recipe)     |
 
-| schema.org/NutritionInformation | `nutrition/info.*`      |
-| ------------------------------- | ----------------------- |
-| `servingSize`                   | `serving_size`          |
-| `calories`                      | `calories`              |
-| `proteinContent`                | `protein_content`       |
-| `fatContent`                    | `fat_content`           |
-| `carbohydrateContent`           | `carbohydrate_content`  |
-| `fiberContent`                  | `fiber_content`         |
-| `sugarContent`                  | `sugar_content`         |
-| `sodiumContent`                 | `sodium_content`        |
-| `saturatedFatContent`           | `saturated_fat_content` |
+| schema.org/NutritionInformation | `nutrition/info.*`                      |
+| ------------------------------- | --------------------------------------- |
+| `servingSize`                   | `serving_size`                          |
+| `calories`                      | `calories`                              |
+| `proteinContent`                | `protein_content`                       |
+| `fatContent`                    | `fat_content`                           |
+| `carbohydrateContent`           | `carbohydrate_content`                  |
+| `fiberContent`                  | `fiber_content`                         |
+| `sugarContent`                  | `sugar_content`                         |
+| `sodiumContent`                 | `sodium_content`                        |
+| `saturatedFatContent`           | `saturated_fat_content`                 |
+| `transFatContent`               | `trans_fat_content`                     |
+| `unsaturatedFatContent`         | `unsaturated_fat_content` (mono + poly) |
+| `cholesterolContent`            | `cholesterol_content`                   |
 
 Food-bearing twins carry `food/name`, `food/image`, `nutrition/info`,
 `twin/raw_provenance`. The consumption event keeps its frozen `event/metrics`

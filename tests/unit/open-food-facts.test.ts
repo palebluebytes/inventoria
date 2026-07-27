@@ -44,6 +44,25 @@ describe("mapOffProductToPayload", () => {
     expect(n).not.toHaveProperty("fiber_content");
   });
 
+  it("maps trans fat, cholesterol and unsaturated (mono+poly) fat", () => {
+    const product: OFFProduct = {
+      ...nutella,
+      product: {
+        ...nutella.product,
+        nutriments: {
+          "trans-fat_100g": 0.2,
+          cholesterol_100g: 0.01,
+          "monounsaturated-fat_100g": 9.1,
+          "polyunsaturated-fat_100g": 3.4,
+        },
+      },
+    };
+    const n = mapOffProductToPayload(product).attributes["nutrition/info"];
+    expect(n.trans_fat_content).toBe(0.2);
+    expect(n.cholesterol_content).toBe(0.01);
+    expect(n.unsaturated_fat_content).toBe(12.5); // 9.1 + 3.4
+  });
+
   it("falls back to 'Unknown' when product_name is missing", () => {
     const product: OFFProduct = {
       ...nutella,

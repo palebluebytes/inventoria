@@ -4,7 +4,8 @@ import { buildRawProvenance } from "./provenance";
 
 // Mapper version, bumped when the OFF -> nutrition/info normalisation changes.
 // OFF_BASE (the product endpoint) is defined below and reused for source_uri.
-const ADAPTER_VERSION = "1";
+// v2: panel gains trans fat, cholesterol and unsaturated fat (mono + poly).
+const ADAPTER_VERSION = "2";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -22,6 +23,10 @@ export interface OFFNutriments {
   sugars_100g?: number;
   sodium_100g?: number;
   "saturated-fat_100g"?: number;
+  "trans-fat_100g"?: number;
+  cholesterol_100g?: number;
+  "monounsaturated-fat_100g"?: number;
+  "polyunsaturated-fat_100g"?: number;
 }
 
 export interface OFFProduct {
@@ -67,6 +72,16 @@ export function mapOffProductToPayload(product: OFFProduct): EntityPayload {
   set(n.sugars_100g, "sugar_content");
   set(n.sodium_100g, "sodium_content");
   set(n["saturated-fat_100g"], "saturated_fat_content");
+  set(n["trans-fat_100g"], "trans_fat_content");
+  set(n.cholesterol_100g, "cholesterol_content");
+  // schema.org unsaturatedFatContent = mono + poly. Sum whatever OFF carries.
+  const mono = n["monounsaturated-fat_100g"];
+  const poly = n["polyunsaturated-fat_100g"];
+  if (mono != null || poly != null) {
+    // Round to shed float noise from the addition.
+    nutrition.unsaturated_fat_content =
+      Math.round(((mono ?? 0) + (poly ?? 0)) * 1e6) / 1e6;
+  }
 
   return {
     entity: `gtin:${product.code}`,

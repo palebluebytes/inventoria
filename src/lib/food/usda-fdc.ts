@@ -7,7 +7,9 @@ import { buildRawProvenance } from "./provenance";
 // Mapper version, bumped when the FDC -> nutrition/info normalisation changes.
 // v2: energy falls back to the Atwater IDs so Foundation foods aren't 0 kcal.
 // v3: carbohydrate and fiber fall back to alternate assay IDs (1050 / 2033).
-const ADAPTER_VERSION = "3";
+// v4: panel gains trans fat (1257), cholesterol (1253) and unsaturated fat
+//     (mono 1292 + poly 1293).
+const ADAPTER_VERSION = "4";
 const FDC_FOOD_BASE = "https://api.nal.usda.gov/fdc/v1/food";
 
 // Read the current key on demand (default param, evaluated per call) instead of
@@ -59,9 +61,15 @@ const MASS_NUTRIENTS: { ids: number[]; key: MassField }[] = [
   { ids: [1005, 1050], key: "carbohydrate_content" }, // Carbohydrate
   { ids: [1079, 2033], key: "fiber_content" }, // Fiber, total dietary
   { ids: [1258], key: "saturated_fat_content" }, // Fatty acids, total saturated
+  { ids: [1257], key: "trans_fat_content" }, // Fatty acids, total trans
+  { ids: [1253], key: "cholesterol_content" }, // Cholesterol (mg -> g)
   { ids: [1093], key: "sodium_content" }, // Sodium, Na (mg)
   { ids: [2000, 1063], key: "sugar_content" }, // Total sugars
 ];
+// Unsaturated fat has no single FDC id: schema.org's unsaturatedFatContent is the
+// sum of monounsaturated (1292) and polyunsaturated (1293) fatty acids.
+const MUFA_ID = 1292;
+const PUFA_ID = 1293;
 
 // ---------------------------------------------------------------------------
 // Mapper
@@ -112,6 +120,17 @@ export function mapFdcFoodToPayload(food: FdcFood): EntityPayload {
         break;
       }
     }
+  }
+
+  // Unsaturated fat = mono + poly (schema.org has no separate fields). Sum
+  // whatever the food carries; round to shed float noise from the addition.
+  const mufa = findNutrient(food.foodNutrients, MUFA_ID);
+  const pufa = findNutrient(food.foodNutrients, PUFA_ID);
+  if (mufa || pufa) {
+    const total =
+      toGrams(mufa?.value ?? 0, mufa?.unitName ?? "G") +
+      toGrams(pufa?.value ?? 0, pufa?.unitName ?? "G");
+    nutrition.unsaturated_fat_content = Math.round(total * 1e6) / 1e6;
   }
 
   return {

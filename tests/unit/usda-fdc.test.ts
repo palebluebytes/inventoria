@@ -63,6 +63,15 @@ describe("mapFdcFoodToPayload", () => {
     expect(n.protein_content).toBe(23.3);
   });
 
+  it("maps trans fat, cholesterol and unsaturated (mono+poly) fat", () => {
+    // Cheddar carries 1257 (1.14 g), 1253 (100 mg -> 0.1 g), and 1292/1293
+    // (7.44 + 1.18 = 8.62 g). Cholesterol is normalised from mg like sodium.
+    const n = mapFdcFoodToPayload(cheddar).attributes["nutrition/info"];
+    expect(n.trans_fat_content).toBe(1.14);
+    expect(n.cholesterol_content).toBeCloseTo(0.1, 6);
+    expect(n.unsaturated_fat_content).toBe(8.62);
+  });
+
   it("omits every macro when the food carries no nutrients", () => {
     const empty: FdcFood = { ...banana, foodNutrients: [] };
     const n = mapFdcFoodToPayload(empty).attributes["nutrition/info"];

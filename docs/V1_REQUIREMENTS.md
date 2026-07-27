@@ -34,6 +34,9 @@ const offTwin = {
       sugar_content: 56.3,
       sodium_content: 0.0428, // OFF's own sodium figure, not salt (0.107 g)
       saturated_fat_content: 10.6,
+      trans_fat_content: 0.2,
+      unsaturated_fat_content: 12.5, // mono + poly, summed
+      cholesterol_content: 0.01,
     },
   },
 };
