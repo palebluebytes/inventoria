@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR 0024 · Inventoria</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+      <nav class="site-nav">
+        <p class="nav-title">Inventoria</p>
+        <a href="../index.html">Introduction</a>
+        <div class="nav-section">
+          <p class="nav-section-label">Reference</p>
+          <a href="../glossary.html">Glossary</a>
+          <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+        </div>
+        <div class="nav-section">
+          <p class="nav-section-label">Explanation</p>
+          <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+        </div>
+        <div class="nav-section">
+          <a href="index.html" class="active">Architectural Decision Records</a>
+        </div>
+      </nav>
+  <div class="content-area">
+    <main>
+<h1 id="adr-0024-re-adding-a-food-already-in-a-recipe-merges-into-its-row-cross-unit-collisions-are-blocked">ADR 0024: Re-adding a food already in a recipe merges into its row; cross-unit collisions are blocked</h1>
+<p><strong>Status:</strong> Accepted; implemented (issue #14, <code>addOrMergeIngredient</code> in <code>recipe-ingredient.ts</code>). <strong>Date:</strong> 2026-07-27</p>
+<h2 id="context">Context</h2>
+<p>The shared <code>IngredientListEditor</code> (the ingredient surface behind both the recipe builder — Consolidate/Define — and the instantiation editor — Instantiate/Correct, ADR-0022) let a user <strong>Add ingredient</strong> a food that was already an ingredient of the current recipe. The add silently failed: the sheet stayed open and the ingredient was not added (issue #14).</p>
+<p>The cause is structural, not cosmetic. The list is <strong>entity-keyed</strong> end to end: the render loop is <code>{#each ingredients as … (entity)}</code>, <code>removeIngredient</code> filters by <code>entity</code>, and the panel/name resolvers (<code>panelFromIngredients</code>, <code>nameFromIngredients</code>) <code>find</code> by <code>entity</code>. Appending a second row for the same twin produces a <strong>duplicate key</strong>, which throws during Svelte's render flush and aborts before <code>showAdd = false</code> settles — so the sheet never closes and the change doesn't stick. The old plain amount input hit the same path; the numeric+slider control of ADR-0023 did not introduce it.</p>
+<p>The issue framed a genuine <strong>design decision</strong> among three options:</p>
+<ul>
+<li><strong>Merge</strong> the re-add into the existing row (sum the amounts);</li>
+<li><strong>Block</strong> the re-add with a message; or</li>
+<li><strong>Allow duplicates</strong> by keying each row on a stable per-line id instead of <code>entity</code>.</li>
+</ul>
+<h2 id="decision">Decision</h2>
+<p><strong>Re-adding a food folds its <code>amount</code> into the existing row. When that row uses an incompatible unit, the add is blocked with a reason instead.</strong></p>
+<blockquote>
+<p><strong>One row per twin.</strong> A recipe references each ingredient once; re-adding it adjusts how much, it doesn't mint a second reference.</p>
+</blockquote>
+<p>A single pure helper, <code>addOrMergeIngredient(ingredients, incoming)</code>, owns the rule and returns a discriminated <code>IngredientAddition</code>:</p>
+<ul>
+<li><strong>New twin ⇒ append.</strong> No existing row references it — add it at the end.</li>
+<li><strong>Same twin, same unit ⇒ merge.</strong> Sum <code>incoming.amount</code> into the existing row <strong>in place</strong> (position preserved), keeping its <code>entity</code>/<code>payload</code>/<code>name</code> and discarding the incoming snapshot. Amounts funnel through the shared <code>coerceAmount</code> so a transiently-empty inline field can't poison the sum.</li>
+<li><strong>Same twin, incompatible unit ⇒ block.</strong> <code>g</code> and <code>serving</code> are not summable without a serving-size conversion, so the helper returns <code>{ ok: false, reason: "unit_mismatch", name }</code> rather than silently coercing. The editor turns that into a message and the add sheet stays open to show it.</li>
+</ul>
+<p><strong>Merge was chosen over the alternatives because it is the only option that preserves the entity-keyed single-source model</strong> (ADR-0021 rows-derive-from-panel, ADR-0022 snapshot-on-write) with no cross-cutting change:</p>
+<ul>
+<li><strong>Allow-duplicates</strong> would have to thread a per-line id through the each-key, <code>removeIngredient</code>, and both resolvers — across a component now shared by two surfaces — and would show two identical rows for one twin. Large blast radius, worse UX.</li>
+<li><strong>Merge-across-units</strong> (converting <code>serving</code> ↔ <code>g</code> via <code>serving_size</code>) adds a lossy conversion on a rare collision; blocking is safe and honest.</li>
+<li><strong>Block-always</strong> is simpler but needlessly refuses the common, obviously-correct same-unit case (add 50 g oats to a recipe that already has 50 g oats → 100 g).</li>
+</ul>
+<p>The unit-mismatch block is a real, reachable case, not defensive dead code: <code>ingredientFromFood</code> always mints <code>unit: "g"</code>, while <code>parseLoggedQuantity</code> seeds <code>unit: "serving"</code> from a logged whole-serving event — so a food seeded whole and then searched-in by gram hits it.</p>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li>The rule is a <strong>pure, unit-tested helper</strong> (<code>addOrMergeIngredient</code>, beside <code>recipe-nutrition</code>), not logic inlined in the component. The fix lands in <strong>both</strong> consuming surfaces (<code>RecipeModal</code>, <code>InstantiationSheet</code>) at once, since both go through <code>IngredientListEditor</code>.</li>
+<li><code>AddIngredientSheet.onAdd</code> now returns an <code>IngredientAddOutcome</code> (<code>{ ok, message? }</code>) so the sheet can surface a blocked add and stay open, rather than assuming every tap succeeds and silently dropping it.</li>
+<li>Covered by a Seam 1 unit test (append / merge / non-numeric coercion / block) and a Seam 3 e2e (re-add an existing food → sheet closes, one row, folded to 100 g, total updated).</li>
+<li><strong>Deferred:</strong> an e2e for the block path (the unit-mismatch fixture — a whole-serving seed re-added by gram — is unit-tested; the sheet plumbing is trivial and typechecked). If a same-twin unit clash ever becomes common, revisit a <code>serving_size</code>-based conversion instead of the block.</li>
+</ul>
+    </main>
+  </div>
+</div>
+</body>
+</html>
