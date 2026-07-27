@@ -28,8 +28,9 @@ export interface RecipeIngredient {
    * Amount used, paired with {@link unit} to form the stored reference. Always a
    * number on a constructed ingredient; the inline editor binds it to a numeric
    * input that is transiently empty (`null` at runtime) while the user retypes,
-   * so it is coerced back to a clean number once at the boundary in
-   * {@link toReferenceIngredient} — no other reader touches the raw value.
+   * so every reader that needs a number funnels through {@link coerceAmount} —
+   * at the reference boundary ({@link toReferenceIngredient}) and when folding a
+   * re-added row ({@link addOrMergeIngredient}) — never against the raw value.
    */
   amount: number;
   /** `g` for scaled foods, `serving` for whole-serving/custom foods. */
@@ -95,15 +96,25 @@ export function ingredientFromTwin(
 }
 
 /**
+ * Coerces a builder ingredient's `amount` to a clean non-negative number. The
+ * inline editor binds `amount` to a numeric input that is momentarily empty
+ * (`null`) while the user retypes, so every reader that needs a number funnels
+ * through here — the single coercion boundary the reference and the derivation
+ * depend on.
+ */
+export function coerceAmount(amount: number): number {
+  return Number(amount) || 0;
+}
+
+/**
  * Reduces a builder ingredient to the pure reference persisted on the recipe.
- * Coerces `amount` to a non-negative number: the inline editor binds `amount`
- * to a numeric input, which is momentarily empty (`null`) while the user retypes
- * a value, and the reference/derivation must stay a clean number throughout.
+ * {@link coerceAmount} keeps the reference/derivation a clean number even while
+ * the inline editor's input is transiently empty mid-retype.
  */
 export function toReferenceIngredient(
   ing: RecipeIngredient
 ): ReferenceIngredient {
-  return { ref: ing.entity, amount: Number(ing.amount) || 0, unit: ing.unit };
+  return { ref: ing.entity, amount: coerceAmount(ing.amount), unit: ing.unit };
 }
 
 /**
@@ -138,6 +149,55 @@ export function ingredientFromFood(
     unit: "g",
     payload: food.payload,
   };
+}
+
+/**
+ * Outcome of adding an ingredient to a builder list. Either the next list —
+ * with the incoming row appended, or its `amount` summed into the row that
+ * already references the same twin — or a block when that existing row uses an
+ * incompatible unit (`g` vs `serving` can't be summed without a serving-size
+ * conversion), carrying the display `name` so the caller can explain the block.
+ */
+export type IngredientAddition =
+  | { ok: true; ingredients: RecipeIngredient[] }
+  | { ok: false; reason: "unit_mismatch"; name: string };
+
+/**
+ * What the add-ingredient sheet is told once the editor has folded a chosen
+ * food into the list: `ok` closes the sheet, otherwise `message` is the reason
+ * the add was refused, which the sheet surfaces while staying open (issue #14).
+ */
+export type IngredientAddOutcome = { ok: boolean; message?: string };
+
+/**
+ * Adds `incoming` to `ingredients`, merging when its twin is already present.
+ *
+ * The builder keys its list — and every resolver ({@link panelFromIngredients},
+ * {@link nameFromIngredients}) and the `remove` action — on `entity`, so two
+ * rows sharing a twin are not representable: a keyed `{#each … (entity)}` throws
+ * on the duplicate and the render aborts (issue #14). Re-adding a food therefore
+ * folds its `amount` into the existing row (units agreeing), keeping one row per
+ * twin and the single-source model intact. When the units disagree the amounts
+ * are not summable, so the add is blocked rather than silently coerced.
+ */
+export function addOrMergeIngredient(
+  ingredients: RecipeIngredient[],
+  incoming: RecipeIngredient
+): IngredientAddition {
+  const i = ingredients.findIndex((ing) => ing.entity === incoming.entity);
+  if (i === -1) return { ok: true, ingredients: [...ingredients, incoming] };
+
+  const existing = ingredients[i];
+  if (existing.unit !== incoming.unit) {
+    return { ok: false, reason: "unit_mismatch", name: existing.name };
+  }
+  const merged = {
+    ...existing,
+    amount: coerceAmount(existing.amount) + coerceAmount(incoming.amount),
+  };
+  const next = [...ingredients];
+  next[i] = merged;
+  return { ok: true, ingredients: next };
 }
 
 /** Builds a manual (custom) ingredient with a synthesized food twin. */

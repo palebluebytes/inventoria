@@ -3,7 +3,9 @@
     toReferenceIngredient,
     panelFromIngredients,
     nameFromIngredients,
+    addOrMergeIngredient,
     type RecipeIngredient,
+    type IngredientAddOutcome,
   } from "../../food/recipe-ingredient";
   import {
     deriveRecipeNutrition,
@@ -62,9 +64,22 @@
   function removeIngredient(entity: string) {
     ingredients = ingredients.filter((i) => i.entity !== entity);
   }
-  function addIngredient(ing: RecipeIngredient) {
-    ingredients = [...ingredients, ing];
+  // Fold the chosen food into the list. Re-adding a food already referenced
+  // merges into its row (one row per twin — the list is entity-keyed), so the
+  // add can never mint a duplicate key and abort the render (issue #14). A
+  // same-twin re-add at an incompatible unit is blocked and reported back to the
+  // sheet, which keeps itself open and shows the reason.
+  function addIngredient(ing: RecipeIngredient): IngredientAddOutcome {
+    const result = addOrMergeIngredient(ingredients, ing);
+    if (!result.ok) {
+      return {
+        ok: false,
+        message: `${result.name} is already in this recipe at a different unit — edit its amount instead.`,
+      };
+    }
+    ingredients = result.ingredients;
     showAdd = false;
+    return { ok: true };
   }
 </script>
 

@@ -14,6 +14,7 @@
     ingredientFromFood,
     customIngredient,
     type RecipeIngredient,
+    type IngredientAddOutcome,
   } from "../../food/recipe-ingredient";
   import Alert from "../../ui/Alert.svelte";
   import FoodResultsList from "./FoodResultsList.svelte";
@@ -21,10 +22,16 @@
 
   // Add an ingredient to a recipe using the same Search / Scan / Custom flow as
   // logging a food. Emits the chosen food as a RecipeIngredient; never logs.
+  // `onAdd` reports back whether the food was taken: a same-twin re-add at an
+  // incompatible unit is blocked (issue #14), and the sheet stays open showing
+  // the reason instead of dropping the tap silently.
   let {
     onAdd,
     onClose,
-  }: { onAdd: (ing: RecipeIngredient) => void; onClose: () => void } = $props();
+  }: {
+    onAdd: (ing: RecipeIngredient) => IngredientAddOutcome;
+    onClose: () => void;
+  } = $props();
 
   type Method = "search" | "scan" | "custom";
   let method = $state<Method>("search");
@@ -116,19 +123,29 @@
     return "Add";
   }
 
+  // Surface a refused add (issue #14) as sheet state so it stays open with the
+  // reason; an accepted add is a no-op here — the parent closes the sheet.
+  function showIfBlocked(result: IngredientAddOutcome) {
+    if (result.ok) return;
+    status = "error";
+    error = result.message ?? "Could not add this ingredient.";
+  }
+
   function primary() {
     if (staged) {
-      onAdd(ingredientFromFood(staged, gramsNum));
+      showIfBlocked(onAdd(ingredientFromFood(staged, gramsNum)));
     } else if (method === "custom") {
       const cal = parseFloat(cCal);
       if (!cName.trim() || isNaN(cal)) return;
-      onAdd(
-        customIngredient(
-          cName.trim(),
-          cal,
-          parseFloat(cProt) || 0,
-          parseFloat(cFat) || 0,
-          parseFloat(cCarb) || 0
+      showIfBlocked(
+        onAdd(
+          customIngredient(
+            cName.trim(),
+            cal,
+            parseFloat(cProt) || 0,
+            parseFloat(cFat) || 0,
+            parseFloat(cCarb) || 0
+          )
         )
       );
     } else if (method === "scan") {
@@ -142,7 +159,11 @@
     {#if staged}
       <button
         class="hbtn back"
-        onclick={() => (staged = null)}
+        onclick={() => {
+          staged = null;
+          status = "idle";
+          error = "";
+        }}
         aria-label="Back">‹</button
       >
     {:else}

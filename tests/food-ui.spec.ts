@@ -728,6 +728,43 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.locator(".recipe-total")).toContainText("665 kcal");
   });
 
+  test("re-adding a food already in the recipe merges into its row (issue #14)", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    // Recipe builder open, seeded with oats 50 g + banana 150 g = 324 kcal.
+    await selectTwoAndBuild(page);
+    await expect(page.locator(".ing-head .fl")).toHaveText("Ingredients (2)");
+    await expect(page.locator(".recipe-total")).toContainText("324 kcal");
+
+    // Re-add Mock Oats — a food ALREADY in the recipe. The keyed ingredient list
+    // is entity-keyed, so this used to mint a duplicate key and abort the render:
+    // the sheet stayed open and the add was silently dropped.
+    await page.locator("#add-ingredient-btn").click();
+    const addSheet = page.locator(
+      '.sheet:has(> header h2:text-is("Add ingredient"))'
+    );
+    await addSheet.locator("#ai-search").fill("oats");
+    await addSheet
+      .locator(".result-item-btn", { hasText: "Mock Oats" })
+      .click();
+    await addSheet.getByLabel("Quantity in grams").fill("50");
+    await addSheet.locator("#add-ingredient-confirm").click();
+
+    // The sheet closes and the add sticks: still one Oats row (no duplicate),
+    // its amount folded 50 g + 50 g → 100 g, and the total reflects the merge.
+    await expect(addSheet).toBeHidden();
+    await expect(page.locator(".ing-head .fl")).toHaveText("Ingredients (2)");
+    const oatsRow = page.locator(".recipe-ingredient", {
+      hasText: "Mock Oats",
+    });
+    await expect(oatsRow.locator(".edit-amount")).toHaveValue("100");
+    await expect(page.locator(".recipe-total")).toContainText("513 kcal");
+  });
+
   // ── Seam 3: Instantiate a Recipe Twin + correct an instantiation (ADR-0022) ──
 
   // Build and save "Dinner Combo" (oats 50 g = 190 + banana 150 g = 134 = 324)

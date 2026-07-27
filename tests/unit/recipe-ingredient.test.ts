@@ -3,6 +3,7 @@ import {
   panelFromIngredients,
   nameFromIngredients,
   ingredientFromTwin,
+  addOrMergeIngredient,
   type RecipeIngredient,
 } from "../../src/lib/food/recipe-ingredient";
 import type { NutritionInfo } from "../../src/lib/food/nutrition";
@@ -23,6 +24,17 @@ const OATS: RecipeIngredient = {
   payload: {
     entity: "fdc:oats",
     attributes: { "food/name": "Oats", "nutrition/info": OATS_PANEL },
+  },
+};
+
+const BANANA: RecipeIngredient = {
+  entity: "fdc:banana",
+  name: "Banana",
+  amount: 150,
+  unit: "g",
+  payload: {
+    entity: "fdc:banana",
+    attributes: { "food/name": "Banana", "nutrition/info": OATS_PANEL },
   },
 };
 
@@ -75,5 +87,62 @@ describe("ingredientFromTwin", () => {
       attributes: { "nutrition/info": OATS_PANEL },
     };
     expect(ingredientFromTwin(twin, 50, "g")?.name).toBe("fdc:oats");
+  });
+});
+
+describe("addOrMergeIngredient", () => {
+  it("appends an ingredient whose twin is not yet in the list", () => {
+    const result = addOrMergeIngredient([OATS], BANANA);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.ingredients).toEqual([OATS, BANANA]);
+  });
+
+  it("sums the amount into the existing row when the same twin is re-added at the same unit", () => {
+    // 50 g Oats already present; re-adding 30 g of the same twin folds to 80 g
+    // rather than creating a duplicate-keyed row (issue #14).
+    const more: RecipeIngredient = { ...OATS, amount: 30 };
+    const result = addOrMergeIngredient([OATS, BANANA], more);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // One row per twin, merged row keeps its position, other rows untouched.
+    expect(result.ingredients).toHaveLength(2);
+    expect(result.ingredients[0]).toMatchObject({
+      entity: "fdc:oats",
+      amount: 80,
+    });
+    expect(result.ingredients[1]).toBe(BANANA);
+  });
+
+  it("coerces a transiently non-numeric existing amount before summing", () => {
+    // The inline editor leaves `amount` briefly null while retyping; a merge
+    // must still land on a clean number.
+    const blankExisting: RecipeIngredient = { ...OATS, amount: null as any };
+    const result = addOrMergeIngredient([blankExisting], {
+      ...OATS,
+      amount: 40,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.ingredients[0].amount).toBe(40);
+  });
+
+  it("blocks the add when the same twin is present at an incompatible unit", () => {
+    // Oats seeded from a logged whole-serving event (unit "serving") cannot be
+    // summed with a searched-in gram amount without a conversion — block instead.
+    const seededServing: RecipeIngredient = {
+      ...OATS,
+      unit: "serving",
+      amount: 1,
+    };
+    const result = addOrMergeIngredient([seededServing], {
+      ...OATS,
+      unit: "g",
+      amount: 50,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("unit_mismatch");
+    expect(result.name).toBe("Oats");
   });
 });
