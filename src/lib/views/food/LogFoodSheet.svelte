@@ -16,9 +16,11 @@
     getLocalFoodTwin,
     saveCustomFood,
     retractConsumptionEvent,
+    recipeTwinsStore,
     type ConsumptionEvent,
   } from "../../stores/calorie.store";
   import { parseLoggedQuantity } from "../../food/recipe-ingredient";
+  import { parseDatomValue } from "../../db/datom-fold";
   import { round2 } from "../../food/nutrition";
 
   import Modal from "../../ui/Modal.svelte";
@@ -37,6 +39,7 @@
     selectedDate,
     onClose,
     edit = null,
+    onPickRecipe,
   }: {
     dbReady: boolean;
     meal_type: "breakfast" | "lunch" | "dinner" | "snack";
@@ -49,9 +52,47 @@
      * retracts `edit` (append-only), so history stays immutable (ADR-0008).
      */
     edit?: ConsumptionEvent | null;
+    /**
+     * Picks a saved Recipe Twin to instantiate into this meal (the Instantiate
+     * verb, ADR-0022). Called with the twin's entity id; the parent closes this
+     * sheet and opens the instantiation editor. When omitted, the Recipe method
+     * is hidden.
+     */
+    onPickRecipe?: (recipeEntity: string) => void;
   } = $props();
 
-  type Method = "search" | "scan" | "custom";
+  type Method = "search" | "scan" | "custom" | "recipe";
+
+  // Saved Recipe Twins for the Instantiate browser, deduped by entity (newest
+  // first from the store's HLC-desc order).
+  let recipes = $derived.by(() => {
+    const seen = new Set<string>();
+    const out: { entity: string; name: string }[] = [];
+    for (const row of $recipeTwinsStore) {
+      if (seen.has(row.entity)) continue;
+      seen.add(row.entity);
+      const name = String(parseDatomValue("recipe/name", row.value));
+      out.push({ entity: row.entity, name });
+    }
+    return out;
+  });
+
+  // Method tabs — the Recipe browser only appears when the parent wired an
+  // Instantiate handler.
+  let methodTabs = $derived<[Method, string, string][]>(
+    onPickRecipe
+      ? [
+          ["search", "🔍", "Search"],
+          ["scan", "📷", "Scan"],
+          ["custom", "✏️", "Custom"],
+          ["recipe", "🍲", "Recipe"],
+        ]
+      : [
+          ["search", "🔍", "Search"],
+          ["scan", "📷", "Scan"],
+          ["custom", "✏️", "Custom"],
+        ]
+  );
   let method = $state<Method>("search");
   let query = $state("");
   let barcode = $state("");
@@ -413,6 +454,29 @@
               onclick={() => switchMethod("custom")}>Add a custom entry</button
             >.
           </p>
+        {:else if method === "recipe"}
+          {#if recipes.length === 0}
+            <p class="hint">
+              No saved recipes yet. Build one by selecting logged foods on the
+              dashboard.
+            </p>
+          {:else}
+            <p class="fl">Your recipes</p>
+            <ul class="recipe-list">
+              {#each recipes as r (r.entity)}
+                <li>
+                  <button
+                    type="button"
+                    class="recipe-pick"
+                    onclick={() => onPickRecipe?.(r.entity)}
+                  >
+                    <span class="recipe-pick-name">{r.name}</span>
+                    <span class="recipe-pick-go" aria-hidden="true">›</span>
+                  </button>
+                </li>
+              {/each}
+            </ul>
+          {/if}
         {:else}
           <p class="hint">Enter the name and macros for your custom food.</p>
           <div class="grid2">
@@ -477,7 +541,7 @@
            (no duplicate echo). Editing targets one entry, so the method switcher
            is dropped too — the sheet stays focused on that food's amount. -->
       <div class="dock">
-        {#if !staged}
+        {#if !staged && method !== "recipe"}
           <div class="dock-input">
             {#if method === "custom"}
               <input
@@ -514,7 +578,7 @@
 
         {#if !staged && !edit}
           <div class="methods">
-            {#each [["search", "🔍", "Search"], ["scan", "📷", "Scan"], ["custom", "✏️", "Custom"]] as [m, ico, label]}
+            {#each methodTabs as [m, ico, label]}
               <button
                 class="method"
                 class:on={method === m}
@@ -526,14 +590,16 @@
           </div>
         {/if}
 
-        <button
-          class="log-btn"
-          id="log-food-btn"
-          disabled={!canLog || !dbReady || searchStatus === "loading"}
-          onclick={primaryAction}
-        >
-          {primaryLabel()}
-        </button>
+        {#if method !== "recipe"}
+          <button
+            class="log-btn"
+            id="log-food-btn"
+            disabled={!canLog || !dbReady || searchStatus === "loading"}
+            onclick={primaryAction}
+          >
+            {primaryLabel()}
+          </button>
+        {/if}
       </div>
     </div>
   {/snippet}
@@ -627,6 +693,39 @@
   }
   .mt {
     margin-top: var(--space-s);
+  }
+
+  .recipe-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2xs);
+    margin-top: var(--space-2xs);
+  }
+  .recipe-pick {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-s);
+    background: #fff;
+    border: 2px solid #000;
+    padding: var(--space-s);
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+    min-height: 52px;
+  }
+  .recipe-pick:hover {
+    background: #f4f4f5;
+  }
+  .recipe-pick-name {
+    font-weight: 700;
+    font-size: var(--step-n1);
+  }
+  .recipe-pick-go {
+    font-size: var(--step-1);
+    font-weight: 800;
   }
 
   .staged {

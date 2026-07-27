@@ -502,7 +502,11 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await logUsdaFood(page, "dinner", "oats", "Mock Oats", "50"); // 379 * .5 = 190
     await logUsdaFood(page, "dinner", "banana", "Mock Banana", "150"); // 89 * 1.5 = 134
 
-    const dinnerSection = page.locator(".meal-section", { hasText: "DINNER" });
+    // Scope by the exact meal title, not a substring — recipe names can contain
+    // a meal word (e.g. "Dinner Combo") and would otherwise match other sections.
+    const dinnerSection = page.locator(
+      '.meal-section:has(.meal-title:text-is("DINNER"))'
+    );
     await longPress(
       page,
       dinnerSection.locator(".meal-item-card", { hasText: "Mock Oats" })
@@ -679,5 +683,100 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     await expect(addSheet).toBeHidden();
     await expect(page.locator("#recipe-name")).toHaveValue("Dinner Combo");
+  });
+
+  // ── Seam 3: Instantiate a Recipe Twin + correct an instantiation (ADR-0022) ──
+
+  // Build and save "Dinner Combo" (oats 50 g = 190 + banana 150 g = 134 = 324)
+  // in dinner, leaving one logged instantiation of it on the day.
+  async function buildDinnerCombo(page: import("@playwright/test").Page) {
+    const dinnerSection = await selectTwoAndBuild(page);
+    await page.locator("#recipe-name").fill("Dinner Combo");
+    await expect(page.locator(".recipe-total")).toContainText("324 kcal");
+    await page.locator("#save-recipe-btn").click();
+    await expect(dinnerSection).toContainText("Dinner Combo");
+    await expect(page.locator(".calories-num")).toHaveText("324");
+    return dinnerSection;
+  }
+
+  test("instantiates a saved recipe into a day, diverging for that occasion (additive)", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    const dinnerSection = await buildDinnerCombo(page);
+
+    // Add the SAME recipe to a different meal via the Recipe browser.
+    await page.getByRole("button", { name: "Add breakfast" }).click();
+    await page.locator(".method", { hasText: "Recipe" }).click();
+    await page.locator(".recipe-pick", { hasText: "Dinner Combo" }).click();
+
+    // The instantiation editor opens seeded from the template's ingredients and
+    // yield (oats 50 g + banana 150 g → 324 per serving).
+    await expect(page.locator('[data-testid="instantiation-name"]')).toHaveText(
+      "Dinner Combo"
+    );
+    await expect(page.locator(".recipe-total")).toContainText("324 kcal");
+
+    // Diverge for THIS occasion only: bump the oats to 100 g → 379 + 134 = 513.
+    const oatsAmount = page
+      .locator(".recipe-ingredient", { hasText: "Mock Oats" })
+      .locator(".edit-amount");
+    await oatsAmount.fill("100");
+    await expect(page.locator(".recipe-total")).toContainText("513 kcal");
+
+    // Logging is purely additive — it writes a new instantiation and retracts
+    // nothing. The dinner instantiation stays put at 324.
+    await page.locator("#save-instantiation-btn").click();
+
+    const breakfastSection = page.locator(
+      '.meal-section:has(.meal-title:text-is("BREAKFAST"))'
+    );
+    await expect(breakfastSection).toContainText("Dinner Combo");
+    await expect(breakfastSection).toContainText("513 kcal");
+    await expect(dinnerSection).toContainText("Dinner Combo");
+    // Both occasions counted: 513 (breakfast) + 324 (dinner) = 837.
+    await expect(page.locator(".calories-num")).toHaveText("837");
+  });
+
+  test("corrects a past instantiation by supersession (retract-and-replace)", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    const dinnerSection = await buildDinnerCombo(page);
+
+    // Tap the logged recipe card to open the correction editor (not the plain
+    // food log sheet — a recipe instantiation is corrected on its own surface).
+    await dinnerSection
+      .locator(".meal-item-card", { hasText: "Dinner Combo" })
+      .locator(".meal-item-details")
+      .click();
+    await expect(page.locator("h2", { hasText: "Correct" })).toBeVisible();
+    await expect(page.locator('[data-testid="instantiation-name"]')).toHaveText(
+      "Dinner Combo"
+    );
+
+    // Correct the amount — re-derived from the current ingredient twins.
+    const oatsAmount = page
+      .locator(".recipe-ingredient", { hasText: "Mock Oats" })
+      .locator(".edit-amount");
+    await expect(oatsAmount).toHaveValue("50");
+    await oatsAmount.fill("100"); // 379 + 134 = 513
+    await expect(page.locator(".recipe-total")).toContainText("513 kcal");
+
+    await page.locator("#save-instantiation-btn").click();
+
+    // Exactly one instantiation remains (the old is retracted, a superseding one
+    // appended), now at the corrected total.
+    await expect(
+      dinnerSection.locator(".meal-item-card", { hasText: "Dinner Combo" })
+    ).toHaveCount(1);
+    await expect(dinnerSection).toContainText("513 kcal");
+    await expect(page.locator(".calories-num")).toHaveText("513");
   });
 });

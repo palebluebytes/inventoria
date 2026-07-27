@@ -15,6 +15,7 @@
   import DailyDashboard from "./food/DailyDashboard.svelte";
   import LogFoodSheet from "./food/LogFoodSheet.svelte";
   import RecipeModal from "./food/RecipeModal.svelte";
+  import InstantiationSheet from "./food/InstantiationSheet.svelte";
 
   import Card from "../ui/Card.svelte";
   import Badge from "../ui/Badge.svelte";
@@ -35,6 +36,15 @@
   let recipeOpen = $state(false);
   let recipe_meal_type = $state<MealType>("dinner");
   let recipe_seed = $state<any[]>([]);
+  // Instantiation editor (Instantiate a template / Correct a past instantiation,
+  // ADR-0022). Exactly one of template / edit is set while it is open.
+  let instantiateOpen = $state(false);
+  let instantiate_meal_type = $state<MealType>("dinner");
+  let instantiate_template = $state<{
+    entity: string;
+    attributes: Record<string, any>;
+  } | null>(null);
+  let instantiate_edit = $state<ConsumptionEvent | null>(null);
 
   const entityName = "Food";
 
@@ -55,10 +65,37 @@
     sheetMeal = meal_type;
   }
 
-  // Open the log sheet in edit mode for a tapped card.
+  // Open the right editor for a tapped card. A Recipe Instantiation (carries a
+  // frozen `event/instantiation` snapshot) opens the instantiation editor to be
+  // corrected by supersession (ADR-0022); a plain food opens the log sheet.
   function editItem(item: ConsumptionEvent) {
+    if (item.instantiation) {
+      instantiate_template = null;
+      instantiate_edit = item;
+      instantiate_meal_type = (item.meal_type as MealType) || "snack";
+      instantiateOpen = true;
+      return;
+    }
     editEvent = item;
     sheetMeal = (item.meal_type as MealType) || "snack";
+  }
+
+  // Instantiate the picked Recipe Twin into the meal the log sheet was opened
+  // for: close the log sheet, load the template, open the instantiation editor.
+  async function pickRecipe(recipeEntity: string) {
+    const twin = await getLocalFoodTwin(recipeEntity);
+    if (!twin) return;
+    instantiate_meal_type = sheetMeal ?? "dinner";
+    closeSheet();
+    instantiate_template = twin;
+    instantiate_edit = null;
+    instantiateOpen = true;
+  }
+
+  function closeInstantiation() {
+    instantiateOpen = false;
+    instantiate_template = null;
+    instantiate_edit = null;
   }
 
   // Remove a logged food (append-only retraction; the projection hides it).
@@ -202,6 +239,19 @@
     {selectedDate}
     edit={editEvent}
     onClose={closeSheet}
+    onPickRecipe={pickRecipe}
+  />
+{/if}
+
+<!-- Instantiation editor — Instantiate a saved Recipe Twin, or correct a past
+     instantiation, on one editor surface (ADR-0022). -->
+{#if instantiateOpen}
+  <InstantiationSheet
+    meal_type={instantiate_meal_type}
+    {selectedDate}
+    template={instantiate_template}
+    edit={instantiate_edit}
+    onClose={closeInstantiation}
   />
 {/if}
 
