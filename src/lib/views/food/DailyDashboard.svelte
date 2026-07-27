@@ -4,6 +4,7 @@
     consumptionForDay,
     type ConsumptionEvent,
   } from "../../stores/calorie.store";
+  import { round2 } from "../../food/nutrition";
   import Card from "../../ui/Card.svelte";
   import Badge from "../../ui/Badge.svelte";
   import Modal from "../../ui/Modal.svelte";
@@ -257,7 +258,7 @@
       <div class="macro-meta">
         <span class="macro-name">Protein</span>
         <span class="macro-val"
-          >{totalProtein}g
+          >{round2(totalProtein)}g
           <span class="macro-target">/ {targetProtein}g</span></span
         >
       </div>
@@ -273,7 +274,8 @@
       <div class="macro-meta">
         <span class="macro-name">Fat</span>
         <span class="macro-val"
-          >{totalFat}g <span class="macro-target">/ {targetFat}g</span></span
+          >{round2(totalFat)}g
+          <span class="macro-target">/ {targetFat}g</span></span
         >
       </div>
       <div class="progress-bar-bg">
@@ -288,7 +290,7 @@
       <div class="macro-meta">
         <span class="macro-name">Carbs</span>
         <span class="macro-val"
-          >{totalCarbs}g
+          >{round2(totalCarbs)}g
           <span class="macro-target">/ {targetCarbs}g</span></span
         >
       </div>

@@ -46,6 +46,16 @@ export const PER_100G: string = "100 g";
 /** The serving basis for foods entered as whole-serving totals (custom foods). */
 export const PER_SERVING: string = "1 serving";
 
+/**
+ * Rounds a macro value to at most 2 decimals for display. Summing per-item
+ * macros accumulates binary-float noise (e.g. 0.6 + 0.6 -> 1.2000000000000002);
+ * this trims it so the UI shows "1.2g", not the full mantissa. Returns a number
+ * so no trailing zeros are added ("0.5", not "0.50").
+ */
+export function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 /** The four macros the food dashboard and recipe builder display and sum. */
 export interface Macros {
   calories: number;

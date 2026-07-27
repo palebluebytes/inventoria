@@ -15,7 +15,7 @@
     deriveRecipeNutrition,
     deriveIngredientMacros,
   } from "../../food/recipe-nutrition";
-  import type { NutritionInfo } from "../../food/nutrition";
+  import { round2, type NutritionInfo } from "../../food/nutrition";
   import Modal from "../../ui/Modal.svelte";
   import Alert from "../../ui/Alert.svelte";
   import AddIngredientSheet from "./AddIngredientSheet.svelte";
@@ -216,7 +216,8 @@
         <div class="ing-head">
           <span class="fl">Ingredients ({ingredients.length})</span>
           <span class="tot recipe-total"
-            >{perServing.calories} kcal · {perServing.protein}g P / serving</span
+            >{round2(perServing.calories)} kcal · {round2(perServing.protein)}g
+            P / serving</span
           >
         </div>
         <ul class="ings">
@@ -242,7 +243,8 @@
                         ? "serving"
                         : "servings"}</span
                   >
-                  <span class="ikcal">· {row.macros.calories} kcal</span>
+                  <span class="ikcal">· {round2(row.macros.calories)} kcal</span
+                  >
                 </span>
               </span>
               <button

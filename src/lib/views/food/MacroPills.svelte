@@ -1,6 +1,9 @@
 <script lang="ts">
+  import { round2 } from "../../food/nutrition";
+
   // Already-computed macro values; the caller decides whether they are a
-  // proportional preview or an aggregate total.
+  // proportional preview or an aggregate total. Values are display-rounded to
+  // 2 decimals here so summed/derived floats don't leak their mantissa.
   let {
     calories,
     protein,
@@ -17,19 +20,19 @@
 <div class="preview-grid">
   <div class="preview-pill cal">
     <span class="pill-label">Calories</span>
-    <span class="pill-val">{calories} kcal</span>
+    <span class="pill-val">{round2(calories)} kcal</span>
   </div>
   <div class="preview-pill prot">
     <span class="pill-label">Protein</span>
-    <span class="pill-val">{protein}g</span>
+    <span class="pill-val">{round2(protein)}g</span>
   </div>
   <div class="preview-pill fat">
     <span class="pill-label">Fat</span>
-    <span class="pill-val">{fat}g</span>
+    <span class="pill-val">{round2(fat)}g</span>
   </div>
   <div class="preview-pill carbs">
     <span class="pill-label">Carbs</span>
-    <span class="pill-val">{carbs}g</span>
+    <span class="pill-val">{round2(carbs)}g</span>
   </div>
 </div>
 

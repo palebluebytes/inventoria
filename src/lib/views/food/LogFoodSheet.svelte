@@ -19,6 +19,7 @@
     type ConsumptionEvent,
   } from "../../stores/calorie.store";
   import { parseLoggedQuantity } from "../../food/recipe-ingredient";
+  import { round2 } from "../../food/nutrition";
 
   import Modal from "../../ui/Modal.svelte";
   import Alert from "../../ui/Alert.svelte";
@@ -360,8 +361,9 @@
           <div class="staged">
             <h3>{staged.name}</h3>
             <p class="per">
-              Per 100g · {staged.calories} kcal · P {staged.protein}g · F {staged.fat}g
-              · C {staged.carbs}g
+              Per 100g · {round2(staged.calories)} kcal · P {round2(
+                staged.protein
+              )}g · F {round2(staged.fat)}g · C {round2(staged.carbs)}g
             </p>
             <label class="fl" for="quantity-input">Quantity (grams)</label>
             <input
