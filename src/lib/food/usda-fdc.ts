@@ -5,7 +5,8 @@ import { PER_100G, type NutritionInfo } from "./nutrition";
 import { buildRawProvenance } from "./provenance";
 
 // Mapper version, bumped when the FDC -> nutrition/info normalisation changes.
-const ADAPTER_VERSION = "1";
+// v2: energy now falls back to the Atwater IDs so Foundation foods aren't 0 kcal.
+const ADAPTER_VERSION = "2";
 const FDC_FOOD_BASE = "https://api.nal.usda.gov/fdc/v1/food";
 
 // Read the current key on demand (default param, evaluated per call) instead of
@@ -35,7 +36,12 @@ export interface FdcFood {
 // FDC nutrient IDs mapped onto the schema.org nutrition panel. FDC reports macro
 // masses in grams and sodium in milligrams; `toGrams` normalises whatever unit
 // the source used so every `*_content` field is grams (ADR-0021).
-const NUTRIENT_ID_ENERGY = 1008; // Energy (kcal)
+// Energy (kcal). SR Legacy and Branded foods report it under 1008 ("Energy"),
+// but Foundation foods omit 1008 and give only Atwater factors — 2047 (General)
+// and 2048 (Specific). Prefer 1008, then Atwater General, then Specific, so
+// Foundation foods (e.g. "Apples, fuji, with skin, raw") don't read 0 kcal. All
+// three are kcal-valued; the kilojoule id (1062) is intentionally excluded.
+const ENERGY_IDS = [1008, 2047, 2048];
 /** The gram-valued panel fields (everything except serving_size and calories). */
 type MassField = Exclude<keyof NutritionInfo, "serving_size" | "calories">;
 const MASS_NUTRIENTS: { id: number; key: MassField }[] = [
@@ -83,8 +89,13 @@ function toGrams(value: number, unitName: string): number {
 export function mapFdcFoodToPayload(food: FdcFood): EntityPayload {
   const nutrition: NutritionInfo = { serving_size: PER_100G };
 
-  const energy = findNutrient(food.foodNutrients, NUTRIENT_ID_ENERGY);
-  if (energy) nutrition.calories = energy.value;
+  for (const id of ENERGY_IDS) {
+    const energy = findNutrient(food.foodNutrients, id);
+    if (energy) {
+      nutrition.calories = energy.value;
+      break;
+    }
+  }
 
   for (const { id, key } of MASS_NUTRIENTS) {
     const n = findNutrient(food.foodNutrients, id);

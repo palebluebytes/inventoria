@@ -69,6 +69,52 @@ describe("mapFdcFoodToPayload", () => {
     expect(n).toEqual({ serving_size: "100 g" });
   });
 
+  it("reads energy from Atwater factors when a food has no 1008 id", () => {
+    // Foundation foods (e.g. "Apples, fuji, with skin, raw") omit id 1008 and
+    // report energy only under 2047 (General) / 2048 (Specific). General wins.
+    const foundation: FdcFood = {
+      ...banana,
+      foodNutrients: [
+        {
+          nutrientId: 2047,
+          nutrientName: "Energy (Atwater General Factors)",
+          value: 64.7,
+          unitName: "KCAL",
+        },
+        {
+          nutrientId: 2048,
+          nutrientName: "Energy (Atwater Specific Factors)",
+          value: 58.2,
+          unitName: "KCAL",
+        },
+      ],
+    };
+    const n = mapFdcFoodToPayload(foundation).attributes["nutrition/info"];
+    expect(n.calories).toBe(64.7);
+  });
+
+  it("prefers the 1008 energy id over the Atwater fallbacks", () => {
+    const bothIds: FdcFood = {
+      ...banana,
+      foodNutrients: [
+        {
+          nutrientId: 1008,
+          nutrientName: "Energy",
+          value: 89,
+          unitName: "KCAL",
+        },
+        {
+          nutrientId: 2047,
+          nutrientName: "Energy (Atwater General Factors)",
+          value: 64.7,
+          unitName: "KCAL",
+        },
+      ],
+    };
+    const n = mapFdcFoodToPayload(bothIds).attributes["nutrition/info"];
+    expect(n.calories).toBe(89);
+  });
+
   it("stores the raw source response as twin/raw_provenance (ADR-0016)", () => {
     // Provenance keeps the untouched FDC food so any nutrient not surfaced in
     // the panel today (the full micronutrient list) can be backfilled later
