@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { test, expect } from "@playwright/test";
 
 test.describe("Calorie Tracker & Food Logging UI", () => {

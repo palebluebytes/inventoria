@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { test, expect } from "@playwright/test";
 
 test.describe("Visual Catalog Generator", () => {
