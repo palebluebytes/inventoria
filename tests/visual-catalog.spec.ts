@@ -214,7 +214,7 @@ test.describe("Visual Catalog Generator", () => {
     try {
       await expect(page).toHaveScreenshot(name, { fullPage: true });
     } finally {
-      await styleHandle.evaluate((el) => el.remove());
+      await styleHandle.evaluate((el) => (el as Element).remove());
     }
   }
 
