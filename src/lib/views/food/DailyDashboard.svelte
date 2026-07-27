@@ -38,6 +38,16 @@
     onLongPressItem(id);
   }
 
+  // Clear the flag at the start of every new pointer gesture. The trailing
+  // click belongs to the long-press's own gesture (no fresh pointerdown), so it
+  // is still suppressed — but if that click never arrives (a reflow when the
+  // selection UI appears can move the card out from under the pointer; touch
+  // long-presses often emit no click at all), the flag would otherwise stay set
+  // and swallow the user's next tap. Resetting here makes it self-healing.
+  function onCardPointerDown() {
+    suppressNextClick = false;
+  }
+
   function onCardClick(id: string) {
     if (suppressNextClick) {
       suppressNextClick = false;
@@ -313,6 +323,7 @@
               class:selectable={selectionActive}
               class:selected={isSelected}
               use:longpress={{ onlongpress: () => onCardLongPress(item.id) }}
+              onpointerdown={onCardPointerDown}
               onclick={() => onCardClick(item.id)}
               onkeydown={(e) =>
                 selectionActive &&
