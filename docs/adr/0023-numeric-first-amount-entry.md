@@ -80,6 +80,9 @@ Concretely, `QuantityGrams.svelte`:
   notes are deleted — this ADR is their durable record.
 - Surfaced, but out of scope: re-adding a food already in the recipe crashes the
   add via a duplicate `entity` key (pre-existing, tracked as issue #14).
+- **Update (2026-07-27):** `QuantityGrams` is now also the amount control in
+  `LogFoodSheet` (the direct-log flow), replacing its plain field — so the
+  numeric+slider control is consistent across logging a food and adding a recipe
+  ingredient. `grams` there simplified from `number | string` to `number` too.
 - **Deferred:** a `valuetext` for richer screen-reader announcement (e.g. "128
-  grams, ≈ 497 kcal"), and reusing `QuantityGrams` in `LogFoodSheet`, whose
-  quantity input is still the plain field.
+  grams, ≈ 497 kcal").

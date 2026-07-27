@@ -56,7 +56,8 @@
 <li><strong>Accessibility comes for free</strong>: the control satisfies the APG slider pattern and keyboard expectations because <code>bits-ui</code> implements them, rather than us re-deriving them per hand-rolled knob.</li>
 <li><strong>Rejected alternatives</strong> (Dial, Jog Wheel, Gauge, and any dedicated knob-input dependency) are dropped; the throwaway prototype and its research notes are deleted — this ADR is their durable record.</li>
 <li>Surfaced, but out of scope: re-adding a food already in the recipe crashes the add via a duplicate <code>entity</code> key (pre-existing, tracked as issue #14).</li>
-<li><strong>Deferred:</strong> a <code>valuetext</code> for richer screen-reader announcement (e.g. "128 grams, ≈ 497 kcal"), and reusing <code>QuantityGrams</code> in <code>LogFoodSheet</code>, whose quantity input is still the plain field.</li>
+<li><strong>Update (2026-07-27):</strong> <code>QuantityGrams</code> is now also the amount control in <code>LogFoodSheet</code> (the direct-log flow), replacing its plain field — so the numeric+slider control is consistent across logging a food and adding a recipe ingredient. <code>grams</code> there simplified from <code>number | string</code> to <code>number</code> too.</li>
+<li><strong>Deferred:</strong> a <code>valuetext</code> for richer screen-reader announcement (e.g. "128 grams, ≈ 497 kcal").</li>
 </ul>
     </main>
   </div>
