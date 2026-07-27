@@ -9,17 +9,14 @@
   } from "../../stores/calorie.store";
   import {
     toReferenceIngredient,
+    panelFromIngredients,
+    nameFromIngredients,
     type RecipeIngredient,
   } from "../../food/recipe-ingredient";
-  import {
-    deriveRecipeNutrition,
-    deriveIngredientMacros,
-  } from "../../food/recipe-nutrition";
-  import { round2, type NutritionInfo } from "../../food/nutrition";
+  import { sanitizeYield } from "../../food/recipe-nutrition";
   import Modal from "../../ui/Modal.svelte";
   import Alert from "../../ui/Alert.svelte";
-  import AddIngredientSheet from "./AddIngredientSheet.svelte";
-  import MacroPills from "./MacroPills.svelte";
+  import IngredientListEditor from "./IngredientListEditor.svelte";
 
   // Recipe tracker. Builds a recipe from the selected foods and REPLACES the ones
   // that remain as ingredients (append-only: their consumption events are
@@ -47,11 +44,7 @@
   // Held loosely so the field can be cleared while typing; yieldNum sanitises it
   // to a positive number for both the live derivation and the persisted value.
   let recipeYield = $state<number | string>(1);
-  let yieldNum = $derived.by(() => {
-    const n = Number(recipeYield);
-    return n > 0 ? n : 1;
-  });
-  let showAdd = $state(false);
+  let yieldNum = $derived(sanitizeYield(recipeYield));
 
   let open = $state({
     source: false,
@@ -70,47 +63,14 @@
   let error = $state("");
 
   // Pure {ref, amount, unit} references — the shape the recipe twin stores and
-  // the derivation reads (ADR-0021).
+  // the log-time snapshot reads (ADR-0021). The live per-serving/row derivation
+  // and the ingredient editing live in IngredientListEditor; this modal only
+  // needs the references and resolvers for the save/log step below.
   let referenceIngredients = $derived(ingredients.map(toReferenceIngredient));
-  // Each ingredient's real nutrition/info panel, read in memory from its ingested
-  // payload — never mutating the food twin.
-  function resolvePanel(ref: string): NutritionInfo | undefined {
-    return ingredients.find((i) => i.entity === ref)?.payload?.attributes?.[
-      "nutrition/info"
-    ] as NutritionInfo | undefined;
-  }
-  // The ingredient's display name, denormalized into the frozen instantiation
-  // snapshot so a logged recipe's breakdown survives the twin being renamed or
-  // deleted (ADR-0022).
-  function resolveName(ref: string): string | undefined {
-    return ingredients.find((i) => i.entity === ref)?.name;
-  }
-  // Live per-serving macros via the SAME derivation the Consumption projection
-  // and log-time snapshot use: Σ(panel × amount ÷ serving_size) ÷ yield. Tracks
-  // ingredients, amounts, and yield, so the panel updates as any of them change.
-  let perServing = $derived(
-    deriveRecipeNutrition(referenceIngredients, yieldNum, resolvePanel)
-  );
-  // A row's derived display: the clean {ref, amount, unit} (its `amount` coerced
-  // once at this boundary, since the inline editor's numeric input is briefly
-  // empty while retyping) and its live macro contribution via the shared food-
-  // domain helper. Deriving rather than storing means an edited amount re-reads
-  // live — the displayed row can never rot against the ingredient it describes.
-  function rowView(ing: RecipeIngredient) {
-    const ref = toReferenceIngredient(ing);
-    return {
-      amount: ref.amount,
-      macros: deriveIngredientMacros(ref, resolvePanel),
-    };
-  }
-
-  function removeIngredient(entity: string) {
-    ingredients = ingredients.filter((i) => i.entity !== entity);
-  }
-  function addIngredient(ing: RecipeIngredient) {
-    ingredients = [...ingredients, ing];
-    showAdd = false;
-  }
+  // Each ingredient's real nutrition panel / display name, resolved in memory
+  // from its inlined twin payload — never mutating the food twin.
+  const resolvePanel = (ref: string) => panelFromIngredients(ingredients, ref);
+  const resolveName = (ref: string) => nameFromIngredients(ingredients, ref);
 
   function addStep() {
     steps = [...steps, { id: `step-${++stepSeq}`, text: "" }];
@@ -220,78 +180,7 @@
           bind:value={recipeName}
         />
 
-        <div class="ing-head">
-          <span class="fl">Ingredients ({ingredients.length})</span>
-          <span class="tot recipe-total"
-            >{round2(perServing.calories)} kcal · {round2(perServing.protein)}g
-            P / serving</span
-          >
-        </div>
-        <ul class="ings">
-          {#each ingredients as ing (ing.entity)}
-            {@const row = rowView(ing)}
-            <li class="recipe-ingredient">
-              <span class="in">
-                <span class="iname">{ing.name}</span>
-                <span class="iqty">
-                  <input
-                    class="amount-in edit-amount"
-                    type="number"
-                    inputmode="decimal"
-                    min="0"
-                    step="any"
-                    bind:value={ing.amount}
-                    aria-label="Amount of {ing.name}"
-                  />
-                  <span class="unit"
-                    >{ing.unit === "g"
-                      ? "g"
-                      : row.amount === 1
-                        ? "serving"
-                        : "servings"}</span
-                  >
-                  <span class="ikcal">· {round2(row.macros.calories)} kcal</span
-                  >
-                </span>
-              </span>
-              <button
-                class="rm remove-ingredient"
-                onclick={() => removeIngredient(ing.entity)}
-                aria-label="Remove {ing.name}">✕</button
-              >
-            </li>
-          {/each}
-          {#if ingredients.length === 0}
-            <li class="empty">No ingredients — add some below.</li>
-          {/if}
-        </ul>
-        <button
-          class="add"
-          id="add-ingredient-btn"
-          onclick={() => (showAdd = true)}>+ Add ingredient</button
-        >
-
-        <div class="yield-row">
-          <label class="fl" for="recipe-yield">Yield (servings)</label>
-          <input
-            id="recipe-yield"
-            class="tin yield-in"
-            type="number"
-            inputmode="numeric"
-            min="1"
-            bind:value={recipeYield}
-          />
-        </div>
-
-        <div class="per-serving" data-testid="per-serving">
-          <span class="fl">Per serving</span>
-          <MacroPills
-            calories={perServing.calories}
-            protein={perServing.protein}
-            fat={perServing.fat}
-            carbs={perServing.carbs}
-          />
-        </div>
+        <IngredientListEditor bind:ingredients bind:recipeYield />
 
         <div class="sections">
           {#each SECTIONS as s (s.key)}
@@ -389,13 +278,6 @@
         </button>
       </div>
     </div>
-
-    {#if showAdd}
-      <AddIngredientSheet
-        onAdd={addIngredient}
-        onClose={() => (showAdd = false)}
-      />
-    {/if}
   {/snippet}
 </Modal>
 
@@ -475,108 +357,6 @@
     font-size: var(--step-n1);
     font-family: inherit;
     resize: vertical;
-  }
-
-  .ing-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-top: var(--space-m);
-  }
-  .ing-head .fl {
-    margin: 0;
-  }
-  .tot {
-    font-weight: 800;
-  }
-  .ings {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2xs);
-    margin-top: var(--space-2xs);
-  }
-  .ings li {
-    display: flex;
-    align-items: center;
-    gap: var(--space-s);
-    border: 1px solid #000;
-    padding: var(--space-xs) var(--space-s);
-  }
-  .ings li.empty {
-    justify-content: center;
-    color: var(--text-muted);
-    font-size: var(--step-n2);
-    border-style: dashed;
-  }
-  .in {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-  }
-  .iname {
-    font-weight: 600;
-  }
-  .iqty {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3xs);
-    font-size: var(--step-n2);
-    color: var(--text-muted);
-    margin-top: 2px;
-  }
-  .amount-in {
-    width: 3.75rem;
-    border: 1px solid #000;
-    padding: 2px var(--space-3xs);
-    font-family: inherit;
-    font-size: var(--step-n2);
-    font-weight: 700;
-    text-align: right;
-    color: var(--text-primary);
-    background: #fff;
-  }
-  .unit {
-    font-weight: 600;
-  }
-  .rm {
-    background: none;
-    border: none;
-    font-size: var(--step-0);
-    font-weight: 700;
-    cursor: pointer;
-  }
-  .add {
-    width: 100%;
-    margin-top: var(--space-2xs);
-    border: 2px dashed #000;
-    background: #fff;
-    padding: var(--space-s);
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  .yield-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-s);
-    margin-top: var(--space-m);
-  }
-  .yield-row .fl {
-    margin: 0;
-  }
-  .yield-in {
-    width: 6rem;
-    text-align: center;
-    font-weight: 700;
-  }
-  .per-serving {
-    margin-top: var(--space-s);
-  }
-  .per-serving .fl {
-    margin: 0 0 var(--space-2xs);
   }
 
   .sections {
