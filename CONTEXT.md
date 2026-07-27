@@ -61,8 +61,16 @@ The tab and view that presents a unified, date-navigable view of the user's day.
 _Avoid_: Habits view, schedule view, calendar view
 
 **Consumption Event**:
-A logged instance of a digital twin or recipe intake recorded as a timestamped action in the ledger. Nutritional metrics are stored as a flexible JSON blob.
+A logged instance of a digital twin or recipe intake recorded as a timestamped action in the ledger. Nutritional metrics are stored as a flexible JSON blob. When its target is a Recipe Twin, the Consumption Event is a Recipe Instantiation.
 _Avoid_: Food log, meal record
+
+**Recipe Twin**:
+A reusable recipe **template**: a schema.org/Recipe (ADR-0021) holding a name, an ordered ingredient list of pure references to food Digital Twins with amounts, a yield, and optional description, source url, image, and instructions. It stores no nutrition of its own — per-serving macros derive from the referenced ingredient twins. It only _seeds_ a Recipe Instantiation with defaults; it never governs one. Unlike a food Digital Twin it is composite (built from references to other twins) and is a default, not a nutrition authority.
+_Avoid_: Recipe (when the logged occasion is meant), recipe definition, Digital Twin (external-DB sense)
+
+**Recipe Instantiation**:
+The logging of one occasion of making or eating a Recipe Twin — a Consumption Event whose target is that twin. It _seeds_ from the template's ingredient list and yield, then may diverge freely: amounts changed, ingredients added or removed, yield adjusted. Its nutrition is derived from the referenced ingredient twins and captured onto the event when written, so a past instantiation never silently changes when an ingredient twin is later corrected; it is itself editable only by deliberate correction, exactly like any logged food. A template's instantiations over time are its history.
+_Avoid_: Recipe log, recipe entry, instance (bare), cooked recipe
 
 **Meal Type**:
 A standardized classification (`meal_type`) used to organize Consumption Events chronologically and logically in UI timelines.
