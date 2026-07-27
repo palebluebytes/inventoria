@@ -93,6 +93,40 @@ describe("mapFdcFoodToPayload", () => {
     expect(n.calories).toBe(64.7);
   });
 
+  it("reads fiber from the AOAC 2011.25 id when total-dietary is absent", () => {
+    // Some Foundation foods (e.g. canned chickpeas) report fiber ONLY under
+    // 2033, not 1079 — without the fallback they'd map to no fiber at all.
+    const aoacFiber: FdcFood = {
+      ...banana,
+      foodNutrients: [
+        {
+          nutrientId: 2033,
+          nutrientName: "Total dietary fiber (AOAC 2011.25)",
+          value: 5.92,
+          unitName: "G",
+        },
+      ],
+    };
+    const n = mapFdcFoodToPayload(aoacFiber).attributes["nutrition/info"];
+    expect(n.fiber_content).toBe(5.92);
+  });
+
+  it("falls back to carbohydrate-by-summation when by-difference is absent", () => {
+    const summationCarb: FdcFood = {
+      ...banana,
+      foodNutrients: [
+        {
+          nutrientId: 1050,
+          nutrientName: "Carbohydrate, by summation",
+          value: 15.4,
+          unitName: "G",
+        },
+      ],
+    };
+    const n = mapFdcFoodToPayload(summationCarb).attributes["nutrition/info"];
+    expect(n.carbohydrate_content).toBe(15.4);
+  });
+
   it("prefers the 1008 energy id over the Atwater fallbacks", () => {
     const bothIds: FdcFood = {
       ...banana,

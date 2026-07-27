@@ -5,8 +5,9 @@ import { PER_100G, type NutritionInfo } from "./nutrition";
 import { buildRawProvenance } from "./provenance";
 
 // Mapper version, bumped when the FDC -> nutrition/info normalisation changes.
-// v2: energy now falls back to the Atwater IDs so Foundation foods aren't 0 kcal.
-const ADAPTER_VERSION = "2";
+// v2: energy falls back to the Atwater IDs so Foundation foods aren't 0 kcal.
+// v3: carbohydrate and fiber fall back to alternate assay IDs (1050 / 2033).
+const ADAPTER_VERSION = "3";
 const FDC_FOOD_BASE = "https://api.nal.usda.gov/fdc/v1/food";
 
 // Read the current key on demand (default param, evaluated per call) instead of
@@ -44,17 +45,23 @@ export interface FdcFood {
 const ENERGY_IDS = [1008, 2047, 2048];
 /** The gram-valued panel fields (everything except serving_size and calories). */
 type MassField = Exclude<keyof NutritionInfo, "serving_size" | "calories">;
-const MASS_NUTRIENTS: { id: number; key: MassField }[] = [
-  { id: 1003, key: "protein_content" }, // Protein
-  { id: 1004, key: "fat_content" }, // Total lipid (fat)
-  { id: 1005, key: "carbohydrate_content" }, // Carbohydrate, by difference
-  { id: 1079, key: "fiber_content" }, // Fiber, total dietary
-  { id: 1258, key: "saturated_fat_content" }, // Fatty acids, total saturated
-  { id: 1093, key: "sodium_content" }, // Sodium, Na (mg)
+// Each gram-valued field lists the FDC nutrient ids that can carry it, in
+// preference order (first present wins). Several fields have more than one id
+// because FDC reports the same nutrient by different assays across datasets, and
+// Foundation foods sometimes carry only the newer one:
+//   - carbohydrate: 1005 "by difference" (universal) vs 1050 "by summation"
+//   - fiber: 1079 "total dietary" vs 2033 AOAC 2011.25 (some Foundation foods
+//     report fiber ONLY under 2033 — without this they read 0 g fiber)
+//   - sugars: 2000 "Total Sugars" vs the older 1063 "Sugars, total"
+const MASS_NUTRIENTS: { ids: number[]; key: MassField }[] = [
+  { ids: [1003], key: "protein_content" }, // Protein
+  { ids: [1004], key: "fat_content" }, // Total lipid (fat)
+  { ids: [1005, 1050], key: "carbohydrate_content" }, // Carbohydrate
+  { ids: [1079, 2033], key: "fiber_content" }, // Fiber, total dietary
+  { ids: [1258], key: "saturated_fat_content" }, // Fatty acids, total saturated
+  { ids: [1093], key: "sodium_content" }, // Sodium, Na (mg)
+  { ids: [2000, 1063], key: "sugar_content" }, // Total sugars
 ];
-// FDC uses either 2000 ("Total Sugars") or the older 1063 ("Sugars, Total");
-// prefer whichever the food carries.
-const SUGAR_IDS = [2000, 1063];
 
 // ---------------------------------------------------------------------------
 // Mapper
@@ -97,16 +104,13 @@ export function mapFdcFoodToPayload(food: FdcFood): EntityPayload {
     }
   }
 
-  for (const { id, key } of MASS_NUTRIENTS) {
-    const n = findNutrient(food.foodNutrients, id);
-    if (n) nutrition[key] = toGrams(n.value, n.unitName);
-  }
-
-  for (const id of SUGAR_IDS) {
-    const sugar = findNutrient(food.foodNutrients, id);
-    if (sugar) {
-      nutrition.sugar_content = toGrams(sugar.value, sugar.unitName);
-      break;
+  for (const { ids, key } of MASS_NUTRIENTS) {
+    for (const id of ids) {
+      const n = findNutrient(food.foodNutrients, id);
+      if (n) {
+        nutrition[key] = toGrams(n.value, n.unitName);
+        break;
+      }
     }
   }
 
