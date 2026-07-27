@@ -564,4 +564,29 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(dinnerSection).not.toContainText("Mock Banana");
     await expect(page.locator(".calories-num")).toHaveText("513");
   });
+
+  test("the add-ingredient back button returns to the recipe builder", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    await selectTwoAndBuild(page);
+    await page.locator("#recipe-name").fill("Dinner Combo");
+
+    // Open the add-ingredient sheet from the recipe builder.
+    await page.locator("#add-ingredient-btn").click();
+    const addSheet = page.locator(
+      '.sheet:has(> header h2:text-is("Add ingredient"))'
+    );
+    await expect(addSheet).toBeVisible();
+
+    // The header back button (aria-label "Cancel" before a food is staged)
+    // must close the sheet and return to the still-open recipe builder.
+    await addSheet.getByRole("button", { name: "Cancel" }).click();
+
+    await expect(addSheet).toBeHidden();
+    await expect(page.locator("#recipe-name")).toHaveValue("Dinner Combo");
+  });
 });

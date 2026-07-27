@@ -307,6 +307,12 @@
     flex-direction: column;
     background: #fff;
     animation: up 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    /* This overlay is a sibling of the recipe dialog, not a bits-ui dialog
+       itself. While that dialog is open bits-ui sets `pointer-events: none` on
+       <body>, which this sheet would otherwise inherit — making its buttons
+       visually present but click-through (the back/close taps fell through to
+       the recipe content underneath). Re-enable pointer events for the sheet. */
+    pointer-events: auto;
   }
   @keyframes up {
     from {
