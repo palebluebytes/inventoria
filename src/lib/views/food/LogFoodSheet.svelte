@@ -329,7 +329,7 @@
     <div {...props} class="sheet">
       <div class="grab"></div>
       <header class="head">
-        {#if staged}
+        {#if staged && !edit}
           <button
             class="hbtn back"
             onclick={() => (staged = null)}
@@ -458,54 +458,59 @@
         {/if}
       </div>
 
-      <!-- Dock: input · methods · primary action -->
+      <!-- Dock: input · methods · primary action. When a food is staged its name
+           already headlines the staging area above, so the input row is dropped
+           (no duplicate echo). Editing targets one entry, so the method switcher
+           is dropped too — the sheet stays focused on that food's amount. -->
       <div class="dock">
-        <div class="dock-input">
-          {#if staged}
-            <div class="qty-echo">Logging <strong>{staged.name}</strong></div>
-          {:else if method === "custom"}
-            <input
-              class="cin"
-              id="custom-name"
-              placeholder="Food name…"
-              bind:value={customName}
-            />
-          {:else if method === "scan"}
-            <input
-              class="cin"
-              id="barcode-input"
-              placeholder="Enter barcode…"
-              bind:value={barcode}
-              onkeydown={(e) => e.key === "Enter" && handleBarcodeLookup()}
-            />
-          {:else}
-            <div class="in-wrap">
+        {#if !staged}
+          <div class="dock-input">
+            {#if method === "custom"}
               <input
                 class="cin"
-                id="food-search-input"
-                placeholder="Search foods…"
-                bind:value={query}
-                disabled={!hasKey}
-                onkeydown={(e) => e.key === "Enter" && handleSearch()}
+                id="custom-name"
+                placeholder="Food name…"
+                bind:value={customName}
               />
-              {#if searchStatus === "loading"}
-                <span class="in-spinner" aria-label="Searching USDA"></span>
-              {/if}
-            </div>
-          {/if}
-        </div>
+            {:else if method === "scan"}
+              <input
+                class="cin"
+                id="barcode-input"
+                placeholder="Enter barcode…"
+                bind:value={barcode}
+                onkeydown={(e) => e.key === "Enter" && handleBarcodeLookup()}
+              />
+            {:else}
+              <div class="in-wrap">
+                <input
+                  class="cin"
+                  id="food-search-input"
+                  placeholder="Search foods…"
+                  bind:value={query}
+                  disabled={!hasKey}
+                  onkeydown={(e) => e.key === "Enter" && handleSearch()}
+                />
+                {#if searchStatus === "loading"}
+                  <span class="in-spinner" aria-label="Searching USDA"></span>
+                {/if}
+              </div>
+            {/if}
+          </div>
+        {/if}
 
-        <div class="methods">
-          {#each [["search", "🔍", "Search"], ["scan", "📷", "Scan"], ["custom", "✏️", "Custom"]] as [m, ico, label]}
-            <button
-              class="method"
-              class:on={method === m && !staged}
-              onclick={() => switchMethod(m as Method)}
-            >
-              <span class="mi">{ico}</span><span class="ml">{label}</span>
-            </button>
-          {/each}
-        </div>
+        {#if !edit}
+          <div class="methods">
+            {#each [["search", "🔍", "Search"], ["scan", "📷", "Scan"], ["custom", "✏️", "Custom"]] as [m, ico, label]}
+              <button
+                class="method"
+                class:on={method === m && !staged}
+                onclick={() => switchMethod(m as Method)}
+              >
+                <span class="mi">{ico}</span><span class="ml">{label}</span>
+              </button>
+            {/each}
+          </div>
+        {/if}
 
         <button
           class="log-btn"
@@ -747,14 +752,6 @@
   .cin:disabled {
     background: #f4f4f5;
     color: var(--text-muted);
-  }
-  .qty-echo {
-    padding: var(--space-2xs) 0;
-    font-size: var(--step-n1);
-    color: var(--text-secondary);
-  }
-  .qty-echo strong {
-    color: var(--text-primary);
   }
   .in-wrap {
     position: relative;

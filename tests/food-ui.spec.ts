@@ -415,6 +415,14 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     ).toBeVisible();
     await expect(page.locator("#quantity-input")).toHaveValue("150");
 
+    // Edit mode is a focused amount editor: no back button, no method switcher,
+    // and no "Logging <name>" echo (the name already headlines the sheet).
+    await expect(page.getByRole("button", { name: "Change food" })).toHaveCount(
+      0
+    );
+    await expect(page.locator(".method")).toHaveCount(0);
+    await expect(page.locator(".sheet")).not.toContainText("Logging");
+
     // Change the amount and save; the entry is replaced (append-only), not dup'd.
     await page.locator("#quantity-input").fill("300"); // 89 * 3 = 267
     await page.locator("#log-food-btn").click();
