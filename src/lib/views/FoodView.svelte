@@ -36,6 +36,13 @@
   let recipeOpen = $state(false);
   let recipe_meal_type = $state<MealType>("dinner");
   let recipe_seed = $state<any[]>([]);
+  // Which verb the recipe builder performs (ADR-0022): consolidate (build from
+  // selected foods), define (new template, no log), or edit (amend a template).
+  let recipe_mode = $state<"consolidate" | "define" | "edit">("consolidate");
+  let recipe_template = $state<{
+    entity: string;
+    attributes: Record<string, any>;
+  } | null>(null);
   // Instantiation editor (Instantiate a template / Correct a past instantiation,
   // ADR-0022). Exactly one of template / edit is set while it is open.
   let instantiateOpen = $state(false);
@@ -98,6 +105,42 @@
     instantiate_edit = null;
   }
 
+  // Open the recipe builder in one verb. The (mode, template, seed) triple is set
+  // together here so the three never drift apart; closeRecipe is its inverse.
+  function openRecipe(
+    mode: "consolidate" | "define" | "edit",
+    template: { entity: string; attributes: Record<string, any> } | null,
+    seed: any[] = []
+  ) {
+    recipe_mode = mode;
+    recipe_template = template;
+    recipe_seed = seed;
+    recipeOpen = true;
+  }
+
+  function closeRecipe() {
+    openRecipe("consolidate", null); // reset the triple back to its default…
+    recipeOpen = false; // …but stay closed
+  }
+
+  // Define a brand-new Recipe Twin from scratch — the builder opens empty and on
+  // save writes only the template, logging nothing (ADR-0022 #13).
+  function defineRecipe() {
+    recipe_meal_type = sheetMeal ?? "dinner";
+    closeSheet();
+    openRecipe("define", null);
+  }
+
+  // Edit an existing Recipe Twin's template. The builder seeds from the twin's
+  // current ingredients/yield/fields; saving re-seeds only FUTURE instantiations
+  // (past snapshots never move) and logs nothing.
+  async function editRecipe(recipeEntity: string) {
+    const twin = await getLocalFoodTwin(recipeEntity);
+    if (!twin) return;
+    closeSheet();
+    openRecipe("edit", twin);
+  }
+
   // Remove a logged food (append-only retraction; the projection hides it).
   function removeItem(id: string) {
     void retractConsumptionEvent(id);
@@ -138,7 +181,7 @@
   // corrupt the real twin. Then open the seeded builder.
   async function buildRecipe() {
     const items = selectedItems;
-    recipe_seed = await Promise.all(
+    const seed = await Promise.all(
       items.map(async (it) => {
         const target = it.target || it.id;
         const name = it.foodName || "Food";
@@ -177,7 +220,7 @@
       })
     );
     recipe_meal_type = (items[0]?.meal_type as MealType) || "dinner";
-    recipeOpen = true;
+    openRecipe("consolidate", null, seed);
     clearSelection();
   }
 </script>
@@ -240,6 +283,8 @@
     edit={editEvent}
     onClose={closeSheet}
     onPickRecipe={pickRecipe}
+    onDefineRecipe={defineRecipe}
+    onEditRecipe={editRecipe}
   />
 {/if}
 
@@ -266,13 +311,16 @@
   </div>
 {/if}
 
-<!-- Recipe builder, seeded from the selected foods -->
+<!-- Recipe builder — Consolidate (seeded from selected foods), Define (empty new
+     template), or Edit (an existing template), ADR-0022. -->
 {#if recipeOpen}
   <RecipeModal
     meal_type={recipe_meal_type}
     {selectedDate}
+    mode={recipe_mode}
+    template={recipe_template}
     initialIngredients={recipe_seed}
-    onClose={() => (recipeOpen = false)}
+    onClose={closeRecipe}
   />
 {/if}
 

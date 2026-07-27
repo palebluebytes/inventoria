@@ -40,6 +40,8 @@
     onClose,
     edit = null,
     onPickRecipe,
+    onDefineRecipe,
+    onEditRecipe,
   }: {
     dbReady: boolean;
     meal_type: "breakfast" | "lunch" | "dinner" | "snack";
@@ -59,6 +61,17 @@
      * is hidden.
      */
     onPickRecipe?: (recipeEntity: string) => void;
+    /**
+     * Opens the recipe builder to Define a brand-new Recipe Twin from scratch,
+     * logging nothing (ADR-0022 #13). The parent closes this sheet and opens the
+     * builder in define mode.
+     */
+    onDefineRecipe?: () => void;
+    /**
+     * Opens the recipe builder to Edit an existing Recipe Twin's template — its
+     * edit re-seeds only future instantiations (#13). Called with the twin's id.
+     */
+    onEditRecipe?: (recipeEntity: string) => void;
   } = $props();
 
   type Method = "search" | "scan" | "custom" | "recipe";
@@ -455,10 +468,16 @@
             >.
           </p>
         {:else if method === "recipe"}
+          <button
+            type="button"
+            class="recipe-new"
+            id="define-recipe-btn"
+            onclick={() => onDefineRecipe?.()}>＋ New recipe</button
+          >
           {#if recipes.length === 0}
             <p class="hint">
-              No saved recipes yet. Build one by selecting logged foods on the
-              dashboard.
+              No saved recipes yet. Create one above, or build one by selecting
+              logged foods on the dashboard.
             </p>
           {:else}
             <p class="fl">Your recipes</p>
@@ -473,6 +492,12 @@
                     <span class="recipe-pick-name">{r.name}</span>
                     <span class="recipe-pick-go" aria-hidden="true">›</span>
                   </button>
+                  <button
+                    type="button"
+                    class="recipe-edit"
+                    onclick={() => onEditRecipe?.(r.entity)}
+                    aria-label="Edit {r.name}">Edit</button
+                  >
                 </li>
               {/each}
             </ul>
@@ -695,6 +720,22 @@
     margin-top: var(--space-s);
   }
 
+  .recipe-new {
+    width: 100%;
+    margin-bottom: var(--space-s);
+    border: 2px dashed #000;
+    background: #fff;
+    padding: var(--space-s);
+    font-family: inherit;
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: var(--step-n1);
+    cursor: pointer;
+    min-height: 52px;
+  }
+  .recipe-new:hover {
+    background: #f4f4f5;
+  }
   .recipe-list {
     list-style: none;
     display: flex;
@@ -702,8 +743,12 @@
     gap: var(--space-2xs);
     margin-top: var(--space-2xs);
   }
+  .recipe-list li {
+    display: flex;
+    gap: var(--space-2xs);
+  }
   .recipe-pick {
-    width: 100%;
+    flex: 1;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -715,6 +760,7 @@
     cursor: pointer;
     text-align: left;
     min-height: 52px;
+    min-width: 0;
   }
   .recipe-pick:hover {
     background: #f4f4f5;
@@ -726,6 +772,21 @@
   .recipe-pick-go {
     font-size: var(--step-1);
     font-weight: 800;
+  }
+  .recipe-edit {
+    flex-shrink: 0;
+    background: #fff;
+    border: 2px solid #000;
+    padding: 0 var(--space-s);
+    font-family: inherit;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: var(--step-n2);
+    cursor: pointer;
+  }
+  .recipe-edit:hover {
+    background: #000;
+    color: #fff;
   }
 
   .staged {

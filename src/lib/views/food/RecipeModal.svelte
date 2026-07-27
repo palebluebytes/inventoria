@@ -6,6 +6,7 @@
     saveRecipe,
     logRecipeConsumption,
     retractConsumptionEvent,
+    seedRowsFromTemplate,
   } from "../../stores/calorie.store";
   import {
     toReferenceIngredient,
@@ -18,20 +19,30 @@
   import Alert from "../../ui/Alert.svelte";
   import IngredientListEditor from "./IngredientListEditor.svelte";
 
-  // Recipe tracker. Builds a recipe from the selected foods and REPLACES the ones
-  // that remain as ingredients (append-only: their consumption events are
-  // retracted). Foods removed from the builder stay logged on their own. Lead with
-  // Name + Ingredients + Yield and a live per-serving nutrition panel; Source /
-  // Notes / Steps / Image are collapsible.
+  // The Recipe Twin builder/editor. Three verbs share this surface (ADR-0022):
+  //   • consolidate — build a recipe from the selected foods and REPLACE the ones
+  //     that remain as ingredients (append-only: their consumption events are
+  //     retracted); foods removed from the builder stay logged on their own.
+  //   • define — create a reusable template from scratch/search, logging nothing.
+  //   • edit — amend an existing template in place; the edit re-seeds only FUTURE
+  //     instantiations (past snapshots never move), and again logs nothing.
+  // Lead with Name + Ingredients + Yield and a live per-serving nutrition panel;
+  // Source / Notes / Steps / Image are collapsible.
   let {
     meal_type,
     selectedDate,
     onClose,
+    mode = "consolidate",
+    template = null,
     initialIngredients = [],
   }: {
     meal_type: "breakfast" | "lunch" | "dinner" | "snack";
     selectedDate: Date;
     onClose: () => void;
+    /** Which verb this surface performs (see above). Default: consolidate. */
+    mode?: "consolidate" | "define" | "edit";
+    /** The Recipe Twin being amended (edit mode only; getLocalFoodTwin shape). */
+    template?: { entity: string; attributes: Record<string, any> } | null;
     /** Foods selected on the dashboard, seeded as ingredients (carry event_id). */
     initialIngredients?: RecipeIngredient[];
   } = $props();
@@ -45,6 +56,11 @@
   // to a positive number for both the live derivation and the persisted value.
   let recipeYield = $state<number | string>(1);
   let yieldNum = $derived(sanitizeYield(recipeYield));
+
+  // Editing seeds asynchronously (each template ref resolves to its CURRENT
+  // twin), so the editor is held behind `ready`. Other modes are ready at once.
+  // `mode` is fixed for the component's life, so its initial read is the value.
+  let ready = $state(untrack(() => mode !== "edit"));
 
   let open = $state({
     source: false,
@@ -61,6 +77,45 @@
 
   let status = $state<"idle" | "loading" | "error">("idle");
   let error = $state("");
+
+  // Seed the editor from the template once (edit mode). Each stored `{ ref,
+  // amount, unit }` resolves to its CURRENT twin, so re-saving re-derives from
+  // live ingredient data; the collapsible schema.org fields prefill too. A
+  // dangling ref falls back to a self-contained placeholder (seedRowFromRef).
+  let seeded = false;
+  $effect(() => {
+    if (mode !== "edit" || !template || seeded) return;
+    seeded = true;
+    void seedFromTemplate(template);
+  });
+
+  async function seedFromTemplate(t: {
+    entity: string;
+    attributes: Record<string, any>;
+  }) {
+    try {
+      const a = t.attributes;
+      recipeName = a["recipe/name"] ?? "";
+      recipeYield = a["recipe/yield"] || 1;
+      source = a["recipe/url"] ?? "";
+      notes = a["recipe/description"] ?? "";
+      image = a["recipe/image"] || null;
+      const instr = (a["recipe/instructions"] ?? []) as string[];
+      steps = instr.map((text) => ({ id: `step-${++stepSeq}`, text }));
+      open = {
+        source: !!source,
+        notes: !!notes,
+        steps: steps.length > 0,
+        image: !!image,
+      };
+      ingredients = await seedRowsFromTemplate(a);
+    } catch (e: any) {
+      status = "error";
+      error = e.message ?? String(e);
+    } finally {
+      ready = true;
+    }
+  }
 
   // Pure {ref, amount, unit} references — the shape the recipe twin stores and
   // the log-time snapshot reads (ADR-0021). The live per-serving/row derivation
@@ -108,36 +163,46 @@
       // 2. Save the recipe twin: pure {ref, amount, unit} ingredient references
       //    and schema.org-faithful fields, including the user's yield (ADR-0021).
       //    UI labels Source/Notes/Steps map to recipe/url, recipe/description,
-      //    recipe/instructions.
-      const recipeId = await saveRecipe({
-        name: recipeName.trim(),
-        ingredients: referenceIngredients,
-        url: source,
-        description: notes,
-        instructions: steps.map((s) => s.text.trim()).filter(Boolean),
-        image: image ?? undefined,
-        yield: yieldNum,
-      });
-      // 3. Log the recipe: the store derives its per-serving snapshot with the
-      //    shared formula over each ingredient's REAL nutrition/info panel and
-      //    the same yield, then freezes it. Same helper + panels + yield as the
-      //    live display above and the projection's derivation, so the frozen
-      //    snapshot equals what the builder showed at the moment it was logged.
-      //    Panels are read in memory, so real food twins are never mutated.
-      await logRecipeConsumption(
-        recipeId,
-        referenceIngredients,
-        yieldNum,
-        resolvePanel,
-        resolveName,
-        meal_type,
-        selectedDate
+      //    recipe/instructions. In edit mode the twin's own id is passed, so this
+      //    appends to it (latest-wins re-seeds only FUTURE instantiations).
+      const recipeId = await saveRecipe(
+        {
+          name: recipeName.trim(),
+          ingredients: referenceIngredients,
+          url: source,
+          description: notes,
+          instructions: steps.map((s) => s.text.trim()).filter(Boolean),
+          image: image ?? undefined,
+          yield: yieldNum,
+        },
+        mode === "edit" ? template?.entity : undefined
       );
-      // 5. Replace: retract the selection events that remain as ingredients.
-      //    (Foods removed from the builder keep their event_id out of this loop,
-      //    so they stay logged.)
-      for (const ing of ingredients) {
-        if (ing.event_id) await retractConsumptionEvent(ing.event_id, recipeId);
+      // 3. Consolidate ALSO logs the recipe and retracts the source foods.
+      //    Define and Edit are template-only lifecycle acts — they log nothing
+      //    and retract nothing (ADR-0022's three-verb split).
+      if (mode === "consolidate") {
+        // Log the recipe: the store derives its per-serving snapshot with the
+        // shared formula over each ingredient's REAL nutrition/info panel and
+        // the same yield, then freezes it. Same helper + panels + yield as the
+        // live display above and the projection's derivation, so the frozen
+        // snapshot equals what the builder showed at the moment it was logged.
+        // Panels are read in memory, so real food twins are never mutated.
+        await logRecipeConsumption(
+          recipeId,
+          referenceIngredients,
+          yieldNum,
+          resolvePanel,
+          resolveName,
+          meal_type,
+          selectedDate
+        );
+        // Replace: retract the selection events that remain as ingredients.
+        // (Foods removed from the builder keep their event_id out of this loop,
+        // so they stay logged.)
+        for (const ing of ingredients) {
+          if (ing.event_id)
+            await retractConsumptionEvent(ing.event_id, recipeId);
+        }
       }
       onClose();
     } catch (e: any) {
@@ -145,6 +210,17 @@
       error = e.message ?? String(e);
     }
   }
+
+  // Header/action copy per verb. Consolidate and Define both create then are
+  // done; only their headline differs. Edit amends and says so.
+  let heading = $derived(
+    mode === "edit"
+      ? "Edit recipe"
+      : mode === "define"
+        ? "New recipe"
+        : "Build recipe"
+  );
+  let saveLabel = $derived(mode === "edit" ? "Save changes" : "Save recipe");
 
   const SECTIONS: {
     key: keyof typeof open;
@@ -162,103 +238,109 @@
   ];
 </script>
 
-<Modal {onClose} title="Build recipe">
+<Modal {onClose} title={heading}>
   {#snippet children({ props, close })}
     <div {...props} class="sheet">
       <header class="head">
         <span class="hbtn" aria-hidden="true"></span>
-        <h2>Build recipe</h2>
+        <h2>{heading}</h2>
         <button class="hbtn x" onclick={close} aria-label="Close">✕</button>
       </header>
 
       <div class="body">
-        <label class="fl" for="recipe-name">Name</label>
-        <input
-          id="recipe-name"
-          class="tin big"
-          placeholder="e.g. Overnight oats"
-          bind:value={recipeName}
-        />
+        {#if !ready}
+          <p class="loading">Loading recipe…</p>
+        {:else}
+          <label class="fl" for="recipe-name">Name</label>
+          <input
+            id="recipe-name"
+            class="tin big"
+            placeholder="e.g. Overnight oats"
+            bind:value={recipeName}
+          />
 
-        <IngredientListEditor bind:ingredients bind:recipeYield />
+          <IngredientListEditor bind:ingredients bind:recipeYield />
 
-        <div class="sections">
-          {#each SECTIONS as s (s.key)}
-            <div class="section" class:open={open[s.key]}>
-              <button
-                class="sec-head"
-                data-section={s.key}
-                aria-expanded={open[s.key]}
-                onclick={() => toggleSection(s.key)}
-              >
-                <span class="chev">{open[s.key] ? "▾" : "▸"}</span>
-                <span class="sec-title">{s.label}</span>
-                {#if s.filled()}<span class="dot" title="has content"
-                  ></span>{/if}
-              </button>
-              {#if open[s.key]}
-                <div class="sec-body">
-                  {#if s.key === "source"}
-                    <input
-                      class="tin"
-                      placeholder="Link or where it's from…"
-                      bind:value={source}
-                    />
-                  {:else if s.key === "notes"}
-                    <textarea
-                      class="tarea"
-                      rows="3"
-                      placeholder="Any notes…"
-                      bind:value={notes}
-                    ></textarea>
-                  {:else if s.key === "steps"}
-                    <ol class="steps">
-                      {#each steps as step, i (step.id)}
-                        <li>
-                          <span class="snum">{i + 1}</span>
-                          <input
-                            class="sin recipe-step"
-                            placeholder="Describe step {i + 1}…"
-                            bind:value={step.text}
-                          />
-                          <button
-                            class="srm"
-                            onclick={() => removeStep(step.id)}
-                            aria-label="Remove step {i + 1}">✕</button
-                          >
-                        </li>
-                      {/each}
-                    </ol>
-                    <button class="add-step" id="add-step-btn" onclick={addStep}
-                      >+ Add step</button
-                    >
-                  {:else}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      class="hidden-file"
-                      bind:this={fileInput}
-                      onchange={onFile}
-                    />
-                    {#if image}
-                      <div class="img-prev">
-                        <img src={image} alt="Recipe" />
-                        <button
-                          class="change"
-                          onclick={() => fileInput?.click()}>Change</button
-                        >
-                      </div>
-                    {:else}
-                      <button class="photo" onclick={() => fileInput?.click()}
-                        >📷 Add image</button
+          <div class="sections">
+            {#each SECTIONS as s (s.key)}
+              <div class="section" class:open={open[s.key]}>
+                <button
+                  class="sec-head"
+                  data-section={s.key}
+                  aria-expanded={open[s.key]}
+                  onclick={() => toggleSection(s.key)}
+                >
+                  <span class="chev">{open[s.key] ? "▾" : "▸"}</span>
+                  <span class="sec-title">{s.label}</span>
+                  {#if s.filled()}<span class="dot" title="has content"
+                    ></span>{/if}
+                </button>
+                {#if open[s.key]}
+                  <div class="sec-body">
+                    {#if s.key === "source"}
+                      <input
+                        class="tin"
+                        placeholder="Link or where it's from…"
+                        bind:value={source}
+                      />
+                    {:else if s.key === "notes"}
+                      <textarea
+                        class="tarea"
+                        rows="3"
+                        placeholder="Any notes…"
+                        bind:value={notes}
+                      ></textarea>
+                    {:else if s.key === "steps"}
+                      <ol class="steps">
+                        {#each steps as step, i (step.id)}
+                          <li>
+                            <span class="snum">{i + 1}</span>
+                            <input
+                              class="sin recipe-step"
+                              placeholder="Describe step {i + 1}…"
+                              bind:value={step.text}
+                            />
+                            <button
+                              class="srm"
+                              onclick={() => removeStep(step.id)}
+                              aria-label="Remove step {i + 1}">✕</button
+                            >
+                          </li>
+                        {/each}
+                      </ol>
+                      <button
+                        class="add-step"
+                        id="add-step-btn"
+                        onclick={addStep}>+ Add step</button
                       >
+                    {:else}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        class="hidden-file"
+                        bind:this={fileInput}
+                        onchange={onFile}
+                      />
+                      {#if image}
+                        <div class="img-prev">
+                          <img src={image} alt="Recipe" />
+                          <button
+                            class="change"
+                            onclick={() => fileInput?.click()}>Change</button
+                          >
+                        </div>
+                      {:else}
+                        <button class="photo" onclick={() => fileInput?.click()}
+                          >📷 Add image</button
+                        >
+                      {/if}
                     {/if}
-                  {/if}
-                </div>
-              {/if}
-            </div>
-          {/each}
-        </div>
+                  </div>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {/if}
 
         {#if status === "error"}
           <div class="err"><Alert variant="error">{error}</Alert></div>
@@ -269,12 +351,13 @@
         <button
           class="save"
           id="save-recipe-btn"
-          disabled={!recipeName.trim() ||
+          disabled={!ready ||
+            !recipeName.trim() ||
             ingredients.length === 0 ||
             status === "loading"}
           onclick={handleSave}
         >
-          {status === "loading" ? "Saving…" : "Save recipe"}
+          {status === "loading" ? "Saving…" : saveLabel}
         </button>
       </div>
     </div>
@@ -330,6 +413,11 @@
     flex: 1;
     overflow-y: auto;
     padding: var(--space-s);
+  }
+  .loading {
+    color: var(--text-muted);
+    padding: var(--space-l) 0;
+    text-align: center;
   }
   .fl {
     display: block;

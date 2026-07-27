@@ -822,4 +822,114 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(dinnerSection).toContainText("513 kcal");
     await expect(page.locator(".calories-num")).toHaveText("513");
   });
+
+  // ── Seam 3: Define a Recipe Twin without logging + edit a template (#13) ──
+
+  // Add one searched food to the OPEN recipe builder via the add-ingredient sheet.
+  async function addSearchedIngredient(
+    page: import("@playwright/test").Page,
+    query: string,
+    resultName: string,
+    grams: string
+  ) {
+    await page.locator("#add-ingredient-btn").click();
+    const addSheet = page.locator(
+      '.sheet:has(> header h2:text-is("Add ingredient"))'
+    );
+    await addSheet.locator("#ai-search").fill(query);
+    await addSheet.locator(".result-item-btn", { hasText: resultName }).click();
+    await addSheet.getByLabel("Quantity in grams").fill(grams);
+    await addSheet.locator("#add-ingredient-confirm").click();
+    await expect(addSheet).toBeHidden();
+  }
+
+  test("defines a Recipe Twin from scratch without logging a consumption", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    // Open the log sheet's Recipe browser and start a brand-new template.
+    await page.getByRole("button", { name: "Add breakfast" }).click();
+    await page.locator(".method", { hasText: "Recipe" }).click();
+    await page.locator("#define-recipe-btn").click();
+
+    // The builder opens empty in Define mode — saving here logs nothing.
+    await expect(page.locator("h2", { hasText: "New recipe" })).toBeVisible();
+    await page.locator("#recipe-name").fill("Scratch Bowl");
+
+    // Build it from search: oats 50 g (190) + banana 150 g (134) = 324/serving.
+    await addSearchedIngredient(page, "oats", "Mock Oats", "50");
+    await addSearchedIngredient(page, "banana", "Mock Banana", "150");
+    await expect(page.locator(".recipe-total")).toContainText("324 kcal");
+
+    await page.locator("#save-recipe-btn").click();
+
+    // Define logs NOTHING: the day stays empty (zero-instantiation template).
+    await expect(page.locator(".calories-num")).toHaveText("0");
+    await expect(
+      page.locator('.meal-section:has(.meal-title:text-is("BREAKFAST"))')
+    ).toContainText("No breakfast logged yet.");
+
+    // Yet the template now exists in the browser, ready to instantiate later.
+    await page.getByRole("button", { name: "Add lunch" }).click();
+    await page.locator(".method", { hasText: "Recipe" }).click();
+    await expect(
+      page.locator(".recipe-pick", { hasText: "Scratch Bowl" })
+    ).toBeVisible();
+  });
+
+  test("edits a template so future instantiations re-seed while past ones stay frozen", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    // One logged instantiation of Dinner Combo (324) already sits in dinner.
+    const dinnerSection = await buildDinnerCombo(page);
+    await expect(page.locator(".calories-num")).toHaveText("324");
+
+    // Edit the TEMPLATE (not the logged occasion) via the Recipe browser.
+    await page.getByRole("button", { name: "Add lunch" }).click();
+    await page.locator(".method", { hasText: "Recipe" }).click();
+    await page.getByRole("button", { name: "Edit Dinner Combo" }).click();
+
+    // Edit mode seeds from the template's CURRENT ingredients (324/serving).
+    await expect(page.locator("h2", { hasText: "Edit recipe" })).toBeVisible();
+    await expect(page.locator("#recipe-name")).toHaveValue("Dinner Combo");
+    await expect(page.locator(".recipe-total")).toContainText("324 kcal");
+
+    // Bump the oats 50 → 100 g (379 + 134 = 513/serving) and save the template.
+    const oatsAmount = page
+      .locator(".recipe-ingredient", { hasText: "Mock Oats" })
+      .locator(".edit-amount");
+    await expect(oatsAmount).toHaveValue("50");
+    await oatsAmount.fill("100");
+    await expect(page.locator(".recipe-total")).toContainText("513 kcal");
+    await page.locator("#save-recipe-btn").click();
+
+    // The edit logs nothing and never disturbs history: the already-logged
+    // instantiation is a snapshot, so it stays frozen at 324.
+    await expect(dinnerSection).toContainText("324 kcal");
+    await expect(page.locator(".calories-num")).toHaveText("324");
+
+    // A NEW instantiation, however, seeds from the edited template (513).
+    await page.getByRole("button", { name: "Add breakfast" }).click();
+    await page.locator(".method", { hasText: "Recipe" }).click();
+    await page.locator(".recipe-pick", { hasText: "Dinner Combo" }).click();
+    await expect(page.locator('[data-testid="instantiation-name"]')).toHaveText(
+      "Dinner Combo"
+    );
+    await expect(page.locator(".recipe-total")).toContainText("513 kcal");
+    await page.locator("#save-instantiation-btn").click();
+
+    const breakfastSection = page.locator(
+      '.meal-section:has(.meal-title:text-is("BREAKFAST"))'
+    );
+    await expect(breakfastSection).toContainText("513 kcal");
+    // Frozen past (324) + freshly-seeded future (513) = 837.
+    await expect(page.locator(".calories-num")).toHaveText("837");
+  });
 });
