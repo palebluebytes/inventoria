@@ -12,6 +12,7 @@
   import {
     customIngredient,
     parseLoggedQuantity,
+    type RecipeIngredient,
   } from "../food/recipe-ingredient";
   import DailyDashboard from "./food/DailyDashboard.svelte";
   import LogFoodSheet from "./food/LogFoodSheet.svelte";
@@ -22,14 +23,25 @@
   import Card from "../ui/Card.svelte";
   import Badge from "../ui/Badge.svelte";
 
-  type MealType = "breakfast" | "lunch" | "dinner" | "snack";
+  const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack"] as const;
+  type MealType = (typeof MEAL_TYPES)[number];
+
+  // Narrow a stored `event/meal_type` (an arbitrary ledger string) back to the
+  // MealType union at the single read boundary — validating membership rather
+  // than blindly casting, so an out-of-set value falls back instead of slipping
+  // through typed as valid. This is the one sanctioned meal_type cast.
+  function asMealType(value: string | undefined, fallback: MealType): MealType {
+    return (MEAL_TYPES as readonly string[]).includes(value ?? "")
+      ? (value as MealType)
+      : fallback;
+  }
 
   let { dbReady }: { dbReady: boolean } = $props();
 
   let selectedDate = $state(new Date());
   // The meal whose log sheet is open (null = closed). Opening is direct — no
   // intermediate chooser.
-  let sheetMeal = $state<MealType | null>(null);
+  let sheet_meal_type = $state<MealType | null>(null);
   // The logged event being edited (null = adding). When set, the log sheet opens
   // in edit mode and saving replaces this event (append-only).
   let editEvent = $state<ConsumptionEvent | null>(null);
@@ -37,7 +49,7 @@
   let selected_ids = $state<Set<string>>(new Set());
   let recipeOpen = $state(false);
   let recipe_meal_type = $state<MealType>("dinner");
-  let recipe_seed = $state<any[]>([]);
+  let recipe_seed = $state<RecipeIngredient[]>([]);
   // Which verb the recipe builder performs (ADR-0022): consolidate (build from
   // selected foods), define (new template, no log), or edit (amend a template).
   let recipe_mode = $state<"consolidate" | "define" | "edit">("consolidate");
@@ -74,7 +86,7 @@
 
   function openSheet(meal_type: MealType) {
     editEvent = null;
-    sheetMeal = meal_type;
+    sheet_meal_type = meal_type;
   }
 
   // Open the right editor for a tapped card. A Recipe Instantiation (carries a
@@ -84,7 +96,7 @@
     if (item.instantiation) {
       instantiate_template = null;
       instantiate_edit = item;
-      instantiate_meal_type = (item.meal_type as MealType) || "snack";
+      instantiate_meal_type = asMealType(item.meal_type, "snack");
       instantiateOpen = true;
       return;
     }
@@ -98,7 +110,7 @@
       return;
     }
     editEvent = item;
-    sheetMeal = (item.meal_type as MealType) || "snack";
+    sheet_meal_type = asMealType(item.meal_type, "snack");
   }
 
   // Instantiate the picked Recipe Twin into the meal the log sheet was opened
@@ -106,7 +118,7 @@
   async function pickRecipe(recipeEntity: string) {
     const twin = await getLocalFoodTwin(recipeEntity);
     if (!twin) return;
-    instantiate_meal_type = sheetMeal ?? "dinner";
+    instantiate_meal_type = sheet_meal_type ?? "dinner";
     closeSheet();
     instantiate_template = twin;
     instantiate_edit = null;
@@ -124,7 +136,7 @@
   function openRecipe(
     mode: "consolidate" | "define" | "edit",
     template: { entity: string; attributes: Record<string, any> } | null,
-    seed: any[] = []
+    seed: RecipeIngredient[] = []
   ) {
     recipe_mode = mode;
     recipe_template = template;
@@ -140,7 +152,7 @@
   // Define a brand-new Recipe Twin from scratch — the builder opens empty and on
   // save writes only the template, logging nothing (ADR-0022 #13).
   function defineRecipe() {
-    recipe_meal_type = sheetMeal ?? "dinner";
+    recipe_meal_type = sheet_meal_type ?? "dinner";
     closeSheet();
     openRecipe("define", null);
   }
@@ -161,7 +173,7 @@
   }
 
   function closeSheet() {
-    sheetMeal = null;
+    sheet_meal_type = null;
     editEvent = null;
   }
 
@@ -233,7 +245,7 @@
         };
       })
     );
-    recipe_meal_type = (items[0]?.meal_type as MealType) || "dinner";
+    recipe_meal_type = asMealType(items[0]?.meal_type, "dinner");
     openRecipe("consolidate", null, seed);
     clearSelection();
   }
@@ -289,10 +301,10 @@
 
 <!-- Log sheet — opens directly from a meal's "+ Add", or in edit mode from a
      tapped food card. -->
-{#if sheetMeal}
+{#if sheet_meal_type}
   <LogFoodSheet
     {dbReady}
-    meal_type={sheetMeal}
+    meal_type={sheet_meal_type}
     {selectedDate}
     edit={editEvent}
     onClose={closeSheet}

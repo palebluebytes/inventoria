@@ -1,4 +1,5 @@
 import type { FoodResult } from "./food-search";
+import type { EntityPayload } from "../ingestion/ingest";
 import {
   nutritionFromMacros,
   PER_SERVING,
@@ -36,7 +37,7 @@ export interface RecipeIngredient {
   /** `g` for scaled foods, `serving` for whole-serving/custom foods. */
   unit: "g" | "serving";
   /** Food-twin payload, ingested when the recipe is saved. */
-  payload: any;
+  payload: EntityPayload;
   /** Source consumption-event id, if this ingredient came from the day. */
   event_id?: string;
 }
@@ -80,7 +81,7 @@ export function nameFromIngredients(
  * seed a row that cannot derive. The `name` falls back to the raw ref.
  */
 export function ingredientFromTwin(
-  twin: any | null,
+  twin: EntityPayload | null,
   amount: number,
   unit: "g" | "serving"
 ): RecipeIngredient | null {
