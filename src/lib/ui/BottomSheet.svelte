@@ -8,6 +8,12 @@
     // Renamed to `body` so it isn't shadowed by Modal's own `children` snippet.
     children: body,
     footer,
+    onClose,
+    class: className = "",
+    onBack,
+    backLabel = "Back",
+    flushBody = false,
+    elevated = false,
   }: {
     isOpen?: boolean;
     title?: string;
@@ -19,30 +25,78 @@
      * Receives `close` so a "Done"/"Cancel" control can dismiss the sheet.
      */
     footer?: Snippet<[{ close: () => void }]>;
+    /**
+     * Called whenever the sheet closes (Escape, backdrop, or a close button).
+     * Forwarded to Modal so a conditionally-mounted caller can unmount on close
+     * without re-encoding the "onClose from bound `open`" quirk itself.
+     */
+    onClose?: () => void;
+    /** Extra class on the sheet content, so a caller can tag/scope its sheet. */
+    class?: string;
+    /**
+     * Optional leading control in the header. When set, a back "‹" button is
+     * rendered to the left of the title and calls this on click — the food
+     * sheets use it for "Change food" / "Back" / "Cancel". Omit for no back
+     * affordance (the default header is just title + close).
+     */
+    onBack?: () => void;
+    /** Accessible label for the back button (only when `onBack` is set). */
+    backLabel?: string;
+    /**
+     * Hand the body region's layout to its child instead of scrolling+padding
+     * it here. The body becomes a bare flex column (no padding, no scroll) so a
+     * child that owns its own scrollable area and pinned dock — e.g. FoodStager
+     * — fills it and manages both. Default keeps the padded, scrollable body.
+     */
+    flushBody?: boolean;
+    /**
+     * Raise this sheet a layer above another sheet it is opened over. A default
+     * sheet sits at 1700/1701 (backdrop/content); an elevated one at 1800/1801,
+     * so its backdrop dims — and its content floats above — a parent sheet's
+     * card. The food amount/add-ingredient sheets set this, as they open over
+     * the recipe/instantiation sheet.
+     */
+    elevated?: boolean;
   } = $props();
+
+  // Backdrop stacking. The default (1700, one below the content's CSS 1701)
+  // raises the sheet over the app's dialog layer; an elevated sheet lifts both
+  // a layer so it clears another sheet it is opened over (its content z is the
+  // inline override below — the CSS 1701 base stays the single source).
+  let overlayZ = $derived(elevated ? 1800 : 1700);
 </script>
 
 <Modal
   bind:open={isOpen}
+  {onClose}
   overlayBg="rgba(0, 0, 0, 0.4)"
   overlayBlur="blur(2px)"
-  overlayZ={1700}
+  {overlayZ}
   {title}
 >
   {#snippet children({ props, close })}
-    <div {...props} class="bottom-sheet-content">
+    <div
+      {...props}
+      class="bottom-sheet-content {className}"
+      style:z-index={elevated ? 1801 : null}
+    >
       <div class="bottom-sheet-handle-bar">
         <div class="drag-handle"></div>
       </div>
 
       <div class="bottom-sheet-header">
+        {#if onBack}
+          <button class="back-btn" onclick={onBack} aria-label={backLabel}
+            >‹</button
+          >
+        {/if}
         <h2>{title}</h2>
         <button class="close-btn" onclick={close} aria-label="Close"
           >&times;</button
         >
       </div>
 
-      <div class="bottom-sheet-body">
+      <div class="bottom-sheet-body" class:flush={flushBody}>
         {@render body?.()}
       </div>
 
@@ -63,8 +117,8 @@
      other half: an open bits-ui dialog sets `pointer-events: none` on <body>,
      which a nested sheet would otherwise inherit, leaving its buttons visually
      present but click-through. Absorbing both here means callers get correct
-     over-dialog behaviour for free. (The hand-rolled food sheets that stack
-     higher still — 1700/1800 — will fold onto this primitive later; ADR-0027.) */
+     over-dialog behaviour for free — the food sheets fold onto this rather than
+     re-deriving the fix (ADR-0027, ADR-0028). */
   .bottom-sheet-content {
     position: fixed;
     bottom: 0;
@@ -127,15 +181,39 @@
     transform: scale(1.1);
   }
 
+  /* Leading back affordance — mirrors the food sheets' hand-rolled header
+     back control ("‹"). Only rendered when a caller passes `onBack`. */
+  .back-btn {
+    background: none;
+    border: none;
+    color: #000;
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .back-btn:active {
+    transform: scale(0.9);
+  }
+
   .bottom-sheet-body {
     flex: 1;
     overflow-y: auto;
     padding: var(--space-m);
   }
 
+  /* Flush body: the child owns its own scroll region and dock (e.g. FoodStager),
+     so drop this region's padding and scroll and let it fill as a flex column. */
+  .bottom-sheet-body.flush {
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
   /* Pinned dock: sits below the body, never scrolls. Mirrors the hand-rolled
-     `.dock` / `.foot` chrome in the food sheets so those can later fold onto
-     this primitive. */
+     `.dock` / `.foot` chrome the food sheets used before folding onto this. */
   .bottom-sheet-footer {
     flex-shrink: 0;
     border-top: 2px solid #000;

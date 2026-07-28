@@ -691,9 +691,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // Open the add-ingredient sheet from the recipe builder.
     await page.locator("#add-ingredient-btn").click();
-    const addSheet = page.locator(
-      '.sheet:has(> header h2:text-is("Add ingredient"))'
-    );
+    const addSheet = page.locator(".add-ingredient-sheet");
     await expect(addSheet).toBeVisible();
 
     // The header back button (aria-label "Cancel" before a food is staged)
@@ -717,9 +715,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // Open the add-ingredient sheet and stage a food via search.
     await page.locator("#add-ingredient-btn").click();
-    const addSheet = page.locator(
-      '.sheet:has(> header h2:text-is("Add ingredient"))'
-    );
+    const addSheet = page.locator(".add-ingredient-sheet");
     // Stage a food NOT already in the recipe (the seed has oats + banana).
     await addSheet.locator("#ai-search").fill("urad");
     await addSheet
@@ -763,9 +759,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // is entity-keyed, so this used to mint a duplicate key and abort the render:
     // the sheet stayed open and the add was silently dropped.
     await page.locator("#add-ingredient-btn").click();
-    const addSheet = page.locator(
-      '.sheet:has(> header h2:text-is("Add ingredient"))'
-    );
+    const addSheet = page.locator(".add-ingredient-sheet");
     await addSheet.locator("#ai-search").fill("oats");
     await addSheet
       .locator(".result-item-btn", { hasText: "Mock Oats" })
@@ -887,9 +881,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     grams: string
   ) {
     await page.locator("#add-ingredient-btn").click();
-    const addSheet = page.locator(
-      '.sheet:has(> header h2:text-is("Add ingredient"))'
-    );
+    const addSheet = page.locator(".add-ingredient-sheet");
     await addSheet.locator("#ai-search").fill(query);
     await addSheet.locator(".result-item-btn", { hasText: resultName }).click();
     await addSheet.getByLabel("Quantity in grams").fill(grams);

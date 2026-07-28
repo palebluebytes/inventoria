@@ -15,7 +15,7 @@
     type RecipeIngredient,
   } from "../../food/recipe-ingredient";
   import { sanitizeYield } from "../../food/recipe-nutrition";
-  import Modal from "../../ui/Modal.svelte";
+  import BottomSheet from "../../ui/BottomSheet.svelte";
   import Alert from "../../ui/Alert.svelte";
   import IngredientListEditor from "./IngredientListEditor.svelte";
 
@@ -238,182 +238,117 @@
   ];
 </script>
 
-<Modal {onClose} title={heading}>
-  {#snippet children({ props, close })}
-    <div {...props} class="sheet">
-      <header class="head">
-        <span class="hbtn" aria-hidden="true"></span>
-        <h2>{heading}</h2>
-        <button class="hbtn x" onclick={close} aria-label="Close">✕</button>
-      </header>
+<BottomSheet isOpen title={heading} {onClose}>
+  {#if !ready}
+    <p class="loading">Loading recipe…</p>
+  {:else}
+    <label class="fl" for="recipe-name">Name</label>
+    <input
+      id="recipe-name"
+      class="tin big"
+      placeholder="e.g. Overnight oats"
+      bind:value={recipeName}
+    />
 
-      <div class="body">
-        {#if !ready}
-          <p class="loading">Loading recipe…</p>
-        {:else}
-          <label class="fl" for="recipe-name">Name</label>
-          <input
-            id="recipe-name"
-            class="tin big"
-            placeholder="e.g. Overnight oats"
-            bind:value={recipeName}
-          />
+    <IngredientListEditor bind:ingredients bind:recipeYield />
 
-          <IngredientListEditor bind:ingredients bind:recipeYield />
-
-          <div class="sections">
-            {#each SECTIONS as s (s.key)}
-              <div class="section" class:open={open[s.key]}>
-                <button
-                  class="sec-head"
-                  data-section={s.key}
-                  aria-expanded={open[s.key]}
-                  onclick={() => toggleSection(s.key)}
-                >
-                  <span class="chev">{open[s.key] ? "▾" : "▸"}</span>
-                  <span class="sec-title">{s.label}</span>
-                  {#if s.filled()}<span class="dot" title="has content"
-                    ></span>{/if}
-                </button>
-                {#if open[s.key]}
-                  <div class="sec-body">
-                    {#if s.key === "source"}
+    <div class="sections">
+      {#each SECTIONS as s (s.key)}
+        <div class="section" class:open={open[s.key]}>
+          <button
+            class="sec-head"
+            data-section={s.key}
+            aria-expanded={open[s.key]}
+            onclick={() => toggleSection(s.key)}
+          >
+            <span class="chev">{open[s.key] ? "▾" : "▸"}</span>
+            <span class="sec-title">{s.label}</span>
+            {#if s.filled()}<span class="dot" title="has content"></span>{/if}
+          </button>
+          {#if open[s.key]}
+            <div class="sec-body">
+              {#if s.key === "source"}
+                <input
+                  class="tin"
+                  placeholder="Link or where it's from…"
+                  bind:value={source}
+                />
+              {:else if s.key === "notes"}
+                <textarea
+                  class="tarea"
+                  rows="3"
+                  placeholder="Any notes…"
+                  bind:value={notes}
+                ></textarea>
+              {:else if s.key === "steps"}
+                <ol class="steps">
+                  {#each steps as step, i (step.id)}
+                    <li>
+                      <span class="snum">{i + 1}</span>
                       <input
-                        class="tin"
-                        placeholder="Link or where it's from…"
-                        bind:value={source}
+                        class="sin recipe-step"
+                        placeholder="Describe step {i + 1}…"
+                        bind:value={step.text}
                       />
-                    {:else if s.key === "notes"}
-                      <textarea
-                        class="tarea"
-                        rows="3"
-                        placeholder="Any notes…"
-                        bind:value={notes}
-                      ></textarea>
-                    {:else if s.key === "steps"}
-                      <ol class="steps">
-                        {#each steps as step, i (step.id)}
-                          <li>
-                            <span class="snum">{i + 1}</span>
-                            <input
-                              class="sin recipe-step"
-                              placeholder="Describe step {i + 1}…"
-                              bind:value={step.text}
-                            />
-                            <button
-                              class="srm"
-                              onclick={() => removeStep(step.id)}
-                              aria-label="Remove step {i + 1}">✕</button
-                            >
-                          </li>
-                        {/each}
-                      </ol>
                       <button
-                        class="add-step"
-                        id="add-step-btn"
-                        onclick={addStep}>+ Add step</button
+                        class="srm"
+                        onclick={() => removeStep(step.id)}
+                        aria-label="Remove step {i + 1}">✕</button
                       >
-                    {:else}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        class="hidden-file"
-                        bind:this={fileInput}
-                        onchange={onFile}
-                      />
-                      {#if image}
-                        <div class="img-prev">
-                          <img src={image} alt="Recipe" />
-                          <button
-                            class="change"
-                            onclick={() => fileInput?.click()}>Change</button
-                          >
-                        </div>
-                      {:else}
-                        <button class="photo" onclick={() => fileInput?.click()}
-                          >📷 Add image</button
-                        >
-                      {/if}
-                    {/if}
+                    </li>
+                  {/each}
+                </ol>
+                <button class="add-step" id="add-step-btn" onclick={addStep}
+                  >+ Add step</button
+                >
+              {:else}
+                <input
+                  type="file"
+                  accept="image/*"
+                  class="hidden-file"
+                  bind:this={fileInput}
+                  onchange={onFile}
+                />
+                {#if image}
+                  <div class="img-prev">
+                    <img src={image} alt="Recipe" />
+                    <button class="change" onclick={() => fileInput?.click()}
+                      >Change</button
+                    >
                   </div>
+                {:else}
+                  <button class="photo" onclick={() => fileInput?.click()}
+                    >📷 Add image</button
+                  >
                 {/if}
-              </div>
-            {/each}
-          </div>
-        {/if}
-
-        {#if status === "error"}
-          <div class="err"><Alert variant="error">{error}</Alert></div>
-        {/if}
-      </div>
-
-      <div class="foot">
-        <button
-          class="save"
-          id="save-recipe-btn"
-          disabled={!ready ||
-            !recipeName.trim() ||
-            ingredients.length === 0 ||
-            status === "loading"}
-          onclick={handleSave}
-        >
-          {status === "loading" ? "Saving…" : saveLabel}
-        </button>
-      </div>
+              {/if}
+            </div>
+          {/if}
+        </div>
+      {/each}
     </div>
+  {/if}
+
+  {#if status === "error"}
+    <div class="err"><Alert variant="error">{error}</Alert></div>
+  {/if}
+
+  {#snippet footer()}
+    <button
+      class="save"
+      id="save-recipe-btn"
+      disabled={!ready ||
+        !recipeName.trim() ||
+        ingredients.length === 0 ||
+        status === "loading"}
+      onclick={handleSave}
+    >
+      {status === "loading" ? "Saving…" : saveLabel}
+    </button>
   {/snippet}
-</Modal>
+</BottomSheet>
 
 <style>
-  .sheet {
-    position: fixed;
-    inset: 0;
-    z-index: 1600;
-    display: flex;
-    flex-direction: column;
-    background: #fff;
-    animation: up 0.24s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  @keyframes up {
-    from {
-      transform: translateY(6%);
-      opacity: 0.6;
-    }
-  }
-  .head {
-    display: flex;
-    align-items: center;
-    padding: var(--space-2xs) var(--space-s);
-    border-bottom: 2px solid #000;
-  }
-  .head h2 {
-    flex: 1;
-    text-align: center;
-    font-size: var(--step-0);
-    font-weight: 700;
-    text-transform: uppercase;
-  }
-  .hbtn {
-    flex-shrink: 0;
-    width: 2.75rem;
-    height: 2.75rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: none;
-    border: none;
-    font-weight: 700;
-  }
-  .hbtn.x {
-    cursor: pointer;
-    font-size: var(--step-0);
-  }
-
-  .body {
-    flex: 1;
-    overflow-y: auto;
-    padding: var(--space-s);
-  }
   .loading {
     color: var(--text-muted);
     padding: var(--space-l) 0;
@@ -573,12 +508,6 @@
 
   .err {
     margin-top: var(--space-s);
-  }
-  .foot {
-    border-top: 2px solid #000;
-    padding: var(--space-s);
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-s));
-    background: #fafafa;
   }
   .save {
     width: 100%;

@@ -11,6 +11,7 @@
     ChooseOutcome,
     PrimaryLabelContext,
   } from "../../food/food-staging";
+  import BottomSheet from "../../ui/BottomSheet.svelte";
   import FoodStager from "./FoodStager.svelte";
 
   // Add an ingredient to a recipe using the shared FoodStager (issue #16) — the
@@ -19,6 +20,11 @@
   // the food was taken: a same-twin re-add at an incompatible unit is blocked
   // (issue #14), and the sheet stays open showing the reason instead of dropping
   // the tap silently.
+  //
+  // Raised over the recipe/instantiation dialog: the fixed sheet, its own
+  // backdrop, and the over-dialog pointer-events fix all come from the shared
+  // BottomSheet primitive now (ADR-0027/0028) — this sheet only composes the
+  // header back affordance and the FoodStager body.
   let {
     onAdd,
     onClose,
@@ -58,21 +64,16 @@
   }
 </script>
 
-<div class="sheet">
-  <header class="head">
-    {#if staged}
-      <button
-        class="hbtn back"
-        onclick={() => (staged = null)}
-        aria-label="Back">‹</button
-      >
-    {:else}
-      <button class="hbtn back" onclick={onClose} aria-label="Cancel">‹</button>
-    {/if}
-    <h2>Add ingredient</h2>
-    <button class="hbtn x" onclick={onClose} aria-label="Close">✕</button>
-  </header>
-
+<BottomSheet
+  isOpen
+  title="Add ingredient"
+  class="add-ingredient-sheet"
+  flushBody
+  elevated
+  {onClose}
+  onBack={staged ? () => (staged = null) : onClose}
+  backLabel={staged ? "Back" : "Cancel"}
+>
   <FoodStager
     bind:staged
     ids={{
@@ -88,56 +89,4 @@
     onChoose={handleChoose}
     {primaryLabel}
   />
-</div>
-
-<style>
-  .sheet {
-    position: fixed;
-    inset: 0;
-    z-index: 1700;
-    display: flex;
-    flex-direction: column;
-    background: #fff;
-    animation: up 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    /* This overlay is a sibling of the recipe dialog, not a bits-ui dialog
-       itself. While that dialog is open bits-ui sets `pointer-events: none` on
-       <body>, which this sheet would otherwise inherit — making its buttons
-       visually present but click-through (the back/close taps fell through to
-       the recipe content underneath). Re-enable pointer events for the sheet. */
-    pointer-events: auto;
-  }
-  @keyframes up {
-    from {
-      transform: translateY(6%);
-      opacity: 0.6;
-    }
-  }
-  .head {
-    display: flex;
-    align-items: center;
-    padding: var(--space-2xs) var(--space-s);
-    border-bottom: 2px solid #000;
-  }
-  .head h2 {
-    flex: 1;
-    text-align: center;
-    font-size: var(--step-0);
-    font-weight: 700;
-    text-transform: uppercase;
-  }
-  .hbtn {
-    flex-shrink: 0;
-    width: 2.75rem;
-    height: 2.75rem;
-    background: none;
-    border: none;
-    font-weight: 700;
-    cursor: pointer;
-  }
-  .hbtn.back {
-    font-size: var(--step-2);
-  }
-  .hbtn.x {
-    font-size: var(--step-0);
-  }
-</style>
+</BottomSheet>

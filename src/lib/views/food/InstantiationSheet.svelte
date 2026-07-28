@@ -19,7 +19,7 @@
     sanitizeYield,
   } from "../../food/recipe-nutrition";
   import { round2 } from "../../food/nutrition";
-  import Modal from "../../ui/Modal.svelte";
+  import BottomSheet from "../../ui/BottomSheet.svelte";
   import Alert from "../../ui/Alert.svelte";
   import IngredientListEditor from "./IngredientListEditor.svelte";
 
@@ -157,97 +157,37 @@
   }
 </script>
 
-<Modal {onClose} title={edit ? `Correct ${title}` : `Log ${title}`}>
-  {#snippet children({ props, close })}
-    <div {...props} class="sheet">
-      <header class="head">
-        <span class="hbtn" aria-hidden="true"></span>
-        <h2>{edit ? "Correct" : "Log recipe"}</h2>
-        <button class="hbtn x" onclick={close} aria-label="Close">✕</button>
-      </header>
+<BottomSheet isOpen title={edit ? "Correct" : "Log recipe"} {onClose}>
+  <p class="rname" data-testid="instantiation-name">{title}</p>
+  {#if ready}
+    <IngredientListEditor bind:ingredients bind:recipeYield />
+  {:else}
+    <p class="loading">Loading recipe…</p>
+  {/if}
 
-      <div class="body">
-        <p class="rname" data-testid="instantiation-name">{title}</p>
-        {#if ready}
-          <IngredientListEditor bind:ingredients bind:recipeYield />
-        {:else}
-          <p class="loading">Loading recipe…</p>
-        {/if}
+  {#if status === "error"}
+    <div class="err"><Alert variant="error">{error}</Alert></div>
+  {/if}
 
-        {#if status === "error"}
-          <div class="err"><Alert variant="error">{error}</Alert></div>
-        {/if}
-      </div>
-
-      <div class="foot">
-        <button
-          class="save"
-          id="save-instantiation-btn"
-          disabled={!ready || ingredients.length === 0 || status === "loading"}
-          onclick={handleSave}
-        >
-          {#if status === "loading"}
-            Saving…
-          {:else if edit}
-            Save changes
-          {:else}
-            Log {round2(perServing.calories)} kcal
-          {/if}
-        </button>
-      </div>
-    </div>
+  {#snippet footer()}
+    <button
+      class="save"
+      id="save-instantiation-btn"
+      disabled={!ready || ingredients.length === 0 || status === "loading"}
+      onclick={handleSave}
+    >
+      {#if status === "loading"}
+        Saving…
+      {:else if edit}
+        Save changes
+      {:else}
+        Log {round2(perServing.calories)} kcal
+      {/if}
+    </button>
   {/snippet}
-</Modal>
+</BottomSheet>
 
 <style>
-  .sheet {
-    position: fixed;
-    inset: 0;
-    z-index: 1600;
-    display: flex;
-    flex-direction: column;
-    background: #fff;
-    animation: up 0.24s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  @keyframes up {
-    from {
-      transform: translateY(6%);
-      opacity: 0.6;
-    }
-  }
-  .head {
-    display: flex;
-    align-items: center;
-    padding: var(--space-2xs) var(--space-s);
-    border-bottom: 2px solid #000;
-  }
-  .head h2 {
-    flex: 1;
-    text-align: center;
-    font-size: var(--step-0);
-    font-weight: 700;
-    text-transform: uppercase;
-  }
-  .hbtn {
-    flex-shrink: 0;
-    width: 2.75rem;
-    height: 2.75rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: none;
-    border: none;
-    font-weight: 700;
-  }
-  .hbtn.x {
-    cursor: pointer;
-    font-size: var(--step-0);
-  }
-  .body {
-    flex: 1;
-    overflow-y: auto;
-    padding: var(--space-s);
-  }
   .rname {
     font-size: var(--step-1);
     font-weight: 800;
@@ -260,12 +200,6 @@
   }
   .err {
     margin-top: var(--space-s);
-  }
-  .foot {
-    border-top: 2px solid #000;
-    padding: var(--space-s);
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-s));
-    background: #fafafa;
   }
   .save {
     width: 100%;

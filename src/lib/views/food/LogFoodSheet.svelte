@@ -22,7 +22,7 @@
     PrimaryLabelContext,
   } from "../../food/food-staging";
 
-  import Modal from "../../ui/Modal.svelte";
+  import BottomSheet from "../../ui/BottomSheet.svelte";
   import FoodStager from "./FoodStager.svelte";
 
   // A single sheet for logging food into one meal. Opens directly on "+ Add"
@@ -184,156 +184,78 @@
   }
 </script>
 
-<Modal {onClose} title={edit ? `Edit ${meal_type}` : `Log ${meal_type}`}>
-  {#snippet children({ props, close })}
-    <div {...props} class="sheet">
-      <div class="grab"></div>
-      <header class="head">
-        {#if staged && !edit}
-          <button
-            class="hbtn back"
-            onclick={() => (staged = null)}
-            aria-label="Change food">‹</button
-          >
+<BottomSheet
+  isOpen
+  title={edit ? `Edit ${meal_type}` : meal_type}
+  flushBody
+  {onClose}
+  onBack={staged && !edit ? () => (staged = null) : undefined}
+  backLabel="Change food"
+>
+  <FoodStager
+    bind:staged
+    {seed}
+    allowPhoto
+    lockMethods={!!edit}
+    primaryDisabled={!dbReady}
+    ids={{
+      search: "food-search-input",
+      barcode: "barcode-input",
+      primary: "log-food-btn",
+      customName: "custom-name",
+      customCal: "custom-cal",
+      customProt: "custom-prot",
+      customFat: "custom-fat",
+      customCarb: "custom-carb",
+    }}
+    extraTabs={onPickRecipe
+      ? [{ id: "recipe", icon: "🍲", label: "Recipe" }]
+      : []}
+    onChoose={handleChoose}
+    {primaryLabel}
+  >
+    {#snippet tabContent(tab)}
+      {#if tab === "recipe"}
+        <button
+          type="button"
+          class="recipe-new"
+          id="define-recipe-btn"
+          onclick={() => onDefineRecipe?.()}>＋ New recipe</button
+        >
+        {#if recipes.length === 0}
+          <p class="hint">
+            No saved recipes yet. Create one above, or build one by selecting
+            logged foods on the dashboard.
+          </p>
         {:else}
-          <span class="hbtn" aria-hidden="true"></span>
+          <p class="fl">Your recipes</p>
+          <ul class="recipe-list">
+            {#each recipes as r (r.entity)}
+              <li>
+                <button
+                  type="button"
+                  class="recipe-pick"
+                  onclick={() => onPickRecipe?.(r.entity)}
+                >
+                  <span class="recipe-pick-name">{r.name}</span>
+                  <span class="recipe-pick-go" aria-hidden="true">›</span>
+                </button>
+                <button
+                  type="button"
+                  class="recipe-edit"
+                  onclick={() => onEditRecipe?.(r.entity)}
+                  aria-label="Edit {r.name}">Edit</button
+                >
+              </li>
+            {/each}
+          </ul>
         {/if}
-        <h2>{edit ? `Edit ${meal_type}` : meal_type}</h2>
-        <button class="hbtn x" onclick={close} aria-label="Close">✕</button>
-      </header>
-
-      <FoodStager
-        bind:staged
-        {seed}
-        allowPhoto
-        lockMethods={!!edit}
-        primaryDisabled={!dbReady}
-        ids={{
-          search: "food-search-input",
-          barcode: "barcode-input",
-          primary: "log-food-btn",
-          customName: "custom-name",
-          customCal: "custom-cal",
-          customProt: "custom-prot",
-          customFat: "custom-fat",
-          customCarb: "custom-carb",
-        }}
-        extraTabs={onPickRecipe
-          ? [{ id: "recipe", icon: "🍲", label: "Recipe" }]
-          : []}
-        onChoose={handleChoose}
-        {primaryLabel}
-      >
-        {#snippet tabContent(tab)}
-          {#if tab === "recipe"}
-            <button
-              type="button"
-              class="recipe-new"
-              id="define-recipe-btn"
-              onclick={() => onDefineRecipe?.()}>＋ New recipe</button
-            >
-            {#if recipes.length === 0}
-              <p class="hint">
-                No saved recipes yet. Create one above, or build one by
-                selecting logged foods on the dashboard.
-              </p>
-            {:else}
-              <p class="fl">Your recipes</p>
-              <ul class="recipe-list">
-                {#each recipes as r (r.entity)}
-                  <li>
-                    <button
-                      type="button"
-                      class="recipe-pick"
-                      onclick={() => onPickRecipe?.(r.entity)}
-                    >
-                      <span class="recipe-pick-name">{r.name}</span>
-                      <span class="recipe-pick-go" aria-hidden="true">›</span>
-                    </button>
-                    <button
-                      type="button"
-                      class="recipe-edit"
-                      onclick={() => onEditRecipe?.(r.entity)}
-                      aria-label="Edit {r.name}">Edit</button
-                    >
-                  </li>
-                {/each}
-              </ul>
-            {/if}
-          {/if}
-        {/snippet}
-      </FoodStager>
-    </div>
-  {/snippet}
-</Modal>
+      {/if}
+    {/snippet}
+  </FoodStager>
+</BottomSheet>
 
 <style>
-  .sheet {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 1000;
-    display: flex;
-    flex-direction: column;
-    height: 92svh;
-    background: #fff;
-    border-top: 3px solid #000;
-    box-shadow: 0 -8px 0 #000;
-    animation: up 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  @keyframes up {
-    from {
-      transform: translateY(100%);
-    }
-  }
-  .grab {
-    width: 44px;
-    height: 5px;
-    background: #000;
-    margin: 0.5rem auto;
-  }
-
-  .head {
-    display: flex;
-    align-items: center;
-    padding: var(--space-2xs) var(--space-s);
-    border-bottom: 2px solid #000;
-  }
-  .head h2 {
-    flex: 1;
-    text-align: center;
-    font-size: var(--step-0);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-  }
-  .hbtn {
-    flex-shrink: 0;
-    width: 2.75rem;
-    height: 2.75rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: none;
-    border: none;
-    font-weight: 700;
-    line-height: 1;
-  }
-  .hbtn.back,
-  .hbtn.x {
-    cursor: pointer;
-  }
-  .hbtn.x {
-    font-size: var(--step-0);
-  }
-  .hbtn.back {
-    font-size: var(--step-2);
-  }
-  .hbtn.back:active {
-    transform: scale(0.9);
-  }
-
   /* Recipe browser (the Recipe method tab), rendered into the stager via the
      tabContent snippet — `.hint` / `.fl` are shared with the stager's copy. */
   .hint {
