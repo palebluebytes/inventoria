@@ -78,6 +78,24 @@ headline, a new atomic `event/instantiation` blob:
   resilience); `ref` is kept but soft (may dangle) for re-log / save-as-template.
 - **`event/metrics` (headline) stays** as-is, byte-compatible with the dashboard
   aggregation path; it is the cached Σrows ÷ yield.
+- **Rows are the batch as cooked; the headline is per serving.** Each frozen row
+  carries its ingredient's _batch_ macros — what went in the pot — so the rows
+  sum to the batch total, and the headline is that total ÷ yield. The exact
+  invariant is therefore `headline == Σrows ÷ yield`, which collapses to "the
+  rows sum to the headline" only at the default `yield = 1`. Issues #10 (story
+  12, "the breakdown always adds up to its logged total") and #11 ("per-row
+  macros sum to its headline") state that yield-1 special case as if it were the
+  general rule; against a `yield > 1` the invariant is the divided form above.
+  Dividing the _rows_ by yield is deliberately rejected: it would re-round each
+  row and stop it matching the `amount` the user actually logged (story 11,
+  "record exactly what I made — its ingredients, amounts, yield"). Editing
+  surfaces spell the basis out — the instantiation editor labels its log button
+  "… kcal / serving" whenever yield > 1 — so the batch-rows vs per-serving-total
+  gap never reads as an arithmetic error. The yield _input_ is currently hidden
+  in the UI (multi-serving isn't ready to expose; ADR-0021 scoped it out), so
+  newly-created recipes and instantiations are single-serving and the two forms
+  coincide; the divided invariant and the "/ serving" label remain for any seeded
+  or legacy `yield > 1` and for when the control returns.
 - **Editing is by supersession, like a logged food** (`LogFoodSheet`,
   retract-and-replace per ADR-0008): open the instantiation, tweak, save; a new
   event is appended with a freshly-derived snapshot and the old is retracted with
