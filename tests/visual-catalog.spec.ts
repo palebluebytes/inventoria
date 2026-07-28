@@ -211,10 +211,14 @@ test.describe("Visual Catalog Generator", () => {
         .sidebar {
           position: static !important;
         }
-        .add-screen {
+        .add-habit-sheet {
           position: absolute !important;
           height: auto !important;
+          max-height: none !important;
           min-height: 100% !important;
+          overflow-y: visible !important;
+        }
+        .add-habit-sheet .bottom-sheet-body {
           overflow-y: visible !important;
         }
       `,
@@ -292,7 +296,7 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator(".segment-btn", { hasText: "DAILY" }).click();
     await takeFullPageScreenshot(page, "add-habit-screen.png");
     await page.locator(".btn-submit-brutal").click();
-    await expect(page.locator(".add-screen")).not.toBeVisible();
+    await expect(page.locator(".add-habit-sheet")).not.toBeVisible();
 
     // 3.2. General Daily - Unlogged (Morning Meditation)
     await page
@@ -303,7 +307,7 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator(".category-chip", { hasText: "MIND" }).click();
     await page.locator(".segment-btn", { hasText: "DAILY" }).click();
     await page.locator(".btn-submit-brutal").click();
-    await expect(page.locator(".add-screen")).not.toBeVisible();
+    await expect(page.locator(".add-habit-sheet")).not.toBeVisible();
 
     // 3.3. Daily with Multiple Reps - Logged 1/3 (Pushups Daily)
     await page
@@ -324,7 +328,7 @@ test.describe("Visual Catalog Generator", () => {
       .locator("button", { hasText: "+" })
       .click();
     await page.locator(".btn-submit-brutal").click();
-    await expect(page.locator(".add-screen")).not.toBeVisible();
+    await expect(page.locator(".add-habit-sheet")).not.toBeVisible();
 
     // 3.4. Daily with Specific Subtargets (Hydration Routine)
     await page
@@ -342,7 +346,7 @@ test.describe("Visual Catalog Generator", () => {
       .locator("input")
       .fill("22:00");
     await page.locator(".btn-submit-brutal").click();
-    await expect(page.locator(".add-screen")).not.toBeVisible();
+    await expect(page.locator(".add-habit-sheet")).not.toBeVisible();
 
     // 3.5. Weekly Days - Active (Gym Workout)
     await page
@@ -353,7 +357,7 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator(".category-chip", { hasText: "FITNESS" }).click();
     await page.locator(".segment-btn", { hasText: "SPECIFIC DAYS" }).click();
     await page.locator(".btn-submit-brutal").click();
-    await expect(page.locator(".add-screen")).not.toBeVisible();
+    await expect(page.locator(".add-habit-sheet")).not.toBeVisible();
 
     // 3.6. Weekly Days - OFF Today (Weekend Hike)
     await page
@@ -365,7 +369,7 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator(".segment-btn", { hasText: "SPECIFIC DAYS" }).click();
     await page.locator(".day-btn-brutal", { hasText: "THU" }).click(); // Deselect Thursday to make it OFF today
     await page.locator(".btn-submit-brutal").click();
-    await expect(page.locator(".add-screen")).not.toBeVisible();
+    await expect(page.locator(".add-habit-sheet")).not.toBeVisible();
 
     // 3.7. Weekly Flexible - Logged 1/3 (Read 20 Pages)
     await page
@@ -376,7 +380,7 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator(".category-chip", { hasText: "PRODUCTIVITY" }).click();
     await page.locator(".segment-btn", { hasText: "FLEXIBLE" }).click();
     await page.locator(".btn-submit-brutal").click();
-    await expect(page.locator(".add-screen")).not.toBeVisible();
+    await expect(page.locator(".add-habit-sheet")).not.toBeVisible();
 
     // Helper to add calendar events
     async function addCalendarEvent(payload: {
@@ -454,9 +458,9 @@ test.describe("Visual Catalog Generator", () => {
         }
       }
 
-      await page.locator(".screen-title").click();
+      await page.locator(".add-event-sheet .bottom-sheet-header h2").click();
       await page.locator(".save-btn").click();
-      await expect(page.locator(".add-event-screen")).not.toBeVisible();
+      await expect(page.locator(".add-event-sheet")).not.toBeVisible();
     }
 
     // Add overlapping events, block durations, untimed events

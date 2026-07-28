@@ -6,6 +6,7 @@
   import { onMount } from "svelte";
   import { slide } from "svelte/transition";
   import ScheduleRuleEditor from "./ScheduleRuleEditor.svelte";
+  import BottomSheet from "../../ui/BottomSheet.svelte";
 
   let {
     dbReady,
@@ -146,20 +147,8 @@
   }
 </script>
 
-<div class="add-screen">
-  <div class="add-screen-header">
-    <button
-      type="button"
-      class="close-btn"
-      onclick={onClose}
-      aria-label="Close Screen"
-    >
-      ✕ CLOSE
-    </button>
-    <div class="header-blueprint-title">NEW BLUEPRINT</div>
-  </div>
-
-  <main class="form-container-scrollable">
+<BottomSheet isOpen title="New blueprint" {onClose} class="add-habit-sheet">
+  <div class="habit-fields">
     <!-- Hero Habit Name Input -->
     <div class="hero-name-section">
       <input
@@ -293,10 +282,9 @@
         ERROR: {habit_error.toUpperCase()}
       </div>
     {/if}
-  </main>
+  </div>
 
-  <!-- Sticky Action Footer -->
-  <div class="action-footer-brutal">
+  {#snippet footer()}
     <button
       onclick={addHabit}
       disabled={habit_status === "loading" ||
@@ -311,80 +299,17 @@
         SAVE BLUEPRINT
       {/if}
     </button>
-  </div>
-</div>
+  {/snippet}
+</BottomSheet>
 
 <style>
-  .add-screen {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: var(--bg-base);
-    z-index: 1000;
-    display: flex;
-    flex-direction: column;
-    height: 100svh;
-    overflow: hidden;
-    animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  @keyframes slideUp {
-    from {
-      transform: translateY(100%);
-    }
-    to {
-      transform: translateY(0);
-    }
-  }
-
-  .add-screen-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 2px solid #000;
-    background: #000;
-    color: #fff;
-    padding: var(--space-xs) var(--space-m);
-    position: sticky;
-    top: 0;
-    z-index: 10;
-  }
-
-  .close-btn {
-    background: var(--red-bg);
-    color: #fff;
-    border: 2px solid #000;
-    font-family: var(--font-mono);
-    font-size: var(--step-n2);
-    font-weight: 700;
-    cursor: pointer;
-    padding: var(--space-3xs) var(--space-xs);
-  }
-
-  .close-btn:hover {
-    background: #fff;
-    color: #000;
-  }
-
-  .header-blueprint-title {
-    font-family: var(--font-mono);
-    font-size: var(--step-n1);
-    font-weight: 800;
-  }
-
-  .form-container-scrollable {
-    flex: 1;
-    overflow-y: auto;
-    padding: var(--space-m);
+  /* Body content wrapper — the sheet primitive owns the fixed-position chrome,
+     scroll, padding, and max-width; this just stacks the form's cards. */
+  .habit-fields {
     display: flex;
     flex-direction: column;
     gap: var(--space-m);
-    max-width: 600px;
-    margin: 0 auto;
     width: 100%;
-    padding-bottom: var(--space-2xl);
   }
 
   .hero-name-section {
@@ -634,18 +559,6 @@
     font-size: var(--step-n1);
     font-weight: 700;
     box-shadow: 4px 4px 0 #000;
-  }
-
-  /* Sticky Action Footer styling */
-  .action-footer-brutal {
-    position: sticky;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: var(--bg-base);
-    border-top: 2px solid #000;
-    padding: var(--space-s) var(--space-m);
-    z-index: 10;
   }
 
   .btn-submit-brutal {

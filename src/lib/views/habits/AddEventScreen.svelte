@@ -3,6 +3,7 @@
   import { DatePicker } from "bits-ui";
   import { CalendarDate, parseDate } from "@internationalized/date";
   import CalendarBlank from "phosphor-svelte/lib/CalendarBlank";
+  import BottomSheet from "../../ui/BottomSheet.svelte";
 
   let {
     onSave,
@@ -301,67 +302,56 @@
   };
 </script>
 
-<div class="add-event-screen">
-  {#snippet calendarContent()}
-    <DatePicker.Portal>
-      <DatePicker.Content sideOffset={4} align="start" class="bits-calendar">
-        <DatePicker.Calendar class="bits-calendar-wrapper">
-          {#snippet children({ months, weekdays })}
-            <DatePicker.Header class="bits-calendar-header">
-              <DatePicker.PrevButton class="bits-nav-btn"
-                >◀</DatePicker.PrevButton
-              >
-              <DatePicker.Heading class="bits-heading" />
-              <DatePicker.NextButton class="bits-nav-btn"
-                >▶</DatePicker.NextButton
-              >
-            </DatePicker.Header>
-            {#each months as month}
-              <DatePicker.Grid class="bits-grid">
-                <DatePicker.GridHead>
-                  <DatePicker.GridRow class="bits-weekdays">
-                    {#each weekdays as weekday}
-                      <DatePicker.HeadCell class="bits-weekday-cell">
-                        {weekday.slice(0, 2)}
-                      </DatePicker.HeadCell>
+{#snippet calendarContent()}
+  <DatePicker.Portal>
+    <DatePicker.Content sideOffset={4} align="start" class="bits-calendar">
+      <DatePicker.Calendar class="bits-calendar-wrapper">
+        {#snippet children({ months, weekdays })}
+          <DatePicker.Header class="bits-calendar-header">
+            <DatePicker.PrevButton class="bits-nav-btn">◀</DatePicker.PrevButton
+            >
+            <DatePicker.Heading class="bits-heading" />
+            <DatePicker.NextButton class="bits-nav-btn">▶</DatePicker.NextButton
+            >
+          </DatePicker.Header>
+          {#each months as month}
+            <DatePicker.Grid class="bits-grid">
+              <DatePicker.GridHead>
+                <DatePicker.GridRow class="bits-weekdays">
+                  {#each weekdays as weekday}
+                    <DatePicker.HeadCell class="bits-weekday-cell">
+                      {weekday.slice(0, 2)}
+                    </DatePicker.HeadCell>
+                  {/each}
+                </DatePicker.GridRow>
+              </DatePicker.GridHead>
+              <DatePicker.GridBody>
+                {#each month.weeks as weekDates}
+                  <DatePicker.GridRow class="bits-grid-row">
+                    {#each weekDates as date}
+                      <DatePicker.Cell
+                        {date}
+                        month={month.value}
+                        class="bits-cell"
+                      >
+                        <DatePicker.Day class="bits-day"
+                          >{date.day}</DatePicker.Day
+                        >
+                      </DatePicker.Cell>
                     {/each}
                   </DatePicker.GridRow>
-                </DatePicker.GridHead>
-                <DatePicker.GridBody>
-                  {#each month.weeks as weekDates}
-                    <DatePicker.GridRow class="bits-grid-row">
-                      {#each weekDates as date}
-                        <DatePicker.Cell
-                          {date}
-                          month={month.value}
-                          class="bits-cell"
-                        >
-                          <DatePicker.Day class="bits-day"
-                            >{date.day}</DatePicker.Day
-                          >
-                        </DatePicker.Cell>
-                      {/each}
-                    </DatePicker.GridRow>
-                  {/each}
-                </DatePicker.GridBody>
-              </DatePicker.Grid>
-            {/each}
-          {/snippet}
-        </DatePicker.Calendar>
-      </DatePicker.Content>
-    </DatePicker.Portal>
-  {/snippet}
+                {/each}
+              </DatePicker.GridBody>
+            </DatePicker.Grid>
+          {/each}
+        {/snippet}
+      </DatePicker.Calendar>
+    </DatePicker.Content>
+  </DatePicker.Portal>
+{/snippet}
 
-  <!-- Header -->
-  <div class="screen-header">
-    <button class="close-btn" onclick={onClose} aria-label="Close"
-      >✕ CLOSE</button
-    >
-    <span class="screen-title">NEW EVENT</span>
-    <span></span>
-  </div>
-
-  <div class="screen-body">
+<BottomSheet isOpen title="New event" {onClose} class="add-event-sheet">
+  <div class="event-fields">
     <!-- Title -->
     <div class="field-hero" class:error={titleError}>
       <input
@@ -660,62 +650,23 @@
     </div>
   </div>
 
-  <!-- Footer -->
-  <div class="screen-footer">
+  {#snippet footer()}
     <button class="save-btn" onclick={handleSave} disabled={saving}>
       {saving ? "SAVING..." : "SAVE EVENT"}
     </button>
-  </div>
-</div>
+  {/snippet}
+</BottomSheet>
 
 <style>
-  .add-event-screen {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    background: var(--bg-base);
-    z-index: 100;
-    font-family: var(--font-mono);
-  }
-
-  /* Header */
-  .screen-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: #000;
-    padding: var(--space-s) var(--space-s);
-    flex-shrink: 0;
-  }
-
-  .close-btn {
-    background: var(--red-bg);
-    color: #fff;
-    border: none;
-    font-family: var(--font-mono);
-    font-weight: 700;
-    font-size: var(--step-n2);
-    padding: 4px 10px;
-    cursor: pointer;
-    letter-spacing: 0.05em;
-  }
-
-  .screen-title {
-    color: #fff;
-    font-weight: 700;
-    font-size: var(--step-0);
-    letter-spacing: 0.08em;
-  }
-
-  /* Body */
-  .screen-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: var(--space-s);
+  /* Body content wrapper — the sheet primitive owns the fixed-position chrome,
+     scroll, padding, and max-width. This just stacks the form's cards and keeps
+     the monospace type the old full-screen wrapper set for the whole screen. */
+  .event-fields {
     display: flex;
     flex-direction: column;
     gap: var(--space-s);
+    width: 100%;
+    font-family: var(--font-mono);
   }
 
   /* Hero title */
@@ -1020,14 +971,6 @@
     color: var(--text-muted);
   }
 
-  /* Footer */
-  .screen-footer {
-    padding: var(--space-s);
-    border-top: 2px solid #000;
-    background: var(--bg-base);
-    flex-shrink: 0;
-  }
-
   .save-btn {
     width: 100%;
     background: #000;
@@ -1056,13 +999,22 @@
     box-shadow: 4px 4px 0 #000;
     padding: var(--space-s);
     font-family: var(--font-mono);
-    z-index: 100;
+    /* The picker portals to <body>, a sibling of the sheet, so it must clear the
+       sheet content (z 1701) rather than the old full-screen z 100. It also
+       re-enables pointer events: the open sheet's bits-ui dialog sets
+       `pointer-events: none` on <body>, which this portaled layer would
+       otherwise inherit, leaving the calendar visible but unclickable. */
+    z-index: 1810;
+    pointer-events: auto;
     /* Suppress any background bits-ui adds to the floating element itself */
     color: #000;
   }
-  /* bits-ui wraps Content in a data-bits-* div — reset any inherited bg */
+  /* bits-ui wraps Content in a data-bits-* div — reset any inherited bg, and
+     carry the same over-sheet stacking + pointer-events onto that wrapper. */
   :global([data-bits-date-picker-content]) {
     background: transparent !important;
+    z-index: 1810;
+    pointer-events: auto;
   }
   :global(.bits-calendar-header) {
     display: flex;
