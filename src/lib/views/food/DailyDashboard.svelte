@@ -5,9 +5,11 @@
     type ConsumptionEvent,
   } from "../../stores/calorie.store";
   import { round2 } from "../../food/nutrition";
+  import { parseLoggedQuantity } from "../../food/recipe-ingredient";
   import Card from "../../ui/Card.svelte";
   import Badge from "../../ui/Badge.svelte";
   import Modal from "../../ui/Modal.svelte";
+  import FoodItemRow from "./FoodItemRow.svelte";
   import { longpress } from "../../actions/longpress";
 
   let {
@@ -337,6 +339,7 @@
         <div class="meal-items-list">
           {#each groupedMeals[meal_type] as item}
             {@const isSelected = selectedIds.has(item.id)}
+            {@const qty = parseLoggedQuantity(item.quantity)}
             <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
             <div
               class="meal-item-card"
@@ -352,55 +355,47 @@
               role={selectionActive ? "button" : undefined}
               tabindex={selectionActive ? 0 : undefined}
             >
-              {#if selectionActive}
-                <span
-                  class="select-check"
-                  class:on={isSelected}
-                  aria-hidden="true">{isSelected ? "✓" : ""}</span
-                >
-              {/if}
-              {#if item.photoBase64}
-                <button
-                  type="button"
-                  class="meal-item-thumb-btn"
-                  aria-label="View {item.foodName} photo"
-                  onclick={(e) => {
-                    e.stopPropagation();
-                    if (suppressNextClick) {
-                      suppressNextClick = false;
-                      return;
-                    }
-                    if (selectionActive) onTapItem(item.id);
-                    else previewPhoto = item.photoBase64;
-                  }}
-                >
-                  <img
-                    src={item.photoBase64}
-                    alt={item.foodName}
-                    class="meal-item-thumb"
-                  />
-                </button>
-              {/if}
-              <div class="meal-item-details">
-                <span class="meal-item-name"
-                  >{item.foodName || "Unknown Food"}</span
-                >
-                <span class="meal-item-quantity"
-                  >{item.quantity || "1 serving"}</span
-                >
-              </div>
-              <span class="meal-item-cals">{item.calories} kcal</span>
-              <button
-                type="button"
-                class="meal-item-remove"
-                aria-label="Remove {item.foodName || 'food'}"
-                title="Remove"
-                onpointerdown={(e) => e.stopPropagation()}
-                onclick={(e) => {
-                  e.stopPropagation();
-                  onRemoveItem(item.id);
-                }}>✕</button
+              <FoodItemRow
+                name={item.foodName || "Unknown Food"}
+                amount={qty.amount}
+                unit={qty.unit}
+                calories={Number(item.calories) || 0}
+                selected={isSelected}
+                onRemove={() => onRemoveItem(item.id)}
               >
+                {#snippet lead()}
+                  {#if selectionActive}
+                    <span
+                      class="select-check"
+                      class:on={isSelected}
+                      aria-hidden="true">{isSelected ? "✓" : ""}</span
+                    >
+                  {/if}
+                  {#if item.photoBase64}
+                    <button
+                      type="button"
+                      class="meal-item-thumb-btn"
+                      aria-label="View {item.foodName} photo"
+                      onpointerdown={(e) => e.stopPropagation()}
+                      onclick={(e) => {
+                        e.stopPropagation();
+                        if (suppressNextClick) {
+                          suppressNextClick = false;
+                          return;
+                        }
+                        if (selectionActive) onTapItem(item.id);
+                        else previewPhoto = item.photoBase64;
+                      }}
+                    >
+                      <img
+                        src={item.photoBase64}
+                        alt={item.foodName}
+                        class="meal-item-thumb"
+                      />
+                    </button>
+                  {/if}
+                {/snippet}
+              </FoodItemRow>
             </div>
           {/each}
         </div>
@@ -715,29 +710,13 @@
     flex-direction: column;
     gap: var(--space-xs);
   }
-  .meal-item-card {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: var(--space-s);
-    background: #fff;
-    border: 1px solid #000;
-    border-radius: 0;
-    padding: var(--space-s);
-    transition: background 0.2s;
-  }
-  .meal-item-card:hover {
-    background: rgba(255, 255, 255, 0.04);
-  }
+  /* The card is now a bare interactive wrapper — the bordered row visual and
+     its selected highlight live in the shared FoodItemRow. */
   .meal-item-card.selectable {
     cursor: pointer;
     -webkit-user-select: none;
     user-select: none;
     touch-action: manipulation;
-  }
-  .meal-item-card.selected {
-    background: #ffffe0;
-    box-shadow: 4px 4px 0 #000;
   }
   .select-check {
     flex-shrink: 0;
@@ -772,59 +751,6 @@
   }
   .meal-item-thumb:hover {
     transform: scale(1.05);
-  }
-  .meal-item-details {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-  }
-  .meal-item-name {
-    font-size: var(--step-n1);
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-  .meal-item-quantity {
-    font-size: var(--step-n2);
-    color: var(--text-muted);
-  }
-  /* Borderless ✕ tucked into the card's top-right corner. */
-  .meal-item-remove {
-    position: absolute;
-    top: var(--space-3xs);
-    right: var(--space-3xs);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.5rem;
-    height: 1.5rem;
-    padding: 0;
-    background: none;
-    border: none;
-    color: var(--text-primary);
-    font-size: var(--step-n1);
-    line-height: 1;
-    cursor: pointer;
-    transition:
-      color 0.15s ease,
-      transform 0.1s ease;
-  }
-  .meal-item-remove:hover {
-    color: var(--text-muted);
-  }
-  .meal-item-remove:active {
-    transform: scale(0.85);
-  }
-  .meal-item-remove:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 2px var(--accent);
-  }
-  .meal-item-cals {
-    flex-shrink: 0;
-    /* Sit at the bottom of the card, clear of the ✕ in the top corner. */
-    align-self: flex-end;
-    font-size: var(--step-n1);
-    font-weight: 700;
-    color: var(--text-primary);
   }
 
   /* Photo Modal */

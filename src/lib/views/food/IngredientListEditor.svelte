@@ -14,6 +14,8 @@
   } from "../../food/recipe-nutrition";
   import { round2 } from "../../food/nutrition";
   import AddIngredientSheet from "./AddIngredientSheet.svelte";
+  import IngredientAmountSheet from "./IngredientAmountSheet.svelte";
+  import FoodItemRow from "./FoodItemRow.svelte";
   import MacroPills from "./MacroPills.svelte";
 
   // The shared ingredient-list surface behind both the recipe builder
@@ -35,6 +37,8 @@
   } = $props();
 
   let showAdd = $state(false);
+  // The row whose amount is being edited in the picker sheet, by list index.
+  let editingIndex = $state<number | null>(null);
 
   let yieldNum = $derived(sanitizeYield(recipeYield));
 
@@ -91,36 +95,18 @@
   >
 </div>
 <ul class="ings">
-  {#each ingredients as ing (ing.entity)}
+  {#each ingredients as ing, i (ing.entity)}
     {@const row = rowView(ing)}
-    <li class="recipe-ingredient">
-      <span class="in">
-        <span class="iname">{ing.name}</span>
-        <span class="iqty">
-          <input
-            class="amount-in edit-amount"
-            type="number"
-            inputmode="decimal"
-            min="0"
-            step="any"
-            bind:value={ing.amount}
-            aria-label="Amount of {ing.name}"
-          />
-          <span class="unit"
-            >{ing.unit === "g"
-              ? "g"
-              : row.amount === 1
-                ? "serving"
-                : "servings"}</span
-          >
-          <span class="ikcal">· {round2(row.macros.calories)} kcal</span>
-        </span>
-      </span>
-      <button
-        class="rm remove-ingredient"
-        onclick={() => removeIngredient(ing.entity)}
-        aria-label="Remove {ing.name}">✕</button
-      >
+    <li>
+      <FoodItemRow
+        class="recipe-ingredient"
+        name={ing.name}
+        amount={row.amount}
+        unit={ing.unit}
+        calories={row.macros.calories}
+        onclick={ing.unit === "g" ? () => (editingIndex = i) : undefined}
+        onRemove={() => removeIngredient(ing.entity)}
+      />
     </li>
   {/each}
   {#if ingredients.length === 0}
@@ -157,6 +143,17 @@
   <AddIngredientSheet onAdd={addIngredient} onClose={() => (showAdd = false)} />
 {/if}
 
+{#if editingIndex !== null}
+  <IngredientAmountSheet
+    name={ingredients[editingIndex].name}
+    amount={rowView(ingredients[editingIndex]).amount}
+    onCommit={(amount) => {
+      if (editingIndex !== null) ingredients[editingIndex].amount = amount;
+    }}
+    onClose={() => (editingIndex = null)}
+  />
+{/if}
+
 <style>
   .fl {
     display: block;
@@ -184,56 +181,14 @@
     gap: var(--space-2xs);
     margin-top: var(--space-2xs);
   }
-  .ings li {
-    display: flex;
-    align-items: center;
-    gap: var(--space-s);
-    border: 1px solid #000;
-    padding: var(--space-xs) var(--space-s);
-  }
   .ings li.empty {
+    display: flex;
     justify-content: center;
-    color: var(--text-muted);
-    font-size: var(--step-n2);
-    border-style: dashed;
-  }
-  .in {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-  }
-  .iname {
-    font-weight: 600;
-  }
-  .iqty {
-    display: flex;
     align-items: center;
-    gap: var(--space-3xs);
-    font-size: var(--step-n2);
+    border: 1px dashed #000;
+    padding: var(--space-xs) var(--space-s);
     color: var(--text-muted);
-    margin-top: 2px;
-  }
-  .amount-in {
-    width: 3.75rem;
-    border: 1px solid #000;
-    padding: 2px var(--space-3xs);
-    font-family: inherit;
     font-size: var(--step-n2);
-    font-weight: 700;
-    text-align: right;
-    color: var(--text-primary);
-    background: #fff;
-  }
-  .unit {
-    font-weight: 600;
-  }
-  .rm {
-    background: none;
-    border: none;
-    font-size: var(--step-0);
-    font-weight: 700;
-    cursor: pointer;
   }
   .add {
     width: 100%;

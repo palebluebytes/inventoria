@@ -5,11 +5,13 @@ import { createProjectionStore, createQueryStore } from "./datoms.store";
 import type { ConsumptionEvent } from "../food/consumption-state";
 import {
   nutritionFromMacros,
+  round1,
   PER_SERVING,
   type NutritionInfo,
 } from "../food/nutrition";
 import {
   deriveRecipeNutrition,
+  deriveIngredientMacros,
   type ReferenceIngredient,
 } from "../food/recipe-nutrition";
 import {
@@ -322,6 +324,42 @@ export async function retractConsumptionEvent(
   };
   if (replacedBy) attributes["event/replaced_by"] = replacedBy;
   await dbClient.append(ingestEntity({ entity: eventId, attributes }));
+}
+
+/**
+ * Changes a plain logged food's gram amount, append-only: re-derives its macros
+ * from the food twin's `nutrition/info` panel at the new amount (the ADR-0021
+ * formula, the same one the recipe rows use), logs a fresh Consumption Event,
+ * and retracts the old one — the amount-picker equivalent of `LogFoodSheet`'s
+ * edit, but amount-only (ADR-0008). No-op when the twin has no panel to scale
+ * from. Only for gram-unit plain foods; recipe instantiations are corrected on
+ * their own editor and whole-serving foods are locked (future work).
+ */
+export async function changeLoggedFoodAmount(
+  event: ConsumptionEvent,
+  grams: number
+): Promise<void> {
+  if (!event.target) return;
+  const twin = await getLocalFoodTwin(event.target);
+  const panel = twin?.attributes?.["nutrition/info"] as
+    | NutritionInfo
+    | undefined;
+  if (!panel) return;
+  const macros = deriveIngredientMacros(
+    { ref: event.target, amount: grams, unit: "g" },
+    () => panel
+  );
+  const newId = await logFoodConsumption(
+    event.target,
+    `${grams}g`,
+    event.meal_type ?? "snack",
+    Math.round(macros.calories),
+    round1(macros.protein),
+    round1(macros.fat),
+    round1(macros.carbs),
+    new Date(event.time)
+  );
+  await retractConsumptionEvent(event.id, newId);
 }
 
 /**

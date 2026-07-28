@@ -56,6 +56,12 @@ export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+/** Rounds a macro value to at most 1 decimal — the precision logged macros are
+ *  stored at (grams of protein/fat/carbs). */
+export function round1(n: number): number {
+  return Math.round(n * 10) / 10;
+}
+
 /** The four macros the food dashboard and recipe builder display and sum. */
 export interface Macros {
   calories: number;

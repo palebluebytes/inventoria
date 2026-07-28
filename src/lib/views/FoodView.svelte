@@ -6,6 +6,7 @@
     consumptionForDay,
     getLocalFoodTwin,
     retractConsumptionEvent,
+    changeLoggedFoodAmount,
     type ConsumptionEvent,
   } from "../stores/calorie.store";
   import {
@@ -16,6 +17,7 @@
   import LogFoodSheet from "./food/LogFoodSheet.svelte";
   import RecipeModal from "./food/RecipeModal.svelte";
   import InstantiationSheet from "./food/InstantiationSheet.svelte";
+  import IngredientAmountSheet from "./food/IngredientAmountSheet.svelte";
 
   import Card from "../ui/Card.svelte";
   import Badge from "../ui/Badge.svelte";
@@ -52,6 +54,9 @@
     attributes: Record<string, any>;
   } | null>(null);
   let instantiate_edit = $state<ConsumptionEvent | null>(null);
+  // A plain gram-logged food whose amount is being changed in the picker sheet
+  // (the shared amount editor; the dashboard equivalent of a recipe row tap).
+  let amountEdit = $state<ConsumptionEvent | null>(null);
 
   const entityName = "Food";
 
@@ -81,6 +86,15 @@
       instantiate_edit = item;
       instantiate_meal_type = (item.meal_type as MealType) || "snack";
       instantiateOpen = true;
+      return;
+    }
+    // A gram-logged food edits its amount in the shared picker — the same
+    // surface a recipe row taps into. Whole-serving / custom foods are locked at
+    // 1 serving for now (future work), so they still open the full edit sheet
+    // where their macros and photo remain editable.
+    const { unit } = parseLoggedQuantity(item.quantity);
+    if (unit === "g") {
+      amountEdit = item;
       return;
     }
     editEvent = item;
@@ -297,6 +311,18 @@
     template={instantiate_template}
     edit={instantiate_edit}
     onClose={closeInstantiation}
+  />
+{/if}
+
+<!-- Amount picker — change a plain gram-logged food's amount, append-only. The
+     same sheet a recipe ingredient row opens; here Done retract-and-replaces. -->
+{#if amountEdit}
+  {@const ev = amountEdit}
+  <IngredientAmountSheet
+    name={ev.foodName ?? "Food"}
+    amount={parseLoggedQuantity(ev.quantity).amount}
+    onCommit={(grams) => changeLoggedFoodAmount(ev, grams)}
+    onClose={() => (amountEdit = null)}
   />
 {/if}
 

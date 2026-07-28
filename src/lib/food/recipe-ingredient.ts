@@ -107,6 +107,16 @@ export function coerceAmount(amount: number): number {
 }
 
 /**
+ * The unit label shown beside an ingredient's amount: `g` for a scaled food, and
+ * `serving`/`servings` (pluralised by the amount) for a whole-serving food. The
+ * single source for this label across the row display and the amount editor.
+ */
+export function unitLabel(amount: number, unit: "g" | "serving"): string {
+  if (unit === "g") return "g";
+  return amount === 1 ? "serving" : "servings";
+}
+
+/**
  * Reduces a builder ingredient to the pure reference persisted on the recipe.
  * {@link coerceAmount} keeps the reference/derivation a clean number even while
  * the inline editor's input is transiently empty mid-retype.

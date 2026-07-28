@@ -4,6 +4,7 @@ import {
   nameFromIngredients,
   ingredientFromTwin,
   addOrMergeIngredient,
+  unitLabel,
   type RecipeIngredient,
 } from "../../src/lib/food/recipe-ingredient";
 import type { NutritionInfo } from "../../src/lib/food/nutrition";
@@ -125,6 +126,14 @@ describe("addOrMergeIngredient", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.ingredients[0].amount).toBe(40);
+  });
+
+  it("(unitLabel) shows g for grams, and pluralises servings by amount", () => {
+    expect(unitLabel(100, "g")).toBe("g");
+    expect(unitLabel(1, "g")).toBe("g");
+    expect(unitLabel(1, "serving")).toBe("serving");
+    expect(unitLabel(2, "serving")).toBe("servings");
+    expect(unitLabel(0.5, "serving")).toBe("servings");
   });
 
   it("blocks the add when the same twin is present at an incompatible unit", () => {

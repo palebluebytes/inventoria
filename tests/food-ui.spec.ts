@@ -329,6 +329,20 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.locator("#log-food-btn").click();
   }
 
+  // Set a recipe/instantiation ingredient's gram amount via the tap-to-open
+  // amount picker sheet (tapping the row opens the picker).
+  async function setIngredientGrams(
+    page: import("@playwright/test").Page,
+    name: string,
+    grams: string
+  ) {
+    await page.locator(".recipe-ingredient", { hasText: name }).click();
+    const sheet = page.locator(".amount-sheet");
+    await sheet.getByLabel("Quantity in grams").fill(grams);
+    await sheet.locator("#amount-done-btn").click();
+    await expect(sheet).toBeHidden();
+  }
+
   test("loads the calorie tracker dashboard with initial empty target progress", async ({
     page,
   }) => {
@@ -438,27 +452,20 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await logUsdaFood(page, "breakfast", "banana", "Mock Banana", "150"); // 134
     const breakfast = page.locator(".meal-section", { hasText: "BREAKFAST" });
 
-    // Tapping the card body (not the ✕) opens the sheet in edit mode, pre-staged.
+    // Tapping a logged gram food opens the SAME amount picker a recipe row uses,
+    // seeded from its logged amount.
     await breakfast
       .locator(".meal-item-card", { hasText: "Mock Banana" })
-      .locator(".meal-item-details")
       .click();
-    await expect(
-      page.locator("h2", { hasText: "Edit breakfast" })
-    ).toBeVisible();
-    await expect(page.getByLabel("Quantity in grams")).toHaveValue("150");
+    const sheet = page.locator(".amount-sheet");
+    await expect(sheet.getByLabel("Quantity in grams")).toHaveValue("150");
+    await expect(sheet.getByRole("slider")).toBeVisible();
 
-    // Edit mode is a focused amount editor: no back button, no method switcher,
-    // and no "Logging <name>" echo (the name already headlines the sheet).
-    await expect(page.getByRole("button", { name: "Change food" })).toHaveCount(
-      0
-    );
-    await expect(page.locator(".method")).toHaveCount(0);
-    await expect(page.locator(".sheet")).not.toContainText("Logging");
-
-    // Change the amount and save; the entry is replaced (append-only), not dup'd.
-    await page.getByLabel("Quantity in grams").fill("300"); // 89 * 3 = 267
-    await page.locator("#log-food-btn").click();
+    // Change the amount and confirm; the entry is replaced (append-only, not
+    // duplicated) with macros re-derived from the twin at the new amount.
+    await sheet.getByLabel("Quantity in grams").fill("300"); // 89 * 3 = 267
+    await sheet.locator("#amount-done-btn").click();
+    await expect(sheet).toBeHidden();
 
     await expect(
       breakfast.locator(".meal-item-card", { hasText: "Mock Banana" })
@@ -555,7 +562,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // Remove Banana from the recipe — it should stay logged on its own.
     await page
       .locator(".recipe-ingredient", { hasText: "Mock Banana" })
-      .locator(".remove-ingredient")
+      .locator(".fi-remove")
       .click();
     await page.locator("#recipe-name").fill("Just Oats");
     await expect(page.locator(".recipe-total")).toContainText("190 kcal");
@@ -602,7 +609,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // just oats now, 190 / 2 = 95 per serving.
     await page
       .locator(".recipe-ingredient", { hasText: "Mock Banana" })
-      .locator(".remove-ingredient")
+      .locator(".fi-remove")
       .click();
     await expect(perServingCal).toHaveText("95 kcal");
 
@@ -635,20 +642,30 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(perServingCal).toHaveText("324 kcal");
     await expect(page.locator(".recipe-total")).toContainText("324 kcal");
 
-    // The oats row exposes an inline, unit-aware amount editor bound to `amount`.
+    // The oats row shows a "50g" quantity subtitle; tapping the row opens the
+    // picker.
     const oatsRow = page.locator(".recipe-ingredient", {
       hasText: "Mock Oats",
     });
-    const oatsAmount = oatsRow.locator(".edit-amount");
-    await expect(oatsAmount).toHaveValue("50");
+    const oatsQty = oatsRow.locator(".fi-qty");
+    await expect(oatsQty).toHaveText("50g");
     await expect(oatsRow).toContainText("190 kcal");
 
-    // Editing the amount re-derives this row AND the totals live — no re-add.
-    // Oats per-100g is 379 kcal, so 100 g → 379. Banana unchanged at 134.
-    await oatsAmount.fill("100");
-    await expect(oatsAmount).toHaveValue("100");
+    // Tapping the row opens the numeric+slider picker for this ingredient;
+    // setting 100 g re-derives this row AND the totals. Oats per-100g is 379
+    // kcal, so 100 g → 379. Banana unchanged at 134.
+    await oatsRow.click();
+    await expect(
+      page.locator(".amount-sheet").getByRole("slider")
+    ).toBeVisible();
+    await page
+      .locator(".amount-sheet")
+      .getByLabel("Quantity in grams")
+      .fill("100");
+    await page.locator(".amount-sheet #amount-done-btn").click();
+    await expect(page.locator(".amount-sheet")).toBeHidden();
+    await expect(oatsQty).toHaveText("100g");
     await expect(oatsRow).toContainText("379 kcal");
-    await expect(oatsRow).toContainText("g · 379 kcal"); // unit stays "g"
     await expect(perServingCal).toHaveText("513 kcal"); // 379 + 134
     await expect(page.locator(".recipe-total")).toContainText("513 kcal");
 
@@ -763,7 +780,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     const oatsRow = page.locator(".recipe-ingredient", {
       hasText: "Mock Oats",
     });
-    await expect(oatsRow.locator(".edit-amount")).toHaveValue("100");
+    await expect(oatsRow.locator(".fi-qty")).toHaveText("100g");
     await expect(page.locator(".recipe-total")).toContainText("513 kcal");
   });
 
@@ -803,10 +820,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.locator(".recipe-total")).toContainText("324 kcal");
 
     // Diverge for THIS occasion only: bump the oats to 100 g → 379 + 134 = 513.
-    const oatsAmount = page
-      .locator(".recipe-ingredient", { hasText: "Mock Oats" })
-      .locator(".edit-amount");
-    await oatsAmount.fill("100");
+    await setIngredientGrams(page, "Mock Oats", "100");
     await expect(page.locator(".recipe-total")).toContainText("513 kcal");
 
     // Logging is purely additive — it writes a new instantiation and retracts
@@ -832,11 +846,11 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     const dinnerSection = await buildDinnerCombo(page);
 
-    // Tap the logged recipe card to open the correction editor (not the plain
-    // food log sheet — a recipe instantiation is corrected on its own surface).
+    // Tap the logged recipe card to open the correction editor (not the amount
+    // picker — a recipe instantiation is corrected on its own surface).
     await dinnerSection
       .locator(".meal-item-card", { hasText: "Dinner Combo" })
-      .locator(".meal-item-details")
+      .locator(".fi-name")
       .click();
     await expect(page.locator("h2", { hasText: "Correct" })).toBeVisible();
     await expect(page.locator('[data-testid="instantiation-name"]')).toHaveText(
@@ -844,11 +858,12 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     );
 
     // Correct the amount — re-derived from the current ingredient twins.
-    const oatsAmount = page
-      .locator(".recipe-ingredient", { hasText: "Mock Oats" })
-      .locator(".edit-amount");
-    await expect(oatsAmount).toHaveValue("50");
-    await oatsAmount.fill("100"); // 379 + 134 = 513
+    await expect(
+      page
+        .locator(".recipe-ingredient", { hasText: "Mock Oats" })
+        .locator(".fi-qty")
+    ).toHaveText("50g");
+    await setIngredientGrams(page, "Mock Oats", "100"); // 379 + 134 = 513
     await expect(page.locator(".recipe-total")).toContainText("513 kcal");
 
     await page.locator("#save-instantiation-btn").click();
@@ -941,11 +956,12 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.locator(".recipe-total")).toContainText("324 kcal");
 
     // Bump the oats 50 → 100 g (379 + 134 = 513/serving) and save the template.
-    const oatsAmount = page
-      .locator(".recipe-ingredient", { hasText: "Mock Oats" })
-      .locator(".edit-amount");
-    await expect(oatsAmount).toHaveValue("50");
-    await oatsAmount.fill("100");
+    await expect(
+      page
+        .locator(".recipe-ingredient", { hasText: "Mock Oats" })
+        .locator(".fi-qty")
+    ).toHaveText("50g");
+    await setIngredientGrams(page, "Mock Oats", "100");
     await expect(page.locator(".recipe-total")).toContainText("513 kcal");
     await page.locator("#save-recipe-btn").click();
 

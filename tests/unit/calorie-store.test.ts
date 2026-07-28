@@ -8,6 +8,7 @@ import {
   logRecipeConsumption,
   correctInstantiation,
   retractConsumptionEvent,
+  changeLoggedFoodAmount,
   consumptionForDay,
 } from "../../src/lib/stores/calorie.store";
 import type { NutritionInfo } from "../../src/lib/food/nutrition";
@@ -400,6 +401,80 @@ describe("correctInstantiation", () => {
     expect(
       retract.find((d) => d.attribute === "event/replaced_by")?.value
     ).toBe(newId);
+  });
+});
+
+describe("changeLoggedFoodAmount", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.restoreAllMocks();
+  });
+
+  const OATS_PANEL: NutritionInfo = {
+    serving_size: "100 g",
+    calories: 379,
+    protein_content: 13.1,
+    fat_content: 6.5,
+    carbohydrate_content: 67.7,
+  };
+
+  it("re-derives macros at the new amount and retracts the old event (ADR-0008)", async () => {
+    // getLocalFoodTwin reads the twin's datoms; return its nutrition panel.
+    vi.spyOn(dbClient, "query").mockResolvedValue([
+      { attribute: "nutrition/info", value: JSON.stringify(OATS_PANEL) },
+    ] as any);
+    const mockAppend = vi
+      .spyOn(dbClient, "append")
+      .mockResolvedValue(undefined);
+
+    await changeLoggedFoodAmount(
+      {
+        id: "event:consume_old",
+        target: "fdc:oats",
+        quantity: "50g",
+        meal_type: "breakfast",
+        time: new Date("2026-05-31T08:00:00").getTime(),
+      } as any,
+      100 // 100 g of a 379 kcal/100 g food → 379 kcal
+    );
+
+    // Two appends: (1) the re-logged event at the new amount, (2) the retraction.
+    expect(mockAppend).toHaveBeenCalledTimes(2);
+    const newDatoms = mockAppend.mock.calls[0][0];
+    expect(newDatoms.find((d) => d.attribute === "event/target")?.value).toBe(
+      "fdc:oats"
+    );
+    expect(newDatoms.find((d) => d.attribute === "event/quantity")?.value).toBe(
+      "100g"
+    );
+    expect(
+      newDatoms.find((d) => d.attribute === "event/meal_type")?.value
+    ).toBe("breakfast");
+    expect(
+      newDatoms.find((d) => d.attribute === "event/metrics")?.value
+    ).toMatchObject({ calories: 379, protein: 13.1 });
+
+    const retract = mockAppend.mock.calls[1][0];
+    expect(retract.find((d) => d.attribute === "event/status")?.entity).toBe(
+      "event:consume_old"
+    );
+    expect(retract.find((d) => d.attribute === "event/status")?.value).toBe(
+      "retracted"
+    );
+  });
+
+  it("no-ops when the twin carries no nutrition panel (can't re-derive)", async () => {
+    vi.spyOn(dbClient, "query").mockResolvedValue([] as any);
+    const mockAppend = vi
+      .spyOn(dbClient, "append")
+      .mockResolvedValue(undefined);
+
+    await changeLoggedFoodAmount(
+      { id: "event:x", target: "fdc:ghost", quantity: "50g", time: 0 } as any,
+      100
+    );
+
+    expect(mockAppend).not.toHaveBeenCalled();
   });
 });
 
