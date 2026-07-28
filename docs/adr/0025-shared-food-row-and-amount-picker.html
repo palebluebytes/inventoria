@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR 0025 · Inventoria</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+      <nav class="site-nav">
+        <p class="nav-title">Inventoria</p>
+        <a href="../index.html">Introduction</a>
+        <div class="nav-section">
+          <p class="nav-section-label">Reference</p>
+          <a href="../glossary.html">Glossary</a>
+          <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+        </div>
+        <div class="nav-section">
+          <p class="nav-section-label">Explanation</p>
+          <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+        </div>
+        <div class="nav-section">
+          <a href="index.html" class="active">Architectural Decision Records</a>
+        </div>
+      </nav>
+  <div class="content-area">
+    <main>
+<h1 id="adr-0025-one-food-row-one-amount-picker-shared-across-the-dashboard-and-recipe-lists">ADR 0025: One food row, one amount picker — shared across the dashboard and recipe lists</h1>
+<p><strong>Status:</strong> Accepted; implemented (<code>FoodItemRow.svelte</code>, <code>IngredientAmountSheet.svelte</code>, <code>changeLoggedFoodAmount</code>). <strong>Date:</strong> 2026-07-28</p>
+<h2 id="context">Context</h2>
+<p>A logged food appeared in two places that looked and behaved differently:</p>
+<ul>
+<li>On the <strong>dashboard</strong> (<code>DailyDashboard</code>) a logged food was a card — name over a muted quantity subtitle, kcal on the right, a corner ✕ — and tapping it opened the full <code>LogFoodSheet</code> in edit mode.</li>
+<li>In the <strong>recipe / instantiation builder</strong> (<code>IngredientListEditor</code>) an ingredient was a different row with an inline amount <code>&lt;input&gt;</code>; ADR-0023's numeric+slider control (<code>QuantityGrams</code>) only reached the <em>add-ingredient</em> sheet, not the row itself.</li>
+</ul>
+<p>Two visuals and two edit affordances for what is fundamentally the same thing — "a food, in some amount, contributing some macros." The amount was also editable in three inconsistent ways (dashboard full-edit sheet, recipe inline input, add-sheet slider).</p>
+<h2 id="decision">Decision</h2>
+<p><strong>One presentational row component and one amount picker, shared by both surfaces. The row reads as the dashboard card; tapping it opens the picker.</strong></p>
+<ul>
+<li><strong><code>FoodItemRow</code></strong> renders the shared line — <code>lead</code> slot (photo / selection check) · name · muted quantity subtitle · kcal · corner remove — in the dashboard's visual. Both <code>DailyDashboard</code> and <code>IngredientListEditor</code> render through it, so they are identical by construction. It is presentational: it takes an optional whole-row <code>onclick</code> and an <code>onRemove</code>; the dashboard leaves <code>onclick</code> unset and lets its own wrapper (which owns long-press selection) handle the tap, while the recipe list passes <code>onclick</code> to open the picker.</li>
+<li><strong><code>IngredientAmountSheet</code></strong> is the one amount editor. It edits a working copy and reports the result once on <strong>Done</strong> (<code>onCommit</code>), so the caller commits it its own way without the sheet knowing which: a recipe mutates the ingredient in memory (live re-derivation of per-serving totals); the dashboard retract-and-replaces the logged event append-only. It wraps ADR-0023's <code>QuantityGrams</code>, so the recipe row, the add-ingredient sheet, and the dashboard all share the same numeric-first control.</li>
+<li><strong><code>changeLoggedFoodAmount</code></strong> is the dashboard's commit: it re-derives the food's macros from its twin's <code>nutrition/info</code> panel at the new amount (the ADR-0021 formula), logs a fresh Consumption Event, and retracts the old one (ADR-0008). No <code>UPDATE</code> — a logged food's amount change is a supersession, like every other edit.</li>
+</ul>
+<p><strong>Grams only; whole-serving amounts are locked.</strong> The picker edits grams, where scaling a twin's per-100 g panel is well-defined. A whole-serving / custom food (logged as "1 serving" with frozen macros) has no per-gram twin to rescale, so its amount is <strong>locked at 1 for now</strong> (future work): its row is inert, and on the dashboard it still opens the full <code>LogFoodSheet</code> where its macros and photo remain editable. Recipe instantiations keep their own correction editor (ADR-0022) — a tapped recipe card routes there, not to the picker.</p>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li>The dashboard's own look is unchanged — <code>FoodItemRow</code> reuses its exact styles — and the recipe rows now match it, from one component. The old inline amount-input row and its bespoke styles are gone.</li>
+<li>Editing an amount is the same gesture everywhere: tap the row → numeric + slider + presets → Done. <code>QuantityGrams</code> is now reused by the log flow, the add-ingredient flow, the recipe rows, and the dashboard.</li>
+<li><code>IngredientAmountSheet</code> moved from a live two-way <code>bind:amount</code> to commit-on-Done, so the dashboard's append-only retract-and-replace fires once per edit rather than per slider tick.</li>
+<li>Covered by a Seam 2 unit test for <code>changeLoggedFoodAmount</code> (re-derive + retract; no-op without a panel), the <code>unitLabel</code> unit test, and Seam 3 e2e (tap a logged gram food → picker → amount + total update; recipe rows edit through the picker).</li>
+<li><strong>Deferred:</strong> editing a whole-serving amount (needs a serving-count model that scales frozen macros), and a <code>valuetext</code> announcement (carried from ADR-0023).</li>
+</ul>
+    </main>
+  </div>
+</div>
+</body>
+</html>
