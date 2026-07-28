@@ -9,7 +9,7 @@ import { test, expect } from "@playwright/test";
 // encodes the invariant directly, so it can't be silently frozen with a bug in
 // it.
 
-const TABS = ["Food Twins", "Media", "Items", "Agenda", "Notes", "Settings"];
+const TABS = ["Food", "Media", "Items", "Agenda", "Notes", "Settings"];
 
 async function waitForDbReady(page: import("@playwright/test").Page) {
   await page.waitForFunction(() => {

@@ -12,7 +12,7 @@
   } = $props();
 
   const tabs = [
-    { id: "food", icon: "🥦", label: "Food Twins" },
+    { id: "food", icon: "🥦", label: "Food" },
     { id: "media", icon: "🎬", label: "Media" },
     { id: "items", icon: "📦", label: "Items" },
     { id: "agenda", icon: "🗓️", label: "Agenda" },

@@ -254,7 +254,7 @@ test.describe("Visual Catalog Generator", () => {
 
     // Verify all registered screens are covered by this visual catalog test
     const EXPECTED_SCREENS = [
-      "food twins",
+      "food",
       "media",
       "items",
       "agenda",
@@ -278,7 +278,7 @@ test.describe("Visual Catalog Generator", () => {
     await setupApiKeys(page);
 
     // 2. Populate Food Dashboard (Log a Breakfast item via the direct sheet)
-    await page.locator(".nav-item", { hasText: "Food Twins" }).click();
+    await page.locator(".nav-item", { hasText: "Food" }).click();
     await page.getByRole("button", { name: "Add breakfast" }).click();
     await page.locator("#food-search-input").fill("banana");
     await page.locator(".result-item-btn", { hasText: "Mock Banana" }).click();

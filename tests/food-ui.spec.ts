@@ -295,7 +295,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       .locator("button[type='submit']", { hasText: "Save Settings" })
       .click();
     await expect(page.locator(".saved-badge")).toBeVisible();
-    await page.locator(".nav-item", { hasText: "Food Twins" }).click();
+    await page.locator(".nav-item", { hasText: "Food" }).click();
   }
 
   // Long-press a locator to start item selection on the dashboard.
