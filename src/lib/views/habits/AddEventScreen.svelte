@@ -1,9 +1,14 @@
 <script lang="ts">
   import type { ScheduleRule, DayOfWeek } from "../../habits/habits";
-  import { DatePicker } from "bits-ui";
   import { CalendarDate, parseDate } from "@internationalized/date";
-  import CalendarBlank from "phosphor-svelte/lib/CalendarBlank";
   import BottomSheet from "../../ui/BottomSheet.svelte";
+  import DateField from "./DateField.svelte";
+  import EventRecurrenceField from "./EventRecurrenceField.svelte";
+  import {
+    buildEventScheduleRules,
+    monthlyAnchors,
+    type RecurType,
+  } from "../../cal_events/event-schedule-rules";
 
   let {
     onSave,
@@ -61,97 +66,21 @@
     tracking = !tracking;
   }
 
-  // Time slots (for point-in-time multi-slot events like medication)
+  // Time slots (for point-in-time multi-slot events like medication). Slot 0 is
+  // the start time above; the recurrence field edits only the extra slots.
   let _extraTimeSlots = $state<string[]>([]);
   let timeSlots = $derived([startTime, ..._extraTimeSlots]);
 
-  function addTimeSlot() {
-    _extraTimeSlots = [..._extraTimeSlots, "20:00"];
-  }
-
-  function removeTimeSlot(i: number) {
-    if (i === 0) {
-      if (_extraTimeSlots.length > 0) {
-        startTime = _extraTimeSlots[0];
-        _extraTimeSlots = _extraTimeSlots.slice(1);
-      }
-    } else {
-      _extraTimeSlots = _extraTimeSlots.filter((_, idx) => idx !== i - 1);
-    }
-  }
-
-  function updateTimeSlot(i: number, val: string) {
-    if (i === 0) {
-      startTime = val;
-    } else {
-      _extraTimeSlots = _extraTimeSlots.map((t, idx) =>
-        idx === i - 1 ? val : t
-      );
-    }
-  }
-
   // Recurrence
-  type RecurType = "none" | "specific_days" | "weekly" | "monthly" | "yearly";
   let recurType = $state<RecurType>("none");
-
-  // weekly: specific days
-  const ALL_DAYS: DayOfWeek[] = [
-    "mon",
-    "tue",
-    "wed",
-    "thu",
-    "fri",
-    "sat",
-    "sun",
-  ];
   let selectedDays = $state<Set<DayOfWeek>>(
     new Set(["mon", "tue", "wed", "thu", "fri", "sat", "sun"])
   );
-  function toggleDay(d: DayOfWeek) {
-    const next = new Set(selectedDays);
-    next.has(d) ? next.delete(d) : next.add(d);
-    selectedDays = next;
-  }
-
-  // monthly sub-type
   let monthlyMode = $state<"fixed" | "relative">("fixed");
-  const startDateObj = $derived(new Date(startDateStr + "T00:00:00Z"));
-  const dayOfMonth = $derived(startDateObj.getUTCDate());
-  const monthOfYear = $derived(startDateObj.getUTCMonth() + 1);
 
-  // monthly relative: compute from startDate
-  const DOW_NAMES: DayOfWeek[] = [
-    "sun",
-    "mon",
-    "tue",
-    "wed",
-    "thu",
-    "fri",
-    "sat",
-  ];
-  const relativeDay = $derived(DOW_NAMES[startDateObj.getUTCDay()]);
-  // Calculate which nth occurrence of that weekday this date is
-  const relativeWeek = $derived.by((): -1 | 1 | 2 | 3 | 4 => {
-    const d = startDateObj.getUTCDate();
-    const lastDay = new Date(
-      Date.UTC(startDateObj.getUTCFullYear(), startDateObj.getUTCMonth() + 1, 0)
-    ).getUTCDate();
-    const dow = startDateObj.getUTCDay();
-    // Check if it's the last occurrence
-    let last = lastDay;
-    while (
-      new Date(
-        Date.UTC(
-          startDateObj.getUTCFullYear(),
-          startDateObj.getUTCMonth(),
-          last
-        )
-      ).getUTCDay() !== dow
-    )
-      last--;
-    if (d === last) return -1;
-    return Math.ceil(d / 7) as 1 | 2 | 3 | 4;
-  });
+  // Monthly/yearly anchors derived from the start date (displayed by the
+  // recurrence field, and re-derived inside buildEventScheduleRules).
+  let anchors = $derived(monthlyAnchors(startDateStr));
 
   // Until
   let untilDate = $state("");
@@ -178,63 +107,6 @@
         : `${endDateStr}T00:00:00Z`
       : undefined
   );
-
-  // --------------- Build schedule_rules ---------------
-  function buildScheduleRules(): ScheduleRule | undefined {
-    const until = untilDate || undefined;
-
-    let targets: { id: string; time_hint?: string }[] | undefined = undefined;
-    if (timed && !hasEnd && timeSlots.length > 1) {
-      targets = timeSlots.map((t, i) => ({
-        id: `slot_${i}`,
-        time_hint: t,
-      }));
-    }
-
-    switch (recurType) {
-      case "none":
-        return undefined;
-      case "specific_days":
-        if (selectedDays.size === 7) {
-          return { type: "daily_multiple", count: 1, targets, until };
-        }
-        return {
-          type: "weekly_days",
-          days: Array.from(selectedDays),
-          targets,
-          until,
-        };
-      case "weekly":
-        return { type: "weekly_flexible", count: 1, targets, until };
-      case "monthly":
-        if (monthlyMode === "fixed") {
-          return {
-            type: "monthly_fixed",
-            day_of_month: dayOfMonth,
-            targets,
-            until,
-          };
-        } else {
-          return {
-            type: "monthly_relative",
-            week: relativeWeek,
-            day: relativeDay,
-            targets,
-            until,
-          };
-        }
-      case "yearly":
-        return {
-          type: "yearly_fixed",
-          month: monthOfYear,
-          day_of_month: dayOfMonth,
-          targets,
-          until,
-        };
-      default:
-        return undefined;
-    }
-  }
 
   // --------------- Submission ---------------
   let saving = $state(false);
@@ -283,72 +155,23 @@
         description: description.trim() || undefined,
         tracking,
         timed,
-        schedule_rules: buildScheduleRules(),
+        schedule_rules: buildEventScheduleRules({
+          recurType,
+          selectedDays,
+          monthlyMode,
+          startDateStr,
+          until: untilDate,
+          timed,
+          hasEnd,
+          timeSlots,
+        }),
       });
       onClose();
     } finally {
       saving = false;
     }
   }
-
-  const DAY_LABELS: Record<DayOfWeek, string> = {
-    mon: "M",
-    tue: "T",
-    wed: "W",
-    thu: "T",
-    fri: "F",
-    sat: "S",
-    sun: "S",
-  };
 </script>
-
-{#snippet calendarContent()}
-  <DatePicker.Portal>
-    <DatePicker.Content sideOffset={4} align="start" class="bits-calendar">
-      <DatePicker.Calendar class="bits-calendar-wrapper">
-        {#snippet children({ months, weekdays })}
-          <DatePicker.Header class="bits-calendar-header">
-            <DatePicker.PrevButton class="bits-nav-btn">◀</DatePicker.PrevButton
-            >
-            <DatePicker.Heading class="bits-heading" />
-            <DatePicker.NextButton class="bits-nav-btn">▶</DatePicker.NextButton
-            >
-          </DatePicker.Header>
-          {#each months as month}
-            <DatePicker.Grid class="bits-grid">
-              <DatePicker.GridHead>
-                <DatePicker.GridRow class="bits-weekdays">
-                  {#each weekdays as weekday}
-                    <DatePicker.HeadCell class="bits-weekday-cell">
-                      {weekday.slice(0, 2)}
-                    </DatePicker.HeadCell>
-                  {/each}
-                </DatePicker.GridRow>
-              </DatePicker.GridHead>
-              <DatePicker.GridBody>
-                {#each month.weeks as weekDates}
-                  <DatePicker.GridRow class="bits-grid-row">
-                    {#each weekDates as date}
-                      <DatePicker.Cell
-                        {date}
-                        month={month.value}
-                        class="bits-cell"
-                      >
-                        <DatePicker.Day class="bits-day"
-                          >{date.day}</DatePicker.Day
-                        >
-                      </DatePicker.Cell>
-                    {/each}
-                  </DatePicker.GridRow>
-                {/each}
-              </DatePicker.GridBody>
-            </DatePicker.Grid>
-          {/each}
-        {/snippet}
-      </DatePicker.Calendar>
-    </DatePicker.Content>
-  </DatePicker.Portal>
-{/snippet}
 
 <BottomSheet isOpen title="New event" {onClose} class="add-event-sheet">
   <div class="event-fields">
@@ -426,61 +249,23 @@
       </div>
 
       <!-- Start -->
-      <DatePicker.Root
-        bind:value={startDateVal}
-        onValueChange={() => (endError = null)}
-      >
-        <div class="date-time-row">
-          <DatePicker.Input class="date-input">
-            {#snippet children({ segments })}
-              {#each segments as { part, value }}
-                <DatePicker.Segment {part}>{value}</DatePicker.Segment>
-              {/each}
-            {/snippet}
-          </DatePicker.Input>
-          <DatePicker.Trigger class="bits-trigger" aria-label="Open calendar"
-            ><CalendarBlank size={16} /></DatePicker.Trigger
-          >
-          {#if timed}
-            <input
-              class="time-input"
-              type="time"
-              bind:value={startTime}
-              oninput={() => (endError = null)}
-            />
-          {/if}
-        </div>
-        {@render calendarContent()}
-      </DatePicker.Root>
+      <DateField
+        bind:date={startDateVal}
+        bind:time={startTime}
+        showTime={timed}
+        onChange={() => (endError = null)}
+      />
 
       <!-- End -->
       {#if hasEnd}
-        <DatePicker.Root
-          bind:value={endDateVal}
-          onValueChange={() => (endError = null)}
-        >
-          <div class="date-time-row" style="margin-top: var(--space-s);">
-            <DatePicker.Input class="date-input">
-              {#snippet children({ segments })}
-                {#each segments as { part, value }}
-                  <DatePicker.Segment {part}>{value}</DatePicker.Segment>
-                {/each}
-              {/snippet}
-            </DatePicker.Input>
-            <DatePicker.Trigger class="bits-trigger" aria-label="Open calendar"
-              ><CalendarBlank size={16} /></DatePicker.Trigger
-            >
-            {#if timed}
-              <input
-                class="time-input"
-                type="time"
-                bind:value={endTime}
-                oninput={() => (endError = null)}
-              />
-            {/if}
-          </div>
-          {@render calendarContent()}
-        </DatePicker.Root>
+        <div style="margin-top: var(--space-s);">
+          <DateField
+            bind:date={endDateVal}
+            bind:time={endTime}
+            showTime={timed}
+            onChange={() => (endError = null)}
+          />
+        </div>
       {/if}
 
       {#if endError}
@@ -492,127 +277,18 @@
     </div>
 
     <!-- Schedule: Recurrence & Time slots -->
-    <div class="field-card">
-      <span class="field-label">RECURRENCE</span>
-      <div class="seg-control seg-grid" style="margin-bottom: var(--space-s);">
-        {#each [["specific_days", "DAILY"], ["weekly", "WEEKLY"], ["monthly", "MONTHLY"], ["yearly", "YEARLY"]] as [val, label]}
-          <button
-            class="seg-btn"
-            class:active={recurType === val}
-            onclick={() => {
-              recurType = recurType === val ? "none" : (val as RecurType);
-            }}>{label}</button
-          >
-        {/each}
-      </div>
-
-      {#if recurType === "specific_days"}
-        <div class="day-grid">
-          {#each ALL_DAYS as day}
-            <button
-              class="day-btn"
-              class:selected={selectedDays.has(day)}
-              onclick={() => toggleDay(day)}
-              aria-label={day}>{DAY_LABELS[day]}</button
-            >
-          {/each}
-        </div>
-      {/if}
-
-      {#if recurType === "monthly"}
-        <div class="seg-control seg-grid" style="margin-top: 2px;">
-          <button
-            class="seg-btn"
-            class:active={monthlyMode === "fixed"}
-            onclick={() => (monthlyMode = "fixed")}>ON DAY {dayOfMonth}</button
-          >
-          <button
-            class="seg-btn"
-            class:active={monthlyMode === "relative"}
-            onclick={() => (monthlyMode = "relative")}
-          >
-            ON {relativeWeek === -1
-              ? "LAST"
-              : ["", "1ST", "2ND", "3RD", "4TH"][relativeWeek]}
-            {relativeDay.toUpperCase()}
-          </button>
-        </div>
-      {/if}
-
-      {#if recurType !== "none"}
-        <div
-          class="field-row until-row"
-          style="margin-top: var(--space-s); margin-bottom: var(--space-s);"
-        >
-          <span class="field-sublabel">UNTIL (OPTIONAL)</span>
-          <div class="input-wrapper">
-            <DatePicker.Root bind:value={untilDateVal}>
-              <div class="date-time-row">
-                <DatePicker.Input class="date-input">
-                  {#snippet children({ segments })}
-                    {#each segments as { part, value }}
-                      <DatePicker.Segment {part}>{value}</DatePicker.Segment>
-                    {/each}
-                  {/snippet}
-                </DatePicker.Input>
-                <DatePicker.Trigger
-                  class="bits-trigger"
-                  aria-label="Open calendar"
-                  ><CalendarBlank size={14} /></DatePicker.Trigger
-                >
-              </div>
-              {@render calendarContent()}
-            </DatePicker.Root>
-          </div>
-        </div>
-      {/if}
-
-      <!-- Time slots: shown for any point-in-time event without a block end -->
-      {#if timed && !hasEnd}
-        <div
-          class="time-slots-section"
-          style={recurType !== "none"
-            ? "border-top: 2px dashed var(--border-accent); padding-top: var(--space-s); margin-top: var(--space-s);"
-            : "padding-top: var(--space-s); margin-top: var(--space-s);"}
-        >
-          {#if _extraTimeSlots.length > 0}
-            <span
-              class="field-sublabel"
-              style="margin-bottom: var(--space-xs); display: block;"
-              >ADDITIONAL TIMES</span
-            >
-            {#each _extraTimeSlots as slot, i}
-              <div class="slot-row" style="margin-bottom: var(--space-xs);">
-                <div class="input-wrapper">
-                  <input
-                    class="time-input flex-1"
-                    type="time"
-                    value={slot}
-                    oninput={(e) =>
-                      updateTimeSlot(
-                        i + 1,
-                        (e.target as HTMLInputElement).value
-                      )}
-                  />
-                </div>
-                <button
-                  class="remove-btn"
-                  onclick={() => removeTimeSlot(i + 1)}
-                  aria-label="Remove">✕</button
-                >
-              </div>
-            {/each}
-          {/if}
-          <button
-            class="add-slot-btn"
-            style="display: block; margin: 0 auto; {_extraTimeSlots.length === 0
-              ? ''
-              : 'margin-top: var(--space-xs);'}"
-            onclick={addTimeSlot}>+ ADD ANOTHER TIME</button
-          >
-        </div>
-      {/if}
-    </div>
+    <EventRecurrenceField
+      bind:recurType
+      bind:selectedDays
+      bind:monthlyMode
+      bind:untilDateVal
+      bind:extraTimeSlots={_extraTimeSlots}
+      {timed}
+      {hasEnd}
+      dayOfMonth={anchors.dayOfMonth}
+      relativeWeek={anchors.relativeWeek}
+      relativeDay={anchors.relativeDay}
+    />
 
     <!-- Requires confirmation -->
     <div class="field-card">
@@ -726,93 +402,9 @@
     color: var(--text-secondary);
   }
 
-  .field-sublabel {
-    font-size: var(--step-n2);
-    color: var(--text-muted);
-    white-space: nowrap;
-  }
-
   .optional {
     font-weight: 400;
     color: var(--text-muted);
-  }
-
-  .field-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-xs);
-  }
-
-  /* Date + trigger + optional time input row */
-  .date-time-row {
-    display: flex;
-    align-items: stretch;
-    gap: 0;
-    width: 100%;
-  }
-
-  /* Input wrapper & icons */
-  .input-wrapper {
-    position: relative;
-    display: flex;
-    align-items: center;
-    flex: 1;
-  }
-
-  .input-wrapper input {
-    width: 100%;
-  }
-
-  /* Inputs */
-  .time-input {
-    font-family: var(--font-mono);
-    font-size: var(--step-n1);
-    font-weight: 700;
-    color: var(--text-primary);
-    background: var(--bg-input);
-    border: 2px solid #000;
-    padding: var(--space-2xs) var(--space-xs);
-    outline: none;
-    flex: 1;
-    max-width: 120px;
-  }
-
-  /* Segmented control */
-  .seg-control {
-    display: flex;
-    border: 2px solid #000;
-  }
-  .seg-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 2px;
-    background: #000;
-    border: 2px solid #000;
-  }
-  .seg-grid .seg-btn {
-    border: none !important;
-  }
-
-  .seg-btn {
-    flex: 1;
-    font-family: var(--font-mono);
-    font-size: var(--step-n2);
-    font-weight: 700;
-    background: var(--bg-surface);
-    color: var(--text-primary);
-    border: none;
-    border-right: 2px solid #000;
-    padding: var(--space-2xs) var(--space-xs);
-    cursor: pointer;
-    white-space: nowrap;
-    letter-spacing: 0.05em;
-  }
-  .seg-btn:last-child {
-    border-right: none;
-  }
-  .seg-btn.active {
-    background: #000;
-    color: #fff;
   }
 
   /* Toggle row */
@@ -882,78 +474,6 @@
     color: #fff;
   }
 
-  /* Time slots */
-  .slot-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-xs);
-    width: 100%;
-  }
-
-  .flex-1 {
-    flex: 1;
-    max-width: none;
-  }
-
-  .remove-btn {
-    background: var(--red-bg);
-    color: #fff;
-    border: 2px solid #000;
-    font-family: var(--font-mono);
-    font-weight: 900;
-    font-size: var(--step-n2);
-    width: 32px;
-    height: 32px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-
-  .add-slot-btn {
-    border: 2px dashed #000;
-    background: transparent;
-    font-family: var(--font-mono);
-    font-size: var(--step-n2);
-    font-weight: 700;
-    padding: var(--space-2xs) var(--space-xs);
-    cursor: pointer;
-    letter-spacing: 0.05em;
-    color: var(--text-secondary);
-    text-align: center;
-  }
-
-  /* Day grid */
-  .day-grid {
-    display: flex;
-    gap: var(--space-2xs);
-    margin-top: var(--space-2xs);
-  }
-
-  .day-btn {
-    width: 36px;
-    height: 36px;
-    border: 2px solid #000;
-    background: var(--bg-input);
-    font-family: var(--font-mono);
-    font-weight: 700;
-    font-size: var(--step-n1);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .day-btn.selected {
-    background: #000;
-    color: #fff;
-  }
-
-  /* Until row */
-  .until-row {
-    margin-top: var(--space-xs);
-  }
-
   /* Description */
   .desc-textarea {
     font-family: var(--font-mono);
@@ -990,119 +510,5 @@
   }
   .save-btn:active:not(:disabled) {
     background: #333;
-  }
-
-  /* Bits UI Calendar Brutalist Styles */
-  :global(.bits-calendar) {
-    background: #fff;
-    border: 2px solid #000;
-    box-shadow: 4px 4px 0 #000;
-    padding: var(--space-s);
-    font-family: var(--font-mono);
-    /* The picker portals to <body>, a sibling of the sheet, so it must clear the
-       sheet content (z 1701) rather than the old full-screen z 100. It also
-       re-enables pointer events: the open sheet's bits-ui dialog sets
-       `pointer-events: none` on <body>, which this portaled layer would
-       otherwise inherit, leaving the calendar visible but unclickable. */
-    z-index: 1810;
-    pointer-events: auto;
-    /* Suppress any background bits-ui adds to the floating element itself */
-    color: #000;
-  }
-  /* bits-ui wraps Content in a data-bits-* div — reset any inherited bg, and
-     carry the same over-sheet stacking + pointer-events onto that wrapper. */
-  :global([data-bits-date-picker-content]) {
-    background: transparent !important;
-    z-index: 1810;
-    pointer-events: auto;
-  }
-  :global(.bits-calendar-header) {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--space-s);
-    padding-bottom: var(--space-xs);
-    border-bottom: 2px solid #000;
-  }
-  :global(.bits-nav-btn) {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    font-size: var(--step-0);
-    padding: var(--space-xs);
-  }
-  :global(.bits-trigger) {
-    background: transparent;
-    border: none;
-    border-left: 2px solid #000;
-    cursor: pointer;
-    padding: 0 var(--space-xs);
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    height: 100%;
-    color: var(--text-secondary, #666);
-  }
-  :global(.bits-trigger:hover) {
-    background: var(--bg-input, #f5f5f5);
-  }
-  :global(.bits-nav-btn:hover) {
-    background: var(--bg-input);
-  }
-  :global(.bits-heading) {
-    font-weight: 700;
-    text-transform: uppercase;
-  }
-  :global(.bits-weekdays) {
-    display: flex;
-  }
-  :global(.bits-weekday-cell) {
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: var(--step-n1);
-  }
-  :global(.bits-grid-row) {
-    display: flex;
-  }
-  :global(.bits-cell) {
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-  }
-  :global(.bits-day) {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: var(--step-n1);
-  }
-  :global(.bits-day:hover) {
-    background: var(--bg-input);
-  }
-  :global(.bits-day[data-selected]) {
-    background: var(--green-bg);
-    border: 2px solid #000;
-    font-weight: 900;
-  }
-  :global(.bits-day[data-today]) {
-    text-decoration: underline;
-    font-weight: 700;
-  }
-  :global(.date-input[data-invalid]) {
-    border-color: red;
-  }
-
-  /* Native time input clock icon color */
-  ::-webkit-calendar-picker-indicator {
-    filter: invert(0);
-    cursor: pointer;
   }
 </style>
