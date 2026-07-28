@@ -117,17 +117,23 @@
   >+ Add ingredient</button
 >
 
-<div class="yield-row">
-  <label class="fl" for="recipe-yield">Yield (servings)</label>
-  <input
-    id="recipe-yield"
-    class="tin yield-in"
-    type="number"
-    inputmode="numeric"
-    min="1"
-    bind:value={recipeYield}
-  />
-</div>
+<!-- Yield control hidden for now — multi-serving batch semantics aren't ready to
+     expose (ADR-0021 scoped them out; ADR-0022 records the model). Kept behind
+     `{#if false}` (not deleted) so `recipeYield` stays bound and every recipe /
+     instantiation is single-serving until this returns. -->
+{#if false}
+  <div class="yield-row">
+    <label class="fl" for="recipe-yield">Yield (servings)</label>
+    <input
+      id="recipe-yield"
+      class="tin yield-in"
+      type="number"
+      inputmode="numeric"
+      min="1"
+      bind:value={recipeYield}
+    />
+  </div>
+{/if}
 
 <div class="per-serving" data-testid="per-serving">
   <span class="fl">Per serving</span>

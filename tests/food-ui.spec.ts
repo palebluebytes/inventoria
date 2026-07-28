@@ -581,7 +581,12 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.locator(".calories-num")).toHaveText("324");
   });
 
-  test("yield control drives live per-serving totals and freezes them on save", async ({
+  // Skipped while the yield control is hidden in the UI (IngredientListEditor's
+  // `{#if false}` yield-row) — multi-serving isn't ready to expose. The yield
+  // math itself stays covered at the store/derivation seam (calorie-store,
+  // recipe-nutrition, recipe-instantiation unit tests). Re-enable when the
+  // control returns.
+  test.skip("yield control drives live per-serving totals and freezes them on save", async ({
     page,
   }) => {
     await page.goto("/?mem=1");

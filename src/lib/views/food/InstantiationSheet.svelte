@@ -181,7 +181,11 @@
       {:else if edit}
         Save changes
       {:else}
-        Log {round2(perServing.calories)} kcal
+        <!-- At a multi-serving yield the logged figure is per serving (headline =
+             Σ batch rows ÷ yield, ADR-0022), so the editor's ingredient rows sum
+             to more than this — spell out the basis so the difference reads. -->
+        Log {round2(perServing.calories)} kcal{#if yieldNum > 1}
+          / serving{/if}
       {/if}
     </button>
   {/snippet}
