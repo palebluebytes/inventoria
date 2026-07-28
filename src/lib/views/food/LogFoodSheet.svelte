@@ -11,6 +11,7 @@
     saveCustomFood,
     retractConsumptionEvent,
     recipeTwinsStore,
+    consumptionStore,
     type ConsumptionEvent,
   } from "../../stores/calorie.store";
   import { parseLoggedQuantity } from "../../food/recipe-ingredient";
@@ -84,6 +85,52 @@
       out.push({ entity: row.entity, name });
     }
     return out;
+  });
+
+  // Recently logged foods for one-tap re-logging, shown in the stager's Search
+  // tab while its query box is empty. Distinct twins, newest first, capped at a
+  // dozen. Only gram-basis logs qualify: the stager scales a chosen food on a
+  // 100 g basis (ADR-0023), so per-serving custom entries — which re-open the
+  // custom form in edit mode — are skipped rather than mis-scaled here.
+  const RECENT_LIMIT = 12;
+  let recentTargets = $derived.by(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const e of [...$consumptionStore].sort((a, b) => b.time - a.time)) {
+      if (!e.target || seen.has(e.target)) continue;
+      seen.add(e.target);
+      if (parseLoggedQuantity(e.quantity).unit === "serving") continue;
+      out.push(e.target);
+      if (out.length >= RECENT_LIMIT) break;
+    }
+    return out;
+  });
+
+  // Resolve those targets to the FoodResult shape the stager stages, reusing the
+  // gram edit-path mapping. Twins are cached across store ticks so a new log
+  // doesn't refetch the whole list. Runs untracked bodies via getLocalFoodTwin.
+  let recent = $state<FoodResult[]>([]);
+  const twinCache = new Map<string, FoodResult>();
+  $effect(() => {
+    const targets = recentTargets;
+    let cancelled = false;
+    void (async () => {
+      const out: FoodResult[] = [];
+      for (const t of targets) {
+        let fr = twinCache.get(t);
+        if (!fr) {
+          const twin = await getLocalFoodTwin(t);
+          if (!twin) continue;
+          fr = mapPayloadToFoodResult(twin);
+          twinCache.set(t, fr);
+        }
+        out.push(fr);
+      }
+      if (!cancelled) recent = out;
+    })();
+    return () => {
+      cancelled = true;
+    };
   });
 
   // The staged food, bound from the stager so the header's back button can clear
@@ -197,6 +244,7 @@
     {seed}
     allowPhoto
     lockMethods={!!edit}
+    recent={edit ? [] : recent}
     primaryDisabled={!dbReady}
     ids={{
       search: "food-search-input",

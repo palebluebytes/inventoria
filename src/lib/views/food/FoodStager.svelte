@@ -55,6 +55,10 @@
     /** Host-injected method tabs beyond Search / Scan / Custom (e.g. the log
      *  sheet's Recipe browser), rendered via the `tabContent` snippet. */
     extraTabs = [],
+    /** Recently used foods, newest first, shown in the Search tab while the
+     *  query box is empty so a repeat food is one tap away. Host-supplied (it
+     *  knows what "recent" means for its surface); empty hides the section. */
+    recent = [],
     /** DOM ids for each host's e2e selectors. */
     ids,
     /** The staged food, exposed so the host header's back button can clear it
@@ -69,6 +73,7 @@
     lockMethods?: boolean;
     seed?: StagerSeed | null;
     extraTabs?: StagerExtraTab[];
+    recent?: FoodResult[];
     ids: StagerIds;
     staged?: FoodResult | null;
     tabContent?: import("svelte").Snippet<[string]>;
@@ -369,16 +374,28 @@
           Add a USDA API key in Settings to search the food database.
         </Alert>
       {/if}
-      <FoodResultsList
-        {results}
-        heading={results.length ? "Results" : undefined}
-        onSelect={(item) => {
-          staged = item;
-          grams = 100;
-        }}
-      />
-      {#if hasKey && status === "idle" && query.trim().length >= 3 && results.length === 0}
-        <p class="hint">No matches for “{query.trim()}”.</p>
+      {#if query.trim().length === 0 && recent.length > 0}
+        <!-- Idle search box: offer recent foods so a repeat log is one tap. -->
+        <FoodResultsList
+          results={recent}
+          heading="Recent"
+          onSelect={(item) => {
+            staged = item;
+            grams = 100;
+          }}
+        />
+      {:else}
+        <FoodResultsList
+          {results}
+          heading={results.length ? "Results" : undefined}
+          onSelect={(item) => {
+            staged = item;
+            grams = 100;
+          }}
+        />
+        {#if hasKey && status === "idle" && query.trim().length >= 3 && results.length === 0}
+          <p class="hint">No matches for “{query.trim()}”.</p>
+        {/if}
       {/if}
     {:else if method === "scan"}
       {#if scanError}<Alert variant="warning">{scanError}</Alert>{/if}
