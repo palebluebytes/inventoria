@@ -1,12 +1,12 @@
 # ADR 0029: Decompose the god-screen components into focused sub-components
 
-**Status:** Accepted; implemented (`food/DailyDashboard.svelte`, `AgendaView.svelte`, and their new children).
+**Status:** Accepted; implemented (`food/DailyDashboard.svelte`, `AgendaView.svelte`, `habits/AddEventScreen.svelte`, and their new children).
 **Date:** 2026-07-28
 
 ## Context
 
 After the sheet/staging work (ADR-0025 through ADR-0028) shared the food chrome,
-two screens were still single files bundling many responsibilities:
+three screens were still single files bundling many responsibilities:
 
 - **`food/DailyDashboard.svelte`** (~790 lines) — a week-strip date selector, a
   calorie progress ring, three macro meters, the per-meal logged-food timeline,
@@ -16,6 +16,10 @@ two screens were still single files bundling many responsibilities:
   meatiest part — ~140 lines of `$derived` that fuse timed habit sub-targets and
   projected calendar-event slots into one time-ordered, block-annotated,
   time-clustered list.
+- **`habits/AddEventScreen.svelte`** (~1110 lines) — the whole add-event form:
+  a bits-ui date-picker block copy-pasted three times (start / end / until),
+  the recurrence controls, the time-slot editor, and ~95 lines mapping the form
+  to a `ScheduleRule` (with inline nth-weekday-of-month date math).
 
 Each file had several reasons to change and no piece was individually navigable
 or testable. The schedule-grouping math in particular was pure logic trapped
@@ -49,11 +53,23 @@ Agenda → a header, two section components, and a pure module:
   the store-reading (which habits/events exist for the day) and calls these two
   functions.
 
-Each `.svelte` child moves its own scoped CSS with it. Where two components share
-identical chrome (`.agenda-section` / `.section-title-bar` / `.add-agenda-row`),
-that small block is duplicated into both `ScheduleSection` and `HabitsSection`
-with a comment, rather than hoisted to a global stylesheet — the sections stay
-self-contained and independently navigable, which is the point of the split.
+Add-event → two form-field components and a pure module:
+
+- `DateField.svelte` — one bits-ui date input + calendar popover with an optional
+  adjacent time input, replacing the three copy-pasted date-picker blocks (start
+  binds date + time, end likewise, until is date-only).
+- `EventRecurrenceField.svelte` — the RECURRENCE card: repeat controls, day grid,
+  monthly mode, until date, and the extra time-slot editor.
+- `cal_events/event-schedule-rules.ts` — `buildEventScheduleRules` (form →
+  `ScheduleRule`) and `monthlyAnchors` (the nth/last-weekday-of-month date math
+  the recurrence UI displays and the rule builder consumes). The sheet keeps the
+  form state and calls these.
+
+Each `.svelte` child moves its own scoped CSS with it. Where components share
+identical chrome — the agenda's `.agenda-section` / `.section-title-bar` /
+`.add-agenda-row`, or the add-event card's `.field-card` / `.field-label` — that
+small block is duplicated into each self-contained component with a comment,
+rather than hoisted to a global stylesheet, which is the point of the split.
 
 ## Consequences
 
