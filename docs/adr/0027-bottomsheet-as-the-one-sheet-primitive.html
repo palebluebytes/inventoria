@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR 0027 · Inventoria</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+      <nav class="site-nav">
+        <p class="nav-title">Inventoria</p>
+        <a href="../index.html">Introduction</a>
+        <div class="nav-section">
+          <p class="nav-section-label">Reference</p>
+          <a href="../glossary.html">Glossary</a>
+          <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+        </div>
+        <div class="nav-section">
+          <p class="nav-section-label">Explanation</p>
+          <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+        </div>
+        <div class="nav-section">
+          <a href="index.html" class="active">Architectural Decision Records</a>
+        </div>
+      </nav>
+  <div class="content-area">
+    <main>
+<h1 id="adr-0027-grow-bottomsheet-into-the-one-sheet-primitive--docked-footer--over-dialog">ADR 0027: Grow BottomSheet into the one sheet primitive — docked footer + over-dialog</h1>
+<p><strong>Status:</strong> Accepted; implemented (<code>ui/BottomSheet.svelte</code>, <code>ui/Modal.svelte</code>). <strong>Date:</strong> 2026-07-28</p>
+<h2 id="context">Context</h2>
+<p>There are two ways to build a sheet in this codebase:</p>
+<ul>
+<li>The <strong><code>ui/BottomSheet</code></strong> primitive (a <code>Modal</code>-backed bits-ui dialog with a grab handle, header, and scrollable body), used by the habits and agenda views.</li>
+<li><strong>Hand-rolled</strong> fixed-position chrome — <code>.sheet</code> / <code>.dock</code> / <code>.foot</code> / <code>.grab</code> markup and styles copy-pasted across the food sheets (<code>LogFoodSheet</code>, <code>InstantiationSheet</code>, <code>AddIngredientSheet</code>, <code>IngredientAmountSheet</code>).</li>
+</ul>
+<p>The hand-rolled copies exist because the primitive couldn't express two things those sheets need:</p>
+<ol type="1">
+<li><strong>A pinned dock/footer.</strong> The food sheets keep a primary action (and, in the stager, a method switcher) fixed below a scrolling body. <code>BottomSheet</code> only offered header + body.</li>
+<li><strong>Correct rendering over a parent dialog.</strong> <code>AddIngredientSheet</code> and <code>IngredientAmountSheet</code> are raised over the recipe/instantiation dialog. An open bits-ui dialog sets <code>pointer-events: none</code> on <code>&lt;body&gt;</code>; a sibling overlay inherits it and its buttons become visually present but <strong>click-through</strong>. Both sheets re-derived the same <code>pointer-events: auto</code> fix by hand, and the dialog layer (z 1600) meant each over-dialog sheet also had to pick a higher z-index (1700/1800) so it wasn't painted over.</li>
+</ol>
+<p>Duplicated chrome means a change to sheet behaviour has to be made — and kept in step — in several places, and every new over-dialog sheet re-discovers the pointer-events trap.</p>
+<h2 id="decision">Decision</h2>
+<p><strong>Grow <code>BottomSheet</code> so it can express what the hand-rolled sheets need, and absorb the over-dialog fix into the primitive so callers get it for free. This ticket expands only — no existing sheet is migrated; a demo proves the shape.</strong></p>
+<ul>
+<li><strong>Docked footer slot.</strong> <code>BottomSheet</code> takes an optional <code>footer</code> snippet, rendered in a <code>.bottom-sheet-footer</code> dock below the scrollable body. The sheet is a flex column with the body <code>flex: 1; overflow-y: auto</code> and the footer <code>flex-shrink: 0</code>, so the dock stays pinned while the body scrolls. The footer receives <code>close</code>, so a Done/Cancel control can dismiss the sheet. Its styling (top border, <code>--space</code> padding, <code>env(safe-area-inset-bottom)</code>) mirrors the food sheets' <code>.dock</code> / <code>.foot</code> so they can later fold onto it.</li>
+<li><strong>Over-dialog behaviour, baked in.</strong> The sheet content sets <code>pointer-events: auto</code> and sits at <code>z-index: 1701</code>, above the app's dialog layer (dialogs at 1600, over-dialog sheets up to 1800). <code>Modal</code> gains an optional <strong><code>overlayZ</code></strong> prop (default 998); <code>BottomSheet</code> passes <code>1700</code> so its own backdrop dims a parent dialog's card rather than sitting under it. Together these mean a <code>BottomSheet</code> opened over a bits-ui dialog renders with its own dim and stays interactive — no click-through, no dead buttons — without the caller re-deriving anything.</li>
+<li><strong>A demo, not a migration.</strong> <code>BottomSheetDemo</code> (mounted via <code>?demo=bottomsheet</code>) raises a <code>BottomSheet</code> with a docked method-switcher + primary action over a parent <code>Modal</code> dialog. A Playwright spec drives it: the footer controls respond over the dialog, a button sitting behind the sheet is never hit (no click-through), and the dock stays pinned as the body scrolls.</li>
+</ul>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li>The primitive now covers the docked-footer and over-dialog shapes the food sheets hand-roll, so a later ticket can retire that duplication by folding the food sheets onto <code>BottomSheet</code> — this ticket deliberately stops at expand + demo.</li>
+<li>The over-dialog fix lives in one place. New sheets raised over a dialog inherit correct pointer-events and layering from the primitive instead of rediscovering the <code>pointer-events: none</code>-on-<code>&lt;body&gt;</code> trap.</li>
+<li><code>Modal</code>'s overlay stacking is now a prop (<code>overlayZ</code>, default 998), so any dialog opened over another can raise its dim without editing the shared overlay. Existing <code>Modal</code> callers are unaffected by the default.</li>
+<li>Standalone <code>BottomSheet</code> consumers (habits, agenda) are unchanged in behaviour; their overlay/content simply moved to the 1700/1701 layer, still above page chrome and below <code>ReloadPrompt</code> (9999). Covered by the existing habits e2e suite, which passes unchanged.</li>
+<li><strong>Deferred:</strong> migrating the food sheets onto the primitive, and unifying the remaining shell differences (a centered max-width sheet vs a full-bleed dialog-sibling overlay), are left for the follow-up migration ticket.</li>
+</ul>
+    </main>
+  </div>
+</div>
+</body>
+</html>
