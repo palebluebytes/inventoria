@@ -10,6 +10,16 @@
   import NotesView from "./lib/views/NotesView.svelte";
   import ReloadPrompt from "./lib/ui/ReloadPrompt.svelte";
 
+  // Dev/e2e-only UI-primitive harness: `?demo=bottomsheet` swaps the whole app
+  // for a component demo, so a Playwright spec can drive the primitive in
+  // isolation without a real screen mounting it (issue #17). Gated on
+  // `import.meta.env.DEV` and dynamically imported, so the harness is dead-code
+  // eliminated from the production build — it never ships.
+  const demo =
+    import.meta.env.DEV && typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("demo")
+      : null;
+
   // ── DB init ──────────────────────────────────────────────────────────────
   let dbReady = $state(false);
   let dbError = $state("");
@@ -56,38 +66,45 @@
   />
 </svelte:head>
 
-<div class="app">
-  <Sidebar bind:activeTab {dbReady} {dbError} />
+{#if demo === "bottomsheet"}
+  {#await import("./lib/ui/BottomSheetDemo.svelte") then mod}
+    {@const BottomSheetDemo = mod.default}
+    <BottomSheetDemo />
+  {/await}
+{:else}
+  <div class="app">
+    <Sidebar bind:activeTab {dbReady} {dbError} />
 
-  <main class="main">
-    {#if activeTab === "food"}
-      <FoodView {dbReady} />
-    {/if}
+    <main class="main">
+      {#if activeTab === "food"}
+        <FoodView {dbReady} />
+      {/if}
 
-    {#if activeTab === "media"}
-      <MediaView {dbReady} />
-    {/if}
+      {#if activeTab === "media"}
+        <MediaView {dbReady} />
+      {/if}
 
-    {#if activeTab === "items"}
-      <ItemsView {dbReady} />
-    {/if}
+      {#if activeTab === "items"}
+        <ItemsView {dbReady} />
+      {/if}
 
-    {#if activeTab === "agenda"}
-      <AgendaView {dbReady} />
-    {/if}
+      {#if activeTab === "agenda"}
+        <AgendaView {dbReady} />
+      {/if}
 
-    {#if activeTab === "notes"}
-      <NotesView {dbReady} />
-    {/if}
+      {#if activeTab === "notes"}
+        <NotesView {dbReady} />
+      {/if}
 
-    <!-- Settings — always rendered so Playwright can find the harness elements -->
-    <div hidden={activeTab !== "settings"}>
-      <SettingsView {dbReady} />
-    </div>
-  </main>
+      <!-- Settings — always rendered so Playwright can find the harness elements -->
+      <div hidden={activeTab !== "settings"}>
+        <SettingsView {dbReady} />
+      </div>
+    </main>
 
-  <ReloadPrompt />
-</div>
+    <ReloadPrompt />
+  </div>
+{/if}
 
 <style>
   .app {
