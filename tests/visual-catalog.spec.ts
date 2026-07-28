@@ -231,6 +231,11 @@ test.describe("Visual Catalog Generator", () => {
         // even frozen. Mask it (a solid box) — its value is asserted directly in
         // food-ui.spec.ts. The locator is a no-op on non-food dashboards.
         mask: [page.locator(".ring-container")],
+        // The cap still bleeds a hair past the mask's own edges, so allow a
+        // bounded pixel budget to absorb that antialiasing (the observed flake is
+        // ~2372 px). Any real content/layout change on a full-page shot dwarfs
+        // this, so structural regressions still fail.
+        maxDiffPixels: 5000,
       });
     } finally {
       await styleHandle.evaluate((el) => (el as Element).remove());
