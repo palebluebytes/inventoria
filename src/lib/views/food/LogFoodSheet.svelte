@@ -1,16 +1,10 @@
 <script lang="ts">
   import { dbClient } from "../../db/db.client";
   import {
-    lookupBarcode,
-    ProductNotFoundError,
-  } from "../../food/open-food-facts";
-  import {
-    searchUsdaFoods,
     mapPayloadToFoodResult,
     type FoodResult,
   } from "../../food/food-search";
   import { ingestEntity } from "../../ingestion/ingest";
-  import { settingsStore } from "../../stores/settings.store";
   import {
     logFoodConsumption,
     getLocalFoodTwin,
@@ -21,19 +15,22 @@
   } from "../../stores/calorie.store";
   import { parseLoggedQuantity } from "../../food/recipe-ingredient";
   import { parseDatomValue } from "../../db/datom-fold";
-  import { round2 } from "../../food/nutrition";
+  import type {
+    FoodChoice,
+    ChooseOutcome,
+    StagerSeed,
+    PrimaryLabelContext,
+  } from "../../food/food-staging";
 
   import Modal from "../../ui/Modal.svelte";
-  import Alert from "../../ui/Alert.svelte";
-  import FoodResultsList from "./FoodResultsList.svelte";
-  import MacroPills from "./MacroPills.svelte";
-  import QuantityGrams from "./QuantityGrams.svelte";
+  import FoodStager from "./FoodStager.svelte";
 
   // A single sheet for logging food into one meal. Opens directly on "+ Add"
-  // (no chooser); method (Search / Scan / Custom) is switched from the dock at
-  // the bottom. Search hits USDA, Scan reads a barcode via camera or manual
-  // entry, Custom is a manual macro entry with an optional photo. The meal is
-  // fixed by the "+ Add {meal}" button that opened the sheet.
+  // (no chooser); the shared FoodStager (issue #16) owns the Search / Scan /
+  // Custom staging flow, and this sheet adds the log-specific shell: the meal is
+  // fixed by the "+ Add {meal}" button that opened it, a chosen food is logged
+  // as a Consumption Event (or an edited one retracted and replaced), and the
+  // Recipe browser tab instantiates / defines / edits saved Recipe Twins.
   let {
     dbReady,
     meal_type,
@@ -75,8 +72,6 @@
     onEditRecipe?: (recipeEntity: string) => void;
   } = $props();
 
-  type Method = "search" | "scan" | "custom" | "recipe";
-
   // Saved Recipe Twins for the Instantiate browser, deduped by entity (newest
   // first from the store's HLC-desc order).
   let recipes = $derived.by(() => {
@@ -91,53 +86,16 @@
     return out;
   });
 
-  // Method tabs — the Recipe browser only appears when the parent wired an
-  // Instantiate handler.
-  let methodTabs = $derived<[Method, string, string][]>(
-    onPickRecipe
-      ? [
-          ["search", "🔍", "Search"],
-          ["scan", "📷", "Scan"],
-          ["custom", "✏️", "Custom"],
-          ["recipe", "🍲", "Recipe"],
-        ]
-      : [
-          ["search", "🔍", "Search"],
-          ["scan", "📷", "Scan"],
-          ["custom", "✏️", "Custom"],
-        ]
-  );
-  let method = $state<Method>("search");
-  let query = $state("");
-  let barcode = $state("");
-
-  let searchStatus = $state<"idle" | "loading" | "error">("idle");
-  let searchError = $state("");
-  let results = $state<FoodResult[]>([]);
-
-  // The result staged for quantifying (a USDA hit or a barcode match). `grams`
-  // is the authoritative amount owned by the QuantityGrams control (ADR-0023);
-  // it stays a clean number, so `gramsNum` simply mirrors it.
+  // The staged food, bound from the stager so the header's back button can clear
+  // it ("Change food"); hidden in edit mode, which locks onto one food's amount.
   let staged = $state<FoodResult | null>(null);
-  let grams = $state(100);
-  let gramsNum = $derived(grams);
-  let factor = $derived(gramsNum / 100);
 
-  // Custom entry
-  let customName = $state("");
-  let customCal = $state("");
-  let customProt = $state("");
-  let customFat = $state("");
-  let customCarb = $state("");
-  let photo_base64 = $state<string | null>(null);
-  let fileInput = $state<HTMLInputElement | null>(null);
-
-  let hasKey = $derived(!!$settingsStore.usda_api_key);
-
-  // Editing: pre-load the sheet from the event being edited, once. A gram-logged
-  // food re-stages from its twin's panel (so the amount editor scales the same
-  // way it did originally); a per-serving custom entry re-opens the custom form
-  // pre-filled from the event's frozen macros.
+  // Editing: seed the stager once from the event being edited. A gram-logged
+  // food re-stages from its twin (so the amount editor scales the same way it
+  // did originally); a per-serving custom entry re-opens the custom form
+  // pre-filled from the event's frozen macros. The gram case resolves the twin
+  // asynchronously, so the seed lands once that fetch completes.
+  let seed = $state<StagerSeed | null>(null);
   let editLoaded = false;
   $effect(() => {
     if (!edit || editLoaded) return;
@@ -145,252 +103,84 @@
     const e = edit;
     const { amount, unit } = parseLoggedQuantity(e.quantity);
     if (unit === "serving") {
-      method = "custom";
-      customName = e.foodName ?? "";
-      customCal = e.calories != null ? String(e.calories) : "";
-      customProt = e.protein != null ? String(e.protein) : "";
-      customFat = e.fat != null ? String(e.fat) : "";
-      customCarb = e.carbs != null ? String(e.carbs) : "";
-      photo_base64 = e.photoBase64 ?? null;
+      seed = {
+        kind: "custom",
+        name: e.foodName ?? "",
+        calories: e.calories != null ? String(e.calories) : "",
+        protein: e.protein != null ? String(e.protein) : "",
+        fat: e.fat != null ? String(e.fat) : "",
+        carbs: e.carbs != null ? String(e.carbs) : "",
+        photo_base64: e.photoBase64 ?? null,
+      };
     } else if (e.target) {
       void getLocalFoodTwin(e.target).then((twin) => {
         if (!twin) return;
-        staged = mapPayloadToFoodResult(twin);
-        grams = amount;
+        seed = {
+          kind: "food",
+          food: mapPayloadToFoodResult(twin),
+          grams: amount,
+        };
       });
     }
   });
 
-  // The query whose results are currently held, so returning to the list from a
-  // staged food (via "Change food") shows the cached results instead of firing
-  // the search again. Plain let — not an $effect dependency.
-  let lastQuery = "";
-  let debounceTimer: ReturnType<typeof setTimeout>;
-  $effect(() => {
-    const trimmed = query.trim();
-    if (method !== "search" || staged) return;
-    clearTimeout(debounceTimer);
-    if (trimmed.length === 0) {
-      results = [];
-      searchStatus = "idle";
-      searchError = "";
-      lastQuery = "";
-    } else if (
-      trimmed.length >= 3 &&
-      hasKey &&
-      // Skip if these results already match the query (e.g. we just came back
-      // from staging a food); a failed query is not cached, so it can retry.
-      !(trimmed === lastQuery && searchStatus !== "error")
-    ) {
-      searchStatus = "loading";
-      debounceTimer = setTimeout(() => handleSearch(), 400);
-    }
-    return () => clearTimeout(debounceTimer);
-  });
-
-  // ── Camera barcode scanning ────────────────────────────────────────────────
-  let videoEl = $state<HTMLVideoElement | null>(null);
-  let scanning = false;
-  let stream: MediaStream | null = null;
-  let detector: any = null;
-  let scanError = $state("");
-  let rafId: number | null = null;
-
-  $effect(() => {
-    if (method === "scan" && !staged) startCamera();
-    else stopCamera();
-    return () => stopCamera();
-  });
-
-  async function startCamera() {
-    if (scanning || !videoEl) return;
+  // Commit a chosen food into this meal: ingest the twin and append a
+  // proportional Consumption Event, or save-and-log a custom entry. Editing
+  // retracts the original in the same step (append-only, ADR-0008). Success
+  // closes the sheet; a failure keeps it open with the reason.
+  async function handleChoose(choice: FoodChoice): Promise<ChooseOutcome> {
     try {
-      if (!("BarcodeDetector" in window)) {
-        scanError =
-          "Barcode scanning is not supported by this browser. Enter the number manually.";
-        return;
+      if (choice.kind === "food") {
+        const f = choice.food;
+        const factor = choice.grams / 100;
+        await dbClient.append(ingestEntity(f.payload));
+        const newId = await logFoodConsumption(
+          f.entity,
+          `${choice.grams}g`,
+          meal_type,
+          Math.round(f.calories * factor),
+          Math.round(f.protein * factor * 10) / 10,
+          Math.round(f.fat * factor * 10) / 10,
+          Math.round(f.carbs * factor * 10) / 10,
+          selectedDate
+        );
+        if (edit) await retractConsumptionEvent(edit.id, newId);
+      } else {
+        const twinId = await saveCustomFood(
+          choice.name,
+          choice.calories,
+          choice.protein,
+          choice.fat,
+          choice.carbs,
+          choice.photo_base64 || undefined
+        );
+        const newId = await logFoodConsumption(
+          twinId,
+          "1 serving",
+          meal_type,
+          choice.calories,
+          choice.protein,
+          choice.fat,
+          choice.carbs,
+          selectedDate
+        );
+        if (edit) await retractConsumptionEvent(edit.id, newId);
       }
-      detector = new (window as any).BarcodeDetector({
-        formats: ["ean_13", "ean_8", "upc_a", "upc_e"],
-      });
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-      });
-      videoEl.srcObject = stream;
-      videoEl.play();
-      scanning = true;
-      scanError = "";
-      rafId = requestAnimationFrame(scanFrame);
-    } catch {
-      scanError = "Camera access denied or unavailable.";
-      scanning = false;
-    }
-  }
-
-  function stopCamera() {
-    if (rafId !== null) {
-      cancelAnimationFrame(rafId);
-      rafId = null;
-    }
-    if (stream) {
-      stream.getTracks().forEach((t) => t.stop());
-      stream = null;
-    }
-    scanning = false;
-  }
-
-  async function scanFrame() {
-    if (!scanning || !videoEl || !detector) return;
-    if (videoEl.readyState >= 2) {
-      try {
-        const codes = await detector.detect(videoEl);
-        if (codes.length > 0) {
-          barcode = codes[0].rawValue;
-          stopCamera();
-          await handleBarcodeLookup();
-          return;
-        }
-      } catch {
-        // ignore per-frame detection errors
-      }
-    }
-    rafId = requestAnimationFrame(scanFrame);
-  }
-
-  // ── Actions ────────────────────────────────────────────────────────────────
-  async function handleSearch() {
-    clearTimeout(debounceTimer);
-    if (!query.trim()) return;
-    searchStatus = "loading";
-    searchError = "";
-    results = [];
-    staged = null;
-    try {
-      results = await searchUsdaFoods(query);
-      lastQuery = query.trim();
-      searchStatus = "idle";
-    } catch (e: any) {
-      searchStatus = "error";
-      searchError = e.message ?? String(e);
-    }
-  }
-
-  async function handleBarcodeLookup() {
-    if (!barcode.trim()) return;
-    searchStatus = "loading";
-    searchError = "";
-    try {
-      const local = await getLocalFoodTwin(`gtin:${barcode.trim()}`);
-      const payload = local ?? (await lookupBarcode(barcode.trim()));
-      staged = mapPayloadToFoodResult(payload);
-      grams = 100;
-      searchStatus = "idle";
-    } catch (e: any) {
-      searchStatus = "error";
-      searchError =
-        e instanceof ProductNotFoundError
-          ? "Barcode not found. Add it as a custom entry."
-          : (e.message ?? String(e));
-    }
-  }
-
-  async function logStaged() {
-    if (!staged || gramsNum <= 0) return;
-    searchStatus = "loading";
-    try {
-      // Ingest the food twin, then append a proportional Consumption Event.
-      await dbClient.append(ingestEntity(staged.payload));
-      const newId = await logFoodConsumption(
-        staged.entity,
-        `${gramsNum}g`,
-        meal_type,
-        Math.round(staged.calories * factor),
-        Math.round(staged.protein * factor * 10) / 10,
-        Math.round(staged.fat * factor * 10) / 10,
-        Math.round(staged.carbs * factor * 10) / 10,
-        selectedDate
-      );
-      if (edit) await retractConsumptionEvent(edit.id, newId);
       onClose();
+      return { ok: true };
     } catch (e: any) {
-      searchStatus = "error";
-      searchError = e.message ?? String(e);
+      return { ok: false, message: e.message ?? String(e) };
     }
   }
 
-  async function logCustom() {
-    const cal = parseFloat(customCal);
-    if (!customName.trim() || isNaN(cal)) return;
-    searchStatus = "loading";
-    try {
-      const prot = parseFloat(customProt) || 0;
-      const fat = parseFloat(customFat) || 0;
-      const carb = parseFloat(customCarb) || 0;
-      const twinId = await saveCustomFood(
-        customName.trim(),
-        cal,
-        prot,
-        fat,
-        carb,
-        photo_base64 || undefined
-      );
-      const newId = await logFoodConsumption(
-        twinId,
-        "1 serving",
-        meal_type,
-        cal,
-        prot,
-        fat,
-        carb,
-        selectedDate
-      );
-      if (edit) await retractConsumptionEvent(edit.id, newId);
-      onClose();
-    } catch (e: any) {
-      searchStatus = "error";
-      searchError = e.message ?? String(e);
-    }
-  }
-
-  function handleFileChange(e: Event) {
-    const file = (e.target as HTMLInputElement).files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => (photo_base64 = ev.target?.result as string);
-    reader.onerror = () => {
-      searchStatus = "error";
-      searchError = "Failed to read image file.";
-    };
-    reader.readAsDataURL(file);
-  }
-
-  function switchMethod(m: Method) {
-    staged = null;
-    method = m;
-    searchError = "";
-    searchStatus = "idle";
-  }
-
-  let canLog = $derived(
-    (!!staged && gramsNum > 0) ||
-      (method === "custom" && !!customName.trim() && customCal !== "") ||
-      (method === "scan" && !staged && !!barcode.trim())
-  );
-
-  function primaryLabel(): string {
-    if (staged)
+  function primaryLabel(ctx: PrimaryLabelContext): string {
+    if (ctx.staged)
       return edit
         ? "Save changes"
-        : `Log ${Math.round(staged.calories * factor)} kcal`;
-    if (method === "custom") return edit ? "Save changes" : "Save & Log";
-    if (method === "scan") return "Look up";
+        : `Log ${Math.round(ctx.staged.calories * ctx.factor)} kcal`;
+    if (ctx.method === "custom") return edit ? "Save changes" : "Save & Log";
+    if (ctx.method === "scan") return "Look up";
     return "Log";
-  }
-
-  function primaryAction() {
-    if (staged) return logStaged();
-    if (method === "custom") return logCustom();
-    if (method === "scan") return handleBarcodeLookup();
   }
 </script>
 
@@ -412,217 +202,67 @@
         <button class="hbtn x" onclick={close} aria-label="Close">✕</button>
       </header>
 
-      <!-- Staging / results area -->
-      <div class="stage">
-        {#if staged}
-          <div class="staged">
-            <h3>{staged.name}</h3>
-            <p class="per">
-              Per 100g · {round2(staged.calories)} kcal · P {round2(
-                staged.protein
-              )}g · F {round2(staged.fat)}g · C {round2(staged.carbs)}g
-            </p>
-            <span class="fl">Quantity (grams)</span>
-            <QuantityGrams bind:grams />
-            <div class="preview">
-              <MacroPills
-                calories={Math.round(staged.calories * factor)}
-                protein={Math.round(staged.protein * factor * 10) / 10}
-                fat={Math.round(staged.fat * factor * 10) / 10}
-                carbs={Math.round(staged.carbs * factor * 10) / 10}
-              />
-            </div>
-          </div>
-        {:else if method === "search"}
-          {#if !hasKey}
-            <Alert variant="warning">
-              Add a USDA API key in Settings to search the food database.
-            </Alert>
-          {/if}
-          <FoodResultsList
-            {results}
-            heading={results.length ? "Results" : undefined}
-            onSelect={(item) => {
-              staged = item;
-              grams = 100;
-            }}
-          />
-          {#if hasKey && searchStatus === "idle" && query.trim().length >= 3 && results.length === 0}
-            <p class="hint">No matches for “{query.trim()}”.</p>
-          {/if}
-        {:else if method === "scan"}
-          {#if scanError}<Alert variant="warning">{scanError}</Alert>{/if}
-          <div class="viewport">
-            <!-- svelte-ignore a11y_media_has_caption -->
-            <video bind:this={videoEl} class="scanner-video" playsinline
-            ></video>
-            <div class="reticle"></div>
-          </div>
-          <p class="hint">
-            Point the camera at a barcode, or type the number below. No result? <button
-              class="link"
-              onclick={() => switchMethod("custom")}>Add a custom entry</button
-            >.
-          </p>
-        {:else if method === "recipe"}
-          <button
-            type="button"
-            class="recipe-new"
-            id="define-recipe-btn"
-            onclick={() => onDefineRecipe?.()}>＋ New recipe</button
-          >
-          {#if recipes.length === 0}
-            <p class="hint">
-              No saved recipes yet. Create one above, or build one by selecting
-              logged foods on the dashboard.
-            </p>
-          {:else}
-            <p class="fl">Your recipes</p>
-            <ul class="recipe-list">
-              {#each recipes as r (r.entity)}
-                <li>
-                  <button
-                    type="button"
-                    class="recipe-pick"
-                    onclick={() => onPickRecipe?.(r.entity)}
-                  >
-                    <span class="recipe-pick-name">{r.name}</span>
-                    <span class="recipe-pick-go" aria-hidden="true">›</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="recipe-edit"
-                    onclick={() => onEditRecipe?.(r.entity)}
-                    aria-label="Edit {r.name}">Edit</button
-                  >
-                </li>
-              {/each}
-            </ul>
-          {/if}
-        {:else}
-          <p class="hint">Enter the name and macros for your custom food.</p>
-          <div class="grid2">
-            <div class="fld">
-              <label for="custom-cal">Calories (kcal)</label><input
-                id="custom-cal"
-                type="number"
-                bind:value={customCal}
-              />
-            </div>
-            <div class="fld">
-              <label for="custom-prot">Protein (g)</label><input
-                id="custom-prot"
-                type="number"
-                bind:value={customProt}
-              />
-            </div>
-            <div class="fld">
-              <label for="custom-fat">Fat (g)</label><input
-                id="custom-fat"
-                type="number"
-                bind:value={customFat}
-              />
-            </div>
-            <div class="fld">
-              <label for="custom-carb">Carbs (g)</label><input
-                id="custom-carb"
-                type="number"
-                bind:value={customCarb}
-              />
-            </div>
-          </div>
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            class="hidden-file-input"
-            bind:this={fileInput}
-            onchange={handleFileChange}
-          />
-          {#if photo_base64}
-            <div class="photo-preview-box">
-              <img src={photo_base64} alt="Custom food" class="photo-preview" />
-              <button class="change-photo" onclick={() => fileInput?.click()}
-                >Change</button
-              >
-            </div>
-          {:else}
-            <button class="photo" onclick={() => fileInput?.click()}
-              >📷 Add photo (optional)</button
+      <FoodStager
+        bind:staged
+        {seed}
+        allowPhoto
+        lockMethods={!!edit}
+        primaryDisabled={!dbReady}
+        ids={{
+          search: "food-search-input",
+          barcode: "barcode-input",
+          primary: "log-food-btn",
+          customName: "custom-name",
+          customCal: "custom-cal",
+          customProt: "custom-prot",
+          customFat: "custom-fat",
+          customCarb: "custom-carb",
+        }}
+        extraTabs={onPickRecipe
+          ? [{ id: "recipe", icon: "🍲", label: "Recipe" }]
+          : []}
+        onChoose={handleChoose}
+        {primaryLabel}
+      >
+        {#snippet tabContent(tab)}
+          {#if tab === "recipe"}
+            <button
+              type="button"
+              class="recipe-new"
+              id="define-recipe-btn"
+              onclick={() => onDefineRecipe?.()}>＋ New recipe</button
             >
-          {/if}
-        {/if}
-
-        {#if searchStatus === "error"}
-          <div class="mt"><Alert variant="error">{searchError}</Alert></div>
-        {/if}
-      </div>
-
-      <!-- Dock: input · methods · primary action. When a food is staged its name
-           already headlines the staging area above, so the input row is dropped
-           (no duplicate echo). Editing targets one entry, so the method switcher
-           is dropped too — the sheet stays focused on that food's amount. -->
-      <div class="dock">
-        {#if !staged && method !== "recipe"}
-          <div class="dock-input">
-            {#if method === "custom"}
-              <input
-                class="cin"
-                id="custom-name"
-                placeholder="Food name…"
-                bind:value={customName}
-              />
-            {:else if method === "scan"}
-              <input
-                class="cin"
-                id="barcode-input"
-                placeholder="Enter barcode…"
-                bind:value={barcode}
-                onkeydown={(e) => e.key === "Enter" && handleBarcodeLookup()}
-              />
+            {#if recipes.length === 0}
+              <p class="hint">
+                No saved recipes yet. Create one above, or build one by
+                selecting logged foods on the dashboard.
+              </p>
             {:else}
-              <div class="in-wrap">
-                <input
-                  class="cin"
-                  id="food-search-input"
-                  placeholder="Search foods…"
-                  bind:value={query}
-                  disabled={!hasKey}
-                  onkeydown={(e) => e.key === "Enter" && handleSearch()}
-                />
-                {#if searchStatus === "loading"}
-                  <span class="in-spinner" aria-label="Searching USDA"></span>
-                {/if}
-              </div>
+              <p class="fl">Your recipes</p>
+              <ul class="recipe-list">
+                {#each recipes as r (r.entity)}
+                  <li>
+                    <button
+                      type="button"
+                      class="recipe-pick"
+                      onclick={() => onPickRecipe?.(r.entity)}
+                    >
+                      <span class="recipe-pick-name">{r.name}</span>
+                      <span class="recipe-pick-go" aria-hidden="true">›</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="recipe-edit"
+                      onclick={() => onEditRecipe?.(r.entity)}
+                      aria-label="Edit {r.name}">Edit</button
+                    >
+                  </li>
+                {/each}
+              </ul>
             {/if}
-          </div>
-        {/if}
-
-        {#if !staged && !edit}
-          <div class="methods">
-            {#each methodTabs as [m, ico, label]}
-              <button
-                class="method"
-                class:on={method === m}
-                onclick={() => switchMethod(m as Method)}
-              >
-                <span class="mi">{ico}</span><span class="ml">{label}</span>
-              </button>
-            {/each}
-          </div>
-        {/if}
-
-        {#if method !== "recipe"}
-          <button
-            class="log-btn"
-            id="log-food-btn"
-            disabled={!canLog || !dbReady || searchStatus === "loading"}
-            onclick={primaryAction}
-          >
-            {primaryLabel()}
-          </button>
-        {/if}
-      </div>
+          {/if}
+        {/snippet}
+      </FoodStager>
     </div>
   {/snippet}
 </Modal>
@@ -694,29 +334,20 @@
     transform: scale(0.9);
   }
 
-  .stage {
-    flex: 1;
-    overflow-y: auto;
-    padding: var(--space-s);
-  }
+  /* Recipe browser (the Recipe method tab), rendered into the stager via the
+     tabContent snippet — `.hint` / `.fl` are shared with the stager's copy. */
   .hint {
     font-size: var(--step-n2);
     color: var(--text-secondary);
     margin-top: var(--space-s);
   }
-  .link {
-    background: none;
-    border: none;
-    text-decoration: underline;
-    font: inherit;
+  .fl {
+    display: block;
+    font-size: var(--step-n2);
     font-weight: 700;
-    cursor: pointer;
-    color: #000;
+    text-transform: uppercase;
+    margin: var(--space-m) 0 var(--space-3xs);
   }
-  .mt {
-    margin-top: var(--space-s);
-  }
-
   .recipe-new {
     width: 100%;
     margin-bottom: var(--space-s);
@@ -784,210 +415,5 @@
   .recipe-edit:hover {
     background: #000;
     color: #fff;
-  }
-
-  .staged {
-    display: flex;
-    flex-direction: column;
-  }
-  .staged h3 {
-    font-size: var(--step-1);
-    font-weight: 700;
-  }
-  .per {
-    color: var(--text-secondary);
-    font-size: var(--step-n2);
-    margin-top: 2px;
-  }
-  .fl {
-    display: block;
-    font-size: var(--step-n2);
-    font-weight: 700;
-    text-transform: uppercase;
-    margin: var(--space-m) 0 var(--space-3xs);
-  }
-  .preview {
-    margin-top: var(--space-m);
-  }
-
-  .viewport {
-    position: relative;
-    height: 240px;
-    background: #000;
-    margin-top: var(--space-s);
-    overflow: hidden;
-  }
-  .scanner-video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  .reticle {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 70%;
-    height: 70px;
-    border: 3px solid #ff3333;
-    box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.45);
-  }
-
-  .grid2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-s);
-    margin-top: var(--space-s);
-  }
-  .fld label {
-    display: block;
-    font-size: var(--step-n2);
-    font-weight: 700;
-    text-transform: uppercase;
-    margin-bottom: var(--space-3xs);
-  }
-  .fld input {
-    width: 100%;
-    border: 2px solid #000;
-    padding: var(--space-xs);
-    font-size: var(--step-0);
-    font-family: inherit;
-  }
-  .hidden-file-input {
-    display: none;
-  }
-  .photo {
-    width: 100%;
-    margin-top: var(--space-s);
-    border: 2px dashed #000;
-    background: #fff;
-    padding: var(--space-s);
-    font-weight: 700;
-    cursor: pointer;
-  }
-  .photo-preview-box {
-    position: relative;
-    margin-top: var(--space-s);
-    border: 2px solid #000;
-    overflow: hidden;
-    max-height: 220px;
-  }
-  .photo-preview {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
-  .change-photo {
-    position: absolute;
-    bottom: var(--space-xs);
-    right: var(--space-xs);
-    background: #000;
-    color: #fff;
-    border: none;
-    padding: var(--space-2xs) var(--space-s);
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  .dock {
-    border-top: 2px solid #000;
-    background: #fafafa;
-    padding: var(--space-2xs) var(--space-s) var(--space-s);
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-s));
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2xs);
-  }
-  .dock-input {
-    width: 100%;
-  }
-  .cin {
-    width: 100%;
-    border: 3px solid #000;
-    padding: var(--space-s);
-    font-size: var(--step-0);
-    font-family: inherit;
-    background: #fff;
-  }
-  .cin:disabled {
-    background: #f4f4f5;
-    color: var(--text-muted);
-  }
-  .in-wrap {
-    position: relative;
-  }
-  .in-wrap .cin {
-    padding-right: calc(var(--space-s) + 1.75rem);
-  }
-  .in-spinner {
-    position: absolute;
-    top: 50%;
-    right: var(--space-s);
-    transform: translateY(-50%);
-    width: 1.15rem;
-    height: 1.15rem;
-    border: 2px solid #000;
-    border-right-color: transparent;
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    pointer-events: none;
-  }
-  @keyframes spin {
-    to {
-      transform: translateY(-50%) rotate(360deg);
-    }
-  }
-
-  .methods {
-    display: flex;
-    gap: var(--space-2xs);
-  }
-  .method {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    background: #fff;
-    border: 2px solid #000;
-    padding: var(--space-2xs) 0;
-    cursor: pointer;
-    min-height: 52px;
-  }
-  .method.on {
-    background: #000;
-    color: #fff;
-  }
-  .mi {
-    font-size: var(--step-0);
-  }
-  .ml {
-    font-size: var(--step-n3);
-    font-weight: 700;
-    text-transform: uppercase;
-  }
-
-  .log-btn {
-    width: 100%;
-    background: #ccff00;
-    color: #000;
-    border: 3px solid #000;
-    padding: var(--space-s);
-    font-size: var(--step-1);
-    font-weight: 800;
-    text-transform: uppercase;
-    cursor: pointer;
-    min-height: 60px;
-  }
-  .log-btn:active:not(:disabled) {
-    transform: scale(0.98);
-  }
-  .log-btn:disabled {
-    background: #e4e4e7;
-    color: var(--text-muted);
-    border-color: var(--border);
-    cursor: not-allowed;
   }
 </style>
