@@ -78,6 +78,7 @@
     <div
       {...props}
       class="bottom-sheet-content {className}"
+      class:flush={flushBody}
       style:z-index={elevated ? 1801 : null}
     >
       <div class="bottom-sheet-handle-bar">
@@ -136,6 +137,16 @@
     display: flex;
     flex-direction: column;
     animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* A flush-body sheet hands its layout to a child that owns its own scroll +
+     dock (FoodStager), whose content height swings widely between staging
+     states (empty search → results list → staged food → custom form). Left to
+     size to content, the whole sheet would grow and shrink on every switch, so
+     pin it to the max height — the tallest state already reaches 85vh — and let
+     the child's scroll region flex to absorb the difference. */
+  .bottom-sheet-content.flush {
+    height: 85vh;
   }
 
   .bottom-sheet-handle-bar {
