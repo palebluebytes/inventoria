@@ -13,6 +13,7 @@
     sanitizeYield,
   } from "../../food/recipe-nutrition";
   import { roundFoodDisplay, type Portion } from "../../food/nutrition";
+  import { buildNutrientPills } from "../../food/nutrient-display";
   import AddIngredientSheet from "./AddIngredientSheet.svelte";
   import IngredientAmountSheet from "./IngredientAmountSheet.svelte";
   import FoodItemRow from "./FoodItemRow.svelte";
@@ -139,10 +140,7 @@
 <div class="per-serving" data-testid="per-serving">
   <span class="fl">Per serving</span>
   <MacroPills
-    calories={perServing.calories}
-    protein={perServing.protein}
-    fat={perServing.fat}
-    carbs={perServing.carbs}
+    pills={buildNutrientPills(perServing, ["protein", "fat", "carbs"])}
   />
 </div>
 

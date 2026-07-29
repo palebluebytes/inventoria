@@ -1,39 +1,31 @@
 <script lang="ts">
-  import { roundFoodDisplay } from "../../food/nutrition";
+  import type { NutrientPill } from "../../food/nutrient-display";
 
-  // Already-computed macro values; the caller decides whether they are a
-  // proportional preview or an aggregate total. Values are display-rounded to
-  // 2 decimals here so summed/derived floats don't leak their mantissa.
-  let {
-    calories,
-    protein,
-    fat,
-    carbs,
-  }: {
-    calories: number;
-    protein: number;
-    fat: number;
-    carbs: number;
-  } = $props();
+  // A row of nutrient pills — Calories always leads, followed by the caller's
+  // selected nutrients (staged-food preview) or a fixed macro set (recipe
+  // per-serving). Presentational: each pill's label and formatted value are
+  // built by buildNutrientPills; this only lays them out. The stable class hooks
+  // (cal/prot/fat/carbs) keep existing selectors working for those keys.
+  let { pills }: { pills: NutrientPill[] } = $props();
+
+  // Map a breakdown key to the legacy pill class so e2e selectors that target
+  // `.cal`/`.prot`/`.fat`/`.carbs` keep resolving; other nutrients use their key.
+  const PILL_CLASS: Record<string, string> = {
+    calories: "cal",
+    protein: "prot",
+    fat: "fat",
+    carbs: "carbs",
+  };
+  const pillClass = (key: string) => PILL_CLASS[key] ?? key;
 </script>
 
 <div class="preview-grid">
-  <div class="preview-pill cal">
-    <span class="pill-label">Calories</span>
-    <span class="pill-val">{roundFoodDisplay(calories)} kcal</span>
-  </div>
-  <div class="preview-pill prot">
-    <span class="pill-label">Protein</span>
-    <span class="pill-val">{roundFoodDisplay(protein)}g</span>
-  </div>
-  <div class="preview-pill fat">
-    <span class="pill-label">Fat</span>
-    <span class="pill-val">{roundFoodDisplay(fat)}g</span>
-  </div>
-  <div class="preview-pill carbs">
-    <span class="pill-label">Carbs</span>
-    <span class="pill-val">{roundFoodDisplay(carbs)}g</span>
-  </div>
+  {#each pills as pill (pill.key)}
+    <div class="preview-pill {pillClass(pill.key)}">
+      <span class="pill-label">{pill.label}</span>
+      <span class="pill-val">{pill.value}</span>
+    </div>
+  {/each}
 </div>
 
 <style>

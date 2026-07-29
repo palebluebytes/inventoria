@@ -1071,4 +1071,42 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // Frozen past (324) + freshly-seeded future (513) = 837.
     await expect(page.locator(".calories-num")).toHaveText("837");
   });
+
+  test("configurable visible nutrients: fibre by default, toggling updates the summary (#29)", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+
+    // By default (no user setting) the dashboard summary shows Protein/Fat/Carbs
+    // AND a Fibre meter — the calorie ring stays always-on.
+    await expect(
+      page.locator(".macro-name", { hasText: "Protein" })
+    ).toBeVisible();
+    await expect(
+      page.locator(".macro-name", { hasText: "Fibre" })
+    ).toBeVisible();
+    // Sugar is in the catalogue but not selected by default.
+    await expect(page.locator(".macro-name", { hasText: "Sugar" })).toHaveCount(
+      0
+    );
+
+    // Turn Sugar ON and Fibre OFF in Settings.
+    await page.locator(".nav-item", { hasText: "Settings" }).click();
+    await page.locator('input[data-nutrient="sugar_content"]').check();
+    await page.locator('input[data-nutrient="fiber_content"]').uncheck();
+
+    // Back on the dashboard the summary reflects the new selection exactly.
+    await page.locator(".nav-item", { hasText: "Food" }).click();
+    await expect(
+      page.locator(".macro-name", { hasText: "Sugar" })
+    ).toBeVisible();
+    await expect(page.locator(".macro-name", { hasText: "Fibre" })).toHaveCount(
+      0
+    );
+    // Protein (a macro with a target) is untouched.
+    await expect(
+      page.locator(".macro-name", { hasText: "Protein" })
+    ).toBeVisible();
+  });
 });

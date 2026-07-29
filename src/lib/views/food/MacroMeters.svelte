@@ -1,49 +1,31 @@
 <script lang="ts">
-  import { roundFoodDisplay } from "../../food/nutrition";
+  import type { NutrientMeter } from "../../food/nutrient-display";
   import Card from "../../ui/Card.svelte";
 
-  // The dashboard's three macro meters (protein / fat / carbs): a labelled row
-  // with a fill bar clamped to its target. Presentational — the caller supplies
-  // each running total and its goal.
-  let {
-    protein,
-    fat,
-    carbs,
-    targetProtein,
-    targetFat,
-    targetCarbs,
-  }: {
-    protein: number;
-    fat: number;
-    carbs: number;
-    targetProtein: number;
-    targetFat: number;
-    targetCarbs: number;
-  } = $props();
-
-  // One meter's descriptor, so the markup can loop instead of repeating thrice.
-  let meters = $derived([
-    { key: "protein", name: "Protein", value: protein, target: targetProtein },
-    { key: "fat", name: "Fat", value: fat, target: targetFat },
-    { key: "carbs", name: "Carbs", value: carbs, target: targetCarbs },
-  ]);
+  // The dashboard's nutrient meters: a labelled row per selected nutrient with a
+  // fill bar clamped to its target. Presentational — the caller (via
+  // buildNutrientMeters) supplies each meter's formatted value and, when the
+  // nutrient has a configured target, its fill percent + formatted target. A
+  // meter with no target renders as a plain total over a neutral (empty) track,
+  // never a NaN bar.
+  let { meters }: { meters: NutrientMeter[] } = $props();
 </script>
 
 <div class="macros-subgrid">
-  {#each meters as meter}
+  {#each meters as meter (meter.key)}
     <Card class="macro-item {meter.key}">
       <div class="macro-meta">
-        <span class="macro-name">{meter.name}</span>
+        <span class="macro-name">{meter.label}</span>
         <span class="macro-val"
-          >{roundFoodDisplay(meter.value)}g
-          <span class="macro-target">/ {meter.target}g</span></span
+          >{meter.value}
+          {#if meter.target}<span class="macro-target">/ {meter.target}</span
+            >{/if}</span
         >
       </div>
-      <div class="progress-bar-bg">
-        <div
-          class="progress-bar-fill"
-          style="width: {Math.min((meter.value / meter.target) * 100, 100)}%"
-        ></div>
+      <div class="progress-bar-bg" class:no-target={meter.fill === undefined}>
+        {#if meter.fill !== undefined}
+          <div class="progress-bar-fill" style="width: {meter.fill}%"></div>
+        {/if}
       </div>
     </Card>
   {/each}
@@ -88,19 +70,21 @@
     border-radius: 0;
     overflow: hidden;
   }
+  /* A nutrient with no configured target: a flat neutral track (no fill), so it
+     reads as "tracked, no goal" rather than an empty progress bar. */
+  .progress-bar-bg.no-target {
+    background: repeating-linear-gradient(
+      45deg,
+      #e4e4e7,
+      #e4e4e7 4px,
+      #f4f4f5 4px,
+      #f4f4f5 8px
+    );
+  }
   .progress-bar-fill {
     height: 100%;
     border-radius: 0;
+    background: #000;
     transition: width 0.35s ease-out;
-  }
-
-  :global(.macro-item.protein) .progress-bar-fill {
-    background: #000;
-  }
-  :global(.macro-item.fat) .progress-bar-fill {
-    background: #000;
-  }
-  :global(.macro-item.carbs) .progress-bar-fill {
-    background: #000;
   }
 </style>

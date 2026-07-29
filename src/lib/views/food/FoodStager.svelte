@@ -12,9 +12,13 @@
   import { settingsStore } from "../../stores/settings.store";
   import {
     roundFoodDisplay,
+    scaleNutrition,
     FOOD_PORTIONS_ATTR,
+    NUTRITION_INFO_ATTR,
     type Portion,
+    type NutritionInfo,
   } from "../../food/nutrition";
+  import { buildNutrientPills } from "../../food/nutrient-display";
   import { hydrateFdcFood } from "../../food/usda-fdc";
   import type {
     FoodChoice,
@@ -110,6 +114,20 @@
   // (ADR-0023); it stays a clean number, so `factor` simply scales by it.
   let grams = $state(100);
   let factor = $derived(grams / 100);
+
+  // The staged food's full nutrition panel (per its serving basis), scaled to the
+  // typed amount and turned into the always-on Calories pill + one pill per
+  // selected nutrient (default Protein/Fat/Carbs/Fibre, ticket #29). Built from
+  // the panel — not the four flat macros — so a selected micronutrient can show.
+  let stagedInfo = $derived(
+    staged?.payload.attributes[NUTRITION_INFO_ATTR] as NutritionInfo | undefined
+  );
+  let stagedPills = $derived(
+    buildNutrientPills(
+      scaleNutrition(stagedInfo, factor),
+      $settingsStore.visible_nutrients
+    )
+  );
 
   // The staged food's household portions (ADR-0030), surfaced as picker presets.
   // Read live off the staged payload so they appear the moment hydration spreads
@@ -422,12 +440,7 @@
         </span>
         <QuantityGrams bind:grams portions={stagedPortions} />
         <div class="preview">
-          <MacroPills
-            calories={roundFoodDisplay(staged.calories * factor)}
-            protein={roundFoodDisplay(staged.protein * factor)}
-            fat={roundFoodDisplay(staged.fat * factor)}
-            carbs={roundFoodDisplay(staged.carbs * factor)}
-          />
+          <MacroPills pills={stagedPills} />
         </div>
       </div>
     {:else if isExtra(method)}

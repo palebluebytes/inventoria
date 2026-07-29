@@ -4,6 +4,9 @@
     consumptionForDay,
     type ConsumptionEvent,
   } from "../../stores/calorie.store";
+  import { totalNutrition } from "../../food/consumption-state";
+  import { buildNutrientMeters } from "../../food/nutrient-display";
+  import { settingsStore } from "../../stores/settings.store";
   import { parseLoggedQuantity } from "../../food/recipe-ingredient";
   import Modal from "../../ui/Modal.svelte";
   import FoodItemRow from "./FoodItemRow.svelte";
@@ -70,24 +73,30 @@
   // Selected day's consumption, narrowed from the global projection on the main thread
   let dayItems = $derived(consumptionForDay($consumptionStore, selectedDate));
 
-  // Default target goals (typical active adult defaults, premium UI targets)
+  // Default target goals (typical active adult defaults, premium UI targets).
+  // Only the three macros carry a target; a newly-shown nutrient renders its
+  // total with no bar (see buildNutrientMeters).
   const targetCalories = 2000;
-  const targetProtein = 130; // g
-  const targetFat = 70; // g
-  const targetCarbs = 220; // g
+  const NUTRIENT_TARGETS: Record<string, number> = {
+    protein: 130, // g
+    fat: 70, // g
+    carbs: 220, // g
+  };
 
-  // Derived daily aggregates
-  let totalCalories = $derived(
-    dayItems.reduce((acc, item) => acc + (Number(item.calories) || 0), 0)
-  );
-  let totalProtein = $derived(
-    dayItems.reduce((acc, item) => acc + (Number(item.protein) || 0), 0)
-  );
-  let totalFat = $derived(
-    dayItems.reduce((acc, item) => acc + (Number(item.fat) || 0), 0)
-  );
-  let totalCarbs = $derived(
-    dayItems.reduce((acc, item) => acc + (Number(item.carbs) || 0), 0)
+  // The full day breakdown for ANY nutrient, summed from each event's frozen
+  // metrics (#28's totalNutrition) — the single source the meters read from, so
+  // we never re-derive day totals here.
+  let dayTotals = $derived(totalNutrition(dayItems));
+  let totalCalories = $derived(dayTotals.calories);
+
+  // Turn the user's selection (default Protein/Fat/Carbs/Fibre) + the day totals
+  // + the macro targets into the meter view models the summary renders.
+  let meters = $derived(
+    buildNutrientMeters(
+      dayTotals,
+      $settingsStore.visible_nutrients,
+      NUTRIENT_TARGETS
+    )
   );
 
   function formatDateHeader(date: Date): string {
@@ -136,14 +145,7 @@
 <div class="aggregates-grid">
   <CalorieRing {totalCalories} {targetCalories} />
 
-  <MacroMeters
-    protein={totalProtein}
-    fat={totalFat}
-    carbs={totalCarbs}
-    {targetProtein}
-    {targetFat}
-    {targetCarbs}
-  />
+  <MacroMeters {meters} />
 </div>
 
 <!-- Timeline & Logged Meals -->

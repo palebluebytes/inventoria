@@ -84,6 +84,63 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
     expect(s.tmdb_api_key).toBe("0123456789");
   });
 
+  it("defaults visible_nutrients to Protein/Fat/Carbs/Fibre when unset", () => {
+    // A brand-new user (no datom) must still see a Fibre meter alongside the
+    // three macros — the default is baked into the collapse, not the view.
+    const s = get(settingsStore);
+    expect(s.visible_nutrients).toEqual([
+      "protein",
+      "fat",
+      "carbs",
+      "fiber_content",
+    ]);
+  });
+
+  it("decodes a stored visible_nutrients list back to an array", () => {
+    // The list is a JSON-encoded array (not an opaque string), so it must decode
+    // to the array rather than String()-flatten to "protein,fiber_content".
+    datomsWritable.set([
+      {
+        attribute: "settings/visible_nutrients",
+        value: JSON.stringify(["protein", "fiber_content", "calcium"]),
+        time: 1,
+      },
+    ]);
+    const s = get(settingsStore);
+    expect(s.visible_nutrients).toEqual([
+      "protein",
+      "fiber_content",
+      "calcium",
+    ]);
+  });
+
+  it("honours an explicitly empty visible_nutrients list", () => {
+    datomsWritable.set([
+      {
+        attribute: "settings/visible_nutrients",
+        value: JSON.stringify([]),
+        time: 1,
+      },
+    ]);
+    expect(get(settingsStore).visible_nutrients).toEqual([]);
+  });
+
+  it("falls back to the default when visible_nutrients is malformed", () => {
+    datomsWritable.set([
+      {
+        attribute: "settings/visible_nutrients",
+        value: JSON.stringify("not-an-array"),
+        time: 1,
+      },
+    ]);
+    expect(get(settingsStore).visible_nutrients).toEqual([
+      "protein",
+      "fat",
+      "carbs",
+      "fiber_content",
+    ]);
+  });
+
   it("reflects reactive updates to the underlying datoms", () => {
     datomsWritable.set([
       { attribute: "settings/tmdb_api_key", value: "k1", time: 1 },
@@ -102,6 +159,7 @@ describe("saveSettings", () => {
       usda_api_key: "U",
       tmdb_api_key: "T",
       scraper_proxy_url: "P",
+      visible_nutrients: ["protein", "fat", "carbs", "fiber_content"],
     });
     expect(appendMock).toHaveBeenCalledTimes(1);
     const datoms = appendMock.mock.calls[0][0] as any[];
@@ -112,5 +170,24 @@ describe("saveSettings", () => {
     expect(byAttr["settings/usda_api_key"]).toBe("U");
     expect(byAttr["settings/tmdb_api_key"]).toBe("T");
     expect(byAttr["settings/scraper_proxy_url"]).toBe("P");
+  });
+
+  it("persists the chosen nutrient list as an array datom", async () => {
+    await saveSettings({
+      usda_api_key: "U",
+      tmdb_api_key: "T",
+      scraper_proxy_url: "P",
+      visible_nutrients: ["protein", "calcium"],
+    });
+    const datoms = appendMock.mock.calls[0][0] as any[];
+    const byAttr = Object.fromEntries(
+      datoms.map((d) => [d.attribute, d.value])
+    );
+    // The value is the array itself (ingest/db.core JSON-encode on write); the
+    // collapse decodes it back, so the round trip returns the same list.
+    expect(byAttr["settings/visible_nutrients"]).toEqual([
+      "protein",
+      "calcium",
+    ]);
   });
 });

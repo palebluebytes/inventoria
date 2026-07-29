@@ -1,5 +1,6 @@
 <script lang="ts">
   import { settingsStore, saveSettings } from "../stores/settings.store";
+  import { NUTRIENT_CATALOGUE } from "../food/nutrient-display";
   import { createQueryStore } from "../stores/datoms.store";
   import { dbClient } from "../db/db.client";
   import { HLC_ORDER_DESC } from "../db/hlc";
@@ -55,6 +56,36 @@
     }
   });
 
+  // Visible-nutrient selection (ticket #29): which nutrients appear as the
+  // dashboard summary + staged-food pills. Mirrors the persisted list; each
+  // toggle persists immediately (re-writing the already-saved API keys, so an
+  // unsaved edit in the form above is never clobbered). Calories are always-on
+  // via the ring and so are not in the catalogue.
+  let visible_nutrients = $state<string[]>([]);
+  let nutrientsInitialized = $state(false);
+  $effect(() => {
+    if (!nutrientsInitialized && $settingsStore) {
+      visible_nutrients = [...$settingsStore.visible_nutrients];
+      nutrientsInitialized = true;
+    }
+  });
+
+  async function toggleNutrient(key: string) {
+    visible_nutrients = visible_nutrients.includes(key)
+      ? visible_nutrients.filter((k) => k !== key)
+      : [...visible_nutrients, key];
+    try {
+      await saveSettings({
+        usda_api_key: $settingsStore.usda_api_key,
+        tmdb_api_key: $settingsStore.tmdb_api_key,
+        scraper_proxy_url: $settingsStore.scraper_proxy_url,
+        visible_nutrients,
+      });
+    } catch (err) {
+      console.error("Failed to save visible nutrients", err);
+    }
+  }
+
   // Save handler
   async function handleSave(e: Event) {
     e.preventDefault();
@@ -65,6 +96,8 @@
         usda_api_key: usdaKey.trim(),
         tmdb_api_key: tmdbKey.trim(),
         scraper_proxy_url: scraperProxy.trim(),
+        // Preserve the current nutrient selection when saving credentials.
+        visible_nutrients,
       });
       saveSuccess = true;
       setTimeout(() => {
@@ -251,6 +284,27 @@
       {/if}
     </div>
   </form>
+</Card>
+
+<Card class="mt-4">
+  <h2>Nutrition Display</h2>
+  <p class="mt-2">
+    Choose which nutrients appear on the food dashboard summary and the
+    staged-food pills. Calories are always shown.
+  </p>
+  <div class="nutrient-toggles mt-4">
+    {#each NUTRIENT_CATALOGUE as nutrient (nutrient.key)}
+      <label class="toggle-label">
+        <input
+          type="checkbox"
+          data-nutrient={nutrient.key}
+          checked={visible_nutrients.includes(nutrient.key)}
+          onchange={() => toggleNutrient(nutrient.key)}
+        />
+        <span class="toggle-text">{nutrient.label}</span>
+      </label>
+    {/each}
+  </div>
 </Card>
 
 <Card class="mt-4">
@@ -558,6 +612,15 @@
        narrow card. */
   .dev-toggle {
     container-type: inline-size;
+  }
+  /* Nutrient toggles: a responsive grid of checkbox rows. A container context so
+     the shared .toggle-label's cqi-based font sizing resolves against this grid
+     cell rather than the viewport. */
+  .nutrient-toggles {
+    container-type: inline-size;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+    gap: var(--space-s);
   }
   .toggle-label {
     display: flex;
