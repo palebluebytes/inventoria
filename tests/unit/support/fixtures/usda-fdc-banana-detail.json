@@ -1,0 +1,95 @@
+{
+  "fdcId": 173944,
+  "description": "Bananas, ripe and slightly ripe, raw",
+  "dataType": "SR Legacy",
+  "publicationDate": "2019-04-01",
+  "foodClass": "FinalFood",
+  "scientificName": "Musa acuminata Colla",
+  "foodCategory": {
+    "id": 9,
+    "code": "0900",
+    "description": "Fruits and Fruit Juices"
+  },
+  "foodNutrients": [
+    {
+      "type": "FoodNutrient",
+      "id": 2262677,
+      "nutrient": {
+        "id": 1008,
+        "number": "208",
+        "name": "Energy",
+        "rank": 300,
+        "unitName": "kcal"
+      },
+      "amount": 89.0
+    },
+    {
+      "type": "FoodNutrient",
+      "id": 2262678,
+      "nutrient": {
+        "id": 1003,
+        "number": "203",
+        "name": "Protein",
+        "rank": 600,
+        "unitName": "g"
+      },
+      "amount": 1.09
+    },
+    {
+      "type": "FoodNutrient",
+      "id": 2262680,
+      "nutrient": {
+        "id": 1005,
+        "number": "205",
+        "name": "Carbohydrate, by difference",
+        "rank": 1110,
+        "unitName": "g"
+      },
+      "amount": 22.8
+    }
+  ],
+  "foodPortions": [
+    {
+      "id": 122253,
+      "amount": 1.0,
+      "dataPoints": 9,
+      "gramWeight": 118.0,
+      "sequenceNumber": 1,
+      "minYearAcquired": 2010,
+      "modifier": "medium",
+      "measureUnit": {
+        "id": 9999,
+        "name": "undetermined",
+        "abbreviation": "undetermined"
+      }
+    },
+    {
+      "id": 122254,
+      "amount": 1.0,
+      "dataPoints": 9,
+      "gramWeight": 150.0,
+      "sequenceNumber": 2,
+      "minYearAcquired": 2010,
+      "modifier": "cup, sliced",
+      "measureUnit": {
+        "id": 9999,
+        "name": "undetermined",
+        "abbreviation": "undetermined"
+      }
+    },
+    {
+      "id": 122255,
+      "amount": 1.0,
+      "dataPoints": 9,
+      "gramWeight": 136.0,
+      "sequenceNumber": 3,
+      "minYearAcquired": 2010,
+      "modifier": "large",
+      "measureUnit": {
+        "id": 9999,
+        "name": "undetermined",
+        "abbreviation": "undetermined"
+      }
+    }
+  ]
+}

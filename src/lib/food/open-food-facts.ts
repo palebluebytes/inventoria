@@ -1,5 +1,10 @@
 import type { EntityPayload } from "../ingestion/ingest";
-import { PER_100G, type NutritionInfo } from "./nutrition";
+import {
+  PER_100G,
+  FOOD_PORTIONS_ATTR,
+  type NutritionInfo,
+  type Portion,
+} from "./nutrition";
 import { buildRawProvenance } from "./provenance";
 
 // Mapper version, bumped when the OFF -> nutrition/info normalisation changes.
@@ -9,7 +14,9 @@ import { buildRawProvenance } from "./provenance";
 //     from the `*_100g` nutriments (OFF already reports these in grams).
 // v4: emits food/category (categories), food/ingredients_text (ingredients_text),
 //     twin/brand (brands) and the OFF-only food/assessment blob (ADR-0030 §4).
-const ADAPTER_VERSION = "4";
+// v5: emits a single food/portions entry from serving_quantity/serving_size
+//     when the product carries serving data (ADR-0030 §2/§5).
+const ADAPTER_VERSION = "5";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -71,6 +78,11 @@ export interface OFFProduct {
   product: {
     product_name?: string;
     nutriments?: OFFNutriments;
+    // Serving data (ADR-0030 §2/§5). OFF normalises `serving_quantity` to grams;
+    // `serving_size` is the human label ("15 g", "1 portion (37 g)"). Either can
+    // be absent, in which case no food/portions entry is emitted.
+    serving_quantity?: number | string;
+    serving_size?: string;
     // Record-level source signals (ADR-0030 §4). All optional; a missing field
     // is omitted from the payload rather than emitted as empty/null.
     brands?: string;
@@ -96,6 +108,27 @@ export class ProductNotFoundError extends Error {
 // ---------------------------------------------------------------------------
 // Mapper
 // ---------------------------------------------------------------------------
+
+/**
+ * Builds a food's `food/portions` list from OFF's serving fields (ADR-0030 §5).
+ * OFF offers exactly one serving, so the list is 0 or 1 long: a single portion
+ * that resolves to `serving_quantity` grams, labelled by `serving_size` (falling
+ * back to a generic "1 serving" when the label is absent). Returns an empty list
+ * — never a zero-gram portion — when there is no usable serving weight, so the
+ * caller omits the attribute rather than emitting an empty one.
+ */
+function offPortions(
+  serving_quantity: number | string | undefined,
+  serving_size: string | undefined
+): Portion[] {
+  const grams =
+    typeof serving_quantity === "string"
+      ? Number(serving_quantity)
+      : serving_quantity;
+  if (grams == null || !Number.isFinite(grams) || grams <= 0) return [];
+  const label = serving_size?.trim() || "1 serving";
+  return [{ label, amount: 1, unit: "serving", grams }];
+}
 
 /**
  * Maps an Open Food Facts product response to an EntityPayload ready for
@@ -168,6 +201,13 @@ export function mapOffProductToPayload(product: OFFProduct): EntityPayload {
   if (p.labels_tags?.length) assessment.labels = p.labels_tags;
   if (Object.keys(assessment).length > 0)
     attributes["food/assessment"] = assessment;
+
+  // Household portion (ADR-0030 §2/§5). OFF's single product response already
+  // carries the serving, so no second network call: map serving_quantity (grams)
+  // to one food/portions entry, labelled by serving_size when present. Omitted
+  // entirely when the product reports no usable serving weight.
+  const portions = offPortions(p.serving_quantity, p.serving_size);
+  if (portions.length > 0) attributes[FOOD_PORTIONS_ATTR] = portions;
 
   return {
     entity: `gtin:${product.code}`,

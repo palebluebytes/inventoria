@@ -165,6 +165,63 @@ describe("mapOffProductToPayload", () => {
     expect(attrs).not.toHaveProperty("food/ingredients_text");
   });
 
+  it("maps serving_quantity/serving_size to a single food/portions entry (ADR-0030)", () => {
+    // OFF's one serving becomes one household portion resolving to its grams,
+    // labelled by serving_size; no second network call is made.
+    const product: OFFProduct = {
+      ...nutella,
+      product: {
+        ...nutella.product,
+        serving_quantity: 15,
+        serving_size: "15 g",
+      },
+    };
+    const portions =
+      mapOffProductToPayload(product).attributes["food/portions"];
+    expect(portions).toEqual([
+      { label: "15 g", amount: 1, unit: "serving", grams: 15 },
+    ]);
+  });
+
+  it("parses a string serving_quantity and defaults a missing label", () => {
+    const product: OFFProduct = {
+      ...nutella,
+      product: {
+        ...nutella.product,
+        serving_quantity: "37",
+        serving_size: undefined,
+      },
+    };
+    const portions =
+      mapOffProductToPayload(product).attributes["food/portions"];
+    expect(portions).toEqual([
+      { label: "1 serving", amount: 1, unit: "serving", grams: 37 },
+    ]);
+  });
+
+  it("omits food/portions when the product has no serving data", () => {
+    // The Nutella fixture reports serving_size: null and no serving_quantity.
+    const attrs = mapOffProductToPayload(nutella).attributes;
+    expect(attrs).not.toHaveProperty("food/portions");
+  });
+
+  it("omits food/portions when serving_quantity is zero or unparseable", () => {
+    const zero: OFFProduct = {
+      ...nutella,
+      product: { ...nutella.product, serving_quantity: 0, serving_size: "0 g" },
+    };
+    expect(mapOffProductToPayload(zero).attributes).not.toHaveProperty(
+      "food/portions"
+    );
+    const bad: OFFProduct = {
+      ...nutella,
+      product: { ...nutella.product, serving_quantity: "n/a" },
+    };
+    expect(mapOffProductToPayload(bad).attributes).not.toHaveProperty(
+      "food/portions"
+    );
+  });
+
   it("stores the raw source response as twin/raw_provenance (ADR-0016)", () => {
     // Provenance keeps the untouched OFF response — every nutriment, not just
     // the eight panel fields — so nutrients absent from the panel today can be

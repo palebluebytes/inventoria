@@ -30,6 +30,16 @@ counterpart, corrected as a unit like `nutrition/info`. Every one of these is
 emitted only when the source carries it; a missing field is omitted, never
 emitted empty.
 
+A food-bearing twin also carries `food/portions`, an ordered list of the
+household measures its source offers, each `{ label, amount, unit, grams }`
+(e.g. `"1 medium"` → 118 g). A portion is a labelled gram weight only: it
+**resolves to grams** at entry time and is not persisted as a separate unit, so
+the `{ ref, amount, unit }` reference model and `deriveRecipeNutrition` are
+untouched (ADR-0030). USDA fills it by a lazy `/food/{fdcId}` detail fetch on
+select (`foodPortions[]`, absent from the search hit); Open Food Facts maps its
+`serving_quantity`/`serving_size` to a single entry, and omits it when the
+product reports no serving.
+
 ```typescript
 // Open Food Facts (GTIN)
 const offTwin = {
@@ -61,6 +71,8 @@ const offTwin = {
     "twin/brand": "Nutella, Ferrero, Yum yum",
     "food/category": "Spreads, Sweet spreads, Hazelnut spreads",
     "food/ingredients_text": "Sugar, palm oil, hazelnuts 13%, …",
+    // One portion from OFF's serving_quantity (grams), labelled by serving_size.
+    "food/portions": [{ label: "15 g", amount: 1, unit: "serving", grams: 15 }],
     "food/assessment": {
       nova_group: 4,
       nutri_score: "e",
@@ -86,6 +98,11 @@ const usdaTwin = {
       protein_content: 2.82,
       // …plus whatever else the food carries (fiber, sugars, etc.)
     },
+    // Household measures from the /food/{fdcId} detail record's foodPortions[],
+    // fetched lazily on select; each resolves to grams (ADR-0030).
+    "food/portions": [
+      { label: "1 cup, chopped", amount: 1, unit: "cup, chopped", grams: 91 },
+    ],
   },
 };
 ```

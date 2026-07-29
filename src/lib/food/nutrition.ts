@@ -118,6 +118,70 @@ export const roundFood = (n: number): number => roundTo(n, FOOD_DECIMALS);
 export const roundFoodDisplay = (n: number): number =>
   roundTo(n, FOOD_DISPLAY_DECIMALS);
 
+// ---------------------------------------------------------------------------
+// Household portions (ADR-0030 §2)
+// ---------------------------------------------------------------------------
+
+/**
+ * One household measure a food's source offers, e.g. "1 medium" -> 118 g. A
+ * portion is a **labelled gram weight and nothing more** (ADR-0030 §2): it is
+ * captured as source data on the twin (`food/portions`), not a nutrition
+ * reading, and it **resolves to grams** at entry time rather than being
+ * persisted as a separate reference unit. Picking one fills a gram amount; the
+ * logged Consumption Event and recipe `ReferenceIngredient` still store grams,
+ * so the `{ ref, amount, unit }` model and `deriveRecipeNutrition` are untouched.
+ */
+export interface Portion {
+  /** Human-readable measure, e.g. "1 medium" or "1 cup, sliced". */
+  label: string;
+  /** How many of `unit` this portion is (usually 1). */
+  amount: number;
+  /** The unit the measure is expressed in, e.g. "medium", "cup, sliced". */
+  unit: string;
+  /** What this portion weighs, in grams — the value it resolves to. */
+  grams: number;
+}
+
+/** The EAVT attribute that holds a food twin's ordered household portions. */
+export const FOOD_PORTIONS_ATTR = "food/portions";
+
+/**
+ * Formats a portion's display label from its `amount` and `unit` — the fallback
+ * a source uses when it offers no ready-made description (e.g. FDC's
+ * `portionDescription` is empty). Collapses stray whitespace so "1  medium"
+ * reads as "1 medium".
+ */
+export function formatPortionLabel(amount: number, unit: string): string {
+  return `${amount} ${unit}`.replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Resolves the gram weight of a chosen portion out of a food's `food/portions`
+ * list, scaled by how many of that portion the user wants (`quantity`, default
+ * 1 — two "1 medium" bananas resolve to 236 g). This is the pure function the
+ * amount picker (ticket #27) calls to turn a picked portion into the grams the
+ * existing gram path already handles.
+ *
+ * Returns `undefined` — never a bogus number — when the list is missing or
+ * empty, the chosen `label` isn't in it, or the matched portion's `grams` is
+ * malformed (absent/`NaN`/infinite), so the caller can fall back to a raw gram
+ * entry. Result is rounded to the stored food precision to shed float noise.
+ */
+export function resolvePortionGrams(
+  portions: Portion[] | undefined,
+  label: string,
+  quantity: number = 1
+): number | undefined {
+  if (!portions?.length) return undefined;
+  const chosen = portions.find((p) => p?.label === label);
+  if (!chosen) return undefined;
+  if (typeof chosen.grams !== "number" || !Number.isFinite(chosen.grams)) {
+    return undefined;
+  }
+  if (!Number.isFinite(quantity)) return undefined;
+  return roundFood(quantity * chosen.grams);
+}
+
 /** The four macros the food dashboard and recipe builder display and sum. */
 export interface Macros {
   calories: number;

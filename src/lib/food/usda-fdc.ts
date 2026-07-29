@@ -1,7 +1,13 @@
 import { get } from "svelte/store";
 import type { EntityPayload } from "../ingestion/ingest";
 import { settingsStore } from "../stores/settings.store";
-import { PER_100G, type NutritionInfo } from "./nutrition";
+import {
+  PER_100G,
+  FOOD_PORTIONS_ATTR,
+  formatPortionLabel,
+  type NutritionInfo,
+  type Portion,
+} from "./nutrition";
 import { buildRawProvenance } from "./provenance";
 
 // Mapper version, bumped when the FDC -> nutrition/info normalisation changes.
@@ -13,7 +19,10 @@ import { buildRawProvenance } from "./provenance";
 //     by nutrient id and normalised mg/µg -> g via toGrams.
 // v6: emits the food-identity scalars food/category (foodCategory) and
 //     food/scientific_name (scientificName) captured at search-map time (ADR-0030).
-const ADAPTER_VERSION = "6";
+// v7: hydrateFdcFood maps the /food/{id} detail record's foodPortions[] ->
+//     food/portions and refreshes twin/raw_provenance with the fuller record
+//     (ADR-0030 §5). Search itself is unchanged (Foundation + SR Legacy).
+const ADAPTER_VERSION = "7";
 const FDC_FOOD_BASE = "https://api.nal.usda.gov/fdc/v1/food";
 
 // Read the current key on demand (default param, evaluated per call) instead of
@@ -43,6 +52,32 @@ export interface FdcFood {
   // be absent, in which case the corresponding attribute is not emitted.
   foodCategory?: string;
   scientificName?: string;
+}
+
+// A single household measure on the FDC `/food/{fdcId}` detail record's
+// `foodPortions[]` (ADR-0030 §5). `gramWeight` is the weight the portion
+// resolves to; `amount` + `modifier`/`measureUnit` describe it (e.g. amount 1,
+// modifier "cup, sliced"). `portionDescription` is a ready-made label when the
+// source supplies one (often empty for Foundation/SR Legacy). All but amount and
+// gramWeight are optional across datasets.
+export interface FdcFoodPortion {
+  amount: number;
+  gramWeight: number;
+  modifier?: string;
+  portionDescription?: string;
+  measureUnit?: { name?: string; abbreviation?: string };
+}
+
+// The `/food/{fdcId}` detail record. It is a superset of the search hit (fuller
+// nutrients, record metadata) but only its `foodPortions[]` is mapped here — the
+// rest is kept verbatim in provenance, not re-normalised (the nutrition panel is
+// already captured at search-map time). Modelled as a subset: the extra detail
+// fields ride along untyped inside the provenance blob.
+export interface FdcFoodDetail {
+  fdcId: number;
+  description?: string;
+  dataType?: string;
+  foodPortions?: FdcFoodPortion[];
 }
 
 // FDC nutrient IDs mapped onto the schema.org nutrition panel. FDC reports macro
@@ -182,6 +217,94 @@ export function mapFdcFoodToPayload(food: FdcFood): EntityPayload {
       }),
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Detail hydration: foodPortions -> food/portions (ADR-0030 §5)
+// ---------------------------------------------------------------------------
+
+/**
+ * Reads the measure unit off an FDC portion: the free-text `modifier` ("medium",
+ * "cup, sliced") when present, else a named `measureUnit` (FDC writes
+ * "undetermined" when it has none), falling back to a generic "serving".
+ */
+function fdcPortionUnit(portion: FdcFoodPortion): string {
+  const modifier = portion.modifier?.trim();
+  if (modifier) return modifier;
+  const measure = portion.measureUnit?.name?.trim();
+  if (measure && measure.toLowerCase() !== "undetermined") return measure;
+  return "serving";
+}
+
+/** Maps one FDC `foodPortions[]` entry to a `food/portions` {@link Portion}. */
+function mapFdcPortion(portion: FdcFoodPortion): Portion {
+  const unit = fdcPortionUnit(portion);
+  const label =
+    portion.portionDescription?.trim() ||
+    formatPortionLabel(portion.amount, unit);
+  return { label, amount: portion.amount, unit, grams: portion.gramWeight };
+}
+
+/**
+ * Maps a USDA `/food/{fdcId}` detail record to the augmentation payload that
+ * hydration appends to a staged food twin: the household `food/portions` derived
+ * from `foodPortions[]`, plus a refreshed `twin/raw_provenance` holding the
+ * fuller detail record (ADR-0030 §5). Pure — the Seam-1 contract point.
+ *
+ * It re-maps nothing else: the `nutrition/info` panel and food-identity scalars
+ * were already captured at search-map time, and the detail record's nutrients
+ * live on in provenance for a later backfill. When the record carries no usable
+ * portions, `food/portions` is omitted (never emitted empty).
+ */
+export function mapFdcDetailToPayload(detail: FdcFoodDetail): EntityPayload {
+  const portions = (detail.foodPortions ?? [])
+    .filter((p) => p && Number.isFinite(p.gramWeight) && p.gramWeight > 0)
+    .map(mapFdcPortion);
+
+  const attributes: EntityPayload["attributes"] = {
+    // Refresh Provenance with the fuller detail record (larger than the search
+    // hit), so any nutrient still not in the panel can be backfilled with no
+    // further re-fetch (ADR-0016).
+    "twin/raw_provenance": buildRawProvenance({
+      adapter: "fdc",
+      adapter_version: ADAPTER_VERSION,
+      source_uri: `${FDC_FOOD_BASE}/${detail.fdcId}`,
+      raw_data: detail,
+    }),
+  };
+  if (portions.length > 0) attributes[FOOD_PORTIONS_ATTR] = portions;
+
+  return { entity: `fdc:${detail.fdcId}`, attributes };
+}
+
+/**
+ * Fetches a searched food's `/food/{fdcId}` detail record and maps it to the
+ * portions-and-provenance augmentation (see {@link mapFdcDetailToPayload}).
+ * Called once when a searched food is staged (not per keystroke), since
+ * `foodPortions` is absent from the Foundation/SR Legacy search response
+ * (ADR-0030 §5). Search itself stays the cheap prefix query.
+ *
+ * @param fdcId  - The FDC id of the staged food.
+ * @param apiKey - USDA FDC API key. Defaults to the configured key.
+ */
+export async function hydrateFdcFood(
+  fdcId: number,
+  apiKey: string = activeUsdaKey()
+): Promise<EntityPayload> {
+  if (!apiKey) {
+    throw new Error("USDA API Key is not configured.");
+  }
+  const url = `${FDC_FOOD_BASE}/${fdcId}?api_key=${apiKey}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    if (res.status === 403)
+      throw new Error("USDA API rejected the key. Check it in Settings.");
+    if (res.status === 429)
+      throw new Error("USDA API rate limit reached. Try again shortly.");
+    throw new Error(`USDA API request failed (${res.status}).`);
+  }
+  const detail: FdcFoodDetail = await res.json();
+  return mapFdcDetailToPayload(detail);
 }
 
 // ---------------------------------------------------------------------------

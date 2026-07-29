@@ -1,11 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   mapFdcFoodToPayload,
+  mapFdcDetailToPayload,
+  hydrateFdcFood,
   searchFdc,
   type FdcFood,
+  type FdcFoodDetail,
 } from "../../src/lib/food/usda-fdc";
 import bananaSearch from "./support/fixtures/usda-fdc-banana.json";
 import cheddarSearch from "./support/fixtures/usda-fdc-cheddar.json";
+import bananaDetail from "./support/fixtures/usda-fdc-banana-detail.json";
 
 // Seam 1 (ADR-0016 isolated-Mapper contract): feed the mapper a saved copy of a
 // real USDA FoodData Central search response and assert the emitted
@@ -15,6 +19,7 @@ import cheddarSearch from "./support/fixtures/usda-fdc-cheddar.json";
 
 const banana = bananaSearch.foods[0] as unknown as FdcFood;
 const cheddar = cheddarSearch.foods[0] as unknown as FdcFood;
+const detail = bananaDetail as unknown as FdcFoodDetail;
 
 describe("mapFdcFoodToPayload", () => {
   it("maps fdcId to entity id with fdc: prefix", () => {
@@ -254,6 +259,139 @@ describe("mapFdcFoodToPayload", () => {
     // `time` at ingest, and that IS the capture basis (keeps this deterministic).
     expect(prov).not.toHaveProperty("timestamp");
     expect(prov).not.toHaveProperty("captured_at");
+  });
+});
+
+// ---- Seam 1: mapFdcDetailToPayload (foodPortions -> food/portions) ---------
+
+describe("mapFdcDetailToPayload", () => {
+  it("keys the augmentation to the same fdc: entity", () => {
+    expect(mapFdcDetailToPayload(detail).entity).toBe("fdc:173944");
+  });
+
+  it("maps foodPortions[] to an ordered food/portions list (ADR-0030)", () => {
+    // Each portion resolves to its gramWeight; the label falls back to
+    // amount + modifier when the record supplies no portionDescription.
+    const portions = mapFdcDetailToPayload(detail).attributes["food/portions"];
+    expect(portions).toEqual([
+      { label: "1 medium", amount: 1, unit: "medium", grams: 118 },
+      { label: "1 cup, sliced", amount: 1, unit: "cup, sliced", grams: 150 },
+      { label: "1 large", amount: 1, unit: "large", grams: 136 },
+    ]);
+  });
+
+  it("prefers a portionDescription label over the amount+unit fallback", () => {
+    const withDescription: FdcFoodDetail = {
+      fdcId: 1,
+      foodPortions: [
+        {
+          amount: 1,
+          gramWeight: 57,
+          portionDescription: "1 croissant",
+          measureUnit: { name: "undetermined" },
+        },
+      ],
+    };
+    const portions =
+      mapFdcDetailToPayload(withDescription).attributes["food/portions"];
+    expect(portions[0].label).toBe("1 croissant");
+    expect(portions[0].grams).toBe(57);
+  });
+
+  it("falls back to the named measureUnit when there is no modifier", () => {
+    const withMeasure: FdcFoodDetail = {
+      fdcId: 2,
+      foodPortions: [
+        { amount: 2, gramWeight: 30, measureUnit: { name: "tbsp" } },
+      ],
+    };
+    const portions =
+      mapFdcDetailToPayload(withMeasure).attributes["food/portions"];
+    expect(portions[0]).toEqual({
+      label: "2 tbsp",
+      amount: 2,
+      unit: "tbsp",
+      grams: 30,
+    });
+  });
+
+  it("omits food/portions when the detail record carries none", () => {
+    const noPortions: FdcFoodDetail = { fdcId: 3, foodPortions: [] };
+    const attrs = mapFdcDetailToPayload(noPortions).attributes;
+    expect(attrs).not.toHaveProperty("food/portions");
+    // absent entirely (not just empty) is also handled
+    const missing: FdcFoodDetail = { fdcId: 4 };
+    expect(mapFdcDetailToPayload(missing).attributes).not.toHaveProperty(
+      "food/portions"
+    );
+  });
+
+  it("skips portions with no usable gram weight", () => {
+    const mixed: FdcFoodDetail = {
+      fdcId: 5,
+      foodPortions: [
+        { amount: 1, gramWeight: 0, modifier: "pinch" },
+        { amount: 1, gramWeight: 40, modifier: "slice" },
+      ],
+    };
+    const portions = mapFdcDetailToPayload(mixed).attributes["food/portions"];
+    expect(portions).toEqual([
+      { label: "1 slice", amount: 1, unit: "slice", grams: 40 },
+    ]);
+  });
+
+  it("refreshes twin/raw_provenance with the fuller detail record", () => {
+    // Provenance now holds the /food/{id} detail (larger than the search hit),
+    // verbatim, under the bumped adapter version.
+    const prov =
+      mapFdcDetailToPayload(detail).attributes["twin/raw_provenance"];
+    expect(prov.raw_data).toEqual(detail);
+    expect(prov.source_uri).toBe("https://api.nal.usda.gov/fdc/v1/food/173944");
+    expect(prov.adapter).toBe("fdc");
+    expect(prov.adapter_version).toEqual(expect.any(String));
+  });
+});
+
+// ---- unit: hydrateFdcFood --------------------------------------------------
+
+describe("hydrateFdcFood", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("fetches the /food/{id} detail endpoint with the api key", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => bananaDetail,
+    } as Response);
+
+    await hydrateFdcFood(173944, "TEST_KEY");
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://api.nal.usda.gov/fdc/v1/food/173944?api_key=TEST_KEY"
+    );
+  });
+
+  it("returns the mapped portions-and-provenance augmentation", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => bananaDetail,
+    } as Response);
+
+    const payload = await hydrateFdcFood(173944, "TEST_KEY");
+    expect(payload.entity).toBe("fdc:173944");
+    expect(payload.attributes["food/portions"]).toHaveLength(3);
+    expect(payload.attributes["food/portions"][0].label).toBe("1 medium");
+  });
+
+  it("surfaces a key error on a 403", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: async () => ({}),
+    } as Response);
+
+    await expect(hydrateFdcFood(1, "BAD_KEY")).rejects.toThrow(/key/i);
   });
 });
 
