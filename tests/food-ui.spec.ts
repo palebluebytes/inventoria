@@ -422,7 +422,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.locator("#food-search-input").fill("banana");
     await page.locator(".result-item-btn", { hasText: "Mock Banana" }).click();
 
-    const breakdown = page.locator('[data-testid="nutrient-breakdown"]');
+    const breakdown = page.locator('[data-testid="food-nutrient-breakdown"]');
     await expect(breakdown).toBeVisible();
     // Collapsed by default — rows hidden until the disclosure is opened.
     await expect(breakdown.locator(".nutrient-calcium")).toBeHidden();
@@ -462,7 +462,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await logUsdaFood(page, "dinner", "oats", "Mock Oats", "100");
 
     // The day breakdown is a disclosure on the dashboard, collapsed by default.
-    const breakdown = page.locator('[data-testid="nutrient-breakdown"]');
+    const breakdown = page.locator('[data-testid="day-nutrient-breakdown"]');
     await expect(breakdown).toBeVisible();
     await expect(breakdown.locator("summary")).toContainText(
       "Full day nutrition"
@@ -547,7 +547,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     const breakfast = page.locator(".meal-section", { hasText: "BREAKFAST" });
     await expect(breakfast).toContainText("Mock Banana");
     await expect(breakfast).toContainText("118g");
-    await expect(breakfast).toContainText("105 kcal");
+    await expect(breakfast).toContainText("105.02 kcal");
   });
 
   test("a food without portions renders the amount picker unchanged", async ({

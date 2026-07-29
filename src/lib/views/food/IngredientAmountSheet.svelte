@@ -72,7 +72,7 @@
 
   {#if panel}
     <div class="full-panel">
-      <NutrientBreakdown rows={fullRows} />
+      <NutrientBreakdown rows={fullRows} testid="food-nutrient-breakdown" />
     </div>
   {/if}
 

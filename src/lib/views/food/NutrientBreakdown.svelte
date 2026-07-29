@@ -12,11 +12,12 @@
   let {
     rows,
     label = "Full nutrition",
-  }: { rows: NutrientRow[]; label?: string } = $props();
+    testid = "nutrient-breakdown",
+  }: { rows: NutrientRow[]; label?: string; testid?: string } = $props();
 </script>
 
 {#if rows.length > 1}
-  <details class="breakdown" data-testid="nutrient-breakdown">
+  <details class="breakdown" data-testid={testid}>
     <summary>{label}</summary>
     <dl class="rows">
       {#each rows as row (row.key)}

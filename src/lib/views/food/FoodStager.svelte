@@ -450,7 +450,10 @@
           <MacroPills pills={stagedPills} />
         </div>
         <div class="full-panel">
-          <NutrientBreakdown rows={stagedFullRows} />
+          <NutrientBreakdown
+            rows={stagedFullRows}
+            testid="food-nutrient-breakdown"
+          />
         </div>
       </div>
     {:else if isExtra(method)}

@@ -164,7 +164,11 @@
 <!-- Expandable full day breakdown: every nutrient the day's foods contributed,
      beyond the ring and the always-on meters (ticket #31). -->
 <div class="day-breakdown">
-  <NutrientBreakdown rows={dayBreakdown} label="Full day nutrition" />
+  <NutrientBreakdown
+    rows={dayBreakdown}
+    label="Full day nutrition"
+    testid="day-nutrient-breakdown"
+  />
 </div>
 
 <!-- Timeline & Logged Meals -->
