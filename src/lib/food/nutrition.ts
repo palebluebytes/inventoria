@@ -324,7 +324,7 @@ export type ExtraNutrientKey = (typeof EXTRA_NUTRIENT_KEYS)[number];
  * The extra nutrients carried alongside the headline macros on a frozen snapshot
  * — present only for nutrients the food actually reported. A key is **absent
  * (undefined), never 0**, for a nutrient the source omitted, so a total can tell
- * "zero grams" from "never measured" (forward-only, ADR-0030 / #28).
+ * "zero grams" from "never measured" (ADR-0030 / #28).
  */
 export type NutritionExtras = Partial<Record<ExtraNutrientKey, number>>;
 
@@ -342,10 +342,10 @@ export interface NutritionBreakdown extends Macros, NutritionExtras {}
 /**
  * Scales every nutrient a panel carries by `factor` — the pure "scale a panel by
  * a factor" mechanic behind logging a food and deriving a recipe row. Returns the
- * four headline macros (via {@link macrosFromNutrition}, so an omitted macro is 0,
- * unchanged from today) plus only the extra nutrients the panel actually reported:
- * a nutrient the source omitted stays **absent, never invented as 0**
- * (forward-only, ADR-0030 / #28). Each field is rounded to the stored food
+ * four headline macros (via {@link macrosFromNutrition}, so an omitted macro is 0)
+ * plus only the extra nutrients the panel actually reported: a nutrient the source
+ * omitted stays **absent, never invented as 0** (ADR-0030 / #28) — a food that
+ * reports no iron must not claim `iron: 0`. Each field is rounded to the stored food
  * precision ({@link roundFood}) so this contribution is round-then-sum ready — the
  * same discipline `deriveRecipeNutrition` already applies to macros.
  */
@@ -373,9 +373,9 @@ export function scaleNutrition(
  * breakdown is totalled with round-then-sum (each already rounded, the sum
  * rounded again to shed float noise), so a total matches the displayed rows. A
  * nutrient **no** breakdown froze stays absent, never fabricated as 0, so a
- * pre-change four-macro event contributes only its macros and never invents a
- * zero fibre/micronutrient (forward-only, ADR-0030 / #28). The four headline
- * macros are always present (defaulting a missing one to 0).
+ * macro-only breakdown (a custom food with no source panel) contributes only its
+ * macros and never invents a zero fibre/micronutrient (ADR-0030 / #28). The four
+ * headline macros are always present (defaulting a missing one to 0).
  */
 export function sumNutrition(
   breakdowns: NutritionBreakdown[]

@@ -1121,12 +1121,13 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
     expect(total.sodium_content).toBe(0.003); // oats only
   });
 
-  it("projects a pre-change four-macro event without inventing zeros, and the day total reflects only what each event froze", async () => {
+  it("projects a macro-only event (no breakdown arg) without inventing zeros, and the day total reflects only what each event froze", async () => {
     const appended = captureAppends();
     const day = new Date("2026-05-31T12:00:00");
-    // (1) A pre-change food: logged the old way, four macros, NO breakdown arg.
+    // (1) A macro-only food: logged with four macros and NO breakdown arg (a
+    // custom food carries no source panel).
     await logFoodConsumption(
-      "fdc:legacy",
+      "fdc:macro_only",
       "150g",
       "lunch",
       134,
@@ -1151,9 +1152,9 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
     );
 
     const events = computeConsumption(asLedger(appended));
-    const legacy = events.find((e) => e.target === "fdc:legacy")!;
-    // The legacy event froze exactly four macros — no fabricated extras.
-    expect(legacy.metrics).toEqual({
+    const macroOnly = events.find((e) => e.target === "fdc:macro_only")!;
+    // The macro-only event froze exactly four macros — no fabricated extras.
+    expect(macroOnly.metrics).toEqual({
       calories: 134,
       protein: 1.7,
       fat: 0.5,
@@ -1161,7 +1162,7 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
     });
 
     const total = totalNutrition(events);
-    // Fibre is the new event's value ALONE — the legacy event contributes no
+    // Fibre is the new event's value ALONE — the macro-only event contributes no
     // zero, so the day total is never diluted by an un-measured nutrient.
     expect(total.fiber_content).toBe(5);
     // A nutrient neither event froze stays absent, not 0.

@@ -81,7 +81,7 @@ export function consumptionForDay(
  * scaled to the amount (ADR-0030 / #28): the four `{ calories, protein, fat,
  * carbs }` headline keys are always written from the positional args (unchanged),
  * and every extra nutrient the breakdown carried is merged in under its panel
- * name. Omit it — as a pre-change call or a macro-only custom food does — and the
+ * name. Omit it — as a macro-only custom food (no source panel) does — and the
  * snapshot stays exactly the four-key headline; an extra a food never reported is
  * never written, so it reads as absent (never 0) forever.
  */
@@ -110,9 +110,9 @@ export async function logFoodConsumption(
 
   const entityId = `event:consume_${Math.random().toString(36).substring(2, 9)}_${timestamp}`;
 
-  // The headline four are always frozen exactly as passed (byte-compatible with
-  // every existing reader); the rest of the panel is merged in under its panel
-  // name only for nutrients the food actually reported (ADR-0030 / #28).
+  // The headline four are always frozen exactly as passed; the rest of the panel
+  // is merged in under its panel name only for nutrients the food actually
+  // reported (ADR-0030 / #28).
   const metrics: NutritionBreakdown = { calories, protein, fat, carbs };
   if (breakdown) {
     for (const key of EXTRA_NUTRIENT_KEYS) {

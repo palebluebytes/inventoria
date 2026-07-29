@@ -82,7 +82,7 @@ describe("scaleNutrition", () => {
     });
   });
 
-  it("keeps the headline four exactly as macrosFromNutrition×factor would (byte-compatible)", () => {
+  it("keeps the headline four exactly as macrosFromNutrition×factor would (headline never diverges from the macro path)", () => {
     const scaled = scaleNutrition(RICH_PANEL, 1.5);
     expect({
       calories: scaled.calories,
@@ -163,9 +163,10 @@ describe("sumNutrition", () => {
   });
 
   it("keeps a nutrient absent when no breakdown froze it — never fabricates 0", () => {
-    // A pre-change four-macro event summed with a full one: the macro-only event
-    // contributes nothing to fibre, and fibre is the full event's value alone.
-    const preChange: NutritionBreakdown = {
+    // A macro-only event (a custom food with no source panel) summed with a full
+    // one: the macro-only event contributes nothing to fibre, and fibre is the
+    // full event's value alone.
+    const macroOnly: NutritionBreakdown = {
       calories: 100,
       protein: 5,
       fat: 2,
@@ -178,7 +179,7 @@ describe("sumNutrition", () => {
       carbs: 12,
       fiber_content: 3,
     };
-    const total = sumNutrition([preChange, full]);
+    const total = sumNutrition([macroOnly, full]);
     expect(total.fiber_content).toBe(3);
     // sodium was never frozen by either — it is absent, not 0.
     expect("sodium_content" in total).toBe(false);

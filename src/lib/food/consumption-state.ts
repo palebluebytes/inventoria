@@ -15,7 +15,7 @@ export interface ConsumptionEvent {
    * the four `{ calories, protein, fat, carbs }` headline macros plus every extra
    * nutrient the food carried, scaled to the amount logged. A nutrient the food
    * never reported is absent, never 0. The four macros are also surfaced flat
-   * below for the existing readers; the full breakdown lives here.
+   * below — the headline the ring and summary read; the full breakdown lives here.
    */
   metrics?: NutritionBreakdown;
   calories?: number;
@@ -112,8 +112,9 @@ export function computeConsumption(datoms: StoredDatom[]): ConsumptionEvent[] {
  * meal) breakdown the dashboard sums (ADR-0030 / #28). Each event's frozen
  * `metrics` breakdown is summed with round-then-sum ({@link sumNutrition}), so a
  * total matches the displayed per-food rows. A nutrient **no** event froze stays
- * absent (forward-only): a pre-change four-macro event contributes only its
- * macros and never fabricates a zero fibre/micronutrient for the day. The pure
+ * absent: a macro-only event (a custom food logged with no source panel)
+ * contributes only its macros and never fabricates a zero fibre/micronutrient for
+ * the day. The pure
  * foundation the display tickets read from — it derives nothing from the mutable
  * twins, only from the frozen snapshots.
  */
