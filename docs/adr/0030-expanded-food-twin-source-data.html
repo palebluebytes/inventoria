@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR 0030 · Inventoria</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+      <nav class="site-nav">
+        <p class="nav-title">Inventoria</p>
+        <a href="../index.html">Introduction</a>
+        <div class="nav-section">
+          <p class="nav-section-label">Reference</p>
+          <a href="../glossary.html">Glossary</a>
+          <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+        </div>
+        <div class="nav-section">
+          <p class="nav-section-label">Explanation</p>
+          <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+        </div>
+        <div class="nav-section">
+          <a href="index.html" class="active">Architectural Decision Records</a>
+        </div>
+      </nav>
+  <div class="content-area">
+    <main>
+<h1 id="adr-0030-capture-the-full-source-record-on-food-twins--micronutrients-portions-and-provenance-signals">ADR 0030: Capture the full source record on food twins — micronutrients, portions, and provenance signals</h1>
+<p><strong>Status:</strong> Accepted; not yet implemented (specced 2026-07-29, this ADR) <strong>Date:</strong> 2026-07-29</p>
+<h2 id="context">Context</h2>
+<p>The USDA FoodData Central and Open Food Facts adapters (<code>src/lib/food/usda-fdc.ts</code>, <code>open-food-facts.ts</code>) each fetch a rich source record and then keep a thin slice of it: the <code>nutrition/info</code> panel's twelve schema.org macros (ADR-0021) plus <code>food/name</code>. Everything else the source returns is discarded from the working model — it survives only inside <code>twin/raw_provenance</code> (ADR-0016), which nothing reads back.</p>
+<p>Two whole classes of data the sources already return go unused:</p>
+<ul>
+<li><strong>Portion / household-serving weights.</strong> FDC's <code>/food/{fdcId}</code> detail record carries <code>foodPortions[]</code> (<code>amount</code>, <code>modifier</code>, <code>gramWeight</code>, e.g. "1 medium → 118 g"); OFF carries <code>serving_quantity</code> / <code>serving_size</code>. The app has no notion of a household portion, so a searched "croissant" can only be logged in grams the user must already know. (The <code>/foods/search</code> response's <code>foodMeasures[]</code> is empty for Foundation/SR Legacy foods, so portions require the detail endpoint.)</li>
+<li><strong>Micronutrients.</strong> FDC reports 40–105 nutrients per food (vitamins, minerals); OFF reports its own <code>*_100g</code> set. The panel keeps four macros' worth plus fibre, sugar, sodium, the fats and cholesterol — the vitamins and minerals are dropped.</li>
+</ul>
+<p>Beyond nutrition, each source carries record-level signals we throw away: FDC's <code>foodCategory</code> and <code>scientificName</code>; OFF's Nutri-Score, NOVA group, Eco-Score, <code>nutrient_levels</code>, ingredients text, allergens, additives, labels, and brand.</p>
+<p>This ADR decides <strong>what to capture and where it lives in the EAVT model</strong>. It does <strong>not</strong> build the display surface for the new nutrition fields — surfacing the full panel in the UI is issue #21, a separate follow-up. The one exception is portions, which are wired into the existing amount picker here (see Decision 5), because a portion weight is inert without a way to pick it and answering "log one croissant" is the motivating use case.</p>
+<h2 id="decision">Decision</h2>
+<h3 id="1-nutritioninfo-gains-a-fixed-set-of-micronutrient-keys-in-grams">1. <code>nutrition/info</code> gains a fixed set of micronutrient keys, in grams</h3>
+<p>ADR-0021 §2 already provides for this: "New nutrients are new keys; no new attribute, no migration." We elevate the twelve micronutrients of the US Nutrition-Facts label to first-class optional panel keys:</p>
+<p><code>vitamin_d</code>, <code>calcium</code>, <code>iron</code>, <code>potassium</code> (the four mandatory on the label), plus <code>vitamin_a</code>, <code>vitamin_c</code>, <code>vitamin_e</code>, <code>vitamin_b6</code>, <code>vitamin_b12</code>, <code>folate</code>, <code>magnesium</code>, <code>zinc</code>.</p>
+<ul>
+<li><strong>Stored in grams</strong>, like every existing <code>*_content</code> field — the adapters' <code>toGrams</code> already normalises FDC's mg/µg, and OFF reports grams. This preserves the panel invariant ("every value in a unit fixed per field") so no reader needs a per-key unit table; the display layer reformats to mg/µg (issue #21).</li>
+<li><strong>Beyond schema.org.</strong> schema.org/NutritionInformation defines no vitamin or mineral properties, so these keys have no schema.org counterpart and are documented as app extensions. The panel stays a superset of NutritionInformation, not a violation of it — the twelve schema.org macros still map exactly.</li>
+<li>The <strong>long tail</strong> (the other 30–90 FDC nutrients, fatty-acid isomers, etc.) stays in <code>twin/raw_provenance</code>, recoverable with no re-fetch — the exact use ADR-0021 §4 reserved provenance for. We elevate only the label set; more can be promoted later by the same "new key" move.</li>
+</ul>
+<p><code>macrosFromNutrition</code> still narrows the panel to the four display macros, so the frozen <code>event/metrics</code> consumption snapshot (ADR-0022) is <strong>unchanged</strong> — the new keys live on the food twin's live panel, not on logged history.</p>
+<h3 id="2-portions-are-a-new-foodportions-attribute-resolving-to-grams">2. Portions are a new <code>food/portions</code> attribute, resolving to grams</h3>
+<p>A food-bearing twin gains an optional <code>food/portions</code>: an ordered list of household measures the source offers.</p>
+<pre class="jsonc"><code>&quot;food/portions&quot;: [
+  { &quot;label&quot;: &quot;1 medium&quot;, &quot;amount&quot;: 1, &quot;unit&quot;: &quot;medium&quot;, &quot;grams&quot;: 118 },
+  { &quot;label&quot;: &quot;1 cup, sliced&quot;, &quot;amount&quot;: 1, &quot;unit&quot;: &quot;cup, sliced&quot;, &quot;grams&quot;: 150 }
+]</code></pre>
+<ul>
+<li>A portion is a <strong>labelled gram weight</strong>, nothing more. It is captured as source data on the twin, not a nutrition reading (so it belongs in <code>food/*</code>, not the <code>nutrition/info</code> panel).</li>
+<li><strong>Portions resolve to grams at entry time and are not otherwise persisted.</strong> Picking "1 medium" fills a gram amount of 118; the logged Consumption Event and the recipe <code>ReferenceIngredient</code> store grams exactly as they do today. The <code>{ ref, amount, unit: "g" | "serving" }</code> reference model and <code>deriveRecipeNutrition</code> are <strong>untouched</strong> — a portion is a convenience shortcut onto the existing gram path, not a third unit. This keeps the single-source derivation (ADR-0021 §3) and the frozen snapshot intact, and avoids a portion-label that could rot against the twin.</li>
+</ul>
+<h3 id="3-fdc-record-metadata--foodcategory-foodscientific_name">3. FDC record metadata → <code>food/category</code>, <code>food/scientific_name</code></h3>
+<p>Two scalar attributes captured at search-map time (both are on the search response): <code>food/category</code> (FDC <code>foodCategory</code>; OFF <code>categories</code>) and <code>food/scientific_name</code> (FDC <code>scientificName</code>). These are food-identity, not nutrition.</p>
+<h3 id="4-off-proprietary-signals--one-foodassessment-blob--existing-attrs">4. OFF proprietary signals → one <code>food/assessment</code> blob (+ existing attrs)</h3>
+<p>OFF's consumer-facing assessments have no schema.org/NutritionInformation counterpart and are OFF-specific. Rather than scatter a dozen loose attributes or pollute the schema.org panel, they are captured as one atomic <code>food/assessment</code> blob — the same "one coherent reading, corrected as a unit" granularity argument ADR-0021 made for <code>nutrition/info</code>:</p>
+<pre class="jsonc"><code>&quot;food/assessment&quot;: {
+  &quot;nova_group&quot;: 4,
+  &quot;nutri_score&quot;: &quot;e&quot;,
+  &quot;eco_score&quot;: &quot;d&quot;,
+  &quot;nutrient_levels&quot;: { &quot;fat&quot;: &quot;high&quot;, &quot;salt&quot;: &quot;low&quot;, &quot;sugars&quot;: &quot;high&quot;, &quot;saturated-fat&quot;: &quot;high&quot; },
+  &quot;allergens&quot;: [&quot;en:milk&quot;, &quot;en:nuts&quot;],
+  &quot;additives&quot;: [&quot;en:e322&quot;],
+  &quot;labels&quot;: [&quot;en:no-gluten&quot;]
+}</code></pre>
+<p>Two OFF fields map onto existing concepts instead of the blob: <code>ingredients_text</code> → <strong><code>food/ingredients_text</code></strong> (a scalar, distinct from a recipe's structured <code>recipe/ingredients</code> references), and OFF <code>brands</code> → the existing <strong><code>twin/brand</code></strong> attribute. <code>food/assessment</code> is OFF-only today; the FDC path does not populate it.</p>
+<h3 id="5-fdc-portions-arrive-via-lazy-detail-hydration-on-select">5. FDC portions arrive via lazy detail-hydration on select</h3>
+<p>Because <code>foodPortions</code> lives on <code>/food/{fdcId}</code> (not the search response), the adapter gains <code>hydrateFdcFood(fdcId)</code>: called <strong>once, when a searched food is staged</strong> (not per keystroke), it fetches the detail record, maps <code>foodPortions[]</code> → <code>food/portions</code>, and refreshes <code>twin/raw_provenance</code> with the fuller record. Search stays the cheap Foundation + SR Legacy prefix query it is today — this ADR does <strong>not</strong> broaden the dataset to Branded foods. OFF needs no second call: its single product response already carries <code>serving_quantity</code>, the assessments, and everything else, mapped at lookup time.</p>
+<p>Both adapters bump their <code>ADAPTER_VERSION</code> (the mapper-version marker), since the FDC → panel/twin and OFF → panel/twin normalisations now emit new keys.</p>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li><strong>Food-bearing twins now carry</strong> <code>food/name</code>, <code>food/category</code>, <code>food/scientific_name</code>, <code>food/ingredients_text</code> (OFF), <code>food/portions</code>, <code>food/assessment</code> (OFF), <code>nutrition/info</code> (now with micronutrients), <code>twin/brand</code> (OFF), <code>twin/raw_provenance</code>. All must be registered in <code>docs/eavt-vocabulary.html</code>, and the food twin shape in <code>V1_REQUIREMENTS.md</code> Module A updated.</li>
+<li><strong>The consumption snapshot is unaffected.</strong> <code>event/metrics</code> and the recipe-instantiation rows stay four macros — new nutrition fields are twin-only.</li>
+<li><strong>Staging a searched FDC food becomes async</strong> (one detail fetch) and needs a loading affordance; the fetch failing degrades to "no portions", never blocks logging in grams.</li>
+<li><strong>The full-panel display is still owed</strong> — micronutrients and <code>food/assessment</code> are captured but not shown; that is issue #21. Only portions get UI here, as amount-picker presets over the ADR-0025 picker.</li>
+<li><strong>Provenance grows</strong> (the FDC detail record is larger than the search hit) — the storage-for-losslessness tradeoff ADR-0016 already accepted.</li>
+<li><strong>schema.org export</strong>, if built later, maps the twelve macros exactly and omits the micronutrient/assessment extensions (or emits them as non-standard properties) — no export code exists today, so nothing is broken.</li>
+<li><strong>No backfill of existing twins.</strong> New fields populate on foods ingested after this change; a provenance-backfill pass (ADR-0021 §4) remains unbuilt and out of scope.</li>
+</ul>
+<h2 id="alternatives-considered">Alternatives considered</h2>
+<ul>
+<li><strong>Promote every FDC nutrient to a panel key.</strong> Rejected: 40–105 keys per food (including fatty-acid isomers) bloats every panel for data no user reads; the label set is the recognised, cross-source-mappable subset, and the rest stays recoverable in provenance.</li>
+<li><strong>A third reference unit (<code>unit: "portion"</code>).</strong> Rejected: it would ripple through <code>ReferenceIngredient</code>, <code>deriveRecipeNutrition</code>, the frozen snapshot, and every reader, to persist a label that can rot against the twin. Resolving portions to grams at entry keeps the model single-source and the change small.</li>
+<li><strong>Scatter OFF signals as loose <code>food/*</code> attributes.</strong> Rejected: they are one coherent, source-specific assessment, corrected as a unit — the same blob argument as <code>nutrition/info</code>.</li>
+<li><strong>Broaden FDC search to Branded foods</strong> for richer <code>householdServingFullText</code> serving data. Deferred: Branded is noisier and more duplicative and would need the dedup/ranking retuned; detail-endpoint <code>foodPortions</code> covers Foundation/SR without changing search quality.</li>
+</ul>
+    </main>
+  </div>
+</div>
+</body>
+</html>
