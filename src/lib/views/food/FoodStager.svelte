@@ -10,7 +10,12 @@
   } from "../../food/food-search";
   import { getLocalFoodTwin } from "../../stores/calorie.store";
   import { settingsStore } from "../../stores/settings.store";
-  import { roundFoodDisplay } from "../../food/nutrition";
+  import {
+    roundFoodDisplay,
+    FOOD_PORTIONS_ATTR,
+    type Portion,
+  } from "../../food/nutrition";
+  import { hydrateFdcFood } from "../../food/usda-fdc";
   import type {
     FoodChoice,
     ChooseOutcome,
@@ -105,6 +110,55 @@
   // (ADR-0023); it stays a clean number, so `factor` simply scales by it.
   let grams = $state(100);
   let factor = $derived(grams / 100);
+
+  // The staged food's household portions (ADR-0030), surfaced as picker presets.
+  // Read live off the staged payload so they appear the moment hydration spreads
+  // them on; empty (and the picker renders as today) for a portion-less food.
+  let stagedPortions = $derived<Portion[]>(
+    (staged?.payload.attributes[FOOD_PORTIONS_ATTR] as Portion[] | undefined) ??
+      []
+  );
+  // True while a searched food's detail record is being fetched for its portions
+  // — a non-blocking affordance only: the gram field is fully usable throughout,
+  // and a failed fetch degrades to no portions (ADR-0030 §5).
+  let hydratingPortions = $state(false);
+
+  // Stage a chosen food and, for a searched USDA food that arrived without
+  // portions, hydrate its `/food/{fdcId}` detail once (ADR-0030 §5) — not per
+  // keystroke, off the select. The augmentation (portions + refreshed
+  // provenance) is SPREAD onto the staged payload so the food keeps its
+  // search-time name and nutrition and merely gains portions; the search-time
+  // nutrition/info is never re-mapped. A non-fdc food (a scanned OFF product, a
+  // local recent twin) or one already carrying portions skips the fetch.
+  async function stageFood(item: FoodResult) {
+    staged = item;
+    grams = 100;
+    hydratingPortions = false;
+    const match = /^fdc:(\d+)$/.exec(item.entity);
+    if (!match) return;
+    if (item.payload.attributes[FOOD_PORTIONS_ATTR]) return;
+    hydratingPortions = true;
+    try {
+      const augmentation = await hydrateFdcFood(Number(match[1]));
+      const merged: FoodResult = {
+        ...item,
+        payload: {
+          ...item.payload,
+          attributes: {
+            ...item.payload.attributes,
+            ...augmentation.attributes,
+          },
+        },
+      };
+      // Only apply if this food is still the staged one — a fast user may have
+      // gone back or staged another before the fetch resolved.
+      if (staged?.entity === item.entity) staged = merged;
+    } catch {
+      // Degrade to no portions; gram logging is never blocked (ADR-0030 §5).
+    } finally {
+      if (staged?.entity === item.entity) hydratingPortions = false;
+    }
+  }
 
   // Custom entry
   let customName = $state("");
@@ -357,8 +411,16 @@
             staged.carbs
           )}g
         </p>
-        <span class="fl">Quantity (grams)</span>
-        <QuantityGrams bind:grams />
+        <span class="fl">
+          Quantity (grams)
+          {#if hydratingPortions}
+            <span class="portions-loading" data-testid="portions-loading">
+              <span class="portions-spinner" aria-hidden="true"></span>
+              Loading portions…
+            </span>
+          {/if}
+        </span>
+        <QuantityGrams bind:grams portions={stagedPortions} />
         <div class="preview">
           <MacroPills
             calories={roundFoodDisplay(staged.calories * factor)}
@@ -381,19 +443,13 @@
         <FoodResultsList
           results={recent}
           heading="Recent"
-          onSelect={(item) => {
-            staged = item;
-            grams = 100;
-          }}
+          onSelect={(item) => stageFood(item)}
         />
       {:else}
         <FoodResultsList
           {results}
           heading={results.length ? "Results" : undefined}
-          onSelect={(item) => {
-            staged = item;
-            grams = 100;
-          }}
+          onSelect={(item) => stageFood(item)}
         />
         {#if hasKey && status === "idle" && query.trim().length >= 3 && results.length === 0}
           <p class="hint">No matches for “{query.trim()}”.</p>
@@ -578,6 +634,26 @@
   }
   .preview {
     margin-top: var(--space-m);
+  }
+  /* Non-blocking hint while a searched food's portions hydrate (ADR-0030 §5) —
+     the gram field beneath stays fully usable throughout. */
+  .portions-loading {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3xs);
+    margin-left: var(--space-2xs);
+    font-size: var(--step-n2);
+    font-weight: 400;
+    text-transform: none;
+    color: var(--text-secondary);
+  }
+  .portions-spinner {
+    width: 0.9rem;
+    height: 0.9rem;
+    border: 2px solid var(--border-accent);
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
   }
 
   .viewport {

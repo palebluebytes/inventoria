@@ -182,6 +182,54 @@ export function resolvePortionGrams(
   return roundFood(quantity * chosen.grams);
 }
 
+/**
+ * One household portion prepared for the amount picker (ticket #27): the
+ * resolved gram weight it fills in, the source `label` used to resolve it
+ * ({@link resolvePortionGrams}), and the chip's display text (e.g.
+ * "1 medium — 118 g"). A view model, not source data — it never touches the
+ * ledger; the twin keeps its raw {@link Portion} list.
+ */
+export interface PortionPreset {
+  /** The source portion's label, the key {@link resolvePortionGrams} matches. */
+  label: string;
+  /** The gram weight tapping this preset sets, rounded to stored precision. */
+  grams: number;
+  /** The chip text shown in the picker, e.g. "1 medium — 118 g". */
+  display: string;
+}
+
+/**
+ * Formats a portion chip's display text — its label plus the gram weight it
+ * resolves to, e.g. "1 medium — 118 g". Grams are shown at the display
+ * precision so a source's finely-weighed portion doesn't read as noise.
+ */
+export function formatPortionPreset(portion: Portion): string {
+  return `${portion.label} — ${roundFoodDisplay(portion.grams)} g`;
+}
+
+/**
+ * Maps a twin's `food/portions` to the presets the amount picker renders
+ * alongside its numeric + slider control (ticket #27). The single place that
+ * decides which portions surface as chips and how each reads: a portion is
+ * dropped when its `grams` is absent or non-finite (it could not fill a valid
+ * amount), and the kept ones carry the gram weight rounded to stored precision
+ * so a tapped chip and {@link resolvePortionGrams} agree exactly. Returns an
+ * empty list for a portion-less (or missing) food, so the picker renders as it
+ * does today.
+ */
+export function portionPresets(
+  portions: Portion[] | undefined
+): PortionPreset[] {
+  if (!portions?.length) return [];
+  return portions
+    .filter((p) => p && typeof p.grams === "number" && Number.isFinite(p.grams))
+    .map((p) => ({
+      label: p.label,
+      grams: roundFood(p.grams),
+      display: formatPortionPreset(p),
+    }));
+}
+
 /** The four macros the food dashboard and recipe builder display and sum. */
 export interface Macros {
   calories: number;

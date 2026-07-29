@@ -395,6 +395,93 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.locator(".calories-num")).toHaveText("134");
   });
 
+  // Route the USDA detail endpoint (`/food/{fdcId}`) — the source of household
+  // portions (ADR-0030 §5), absent from the search response. Banana (171705)
+  // carries portions; every other food hydrates to none, so the picker renders
+  // its gram controls unchanged.
+  async function routeFdcDetail(page: import("@playwright/test").Page) {
+    await page.route("**/fdc/v1/food/*", async (route) => {
+      const url = new URL(route.request().url());
+      const fdcId = Number(url.pathname.split("/").pop());
+      const foodPortions =
+        fdcId === 171705
+          ? [
+              { amount: 1, gramWeight: 118, modifier: "medium" },
+              { amount: 1, gramWeight: 150, modifier: "large" },
+            ]
+          : [];
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ fdcId, foodPortions }),
+      });
+    });
+  }
+
+  test("stages a food's household portions as amount-picker presets (ADR-0030)", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+    await routeFdcDetail(page);
+
+    // Stage a food WITH portions. Selecting it hydrates the detail record once.
+    await page.getByRole("button", { name: "Add breakfast" }).click();
+    const detail = page.waitForResponse((r) =>
+      r.url().includes("/fdc/v1/food/171705")
+    );
+    await page.locator("#food-search-input").fill("banana");
+    await page.locator(".result-item-btn", { hasText: "Mock Banana" }).click();
+    await detail;
+
+    // Default 100 g of Mock Banana (89 kcal/100 g) → the log button shows 89.
+    await expect(page.locator("#log-food-btn")).toHaveText("Log 89 kcal");
+
+    // The hydrated portions appear as presets alongside the gram control.
+    const portions = page.locator('[data-testid="portion-presets"]');
+    await expect(
+      portions.getByRole("button", { name: "1 medium — 118 g" })
+    ).toBeVisible();
+
+    // Tapping a preset fills its resolved grams and updates the shown total:
+    // 118 g of 89 kcal/100 g → 89 × 1.18 = 105.02 kcal.
+    await portions.getByRole("button", { name: "1 medium — 118 g" }).click();
+    await expect(page.getByLabel("Quantity in grams")).toHaveValue("118");
+    await expect(page.locator("#log-food-btn")).toHaveText("Log 105.02 kcal");
+
+    // The logged Consumption Event stays gram-valued — no "portion" unit.
+    await page.locator("#log-food-btn").click();
+    const breakfast = page.locator(".meal-section", { hasText: "BREAKFAST" });
+    await expect(breakfast).toContainText("Mock Banana");
+    await expect(breakfast).toContainText("118g");
+    await expect(breakfast).toContainText("105 kcal");
+  });
+
+  test("a food without portions renders the amount picker unchanged", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+    await routeFdcDetail(page);
+
+    // Stage a food whose detail record carries no portions.
+    await page.getByRole("button", { name: "Add breakfast" }).click();
+    const detail = page.waitForResponse((r) =>
+      r.url().includes("/fdc/v1/food/1102706")
+    );
+    await page.locator("#food-search-input").fill("oats");
+    await page.locator(".result-item-btn", { hasText: "Mock Oats" }).click();
+    await detail;
+
+    // No preset chips; the gram field + slider are the whole control, as today.
+    await expect(page.locator('[data-testid="portion-presets"]')).toHaveCount(
+      0
+    );
+    await expect(page.getByRole("slider")).toBeVisible();
+    await expect(page.getByLabel("Quantity in grams")).toHaveValue("100");
+  });
+
   test("caches search results when returning from a staged food", async ({
     page,
   }) => {

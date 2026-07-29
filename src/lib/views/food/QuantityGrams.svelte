@@ -5,7 +5,12 @@
     evaluateAmount,
     AMOUNT_EXPRESSION_CHARS,
   } from "../../food/amount-expression";
-  import { roundFood } from "../../food/nutrition";
+  import {
+    roundFood,
+    portionPresets,
+    resolvePortionGrams,
+    type Portion,
+  } from "../../food/nutrition";
 
   // Amount control for a staged food: a full-width field (the primary, precise
   // entry — you can type a plain number *or* a little sum like `65 / 2` and the
@@ -13,15 +18,31 @@
   // chips for one-tap jumps.
   // The slider is a coarse accelerator only: typed values may exceed `sliderMax`,
   // in which case the thumb pins at the end while `grams` keeps the exact number.
+  // When the food carries household portions (ADR-0030, ticket #27) they render
+  // as an extra chip row above the gram presets: tapping "1 medium — 118 g" fills
+  // the resolved grams. A portion-less food shows the control exactly as before.
   let {
     grams = $bindable(100),
     sliderMax = 500,
     presets = [25, 50, 100, 150, 200, 300],
+    portions = [],
   }: {
     grams: number;
     sliderMax?: number;
     presets?: number[];
+    portions?: Portion[];
   } = $props();
+
+  // The chip view-models are derived once from the raw portions by the food
+  // domain helper; the .svelte file holds no portion mapping of its own.
+  let portionOptions = $derived(portionPresets(portions));
+
+  // Tapping a portion chip fills its resolved grams — via the shared resolver so
+  // the picker and any downstream reader agree — falling back to the preset's
+  // pre-rounded grams if the label somehow can't be resolved.
+  function pickPortion(label: string, fallback: number) {
+    grams = resolvePortionGrams(portions, label) ?? fallback;
+  }
 
   const HARD_MAX = 10000;
   // Held to the food precision (`roundFood`) so a typed sum like `65 / 2` keeps
@@ -100,6 +121,18 @@
     {/snippet}
   </Slider.Root>
   <div class="scale"><span>0</span><span>{sliderMax} g</span></div>
+
+  {#if portionOptions.length > 0}
+    <div class="portions" data-testid="portion-presets">
+      {#each portionOptions as p (p.label)}
+        <Button
+          variant={grams === p.grams ? "primary" : "secondary"}
+          class="portion-chip"
+          onclick={() => pickPortion(p.label, p.grams)}>{p.display}</Button
+        >
+      {/each}
+    </div>
+  {/if}
 
   <div class="presets">
     {#each presets as p}
@@ -201,6 +234,21 @@
     font-size: var(--step-n2);
     font-weight: 700;
     color: var(--text-secondary);
+  }
+  /* Portion chips wrap (a food can offer several measures, and each label is
+     wider than a gram number), sitting above the fixed gram-preset row. */
+  .portions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3xs);
+    width: 100%;
+  }
+  .portions :global(.portion-chip) {
+    flex: 0 1 auto;
+    min-width: 0;
+    padding-left: var(--space-xs);
+    padding-right: var(--space-xs);
+    font-size: var(--step-n2);
   }
   .presets {
     display: flex;

@@ -3,6 +3,8 @@ import {
   roundFood,
   roundFoodDisplay,
   formatPortionLabel,
+  formatPortionPreset,
+  portionPresets,
   resolvePortionGrams,
   type Portion,
 } from "../../src/lib/food/nutrition";
@@ -56,6 +58,75 @@ describe("formatPortionLabel", () => {
 
   it("collapses stray whitespace so a padded unit reads clean", () => {
     expect(formatPortionLabel(1, "  medium ")).toBe("1 medium");
+  });
+});
+
+describe("formatPortionPreset", () => {
+  it("reads the label plus the gram weight it resolves to", () => {
+    expect(
+      formatPortionPreset({
+        label: "1 medium",
+        amount: 1,
+        unit: "medium",
+        grams: 118,
+      })
+    ).toBe("1 medium — 118 g");
+  });
+
+  it("shows grams at the display precision, not the stored precision", () => {
+    // A finely-weighed portion reads clean (2 dp) rather than as stored noise.
+    expect(
+      formatPortionPreset({
+        label: "1 tbsp",
+        amount: 1,
+        unit: "tbsp",
+        grams: 14.174,
+      })
+    ).toBe("1 tbsp — 14.17 g");
+  });
+});
+
+describe("portionPresets", () => {
+  const portions: Portion[] = [
+    { label: "1 medium", amount: 1, unit: "medium", grams: 118 },
+    { label: "1 cup, sliced", amount: 1, unit: "cup, sliced", grams: 150 },
+  ];
+
+  it("maps each portion to a chip preset carrying label, grams and display", () => {
+    expect(portionPresets(portions)).toEqual([
+      { label: "1 medium", grams: 118, display: "1 medium — 118 g" },
+      { label: "1 cup, sliced", grams: 150, display: "1 cup, sliced — 150 g" },
+    ]);
+  });
+
+  it("rounds each preset's grams to stored precision so a tap matches resolvePortionGrams", () => {
+    const raw: Portion[] = [
+      { label: "1 slice", amount: 1, unit: "slice", grams: 14.12367 },
+    ];
+    const [preset] = portionPresets(raw);
+    expect(preset.grams).toBe(14.124);
+    // The chip's pre-rounded grams equal what resolving its label yields, so the
+    // primary/secondary highlight tracks a tapped chip exactly.
+    expect(resolvePortionGrams(raw, "1 slice")).toBe(preset.grams);
+  });
+
+  it("drops a portion whose grams are absent or non-finite", () => {
+    const mixed: Portion[] = [
+      { label: "good", amount: 1, unit: "x", grams: 40 },
+      { label: "nan", amount: 1, unit: "x", grams: NaN },
+      {
+        label: "missing",
+        amount: 1,
+        unit: "x",
+        grams: undefined as unknown as number,
+      },
+    ];
+    expect(portionPresets(mixed).map((p) => p.label)).toEqual(["good"]);
+  });
+
+  it("returns an empty list for a portion-less or missing food", () => {
+    expect(portionPresets([])).toEqual([]);
+    expect(portionPresets(undefined)).toEqual([]);
   });
 });
 

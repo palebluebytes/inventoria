@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Portion } from "../../food/nutrition";
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import QuantityGrams from "./QuantityGrams.svelte";
 
@@ -16,11 +17,15 @@
   let {
     name,
     amount,
+    portions = [],
     onCommit,
     onClose,
   }: {
     name: string;
     amount: number;
+    /** The ingredient twin's household portions (ADR-0030), shown as picker
+     *  presets. Empty for a portion-less food — the picker renders as today. */
+    portions?: Portion[];
     onCommit: (amount: number) => void;
     onClose: () => void;
   } = $props();
@@ -39,7 +44,7 @@
 </script>
 
 <BottomSheet isOpen title={name} class="amount-sheet" elevated {onClose}>
-  <QuantityGrams bind:grams={value} />
+  <QuantityGrams bind:grams={value} {portions} />
 
   {#snippet footer()}
     <button class="done" id="amount-done-btn" onclick={done}>Done</button>

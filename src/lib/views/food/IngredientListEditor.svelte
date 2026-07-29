@@ -12,7 +12,7 @@
     deriveIngredientMacros,
     sanitizeYield,
   } from "../../food/recipe-nutrition";
-  import { roundFoodDisplay } from "../../food/nutrition";
+  import { roundFoodDisplay, type Portion } from "../../food/nutrition";
   import AddIngredientSheet from "./AddIngredientSheet.svelte";
   import IngredientAmountSheet from "./IngredientAmountSheet.svelte";
   import FoodItemRow from "./FoodItemRow.svelte";
@@ -154,6 +154,9 @@
   <IngredientAmountSheet
     name={ingredients[editingIndex].name}
     amount={rowView(ingredients[editingIndex]).amount}
+    portions={ingredients[editingIndex].payload.attributes["food/portions"] as
+      | Portion[]
+      | undefined}
     onCommit={(amount) => {
       if (editingIndex !== null) ingredients[editingIndex].amount = amount;
     }}
