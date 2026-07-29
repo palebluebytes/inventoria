@@ -447,6 +447,47 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(breakdown.locator(".nutrient-iron")).toContainText("0.52 mg");
   });
 
+  test("expands the day's full nutrient breakdown, totalling every logged food and omitting absent nutrients (#31)", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    // Log two bananas (each carries calcium + iron, but no fibre/sodium) and one
+    // oats (macros only). At 100 g each, the two bananas total to 10 mg calcium
+    // and 0.52 mg iron; oats adds macros but no fabricated micronutrient zeros.
+    await logUsdaFood(page, "breakfast", "banana", "Mock Banana", "100");
+    await logUsdaFood(page, "lunch", "banana", "Mock Banana", "100");
+    await logUsdaFood(page, "dinner", "oats", "Mock Oats", "100");
+
+    // The day breakdown is a disclosure on the dashboard, collapsed by default.
+    const breakdown = page.locator('[data-testid="nutrient-breakdown"]');
+    await expect(breakdown).toBeVisible();
+    await expect(breakdown.locator("summary")).toContainText(
+      "Full day nutrition"
+    );
+    await expect(breakdown.locator(".nutrient-calcium")).toBeHidden();
+
+    // Expand it: the day totals for the macros AND the micronutrients the foods
+    // carried are shown, summed across the day's frozen event snapshots (#28).
+    await breakdown.locator("summary").click();
+    await expect(breakdown.locator(".nutrient-calories")).toBeVisible();
+    // Calcium/iron total across just the two bananas that carried them.
+    await expect(breakdown.locator(".nutrient-calcium")).toContainText(
+      "Calcium"
+    );
+    await expect(breakdown.locator(".nutrient-calcium")).toContainText("10 mg");
+    await expect(breakdown.locator(".nutrient-iron")).toContainText("0.52 mg");
+    // A macro every food carries is present too.
+    await expect(breakdown.locator(".nutrient-protein")).toBeVisible();
+
+    // Nutrients no logged food carried are omitted, never shown as 0.
+    await expect(breakdown.locator(".nutrient-fiber_content")).toHaveCount(0);
+    await expect(breakdown.locator(".nutrient-sodium_content")).toHaveCount(0);
+    await expect(breakdown.locator(".nutrient-sugar_content")).toHaveCount(0);
+  });
+
   // Route the USDA detail endpoint (`/food/{fdcId}`) — the source of household
   // portions (ADR-0030 §5), absent from the search response. Banana (171705)
   // carries portions; every other food hydrates to none, so the picker renders

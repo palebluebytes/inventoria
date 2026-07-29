@@ -5,13 +5,17 @@
     type ConsumptionEvent,
   } from "../../stores/calorie.store";
   import { totalNutrition } from "../../food/consumption-state";
-  import { buildNutrientMeters } from "../../food/nutrient-display";
+  import {
+    buildNutrientMeters,
+    buildNutrientBreakdown,
+  } from "../../food/nutrient-display";
   import { settingsStore } from "../../stores/settings.store";
   import { parseLoggedQuantity } from "../../food/recipe-ingredient";
   import Modal from "../../ui/Modal.svelte";
   import FoodItemRow from "./FoodItemRow.svelte";
   import CalorieRing from "./CalorieRing.svelte";
   import MacroMeters from "./MacroMeters.svelte";
+  import NutrientBreakdown from "./NutrientBreakdown.svelte";
   import WeekStrip from "./WeekStrip.svelte";
   import { longpress } from "../../actions/longpress";
 
@@ -99,6 +103,15 @@
     )
   );
 
+  // The expandable "show everything" day breakdown (ticket #31, parent #21):
+  // every nutrient the day's foods contributed, beyond the ring and the always-on
+  // selected meters. Built from the same frozen day totals via #30's shared
+  // buildNutrientBreakdown, so it reads identically to the per-ingredient list —
+  // Calories first, then each catalogued nutrient PRESENT in the total (a
+  // nutrient no logged food carried is absent, never shown as 0). The disclosure
+  // hides itself when only calories are present, so an empty day is unchanged.
+  let dayBreakdown = $derived(buildNutrientBreakdown(dayTotals));
+
   function formatDateHeader(date: Date): string {
     return date.toLocaleDateString("en-US", {
       weekday: "long",
@@ -146,6 +159,12 @@
   <CalorieRing {totalCalories} {targetCalories} />
 
   <MacroMeters {meters} />
+</div>
+
+<!-- Expandable full day breakdown: every nutrient the day's foods contributed,
+     beyond the ring and the always-on meters (ticket #31). -->
+<div class="day-breakdown">
+  <NutrientBreakdown rows={dayBreakdown} label="Full day nutrition" />
 </div>
 
 <!-- Timeline & Logged Meals -->
@@ -286,6 +305,10 @@
     .aggregates-grid {
       grid-template-columns: 1fr;
     }
+  }
+
+  .day-breakdown {
+    margin-top: var(--space-m);
   }
 
   .timeline {
