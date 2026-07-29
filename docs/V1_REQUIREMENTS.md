@@ -171,12 +171,19 @@ const recipeTwin = {
 
 #### 4. The Consumption Event
 
-A logged intake. Its headline macros are frozen into an atomic `event/metrics`
-blob (ADR-0009) at log time, so the number the dashboard aggregates never drifts
-when a twin is later corrected.
+A logged intake. Its **full nutrition breakdown** — scaled to the amount logged —
+is frozen into an atomic `event/metrics` blob (ADR-0009, widened by ADR-0030) at
+log time, so the numbers the dashboard aggregates never drift when a twin is later
+corrected. The blob keeps the `{ calories, protein, fat, carbs }` headline exactly
+as before (byte-compatible with every existing reader) and adds every other
+nutrient the food carried under its `nutrition/info` panel name
+(`fiber_content`, `sodium_content`, `saturated_fat_content`, the micronutrients,
+…). It is **forward-only**: a nutrient the food never reported is absent, never 0,
+and events logged before this change keep their four-macro snapshot — so a day
+total sums only what each event actually froze and never fabricates zeros.
 
 ```typescript
-// Logged Consumption Event: frozen headline macros, snake_case throughout.
+// Logged Consumption Event: frozen full breakdown, snake_case throughout.
 const consumeEvent = {
   entity: "event:consume_abc123_1717140000000",
   attributes: {
@@ -184,7 +191,15 @@ const consumeEvent = {
     "event/target": "gtin:3017620422003", // References any twin (gtin, fdc, custom, recipe)
     "event/quantity": "30g",
     "event/meal_type": "breakfast", // Strictly snake_case enforcing architectural standard
-    "event/metrics": { calories: 161, protein: 1.8, fat: 9.2, carbs: 17.2 },
+    // Headline four (unchanged) + every extra nutrient the food carried, scaled.
+    "event/metrics": {
+      calories: 161,
+      protein: 1.8,
+      fat: 9.2,
+      carbs: 17.2,
+      fiber_content: 1.1,
+      sodium_content: 0.09,
+    },
   },
 };
 ```
@@ -193,10 +208,12 @@ When the target is a **Recipe Twin**, the event is a **Recipe Instantiation**
 (ADR-0022) and additionally carries an atomic `event/instantiation` snapshot of
 what was cooked that occasion: the template it was seeded from (`based_on`, equal
 to `event/target`), the `yield`, and a per-row breakdown with each ingredient's
-macros frozen and its `name` denormalized for display resilience. The rows sum to
-the `event/metrics` headline. This snapshot is the read source for a logged
-recipe's breakdown and per-serving nutrition, so correcting, renaming, or deleting
-an ingredient twin leaves an already-logged instantiation untouched.
+**full breakdown** frozen (the `{ calories, protein, fat, carbs }` headline plus
+every extra nutrient the ingredient carried, ADR-0030) and its `name` denormalized
+for display resilience. The rows sum to the `event/metrics` headline. This
+snapshot is the read source for a logged recipe's breakdown and per-serving
+nutrition, so correcting, renaming, or deleting an ingredient twin leaves an
+already-logged instantiation untouched.
 
 ```typescript
 const instantiationEvent = {

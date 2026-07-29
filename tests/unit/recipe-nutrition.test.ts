@@ -92,3 +92,76 @@ describe("deriveIngredientMacros", () => {
     expect(rowSum).toBe(total); // round-then-sum: rows add up exactly to the total
   });
 });
+
+// The recipe path mirrors the food path: the full panel — not just the four
+// macros — is derived and frozen (ADR-0030 / #28), summed across ingredients that
+// carry each nutrient and never fabricating a zero for one that omits it.
+describe("deriveRecipeNutrition — full breakdown", () => {
+  const PANELS_FULL: Record<string, NutritionInfo> = {
+    "fdc:oats": {
+      serving_size: "100 g",
+      calories: 380,
+      protein_content: 13,
+      fat_content: 7,
+      carbohydrate_content: 67,
+      fiber_content: 10,
+      sodium_content: 0.006,
+    },
+    "fdc:milk": {
+      serving_size: "100 g",
+      calories: 64,
+      protein_content: 3.4,
+      fat_content: 3.6,
+      carbohydrate_content: 4.7,
+      // No fibre; carries calcium the oats lack.
+      calcium: 0.12,
+    },
+  };
+  const resolveFull = (ref: string) => PANELS_FULL[ref];
+
+  it("totals each extra only across the ingredients that report it (round-then-sum ÷ yield)", () => {
+    const ings: ReferenceIngredient[] = [
+      { ref: "fdc:oats", amount: 50, unit: "g" }, // ×0.5
+      { ref: "fdc:milk", amount: 200, unit: "g" }, // ×2
+    ];
+    // oats ×0.5: fibre 5, sodium 0.003 ; milk ×2: calcium 0.24 (no fibre).
+    expect(deriveRecipeNutrition(ings, 1, resolveFull)).toEqual({
+      calories: 318, // 190 + 128
+      protein: 13.3, // 6.5 + 6.8
+      fat: 10.7, // 3.5 + 7.2
+      carbs: 42.9, // 33.5 + 9.4
+      fiber_content: 5, // oats only
+      sodium_content: 0.003, // oats only
+      calcium: 0.24, // milk only
+    });
+  });
+
+  it("divides every extra by yield, like the macros", () => {
+    const ings: ReferenceIngredient[] = [
+      { ref: "fdc:oats", amount: 100, unit: "g" }, // ×1: fibre 10, sodium 0.006
+    ];
+    const perServing = deriveRecipeNutrition(ings, 2, resolveFull);
+    expect(perServing.fiber_content).toBe(5); // 10 ÷ 2
+    expect(perServing.sodium_content).toBe(0.003); // 0.006 ÷ 2
+    expect(perServing.calories).toBe(190); // 380 ÷ 2
+  });
+
+  it("keeps a nutrient absent when no ingredient reports it — never 0", () => {
+    const macroOnly: Record<string, NutritionInfo> = {
+      "fdc:x": {
+        serving_size: "100 g",
+        calories: 100,
+        protein_content: 2,
+        fat_content: 1,
+        carbohydrate_content: 20,
+      },
+    };
+    const derived = deriveRecipeNutrition(
+      [{ ref: "fdc:x", amount: 100, unit: "g" }],
+      1,
+      (r) => macroOnly[r]
+    );
+    expect(derived).toEqual({ calories: 100, protein: 2, fat: 1, carbs: 20 });
+    expect("fiber_content" in derived).toBe(false);
+  });
+});

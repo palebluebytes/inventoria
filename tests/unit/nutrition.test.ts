@@ -6,6 +6,10 @@ import {
   formatPortionPreset,
   portionPresets,
   resolvePortionGrams,
+  scaleNutrition,
+  sumNutrition,
+  type NutritionBreakdown,
+  type NutritionInfo,
   type Portion,
 } from "../../src/lib/food/nutrition";
 
@@ -44,6 +48,137 @@ describe("roundFoodDisplay", () => {
     expect(roundFoodDisplay(32.5)).toBe(32.5);
     expect(String(roundFoodDisplay(400))).toBe("400");
     expect(String(roundFoodDisplay(12.3))).toBe("12.3");
+  });
+});
+
+// A rich panel: the four macros plus a spread of extras + one micronutrient, so
+// the scale/sum helpers are exercised across every category of nutrient.
+const RICH_PANEL: NutritionInfo = {
+  serving_size: "100 g",
+  calories: 380,
+  protein_content: 13,
+  fat_content: 7,
+  carbohydrate_content: 67,
+  fiber_content: 10,
+  sugar_content: 1,
+  sodium_content: 0.006,
+  saturated_fat_content: 1.2,
+  iron: 0.0047,
+};
+
+describe("scaleNutrition", () => {
+  it("scales every nutrient the panel carries by the factor, rounded to food precision", () => {
+    // ×0.5: macros via macrosFromNutrition, extras under their panel names.
+    expect(scaleNutrition(RICH_PANEL, 0.5)).toEqual({
+      calories: 190,
+      protein: 6.5,
+      fat: 3.5,
+      carbs: 33.5,
+      fiber_content: 5,
+      sugar_content: 0.5,
+      sodium_content: 0.003,
+      saturated_fat_content: 0.6,
+      iron: 0.002, // 0.0047 × 0.5 = 0.00235 → 0.002 at 3 dp
+    });
+  });
+
+  it("keeps the headline four exactly as macrosFromNutrition×factor would (byte-compatible)", () => {
+    const scaled = scaleNutrition(RICH_PANEL, 1.5);
+    expect({
+      calories: scaled.calories,
+      protein: scaled.protein,
+      fat: scaled.fat,
+      carbs: scaled.carbs,
+    }).toEqual({ calories: 570, protein: 19.5, fat: 10.5, carbs: 100.5 });
+  });
+
+  it("never invents a nutrient the panel omitted — a macro-only panel scales to just the four macros", () => {
+    const macroOnly: NutritionInfo = {
+      serving_size: "100 g",
+      calories: 100,
+      protein_content: 2,
+      fat_content: 1,
+      carbohydrate_content: 20,
+    };
+    const scaled = scaleNutrition(macroOnly, 2);
+    expect(scaled).toEqual({ calories: 200, protein: 4, fat: 2, carbs: 40 });
+    expect("fiber_content" in scaled).toBe(false);
+    expect("iron" in scaled).toBe(false);
+  });
+
+  it("defaults absent macros to 0 (unchanged) but leaves extras absent", () => {
+    const scaled = scaleNutrition(
+      { serving_size: "100 g", fiber_content: 4 },
+      1
+    );
+    expect(scaled).toEqual({
+      calories: 0,
+      protein: 0,
+      fat: 0,
+      carbs: 0,
+      fiber_content: 4,
+    });
+  });
+});
+
+describe("sumNutrition", () => {
+  it("totals every nutrient present across breakdowns with round-then-sum", () => {
+    const a: NutritionBreakdown = {
+      calories: 190,
+      protein: 6.5,
+      fat: 3.5,
+      carbs: 33.5,
+      fiber_content: 5,
+      sodium_content: 0.003,
+    };
+    const b: NutritionBreakdown = {
+      calories: 128,
+      protein: 6.8,
+      fat: 7.2,
+      carbs: 9.4,
+      fiber_content: 0.5,
+      iron: 0.002,
+    };
+    expect(sumNutrition([a, b])).toEqual({
+      calories: 318,
+      protein: 13.3,
+      fat: 10.7,
+      carbs: 42.9,
+      fiber_content: 5.5, // present in both
+      sodium_content: 0.003, // only in a
+      iron: 0.002, // only in b
+    });
+  });
+
+  it("keeps a nutrient absent when no breakdown froze it — never fabricates 0", () => {
+    // A pre-change four-macro event summed with a full one: the macro-only event
+    // contributes nothing to fibre, and fibre is the full event's value alone.
+    const preChange: NutritionBreakdown = {
+      calories: 100,
+      protein: 5,
+      fat: 2,
+      carbs: 10,
+    };
+    const full: NutritionBreakdown = {
+      calories: 50,
+      protein: 1,
+      fat: 0,
+      carbs: 12,
+      fiber_content: 3,
+    };
+    const total = sumNutrition([preChange, full]);
+    expect(total.fiber_content).toBe(3);
+    // sodium was never frozen by either — it is absent, not 0.
+    expect("sodium_content" in total).toBe(false);
+  });
+
+  it("returns just zeroed macros for an empty list", () => {
+    expect(sumNutrition([])).toEqual({
+      calories: 0,
+      protein: 0,
+      fat: 0,
+      carbs: 0,
+    });
   });
 });
 

@@ -12,9 +12,12 @@ import {
   consumptionForDay,
 } from "../../src/lib/stores/calorie.store";
 import type { NutritionInfo } from "../../src/lib/food/nutrition";
-import { computeConsumption } from "../../src/lib/food/consumption-state";
+import {
+  computeConsumption,
+  totalNutrition,
+} from "../../src/lib/food/consumption-state";
 import type { ReferenceIngredient } from "../../src/lib/food/recipe-nutrition";
-import { roundFood } from "../../src/lib/food/nutrition";
+import { roundFood, scaleNutrition } from "../../src/lib/food/nutrition";
 import { asStored } from "./support/stored";
 
 vi.mock("../../src/lib/db/db.client", () => {
@@ -1021,6 +1024,148 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
       fat: event.fat,
       carbs: event.carbs,
     });
+  });
+
+  // ---- Full-breakdown freeze + day total (ADR-0030 / #28) -------------------
+
+  // A reputable per-100g panel with macros + a spread of extras + a micronutrient.
+  const OATS_FULL: NutritionInfo = {
+    serving_size: "100 g",
+    calories: 380,
+    protein_content: 13,
+    fat_content: 7,
+    carbohydrate_content: 67,
+    fiber_content: 10,
+    sodium_content: 0.006,
+    iron: 0.0047,
+  };
+
+  it("freezes a logged food's full panel (scaled to amount) into event/metrics; the four-macro headline is unchanged", async () => {
+    const appended = captureAppends();
+    // 150 g of a per-100g food → ×1.5, exactly what LogFoodSheet computes.
+    const breakdown = scaleNutrition(OATS_FULL, 150 / 100);
+    await logFoodConsumption(
+      "fdc:oats",
+      "150g",
+      "breakfast",
+      breakdown.calories,
+      breakdown.protein,
+      breakdown.fat,
+      breakdown.carbs,
+      new Date("2026-05-31T12:00:00"),
+      undefined,
+      breakdown
+    );
+
+    const events = computeConsumption(asLedger(appended));
+    expect(events).toHaveLength(1);
+    // Headline (flat fields) unchanged — the four macros the dashboard reads.
+    expect(events[0]).toMatchObject({
+      calories: 570,
+      protein: 19.5,
+      fat: 10.5,
+      carbs: 100.5,
+    });
+    // The frozen metrics blob carries the WHOLE panel scaled: headline + extras
+    // under their panel names, and nothing the food didn't report.
+    expect(events[0].metrics).toEqual({
+      calories: 570,
+      protein: 19.5,
+      fat: 10.5,
+      carbs: 100.5,
+      fiber_content: 15,
+      sodium_content: 0.009,
+      iron: 0.007, // 0.0047 × 1.5 = 0.00705 → 0.007 at 3 dp
+    });
+  });
+
+  it("the day total sums a non-macro nutrient (fibre, sodium) across the day's events", async () => {
+    const appended = captureAppends();
+    const day = new Date("2026-05-31T12:00:00");
+    const oats = scaleNutrition(OATS_FULL, 50 / 100); // ×0.5
+    const berries = scaleNutrition(
+      {
+        serving_size: "100 g",
+        calories: 57,
+        protein_content: 0.7,
+        fat_content: 0.3,
+        carbohydrate_content: 14,
+        fiber_content: 2.4,
+      },
+      1
+    );
+
+    for (const [target, b] of [
+      ["fdc:oats", oats],
+      ["fdc:berries", berries],
+    ] as const) {
+      await logFoodConsumption(
+        target,
+        "portion",
+        "breakfast",
+        b.calories,
+        b.protein,
+        b.fat,
+        b.carbs,
+        day,
+        undefined,
+        b
+      );
+    }
+
+    const total = totalNutrition(computeConsumption(asLedger(appended)));
+    // Macros total as before.
+    expect(total.calories).toBe(247); // 190 + 57
+    // Fibre summed across BOTH events; sodium came only from the oats.
+    expect(total.fiber_content).toBe(7.4); // 5 + 2.4
+    expect(total.sodium_content).toBe(0.003); // oats only
+  });
+
+  it("projects a pre-change four-macro event without inventing zeros, and the day total reflects only what each event froze", async () => {
+    const appended = captureAppends();
+    const day = new Date("2026-05-31T12:00:00");
+    // (1) A pre-change food: logged the old way, four macros, NO breakdown arg.
+    await logFoodConsumption(
+      "fdc:legacy",
+      "150g",
+      "lunch",
+      134,
+      1.7,
+      0.5,
+      34.2,
+      day
+    );
+    // (2) A new food carrying fibre.
+    const full = scaleNutrition(OATS_FULL, 0.5);
+    await logFoodConsumption(
+      "fdc:oats",
+      "50g",
+      "lunch",
+      full.calories,
+      full.protein,
+      full.fat,
+      full.carbs,
+      day,
+      undefined,
+      full
+    );
+
+    const events = computeConsumption(asLedger(appended));
+    const legacy = events.find((e) => e.target === "fdc:legacy")!;
+    // The legacy event froze exactly four macros — no fabricated extras.
+    expect(legacy.metrics).toEqual({
+      calories: 134,
+      protein: 1.7,
+      fat: 0.5,
+      carbs: 34.2,
+    });
+
+    const total = totalNutrition(events);
+    // Fibre is the new event's value ALONE — the legacy event contributes no
+    // zero, so the day total is never diluted by an un-measured nutrient.
+    expect(total.fiber_content).toBe(5);
+    // A nutrient neither event froze stays absent, not 0.
+    expect("cholesterol_content" in total).toBe(false);
   });
 });
 

@@ -473,13 +473,21 @@
                 <td>Every logged Event</td>
                 <td>
                   <code>type</code>, <code>target</code>, <code>status</code>,
-                  <code>metrics</code>, <code>instantiation</code> (a logged
+                  <code>metrics</code> (the frozen breakdown scaled to the
+                  amount logged: the
+                  <code>{ calories, protein, fat, carbs }</code> headline plus
+                  every extra nutrient the food carried, each under its
+                  <code>nutrition/info</code> panel name such as
+                  <code>fiber_content</code>, <code>sodium_content</code>, the
+                  micronutrients; a nutrient the food never reported is absent,
+                  never 0, ADR-0030), <code>instantiation</code> (a logged
                   recipe's frozen Recipe Instantiation snapshot:
                   <code>based_on</code>, <code>yield</code>, and per-row
                   <code
-                    >{ ref, name, amount, unit, calories, protein, fat, carbs
+                    >{ ref, name, amount, unit, calories, protein, fat, carbs, …
                     }</code
-                  >), <code>meal_type</code> (the
+                  >
+                  carrying the same full breakdown), <code>meal_type</code> (the
                   <a href="glossary.html#term-meal-type">Meal Type</a>),
                   <code>rating</code>, <code>season</code>
                 </td>

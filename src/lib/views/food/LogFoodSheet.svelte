@@ -15,7 +15,11 @@
     type ConsumptionEvent,
   } from "../../stores/calorie.store";
   import { parseLoggedQuantity } from "../../food/recipe-ingredient";
-  import { roundFood, roundFoodDisplay } from "../../food/nutrition";
+  import {
+    roundFoodDisplay,
+    scaleNutrition,
+    type NutritionInfo,
+  } from "../../food/nutrition";
   import { parseDatomValue } from "../../db/datom-fold";
   import type {
     FoodChoice,
@@ -182,15 +186,25 @@
         const f = choice.food;
         const factor = choice.grams / 100;
         await dbClient.append(ingestEntity(f.payload));
+        // Freeze the food's FULL panel scaled to the amount, not just the four
+        // macros (ADR-0030 / #28). The headline stays exactly the macros the
+        // dashboard already reads (scaleNutrition rounds identically); the extra
+        // nutrients ride along in event/metrics for the day breakdown.
+        const panel = f.payload.attributes["nutrition/info"] as
+          | NutritionInfo
+          | undefined;
+        const breakdown = scaleNutrition(panel, factor);
         const newId = await logFoodConsumption(
           f.entity,
           `${choice.grams}g`,
           meal_type,
-          roundFood(f.calories * factor),
-          roundFood(f.protein * factor),
-          roundFood(f.fat * factor),
-          roundFood(f.carbs * factor),
-          selectedDate
+          breakdown.calories,
+          breakdown.protein,
+          breakdown.fat,
+          breakdown.carbs,
+          selectedDate,
+          undefined,
+          breakdown
         );
         if (edit) await retractConsumptionEvent(edit.id, newId);
       } else {

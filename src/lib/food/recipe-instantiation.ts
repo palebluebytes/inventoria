@@ -2,7 +2,7 @@ import {
   deriveIngredientMacros,
   type ReferenceIngredient,
 } from "./recipe-nutrition";
-import type { NutritionInfo } from "./nutrition";
+import type { NutritionBreakdown, NutritionInfo } from "./nutrition";
 
 /**
  * One ingredient of a logged Recipe Instantiation, frozen (ADR-0022). It keeps
@@ -12,17 +12,16 @@ import type { NutritionInfo } from "./nutrition";
  * logged occasion is a historical reading, so it must stay internally consistent
  * with its headline `event/metrics` and never move when the ingredient twin is
  * later corrected, renamed, or deleted. `ref` is retained but soft (may dangle).
- * The `{ calories, protein, fat, carbs }` shorthand matches `event/metrics`.
+ * The `{ calories, protein, fat, carbs }` headline matches `event/metrics`, and
+ * the row carries the same full breakdown — every extra nutrient the ingredient
+ * reported, scaled to its amount (ADR-0030 / #28) — a nutrient the ingredient
+ * omitted stays absent, never 0.
  */
-export interface InstantiationRow {
+export interface InstantiationRow extends NutritionBreakdown {
   ref: string;
   name: string;
   amount: number;
   unit: "g" | "serving";
-  calories: number;
-  protein: number;
-  fat: number;
-  carbs: number;
 }
 
 /**

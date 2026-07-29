@@ -7,7 +7,9 @@ import {
   nutritionFromMacros,
   roundFood,
   PER_SERVING,
+  EXTRA_NUTRIENT_KEYS,
   type NutritionInfo,
+  type NutritionBreakdown,
 } from "../food/nutrition";
 import {
   deriveRecipeNutrition,
@@ -74,6 +76,14 @@ export function consumptionForDay(
  * Creates and appends a Consumption Event's datoms to the ledger. `instantiation`
  * is the optional `event/instantiation` snapshot a logged recipe carries beside
  * its frozen `event/metrics` headline (ADR-0022); a plain food logs without one.
+ *
+ * `breakdown` widens the frozen `event/metrics` to the food's **full** panel
+ * scaled to the amount (ADR-0030 / #28): the four `{ calories, protein, fat,
+ * carbs }` headline keys are always written from the positional args (unchanged),
+ * and every extra nutrient the breakdown carried is merged in under its panel
+ * name. Omit it — as a pre-change call or a macro-only custom food does — and the
+ * snapshot stays exactly the four-key headline; an extra a food never reported is
+ * never written, so it reads as absent (never 0) forever.
  */
 export async function logFoodConsumption(
   targetEntity: string,
@@ -84,7 +94,8 @@ export async function logFoodConsumption(
   fat: number,
   carbs: number,
   selectedDate: Date,
-  instantiation?: Instantiation
+  instantiation?: Instantiation,
+  breakdown?: NutritionBreakdown
 ) {
   // Use selected date's time, but keep current hour/minute/second so events don't all cluster at 00:00
   const now = new Date();
@@ -99,17 +110,23 @@ export async function logFoodConsumption(
 
   const entityId = `event:consume_${Math.random().toString(36).substring(2, 9)}_${timestamp}`;
 
+  // The headline four are always frozen exactly as passed (byte-compatible with
+  // every existing reader); the rest of the panel is merged in under its panel
+  // name only for nutrients the food actually reported (ADR-0030 / #28).
+  const metrics: NutritionBreakdown = { calories, protein, fat, carbs };
+  if (breakdown) {
+    for (const key of EXTRA_NUTRIENT_KEYS) {
+      const v = breakdown[key];
+      if (typeof v === "number") metrics[key] = v;
+    }
+  }
+
   const attributes: Record<string, unknown> = {
     "event/type": "ConsumeAction",
     "event/target": targetEntity,
     "event/quantity": quantity,
     "event/meal_type": meal_type,
-    "event/metrics": {
-      calories,
-      protein,
-      fat,
-      carbs,
-    },
+    "event/metrics": metrics,
   };
   if (instantiation) attributes["event/instantiation"] = instantiation;
 
@@ -270,7 +287,8 @@ export async function logRecipeConsumption(
     snapshot.fat,
     snapshot.carbs,
     selectedDate,
-    instantiation
+    instantiation,
+    snapshot
   );
 }
 
@@ -345,7 +363,7 @@ export async function changeLoggedFoodAmount(
     | NutritionInfo
     | undefined;
   if (!panel) return;
-  const macros = deriveIngredientMacros(
+  const breakdown = deriveIngredientMacros(
     { ref: event.target, amount: grams, unit: "g" },
     () => panel
   );
@@ -353,11 +371,13 @@ export async function changeLoggedFoodAmount(
     event.target,
     `${grams}g`,
     event.meal_type ?? "snack",
-    roundFood(macros.calories),
-    roundFood(macros.protein),
-    roundFood(macros.fat),
-    roundFood(macros.carbs),
-    new Date(event.time)
+    roundFood(breakdown.calories),
+    roundFood(breakdown.protein),
+    roundFood(breakdown.fat),
+    roundFood(breakdown.carbs),
+    new Date(event.time),
+    undefined,
+    breakdown
   );
   await retractConsumptionEvent(event.id, newId);
 }

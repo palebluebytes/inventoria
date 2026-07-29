@@ -146,3 +146,32 @@ builder's inline-amount editor (issue #9).
   the template; and the schema.org key rename of `event/metrics`'s inner
   `{calories,protein,fat,carbs}` (the instantiation rows follow the same
   shorthand for now, per the ADR-0021 follow-up already tracked).
+
+## Amendment (ADR-0030 / #28): `event/metrics` widened to the full scaled panel; forward-only
+
+**Date:** 2026-07-29
+
+To surface fibre and micronutrients **for the day** (parent #21), the frozen
+snapshot must carry more than the four macros. This amendment widens the snapshot
+shape without changing the model — it is the same "snapshot on write, never derive
+on read" rule freezing _more_ at write time; logged history stays immutable.
+
+- **`event/metrics` now carries the food's whole `nutrition/info` panel, scaled to
+  the amount logged.** The four `{ calories, protein, fat, carbs }` headline keys
+  are unchanged and byte-compatible with every existing reader; each remaining
+  panel nutrient is added under its **panel name** (`fiber_content`,
+  `sodium_content`, `saturated_fat_content`, the twelve micronutrients, …) so no
+  key is duplicated.
+- **Each `event/instantiation` row carries the same full breakdown** (the recipe
+  path mirrors the food path): the derivation (`deriveRecipeNutrition` /
+  `deriveIngredientMacros`) and `buildInstantiation` now produce a full
+  `NutritionBreakdown`, round-then-sum per nutrient exactly as the macros already
+  were, so the frozen headline is byte-identical to before and the rows still sum
+  to it.
+- **Forward-only.** A nutrient the food never reported is **absent (undefined),
+  never 0**. Events logged before this change keep their four-macro snapshot; the
+  day total (`totalNutrition` → `sumNutrition`) sums only what each event actually
+  froze and never fabricates a zero for an un-measured nutrient.
+- Verified headless at Seam 2 (store action → `computeConsumption` round-trip);
+  no twin storage, no `{ ref, amount, unit }` change, no UI change. Docs updated:
+  `V1_REQUIREMENTS.md` §Module A and `eavt-vocabulary.html` `event/*` shapes.

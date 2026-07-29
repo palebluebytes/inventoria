@@ -98,6 +98,15 @@
 <li>Storage grows by one denormalized ingredient blob per logged recipe — accepted for the immutability and history it buys, consistent with <code>event/metrics</code> already being a frozen blob.</li>
 <li><strong>Deferred:</strong> a per-template instantiation-history view (the data model supports it for free — query events by <code>target</code>); optional edit push-back to the template; and the schema.org key rename of <code>event/metrics</code>'s inner <code>{calories,protein,fat,carbs}</code> (the instantiation rows follow the same shorthand for now, per the ADR-0021 follow-up already tracked).</li>
 </ul>
+<h2 id="amendment-adr-0030--28-eventmetrics-widened-to-the-full-scaled-panel-forward-only">Amendment (ADR-0030 / #28): <code>event/metrics</code> widened to the full scaled panel; forward-only</h2>
+<p><strong>Date:</strong> 2026-07-29</p>
+<p>To surface fibre and micronutrients <strong>for the day</strong> (parent #21), the frozen snapshot must carry more than the four macros. This amendment widens the snapshot shape without changing the model — it is the same "snapshot on write, never derive on read" rule freezing <em>more</em> at write time; logged history stays immutable.</p>
+<ul>
+<li><strong><code>event/metrics</code> now carries the food's whole <code>nutrition/info</code> panel, scaled to the amount logged.</strong> The four <code>{ calories, protein, fat, carbs }</code> headline keys are unchanged and byte-compatible with every existing reader; each remaining panel nutrient is added under its <strong>panel name</strong> (<code>fiber_content</code>, <code>sodium_content</code>, <code>saturated_fat_content</code>, the twelve micronutrients, …) so no key is duplicated.</li>
+<li><strong>Each <code>event/instantiation</code> row carries the same full breakdown</strong> (the recipe path mirrors the food path): the derivation (<code>deriveRecipeNutrition</code> / <code>deriveIngredientMacros</code>) and <code>buildInstantiation</code> now produce a full <code>NutritionBreakdown</code>, round-then-sum per nutrient exactly as the macros already were, so the frozen headline is byte-identical to before and the rows still sum to it.</li>
+<li><strong>Forward-only.</strong> A nutrient the food never reported is <strong>absent (undefined), never 0</strong>. Events logged before this change keep their four-macro snapshot; the day total (<code>totalNutrition</code> → <code>sumNutrition</code>) sums only what each event actually froze and never fabricates a zero for an un-measured nutrient.</li>
+<li>Verified headless at Seam 2 (store action → <code>computeConsumption</code> round-trip); no twin storage, no <code>{ ref, amount, unit }</code> change, no UI change. Docs updated: <code>V1_REQUIREMENTS.md</code> §Module A and <code>eavt-vocabulary.html</code> <code>event/*</code> shapes.</li>
+</ul>
     </main>
   </div>
 </div>

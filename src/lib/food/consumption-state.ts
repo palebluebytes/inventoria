@@ -1,6 +1,7 @@
 import type { StoredDatom } from "../db/db.client";
 import { groupByEntity } from "../db/datom-fold";
 import type { Instantiation } from "./recipe-instantiation";
+import { sumNutrition, type NutritionBreakdown } from "./nutrition";
 
 export interface ConsumptionEvent {
   id: string;
@@ -9,12 +10,14 @@ export interface ConsumptionEvent {
   target?: string;
   quantity?: string;
   meal_type?: string;
-  metrics?: {
-    calories?: number;
-    protein?: number;
-    fat?: number;
-    carbs?: number;
-  };
+  /**
+   * The frozen `event/metrics` snapshot (ADR-0022, widened by ADR-0030 / #28):
+   * the four `{ calories, protein, fat, carbs }` headline macros plus every extra
+   * nutrient the food carried, scaled to the amount logged. A nutrient the food
+   * never reported is absent, never 0. The four macros are also surfaced flat
+   * below for the existing readers; the full breakdown lives here.
+   */
+  metrics?: NutritionBreakdown;
   calories?: number;
   protein?: number;
   fat?: number;
@@ -102,4 +105,22 @@ export function computeConsumption(datoms: StoredDatom[]): ConsumptionEvent[] {
   }
 
   return events;
+}
+
+/**
+ * Totals every nutrient present across a set of Consumption Events — the day (or
+ * meal) breakdown the dashboard sums (ADR-0030 / #28). Each event's frozen
+ * `metrics` breakdown is summed with round-then-sum ({@link sumNutrition}), so a
+ * total matches the displayed per-food rows. A nutrient **no** event froze stays
+ * absent (forward-only): a pre-change four-macro event contributes only its
+ * macros and never fabricates a zero fibre/micronutrient for the day. The pure
+ * foundation the display tickets read from — it derives nothing from the mutable
+ * twins, only from the frozen snapshots.
+ */
+export function totalNutrition(events: ConsumptionEvent[]): NutritionBreakdown {
+  return sumNutrition(
+    events
+      .map((e) => e.metrics)
+      .filter((m): m is NutritionBreakdown => m != null)
+  );
 }

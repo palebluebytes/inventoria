@@ -269,3 +269,125 @@ export function nutritionFromMacros(
     carbohydrate_content: macros.carbs,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Full frozen breakdown (ADR-0030 / #28)
+// ---------------------------------------------------------------------------
+
+/**
+ * The nutrients a Consumption Event freezes *beyond* the four headline macros —
+ * every {@link NutritionInfo} panel field except `serving_size` and the four
+ * macros (which are the headline `{ calories, protein, fat, carbs }`). Kept under
+ * their **panel names** so no key is duplicated (`protein` is the headline;
+ * `protein_content` never appears). This is the list every scale/sum helper walks
+ * so a new panel nutrient is carried through the whole freeze path by adding it
+ * here once.
+ */
+export const EXTRA_NUTRIENT_KEYS = [
+  "fiber_content",
+  "sugar_content",
+  "sodium_content",
+  "saturated_fat_content",
+  "trans_fat_content",
+  "unsaturated_fat_content",
+  "cholesterol_content",
+  "vitamin_d",
+  "calcium",
+  "iron",
+  "potassium",
+  "vitamin_a",
+  "vitamin_c",
+  "vitamin_e",
+  "vitamin_b6",
+  "vitamin_b12",
+  "folate",
+  "magnesium",
+  "zinc",
+] as const;
+
+/** A single extra (non-headline) nutrient key — a panel name, see {@link EXTRA_NUTRIENT_KEYS}. */
+export type ExtraNutrientKey = (typeof EXTRA_NUTRIENT_KEYS)[number];
+
+/**
+ * The extra nutrients carried alongside the headline macros on a frozen snapshot
+ * — present only for nutrients the food actually reported. A key is **absent
+ * (undefined), never 0**, for a nutrient the source omitted, so a total can tell
+ * "zero grams" from "never measured" (forward-only, ADR-0030 / #28).
+ */
+export type NutritionExtras = Partial<Record<ExtraNutrientKey, number>>;
+
+/**
+ * A fully frozen nutrition breakdown: the four headline macros (always present,
+ * defaulted to 0 like {@link macrosFromNutrition}) plus every extra nutrient the
+ * food carried, scaled to the amount logged. This is the widened shape of a
+ * Consumption Event's `event/metrics` and of each `event/instantiation` row
+ * (ADR-0022 amended by ADR-0030 / #28) — backward-compatible with the four-key
+ * headline: a food that reported only macros yields exactly `{ calories, protein,
+ * fat, carbs }`.
+ */
+export interface NutritionBreakdown extends Macros, NutritionExtras {}
+
+/**
+ * Scales every nutrient a panel carries by `factor` — the pure "scale a panel by
+ * a factor" mechanic behind logging a food and deriving a recipe row. Returns the
+ * four headline macros (via {@link macrosFromNutrition}, so an omitted macro is 0,
+ * unchanged from today) plus only the extra nutrients the panel actually reported:
+ * a nutrient the source omitted stays **absent, never invented as 0**
+ * (forward-only, ADR-0030 / #28). Each field is rounded to the stored food
+ * precision ({@link roundFood}) so this contribution is round-then-sum ready — the
+ * same discipline `deriveRecipeNutrition` already applies to macros.
+ */
+export function scaleNutrition(
+  info: NutritionInfo | undefined,
+  factor: number
+): NutritionBreakdown {
+  const macros = macrosFromNutrition(info);
+  const breakdown: NutritionBreakdown = {
+    calories: roundFood(macros.calories * factor),
+    protein: roundFood(macros.protein * factor),
+    fat: roundFood(macros.fat * factor),
+    carbs: roundFood(macros.carbs * factor),
+  };
+  for (const key of EXTRA_NUTRIENT_KEYS) {
+    const v = info?.[key];
+    if (typeof v === "number") breakdown[key] = roundFood(v * factor);
+  }
+  return breakdown;
+}
+
+/**
+ * Sums a list of frozen breakdowns into one total — the pure "sum breakdowns"
+ * mechanic behind a day (or meal) total. Every nutrient present in **any**
+ * breakdown is totalled with round-then-sum (each already rounded, the sum
+ * rounded again to shed float noise), so a total matches the displayed rows. A
+ * nutrient **no** breakdown froze stays absent, never fabricated as 0, so a
+ * pre-change four-macro event contributes only its macros and never invents a
+ * zero fibre/micronutrient (forward-only, ADR-0030 / #28). The four headline
+ * macros are always present (defaulting a missing one to 0).
+ */
+export function sumNutrition(
+  breakdowns: NutritionBreakdown[]
+): NutritionBreakdown {
+  const total: Macros = { calories: 0, protein: 0, fat: 0, carbs: 0 };
+  const extras: Record<string, number> = {};
+  for (const b of breakdowns) {
+    total.calories += b.calories ?? 0;
+    total.protein += b.protein ?? 0;
+    total.fat += b.fat ?? 0;
+    total.carbs += b.carbs ?? 0;
+    for (const key of EXTRA_NUTRIENT_KEYS) {
+      const v = b[key];
+      if (typeof v === "number") extras[key] = (extras[key] ?? 0) + v;
+    }
+  }
+  const result: NutritionBreakdown = {
+    calories: roundFood(total.calories),
+    protein: roundFood(total.protein),
+    fat: roundFood(total.fat),
+    carbs: roundFood(total.carbs),
+  };
+  for (const key of EXTRA_NUTRIENT_KEYS) {
+    if (key in extras) result[key] = roundFood(extras[key]);
+  }
+  return result;
+}

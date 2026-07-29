@@ -153,4 +153,35 @@ describe("buildInstantiation", () => {
       carbs: 0,
     });
   });
+
+  it("freezes each row's full panel — every extra nutrient the ingredient carried, scaled (ADR-0030 / #28)", () => {
+    const snapshot = buildInstantiation(
+      "recipe:oatmeal",
+      [{ ref: "fdc:oats", amount: 50, unit: "g" }],
+      1,
+      () => ({
+        serving_size: "100 g",
+        calories: 380,
+        protein_content: 13,
+        fat_content: 7,
+        carbohydrate_content: 67,
+        fiber_content: 10,
+        sodium_content: 0.006,
+      }),
+      () => "Oats"
+    );
+    // ×0.5, headline + extras under their panel names, nothing invented.
+    expect(snapshot.ingredients[0]).toEqual({
+      ref: "fdc:oats",
+      name: "Oats",
+      amount: 50,
+      unit: "g",
+      calories: 190,
+      protein: 6.5,
+      fat: 3.5,
+      carbs: 33.5,
+      fiber_content: 5,
+      sodium_content: 0.003,
+    });
+  });
 });
