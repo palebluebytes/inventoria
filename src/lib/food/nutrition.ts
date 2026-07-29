@@ -47,20 +47,44 @@ export const PER_100G: string = "100 g";
 export const PER_SERVING: string = "1 serving";
 
 /**
- * Rounds a macro value to at most 2 decimals for display. Summing per-item
- * macros accumulates binary-float noise (e.g. 0.6 + 0.6 -> 1.2000000000000002);
- * this trims it so the UI shows "1.2g", not the full mantissa. Returns a number
- * so no trailing zeros are added ("0.5", not "0.50").
+ * The precision food values are *stored* at — calories, macro grams, and
+ * logged/typed amounts alike. 3 dp, fine enough to log a food entered with
+ * milligram-ish amounts (e.g. 0.125 g) without inventing precision a coarser
+ * food doesn't have.
  */
-export function round2(n: number): number {
-  return Math.round(n * 100) / 100;
+export const FOOD_DECIMALS = 3;
+
+/**
+ * The precision food values are *shown* at — coarser than {@link FOOD_DECIMALS}
+ * so derived sums and finely-logged values don't read as noise on screen. The
+ * data keeps its full precision; this only trims what the view renders.
+ */
+export const FOOD_DISPLAY_DECIMALS = 2;
+
+/**
+ * Rounds `n` to `decimals` places, trimming the binary-float noise that summing
+ * accumulates (0.6 + 0.6 -> 1.2000000000000002). Returns a number, so trailing
+ * zeros never pad ("0.5", not "0.50") — decimals surface only when the value
+ * genuinely has them. The shared body behind the two intent-named rounders
+ * below; call those, not this, so each site reads as storage or display.
+ */
+function roundTo(n: number, decimals: number): number {
+  const scale = 10 ** decimals;
+  return Math.round(n * scale) / scale;
 }
 
-/** Rounds a macro value to at most 1 decimal — the precision logged macros are
- *  stored at (grams of protein/fat/carbs). */
-export function round1(n: number): number {
-  return Math.round(n * 10) / 10;
-}
+/**
+ * Rounds to the stored food precision ({@link FOOD_DECIMALS}). Use for anything
+ * logged, summed, or round-tripped through an editor — nothing loses precision.
+ */
+export const roundFood = (n: number): number => roundTo(n, FOOD_DECIMALS);
+
+/**
+ * Rounds to the display precision ({@link FOOD_DISPLAY_DECIMALS}). View layer
+ * only — using it on a value you then store would silently drop precision.
+ */
+export const roundFoodDisplay = (n: number): number =>
+  roundTo(n, FOOD_DISPLAY_DECIMALS);
 
 /** The four macros the food dashboard and recipe builder display and sum. */
 export interface Macros {

@@ -14,7 +14,7 @@ import {
 import type { NutritionInfo } from "../../src/lib/food/nutrition";
 import { computeConsumption } from "../../src/lib/food/consumption-state";
 import type { ReferenceIngredient } from "../../src/lib/food/recipe-nutrition";
-import { round2 } from "../../src/lib/food/nutrition";
+import { roundFood } from "../../src/lib/food/nutrition";
 import { asStored } from "./support/stored";
 
 vi.mock("../../src/lib/db/db.client", () => {
@@ -902,7 +902,7 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
     const rows = recipeEvent.instantiation!.ingredients;
     for (const key of ["calories", "protein", "fat", "carbs"] as const) {
       const rowSum = rows.reduce((a, r) => a + r[key], 0);
-      expect(round2(rowSum)).toBe(headline[key]);
+      expect(roundFood(rowSum)).toBe(headline[key]);
     }
 
     // (d) A later template edit re-seeds only future logs — the logged event's

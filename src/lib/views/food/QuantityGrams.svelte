@@ -1,10 +1,16 @@
 <script lang="ts">
   import { Slider } from "bits-ui";
   import Button from "../../ui/Button.svelte";
+  import {
+    evaluateAmount,
+    AMOUNT_EXPRESSION_CHARS,
+  } from "../../food/amount-expression";
+  import { roundFood } from "../../food/nutrition";
 
-  // Amount control for a staged food: a full-width numeric field (the primary,
-  // precise entry — tapping it opens the numeric keyboard via `inputmode`), a
-  // slider that skims the common range, and preset chips for one-tap jumps.
+  // Amount control for a staged food: a full-width field (the primary, precise
+  // entry — you can type a plain number *or* a little sum like `65 / 2` and the
+  // field logs the result), a slider that skims the common range, and preset
+  // chips for one-tap jumps.
   // The slider is a coarse accelerator only: typed values may exceed `sliderMax`,
   // in which case the thumb pins at the end while `grams` keeps the exact number.
   let {
@@ -18,7 +24,10 @@
   } = $props();
 
   const HARD_MAX = 10000;
-  const clamp = (v: number) => Math.max(0, Math.min(HARD_MAX, Math.round(v)));
+  // Held to the food precision (`roundFood`) so a typed sum like `65 / 2` keeps
+  // its `32.5` instead of being rounded away to a whole gram; a value with no
+  // fractional part still shows whole (the result is a number, never padded).
+  const clamp = (v: number) => Math.max(0, Math.min(HARD_MAX, roundFood(v)));
 
   // The field keeps its own raw string so typing (and a transient empty field)
   // isn't clobbered; `grams` is the source of truth everything else drives.
@@ -28,13 +37,23 @@
     if (!focused) raw = String(grams);
   });
 
+  // Keep only characters a sum can be built from; evaluate live so the slider
+  // and any macro preview track a complete expression as it's typed. While the
+  // field is mid-expression (`65 /`) or otherwise not yet a number, `evaluateAmount`
+  // returns null and `grams` simply holds its last good value — never clobbered.
   function onInput(e: Event & { currentTarget: HTMLInputElement }) {
-    raw = e.currentTarget.value.replace(/[^0-9]/g, "");
-    if (raw !== "") grams = clamp(Number(raw));
+    raw = [...e.currentTarget.value]
+      .filter((ch) => AMOUNT_EXPRESSION_CHARS.test(ch))
+      .join("");
+    const result = evaluateAmount(raw);
+    if (result !== null) grams = clamp(result);
   }
+  // On blur/Enter, collapse whatever was typed to its computed value: a valid
+  // sum becomes its result, anything unparseable falls back to the last `grams`.
   function commit() {
     focused = false;
-    grams = clamp(Number(raw) || 0);
+    const result = evaluateAmount(raw);
+    grams = clamp(result ?? grams);
     raw = String(grams);
   }
 
@@ -45,8 +64,12 @@
   <label class="field">
     <input
       class="num"
-      inputmode="numeric"
-      aria-label="Quantity in grams"
+      inputmode="text"
+      autocomplete="off"
+      autocorrect="off"
+      autocapitalize="off"
+      spellcheck="false"
+      aria-label="Quantity in grams — a number or a sum like 65 / 2"
       value={raw}
       oninput={onInput}
       onfocus={(e) => {

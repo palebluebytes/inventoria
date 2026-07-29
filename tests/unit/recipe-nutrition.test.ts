@@ -32,13 +32,25 @@ describe("deriveIngredientMacros", () => {
       amount: 50,
       unit: "g",
     };
-    // 379 * (50/100) = 189.5 → 190; protein 13.1 * .5 = 6.55 → 6.6.
+    // Every field scaled by .5 at the food precision: 379→189.5, 13.1→6.55,
+    // 6.5→3.25, 67.7→33.85 (all within 3 dp, so exact).
     expect(deriveIngredientMacros(oats, resolve)).toEqual({
-      calories: 190,
-      protein: 6.6,
-      fat: 3.3,
-      carbs: 33.9,
+      calories: 189.5,
+      protein: 6.55,
+      fat: 3.25,
+      carbs: 33.85,
     });
+  });
+
+  it("preserves a third decimal place a coarser rounding would flatten", () => {
+    // A tiny amount yields 3-dp contributions: 379 × 0.005 = 1.895 (not 1.9),
+    // 67.7 × 0.005 = 0.3385 → 0.339 (not 0.34). Logging keeps the finer value.
+    const tiny = deriveIngredientMacros(
+      { ref: "food:oats", amount: 0.5, unit: "g" },
+      resolve
+    );
+    expect(tiny.calories).toBe(1.895);
+    expect(tiny.carbs).toBe(0.339);
   });
 
   it("scales a serving ingredient by whole servings", () => {
@@ -64,7 +76,7 @@ describe("deriveIngredientMacros", () => {
       { ref: "food:oats", amount: 100, unit: "g" },
       resolve
     );
-    expect(at50.calories).toBe(190);
+    expect(at50.calories).toBe(189.5);
     expect(at100.calories).toBe(379);
   });
 

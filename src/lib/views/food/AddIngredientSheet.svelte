@@ -11,6 +11,7 @@
     ChooseOutcome,
     PrimaryLabelContext,
   } from "../../food/food-staging";
+  import { roundFoodDisplay } from "../../food/nutrition";
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import FoodStager from "./FoodStager.svelte";
 
@@ -57,7 +58,7 @@
 
   function primaryLabel(ctx: PrimaryLabelContext): string {
     if (ctx.staged)
-      return `Add ${Math.round(ctx.staged.calories * ctx.factor)} kcal`;
+      return `Add ${roundFoodDisplay(ctx.staged.calories * ctx.factor)} kcal`;
     if (ctx.method === "custom") return "Add";
     if (ctx.method === "scan") return "Look up";
     return "Add";

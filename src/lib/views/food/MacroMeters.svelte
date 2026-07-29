@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { round2 } from "../../food/nutrition";
+  import { roundFoodDisplay } from "../../food/nutrition";
   import Card from "../../ui/Card.svelte";
 
   // The dashboard's three macro meters (protein / fat / carbs): a labelled row
@@ -35,7 +35,7 @@
       <div class="macro-meta">
         <span class="macro-name">{meter.name}</span>
         <span class="macro-val"
-          >{round2(meter.value)}g
+          >{roundFoodDisplay(meter.value)}g
           <span class="macro-target">/ {meter.target}g</span></span
         >
       </div>

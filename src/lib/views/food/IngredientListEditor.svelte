@@ -12,7 +12,7 @@
     deriveIngredientMacros,
     sanitizeYield,
   } from "../../food/recipe-nutrition";
-  import { round2 } from "../../food/nutrition";
+  import { roundFoodDisplay } from "../../food/nutrition";
   import AddIngredientSheet from "./AddIngredientSheet.svelte";
   import IngredientAmountSheet from "./IngredientAmountSheet.svelte";
   import FoodItemRow from "./FoodItemRow.svelte";
@@ -90,8 +90,9 @@
 <div class="ing-head">
   <span class="fl">Ingredients ({ingredients.length})</span>
   <span class="tot recipe-total"
-    >{round2(perServing.calories)} kcal · {round2(perServing.protein)}g P /
-    serving</span
+    >{roundFoodDisplay(perServing.calories)} kcal · {roundFoodDisplay(
+      perServing.protein
+    )}g P / serving</span
   >
 </div>
 <ul class="ings">

@@ -50,9 +50,17 @@ accelerators layered on top of it — never a replacement for typing.**
 
 Concretely, `QuantityGrams.svelte`:
 
-- **A full-width `<input inputmode="numeric">` is the star** — tapping it opens
-  the numeric keyboard and its value is the source of truth. Typing accepts any
-  integer ≥ 0, clamped only by a sanity ceiling.
+- **A full-width `<input inputmode="text">` is the star** — its value is the
+  source of truth. Typing accepts a number _or_ a small arithmetic expression
+  (`+ - * / ( )`, e.g. `65 / 2` when you know the total but not the split); the
+  field evaluates it live and, on commit, collapses to the result. An incomplete
+  or malformed expression is a no-op — the last good amount stands. The result is
+  held to the single food precision (`roundFood`, currently 3 dp) and clamped to
+  `≥ 0` by a sanity ceiling; a value with no fractional part shows whole, since
+  the amount is a number and nothing pads trailing zeros. `inputmode` is `text`,
+  not `numeric`, because the operator keys
+  must be reachable on a mobile soft keyboard; evaluation is a hand-rolled
+  tokenizer + recursive-descent parser (`amount-expression.ts`), never `eval`.
 - **A `bits-ui` `Slider` is a coarse accelerator** over the common range,
   inheriting `role="slider"` + full ARIA/keyboard for free. It is **controlled**
   (`value` + `onValueChange`), not two-way-bound: a typed value beyond the

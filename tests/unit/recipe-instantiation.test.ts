@@ -57,11 +57,11 @@ describe("buildInstantiation", () => {
         name: "Oats",
         amount: 50,
         unit: "g",
-        // 379 × 0.5 = 189.5 → 190 ; 13.1 × .5 = 6.55 → 6.6 …
-        calories: 190,
-        protein: 6.6,
-        fat: 3.3,
-        carbs: 33.9,
+        // Scaled by .5 at the food precision: 379→189.5, 13.1→6.55, 6.5→3.25, 67.7→33.85.
+        calories: 189.5,
+        protein: 6.55,
+        fat: 3.25,
+        carbs: 33.85,
       },
       {
         ref: "food:custom_milk",
@@ -119,7 +119,7 @@ describe("buildInstantiation", () => {
     );
     // yield only divides the headline; the rows are the batch as-cooked.
     expect(snapshot.yield).toBe(2);
-    expect(snapshot.ingredients.map((r) => r.calories)).toEqual([190, 180]);
+    expect(snapshot.ingredients.map((r) => r.calories)).toEqual([189.5, 180]);
     const headline = deriveRecipeNutrition(INGREDIENTS, 2, resolve);
     const rowSum = snapshot.ingredients.reduce((a, r) => a + r.calories, 0);
     expect(rowSum).toBe(headline.calories * 2);

@@ -1,5 +1,6 @@
 <script lang="ts">
   import Card from "../../ui/Card.svelte";
+  import { roundFoodDisplay } from "../../food/nutrition";
 
   // The dashboard's calorie progress ring: a precision-instrument SVG dial that
   // fills toward the day's calorie target. Purely presentational — the caller
@@ -59,7 +60,7 @@
       />
     </svg>
     <div class="ring-label">
-      <span class="calories-num">{totalCalories}</span>
+      <span class="calories-num">{roundFoodDisplay(totalCalories)}</span>
       <span class="calories-sub">{targetCalories} kcal</span>
     </div>
   </div>

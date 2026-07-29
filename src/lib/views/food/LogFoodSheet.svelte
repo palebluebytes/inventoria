@@ -15,6 +15,7 @@
     type ConsumptionEvent,
   } from "../../stores/calorie.store";
   import { parseLoggedQuantity } from "../../food/recipe-ingredient";
+  import { roundFood, roundFoodDisplay } from "../../food/nutrition";
   import { parseDatomValue } from "../../db/datom-fold";
   import type {
     FoodChoice,
@@ -185,10 +186,10 @@
           f.entity,
           `${choice.grams}g`,
           meal_type,
-          Math.round(f.calories * factor),
-          Math.round(f.protein * factor * 10) / 10,
-          Math.round(f.fat * factor * 10) / 10,
-          Math.round(f.carbs * factor * 10) / 10,
+          roundFood(f.calories * factor),
+          roundFood(f.protein * factor),
+          roundFood(f.fat * factor),
+          roundFood(f.carbs * factor),
           selectedDate
         );
         if (edit) await retractConsumptionEvent(edit.id, newId);
@@ -224,7 +225,7 @@
     if (ctx.staged)
       return edit
         ? "Save changes"
-        : `Log ${Math.round(ctx.staged.calories * ctx.factor)} kcal`;
+        : `Log ${roundFoodDisplay(ctx.staged.calories * ctx.factor)} kcal`;
     if (ctx.method === "custom") return edit ? "Save changes" : "Save & Log";
     if (ctx.method === "scan") return "Look up";
     return "Log";

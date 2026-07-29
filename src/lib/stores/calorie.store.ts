@@ -5,7 +5,7 @@ import { createProjectionStore, createQueryStore } from "./datoms.store";
 import type { ConsumptionEvent } from "../food/consumption-state";
 import {
   nutritionFromMacros,
-  round1,
+  roundFood,
   PER_SERVING,
   type NutritionInfo,
 } from "../food/nutrition";
@@ -353,10 +353,10 @@ export async function changeLoggedFoodAmount(
     event.target,
     `${grams}g`,
     event.meal_type ?? "snack",
-    Math.round(macros.calories),
-    round1(macros.protein),
-    round1(macros.fat),
-    round1(macros.carbs),
+    roundFood(macros.calories),
+    roundFood(macros.protein),
+    roundFood(macros.fat),
+    roundFood(macros.carbs),
     new Date(event.time)
   );
   await retractConsumptionEvent(event.id, newId);

@@ -1,5 +1,6 @@
 import {
   macrosFromNutrition,
+  roundFood,
   type Macros,
   type NutritionInfo,
 } from "./nutrition";
@@ -54,12 +55,13 @@ export function sanitizeYield(recipeYield: number | string): number {
  * per-serving panel). A logged recipe reads its frozen snapshot, never this
  * derivation, so history stays immutable (ADR-0022).
  *
- * Each ingredient's scaled contribution is rounded (calories → integer, grams →
- * 1 dp) **before** it is summed — the same rounding every food gets when logged
- * or shown (`ingredientFromFood`). Round-then-sum, not sum-then-round, so a
- * recipe's total is the exact sum of its ingredients' displayed values: folding
- * foods already logged today into a recipe never nudges the day's total by a
- * trailing rounding step.
+ * Each ingredient's scaled contribution is rounded to the food precision
+ * (`roundFood`, kcal and grams alike) **before** it is summed — the same rounding
+ * every food gets when logged or shown (`ingredientFromFood`). Round-then-sum,
+ * not sum-then-round, so a recipe's total is the sum of its ingredients'
+ * displayed values (bar the binary-float noise the final `roundFood` trims):
+ * folding foods already logged today into a recipe never nudges the day's total
+ * by a trailing rounding step.
  */
 export function deriveRecipeNutrition(
   ingredients: ReferenceIngredient[],
@@ -74,17 +76,17 @@ export function deriveRecipeNutrition(
       ing.unit === "g"
         ? ing.amount / parseServingGrams(panel?.serving_size)
         : ing.amount;
-    total.calories += Math.round(macros.calories * factor);
-    total.protein += Math.round(macros.protein * factor * 10) / 10;
-    total.fat += Math.round(macros.fat * factor * 10) / 10;
-    total.carbs += Math.round(macros.carbs * factor * 10) / 10;
+    total.calories += roundFood(macros.calories * factor);
+    total.protein += roundFood(macros.protein * factor);
+    total.fat += roundFood(macros.fat * factor);
+    total.carbs += roundFood(macros.carbs * factor);
   }
   const y = sanitizeYield(recipeYield);
   return {
-    calories: Math.round(total.calories / y),
-    protein: Math.round((total.protein / y) * 10) / 10,
-    fat: Math.round((total.fat / y) * 10) / 10,
-    carbs: Math.round((total.carbs / y) * 10) / 10,
+    calories: roundFood(total.calories / y),
+    protein: roundFood(total.protein / y),
+    fat: roundFood(total.fat / y),
+    carbs: roundFood(total.carbs / y),
   };
 }
 

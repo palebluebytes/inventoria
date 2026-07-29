@@ -18,7 +18,7 @@
     deriveRecipeNutrition,
     sanitizeYield,
   } from "../../food/recipe-nutrition";
-  import { round2 } from "../../food/nutrition";
+  import { roundFoodDisplay } from "../../food/nutrition";
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import Alert from "../../ui/Alert.svelte";
   import IngredientListEditor from "./IngredientListEditor.svelte";
@@ -184,7 +184,7 @@
         <!-- At a multi-serving yield the logged figure is per serving (headline =
              Σ batch rows ÷ yield, ADR-0022), so the editor's ingredient rows sum
              to more than this — spell out the basis so the difference reads. -->
-        Log {round2(perServing.calories)} kcal{#if yieldNum > 1}
+        Log {roundFoodDisplay(perServing.calories)} kcal{#if yieldNum > 1}
           / serving{/if}
       {/if}
     </button>

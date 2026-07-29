@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { FoodResult } from "../../food/food-search";
+  import { roundFoodDisplay } from "../../food/nutrition";
 
   let {
     results,
@@ -22,8 +23,11 @@
             <div class="result-details">
               <span class="result-name">{item.name}</span>
               <span class="result-macros">
-                Per 100g: {item.calories} kcal | P: {item.protein}g | F: {item.fat}g
-                | C: {item.carbs}g
+                Per 100g: {roundFoodDisplay(item.calories)} kcal | P: {roundFoodDisplay(
+                  item.protein
+                )}g | F: {roundFoodDisplay(item.fat)}g | C: {roundFoodDisplay(
+                  item.carbs
+                )}g
               </span>
             </div>
             <span class="select-arrow">&rarr;</span>

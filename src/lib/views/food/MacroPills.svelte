@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { round2 } from "../../food/nutrition";
+  import { roundFoodDisplay } from "../../food/nutrition";
 
   // Already-computed macro values; the caller decides whether they are a
   // proportional preview or an aggregate total. Values are display-rounded to
@@ -20,19 +20,19 @@
 <div class="preview-grid">
   <div class="preview-pill cal">
     <span class="pill-label">Calories</span>
-    <span class="pill-val">{round2(calories)} kcal</span>
+    <span class="pill-val">{roundFoodDisplay(calories)} kcal</span>
   </div>
   <div class="preview-pill prot">
     <span class="pill-label">Protein</span>
-    <span class="pill-val">{round2(protein)}g</span>
+    <span class="pill-val">{roundFoodDisplay(protein)}g</span>
   </div>
   <div class="preview-pill fat">
     <span class="pill-label">Fat</span>
-    <span class="pill-val">{round2(fat)}g</span>
+    <span class="pill-val">{roundFoodDisplay(fat)}g</span>
   </div>
   <div class="preview-pill carbs">
     <span class="pill-label">Carbs</span>
-    <span class="pill-val">{round2(carbs)}g</span>
+    <span class="pill-val">{roundFoodDisplay(carbs)}g</span>
   </div>
 </div>
 

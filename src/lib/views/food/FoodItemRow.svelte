@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { unitLabel } from "../../food/recipe-ingredient";
-  import { round2 } from "../../food/nutrition";
+  import { roundFoodDisplay } from "../../food/nutrition";
 
   // One food line, shared by the dashboard's logged-food list and the
   // recipe/instantiation ingredient list so the two read identically — modelled
@@ -37,8 +37,10 @@
 
   // Match the dashboard's quantity string: "363g" for a scaled food (no space),
   // "1 serving" for a whole-serving one. The label itself comes from unitLabel.
+  // The amount is shown at display precision (2 dp) though it's stored finer.
+  let shownAmount = $derived(roundFoodDisplay(amount));
   let qtyLabel = $derived(
-    `${amount}${unit === "g" ? "" : " "}${unitLabel(amount, unit)}`
+    `${shownAmount}${unit === "g" ? "" : " "}${unitLabel(amount, unit)}`
   );
   let clickable = $derived(!!onclick);
 </script>
@@ -60,7 +62,7 @@
     <span class="fi-name">{name}</span>
     <span class="fi-qty">{qtyLabel}</span>
   </div>
-  <span class="fi-cals">{round2(calories)} kcal</span>
+  <span class="fi-cals">{roundFoodDisplay(calories)} kcal</span>
   {#if onRemove}
     <button
       class="fi-remove"

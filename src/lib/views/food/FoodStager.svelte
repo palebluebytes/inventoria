@@ -10,7 +10,7 @@
   } from "../../food/food-search";
   import { getLocalFoodTwin } from "../../stores/calorie.store";
   import { settingsStore } from "../../stores/settings.store";
-  import { round2 } from "../../food/nutrition";
+  import { roundFoodDisplay } from "../../food/nutrition";
   import type {
     FoodChoice,
     ChooseOutcome,
@@ -351,18 +351,20 @@
       <div class="staged">
         <h3>{staged.name}</h3>
         <p class="per">
-          Per 100g · {round2(staged.calories)} kcal · P {round2(
+          Per 100g · {roundFoodDisplay(staged.calories)} kcal · P {roundFoodDisplay(
             staged.protein
-          )}g · F {round2(staged.fat)}g · C {round2(staged.carbs)}g
+          )}g · F {roundFoodDisplay(staged.fat)}g · C {roundFoodDisplay(
+            staged.carbs
+          )}g
         </p>
         <span class="fl">Quantity (grams)</span>
         <QuantityGrams bind:grams />
         <div class="preview">
           <MacroPills
-            calories={Math.round(staged.calories * factor)}
-            protein={Math.round(staged.protein * factor * 10) / 10}
-            fat={Math.round(staged.fat * factor * 10) / 10}
-            carbs={Math.round(staged.carbs * factor * 10) / 10}
+            calories={roundFoodDisplay(staged.calories * factor)}
+            protein={roundFoodDisplay(staged.protein * factor)}
+            fat={roundFoodDisplay(staged.fat * factor)}
+            carbs={roundFoodDisplay(staged.carbs * factor)}
           />
         </div>
       </div>
