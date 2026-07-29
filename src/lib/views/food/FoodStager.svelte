@@ -18,7 +18,10 @@
     type Portion,
     type NutritionInfo,
   } from "../../food/nutrition";
-  import { buildNutrientPills } from "../../food/nutrient-display";
+  import {
+    buildNutrientPills,
+    buildNutrientBreakdown,
+  } from "../../food/nutrient-display";
   import { hydrateFdcFood } from "../../food/usda-fdc";
   import type {
     FoodChoice,
@@ -33,6 +36,7 @@
   import Input from "../../ui/Input.svelte";
   import FoodResultsList from "./FoodResultsList.svelte";
   import MacroPills from "./MacroPills.svelte";
+  import NutrientBreakdown from "./NutrientBreakdown.svelte";
   import QuantityGrams from "./QuantityGrams.svelte";
 
   // The shared food-staging surface behind both the direct-log sheet and the
@@ -122,12 +126,15 @@
   let stagedInfo = $derived(
     staged?.payload.attributes[NUTRITION_INFO_ATTR] as NutritionInfo | undefined
   );
+  let stagedBreakdown = $derived(scaleNutrition(stagedInfo, factor));
   let stagedPills = $derived(
-    buildNutrientPills(
-      scaleNutrition(stagedInfo, factor),
-      $settingsStore.visible_nutrients
-    )
+    buildNutrientPills(stagedBreakdown, $settingsStore.visible_nutrients)
   );
+  // The full panel breakdown — every macro AND micronutrient the food carries,
+  // scaled to the typed amount — behind a collapsed disclosure so the default
+  // card (name · macro pills) stays uncluttered (ticket #30). Absent fields are
+  // omitted, micronutrients reformatted to mg/µg, all in the domain layer.
+  let stagedFullRows = $derived(buildNutrientBreakdown(stagedBreakdown));
 
   // The staged food's household portions (ADR-0030), surfaced as picker presets.
   // Read live off the staged payload so they appear the moment hydration spreads
@@ -442,6 +449,9 @@
         <div class="preview">
           <MacroPills pills={stagedPills} />
         </div>
+        <div class="full-panel">
+          <NutrientBreakdown rows={stagedFullRows} />
+        </div>
       </div>
     {:else if isExtra(method)}
       {@render tabContent?.(method)}
@@ -647,6 +657,9 @@
   }
   .preview {
     margin-top: var(--space-m);
+  }
+  .full-panel {
+    margin-top: var(--space-s);
   }
   /* Non-blocking hint while a searched food's portions hydrate (ADR-0030 §5) —
      the gram field beneath stays fully usable throughout. */

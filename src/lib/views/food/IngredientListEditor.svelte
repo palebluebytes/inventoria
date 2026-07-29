@@ -155,6 +155,7 @@
     portions={ingredients[editingIndex].payload.attributes["food/portions"] as
       | Portion[]
       | undefined}
+    panel={resolvePanel(ingredients[editingIndex].entity)}
     onCommit={(amount) => {
       if (editingIndex !== null) ingredients[editingIndex].amount = amount;
     }}

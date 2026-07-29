@@ -1,6 +1,13 @@
 <script lang="ts">
-  import type { Portion } from "../../food/nutrition";
+  import {
+    scaleNutrition,
+    type NutritionInfo,
+    type Portion,
+  } from "../../food/nutrition";
+  import { parseServingGrams } from "../../food/recipe-nutrition";
+  import { buildNutrientBreakdown } from "../../food/nutrient-display";
   import BottomSheet from "../../ui/BottomSheet.svelte";
+  import NutrientBreakdown from "./NutrientBreakdown.svelte";
   import QuantityGrams from "./QuantityGrams.svelte";
 
   // Edits a single food line's gram amount in a small sheet raised over the
@@ -18,6 +25,7 @@
     name,
     amount,
     portions = [],
+    panel,
     onCommit,
     onClose,
   }: {
@@ -26,6 +34,10 @@
     /** The ingredient twin's household portions (ADR-0030), shown as picker
      *  presets. Empty for a portion-less food — the picker renders as today. */
     portions?: Portion[];
+    /** The ingredient twin's `nutrition/info` panel, per its serving basis. When
+     *  present the sheet shows a full nutrient breakdown scaled to the working
+     *  amount (ticket #30); omit it to render the plain amount picker. */
+    panel?: NutritionInfo;
     onCommit: (amount: number) => void;
     onClose: () => void;
   } = $props();
@@ -41,10 +53,28 @@
     onCommit(value);
     onClose();
   }
+
+  // The full panel scaled to the working amount — this sheet is opened only for
+  // gram-unit rows (IngredientListEditor's guard), so `value` grams scale the
+  // panel against its gram serving basis, the same factor deriveRecipeNutrition
+  // uses for a `g` ingredient. Absent when the ingredient carries no panel.
+  let fullRows = $derived(
+    panel
+      ? buildNutrientBreakdown(
+          scaleNutrition(panel, value / parseServingGrams(panel.serving_size))
+        )
+      : []
+  );
 </script>
 
 <BottomSheet isOpen title={name} class="amount-sheet" elevated {onClose}>
   <QuantityGrams bind:grams={value} {portions} />
+
+  {#if panel}
+    <div class="full-panel">
+      <NutrientBreakdown rows={fullRows} />
+    </div>
+  {/if}
 
   {#snippet footer()}
     <button class="done" id="amount-done-btn" onclick={done}>Done</button>
@@ -52,6 +82,9 @@
 </BottomSheet>
 
 <style>
+  .full-panel {
+    margin-top: var(--space-s);
+  }
   .done {
     width: 100%;
     background: #ccff00;

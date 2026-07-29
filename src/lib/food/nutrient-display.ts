@@ -198,6 +198,54 @@ export function buildNutrientMeters(
   });
 }
 
+/**
+ * One row of the full nutrient breakdown (ticket #30): a labelled, formatted
+ * value for a single nutrient the food actually carries. Same shape as a pill,
+ * named for its own surface — a read-only "show everything" detail list rather
+ * than the always-on selected-pill summary.
+ */
+export interface NutrientRow {
+  key: string;
+  label: string;
+  value: string;
+}
+
+/**
+ * Builds the full nutrient breakdown for a (already-scaled) panel — the ordered
+ * list a food's disclosure/expander renders (ticket #30, parent #21). Leads with
+ * the always-on Calories row, then every catalogued nutrient the breakdown
+ * actually carries, in panel order (the three macros, then the extras and the
+ * twelve micronutrients).
+ *
+ * Only nutrients **present** in the breakdown appear: an extra a food never
+ * reported is absent from a {@link scaleNutrition} result, so it is omitted here
+ * rather than shown as 0/blank (the hard "omit absent" rule of #30/#21). The
+ * three headline macros are always present (defaulted to 0 like the pills), so
+ * they always show. Micronutrients reformat from their stored grams to mg/µg via
+ * {@link formatNutrientValue}. Pure: the `.svelte` disclosure just renders it.
+ */
+export function buildNutrientBreakdown(
+  breakdown: NutritionBreakdown
+): NutrientRow[] {
+  const rows: NutrientRow[] = [
+    {
+      key: "calories",
+      label: "Calories",
+      value: formatCalories(totalFor(breakdown, "calories")),
+    },
+  ];
+  const carried = breakdown as unknown as Record<string, number | undefined>;
+  for (const d of NUTRIENT_CATALOGUE) {
+    if (!(d.key in carried)) continue;
+    rows.push({
+      key: d.key,
+      label: d.label,
+      value: formatNutrientValue(totalFor(breakdown, d.key), d.unit),
+    });
+  }
+  return rows;
+}
+
 /** One staged-food / preview pill: a labelled formatted value, no target. */
 export interface NutrientPill {
   key: string;

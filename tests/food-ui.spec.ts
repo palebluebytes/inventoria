@@ -44,6 +44,20 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
                 value: 22.8,
                 unitName: "g",
               },
+              // Two micronutrients (ADR-0030) so the full breakdown (#30) has
+              // vitamin/mineral data to show; reported in mg like FDC does.
+              {
+                nutrientId: 1087,
+                nutrientName: "Calcium, Ca",
+                value: 5,
+                unitName: "mg",
+              },
+              {
+                nutrientId: 1089,
+                nutrientName: "Iron, Fe",
+                value: 0.26,
+                unitName: "mg",
+              },
             ],
           },
         ];
@@ -393,6 +407,44 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(breakfastSection).toContainText("150g");
     await expect(breakfastSection).toContainText("134 kcal"); // 89 * 1.5 = 133.5 -> 134
     await expect(page.locator(".calories-num")).toHaveText("134");
+  });
+
+  test("expands a staged food's full nutrient breakdown, scaled and omitting absent fields (#30)", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    // Stage Mock Banana — it carries two micronutrients (calcium + iron) but no
+    // fibre/sugar/sodium, so the breakdown must show the former and omit the latter.
+    await page.getByRole("button", { name: "Add breakfast" }).click();
+    await page.locator("#food-search-input").fill("banana");
+    await page.locator(".result-item-btn", { hasText: "Mock Banana" }).click();
+
+    const breakdown = page.locator('[data-testid="nutrient-breakdown"]');
+    await expect(breakdown).toBeVisible();
+    // Collapsed by default — rows hidden until the disclosure is opened.
+    await expect(breakdown.locator(".nutrient-calcium")).toBeHidden();
+
+    // Expand it. At 100 g the micronutrients read at their per-100g values,
+    // reformatted from stored grams back to mg (5 mg calcium, 0.26 mg iron).
+    await breakdown.locator("summary").click();
+    await expect(breakdown.locator(".nutrient-calcium")).toContainText(
+      "Calcium"
+    );
+    await expect(breakdown.locator(".nutrient-calcium")).toContainText("5 mg");
+    await expect(breakdown.locator(".nutrient-iron")).toContainText("0.26 mg");
+
+    // Fields the food never reported are omitted — no fibre/sugar/sodium row.
+    await expect(breakdown.locator(".nutrient-fiber_content")).toHaveCount(0);
+    await expect(breakdown.locator(".nutrient-sugar_content")).toHaveCount(0);
+    await expect(breakdown.locator(".nutrient-sodium_content")).toHaveCount(0);
+
+    // Values scale with amount: double to 200 g → calcium doubles to 10 mg.
+    await page.getByLabel("Quantity in grams").fill("200");
+    await expect(breakdown.locator(".nutrient-calcium")).toContainText("10 mg");
+    await expect(breakdown.locator(".nutrient-iron")).toContainText("0.52 mg");
   });
 
   // Route the USDA detail endpoint (`/food/{fdcId}`) — the source of household

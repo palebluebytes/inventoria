@@ -7,6 +7,7 @@ import {
   formatCalories,
   buildNutrientMeters,
   buildNutrientPills,
+  buildNutrientBreakdown,
 } from "../../src/lib/food/nutrient-display";
 import type { NutritionBreakdown } from "../../src/lib/food/nutrition";
 
@@ -183,5 +184,100 @@ describe("buildNutrientPills", () => {
       "carbs",
       "fiber_content",
     ]);
+  });
+});
+
+describe("buildNutrientBreakdown", () => {
+  it("leads with calories, then macros, then every carried extra in panel order", () => {
+    // A rich panel: the three macros plus fibre, sodium, saturated fat, and two
+    // micronutrients (stored in grams). Ordering mirrors NUTRIENT_CATALOGUE.
+    const scaled: NutritionBreakdown = {
+      calories: 134,
+      protein: 1.65,
+      fat: 0.45,
+      carbs: 34.2,
+      fiber_content: 3,
+      sodium_content: 0.001, // 1 mg
+      saturated_fat_content: 0.15,
+      calcium: 0.008, // 8 mg
+      iron: 0.0004, // 0.4 mg
+    };
+    expect(buildNutrientBreakdown(scaled).map((r) => r.key)).toEqual([
+      "calories",
+      "protein",
+      "fat",
+      "carbs",
+      "fiber_content",
+      "sodium_content",
+      "saturated_fat_content",
+      "calcium",
+      "iron",
+    ]);
+  });
+
+  it("omits extras the food never carried (absent, not 0/blank)", () => {
+    const scaled: NutritionBreakdown = {
+      calories: 89,
+      protein: 1.1,
+      fat: 0.3,
+      carbs: 22.8,
+    };
+    const keys = buildNutrientBreakdown(scaled).map((r) => r.key);
+    // Only calories + the three macros — no fibre/sugar/sodium/micronutrient row.
+    expect(keys).toEqual(["calories", "protein", "fat", "carbs"]);
+    for (const absent of [
+      "fiber_content",
+      "sugar_content",
+      "sodium_content",
+      "calcium",
+      "iron",
+      "vitamin_c",
+    ]) {
+      expect(keys).not.toContain(absent);
+    }
+  });
+
+  it("formats each row in its display unit — kcal, grams, and mg/µg for micros", () => {
+    const scaled: NutritionBreakdown = {
+      calories: 89,
+      protein: 1.1,
+      fat: 0.3,
+      carbs: 22.8,
+      sodium_content: 0.001, // stored grams
+      calcium: 0.005,
+      vitamin_d: 0.0000012,
+    };
+    const byKey = new Map(
+      buildNutrientBreakdown(scaled).map((r) => [r.key, r.value])
+    );
+    expect(byKey.get("calories")).toBe("89 kcal");
+    expect(byKey.get("protein")).toBe("1.1 g");
+    expect(byKey.get("sodium_content")).toBe("1 mg");
+    expect(byKey.get("calcium")).toBe("5 mg");
+    expect(byKey.get("vitamin_d")).toBe("1.2 µg");
+  });
+
+  it("distinguishes a carried zero from an absent nutrient", () => {
+    // A food that measured fibre at 0 g still shows a Fibre row (it was measured);
+    // one that never measured it shows none.
+    const measured: NutritionBreakdown = {
+      calories: 10,
+      protein: 0,
+      fat: 0,
+      carbs: 0,
+      fiber_content: 0,
+    };
+    expect(buildNutrientBreakdown(measured).map((r) => r.key)).toContain(
+      "fiber_content"
+    );
+    const unmeasured: NutritionBreakdown = {
+      calories: 10,
+      protein: 0,
+      fat: 0,
+      carbs: 0,
+    };
+    expect(buildNutrientBreakdown(unmeasured).map((r) => r.key)).not.toContain(
+      "fiber_content"
+    );
   });
 });
