@@ -34,9 +34,12 @@ describe("mapFdcFoodToPayload", () => {
 
   it("populates the subset of schema.org fields the food provides", () => {
     // Banana carries energy, the three macros, fiber and total sugars — but no
-    // sodium and no saturated fat, so those keys are absent (not zeroed).
+    // sodium and no saturated fat, so those keys are absent (not zeroed). The
+    // beyond-schema.org micronutrient keys (asserted separately) are split off
+    // here so this stays an exhaustive check of the schema.org macro subset.
     const n = mapFdcFoodToPayload(banana).attributes["nutrition/info"];
-    expect(n).toEqual({
+    const { vitamin_a, vitamin_c, vitamin_b6, folate, ...macros } = n;
+    expect(macros).toEqual({
       serving_size: "100 g",
       calories: 85,
       protein_content: 0.73,
@@ -70,6 +73,46 @@ describe("mapFdcFoodToPayload", () => {
     expect(n.trans_fat_content).toBe(1.14);
     expect(n.cholesterol_content).toBeCloseTo(0.1, 6);
     expect(n.unsaturated_fat_content).toBe(8.62);
+  });
+
+  it("maps the label micronutrients, converting mg/µg to grams", () => {
+    // Cheddar reports minerals in mg and vitamins in mg/µg; the panel stores
+    // grams (ADR-0030), so every value is normalised with toGrams.
+    const n = mapFdcFoodToPayload(cheddar).attributes["nutrition/info"];
+    expect(n.calcium).toBeCloseTo(0.707, 6); // 707 mg
+    expect(n.iron).toBeCloseTo(0.00016, 8); // 0.16 mg
+    expect(n.potassium).toBeCloseTo(0.077, 6); // 77 mg
+    expect(n.magnesium).toBeCloseTo(0.0268, 6); // 26.8 mg
+    expect(n.zinc).toBeCloseTo(0.00367, 8); // 3.67 mg
+    expect(n.vitamin_a).toBeCloseTo(0.000316, 8); // 316 µg
+    expect(n.vitamin_e).toBeCloseTo(0.00075, 8); // 0.75 mg
+    expect(n.vitamin_b6).toBeCloseTo(0.000069, 9); // 0.069 mg
+    expect(n.vitamin_b12).toBeCloseTo(0.00000106, 10); // 1.06 µg
+    expect(n.folate).toBeCloseTo(0.000021, 9); // 21 µg
+  });
+
+  it("omits micronutrients the food does not report", () => {
+    // Cheddar carries no vitamin C (1162) and no vitamin D (1114), so both keys
+    // are absent rather than zeroed.
+    const n = mapFdcFoodToPayload(cheddar).attributes["nutrition/info"];
+    expect(n).not.toHaveProperty("vitamin_c");
+    expect(n).not.toHaveProperty("vitamin_d");
+  });
+
+  it("maps the micronutrients a plant food reports and omits the rest", () => {
+    const n = mapFdcFoodToPayload(banana).attributes["nutrition/info"];
+    expect(n.vitamin_c).toBeCloseTo(0.0097, 6); // 9.7 mg
+    expect(n.vitamin_b6).toBeCloseTo(0.000234, 8); // 0.234 mg
+    expect(n.folate).toBeCloseTo(0.000025, 9); // 25 µg
+    expect(n.vitamin_a).toBeCloseTo(0.000001, 9); // 1 µg
+    // Banana's fixture reports no minerals, so these stay absent.
+    expect(n).not.toHaveProperty("calcium");
+    expect(n).not.toHaveProperty("iron");
+    expect(n).not.toHaveProperty("potassium");
+    expect(n).not.toHaveProperty("magnesium");
+    expect(n).not.toHaveProperty("zinc");
+    expect(n).not.toHaveProperty("vitamin_d");
+    expect(n).not.toHaveProperty("vitamin_b12");
   });
 
   it("omits every macro when the food carries no nutrients", () => {

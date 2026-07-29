@@ -5,7 +5,9 @@ import { buildRawProvenance } from "./provenance";
 // Mapper version, bumped when the OFF -> nutrition/info normalisation changes.
 // OFF_BASE (the product endpoint) is defined below and reused for source_uri.
 // v2: panel gains trans fat, cholesterol and unsaturated fat (mono + poly).
-const ADAPTER_VERSION = "2";
+// v3: panel gains the twelve Nutrition-Facts micronutrients (ADR-0030), read
+//     from the `*_100g` nutriments (OFF already reports these in grams).
+const ADAPTER_VERSION = "3";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -27,6 +29,21 @@ export interface OFFNutriments {
   cholesterol_100g?: number;
   "monounsaturated-fat_100g"?: number;
   "polyunsaturated-fat_100g"?: number;
+  // Micronutrients — the twelve US Nutrition-Facts label vitamins and minerals
+  // (ADR-0030). OFF reports each `*_100g` already in grams, so they map straight
+  // across with no conversion. Folate is OFF's `vitamin-b9`.
+  "vitamin-d_100g"?: number;
+  calcium_100g?: number;
+  iron_100g?: number;
+  potassium_100g?: number;
+  "vitamin-a_100g"?: number;
+  "vitamin-c_100g"?: number;
+  "vitamin-e_100g"?: number;
+  "vitamin-b6_100g"?: number;
+  "vitamin-b12_100g"?: number;
+  "vitamin-b9_100g"?: number;
+  magnesium_100g?: number;
+  zinc_100g?: number;
 }
 
 export interface OFFProduct {
@@ -82,6 +99,19 @@ export function mapOffProductToPayload(product: OFFProduct): EntityPayload {
     nutrition.unsaturated_fat_content =
       Math.round(((mono ?? 0) + (poly ?? 0)) * 1e6) / 1e6;
   }
+  // Micronutrients (ADR-0030) — OFF reports each `*_100g` already in grams.
+  set(n["vitamin-d_100g"], "vitamin_d");
+  set(n.calcium_100g, "calcium");
+  set(n.iron_100g, "iron");
+  set(n.potassium_100g, "potassium");
+  set(n["vitamin-a_100g"], "vitamin_a");
+  set(n["vitamin-c_100g"], "vitamin_c");
+  set(n["vitamin-e_100g"], "vitamin_e");
+  set(n["vitamin-b6_100g"], "vitamin_b6");
+  set(n["vitamin-b12_100g"], "vitamin_b12");
+  set(n["vitamin-b9_100g"], "folate");
+  set(n.magnesium_100g, "magnesium");
+  set(n.zinc_100g, "zinc");
 
   return {
     entity: `gtin:${product.code}`,

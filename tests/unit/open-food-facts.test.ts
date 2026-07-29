@@ -28,8 +28,9 @@ describe("mapOffProductToPayload", () => {
   });
 
   it("emits the nutrition/info panel from the real per-100g nutriments", () => {
-    // Real Nutella carries every field except fiber, so fiber_content is
-    // absent; sodium is OFF's own 0.0428 g, not the salt figure (0.107 g).
+    // Nutella carries every macro except fiber, so fiber_content is absent;
+    // sodium is OFF's own 0.0428 g, not the salt figure (0.107 g). The fixture's
+    // `*_100g` micronutriments (already in grams) map across unchanged.
     const n = mapOffProductToPayload(nutella).attributes["nutrition/info"];
     expect(n).toEqual({
       serving_size: "100 g",
@@ -40,8 +41,21 @@ describe("mapOffProductToPayload", () => {
       sugar_content: 56.3,
       sodium_content: 0.0428,
       saturated_fat_content: 10.6,
+      calcium: 0.108,
+      iron: 0.0079,
+      potassium: 0.4,
+      magnesium: 0.061,
+      zinc: 0.0026,
+      vitamin_e: 0.0067,
+      vitamin_b6: 0.0002,
     });
     expect(n).not.toHaveProperty("fiber_content");
+    // The fixture reports no vitamin A/C/D/B12 or folate, so those stay absent.
+    expect(n).not.toHaveProperty("vitamin_a");
+    expect(n).not.toHaveProperty("vitamin_c");
+    expect(n).not.toHaveProperty("vitamin_d");
+    expect(n).not.toHaveProperty("vitamin_b12");
+    expect(n).not.toHaveProperty("folate");
   });
 
   it("maps trans fat, cholesterol and unsaturated (mono+poly) fat", () => {

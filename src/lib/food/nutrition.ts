@@ -35,6 +35,38 @@ export interface NutritionInfo {
   unsaturated_fat_content?: number;
   /** schema.org cholesterolContent (g). */
   cholesterol_content?: number;
+
+  // ---- Micronutrients (ADR-0030) --------------------------------------------
+  // The twelve US Nutrition-Facts label vitamins and minerals, elevated to
+  // first-class optional panel keys. schema.org/NutritionInformation defines no
+  // vitamin or mineral properties, so these are app extensions with no
+  // schema.org counterpart — the panel stays a superset of NutritionInformation.
+  // All stored in GRAMS, like every `*_content` field, keeping the panel
+  // invariant (one fixed unit per field); the display layer reformats to mg/µg.
+  /** App extension (no schema.org property): vitamin D, grams. */
+  vitamin_d?: number;
+  /** App extension (no schema.org property): calcium, grams. */
+  calcium?: number;
+  /** App extension (no schema.org property): iron, grams. */
+  iron?: number;
+  /** App extension (no schema.org property): potassium, grams. */
+  potassium?: number;
+  /** App extension (no schema.org property): vitamin A, grams. */
+  vitamin_a?: number;
+  /** App extension (no schema.org property): vitamin C, grams. */
+  vitamin_c?: number;
+  /** App extension (no schema.org property): vitamin E, grams. */
+  vitamin_e?: number;
+  /** App extension (no schema.org property): vitamin B6, grams. */
+  vitamin_b6?: number;
+  /** App extension (no schema.org property): vitamin B12, grams. */
+  vitamin_b12?: number;
+  /** App extension (no schema.org property): folate, grams. */
+  folate?: number;
+  /** App extension (no schema.org property): magnesium, grams. */
+  magnesium?: number;
+  /** App extension (no schema.org property): zinc, grams. */
+  zinc?: number;
 }
 
 /** The EAVT attribute that holds a twin's nutrition panel. */

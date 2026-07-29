@@ -37,6 +37,14 @@ const offTwin = {
       trans_fat_content: 0.2,
       unsaturated_fat_content: 12.5, // mono + poly, summed
       cholesterol_content: 0.01,
+      // The twelve Nutrition-Facts micronutrients (ADR-0030), stored in grams
+      // like every *_content field. Beyond schema.org (no counterpart); the
+      // adapter populates only the subset the source reports. Keys: vitamin_d,
+      // calcium, iron, potassium, vitamin_a, vitamin_c, vitamin_e, vitamin_b6,
+      // vitamin_b12, folate, magnesium, zinc.
+      calcium: 0.108,
+      iron: 0.0079,
+      magnesium: 0.061,
     },
   },
 };

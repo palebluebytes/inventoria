@@ -9,7 +9,9 @@ import { buildRawProvenance } from "./provenance";
 // v3: carbohydrate and fiber fall back to alternate assay IDs (1050 / 2033).
 // v4: panel gains trans fat (1257), cholesterol (1253) and unsaturated fat
 //     (mono 1292 + poly 1293).
-const ADAPTER_VERSION = "4";
+// v5: panel gains the twelve Nutrition-Facts micronutrients (ADR-0030), mapped
+//     by nutrient id and normalised mg/µg -> g via toGrams.
+const ADAPTER_VERSION = "5";
 const FDC_FOOD_BASE = "https://api.nal.usda.gov/fdc/v1/food";
 
 // Read the current key on demand (default param, evaluated per call) instead of
@@ -65,6 +67,21 @@ const MASS_NUTRIENTS: { ids: number[]; key: MassField }[] = [
   { ids: [1253], key: "cholesterol_content" }, // Cholesterol (mg -> g)
   { ids: [1093], key: "sodium_content" }, // Sodium, Na (mg)
   { ids: [2000, 1063], key: "sugar_content" }, // Total sugars
+  // Micronutrients — the twelve US Nutrition-Facts label vitamins and minerals
+  // (ADR-0030). FDC reports these in mg (minerals, most vitamins) or µg (A, B12,
+  // folate, D); toGrams normalises each to the panel's fixed gram unit.
+  { ids: [1114], key: "vitamin_d" }, // Vitamin D (D2 + D3) (µg)
+  { ids: [1087], key: "calcium" }, // Calcium, Ca (mg)
+  { ids: [1089], key: "iron" }, // Iron, Fe (mg)
+  { ids: [1092], key: "potassium" }, // Potassium, K (mg)
+  { ids: [1106], key: "vitamin_a" }, // Vitamin A, RAE (µg)
+  { ids: [1162], key: "vitamin_c" }, // Vitamin C, total ascorbic acid (mg)
+  { ids: [1109], key: "vitamin_e" }, // Vitamin E (alpha-tocopherol) (mg)
+  { ids: [1175], key: "vitamin_b6" }, // Vitamin B-6 (mg)
+  { ids: [1178], key: "vitamin_b12" }, // Vitamin B-12 (µg)
+  { ids: [1177], key: "folate" }, // Folate, total (µg)
+  { ids: [1090], key: "magnesium" }, // Magnesium, Mg (mg)
+  { ids: [1095], key: "zinc" }, // Zinc, Zn (mg)
 ];
 // Unsaturated fat has no single FDC id: schema.org's unsaturatedFatContent is the
 // sum of monounsaturated (1292) and polyunsaturated (1293) fatty acids.
