@@ -347,4 +347,43 @@ describe("searchFdc", () => {
     expect(results[1].entity).toBe("fdc:104"); // Bananas, overripe, raw
     expect(results[2].entity).toBe("fdc:101"); // Bananas, dehydrated
   });
+
+  it("ranks foods matching every query token above partial (single-token) matches", async () => {
+    // FDC's OR semantics let a food matching only "milk" (rice milk) rank above
+    // the real "Soy milk" in the raw relevance order. Re-ranking must float the
+    // foods whose name contains BOTH tokens to the top.
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        foods: [
+          {
+            fdcId: 201,
+            description: "Beverages, rice milk, unsweetened", // matches "milk" only
+            dataType: "SR Legacy",
+            foodNutrients: [],
+          },
+          {
+            fdcId: 202,
+            description: "Soy milk, sweetened, plain, refrigerated", // both tokens
+            dataType: "Foundation",
+            foodNutrients: [],
+          },
+          {
+            fdcId: 203,
+            description: "Soy milk, unsweetened, plain, shelf stable", // both tokens
+            dataType: "Foundation",
+            foodNutrients: [],
+          },
+        ],
+      }),
+    } as Response);
+
+    const results = await searchFdc("Soy milk", "KEY");
+
+    // The two soy-milk foods (both tokens) come first, in FDC's original order;
+    // the milk-only rice milk falls to the bottom despite leading the raw list.
+    expect(results[0].entity).toBe("fdc:202"); // Soy milk, sweetened
+    expect(results[1].entity).toBe("fdc:203"); // Soy milk, unsweetened
+    expect(results[2].entity).toBe("fdc:201"); // Beverages, rice milk
+  });
 });

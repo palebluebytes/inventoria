@@ -218,18 +218,45 @@ export async function searchFdc(
 
   const uniqueFoods = Array.from(foodMap.values());
 
-  // Prioritize raw foods (e.g., "Bananas, raw" over "Bananas, overripe, raw" and others)
-  uniqueFoods.sort((a, b) => {
-    const getScore = (desc: string) => {
-      const d = desc.toLowerCase().trim();
-      if (d.endsWith(", raw")) {
-        const commas = (d.match(/,/g) || []).length;
-        return commas === 1 ? 3 : 2;
-      }
-      return /\braw\b/.test(d) ? 1 : 0;
-    };
-    return getScore(b.description) - getScore(a.description);
-  });
+  // FDC matches the wildcarded tokens with OR semantics, so "soy milk" also
+  // returns foods that match only one word — and FDC's own relevance can float
+  // one of those above the real thing (e.g. "Beverages, rice milk" outranking
+  // "Soy milk"). Re-rank so foods whose name contains EVERY query token come
+  // first, then apply the raw-food preference within each group. Array.sort is
+  // stable, so FDC's relevance order is preserved on ties.
+  const queryTokens = query
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) => t.replace(/\*+$/, ""))
+    .filter(Boolean);
+
+  // Every token prefix-matches some word in the name (mirrors the "*" search).
+  const matchesAllTokens = (desc: string): boolean => {
+    const words = desc
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter(Boolean);
+    return queryTokens.every((t) => words.some((w) => w.startsWith(t)));
+  };
+
+  // Raw-food preference: "Bananas, raw" (score 3) over "Bananas, overripe, raw"
+  // (score 2) over anything merely containing "raw" (1) over the rest (0).
+  const rawScore = (desc: string): number => {
+    const d = desc.toLowerCase().trim();
+    if (d.endsWith(", raw")) {
+      const commas = (d.match(/,/g) || []).length;
+      return commas === 1 ? 3 : 2;
+    }
+    return /\braw\b/.test(d) ? 1 : 0;
+  };
+
+  // All-tokens match dominates (weight 10 > max rawScore of 3), so a full-name
+  // match always outranks a partial one regardless of how "raw" it is.
+  const score = (desc: string): number =>
+    (matchesAllTokens(desc) ? 10 : 0) + rawScore(desc);
+
+  uniqueFoods.sort((a, b) => score(b.description) - score(a.description));
 
   return uniqueFoods.map(mapFdcFoodToPayload);
 }
