@@ -118,6 +118,18 @@ export const roundFood = (n: number): number => roundTo(n, FOOD_DECIMALS);
 export const roundFoodDisplay = (n: number): number =>
   roundTo(n, FOOD_DISPLAY_DECIMALS);
 
+/**
+ * The non-headline nutrients (fibre/sugar/sodium and the micronutrients) live in
+ * grams, but micronutrients sit at milligram/microgram magnitudes — iron ≈
+ * 2.6e-4 g, vitamins ≈ 1e-6 g — so the 3-dp {@link FOOD_DECIMALS} precision the
+ * four macros use would round them to zero (iron would read "0 mg"). They are
+ * instead rounded at this far finer precision: fine enough to keep a microgram,
+ * still trimming binary-float noise. Gram-scale extras are unaffected.
+ */
+const MICRONUTRIENT_DECIMALS = 9;
+export const roundExtraNutrient = (n: number): number =>
+  roundTo(n, MICRONUTRIENT_DECIMALS);
+
 // ---------------------------------------------------------------------------
 // Household portions (ADR-0030 §2)
 // ---------------------------------------------------------------------------
@@ -350,7 +362,7 @@ export function scaleNutrition(
   };
   for (const key of EXTRA_NUTRIENT_KEYS) {
     const v = info?.[key];
-    if (typeof v === "number") breakdown[key] = roundFood(v * factor);
+    if (typeof v === "number") breakdown[key] = roundExtraNutrient(v * factor);
   }
   return breakdown;
 }
@@ -387,7 +399,7 @@ export function sumNutrition(
     carbs: roundFood(total.carbs),
   };
   for (const key of EXTRA_NUTRIENT_KEYS) {
-    if (key in extras) result[key] = roundFood(extras[key]);
+    if (key in extras) result[key] = roundExtraNutrient(extras[key]);
   }
   return result;
 }

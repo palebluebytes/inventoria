@@ -78,7 +78,7 @@ describe("scaleNutrition", () => {
       sugar_content: 0.5,
       sodium_content: 0.003,
       saturated_fat_content: 0.6,
-      iron: 0.002, // 0.0047 × 0.5 = 0.00235 → 0.002 at 3 dp
+      iron: 0.00235, // 0.0047 × 0.5 — kept at micronutrient precision, not 3 dp
     });
   });
 
@@ -118,6 +118,18 @@ describe("scaleNutrition", () => {
       carbs: 0,
       fiber_content: 4,
     });
+  });
+
+  it("keeps a sub-milligram micronutrient instead of rounding it to zero", () => {
+    // Iron at 0.26 mg = 0.00026 g would vanish at the 3-dp macro precision, so a
+    // breakdown would read "0 mg". The finer micronutrient precision keeps it,
+    // through scaling and through summing across the day.
+    const panel: NutritionInfo = { serving_size: "100 g", iron: 0.00026 };
+    expect(scaleNutrition(panel, 1).iron).toBe(0.00026);
+    expect(scaleNutrition(panel, 2).iron).toBe(0.00052);
+    expect(
+      sumNutrition([scaleNutrition(panel, 1), scaleNutrition(panel, 1)]).iron
+    ).toBe(0.00052);
   });
 });
 

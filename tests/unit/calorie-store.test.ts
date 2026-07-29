@@ -1075,7 +1075,7 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
       carbs: 100.5,
       fiber_content: 15,
       sodium_content: 0.009,
-      iron: 0.007, // 0.0047 × 1.5 = 0.00705 → 0.007 at 3 dp
+      iron: 0.00705, // 0.0047 × 1.5 — kept at micronutrient precision, not 3 dp
     });
   });
 
