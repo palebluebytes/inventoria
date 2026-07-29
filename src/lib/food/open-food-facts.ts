@@ -7,7 +7,9 @@ import { buildRawProvenance } from "./provenance";
 // v2: panel gains trans fat, cholesterol and unsaturated fat (mono + poly).
 // v3: panel gains the twelve Nutrition-Facts micronutrients (ADR-0030), read
 //     from the `*_100g` nutriments (OFF already reports these in grams).
-const ADAPTER_VERSION = "3";
+// v4: emits food/category (categories), food/ingredients_text (ingredients_text),
+//     twin/brand (brands) and the OFF-only food/assessment blob (ADR-0030 §4).
+const ADAPTER_VERSION = "4";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -46,6 +48,22 @@ export interface OFFNutriments {
   zinc_100g?: number;
 }
 
+/**
+ * Open Food Facts' consumer-facing assessment signals, captured as one atomic
+ * `food/assessment` blob (ADR-0030 §4). OFF-only — no schema.org counterpart.
+ * Every sub-field is optional: the mapper carries across only what the product
+ * reports, so a product with only a Nutri-Score yields `{ nutri_score }`.
+ */
+export interface FoodAssessment {
+  nova_group?: number;
+  nutri_score?: string;
+  eco_score?: string;
+  nutrient_levels?: Record<string, string>;
+  allergens?: string[];
+  additives?: string[];
+  labels?: string[];
+}
+
 export interface OFFProduct {
   code: string;
   /** v3 API uses string status: "success" | "failure" */
@@ -53,6 +71,18 @@ export interface OFFProduct {
   product: {
     product_name?: string;
     nutriments?: OFFNutriments;
+    // Record-level source signals (ADR-0030 §4). All optional; a missing field
+    // is omitted from the payload rather than emitted as empty/null.
+    brands?: string;
+    categories?: string;
+    ingredients_text?: string;
+    nova_group?: number;
+    nutriscore_grade?: string;
+    ecoscore_grade?: string;
+    nutrient_levels?: Record<string, string>;
+    allergens_tags?: string[];
+    additives_tags?: string[];
+    labels_tags?: string[];
   };
 }
 
@@ -113,11 +143,36 @@ export function mapOffProductToPayload(product: OFFProduct): EntityPayload {
   set(n.magnesium_100g, "magnesium");
   set(n.zinc_100g, "zinc");
 
+  const attributes: EntityPayload["attributes"] = {
+    "food/name": p.product_name || "Unknown",
+    "nutrition/info": nutrition,
+  };
+  // Record-level source signals (ADR-0030 §4). Each is emitted only when the
+  // product carries it, so a missing field is omitted (never empty/null).
+  if (p.brands) attributes["twin/brand"] = p.brands;
+  if (p.categories) attributes["food/category"] = p.categories;
+  if (p.ingredients_text)
+    attributes["food/ingredients_text"] = p.ingredients_text;
+
+  // The OFF-only consumer assessments, gathered into one atomic blob. Only the
+  // sub-fields the product carries are included; an assessment with no populated
+  // sub-field is dropped entirely rather than emitted empty.
+  const assessment: FoodAssessment = {};
+  if (p.nova_group != null) assessment.nova_group = p.nova_group;
+  if (p.nutriscore_grade) assessment.nutri_score = p.nutriscore_grade;
+  if (p.ecoscore_grade) assessment.eco_score = p.ecoscore_grade;
+  if (p.nutrient_levels && Object.keys(p.nutrient_levels).length > 0)
+    assessment.nutrient_levels = p.nutrient_levels;
+  if (p.allergens_tags?.length) assessment.allergens = p.allergens_tags;
+  if (p.additives_tags?.length) assessment.additives = p.additives_tags;
+  if (p.labels_tags?.length) assessment.labels = p.labels_tags;
+  if (Object.keys(assessment).length > 0)
+    attributes["food/assessment"] = assessment;
+
   return {
     entity: `gtin:${product.code}`,
     attributes: {
-      "food/name": p.product_name || "Unknown",
-      "nutrition/info": nutrition,
+      ...attributes,
       // Keep the untouched OFF response as immutable Provenance so nutriments
       // beyond the eight panel fields can be backfilled later with no network
       // re-fetch (ADR-0016).

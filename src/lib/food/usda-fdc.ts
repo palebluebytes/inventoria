@@ -11,7 +11,9 @@ import { buildRawProvenance } from "./provenance";
 //     (mono 1292 + poly 1293).
 // v5: panel gains the twelve Nutrition-Facts micronutrients (ADR-0030), mapped
 //     by nutrient id and normalised mg/µg -> g via toGrams.
-const ADAPTER_VERSION = "5";
+// v6: emits the food-identity scalars food/category (foodCategory) and
+//     food/scientific_name (scientificName) captured at search-map time (ADR-0030).
+const ADAPTER_VERSION = "6";
 const FDC_FOOD_BASE = "https://api.nal.usda.gov/fdc/v1/food";
 
 // Read the current key on demand (default param, evaluated per call) instead of
@@ -36,6 +38,11 @@ export interface FdcFood {
   description: string;
   dataType: string;
   foodNutrients: FdcNutrient[];
+  // Record-level food-identity metadata carried on the search hit (ADR-0030).
+  // Both are optional: SR Legacy foods often omit scientificName, and either can
+  // be absent, in which case the corresponding attribute is not emitted.
+  foodCategory?: string;
+  scientificName?: string;
 }
 
 // FDC nutrient IDs mapped onto the schema.org nutrition panel. FDC reports macro
@@ -150,11 +157,20 @@ export function mapFdcFoodToPayload(food: FdcFood): EntityPayload {
     nutrition.unsaturated_fat_content = Math.round(total * 1e6) / 1e6;
   }
 
+  const attributes: EntityPayload["attributes"] = {
+    "food/name": food.description,
+    "nutrition/info": nutrition,
+  };
+  // Food-identity metadata (ADR-0030 §3): captured only when the source carries
+  // it, so a missing field is omitted rather than emitted as empty/null.
+  if (food.foodCategory) attributes["food/category"] = food.foodCategory;
+  if (food.scientificName)
+    attributes["food/scientific_name"] = food.scientificName;
+
   return {
     entity: `fdc:${food.fdcId}`,
     attributes: {
-      "food/name": food.description,
-      "nutrition/info": nutrition,
+      ...attributes,
       // Keep the untouched FDC entry as immutable Provenance so any nutrient not
       // in the panel (the full micronutrient list) can be backfilled later with
       // no network re-fetch (ADR-0016).

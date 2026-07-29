@@ -4,6 +4,20 @@
   "product": {
     "product_name": "Nutella",
     "brands": "Nutella, Ferrero, Yum yum",
+    "categories": "Breakfasts, Spreads, Sweet spreads, Hazelnut spreads, Chocolate spreads, Cocoa and hazelnuts spreads",
+    "ingredients_text": "Sugar, palm oil, hazelnuts 13%, fat-reduced cocoa 7.4%, skimmed milk powder 8.7%, whey powder (milk), lecithins (soya), vanillin.",
+    "nova_group": 4,
+    "nutriscore_grade": "e",
+    "ecoscore_grade": "d",
+    "nutrient_levels": {
+      "fat": "high",
+      "salt": "low",
+      "sugars": "high",
+      "saturated-fat": "high"
+    },
+    "allergens_tags": ["en:milk", "en:nuts", "en:soybeans"],
+    "additives_tags": ["en:e322"],
+    "labels_tags": ["en:no-gluten"],
     "serving_size": null,
     "nutrition_data_per": "100g",
     "nutriments": {

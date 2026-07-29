@@ -115,6 +115,40 @@ describe("mapFdcFoodToPayload", () => {
     expect(n).not.toHaveProperty("vitamin_b12");
   });
 
+  it("maps foodCategory and scientificName to food record metadata (ADR-0030)", () => {
+    // Banana's search hit carries both — captured as food-identity scalars at
+    // search-map time, distinct from the nutrition panel.
+    const attrs = mapFdcFoodToPayload(banana).attributes;
+    expect(attrs["food/category"]).toBe("Fruits and Fruit Juices");
+    expect(attrs["food/scientific_name"]).toBe("Musa acuminata Colla");
+  });
+
+  it("omits food/scientific_name when the source lacks it", () => {
+    // Cheddar carries a foodCategory but no scientificName, so the missing
+    // field is omitted (not emitted as empty/null); the present one still maps.
+    const attrs = mapFdcFoodToPayload(cheddar).attributes;
+    expect(attrs["food/category"]).toBe("Dairy and Egg Products");
+    expect(attrs).not.toHaveProperty("food/scientific_name");
+  });
+
+  it("omits food/category when the source lacks it", () => {
+    const noMeta: FdcFood = { ...banana };
+    delete (noMeta as { foodCategory?: string }).foodCategory;
+    delete (noMeta as { scientificName?: string }).scientificName;
+    const attrs = mapFdcFoodToPayload(noMeta).attributes;
+    expect(attrs).not.toHaveProperty("food/category");
+    expect(attrs).not.toHaveProperty("food/scientific_name");
+  });
+
+  it("never emits the OFF-only assessment/ingredients/brand attributes", () => {
+    // food/assessment, food/ingredients_text and twin/brand are Open Food Facts
+    // signals (ADR-0030 §4); the FDC path must not populate them.
+    const attrs = mapFdcFoodToPayload(banana).attributes;
+    expect(attrs).not.toHaveProperty("food/assessment");
+    expect(attrs).not.toHaveProperty("food/ingredients_text");
+    expect(attrs).not.toHaveProperty("twin/brand");
+  });
+
   it("omits every macro when the food carries no nutrients", () => {
     const empty: FdcFood = { ...banana, foodNutrients: [] };
     const n = mapFdcFoodToPayload(empty).attributes["nutrition/info"];

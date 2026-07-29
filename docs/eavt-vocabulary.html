@@ -372,7 +372,19 @@
               <tr>
                 <td><code>food/</code></td>
                 <td>Food Digital Twins</td>
-                <td><code>name</code>, <code>photo_base64</code></td>
+                <td>
+                  <code>name</code>, <code>photo_base64</code>,
+                  <code>category</code>,
+                  <code>scientific_name</code> (food-identity record metadata),
+                  <code>ingredients_text</code> (Open Food Facts' raw
+                  ingredients string, distinct from a recipe's structured
+                  <code>recipe/ingredients</code>), <code>assessment</code>, one
+                  atomic Open Food Facts blob of consumer signals with no
+                  schema.org counterpart (<code>nova_group</code>,
+                  <code>nutri_score</code>, <code>eco_score</code>,
+                  <code>nutrient_levels</code>, <code>allergens</code>,
+                  <code>additives</code>, <code>labels</code>; ADR-0030)
+                </td>
               </tr>
               <tr>
                 <td><code>nutrition/</code></td>

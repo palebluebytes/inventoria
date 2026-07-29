@@ -96,6 +96,75 @@ describe("mapOffProductToPayload", () => {
     expect(n).toEqual({ serving_size: "100 g" });
   });
 
+  it("maps brands to twin/brand and categories to food/category (ADR-0030)", () => {
+    const attrs = mapOffProductToPayload(nutella).attributes;
+    expect(attrs["twin/brand"]).toBe("Nutella, Ferrero, Yum yum");
+    expect(attrs["food/category"]).toBe(
+      "Breakfasts, Spreads, Sweet spreads, Hazelnut spreads, Chocolate spreads, Cocoa and hazelnuts spreads"
+    );
+  });
+
+  it("maps ingredients_text to a scalar food/ingredients_text", () => {
+    // Distinct from a recipe's structured recipe/ingredients references — this
+    // is the raw source ingredients string (ADR-0030 §4).
+    const attrs = mapOffProductToPayload(nutella).attributes;
+    expect(attrs["food/ingredients_text"]).toContain("hazelnuts");
+  });
+
+  it("emits the food/assessment blob with the OFF proprietary signals", () => {
+    // One atomic blob (ADR-0030 §4), mirroring nutrition/info's corrected-as-a-
+    // unit granularity. Nutella carries every sub-field.
+    const attrs = mapOffProductToPayload(nutella).attributes;
+    expect(attrs["food/assessment"]).toEqual({
+      nova_group: 4,
+      nutri_score: "e",
+      eco_score: "d",
+      nutrient_levels: {
+        fat: "high",
+        salt: "low",
+        sugars: "high",
+        "saturated-fat": "high",
+      },
+      allergens: ["en:milk", "en:nuts", "en:soybeans"],
+      additives: ["en:e322"],
+      labels: ["en:no-gluten"],
+    });
+  });
+
+  it("includes only the assessment sub-fields the product carries", () => {
+    // A product with just a Nutri-Score emits an assessment holding that one
+    // key — empty/absent signals are omitted, not zeroed.
+    const product: OFFProduct = {
+      ...nutella,
+      product: {
+        ...nutella.product,
+        nova_group: undefined,
+        ecoscore_grade: undefined,
+        nutrient_levels: undefined,
+        allergens_tags: [],
+        additives_tags: undefined,
+        labels_tags: undefined,
+      },
+    };
+    const attrs = mapOffProductToPayload(product).attributes;
+    expect(attrs["food/assessment"]).toEqual({ nutri_score: "e" });
+  });
+
+  it("omits food/assessment, twin/brand, category and ingredients when absent", () => {
+    const product: OFFProduct = {
+      ...nutella,
+      product: {
+        product_name: "Bare Product",
+        nutriments: {},
+      },
+    };
+    const attrs = mapOffProductToPayload(product).attributes;
+    expect(attrs).not.toHaveProperty("food/assessment");
+    expect(attrs).not.toHaveProperty("twin/brand");
+    expect(attrs).not.toHaveProperty("food/category");
+    expect(attrs).not.toHaveProperty("food/ingredients_text");
+  });
+
   it("stores the raw source response as twin/raw_provenance (ADR-0016)", () => {
     // Provenance keeps the untouched OFF response — every nutriment, not just
     // the eight panel fields — so nutrients absent from the panel today can be

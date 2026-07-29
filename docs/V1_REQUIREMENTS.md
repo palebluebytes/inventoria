@@ -19,6 +19,17 @@ Values are plain numbers in a unit fixed per field (calories in kcal, every
 `*_content` in grams); `serving_size` states the basis. An adapter populates
 only the subset of fields its source provides.
 
+Beyond the panel, a food-bearing twin carries the record-level context its
+source publishes (ADR-0030). Both sources map `food/category` and USDA also maps
+`food/scientific_name`. Open Food Facts additionally maps `twin/brand` (brands),
+`food/ingredients_text` (its raw ingredients string, distinct from a recipe's
+structured `recipe/ingredients` references), and `food/assessment` — one atomic
+OFF-only blob of consumer signals (`nova_group`, `nutri_score`, `eco_score`,
+`nutrient_levels`, `allergens`, `additives`, `labels`) with no schema.org
+counterpart, corrected as a unit like `nutrition/info`. Every one of these is
+emitted only when the source carries it; a missing field is omitted, never
+emitted empty.
+
 ```typescript
 // Open Food Facts (GTIN)
 const offTwin = {
@@ -46,6 +57,19 @@ const offTwin = {
       iron: 0.0079,
       magnesium: 0.061,
     },
+    // Record-level source context (ADR-0030), OFF side.
+    "twin/brand": "Nutella, Ferrero, Yum yum",
+    "food/category": "Spreads, Sweet spreads, Hazelnut spreads",
+    "food/ingredients_text": "Sugar, palm oil, hazelnuts 13%, …",
+    "food/assessment": {
+      nova_group: 4,
+      nutri_score: "e",
+      eco_score: "d",
+      nutrient_levels: { fat: "high", salt: "low", sugars: "high" },
+      allergens: ["en:milk", "en:nuts", "en:soybeans"],
+      additives: ["en:e322"],
+      labels: ["en:no-gluten"],
+    },
   },
 };
 
@@ -54,6 +78,8 @@ const usdaTwin = {
   entity: "fdc:170416",
   attributes: {
     "food/name": "Broccoli, raw",
+    "food/category": "Vegetables and Vegetable Products", // from FDC foodCategory
+    "food/scientific_name": "Brassica oleracea", // from FDC scientificName
     "nutrition/info": {
       serving_size: "100 g",
       calories: 34,
