@@ -68,8 +68,12 @@ export function sanitizeYield(recipeYield: number | string): number {
  * The whole panel is derived, not just the four macros (ADR-0030 / #28): each
  * ingredient contributes its full {@link scaleNutrition} breakdown, and an extra
  * nutrient is totalled only across the ingredients that actually reported it — a
- * nutrient no ingredient carried stays absent, never fabricated as 0. The macro
- * arithmetic is byte-identical to before, so the frozen headline never moves.
+ * nutrient no ingredient carried stays absent, never fabricated as 0. Unlike the
+ * pre-#28 derivation (calories to the integer, macros to 1 dp), every value —
+ * macros included — now rounds to {@link FOOD_DECIMALS}. This deliberately
+ * standardises the frozen headline's precision (superseding #28's "four-macro
+ * headline unchanged"), so parts and totals round on the same grid and the
+ * displayed pieces of a total visibly add up.
  */
 export function deriveRecipeNutrition(
   ingredients: ReferenceIngredient[],

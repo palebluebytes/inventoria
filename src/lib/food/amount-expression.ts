@@ -98,8 +98,12 @@ export function evaluateAmount(input: string): number | null {
   function parseExpr(): number | null {
     let left = parseTerm();
     if (left === null) return null;
-    while (peek()?.kind === "op" && (peek() as any).value.match(/[+-]/)) {
-      const op = (tokens[pos] as { value: "+" | "-" }).value;
+    for (
+      let t = peek();
+      t?.kind === "op" && (t.value === "+" || t.value === "-");
+      t = peek()
+    ) {
+      const op = t.value;
       pos++;
       const right = parseTerm();
       if (right === null) return null;
@@ -111,8 +115,12 @@ export function evaluateAmount(input: string): number | null {
   function parseTerm(): number | null {
     let left = parseFactor();
     if (left === null) return null;
-    while (peek()?.kind === "op" && (peek() as any).value.match(/[*/]/)) {
-      const op = (tokens[pos] as { value: "*" | "/" }).value;
+    for (
+      let t = peek();
+      t?.kind === "op" && (t.value === "*" || t.value === "/");
+      t = peek()
+    ) {
+      const op = t.value;
       pos++;
       const right = parseFactor();
       if (right === null) return null;
