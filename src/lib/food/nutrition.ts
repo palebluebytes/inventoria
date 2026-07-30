@@ -112,11 +112,16 @@ function roundTo(n: number, decimals: number): number {
 export const roundFood = (n: number): number => roundTo(n, FOOD_DECIMALS);
 
 /**
- * Rounds to the display precision ({@link FOOD_DISPLAY_DECIMALS}). View layer
- * only — using it on a value you then store would silently drop precision.
+ * Rounds to the display precision. View layer only — using it on a value you
+ * then store would silently drop precision. Defaults to {@link
+ * FOOD_DISPLAY_DECIMALS}; callers pass `0` when the user has opted into
+ * whole-number nutrition display (`settings/round_nutrition`), so the same fold
+ * drives both modes and storage precision is untouched.
  */
-export const roundFoodDisplay = (n: number): number =>
-  roundTo(n, FOOD_DISPLAY_DECIMALS);
+export const roundFoodDisplay = (
+  n: number,
+  decimals: number = FOOD_DISPLAY_DECIMALS
+): number => roundTo(n, decimals);
 
 /**
  * The non-headline nutrients (fibre/sugar/sodium and the micronutrients) live in

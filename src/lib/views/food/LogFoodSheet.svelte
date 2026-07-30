@@ -20,6 +20,7 @@
     scaleNutrition,
     type NutritionInfo,
   } from "../../food/nutrition";
+  import { nutritionDisplayDecimals } from "../../stores/settings.store";
   import { parseDatomValue } from "../../db/datom-fold";
   import type {
     FoodChoice,
@@ -239,7 +240,7 @@
     if (ctx.staged)
       return edit
         ? "Save changes"
-        : `Log ${roundFoodDisplay(ctx.staged.calories * ctx.factor)} kcal`;
+        : `Log ${roundFoodDisplay(ctx.staged.calories * ctx.factor, $nutritionDisplayDecimals)} kcal`;
     if (ctx.method === "custom") return edit ? "Save changes" : "Save & Log";
     if (ctx.method === "scan") return "Look up";
     return "Log";

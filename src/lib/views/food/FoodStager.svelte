@@ -9,7 +9,10 @@
     type FoodResult,
   } from "../../food/food-search";
   import { getLocalFoodTwin } from "../../stores/calorie.store";
-  import { settingsStore } from "../../stores/settings.store";
+  import {
+    settingsStore,
+    nutritionDisplayDecimals,
+  } from "../../stores/settings.store";
   import {
     roundFoodDisplay,
     scaleNutrition,
@@ -128,13 +131,19 @@
   );
   let stagedBreakdown = $derived(scaleNutrition(stagedInfo, factor));
   let stagedPills = $derived(
-    buildNutrientPills(stagedBreakdown, $settingsStore.visible_nutrients)
+    buildNutrientPills(
+      stagedBreakdown,
+      $settingsStore.visible_nutrients,
+      $nutritionDisplayDecimals
+    )
   );
   // The full panel breakdown — every macro AND micronutrient the food carries,
   // scaled to the typed amount — behind a collapsed disclosure so the default
   // card (name · macro pills) stays uncluttered (ticket #30). Absent fields are
   // omitted, micronutrients reformatted to mg/µg, all in the domain layer.
-  let stagedFullRows = $derived(buildNutrientBreakdown(stagedBreakdown));
+  let stagedFullRows = $derived(
+    buildNutrientBreakdown(stagedBreakdown, $nutritionDisplayDecimals)
+  );
 
   // The staged food's household portions (ADR-0030), surfaced as picker presets.
   // Read live off the staged payload so they appear the moment hydration spreads
@@ -430,10 +439,15 @@
       <div class="staged">
         <h3>{staged.name}</h3>
         <p class="per">
-          Per 100g · {roundFoodDisplay(staged.calories)} kcal · P {roundFoodDisplay(
-            staged.protein
-          )}g · F {roundFoodDisplay(staged.fat)}g · C {roundFoodDisplay(
-            staged.carbs
+          Per 100g · {roundFoodDisplay(
+            staged.calories,
+            $nutritionDisplayDecimals
+          )} kcal · P {roundFoodDisplay(
+            staged.protein,
+            $nutritionDisplayDecimals
+          )}g · F {roundFoodDisplay(staged.fat, $nutritionDisplayDecimals)}g · C {roundFoodDisplay(
+            staged.carbs,
+            $nutritionDisplayDecimals
           )}g
         </p>
         <span class="fl">

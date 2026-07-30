@@ -5,6 +5,7 @@ import { ingestEntity } from "../ingestion/ingest";
 import { parseDatomValue } from "../db/datom-fold";
 import { HLC_ORDER_ASC } from "../db/hlc";
 import { DEFAULT_VISIBLE_NUTRIENTS } from "../food/nutrient-display";
+import { FOOD_DISPLAY_DECIMALS } from "../food/nutrition";
 
 // Settings values are opaque strings. They're stored JSON-encoded (db.core
 // wraps every value in JSON.stringify), so read them back through the shared
@@ -37,6 +38,15 @@ export interface SettingsState {
    * Fibre default, so a brand-new user still sees a Fibre meter.
    */
   visible_nutrients: string[];
+  /**
+   * Whether nutrition values are displayed rounded to whole numbers instead of
+   * the default {@link FOOD_DISPLAY_DECIMALS}-place precision. Display-only: the
+   * frozen snapshot always keeps full precision, so this never changes stored
+   * history — only how calories/macros/micronutrients read on screen. Absent →
+   * `false` (exact display, the shipped default). A JSON boolean, so like
+   * `visible_nutrients` it is NOT a `SETTINGS_STRING_ATTR`.
+   */
+  round_nutrition: boolean;
 }
 
 /**
@@ -59,6 +69,8 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
       (import.meta.env?.VITE_SCRAPER_PROXY_URL as string) ?? "",
     // Unset → the Protein/Fat/Carbs/Fibre default (ticket #29).
     visible_nutrients: DEFAULT_VISIBLE_NUTRIENTS,
+    // Unset → exact display (2-dp), the shipped baseline.
+    round_nutrition: false,
   };
 
   for (const d of $datoms) {
@@ -66,6 +78,13 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
     // list rather than String()-coercing it (which would flatten to "a,b").
     if (d.attribute === "settings/visible_nutrients") {
       settings.visible_nutrients = parseVisibleNutrients(d.value);
+      continue;
+    }
+    // round_nutrition is a JSON boolean, decoded like visible_nutrients — only a
+    // literal `true` enables it, so any malformed/legacy value stays exact.
+    if (d.attribute === "settings/round_nutrition") {
+      settings.round_nutrition =
+        parseDatomValue("settings/round_nutrition", d.value) === true;
       continue;
     }
     const value = String(
@@ -97,9 +116,23 @@ export async function saveSettings(state: SettingsState): Promise<void> {
         // array. Default when a caller omits it (e.g. a pre-#29 save).
         "settings/visible_nutrients":
           state.visible_nutrients ?? DEFAULT_VISIBLE_NUTRIENTS,
+        // Boolean value; default off when a caller omits it (e.g. a pre-toggle
+        // save path).
+        "settings/round_nutrition": state.round_nutrition ?? false,
       },
     },
     timestamp
   );
   await dbClient.append(datoms);
 }
+
+/**
+ * The display precision every food number obeys, resolved from the user's
+ * {@link SettingsState.round_nutrition} choice: `0` places when whole-number
+ * display is on, otherwise {@link FOOD_DISPLAY_DECIMALS}. Views pass this into
+ * `roundFoodDisplay` / the nutrient-display builders, so the round-vs-exact
+ * logic lives here once rather than in every view.
+ */
+export const nutritionDisplayDecimals = derived(settingsStore, ($s) =>
+  $s.round_nutrition ? 0 : FOOD_DISPLAY_DECIMALS
+);

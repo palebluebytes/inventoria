@@ -6,6 +6,7 @@
   } from "../../food/nutrition";
   import { parseServingGrams } from "../../food/recipe-nutrition";
   import { buildNutrientBreakdown } from "../../food/nutrient-display";
+  import { nutritionDisplayDecimals } from "../../stores/settings.store";
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import NutrientBreakdown from "./NutrientBreakdown.svelte";
   import QuantityGrams from "./QuantityGrams.svelte";
@@ -61,7 +62,8 @@
   let fullRows = $derived(
     panel
       ? buildNutrientBreakdown(
-          scaleNutrition(panel, value / parseServingGrams(panel.serving_size))
+          scaleNutrition(panel, value / parseServingGrams(panel.serving_size)),
+          $nutritionDisplayDecimals
         )
       : []
   );

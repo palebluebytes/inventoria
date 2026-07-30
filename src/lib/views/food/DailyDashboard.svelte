@@ -9,7 +9,10 @@
     buildNutrientMeters,
     buildNutrientBreakdown,
   } from "../../food/nutrient-display";
-  import { settingsStore } from "../../stores/settings.store";
+  import {
+    settingsStore,
+    nutritionDisplayDecimals,
+  } from "../../stores/settings.store";
   import { parseLoggedQuantity } from "../../food/recipe-ingredient";
   import Modal from "../../ui/Modal.svelte";
   import FoodItemRow from "./FoodItemRow.svelte";
@@ -99,7 +102,8 @@
     buildNutrientMeters(
       dayTotals,
       $settingsStore.visible_nutrients,
-      NUTRIENT_TARGETS
+      NUTRIENT_TARGETS,
+      $nutritionDisplayDecimals
     )
   );
 
@@ -110,7 +114,9 @@
   // Calories first, then each catalogued nutrient PRESENT in the total (a
   // nutrient no logged food carried is absent, never shown as 0). The disclosure
   // hides itself when only calories are present, so an empty day is unchanged.
-  let dayBreakdown = $derived(buildNutrientBreakdown(dayTotals));
+  let dayBreakdown = $derived(
+    buildNutrientBreakdown(dayTotals, $nutritionDisplayDecimals)
+  );
 
   function formatDateHeader(date: Date): string {
     return date.toLocaleDateString("en-US", {
@@ -156,7 +162,11 @@
 
 <!-- Aggregates Grid -->
 <div class="aggregates-grid">
-  <CalorieRing {totalCalories} {targetCalories} />
+  <CalorieRing
+    {totalCalories}
+    {targetCalories}
+    decimals={$nutritionDisplayDecimals}
+  />
 
   <MacroMeters {meters} />
 </div>

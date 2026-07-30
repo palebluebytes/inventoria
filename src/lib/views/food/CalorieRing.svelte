@@ -1,16 +1,22 @@
 <script lang="ts">
   import Card from "../../ui/Card.svelte";
-  import { roundFoodDisplay } from "../../food/nutrition";
+  import {
+    roundFoodDisplay,
+    FOOD_DISPLAY_DECIMALS,
+  } from "../../food/nutrition";
 
   // The dashboard's calorie progress ring: a precision-instrument SVG dial that
   // fills toward the day's calorie target. Purely presentational — the caller
-  // owns both the running total and the goal.
+  // owns both the running total and the goal, and `decimals` (the resolved
+  // display precision, 0 for whole-number mode) controls how the figure reads.
   let {
     totalCalories,
     targetCalories,
+    decimals = FOOD_DISPLAY_DECIMALS,
   }: {
     totalCalories: number;
     targetCalories: number;
+    decimals?: number;
   } = $props();
 
   // SVG Progress Ring calculations
@@ -60,7 +66,9 @@
       />
     </svg>
     <div class="ring-label">
-      <span class="calories-num">{roundFoodDisplay(totalCalories)}</span>
+      <span class="calories-num"
+        >{roundFoodDisplay(totalCalories, decimals)}</span
+      >
       <span class="calories-sub">{targetCalories} kcal</span>
     </div>
   </div>

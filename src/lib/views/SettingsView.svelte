@@ -62,10 +62,14 @@
   // unsaved edit in the form above is never clobbered). Calories are always-on
   // via the ring and so are not in the catalogue.
   let visible_nutrients = $state<string[]>([]);
+  // Whether nutrition reads rounded to whole numbers (display-only). Seeded from
+  // the store alongside the selection; the toggle persists immediately.
+  let round_nutrition = $state(false);
   let nutrientsInitialized = $state(false);
   $effect(() => {
     if (!nutrientsInitialized && $settingsStore) {
       visible_nutrients = [...$settingsStore.visible_nutrients];
+      round_nutrition = $settingsStore.round_nutrition;
       nutrientsInitialized = true;
     }
   });
@@ -74,15 +78,28 @@
     visible_nutrients = visible_nutrients.includes(key)
       ? visible_nutrients.filter((k) => k !== key)
       : [...visible_nutrients, key];
+    await persistNutritionDisplay();
+  }
+
+  async function toggleRoundNutrition() {
+    round_nutrition = !round_nutrition;
+    await persistNutritionDisplay();
+  }
+
+  // Persist the Nutrition Display card's settings, carrying the current API
+  // credentials through untouched (an unsaved edit in the form above is never
+  // clobbered, mirroring the visible-nutrients save path).
+  async function persistNutritionDisplay() {
     try {
       await saveSettings({
         usda_api_key: $settingsStore.usda_api_key,
         tmdb_api_key: $settingsStore.tmdb_api_key,
         scraper_proxy_url: $settingsStore.scraper_proxy_url,
         visible_nutrients,
+        round_nutrition,
       });
     } catch (err) {
-      console.error("Failed to save visible nutrients", err);
+      console.error("Failed to save nutrition display settings", err);
     }
   }
 
@@ -96,8 +113,9 @@
         usda_api_key: usdaKey.trim(),
         tmdb_api_key: tmdbKey.trim(),
         scraper_proxy_url: scraperProxy.trim(),
-        // Preserve the current nutrient selection when saving credentials.
+        // Preserve the current Nutrition Display settings when saving credentials.
         visible_nutrients,
+        round_nutrition,
       });
       saveSuccess = true;
       setTimeout(() => {
@@ -304,6 +322,22 @@
         <span class="toggle-text">{nutrient.label}</span>
       </label>
     {/each}
+  </div>
+
+  <div class="round-toggle mt-4">
+    <label class="toggle-label">
+      <input
+        type="checkbox"
+        id="round-nutrition-toggle"
+        checked={round_nutrition}
+        onchange={toggleRoundNutrition}
+      />
+      <span class="toggle-text">Round nutrition to whole numbers</span>
+    </label>
+    <span class="help-text"
+      >Show calories and nutrients as whole numbers. Stored values keep full
+      precision either way.</span
+    >
   </div>
 </Card>
 
@@ -612,6 +646,15 @@
        narrow card. */
   .dev-toggle {
     container-type: inline-size;
+  }
+  /* Whole-number toggle: the label + its help text stacked, with a container
+     context so the shared .toggle-label font sizing resolves against this block
+     rather than the viewport (matching .dev-toggle / .nutrient-toggles). */
+  .round-toggle {
+    container-type: inline-size;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3xs);
   }
   /* Nutrient toggles: a responsive grid of checkbox rows. A container context so
      the shared .toggle-label's cqi-based font sizing resolves against this grid

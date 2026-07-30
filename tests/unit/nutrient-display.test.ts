@@ -8,6 +8,7 @@ import {
   buildNutrientMeters,
   buildNutrientPills,
   buildNutrientBreakdown,
+  ABSENT_NUTRIENT,
 } from "../../src/lib/food/nutrient-display";
 import type { NutritionBreakdown } from "../../src/lib/food/nutrition";
 
@@ -98,6 +99,13 @@ describe("formatNutrientValue", () => {
   it("formats calories in kcal", () => {
     expect(formatCalories(133.5)).toBe("133.5 kcal");
   });
+
+  it("rounds to whole numbers when decimals=0 (settings/round_nutrition)", () => {
+    // The whole-number display mode passes 0 places; the exact default keeps 2.
+    expect(formatCalories(133.5, 0)).toBe("134 kcal");
+    expect(formatNutrientValue(12.345, "g", 0)).toBe("12 g");
+    expect(formatNutrientValue(0.5, "mg", 0)).toBe("500 mg");
+  });
 });
 
 describe("buildNutrientMeters", () => {
@@ -184,6 +192,31 @@ describe("buildNutrientPills", () => {
       "carbs",
       "fiber_content",
     ]);
+  });
+
+  it("keeps a selected-but-absent nutrient's pill, marked absent not 0 g", () => {
+    // `scaled` carries no sodium; a food that never measured it must not read
+    // "0 mg" (absent ≠ 0, #21/#30) — the pill stays put (#29) but shows "—".
+    const pills = buildNutrientPills(scaled, ["sodium_content", "protein"]);
+    expect(pills.map((p) => p.key)).toEqual([
+      "calories",
+      "sodium_content",
+      "protein",
+    ]);
+    expect(pills[1].value).toBe(ABSENT_NUTRIENT);
+    expect(pills[2].value).toBe("1.65 g");
+  });
+
+  it("distinguishes a carried zero from an absent nutrient", () => {
+    // A food that measured sodium at 0 shows a genuine "0 mg", not the marker.
+    const withZero: NutritionBreakdown = { ...scaled, sodium_content: 0 };
+    const pills = buildNutrientPills(withZero, ["sodium_content"]);
+    expect(pills[1].value).toBe("0 mg");
+  });
+
+  it("threads the display precision to every pill (decimals=0)", () => {
+    const pills = buildNutrientPills(scaled, ["protein", "fiber_content"], 0);
+    expect(pills.map((p) => p.value)).toEqual(["134 kcal", "2 g", "3 g"]);
   });
 });
 

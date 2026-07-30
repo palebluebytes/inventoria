@@ -21,7 +21,9 @@ vi.mock("../../src/lib/db/db.client", () => ({
 import {
   settingsStore,
   saveSettings,
+  nutritionDisplayDecimals,
 } from "../../src/lib/stores/settings.store";
+import { FOOD_DISPLAY_DECIMALS } from "../../src/lib/food/nutrition";
 
 beforeEach(() => {
   datomsWritable.set([]);
@@ -141,6 +143,40 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
     ]);
   });
 
+  it("defaults round_nutrition to false (exact display) when unset", () => {
+    expect(get(settingsStore).round_nutrition).toBe(false);
+  });
+
+  it("decodes a stored round_nutrition boolean", () => {
+    datomsWritable.set([
+      {
+        attribute: "settings/round_nutrition",
+        value: JSON.stringify(true),
+        time: 1,
+      },
+    ]);
+    expect(get(settingsStore).round_nutrition).toBe(true);
+    datomsWritable.set([
+      {
+        attribute: "settings/round_nutrition",
+        value: JSON.stringify(false),
+        time: 2,
+      },
+    ]);
+    expect(get(settingsStore).round_nutrition).toBe(false);
+  });
+
+  it("treats a malformed round_nutrition value as false (stays exact)", () => {
+    datomsWritable.set([
+      {
+        attribute: "settings/round_nutrition",
+        value: JSON.stringify("yes"),
+        time: 1,
+      },
+    ]);
+    expect(get(settingsStore).round_nutrition).toBe(false);
+  });
+
   it("reflects reactive updates to the underlying datoms", () => {
     datomsWritable.set([
       { attribute: "settings/tmdb_api_key", value: "k1", time: 1 },
@@ -153,6 +189,23 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
   });
 });
 
+describe("nutritionDisplayDecimals (derived display precision)", () => {
+  it("is the full display precision by default (exact mode)", () => {
+    expect(get(nutritionDisplayDecimals)).toBe(FOOD_DISPLAY_DECIMALS);
+  });
+
+  it("drops to 0 places when whole-number display is enabled", () => {
+    datomsWritable.set([
+      {
+        attribute: "settings/round_nutrition",
+        value: JSON.stringify(true),
+        time: 1,
+      },
+    ]);
+    expect(get(nutritionDisplayDecimals)).toBe(0);
+  });
+});
+
 describe("saveSettings", () => {
   it("appends one datom per settings attribute to settings:global", async () => {
     await saveSettings({
@@ -160,6 +213,7 @@ describe("saveSettings", () => {
       tmdb_api_key: "T",
       scraper_proxy_url: "P",
       visible_nutrients: ["protein", "fat", "carbs", "fiber_content"],
+      round_nutrition: false,
     });
     expect(appendMock).toHaveBeenCalledTimes(1);
     const datoms = appendMock.mock.calls[0][0] as any[];
@@ -178,6 +232,7 @@ describe("saveSettings", () => {
       tmdb_api_key: "T",
       scraper_proxy_url: "P",
       visible_nutrients: ["protein", "calcium"],
+      round_nutrition: false,
     });
     const datoms = appendMock.mock.calls[0][0] as any[];
     const byAttr = Object.fromEntries(
@@ -189,5 +244,20 @@ describe("saveSettings", () => {
       "protein",
       "calcium",
     ]);
+  });
+
+  it("persists the round_nutrition boolean", async () => {
+    await saveSettings({
+      usda_api_key: "U",
+      tmdb_api_key: "T",
+      scraper_proxy_url: "P",
+      visible_nutrients: ["protein"],
+      round_nutrition: true,
+    });
+    const datoms = appendMock.mock.calls[0][0] as any[];
+    const byAttr = Object.fromEntries(
+      datoms.map((d) => [d.attribute, d.value])
+    );
+    expect(byAttr["settings/round_nutrition"]).toBe(true);
   });
 });

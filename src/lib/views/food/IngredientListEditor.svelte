@@ -14,6 +14,7 @@
   } from "../../food/recipe-nutrition";
   import { roundFoodDisplay, type Portion } from "../../food/nutrition";
   import { buildNutrientPills } from "../../food/nutrient-display";
+  import { nutritionDisplayDecimals } from "../../stores/settings.store";
   import AddIngredientSheet from "./AddIngredientSheet.svelte";
   import IngredientAmountSheet from "./IngredientAmountSheet.svelte";
   import FoodItemRow from "./FoodItemRow.svelte";
@@ -91,8 +92,9 @@
 <div class="ing-head">
   <span class="fl">Ingredients ({ingredients.length})</span>
   <span class="tot recipe-total"
-    >{roundFoodDisplay(perServing.calories)} kcal · {roundFoodDisplay(
-      perServing.protein
+    >{roundFoodDisplay(perServing.calories, $nutritionDisplayDecimals)} kcal · {roundFoodDisplay(
+      perServing.protein,
+      $nutritionDisplayDecimals
     )}g P / serving</span
   >
 </div>
@@ -100,6 +102,12 @@
   {#each ingredients as ing, i (ing.entity)}
     {@const row = rowView(ing)}
     <li>
+      <!-- Only gram-unit rows open the amount/breakdown sheet (#30): those are
+           foods from a source, carrying a real nutrition/info panel worth
+           expanding. A serving-unit row is always a custom ingredient — a quick
+           macro-only entry (a restaurant meal, a bare calorie count), so it has
+           no richer panel to break down, and the sheet's gram-scaling factor
+           (value ÷ serving grams) wouldn't apply to a serving amount anyway. -->
       <FoodItemRow
         class="recipe-ingredient"
         name={ing.name}
@@ -140,7 +148,11 @@
 <div class="per-serving" data-testid="per-serving">
   <span class="fl">Per serving</span>
   <MacroPills
-    pills={buildNutrientPills(perServing, ["protein", "fat", "carbs"])}
+    pills={buildNutrientPills(
+      perServing,
+      ["protein", "fat", "carbs"],
+      $nutritionDisplayDecimals
+    )}
   />
 </div>
 

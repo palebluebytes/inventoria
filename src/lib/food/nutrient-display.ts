@@ -12,6 +12,7 @@
  */
 import {
   EXTRA_NUTRIENT_KEYS,
+  FOOD_DISPLAY_DECIMALS,
   roundFoodDisplay,
   type ExtraNutrientKey,
   type NutritionBreakdown,
@@ -39,7 +40,7 @@ const UNIT_SCALE: Record<NutrientUnit, number> = {
  */
 export interface NutrientDescriptor {
   /** The breakdown key this nutrient totals under (e.g. `protein`, `fiber_content`). */
-  key: string;
+  key: keyof NutritionBreakdown;
   /** Display label, e.g. "Protein", "Fibre". */
   label: string;
   /** The unit its stored-grams total is reformatted into for display. */
@@ -112,8 +113,11 @@ export const DEFAULT_VISIBLE_NUTRIENTS: string[] = [
   "fiber_content",
 ];
 
-/** Fast key → descriptor lookup over the fixed catalogue. */
-const BY_KEY = new Map(NUTRIENT_CATALOGUE.map((d) => [d.key, d]));
+/** Fast key → descriptor lookup over the fixed catalogue. Keyed by plain string
+ *  because a stored selection arrives from the ledger as arbitrary strings. */
+const BY_KEY = new Map<string, NutrientDescriptor>(
+  NUTRIENT_CATALOGUE.map((d) => [d.key, d])
+);
 
 /**
  * Resolves a stored selection (an array of breakdown keys) to catalogue
@@ -133,22 +137,41 @@ export function selectedNutrients(
 
 /**
  * Formats a nutrient's stored-grams value into its display unit, e.g. 0.5 g of
- * sodium → "500 mg", 12.345 g of protein → "12.35 g". Rounded to the display
- * precision so summed floats don't leak their mantissa; never returns NaN.
+ * sodium → "500 mg", 12.345 g of protein → "12.35 g". Rounded to `decimals`
+ * (default {@link FOOD_DISPLAY_DECIMALS}; `0` for whole-number display) so summed
+ * floats don't leak their mantissa; never returns NaN.
  */
-export function formatNutrientValue(grams: number, unit: NutrientUnit): string {
+export function formatNutrientValue(
+  grams: number,
+  unit: NutrientUnit,
+  decimals: number = FOOD_DISPLAY_DECIMALS
+): string {
   const scaled = (Number(grams) || 0) * UNIT_SCALE[unit];
-  return `${roundFoodDisplay(scaled)} ${unit}`;
+  return `${roundFoodDisplay(scaled, decimals)} ${unit}`;
 }
 
 /** Formats a calories total, always shown in kcal — the always-on headline. */
-export function formatCalories(kcal: number): string {
-  return `${roundFoodDisplay(Number(kcal) || 0)} kcal`;
+export function formatCalories(
+  kcal: number,
+  decimals: number = FOOD_DISPLAY_DECIMALS
+): string {
+  return `${roundFoodDisplay(Number(kcal) || 0, decimals)} kcal`;
 }
 
+/**
+ * Shown for a *selected* nutrient a given food never measured — the always-on
+ * pill row keeps the nutrient in place (per #29) but must not print a fabricated
+ * "0 g" for data the source never carried (absent ≠ 0, #21/#30). A genuine
+ * reported zero still formats as "0 g"; only an absent key reads as this marker.
+ */
+export const ABSENT_NUTRIENT = "—";
+
 /** Reads a nutrient's day total out of a breakdown, treating absent as 0. */
-function totalFor(breakdown: NutritionBreakdown, key: string): number {
-  const v = (breakdown as unknown as Record<string, number | undefined>)[key];
+function totalFor(
+  breakdown: NutritionBreakdown,
+  key: keyof NutritionBreakdown
+): number {
+  const v = breakdown[key];
   return typeof v === "number" ? v : 0;
 }
 
@@ -180,19 +203,20 @@ export interface NutrientMeter {
 export function buildNutrientMeters(
   breakdown: NutritionBreakdown,
   selection: string[] | undefined,
-  targets: Partial<Record<string, number>> = {}
+  targets: Partial<Record<string, number>> = {},
+  decimals: number = FOOD_DISPLAY_DECIMALS
 ): NutrientMeter[] {
   return selectedNutrients(selection).map((d) => {
     const grams = totalFor(breakdown, d.key);
     const meter: NutrientMeter = {
       key: d.key,
       label: d.label,
-      value: formatNutrientValue(grams, d.unit),
+      value: formatNutrientValue(grams, d.unit, decimals),
     };
     const target = targets[d.key];
     if (typeof target === "number" && target > 0) {
       meter.fill = Math.min((grams / target) * 100, 100);
-      meter.target = formatNutrientValue(target, d.unit);
+      meter.target = formatNutrientValue(target, d.unit, decimals);
     }
     return meter;
   });
@@ -225,22 +249,22 @@ export interface NutrientRow {
  * {@link formatNutrientValue}. Pure: the `.svelte` disclosure just renders it.
  */
 export function buildNutrientBreakdown(
-  breakdown: NutritionBreakdown
+  breakdown: NutritionBreakdown,
+  decimals: number = FOOD_DISPLAY_DECIMALS
 ): NutrientRow[] {
   const rows: NutrientRow[] = [
     {
       key: "calories",
       label: "Calories",
-      value: formatCalories(totalFor(breakdown, "calories")),
+      value: formatCalories(totalFor(breakdown, "calories"), decimals),
     },
   ];
-  const carried = breakdown as unknown as Record<string, number | undefined>;
   for (const d of NUTRIENT_CATALOGUE) {
-    if (!(d.key in carried)) continue;
+    if (!(d.key in breakdown)) continue;
     rows.push({
       key: d.key,
       label: d.label,
-      value: formatNutrientValue(totalFor(breakdown, d.key), d.unit),
+      value: formatNutrientValue(totalFor(breakdown, d.key), d.unit, decimals),
     });
   }
   return rows;
@@ -257,24 +281,32 @@ export interface NutrientPill {
  * Builds the always-on Calories pill followed by one pill per selected nutrient,
  * read from a (scaled) breakdown — the staged-food preview and any fixed
  * calories+macros pill row. Calories lead every list; the rest honour the
- * caller's selection in order. Pure: the `.svelte` view just renders it.
+ * caller's selection in order. A selected nutrient the breakdown never carried
+ * keeps its pill (the summary stays a stable set, #29) but reads as
+ * {@link ABSENT_NUTRIENT} rather than a fabricated "0 g" (absent ≠ 0, #21/#30);
+ * a genuine reported zero still formats normally. Pure: the `.svelte` view just
+ * renders it.
  */
 export function buildNutrientPills(
   breakdown: NutritionBreakdown,
-  selection: string[] | undefined
+  selection: string[] | undefined,
+  decimals: number = FOOD_DISPLAY_DECIMALS
 ): NutrientPill[] {
   const pills: NutrientPill[] = [
     {
       key: "calories",
       label: "Calories",
-      value: formatCalories(totalFor(breakdown, "calories")),
+      value: formatCalories(totalFor(breakdown, "calories"), decimals),
     },
   ];
   for (const d of selectedNutrients(selection)) {
     pills.push({
       key: d.key,
       label: d.label,
-      value: formatNutrientValue(totalFor(breakdown, d.key), d.unit),
+      value:
+        d.key in breakdown
+          ? formatNutrientValue(totalFor(breakdown, d.key), d.unit, decimals)
+          : ABSENT_NUTRIENT,
     });
   }
   return pills;

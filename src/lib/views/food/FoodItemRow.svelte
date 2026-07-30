@@ -2,6 +2,7 @@
   import type { Snippet } from "svelte";
   import { unitLabel } from "../../food/recipe-ingredient";
   import { roundFoodDisplay } from "../../food/nutrition";
+  import { nutritionDisplayDecimals } from "../../stores/settings.store";
 
   // One food line, shared by the dashboard's logged-food list and the
   // recipe/instantiation ingredient list so the two read identically — modelled
@@ -37,7 +38,9 @@
 
   // Match the dashboard's quantity string: "363g" for a scaled food (no space),
   // "1 serving" for a whole-serving one. The label itself comes from unitLabel.
-  // The amount is shown at display precision (2 dp) though it's stored finer.
+  // The amount is shown at the fixed display precision (2 dp) though it's stored
+  // finer — it mirrors what the user typed, so the whole-number nutrition toggle
+  // (which governs derived nutrients, not entered amounts) deliberately skips it.
   let shownAmount = $derived(roundFoodDisplay(amount));
   let qtyLabel = $derived(
     `${shownAmount}${unit === "g" ? "" : " "}${unitLabel(amount, unit)}`
@@ -62,7 +65,9 @@
     <span class="fi-name">{name}</span>
     <span class="fi-qty">{qtyLabel}</span>
   </div>
-  <span class="fi-cals">{roundFoodDisplay(calories)} kcal</span>
+  <span class="fi-cals"
+    >{roundFoodDisplay(calories, $nutritionDisplayDecimals)} kcal</span
+  >
   {#if onRemove}
     <button
       class="fi-remove"
