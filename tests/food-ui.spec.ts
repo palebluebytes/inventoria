@@ -472,7 +472,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(breakdown.locator(".nutrient-iron")).toContainText("0.52 mg");
   });
 
-  test("expands the day's full nutrient breakdown, totalling every logged food and omitting absent nutrients (#31)", async ({
+  test("reveals the day's full nutrient breakdown on tap, totalling every logged food and omitting absent nutrients (#31)", async ({
     page,
   }) => {
     await page.goto("/?mem=1");
@@ -486,17 +486,16 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await logUsdaFood(page, "lunch", "banana", "Mock Banana", "100");
     await logUsdaFood(page, "dinner", "oats", "Mock Oats", "100");
 
-    // The day breakdown is a disclosure on the dashboard, collapsed by default.
+    // The full breakdown is not on the page until the aggregates are tapped —
+    // there is no always-on disclosure below the ring anymore.
     const breakdown = page.locator('[data-testid="day-nutrient-breakdown"]');
-    await expect(breakdown).toBeVisible();
-    await expect(breakdown.locator("summary")).toContainText(
-      "Full day nutrition"
-    );
-    await expect(breakdown.locator(".nutrient-calcium")).toBeHidden();
+    await expect(breakdown).toHaveCount(0);
 
-    // Expand it: the day totals for the macros AND the micronutrients the foods
-    // carried are shown, summed across the day's frozen event snapshots (#28).
-    await breakdown.locator("summary").click();
+    // Tap the ring + meters block to open the full day nutrition modal: the day
+    // totals for the macros AND the micronutrients the foods carried are shown,
+    // summed across the day's frozen event snapshots (#28).
+    await page.getByRole("button", { name: "Show full day nutrition" }).click();
+    await expect(breakdown).toBeVisible();
     await expect(breakdown.locator(".nutrient-calories")).toBeVisible();
     // Calcium/iron total across just the two bananas that carried them.
     await expect(breakdown.locator(".nutrient-calcium")).toContainText(

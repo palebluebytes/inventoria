@@ -18,7 +18,6 @@
   import FoodItemRow from "./FoodItemRow.svelte";
   import CalorieRing from "./CalorieRing.svelte";
   import MacroMeters from "./MacroMeters.svelte";
-  import NutrientBreakdown from "./NutrientBreakdown.svelte";
   import WeekStrip from "./WeekStrip.svelte";
   import { longpress } from "../../actions/longpress";
 
@@ -107,16 +106,23 @@
     )
   );
 
-  // The expandable "show everything" day breakdown (ticket #31, parent #21):
-  // every nutrient the day's foods contributed, beyond the ring and the always-on
-  // selected meters. Built from the same frozen day totals via #30's shared
+  // The "show everything" day breakdown (ticket #31, parent #21): every nutrient
+  // the day's foods contributed, beyond the ring and the always-on selected
+  // meters. Built from the same frozen day totals via #30's shared
   // buildNutrientBreakdown, so it reads identically to the per-ingredient list —
   // Calories first, then each catalogued nutrient PRESENT in the total (a
-  // nutrient no logged food carried is absent, never shown as 0). The disclosure
-  // hides itself when only calories are present, so an empty day is unchanged.
+  // nutrient no logged food carried is absent, never shown as 0). Surfaced on
+  // demand: tapping the aggregates (ring + meters) opens it in a modal rather
+  // than an always-on disclosure below them.
   let dayBreakdown = $derived(
     buildNutrientBreakdown(dayTotals, $nutritionDisplayDecimals)
   );
+
+  // The modal only carries something once a food is logged — an empty day totals
+  // to just the Calories row, so there is nothing extra to reveal and the
+  // aggregates stay inert (matching the old disclosure's hide-when-empty rule).
+  let hasFullDay = $derived(dayBreakdown.length > 1);
+  let showFullDay = $state(false);
 
   function formatDateHeader(date: Date): string {
     return date.toLocaleDateString("en-US", {
@@ -160,8 +166,18 @@
   <h2>{formatDateHeader(selectedDate)}</h2>
 </div>
 
-<!-- Aggregates Grid -->
-<div class="aggregates-grid">
+<!-- Aggregates Grid — tapping anywhere on the ring + meters opens the full day
+     nutrition (every macro AND micronutrient) in a modal (ticket #31). It is a
+     bare button wrapper, so the presentational cards inside are unchanged. -->
+<button
+  type="button"
+  class="aggregates-grid"
+  class:tappable={hasFullDay}
+  disabled={!hasFullDay}
+  aria-haspopup="dialog"
+  aria-label="Show full day nutrition"
+  onclick={() => (showFullDay = true)}
+>
   <CalorieRing
     {totalCalories}
     {targetCalories}
@@ -169,17 +185,7 @@
   />
 
   <MacroMeters {meters} />
-</div>
-
-<!-- Expandable full day breakdown: every nutrient the day's foods contributed,
-     beyond the ring and the always-on meters (ticket #31). -->
-<div class="day-breakdown">
-  <NutrientBreakdown
-    rows={dayBreakdown}
-    label="Full day nutrition"
-    testid="day-nutrient-breakdown"
-  />
-</div>
+</button>
 
 <!-- Timeline & Logged Meals -->
 <div class="timeline mt-6">
@@ -279,6 +285,39 @@
   {/each}
 </div>
 
+<!-- Full day nutrition Modal: opened by tapping the aggregates. Lists Calories
+     first, then every macro and micronutrient the day's foods actually carried
+     (absent nutrients omitted, never shown as 0). -->
+{#if showFullDay}
+  <Modal onClose={() => (showFullDay = false)} title="Full day nutrition">
+    {#snippet children({ props, close })}
+      <div
+        {...props}
+        class="day-nutrition-modal"
+        data-testid="day-nutrient-breakdown"
+      >
+        <header class="day-nutrition-header">
+          <h3>Full day nutrition</h3>
+          <button
+            type="button"
+            class="day-nutrition-close"
+            aria-label="Close"
+            onclick={close}>&times;</button
+          >
+        </header>
+        <dl class="day-nutrition-rows">
+          {#each dayBreakdown as row (row.key)}
+            <div class="day-nutrition-row nutrient-{row.key}">
+              <dt>{row.label}</dt>
+              <dd>{row.value}</dd>
+            </div>
+          {/each}
+        </dl>
+      </div>
+    {/snippet}
+  </Modal>
+{/if}
+
 <!-- Photo preview Modal -->
 {#if previewPhoto}
   <Modal
@@ -309,11 +348,39 @@
     color: var(--text-primary);
   }
 
+  /* The aggregates are a bare button wrapper so the whole ring + meters block is
+     one tap target for the full-day modal. Strip the native button chrome and
+     inherit typography so the cards inside render exactly as before. */
   .aggregates-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--space-m);
     margin-top: var(--space-m);
+    width: 100%;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: inherit;
+    appearance: none;
+  }
+  .aggregates-grid.tappable {
+    cursor: pointer;
+  }
+  /* An empty day has nothing to reveal: keep the block at full opacity (it is
+     just an inert wrapper) rather than dimming it like a disabled control. */
+  .aggregates-grid:disabled {
+    cursor: default;
+    opacity: 1;
+  }
+  /* No focus frame around the block: it wraps the ring + meters purely as a tap
+     target, and a full-width ring/outline reads as a stray border (it lingers
+     after the modal closes and restores focus here). */
+  .aggregates-grid:focus,
+  .aggregates-grid:focus-visible {
+    outline: none;
+    box-shadow: none;
   }
   @media (max-width: 768px) {
     .aggregates-grid {
@@ -321,8 +388,69 @@
     }
   }
 
-  .day-breakdown {
-    margin-top: var(--space-m);
+  /* Full day nutrition modal */
+  .day-nutrition-modal {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1001;
+    width: min(92vw, 26rem);
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--food-surface-bg, #fff);
+    border: 2px solid #000;
+    box-shadow: 8px 8px 0 #000;
+  }
+  .day-nutrition-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-s);
+    padding: var(--space-xs) var(--space-m);
+    border-bottom: 1px solid var(--border, #000);
+  }
+  .day-nutrition-header h3 {
+    font-size: var(--step-n1);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-primary);
+  }
+  .day-nutrition-close {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    font-size: 1.75rem;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--text-primary);
+  }
+  .day-nutrition-rows {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .day-nutrition-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-s);
+    padding: var(--space-2xs) var(--space-m);
+  }
+  .day-nutrition-row + .day-nutrition-row {
+    border-top: 1px solid var(--border-subtle, #e4e4e7);
+  }
+  .day-nutrition-row dt {
+    font-size: var(--step-n2);
+    color: var(--text-secondary);
+  }
+  .day-nutrition-row dd {
+    font-size: var(--step-n2);
+    font-weight: 700;
+    color: var(--text-primary);
+    white-space: nowrap;
   }
 
   .timeline {
