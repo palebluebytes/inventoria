@@ -512,6 +512,34 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(breakdown.locator(".nutrient-sugar_content")).toHaveCount(0);
   });
 
+  test("a visible micronutrient fills against its baked target (#40)", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    // Make Calcium a visible meter — the default selection is the three macros
+    // plus fibre, so calcium has no meter until it is toggled on.
+    await page.locator(".nav-item", { hasText: "Settings" }).click();
+    await page.locator('input[data-nutrient="calcium"]').check();
+    await page.locator(".nav-item", { hasText: "Food" }).click();
+
+    // Log a banana — it carries 5 mg calcium per 100 g. Before #40 a visible
+    // micronutrient had no target, so its meter rendered an empty (no-target)
+    // track; now it fills against its baked FDA Daily Value (1300 mg).
+    await logUsdaFood(page, "breakfast", "banana", "Mock Banana", "100");
+
+    const calcium = page.locator(".macro-item.calcium");
+    await expect(calcium).toContainText("Calcium");
+    // The meter now shows a formatted target and a fill bar — neither existed
+    // before this ticket. Assert on presence (not pixel width) so a small fill
+    // percent can't flake the check.
+    await expect(calcium).toContainText("/ 1300 mg");
+    await expect(calcium.locator(".progress-bar-fill")).toHaveCount(1);
+    await expect(calcium.locator(".progress-bar-bg.no-target")).toHaveCount(0);
+  });
+
   // Route the USDA detail endpoint (`/food/{fdcId}`) — the source of household
   // portions (ADR-0030 §5), absent from the search response. Banana (171705)
   // carries portions; every other food hydrates to none, so the picker renders

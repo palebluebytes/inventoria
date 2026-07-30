@@ -11,6 +11,7 @@
     buildNutrientPills,
     nutrientShortLabel,
   } from "../../food/nutrient-display";
+  import { resolveNutrientTargets } from "../../food/nutrition-targets";
   import {
     settingsStore,
     nutritionDisplayDecimals,
@@ -81,15 +82,16 @@
   // Selected day's consumption, narrowed from the global projection on the main thread
   let dayItems = $derived(consumptionForDay($consumptionStore, selectedDate));
 
-  // Default target goals (typical active adult defaults, premium UI targets).
-  // Only the three macros carry a target; a newly-shown nutrient renders its
-  // total with no bar (see buildNutrientMeters).
-  const targetCalories = 2000;
-  const NUTRIENT_TARGETS: Record<string, number> = {
-    protein: 130, // g
-    fat: 70, // g
-    carbs: 220, // g
-  };
+  // The resolved daily targets both surfaces read: the cited baked reference set
+  // (energy + macros + fibre + the twelve micronutrients) layered under the
+  // user's per-nutrient overrides via the merge resolver (ADR-0031 §1/§2). An
+  // untouched target stays baked; a `> 0` override wins; a `0` opts a nutrient
+  // out of a bar. `energy` clamps a non-positive override back to 2000 kcal so
+  // the always-on ring can never be target-less. Every visible micronutrient now
+  // fills against its FDA Daily Value instead of an empty track.
+  let resolvedTargets = $derived(
+    resolveNutrientTargets($settingsStore.food_targets)
+  );
 
   // The full day breakdown for ANY nutrient, summed from each event's frozen
   // metrics (#28's totalNutrition) — the single source the meters read from, so
@@ -103,7 +105,7 @@
     buildNutrientMeters(
       dayTotals,
       $settingsStore.visible_nutrients,
-      NUTRIENT_TARGETS,
+      resolvedTargets,
       $nutritionDisplayDecimals
     )
   );
@@ -182,7 +184,7 @@
 >
   <CalorieRing
     {totalCalories}
-    {targetCalories}
+    targetCalories={resolvedTargets.energy}
     decimals={$nutritionDisplayDecimals}
   />
 

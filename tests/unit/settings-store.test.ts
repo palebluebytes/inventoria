@@ -21,6 +21,7 @@ vi.mock("../../src/lib/db/db.client", () => ({
 import {
   settingsStore,
   saveSettings,
+  saveFoodTargets,
   nutritionDisplayDecimals,
 } from "../../src/lib/stores/settings.store";
 import { FOOD_DISPLAY_DECIMALS } from "../../src/lib/food/nutrition";
@@ -103,7 +104,7 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
     // to the array rather than String()-flatten to "protein,fiber_content".
     datomsWritable.set([
       {
-        attribute: "settings/visible_nutrients",
+        attribute: "settings/food/visible_nutrients",
         value: JSON.stringify(["protein", "fiber_content", "calcium"]),
         time: 1,
       },
@@ -119,7 +120,7 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
   it("honours an explicitly empty visible_nutrients list", () => {
     datomsWritable.set([
       {
-        attribute: "settings/visible_nutrients",
+        attribute: "settings/food/visible_nutrients",
         value: JSON.stringify([]),
         time: 1,
       },
@@ -130,7 +131,7 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
   it("falls back to the default when visible_nutrients is malformed", () => {
     datomsWritable.set([
       {
-        attribute: "settings/visible_nutrients",
+        attribute: "settings/food/visible_nutrients",
         value: JSON.stringify("not-an-array"),
         time: 1,
       },
@@ -150,7 +151,7 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
   it("decodes a stored round_nutrition boolean", () => {
     datomsWritable.set([
       {
-        attribute: "settings/round_nutrition",
+        attribute: "settings/food/round_nutrition",
         value: JSON.stringify(true),
         time: 1,
       },
@@ -158,7 +159,7 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
     expect(get(settingsStore).round_nutrition).toBe(true);
     datomsWritable.set([
       {
-        attribute: "settings/round_nutrition",
+        attribute: "settings/food/round_nutrition",
         value: JSON.stringify(false),
         time: 2,
       },
@@ -169,12 +170,60 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
   it("treats a malformed round_nutrition value as false (stays exact)", () => {
     datomsWritable.set([
       {
-        attribute: "settings/round_nutrition",
+        attribute: "settings/food/round_nutrition",
         value: JSON.stringify("yes"),
         time: 1,
       },
     ]);
     expect(get(settingsStore).round_nutrition).toBe(false);
+  });
+
+  it("defaults food_targets to an empty override map when unset", () => {
+    // No datom → no overrides; every target resolves to its baked default.
+    expect(get(settingsStore).food_targets).toEqual({});
+  });
+
+  it("folds a stored food/targets blob back to the override map", () => {
+    datomsWritable.set([
+      {
+        attribute: "settings/food/targets",
+        value: JSON.stringify({ protein: 160, calcium: 0, energy: 2200 }),
+        time: 1,
+      },
+    ]);
+    expect(get(settingsStore).food_targets).toEqual({
+      protein: 160,
+      calcium: 0,
+      energy: 2200,
+    });
+  });
+
+  it("filters a food/targets blob to reach-toward keys and numeric values", () => {
+    // A stray limit-nutrient key or a non-numeric value must never reach the
+    // resolver — the collapse drops both.
+    datomsWritable.set([
+      {
+        attribute: "settings/food/targets",
+        value: JSON.stringify({
+          protein: 160,
+          sodium_content: 100, // limit nutrient — not targetable
+          calcium: "lots", // non-numeric — dropped
+        }),
+        time: 1,
+      },
+    ]);
+    expect(get(settingsStore).food_targets).toEqual({ protein: 160 });
+  });
+
+  it("tolerates a malformed food/targets value (folds to empty)", () => {
+    datomsWritable.set([
+      {
+        attribute: "settings/food/targets",
+        value: JSON.stringify("not-an-object"),
+        time: 1,
+      },
+    ]);
+    expect(get(settingsStore).food_targets).toEqual({});
   });
 
   it("reflects reactive updates to the underlying datoms", () => {
@@ -197,7 +246,7 @@ describe("nutritionDisplayDecimals (derived display precision)", () => {
   it("drops to 0 places when whole-number display is enabled", () => {
     datomsWritable.set([
       {
-        attribute: "settings/round_nutrition",
+        attribute: "settings/food/round_nutrition",
         value: JSON.stringify(true),
         time: 1,
       },
@@ -240,7 +289,7 @@ describe("saveSettings", () => {
     );
     // The value is the array itself (ingest/db.core JSON-encode on write); the
     // collapse decodes it back, so the round trip returns the same list.
-    expect(byAttr["settings/visible_nutrients"]).toEqual([
+    expect(byAttr["settings/food/visible_nutrients"]).toEqual([
       "protein",
       "calcium",
     ]);
@@ -258,6 +307,36 @@ describe("saveSettings", () => {
     const byAttr = Object.fromEntries(
       datoms.map((d) => [d.attribute, d.value])
     );
-    expect(byAttr["settings/round_nutrition"]).toBe(true);
+    expect(byAttr["settings/food/round_nutrition"]).toBe(true);
+  });
+
+  it("does not write the food/targets datom (targets ride their own writer)", async () => {
+    // Toggling visibility/rounding must never touch a user's targets (ADR-0031
+    // §2): saveSettings writes only the credentials + the two display datoms.
+    await saveSettings({
+      usda_api_key: "U",
+      tmdb_api_key: "T",
+      scraper_proxy_url: "P",
+      visible_nutrients: ["protein"],
+      round_nutrition: false,
+    });
+    const datoms = appendMock.mock.calls[0][0] as any[];
+    const attrs = datoms.map((d) => d.attribute);
+    expect(attrs).not.toContain("settings/food/targets");
+  });
+});
+
+describe("saveFoodTargets", () => {
+  it("appends only the food/targets datom, independent of the other settings", async () => {
+    await saveFoodTargets({ protein: 160, calcium: 0 });
+    expect(appendMock).toHaveBeenCalledTimes(1);
+    const datoms = appendMock.mock.calls[0][0] as any[];
+    expect(datoms).toHaveLength(1);
+    const [datom] = datoms;
+    expect(datom.entity).toBe("settings:global");
+    expect(datom.attribute).toBe("settings/food/targets");
+    // The value is the map itself (ingest/db.core JSON-encode on write); the
+    // collapse decodes and re-filters it back on read.
+    expect(datom.value).toEqual({ protein: 160, calcium: 0 });
   });
 });

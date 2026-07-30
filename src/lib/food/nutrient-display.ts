@@ -167,6 +167,24 @@ export function formatNutrientValue(
   return `${roundFoodDisplay(scaled, decimals)} ${unit}`;
 }
 
+/**
+ * The pure inverse of {@link formatNutrientValue}: turns a target typed in a
+ * nutrient's display unit back into the stored canonical unit (grams for mass,
+ * kcal passed through for energy). `parseNutrientEntry(500, "mg")` → `0.5`
+ * (grams); `parseNutrientEntry(12.5, "g")` → `12.5`; `parseNutrientEntry(2000,
+ * "kcal")` → `2000`. Round-trips with {@link formatNutrientValue} so a target
+ * shown then re-entered is unchanged; a non-numeric input reads as 0, never NaN.
+ * The editor edge (ticket #41) is the only place display units exist — storage
+ * stays grams/kcal end-to-end (ADR-0031).
+ */
+export function parseNutrientEntry(
+  displayValue: number,
+  unit: NutrientUnit | "kcal"
+): number {
+  const n = Number(displayValue) || 0;
+  return unit === "kcal" ? n : n / UNIT_SCALE[unit];
+}
+
 /** Formats a calories total, always shown in kcal — the always-on headline. */
 export function formatCalories(
   kcal: number,

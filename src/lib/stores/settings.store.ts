@@ -6,6 +6,7 @@ import { parseDatomValue } from "../db/datom-fold";
 import { HLC_ORDER_ASC } from "../db/hlc";
 import { DEFAULT_VISIBLE_NUTRIENTS } from "../food/nutrient-display";
 import { FOOD_DISPLAY_DECIMALS } from "../food/nutrition";
+import { REACH_TOWARD_KEYS } from "../food/nutrition-targets";
 
 // Settings values are opaque strings. They're stored JSON-encoded (db.core
 // wraps every value in JSON.stringify), so read them back through the shared
@@ -47,6 +48,17 @@ export interface SettingsState {
    * `visible_nutrients` it is NOT a `SETTINGS_STRING_ATTR`.
    */
   round_nutrition: boolean;
+  /**
+   * User overrides for the baked daily nutrition targets (ADR-0031 §2, #40): a
+   * partial `{ breakdown_key: number }` map filtered to the reach-toward key set
+   * ({@link REACH_TOWARD_KEYS}), each value in the **same canonical unit as the
+   * baked map** (grams for mass, kcal for energy). Presence/absence is the model:
+   * a key **absent** falls back to the baked default, **`> 0`** overrides it, and
+   * **`0`** opts the nutrient out of having a target (see `resolveNutrientTargets`).
+   * A JSON object, decoded through `parseDatomValue`; malformed → empty. Written
+   * independently of the visibility/round datoms via {@link saveFoodTargets}.
+   */
+  food_targets: Partial<Record<string, number>>;
 }
 
 /**
@@ -55,9 +67,36 @@ export interface SettingsState {
  * back to the default so the display layer always gets a clean `string[]`.
  */
 function parseVisibleNutrients(rawValue: string): string[] {
-  const parsed = parseDatomValue("settings/visible_nutrients", rawValue);
+  const parsed = parseDatomValue("settings/food/visible_nutrients", rawValue);
   if (!Array.isArray(parsed)) return DEFAULT_VISIBLE_NUTRIENTS;
   return parsed.filter((k): k is string => typeof k === "string");
+}
+
+/**
+ * Reads the food-targets override map off its blob datom, tolerating anything
+ * malformed — a non-object (older/garbage value) folds to an empty override, and
+ * entries are kept only when the key is in the reach-toward set and the value is
+ * a finite number. So a stored blob can never carry a target for a limit nutrient
+ * or a non-numeric value into the resolver (ADR-0031 §2).
+ */
+function parseFoodTargets(rawValue: string): Partial<Record<string, number>> {
+  const parsed = parseDatomValue("settings/food/targets", rawValue);
+  if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return {};
+  }
+  const targets: Record<string, number> = {};
+  for (const [key, value] of Object.entries(
+    parsed as Record<string, unknown>
+  )) {
+    if (
+      REACH_TOWARD_KEYS.has(key) &&
+      typeof value === "number" &&
+      Number.isFinite(value)
+    ) {
+      targets[key] = value;
+    }
+  }
+  return targets;
 }
 
 // Derived store to collapse datoms to latest values and inject fallbacks
@@ -71,20 +110,28 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
     visible_nutrients: DEFAULT_VISIBLE_NUTRIENTS,
     // Unset → exact display (2-dp), the shipped baseline.
     round_nutrition: false,
+    // Unset → no overrides; every target resolves to its baked default.
+    food_targets: {},
   };
 
   for (const d of $datoms) {
     // visible_nutrients is a JSON array, not an opaque string — decode it to a
     // list rather than String()-coercing it (which would flatten to "a,b").
-    if (d.attribute === "settings/visible_nutrients") {
+    if (d.attribute === "settings/food/visible_nutrients") {
       settings.visible_nutrients = parseVisibleNutrients(d.value);
       continue;
     }
     // round_nutrition is a JSON boolean, decoded like visible_nutrients — only a
     // literal `true` enables it, so any malformed/legacy value stays exact.
-    if (d.attribute === "settings/round_nutrition") {
+    if (d.attribute === "settings/food/round_nutrition") {
       settings.round_nutrition =
-        parseDatomValue("settings/round_nutrition", d.value) === true;
+        parseDatomValue("settings/food/round_nutrition", d.value) === true;
+      continue;
+    }
+    // food_targets is a JSON override map, decoded and filtered to the
+    // reach-toward key set — a separate datom from the two above (ADR-0031 §2).
+    if (d.attribute === "settings/food/targets") {
+      settings.food_targets = parseFoodTargets(d.value);
       continue;
     }
     const value = String(
@@ -102,8 +149,13 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
   return settings;
 });
 
-// Helper to update settings in the ledger
-export async function saveSettings(state: SettingsState): Promise<void> {
+// Helper to update settings in the ledger. Writes the API credentials and the
+// two Nutrition Display datoms; the food-targets override is a separate datom
+// written independently via saveFoodTargets (ADR-0031 §2/§3), so toggling
+// visibility or rounding never touches a user's targets and vice versa.
+export async function saveSettings(
+  state: Omit<SettingsState, "food_targets">
+): Promise<void> {
   const timestamp = Date.now();
   const datoms = ingestEntity(
     {
@@ -114,11 +166,34 @@ export async function saveSettings(state: SettingsState): Promise<void> {
         "settings/scraper_proxy_url": state.scraper_proxy_url,
         // A list value — stored JSON-encoded like every datom, read back as an
         // array. Default when a caller omits it (e.g. a pre-#29 save).
-        "settings/visible_nutrients":
+        "settings/food/visible_nutrients":
           state.visible_nutrients ?? DEFAULT_VISIBLE_NUTRIENTS,
         // Boolean value; default off when a caller omits it (e.g. a pre-toggle
         // save path).
-        "settings/round_nutrition": state.round_nutrition ?? false,
+        "settings/food/round_nutrition": state.round_nutrition ?? false,
+      },
+    },
+    timestamp
+  );
+  await dbClient.append(datoms);
+}
+
+/**
+ * Persists the user's daily-target overrides as a single blob datom
+ * `settings/food/targets`, independent of the visibility/round datoms (ADR-0031
+ * §2). The map is a partial `{ breakdown_key: number }` in canonical units; the
+ * collapse re-filters it to the reach-toward set on read, so a caller need only
+ * pass the keys the user has touched (absent → baked default, `0` → opt-out).
+ */
+export async function saveFoodTargets(
+  targets: Partial<Record<string, number>>
+): Promise<void> {
+  const timestamp = Date.now();
+  const datoms = ingestEntity(
+    {
+      entity: "settings:global",
+      attributes: {
+        "settings/food/targets": targets,
       },
     },
     timestamp

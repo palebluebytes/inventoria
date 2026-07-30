@@ -4,6 +4,7 @@ import {
   DEFAULT_VISIBLE_NUTRIENTS,
   selectedNutrients,
   formatNutrientValue,
+  parseNutrientEntry,
   formatCalories,
   buildNutrientMeters,
   buildNutrientPills,
@@ -127,11 +128,47 @@ describe("formatNutrientValue", () => {
     expect(formatCalories(133.5)).toBe("133.5 kcal");
   });
 
-  it("rounds to whole numbers when decimals=0 (settings/round_nutrition)", () => {
+  it("rounds to whole numbers when decimals=0 (settings/food/round_nutrition)", () => {
     // The whole-number display mode passes 0 places; the exact default keeps 2.
     expect(formatCalories(133.5, 0)).toBe("134 kcal");
     expect(formatNutrientValue(12.345, "g", 0)).toBe("12 g");
     expect(formatNutrientValue(0.5, "mg", 0)).toBe("500 mg");
+  });
+});
+
+describe("parseNutrientEntry (inverse of formatNutrientValue)", () => {
+  it("converts a display value back to stored grams per unit", () => {
+    expect(parseNutrientEntry(12.5, "g")).toBe(12.5);
+    expect(parseNutrientEntry(500, "mg")).toBe(0.5);
+    expect(parseNutrientEntry(10, "µg")).toBe(0.00001);
+  });
+
+  it("passes an energy value through in kcal (no gram conversion)", () => {
+    expect(parseNutrientEntry(2000, "kcal")).toBe(2000);
+  });
+
+  it("reads a NaN input as 0, never NaN (mirrors formatNutrientValue)", () => {
+    expect(parseNutrientEntry(NaN, "mg")).toBe(0);
+  });
+
+  it("round-trips with formatNutrientValue across g/mg/µg", () => {
+    // format scales grams → display units; parse of that same display number
+    // returns the original grams. Exercise a value per unit.
+    const cases: Array<[number, "g" | "mg" | "µg"]> = [
+      [12.5, "g"],
+      [0.5, "mg"],
+      [0.42, "mg"],
+      [0.00002, "µg"],
+    ];
+    for (const [grams, unit] of cases) {
+      const shown = Number(formatNutrientValue(grams, unit).split(" ")[0]);
+      expect(parseNutrientEntry(shown, unit)).toBeCloseTo(grams, 10);
+    }
+  });
+
+  it("round-trips a kcal energy value with formatCalories", () => {
+    const shown = Number(formatCalories(2000).split(" ")[0]);
+    expect(parseNutrientEntry(shown, "kcal")).toBe(2000);
   });
 });
 
