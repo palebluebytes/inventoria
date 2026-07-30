@@ -601,4 +601,67 @@ describe("searchFdc", () => {
     expect(results[1].entity).toBe("fdc:203"); // Soy milk, unsweetened
     expect(results[2].entity).toBe("fdc:201"); // Beverages, rice milk
   });
+
+  it("deduplicates the same food across datasets by ndbNumber despite differing descriptions", async () => {
+    // The real chia case: USDA carries one food as two records with unrelated
+    // descriptions across Foundation and SR Legacy, linked only by ndbNumber.
+    // Keying dedup on the description leaves both; keying on ndbNumber collapses
+    // them, and the Foundation re-sample (nicer description) wins.
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        foods: [
+          {
+            fdcId: 170554,
+            description: "Seeds, chia seeds, dried",
+            dataType: "SR Legacy",
+            ndbNumber: 12006,
+            foodNutrients: [],
+          },
+          {
+            fdcId: 2710819,
+            description: "Chia seeds, dry, raw",
+            dataType: "Foundation",
+            ndbNumber: 12006,
+            foodNutrients: [],
+          },
+        ],
+      }),
+    } as Response);
+
+    const results = await searchFdc("chia", "KEY");
+
+    expect(results).toHaveLength(1);
+    expect(results[0].entity).toBe("fdc:2710819"); // Foundation re-sample wins
+    expect(results[0].attributes["food/name"]).toBe("Chia seeds, dry, raw");
+  });
+
+  it("keeps records with no ndbNumber distinct, deduping them by description", async () => {
+    // The fallback path: a record lacking ndbNumber must not collide with other
+    // ndbNumber-less records on `undefined`; each stays keyed by its description.
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        foods: [
+          {
+            fdcId: 301,
+            description: "Homemade trail mix",
+            dataType: "SR Legacy",
+            foodNutrients: [],
+          },
+          {
+            fdcId: 302,
+            description: "Homemade granola",
+            dataType: "SR Legacy",
+            foodNutrients: [],
+          },
+        ],
+      }),
+    } as Response);
+
+    const results = await searchFdc("homemade", "KEY");
+
+    expect(results).toHaveLength(2);
+    expect(results.map((r) => r.entity).sort()).toEqual(["fdc:301", "fdc:302"]);
+  });
 });

@@ -135,6 +135,23 @@ everything else, mapped at lookup time.
 Both adapters bump their `ADAPTER_VERSION` (the mapper-version marker), since the
 FDC → panel/twin and OFF → panel/twin normalisations now emit new keys.
 
+**Search dedup keys on `ndbNumber`, not the description.** Foundation and SR
+Legacy carry one food as two records with different free-text descriptions (e.g.
+chia's "Chia seeds, dry, raw" vs "Seeds, chia seeds, dried"), so the original
+description-string dedup left both as separate results. USDA links them by the
+Standard Reference food number (`ndbNumber`), which the Foundation re-sample
+inherits from the SR Legacy record — present on 100% of Foundation/SR Legacy
+search hits sampled — so `searchFdc` now dedups by `ndbNumber` (still preferring
+Foundation), falling back to the description only for the rare hit without one.
+This is safe because dedup runs over the in-memory result set only: the
+append-only ledger is untouched, logged history freezes its own macros, and food
+refs are already soft/danglable (ADR-0022), so a different winning `fdcId` in a
+future search can never orphan an existing log or recipe. Known limitation: USDA
+occasionally reuses one `ndbNumber` across genuinely distinct foods (e.g. ndb 9501
+spans a Foundation "honeycrisp" and an SR Legacy "golden delicious" apple), which
+this collapses; a description-token-similarity guard is the fix if that proves
+noticeable.
+
 ## Consequences
 
 - **Food-bearing twins now carry** `food/name`, `food/category`,

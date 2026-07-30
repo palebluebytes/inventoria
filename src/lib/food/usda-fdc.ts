@@ -46,6 +46,13 @@ export interface FdcFood {
   fdcId: number;
   description: string;
   dataType: string;
+  // The Standard Reference food number. When USDA re-samples an SR Legacy food
+  // into the newer Foundation dataset the Foundation record inherits the same
+  // ndbNumber, so it links the two datasets' records of one food where the
+  // free-text descriptions don't (e.g. "Chia seeds, dry, raw" / "Seeds, chia
+  // seeds, dried" both carry ndbNumber 12006). Optional: a rare record omits it,
+  // in which case dedup falls back to the description.
+  ndbNumber?: number;
   foodNutrients: FdcNutrient[];
   // Record-level food-identity metadata carried on the search hit (ADR-0030).
   // Both are optional: SR Legacy foods often omit scientificName, and either can
@@ -357,17 +364,28 @@ export async function searchFdc(
   }
   const data: { foods: FdcFood[] } = await res.json();
 
-  // Deduplicate by description, preferring Foundation over SR Legacy
-  const foodMap = new Map<string, FdcFood>();
+  // Deduplicate by USDA food identity (ndbNumber), preferring Foundation over
+  // SR Legacy. Keying on ndbNumber — not the description — collapses the two
+  // records USDA carries for one food across the Foundation and SR Legacy
+  // datasets, whose descriptions it rewrites between them (e.g. chia's "Chia
+  // seeds, dry, raw" vs "Seeds, chia seeds, dried", both ndbNumber 12006).
+  const foodMap = new Map<string | number, FdcFood>();
   for (const food of data.foods ?? []) {
-    const key = food.description.toLowerCase().trim();
-    if (foodMap.has(key)) {
-      const existing = foodMap.get(key)!;
-      // If the existing one is SR Legacy and the new one is Foundation, replace it.
-      if (existing.dataType === "SR Legacy" && food.dataType === "Foundation") {
-        foodMap.set(key, food);
-      }
-    } else {
+    // Fall back to the description for the rare record with no ndbNumber, so it
+    // still dedups exactly as before rather than colliding on `undefined`. Use
+    // `??` (not `||`) and a `desc:` prefix so a numeric id and a description key
+    // can never collide.
+    const key =
+      food.ndbNumber ?? `desc:${food.description.toLowerCase().trim()}`;
+    const existing = foodMap.get(key);
+    if (!existing) {
+      foodMap.set(key, food);
+    } else if (
+      existing.dataType === "SR Legacy" &&
+      food.dataType === "Foundation"
+    ) {
+      // Replace an SR Legacy record with the Foundation re-sample of the same
+      // food; its natural-language description also survives as a nicety.
       foodMap.set(key, food);
     }
   }
