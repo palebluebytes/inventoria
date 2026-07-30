@@ -31,6 +31,12 @@
     selectedDate = newDate;
   }
 
+  // Snap back to the current day — the escape hatch after paging away by week
+  // or tapping an earlier day.
+  function goToToday() {
+    selectedDate = new Date();
+  }
+
   function isSameDay(d1: Date, d2: Date) {
     return (
       d1.getFullYear() === d2.getFullYear() &&
@@ -38,43 +44,79 @@
       d1.getDate() === d2.getDate()
     );
   }
+
+  // Only offer "Today" when we've navigated off it — no point when the selected
+  // day already is today.
+  let onToday = $derived(isSameDay(selectedDate, new Date()));
+
+  // The scrollable day row. On a narrow strip only ~3 of the 7 days fit, so keep
+  // the selected day centred in view — on first render and after every change
+  // (a day tap, a week page, or the Today snap-back). Purely horizontal: we set
+  // scrollLeft rather than scrollIntoView so the page never scrolls vertically.
+  let daysEl = $state<HTMLDivElement>();
+  $effect(() => {
+    selectedDate; // re-centre whenever the selection moves
+    const el = daysEl;
+    if (!el) return;
+    const active = el.querySelector<HTMLElement>(".day-btn.active");
+    if (!active) return;
+    // Nudge scrollLeft by the gap between the active button's centre and the
+    // viewport's centre. Measured via getBoundingClientRect (not offsetLeft, which
+    // is relative to an unpredictable offsetParent), and clamped by the browser at
+    // the week's edges — a near-boundary day simply lands as centred as it can.
+    const elRect = el.getBoundingClientRect();
+    const aRect = active.getBoundingClientRect();
+    el.scrollLeft +=
+      aRect.left - elRect.left - (el.clientWidth - aRect.width) / 2;
+  });
 </script>
 
-<div class="week-strip-container">
-  <button
-    class="nav-arrow"
-    onclick={() => changeWeek(-1)}
-    aria-label="Previous Week"
-  >
-    &larr;
-  </button>
-  <div class="week-days">
-    {#each weekDays as day}
-      {@const active = isSameDay(day, selectedDate)}
-      {@const isToday = isSameDay(day, new Date())}
-      <button
-        class="day-btn"
-        class:active
-        class:is-today={isToday}
-        onclick={() => selectDate(day)}
-      >
-        <span class="day-label">
-          {day.toLocaleDateString("en-US", { weekday: "short" })}
-        </span>
-        <span class="day-number">{day.getDate()}</span>
-      </button>
-    {/each}
+<div class="week-strip">
+  <div class="week-strip-container">
+    <button
+      class="nav-arrow"
+      onclick={() => changeWeek(-1)}
+      aria-label="Previous Week"
+    >
+      &larr;
+    </button>
+    <div class="week-days" bind:this={daysEl}>
+      {#each weekDays as day}
+        {@const active = isSameDay(day, selectedDate)}
+        {@const isToday = isSameDay(day, new Date())}
+        <button
+          class="day-btn"
+          class:active
+          class:is-today={isToday}
+          onclick={() => selectDate(day)}
+        >
+          <span class="day-label">
+            {day.toLocaleDateString("en-US", { weekday: "short" })}
+          </span>
+          <span class="day-number">{day.getDate()}</span>
+        </button>
+      {/each}
+    </div>
+    <button
+      class="nav-arrow"
+      onclick={() => changeWeek(1)}
+      aria-label="Next Week"
+    >
+      &rarr;
+    </button>
   </div>
-  <button
-    class="nav-arrow"
-    onclick={() => changeWeek(1)}
-    aria-label="Next Week"
-  >
-    &rarr;
-  </button>
+  {#if !onToday}
+    <button class="today-btn" onclick={goToToday}>Today</button>
+  {/if}
 </div>
 
 <style>
+  .week-strip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-xs);
+  }
   .week-strip-container {
     display: flex;
     align-items: center;
@@ -83,6 +125,26 @@
     border: 1px solid #000;
     border-radius: 0;
     padding: var(--space-xs);
+    width: 100%;
+  }
+  /* Retro pill matching the strip's black-on-white border language; inverts on
+     hover like the day buttons. Only rendered when off today. */
+  .today-btn {
+    background: #fff;
+    border: 1px solid #000;
+    border-radius: 0;
+    color: #000;
+    font-size: var(--step-n2);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: var(--space-3xs) var(--space-m);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .today-btn:hover {
+    background: #000;
+    color: #fff;
   }
   .nav-arrow {
     background: none;

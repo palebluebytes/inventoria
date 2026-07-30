@@ -375,6 +375,31 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.locator(".calories-sub")).toContainText("2000");
   });
 
+  test("the Today button appears off-today and snaps the strip back", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+
+    const header = page.locator(".dashboard-header h2");
+    const todayHeader = (await header.textContent())?.trim() ?? "";
+    const todayBtn = page.getByRole("button", { name: "Today", exact: true });
+
+    // On today there is nothing to snap back to — the button is absent.
+    await expect(todayBtn).toHaveCount(0);
+
+    // Page back a week: the selected day leaves today, so the header changes and
+    // the button appears.
+    await page.getByRole("button", { name: "Previous Week" }).click();
+    await expect(header).not.toHaveText(todayHeader);
+    await expect(todayBtn).toBeVisible();
+
+    // Tapping Today returns to the current day and the button hides again.
+    await todayBtn.click();
+    await expect(header).toHaveText(todayHeader);
+    await expect(todayBtn).toHaveCount(0);
+  });
+
   test("opens the log sheet directly and logs a USDA food", async ({
     page,
   }) => {
