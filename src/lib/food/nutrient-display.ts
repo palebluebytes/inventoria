@@ -286,6 +286,24 @@ export interface NutrientRow {
 }
 
 /**
+ * A plain labelled row for a catalogued nutrient's day total, formatted in its
+ * display unit — the shared shape of the full breakdown ({@link buildNutrientBreakdown},
+ * #30) and the RDA view's "Not tracked" section ({@link buildDayRdaView}, #42), so
+ * the two can never format the same nutrient differently.
+ */
+function nutrientRow(
+  breakdown: NutritionBreakdown,
+  d: NutrientDescriptor,
+  decimals: number
+): NutrientRow {
+  return {
+    key: d.key,
+    label: d.label,
+    value: formatNutrientValue(totalFor(breakdown, d.key), d.unit, decimals),
+  };
+}
+
+/**
  * Builds the full nutrient breakdown for a (already-scaled) panel — the ordered
  * list a food's disclosure/expander renders (ticket #30, parent #21). Leads with
  * the always-on Calories row, then every catalogued nutrient the breakdown
@@ -312,13 +330,188 @@ export function buildNutrientBreakdown(
   ];
   for (const d of NUTRIENT_CATALOGUE) {
     if (!(d.key in breakdown)) continue;
-    rows.push({
-      key: d.key,
-      label: d.label,
-      value: formatNutrientValue(totalFor(breakdown, d.key), d.unit, decimals),
-    });
+    rows.push(nutrientRow(breakdown, d, decimals));
   }
   return rows;
+}
+
+/**
+ * The full-day RDA view's "Energy & macros" section, in display order: Calories
+ * lead (the always-on ring's nutrient — target keyed `energy`, shown in kcal),
+ * then the four reach-toward macros. The twelve micronutrients form the sibling
+ * "Vitamins & minerals" section; both are derived from the reach-toward key set,
+ * so a new reach-toward macro added here lands in the right section on its own.
+ */
+const RDA_MACRO_KEYS = ["protein", "fat", "carbs", "fiber_content"] as const;
+
+/**
+ * One targeted row of the full-day RDA-vs-target modal (ticket #42): a
+ * reach-toward nutrient shown against its resolved target with a fill bar.
+ * `value` is the formatted day total, or {@link ABSENT_NUTRIENT} (`—`) when the
+ * day carried none of it — absent stays distinct from a reported `0` (ADR-0030 /
+ * #21). `fill` is the bar width (0–100); `over` marks a day total past target
+ * (bar full + amber). Pure: the modal draws the bar from these numbers.
+ */
+export interface DayRdaRow {
+  key: string;
+  label: string;
+  /** Formatted day total, or {@link ABSENT_NUTRIENT} when the day carried none. */
+  value: string;
+  /** Formatted target, e.g. "125 g" / "2000 kcal". */
+  target: string;
+  /** Percent of target, clamped 0–100 for the bar width. */
+  fill: number;
+  /** Day total exceeds target — the bar fills full and tints amber. */
+  over: boolean;
+  /** The day carried none of this nutrient (`value` reads as `—`). */
+  absent: boolean;
+}
+
+/**
+ * One entry in the modal's "Biggest gaps" strip — the **only** place a percentage
+ * appears in the full-day view, and it is a shortfall *ranking* signal, not a
+ * "% DV" readout (ADR-0031 §4 / #34). `percent` is the day total as a whole-number
+ * percent of target, or `null` for "no data" — a nutrient the day never carried,
+ * *or* carried only an amount that rounds to 0 % (both the maximal gap, shown
+ * first). So a gap chip never reads "0 %".
+ */
+export interface DayRdaGap {
+  key: string;
+  label: string;
+  percent: number | null;
+}
+
+/**
+ * The four grouped sections of the full-day RDA-vs-target modal (ticket #42,
+ * ADR-0031 §4, Variant C): a Biggest-gaps ranking strip, the energy+macros rows,
+ * the vitamins+minerals rows, and the "Not tracked" plain rows for everything the
+ * day carried without a positive target (limit nutrients + `0` opt-outs). Built
+ * independent of `visible_nutrients` — this is the "everything, against target"
+ * surface, so the targeted sections show the full reach-toward set (absent ones
+ * as `— / target`), not just the user's selected meters.
+ */
+export interface DayRdaView {
+  gaps: DayRdaGap[];
+  macros: DayRdaRow[];
+  micros: DayRdaRow[];
+  untracked: NutrientRow[];
+}
+
+/**
+ * Builds the full-day RDA-vs-target view model (ticket #42) from a day's totals,
+ * the resolved per-nutrient targets, and the reach-toward key set. Beside
+ * {@link buildNutrientBreakdown} and just as pure — the `.svelte` modal renders
+ * the returned sections.
+ *
+ * - **Energy & macros / Vitamins & minerals** carry every reach-toward nutrient
+ *   with a positive target (a `0` opt-out drops out, see below), each as a
+ *   {@link DayRdaRow}: a fill bar against `override ?? baked`. A nutrient the day
+ *   never carried still appears, reading `— / target` (absent ≠ 0). Calories lead
+ *   the macros — its total lives under the `calories` key, its target under
+ *   `energy` (kcal), and the always-on ring means it is always shown.
+ * - **Not tracked** is every nutrient the day *carried* that has no positive
+ *   target — the limit nutrients (sodium, saturated/trans fat, cholesterol, sugar)
+ *   and any reach-toward key opted out to `0` — as a plain value with no bar.
+ * - **Biggest gaps** ranks the targeted nutrients furthest below target (the sole
+ *   percentage in the modal): the "no data" ones first (absent, or carried only a
+ *   rounds-to-0 % amount — `percent` `null`), then the `gapLimit` present nutrients
+ *   with the lowest fill. A met or over-target nutrient has no shortfall and is
+ *   never a gap.
+ */
+export function buildDayRdaView(
+  breakdown: NutritionBreakdown,
+  targets: Partial<Record<string, number>>,
+  reachTowardKeys: ReadonlySet<string>,
+  decimals: number = FOOD_DISPLAY_DECIMALS,
+  gapLimit = 3
+): DayRdaView {
+  const hasTarget = (key: string): boolean => {
+    const t = targets[key];
+    return typeof t === "number" && t > 0;
+  };
+
+  // A targeted row: the day total against its target with a fill bar. `breakdownKey`
+  // and `targetKey` differ only for energy (total under `calories`, target under
+  // `energy`); every other nutrient keys both the same. An absent nutrient reads
+  // `—` and draws no bar; a present one fills toward — and can overrun — target.
+  const targetedRow = (
+    breakdownKey: keyof NutritionBreakdown,
+    targetKey: string,
+    label: string,
+    unit: NutrientUnit | "kcal"
+  ): DayRdaRow => {
+    const target = targets[targetKey] ?? 0;
+    const present = breakdownKey in breakdown;
+    const total = totalFor(breakdown, breakdownKey);
+    const fmt = (v: number): string =>
+      unit === "kcal"
+        ? formatCalories(v, decimals)
+        : formatNutrientValue(v, unit, decimals);
+    const bar = present && target > 0;
+    return {
+      key: breakdownKey,
+      label,
+      value: present ? fmt(total) : ABSENT_NUTRIENT,
+      target: fmt(target),
+      fill: bar ? Math.min((total / target) * 100, 100) : 0,
+      over: bar && total > target,
+      absent: !present,
+    };
+  };
+
+  // Energy & macros: Calories first (always on), then each reach-toward macro that
+  // still carries a positive target (an opt-out falls through to Not tracked).
+  const macros: DayRdaRow[] = [
+    targetedRow("calories", "energy", "Calories", "kcal"),
+  ];
+  for (const key of RDA_MACRO_KEYS) {
+    if (!hasTarget(key)) continue;
+    const d = BY_KEY.get(key);
+    if (d) macros.push(targetedRow(d.key, d.key, d.label, d.unit));
+  }
+
+  // Vitamins & minerals: the reach-toward nutrients that are neither energy nor a
+  // macro, in panel order — i.e. the twelve micronutrients (minus any opt-out).
+  const macroKeys = new Set<string>(RDA_MACRO_KEYS);
+  const micros: DayRdaRow[] = [];
+  for (const d of NUTRIENT_CATALOGUE) {
+    if (!reachTowardKeys.has(d.key) || macroKeys.has(d.key)) continue;
+    if (!hasTarget(d.key)) continue;
+    micros.push(targetedRow(d.key, d.key, d.label, d.unit));
+  }
+
+  // Not tracked: every catalogued nutrient the day carried that has no positive
+  // target — the limit nutrients and any reach-toward key opted out to 0 — as a
+  // plain value, no bar. Absent nutrients are omitted (nothing to show).
+  const untracked: NutrientRow[] = [];
+  for (const d of NUTRIENT_CATALOGUE) {
+    if (!(d.key in breakdown) || hasTarget(d.key)) continue;
+    untracked.push(nutrientRow(breakdown, d, decimals));
+  }
+
+  // Biggest gaps: the "no data" nutrients first — the day carried none, OR carried
+  // so little it rounds to 0 % of target — since both are the maximal gap and read
+  // identically; then the lowest-fill present nutrients still below target, capped.
+  // A ranking, not a % DV; a met or over-target nutrient has no shortfall, so it
+  // never appears.
+  const targeted = [...macros, ...micros];
+  // A gap's percent, or null for "no data": absent, or a total that rounds to 0 %.
+  const gapPercent = (r: DayRdaRow): number | null =>
+    r.absent ? null : Math.round(r.fill) || null;
+  const scored = targeted.map((r) => ({
+    gap: { key: r.key, label: r.label, percent: gapPercent(r) } as DayRdaGap,
+    fill: r.fill,
+  }));
+  const gaps: DayRdaGap[] = [
+    ...scored.filter((s) => s.gap.percent === null).map((s) => s.gap),
+    ...scored
+      .filter((s) => s.gap.percent !== null && s.fill < 100)
+      .sort((a, b) => a.fill - b.fill)
+      .slice(0, gapLimit)
+      .map((s) => s.gap),
+  ];
+
+  return { gaps, macros, micros, untracked };
 }
 
 /** One staged-food / preview pill: a labelled formatted value, no target. */

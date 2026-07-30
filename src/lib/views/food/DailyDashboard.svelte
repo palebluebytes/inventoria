@@ -7,11 +7,15 @@
   import { totalNutrition } from "../../food/consumption-state";
   import {
     buildNutrientMeters,
-    buildNutrientBreakdown,
     buildNutrientPills,
+    buildDayRdaView,
     nutrientShortLabel,
+    type DayRdaRow,
   } from "../../food/nutrient-display";
-  import { resolveNutrientTargets } from "../../food/nutrition-targets";
+  import {
+    resolveNutrientTargets,
+    REACH_TOWARD_KEYS,
+  } from "../../food/nutrition-targets";
   import {
     settingsStore,
     nutritionDisplayDecimals,
@@ -110,22 +114,27 @@
     )
   );
 
-  // The "show everything" day breakdown (ticket #31, parent #21): every nutrient
-  // the day's foods contributed, beyond the ring and the always-on selected
-  // meters. Built from the same frozen day totals via #30's shared
-  // buildNutrientBreakdown, so it reads identically to the per-ingredient list —
-  // Calories first, then each catalogued nutrient PRESENT in the total (a
-  // nutrient no logged food carried is absent, never shown as 0). Surfaced on
-  // demand: tapping the aggregates (ring + meters) opens it in a modal rather
-  // than an always-on disclosure below them.
-  let dayBreakdown = $derived(
-    buildNutrientBreakdown(dayTotals, $nutritionDisplayDecimals)
+  // The full-day RDA-vs-target view (ticket #42, ADR-0031 §4): the same day
+  // totals grouped against the resolved targets — Biggest gaps, Energy & macros,
+  // Vitamins & minerals, and Not tracked. Independent of `visible_nutrients`: the
+  // targeted sections carry the whole reach-toward set (an absent nutrient reads
+  // `— / target`), so the modal is the "everything, against target" surface while
+  // the meters above stay selection-gated.
+  let dayRda = $derived(
+    buildDayRdaView(
+      dayTotals,
+      resolvedTargets,
+      REACH_TOWARD_KEYS,
+      $nutritionDisplayDecimals
+    )
   );
 
-  // The modal only carries something once a food is logged — an empty day totals
-  // to just the Calories row, so there is nothing extra to reveal and the
-  // aggregates stay inert (matching the old disclosure's hide-when-empty rule).
-  let hasFullDay = $derived(dayBreakdown.length > 1);
+  // Whether any food has been logged for the day. The RDA sections always carry
+  // the full reach-toward set (every macro/micro shows, absent ones as
+  // `— / target`), so on an untouched day the modal would be a wall of "no data".
+  // Gate on real logged items: an empty day shows a plain "no food added" state
+  // instead, and only fills the sections once something is logged.
+  let hasLoggedFood = $derived(dayItems.length > 0);
   let showFullDay = $state(false);
 
   function formatDateHeader(date: Date): string {
@@ -171,13 +180,12 @@
 </div>
 
 <!-- Aggregates Grid — tapping anywhere on the ring + meters opens the full day
-     nutrition (every macro AND micronutrient) in a modal (ticket #31). It is a
-     bare button wrapper, so the presentational cards inside are unchanged. -->
+     RDA-vs-target modal (ticket #42). It is a bare button wrapper, so the
+     presentational cards inside are unchanged. Always tappable: an untouched day
+     opens to a plain "no food added" state rather than nothing. -->
 <button
   type="button"
-  class="aggregates-grid"
-  class:tappable={hasFullDay}
-  disabled={!hasFullDay}
+  class="aggregates-grid tappable"
   aria-haspopup="dialog"
   aria-label="Show full day nutrition"
   onclick={() => (showFullDay = true)}
@@ -305,9 +313,26 @@
   {/each}
 </div>
 
-<!-- Full day nutrition Modal: opened by tapping the aggregates. Lists Calories
-     first, then every macro and micronutrient the day's foods actually carried
-     (absent nutrients omitted, never shown as 0). -->
+<!-- One targeted RDA cell (Variant C): the label above a `value / target` figure
+     and a fill bar. Absent nutrients read `— / target`; an over-target nutrient
+     fills full and tints amber. Tiled into the Energy & macros card grid and the
+     Vitamins & minerals grid — the parent grid sets the density of each. -->
+{#snippet rdaCell(row: DayRdaRow)}
+  <div class="rda-cell nutrient-{row.key}" class:absent={row.absent}>
+    <span class="rda-cell-label">{row.label}</span>
+    <span class="rda-cell-vt" class:over={row.over}
+      >{row.value} <span class="rda-cell-target">/ {row.target}</span></span
+    >
+    <div class="rda-cell-bar" class:over={row.over}>
+      <div class="rda-cell-bar-fill" style="width: {row.fill}%"></div>
+    </div>
+  </div>
+{/snippet}
+
+<!-- Full day nutrition Modal: opened by tapping the aggregates. The full
+     RDA-vs-target picture (ticket #42) — a Biggest-gaps ranking strip, then every
+     reach-toward nutrient against its target (absent ones as `— / target`), then
+     the untargeted nutrients the day carried. Independent of visible_nutrients. -->
 {#if showFullDay}
   <Modal onClose={() => (showFullDay = false)} title="Full day nutrition">
     {#snippet children({ props, close })}
@@ -325,14 +350,62 @@
             onclick={close}>&times;</button
           >
         </header>
-        <dl class="day-nutrition-rows">
-          {#each dayBreakdown as row (row.key)}
-            <div class="day-nutrition-row nutrient-{row.key}">
-              <dt>{row.label}</dt>
-              <dd>{row.value}</dd>
+        <div class="day-rda-body">
+          {#if !hasLoggedFood}
+            <!-- Nothing logged: the reach-toward sections would be a wall of "no
+                 data", so show a plain empty state instead. -->
+            <div class="rda-empty" data-testid="rda-empty">
+              <p class="rda-empty-title">No food added yet</p>
+              <p class="rda-empty-hint">
+                Log a meal to see your day against target.
+              </p>
             </div>
-          {/each}
-        </dl>
+          {:else}
+            {#if dayRda.gaps.length > 0}
+              <div class="rda-group-head">Biggest gaps</div>
+              <div class="rda-gaps" data-testid="rda-gaps">
+                {#each dayRda.gaps as gap (gap.key)}
+                  <span class="rda-chip nutrient-{gap.key}">
+                    {gap.label}
+                    <span class="rda-chip-pct"
+                      >{gap.percent === null
+                        ? "no data"
+                        : `${gap.percent}%`}</span
+                    >
+                  </span>
+                {/each}
+              </div>
+            {/if}
+
+            <div class="rda-group-head">Energy &amp; macros</div>
+            <div class="macro-cards">
+              {#each dayRda.macros as row (row.key)}
+                {@render rdaCell(row)}
+              {/each}
+            </div>
+
+            {#if dayRda.micros.length > 0}
+              <div class="rda-group-head">Vitamins &amp; minerals</div>
+              <div class="micro-grid">
+                {#each dayRda.micros as row (row.key)}
+                  {@render rdaCell(row)}
+                {/each}
+              </div>
+            {/if}
+
+            {#if dayRda.untracked.length > 0}
+              <div class="rda-group-head">
+                Not tracked ({dayRda.untracked.length})
+              </div>
+              {#each dayRda.untracked as row (row.key)}
+                <div class="rda-untracked-row nutrient-{row.key}">
+                  <span class="rda-untracked-label">{row.label}</span>
+                  <span class="rda-untracked-value">{row.value}</span>
+                </div>
+              {/each}
+            {/if}
+          {/if}
+        </div>
       </div>
     {/snippet}
   </Modal>
@@ -388,12 +461,6 @@
   .aggregates-grid.tappable {
     cursor: pointer;
   }
-  /* An empty day has nothing to reveal: keep the block at full opacity (it is
-     just an inert wrapper) rather than dimming it like a disabled control. */
-  .aggregates-grid:disabled {
-    cursor: default;
-    opacity: 1;
-  }
   /* No focus frame around the block: it wraps the ring + meters purely as a tap
      target, and a full-width ring/outline reads as a stray border (it lingers
      after the modal closes and restores focus here). */
@@ -447,30 +514,159 @@
     cursor: pointer;
     color: var(--text-primary);
   }
-  .day-nutrition-rows {
+  /* Full-day RDA-vs-target body (#42): scrolls under the fixed header, four
+     `.rda-group-head` sections marking Biggest gaps / Energy & macros / Vitamins
+     & minerals / Not tracked. */
+  .day-rda-body {
     display: flex;
     flex-direction: column;
     overflow-y: auto;
   }
-  .day-nutrition-row {
+  /* Untouched-day empty state: a plain centred message in place of the sections. */
+  .rda-empty {
+    padding: var(--space-xl) var(--space-m);
+    text-align: center;
+  }
+  .rda-empty-title {
+    font-size: var(--step-0);
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .rda-empty-hint {
+    margin-top: var(--space-2xs);
+    font-size: var(--step-n2);
+    color: var(--text-secondary);
+  }
+  .rda-group-head {
+    font-size: var(--step-n3);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+    padding: var(--space-2xs) var(--space-m);
+    background: var(--track, #f4f4f5);
+    border-top: 1px solid var(--border, #000);
+    border-bottom: 1px solid var(--border-subtle, #e4e4e7);
+  }
+  .rda-group-head:first-child {
+    border-top: none;
+  }
+
+  /* Biggest gaps: a wrap of severity chips. The only percentage in the modal — a
+     shortfall ranking, not a % DV. "no data" marks a nutrient never logged. */
+  .rda-gaps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs);
+    padding: var(--space-xs) var(--space-m);
+  }
+  .rda-chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35em;
+    font-size: var(--step-n2);
+    font-weight: 700;
+    padding: var(--space-3xs) var(--space-2xs);
+    border: 1.5px solid var(--border, #000);
+    background: var(--food-surface-bg, #fff);
+    white-space: nowrap;
+  }
+  .rda-chip-pct {
+    font-variant-numeric: tabular-nums;
+    color: var(--rda-over, #b45309);
+  }
+
+  /* Energy & macros / Vitamins & minerals: two 2-column grids (Variant C). The
+     1px grid gap over a hairline background draws the lines between cells; each
+     cell paints its own surface over it. Macros are the headline-size cards,
+     micronutrients a denser tile of the same shape. */
+  .macro-cards,
+  .micro-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1px;
+    background: var(--border-subtle, #e4e4e7);
+  }
+  /* One targeted cell: label above a `value / target` figure above a fill bar —
+     the dashboard-meter idiom, tiled. Over-target tints amber; absent dims. */
+  .rda-cell {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3xs);
+    padding: var(--space-xs) var(--space-s);
+    background: var(--food-surface-bg, #fff);
+  }
+  .rda-cell-label {
+    font-size: var(--step-n3);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+  }
+  .rda-cell-vt {
+    font-weight: 800;
+    color: var(--text-primary);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .rda-cell-vt.over {
+    color: var(--rda-over, #b45309);
+  }
+  .rda-cell-target {
+    font-size: var(--step-n3);
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+  .rda-cell.absent .rda-cell-vt {
+    color: var(--text-muted);
+  }
+  .rda-cell-bar {
+    height: 6px;
+    background: #e4e4e7;
+    overflow: hidden;
+  }
+  .rda-cell-bar-fill {
+    height: 100%;
+    background: #000;
+  }
+  .rda-cell-bar.over .rda-cell-bar-fill {
+    background: var(--rda-over, #b45309);
+  }
+  /* Macro cards lead with the headline value size; the micro grid is denser. */
+  .macro-cards .rda-cell-vt {
+    font-size: var(--step-n1);
+  }
+  .micro-grid .rda-cell {
+    padding: var(--space-2xs) var(--space-s);
+  }
+  .micro-grid .rda-cell-vt {
+    font-size: var(--step-n2);
+    font-weight: 700;
+  }
+  .micro-grid .rda-cell-bar {
+    height: 5px;
+  }
+
+  /* Not tracked: plain value, no bar — the untargeted nutrients the day carried. */
+  .rda-untracked-row {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
     gap: var(--space-s);
     padding: var(--space-2xs) var(--space-m);
   }
-  .day-nutrition-row + .day-nutrition-row {
+  .rda-untracked-row + .rda-untracked-row {
     border-top: 1px solid var(--border-subtle, #e4e4e7);
   }
-  .day-nutrition-row dt {
+  .rda-untracked-label {
     font-size: var(--step-n2);
     color: var(--text-secondary);
   }
-  .day-nutrition-row dd {
+  .rda-untracked-value {
     font-size: var(--step-n2);
     font-weight: 700;
     color: var(--text-primary);
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
   }
 
   .timeline {

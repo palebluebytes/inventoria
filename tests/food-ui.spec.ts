@@ -491,13 +491,14 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     const breakdown = page.locator('[data-testid="day-nutrient-breakdown"]');
     await expect(breakdown).toHaveCount(0);
 
-    // Tap the ring + meters block to open the full day nutrition modal: the day
-    // totals for the macros AND the micronutrients the foods carried are shown,
-    // summed across the day's frozen event snapshots (#28).
+    // Tap the ring + meters block to open the full day RDA-vs-target modal (#42):
+    // the day totals for the macros AND the micronutrients the foods carried are
+    // shown against target, summed across the day's frozen event snapshots (#28).
     await page.getByRole("button", { name: "Show full day nutrition" }).click();
     await expect(breakdown).toBeVisible();
     await expect(breakdown.locator(".nutrient-calories")).toBeVisible();
-    // Calcium/iron total across just the two bananas that carried them.
+    // Calcium/iron total across just the two bananas that carried them, each shown
+    // against its baked target (#42 renders `value / target`).
     await expect(breakdown.locator(".nutrient-calcium")).toContainText(
       "Calcium"
     );
@@ -506,8 +507,14 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // A macro every food carries is present too.
     await expect(breakdown.locator(".nutrient-protein")).toBeVisible();
 
-    // Nutrients no logged food carried are omitted, never shown as 0.
-    await expect(breakdown.locator(".nutrient-fiber_content")).toHaveCount(0);
+    // A reach-toward nutrient no food carried is NOT omitted under #42 — it shows
+    // against its target with the absent marker (`— / 28 g`), distinct from a 0.
+    await expect(breakdown.locator(".nutrient-fiber_content")).toContainText(
+      "— / 28 g"
+    );
+    // Limit nutrients no food carried have no target, so with none logged they
+    // stay off the modal entirely (the "Not tracked" section only lists carried
+    // ones) — never shown as 0.
     await expect(breakdown.locator(".nutrient-sodium_content")).toHaveCount(0);
     await expect(breakdown.locator(".nutrient-sugar_content")).toHaveCount(0);
   });

@@ -10,10 +10,15 @@ import {
   buildNutrientMeters,
   buildNutrientPills,
   buildNutrientBreakdown,
+  buildDayRdaView,
   nutrientShortLabel,
   ABSENT_NUTRIENT,
 } from "../../src/lib/food/nutrient-display";
 import type { NutritionBreakdown } from "../../src/lib/food/nutrition";
+import {
+  REACH_TOWARD_KEYS,
+  resolveNutrientTargets,
+} from "../../src/lib/food/nutrition-targets";
 
 describe("nutrient catalogue", () => {
   it("offers the three macros plus fibre/sugar/sodium/the fats", () => {
@@ -244,6 +249,169 @@ describe("buildNutrientMeters", () => {
       "Carbs",
       "Fibre",
     ]);
+  });
+});
+
+describe("buildDayRdaView", () => {
+  // The baked resolved targets (no overrides) and the reach-toward key set the
+  // dashboard passes — energy 2000 kcal, protein 125 g, calcium 1.3 g, etc.
+  const baked = resolveNutrientTargets({});
+
+  // A realistic-ish day: macros + fibre, two micros, a genuine reported zero
+  // (trans fat) and a limit nutrient (sodium). Vitamin E, magnesium, etc. are
+  // absent — never reported. Values are stored grams (kcal for calories).
+  const day: NutritionBreakdown = {
+    calories: 1650,
+    protein: 98,
+    fat: 71, // over its 67 g target
+    carbs: 180,
+    fiber_content: 19,
+    calcium: 0.78, // 780 mg vs 1300 mg target
+    iron: 0.014, // 14 mg vs 18 mg target
+    trans_fat_content: 0, // a reported zero, not absent
+    sodium_content: 1.85, // 1850 mg — a limit nutrient, no target
+  };
+
+  it("leads Energy & macros with Calories, then the reach-toward macros in order", () => {
+    const view = buildDayRdaView(day, baked, REACH_TOWARD_KEYS);
+    expect(view.macros.map((r) => r.key)).toEqual([
+      "calories",
+      "protein",
+      "fat",
+      "carbs",
+      "fiber_content",
+    ]);
+    const cals = view.macros[0];
+    expect(cals.label).toBe("Calories");
+    expect(cals.value).toBe("1650 kcal");
+    expect(cals.target).toBe("2000 kcal");
+  });
+
+  it("puts the twelve micronutrients in Vitamins & minerals, none in macros", () => {
+    const view = buildDayRdaView(day, baked, REACH_TOWARD_KEYS);
+    expect(view.micros).toHaveLength(12);
+    expect(view.micros.map((r) => r.key)).toContain("calcium");
+    expect(view.micros.map((r) => r.key)).toContain("vitamin_e");
+    // No macro leaks into the micro section and vice versa.
+    expect(view.micros.map((r) => r.key)).not.toContain("protein");
+    expect(view.macros.map((r) => r.key)).not.toContain("calcium");
+  });
+
+  it("renders a carried nutrient as value / target with a fill bar", () => {
+    const view = buildDayRdaView(day, baked, REACH_TOWARD_KEYS);
+    const calcium = view.micros.find((r) => r.key === "calcium")!;
+    expect(calcium.value).toBe("780 mg");
+    expect(calcium.target).toBe("1300 mg");
+    expect(calcium.absent).toBe(false);
+    expect(calcium.over).toBe(false);
+    expect(calcium.fill).toBeCloseTo((0.78 / 1.3) * 100, 5);
+  });
+
+  it("renders an absent targeted nutrient as — / target, no fill", () => {
+    const view = buildDayRdaView(day, baked, REACH_TOWARD_KEYS);
+    const vitE = view.micros.find((r) => r.key === "vitamin_e")!;
+    expect(vitE.value).toBe(ABSENT_NUTRIENT);
+    expect(vitE.target).toBe("15 mg");
+    expect(vitE.absent).toBe(true);
+    expect(vitE.fill).toBe(0);
+    expect(vitE.over).toBe(false);
+  });
+
+  it("marks an over-target nutrient (bar full + amber) with over and fill 100", () => {
+    const view = buildDayRdaView(day, baked, REACH_TOWARD_KEYS);
+    const fat = view.macros.find((r) => r.key === "fat")!;
+    expect(fat.over).toBe(true);
+    expect(fat.fill).toBe(100);
+    expect(fat.value).toBe("71 g");
+  });
+
+  it("lists nutrients the day carried with no target under Not tracked, no bar", () => {
+    const view = buildDayRdaView(day, baked, REACH_TOWARD_KEYS);
+    const keys = view.untracked.map((r) => r.key);
+    // A limit nutrient (sodium) and a reported-zero limit nutrient (trans fat).
+    expect(keys).toContain("sodium_content");
+    expect(keys).toContain("trans_fat_content");
+    const sodium = view.untracked.find((r) => r.key === "sodium_content")!;
+    expect(sodium.value).toBe("1850 mg");
+    // A reported zero stays "0 g" (not absent) since the day measured it.
+    const trans = view.untracked.find((r) => r.key === "trans_fat_content")!;
+    expect(trans.value).toBe("0 g");
+    // Targeted nutrients never appear in Not tracked.
+    expect(keys).not.toContain("protein");
+    expect(keys).not.toContain("calcium");
+  });
+
+  it("moves a 0-opt-out reach-toward nutrient from its bar section to Not tracked", () => {
+    // The day carried calcium, but the user opted its target out (0).
+    const optOut = resolveNutrientTargets({ calcium: 0 });
+    const view = buildDayRdaView(day, optOut, REACH_TOWARD_KEYS);
+    expect(view.micros.map((r) => r.key)).not.toContain("calcium");
+    expect(view.untracked.map((r) => r.key)).toContain("calcium");
+    const calcium = view.untracked.find((r) => r.key === "calcium")!;
+    expect(calcium.value).toBe("780 mg"); // plain value, no bar
+  });
+
+  it("ranks Biggest gaps: no-data nutrients first, then lowest-fill", () => {
+    const view = buildDayRdaView(day, baked, REACH_TOWARD_KEYS);
+    // No-data targeted nutrients (percent null) lead the strip.
+    const noDataGaps = view.gaps.filter((g) => g.percent === null);
+    expect(noDataGaps.length).toBeGreaterThan(0);
+    expect(noDataGaps.map((g) => g.key)).toContain("vitamin_e");
+    expect(
+      view.gaps.slice(0, noDataGaps.length).every((g) => g.percent === null)
+    ).toBe(true);
+    // The present gaps that follow are the only percentages in the modal and are
+    // sorted furthest-below-target first (ascending fill).
+    const present = view.gaps.filter((g) => g.percent !== null);
+    expect(present.length).toBeGreaterThan(0);
+    expect(present.length).toBeLessThanOrEqual(3);
+    const pcts = present.map((g) => g.percent as number);
+    expect([...pcts]).toEqual([...pcts].sort((a, b) => a - b));
+    // An over-target nutrient (fat) is never a gap.
+    expect(view.gaps.map((g) => g.key)).not.toContain("fat");
+  });
+
+  it("reads a present-but-zero nutrient as 'no data', never 0%", () => {
+    // Protein reported at 0 g — present (≠ absent, still a "0 g / 125 g" card) but
+    // 0% of target. In the gaps strip it must read "no data", not "0%".
+    const zeroDay: NutritionBreakdown = {
+      calories: 1650,
+      protein: 0,
+      fat: 71,
+      carbs: 180,
+      fiber_content: 19,
+    };
+    const view = buildDayRdaView(zeroDay, baked, REACH_TOWARD_KEYS);
+    // Its macro card still shows the honest reported zero, not the absent marker.
+    const proteinRow = view.macros.find((r) => r.key === "protein")!;
+    expect(proteinRow.value).toBe("0 g");
+    expect(proteinRow.absent).toBe(false);
+    // Its gap chip is "no data" (percent null) and groups with the other no-data
+    // entries at the front, ahead of any percentage.
+    const proteinGap = view.gaps.find((g) => g.key === "protein")!;
+    expect(proteinGap.percent).toBeNull();
+    const firstPresent = view.gaps.findIndex((g) => g.percent !== null);
+    const proteinIdx = view.gaps.findIndex((g) => g.key === "protein");
+    expect(proteinIdx).toBeLessThan(
+      firstPresent === -1 ? view.gaps.length : firstPresent
+    );
+    // No gap chip ever reads 0%.
+    expect(view.gaps.every((g) => g.percent !== 0)).toBe(true);
+  });
+
+  it("threads display precision to every section (decimals=0)", () => {
+    const view = buildDayRdaView(day, baked, REACH_TOWARD_KEYS, 0);
+    const iron = view.micros.find((r) => r.key === "iron")!;
+    expect(iron.value).toBe("14 mg");
+    expect(iron.target).toBe("18 mg");
+  });
+
+  it("is independent of visible_nutrients — always the full reach-toward set", () => {
+    // No selection is passed in; every reach-toward nutrient with a target shows,
+    // whether or not the user pinned it as a meter.
+    const view = buildDayRdaView(day, baked, REACH_TOWARD_KEYS);
+    expect(view.macros).toHaveLength(5); // calories + 4 macros
+    expect(view.micros).toHaveLength(12);
   });
 });
 
