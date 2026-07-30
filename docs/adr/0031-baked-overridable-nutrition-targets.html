@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR 0031 · Inventoria</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+      <nav class="site-nav">
+        <p class="nav-title">Inventoria</p>
+        <a href="../index.html">Introduction</a>
+        <div class="nav-section">
+          <p class="nav-section-label">Reference</p>
+          <a href="../glossary.html">Glossary</a>
+          <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+        </div>
+        <div class="nav-section">
+          <p class="nav-section-label">Explanation</p>
+          <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+        </div>
+        <div class="nav-section">
+          <a href="index.html" class="active">Architectural Decision Records</a>
+        </div>
+      </nav>
+  <div class="content-area">
+    <main>
+<h1 id="adr-0031-baked-user-overridable-daily-nutrition-targets-for-the-food-panel">ADR 0031: Baked, user-overridable daily nutrition targets for the food panel</h1>
+<p><strong>Status:</strong> Accepted; not yet implemented (specced 2026-07-30, this ADR) <strong>Date:</strong> 2026-07-30</p>
+<h2 id="context">Context</h2>
+<p>The food dashboard already renders a target-relative view: <code>buildNutrientMeters</code> (<code>src/lib/food/nutrient-display.ts</code>) takes a <code>targets</code> map (grams, keyed by breakdown key) and draws a fill bar for any nutrient with a positive target, and <code>CalorieRing</code> fills against a calorie goal. But the targets it consumes are a <strong>hardcoded generic-adult, macro-only constant</strong> in <code>DailyDashboard.svelte</code> — <code>targetCalories = 2000</code> and <code>{ protein: 130, fat: 70, carbs: 220 }</code> (magic numbers, no citation). Micronutrients — the twelve the panel now carries after ADR-0030 — have no target at all, so they render as bare totals with an empty track.</p>
+<p>This ADR decides <strong>where the target numbers come from, how a user overrides them, and the two surfaces that display the full target picture</strong>. It is the target counterpart to ADR-0030 (which added the micronutrient <em>values</em> but explicitly deferred surfacing them): ADR-0030 gave the panel a numerator, this ADR gives it a cited, overridable denominator. Implementation is a separate effort, as ADR-0030's was — this ADR plus its <code>ready-for-agent</code> tickets are the hand-off.</p>
+<p>The design decisions below were each grilled and closed as child tickets of the <a href="https://github.com/inkpot-monkey/inventoria/issues/32">wayfinder map (#32)</a>; this ADR is the synthesis. Two primary-source reference assets underpin the numbers: <code>docs/reference/fda-daily-values.md</code> (the 21 CFR 101.9 Daily Values, #33) and <code>docs/reference/active-adult-macros.md</code> (the IOM-2005-derived active-adult macros, #34 / #38).</p>
+<p><strong>Scope is goal-nutrients only.</strong> The reach-toward set — energy, the three macros, fibre, and the twelve label micronutrients — gets a baked target. Limit nutrients (sodium, saturated fat, cholesterol, trans fat, sugar) get no target this effort; a "stay-under" semantic with amber-past-100% rendering is a deliberately deferred follow-up (see Out of scope). Personalized DRIs (age / sex / activity) are ruled out by the static-DV destination.</p>
+<h2 id="decision">Decision</h2>
+<h3 id="1-baked-targets-live-in-one-reference-module-reach-toward-set-only">1. Baked targets live in one reference module, reach-toward set only</h3>
+<p>A new module (beside the reference assets it is transcribed from) exports the baked target map — every value in its <strong>consumer's canonical unit</strong>: grams for mass, <strong>kcal</strong> for energy — keyed by the food-panel breakdown key:</p>
+<ul>
+<li><strong>Energy + the four macro/fibre keys</strong> come from <code>ACTIVE_ADULT_MACROS_G</code> (<code>docs/reference/active-adult-macros.md</code>, #34 / #38): energy <strong>2000 kcal</strong>, protein <strong>125 g</strong>, fat <strong>67 g</strong>, carbs <strong>225 g</strong>, <code>fiber_content</code> <strong>28 g</strong>. These are a 25 / 30 / 45 %-energy split at the high-protein end of the IOM 2005 AMDRs (Atwater 4/4/9, summing to exactly 2000 kcal), with fibre from the DRI Total Fiber AI (14 g/1000 kcal). This is the <strong>active-adult</strong> basis, not the FDA reference diet — the panel renders a personal fill bar (<code>value / target</code>), not a label's "% DV" number, so it targets a profile rather than the generic denominator (#34).</li>
+<li><strong>The twelve label micronutrients</strong> come from <code>FDA_DAILY_VALUES_G</code> (<code>docs/reference/fda-daily-values.md</code>, #33): the 21 CFR 101.9 RDIs converted to grams — <code>vitamin_d</code> 0.00002, <code>calcium</code> 1.3, <code>iron</code> 0.018, <code>potassium</code> 4.7, <code>vitamin_a</code> 0.0009, <code>vitamin_c</code> 0.09, <code>vitamin_e</code> 0.015, <code>vitamin_b6</code> 0.0017, <code>vitamin_b12</code> 0.0000024, <code>folate</code> 0.0004, <code>magnesium</code> 0.42, <code>zinc</code> 0.011. Units are equivalence-weighted at source (vit A µg RAE, vit E mg α-tocopherol, folate µg DFE) — the stored gram is a straight unit conversion, no IU math.</li>
+</ul>
+<p>The baked map is exactly these seventeen keys — the <strong>reach-toward set</strong>. Limit nutrients are absent from it by construction, so they never get a fill bar. Fibre (28 g) and energy (2000 kcal) coincide between the two bases, so composing "FDA micros, then active-adult macros" needs no reconciliation.</p>
+<p>This obeys the panel invariant (ADR-0021: one fixed unit per field) and the "new nutrient is a new key" move — a future target is one more entry, no schema change.</p>
+<h3 id="2-overrides-are-one-blob-datom-with-presenceabsence-semantics">2. Overrides are one blob datom, with presence/absence semantics</h3>
+<p>User overrides live in a <strong>single blob datom</strong> <code>settings/food/targets</code> (a JSON object value, per ADR-0009's flexible-blob precedent), a <strong>partial</strong> <code>{ key: number }</code> map filtered to the reach-toward key set, each value in the <strong>same canonical unit as the baked map</strong> (grams for mass, kcal for energy). It mirrors the existing food settings' shape and rides the append-only <code>settings:global</code> entity (ADR-0001).</p>
+<p><strong>Presence/absence in that map is the model</strong> — three states per key:</p>
+<ul>
+<li><strong>absent</strong> → use the baked default (the common case; the blob only carries keys the user has actually touched);</li>
+<li><strong><code>&gt; 0</code></strong> → an override; use this number instead of the baked default;</li>
+<li><strong><code>0</code></strong> → an explicit <strong>opt-out</strong>; the nutrient has <em>no</em> target (no fill bar, no meter target), even if a baked default exists.</li>
+</ul>
+<p>A <strong>merge resolver</strong> layers <code>override ?? baked</code> per key into the resolved targets map <strong>before</strong> <code>buildNutrientMeters</code> and the calorie ring consume it, so both surfaces read one already-resolved map and neither re-implements the precedence. The <code>0</code> opt-out resolves to "no target" (the key is dropped / left non-positive so <code>buildNutrientMeters</code> renders it bar-less), distinct from absent (which resolves to the baked default).</p>
+<p><strong>Calories is override-number-only.</strong> The ring is always on and cannot be removed, so a non-positive calorie override (including a <code>0</code> that would mean "opt out" everywhere else) <strong>clamps back to the baked 2000 kcal</strong> rather than hiding the ring. Only calories carries this clamp; every other key honours the <code>0</code> opt-out.</p>
+<p>Target entry is in the nutrient's <strong>fixed display unit</strong> (mg/µg for micros, g for macros, kcal for energy) via a new pure <code>parseNutrientEntry</code> — the inverse of <code>formatNutrientValue</code> — which converts the typed display value back to the stored canonical unit. <code>formatNutrientValue</code> / <code>parseNutrientEntry</code> are a round-trip pair.</p>
+<h3 id="3-settings-editor-the-nutrition-display-card-grows-a-per-row-target-field">3. Settings editor: the Nutrition Display card grows a per-row target field</h3>
+<p>No new settings card (#36, Variant A — three layouts prototyped, this one chosen). The existing <strong>Nutrition Display</strong> card's per-nutrient rows each grow a target field, so a row reads:</p>
+<pre><code>[visible ✓]  [label]  [target input]  [unit]  [↺ reset]</code></pre>
+<ul>
+<li>Rows are grouped <strong>Macros</strong> and <strong>Vitamins &amp; Minerals</strong>, with <strong>Calories</strong> pinned first (its visibility toggle is absent — the ring is always on — and its target is override-number-only per Decision 2).</li>
+<li><strong>No changed-state colour.</strong> An acid-green "custom" border was prototyped and rejected; custom-vs-default reads from <strong>placeholder-vs-value</strong> (the baked default shows as placeholder text; a set override shows as an entered value) plus the <strong>enabled ↺</strong> alone (reset is disabled when the row is at its baked default).</li>
+<li><strong>Opt-out (<code>0</code>)</strong> shows an inline <strong>"hidden"</strong> hint on the row — not a chip, not a live meter — so the user can see the nutrient is deliberately un-targeted.</li>
+<li><strong>Visibility and target are two independent datoms</strong> that merely share a row: <code>settings/food/visible_nutrients</code> and <code>settings/food/targets</code> save separately. Toggling visibility never touches the target and vice versa.</li>
+</ul>
+<p>The editor reads the Decision-2 model directly (baked map + override blob + resolver) and writes the override blob via the settings store. Prototype asset: <code>scratchpad/target-editor-prototype.html</code>.</p>
+<h3 id="4-full-day-view-a-grouped-rda-vs-target-modal-37-variant-c">4. Full-day view: a grouped RDA-vs-target modal (#37, Variant C)</h3>
+<p>The existing day-breakdown modal (opened by tapping the dashboard aggregates, #31) gains the full RDA-vs-target picture — <strong>independent of <code>visible_nutrients</code></strong>: it shows everything the day actually carried, not just the selected meters. One modal, four consistent <code>.group-head</code> sections (Variant C — three layouts prototyped, this one chosen):</p>
+<ul>
+<li><strong>Biggest gaps</strong> — a severity strip ranking the reach-toward nutrients furthest from target. This strip carries the <strong>only</strong> percentage in the modal, and it is a <em>ranking</em> signal, not a "% DV" readout.</li>
+<li><strong>Energy &amp; macros</strong> — energy, protein, fat, carbs, fibre.</li>
+<li><strong>Vitamins &amp; minerals</strong> — the twelve micronutrients.</li>
+<li><strong>Not tracked</strong> — the no-target limit nutrients the day carried (plain value, no bar), so nothing the food reported is silently dropped.</li>
+</ul>
+<p>Each targeted row renders <code>value / target</code> plus a fill bar and <strong>no % number in the ledger</strong> (upholding #34's fill-bar-not-%DV stance, reusing the dashboard-meter idiom). Rendering rules:</p>
+<ul>
+<li>an <strong>absent</strong> targeted nutrient (the day carried none) renders <strong><code>— / target</code></strong> — distinct from a nutrient the food reported as <code>0</code> (absent ≠ 0, ADR-0030 / #21);</li>
+<li>an <strong>over-target</strong> nutrient fills the bar full and tints <strong>amber</strong> (the one place a reach-toward nutrient can exceed 100%);</li>
+<li>a nutrient with <strong>no target</strong> (limit nutrients, or a <code>0</code> opt-out) lands in <strong>Not tracked</strong> with a plain value and no bar.</li>
+</ul>
+<p>Implementation is a <strong>new pure builder</strong> beside <code>buildNutrientBreakdown</code> in <code>nutrient-display.ts</code> that takes the day total, the resolved targets, and the baked target set, and returns the four grouped view-model sections; the <code>.svelte</code> modal just renders them. Prototype assets: <code>scratchpad/day-rda-modal-prototype.html</code> and the <a href="https://claude.ai/code/artifact/89f643fd-221e-4f7f-98e6-8143a665ae1a">interactive prototype</a>.</p>
+<h3 id="5-rename-the-food-settings-into-a-settingsfood-namespace">5. Rename the food settings into a <code>settings/food/…</code> namespace</h3>
+<p><code>settings/visible_nutrients</code> → <code>settings/food/visible_nutrients</code> and <code>settings/round_nutrition</code> → <code>settings/food/round_nutrition</code>, joining the new <code>settings/food/targets</code> under one namespace. <strong>No back-compat / no migration</strong> — there are no existing users, so the old attribute names are simply replaced (#35). The API-key settings (<code>settings/usda_api_key</code> etc.) are unrelated and keep their names.</p>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li><strong><code>DailyDashboard.svelte</code>'s hardcoded <code>targetCalories</code> / <code>NUTRIENT_TARGETS</code> constant is deleted</strong>, replaced by the resolved targets map (baked ⊕ override) feeding both <code>buildNutrientMeters</code> and the calorie ring. Micronutrient meters that are visible now render a fill bar (they were bar-less before).</li>
+<li><strong>A new blob attribute</strong> <code>settings/food/targets</code> and <strong>two renamed attributes</strong> (<code>settings/food/visible_nutrients</code>, <code>settings/food/round_nutrition</code>) must be registered in <code>docs/eavt-vocabulary.html</code>; the old names are removed.</li>
+<li><strong>The consumption snapshot is untouched.</strong> Targets are a display-time denominator only — no <code>event/metrics</code> or recipe-instantiation row changes; the frozen snapshot (ADR-0022) is unaffected.</li>
+<li><strong>The day-breakdown modal now shows more than <code>visible_nutrients</code></strong> — it becomes the "everything, against target" surface, while the dashboard meters stay gated by the selection (no regression to the summary).</li>
+<li><strong>A round-trip parse/format pair</strong> (<code>parseNutrientEntry</code> ⇆ <code>formatNutrientValue</code>) now exists; any future numeric nutrient entry reuses it.</li>
+<li><strong>The baked module is a transcription</strong> of two primary-source reference docs; if a DV or AMDR figure is ever corrected, the reference doc and the module move together.</li>
+<li><strong>Limit nutrients still have no target</strong>, so a day heavy in sodium/saturated fat shows those only in the modal's <em>Not tracked</em> section — the "stay-under" view is a later effort.</li>
+</ul>
+<h2 id="alternatives-considered">Alternatives considered</h2>
+<ul>
+<li><strong>FDA reference-diet macros (protein 50 / fat 78 / carbs 275).</strong> Rejected for the macro targets: the panel renders a <em>personal fill bar</em>, not a label %DV, so the active-adult profile is the right denominator (#34). The FDA numbers are still used for the twelve micronutrients, where no active-adult alternative applies.</li>
+<li><strong>Personalized DRIs</strong> (age / sex / pregnancy / activity + a demographic profile). Out of scope — the static-DV destination rules it out; a fresh effort if pursued.</li>
+<li><strong>A per-key target datom</strong> instead of one blob. Rejected: the targets are one coherent user preference edited as a set, matching the blob granularity ADR-0009 and the existing food settings already use; a datom-per-key multiplies writes and read-folding for no gain.</li>
+<li><strong>A changed-state colour</strong> on custom rows (acid-green border). Prototyped and rejected (#36): placeholder-vs-value plus the enabled ↺ already reads as custom-vs-default without adding a colour the brutalist-minimal UI (ADR-0003) avoids.</li>
+<li><strong>A "% DV" number in the modal ledger.</strong> Rejected (#37): a percentage per row reframes the panel as a label readout; the fill bar carries proportion visually and the gaps strip carries the single ranking %.</li>
+<li><strong>A <code>settings/food/targets</code> value in native display units</strong> (mg/µg). Rejected: storing grams keeps the panel invariant (one unit per field) intact end-to-end; the mg/µg display is a <code>parseNutrientEntry</code>/<code>formatNutrientValue</code> concern at the editor edge only.</li>
+</ul>
+    </main>
+  </div>
+</div>
+</body>
+</html>
