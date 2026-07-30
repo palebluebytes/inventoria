@@ -51,7 +51,7 @@
 <p><strong>Merge was chosen over the alternatives because it is the only option that preserves the entity-keyed single-source model</strong> (ADR-0021 rows-derive-from-panel, ADR-0022 snapshot-on-write) with no cross-cutting change:</p>
 <ul>
 <li><strong>Allow-duplicates</strong> would have to thread a per-line id through the each-key, <code>removeIngredient</code>, and both resolvers — across a component now shared by two surfaces — and would show two identical rows for one twin. Large blast radius, worse UX.</li>
-<li><strong>Merge-across-units</strong> (converting <code>serving</code> ↔ <code>g</code> via <code>serving_size</code>) adds a lossy conversion on a rare collision; blocking is safe and honest.</li>
+<li><strong>Merge-across-units</strong> (converting <code>serving</code> ↔︎ <code>g</code> via <code>serving_size</code>) adds a lossy conversion on a rare collision; blocking is safe and honest.</li>
 <li><strong>Block-always</strong> is simpler but needlessly refuses the common, obviously-correct same-unit case (add 50 g oats to a recipe that already has 50 g oats → 100 g).</li>
 </ul>
 <p>The unit-mismatch block is a real, reachable case, not defensive dead code: <code>ingredientFromFood</code> always mints <code>unit: "g"</code>, while <code>parseLoggedQuantity</code> seeds <code>unit: "serving"</code> from a logged whole-serving event — so a food seeded whole and then searched-in by gram hits it.</p>
