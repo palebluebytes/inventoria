@@ -8,6 +8,8 @@
   import {
     buildNutrientMeters,
     buildNutrientBreakdown,
+    buildNutrientPills,
+    nutrientShortLabel,
   } from "../../food/nutrient-display";
   import {
     settingsStore,
@@ -217,6 +219,11 @@
           <p>No {meal_type} logged yet.</p>
         </div>
       {:else}
+        {@const mealPills = buildNutrientPills(
+          totalNutrition(groupedMeals[meal_type]),
+          $settingsStore.visible_nutrients,
+          $nutritionDisplayDecimals
+        )}
         <div class="meal-items-list">
           {#each groupedMeals[meal_type] as item}
             {@const isSelected = selectedIds.has(item.id)}
@@ -278,6 +285,17 @@
                 {/snippet}
               </FoodItemRow>
             </div>
+          {/each}
+        </div>
+        <!-- Subtle one-line subtotal for the section: Calories + the same
+             nutrients the meters show, summed over just this meal's items. -->
+        <div class="meal-total" data-testid="meal-total-{meal_type}">
+          {#each mealPills as pill (pill.key)}
+            <span class="meal-total-item nutrient-{pill.key}">
+              {#if pill.key !== "calories"}<span class="meal-total-label"
+                  >{nutrientShortLabel(pill.key)}</span
+                >{/if}<span class="meal-total-value">{pill.value}</span>
+            </span>
           {/each}
         </div>
       {/if}
@@ -462,6 +480,10 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-xs);
+    /* A query container so the macro subtotal below can size its text to this
+       section's width — it fills the line on a wide phone and shrinks to stay on
+       one line on a narrow one, instead of a fixed small size. */
+    container-type: inline-size;
   }
   .meal-section-header {
     display: flex;
@@ -537,6 +559,50 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-xs);
+  }
+
+  /* One-line macro subtotal under a meal's items — muted and small so it reads
+     as a running tally, not another card. Kept to a single line; if the chosen
+     nutrient set is wide enough to overrun a narrow section it scrolls sideways
+     rather than wrapping. */
+  .meal-total {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: baseline;
+    justify-content: center;
+    overflow-x: auto;
+    scrollbar-width: none;
+    /* Container-relative: ~2.9% of the section width makes the default macro set
+       span (near-)full width, so the tally grows on a wide phone and shrinks on
+       a narrow one. Clamped so it never turns illegibly small nor oversized; a
+       broader nutrient selection overruns the clamp and scrolls sideways rather
+       than wrapping. */
+    font-size: clamp(0.5rem, 2.9cqi, 1rem);
+    /* One uniform weight/colour across labels, values, and separators (like the
+       headline calories figure) so the whole tally reads at a glance — faint
+       labels beside bold values were hard to pick out. */
+    font-weight: 700;
+    color: var(--text-secondary);
+  }
+  .meal-total::-webkit-scrollbar {
+    display: none;
+  }
+  /* A middot before every item but the first — the only separator (no flex gap),
+     a compact tally that reads as one running line without the width a real gap
+     would cost. */
+  .meal-total-item + .meal-total-item::before {
+    content: "·";
+    margin: 0 0.35em;
+  }
+  .meal-total-item {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.25em;
+    white-space: nowrap;
+  }
+  .meal-total-label {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
   /* The card is now a bare interactive wrapper — the bordered row visual and
      its selected highlight live in the shared FoodItemRow. */

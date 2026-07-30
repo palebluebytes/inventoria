@@ -45,6 +45,9 @@ export interface NutrientDescriptor {
   label: string;
   /** The unit its stored-grams total is reformatted into for display. */
   unit: NutrientUnit;
+  /** Compact label for tight one-line contexts (e.g. a meal subtotal), e.g.
+   *  "Prot", "Ca". Unambiguous within the catalogue so Fat/Fibre never collide. */
+  short: string;
 }
 
 /**
@@ -53,9 +56,9 @@ export interface NutrientDescriptor {
  * always-on ring/pill and are deliberately NOT selectable here.
  */
 const MACRO_NUTRIENTS: NutrientDescriptor[] = [
-  { key: "protein", label: "Protein", unit: "g" },
-  { key: "fat", label: "Fat", unit: "g" },
-  { key: "carbs", label: "Carbs", unit: "g" },
+  { key: "protein", label: "Protein", unit: "g", short: "Prot" },
+  { key: "fat", label: "Fat", unit: "g", short: "Fat" },
+  { key: "carbs", label: "Carbs", unit: "g", short: "Carb" },
 ];
 
 /**
@@ -67,27 +70,31 @@ const MACRO_NUTRIENTS: NutrientDescriptor[] = [
  */
 const EXTRA_NUTRIENT_META: Record<
   ExtraNutrientKey,
-  { label: string; unit: NutrientUnit }
+  { label: string; unit: NutrientUnit; short: string }
 > = {
-  fiber_content: { label: "Fibre", unit: "g" },
-  sugar_content: { label: "Sugar", unit: "g" },
-  sodium_content: { label: "Sodium", unit: "mg" },
-  saturated_fat_content: { label: "Saturated Fat", unit: "g" },
-  trans_fat_content: { label: "Trans Fat", unit: "g" },
-  unsaturated_fat_content: { label: "Unsaturated Fat", unit: "g" },
-  cholesterol_content: { label: "Cholesterol", unit: "mg" },
-  vitamin_d: { label: "Vitamin D", unit: "µg" },
-  calcium: { label: "Calcium", unit: "mg" },
-  iron: { label: "Iron", unit: "mg" },
-  potassium: { label: "Potassium", unit: "mg" },
-  vitamin_a: { label: "Vitamin A", unit: "µg" },
-  vitamin_c: { label: "Vitamin C", unit: "mg" },
-  vitamin_e: { label: "Vitamin E", unit: "mg" },
-  vitamin_b6: { label: "Vitamin B6", unit: "mg" },
-  vitamin_b12: { label: "Vitamin B12", unit: "µg" },
-  folate: { label: "Folate", unit: "µg" },
-  magnesium: { label: "Magnesium", unit: "mg" },
-  zinc: { label: "Zinc", unit: "mg" },
+  fiber_content: { label: "Fibre", unit: "g", short: "Fib" },
+  sugar_content: { label: "Sugar", unit: "g", short: "Sug" },
+  sodium_content: { label: "Sodium", unit: "mg", short: "Na" },
+  saturated_fat_content: { label: "Saturated Fat", unit: "g", short: "SatFat" },
+  trans_fat_content: { label: "Trans Fat", unit: "g", short: "Trans" },
+  unsaturated_fat_content: {
+    label: "Unsaturated Fat",
+    unit: "g",
+    short: "Unsat",
+  },
+  cholesterol_content: { label: "Cholesterol", unit: "mg", short: "Chol" },
+  vitamin_d: { label: "Vitamin D", unit: "µg", short: "Vit D" },
+  calcium: { label: "Calcium", unit: "mg", short: "Ca" },
+  iron: { label: "Iron", unit: "mg", short: "Fe" },
+  potassium: { label: "Potassium", unit: "mg", short: "K" },
+  vitamin_a: { label: "Vitamin A", unit: "µg", short: "Vit A" },
+  vitamin_c: { label: "Vitamin C", unit: "mg", short: "Vit C" },
+  vitamin_e: { label: "Vitamin E", unit: "mg", short: "Vit E" },
+  vitamin_b6: { label: "Vitamin B6", unit: "mg", short: "B6" },
+  vitamin_b12: { label: "Vitamin B12", unit: "µg", short: "B12" },
+  folate: { label: "Folate", unit: "µg", short: "Folate" },
+  magnesium: { label: "Magnesium", unit: "mg", short: "Mg" },
+  zinc: { label: "Zinc", unit: "mg", short: "Zn" },
 };
 
 /**
@@ -118,6 +125,16 @@ export const DEFAULT_VISIBLE_NUTRIENTS: string[] = [
 const BY_KEY = new Map<string, NutrientDescriptor>(
   NUTRIENT_CATALOGUE.map((d) => [d.key, d])
 );
+
+/**
+ * The compact one-line label for a nutrient (e.g. `protein` → "Prot"), for
+ * tight tallies like a meal subtotal. Unknown keys (calories, stale data) have
+ * no catalogue entry and read as an empty string, so the caller shows the value
+ * alone rather than a stray code.
+ */
+export function nutrientShortLabel(key: string): string {
+  return BY_KEY.get(key)?.short ?? "";
+}
 
 /**
  * Resolves a stored selection (an array of breakdown keys) to catalogue

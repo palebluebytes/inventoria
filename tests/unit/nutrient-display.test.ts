@@ -8,6 +8,7 @@ import {
   buildNutrientMeters,
   buildNutrientPills,
   buildNutrientBreakdown,
+  nutrientShortLabel,
   ABSENT_NUTRIENT,
 } from "../../src/lib/food/nutrient-display";
 import type { NutritionBreakdown } from "../../src/lib/food/nutrition";
@@ -59,6 +60,32 @@ describe("nutrient catalogue", () => {
       "carbs",
       "fiber_content",
     ]);
+  });
+
+  it("carries a compact short label for every nutrient, none colliding", () => {
+    const shorts = NUTRIENT_CATALOGUE.map((n) => n.short);
+    // Every catalogue entry has a non-empty short label.
+    expect(shorts.every((s) => typeof s === "string" && s.length > 0)).toBe(
+      true
+    );
+    // Shorts are unique, so a tight tally never shows two nutrients the same
+    // (Fat "Fat" vs Fibre "Fib" is the canonical near-collision).
+    expect(new Set(shorts).size).toBe(shorts.length);
+  });
+});
+
+describe("nutrientShortLabel", () => {
+  it("returns the catalogue short label for a known nutrient", () => {
+    expect(nutrientShortLabel("protein")).toBe("Prot");
+    expect(nutrientShortLabel("fiber_content")).toBe("Fib");
+    expect(nutrientShortLabel("calcium")).toBe("Ca");
+  });
+
+  it("returns an empty string for calories and unknown keys", () => {
+    // Calories are not in the selectable catalogue; a subtotal shows the value
+    // alone rather than a stray code.
+    expect(nutrientShortLabel("calories")).toBe("");
+    expect(nutrientShortLabel("not_a_nutrient")).toBe("");
   });
 });
 

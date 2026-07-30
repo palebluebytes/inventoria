@@ -1226,4 +1226,35 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       page.locator(".macro-name", { hasText: "Protein" })
     ).toBeVisible();
   });
+
+  test("shows a per-meal macro subtotal that sums just that section on one line", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    // Empty section: no subtotal, just the empty-state prompt.
+    await expect(
+      page.locator('[data-testid="meal-total-breakfast"]')
+    ).toHaveCount(0);
+
+    // Two breakfast items; the subtotal totals only this section's macros.
+    await logUsdaFood(page, "breakfast", "banana", "Mock Banana", "150");
+    await logUsdaFood(page, "breakfast", "oats", "Mock Oats", "80");
+    // Lunch item must NOT bleed into the breakfast subtotal.
+    await logUsdaFood(page, "lunch", "banana", "Mock Banana", "100");
+
+    const total = page.locator('[data-testid="meal-total-breakfast"]');
+    await expect(total).toBeVisible();
+    // Calories lead (value only), then the chosen macros with compact labels.
+    await expect(total).toContainText("436.7 kcal");
+    await expect(total.locator(".nutrient-protein")).toContainText("Prot");
+    await expect(total.locator(".nutrient-protein")).toContainText("12.13 g");
+    await expect(total.locator(".nutrient-carbs")).toContainText("88.36 g");
+
+    // It stays a single visual line and never wraps, whatever the width.
+    const lines = await total.evaluate((el) => el.getClientRects().length);
+    expect(lines).toBe(1);
+  });
 });
