@@ -4,6 +4,7 @@ import {
   DEFAULT_VISIBLE_NUTRIENTS,
   selectedNutrients,
   formatNutrientValue,
+  nutrientDisplayValue,
   parseNutrientEntry,
   formatCalories,
   buildNutrientMeters,
@@ -133,6 +134,32 @@ describe("formatNutrientValue", () => {
     expect(formatCalories(133.5, 0)).toBe("134 kcal");
     expect(formatNutrientValue(12.345, "g", 0)).toBe("12 g");
     expect(formatNutrientValue(0.5, "mg", 0)).toBe("500 mg");
+  });
+});
+
+describe("nutrientDisplayValue (numeric half of formatNutrientValue)", () => {
+  it("returns the display-unit number without the unit suffix", () => {
+    expect(nutrientDisplayValue(12.345, "g")).toBe(12.35);
+    expect(nutrientDisplayValue(0.5, "mg")).toBe(500);
+    expect(nutrientDisplayValue(0.00001, "µg")).toBe(10);
+  });
+
+  it("never yields NaN for a missing/garbage value", () => {
+    expect(nutrientDisplayValue(NaN, "g")).toBe(0);
+  });
+
+  it("agrees with formatNutrientValue's numeric token", () => {
+    // The formatter is exactly this number plus " <unit>", so the two can't drift.
+    for (const [grams, unit] of [
+      [12.345, "g"],
+      [0.5, "mg"],
+      [0.42, "mg"],
+      [0.00002, "µg"],
+    ] as Array<[number, "g" | "mg" | "µg"]>) {
+      expect(formatNutrientValue(grams, unit)).toBe(
+        `${nutrientDisplayValue(grams, unit)} ${unit}`
+      );
+    }
   });
 });
 

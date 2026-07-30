@@ -163,8 +163,24 @@ export function formatNutrientValue(
   unit: NutrientUnit,
   decimals: number = FOOD_DISPLAY_DECIMALS
 ): string {
-  const scaled = (Number(grams) || 0) * UNIT_SCALE[unit];
-  return `${roundFoodDisplay(scaled, decimals)} ${unit}`;
+  return `${nutrientDisplayValue(grams, unit, decimals)} ${unit}`;
+}
+
+/**
+ * A nutrient's stored-grams value as the plain number it reads as in its display
+ * unit (0.5 g sodium → `500` for "mg"), rounded to `decimals`. This is the
+ * numeric half of {@link formatNutrientValue} — that function is just this plus
+ * the unit suffix — so the two can never drift. The settings target editor
+ * (ticket #41) shows a baked default / override in a numeric input whose unit
+ * lives in its own column, so it needs the number alone rather than slicing the
+ * unit back off the formatted string. Never NaN.
+ */
+export function nutrientDisplayValue(
+  grams: number,
+  unit: NutrientUnit,
+  decimals: number = FOOD_DISPLAY_DECIMALS
+): number {
+  return roundFoodDisplay((Number(grams) || 0) * UNIT_SCALE[unit], decimals);
 }
 
 /**
