@@ -540,6 +540,117 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(calcium.locator(".progress-bar-bg.no-target")).toHaveCount(0);
   });
 
+  // Seam 3 (ticket #41): the Nutrition Display card's per-row target editor.
+  // These drive the visible behaviour end-to-end — what a save writes is proven
+  // by the dashboard reading it back through the ledger, not by inspecting state.
+  // (A true reload can't verify persistence here: `?mem=1` is an in-memory DB
+  // that a reload wipes, so the round-trip Settings → ledger → dashboard is the
+  // persistence proof.)
+  test("a custom macro target overrides the baked default on the dashboard (#41)", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+
+    // Protein reaches toward the baked 125 g by default.
+    const protein = page.locator(".macro-item.protein");
+    await expect(protein).toContainText("/ 125 g");
+
+    // Set a custom protein target; the field shows the baked 125 as placeholder.
+    await page.locator(".nav-item", { hasText: "Settings" }).click();
+    const proteinTarget = page.locator('input[data-target="protein"]');
+    await expect(proteinTarget).toHaveAttribute("placeholder", "125");
+    await proteinTarget.fill("100");
+    await proteinTarget.blur();
+
+    // Back on the dashboard the meter now reaches toward the override, and the
+    // baked default is gone — the write reached the resolver via the ledger.
+    await page.locator(".nav-item", { hasText: "Food" }).click();
+    await expect(protein).toContainText("/ 100 g");
+    await expect(protein).not.toContainText("/ 125 g");
+  });
+
+  test("the reset control restores a target to its baked default and disables itself (#41)", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+
+    await page.locator(".nav-item", { hasText: "Settings" }).click();
+    const proteinTarget = page.locator('input[data-target="protein"]');
+    const proteinReset = page.locator('button[data-reset="protein"]');
+
+    // At the baked default the field is blank (placeholder only) and ↺ is off.
+    await expect(proteinTarget).toHaveValue("");
+    await expect(proteinReset).toBeDisabled();
+
+    // An override fills the value and enables ↺.
+    await proteinTarget.fill("100");
+    await proteinTarget.blur();
+    await expect(proteinTarget).toHaveValue("100");
+    await expect(proteinReset).toBeEnabled();
+
+    // ↺ clears it: blank field showing the placeholder again, ↺ back to disabled.
+    await proteinReset.click();
+    await expect(proteinTarget).toHaveValue("");
+    await expect(proteinTarget).toHaveAttribute("placeholder", "125");
+    await expect(proteinReset).toBeDisabled();
+  });
+
+  test("entering 0 opts a nutrient out: a hidden hint and no dashboard bar (#41)", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    // Make Calcium a visible meter, then opt its target out with a 0.
+    await page.locator(".nav-item", { hasText: "Settings" }).click();
+    await page.locator('input[data-nutrient="calcium"]').check();
+    const calciumTarget = page.locator('input[data-target="calcium"]');
+    await calciumTarget.fill("0");
+    await calciumTarget.blur();
+    // The row flags the opt-out inline (text, not a chip or a live meter).
+    await expect(page.locator('[data-nutrient-row="calcium"]')).toContainText(
+      "hidden"
+    );
+
+    // A logged calcium-bearing food now renders its meter bar-less (no target),
+    // not a fill — the 0 resolved to "no target" for the dashboard.
+    await page.locator(".nav-item", { hasText: "Food" }).click();
+    await logUsdaFood(page, "breakfast", "banana", "Mock Banana", "100");
+    const calcium = page.locator(".macro-item.calcium");
+    await expect(calcium.locator(".progress-bar-bg.no-target")).toHaveCount(1);
+    await expect(calcium.locator(".progress-bar-fill")).toHaveCount(0);
+  });
+
+  test("editing a target leaves the visibility selection untouched, and vice versa (#41)", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+
+    await page.locator(".nav-item", { hasText: "Settings" }).click();
+    // A non-default selection: Sugar ON, Fibre OFF.
+    await page.locator('input[data-nutrient="sugar_content"]').check();
+    await page.locator('input[data-nutrient="fiber_content"]').uncheck();
+
+    // Editing a target writes its own datom and never rewrites the selection.
+    const proteinTarget = page.locator('input[data-target="protein"]');
+    await proteinTarget.fill("140");
+    await proteinTarget.blur();
+    await expect(
+      page.locator('input[data-nutrient="sugar_content"]')
+    ).toBeChecked();
+    await expect(
+      page.locator('input[data-nutrient="fiber_content"]')
+    ).not.toBeChecked();
+
+    // The reverse: toggling visibility leaves the target override in place.
+    await page.locator('input[data-nutrient="calcium"]').check();
+    await expect(proteinTarget).toHaveValue("140");
+  });
+
   // Route the USDA detail endpoint (`/food/{fdcId}`) — the source of household
   // portions (ADR-0030 §5), absent from the search response. Banana (171705)
   // carries portions; every other food hydrates to none, so the picker renders

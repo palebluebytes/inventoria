@@ -1,6 +1,5 @@
 <script lang="ts">
   import { settingsStore, saveSettings } from "../stores/settings.store";
-  import { NUTRIENT_CATALOGUE } from "../food/nutrient-display";
   import { createQueryStore } from "../stores/datoms.store";
   import { dbClient } from "../db/db.client";
   import { HLC_ORDER_DESC } from "../db/hlc";
@@ -15,6 +14,7 @@
   import Button from "../ui/Button.svelte";
   import Alert from "../ui/Alert.svelte";
   import Badge from "../ui/Badge.svelte";
+  import NutritionTargetEditor from "./food/NutritionTargetEditor.svelte";
 
   let { dbReady }: { dbReady: boolean } = $props();
 
@@ -56,53 +56,6 @@
     }
   });
 
-  // Visible-nutrient selection (ticket #29): which nutrients appear as the
-  // dashboard summary + staged-food pills. Mirrors the persisted list; each
-  // toggle persists immediately (re-writing the already-saved API keys, so an
-  // unsaved edit in the form above is never clobbered). Calories are always-on
-  // via the ring and so are not in the catalogue.
-  let visible_nutrients = $state<string[]>([]);
-  // Whether nutrition reads rounded to whole numbers (display-only). Seeded from
-  // the store alongside the selection; the toggle persists immediately.
-  let round_nutrition = $state(false);
-  let nutrientsInitialized = $state(false);
-  $effect(() => {
-    if (!nutrientsInitialized && $settingsStore) {
-      visible_nutrients = [...$settingsStore.visible_nutrients];
-      round_nutrition = $settingsStore.round_nutrition;
-      nutrientsInitialized = true;
-    }
-  });
-
-  async function toggleNutrient(key: string) {
-    visible_nutrients = visible_nutrients.includes(key)
-      ? visible_nutrients.filter((k) => k !== key)
-      : [...visible_nutrients, key];
-    await persistNutritionDisplay();
-  }
-
-  async function toggleRoundNutrition() {
-    round_nutrition = !round_nutrition;
-    await persistNutritionDisplay();
-  }
-
-  // Persist the Nutrition Display card's settings, carrying the current API
-  // credentials through untouched (an unsaved edit in the form above is never
-  // clobbered, mirroring the visible-nutrients save path).
-  async function persistNutritionDisplay() {
-    try {
-      await saveSettings({
-        usda_api_key: $settingsStore.usda_api_key,
-        tmdb_api_key: $settingsStore.tmdb_api_key,
-        scraper_proxy_url: $settingsStore.scraper_proxy_url,
-        visible_nutrients,
-        round_nutrition,
-      });
-    } catch (err) {
-      console.error("Failed to save nutrition display settings", err);
-    }
-  }
-
   // Save handler
   async function handleSave(e: Event) {
     e.preventDefault();
@@ -113,9 +66,11 @@
         usda_api_key: usdaKey.trim(),
         tmdb_api_key: tmdbKey.trim(),
         scraper_proxy_url: scraperProxy.trim(),
-        // Preserve the current Nutrition Display settings when saving credentials.
-        visible_nutrients,
-        round_nutrition,
+        // Preserve the persisted Nutrition Display selection when saving
+        // credentials — the editor owns those datoms (NutritionTargetEditor),
+        // so read their current values off the store rather than a local copy.
+        visible_nutrients: $settingsStore.visible_nutrients,
+        round_nutrition: $settingsStore.round_nutrition,
       });
       saveSuccess = true;
       setTimeout(() => {
@@ -304,42 +259,7 @@
   </form>
 </Card>
 
-<Card class="mt-4">
-  <h2>Nutrition Display</h2>
-  <p class="mt-2">
-    Choose which nutrients appear on the food dashboard summary and the
-    staged-food pills. Calories are always shown.
-  </p>
-  <div class="nutrient-toggles mt-4">
-    {#each NUTRIENT_CATALOGUE as nutrient (nutrient.key)}
-      <label class="toggle-label">
-        <input
-          type="checkbox"
-          data-nutrient={nutrient.key}
-          checked={visible_nutrients.includes(nutrient.key)}
-          onchange={() => toggleNutrient(nutrient.key)}
-        />
-        <span class="toggle-text">{nutrient.label}</span>
-      </label>
-    {/each}
-  </div>
-
-  <div class="round-toggle mt-4">
-    <label class="toggle-label">
-      <input
-        type="checkbox"
-        id="round-nutrition-toggle"
-        checked={round_nutrition}
-        onchange={toggleRoundNutrition}
-      />
-      <span class="toggle-text">Round nutrition to whole numbers</span>
-    </label>
-    <span class="help-text"
-      >Show calories and nutrients as whole numbers. Stored values keep full
-      precision either way.</span
-    >
-  </div>
-</Card>
+<NutritionTargetEditor />
 
 <Card class="mt-4">
   <div class="card-header">
@@ -646,24 +566,6 @@
        narrow card. */
   .dev-toggle {
     container-type: inline-size;
-  }
-  /* Whole-number toggle: the label + its help text stacked, with a container
-     context so the shared .toggle-label font sizing resolves against this block
-     rather than the viewport (matching .dev-toggle / .nutrient-toggles). */
-  .round-toggle {
-    container-type: inline-size;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3xs);
-  }
-  /* Nutrient toggles: a responsive grid of checkbox rows. A container context so
-     the shared .toggle-label's cqi-based font sizing resolves against this grid
-     cell rather than the viewport. */
-  .nutrient-toggles {
-    container-type: inline-size;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
-    gap: var(--space-s);
   }
   .toggle-label {
     display: flex;
