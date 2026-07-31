@@ -366,6 +366,21 @@ const MACRO_SECTION_KEYS = new Set<string>([
 ]);
 
 /**
+ * Narrows a stored visible-nutrient selection to just the macro keys
+ * ({@link MACRO_SECTION_KEYS}: protein/fat/carbs/fibre), preserving the user's
+ * order. The per-meal subtotal is a *macro* tally — Calories plus the macros the
+ * user tracks — so it drops any selected micronutrient (magnesium, folate, the
+ * vitamins) that belongs on the full-day RDA surface, not on a one-line running
+ * total. An absent selection falls back to the macros within
+ * {@link DEFAULT_VISIBLE_NUTRIENTS}; an explicit empty array stays empty.
+ */
+export function macroNutrients(selection: string[] | undefined): string[] {
+  return (selection ?? DEFAULT_VISIBLE_NUTRIENTS).filter((key) =>
+    MACRO_SECTION_KEYS.has(key)
+  );
+}
+
+/**
  * The section headings the full-day RDA modal (#42) and the Settings target editor
  * (#41) both render — one source of truth so the two surfaces name the groups
  * identically. Calories/energy is the always-on row each surface leads with.

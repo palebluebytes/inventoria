@@ -9,6 +9,7 @@ import {
   formatCalories,
   buildNutrientMeters,
   buildNutrientPills,
+  macroNutrients,
   buildNutrientBreakdown,
   buildDayRdaView,
   nutrientShortLabel,
@@ -585,6 +586,39 @@ describe("buildNutrientPills", () => {
   it("threads the display precision to every pill (decimals=0)", () => {
     const pills = buildNutrientPills(scaled, ["protein", "fiber_content"], 0);
     expect(pills.map((p) => p.value)).toEqual(["134 kcal", "2 g", "3 g"]);
+  });
+});
+
+describe("macroNutrients", () => {
+  it("drops micronutrients, keeping only the tracked macros in order", () => {
+    // A full selection — macros interleaved with micros the RDA surface shows.
+    expect(
+      macroNutrients([
+        "protein",
+        "magnesium",
+        "carbs",
+        "folate",
+        "fiber_content",
+        "vitamin_c",
+      ])
+    ).toEqual(["protein", "carbs", "fiber_content"]);
+  });
+
+  it("falls back to the default macros when the selection is unset", () => {
+    expect(macroNutrients(undefined)).toEqual([
+      "protein",
+      "fat",
+      "carbs",
+      "fiber_content",
+    ]);
+  });
+
+  it("honours an explicit empty selection as no macros", () => {
+    expect(macroNutrients([])).toEqual([]);
+  });
+
+  it("returns nothing when the user tracks only micronutrients", () => {
+    expect(macroNutrients(["magnesium", "folate"])).toEqual([]);
   });
 });
 

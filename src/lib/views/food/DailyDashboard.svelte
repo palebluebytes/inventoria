@@ -9,6 +9,7 @@
     buildNutrientMeters,
     buildNutrientPills,
     buildDayRdaView,
+    macroNutrients,
     nutrientShortLabel,
     SECTION_MACROS,
     SECTION_MICROS,
@@ -247,7 +248,7 @@
       {:else}
         {@const mealPills = buildNutrientPills(
           totalNutrition(groupedMeals[meal_type]),
-          $settingsStore.visible_nutrients,
+          macroNutrients($settingsStore.visible_nutrients),
           $nutritionDisplayDecimals
         )}
         <div class="meal-items-list">
@@ -313,8 +314,9 @@
             </div>
           {/each}
         </div>
-        <!-- Subtle one-line subtotal for the section: Calories + the same
-             nutrients the meters show, summed over just this meal's items. -->
+        <!-- Subtle one-line subtotal for the section: Calories + just the macros
+             the user tracks (micronutrients belong on the full-day RDA surface,
+             not a running tally), summed over only this meal's items. -->
         <div class="meal-total" data-testid="meal-total-{meal_type}">
           {#each mealPills as pill (pill.key)}
             <span class="meal-total-item nutrient-{pill.key}">
