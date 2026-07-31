@@ -6,30 +6,33 @@
   // component — a labelled tile (label on top, body below) that tiles into a
   // {@link NutrientCardGrid}. The body differs by surface (the modal shows a
   // value/target + fill bar; the editor an allowance input) and is passed as
-  // `children`; only the shell — padding, surface, label, muted state — lives here.
+  // `children`; only the shell — padding, surface, label, tracked state — lives
+  // here.
   //
-  // `toggle` renders the whole card as a <label> so a click anywhere toggles the
-  // control passed in `control` (the editor's visibility checkbox). A <label>
-  // ignores clicks on its interactive descendants, so a target input in the body
-  // stays independently editable and never flips the toggle. Without `toggle` the
-  // card is a plain <div> (the read-only modal, and the always-on Calories card).
+  // With `toggle`, the WHOLE card is the visibility toggle: it renders as a
+  // <label> around a visually-hidden checkbox, so a click (or Space) anywhere on
+  // the card flips `tracked` — there is no separate visible control. A <label>
+  // ignores clicks on its interactive descendants, so a target input / reset in
+  // the body stays independently editable and never flips the toggle. `tracked`
+  // drives the visual state (a muted label when off). Without `toggle` the card is
+  // an inert <div> (the read-only modal, and the always-on Calories card).
   let {
     label,
     rowKey = undefined,
-    untracked = false,
     toggle = false,
-    control = undefined,
+    tracked = false,
+    onToggle = undefined,
     children,
   }: {
     label: string;
     /** `data-nutrient-row` hook for tests / per-nutrient styling. */
     rowKey?: string;
-    /** Mute the label — the editor's "not shown on the dashboard" state. */
-    untracked?: boolean;
-    /** Render as a whole-card <label> toggle rather than a plain <div>. */
+    /** Render the whole card as a visibility toggle (a <label>). */
     toggle?: boolean;
-    /** Top-right control (e.g. the visibility checkbox), rendered in the label row. */
-    control?: Snippet;
+    /** Whether the nutrient is shown on the dashboard — drives the visual state. */
+    tracked?: boolean;
+    /** Fired when the card (as a toggle) is clicked/keyed. */
+    onToggle?: () => void;
     /** The card body below the label — value/bar (modal) or allowance (editor). */
     children: Snippet;
   } = $props();
@@ -38,18 +41,31 @@
 <svelte:element
   this={toggle ? "label" : "div"}
   class="nutrient-card {rowKey ? `nutrient-${rowKey}` : ''}"
-  class:untracked
+  class:toggleable={toggle}
+  class:untracked={toggle && !tracked}
   data-nutrient-row={rowKey}
 >
+  {#if toggle}
+    <!-- Visually hidden, but a real (focusable, announced) checkbox — the <label>
+         above makes the whole card its click target. -->
+    <input
+      type="checkbox"
+      class="card-toggle"
+      data-nutrient={rowKey}
+      checked={tracked}
+      onchange={onToggle}
+      aria-label="Show {label} on the dashboard"
+    />
+  {/if}
   <span class="card-top">
     <span class="card-label">{label}</span>
-    {#if control}{@render control()}{/if}
   </span>
   {@render children()}
 </svelte:element>
 
 <style>
   .nutrient-card {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: var(--space-2xs);
@@ -58,6 +74,28 @@
   }
   :global(label.nutrient-card) {
     cursor: pointer;
+  }
+  /* The whole card is the toggle, so hint interactivity on hover. */
+  :global(label.nutrient-card:hover) {
+    background: var(--track, #f4f4f5);
+  }
+  /* The toggle checkbox stays a real (focusable, announced, test-driveable)
+     control, but is invisible — the surrounding <label> is the visible target, so
+     a click anywhere on the card flips it. Kept full-opacity-0 (not clipped) so it
+     still has a hit region for keyboard/automation. */
+  .card-toggle {
+    position: absolute;
+    top: var(--space-xs);
+    right: var(--space-s);
+    width: 1.2em;
+    height: 1.2em;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .nutrient-card:has(.card-toggle:focus-visible) {
+    outline: 2px solid #000;
+    outline-offset: -2px;
   }
   .card-top {
     display: flex;
@@ -73,7 +111,7 @@
     text-transform: uppercase;
     color: #000;
   }
-  /* Not shown on the dashboard: mute the label so the tracked cards stand out. */
+  /* Not shown on the dashboard: mute the label so tracked cards stand out. */
   .nutrient-card.untracked .card-label {
     color: var(--text-muted);
   }

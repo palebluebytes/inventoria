@@ -21,6 +21,7 @@
   import Card from "../../ui/Card.svelte";
   import NutrientCard from "./NutrientCard.svelte";
   import NutrientCardGrid from "./NutrientCardGrid.svelte";
+  import NutrientGroupHead from "./NutrientGroupHead.svelte";
 
   // The unit a target is typed in: a display unit for a nutrient, or kcal for the
   // always-on Calories card. Mirrors parseNutrientEntry's signature.
@@ -28,11 +29,12 @@
 
   // The Nutrition Display card (tickets #29 + #41): which nutrients appear on the
   // food dashboard/pills, and the daily target each reach-toward nutrient aims
-  // for. Shares the modal's card layout and its grouping (ticket #42) — the whole
-  // card is the visibility toggle and the allowance is edited inside it. Owns its
-  // own slice of settings so the parent Settings screen stays thin (CODING_STANDARDS
-  // §4). Visibility and the target overrides are two independent datoms sharing a
-  // card (ADR-0031 §2/§3): a save of one never rewrites the other.
+  // for. Shares the modal's card layout and grouping (ticket #42) — the whole card
+  // is the visibility toggle (no separate control) and the allowance is edited
+  // inside it. Owns its own slice of settings so the parent Settings screen stays
+  // thin (CODING_STANDARDS §4). Visibility and the targets stay two datoms with
+  // their own writers, but they are no longer strictly independent: setting a
+  // positive custom target auto-tracks the nutrient (customising implies "show it").
 
   // Visible-nutrient selection (ticket #29). Each toggle persists immediately,
   // re-writing the already-saved API keys from the store so an unsaved edit in
@@ -81,26 +83,50 @@
   // Edit a target as the user types: an empty field clears the override back to
   // the baked default (like ↺); otherwise convert the display-unit entry to
   // canonical grams/kcal via #40's parseNutrientEntry (non-numeric reads as 0 =
-  // opt-out). The value auto-saves on a short debounce so nothing needs a blur;
-  // a blur/enter ({@link commitTarget}) flushes it at once. Two independent datoms
-  // per card — this never touches the visibility selection (ADR-0031 §2/§3).
+  // opt-out). Setting a POSITIVE custom target also tracks the nutrient — adds its
+  // dashboard meter — since customising something means you want to see it (the
+  // `0` opt-out and Calories never track this way). The value auto-saves on a
+  // short debounce so nothing needs a blur; a blur/enter ({@link commitTarget})
+  // flushes it at once.
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
+  let visibilityDirty = false;
   function editTarget(key: string, unit: TargetUnit, raw: string) {
     const trimmed = raw.trim();
+    let parsed: number | undefined;
     if (trimmed === "") {
       delete food_targets[key];
     } else {
-      food_targets[key] = parseNutrientEntry(Number(trimmed), unit);
+      parsed = parseNutrientEntry(Number(trimmed), unit);
+      food_targets[key] = parsed;
     }
     food_targets = { ...food_targets };
+    if (
+      typeof parsed === "number" &&
+      parsed > 0 &&
+      key !== ENERGY_TARGET_KEY &&
+      !visible_nutrients.includes(key)
+    ) {
+      visible_nutrients = [...visible_nutrients, key];
+      visibilityDirty = true;
+    }
+    scheduleSave();
+  }
+  function scheduleSave() {
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => void persistFoodTargets(), 400);
+    saveTimer = setTimeout(flushSave, 400);
   }
   // Flush the debounced save immediately (on blur/enter), so leaving the field —
-  // or navigating away — always persists the current allowance.
-  function commitTarget() {
+  // or navigating away — always persists the allowance and any auto-track.
+  function flushSave() {
     clearTimeout(saveTimer);
     void persistFoodTargets();
+    if (visibilityDirty) {
+      visibilityDirty = false;
+      void persistNutritionDisplay();
+    }
+  }
+  function commitTarget() {
+    flushSave();
   }
   onDestroy(() => clearTimeout(saveTimer));
 
@@ -154,11 +180,10 @@
 
 <!-- One nutrient card — the shared NutrientCard the dashboard's RDA modal uses
      (ticket #42), its body an allowance editor instead of a value/bar. With
-     `hasVisibility` the whole card is a <label> whose click toggles the nutrient's
-     dashboard meter (the `control` checkbox); clicks on the inner target input / ↺
-     don't toggle it (a <label> ignores its interactive descendants), so editing an
-     allowance never flips visibility. Calories (`hasVisibility=false`) is always
-     shown, so it renders as a plain card with the allowance only. -->
+     `hasVisibility` the whole card IS the visibility toggle (no separate control);
+     clicks on the inner target input / ↺ don't toggle it, so editing an allowance
+     never flips visibility. Calories (`hasVisibility=false`) is always shown, so it
+     renders as a plain card with the allowance only. -->
 {#snippet card(
   key: string,
   label: string,
@@ -169,20 +194,9 @@
     {label}
     rowKey={key}
     toggle={hasVisibility}
-    untracked={hasVisibility && !isTracked(key)}
+    tracked={isTracked(key)}
+    onToggle={() => toggleNutrient(key)}
   >
-    {#snippet control()}
-      {#if hasVisibility}
-        <input
-          type="checkbox"
-          class="card-check"
-          data-nutrient={key}
-          checked={isTracked(key)}
-          onchange={() => toggleNutrient(key)}
-          aria-label="Show {label} on the dashboard"
-        />
-      {/if}
-    {/snippet}
     {#snippet children()}
       <span class="card-allowance">
         <input
@@ -226,20 +240,24 @@
     shown.
   </p>
 
-  <div class="rda-group-head">{SECTION_MACROS}</div>
-  <NutrientCardGrid>
-    {@render card(ENERGY_TARGET_KEY, "Calories", "kcal", false)}
-    {#each MACRO_DESCRIPTORS as n (n.key)}
-      {@render card(n.key, n.label, n.unit, true)}
-    {/each}
-  </NutrientCardGrid>
+  <!-- The heading bands and card grids bleed to the card's edges so the section
+       reads edge-to-edge like the dashboard's full-day modal. -->
+  <div class="nutrient-sections">
+    <NutrientGroupHead label={SECTION_MACROS} />
+    <NutrientCardGrid>
+      {@render card(ENERGY_TARGET_KEY, "Calories", "kcal", false)}
+      {#each MACRO_DESCRIPTORS as n (n.key)}
+        {@render card(n.key, n.label, n.unit, true)}
+      {/each}
+    </NutrientCardGrid>
 
-  <div class="rda-group-head">{SECTION_MICROS}</div>
-  <NutrientCardGrid>
-    {#each MICRO_DESCRIPTORS as n (n.key)}
-      {@render card(n.key, n.label, n.unit, true)}
-    {/each}
-  </NutrientCardGrid>
+    <NutrientGroupHead label={SECTION_MICROS} />
+    <NutrientCardGrid>
+      {#each MICRO_DESCRIPTORS as n (n.key)}
+        {@render card(n.key, n.label, n.unit, true)}
+      {/each}
+    </NutrientCardGrid>
+  </div>
 
   <div class="round-toggle mt-4">
     <label class="toggle-label">
@@ -276,21 +294,15 @@
     font-style: italic;
   }
 
-  /* Section heading — mirrors the RDA modal's `.rda-group-head` so Settings and
-     the modal read the same. */
-  .rda-group-head {
-    font-size: var(--step-n2);
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-secondary);
-    margin: var(--space-m) 0 var(--space-2xs);
-    padding-bottom: var(--space-3xs);
-    border-bottom: 1px solid var(--border, #000);
+  /* Bleed the shared group-heads + grids out to the enclosing Card's edges (it
+     pads `--space-l` horizontally), so the bands and dividers run edge-to-edge
+     exactly like the modal. The heads/grids/cards themselves are the shared
+     NutrientGroupHead / NutrientCardGrid / NutrientCard; only the allowance-editor
+     body below is this surface's own. */
+  .nutrient-sections {
+    margin: var(--space-m) calc(-1 * var(--space-l)) 0;
+    border-top: 1px solid var(--border, #000);
   }
-
-  /* The card shell + grid are the shared NutrientCard / NutrientCardGrid; only the
-     allowance-editor body below is this surface's own. */
 
   /* The `0`-opt-out flag: plain inline text (not a chip, not a meter) so the card
      reads as "deliberately un-targeted" without a colour cue (ADR-0003). */
@@ -410,11 +422,10 @@
       top: 0;
     }
   }
-  /* Custom retro checkbox shared by the round toggle and every nutrient card:
-     appearance:none lets the control fill its own box so it centres cleanly,
-     matching the 2px black borders used across Settings. */
-  .toggle-label input[type="checkbox"],
-  .card-check {
+  /* Custom retro checkbox for the round toggle: appearance:none lets the control
+     fill its own box so it centres cleanly, matching the 2px black borders used
+     across Settings. (Nutrient cards toggle via the whole card, no visible box.) */
+  .toggle-label input[type="checkbox"] {
     appearance: none;
     -webkit-appearance: none;
     flex: 0 0 auto;
@@ -427,20 +438,17 @@
     background: #fff;
     cursor: pointer;
   }
-  .toggle-label input[type="checkbox"]::before,
-  .card-check::before {
+  .toggle-label input[type="checkbox"]::before {
     content: "";
     width: 0.62em;
     height: 0.62em;
     background: #000;
     transform: scale(0);
   }
-  .toggle-label input[type="checkbox"]:checked::before,
-  .card-check:checked::before {
+  .toggle-label input[type="checkbox"]:checked::before {
     transform: scale(1);
   }
-  .toggle-label input[type="checkbox"]:focus-visible,
-  .card-check:focus-visible {
+  .toggle-label input[type="checkbox"]:focus-visible {
     outline: 2px solid #000;
     outline-offset: 2px;
   }

@@ -27,6 +27,7 @@
   import WeekStrip from "./WeekStrip.svelte";
   import NutrientCard from "./NutrientCard.svelte";
   import NutrientCardGrid from "./NutrientCardGrid.svelte";
+  import NutrientGroupHead from "./NutrientGroupHead.svelte";
   import { longpress } from "../../actions/longpress";
 
   let {
@@ -364,7 +365,7 @@
             </div>
           {:else}
             {#if dayRda.gaps.length > 0}
-              <div class="rda-group-head">Biggest gaps</div>
+              <NutrientGroupHead label="Biggest gaps" />
               <div class="rda-gaps" data-testid="rda-gaps">
                 {#each dayRda.gaps as gap (gap.key)}
                   <span class="rda-chip nutrient-{gap.key}">
@@ -379,7 +380,7 @@
               </div>
             {/if}
 
-            <div class="rda-group-head">{SECTION_MACROS}</div>
+            <NutrientGroupHead label={SECTION_MACROS} />
             <NutrientCardGrid>
               {#each dayRda.macros as row (row.key)}
                 {@render rdaCell(row)}
@@ -387,7 +388,7 @@
             </NutrientCardGrid>
 
             {#if dayRda.micros.length > 0}
-              <div class="rda-group-head">{SECTION_MICROS}</div>
+              <NutrientGroupHead label={SECTION_MICROS} />
               <NutrientCardGrid>
                 {#each dayRda.micros as row (row.key)}
                   {@render rdaCell(row)}
@@ -396,9 +397,9 @@
             {/if}
 
             {#if dayRda.untracked.length > 0}
-              <div class="rda-group-head">
-                Not tracked ({dayRda.untracked.length})
-              </div>
+              <NutrientGroupHead
+                label="Not tracked ({dayRda.untracked.length})"
+              />
               {#each dayRda.untracked as row (row.key)}
                 <div class="rda-untracked-row nutrient-{row.key}">
                   <span class="rda-untracked-label">{row.label}</span>
@@ -516,9 +517,9 @@
     cursor: pointer;
     color: var(--text-primary);
   }
-  /* Full-day RDA-vs-target body (#42): scrolls under the fixed header, four
-     `.rda-group-head` sections marking Biggest gaps / Energy & macros / Vitamins
-     & minerals / Not tracked. */
+  /* Full-day RDA-vs-target body (#42): scrolls under the fixed header, its
+     sections headed by the shared NutrientGroupHead — Biggest gaps / Energy &
+     macros / Vitamins & minerals / Not tracked. */
   .day-rda-body {
     display: flex;
     flex-direction: column;
@@ -538,20 +539,6 @@
     margin-top: var(--space-2xs);
     font-size: var(--step-n2);
     color: var(--text-secondary);
-  }
-  .rda-group-head {
-    font-size: var(--step-n3);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-secondary);
-    padding: var(--space-2xs) var(--space-m);
-    background: var(--track, #f4f4f5);
-    border-top: 1px solid var(--border, #000);
-    border-bottom: 1px solid var(--border-subtle, #e4e4e7);
-  }
-  .rda-group-head:first-child {
-    border-top: none;
   }
 
   /* Biggest gaps: a wrap of severity chips. The only percentage in the modal — a

@@ -631,29 +631,30 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(calcium.locator(".progress-bar-fill")).toHaveCount(0);
   });
 
-  test("editing a target leaves the visibility selection untouched, and vice versa (#41)", async ({
+  test("customising a target tracks that nutrient; the two prefs stay per-nutrient (#41)", async ({
     page,
   }) => {
     await page.goto("/?mem=1");
     await waitForDbReady(page);
 
     await page.locator(".nav-item", { hasText: "Settings" }).click();
-    // A non-default selection: Calcium ON, Fibre OFF.
-    await page.locator('input[data-nutrient="calcium"]').check();
-    await page.locator('input[data-nutrient="fiber_content"]').uncheck();
 
-    // Editing a target writes its own datom and never rewrites the selection.
-    const proteinTarget = page.locator('input[data-target="protein"]');
-    await proteinTarget.fill("140");
-    await proteinTarget.blur();
-    await expect(page.locator('input[data-nutrient="calcium"]')).toBeChecked();
-    await expect(
-      page.locator('input[data-nutrient="fiber_content"]')
-    ).not.toBeChecked();
+    // Calcium is off by default. Setting a custom target auto-tracks it — adds
+    // its dashboard meter — because customising something implies "show it".
+    const calcium = page.locator('input[data-nutrient="calcium"]');
+    await expect(calcium).not.toBeChecked();
+    const calciumTarget = page.locator('input[data-target="calcium"]');
+    await calciumTarget.fill("1500");
+    await calciumTarget.blur();
+    await expect(calcium).toBeChecked();
 
-    // The reverse: toggling visibility leaves the target override in place.
-    await page.locator('input[data-nutrient="iron"]').check();
-    await expect(proteinTarget).toHaveValue("140");
+    // The auto-track is per-nutrient — it never touches another nutrient's
+    // visibility (iron stays off).
+    await expect(page.locator('input[data-nutrient="iron"]')).not.toBeChecked();
+
+    // And toggling a nutrient's visibility off leaves its target override intact.
+    await calcium.uncheck();
+    await expect(calciumTarget).toHaveValue("1500");
   });
 
   // Route the USDA detail endpoint (`/food/{fdcId}`) — the source of household
