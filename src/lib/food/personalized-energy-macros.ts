@@ -36,6 +36,36 @@ export type ActivityLevel =
 export type EnergyGoal = "lose" | "maintain" | "gain";
 
 /**
+ * The body metrics + choices {@link computeEnergyAndMacros} derives from — the
+ * calculator sheet's form state, mapped to camelCase math params (the ledger's
+ * snake_case profile is a separate boundary shape, Coding Standards §1.3/§3.3).
+ * `energyOverrideKcal` is the optional manual nudge.
+ */
+export interface EnergyMacrosInput {
+  sex: BiologicalSex;
+  weightKg: number;
+  heightCm: number;
+  ageYr: number;
+  activity: ActivityLevel;
+  goal: EnergyGoal;
+  energyOverrideKcal?: number; // the manual nudge, if the user adjusted it
+}
+
+/**
+ * The helper's result — the five keys it writes into `settings/food/targets`:
+ * `energy` (kcal), `protein` / `fat` / `carbs` / `fiber_content` (grams). One
+ * named shape so the module, the calculator sheet's `onApply`, and the editor's
+ * apply path can't drift apart (Coding Standards §3.1).
+ */
+export interface EnergyMacros {
+  energy: number;
+  protein: number;
+  fat: number;
+  carbs: number;
+  fiber_content: number;
+}
+
+/**
  * TDEE = BMR × PAL. Representative multipliers are the **midpoints** of the IOM
  * 2005 PAL bands (the band boundaries are primary-sourced; the midpoint is a
  * product choice — reference doc, "Activity multiplier" table).
@@ -125,21 +155,7 @@ export function mifflinStJeorBmr(
  *   basis applied to the personalized target rather than the frozen 2000-kcal
  *   reference (ADR-0033 Amendment 2). Tracks the nudge, since it scales off `energy`.
  */
-export function computeEnergyAndMacros(input: {
-  sex: BiologicalSex;
-  weightKg: number;
-  heightCm: number;
-  ageYr: number;
-  activity: ActivityLevel;
-  goal: EnergyGoal;
-  energyOverrideKcal?: number; // the manual nudge, if the user adjusted it
-}): {
-  energy: number;
-  protein: number;
-  fat: number;
-  carbs: number;
-  fiber_content: number;
-} {
+export function computeEnergyAndMacros(input: EnergyMacrosInput): EnergyMacros {
   const bmr = mifflinStJeorBmr(
     input.sex,
     input.weightKg,
