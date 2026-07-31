@@ -141,14 +141,11 @@
   // "everything, against target" surface while the meters above stay
   // selection-gated. The Limits section shows only the limits the day carried.
   let dayRda = $derived(
-    buildDayRdaView(
-      dayTotals,
-      resolvedTargets,
-      $nutritionDisplayDecimals,
-      undefined,
-      $settingsStore.visible_nutrients,
-      resolvedLimits
-    )
+    buildDayRdaView(dayTotals, resolvedTargets, {
+      decimals: $nutritionDisplayDecimals,
+      selection: $settingsStore.visible_nutrients,
+      limits: resolvedLimits,
+    })
   );
 
   // Whether any food has been logged for the day. The RDA sections always carry

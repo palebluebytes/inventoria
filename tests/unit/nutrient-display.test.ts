@@ -377,7 +377,10 @@ describe("buildDayRdaView", () => {
   it("ranks only the tracked nutrients (+ always Calories) when given a selection", () => {
     // The user tracks protein only. The gaps strip is their "what to eat next",
     // so it ranks protein + Calories — not the full reference set the sections show.
-    const view = buildDayRdaView(day, baked, undefined, 3, ["protein"]);
+    const view = buildDayRdaView(day, baked, {
+      gapLimit: 3,
+      selection: ["protein"],
+    });
     const keys = view.gaps.map((g) => g.key);
     expect(keys).toContain("protein");
     // Calories is always ranked (the always-on ring), even though it's not a
@@ -422,7 +425,7 @@ describe("buildDayRdaView", () => {
   });
 
   it("threads display precision to every section (decimals=0)", () => {
-    const view = buildDayRdaView(day, baked, 0);
+    const view = buildDayRdaView(day, baked, { decimals: 0 });
     const iron = view.micros.find((r) => r.key === "iron")!;
     expect(iron.value).toBe("14 mg");
     expect(iron.target).toBe("18 mg");
@@ -463,10 +466,9 @@ describe("buildDayRdaView — Limits section (ADR-0032, #43)", () => {
     // cholesterol_content absent — never reported
   };
 
-  // The 6-arg form threads the resolved limits map in; decimals/gapLimit/selection
+  // Only the resolved limits map is threaded in; decimals/gapLimit/selection
   // fall back to their defaults.
-  const rda = (limits = bakedLimits) =>
-    buildDayRdaView(day, baked, undefined, undefined, undefined, limits);
+  const rda = (limits = bakedLimits) => buildDayRdaView(day, baked, { limits });
 
   it("carries the present limits toward their caps, omitting absent ones", () => {
     const keys = rda().limits.map((r) => r.key);
