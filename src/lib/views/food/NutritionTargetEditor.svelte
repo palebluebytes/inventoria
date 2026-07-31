@@ -29,6 +29,11 @@
   import NutrientCardGrid from "./NutrientCardGrid.svelte";
   import NutrientGroupHead from "./NutrientGroupHead.svelte";
   import CalorieCalculatorSheet from "./CalorieCalculatorSheet.svelte";
+  import TargetRationaleSheet from "./TargetRationaleSheet.svelte";
+  import {
+    TARGET_RATIONALES,
+    type TargetRationale,
+  } from "../../food/target-rationale";
 
   // The unit a target is typed in: a display unit for a nutrient, or kcal for the
   // always-on Calories card. Mirrors parseNutrientEntry's signature.
@@ -254,6 +259,11 @@
   // the sheet re-deriving the persistence.
   let showCalculator = $state(false);
 
+  // The open "Why these defaults?" rationale sheet (ADR-0033 §5, ticket #46), or
+  // null when none is open. Set by the four ⓘ buttons (three section heads + the
+  // calculator card); the sheet is mounted only while non-null so it re-seeds fresh.
+  let rationale = $state<TargetRationale | null>(null);
+
   // The three headline macros the helper writes and auto-tracks (energy is the
   // always-on ring, never a visible-nutrient meter).
   const CALCULATED_MACRO_KEYS = ["protein", "fat", "carbs"] as const;
@@ -381,6 +391,21 @@
   </NutrientCard>
 {/snippet}
 
+<!-- The "Why these defaults?" ⓘ affordance (ADR-0033 §5, #46): a small circular
+     button that opens the matching rationale sheet. Rendered into NutrientGroupHead's
+     optional `info` slot for the three section heads, and beside the calculator card. -->
+{#snippet infoButton(r: TargetRationale)}
+  <button
+    type="button"
+    class="info-btn"
+    data-info={r.referenceDoc}
+    aria-label="Why these defaults? {r.title}"
+    onclick={() => (rationale = r)}
+  >
+    i
+  </button>
+{/snippet}
+
 <Card class="mt-4">
   <h2>Nutrition Display</h2>
   <p class="mt-2">
@@ -394,7 +419,11 @@
   <!-- The heading bands and card grids bleed to the card's edges so the section
        reads edge-to-edge like the dashboard's full-day modal. -->
   <div class="nutrient-sections">
-    <NutrientGroupHead label={SECTION_MACROS} />
+    <NutrientGroupHead label={SECTION_MACROS}>
+      {#snippet info()}
+        {@render infoButton(TARGET_RATIONALES.macros)}
+      {/snippet}
+    </NutrientGroupHead>
     <NutrientCardGrid>
       {@render card(ENERGY_TARGET_KEY, "Calories", "kcal", false)}
       {#each MACRO_DESCRIPTORS as n (n.key)}
@@ -402,26 +431,39 @@
       {/each}
       <!-- The calculator's entry point fills the grid's empty sixth cell as an
            ACTION card (dashed, not the acid-green tracked fill) so it reads as an
-           action, not a target masquerading as a nutrient (ADR-0033 §4). -->
-      <button
-        type="button"
-        class="calc-action"
-        data-open-calculator
-        onclick={() => (showCalculator = true)}
-      >
-        <span class="calc-action-icon" aria-hidden="true">🧮</span>
-        <span class="calc-action-label">Calculate from body metrics</span>
-      </button>
+           action, not a target masquerading as a nutrient (ADR-0033 §4). Its own
+           ⓘ sits in the corner — the fourth "Why these defaults?" button (#46),
+           kept a sibling of the action button so it stays separately clickable. -->
+      <div class="calc-cell">
+        <button
+          type="button"
+          class="calc-action"
+          data-open-calculator
+          onclick={() => (showCalculator = true)}
+        >
+          <span class="calc-action-icon" aria-hidden="true">🧮</span>
+          <span class="calc-action-label">Calculate from body metrics</span>
+        </button>
+        {@render infoButton(TARGET_RATIONALES.calculator)}
+      </div>
     </NutrientCardGrid>
 
-    <NutrientGroupHead label={SECTION_MICROS} />
+    <NutrientGroupHead label={SECTION_MICROS}>
+      {#snippet info()}
+        {@render infoButton(TARGET_RATIONALES.micros)}
+      {/snippet}
+    </NutrientGroupHead>
     <NutrientCardGrid>
       {#each MICRO_DESCRIPTORS as n (n.key)}
         {@render card(n.key, n.label, n.unit, true)}
       {/each}
     </NutrientCardGrid>
 
-    <NutrientGroupHead label={SECTION_LIMITS} />
+    <NutrientGroupHead label={SECTION_LIMITS}>
+      {#snippet info()}
+        {@render infoButton(TARGET_RATIONALES.limits)}
+      {/snippet}
+    </NutrientGroupHead>
     <NutrientCardGrid>
       {#each LIMIT_DESCRIPTORS as n (n.key)}
         {@render limitCard(n.key, n.label, n.unit)}
@@ -454,6 +496,12 @@
     onApply={applyCalculatorResult}
     onClose={() => (showCalculator = false)}
   />
+{/if}
+
+<!-- The "Why these defaults?" rationale sheet (#46) — mounted only while a
+     rationale is selected, so it slides in fresh; onClose unmounts it. -->
+{#if rationale}
+  <TargetRationaleSheet {rationale} onClose={() => (rationale = null)} />
 {/if}
 
 <style>
@@ -499,12 +547,23 @@
     gap: var(--space-2xs);
   }
 
+  /* The grid cell wrapping the calculator action + its ⓘ. A positioning context
+     so the info button can sit in the corner without nesting inside the action
+     button (a button-in-button is invalid). Fills the grid cell so the action
+     stretches to the row height like every other card. */
+  .calc-cell {
+    position: relative;
+    display: flex;
+    min-height: 100%;
+  }
+
   /* The calculator entry point: an ACTION card filling the grid's empty sixth
      cell. Deliberately NOT a nutrient card — a dashed inset border and a plain
      surface (never the acid-green tracked fill) so it reads as "do something",
      not "a target you've set" (ADR-0033 §4). It still paints an opaque surface so
      the grid's 1px hairline gaps draw its dividers like every other cell. */
   .calc-action {
+    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -543,6 +602,53 @@
     line-height: 1.2;
     text-transform: uppercase;
     text-align: center;
+  }
+
+  /* The "Why these defaults?" ⓘ affordance: a small circular black-bordered "i"
+     button. Sits in a section-head band (transparent, inheriting the band's
+     colour) or, with .calc-info, pinned in the calculator cell's top-right
+     corner over the action. Lowercase serif-less "i" reads as the info glyph. */
+  .info-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    padding: 0;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: var(--step-n1);
+    font-weight: 700;
+    font-style: italic;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .info-btn:hover {
+    background: #000;
+    color: #fff;
+  }
+  .info-btn:focus-visible {
+    outline: 2px solid #000;
+    outline-offset: 2px;
+  }
+  /* The calculator's ⓘ, pinned in the cell corner and lifted above the action's
+     dashed fill; a solid surface so the "i" stays legible over the hatching. */
+  .calc-cell .info-btn {
+    position: absolute;
+    top: var(--space-2xs);
+    right: var(--space-2xs);
+    z-index: 1;
+    border-color: #000;
+    background: var(--food-surface-bg, #fff);
+    color: #000;
+  }
+  .calc-cell .info-btn:hover {
+    background: #000;
+    color: #fff;
   }
   /* Compact numeric field — a brutalist box (2px border, inset, black-on-focus)
      that fits a five-figure micro target (e.g. 4700 mg potassium). */
