@@ -138,7 +138,10 @@ one chosen):
 
 - **Biggest gaps** — a severity strip ranking the reach-toward nutrients furthest
   from target. This strip carries the **only** percentage in the modal, and it is a
-  _ranking_ signal, not a "% DV" readout.
+  _ranking_ signal, not a "% DV" readout. (Amended: the gaps strip alone is scoped
+  to the tracked selection — see
+  [Amendment](#amendment-2026-07-31-the-biggest-gaps-strip-follows-the-visible-nutrient-selection).
+  The two reference sections below stay independent of `visible_nutrients` as stated.)
 - **Energy & macros** — energy, protein, fat, carbs, fibre.
 - **Vitamins & minerals** — the twelve micronutrients.
 - **Not tracked** — the no-target limit nutrients the day carried (plain value, no
@@ -215,3 +218,28 @@ names.
   storing grams keeps the panel invariant (one unit per field) intact end-to-end;
   the mg/µg display is a `parseNutrientEntry`/`formatNutrientValue` concern at the
   editor edge only.
+
+## Amendment (2026-07-31): the Biggest-gaps strip follows the visible-nutrient selection
+
+Decision 4 above framed the whole modal — sections **and** the Biggest-gaps strip —
+as "independent of `visible_nutrients`". Implementation split that: the two reference
+sections (**Energy & macros**, **Vitamins & minerals**) stay independent and show
+every reach-toward nutrient the day carried, but the **Biggest-gaps strip is scoped
+to the tracked selection** (the user's visible meters, plus the always-on Calories).
+An omitted selection still ranks every targeted nutrient.
+
+The reasoning is that the two surfaces answer different questions. The sections are a
+_reference_ — "here is the whole day against target", so they must be exhaustive. The
+gaps strip is an _action prompt_ — "what to eat next" — and an action prompt is only
+useful about goals the user has actually chosen to pursue: ranking a nutrient they
+deliberately left untracked isn't something they can act on. Scoping the strip to the
+selection keeps it a personal to-do list rather than a second, redundant reference.
+
+The strip's ordering is unchanged from Decision 4: reach-toward nutrients **furthest
+from target** first, which means a **tracked nutrient the day carried none of ranks
+at the top** (zero intake is the maximal gap and the loudest "eat this next" signal),
+ahead of the lowest-fill present nutrients. This is `buildDayRdaView`'s `selection`
+parameter and its `tracked` predicate in `src/lib/food/nutrient-display.ts`; the
+dashboard passes `settingsStore.visible_nutrients`. The sections' independence is
+preserved — they are built from the shared `MACRO_DESCRIPTORS` / `MICRO_DESCRIPTORS`
+sets, not the selection.
