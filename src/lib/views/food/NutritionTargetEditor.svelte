@@ -430,10 +430,11 @@
         {@render card(n.key, n.label, n.unit, true)}
       {/each}
       <!-- The calculator's entry point fills the grid's empty sixth cell as an
-           ACTION card (dashed, not the acid-green tracked fill) so it reads as an
-           action, not a target masquerading as a nutrient (ADR-0033 §4). Its own
-           ⓘ sits in the corner — the fourth "Why these defaults?" button (#46),
-           kept a sibling of the action button so it stays separately clickable. -->
+           ACTION button — a solid black fill (never the acid-green tracked cards'
+           fill) so it reads unmistakably as a button to press, not a target
+           masquerading as a nutrient (ADR-0033 §4). Its own ⓘ sits in the corner —
+           the fourth "Why these defaults?" button (#46), kept a sibling of the
+           action button so it stays separately clickable. -->
       <div class="calc-cell">
         <button
           type="button"
@@ -441,7 +442,6 @@
           data-open-calculator
           onclick={() => (showCalculator = true)}
         >
-          <span class="calc-action-icon" aria-hidden="true">🧮</span>
           <span class="calc-action-label">Calculate from body metrics</span>
         </button>
         {@render infoButton(TARGET_RATIONALES.calculator)}
@@ -544,7 +544,9 @@
   .card-allowance {
     display: flex;
     align-items: center;
-    gap: var(--space-2xs);
+    /* A tight gap so the input + unit + reset ↺ fit the narrow phone column
+       without the numeric field shrinking below a four-digit value (e.g. 4700). */
+    gap: var(--space-3xs);
   }
 
   /* The grid cell wrapping the calculator action + its ⓘ. A positioning context
@@ -557,44 +559,33 @@
     min-height: 100%;
   }
 
-  /* The calculator entry point: an ACTION card filling the grid's empty sixth
-     cell. Deliberately NOT a nutrient card — a dashed inset border and a plain
-     surface (never the acid-green tracked fill) so it reads as "do something",
-     not "a target you've set" (ADR-0033 §4). It still paints an opaque surface so
-     the grid's 1px hairline gaps draw its dividers like every other cell. */
+  /* The calculator entry point: an ACTION button filling the grid's empty sixth
+     cell. Deliberately NOT a nutrient card — a solid black fill (never the
+     acid-green tracked fill) reads unmistakably as "a button to press", not "a
+     target you've set" (ADR-0033 §4). Inverts to white-on-hover, matching the
+     reset ↺ / info ⓘ controls' idiom (not green, which would read as a tracked
+     nutrient). The opaque fill also lets the grid's 1px hairline gaps draw its
+     dividers like every other cell. */
   .calc-action {
     flex: 1;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: var(--space-2xs);
     min-height: 100%;
     padding: var(--space-s);
-    background: var(--food-surface-bg, #fff);
+    background: #000;
     border: none;
-    box-shadow: inset 0 0 0 2px #000;
-    background-image: repeating-linear-gradient(
-      45deg,
-      transparent,
-      transparent 6px,
-      color-mix(in srgb, #000 6%, transparent) 6px,
-      color-mix(in srgb, #000 6%, transparent) 12px
-    );
-    color: #000;
+    color: #fff;
     font-family: inherit;
     cursor: pointer;
   }
   .calc-action:hover {
-    background-color: var(--track, #f4f4f5);
+    background: #fff;
+    color: #000;
   }
   .calc-action:focus-visible {
-    outline: 2px solid #000;
-    outline-offset: -4px;
-  }
-  .calc-action-icon {
-    font-size: var(--step-1);
-    line-height: 1;
+    outline: 2px solid #fff;
+    outline-offset: -6px;
   }
   .calc-action-label {
     font-size: clamp(0.62rem, 3.4cqi, var(--step-n1));
@@ -635,27 +626,30 @@
     outline: 2px solid #000;
     outline-offset: 2px;
   }
-  /* The calculator's ⓘ, pinned in the cell corner and lifted above the action's
-     dashed fill; a solid surface so the "i" stays legible over the hatching. */
+  /* The calculator's ⓘ, pinned in the cell corner and lifted above the action.
+     Inverted to sit on the button's solid black fill: white "i" and white border
+     (border is `currentColor`) over black, flipping to black-on-white on hover to
+     match the action button's own invert. */
   .calc-cell .info-btn {
     position: absolute;
     top: var(--space-2xs);
     right: var(--space-2xs);
     z-index: 1;
-    border-color: #000;
-    background: var(--food-surface-bg, #fff);
-    color: #000;
-  }
-  .calc-cell .info-btn:hover {
     background: #000;
     color: #fff;
+  }
+  .calc-cell .info-btn:hover {
+    background: #fff;
+    color: #000;
   }
   /* Compact numeric field — a brutalist box (2px border, inset, black-on-focus)
      that fits a five-figure micro target (e.g. 4700 mg potassium). */
   .card-target {
     width: 4.25rem;
     min-width: 0;
-    padding: var(--space-3xs) var(--space-2xs);
+    /* Snug horizontal padding — the field is only ~4rem wide in a phone column,
+       so a wider inset would clip a four/five-figure target's own digits. */
+    padding: var(--space-3xs);
     font-family: monospace;
     font-weight: 700;
     font-size: var(--step-n1);

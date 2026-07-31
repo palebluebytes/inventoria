@@ -14,7 +14,11 @@
 <style>
   .nutrient-card-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    /* minmax(0, 1fr) — not the default `1fr` (= minmax(auto, 1fr)) — so a column
+       can shrink below its cards' min-content instead of forcing the grid wider
+       than its container. A card's allowance row (a fixed-width numeric input +
+       unit + reset ↺) would otherwise overflow the two narrow columns on a phone. */
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1px;
     background: var(--border-subtle, #e4e4e7);
     container-type: inline-size;
