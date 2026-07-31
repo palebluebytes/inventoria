@@ -42,6 +42,7 @@
   this={toggle ? "label" : "div"}
   class="nutrient-card {rowKey ? `nutrient-${rowKey}` : ''}"
   class:toggleable={toggle}
+  class:tracked
   class:untracked={toggle && !tracked}
   data-nutrient-row={rowKey}
 >
@@ -72,11 +73,20 @@
     padding: var(--space-xs) var(--space-s);
     background: var(--food-surface-bg, #fff);
   }
-  :global(label.nutrient-card) {
+  .nutrient-card.toggleable {
     cursor: pointer;
   }
-  /* The whole card is the toggle, so hint interactivity on hover. */
-  :global(label.nutrient-card:hover) {
+  /* Tracked / shown on the dashboard: a pale acid-green fill — the app's
+     "on/positive" colour (--green-bg) — so a tracked card reads as clearly active,
+     not just by its darker label. Includes the always-on Calories card. Off cards
+     stay white; a grey wash on hover hints a toggleable one will flip on. */
+  .nutrient-card.tracked {
+    background: color-mix(in srgb, var(--green-bg, #ccff00) 40%, #fff);
+  }
+  .nutrient-card.toggleable.tracked:hover {
+    background: color-mix(in srgb, var(--green-bg, #ccff00) 55%, #fff);
+  }
+  .nutrient-card.toggleable.untracked:hover {
     background: var(--track, #f4f4f5);
   }
   /* The toggle checkbox stays a real (focusable, announced, test-driveable)

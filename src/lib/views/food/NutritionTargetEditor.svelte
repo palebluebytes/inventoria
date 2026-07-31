@@ -194,7 +194,7 @@
     {label}
     rowKey={key}
     toggle={hasVisibility}
-    tracked={isTracked(key)}
+    tracked={!hasVisibility || isTracked(key)}
     onToggle={() => toggleNutrient(key)}
   >
     {#snippet children()}
