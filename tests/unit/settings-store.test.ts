@@ -22,6 +22,7 @@ import {
   settingsStore,
   saveSettings,
   saveFoodTargets,
+  saveFoodLimits,
   nutritionDisplayDecimals,
 } from "../../src/lib/stores/settings.store";
 import { FOOD_DISPLAY_DECIMALS } from "../../src/lib/food/nutrition";
@@ -226,6 +227,71 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
     expect(get(settingsStore).food_targets).toEqual({});
   });
 
+  it("defaults food_limits to an empty override map when unset", () => {
+    // No datom → no overrides; every limit resolves to its baked cap.
+    expect(get(settingsStore).food_limits).toEqual({});
+  });
+
+  it("folds a stored food/limits blob back to the override map", () => {
+    datomsWritable.set([
+      {
+        attribute: "settings/food/limits",
+        value: JSON.stringify({ sodium_content: 1.5, cholesterol_content: 0 }),
+        time: 1,
+      },
+    ]);
+    expect(get(settingsStore).food_limits).toEqual({
+      sodium_content: 1.5,
+      cholesterol_content: 0,
+    });
+  });
+
+  it("filters a food/limits blob to limit keys and numeric values", () => {
+    // A stray reach-toward key or a non-numeric value must never reach the
+    // limits resolver — the collapse drops both.
+    datomsWritable.set([
+      {
+        attribute: "settings/food/limits",
+        value: JSON.stringify({
+          sodium_content: 1.5,
+          protein: 160, // reach-toward nutrient — not a limit
+          saturated_fat_content: "lots", // non-numeric — dropped
+        }),
+        time: 1,
+      },
+    ]);
+    expect(get(settingsStore).food_limits).toEqual({ sodium_content: 1.5 });
+  });
+
+  it("keeps food/targets and food/limits as independent datoms", () => {
+    datomsWritable.set([
+      {
+        attribute: "settings/food/targets",
+        value: JSON.stringify({ protein: 160 }),
+        time: 1,
+      },
+      {
+        attribute: "settings/food/limits",
+        value: JSON.stringify({ sodium_content: 1.5 }),
+        time: 2,
+      },
+    ]);
+    const s = get(settingsStore);
+    expect(s.food_targets).toEqual({ protein: 160 });
+    expect(s.food_limits).toEqual({ sodium_content: 1.5 });
+  });
+
+  it("tolerates a malformed food/limits value (folds to empty)", () => {
+    datomsWritable.set([
+      {
+        attribute: "settings/food/limits",
+        value: JSON.stringify("not-an-object"),
+        time: 1,
+      },
+    ]);
+    expect(get(settingsStore).food_limits).toEqual({});
+  });
+
   it("reflects reactive updates to the underlying datoms", () => {
     datomsWritable.set([
       { attribute: "settings/tmdb_api_key", value: "k1", time: 1 },
@@ -338,5 +404,23 @@ describe("saveFoodTargets", () => {
     // The value is the map itself (ingest/db.core JSON-encode on write); the
     // collapse decodes and re-filters it back on read.
     expect(datom.value).toEqual({ protein: 160, calcium: 0 });
+  });
+});
+
+describe("saveFoodLimits", () => {
+  it("appends only the food/limits datom, independent of the other settings", async () => {
+    await saveFoodLimits({ sodium_content: 1.5, cholesterol_content: 0 });
+    expect(appendMock).toHaveBeenCalledTimes(1);
+    const datoms = appendMock.mock.calls[0][0] as any[];
+    expect(datoms).toHaveLength(1);
+    const [datom] = datoms;
+    expect(datom.entity).toBe("settings:global");
+    expect(datom.attribute).toBe("settings/food/limits");
+    // The value is the map itself (ingest/db.core JSON-encode on write); the
+    // collapse decodes and re-filters it back on read.
+    expect(datom.value).toEqual({
+      sodium_content: 1.5,
+      cholesterol_content: 0,
+    });
   });
 });

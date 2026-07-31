@@ -6,7 +6,7 @@ import { parseDatomValue } from "../db/datom-fold";
 import { HLC_ORDER_ASC } from "../db/hlc";
 import { DEFAULT_VISIBLE_NUTRIENTS } from "../food/nutrient-display";
 import { FOOD_DISPLAY_DECIMALS } from "../food/nutrition";
-import { REACH_TOWARD_KEYS } from "../food/nutrition-targets";
+import { REACH_TOWARD_KEYS, LIMIT_KEYS } from "../food/nutrition-targets";
 
 // Settings values are opaque strings. They're stored JSON-encoded (db.core
 // wraps every value in JSON.stringify), so read them back through the shared
@@ -59,6 +59,16 @@ export interface SettingsState {
    * independently of the visibility/round datoms via {@link saveFoodTargets}.
    */
   food_targets: Partial<Record<string, number>>;
+  /**
+   * User overrides for the baked daily nutrient **limits** (ADR-0032, #43): the
+   * stay-under twin of {@link food_targets}, a partial `{ breakdown_key: number }`
+   * map filtered to the limit key set ({@link LIMIT_KEYS}: sodium, saturated fat,
+   * cholesterol, trans fat), each value in grams. Same presence/absence model —
+   * absent → the baked cap, `> 0` → an override cap, `0` → opts out of a limit
+   * (see `resolveNutrientLimits`). Its own blob datom `settings/food/limits`,
+   * written independently via {@link saveFoodLimits}.
+   */
+  food_limits: Partial<Record<string, number>>;
 }
 
 /**
@@ -99,6 +109,34 @@ function parseFoodTargets(rawValue: string): Partial<Record<string, number>> {
   return targets;
 }
 
+/**
+ * Reads the food-limits override map off its blob datom (ADR-0032 §2), the
+ * stay-under twin of {@link parseFoodTargets}: a non-object folds to an empty
+ * override, and entries are kept only when the key is in the limit set
+ * ({@link LIMIT_KEYS}) and the value is a finite number. So a stored blob can
+ * never carry a limit for a reach-toward nutrient or a non-numeric value into
+ * `resolveNutrientLimits`.
+ */
+function parseFoodLimits(rawValue: string): Partial<Record<string, number>> {
+  const parsed = parseDatomValue("settings/food/limits", rawValue);
+  if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return {};
+  }
+  const limits: Record<string, number> = {};
+  for (const [key, value] of Object.entries(
+    parsed as Record<string, unknown>
+  )) {
+    if (
+      LIMIT_KEYS.has(key) &&
+      typeof value === "number" &&
+      Number.isFinite(value)
+    ) {
+      limits[key] = value;
+    }
+  }
+  return limits;
+}
+
 // Derived store to collapse datoms to latest values and inject fallbacks
 export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
   const settings: SettingsState = {
@@ -112,6 +150,8 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
     round_nutrition: false,
     // Unset → no overrides; every target resolves to its baked default.
     food_targets: {},
+    // Unset → no overrides; every limit resolves to its baked cap.
+    food_limits: {},
   };
 
   for (const d of $datoms) {
@@ -134,6 +174,12 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
       settings.food_targets = parseFoodTargets(d.value);
       continue;
     }
+    // food_limits is the stay-under override map, decoded and filtered to the
+    // limit key set — its own datom, parallel to food/targets (ADR-0032 §2).
+    if (d.attribute === "settings/food/limits") {
+      settings.food_limits = parseFoodLimits(d.value);
+      continue;
+    }
     const value = String(
       parseDatomValue(d.attribute, d.value, SETTINGS_STRING_ATTRS)
     );
@@ -150,11 +196,12 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
 });
 
 // Helper to update settings in the ledger. Writes the API credentials and the
-// two Nutrition Display datoms; the food-targets override is a separate datom
-// written independently via saveFoodTargets (ADR-0031 §2/§3), so toggling
-// visibility or rounding never touches a user's targets and vice versa.
+// two Nutrition Display datoms; the food-targets and food-limits overrides are
+// separate datoms written independently via saveFoodTargets / saveFoodLimits
+// (ADR-0031 §2/§3, ADR-0032 §2), so toggling visibility or rounding never
+// touches a user's targets or limits and vice versa.
 export async function saveSettings(
-  state: Omit<SettingsState, "food_targets">
+  state: Omit<SettingsState, "food_targets" | "food_limits">
 ): Promise<void> {
   const timestamp = Date.now();
   const datoms = ingestEntity(
@@ -194,6 +241,30 @@ export async function saveFoodTargets(
       entity: "settings:global",
       attributes: {
         "settings/food/targets": targets,
+      },
+    },
+    timestamp
+  );
+  await dbClient.append(datoms);
+}
+
+/**
+ * Persists the user's daily-limit overrides as a single blob datom
+ * `settings/food/limits`, independent of the targets/visibility/round datoms
+ * (ADR-0032 §2). The stay-under twin of {@link saveFoodTargets}: a partial
+ * `{ breakdown_key: number }` map in canonical grams; the collapse re-filters it
+ * to the limit set on read, so a caller need only pass the keys the user has
+ * touched (absent → baked cap, `0` → opt-out).
+ */
+export async function saveFoodLimits(
+  limits: Partial<Record<string, number>>
+): Promise<void> {
+  const timestamp = Date.now();
+  const datoms = ingestEntity(
+    {
+      entity: "settings:global",
+      attributes: {
+        "settings/food/limits": limits,
       },
     },
     timestamp
