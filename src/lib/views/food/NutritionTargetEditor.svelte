@@ -7,7 +7,6 @@
   import {
     MACRO_DESCRIPTORS,
     MICRO_DESCRIPTORS,
-    LIMIT_DESCRIPTORS,
     SECTION_MACROS,
     SECTION_MICROS,
     nutrientDisplayValue,
@@ -16,7 +15,6 @@
   } from "../../food/nutrient-display";
   import {
     BAKED_NUTRIENT_TARGETS_G,
-    REACH_TOWARD_KEYS,
     ENERGY_TARGET_KEY,
   } from "../../food/nutrition-targets";
   import { onDestroy } from "svelte";
@@ -60,10 +58,6 @@
 
   // Whether a nutrient is shown as a dashboard meter (the whole-card toggle).
   const isTracked = (key: string): boolean => visible_nutrients.includes(key);
-
-  // A targetable nutrient (reach-toward) shows the allowance field; a limit
-  // nutrient does not (it has no baked default to reach toward).
-  const hasTarget = (key: string): boolean => REACH_TOWARD_KEYS.has(key);
 
   // The baked default / an override as the plain number the user sees in the
   // card's display unit — the input's placeholder / value. `energy` is baked in
@@ -190,38 +184,34 @@
       {/if}
     {/snippet}
     {#snippet children()}
-      {#if hasTarget(key)}
-        <span class="card-allowance">
-          <input
-            type="number"
-            class="card-target"
-            min="0"
-            step="any"
-            inputmode="decimal"
-            data-target={key}
-            placeholder={placeholderFor(key, unit)}
-            value={valueFor(key, unit)}
-            oninput={(e) => editTarget(key, unit, e.currentTarget.value)}
-            onchange={commitTarget}
-            aria-label="{label} target"
-          />
-          <span class="card-unit">{unit}</span>
-          <button
-            type="button"
-            class="card-reset"
-            data-reset={key}
-            disabled={food_targets[key] === undefined}
-            onclick={() => resetTarget(key)}
-            aria-label="Reset {label} to default"
-          >
-            ↺
-          </button>
-        </span>
-        {#if isOptedOut(key)}
-          <span class="card-optout">hidden — no meter</span>
-        {/if}
-      {:else}
-        <span class="card-hint">no target</span>
+      <span class="card-allowance">
+        <input
+          type="number"
+          class="card-target"
+          min="0"
+          step="any"
+          inputmode="decimal"
+          data-target={key}
+          placeholder={placeholderFor(key, unit)}
+          value={valueFor(key, unit)}
+          oninput={(e) => editTarget(key, unit, e.currentTarget.value)}
+          onchange={commitTarget}
+          aria-label="{label} target"
+        />
+        <span class="card-unit">{unit}</span>
+        <button
+          type="button"
+          class="card-reset"
+          data-reset={key}
+          disabled={food_targets[key] === undefined}
+          onclick={() => resetTarget(key)}
+          aria-label="Reset {label} to default"
+        >
+          ↺
+        </button>
+      </span>
+      {#if isOptedOut(key)}
+        <span class="card-optout">hidden — no meter</span>
       {/if}
     {/snippet}
   </NutrientCard>
@@ -250,15 +240,6 @@
       {@render card(n.key, n.label, n.unit, true)}
     {/each}
   </NutrientCardGrid>
-
-  {#if LIMIT_DESCRIPTORS.length > 0}
-    <div class="rda-group-head">Other</div>
-    <NutrientCardGrid>
-      {#each LIMIT_DESCRIPTORS as n (n.key)}
-        {@render card(n.key, n.label, n.unit, true)}
-      {/each}
-    </NutrientCardGrid>
-  {/if}
 
   <div class="round-toggle mt-4">
     <label class="toggle-label">
@@ -319,12 +300,6 @@
     letter-spacing: 0.04em;
     color: var(--text-muted);
     text-transform: uppercase;
-  }
-  /* A limit nutrient has no allowance to reach toward. */
-  .card-hint {
-    font-size: var(--step-n3);
-    font-style: italic;
-    color: var(--text-muted);
   }
   .card-allowance {
     display: flex;

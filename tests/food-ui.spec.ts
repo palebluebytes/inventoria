@@ -638,23 +638,21 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await waitForDbReady(page);
 
     await page.locator(".nav-item", { hasText: "Settings" }).click();
-    // A non-default selection: Sugar ON, Fibre OFF.
-    await page.locator('input[data-nutrient="sugar_content"]').check();
+    // A non-default selection: Calcium ON, Fibre OFF.
+    await page.locator('input[data-nutrient="calcium"]').check();
     await page.locator('input[data-nutrient="fiber_content"]').uncheck();
 
     // Editing a target writes its own datom and never rewrites the selection.
     const proteinTarget = page.locator('input[data-target="protein"]');
     await proteinTarget.fill("140");
     await proteinTarget.blur();
-    await expect(
-      page.locator('input[data-nutrient="sugar_content"]')
-    ).toBeChecked();
+    await expect(page.locator('input[data-nutrient="calcium"]')).toBeChecked();
     await expect(
       page.locator('input[data-nutrient="fiber_content"]')
     ).not.toBeChecked();
 
     // The reverse: toggling visibility leaves the target override in place.
-    await page.locator('input[data-nutrient="calcium"]').check();
+    await page.locator('input[data-nutrient="iron"]').check();
     await expect(proteinTarget).toHaveValue("140");
   });
 
@@ -1349,20 +1347,20 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(
       page.locator(".macro-name", { hasText: "Fibre" })
     ).toBeVisible();
-    // Sugar is in the catalogue but not selected by default.
-    await expect(page.locator(".macro-name", { hasText: "Sugar" })).toHaveCount(
-      0
-    );
+    // Calcium is in the catalogue but not selected by default.
+    await expect(
+      page.locator(".macro-name", { hasText: "Calcium" })
+    ).toHaveCount(0);
 
-    // Turn Sugar ON and Fibre OFF in Settings.
+    // Turn Calcium ON and Fibre OFF in Settings.
     await page.locator(".nav-item", { hasText: "Settings" }).click();
-    await page.locator('input[data-nutrient="sugar_content"]').check();
+    await page.locator('input[data-nutrient="calcium"]').check();
     await page.locator('input[data-nutrient="fiber_content"]').uncheck();
 
     // Back on the dashboard the summary reflects the new selection exactly.
     await page.locator(".nav-item", { hasText: "Food" }).click();
     await expect(
-      page.locator(".macro-name", { hasText: "Sugar" })
+      page.locator(".macro-name", { hasText: "Calcium" })
     ).toBeVisible();
     await expect(page.locator(".macro-name", { hasText: "Fibre" })).toHaveCount(
       0

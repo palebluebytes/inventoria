@@ -359,18 +359,18 @@ export const SECTION_MACROS = "Energy & macros";
 export const SECTION_MICROS = "Vitamins & minerals";
 
 /**
- * The nutrient grouping the RDA modal and the Settings target editor share, so the
- * two always agree on which nutrient sits in which section and in what order:
+ * The reach-toward nutrient grouping the RDA modal and the Settings target editor
+ * share, so the two always agree on which nutrient sits in which section and in
+ * what order:
  * - {@link MACRO_DESCRIPTORS} — the reach-toward macros (protein/fat/carbs/fibre),
  *   the body of "{@link SECTION_MACROS}" (Calories leads it separately).
  * - {@link MICRO_DESCRIPTORS} — the twelve reach-toward micronutrients,
  *   "{@link SECTION_MICROS}".
- * - {@link LIMIT_DESCRIPTORS} — the catalogue nutrients with no baked target (the
- *   limit nutrients: sodium, sugar, the fats, cholesterol). They carry a
- *   visibility toggle but no allowance in the editor, and land in the modal's
- *   "Not tracked" section when the day carries them.
- * All three are derived from {@link NUTRIENT_CATALOGUE} + {@link REACH_TOWARD_KEYS}
- * in panel order, so a nutrient added to either list flows through on its own.
+ * Both are derived from {@link NUTRIENT_CATALOGUE} + {@link REACH_TOWARD_KEYS} in
+ * panel order, so a nutrient added to either list flows through on its own. The
+ * limit nutrients (sodium, sugar, the fats, cholesterol) have no target and are
+ * NOT configurable — they surface only in the modal's "Not tracked" section,
+ * read-only, when a day carries them.
  */
 export const MACRO_DESCRIPTORS: NutrientDescriptor[] =
   NUTRIENT_CATALOGUE.filter(
@@ -380,8 +380,6 @@ export const MICRO_DESCRIPTORS: NutrientDescriptor[] =
   NUTRIENT_CATALOGUE.filter(
     (d) => REACH_TOWARD_KEYS.has(d.key) && !MACRO_SECTION_KEYS.has(d.key)
   );
-export const LIMIT_DESCRIPTORS: NutrientDescriptor[] =
-  NUTRIENT_CATALOGUE.filter((d) => !REACH_TOWARD_KEYS.has(d.key));
 
 /**
  * One targeted row of the full-day RDA-vs-target modal (ticket #42): a
