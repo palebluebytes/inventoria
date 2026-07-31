@@ -657,6 +657,113 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(calciumTarget).toHaveValue("1500");
   });
 
+  test("the calculator applies a personalized energy/macro set as the new defaults (#45)", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+
+    // Protein reaches toward the baked 125 g before the calculator ever runs.
+    await expect(page.locator(".macro-item.protein")).toContainText("/ 125 g");
+
+    // Open the calculator from its action card in the Energy & macros grid.
+    await page.locator(".nav-item", { hasText: "Settings" }).click();
+    await page.locator("button[data-open-calculator]").click();
+
+    // The live preview stays empty until the body metrics are complete.
+    await expect(page.locator("[data-preview]")).toContainText(
+      "Enter your sex"
+    );
+
+    // Worked Example A (ADR-0033 / #44): 35 y ♀, 70 kg, 170 cm, Active, Maintain.
+    await page.locator('button[data-sex="female"]').click();
+    await page.locator('input[data-field="age"]').fill("35");
+    await page.locator('input[data-field="height"]').fill("170");
+    await page.locator('input[data-field="weight"]').fill("70");
+    await page.locator('button[data-activity="active"]').click();
+    await page.locator('button[data-goal="maintain"]').click();
+
+    // The preview shows the protein anchor (1.6 g/kg × 70 = 112 g exactly — the
+    // one whole-number figure of Example A, robust against display rounding).
+    await expect(page.locator("[data-preview-protein]")).toContainText("112 g");
+
+    // Apply writes the set and closes the sheet.
+    await page.locator("button[data-apply]").click();
+    await expect(page.locator("button[data-apply]")).toHaveCount(0);
+
+    // Back in the editor the applied figure is the new DEFAULT layer (ADR-0033
+    // Amendment), not an override — so the field is blank with 112 greyed in as
+    // the placeholder and ↺ stays disabled (there is no override to clear).
+    const proteinTarget = page.locator('input[data-target="protein"]');
+    await expect(proteinTarget).toHaveValue("");
+    await expect(proteinTarget).toHaveAttribute("placeholder", "112");
+    await expect(page.locator('button[data-reset="protein"]')).toBeDisabled();
+
+    // On the dashboard the protein meter now reaches toward the computed 112 g,
+    // and the baked 125 default is gone — the write reached the resolver.
+    await page.locator(".nav-item", { hasText: "Food" }).click();
+    const protein = page.locator(".macro-item.protein");
+    await expect(protein).toContainText("/ 112 g");
+    await expect(protein).not.toContainText("/ 125 g");
+  });
+
+  test("a stay-under limit override saves and resets to its baked cap (#43)", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+
+    await page.locator(".nav-item", { hasText: "Settings" }).click();
+    const satFat = page.locator('input[data-limit="saturated_fat_content"]');
+    const satFatReset = page.locator(
+      'button[data-reset-limit="saturated_fat_content"]'
+    );
+
+    // At the baked cap the field is blank (placeholder = the FDA 20 g DRV) and
+    // ↺ is off — a limit has no dashboard meter, only this stay-under cap.
+    await expect(satFat).toHaveValue("");
+    await expect(satFat).toHaveAttribute("placeholder", "20");
+    await expect(satFatReset).toBeDisabled();
+
+    // A tighter override fills the value and enables ↺.
+    await satFat.fill("15");
+    await satFat.blur();
+    await expect(satFat).toHaveValue("15");
+    await expect(satFatReset).toBeEnabled();
+
+    // ↺ clears it back to the baked cap placeholder and disables itself again.
+    await satFatReset.click();
+    await expect(satFat).toHaveValue("");
+    await expect(satFat).toHaveAttribute("placeholder", "20");
+    await expect(satFatReset).toBeDisabled();
+  });
+
+  test("an info button opens the sourced rationale for a section (#46)", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+
+    await page.locator(".nav-item", { hasText: "Settings" }).click();
+
+    // The Limits section head carries a "Why these defaults?" ⓘ.
+    await page
+      .locator('button[data-info="docs/reference/daily-nutrient-limits.md"]')
+      .click();
+
+    // Its sheet names the source it was transcribed from and lists clickable
+    // citations (offline-first baked copy, ADR-0033 §5).
+    await expect(
+      page.locator(".subhead", { hasText: "Sources" })
+    ).toBeVisible();
+    await expect(
+      page.getByText("docs/reference/daily-nutrient-limits.md")
+    ).toBeVisible();
+    await expect(
+      page.locator('.sources a[href][target="_blank"]').first()
+    ).toBeVisible();
+  });
+
   // Route the USDA detail endpoint (`/food/{fdcId}`) — the source of household
   // portions (ADR-0030 §5), absent from the search response. Banana (171705)
   // carries portions; every other food hydrates to none, so the picker renders
