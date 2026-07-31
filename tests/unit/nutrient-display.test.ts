@@ -15,10 +15,7 @@ import {
   ABSENT_NUTRIENT,
 } from "../../src/lib/food/nutrient-display";
 import type { NutritionBreakdown } from "../../src/lib/food/nutrition";
-import {
-  REACH_TOWARD_KEYS,
-  resolveNutrientTargets,
-} from "../../src/lib/food/nutrition-targets";
+import { resolveNutrientTargets } from "../../src/lib/food/nutrition-targets";
 
 describe("nutrient catalogue", () => {
   it("offers the three macros plus fibre/sugar/sodium/the fats", () => {
@@ -273,7 +270,7 @@ describe("buildDayRdaView", () => {
   };
 
   it("leads Energy & macros with Calories, then the reach-toward macros in order", () => {
-    const view = buildDayRdaView(day, baked, REACH_TOWARD_KEYS);
+    const view = buildDayRdaView(day, baked);
     expect(view.macros.map((r) => r.key)).toEqual([
       "calories",
       "protein",
@@ -288,7 +285,7 @@ describe("buildDayRdaView", () => {
   });
 
   it("puts the twelve micronutrients in Vitamins & minerals, none in macros", () => {
-    const view = buildDayRdaView(day, baked, REACH_TOWARD_KEYS);
+    const view = buildDayRdaView(day, baked);
     expect(view.micros).toHaveLength(12);
     expect(view.micros.map((r) => r.key)).toContain("calcium");
     expect(view.micros.map((r) => r.key)).toContain("vitamin_e");
@@ -298,7 +295,7 @@ describe("buildDayRdaView", () => {
   });
 
   it("renders a carried nutrient as value / target with a fill bar", () => {
-    const view = buildDayRdaView(day, baked, REACH_TOWARD_KEYS);
+    const view = buildDayRdaView(day, baked);
     const calcium = view.micros.find((r) => r.key === "calcium")!;
     expect(calcium.value).toBe("780 mg");
     expect(calcium.target).toBe("1300 mg");
@@ -308,7 +305,7 @@ describe("buildDayRdaView", () => {
   });
 
   it("renders an absent targeted nutrient as — / target, no fill", () => {
-    const view = buildDayRdaView(day, baked, REACH_TOWARD_KEYS);
+    const view = buildDayRdaView(day, baked);
     const vitE = view.micros.find((r) => r.key === "vitamin_e")!;
     expect(vitE.value).toBe(ABSENT_NUTRIENT);
     expect(vitE.target).toBe("15 mg");
@@ -318,7 +315,7 @@ describe("buildDayRdaView", () => {
   });
 
   it("marks an over-target nutrient (bar full + amber) with over and fill 100", () => {
-    const view = buildDayRdaView(day, baked, REACH_TOWARD_KEYS);
+    const view = buildDayRdaView(day, baked);
     const fat = view.macros.find((r) => r.key === "fat")!;
     expect(fat.over).toBe(true);
     expect(fat.fill).toBe(100);
@@ -326,7 +323,7 @@ describe("buildDayRdaView", () => {
   });
 
   it("lists nutrients the day carried with no target under Not tracked, no bar", () => {
-    const view = buildDayRdaView(day, baked, REACH_TOWARD_KEYS);
+    const view = buildDayRdaView(day, baked);
     const keys = view.untracked.map((r) => r.key);
     // A limit nutrient (sodium) and a reported-zero limit nutrient (trans fat).
     expect(keys).toContain("sodium_content");
@@ -344,7 +341,7 @@ describe("buildDayRdaView", () => {
   it("moves a 0-opt-out reach-toward nutrient from its bar section to Not tracked", () => {
     // The day carried calcium, but the user opted its target out (0).
     const optOut = resolveNutrientTargets({ calcium: 0 });
-    const view = buildDayRdaView(day, optOut, REACH_TOWARD_KEYS);
+    const view = buildDayRdaView(day, optOut);
     expect(view.micros.map((r) => r.key)).not.toContain("calcium");
     expect(view.untracked.map((r) => r.key)).toContain("calcium");
     const calcium = view.untracked.find((r) => r.key === "calcium")!;
@@ -352,7 +349,7 @@ describe("buildDayRdaView", () => {
   });
 
   it("ranks Biggest gaps: no-data nutrients first, then lowest-fill", () => {
-    const view = buildDayRdaView(day, baked, REACH_TOWARD_KEYS);
+    const view = buildDayRdaView(day, baked);
     // No-data targeted nutrients (percent null) lead the strip.
     const noDataGaps = view.gaps.filter((g) => g.percent === null);
     expect(noDataGaps.length).toBeGreaterThan(0);
@@ -381,7 +378,7 @@ describe("buildDayRdaView", () => {
       carbs: 180,
       fiber_content: 19,
     };
-    const view = buildDayRdaView(zeroDay, baked, REACH_TOWARD_KEYS);
+    const view = buildDayRdaView(zeroDay, baked);
     // Its macro card still shows the honest reported zero, not the absent marker.
     const proteinRow = view.macros.find((r) => r.key === "protein")!;
     expect(proteinRow.value).toBe("0 g");
@@ -400,7 +397,7 @@ describe("buildDayRdaView", () => {
   });
 
   it("threads display precision to every section (decimals=0)", () => {
-    const view = buildDayRdaView(day, baked, REACH_TOWARD_KEYS, 0);
+    const view = buildDayRdaView(day, baked, 0);
     const iron = view.micros.find((r) => r.key === "iron")!;
     expect(iron.value).toBe("14 mg");
     expect(iron.target).toBe("18 mg");
@@ -409,7 +406,7 @@ describe("buildDayRdaView", () => {
   it("is independent of visible_nutrients — always the full reach-toward set", () => {
     // No selection is passed in; every reach-toward nutrient with a target shows,
     // whether or not the user pinned it as a meter.
-    const view = buildDayRdaView(day, baked, REACH_TOWARD_KEYS);
+    const view = buildDayRdaView(day, baked);
     expect(view.macros).toHaveLength(5); // calories + 4 macros
     expect(view.micros).toHaveLength(12);
   });

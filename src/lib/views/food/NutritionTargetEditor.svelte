@@ -5,7 +5,11 @@
     saveFoodTargets,
   } from "../../stores/settings.store";
   import {
-    NUTRIENT_CATALOGUE,
+    MACRO_DESCRIPTORS,
+    MICRO_DESCRIPTORS,
+    LIMIT_DESCRIPTORS,
+    SECTION_MACROS,
+    SECTION_MICROS,
     nutrientDisplayValue,
     parseNutrientEntry,
     type NutrientUnit,
@@ -13,21 +17,21 @@
   import {
     BAKED_NUTRIENT_TARGETS_G,
     REACH_TOWARD_KEYS,
-    ACTIVE_ADULT_MACROS_G,
     ENERGY_TARGET_KEY,
   } from "../../food/nutrition-targets";
   import Card from "../../ui/Card.svelte";
 
   // The unit a target is typed in: a display unit for a nutrient, or kcal for the
-  // always-on Calories row. Mirrors parseNutrientEntry's signature.
+  // always-on Calories card. Mirrors parseNutrientEntry's signature.
   type TargetUnit = NutrientUnit | "kcal";
 
-  // The Nutrition Display card (ticket #29 + #41): which nutrients appear on the
+  // The Nutrition Display card (tickets #29 + #41): which nutrients appear on the
   // food dashboard/pills, and the daily target each reach-toward nutrient aims
-  // for. Owns its own slice of settings so the parent Settings screen stays thin
-  // (CODING_STANDARDS §4). Visibility/rounding and the target overrides are two
-  // independent datoms sharing a row (ADR-0031 §2/§3): a save of one never
-  // rewrites the other.
+  // for. Shares the modal's card layout and its grouping (ticket #42) — the whole
+  // card is the visibility toggle and the allowance is edited inside it. Owns its
+  // own slice of settings so the parent Settings screen stays thin (CODING_STANDARDS
+  // §4). Visibility and the target overrides are two independent datoms sharing a
+  // card (ADR-0031 §2/§3): a save of one never rewrites the other.
 
   // Visible-nutrient selection (ticket #29). Each toggle persists immediately,
   // re-writing the already-saved API keys from the store so an unsaved edit in
@@ -51,26 +55,15 @@
     }
   });
 
-  // The rows split by the reach-toward set (ADR-0031 §1/§3): the four macro/fibre
-  // keys group under "Macros" and the twelve label micronutrients under "Vitamins
-  // & Minerals"; Calories (`energy`) is pinned above both as a target-only,
-  // always-on row. A catalogue nutrient outside the reach-toward set (a limit
-  // nutrient like sodium) keeps its visibility toggle but has no baked target, so
-  // its row shows no target field.
-  const MACRO_TARGET_KEYS = new Set(
-    Object.keys(ACTIVE_ADULT_MACROS_G).filter((k) => k !== ENERGY_TARGET_KEY)
-  );
-  const isMicronutrient = (key: string): boolean =>
-    REACH_TOWARD_KEYS.has(key) && !MACRO_TARGET_KEYS.has(key);
-  const MACRO_ROWS = NUTRIENT_CATALOGUE.filter((n) => !isMicronutrient(n.key));
-  const MICRO_ROWS = NUTRIENT_CATALOGUE.filter((n) => isMicronutrient(n.key));
+  // Whether a nutrient is shown as a dashboard meter (the whole-card toggle).
+  const isTracked = (key: string): boolean => visible_nutrients.includes(key);
 
-  // A targetable row (reach-toward) shows the target field; a limit nutrient does
-  // not (it has no baked default to reach toward).
+  // A targetable nutrient (reach-toward) shows the allowance field; a limit
+  // nutrient does not (it has no baked default to reach toward).
   const hasTarget = (key: string): boolean => REACH_TOWARD_KEYS.has(key);
 
   // The baked default / an override as the plain number the user sees in the
-  // row's display unit — the input's placeholder / value. `energy` is baked in
+  // card's display unit — the input's placeholder / value. `energy` is baked in
   // kcal already; every other key is baked in grams and reformats to g/mg/µg.
   const displayNumber = (grams: number, unit: TargetUnit): string =>
     unit === "kcal" ? String(grams) : String(nutrientDisplayValue(grams, unit));
@@ -82,7 +75,7 @@
     const override = food_targets[key];
     return typeof override === "number" ? displayNumber(override, unit) : "";
   };
-  // A `0` override opts the nutrient out of a target (no dashboard bar); the row
+  // A `0` override opts the nutrient out of a target (no dashboard bar); the card
   // flags it inline. `energy` never opts out — a non-positive entry clamps back
   // to the baked 2000 kcal at read time (ADR-0031 §2) — so it shows no hint.
   const isOptedOut = (key: string): boolean =>
@@ -152,78 +145,105 @@
   }
 </script>
 
-{#snippet targetRow(
+<!-- One nutrient card, shaped like the dashboard's RDA modal cell (ticket #42):
+     label + allowance, laid out in the same macro/micro grids. With
+     `hasVisibility` the whole card is a <label> whose click toggles the nutrient's
+     dashboard meter — clicks on the inner target input / ↺ don't toggle it (they
+     are interactive descendants, which a <label> ignores), so editing an allowance
+     never flips visibility. Calories (`hasVisibility=false`) is always shown, so
+     it renders as a plain card with the allowance only. -->
+{#snippet card(
   key: string,
   label: string,
   unit: TargetUnit,
   hasVisibility: boolean
 )}
-  <div class="nutrient-row" data-nutrient-row={key}>
-    {#if hasVisibility}
-      <input
-        class="row-visible"
-        type="checkbox"
-        data-nutrient={key}
-        checked={visible_nutrients.includes(key)}
-        onchange={() => toggleNutrient(key)}
-        aria-label="Show {label}"
-      />
-    {:else}
-      <span class="row-visible-spacer" aria-hidden="true"></span>
-    {/if}
-    <span class="row-label">
-      <span class="row-label-text">{label}</span>
-      {#if isOptedOut(key)}
-        <span class="row-optout">hidden</span>
+  <svelte:element
+    this={hasVisibility ? "label" : "div"}
+    class="nutrient-card"
+    class:untracked={hasVisibility && !isTracked(key)}
+    data-nutrient-row={key}
+  >
+    <span class="card-top">
+      <span class="card-label">{label}</span>
+      {#if hasVisibility}
+        <input
+          type="checkbox"
+          class="card-check"
+          data-nutrient={key}
+          checked={isTracked(key)}
+          onchange={() => toggleNutrient(key)}
+          aria-label="Show {label} on the dashboard"
+        />
       {/if}
     </span>
     {#if hasTarget(key)}
-      <input
-        class="row-target"
-        type="number"
-        min="0"
-        step="any"
-        inputmode="decimal"
-        data-target={key}
-        placeholder={placeholderFor(key, unit)}
-        value={valueFor(key, unit)}
-        onchange={(e) => setTarget(key, unit, e.currentTarget.value)}
-        aria-label="{label} target"
-      />
-      <span class="row-unit">{unit}</span>
-      <button
-        type="button"
-        class="row-reset"
-        data-reset={key}
-        disabled={food_targets[key] === undefined}
-        onclick={() => resetTarget(key)}
-        aria-label="Reset {label} to default"
-      >
-        ↺
-      </button>
+      <span class="card-allowance">
+        <input
+          type="number"
+          class="card-target"
+          min="0"
+          step="any"
+          inputmode="decimal"
+          data-target={key}
+          placeholder={placeholderFor(key, unit)}
+          value={valueFor(key, unit)}
+          onchange={(e) => setTarget(key, unit, e.currentTarget.value)}
+          aria-label="{label} target"
+        />
+        <span class="card-unit">{unit}</span>
+        <button
+          type="button"
+          class="card-reset"
+          data-reset={key}
+          disabled={food_targets[key] === undefined}
+          onclick={() => resetTarget(key)}
+          aria-label="Reset {label} to default"
+        >
+          ↺
+        </button>
+      </span>
+      {#if isOptedOut(key)}
+        <span class="card-optout">hidden — no meter</span>
+      {/if}
+    {:else}
+      <span class="card-hint">no target</span>
     {/if}
-  </div>
+  </svelte:element>
 {/snippet}
 
 <Card class="mt-4">
   <h2>Nutrition Display</h2>
   <p class="mt-2">
-    Choose which nutrients appear on the food dashboard summary and the
-    staged-food pills, and set the daily target each one reaches toward. A blank
-    target keeps the baked default (shown greyed); ↺ clears an override; enter 0
-    to opt out of a target. Calories are always shown.
+    Tap a nutrient to show it on the food dashboard, and set the daily allowance
+    it reaches toward. A blank target keeps the baked default (shown greyed); ↺
+    clears an override; enter 0 to opt out of a target. Calories are always
+    shown.
   </p>
-  <div class="nutrient-target-list mt-4">
-    {@render targetRow(ENERGY_TARGET_KEY, "Calories", "kcal", false)}
-    <h3 class="group-head">Macros</h3>
-    {#each MACRO_ROWS as nutrient (nutrient.key)}
-      {@render targetRow(nutrient.key, nutrient.label, nutrient.unit, true)}
-    {/each}
-    <h3 class="group-head">Vitamins &amp; Minerals</h3>
-    {#each MICRO_ROWS as nutrient (nutrient.key)}
-      {@render targetRow(nutrient.key, nutrient.label, nutrient.unit, true)}
+
+  <div class="rda-group-head">{SECTION_MACROS}</div>
+  <div class="macro-cards">
+    {@render card(ENERGY_TARGET_KEY, "Calories", "kcal", false)}
+    {#each MACRO_DESCRIPTORS as n (n.key)}
+      {@render card(n.key, n.label, n.unit, true)}
     {/each}
   </div>
+
+  <div class="rda-group-head">{SECTION_MICROS}</div>
+  <div class="micro-grid">
+    {#each MICRO_DESCRIPTORS as n (n.key)}
+      {@render card(n.key, n.label, n.unit, true)}
+    {/each}
+  </div>
+
+  {#if LIMIT_DESCRIPTORS.length > 0}
+    <div class="rda-group-head">Other</div>
+    <div class="micro-grid">
+      {#each LIMIT_DESCRIPTORS as n (n.key)}
+        {@render card(n.key, n.label, n.unit, true)}
+      {/each}
+    </div>
+  {/if}
 
   <div class="round-toggle mt-4">
     <label class="toggle-label">
@@ -260,63 +280,88 @@
     font-style: italic;
   }
 
-  /* Nutrient target editor (ticket #41): one aligned grid so every row's
-     [visible] [label] [target] [unit] [↺] lines up column-for-column. Each row
-     is a subgrid spanning all five parent tracks, so its cells snap to the
-     shared columns while a row without a target simply leaves the
-     target/unit/reset tracks empty — no cell ever bleeds into the next row. */
-  .nutrient-target-list {
-    container-type: inline-size;
-    display: grid;
-    grid-template-columns: auto 1fr auto auto auto;
-    gap: var(--space-2xs) var(--space-xs);
-  }
-  .nutrient-row {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: subgrid;
-    align-items: center;
-  }
-  /* A section heading spanning the whole grid. */
-  .group-head {
-    grid-column: 1 / -1;
+  /* Section heading — mirrors the RDA modal's `.rda-group-head` so Settings and
+     the modal read the same. */
+  .rda-group-head {
     font-size: var(--step-n2);
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--text-secondary);
-    margin: var(--space-xs) 0 var(--space-3xs);
+    margin: var(--space-m) 0 0;
     padding-bottom: var(--space-3xs);
     border-bottom: 1px solid var(--border, #000);
   }
-  .row-label {
+
+  /* The two nutrient grids, shaped exactly like the dashboard RDA modal (#42): a
+     2-column grid whose 1px gaps over a hairline background draw the cell dividers,
+     each card painting its own surface. */
+  .macro-cards,
+  .micro-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1px;
+    background: var(--border-subtle, #e4e4e7);
+    margin-top: var(--space-2xs);
+    /* Container context so a long single-word label can shrink to fit a narrow
+       card rather than spilling under the allowance controls. */
+    container-type: inline-size;
+  }
+
+  /* One nutrient card. With a visibility toggle it is a <label> (the whole box is
+     the button); Calories renders as a plain card. */
+  .nutrient-card {
     display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 0 0.5em;
-    min-width: 0;
-    /* Scale with the list width so a long single-word label (CALORIES,
-       VITAMIN B12) shrinks to fit a narrow card rather than spilling under the
-       target field, while a wide card keeps the full step-n1 size. */
+    flex-direction: column;
+    gap: var(--space-2xs);
+    padding: var(--space-xs) var(--space-s);
+    background: var(--food-surface-bg, #fff);
+  }
+  :global(label.nutrient-card) {
+    cursor: pointer;
+  }
+  /* Not shown on the dashboard: mute the label so the tracked cards stand out.
+     The allowance stays crisp — a target still drives the full-day modal even
+     when the nutrient isn't a pinned meter. */
+  .nutrient-card.untracked .card-label {
+    color: var(--text-muted);
+  }
+  .card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2xs);
+  }
+  .card-label {
     font-size: clamp(0.62rem, 3.4cqi, var(--step-n1));
     font-weight: 700;
-    line-height: 1.35;
+    line-height: 1.25;
     text-transform: uppercase;
     color: #000;
   }
-  /* The `0`-opt-out flag: plain inline text (not a chip, not a meter) so the row
+  /* The `0`-opt-out flag: plain inline text (not a chip, not a meter) so the card
      reads as "deliberately un-targeted" without a colour cue (ADR-0003). */
-  .row-optout {
+  .card-optout {
     font-size: var(--step-n3);
     font-weight: 700;
     letter-spacing: 0.04em;
     color: var(--text-muted);
     text-transform: uppercase;
   }
+  /* A limit nutrient has no allowance to reach toward. */
+  .card-hint {
+    font-size: var(--step-n3);
+    font-style: italic;
+    color: var(--text-muted);
+  }
+  .card-allowance {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2xs);
+  }
   /* Compact numeric field — a brutalist box (2px border, inset, black-on-focus)
-     trimmed to a right-aligned column that fits a five-figure micro target
-     (e.g. 4700 mg potassium). */
-  .row-target {
+     that fits a five-figure micro target (e.g. 4700 mg potassium). */
+  .card-target {
     width: 4.25rem;
     min-width: 0;
     padding: var(--space-3xs) var(--space-2xs);
@@ -330,42 +375,38 @@
     border-radius: 0;
     box-shadow: inset 2px 2px 0 #e4e4e7;
   }
-  .row-target:focus {
+  .card-target:focus {
     outline: none;
     background: #000;
     color: #fff;
     box-shadow: none;
   }
   /* Strip the spinner buttons so the field stays a clean brutalist box. */
-  .row-target::-webkit-outer-spin-button,
-  .row-target::-webkit-inner-spin-button {
+  .card-target::-webkit-outer-spin-button,
+  .card-target::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
   }
-  .row-target {
+  .card-target {
     -moz-appearance: textfield;
     appearance: textfield;
   }
-  /* On a narrow card the fixed right-hand controls would crowd the label track,
-     so tighten the numeric field and its unit until the label has room again. */
-  @container (max-width: 380px) {
-    .row-target {
+  @container (max-width: 220px) {
+    .card-target {
       width: 3.25rem;
       font-size: var(--step-n2);
     }
-    .row-unit {
-      font-size: var(--step-n3);
-    }
   }
-  .row-unit {
+  .card-unit {
     font-size: var(--step-n2);
     font-weight: 700;
     color: var(--text-secondary);
   }
   /* Reset-to-default control: a bare ↺ glyph, disabled (and muted) whenever the
-     row is already at its baked default so "custom vs default" reads from the
+     card is already at its baked default so "custom vs default" reads from the
      enabled state alone. */
-  .row-reset {
+  .card-reset {
+    flex-shrink: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -379,15 +420,15 @@
     line-height: 1;
     cursor: pointer;
   }
-  .row-reset:hover:not(:disabled) {
+  .card-reset:hover:not(:disabled) {
     background: #000;
     color: #fff;
   }
-  .row-reset:focus-visible {
+  .card-reset:focus-visible {
     outline: 2px solid #000;
     outline-offset: 2px;
   }
-  .row-reset:disabled {
+  .card-reset:disabled {
     border-color: var(--border-subtle, #e4e4e7);
     color: var(--border-subtle, #e4e4e7);
     cursor: default;
@@ -428,11 +469,11 @@
       top: 0;
     }
   }
-  /* Custom retro checkbox shared by the round toggle and every visibility row:
-     appearance:none lets the control fill its own box so it centres cleanly
-     against the label, matching the 2px black borders used across Settings. */
+  /* Custom retro checkbox shared by the round toggle and every nutrient card:
+     appearance:none lets the control fill its own box so it centres cleanly,
+     matching the 2px black borders used across Settings. */
   .toggle-label input[type="checkbox"],
-  .nutrient-row input[type="checkbox"] {
+  .card-check {
     appearance: none;
     -webkit-appearance: none;
     flex: 0 0 auto;
@@ -446,7 +487,7 @@
     cursor: pointer;
   }
   .toggle-label input[type="checkbox"]::before,
-  .nutrient-row input[type="checkbox"]::before {
+  .card-check::before {
     content: "";
     width: 0.62em;
     height: 0.62em;
@@ -454,11 +495,11 @@
     transform: scale(0);
   }
   .toggle-label input[type="checkbox"]:checked::before,
-  .nutrient-row input[type="checkbox"]:checked::before {
+  .card-check:checked::before {
     transform: scale(1);
   }
   .toggle-label input[type="checkbox"]:focus-visible,
-  .nutrient-row input[type="checkbox"]:focus-visible {
+  .card-check:focus-visible {
     outline: 2px solid #000;
     outline-offset: 2px;
   }

@@ -17,6 +17,7 @@ import {
   type ExtraNutrientKey,
   type NutritionBreakdown,
 } from "./nutrition";
+import { REACH_TOWARD_KEYS } from "./nutrition-targets";
 
 /**
  * The unit a nutrient's total is *shown* in. Panel values are stored in grams
@@ -336,13 +337,51 @@ export function buildNutrientBreakdown(
 }
 
 /**
- * The full-day RDA view's "Energy & macros" section, in display order: Calories
- * lead (the always-on ring's nutrient — target keyed `energy`, shown in kcal),
- * then the four reach-toward macros. The twelve micronutrients form the sibling
- * "Vitamins & minerals" section; both are derived from the reach-toward key set,
- * so a new reach-toward macro added here lands in the right section on its own.
+ * The reach-toward keys that make up the "Energy & macros" section body — Calories
+ * (`energy`) leads it separately as the always-on row, so it is not listed here.
+ * The rest of the reach-toward set forms "Vitamins & minerals". A new reach-toward
+ * macro added here lands in the macro section on both surfaces; anything else
+ * reach-toward falls to the micronutrient section on its own.
  */
-const RDA_MACRO_KEYS = ["protein", "fat", "carbs", "fiber_content"] as const;
+const MACRO_SECTION_KEYS = new Set<string>([
+  "protein",
+  "fat",
+  "carbs",
+  "fiber_content",
+]);
+
+/**
+ * The section headings the full-day RDA modal (#42) and the Settings target editor
+ * (#41) both render — one source of truth so the two surfaces name the groups
+ * identically. Calories/energy is the always-on row each surface leads with.
+ */
+export const SECTION_MACROS = "Energy & macros";
+export const SECTION_MICROS = "Vitamins & minerals";
+
+/**
+ * The nutrient grouping the RDA modal and the Settings target editor share, so the
+ * two always agree on which nutrient sits in which section and in what order:
+ * - {@link MACRO_DESCRIPTORS} — the reach-toward macros (protein/fat/carbs/fibre),
+ *   the body of "{@link SECTION_MACROS}" (Calories leads it separately).
+ * - {@link MICRO_DESCRIPTORS} — the twelve reach-toward micronutrients,
+ *   "{@link SECTION_MICROS}".
+ * - {@link LIMIT_DESCRIPTORS} — the catalogue nutrients with no baked target (the
+ *   limit nutrients: sodium, sugar, the fats, cholesterol). They carry a
+ *   visibility toggle but no allowance in the editor, and land in the modal's
+ *   "Not tracked" section when the day carries them.
+ * All three are derived from {@link NUTRIENT_CATALOGUE} + {@link REACH_TOWARD_KEYS}
+ * in panel order, so a nutrient added to either list flows through on its own.
+ */
+export const MACRO_DESCRIPTORS: NutrientDescriptor[] =
+  NUTRIENT_CATALOGUE.filter(
+    (d) => REACH_TOWARD_KEYS.has(d.key) && MACRO_SECTION_KEYS.has(d.key)
+  );
+export const MICRO_DESCRIPTORS: NutrientDescriptor[] =
+  NUTRIENT_CATALOGUE.filter(
+    (d) => REACH_TOWARD_KEYS.has(d.key) && !MACRO_SECTION_KEYS.has(d.key)
+  );
+export const LIMIT_DESCRIPTORS: NutrientDescriptor[] =
+  NUTRIENT_CATALOGUE.filter((d) => !REACH_TOWARD_KEYS.has(d.key));
 
 /**
  * One targeted row of the full-day RDA-vs-target modal (ticket #42): a
@@ -398,10 +437,11 @@ export interface DayRdaView {
 }
 
 /**
- * Builds the full-day RDA-vs-target view model (ticket #42) from a day's totals,
- * the resolved per-nutrient targets, and the reach-toward key set. Beside
- * {@link buildNutrientBreakdown} and just as pure — the `.svelte` modal renders
- * the returned sections.
+ * Builds the full-day RDA-vs-target view model (ticket #42) from a day's totals
+ * and the resolved per-nutrient targets. Beside {@link buildNutrientBreakdown} and
+ * just as pure — the `.svelte` modal renders the returned sections. Sections are
+ * built off the shared {@link MACRO_DESCRIPTORS}/{@link MICRO_DESCRIPTORS} groups,
+ * so the modal and the Settings editor always agree on the grouping.
  *
  * - **Energy & macros / Vitamins & minerals** carry every reach-toward nutrient
  *   with a positive target (a `0` opt-out drops out, see below), each as a
@@ -421,7 +461,6 @@ export interface DayRdaView {
 export function buildDayRdaView(
   breakdown: NutritionBreakdown,
   targets: Partial<Record<string, number>>,
-  reachTowardKeys: ReadonlySet<string>,
   decimals: number = FOOD_DISPLAY_DECIMALS,
   gapLimit = 3
 ): DayRdaView {
@@ -464,20 +503,17 @@ export function buildDayRdaView(
   const macros: DayRdaRow[] = [
     targetedRow("calories", "energy", "Calories", "kcal"),
   ];
-  for (const key of RDA_MACRO_KEYS) {
-    if (!hasTarget(key)) continue;
-    const d = BY_KEY.get(key);
-    if (d) macros.push(targetedRow(d.key, d.key, d.label, d.unit));
+  for (const d of MACRO_DESCRIPTORS) {
+    if (hasTarget(d.key))
+      macros.push(targetedRow(d.key, d.key, d.label, d.unit));
   }
 
-  // Vitamins & minerals: the reach-toward nutrients that are neither energy nor a
-  // macro, in panel order — i.e. the twelve micronutrients (minus any opt-out).
-  const macroKeys = new Set<string>(RDA_MACRO_KEYS);
+  // Vitamins & minerals: the twelve reach-toward micronutrients (minus any opt-out),
+  // from the same shared grouping the Settings editor renders.
   const micros: DayRdaRow[] = [];
-  for (const d of NUTRIENT_CATALOGUE) {
-    if (!reachTowardKeys.has(d.key) || macroKeys.has(d.key)) continue;
-    if (!hasTarget(d.key)) continue;
-    micros.push(targetedRow(d.key, d.key, d.label, d.unit));
+  for (const d of MICRO_DESCRIPTORS) {
+    if (hasTarget(d.key))
+      micros.push(targetedRow(d.key, d.key, d.label, d.unit));
   }
 
   // Not tracked: every catalogued nutrient the day carried that has no positive

@@ -10,12 +10,11 @@
     buildNutrientPills,
     buildDayRdaView,
     nutrientShortLabel,
+    SECTION_MACROS,
+    SECTION_MICROS,
     type DayRdaRow,
   } from "../../food/nutrient-display";
-  import {
-    resolveNutrientTargets,
-    REACH_TOWARD_KEYS,
-  } from "../../food/nutrition-targets";
+  import { resolveNutrientTargets } from "../../food/nutrition-targets";
   import {
     settingsStore,
     nutritionDisplayDecimals,
@@ -121,12 +120,7 @@
   // `— / target`), so the modal is the "everything, against target" surface while
   // the meters above stay selection-gated.
   let dayRda = $derived(
-    buildDayRdaView(
-      dayTotals,
-      resolvedTargets,
-      REACH_TOWARD_KEYS,
-      $nutritionDisplayDecimals
-    )
+    buildDayRdaView(dayTotals, resolvedTargets, $nutritionDisplayDecimals)
   );
 
   // Whether any food has been logged for the day. The RDA sections always carry
@@ -377,7 +371,7 @@
               </div>
             {/if}
 
-            <div class="rda-group-head">Energy &amp; macros</div>
+            <div class="rda-group-head">{SECTION_MACROS}</div>
             <div class="macro-cards">
               {#each dayRda.macros as row (row.key)}
                 {@render rdaCell(row)}
@@ -385,7 +379,7 @@
             </div>
 
             {#if dayRda.micros.length > 0}
-              <div class="rda-group-head">Vitamins &amp; minerals</div>
+              <div class="rda-group-head">{SECTION_MICROS}</div>
               <div class="micro-grid">
                 {#each dayRda.micros as row (row.key)}
                   {@render rdaCell(row)}
