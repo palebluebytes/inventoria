@@ -17,7 +17,7 @@ import {
   type ExtraNutrientKey,
   type NutritionBreakdown,
 } from "./nutrition";
-import { REACH_TOWARD_KEYS } from "./nutrition-targets";
+import { REACH_TOWARD_KEYS, LIMIT_KEYS } from "./nutrition-targets";
 
 /**
  * The unit a nutrient's total is *shown* in. Panel values are stored in grams
@@ -372,6 +372,12 @@ const MACRO_SECTION_KEYS = new Set<string>([
  */
 export const SECTION_MACROS = "Energy & macros";
 export const SECTION_MICROS = "Vitamins & minerals";
+/**
+ * The stay-under section both the RDA modal (#43) and the Settings editor render
+ * for the limit nutrients — sodium, saturated fat, cholesterol, trans fat — a cap
+ * to keep under rather than a goal to reach (ADR-0032).
+ */
+export const SECTION_LIMITS = "Limits";
 
 /**
  * The reach-toward nutrient grouping the RDA modal and the Settings target editor
@@ -395,6 +401,17 @@ export const MICRO_DESCRIPTORS: NutrientDescriptor[] =
   NUTRIENT_CATALOGUE.filter(
     (d) => REACH_TOWARD_KEYS.has(d.key) && !MACRO_SECTION_KEYS.has(d.key)
   );
+
+/**
+ * The stay-under nutrients ({@link SECTION_LIMITS}) the RDA modal and the Settings
+ * editor share — the four limit keys ({@link LIMIT_KEYS}: sodium, saturated fat,
+ * cholesterol, trans fat) in panel order, derived from {@link NUTRIENT_CATALOGUE}
+ * so a new limit flows through on its own. Disjoint from the reach-toward
+ * {@link MACRO_DESCRIPTORS}/{@link MICRO_DESCRIPTORS} — a key is a target or a
+ * limit, never both.
+ */
+export const LIMIT_DESCRIPTORS: NutrientDescriptor[] =
+  NUTRIENT_CATALOGUE.filter((d) => LIMIT_KEYS.has(d.key));
 
 /**
  * One targeted row of the full-day RDA-vs-target modal (ticket #42): a

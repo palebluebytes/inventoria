@@ -5,6 +5,9 @@ import {
   BAKED_NUTRIENT_TARGETS_G,
   REACH_TOWARD_KEYS,
   resolveNutrientTargets,
+  BAKED_NUTRIENT_LIMITS_G,
+  LIMIT_KEYS,
+  resolveNutrientLimits,
 } from "../../src/lib/food/nutrition-targets";
 
 // The reach-toward set: energy + the three macros + fibre + the twelve label
@@ -148,5 +151,67 @@ describe("resolveNutrientTargets (override ?? baked, per key)", () => {
       number
     >);
     expect(resolved).not.toHaveProperty("sodium_content");
+  });
+});
+
+describe("BAKED_NUTRIENT_LIMITS_G (stay-under set, daily-nutrient-limits.md)", () => {
+  it("transcribes the four limit caps exactly, in grams", () => {
+    expect(BAKED_NUTRIENT_LIMITS_G).toEqual({
+      sodium_content: 2.3, // 2300 mg
+      saturated_fat_content: 20, // 20 g
+      cholesterol_content: 0.3, // 300 mg
+      trans_fat_content: 2, // WHO <1% energy ≈ 2.2 g, rounded
+    });
+  });
+
+  it("carries no energy member — the limit set has no always-on cap", () => {
+    expect(BAKED_NUTRIENT_LIMITS_G).not.toHaveProperty("energy");
+  });
+
+  it("does not limit total sugar (deferred — no citable total-sugar cap)", () => {
+    expect(BAKED_NUTRIENT_LIMITS_G).not.toHaveProperty("sugar_content");
+  });
+
+  it("is disjoint from the reach-toward set — a key is a target or a limit", () => {
+    for (const key of LIMIT_KEYS) {
+      expect(REACH_TOWARD_KEYS.has(key)).toBe(false);
+    }
+    expect(LIMIT_KEYS.has("sodium_content")).toBe(true);
+    expect(LIMIT_KEYS.has("protein")).toBe(false);
+    expect(LIMIT_KEYS.size).toBe(4);
+  });
+});
+
+describe("resolveNutrientLimits (override ?? baked, no energy clamp)", () => {
+  it("resolves an absent key to its baked cap", () => {
+    const resolved = resolveNutrientLimits({});
+    expect(resolved.sodium_content).toBe(2.3);
+    expect(resolved.trans_fat_content).toBe(2);
+  });
+
+  it("resolves a positive override to the override cap", () => {
+    const resolved = resolveNutrientLimits({ sodium_content: 1.5 });
+    expect(resolved.sodium_content).toBe(1.5);
+    // Untouched limits stay baked.
+    expect(resolved.saturated_fat_content).toBe(20);
+  });
+
+  it("resolves a 0 opt-out to 0 for every key — no mandatory limit, no clamp", () => {
+    // Unlike energy in the reach-toward set, no limit clamps back to its baked
+    // default; a 0 stays 0 (bar-less; the nutrient falls to Not tracked).
+    const resolved = resolveNutrientLimits({
+      sodium_content: 0,
+      trans_fat_content: 0,
+    });
+    expect(resolved.sodium_content).toBe(0);
+    expect(resolved.trans_fat_content).toBe(0);
+  });
+
+  it("ignores an override for a key absent from the baked limit map", () => {
+    const resolved = resolveNutrientLimits({ protein: 100 } as Record<
+      string,
+      number
+    >);
+    expect(resolved).not.toHaveProperty("protein");
   });
 });

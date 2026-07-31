@@ -7,9 +7,13 @@
  *
  * Every value is in its **consumer's canonical unit**: grams for mass, **kcal**
  * for `energy` (ADR-0021: one fixed unit per field). Keys are food-panel
- * breakdown keys. The maps carry only the **reach-toward set** — energy, the
- * three macros, fibre, and the twelve label micronutrients — so limit nutrients
- * (sodium, saturated/trans fat, cholesterol, sugar) never gain a fill bar.
+ * breakdown keys. Two parallel maps live here:
+ * - the **reach-toward set** ({@link BAKED_NUTRIENT_TARGETS_G}) — energy, the
+ *   three macros, fibre, and the twelve label micronutrients — a target you fill
+ *   *up* toward; and
+ * - the **stay-under set** ({@link BAKED_NUTRIENT_LIMITS_G}, ADR-0032) — sodium,
+ *   saturated fat, cholesterol, and trans fat — a cap you keep *under*, amber once
+ *   exceeded. Total sugar is deliberately absent (no citable total-sugar limit).
  */
 
 /**
@@ -109,6 +113,59 @@ export function resolveNutrientTargets(
     } else {
       resolved[key] = override;
     }
+  }
+  return resolved;
+}
+
+/**
+ * The baked, cited daily nutrient **limits** — the stay-under set (ADR-0032, #43),
+ * a cap the day fills toward and passes into the amber over-state. Every value in
+ * grams, keyed by breakdown key; transcribed from
+ * `docs/reference/daily-nutrient-limits.md`. Sodium, saturated fat, and cholesterol
+ * are FDA Daily Reference Values (21 CFR 101.9(c)(9)); trans fat has no FDA DV, so
+ * its cap is the WHO <1%-of-energy ceiling (≈ 2.2 g at 2000 kcal, rounded to 2 g).
+ * There is no energy/calorie limit — the set has no always-on member. Total sugar
+ * is absent: the FDA 50 g DV is for *added* sugars, a quantity the panel doesn't
+ * carry, and no citable *total*-sugar limit exists.
+ */
+export const BAKED_NUTRIENT_LIMITS_G: Record<string, number> = {
+  sodium_content: 2.3, // 2300 mg — § 101.9(c)(9) DRV
+  saturated_fat_content: 20, // 20 g — § 101.9(c)(9) DRV
+  cholesterol_content: 0.3, // 300 mg — § 101.9(c)(9) DRV
+  trans_fat_content: 2, // WHO <1% energy ≈ 2.2 g / 2000 kcal, rounded
+};
+
+/**
+ * The stay-under key set — the only keys a limit (baked or override) may carry.
+ * Used to filter a stored `settings/food/limits` override blob down to the four
+ * limit nutrients, exactly as {@link REACH_TOWARD_KEYS} filters the targets blob.
+ */
+export const LIMIT_KEYS: ReadonlySet<string> = new Set(
+  Object.keys(BAKED_NUTRIENT_LIMITS_G)
+);
+
+/**
+ * Layers a user's limit-override blob over the baked limits into the single
+ * resolved `{ key: number }` map the full-day modal reads (ADR-0032 §2). The
+ * stay-under twin of {@link resolveNutrientTargets}, but simpler: there is **no
+ * energy-clamp special case** — no limit is mandatory, so every key honours the
+ * `0` opt-out uniformly.
+ *
+ * Per key, three states:
+ * - **absent** from `overrides` → the baked cap;
+ * - **`> 0`** → the override cap;
+ * - **`0`** (or any non-positive) → an explicit opt-out: resolved to `0`, which the
+ *   modal builder renders bar-less (the nutrient falls to "Not tracked" if carried).
+ * Pure and unit-test-reachable.
+ */
+export function resolveNutrientLimits(
+  overrides: Partial<Record<string, number>> = {},
+  baked: Record<string, number> = BAKED_NUTRIENT_LIMITS_G
+): Record<string, number> {
+  const resolved: Record<string, number> = {};
+  for (const key of Object.keys(baked)) {
+    const override = overrides[key];
+    resolved[key] = typeof override === "number" ? override : baked[key];
   }
   return resolved;
 }
