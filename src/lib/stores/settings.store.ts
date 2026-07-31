@@ -7,6 +7,11 @@ import { HLC_ORDER_ASC } from "../db/hlc";
 import { DEFAULT_VISIBLE_NUTRIENTS } from "../food/nutrient-display";
 import { FOOD_DISPLAY_DECIMALS } from "../food/nutrition";
 import { REACH_TOWARD_KEYS, LIMIT_KEYS } from "../food/nutrition-targets";
+import type {
+  ActivityLevel,
+  BiologicalSex,
+  EnergyGoal,
+} from "../food/personalized-energy-macros";
 
 // Settings values are opaque strings. They're stored JSON-encoded (db.core
 // wraps every value in JSON.stringify), so read them back through the shared
@@ -26,6 +31,23 @@ export const settingsDatomsStore = createQueryStore<{
 }>(
   `SELECT attribute, value, time FROM datoms WHERE entity = 'settings:global' ORDER BY ${HLC_ORDER_ASC}`
 );
+
+/**
+ * The body metrics + choices the personalized calorie/macro helper (ADR-0033) was
+ * last run with — an **inert** blob (`settings/food/profile`) that drives nothing
+ * live: the dashboard never reads it, the resolver never sees it. It exists purely
+ * to pre-fill the calculator form on re-open, so bumping a weight and re-applying
+ * is painless (ADR-0033 §2). All snake_case per house convention; metric only
+ * (kg/cm), as Mifflin-St Jeor is natively metric.
+ */
+export interface FoodProfile {
+  sex: BiologicalSex;
+  age: number;
+  height_cm: number;
+  weight_kg: number;
+  activity: ActivityLevel;
+  goal: EnergyGoal;
+}
 
 export interface SettingsState {
   usda_api_key: string;
@@ -69,6 +91,15 @@ export interface SettingsState {
    * written independently via {@link saveFoodLimits}.
    */
   food_limits: Partial<Record<string, number>>;
+  /**
+   * The last-used inputs of the personalized calorie/macro helper (ADR-0033 §2),
+   * or `null` when the helper has never been applied. Read-folded only to seed the
+   * calculator form — **inert** everywhere else: no dashboard or resolver read path
+   * touches it, so it is deliberately not part of the resolved targets/limits the
+   * app renders. Its own blob datom `settings/food/profile`, written independently
+   * via {@link saveFoodProfile}.
+   */
+  food_profile: FoodProfile | null;
 }
 
 /**
@@ -137,6 +168,57 @@ function parseFoodLimits(rawValue: string): Partial<Record<string, number>> {
   return limits;
 }
 
+/** The two Mifflin-St Jeor sex forms a stored profile may name (ADR-0033 §6). */
+const VALID_SEXES: ReadonlySet<string> = new Set(["male", "female"]);
+/** The four IOM PAL activity categories a stored profile may name (ADR-0033 §3). */
+const VALID_ACTIVITIES: ReadonlySet<string> = new Set([
+  "sedentary",
+  "low_active",
+  "active",
+  "very_active",
+]);
+/** The three goal directions a stored profile may name (ADR-0033 §3). */
+const VALID_GOALS: ReadonlySet<string> = new Set(["lose", "maintain", "gain"]);
+
+/**
+ * Reads the inert food-profile blob off its datom (ADR-0033 §2), tolerating
+ * anything malformed. The profile is **all-or-nothing pre-fill data**: a
+ * non-object, an unknown enum value, or a non-finite metric folds the whole thing
+ * back to `null` (the form simply opens blank) rather than seeding the calculator
+ * with a half-valid body profile. Nothing downstream reads this, so a clean
+ * `FoodProfile | null` is all the form needs.
+ */
+function parseFoodProfile(rawValue: string): FoodProfile | null {
+  const parsed = parseDatomValue("settings/food/profile", rawValue);
+  if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return null;
+  }
+  const p = parsed as Record<string, unknown>;
+  const isFinite = (v: unknown): v is number =>
+    typeof v === "number" && Number.isFinite(v);
+  if (
+    typeof p.sex !== "string" ||
+    !VALID_SEXES.has(p.sex) ||
+    typeof p.activity !== "string" ||
+    !VALID_ACTIVITIES.has(p.activity) ||
+    typeof p.goal !== "string" ||
+    !VALID_GOALS.has(p.goal) ||
+    !isFinite(p.age) ||
+    !isFinite(p.height_cm) ||
+    !isFinite(p.weight_kg)
+  ) {
+    return null;
+  }
+  return {
+    sex: p.sex as BiologicalSex,
+    age: p.age,
+    height_cm: p.height_cm,
+    weight_kg: p.weight_kg,
+    activity: p.activity as ActivityLevel,
+    goal: p.goal as EnergyGoal,
+  };
+}
+
 // Derived store to collapse datoms to latest values and inject fallbacks
 export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
   const settings: SettingsState = {
@@ -152,6 +234,8 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
     food_targets: {},
     // Unset → no overrides; every limit resolves to its baked cap.
     food_limits: {},
+    // Unset → the helper has never been applied; the form opens blank.
+    food_profile: null,
   };
 
   for (const d of $datoms) {
@@ -180,6 +264,12 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
       settings.food_limits = parseFoodLimits(d.value);
       continue;
     }
+    // food_profile is the inert helper-input blob (ADR-0033 §2), decoded and
+    // fully validated — its own datom, read only to pre-fill the calculator form.
+    if (d.attribute === "settings/food/profile") {
+      settings.food_profile = parseFoodProfile(d.value);
+      continue;
+    }
     const value = String(
       parseDatomValue(d.attribute, d.value, SETTINGS_STRING_ATTRS)
     );
@@ -201,7 +291,7 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
 // (ADR-0031 §2/§3, ADR-0032 §2), so toggling visibility or rounding never
 // touches a user's targets or limits and vice versa.
 export async function saveSettings(
-  state: Omit<SettingsState, "food_targets" | "food_limits">
+  state: Omit<SettingsState, "food_targets" | "food_limits" | "food_profile">
 ): Promise<void> {
   const timestamp = Date.now();
   const datoms = ingestEntity(
@@ -265,6 +355,28 @@ export async function saveFoodLimits(
       entity: "settings:global",
       attributes: {
         "settings/food/limits": limits,
+      },
+    },
+    timestamp
+  );
+  await dbClient.append(datoms);
+}
+
+/**
+ * Persists the personalized helper's inputs as the inert blob datom
+ * `settings/food/profile` (ADR-0033 §2), independent of every other settings
+ * datom. This blob **drives nothing live** — it is written purely so re-opening
+ * the calculator pre-fills the last body metrics/choices; the resolver and
+ * dashboard never read it. The apply flow writes it alongside its
+ * {@link saveFoodTargets} write, but the two stay separate datoms.
+ */
+export async function saveFoodProfile(profile: FoodProfile): Promise<void> {
+  const timestamp = Date.now();
+  const datoms = ingestEntity(
+    {
+      entity: "settings:global",
+      attributes: {
+        "settings/food/profile": profile,
       },
     },
     timestamp

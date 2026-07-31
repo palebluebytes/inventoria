@@ -505,7 +505,14 @@
                   over the baked reference set — ADR-0031),
                   <code>food/limits</code> (a blob override map of daily
                   stay-under nutrient limits, in canonical units, layered over
-                  the baked reference set — ADR-0032)
+                  the baked reference set — ADR-0032),
+                  <code>food/profile</code> (an inert blob of the personalized
+                  calorie/macro helper's last inputs —
+                  <code
+                    >{ sex, age, height_cm, weight_kg, activity, goal }</code
+                  >
+                  — read only to pre-fill the calculator form; drives nothing
+                  live — ADR-0033)
                 </td>
               </tr>
               <tr>
