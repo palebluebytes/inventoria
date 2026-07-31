@@ -113,6 +113,12 @@ This **agrees with the FDA dietary-fibre DV of 28 g** already documented in
 `fda-daily-values.md`, so fibre is the one macro **uncontested** between the two bases.
 Do **not** use 25 g (an older/sex-specific figure) here.
 
+This 28 g is the **baked** default (the generic 2,000-kcal profile). Because the AI is a
+per-kcal _rate_, the personalized calculator scales it by the user's own energy target rather
+than reusing this figure — the same 14 g/1000 kcal applied to a personalized denominator (see
+`personalized-energy-and-macros.md`, step 5, and ADR-0033 Amendment 2). At 2,000 kcal the two
+coincide at 28 g.
+
 ### The 2,000-kcal reference diet
 
 Both primary systems anchor on 2,000 kcal:

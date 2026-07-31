@@ -291,9 +291,15 @@
   // calculator card); the sheet is mounted only while non-null so it re-seeds fresh.
   let rationale = $state<TargetRationale | null>(null);
 
-  // The three headline macros the helper auto-tracks (energy is the always-on
-  // ring, never a visible-nutrient meter).
-  const CALCULATED_MACRO_KEYS = ["protein", "fat", "carbs"] as const;
+  // The reach-toward keys the helper auto-tracks so their meters appear — the
+  // three macros plus fibre (now personalized too, ADR-0033 Amendment 2). Energy is
+  // the always-on ring, never a visible-nutrient meter.
+  const CALCULATED_MACRO_KEYS = [
+    "protein",
+    "fat",
+    "carbs",
+    "fiber_content",
+  ] as const;
 
   // Apply the helper's result (ADR-0033 §4 + Amendment). The computed set becomes
   // the new DEFAULT for energy + the three macros — its own `calculated_targets`
@@ -311,7 +317,13 @@
     }
   }
   async function applyCalculatorResult(
-    targets: { energy: number; protein: number; fat: number; carbs: number },
+    targets: {
+      energy: number;
+      protein: number;
+      fat: number;
+      carbs: number;
+      fiber_content: number;
+    },
     profile: FoodProfile
   ) {
     food_calculated_targets = {
@@ -319,6 +331,7 @@
       protein: targets.protein,
       fat: targets.fat,
       carbs: targets.carbs,
+      fiber_content: targets.fiber_content,
     };
     for (const key of PERSONALIZED_TARGET_KEYS) delete food_targets[key];
     food_targets = { ...food_targets };

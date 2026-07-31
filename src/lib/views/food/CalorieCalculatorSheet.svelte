@@ -44,6 +44,7 @@
         protein: number;
         fat: number;
         carbs: number;
+        fiber_content: number;
       },
       profile: FoodProfile
     ) => void;
@@ -176,6 +177,7 @@
         protein: roundFoodDisplay(result.protein, d),
         fat: roundFoodDisplay(result.fat, d),
         carbs: roundFoodDisplay(result.carbs, d),
+        fiber_content: roundFoodDisplay(result.fiber_content, d),
       },
       {
         sex,
@@ -351,6 +353,16 @@
             <span class="macro-val"
               >{formatNutrientValue(
                 result.carbs,
+                "g",
+                $nutritionDisplayDecimals
+              )}</span
+            ></span
+          >
+          <span class="macro" data-preview-fiber
+            ><span class="macro-label">Fibre</span>
+            <span class="macro-val"
+              >{formatNutrientValue(
+                result.fiber_content,
                 "g",
                 $nutritionDisplayDecimals
               )}</span

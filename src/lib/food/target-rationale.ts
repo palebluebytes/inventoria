@@ -180,7 +180,7 @@ export const TARGET_RATIONALES: Record<RationaleId, TargetRationale> = {
   calculator: {
     title: "About the calorie & macro calculator",
     referenceDoc: "docs/reference/personalized-energy-and-macros.md",
-    lead: "The calculator turns your body metrics into a suggested energy and macro target. It composes three published formulae — a resting-metabolism equation, an activity multiplier, and a protein-anchored macro split — and writes the result into your targets, where it stays editable.",
+    lead: "The calculator turns your body metrics into a suggested energy, macro, and fibre target. It composes published formulae — a resting-metabolism equation, an activity multiplier, a protein-anchored macro split, and an energy-scaled fibre rate — and writes the result into your targets, where it stays editable.",
     blocks: [
       { kind: "heading", text: "How it computes" },
       {
@@ -190,6 +190,7 @@ export const TARGET_RATIONALES: Record<RationaleId, TargetRationale> = {
           "Daily burn (TDEE) — BMR × an IOM Physical Activity Level: Sedentary ×1.25 / Low active ×1.5 / Active ×1.75 / Very active ×2.2.",
           "Goal — a percentage of TDEE: Lose ×0.80 / Maintain ×1.00 / Gain ×1.10, then floored at your own BMR so the helper never suggests eating below resting burn.",
           "Macros — protein 1.6 g/kg bodyweight (Morton 2018, inside the ISSN 1.4–2.0 g/kg range), fat 30% of energy, carbs the remainder. Anchoring protein to bodyweight keeps it steady on a cut, when a %-of-energy split would drop it.",
+          "Fibre — 14 g per 1,000 kcal of your energy target (IOM 2005 Adequate Intake). Because that guideline is a per-calorie rate, it scales with your calories rather than staying at the generic 28 g — and it lands on exactly 28 g at 2,000 kcal.",
         ],
       },
       { kind: "heading", text: "A sound pairing, but not IOM-blessed" },
@@ -228,6 +229,11 @@ export const TARGET_RATIONALES: Record<RationaleId, TargetRationale> = {
         label:
           "Morton RW, et al. (2018) — protein supplementation meta-analysis, Br J Sports Med 52(6):376–384 (~1.6 g/kg breakpoint)",
         url: "https://doi.org/10.1136/bjsports-2017-097608",
+      },
+      {
+        label:
+          "IOM (2005) — DRI… (Total Fiber Adequate Intake, 14 g per 1,000 kcal)",
+        url: "https://www.nationalacademies.org/read/26818",
       },
     ],
   },

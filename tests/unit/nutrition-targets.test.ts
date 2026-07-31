@@ -175,21 +175,26 @@ describe("defaultNutrientTargets (baked ⊕ the calculator's frozen set)", () =>
     expect(defaults.carbs).toBe(240);
   });
 
-  it("leaves fibre and the twelve micros at their baked default", () => {
-    // The helper only writes energy + the three macros; everything else keeps its
-    // cited reference value even after the calculator has run.
-    const defaults = defaultNutrientTargets({ energy: 2600, protein: 150 });
-    expect(defaults.fiber_content).toBe(28);
+  it("layers a calculated fibre too, but leaves the twelve micros baked", () => {
+    // Fibre is now personalized (its AI is a per-kcal rate, ADR-0033 Amendment 2),
+    // so a calculated fibre passes through; the micros have no energy basis and keep
+    // their cited reference value even after the calculator has run.
+    const defaults = defaultNutrientTargets({
+      energy: 2600,
+      protein: 150,
+      fiber_content: 36,
+    });
+    expect(defaults.fiber_content).toBe(36);
     expect(defaults.calcium).toBe(1.3);
     expect(defaults.iron).toBe(0.018);
   });
 
   it("ignores a non-personalizable or non-finite calculated key", () => {
-    // Defence in depth: only the four PERSONALIZED_TARGET_KEYS are honoured, and a
+    // Defence in depth: only the five PERSONALIZED_TARGET_KEYS are honoured, and a
     // NaN/Infinity value is dropped rather than corrupting a default.
     const defaults = defaultNutrientTargets({
       calcium: 5, // not a personalizable key — ignored
-      fiber_content: 40, // not personalizable — ignored
+      fiber_content: Number.NaN, // personalizable, but non-finite — dropped, stays baked
       protein: Number.NaN, // non-finite — dropped, stays baked
     } as Record<string, number>);
     expect(defaults.calcium).toBe(1.3);
@@ -224,15 +229,15 @@ describe("defaultNutrientTargets (baked ⊕ the calculator's frozen set)", () =>
   });
 });
 
-describe("PERSONALIZED_TARGET_KEYS (the calculator's four writable keys)", () => {
-  it("is exactly energy + the three macros", () => {
+describe("PERSONALIZED_TARGET_KEYS (the calculator's five writable keys)", () => {
+  it("is exactly energy + the three macros + fibre", () => {
     expect([...PERSONALIZED_TARGET_KEYS].sort()).toEqual(
-      ["carbs", "energy", "fat", "protein"].sort()
+      ["carbs", "energy", "fat", "fiber_content", "protein"].sort()
     );
   });
 
-  it("never includes fibre, a micronutrient, or a limit", () => {
-    expect(PERSONALIZED_TARGET_KEYS.has("fiber_content")).toBe(false);
+  it("includes fibre (energy-scaled) but never a micronutrient or a limit", () => {
+    expect(PERSONALIZED_TARGET_KEYS.has("fiber_content")).toBe(true);
     expect(PERSONALIZED_TARGET_KEYS.has("calcium")).toBe(false);
     expect(PERSONALIZED_TARGET_KEYS.has("sodium_content")).toBe(false);
   });

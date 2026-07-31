@@ -19,7 +19,9 @@ those keys. This is a **default layer** between the baked reference and `setting
 `defaultNutrientTargets(calculated)` composes `baked ⊕ calculated` and is passed as the `baked`
 argument of ADR-0031's `resolveNutrientTargets`, so the single-resolved-map invariant is intact —
 the precedence is just **baked → calculated-default → override** now. A cleared override therefore
-falls back to the computed figure; fibre and the twelve micros are still never personalized.
+falls back to the computed figure. (Fibre was later folded into the calculated layer too — see
+[Amendment 2](#amendment-2-2026-07-31-fibre-is-energy-scaled-in-the-calculated-layer); the twelve
+micros remain never personalized.)
 
 This is the "third precedence layer" the original ADR rejected under Alternatives — but the rejection
 was about a layer that **re-derives live from the profile** (a "live-vs-stale coupling"). This layer
@@ -27,6 +29,28 @@ does **not**: the numbers are **frozen at apply-time** (the profile stays inert,
 recomputed, so a later tweak to the helper's constants can't silently shift a user's defaults, and
 re-applying after a weight change is still a conscious act. The live-vs-stale objection does not
 apply to a frozen snapshot. Registered in `docs/eavt-vocabulary.html` alongside the profile blob.
+
+## Amendment 2 (2026-07-31): fibre is energy-scaled in the calculated layer
+
+Decision 1 left **fibre** at its baked default (28 g) even after the calculator ran, on the reasoning
+that "the helper writes four keys." That reasoning was scope, not principle — and it left the helper
+**internally inconsistent**. Fibre's guideline is not a fixed amount: the IOM 2005 Total Fiber
+Adequate Intake is **14 g / 1000 kcal**, a rate. The baked 28 g is just that rate applied to the
+2,000-kcal reference diet. Once the calculator personalizes **energy**, pinning fibre to the old
+reference means a user targeting 2,800 kcal reaches toward only 28 g when the app's own cited basis
+says ~39 g, and a 1,600-kcal user is over-targeted.
+
+**The fix:** `computeEnergyAndMacros` now also returns **`fiber_content` = 14 g / 1000 kcal × the
+(BMR-clamped) energy**, and `fiber_content` joins `PERSONALIZED_TARGET_KEYS` so it flows through the
+frozen calculated-default layer exactly like the three macros — auto-tracked on Apply, shown in the
+live preview, reverting to the computed figure (not the baked 28 g) on ↺.
+
+This is **not** a new guideline or a contested product choice; it applies the fibre AI's _own_
+per-kcal definition to the number the calculator already computes. It reproduces the baked **28 g
+exactly at 2,000 kcal**, so a user at the reference diet is unchanged, and the baked default (for
+anyone who never runs the calculator) stays 28 g. It scales off the clamped energy, so it also
+respects the resting-burn floor and tracks the manual calorie nudge. The twelve micronutrients have
+no energy-linked basis and remain baked-only.
 
 ## Context
 

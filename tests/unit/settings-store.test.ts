@@ -318,16 +318,17 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
     });
   });
 
-  it("filters a food/calculated_targets blob to the four personalizable keys", () => {
-    // Only energy + the three macros are personalizable; a stray micro, limit, or
-    // non-numeric value must never reach the default resolver.
+  it("filters a food/calculated_targets blob to the five personalizable keys", () => {
+    // Only energy + the three macros + fibre are personalizable; a stray micro,
+    // limit, or non-numeric value must never reach the default resolver.
     datomsWritable.set([
       {
         attribute: "settings/food/calculated_targets",
         value: JSON.stringify({
           energy: 2200,
           protein: 130,
-          fiber_content: 40, // not personalizable — dropped
+          fiber_content: 40, // personalizable (energy-scaled) — kept
+          calcium: 1.5, // a micronutrient — dropped
           sodium_content: 1.5, // a limit — dropped
           fat: "lots", // non-numeric — dropped
         }),
@@ -337,6 +338,7 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
     expect(get(settingsStore).food_calculated_targets).toEqual({
       energy: 2200,
       protein: 130,
+      fiber_content: 40,
     });
   });
 

@@ -7,14 +7,19 @@
  * Two composed formulae:
  * - {@link mifflinStJeorBmr} — resting metabolic rate (Mifflin-St Jeor 1990).
  * - {@link computeEnergyAndMacros} — BMR → TDEE (×PAL) → goal-adjusted energy
- *   (floored at BMR) → protein-anchored macros.
+ *   (floored at BMR) → protein-anchored macros → energy-scaled fibre.
  *
- * The result is `{ energy, protein, fat, carbs }` in the override blob's canonical
- * units — **kcal** for energy, **grams** for the macros (ADR-0031 §2) — so it drops
- * straight into a `settings/food/targets` write. Values are returned **unrounded**:
- * the stored targets keep exact precision and rounding is a display-only concern
- * (`round_nutrition`, ticket #29), so no rounding happens here. Fibre and the twelve
- * micronutrients are untouched — they keep their baked defaults.
+ * The result is `{ energy, protein, fat, carbs, fiber_content }` in the override
+ * blob's canonical units — **kcal** for energy, **grams** for the rest (ADR-0031 §2)
+ * — so it drops straight into a `settings/food/targets` write. Values are returned
+ * **unrounded**: the stored targets keep exact precision and rounding is a
+ * display-only concern (`round_nutrition`, ticket #29), so no rounding happens here.
+ *
+ * Fibre rides along because its guideline — the IOM 2005 Total Fiber AI of
+ * **14 g / 1000 kcal** — is itself defined *per kcal*, so the honest application is
+ * the personalized energy, not the frozen 2000-kcal reference the baked 28 g uses
+ * (ADR-0033 Amendment 2). The twelve micronutrients have no energy-linked basis and
+ * are untouched — they keep their baked defaults.
  */
 
 /** Biological sex — the two forms of the Mifflin-St Jeor constant (ADR-0033 §6). */
@@ -65,6 +70,15 @@ const PROTEIN_G_PER_KG = 1.6;
 /** Fat as a fraction of energy — mid-AMDR (20–35 %, IOM 2005), matching the baked split. */
 const FAT_ENERGY_FRACTION = 0.3;
 
+/**
+ * Dietary fibre as grams per 1000 kcal — the IOM 2005 Total Fiber Adequate Intake,
+ * the fibre intake found protective against coronary heart disease. Fibre has no
+ * AMDR; this per-kcal rate IS its guideline, so scaling it by the personalized
+ * energy (rather than pinning to the baked 28 g at the 2000-kcal reference) applies
+ * the same figure consistently. At 2000 kcal it reproduces 28 g exactly.
+ */
+const FIBER_G_PER_1000_KCAL = 14;
+
 /** Atwater energy factors (kcal per gram) — universal. */
 const KCAL_PER_G_PROTEIN = 4;
 const KCAL_PER_G_FAT = 9;
@@ -93,10 +107,10 @@ export function mifflinStJeorBmr(
 
 /**
  * Composes BMR → TDEE → goal-adjusted energy (floored at BMR) → protein-anchored
- * macros, returning the four keys the helper writes into `settings/food/targets`:
- * `energy` (kcal), `protein` / `fat` / `carbs` (grams). Pure and
- * unit-test-reachable. Reference: docs/reference/personalized-energy-and-macros.md,
- * "The composed formula".
+ * macros → energy-scaled fibre, returning the five keys the helper writes into
+ * `settings/food/targets`: `energy` (kcal), `protein` / `fat` / `carbs` /
+ * `fiber_content` (grams). Pure and unit-test-reachable. Reference:
+ * docs/reference/personalized-energy-and-macros.md, "The composed formula".
  *
  * - **TDEE** = BMR × PAL[activity].
  * - **Energy** = TDEE × goal factor, then `max(…, BMR)` — the safety clamp never
@@ -107,6 +121,9 @@ export function mifflinStJeorBmr(
  * - **Fat** = 30 % of energy at 9 kcal/g.
  * - **Carbs** = the remaining energy at 4 kcal/g, **clamped ≥ 0** (at high protein
  *   + a deep deficit the remainder could otherwise go negative).
+ * - **Fibre** = 14 g / 1000 kcal of the (clamped) energy — the AI's own per-kcal
+ *   basis applied to the personalized target rather than the frozen 2000-kcal
+ *   reference (ADR-0033 Amendment 2). Tracks the nudge, since it scales off `energy`.
  */
 export function computeEnergyAndMacros(input: {
   sex: BiologicalSex;
@@ -116,7 +133,13 @@ export function computeEnergyAndMacros(input: {
   activity: ActivityLevel;
   goal: EnergyGoal;
   energyOverrideKcal?: number; // the manual nudge, if the user adjusted it
-}): { energy: number; protein: number; fat: number; carbs: number } {
+}): {
+  energy: number;
+  protein: number;
+  fat: number;
+  carbs: number;
+  fiber_content: number;
+} {
   const bmr = mifflinStJeorBmr(
     input.sex,
     input.weightKg,
@@ -134,5 +157,8 @@ export function computeEnergyAndMacros(input: {
     (energy - KCAL_PER_G_PROTEIN * protein - KCAL_PER_G_FAT * fat) /
       KCAL_PER_G_CARB
   );
-  return { energy, protein, fat, carbs };
+  // Fibre scales off the same clamped energy, so it tracks the nudge and never
+  // suggests less than the resting-burn diet's fibre. At 2000 kcal → 28 g exactly.
+  const fiber_content = (FIBER_G_PER_1000_KCAL * energy) / 1000;
+  return { energy, protein, fat, carbs, fiber_content };
 }
