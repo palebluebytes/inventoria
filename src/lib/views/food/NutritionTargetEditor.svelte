@@ -3,18 +3,22 @@
     settingsStore,
     saveSettings,
     saveFoodTargets,
+    saveFoodLimits,
   } from "../../stores/settings.store";
   import {
     MACRO_DESCRIPTORS,
     MICRO_DESCRIPTORS,
+    LIMIT_DESCRIPTORS,
     SECTION_MACROS,
     SECTION_MICROS,
+    SECTION_LIMITS,
     nutrientDisplayValue,
     parseNutrientEntry,
     type NutrientUnit,
   } from "../../food/nutrient-display";
   import {
     BAKED_NUTRIENT_TARGETS_G,
+    BAKED_NUTRIENT_LIMITS_G,
     ENERGY_TARGET_KEY,
   } from "../../food/nutrition-targets";
   import { onDestroy } from "svelte";
@@ -48,12 +52,19 @@
   // baked default (placeholder); `> 0` → an override (shown as the input value);
   // `0` → an opt-out ("hidden" hint).
   let food_targets = $state<Partial<Record<string, number>>>({});
+  // Per-nutrient limit overrides (ticket #43, ADR-0032 §3): the stay-under twin of
+  // `food_targets`, mirroring the `settings/food/limits` blob. Absent → the baked
+  // cap (placeholder); `> 0` → an override; `0` → an opt-out ("no limit" hint).
+  // Written independently via saveFoodLimits — a limit has no dashboard meter, so
+  // this never touches `visible_nutrients`.
+  let food_limits = $state<Partial<Record<string, number>>>({});
   let initialized = $state(false);
   $effect(() => {
     if (!initialized && $settingsStore) {
       visible_nutrients = [...$settingsStore.visible_nutrients];
       round_nutrition = $settingsStore.round_nutrition;
       food_targets = { ...$settingsStore.food_targets };
+      food_limits = { ...$settingsStore.food_limits };
       initialized = true;
     }
   });
@@ -79,6 +90,16 @@
   // to the baked 2000 kcal at read time (ADR-0031 §2) — so it shows no hint.
   const isOptedOut = (key: string): boolean =>
     food_targets[key] === 0 && key !== ENERGY_TARGET_KEY;
+
+  // The stay-under twins (ADR-0032): a limit's baked cap / override in its display
+  // unit, and its `0` opt-out. No energy member here, so no clamp exception.
+  const placeholderForLimit = (key: string, unit: TargetUnit): string =>
+    displayNumber(BAKED_NUTRIENT_LIMITS_G[key], unit);
+  const valueForLimit = (key: string, unit: TargetUnit): string => {
+    const override = food_limits[key];
+    return typeof override === "number" ? displayNumber(override, unit) : "";
+  };
+  const isLimitOptedOut = (key: string): boolean => food_limits[key] === 0;
 
   // Edit a target as the user types: an empty field clears the override back to
   // the baked default (like ↺); otherwise convert the display-unit entry to
@@ -128,7 +149,10 @@
   function commitTarget() {
     flushSave();
   }
-  onDestroy(() => clearTimeout(saveTimer));
+  onDestroy(() => {
+    clearTimeout(saveTimer);
+    clearTimeout(limitSaveTimer);
+  });
 
   // Clear a single override back to its baked default (the ↺ control).
   async function resetTarget(key: string) {
@@ -144,6 +168,49 @@
       await saveFoodTargets(food_targets);
     } catch (err) {
       console.error("Failed to save food targets", err);
+    }
+  }
+
+  // Edit a limit as the user types — the stay-under twin of editTarget, but with
+  // NO auto-track (a limit has no dashboard meter) and no visibility side effect:
+  // an empty field clears the override back to the baked cap; otherwise the
+  // display-unit entry converts to canonical grams (non-numeric = 0 = opt-out).
+  // Auto-saves on the same short debounce; blur/enter flushes it.
+  let limitSaveTimer: ReturnType<typeof setTimeout> | undefined;
+  function editLimit(key: string, unit: TargetUnit, raw: string) {
+    const trimmed = raw.trim();
+    if (trimmed === "") {
+      delete food_limits[key];
+    } else {
+      food_limits[key] = parseNutrientEntry(Number(trimmed), unit);
+    }
+    food_limits = { ...food_limits };
+    scheduleLimitSave();
+  }
+  function scheduleLimitSave() {
+    clearTimeout(limitSaveTimer);
+    limitSaveTimer = setTimeout(flushLimitSave, 400);
+  }
+  function flushLimitSave() {
+    clearTimeout(limitSaveTimer);
+    void persistFoodLimits();
+  }
+  function commitLimit() {
+    flushLimitSave();
+  }
+  // Clear a single limit override back to its baked cap (the ↺ control).
+  async function resetLimit(key: string) {
+    delete food_limits[key];
+    food_limits = { ...food_limits };
+    await persistFoodLimits();
+  }
+  // Persist the whole limit override map as the `settings/food/limits` datom,
+  // independent of the targets/visibility/round datoms (ADR-0032 §2/§3).
+  async function persistFoodLimits() {
+    try {
+      await saveFoodLimits(food_limits);
+    } catch (err) {
+      console.error("Failed to save food limits", err);
     }
   }
 
@@ -231,13 +298,54 @@
   </NutrientCard>
 {/snippet}
 
+<!-- A stay-under limit card (ticket #43, ADR-0032 §3): the same shared NutrientCard
+     and allowance idiom as above, but a plain toggle-less card (like Calories) —
+     a limit has no dashboard meter, so there is no visibility to flip. The body
+     edits the `settings/food/limits` cap; `0` flags an inline "no limit" hint. -->
+{#snippet limitCard(key: string, label: string, unit: TargetUnit)}
+  <NutrientCard {label} rowKey={key}>
+    {#snippet children()}
+      <span class="card-allowance">
+        <input
+          type="number"
+          class="card-target"
+          min="0"
+          step="any"
+          inputmode="decimal"
+          data-limit={key}
+          placeholder={placeholderForLimit(key, unit)}
+          value={valueForLimit(key, unit)}
+          oninput={(e) => editLimit(key, unit, e.currentTarget.value)}
+          onchange={commitLimit}
+          aria-label="{label} limit"
+        />
+        <span class="card-unit">{unit}</span>
+        <button
+          type="button"
+          class="card-reset"
+          data-reset-limit={key}
+          disabled={food_limits[key] === undefined}
+          onclick={() => resetLimit(key)}
+          aria-label="Reset {label} to default"
+        >
+          ↺
+        </button>
+      </span>
+      {#if isLimitOptedOut(key)}
+        <span class="card-optout">no limit</span>
+      {/if}
+    {/snippet}
+  </NutrientCard>
+{/snippet}
+
 <Card class="mt-4">
   <h2>Nutrition Display</h2>
   <p class="mt-2">
     Tap a nutrient to show it on the food dashboard, and set the daily allowance
     it reaches toward. A blank target keeps the baked default (shown greyed); ↺
     clears an override; enter 0 to opt out of a target. Calories are always
-    shown.
+    shown. The limits below are caps to stay under — the day tints amber once
+    you go over.
   </p>
 
   <!-- The heading bands and card grids bleed to the card's edges so the section
@@ -255,6 +363,13 @@
     <NutrientCardGrid>
       {#each MICRO_DESCRIPTORS as n (n.key)}
         {@render card(n.key, n.label, n.unit, true)}
+      {/each}
+    </NutrientCardGrid>
+
+    <NutrientGroupHead label={SECTION_LIMITS} />
+    <NutrientCardGrid>
+      {#each LIMIT_DESCRIPTORS as n (n.key)}
+        {@render limitCard(n.key, n.label, n.unit)}
       {/each}
     </NutrientCardGrid>
   </div>
