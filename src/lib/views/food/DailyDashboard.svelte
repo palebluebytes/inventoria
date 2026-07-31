@@ -12,9 +12,13 @@
     nutrientShortLabel,
     SECTION_MACROS,
     SECTION_MICROS,
+    SECTION_LIMITS,
     type DayRdaRow,
   } from "../../food/nutrient-display";
-  import { resolveNutrientTargets } from "../../food/nutrition-targets";
+  import {
+    resolveNutrientTargets,
+    resolveNutrientLimits,
+  } from "../../food/nutrition-targets";
   import {
     settingsStore,
     nutritionDisplayDecimals,
@@ -99,6 +103,13 @@
     resolveNutrientTargets($settingsStore.food_targets)
   );
 
+  // The resolved stay-under limits (ADR-0032): the baked caps layered with the
+  // user's `settings/food/limits` overrides, fed to the modal builder so its
+  // Limits section fills each carried limit toward its cap (amber once over).
+  let resolvedLimits = $derived(
+    resolveNutrientLimits($settingsStore.food_limits)
+  );
+
   // The full day breakdown for ANY nutrient, summed from each event's frozen
   // metrics (#28's totalNutrition) — the single source the meters read from, so
   // we never re-derive day totals here.
@@ -116,19 +127,21 @@
     )
   );
 
-  // The full-day RDA-vs-target view (ticket #42, ADR-0031 §4): the same day
-  // totals grouped against the resolved targets — Biggest gaps, Energy & macros,
-  // Vitamins & minerals, and Not tracked. Independent of `visible_nutrients`: the
-  // targeted sections carry the whole reach-toward set (an absent nutrient reads
-  // `— / target`), so the modal is the "everything, against target" surface while
-  // the meters above stay selection-gated.
+  // The full-day RDA-vs-target view (ticket #42/#43, ADR-0031 §4 / ADR-0032 §4):
+  // the same day totals grouped against the resolved targets and limits — Biggest
+  // gaps, Energy & macros, Vitamins & minerals, Limits, and Not tracked.
+  // Independent of `visible_nutrients`: the targeted sections carry the whole
+  // reach-toward set (an absent nutrient reads `— / target`), so the modal is the
+  // "everything, against target" surface while the meters above stay
+  // selection-gated. The Limits section shows only the limits the day carried.
   let dayRda = $derived(
     buildDayRdaView(
       dayTotals,
       resolvedTargets,
       $nutritionDisplayDecimals,
       undefined,
-      $settingsStore.visible_nutrients
+      $settingsStore.visible_nutrients,
+      resolvedLimits
     )
   );
 
@@ -391,6 +404,17 @@
               <NutrientGroupHead label={SECTION_MICROS} />
               <NutrientCardGrid>
                 {#each dayRda.micros as row (row.key)}
+                  {@render rdaCell(row)}
+                {/each}
+              </NutrientCardGrid>
+            {/if}
+
+            <!-- Stay-under limits (ADR-0032): the same rdaCell, filling toward the
+                 cap and tinting amber once over. Only limits the day carried show. -->
+            {#if dayRda.limits.length > 0}
+              <NutrientGroupHead label={SECTION_LIMITS} />
+              <NutrientCardGrid>
+                {#each dayRda.limits as row (row.key)}
                   {@render rdaCell(row)}
                 {/each}
               </NutrientCardGrid>
