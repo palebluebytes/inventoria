@@ -99,14 +99,29 @@ const EXTRA_NUTRIENT_META: Record<
 };
 
 /**
+ * Nutrients kept as captured data but withheld from every display surface.
+ * `sugar_content` is schema.org total sugar; the only citable daily cap is the
+ * FDA *added*-sugars DV — a different quantity the panel doesn't carry — so total
+ * sugar has no honest reach-toward target or stay-under limit (ADR-0032, "Out of
+ * scope"). It stays in {@link EXTRA_NUTRIENT_KEYS} / the freeze path and keeps its
+ * {@link EXTRA_NUTRIENT_META} entry; this set only removes it from the catalogue
+ * the UI renders, so a future `added_sugar_content` key restores sugar display
+ * with a one-line change.
+ */
+const HIDDEN_NUTRIENT_KEYS: ReadonlySet<string> = new Set(["sugar_content"]);
+
+/**
  * The fixed catalogue of nutrients a user can choose to display — the three
  * macros followed by every extra panel nutrient, in panel order. Data-driven off
  * {@link EXTRA_NUTRIENT_KEYS}: adding a nutrient there (and a meta entry above)
- * makes it selectable everywhere with no view change.
+ * makes it selectable everywhere with no view change, unless it is in
+ * {@link HIDDEN_NUTRIENT_KEYS} (captured but not displayed).
  */
 export const NUTRIENT_CATALOGUE: NutrientDescriptor[] = [
   ...MACRO_NUTRIENTS,
-  ...EXTRA_NUTRIENT_KEYS.map((key) => ({ key, ...EXTRA_NUTRIENT_META[key] })),
+  ...EXTRA_NUTRIENT_KEYS.filter((key) => !HIDDEN_NUTRIENT_KEYS.has(key)).map(
+    (key) => ({ key, ...EXTRA_NUTRIENT_META[key] })
+  ),
 ];
 
 /**

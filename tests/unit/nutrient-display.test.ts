@@ -18,14 +18,13 @@ import type { NutritionBreakdown } from "../../src/lib/food/nutrition";
 import { resolveNutrientTargets } from "../../src/lib/food/nutrition-targets";
 
 describe("nutrient catalogue", () => {
-  it("offers the three macros plus fibre/sugar/sodium/the fats", () => {
+  it("offers the three macros plus fibre/sodium/the fats", () => {
     const keys = NUTRIENT_CATALOGUE.map((n) => n.key);
     for (const k of [
       "protein",
       "fat",
       "carbs",
       "fiber_content",
-      "sugar_content",
       "sodium_content",
       "saturated_fat_content",
       "trans_fat_content",
@@ -35,6 +34,9 @@ describe("nutrient catalogue", () => {
     }
     // Calories are always-on (the ring) and never a selectable option.
     expect(keys).not.toContain("calories");
+    // Total sugar is a captured field but withheld from display (ADR-0032): the
+    // only citable cap is the added-sugars DV, a quantity the panel doesn't carry.
+    expect(keys).not.toContain("sugar_content");
   });
 
   it("includes the twelve micronutrients as options", () => {
@@ -234,9 +236,9 @@ describe("buildNutrientMeters", () => {
   });
 
   it("treats a nutrient the day never carried as 0, never NaN", () => {
-    const [sugar] = buildNutrientMeters(total, ["sugar_content"], {});
-    expect(sugar.value).toBe("0 g");
-    expect(sugar.fill).toBeUndefined();
+    const [unsat] = buildNutrientMeters(total, ["unsaturated_fat_content"], {});
+    expect(unsat.value).toBe("0 g");
+    expect(unsat.fill).toBeUndefined();
   });
 
   it("builds the default Protein/Fat/Carbs/Fibre meters when unset", () => {
