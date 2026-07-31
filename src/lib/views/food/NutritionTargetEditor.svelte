@@ -19,7 +19,10 @@
     REACH_TOWARD_KEYS,
     ENERGY_TARGET_KEY,
   } from "../../food/nutrition-targets";
+  import { onDestroy } from "svelte";
   import Card from "../../ui/Card.svelte";
+  import NutrientCard from "./NutrientCard.svelte";
+  import NutrientCardGrid from "./NutrientCardGrid.svelte";
 
   // The unit a target is typed in: a display unit for a nutrient, or kcal for the
   // always-on Calories card. Mirrors parseNutrientEntry's signature.
@@ -81,12 +84,14 @@
   const isOptedOut = (key: string): boolean =>
     food_targets[key] === 0 && key !== ENERGY_TARGET_KEY;
 
-  // Commit a typed target: an empty field clears the override back to the baked
-  // default (like ↺); otherwise convert the display-unit entry to canonical
-  // grams/kcal via #40's parseNutrientEntry (non-numeric reads as 0 = opt-out).
-  // Fires on change (blur/enter), so a save lands per committed edit, not per
-  // keystroke, mirroring the card's other save-on-change controls.
-  async function setTarget(key: string, unit: TargetUnit, raw: string) {
+  // Edit a target as the user types: an empty field clears the override back to
+  // the baked default (like ↺); otherwise convert the display-unit entry to
+  // canonical grams/kcal via #40's parseNutrientEntry (non-numeric reads as 0 =
+  // opt-out). The value auto-saves on a short debounce so nothing needs a blur;
+  // a blur/enter ({@link commitTarget}) flushes it at once. Two independent datoms
+  // per card — this never touches the visibility selection (ADR-0031 §2/§3).
+  let saveTimer: ReturnType<typeof setTimeout> | undefined;
+  function editTarget(key: string, unit: TargetUnit, raw: string) {
     const trimmed = raw.trim();
     if (trimmed === "") {
       delete food_targets[key];
@@ -94,8 +99,16 @@
       food_targets[key] = parseNutrientEntry(Number(trimmed), unit);
     }
     food_targets = { ...food_targets };
-    await persistFoodTargets();
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => void persistFoodTargets(), 400);
   }
+  // Flush the debounced save immediately (on blur/enter), so leaving the field —
+  // or navigating away — always persists the current allowance.
+  function commitTarget() {
+    clearTimeout(saveTimer);
+    void persistFoodTargets();
+  }
+  onDestroy(() => clearTimeout(saveTimer));
 
   // Clear a single override back to its baked default (the ↺ control).
   async function resetTarget(key: string) {
@@ -145,27 +158,26 @@
   }
 </script>
 
-<!-- One nutrient card, shaped like the dashboard's RDA modal cell (ticket #42):
-     label + allowance, laid out in the same macro/micro grids. With
+<!-- One nutrient card — the shared NutrientCard the dashboard's RDA modal uses
+     (ticket #42), its body an allowance editor instead of a value/bar. With
      `hasVisibility` the whole card is a <label> whose click toggles the nutrient's
-     dashboard meter — clicks on the inner target input / ↺ don't toggle it (they
-     are interactive descendants, which a <label> ignores), so editing an allowance
-     never flips visibility. Calories (`hasVisibility=false`) is always shown, so
-     it renders as a plain card with the allowance only. -->
+     dashboard meter (the `control` checkbox); clicks on the inner target input / ↺
+     don't toggle it (a <label> ignores its interactive descendants), so editing an
+     allowance never flips visibility. Calories (`hasVisibility=false`) is always
+     shown, so it renders as a plain card with the allowance only. -->
 {#snippet card(
   key: string,
   label: string,
   unit: TargetUnit,
   hasVisibility: boolean
 )}
-  <svelte:element
-    this={hasVisibility ? "label" : "div"}
-    class="nutrient-card"
-    class:untracked={hasVisibility && !isTracked(key)}
-    data-nutrient-row={key}
+  <NutrientCard
+    {label}
+    rowKey={key}
+    toggle={hasVisibility}
+    untracked={hasVisibility && !isTracked(key)}
   >
-    <span class="card-top">
-      <span class="card-label">{label}</span>
+    {#snippet control()}
       {#if hasVisibility}
         <input
           type="checkbox"
@@ -176,40 +188,43 @@
           aria-label="Show {label} on the dashboard"
         />
       {/if}
-    </span>
-    {#if hasTarget(key)}
-      <span class="card-allowance">
-        <input
-          type="number"
-          class="card-target"
-          min="0"
-          step="any"
-          inputmode="decimal"
-          data-target={key}
-          placeholder={placeholderFor(key, unit)}
-          value={valueFor(key, unit)}
-          onchange={(e) => setTarget(key, unit, e.currentTarget.value)}
-          aria-label="{label} target"
-        />
-        <span class="card-unit">{unit}</span>
-        <button
-          type="button"
-          class="card-reset"
-          data-reset={key}
-          disabled={food_targets[key] === undefined}
-          onclick={() => resetTarget(key)}
-          aria-label="Reset {label} to default"
-        >
-          ↺
-        </button>
-      </span>
-      {#if isOptedOut(key)}
-        <span class="card-optout">hidden — no meter</span>
+    {/snippet}
+    {#snippet children()}
+      {#if hasTarget(key)}
+        <span class="card-allowance">
+          <input
+            type="number"
+            class="card-target"
+            min="0"
+            step="any"
+            inputmode="decimal"
+            data-target={key}
+            placeholder={placeholderFor(key, unit)}
+            value={valueFor(key, unit)}
+            oninput={(e) => editTarget(key, unit, e.currentTarget.value)}
+            onchange={commitTarget}
+            aria-label="{label} target"
+          />
+          <span class="card-unit">{unit}</span>
+          <button
+            type="button"
+            class="card-reset"
+            data-reset={key}
+            disabled={food_targets[key] === undefined}
+            onclick={() => resetTarget(key)}
+            aria-label="Reset {label} to default"
+          >
+            ↺
+          </button>
+        </span>
+        {#if isOptedOut(key)}
+          <span class="card-optout">hidden — no meter</span>
+        {/if}
+      {:else}
+        <span class="card-hint">no target</span>
       {/if}
-    {:else}
-      <span class="card-hint">no target</span>
-    {/if}
-  </svelte:element>
+    {/snippet}
+  </NutrientCard>
 {/snippet}
 
 <Card class="mt-4">
@@ -222,27 +237,27 @@
   </p>
 
   <div class="rda-group-head">{SECTION_MACROS}</div>
-  <div class="macro-cards">
+  <NutrientCardGrid>
     {@render card(ENERGY_TARGET_KEY, "Calories", "kcal", false)}
     {#each MACRO_DESCRIPTORS as n (n.key)}
       {@render card(n.key, n.label, n.unit, true)}
     {/each}
-  </div>
+  </NutrientCardGrid>
 
   <div class="rda-group-head">{SECTION_MICROS}</div>
-  <div class="micro-grid">
+  <NutrientCardGrid>
     {#each MICRO_DESCRIPTORS as n (n.key)}
       {@render card(n.key, n.label, n.unit, true)}
     {/each}
-  </div>
+  </NutrientCardGrid>
 
   {#if LIMIT_DESCRIPTORS.length > 0}
     <div class="rda-group-head">Other</div>
-    <div class="micro-grid">
+    <NutrientCardGrid>
       {#each LIMIT_DESCRIPTORS as n (n.key)}
         {@render card(n.key, n.label, n.unit, true)}
       {/each}
-    </div>
+    </NutrientCardGrid>
   {/if}
 
   <div class="round-toggle mt-4">
@@ -288,57 +303,14 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--text-secondary);
-    margin: var(--space-m) 0 0;
+    margin: var(--space-m) 0 var(--space-2xs);
     padding-bottom: var(--space-3xs);
     border-bottom: 1px solid var(--border, #000);
   }
 
-  /* The two nutrient grids, shaped exactly like the dashboard RDA modal (#42): a
-     2-column grid whose 1px gaps over a hairline background draw the cell dividers,
-     each card painting its own surface. */
-  .macro-cards,
-  .micro-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1px;
-    background: var(--border-subtle, #e4e4e7);
-    margin-top: var(--space-2xs);
-    /* Container context so a long single-word label can shrink to fit a narrow
-       card rather than spilling under the allowance controls. */
-    container-type: inline-size;
-  }
+  /* The card shell + grid are the shared NutrientCard / NutrientCardGrid; only the
+     allowance-editor body below is this surface's own. */
 
-  /* One nutrient card. With a visibility toggle it is a <label> (the whole box is
-     the button); Calories renders as a plain card. */
-  .nutrient-card {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2xs);
-    padding: var(--space-xs) var(--space-s);
-    background: var(--food-surface-bg, #fff);
-  }
-  :global(label.nutrient-card) {
-    cursor: pointer;
-  }
-  /* Not shown on the dashboard: mute the label so the tracked cards stand out.
-     The allowance stays crisp — a target still drives the full-day modal even
-     when the nutrient isn't a pinned meter. */
-  .nutrient-card.untracked .card-label {
-    color: var(--text-muted);
-  }
-  .card-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-2xs);
-  }
-  .card-label {
-    font-size: clamp(0.62rem, 3.4cqi, var(--step-n1));
-    font-weight: 700;
-    line-height: 1.25;
-    text-transform: uppercase;
-    color: #000;
-  }
   /* The `0`-opt-out flag: plain inline text (not a chip, not a meter) so the card
      reads as "deliberately un-targeted" without a colour cue (ADR-0003). */
   .card-optout {
@@ -390,12 +362,6 @@
   .card-target {
     -moz-appearance: textfield;
     appearance: textfield;
-  }
-  @container (max-width: 220px) {
-    .card-target {
-      width: 3.25rem;
-      font-size: var(--step-n2);
-    }
   }
   .card-unit {
     font-size: var(--step-n2);

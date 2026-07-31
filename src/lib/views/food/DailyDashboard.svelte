@@ -25,6 +25,8 @@
   import CalorieRing from "./CalorieRing.svelte";
   import MacroMeters from "./MacroMeters.svelte";
   import WeekStrip from "./WeekStrip.svelte";
+  import NutrientCard from "./NutrientCard.svelte";
+  import NutrientCardGrid from "./NutrientCardGrid.svelte";
   import { longpress } from "../../actions/longpress";
 
   let {
@@ -120,7 +122,13 @@
   // `— / target`), so the modal is the "everything, against target" surface while
   // the meters above stay selection-gated.
   let dayRda = $derived(
-    buildDayRdaView(dayTotals, resolvedTargets, $nutritionDisplayDecimals)
+    buildDayRdaView(
+      dayTotals,
+      resolvedTargets,
+      $nutritionDisplayDecimals,
+      undefined,
+      $settingsStore.visible_nutrients
+    )
   );
 
   // Whether any food has been logged for the day. The RDA sections always carry
@@ -307,20 +315,20 @@
   {/each}
 </div>
 
-<!-- One targeted RDA cell (Variant C): the label above a `value / target` figure
-     and a fill bar. Absent nutrients read `— / target`; an over-target nutrient
-     fills full and tints amber. Tiled into the Energy & macros card grid and the
-     Vitamins & minerals grid — the parent grid sets the density of each. -->
+<!-- One targeted RDA cell (Variant C): a shared NutrientCard whose body is the
+     `value / target` figure and a fill bar. Absent nutrients read `— / target`;
+     an over-target nutrient fills full and tints amber. -->
 {#snippet rdaCell(row: DayRdaRow)}
-  <div class="rda-cell nutrient-{row.key}" class:absent={row.absent}>
-    <span class="rda-cell-label">{row.label}</span>
-    <span class="rda-cell-vt" class:over={row.over}
-      >{row.value} <span class="rda-cell-target">/ {row.target}</span></span
-    >
-    <div class="rda-cell-bar" class:over={row.over}>
-      <div class="rda-cell-bar-fill" style="width: {row.fill}%"></div>
-    </div>
-  </div>
+  <NutrientCard label={row.label} rowKey={row.key}>
+    {#snippet children()}
+      <span class="rda-cell-vt" class:over={row.over} class:absent={row.absent}
+        >{row.value} <span class="rda-cell-target">/ {row.target}</span></span
+      >
+      <div class="rda-cell-bar" class:over={row.over}>
+        <div class="rda-cell-bar-fill" style="width: {row.fill}%"></div>
+      </div>
+    {/snippet}
+  </NutrientCard>
 {/snippet}
 
 <!-- Full day nutrition Modal: opened by tapping the aggregates. The full
@@ -372,19 +380,19 @@
             {/if}
 
             <div class="rda-group-head">{SECTION_MACROS}</div>
-            <div class="macro-cards">
+            <NutrientCardGrid>
               {#each dayRda.macros as row (row.key)}
                 {@render rdaCell(row)}
               {/each}
-            </div>
+            </NutrientCardGrid>
 
             {#if dayRda.micros.length > 0}
               <div class="rda-group-head">{SECTION_MICROS}</div>
-              <div class="micro-grid">
+              <NutrientCardGrid>
                 {#each dayRda.micros as row (row.key)}
                   {@render rdaCell(row)}
                 {/each}
-              </div>
+              </NutrientCardGrid>
             {/if}
 
             {#if dayRda.untracked.length > 0}
@@ -570,33 +578,11 @@
     color: var(--rda-over, #b45309);
   }
 
-  /* Energy & macros / Vitamins & minerals: two 2-column grids (Variant C). The
-     1px grid gap over a hairline background draws the lines between cells; each
-     cell paints its own surface over it. Macros are the headline-size cards,
-     micronutrients a denser tile of the same shape. */
-  .macro-cards,
-  .micro-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1px;
-    background: var(--border-subtle, #e4e4e7);
-  }
-  /* One targeted cell: label above a `value / target` figure above a fill bar —
-     the dashboard-meter idiom, tiled. Over-target tints amber; absent dims. */
-  .rda-cell {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3xs);
-    padding: var(--space-xs) var(--space-s);
-    background: var(--food-surface-bg, #fff);
-  }
-  .rda-cell-label {
-    font-size: var(--step-n3);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--text-secondary);
-  }
+  /* The RDA cell body — a `value / target` figure above a fill bar — that the
+     shared NutrientCard tiles into a NutrientCardGrid. Over-target tints amber; an
+     absent nutrient (`— / target`) dims the value. */
   .rda-cell-vt {
+    font-size: var(--step-n1);
     font-weight: 800;
     color: var(--text-primary);
     white-space: nowrap;
@@ -605,12 +591,12 @@
   .rda-cell-vt.over {
     color: var(--rda-over, #b45309);
   }
+  .rda-cell-vt.absent {
+    color: var(--text-muted);
+  }
   .rda-cell-target {
     font-size: var(--step-n3);
     font-weight: 500;
-    color: var(--text-muted);
-  }
-  .rda-cell.absent .rda-cell-vt {
     color: var(--text-muted);
   }
   .rda-cell-bar {
@@ -624,20 +610,6 @@
   }
   .rda-cell-bar.over .rda-cell-bar-fill {
     background: var(--rda-over, #b45309);
-  }
-  /* Macro cards lead with the headline value size; the micro grid is denser. */
-  .macro-cards .rda-cell-vt {
-    font-size: var(--step-n1);
-  }
-  .micro-grid .rda-cell {
-    padding: var(--space-2xs) var(--space-s);
-  }
-  .micro-grid .rda-cell-vt {
-    font-size: var(--step-n2);
-    font-weight: 700;
-  }
-  .micro-grid .rda-cell-bar {
-    height: 5px;
   }
 
   /* Not tracked: plain value, no bar — the untargeted nutrients the day carried. */

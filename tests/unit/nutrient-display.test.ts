@@ -368,6 +368,25 @@ describe("buildDayRdaView", () => {
     expect(view.gaps.map((g) => g.key)).not.toContain("fat");
   });
 
+  it("ranks only the tracked nutrients (+ always Calories) when given a selection", () => {
+    // The user tracks protein only. The gaps strip is their "what to eat next",
+    // so it ranks protein + Calories — not the full reference set the sections show.
+    const view = buildDayRdaView(day, baked, undefined, 3, ["protein"]);
+    const keys = view.gaps.map((g) => g.key);
+    expect(keys).toContain("protein");
+    // Calories is always ranked (the always-on ring), even though it's not a
+    // selectable meter.
+    expect(keys).toContain("calories");
+    // Nothing the user hasn't tracked appears — no micros, no other macros.
+    expect(keys).not.toContain("calcium");
+    expect(keys).not.toContain("vitamin_e");
+    expect(keys).not.toContain("carbs");
+    expect(keys).not.toContain("fiber_content");
+    // The card sections stay the full reference set regardless of the selection.
+    expect(view.macros).toHaveLength(5);
+    expect(view.micros).toHaveLength(12);
+  });
+
   it("reads a present-but-zero nutrient as 'no data', never 0%", () => {
     // Protein reported at 0 g — present (≠ absent, still a "0 g / 125 g" card) but
     // 0% of target. In the gaps strip it must read "no data", not "0%".

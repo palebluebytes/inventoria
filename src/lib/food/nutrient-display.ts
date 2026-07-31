@@ -452,17 +452,21 @@ export interface DayRdaView {
  * - **Not tracked** is every nutrient the day *carried* that has no positive
  *   target — the limit nutrients (sodium, saturated/trans fat, cholesterol, sugar)
  *   and any reach-toward key opted out to `0` — as a plain value with no bar.
- * - **Biggest gaps** ranks the targeted nutrients furthest below target (the sole
- *   percentage in the modal): the "no data" ones first (absent, or carried only a
- *   rounds-to-0 % amount — `percent` `null`), then the `gapLimit` present nutrients
- *   with the lowest fill. A met or over-target nutrient has no shortfall and is
- *   never a gap.
+ * - **Biggest gaps** ranks the nutrients the user *tracks* furthest below target
+ *   (the sole percentage in the modal): the "no data" ones first (absent, or
+ *   carried only a rounds-to-0 % amount — `percent` `null`), then the `gapLimit`
+ *   present nutrients with the lowest fill. A met or over-target nutrient has no
+ *   shortfall and is never a gap. Only the `selection` (the user's visible meters,
+ *   plus always Calories) is ranked — the strip is "what to eat next" for your own
+ *   goals, not the full reference set the two card sections show. An omitted
+ *   `selection` ranks every targeted nutrient.
  */
 export function buildDayRdaView(
   breakdown: NutritionBreakdown,
   targets: Partial<Record<string, number>>,
   decimals: number = FOOD_DISPLAY_DECIMALS,
-  gapLimit = 3
+  gapLimit = 3,
+  selection?: string[]
 ): DayRdaView {
   const hasTarget = (key: string): boolean => {
     const t = targets[key];
@@ -529,8 +533,12 @@ export function buildDayRdaView(
   // so little it rounds to 0 % of target — since both are the maximal gap and read
   // identically; then the lowest-fill present nutrients still below target, capped.
   // A ranking, not a % DV; a met or over-target nutrient has no shortfall, so it
-  // never appears.
-  const targeted = [...macros, ...micros];
+  // never appears. Ranked over only the nutrients the user tracks (their selected
+  // meters) plus the always-on Calories — not the full reference set the sections
+  // show; an absent `selection` ranks every targeted nutrient.
+  const tracked = (key: string): boolean =>
+    key === "calories" || selection == null || selection.includes(key);
+  const targeted = [...macros, ...micros].filter((r) => tracked(r.key));
   // A gap's percent, or null for "no data": absent, or a total that rounds to 0 %.
   const gapPercent = (r: DayRdaRow): number | null =>
     r.absent ? null : Math.round(r.fill) || null;
