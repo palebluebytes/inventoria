@@ -23,7 +23,7 @@ import {
   saveSettings,
   saveFoodTargets,
   saveFoodLimits,
-  saveFoodCalculatedTargets,
+  saveCalculatorPlan,
   nutritionDisplayDecimals,
 } from "../../src/lib/stores/settings.store";
 import { FOOD_DISPLAY_DECIMALS } from "../../src/lib/food/nutrition";
@@ -474,28 +474,54 @@ describe("saveSettings", () => {
   });
 });
 
-describe("saveFoodCalculatedTargets", () => {
-  it("appends only the food/calculated_targets datom, independent of the rest", async () => {
-    await saveFoodCalculatedTargets({
+describe("saveCalculatorPlan", () => {
+  const plan = {
+    calculated_targets: {
       energy: 2143.75,
       protein: 112,
       fat: 71.5,
       carbs: 240,
-    });
+    },
+    targets: { calcium: 1200 },
+    profile: {
+      sex: "female" as const,
+      age: 35,
+      height_cm: 170,
+      weight_kg: 70,
+      activity: "active" as const,
+      goal: "maintain" as const,
+    },
+  };
+
+  it("writes calculated_targets, targets and profile as one atomic append", async () => {
+    await saveCalculatorPlan(plan);
+    // One append call — the whole plan commits or rolls back together (§5),
+    // even though each attribute is still its own datom.
     expect(appendMock).toHaveBeenCalledTimes(1);
     const datoms = appendMock.mock.calls[0][0] as any[];
-    expect(datoms).toHaveLength(1);
-    const [datom] = datoms;
-    expect(datom.entity).toBe("settings:global");
-    expect(datom.attribute).toBe("settings/food/calculated_targets");
-    // The value is the map itself (ingest/db.core JSON-encode on write); the
-    // collapse decodes and re-filters it back on read.
-    expect(datom.value).toEqual({
-      energy: 2143.75,
-      protein: 112,
-      fat: 71.5,
-      carbs: 240,
+    const byAttr = Object.fromEntries(
+      datoms.map((d) => [d.attribute, d.value])
+    );
+    expect(datoms.every((d) => d.entity === "settings:global")).toBe(true);
+    expect(byAttr["settings/food/calculated_targets"]).toEqual(
+      plan.calculated_targets
+    );
+    expect(byAttr["settings/food/targets"]).toEqual(plan.targets);
+    expect(byAttr["settings/food/profile"]).toEqual(plan.profile);
+    // No visibility datom when the caller omits the list (nothing auto-tracked).
+    expect(byAttr["settings/food/visible_nutrients"]).toBeUndefined();
+  });
+
+  it("includes the visible_nutrients datom when auto-track added a macro", async () => {
+    await saveCalculatorPlan({
+      ...plan,
+      visible_nutrients: ["protein", "fat"],
     });
+    const datoms = appendMock.mock.calls[0][0] as any[];
+    const visible = datoms.find(
+      (d) => d.attribute === "settings/food/visible_nutrients"
+    );
+    expect(visible?.value).toEqual(["protein", "fat"]);
   });
 });
 

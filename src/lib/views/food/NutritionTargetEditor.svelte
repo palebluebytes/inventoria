@@ -4,10 +4,10 @@
     saveSettings,
     saveFoodTargets,
     saveFoodLimits,
-    saveFoodCalculatedTargets,
-    saveFoodProfile,
+    saveCalculatorPlan,
     type FoodProfile,
   } from "../../stores/settings.store";
+  import type { EnergyMacros } from "../../food/personalized-energy-macros";
   import {
     FOOD_DISPLAY_DECIMALS,
     roundFoodDisplay,
@@ -308,22 +308,12 @@
   // we also CLEAR any explicit override on those four keys, letting the fresh
   // default show through as the greyed placeholder. The three macros are still
   // auto-tracked so their meters appear (Calories is always-on), and the inert
-  // pre-fill profile is saved for the next open.
-  async function persistFoodCalculatedTargets() {
-    try {
-      await saveFoodCalculatedTargets(food_calculated_targets);
-    } catch (err) {
-      console.error("Failed to save calculated targets", err);
-    }
-  }
+  // pre-fill profile is saved for the next open. All of it — defaults, cleared
+  // overrides, auto-track, profile — is one atomic append (`saveCalculatorPlan`,
+  // Coding Standards §5): a mid-write failure can never strand new defaults over
+  // stale overrides.
   async function applyCalculatorResult(
-    targets: {
-      energy: number;
-      protein: number;
-      fat: number;
-      carbs: number;
-      fiber_content: number;
-    },
+    targets: EnergyMacros,
     profile: FoodProfile
   ) {
     food_calculated_targets = {
@@ -340,13 +330,16 @@
     );
     if (toTrack.length > 0)
       visible_nutrients = [...visible_nutrients, ...toTrack];
-    await persistFoodCalculatedTargets();
-    await persistFoodTargets();
-    if (toTrack.length > 0) await persistNutritionDisplay();
     try {
-      await saveFoodProfile(profile);
+      await saveCalculatorPlan({
+        calculated_targets: food_calculated_targets,
+        targets: food_targets,
+        profile,
+        // Only write the visibility datom when auto-track actually added a macro.
+        visible_nutrients: toTrack.length > 0 ? visible_nutrients : undefined,
+      });
     } catch (err) {
-      console.error("Failed to save food profile", err);
+      console.error("Failed to apply calculator result", err);
     }
   }
 </script>
