@@ -4,6 +4,8 @@
     saveSettings,
     saveFoodTargets,
     saveFoodLimits,
+    saveFoodProfile,
+    type FoodProfile,
   } from "../../stores/settings.store";
   import {
     MACRO_DESCRIPTORS,
@@ -26,6 +28,7 @@
   import NutrientCard from "./NutrientCard.svelte";
   import NutrientCardGrid from "./NutrientCardGrid.svelte";
   import NutrientGroupHead from "./NutrientGroupHead.svelte";
+  import CalorieCalculatorSheet from "./CalorieCalculatorSheet.svelte";
 
   // The unit a target is typed in: a display unit for a nutrient, or kcal for the
   // always-on Calories card. Mirrors parseNutrientEntry's signature.
@@ -243,6 +246,46 @@
       console.error("Failed to save nutrition display settings", err);
     }
   }
+
+  // The personalized calorie/macro calculator (ADR-0033 §4, ticket #45): an action
+  // card in the Energy & macros grid's empty cell opens a BottomSheet helper. It
+  // hands its accepted numbers back here so this editor — which already owns the
+  // targets/visibility state and their writers — performs the writes, rather than
+  // the sheet re-deriving the persistence.
+  let showCalculator = $state(false);
+
+  // The three headline macros the helper writes and auto-tracks (energy is the
+  // always-on ring, never a visible-nutrient meter).
+  const CALCULATED_MACRO_KEYS = ["protein", "fat", "carbs"] as const;
+
+  // Apply the helper's result: overwrite the four target keys (ADR-0033 §4 — the
+  // live preview already showed what is being accepted), auto-track the three
+  // macros so their meters appear (matching the editor's "customising implies show
+  // it" rule; Calories is always-on), then persist the inert pre-fill profile.
+  async function applyCalculatorResult(
+    targets: { energy: number; protein: number; fat: number; carbs: number },
+    profile: FoodProfile
+  ) {
+    food_targets = {
+      ...food_targets,
+      [ENERGY_TARGET_KEY]: targets.energy,
+      protein: targets.protein,
+      fat: targets.fat,
+      carbs: targets.carbs,
+    };
+    const toTrack = CALCULATED_MACRO_KEYS.filter(
+      (k) => !visible_nutrients.includes(k)
+    );
+    if (toTrack.length > 0)
+      visible_nutrients = [...visible_nutrients, ...toTrack];
+    await persistFoodTargets();
+    if (toTrack.length > 0) await persistNutritionDisplay();
+    try {
+      await saveFoodProfile(profile);
+    } catch (err) {
+      console.error("Failed to save food profile", err);
+    }
+  }
 </script>
 
 <!-- One nutrient card — the shared NutrientCard the dashboard's RDA modal uses
@@ -357,6 +400,18 @@
       {#each MACRO_DESCRIPTORS as n (n.key)}
         {@render card(n.key, n.label, n.unit, true)}
       {/each}
+      <!-- The calculator's entry point fills the grid's empty sixth cell as an
+           ACTION card (dashed, not the acid-green tracked fill) so it reads as an
+           action, not a target masquerading as a nutrient (ADR-0033 §4). -->
+      <button
+        type="button"
+        class="calc-action"
+        data-open-calculator
+        onclick={() => (showCalculator = true)}
+      >
+        <span class="calc-action-icon" aria-hidden="true">🧮</span>
+        <span class="calc-action-label">Calculate from body metrics</span>
+      </button>
     </NutrientCardGrid>
 
     <NutrientGroupHead label={SECTION_MICROS} />
@@ -390,6 +445,16 @@
     >
   </div>
 </Card>
+
+<!-- Mounted only while open so the form seeds fresh from the current profile each
+     time; onClose unmounts it (the slide-out animation runs first). -->
+{#if showCalculator}
+  <CalorieCalculatorSheet
+    profile={$settingsStore.food_profile}
+    onApply={applyCalculatorResult}
+    onClose={() => (showCalculator = false)}
+  />
+{/if}
 
 <style>
   h2 {
@@ -432,6 +497,52 @@
     display: flex;
     align-items: center;
     gap: var(--space-2xs);
+  }
+
+  /* The calculator entry point: an ACTION card filling the grid's empty sixth
+     cell. Deliberately NOT a nutrient card — a dashed inset border and a plain
+     surface (never the acid-green tracked fill) so it reads as "do something",
+     not "a target you've set" (ADR-0033 §4). It still paints an opaque surface so
+     the grid's 1px hairline gaps draw its dividers like every other cell. */
+  .calc-action {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2xs);
+    min-height: 100%;
+    padding: var(--space-s);
+    background: var(--food-surface-bg, #fff);
+    border: none;
+    box-shadow: inset 0 0 0 2px #000;
+    background-image: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 6px,
+      color-mix(in srgb, #000 6%, transparent) 6px,
+      color-mix(in srgb, #000 6%, transparent) 12px
+    );
+    color: #000;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .calc-action:hover {
+    background-color: var(--track, #f4f4f5);
+  }
+  .calc-action:focus-visible {
+    outline: 2px solid #000;
+    outline-offset: -4px;
+  }
+  .calc-action-icon {
+    font-size: var(--step-1);
+    line-height: 1;
+  }
+  .calc-action-label {
+    font-size: clamp(0.62rem, 3.4cqi, var(--step-n1));
+    font-weight: 700;
+    line-height: 1.2;
+    text-transform: uppercase;
+    text-align: center;
   }
   /* Compact numeric field — a brutalist box (2px border, inset, black-on-focus)
      that fits a five-figure micro target (e.g. 4700 mg potassium). */
