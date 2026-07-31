@@ -451,18 +451,23 @@ export interface DayRdaGap {
 }
 
 /**
- * The four grouped sections of the full-day RDA-vs-target modal (ticket #42,
- * ADR-0031 §4, Variant C): a Biggest-gaps ranking strip, the energy+macros rows,
- * the vitamins+minerals rows, and the "Not tracked" plain rows for everything the
- * day carried without a positive target (limit nutrients + `0` opt-outs). Built
- * independent of `visible_nutrients` — this is the "everything, against target"
- * surface, so the targeted sections show the full reach-toward set (absent ones
- * as `— / target`), not just the user's selected meters.
+ * The five grouped sections of the full-day RDA-vs-target modal (ticket #42 +
+ * #43, ADR-0031 §4 / ADR-0032 §4, Variant C): a Biggest-gaps ranking strip, the
+ * energy+macros rows, the vitamins+minerals rows, the stay-under **limits** rows,
+ * and the "Not tracked" plain rows for everything the day carried without a
+ * positive target or limit. Built independent of `visible_nutrients` — this is the
+ * "everything, against target" surface, so the targeted sections show the full
+ * reach-toward set (absent ones as `— / target`), not just the user's selected
+ * meters. The limits section inverts that: an absent limit stays quiet (omitted),
+ * since a "bad" nutrient at zero is ideal, not a gap.
  */
 export interface DayRdaView {
   gaps: DayRdaGap[];
   macros: DayRdaRow[];
   micros: DayRdaRow[];
+  /** Stay-under limit rows (ADR-0032): a bar filling toward the cap, amber once
+   *  over. Only limits the day *carried* appear — an absent limit is omitted. */
+  limits: DayRdaRow[];
   untracked: NutrientRow[];
 }
 
@@ -479,9 +484,15 @@ export interface DayRdaView {
  *   never carried still appears, reading `— / target` (absent ≠ 0). Calories lead
  *   the macros — its total lives under the `calories` key, its target under
  *   `energy` (kcal), and the always-on ring means it is always shown.
+ * - **Limits** (ADR-0032) carries each stay-under nutrient the day *carried* that
+ *   has a positive resolved limit — a {@link DayRdaRow} filling toward the cap,
+ *   `over` (amber) once the total exceeds it. The absent case **inverts** the
+ *   reach-toward one: a limit the day carried none of is *omitted* (a "bad"
+ *   nutrient at zero is ideal, not a gap — issue #43 story 5), never shown as
+ *   `— / cap`. A limit opted out to `0` drops to Not tracked.
  * - **Not tracked** is every nutrient the day *carried* that has no positive
- *   target — the limit nutrients (sodium, saturated/trans fat, cholesterol, sugar)
- *   and any reach-toward key opted out to `0` — as a plain value with no bar.
+ *   target *and* no positive limit — unsaturated fat, plus any reach-toward or
+ *   limit key opted out to `0` — as a plain value with no bar.
  * - **Biggest gaps** ranks the nutrients the user *tracks* furthest below target
  *   (the sole percentage in the modal): the "no data" ones first (absent, or
  *   carried only a rounds-to-0 % amount — `percent` `null`), then the `gapLimit`
@@ -496,24 +507,32 @@ export function buildDayRdaView(
   targets: Partial<Record<string, number>>,
   decimals: number = FOOD_DISPLAY_DECIMALS,
   gapLimit = 3,
-  selection?: string[]
+  selection?: string[],
+  limits: Partial<Record<string, number>> = {}
 ): DayRdaView {
   const hasTarget = (key: string): boolean => {
     const t = targets[key];
     return typeof t === "number" && t > 0;
   };
+  const hasLimit = (key: string): boolean => {
+    const l = limits[key];
+    return typeof l === "number" && l > 0;
+  };
 
-  // A targeted row: the day total against its target with a fill bar. `breakdownKey`
-  // and `targetKey` differ only for energy (total under `calories`, target under
+  // A targeted row: the day total against a resolved figure (a reach-toward target
+  // or a stay-under cap, from `valueMap`) with a fill bar. `breakdownKey` and
+  // `targetKey` differ only for energy (total under `calories`, target under
   // `energy`); every other nutrient keys both the same. An absent nutrient reads
-  // `—` and draws no bar; a present one fills toward — and can overrun — target.
+  // `—` and draws no bar; a present one fills toward — and can overrun — the figure
+  // (the overrun tints amber whether it's a passed goal or a breached cap).
   const targetedRow = (
     breakdownKey: keyof NutritionBreakdown,
     targetKey: string,
     label: string,
-    unit: NutrientUnit | "kcal"
+    unit: NutrientUnit | "kcal",
+    valueMap: Partial<Record<string, number>> = targets
   ): DayRdaRow => {
-    const target = targets[targetKey] ?? 0;
+    const target = valueMap[targetKey] ?? 0;
     const present = breakdownKey in breakdown;
     const total = totalFor(breakdown, breakdownKey);
     const fmt = (v: number): string =>
@@ -550,12 +569,24 @@ export function buildDayRdaView(
       micros.push(targetedRow(d.key, d.key, d.label, d.unit));
   }
 
+  // Limits (ADR-0032): each stay-under nutrient the day carried that has a positive
+  // resolved cap — a bar filling toward the cap, amber once over. Only *present*
+  // limits appear: a limit the day carried none of stays quiet (omitted, not
+  // `— / cap`), inverting the reach-toward absent case (#43 story 5). An opted-out
+  // limit (0) has no positive cap, so it falls through to Not tracked below.
+  const limitRows: DayRdaRow[] = [];
+  for (const d of LIMIT_DESCRIPTORS) {
+    if (hasLimit(d.key) && d.key in breakdown)
+      limitRows.push(targetedRow(d.key, d.key, d.label, d.unit, limits));
+  }
+
   // Not tracked: every catalogued nutrient the day carried that has no positive
-  // target — the limit nutrients and any reach-toward key opted out to 0 — as a
-  // plain value, no bar. Absent nutrients are omitted (nothing to show).
+  // target *and* no positive limit — unsaturated fat, plus any reach-toward or
+  // limit key opted out to 0 — as a plain value, no bar. Absent nutrients are
+  // omitted (nothing to show).
   const untracked: NutrientRow[] = [];
   for (const d of NUTRIENT_CATALOGUE) {
-    if (!(d.key in breakdown) || hasTarget(d.key)) continue;
+    if (!(d.key in breakdown) || hasTarget(d.key) || hasLimit(d.key)) continue;
     untracked.push(nutrientRow(breakdown, d, decimals));
   }
 
@@ -585,7 +616,7 @@ export function buildDayRdaView(
       .map((s) => s.gap),
   ];
 
-  return { gaps, macros, micros, untracked };
+  return { gaps, macros, micros, limits: limitRows, untracked };
 }
 
 /** One staged-food / preview pill: a labelled formatted value, no target. */

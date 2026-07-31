@@ -15,7 +15,10 @@ import {
   ABSENT_NUTRIENT,
 } from "../../src/lib/food/nutrient-display";
 import type { NutritionBreakdown } from "../../src/lib/food/nutrition";
-import { resolveNutrientTargets } from "../../src/lib/food/nutrition-targets";
+import {
+  resolveNutrientTargets,
+  resolveNutrientLimits,
+} from "../../src/lib/food/nutrition-targets";
 
 describe("nutrient catalogue", () => {
   it("offers the three macros plus fibre/sodium/the fats", () => {
@@ -430,6 +433,94 @@ describe("buildDayRdaView", () => {
     const view = buildDayRdaView(day, baked);
     expect(view.macros).toHaveLength(5); // calories + 4 macros
     expect(view.micros).toHaveLength(12);
+  });
+
+  it("leaves limit nutrients in Not tracked when no limits map is passed", () => {
+    // Backward-compatible default: with limits={} nothing gains a cap, so the
+    // limit nutrients the day carried still fall to Not tracked (pre-#43 behaviour).
+    const view = buildDayRdaView(day, baked);
+    expect(view.limits).toEqual([]);
+    expect(view.untracked.map((r) => r.key)).toContain("sodium_content");
+  });
+});
+
+describe("buildDayRdaView — Limits section (ADR-0032, #43)", () => {
+  const baked = resolveNutrientTargets({});
+  const bakedLimits = resolveNutrientLimits({});
+
+  // A day carrying three of the four limit nutrients: sodium under its cap,
+  // saturated fat over it, trans fat a reported zero; cholesterol absent.
+  const day: NutritionBreakdown = {
+    calories: 1650,
+    protein: 98,
+    fat: 71,
+    carbs: 180,
+    fiber_content: 19,
+    sodium_content: 1.85, // 1850 mg — under the 2300 mg cap
+    saturated_fat_content: 25, // 25 g — OVER the 20 g cap
+    trans_fat_content: 0, // reported zero — under the 2 g cap
+    // cholesterol_content absent — never reported
+  };
+
+  // The 6-arg form threads the resolved limits map in; decimals/gapLimit/selection
+  // fall back to their defaults.
+  const rda = (limits = bakedLimits) =>
+    buildDayRdaView(day, baked, undefined, undefined, undefined, limits);
+
+  it("carries the present limits toward their caps, omitting absent ones", () => {
+    const keys = rda().limits.map((r) => r.key);
+    expect(keys).toContain("sodium_content");
+    expect(keys).toContain("saturated_fat_content");
+    expect(keys).toContain("trans_fat_content");
+    // Cholesterol was never carried — a "bad" nutrient at zero stays quiet.
+    expect(keys).not.toContain("cholesterol_content");
+  });
+
+  it("renders a present limit under its cap as value / cap, a bar, not over", () => {
+    const sodium = rda().limits.find((r) => r.key === "sodium_content")!;
+    expect(sodium.value).toBe("1850 mg");
+    expect(sodium.target).toBe("2300 mg");
+    expect(sodium.absent).toBe(false);
+    expect(sodium.over).toBe(false);
+    expect(sodium.fill).toBeCloseTo((1.85 / 2.3) * 100, 5);
+  });
+
+  it("marks a limit over its cap with over + amber (bar full)", () => {
+    const sat = rda().limits.find((r) => r.key === "saturated_fat_content")!;
+    expect(sat.value).toBe("25 g");
+    expect(sat.target).toBe("20 g");
+    expect(sat.over).toBe(true);
+    expect(sat.fill).toBe(100);
+  });
+
+  it("omits an absent limit entirely — never shown as — / cap (story 5)", () => {
+    const view = rda();
+    expect(view.limits.map((r) => r.key)).not.toContain("cholesterol_content");
+    // And it isn't dumped into Not tracked either — absent means omitted.
+    expect(view.untracked.map((r) => r.key)).not.toContain(
+      "cholesterol_content"
+    );
+  });
+
+  it("moves carried limits out of Not tracked once a cap resolves", () => {
+    const keys = rda().untracked.map((r) => r.key);
+    expect(keys).not.toContain("sodium_content");
+    expect(keys).not.toContain("saturated_fat_content");
+    expect(keys).not.toContain("trans_fat_content");
+  });
+
+  it("drops a 0-opt-out limit to Not tracked, not the Limits section", () => {
+    const optOut = resolveNutrientLimits({ sodium_content: 0 });
+    const view = rda(optOut);
+    expect(view.limits.map((r) => r.key)).not.toContain("sodium_content");
+    const sodium = view.untracked.find((r) => r.key === "sodium_content")!;
+    expect(sodium.value).toBe("1850 mg"); // plain value, no bar
+  });
+
+  it("keeps limits out of the Biggest gaps strip (overage is not a shortfall)", () => {
+    const keys = rda().gaps.map((g) => g.key);
+    expect(keys).not.toContain("sodium_content");
+    expect(keys).not.toContain("saturated_fat_content");
   });
 });
 
