@@ -6,7 +6,11 @@ import { parseDatomValue } from "../db/datom-fold";
 import { HLC_ORDER_ASC } from "../db/hlc";
 import { DEFAULT_VISIBLE_NUTRIENTS } from "../food/nutrient-display";
 import { FOOD_DISPLAY_DECIMALS } from "../food/nutrition";
-import { REACH_TOWARD_KEYS, LIMIT_KEYS } from "../food/nutrition-targets";
+import {
+  REACH_TOWARD_KEYS,
+  LIMIT_KEYS,
+  PERSONALIZED_TARGET_KEYS,
+} from "../food/nutrition-targets";
 import type {
   ActivityLevel,
   BiologicalSex,
@@ -92,6 +96,21 @@ export interface SettingsState {
    */
   food_limits: Partial<Record<string, number>>;
   /**
+   * The personalized calorie/macro helper's frozen result (ADR-0033 §4): the
+   * `{ energy, protein, fat, carbs }` set the user last accepted from "Calculate
+   * from body metrics", filtered to {@link PERSONALIZED_TARGET_KEYS}, each value
+   * in the canonical unit (kcal for energy, grams for the macros). This is a
+   * **default** layer, not an override: it sits *between* the baked reference and
+   * {@link food_targets}, so a cleared override (the editor's ↺) falls back to the
+   * computed figure rather than the generic 2000-kcal reference (see
+   * `defaultNutrientTargets`). Absent → the helper has never been applied; every
+   * target resolves to its baked default. Its own blob datom
+   * `settings/food/calculated_targets`, written independently via
+   * {@link saveFoodCalculatedTargets}. The stored numbers are frozen, never
+   * recomputed, so tweaking the helper's constants can't shift a user's defaults.
+   */
+  food_calculated_targets: Partial<Record<string, number>>;
+  /**
    * The last-used inputs of the personalized calorie/macro helper (ADR-0033 §2),
    * or `null` when the helper has never been applied. Read-folded only to seed the
    * calculator form — **inert** everywhere else: no dashboard or resolver read path
@@ -168,6 +187,36 @@ function parseFoodLimits(rawValue: string): Partial<Record<string, number>> {
   return limits;
 }
 
+/**
+ * Reads the calculator's frozen calculated-targets blob off its datom (ADR-0033
+ * §4), the default-layer twin of {@link parseFoodTargets}: a non-object folds to
+ * an empty set, and entries are kept only when the key is one of the four
+ * personalizable keys ({@link PERSONALIZED_TARGET_KEYS}: energy + the three
+ * macros) and the value is a finite number. So a stored blob can never carry a
+ * micronutrient, a limit, or a non-numeric value into the default resolver.
+ */
+function parseFoodCalculatedTargets(
+  rawValue: string
+): Partial<Record<string, number>> {
+  const parsed = parseDatomValue("settings/food/calculated_targets", rawValue);
+  if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return {};
+  }
+  const targets: Record<string, number> = {};
+  for (const [key, value] of Object.entries(
+    parsed as Record<string, unknown>
+  )) {
+    if (
+      PERSONALIZED_TARGET_KEYS.has(key) &&
+      typeof value === "number" &&
+      Number.isFinite(value)
+    ) {
+      targets[key] = value;
+    }
+  }
+  return targets;
+}
+
 /** The two Mifflin-St Jeor sex forms a stored profile may name (ADR-0033 §6). */
 const VALID_SEXES: ReadonlySet<string> = new Set(["male", "female"]);
 /** The four IOM PAL activity categories a stored profile may name (ADR-0033 §3). */
@@ -234,6 +283,9 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
     food_targets: {},
     // Unset → no overrides; every limit resolves to its baked cap.
     food_limits: {},
+    // Unset → the helper has never been applied; every target resolves to its
+    // baked default (no personalized default layer).
+    food_calculated_targets: {},
     // Unset → the helper has never been applied; the form opens blank.
     food_profile: null,
   };
@@ -264,6 +316,13 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
       settings.food_limits = parseFoodLimits(d.value);
       continue;
     }
+    // food_calculated_targets is the calculator's frozen result (ADR-0033 §4),
+    // decoded and filtered to the four personalizable keys — its own datom, the
+    // default layer under food_targets (see defaultNutrientTargets).
+    if (d.attribute === "settings/food/calculated_targets") {
+      settings.food_calculated_targets = parseFoodCalculatedTargets(d.value);
+      continue;
+    }
     // food_profile is the inert helper-input blob (ADR-0033 §2), decoded and
     // fully validated — its own datom, read only to pre-fill the calculator form.
     if (d.attribute === "settings/food/profile") {
@@ -291,7 +350,10 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
 // (ADR-0031 §2/§3, ADR-0032 §2), so toggling visibility or rounding never
 // touches a user's targets or limits and vice versa.
 export async function saveSettings(
-  state: Omit<SettingsState, "food_targets" | "food_limits" | "food_profile">
+  state: Omit<
+    SettingsState,
+    "food_targets" | "food_limits" | "food_calculated_targets" | "food_profile"
+  >
 ): Promise<void> {
   const timestamp = Date.now();
   const datoms = ingestEntity(
@@ -355,6 +417,32 @@ export async function saveFoodLimits(
       entity: "settings:global",
       attributes: {
         "settings/food/limits": limits,
+      },
+    },
+    timestamp
+  );
+  await dbClient.append(datoms);
+}
+
+/**
+ * Persists the personalized helper's frozen result as the blob datom
+ * `settings/food/calculated_targets` (ADR-0033 §4), independent of every other
+ * settings datom. This is the **default layer** the editor and dashboard read
+ * under a user's overrides (see `defaultNutrientTargets`): a partial
+ * `{ energy, protein, fat, carbs }` map in canonical units, re-filtered to the
+ * four personalizable keys on read. The apply flow writes it alongside its
+ * {@link saveFoodTargets} (which clears the same four override keys) and
+ * {@link saveFoodProfile} writes, but the three stay separate datoms.
+ */
+export async function saveFoodCalculatedTargets(
+  targets: Partial<Record<string, number>>
+): Promise<void> {
+  const timestamp = Date.now();
+  const datoms = ingestEntity(
+    {
+      entity: "settings:global",
+      attributes: {
+        "settings/food/calculated_targets": targets,
       },
     },
     timestamp

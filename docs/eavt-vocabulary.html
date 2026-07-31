@@ -512,7 +512,13 @@
                     >{ sex, age, height_cm, weight_kg, activity, goal }</code
                   >
                   — read only to pre-fill the calculator form; drives nothing
-                  live — ADR-0033)
+                  live — ADR-0033),
+                  <code>food/calculated_targets</code> (a blob of the
+                  calorie/macro helper's last-applied
+                  <code>{ energy, protein, fat, carbs }</code> set, in canonical
+                  units — the frozen <em>default</em> layer between the baked
+                  reference and <code>food/targets</code>, so a cleared override
+                  reverts to the computed figure — ADR-0033 Amendment)
                 </td>
               </tr>
               <tr>

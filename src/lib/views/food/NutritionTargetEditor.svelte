@@ -4,9 +4,14 @@
     saveSettings,
     saveFoodTargets,
     saveFoodLimits,
+    saveFoodCalculatedTargets,
     saveFoodProfile,
     type FoodProfile,
   } from "../../stores/settings.store";
+  import {
+    FOOD_DISPLAY_DECIMALS,
+    roundFoodDisplay,
+  } from "../../food/nutrition";
   import {
     MACRO_DESCRIPTORS,
     MICRO_DESCRIPTORS,
@@ -19,9 +24,10 @@
     type NutrientUnit,
   } from "../../food/nutrient-display";
   import {
-    BAKED_NUTRIENT_TARGETS_G,
     BAKED_NUTRIENT_LIMITS_G,
     ENERGY_TARGET_KEY,
+    PERSONALIZED_TARGET_KEYS,
+    defaultNutrientTargets,
   } from "../../food/nutrition-targets";
   import { onDestroy } from "svelte";
   import Card from "../../ui/Card.svelte";
@@ -66,6 +72,12 @@
   // Written independently via saveFoodLimits — a limit has no dashboard meter, so
   // this never touches `visible_nutrients`.
   let food_limits = $state<Partial<Record<string, number>>>({});
+  // The calculator's frozen result (ADR-0033 Amendment): the DEFAULT layer
+  // for energy + the three macros, mirroring `settings/food/calculated_targets`.
+  // Not edited by an input — only replaced wholesale when "Calculate from body
+  // metrics" is applied — so an absent key here means "no personalized default,
+  // use the baked reference" (see `defaultTargets` / `placeholderFor`).
+  let food_calculated_targets = $state<Partial<Record<string, number>>>({});
   let initialized = $state(false);
   $effect(() => {
     if (!initialized && $settingsStore) {
@@ -73,20 +85,34 @@
       round_nutrition = $settingsStore.round_nutrition;
       food_targets = { ...$settingsStore.food_targets };
       food_limits = { ...$settingsStore.food_limits };
+      food_calculated_targets = { ...$settingsStore.food_calculated_targets };
       initialized = true;
     }
   });
 
+  // The resolved default each reach-toward target reverts to: the baked reference
+  // with the calculator's frozen energy/macro set layered on top (ADR-0033 §4).
+  // Once the helper has run, this is the computed figure, so ↺ and the greyed
+  // placeholder show it instead of the generic 2000-kcal reference.
+  const defaultTargets = $derived(
+    defaultNutrientTargets(food_calculated_targets)
+  );
+
   // Whether a nutrient is shown as a dashboard meter (the whole-card toggle).
   const isTracked = (key: string): boolean => visible_nutrients.includes(key);
 
-  // The baked default / an override as the plain number the user sees in the
-  // card's display unit — the input's placeholder / value. `energy` is baked in
-  // kcal already; every other key is baked in grams and reformats to g/mg/µg.
+  // The default / an override as the plain number the user sees in the card's
+  // display unit — the input's placeholder / value. `energy` is already in kcal
+  // (rounded to display precision, since a personalized default can be fractional);
+  // every other key is stored in grams and reformats to g/mg/µg.
   const displayNumber = (grams: number, unit: TargetUnit): string =>
-    unit === "kcal" ? String(grams) : String(nutrientDisplayValue(grams, unit));
+    unit === "kcal"
+      ? String(roundFoodDisplay(grams, FOOD_DISPLAY_DECIMALS))
+      : String(nutrientDisplayValue(grams, unit));
+  // The placeholder is the resolved default (baked, or the calculator's frozen
+  // figure once it has run) — what the field reverts to when its override clears.
   const placeholderFor = (key: string, unit: TargetUnit): string =>
-    displayNumber(BAKED_NUTRIENT_TARGETS_G[key], unit);
+    displayNumber(defaultTargets[key], unit);
   // A set override shown in the same display unit — the input's value; absent →
   // empty, so the placeholder (baked default) shows through instead.
   const valueFor = (key: string, unit: TargetUnit): string => {
@@ -162,7 +188,8 @@
     clearTimeout(limitSaveTimer);
   });
 
-  // Clear a single override back to its baked default (the ↺ control).
+  // Clear a single override back to its resolved default — the baked reference,
+  // or the calculator's frozen figure once the helper has run (the ↺ control).
   async function resetTarget(key: string) {
     delete food_targets[key];
     food_targets = { ...food_targets };
@@ -264,30 +291,43 @@
   // calculator card); the sheet is mounted only while non-null so it re-seeds fresh.
   let rationale = $state<TargetRationale | null>(null);
 
-  // The three headline macros the helper writes and auto-tracks (energy is the
-  // always-on ring, never a visible-nutrient meter).
+  // The three headline macros the helper auto-tracks (energy is the always-on
+  // ring, never a visible-nutrient meter).
   const CALCULATED_MACRO_KEYS = ["protein", "fat", "carbs"] as const;
 
-  // Apply the helper's result: overwrite the four target keys (ADR-0033 §4 — the
-  // live preview already showed what is being accepted), auto-track the three
-  // macros so their meters appear (matching the editor's "customising implies show
-  // it" rule; Calories is always-on), then persist the inert pre-fill profile.
+  // Apply the helper's result (ADR-0033 §4 + Amendment). The computed set becomes
+  // the new DEFAULT for energy + the three macros — its own `calculated_targets`
+  // datom, the layer under the overrides — rather than an override, so clearing a
+  // field (↺) returns to the computed figure, not the generic baked reference. So
+  // we also CLEAR any explicit override on those four keys, letting the fresh
+  // default show through as the greyed placeholder. The three macros are still
+  // auto-tracked so their meters appear (Calories is always-on), and the inert
+  // pre-fill profile is saved for the next open.
+  async function persistFoodCalculatedTargets() {
+    try {
+      await saveFoodCalculatedTargets(food_calculated_targets);
+    } catch (err) {
+      console.error("Failed to save calculated targets", err);
+    }
+  }
   async function applyCalculatorResult(
     targets: { energy: number; protein: number; fat: number; carbs: number },
     profile: FoodProfile
   ) {
-    food_targets = {
-      ...food_targets,
+    food_calculated_targets = {
       [ENERGY_TARGET_KEY]: targets.energy,
       protein: targets.protein,
       fat: targets.fat,
       carbs: targets.carbs,
     };
+    for (const key of PERSONALIZED_TARGET_KEYS) delete food_targets[key];
+    food_targets = { ...food_targets };
     const toTrack = CALCULATED_MACRO_KEYS.filter(
       (k) => !visible_nutrients.includes(k)
     );
     if (toTrack.length > 0)
       visible_nutrients = [...visible_nutrients, ...toTrack];
+    await persistFoodCalculatedTargets();
     await persistFoodTargets();
     if (toTrack.length > 0) await persistNutritionDisplay();
     try {

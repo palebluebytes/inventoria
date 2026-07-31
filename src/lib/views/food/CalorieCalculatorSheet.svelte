@@ -33,9 +33,10 @@
     profile?: FoodProfile | null;
     /**
      * Called on Apply with the accepted targets (already rounded to the display
-     * precision the preview showed) and the profile to persist. The editor merges
-     * the four keys into `settings/food/targets`, auto-tracks the macros, and
-     * writes the profile — this sheet stays persistence-free beyond that call.
+     * precision the preview showed) and the profile to persist. The editor stores
+     * the four keys as the new *default* layer (`settings/food/calculated_targets`)
+     * and clears any override on them, auto-tracks the macros, and writes the
+     * profile — this sheet stays persistence-free beyond that call.
      */
     onApply: (
       targets: {

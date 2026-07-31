@@ -85,6 +85,46 @@ export const REACH_TOWARD_KEYS: ReadonlySet<string> = new Set(
 export const ENERGY_TARGET_KEY = "energy";
 
 /**
+ * The four reach-toward keys the personalized calculator (ADR-0033) can move off
+ * their baked default — energy and the three macros. Fibre and the twelve micros
+ * are never personalized, so they keep their baked default. A Set so the store's
+ * blob filter and {@link defaultNutrientTargets} below share one source of truth.
+ */
+export const PERSONALIZED_TARGET_KEYS: ReadonlySet<string> = new Set([
+  ENERGY_TARGET_KEY,
+  "protein",
+  "fat",
+  "carbs",
+]);
+
+/**
+ * The reach-toward **default** map: the baked defaults with the calculator's
+ * frozen energy/macro set (ADR-0033) layered on top. This is the layer a target
+ * reverts to when its override is cleared — so once "Calculate from body metrics"
+ * has run, the ↺ reset and the greyed placeholder both show the *computed* figure
+ * rather than the generic 2000-kcal reference set. An absent/empty `calculated`
+ * map → the plain baked defaults, so a user who has never run the helper is
+ * unchanged. Only the four {@link PERSONALIZED_TARGET_KEYS} are honoured; any
+ * other key is ignored (the stored blob is already filtered — this is defence in
+ * depth). The frozen numbers are stored, never recomputed here, so a later tweak
+ * to the helper's constants can't silently shift a user's defaults. Pure and
+ * unit-test-reachable; pass the result as the `baked` argument of
+ * {@link resolveNutrientTargets}.
+ */
+export function defaultNutrientTargets(
+  calculated: Partial<Record<string, number>> = {}
+): Record<string, number> {
+  const defaults = { ...BAKED_NUTRIENT_TARGETS_G };
+  for (const key of PERSONALIZED_TARGET_KEYS) {
+    const value = calculated[key];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      defaults[key] = value;
+    }
+  }
+  return defaults;
+}
+
+/**
  * Layers a user's override blob over the baked targets into the single resolved
  * `{ key: number }` map the dashboard meters and the calorie ring both read —
  * so neither surface re-implements the precedence (ADR-0031 §2).

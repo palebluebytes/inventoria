@@ -23,6 +23,7 @@ import {
   saveSettings,
   saveFoodTargets,
   saveFoodLimits,
+  saveFoodCalculatedTargets,
   nutritionDisplayDecimals,
 } from "../../src/lib/stores/settings.store";
 import { FOOD_DISPLAY_DECIMALS } from "../../src/lib/food/nutrition";
@@ -292,6 +293,84 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
     expect(get(settingsStore).food_limits).toEqual({});
   });
 
+  it("defaults food_calculated_targets to empty when the helper has never run", () => {
+    expect(get(settingsStore).food_calculated_targets).toEqual({});
+  });
+
+  it("folds a stored food/calculated_targets blob back to the default set", () => {
+    datomsWritable.set([
+      {
+        attribute: "settings/food/calculated_targets",
+        value: JSON.stringify({
+          energy: 2143.75,
+          protein: 112,
+          fat: 71.5,
+          carbs: 240,
+        }),
+        time: 1,
+      },
+    ]);
+    expect(get(settingsStore).food_calculated_targets).toEqual({
+      energy: 2143.75,
+      protein: 112,
+      fat: 71.5,
+      carbs: 240,
+    });
+  });
+
+  it("filters a food/calculated_targets blob to the four personalizable keys", () => {
+    // Only energy + the three macros are personalizable; a stray micro, limit, or
+    // non-numeric value must never reach the default resolver.
+    datomsWritable.set([
+      {
+        attribute: "settings/food/calculated_targets",
+        value: JSON.stringify({
+          energy: 2200,
+          protein: 130,
+          fiber_content: 40, // not personalizable — dropped
+          sodium_content: 1.5, // a limit — dropped
+          fat: "lots", // non-numeric — dropped
+        }),
+        time: 1,
+      },
+    ]);
+    expect(get(settingsStore).food_calculated_targets).toEqual({
+      energy: 2200,
+      protein: 130,
+    });
+  });
+
+  it("tolerates a malformed food/calculated_targets value (folds to empty)", () => {
+    datomsWritable.set([
+      {
+        attribute: "settings/food/calculated_targets",
+        value: JSON.stringify("not-an-object"),
+        time: 1,
+      },
+    ]);
+    expect(get(settingsStore).food_calculated_targets).toEqual({});
+  });
+
+  it("keeps food/targets and food/calculated_targets as independent datoms", () => {
+    // The override layer and the default layer are separate blobs: applying the
+    // calculator writes the default set without disturbing an untouched override.
+    datomsWritable.set([
+      {
+        attribute: "settings/food/targets",
+        value: JSON.stringify({ calcium: 1.5 }),
+        time: 1,
+      },
+      {
+        attribute: "settings/food/calculated_targets",
+        value: JSON.stringify({ energy: 2200, protein: 130 }),
+        time: 2,
+      },
+    ]);
+    const s = get(settingsStore);
+    expect(s.food_targets).toEqual({ calcium: 1.5 });
+    expect(s.food_calculated_targets).toEqual({ energy: 2200, protein: 130 });
+  });
+
   it("reflects reactive updates to the underlying datoms", () => {
     datomsWritable.set([
       { attribute: "settings/tmdb_api_key", value: "k1", time: 1 },
@@ -389,6 +468,32 @@ describe("saveSettings", () => {
     const datoms = appendMock.mock.calls[0][0] as any[];
     const attrs = datoms.map((d) => d.attribute);
     expect(attrs).not.toContain("settings/food/targets");
+    expect(attrs).not.toContain("settings/food/calculated_targets");
+  });
+});
+
+describe("saveFoodCalculatedTargets", () => {
+  it("appends only the food/calculated_targets datom, independent of the rest", async () => {
+    await saveFoodCalculatedTargets({
+      energy: 2143.75,
+      protein: 112,
+      fat: 71.5,
+      carbs: 240,
+    });
+    expect(appendMock).toHaveBeenCalledTimes(1);
+    const datoms = appendMock.mock.calls[0][0] as any[];
+    expect(datoms).toHaveLength(1);
+    const [datom] = datoms;
+    expect(datom.entity).toBe("settings:global");
+    expect(datom.attribute).toBe("settings/food/calculated_targets");
+    // The value is the map itself (ingest/db.core JSON-encode on write); the
+    // collapse decodes and re-filters it back on read.
+    expect(datom.value).toEqual({
+      energy: 2143.75,
+      protein: 112,
+      fat: 71.5,
+      carbs: 240,
+    });
   });
 });
 

@@ -1,7 +1,32 @@
 # ADR 0033: A personalized energy/macro helper and default-rationale info buttons
 
-**Status:** Accepted; not yet implemented (specced 2026-07-31, this ADR)
+**Status:** Accepted and implemented (specced 2026-07-31); **amended 2026-07-31** — the
+calculator's result is now a **frozen default layer**, not an override write (see
+[Amendment](#amendment-2026-07-31-calculated-targets-are-a-frozen-default-layer)).
 **Date:** 2026-07-31
+
+## Amendment (2026-07-31): calculated targets are a frozen default layer
+
+Decision 1 below wrote the helper's `energy`/`protein`/`fat`/`carbs` into `settings/food/targets`
+as **overrides**. In use this was wrong: because an override reverts to the _baked_ default when
+cleared, the editor's ↺ reset (and the greyed placeholder) sent a user who had just calculated
+2,670 kcal back to the generic 2,000-kcal reference — "the default should be what the calculator
+returned" is unreachable under the override model.
+
+**The fix reverses Decision 1's persistence target.** _Apply targets_ now writes the four computed
+numbers to a **new blob datom `settings/food/calculated_targets`** and **clears** any override on
+those keys. This is a **default layer** between the baked reference and `settings/food/targets`:
+`defaultNutrientTargets(calculated)` composes `baked ⊕ calculated` and is passed as the `baked`
+argument of ADR-0031's `resolveNutrientTargets`, so the single-resolved-map invariant is intact —
+the precedence is just **baked → calculated-default → override** now. A cleared override therefore
+falls back to the computed figure; fibre and the twelve micros are still never personalized.
+
+This is the "third precedence layer" the original ADR rejected under Alternatives — but the rejection
+was about a layer that **re-derives live from the profile** (a "live-vs-stale coupling"). This layer
+does **not**: the numbers are **frozen at apply-time** (the profile stays inert, Decision 2), never
+recomputed, so a later tweak to the helper's constants can't silently shift a user's defaults, and
+re-applying after a weight change is still a conscious act. The live-vs-stale objection does not
+apply to a frozen snapshot. Registered in `docs/eavt-vocabulary.html` alongside the profile blob.
 
 ## Context
 

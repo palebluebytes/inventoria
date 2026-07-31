@@ -19,6 +19,7 @@
   import {
     resolveNutrientTargets,
     resolveNutrientLimits,
+    defaultNutrientTargets,
   } from "../../food/nutrition-targets";
   import {
     settingsStore,
@@ -93,15 +94,19 @@
   // Selected day's consumption, narrowed from the global projection on the main thread
   let dayItems = $derived(consumptionForDay($consumptionStore, selectedDate));
 
-  // The resolved daily targets both surfaces read: the cited baked reference set
-  // (energy + macros + fibre + the twelve micronutrients) layered under the
-  // user's per-nutrient overrides via the merge resolver (ADR-0031 §1/§2). An
-  // untouched target stays baked; a `> 0` override wins; a `0` opts a nutrient
-  // out of a bar. `energy` clamps a non-positive override back to 2000 kcal so
-  // the always-on ring can never be target-less. Every visible micronutrient now
-  // fills against its FDA Daily Value instead of an empty track.
+  // The resolved daily targets both surfaces read: the default set — the cited
+  // baked reference (energy + macros + fibre + the twelve micronutrients) with the
+  // calculator's frozen energy/macro figures layered on top (ADR-0033 §4) — under
+  // the user's per-nutrient overrides via the merge resolver (ADR-0031 §1/§2). An
+  // untouched target stays at that default; a `> 0` override wins; a `0` opts a
+  // nutrient out of a bar. `energy` clamps a non-positive override back to the
+  // default so the always-on ring can never be target-less. Every visible
+  // micronutrient fills against its FDA Daily Value instead of an empty track.
   let resolvedTargets = $derived(
-    resolveNutrientTargets($settingsStore.food_targets)
+    resolveNutrientTargets(
+      $settingsStore.food_targets,
+      defaultNutrientTargets($settingsStore.food_calculated_targets)
+    )
   );
 
   // The resolved stay-under limits (ADR-0032): the baked caps layered with the

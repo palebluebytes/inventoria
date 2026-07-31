@@ -4,6 +4,8 @@ import {
   ACTIVE_ADULT_MACROS_G,
   BAKED_NUTRIENT_TARGETS_G,
   REACH_TOWARD_KEYS,
+  PERSONALIZED_TARGET_KEYS,
+  defaultNutrientTargets,
   resolveNutrientTargets,
   BAKED_NUTRIENT_LIMITS_G,
   LIMIT_KEYS,
@@ -151,6 +153,88 @@ describe("resolveNutrientTargets (override ?? baked, per key)", () => {
       number
     >);
     expect(resolved).not.toHaveProperty("sodium_content");
+  });
+});
+
+describe("defaultNutrientTargets (baked ⊕ the calculator's frozen set)", () => {
+  it("is the plain baked map when no calculated set has been applied", () => {
+    expect(defaultNutrientTargets()).toEqual(BAKED_NUTRIENT_TARGETS_G);
+    expect(defaultNutrientTargets({})).toEqual(BAKED_NUTRIENT_TARGETS_G);
+  });
+
+  it("layers the calculated energy + macros over the baked defaults", () => {
+    const defaults = defaultNutrientTargets({
+      energy: 2143.75,
+      protein: 112,
+      fat: 71.5,
+      carbs: 240,
+    });
+    expect(defaults.energy).toBe(2143.75);
+    expect(defaults.protein).toBe(112);
+    expect(defaults.fat).toBe(71.5);
+    expect(defaults.carbs).toBe(240);
+  });
+
+  it("leaves fibre and the twelve micros at their baked default", () => {
+    // The helper only writes energy + the three macros; everything else keeps its
+    // cited reference value even after the calculator has run.
+    const defaults = defaultNutrientTargets({ energy: 2600, protein: 150 });
+    expect(defaults.fiber_content).toBe(28);
+    expect(defaults.calcium).toBe(1.3);
+    expect(defaults.iron).toBe(0.018);
+  });
+
+  it("ignores a non-personalizable or non-finite calculated key", () => {
+    // Defence in depth: only the four PERSONALIZED_TARGET_KEYS are honoured, and a
+    // NaN/Infinity value is dropped rather than corrupting a default.
+    const defaults = defaultNutrientTargets({
+      calcium: 5, // not a personalizable key — ignored
+      fiber_content: 40, // not personalizable — ignored
+      protein: Number.NaN, // non-finite — dropped, stays baked
+    } as Record<string, number>);
+    expect(defaults.calcium).toBe(1.3);
+    expect(defaults.fiber_content).toBe(28);
+    expect(defaults.protein).toBe(125);
+  });
+
+  it("does not mutate BAKED_NUTRIENT_TARGETS_G", () => {
+    defaultNutrientTargets({ energy: 3000, protein: 200 });
+    expect(BAKED_NUTRIENT_TARGETS_G.energy).toBe(2000);
+    expect(BAKED_NUTRIENT_TARGETS_G.protein).toBe(125);
+  });
+
+  it("feeds resolveNutrientTargets as the baked layer: cleared override → calculated default", () => {
+    // The end-to-end reset behaviour (ADR-0033 Amendment): once the calculator has run,
+    // an absent override resolves to the computed figure, not the 2000-kcal
+    // reference — and a non-positive energy override clamps back to it, not 2000.
+    const defaults = defaultNutrientTargets({
+      energy: 2400,
+      protein: 130,
+      fat: 80,
+      carbs: 250,
+    });
+    const resolved = resolveNutrientTargets({}, defaults);
+    expect(resolved.energy).toBe(2400);
+    expect(resolved.protein).toBe(130);
+    expect(resolveNutrientTargets({ energy: 0 }, defaults).energy).toBe(2400);
+    // An explicit override still wins over the calculated default.
+    expect(resolveNutrientTargets({ protein: 175 }, defaults).protein).toBe(
+      175
+    );
+  });
+});
+
+describe("PERSONALIZED_TARGET_KEYS (the calculator's four writable keys)", () => {
+  it("is exactly energy + the three macros", () => {
+    expect([...PERSONALIZED_TARGET_KEYS].sort()).toEqual(
+      ["carbs", "energy", "fat", "protein"].sort()
+    );
+  });
+
+  it("never includes fibre, a micronutrient, or a limit", () => {
+    expect(PERSONALIZED_TARGET_KEYS.has("fiber_content")).toBe(false);
+    expect(PERSONALIZED_TARGET_KEYS.has("calcium")).toBe(false);
+    expect(PERSONALIZED_TARGET_KEYS.has("sodium_content")).toBe(false);
   });
 });
 
