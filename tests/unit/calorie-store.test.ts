@@ -4,6 +4,8 @@ import {
   getDayBounds,
   logFoodConsumption,
   saveCustomFood,
+  saveLabelFood,
+  getLocalFoodTwin,
   saveRecipe,
   logRecipeConsumption,
   correctInstantiation,
@@ -11,7 +13,8 @@ import {
   changeLoggedFoodAmount,
   consumptionForDay,
 } from "../../src/lib/stores/calorie.store";
-import type { NutritionInfo } from "../../src/lib/food/nutrition";
+import type { NutritionInfo, Portion } from "../../src/lib/food/nutrition";
+import { buildLabelCapture } from "../../src/lib/food/provenance";
 import {
   computeConsumption,
   totalNutrition,
@@ -332,6 +335,176 @@ describe("Calorie Store Actions", () => {
       const link = datoms.find((d) => d.attribute === "event/replaced_by");
       expect(link?.value).toBe("recipe:xyz");
     });
+  });
+});
+
+describe("saveLabelFood (ADR-0034 §6)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.restoreAllMocks();
+  });
+
+  // Captures the datoms a save appends, then folds them back through the SAME
+  // latest-wins read the app uses (getLocalFoodTwin), so the tests assert
+  // external behaviour — the twin a fold yields — never a private write shape.
+  function captureAppends() {
+    const appended: any[] = [];
+    vi.spyOn(dbClient, "append").mockImplementation(async (d: any) => {
+      appended.push(...d);
+    });
+    return appended;
+  }
+  // getLocalFoodTwin JSON-parses each row's value; datoms carry plain values, so
+  // re-encode them exactly as the ledger would return them, in ascending order.
+  const asRows = (datoms: any[]) =>
+    datoms.map((d) => ({
+      attribute: d.attribute,
+      value: JSON.stringify(d.value),
+    }));
+
+  const PANEL: NutritionInfo = {
+    serving_size: "100 g",
+    calories: 250,
+    protein_content: 15,
+    fat_content: 8,
+    carbohydrate_content: 30,
+    iron: 0.0026,
+    // vitamin_b12 deliberately ABSENT — a row the label didn't carry. It must
+    // stay absent in the fold, never written as 0 (ADR-0030 / #28).
+  };
+  const PORTIONS: Portion[] = [
+    { label: "1 cup", amount: 1, unit: "cup", grams: 60 },
+  ];
+  const CAPTURE = buildLabelCapture({
+    method: "manual",
+    basis: "100 g",
+    fields: ["name", "nutriments", "portions"],
+  });
+
+  it("mints a food:custom_ twin with the full panel, brand, portions, photos array + photo_base64 mirror, and label_capture", async () => {
+    const appended = captureAppends();
+
+    const id = await saveLabelFood({
+      name: "Homemade Granola",
+      brand: "Acme",
+      nutrition: PANEL,
+      portions: PORTIONS,
+      labelPhotos: [
+        "data:image/png;base64,front",
+        "data:image/png;base64,back",
+      ],
+      labelCapture: CAPTURE,
+    });
+
+    // Barcode-less → a minted custom twin, and a single plain append (no RMW).
+    expect(id).toMatch(/^food:custom_/);
+    expect(dbClient.append).toHaveBeenCalledTimes(1);
+
+    vi.spyOn(dbClient, "query").mockResolvedValue(asRows(appended) as any);
+    const twin = await getLocalFoodTwin(id);
+
+    expect(twin.attributes["food/name"]).toBe("Homemade Granola");
+    expect(twin.attributes["twin/brand"]).toBe("Acme");
+    expect(twin.attributes["nutrition/info"]).toEqual(PANEL);
+    expect(twin.attributes["food/portions"]).toEqual(PORTIONS);
+    expect(twin.attributes["food/label_photos"]).toEqual([
+      "data:image/png;base64,front",
+      "data:image/png;base64,back",
+    ]);
+    // The singular photo mirrors the first of the array (§5 display-compat).
+    expect(twin.attributes["food/photo_base64"]).toBe(
+      "data:image/png;base64,front"
+    );
+    expect(twin.attributes["food/label_capture"]).toEqual(CAPTURE);
+
+    // absent ≠ 0 — an untouched micro key is omitted, never stored as 0.
+    expect("vitamin_b12" in twin.attributes["nutrition/info"]).toBe(false);
+    expect(twin.attributes["nutrition/info"].iron).toBe(0.0026);
+  });
+
+  it("enriches a found-but-poor gtin: twin in place — the correction wins the fold while OFF's raw_provenance survives beside the new label_capture", async () => {
+    // A poor OFF twin already on the ledger: a blank-ish name, a thin panel, and
+    // OFF's own raw_provenance blob.
+    const offProvenance = {
+      raw_data: { code: "8410010812345", product_name: "Aceite" },
+      source_uri:
+        "https://world.openfoodfacts.org/api/v2/product/8410010812345.json",
+      adapter: "off",
+      adapter_version: "3",
+    };
+    const poorOff = [
+      { attribute: "food/name", value: JSON.stringify("Unknown") },
+      {
+        attribute: "nutrition/info",
+        value: JSON.stringify({ serving_size: "100 g", calories: 800 }),
+      },
+      {
+        attribute: "twin/raw_provenance",
+        value: JSON.stringify(offProvenance),
+      },
+    ];
+
+    const appended = captureAppends();
+    const corrected: NutritionInfo = {
+      serving_size: "100 g",
+      calories: 92,
+      protein_content: 0,
+      fat_content: 100,
+      carbohydrate_content: 0,
+    };
+    const capture = buildLabelCapture({
+      method: "manual",
+      basis: "100 g",
+      fields: ["name", "nutriments"],
+    });
+
+    const returned = await saveLabelFood({
+      name: "Extra Virgin Olive Oil",
+      nutrition: corrected,
+      labelPhotos: ["data:image/png;base64,front"],
+      labelCapture: capture,
+      entityId: "gtin:8410010812345",
+    });
+
+    // The passed gtin: is used verbatim — no fresh food:custom_ id minted.
+    expect(returned).toBe("gtin:8410010812345");
+    expect(dbClient.append).toHaveBeenCalledTimes(1);
+
+    // Fold poor-OFF (earlier) then the correction (later) in ascending order.
+    vi.spyOn(dbClient, "query").mockResolvedValue([
+      ...poorOff,
+      ...asRows(appended),
+    ] as any);
+    const twin = await getLocalFoodTwin("gtin:8410010812345");
+
+    // Latest-wins: the user's name + panel supersede the poor OFF values.
+    expect(twin.attributes["food/name"]).toBe("Extra Virgin Olive Oil");
+    expect(twin.attributes["nutrition/info"]).toEqual(corrected);
+    // OFF's provenance is NOT clobbered — the sibling attributes coexist.
+    expect(twin.attributes["twin/raw_provenance"]).toEqual(offProvenance);
+    expect(twin.attributes["food/label_capture"]).toEqual(capture);
+  });
+
+  it("writes no photo attributes for a photo-less manual entry (empty labelPhotos, §5)", async () => {
+    const appended = captureAppends();
+
+    await saveLabelFood({
+      name: "Grandma's Dal",
+      nutrition: PANEL,
+      labelPhotos: [],
+      labelCapture: CAPTURE,
+    });
+
+    expect(
+      appended.find((d) => d.attribute === "food/label_photos")
+    ).toBeUndefined();
+    expect(
+      appended.find((d) => d.attribute === "food/photo_base64")
+    ).toBeUndefined();
+    // The label_capture provenance is still written — a manual entry has origin.
+    expect(
+      appended.find((d) => d.attribute === "food/label_capture")?.value
+    ).toEqual(CAPTURE);
   });
 });
 

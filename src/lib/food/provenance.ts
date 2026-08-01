@@ -48,3 +48,75 @@ export function buildRawProvenance<RawT>(args: {
     adapter_version: args.adapter_version,
   };
 }
+
+// ---------------------------------------------------------------------------
+// User label-capture provenance (food/label_capture)
+// ---------------------------------------------------------------------------
+//
+// When a user captures a food from its label photo, the origin of what they
+// typed is recorded under a DISTINCT `food/label_capture` attribute — never the
+// `twin/raw_provenance` above (ADR-0034 §7). The two are siblings: a
+// found-but-poor `gtin:` twin enriched in place holds BOTH an OFF
+// `twin/raw_provenance` blob and a user `food/label_capture` datom, so its dual
+// origin stays auditable and a second `twin/raw_provenance` would latest-wins
+// clobber the OFF response.
+//
+// Photos are REFERENCED, not duplicated here: they live once in
+// `food/label_photos[]`. This envelope carries only the capture's metadata.
+
+/** Bumped when the label-capture envelope's shape or semantics change. */
+export const LABEL_ADAPTER_VERSION = 1;
+
+/**
+ * How the label's values reached the panel: `manual` is v1's guided
+ * transcription (the human reads the label into the rows, no model call);
+ * `ai-confirmed` is the deferred AI-autofill-then-confirm path (#49/#51). Either
+ * way the stored values are what the user confirmed, never written un-reviewed.
+ */
+export type LabelCaptureMethod = "manual" | "ai-confirmed";
+
+/**
+ * The provenance envelope stored under `food/label_capture` — a sibling of
+ * {@link RawProvenance} recording that a user supplied/edited a twin's panel
+ * from its label (ADR-0034 §7). Like {@link RawProvenance} it is deliberately
+ * clock-free: the Datom's `time` IS the capture basis, so this stays a pure
+ * deterministic value.
+ */
+export interface LabelCapture {
+  /** Always "label" — the capture surface, paralleling `RawProvenance.adapter`. */
+  adapter: "label";
+  /** Envelope version, bumped with {@link LABEL_ADAPTER_VERSION}. */
+  adapter_version: number;
+  /** How the values were read from the label. */
+  method: LabelCaptureMethod;
+  /**
+   * The basis the panel was entered against — the #52 form's basis toggle
+   * resolved to a `serving_size` string (`100 g` / `N g` / `1 serving`).
+   */
+  basis: string;
+  /**
+   * What the user supplied or edited, e.g. `["name", "nutriments", "portions"]`
+   * — an audit hint, not a schema, so the form decides the labels.
+   */
+  fields: string[];
+}
+
+/**
+ * Builds the `food/label_capture` envelope. Pure, deterministic and clock-free —
+ * mirrors {@link buildRawProvenance} — so it composes into the save path without
+ * making the writer impure. It does NOT take or embed photo base64: photos live
+ * once in `food/label_photos[]` and are only referenced from here (ADR-0034 §7).
+ */
+export function buildLabelCapture(args: {
+  method: LabelCaptureMethod;
+  basis: string;
+  fields: string[];
+}): LabelCapture {
+  return {
+    adapter: "label",
+    adapter_version: LABEL_ADAPTER_VERSION,
+    method: args.method,
+    basis: args.basis,
+    fields: args.fields,
+  };
+}

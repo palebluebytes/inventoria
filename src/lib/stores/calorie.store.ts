@@ -10,7 +10,9 @@ import {
   EXTRA_NUTRIENT_KEYS,
   type NutritionInfo,
   type NutritionBreakdown,
+  type Portion,
 } from "../food/nutrition";
+import type { LabelCapture } from "../food/provenance";
 import {
   deriveRecipeNutrition,
   deriveIngredientMacros,
@@ -178,6 +180,80 @@ export async function saveCustomFood(
   }
 
   await dbClient.append(ingestEntity(payload));
+  return entityId;
+}
+
+/** The full-panel food a label capture commits (ADR-0034 §6). */
+export interface LabelFoodInput {
+  /** schema.org name read from the label. */
+  name: string;
+  /** Brand read from the label, when present. */
+  brand?: string;
+  /**
+   * The full nutrition panel the user confirmed. Stored VERBATIM: grams, and
+   * **absent ≠ 0** — the form omits any row the label didn't carry, and this
+   * writer never fills a missing key with 0 (ADR-0030 / #28).
+   */
+  nutrition: NutritionInfo;
+  /** Household portions transcribed from the label, when any. */
+  portions?: Portion[];
+  /**
+   * The captured label photos (base64), first = display. Empty for a photo-less
+   * manual entry — then neither `food/label_photos` nor the `food/photo_base64`
+   * mirror is written (absent `food/label_photos` ⇒ no photo, ADR-0034 §5).
+   */
+  labelPhotos: string[];
+  /** The user-origin provenance envelope ({@link buildLabelCapture}, §7). */
+  labelCapture: LabelCapture;
+  /**
+   * `gtin:<code>` to ENRICH that twin in place (found-but-poor / missing /
+   * unread-but-typed doors), or omitted to MINT a fresh `food:custom_` twin
+   * (barcode-less manual). See the door→entity table, ADR-0034 §6.
+   */
+  entityId?: string;
+}
+
+/**
+ * Saves a full-fidelity food twin captured from its label (ADR-0034 §6) — the
+ * writer that widens the too-narrow {@link saveCustomFood} for a whole
+ * `nutrition/info` panel + brand + portions + a photo array + user provenance.
+ *
+ * The key follows the barcode: an `entityId` (`gtin:<code>`) is used **verbatim**
+ * to enrich that twin in place, while an absent one **mints** a fresh
+ * `food:custom_<rand>_<ts>` exactly as `saveCustomFood` does (the inline
+ * `Date.now()`/`Math.random()` is the intended impurity source). Enrich is a
+ * PLAIN append — no delete, no read-modify-write: the ledger is append-only and
+ * `getLocalFoodTwin` folds latest-wins, so the corrected `food/name` +
+ * `nutrition/info` supersede a found-but-poor OFF twin's values on the next read
+ * while its `twin/raw_provenance` survives beside the new `food/label_capture`.
+ *
+ * The panel is written exactly as given (absent ≠ 0). `food/photo_base64` mirrors
+ * `labelPhotos[0]` so every existing singular-photo display surface is unchanged
+ * (§5). Returns the twin's entity id (minted or the passed one).
+ */
+export async function saveLabelFood(input: LabelFoodInput): Promise<string> {
+  const timestamp = Date.now();
+  const entityId =
+    input.entityId ||
+    `food:custom_${Math.random().toString(36).substring(2, 9)}_${timestamp}`;
+
+  const attributes: Record<string, unknown> = {
+    "food/name": input.name,
+    // The panel is stored verbatim — the form already omitted untouched rows, so
+    // this writer must not fabricate a 0 for a nutrient the label didn't carry.
+    "nutrition/info": input.nutrition,
+    "food/label_capture": input.labelCapture,
+  };
+  if (input.brand) attributes["twin/brand"] = input.brand;
+  if (input.portions?.length) attributes["food/portions"] = input.portions;
+  if (input.labelPhotos.length > 0) {
+    attributes["food/label_photos"] = input.labelPhotos;
+    // Mirror the first photo into the singular attribute every current display
+    // surface reads (staged card, consumption views, ingredient picker), §5.
+    attributes["food/photo_base64"] = input.labelPhotos[0];
+  }
+
+  await dbClient.append(ingestEntity({ entity: entityId, attributes }));
   return entityId;
 }
 

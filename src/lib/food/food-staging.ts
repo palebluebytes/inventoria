@@ -1,4 +1,38 @@
 import type { FoodResult } from "./food-search";
+import type { NutritionInfo, Portion } from "./nutrition";
+import type { EntityPayload } from "../ingestion/ingest";
+
+/**
+ * The full-panel capture seed the four label-capture doors (ADR-0034 §1/§6) hand
+ * the stager beyond the four-macro fast path. Every field is optional and purely
+ * additive over the plain custom choice — a hand-typed entry sets none of them,
+ * so the existing hosts and the fast path are untouched; the missing/poor/unread
+ * doors populate what the label and OFF gave them, keyed by whether a barcode
+ * reached the form. Consumed by #57 (the form) and #59 (the triggers).
+ */
+export interface LabelCaptureSeed {
+  /** Brand as read from the label / OFF, when known. */
+  brand?: string;
+  /**
+   * The panel-so-far: a partial {@link NutritionInfo} the doors prefill (an OFF
+   * partial payload, or empty for guided-manual). Absent keys mean "not on the
+   * label", never 0 — the same absent-not-zero discipline the panel keeps.
+   */
+  nutrition?: Partial<NutritionInfo>;
+  /** Household portions carried from a partial OFF payload, when present. */
+  portions?: Portion[];
+  /** The captured label photos (base64), first = display; empty for no photo. */
+  labelPhotos?: string[];
+  /**
+   * The barcode that reached this form, when one did — it decides where the twin
+   * is keyed on save (`gtin:<code>` enrich vs `food:custom_` mint, §6).
+   */
+  barcode?: string;
+  /** The partial OFF payload staged by the found-but-poor door, for review. */
+  offPayload?: EntityPayload;
+  /** OFF's own `completeness` (0–1), surfaced by the found-but-poor door (§1). */
+  completeness?: number;
+}
 
 /**
  * Shared contract between the food-staging component (`FoodStager`) and its
@@ -16,7 +50,7 @@ import type { FoodResult } from "./food-search";
  */
 export type FoodChoice =
   | { kind: "food"; food: FoodResult; grams: number }
-  | {
+  | ({
       kind: "custom";
       name: string;
       calories: number;
@@ -24,7 +58,7 @@ export type FoodChoice =
       fat: number;
       carbs: number;
       photo_base64: string | null;
-    };
+    } & LabelCaptureSeed);
 
 /**
  * The host's verdict on a committed {@link FoodChoice}. `ok` lets the host close
@@ -43,7 +77,7 @@ export type ChooseOutcome = { ok: boolean; message?: string };
  */
 export type StagerSeed =
   | { kind: "food"; food: FoodResult; grams: number }
-  | {
+  | ({
       kind: "custom";
       name: string;
       calories: string;
@@ -51,7 +85,7 @@ export type StagerSeed =
       fat: string;
       carbs: string;
       photo_base64: string | null;
-    };
+    } & LabelCaptureSeed);
 
 /**
  * The live staging context a host reads to build the primary button's label —

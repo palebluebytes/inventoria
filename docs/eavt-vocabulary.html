@@ -387,7 +387,23 @@
                   (<code>nova_group</code>, <code>nutri_score</code>,
                   <code>eco_score</code>, <code>nutrient_levels</code>,
                   <code>allergens</code>, <code>additives</code>,
-                  <code>labels</code>; ADR-0030)
+                  <code>labels</code>; ADR-0030), <code>label_photos</code>, an
+                  ordered <code>string[]</code> of captured label photos
+                  (base64), first = display; a photo-less capture omits it, and
+                  <code>photo_base64</code> mirrors
+                  <code>label_photos[0]</code> so the singular-photo display
+                  surfaces are unchanged (ADR-0034 §5),
+                  <code>label_capture</code>, the user-origin provenance
+                  envelope written when a food is captured from its label (<code
+                    >{ adapter: "label", adapter_version, method: "manual" |
+                    "ai-confirmed", basis, fields }</code
+                  >) — a sibling of <code>twin/raw_provenance</code> (never a
+                  second one), so a found-but-poor <code>gtin:</code> twin
+                  enriched in place keeps BOTH origins auditable (ADR-0034 §7).
+                  <code>nutrition/info</code>, <code>twin/brand</code> and
+                  <code>portions</code> may now be USER-written on a
+                  <code>gtin:</code> twin (a label correction), not only
+                  OFF-sourced (ADR-0034 §6)
                 </td>
               </tr>
               <tr>
