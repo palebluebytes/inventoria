@@ -855,6 +855,51 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(lunchSection.locator(".meal-item-thumb")).toBeVisible();
   });
 
+  test("captures a full-panel custom food from the Read-along form (#57)", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+
+    // Open Custom — now the #52 full-panel "Read-along" form (ADR-0034 §2).
+    await page.getByRole("button", { name: "Add lunch" }).click();
+    await page.locator(".method", { hasText: "Custom" }).click();
+
+    // The read-along body lays every panel row out grouped, macros first, so a
+    // micronutrient row (Iron) is present without a mode switch (§3).
+    await expect(
+      page.locator(".cf-group", { hasText: "Vitamins" })
+    ).toBeVisible();
+
+    // Fast path plus one micro: name + calories, then Iron typed in mg (grams are
+    // stored via the parseNutrientEntry round-trip, §3). Protein/fat/carbs and
+    // every other micro are left untouched — absent, never 0.
+    await page.locator("#custom-name").fill("Homemade Dal");
+    await page.locator("#custom-cal").fill("180");
+    await page.locator("#cf-iron").fill("2.6");
+
+    // The thumb-zone Save bar tracks the running kcal (§3).
+    await expect(page.locator(".cf-sum")).toContainText("180");
+
+    // "none on label" bulk-skips a section's still-empty rows without touching the
+    // filled ones — dismiss the twelve micros the label omits in one tap (§3).
+    await page
+      .locator(".cf-group", { hasText: "Vitamins" })
+      .getByRole("button", { name: "none on label" })
+      .click();
+    // Iron stays filled; an omitted micro (Calcium) is now skipped + locked.
+    await expect(page.locator("#cf-iron")).toHaveValue("2.6");
+    await expect(page.locator("#cf-calcium")).toBeDisabled();
+
+    await page.locator("#log-food-btn").click();
+
+    // The captured food logs into the meal exactly like any other (§6).
+    const lunchSection = page.locator(".meal-section", { hasText: "LUNCH" });
+    await expect(lunchSection).toContainText("Homemade Dal");
+    await expect(lunchSection).toContainText("1 serving");
+    await expect(lunchSection).toContainText("180 kcal");
+  });
+
   // Select two logged foods and start building a recipe from them.
   async function selectTwoAndBuild(page: import("@playwright/test").Page) {
     await logUsdaFood(page, "dinner", "oats", "Mock Oats", "50"); // 379 * .5 = 189.5

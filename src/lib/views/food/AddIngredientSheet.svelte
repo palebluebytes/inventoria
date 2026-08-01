@@ -60,7 +60,8 @@
   function primaryLabel(ctx: PrimaryLabelContext): string {
     if (ctx.staged)
       return `Add ${roundFoodDisplay(ctx.staged.calories * ctx.factor, $nutritionDisplayDecimals)} kcal`;
-    if (ctx.method === "custom") return "Add";
+    if (ctx.method === "custom")
+      return ctx.toReview > 0 ? "Review & add" : "Add";
     if (ctx.method === "scan") return "Look up";
     return "Add";
   }

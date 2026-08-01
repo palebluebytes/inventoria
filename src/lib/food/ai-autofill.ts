@@ -55,6 +55,19 @@ export interface AIAutofillResult {
 }
 
 /**
+ * The guided-manual starting point (ADR-0034 §4): an {@link AIAutofillResult}
+ * with nothing filled — no name, no brand, an empty panel, defaulting to the
+ * per-100 g basis a label prints. The confirm form (#52/#57) is built **once**
+ * for both extraction modes by initialising from a result: this empty one is the
+ * v1 guided-manual case (every row blank, nothing prefilled/"to review"), while
+ * the deferred AI-confirm path (#49/#51) feeds the same form a populated result.
+ * v1 uses THIS — it never calls {@link autofillFromPackageImage} (the stub).
+ */
+export function emptyAutofillResult(): AIAutofillResult {
+  return { name: null, brand: null, basis: "per_100g", nutrition: {} };
+}
+
+/**
  * DEFERRED (see module header, #51, #49): reads a base64 label photo into a
  * proposed {@link AIAutofillResult}. This is a stub — it makes **no model call**
  * and returns fixed mock data of the real full-panel shape so the capture flow

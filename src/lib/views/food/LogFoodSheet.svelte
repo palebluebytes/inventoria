@@ -9,6 +9,7 @@
     logFoodConsumption,
     getLocalFoodTwin,
     saveCustomFood,
+    saveLabelFood,
     retractConsumptionEvent,
     recipeTwinsStore,
     consumptionStore,
@@ -209,14 +210,34 @@
         );
         if (edit) await retractConsumptionEvent(edit.id, newId);
       } else {
-        const twinId = await saveCustomFood(
-          choice.name,
-          choice.calories,
-          choice.protein,
-          choice.fat,
-          choice.carbs,
-          choice.photo_base64 || undefined
-        );
+        // The Custom form (#57) commits the full `nutrition/info` panel + brand +
+        // portions + provenance through saveLabelFood (ADR-0034 §6); the key
+        // follows the barcode (a `gtin:` seed enriches in place, none mints a
+        // `food:custom_`). The legacy four-macro fast path (no panel) stays on
+        // saveCustomFood. Either way the log below uses the frozen macros.
+        let twinId: string;
+        if (choice.nutrition && choice.labelCapture) {
+          twinId = await saveLabelFood({
+            name: choice.name,
+            brand: choice.brand,
+            nutrition: choice.nutrition as NutritionInfo,
+            portions: choice.portions,
+            labelPhotos:
+              choice.labelPhotos ??
+              (choice.photo_base64 ? [choice.photo_base64] : []),
+            labelCapture: choice.labelCapture,
+            entityId: choice.barcode ? `gtin:${choice.barcode}` : undefined,
+          });
+        } else {
+          twinId = await saveCustomFood(
+            choice.name,
+            choice.calories,
+            choice.protein,
+            choice.fat,
+            choice.carbs,
+            choice.photo_base64 || undefined
+          );
+        }
         const newId = await logFoodConsumption(
           twinId,
           "1 serving",
@@ -241,7 +262,10 @@
       return edit
         ? "Save changes"
         : `Log ${roundFoodDisplay(ctx.staged.calories * ctx.factor, $nutritionDisplayDecimals)} kcal`;
-    if (ctx.method === "custom") return edit ? "Save changes" : "Save & Log";
+    if (ctx.method === "custom") {
+      if (ctx.toReview > 0) return "Review & save";
+      return edit ? "Save changes" : "Save & Log";
+    }
     if (ctx.method === "scan") return "Look up";
     return "Log";
   }

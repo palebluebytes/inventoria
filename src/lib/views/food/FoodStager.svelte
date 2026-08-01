@@ -25,6 +25,22 @@
     buildNutrientPills,
     buildNutrientBreakdown,
   } from "../../food/nutrient-display";
+  import {
+    CORE,
+    DETAIL,
+    MICROS,
+    ALL_FIELDS,
+    buildLabelPanel,
+    toDisplay,
+    type FieldDef,
+    type Basis,
+    type PortionRow,
+  } from "../../food/label-form";
+  import { buildLabelCapture } from "../../food/provenance";
+  import {
+    emptyAutofillResult,
+    type AIAutofillResult,
+  } from "../../food/ai-autofill";
   import { hydrateFdcFood } from "../../food/usda-fdc";
   import type {
     FoodChoice,
@@ -194,14 +210,106 @@
     }
   }
 
-  // Custom entry
+  // ── Custom entry: the full-panel "Read-along" form (ADR-0034 §2–§4, #57) ────
+  // The Custom tab IS the #52 full-panel form now, not the four-macro grid. It
+  // transcribes a label top-to-bottom — name + brand, macros, the
+  // fats/fibre/sugar/salt detail, the twelve micros, portions — but leads with
+  // Macros behind a sticky Save so the fast path stays "type name + calories →
+  // Save". Values are typed in the label's unit (kcal/g/mg/µg) and stored as
+  // grams via `buildLabelPanel`; an untouched or skipped row is omitted, never 0.
   let customName = $state("");
-  let customCal = $state("");
-  let customProt = $state("");
-  let customFat = $state("");
-  let customCarb = $state("");
+  let customBrand = $state("");
+  let customBasis = $state<Basis>("per_100g");
+  // Grams one serving weighs — only meaningful when the basis is per_serving.
+  let customServingGrams = $state("");
+  // Per-field typed strings keyed by NutritionInfo field; "" ⇒ absent (not 0).
+  let customValues = $state<Record<string, string>>({});
+  let customPortions = $state<PortionRow[]>([]);
+  // Rows ticked "∅ not on label" — read-along ergonomics; the built panel omits
+  // empty rows regardless, this only dims + locks them and drives bulk-skip.
+  let skipped = $state<Set<string>>(new Set());
+  // Keys the AI-confirm path prefilled and the user has not yet reviewed (§4).
+  // v1 guided-manual starts empty (nothing to review); the amber accent + chip
+  // are built now so the deferred model swap needs no form change.
+  let prefilled = $state<Set<string>>(new Set());
   let photo_base64 = $state<string | null>(null);
   let fileInput = $state<HTMLInputElement | null>(null);
+
+  // Initialise the form from an AIAutofillResult — the seam that serves BOTH
+  // extraction modes (§4): v1 feeds it the empty guided-manual result (all rows
+  // blank, nothing prefilled); the deferred AI-confirm path feeds a populated one
+  // and the touched keys light up amber until reviewed. Never calls the stub.
+  function applyAutofill(result: AIAutofillResult) {
+    customName = result.name ?? "";
+    customBrand = result.brand ?? "";
+    customBasis = result.basis;
+    const values: Record<string, string> = {};
+    const pre = new Set<string>();
+    for (const f of ALL_FIELDS) {
+      const grams = result.nutrition[f.key];
+      if (typeof grams === "number") {
+        values[f.key] = toDisplay(grams, f.unit);
+        pre.add(f.key);
+      } else {
+        values[f.key] = "";
+      }
+    }
+    customValues = values;
+    prefilled = pre;
+  }
+  applyAutofill(emptyAutofillResult());
+
+  // The read-along sections, in transcription order. CORE rows carry the host's
+  // e2e ids so the existing custom-entry selectors keep working.
+  let idFor = $derived<Record<string, string | undefined>>({
+    calories: ids.customCal,
+    protein_content: ids.customProt,
+    fat_content: ids.customFat,
+    carbohydrate_content: ids.customCarb,
+  });
+  const customSections: {
+    head: string;
+    hint: string | null;
+    fields: FieldDef[];
+  }[] = [
+    { head: "Macros", hint: "the must-haves", fields: CORE },
+    { head: "Fats, fibre, sugar & salt", hint: null, fields: DETAIL },
+    {
+      head: "Vitamins & minerals",
+      hint: "rarely all on one label",
+      fields: MICROS,
+    },
+  ];
+  const customFilled = (key: string) => (customValues[key] ?? "").trim() !== "";
+  // AI-confirm: how many prefilled rows are still unverified (0 in guided-manual).
+  let toReview = $derived(prefilled.size);
+  let runningKcal = $derived((customValues["calories"] ?? "").trim());
+
+  // Editing a prefilled row IS verifying it — clear the amber "unverified" accent.
+  function markReviewed(key: string) {
+    if (prefilled.has(key)) {
+      prefilled.delete(key);
+      prefilled = new Set(prefilled);
+    }
+  }
+  function toggleSkip(key: string) {
+    if (skipped.has(key)) skipped.delete(key);
+    else {
+      skipped.add(key);
+      customValues[key] = "";
+      markReviewed(key);
+    }
+    skipped = new Set(skipped);
+  }
+  // One tap clears a whole section: mark every still-empty row "not on label".
+  function skipSection(fields: FieldDef[]) {
+    for (const f of fields)
+      if (!customFilled(f.key)) {
+        skipped.add(f.key);
+        markReviewed(f.key);
+      }
+    skipped = new Set(skipped);
+  }
 
   let hasKey = $derived(!!$settingsStore.usda_api_key);
 
@@ -217,11 +325,19 @@
     } else {
       method = "custom";
       customName = seed.name;
-      customCal = seed.calories;
-      customProt = seed.protein;
-      customFat = seed.fat;
-      customCarb = seed.carbs;
+      if (seed.brand) customBrand = seed.brand;
       photo_base64 = seed.photo_base64;
+      // Re-open the four macro rows from the edited per-serving entry (strings,
+      // already in kcal/g — the CORE units — so they seed straight in). The
+      // full-panel doors (#59) prefill the rest of the panel; edit mode carries
+      // only the four macros a logged custom entry froze.
+      customValues = {
+        ...customValues,
+        calories: seed.calories,
+        protein_content: seed.protein,
+        fat_content: seed.fat,
+        carbohydrate_content: seed.carbs,
+      };
     }
   });
 
@@ -403,32 +519,75 @@
 
   let canPrimary = $derived(
     (!!staged && grams > 0) ||
-      (method === "custom" && !!customName.trim() && customCal !== "") ||
+      (method === "custom" && !!customName.trim() && runningKcal !== "") ||
       (method === "scan" && !staged && !!barcode.trim())
   );
+
+  // Build the household portions the user typed into `Portion` shape, dropping
+  // wholly-blank rows. A hand-typed portion carries its own label as the unit.
+  function buildCustomPortions(): Portion[] {
+    return customPortions
+      .filter((p) => p.label.trim() !== "" || p.grams.trim() !== "")
+      .map((p) => ({
+        label: p.label.trim(),
+        amount: 1,
+        unit: p.label.trim() || "serving",
+        grams: Number(p.grams.trim()) || 0,
+      }));
+  }
 
   function primaryAction() {
     if (staged) {
       return commit({ kind: "food", food: staged, grams });
     }
     if (method === "custom") {
-      const cal = parseFloat(customCal);
-      if (!customName.trim() || isNaN(cal)) return;
+      if (!customName.trim() || runningKcal === "") return;
+      // Assemble the full panel (grams stored, absent ≠ 0) and the user-origin
+      // provenance envelope; the host commits it through saveLabelFood (#56).
+      const { nutrition, filledKeys } = buildLabelPanel({
+        values: customValues,
+        basis: customBasis,
+        servingGrams: customServingGrams,
+        skipped,
+      });
+      const portions = buildCustomPortions();
+      const photos = allowPhoto && photo_base64 ? [photo_base64] : [];
+      // Audit hint (§7): the coarse categories the user actually supplied.
+      const fields = [
+        ...(customName.trim() ? ["name"] : []),
+        ...(customBrand.trim() ? ["brand"] : []),
+        ...(filledKeys.length ? ["nutriments"] : []),
+        ...(portions.length ? ["portions"] : []),
+      ];
+      const labelCapture = buildLabelCapture({
+        method: "manual",
+        basis: nutrition.serving_size,
+        fields,
+      });
       return commit({
         kind: "custom",
         name: customName.trim(),
-        calories: cal,
-        protein: parseFloat(customProt) || 0,
-        fat: parseFloat(customFat) || 0,
-        carbs: parseFloat(customCarb) || 0,
+        // The four macros ride along as plain numbers so the log headline and the
+        // macro-only add-ingredient host read them without unpacking the panel.
+        calories: nutrition.calories ?? 0,
+        protein: nutrition.protein_content ?? 0,
+        fat: nutrition.fat_content ?? 0,
+        carbs: nutrition.carbohydrate_content ?? 0,
         photo_base64: allowPhoto ? photo_base64 : null,
+        brand: customBrand.trim() || undefined,
+        nutrition,
+        portions: portions.length ? portions : undefined,
+        labelPhotos: photos.length ? photos : undefined,
+        labelCapture,
       });
     }
     if (method === "scan") return handleBarcodeLookup();
   }
 
   let showTabs = $derived(!staged && !lockMethods);
-  let showInput = $derived(!staged && !isExtra(method));
+  // The custom form carries its own name field in its identity-card header, so
+  // the shared dock input is dropped for it (Search/Scan still use it).
+  let showInput = $derived(!staged && !isExtra(method) && method !== "custom");
   let showPrimary = $derived(!isExtra(method));
 </script>
 
@@ -509,47 +668,187 @@
         >.
       </p>
     {:else}
-      <p class="hint">Enter the name and macros for your custom food.</p>
-      <div class="grid2">
-        <div class="fld">
-          <label for={ids.customCal}>Calories (kcal)</label>
-          <Input id={ids.customCal} type="number" bind:value={customCal} />
+      <!-- Custom = the #52 "Read-along" full-panel form (ADR-0034 §2–§4). Name +
+           brand in a sticky identity card, then every panel row grouped Macros ·
+           fats/fibre/sugar/salt · vitamins & minerals · portions, transcribed
+           top-to-bottom. Macros lead so the fast path stays name + calories →
+           Save. -->
+      <div class="cf">
+        <div class="cf-idrow">
+          {#if allowPhoto}
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              class="hidden-file-input"
+              bind:this={fileInput}
+              onchange={handleFileChange}
+            />
+            {#if photo_base64}
+              <button
+                class="cf-thumb"
+                onclick={() => fileInput?.click()}
+                aria-label="Change the label photo"
+              >
+                <img
+                  src={photo_base64}
+                  alt="Custom food"
+                  class="photo-preview"
+                />
+              </button>
+            {:else}
+              <button
+                class="cf-thumb cf-thumb-empty"
+                onclick={() => fileInput?.click()}
+                aria-label="Add a label photo"
+              >
+                <span aria-hidden="true">📷</span>
+                <span class="cf-thumb-hint">Photo</span>
+              </button>
+            {/if}
+          {/if}
+          <div class="cf-id">
+            <input
+              id={ids.customName}
+              class="cf-title"
+              placeholder="Product name"
+              aria-label="Product name"
+              bind:value={customName}
+            />
+            <input
+              class="cf-brand"
+              placeholder="Brand — optional"
+              aria-label="Brand"
+              bind:value={customBrand}
+            />
+          </div>
         </div>
-        <div class="fld">
-          <label for={ids.customProt}>Protein (g)</label>
-          <Input id={ids.customProt} type="number" bind:value={customProt} />
-        </div>
-        <div class="fld">
-          <label for={ids.customFat}>Fat (g)</label>
-          <Input id={ids.customFat} type="number" bind:value={customFat} />
-        </div>
-        <div class="fld">
-          <label for={ids.customCarb}>Carbs (g)</label>
-          <Input id={ids.customCarb} type="number" bind:value={customCarb} />
-        </div>
-      </div>
-      {#if allowPhoto}
-        <input
-          type="file"
-          accept="image/*"
-          capture="environment"
-          class="hidden-file-input"
-          bind:this={fileInput}
-          onchange={handleFileChange}
-        />
-        {#if photo_base64}
-          <div class="photo-preview-box">
-            <img src={photo_base64} alt="Custom food" class="photo-preview" />
-            <button class="change-photo" onclick={() => fileInput?.click()}
-              >Change</button
+
+        <div
+          class="cf-basis"
+          role="group"
+          aria-label="Values on the label are per"
+        >
+          <span class="cf-basis-lbl">Values per</span>
+          <div class="cf-seg">
+            <button
+              type="button"
+              class:on={customBasis === "per_100g"}
+              onclick={() => (customBasis = "per_100g")}>100 g</button
+            >
+            <button
+              type="button"
+              class:on={customBasis === "per_serving"}
+              onclick={() => (customBasis = "per_serving")}>serving</button
             >
           </div>
-        {:else}
-          <button class="photo" onclick={() => fileInput?.click()}
-            >📷 Add photo (optional)</button
-          >
-        {/if}
-      {/if}
+          {#if customBasis === "per_serving"}
+            <!-- A serving weight resolves the panel's serving_size to `N g`; left
+                 blank it stays the bare `1 serving` (§3). -->
+            <label class="cf-serving">
+              <input
+                id="cf-serving-grams"
+                type="text"
+                inputmode="decimal"
+                placeholder="g"
+                aria-label="Grams per serving"
+                bind:value={customServingGrams}
+              />
+              <span>g / serving</span>
+            </label>
+          {/if}
+        </div>
+
+        {#each customSections as sec (sec.head)}
+          <section class="cf-group">
+            <div class="cf-grouphead">
+              <div class="cf-gh-text">
+                <h3>{sec.head}</h3>
+                {#if sec.hint}<span class="cf-gh-hint">{sec.hint}</span>{/if}
+              </div>
+              <button
+                type="button"
+                class="cf-skip-all"
+                onclick={() => skipSection(sec.fields)}>none on label</button
+              >
+            </div>
+            <div class="cf-list">
+              {#each sec.fields as f (f.key)}
+                <div
+                  class="cf-row"
+                  class:skip={skipped.has(f.key)}
+                  class:unverified={prefilled.has(f.key)}
+                >
+                  <label class="cf-lbl" for={idFor[f.key] ?? `cf-${f.key}`}
+                    >{f.label}</label
+                  >
+                  <div class="cf-ctl">
+                    <input
+                      id={idFor[f.key] ?? `cf-${f.key}`}
+                      type="text"
+                      inputmode="decimal"
+                      placeholder={skipped.has(f.key) ? "not on label" : "0"}
+                      disabled={skipped.has(f.key)}
+                      bind:value={customValues[f.key]}
+                      oninput={() => markReviewed(f.key)}
+                    />
+                    <span class="cf-unit">{f.unit}</span>
+                  </div>
+                  <button
+                    type="button"
+                    class="cf-skip"
+                    aria-pressed={skipped.has(f.key)}
+                    onclick={() => toggleSkip(f.key)}
+                    aria-label={`${f.label} — not on label`}>∅</button
+                  >
+                </div>
+              {/each}
+            </div>
+          </section>
+        {/each}
+
+        <section class="cf-group">
+          <div class="cf-grouphead">
+            <div class="cf-gh-text">
+              <h3>Household portions</h3>
+              <span class="cf-gh-hint">optional</span>
+            </div>
+          </div>
+          <div class="cf-list">
+            {#each customPortions as p, i (i)}
+              <div class="cf-prow">
+                <input
+                  placeholder="e.g. 1 slice"
+                  aria-label="Portion label"
+                  bind:value={p.label}
+                />
+                <input
+                  type="text"
+                  inputmode="decimal"
+                  placeholder="grams"
+                  aria-label="Portion grams"
+                  bind:value={p.grams}
+                />
+                <button
+                  type="button"
+                  class="cf-skip"
+                  onclick={() => customPortions.splice(i, 1)}
+                  aria-label="Remove portion">✕</button
+                >
+              </div>
+            {/each}
+            <button
+              type="button"
+              class="cf-add"
+              onclick={() =>
+                (customPortions = [
+                  ...customPortions,
+                  { label: "", grams: "" },
+                ])}>＋ add a portion</button
+            >
+          </div>
+        </section>
+      </div>
     {/if}
 
     {#if status === "error"}
@@ -564,13 +863,7 @@
   <div class="dock">
     {#if showInput}
       <div class="dock-input">
-        {#if method === "custom"}
-          <Input
-            id={ids.customName}
-            placeholder="Food name…"
-            bind:value={customName}
-          />
-        {:else if method === "scan"}
+        {#if method === "scan"}
           <Input
             id={ids.barcode}
             placeholder="Enter barcode…"
@@ -608,6 +901,15 @@
       </div>
     {/if}
 
+    {#if method === "custom" && !staged}
+      <div class="cf-sum">
+        <span><strong>{runningKcal || "—"}</strong> kcal</span>
+        {#if toReview > 0}
+          <span class="cf-review-chip">{toReview} to review</span>
+        {/if}
+      </div>
+    {/if}
+
     {#if showPrimary}
       <button
         class="primary"
@@ -615,7 +917,12 @@
         disabled={!canPrimary || primaryDisabled || status === "loading"}
         onclick={primaryAction}
       >
-        {primaryLabel({ method, staged, factor })}
+        {primaryLabel({
+          method,
+          staged,
+          factor,
+          toReview: method === "custom" && !staged ? toReview : 0,
+        })}
       </button>
     {/if}
   </div>
@@ -722,54 +1029,277 @@
     box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.45);
   }
 
-  .grid2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-s);
-    margin-top: var(--space-s);
-  }
-  .fld label {
-    display: block;
-    font-size: var(--step-n2);
-    font-weight: 700;
-    text-transform: uppercase;
-    margin-bottom: var(--space-3xs);
-  }
   .hidden-file-input {
     display: none;
   }
-  .photo {
+
+  /* ── Custom = the #52 "Read-along" full-panel form (ADR-0034 §3) ─────────── */
+  /* One responsive column capped to the prototype's width, centred on wide
+     screens so every row and the sticky Save share the same edges. */
+  .cf {
+    display: flex;
+    flex-direction: column;
     width: 100%;
-    margin-top: var(--space-s);
-    border: 2px dashed #000;
-    background: #fff;
-    padding: var(--space-s);
+    max-width: 34rem;
+    margin-inline: auto;
+  }
+  /* Sticky identity card: photo left, name + brand stacked to its right. */
+  .cf-idrow {
+    position: sticky;
+    top: calc(-1 * var(--space-s));
+    z-index: 2;
+    display: flex;
+    align-items: stretch;
+    gap: var(--space-s);
+    padding: var(--space-2xs) 0;
+    margin-bottom: var(--space-s);
+    background: var(--bg-base, #fff);
+    border-bottom: 1px solid var(--border);
+  }
+  .cf-id {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3xs);
+  }
+  .cf-title {
+    font-size: 1.05rem;
     font-weight: 700;
+    min-height: 44px;
+  }
+  .cf-brand {
+    font-size: 0.9rem;
+    min-height: 38px;
+  }
+  /* Fixed-width thumb; height stretches to the two stacked inputs (idrow is
+     align-items: stretch), so the photo is as tall as name + brand together. */
+  .cf-thumb {
+    flex: 0 0 auto;
+    width: 60px;
+    padding: 0;
+    border: 1.5px solid var(--border-accent);
+    background: none;
     cursor: pointer;
-  }
-  .photo-preview-box {
-    position: relative;
-    margin-top: var(--space-s);
-    border: 2px solid #000;
+    border-radius: 10px;
     overflow: hidden;
-    max-height: 220px;
   }
-  .photo-preview {
+  .cf-thumb-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    border-style: dashed;
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+  }
+  .cf-thumb-hint {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .cf .photo-preview {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
   }
-  .change-photo {
-    position: absolute;
-    bottom: var(--space-xs);
-    right: var(--space-xs);
+  .cf-basis {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-m);
+  }
+  .cf-basis-lbl {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+  }
+  .cf-serving {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+  .cf-serving input {
+    width: 4.5rem;
+    text-align: right;
+    min-height: 40px;
+  }
+  .cf-seg {
+    display: inline-flex;
+    flex: 1;
+    max-width: 16rem;
+    border: 1.5px solid var(--border-accent);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .cf-seg button {
+    flex: 1;
+    border: 0;
+    background: #fff;
+    padding: 0.5rem 0.6rem;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    min-height: 40px;
+  }
+  .cf-seg button.on {
     background: #000;
     color: #fff;
-    border: none;
-    padding: var(--space-2xs) var(--space-s);
-    font-weight: 700;
+  }
+
+  .cf-group {
+    margin-bottom: var(--space-m);
+  }
+  .cf-grouphead {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-3xs);
+    padding-bottom: var(--space-3xs);
+    border-bottom: 2px solid var(--border-accent);
+  }
+  .cf-gh-text {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2xs);
+    min-width: 0;
+  }
+  .cf-grouphead h3 {
+    margin: 0;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .cf-gh-hint {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .cf-skip-all {
+    flex: 0 0 auto;
+    background: none;
+    border: 0;
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 0.72rem;
+    text-decoration: underline;
+    text-underline-offset: 2px;
     cursor: pointer;
+    padding: 0.2rem;
+  }
+
+  .cf-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: var(--space-xs);
+    min-height: 48px;
+    padding: 0.25rem 0.4rem;
+    border-bottom: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .cf-lbl {
+    font-size: 0.92rem;
+    min-width: 0;
+  }
+  .cf-ctl {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .cf-ctl input {
+    width: 5rem;
+    text-align: right;
+    min-height: 40px;
+  }
+  .cf-unit {
+    width: 2.4rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+  .cf-skip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    font: inherit;
+    color: var(--text-secondary);
+  }
+  .cf-skip[aria-pressed="true"] {
+    background: #000;
+    color: #fff;
+    border-color: #000;
+  }
+  .cf-row.skip {
+    opacity: 0.5;
+  }
+  /* Restrained AI-confirm "unverified" accent — a left rule + faint wash, not a
+     loud fill; clears the instant the row is edited (markReviewed), §4. */
+  .cf-row.unverified {
+    box-shadow: inset 3px 0 0 #f5b301;
+    background: rgba(255, 204, 0, 0.09);
+  }
+  .cf-prow {
+    display: grid;
+    grid-template-columns: 1fr 6rem 40px;
+    gap: var(--space-xs);
+    align-items: center;
+    padding: 0.25rem 0.4rem;
+  }
+  .cf-add {
+    margin-top: var(--space-2xs);
+    width: 100%;
+    background: #fff;
+    border: 1px dashed var(--border-accent);
+    border-radius: 10px;
+    padding: 0.6rem;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 600;
+    min-height: 44px;
+  }
+  /* Every text field in the read-along form shares one look. */
+  .cf input {
+    font: inherit;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.5rem 0.6rem;
+    color: var(--text-primary);
+  }
+  .cf input:focus-visible {
+    outline: 2px solid var(--accent, #000);
+    outline-offset: -1px;
+  }
+
+  /* Running kcal + "N to review" chip, in the dock above the sticky Save. */
+  .cf-sum {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+  }
+  .cf-sum strong {
+    font-size: 1rem;
+    color: var(--text-primary);
+  }
+  .cf-review-chip {
+    font-size: 0.68rem;
+    font-weight: 700;
+    background: #f5b301;
+    color: #000;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
   }
 
   .dock {

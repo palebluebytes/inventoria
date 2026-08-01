@@ -1,6 +1,7 @@
 import type { FoodResult } from "./food-search";
 import type { NutritionInfo, Portion } from "./nutrition";
 import type { EntityPayload } from "../ingestion/ingest";
+import type { LabelCapture } from "./provenance";
 
 /**
  * The full-panel capture seed the four label-capture doors (ADR-0034 §1/§6) hand
@@ -58,6 +59,15 @@ export type FoodChoice =
       fat: number;
       carbs: number;
       photo_base64: string | null;
+      /**
+       * The user-origin provenance envelope for a full-panel label capture (#57),
+       * built by the Custom form ({@link buildLabelCapture}) and set alongside the
+       * full {@link LabelCaptureSeed.nutrition} panel. Present whenever the form
+       * committed a panel; absent for the legacy four-macro-only choice, so a host
+       * routes `nutrition`-bearing choices through `saveLabelFood` and the rest
+       * through `saveCustomFood`.
+       */
+      labelCapture?: LabelCapture;
     } & LabelCaptureSeed);
 
 /**
@@ -96,6 +106,14 @@ export interface PrimaryLabelContext {
   method: string;
   staged: FoodResult | null;
   factor: number;
+  /**
+   * On the Custom full-panel form, how many AI-prefilled rows are still
+   * unverified (ADR-0034 §4). Zero on the guided-manual v1 path and every
+   * non-custom method; a deferred AI-confirm result makes it positive, so a host
+   * flips its primary CTA to "Review & save" — the label lives host-side, so the
+   * form needs no change when the model call arrives.
+   */
+  toReview: number;
 }
 
 /** A host-injected method tab beyond the built-in Search / Scan / Custom. */
