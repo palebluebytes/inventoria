@@ -10,19 +10,25 @@
     photos,
     /** Which photo to open on. Clamped into range; index is owned internally after. */
     startIndex = 0,
-    /** Remove the photo at `i` from the set (before save only). */
+    /** Remove the photo at `i` from the set (before save only). Omit for a
+     *  read-only reader (e.g. OFF reference photos), which hides the action bar. */
     onRemove,
-    /** Append another shot — the parent triggers its shared file input. */
+    /** Append another shot — the parent triggers its shared file input. Omit for
+     *  a read-only reader. */
     onAdd,
     /** Dismiss the reader. */
     onClose,
   }: {
     photos: string[];
     startIndex?: number;
-    onRemove: (i: number) => void;
-    onAdd: () => void;
+    onRemove?: (i: number) => void;
+    onAdd?: () => void;
     onClose: () => void;
   } = $props();
+
+  // A reader given neither mutation callback is read-only — used to page through
+  // OFF's own reference photos, which the user compares against but never edits.
+  let readOnly = $derived(!onRemove && !onAdd);
 
   // The parent remounts the reader on each open, so capturing `startIndex` once
   // is the intended seed — index is owned internally after (arrows/swipe move it).
@@ -137,20 +143,26 @@
     {/each}
   </div>
 
-  <div class="lpr-actions">
-    <button
-      type="button"
-      class="lpr-btn lpr-remove"
-      onclick={() => onRemove(index)}
-      data-testid="lpr-remove">Remove this photo</button
-    >
-    <button
-      type="button"
-      class="lpr-btn lpr-add"
-      onclick={onAdd}
-      data-testid="lpr-add">＋ Add photo</button
-    >
-  </div>
+  {#if !readOnly}
+    <div class="lpr-actions">
+      {#if onRemove}
+        <button
+          type="button"
+          class="lpr-btn lpr-remove"
+          onclick={() => onRemove(index)}
+          data-testid="lpr-remove">Remove this photo</button
+        >
+      {/if}
+      {#if onAdd}
+        <button
+          type="button"
+          class="lpr-btn lpr-add"
+          onclick={onAdd}
+          data-testid="lpr-add">＋ Add photo</button
+        >
+      {/if}
+    </div>
+  {/if}
 </div>
 
 <style>

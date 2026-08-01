@@ -168,6 +168,32 @@ describe("mapOffProductToPayload", () => {
     expect(mapOffProductToPayload(nutella).completeness).toBeUndefined();
   });
 
+  it("surfaces OFF photo URLs read-through in label-read order (ADR-0034 §8)", () => {
+    // Front first (identity), then nutrition (the values), then the faces the
+    // product has — dropping any it lacks. Never attributes, so never datoms.
+    const product: OFFProduct = {
+      ...nutella,
+      product: {
+        ...nutella.product,
+        image_front_url: "https://img.off/front.jpg",
+        image_nutrition_url: "https://img.off/nutrition.jpg",
+        image_packaging_url: "https://img.off/packaging.jpg",
+        // no ingredients image
+      },
+    };
+    const payload = mapOffProductToPayload(product);
+    expect(payload.referenceImages).toEqual([
+      "https://img.off/front.jpg",
+      "https://img.off/nutrition.jpg",
+      "https://img.off/packaging.jpg",
+    ]);
+    expect(payload.attributes).not.toHaveProperty("referenceImages");
+  });
+
+  it("surfaces an empty reference-image list when the product has no photos", () => {
+    expect(mapOffProductToPayload(nutella).referenceImages).toEqual([]);
+  });
+
   it("omits food/assessment, twin/brand, category and ingredients when absent", () => {
     const product: OFFProduct = {
       ...nutella,

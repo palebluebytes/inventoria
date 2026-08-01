@@ -2,6 +2,7 @@
   import {
     lookupBarcode,
     ProductNotFoundError,
+    type OffPayload,
   } from "../../food/open-food-facts";
   import {
     searchUsdaFoods,
@@ -263,7 +264,14 @@
   // logging the poor twin as-is (§1 / user stories 1–2). Holds the OFF payload so
   // "Improve" can prefill the form from it.
   let nudge = $state(false);
-  let poorPayload = $state<EntityPayload | null>(null);
+  let poorPayload = $state<OffPayload | null>(null);
+  // OFF's own product photos for the found-but-poor twin (remote URLs), shown as
+  // a read-only reference strip so the user can read the label off them while
+  // filling the form (ADR-0034 §8 read-feature). NOT the user's captured photos —
+  // never merged into `labelPhotos`, never saved (they live in raw_provenance).
+  let offRefPhotos = $state<string[]>([]);
+  // Open the read-only OFF reference reader on this index; null = closed.
+  let refReaderIndex = $state<number | null>(null);
   // The OFF payload carried into the form by the found-but-poor door, so the host
   // ingests it beside the correction — its `twin/raw_provenance` survives and the
   // enriched `gtin:` twin is genuinely dual-origin (ADR-0034 §6/§7). Null for the
@@ -299,7 +307,7 @@
   // when the door carries one (found-but-poor). Missing/unreadable start empty.
   function openCaptureForm(
     reason: CaptureReason,
-    payload?: EntityPayload,
+    payload?: OffPayload,
     completeness?: number
   ) {
     method = "custom";
@@ -322,13 +330,14 @@
     customPortions = [];
     skipped = new Set();
     labelPhotos = [];
+    offRefPhotos = [];
   }
 
   // Seed the Custom form from a partial OFF payload (found-but-poor door): name
   // (dropping the "Unknown" placeholder), brand, whatever nutriments OFF carried
   // (typed back into the label's units), and its portions — all editable, none
   // marked "unverified" (that amber accent is the deferred AI-confirm path, §4).
-  function prefillFromPayload(payload: EntityPayload) {
+  function prefillFromPayload(payload: OffPayload) {
     const attrs = payload.attributes;
     const name = (attrs["food/name"] as string | undefined) ?? "";
     customName = name === "Unknown" ? "" : name;
@@ -350,10 +359,11 @@
       label: p.label,
       grams: String(p.grams),
     }));
-    // Start with no photos: an OFF payload carries none (surfacing OFF's own
-    // label images for comparison is a separate feature, #61), and the user adds
-    // their own capture here.
+    // The user starts with no captured photos of their own here.
     labelPhotos = [];
+    // OFF's own photos ride alongside as a read-only reference to read the label
+    // off — never merged into the user's capture set, never saved.
+    offRefPhotos = payload.referenceImages ?? [];
   }
 
   // Initialise the form from an AIAutofillResult — the seam that serves BOTH
@@ -718,6 +728,8 @@
       captureReason = null;
       captureCompleteness = undefined;
       captureOffPayload = null;
+      offRefPhotos = [];
+      refReaderIndex = null;
       barcode = "";
     }
   }
@@ -958,6 +970,28 @@
                 />
               </label>
             {/if}
+          </div>
+        {/if}
+        {#if offRefPhotos.length > 0}
+          <!-- OFF's own photos (§8 read-feature): a read-only strip to read the
+               label off while filling the gaps. Tapping opens the reader in
+               read-only mode. These are never the user's captured photos. -->
+          <div class="cf-off-ref" data-testid="off-reference-photos">
+            <span class="cf-off-ref-lbl"
+              >Open Food Facts photos — read the label to fill the gaps</span
+            >
+            <div class="cf-off-ref-strip">
+              {#each offRefPhotos as src, i (src)}
+                <button
+                  type="button"
+                  class="cf-off-ref-thumb"
+                  onclick={() => (refReaderIndex = i)}
+                  aria-label={`View Open Food Facts photo ${i + 1} of ${offRefPhotos.length}`}
+                >
+                  <img {src} alt="" loading="lazy" />
+                </button>
+              {/each}
+            </div>
           </div>
         {/if}
         <div class="cf-idrow">
@@ -1230,6 +1264,15 @@
   />
 {/if}
 
+{#if refReaderIndex !== null && offRefPhotos.length > 0}
+  <!-- Read-only: no onRemove/onAdd, so the reader hides its action bar. -->
+  <LabelPhotoReader
+    photos={offRefPhotos}
+    startIndex={refReaderIndex}
+    onClose={() => (refReaderIndex = null)}
+  />
+{/if}
+
 <style>
   .stager {
     display: flex;
@@ -1449,6 +1492,44 @@
     letter-spacing: normal;
     font-weight: 400;
     min-height: 44px;
+  }
+
+  /* OFF reference-photo strip (§8) — a read-only aid, visually distinct from the
+     user's own capture thumb so it never reads as "your photo". */
+  .cf-off-ref {
+    margin-bottom: var(--space-s);
+  }
+  .cf-off-ref-lbl {
+    display: block;
+    margin-bottom: var(--space-3xs);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-secondary);
+  }
+  .cf-off-ref-strip {
+    display: flex;
+    gap: var(--space-2xs);
+    overflow-x: auto;
+    padding-bottom: var(--space-3xs);
+  }
+  .cf-off-ref-thumb {
+    flex: 0 0 auto;
+    width: 64px;
+    height: 64px;
+    padding: 0;
+    border: 1px dashed var(--border-accent);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+    cursor: pointer;
+  }
+  .cf-off-ref-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
   }
 
   /* ── Custom = the #52 "Read-along" full-panel form (ADR-0034 §3) ─────────── */

@@ -985,6 +985,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
           product: {
             product_name: "",
             completeness: 0.9,
+            image_front_url: "https://images.openfoodfacts.org/mock-front.jpg",
+            image_nutrition_url:
+              "https://images.openfoodfacts.org/mock-nutrition.jpg",
             nutriments: {
               "energy-kcal_100g": 600,
               proteins_100g: 25,
@@ -1017,6 +1020,20 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     );
     await expect(page.locator("#custom-name")).toHaveValue("");
     await expect(page.locator("#custom-cal")).toHaveValue("600");
+
+    // OFF's own photos surface as a read-only reference strip to read the label
+    // off (§8) — front + nutrition here — without becoming the user's own photos.
+    const offRef = page.locator('[data-testid="off-reference-photos"]');
+    await expect(offRef).toBeVisible();
+    await expect(offRef.locator("img")).toHaveCount(2);
+    // Tapping one opens the reader read-only: no Remove/Add affordances.
+    await offRef.locator("button").first().click();
+    await expect(
+      page.locator('[data-testid="label-photo-reader"]')
+    ).toBeVisible();
+    await expect(page.locator('[data-testid="lpr-remove"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="lpr-add"]')).toHaveCount(0);
+    await page.locator('[data-testid="label-photo-reader"] .lpr-close').click();
 
     // Fix the name and save. The key follows the barcode → the `gtin:` twin is
     // enriched in place (§6), OFF's provenance preserved beside the correction.

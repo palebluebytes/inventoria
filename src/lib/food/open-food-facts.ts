@@ -84,6 +84,14 @@ export interface OFFProduct {
      * nutriment. Absent on sparse records.
      */
     completeness?: number;
+    // OFF's own product photos (remote URLs on images.openfoodfacts.org). Read
+    // through so the found-but-poor door can show them for comparison while the
+    // user reads the label into the form (ADR-0034 §8 read-feature / #54); they
+    // are NOT adopted as the user's captured photos. Each face is optional.
+    image_front_url?: string;
+    image_nutrition_url?: string;
+    image_ingredients_url?: string;
+    image_packaging_url?: string;
     nutriments?: OFFNutriments;
     // Serving data (ADR-0030 §2/§5). OFF normalises `serving_quantity` to grams;
     // `serving_size` is the human label ("15 g", "1 portion (37 g)"). Either can
@@ -114,6 +122,27 @@ export interface OFFProduct {
  */
 export interface OffPayload extends EntityPayload {
   completeness?: number;
+  /**
+   * OFF's own product photos (front / nutrition / ingredients / packaging), as
+   * remote URLs in that read-order. Surfaced read-through — never datoms — so the
+   * found-but-poor door can show them for comparison; the user still captures
+   * their own photos separately (ADR-0034 §7/§8).
+   */
+  referenceImages?: string[];
+}
+
+/**
+ * Gathers OFF's product photo URLs in a natural label-read order (front first
+ * for identity, then the nutrition panel that carries the values, then
+ * ingredients and packaging), dropping the faces the product doesn't have.
+ */
+function offReferenceImages(p: OFFProduct["product"]): string[] {
+  return [
+    p.image_front_url,
+    p.image_nutrition_url,
+    p.image_ingredients_url,
+    p.image_packaging_url,
+  ].filter((url): url is string => typeof url === "string" && url.length > 0);
 }
 
 export class ProductNotFoundError extends Error {
@@ -234,6 +263,7 @@ export function mapOffProductToPayload(product: OFFProduct): OffPayload {
     // short generic name without a network re-fetch.
     completeness:
       typeof p.completeness === "number" ? p.completeness : undefined,
+    referenceImages: offReferenceImages(p),
     attributes: {
       ...attributes,
       // Keep the untouched OFF response as immutable Provenance so nutriments
