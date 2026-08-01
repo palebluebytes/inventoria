@@ -77,6 +77,13 @@ export interface OFFProduct {
   status: "success" | "failure" | 0 | 1;
   product: {
     product_name?: string;
+    /**
+     * OFF's own data-quality score for the record (0–1). Surfaced read-through
+     * by the mapper so the found-but-poor predicate can use it as a corroborator
+     * for a short generic name (ADR-0034 §1); a record-level signal, not a
+     * nutriment. Absent on sparse records.
+     */
+    completeness?: number;
     nutriments?: OFFNutriments;
     // Serving data (ADR-0030 §2/§5). OFF normalises `serving_quantity` to grams;
     // `serving_size` is the human label ("15 g", "1 portion (37 g)"). Either can
@@ -96,6 +103,17 @@ export interface OFFProduct {
     additives_tags?: string[];
     labels_tags?: string[];
   };
+}
+
+/**
+ * The mapper's return: a normal {@link EntityPayload} carrying OFF's
+ * `completeness` as a READ-THROUGH sibling of `attributes` (ADR-0034 §1). It is
+ * deliberately NOT an attribute — `ingestEntity` only flattens `attributes`, so
+ * completeness never becomes a datom; it rides the return value purely so the
+ * found-but-poor predicate can read it from the freshly-looked-up payload.
+ */
+export interface OffPayload extends EntityPayload {
+  completeness?: number;
 }
 
 export class ProductNotFoundError extends Error {
@@ -136,7 +154,7 @@ function offPortions(
  * `nutrition/info` panel (ADR-0021), populated with whatever subset of the
  * schema.org fields the product carries.
  */
-export function mapOffProductToPayload(product: OFFProduct): EntityPayload {
+export function mapOffProductToPayload(product: OFFProduct): OffPayload {
   const p = product.product;
   const n = p.nutriments ?? {};
 
@@ -211,6 +229,11 @@ export function mapOffProductToPayload(product: OFFProduct): EntityPayload {
 
   return {
     entity: `gtin:${product.code}`,
+    // Read-through (never a datom, see {@link OffPayload}): only OFF's numeric
+    // completeness rides along, so the poor-quality predicate can corroborate a
+    // short generic name without a network re-fetch.
+    completeness:
+      typeof p.completeness === "number" ? p.completeness : undefined,
     attributes: {
       ...attributes,
       // Keep the untouched OFF response as immutable Provenance so nutriments
@@ -238,7 +261,7 @@ const OFF_BASE = "https://world.openfoodfacts.org/api/v3/product";
  *
  * @throws ProductNotFoundError when the product is not in the OFF database.
  */
-export async function lookupBarcode(barcode: string): Promise<EntityPayload> {
+export async function lookupBarcode(barcode: string): Promise<OffPayload> {
   const res = await fetch(`${OFF_BASE}/${barcode}.json`);
 
   // v3 returns HTTP 404 for unknown barcodes (empty body), catch it first

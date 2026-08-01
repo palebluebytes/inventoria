@@ -217,6 +217,16 @@
         // saveCustomFood. Either way the log below uses the frozen macros.
         let twinId: string;
         if (choice.nutrition && choice.labelCapture) {
+          // Found-but-poor door (ADR-0034 §6/§7): ingest the OFF record FIRST so
+          // its `twin/raw_provenance` lands in the ledger, then let saveLabelFood
+          // append the correction over the same `gtin:` entity. Append-only +
+          // latest-wins means the corrected name/panel supersede the poor OFF
+          // values on the next read while OFF's provenance survives beside the new
+          // `food/label_capture` — a genuinely dual-origin, "edited from label"
+          // twin. The other doors carry no offPayload, so this is skipped.
+          if (choice.offPayload) {
+            await dbClient.append(ingestEntity(choice.offPayload));
+          }
           twinId = await saveLabelFood({
             name: choice.name,
             brand: choice.brand,

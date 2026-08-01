@@ -6,8 +6,10 @@
   import {
     searchUsdaFoods,
     mapPayloadToFoodResult,
+    isPoorFoodTwin,
     type FoodResult,
   } from "../../food/food-search";
+  import type { EntityPayload } from "../../ingestion/ingest";
   import { getLocalFoodTwin } from "../../stores/calorie.store";
   import {
     settingsStore,
@@ -243,6 +245,117 @@
   // Open the full-screen reader on this index; null = closed.
   let readerIndex = $state<number | null>(null);
 
+  // ── The four label-capture doors (ADR-0034 §1) ─────────────────────────────
+  // The Custom form is reached four ways: a 404 (missing), a poor-quality OFF
+  // twin (found-but-poor), an undecodable barcode (unreadable), and the plain
+  // manual tab (always-on). The first three set a reason banner and carry the
+  // barcode/partial payload in; the manual tab is a fresh empty form. `barcode`
+  // (already declared above) is the single key source: whatever code reached the
+  // form keys the save (`gtin:` enrich vs `food:custom_` mint, §6), so the doors
+  // just keep or clear it.
+  // Which door routed into the Custom form — a shared alias so the union is
+  // stated once, not restated at every call site (§3.1).
+  type CaptureReason = "missing" | "poor" | "unreadable";
+  let captureReason = $state<CaptureReason | null>(null);
+  // OFF's completeness for the found-but-poor twin, carried into the form (§1).
+  let captureCompleteness = $state<number | undefined>(undefined);
+  // Found-but-poor nudge on the staged card: soft, dismissible, never blocks
+  // logging the poor twin as-is (§1 / user stories 1–2). Holds the OFF payload so
+  // "Improve" can prefill the form from it.
+  let nudge = $state(false);
+  let poorPayload = $state<EntityPayload | null>(null);
+  // The OFF payload carried into the form by the found-but-poor door, so the host
+  // ingests it beside the correction — its `twin/raw_provenance` survives and the
+  // enriched `gtin:` twin is genuinely dual-origin (ADR-0034 §6/§7). Null for the
+  // missing/unreadable/manual doors, which have no OFF record to preserve.
+  let captureOffPayload = $state<EntityPayload | null>(null);
+  // Unreadable door: the scanner elevates a "photograph the label" escape after a
+  // persistent failure. A tunable threshold (~10 s), not a hard requirement (#48).
+  const UNREADABLE_ELEVATE_MS = 10_000;
+  let scanStalled = $state(false);
+  let stallTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // The staged twin's origin badge (§7), driven purely by the PRESENCE of a
+  // `food/label_capture` datom: "edited from label" when OFF provenance sits
+  // beside it (a corrected `gtin:` twin), "your entry" when it stands alone (a
+  // `food:custom_` mint). Advisory only — it never changes logging.
+  let stagedOrigin = $derived.by<null | "edited" | "your">(() => {
+    const attrs = staged?.payload.attributes;
+    if (!attrs?.["food/label_capture"]) return null;
+    return attrs["twin/raw_provenance"] ? "edited" : "your";
+  });
+
+  // Reason-specific copy shown at the top of the Custom form per door (§1).
+  const CAPTURE_COPY: Record<CaptureReason, string> = {
+    missing:
+      "This barcode isn’t in Open Food Facts yet — add it here and it’s yours on the next scan.",
+    poor: "Open Food Facts only had partial data for this — fill in what’s missing from the label.",
+    unreadable:
+      "Couldn’t read the barcode. Enter the label details here; add the digits below if you can read them.",
+  };
+
+  // Route one of the doors into the Custom form: set the reason banner, keep the
+  // barcode (already in `barcode` state), and prefill from a partial OFF payload
+  // when the door carries one (found-but-poor). Missing/unreadable start empty.
+  function openCaptureForm(
+    reason: CaptureReason,
+    payload?: EntityPayload,
+    completeness?: number
+  ) {
+    method = "custom";
+    staged = null;
+    status = "idle";
+    error = "";
+    nudge = false;
+    captureReason = reason;
+    captureCompleteness = completeness;
+    // Only the found-but-poor door preserves an OFF record beside the correction.
+    captureOffPayload = reason === "poor" ? (payload ?? null) : null;
+    if (payload) prefillFromPayload(payload);
+    else resetCustomForm();
+  }
+
+  // Blank every custom-form field back to a fresh empty read-along form.
+  function resetCustomForm() {
+    applyAutofill(emptyAutofillResult());
+    customServingGrams = "";
+    customPortions = [];
+    skipped = new Set();
+    labelPhotos = [];
+  }
+
+  // Seed the Custom form from a partial OFF payload (found-but-poor door): name
+  // (dropping the "Unknown" placeholder), brand, whatever nutriments OFF carried
+  // (typed back into the label's units), and its portions — all editable, none
+  // marked "unverified" (that amber accent is the deferred AI-confirm path, §4).
+  function prefillFromPayload(payload: EntityPayload) {
+    const attrs = payload.attributes;
+    const name = (attrs["food/name"] as string | undefined) ?? "";
+    customName = name === "Unknown" ? "" : name;
+    customBrand = (attrs["twin/brand"] as string | undefined) ?? "";
+    // OFF panels are per-100 g (the mapper stamps PER_100G); the form matches.
+    customBasis = "per_100g";
+    customServingGrams = "";
+    const info = attrs[NUTRITION_INFO_ATTR] as NutritionInfo | undefined;
+    const values: Record<string, string> = {};
+    for (const f of ALL_FIELDS) {
+      const grams = info?.[f.key];
+      values[f.key] = typeof grams === "number" ? toDisplay(grams, f.unit) : "";
+    }
+    customValues = values;
+    prefilled = new Set();
+    skipped = new Set();
+    const portions = attrs[FOOD_PORTIONS_ATTR] as Portion[] | undefined;
+    customPortions = (portions ?? []).map((p) => ({
+      label: p.label,
+      grams: String(p.grams),
+    }));
+    // Start with no photos: an OFF payload carries none (surfacing OFF's own
+    // label images for comparison is a separate feature, #61), and the user adds
+    // their own capture here.
+    labelPhotos = [];
+  }
+
   // Initialise the form from an AIAutofillResult — the seam that serves BOTH
   // extraction modes (§4): v1 feeds it the empty guided-manual result (all rows
   // blank, nothing prefilled); the deferred AI-confirm path feeds a populated one
@@ -421,6 +534,15 @@
       videoEl.play();
       scanning = true;
       scanError = "";
+      // Unreadable door (§1): after a persistent no-decode stretch, elevate the
+      // "photograph the label" escape from the quiet inline link to a prominent
+      // affordance. Cleared the moment a code decodes or the camera stops.
+      scanStalled = false;
+      if (stallTimer) clearTimeout(stallTimer);
+      stallTimer = setTimeout(
+        () => (scanStalled = true),
+        UNREADABLE_ELEVATE_MS
+      );
       rafId = requestAnimationFrame(scanFrame);
     } catch {
       scanError = "Camera access denied or unavailable.";
@@ -433,6 +555,11 @@
       cancelAnimationFrame(rafId);
       rafId = null;
     }
+    if (stallTimer) {
+      clearTimeout(stallTimer);
+      stallTimer = null;
+    }
+    scanStalled = false;
     if (stream) {
       stream.getTracks().forEach((t) => t.stop());
       stream = null;
@@ -478,20 +605,49 @@
 
   async function handleBarcodeLookup() {
     if (!barcode.trim()) return;
+    const code = barcode.trim();
     status = "loading";
     error = "";
+    nudge = false;
     try {
-      const local = await getLocalFoodTwin(`gtin:${barcode.trim()}`);
-      const payload = local ?? (await lookupBarcode(barcode.trim()));
-      staged = mapPayloadToFoodResult(payload);
+      const local = await getLocalFoodTwin(`gtin:${code}`);
+      // A local twin never nudges — a prior capture already superseded the poor
+      // OFF data (latest-wins) — so it stages and returns. Only a freshly
+      // looked-up OFF twin (typed `OffPayload`, so `completeness` is in reach)
+      // runs the found-but-poor predicate below (§1).
+      if (local) {
+        staged = mapPayloadToFoodResult(local);
+        grams = 100;
+        status = "idle";
+        return;
+      }
+      const off = await lookupBarcode(code);
+      staged = mapPayloadToFoodResult(off);
       grams = 100;
       status = "idle";
+      const info = off.attributes[NUTRITION_INFO_ATTR] as
+        | NutritionInfo
+        | undefined;
+      if (
+        isPoorFoodTwin({
+          name: (off.attributes["food/name"] as string) ?? "",
+          nutrition: info,
+          completeness: off.completeness,
+        })
+      ) {
+        poorPayload = off;
+        captureCompleteness = off.completeness;
+        nudge = true;
+      }
     } catch (e: any) {
-      status = "error";
-      error =
-        e instanceof ProductNotFoundError
-          ? "Barcode not found. Add it as a custom entry."
-          : (e.message ?? String(e));
+      // Missing door (§1): a 404 opens the Custom form keyed to this barcode with
+      // reason copy, instead of the old dead-end "not found" message.
+      if (e instanceof ProductNotFoundError) {
+        openCaptureForm("missing");
+      } else {
+        status = "error";
+        error = e.message ?? String(e);
+      }
     }
   }
 
@@ -554,6 +710,16 @@
     method = m;
     error = "";
     status = "idle";
+    nudge = false;
+    // A manual tab tap is the always-on door: a fresh, unkeyed form. Drop any
+    // reason banner and the barcode a prior scan left, so this mints a new
+    // `food:custom_` twin rather than silently enriching the last code (§1/§6).
+    if (m === "custom") {
+      captureReason = null;
+      captureCompleteness = undefined;
+      captureOffPayload = null;
+      barcode = "";
+    }
   }
 
   let canPrimary = $derived(
@@ -620,6 +786,13 @@
         portions: portions.length ? portions : undefined,
         labelPhotos: photos.length ? photos : undefined,
         labelCapture,
+        // The key follows the barcode (§6): a code carried in by a door (or typed
+        // in the unreadable banner) enriches `gtin:<code>` in place; an empty one
+        // mints a fresh `food:custom_` twin. The host maps this to the save key.
+        barcode: barcode.trim() || undefined,
+        // The found-but-poor door's OFF record, so the host preserves its
+        // provenance beside the correction (§6/§7 dual-origin). Absent otherwise.
+        offPayload: captureOffPayload ?? undefined,
       });
     }
     if (method === "scan") return handleBarcodeLookup();
@@ -637,7 +810,45 @@
   <div class="stage">
     {#if staged}
       <div class="staged">
-        <h3>{staged.name}</h3>
+        <div class="staged-head">
+          <h3>{staged.name}</h3>
+          {#if stagedOrigin}
+            <!-- Origin badge (§7): user-entered vs OFF-sourced, at a glance. -->
+            <span class="origin-badge" data-testid="origin-badge">
+              ✏️ {stagedOrigin === "edited"
+                ? "edited from label"
+                : "your entry"}
+            </span>
+          {/if}
+        </div>
+        {#if nudge}
+          <!-- Found-but-poor nudge (§1): soft, dismissible, never blocks logging
+               the poor twin as-is — the Log button below stays live. -->
+          <div class="nudge" data-testid="poor-nudge" role="status">
+            <span class="nudge-text"
+              >This entry looks incomplete. Improve it from the label?</span
+            >
+            <div class="nudge-acts">
+              <button
+                type="button"
+                class="nudge-go"
+                data-testid="poor-nudge-improve"
+                onclick={() =>
+                  openCaptureForm(
+                    "poor",
+                    poorPayload ?? undefined,
+                    captureCompleteness
+                  )}>Improve</button
+              >
+              <button
+                type="button"
+                class="nudge-x"
+                aria-label="Dismiss"
+                onclick={() => (nudge = false)}>✕</button
+              >
+            </div>
+          </div>
+        {/if}
         <p class="per">
           Per 100g · {roundFoodDisplay(
             staged.calories,
@@ -708,6 +919,20 @@
           onclick={() => switchMethod("custom")}>Add a custom entry</button
         >.
       </p>
+      {#if scanStalled}
+        <!-- Unreadable door (§1): after a persistent no-decode stretch, elevate a
+             prominent "photograph the label" escape so a barcode that won't scan
+             still leads somewhere. Routes barcode-less to the Custom form; the
+             user can still add legible digits in the form's reason banner. -->
+        <button
+          type="button"
+          class="escape"
+          data-testid="unreadable-escape"
+          onclick={() => openCaptureForm("unreadable")}
+        >
+          📷 Can’t scan it? Photograph the label instead
+        </button>
+      {/if}
     {:else}
       <!-- Custom = the #52 "Read-along" full-panel form (ADR-0034 §2–§4). Name +
            brand in a sticky identity card, then every panel row grouped Macros ·
@@ -715,6 +940,26 @@
            top-to-bottom. Macros lead so the fast path stays name + calories →
            Save. -->
       <div class="cf">
+        {#if captureReason}
+          <!-- Reason banner (§1): each door explains why it landed here. The
+               unreadable door also offers an optional barcode field so a legible
+               code still keys `gtin:` (else the save mints a `food:custom_`). -->
+          <div class="cf-reason" data-testid="capture-reason">
+            <p>{CAPTURE_COPY[captureReason]}</p>
+            {#if captureReason === "unreadable"}
+              <label class="cf-reason-code">
+                <span>Barcode digits (optional)</span>
+                <input
+                  type="text"
+                  inputmode="numeric"
+                  placeholder="e.g. 8901222932167"
+                  aria-label="Barcode digits"
+                  bind:value={barcode}
+                />
+              </label>
+            {/if}
+          </div>
+        {/if}
         <div class="cf-idrow">
           {#if allowPhoto}
             <input
@@ -1020,9 +1265,70 @@
     display: flex;
     flex-direction: column;
   }
+  .staged-head {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--space-2xs);
+  }
   .staged h3 {
     font-size: var(--step-1);
     font-weight: 700;
+  }
+  /* Origin badge (§7) — a quiet advisory pill, never competing with the name. */
+  .origin-badge {
+    flex: 0 0 auto;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    background: var(--surface-2, #f4f4f5);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.1rem 0.5rem;
+    white-space: nowrap;
+  }
+  /* Found-but-poor nudge (§1) — soft amber, dismissible; never blocks the Log
+     button beneath it. */
+  .nudge {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-top: var(--space-2xs);
+    padding: var(--space-2xs) var(--space-xs);
+    background: rgba(255, 204, 0, 0.12);
+    border: 1px solid #f5b301;
+    border-radius: 10px;
+  }
+  .nudge-text {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.82rem;
+    color: var(--text-primary);
+  }
+  .nudge-acts {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3xs);
+  }
+  .nudge-go {
+    background: #000;
+    color: #fff;
+    border: 0;
+    border-radius: 8px;
+    padding: 0.35rem 0.7rem;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    min-height: 36px;
+  }
+  .nudge-x {
+    background: none;
+    border: 0;
+    color: var(--text-secondary);
+    font: inherit;
+    cursor: pointer;
+    padding: 0.2rem 0.4rem;
+    min-height: 36px;
   }
   .per {
     color: var(--text-secondary);
@@ -1086,8 +1392,63 @@
     box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.45);
   }
 
+  /* Unreadable-door escape (§1), elevated after ~10 s of no decode. */
+  .escape {
+    width: 100%;
+    margin-top: var(--space-s);
+    background: #000;
+    color: #fff;
+    border: 2px solid #000;
+    border-radius: 10px;
+    padding: var(--space-s);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    min-height: 52px;
+  }
+  .escape:active {
+    transform: scale(0.98);
+  }
+
   .hidden-file-input {
     display: none;
+  }
+
+  /* Door reason banner (§1) at the top of the Custom form. */
+  .cf-reason {
+    margin-bottom: var(--space-s);
+    padding: var(--space-xs);
+    background: rgba(255, 204, 0, 0.1);
+    border: 1px solid #f5b301;
+    border-radius: 10px;
+  }
+  .cf-reason p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+  }
+  .cf-reason-code {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3xs);
+    margin-top: var(--space-xs);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .cf-reason-code input {
+    font: inherit;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.5rem 0.6rem;
+    color: var(--text-primary);
+    text-transform: none;
+    letter-spacing: normal;
+    font-weight: 400;
+    min-height: 44px;
   }
 
   /* ── Custom = the #52 "Read-along" full-panel form (ADR-0034 §3) ─────────── */

@@ -150,6 +150,24 @@ describe("mapOffProductToPayload", () => {
     expect(attrs["food/assessment"]).toEqual({ nutri_score: "e" });
   });
 
+  it("surfaces OFF completeness as a read-through sibling, never a datom (ADR-0034 §1)", () => {
+    // A product-level completeness rides the returned payload so the found-but-
+    // poor predicate can read it — but it is NOT an attribute, so `ingestEntity`
+    // (which only flattens `attributes`) never turns it into a datom.
+    const product: OFFProduct = {
+      ...nutella,
+      product: { ...nutella.product, completeness: 0.38 },
+    };
+    const payload = mapOffProductToPayload(product);
+    expect(payload.completeness).toBe(0.38);
+    expect(payload.attributes).not.toHaveProperty("completeness");
+  });
+
+  it("leaves completeness undefined when the product omits it", () => {
+    // The base fixture carries no completeness field.
+    expect(mapOffProductToPayload(nutella).completeness).toBeUndefined();
+  });
+
   it("omits food/assessment, twin/brand, category and ingredients when absent", () => {
     const product: OFFProduct = {
       ...nutella,

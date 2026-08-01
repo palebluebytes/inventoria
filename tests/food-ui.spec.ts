@@ -969,6 +969,81 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     );
   });
 
+  test("routes a found-but-poor scan into the Custom form, saves a correction, and badges the enriched twin (#59)", async ({
+    page,
+  }) => {
+    const POOR_CODE = "8710411045003";
+    // Override the beforeEach OFF route for this barcode: a real found-but-poor
+    // record — a blank product name over a complete-enough panel — the exact gap
+    // the grounding investigation photographed. A blank name trips the predicate.
+    await page.route(`**/api/v3/product/${POOR_CODE}.json`, async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          code: POOR_CODE,
+          status: "success",
+          product: {
+            product_name: "",
+            completeness: 0.9,
+            nutriments: {
+              "energy-kcal_100g": 600,
+              proteins_100g: 25,
+              fat_100g: 50,
+              carbohydrates_100g: 12,
+            },
+          },
+        }),
+      });
+    });
+
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+
+    // Scan the poor barcode (typed, since headless has no camera).
+    await page.getByRole("button", { name: "Add breakfast" }).click();
+    await page.locator(".method", { hasText: "Scan" }).click();
+    await page.locator("#barcode-input").fill(POOR_CODE);
+    await page.locator("#barcode-input").press("Enter");
+
+    // The found-but-poor door raises the soft nudge on the staged card (§1). It
+    // never blocks logging — the Log button stays live — but here we accept it.
+    await expect(page.locator('[data-testid="poor-nudge"]')).toBeVisible();
+    await page.locator('[data-testid="poor-nudge-improve"]').click();
+
+    // Improve opens the Custom form, keyed to the barcode, prefilled with whatever
+    // OFF had: the blank name arrives empty to fix, the macros arrive filled.
+    await expect(page.locator('[data-testid="capture-reason"]')).toContainText(
+      "Open Food Facts"
+    );
+    await expect(page.locator("#custom-name")).toHaveValue("");
+    await expect(page.locator("#custom-cal")).toHaveValue("600");
+
+    // Fix the name and save. The key follows the barcode → the `gtin:` twin is
+    // enriched in place (§6), OFF's provenance preserved beside the correction.
+    await page.locator("#custom-name").fill("Crunchy Peanut Butter");
+    await page.locator("#log-food-btn").click();
+
+    const breakfast = page.locator(".meal-section", { hasText: "BREAKFAST" });
+    await expect(breakfast).toContainText("Crunchy Peanut Butter");
+    await expect(breakfast).toContainText("600 kcal");
+
+    // Re-scan the same barcode: the local corrected twin is returned (latest-wins,
+    // §6), so the corrected name surfaces — never the poor OFF name again — and
+    // the origin badge marks it as an OFF twin the user edited from the label (§7).
+    await page.getByRole("button", { name: "Add breakfast" }).click();
+    await page.locator(".method", { hasText: "Scan" }).click();
+    await page.locator("#barcode-input").fill(POOR_CODE);
+    await page.locator("#barcode-input").press("Enter");
+
+    await expect(page.locator(".staged h3")).toHaveText(
+      "Crunchy Peanut Butter"
+    );
+    await expect(page.locator('[data-testid="poor-nudge"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="origin-badge"]')).toHaveText(
+      "✏️ edited from label"
+    );
+  });
+
   // Select two logged foods and start building a recipe from them.
   async function selectTwoAndBuild(page: import("@playwright/test").Page) {
     await logUsdaFood(page, "dinner", "oats", "Mock Oats", "50"); // 379 * .5 = 189.5
