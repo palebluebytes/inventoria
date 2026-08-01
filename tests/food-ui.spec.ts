@@ -900,6 +900,75 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(lunchSection).toContainText("180 kcal");
   });
 
+  test("captures multiple label photos, reads across them, removes one, and mirrors the first (#58)", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+
+    await page.getByRole("button", { name: "Add lunch" }).click();
+    await page.locator(".method", { hasText: "Custom" }).click();
+
+    await page.locator("#custom-name").fill("Olive Oil");
+    await page.locator("#custom-cal").fill("823");
+
+    // A label can span several faces (panel on one, barcode on another) — attach
+    // three ordered shots in one pick; the input takes `multiple` (§5).
+    const front = Buffer.from("front-face-photo");
+    const middle = Buffer.from("middle-photo");
+    const back = Buffer.from("back-face-photo");
+    const frontUrl = `data:image/png;base64,${front.toString("base64")}`;
+    await page.setInputFiles(".hidden-file-input", [
+      { name: "front.png", mimeType: "image/png", buffer: front },
+      { name: "middle.png", mimeType: "image/png", buffer: middle },
+      { name: "back.png", mimeType: "image/png", buffer: back },
+    ]);
+
+    // The identity thumb shows the first with a "+N" badge (N = extras) (§5).
+    await expect(page.locator(".photo-preview")).toBeVisible();
+    await expect(page.locator('[data-testid="photo-count-badge"]')).toHaveText(
+      "+2"
+    );
+
+    // Tapping the thumb opens the swipeable full-screen reader across all three.
+    await page.locator(".cf-thumb").click();
+    const reader = page.locator('[data-testid="label-photo-reader"]');
+    await expect(reader).toBeVisible();
+    await expect(page.locator('[data-testid="lpr-counter"]')).toHaveText(
+      "1 / 3"
+    );
+
+    // Swipe forward with the nav control to the middle shot, then remove it —
+    // leaving [front, back] ordered (a bad shot doesn't persist) (§5).
+    await reader.getByRole("button", { name: "Next photo" }).click();
+    await expect(page.locator('[data-testid="lpr-counter"]')).toHaveText(
+      "2 / 3"
+    );
+    await page.locator('[data-testid="lpr-remove"]').click();
+    await expect(page.locator('[data-testid="lpr-counter"]')).toHaveText(
+      "2 / 2"
+    );
+    await reader.getByRole("button", { name: "Close photos" }).click();
+    await expect(reader).toBeHidden();
+
+    // Two remain, so the badge now reads "+1".
+    await expect(page.locator('[data-testid="photo-count-badge"]')).toHaveText(
+      "+1"
+    );
+
+    await page.locator("#log-food-btn").click();
+
+    // The food logs like any other, and the meal thumb — an existing display
+    // surface reading the singular `food/photo_base64` — shows the FIRST photo
+    // unchanged, proving the mirror + ordering survived the removal (§5).
+    const lunchSection = page.locator(".meal-section", { hasText: "LUNCH" });
+    await expect(lunchSection).toContainText("Olive Oil");
+    await expect(lunchSection.locator(".meal-item-thumb")).toHaveAttribute(
+      "src",
+      frontUrl
+    );
+  });
+
   // Select two logged foods and start building a recipe from them.
   async function selectTwoAndBuild(page: import("@playwright/test").Page) {
     await logUsdaFood(page, "dinner", "oats", "Mock Oats", "50"); // 379 * .5 = 189.5

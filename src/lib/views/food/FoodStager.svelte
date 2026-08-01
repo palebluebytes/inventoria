@@ -54,6 +54,7 @@
   import Alert from "../../ui/Alert.svelte";
   import Input from "../../ui/Input.svelte";
   import FoodResultsList from "./FoodResultsList.svelte";
+  import LabelPhotoReader from "./LabelPhotoReader.svelte";
   import MacroPills from "./MacroPills.svelte";
   import NutrientBreakdown from "./NutrientBreakdown.svelte";
   import QuantityGrams from "./QuantityGrams.svelte";
@@ -232,8 +233,15 @@
   // v1 guided-manual starts empty (nothing to review); the amber accent + chip
   // are built now so the deferred model swap needs no form change.
   let prefilled = $state<Set<string>>(new Set());
-  let photo_base64 = $state<string | null>(null);
+  // The ordered label photos (base64), first = display (ADR-0034 §5, #58). One
+  // food accepts N photos — a panel on one face, a barcode on another — appended
+  // via "+ Add photo" and read across in the swipeable reader; the singular
+  // `food/photo_base64` every existing surface reads is mirrored from `[0]` at
+  // save time (in saveLabelFood, #56), so the array is purely additive.
+  let labelPhotos = $state<string[]>([]);
   let fileInput = $state<HTMLInputElement | null>(null);
+  // Open the full-screen reader on this index; null = closed.
+  let readerIndex = $state<number | null>(null);
 
   // Initialise the form from an AIAutofillResult — the seam that serves BOTH
   // extraction modes (§4): v1 feeds it the empty guided-manual result (all rows
@@ -326,7 +334,8 @@
       method = "custom";
       customName = seed.name;
       if (seed.brand) customBrand = seed.brand;
-      photo_base64 = seed.photo_base64;
+      // Edit mode carries the singular frozen photo; seed it as the array's first.
+      labelPhotos = seed.photo_base64 ? [seed.photo_base64] : [];
       // Re-open the four macro rows from the edited per-serving entry (strings,
       // already in kcal/g — the CORE units — so they seed straight in). The
       // full-panel doors (#59) prefill the rest of the panel; edit mode carries
@@ -498,16 +507,46 @@
     }
   }
 
+  // Each pick APPENDS to the ordered array (a label can span several photos, §5)
+  // rather than replacing a single value. `capture=environment` yields one shot
+  // at a time; a gallery multi-select yields several, so read them all in order.
+  // The input value is cleared after so re-picking the same file still fires.
   function handleFileChange(e: Event) {
-    const file = (e.target as HTMLInputElement).files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => (photo_base64 = ev.target?.result as string);
-    reader.onerror = () => {
-      status = "error";
-      error = "Failed to read image file.";
-    };
-    reader.readAsDataURL(file);
+    const input = e.target as HTMLInputElement;
+    const files = Array.from(input.files ?? []);
+    input.value = "";
+    if (!files.length) return;
+    // `allSettled`, not `all`: one unreadable shot must not discard the ones that
+    // read fine — the ticket's Further Notes say surface a drop, never silently
+    // lose the good photos. Append every success in order; flag if any failed.
+    Promise.allSettled(files.map(readAsDataUrl)).then((outcomes) => {
+      const read = outcomes
+        .filter((o) => o.status === "fulfilled")
+        .map((o) => (o as PromiseFulfilledResult<string>).value);
+      if (read.length) labelPhotos = [...labelPhotos, ...read];
+      if (read.length < files.length) {
+        status = "error";
+        error =
+          read.length === 0
+            ? "Failed to read image file."
+            : `Added ${read.length} of ${files.length} photos; the rest could not be read.`;
+      }
+    });
+  }
+
+  function readAsDataUrl(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => resolve(ev.target?.result as string);
+      reader.onerror = () => reject(new Error("read failed"));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // Drop a staged photo before save (§5); collapse the reader if the set empties.
+  function removePhoto(i: number) {
+    labelPhotos = labelPhotos.filter((_, idx) => idx !== i);
+    if (labelPhotos.length === 0) readerIndex = null;
   }
 
   function switchMethod(m: string) {
@@ -551,7 +590,7 @@
         skipped,
       });
       const portions = buildCustomPortions();
-      const photos = allowPhoto && photo_base64 ? [photo_base64] : [];
+      const photos = allowPhoto ? labelPhotos : [];
       // Audit hint (§7): the coarse categories the user actually supplied.
       const fields = [
         ...(customName.trim() ? ["name"] : []),
@@ -573,7 +612,9 @@
         protein: nutrition.protein_content ?? 0,
         fat: nutrition.fat_content ?? 0,
         carbs: nutrition.carbohydrate_content ?? 0,
-        photo_base64: allowPhoto ? photo_base64 : null,
+        // Mirror the first photo into the singular field the legacy hosts read;
+        // the full ordered set rides `labelPhotos` (saveLabelFood mirrors [0], §5).
+        photo_base64: photos[0] ?? null,
         brand: customBrand.trim() || undefined,
         nutrition,
         portions: portions.length ? portions : undefined,
@@ -680,21 +721,27 @@
               type="file"
               accept="image/*"
               capture="environment"
+              multiple
               class="hidden-file-input"
               bind:this={fileInput}
               onchange={handleFileChange}
             />
-            {#if photo_base64}
+            {#if labelPhotos.length > 0}
+              <!-- First photo = display; tapping opens the swipeable reader. A
+                   "+N" badge (N = extras) surfaces the rest of the set (§5). -->
               <button
                 class="cf-thumb"
-                onclick={() => fileInput?.click()}
-                aria-label="Change the label photo"
+                onclick={() => (readerIndex = 0)}
+                aria-label={labelPhotos.length > 1
+                  ? `View ${labelPhotos.length} label photos`
+                  : "View the label photo"}
               >
-                <img
-                  src={photo_base64}
-                  alt="Custom food"
-                  class="photo-preview"
-                />
+                <img src={labelPhotos[0]} alt="Label" class="photo-preview" />
+                {#if labelPhotos.length > 1}
+                  <span class="cf-thumb-badge" data-testid="photo-count-badge"
+                    >+{labelPhotos.length - 1}</span
+                  >
+                {/if}
               </button>
             {:else}
               <button
@@ -928,6 +975,16 @@
   </div>
 </div>
 
+{#if readerIndex !== null && labelPhotos.length > 0}
+  <LabelPhotoReader
+    photos={labelPhotos}
+    startIndex={readerIndex}
+    onRemove={removePhoto}
+    onAdd={() => fileInput?.click()}
+    onClose={() => (readerIndex = null)}
+  />
+{/if}
+
 <style>
   .stager {
     display: flex;
@@ -1075,6 +1132,7 @@
   /* Fixed-width thumb; height stretches to the two stacked inputs (idrow is
      align-items: stretch), so the photo is as tall as name + brand together. */
   .cf-thumb {
+    position: relative;
     flex: 0 0 auto;
     width: 60px;
     padding: 0;
@@ -1083,6 +1141,21 @@
     cursor: pointer;
     border-radius: 10px;
     overflow: hidden;
+  }
+  /* "+N" extras badge on the display photo — N is the count beyond the first. */
+  .cf-thumb-badge {
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    min-width: 20px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #000;
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 800;
+    line-height: 18px;
+    text-align: center;
   }
   .cf-thumb-empty {
     display: flex;
