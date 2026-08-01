@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR 0034 · Inventoria</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+      <nav class="site-nav">
+        <p class="nav-title">Inventoria</p>
+        <a href="../index.html">Introduction</a>
+        <div class="nav-section">
+          <p class="nav-section-label">Reference</p>
+          <a href="../glossary.html">Glossary</a>
+          <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+        </div>
+        <div class="nav-section">
+          <p class="nav-section-label">Explanation</p>
+          <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+        </div>
+        <div class="nav-section">
+          <a href="index.html" class="active">Architectural Decision Records</a>
+        </div>
+      </nav>
+  <div class="content-area">
+    <main>
+<h1 id="adr-0034-capture-a-full-fidelity-food-twin-from-its-label-photo-barcode-optional-off-gap-filling">ADR 0034: Capture a full-fidelity food twin from its label photo (barcode-optional, OFF-gap-filling)</h1>
+<p><strong>Status:</strong> Accepted; not yet implemented (specced 2026-08-01, this ADR) <strong>Date:</strong> 2026-08-01</p>
+<h2 id="context">Context</h2>
+<p>Inventoria's food section reads product data from Open Food Facts by barcode: <code>FoodStager.svelte</code>'s Scan tab drives the native <code>BarcodeDetector</code>, and <code>lookupBarcode</code> (<code>src/lib/food/open-food-facts.ts</code>) resolves a barcode to a full <code>EntityPayload</code> — name, a complete <code>nutrition/info</code> panel (macros, the sat/fibre/sugar/salt fats, the twelve micronutrients of ADR-0030), portions, and <code>twin/raw_provenance</code>. When that lookup fails the only fallback is the <strong>Custom tab</strong>, whose <code>saveCustomFood</code> (<code>src/lib/stores/calorie.store.ts</code>) captures **name</p>
+<ul>
+<li>four macros + one optional photo** — no full panel, no micros, no portions. A food entered that way is a second-class twin, visibly poorer than an OFF-sourced one.</li>
+</ul>
+<p>A grounding investigation (three real products photographed, 2026-07-31, recorded on the <a href="https://github.com/inkpot-monkey/inventoria/issues/47">wayfinder map (#47)</a>) showed the gap is <strong>threefold</strong>, not just "product not in OFF":</p>
+<ul>
+<li>a peanut butter <strong>in OFF but with a blank name</strong> (completeness 0.78);</li>
+<li>an olive oil <strong>in OFF with a generic name</strong> ("Aceite", completeness 0.38), its label spanning two sides of one bottle;</li>
+<li>an Indian paste <strong>not in OFF at all</strong>, whose barcode also <strong>failed automated decode</strong> until preprocessing.</li>
+</ul>
+<p>⇒ OFF data can be <strong>missing</strong>, <strong>found-but-poor</strong>, or <strong>unreadable</strong>. This ADR decides the flow that fills all three: from one or more photos of a product's label the user creates a <strong>full-fidelity local food twin</strong> — name + a complete <code>nutrition/info</code> panel + portions — <strong>indistinguishable from an OFF-sourced twin</strong>; the app <strong>proactively detects</strong> the gap and guides the user into the flow; and the captured data can <strong>optionally be contributed back to Open Food Facts</strong>.</p>
+<p>Each design decision below was grilled and closed as a child ticket of the wayfinder map; this ADR is the terminal synthesis and, with its <code>ready-for-agent</code> tickets, the hand-off to implementation — a separate effort, as ADR-0030's and ADR-0031's were. The closed tickets it folds:</p>
+<ul>
+<li><a href="https://github.com/inkpot-monkey/inventoria/issues/48">#48 — define "poor or missing data" and when to trigger</a> (the trigger);</li>
+<li><a href="https://github.com/inkpot-monkey/inventoria/issues/49">#49 — multimodal-LLM cost &amp; accuracy research</a> → <code>docs/research/49-multimodal-llm-nutrition-extraction.md</code>;</li>
+<li><a href="https://github.com/inkpot-monkey/inventoria/issues/50">#50 — OFF write-API + auth research</a> → <code>docs/research/50-open-food-facts-write-api.md</code>;</li>
+<li><a href="https://github.com/inkpot-monkey/inventoria/issues/51">#51 — the extraction mechanism</a> (the guided-manual / AI-autofill deferral);</li>
+<li><a href="https://github.com/inkpot-monkey/inventoria/issues/52">#52 — the full-panel confirm/entry form</a> (Variant B "Read-along");</li>
+<li><a href="https://github.com/inkpot-monkey/inventoria/issues/53">#53 — the end-to-end flow, placement, identity &amp; provenance</a> → <code>docs/design/53-label-capture-flow.md</code>;</li>
+<li><a href="https://github.com/inkpot-monkey/inventoria/issues/54">#54 — the OFF contribution consent + submission UX</a>.</li>
+</ul>
+<p><strong>Scope.</strong> Structured label capture into a full local twin, plus an optional structured contribution back to OFF. Ruled <strong>out</strong> (map Out of scope): uploading the user's photos <em>to</em> OFF (v1 sends structured data only; the reverse — showing OFF's <em>own</em> photos in-app — is in); book-cover / non-food barcode scanning; and improving OFF text-search / USDA hydration.</p>
+<h2 id="decision">Decision</h2>
+<h3 id="1-the-trigger-one-flow-reached-four-ways-a-soft-nudge-48">1. The trigger: one flow reached four ways, a soft nudge (#48)</h3>
+<p>There is <strong>one</strong> capture surface (Decision 2), reached through <strong>four doors</strong>, and the app <strong>nudges rather than blocks</strong> — the user can always dismiss and keep the poor data.</p>
+<ul>
+<li><strong>Missing (404):</strong> <code>lookupBarcode</code> throws <code>ProductNotFoundError</code> → the existing "Add it as a custom entry" hand-off.</li>
+<li><strong>Found-but-poor:</strong> the staged OFF twin trips the poor-quality predicate → a soft nudge to improve it.</li>
+<li><strong>Unreadable:</strong> the scanner can't decode after a persistent attempt → a "photograph the label" escape, elevated after ~10 s.</li>
+<li><strong>Always-on manual:</strong> the Custom tab as reached today (a homemade food, no label) — no nudge.</li>
+</ul>
+<p><strong>The poor-quality predicate.</strong> A twin is <em>poor</em> when its <strong>name is blank or <code>"Unknown"</code></strong>, <strong>or</strong> any <strong>core macro is missing</strong> (calories / protein / fat / carbohydrate). A short <em>generic</em> name triggers only with a corroborator (a missing macro <strong>or</strong> OFF <code>completeness</code> below ~0.5). <strong>Sub-macros and micros never trigger</strong> — a label that omits vitamin B12 is not "poor". Consuming <code>completeness</code> requires <code>lookupBarcode</code> to <strong>surface it</strong> on the payload (today it is dropped in <code>mapOffProductToPayload</code>).</p>
+<p><strong>Guidance contract.</strong> Each door carries reason-specific copy and hands the flow the <strong>barcode</strong>, any <strong>partial OFF payload</strong>, the <strong><code>completeness</code></strong>, and any <strong>photo</strong> already taken, so the form arrives prefilled and correctly keyed (Decisions 5–6).</p>
+<h3 id="2-placement-the-custom-tab-becomes-the-full-panel-form-53-d1">2. Placement: the Custom tab <em>becomes</em> the full-panel form (#53 D1)</h3>
+<p>The Custom tab in <code>FoodStager.svelte</code> <strong>is upgraded in place</strong> into the #52 full-panel form — no new "Label" tab; the bar stays <code>🔍 Search · 📷 Scan · ✏️ Custom</code>. All four doors resolve here. The four-macro grid is subsumed: the form leads with <strong>Macros</strong> and keeps a sticky Save bar, so the fast path stays "type name + calories → Save" without scrolling past the micros. <strong>Photo is optional</strong> — always-on manual entry uses the form with no photo (the identity-card thumbnail is simply absent). Only the three barcode/label doors arrive with photos.</p>
+<p>Rationale: one custom-entry mental model, not two; the scan-404 "Add it" hand-off already targets Custom, so no re-routing; the fast path is preserved by the form's own layout.</p>
+<h3 id="3-the-full-panel-confirmentry-form-variant-b-read-along-52">3. The full-panel confirm/entry form: Variant B, "Read-along" (#52)</h3>
+<p>Mobile-first, one responsive <code>max-width: 34rem</code> column (three variants prototyped; B chosen, A/C dropped). Reference asset: the uncommitted prototype at <code>src/lib/views/food/_prototype-52/</code> (run <code>?demo=labelform</code>) + its <code>NOTES.md</code>.</p>
+<ul>
+<li><strong>Sticky identity-card header:</strong> label photo thumbnail on the left (tap → full-screen reader), Product name + Brand stacked beside it.</li>
+<li><strong>Basis toggle</strong> (<code>per 100 g | serving</code>) below the header, resolving to the panel's <code>serving_size</code> string (<code>100 g</code> / <code>N g</code> / <code>1 serving</code>).</li>
+<li><strong>Read-along body:</strong> a flat grouped list of every row — Macros · fats/fibre/sugar/salt · the twelve vitamins &amp; minerals · Portions — nothing hidden, transcribed top-to-bottom. Each section header has a one-tap <strong>"none on label"</strong> bulk-skip; each row has a <strong>∅ "not on label"</strong> toggle.</li>
+<li><strong>Grams stored, mg/µg typed</strong> via the real <code>parseNutrientEntry</code> ⇆ <code>nutrientDisplayValue</code> round-trip (the ADR-0031 idiom). <strong>Absent ≠ 0</strong> — an untouched or skipped row is <strong>omitted</strong> from the saved panel, never written as <code>0</code> (ADR-0030 / #28).</li>
+<li><strong>Thumb-zone sticky Save bar</strong> with running kcal.</li>
+</ul>
+<p><strong>One form serves both extraction modes</strong> (Decision 4): it consumes an <code>AIAutofillResult</code> (<code>src/lib/food/ai-autofill.ts</code>) — for guided-manual that result is empty (blank rows); for AI-confirm it is prefilled, with a restrained <strong>amber left-rule</strong> on prefilled rows that <strong>clears on edit</strong>, plus an "N to review" chip and a "Review &amp; save" CTA.</p>
+<h3 id="4-extraction-v1-is-guided-manual-ai-autofill-deferred-behind-a-committed-seam-51-grounded-in-49">4. Extraction: v1 is guided-manual, AI-autofill deferred behind a committed seam (#51, grounded in #49)</h3>
+<p><strong>v1 = guided-manual transcription</strong> — the photo shown beside the form, the human reads the label into the rows; <strong>no model call</strong>. AI-autofill is <strong>deferred, not dropped</strong>, behind the already-committed <code>AIAutofillResult</code> seam (<code>src/lib/food/ai-autofill.ts</code>, commit <code>72115d9</code>): a later body-swap of <code>autofillFromPackageImage</code> to a real multimodal-LLM call, consumed by the <em>same</em> confirm form (Decision 3). Guided-manual is exactly the <strong>empty-result</strong> case, so the form is built <strong>once</strong> for both.</p>
+<p>Grounding (#49): cost is a <strong>non-issue</strong> (~$0.006–0.02 per label), so the map's original cost caution is retired; the residual risk is <strong>value fidelity</strong> — structured output guarantees the panel's <em>shape</em>, never its <em>truth</em> — which is why the model output is a <strong>proposal the user confirms</strong>, never written un-reviewed. The default model would be <strong>Haiku 4.5</strong>, escalating to <strong>Sonnet 5</strong> for dense/multilingual labels. The AI-vs-real-labels prototype moves to that future effort.</p>
+<h3 id="5-capture-a-multi-photo-array-with-a-swipeable-reader-53-d2">5. Capture: a multi-photo array with a swipeable reader (#53 D2)</h3>
+<p>One food accepts <strong>N photos</strong> (the olive-oil label spanned two sides). Stored as an ordered array <strong><code>food/label_photos: string[]</code></strong> (base64), first = display. For display compatibility the flow <strong>also mirrors <code>label_photos[0]</code> into the existing singular <code>food/photo_base64</code></strong>, so every current display surface (staged card, consumption views, ingredient picker) is unchanged — the array is purely additive; <strong>absent <code>food/label_photos</code> ⇒ a photo-less manual entry</strong>.</p>
+<p>Presentation: the identity-card thumbnail shows the first photo with a <strong>"+N"</strong> badge; tapping opens a <strong>swipeable</strong> full-screen gallery. An <strong>"+ Add photo"</strong> affordance appends another shot (the same <code>&lt;input type=file accept=image/* capture=environment&gt;</code> idiom already in <code>FoodStager</code>); a photo can be removed before save. <strong>No pixel-stitching in v1</strong> — the human reads across images. The full set is what a future AI call (#49) sends and what the OFF contribution (Decision 8) could one day upload, so capturing all photos now is not speculative.</p>
+<h3 id="6-save-semantics-the-key-follows-the-barcode-53-d3a">6. Save semantics: the key follows the barcode (#53 D3a)</h3>
+<table>
+<thead>
+<tr>
+<th>Door</th>
+<th>Barcode?</th>
+<th>Entity</th>
+<th>Save action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Missing (404)</td>
+<td>known</td>
+<td><code>gtin:&lt;code&gt;</code></td>
+<td><strong>mint</strong> the twin there</td>
+</tr>
+<tr>
+<td>Found-but-poor</td>
+<td>known</td>
+<td><code>gtin:&lt;code&gt;</code></td>
+<td><strong>append</strong> corrected datoms (latest-wins supersedes)</td>
+</tr>
+<tr>
+<td>Unreadable → typed</td>
+<td>known</td>
+<td><code>gtin:&lt;code&gt;</code></td>
+<td>mint / append as above</td>
+</tr>
+<tr>
+<td>Unreadable → no number</td>
+<td>none</td>
+<td><code>food:custom_&lt;id&gt;</code></td>
+<td>mint</td>
+</tr>
+<tr>
+<td>Always-on manual</td>
+<td>none</td>
+<td><code>food:custom_&lt;id&gt;</code></td>
+<td>mint</td>
+</tr>
+</tbody>
+</table>
+<p><code>handleBarcodeLookup</code> already does a <strong>local-first</strong> lookup (<code>getLocalFoodTwin("gtin:"+code)</code> before OFF), so a twin saved at <code>gtin:&lt;code&gt;</code> is exactly what the next scan returns — a correction <strong>surfaces on re-scan</strong>, where a separate <code>food:custom_</code> would orphan it and let the poor OFF data resurface. <strong>Enrich-in-place is a plain append</strong> — the ledger is append-only, latest-wins per attribute; appending <code>food/name</code> + <code>nutrition/info</code> (+ brand, portions, photos, provenance) to an existing <code>gtin:</code> entity supersedes the poor OFF values on the next folded read, no delete, no migration. <code>saveCustomFood</code> already has the seam (<code>customEntityId</code>): pass <code>gtin:&lt;code&gt;</code> to enrich, omit to mint <code>food:custom_</code>. This matches OFF's own barcode identity and #50's <strong>upsert-by-barcode</strong> write, so a <code>gtin:</code> twin is a clean 1:1 map to what Decision 8 contributes; a barcode-less <code>food:custom_</code> twin is <strong>correctly not contributable</strong>.</p>
+<p>A <strong>new <code>saveLabelFood</code></strong> writer widens the too-narrow <code>saveCustomFood</code> for the full panel:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode ts"><code class="sourceCode typescript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">saveLabelFood</span>({</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  name<span class="op">,</span> brand<span class="op">?,</span> nutrition<span class="op">:</span> NutritionInfo<span class="op">,</span> portions<span class="op">?:</span> Portion[]<span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  labelPhotos<span class="op">:</span> <span class="dt">string</span>[]<span class="op">,</span> labelCapture<span class="op">:</span> LabelCapture<span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  entityId<span class="op">?:</span> <span class="dt">string</span><span class="op">,</span>          <span class="co">// gtin:&lt;code&gt; to enrich | undefined to mint food:custom_</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>})<span class="op">:</span> <span class="bu">Promise</span><span class="op">&lt;</span><span class="dt">string</span><span class="op">&gt;</span></span></code></pre></div>
+<h3 id="7-provenance-a-distinct-foodlabel_capture-attribute--origin-badge-53-d3b">7. Provenance: a distinct <code>food/label_capture</code> attribute + origin badge (#53 D3b)</h3>
+<p>Enrich-in-place means a found-but-poor <code>gtin:</code> twin holds <strong>both</strong> OFF-sourced and user-entered data. The origin of each must stay legible <strong>without clobbering</strong> OFF's <code>twin/raw_provenance</code> — a second <code>twin/raw_provenance</code> datom would latest-wins-supersede the OFF blob. So user origin is recorded under a <strong>new sibling attribute</strong>:</p>
+<pre class="jsonc"><code>&quot;food/label_capture&quot;: {
+  &quot;adapter&quot;: &quot;label&quot;,
+  &quot;adapter_version&quot;: 1,
+  &quot;method&quot;: &quot;manual&quot;,          // &quot;manual&quot; (v1) | &quot;ai-confirmed&quot; (deferred #49/#51)
+  &quot;basis&quot;: &quot;100 g&quot;,            // the #52 basis toggle → serving_size string
+  &quot;fields&quot;: [&quot;name&quot;, &quot;nutriments&quot;, &quot;portions&quot;]  // what the user supplied/edited
+}</code></pre>
+<p>It follows the <code>RawProvenance</code> spirit (<code>src/lib/food/provenance.ts</code>: pure, deterministic, no clock — the Datom's <code>time</code> is the capture basis) but is a sibling, so OFF's provenance survives beside it and the twin's dual origin is auditable. Photos are <strong>referenced, not duplicated</strong> — they live once in <code>food/label_photos[]</code>. The <strong>presence</strong> of <code>food/label_capture</code> drives an advisory badge: <strong>"✏️ edited from label"</strong> on a <code>gtin:</code> twin that also has OFF provenance, <strong>"✏️ your entry"</strong> on a <code>food:custom_</code> twin with none. The badge does not change logging.</p>
+<h3 id="8-off-contribution-direct-browser-post-no-backend-54-grounded-in-50">8. OFF contribution: direct browser POST, no backend (#54, grounded in #50)</h3>
+<p>Contribution is <strong>offered only</strong> for a <code>gtin:</code> twin <strong>and</strong> a logged-in OFF user (a barcode-less <code>food:custom_</code> has nothing to upsert under).</p>
+<ul>
+<li><strong>Transport.</strong> A <strong>direct browser POST</strong> to the legacy <code>POST /cgi/product_jqm2.pl</code> (urlencoded, upsert-by-barcode). A live CORS spike (#54) confirmed OFF returns <code>Access-Control-Allow-Origin: *</code> and preflight-allows <code>POST</code> on <strong>staging and prod</strong> — so the write lands <strong>and</strong> the response is readable, <strong>no backend required</strong>. The v3 JSON PATCH API is <strong>not</strong> used: it still can't carry nutriments (re-verified against its write schema, #50). Kept behind a <strong>swappable <code>submitToOpenFoodFacts</code> seam</strong> (<code>open-food-facts.ts</code>, currently a stub).</li>
+<li><strong>Auth.</strong> The <strong>user's own</strong> OFF <code>user_id</code> + <code>password</code> sent as <strong>body params</strong> (cookie auth is impossible under <code>ACAO:*</code>; anonymous writes 403). No anonymous write, no shippable app secret is viable in a static SPA (#50).</li>
+<li><strong>Secrets leave the ledger.</strong> New principle: <strong>secrets never live in the append-only EAVT ledger</strong> (it is undeletable and syncs). OFF creds <strong>and</strong> the existing <code>settings/usda_api_key</code> / <code>settings/tmdb_api_key</code> move to <strong><code>localStorage</code></strong> via masked Settings fields. <strong>No migration</strong> — pre-release, no existing users; the old datoms are simply abandoned.</li>
+<li><strong>Consent — model C.</strong> A Settings <strong>master toggle, default-off</strong>, <em>seeds</em> an <strong>always-shown-before-submit per-capture checkbox</strong>. Submission is opt-in every time.</li>
+<li><strong>Payload.</strong> <strong>Structured data only</strong> — name / brand / serving / the full <code>nutriment_*</code> panel; <strong>replace</strong> name + nutriments, <strong><code>add_</code></strong> tags; <strong>no photo upload in v1</strong> (deferred to lived experience).</li>
+<li><strong>Read feature.</strong> Surface OFF's <strong>own</strong> front + nutrition photos (already in <code>twin/raw_provenance</code>) inline in the found-but-poor review, to compare against the user's capture.</li>
+<li><strong>Feedback &amp; environment.</strong> Readable success / auth / data-quality / network outcomes (defensive parse — 403s come back as HTML). Server target is env-driven (<code>VITE_OFF_WRITE_HOST</code>: staging <code>world.openfoodfacts.net</code> in dev, prod in build). <strong>Online-only</strong>, with a persistent "Contribute to OFF" affordance on the twin for manual retry.</li>
+</ul>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li><strong><code>lookupBarcode</code> / <code>mapOffProductToPayload</code> must surface <code>completeness</code></strong> on the payload — the poor-quality predicate (Decision 1) consumes it.</li>
+<li><strong><code>FoodChoice</code> and <code>StagerSeed</code> (custom cases) widen</strong> from <code>{name, calories, protein, fat, carbs, photo_base64}</code> to seed the full panel + barcode + partial-payload + <code>completeness</code>, so the four doors prefill the form (<code>src/lib/food/food-staging.ts</code>).</li>
+<li><strong>A new <code>saveLabelFood</code> writer</strong> joins <code>saveCustomFood</code>; the too-narrow <code>saveCustomFood</code> stays for the plain fast path or is folded in as the writer's no-panel case (implementer's call).</li>
+<li><strong>New / changed food-twin attributes</strong> to register in <code>docs/eavt-vocabulary.html</code>: <code>food/label_photos</code> (<code>string[]</code>), <code>food/label_capture</code> (object), and the reuse of <code>nutrition/info</code>, <code>twin/brand</code>, <code>food/portions</code> on a <code>gtin:</code> twin now written by the user.</li>
+<li><strong>The Custom tab is no longer the four-macro grid</strong> — it is the full-panel form; the fast path survives via Macros-first + sticky Save.</li>
+<li><strong>Secrets move out of the EAVT ledger into <code>localStorage</code></strong> — a small settings refactor touching the existing USDA/TMDB keys too, not just the new OFF creds.</li>
+<li><strong>The <code>submitToOpenFoodFacts</code> stub becomes a real direct POST</strong>; a new <code>VITE_OFF_WRITE_HOST</code> env var selects staging vs prod.</li>
+<li><strong>AI-autofill stays deferred</strong> behind the <code>AIAutofillResult</code> seam — the form is built for both modes now, the model call arrives in a separate future effort.</li>
+</ul>
+<h2 id="alternatives-considered">Alternatives considered</h2>
+<ul>
+<li><strong>A fourth "Label" tab</strong> instead of upgrading Custom in place. Rejected (#53): two custom-entry mental models where one suffices, and the scan-404 hand-off already routes to Custom.</li>
+<li><strong>Keying captured twins at <code>food:custom_</code> even when a barcode exists.</strong> Rejected (#53): it orphans the correction from the local-first <code>gtin:</code> lookup, so the poor OFF data resurfaces on the next scan and the twin can't be contributed.</li>
+<li><strong>Overwriting <code>twin/raw_provenance</code> to mark user edits.</strong> Rejected (#53): latest-wins would erase OFF's raw response; a sibling <code>food/label_capture</code> attribute keeps both origins auditable.</li>
+<li><strong>AI-autofill in v1.</strong> Deferred (#51): the extraction <em>mechanism</em> is decoupled behind the <code>AIAutofillResult</code> seam so the whole flow ships on guided-manual now; value-fidelity (not cost, #49) is the open risk, handled by confirm-before-save when the model arrives.</li>
+<li><strong>The OFF v3 JSON write API.</strong> Rejected (#50/#54): it does not yet carry nutriments; the legacy <code>product_jqm2.pl</code> upsert does.</li>
+<li><strong>A backend proxy for the OFF write.</strong> Rejected (#54): the live CORS spike proved a direct browser POST both lands and is readable, so a backend is unnecessary in a static SPA.</li>
+<li><strong>Keeping secrets in the EAVT ledger</strong> (as USDA/TMDB keys are today). Rejected (#54): the ledger is append-only, undeletable, and syncs — the wrong home for a password; <code>localStorage</code> is the new rule.</li>
+<li><strong>Anonymous / app-secret OFF writes.</strong> Rejected (#50): OFF has no anonymous write, and no app secret is safely shippable in a static SPA — contribution gates on the user's own OFF login.</li>
+<li><strong>Uploading the user's label photos to OFF in v1.</strong> Out of scope (#54): structured data only; photo upload is deferred to lived experience.</li>
+</ul>
+    </main>
+  </div>
+</div>
+</body>
+</html>
