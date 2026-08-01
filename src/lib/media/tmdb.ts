@@ -1,15 +1,14 @@
-import { get } from "svelte/store";
 import type { EntityPayload } from "../ingestion/ingest";
 import {
   ingestionRegistry,
   type IngestionAdapter,
 } from "../ingestion/registry";
-import { settingsStore } from "../stores/settings.store";
+import { getSecret } from "../stores/secrets";
 
-// Read the current key on demand (default param, evaluated per call) instead of
-// holding a module-level store subscription that is never cleaned up.
+// Read the current key on demand (evaluated per call) from the localStorage-
+// backed secrets accessor (ADR-0034 §8), rather than the EAVT ledger.
 function activeTmdbKey(): string {
-  return get(settingsStore).tmdb_api_key;
+  return getSecret("tmdb_api_key");
 }
 
 export interface TmdbMovie {

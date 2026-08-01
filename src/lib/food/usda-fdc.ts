@@ -1,6 +1,5 @@
-import { get } from "svelte/store";
 import type { EntityPayload } from "../ingestion/ingest";
-import { settingsStore } from "../stores/settings.store";
+import { getSecret } from "../stores/secrets";
 import {
   PER_100G,
   FOOD_PORTIONS_ATTR,
@@ -25,10 +24,10 @@ import { buildRawProvenance } from "./provenance";
 const ADAPTER_VERSION = "7";
 const FDC_FOOD_BASE = "https://api.nal.usda.gov/fdc/v1/food";
 
-// Read the current key on demand (default param, evaluated per call) instead of
-// holding a module-level store subscription that is never cleaned up.
+// Read the current key on demand (evaluated per call) from the localStorage-
+// backed secrets accessor (ADR-0034 §8), rather than the EAVT ledger.
 function activeUsdaKey(): string {
-  return get(settingsStore).usda_api_key;
+  return getSecret("usda_api_key");
 }
 
 // ---------------------------------------------------------------------------

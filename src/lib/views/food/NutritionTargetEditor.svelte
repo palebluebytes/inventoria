@@ -234,15 +234,14 @@
     await persistNutritionDisplay();
   }
 
-  // Persist the visibility/round datoms, carrying the current API credentials
-  // through untouched (an unsaved edit in the credentials form is never
-  // clobbered) — the target overrides ride their own writer, so they're
-  // untouched here too.
+  // Persist the visibility/round datoms, carrying the current scraper proxy URL
+  // through untouched (an unsaved edit in the settings form is never clobbered)
+  // — the target overrides ride their own writer, so they're untouched here too.
+  // Secrets live in localStorage now (ADR-0034 §8), so they're not part of this
+  // ledger write at all.
   async function persistNutritionDisplay() {
     try {
       await saveSettings({
-        usda_api_key: $settingsStore.usda_api_key,
-        tmdb_api_key: $settingsStore.tmdb_api_key,
         scraper_proxy_url: $settingsStore.scraper_proxy_url,
         visible_nutrients,
         round_nutrition,

@@ -16,12 +16,13 @@ import type {
 // Settings values are opaque strings. They're stored JSON-encoded (db.core
 // wraps every value in JSON.stringify), so read them back through the shared
 // parser to strip the encoding — treating them as string attributes so a
-// numeric-looking key can't coerce to a number.
-const SETTINGS_STRING_ATTRS = [
-  "settings/usda_api_key",
-  "settings/tmdb_api_key",
-  "settings/scraper_proxy_url",
-];
+// numeric-looking value can't coerce to a number.
+//
+// Secrets are no longer here: `settings/usda_api_key` / `settings/tmdb_api_key`
+// moved to `localStorage` (ADR-0034 §8, see stores/secrets.ts) — a secret must
+// not live in the append-only, synced ledger. No migration (pre-release); the
+// old datoms are simply never read again.
+const SETTINGS_STRING_ATTRS = ["settings/scraper_proxy_url"];
 
 // Reactive raw query store for settings datoms
 export const settingsDatomsStore = createQueryStore<{
@@ -50,8 +51,6 @@ export interface FoodProfile {
 }
 
 export interface SettingsState {
-  usda_api_key: string;
-  tmdb_api_key: string;
   scraper_proxy_url: string;
   /**
    * The nutrients the dashboard summary + staged-food pills show (ticket #29),
@@ -222,8 +221,6 @@ function parseFoodProfile(rawValue: string): FoodProfile | null {
 // Derived store to collapse datoms to latest values and inject fallbacks
 export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
   const settings: SettingsState = {
-    usda_api_key: (import.meta.env?.VITE_USDA_FDC_API_KEY as string) ?? "",
-    tmdb_api_key: (import.meta.env?.VITE_TMDB_API_KEY as string) ?? "",
     scraper_proxy_url:
       (import.meta.env?.VITE_SCRAPER_PROXY_URL as string) ?? "",
     // Unset → the Protein/Fat/Carbs/Fibre default (ticket #29).
@@ -270,26 +267,23 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
       settings.food_profile = parseFoodProfile(d.value);
       continue;
     }
-    const value = String(
-      parseDatomValue(d.attribute, d.value, SETTINGS_STRING_ATTRS)
-    );
-    if (d.attribute === "settings/usda_api_key") {
-      settings.usda_api_key = value;
-    } else if (d.attribute === "settings/tmdb_api_key") {
-      settings.tmdb_api_key = value;
-    } else if (d.attribute === "settings/scraper_proxy_url") {
-      settings.scraper_proxy_url = value;
+    if (d.attribute === "settings/scraper_proxy_url") {
+      settings.scraper_proxy_url = String(
+        parseDatomValue(d.attribute, d.value, SETTINGS_STRING_ATTRS)
+      );
     }
   }
 
   return settings;
 });
 
-// Helper to update settings in the ledger. Writes the API credentials and the
-// two Nutrition Display datoms; the food-targets and food-limits overrides are
-// separate datoms written independently via saveFoodTargets / saveFoodLimits
-// (ADR-0031 §2/§3, ADR-0032 §2), so toggling visibility or rounding never
-// touches a user's targets or limits and vice versa.
+// Helper to update non-secret settings in the ledger. Writes the scraper proxy
+// URL and the two Nutrition Display datoms; the food-targets and food-limits
+// overrides are separate datoms written independently via saveFoodTargets /
+// saveFoodLimits (ADR-0031 §2/§3, ADR-0032 §2), so toggling visibility or
+// rounding never touches a user's targets or limits and vice versa. Secrets
+// (USDA/TMDB keys, OFF creds) do NOT pass through here — they go to localStorage
+// via stores/secrets.ts (ADR-0034 §8).
 export async function saveSettings(
   state: Omit<SettingsState, "food_targets" | "food_limits" | "food_profile">
 ): Promise<void> {
@@ -298,8 +292,6 @@ export async function saveSettings(
     {
       entity: "settings:global",
       attributes: {
-        "settings/usda_api_key": state.usda_api_key,
-        "settings/tmdb_api_key": state.tmdb_api_key,
         "settings/scraper_proxy_url": state.scraper_proxy_url,
         // A list value — stored JSON-encoded like every datom, read back as an
         // array. Default when a caller omits it (e.g. a pre-#29 save).

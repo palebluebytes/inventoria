@@ -33,17 +33,26 @@ beforeEach(() => {
 });
 
 describe("settingsStore (latest-datom-wins collapse)", () => {
-  it("exposes the three settings keys as strings when empty", () => {
+  it("exposes the non-secret scraper proxy key as a string when empty", () => {
     const s = get(settingsStore);
-    expect(typeof s.usda_api_key).toBe("string");
-    expect(typeof s.tmdb_api_key).toBe("string");
     expect(typeof s.scraper_proxy_url).toBe("string");
+  });
+
+  it("no longer exposes the moved secret keys (they live in localStorage now)", () => {
+    // Secrets left the ledger for localStorage (ADR-0034 §8); the settings store
+    // must not carry usda/tmdb keys on its shape at all.
+    const s = get(settingsStore) as unknown as Record<string, unknown>;
+    expect("usda_api_key" in s).toBe(false);
+    expect("tmdb_api_key" in s).toBe(false);
   });
 
   it("collapses datoms to the latest value per attribute", () => {
     datomsWritable.set([
-      { attribute: "settings/usda_api_key", value: "old", time: 1 },
-      { attribute: "settings/usda_api_key", value: "new", time: 2 },
+      {
+        attribute: "settings/scraper_proxy_url",
+        value: "https://old/?url=",
+        time: 1,
+      },
       {
         attribute: "settings/scraper_proxy_url",
         value: "https://p/?url=",
@@ -51,20 +60,14 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
       },
     ]);
     const s = get(settingsStore);
-    expect(s.usda_api_key).toBe("new");
     expect(s.scraper_proxy_url).toBe("https://p/?url=");
   });
 
   it("strips the JSON encoding the ledger stores values with", () => {
     // db.core persists every value as JSON.stringify(value), so the raw column
-    // holds a quote-wrapped string. The store must decode it, or the key gets
-    // sent to USDA/TMDB as `"key"` (with quotes) and the request 403s.
+    // holds a quote-wrapped string. The store must decode it, or the proxy URL
+    // is read back with literal quotes.
     datomsWritable.set([
-      {
-        attribute: "settings/usda_api_key",
-        value: JSON.stringify("c5VBKl3eEuiPmtgaJfpcDS60QMBZ7t7gGDNspXt2"),
-        time: 1,
-      },
       {
         attribute: "settings/scraper_proxy_url",
         value: JSON.stringify("/api/proxy?url="),
@@ -72,20 +75,28 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
       },
     ]);
     const s = get(settingsStore);
-    expect(s.usda_api_key).toBe("c5VBKl3eEuiPmtgaJfpcDS60QMBZ7t7gGDNspXt2");
     expect(s.scraper_proxy_url).toBe("/api/proxy?url=");
   });
 
-  it("keeps an all-digit key as a string rather than coercing to a number", () => {
+  it("ignores an abandoned secret datom, never surfacing it on the state", () => {
+    // Pre-release, the old usda/tmdb datoms can still sit in the ledger (an
+    // append-only log can't delete them). The collapse must simply never read
+    // them again — they don't reappear as a stray property.
     datomsWritable.set([
       {
-        attribute: "settings/tmdb_api_key",
-        value: JSON.stringify("0123456789"),
+        attribute: "settings/usda_api_key",
+        value: JSON.stringify("abandoned-key"),
         time: 1,
       },
+      {
+        attribute: "settings/tmdb_api_key",
+        value: JSON.stringify("abandoned-key"),
+        time: 2,
+      },
     ]);
-    const s = get(settingsStore);
-    expect(s.tmdb_api_key).toBe("0123456789");
+    const s = get(settingsStore) as unknown as Record<string, unknown>;
+    expect(s.usda_api_key).toBeUndefined();
+    expect(s.tmdb_api_key).toBeUndefined();
   });
 
   it("defaults visible_nutrients to Protein/Fat/Carbs/Fibre when unset", () => {
@@ -294,13 +305,21 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
 
   it("reflects reactive updates to the underlying datoms", () => {
     datomsWritable.set([
-      { attribute: "settings/tmdb_api_key", value: "k1", time: 1 },
+      {
+        attribute: "settings/scraper_proxy_url",
+        value: "https://k1/?url=",
+        time: 1,
+      },
     ]);
-    expect(get(settingsStore).tmdb_api_key).toBe("k1");
+    expect(get(settingsStore).scraper_proxy_url).toBe("https://k1/?url=");
     datomsWritable.set([
-      { attribute: "settings/tmdb_api_key", value: "k2", time: 2 },
+      {
+        attribute: "settings/scraper_proxy_url",
+        value: "https://k2/?url=",
+        time: 2,
+      },
     ]);
-    expect(get(settingsStore).tmdb_api_key).toBe("k2");
+    expect(get(settingsStore).scraper_proxy_url).toBe("https://k2/?url=");
   });
 });
 
@@ -322,10 +341,8 @@ describe("nutritionDisplayDecimals (derived display precision)", () => {
 });
 
 describe("saveSettings", () => {
-  it("appends one datom per settings attribute to settings:global", async () => {
+  it("appends one datom per non-secret settings attribute to settings:global", async () => {
     await saveSettings({
-      usda_api_key: "U",
-      tmdb_api_key: "T",
       scraper_proxy_url: "P",
       visible_nutrients: ["protein", "fat", "carbs", "fiber_content"],
       round_nutrition: false,
@@ -336,15 +353,25 @@ describe("saveSettings", () => {
     const byAttr = Object.fromEntries(
       datoms.map((d) => [d.attribute, d.value])
     );
-    expect(byAttr["settings/usda_api_key"]).toBe("U");
-    expect(byAttr["settings/tmdb_api_key"]).toBe("T");
     expect(byAttr["settings/scraper_proxy_url"]).toBe("P");
+  });
+
+  it("never appends a secret datom (secrets live in localStorage now)", async () => {
+    // ADR-0034 §8: no secret ever enters the append-only ledger. saveSettings is
+    // the ledger writer, so it must not emit the moved usda/tmdb key attributes.
+    await saveSettings({
+      scraper_proxy_url: "P",
+      visible_nutrients: ["protein"],
+      round_nutrition: false,
+    });
+    const datoms = appendMock.mock.calls[0][0] as any[];
+    const attrs = datoms.map((d) => d.attribute);
+    expect(attrs).not.toContain("settings/usda_api_key");
+    expect(attrs).not.toContain("settings/tmdb_api_key");
   });
 
   it("persists the chosen nutrient list as an array datom", async () => {
     await saveSettings({
-      usda_api_key: "U",
-      tmdb_api_key: "T",
       scraper_proxy_url: "P",
       visible_nutrients: ["protein", "calcium"],
       round_nutrition: false,
@@ -363,8 +390,6 @@ describe("saveSettings", () => {
 
   it("persists the round_nutrition boolean", async () => {
     await saveSettings({
-      usda_api_key: "U",
-      tmdb_api_key: "T",
       scraper_proxy_url: "P",
       visible_nutrients: ["protein"],
       round_nutrition: true,
@@ -378,10 +403,8 @@ describe("saveSettings", () => {
 
   it("does not write the food/targets datom (targets ride their own writer)", async () => {
     // Toggling visibility/rounding must never touch a user's targets (ADR-0031
-    // §2): saveSettings writes only the credentials + the two display datoms.
+    // §2): saveSettings writes only the proxy URL + the two display datoms.
     await saveSettings({
-      usda_api_key: "U",
-      tmdb_api_key: "T",
       scraper_proxy_url: "P",
       visible_nutrients: ["protein"],
       round_nutrition: false,

@@ -5,8 +5,6 @@ const { mockSettings } = vi.hoisted(() => {
   const { writable } = require("svelte/store");
   return {
     mockSettings: writable({
-      usda_api_key: "",
-      tmdb_api_key: "",
       scraper_proxy_url: "",
     }),
   };
@@ -82,8 +80,6 @@ describe("fetchHtml Proxy Error handling", () => {
     vi.restoreAllMocks();
     // Default to a configured proxy url for fetchHtml success/error path testing
     mockSettings.set({
-      usda_api_key: "test-usda-key",
-      tmdb_api_key: "test-tmdb-key",
       scraper_proxy_url: "https://my-proxy.com/?url=",
     });
   });
@@ -91,8 +87,6 @@ describe("fetchHtml Proxy Error handling", () => {
   it("throws configuration error if proxy is empty in browser", async () => {
     // Set proxy URL to empty
     mockSettings.set({
-      usda_api_key: "test-usda-key",
-      tmdb_api_key: "test-tmdb-key",
       scraper_proxy_url: "",
     });
 
@@ -155,8 +149,6 @@ describe("getProxyImageUrl utility", () => {
 
   it("prefixes cross-origin URLs with the scraper proxy URL if configured", () => {
     mockSettings.set({
-      usda_api_key: "test-usda-key",
-      tmdb_api_key: "test-tmdb-key",
       scraper_proxy_url: "https://my-custom-proxy.com/?u=",
     });
 
@@ -167,8 +159,6 @@ describe("getProxyImageUrl utility", () => {
 
   it("returns raw cross-origin URLs as-is if no proxy is configured", () => {
     mockSettings.set({
-      usda_api_key: "test-usda-key",
-      tmdb_api_key: "test-tmdb-key",
       scraper_proxy_url: "",
     });
 

@@ -10,18 +10,14 @@ import {
   searchOpenLibrary,
 } from "../../src/lib/media/open-library";
 import { ingestionRegistry } from "../../src/lib/ingestion/registry";
-import { settingsStore } from "../../src/lib/stores/settings.store";
 import { logWatchEvent, logReadEvent } from "../../src/lib/media/engagement";
 import { computeMediaLibraryState } from "../../src/lib/media/state";
 import { asStored } from "./support/stored";
 
-vi.mock("../../src/lib/stores/settings.store", () => ({
-  settingsStore: {
-    subscribe: (cb: any) => {
-      cb({ tmdb_api_key: "test-key" });
-      return () => {};
-    },
-  },
+// tmdb.ts reads its key through the localStorage-backed secrets accessor now
+// (ADR-0034 §8), not the settings store — stub it so searches get a live key.
+vi.mock("../../src/lib/stores/secrets", () => ({
+  getSecret: (key: string) => (key === "tmdb_api_key" ? "test-key" : ""),
 }));
 
 describe("mapTmdbMovieToPayload", () => {

@@ -3,7 +3,7 @@
   import { searchTmdbMovies, searchTmdbTv } from "../../media/tmdb";
   import { ingestionRegistry } from "../../ingestion/registry";
   import { saveMediaTwin } from "../../stores/media.store";
-  import { settingsStore } from "../../stores/settings.store";
+  import { secretsStore } from "../../stores/secrets";
   import Button from "../../ui/Button.svelte";
   import Alert from "../../ui/Alert.svelte";
   import Modal from "../../ui/Modal.svelte";
@@ -122,7 +122,7 @@
         <button class="close-btn" onclick={close}>&times;</button>
       </div>
 
-      {#if initialType !== "book" && !$settingsStore.tmdb_api_key}
+      {#if initialType !== "book" && !$secretsStore.tmdb_api_key}
         <div class="mt-4">
           <Alert variant="warning">
             TMDB API key is not configured. Please set your key in Settings to
@@ -135,7 +135,7 @@
         class="search-form mt-4"
         onsubmit={(e) => {
           e.preventDefault();
-          if (initialType === "book" || $settingsStore.tmdb_api_key) {
+          if (initialType === "book" || $secretsStore.tmdb_api_key) {
             handleSearch();
           }
         }}
@@ -146,12 +146,12 @@
           placeholder="Search title, author or keywords..."
           bind:value={searchQuery}
           class="retro-input flex-1"
-          disabled={initialType !== "book" && !$settingsStore.tmdb_api_key}
+          disabled={initialType !== "book" && !$secretsStore.tmdb_api_key}
         />
         <Button
           type="submit"
           loading={isSearching}
-          disabled={initialType !== "book" && !$settingsStore.tmdb_api_key}
+          disabled={initialType !== "book" && !$secretsStore.tmdb_api_key}
           >Search</Button
         >
       </form>

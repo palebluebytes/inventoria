@@ -16,6 +16,7 @@
     settingsStore,
     nutritionDisplayDecimals,
   } from "../../stores/settings.store";
+  import { secretsStore } from "../../stores/secrets";
   import {
     roundFoodDisplay,
     scaleNutrition,
@@ -442,7 +443,7 @@
     skipped = new Set(skipped);
   }
 
-  let hasKey = $derived(!!$settingsStore.usda_api_key);
+  let hasKey = $derived(!!$secretsStore.usda_api_key);
 
   // One-time seed for edit mode. The food case can resolve asynchronously (after
   // the host fetches the twin), so this applies whenever `seed` first arrives.

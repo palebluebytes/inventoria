@@ -512,8 +512,11 @@
                 <td><code>settings/</code></td>
                 <td>Application settings</td>
                 <td>
-                  <code>scraper_proxy_url</code>, <code>tmdb_api_key</code>,
-                  <code>usda_api_key</code>,
+                  <code>scraper_proxy_url</code>,
+                  <code>tmdb_api_key</code> (retired &mdash; moved to
+                  <code>localStorage</code>, no longer read; ADR-0034 §8),
+                  <code>usda_api_key</code> (retired &mdash; moved to
+                  <code>localStorage</code>, no longer read; ADR-0034 §8),
                   <code>food/visible_nutrients</code> (the dashboard nutrient
                   selection), <code>food/round_nutrition</code> (whole-number
                   display toggle), <code>food/targets</code> (a blob override

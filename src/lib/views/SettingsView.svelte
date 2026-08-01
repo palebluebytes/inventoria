@@ -1,5 +1,6 @@
 <script lang="ts">
   import { settingsStore, saveSettings } from "../stores/settings.store";
+  import { secretsStore, setSecret } from "../stores/secrets";
   import { createQueryStore } from "../stores/datoms.store";
   import { dbClient } from "../db/db.client";
   import { HLC_ORDER_DESC } from "../db/hlc";
@@ -34,23 +35,31 @@
     }
   }
 
-  // Local state variables for forms
+  // Local state variables for forms. The API keys and OFF login are secrets
+  // (localStorage, ADR-0034 §8); the scraper proxy URL is a non-secret datom.
   let usdaKey = $state("");
   let tmdbKey = $state("");
+  let offUserId = $state("");
+  let offPassword = $state("");
   let scraperProxy = $state("");
 
   let showUsda = $state(false);
   let showTmdb = $state(false);
+  let showOffPassword = $state(false);
 
   let isSaving = $state(false);
   let saveSuccess = $state(false);
 
-  // Initialize form state once settings store loads
+  // Initialize form state once the stores load. Secrets seed from the
+  // localStorage-backed secrets store; the scraper proxy from the settings
+  // ledger.
   let initialized = $state(false);
   $effect(() => {
     if (!initialized && $settingsStore) {
-      usdaKey = $settingsStore.usda_api_key;
-      tmdbKey = $settingsStore.tmdb_api_key;
+      usdaKey = $secretsStore.usda_api_key;
+      tmdbKey = $secretsStore.tmdb_api_key;
+      offUserId = $secretsStore.off_user_id;
+      offPassword = $secretsStore.off_password;
       scraperProxy = $settingsStore.scraper_proxy_url;
       initialized = true;
     }
@@ -62,13 +71,19 @@
     isSaving = true;
     saveSuccess = false;
     try {
+      // Secrets go straight to localStorage — never a datom (ADR-0034 §8). The
+      // password is stored verbatim (it may legitimately contain spaces); the
+      // keys and username are trimmed like any pasted credential.
+      setSecret("usda_api_key", usdaKey.trim());
+      setSecret("tmdb_api_key", tmdbKey.trim());
+      setSecret("off_user_id", offUserId.trim());
+      setSecret("off_password", offPassword);
+      // Only the non-secret proxy URL rides the ledger now. Preserve the
+      // persisted Nutrition Display selection — the editor owns those datoms
+      // (NutritionTargetEditor), so read their current values off the store
+      // rather than a local copy.
       await saveSettings({
-        usda_api_key: usdaKey.trim(),
-        tmdb_api_key: tmdbKey.trim(),
         scraper_proxy_url: scraperProxy.trim(),
-        // Preserve the persisted Nutrition Display selection when saving
-        // credentials — the editor owns those datoms (NutritionTargetEditor),
-        // so read their current values off the store rather than a local copy.
         visible_nutrients: $settingsStore.visible_nutrients,
         round_nutrition: $settingsStore.round_nutrition,
       });
@@ -232,6 +247,46 @@
       </div>
       <span class="help-text"
         >Used for importing movie and TV digital twins.</span
+      >
+    </div>
+
+    <div class="form-group">
+      <label for="off-user-id">Open Food Facts Username</label>
+      <input
+        id="off-user-id"
+        type="text"
+        autocomplete="username"
+        bind:value={offUserId}
+        placeholder="Your Open Food Facts username..."
+        class="retro-input full-width"
+      />
+      <span class="help-text"
+        >Your Open Food Facts login, used to contribute corrected label data
+        back to OFF. Stored on this device only.</span
+      >
+    </div>
+
+    <div class="form-group">
+      <label for="off-password">Open Food Facts Password</label>
+      <div class="input-wrapper">
+        <input
+          id="off-password"
+          type={showOffPassword ? "text" : "password"}
+          autocomplete="current-password"
+          bind:value={offPassword}
+          placeholder="Your Open Food Facts password..."
+          class="retro-input has-reveal"
+        />
+        {@render revealToggle(
+          showOffPassword,
+          () => (showOffPassword = !showOffPassword),
+          showOffPassword
+            ? "Hide Open Food Facts password"
+            : "Show Open Food Facts password"
+        )}
+      </div>
+      <span class="help-text"
+        >Stored on this device only, never in the synced database.</span
       >
     </div>
 
