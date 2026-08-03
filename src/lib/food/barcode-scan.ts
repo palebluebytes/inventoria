@@ -47,23 +47,37 @@ function getDetector() {
 }
 
 /**
- * Decodes the first product barcode found in an image, or `null` when none is
- * readable (a poor photo, or no barcode in frame) — the caller then lets the
- * user type the digits. Never throws for a non-decode; a genuine failure (the
- * wasm couldn't load) rejects so the caller can surface it.
+ * Decodes the first product barcode from any image source — a still image, a
+ * canvas, or a live `<video>` frame — or `null` when none is readable. Used both
+ * by the desktop upload path (a decoded still) and as the live camera's fallback
+ * (a video frame, when the native detector keeps missing). A `detect()` that
+ * throws on an unreadable frame is a non-decode, not an error, so it maps to
+ * `null`; only a genuine wasm-load failure rejects, so the caller can surface it.
+ */
+export async function decodeBarcode(
+  source: ImageBitmapSource
+): Promise<string | null> {
+  const detector = await getDetector();
+  try {
+    const codes = await detector.detect(source);
+    return codes[0]?.rawValue ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Decodes the first product barcode found in an image blob (the desktop upload
+ * path), or `null` when none is readable — the caller then lets the user type
+ * the digits. A thin wrapper over {@link decodeBarcode} that owns the bitmap's
+ * lifetime.
  */
 export async function decodeBarcodeFromImage(
   image: Blob
 ): Promise<string | null> {
-  const detector = await getDetector();
   const bitmap = await createImageBitmap(image);
   try {
-    const codes = await detector.detect(bitmap);
-    return codes[0]?.rawValue ?? null;
-  } catch {
-    // A detect() that throws on an unreadable frame is a non-decode, not an
-    // error — treat it the same as "no barcode found".
-    return null;
+    return await decodeBarcode(bitmap);
   } finally {
     bitmap.close();
   }

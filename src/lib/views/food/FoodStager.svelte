@@ -43,7 +43,10 @@
     type PortionRow,
   } from "../../food/label-form";
   import { buildLabelCapture } from "../../food/provenance";
-  import { decodeBarcodeFromImage } from "../../food/barcode-scan";
+  import {
+    decodeBarcode,
+    decodeBarcodeFromImage,
+  } from "../../food/barcode-scan";
   import {
     emptyAutofillResult,
     type AIAutofillResult,
@@ -587,6 +590,19 @@
   let scanError = $state("");
   let rafId: number | null = null;
 
+  // zxing second-opinion for the LIVE camera: the native `BarcodeDetector` is
+  // fast and battery-cheap but gives up on hard real-world frames (angled, glare,
+  // low-contrast packs). So after a short no-decode stretch, quietly hand the
+  // current video frame to zxing-wasm on an interval — whichever decoder reads
+  // the code first wins. This runs ONLY alongside the native scanner (desktop has
+  // no camera; it uses the upload dropzone), and only after the stall, so the
+  // common fast-native case pays nothing.
+  const ZXING_FALLBACK_AFTER_MS = 4_000;
+  const ZXING_FALLBACK_EVERY_MS = 1_200;
+  let fallbackDelay: ReturnType<typeof setTimeout> | null = null;
+  let fallbackTimer: ReturnType<typeof setInterval> | null = null;
+  let fallbackBusy = false;
+
   // The live-camera scanner needs the native `BarcodeDetector`, which desktop
   // Chrome/Firefox don't ship — so where it's absent (desktop), the Scan tab
   // becomes a photo-UPLOAD dropzone instead, decoding the barcode from a still
@@ -646,10 +662,41 @@
         () => (scanStalled = true),
         UNREADABLE_ELEVATE_MS
       );
+      // Sooner than the escape button: after a brief native-only stall, start the
+      // quiet zxing second opinion. Cleared the instant any decoder wins or the
+      // camera stops.
+      if (fallbackDelay) clearTimeout(fallbackDelay);
+      fallbackDelay = setTimeout(startZxingFallback, ZXING_FALLBACK_AFTER_MS);
       rafId = requestAnimationFrame(scanFrame);
     } catch {
       scanError = "Camera access denied or unavailable.";
       scanning = false;
+    }
+  }
+
+  // Poll the live frame with zxing on an interval, in parallel with the native
+  // rAF loop. A single frame may be blurry, so it retries until one reads.
+  function startZxingFallback() {
+    if (fallbackTimer || !scanning) return;
+    fallbackTimer = setInterval(runZxingFallbackFrame, ZXING_FALLBACK_EVERY_MS);
+  }
+
+  async function runZxingFallbackFrame() {
+    // Skip if a decode is already in flight (each can take tens of ms) or the
+    // video isn't ready; the next tick retries.
+    if (!scanning || !videoEl || fallbackBusy || videoEl.readyState < 2) return;
+    fallbackBusy = true;
+    try {
+      const code = await decodeBarcode(videoEl);
+      // Re-check `scanning` after the await: the native loop may have won during
+      // the decode, in which case it already stopped the camera and looked up.
+      if (code && scanning) {
+        barcode = code;
+        stopCamera();
+        await handleBarcodeLookup();
+      }
+    } finally {
+      fallbackBusy = false;
     }
   }
 
@@ -662,6 +709,15 @@
       clearTimeout(stallTimer);
       stallTimer = null;
     }
+    if (fallbackDelay) {
+      clearTimeout(fallbackDelay);
+      fallbackDelay = null;
+    }
+    if (fallbackTimer) {
+      clearInterval(fallbackTimer);
+      fallbackTimer = null;
+    }
+    fallbackBusy = false;
     scanStalled = false;
     if (stream) {
       stream.getTracks().forEach((t) => t.stop());
