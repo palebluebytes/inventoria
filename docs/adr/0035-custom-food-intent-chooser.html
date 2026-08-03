@@ -27,7 +27,7 @@
   <div class="content-area">
     <main>
 <h1 id="adr-0035-the-custom-tab-becomes-an-intent-chooser--quick-estimate-from-a-menu-from-a-plate-photo">ADR 0035: The Custom tab becomes an intent chooser — quick-estimate, from-a-menu, from-a-plate-photo</h1>
-<p><strong>Status:</strong> Accepted; not yet implemented (specced 2026-08-03, this ADR) <strong>Date:</strong> 2026-08-03</p>
+<p><strong>Status:</strong> Accepted (specced 2026-08-03, this ADR; implemented on branch barcode-scanning-improvements) <strong>Date:</strong> 2026-08-03</p>
 <h2 id="context">Context</h2>
 <p>ADR-0034 upgraded the <strong>Custom tab</strong> of <code>FoodStager.svelte</code> into a full-panel "Read-along" <strong>label form</strong> — a transcription surface for a <em>packaged</em> nutrition label, reached through four doors: three barcode-driven (a barcode <strong>missing</strong> from Open Food Facts, an OFF twin <strong>found-but-poor</strong>, a barcode <strong>unreadable</strong>) and one <strong>always-on manual</strong> tap (ADR-0034 §1, §2).</p>
 <p>That form is the right tool for a food that <em>has a printed panel</em>. But a packaged food almost always has a <strong>barcode</strong>, so it also has the Scan door — and the label form is where those scans land. The manual Custom tap, meanwhile, is overwhelmingly used for food that has <strong>no label at all</strong>: a restaurant meal, a pub dinner, a takeaway. For those, a twelve-micronutrient read-along form is the wrong shape — there is nothing to read along <em>to</em>. The user just wants to record a calorie figure quickly, or the calorie figure a UK menu is legally required to print, or a guess from a photo of the plate in front of them.</p>

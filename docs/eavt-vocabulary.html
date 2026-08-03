@@ -403,7 +403,23 @@
                   <code>nutrition/info</code>, <code>twin/brand</code> and
                   <code>portions</code> may now be USER-written on a
                   <code>gtin:</code> twin (a label correction), not only
-                  OFF-sourced (ADR-0034 §6)
+                  OFF-sourced (ADR-0034 §6). <code>ingredients</code>, a single
+                  DESCRIPTIVE free-text string on a manual
+                  <code>food:custom_</code> menu dish (allergens / memory) —
+                  distinct from Open Food Facts'
+                  <code>ingredients_text</code> and a recipe's structured
+                  <code>recipe/ingredients</code>, and it NEVER computes
+                  calories (ADR-0035 §4). <code>manual_entry</code>, the
+                  user-origin provenance envelope for the Custom chooser's three
+                  intents (<code
+                    >{ adapter: "manual", adapter_version, kind:
+                    "quick_estimate" | "menu" | "plate_estimate", fields }</code
+                  >) — a sibling of <code>label_capture</code>; its
+                  <code>kind</code> is the single source of truth for
+                  Recent/Search reusability (only <code>menu</code> is reusable,
+                  ADR-0035 §6). <code>twin/brand</code> may ALSO be user-written
+                  as a menu dish's "Place" on a <code>food:custom_</code> twin
+                  (ADR-0035 §4)
                 </td>
               </tr>
               <tr>
