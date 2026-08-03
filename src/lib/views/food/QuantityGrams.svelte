@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import { Slider } from "bits-ui";
   import Button from "../../ui/Button.svelte";
   import {
@@ -62,9 +63,30 @@
   // isn't clobbered; `grams` is the source of truth everything else drives.
   let raw = $state(String(grams));
   let focused = $state(false);
+  let inputEl = $state<HTMLInputElement>();
   $effect(() => {
     if (!focused) raw = String(grams);
   });
+
+  // The number pad has no operator keys, so the only sum we support (× and ÷)
+  // rides two on-screen keys. Each inserts its operator at the caret, keeps the
+  // field focused (the key's pointerdown is prevented so it never steals focus
+  // and triggers a blur/commit), and re-evaluates live like a keystroke would.
+  async function insertOp(op: "*" | "/") {
+    const el = inputEl;
+    if (!el) return;
+    const start = el.selectionStart ?? raw.length;
+    const end = el.selectionEnd ?? raw.length;
+    focused = true; // hold the $effect off while we rewrite `raw`
+    const next = raw.slice(0, start) + op + raw.slice(end);
+    raw = [...next].filter((ch) => AMOUNT_EXPRESSION_CHARS.test(ch)).join("");
+    const result = evaluateAmount(raw);
+    if (result !== null) grams = clamp(result);
+    await tick(); // let Svelte push the new value before we place the caret
+    el.focus();
+    const caret = start + op.length;
+    el.setSelectionRange(caret, caret);
+  }
 
   // Keep only characters a sum can be built from; evaluate live so the slider
   // and any macro preview track a complete expression as it's typed. While the
@@ -90,26 +112,48 @@
 </script>
 
 <div class="qty">
-  <label class="field">
-    <input
-      class="num"
-      inputmode="text"
-      autocomplete="off"
-      autocorrect="off"
-      autocapitalize="off"
-      spellcheck="false"
-      aria-label="Quantity in grams — a number or a sum like 65 / 2"
-      value={raw}
-      oninput={onInput}
-      onfocus={(e) => {
-        focused = true;
-        e.currentTarget.select();
-      }}
-      onblur={commit}
-      onkeydown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-    />
-    <span class="unit">g</span>
-  </label>
+  <div class="entry">
+    <label class="field">
+      <input
+        bind:this={inputEl}
+        class="num"
+        inputmode="decimal"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
+        aria-label="Quantity in grams — a number, or a sum with the × and ÷ keys"
+        value={raw}
+        oninput={onInput}
+        onfocus={(e) => {
+          focused = true;
+          e.currentTarget.select();
+        }}
+        onblur={commit}
+        onkeydown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+      />
+      <span class="unit">g</span>
+    </label>
+    <!-- Sum keys: the number pad omits operators, so ÷ and × live here. They
+         insert "/" and "*" (what the parser reads) at the caret. `pointerdown`
+         is prevented so tapping a key never blurs the field mid-expression. -->
+    <div class="ops">
+      <button
+        type="button"
+        class="op"
+        aria-label="Divide"
+        onpointerdown={(e) => e.preventDefault()}
+        onclick={() => insertOp("/")}>÷</button
+      >
+      <button
+        type="button"
+        class="op"
+        aria-label="Multiply"
+        onpointerdown={(e) => e.preventDefault()}
+        onclick={() => insertOp("*")}>×</button
+      >
+    </div>
+  </div>
 
   <Slider.Root
     type="single"
@@ -176,8 +220,15 @@
     gap: var(--space-s);
     width: 100%;
   }
-  .field {
+  .entry {
+    display: flex;
+    align-items: stretch;
+    gap: var(--space-2xs);
     width: 100%;
+  }
+  .field {
+    flex: 1;
+    min-width: 0;
     display: flex;
     align-items: baseline;
     justify-content: center;
@@ -185,6 +236,32 @@
     border: 3px solid var(--border-accent);
     padding: var(--space-2xs) var(--space-xs);
     cursor: text;
+  }
+  /* Sum keys sit flush beside the field, sized to match its height. */
+  .ops {
+    display: flex;
+    gap: var(--space-2xs);
+  }
+  .op {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 48px;
+    border: 3px solid var(--border-accent);
+    background: var(--bg-surface);
+    font-family: inherit;
+    font-size: var(--step-2);
+    font-weight: 800;
+    line-height: 1;
+    color: var(--text-primary);
+    cursor: pointer;
+  }
+  .op:active {
+    background: var(--green-bg);
+  }
+  .op:focus-visible {
+    outline: 3px solid var(--border-accent);
+    outline-offset: 3px;
   }
   .field:focus-within {
     outline: 3px solid var(--border-accent);

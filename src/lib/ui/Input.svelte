@@ -5,6 +5,7 @@
     type = "text",
     id = "",
     disabled = false,
+    inputmode = undefined,
     onkeydown,
     class: className = "",
   }: {
@@ -13,6 +14,16 @@
     type?: "text" | "password" | "email" | "number";
     id?: string;
     disabled?: boolean;
+    /** Hints the on-screen keyboard (e.g. "numeric" for a barcode → number pad). */
+    inputmode?:
+      | "none"
+      | "text"
+      | "tel"
+      | "url"
+      | "email"
+      | "numeric"
+      | "decimal"
+      | "search";
     onkeydown?: (e: KeyboardEvent) => void;
     class?: string;
   } = $props();
@@ -23,6 +34,7 @@
     {id}
     {type}
     {placeholder}
+    {inputmode}
     bind:value
     {disabled}
     {onkeydown}

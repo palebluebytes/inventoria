@@ -1565,6 +1565,7 @@
           <Input
             id={ids.barcode}
             placeholder="Enter barcode…"
+            inputmode="numeric"
             bind:value={barcode}
             onkeydown={(e) => e.key === "Enter" && handleBarcodeLookup()}
           />
