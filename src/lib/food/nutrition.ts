@@ -269,6 +269,41 @@ export function portionPresets(
     }));
 }
 
+/**
+ * The gram weight a panel's `serving_size` names, or `null` when it names no
+ * concrete weight. Unlike {@link parseServingGrams} (which falls back to 100 g so
+ * a scaler always has a divisor), this returns `null` for the two basis sentinels
+ * that carry no household serving: the per-100 g reference basis ({@link PER_100G})
+ * and a bare "1 serving" of unknown weight ({@link PER_SERVING}, which parses to
+ * `NaN`). So it answers a different question — "does this food weigh a known amount
+ * per serving?" — used to decide whether a serving is surfaceable at all.
+ */
+export function servingSizeGrams(serving_size: string): number | null {
+  const t = serving_size.trim();
+  // The per-100 g reference basis names no household serving.
+  if (t === PER_100G) return null;
+  // Require an explicit gram weight ("30 g", "30g") — never a bare "1 serving"
+  // (unknown weight, which parseFloat would misread as 1 g), nor a non-gram unit
+  // ("240 ml"). resolveServingSize only ever emits "100 g" / "N g" / "1 serving".
+  if (!/^\d+(?:\.\d+)?\s*g(?:rams?)?$/i.test(t)) return null;
+  const grams = parseFloat(t);
+  return Number.isFinite(grams) && grams > 0 ? roundFood(grams) : null;
+}
+
+/**
+ * Synthesises the food's own serving as a picker portion — "1 serving" resolving
+ * to the grams its `serving_size` names — so a label-captured food (basis
+ * `per_serving`, e.g. `serving_size: "30 g"`) surfaces its serving as a chip on
+ * the amount screen just like a source's household portions do. Returns an empty
+ * list (never a zero-gram portion) for a per-100 g food or a weightless
+ * "1 serving" panel, so the caller can concatenate it unconditionally.
+ */
+export function servingSizePortion(info: NutritionInfo | undefined): Portion[] {
+  const grams = info ? servingSizeGrams(info.serving_size) : null;
+  if (grams == null) return [];
+  return [{ label: "1 serving", amount: 1, unit: "serving", grams }];
+}
+
 /** The four macros the food dashboard and recipe builder display and sum. */
 export interface Macros {
   calories: number;

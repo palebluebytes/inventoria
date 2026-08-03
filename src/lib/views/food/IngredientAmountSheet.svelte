@@ -1,27 +1,21 @@
 <script lang="ts">
-  import {
-    scaleNutrition,
-    type NutritionInfo,
-    type Portion,
-  } from "../../food/nutrition";
-  import { parseServingGrams } from "../../food/recipe-nutrition";
-  import { buildNutrientBreakdown } from "../../food/nutrient-display";
-  import { nutritionDisplayDecimals } from "../../stores/settings.store";
+  import type { NutritionInfo, Portion } from "../../food/nutrition";
   import BottomSheet from "../../ui/BottomSheet.svelte";
-  import NutrientBreakdown from "./NutrientBreakdown.svelte";
-  import QuantityGrams from "./QuantityGrams.svelte";
+  import FoodAmountPanel from "./FoodAmountPanel.svelte";
 
   // Edits a single food line's gram amount in a small sheet raised over the
   // recipe/instantiation dialog or the dashboard. The same picker serves both:
   // it edits a working copy and reports the chosen amount once on Done, so the
   // caller commits it its own way — a recipe mutates the ingredient in memory,
   // the dashboard retract-and-replaces the logged event (append-only, ADR-0008)
-  // — without this sheet knowing which. Grams only; whole-serving amounts are
-  // locked upstream (future work), so this is never opened for them.
+  // — without this sheet knowing which. Grams only: a per-serving food is passed
+  // in with its serving surfaced as a "1 serving — N g" portion chip (via the
+  // caller's servingSizePortion), so a whole-serving food is edited in grams too.
   //
-  // The over-dialog chrome (fixed sheet, own backdrop, pointer-events fix) is
-  // the shared BottomSheet primitive's now (ADR-0027/0028); this sheet just
-  // composes the amount body and a docked Done action.
+  // The amount body — basis caption, gram control, portion chips, macro preview,
+  // full breakdown — is the shared FoodAmountPanel, the very screen the search /
+  // scan staging flow shows (DRY). This sheet adds only the over-dialog chrome
+  // (BottomSheet, ADR-0027/0028) and the docked Done action.
   let {
     name,
     amount,
@@ -32,12 +26,12 @@
   }: {
     name: string;
     amount: number;
-    /** The ingredient twin's household portions (ADR-0030), shown as picker
-     *  presets. Empty for a portion-less food — the picker renders as today. */
+    /** The food's household portions (ADR-0030) plus any synthesised serving,
+     *  shown as picker chips. Empty for a portion-less food. */
     portions?: Portion[];
-    /** The ingredient twin's `nutrition/info` panel, per its serving basis. When
-     *  present the sheet shows a full nutrient breakdown scaled to the working
-     *  amount (ticket #30); omit it to render the plain amount picker. */
+    /** The food's `nutrition/info` panel, per its serving basis. When present the
+     *  sheet shows the basis caption + macro preview + full breakdown scaled to
+     *  the working amount; omit it to render the plain amount picker. */
     panel?: NutritionInfo;
     onCommit: (amount: number) => void;
     onClose: () => void;
@@ -54,29 +48,10 @@
     onCommit(value);
     onClose();
   }
-
-  // The full panel scaled to the working amount — this sheet is opened only for
-  // gram-unit rows (IngredientListEditor's guard), so `value` grams scale the
-  // panel against its gram serving basis, the same factor deriveRecipeNutrition
-  // uses for a `g` ingredient. Absent when the ingredient carries no panel.
-  let fullRows = $derived(
-    panel
-      ? buildNutrientBreakdown(
-          scaleNutrition(panel, value / parseServingGrams(panel.serving_size)),
-          $nutritionDisplayDecimals
-        )
-      : []
-  );
 </script>
 
 <BottomSheet isOpen title={name} class="amount-sheet" elevated {onClose}>
-  <QuantityGrams bind:grams={value} {portions} />
-
-  {#if panel}
-    <div class="full-panel">
-      <NutrientBreakdown rows={fullRows} testid="food-nutrient-breakdown" />
-    </div>
-  {/if}
+  <FoodAmountPanel {panel} {portions} bind:grams={value} />
 
   {#snippet footer()}
     <button class="done" id="amount-done-btn" onclick={done}>Done</button>
@@ -84,9 +59,6 @@
 </BottomSheet>
 
 <style>
-  .full-panel {
-    margin-top: var(--space-s);
-  }
   .done {
     width: 100%;
     background: #ccff00;

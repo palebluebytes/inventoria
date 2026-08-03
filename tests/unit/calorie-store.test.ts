@@ -20,7 +20,14 @@ import {
   totalNutrition,
 } from "../../src/lib/food/consumption-state";
 import type { ReferenceIngredient } from "../../src/lib/food/recipe-nutrition";
-import { roundFood, scaleNutrition } from "../../src/lib/food/nutrition";
+import {
+  roundFood,
+  scaleNutrition,
+  servingSizeGrams,
+  servingSizePortion,
+} from "../../src/lib/food/nutrition";
+import { buildLabelPanel } from "../../src/lib/food/label-form";
+import { parseLoggedQuantity } from "../../src/lib/food/recipe-ingredient";
 import { asStored } from "./support/stored";
 
 vi.mock("../../src/lib/db/db.client", () => {
@@ -1340,6 +1347,105 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
     expect(total.fiber_content).toBe(5);
     // A nutrient neither event froze stays absent, not 0.
     expect("cholesterol_content" in total).toBe(false);
+  });
+});
+
+// Regression: after the OFF update flow (saveLabelFood on a gtin: twin, logged
+// "1 serving"), tapping the food used to reopen the full updater seeded ONLY from
+// the event's four frozen macros — dropping the 30 g serving and the rest of the
+// panel. The fix routes such a food to the shared amount screen, rebuilt from the
+// TWIN. This proves everything that screen needs is recoverable from the twin.
+describe("label-food edit is lossless (serving + panel survive on the twin)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.restoreAllMocks();
+  });
+
+  const asLedger = (datoms: any[]) =>
+    asStored(datoms.map((d) => ({ ...d, value: JSON.stringify(d.value) })));
+  const asRows = (datoms: any[]) =>
+    datoms.map((d) => ({
+      attribute: d.attribute,
+      value: JSON.stringify(d.value),
+    }));
+
+  it("recovers the corrected name, the 30 g serving chip and the full panel", async () => {
+    const appended: any[] = [];
+    vi.spyOn(dbClient, "append").mockImplementation(async (d: any) => {
+      appended.push(...d);
+    });
+
+    // The user set name "Peanut Butter" and serving "1 serving = 30 g".
+    const panel = buildLabelPanel({
+      values: {
+        calories: "190",
+        protein_content: "7",
+        fat_content: "16",
+        carbohydrate_content: "6",
+      },
+      basis: "per_serving",
+      servingGrams: "30",
+      skipped: new Set(),
+    }).nutrition;
+
+    // A poor OFF twin already on the ledger; the correction enriches it in place.
+    const gtin = "gtin:8410010812345";
+    appended.push(
+      { entity: gtin, attribute: "food/name", value: "Unknown", time: 1 },
+      {
+        entity: gtin,
+        attribute: "nutrition/info",
+        value: { serving_size: "100 g", calories: 800 },
+        time: 1,
+      }
+    );
+
+    const twinId = await saveLabelFood({
+      name: "Peanut Butter",
+      nutrition: panel,
+      portions: [],
+      labelPhotos: [],
+      labelCapture: buildLabelCapture({
+        method: "manual",
+        basis: "1 serving",
+        fields: ["name", "nutriments"],
+      }),
+      entityId: gtin,
+    });
+    await logFoodConsumption(
+      twinId,
+      "1 serving",
+      "snack",
+      190,
+      7,
+      16,
+      6,
+      new Date("2026-08-01T12:00:00")
+    );
+
+    // The dashboard's view of the logged food: a serving-unit event named right.
+    const ev = computeConsumption(asLedger(appended)).find(
+      (e) => e.target === gtin
+    )!;
+    expect(parseLoggedQuantity(ev.quantity!).unit).toBe("serving");
+    expect(ev.foodName).toBe("Peanut Butter");
+
+    // editItem re-loads the twin to build the amount screen — the fix. Everything
+    // the old event-only seed dropped is recoverable here.
+    vi.spyOn(dbClient, "query").mockResolvedValue(asRows(appended) as any);
+    const twin = await getLocalFoodTwin(gtin);
+    const twinPanel = twin.attributes["nutrition/info"] as NutritionInfo;
+
+    // The 30 g serving drives both the amount routing and the surfaced chip.
+    expect(servingSizeGrams(twinPanel.serving_size)).toBe(30);
+    expect(servingSizePortion(twinPanel)).toEqual([
+      { label: "1 serving", amount: 1, unit: "serving", grams: 30 },
+    ]);
+    // The corrected name won the fold; the full panel is intact (not 4 macros only).
+    expect(twin.attributes["food/name"]).toBe("Peanut Butter");
+    expect(twinPanel.calories).toBe(190);
+    expect(twinPanel.protein_content).toBe(7);
+    expect(twinPanel.fat_content).toBe(16);
   });
 });
 

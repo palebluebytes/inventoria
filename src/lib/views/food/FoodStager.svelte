@@ -14,24 +14,15 @@
   } from "../../food/food-search";
   import type { EntityPayload } from "../../ingestion/ingest";
   import { getLocalFoodTwin } from "../../stores/calorie.store";
-  import {
-    settingsStore,
-    nutritionDisplayDecimals,
-  } from "../../stores/settings.store";
+  import { settingsStore } from "../../stores/settings.store";
   import { secretsStore } from "../../stores/secrets";
   import {
-    roundFoodDisplay,
-    scaleNutrition,
     portionLabelIsBareWeight,
     FOOD_PORTIONS_ATTR,
     NUTRITION_INFO_ATTR,
     type Portion,
     type NutritionInfo,
   } from "../../food/nutrition";
-  import {
-    buildNutrientPills,
-    buildNutrientBreakdown,
-  } from "../../food/nutrient-display";
   import {
     CORE,
     DETAIL,
@@ -66,9 +57,7 @@
   import Input from "../../ui/Input.svelte";
   import FoodResultsList from "./FoodResultsList.svelte";
   import LabelPhotoReader from "./LabelPhotoReader.svelte";
-  import MacroPills from "./MacroPills.svelte";
-  import NutrientBreakdown from "./NutrientBreakdown.svelte";
-  import QuantityGrams from "./QuantityGrams.svelte";
+  import FoodAmountPanel from "./FoodAmountPanel.svelte";
 
   // The shared food-staging surface behind both the direct-log sheet and the
   // add-ingredient sheet (issue #16). It owns the Search / Scan / Custom method
@@ -150,27 +139,12 @@
   let grams = $state(100);
   let factor = $derived(grams / 100);
 
-  // The staged food's full nutrition panel (per its serving basis), scaled to the
-  // typed amount and turned into the always-on Calories pill + one pill per
-  // selected nutrient (default Protein/Fat/Carbs/Fibre, ticket #29). Built from
-  // the panel — not the four flat macros — so a selected micronutrient can show.
+  // The staged food's full nutrition panel (per its serving basis). Handed to
+  // FoodAmountPanel, which scales it to the typed amount for the pill preview and
+  // the full breakdown — the shared body the search/scan staging and the
+  // dashboard's edit-amount sheet both render (ticket #30 / #29).
   let stagedInfo = $derived(
     staged?.payload.attributes[NUTRITION_INFO_ATTR] as NutritionInfo | undefined
-  );
-  let stagedBreakdown = $derived(scaleNutrition(stagedInfo, factor));
-  let stagedPills = $derived(
-    buildNutrientPills(
-      stagedBreakdown,
-      $settingsStore.visible_nutrients,
-      $nutritionDisplayDecimals
-    )
-  );
-  // The full panel breakdown — every macro AND micronutrient the food carries,
-  // scaled to the typed amount — behind a collapsed disclosure so the default
-  // card (name · macro pills) stays uncluttered (ticket #30). Absent fields are
-  // omitted, micronutrients reformatted to mg/µg, all in the domain layer.
-  let stagedFullRows = $derived(
-    buildNutrientBreakdown(stagedBreakdown, $nutritionDisplayDecimals)
   );
 
   // The staged food's household portions (ADR-0030), surfaced as picker presets.
@@ -1115,33 +1089,12 @@
             >
           </div>
         {/if}
-        <p class="per">
-          Per 100g · {roundFoodDisplay(
-            staged.calories,
-            $nutritionDisplayDecimals
-          )} kcal · P {roundFoodDisplay(
-            staged.protein,
-            $nutritionDisplayDecimals
-          )}g · F {roundFoodDisplay(staged.fat, $nutritionDisplayDecimals)}g · C {roundFoodDisplay(
-            staged.carbs,
-            $nutritionDisplayDecimals
-          )}g
-        </p>
-        <span class="fl">Quantity (grams)</span>
-        <QuantityGrams
-          bind:grams
+        <FoodAmountPanel
+          panel={stagedInfo}
           portions={stagedPortions}
           hydrating={hydratingPortions}
+          bind:grams
         />
-        <div class="preview">
-          <MacroPills pills={stagedPills} />
-        </div>
-        <div class="full-panel">
-          <NutrientBreakdown
-            rows={stagedFullRows}
-            testid="food-nutrient-breakdown"
-          />
-        </div>
       </div>
     {:else if isExtra(method)}
       {@render tabContent?.(method)}
@@ -1742,25 +1695,6 @@
     cursor: pointer;
     min-height: 40px;
   }
-  .per {
-    color: var(--text-secondary);
-    font-size: var(--step-n2);
-    margin-top: 2px;
-  }
-  .fl {
-    display: block;
-    font-size: var(--step-n2);
-    font-weight: 700;
-    text-transform: uppercase;
-    margin: var(--space-m) 0 var(--space-3xs);
-  }
-  .preview {
-    margin-top: var(--space-m);
-  }
-  .full-panel {
-    margin-top: var(--space-s);
-  }
-
   .viewport {
     position: relative;
     height: 240px;

@@ -9,6 +9,8 @@ import {
   resolvePortionGrams,
   scaleNutrition,
   sumNutrition,
+  servingSizeGrams,
+  servingSizePortion,
   type NutritionBreakdown,
   type NutritionInfo,
   type Portion,
@@ -380,5 +382,43 @@ describe("resolvePortionGrams", () => {
   it("returns undefined for a non-finite quantity", () => {
     expect(resolvePortionGrams(portions, "1 medium", NaN)).toBeUndefined();
     expect(resolvePortionGrams(portions, "1 medium", Infinity)).toBeUndefined();
+  });
+});
+
+describe("servingSizeGrams", () => {
+  it("reads the gram weight from a weighed serving size", () => {
+    expect(servingSizeGrams("30 g")).toBe(30);
+    expect(servingSizeGrams("30g")).toBe(30);
+    expect(servingSizeGrams("62.5 g")).toBe(62.5);
+  });
+
+  it("is null for the per-100 g reference basis", () => {
+    // "100 g" is the reference basis, not a household serving to surface.
+    expect(servingSizeGrams("100 g")).toBeNull();
+  });
+
+  it("is null for a weightless serving (never misreads '1 serving' as 1 g)", () => {
+    // parseFloat("1 serving") === 1; the helper must NOT treat that as 1 gram.
+    expect(servingSizeGrams("1 serving")).toBeNull();
+  });
+
+  it("is null for a non-gram unit", () => {
+    expect(servingSizeGrams("240 ml")).toBeNull();
+    expect(servingSizeGrams("")).toBeNull();
+  });
+});
+
+describe("servingSizePortion", () => {
+  it("synthesises a '1 serving' chip for a weighed per-serving panel", () => {
+    const info: NutritionInfo = { serving_size: "30 g", calories: 190 };
+    expect(servingSizePortion(info)).toEqual([
+      { label: "1 serving", amount: 1, unit: "serving", grams: 30 },
+    ]);
+  });
+
+  it("is empty for a per-100 g or weightless panel", () => {
+    expect(servingSizePortion({ serving_size: "100 g" })).toEqual([]);
+    expect(servingSizePortion({ serving_size: "1 serving" })).toEqual([]);
+    expect(servingSizePortion(undefined)).toEqual([]);
   });
 });

@@ -14,6 +14,12 @@
     parseLoggedQuantity,
     type RecipeIngredient,
   } from "../food/recipe-ingredient";
+  import {
+    servingSizeGrams,
+    servingSizePortion,
+    type NutritionInfo,
+    type Portion,
+  } from "../food/nutrition";
   import DailyDashboard from "./food/DailyDashboard.svelte";
   import LogFoodSheet from "./food/LogFoodSheet.svelte";
   import RecipeModal from "./food/RecipeModal.svelte";
@@ -72,9 +78,18 @@
     attributes: Record<string, any>;
   } | null>(null);
   let instantiate_edit = $state<ConsumptionEvent | null>(null);
-  // A plain gram-logged food whose amount is being changed in the picker sheet
-  // (the shared amount editor; the dashboard equivalent of a recipe row tap).
-  let amountEdit = $state<ConsumptionEvent | null>(null);
+  // A logged food whose amount is being changed in the picker sheet (the shared
+  // FoodAmountPanel; the dashboard equivalent of a recipe row tap). Carries the
+  // resolved twin panel + portions so the sheet shows the same screen the search
+  // flow does — with the food's serving surfaced as a chip. `grams` is the
+  // opening amount; Done retract-and-replaces the event via changeLoggedFoodAmount.
+  let amountEdit = $state<{
+    event: ConsumptionEvent;
+    name: string;
+    grams: number;
+    panel?: NutritionInfo;
+    portions: Portion[];
+  } | null>(null);
 
   const entityName = "Food";
 
@@ -98,7 +113,7 @@
   // Open the right editor for a tapped card. A Recipe Instantiation (carries a
   // frozen `event/instantiation` snapshot) opens the instantiation editor to be
   // corrected by supersession (ADR-0022); a plain food opens the log sheet.
-  function editItem(item: ConsumptionEvent) {
+  async function editItem(item: ConsumptionEvent) {
     if (item.instantiation) {
       instantiate_template = null;
       instantiate_edit = item;
@@ -106,17 +121,72 @@
       instantiateOpen = true;
       return;
     }
-    // A gram-logged food edits its amount in the shared picker — the same
-    // surface a recipe row taps into. Whole-serving / custom foods are locked at
-    // 1 serving for now (future work), so they still open the full edit sheet
-    // where their macros and photo remain editable.
-    const { unit } = parseLoggedQuantity(item.quantity);
-    if (unit === "g") {
-      amountEdit = item;
+    // Both a gram-logged food and a per-serving food with a KNOWN serving weight
+    // edit their amount in the shared picker — the same screen the search flow
+    // stages into. Resolve the twin for its panel + portions, and surface the
+    // food's own serving as a chip so a whole-serving food is a one-tap away from
+    // its serving while still editable to any gram amount. Both re-log in grams
+    // via changeLoggedFoodAmount (which scales the panel from ITS basis).
+    const { amount, unit } = parseLoggedQuantity(item.quantity);
+    const twin = item.target ? await getLocalFoodTwin(item.target) : null;
+    const panel = twin?.attributes?.["nutrition/info"] as
+      | NutritionInfo
+      | undefined;
+    const twinPortions =
+      (twin?.attributes?.["food/portions"] as Portion[] | undefined) ?? [];
+    // The serving as a chip: the panel's own weighed serving ("30 g" ⇒ a
+    // synthesised "1 serving — 30 g", the manual/edited label case), then the
+    // twin's household portions — which for an OFF product is where its serving
+    // lives (OFF panels are per-100 g; the serving is a `food/portions` entry).
+    // Deduped by gram weight so a serving listed both ways isn't doubled.
+    const portions = dedupePortionsByGrams([
+      ...servingSizePortion(panel),
+      ...twinPortions,
+    ]);
+    // A gram basis to open at and scale against: the panel's weighed serving if
+    // it has one, else the food's first real portion weight (the OFF serving). A
+    // food with neither has no gram basis and can't be gram-edited.
+    const servingGrams =
+      (panel ? servingSizeGrams(panel.serving_size) : null) ??
+      portions.find((p) => Number.isFinite(p.grams) && p.grams > 0)?.grams ??
+      null;
+
+    // Open at the logged grams (gram foods), or the serving's gram weight × how
+    // many servings were logged (per-serving foods with a gram basis). Anything
+    // else has no gram basis and stays null → falls through to the full sheet.
+    let openGrams: number | null = null;
+    if (unit === "g") openGrams = amount;
+    else if (unit === "serving" && panel != null && servingGrams != null)
+      openGrams = servingGrams * amount;
+
+    if (openGrams != null) {
+      amountEdit = {
+        event: item,
+        name: item.foodName ?? "Food",
+        grams: openGrams,
+        panel,
+        portions,
+      };
       return;
     }
+
+    // A weightless "1 serving" custom food (no panel or no gram basis to scale
+    // by) can't be gram-edited, so it still opens the full edit sheet where its
+    // macros, name and photo remain editable.
     editEvent = item;
     sheet_meal_type = asMealType(item.meal_type, "snack");
+  }
+
+  // Drop portions that resolve to a gram weight already listed — keeps the first
+  // (the synthesised "1 serving" precedes the twin's own portions), so the amount
+  // picker never shows two chips for the same weight.
+  function dedupePortionsByGrams(portions: Portion[]): Portion[] {
+    const seen = new Set<number>();
+    return portions.filter((p) => {
+      if (seen.has(p.grams)) return false;
+      seen.add(p.grams);
+      return true;
+    });
   }
 
   // Instantiate the picked Recipe Twin into the meal the log sheet was opened
@@ -356,14 +426,17 @@
   />
 {/if}
 
-<!-- Amount picker — change a plain gram-logged food's amount, append-only. The
-     same sheet a recipe ingredient row opens; here Done retract-and-replaces. -->
+<!-- Amount picker — change a logged food's amount, append-only. The same sheet a
+     recipe ingredient row opens (and the search flow stages into); here Done
+     retract-and-replaces the event in grams via changeLoggedFoodAmount. -->
 {#if amountEdit}
-  {@const ev = amountEdit}
+  {@const ae = amountEdit}
   <IngredientAmountSheet
-    name={ev.foodName ?? "Food"}
-    amount={parseLoggedQuantity(ev.quantity).amount}
-    onCommit={(grams) => changeLoggedFoodAmount(ev, grams)}
+    name={ae.name}
+    amount={ae.grams}
+    panel={ae.panel}
+    portions={ae.portions}
+    onCommit={(grams) => changeLoggedFoodAmount(ae.event, grams)}
     onClose={() => (amountEdit = null)}
   />
 {/if}
