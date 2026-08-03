@@ -43,6 +43,7 @@
     type PortionRow,
   } from "../../food/label-form";
   import { buildLabelCapture } from "../../food/provenance";
+  import { decodeBarcodeFromImage } from "../../food/barcode-scan";
   import {
     emptyAutofillResult,
     type AIAutofillResult,
@@ -324,6 +325,10 @@
     captureOffPayload = reason === "poor" ? (payload ?? null) : null;
     if (payload) prefillFromPayload(payload);
     else resetCustomForm();
+    // Desktop upload path: the photo that was dropped/chosen to reach this door
+    // rides in as the label photo, so a desktop capture arrives with its photo
+    // attached exactly as a phone capture would (both reset labelPhotos above).
+    if (uploadedPhoto) labelPhotos = [uploadedPhoto];
   }
 
   // Blank every custom-form field back to a fresh empty read-along form.
@@ -582,8 +587,34 @@
   let scanError = $state("");
   let rafId: number | null = null;
 
+  // The live-camera scanner needs the native `BarcodeDetector`, which desktop
+  // Chrome/Firefox don't ship — so where it's absent (desktop), the Scan tab
+  // becomes a photo-UPLOAD dropzone instead, decoding the barcode from a still
+  // image via the zxing-wasm ponyfill (ADR-0034 §5 capture, desktop path). A
+  // plain const: native support doesn't change during a session.
+  const liveScanSupported =
+    typeof window !== "undefined" && "BarcodeDetector" in window;
+  // Show the live camera only where it's both supported AND working: if the
+  // camera is denied/absent on an otherwise-capable device, `startCamera` sets
+  // `scanError` and we fall back to the upload dropzone rather than dead-ending.
+  let showLiveScanner = $derived(liveScanSupported && !scanError);
+
+  // Upload path (desktop) state. `uploadedPhoto` is the read-in image (base64):
+  // it both feeds the decoder AND is carried into the capture form as the label
+  // photo when a door opens, so a desktop capture arrives with its photo attached.
+  let uploadInput = $state<HTMLInputElement | null>(null);
+  let dragOver = $state(false);
+  let decoding = $state(false);
+  let uploadError = $state("");
+  let uploadedPhoto = $state<string | null>(null);
+  // Set when a dropped/chosen photo carried no readable barcode, so the tab can
+  // offer the same "enter the label details" escape the camera's stall does.
+  let uploadNoCode = $state(false);
+
   $effect(() => {
-    if (method === "scan" && !staged) startCamera();
+    // Only drive the camera where the live scanner is actually shown; on desktop
+    // the dropzone is used instead, so never prompt for camera access there.
+    if (method === "scan" && !staged && liveScanSupported) startCamera();
     else stopCamera();
     return () => stopCamera();
   });
@@ -655,6 +686,67 @@
       }
     }
     rafId = requestAnimationFrame(scanFrame);
+  }
+
+  // ── Desktop photo-upload scanning ──────────────────────────────────────────
+  // A dropped or chosen photo is read to base64 (so it can ride into the capture
+  // form as the label photo) and decoded for a barcode. A decoded code drives the
+  // exact same `handleBarcodeLookup` the camera does, so all four doors behave
+  // identically; a photo with no readable code offers the "enter the label
+  // details" escape (the unreadable door), photo still attached.
+  async function handleUploadFiles(files: FileList | File[]) {
+    const file = Array.from(files).find((f) => f.type.startsWith("image/"));
+    if (!file) return;
+    uploadError = "";
+    uploadNoCode = false;
+    decoding = true;
+    try {
+      uploadedPhoto = await readAsDataUrl(file);
+    } catch {
+      decoding = false;
+      uploadError = "Couldn’t read that image file.";
+      return;
+    }
+    try {
+      const code = await decodeBarcodeFromImage(file);
+      if (code) {
+        barcode = code;
+        decoding = false;
+        await handleBarcodeLookup();
+        return;
+      }
+      // No barcode in the photo — let the user type it or go straight to the form.
+      uploadNoCode = true;
+      uploadError =
+        "Couldn’t read a barcode in that photo. Type the number below, or enter the label details.";
+    } catch {
+      uploadError =
+        "The barcode reader couldn’t load. Type the number below instead.";
+    } finally {
+      decoding = false;
+    }
+  }
+
+  function handleUploadChange(e: Event) {
+    const input = e.target as HTMLInputElement;
+    // Snapshot to a real array BEFORE clearing: `input.files` is a LIVE FileList,
+    // so reading it after `input.value = ""` would see an empty list.
+    const files = Array.from(input.files ?? []);
+    // Clear so re-choosing the same file fires change again.
+    input.value = "";
+    if (files.length) void handleUploadFiles(files);
+  }
+
+  function handleDrop(e: DragEvent) {
+    e.preventDefault();
+    dragOver = false;
+    const files = e.dataTransfer?.files;
+    if (files?.length) void handleUploadFiles(files);
+  }
+
+  function handleDragOver(e: DragEvent) {
+    e.preventDefault();
+    dragOver = true;
   }
 
   // ── Actions ────────────────────────────────────────────────────────────────
@@ -783,6 +875,13 @@
     error = "";
     status = "idle";
     nudge = false;
+    // Drop any upload state a prior Scan visit left, so a fresh scan/upload or a
+    // manual custom entry never inherits a stale decoded photo.
+    dragOver = false;
+    decoding = false;
+    uploadError = "";
+    uploadNoCode = false;
+    uploadedPhoto = null;
     // A manual tab tap is the always-on door: a fresh, unkeyed form. Drop any
     // reason banner and the barcode a prior scan left, so this mints a new
     // `food:custom_` twin rather than silently enriching the last code (§1/§6).
@@ -978,30 +1077,95 @@
       {/if}
     {:else if method === "scan"}
       {#if scanError}<Alert variant="warning">{scanError}</Alert>{/if}
-      <div class="viewport">
-        <!-- svelte-ignore a11y_media_has_caption -->
-        <video bind:this={videoEl} class="scanner-video" playsinline></video>
-        <div class="reticle"></div>
-      </div>
-      <p class="hint">
-        Point the camera at a barcode, or type the number below. No result? <button
-          class="link"
-          onclick={() => switchMethod("custom")}>Add a custom entry</button
-        >.
-      </p>
-      {#if scanStalled}
-        <!-- Unreadable door (§1): after a persistent no-decode stretch, elevate a
-             prominent "photograph the label" escape so a barcode that won't scan
-             still leads somewhere. Routes barcode-less to the Custom form; the
-             user can still add legible digits in the form's reason banner. -->
-        <button
-          type="button"
-          class="escape"
-          data-testid="unreadable-escape"
-          onclick={() => openCaptureForm("unreadable")}
+      {#if showLiveScanner}
+        <!-- Live camera scanner (native BarcodeDetector present + camera OK). -->
+        <div class="viewport">
+          <!-- svelte-ignore a11y_media_has_caption -->
+          <video bind:this={videoEl} class="scanner-video" playsinline></video>
+          <div class="reticle"></div>
+        </div>
+        <p class="hint">
+          Point the camera at a barcode, or type the number below. No result? <button
+            class="link"
+            onclick={() => switchMethod("custom")}>Add a custom entry</button
+          >.
+        </p>
+        {#if scanStalled}
+          <!-- Unreadable door (§1): after a persistent no-decode stretch, elevate
+               a prominent "photograph the label" escape so a barcode that won't
+               scan still leads somewhere. Routes barcode-less to the Custom form;
+               the user can still add legible digits in the form's reason banner. -->
+          <button
+            type="button"
+            class="escape"
+            data-testid="unreadable-escape"
+            onclick={() => openCaptureForm("unreadable")}
+          >
+            📷 Can’t scan it? Photograph the label instead
+          </button>
+        {/if}
+      {:else}
+        <!-- No live camera (desktop has no native BarcodeDetector, or the camera
+             was denied/absent): upload a photo of the barcode (click or drag) and
+             decode it via zxing-wasm. A decoded code drives the same lookup the
+             camera does; the photo is kept as the label photo (ADR-0034 §5). -->
+        <input
+          type="file"
+          accept="image/*"
+          class="hidden-file-input"
+          bind:this={uploadInput}
+          onchange={handleUploadChange}
+        />
+        <div
+          class="dropzone"
+          class:drag={dragOver}
+          class:busy={decoding}
+          role="button"
+          tabindex="0"
+          data-testid="scan-dropzone"
+          aria-label="Upload a photo of the barcode"
+          ondrop={handleDrop}
+          ondragover={handleDragOver}
+          ondragleave={() => (dragOver = false)}
+          onclick={() => uploadInput?.click()}
+          onkeydown={(e) =>
+            (e.key === "Enter" || e.key === " ") &&
+            (e.preventDefault(), uploadInput?.click())}
         >
-          📷 Can’t scan it? Photograph the label instead
-        </button>
+          {#if uploadedPhoto}
+            <img src={uploadedPhoto} alt="" class="dropzone-preview" />
+          {/if}
+          <div class="dropzone-body">
+            {#if decoding}
+              <span class="dropzone-spinner" aria-hidden="true"></span>
+              <span class="dropzone-title">Reading the barcode…</span>
+            {:else}
+              <span class="dropzone-icon" aria-hidden="true">📷</span>
+              <span class="dropzone-title"
+                >Drop a photo of the barcode, or click to choose</span
+              >
+              <span class="dropzone-sub"
+                >or type the number below — it looks the product up the same way
+                a scan does</span
+              >
+            {/if}
+          </div>
+        </div>
+        {#if uploadError}
+          <p class="hint" data-testid="upload-error">{uploadError}</p>
+        {/if}
+        {#if uploadNoCode}
+          <!-- Same escape the camera stall offers: go to the form (unreadable
+               door) with the photo attached; add the digits there if legible. -->
+          <button
+            type="button"
+            class="escape"
+            data-testid="unreadable-escape"
+            onclick={() => openCaptureForm("unreadable")}
+          >
+            ✏️ Enter the label details instead
+          </button>
+        {/if}
       {/if}
     {:else}
       <!-- Custom = the #52 "Read-along" full-panel form (ADR-0034 §2–§4). Name +
@@ -1537,6 +1701,73 @@
     height: 70px;
     border: 3px solid #ff3333;
     box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.45);
+  }
+
+  /* Desktop photo-upload dropzone — the Scan tab where no native BarcodeDetector
+     exists. Big click/drag target, dashed until a photo lands, tinted on drag. */
+  .dropzone {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    margin-top: var(--space-s);
+    padding: var(--space-m);
+    border: 2px dashed var(--border-accent);
+    border-radius: 12px;
+    background: var(--surface-2, #f4f4f5);
+    cursor: pointer;
+    overflow: hidden;
+    text-align: center;
+  }
+  .dropzone.drag {
+    border-style: solid;
+    border-color: var(--border-accent);
+    background: rgba(204, 255, 0, 0.15);
+  }
+  .dropzone:focus-visible {
+    outline: 2px solid var(--border-accent);
+    outline-offset: 2px;
+  }
+  .dropzone.busy {
+    cursor: progress;
+  }
+  /* The chosen photo fills the zone as a dimmed backdrop; the status sits over it. */
+  .dropzone-preview {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.35;
+  }
+  .dropzone-body {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2xs);
+    max-width: 22rem;
+  }
+  .dropzone-icon {
+    font-size: 1.8rem;
+  }
+  .dropzone-title {
+    font-weight: 700;
+    font-size: var(--step-n1);
+    color: var(--text-primary);
+  }
+  .dropzone-sub {
+    font-size: var(--step-n2);
+    color: var(--text-secondary);
+  }
+  .dropzone-spinner {
+    width: 1.6rem;
+    height: 1.6rem;
+    border: 3px solid var(--border-accent);
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
   }
 
   /* Unreadable-door escape (§1), elevated after ~10 s of no decode. */
