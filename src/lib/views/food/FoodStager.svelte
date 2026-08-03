@@ -22,6 +22,7 @@
   import {
     roundFoodDisplay,
     scaleNutrition,
+    portionLabelIsBareWeight,
     FOOD_PORTIONS_ATTR,
     NUTRITION_INFO_ATTR,
     type Portion,
@@ -1459,10 +1460,13 @@
           </div>
           <div class="cf-list">
             {#each customPortions as p, i (i)}
+              {@const weird = portionLabelIsBareWeight(p.label)}
               <div class="cf-prow">
                 <input
+                  class:cf-in-warn={weird}
                   placeholder="e.g. 1 slice"
                   aria-label="Portion label"
+                  aria-invalid={weird}
                   bind:value={p.label}
                 />
                 <input
@@ -1479,6 +1483,15 @@
                   aria-label="Remove portion">✕</button
                 >
               </div>
+              {#if weird}
+                <!-- The label is just a weight, so it only restates the grams
+                     column — nudge a real household unit (mirrors the chip
+                     collapse in formatPortionPreset). Non-blocking. -->
+                <p class="cf-prow-warn" data-testid="portion-weight-warning">
+                  That's a weight, not a portion name — try a household unit
+                  like “1 slice” or “1 biscuit”.
+                </p>
+              {/if}
             {/each}
             <button
               type="button"
@@ -2191,6 +2204,19 @@
     font: inherit;
     font-weight: 600;
     min-height: 44px;
+  }
+  /* A portion label that's just a weight (e.g. "30 g") gets an amber border and
+     a hint line — soft, never blocks saving. Matches the found-but-poor nudge. */
+  .cf input.cf-in-warn {
+    border-color: #f5b301;
+    background: rgba(255, 204, 0, 0.1);
+  }
+  .cf-prow-warn {
+    margin: 0 0 var(--space-2xs);
+    padding: 0 0.4rem;
+    font-size: 0.75rem;
+    line-height: 1.35;
+    color: var(--text-secondary);
   }
   /* Every text field in the read-along form shares one look. */
   .cf input {

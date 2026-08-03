@@ -4,6 +4,7 @@ import {
   roundFoodDisplay,
   formatPortionLabel,
   formatPortionPreset,
+  portionLabelIsBareWeight,
   portionPresets,
   resolvePortionGrams,
   scaleNutrition,
@@ -231,6 +232,56 @@ describe("formatPortionPreset", () => {
         grams: 14.174,
       })
     ).toBe("1 tbsp — 14.17 g");
+  });
+
+  it("drops the redundant suffix when the label is itself the gram weight", () => {
+    // OFF serving sizes are often bare gram weights ("30 g"); repeating them as
+    // "30 g — 30 g" reads as a range, so the chip collapses to just the label.
+    expect(
+      formatPortionPreset({
+        label: "30 g",
+        amount: 1,
+        unit: "serving",
+        grams: 30,
+      })
+    ).toBe("30 g");
+    // Spacing/case variants normalise the same way ("45G" ≡ "45 g").
+    expect(
+      formatPortionPreset({
+        label: "45G",
+        amount: 1,
+        unit: "serving",
+        grams: 45,
+      })
+    ).toBe("45G");
+  });
+});
+
+describe("portionLabelIsBareWeight", () => {
+  it("flags labels that only restate a gram weight", () => {
+    for (const label of [
+      "30 g",
+      "30g",
+      "30 grams",
+      "30 gram",
+      "30",
+      "2.5 g",
+      " 45 G ",
+    ]) {
+      expect(portionLabelIsBareWeight(label)).toBe(true);
+    }
+  });
+
+  it("does not flag real household units or blank labels", () => {
+    for (const label of [
+      "1 slice",
+      "1 biscuit (12 g)",
+      "half a can",
+      "",
+      "  ",
+    ]) {
+      expect(portionLabelIsBareWeight(label)).toBe(false);
+    }
   });
 });
 

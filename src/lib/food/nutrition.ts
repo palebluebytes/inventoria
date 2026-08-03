@@ -216,12 +216,34 @@ export interface PortionPreset {
 }
 
 /**
+ * True when a portion label carries no household meaning beyond a bare weight —
+ * "30 g", "30g", "30 grams", or just "30". A household portion is meant to name
+ * a unit ("1 slice", "1 biscuit"); a label that only restates the grams column
+ * is uninformative — {@link formatPortionPreset} collapses its chip from
+ * "30 g — 30 g" to "30 g", and the capture form flags the row so the user can
+ * give it a real name. Blank labels are not flagged (they're simply incomplete).
+ */
+export function portionLabelIsBareWeight(label: string): boolean {
+  const t = label.trim().toLowerCase();
+  if (t === "") return false;
+  return /^\d+(?:\.\d+)?\s*(?:g|gram|grams)?$/.test(t);
+}
+
+/**
  * Formats a portion chip's display text — its label plus the gram weight it
  * resolves to, e.g. "1 medium — 118 g". Grams are shown at the display
  * precision so a source's finely-weighed portion doesn't read as noise.
+ *
+ * When the label is *itself* the resolved gram weight — as with an OFF serving
+ * size of "30 g" ({@link offPortions}) — the ` — N g` suffix would just repeat
+ * it ("30 g — 30 g"), so it's dropped and the chip reads plainly ("30 g").
  */
 export function formatPortionPreset(portion: Portion): string {
-  return `${portion.label} — ${roundFoodDisplay(portion.grams)} g`;
+  const grams = roundFoodDisplay(portion.grams);
+  // Normalise "30g" / "30 g" / " 30 G " to compare against the resolved weight.
+  const bare = portion.label.trim().toLowerCase().replace(/\s+/g, "");
+  if (bare === `${grams}g`) return portion.label.trim();
+  return `${portion.label} — ${grams} g`;
 }
 
 /**
