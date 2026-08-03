@@ -5,8 +5,10 @@
     saveFoodTargets,
     saveFoodLimits,
     saveFoodProfile,
+    nutritionDisplayDecimals,
     type FoodProfile,
   } from "../../stores/settings.store";
+  import { roundFoodDisplay } from "../../food/nutrition";
   import {
     MACRO_DESCRIPTORS,
     MICRO_DESCRIPTORS,
@@ -24,7 +26,6 @@
     ENERGY_TARGET_KEY,
   } from "../../food/nutrition-targets";
   import { onDestroy } from "svelte";
-  import Card from "../../ui/Card.svelte";
   import NutrientCard from "./NutrientCard.svelte";
   import NutrientCardGrid from "./NutrientCardGrid.svelte";
   import NutrientGroupHead from "./NutrientGroupHead.svelte";
@@ -53,7 +54,8 @@
   // the credentials form is never clobbered. Calories are always-on via the ring.
   let visible_nutrients = $state<string[]>([]);
   // Whether nutrition reads rounded to whole numbers (display-only, ticket #29).
-  let round_nutrition = $state(false);
+  // Default on now — seeded from the store, which also defaults on.
+  let round_nutrition = $state(true);
   // Per-nutrient target overrides (ticket #41, ADR-0031 §3): mirrors the
   // `settings/food/targets` blob — a partial map keyed by breakdown key in the
   // baked map's canonical unit (grams for mass, kcal for `energy`). Absent → the
@@ -83,8 +85,12 @@
   // The baked default / an override as the plain number the user sees in the
   // card's display unit — the input's placeholder / value. `energy` is baked in
   // kcal already; every other key is baked in grams and reformats to g/mg/µg.
+  // Both honour the whole-number toggle ($nutritionDisplayDecimals) so the
+  // Nutrition Display values round in step with the dashboard/pills/calculator.
   const displayNumber = (grams: number, unit: TargetUnit): string =>
-    unit === "kcal" ? String(grams) : String(nutrientDisplayValue(grams, unit));
+    unit === "kcal"
+      ? String(roundFoodDisplay(grams, $nutritionDisplayDecimals))
+      : String(nutrientDisplayValue(grams, unit, $nutritionDisplayDecimals));
   const placeholderFor = (key: string, unit: TargetUnit): string =>
     displayNumber(BAKED_NUTRIENT_TARGETS_G[key], unit);
   // A set override shown in the same display unit — the input's value; absent →
@@ -245,6 +251,10 @@
         scraper_proxy_url: $settingsStore.scraper_proxy_url,
         visible_nutrients,
         round_nutrition,
+        // Preserve the OFF-contribution consent toggle — it defaults to `off`
+        // when omitted, so read the current value through rather than silently
+        // resetting it whenever a nutrient's visibility or rounding changes.
+        off_contribute: $settingsStore.off_contribute,
       });
     } catch (err) {
       console.error("Failed to save nutrition display settings", err);
@@ -262,6 +272,11 @@
   // null when none is open. Set by the four ⓘ buttons (three section heads + the
   // calculator card); the sheet is mounted only while non-null so it re-seeds fresh.
   let rationale = $state<TargetRationale | null>(null);
+
+  // Whether the "how this section works" help text is revealed. Collapsed by
+  // default — tucked behind the ⓘ inline with the heading so the section leads
+  // straight into the nutrient grids; the ⓘ toggles it open on demand.
+  let showHelp = $state(false);
 
   // The three headline macros the helper writes and auto-tracks (energy is the
   // always-on ring, never a visible-nutrient meter).
@@ -405,15 +420,31 @@
   </button>
 {/snippet}
 
-<Card class="mt-4">
-  <h2>Nutrition Display</h2>
-  <p class="mt-2">
-    Tap a nutrient to show it on the food dashboard, and set the daily allowance
-    it reaches toward. A blank target keeps the baked default (shown greyed); ↺
-    clears an override; enter 0 to opt out of a target. Calories are always
-    shown. The limits below are caps to stay under — the day tints amber once
-    you go over.
-  </p>
+<section class="nutrition-editor">
+  <div class="section-head-row">
+    <h2>Nutrition Display</h2>
+    <!-- The section help is tucked behind this ⓘ, inline with the heading, so the
+         section leads straight into the grids. Toggles the paragraph below. -->
+    <button
+      type="button"
+      class="info-btn"
+      aria-expanded={showHelp}
+      aria-controls="nutrition-display-help"
+      aria-label="How Nutrition Display works"
+      onclick={() => (showHelp = !showHelp)}
+    >
+      i
+    </button>
+  </div>
+  {#if showHelp}
+    <p id="nutrition-display-help" class="mt-2">
+      Tap a nutrient to show it on the food dashboard, and set the daily
+      allowance it reaches toward. A blank target keeps the baked default (shown
+      greyed); ↺ clears an override; enter 0 to opt out of a target. Calories
+      are always shown. The limits below are caps to stay under — the day tints
+      amber once you go over.
+    </p>
+  {/if}
 
   <!-- The heading bands and card grids bleed to the card's edges so the section
        reads edge-to-edge like the dashboard's full-day modal. -->
@@ -439,9 +470,10 @@
           type="button"
           class="calc-action"
           data-open-calculator
+          aria-label="Calculate targets from body metrics"
           onclick={() => (showCalculator = true)}
         >
-          <span class="calc-action-label">Calculate from body metrics</span>
+          <span class="calc-action-label">Calculate</span>
         </button>
         {@render infoButton(TARGET_RATIONALES.calculator)}
       </div>
@@ -478,14 +510,14 @@
         checked={round_nutrition}
         onchange={toggleRoundNutrition}
       />
-      <span class="toggle-text">Round nutrition to whole numbers</span>
+      <span class="toggle-text">Round to whole numbers</span>
     </label>
     <span class="help-text"
       >Show calories and nutrients as whole numbers. Stored values keep full
       precision either way.</span
     >
   </div>
-</Card>
+</section>
 
 <!-- Mounted only while open so the form seeds fresh from the current profile each
      time; onClose unmounts it (the slide-out animation runs first). -->
@@ -504,6 +536,20 @@
 {/if}
 
 <style>
+  /* Borderless, full-width surface (no Card box): the heading and copy carry the
+     same `--space-l` horizontal inset the Card used to pad, so the group-heads
+     and grids' `-space-l` bleed still lands flush against this section's edges —
+     the parent stretches this section to the full sheet width. */
+  .nutrition-editor {
+    padding-inline: var(--space-l);
+  }
+  /* Heading + its ⓘ disclosure on one row, the info button sitting inline right
+     after the title. */
+  .section-head-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2xs);
+  }
   h2 {
     font-size: var(--step-1);
     font-weight: 800;
@@ -625,14 +671,16 @@
     outline: 2px solid #000;
     outline-offset: 2px;
   }
-  /* The calculator's ⓘ, pinned in the cell corner and lifted above the action.
-     Inverted to sit on the button's solid black fill: white "i" and white border
-     (border is `currentColor`) over black, flipping to black-on-white on hover to
-     match the action button's own invert. */
+  /* The calculator's ⓘ, pinned hard into the cell's top-right corner and lifted
+     above the action. Tight to the corner (`--space-3xs`) so it clears the
+     centred action label rather than crowding it. Inverted to sit on the
+     button's solid black fill: white "i" and white border (border is
+     `currentColor`) over black, flipping to black-on-white on hover to match the
+     action button's own invert. */
   .calc-cell .info-btn {
     position: absolute;
-    top: var(--space-2xs);
-    right: var(--space-2xs);
+    top: var(--space-3xs);
+    right: var(--space-3xs);
     z-index: 1;
     background: #000;
     color: #fff;
@@ -726,13 +774,21 @@
     align-items: center;
     /* em-based so the checkbox, gap and text scale together as one unit. */
     gap: 0.65em;
-    font-size: min(var(--step-n1), 5.3cqi);
+    /* Keep the whole label on ONE line: the caps text never wraps, and the font
+       shrinks with the container so it always fits. `min(step-n1, X·cqi)` caps at
+       the normal size on a wide container and rides X·cqi down on a narrow one.
+       X = 100 / row-width-in-em; the "ROUND TO WHOLE NUMBERS" row measures
+       ≈ 15.3em (checkbox + gap + caps) — with a little headroom for the checkbox's
+       sub-pixel growth at small sizes, 6cqi keeps it flush to one line at any
+       width, shrinking only once the container is too narrow for the capped size. */
+    font-size: min(var(--step-n1), 6cqi);
     font-weight: 700;
     line-height: 1.4;
     color: #000;
     cursor: pointer;
     user-select: none;
     text-transform: uppercase;
+    white-space: nowrap;
   }
   /* The caps sit ~0.08em above the line-box centre; nudge them down optically
      where text-box-trim isn't available. */
