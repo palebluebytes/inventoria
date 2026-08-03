@@ -58,6 +58,7 @@
   import FoodResultsList from "./FoodResultsList.svelte";
   import LabelPhotoReader from "./LabelPhotoReader.svelte";
   import FoodAmountPanel from "./FoodAmountPanel.svelte";
+  import ManualEntryFlow from "./ManualEntryFlow.svelte";
 
   // The shared food-staging surface behind both the direct-log sheet and the
   // add-ingredient sheet (issue #16). It owns the Search / Scan / Custom method
@@ -80,6 +81,16 @@
     primaryDisabled = false,
     /** Allows attaching a photo to a custom entry (the direct-log flow only). */
     allowPhoto = false,
+    /**
+     * Makes the Custom tab an intent CHOOSER (quick estimate / from a menu / from
+     * a photo, ADR-0035) instead of the full-panel label form. The direct-log
+     * flow opts in; the add-ingredient flow leaves it off and keeps the label
+     * form. The label form is still reached in BOTH flows via the barcode doors
+     * (a set `captureReason` wins over this). */
+    manualIntents = false,
+    /** The meal this sheet logs into ("lunch"/"dinner") — the quick-estimate name
+     *  default when the user leaves the name blank (ADR-0035 §3). */
+    mealName = "",
     /** Hides the method switcher — the direct-log sheet's edit mode locks onto
      *  one food's amount. */
     lockMethods = false,
@@ -103,6 +114,8 @@
     primaryLabel: (ctx: PrimaryLabelContext) => string;
     primaryDisabled?: boolean;
     allowPhoto?: boolean;
+    manualIntents?: boolean;
+    mealName?: string;
     lockMethods?: boolean;
     seed?: StagerSeed | null;
     extraTabs?: StagerExtraTab[];
@@ -1047,10 +1060,23 @@
   // invite the user to abandon it. A manual Custom tap clears captureReason, so
   // the tabs stay put there.
   let showTabs = $derived(!staged && !lockMethods && captureReason === null);
+  // The Custom tab shows the intent CHOOSER (not the label form) when the host
+  // opted into manual intents AND no barcode door routed here (a set
+  // `captureReason` always wins → the label form, ADR-0035 §2). The chooser owns
+  // its own Save, so the shared dock's primary + kcal summary drop for it.
+  // Edit mode (`lockMethods`) re-opens a logged entry on the prefilled label form,
+  // so the chooser must not hijack it — hence `!lockMethods`.
+  let showManualChooser = $derived(
+    method === "custom" &&
+      !staged &&
+      manualIntents &&
+      captureReason === null &&
+      !lockMethods
+  );
   // The custom form carries its own name field in its identity-card header, so
   // the shared dock input is dropped for it (Search/Scan still use it).
   let showInput = $derived(!staged && !isExtra(method) && method !== "custom");
-  let showPrimary = $derived(!isExtra(method));
+  let showPrimary = $derived(!isExtra(method) && !showManualChooser);
 </script>
 
 <div class="stager">
@@ -1213,8 +1239,23 @@
           </button>
         {/if}
       {/if}
+    {:else if showManualChooser}
+      <!-- Custom = the ADR-0035 intent chooser + its three mini-forms (quick
+           estimate / from a menu / from a photo). The label form is NOT here — it
+           stays on the barcode doors (a set captureReason routes to it below). -->
+      <ManualEntryFlow
+        {allowPhoto}
+        {mealName}
+        busy={status === "loading"}
+        disabled={primaryDisabled}
+        nameId={ids.customName}
+        calId={ids.customCal}
+        onCommit={commit}
+      />
     {:else}
-      <!-- Custom = the #52 "Read-along" full-panel form (ADR-0034 §2–§4). Name +
+      <!-- Custom = the #52 "Read-along" full-panel form (ADR-0034 §2–§4), reached
+           via the barcode doors (missing / poor / unreadable), or the always-on
+           manual tab when the host did not opt into ADR-0035 intents. Name +
            brand in a sticky identity card, then every panel row grouped Macros ·
            fats/fibre/sugar/salt · vitamins & minerals · portions, transcribed
            top-to-bottom. Macros lead so the fast path stays name + calories →
@@ -1558,7 +1599,7 @@
       </div>
     {/if}
 
-    {#if method === "custom" && !staged}
+    {#if method === "custom" && !staged && !showManualChooser}
       <div class="cf-sum">
         <span><strong>{runningKcal || "—"}</strong> kcal</span>
         {#if toReview > 0}

@@ -2,6 +2,7 @@
   import { dbClient } from "../../db/db.client";
   import {
     mapPayloadToFoodResult,
+    isCatalogueFood,
     type FoodResult,
   } from "../../food/food-search";
   import { ingestEntity } from "../../ingestion/ingest";
@@ -10,6 +11,7 @@
     getLocalFoodTwin,
     saveCustomFood,
     saveLabelFood,
+    saveManualFood,
     retractConsumptionEvent,
     recipeTwinsStore,
     consumptionStore,
@@ -95,42 +97,50 @@
   });
 
   // Recently logged foods for one-tap re-logging, shown in the stager's Search
-  // tab while its query box is empty. Distinct twins, newest first, capped at a
-  // dozen. Only gram-basis logs qualify: the stager scales a chosen food on a
-  // 100 g basis (ADR-0023), so per-serving custom entries — which re-open the
-  // custom form in edit mode — are skipped rather than mis-scaled here.
+  // tab while its query box is empty. Distinct twins, newest first. Gram-basis
+  // logs qualify; whole-serving logs qualify only as a reusable `menu` manual
+  // entry (ADR-0035 §6) — the catalogue rule lives in `isCatalogueFood`, applied
+  // once the twin is fetched. The candidate list is gathered wider than the final
+  // dozen, since the filter can drop serving foods (quick/plate one-offs, label
+  // captures) that re-open via the edit path, not Recent.
   const RECENT_LIMIT = 12;
-  let recentTargets = $derived.by(() => {
+  const RECENT_CANDIDATES = 40;
+  let recentCandidates = $derived.by(() => {
     const seen = new Set<string>();
-    const out: string[] = [];
+    const out: { target: string; unit: string }[] = [];
     for (const e of [...$consumptionStore].sort((a, b) => b.time - a.time)) {
       if (!e.target || seen.has(e.target)) continue;
       seen.add(e.target);
-      if (parseLoggedQuantity(e.quantity).unit === "serving") continue;
-      out.push(e.target);
-      if (out.length >= RECENT_LIMIT) break;
+      out.push({
+        target: e.target,
+        unit: parseLoggedQuantity(e.quantity).unit,
+      });
+      if (out.length >= RECENT_CANDIDATES) break;
     }
     return out;
   });
 
-  // Resolve those targets to the FoodResult shape the stager stages, reusing the
-  // gram edit-path mapping. Twins are cached across store ticks so a new log
-  // doesn't refetch the whole list. Runs untracked bodies via getLocalFoodTwin.
+  // Resolve those candidates to the FoodResult shape the stager stages, reusing
+  // the gram edit-path mapping, and keep only catalogue foods (the twin's
+  // `food/manual_entry.kind` decides serving foods). Twins are cached across store
+  // ticks so a new log doesn't refetch the whole list.
   let recent = $state<FoodResult[]>([]);
   const twinCache = new Map<string, FoodResult>();
   $effect(() => {
-    const targets = recentTargets;
+    const candidates = recentCandidates;
     let cancelled = false;
     void (async () => {
       const out: FoodResult[] = [];
-      for (const t of targets) {
-        let fr = twinCache.get(t);
+      for (const c of candidates) {
+        if (out.length >= RECENT_LIMIT) break;
+        let fr = twinCache.get(c.target);
         if (!fr) {
-          const twin = await getLocalFoodTwin(t);
+          const twin = await getLocalFoodTwin(c.target);
           if (!twin) continue;
           fr = mapPayloadToFoodResult(twin);
-          twinCache.set(t, fr);
+          twinCache.set(c.target, fr);
         }
+        if (!isCatalogueFood(fr.payload.attributes, c.unit)) continue;
         out.push(fr);
       }
       if (!cancelled) recent = out;
@@ -210,13 +220,23 @@
         );
         if (edit) await retractConsumptionEvent(edit.id, newId);
       } else {
-        // The Custom form (#57) commits the full `nutrition/info` panel + brand +
-        // portions + provenance through saveLabelFood (ADR-0034 §6); the key
-        // follows the barcode (a `gtin:` seed enriches in place, none mints a
-        // `food:custom_`). The legacy four-macro fast path (no panel) stays on
-        // saveCustomFood. Either way the log below uses the frozen macros.
+        // Three custom writer paths, chosen by what the choice carries:
+        //   • a `manualEntry` envelope → saveManualFood (ADR-0035): a calories-only
+        //     `food:custom_` twin; the event freezes calories and OMITS macros.
+        //   • a full `nutrition` panel + `labelCapture` → saveLabelFood (ADR-0034
+        //     §6): the key follows the barcode (a `gtin:` seed enriches in place).
+        //   • otherwise the legacy four-macro fast path → saveCustomFood.
         let twinId: string;
-        if (choice.nutrition && choice.labelCapture) {
+        if (choice.manualEntry) {
+          twinId = await saveManualFood({
+            name: choice.name,
+            calories: choice.calories,
+            brand: choice.brand,
+            ingredients: choice.ingredients,
+            photo: choice.photo_base64 ?? undefined,
+            manualEntry: choice.manualEntry,
+          });
+        } else if (choice.nutrition && choice.labelCapture) {
           // Found-but-poor door (ADR-0034 §6/§7): ingest the OFF record FIRST so
           // its `twin/raw_provenance` lands in the ledger, then let saveLabelFood
           // append the correction over the same `gtin:` entity. Append-only +
@@ -248,14 +268,18 @@
             choice.photo_base64 || undefined
           );
         }
+        // A manual-entry intent freezes calories ONLY — its macros are omitted so
+        // the daily macro meters never move for it (absent ≠ 0, ADR-0035 §7). The
+        // label / legacy paths freeze the four macros as before.
+        const macrosOnly = !choice.manualEntry;
         const newId = await logFoodConsumption(
           twinId,
           "1 serving",
           meal_type,
           choice.calories,
-          choice.protein,
-          choice.fat,
-          choice.carbs,
+          macrosOnly ? choice.protein : undefined,
+          macrosOnly ? choice.fat : undefined,
+          macrosOnly ? choice.carbs : undefined,
           selectedDate
         );
         if (edit) await retractConsumptionEvent(edit.id, newId);
@@ -293,6 +317,8 @@
     bind:staged
     {seed}
     allowPhoto
+    manualIntents
+    mealName={meal_type}
     lockMethods={!!edit}
     recent={edit ? [] : recent}
     primaryDisabled={!dbReady}

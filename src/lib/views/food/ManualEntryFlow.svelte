@@ -1,0 +1,537 @@
+<script lang="ts">
+  import {
+    buildManualEntry,
+    type ManualEntryKind,
+  } from "../../food/provenance";
+  import { emptyPlateEstimate } from "../../food/plate-estimator";
+  import type { FoodChoice } from "../../food/food-staging";
+
+  // The Custom tab's intent chooser and its three purpose-built mini-forms
+  // (ADR-0035). The label form is NOT reached here — it stays on the barcode
+  // doors. Each intent is calories-only (no macros); on Save this builds the
+  // widened custom {@link FoodChoice} carrying a `food/manual_entry` envelope and
+  // hands it to the host through {@link onCommit}, which routes it to
+  // `saveManualFood` + a calories-only Consumption Event.
+  //
+  //   ⚡ quick estimate — calories fast; name defaults to the meal; photo optional;
+  //      one-off (excluded from Recent/Search).
+  //   📋 from a menu     — name + calories required; Place → twin/brand, Ingredients
+  //      → food/ingredients (descriptive only), photo optional; reusable.
+  //   🍽️ from a photo    — capture a plate photo, then a BLANK menu-style form with
+  //      the photo attached; the PlateEstimator seam is wired but v1 uses its empty
+  //      variant (no model, no fabricated numbers); one-off.
+  let {
+    /** Allows attaching a photo (the direct-log flow only). */
+    allowPhoto = false,
+    /** The meal this sheet logs into ("lunch"/"dinner") — the quick-estimate name
+     *  default when the user leaves the name blank. */
+    mealName = "",
+    /** True while the host's commit is in flight — disables Save. */
+    busy = false,
+    /** Extra disable for Save (e.g. the DB not being ready yet). */
+    disabled = false,
+    /** DOM ids so the host keeps the selectors its e2e expects. */
+    nameId = "custom-name",
+    calId = "custom-cal",
+    /** Commits the built choice; the host maps it to a save + log. */
+    onCommit,
+  }: {
+    allowPhoto?: boolean;
+    mealName?: string;
+    busy?: boolean;
+    disabled?: boolean;
+    nameId?: string;
+    calId?: string;
+    onCommit: (choice: FoodChoice) => void | Promise<void>;
+  } = $props();
+
+  const INTENTS: {
+    kind: ManualEntryKind;
+    icon: string;
+    title: string;
+    blurb: string;
+  }[] = [
+    {
+      kind: "quick_estimate",
+      icon: "⚡",
+      title: "Quick estimate",
+      blurb: "Log a calorie figure, fast",
+    },
+    {
+      kind: "menu",
+      icon: "📋",
+      title: "From a menu",
+      blurb: "A named dish with the menu's calories",
+    },
+    {
+      kind: "plate_estimate",
+      icon: "🍽️",
+      title: "From a photo",
+      blurb: "Snap the plate, fill in the details",
+    },
+  ];
+
+  let intent = $state<ManualEntryKind | null>(null);
+
+  // Shared mini-form state. Blanked on every intent switch so no field bleeds
+  // across intents (a menu's Place must not haunt a later quick estimate).
+  let name = $state("");
+  let calories = $state("");
+  let place = $state("");
+  let ingredients = $state("");
+  let photo = $state<string | null>(null);
+  let fileInput = $state<HTMLInputElement | null>(null);
+  let readError = $state("");
+
+  function reset() {
+    name = "";
+    calories = "";
+    place = "";
+    ingredients = "";
+    photo = null;
+    readError = "";
+  }
+
+  function choose(kind: ManualEntryKind) {
+    reset();
+    intent = kind;
+    // The plate flow is photo-first: v1 opens the BLANK menu-style form from the
+    // EMPTY estimate (the seam is wired here; a real estimatePlate() would prefill
+    // the same fields under confirm-before-save, ADR-0035 §5). No model call.
+    if (kind === "plate_estimate") {
+      const est = emptyPlateEstimate();
+      name = est.name ?? "";
+      calories = est.calories != null ? String(est.calories) : "";
+      ingredients = est.ingredients.join(", ");
+    }
+  }
+
+  function back() {
+    intent = null;
+    reset();
+  }
+
+  function readAsDataUrl(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => resolve(ev.target?.result as string);
+      reader.onerror = () => reject(new Error("read failed"));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleFile(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = Array.from(input.files ?? []).find((f) =>
+      f.type.startsWith("image/")
+    );
+    input.value = "";
+    if (!file) return;
+    readError = "";
+    try {
+      photo = await readAsDataUrl(file);
+    } catch {
+      readError = "Couldn’t read that image file.";
+    }
+  }
+
+  // A parsed positive kcal figure, or null while the field is blank/unparseable.
+  let kcal = $derived.by<number | null>(() => {
+    const n = Number(calories.trim());
+    return calories.trim() !== "" && Number.isFinite(n) && n > 0 ? n : null;
+  });
+
+  // The quick-estimate name shown/saved when the field is left blank — the meal
+  // name capitalised ("Lunch"), so the day's list is never an anonymous figure.
+  let mealDefault = $derived(
+    mealName ? mealName.charAt(0).toUpperCase() + mealName.slice(1) : "Custom"
+  );
+
+  // Menu / plate need a name AND calories; quick needs only calories (its name
+  // defaults). The plate form also needs the photo that opened it.
+  let canSave = $derived.by(() => {
+    if (kcal == null) return false;
+    if (intent === "quick_estimate") return true;
+    if (intent === "menu") return name.trim() !== "";
+    if (intent === "plate_estimate") return name.trim() !== "" && !!photo;
+    return false;
+  });
+
+  function save() {
+    if (!canSave || kcal == null || !intent || busy || disabled) return;
+    const isMenu = intent === "menu";
+    const resolvedName =
+      intent === "quick_estimate" && name.trim() === ""
+        ? mealDefault
+        : name.trim();
+    const ing = intent === "quick_estimate" ? "" : ingredients.trim();
+    const brand = isMenu ? place.trim() : "";
+    const fields = [
+      "name",
+      "calories",
+      ...(ing ? ["ingredients"] : []),
+      ...(brand ? ["brand"] : []),
+      ...(photo ? ["photo"] : []),
+    ];
+    const choice: FoodChoice = {
+      kind: "custom",
+      name: resolvedName,
+      calories: kcal,
+      // Calories-only: no macros. The host logs the event with these omitted, so
+      // the macro meters never move for a manual entry (ADR-0035 §7).
+      protein: 0,
+      fat: 0,
+      carbs: 0,
+      photo_base64: photo,
+      labelPhotos: photo ? [photo] : undefined,
+      brand: brand || undefined,
+      ingredients: ing || undefined,
+      manualEntry: buildManualEntry({ kind: intent, fields }),
+    };
+    void onCommit(choice);
+  }
+</script>
+
+{#if intent === null}
+  <!-- The chooser: three eating-out / estimation intents. The label form is not
+       an option here (ADR-0035 §1) — it lives on the barcode doors. -->
+  <div class="chooser" data-testid="manual-intent-chooser">
+    {#each INTENTS as opt (opt.kind)}
+      <button
+        type="button"
+        class="intent"
+        data-testid={`intent-${opt.kind}`}
+        onclick={() => choose(opt.kind)}
+      >
+        <span class="intent-ico" aria-hidden="true">{opt.icon}</span>
+        <span class="intent-text">
+          <span class="intent-title">{opt.title}</span>
+          <span class="intent-blurb">{opt.blurb}</span>
+        </span>
+        <span class="intent-go" aria-hidden="true">›</span>
+      </button>
+    {/each}
+  </div>
+{:else}
+  <div class="mini" data-testid={`manual-form-${intent}`}>
+    <button type="button" class="mini-back" onclick={back}>‹ Intents</button>
+
+    {#if allowPhoto}
+      <input
+        type="file"
+        accept="image/*"
+        capture="environment"
+        class="hidden-file-input"
+        bind:this={fileInput}
+        onchange={handleFile}
+      />
+    {/if}
+
+    {#if intent === "plate_estimate" && !photo}
+      <!-- Photo-first: capture/pick a plate photo, then the blank form opens. -->
+      <button
+        type="button"
+        class="plate-cta"
+        data-testid="plate-capture"
+        onclick={() => fileInput?.click()}
+      >
+        <span class="plate-cta-ico" aria-hidden="true">📷</span>
+        <span>Take or choose a photo of the plate</span>
+      </button>
+      {#if readError}<p class="mini-err">{readError}</p>{/if}
+    {:else}
+      {#if intent === "quick_estimate"}
+        <!-- Fastest path: calories lead, name optional. -->
+        <label class="kcal-label" for={calId}>Calories</label>
+        <div class="kcal-field">
+          <input
+            id={calId}
+            class="kcal-input"
+            inputmode="numeric"
+            autocomplete="off"
+            placeholder="0"
+            aria-label="Calories in kcal"
+            bind:value={calories}
+          />
+          <span class="kcal-unit">kcal</span>
+        </div>
+        <input
+          id={nameId}
+          class="mini-name"
+          placeholder={`Name — defaults to “${mealDefault}”`}
+          aria-label="Name"
+          bind:value={name}
+        />
+      {:else}
+        <!-- Menu / plate share the review shape: name + calories, ingredients,
+             (menu only) Place. Photo attaches on both. -->
+        <input
+          id={nameId}
+          class="mini-name mini-name-req"
+          placeholder="Dish name"
+          aria-label="Dish name"
+          bind:value={name}
+        />
+        <label class="kcal-label" for={calId}>Calories</label>
+        <div class="kcal-field">
+          <input
+            id={calId}
+            class="kcal-input"
+            inputmode="numeric"
+            autocomplete="off"
+            placeholder="0"
+            aria-label="Calories in kcal"
+            bind:value={calories}
+          />
+          <span class="kcal-unit">kcal</span>
+        </div>
+        {#if intent === "menu"}
+          <label class="mini-flabel" for="manual-place">Place — optional</label>
+          <input
+            id="manual-place"
+            class="mini-name"
+            placeholder="e.g. Nando’s"
+            aria-label="Place"
+            bind:value={place}
+          />
+        {/if}
+        <label class="mini-flabel" for="manual-ingredients"
+          >Ingredients — optional</label
+        >
+        <textarea
+          id="manual-ingredients"
+          class="mini-ingredients"
+          rows="2"
+          placeholder="For memory & allergens — doesn’t change the calories"
+          aria-label="Ingredients"
+          bind:value={ingredients}
+        ></textarea>
+      {/if}
+
+      {#if allowPhoto}
+        <div class="mini-photo">
+          {#if photo}
+            <img src={photo} alt="" class="mini-thumb" />
+            <button
+              type="button"
+              class="mini-photo-btn"
+              onclick={() => (photo = null)}>Remove photo</button
+            >
+          {:else}
+            <button
+              type="button"
+              class="mini-photo-btn"
+              data-testid="manual-add-photo"
+              onclick={() => fileInput?.click()}>📷 Add a photo</button
+            >
+          {/if}
+        </div>
+        {#if readError}<p class="mini-err">{readError}</p>{/if}
+      {/if}
+
+      <button
+        type="button"
+        class="mini-save"
+        data-testid="manual-save"
+        disabled={!canSave || busy || disabled}
+        onclick={save}
+      >
+        {busy ? "Saving…" : "Save & Log"}
+      </button>
+    {/if}
+  </div>
+{/if}
+
+<style>
+  .chooser {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-s);
+  }
+  .intent {
+    display: flex;
+    align-items: center;
+    gap: var(--space-s);
+    width: 100%;
+    background: #fff;
+    border: 2px solid #000;
+    padding: var(--space-m);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    min-height: 64px;
+  }
+  .intent:hover {
+    background: #f4f4f5;
+  }
+  .intent:active {
+    box-shadow: 4px 4px 0 #000;
+  }
+  .intent-ico {
+    font-size: var(--step-3);
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .intent-text {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    gap: var(--space-3xs);
+  }
+  .intent-title {
+    font-weight: 800;
+    font-size: var(--step-0);
+  }
+  .intent-blurb {
+    font-size: var(--step-n2);
+    color: var(--text-secondary);
+  }
+  .intent-go {
+    font-size: var(--step-2);
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+
+  .mini {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-s);
+  }
+  .mini-back {
+    align-self: flex-start;
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: var(--step-n1);
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+  .kcal-label,
+  .mini-flabel {
+    font-size: var(--step-n2);
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+  .kcal-field {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: var(--space-2xs);
+    border: 3px solid var(--border-accent);
+    padding: var(--space-2xs) var(--space-xs);
+  }
+  .kcal-input {
+    width: 100%;
+    border: none;
+    outline: none;
+    text-align: center;
+    font-family: inherit;
+    font-size: var(--step-4);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    background: none;
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+  .kcal-unit {
+    font-size: var(--step-1);
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .mini-name,
+  .mini-ingredients {
+    width: 100%;
+    box-sizing: border-box;
+    border: 2px solid #000;
+    padding: var(--space-s);
+    font-family: inherit;
+    font-size: var(--step-0);
+    background: #fff;
+  }
+  .mini-name-req {
+    font-weight: 700;
+  }
+  .mini-ingredients {
+    font-size: var(--step-n1);
+    resize: vertical;
+  }
+  .plate-cta {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-s);
+    width: 100%;
+    border: 2px dashed #000;
+    background: #fff;
+    padding: var(--space-l);
+    font-family: inherit;
+    font-weight: 700;
+    font-size: var(--step-n1);
+    cursor: pointer;
+  }
+  .plate-cta:hover {
+    background: #f4f4f5;
+  }
+  .plate-cta-ico {
+    font-size: var(--step-4);
+    line-height: 1;
+  }
+  .mini-photo {
+    display: flex;
+    align-items: center;
+    gap: var(--space-s);
+  }
+  .mini-thumb {
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    border: 2px solid #000;
+  }
+  .mini-photo-btn {
+    background: #fff;
+    border: 2px solid #000;
+    padding: var(--space-2xs) var(--space-s);
+    font-family: inherit;
+    font-weight: 700;
+    font-size: var(--step-n2);
+    cursor: pointer;
+  }
+  .mini-photo-btn:hover {
+    background: #f4f4f5;
+  }
+  .mini-err {
+    font-size: var(--step-n2);
+    color: var(--red-text, #b00);
+  }
+  .mini-save {
+    width: 100%;
+    background: var(--green-bg, #16a34a);
+    color: #fff;
+    border: 2px solid #000;
+    padding: var(--space-s);
+    font-family: inherit;
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: var(--step-0);
+    cursor: pointer;
+    min-height: 52px;
+  }
+  .mini-save:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .hidden-file-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    border: 0;
+  }
+</style>
