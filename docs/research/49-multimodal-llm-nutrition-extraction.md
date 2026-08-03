@@ -112,9 +112,47 @@ The real #51 decision is therefore **not** "AI vs manual" as mutually exclusive.
 
 ---
 
+## Addendum (2026-08-03): chosen delivery path — Workers AI native, provider-swappable, user-key-gated
+
+> **Decision (supersedes the model-choice framing above for delivery):** run extraction through a **Cloudflare Workers AI native vision model**, built behind a **provider abstraction** so the model/provider can be swapped later without touching the capture flow, and **gate the worker with an API key the user configures in the app's Settings** (never bundled). The §1/§6 Claude analysis remains valid as the accuracy benchmark and as the first alternate provider to slot behind the abstraction.
+> Cloudflare figures quoted from primary docs (Aug 2026).
+
+### Why Cloudflare is the natural home
+
+Inventoria **already deploys a Cloudflare Worker** (`worker/src/index.ts`, the scraping proxy — ADR-0007) on Cloudflare Workers hosting (ADR-0005). The LLM call adds **no new backend** — it's a second route on the worker we already run, mirroring `/api/proxy`.
+
+### Delivery: Workers AI native model (`env.AI` binding)
+
+Run an open-weight vision model on Cloudflare; billing hits the Cloudflare account. Best fit: **`@cf/meta/llama-3.2-11b-vision-instruct`** (image input **and** JSON mode). Alternatives to trial in the #51 prototype: `llama-4-scout-17b`, `mistral-small-3.1-24b`, `moondream3.1` (explicit OCR + structured output).
+
+- **Pricing:** `$0.011 / 1,000 neurons`, **10,000 neurons/day free**. Llama 3.2 11B Vision = 4,410 neurons/M input, 61,493/M output.
+- **Per label** (~1 photo + schema prompt + ~700-token JSON out) ≈ **~56 neurons ≈ $0.0006**; free tier covers **~175 captures/day (~5,000/month) at $0**; 1,000 captures ≈ **$0.62**.
+- **Trade-offs accepted** (vs. the Claude analysis above): (1) Workers AI JSON mode is **best-effort — Cloudflare explicitly "can't guarantee that the model responds according to the requested JSON Schema,"** so the worker must **validate the `AIAutofillResult` shape and retry/repair**, not trust it; (2) open-weight OCR on the §3 multilingual hard labels is **weaker than Claude and unproven** — the #51 prototype runs the four real labels through the chosen model before locking it. Human-confirm (§6) already caps the blast radius of a bad read.
+
+### Provider abstraction (swap-friendly by design)
+
+Keep the model call behind one seam so switching provider (to Claude via AI Gateway, or any other) is a single impl swap, not a flow rewrite:
+
+- **Client seam (already exists):** `autofillFromPackageImage(imageBase64) -> AIAutofillResult` in `src/lib/food/ai-autofill.ts` stays the _only_ thing the capture flow (#53) and confirm form (#52/#57) know about. Local dev keeps the stub (ADR-0007 workerd/NixOS blocks Workers AI in the Vite mock); it POSTs to the real worker only in preview/prod.
+- **Worker seam:** a `LabelExtractor` interface `(images, schema) -> AIAutofillResult` with a `WorkersAiExtractor` impl calling `env.AI.run(...)`. A future `AiGatewayExtractor` (→ Claude, §6) drops in behind the same interface — route, request/response shape, and client all unchanged. **Each impl normalises its provider's raw output into `AIAutofillResult` internally**, so provider quirks (JSON-mode slop, unit formats, comma-decimals) never leak upward.
+
+### Gating: user-supplied API key in Settings
+
+The route spends money, so it must reject anonymous callers. Model: **the worker holds a configured secret; the app does NOT bundle it — the user pastes their key into Settings**, and it's sent on each request (e.g. `Authorization: Bearer …`) for the worker to verify. Because the key is user-provided and lives in the user's settings, not the public bundle, this is a **real** gate (the earlier "bundled key is only obfuscation" caveat does not apply here), and it matches the app's established secrets convention.
+
+- **Store it like #60 stores the others** — localStorage settings, off the EAVT ledger (alongside OFF/USDA/TMDB keys).
+- **Worker check:** constant-time compare against its configured secret (Wrangler secret / env var); `401` on mismatch or absence.
+- **Hard spend cap** on the Cloudflare account as the worst-case backstop, independent of key leakage.
+- **Origin check** as a cheap extra filter (not a security boundary).
+
+This is a #51 / impl-ticket decision and lands on the same worker route as the model call.
+
+---
+
 ## Sources
 
 - **`claude-api` skill** (authoritative for model ids and pricing, cached 2026-06-24) — model catalogue, per-token pricing, structured-output supported models.
 - [Vision — platform.claude.com](https://platform.claude.com/docs/en/build-with-claude/vision) — visual-token cost formula (`⌈w/28⌉×⌈h/28⌉`), resolution tiers (2576 px / 4784 tokens high-res; 1568 px / 1568 tokens standard), image billing as text tokens, formats/limits, multi-image support, accuracy limitations.
 - [Structured outputs — platform.claude.com](https://platform.claude.com/docs/en/build-with-claude/structured-outputs) — schema-conformance guarantees (valid JSON, type-safe, required fields via constrained decoding), unsupported constraints (no numeric/string-length constraints, no recursion), grammar compilation + 24 h cache, refusal/max_tokens caveat.
 - Map [#47](https://github.com/inkpot-monkey/inventoria/issues/47) grounding investigation — the four real sample labels, comma-decimals, the full-panel target schema, and the `autofillFromPackageImage` / `saveCustomFood` code targets.
+- **Addendum sources (Cloudflare, Aug 2026):** [Workers AI models](https://developers.cloudflare.com/workers-ai/models/) (vision model catalogue), [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/) ($0.011/1,000 neurons, 10,000 neurons/day free, per-model neuron rates), [Workers AI JSON mode](https://developers.cloudflare.com/workers-ai/features/json-mode/) (supported models incl. `llama-3.2-11b-vision-instruct`; the no-schema-guarantee caveat). Future alternate provider behind the abstraction: [AI Gateway — Anthropic](https://developers.cloudflare.com/ai-gateway/providers/anthropic/) (BYOK server-side key routing to Claude). Local architecture: ADR-0005 (Workers hosting), ADR-0007 (`worker/src/index.ts` serverless proxy), #60 (secrets→localStorage settings convention this reuses).
