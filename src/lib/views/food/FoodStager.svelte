@@ -590,6 +590,13 @@
   let scanError = $state("");
   let rafId: number | null = null;
 
+  // Warm-up: hold off the per-frame detection loop for a moment after the camera
+  // opens, so the preview can focus/expose without the detect() calls competing
+  // with it and stuttering the feed the instant the sheet appears. Only the phone
+  // reaches here (desktop has no live camera; it uses the upload dropzone).
+  const CAMERA_WARMUP_MS = 2_000;
+  let warmupTimer: ReturnType<typeof setTimeout> | null = null;
+
   // zxing second-opinion for the LIVE camera: the native `BarcodeDetector` is
   // fast and battery-cheap but gives up on hard real-world frames (angled, glare,
   // low-contrast packs). So after a short no-decode stretch, quietly hand the
@@ -653,21 +660,30 @@
       videoEl.play();
       scanning = true;
       scanError = "";
-      // Unreadable door (§1): after a persistent no-decode stretch, elevate the
-      // "photograph the label" escape from the quiet inline link to a prominent
-      // affordance. Cleared the moment a code decodes or the camera stops.
       scanStalled = false;
-      if (stallTimer) clearTimeout(stallTimer);
-      stallTimer = setTimeout(
-        () => (scanStalled = true),
-        UNREADABLE_ELEVATE_MS
-      );
-      // Sooner than the escape button: after a brief native-only stall, start the
-      // quiet zxing second opinion. Cleared the instant any decoder wins or the
-      // camera stops.
-      if (fallbackDelay) clearTimeout(fallbackDelay);
-      fallbackDelay = setTimeout(startZxingFallback, ZXING_FALLBACK_AFTER_MS);
-      rafId = requestAnimationFrame(scanFrame);
+      // Let the camera settle before detection begins (see CAMERA_WARMUP_MS). The
+      // stall + zxing-fallback clocks start with the scan loop, not the camera, so
+      // their "N seconds of no decode" windows count actual scanning time.
+      if (warmupTimer) clearTimeout(warmupTimer);
+      warmupTimer = setTimeout(() => {
+        warmupTimer = null;
+        // Bail if the camera was stopped during the warm-up.
+        if (!scanning) return;
+        // Unreadable door (§1): after a persistent no-decode stretch, elevate the
+        // "photograph the label" escape from the quiet inline link to a prominent
+        // affordance. Cleared the moment a code decodes or the camera stops.
+        if (stallTimer) clearTimeout(stallTimer);
+        stallTimer = setTimeout(
+          () => (scanStalled = true),
+          UNREADABLE_ELEVATE_MS
+        );
+        // Sooner than the escape button: after a brief native-only stall, start
+        // the quiet zxing second opinion. Cleared the instant any decoder wins or
+        // the camera stops.
+        if (fallbackDelay) clearTimeout(fallbackDelay);
+        fallbackDelay = setTimeout(startZxingFallback, ZXING_FALLBACK_AFTER_MS);
+        rafId = requestAnimationFrame(scanFrame);
+      }, CAMERA_WARMUP_MS);
     } catch {
       scanError = "Camera access denied or unavailable.";
       scanning = false;
@@ -704,6 +720,10 @@
     if (rafId !== null) {
       cancelAnimationFrame(rafId);
       rafId = null;
+    }
+    if (warmupTimer) {
+      clearTimeout(warmupTimer);
+      warmupTimer = null;
     }
     if (stallTimer) {
       clearTimeout(stallTimer);
