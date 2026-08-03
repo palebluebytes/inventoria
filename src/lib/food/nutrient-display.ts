@@ -332,10 +332,17 @@ function nutrientRow(
  * three headline macros are always present (defaulted to 0 like the pills), so
  * they always show. Micronutrients reformat from their stored grams to mg/µg via
  * {@link formatNutrientValue}. Pure: the `.svelte` disclosure just renders it.
+ *
+ * `hideEmpty` additionally drops any row that reads as zero at its display
+ * precision (0 g fat, 0 mg sodium — per-unit, so a real 0.26 mg micronutrient
+ * survives) — the single-food disclosure then lists only what the food carries a
+ * value for, matching its pill preview ({@link buildNutrientPills}). Calories
+ * always lead, never hidden.
  */
 export function buildNutrientBreakdown(
   breakdown: NutritionBreakdown,
-  decimals: number = FOOD_DISPLAY_DECIMALS
+  decimals: number = FOOD_DISPLAY_DECIMALS,
+  hideEmpty: boolean = false
 ): NutrientRow[] {
   const rows: NutrientRow[] = [
     {
@@ -346,6 +353,11 @@ export function buildNutrientBreakdown(
   ];
   for (const d of NUTRIENT_CATALOGUE) {
     if (!(d.key in breakdown)) continue;
+    if (
+      hideEmpty &&
+      nutrientDisplayValue(totalFor(breakdown, d.key), d.unit, decimals) === 0
+    )
+      continue;
     rows.push(nutrientRow(breakdown, d, decimals));
   }
   return rows;
@@ -646,15 +658,21 @@ export interface NutrientPill {
  * read from a (scaled) breakdown — the staged-food preview and any fixed
  * calories+macros pill row. Calories lead every list; the rest honour the
  * caller's selection in order. A selected nutrient the breakdown never carried
- * keeps its pill (the summary stays a stable set, #29) but reads as
- * {@link ABSENT_NUTRIENT} rather than a fabricated "0 g" (absent ≠ 0, #21/#30);
- * a genuine reported zero still formats normally. Pure: the `.svelte` view just
- * renders it.
+ * reads as {@link ABSENT_NUTRIENT} rather than a fabricated "0 g" (absent ≠ 0,
+ * #21/#30); a genuine reported zero still formats normally. Pure: the `.svelte`
+ * view just renders it.
+ *
+ * `hideEmpty` drops any selected nutrient that is missing OR reads as zero at its
+ * display precision — a single food's preview then lists only the nutrients it
+ * actually carries a value for (a food with no fibre, or 0 g fat, shows neither
+ * pill), rather than a "–" or a "0 g". The day/meal summaries leave it false to
+ * keep a stable pill set across foods (#29). Calories always lead, never hidden.
  */
 export function buildNutrientPills(
   breakdown: NutritionBreakdown,
   selection: string[] | undefined,
-  decimals: number = FOOD_DISPLAY_DECIMALS
+  decimals: number = FOOD_DISPLAY_DECIMALS,
+  hideEmpty: boolean = false
 ): NutrientPill[] {
   const pills: NutrientPill[] = [
     {
@@ -664,13 +682,22 @@ export function buildNutrientPills(
     },
   ];
   for (const d of selectedNutrients(selection)) {
+    const present = d.key in breakdown;
+    const grams = present ? totalFor(breakdown, d.key) : 0;
+    // In the food preview, an absent nutrient AND one that rounds to 0 in its own
+    // display unit (0 g fat, 0 mg sodium — checked per-unit so a real 0.26 mg
+    // micronutrient survives) are both dropped rather than shown.
+    if (
+      hideEmpty &&
+      (!present || nutrientDisplayValue(grams, d.unit, decimals) === 0)
+    )
+      continue;
     pills.push({
       key: d.key,
       label: d.label,
-      value:
-        d.key in breakdown
-          ? formatNutrientValue(totalFor(breakdown, d.key), d.unit, decimals)
-          : ABSENT_NUTRIENT,
+      value: present
+        ? formatNutrientValue(grams, d.unit, decimals)
+        : ABSENT_NUTRIENT,
     });
   }
   return pills;

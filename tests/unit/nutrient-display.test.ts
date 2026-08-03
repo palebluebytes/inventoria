@@ -587,6 +587,40 @@ describe("buildNutrientPills", () => {
     const pills = buildNutrientPills(scaled, ["protein", "fiber_content"], 0);
     expect(pills.map((p) => p.value)).toEqual(["134 kcal", "2 g", "3 g"]);
   });
+
+  it("hideEmpty drops a selected-but-absent nutrient's pill entirely", () => {
+    // A single food's preview: `scaled` carries no sodium, so with hideEmpty the
+    // sodium pill is gone (not a "–"), while present nutrients still show.
+    const pills = buildNutrientPills(
+      scaled,
+      ["sodium_content", "protein"],
+      undefined,
+      true
+    );
+    expect(pills.map((p) => p.key)).toEqual(["calories", "protein"]);
+    expect(pills.find((p) => p.key === "sodium_content")).toBeUndefined();
+  });
+
+  it("hideEmpty also drops a carried zero (0 g fat shows no pill)", () => {
+    const withZero: NutritionBreakdown = { ...scaled, fat: 0 };
+    const pills = buildNutrientPills(
+      withZero,
+      ["fat", "protein"],
+      undefined,
+      true
+    );
+    expect(pills.map((p) => p.key)).toEqual(["calories", "protein"]);
+    expect(pills.find((p) => p.key === "fat")).toBeUndefined();
+  });
+
+  it("hideEmpty keeps a sub-milligram micronutrient that displays non-zero", () => {
+    // iron 0.00026 g reads as "0.26 mg" — a real value in its own unit, so it
+    // must NOT be dropped as a "zero" just because it rounds to 0 g.
+    const withIron: NutritionBreakdown = { ...scaled, iron: 0.00026 };
+    const pills = buildNutrientPills(withIron, ["iron"], undefined, true);
+    expect(pills.map((p) => p.key)).toEqual(["calories", "iron"]);
+    expect(pills[1].value).toBe("0.26 mg");
+  });
 });
 
 describe("macroNutrients", () => {
@@ -648,6 +682,24 @@ describe("buildNutrientBreakdown", () => {
       "calcium",
       "iron",
     ]);
+  });
+
+  it("hideEmpty drops missing AND zero rows, keeping calories + carried values", () => {
+    // The "Aceite" case: an oil reporting 0 for protein/carbs/fibre/sodium/sat-fat.
+    const scaled: NutritionBreakdown = {
+      calories: 9,
+      protein: 0,
+      fat: 0.6,
+      carbs: 0,
+      fiber_content: 0,
+      sodium_content: 0,
+      saturated_fat_content: 0,
+      iron: 0.00026, // 0.26 mg — a real value in its unit, must survive
+    };
+    const rows = buildNutrientBreakdown(scaled, undefined, true);
+    expect(rows.map((r) => r.key)).toEqual(["calories", "fat", "iron"]);
+    expect(rows.find((r) => r.key === "fat")!.value).toBe("0.6 g");
+    expect(rows.find((r) => r.key === "iron")!.value).toBe("0.26 mg");
   });
 
   it("omits extras the food never carried (absent, not 0/blank)", () => {
