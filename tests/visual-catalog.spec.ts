@@ -166,14 +166,28 @@ test.describe("Visual Catalog Generator", () => {
   }
 
   async function setupApiKeys(page: import("@playwright/test").Page) {
+    // TMDB + scraper live on the global Settings tab…
     await page.locator(".nav-item", { hasText: "Settings" }).click();
-    await page.locator("#usda-api-key").fill("test-usda-key");
     await page.locator("#tmdb-api-key").fill("test-tmdb-key");
     await page.locator("#scraper-proxy-url").fill("/api/proxy?url=");
     await page
       .locator("button[type='submit']", { hasText: "Save Settings" })
       .click();
     await expect(page.locator(".saved-badge")).toBeVisible();
+    // …while the USDA key is entered on the Food screen's settings sheet (the
+    // top-right gear), which is where food search reads it from now. Each field
+    // auto-saves on blur — there is no Save button.
+    await page.locator(".nav-item", { hasText: "Food" }).click();
+    await page.locator("#food-settings-btn").click();
+    await expect(
+      page.getByRole("heading", { name: "Food Settings" })
+    ).toBeVisible();
+    await page.locator("#food-usda-api-key").fill("test-usda-key");
+    await page.locator("#food-usda-api-key").blur();
+    await page.locator(".bottom-sheet-content .close-btn").first().click();
+    await expect(
+      page.getByRole("heading", { name: "Food Settings" })
+    ).toBeHidden();
   }
 
   async function resetDatabase(page: import("@playwright/test").Page) {

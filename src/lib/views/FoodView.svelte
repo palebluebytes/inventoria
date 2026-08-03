@@ -19,6 +19,7 @@
   import RecipeModal from "./food/RecipeModal.svelte";
   import InstantiationSheet from "./food/InstantiationSheet.svelte";
   import IngredientAmountSheet from "./food/IngredientAmountSheet.svelte";
+  import FoodSettingsSheet from "./food/FoodSettingsSheet.svelte";
 
   import Card from "../ui/Card.svelte";
   import Badge from "../ui/Badge.svelte";
@@ -37,6 +38,11 @@
   }
 
   let { dbReady }: { dbReady: boolean } = $props();
+
+  // The food screen's own settings sheet (top-right gear) — food-specific
+  // settings (USDA/OFF credentials, contribution consent, nutrition targets)
+  // that moved off the global Settings tab so they live with the food.
+  let settingsOpen = $state(false);
 
   let selectedDate = $state(new Date());
   // The meal whose log sheet is open (null = closed). Opening is direct — no
@@ -252,11 +258,35 @@
 </script>
 
 <header class="page-header">
-  <h1>{entityName}</h1>
-  <p>
-    Track your daily nutritional intake, build custom recipes, and log food
-    photos locally.
-  </p>
+  <div class="header-text">
+    <h1>{entityName}</h1>
+    <p>
+      Track your daily nutritional intake, build custom recipes, and log food
+      photos locally.
+    </p>
+  </div>
+  <button
+    type="button"
+    class="settings-btn"
+    id="food-settings-btn"
+    aria-label="Food settings"
+    onclick={() => (settingsOpen = true)}
+  >
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="3"></circle>
+      <path
+        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+      ></path>
+    </svg>
+  </button>
 </header>
 
 <!-- Main Dashboard -->
@@ -349,6 +379,12 @@
   </div>
 {/if}
 
+<!-- Food settings — the top-right gear opens the food-specific settings sheet
+     (USDA/OFF credentials, contribution consent, nutrition targets). -->
+{#if settingsOpen}
+  <FoodSettingsSheet onClose={() => (settingsOpen = false)} />
+{/if}
+
 <!-- Recipe builder — Consolidate (seeded from selected foods), Define (empty new
      template), or Edit (an existing template), ADR-0022. -->
 {#if recipeOpen}
@@ -364,10 +400,47 @@
 
 <style>
   .page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-s);
     margin-bottom: var(--space-m);
     animation: fadeIn 0.4s ease-out;
     border-bottom: 2px solid #000;
     padding-bottom: var(--space-s);
+  }
+  .header-text {
+    min-width: 0;
+  }
+  /* Top-right gear: a bare icon button (no box) that opens the food settings
+     sheet. Sits opposite the title, aligned to the header's top. */
+  .settings-btn {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: #000;
+    cursor: pointer;
+    transition: transform 0.1s ease-out;
+  }
+  .settings-btn svg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+  .settings-btn:hover {
+    color: var(--text-secondary);
+  }
+  .settings-btn:active {
+    transform: scale(0.92);
+  }
+  .settings-btn:focus-visible {
+    outline: 2px solid #000;
+    outline-offset: 2px;
   }
   h1 {
     font-size: var(--step-2);

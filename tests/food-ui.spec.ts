@@ -300,16 +300,44 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     );
   }
 
+  // Open the food screen's own settings sheet (the top-right gear) — home now to
+  // the USDA/OFF credentials, contribution consent, and the nutrition-target
+  // editor that used to live on the global Settings tab.
+  async function openFoodSettings(page: import("@playwright/test").Page) {
+    await page.locator("#food-settings-btn").click();
+    await expect(
+      page.getByRole("heading", { name: "Food Settings" })
+    ).toBeVisible();
+  }
+
+  async function closeFoodSettings(page: import("@playwright/test").Page) {
+    await page.locator(".bottom-sheet-content .close-btn").first().click();
+    await expect(
+      page.getByRole("heading", { name: "Food Settings" })
+    ).toBeHidden();
+  }
+
   async function setupApiKeys(page: import("@playwright/test").Page) {
+    // TMDB + scraper stay on the global Settings tab…
     await page.locator(".nav-item", { hasText: "Settings" }).click();
-    await page.locator("#usda-api-key").fill("test-usda-key");
     await page.locator("#tmdb-api-key").fill("test-tmdb-key");
     await page.locator("#scraper-proxy-url").fill("/api/proxy?url=");
     await page
       .locator("button[type='submit']", { hasText: "Save Settings" })
       .click();
     await expect(page.locator(".saved-badge")).toBeVisible();
+    // …while the USDA key is now entered on the Food screen's settings sheet,
+    // where each field auto-saves on blur (no Save button). While the sheet is
+    // open, also turn OFF whole-number rounding: it now defaults ON, but the
+    // logging/recipe tests below assert the projection's exact 2-dp math (e.g.
+    // 89 × 1.5 = 133.5), which is a computation check, not a display-preference
+    // one. Rounding itself is covered by the unit tests.
     await page.locator(".nav-item", { hasText: "Food" }).click();
+    await openFoodSettings(page);
+    await page.locator("#food-usda-api-key").fill("test-usda-key");
+    await page.locator("#food-usda-api-key").blur();
+    await page.locator("#round-nutrition-toggle").uncheck();
+    await closeFoodSettings(page);
   }
 
   // Long-press a locator to start item selection on the dashboard.
@@ -528,9 +556,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // Make Calcium a visible meter — the default selection is the three macros
     // plus fibre, so calcium has no meter until it is toggled on.
-    await page.locator(".nav-item", { hasText: "Settings" }).click();
+    await openFoodSettings(page);
     await page.locator('input[data-nutrient="calcium"]').check();
-    await page.locator(".nav-item", { hasText: "Food" }).click();
+    await closeFoodSettings(page);
 
     // Log a banana — it carries 5 mg calcium per 100 g. Before #40 a visible
     // micronutrient had no target, so its meter rendered an empty (no-target)
@@ -564,7 +592,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(protein).toContainText("/ 125 g");
 
     // Set a custom protein target; the field shows the baked 125 as placeholder.
-    await page.locator(".nav-item", { hasText: "Settings" }).click();
+    await openFoodSettings(page);
     const proteinTarget = page.locator('input[data-target="protein"]');
     await expect(proteinTarget).toHaveAttribute("placeholder", "125");
     await proteinTarget.fill("100");
@@ -572,7 +600,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // Back on the dashboard the meter now reaches toward the override, and the
     // baked default is gone — the write reached the resolver via the ledger.
-    await page.locator(".nav-item", { hasText: "Food" }).click();
+    await closeFoodSettings(page);
     await expect(protein).toContainText("/ 100 g");
     await expect(protein).not.toContainText("/ 125 g");
   });
@@ -583,7 +611,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.goto("/?mem=1");
     await waitForDbReady(page);
 
-    await page.locator(".nav-item", { hasText: "Settings" }).click();
+    await openFoodSettings(page);
     const proteinTarget = page.locator('input[data-target="protein"]');
     const proteinReset = page.locator('button[data-reset="protein"]');
 
@@ -612,7 +640,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await setupApiKeys(page);
 
     // Make Calcium a visible meter, then opt its target out with a 0.
-    await page.locator(".nav-item", { hasText: "Settings" }).click();
+    await openFoodSettings(page);
     await page.locator('input[data-nutrient="calcium"]').check();
     const calciumTarget = page.locator('input[data-target="calcium"]');
     await calciumTarget.fill("0");
@@ -624,7 +652,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // A logged calcium-bearing food now renders its meter bar-less (no target),
     // not a fill — the 0 resolved to "no target" for the dashboard.
-    await page.locator(".nav-item", { hasText: "Food" }).click();
+    await closeFoodSettings(page);
     await logUsdaFood(page, "breakfast", "banana", "Mock Banana", "100");
     const calcium = page.locator(".macro-item.calcium");
     await expect(calcium.locator(".progress-bar-bg.no-target")).toHaveCount(1);
@@ -637,7 +665,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.goto("/?mem=1");
     await waitForDbReady(page);
 
-    await page.locator(".nav-item", { hasText: "Settings" }).click();
+    await openFoodSettings(page);
 
     // Calcium is off by default. Setting a custom target auto-tracks it — adds
     // its dashboard meter — because customising something implies "show it".
@@ -1559,13 +1587,13 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       page.locator(".macro-name", { hasText: "Calcium" })
     ).toHaveCount(0);
 
-    // Turn Calcium ON and Fibre OFF in Settings.
-    await page.locator(".nav-item", { hasText: "Settings" }).click();
+    // Turn Calcium ON and Fibre OFF in the Food settings sheet.
+    await openFoodSettings(page);
     await page.locator('input[data-nutrient="calcium"]').check();
     await page.locator('input[data-nutrient="fiber_content"]').uncheck();
 
     // Back on the dashboard the summary reflects the new selection exactly.
-    await page.locator(".nav-item", { hasText: "Food" }).click();
+    await closeFoodSettings(page);
     await expect(
       page.locator(".macro-name", { hasText: "Calcium" })
     ).toBeVisible();

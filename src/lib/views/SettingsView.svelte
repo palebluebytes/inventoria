@@ -15,7 +15,6 @@
   import Button from "../ui/Button.svelte";
   import Alert from "../ui/Alert.svelte";
   import Badge from "../ui/Badge.svelte";
-  import NutritionTargetEditor from "./food/NutritionTargetEditor.svelte";
 
   let { dbReady }: { dbReady: boolean } = $props();
 
@@ -35,35 +34,25 @@
     }
   }
 
-  // Local state variables for forms. The API keys and OFF login are secrets
-  // (localStorage, ADR-0034 §8); the scraper proxy URL is a non-secret datom.
-  let usdaKey = $state("");
+  // Local state variables for forms. The TMDB key is a secret (localStorage,
+  // ADR-0034 §8); the scraper proxy URL is a non-secret datom. The food-specific
+  // settings (USDA/OFF credentials, contribution consent, nutrition targets) now
+  // live on the Food screen's own settings sheet, not here.
   let tmdbKey = $state("");
-  let offUserId = $state("");
-  let offPassword = $state("");
   let scraperProxy = $state("");
-  // OFF-contribution consent MASTER toggle (ADR-0034 §8, model C). Default off;
-  // it only seeds the per-capture checkbox in the capture form, never submits.
-  let offContribute = $state(false);
 
-  let showUsda = $state(false);
   let showTmdb = $state(false);
-  let showOffPassword = $state(false);
 
   let isSaving = $state(false);
   let saveSuccess = $state(false);
 
-  // Initialize form state once the stores load. Secrets seed from the
+  // Initialize form state once the stores load. The TMDB key seeds from the
   // localStorage-backed secrets store; the scraper proxy from the settings
   // ledger.
   let initialized = $state(false);
   $effect(() => {
     if (!initialized && $settingsStore) {
-      usdaKey = $secretsStore.usda_api_key;
       tmdbKey = $secretsStore.tmdb_api_key;
-      offUserId = $secretsStore.off_user_id;
-      offPassword = $secretsStore.off_password;
-      offContribute = $settingsStore.off_contribute;
       scraperProxy = $settingsStore.scraper_proxy_url;
       initialized = true;
     }
@@ -75,22 +64,19 @@
     isSaving = true;
     saveSuccess = false;
     try {
-      // Secrets go straight to localStorage — never a datom (ADR-0034 §8). The
-      // password is stored verbatim (it may legitimately contain spaces); the
-      // keys and username are trimmed like any pasted credential.
-      setSecret("usda_api_key", usdaKey.trim());
+      // The TMDB key is a secret — straight to localStorage, never a datom
+      // (ADR-0034 §8), trimmed like any pasted credential.
       setSecret("tmdb_api_key", tmdbKey.trim());
-      setSecret("off_user_id", offUserId.trim());
-      setSecret("off_password", offPassword);
-      // Only the non-secret proxy URL rides the ledger now. Preserve the
-      // persisted Nutrition Display selection — the editor owns those datoms
-      // (NutritionTargetEditor), so read their current values off the store
-      // rather than a local copy.
+      // Only the non-secret proxy URL rides the ledger here. Preserve every
+      // other datom saveSettings writes by reading its current value off the
+      // store — the Nutrition Display selections and the OFF-contribution
+      // consent toggle are owned by the Food settings sheet now, so read them
+      // through rather than clobbering them from this screen.
       await saveSettings({
         scraper_proxy_url: scraperProxy.trim(),
         visible_nutrients: $settingsStore.visible_nutrients,
         round_nutrition: $settingsStore.round_nutrition,
-        off_contribute: offContribute,
+        off_contribute: $settingsStore.off_contribute,
       });
       saveSuccess = true;
       setTimeout(() => {
@@ -214,27 +200,6 @@
   <h2>API Credentials</h2>
   <form onsubmit={handleSave} class="settings-form mt-4">
     <div class="form-group">
-      <label for="usda-api-key">USDA FoodData Central API Key</label>
-      <div class="input-wrapper">
-        <input
-          id="usda-api-key"
-          type={showUsda ? "text" : "password"}
-          bind:value={usdaKey}
-          placeholder="USDA FDC API key..."
-          class="retro-input has-reveal"
-        />
-        {@render revealToggle(
-          showUsda,
-          () => (showUsda = !showUsda),
-          showUsda ? "Hide USDA API key" : "Show USDA API key"
-        )}
-      </div>
-      <span class="help-text"
-        >Used for searching ingredients in recipes and food logging.</span
-      >
-    </div>
-
-    <div class="form-group">
       <label for="tmdb-api-key">TMDB API Key</label>
       <div class="input-wrapper">
         <input
@@ -252,67 +217,6 @@
       </div>
       <span class="help-text"
         >Used for importing movie and TV digital twins.</span
-      >
-    </div>
-
-    <div class="form-group">
-      <label for="off-user-id">Open Food Facts Username</label>
-      <input
-        id="off-user-id"
-        type="text"
-        autocomplete="username"
-        bind:value={offUserId}
-        placeholder="Your Open Food Facts username..."
-        class="retro-input full-width"
-      />
-      <span class="help-text"
-        >Your Open Food Facts login, used to contribute corrected label data
-        back to OFF. Stored on this device only.</span
-      >
-    </div>
-
-    <div class="form-group">
-      <label for="off-password">Open Food Facts Password</label>
-      <div class="input-wrapper">
-        <input
-          id="off-password"
-          type={showOffPassword ? "text" : "password"}
-          autocomplete="current-password"
-          bind:value={offPassword}
-          placeholder="Your Open Food Facts password..."
-          class="retro-input has-reveal"
-        />
-        {@render revealToggle(
-          showOffPassword,
-          () => (showOffPassword = !showOffPassword),
-          showOffPassword
-            ? "Hide Open Food Facts password"
-            : "Show Open Food Facts password"
-        )}
-      </div>
-      <span class="help-text"
-        >Stored on this device only, never in the synced database.</span
-      >
-    </div>
-
-    <div class="form-group">
-      <!-- OFF-contribution consent MASTER toggle (ADR-0034 §8, model C). Default
-           off. It never submits on its own — it only pre-ticks the per-capture
-           checkbox shown in the capture form, which you confirm every time. -->
-      <label class="toggle-label consent-toggle">
-        <input
-          type="checkbox"
-          id="off-contribute-toggle"
-          bind:checked={offContribute}
-        />
-        <span class="toggle-text">Contribute to Open Food Facts by default</span
-        >
-      </label>
-      <span class="help-text"
-        >Pre-ticks the "share with Open Food Facts" option on the capture form
-        when you scan or correct a barcoded product. The option always appears
-        (when you have an OFF login); this just sets its default. You confirm
-        each contribution individually — nothing is ever sent automatically.</span
       >
     </div>
 
@@ -339,8 +243,6 @@
     </div>
   </form>
 </Card>
-
-<NutritionTargetEditor />
 
 <Card class="mt-4">
   <div class="card-header">
@@ -713,19 +615,6 @@
   .toggle-label input[type="checkbox"]:focus-visible {
     outline: 2px solid #000;
     outline-offset: 2px;
-  }
-  /* The consent toggle reuses the retro checkbox but sits in the credentials
-     form, not the container-queried dev card — so pin a fixed size instead of
-     the dev toggle's cqi ramp (measured for its shorter label), and let this
-     longer sentence-case label wrap rather than clip. */
-  .consent-toggle {
-    align-items: flex-start;
-    font-size: var(--step-n1);
-    text-transform: none;
-    line-height: 1.35;
-  }
-  .consent-toggle .toggle-text {
-    top: 0;
   }
   .border-top {
     border-top: 2px solid #000;

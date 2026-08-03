@@ -24,15 +24,17 @@ test.describe("Settings — API key reveal toggle", () => {
   test("reveal toggle is an icon inside the input that flips masking", async ({
     page,
   }) => {
-    const input = page.locator("#usda-api-key");
-    await input.fill("secret-usda-key");
+    // The USDA key moved to the Food screen's settings sheet; the TMDB key keeps
+    // the identical reveal toggle on this screen, so it's the regression proof here.
+    const input = page.locator("#tmdb-api-key");
+    await input.fill("secret-tmdb-key");
 
     // Starts masked.
     await expect(input).toHaveAttribute("type", "password");
 
     // The toggle is an icon button (accessible label + an <svg>), and it lives
     // inside the same wrapper as the input rather than as a sibling text button.
-    const toggle = page.getByRole("button", { name: "Show USDA API key" });
+    const toggle = page.getByRole("button", { name: "Show TMDB API key" });
     await expect(toggle).toBeVisible();
     await expect(toggle.locator("svg")).toBeVisible();
     await expect(toggle).toHaveText("");
@@ -41,11 +43,11 @@ test.describe("Settings — API key reveal toggle", () => {
     await toggle.click();
     await expect(input).toHaveAttribute("type", "text");
     await expect(
-      page.getByRole("button", { name: "Hide USDA API key" })
+      page.getByRole("button", { name: "Hide TMDB API key" })
     ).toBeVisible();
 
     // And masks again.
-    await page.getByRole("button", { name: "Hide USDA API key" }).click();
+    await page.getByRole("button", { name: "Hide TMDB API key" }).click();
     await expect(input).toHaveAttribute("type", "password");
   });
 
@@ -53,7 +55,7 @@ test.describe("Settings — API key reveal toggle", () => {
     page,
   }) => {
     // A long value must not push the input or its toggle out of the card.
-    const input = page.locator("#usda-api-key");
+    const input = page.locator("#tmdb-api-key");
     await input.fill("x".repeat(120));
 
     const wrapper = input.locator(
@@ -63,7 +65,7 @@ test.describe("Settings — API key reveal toggle", () => {
 
     const inputBox = await input.boundingBox();
     const toggleBox = await page
-      .getByRole("button", { name: /USDA API key/ })
+      .getByRole("button", { name: /TMDB API key/ })
       .boundingBox();
     const wrapperBox = await wrapper.boundingBox();
     const cardBox = await card.boundingBox();
