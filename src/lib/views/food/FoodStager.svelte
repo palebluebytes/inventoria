@@ -1660,6 +1660,10 @@
   .stage {
     flex: 1;
     overflow-y: auto;
+    /* This screen must never scroll sideways: content wraps/shrinks to fit, so
+       clip any residual horizontal overflow rather than growing a scrollbar.
+       Nested strips that scroll on purpose (.cf-off-ref-strip) keep their own. */
+    overflow-x: hidden;
     padding: var(--space-s);
   }
   .hint {
@@ -2218,8 +2222,12 @@
     line-height: 1.35;
     color: var(--text-secondary);
   }
-  /* Every text field in the read-along form shares one look. */
+  /* Every text field in the read-along form shares one look. `min-width: 0`
+     overrides an <input>'s intrinsic ~20ch min so it shrinks with its grid/flex
+     track instead of forcing the whole form wider than the viewport (which would
+     give this screen a horizontal scroll). */
   .cf input {
+    min-width: 0;
     font: inherit;
     background: #fff;
     border: 1px solid var(--border);
