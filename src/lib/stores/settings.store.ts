@@ -62,11 +62,13 @@ export interface SettingsState {
   visible_nutrients: string[];
   /**
    * Whether nutrition values are displayed rounded to whole numbers instead of
-   * the default {@link FOOD_DISPLAY_DECIMALS}-place precision. Display-only: the
-   * frozen snapshot always keeps full precision, so this never changes stored
-   * history — only how calories/macros/micronutrients read on screen. Absent →
-   * `false` (exact display, the shipped default). A JSON boolean, so like
-   * `visible_nutrients` it is NOT a `SETTINGS_STRING_ATTR`.
+   * the {@link FOOD_DISPLAY_DECIMALS}-place precision. Display-only: the frozen
+   * snapshot always keeps full precision, so this never changes stored history —
+   * only how calories/macros/micronutrients read on screen (dashboard, staged
+   * pills, the calculator, AND the target editor's own baked/override values).
+   * Default **on**: absent → `true`, and only an explicit stored `false` turns it
+   * off. A JSON boolean, so like `visible_nutrients` it is NOT a
+   * `SETTINGS_STRING_ATTR`.
    */
   round_nutrition: boolean;
   /**
@@ -235,8 +237,9 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
       (import.meta.env?.VITE_SCRAPER_PROXY_URL as string) ?? "",
     // Unset → the Protein/Fat/Carbs/Fibre default (ticket #29).
     visible_nutrients: DEFAULT_VISIBLE_NUTRIENTS,
-    // Unset → exact display (2-dp), the shipped baseline.
-    round_nutrition: false,
+    // Unset → whole-number display on (the default); only an explicit stored
+    // `false` turns it back to exact 2-dp.
+    round_nutrition: true,
     // Unset → no overrides; every target resolves to its baked default.
     food_targets: {},
     // Unset → no overrides; every limit resolves to its baked cap.
@@ -254,11 +257,12 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
       settings.visible_nutrients = parseVisibleNutrients(d.value);
       continue;
     }
-    // round_nutrition is a JSON boolean, decoded like visible_nutrients — only a
-    // literal `true` enables it, so any malformed/legacy value stays exact.
+    // round_nutrition is a JSON boolean, but the DEFAULT is on — so only a
+    // literal `false` turns it off; a stored `true` or any malformed/legacy value
+    // resolves to on, matching the unset default.
     if (d.attribute === "settings/food/round_nutrition") {
       settings.round_nutrition =
-        parseDatomValue("settings/food/round_nutrition", d.value) === true;
+        parseDatomValue("settings/food/round_nutrition", d.value) !== false;
       continue;
     }
     // food_targets is a JSON override map, decoded and filtered to the
@@ -323,9 +327,9 @@ export async function saveSettings(
         // array. Default when a caller omits it (e.g. a pre-#29 save).
         "settings/food/visible_nutrients":
           state.visible_nutrients ?? DEFAULT_VISIBLE_NUTRIENTS,
-        // Boolean value; default off when a caller omits it (e.g. a pre-toggle
-        // save path).
-        "settings/food/round_nutrition": state.round_nutrition ?? false,
+        // Boolean value; default on when a caller omits it (whole-number display
+        // is the shipped default now).
+        "settings/food/round_nutrition": state.round_nutrition ?? true,
         // OFF-contribution consent master toggle (ADR-0034 §8); default off.
         "settings/off_contribute": state.off_contribute ?? false,
       },

@@ -156,8 +156,8 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
     ]);
   });
 
-  it("defaults round_nutrition to false (exact display) when unset", () => {
-    expect(get(settingsStore).round_nutrition).toBe(false);
+  it("defaults round_nutrition to true (whole-number display) when unset", () => {
+    expect(get(settingsStore).round_nutrition).toBe(true);
   });
 
   it("decodes a stored round_nutrition boolean", () => {
@@ -179,7 +179,7 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
     expect(get(settingsStore).round_nutrition).toBe(false);
   });
 
-  it("treats a malformed round_nutrition value as false (stays exact)", () => {
+  it("treats a malformed round_nutrition value as on (the default; only explicit false is off)", () => {
     datomsWritable.set([
       {
         attribute: "settings/food/round_nutrition",
@@ -187,7 +187,7 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
         time: 1,
       },
     ]);
-    expect(get(settingsStore).round_nutrition).toBe(false);
+    expect(get(settingsStore).round_nutrition).toBe(true);
   });
 
   it("defaults off_contribute to false (opt-in) when unset", () => {
@@ -360,19 +360,19 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
 });
 
 describe("nutritionDisplayDecimals (derived display precision)", () => {
-  it("is the full display precision by default (exact mode)", () => {
-    expect(get(nutritionDisplayDecimals)).toBe(FOOD_DISPLAY_DECIMALS);
+  it("is 0 places by default (whole-number display is the default now)", () => {
+    expect(get(nutritionDisplayDecimals)).toBe(0);
   });
 
-  it("drops to 0 places when whole-number display is enabled", () => {
+  it("rises to the full display precision when whole-number display is turned off", () => {
     datomsWritable.set([
       {
         attribute: "settings/food/round_nutrition",
-        value: JSON.stringify(true),
+        value: JSON.stringify(false),
         time: 1,
       },
     ]);
-    expect(get(nutritionDisplayDecimals)).toBe(0);
+    expect(get(nutritionDisplayDecimals)).toBe(FOOD_DISPLAY_DECIMALS);
   });
 });
 
