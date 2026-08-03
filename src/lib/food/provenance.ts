@@ -120,3 +120,78 @@ export function buildLabelCapture(args: {
     fields: args.fields,
   };
 }
+
+// ---------------------------------------------------------------------------
+// User manual-entry provenance (food/manual_entry)
+// ---------------------------------------------------------------------------
+//
+// The three eating-out / estimation intents behind the Custom tab's chooser —
+// quick estimate, from a menu, from a plate photo (ADR-0035) — are neither
+// ingested (`twin/raw_provenance`) nor label reads (`food/label_capture`), so a
+// DISTINCT `food/manual_entry` sibling records their origin. Its `kind`
+// discriminator is the single source of truth for reusability: a `menu` dish is
+// a catalogue food (Recent/Search), a `quick_estimate` / `plate_estimate` is a
+// one-off and excluded (ADR-0035 §6).
+
+/** The EAVT attribute holding a manual entry's origin envelope. */
+export const MANUAL_ENTRY_ATTR = "food/manual_entry";
+
+/** Bumped when the manual-entry envelope's shape or semantics change. */
+export const MANUAL_ENTRY_ADAPTER_VERSION = 1;
+
+/**
+ * Which manual intent minted the twin (ADR-0035 §3–§5). `menu` is the reusable
+ * catalogue case; `quick_estimate` and `plate_estimate` are one-offs. This is the
+ * ONE field the Recent/Search reusability rule keys off ({@link
+ * manualEntryIsReusable}).
+ */
+export type ManualEntryKind = "quick_estimate" | "menu" | "plate_estimate";
+
+/**
+ * The provenance envelope stored under `food/manual_entry` — a sibling of
+ * {@link LabelCapture} recording that a user hand-entered a food through one of
+ * the Custom chooser's intents (ADR-0035 §6). Like its siblings it is
+ * deliberately clock-free: the Datom's `time` IS the entry basis, so it stays a
+ * pure deterministic value.
+ */
+export interface ManualEntry {
+  /** Always "manual" — the entry surface, paralleling `LabelCapture.adapter`. */
+  adapter: "manual";
+  /** Envelope version, bumped with {@link MANUAL_ENTRY_ADAPTER_VERSION}. */
+  adapter_version: number;
+  /** Which intent minted the twin — the reusability discriminator. */
+  kind: ManualEntryKind;
+  /**
+   * The coarse categories the user supplied, e.g. `["name", "calories",
+   * "ingredients"]` — an audit hint, not a schema.
+   */
+  fields: string[];
+}
+
+/**
+ * Builds the `food/manual_entry` envelope. Pure, deterministic and clock-free —
+ * mirrors {@link buildLabelCapture} — so it composes into the save path without
+ * making the writer impure.
+ */
+export function buildManualEntry(args: {
+  kind: ManualEntryKind;
+  fields: string[];
+}): ManualEntry {
+  return {
+    adapter: "manual",
+    adapter_version: MANUAL_ENTRY_ADAPTER_VERSION,
+    kind: args.kind,
+    fields: args.fields,
+  };
+}
+
+/**
+ * The single reusability rule (ADR-0035 §6): a manual entry is a catalogue food
+ * (surfaced in Recent/Search) only when it is a `menu` dish. A `quick_estimate`
+ * or `plate_estimate` is a one-off vague guess, excluded. A twin with no
+ * `food/manual_entry` at all (a searched/scanned/label twin) is decided
+ * elsewhere — this answers only "is THIS manual entry reusable?".
+ */
+export function manualEntryIsReusable(kind: ManualEntryKind): boolean {
+  return kind === "menu";
+}

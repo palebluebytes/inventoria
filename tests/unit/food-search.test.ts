@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { isPoorFoodTwin } from "../../src/lib/food/food-search";
+import {
+  isPoorFoodTwin,
+  isCatalogueFood,
+} from "../../src/lib/food/food-search";
 import type { NutritionInfo } from "../../src/lib/food/nutrition";
+import { buildManualEntry } from "../../src/lib/food/provenance";
 
 // The poor-quality predicate (ADR-0034 §1) is the ONE place the label-capture
 // effort decides a scanned twin is "poor" enough to nudge. Pure, so assert its
@@ -120,5 +124,43 @@ describe("isPoorFoodTwin", () => {
     expect(
       isPoorFoodTwin({ name: "Wholegrain Oat Cereal", nutrition: noMicro })
     ).toBe(false);
+  });
+});
+
+// The single Recent/Search catalogue rule (ADR-0035 §6): gram foods always
+// qualify; whole-serving foods qualify only as a reusable `menu` manual entry.
+describe("isCatalogueFood", () => {
+  const menu = {
+    "food/manual_entry": buildManualEntry({ kind: "menu", fields: [] }),
+  };
+  const quick = {
+    "food/manual_entry": buildManualEntry({
+      kind: "quick_estimate",
+      fields: [],
+    }),
+  };
+  const plate = {
+    "food/manual_entry": buildManualEntry({
+      kind: "plate_estimate",
+      fields: [],
+    }),
+  };
+
+  it("keeps any gram-basis food regardless of provenance", () => {
+    expect(isCatalogueFood({}, "g")).toBe(true);
+    expect(isCatalogueFood(quick, "g")).toBe(true);
+  });
+
+  it("keeps a whole-serving menu dish", () => {
+    expect(isCatalogueFood(menu, "serving")).toBe(true);
+  });
+
+  it("drops a whole-serving quick estimate or plate estimate (one-offs)", () => {
+    expect(isCatalogueFood(quick, "serving")).toBe(false);
+    expect(isCatalogueFood(plate, "serving")).toBe(false);
+  });
+
+  it("drops a whole-serving food with no manual-entry (label capture / legacy custom)", () => {
+    expect(isCatalogueFood({ "twin/brand": "Acme" }, "serving")).toBe(false);
   });
 });

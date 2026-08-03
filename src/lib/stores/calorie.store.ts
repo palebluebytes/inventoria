@@ -12,7 +12,7 @@ import {
   type NutritionBreakdown,
   type Portion,
 } from "../food/nutrition";
-import type { LabelCapture } from "../food/provenance";
+import type { LabelCapture, ManualEntry } from "../food/provenance";
 import {
   deriveRecipeNutrition,
   deriveIngredientMacros,
@@ -81,20 +81,26 @@ export function consumptionForDay(
  *
  * `breakdown` widens the frozen `event/metrics` to the food's **full** panel
  * scaled to the amount (ADR-0030 / #28): the four `{ calories, protein, fat,
- * carbs }` headline keys are always written from the positional args (unchanged),
- * and every extra nutrient the breakdown carried is merged in under its panel
- * name. Omit it — as a macro-only custom food (no source panel) does — and the
- * snapshot stays exactly the four-key headline; an extra a food never reported is
- * never written, so it reads as absent (never 0) forever.
+ * carbs }` headline keys are written from the positional args, and every extra
+ * nutrient the breakdown carried is merged in under its panel name. Omit it — as
+ * a macro-only custom food (no source panel) does — and the snapshot stays
+ * exactly the four-key headline; an extra a food never reported is never written,
+ * so it reads as absent (never 0) forever.
+ *
+ * `protein`/`fat`/`carbs` are **omittable** (pass `undefined`): a manual-entry
+ * intent (ADR-0035 §7) freezes `calories` only, so a macro passed as `undefined`
+ * is left OUT of `event/metrics` entirely — the daily macro meters treat it as
+ * not-counted (never coerced to 0), moving only the calorie ring. Every other
+ * caller passes real numbers and is unchanged.
  */
 export async function logFoodConsumption(
   targetEntity: string,
   quantity: string,
   meal_type: string,
   calories: number,
-  protein: number,
-  fat: number,
-  carbs: number,
+  protein: number | undefined,
+  fat: number | undefined,
+  carbs: number | undefined,
   selectedDate: Date,
   instantiation?: Instantiation,
   breakdown?: NutritionBreakdown
@@ -112,10 +118,14 @@ export async function logFoodConsumption(
 
   const entityId = `event:consume_${Math.random().toString(36).substring(2, 9)}_${timestamp}`;
 
-  // The headline four are always frozen exactly as passed; the rest of the panel
-  // is merged in under its panel name only for nutrients the food actually
-  // reported (ADR-0030 / #28).
-  const metrics: NutritionBreakdown = { calories, protein, fat, carbs };
+  // `calories` is always frozen; each of the three headline macros is frozen only
+  // when supplied (a manual-entry intent omits them, ADR-0035 §7 — absent ≠ 0).
+  // The rest of the panel is merged in under its panel name only for nutrients the
+  // food actually reported (ADR-0030 / #28).
+  const metrics: Record<string, number> = { calories };
+  if (typeof protein === "number") metrics.protein = protein;
+  if (typeof fat === "number") metrics.fat = fat;
+  if (typeof carbs === "number") metrics.carbs = carbs;
   if (breakdown) {
     for (const key of EXTRA_NUTRIENT_KEYS) {
       const v = breakdown[key];
@@ -251,6 +261,64 @@ export async function saveLabelFood(input: LabelFoodInput): Promise<string> {
     // Mirror the first photo into the singular attribute every current display
     // surface reads (staged card, consumption views, ingredient picker), §5.
     attributes["food/photo_base64"] = input.labelPhotos[0];
+  }
+
+  await dbClient.append(ingestEntity({ entity: entityId, attributes }));
+  return entityId;
+}
+
+/** A manual-entry food from one of the Custom chooser's intents (ADR-0035). */
+export interface ManualFoodInput {
+  /** The dish/food name (already resolved — quick-estimate defaults it upstream). */
+  name: string;
+  /** The one number every intent carries; stored calories-only, no macros. */
+  calories: number;
+  /** Menu "Place" → `twin/brand`; absent for quick estimate / plate. */
+  brand?: string;
+  /**
+   * Free-text ingredients → `food/ingredients` — descriptive only, NEVER computes
+   * calories (ADR-0035 §4). Present for the menu / plate intents when typed.
+   */
+  ingredients?: string;
+  /** The captured/picked photo (base64); mirrored into `food/label_photos[0]`. */
+  photo?: string;
+  /** The manual-entry provenance envelope ({@link buildManualEntry}, §6). */
+  manualEntry: ManualEntry;
+}
+
+/**
+ * Saves a manual-entry food twin for one of the Custom chooser's three intents
+ * (ADR-0035 §3–§6). Always MINTS a fresh `food:custom_` twin — a manual entry is
+ * never a barcoded `gtin:` product (the inline `Date.now()`/`Math.random()` is the
+ * intended impurity source). The panel is **calories-only**: macros are absent,
+ * never 0 (ADR-0035 §7), so the twin is honest about carrying no protein/fat/carbs.
+ * The `menu` intent additionally writes `twin/brand` (Place) and `food/ingredients`
+ * (descriptive free text, never a calorie source). A photo, when present, is
+ * stored under `food/label_photos` with the singular `food/photo_base64` mirror so
+ * every existing display surface reads it (ADR-0034 §5). Returns the minted id.
+ */
+export async function saveManualFood(input: ManualFoodInput): Promise<string> {
+  const timestamp = Date.now();
+  const entityId = `food:custom_${Math.random().toString(36).substring(2, 9)}_${timestamp}`;
+
+  // Calories-only panel against a whole-serving basis (ADR-0021): only `calories`
+  // is set, so macros stay absent (not 0) on the twin, matching the event freeze.
+  const nutrition: NutritionInfo = {
+    serving_size: PER_SERVING,
+    calories: input.calories,
+  };
+  const attributes: Record<string, unknown> = {
+    "food/name": input.name,
+    "nutrition/info": nutrition,
+    "food/manual_entry": input.manualEntry,
+  };
+  if (input.brand?.trim()) attributes["twin/brand"] = input.brand.trim();
+  if (input.ingredients?.trim()) {
+    attributes["food/ingredients"] = input.ingredients.trim();
+  }
+  if (input.photo) {
+    attributes["food/label_photos"] = [input.photo];
+    attributes["food/photo_base64"] = input.photo;
   }
 
   await dbClient.append(ingestEntity({ entity: entityId, attributes }));

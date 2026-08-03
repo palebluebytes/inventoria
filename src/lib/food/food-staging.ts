@@ -1,7 +1,7 @@
 import type { FoodResult } from "./food-search";
 import type { NutritionInfo, Portion } from "./nutrition";
 import type { EntityPayload } from "../ingestion/ingest";
-import type { LabelCapture } from "./provenance";
+import type { LabelCapture, ManualEntry } from "./provenance";
 
 /**
  * The full-panel capture seed the four label-capture doors (ADR-0034 §1/§6) hand
@@ -68,6 +68,23 @@ export type FoodChoice =
        * through `saveCustomFood`.
        */
       labelCapture?: LabelCapture;
+      /**
+       * The manual-entry provenance envelope for one of the Custom chooser's three
+       * intents — quick estimate, from a menu, from a plate photo (ADR-0035). Its
+       * PRESENCE is what routes a host to the manual-entry writer (`saveManualFood`)
+       * instead of `saveLabelFood` / `saveCustomFood`, and its `kind` decides
+       * reusability; absent for the label-capture and legacy fast paths. These
+       * intents are calories-only (no macros), so `protein`/`fat`/`carbs` above are
+       * 0 and the host logs the event with calories frozen and macros OMITTED
+       * (absent ≠ 0, ADR-0035 §7).
+       */
+      manualEntry?: ManualEntry;
+      /**
+       * The menu dish's free-text ingredients (ADR-0035 §4) — descriptive only,
+       * stored as `food/ingredients`; it NEVER computes calories. Present only for
+       * the `menu` / `plate_estimate` intents when the user typed any.
+       */
+      ingredients?: string;
     } & LabelCaptureSeed);
 
 /**

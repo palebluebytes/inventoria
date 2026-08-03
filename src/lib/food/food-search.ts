@@ -1,6 +1,7 @@
 import type { EntityPayload } from "../ingestion/ingest";
 import { searchFdc } from "./usda-fdc";
 import { macrosFromNutrition, type NutritionInfo } from "./nutrition";
+import { manualEntryIsReusable, type ManualEntry } from "./provenance";
 
 /**
  * Shared food-search helpers for the food and recipe modals. Both turn an
@@ -88,6 +89,28 @@ export function isPoorFoodTwin(input: {
   )
     return true;
   return false;
+}
+
+/**
+ * The ONE place the Recent/Search catalogue rule lives (ADR-0035 §6). Given a
+ * logged food twin's attributes and the UNIT it was logged in, decides whether it
+ * belongs in the reusable Recent/Search list:
+ *
+ * - A **gram-basis** log always qualifies (searched/scanned foods, unchanged).
+ * - A **whole-serving** log qualifies **only** when it is a reusable `menu`
+ *   manual entry. A `quick_estimate` / `plate_estimate` one-off, a legacy custom,
+ *   and a label capture all stay out — they re-open via the edit path, never as a
+ *   catalogue food. The decision keys off `food/manual_entry.kind` alone.
+ */
+export function isCatalogueFood(
+  attributes: Record<string, unknown>,
+  quantityUnit: string
+): boolean {
+  if (quantityUnit !== "serving") return true;
+  const manualEntry = attributes["food/manual_entry"] as
+    | ManualEntry
+    | undefined;
+  return manualEntry != null && manualEntryIsReusable(manualEntry.kind);
 }
 
 /**
