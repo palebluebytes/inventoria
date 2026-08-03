@@ -193,6 +193,11 @@ dashboard must treat an omitted macro on an event as _not counted_, never as 0.
 - **Consumption events may freeze calories with macros omitted** — the dashboard's
   macro-meter aggregation must treat omitted macros as not-counted (verify it does
   not coerce to 0).
+- **Editing a logged manual entry re-opens its OWN mini-form**, prefilled from the
+  twin (`kind`, name, calories, Place, ingredients, photo), and re-saves through
+  the manual-entry writer — so the re-saved twin stays a manual entry of the same
+  `kind` and a menu dish stays in Recent. It must NOT fall back to the label form
+  (which would strip `food/manual_entry` and drop the dish from the catalogue).
 - **Docs to render/index after acceptance**: `0035-*.html` + an entry in
   `docs/adr/index.html`; EAVT-vocabulary updates above.
 

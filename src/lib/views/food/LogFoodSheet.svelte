@@ -23,6 +23,7 @@
     scaleNutrition,
     type NutritionInfo,
   } from "../../food/nutrition";
+  import type { ManualEntry } from "../../food/provenance";
   import { nutritionDisplayDecimals } from "../../stores/settings.store";
   import { parseDatomValue } from "../../db/datom-fold";
   import type {
@@ -155,27 +156,69 @@
   let staged = $state<FoodResult | null>(null);
 
   // Editing: seed the stager once from the event being edited. A gram-logged
-  // food re-stages from its twin (so the amount editor scales the same way it
-  // did originally); a per-serving custom entry re-opens the custom form
-  // pre-filled from the event's frozen macros. The gram case resolves the twin
-  // asynchronously, so the seed lands once that fetch completes.
+  // food re-stages from its twin (so the amount editor scales the same way it did
+  // originally). A whole-serving entry re-opens pre-filled — but which surface
+  // depends on the twin: a manual-entry (ADR-0035) re-opens its intent's OWN
+  // mini-form (so the re-saved twin stays a manual entry and a menu dish stays in
+  // Recent), while any other custom/label entry re-opens the label form from the
+  // event's frozen macros. The gram + manual cases resolve the twin asynchronously,
+  // so the seed lands once that fetch completes.
   let seed = $state<StagerSeed | null>(null);
   let editLoaded = false;
+
+  // The label-form fallback seed for a per-serving entry with no manual-entry
+  // provenance (a legacy custom, or a label capture) — the pre-ADR-0035 path.
+  function customSeedFromEvent(e: ConsumptionEvent): StagerSeed {
+    return {
+      kind: "custom",
+      name: e.foodName ?? "",
+      calories: e.calories != null ? String(e.calories) : "",
+      protein: e.protein != null ? String(e.protein) : "",
+      fat: e.fat != null ? String(e.fat) : "",
+      carbs: e.carbs != null ? String(e.carbs) : "",
+      photo_base64: e.photoBase64 ?? null,
+    };
+  }
+
   $effect(() => {
     if (!edit || editLoaded) return;
     editLoaded = true;
     const e = edit;
     const { amount, unit } = parseLoggedQuantity(e.quantity);
     if (unit === "serving") {
-      seed = {
-        kind: "custom",
-        name: e.foodName ?? "",
-        calories: e.calories != null ? String(e.calories) : "",
-        protein: e.protein != null ? String(e.protein) : "",
-        fat: e.fat != null ? String(e.fat) : "",
-        carbs: e.carbs != null ? String(e.carbs) : "",
-        photo_base64: e.photoBase64 ?? null,
-      };
+      if (!e.target) {
+        seed = customSeedFromEvent(e);
+        return;
+      }
+      void getLocalFoodTwin(e.target).then((twin) => {
+        const attrs = twin?.attributes as Record<string, unknown> | undefined;
+        const manualEntry = attrs?.["food/manual_entry"] as
+          | ManualEntry
+          | undefined;
+        if (attrs && manualEntry) {
+          // Re-open the manual entry's OWN mini-form, prefilled from the twin —
+          // calories from its panel (authoritative), Place + ingredients + photo
+          // from the twin, so the re-save preserves its `kind` (ADR-0035).
+          const info = attrs["nutrition/info"] as NutritionInfo | undefined;
+          seed = {
+            kind: "manual",
+            manualKind: manualEntry.kind,
+            name: (attrs["food/name"] as string) ?? e.foodName ?? "",
+            calories:
+              info?.calories != null
+                ? String(info.calories)
+                : e.calories != null
+                  ? String(e.calories)
+                  : "",
+            place: (attrs["twin/brand"] as string) ?? "",
+            ingredients: (attrs["food/ingredients"] as string) ?? "",
+            photo_base64:
+              (attrs["food/photo_base64"] as string) ?? e.photoBase64 ?? null,
+          };
+        } else {
+          seed = customSeedFromEvent(e);
+        }
+      });
     } else if (e.target) {
       void getLocalFoodTwin(e.target).then((twin) => {
         if (!twin) return;

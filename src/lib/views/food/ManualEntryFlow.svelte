@@ -5,7 +5,7 @@
   } from "../../food/provenance";
   import { emptyPlateEstimate } from "../../food/plate-estimator";
   import { readImageAsDataUrl } from "../../food/image-file";
-  import type { FoodChoice } from "../../food/food-staging";
+  import type { FoodChoice, ManualEntrySeed } from "../../food/food-staging";
 
   // The Custom tab's intent chooser and its three purpose-built mini-forms
   // (ADR-0035). The label form is NOT reached here — it stays on the barcode
@@ -34,6 +34,13 @@
     /** DOM ids so the host keeps the selectors its e2e expects. */
     nameId = "custom-name",
     calId = "custom-cal",
+    /**
+     * Edit-mode pre-population (ADR-0035 edit path): jumps straight to the seeded
+     * intent's mini-form, skipping the chooser, with its fields filled. Applied
+     * once when it first becomes non-null (it may resolve after a twin fetch). */
+    seed = null,
+    /** True in edit mode — flips Save from "Save & Log" to "Save changes". */
+    editing = false,
     /** Commits the built choice; the host maps it to a save + log. */
     onCommit,
   }: {
@@ -43,6 +50,8 @@
     disabled?: boolean;
     nameId?: string;
     calId?: string;
+    seed?: ManualEntrySeed | null;
+    editing?: boolean;
     onCommit: (choice: FoodChoice) => void | Promise<void>;
   } = $props();
 
@@ -92,6 +101,21 @@
     photo = null;
     readError = "";
   }
+
+  // Edit mode: land directly on the seeded intent's mini-form, filled. Applied
+  // once when `seed` first arrives (it resolves after the twin fetch), so the
+  // user never sees the chooser when re-opening a saved manual entry.
+  let seeded = false;
+  $effect(() => {
+    if (!seed || seeded) return;
+    seeded = true;
+    intent = seed.manualKind;
+    name = seed.name;
+    calories = seed.calories;
+    place = seed.place;
+    ingredients = seed.ingredients;
+    photo = seed.photo_base64;
+  });
 
   function choose(kind: ManualEntryKind) {
     reset();
@@ -224,7 +248,9 @@
   </div>
 {:else}
   <div class="mini" data-testid={`manual-form-${intent}`}>
-    <button type="button" class="mini-back" onclick={back}>‹ Intents</button>
+    {#if !editing}
+      <button type="button" class="mini-back" onclick={back}>‹ Intents</button>
+    {/if}
 
     <!-- Rendered unconditionally: the plate intent is photo-FIRST and needs this
          input even where the optional quick/menu photo attach (gated by
@@ -323,7 +349,7 @@
         disabled={!canSave || busy || disabled}
         onclick={save}
       >
-        {busy ? "Saving…" : "Save & Log"}
+        {busy ? "Saving…" : editing ? "Save changes" : "Save & Log"}
       </button>
     {/if}
   </div>

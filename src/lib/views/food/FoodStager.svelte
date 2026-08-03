@@ -535,6 +535,10 @@
     if (seed.kind === "food") {
       staged = seed.food;
       grams = seed.grams;
+    } else if (seed.kind === "manual") {
+      // A manual-entry edit: just switch to the Custom method so ManualEntryFlow
+      // renders (`showManualFlow`); it prefills its own mini-form from this seed.
+      method = "custom";
     } else {
       method = "custom";
       customName = seed.name;
@@ -1052,23 +1056,25 @@
   // invite the user to abandon it. A manual Custom tap clears captureReason, so
   // the tabs stay put there.
   let showTabs = $derived(!staged && !lockMethods && captureReason === null);
-  // The Custom tab shows the intent CHOOSER (not the label form) when the host
-  // opted into manual intents AND no barcode door routed here (a set
-  // `captureReason` always wins → the label form, ADR-0035 §2). The chooser owns
-  // its own Save, so the shared dock's primary + kcal summary drop for it.
-  // Edit mode (`lockMethods`) re-opens a logged entry on the prefilled label form,
-  // so the chooser must not hijack it — hence `!lockMethods`.
-  let showManualChooser = $derived(
+  // A manual-entry edit seed (ADR-0035 edit path) routes back to ManualEntryFlow
+  // even in edit mode, so its own mini-form re-opens (not the label form).
+  let manualSeed = $derived(seed?.kind === "manual" ? seed : null);
+  // The Custom tab shows ManualEntryFlow (the chooser + mini-forms, or a seeded
+  // mini-form) rather than the label form when: no barcode door routed here (a
+  // set `captureReason` always wins → the label form, ADR-0035 §2) AND either the
+  // host opted into fresh manual intents (and isn't in a locked edit) OR an edit
+  // seeded a manual entry. ManualEntryFlow owns its Save, so the shared dock's
+  // primary + kcal summary drop for it.
+  let showManualFlow = $derived(
     method === "custom" &&
       !staged &&
-      manualIntents &&
       captureReason === null &&
-      !lockMethods
+      (manualSeed != null || (manualIntents && !lockMethods))
   );
   // The custom form carries its own name field in its identity-card header, so
   // the shared dock input is dropped for it (Search/Scan still use it).
   let showInput = $derived(!staged && !isExtra(method) && method !== "custom");
-  let showPrimary = $derived(!isExtra(method) && !showManualChooser);
+  let showPrimary = $derived(!isExtra(method) && !showManualFlow);
 </script>
 
 <div class="stager">
@@ -1231,13 +1237,16 @@
           </button>
         {/if}
       {/if}
-    {:else if showManualChooser}
+    {:else if showManualFlow}
       <!-- Custom = the ADR-0035 intent chooser + its three mini-forms (quick
-           estimate / from a menu / from a photo). The label form is NOT here — it
-           stays on the barcode doors (a set captureReason routes to it below). -->
+           estimate / from a menu / from a photo), or a seeded mini-form in edit
+           mode. The label form is NOT here — it stays on the barcode doors (a set
+           captureReason routes to it below). -->
       <ManualEntryFlow
         {allowPhoto}
         {mealName}
+        seed={manualSeed}
+        editing={manualSeed != null}
         busy={status === "loading"}
         disabled={primaryDisabled}
         nameId={ids.customName}
@@ -1591,7 +1600,7 @@
       </div>
     {/if}
 
-    {#if method === "custom" && !staged && !showManualChooser}
+    {#if method === "custom" && !staged && !showManualFlow}
       <div class="cf-sum">
         <span><strong>{runningKcal || "—"}</strong> kcal</span>
         {#if toReview > 0}

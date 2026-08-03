@@ -1,7 +1,7 @@
 import type { FoodResult } from "./food-search";
 import type { NutritionInfo, Portion } from "./nutrition";
 import type { EntityPayload } from "../ingestion/ingest";
-import type { LabelCapture, ManualEntry } from "./provenance";
+import type { LabelCapture, ManualEntry, ManualEntryKind } from "./provenance";
 
 /**
  * The full-panel capture seed the four label-capture doors (ADR-0034 §1/§6) hand
@@ -96,14 +96,39 @@ export type FoodChoice =
 export type ChooseOutcome = { ok: boolean; message?: string };
 
 /**
+ * The one-time pre-population an edited manual-entry log hands the stager (ADR-0035
+ * edit path): the intent `kind` and the fields the mini-form owns, read back off
+ * the food twin (`food/name`, `nutrition/info.calories`, `twin/brand`,
+ * `food/ingredients`, the photo). Re-opening the intent's OWN mini-form — not the
+ * label form — is what keeps the re-saved twin a manual entry (so a menu dish
+ * stays in Recent), rather than degrading it to a label capture.
+ */
+export interface ManualEntrySeed {
+  /** Which intent minted the edited twin — decides which mini-form re-opens. */
+  manualKind: ManualEntryKind;
+  /** The dish/food name. */
+  name: string;
+  /** Calories as a string (the mini-form's field type). */
+  calories: string;
+  /** Menu "Place" (`twin/brand`); empty for quick/plate. */
+  place: string;
+  /** Free-text ingredients (`food/ingredients`); empty when none. */
+  ingredients: string;
+  /** The captured photo (base64), or null. */
+  photo_base64: string | null;
+}
+
+/**
  * A one-time pre-population of the stager, used by the direct-log sheet's edit
  * mode: a gram-logged food re-stages on its twin (so the amount editor scales it
- * the same way), a per-serving custom entry re-opens the custom form pre-filled.
- * Applied once when it first becomes non-null (the food case may resolve
- * asynchronously, after the twin is fetched).
+ * the same way), a manual-entry log re-opens its intent's mini-form pre-filled
+ * ({@link ManualEntrySeed}), and any other per-serving custom entry re-opens the
+ * label form pre-filled. Applied once when it first becomes non-null (the food
+ * and manual cases may resolve asynchronously, after the twin is fetched).
  */
 export type StagerSeed =
   | { kind: "food"; food: FoodResult; grams: number }
+  | ({ kind: "manual" } & ManualEntrySeed)
   | ({
       kind: "custom";
       name: string;

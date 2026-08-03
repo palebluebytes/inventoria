@@ -91,6 +91,7 @@
 <li><strong>The writer path</strong>: quick-estimate / menu / plate all persist through a manual-entry writer (extend <code>saveCustomFood</code> or a sibling) that stamps <code>food/manual_entry</code>; menu additionally writes <code>twin/brand</code> + <code>food/ingredients</code>; all mint <code>food:custom_</code>, none enrich a <code>gtin:</code> twin.</li>
 <li><strong>A new <code>PlateEstimator</code> seam</strong> (<code>src/lib/food/</code>) sibling to the label <code>autofillFromPackageImage</code>, with an empty variant used by v1 — the real model call is a separate future effort (map #62 transport), no dependency for v1.</li>
 <li><strong>Consumption events may freeze calories with macros omitted</strong> — the dashboard's macro-meter aggregation must treat omitted macros as not-counted (verify it does not coerce to 0).</li>
+<li><strong>Editing a logged manual entry re-opens its OWN mini-form</strong>, prefilled from the twin (<code>kind</code>, name, calories, Place, ingredients, photo), and re-saves through the manual-entry writer — so the re-saved twin stays a manual entry of the same <code>kind</code> and a menu dish stays in Recent. It must NOT fall back to the label form (which would strip <code>food/manual_entry</code> and drop the dish from the catalogue).</li>
 <li><strong>Docs to render/index after acceptance</strong>: <code>0035-*.html</code> + an entry in <code>docs/adr/index.html</code>; EAVT-vocabulary updates above.</li>
 </ul>
 <h2 id="alternatives-considered">Alternatives considered</h2>
