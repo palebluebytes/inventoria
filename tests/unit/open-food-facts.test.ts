@@ -4,9 +4,27 @@ import {
   lookupBarcode,
   ProductNotFoundError,
   submitToOpenFoodFacts,
+  buildOffWriteBody,
+  offWriteHost,
   type OFFProduct,
 } from "../../src/lib/food/open-food-facts";
+import { getSecret } from "../../src/lib/stores/secrets";
+import type { NutritionInfo } from "../../src/lib/food/nutrition";
 import nutellaProduct from "./support/fixtures/off-nutella.json";
+
+// The contribution seam reads the user's OFF login from localStorage (#60) via
+// getSecret; under the node unit runner there is no localStorage, so mock the
+// accessor to control the login state per test.
+vi.mock("../../src/lib/stores/secrets", () => ({
+  getSecret: vi.fn(() => ""),
+}));
+const mockGetSecret = getSecret as unknown as ReturnType<typeof vi.fn>;
+/** Make getSecret report a logged-in OFF user for the duration of a test. */
+function loginAs(user_id: string, password: string) {
+  mockGetSecret.mockImplementation((key: string) =>
+    key === "off_user_id" ? user_id : key === "off_password" ? password : ""
+  );
+}
 
 // Seam 1 (ADR-0016 isolated-Mapper contract): feed the mapper a saved copy of a
 // real Open Food Facts v3 product response and assert the emitted
@@ -367,26 +385,187 @@ describe("lookupBarcode", () => {
   });
 });
 
-// ---- unit: submitToOpenFoodFacts -------------------------------------------
+// ---- unit: OFF contribution (write) — ADR-0034 §8 --------------------------
+
+// A per-100 g panel with a macro, a micronutrient and a summed unsaturated value
+// (the last must NOT be contributed — OFF has no single id for it).
+const PANEL: NutritionInfo = {
+  serving_size: "100 g",
+  calories: 539,
+  protein_content: 6.3,
+  fat_content: 30.9,
+  carbohydrate_content: 57.5,
+  unsaturated_fat_content: 4.2,
+  calcium: 0.108,
+};
+
+describe("buildOffWriteBody", () => {
+  it("maps a per-100g panel to the exact urlencoded upsert params", () => {
+    const body = buildOffWriteBody(
+      "3017620422003",
+      { name: "Nutella", brand: "Ferrero", nutrition: PANEL },
+      { user_id: "tester", password: "s3cret" }
+    );
+
+    // Upsert key + the user's own creds as body params (§8).
+    expect(body.get("code")).toBe("3017620422003");
+    expect(body.get("user_id")).toBe("tester");
+    expect(body.get("password")).toBe("s3cret");
+    // A browser can't always set the UA header, so it rides the body (#50).
+    expect(body.get("user_agent")).toContain("Inventoria/");
+    // Name REPLACES; brand APPENDS via add_ so a poor product's list survives.
+    expect(body.get("product_name")).toBe("Nutella");
+    expect(body.get("add_brands")).toBe("Ferrero");
+    expect(body.get("brands")).toBeNull();
+    // The whole panel shares one basis (§8/#50).
+    expect(body.get("nutrition_data_per")).toBe("100g");
+    // Energy in kcal, masses in grams — our stored units.
+    expect(body.get("nutriment_energy-kcal")).toBe("539");
+    expect(body.get("nutriment_energy-kcal_unit")).toBe("kcal");
+    expect(body.get("nutriment_proteins")).toBe("6.3");
+    expect(body.get("nutriment_proteins_unit")).toBe("g");
+    // Folate is OFF's vitamin-b9; calcium rides as grams.
+    expect(body.get("nutriment_calcium")).toBe("0.108");
+    // A summed unsaturated value has no clean OFF id — never contributed.
+    expect(body.get("nutriment_unsaturated-fat")).toBeNull();
+    // Structured data only — no photo in v1.
+    expect(body.get("imgupload_front")).toBeNull();
+    expect(body.get("image_data_base64")).toBeNull();
+  });
+
+  it("omits absent panel keys rather than writing phantom zeroes", () => {
+    const body = buildOffWriteBody(
+      "000",
+      { name: "Sparse", nutrition: { serving_size: "100 g", calories: 10 } },
+      { user_id: "t", password: "p" }
+    );
+    expect(body.get("nutriment_energy-kcal")).toBe("10");
+    // Fibre wasn't on the panel, so it isn't posted at all (absent ≠ 0).
+    expect(body.get("nutriment_fiber")).toBeNull();
+  });
+
+  it("maps a per-serving basis to serving + serving_size", () => {
+    const body = buildOffWriteBody(
+      "111",
+      {
+        name: "Bar",
+        nutrition: { serving_size: "40 g", calories: 200 },
+      },
+      { user_id: "t", password: "p" }
+    );
+    expect(body.get("nutrition_data_per")).toBe("serving");
+    expect(body.get("serving_size")).toBe("40 g");
+  });
+});
+
+describe("offWriteHost", () => {
+  it("honours an explicit VITE_OFF_WRITE_HOST override, trailing slash trimmed", () => {
+    vi.stubEnv("VITE_OFF_WRITE_HOST", "https://example.test/");
+    expect(offWriteHost()).toBe("https://example.test");
+    vi.unstubAllEnvs();
+  });
+});
 
 describe("submitToOpenFoodFacts", () => {
-  it("simulates successfully submitting manual product details", async () => {
-    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockGetSecret.mockReset();
+    mockGetSecret.mockReturnValue("");
+  });
+
+  it("posts the urlencoded panel to product_jqm2.pl and maps a JSON success", async () => {
+    loginAs("tester", "s3cret");
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({ status: 1, status_verbose: "fields saved" }),
+    } as Response);
+
     const result = await submitToOpenFoodFacts("3017620422003", {
       name: "Nutella",
-      calories: 539,
-      protein: 6.3,
-      fat: 30.9,
-      carbs: 57.5,
+      brand: "Ferrero",
+      nutrition: PANEL,
     });
 
-    expect(result).toBe(true);
-    expect(infoSpy).toHaveBeenCalledWith(
-      expect.stringContaining(
-        "submitToOpenFoodFacts called for barcode: 3017620422003"
-      ),
-      expect.any(Object)
-    );
-    infoSpy.mockRestore();
+    expect(result).toEqual({
+      ok: true,
+      kind: "success",
+      message: expect.any(String),
+    });
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/cgi/product_jqm2.pl");
+    expect(init.method).toBe("POST");
+    expect(init.headers).toMatchObject({
+      "Content-Type": "application/x-www-form-urlencoded",
+    });
+    const body = init.body as URLSearchParams;
+    expect(body.get("code")).toBe("3017620422003");
+    expect(body.get("user_id")).toBe("tester");
+    expect(body.get("password")).toBe("s3cret");
+    expect(body.get("nutriment_energy-kcal")).toBe("539");
+  });
+
+  it("defensively maps an HTML 403 to an auth outcome (never crashes on res.json)", async () => {
+    loginAs("tester", "wrong");
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 403,
+      // Bad creds come back as an HTML page, not JSON (§8).
+      text: async () => "<html><body>Forbidden</body></html>",
+    } as Response);
+
+    const result = await submitToOpenFoodFacts("3017620422003", {
+      name: "Nutella",
+      nutrition: PANEL,
+    });
+    expect(result.ok).toBe(false);
+    expect(result).toMatchObject({ ok: false, kind: "auth" });
+  });
+
+  it("maps a JSON status:0 to a data-quality outcome, surfacing OFF's reason", async () => {
+    loginAs("tester", "s3cret");
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          status: 0,
+          status_verbose: "Sugars higher than carbohydrates",
+        }),
+    } as Response);
+
+    const result = await submitToOpenFoodFacts("3017620422003", {
+      name: "Nutella",
+      nutrition: PANEL,
+    });
+    expect(result).toMatchObject({
+      ok: false,
+      kind: "data-quality",
+      message: "Sugars higher than carbohydrates",
+    });
+  });
+
+  it("maps a fetch failure to a network outcome", async () => {
+    loginAs("tester", "s3cret");
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("offline"));
+
+    const result = await submitToOpenFoodFacts("3017620422003", {
+      name: "Nutella",
+      nutrition: PANEL,
+    });
+    expect(result).toMatchObject({ ok: false, kind: "network" });
+  });
+
+  it("returns a config outcome and never POSTs when no OFF login is set", async () => {
+    // getSecret returns "" (the beforeEach default) — no login.
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    const result = await submitToOpenFoodFacts("3017620422003", {
+      name: "Nutella",
+      nutrition: PANEL,
+    });
+    expect(result).toMatchObject({ ok: false, kind: "config" });
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

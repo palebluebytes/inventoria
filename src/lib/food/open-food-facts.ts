@@ -6,6 +6,7 @@ import {
   type Portion,
 } from "./nutrition";
 import { buildRawProvenance } from "./provenance";
+import { getSecret } from "../stores/secrets";
 
 // Mapper version, bumped when the OFF -> nutrition/info normalisation changes.
 // OFF_BASE (the product endpoint) is defined below and reused for source_uri.
@@ -310,34 +311,257 @@ export async function lookupBarcode(barcode: string): Promise<OffPayload> {
 }
 
 // ---------------------------------------------------------------------------
-// V2 STUB: Submit to Open Food Facts
+// Contribution (write) — ADR-0034 §8, grounded in research/50
 // ---------------------------------------------------------------------------
+//
+// The seam that gives a corrected barcoded twin back to Open Food Facts. It is a
+// DIRECT browser POST — a live CORS spike (#54) proved OFF returns
+// `Access-Control-Allow-Origin: *` and preflight-allows POST on staging AND prod,
+// so the write both lands and is readable with NO backend. Kept swappable (a
+// later variant could route via a relay) but the body IS the direct POST.
+//
+// The v3 JSON PATCH API is deliberately NOT used: it still can't carry nutriments
+// (re-verified, #50). The legacy `POST /cgi/product_jqm2.pl` urlencoded upsert
+// carries the whole panel, so that is the target.
 
 /**
- * V2 Feature Stub: Submits manually entered product data back to the Open Food
- * Facts database to contribute to the global dataset.
+ * The write host, env-driven (ADR-0034 §8): the anti-indexing STAGING host in dev
+ * so a manual test never mutates prod, production in a build. `VITE_OFF_WRITE_HOST`
+ * overrides both. Trailing slashes are trimmed so the `/cgi/...` join is clean.
+ */
+export function offWriteHost(): string {
+  const env = import.meta.env ?? {};
+  const configured = (env.VITE_OFF_WRITE_HOST as string | undefined)?.trim();
+  if (configured) return configured.replace(/\/+$/, "");
+  return env.DEV
+    ? "https://world.openfoodfacts.net"
+    : "https://world.openfoodfacts.org";
+}
+
+// OFF requires a User-Agent `AppName/Version (contact)`; a browser can't always
+// set that header, so OFF lets it ride as the `user_agent` body param instead
+// (#50). `app_name` attributes the edit so OFF moderators can trace/revert it.
+const OFF_USER_AGENT = "Inventoria/0.1 (thomas@palebluebytes.space)";
+const OFF_APP_NAME = "Inventoria";
+
+// NutritionInfo panel key → OFF nutrient-taxonomy id — the exact mirror of the
+// read mapper's `*_100g` fields (#50 mapping note). Energy is kcal; every mass
+// field is grams (our panel's invariant unit). `unsaturated_fat_content` has no
+// single OFF id (OFF splits mono/poly), so a summed value can't be cleanly
+// reversed — it is deliberately NOT contributed rather than mis-attributed.
+const NUTRIMENT_IDS: [keyof NutritionInfo, string][] = [
+  ["calories", "energy-kcal"],
+  ["protein_content", "proteins"],
+  ["fat_content", "fat"],
+  ["carbohydrate_content", "carbohydrates"],
+  ["fiber_content", "fiber"],
+  ["sugar_content", "sugars"],
+  ["sodium_content", "sodium"],
+  ["saturated_fat_content", "saturated-fat"],
+  ["trans_fat_content", "trans-fat"],
+  ["cholesterol_content", "cholesterol"],
+  ["vitamin_d", "vitamin-d"],
+  ["calcium", "calcium"],
+  ["iron", "iron"],
+  ["potassium", "potassium"],
+  ["vitamin_a", "vitamin-a"],
+  ["vitamin_c", "vitamin-c"],
+  ["vitamin_e", "vitamin-e"],
+  ["vitamin_b6", "vitamin-b6"],
+  ["vitamin_b12", "vitamin-b12"],
+  ["folate", "vitamin-b9"],
+  ["magnesium", "magnesium"],
+  ["zinc", "zinc"],
+];
+
+/** The structured data a contribution carries — name / brand / the full panel. */
+export interface OffContribution {
+  /** schema.org name — posted as `product_name` (replace, §8). */
+  name: string;
+  /** Brand — posted as `add_brands` so it appends, never clobbers (§8/#50). */
+  brand?: string;
+  /**
+   * The confirmed panel: grams (kcal for energy), `serving_size` its basis. Only
+   * the keys the user actually supplied are present — an absent key is simply not
+   * posted (absent ≠ 0), so a partial panel never writes phantom zeroes to OFF.
+   */
+  nutrition: NutritionInfo;
+}
+
+/**
+ * A readable, defensively-parsed outcome of one contribution attempt (§8). The
+ * write is online-only with manual retry, so every failure carries a message the
+ * UI shows verbatim beside a persistent retry button.
+ */
+export type OffSubmitResult =
+  | { ok: true; kind: "success"; message: string }
+  | {
+      ok: false;
+      kind: "auth" | "data-quality" | "network" | "config";
+      message: string;
+    };
+
+/**
+ * Builds the urlencoded body for `product_jqm2.pl` from a contribution (§8).
+ * PURE and side-effect-free (creds passed in, no `getSecret`, no clock), so the
+ * mapping is asserted directly in tests without a network. Structured data ONLY —
+ * no photo (deferred past v1). Barcode-keyed upsert: `code` both creates and edits.
+ */
+export function buildOffWriteBody(
+  barcode: string,
+  contribution: OffContribution,
+  creds: { user_id: string; password: string }
+): URLSearchParams {
+  const body = new URLSearchParams();
+  body.set("code", barcode);
+  // Auth as body params — cookie auth is impossible under `ACAO:*`, and anonymous
+  // writes 403 (#50). These are the USER's own OFF creds, never a shipped secret.
+  body.set("user_id", creds.user_id);
+  body.set("password", creds.password);
+  body.set("user_agent", OFF_USER_AGENT);
+  body.set("app_name", OFF_APP_NAME);
+
+  const n = contribution.nutrition;
+  const name = contribution.name.trim();
+  // `product_name` REPLACES (§8) — a corrected name should supersede a blank or
+  // generic OFF one, which is the whole point of the found-but-poor fix.
+  if (name) body.set("product_name", name);
+  // Tags APPEND via the `add_` prefix (§8/#50) so enriching a poor product keeps
+  // its existing brands rather than overwriting the list.
+  const brand = contribution.brand?.trim();
+  if (brand) body.set("add_brands", brand);
+
+  // `nutrition_data_per` is GLOBAL to the whole panel (#50): send the full set on
+  // one basis. Our panel stamps `100 g` for the per-100 g case, else a serving
+  // string, which maps to OFF's `serving` basis with the human `serving_size`.
+  const per100 = n.serving_size === PER_100G;
+  body.set("nutrition_data_per", per100 ? "100g" : "serving");
+  if (!per100 && n.serving_size) body.set("serving_size", n.serving_size);
+
+  for (const [key, id] of NUTRIMENT_IDS) {
+    const value = n[key];
+    if (typeof value !== "number") continue;
+    body.set(`nutriment_${id}`, String(value));
+    // Grams for every mass field, kcal for energy — our stored units.
+    body.set(`nutriment_${id}_unit`, id === "energy-kcal" ? "kcal" : "g");
+  }
+  return body;
+}
+
+/**
+ * Interprets OFF's write response DEFENSIVELY (§8): a 403 for bad creds comes
+ * back as an HTML page, not JSON, so a naive `res.json()` would crash on the most
+ * common failure. Read the body as text, try to parse it, and map:
+ *   • JSON `status: 1` → success;
+ *   • JSON `status: 0` → a data-quality rejection (surface OFF's own verbose);
+ *   • non-JSON / non-OK under 500 → an auth failure (the HTML 403 case);
+ *   • 5xx → a transient network/server outcome to retry.
+ */
+async function interpretOffWriteResponse(
+  res: Response
+): Promise<OffSubmitResult> {
+  const text = await res.text().catch(() => "");
+  let json: unknown = null;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    /* HTML or otherwise non-JSON body — handled below, never thrown */
+  }
+
+  if (json == null || typeof json !== "object") {
+    // The canonical bad-creds path: a 401/403 comes back as an HTML page (§8).
+    if (res.status === 401 || res.status === 403) {
+      return {
+        ok: false,
+        kind: "auth",
+        message:
+          "Open Food Facts rejected the login. Check your username and password in Settings.",
+      };
+    }
+    if (res.status >= 500) {
+      return {
+        ok: false,
+        kind: "network",
+        message:
+          "Open Food Facts is having trouble right now. Try contributing again shortly.",
+      };
+    }
+    // Any other non-JSON body (rare — the endpoint normally returns JSON): a
+    // readable generic outcome rather than a misleading "check your password".
+    return {
+      ok: false,
+      kind: "network",
+      message:
+        "Open Food Facts returned an unexpected response. Please try again.",
+    };
+  }
+
+  const record = json as { status?: unknown; status_verbose?: unknown };
+  if (record.status === 1 || record.status === "success") {
+    return {
+      ok: true,
+      kind: "success",
+      message: "Contributed to Open Food Facts. Thank you!",
+    };
+  }
+  // A rejected write (e.g. "Sugars higher than carbohydrates") — surface OFF's
+  // own explanation so the user can fix the values and retry.
+  const verbose =
+    typeof record.status_verbose === "string" && record.status_verbose.trim()
+      ? record.status_verbose
+      : "Open Food Facts couldn’t accept this data. Check the values and retry.";
+  return { ok: false, kind: "data-quality", message: verbose };
+}
+
+/**
+ * Contributes a corrected barcoded twin back to Open Food Facts (ADR-0034 §8).
+ *
+ * Reads the user's own OFF login from `localStorage` (#60) and posts the
+ * structured panel via {@link buildOffWriteBody} to the legacy upsert endpoint.
+ * The CALLER gates the offer (a `gtin:` twin + a login + per-capture consent, §8);
+ * this seam guards defensively too — a missing barcode or login returns a `config`
+ * outcome rather than a doomed POST. Online-only: a fetch failure is a `network`
+ * outcome, and the response is mapped without ever blind-calling `res.json()`.
  */
 export async function submitToOpenFoodFacts(
   barcode: string,
-  details: {
-    name: string;
-    calories: number;
-    protein: number;
-    fat: number;
-    carbs: number;
+  contribution: OffContribution
+): Promise<OffSubmitResult> {
+  const code = barcode.trim();
+  if (!code) {
+    return {
+      ok: false,
+      kind: "config",
+      message: "No barcode to contribute under.",
+    };
   }
-): Promise<boolean> {
-  console.info(
-    `[V2 STUB] submitToOpenFoodFacts called for barcode: ${barcode}`,
-    details
-  );
+  const user_id = getSecret("off_user_id").trim();
+  const password = getSecret("off_password");
+  if (!user_id || !password) {
+    return {
+      ok: false,
+      kind: "config",
+      message: "Add your Open Food Facts login in Settings to contribute.",
+    };
+  }
 
-  // Simulate network delay
-  await new Promise((resolve) => setTimeout(resolve, 800));
+  const body = buildOffWriteBody(code, contribution, { user_id, password });
 
-  // In a real implementation, this would use the OFF v3 product write API
-  // https://openfoodfacts.github.io/openfoodfacts-server/api/tutorial-write/
-  console.info("[V2 STUB] Successfully simulated submission to OFF.");
+  let res: Response;
+  try {
+    res = await fetch(`${offWriteHost()}/cgi/product_jqm2.pl`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+  } catch {
+    return {
+      ok: false,
+      kind: "network",
+      message:
+        "Couldn’t reach Open Food Facts. Check your connection and try again.",
+    };
+  }
 
-  return true;
+  return interpretOffWriteResponse(res);
 }
