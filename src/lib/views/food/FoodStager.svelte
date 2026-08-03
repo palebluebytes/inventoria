@@ -1067,7 +1067,12 @@
     if (method === "scan") return handleBarcodeLookup();
   }
 
-  let showTabs = $derived(!staged && !lockMethods);
+  // The method switcher hides while staged or method-locked, and also while the
+  // read-along form was opened by a scan door (`captureReason` set): that flow is
+  // a focused "fill in the label" task, so Search/Scan/Custom/Recipe would only
+  // invite the user to abandon it. A manual Custom tap clears captureReason, so
+  // the tabs stay put there.
+  let showTabs = $derived(!staged && !lockMethods && captureReason === null);
   // The custom form carries its own name field in its identity-card header, so
   // the shared dock input is dropped for it (Search/Scan still use it).
   let showInput = $derived(!staged && !isExtra(method) && method !== "custom");
