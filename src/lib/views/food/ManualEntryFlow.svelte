@@ -4,6 +4,7 @@
     type ManualEntryKind,
   } from "../../food/provenance";
   import { emptyPlateEstimate } from "../../food/plate-estimator";
+  import { readImageAsDataUrl } from "../../food/image-file";
   import type { FoodChoice } from "../../food/food-staging";
 
   // The Custom tab's intent chooser and its three purpose-built mini-forms
@@ -111,15 +112,6 @@
     reset();
   }
 
-  function readAsDataUrl(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (ev) => resolve(ev.target?.result as string);
-      reader.onerror = () => reject(new Error("read failed"));
-      reader.readAsDataURL(file);
-    });
-  }
-
   async function handleFile(e: Event) {
     const input = e.target as HTMLInputElement;
     const file = Array.from(input.files ?? []).find((f) =>
@@ -129,7 +121,7 @@
     if (!file) return;
     readError = "";
     try {
-      photo = await readAsDataUrl(file);
+      photo = await readImageAsDataUrl(file);
     } catch {
       readError = "Couldn’t read that image file.";
     }
@@ -192,6 +184,24 @@
   }
 </script>
 
+<!-- The one calorie field every intent leads with (the only number a manual
+     entry carries), so quick/menu/plate never assemble it three ways. -->
+{#snippet kcalField()}
+  <label class="kcal-label" for={calId}>Calories</label>
+  <div class="kcal-field">
+    <input
+      id={calId}
+      class="kcal-input"
+      inputmode="numeric"
+      autocomplete="off"
+      placeholder="0"
+      aria-label="Calories in kcal"
+      bind:value={calories}
+    />
+    <span class="kcal-unit">kcal</span>
+  </div>
+{/snippet}
+
 {#if intent === null}
   <!-- The chooser: three eating-out / estimation intents. The label form is not
        an option here (ADR-0035 §1) — it lives on the barcode doors. -->
@@ -216,16 +226,17 @@
   <div class="mini" data-testid={`manual-form-${intent}`}>
     <button type="button" class="mini-back" onclick={back}>‹ Intents</button>
 
-    {#if allowPhoto}
-      <input
-        type="file"
-        accept="image/*"
-        capture="environment"
-        class="hidden-file-input"
-        bind:this={fileInput}
-        onchange={handleFile}
-      />
-    {/if}
+    <!-- Rendered unconditionally: the plate intent is photo-FIRST and needs this
+         input even where the optional quick/menu photo attach (gated by
+         `allowPhoto`) is off. -->
+    <input
+      type="file"
+      accept="image/*"
+      capture="environment"
+      class="hidden-file-input"
+      bind:this={fileInput}
+      onchange={handleFile}
+    />
 
     {#if intent === "plate_estimate" && !photo}
       <!-- Photo-first: capture/pick a plate photo, then the blank form opens. -->
@@ -242,19 +253,7 @@
     {:else}
       {#if intent === "quick_estimate"}
         <!-- Fastest path: calories lead, name optional. -->
-        <label class="kcal-label" for={calId}>Calories</label>
-        <div class="kcal-field">
-          <input
-            id={calId}
-            class="kcal-input"
-            inputmode="numeric"
-            autocomplete="off"
-            placeholder="0"
-            aria-label="Calories in kcal"
-            bind:value={calories}
-          />
-          <span class="kcal-unit">kcal</span>
-        </div>
+        {@render kcalField()}
         <input
           id={nameId}
           class="mini-name"
@@ -272,19 +271,7 @@
           aria-label="Dish name"
           bind:value={name}
         />
-        <label class="kcal-label" for={calId}>Calories</label>
-        <div class="kcal-field">
-          <input
-            id={calId}
-            class="kcal-input"
-            inputmode="numeric"
-            autocomplete="off"
-            placeholder="0"
-            aria-label="Calories in kcal"
-            bind:value={calories}
-          />
-          <span class="kcal-unit">kcal</span>
-        </div>
+        {@render kcalField()}
         {#if intent === "menu"}
           <label class="mini-flabel" for="manual-place">Place — optional</label>
           <input

@@ -44,6 +44,7 @@
     type AIAutofillResult,
   } from "../../food/ai-autofill";
   import { hydrateFdcFood } from "../../food/usda-fdc";
+  import { readImageAsDataUrl } from "../../food/image-file";
   import type {
     FoodChoice,
     ChooseOutcome,
@@ -788,7 +789,7 @@
     uploadNoCode = false;
     decoding = true;
     try {
-      uploadedPhoto = await readAsDataUrl(file);
+      uploadedPhoto = await readImageAsDataUrl(file);
     } catch {
       decoding = false;
       uploadError = "Couldn’t read that image file.";
@@ -926,7 +927,7 @@
     // `allSettled`, not `all`: one unreadable shot must not discard the ones that
     // read fine — the ticket's Further Notes say surface a drop, never silently
     // lose the good photos. Append every success in order; flag if any failed.
-    Promise.allSettled(files.map(readAsDataUrl)).then((outcomes) => {
+    Promise.allSettled(files.map(readImageAsDataUrl)).then((outcomes) => {
       const read = outcomes
         .filter((o) => o.status === "fulfilled")
         .map((o) => (o as PromiseFulfilledResult<string>).value);
@@ -938,15 +939,6 @@
             ? "Failed to read image file."
             : `Added ${read.length} of ${files.length} photos; the rest could not be read.`;
       }
-    });
-  }
-
-  function readAsDataUrl(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (ev) => resolve(ev.target?.result as string);
-      reader.onerror = () => reject(new Error("read failed"));
-      reader.readAsDataURL(file);
     });
   }
 
