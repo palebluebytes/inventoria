@@ -1962,7 +1962,10 @@
     gap: var(--space-s);
     padding: var(--space-2xs) 0;
     margin-bottom: var(--space-s);
-    background: var(--bg-base, #fff);
+    /* Opaque so scrolled rows don't show through when this row sticks — matched
+       to the sheet surface (white) rather than --bg-base, which read as a grey
+       block against it. */
+    background: var(--bg-surface, #fff);
     border-bottom: 1px solid var(--border);
   }
   .cf-id {
