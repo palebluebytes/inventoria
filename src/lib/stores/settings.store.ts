@@ -99,6 +99,16 @@ export interface SettingsState {
    * via {@link saveFoodProfile}.
    */
   food_profile: FoodProfile | null;
+  /**
+   * The consent MASTER toggle for contributing corrected label data back to Open
+   * Food Facts (ADR-0034 §8, model C). Default **off**. It is not itself the
+   * consent to submit — it merely SEEDS the always-shown-before-submit per-capture
+   * checkbox in the Custom form, which must still be ticked every time. A JSON
+   * boolean like {@link round_nutrition}, so it is NOT a `SETTINGS_STRING_ATTR`.
+   * Not a secret (it holds no credential), so unlike the OFF login it rides the
+   * ledger rather than localStorage.
+   */
+  off_contribute: boolean;
 }
 
 /**
@@ -233,6 +243,8 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
     food_limits: {},
     // Unset → the helper has never been applied; the form opens blank.
     food_profile: null,
+    // Unset → OFF contribution consent stays off (opt-in, ADR-0034 §8).
+    off_contribute: false,
   };
 
   for (const d of $datoms) {
@@ -267,6 +279,13 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
       settings.food_profile = parseFoodProfile(d.value);
       continue;
     }
+    // off_contribute is a JSON boolean, decoded like round_nutrition — only a
+    // literal `true` opts in; any malformed/legacy value stays off (ADR-0034 §8).
+    if (d.attribute === "settings/off_contribute") {
+      settings.off_contribute =
+        parseDatomValue("settings/off_contribute", d.value) === true;
+      continue;
+    }
     if (d.attribute === "settings/scraper_proxy_url") {
       settings.scraper_proxy_url = String(
         parseDatomValue(d.attribute, d.value, SETTINGS_STRING_ATTRS)
@@ -285,7 +304,14 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
 // (USDA/TMDB keys, OFF creds) do NOT pass through here — they go to localStorage
 // via stores/secrets.ts (ADR-0034 §8).
 export async function saveSettings(
-  state: Omit<SettingsState, "food_targets" | "food_limits" | "food_profile">
+  state: Omit<
+    SettingsState,
+    "food_targets" | "food_limits" | "food_profile" | "off_contribute"
+  > & {
+    // The OFF-contribution consent toggle is optional so pre-#61 callers (and the
+    // store tests) still type-check; omitted → off, the opt-in default.
+    off_contribute?: boolean;
+  }
 ): Promise<void> {
   const timestamp = Date.now();
   const datoms = ingestEntity(
@@ -300,6 +326,8 @@ export async function saveSettings(
         // Boolean value; default off when a caller omits it (e.g. a pre-toggle
         // save path).
         "settings/food/round_nutrition": state.round_nutrition ?? false,
+        // OFF-contribution consent master toggle (ADR-0034 §8); default off.
+        "settings/off_contribute": state.off_contribute ?? false,
       },
     },
     timestamp

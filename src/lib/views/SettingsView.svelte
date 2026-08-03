@@ -42,6 +42,9 @@
   let offUserId = $state("");
   let offPassword = $state("");
   let scraperProxy = $state("");
+  // OFF-contribution consent MASTER toggle (ADR-0034 §8, model C). Default off;
+  // it only seeds the per-capture checkbox in the capture form, never submits.
+  let offContribute = $state(false);
 
   let showUsda = $state(false);
   let showTmdb = $state(false);
@@ -60,6 +63,7 @@
       tmdbKey = $secretsStore.tmdb_api_key;
       offUserId = $secretsStore.off_user_id;
       offPassword = $secretsStore.off_password;
+      offContribute = $settingsStore.off_contribute;
       scraperProxy = $settingsStore.scraper_proxy_url;
       initialized = true;
     }
@@ -86,6 +90,7 @@
         scraper_proxy_url: scraperProxy.trim(),
         visible_nutrients: $settingsStore.visible_nutrients,
         round_nutrition: $settingsStore.round_nutrition,
+        off_contribute: offContribute,
       });
       saveSuccess = true;
       setTimeout(() => {
@@ -287,6 +292,27 @@
       </div>
       <span class="help-text"
         >Stored on this device only, never in the synced database.</span
+      >
+    </div>
+
+    <div class="form-group">
+      <!-- OFF-contribution consent MASTER toggle (ADR-0034 §8, model C). Default
+           off. It never submits on its own — it only pre-ticks the per-capture
+           checkbox shown in the capture form, which you confirm every time. -->
+      <label class="toggle-label consent-toggle">
+        <input
+          type="checkbox"
+          id="off-contribute-toggle"
+          bind:checked={offContribute}
+        />
+        <span class="toggle-text">Contribute to Open Food Facts by default</span
+        >
+      </label>
+      <span class="help-text"
+        >Pre-ticks the "share with Open Food Facts" option on the capture form
+        when you scan or correct a barcoded product. The option always appears
+        (when you have an OFF login); this just sets its default. You confirm
+        each contribution individually — nothing is ever sent automatically.</span
       >
     </div>
 
@@ -687,6 +713,19 @@
   .toggle-label input[type="checkbox"]:focus-visible {
     outline: 2px solid #000;
     outline-offset: 2px;
+  }
+  /* The consent toggle reuses the retro checkbox but sits in the credentials
+     form, not the container-queried dev card — so pin a fixed size instead of
+     the dev toggle's cqi ramp (measured for its shorter label), and let this
+     longer sentence-case label wrap rather than clip. */
+  .consent-toggle {
+    align-items: flex-start;
+    font-size: var(--step-n1);
+    text-transform: none;
+    line-height: 1.35;
+  }
+  .consent-toggle .toggle-text {
+    top: 0;
   }
   .border-top {
     border-top: 2px solid #000;

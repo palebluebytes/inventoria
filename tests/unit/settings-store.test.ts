@@ -190,6 +190,42 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
     expect(get(settingsStore).round_nutrition).toBe(false);
   });
 
+  it("defaults off_contribute to false (opt-in) when unset", () => {
+    // No datom → OFF contribution consent stays off (ADR-0034 §8, model C).
+    expect(get(settingsStore).off_contribute).toBe(false);
+  });
+
+  it("decodes a stored off_contribute boolean", () => {
+    datomsWritable.set([
+      {
+        attribute: "settings/off_contribute",
+        value: JSON.stringify(true),
+        time: 1,
+      },
+    ]);
+    expect(get(settingsStore).off_contribute).toBe(true);
+    datomsWritable.set([
+      {
+        attribute: "settings/off_contribute",
+        value: JSON.stringify(false),
+        time: 2,
+      },
+    ]);
+    expect(get(settingsStore).off_contribute).toBe(false);
+  });
+
+  it("treats a malformed off_contribute value as false (stays opt-out)", () => {
+    // Only a literal `true` opts in; anything else keeps contribution off.
+    datomsWritable.set([
+      {
+        attribute: "settings/off_contribute",
+        value: JSON.stringify("on"),
+        time: 1,
+      },
+    ]);
+    expect(get(settingsStore).off_contribute).toBe(false);
+  });
+
   it("defaults food_targets to an empty override map when unset", () => {
     // No datom → no overrides; every target resolves to its baked default.
     expect(get(settingsStore).food_targets).toEqual({});
@@ -399,6 +435,35 @@ describe("saveSettings", () => {
       datoms.map((d) => [d.attribute, d.value])
     );
     expect(byAttr["settings/food/round_nutrition"]).toBe(true);
+  });
+
+  it("persists the off_contribute consent toggle", async () => {
+    await saveSettings({
+      scraper_proxy_url: "P",
+      visible_nutrients: ["protein"],
+      round_nutrition: false,
+      off_contribute: true,
+    });
+    const datoms = appendMock.mock.calls[0][0] as any[];
+    const byAttr = Object.fromEntries(
+      datoms.map((d) => [d.attribute, d.value])
+    );
+    expect(byAttr["settings/off_contribute"]).toBe(true);
+  });
+
+  it("defaults off_contribute to false when a caller omits it", async () => {
+    // Pre-#61 callers pass no off_contribute; the write must still be off, never
+    // undefined, so consent never silently flips on.
+    await saveSettings({
+      scraper_proxy_url: "P",
+      visible_nutrients: ["protein"],
+      round_nutrition: false,
+    });
+    const datoms = appendMock.mock.calls[0][0] as any[];
+    const byAttr = Object.fromEntries(
+      datoms.map((d) => [d.attribute, d.value])
+    );
+    expect(byAttr["settings/off_contribute"]).toBe(false);
   });
 
   it("does not write the food/targets datom (targets ride their own writer)", async () => {
