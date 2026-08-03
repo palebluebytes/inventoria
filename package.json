@@ -37,9 +37,11 @@
   "dependencies": {
     "@internationalized/date": "^3.12.2",
     "@sqlite.org/sqlite-wasm": "3.53.0-build1",
+    "barcode-detector": "^3.2.1",
     "bits-ui": "^2.18.1",
     "loro-crdt": "^1.13.6",
     "phosphor-svelte": "^3.1.0",
-    "workbox-window": "^7.4.1"
+    "workbox-window": "^7.4.1",
+    "zxing-wasm": "3.1.1"
   }
 }
