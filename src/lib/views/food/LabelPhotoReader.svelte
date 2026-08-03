@@ -124,6 +124,7 @@
       src={photos[index]}
       alt={`Label photo ${index + 1} of ${photos.length}`}
       draggable="false"
+      crossorigin="anonymous"
       style:transform={`translateX(${dragX}px)`}
       style:transition={dragging ? "none" : "transform 0.15s ease-out"}
     />

@@ -1298,7 +1298,11 @@
                   onclick={() => (refReaderIndex = i)}
                   aria-label={`View Open Food Facts photo ${i + 1} of ${offRefPhotos.length}`}
                 >
-                  <img {src} alt="" loading="lazy" />
+                  <!-- OFF images carry CORS (ACAO:*) but no CORP header, so
+                       under our COEP:require-corp page they must be fetched in
+                       CORS mode — else the browser blocks them
+                       (NotSameOriginAfterDefaultedToSameOriginByCoep). -->
+                  <img {src} alt="" loading="lazy" crossorigin="anonymous" />
                 </button>
               {/each}
             </div>
