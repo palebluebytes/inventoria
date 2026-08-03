@@ -184,13 +184,38 @@
   // and a failed fetch degrades to no portions (ADR-0030 §5).
   let hydratingPortions = $state(false);
 
+  // Portion detail fetched this staging session, keyed by FDC id. Re-selecting a
+  // searched food (tapping back to the results and choosing it again) reuses
+  // this instead of re-hitting `/food/{fdcId}` — the search results array holds
+  // the un-hydrated item, so without the cache every re-selection refetches.
+  // Foods that were *logged* already persist their portions on the ledger twin
+  // (they arrive via `recent` carrying `food/portions` and skip below), so this
+  // only covers the not-yet-logged, in-session re-selection path.
+  const portionCache = new Map<number, Record<string, unknown>>();
+
+  // Spread a portion/provenance augmentation onto a search result's payload,
+  // keeping its search-time name and nutrition and merely adding portions.
+  function mergePortions(
+    item: FoodResult,
+    attributes: Record<string, unknown>
+  ): FoodResult {
+    return {
+      ...item,
+      payload: {
+        ...item.payload,
+        attributes: { ...item.payload.attributes, ...attributes },
+      },
+    };
+  }
+
   // Stage a chosen food and, for a searched USDA food that arrived without
   // portions, hydrate its `/food/{fdcId}` detail once (ADR-0030 §5) — not per
   // keystroke, off the select. The augmentation (portions + refreshed
   // provenance) is SPREAD onto the staged payload so the food keeps its
   // search-time name and nutrition and merely gains portions; the search-time
   // nutrition/info is never re-mapped. A non-fdc food (a scanned OFF product, a
-  // local recent twin) or one already carrying portions skips the fetch.
+  // local recent twin) or one already carrying portions skips the fetch, as does
+  // one whose portions this session already fetched.
   async function stageFood(item: FoodResult) {
     staged = item;
     grams = 100;
@@ -198,19 +223,17 @@
     const match = /^fdc:(\d+)$/.exec(item.entity);
     if (!match) return;
     if (item.payload.attributes[FOOD_PORTIONS_ATTR]) return;
+    const fdcId = Number(match[1]);
+    const cached = portionCache.get(fdcId);
+    if (cached) {
+      staged = mergePortions(item, cached);
+      return;
+    }
     hydratingPortions = true;
     try {
-      const augmentation = await hydrateFdcFood(Number(match[1]));
-      const merged: FoodResult = {
-        ...item,
-        payload: {
-          ...item.payload,
-          attributes: {
-            ...item.payload.attributes,
-            ...augmentation.attributes,
-          },
-        },
-      };
+      const augmentation = await hydrateFdcFood(fdcId);
+      portionCache.set(fdcId, augmentation.attributes);
+      const merged = mergePortions(item, augmentation.attributes);
       // Only apply if this food is still the staged one — a fast user may have
       // gone back or staged another before the fetch resolved.
       if (staged?.entity === item.entity) staged = merged;
@@ -1106,16 +1129,12 @@
             $nutritionDisplayDecimals
           )}g
         </p>
-        <span class="fl">
-          Quantity (grams)
-          {#if hydratingPortions}
-            <span class="portions-loading" data-testid="portions-loading">
-              <span class="portions-spinner" aria-hidden="true"></span>
-              Loading portions…
-            </span>
-          {/if}
-        </span>
-        <QuantityGrams bind:grams portions={stagedPortions} />
+        <span class="fl">Quantity (grams)</span>
+        <QuantityGrams
+          bind:grams
+          portions={stagedPortions}
+          hydrating={hydratingPortions}
+        />
         <div class="preview">
           <MacroPills pills={stagedPills} />
         </div>
@@ -1734,26 +1753,6 @@
   }
   .full-panel {
     margin-top: var(--space-s);
-  }
-  /* Non-blocking hint while a searched food's portions hydrate (ADR-0030 §5) —
-     the gram field beneath stays fully usable throughout. */
-  .portions-loading {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-3xs);
-    margin-left: var(--space-2xs);
-    font-size: var(--step-n2);
-    font-weight: 400;
-    text-transform: none;
-    color: var(--text-secondary);
-  }
-  .portions-spinner {
-    width: 0.9rem;
-    height: 0.9rem;
-    border: 2px solid var(--border-accent);
-    border-right-color: transparent;
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
   }
 
   .viewport {
