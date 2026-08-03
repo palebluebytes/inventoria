@@ -1097,25 +1097,17 @@
             <span class="nudge-text"
               >This entry looks incomplete. Improve it from the label?</span
             >
-            <div class="nudge-acts">
-              <button
-                type="button"
-                class="nudge-go"
-                data-testid="poor-nudge-improve"
-                onclick={() =>
-                  openCaptureForm(
-                    "poor",
-                    poorPayload ?? undefined,
-                    captureCompleteness
-                  )}>Improve</button
-              >
-              <button
-                type="button"
-                class="nudge-x"
-                aria-label="Dismiss"
-                onclick={() => (nudge = false)}>✕</button
-              >
-            </div>
+            <button
+              type="button"
+              class="nudge-go"
+              data-testid="poor-nudge-improve"
+              onclick={() =>
+                openCaptureForm(
+                  "poor",
+                  poorPayload ?? undefined,
+                  captureCompleteness
+                )}>Improve</button
+            >
           </div>
         {/if}
         <p class="per">
@@ -1714,44 +1706,31 @@
      button beneath it. */
   .nudge {
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    align-items: flex-start;
     gap: var(--space-xs);
     margin-top: var(--space-2xs);
-    padding: var(--space-2xs) var(--space-xs);
+    padding: var(--space-xs) var(--space-s);
     background: rgba(255, 204, 0, 0.12);
     border: 1px solid #f5b301;
     border-radius: 10px;
   }
   .nudge-text {
-    flex: 1;
-    min-width: 0;
     font-size: 0.82rem;
+    line-height: 1.4;
     color: var(--text-primary);
   }
-  .nudge-acts {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3xs);
-  }
   .nudge-go {
+    align-self: stretch;
     background: #000;
     color: #fff;
     border: 0;
     border-radius: 8px;
-    padding: 0.35rem 0.7rem;
+    padding: 0.5rem 0.7rem;
     font: inherit;
     font-weight: 700;
     cursor: pointer;
-    min-height: 36px;
-  }
-  .nudge-x {
-    background: none;
-    border: 0;
-    color: var(--text-secondary);
-    font: inherit;
-    cursor: pointer;
-    padding: 0.2rem 0.4rem;
-    min-height: 36px;
+    min-height: 40px;
   }
   .per {
     color: var(--text-secondary);
