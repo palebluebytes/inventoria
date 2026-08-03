@@ -1,8 +1,10 @@
 <script lang="ts">
   import {
     lookupBarcode,
+    submitToOpenFoodFacts,
     ProductNotFoundError,
     type OffPayload,
+    type OffSubmitResult,
   } from "../../food/open-food-facts";
   import {
     searchUsdaFoods,
@@ -416,6 +418,17 @@
   // AI-confirm: how many prefilled rows are still unverified (0 in guided-manual).
   let toReview = $derived(prefilled.size);
   let runningKcal = $derived((customValues["calories"] ?? "").trim());
+  // The panel the form would save/contribute right now (grams, absent ≠ 0). One
+  // pure derivation shared by the Save path and the OFF-contribution path, so the
+  // two never assemble it from the same four fields independently.
+  let builtPanel = $derived(
+    buildLabelPanel({
+      values: customValues,
+      basis: customBasis,
+      servingGrams: customServingGrams,
+      skipped,
+    })
+  );
 
   // Editing a prefilled row IS verifying it — clear the amber "unverified" accent.
   function markReviewed(key: string) {
@@ -444,6 +457,54 @@
   }
 
   let hasKey = $derived(!!$secretsStore.usda_api_key);
+
+  // ── OFF contribution (ADR-0034 §8) ─────────────────────────────────────────
+  // Give a corrected barcoded twin back to Open Food Facts. Offered ONLY when the
+  // form is keyed to a barcode (a `gtin:` twin — `barcode` holds the code that
+  // reached the form) AND the user has an OFF login (#60). A barcode-less
+  // `food:custom_` capture has nothing to upsert under, so it never offers.
+  let hasOffLogin = $derived(
+    !!$secretsStore.off_user_id.trim() && !!$secretsStore.off_password
+  );
+  let contributeOffered = $derived(
+    method === "custom" && !!barcode.trim() && hasOffLogin
+  );
+  // Model-C consent: the per-capture checkbox is ALWAYS shown before a submit and
+  // must be ticked every time; the Settings master toggle only SEEDS its default.
+  // Seed once each time the offer (re)appears, so a later settings tick doesn't
+  // silently re-check a box the user cleared.
+  let contributeChecked = $state(false);
+  let contributeSeeded = false;
+  $effect(() => {
+    if (contributeOffered && !contributeSeeded) {
+      contributeChecked = $settingsStore.off_contribute;
+      contributeSeeded = true;
+    } else if (!contributeOffered) {
+      contributeSeeded = false;
+    }
+  });
+  // Online-only with manual retry: the button persists so a failed/deferred send
+  // can be retried, and the outcome is surfaced inline (never a close-race).
+  let contributeStatus = $state<"idle" | "sending">("idle");
+  let contributeResult = $state<OffSubmitResult | null>(null);
+
+  async function contributeToOff() {
+    if (!contributeChecked || !barcode.trim() || contributeStatus === "sending")
+      return;
+    contributeStatus = "sending";
+    contributeResult = null;
+    // Contribute the SAME panel the form would save — structured data only, no
+    // photo (§8). The seam reads the OFF login from localStorage itself (#60).
+    try {
+      contributeResult = await submitToOpenFoodFacts(barcode.trim(), {
+        name: customName.trim(),
+        brand: customBrand.trim() || undefined,
+        nutrition: builtPanel.nutrition,
+      });
+    } finally {
+      contributeStatus = "idle";
+    }
+  }
 
   // One-time seed for edit mode. The food case can resolve asynchronously (after
   // the host fetches the twin), so this applies whenever `seed` first arrives.
@@ -760,14 +821,10 @@
     }
     if (method === "custom") {
       if (!customName.trim() || runningKcal === "") return;
-      // Assemble the full panel (grams stored, absent ≠ 0) and the user-origin
-      // provenance envelope; the host commits it through saveLabelFood (#56).
-      const { nutrition, filledKeys } = buildLabelPanel({
-        values: customValues,
-        basis: customBasis,
-        servingGrams: customServingGrams,
-        skipped,
-      });
+      // The full panel (grams stored, absent ≠ 0) plus the user-origin provenance
+      // envelope; the host commits it through saveLabelFood (#56). Reuses the
+      // shared `builtPanel` derivation the contribution path also reads.
+      const { nutrition, filledKeys } = builtPanel;
       const portions = buildCustomPortions();
       const photos = allowPhoto ? labelPhotos : [];
       // Audit hint (§7): the coarse categories the user actually supplied.
@@ -1175,6 +1232,52 @@
             >
           </div>
         </section>
+
+        {#if contributeOffered}
+          <!-- OFF contribution (§8): offered only for a barcoded (`gtin:`) twin
+               with an OFF login. Model-C consent — the checkbox is always shown
+               and must be ticked; the Settings master toggle only seeds it.
+               Decoupled from Save so nothing is ever sent by accident, and the
+               button persists for online-only manual retry. -->
+          <section class="cf-contrib" data-testid="off-contribute">
+            <div class="cf-contrib-head">
+              <h3>Contribute to Open Food Facts</h3>
+              <span class="cf-gh-hint">optional · barcoded products</span>
+            </div>
+            <label class="cf-contrib-consent">
+              <input
+                type="checkbox"
+                data-testid="off-contribute-consent"
+                bind:checked={contributeChecked}
+              />
+              <span
+                >Share this product's structured data with Open Food Facts under
+                your OFF login. No photos are sent.</span
+              >
+            </label>
+            <button
+              type="button"
+              class="cf-contrib-btn"
+              data-testid="off-contribute-submit"
+              disabled={!contributeChecked || contributeStatus === "sending"}
+              onclick={contributeToOff}
+            >
+              {contributeStatus === "sending"
+                ? "Contributing…"
+                : "Contribute to OFF"}
+            </button>
+            {#if contributeResult}
+              <p
+                class="cf-contrib-msg"
+                class:ok={contributeResult.ok}
+                role="status"
+                data-testid="off-contribute-result"
+              >
+                {contributeResult.message}
+              </p>
+            {/if}
+          </section>
+        {/if}
       </div>
     {/if}
 
@@ -1795,6 +1898,78 @@
   .cf input:focus-visible {
     outline: 2px solid var(--accent, #000);
     outline-offset: -1px;
+  }
+
+  /* OFF contribution panel (§8) — visually set apart from the read-along rows
+     with a boxed, tinted card so it reads as an optional extra action, not part
+     of the food's data entry. */
+  .cf-contrib {
+    margin-bottom: var(--space-m);
+    padding: var(--space-s);
+    border: 1.5px solid var(--border-accent);
+    border-radius: 12px;
+    background: var(--surface-2, #f4f4f5);
+  }
+  .cf-contrib-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2xs);
+    margin-bottom: var(--space-2xs);
+  }
+  .cf-contrib-head h3 {
+    margin: 0;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .cf-contrib-consent {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2xs);
+    font-size: 0.82rem;
+    line-height: 1.35;
+    color: var(--text-primary);
+    cursor: pointer;
+  }
+  .cf-contrib-consent input {
+    flex: 0 0 auto;
+    width: 1.15rem;
+    height: 1.15rem;
+    margin-top: 0.1rem;
+  }
+  .cf-contrib-btn {
+    width: 100%;
+    margin-top: var(--space-xs);
+    background: #000;
+    color: #fff;
+    border: 2px solid #000;
+    border-radius: 10px;
+    padding: 0.6rem;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    min-height: 48px;
+  }
+  .cf-contrib-btn:disabled {
+    background: #e4e4e7;
+    color: var(--text-muted);
+    border-color: var(--border);
+    cursor: not-allowed;
+  }
+  .cf-contrib-btn:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+  /* Outcome line: red by default (auth/data-quality/network), green on success —
+     surfaced inline so a failed send is legible beside the persistent retry. */
+  .cf-contrib-msg {
+    margin: var(--space-2xs) 0 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #b91c1c;
+  }
+  .cf-contrib-msg.ok {
+    color: #15803d;
   }
 
   /* Running kcal + "N to review" chip, in the dock above the sticky Save. */
