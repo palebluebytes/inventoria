@@ -15,6 +15,7 @@
     type RecipeIngredient,
   } from "../../food/recipe-ingredient";
   import { sanitizeYield } from "../../food/recipe-nutrition";
+  import { Accordion } from "bits-ui";
   import Alert from "../../ui/Alert.svelte";
   import IngredientListEditor from "./IngredientListEditor.svelte";
 
@@ -73,18 +74,25 @@
   // `mode` is fixed for the component's life, so its initial read is the value.
   let ready = $state(untrack(() => mode !== "edit"));
 
-  let open = $state({
-    source: false,
-    notes: false,
-    steps: false,
-    image: false,
-  });
+  type SectionKey = "source" | "notes" | "steps" | "image";
+  // Which optional schema.org sections are expanded. bits-ui Accordion
+  // (type="multiple", #66) owns the disclosure semantics — role=heading
+  // triggers, aria-expanded, roving arrow-key focus between headers, several
+  // open at once — so this only holds the controlled set of open section keys.
+  let openSections = $state<SectionKey[]>([]);
   let source = $state("");
   let notes = $state("");
   let steps = $state<{ id: string; text: string }[]>([]);
   let image = $state<string | null>(null);
   let fileInput = $state<HTMLInputElement | null>(null);
   let stepSeq = 0;
+
+  // Stable per-instance ids so each header's aria-controls points at its region
+  // and each region is aria-labelledby its header (bits' Accordion omits both
+  // links). localhost/PWA is always a secure context, so randomUUID exists.
+  const secUid = `rec-sec-${crypto.randomUUID()}`;
+  const bodyId = (key: SectionKey) => `${secUid}-${key}`;
+  const headId = (key: SectionKey) => `${secUid}-${key}-head`;
 
   let status = $state<"idle" | "loading" | "error">("idle");
   let error = $state("");
@@ -113,12 +121,14 @@
       image = a["recipe/image"] || null;
       const instr = (a["recipe/instructions"] ?? []) as string[];
       steps = instr.map((text) => ({ id: `step-${++stepSeq}`, text }));
-      open = {
-        source: !!source,
-        notes: !!notes,
-        steps: steps.length > 0,
-        image: !!image,
-      };
+      openSections = (
+        [
+          source ? "source" : null,
+          notes ? "notes" : null,
+          steps.length > 0 ? "steps" : null,
+          image ? "image" : null,
+        ] as (SectionKey | null)[]
+      ).filter((k): k is SectionKey => k !== null);
       ingredients = await seedRowsFromTemplate(a);
     } catch (e: any) {
       status = "error";
@@ -144,10 +154,14 @@
   function removeStep(id: string) {
     steps = steps.filter((s) => s.id !== id);
   }
-  function toggleSection(key: keyof typeof open) {
-    const willOpen = !open[key];
-    open = { ...open, [key]: willOpen };
-    if (key === "steps" && willOpen && steps.length === 0) addStep();
+  // Accordion drives open/close (click, Enter/Space, arrow keys); we only react
+  // to it, to keep the one behavioural nicety: opening Steps for the first time
+  // seeds an empty row so the section isn't blank.
+  function onSectionsChange(next: string[]) {
+    const openingSteps =
+      next.includes("steps") && !openSections.includes("steps");
+    openSections = next as SectionKey[];
+    if (openingSteps && steps.length === 0) addStep();
   }
 
   function onFile(e: Event) {
@@ -227,7 +241,7 @@
   }
 
   const SECTIONS: {
-    key: keyof typeof open;
+    key: SectionKey;
     label: string;
     filled: () => boolean;
   }[] = [
@@ -276,21 +290,44 @@
 
   <IngredientListEditor bind:ingredients bind:recipeYield />
 
-  <div class="sections">
-    {#each SECTIONS as s (s.key)}
-      <div class="section" class:open={open[s.key]}>
-        <button
-          class="sec-head"
-          data-section={s.key}
-          aria-expanded={open[s.key]}
-          onclick={() => toggleSection(s.key)}
-        >
-          <span class="chev">{open[s.key] ? "▾" : "▸"}</span>
-          <span class="sec-title">{s.label}</span>
-          {#if s.filled()}<span class="dot" title="has content"></span>{/if}
-        </button>
-        {#if open[s.key]}
-          <div class="sec-body">
+  <!-- Optional schema.org sections as a real accordion (#66): bits-ui supplies
+       the role=heading trigger, aria-expanded, roving arrow-key focus between
+       headers and multiple-open behaviour; the brutalist skin stays custom
+       (`:global(.sec-*)` below), the same headless-behaviour-plus-owned-look
+       split as Tabs/Segmented (ADR-0036/0037). bits omits the header↔region
+       links, so aria-controls / role=region / aria-labelledby are wired by
+       hand. `value` is controlled by `openSections`; every change funnels
+       through `onSectionsChange`, so an arrow-key toggle seeds the first step
+       exactly as a click does. -->
+  <div class="rec-sections">
+    <Accordion.Root
+      type="multiple"
+      value={openSections}
+      onValueChange={onSectionsChange}
+      class="sections"
+    >
+      {#each SECTIONS as s (s.key)}
+        <Accordion.Item value={s.key} class="section">
+          <Accordion.Header level={3} class="sec-heading">
+            <Accordion.Trigger
+              class="sec-head"
+              id={headId(s.key)}
+              data-section={s.key}
+              aria-controls={bodyId(s.key)}
+            >
+              <span class="chev"
+                >{openSections.includes(s.key) ? "▾" : "▸"}</span
+              >
+              <span class="sec-title">{s.label}</span>
+              {#if s.filled()}<span class="dot" title="has content"></span>{/if}
+            </Accordion.Trigger>
+          </Accordion.Header>
+          <Accordion.Content
+            class="sec-body"
+            id={bodyId(s.key)}
+            role="region"
+            aria-labelledby={headId(s.key)}
+          >
             {#if s.key === "source"}
               <input
                 class="tin"
@@ -346,10 +383,10 @@
                 >
               {/if}
             {/if}
-          </div>
-        {/if}
-      </div>
-    {/each}
+          </Accordion.Content>
+        </Accordion.Item>
+      {/each}
+    </Accordion.Root>
   </div>
 {/if}
 
@@ -391,14 +428,21 @@
     resize: vertical;
   }
 
-  .sections {
+  /* bits-ui renders the accordion's Root/Item/Header/Trigger/Content itself, so
+     the brutalist skin reaches them with :global, bounded under our own scoped
+     .rec-sections wrapper (the .dock :global(.methods) precedent, ADR-0036). */
+  .rec-sections :global(.sections) {
     margin-top: var(--space-m);
     border-top: 2px solid #000;
   }
-  .section {
+  .rec-sections :global(.section) {
     border-bottom: 2px solid #000;
   }
-  .sec-head {
+  /* Header wraps the trigger in a role=heading div — keep it layout-inert. */
+  .rec-sections :global(.sec-heading) {
+    margin: 0;
+  }
+  .rec-sections :global(.sec-head) {
     width: 100%;
     display: flex;
     align-items: center;
@@ -410,8 +454,14 @@
     text-align: left;
     min-height: 52px;
   }
-  .section.open .sec-head {
+  /* bits sets data-state="open" on the open trigger (was `.section.open`). */
+  .rec-sections :global(.sec-head[data-state="open"]) {
     background: #f4f4f5;
+  }
+  /* Roving arrow-key focus now moves between headers, so surface it clearly. */
+  .rec-sections :global(.sec-head:focus-visible) {
+    outline: 2px solid #000;
+    outline-offset: -2px;
   }
   .chev {
     font-size: var(--step-n1);
@@ -429,7 +479,7 @@
     background: #000;
     border-radius: 50%;
   }
-  .sec-body {
+  .rec-sections :global(.sec-body) {
     padding: 0 var(--space-2xs) var(--space-s);
   }
   .hidden-file {
