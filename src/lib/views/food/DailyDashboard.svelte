@@ -26,6 +26,7 @@
   } from "../../stores/settings.store";
   import { parseLoggedQuantity } from "../../food/recipe-ingredient";
   import Modal from "../../ui/Modal.svelte";
+  import Meter from "../../ui/Meter.svelte";
   import FoodItemRow from "./FoodItemRow.svelte";
   import CalorieRing from "./CalorieRing.svelte";
   import MacroMeters from "./MacroMeters.svelte";
@@ -343,9 +344,11 @@
       <span class="rda-cell-vt" class:over={row.over} class:absent={row.absent}
         >{row.value} <span class="rda-cell-target">/ {row.target}</span></span
       >
-      <div class="rda-cell-bar" class:over={row.over}>
-        <div class="rda-cell-bar-fill" style="width: {row.fill}%"></div>
-      </div>
+      <Meter
+        fill={row.fill}
+        over={row.over}
+        valueText={`${row.value} of ${row.target}`}
+      />
     {/snippet}
   </NutrientCard>
 {/snippet}
@@ -614,18 +617,6 @@
     font-size: var(--step-n3);
     font-weight: 500;
     color: var(--text-muted);
-  }
-  .rda-cell-bar {
-    height: 6px;
-    background: #e4e4e7;
-    overflow: hidden;
-  }
-  .rda-cell-bar-fill {
-    height: 100%;
-    background: #000;
-  }
-  .rda-cell-bar.over .rda-cell-bar-fill {
-    background: var(--rda-over, #b45309);
   }
 
   /* Not tracked: plain value, no bar — the untargeted nutrients the day carried. */

@@ -29,8 +29,20 @@
 </script>
 
 <Card class="ring-card">
-  <div class="ring-container">
-    <svg class="progress-ring" width="240" height="240">
+  <!-- The dial is a meter: bits-ui's Meter backs the flat bars, but the ring is a
+       one-off SVG visual, so it carries role/aria directly (ADR-0037). The svg and
+       the numeric label are decorative here — the reading lives in aria-valuetext,
+       so a screen reader hears it once, not twice. -->
+  <div
+    class="ring-container"
+    role="meter"
+    aria-label="Calories"
+    aria-valuemin={0}
+    aria-valuemax={targetCalories}
+    aria-valuenow={Math.min(totalCalories, targetCalories)}
+    aria-valuetext={`${roundFoodDisplay(totalCalories, decimals)} of ${targetCalories} kcal`}
+  >
+    <svg class="progress-ring" width="240" height="240" aria-hidden="true">
       <!-- Subtle radial tick marks to add a premium, precision-instrument layout -->
       <circle
         class="progress-ring-ticks"
@@ -65,7 +77,7 @@
         stroke-linecap="round"
       />
     </svg>
-    <div class="ring-label">
+    <div class="ring-label" aria-hidden="true">
       <span class="calories-num"
         >{roundFoodDisplay(totalCalories, decimals)}</span
       >

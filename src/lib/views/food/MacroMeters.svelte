@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { NutrientMeter } from "../../food/nutrient-display";
   import Card from "../../ui/Card.svelte";
+  import Meter from "../../ui/Meter.svelte";
 
   // The dashboard's nutrient meters: a labelled row per selected nutrient with a
   // fill bar clamped to its target. Presentational — the caller (via
@@ -22,11 +23,12 @@
             >{/if}</span
         >
       </div>
-      <div class="progress-bar-bg" class:no-target={meter.fill === undefined}>
-        {#if meter.fill !== undefined}
-          <div class="progress-bar-fill" style="width: {meter.fill}%"></div>
-        {/if}
-      </div>
+      <Meter
+        fill={meter.fill}
+        valueText={meter.target
+          ? `${meter.value} of ${meter.target}`
+          : undefined}
+      />
     </Card>
   {/each}
 </div>
@@ -61,30 +63,5 @@
     font-size: var(--step-n3);
     color: var(--text-muted);
     font-weight: 400;
-  }
-
-  .progress-bar-bg {
-    width: 100%;
-    height: 6px;
-    background: #e4e4e7;
-    border-radius: 0;
-    overflow: hidden;
-  }
-  /* A nutrient with no configured target: a flat neutral track (no fill), so it
-     reads as "tracked, no goal" rather than an empty progress bar. */
-  .progress-bar-bg.no-target {
-    background: repeating-linear-gradient(
-      45deg,
-      #e4e4e7,
-      #e4e4e7 4px,
-      #f4f4f5 4px,
-      #f4f4f5 8px
-    );
-  }
-  .progress-bar-fill {
-    height: 100%;
-    border-radius: 0;
-    background: #000;
-    transition: width 0.35s ease-out;
   }
 </style>

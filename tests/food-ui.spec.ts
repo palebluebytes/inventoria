@@ -571,8 +571,8 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // before this ticket. Assert on presence (not pixel width) so a small fill
     // percent can't flake the check.
     await expect(calcium).toContainText("/ 1300 mg");
-    await expect(calcium.locator(".progress-bar-fill")).toHaveCount(1);
-    await expect(calcium.locator(".progress-bar-bg.no-target")).toHaveCount(0);
+    await expect(calcium.locator(".meter-fill")).toHaveCount(1);
+    await expect(calcium.locator('[data-meter-state="empty"]')).toHaveCount(0);
   });
 
   // Seam 3 (ticket #41): the Nutrition Display card's per-row target editor.
@@ -655,8 +655,8 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await closeFoodSettings(page);
     await logUsdaFood(page, "breakfast", "banana", "Mock Banana", "100");
     const calcium = page.locator(".macro-item.calcium");
-    await expect(calcium.locator(".progress-bar-bg.no-target")).toHaveCount(1);
-    await expect(calcium.locator(".progress-bar-fill")).toHaveCount(0);
+    await expect(calcium.locator('[data-meter-state="empty"]')).toHaveCount(1);
+    await expect(calcium.locator(".meter-fill")).toHaveCount(0);
   });
 
   test("customising a target tracks that nutrient; the two prefs stay per-nutrient (#41)", async ({
