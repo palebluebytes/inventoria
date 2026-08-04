@@ -5,6 +5,8 @@
   // pixel-stitching in v1). The parent (`FoodStager`) owns the ordered array; the
   // reader is a pure view over it, driving add/remove/close back through
   // callbacks so the single source of truth stays with the form.
+  import Modal from "../../ui/Modal.svelte";
+
   let {
     /** The ordered label photos (base64), first = display. Never empty while open. */
     photos,
@@ -74,105 +76,121 @@
     dragX = 0;
   }
 
+  // ArrowLeft/Right stay a reader-local window handler (bits' Dialog owns Escape,
+  // routed through Modal's onClose, but not the carousel arrows).
   function onKeydown(e: KeyboardEvent) {
-    if (e.key === "Escape") onClose();
-    else if (e.key === "ArrowLeft") prev();
+    if (e.key === "ArrowLeft") prev();
     else if (e.key === "ArrowRight") next();
   }
 </script>
 
 <svelte:window onkeydown={onKeydown} />
 
-<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<div
-  class="lpr"
-  role="dialog"
-  aria-modal="true"
-  aria-label="Label photos"
-  data-testid="label-photo-reader"
+<!-- Dialog shell folded onto the house Modal (#67): it supplies the portal +
+     focus trap the reader lacked. The reader is a full-bleed opaque surface, so
+     Modal's overlay is inert (transparent, no blur) and sits just below at 1900
+     while the content-as-backdrop stays at 2000. `.lpr` spreads Modal's
+     `{...props}` (role/aria/focus-trap) onto itself — hence no hand-rolled
+     dialog attributes here. -->
+<Modal
+  {onClose}
+  title="Label photos"
+  overlayBg="transparent"
+  overlayBlur="none"
+  overlayZ={1900}
 >
-  <div class="lpr-bar">
-    <span class="lpr-counter" data-testid="lpr-counter"
-      >{index + 1} / {photos.length}</span
-    >
-    <button
-      type="button"
-      class="lpr-icon lpr-close"
-      onclick={onClose}
-      aria-label="Close photos">✕</button
-    >
-  </div>
-
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    class="lpr-stage"
-    onpointerdown={onPointerDown}
-    onpointermove={onPointerMove}
-    onpointerup={onPointerUp}
-    onpointercancel={onPointerUp}
-  >
-    {#if index > 0}
-      <button
-        type="button"
-        class="lpr-nav lpr-prev"
-        onclick={prev}
-        aria-label="Previous photo">‹</button
-      >
-    {/if}
-    <img
-      class="lpr-img"
-      src={photos[index]}
-      alt={`Label photo ${index + 1} of ${photos.length}`}
-      draggable="false"
-      crossorigin="anonymous"
-      style:transform={`translateX(${dragX}px)`}
-      style:transition={dragging ? "none" : "transform 0.15s ease-out"}
-    />
-    {#if index < photos.length - 1}
-      <button
-        type="button"
-        class="lpr-nav lpr-next"
-        onclick={next}
-        aria-label="Next photo">›</button
-      >
-    {/if}
-  </div>
-
-  <div class="lpr-dots" aria-hidden="true">
-    {#each photos as _, i (i)}
-      <span class="lpr-dot" class:on={i === index}></span>
-    {/each}
-  </div>
-
-  {#if !readOnly}
-    <div class="lpr-actions">
-      {#if onRemove}
+  {#snippet children({ props })}
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <div {...props} class="lpr" data-testid="label-photo-reader">
+      <div class="lpr-bar">
+        <span class="lpr-counter" data-testid="lpr-counter"
+          >{index + 1} / {photos.length}</span
+        >
         <button
           type="button"
-          class="lpr-btn lpr-remove"
-          onclick={() => onRemove(index)}
-          data-testid="lpr-remove">Remove this photo</button
+          class="lpr-icon lpr-close"
+          onclick={onClose}
+          aria-label="Close photos">✕</button
         >
-      {/if}
-      {#if onAdd}
-        <button
-          type="button"
-          class="lpr-btn lpr-add"
-          onclick={onAdd}
-          data-testid="lpr-add">＋ Add photo</button
-        >
+      </div>
+
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div
+        class="lpr-stage"
+        onpointerdown={onPointerDown}
+        onpointermove={onPointerMove}
+        onpointerup={onPointerUp}
+        onpointercancel={onPointerUp}
+      >
+        {#if index > 0}
+          <button
+            type="button"
+            class="lpr-nav lpr-prev"
+            onclick={prev}
+            aria-label="Previous photo">‹</button
+          >
+        {/if}
+        <img
+          class="lpr-img"
+          src={photos[index]}
+          alt={`Label photo ${index + 1} of ${photos.length}`}
+          draggable="false"
+          crossorigin="anonymous"
+          style:transform={`translateX(${dragX}px)`}
+          style:transition={dragging ? "none" : "transform 0.15s ease-out"}
+        />
+        {#if index < photos.length - 1}
+          <button
+            type="button"
+            class="lpr-nav lpr-next"
+            onclick={next}
+            aria-label="Next photo">›</button
+          >
+        {/if}
+      </div>
+
+      <div class="lpr-dots" aria-hidden="true">
+        {#each photos as _, i (i)}
+          <span class="lpr-dot" class:on={i === index}></span>
+        {/each}
+      </div>
+
+      {#if !readOnly}
+        <div class="lpr-actions">
+          {#if onRemove}
+            <button
+              type="button"
+              class="lpr-btn lpr-remove"
+              onclick={() => onRemove(index)}
+              data-testid="lpr-remove">Remove this photo</button
+            >
+          {/if}
+          {#if onAdd}
+            <button
+              type="button"
+              class="lpr-btn lpr-add"
+              onclick={onAdd}
+              data-testid="lpr-add">＋ Add photo</button
+            >
+          {/if}
+        </div>
       {/if}
     </div>
-  {/if}
-</div>
+  {/snippet}
+</Modal>
 
 <style>
   /* Full-screen over the log sheet (BottomSheet sits at z 1700–1801), so the
-     reader pins above it. Its own opaque backdrop covers the form beneath. */
+     reader pins above it. Its own opaque backdrop covers the form beneath.
+     `pointer-events: auto` is reader-local: Modal portals `.lpr` to end-of-body
+     as a sibling of the open LogFoodSheet dialog, which sets `pointer-events:
+     none` on <body>; the reader would otherwise inherit it and go click-through.
+     Modal (unlike BottomSheet) doesn't bake the fix in, so it lives here. */
   .lpr {
     position: fixed;
     inset: 0;
     z-index: 2000;
+    pointer-events: auto;
     display: flex;
     flex-direction: column;
     background: #0b0b0b;
