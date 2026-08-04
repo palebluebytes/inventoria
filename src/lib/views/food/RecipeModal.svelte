@@ -35,6 +35,7 @@
     meal_type,
     selectedDate,
     onClose,
+    onBack = undefined,
     mode = "consolidate",
     template = null,
     initialIngredients = [],
@@ -42,6 +43,9 @@
     meal_type: "breakfast" | "lunch" | "dinner" | "snack";
     selectedDate: Date;
     onClose: () => void;
+    /** Return to the Recipe browser this builder was opened from (define / edit).
+     *  Omitted for Consolidate, which is opened from a dashboard selection. */
+    onBack?: () => void;
     /** Which verb this surface performs (see above). Default: consolidate. */
     mode?: "consolidate" | "define" | "edit";
     /** The Recipe Twin being amended (edit mode only; getLocalFoodTwin shape). */
@@ -247,7 +251,7 @@
   ];
 </script>
 
-<BottomSheet isOpen title={heading} {onClose}>
+<BottomSheet isOpen title={heading} {onClose} {onBack} backLabel="Back">
   {#if !ready}
     <p class="loading">Loading recipe…</p>
   {:else}

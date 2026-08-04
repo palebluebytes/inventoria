@@ -34,12 +34,17 @@
     meal_type,
     selectedDate,
     onClose,
+    onBack = undefined,
     template = null,
     edit = null,
   }: {
     meal_type: "breakfast" | "lunch" | "dinner" | "snack";
     selectedDate: Date;
     onClose: () => void;
+    /** Return to the Recipe browser this sheet was opened from. Set only when it
+     *  was reached that way (an Instantiate); a Correction opened from a logged
+     *  card has nowhere to go back to, so it's omitted. */
+    onBack?: () => void;
     /** A Recipe Twin (getLocalFoodTwin shape) to instantiate. */
     template?: { entity: string; attributes: Record<string, any> } | null;
     /** A past Recipe Instantiation event to correct. */
@@ -145,7 +150,13 @@
   }
 </script>
 
-<BottomSheet isOpen title={edit ? "Correct" : "Log recipe"} {onClose}>
+<BottomSheet
+  isOpen
+  title={edit ? "Correct" : "Log recipe"}
+  {onClose}
+  {onBack}
+  backLabel="Back"
+>
   <p class="rname" data-testid="instantiation-name">{title}</p>
   {#if ready}
     <IngredientListEditor bind:ingredients bind:recipeYield />

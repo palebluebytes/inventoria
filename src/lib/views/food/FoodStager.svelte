@@ -122,7 +122,15 @@
      * top of a flow, letting the host fall back to its own default (close/none). */
     canGoBack = $bindable(false),
     goBack = $bindable(() => {}),
+    /** Which method tab to open on (default "search"). Lets a host reopen the
+     *  sheet on a specific tab — e.g. returning to the Recipe browser via a
+     *  sub-sheet's back button. */
+    initialMethod = undefined,
     tabContent,
+    /** Docked action for an extra tab, pinned in the bottom dock where the
+     *  primary button sits on the built-in tabs — e.g. the Recipe browser's
+     *  "＋ New recipe". Rendered only while an extra tab is active. */
+    tabDock,
   }: {
     onChoose: (choice: FoodChoice) => ChooseOutcome | Promise<ChooseOutcome>;
     primaryLabel: (ctx: PrimaryLabelContext) => string;
@@ -138,7 +146,9 @@
     staged?: FoodResult | null;
     canGoBack?: boolean;
     goBack?: () => void;
+    initialMethod?: string;
     tabContent?: import("svelte").Snippet<[string]>;
+    tabDock?: import("svelte").Snippet<[string]>;
   } = $props();
 
   type BaseMethod = "search" | "scan" | "custom";
@@ -155,7 +165,10 @@
   ]);
   const isExtra = (m: string) => extraTabs.some((t) => t.id === m);
 
-  let method = $state<string>("search");
+  // Opens on the host's chosen tab (a sub-sheet's back button reopens straight on
+  // the Recipe browser); "search" otherwise. Read once at mount.
+  // svelte-ignore state_referenced_locally
+  let method = $state<string>(initialMethod ?? "search");
   let query = $state("");
   let barcode = $state("");
 
@@ -1699,6 +1712,11 @@
       >
         {primaryLabel({ method, staged, factor, toReview: 0 })}
       </CommitButton>
+    {:else if isExtra(method)}
+      <!-- An extra tab's own docked action (e.g. the Recipe browser's
+           "＋ New recipe"), pinned where the primary button sits, so the Recipe
+           tab has a bottom action like every other tab. -->
+      {@render tabDock?.(method)}
     {/if}
   </div>
 </div>

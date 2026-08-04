@@ -30,6 +30,7 @@
 
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import FoodStager from "./FoodStager.svelte";
+  import CommitButton from "./CommitButton.svelte";
 
   // A single sheet for logging food into one meal. Opens directly on "+ Add"
   // (no chooser); the shared FoodStager (issue #16) owns the Search / Scan /
@@ -46,11 +47,15 @@
     onPickRecipe,
     onDefineRecipe,
     onEditRecipe,
+    initialMethod = undefined,
   }: {
     dbReady: boolean;
     meal_type: "breakfast" | "lunch" | "dinner" | "snack";
     selectedDate: Date;
     onClose: () => void;
+    /** Tab to open on — the parent passes "recipe" so a sub-sheet's back button
+     *  returns straight to the Recipe browser. */
+    initialMethod?: string;
     /**
      * When set, the sheet edits an existing logged event instead of adding a new
      * one: it opens pre-staged on that event's food (gram amount) or pre-filled
@@ -358,6 +363,7 @@
     bind:canGoBack
     bind:goBack
     {seed}
+    {initialMethod}
     allowPhoto
     manualIntents
     mealName={meal_type}
@@ -382,16 +388,10 @@
   >
     {#snippet tabContent(tab)}
       {#if tab === "recipe"}
-        <button
-          type="button"
-          class="recipe-new"
-          id="define-recipe-btn"
-          onclick={() => onDefineRecipe?.()}>＋ New recipe</button
-        >
         {#if recipes.length === 0}
           <p class="hint">
-            No saved recipes yet. Create one above, or build one by selecting
-            logged foods on the dashboard.
+            No saved recipes yet. Create one with the button below, or build one
+            by selecting logged foods on the dashboard.
           </p>
         {:else}
           <p class="fl">Your recipes</p>
@@ -418,6 +418,16 @@
         {/if}
       {/if}
     {/snippet}
+
+    {#snippet tabDock(tab)}
+      {#if tab === "recipe"}
+        <!-- The Recipe tab's docked primary action, pinned at the bottom like the
+             Log button on every other tab. -->
+        <CommitButton id="define-recipe-btn" onclick={() => onDefineRecipe?.()}
+          >＋ New recipe</CommitButton
+        >
+      {/if}
+    {/snippet}
   </FoodStager>
 </BottomSheet>
 
@@ -435,22 +445,6 @@
     font-weight: 700;
     text-transform: uppercase;
     margin: var(--space-m) 0 var(--space-3xs);
-  }
-  .recipe-new {
-    width: 100%;
-    margin-bottom: var(--space-s);
-    border: 2px dashed #000;
-    background: #fff;
-    padding: var(--space-s);
-    font-family: inherit;
-    font-weight: 800;
-    text-transform: uppercase;
-    font-size: var(--step-n1);
-    cursor: pointer;
-    min-height: 52px;
-  }
-  .recipe-new:hover {
-    background: #f4f4f5;
   }
   .recipe-list {
     list-style: none;
