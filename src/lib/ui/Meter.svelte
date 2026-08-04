@@ -54,7 +54,7 @@
   :global(.meter-track) {
     width: 100%;
     height: 6px;
-    background: #e4e4e7;
+    background: var(--border);
     border-radius: var(--radius);
     overflow: hidden;
   }
@@ -63,10 +63,10 @@
   :global(.meter-track[data-meter-state="empty"]) {
     background: repeating-linear-gradient(
       45deg,
-      #e4e4e7,
-      #e4e4e7 4px,
-      #f4f4f5 4px,
-      #f4f4f5 8px
+      var(--border),
+      var(--border) 4px,
+      var(--bg-input) 4px,
+      var(--bg-input) 8px
     );
   }
   :global(.meter-fill) {

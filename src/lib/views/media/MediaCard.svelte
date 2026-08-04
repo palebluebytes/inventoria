@@ -248,7 +248,7 @@
 
   .card-actions {
     padding: var(--space-3xs) var(--space-xs) var(--space-xs);
-    border-top: 1px solid #f4f4f5;
+    border-top: 1px solid var(--bg-input);
   }
 
   :global(.w-full) {

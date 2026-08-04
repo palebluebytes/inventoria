@@ -146,7 +146,7 @@
   }
 
   .alert-info {
-    background: #fafafa;
+    background: var(--bg-base);
     color: var(--ink);
     border-color: var(--ink);
     border-left-color: var(--ink);

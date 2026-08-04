@@ -705,7 +705,7 @@
     background: var(--paper);
     border: var(--edge);
     border-radius: var(--radius);
-    box-shadow: inset 2px 2px 0 #e4e4e7;
+    box-shadow: inset 2px 2px 0 var(--border);
   }
   .card-target:focus {
     outline: none;
@@ -755,8 +755,8 @@
     outline-offset: 2px;
   }
   .card-reset:disabled {
-    border-color: var(--border-subtle, #e4e4e7);
-    color: var(--border-subtle, #e4e4e7);
+    border-color: var(--border-subtle, var(--border));
+    color: var(--border-subtle, var(--border));
     cursor: default;
   }
 

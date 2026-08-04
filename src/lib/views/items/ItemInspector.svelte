@@ -213,7 +213,7 @@
     display: inline-block;
     padding: 4px 8px;
     border: var(--edge-thin);
-    background: #f4f4f5;
+    background: var(--bg-input);
     font-size: var(--step-n2);
     text-decoration: none;
     color: var(--ink);
@@ -228,7 +228,7 @@
 
   .inspector-section {
     padding-top: var(--space-xs);
-    border-top: 1px dashed #e4e4e7;
+    border-top: 1px dashed var(--border);
   }
   .item-desc {
     font-size: var(--step-n1);

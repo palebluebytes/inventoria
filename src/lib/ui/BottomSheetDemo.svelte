@@ -137,7 +137,7 @@
   .primary {
     width: 100%;
     margin-top: var(--space-2xs);
-    background: #ccff00;
+    background: var(--green-bg);
     border: var(--edge-thick);
     padding: var(--space-s);
     font-weight: 800;

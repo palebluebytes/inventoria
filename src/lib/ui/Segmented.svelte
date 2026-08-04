@@ -105,7 +105,7 @@
     cursor: pointer;
   }
   :global(.seg-row .seg:hover[data-state="unchecked"]) {
-    background: var(--track, #f4f4f5);
+    background: var(--track, var(--bg-input));
   }
   :global(.seg-row .seg[data-state="checked"]) {
     background: var(--ink);

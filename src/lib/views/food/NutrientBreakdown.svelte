@@ -56,7 +56,7 @@
     padding: var(--space-3xs) var(--space-xs);
   }
   .row + .row {
-    border-top: 1px solid var(--border-subtle, #e4e4e7);
+    border-top: 1px solid var(--border-subtle, var(--border));
   }
   dt {
     font-size: var(--step-n2);

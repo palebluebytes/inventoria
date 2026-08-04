@@ -517,7 +517,7 @@
     min-width: 0;
   }
   .recipe-pick:hover {
-    background: #f4f4f5;
+    background: var(--bg-input);
   }
   .recipe-pick-name {
     font-weight: 700;

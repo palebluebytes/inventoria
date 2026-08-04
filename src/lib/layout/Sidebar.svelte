@@ -107,7 +107,7 @@
     transition: transform 0.2s;
   }
   .nav-item:hover {
-    background: #f4f4f5;
+    background: var(--bg-input);
     color: var(--ink);
   }
   .nav-item:hover .icon {

@@ -232,7 +232,7 @@
     padding: var(--space-s) var(--space-m);
     border: var(--edge);
     border-bottom: none;
-    background: #f4f4f5;
+    background: var(--bg-input);
     font-weight: 700;
     text-transform: uppercase;
     cursor: pointer;
@@ -242,7 +242,7 @@
     transition: all 0.2s ease;
   }
   .view-tab-btn:hover {
-    background: #e4e4e7;
+    background: var(--border);
   }
   .view-tab-btn.active {
     background: var(--ink);
@@ -348,7 +348,7 @@
   .inventory-slot:hover {
     transform: translate(-2px, -2px);
     box-shadow: var(--shadow-2);
-    background: #e4e4e7;
+    background: var(--border);
   }
   .inventory-slot.selected {
     background: var(--ink);

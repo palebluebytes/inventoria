@@ -299,8 +299,8 @@
     color: #ff9a9a;
   }
   .lpr-add {
-    background: #ccff00;
+    background: var(--green-bg);
     color: var(--ink);
-    border-color: #ccff00;
+    border-color: var(--green-bg);
   }
 </style>

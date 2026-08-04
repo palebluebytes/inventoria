@@ -20,7 +20,7 @@
        unit + reset ↺) would otherwise overflow the two narrow columns on a phone. */
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1px;
-    background: var(--border-subtle, #e4e4e7);
+    background: var(--border-subtle, var(--border));
     container-type: inline-size;
   }
 </style>

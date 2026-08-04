@@ -456,7 +456,7 @@
   }
   /* bits sets data-state="open" on the open trigger (was `.section.open`). */
   .rec-sections :global(.sec-head[data-state="open"]) {
-    background: #f4f4f5;
+    background: var(--bg-input);
   }
   /* Roving arrow-key focus now moves between headers, so surface it clearly. */
   .rec-sections :global(.sec-head:focus-visible) {

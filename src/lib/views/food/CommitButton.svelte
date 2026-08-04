@@ -32,7 +32,7 @@
 <style>
   .commit {
     width: 100%;
-    background: #ccff00;
+    background: var(--green-bg);
     color: var(--ink);
     border: var(--edge-thick);
     padding: var(--space-s);
@@ -51,7 +51,7 @@
     transform: scale(0.98);
   }
   .commit:disabled {
-    background: #e4e4e7;
+    background: var(--border);
     color: var(--text-muted);
     border-color: var(--border);
     cursor: not-allowed;

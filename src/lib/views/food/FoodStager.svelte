@@ -1968,7 +1968,7 @@
     font-size: 0.68rem;
     font-weight: 700;
     color: var(--text-secondary);
-    background: var(--surface-2, #f4f4f5);
+    background: var(--surface-2, var(--bg-input));
     border: 1px solid var(--border);
     border-radius: 999px;
     padding: 0.1rem 0.5rem;
@@ -2023,7 +2023,7 @@
     transform: translate(-50%, -50%);
     width: 70%;
     height: 70px;
-    border: 3px solid #ff3333;
+    border: 3px solid var(--red-bg);
     box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.45);
   }
 
@@ -2039,7 +2039,7 @@
     padding: var(--space-m);
     border: 2px dashed var(--ink);
     border-radius: 12px;
-    background: var(--surface-2, #f4f4f5);
+    background: var(--surface-2, var(--bg-input));
     cursor: pointer;
     overflow: hidden;
     text-align: center;
@@ -2460,7 +2460,7 @@
     padding: var(--space-s);
     border: 1.5px solid var(--ink);
     border-radius: 12px;
-    background: var(--surface-2, #f4f4f5);
+    background: var(--surface-2, var(--bg-input));
   }
   .cf-contrib-head {
     display: flex;
@@ -2504,7 +2504,7 @@
     min-height: 48px;
   }
   .cf-contrib-btn:disabled {
-    background: #e4e4e7;
+    background: var(--border);
     color: var(--text-muted);
     border-color: var(--border);
     cursor: not-allowed;
@@ -2547,7 +2547,7 @@
 
   .dock {
     border-top: var(--edge);
-    background: #fafafa;
+    background: var(--bg-base);
     padding: var(--space-2xs) var(--space-s) var(--space-s);
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-s));
     display: flex;
@@ -2620,7 +2620,7 @@
     transition: background 0.2s;
   }
   .result-item:hover {
-    background: var(--food-surface-hover, #f4f4f5);
+    background: var(--food-surface-hover, var(--bg-input));
   }
   .result-item.hl {
     background: var(--ink);

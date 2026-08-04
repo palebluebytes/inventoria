@@ -185,7 +185,7 @@
     flex-shrink: 0;
   }
   .day-btn:hover {
-    background: #f4f4f5;
+    background: var(--bg-input);
   }
   .day-btn.active {
     background: var(--ink);

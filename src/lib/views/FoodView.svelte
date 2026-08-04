@@ -519,7 +519,7 @@
     transition: background 0.2s;
   }
   .twin-item:hover {
-    background: #f4f4f5;
+    background: var(--bg-input);
   }
   .twin-item:last-child {
     border-bottom: none;
@@ -571,7 +571,7 @@
     cursor: pointer;
   }
   .selbuild {
-    background: #ccff00;
+    background: var(--green-bg);
     color: var(--ink);
     border: none;
     padding: var(--space-xs) var(--space-s);

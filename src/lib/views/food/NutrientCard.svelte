@@ -81,13 +81,13 @@
      not just by its darker label. Includes the always-on Calories card. Off cards
      stay white; a grey wash on hover hints a toggleable one will flip on. */
   .nutrient-card.tracked {
-    background: color-mix(in srgb, var(--green-bg, #ccff00) 40%, var(--paper));
+    background: color-mix(in srgb, var(--green-bg) 40%, var(--paper));
   }
   .nutrient-card.toggleable.tracked:hover {
-    background: color-mix(in srgb, var(--green-bg, #ccff00) 55%, var(--paper));
+    background: color-mix(in srgb, var(--green-bg) 55%, var(--paper));
   }
   .nutrient-card.toggleable.untracked:hover {
-    background: var(--track, #f4f4f5);
+    background: var(--track, var(--bg-input));
   }
   /* The toggle checkbox stays a real (focusable, announced, test-driveable)
      control, but is invisible — the surrounding <label> is the visible target, so

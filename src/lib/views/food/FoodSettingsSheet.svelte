@@ -310,7 +310,7 @@
     font-weight: 700;
     border-radius: var(--radius);
     background: var(--paper);
-    box-shadow: inset 2px 2px 0 #e4e4e7;
+    box-shadow: inset 2px 2px 0 var(--border);
     transition: all 0.1s step-end;
   }
   .retro-input:focus {

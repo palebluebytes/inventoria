@@ -279,7 +279,7 @@
   .bottom-sheet-footer {
     flex-shrink: 0;
     border-top: var(--edge);
-    background: #fafafa;
+    background: var(--bg-base);
     padding: var(--space-s) var(--space-m);
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-s));
   }

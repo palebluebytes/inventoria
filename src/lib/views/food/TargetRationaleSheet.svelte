@@ -114,7 +114,7 @@
     overflow-wrap: anywhere;
   }
   .sources a:hover {
-    background: var(--green-bg, #ccff00);
+    background: var(--green-bg);
   }
   .sources a:focus-visible {
     outline: 2px solid var(--ink);

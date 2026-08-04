@@ -628,7 +628,7 @@
     padding: var(--space-2xs) var(--space-m);
   }
   .rda-untracked-row + .rda-untracked-row {
-    border-top: 1px solid var(--border-subtle, #e4e4e7);
+    border-top: 1px solid var(--border-subtle, var(--border));
   }
   .rda-untracked-label {
     font-size: var(--step-n2);
@@ -796,7 +796,7 @@
   }
   .select-check.on {
     background: var(--ink);
-    color: #ccff00;
+    color: var(--green-bg);
   }
   .meal-item-thumb-btn {
     display: inline-flex;

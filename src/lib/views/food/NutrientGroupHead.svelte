@@ -29,7 +29,7 @@
     letter-spacing: 0.05em;
     color: var(--text-secondary);
     padding: var(--space-2xs) var(--space-s);
-    background: var(--track, #f4f4f5);
+    background: var(--track, var(--bg-input));
     border-bottom: 1px solid var(--border, var(--ink));
   }
 </style>

@@ -278,7 +278,7 @@
   }
 
   .close-btn:hover {
-    background: #e4e4e7;
+    background: var(--border);
     transform: translate(-2px, -2px);
     box-shadow: var(--shadow-2);
   }
@@ -303,7 +303,7 @@
     font-weight: 700;
     border-radius: var(--radius);
     background: var(--paper);
-    box-shadow: inset 2px 2px 0 #e4e4e7;
+    box-shadow: inset 2px 2px 0 var(--border);
     transition: all 0.1s step-end;
   }
 
@@ -348,7 +348,7 @@
   .result-thumbnail-placeholder {
     width: 60px;
     height: 90px;
-    background: #e4e4e7;
+    background: var(--border);
     display: flex;
     align-items: center;
     justify-content: center;

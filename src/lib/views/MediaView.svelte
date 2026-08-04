@@ -322,7 +322,7 @@
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: var(--space-m);
     padding: var(--space-s);
-    background: #fafafa;
+    background: var(--bg-base);
   }
 
   .empty-column {

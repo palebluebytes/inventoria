@@ -391,7 +391,7 @@
     min-height: 64px;
   }
   .intent:hover {
-    background: #f4f4f5;
+    background: var(--bg-input);
   }
   .intent:active {
     box-shadow: var(--shadow-2);
@@ -492,7 +492,7 @@
     cursor: pointer;
   }
   .plate-cta:hover {
-    background: #f4f4f5;
+    background: var(--bg-input);
   }
   .plate-cta-ico {
     font-size: var(--step-4);
@@ -519,7 +519,7 @@
     cursor: pointer;
   }
   .mini-photo-btn:hover {
-    background: #f4f4f5;
+    background: var(--bg-input);
   }
   .mini-err {
     font-size: var(--step-n2);

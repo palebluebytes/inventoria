@@ -167,7 +167,7 @@
   }
   .read-only-value {
     padding: 10px;
-    background: #f4f4f5;
+    background: var(--bg-input);
     border: var(--edge);
     font-weight: 600;
     font-size: var(--step-n1);
