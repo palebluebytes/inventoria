@@ -382,7 +382,7 @@
     align-items: center;
     gap: var(--space-s);
     width: 100%;
-    background: #fff;
+    background: var(--paper);
     border: var(--edge);
     padding: var(--space-m);
     font-family: inherit;
@@ -439,7 +439,7 @@
     align-items: baseline;
     justify-content: center;
     gap: var(--space-2xs);
-    border: 3px solid var(--border-accent);
+    border: var(--edge-thick);
     padding: var(--space-2xs) var(--space-xs);
   }
   .kcal-input {
@@ -468,7 +468,7 @@
     padding: var(--space-s);
     font-family: inherit;
     font-size: var(--step-0);
-    background: #fff;
+    background: var(--paper);
   }
   .mini-name-req {
     font-weight: 700;
@@ -483,8 +483,8 @@
     align-items: center;
     gap: var(--space-s);
     width: 100%;
-    border: 2px dashed #000;
-    background: #fff;
+    border: 2px dashed var(--ink);
+    background: var(--paper);
     padding: var(--space-l);
     font-family: inherit;
     font-weight: 700;
@@ -510,7 +510,7 @@
     border: var(--edge);
   }
   .mini-photo-btn {
-    background: #fff;
+    background: var(--paper);
     border: var(--edge);
     padding: var(--space-2xs) var(--space-s);
     font-family: inherit;

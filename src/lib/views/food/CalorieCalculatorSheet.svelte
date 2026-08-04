@@ -414,7 +414,7 @@
     font-size: var(--step-n1);
     font-weight: 800;
     text-transform: uppercase;
-    color: #000;
+    color: var(--ink);
   }
 
   .hint {
@@ -427,7 +427,7 @@
     display: block;
     margin-top: var(--space-3xs);
     font-weight: 700;
-    color: #000;
+    color: var(--ink);
   }
 
   /* Age / height / weight in one responsive row. */
@@ -455,16 +455,16 @@
     font-family: monospace;
     font-weight: 700;
     font-size: var(--step-n1);
-    color: #000;
-    background: #fff;
+    color: var(--ink);
+    background: var(--paper);
     border: var(--edge);
     border-radius: var(--radius);
     box-shadow: inset 2px 2px 0 #e4e4e7;
   }
   .num:focus {
     outline: none;
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     box-shadow: none;
   }
   .num::-webkit-outer-spin-button,
@@ -482,7 +482,7 @@
     margin: var(--space-m) 0 0;
     padding: var(--space-s) var(--space-m);
     border: var(--edge-thick);
-    background: color-mix(in srgb, var(--green-bg, #ccff00) 22%, #fff);
+    background: color-mix(in srgb, var(--green-bg, #ccff00) 22%, var(--paper));
   }
   .preview-head {
     display: block;
@@ -497,7 +497,7 @@
     font-family: monospace;
     font-size: var(--step-2);
     font-weight: 800;
-    color: #000;
+    color: var(--ink);
   }
   .preview-macros {
     display: flex;
@@ -519,7 +519,7 @@
     font-family: monospace;
     font-size: var(--step-0);
     font-weight: 700;
-    color: #000;
+    color: var(--ink);
   }
   .preview-empty {
     margin: var(--space-2xs) 0 0;
@@ -539,7 +539,7 @@
     font-size: var(--step-n1);
     font-weight: 800;
     text-transform: uppercase;
-    color: #000;
+    color: var(--ink);
   }
   .nudge .num {
     width: 6rem;
@@ -553,15 +553,15 @@
     align-items: center;
     justify-content: center;
     border: var(--edge);
-    background: #fff;
-    color: #000;
+    background: var(--paper);
+    color: var(--ink);
     font-size: var(--step-0);
     line-height: 1;
     cursor: pointer;
   }
   .nudge-reset:hover:not(:disabled) {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
   }
   .nudge-reset:disabled {
     border-color: var(--border-subtle, #e4e4e7);
@@ -569,7 +569,7 @@
     cursor: default;
   }
   .floor-note {
-    color: #000;
+    color: var(--ink);
     font-weight: 600;
   }
 
@@ -578,7 +578,7 @@
     padding: var(--space-s);
     border: var(--edge-thick);
     background: var(--green-bg, #ccff00);
-    color: #000;
+    color: var(--ink);
     font-family: inherit;
     font-size: var(--step-0);
     font-weight: 800;

@@ -64,7 +64,7 @@
     font-size: var(--step-0);
     font-weight: 600;
     line-height: 1.45;
-    color: #000;
+    color: var(--ink);
   }
   .subhead {
     margin: var(--space-m) 0 var(--space-2xs);
@@ -72,7 +72,7 @@
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: #000;
+    color: var(--ink);
   }
   .para {
     margin: 0 0 var(--space-s);
@@ -106,7 +106,7 @@
     line-height: 1.4;
   }
   .sources a {
-    color: #000;
+    color: var(--ink);
     font-weight: 700;
     text-decoration: underline;
     text-decoration-thickness: 2px;
@@ -117,7 +117,7 @@
     background: var(--green-bg, #ccff00);
   }
   .sources a:focus-visible {
-    outline: 2px solid #000;
+    outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
   .doc-note {

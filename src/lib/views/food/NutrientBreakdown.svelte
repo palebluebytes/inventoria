@@ -32,8 +32,8 @@
 
 <style>
   .breakdown {
-    border: 1px solid var(--border, #000);
-    background: var(--food-surface-bg, #fff);
+    border: 1px solid var(--border, var(--ink));
+    background: var(--food-surface-bg, var(--paper));
   }
   summary {
     cursor: pointer;
@@ -46,7 +46,7 @@
   .rows {
     display: flex;
     flex-direction: column;
-    border-top: 1px solid var(--border, #000);
+    border-top: 1px solid var(--border, var(--ink));
   }
   .row {
     display: flex;

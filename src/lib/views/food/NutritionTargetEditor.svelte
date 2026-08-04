@@ -553,7 +553,7 @@
   h2 {
     font-size: var(--step-1);
     font-weight: 800;
-    color: #000;
+    color: var(--ink);
     text-transform: uppercase;
     margin: 0;
   }
@@ -574,7 +574,7 @@
      body below is this surface's own. */
   .nutrient-sections {
     margin: var(--space-m) calc(-1 * var(--space-l)) 0;
-    border-top: 1px solid var(--border, #000);
+    border-top: 1px solid var(--border, var(--ink));
   }
 
   /* The `0`-opt-out flag: plain inline text (not a chip, not a meter) so the card
@@ -618,18 +618,18 @@
     justify-content: center;
     min-height: 100%;
     padding: var(--space-s);
-    background: #000;
+    background: var(--ink);
     border: none;
-    color: #fff;
+    color: var(--paper);
     font-family: inherit;
     cursor: pointer;
   }
   .calc-action:hover {
-    background: #fff;
-    color: #000;
+    background: var(--paper);
+    color: var(--ink);
   }
   .calc-action:focus-visible {
-    outline: 2px solid #fff;
+    outline: 2px solid var(--paper);
     outline-offset: -6px;
   }
   .calc-action-label {
@@ -664,11 +664,11 @@
     cursor: pointer;
   }
   .info-btn:hover {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
   }
   .info-btn:focus-visible {
-    outline: 2px solid #000;
+    outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
   /* The calculator's ⓘ, pinned hard into the cell's top-right corner and lifted
@@ -682,12 +682,12 @@
     top: var(--space-3xs);
     right: var(--space-3xs);
     z-index: 1;
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
   }
   .calc-cell .info-btn:hover {
-    background: #fff;
-    color: #000;
+    background: var(--paper);
+    color: var(--ink);
   }
   /* Compact numeric field — a brutalist box (2px border, inset, black-on-focus)
      that fits a five-figure micro target (e.g. 4700 mg potassium). */
@@ -701,16 +701,16 @@
     font-weight: 700;
     font-size: var(--step-n1);
     text-align: right;
-    color: #000;
-    background: #fff;
+    color: var(--ink);
+    background: var(--paper);
     border: var(--edge);
     border-radius: var(--radius);
     box-shadow: inset 2px 2px 0 #e4e4e7;
   }
   .card-target:focus {
     outline: none;
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     box-shadow: none;
   }
   /* Strip the spinner buttons so the field stays a clean brutalist box. */
@@ -740,18 +740,18 @@
     height: 1.75rem;
     padding: 0;
     border: var(--edge);
-    background: #fff;
-    color: #000;
+    background: var(--paper);
+    color: var(--ink);
     font-size: var(--step-0);
     line-height: 1;
     cursor: pointer;
   }
   .card-reset:hover:not(:disabled) {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
   }
   .card-reset:focus-visible {
-    outline: 2px solid #000;
+    outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
   .card-reset:disabled {
@@ -784,7 +784,7 @@
     font-size: min(var(--step-n1), 6cqi);
     font-weight: 700;
     line-height: 1.4;
-    color: #000;
+    color: var(--ink);
     cursor: pointer;
     user-select: none;
     text-transform: uppercase;
@@ -816,21 +816,21 @@
     height: 1.35em;
     margin: 0;
     border: var(--edge);
-    background: #fff;
+    background: var(--paper);
     cursor: pointer;
   }
   .toggle-label input[type="checkbox"]::before {
     content: "";
     width: 0.62em;
     height: 0.62em;
-    background: #000;
+    background: var(--ink);
     transform: scale(0);
   }
   .toggle-label input[type="checkbox"]:checked::before {
     transform: scale(1);
   }
   .toggle-label input[type="checkbox"]:focus-visible {
-    outline: 2px solid #000;
+    outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
 

@@ -30,6 +30,6 @@
     color: var(--text-secondary);
     padding: var(--space-2xs) var(--space-s);
     background: var(--track, #f4f4f5);
-    border-bottom: 1px solid var(--border, #000);
+    border-bottom: 1px solid var(--border, var(--ink));
   }
 </style>

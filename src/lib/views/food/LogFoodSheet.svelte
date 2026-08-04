@@ -507,7 +507,7 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--space-s);
-    background: #fff;
+    background: var(--paper);
     border: var(--edge);
     padding: var(--space-s);
     font-family: inherit;
@@ -529,7 +529,7 @@
   }
   .recipe-edit {
     flex-shrink: 0;
-    background: #fff;
+    background: var(--paper);
     border: var(--edge);
     padding: 0 var(--space-s);
     font-family: inherit;
@@ -539,7 +539,7 @@
     cursor: pointer;
   }
   .recipe-edit:hover {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
   }
 </style>

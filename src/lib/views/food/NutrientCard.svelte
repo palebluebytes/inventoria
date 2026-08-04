@@ -71,7 +71,7 @@
     flex-direction: column;
     gap: var(--space-2xs);
     padding: var(--space-xs) var(--space-s);
-    background: var(--food-surface-bg, #fff);
+    background: var(--food-surface-bg, var(--paper));
   }
   .nutrient-card.toggleable {
     cursor: pointer;
@@ -81,10 +81,10 @@
      not just by its darker label. Includes the always-on Calories card. Off cards
      stay white; a grey wash on hover hints a toggleable one will flip on. */
   .nutrient-card.tracked {
-    background: color-mix(in srgb, var(--green-bg, #ccff00) 40%, #fff);
+    background: color-mix(in srgb, var(--green-bg, #ccff00) 40%, var(--paper));
   }
   .nutrient-card.toggleable.tracked:hover {
-    background: color-mix(in srgb, var(--green-bg, #ccff00) 55%, #fff);
+    background: color-mix(in srgb, var(--green-bg, #ccff00) 55%, var(--paper));
   }
   .nutrient-card.toggleable.untracked:hover {
     background: var(--track, #f4f4f5);
@@ -104,7 +104,7 @@
     cursor: pointer;
   }
   .nutrient-card:has(.card-toggle:focus-visible) {
-    outline: 2px solid #000;
+    outline: 2px solid var(--ink);
     outline-offset: -2px;
   }
   .card-top {
@@ -119,7 +119,7 @@
     font-weight: 700;
     line-height: 1.25;
     text-transform: uppercase;
-    color: #000;
+    color: var(--ink);
   }
   /* Not shown on the dashboard: mute the label so tracked cards stand out. */
   .nutrient-card.untracked .card-label {

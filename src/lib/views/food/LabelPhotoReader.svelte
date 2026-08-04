@@ -194,7 +194,7 @@
     display: flex;
     flex-direction: column;
     background: #0b0b0b;
-    color: #fff;
+    color: var(--paper);
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   .lpr-bar {
@@ -218,7 +218,7 @@
     background: rgba(255, 255, 255, 0.12);
     border: 0;
     border-radius: 999px;
-    color: #fff;
+    color: var(--paper);
     font-size: 1.1rem;
     cursor: pointer;
   }
@@ -251,7 +251,7 @@
     background: rgba(255, 255, 255, 0.14);
     border: 0;
     border-radius: 999px;
-    color: #fff;
+    color: var(--paper);
     font-size: 1.8rem;
     line-height: 1;
     cursor: pointer;
@@ -275,7 +275,7 @@
     background: rgba(255, 255, 255, 0.3);
   }
   .lpr-dot.on {
-    background: #fff;
+    background: var(--paper);
   }
   .lpr-actions {
     display: flex;
@@ -289,7 +289,7 @@
     border: 1.5px solid rgba(255, 255, 255, 0.35);
     border-radius: 10px;
     background: transparent;
-    color: #fff;
+    color: var(--paper);
     font: inherit;
     font-weight: 700;
     cursor: pointer;
@@ -300,7 +300,7 @@
   }
   .lpr-add {
     background: #ccff00;
-    color: #000;
+    color: var(--ink);
     border-color: #ccff00;
   }
 </style>

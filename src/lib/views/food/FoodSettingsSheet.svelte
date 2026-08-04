@@ -233,7 +233,7 @@
   h2 {
     font-size: var(--step-1);
     font-weight: 800;
-    color: #000;
+    color: var(--ink);
     text-transform: uppercase;
     margin: 0;
   }
@@ -278,7 +278,7 @@
     padding: 0;
     border: none;
     background: transparent;
-    color: #000;
+    color: var(--ink);
     cursor: pointer;
   }
   .reveal-toggle svg {
@@ -289,7 +289,7 @@
     color: var(--text-secondary);
   }
   .reveal-toggle:focus-visible {
-    outline: 2px solid #000;
+    outline: 2px solid var(--ink);
     outline-offset: -2px;
   }
   /* Only the input flips to a black background on focus, so flip the icon to
@@ -297,7 +297,7 @@
      focusing the toggle button itself — e.g. clicking it — keeps the icon dark
      and visible on the still-white input. */
   .input-wrapper:has(.retro-input:focus) .reveal-toggle {
-    color: #fff;
+    color: var(--paper);
   }
   .input-wrapper:has(.retro-input:focus) .reveal-toggle:hover {
     color: var(--text-muted);
@@ -309,14 +309,14 @@
     font-family: monospace;
     font-weight: 700;
     border-radius: var(--radius);
-    background: #fff;
+    background: var(--paper);
     box-shadow: inset 2px 2px 0 #e4e4e7;
     transition: all 0.1s step-end;
   }
   .retro-input:focus {
     outline: none;
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     box-shadow: none;
   }
   .full-width {
@@ -333,7 +333,7 @@
     gap: 0.65em;
     font-weight: 700;
     line-height: 1.4;
-    color: #000;
+    color: var(--ink);
     cursor: pointer;
     user-select: none;
     text-transform: uppercase;
@@ -376,21 +376,21 @@
     height: 1.35em;
     margin: 0;
     border: var(--edge);
-    background: #fff;
+    background: var(--paper);
     cursor: pointer;
   }
   .toggle-label input[type="checkbox"]::before {
     content: "";
     width: 0.62em;
     height: 0.62em;
-    background: #000;
+    background: var(--ink);
     transform: scale(0);
   }
   .toggle-label input[type="checkbox"]:checked::before {
     transform: scale(1);
   }
   .toggle-label input[type="checkbox"]:focus-visible {
-    outline: 2px solid #000;
+    outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
   .mt-4 {

@@ -233,7 +233,7 @@
     align-items: baseline;
     justify-content: center;
     gap: 4px;
-    border: 3px solid var(--border-accent);
+    border: var(--edge-thick);
     padding: var(--space-2xs) var(--space-xs);
     cursor: text;
   }
@@ -247,7 +247,7 @@
     align-items: center;
     justify-content: center;
     min-width: 48px;
-    border: 3px solid var(--border-accent);
+    border: var(--edge-thick);
     background: var(--bg-surface);
     font-family: inherit;
     font-size: var(--step-2);
@@ -260,11 +260,11 @@
     background: var(--green-bg);
   }
   .op:focus-visible {
-    outline: 3px solid var(--border-accent);
+    outline: var(--edge-thick);
     outline-offset: 3px;
   }
   .field:focus-within {
-    outline: 3px solid var(--border-accent);
+    outline: var(--edge-thick);
     outline-offset: 3px;
   }
   .num {
@@ -302,7 +302,7 @@
     height: 12px;
     transform: translateY(-50%);
     background: var(--bg-surface);
-    border: 3px solid var(--border-accent);
+    border: var(--edge-thick);
   }
   :global(.qty-range) {
     position: absolute;
@@ -310,7 +310,7 @@
     height: 12px;
     transform: translateY(-50%);
     background: var(--green-bg);
-    border: 3px solid var(--border-accent);
+    border: var(--edge-thick);
   }
   :global(.qty-thumb) {
     position: absolute;
@@ -319,12 +319,12 @@
     height: 30px;
     transform: translate(-50%, -50%);
     background: var(--bg-surface);
-    border: 3px solid var(--border-accent);
+    border: var(--edge-thick);
     border-radius: 50%;
     cursor: grab;
   }
   :global(.qty-thumb:focus-visible) {
-    outline: 3px solid var(--border-accent);
+    outline: var(--edge-thick);
     outline-offset: 3px;
   }
   .scale {
@@ -358,7 +358,7 @@
     display: inline-block;
     box-sizing: border-box;
     padding: var(--space-2xs) var(--space-xs);
-    border: 1px solid var(--border-accent);
+    border: var(--edge-thin);
     font-size: var(--step-n2);
     overflow: hidden;
     background: var(--bg-surface);

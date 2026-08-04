@@ -521,7 +521,7 @@
     max-height: 85vh;
     display: flex;
     flex-direction: column;
-    background: var(--food-surface-bg, #fff);
+    background: var(--food-surface-bg, var(--paper));
     border: var(--edge);
     box-shadow: var(--shadow-3);
   }
@@ -531,7 +531,7 @@
     justify-content: space-between;
     gap: var(--space-s);
     padding: var(--space-xs) var(--space-m);
-    border-bottom: 1px solid var(--border, #000);
+    border-bottom: 1px solid var(--border, var(--ink));
   }
   .day-nutrition-header h3 {
     font-size: var(--step-n1);
@@ -588,8 +588,8 @@
     font-size: var(--step-n2);
     font-weight: 700;
     padding: var(--space-3xs) var(--space-2xs);
-    border: 1.5px solid var(--border, #000);
-    background: var(--food-surface-bg, #fff);
+    border: 1.5px solid var(--border, var(--ink));
+    background: var(--food-surface-bg, var(--paper));
     white-space: nowrap;
   }
   .rda-chip-pct {
@@ -680,8 +680,8 @@
     width: 2rem;
     height: 2rem;
     padding: 0;
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     border: var(--edge-thin);
     border-radius: var(--radius);
     cursor: pointer;
@@ -691,8 +691,8 @@
       transform 0.1s ease;
   }
   .add-meal:hover:not(:disabled) {
-    background: #fff;
-    color: #000;
+    background: var(--paper);
+    color: var(--ink);
   }
   .add-meal:active:not(:disabled) {
     transform: scale(0.92);
@@ -717,8 +717,8 @@
   .empty-meal {
     padding: var(--space-m);
     text-align: center;
-    background: #fff;
-    border: 1px dashed #000;
+    background: var(--paper);
+    border: 1px dashed var(--ink);
     border-radius: var(--radius);
   }
   .empty-meal p {
@@ -795,7 +795,7 @@
     font-size: 0.85rem;
   }
   .select-check.on {
-    background: #000;
+    background: var(--ink);
     color: #ccff00;
   }
   .meal-item-thumb-btn {

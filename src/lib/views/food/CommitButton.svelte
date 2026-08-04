@@ -33,7 +33,7 @@
   .commit {
     width: 100%;
     background: #ccff00;
-    color: #000;
+    color: var(--ink);
     border: var(--edge-thick);
     padding: var(--space-s);
     font-family: inherit;

@@ -413,7 +413,7 @@
     padding: var(--space-xs);
     font-size: var(--step-0);
     font-family: inherit;
-    background: #fff;
+    background: var(--paper);
   }
   .tin.big {
     border-width: 3px;
@@ -447,7 +447,7 @@
     display: flex;
     align-items: center;
     gap: var(--space-s);
-    background: #fff;
+    background: var(--paper);
     border: none;
     padding: var(--space-s) var(--space-2xs);
     cursor: pointer;
@@ -460,7 +460,7 @@
   }
   /* Roving arrow-key focus now moves between headers, so surface it clearly. */
   .rec-sections :global(.sec-head:focus-visible) {
-    outline: 2px solid #000;
+    outline: 2px solid var(--ink);
     outline-offset: -2px;
   }
   .chev {
@@ -476,7 +476,7 @@
   .dot {
     width: 9px;
     height: 9px;
-    background: #000;
+    background: var(--ink);
     border-radius: 50%;
   }
   .rec-sections :global(.sec-body) {
@@ -487,8 +487,8 @@
   }
   .photo {
     width: 100%;
-    border: 2px dashed #000;
-    background: #fff;
+    border: 2px dashed var(--ink);
+    background: var(--paper);
     padding: var(--space-s);
     font-weight: 700;
     cursor: pointer;
@@ -509,8 +509,8 @@
     position: absolute;
     bottom: var(--space-xs);
     right: var(--space-xs);
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     border: none;
     padding: var(--space-2xs) var(--space-s);
     font-weight: 700;
@@ -532,8 +532,8 @@
     flex-shrink: 0;
     width: 1.6rem;
     height: 1.6rem;
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -559,7 +559,7 @@
   .add-step {
     margin-top: var(--space-2xs);
     background: none;
-    border: 2px dashed #000;
+    border: 2px dashed var(--ink);
     padding: var(--space-2xs) var(--space-s);
     font-weight: 700;
     cursor: pointer;

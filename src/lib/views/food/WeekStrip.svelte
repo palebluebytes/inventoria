@@ -121,7 +121,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: #fff;
+    background: var(--paper);
     border: var(--edge-thin);
     border-radius: var(--radius);
     padding: var(--space-xs);
@@ -130,10 +130,10 @@
   /* Retro pill matching the strip's black-on-white border language; inverts on
      hover like the day buttons. Only rendered when off today. */
   .today-btn {
-    background: #fff;
+    background: var(--paper);
     border: var(--edge-thin);
     border-radius: var(--radius);
-    color: #000;
+    color: var(--ink);
     font-size: var(--step-n2);
     font-weight: 700;
     text-transform: uppercase;
@@ -143,13 +143,13 @@
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .today-btn:hover {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
   }
   .nav-arrow {
     background: none;
     border: none;
-    color: #000;
+    color: var(--ink);
     font-size: var(--step-0);
     padding: var(--space-xs);
     cursor: pointer;
@@ -181,21 +181,21 @@
     border-radius: var(--radius);
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    color: #000;
+    color: var(--ink);
     flex-shrink: 0;
   }
   .day-btn:hover {
     background: #f4f4f5;
   }
   .day-btn.active {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     border: var(--edge-thin);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   }
   .day-btn.is-today:not(.active) {
     border: var(--edge-thin);
-    color: #000;
+    color: var(--ink);
   }
   .day-label {
     font-size: var(--step-n3);

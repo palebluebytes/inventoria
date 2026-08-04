@@ -39,7 +39,7 @@
     flex-direction: column;
     align-items: center;
     min-width: 0;
-    background: var(--food-surface-bg, #fff);
+    background: var(--food-surface-bg, var(--paper));
     border: var(--food-surface-border, var(--edge-thin));
     border-radius: var(--food-pill-radius, var(--radius));
     padding: var(--space-2xs) var(--space-3xs);

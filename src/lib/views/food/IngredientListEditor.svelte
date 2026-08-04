@@ -206,7 +206,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    border: 1px dashed #000;
+    border: 1px dashed var(--ink);
     padding: var(--space-xs) var(--space-s);
     color: var(--text-muted);
     font-size: var(--step-n2);
@@ -214,8 +214,8 @@
   .add {
     width: 100%;
     margin-top: var(--space-2xs);
-    border: 2px dashed #000;
-    background: #fff;
+    border: 2px dashed var(--ink);
+    background: var(--paper);
     padding: var(--space-s);
     font-weight: 700;
     cursor: pointer;
@@ -226,7 +226,7 @@
     padding: var(--space-xs);
     font-size: var(--step-0);
     font-family: inherit;
-    background: #fff;
+    background: var(--paper);
   }
   .yield-row {
     display: flex;

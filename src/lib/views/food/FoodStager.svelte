@@ -1942,7 +1942,7 @@
     font: inherit;
     font-weight: 700;
     cursor: pointer;
-    color: #000;
+    color: var(--ink);
   }
   .mt {
     margin-top: var(--space-s);
@@ -1994,8 +1994,8 @@
   }
   .nudge-go {
     align-self: stretch;
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     border: 0;
     border-radius: 8px;
     padding: 0.5rem 0.7rem;
@@ -2007,7 +2007,7 @@
   .viewport {
     position: relative;
     height: 240px;
-    background: #000;
+    background: var(--ink);
     margin-top: var(--space-s);
     overflow: hidden;
   }
@@ -2037,7 +2037,7 @@
     min-height: 200px;
     margin-top: var(--space-s);
     padding: var(--space-m);
-    border: 2px dashed var(--border-accent);
+    border: 2px dashed var(--ink);
     border-radius: 12px;
     background: var(--surface-2, #f4f4f5);
     cursor: pointer;
@@ -2046,11 +2046,11 @@
   }
   .dropzone.drag {
     border-style: solid;
-    border-color: var(--border-accent);
+    border-color: var(--ink);
     background: rgba(204, 255, 0, 0.15);
   }
   .dropzone:focus-visible {
-    outline: 2px solid var(--border-accent);
+    outline: var(--edge);
     outline-offset: 2px;
   }
   .dropzone.busy {
@@ -2088,7 +2088,7 @@
   .dropzone-spinner {
     width: 1.6rem;
     height: 1.6rem;
-    border: 3px solid var(--border-accent);
+    border: var(--edge-thick);
     border-right-color: transparent;
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
@@ -2098,8 +2098,8 @@
   .escape {
     width: 100%;
     margin-top: var(--space-s);
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     border: var(--edge);
     border-radius: 10px;
     padding: var(--space-s);
@@ -2142,7 +2142,7 @@
   }
   .cf-reason-code input {
     font: inherit;
-    background: #fff;
+    background: var(--paper);
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 0.5rem 0.6rem;
@@ -2178,10 +2178,10 @@
     width: 64px;
     height: 64px;
     padding: 0;
-    border: 1px dashed var(--border-accent);
+    border: 1px dashed var(--ink);
     border-radius: 8px;
     overflow: hidden;
-    background: #fff;
+    background: var(--paper);
     cursor: pointer;
   }
   .cf-off-ref-thumb img {
@@ -2214,7 +2214,7 @@
     /* Opaque so scrolled rows don't show through when this row sticks — matched
        to the sheet surface (white) rather than --bg-base, which read as a grey
        block against it. */
-    background: var(--bg-surface, #fff);
+    background: var(--bg-surface, var(--paper));
     border-bottom: 1px solid var(--border);
   }
   .cf-id {
@@ -2240,7 +2240,7 @@
     flex: 0 0 auto;
     width: 60px;
     padding: 0;
-    border: 1.5px solid var(--border-accent);
+    border: 1.5px solid var(--ink);
     background: none;
     cursor: pointer;
     border-radius: 10px;
@@ -2254,8 +2254,8 @@
     min-width: 20px;
     padding: 0 5px;
     border-radius: 999px;
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     font-size: 0.68rem;
     font-weight: 800;
     line-height: 18px;
@@ -2314,7 +2314,7 @@
     gap: var(--space-xs);
     margin-bottom: var(--space-3xs);
     padding-bottom: var(--space-3xs);
-    border-bottom: 2px solid var(--border-accent);
+    border-bottom: var(--edge);
   }
   .cf-gh-text {
     display: flex;
@@ -2381,7 +2381,7 @@
     justify-content: center;
     width: 40px;
     height: 40px;
-    background: #fff;
+    background: var(--paper);
     border: 1px solid var(--border);
     border-radius: 10px;
     cursor: pointer;
@@ -2389,9 +2389,9 @@
     color: var(--text-secondary);
   }
   .cf-skip[aria-pressed="true"] {
-    background: #000;
-    color: #fff;
-    border-color: #000;
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
   }
   .cf-row.skip {
     opacity: 0.5;
@@ -2412,8 +2412,8 @@
   .cf-add {
     margin-top: var(--space-2xs);
     width: 100%;
-    background: #fff;
-    border: 1px dashed var(--border-accent);
+    background: var(--paper);
+    border: 1px dashed var(--ink);
     border-radius: 10px;
     padding: 0.6rem;
     cursor: pointer;
@@ -2441,14 +2441,14 @@
   .cf input {
     min-width: 0;
     font: inherit;
-    background: #fff;
+    background: var(--paper);
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 0.5rem 0.6rem;
     color: var(--text-primary);
   }
   .cf input:focus-visible {
-    outline: 2px solid var(--accent, #000);
+    outline: 2px solid var(--accent, var(--ink));
     outline-offset: -1px;
   }
 
@@ -2458,7 +2458,7 @@
   .cf-contrib {
     margin-bottom: var(--space-m);
     padding: var(--space-s);
-    border: 1.5px solid var(--border-accent);
+    border: 1.5px solid var(--ink);
     border-radius: 12px;
     background: var(--surface-2, #f4f4f5);
   }
@@ -2493,8 +2493,8 @@
   .cf-contrib-btn {
     width: 100%;
     margin-top: var(--space-xs);
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     border: var(--edge);
     border-radius: 10px;
     padding: 0.6rem;
@@ -2540,7 +2540,7 @@
     font-size: 0.68rem;
     font-weight: 700;
     background: #f5b301;
-    color: #000;
+    color: var(--ink);
     padding: 0.1rem 0.45rem;
     border-radius: 999px;
   }
@@ -2566,7 +2566,7 @@
     width: 100%;
     box-sizing: border-box;
     background: transparent;
-    border: 1px solid var(--border-accent);
+    border: var(--edge-thin);
     border-radius: var(--radius);
     padding: var(--space-2xs) var(--space-s);
     color: var(--text-primary);
@@ -2582,9 +2582,9 @@
     background: rgba(0, 0, 0, 0.02);
   }
   .cb-input:focus {
-    border-color: #000;
-    box-shadow: 0 0 0 1px #000;
-    background: #fff;
+    border-color: var(--ink);
+    box-shadow: 0 0 0 1px var(--ink);
+    background: var(--paper);
   }
   .cb-input:disabled {
     opacity: 0.6;
@@ -2608,7 +2608,7 @@
   }
   .result-item {
     width: 100%;
-    background: var(--food-surface-bg, #fff);
+    background: var(--food-surface-bg, var(--paper));
     border: var(--food-surface-border, var(--edge-thin));
     border-radius: var(--food-item-radius, var(--radius));
     padding: var(--space-xs) var(--space-s);
@@ -2623,8 +2623,8 @@
     background: var(--food-surface-hover, #f4f4f5);
   }
   .result-item.hl {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
   }
   .result-details {
     display: flex;
@@ -2640,14 +2640,14 @@
     margin-top: 2px;
   }
   .result-item.hl .result-macros {
-    color: #fff;
+    color: var(--paper);
   }
   .select-arrow {
     color: var(--text-muted);
     font-size: var(--step-0);
   }
   .result-item.hl .select-arrow {
-    color: #fff;
+    color: var(--paper);
   }
   .in-spinner {
     position: absolute;
@@ -2684,18 +2684,18 @@
     align-items: center;
     justify-content: center;
     gap: 2px;
-    background: #fff;
+    background: var(--paper);
     border: var(--edge);
     padding: var(--space-2xs) 0;
     cursor: pointer;
     min-height: 52px;
   }
   .dock :global(.methods .method[data-state="active"]) {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
   }
   .dock :global(.methods .method:focus-visible) {
-    outline: 2px solid #000;
+    outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
   .mi {
