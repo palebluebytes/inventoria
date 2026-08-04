@@ -239,7 +239,7 @@
     transform: translate(-50%, -50%);
     z-index: 1001;
     background: #fff;
-    border: 4px solid #000;
+    border: var(--edge-thick);
     width: calc(100% - 2 * var(--space-s));
     max-width: 600px;
     max-height: 90vh;
@@ -254,7 +254,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 4px solid #000;
+    border-bottom: var(--edge-thick);
     padding: var(--space-s) var(--space-m);
     background: #000;
     color: #fff;
@@ -270,7 +270,7 @@
 
   .close-btn {
     background: #fff;
-    border: 2px solid #000;
+    border: var(--edge);
     width: 40px;
     height: 40px;
     font-size: 2rem;
@@ -286,7 +286,7 @@
   .close-btn:hover {
     background: #e4e4e7;
     transform: translate(-2px, -2px);
-    box-shadow: 4px 4px 0 #000;
+    box-shadow: var(--shadow-2);
   }
 
   .publish-year {
@@ -299,7 +299,7 @@
 
   .media-extra-details {
     padding: var(--space-s) var(--space-m);
-    border-bottom: 4px solid #000;
+    border-bottom: var(--edge-thick);
     background: #f8fafc;
     display: flex;
     flex-direction: column;
@@ -335,7 +335,7 @@
     display: flex;
     gap: var(--space-s);
     background: #fff;
-    border-bottom: 4px solid #000;
+    border-bottom: var(--edge-thick);
     padding: var(--space-m);
   }
 
@@ -343,8 +343,8 @@
     width: 80px;
     height: 120px;
     object-fit: cover;
-    border: 2px solid #000;
-    box-shadow: 4px 4px 0 #000;
+    border: var(--edge);
+    box-shadow: var(--shadow-2);
   }
 
   .banner-info {
@@ -400,12 +400,12 @@
   }
 
   .retro-input {
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-s);
     font-size: var(--step-0);
     font-family: monospace;
     font-weight: 700;
-    border-radius: 0;
+    border-radius: var(--radius);
     background: #fff;
     box-shadow: inset 2px 2px 0 #e4e4e7;
     transition: all 0.1s step-end;
@@ -419,12 +419,12 @@
   }
 
   .retro-select {
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-s);
     font-size: var(--step-0);
     font-family: monospace;
     font-weight: 700;
-    border-radius: 0;
+    border-radius: var(--radius);
     background: #fff;
     cursor: pointer;
     box-shadow: 4px 4px 0 #e4e4e7;
@@ -434,16 +434,16 @@
   .retro-select:focus {
     outline: none;
     border-color: #000;
-    box-shadow: 4px 4px 0 #000;
+    box-shadow: var(--shadow-2);
   }
 
   .retro-textarea {
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-s);
     font-size: var(--step-0);
     font-family: monospace;
     font-weight: 700;
-    border-radius: 0;
+    border-radius: var(--radius);
     resize: vertical;
     box-shadow: inset 2px 2px 0 #e4e4e7;
   }

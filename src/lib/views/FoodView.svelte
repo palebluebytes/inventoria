@@ -446,7 +446,7 @@
     gap: var(--space-s);
     margin-bottom: var(--space-m);
     animation: fadeIn 0.4s ease-out;
-    border-bottom: 2px solid #000;
+    border-bottom: var(--edge);
     padding-bottom: var(--space-s);
   }
   .header-text {
@@ -515,7 +515,7 @@
     align-items: center;
     gap: var(--space-m);
     padding: var(--space-s) 0;
-    border-bottom: 1px solid #000;
+    border-bottom: var(--edge-thin);
     transition: background 0.2s;
   }
   .twin-item:hover {

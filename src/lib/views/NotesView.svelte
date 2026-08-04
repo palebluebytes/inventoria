@@ -131,7 +131,7 @@
 <style>
   .page-header {
     margin-bottom: var(--space-m);
-    border-bottom: 2px solid #000;
+    border-bottom: var(--edge);
     padding-bottom: var(--space-s);
   }
   h1 {
@@ -149,7 +149,7 @@
 
   .mobile-tabs {
     display: flex;
-    border: 2px solid #000;
+    border: var(--edge);
     background: var(--bg-surface);
     margin-bottom: var(--space-m);
   }
@@ -157,7 +157,7 @@
     flex: 1;
     background: transparent;
     border: none;
-    border-right: 1px solid #000;
+    border-right: var(--edge-thin);
     padding: var(--space-xs) 0;
     font-family: monospace;
     font-weight: 700;
@@ -185,7 +185,7 @@
   }
   .item-input {
     flex: 1;
-    border: 2px solid #000;
+    border: var(--edge);
     background: #fff;
     padding: var(--space-xs) var(--space-s);
     font-size: var(--step-0);
@@ -196,7 +196,7 @@
   }
 
   .add-btn {
-    border: 2px solid #000;
+    border: var(--edge);
     background: #000;
     color: #fff;
     font-weight: 700;
@@ -204,11 +204,11 @@
     font-size: var(--step-n1);
     padding: var(--space-xs) var(--space-m);
     cursor: pointer;
-    box-shadow: 3px 3px 0 #000;
+    box-shadow: var(--shadow-2);
   }
   .add-btn:hover {
     transform: translate(-1px, -1px);
-    box-shadow: 4px 4px 0 #000;
+    box-shadow: var(--shadow-2);
   }
   .add-btn.full {
     width: 100%;
@@ -265,10 +265,10 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border: 2px solid #000;
+    border: var(--edge);
     background: #fff;
     margin-bottom: var(--space-xs);
-    box-shadow: 3px 3px 0 #000;
+    box-shadow: var(--shadow-2);
   }
   .note-row.active {
     background: #000;

@@ -116,8 +116,8 @@
     transform: translate(-50%, -50%);
     z-index: 1000;
     background: var(--bg-surface, #fff);
-    border: 3px solid #000;
-    box-shadow: 8px 8px 0 #000;
+    border: var(--edge-thick);
+    box-shadow: var(--shadow-3);
     width: calc(100% - 2 * var(--space-s));
     max-width: 500px;
     max-height: 85vh;
@@ -129,7 +129,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 2px solid #000;
+    border-bottom: var(--edge);
     padding-bottom: var(--space-xs);
     margin-bottom: var(--space-s);
   }
@@ -168,7 +168,7 @@
   .read-only-value {
     padding: 10px;
     background: #f4f4f5;
-    border: 2px solid #000;
+    border: var(--edge);
     font-weight: 600;
     font-size: var(--step-n1);
   }
@@ -176,8 +176,8 @@
     width: 100%;
     min-height: 80px;
     padding: 10px;
-    border: 2px solid #000;
-    border-radius: 0;
+    border: var(--edge);
+    border-radius: var(--radius);
     font-size: var(--step-n1);
     font-family: inherit;
     resize: vertical;

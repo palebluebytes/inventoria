@@ -233,7 +233,7 @@
   .page-header {
     margin-bottom: var(--space-m);
     animation: fadeIn 0.4s ease-out;
-    border-bottom: 2px solid #000;
+    border-bottom: var(--edge);
     padding-bottom: var(--space-s);
   }
   h1 {
@@ -259,19 +259,19 @@
 
   .kanban-column {
     background: #fff;
-    border: 2px solid #000;
+    border: var(--edge);
     padding: 0;
     display: flex;
     flex-direction: column;
     min-height: 200px;
-    box-shadow: 6px 6px 0 #000;
+    box-shadow: var(--shadow-3);
   }
 
   .column-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 2px solid #000;
+    border-bottom: var(--edge);
     padding: var(--space-xs) var(--space-s);
     background: #000;
     color: #fff;
@@ -346,7 +346,7 @@
 
   .mobile-tabs {
     display: flex;
-    border: 2px solid #000;
+    border: var(--edge);
     background: var(--bg-surface);
   }
 
@@ -354,7 +354,7 @@
     flex: 1;
     background: transparent;
     border: none;
-    border-right: 1px solid #000;
+    border-right: var(--edge-thin);
     margin: 0;
     padding: var(--space-xs) 0;
     font-family: monospace;

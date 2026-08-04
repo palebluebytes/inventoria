@@ -421,7 +421,7 @@
     font-family: var(--font-mono) !important;
     font-weight: 700 !important;
     border: 1px solid var(--border-accent) !important;
-    border-radius: 0 !important;
+    border-radius: var(--radius) !important;
   }
 
   .agenda-list {

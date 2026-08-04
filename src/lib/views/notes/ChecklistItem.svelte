@@ -28,10 +28,10 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--space-s);
-    border: 2px solid #000;
+    border: var(--edge);
     background: #fff;
     padding: var(--space-xs) var(--space-s);
-    box-shadow: 3px 3px 0 #000;
+    box-shadow: var(--shadow-2);
   }
   .item-label {
     display: flex;

@@ -179,8 +179,8 @@
   .custom-select {
     width: 100%;
     padding: 10px;
-    border: 2px solid #000;
-    border-radius: 0;
+    border: var(--edge);
+    border-radius: var(--radius);
     font-size: var(--step-n1);
     background: #fff;
     font-family: inherit;
@@ -194,8 +194,8 @@
     width: 100%;
     min-height: 80px;
     padding: 10px;
-    border: 2px solid #000;
-    border-radius: 0;
+    border: var(--edge);
+    border-radius: var(--radius);
     font-size: var(--step-n1);
     font-family: inherit;
     resize: vertical;

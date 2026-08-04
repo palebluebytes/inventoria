@@ -206,7 +206,7 @@
 <style>
   .page-header {
     margin-bottom: var(--space-m);
-    border-bottom: 2px solid #000;
+    border-bottom: var(--edge);
     padding-bottom: var(--space-s);
   }
   h1 {
@@ -225,12 +225,12 @@
   /* Tabs */
   .view-tabs {
     display: flex;
-    border-bottom: 2px solid #000;
+    border-bottom: var(--edge);
     gap: 2px;
   }
   .view-tab-btn {
     padding: var(--space-s) var(--space-m);
-    border: 2px solid #000;
+    border: var(--edge);
     border-bottom: none;
     background: #f4f4f5;
     font-weight: 700;
@@ -255,22 +255,22 @@
     flex-wrap: wrap;
     gap: var(--space-xs);
     padding: var(--space-xs) 0;
-    border-bottom: 2px solid #000;
+    border-bottom: var(--edge);
   }
   .tag-btn {
     padding: 4px 12px;
-    border: 2px solid #000;
+    border: var(--edge);
     background: #fff;
     font-weight: 600;
     font-size: var(--step-n2);
     text-transform: uppercase;
     cursor: pointer;
-    box-shadow: 2px 2px 0 #000;
+    box-shadow: var(--shadow-1);
     transition: all 0.1s ease;
   }
   .tag-btn:hover {
     transform: translate(-1px, -1px);
-    box-shadow: 3px 3px 0 #000;
+    box-shadow: var(--shadow-2);
   }
   .tag-btn:active {
     transform: translate(2px, 2px);
@@ -331,12 +331,12 @@
   /* Inventory Slot */
   .inventory-slot {
     aspect-ratio: 1;
-    border: 2px solid #000;
+    border: var(--edge);
     background: #fff; /* White background to blend with product images */
     padding: 0;
     position: relative;
     cursor: pointer;
-    box-shadow: 2px 2px 0 #000;
+    box-shadow: var(--shadow-1);
     transition: all 0.1s ease;
     display: flex;
     align-items: center;
@@ -345,7 +345,7 @@
   }
   .inventory-slot:hover {
     transform: translate(-2px, -2px);
-    box-shadow: 4px 4px 0 #000;
+    box-shadow: var(--shadow-2);
     background: #e4e4e7;
   }
   .inventory-slot.selected {
@@ -374,7 +374,7 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    border: 1px solid #000;
+    border: var(--edge-thin);
   }
   .note-indicator {
     background: #fef08a; /* Yellow for notes */

@@ -125,7 +125,7 @@
 <style>
   .media-card {
     background: #fff;
-    border: 2px solid #000;
+    border: var(--edge);
     display: flex;
     flex-direction: column;
     cursor: pointer;
@@ -133,19 +133,19 @@
       transform 0.1s step-end,
       box-shadow 0.1s step-end;
     position: relative;
-    box-shadow: 4px 4px 0 #000;
+    box-shadow: var(--shadow-2);
   }
 
   .media-card:hover {
     transform: translate(-4px, -4px);
-    box-shadow: 8px 8px 0 #000;
+    box-shadow: var(--shadow-3);
   }
 
   .card-poster {
     width: 100%;
     aspect-ratio: 2/3;
     object-fit: cover;
-    border-bottom: 2px solid #000;
+    border-bottom: var(--edge);
     background: #000;
     filter: grayscale(100%) contrast(120%);
     transition: filter 0.1s step-end;
@@ -169,7 +169,7 @@
     align-items: center;
     justify-content: center;
     font-size: 4rem;
-    border-bottom: 2px solid #000;
+    border-bottom: var(--edge);
   }
 
   .card-details {
@@ -187,7 +187,7 @@
     padding: 2px 6px !important;
     background: #000 !important;
     color: #fff !important;
-    border-radius: 0 !important;
+    border-radius: var(--radius) !important;
   }
 
   .card-title {
@@ -212,7 +212,7 @@
     font-size: var(--step-n2);
     color: #000;
     margin: 0;
-    border: 1px solid #000;
+    border: var(--edge-thin);
     padding: 0 4px;
     display: inline-block;
     align-self: flex-start;
@@ -225,7 +225,7 @@
     background: #000;
     color: #fff;
     padding: 4px 8px;
-    border: 2px solid #000;
+    border: var(--edge);
     margin-top: 8px;
     display: inline-block;
     align-self: flex-start;

@@ -40,7 +40,7 @@
   .note-title {
     font-size: var(--step-1);
     font-weight: 700;
-    border: 2px solid #000;
+    border: var(--edge);
     background: #fff;
     padding: var(--space-xs) var(--space-s);
   }
@@ -48,13 +48,13 @@
     flex: 1;
     min-height: 16rem;
     resize: vertical;
-    border: 2px solid #000;
+    border: var(--edge);
     background: #fff;
     padding: var(--space-s);
     font-family: inherit;
     font-size: var(--step-0);
     line-height: 1.5;
-    box-shadow: 4px 4px 0 #000;
+    box-shadow: var(--shadow-2);
   }
   .note-title:focus,
   .note-body:focus {

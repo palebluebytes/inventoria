@@ -108,9 +108,9 @@
 <style>
   .inspector-panel {
     width: 100%;
-    border: 2px solid #000;
+    border: var(--edge);
     background: var(--bg-surface);
-    box-shadow: 4px 4px 0 #000;
+    box-shadow: var(--shadow-2);
     display: none;
     flex-direction: column;
     position: sticky;
@@ -144,7 +144,7 @@
 
   .inspector-header {
     position: relative;
-    border-bottom: 2px solid #000;
+    border-bottom: var(--edge);
     background: var(--bg-input);
   }
   .close-inspector-btn {
@@ -154,7 +154,7 @@
     width: 24px;
     height: 24px;
     background: #fff;
-    border: 2px solid #000;
+    border: var(--edge);
     font-weight: bold;
     display: flex;
     align-items: center;
@@ -210,7 +210,7 @@
   .source-link-btn {
     display: inline-block;
     padding: 4px 8px;
-    border: 1px solid #000;
+    border: var(--edge-thin);
     background: #f4f4f5;
     font-size: var(--step-n2);
     text-decoration: none;
@@ -236,7 +236,7 @@
 
   .item-meta {
     padding-top: var(--space-s);
-    border-top: 1px solid #000;
+    border-top: var(--edge-thin);
   }
   .item-id {
     font-family: monospace;
@@ -272,9 +272,9 @@
   .item-note-box {
     margin-top: var(--space-s);
     background: #fef08a; /* Soft retro yellow post-it */
-    border: 2px solid #000;
+    border: var(--edge);
     padding: 8px var(--space-xs);
-    box-shadow: 2px 2px 0 #000;
+    box-shadow: var(--shadow-1);
     color: #000;
   }
   .note-label {
