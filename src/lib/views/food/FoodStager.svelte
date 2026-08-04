@@ -2100,7 +2100,7 @@
     margin-top: var(--space-s);
     background: #000;
     color: #fff;
-    border: 2px solid #000;
+    border: var(--edge);
     border-radius: 10px;
     padding: var(--space-s);
     font: inherit;
@@ -2495,7 +2495,7 @@
     margin-top: var(--space-xs);
     background: #000;
     color: #fff;
-    border: 2px solid #000;
+    border: var(--edge);
     border-radius: 10px;
     padding: 0.6rem;
     font: inherit;
@@ -2546,7 +2546,7 @@
   }
 
   .dock {
-    border-top: 2px solid #000;
+    border-top: var(--edge);
     background: #fafafa;
     padding: var(--space-2xs) var(--space-s) var(--space-s);
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-s));
@@ -2567,7 +2567,7 @@
     box-sizing: border-box;
     background: transparent;
     border: 1px solid var(--border-accent);
-    border-radius: 0;
+    border-radius: var(--radius);
     padding: var(--space-2xs) var(--space-s);
     color: var(--text-primary);
     font-size: var(--step-n1);
@@ -2609,8 +2609,8 @@
   .result-item {
     width: 100%;
     background: var(--food-surface-bg, #fff);
-    border: var(--food-surface-border, 1px solid #000);
-    border-radius: var(--food-item-radius, 0);
+    border: var(--food-surface-border, var(--edge-thin));
+    border-radius: var(--food-item-radius, var(--radius));
     padding: var(--space-xs) var(--space-s);
     text-align: left;
     display: flex;
@@ -2656,7 +2656,7 @@
     transform: translateY(-50%);
     width: 1.15rem;
     height: 1.15rem;
-    border: 2px solid #000;
+    border: var(--edge);
     border-right-color: transparent;
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
@@ -2685,7 +2685,7 @@
     justify-content: center;
     gap: 2px;
     background: #fff;
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-2xs) 0;
     cursor: pointer;
     min-height: 52px;

@@ -222,7 +222,7 @@
   }
   .tin {
     width: 100%;
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-xs);
     font-size: var(--step-0);
     font-family: inherit;

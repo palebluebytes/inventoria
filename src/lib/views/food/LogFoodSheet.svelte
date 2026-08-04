@@ -508,7 +508,7 @@
     justify-content: space-between;
     gap: var(--space-s);
     background: #fff;
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-s);
     font-family: inherit;
     cursor: pointer;
@@ -530,7 +530,7 @@
   .recipe-edit {
     flex-shrink: 0;
     background: #fff;
-    border: 2px solid #000;
+    border: var(--edge);
     padding: 0 var(--space-s);
     font-family: inherit;
     font-weight: 700;

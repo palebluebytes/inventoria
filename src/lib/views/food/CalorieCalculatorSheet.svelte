@@ -457,8 +457,8 @@
     font-size: var(--step-n1);
     color: #000;
     background: #fff;
-    border: 2px solid #000;
-    border-radius: 0;
+    border: var(--edge);
+    border-radius: var(--radius);
     box-shadow: inset 2px 2px 0 #e4e4e7;
   }
   .num:focus {
@@ -481,7 +481,7 @@
   .preview {
     margin: var(--space-m) 0 0;
     padding: var(--space-s) var(--space-m);
-    border: 3px solid #000;
+    border: var(--edge-thick);
     background: color-mix(in srgb, var(--green-bg, #ccff00) 22%, #fff);
   }
   .preview-head {
@@ -533,7 +533,7 @@
     gap: var(--space-xs);
     margin-top: var(--space-m);
     padding-top: var(--space-s);
-    border-top: 2px solid #000;
+    border-top: var(--edge);
   }
   .nudge-label {
     font-size: var(--step-n1);
@@ -552,7 +552,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 2px solid #000;
+    border: var(--edge);
     background: #fff;
     color: #000;
     font-size: var(--step-0);
@@ -576,7 +576,7 @@
   .apply-btn {
     width: 100%;
     padding: var(--space-s);
-    border: 3px solid #000;
+    border: var(--edge-thick);
     background: var(--green-bg, #ccff00);
     color: #000;
     font-family: inherit;
@@ -584,15 +584,15 @@
     font-weight: 800;
     text-transform: uppercase;
     cursor: pointer;
-    box-shadow: 3px 3px 0 #000;
+    box-shadow: var(--shadow-2);
   }
   .apply-btn:hover:not(:disabled) {
     transform: translate(-1px, -1px);
-    box-shadow: 4px 4px 0 #000;
+    box-shadow: var(--shadow-2);
   }
   .apply-btn:active:not(:disabled) {
     transform: translate(1px, 1px);
-    box-shadow: 1px 1px 0 #000;
+    box-shadow: var(--shadow-1);
   }
   .apply-btn:disabled {
     background: var(--track, #f4f4f5);

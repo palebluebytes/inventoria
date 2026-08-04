@@ -228,7 +228,7 @@
     animation: fadeIn 0.3s ease-out;
     margin-top: var(--space-l);
     padding-top: var(--space-l);
-    border-top: 2px solid #000;
+    border-top: var(--edge);
   }
   h2 {
     font-size: var(--step-1);
@@ -303,12 +303,12 @@
     color: var(--text-muted);
   }
   .retro-input {
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-s);
     font-size: var(--step-0);
     font-family: monospace;
     font-weight: 700;
-    border-radius: 0;
+    border-radius: var(--radius);
     background: #fff;
     box-shadow: inset 2px 2px 0 #e4e4e7;
     transition: all 0.1s step-end;
@@ -375,7 +375,7 @@
     width: 1.35em;
     height: 1.35em;
     margin: 0;
-    border: 2px solid #000;
+    border: var(--edge);
     background: #fff;
     cursor: pointer;
   }

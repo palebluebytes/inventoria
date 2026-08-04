@@ -522,8 +522,8 @@
     display: flex;
     flex-direction: column;
     background: var(--food-surface-bg, #fff);
-    border: 2px solid #000;
-    box-shadow: 8px 8px 0 #000;
+    border: var(--edge);
+    box-shadow: var(--shadow-3);
   }
   .day-nutrition-header {
     display: flex;
@@ -682,8 +682,8 @@
     padding: 0;
     background: #000;
     color: #fff;
-    border: 1px solid #000;
-    border-radius: 0;
+    border: var(--edge-thin);
+    border-radius: var(--radius);
     cursor: pointer;
     transition:
       background 0.15s ease,
@@ -719,7 +719,7 @@
     text-align: center;
     background: #fff;
     border: 1px dashed #000;
-    border-radius: 0;
+    border-radius: var(--radius);
   }
   .empty-meal p {
     color: var(--text-muted);
@@ -787,7 +787,7 @@
     flex-shrink: 0;
     width: 22px;
     height: 22px;
-    border: 2px solid #000;
+    border: var(--edge);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -808,10 +808,10 @@
   .meal-item-thumb {
     width: 48px;
     height: 48px;
-    border-radius: 0;
+    border-radius: var(--radius);
     object-fit: cover;
     cursor: pointer;
-    border: 1px solid #000;
+    border: var(--edge-thin);
     transition: transform 0.2s;
   }
   .meal-item-thumb:hover {
@@ -831,9 +831,9 @@
   .photo-modal-img {
     max-width: 100%;
     max-height: 80vh;
-    border-radius: 0;
-    border: 2px solid #000;
-    box-shadow: 8px 8px 0 #000;
+    border-radius: var(--radius);
+    border: var(--edge);
+    box-shadow: var(--shadow-3);
   }
   .photo-modal-close {
     position: absolute;

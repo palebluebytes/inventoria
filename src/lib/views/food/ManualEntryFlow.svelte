@@ -383,7 +383,7 @@
     gap: var(--space-s);
     width: 100%;
     background: #fff;
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-m);
     font-family: inherit;
     text-align: left;
@@ -394,7 +394,7 @@
     background: #f4f4f5;
   }
   .intent:active {
-    box-shadow: 4px 4px 0 #000;
+    box-shadow: var(--shadow-2);
   }
   .intent-ico {
     font-size: var(--step-3);
@@ -464,7 +464,7 @@
   .mini-ingredients {
     width: 100%;
     box-sizing: border-box;
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-s);
     font-family: inherit;
     font-size: var(--step-0);
@@ -507,11 +507,11 @@
     width: 48px;
     height: 48px;
     object-fit: cover;
-    border: 2px solid #000;
+    border: var(--edge);
   }
   .mini-photo-btn {
     background: #fff;
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-2xs) var(--space-s);
     font-family: inherit;
     font-weight: 700;

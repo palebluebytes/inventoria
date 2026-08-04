@@ -409,7 +409,7 @@
   }
   .tin {
     width: 100%;
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-xs);
     font-size: var(--step-0);
     font-family: inherit;
@@ -421,7 +421,7 @@
   }
   .tarea {
     width: 100%;
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-xs);
     font-size: var(--step-n1);
     font-family: inherit;
@@ -433,10 +433,10 @@
      .rec-sections wrapper (the .dock :global(.methods) precedent, ADR-0036). */
   .rec-sections :global(.sections) {
     margin-top: var(--space-m);
-    border-top: 2px solid #000;
+    border-top: var(--edge);
   }
   .rec-sections :global(.section) {
-    border-bottom: 2px solid #000;
+    border-bottom: var(--edge);
   }
   /* Header wraps the trigger in a role=heading div — keep it layout-inert. */
   .rec-sections :global(.sec-heading) {
@@ -495,7 +495,7 @@
   }
   .img-prev {
     position: relative;
-    border: 2px solid #000;
+    border: var(--edge);
     overflow: hidden;
     max-height: 220px;
   }
@@ -542,7 +542,7 @@
   }
   .sin {
     flex: 1;
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-2xs) var(--space-xs);
     font-family: inherit;
     font-size: var(--step-n1);

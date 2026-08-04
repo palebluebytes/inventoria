@@ -703,8 +703,8 @@
     text-align: right;
     color: #000;
     background: #fff;
-    border: 2px solid #000;
-    border-radius: 0;
+    border: var(--edge);
+    border-radius: var(--radius);
     box-shadow: inset 2px 2px 0 #e4e4e7;
   }
   .card-target:focus {
@@ -739,7 +739,7 @@
     width: 1.75rem;
     height: 1.75rem;
     padding: 0;
-    border: 2px solid #000;
+    border: var(--edge);
     background: #fff;
     color: #000;
     font-size: var(--step-0);
@@ -815,7 +815,7 @@
     width: 1.35em;
     height: 1.35em;
     margin: 0;
-    border: 2px solid #000;
+    border: var(--edge);
     background: #fff;
     cursor: pointer;
   }

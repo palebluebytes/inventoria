@@ -122,8 +122,8 @@
     align-items: center;
     justify-content: space-between;
     background: #fff;
-    border: 1px solid #000;
-    border-radius: 0;
+    border: var(--edge-thin);
+    border-radius: var(--radius);
     padding: var(--space-xs);
     width: 100%;
   }
@@ -131,8 +131,8 @@
      hover like the day buttons. Only rendered when off today. */
   .today-btn {
     background: #fff;
-    border: 1px solid #000;
-    border-radius: 0;
+    border: var(--edge-thin);
+    border-radius: var(--radius);
     color: #000;
     font-size: var(--step-n2);
     font-weight: 700;
@@ -178,7 +178,7 @@
     background: none;
     border: 1px solid transparent;
     padding: var(--space-xs) var(--space-s);
-    border-radius: 0;
+    border-radius: var(--radius);
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     color: #000;
@@ -190,11 +190,11 @@
   .day-btn.active {
     background: #000;
     color: #fff;
-    border: 1px solid #000;
+    border: var(--edge-thin);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   }
   .day-btn.is-today:not(.active) {
-    border: 1px solid #000;
+    border: var(--edge-thin);
     color: #000;
   }
   .day-label {

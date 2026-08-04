@@ -89,7 +89,7 @@
     align-items: center;
     gap: var(--space-s);
     background: #fff;
-    border: 1px solid #000;
+    border: var(--edge-thin);
     padding: var(--space-s);
   }
   .food-item.clickable {
@@ -100,7 +100,7 @@
   }
   .food-item.selected {
     background: #ffffe0;
-    box-shadow: 4px 4px 0 #000;
+    box-shadow: var(--shadow-2);
   }
   .details {
     display: flex;

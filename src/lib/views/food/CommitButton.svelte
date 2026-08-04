@@ -34,7 +34,7 @@
     width: 100%;
     background: #ccff00;
     color: #000;
-    border: 3px solid #000;
+    border: var(--edge-thick);
     padding: var(--space-s);
     font-family: inherit;
     font-size: var(--step-1);

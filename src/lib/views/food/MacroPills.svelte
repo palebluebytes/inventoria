@@ -40,8 +40,8 @@
     align-items: center;
     min-width: 0;
     background: var(--food-surface-bg, #fff);
-    border: var(--food-surface-border, 1px solid #000);
-    border-radius: var(--food-pill-radius, 0);
+    border: var(--food-surface-border, var(--edge-thin));
+    border-radius: var(--food-pill-radius, var(--radius));
     padding: var(--space-2xs) var(--space-3xs);
   }
   .pill-label {
