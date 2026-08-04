@@ -95,7 +95,7 @@
   }
   :global(.seg-row .seg) {
     padding: var(--space-2xs) var(--space-xs);
-    border: 2px solid #000;
+    border: var(--edge);
     background: #fff;
     color: #000;
     font-family: inherit;

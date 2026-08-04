@@ -84,7 +84,7 @@
     align-items: flex-start;
     gap: var(--space-xs);
     padding: var(--space-s) var(--space-m);
-    border-radius: 0;
+    border-radius: var(--radius);
     font-size: var(--step-n1);
     margin-top: var(--space-xs);
     border: 1px solid transparent;

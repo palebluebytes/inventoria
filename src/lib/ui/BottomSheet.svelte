@@ -137,7 +137,7 @@
     z-index: 1701;
     pointer-events: auto;
     background: var(--bg-surface, #fff);
-    border: 3px solid #000;
+    border: var(--edge-thick);
     border-bottom: none;
     box-shadow: 0 -8px 0 #000;
     width: 100%;
@@ -176,7 +176,7 @@
     width: 40px;
     height: 5px;
     background: #000;
-    border: 1px solid #000;
+    border: var(--edge-thin);
   }
 
   /* Three columns — [back] [title] [close] — with equal-width side rails, so the
@@ -187,7 +187,7 @@
     display: grid;
     grid-template-columns: 2.5rem 1fr 2.5rem;
     align-items: center;
-    border-bottom: 2px solid #000;
+    border-bottom: var(--edge);
     padding: 0 var(--space-m) var(--space-xs) var(--space-m);
     margin-top: var(--space-xs);
   }
@@ -278,7 +278,7 @@
      `.dock` / `.foot` chrome the food sheets used before folding onto this. */
   .bottom-sheet-footer {
     flex-shrink: 0;
-    border-top: 2px solid #000;
+    border-top: var(--edge);
     background: #fafafa;
     padding: var(--space-s) var(--space-m);
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-s));

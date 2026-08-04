@@ -55,7 +55,7 @@
     width: 100%;
     height: 6px;
     background: #e4e4e7;
-    border-radius: 0;
+    border-radius: var(--radius);
     overflow: hidden;
   }
   /* No configured target: a neutral striped track, so it reads as "tracked, no
@@ -71,7 +71,7 @@
   }
   :global(.meter-fill) {
     height: 100%;
-    border-radius: 0;
+    border-radius: var(--radius);
     background: #000;
     transition: width 0.35s ease-out;
   }

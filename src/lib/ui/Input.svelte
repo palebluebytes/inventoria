@@ -53,7 +53,7 @@
     width: 100%;
     background: transparent;
     border: 1px solid var(--border-accent);
-    border-radius: 0;
+    border-radius: var(--radius);
     padding: var(--space-2xs) var(--space-s);
     color: var(--text-primary);
     font-size: var(--step-n1);

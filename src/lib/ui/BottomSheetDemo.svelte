@@ -122,7 +122,7 @@
   }
   .method {
     flex: 1;
-    border: 2px solid #000;
+    border: var(--edge);
     background: #fff;
     padding: var(--space-2xs);
     text-transform: uppercase;
@@ -138,7 +138,7 @@
     width: 100%;
     margin-top: var(--space-2xs);
     background: #ccff00;
-    border: 3px solid #000;
+    border: var(--edge-thick);
     padding: var(--space-s);
     font-weight: 800;
     text-transform: uppercase;
@@ -149,7 +149,7 @@
     width: 100%;
     margin-top: var(--space-2xs);
     background: none;
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-2xs);
     cursor: pointer;
   }

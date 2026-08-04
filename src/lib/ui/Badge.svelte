@@ -23,7 +23,7 @@
     display: inline-flex;
     align-items: center;
     padding: var(--space-3xs) var(--space-2xs);
-    border-radius: 0;
+    border-radius: var(--radius);
     font-size: var(--step-n2);
     font-weight: 600;
     line-height: 1;
@@ -35,24 +35,24 @@
   .badge-default {
     background: #000;
     color: #fff;
-    border: 1px solid #000;
+    border: var(--edge-thin);
   }
 
   .badge-success {
     background: var(--green-bg);
     color: var(--green);
-    border: 1px solid #000;
+    border: var(--edge-thin);
   }
 
   .badge-error {
     background: var(--red-bg);
     color: var(--red);
-    border: 1px solid #000;
+    border: var(--edge-thin);
   }
 
   .badge-warning {
     background: var(--amber-bg);
     color: var(--amber);
-    border: 1px solid #000;
+    border: var(--edge-thin);
   }
 </style>

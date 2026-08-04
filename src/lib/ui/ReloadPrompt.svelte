@@ -39,10 +39,10 @@
     bottom: 1rem;
     background: var(--bg-surface, #fff);
     color: var(--text-primary, #000);
-    border: 2px solid #000;
-    border-radius: 0;
+    border: var(--edge);
+    border-radius: var(--radius);
     padding: var(--space-m);
-    box-shadow: 4px 4px 0 #000;
+    box-shadow: var(--shadow-2);
     z-index: 9999;
     display: flex;
     flex-direction: column;

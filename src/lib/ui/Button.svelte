@@ -45,7 +45,7 @@
     justify-content: center;
     gap: var(--space-2xs);
     padding: var(--space-2xs) var(--space-m);
-    border-radius: 0;
+    border-radius: var(--radius);
     font-size: var(--step-n1);
     font-weight: 600;
     font-family: inherit;
