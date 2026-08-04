@@ -464,7 +464,7 @@
     padding: 0;
     border: none;
     background: transparent;
-    color: #000;
+    color: var(--ink);
     cursor: pointer;
     transition: transform 0.1s ease-out;
   }
@@ -479,7 +479,7 @@
     transform: scale(0.92);
   }
   .settings-btn:focus-visible {
-    outline: 2px solid #000;
+    outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
   h1 {
@@ -555,8 +555,8 @@
     gap: var(--space-s);
     padding: var(--space-s);
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-s));
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     animation: slideUp 0.2s ease-out;
   }
   .selcount {
@@ -565,14 +565,14 @@
   .selclear {
     margin-left: auto;
     background: none;
-    border: 1px solid #fff;
-    color: #fff;
+    border: 1px solid var(--paper);
+    color: var(--paper);
     padding: var(--space-2xs) var(--space-s);
     cursor: pointer;
   }
   .selbuild {
     background: #ccff00;
-    color: #000;
+    color: var(--ink);
     border: none;
     padding: var(--space-xs) var(--space-s);
     font-weight: 700;

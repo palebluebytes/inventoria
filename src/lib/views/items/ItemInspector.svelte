@@ -153,7 +153,7 @@
     right: 8px;
     width: 24px;
     height: 24px;
-    background: #fff;
+    background: var(--paper);
     border: var(--edge);
     font-weight: bold;
     display: flex;
@@ -173,7 +173,9 @@
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    background: #fff; /* Blend with white backgrounds of product images */
+    background: var(
+      --paper
+    ); /* Blend with white backgrounds of product images */
   }
   .inspector-image img {
     width: 100%;
@@ -214,14 +216,14 @@
     background: #f4f4f5;
     font-size: var(--step-n2);
     text-decoration: none;
-    color: #000;
+    color: var(--ink);
     font-weight: 600;
     text-transform: uppercase;
     width: fit-content;
   }
   .source-link-btn:hover {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
   }
 
   .inspector-section {
@@ -275,7 +277,7 @@
     border: var(--edge);
     padding: 8px var(--space-xs);
     box-shadow: var(--shadow-1);
-    color: #000;
+    color: var(--ink);
   }
   .note-label {
     font-size: var(--step-n2);

@@ -245,8 +245,8 @@
     background: #e4e4e7;
   }
   .view-tab-btn.active {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
   }
 
   /* Tag Filter Bar */
@@ -260,7 +260,7 @@
   .tag-btn {
     padding: 4px 12px;
     border: var(--edge);
-    background: #fff;
+    background: var(--paper);
     font-weight: 600;
     font-size: var(--step-n2);
     text-transform: uppercase;
@@ -274,11 +274,11 @@
   }
   .tag-btn:active {
     transform: translate(2px, 2px);
-    box-shadow: 0 0 0 #000;
+    box-shadow: 0 0 0 var(--ink);
   }
   .tag-btn.active {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
   }
 
   /* Inventory Layout */
@@ -318,7 +318,7 @@
     align-items: center;
     justify-content: center;
     padding: var(--space-xl);
-    border: 2px dashed #000;
+    border: 2px dashed var(--ink);
     background: rgba(0, 0, 0, 0.02);
     text-align: center;
   }
@@ -332,7 +332,9 @@
   .inventory-slot {
     aspect-ratio: 1;
     border: var(--edge);
-    background: #fff; /* White background to blend with product images */
+    background: var(
+      --paper
+    ); /* White background to blend with product images */
     padding: 0;
     position: relative;
     cursor: pointer;
@@ -349,8 +351,8 @@
     background: #e4e4e7;
   }
   .inventory-slot.selected {
-    background: #000;
-    border-color: #000;
+    background: var(--ink);
+    border-color: var(--ink);
     box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.2);
     transform: translate(-1px, -1px);
   }

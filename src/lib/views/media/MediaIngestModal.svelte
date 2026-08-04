@@ -231,7 +231,7 @@
     top: 50%;
     transform: translate(-50%, -50%);
     z-index: 1001;
-    background: #fff;
+    background: var(--paper);
     border: var(--edge-thick);
     width: calc(100% - 2 * var(--space-s));
     max-width: 600px;
@@ -239,7 +239,7 @@
     display: flex;
     flex-direction: column;
     padding: 0;
-    box-shadow: 12px 12px 0 #000;
+    box-shadow: 12px 12px 0 var(--ink);
     animation: slideUp 0.1s step-end;
     overflow: hidden;
   }
@@ -250,8 +250,8 @@
     align-items: center;
     border-bottom: var(--edge-thick);
     padding: var(--space-s) var(--space-m);
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     margin-bottom: 0;
   }
 
@@ -263,14 +263,14 @@
   }
 
   .close-btn {
-    background: #fff;
+    background: var(--paper);
     border: var(--edge);
     width: 40px;
     height: 40px;
     font-size: 2rem;
     cursor: pointer;
     line-height: 1;
-    color: #000;
+    color: var(--ink);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -302,15 +302,15 @@
     font-family: monospace;
     font-weight: 700;
     border-radius: var(--radius);
-    background: #fff;
+    background: var(--paper);
     box-shadow: inset 2px 2px 0 #e4e4e7;
     transition: all 0.1s step-end;
   }
 
   .retro-input:focus {
     outline: none;
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     box-shadow: none;
   }
 
@@ -330,7 +330,7 @@
     gap: var(--space-s);
     padding: 0;
     border: var(--edge);
-    background: #fff;
+    background: var(--paper);
     box-shadow: var(--shadow-2);
   }
 

@@ -115,7 +115,7 @@
     top: 50%;
     transform: translate(-50%, -50%);
     z-index: 1000;
-    background: var(--bg-surface, #fff);
+    background: var(--bg-surface, var(--paper));
     border: var(--edge-thick);
     box-shadow: var(--shadow-3);
     width: calc(100% - 2 * var(--space-s));
@@ -142,7 +142,7 @@
   .close-btn {
     background: none;
     border: none;
-    color: #000;
+    color: var(--ink);
     font-size: 2rem;
     cursor: pointer;
     line-height: 1;

@@ -124,7 +124,7 @@
 
 <style>
   .media-card {
-    background: #fff;
+    background: var(--paper);
     border: var(--edge);
     display: flex;
     flex-direction: column;
@@ -146,7 +146,7 @@
     aspect-ratio: 2/3;
     object-fit: cover;
     border-bottom: var(--edge);
-    background: #000;
+    background: var(--ink);
     filter: grayscale(100%) contrast(120%);
     transition: filter 0.1s step-end;
   }
@@ -160,10 +160,10 @@
     aspect-ratio: 2/3;
     background: repeating-linear-gradient(
       45deg,
-      #fff,
-      #fff 10px,
-      #000 10px,
-      #000 20px
+      var(--paper),
+      var(--paper) 10px,
+      var(--ink) 10px,
+      var(--ink) 20px
     );
     display: flex;
     align-items: center;
@@ -185,8 +185,8 @@
     font-family: monospace;
     font-size: 0.7rem !important;
     padding: 2px 6px !important;
-    background: #000 !important;
-    color: #fff !important;
+    background: var(--ink) !important;
+    color: var(--paper) !important;
     border-radius: var(--radius) !important;
   }
 
@@ -195,14 +195,14 @@
     font-weight: 900;
     margin: 0;
     line-height: 1.1;
-    color: #000;
+    color: var(--ink);
     text-transform: uppercase;
   }
 
   .card-creator {
     font-family: monospace;
     font-size: var(--step-n2);
-    color: #000;
+    color: var(--ink);
     margin: 0;
     font-weight: 600;
   }
@@ -210,7 +210,7 @@
   .card-date {
     font-family: monospace;
     font-size: var(--step-n2);
-    color: #000;
+    color: var(--ink);
     margin: 0;
     border: var(--edge-thin);
     padding: 0 4px;
@@ -222,8 +222,8 @@
     font-family: monospace;
     font-size: var(--step-n2);
     font-weight: 700;
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     padding: 4px 8px;
     border: var(--edge);
     margin-top: 8px;
@@ -233,7 +233,7 @@
   }
 
   .rating-display {
-    color: #000;
+    color: var(--ink);
     font-size: 0.8rem;
     margin-top: 4px;
   }

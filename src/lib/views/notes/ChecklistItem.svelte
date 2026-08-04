@@ -29,7 +29,7 @@
     justify-content: space-between;
     gap: var(--space-s);
     border: var(--edge);
-    background: #fff;
+    background: var(--paper);
     padding: var(--space-xs) var(--space-s);
     box-shadow: var(--shadow-2);
   }
@@ -44,7 +44,7 @@
   .item-label input[type="checkbox"] {
     width: 1.1rem;
     height: 1.1rem;
-    accent-color: #000;
+    accent-color: var(--ink);
     flex-shrink: 0;
   }
   .item-text {
@@ -63,7 +63,7 @@
     font-weight: 900;
     cursor: pointer;
     padding: 0 var(--space-2xs);
-    color: #000;
+    color: var(--ink);
     flex-shrink: 0;
   }
   .del-btn:hover {

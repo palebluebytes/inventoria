@@ -343,7 +343,7 @@
   }
 
   .agenda-ascii-box {
-    border: 2px solid var(--border-accent);
+    border: var(--edge);
     padding: var(--space-s) var(--space-m);
     background: var(--bg-surface);
     font-family: var(--font-mono);
@@ -404,7 +404,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 2px solid var(--border-accent);
+    border-bottom: var(--edge);
     padding-bottom: var(--space-3xs);
     margin-bottom: var(--space-3xs);
   }
@@ -420,7 +420,7 @@
   :global(.mono-badge) {
     font-family: var(--font-mono) !important;
     font-weight: 700 !important;
-    border: 1px solid var(--border-accent) !important;
+    border: var(--edge-thin) !important;
     border-radius: var(--radius) !important;
   }
 
@@ -452,11 +452,11 @@
   .add-agenda-row:focus {
     background: var(--bg-input);
     color: var(--text-primary);
-    border-color: var(--border-accent);
+    border-color: var(--ink);
   }
 
   .add-agenda-row:active {
-    background: var(--border-accent);
+    background: var(--ink);
     color: var(--bg-surface);
   }
 
@@ -474,7 +474,7 @@
     align-items: center;
     gap: var(--space-s);
     padding: var(--space-s);
-    border: 2px solid var(--border-accent);
+    border: var(--edge);
     font-family: var(--font-mono);
     font-size: var(--step-n1);
     font-weight: 700;

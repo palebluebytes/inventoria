@@ -258,7 +258,7 @@
   }
 
   .kanban-column {
-    background: #fff;
+    background: var(--paper);
     border: var(--edge);
     padding: 0;
     display: flex;
@@ -273,8 +273,8 @@
     align-items: center;
     border-bottom: var(--edge);
     padding: var(--space-xs) var(--space-s);
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     margin-bottom: 0;
   }
 
@@ -284,7 +284,7 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin: 0;
-    color: #fff;
+    color: var(--paper);
   }
 
   .column-header-title {
@@ -295,7 +295,7 @@
 
   .add-btn {
     background: transparent;
-    color: #fff;
+    color: var(--paper);
     border: none;
     font-size: 2rem;
     font-weight: 900;
@@ -312,9 +312,9 @@
   }
 
   .column-header :global(.badge) {
-    background: #fff !important;
-    color: #000 !important;
-    border-color: #fff !important;
+    background: var(--paper) !important;
+    color: var(--ink) !important;
+    border-color: var(--paper) !important;
   }
 
   .column-cards {
@@ -328,12 +328,12 @@
   .empty-column {
     font-family: monospace;
     font-size: var(--step-n1);
-    color: #000;
+    color: var(--ink);
     text-align: center;
     padding: var(--space-xl) var(--space-s);
-    border: 2px dashed #000;
+    border: 2px dashed var(--ink);
     margin: var(--space-s) 0;
-    background: #fff;
+    background: var(--paper);
     text-transform: uppercase;
     grid-column: 1 / -1;
   }
@@ -369,8 +369,8 @@
   }
 
   .mobile-tabs .tab-btn.active {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
   }
 
   @keyframes fadeIn {

@@ -169,8 +169,8 @@
     border-right: none;
   }
   .tab-btn.active {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
   }
 
   .panel {
@@ -186,19 +186,19 @@
   .item-input {
     flex: 1;
     border: var(--edge);
-    background: #fff;
+    background: var(--paper);
     padding: var(--space-xs) var(--space-s);
     font-size: var(--step-0);
   }
   .item-input:focus {
-    outline: 2px solid #000;
+    outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
 
   .add-btn {
     border: var(--edge);
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     font-weight: 700;
     text-transform: uppercase;
     font-size: var(--step-n1);
@@ -231,11 +231,11 @@
   .empty {
     font-family: monospace;
     font-size: var(--step-n1);
-    color: #000;
+    color: var(--ink);
     text-align: center;
     padding: var(--space-l) var(--space-s);
-    border: 2px dashed #000;
-    background: #fff;
+    border: 2px dashed var(--ink);
+    background: var(--paper);
     text-transform: uppercase;
   }
   .placeholder {
@@ -266,15 +266,15 @@
     align-items: center;
     justify-content: space-between;
     border: var(--edge);
-    background: #fff;
+    background: var(--paper);
     margin-bottom: var(--space-xs);
     box-shadow: var(--shadow-2);
   }
   .note-row.active {
-    background: #000;
+    background: var(--ink);
   }
   .note-row.active .note-row-title {
-    color: #fff;
+    color: var(--paper);
   }
   .note-row-title {
     flex: 1;
@@ -285,7 +285,7 @@
     font-weight: 600;
     font-size: var(--step-n1);
     cursor: pointer;
-    color: #000;
+    color: var(--ink);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -301,7 +301,7 @@
     color: inherit;
   }
   .note-row.active .del-btn {
-    color: #fff;
+    color: var(--paper);
   }
   .del-btn:hover {
     transform: scale(1.15);

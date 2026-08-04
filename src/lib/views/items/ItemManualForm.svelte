@@ -182,7 +182,7 @@
     border: var(--edge);
     border-radius: var(--radius);
     font-size: var(--step-n1);
-    background: #fff;
+    background: var(--paper);
     font-family: inherit;
     font-weight: 500;
   }

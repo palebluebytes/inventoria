@@ -41,7 +41,7 @@
     font-size: var(--step-1);
     font-weight: 700;
     border: var(--edge);
-    background: #fff;
+    background: var(--paper);
     padding: var(--space-xs) var(--space-s);
   }
   .note-body {
@@ -49,7 +49,7 @@
     min-height: 16rem;
     resize: vertical;
     border: var(--edge);
-    background: #fff;
+    background: var(--paper);
     padding: var(--space-s);
     font-family: inherit;
     font-size: var(--step-0);
@@ -58,7 +58,7 @@
   }
   .note-title:focus,
   .note-body:focus {
-    outline: 2px solid #000;
+    outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
 </style>

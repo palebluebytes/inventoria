@@ -368,7 +368,7 @@
     align-items: center;
     gap: var(--space-s);
     padding: var(--space-s);
-    border: 2px solid var(--border-accent);
+    border: var(--edge);
     font-family: var(--font-mono);
     font-size: var(--step-n1);
     font-weight: 700;
