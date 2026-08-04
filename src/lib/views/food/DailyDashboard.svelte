@@ -249,7 +249,8 @@
         {@const mealPills = buildNutrientPills(
           totalNutrition(groupedMeals[meal_type]),
           macroNutrients($settingsStore.visible_nutrients),
-          $nutritionDisplayDecimals
+          $nutritionDisplayDecimals,
+          true
         )}
         <div class="meal-items-list">
           {#each groupedMeals[meal_type] as item}
@@ -316,7 +317,9 @@
         </div>
         <!-- Subtle one-line subtotal for the section: Calories + just the macros
              the user tracks (micronutrients belong on the full-day RDA surface,
-             not a running tally), summed over only this meal's items. -->
+             not a running tally), summed over only this meal's items. Empty
+             macros are dropped (hideEmpty) — a "0 g" or absent "–" adds no
+             information, and a calories-only meal reads as just its kcal. -->
         <div class="meal-total" data-testid="meal-total-{meal_type}">
           {#each mealPills as pill (pill.key)}
             <span class="meal-total-item nutrient-{pill.key}">

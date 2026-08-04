@@ -663,10 +663,11 @@ export interface NutrientPill {
  * view just renders it.
  *
  * `hideEmpty` drops any selected nutrient that is missing OR reads as zero at its
- * display precision — a single food's preview then lists only the nutrients it
- * actually carries a value for (a food with no fibre, or 0 g fat, shows neither
- * pill), rather than a "–" or a "0 g". The day/meal summaries leave it false to
- * keep a stable pill set across foods (#29). Calories always lead, never hidden.
+ * display precision — a food preview and the per-meal subtotal then list only the
+ * nutrients they actually carry a value for (no fibre, or 0 g fat, shows neither
+ * pill), rather than a "–" or a "0 g" that adds no information. The recipe
+ * per-serving preview leaves it false to keep a stable pill set as ingredients
+ * change. Calories always lead, never hidden.
  */
 export function buildNutrientPills(
   breakdown: NutritionBreakdown,
