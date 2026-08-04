@@ -251,7 +251,14 @@
   ];
 </script>
 
-<BottomSheet isOpen title={heading} {onClose} {onBack} backLabel="Back">
+<BottomSheet
+  isOpen
+  title={heading}
+  {onClose}
+  {onBack}
+  backLabel="Back"
+  animate={false}
+>
   {#if !ready}
     <p class="loading">Loading recipe…</p>
   {:else}

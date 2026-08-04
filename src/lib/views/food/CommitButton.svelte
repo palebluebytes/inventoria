@@ -42,6 +42,10 @@
     text-transform: uppercase;
     cursor: pointer;
     min-height: 60px;
+    /* Pin the line box so the button is the same height for every label — a
+       fullwidth glyph like "＋" would otherwise inflate `normal` line-height and
+       make the Recipe tab's button taller than the others, shifting the dock. */
+    line-height: 1;
   }
   .commit:active:not(:disabled) {
     transform: scale(0.98);

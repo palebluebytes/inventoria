@@ -156,6 +156,7 @@
   {onClose}
   {onBack}
   backLabel="Back"
+  animate={false}
 >
   <p class="rname" data-testid="instantiation-name">{title}</p>
   {#if ready}

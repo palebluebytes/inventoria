@@ -14,6 +14,7 @@
     backLabel = "Back",
     flushBody = false,
     elevated = false,
+    animate = true,
   }: {
     isOpen?: boolean;
     title?: string;
@@ -57,6 +58,13 @@
      * the recipe/instantiation sheet.
      */
     elevated?: boolean;
+    /**
+     * Slide the sheet up on open. True for a sheet appearing fresh; false for one
+     * that continues an already-open flow (the recipe sub-sheets replace the log
+     * sheet in place), so it doesn't re-slide and jar against the in-sheet tab
+     * switches that don't animate.
+     */
+    animate?: boolean;
   } = $props();
 
   // Backdrop stacking. The default (1700, one below the content's CSS 1701)
@@ -79,6 +87,7 @@
       {...props}
       class="bottom-sheet-content {className}"
       class:flush={flushBody}
+      class:no-anim={!animate}
       style:z-index={elevated ? 1801 : null}
     >
       <div class="bottom-sheet-handle-bar">
@@ -137,6 +146,13 @@
     display: flex;
     flex-direction: column;
     animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* A sheet that continues an already-open flow (the recipe sub-sheets) appears
+     in place instead of sliding up, matching the non-animated in-sheet tab
+     switches it follows. */
+  .bottom-sheet-content.no-anim {
+    animation: none;
   }
 
   /* A flush-body sheet hands its layout to a child that owns its own scroll +
