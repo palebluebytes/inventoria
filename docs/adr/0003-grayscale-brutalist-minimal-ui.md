@@ -23,3 +23,4 @@ We adopted a **Monochrome Brutalist Minimal with Semantic Accents** aesthetic fo
 
 - **Positive:** The MVP has a striking, premium, and highly recognizable aesthetic that accurately feels like a technical ledger. It avoids the generic SaaS template look and maintains extremely high contrast for readability.
 - **Positive:** By re-introducing sharp, pure semantic colors (red/green/yellow) in a brutalist style, we resolve the UX trade-off of a purely grayscale UI, ensuring that users can immediately recognize error, success, and warning states without sacrificing the raw aesthetic.
+- **Update:** The edge-and-elevation recipe named only by example above (border + `border-radius: 0` + solid offset `box-shadow`) is now tokenized as the canonical interface — see ADR-0038 (`--edge`, `--shadow-1/2/3`, `--radius`, `--ink`/`--paper`), with a stylelint rule enforcing it.
