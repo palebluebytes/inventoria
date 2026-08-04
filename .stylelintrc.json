@@ -4,6 +4,12 @@
     {
       "files": ["**/*.svelte"],
       "customSyntax": "postcss-html"
+    },
+    {
+      "files": ["src/app.css"],
+      "rules": {
+        "declaration-property-value-disallowed-list": null
+      }
     }
   ],
   "rules": {
@@ -13,6 +19,11 @@
       { "ignorePseudoClasses": ["global"] }
     ],
     "no-invalid-position-declaration": null,
-    "no-duplicate-selectors": null
+    "no-duplicate-selectors": null,
+    "declaration-property-value-disallowed-list": {
+      "/^(color|background|background-color|border(-top|-right|-bottom|-left)?(-color)?|box-shadow|outline(-color)?|fill|stroke)$/": [
+        "/#(?:000|fff)(?:000|fff)?(?![0-9a-f])/i"
+      ]
+    }
   }
 }
