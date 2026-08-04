@@ -117,32 +117,32 @@
 
   .alert-error {
     background: var(--red-bg);
-    color: var(--red);
+    color: var(--paper);
     border-color: var(--ink);
     border-left-color: var(--ink);
   }
   .alert-error .icon {
-    color: var(--red);
+    color: var(--paper);
   }
 
   .alert-success {
     background: var(--green-bg);
-    color: var(--green);
+    color: var(--ink);
     border-color: var(--ink);
     border-left-color: var(--ink);
   }
   .alert-success .icon {
-    color: var(--green);
+    color: var(--ink);
   }
 
   .alert-warning {
     background: var(--amber-bg);
-    color: var(--amber);
+    color: var(--ink);
     border-color: var(--ink);
     border-left-color: var(--ink);
   }
   .alert-warning .icon {
-    color: var(--amber);
+    color: var(--ink);
   }
 
   .alert-info {

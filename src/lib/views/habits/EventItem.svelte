@@ -172,7 +172,7 @@
   .tracking-box {
     width: 48px;
     min-width: 48px;
-    background: var(--amber);
+    background: var(--ink);
     border-right: var(--edge);
     display: flex;
     align-items: center;
@@ -183,10 +183,10 @@
     flex-shrink: 0;
   }
   .tracking-box.confirmed {
-    background: var(--green);
+    background: var(--ink);
   }
   .tracking-box.missed {
-    background: var(--red);
+    background: var(--paper);
     color: var(--paper);
   }
 

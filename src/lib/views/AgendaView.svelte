@@ -382,7 +382,7 @@
 
   .skip-action {
     background: var(--amber-bg);
-    color: var(--amber);
+    color: var(--ink);
   }
   .cancel-action {
     background: var(--bg-input);

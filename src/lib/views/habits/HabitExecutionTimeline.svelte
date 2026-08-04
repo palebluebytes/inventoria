@@ -111,15 +111,15 @@
   }
   .badge-difficulty.easy {
     background: var(--green-bg);
-    color: var(--green);
+    color: var(--ink);
   }
   .badge-difficulty.medium {
     background: var(--amber-bg);
-    color: var(--amber);
+    color: var(--ink);
   }
   .badge-difficulty.hard {
     background: var(--red-bg);
-    color: var(--red);
+    color: var(--paper);
   }
   .badge-duration {
     font-size: 10px;
@@ -137,11 +137,11 @@
   }
   .badge-status.completed {
     background: var(--green-bg);
-    color: var(--green);
+    color: var(--ink);
   }
   .badge-status.exempt {
     background: var(--amber-bg);
-    color: var(--amber);
+    color: var(--ink);
   }
   .badge-target {
     font-size: 10px;

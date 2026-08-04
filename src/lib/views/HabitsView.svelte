@@ -494,7 +494,7 @@
 
   .skip-action {
     background: var(--amber-bg);
-    color: var(--amber);
+    color: var(--ink);
   }
 
   .detail-action {

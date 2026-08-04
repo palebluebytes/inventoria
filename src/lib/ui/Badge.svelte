@@ -40,19 +40,19 @@
 
   .badge-success {
     background: var(--green-bg);
-    color: var(--green);
+    color: var(--ink);
     border: var(--edge-thin);
   }
 
   .badge-error {
     background: var(--red-bg);
-    color: var(--red);
+    color: var(--paper);
     border: var(--edge-thin);
   }
 
   .badge-warning {
     background: var(--amber-bg);
-    color: var(--amber);
+    color: var(--ink);
     border: var(--edge-thin);
   }
 </style>

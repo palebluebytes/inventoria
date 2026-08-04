@@ -59,12 +59,10 @@
   --accent-light: #52525b;
   --accent-glow: rgba(0, 0, 0, 0.1);
 
-  /* Minimal Brutalist Semantic Colors */
-  --green: #000;
+  /* Minimal Brutalist Semantic Colors — backgrounds only; foregrounds are
+     var(--ink)/var(--paper) (see ADR-0003 amendment, 2026-08-05) */
   --green-bg: #ccff00; /* Sharp acid green for success */
-  --red: #fff;
   --red-bg: #ff3333; /* Pure striking red for error */
-  --amber: #000;
   --amber-bg: #ffcc00; /* Sharp yellow for warning */
 
   /* Ink & paper — the pure brutalist fill/edge pair */
