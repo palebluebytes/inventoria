@@ -54,9 +54,6 @@
   // The meal whose log sheet is open (null = closed). Opening is direct — no
   // intermediate chooser.
   let sheet_meal_type = $state<MealType | null>(null);
-  // Which tab the log sheet opens on — set to "recipe" when a recipe sub-sheet's
-  // back button returns to the Recipe browser; null (→ Search) otherwise.
-  let sheet_initial_method = $state<string | null>(null);
   // The logged event being edited (null = adding). When set, the log sheet opens
   // in edit mode and saving replaces this event (append-only).
   let editEvent = $state<ConsumptionEvent | null>(null);
@@ -108,19 +105,9 @@
   let dayItems = $derived(consumptionForDay($consumptionStore, selectedDate));
   let selectedItems = $derived(dayItems.filter((i) => selected_ids.has(i.id)));
 
-  function openSheet(meal_type: MealType, method?: string) {
+  function openSheet(meal_type: MealType) {
     editEvent = null;
-    sheet_initial_method = method ?? null;
     sheet_meal_type = meal_type;
-  }
-
-  // Return from a recipe sub-sheet (Log recipe / New recipe / Edit recipe) to the
-  // Recipe browser it was opened from, reopening the log sheet on that tab — so
-  // the recipe flow has the same back affordance as every other add flow.
-  function backToRecipes(meal_type: MealType) {
-    instantiateOpen = false;
-    recipeOpen = false;
-    openSheet(meal_type, "recipe");
   }
 
   // Open the right editor for a tapped card. A Recipe Instantiation (carries a
@@ -202,18 +189,6 @@
     });
   }
 
-  // Instantiate the picked Recipe Twin into the meal the log sheet was opened
-  // for: close the log sheet, load the template, open the instantiation editor.
-  async function pickRecipe(recipeEntity: string) {
-    const twin = await getLocalFoodTwin(recipeEntity);
-    if (!twin) return;
-    instantiate_meal_type = sheet_meal_type ?? "dinner";
-    closeSheet();
-    instantiate_template = twin;
-    instantiate_edit = null;
-    instantiateOpen = true;
-  }
-
   function closeInstantiation() {
     instantiateOpen = false;
     instantiate_template = null;
@@ -238,27 +213,6 @@
     recipeOpen = false; // …but stay closed
   }
 
-  // Define a brand-new Recipe Twin from scratch — the builder opens empty and on
-  // save writes the template AND logs one serving onto the current day, into the
-  // meal this sheet was opened from (ADR-0022, amended: a new recipe lands on the
-  // day it was built).
-  function defineRecipe() {
-    recipe_meal_type = sheet_meal_type ?? "dinner";
-    closeSheet();
-    openRecipe("define", null);
-  }
-
-  // Edit an existing Recipe Twin's template. The builder seeds from the twin's
-  // current ingredients/yield/fields; saving re-seeds only FUTURE instantiations
-  // (past snapshots never move) and logs nothing.
-  async function editRecipe(recipeEntity: string) {
-    const twin = await getLocalFoodTwin(recipeEntity);
-    if (!twin) return;
-    recipe_meal_type = sheet_meal_type ?? "dinner";
-    closeSheet();
-    openRecipe("edit", twin);
-  }
-
   // Remove a logged food (append-only retraction; the projection hides it).
   function removeItem(id: string) {
     void retractConsumptionEvent(id);
@@ -266,7 +220,6 @@
 
   function closeSheet() {
     sheet_meal_type = null;
-    sheet_initial_method = null;
     editEvent = null;
   }
 
@@ -424,11 +377,7 @@
     meal_type={sheet_meal_type}
     {selectedDate}
     edit={editEvent}
-    initialMethod={sheet_initial_method ?? undefined}
     onClose={closeSheet}
-    onPickRecipe={pickRecipe}
-    onDefineRecipe={defineRecipe}
-    onEditRecipe={editRecipe}
   />
 {/if}
 
@@ -441,9 +390,6 @@
     template={instantiate_template}
     edit={instantiate_edit}
     onClose={closeInstantiation}
-    onBack={instantiate_template
-      ? () => backToRecipes(instantiate_meal_type)
-      : undefined}
   />
 {/if}
 
@@ -489,9 +435,6 @@
     template={recipe_template}
     initialIngredients={recipe_seed}
     onClose={closeRecipe}
-    onBack={recipe_mode !== "consolidate"
-      ? () => backToRecipes(recipe_meal_type)
-      : undefined}
   />
 {/if}
 

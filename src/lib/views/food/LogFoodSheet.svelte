@@ -31,6 +31,8 @@
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import FoodStager from "./FoodStager.svelte";
   import CommitButton from "./CommitButton.svelte";
+  import RecipeInstantiator from "./RecipeInstantiator.svelte";
+  import RecipeBuilder from "./RecipeBuilder.svelte";
 
   // A single sheet for logging food into one meal. Opens directly on "+ Add"
   // (no chooser); the shared FoodStager (issue #16) owns the Search / Scan /
@@ -44,17 +46,13 @@
     selectedDate,
     onClose,
     edit = null,
-    onPickRecipe,
-    onDefineRecipe,
-    onEditRecipe,
     initialMethod = undefined,
   }: {
     dbReady: boolean;
     meal_type: "breakfast" | "lunch" | "dinner" | "snack";
     selectedDate: Date;
     onClose: () => void;
-    /** Tab to open on — the parent passes "recipe" so a sub-sheet's back button
-     *  returns straight to the Recipe browser. */
+    /** Tab to open on (e.g. "recipe"). Defaults to Search. */
     initialMethod?: string;
     /**
      * When set, the sheet edits an existing logged event instead of adding a new
@@ -63,24 +61,6 @@
      * retracts `edit` (append-only), so history stays immutable (ADR-0008).
      */
     edit?: ConsumptionEvent | null;
-    /**
-     * Picks a saved Recipe Twin to instantiate into this meal (the Instantiate
-     * verb, ADR-0022). Called with the twin's entity id; the parent closes this
-     * sheet and opens the instantiation editor. When omitted, the Recipe method
-     * is hidden.
-     */
-    onPickRecipe?: (recipeEntity: string) => void;
-    /**
-     * Opens the recipe builder to Define a brand-new Recipe Twin from scratch,
-     * logging nothing (ADR-0022 #13). The parent closes this sheet and opens the
-     * builder in define mode.
-     */
-    onDefineRecipe?: () => void;
-    /**
-     * Opens the recipe builder to Edit an existing Recipe Twin's template — its
-     * edit re-seeds only future instantiations (#13). Called with the twin's id.
-     */
-    onEditRecipe?: (recipeEntity: string) => void;
   } = $props();
 
   // Saved Recipe Twins for the Instantiate browser, deduped by entity (newest
@@ -154,6 +134,39 @@
   // The staged food, bound from the stager so the header's back button can clear
   // it ("Change food"); hidden in edit mode, which locks onto one food's amount.
   let staged = $state<FoodResult | null>(null);
+
+  // The Recipe tab's sub-view, all rendered INSIDE this sheet (no separate sheet):
+  // the browser list, an instantiation editor for a picked recipe, or the builder
+  // for a new / edited template. Picking, "＋ New recipe" and "Edit" just switch
+  // this; the header stays the meal name and the shared dock stays put — exactly
+  // like Search / Custom. The dashboard-originated Consolidate / Correct flows
+  // still open the standalone RecipeModal / InstantiationSheet (no log sheet open).
+  type RecipeTwin = { entity: string; attributes: Record<string, any> };
+  type RecipeView =
+    | { kind: "list" }
+    | { kind: "instantiate"; template: RecipeTwin }
+    | { kind: "build"; mode: "define" | "edit"; template: RecipeTwin | null };
+  let recipeView = $state<RecipeView>({ kind: "list" });
+  // The embedded recipe editor hands its commit to the shared dock (the same
+  // ManualEntryFlow contract): a save handler, its readiness, and its label.
+  let recipeRequestSave = $state<(() => void) | undefined>(undefined);
+  let recipeSaveReady = $state(false);
+  let recipeSaveLabel = $state("Log");
+
+  async function pickRecipe(entity: string) {
+    const twin = await getLocalFoodTwin(entity);
+    if (twin) recipeView = { kind: "instantiate", template: twin };
+  }
+  async function editRecipe(entity: string) {
+    const twin = await getLocalFoodTwin(entity);
+    if (twin) recipeView = { kind: "build", mode: "edit", template: twin };
+  }
+  function newRecipe() {
+    recipeView = { kind: "build", mode: "define", template: null };
+  }
+  function backToRecipeList() {
+    recipeView = { kind: "list" };
+  }
 
   // The stager's unified back capability (staged food, capture form, or manual
   // mini-form), driving the shared header back button so every internal step of
@@ -380,15 +393,34 @@
       customFat: "custom-fat",
       customCarb: "custom-carb",
     }}
-    extraTabs={onPickRecipe
-      ? [{ id: "recipe", icon: "🍲", label: "Recipe" }]
-      : []}
+    extraTabs={[{ id: "recipe", icon: "🍲", label: "Recipe" }]}
+    tabBack={recipeView.kind !== "list" ? backToRecipeList : undefined}
     onChoose={handleChoose}
     {primaryLabel}
   >
     {#snippet tabContent(tab)}
       {#if tab === "recipe"}
-        {#if recipes.length === 0}
+        {#if recipeView.kind === "instantiate"}
+          <RecipeInstantiator
+            {meal_type}
+            {selectedDate}
+            template={recipeView.template}
+            onCommitted={onClose}
+            bind:requestSave={recipeRequestSave}
+            bind:saveReady={recipeSaveReady}
+          />
+        {:else if recipeView.kind === "build"}
+          <RecipeBuilder
+            {meal_type}
+            {selectedDate}
+            mode={recipeView.mode}
+            template={recipeView.template}
+            onCommitted={onClose}
+            bind:requestSave={recipeRequestSave}
+            bind:saveReady={recipeSaveReady}
+            bind:saveLabel={recipeSaveLabel}
+          />
+        {:else if recipes.length === 0}
           <p class="hint">
             No saved recipes yet. Create one with the button below, or build one
             by selecting logged foods on the dashboard.
@@ -401,7 +433,7 @@
                 <button
                   type="button"
                   class="recipe-pick"
-                  onclick={() => onPickRecipe?.(r.entity)}
+                  onclick={() => pickRecipe(r.entity)}
                 >
                   <span class="recipe-pick-name">{r.name}</span>
                   <span class="recipe-pick-go" aria-hidden="true">›</span>
@@ -409,7 +441,7 @@
                 <button
                   type="button"
                   class="recipe-edit"
-                  onclick={() => onEditRecipe?.(r.entity)}
+                  onclick={() => editRecipe(r.entity)}
                   aria-label="Edit {r.name}">Edit</button
                 >
               </li>
@@ -421,11 +453,23 @@
 
     {#snippet tabDock(tab)}
       {#if tab === "recipe"}
-        <!-- The Recipe tab's docked primary action, pinned at the bottom like the
-             Log button on every other tab. -->
-        <CommitButton id="define-recipe-btn" onclick={() => onDefineRecipe?.()}
-          >＋ New recipe</CommitButton
-        >
+        {#if recipeView.kind === "list"}
+          <!-- Top of the Recipe tab: the create action, pinned like the Log
+               button on every other tab. -->
+          <CommitButton id="define-recipe-btn" onclick={newRecipe}
+            >＋ New recipe</CommitButton
+          >
+        {:else}
+          <!-- A recipe editor is open in-place: its commit rides the same dock
+               button as every other flow, driven by the editor's bindables. -->
+          <CommitButton
+            id="log-recipe-btn"
+            disabled={!recipeSaveReady}
+            onclick={() => recipeRequestSave?.()}
+          >
+            {recipeView.kind === "build" ? recipeSaveLabel : "Log"}
+          </CommitButton>
+        {/if}
       {/if}
     {/snippet}
   </FoodStager>

@@ -131,6 +131,11 @@
      *  primary button sits on the built-in tabs — e.g. the Recipe browser's
      *  "＋ New recipe". Rendered only while an extra tab is active. */
     tabDock,
+    /** Back handler for an extra tab in a focused sub-state — e.g. the Recipe
+     *  browser having drilled into a recipe's editor. When set, the shared header
+     *  back button drives it and the method switcher hides (the sub-state owns the
+     *  screen, like a staged food). Null at the tab's top level. */
+    tabBack = undefined,
   }: {
     onChoose: (choice: FoodChoice) => ChooseOutcome | Promise<ChooseOutcome>;
     primaryLabel: (ctx: PrimaryLabelContext) => string;
@@ -149,6 +154,7 @@
     initialMethod?: string;
     tabContent?: import("svelte").Snippet<[string]>;
     tabDock?: import("svelte").Snippet<[string]>;
+    tabBack?: () => void;
   } = $props();
 
   type BaseMethod = "search" | "scan" | "custom";
@@ -1082,8 +1088,14 @@
   // read-along form was opened by a scan door (`captureReason` set): that flow is
   // a focused "fill in the label" task, so Search/Scan/Custom/Recipe would only
   // invite the user to abandon it. A manual Custom tap clears captureReason, so
-  // the tabs stay put there.
-  let showTabs = $derived(!staged && !lockMethods && captureReason === null);
+  // the tabs stay put there. It also hides while an extra tab is in a focused
+  // sub-state (`tabBack` set) — e.g. a recipe's editor — for the same reason.
+  let showTabs = $derived(
+    !staged &&
+      !lockMethods &&
+      captureReason === null &&
+      !(isExtra(method) && !!tabBack)
+  );
   // A manual-entry edit seed (ADR-0035 edit path) routes back to ManualEntryFlow
   // even in edit mode, so its own mini-form re-opens (not the label form).
   let manualSeed = $derived(seed?.kind === "manual" ? seed : null);
@@ -1122,10 +1134,14 @@
   // Compose the stager's internal back navigation so the host's one header back
   // button serves every sub-state. Order mirrors how a user drilled in: a staged
   // food unstages (unless method-locked in edit), a barcode-door capture form
-  // returns to the scan view it came from, and a manual mini-form returns to the
-  // intent chooser.
+  // returns to the scan view it came from, a manual mini-form returns to the
+  // intent chooser, and a host extra-tab sub-state (e.g. a recipe editor) returns
+  // via its `tabBack`.
   let stagerCanGoBack = $derived(
-    (!!staged && !lockMethods) || captureReason !== null || manualCanBack
+    (!!staged && !lockMethods) ||
+      captureReason !== null ||
+      manualCanBack ||
+      (isExtra(method) && !!tabBack)
   );
   function stagerGoBack() {
     if (staged && !lockMethods) {
@@ -1141,7 +1157,11 @@
       method = "scan";
       return;
     }
-    if (manualCanBack) manualRequestBack?.();
+    if (manualCanBack) {
+      manualRequestBack?.();
+      return;
+    }
+    if (isExtra(method)) tabBack?.();
   }
   // Publish the capability to the host (bindable props).
   $effect(() => {
