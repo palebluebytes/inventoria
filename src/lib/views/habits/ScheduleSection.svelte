@@ -131,7 +131,7 @@
     font-family: var(--font-mono);
     font-size: var(--step-0);
     font-weight: 800;
-    color: #000;
+    color: var(--ink);
     margin: 0;
   }
 
@@ -139,17 +139,17 @@
     font-family: var(--font-mono) !important;
     font-weight: 700 !important;
     border: none !important;
-    background: #000 !important;
-    color: #fff !important;
+    background: var(--ink) !important;
+    color: var(--paper) !important;
     border-radius: var(--radius) !important;
   }
 
   .add-agenda-row {
     flex: 1;
-    border: 2px dashed #000;
+    border: 2px dashed var(--ink);
     padding: var(--space-s);
     text-align: center;
-    color: #000;
+    color: var(--ink);
     font-family: var(--font-mono);
     font-size: var(--step-n2);
     font-weight: 700;
@@ -164,8 +164,8 @@
     background: var(--bg-input);
   }
   .add-agenda-row:active {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
   }
 
   /* ── Time-gutter layout ── */
@@ -200,13 +200,13 @@
     font-size: var(--step-n2);
     font-weight: 700;
     color: #666;
-    background: #fff;
+    background: var(--paper);
     gap: 2px;
     min-height: 48px;
   }
 
   .time-start {
-    color: #000;
+    color: var(--ink);
   }
 
   .time-pipe {
@@ -243,7 +243,7 @@
 
   .habit-wrap.is-overlap,
   .event-wrap.is-overlap {
-    border-left: 8px solid #000;
+    border-left: 8px solid var(--ink);
   }
 
   /* ── Add buttons ── */

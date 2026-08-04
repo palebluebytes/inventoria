@@ -48,8 +48,8 @@
 
   .agenda-ascii-box {
     padding: var(--space-s) var(--space-m);
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     font-family: var(--font-mono);
     text-align: center;
   }
@@ -72,7 +72,7 @@
     padding: var(--space-2xs) var(--space-xs);
   }
   .nav-arrow:hover {
-    color: #fff;
+    color: var(--paper);
   }
 
   .agenda-ascii-center {
@@ -84,7 +84,7 @@
   .agenda-ascii-title {
     font-size: var(--step-0);
     font-weight: 900;
-    color: #fff;
+    color: var(--paper);
   }
 
   .agenda-ascii-date {

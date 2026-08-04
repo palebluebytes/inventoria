@@ -117,7 +117,7 @@
 
   /* Bits UI Calendar Brutalist Styles */
   :global(.bits-calendar) {
-    background: #fff;
+    background: var(--paper);
     border: var(--edge);
     box-shadow: var(--shadow-2);
     padding: var(--space-s);
@@ -130,7 +130,7 @@
     z-index: 1810;
     pointer-events: auto;
     /* Suppress any background bits-ui adds to the floating element itself */
-    color: #000;
+    color: var(--ink);
   }
   /* bits-ui wraps Content in a data-bits-* div — reset any inherited bg, and
      carry the same over-sheet stacking + pointer-events onto that wrapper. */

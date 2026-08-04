@@ -355,7 +355,7 @@
     width: 100%;
     height: 80px;
     background: transparent;
-    border: 1px solid var(--border-accent);
+    border: var(--edge-thin);
     padding: var(--space-2xs) var(--space-s);
     font-family: inherit;
     font-size: var(--step-n1);
@@ -364,14 +364,14 @@
     resize: none;
   }
   .textarea-brutal:focus {
-    background: #fff;
-    box-shadow: 0 0 0 1px #000;
+    background: var(--paper);
+    box-shadow: 0 0 0 1px var(--ink);
   }
   .select-brutal,
   .input-number-brutal {
     width: 100%;
     background: transparent;
-    border: 1px solid var(--border-accent);
+    border: var(--edge-thin);
     padding: var(--space-2xs) var(--space-s);
     font-family: inherit;
     font-size: var(--step-n1);
@@ -381,8 +381,8 @@
   }
   .select-brutal:focus,
   .input-number-brutal:focus {
-    background: #fff;
-    box-shadow: 0 0 0 1px #000;
+    background: var(--paper);
+    box-shadow: 0 0 0 1px var(--ink);
   }
   .action-buttons-row {
     display: flex;

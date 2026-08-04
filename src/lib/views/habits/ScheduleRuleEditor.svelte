@@ -279,7 +279,7 @@
   .segmented-control {
     display: flex;
     border: var(--edge);
-    background: #000;
+    background: var(--ink);
     gap: 2px;
   }
 
@@ -291,7 +291,7 @@
     padding: var(--space-xs) var(--space-2xs);
     border: none;
     background: var(--bg-surface);
-    color: #000;
+    color: var(--ink);
     cursor: pointer;
     text-align: center;
     text-transform: uppercase;
@@ -305,8 +305,8 @@
   }
 
   .segment-btn.active {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
   }
 
   /* Daily Config styling */
@@ -364,7 +364,7 @@
 
   .delete-subtarget-btn {
     background: var(--red-bg);
-    color: #fff;
+    color: var(--paper);
     border: var(--edge);
     padding: var(--space-xs);
     font-family: var(--font-mono);
@@ -429,8 +429,8 @@
   }
 
   .counter-btn:hover {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
   }
 
   .counter-val {
@@ -459,7 +459,7 @@
     padding: var(--space-s) var(--space-3xs);
     border: var(--edge);
     background: var(--bg-surface);
-    color: #000;
+    color: var(--ink);
     cursor: pointer;
     transition:
       transform 0.05s ease,
@@ -479,7 +479,7 @@
 
   .day-btn-brutal.selected {
     background: var(--amber-bg);
-    color: #000;
+    color: var(--ink);
     box-shadow: var(--shadow-1);
   }
 </style>

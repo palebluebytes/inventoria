@@ -319,7 +319,7 @@
   .habit-name {
     font-weight: 800;
     font-size: var(--step-0);
-    color: #000;
+    color: var(--ink);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -346,7 +346,7 @@
   .off-day-pill {
     font-size: var(--step-n2);
     font-weight: 700;
-    color: #000;
+    color: var(--ink);
     background: #e5e5e5;
     padding: 2px 6px;
     border-radius: 4px;

@@ -14,15 +14,15 @@
   function getCategoryColor(cat: string): string {
     switch (cat.toLowerCase()) {
       case "fitness":
-        return "background-color: var(--green-bg); color: var(--green); border-color: var(--border-accent);";
+        return "background-color: var(--green-bg); color: var(--green); border-color: var(--ink);";
       case "health":
-        return "background-color: #38bdf8; color: #000; border-color: var(--border-accent);";
+        return "background-color: #38bdf8; color: var(--ink); border-color: var(--ink);";
       case "mind":
-        return "background-color: #c084fc; color: #000; border-color: var(--border-accent);";
+        return "background-color: #c084fc; color: var(--ink); border-color: var(--ink);";
       case "productivity":
-        return "background-color: var(--amber-bg); color: var(--amber); border-color: var(--border-accent);";
+        return "background-color: var(--amber-bg); color: var(--amber); border-color: var(--ink);";
       default:
-        return "background-color: #94a3b8; color: #fff; border-color: var(--border-accent);";
+        return "background-color: #94a3b8; color: var(--paper); border-color: var(--ink);";
     }
   }
 
@@ -71,7 +71,7 @@
     font-weight: 700;
     font-size: var(--step-n2);
     text-transform: uppercase;
-    border: 1px solid var(--border-accent);
+    border: var(--edge-thin);
   }
   .schedule-summary {
     color: var(--text-secondary);

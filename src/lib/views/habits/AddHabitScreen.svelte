@@ -366,7 +366,7 @@
     padding: var(--space-3xs) var(--space-xs);
     border: var(--edge);
     background: var(--bg-surface);
-    color: #000;
+    color: var(--ink);
     cursor: pointer;
     transition:
       transform 0.05s ease,
@@ -386,7 +386,7 @@
 
   .category-chip.selected {
     background: var(--green-bg);
-    color: #000;
+    color: var(--ink);
     box-shadow: var(--shadow-1);
   }
 
@@ -419,8 +419,8 @@
     font-weight: 700;
     padding: var(--space-3xs) var(--space-2xs);
     border: var(--edge);
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     cursor: pointer;
   }
 
@@ -462,8 +462,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     padding: var(--space-xs) var(--space-s);
     border: var(--edge);
     font-family: var(--font-mono);
@@ -473,7 +473,7 @@
 
   .clear-equipment-btn {
     background: var(--amber-bg);
-    color: #000;
+    color: var(--ink);
     border: var(--edge);
     padding: var(--space-3xs) var(--space-2xs);
     font-family: var(--font-mono);
@@ -553,7 +553,7 @@
   .error-box-brutal {
     border: 2px solid var(--red-bg);
     background: var(--red-bg);
-    color: #fff;
+    color: var(--paper);
     padding: var(--space-s);
     font-family: var(--font-mono);
     font-size: var(--step-n1);
@@ -563,8 +563,8 @@
 
   .btn-submit-brutal {
     width: 100%;
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     font-family: var(--font-mono);
     font-size: var(--step-n1);
     font-weight: 800;

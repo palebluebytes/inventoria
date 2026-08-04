@@ -179,7 +179,7 @@
     justify-content: center;
     font-weight: 900;
     font-size: var(--step-0);
-    color: #000;
+    color: var(--ink);
     flex-shrink: 0;
   }
   .tracking-box.confirmed {
@@ -187,7 +187,7 @@
   }
   .tracking-box.missed {
     background: var(--red);
-    color: #fff;
+    color: var(--paper);
   }
 
   /* Content */
@@ -202,7 +202,7 @@
   .event-title {
     font-weight: 800;
     font-size: var(--step-0);
-    color: #000;
+    color: var(--ink);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -233,7 +233,7 @@
   .confirmed-badge {
     font-size: var(--step-n2);
     font-weight: 700;
-    background: #000;
+    background: var(--ink);
     color: var(--green-bg);
     padding: 2px 6px;
     letter-spacing: 0.05em;
@@ -242,7 +242,7 @@
   .missed-badge {
     font-size: var(--step-n2);
     font-weight: 700;
-    background: #000;
+    background: var(--ink);
     color: var(--red-bg);
     padding: 2px 6px;
     letter-spacing: 0.05em;
@@ -251,8 +251,8 @@
   .now-badge {
     font-size: var(--step-n2);
     font-weight: 700;
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     padding: 2px 6px;
     letter-spacing: 0.05em;
   }
@@ -269,8 +269,8 @@
   .appt-badge {
     font-size: var(--step-n2);
     font-weight: 700;
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     padding: 2px 6px;
     border-radius: 4px;
     letter-spacing: 0.05em;

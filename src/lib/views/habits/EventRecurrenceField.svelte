@@ -136,7 +136,7 @@
     <div
       class="time-slots-section"
       style={recurType !== "none"
-        ? "border-top: 2px dashed var(--border-accent); padding-top: var(--space-s); margin-top: var(--space-s);"
+        ? "border-top: 2px dashed var(--ink); padding-top: var(--space-s); margin-top: var(--space-s);"
         : "padding-top: var(--space-s); margin-top: var(--space-s);"}
     >
       {#if extraTimeSlots.length > 0}
@@ -239,7 +239,7 @@
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 2px;
-    background: #000;
+    background: var(--ink);
     border: var(--edge);
   }
   .seg-grid .seg-btn {
@@ -264,8 +264,8 @@
     border-right: none;
   }
   .seg-btn.active {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
   }
 
   /* Day grid */
@@ -289,8 +289,8 @@
     justify-content: center;
   }
   .day-btn.selected {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
   }
 
   .until-row {
@@ -312,7 +312,7 @@
 
   .remove-btn {
     background: var(--red-bg);
-    color: #fff;
+    color: var(--paper);
     border: var(--edge);
     font-family: var(--font-mono);
     font-weight: 900;
@@ -327,7 +327,7 @@
   }
 
   .add-slot-btn {
-    border: 2px dashed #000;
+    border: 2px dashed var(--ink);
     background: transparent;
     font-family: var(--font-mono);
     font-size: var(--step-n2);

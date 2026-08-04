@@ -67,7 +67,7 @@
     bottom: 8px;
     left: 4px;
     width: 2px;
-    background-color: var(--border-accent);
+    background-color: var(--ink);
   }
   .timeline-item {
     position: relative;
@@ -83,7 +83,7 @@
     width: 10px;
     height: 10px;
     background-color: var(--bg-base);
-    border: 2px solid var(--border-accent);
+    border: var(--edge);
     border-radius: 50%;
   }
   .timeline-content {
@@ -107,7 +107,7 @@
     font-weight: 700;
     text-transform: uppercase;
     padding: 1px 4px;
-    border: 1px solid var(--border-accent);
+    border: var(--edge-thin);
   }
   .badge-difficulty.easy {
     background: var(--green-bg);
@@ -123,8 +123,8 @@
   }
   .badge-duration {
     font-size: 10px;
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     padding: 1px 4px;
     font-weight: 500;
   }
@@ -133,7 +133,7 @@
     font-weight: 700;
     text-transform: uppercase;
     padding: 1px 4px;
-    border: 1px solid var(--border-accent);
+    border: var(--edge-thin);
   }
   .badge-status.completed {
     background: var(--green-bg);
@@ -147,7 +147,7 @@
     font-size: 10px;
     font-weight: 600;
     background: var(--bg-input);
-    border: 1px solid var(--border-accent);
+    border: var(--edge-thin);
     padding: 1px 4px;
   }
   .timeline-note {
@@ -164,7 +164,7 @@
     padding: var(--space-xl) 0;
   }
   .shadow-brutal {
-    border: 2px solid var(--border-accent) !important;
-    box-shadow: 4px 4px 0px 0px var(--border-accent);
+    border: var(--edge) !important;
+    box-shadow: 4px 4px 0px 0px var(--ink);
   }
 </style>

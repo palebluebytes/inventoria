@@ -365,7 +365,7 @@
     outline: none;
     width: 100%;
     text-transform: uppercase;
-    caret-color: #000;
+    caret-color: var(--ink);
   }
   .hero-input::placeholder {
     color: var(--text-muted);
@@ -436,8 +436,8 @@
     margin-top: 2px;
   }
   .checkbox.checked {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
   }
 
   .toggle-text {
@@ -470,8 +470,8 @@
     font-weight: 900;
   }
   .inline-checkbox.checked {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
   }
 
   /* Description */
@@ -493,8 +493,8 @@
 
   .save-btn {
     width: 100%;
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     border: none;
     font-family: var(--font-mono);
     font-size: var(--step-0);

@@ -134,22 +134,22 @@
   }
   .heatmap-cell.completed {
     background-color: var(--green-bg);
-    border-color: var(--border-accent);
+    border-color: var(--ink);
   }
   .heatmap-cell.failed {
     background-color: var(--red-bg);
-    border-color: var(--border-accent);
+    border-color: var(--ink);
   }
   .heatmap-cell.exempt {
     background-color: var(--amber-bg);
-    border-color: var(--border-accent);
+    border-color: var(--ink);
   }
   .heatmap-cell.off {
     background-color: var(--bg-input);
     border-color: var(--border);
   }
   .heatmap-cell.today {
-    outline: 2px solid var(--border-accent);
+    outline: var(--edge);
     outline-offset: -1px;
   }
   .heatmap-cell.future {
