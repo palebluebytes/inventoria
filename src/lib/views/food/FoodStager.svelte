@@ -59,6 +59,7 @@
 
   import Alert from "../../ui/Alert.svelte";
   import Input from "../../ui/Input.svelte";
+  import Segmented from "../../ui/Segmented.svelte";
   import FoodResultsList from "./FoodResultsList.svelte";
   import LabelPhotoReader from "./LabelPhotoReader.svelte";
   import FoodAmountPanel from "./FoodAmountPanel.svelte";
@@ -277,6 +278,10 @@
   let customName = $state("");
   let customBrand = $state("");
   let customBasis = $state<Basis>("per_100g");
+  const BASIS_OPTIONS: { value: Basis; label: string }[] = [
+    { value: "per_100g", label: "100 g" },
+    { value: "per_serving", label: "serving" },
+  ];
   // Grams one serving weighs — only meaningful when the basis is per_serving.
   let customServingGrams = $state("");
   // Per-field typed strings keyed by NutritionInfo field; "" ⇒ absent (not 0).
@@ -1460,24 +1465,13 @@
           </div>
         </div>
 
-        <div
-          class="cf-basis"
-          role="group"
-          aria-label="Values on the label are per"
-        >
-          <span class="cf-basis-lbl">Values per</span>
-          <div class="cf-seg">
-            <button
-              type="button"
-              class:on={customBasis === "per_100g"}
-              onclick={() => (customBasis = "per_100g")}>100 g</button
-            >
-            <button
-              type="button"
-              class:on={customBasis === "per_serving"}
-              onclick={() => (customBasis = "per_serving")}>serving</button
-            >
-          </div>
+        <div class="cf-basis">
+          <Segmented
+            label="Values per"
+            options={BASIS_OPTIONS}
+            bind:value={customBasis}
+            testid="cf-basis"
+          />
           {#if customBasis === "per_serving"}
             <!-- A serving weight resolves the panel's serving_size to `N g`; left
                  blank it stays the bare `1 serving` (§3). -->
@@ -2129,15 +2123,14 @@
     object-fit: cover;
     display: block;
   }
+  /* The basis picker (now a shared Segmented) stacked above its optional
+     serving-grams field. */
   .cf-basis {
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    align-items: flex-start;
     gap: var(--space-xs);
     margin-bottom: var(--space-m);
-  }
-  .cf-basis-lbl {
-    font-size: 0.82rem;
-    color: var(--text-secondary);
   }
   .cf-serving {
     display: inline-flex;
@@ -2150,28 +2143,6 @@
     width: 4.5rem;
     text-align: right;
     min-height: 40px;
-  }
-  .cf-seg {
-    display: inline-flex;
-    flex: 1;
-    max-width: 16rem;
-    border: 1.5px solid var(--border-accent);
-    border-radius: 10px;
-    overflow: hidden;
-  }
-  .cf-seg button {
-    flex: 1;
-    border: 0;
-    background: #fff;
-    padding: 0.5rem 0.6rem;
-    font: inherit;
-    font-weight: 600;
-    cursor: pointer;
-    min-height: 40px;
-  }
-  .cf-seg button.on {
-    background: #000;
-    color: #fff;
   }
 
   .cf-group {

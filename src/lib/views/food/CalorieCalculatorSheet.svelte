@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import BottomSheet from "../../ui/BottomSheet.svelte";
+  import Segmented from "../../ui/Segmented.svelte";
   import {
     computeEnergyAndMacros,
     mifflinStJeorBmr,
@@ -66,6 +67,10 @@
   // energy; a number → an explicit override (still floored at BMR by the module).
   let nudgeKcal = $state<number | null>(null);
 
+  const SEX_OPTIONS: { value: BiologicalSex; label: string }[] = [
+    { value: "female", label: "Female" },
+    { value: "male", label: "Male" },
+  ];
   const ACTIVITY_OPTIONS: {
     value: ActivityLevel;
     label: string;
@@ -202,31 +207,22 @@
       where they stay editable. Nothing recalculates behind your back.
     </p>
 
-    <!-- Biological sex — a metabolic-estimate input only (ADR-0033 §6). -->
-    <fieldset class="field">
-      <legend>Biological sex</legend>
-      <div class="segmented two">
-        <button
-          type="button"
-          class="seg"
-          class:on={sex === "female"}
-          data-sex="female"
-          onclick={() => (sex = "female")}>Female</button
-        >
-        <button
-          type="button"
-          class="seg"
-          class:on={sex === "male"}
-          data-sex="male"
-          onclick={() => (sex = "male")}>Male</button
-        >
-      </div>
+    <!-- Biological sex — a metabolic-estimate input only (ADR-0033 §6). Starts
+         empty (null), so mark the group required. -->
+    <div class="field">
+      <Segmented
+        label="Biological sex"
+        options={SEX_OPTIONS}
+        bind:value={sex}
+        required
+        testid="calc-sex"
+      />
       <p class="hint">
         Used only to estimate your resting metabolism — Mifflin-St Jeor is
         defined for two groups. It affects nothing else, and you can adjust the
         calories below.
       </p>
-    </fieldset>
+    </div>
 
     <!-- Metric only (kg/cm): Mifflin-St Jeor is natively metric (ADR-0033 §1). -->
     <div class="metrics">
@@ -278,19 +274,13 @@
     </div>
 
     <!-- Four-way IOM PAL activity picker + a one-sentence explanation. -->
-    <fieldset class="field">
-      <legend>Activity</legend>
-      <div class="segmented four">
-        {#each ACTIVITY_OPTIONS as opt (opt.value)}
-          <button
-            type="button"
-            class="seg"
-            class:on={activity === opt.value}
-            data-activity={opt.value}
-            onclick={() => (activity = opt.value)}>{opt.label}</button
-          >
-        {/each}
-      </div>
+    <div class="field">
+      <Segmented
+        label="Activity"
+        options={ACTIVITY_OPTIONS}
+        bind:value={activity}
+        testid="calc-activity"
+      />
       <p class="hint">
         Your activity level scales resting burn into a daily total, using the
         IOM Physical Activity Level bands.
@@ -298,23 +288,17 @@
           >{ACTIVITY_OPTIONS.find((o) => o.value === activity)?.hint}</span
         >
       </p>
-    </fieldset>
+    </div>
 
     <!-- Three-way goal picker. -->
-    <fieldset class="field">
-      <legend>Goal</legend>
-      <div class="segmented three">
-        {#each GOAL_OPTIONS as opt (opt.value)}
-          <button
-            type="button"
-            class="seg"
-            class:on={goal === opt.value}
-            data-goal={opt.value}
-            onclick={() => (goal = opt.value)}>{opt.label}</button
-          >
-        {/each}
-      </div>
-    </fieldset>
+    <div class="field">
+      <Segmented
+        label="Goal"
+        options={GOAL_OPTIONS}
+        bind:value={goal}
+        testid="calc-goal"
+      />
+    </div>
 
     <!-- Live preview: calories + the three macro grams, recomputing as fields
          change. Reads as an estimate, not a saved target, until Apply. -->
@@ -423,7 +407,6 @@
     padding: 0;
     border: none;
   }
-  legend,
   .field-label {
     display: block;
     padding: 0;
@@ -445,49 +428,6 @@
     margin-top: var(--space-3xs);
     font-weight: 700;
     color: #000;
-  }
-
-  /* Brutalist segmented control: black-bordered cells, the selected one inverts
-     to black-on-white. Shared by the sex/activity/goal pickers. */
-  .segmented {
-    display: grid;
-    gap: var(--space-2xs);
-  }
-  .segmented.two {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .segmented.three {
-    grid-template-columns: repeat(3, 1fr);
-  }
-  .segmented.four {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  @container (min-width: 26rem) {
-    .segmented.four {
-      grid-template-columns: repeat(4, 1fr);
-    }
-  }
-  .seg {
-    padding: var(--space-2xs) var(--space-xs);
-    border: 2px solid #000;
-    background: #fff;
-    color: #000;
-    font-family: inherit;
-    font-size: var(--step-n1);
-    font-weight: 700;
-    text-transform: uppercase;
-    cursor: pointer;
-  }
-  .seg:hover:not(.on) {
-    background: var(--track, #f4f4f5);
-  }
-  .seg.on {
-    background: #000;
-    color: #fff;
-  }
-  .seg:focus-visible {
-    outline: 2px solid #000;
-    outline-offset: 2px;
   }
 
   /* Age / height / weight in one responsive row. */

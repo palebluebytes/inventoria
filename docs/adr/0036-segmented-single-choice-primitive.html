@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR 0036 · Inventoria</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+      <nav class="site-nav">
+        <p class="nav-title">Inventoria</p>
+        <a href="../index.html">Introduction</a>
+        <div class="nav-section">
+          <p class="nav-section-label">Reference</p>
+          <a href="../glossary.html">Glossary</a>
+          <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+        </div>
+        <div class="nav-section">
+          <p class="nav-section-label">Explanation</p>
+          <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+        </div>
+        <div class="nav-section">
+          <a href="index.html" class="active">Architectural Decision Records</a>
+        </div>
+      </nav>
+  <div class="content-area">
+    <main>
+<h1 id="adr-0036-a-shared-segmented-primitive-for-single-choice-controls">ADR 0036: A shared <code>Segmented</code> primitive for single-choice controls</h1>
+<p><strong>Status:</strong> Accepted; implemented (<code>ui/Segmented.svelte</code>, migrated <code>CalorieCalculatorSheet</code> and <code>FoodStager</code>). <strong>Date:</strong> 2026-08-04</p>
+<h2 id="context">Context</h2>
+<p>The food screen hand-rolls the same single-choice control in several places: a horizontal row of mutually-exclusive cells where the selected one inverts to black-on-white.</p>
+<ul>
+<li><strong>CalorieCalculatorSheet</strong> builds three — biological sex, activity, goal — each as <code>&lt;fieldset&gt;&lt;legend&gt;</code> + <code>.segmented.{two,three,four}</code> + a loop of <code>&lt;button class="seg" class:on={x === v} onclick={() =&gt; (x = v)}&gt;</code>.</li>
+<li><strong>FoodStager</strong>'s Custom capture form builds a fourth, <code>.cf-seg</code> (per-100 g / per-serving), with the same <code>class:on</code>/<code>onclick</code> shape.</li>
+</ul>
+<p>Two problems follow from the duplication:</p>
+<ol type="1">
+<li><strong>The behaviour is re-derived per call site, and the accessibility is missing.</strong> None of the four carries <code>role="radiogroup"</code>/<code>role="radio"</code>, <code>aria-checked</code>, roving <code>tabindex</code>, or arrow-key selection. Selection is conveyed only visually (a black fill via <code>.seg.on</code>), so the controls are opaque to assistive tech and unusable by keyboard beyond Tab-and-Space.</li>
+<li><strong>The two treatments had already drifted.</strong> The calculator uses square, gapped, uppercase cells (ADR-0003-compliant); <code>.cf-seg</code> used a joined pill with <code>border-radius: 10px</code> — a direct violation of ADR-0003's "all <code>border-radius</code> values are strictly 0".</li>
+</ol>
+<p>The one existing bits-ui use inside the food domain — <code>QuantityGrams</code>' <code>Slider</code> — shows the resolution: behaviour and a11y come from a headless bits primitive, the brutalist skin is applied with pure custom CSS via <code>:global</code>. Nothing about that model conflicts with ADR-0003.</p>
+<h2 id="decision">Decision</h2>
+<p><strong>Introduce <code>ui/Segmented.svelte</code> as the one single-choice control, backed by bits-ui <code>RadioGroup</code>, and migrate the four food-screen controls onto it.</strong></p>
+<ul>
+<li><strong><code>RadioGroup</code>, not <code>ToggleGroup</code>, sits behind the seam.</strong> All four controls are "exactly one of N", and none should ever deselect back to none once a choice is made. That is precisely <code>RadioGroup</code>'s contract: it never toggles a selection off, it supplies <code>role=radiogroup</code>/<code>radio</code> + <code>aria-checked</code>, and its arrow keys <em>select</em> rather than merely move focus. A single-select <code>ToggleGroup</code> would allow re-press-to-deselect, which is wrong for activity/goal/basis. Biological sex — which starts empty — is expressed as an <code>aria-required</code> group with no initial selection.</li>
+<li><strong>The module owns the row and a label above it, nothing more.</strong> Its interface is small: <code>options: { value: T; label: string }[]</code>, a <code>$bindable</code> <code>value: T | null</code>, a <code>label</code> (the visible heading and the group's accessible name), an optional <code>required</code>, and an optional <code>testid</code>. The surrounding chrome that differs per call site — the calculator's explanatory hint, the Custom form's conditional serving-grams field — stays with the caller.</li>
+<li><strong>One owned look; <code>.cf-seg</code> converges.</strong> The module ships a single brutalist skin (square, gapped cells; the four-plus-cell case wraps to two columns on a narrow sheet and expands to a full row once there's room). <code>.cf-seg</code>'s rounded pill is retired and its <code>border-radius: 10px</code> ADR-0003 violation corrected as a consequence. Column count is derived from <code>options.length</code>; there is no style variant on the interface.</li>
+<li><strong>The test surface does not move.</strong> The behaviour under these controls — <code>computeEnergyAndMacros</code>, <code>resolveServingSize</code>, the calorie store's basis handling — is exercised by unit tests that call those functions directly, below the UI seam, and they are untouched by this refactor. No component-test tier is introduced for the widget; its behaviour is bits-ui's guarantee, and the four call sites are verified with <code>pnpm check</code>, <code>lint:css</code>, and the dev server.</li>
+</ul>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li>The roles, <code>aria-checked</code>, and arrow-key selection that were absent now exist for all four controls, in one place. A future single-choice control gets them by reaching for <code>Segmented</code> instead of rediscovering the markup.</li>
+<li>The duplicated <code>.segmented</code>/<code>.seg</code> CSS leaves <code>CalorieCalculatorSheet</code> and the <code>.cf-seg</code> CSS leaves <code>FoodStager</code>; the button loops and <code>class:on</code>/<code>onclick</code> handlers collapse to a four-line element per call site.</li>
+<li>The Custom form's per-100 g / per-serving control changes appearance (square cells, label above rather than a rounded pill with an inline label) and drops its stray <code>border-radius</code>.</li>
+<li><code>Segmented</code> is the codebase's first component that takes a generic type parameter (<code>&lt;T extends string&gt;</code>), so a caller's <code>value</code> binding keeps its precise union type through the control.</li>
+<li><strong>Deferred:</strong> <code>QuantityGrams</code>' preset/portion chips are a related but divergent shape (wrap layout, a "none selected" state when the typed grams match no preset) and are left for a possible follow-up. <code>WeekStrip</code> is deliberately out of scope — it is a date scroller with paging arrows, a Today reset, and auto-centring, not a segmented control, and bits-ui has no clean primitive for it.</li>
+</ul>
+    </main>
+  </div>
+</div>
+</body>
+</html>
