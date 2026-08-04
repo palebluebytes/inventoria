@@ -57,6 +57,7 @@
     PrimaryLabelContext,
   } from "../../food/food-staging";
 
+  import { Tabs } from "bits-ui";
   import Alert from "../../ui/Alert.svelte";
   import Input from "../../ui/Input.svelte";
   import Segmented from "../../ui/Segmented.svelte";
@@ -1175,565 +1176,610 @@
   goBack = stagerGoBack;
 </script>
 
-<div class="stager">
-  <!-- Staging / results area -->
-  <div class="stage">
-    {#if staged}
-      <div class="staged">
-        <div class="staged-head">
-          <h3>{staged.name}</h3>
-          {#if stagedOrigin}
-            <!-- Origin badge (§7): user-entered vs OFF-sourced, at a glance. -->
-            <span class="origin-badge" data-testid="origin-badge">
-              ✏️ {stagedOrigin === "edited"
-                ? "edited from label"
-                : "your entry"}
-            </span>
-          {/if}
-        </div>
-        {#if nudge}
-          <!-- Found-but-poor nudge (§1): soft, dismissible, never blocks logging
+<!-- The Search / Scan / Custom / Recipe switcher is a real tablist (#64):
+     bits-ui Tabs supplies role=tablist/tab/tabpanel, aria-selected, roving
+     tabindex + arrow-key selection, and the trigger↔panel association. The
+     brutalist skin stays custom (`:global(.method)` below), the same
+     headless-behaviour-plus-owned-look split as Segmented/Meter (ADR-0036/0037).
+     Root and the panel keep their own scoped divs via the `child` snippet so the
+     stager's layout CSS is untouched; only the trigger row goes through bits'
+     default rendering. `value` is controlled by `method` and every change is
+     funnelled through `switchMethod` (which resets staged/upload state), so
+     arrow-key activation runs the exact same switch a click does. -->
+<Tabs.Root value={method} onValueChange={switchMethod} orientation="horizontal">
+  {#snippet child({ props })}
+    <div class="stager" {...props}>
+      <!-- Staging / results area -->
+      <Tabs.Content value={method}>
+        {#snippet child({ props: stageProps })}
+          <div class="stage" {...stageProps}>
+            {#if staged}
+              <div class="staged">
+                <div class="staged-head">
+                  <h3>{staged.name}</h3>
+                  {#if stagedOrigin}
+                    <!-- Origin badge (§7): user-entered vs OFF-sourced, at a glance. -->
+                    <span class="origin-badge" data-testid="origin-badge">
+                      ✏️ {stagedOrigin === "edited"
+                        ? "edited from label"
+                        : "your entry"}
+                    </span>
+                  {/if}
+                </div>
+                {#if nudge}
+                  <!-- Found-but-poor nudge (§1): soft, dismissible, never blocks logging
                the poor twin as-is — the Log button below stays live. -->
-          <div class="nudge" data-testid="poor-nudge" role="status">
-            <span class="nudge-text"
-              >This entry looks incomplete. Improve it from the label?</span
-            >
-            <button
-              type="button"
-              class="nudge-go"
-              data-testid="poor-nudge-improve"
-              onclick={() =>
-                openCaptureForm(
-                  "poor",
-                  poorPayload ?? undefined,
-                  captureCompleteness
-                )}>Improve</button
-            >
-          </div>
-        {/if}
-        <FoodAmountPanel
-          panel={stagedInfo}
-          portions={stagedPortions}
-          hydrating={hydratingPortions}
-          bind:grams
-        />
-      </div>
-    {:else if isExtra(method)}
-      {@render tabContent?.(method)}
-    {:else if method === "search"}
-      {#if !hasKey}
-        <Alert variant="warning">
-          Add a USDA API key in Settings to search the food database.
-        </Alert>
-      {/if}
-      {#if query.trim().length === 0 && recent.length > 0}
-        <!-- Idle search box: offer recent foods so a repeat log is one tap. -->
-        <FoodResultsList
-          results={recent}
-          heading="Recent"
-          onSelect={(item) => stageFood(item)}
-        />
-      {:else}
-        <FoodResultsList
-          {results}
-          heading={results.length ? "Results" : undefined}
-          onSelect={(item) => stageFood(item)}
-        />
-        {#if hasKey && status === "idle" && query.trim().length >= 3 && results.length === 0}
-          <p class="hint">No matches for “{query.trim()}”.</p>
-        {/if}
-      {/if}
-    {:else if method === "scan"}
-      {#if scanError}<Alert variant="warning">{scanError}</Alert>{/if}
-      {#if showLiveScanner}
-        <!-- Live camera scanner (native BarcodeDetector present + camera OK). -->
-        <div class="viewport">
-          <!-- svelte-ignore a11y_media_has_caption -->
-          <video bind:this={videoEl} class="scanner-video" playsinline></video>
-          <div class="reticle"></div>
-        </div>
-        <p class="hint">
-          Point the camera at a barcode, or type the number below. No result? <button
-            class="link"
-            onclick={() => switchMethod("custom")}>Add a custom entry</button
-          >.
-        </p>
-        {#if scanStalled}
-          <!-- Unreadable door (§1): after a persistent no-decode stretch, elevate
+                  <div class="nudge" data-testid="poor-nudge" role="status">
+                    <span class="nudge-text"
+                      >This entry looks incomplete. Improve it from the label?</span
+                    >
+                    <button
+                      type="button"
+                      class="nudge-go"
+                      data-testid="poor-nudge-improve"
+                      onclick={() =>
+                        openCaptureForm(
+                          "poor",
+                          poorPayload ?? undefined,
+                          captureCompleteness
+                        )}>Improve</button
+                    >
+                  </div>
+                {/if}
+                <FoodAmountPanel
+                  panel={stagedInfo}
+                  portions={stagedPortions}
+                  hydrating={hydratingPortions}
+                  bind:grams
+                />
+              </div>
+            {:else if isExtra(method)}
+              {@render tabContent?.(method)}
+            {:else if method === "search"}
+              {#if !hasKey}
+                <Alert variant="warning">
+                  Add a USDA API key in Settings to search the food database.
+                </Alert>
+              {/if}
+              {#if query.trim().length === 0 && recent.length > 0}
+                <!-- Idle search box: offer recent foods so a repeat log is one tap. -->
+                <FoodResultsList
+                  results={recent}
+                  heading="Recent"
+                  onSelect={(item) => stageFood(item)}
+                />
+              {:else}
+                <FoodResultsList
+                  {results}
+                  heading={results.length ? "Results" : undefined}
+                  onSelect={(item) => stageFood(item)}
+                />
+                {#if hasKey && status === "idle" && query.trim().length >= 3 && results.length === 0}
+                  <p class="hint">No matches for “{query.trim()}”.</p>
+                {/if}
+              {/if}
+            {:else if method === "scan"}
+              {#if scanError}<Alert variant="warning">{scanError}</Alert>{/if}
+              {#if showLiveScanner}
+                <!-- Live camera scanner (native BarcodeDetector present + camera OK). -->
+                <div class="viewport">
+                  <!-- svelte-ignore a11y_media_has_caption -->
+                  <video bind:this={videoEl} class="scanner-video" playsinline
+                  ></video>
+                  <div class="reticle"></div>
+                </div>
+                <p class="hint">
+                  Point the camera at a barcode, or type the number below. No
+                  result? <button
+                    class="link"
+                    onclick={() => switchMethod("custom")}
+                    >Add a custom entry</button
+                  >.
+                </p>
+                {#if scanStalled}
+                  <!-- Unreadable door (§1): after a persistent no-decode stretch, elevate
                a prominent "photograph the label" escape so a barcode that won't
                scan still leads somewhere. Routes barcode-less to the Custom form;
                the user can still add legible digits in the form's reason banner. -->
-          <button
-            type="button"
-            class="escape"
-            data-testid="unreadable-escape"
-            onclick={() => openCaptureForm("unreadable")}
-          >
-            📷 Can’t scan it? Photograph the label instead
-          </button>
-        {/if}
-      {:else}
-        <!-- No live camera (desktop has no native BarcodeDetector, or the camera
+                  <button
+                    type="button"
+                    class="escape"
+                    data-testid="unreadable-escape"
+                    onclick={() => openCaptureForm("unreadable")}
+                  >
+                    📷 Can’t scan it? Photograph the label instead
+                  </button>
+                {/if}
+              {:else}
+                <!-- No live camera (desktop has no native BarcodeDetector, or the camera
              was denied/absent): upload a photo of the barcode (click or drag) and
              decode it via zxing-wasm. A decoded code drives the same lookup the
              camera does; the photo is kept as the label photo (ADR-0034 §5). -->
-        <input
-          type="file"
-          accept="image/*"
-          class="hidden-file-input"
-          bind:this={uploadInput}
-          onchange={handleUploadChange}
-        />
-        <div
-          class="dropzone"
-          class:drag={dragOver}
-          class:busy={decoding}
-          role="button"
-          tabindex="0"
-          data-testid="scan-dropzone"
-          aria-label="Upload a photo of the barcode"
-          ondrop={handleDrop}
-          ondragover={handleDragOver}
-          ondragleave={() => (dragOver = false)}
-          onclick={() => uploadInput?.click()}
-          onkeydown={(e) =>
-            (e.key === "Enter" || e.key === " ") &&
-            (e.preventDefault(), uploadInput?.click())}
-        >
-          {#if uploadedPhoto}
-            <img src={uploadedPhoto} alt="" class="dropzone-preview" />
-          {/if}
-          <div class="dropzone-body">
-            {#if decoding}
-              <span class="dropzone-spinner" aria-hidden="true"></span>
-              <span class="dropzone-title">Reading the barcode…</span>
-            {:else}
-              <span class="dropzone-icon" aria-hidden="true">📷</span>
-              <span class="dropzone-title"
-                >Drop a photo of the barcode, or click to choose</span
-              >
-              <span class="dropzone-sub"
-                >or type the number below — it looks the product up the same way
-                a scan does</span
-              >
-            {/if}
-          </div>
-        </div>
-        {#if uploadError}
-          <p class="hint" data-testid="upload-error">{uploadError}</p>
-        {/if}
-        {#if uploadNoCode}
-          <!-- Same escape the camera stall offers: go to the form (unreadable
+                <input
+                  type="file"
+                  accept="image/*"
+                  class="hidden-file-input"
+                  bind:this={uploadInput}
+                  onchange={handleUploadChange}
+                />
+                <div
+                  class="dropzone"
+                  class:drag={dragOver}
+                  class:busy={decoding}
+                  role="button"
+                  tabindex="0"
+                  data-testid="scan-dropzone"
+                  aria-label="Upload a photo of the barcode"
+                  ondrop={handleDrop}
+                  ondragover={handleDragOver}
+                  ondragleave={() => (dragOver = false)}
+                  onclick={() => uploadInput?.click()}
+                  onkeydown={(e) =>
+                    (e.key === "Enter" || e.key === " ") &&
+                    (e.preventDefault(), uploadInput?.click())}
+                >
+                  {#if uploadedPhoto}
+                    <img src={uploadedPhoto} alt="" class="dropzone-preview" />
+                  {/if}
+                  <div class="dropzone-body">
+                    {#if decoding}
+                      <span class="dropzone-spinner" aria-hidden="true"></span>
+                      <span class="dropzone-title">Reading the barcode…</span>
+                    {:else}
+                      <span class="dropzone-icon" aria-hidden="true">📷</span>
+                      <span class="dropzone-title"
+                        >Drop a photo of the barcode, or click to choose</span
+                      >
+                      <span class="dropzone-sub"
+                        >or type the number below — it looks the product up the
+                        same way a scan does</span
+                      >
+                    {/if}
+                  </div>
+                </div>
+                {#if uploadError}
+                  <p class="hint" data-testid="upload-error">{uploadError}</p>
+                {/if}
+                {#if uploadNoCode}
+                  <!-- Same escape the camera stall offers: go to the form (unreadable
                door) with the photo attached; add the digits there if legible. -->
-          <button
-            type="button"
-            class="escape"
-            data-testid="unreadable-escape"
-            onclick={() => openCaptureForm("unreadable")}
-          >
-            ✏️ Enter the label details instead
-          </button>
-        {/if}
-      {/if}
-    {:else if showManualFlow}
-      <!-- Custom = the ADR-0035 intent chooser + its three mini-forms (quick
+                  <button
+                    type="button"
+                    class="escape"
+                    data-testid="unreadable-escape"
+                    onclick={() => openCaptureForm("unreadable")}
+                  >
+                    ✏️ Enter the label details instead
+                  </button>
+                {/if}
+              {/if}
+            {:else if showManualFlow}
+              <!-- Custom = the ADR-0035 intent chooser + its three mini-forms (quick
            estimate / from a menu / from a photo), or a seeded mini-form in edit
            mode. The label form is NOT here — it stays on the barcode doors (a set
            captureReason routes to it below). -->
-      <ManualEntryFlow
-        {allowPhoto}
-        {mealName}
-        seed={manualSeed}
-        busy={status === "loading"}
-        disabled={primaryDisabled}
-        nameId={ids.customName}
-        calId={ids.customCal}
-        onCommit={commit}
-        bind:activeIntent={manualActiveIntent}
-        bind:requestSave={manualRequestSave}
-        bind:saveReady={manualSaveReady}
-        bind:requestBack={manualRequestBack}
-      />
-    {:else}
-      <!-- Custom = the #52 "Read-along" full-panel form (ADR-0034 §2–§4), reached
+              <ManualEntryFlow
+                {allowPhoto}
+                {mealName}
+                seed={manualSeed}
+                busy={status === "loading"}
+                disabled={primaryDisabled}
+                nameId={ids.customName}
+                calId={ids.customCal}
+                onCommit={commit}
+                bind:activeIntent={manualActiveIntent}
+                bind:requestSave={manualRequestSave}
+                bind:saveReady={manualSaveReady}
+                bind:requestBack={manualRequestBack}
+              />
+            {:else}
+              <!-- Custom = the #52 "Read-along" full-panel form (ADR-0034 §2–§4), reached
            via the barcode doors (missing / poor / unreadable), or the always-on
            manual tab when the host did not opt into ADR-0035 intents. Name +
            brand in a sticky identity card, then every panel row grouped Macros ·
            fats/fibre/sugar/salt · vitamins & minerals · portions, transcribed
            top-to-bottom. Macros lead so the fast path stays name + calories →
            Save. -->
-      <div class="cf">
-        {#if captureReason}
-          <!-- Reason banner (§1): each door explains why it landed here. The
+              <div class="cf">
+                {#if captureReason}
+                  <!-- Reason banner (§1): each door explains why it landed here. The
                unreadable door also offers an optional barcode field so a legible
                code still keys `gtin:` (else the save mints a `food:custom_`). -->
-          <div class="cf-reason" data-testid="capture-reason">
-            <p>{CAPTURE_COPY[captureReason]}</p>
-            {#if captureReason === "unreadable"}
-              <label class="cf-reason-code">
-                <span>Barcode digits (optional)</span>
-                <input
-                  type="text"
-                  inputmode="numeric"
-                  placeholder="e.g. 8901222932167"
-                  aria-label="Barcode digits"
-                  bind:value={barcode}
-                />
-              </label>
-            {/if}
-          </div>
-        {/if}
-        {#if offRefPhotos.length > 0}
-          <!-- OFF's own photos (§8 read-feature): a read-only strip to read the
+                  <div class="cf-reason" data-testid="capture-reason">
+                    <p>{CAPTURE_COPY[captureReason]}</p>
+                    {#if captureReason === "unreadable"}
+                      <label class="cf-reason-code">
+                        <span>Barcode digits (optional)</span>
+                        <input
+                          type="text"
+                          inputmode="numeric"
+                          placeholder="e.g. 8901222932167"
+                          aria-label="Barcode digits"
+                          bind:value={barcode}
+                        />
+                      </label>
+                    {/if}
+                  </div>
+                {/if}
+                {#if offRefPhotos.length > 0}
+                  <!-- OFF's own photos (§8 read-feature): a read-only strip to read the
                label off while filling the gaps. Tapping opens the reader in
                read-only mode. These are never the user's captured photos. -->
-          <div class="cf-off-ref" data-testid="off-reference-photos">
-            <span class="cf-off-ref-lbl"
-              >Open Food Facts photos — read the label to fill the gaps</span
-            >
-            <div class="cf-off-ref-strip">
-              {#each offRefPhotos as src, i (src)}
-                <button
-                  type="button"
-                  class="cf-off-ref-thumb"
-                  onclick={() => (refReaderIndex = i)}
-                  aria-label={`View Open Food Facts photo ${i + 1} of ${offRefPhotos.length}`}
-                >
-                  <!-- OFF images carry CORS (ACAO:*) but no CORP header, so
+                  <div class="cf-off-ref" data-testid="off-reference-photos">
+                    <span class="cf-off-ref-lbl"
+                      >Open Food Facts photos — read the label to fill the gaps</span
+                    >
+                    <div class="cf-off-ref-strip">
+                      {#each offRefPhotos as src, i (src)}
+                        <button
+                          type="button"
+                          class="cf-off-ref-thumb"
+                          onclick={() => (refReaderIndex = i)}
+                          aria-label={`View Open Food Facts photo ${i + 1} of ${offRefPhotos.length}`}
+                        >
+                          <!-- OFF images carry CORS (ACAO:*) but no CORP header, so
                        under our COEP:require-corp page they must be fetched in
                        CORS mode — else the browser blocks them
                        (NotSameOriginAfterDefaultedToSameOriginByCoep). -->
-                  <img {src} alt="" loading="lazy" crossorigin="anonymous" />
-                </button>
-              {/each}
-            </div>
-          </div>
-        {/if}
-        <div class="cf-idrow">
-          {#if allowPhoto}
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              multiple
-              class="hidden-file-input"
-              bind:this={fileInput}
-              onchange={handleFileChange}
-            />
-            {#if labelPhotos.length > 0}
-              <!-- First photo = display; tapping opens the swipeable reader. A
-                   "+N" badge (N = extras) surfaces the rest of the set (§5). -->
-              <button
-                class="cf-thumb"
-                onclick={() => (readerIndex = 0)}
-                aria-label={labelPhotos.length > 1
-                  ? `View ${labelPhotos.length} label photos`
-                  : "View the label photo"}
-              >
-                <img src={labelPhotos[0]} alt="Label" class="photo-preview" />
-                {#if labelPhotos.length > 1}
-                  <span class="cf-thumb-badge" data-testid="photo-count-badge"
-                    >+{labelPhotos.length - 1}</span
-                  >
-                {/if}
-              </button>
-            {:else}
-              <button
-                class="cf-thumb cf-thumb-empty"
-                onclick={() => fileInput?.click()}
-                aria-label="Add a label photo"
-              >
-                <span aria-hidden="true">📷</span>
-                <span class="cf-thumb-hint">Photo</span>
-              </button>
-            {/if}
-          {/if}
-          <div class="cf-id">
-            <input
-              id={ids.customName}
-              class="cf-title"
-              placeholder="Product name"
-              aria-label="Product name"
-              bind:value={customName}
-            />
-            <input
-              class="cf-brand"
-              placeholder="Brand — optional"
-              aria-label="Brand"
-              bind:value={customBrand}
-            />
-          </div>
-        </div>
-
-        <div class="cf-basis">
-          <Segmented
-            label="Values per"
-            options={BASIS_OPTIONS}
-            bind:value={customBasis}
-            testid="cf-basis"
-          />
-          {#if customBasis === "per_serving"}
-            <!-- A serving weight resolves the panel's serving_size to `N g`; left
-                 blank it stays the bare `1 serving` (§3). -->
-            <label class="cf-serving">
-              <input
-                id="cf-serving-grams"
-                type="text"
-                inputmode="decimal"
-                placeholder="g"
-                aria-label="Grams per serving"
-                bind:value={customServingGrams}
-              />
-              <span>g / serving</span>
-            </label>
-          {/if}
-        </div>
-
-        {#each customSections as sec (sec.head)}
-          <section class="cf-group">
-            <div class="cf-grouphead">
-              <div class="cf-gh-text">
-                <h3>{sec.head}</h3>
-                {#if sec.hint}<span class="cf-gh-hint">{sec.hint}</span>{/if}
-              </div>
-              <button
-                type="button"
-                class="cf-skip-all"
-                onclick={() => skipSection(sec.fields)}>none on label</button
-              >
-            </div>
-            <div class="cf-list">
-              {#each sec.fields as f (f.key)}
-                <div
-                  class="cf-row"
-                  class:skip={skipped.has(f.key)}
-                  class:unverified={prefilled.has(f.key)}
-                >
-                  <label class="cf-lbl" for={idFor[f.key] ?? `cf-${f.key}`}
-                    >{f.label}</label
-                  >
-                  <div class="cf-ctl">
-                    <input
-                      id={idFor[f.key] ?? `cf-${f.key}`}
-                      type="text"
-                      inputmode="decimal"
-                      placeholder={skipped.has(f.key) ? "not on label" : "0"}
-                      disabled={skipped.has(f.key)}
-                      bind:value={customValues[f.key]}
-                      oninput={() => markReviewed(f.key)}
-                    />
-                    <span class="cf-unit">{f.unit}</span>
+                          <img
+                            {src}
+                            alt=""
+                            loading="lazy"
+                            crossorigin="anonymous"
+                          />
+                        </button>
+                      {/each}
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    class="cf-skip"
-                    aria-pressed={skipped.has(f.key)}
-                    onclick={() => toggleSkip(f.key)}
-                    aria-label={`${f.label} — not on label`}>∅</button
-                  >
+                {/if}
+                <div class="cf-idrow">
+                  {#if allowPhoto}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      multiple
+                      class="hidden-file-input"
+                      bind:this={fileInput}
+                      onchange={handleFileChange}
+                    />
+                    {#if labelPhotos.length > 0}
+                      <!-- First photo = display; tapping opens the swipeable reader. A
+                   "+N" badge (N = extras) surfaces the rest of the set (§5). -->
+                      <button
+                        class="cf-thumb"
+                        onclick={() => (readerIndex = 0)}
+                        aria-label={labelPhotos.length > 1
+                          ? `View ${labelPhotos.length} label photos`
+                          : "View the label photo"}
+                      >
+                        <img
+                          src={labelPhotos[0]}
+                          alt="Label"
+                          class="photo-preview"
+                        />
+                        {#if labelPhotos.length > 1}
+                          <span
+                            class="cf-thumb-badge"
+                            data-testid="photo-count-badge"
+                            >+{labelPhotos.length - 1}</span
+                          >
+                        {/if}
+                      </button>
+                    {:else}
+                      <button
+                        class="cf-thumb cf-thumb-empty"
+                        onclick={() => fileInput?.click()}
+                        aria-label="Add a label photo"
+                      >
+                        <span aria-hidden="true">📷</span>
+                        <span class="cf-thumb-hint">Photo</span>
+                      </button>
+                    {/if}
+                  {/if}
+                  <div class="cf-id">
+                    <input
+                      id={ids.customName}
+                      class="cf-title"
+                      placeholder="Product name"
+                      aria-label="Product name"
+                      bind:value={customName}
+                    />
+                    <input
+                      class="cf-brand"
+                      placeholder="Brand — optional"
+                      aria-label="Brand"
+                      bind:value={customBrand}
+                    />
+                  </div>
                 </div>
-              {/each}
-            </div>
-          </section>
-        {/each}
 
-        <section class="cf-group">
-          <div class="cf-grouphead">
-            <div class="cf-gh-text">
-              <h3>Household portions</h3>
-              <span class="cf-gh-hint">optional</span>
-            </div>
-          </div>
-          <div class="cf-list">
-            {#each customPortions as p, i (i)}
-              {@const weird = portionLabelIsBareWeight(p.label)}
-              <div class="cf-prow">
-                <input
-                  class:cf-in-warn={weird}
-                  placeholder="e.g. 1 slice"
-                  aria-label="Portion label"
-                  aria-invalid={weird}
-                  bind:value={p.label}
-                />
-                <input
-                  type="text"
-                  inputmode="decimal"
-                  placeholder="grams"
-                  aria-label="Portion grams"
-                  bind:value={p.grams}
-                />
-                <button
-                  type="button"
-                  class="cf-skip"
-                  onclick={() => customPortions.splice(i, 1)}
-                  aria-label="Remove portion">✕</button
-                >
-              </div>
-              {#if weird}
-                <!-- The label is just a weight, so it only restates the grams
+                <div class="cf-basis">
+                  <Segmented
+                    label="Values per"
+                    options={BASIS_OPTIONS}
+                    bind:value={customBasis}
+                    testid="cf-basis"
+                  />
+                  {#if customBasis === "per_serving"}
+                    <!-- A serving weight resolves the panel's serving_size to `N g`; left
+                 blank it stays the bare `1 serving` (§3). -->
+                    <label class="cf-serving">
+                      <input
+                        id="cf-serving-grams"
+                        type="text"
+                        inputmode="decimal"
+                        placeholder="g"
+                        aria-label="Grams per serving"
+                        bind:value={customServingGrams}
+                      />
+                      <span>g / serving</span>
+                    </label>
+                  {/if}
+                </div>
+
+                {#each customSections as sec (sec.head)}
+                  <section class="cf-group">
+                    <div class="cf-grouphead">
+                      <div class="cf-gh-text">
+                        <h3>{sec.head}</h3>
+                        {#if sec.hint}<span class="cf-gh-hint">{sec.hint}</span
+                          >{/if}
+                      </div>
+                      <button
+                        type="button"
+                        class="cf-skip-all"
+                        onclick={() => skipSection(sec.fields)}
+                        >none on label</button
+                      >
+                    </div>
+                    <div class="cf-list">
+                      {#each sec.fields as f (f.key)}
+                        <div
+                          class="cf-row"
+                          class:skip={skipped.has(f.key)}
+                          class:unverified={prefilled.has(f.key)}
+                        >
+                          <label
+                            class="cf-lbl"
+                            for={idFor[f.key] ?? `cf-${f.key}`}>{f.label}</label
+                          >
+                          <div class="cf-ctl">
+                            <input
+                              id={idFor[f.key] ?? `cf-${f.key}`}
+                              type="text"
+                              inputmode="decimal"
+                              placeholder={skipped.has(f.key)
+                                ? "not on label"
+                                : "0"}
+                              disabled={skipped.has(f.key)}
+                              bind:value={customValues[f.key]}
+                              oninput={() => markReviewed(f.key)}
+                            />
+                            <span class="cf-unit">{f.unit}</span>
+                          </div>
+                          <button
+                            type="button"
+                            class="cf-skip"
+                            aria-pressed={skipped.has(f.key)}
+                            onclick={() => toggleSkip(f.key)}
+                            aria-label={`${f.label} — not on label`}>∅</button
+                          >
+                        </div>
+                      {/each}
+                    </div>
+                  </section>
+                {/each}
+
+                <section class="cf-group">
+                  <div class="cf-grouphead">
+                    <div class="cf-gh-text">
+                      <h3>Household portions</h3>
+                      <span class="cf-gh-hint">optional</span>
+                    </div>
+                  </div>
+                  <div class="cf-list">
+                    {#each customPortions as p, i (i)}
+                      {@const weird = portionLabelIsBareWeight(p.label)}
+                      <div class="cf-prow">
+                        <input
+                          class:cf-in-warn={weird}
+                          placeholder="e.g. 1 slice"
+                          aria-label="Portion label"
+                          aria-invalid={weird}
+                          bind:value={p.label}
+                        />
+                        <input
+                          type="text"
+                          inputmode="decimal"
+                          placeholder="grams"
+                          aria-label="Portion grams"
+                          bind:value={p.grams}
+                        />
+                        <button
+                          type="button"
+                          class="cf-skip"
+                          onclick={() => customPortions.splice(i, 1)}
+                          aria-label="Remove portion">✕</button
+                        >
+                      </div>
+                      {#if weird}
+                        <!-- The label is just a weight, so it only restates the grams
                      column — nudge a real household unit (mirrors the chip
                      collapse in formatPortionPreset). Non-blocking. -->
-                <p class="cf-prow-warn" data-testid="portion-weight-warning">
-                  That's a weight, not a portion name — try a household unit
-                  like “1 slice” or “1 biscuit”.
-                </p>
-              {/if}
-            {/each}
-            <button
-              type="button"
-              class="cf-add"
-              onclick={() =>
-                (customPortions = [
-                  ...customPortions,
-                  { label: "", grams: "" },
-                ])}>＋ add a portion</button
-            >
-          </div>
-        </section>
+                        <p
+                          class="cf-prow-warn"
+                          data-testid="portion-weight-warning"
+                        >
+                          That's a weight, not a portion name — try a household
+                          unit like “1 slice” or “1 biscuit”.
+                        </p>
+                      {/if}
+                    {/each}
+                    <button
+                      type="button"
+                      class="cf-add"
+                      onclick={() =>
+                        (customPortions = [
+                          ...customPortions,
+                          { label: "", grams: "" },
+                        ])}>＋ add a portion</button
+                    >
+                  </div>
+                </section>
 
-        {#if contributeOffered}
-          <!-- OFF contribution (§8): offered only for a barcoded (`gtin:`) twin
+                {#if contributeOffered}
+                  <!-- OFF contribution (§8): offered only for a barcoded (`gtin:`) twin
                with an OFF login. Model-C consent — the checkbox is always shown
                and must be ticked; the Settings master toggle only seeds it.
                Decoupled from Save so nothing is ever sent by accident, and the
                button persists for online-only manual retry. -->
-          <section class="cf-contrib" data-testid="off-contribute">
-            <div class="cf-contrib-head">
-              <h3>Contribute to Open Food Facts</h3>
-              <span class="cf-gh-hint">optional · barcoded products</span>
-            </div>
-            <label class="cf-contrib-consent">
-              <input
-                type="checkbox"
-                data-testid="off-contribute-consent"
-                bind:checked={contributeChecked}
-              />
-              <span
-                >Share this product's structured data with Open Food Facts under
-                your OFF login. No photos are sent.</span
-              >
-            </label>
-            <button
-              type="button"
-              class="cf-contrib-btn"
-              data-testid="off-contribute-submit"
-              disabled={!contributeChecked || contributeStatus === "sending"}
-              onclick={contributeToOff}
-            >
-              {contributeStatus === "sending"
-                ? "Contributing…"
-                : "Contribute to OFF"}
-            </button>
-            {#if contributeResult}
-              <p
-                class="cf-contrib-msg"
-                class:ok={contributeResult.ok}
-                role="status"
-                data-testid="off-contribute-result"
-              >
-                {contributeResult.message}
-              </p>
+                  <section class="cf-contrib" data-testid="off-contribute">
+                    <div class="cf-contrib-head">
+                      <h3>Contribute to Open Food Facts</h3>
+                      <span class="cf-gh-hint"
+                        >optional · barcoded products</span
+                      >
+                    </div>
+                    <label class="cf-contrib-consent">
+                      <input
+                        type="checkbox"
+                        data-testid="off-contribute-consent"
+                        bind:checked={contributeChecked}
+                      />
+                      <span
+                        >Share this product's structured data with Open Food
+                        Facts under your OFF login. No photos are sent.</span
+                      >
+                    </label>
+                    <button
+                      type="button"
+                      class="cf-contrib-btn"
+                      data-testid="off-contribute-submit"
+                      disabled={!contributeChecked ||
+                        contributeStatus === "sending"}
+                      onclick={contributeToOff}
+                    >
+                      {contributeStatus === "sending"
+                        ? "Contributing…"
+                        : "Contribute to OFF"}
+                    </button>
+                    {#if contributeResult}
+                      <p
+                        class="cf-contrib-msg"
+                        class:ok={contributeResult.ok}
+                        role="status"
+                        data-testid="off-contribute-result"
+                      >
+                        {contributeResult.message}
+                      </p>
+                    {/if}
+                  </section>
+                {/if}
+              </div>
             {/if}
-          </section>
-        {/if}
-      </div>
-    {/if}
 
-    {#if status === "error"}
-      <div class="mt"><Alert variant="error">{error}</Alert></div>
-    {/if}
-  </div>
+            {#if status === "error"}
+              <div class="mt"><Alert variant="error">{error}</Alert></div>
+            {/if}
+          </div>
+        {/snippet}
+      </Tabs.Content>
 
-  <!-- Dock: input · methods · primary action. When a food is staged its name
+      <!-- Dock: input · methods · primary action. When a food is staged its name
        already headlines the staging area above, so the input row is dropped (no
        duplicate echo) and the method switcher too — the sheet stays focused on
        that food's amount. -->
-  <div class="dock">
-    {#if showInput}
-      <div class="dock-input">
-        {#if method === "scan"}
-          <Input
-            id={ids.barcode}
-            placeholder="Enter barcode…"
-            inputmode="numeric"
-            bind:value={barcode}
-            onkeydown={(e) => e.key === "Enter" && handleBarcodeLookup()}
-          />
-        {:else}
-          <div class="in-wrap">
-            <Input
-              id={ids.search}
-              placeholder="Search foods…"
-              bind:value={query}
-              disabled={!hasKey}
-              onkeydown={(e) => e.key === "Enter" && handleSearch()}
-            />
-            {#if status === "loading"}
-              <span class="in-spinner" aria-label="Searching USDA"></span>
+      <div class="dock">
+        {#if showInput}
+          <div class="dock-input">
+            {#if method === "scan"}
+              <Input
+                id={ids.barcode}
+                placeholder="Enter barcode…"
+                inputmode="numeric"
+                bind:value={barcode}
+                onkeydown={(e) => e.key === "Enter" && handleBarcodeLookup()}
+              />
+            {:else}
+              <div class="in-wrap">
+                <Input
+                  id={ids.search}
+                  placeholder="Search foods…"
+                  bind:value={query}
+                  disabled={!hasKey}
+                  onkeydown={(e) => e.key === "Enter" && handleSearch()}
+                />
+                {#if status === "loading"}
+                  <span class="in-spinner" aria-label="Searching USDA"></span>
+                {/if}
+              </div>
             {/if}
           </div>
         {/if}
-      </div>
-    {/if}
 
-    {#if showTabs}
-      <div class="methods">
-        {#each methodTabs as [m, ico, label]}
-          <button
-            class="method"
-            class:on={method === m}
-            onclick={() => switchMethod(m)}
-          >
-            <span class="mi">{ico}</span><span class="ml">{label}</span>
-          </button>
-        {/each}
-      </div>
-    {/if}
-
-    {#if method === "custom" && !staged && !showManualFlow}
-      <div class="cf-sum">
-        <span><strong>{runningKcal || "—"}</strong> kcal</span>
-        {#if toReview > 0}
-          <span class="cf-review-chip">{toReview} to review</span>
+        {#if showTabs}
+          <!-- The tablist. bits sets role=tab, aria-selected, aria-controls and the
+           roving tabindex on each trigger; activation is funnelled to
+           switchMethod via the Root's onValueChange, so the host-injected extra
+           tabs (Recipe) behave identically to the built-ins. -->
+          <Tabs.List class="methods">
+            {#each methodTabs as [m, ico, label]}
+              <Tabs.Trigger class="method" value={m}>
+                <span class="mi">{ico}</span><span class="ml">{label}</span>
+              </Tabs.Trigger>
+            {/each}
+          </Tabs.List>
         {/if}
-      </div>
-    {/if}
 
-    {#if showPrimary}
-      <CommitButton
-        id={ids.primary}
-        disabled={!canPrimary || primaryDisabled || status === "loading"}
-        onclick={primaryAction}
-      >
-        {primaryLabel({
-          method,
-          staged,
-          factor,
-          toReview: method === "custom" && !staged ? toReview : 0,
-        })}
-      </CommitButton>
-    {:else if showManualFlow}
-      <!-- The manual flow's pinned commit (its save logic lives in
+        {#if method === "custom" && !staged && !showManualFlow}
+          <div class="cf-sum">
+            <span><strong>{runningKcal || "—"}</strong> kcal</span>
+            {#if toReview > 0}
+              <span class="cf-review-chip">{toReview} to review</span>
+            {/if}
+          </div>
+        {/if}
+
+        {#if showPrimary}
+          <CommitButton
+            id={ids.primary}
+            disabled={!canPrimary || primaryDisabled || status === "loading"}
+            onclick={primaryAction}
+          >
+            {primaryLabel({
+              method,
+              staged,
+              factor,
+              toReview: method === "custom" && !staged ? toReview : 0,
+            })}
+          </CommitButton>
+        {:else if showManualFlow}
+          <!-- The manual flow's pinned commit (its save logic lives in
            ManualEntryFlow; only the button is hoisted here). Shown across the
            whole flow — disabled on the intent chooser (nothing to commit yet) so
            the dock keeps a constant height and picking an intent never shifts the
            layout, matching how Search/Scan already show their button up front. -->
-      <CommitButton
-        id={ids.primary}
-        testid="manual-save"
-        disabled={!manualSaveReady || primaryDisabled || status === "loading"}
-        onclick={() => manualRequestSave?.()}
-      >
-        {primaryLabel({ method, staged, factor, toReview: 0 })}
-      </CommitButton>
-    {:else if isExtra(method)}
-      <!-- An extra tab's own docked action (e.g. the Recipe browser's
+          <CommitButton
+            id={ids.primary}
+            testid="manual-save"
+            disabled={!manualSaveReady ||
+              primaryDisabled ||
+              status === "loading"}
+            onclick={() => manualRequestSave?.()}
+          >
+            {primaryLabel({ method, staged, factor, toReview: 0 })}
+          </CommitButton>
+        {:else if isExtra(method)}
+          <!-- An extra tab's own docked action (e.g. the Recipe browser's
            "＋ New recipe"), pinned where the primary button sits, so the Recipe
            tab has a bottom action like every other tab. -->
-      {@render tabDock?.(method)}
-    {/if}
-  </div>
-</div>
+          {@render tabDock?.(method)}
+        {/if}
+      </div>
+    </div>
+  {/snippet}
+</Tabs.Root>
 
 {#if readerIndex !== null && labelPhotos.length > 0}
   <LabelPhotoReader
@@ -2420,11 +2466,16 @@
     }
   }
 
-  .methods {
+  /* bits-ui renders the tablist and its triggers, so their scope class is not
+     applied — reach them with :global, but keep the selectors bounded to this
+     component's dock so the generic `.method`/`.methods` names never leak (the
+     Segmented precedent bounds its cell as `:global(.seg-row .seg)`). The active
+     tab is bits' data-state="active", not the old `.on` class. */
+  .dock :global(.methods) {
     display: flex;
     gap: var(--space-2xs);
   }
-  .method {
+  .dock :global(.methods .method) {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -2437,9 +2488,13 @@
     cursor: pointer;
     min-height: 52px;
   }
-  .method.on {
+  .dock :global(.methods .method[data-state="active"]) {
     background: #000;
     color: #fff;
+  }
+  .dock :global(.methods .method:focus-visible) {
+    outline: 2px solid #000;
+    outline-offset: 2px;
   }
   .mi {
     font-size: var(--step-0);
