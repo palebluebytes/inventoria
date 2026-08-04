@@ -179,13 +179,13 @@
   /* Card chrome shared with the sheet's other field cards (Svelte scopes these
      per component, so this card carries its own copy). */
   .field-card {
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-s);
     background: var(--bg-surface);
     display: flex;
     flex-direction: column;
     gap: var(--space-xs);
-    box-shadow: 3px 3px 0 #000;
+    box-shadow: var(--shadow-2);
     position: relative;
   }
   .field-label {
@@ -223,7 +223,7 @@
     font-weight: 700;
     color: var(--text-primary);
     background: var(--bg-input);
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-2xs) var(--space-xs);
     outline: none;
     flex: 1;
@@ -233,14 +233,14 @@
   /* Segmented control */
   .seg-control {
     display: flex;
-    border: 2px solid #000;
+    border: var(--edge);
   }
   .seg-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 2px;
     background: #000;
-    border: 2px solid #000;
+    border: var(--edge);
   }
   .seg-grid .seg-btn {
     border: none !important;
@@ -254,7 +254,7 @@
     background: var(--bg-surface);
     color: var(--text-primary);
     border: none;
-    border-right: 2px solid #000;
+    border-right: var(--edge);
     padding: var(--space-2xs) var(--space-xs);
     cursor: pointer;
     white-space: nowrap;
@@ -278,7 +278,7 @@
   .day-btn {
     width: 36px;
     height: 36px;
-    border: 2px solid #000;
+    border: var(--edge);
     background: var(--bg-input);
     font-family: var(--font-mono);
     font-weight: 700;
@@ -313,7 +313,7 @@
   .remove-btn {
     background: var(--red-bg);
     color: #fff;
-    border: 2px solid #000;
+    border: var(--edge);
     font-family: var(--font-mono);
     font-weight: 900;
     font-size: var(--step-n2);

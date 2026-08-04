@@ -86,7 +86,7 @@
     border: none !important;
     background: #000 !important;
     color: #fff !important;
-    border-radius: 0 !important;
+    border-radius: var(--radius) !important;
   }
 
   .add-agenda-row {

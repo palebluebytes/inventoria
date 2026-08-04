@@ -347,7 +347,7 @@
 
   /* Hero title */
   .field-hero {
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-s);
     position: relative;
   }
@@ -382,13 +382,13 @@
 
   /* Card */
   .field-card {
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-s);
     background: var(--bg-surface);
     display: flex;
     flex-direction: column;
     gap: var(--space-xs);
-    box-shadow: 3px 3px 0 #000;
+    box-shadow: var(--shadow-2);
     position: relative;
   }
   .field-card.error {
@@ -425,7 +425,7 @@
     width: 24px;
     height: 24px;
     min-width: 24px;
-    border: 2px solid #000;
+    border: var(--edge);
     background: var(--bg-input);
     display: flex;
     align-items: center;
@@ -462,7 +462,7 @@
   .inline-checkbox {
     width: 14px;
     height: 14px;
-    border: 2px solid #000;
+    border: var(--edge);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -480,7 +480,7 @@
     font-size: var(--step-n1);
     color: var(--text-primary);
     background: var(--bg-input);
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-xs);
     outline: none;
     resize: vertical;

@@ -108,7 +108,7 @@
     font-weight: 700;
     color: var(--text-primary);
     background: var(--bg-input);
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-2xs) var(--space-xs);
     outline: none;
     flex: 1;
@@ -118,8 +118,8 @@
   /* Bits UI Calendar Brutalist Styles */
   :global(.bits-calendar) {
     background: #fff;
-    border: 2px solid #000;
-    box-shadow: 4px 4px 0 #000;
+    border: var(--edge);
+    box-shadow: var(--shadow-2);
     padding: var(--space-s);
     font-family: var(--font-mono);
     /* The picker portals to <body>, a sibling of the sheet, so it must clear the
@@ -145,7 +145,7 @@
     align-items: center;
     margin-bottom: var(--space-s);
     padding-bottom: var(--space-xs);
-    border-bottom: 2px solid #000;
+    border-bottom: var(--edge);
   }
   :global(.bits-nav-btn) {
     background: transparent;
@@ -157,7 +157,7 @@
   :global(.bits-trigger) {
     background: transparent;
     border: none;
-    border-left: 2px solid #000;
+    border-left: var(--edge);
     cursor: pointer;
     padding: 0 var(--space-xs);
     margin-left: auto;
@@ -212,7 +212,7 @@
   }
   :global(.bits-day[data-selected]) {
     background: var(--green-bg);
-    border: 2px solid #000;
+    border: var(--edge);
     font-weight: 900;
   }
   :global(.bits-day[data-today]) {

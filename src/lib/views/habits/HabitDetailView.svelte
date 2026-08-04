@@ -377,7 +377,7 @@
     font-size: var(--step-n1);
     color: var(--text-primary);
     outline: none;
-    border-radius: 0;
+    border-radius: var(--radius);
   }
   .select-brutal:focus,
   .input-number-brutal:focus {

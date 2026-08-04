@@ -259,11 +259,11 @@
 
 <style>
   .section-card {
-    border: 2px solid #000;
+    border: var(--edge);
     background: var(--bg-surface);
     padding: var(--space-s);
     position: relative;
-    box-shadow: 4px 4px 0 #000;
+    box-shadow: var(--shadow-2);
   }
 
   .section-legend {
@@ -278,7 +278,7 @@
   /* Segmented Control styling */
   .segmented-control {
     display: flex;
-    border: 2px solid #000;
+    border: var(--edge);
     background: #000;
     gap: 2px;
   }
@@ -313,7 +313,7 @@
   .specific-times-btn {
     width: 100%;
     background: var(--bg-surface);
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-s);
     display: flex;
     align-items: center;
@@ -349,13 +349,13 @@
 
   .subtarget-row-brutal .small-input {
     flex: 2;
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-xs);
     font-family: var(--font-mono);
     font-size: var(--step-n1);
     text-transform: uppercase;
     outline: none;
-    border-radius: 0;
+    border-radius: var(--radius);
   }
 
   .subtarget-row-brutal .time-input {
@@ -365,7 +365,7 @@
   .delete-subtarget-btn {
     background: var(--red-bg);
     color: #fff;
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-xs);
     font-family: var(--font-mono);
     font-weight: 700;
@@ -379,7 +379,7 @@
   .add-subtarget-btn {
     width: 100%;
     background: var(--bg-surface);
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-xs);
     font-family: var(--font-mono);
     font-weight: 700;
@@ -409,7 +409,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border: 2px solid #000;
+    border: var(--edge);
     background: var(--bg-surface);
     padding: var(--space-xs);
   }
@@ -417,7 +417,7 @@
   .counter-btn {
     width: 40px;
     height: 40px;
-    border: 2px solid #000;
+    border: var(--edge);
     background: var(--bg-input);
     font-family: var(--font-mono);
     font-size: var(--step-0);
@@ -457,7 +457,7 @@
     font-size: var(--step-n2);
     font-weight: 700;
     padding: var(--space-s) var(--space-3xs);
-    border: 2px solid #000;
+    border: var(--edge);
     background: var(--bg-surface);
     color: #000;
     cursor: pointer;
@@ -469,7 +469,7 @@
 
   .day-btn-brutal:hover {
     transform: translate(-1px, -1px);
-    box-shadow: 2px 2px 0 #000;
+    box-shadow: var(--shadow-1);
   }
 
   .day-btn-brutal:active {
@@ -480,6 +480,6 @@
   .day-btn-brutal.selected {
     background: var(--amber-bg);
     color: #000;
-    box-shadow: 2px 2px 0 #000;
+    box-shadow: var(--shadow-1);
   }
 </style>

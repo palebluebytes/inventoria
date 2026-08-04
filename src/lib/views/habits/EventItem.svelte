@@ -173,7 +173,7 @@
     width: 48px;
     min-width: 48px;
     background: var(--amber);
-    border-right: 2px solid #000;
+    border-right: var(--edge);
     display: flex;
     align-items: center;
     justify-content: center;

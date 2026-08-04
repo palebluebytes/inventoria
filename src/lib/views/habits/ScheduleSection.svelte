@@ -141,7 +141,7 @@
     border: none !important;
     background: #000 !important;
     color: #fff !important;
-    border-radius: 0 !important;
+    border-radius: var(--radius) !important;
   }
 
   .add-agenda-row {
@@ -172,13 +172,13 @@
   .schedule-timeline {
     display: flex;
     flex-direction: column;
-    border: 2px solid #000;
+    border: var(--edge);
   }
 
   .schedule-row {
     display: grid;
     grid-template-columns: 52px 1fr;
-    border-bottom: 2px solid #000;
+    border-bottom: var(--edge);
   }
   .schedule-row:last-child {
     border-bottom: none;
@@ -195,7 +195,7 @@
     align-items: center;
     justify-content: flex-start;
     padding: var(--space-xs) 0;
-    border-right: 2px solid #000;
+    border-right: var(--edge);
     font-family: var(--font-mono);
     font-size: var(--step-n2);
     font-weight: 700;
@@ -231,7 +231,7 @@
   .habit-wrap,
   .event-wrap {
     position: relative;
-    border-top: 2px solid #000;
+    border-top: var(--edge);
     flex: 1;
     display: flex;
     flex-direction: column;

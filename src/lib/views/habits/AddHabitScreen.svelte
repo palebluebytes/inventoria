@@ -327,7 +327,7 @@
     outline: none;
     color: var(--text-primary);
     text-transform: uppercase;
-    border-radius: 0;
+    border-radius: var(--radius);
   }
 
   .input-hero::placeholder {
@@ -335,11 +335,11 @@
   }
 
   .section-card {
-    border: 2px solid #000;
+    border: var(--edge);
     background: var(--bg-surface);
     padding: var(--space-s);
     position: relative;
-    box-shadow: 4px 4px 0 #000;
+    box-shadow: var(--shadow-2);
   }
 
   .section-legend {
@@ -364,7 +364,7 @@
     font-size: var(--step-n2);
     font-weight: 700;
     padding: var(--space-3xs) var(--space-xs);
-    border: 2px solid #000;
+    border: var(--edge);
     background: var(--bg-surface);
     color: #000;
     cursor: pointer;
@@ -376,7 +376,7 @@
 
   .category-chip:hover {
     transform: translate(-1px, -1px);
-    box-shadow: 2px 2px 0 #000;
+    box-shadow: var(--shadow-1);
   }
 
   .category-chip:active {
@@ -387,7 +387,7 @@
   .category-chip.selected {
     background: var(--green-bg);
     color: #000;
-    box-shadow: 2px 2px 0 #000;
+    box-shadow: var(--shadow-1);
   }
 
   .category-chip.add-chip {
@@ -406,11 +406,11 @@
     font-family: var(--font-mono);
     font-size: var(--step-n2);
     padding: var(--space-3xs) var(--space-2xs);
-    border: 2px solid #000;
+    border: var(--edge);
     outline: none;
     width: 130px;
     text-transform: uppercase;
-    border-radius: 0;
+    border-radius: var(--radius);
   }
 
   .btn-inline-save {
@@ -418,7 +418,7 @@
     font-size: var(--step-n2);
     font-weight: 700;
     padding: var(--space-3xs) var(--space-2xs);
-    border: 2px solid #000;
+    border: var(--edge);
     background: #000;
     color: #fff;
     cursor: pointer;
@@ -428,7 +428,7 @@
   .equipment-toggle-btn {
     width: 100%;
     background: var(--bg-surface);
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-s);
     display: flex;
     align-items: center;
@@ -465,7 +465,7 @@
     background: #000;
     color: #fff;
     padding: var(--space-xs) var(--space-s);
-    border: 2px solid #000;
+    border: var(--edge);
     font-family: var(--font-mono);
     font-size: var(--step-n2);
     font-weight: 700;
@@ -474,7 +474,7 @@
   .clear-equipment-btn {
     background: var(--amber-bg);
     color: #000;
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-3xs) var(--space-2xs);
     font-family: var(--font-mono);
     font-size: var(--step-n2);
@@ -484,14 +484,14 @@
 
   .equipment-search-input {
     width: 100%;
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-xs);
     font-family: var(--font-mono);
     font-size: var(--step-n1);
     text-transform: uppercase;
     outline: none;
     background: var(--bg-surface);
-    border-radius: 0;
+    border-radius: var(--radius);
   }
 
   .equipment-results {
@@ -500,7 +500,7 @@
     left: 0;
     right: 0;
     background: var(--bg-surface);
-    border: 2px solid #000;
+    border: var(--edge);
     border-top: none;
     z-index: 100;
     display: flex;
@@ -539,7 +539,7 @@
     opacity: 0.7;
     background: var(--bg-input);
     padding: 2px 4px;
-    border: 1px solid #000;
+    border: var(--edge-thin);
   }
 
   .no-results {
@@ -558,7 +558,7 @@
     font-family: var(--font-mono);
     font-size: var(--step-n1);
     font-weight: 700;
-    box-shadow: 4px 4px 0 #000;
+    box-shadow: var(--shadow-2);
   }
 
   .btn-submit-brutal {
@@ -568,7 +568,7 @@
     font-family: var(--font-mono);
     font-size: var(--step-n1);
     font-weight: 800;
-    border: 2px solid #000;
+    border: var(--edge);
     padding: var(--space-s);
     text-transform: uppercase;
     cursor: pointer;
