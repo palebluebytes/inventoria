@@ -39,6 +39,12 @@
   // it (returning to the search list) rather than closing the whole sheet.
   let staged = $state<FoodResult | null>(null);
 
+  // The stager's unified back capability (a staged food or a barcode-door capture
+  // form). When it has nothing to unwind, the header back becomes "Cancel" and
+  // closes the sheet.
+  let canGoBack = $state(false);
+  let goBack = $state<() => void>(() => {});
+
   // Map the chosen food to a RecipeIngredient and hand it to the recipe builder.
   // `onAdd`'s outcome is already the stager's outcome shape: `ok` closes the
   // sheet (the parent unmounts us), otherwise the reason keeps it open.
@@ -74,11 +80,13 @@
   flushBody
   elevated
   {onClose}
-  onBack={staged ? () => (staged = null) : onClose}
-  backLabel={staged ? "Back" : "Cancel"}
+  onBack={canGoBack ? goBack : onClose}
+  backLabel={canGoBack ? "Back" : "Cancel"}
 >
   <FoodStager
     bind:staged
+    bind:canGoBack
+    bind:goBack
     ids={{
       search: "ai-search",
       barcode: "ai-barcode",

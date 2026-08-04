@@ -14,15 +14,11 @@
     nameFromIngredients,
     type RecipeIngredient,
   } from "../../food/recipe-ingredient";
-  import {
-    deriveRecipeNutrition,
-    sanitizeYield,
-  } from "../../food/recipe-nutrition";
-  import { roundFoodDisplay } from "../../food/nutrition";
-  import { nutritionDisplayDecimals } from "../../stores/settings.store";
+  import { sanitizeYield } from "../../food/recipe-nutrition";
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import Alert from "../../ui/Alert.svelte";
   import IngredientListEditor from "./IngredientListEditor.svelte";
+  import CommitButton from "./CommitButton.svelte";
 
   // The one editor surface behind the Instantiate verb and the correction of a
   // past instantiation (ADR-0022). Seeded either from a **template** (a Recipe
@@ -61,15 +57,6 @@
   let error = $state("");
 
   let yieldNum = $derived(sanitizeYield(recipeYield));
-  // Per-serving headline for the primary-button label — the SAME derivation the
-  // editor's panel and the log-time snapshot use.
-  let perServing = $derived(
-    deriveRecipeNutrition(
-      ingredients.map(toReferenceIngredient),
-      yieldNum,
-      (ref) => panelFromIngredients(ingredients, ref)
-    )
-  );
 
   // Seed once. Async (resolves each ingredient's current twin), so the editor is
   // held behind `ready`.
@@ -171,24 +158,13 @@
   {/if}
 
   {#snippet footer()}
-    <button
-      class="save"
+    <CommitButton
       id="save-instantiation-btn"
       disabled={!ready || ingredients.length === 0 || status === "loading"}
       onclick={handleSave}
     >
-      {#if status === "loading"}
-        Saving…
-      {:else if edit}
-        Save changes
-      {:else}
-        <!-- At a multi-serving yield the logged figure is per serving (headline =
-             Σ batch rows ÷ yield, ADR-0022), so the editor's ingredient rows sum
-             to more than this — spell out the basis so the difference reads. -->
-        Log {roundFoodDisplay(perServing.calories, $nutritionDisplayDecimals)} kcal{#if yieldNum > 1}
-          / serving{/if}
-      {/if}
-    </button>
+      Log
+    </CommitButton>
   {/snippet}
 </BottomSheet>
 
@@ -205,23 +181,5 @@
   }
   .err {
     margin-top: var(--space-s);
-  }
-  .save {
-    width: 100%;
-    background: #ccff00;
-    color: #000;
-    border: 3px solid #000;
-    padding: var(--space-s);
-    font-size: var(--step-1);
-    font-weight: 800;
-    text-transform: uppercase;
-    cursor: pointer;
-    min-height: 60px;
-  }
-  .save:disabled {
-    background: #e4e4e7;
-    color: var(--text-muted);
-    border-color: var(--border);
-    cursor: not-allowed;
   }
 </style>

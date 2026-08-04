@@ -18,13 +18,8 @@
     type ConsumptionEvent,
   } from "../../stores/calorie.store";
   import { parseLoggedQuantity } from "../../food/recipe-ingredient";
-  import {
-    roundFoodDisplay,
-    scaleNutrition,
-    type NutritionInfo,
-  } from "../../food/nutrition";
+  import { scaleNutrition, type NutritionInfo } from "../../food/nutrition";
   import type { ManualEntry } from "../../food/provenance";
-  import { nutritionDisplayDecimals } from "../../stores/settings.store";
   import { parseDatomValue } from "../../db/datom-fold";
   import type {
     FoodChoice,
@@ -154,6 +149,12 @@
   // The staged food, bound from the stager so the header's back button can clear
   // it ("Change food"); hidden in edit mode, which locks onto one food's amount.
   let staged = $state<FoodResult | null>(null);
+
+  // The stager's unified back capability (staged food, capture form, or manual
+  // mini-form), driving the shared header back button so every internal step of
+  // the flow gets the same centred-title-plus-back header.
+  let canGoBack = $state(false);
+  let goBack = $state<() => void>(() => {});
 
   // Editing: seed the stager once from the event being edited. A gram-logged
   // food re-stages from its twin (so the amount editor scales the same way it did
@@ -334,16 +335,12 @@
     }
   }
 
+  // One label for every terminal commit in this sheet: "Log" (ADR-0035 §UI — the
+  // food-addition flows all end in the same pinned "Log" button). The lone
+  // exception is scan *before* a product is staged, where the button performs a
+  // barcode lookup, not a log — calling that "Log" would misname the action.
   function primaryLabel(ctx: PrimaryLabelContext): string {
-    if (ctx.staged)
-      return edit
-        ? "Save changes"
-        : `Log ${roundFoodDisplay(ctx.staged.calories * ctx.factor, $nutritionDisplayDecimals)} kcal`;
-    if (ctx.method === "custom") {
-      if (ctx.toReview > 0) return "Review & save";
-      return edit ? "Save changes" : "Save & Log";
-    }
-    if (ctx.method === "scan") return "Look up";
+    if (!ctx.staged && ctx.method === "scan") return "Look up";
     return "Log";
   }
 </script>
@@ -353,11 +350,13 @@
   title={edit ? `Edit ${meal_type}` : meal_type}
   flushBody
   {onClose}
-  onBack={staged && !edit ? () => (staged = null) : undefined}
-  backLabel="Change food"
+  onBack={canGoBack ? goBack : undefined}
+  backLabel="Back"
 >
   <FoodStager
     bind:staged
+    bind:canGoBack
+    bind:goBack
     {seed}
     allowPhoto
     manualIntents

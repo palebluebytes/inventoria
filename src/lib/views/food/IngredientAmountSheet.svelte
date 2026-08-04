@@ -2,6 +2,7 @@
   import type { NutritionInfo, Portion } from "../../food/nutrition";
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import FoodAmountPanel from "./FoodAmountPanel.svelte";
+  import CommitButton from "./CommitButton.svelte";
 
   // Edits a single food line's gram amount in a small sheet raised over the
   // recipe/instantiation dialog or the dashboard. The same picker serves both:
@@ -54,24 +55,6 @@
   <FoodAmountPanel {panel} {portions} bind:grams={value} />
 
   {#snippet footer()}
-    <button class="done" id="amount-done-btn" onclick={done}>Done</button>
+    <CommitButton id="amount-done-btn" onclick={done}>Done</CommitButton>
   {/snippet}
 </BottomSheet>
-
-<style>
-  .done {
-    width: 100%;
-    background: #ccff00;
-    color: #000;
-    border: 3px solid #000;
-    padding: var(--space-s);
-    font-size: var(--step-1);
-    font-weight: 800;
-    text-transform: uppercase;
-    cursor: pointer;
-    min-height: 56px;
-  }
-  .done:active {
-    transform: scale(0.98);
-  }
-</style>

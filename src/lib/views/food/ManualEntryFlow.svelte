@@ -39,10 +39,20 @@
      * intent's mini-form, skipping the chooser, with its fields filled. Applied
      * once when it first becomes non-null (it may resolve after a twin fetch). */
     seed = null,
-    /** True in edit mode — flips Save from "Save & Log" to "Save changes". */
-    editing = false,
     /** Commits the built choice; the host maps it to a save + log. */
     onCommit,
+    /**
+     * The commit button lives in the host's shared dock (so a manual entry's CTA
+     * is pinned at the bottom like every other flow, not scrolled inline). These
+     * three bindables surface what the dock needs: which mini-form is open (null =
+     * the intent chooser, where there is nothing to commit), the save handler to
+     * fire, and whether the current fields are complete enough to save. The
+     * `requestBack` handler returns a mini-form to the chooser, so the host's
+     * shared header back button drives it (no bespoke inline back link). */
+    activeIntent = $bindable(null),
+    requestSave = $bindable(),
+    saveReady = $bindable(false),
+    requestBack = $bindable(),
   }: {
     allowPhoto?: boolean;
     mealName?: string;
@@ -51,8 +61,11 @@
     nameId?: string;
     calId?: string;
     seed?: ManualEntrySeed | null;
-    editing?: boolean;
     onCommit: (choice: FoodChoice) => void | Promise<void>;
+    activeIntent?: ManualEntryKind | null;
+    requestSave?: () => void;
+    saveReady?: boolean;
+    requestBack?: () => void;
   } = $props();
 
   const INTENTS: {
@@ -173,6 +186,17 @@
     return false;
   });
 
+  // Surface the mini-form state to the host's dock, which renders the pinned
+  // commit button (the intent chooser has no button — nothing to commit yet).
+  $effect(() => {
+    activeIntent = intent;
+  });
+  $effect(() => {
+    saveReady = canSave;
+  });
+  requestSave = save;
+  requestBack = back;
+
   function save() {
     if (!canSave || kcal == null || !intent || busy || disabled) return;
     const isMenu = intent === "menu";
@@ -248,9 +272,8 @@
   </div>
 {:else}
   <div class="mini" data-testid={`manual-form-${intent}`}>
-    {#if !editing}
-      <button type="button" class="mini-back" onclick={back}>‹ Intents</button>
-    {/if}
+    <!-- Back to the intent chooser is driven by the host's shared header back
+         button (via requestBack), so there is no bespoke inline back link. -->
 
     <!-- Rendered unconditionally: the plate intent is photo-FIRST and needs this
          input even where the optional quick/menu photo attach (gated by
@@ -341,16 +364,9 @@
         </div>
         {#if readError}<p class="mini-err">{readError}</p>{/if}
       {/if}
-
-      <button
-        type="button"
-        class="mini-save"
-        data-testid="manual-save"
-        disabled={!canSave || busy || disabled}
-        onclick={save}
-      >
-        {busy ? "Saving…" : editing ? "Save changes" : "Save & Log"}
-      </button>
+      <!-- The commit button is pinned in the host's shared dock (FoodStager),
+           driven by the activeIntent / requestSave / saveReady bindables above,
+           so a manual entry's CTA sits at the bottom like every other flow. -->
     {/if}
   </div>
 {/if}
@@ -410,17 +426,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-s);
-  }
-  .mini-back {
-    align-self: flex-start;
-    background: none;
-    border: none;
-    padding: 0;
-    font-family: inherit;
-    font-weight: 700;
-    font-size: var(--step-n1);
-    color: var(--text-secondary);
-    cursor: pointer;
   }
   .kcal-label,
   .mini-flabel {
@@ -519,23 +524,6 @@
   .mini-err {
     font-size: var(--step-n2);
     color: var(--red-text, #b00);
-  }
-  .mini-save {
-    width: 100%;
-    background: var(--green-bg, #16a34a);
-    color: #fff;
-    border: 2px solid #000;
-    padding: var(--space-s);
-    font-family: inherit;
-    font-weight: 800;
-    text-transform: uppercase;
-    font-size: var(--step-0);
-    cursor: pointer;
-    min-height: 52px;
-  }
-  .mini-save:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
   }
   .hidden-file-input {
     position: absolute;

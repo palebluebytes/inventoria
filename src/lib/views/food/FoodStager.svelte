@@ -34,7 +34,10 @@
     type Basis,
     type PortionRow,
   } from "../../food/label-form";
-  import { buildLabelCapture } from "../../food/provenance";
+  import {
+    buildLabelCapture,
+    type ManualEntryKind,
+  } from "../../food/provenance";
   import {
     decodeBarcode,
     decodeBarcodeFromImage,
@@ -60,6 +63,7 @@
   import LabelPhotoReader from "./LabelPhotoReader.svelte";
   import FoodAmountPanel from "./FoodAmountPanel.svelte";
   import ManualEntryFlow from "./ManualEntryFlow.svelte";
+  import CommitButton from "./CommitButton.svelte";
 
   // The shared food-staging surface behind both the direct-log sheet and the
   // add-ingredient sheet (issue #16). It owns the Search / Scan / Custom method
@@ -109,6 +113,15 @@
     /** The staged food, exposed so the host header's back button can clear it
      *  ("Change food" / "Back"). */
     staged = $bindable(null),
+    /**
+     * Unified back capability for the stager's own internal sub-states — a staged
+     * food, the barcode-door capture form, or a manual mini-form. The host wires
+     * its shared header back button to these (`onBack={canGoBack ? goBack : …}`),
+     * so every internal step gets the same centred-title-plus-back header instead
+     * of each sub-state rolling its own affordance. `canGoBack` is false at the
+     * top of a flow, letting the host fall back to its own default (close/none). */
+    canGoBack = $bindable(false),
+    goBack = $bindable(() => {}),
     tabContent,
   }: {
     onChoose: (choice: FoodChoice) => ChooseOutcome | Promise<ChooseOutcome>;
@@ -123,6 +136,8 @@
     recent?: FoodResult[];
     ids: StagerIds;
     staged?: FoodResult | null;
+    canGoBack?: boolean;
+    goBack?: () => void;
     tabContent?: import("svelte").Snippet<[string]>;
   } = $props();
 
@@ -1075,6 +1090,51 @@
   // the shared dock input is dropped for it (Search/Scan still use it).
   let showInput = $derived(!staged && !isExtra(method) && method !== "custom");
   let showPrimary = $derived(!isExtra(method) && !showManualFlow);
+
+  // The manual flow (ManualEntryFlow) owns its save logic but hands its commit
+  // button to the shared dock, so a manual entry's CTA is pinned at the bottom
+  // like every other flow. These mirror its mini-form state: which intent is open
+  // (null on the chooser — nothing to commit), its save handler, and readiness.
+  let manualActiveIntent = $state<ManualEntryKind | null>(null);
+  let manualRequestSave = $state<(() => void) | undefined>(undefined);
+  let manualSaveReady = $state(false);
+  let manualRequestBack = $state<(() => void) | undefined>(undefined);
+
+  // The manual mini-form offers a back only when it isn't a seeded edit (an edit
+  // opens straight onto one entry's form — there is no chooser to return to).
+  let manualCanBack = $derived(
+    showManualFlow && manualActiveIntent != null && manualSeed == null
+  );
+
+  // Compose the stager's internal back navigation so the host's one header back
+  // button serves every sub-state. Order mirrors how a user drilled in: a staged
+  // food unstages (unless method-locked in edit), a barcode-door capture form
+  // returns to the scan view it came from, and a manual mini-form returns to the
+  // intent chooser.
+  let stagerCanGoBack = $derived(
+    (!!staged && !lockMethods) || captureReason !== null || manualCanBack
+  );
+  function stagerGoBack() {
+    if (staged && !lockMethods) {
+      staged = null;
+      return;
+    }
+    if (captureReason !== null) {
+      // Leave the capture form and return to the scan door it opened from,
+      // clearing the reason banner and its preserved OFF/completeness context.
+      captureReason = null;
+      captureCompleteness = undefined;
+      captureOffPayload = null;
+      method = "scan";
+      return;
+    }
+    if (manualCanBack) manualRequestBack?.();
+  }
+  // Publish the capability to the host (bindable props).
+  $effect(() => {
+    canGoBack = stagerCanGoBack;
+  });
+  goBack = stagerGoBack;
 </script>
 
 <div class="stager">
@@ -1246,12 +1306,15 @@
         {allowPhoto}
         {mealName}
         seed={manualSeed}
-        editing={manualSeed != null}
         busy={status === "loading"}
         disabled={primaryDisabled}
         nameId={ids.customName}
         calId={ids.customCal}
         onCommit={commit}
+        bind:activeIntent={manualActiveIntent}
+        bind:requestSave={manualRequestSave}
+        bind:saveReady={manualSaveReady}
+        bind:requestBack={manualRequestBack}
       />
     {:else}
       <!-- Custom = the #52 "Read-along" full-panel form (ADR-0034 §2–§4), reached
@@ -1610,8 +1673,7 @@
     {/if}
 
     {#if showPrimary}
-      <button
-        class="primary"
+      <CommitButton
         id={ids.primary}
         disabled={!canPrimary || primaryDisabled || status === "loading"}
         onclick={primaryAction}
@@ -1622,7 +1684,21 @@
           factor,
           toReview: method === "custom" && !staged ? toReview : 0,
         })}
-      </button>
+      </CommitButton>
+    {:else if showManualFlow}
+      <!-- The manual flow's pinned commit (its save logic lives in
+           ManualEntryFlow; only the button is hoisted here). Shown across the
+           whole flow — disabled on the intent chooser (nothing to commit yet) so
+           the dock keeps a constant height and picking an intent never shifts the
+           layout, matching how Search/Scan already show their button up front. -->
+      <CommitButton
+        id={ids.primary}
+        testid="manual-save"
+        disabled={!manualSaveReady || primaryDisabled || status === "loading"}
+        onclick={() => manualRequestSave?.()}
+      >
+        {primaryLabel({ method, staged, factor, toReview: 0 })}
+      </CommitButton>
     {/if}
   </div>
 </div>
@@ -2363,27 +2439,5 @@
     font-size: var(--step-n3);
     font-weight: 700;
     text-transform: uppercase;
-  }
-
-  .primary {
-    width: 100%;
-    background: #ccff00;
-    color: #000;
-    border: 3px solid #000;
-    padding: var(--space-s);
-    font-size: var(--step-1);
-    font-weight: 800;
-    text-transform: uppercase;
-    cursor: pointer;
-    min-height: 60px;
-  }
-  .primary:active:not(:disabled) {
-    transform: scale(0.98);
-  }
-  .primary:disabled {
-    background: #e4e4e7;
-    color: var(--text-muted);
-    border-color: var(--border);
-    cursor: not-allowed;
   }
 </style>

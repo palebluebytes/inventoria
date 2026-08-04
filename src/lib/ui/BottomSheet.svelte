@@ -88,12 +88,12 @@
       <div class="bottom-sheet-header">
         {#if onBack}
           <button class="back-btn" onclick={onBack} aria-label={backLabel}
-            >‹</button
+            ><span class="glyph" aria-hidden="true">‹</span></button
           >
         {/if}
         <h2>{title}</h2>
         <button class="close-btn" onclick={close} aria-label="Close"
-          >&times;</button
+          ><span class="glyph" aria-hidden="true">&times;</span></button
         >
       </div>
 
@@ -163,9 +163,13 @@
     border: 1px solid #000;
   }
 
+  /* Three columns — [back] [title] [close] — with equal-width side rails, so the
+     title sits dead-centre whether or not a back button is present. The side
+     rails reserve their width even when empty, so a title never shifts left just
+     because a flow has no back affordance. */
   .bottom-sheet-header {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 2.5rem 1fr 2.5rem;
     align-items: center;
     border-bottom: 2px solid #000;
     padding: 0 var(--space-m) var(--space-xs) var(--space-m);
@@ -173,19 +177,54 @@
   }
 
   .bottom-sheet-header h2 {
+    grid-column: 2;
     font-size: var(--step-1);
     font-weight: 700;
     margin: 0;
     text-transform: uppercase;
+    text-align: center;
+    /* Match the icon buttons' tight line box so all three share one centre line
+       (a `normal` line-height would seat the caps higher than the glyphs). */
+    line-height: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .close-btn {
+  /* The side glyphs (‹ / ×) are flex-centred in a box the height of the title's
+     line, so their line box's centre lands on the title's centre line. */
+  .close-btn,
+  .back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: var(--step-1);
+    padding: 0;
     background: none;
     border: none;
     color: #000;
     font-size: 2rem;
-    cursor: pointer;
     line-height: 1;
+    cursor: pointer;
+  }
+
+  /* Flex-centring aligns the glyphs' line boxes, but a glyph's ink sits off its
+     line-box centre by a font-specific amount, and the uppercase title's caps
+     sit ~0.1em high in their own box — so the raw glyphs still read low against
+     the title. These translate each glyph's ink onto the title's optical centre
+     (measured for the app font; `‹` and `×` differ, hence per-glyph values). */
+  .back-btn .glyph {
+    display: block;
+    transform: translateY(-0.135em);
+  }
+  .close-btn .glyph {
+    display: block;
+    transform: translateY(-0.081em);
+  }
+
+  .close-btn {
+    grid-column: 3;
+    justify-self: end;
   }
 
   .close-btn:hover {
@@ -195,13 +234,9 @@
   /* Leading back affordance — mirrors the food sheets' hand-rolled header
      back control ("‹"). Only rendered when a caller passes `onBack`. */
   .back-btn {
-    background: none;
-    border: none;
-    color: #000;
-    font-size: 2rem;
+    grid-column: 1;
+    justify-self: start;
     font-weight: 700;
-    line-height: 1;
-    cursor: pointer;
   }
 
   .back-btn:active {
