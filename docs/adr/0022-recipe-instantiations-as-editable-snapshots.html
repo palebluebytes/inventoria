@@ -107,6 +107,15 @@
 <li><strong>Forward-only.</strong> A nutrient the food never reported is <strong>absent (undefined), never 0</strong>. Events logged before this change keep their four-macro snapshot; the day total (<code>totalNutrition</code> → <code>sumNutrition</code>) sums only what each event actually froze and never fabricates a zero for an un-measured nutrient.</li>
 <li>Verified headless at Seam 2 (store action → <code>computeConsumption</code> round-trip); no twin storage, no <code>{ ref, amount, unit }</code> change, no UI change. Docs updated: <code>V1_REQUIREMENTS.md</code> §Module A and <code>eavt-vocabulary.html</code> <code>event/*</code> shapes.</li>
 </ul>
+<h2 id="amendment-food-addition-flow-unification-define-now-logs-one-serving">Amendment (food-addition flow unification): Define now logs one serving</h2>
+<p><strong>Date:</strong> 2026-08-04</p>
+<p>The three-verb table above gave <strong>Define</strong> "Logs instantiation: no" — a new template existed with zero instantiations. In practice a user who builds a brand new recipe expects it on the day they built it, and its absence read as a bug. As part of unifying the food-addition flows behind one pinned <strong>"Log"</strong> button, Define is brought in line with the other add flows.</p>
+<ul>
+<li><strong>Define now logs one serving onto the current day</strong>, into the meal the "＋ New recipe" sheet was opened from (<code>recipe_meal_type</code>, defaulting to <code>dinner</code>). It reuses the exact <code>logRecipeConsumption</code> call Consolidate already makes — same derived-then-frozen per-serving snapshot — so a defined recipe and a consolidated one log identically.</li>
+<li><strong>Retraction stays a property of Consolidate alone.</strong> Define builds from scratch and carries no source <code>event_id</code>s, so the retraction loop remains guarded to Consolidate; Define's fresh ingredient foods are never touched.</li>
+<li><strong>Edit is unchanged</strong> — still template-only (logs nothing, retracts nothing); it re-seeds only future instantiations. The revised table row for Define reads "Creates twin: yes · Logs instantiation: <strong>yes</strong> · Retracts source foods: no".</li>
+<li>No storage/model change — same snapshot shape and <code>{ ref, amount, unit }</code> references; only the mode guard in <code>RecipeModal.handleSave</code> widened.</li>
+</ul>
     </main>
   </div>
 </div>

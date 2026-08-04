@@ -175,3 +175,27 @@ on read" rule freezing _more_ at write time; logged history stays immutable.
 - Verified headless at Seam 2 (store action → `computeConsumption` round-trip);
   no twin storage, no `{ ref, amount, unit }` change, no UI change. Docs updated:
   `V1_REQUIREMENTS.md` §Module A and `eavt-vocabulary.html` `event/*` shapes.
+
+## Amendment (food-addition flow unification): Define now logs one serving
+
+**Date:** 2026-08-04
+
+The three-verb table above gave **Define** "Logs instantiation: no" — a new
+template existed with zero instantiations. In practice a user who builds a brand
+new recipe expects it on the day they built it, and its absence read as a bug. As
+part of unifying the food-addition flows behind one pinned **"Log"** button, Define
+is brought in line with the other add flows.
+
+- **Define now logs one serving onto the current day**, into the meal the "＋ New
+  recipe" sheet was opened from (`recipe_meal_type`, defaulting to `dinner`). It
+  reuses the exact `logRecipeConsumption` call Consolidate already makes — same
+  derived-then-frozen per-serving snapshot — so a defined recipe and a
+  consolidated one log identically.
+- **Retraction stays a property of Consolidate alone.** Define builds from scratch
+  and carries no source `event_id`s, so the retraction loop remains guarded to
+  Consolidate; Define's fresh ingredient foods are never touched.
+- **Edit is unchanged** — still template-only (logs nothing, retracts nothing); it
+  re-seeds only future instantiations. The revised table row for Define reads
+  "Creates twin: yes · Logs instantiation: **yes** · Retracts source foods: no".
+- No storage/model change — same snapshot shape and `{ ref, amount, unit }`
+  references; only the mode guard in `RecipeModal.handleSave` widened.

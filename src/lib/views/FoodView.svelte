@@ -226,7 +226,9 @@
   }
 
   // Define a brand-new Recipe Twin from scratch — the builder opens empty and on
-  // save writes only the template, logging nothing (ADR-0022 #13).
+  // save writes the template AND logs one serving onto the current day, into the
+  // meal this sheet was opened from (ADR-0022, amended: a new recipe lands on the
+  // day it was built).
   function defineRecipe() {
     recipe_meal_type = sheet_meal_type ?? "dinner";
     closeSheet();

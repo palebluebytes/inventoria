@@ -18,12 +18,15 @@
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import Alert from "../../ui/Alert.svelte";
   import IngredientListEditor from "./IngredientListEditor.svelte";
+  import CommitButton from "./CommitButton.svelte";
 
   // The Recipe Twin builder/editor. Three verbs share this surface (ADR-0022):
   //   • consolidate — build a recipe from the selected foods and REPLACE the ones
   //     that remain as ingredients (append-only: their consumption events are
   //     retracted); foods removed from the builder stay logged on their own.
-  //   • define — create a reusable template from scratch/search, logging nothing.
+  //   • define — create a reusable template from scratch/search AND log one
+  //     serving onto the current day (ADR-0022, amended): a recipe you just built
+  //     lands on the day you built it.
   //   • edit — amend an existing template in place; the edit re-seeds only FUTURE
   //     instantiations (past snapshots never move), and again logs nothing.
   // Lead with Name + Ingredients + Yield and a live per-serving nutrition panel;
@@ -177,10 +180,11 @@
         },
         mode === "edit" ? template?.entity : undefined
       );
-      // 3. Consolidate ALSO logs the recipe and retracts the source foods.
-      //    Define and Edit are template-only lifecycle acts — they log nothing
-      //    and retract nothing (ADR-0022's three-verb split).
-      if (mode === "consolidate") {
+      // 3. Consolidate and Define both LOG the recipe onto the current day — a
+      //    recipe you just built should appear on the day you built it (ADR-0022,
+      //    amended). Edit stays template-only: it re-seeds only FUTURE
+      //    instantiations, so it logs nothing.
+      if (mode === "consolidate" || mode === "define") {
         // Log the recipe: the store derives its per-serving snapshot with the
         // shared formula over each ingredient's REAL nutrition/info panel and
         // the same yield, then freezes it. Same helper + panels + yield as the
@@ -196,12 +200,14 @@
           meal_type,
           selectedDate
         );
-        // Replace: retract the selection events that remain as ingredients.
-        // (Foods removed from the builder keep their event_id out of this loop,
-        // so they stay logged.)
-        for (const ing of ingredients) {
-          if (ing.event_id)
-            await retractConsumptionEvent(ing.event_id, recipeId);
+        // Replace (consolidate only): retract the selection events that remain as
+        // ingredients. Define builds from scratch, so it has no seeded event_ids
+        // and nothing to retract — the guard keeps its fresh foods untouched.
+        if (mode === "consolidate") {
+          for (const ing of ingredients) {
+            if (ing.event_id)
+              await retractConsumptionEvent(ing.event_id, recipeId);
+          }
         }
       }
       onClose();
@@ -220,7 +226,10 @@
         ? "New recipe"
         : "Build recipe"
   );
-  let saveLabel = $derived(mode === "edit" ? "Save changes" : "Save recipe");
+  // Define and Consolidate both log the recipe onto the day, so they share the
+  // one food-addition CTA, "Log". Edit is a template-only amendment (it logs
+  // nothing and only re-seeds future instantiations), so it keeps "Save changes".
+  let saveLabel = $derived(mode === "edit" ? "Save changes" : "Log");
 
   const SECTIONS: {
     key: keyof typeof open;
@@ -334,8 +343,7 @@
   {/if}
 
   {#snippet footer()}
-    <button
-      class="save"
+    <CommitButton
       id="save-recipe-btn"
       disabled={!ready ||
         !recipeName.trim() ||
@@ -344,7 +352,7 @@
       onclick={handleSave}
     >
       {status === "loading" ? "Saving…" : saveLabel}
-    </button>
+    </CommitButton>
   {/snippet}
 </BottomSheet>
 
@@ -508,21 +516,5 @@
 
   .err {
     margin-top: var(--space-s);
-  }
-  .save {
-    width: 100%;
-    background: #000;
-    color: #fff;
-    border: 3px solid #000;
-    padding: var(--space-s);
-    font-size: var(--step-1);
-    font-weight: 800;
-    text-transform: uppercase;
-    cursor: pointer;
-    min-height: 60px;
-  }
-  .save:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
   }
 </style>
