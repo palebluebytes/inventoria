@@ -514,7 +514,7 @@
     width: 100%;
     background: none;
     border: none;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--border);
     padding: var(--space-xs) var(--space-s);
     font-family: var(--font-mono);
     font-size: var(--step-n2);

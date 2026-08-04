@@ -164,10 +164,10 @@
     display: flex;
     align-items: center;
     height: 100%;
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
   }
   :global(.bits-trigger:hover) {
-    background: var(--bg-input, #f5f5f5);
+    background: var(--bg-input);
   }
   :global(.bits-nav-btn:hover) {
     background: var(--bg-input);

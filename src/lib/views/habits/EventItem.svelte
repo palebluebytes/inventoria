@@ -161,7 +161,7 @@
 
   /* Appointment — informational */
   .event-item.is-appointment {
-    background: #e5e5e5; /* solid grey like mockup */
+    background: var(--border); /* solid grey like mockup */
     cursor: default;
   }
   .event-item.is-appointment.is-past {
@@ -208,7 +208,7 @@
     text-overflow: ellipsis;
   }
   .event-item.is-appointment .event-title {
-    color: #666;
+    color: var(--text-secondary);
   }
   .event-item.is-past .event-title {
     color: var(--text-muted);
@@ -217,7 +217,7 @@
   .event-desc {
     font-weight: 400;
     font-size: var(--step-n1);
-    color: #666;
+    color: var(--text-secondary);
     margin-left: 4px;
   }
 
@@ -260,8 +260,8 @@
   .duration-pill {
     font-size: var(--step-n2);
     font-weight: 700;
-    color: #666;
-    border: 1px solid #999;
+    color: var(--text-secondary);
+    border: 1px solid var(--text-muted);
     padding: 2px 6px;
     border-radius: 12px;
   }

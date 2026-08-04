@@ -67,7 +67,7 @@
     font-family: var(--font-mono);
     font-size: var(--step-3);
     font-weight: 900;
-    color: #999;
+    color: var(--text-muted);
     cursor: pointer;
     padding: var(--space-2xs) var(--space-xs);
   }
@@ -90,7 +90,7 @@
   .agenda-ascii-date {
     font-size: var(--step-n2);
     font-weight: 700;
-    color: #999;
+    color: var(--text-muted);
     margin-top: 4px;
   }
 

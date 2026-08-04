@@ -528,7 +528,7 @@
     font-weight: bold;
   }
   .attr {
-    color: #2563eb;
+    color: var(--text-primary);
     font-weight: 700;
   }
   .small {

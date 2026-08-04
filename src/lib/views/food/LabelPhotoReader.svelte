@@ -193,7 +193,7 @@
     pointer-events: auto;
     display: flex;
     flex-direction: column;
-    background: #0b0b0b;
+    background: var(--ink);
     color: var(--paper);
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }

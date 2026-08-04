@@ -335,8 +335,8 @@
   .habit-category-pill {
     font-size: var(--step-n2);
     font-weight: 700;
-    color: #666;
-    border: 1px solid #999;
+    color: var(--text-secondary);
+    border: 1px solid var(--text-muted);
     padding: 2px 6px;
     border-radius: 12px;
   }
@@ -347,7 +347,7 @@
     font-size: var(--step-n2);
     font-weight: 700;
     color: var(--ink);
-    background: #e5e5e5;
+    background: var(--border);
     padding: 2px 6px;
     border-radius: 4px;
     letter-spacing: 0.05em;

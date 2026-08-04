@@ -293,14 +293,14 @@
     font-family: monospace;
     font-size: var(--step-n1);
     font-weight: 700;
-    color: #64748b;
+    color: var(--text-secondary);
     margin: 0;
   }
 
   .media-extra-details {
     padding: var(--space-s) var(--space-m);
     border-bottom: var(--edge-thick);
-    background: #f8fafc;
+    background: var(--bg-base);
     display: flex;
     flex-direction: column;
     gap: var(--space-s);
@@ -322,7 +322,7 @@
     margin: 0;
     font-size: var(--step-n1);
     line-height: 1.4;
-    color: #3f3f46;
+    color: var(--text-primary);
   }
 
   .subjects-list {

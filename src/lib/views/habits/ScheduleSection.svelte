@@ -199,7 +199,7 @@
     font-family: var(--font-mono);
     font-size: var(--step-n2);
     font-weight: 700;
-    color: #666;
+    color: var(--text-secondary);
     background: var(--paper);
     gap: 2px;
     min-height: 48px;
@@ -210,13 +210,13 @@
   }
 
   .time-pipe {
-    color: #999;
+    color: var(--text-muted);
     font-size: 10px;
     line-height: 1;
   }
 
   .time-end {
-    color: #999;
+    color: var(--text-muted);
     font-size: 10px;
   }
 

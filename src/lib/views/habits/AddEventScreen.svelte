@@ -509,6 +509,6 @@
     cursor: not-allowed;
   }
   .save-btn:active:not(:disabled) {
-    background: #333;
+    background: var(--ink);
   }
 </style>
