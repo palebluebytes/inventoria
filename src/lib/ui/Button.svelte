@@ -101,33 +101,33 @@
 
   /* Variants */
   .btn-primary {
-    background: #000;
-    color: #fff;
-    border-color: #000;
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
   }
   .btn-primary:hover:not(:disabled) {
-    background: #fff;
-    color: #000;
+    background: var(--paper);
+    color: var(--ink);
   }
 
   .btn-secondary {
     background: transparent;
-    border-color: #000;
-    color: #000;
+    border-color: var(--ink);
+    color: var(--ink);
   }
   .btn-secondary:hover:not(:disabled) {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
   }
 
   .btn-danger {
-    background: #fff;
-    color: #000;
-    border-color: #000;
+    background: var(--paper);
+    color: var(--ink);
+    border-color: var(--ink);
   }
   .btn-danger:hover:not(:disabled) {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
   }
 
   .btn-ghost {

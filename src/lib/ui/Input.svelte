@@ -52,7 +52,7 @@
   .input {
     width: 100%;
     background: transparent;
-    border: 1px solid var(--border-accent);
+    border: var(--edge-thin);
     border-radius: var(--radius);
     padding: var(--space-2xs) var(--space-s);
     color: var(--text-primary);
@@ -78,9 +78,9 @@
   }
 
   .input:focus {
-    border-color: #000;
-    box-shadow: 0 0 0 1px #000;
-    background: #fff;
+    border-color: var(--ink);
+    box-shadow: 0 0 0 1px var(--ink);
+    background: var(--paper);
   }
 
   .input:disabled {

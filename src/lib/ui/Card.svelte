@@ -17,7 +17,7 @@
 <style>
   .card {
     background: var(--bg-card);
-    border: 1px solid var(--border-accent);
+    border: var(--edge-thin);
     border-radius: var(--radius);
     padding: var(--space-m) var(--space-l);
     transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);

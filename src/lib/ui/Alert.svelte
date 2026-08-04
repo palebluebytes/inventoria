@@ -118,8 +118,8 @@
   .alert-error {
     background: var(--red-bg);
     color: var(--red);
-    border-color: #000;
-    border-left-color: #000;
+    border-color: var(--ink);
+    border-left-color: var(--ink);
   }
   .alert-error .icon {
     color: var(--red);
@@ -128,8 +128,8 @@
   .alert-success {
     background: var(--green-bg);
     color: var(--green);
-    border-color: #000;
-    border-left-color: #000;
+    border-color: var(--ink);
+    border-left-color: var(--ink);
   }
   .alert-success .icon {
     color: var(--green);
@@ -138,8 +138,8 @@
   .alert-warning {
     background: var(--amber-bg);
     color: var(--amber);
-    border-color: #000;
-    border-left-color: #000;
+    border-color: var(--ink);
+    border-left-color: var(--ink);
   }
   .alert-warning .icon {
     color: var(--amber);
@@ -147,11 +147,11 @@
 
   .alert-info {
     background: #fafafa;
-    color: #000;
-    border-color: #000;
-    border-left-color: #000;
+    color: var(--ink);
+    border-color: var(--ink);
+    border-left-color: var(--ink);
   }
   .alert-info .icon {
-    color: #000;
+    color: var(--ink);
   }
 </style>

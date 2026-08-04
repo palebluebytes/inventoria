@@ -136,10 +136,10 @@
     transform: translateX(-50%);
     z-index: 1701;
     pointer-events: auto;
-    background: var(--bg-surface, #fff);
+    background: var(--bg-surface, var(--paper));
     border: var(--edge-thick);
     border-bottom: none;
-    box-shadow: 0 -8px 0 #000;
+    box-shadow: 0 -8px 0 var(--ink);
     width: 100%;
     max-width: 600px;
     max-height: 85vh;
@@ -175,7 +175,7 @@
   .drag-handle {
     width: 40px;
     height: 5px;
-    background: #000;
+    background: var(--ink);
     border: var(--edge-thin);
   }
 
@@ -218,7 +218,7 @@
     padding: 0;
     background: none;
     border: none;
-    color: #000;
+    color: var(--ink);
     font-size: 2rem;
     line-height: 1;
     cursor: pointer;

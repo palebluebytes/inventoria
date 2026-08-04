@@ -33,8 +33,8 @@
   }
 
   .badge-default {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
     border: var(--edge-thin);
   }
 

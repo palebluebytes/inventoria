@@ -37,8 +37,8 @@
     position: fixed;
     right: 1rem;
     bottom: 1rem;
-    background: var(--bg-surface, #fff);
-    color: var(--text-primary, #000);
+    background: var(--bg-surface, var(--paper));
+    color: var(--text-primary, var(--ink));
     border: var(--edge);
     border-radius: var(--radius);
     padding: var(--space-m);

@@ -94,7 +94,7 @@
     position: fixed;
     inset: 0;
     z-index: 1600;
-    background: #fff;
+    background: var(--paper);
     padding: var(--space-l);
     display: flex;
     flex-direction: column;
@@ -123,7 +123,7 @@
   .method {
     flex: 1;
     border: var(--edge);
-    background: #fff;
+    background: var(--paper);
     padding: var(--space-2xs);
     text-transform: uppercase;
     font-weight: 700;
@@ -131,8 +131,8 @@
     min-height: 44px;
   }
   .method.on {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
   }
   .primary {
     width: 100%;

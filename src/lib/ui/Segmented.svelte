@@ -73,7 +73,7 @@
     font-size: var(--step-n1);
     font-weight: 800;
     text-transform: uppercase;
-    color: #000;
+    color: var(--ink);
   }
 
   /* bits-ui renders these elements itself, so target them with :global.
@@ -96,8 +96,8 @@
   :global(.seg-row .seg) {
     padding: var(--space-2xs) var(--space-xs);
     border: var(--edge);
-    background: #fff;
-    color: #000;
+    background: var(--paper);
+    color: var(--ink);
     font-family: inherit;
     font-size: var(--step-n1);
     font-weight: 700;
@@ -108,11 +108,11 @@
     background: var(--track, #f4f4f5);
   }
   :global(.seg-row .seg[data-state="checked"]) {
-    background: #000;
-    color: #fff;
+    background: var(--ink);
+    color: var(--paper);
   }
   :global(.seg-row .seg:focus-visible) {
-    outline: 2px solid #000;
+    outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
 </style>

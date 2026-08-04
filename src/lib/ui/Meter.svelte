@@ -72,7 +72,7 @@
   :global(.meter-fill) {
     height: 100%;
     border-radius: var(--radius);
-    background: #000;
+    background: var(--ink);
     transition: width 0.35s ease-out;
   }
   /* Day total past target — the fill runs full and tints amber. */
