@@ -61,6 +61,7 @@
 
   import { Tabs, Combobox } from "bits-ui";
   import Alert from "../../ui/Alert.svelte";
+  import Button from "../../ui/Button.svelte";
   import Input from "../../ui/Input.svelte";
   import Segmented from "../../ui/Segmented.svelte";
   import LabelPhotoReader from "./LabelPhotoReader.svelte";
@@ -1360,14 +1361,14 @@
                a prominent "photograph the label" escape so a barcode that won't
                scan still leads somewhere. Routes barcode-less to the Custom form;
                the user can still add legible digits in the form's reason banner. -->
-                    <button
-                      type="button"
+                    <Button
+                      variant="primary"
                       class="escape"
                       data-testid="unreadable-escape"
                       onclick={() => openCaptureForm("unreadable")}
                     >
                       📷 Can’t scan it? Photograph the label instead
-                    </button>
+                    </Button>
                   {/if}
                 {:else}
                   <!-- No live camera (desktop has no native BarcodeDetector, or the camera
@@ -1427,14 +1428,14 @@
                   {#if uploadNoCode}
                     <!-- Same escape the camera stall offers: go to the form (unreadable
                door) with the photo attached; add the digits there if legible. -->
-                    <button
-                      type="button"
+                    <Button
+                      variant="primary"
                       class="escape"
                       data-testid="unreadable-escape"
                       onclick={() => openCaptureForm("unreadable")}
                     >
                       ✏️ Enter the label details instead
-                    </button>
+                    </Button>
                   {/if}
                 {/if}
               {:else if showManualFlow}
@@ -1739,8 +1740,8 @@
                           Facts under your OFF login. No photos are sent.</span
                         >
                       </label>
-                      <button
-                        type="button"
+                      <Button
+                        variant="primary"
                         class="cf-contrib-btn"
                         data-testid="off-contribute-submit"
                         disabled={!contributeChecked ||
@@ -1750,7 +1751,7 @@
                         {contributeStatus === "sending"
                           ? "Contributing…"
                           : "Contribute to OFF"}
-                      </button>
+                      </Button>
                       {#if contributeResult}
                         <p
                           class="cf-contrib-msg"
@@ -2094,22 +2095,15 @@
     animation: spin 0.7s linear infinite;
   }
 
-  /* Unreadable-door escape (§1), elevated after ~10 s of no decode. */
-  .escape {
+  /* Unreadable-door escape (§1), elevated after ~10 s of no decode. The frame,
+     fill and press live in the shared Button (primary) now; only its full-width
+     layout in the flow stays here. Reached through `:global` under the scoped
+     stage because the class rides a child <Button> (the bits `.methods`
+     precedent). */
+  .stage :global(.escape) {
     width: 100%;
     margin-top: var(--space-s);
-    background: var(--ink);
-    color: var(--paper);
-    border: var(--edge);
-    border-radius: 10px;
-    padding: var(--space-s);
-    font: inherit;
-    font-weight: 700;
-    cursor: pointer;
     min-height: 52px;
-  }
-  .escape:active {
-    transform: scale(0.98);
   }
 
   .hidden-file-input {
@@ -2490,27 +2484,13 @@
     height: 1.15rem;
     margin-top: 0.1rem;
   }
-  .cf-contrib-btn {
+  /* The frame, fill, disabled and press states are the shared Button (primary)
+     now; only its full-width layout in the contribution card stays here (reached
+     via `:global` under the scoped section, as the class rides a child Button). */
+  .cf-contrib :global(.cf-contrib-btn) {
     width: 100%;
     margin-top: var(--space-xs);
-    background: var(--ink);
-    color: var(--paper);
-    border: var(--edge);
-    border-radius: 10px;
-    padding: 0.6rem;
-    font: inherit;
-    font-weight: 700;
-    cursor: pointer;
     min-height: 48px;
-  }
-  .cf-contrib-btn:disabled {
-    background: var(--border);
-    color: var(--text-muted);
-    border-color: var(--border);
-    cursor: not-allowed;
-  }
-  .cf-contrib-btn:active:not(:disabled) {
-    transform: scale(0.98);
   }
   /* Outcome line: red by default (auth/data-quality/network), green on success —
      surfaced inline so a failed send is legible beside the persistent retry. */

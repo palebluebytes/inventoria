@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Button from "../../ui/Button.svelte";
+
   // The dashboard's week-strip date selector: a Monday-aligned row of seven day
   // buttons with prev/next-week arrows. Owns its own week math; the selected day
   // is two-way bound so the dashboard reacts to taps here.
@@ -106,7 +108,9 @@
     </button>
   </div>
   {#if !onToday}
-    <button class="today-btn" onclick={goToToday}>Today</button>
+    <Button variant="secondary" size="sm" class="today-btn" onclick={goToToday}
+      >Today</Button
+    >
   {/if}
 </div>
 
@@ -127,24 +131,14 @@
     padding: var(--space-xs);
     width: 100%;
   }
-  /* Retro pill matching the strip's black-on-white border language; inverts on
-     hover like the day buttons. Only rendered when off today. */
-  .today-btn {
-    background: var(--paper);
-    border: var(--edge-thin);
-    border-radius: var(--radius);
-    color: var(--ink);
-    font-size: var(--step-n2);
-    font-weight: 700;
+  /* "Today" snap-back: the paper→ink invert, frame, shadow and press are the
+     shared Button (secondary) now (ADR-0039 / #78); only its uppercase caps and
+     roomier horizontal padding stay here, reached via `:global` under the scoped
+     strip since the class rides a child Button. Only rendered when off today. */
+  .week-strip :global(.today-btn) {
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    padding: var(--space-3xs) var(--space-m);
-    cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  .today-btn:hover {
-    background: var(--ink);
-    color: var(--paper);
+    padding-inline: var(--space-m);
   }
   .nav-arrow {
     background: none;

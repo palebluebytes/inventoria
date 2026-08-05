@@ -27,6 +27,7 @@
   import { parseLoggedQuantity } from "../../food/recipe-ingredient";
   import Modal from "../../ui/Modal.svelte";
   import Meter from "../../ui/Meter.svelte";
+  import Button from "../../ui/Button.svelte";
   import FoodItemRow from "./FoodItemRow.svelte";
   import CalorieRing from "./CalorieRing.svelte";
   import MacroMeters from "./MacroMeters.svelte";
@@ -223,7 +224,9 @@
     <div class="meal-section">
       <div class="meal-section-header">
         <h3 class="meal-title">{meal_type.toUpperCase()}</h3>
-        <button
+        <Button
+          variant="primary"
+          size="sm"
           class="add-meal"
           disabled={!dbReady}
           aria-label="Add {meal_type}"
@@ -239,7 +242,7 @@
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
-        </button>
+        </Button>
       </div>
 
       {#if groupedMeals[meal_type].length === 0}
@@ -669,43 +672,16 @@
     letter-spacing: 0.05em;
     color: var(--text-primary);
   }
-  /* Icon-only add action — the meal header already names the meal, so the
-     button just needs to read as "add here". Filled black square to mark it as
-     the section's primary action; inverts on hover like the other buttons. */
-  .add-meal {
+  /* Icon-only add action — the meal header names the meal, so this just reads as
+     "add here". The primary ink fill, hover-invert, press-flush and focus ring
+     are the shared Button (primary) now (ADR-0039 / #78); only the fixed square
+     icon sizing stays here, reached via `:global` under the scoped header since
+     the class rides a child Button. */
+  .meal-section-header :global(.add-meal) {
     flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     width: 2rem;
     height: 2rem;
     padding: 0;
-    background: var(--ink);
-    color: var(--paper);
-    border: var(--edge-thin);
-    border-radius: var(--radius);
-    cursor: pointer;
-    transition:
-      background 0.15s ease,
-      color 0.15s ease,
-      transform 0.1s ease;
-  }
-  .add-meal:hover:not(:disabled) {
-    background: var(--paper);
-    color: var(--ink);
-  }
-  .add-meal:active:not(:disabled) {
-    transform: scale(0.92);
-  }
-  .add-meal:focus-visible {
-    outline: none;
-    box-shadow:
-      0 0 0 2px var(--bg-base),
-      0 0 0 4px var(--accent);
-  }
-  .add-meal:disabled {
-    cursor: not-allowed;
-    opacity: 0.4;
   }
   .add-meal-icon {
     width: 1.1rem;
