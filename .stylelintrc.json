@@ -8,7 +8,8 @@
     {
       "files": ["src/app.css"],
       "rules": {
-        "declaration-property-value-disallowed-list": null
+        "declaration-property-value-disallowed-list": null,
+        "color-no-hex": null
       }
     }
   ],
@@ -24,6 +25,7 @@
       "/^(color|background|background-color|border(-top|-right|-bottom|-left)?(-color)?|box-shadow|outline(-color)?|fill|stroke)$/": [
         "/#(?:000|fff)(?:000|fff)?(?![0-9a-f])/i"
       ]
-    }
+    },
+    "color-no-hex": true
   }
 }
