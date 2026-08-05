@@ -1,11 +1,16 @@
 <script lang="ts">
-  import { fetchCategorySuggestions } from "../../food/open-food-facts";
+  import {
+    fetchCategorySuggestions,
+    isEnglishCategory,
+  } from "../../food/open-food-facts";
 
   // A multi-select category type-ahead over OFF's canonical taxonomy (#84). Each
   // chosen category is a discrete pickable row (like a household portion), so the
   // form stops jamming OFF's comma list into one free-text box. Typing queries
-  // OFF's `taxonomy_suggestions` (English for now); picking a suggestion adds a
-  // chip. It degrades to free text — Enter with no highlighted suggestion keeps
+  // OFF's `taxonomy_suggestions` (English only, `lc=en`); picking a suggestion
+  // adds a chip. English-only: the taxonomy returns nothing for non-English input,
+  // and any non-English SEED (a foreign product's own food/category) is verified
+  // and hidden. Degrades to free text — Enter with no highlighted suggestion keeps
   // whatever was typed — so it still works offline (OFF re-canonicalizes on write).
   //
   // Owns only the chips + the add field; the caller wraps it in the section chrome
@@ -15,7 +20,13 @@
 
   let query = $state("");
   let suggestions = $state<string[]>([]);
-  let open = $state(false);
+  // True while a taxonomy request is in flight, so the panel shows a loading row
+  // rather than a bare/stale list while fetching.
+  let loading = $state(false);
+  let focused = $state(false);
+  // Escape hides the panel without losing the typed query; any new keystroke re-
+  // shows it.
+  let dismissed = $state(false);
   // Index of the keyboard-highlighted suggestion; -1 = none (free-text on Enter).
   let active = $state(-1);
   let debounceTimer: ReturnType<typeof setTimeout>;
@@ -23,18 +34,55 @@
   let seq = 0;
 
   const listId = `catpick-${crypto.randomUUID()}`;
+  const showPanel = $derived(focused && !dismissed && query.trim().length > 0);
 
   const isPicked = (c: string) =>
     value.some((v) => v.toLowerCase() === c.toLowerCase());
 
-  function add(raw: string) {
+  // ── English-only seeds ─────────────────────────────────────────────────────
+  // Seeds arrive from OFF's stored food/category, which is in the product's own
+  // language — so verify each against the English taxonomy and drop the ones that
+  // aren't English (isEnglishCategory === false). A category the taxonomy couldn't
+  // be asked about (null, offline) is kept, never erased. Only KEPT categories are
+  // remembered, so a dropped non-English one is re-checked if it's ever re-seeded;
+  // `inflight` just avoids launching a duplicate check for the same in-progress
+  // term. Picked suggestions are already English, so add() marks them kept.
+  const verified = new Set<string>();
+  const inflight = new Set<string>();
+  async function verifySeeds(cats: string[]) {
+    cats.forEach((c) => inflight.add(c.toLowerCase()));
+    const verdicts = await Promise.all(
+      cats.map(async (c) => ({ c, english: await isEnglishCategory(c) }))
+    );
+    const drop = new Set<string>();
+    for (const { c, english } of verdicts) {
+      const key = c.toLowerCase();
+      inflight.delete(key);
+      if (english === false) drop.add(key);
+      else verified.add(key); // English or undetermined → keep, don't re-check
+    }
+    if (drop.size) value = value.filter((v) => !drop.has(v.toLowerCase()));
+  }
+  $effect(() => {
+    const pending = value.filter((v) => {
+      const key = v.toLowerCase();
+      return !verified.has(key) && !inflight.has(key);
+    });
+    if (pending.length) verifySeeds(pending);
+  });
+
+  function add(raw: string, known: boolean) {
     // Commas are OFF's separator, so a single category must not carry one; also
     // collapse whitespace so a free-typed entry is tidy.
     const clean = raw.replace(/,/g, " ").replace(/\s+/g, " ").trim();
-    if (clean && !isPicked(clean)) value = [...value, clean];
+    if (clean && !isPicked(clean)) {
+      // A picked suggestion is already English; free text is left for verifySeeds.
+      if (known) verified.add(clean.toLowerCase());
+      value = [...value, clean];
+    }
     query = "";
     suggestions = [];
-    open = false;
+    loading = false;
     active = -1;
   }
 
@@ -45,32 +93,36 @@
   function onInput() {
     clearTimeout(debounceTimer);
     active = -1;
+    dismissed = false;
     if (!query.trim()) {
       suggestions = [];
-      open = false;
+      loading = false;
       return;
     }
-    // Match the 300–400ms type-ahead debounce the search field already uses.
+    // Show the loading row immediately, then query on the same 300–400ms type-
+    // ahead debounce the search field already uses.
+    loading = true;
+    suggestions = [];
     debounceTimer = setTimeout(runSearch, 300);
   }
 
   async function runSearch() {
     const q = query.trim();
-    if (!q) return;
+    if (!q) {
+      loading = false;
+      return;
+    }
     const mine = ++seq;
     const results = await fetchCategorySuggestions(q);
     if (mine !== seq) return; // superseded by a newer keystroke
     suggestions = results.filter((r) => !isPicked(r));
-    open = suggestions.length > 0;
+    loading = false;
   }
 
   function onKeydown(e: KeyboardEvent) {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      if (suggestions.length) {
-        open = true;
-        active = (active + 1) % suggestions.length;
-      }
+      if (suggestions.length) active = (active + 1) % suggestions.length;
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       if (suggestions.length)
@@ -78,14 +130,11 @@
     } else if (e.key === "Enter") {
       // Never let Enter submit the surrounding form — it commits a category.
       e.preventDefault();
-      if (open && active >= 0 && active < suggestions.length)
-        add(suggestions[active]);
-      else if (query.trim()) add(query);
+      if (active >= 0 && active < suggestions.length)
+        add(suggestions[active], true);
+      else if (query.trim()) add(query, false);
     } else if (e.key === "Escape") {
-      if (open) {
-        open = false;
-        active = -1;
-      }
+      if (showPanel) dismissed = true;
     }
   }
 
@@ -112,10 +161,10 @@
     <input
       class="catpick-input"
       role="combobox"
-      aria-expanded={open}
+      aria-expanded={showPanel}
       aria-controls={listId}
       aria-autocomplete="list"
-      aria-activedescendant={open && active >= 0
+      aria-activedescendant={showPanel && active >= 0
         ? `${listId}-opt-${active}`
         : undefined}
       placeholder="＋ add a category"
@@ -123,29 +172,33 @@
       bind:value={query}
       oninput={onInput}
       onkeydown={onKeydown}
-      onfocus={() => {
-        if (suggestions.length) open = true;
-      }}
-      onblur={() => setTimeout(() => (open = false), 120)}
+      onfocus={() => (focused = true)}
+      onblur={() => setTimeout(() => (focused = false), 120)}
     />
-    {#if open}
-      <ul class="catpick-list" id={listId} role="listbox">
-        {#each suggestions as s, i (s)}
-          <li
-            id={`${listId}-opt-${i}`}
-            role="option"
-            aria-selected={i === active}
-            class:active={i === active}
-            onmousedown={(e) => {
-              // Commit before the input's blur closes the list.
-              e.preventDefault();
-              add(s);
-            }}
-          >
-            {s}
-          </li>
-        {/each}
-      </ul>
+    {#if showPanel}
+      {#if loading}
+        <p class="catpick-status" role="status">Searching…</p>
+      {:else if suggestions.length}
+        <ul class="catpick-list" id={listId} role="listbox">
+          {#each suggestions as s, i (s)}
+            <li
+              id={`${listId}-opt-${i}`}
+              role="option"
+              aria-selected={i === active}
+              class:active={i === active}
+              onmousedown={(e) => {
+                // Commit before the input's blur closes the panel.
+                e.preventDefault();
+                add(s, true);
+              }}
+            >
+              {s}
+            </li>
+          {/each}
+        </ul>
+      {:else}
+        <p class="catpick-status" role="status">No matching categories</p>
+      {/if}
     {/if}
   </div>
 </div>
@@ -205,21 +258,29 @@
     color: var(--text-secondary);
     font-weight: 600;
   }
-  .catpick-list {
+  .catpick-list,
+  .catpick-status {
     position: absolute;
     z-index: 5;
     top: calc(100% + 2px);
     left: 0;
     right: 0;
-    list-style: none;
     margin: 0;
-    padding: 0;
-    max-height: 12rem;
-    overflow-y: auto;
     border: var(--edge);
     border-radius: var(--radius);
     background: var(--paper);
     box-shadow: var(--shadow-2);
+  }
+  .catpick-list {
+    list-style: none;
+    padding: 0;
+    max-height: 12rem;
+    overflow-y: auto;
+  }
+  .catpick-status {
+    padding: 0.6rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
   }
   .catpick-list li {
     padding: 0.55rem 0.6rem;

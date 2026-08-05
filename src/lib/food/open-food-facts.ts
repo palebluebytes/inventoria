@@ -335,6 +335,34 @@ export function parseCategoryList(value: string | undefined): string[] {
 }
 
 /**
+ * Low-level taxonomy query for a typed prefix (English only, `lc=en`): the
+ * suggestion strings on success (possibly an empty list), or `null` when OFF gave
+ * no usable answer (offline, non-2xx, or unparseable). The `null` lets a caller
+ * tell "the English taxonomy genuinely has no match" (a real `[]` — e.g. a Dutch
+ * term) apart from "we couldn't ask", which the English-membership check needs.
+ */
+async function requestCategorySuggestions(
+  prefix: string,
+  limit = 8
+): Promise<string[] | null> {
+  const string = prefix.trim();
+  if (!string) return [];
+  try {
+    const url = `${OFF_SUGGEST}?tagtype=categories&string=${encodeURIComponent(
+      string
+    )}&lc=en&limit=${limit}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { suggestions?: unknown };
+    return Array.isArray(data.suggestions)
+      ? data.suggestions.filter((s): s is string => typeof s === "string")
+      : [];
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Fetches canonical English category suggestions from OFF's taxonomy for a typed
  * prefix (#84), so the capture form offers discrete taxonomy entries ("Peanut
  * butters") to pick instead of free text — OFF canonicalizes them to `en:` ids on
@@ -346,21 +374,25 @@ export async function fetchCategorySuggestions(
   prefix: string,
   limit = 8
 ): Promise<string[]> {
-  const string = prefix.trim();
-  if (!string) return [];
-  try {
-    const url = `${OFF_SUGGEST}?tagtype=categories&string=${encodeURIComponent(
-      string
-    )}&lc=en&limit=${limit}`;
-    const res = await fetch(url);
-    if (!res.ok) return [];
-    const data = (await res.json()) as { suggestions?: unknown };
-    return Array.isArray(data.suggestions)
-      ? data.suggestions.filter((s): s is string => typeof s === "string")
-      : [];
-  } catch {
-    return [];
-  }
+  return (await requestCategorySuggestions(prefix, limit)) ?? [];
+}
+
+/**
+ * Whether a category is an English taxonomy entry (#84) — used to hide non-
+ * English seeds (a foreign product's own `food/category`, e.g. Dutch
+ * "Pindakazen") from the English-only picker. `true`/`false` when OFF answered,
+ * or `null` when it couldn't be reached — so the caller keeps an undetermined
+ * category rather than erasing data it can't verify offline. Match is exact and
+ * case-insensitive against the `lc=en` suggestions for the term.
+ */
+export async function isEnglishCategory(
+  category: string
+): Promise<boolean | null> {
+  const c = category.trim();
+  if (!c) return false;
+  const res = await requestCategorySuggestions(c, 12);
+  if (res === null) return null;
+  return res.some((s) => s.toLowerCase() === c.toLowerCase());
 }
 
 // ---------------------------------------------------------------------------

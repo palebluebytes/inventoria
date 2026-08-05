@@ -8,6 +8,7 @@ import {
   offWriteHost,
   parseCategoryList,
   fetchCategorySuggestions,
+  isEnglishCategory,
   type OFFProduct,
 } from "../../src/lib/food/open-food-facts";
 import { getSecret } from "../../src/lib/stores/secrets";
@@ -567,6 +568,46 @@ describe("fetchCategorySuggestions", () => {
       json: async () => ({ suggestions: "nope" }),
     } as Response);
     expect(await fetchCategorySuggestions("peanut")).toEqual([]);
+  });
+});
+
+describe("isEnglishCategory", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("is true when the term exactly matches an English taxonomy suggestion", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      // Prefix search returns the term itself plus siblings.
+      json: async () => ({ suggestions: ["Nut butters", "Cashew butters"] }),
+    } as Response);
+    expect(await isEnglishCategory("Nut butters")).toBe(true);
+  });
+
+  it("is false when the English taxonomy has no match (a non-English seed)", async () => {
+    // OFF returns an empty list for non-English input under lc=en.
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ suggestions: [] }),
+    } as Response);
+    expect(await isEnglishCategory("Pindakazen")).toBe(false);
+  });
+
+  it("is null when OFF can't be reached, so the caller keeps the category", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("offline"));
+    expect(await isEnglishCategory("Peanut butters")).toBeNull();
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({}),
+    } as Response);
+    expect(await isEnglishCategory("Peanut butters")).toBeNull();
+  });
+
+  it("is false for a blank category without asking OFF", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    expect(await isEnglishCategory("  ")).toBe(false);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
 
