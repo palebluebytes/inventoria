@@ -1,6 +1,6 @@
 # ADR 0040: No monolithic `Chip` — the chip/pill/badge vocabulary
 
-**Status:** Accepted; implementation pending in #81 (`Badge` `neutral` variant + `categoryBadgeVariant` helper) and #82 (`ui/ToggleGroup.svelte`, which also renders this ADR). **Date:** 2026-08-05
+**Status:** Accepted; implemented. `ui/ToggleGroup.svelte` + the tag-bar adoption ship in #82 (which also renders this ADR); the `Badge` colour axis (`neutral` variant + `categoryBadgeVariant` helper) lands in the parallel #81. **Date:** 2026-08-05
 
 ## Context
 
@@ -118,6 +118,7 @@ Explicitly **out of scope**, kept bespoke:
   RadioGroup-vs-ToggleGroup axis), ADR-0038 (frame tokens), and ADR-0039 (which
   routed chips/pills/badges here). Supersedes #76's "adopt a `Chip` primitive"
   framing.
-- **Deferred / not built yet:** `Badge`'s `neutral` variant + helper (#81) and
-  `ui/ToggleGroup.svelte` + the tag-bar adoption (#82) are ready-for-agent and
-  parallel; this ADR records the decision ahead of their implementation.
+- **Implementation:** `ui/ToggleGroup.svelte` + the `ItemsView` tag-bar adoption
+  are built in #82 (this ADR ships alongside them). `Badge`'s `neutral` variant +
+  `categoryBadgeVariant` helper are the parallel #81; the two tickets do not block
+  each other.
