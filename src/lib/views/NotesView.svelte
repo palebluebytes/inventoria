@@ -1,6 +1,8 @@
 <script lang="ts">
   import { notesStore } from "../stores/notes.store.svelte";
   import Badge from "../ui/Badge.svelte";
+  import Button from "../ui/Button.svelte";
+  import Card from "../ui/Card.svelte";
   import ChecklistItem from "./notes/ChecklistItem.svelte";
   import NoteEditor from "./notes/NoteEditor.svelte";
 
@@ -77,7 +79,7 @@
         data-testid="new-item-input"
         bind:value={new_item_label}
       />
-      <button class="add-btn" type="submit">Add</button>
+      <Button variant="primary" type="submit">Add</Button>
     </form>
 
     <div class="item-count">
@@ -95,9 +97,18 @@
 {:else}
   <section class="panel notes-panel">
     <aside class="note-list">
-      <button class="add-btn full" onclick={createNote}>+ New note</button>
+      <Button variant="primary" class="new-note-btn" onclick={createNote}
+        >+ New note</Button
+      >
       {#each notesStore.notes as note (note.id)}
-        <div class="note-row" class:active={note.id === selected_note_id}>
+        <!-- The note row is a framed tile whose frame is now the shared Card
+             (ADR-0039). It stays a STATIC <div> Card, not a pressable one:
+             the row wraps a title button and a delete button, so a pressable
+             Card would nest interactive controls (button-in-button). The row
+             layout and active fill ride the class via :global. -->
+        <Card
+          class={`note-row${note.id === selected_note_id ? " active" : ""}`}
+        >
           <button
             class="note-row-title"
             onclick={() => (selected_note_id = note.id)}
@@ -110,7 +121,7 @@
             aria-label="Delete note"
             onclick={() => deleteNote(note.id)}>×</button
           >
-        </div>
+        </Card>
       {:else}
         <p class="empty">No notes yet.</p>
       {/each}
@@ -195,22 +206,9 @@
     outline-offset: 2px;
   }
 
-  .add-btn {
-    border: var(--edge);
-    background: var(--ink);
-    color: var(--paper);
-    font-weight: 700;
-    text-transform: uppercase;
-    font-size: var(--step-n1);
-    padding: var(--space-xs) var(--space-m);
-    cursor: pointer;
-    box-shadow: var(--shadow-2);
-  }
-  .add-btn:hover {
-    transform: translate(-1px, -1px);
-    box-shadow: var(--shadow-2);
-  }
-  .add-btn.full {
+  /* The "+ New note" action is a full-width primary Button; only its width and
+     spacing are layout, reached via :global since the class rides the Button. */
+  .note-list :global(.new-note-btn) {
     width: 100%;
     margin-bottom: var(--space-s);
   }
@@ -261,19 +259,20 @@
     }
   }
 
-  .note-row {
+  /* The note row's edge/paper/shadow frame is now the Card; its flex layout,
+     zeroed padding (the children own their padding) and active fill ride the
+     class via :global. */
+  .note-list :global(.note-row) {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border: var(--edge);
-    background: var(--paper);
     margin-bottom: var(--space-xs);
-    box-shadow: var(--shadow-2);
+    padding: 0;
   }
-  .note-row.active {
+  .note-list :global(.note-row.active) {
     background: var(--ink);
   }
-  .note-row.active .note-row-title {
+  .note-list :global(.note-row.active .note-row-title) {
     color: var(--paper);
   }
   .note-row-title {
@@ -300,7 +299,7 @@
     padding: 0 var(--space-2xs);
     color: inherit;
   }
-  .note-row.active .del-btn {
+  .note-list :global(.note-row.active .del-btn) {
     color: var(--paper);
   }
   .del-btn:hover {
