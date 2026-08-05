@@ -341,7 +341,7 @@
     color: var(--ink);
     background: var(--border);
     padding: 2px 6px;
-    border-radius: 4px;
+    border-radius: var(--radius);
     letter-spacing: 0.05em;
   }
 </style>

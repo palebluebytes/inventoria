@@ -185,7 +185,7 @@
     background: var(--ink);
     color: var(--paper);
     border: var(--edge-thin);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    box-shadow: var(--shadow-2);
   }
   .day-btn.is-today:not(.active) {
     border: var(--edge-thin);

@@ -264,7 +264,7 @@
     color: var(--text-secondary);
     border: 1px solid var(--text-muted);
     padding: 2px 6px;
-    border-radius: 12px;
+    border-radius: var(--radius);
   }
 
   .appt-badge {
@@ -273,7 +273,7 @@
     background: var(--ink);
     color: var(--paper);
     padding: 2px 6px;
-    border-radius: 4px;
+    border-radius: var(--radius);
     letter-spacing: 0.05em;
   }
 </style>

@@ -217,7 +217,7 @@
     height: 44px;
     background: rgba(255, 255, 255, 0.12);
     border: 0;
-    border-radius: 999px;
+    border-radius: var(--radius);
     color: var(--paper);
     font-size: 1.1rem;
     cursor: pointer;
@@ -250,7 +250,7 @@
     height: 48px;
     background: rgba(255, 255, 255, 0.14);
     border: 0;
-    border-radius: 999px;
+    border-radius: var(--radius);
     color: var(--paper);
     font-size: 1.8rem;
     line-height: 1;
@@ -271,7 +271,7 @@
   .lpr-dot {
     width: 7px;
     height: 7px;
-    border-radius: 999px;
+    border-radius: var(--radius);
     background: rgba(255, 255, 255, 0.3);
   }
   .lpr-dot.on {
@@ -287,7 +287,7 @@
     flex: 1;
     min-height: 48px;
     border: 1.5px solid rgba(255, 255, 255, 0.35);
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: transparent;
     color: var(--paper);
     font: inherit;

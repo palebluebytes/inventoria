@@ -1971,7 +1971,7 @@
     color: var(--text-secondary);
     background: var(--surface-2, var(--bg-input));
     border: 1px solid var(--border);
-    border-radius: 999px;
+    border-radius: var(--radius);
     padding: 0.1rem 0.5rem;
     white-space: nowrap;
   }
@@ -1986,7 +1986,7 @@
     padding: var(--space-xs) var(--space-s);
     background: rgba(255, 204, 0, 0.12);
     border: 1px solid var(--amber-bg);
-    border-radius: 10px;
+    border-radius: var(--radius);
   }
   .nudge-text {
     font-size: 0.82rem;
@@ -1998,7 +1998,7 @@
     background: var(--ink);
     color: var(--paper);
     border: 0;
-    border-radius: 8px;
+    border-radius: var(--radius);
     padding: 0.5rem 0.7rem;
     font: inherit;
     font-weight: 700;
@@ -2039,7 +2039,7 @@
     margin-top: var(--space-s);
     padding: var(--space-m);
     border: 2px dashed var(--ink);
-    border-radius: 12px;
+    border-radius: var(--radius);
     background: var(--surface-2, var(--bg-input));
     cursor: pointer;
     overflow: hidden;
@@ -2116,7 +2116,7 @@
     padding: var(--space-xs);
     background: rgba(255, 204, 0, 0.1);
     border: 1px solid var(--amber-bg);
-    border-radius: 10px;
+    border-radius: var(--radius);
   }
   .cf-reason p {
     margin: 0;
@@ -2138,7 +2138,7 @@
     font: inherit;
     background: var(--paper);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: var(--radius);
     padding: 0.5rem 0.6rem;
     color: var(--text-primary);
     text-transform: none;
@@ -2173,7 +2173,7 @@
     height: 64px;
     padding: 0;
     border: 1px dashed var(--ink);
-    border-radius: 8px;
+    border-radius: var(--radius);
     overflow: hidden;
     background: var(--paper);
     cursor: pointer;
@@ -2237,7 +2237,7 @@
     border: 1.5px solid var(--ink);
     background: none;
     cursor: pointer;
-    border-radius: 10px;
+    border-radius: var(--radius);
     overflow: hidden;
   }
   /* "+N" extras badge on the display photo — N is the count beyond the first. */
@@ -2247,7 +2247,7 @@
     bottom: 3px;
     min-width: 20px;
     padding: 0 5px;
-    border-radius: 999px;
+    border-radius: var(--radius);
     background: var(--ink);
     color: var(--paper);
     font-size: 0.68rem;
@@ -2348,7 +2348,7 @@
     min-height: 48px;
     padding: 0.25rem 0.4rem;
     border-bottom: 1px solid var(--border);
-    border-radius: 6px;
+    border-radius: var(--radius);
   }
   .cf-lbl {
     font-size: 0.92rem;
@@ -2377,7 +2377,7 @@
     height: 40px;
     background: var(--paper);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: var(--radius);
     cursor: pointer;
     font: inherit;
     color: var(--text-secondary);
@@ -2408,7 +2408,7 @@
     width: 100%;
     background: var(--paper);
     border: 1px dashed var(--ink);
-    border-radius: 10px;
+    border-radius: var(--radius);
     padding: 0.6rem;
     cursor: pointer;
     font: inherit;
@@ -2437,7 +2437,7 @@
     font: inherit;
     background: var(--paper);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: var(--radius);
     padding: 0.5rem 0.6rem;
     color: var(--text-primary);
   }
@@ -2453,7 +2453,7 @@
     margin-bottom: var(--space-m);
     padding: var(--space-s);
     border: 1.5px solid var(--ink);
-    border-radius: 12px;
+    border-radius: var(--radius);
     background: var(--surface-2, var(--bg-input));
   }
   .cf-contrib-head {
@@ -2522,7 +2522,7 @@
     background: var(--amber-bg);
     color: var(--ink);
     padding: 0.1rem 0.45rem;
-    border-radius: 999px;
+    border-radius: var(--radius);
   }
 
   .dock {

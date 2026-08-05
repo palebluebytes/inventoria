@@ -817,7 +817,7 @@
     right: 0;
     background: none;
     border: none;
-    color: white;
+    color: var(--paper);
     font-size: 32px;
     cursor: pointer;
   }
