@@ -4,6 +4,7 @@
   import Badge from "../ui/Badge.svelte";
   import Alert from "../ui/Alert.svelte";
   import Card from "../ui/Card.svelte";
+  import ToggleGroup from "../ui/ToggleGroup.svelte";
 
   // Sub-components
   import ItemImportPanel from "./items/ItemImportPanel.svelte";
@@ -51,6 +52,13 @@
   let availableTags = $derived(
     Array.from(new Set(activeList.flatMap((item) => item.tags || []))).sort()
   );
+
+  // Tag filter options for the ToggleGroup: an "All" cell modelled as the empty
+  // value (`""` is the deselected state), so click-to-clear a tag returns here.
+  let tagOptions = $derived([
+    { value: "", label: "All" },
+    ...availableTags.map((tag) => ({ value: tag, label: tag })),
+  ]);
 
   // Filtered list based on active tag
   let filteredList = $derived(
@@ -138,23 +146,17 @@
   </button>
 </div>
 
-<!-- Tag Filter Bar -->
+<!-- Tag Filter Bar — a deselectable single-select ToggleGroup (ADR-0040). "All"
+     is the empty ("") value, so re-clicking the active tag clears back to it. -->
 {#if availableTags.length > 0}
   <div class="tag-filter-bar">
-    <button
-      class="tag-btn {activeFilterTag === null ? 'active' : ''}"
-      onclick={() => (activeFilterTag = null)}
-    >
-      All
-    </button>
-    {#each availableTags as tag}
-      <button
-        class="tag-btn {activeFilterTag === tag ? 'active' : ''}"
-        onclick={() => (activeFilterTag = activeFilterTag === tag ? null : tag)}
-      >
-        {tag}
-      </button>
-    {/each}
+    <ToggleGroup
+      options={tagOptions}
+      value={activeFilterTag ?? ""}
+      onValueChange={(v) => (activeFilterTag = v === "" ? null : v)}
+      ariaLabel="Filter items by tag"
+      testid="tag-filter-bar"
+    />
   </div>
 {/if}
 
@@ -255,36 +257,11 @@
     color: var(--paper);
   }
 
-  /* Tag Filter Bar */
+  /* Tag Filter Bar — the row itself is the ToggleGroup primitive (ADR-0040);
+     this wrapper only supplies the surrounding padding and underline. */
   .tag-filter-bar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-xs);
     padding: var(--space-xs) 0;
     border-bottom: var(--edge);
-  }
-  .tag-btn {
-    padding: 4px 12px;
-    border: var(--edge);
-    background: var(--paper);
-    font-weight: 600;
-    font-size: var(--step-n2);
-    text-transform: uppercase;
-    cursor: pointer;
-    box-shadow: var(--shadow-1);
-    transition: all 0.1s ease;
-  }
-  .tag-btn:hover {
-    transform: translate(-1px, -1px);
-    box-shadow: var(--shadow-2);
-  }
-  .tag-btn:active {
-    transform: translate(2px, 2px);
-    box-shadow: 0 0 0 var(--ink);
-  }
-  .tag-btn.active {
-    background: var(--ink);
-    color: var(--paper);
   }
 
   /* Inventory Layout */
