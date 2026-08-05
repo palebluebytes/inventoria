@@ -1,6 +1,6 @@
 # ADR 0038: Named brutalist frame tokens (edge, elevation, ink/paper)
 
-**Status:** Accepted; not yet implemented (impl tickets cut from grilling #68). **Date:** 2026-08-04
+**Status:** Accepted; implemented. The tokens and their adoption ship in #71–#75 (expand→edge→fill→semantic-colour→lint); the §Enforcement lint rules are completed by #75 (colour) and #83 (radius, shadow-shape, colour keywords). **Date:** 2026-08-04
 
 ## Context
 
@@ -107,10 +107,28 @@ A component's edge interface shrinks from three restated rules to
 
 ### Enforcement
 
-A stylelint rule (via `declaration-property-value-disallowed-list` or equivalent)
-bans raw `#000`/`#fff`, literal `border: Npx solid #000`, and the offset
-`box-shadow` recipe **outside `app.css`**, so drift cannot return. It lands
-_last_, once no literals remain — added earlier it would fail CI immediately.
+Stylelint enforces the three brutalist invariants of ADR-0003 §3 **outside
+`app.css`** (token definitions legitimately live there), so drift fails CI
+instead of relying on reviewer vigilance. Each rule lands _last_, once no
+literals remain — added earlier it would fail CI immediately.
+
+- **Colour** (#75): `color-no-hex` plus a `declaration-property-value-disallowed-list`
+  banning `#000`/`#fff` on colour properties. #83 **tightened** this to also ban
+  the `black`/`white` keyword equivalents (`/\b(black|white)\b/i`), closing the
+  keyword gap.
+- **Radius** (#83): a `declaration-property-value-allowed-list` on `border-radius`
+  admitting only `0`, `var(--radius)`, the `var(--…, var(--radius))` fallback
+  idiom, and `50%` (legit circle geometry). The set of legal radii is closed, so
+  an allow-list — not a disallowed-list — is the right shape.
+- **Shadow shape** (#83): a `box-shadow` entry on the disallowed-list matching a
+  non-zero **blur** (third length) — every brutalist shadow is blur-`0`
+  (offset/spread/inset), so only _blurred_ soft shadows are the anti-pattern.
+  Shadow colour is already covered by `color-no-hex`.
+
+All three are hard-fail. During #83's cleanup the six `999px` "pill" radii and
+WeekStrip's `0 4px 12px` soft drop-shadow were flattened as **drift, not
+sanctioned** — square corners and the sharp `--shadow-2` offset are the brutalist
+intent, not a style the tree ever chose.
 
 ### Scope boundary
 

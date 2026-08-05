@@ -26,7 +26,7 @@
       </nav>
   <div class="content-area">
     <main>
-<h1 id="adr-0040-no-monolithic-chip-the-chippillbadge-vocabulary">ADR 0040: No monolithic <code>Chip</code> — the chip/pill/badge vocabulary</h1>
+<h1 id="adr-0040-no-monolithic-chip--the-chippillbadge-vocabulary">ADR 0040: No monolithic <code>Chip</code> — the chip/pill/badge vocabulary</h1>
 <p><strong>Status:</strong> Accepted; implemented. <code>ui/ToggleGroup.svelte</code> + the tag-bar adoption ship in #82 (which also renders this ADR); the <code>Badge</code> colour axis (<code>neutral</code> variant + <code>categoryBadgeVariant</code> helper) lands in the parallel #81. <strong>Date:</strong> 2026-08-05</p>
 <h2 id="context">Context</h2>
 <p>Ticket #76 — split out of the #69 Button/Card adoption arc — proposed adopting a single <code>Chip</code> primitive at the ~10 hand-rolled chip/pill/badge sites, on the assumption that they were one shape wearing ten costumes. ADR-0039 drew its boundary at <code>Button</code> + <code>Card</code> and deferred chips/pills/badges here for their own design pass.</p>
@@ -44,16 +44,16 @@
 </ul>
 <h2 id="decision">Decision</h2>
 <p><strong>There is no monolithic <code>Chip</code> primitive.</strong> The chip/pill/badge space is three primitives, each already existing or a near-sibling of one that does:</p>
-<h3 id="badge-display-only-labels-gains-a-colour-axis">1. <code>Badge</code> — display-only labels (gains a colour axis)</h3>
+<h3 id="1-badge--display-only-labels-gains-a-colour-axis">1. <code>Badge</code> — display-only labels (gains a colour axis)</h3>
 <p><code>Badge</code> remains the display-only status/category label. It gains:</p>
 <ul>
 <li><strong>A <code>neutral</code> variant</strong> — grey <code>--border</code> background, <code>--ink</code> text, <code>--edge-thin</code> — the frame-token expression of the current unknown-category grey.</li>
 <li><strong>A shared <code>categoryBadgeVariant(category)</code> helper</strong> — the single source of the closed category→variant map (fitness→<code>success</code>, health→<code>error</code>, mind→<code>default</code>, productivity→<code>warning</code>, anything else→<code>neutral</code>). This replaces the duplicated inline <code>getCategoryColor</code> switch; no component re-declares the mapping.</li>
 </ul>
 <p>The two divergent habit-category treatments converge on <code>&lt;Badge variant={categoryBadgeVariant(category)}&gt;</code>. <code>off-day-pill</code> adopts <code>neutral</code>. <code>reps-pill</code> / <code>time-hint-pill</code> are <strong>live-metric readouts</strong>, not labels, and stay bespoke.</p>
-<h3 id="button-interactive-selected-chips-no-change">2. <code>Button</code> — interactive <em>selected</em> chips (no change)</h3>
+<h3 id="2-button--interactive-selected-chips-no-change">2. <code>Button</code> — interactive <em>selected</em> chips (no change)</h3>
 <p>A chip that toggles a selection is a <code>Button</code> whose variant reflects the selected state (<code>primary</code> when selected, <code>secondary</code> otherwise). This is the established convention (<code>QuantityGrams</code>) and is <strong>not</strong> re-modelled into a new primitive.</p>
-<h3 id="togglegroup-deselectable-single-select-new-the-segmented-sibling">3. <code>ToggleGroup</code> — deselectable single-select (new, the <code>Segmented</code> sibling)</h3>
+<h3 id="3-togglegroup--deselectable-single-select-new-the-segmented-sibling">3. <code>ToggleGroup</code> — deselectable single-select (new, the <code>Segmented</code> sibling)</h3>
 <p><code>ui/ToggleGroup.svelte</code> is a new primitive over bits-ui <code>ToggleGroup</code> (<code>type="single"</code>), the <strong>deselectable</strong> sibling to <code>Segmented</code>:</p>
 <ul>
 <li><strong><code>Segmented</code> / <code>RadioGroup</code></strong> — selection <em>must</em> persist once made (mode switches, sex/goal pickers).</li>

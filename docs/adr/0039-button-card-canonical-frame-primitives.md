@@ -106,3 +106,17 @@ This ADR governs `Button` and `Card` only. Explicitly **out of scope**:
   (`<div>` vs `<button>`), and the `...rest` passthrough on both primitives.
 - **Deferred:** the two-near-blacks reconciliation (`--accent` / `--text-primary`
   vs `--ink`) noted in ADR-0038 is untouched here; the focus ring uses `--ink`.
+
+## Enforcement
+
+The frame invariants that _can_ be a stylelint literal — radius, shadow shape,
+colour — are enforced by ADR-0038 §Enforcement (radius allow-list, shadow
+blur-`0` disallowed-list, keyword/hex colour ban; #75 + #83). A **frame-adoption**
+rule — flagging inline `var(--edge*)` / `var(--shadow-*)` outside `src/lib/ui/`,
+to push consumers onto `Button`/`Card` rather than restating the frame — is
+**deferred debt**. There are 137 pre-existing inline-frame sites across 38 files
+and no stylelint baseline mechanism, so the rule cannot hard-fail without an
+out-of-proportion adoption-first pass; it waits on that migration. The #76 "chip"
+carve-out the #69 rider anticipated is now **retired** — chips resolved to
+`Badge` / `Button` / `ToggleGroup` per ADR-0040, so no chip primitive competes
+with this frame vocabulary.

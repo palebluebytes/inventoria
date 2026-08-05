@@ -69,6 +69,8 @@
 <li><strong>Covered:</strong> <code>tests/unit/ui-primitives.test.ts</code> pins the contractual surface via Svelte's SSR render — variant/size classes, the polymorphic element choice (<code>&lt;div&gt;</code> vs <code>&lt;button&gt;</code>), and the <code>...rest</code> passthrough on both primitives.</li>
 <li><strong>Deferred:</strong> the two-near-blacks reconciliation (<code>--accent</code> / <code>--text-primary</code> vs <code>--ink</code>) noted in ADR-0038 is untouched here; the focus ring uses <code>--ink</code>.</li>
 </ul>
+<h2 id="enforcement">Enforcement</h2>
+<p>The frame invariants that <em>can</em> be a stylelint literal — radius, shadow shape, colour — are enforced by ADR-0038 §Enforcement (radius allow-list, shadow blur-<code>0</code> disallowed-list, keyword/hex colour ban; #75 + #83). A <strong>frame-adoption</strong> rule — flagging inline <code>var(--edge*)</code> / <code>var(--shadow-*)</code> outside <code>src/lib/ui/</code>, to push consumers onto <code>Button</code>/<code>Card</code> rather than restating the frame — is <strong>deferred debt</strong>. There are 137 pre-existing inline-frame sites across 38 files and no stylelint baseline mechanism, so the rule cannot hard-fail without an out-of-proportion adoption-first pass; it waits on that migration. The #76 "chip" carve-out the #69 rider anticipated is now <strong>retired</strong> — chips resolved to <code>Badge</code> / <code>Button</code> / <code>ToggleGroup</code> per ADR-0040, so no chip primitive competes with this frame vocabulary.</p>
     </main>
   </div>
 </div>
