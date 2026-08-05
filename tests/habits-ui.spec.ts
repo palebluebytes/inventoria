@@ -51,9 +51,11 @@ test("Habits UI - create habit blueprint, log execution, view details, and edit 
   });
   await expect(habitItem).toBeVisible({ timeout: 5000 });
 
-  // Verify category badge color/text
-  const categoryBadge = habitItem.locator(".habit-category-pill");
-  await expect(categoryBadge).toHaveText("MIND");
+  // Verify category badge text (rendered via the shared Badge primitive, which
+  // uppercases visually through CSS; the DOM text is the raw stored category).
+  // Scope by text so it never collides with a neutral OFF badge in the row.
+  const categoryBadge = habitItem.locator(".badge", { hasText: "Mind" });
+  await expect(categoryBadge).toHaveText("Mind");
 
   // Click the habit item to log execution
   await habitItem.click();

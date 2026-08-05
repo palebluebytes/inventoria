@@ -7,6 +7,8 @@
   } from "../../habits/habits";
   import type { HabitLineage } from "../../stores/habits.store";
   import type { ScheduleRule, DayOfWeek } from "../../habits/habits";
+  import Badge from "../../ui/Badge.svelte";
+  import { categoryBadgeVariant } from "./category-badge";
 
   let {
     lineage,
@@ -252,7 +254,7 @@
         ] as DayOfWeek}
         {@const isScheduledToday = rules.days.includes(dowStr)}
         {#if !isScheduledToday}
-          <div class="off-day-pill">OFF</div>
+          <Badge variant="neutral">OFF</Badge>
         {/if}
       {:else if rules && rules.type === "weekly_flexible"}
         <div class="reps-pill">
@@ -260,9 +262,9 @@
         </div>
       {/if}
     {/if}
-    <span class="habit-category-pill"
-      >{lineage.head.category.toUpperCase()}</span
-    >
+    <Badge variant={categoryBadgeVariant(lineage.head.category)}>
+      {lineage.head.category}
+    </Badge>
   </div>
 </div>
 
@@ -332,18 +334,8 @@
     flex-shrink: 0;
   }
 
-  .habit-category-pill {
-    font-size: var(--step-n2);
-    font-weight: 700;
-    color: var(--text-secondary);
-    border: 1px solid var(--text-muted);
-    padding: 2px 6px;
-    border-radius: 12px;
-  }
-
   .time-hint-pill,
-  .reps-pill,
-  .off-day-pill {
+  .reps-pill {
     font-size: var(--step-n2);
     font-weight: 700;
     color: var(--ink);
