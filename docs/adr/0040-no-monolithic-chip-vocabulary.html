@@ -27,7 +27,7 @@
   <div class="content-area">
     <main>
 <h1 id="adr-0040-no-monolithic-chip-the-chippillbadge-vocabulary">ADR 0040: No monolithic <code>Chip</code> — the chip/pill/badge vocabulary</h1>
-<p><strong>Status:</strong> Accepted; implementation pending in #81 (<code>Badge</code> <code>neutral</code> variant + <code>categoryBadgeVariant</code> helper) and #82 (<code>ui/ToggleGroup.svelte</code>, which also renders this ADR). <strong>Date:</strong> 2026-08-05</p>
+<p><strong>Status:</strong> Accepted; implemented. <code>ui/ToggleGroup.svelte</code> + the tag-bar adoption ship in #82 (which also renders this ADR); the <code>Badge</code> colour axis (<code>neutral</code> variant + <code>categoryBadgeVariant</code> helper) lands in the parallel #81. <strong>Date:</strong> 2026-08-05</p>
 <h2 id="context">Context</h2>
 <p>Ticket #76 — split out of the #69 Button/Card adoption arc — proposed adopting a single <code>Chip</code> primitive at the ~10 hand-rolled chip/pill/badge sites, on the assumption that they were one shape wearing ten costumes. ADR-0039 drew its boundary at <code>Button</code> + <code>Card</code> and deferred chips/pills/badges here for their own design pass.</p>
 <p>By the time #76 was grilled, that assumption no longer held. The space had already resolved itself into existing primitives:</p>
@@ -73,7 +73,7 @@
 <li><strong>Positive:</strong> The last hand-rolled single-select toggle group gains radiogroup-grade a11y for free, and the two divergent habit-category treatments collapse to one look with a single colour-mapping source.</li>
 <li><strong>Visual shift (intended, lands in #81):</strong> the health category badge text flips ink→paper (Badge <code>error</code> is paper-on-<code>--red-bg</code>), and the agenda-row category chip restyles from rounded-muted-outline to square-filled-coloured. Verified in-app, not accidental.</li>
 <li><strong>Relationship to prior ADRs:</strong> extends ADR-0036 (defers to its RadioGroup-vs-ToggleGroup axis), ADR-0038 (frame tokens), and ADR-0039 (which routed chips/pills/badges here). Supersedes #76's "adopt a <code>Chip</code> primitive" framing.</li>
-<li><strong>Deferred / not built yet:</strong> <code>Badge</code>'s <code>neutral</code> variant + helper (#81) and <code>ui/ToggleGroup.svelte</code> + the tag-bar adoption (#82) are ready-for-agent and parallel; this ADR records the decision ahead of their implementation.</li>
+<li><strong>Implementation:</strong> <code>ui/ToggleGroup.svelte</code> + the <code>ItemsView</code> tag-bar adoption are built in #82 (this ADR ships alongside them). <code>Badge</code>'s <code>neutral</code> variant + <code>categoryBadgeVariant</code> helper are the parallel #81; the two tickets do not block each other.</li>
 </ul>
     </main>
   </div>
