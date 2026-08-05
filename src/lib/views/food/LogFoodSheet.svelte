@@ -29,6 +29,8 @@
   } from "../../food/food-staging";
 
   import BottomSheet from "../../ui/BottomSheet.svelte";
+  import Card from "../../ui/Card.svelte";
+  import Button from "../../ui/Button.svelte";
   import FoodStager from "./FoodStager.svelte";
   import CommitButton from "./CommitButton.svelte";
   import RecipeInstantiator from "./RecipeInstantiator.svelte";
@@ -430,19 +432,21 @@
           <ul class="recipe-list">
             {#each recipes as r (r.entity)}
               <li>
-                <button
-                  type="button"
-                  class="recipe-pick"
-                  onclick={() => pickRecipe(r.entity)}
-                >
-                  <span class="recipe-pick-name">{r.name}</span>
-                  <span class="recipe-pick-go" aria-hidden="true">›</span>
-                </button>
-                <button
-                  type="button"
+                <!-- The recipe row is an interactive framed tile → polymorphic
+                     Card (ADR-0039 / #78); the `.recipe-pick` class is kept as the
+                     e2e hook and for its flex sizing in the row. -->
+                <Card class="recipe-pick" onclick={() => pickRecipe(r.entity)}>
+                  <span class="recipe-pick-inner">
+                    <span class="recipe-pick-name">{r.name}</span>
+                    <span class="recipe-pick-go" aria-hidden="true">›</span>
+                  </span>
+                </Card>
+                <Button
+                  variant="secondary"
+                  size="sm"
                   class="recipe-edit"
                   onclick={() => editRecipe(r.entity)}
-                  aria-label="Edit {r.name}">Edit</button
+                  aria-label="Edit {r.name}">Edit</Button
                 >
               </li>
             {/each}
@@ -501,23 +505,25 @@
     display: flex;
     gap: var(--space-2xs);
   }
-  .recipe-pick {
+  /* The row's frame is now the shared Card / Button (ADR-0039); `.recipe-pick`
+     keeps only its flex sizing in the row, its inner span the row layout. The
+     Card/Button classes ride child components, so their sizing is reached via
+     `:global` under the scoped list (the bits `.methods` precedent). */
+  .recipe-list li :global(.recipe-pick) {
     flex: 1;
+    min-width: 0;
+  }
+  .recipe-list li :global(.recipe-edit) {
+    flex-shrink: 0;
+    text-transform: uppercase;
+  }
+  .recipe-pick-inner {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-s);
-    background: var(--paper);
-    border: var(--edge);
-    padding: var(--space-s);
-    font-family: inherit;
-    cursor: pointer;
+    min-height: 28px;
     text-align: left;
-    min-height: 52px;
-    min-width: 0;
-  }
-  .recipe-pick:hover {
-    background: var(--bg-input);
   }
   .recipe-pick-name {
     font-weight: 700;
@@ -526,20 +532,5 @@
   .recipe-pick-go {
     font-size: var(--step-1);
     font-weight: 800;
-  }
-  .recipe-edit {
-    flex-shrink: 0;
-    background: var(--paper);
-    border: var(--edge);
-    padding: 0 var(--space-s);
-    font-family: inherit;
-    font-weight: 700;
-    text-transform: uppercase;
-    font-size: var(--step-n2);
-    cursor: pointer;
-  }
-  .recipe-edit:hover {
-    background: var(--ink);
-    color: var(--paper);
   }
 </style>
