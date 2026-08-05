@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR 0039 · Inventoria</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+      <nav class="site-nav">
+        <p class="nav-title">Inventoria</p>
+        <a href="../index.html">Introduction</a>
+        <div class="nav-section">
+          <p class="nav-section-label">Reference</p>
+          <a href="../glossary.html">Glossary</a>
+          <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+        </div>
+        <div class="nav-section">
+          <p class="nav-section-label">Explanation</p>
+          <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+        </div>
+        <div class="nav-section">
+          <a href="index.html" class="active">Architectural Decision Records</a>
+        </div>
+      </nav>
+  <div class="content-area">
+    <main>
+<h1 id="adr-0039-button-and-card-as-the-canonical-brutalist-frame-primitives">ADR 0039: <code>Button</code> and <code>Card</code> as the canonical brutalist frame primitives</h1>
+<p><strong>Status:</strong> Accepted; implemented (<code>ui/Button.svelte</code>, <code>ui/Card.svelte</code>; <code>tests/unit/ui-primitives.test.ts</code>). Blocking foundation for the #69 adoption arc. <strong>Date:</strong> 2026-08-05</p>
+<h2 id="context">Context</h2>
+<p>ADR-0038 named the brutalist frame — <code>--edge*</code>, <code>--radius</code>, <code>--shadow-*</code>, <code>--ink</code>/<code>--paper</code> — but the two primitives that should <em>be</em> that frame did not carry it. <code>Button</code> framed itself with <code>border: 1px solid transparent</code> and a soft <code>--accent</code> focus glow; <code>Card</code> used the lighter <code>--edge-thin</code> and no shadow. Both were <strong>softer than the bespoke sites that must adopt them</strong>: call sites reach for <code>class="shadow-brutal"</code>, hand-rolled <code>.commit</code> / <code>.save-btn</code> / <code>.delete-*</code> buttons, and per-view <code>--edge</code> + offset-shadow tiles. Until the primitives look like the destination, there is nothing worth migrating onto (the #69 arc).</p>
+<p>Three further gaps blocked adoption:</p>
+<ul>
+<li><strong>No size axis.</strong> Call sites needing a smaller or larger action forked their own CSS instead of asking the primitive.</li>
+<li><strong><code>Card</code> was <code>&lt;div&gt;</code>-only.</strong> Interactive tiles (a whole card that navigates or toggles) were built bespoke — a wrapping button, or click handlers on a non-interactive div with no keyboard path and no press semantics.</li>
+<li><strong>No a11y passthrough.</strong> Neither primitive spread unknown attributes, so an <code>aria-label</code> / <code>aria-pressed</code> / <code>aria-controls</code> / <code>title</code> a call site set was <strong>silently dropped</strong>. This is invisible in code review and only shows up under a screen reader.</li>
+</ul>
+<h2 id="decision">Decision</h2>
+<p><strong>Re-express <code>Button</code> and <code>Card</code> in the ADR-0038 frame tokens and make them the single source of the brutalist hard-edge + offset-shadow + <code>radius: 0</code> look</strong>, with an opinionated, minimal prop surface.</p>
+<h3 id="button--variants-plus-one-orthogonal-size"><code>Button</code> — variants plus one orthogonal <code>size</code></h3>
+<ul>
+<li><strong>The frame is the default.</strong> <code>border: var(--edge)</code>, <code>border-radius: var(--radius)</code>, and (for the bordered variants) <code>box-shadow: var(--shadow-1)</code> that presses flush (<code>translate(2px, 2px)</code> + shadow removed) on <code>:active</code> — the brutalist push, replacing the old <code>scale(0.97)</code>.</li>
+<li><strong>Four semantic variants, tones folded in.</strong> <code>primary</code> / <code>secondary</code> / <code>ghost</code> / <code>danger</code> stay. The destructive red <em>look</em> lives <strong>inside</strong> the <code>danger</code> variant (<code>--red-bg</code> on <code>--paper</code>) rather than a free <code>tone</code> prop that would multiply into a variant × tone matrix. The affirmative/commit look is <code>primary</code> — the strong <code>--ink</code>-on-<code>--paper</code> CTA of the grayscale system; the lime green-commit button is <strong>not</strong> a <code>Button</code> variant but the bespoke <code>CommitButton</code> sheet CTA, which stays out of scope (see the boundary below), so no green variant is introduced. <code>ghost</code> is chromeless (no frame, no shadow) until hovered.</li>
+<li><strong>Exactly one new axis: <code>size</code> (<code>sm</code> / <code>md</code> / <code>lg</code>).</strong> It varies padding and type step only; <code>md</code> preserves the previous metrics, so it is additive. There is deliberately <strong>no <code>fullWidth</code></strong> and <strong>no <code>frame</code> / edge-weight</strong> prop: width is a layout concern the caller sets via <code>class</code>, and edge weight is implied by variant, not dialed independently.</li>
+</ul>
+<h3 id="card--one-polymorphic-module-for-frames-and-tiles"><code>Card</code> — one polymorphic module for frames and tiles</h3>
+<ul>
+<li><strong><code>onclick</code> makes it pressable.</strong> With a handler, <code>Card</code> renders a native <code>&lt;button type="button"&gt;</code> (real <code>role=button</code>, native keyboard activation, the shared focus ring, a hover-lift + press-flush); without one, a plain <code>&lt;div&gt;</code>. One module, one frame, both a static surface and an interactive tile — no bespoke wrapping button and no click-handler-on-a-div a11y trap.</li>
+<li><strong>The frame is the default.</strong> Every card gets <code>--edge</code> + <code>--radius</code> + <code>--shadow-2</code>, so consumers stop appending <code>class="shadow-brutal"</code>.</li>
+<li><strong>Hover-lift is now pressable-only.</strong> A static informational card no longer lifts on hover (an affordance it never earned); the lift belongs to tiles that actually respond to a click.</li>
+</ul>
+<h3 id="shared-conventions">Shared conventions</h3>
+<ul>
+<li><strong>One unified brutalist focus ring.</strong> Both <code>Button</code> and pressable <code>Card</code> use the hard offset outline (<code>outline: 2px solid var(--ink); outline-offset: 2px</code>, matching the <code>Segmented</code> precedent), never the old soft <code>--accent</code> glow.</li>
+<li><strong><code>...rest</code> is the a11y / semantics escape hatch, not a styling channel.</strong> Both primitives spread <code>...rest</code> onto the underlying element, so <code>aria-*</code>, <code>title</code>, <code>role</code>, and <code>data-*</code> a call site carries reach the DOM instead of being dropped. <code>class</code> remains the <em>only</em> styling channel; <code>...rest</code> never clobbers it (the base + caller classes are applied after the spread).</li>
+</ul>
+<h3 id="the-bespoke-remainder-boundary">The bespoke-remainder boundary</h3>
+<p>This ADR governs <code>Button</code> and <code>Card</code> only. Explicitly <strong>out of scope</strong>:</p>
+<ul>
+<li><strong>Chips / pills / badges → #76.</strong> A separate primitive with its own tokens.</li>
+<li><strong>Sheet chrome stays bespoke.</strong> The <code>CommitButton</code> lime CTA, <code>BottomSheet</code> / <code>Modal</code> shells, and other sheet furniture are surface-specific and keep their own styling; they are not <code>Button</code> / <code>Card</code> in disguise.</li>
+</ul>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li><strong>Positive:</strong> The brutalist frame lives once. A new action or surface inherits the edge, shadow, radius, focus ring, and press behaviour instead of re-deriving (and re-drifting from) them. The #69 adoption arc now has a destination worth migrating onto.</li>
+<li><strong>Positive:</strong> Interactive tiles get correct semantics for free, and the a11y attributes call sites already write finally reach the DOM.</li>
+<li><strong>Visual shift (intended):</strong> The ~23 already-adopted consumers (12 <code>Button</code>, 11 <code>Card</code> imports) move to the heavier frame — <code>Button</code> gains a real 2px edge and offset shadow, <code>danger</code> turns red, <code>secondary</code> fills to <code>--paper</code>, the <code>ghost</code> hover fill tokenises to <code>--accent-glow</code> (a touch stronger than the old ad-hoc <code>rgba(0,0,0,0.05)</code>), <code>Card</code> gains <code>--shadow-2</code>, and static cards lose their hover-lift. This is the point of the ticket; it is verified in-app, not accidental. Redundant <code>class="shadow-brutal"</code> at call sites is now a no-op and can be removed during the #69 migration.</li>
+<li><strong>Covered:</strong> <code>tests/unit/ui-primitives.test.ts</code> pins the contractual surface via Svelte's SSR render — variant/size classes, the polymorphic element choice (<code>&lt;div&gt;</code> vs <code>&lt;button&gt;</code>), and the <code>...rest</code> passthrough on both primitives.</li>
+<li><strong>Deferred:</strong> the two-near-blacks reconciliation (<code>--accent</code> / <code>--text-primary</code> vs <code>--ink</code>) noted in ADR-0038 is untouched here; the focus ring uses <code>--ink</code>.</li>
+</ul>
+    </main>
+  </div>
+</div>
+</body>
+</html>
