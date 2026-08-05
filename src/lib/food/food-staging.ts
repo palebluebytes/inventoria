@@ -15,6 +15,13 @@ export interface LabelCaptureSeed {
   /** Brand as read from the label / OFF, when known. */
   brand?: string;
   /**
+   * Category as read from OFF (`food/category`, a comma-separated taxonomy list)
+   * or typed on the form — OFF's language-neutral "what this is". Carried so a
+   * found-but-poor enrichment forwards the category it already has, and so an OFF
+   * contribution can `add_categories` it (ADR-0034 §8, #84).
+   */
+  category?: string;
+  /**
    * The panel-so-far: a partial {@link NutritionInfo} the doors prefill (an OFF
    * partial payload, or empty for guided-manual). Absent keys mean "not on the
    * label", never 0 — the same absent-not-zero discipline the panel keeps.

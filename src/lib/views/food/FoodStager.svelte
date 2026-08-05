@@ -281,6 +281,11 @@
   // grams via `buildLabelPanel`; an untouched or skipped row is omitted, never 0.
   let customName = $state("");
   let customBrand = $state("");
+  // OFF's language-neutral "what this is" (`food/category`) — free text (OFF
+  // re-canonicalizes on write). Seeded from a twin/OFF payload's own category so a
+  // found-but-poor enrichment forwards it, and contributed via `add_categories`
+  // (ADR-0034 §8, #84). Free-text MVP; a taxonomy type-ahead is a later follow-up.
+  let customCategory = $state("");
   let customBasis = $state<Basis>("per_100g");
   const BASIS_OPTIONS: { value: Basis; label: string }[] = [
     { value: "per_100g", label: "100 g" },
@@ -400,6 +405,7 @@
   // Blank every custom-form field back to a fresh empty read-along form.
   function resetCustomForm() {
     applyAutofill(emptyAutofillResult());
+    customCategory = "";
     customServingGrams = "";
     customPortions = [];
     skipped = new Set();
@@ -416,6 +422,9 @@
     const name = (attrs["food/name"] as string | undefined) ?? "";
     customName = name === "Unknown" ? "" : name;
     customBrand = (attrs["twin/brand"] as string | undefined) ?? "";
+    // OFF already read the taxonomy into food/category — forward it so enriching a
+    // poor twin (and any OFF contribution) keeps the identity it already has (#84).
+    customCategory = (attrs["food/category"] as string | undefined) ?? "";
     // OFF panels are per-100 g (the mapper stamps PER_100G); the form matches.
     customBasis = "per_100g";
     customServingGrams = "";
@@ -462,6 +471,7 @@
     barcode = gtin ? gtin[1] : "";
     customName = (attrs["food/name"] as string | undefined) ?? "";
     customBrand = (attrs["twin/brand"] as string | undefined) ?? "";
+    customCategory = (attrs["food/category"] as string | undefined) ?? "";
     const info = attrs[NUTRITION_INFO_ATTR] as NutritionInfo | undefined;
     // Invert the stored `serving_size` back onto the #52 basis toggle: "100 g" is
     // per-100 g; a bare "N g" is a weighed serving; anything else falls to serving.
@@ -626,6 +636,7 @@
       contributeResult = await submitToOpenFoodFacts(barcode.trim(), {
         name: customName.trim(),
         brand: customBrand.trim() || undefined,
+        category: customCategory.trim() || undefined,
         nutrition: builtPanel.nutrition,
       });
     } finally {
@@ -650,6 +661,7 @@
       method = "custom";
       customName = seed.name;
       if (seed.brand) customBrand = seed.brand;
+      if (seed.category) customCategory = seed.category;
       // Edit mode carries the singular frozen photo; seed it as the array's first.
       labelPhotos = seed.photo_base64 ? [seed.photo_base64] : [];
       // Re-open the four macro rows from the edited per-serving entry (strings,
@@ -1151,6 +1163,7 @@
       const fields = [
         ...(customName.trim() ? ["name"] : []),
         ...(customBrand.trim() ? ["brand"] : []),
+        ...(customCategory.trim() ? ["category"] : []),
         ...(filledKeys.length ? ["nutriments"] : []),
         ...(portions.length ? ["portions"] : []),
       ];
@@ -1172,6 +1185,7 @@
         // the full ordered set rides `labelPhotos` (saveLabelFood mirrors [0], §5).
         photo_base64: photos[0] ?? null,
         brand: customBrand.trim() || undefined,
+        category: customCategory.trim() || undefined,
         nutrition,
         portions: portions.length ? portions : undefined,
         labelPhotos: photos.length ? photos : undefined,
@@ -1652,10 +1666,19 @@
                         bind:value={customName}
                       />
                       <input
-                        class="cf-brand"
+                        class="cf-subline"
                         placeholder="Brand — optional"
                         aria-label="Brand"
                         bind:value={customBrand}
+                      />
+                      <!-- OFF's language-neutral "what this is" (§8, #84). Free
+                           text — OFF canonicalizes on write; contributed via
+                           add_categories when the twin is given back to OFF. -->
+                      <input
+                        class="cf-subline"
+                        placeholder="Category — optional"
+                        aria-label="Category"
+                        bind:value={customCategory}
                       />
                     </div>
                   </div>
@@ -2343,7 +2366,8 @@
     font-weight: 700;
     min-height: 44px;
   }
-  .cf-brand {
+  /* The stacked secondary identity inputs under the name (brand, category). */
+  .cf-subline {
     font-size: 0.9rem;
     min-height: 38px;
   }

@@ -394,6 +394,7 @@ describe("saveLabelFood (ADR-0034 §6)", () => {
     const id = await saveLabelFood({
       name: "Homemade Granola",
       brand: "Acme",
+      category: "en:granolas",
       nutrition: PANEL,
       portions: PORTIONS,
       labelPhotos: [
@@ -412,6 +413,7 @@ describe("saveLabelFood (ADR-0034 §6)", () => {
 
     expect(twin.attributes["food/name"]).toBe("Homemade Granola");
     expect(twin.attributes["twin/brand"]).toBe("Acme");
+    expect(twin.attributes["food/category"]).toBe("en:granolas");
     expect(twin.attributes["nutrition/info"]).toEqual(PANEL);
     expect(twin.attributes["food/portions"]).toEqual(PORTIONS);
     expect(twin.attributes["food/label_photos"]).toEqual([

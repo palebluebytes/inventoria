@@ -367,6 +367,7 @@
           twinId = await saveLabelFood({
             name: choice.name,
             brand: choice.brand,
+            category: choice.category,
             nutrition: choice.nutrition as NutritionInfo,
             portions: choice.portions,
             labelPhotos:

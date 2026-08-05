@@ -200,6 +200,12 @@ export interface LabelFoodInput {
   /** Brand read from the label, when present. */
   brand?: string;
   /**
+   * Category read from OFF / typed on the form → `food/category` (OFF's
+   * language-neutral taxonomy). Stored so an enriched twin keeps the identity a
+   * later edit or OFF contribution can forward (ADR-0034 §8, #84).
+   */
+  category?: string;
+  /**
    * The full nutrition panel the user confirmed. Stored VERBATIM: grams, and
    * **absent ≠ 0** — the form omits any row the label didn't carry, and this
    * writer never fills a missing key with 0 (ADR-0030 / #28).
@@ -255,6 +261,7 @@ export async function saveLabelFood(input: LabelFoodInput): Promise<string> {
     "food/label_capture": input.labelCapture,
   };
   if (input.brand) attributes["twin/brand"] = input.brand;
+  if (input.category) attributes["food/category"] = input.category;
   if (input.portions?.length) attributes["food/portions"] = input.portions;
   if (input.labelPhotos.length > 0) {
     attributes["food/label_photos"] = input.labelPhotos;
