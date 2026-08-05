@@ -179,15 +179,16 @@
     justify-content: center;
     font-weight: 900;
     font-size: var(--step-0);
-    color: var(--ink);
+    color: var(--amber-bg);
     flex-shrink: 0;
   }
   .tracking-box.confirmed {
     background: var(--ink);
+    color: var(--green-bg);
   }
   .tracking-box.missed {
-    background: var(--paper);
-    color: var(--paper);
+    background: var(--ink);
+    color: var(--red-bg);
   }
 
   /* Content */
