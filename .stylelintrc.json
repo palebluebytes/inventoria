@@ -9,6 +9,7 @@
       "files": ["src/app.css"],
       "rules": {
         "declaration-property-value-disallowed-list": null,
+        "declaration-property-value-allowed-list": null,
         "color-no-hex": null
       }
     }
@@ -23,7 +24,19 @@
     "no-duplicate-selectors": null,
     "declaration-property-value-disallowed-list": {
       "/^(color|background|background-color|border(-top|-right|-bottom|-left)?(-color)?|box-shadow|outline(-color)?|fill|stroke)$/": [
-        "/#(?:000|fff)(?:000|fff)?(?![0-9a-f])/i"
+        "/#(?:000|fff)(?:000|fff)?(?![0-9a-f])/i",
+        "/\\b(black|white)\\b/i"
+      ],
+      "box-shadow": [
+        "/^(?:inset\\s+)?-?[\\d.]+(?:px|rem|em|%)?\\s+-?[\\d.]+(?:px|rem|em|%)?\\s+(?!0(?:px|rem|em)?\\b)[\\d.]+(?:px|rem|em)\\b/i"
+      ]
+    },
+    "declaration-property-value-allowed-list": {
+      "border-radius": [
+        "/^0$/",
+        "/^var\\(--radius\\)$/",
+        "/^var\\(--[\\w-]+,\\s*var\\(--radius\\)\\)$/",
+        "50%"
       ]
     },
     "color-no-hex": true
