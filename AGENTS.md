@@ -8,6 +8,7 @@ You are working on Inventoria, a local-first Progressive Web App (PWA) built wit
 - **Package Manager:** Use `pnpm` exclusively within the Nix environment. Never run `npm`, `yarn`, or `bun`.
 - **UI Framework:** Svelte (using strict TypeScript). Leverage Svelte's native fine-grained reactivity for UI updates.
 - **Script Execution:** Use `pnpm dlx` for executing one-off binaries or initialization scripts.
+- **Browser automation:** Only drive the app through the Chrome MCP browser tools (`mcp__claude-in-chrome__*`) when the user explicitly asks for it. Otherwise verify changes with `pnpm check`, `pnpm test:unit`, and `pnpm lint:css`; describe any manual in-app check for the user to run themselves rather than launching the browser unprompted.
 
 ## 2. Progressive Disclosure (Context Routing)
 
