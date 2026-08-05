@@ -85,6 +85,14 @@ export type FoodChoice =
        * the `menu` / `plate_estimate` intents when the user typed any.
        */
       ingredients?: string;
+      /**
+       * The existing twin's entity id when this commit is an EDIT of an already-saved
+       * label capture (the staged card's origin badge re-opens the form, §7). Present,
+       * the host enriches THAT entity in place so the correction supersedes rather than
+       * minting a duplicate — for a `food:custom_` twin as much as a `gtin:` one. Absent
+       * on a fresh capture, where the barcode (or its lack) keys the save as before.
+       */
+      editEntityId?: string;
     } & LabelCaptureSeed);
 
 /**

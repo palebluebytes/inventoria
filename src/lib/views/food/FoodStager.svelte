@@ -22,6 +22,7 @@
     roundFoodDisplay,
     FOOD_PORTIONS_ATTR,
     NUTRITION_INFO_ATTR,
+    PER_100G,
     type Portion,
     type NutritionInfo,
   } from "../../food/nutrition";
@@ -316,9 +317,14 @@
   // form keys the save (`gtin:` enrich vs `food:custom_` mint, §6), so the doors
   // just keep or clear it.
   // Which door routed into the Custom form — a shared alias so the union is
-  // stated once, not restated at every call site (§3.1).
-  type CaptureReason = "missing" | "poor" | "unreadable";
+  // stated once, not restated at every call site (§3.1). "edit" is the fourth,
+  // non-scan door: the staged card's origin badge (§7) re-opens the form on an
+  // already-saved twin so the user can correct it again.
+  type CaptureReason = "missing" | "poor" | "unreadable" | "edit";
   let captureReason = $state<CaptureReason | null>(null);
+  // The twin being edited via the origin badge, so its save enriches THAT entity
+  // in place rather than minting a duplicate (§7). Null on the fresh-capture doors.
+  let editEntityId = $state<string | null>(null);
   // OFF's completeness for the found-but-poor twin, carried into the form (§1).
   let captureCompleteness = $state<number | undefined>(undefined);
   // Found-but-poor nudge on the staged card: soft, dismissible, never blocks
@@ -361,6 +367,7 @@
     poor: "Open Food Facts only had partial data for this — fill in what’s missing from the label.",
     unreadable:
       "Couldn’t read the barcode. Enter the label details here; add the digits below if you can read them.",
+    edit: "Editing this entry — adjust anything from the label and save to update it.",
   };
 
   // Route one of the doors into the Custom form: set the reason banner, keep the
@@ -378,6 +385,8 @@
     nudge = false;
     captureReason = reason;
     captureCompleteness = completeness;
+    // A scan door is a fresh capture, never an in-place edit of an existing twin.
+    editEntityId = null;
     // Only the found-but-poor door preserves an OFF record beside the correction.
     captureOffPayload = reason === "poor" ? (payload ?? null) : null;
     if (payload) prefillFromPayload(payload);
@@ -429,6 +438,62 @@
     // OFF's own photos ride alongside as a read-only reference to read the label
     // off — never merged into the user's capture set, never saved.
     offRefPhotos = payload.referenceImages ?? [];
+  }
+
+  // Re-open the label form on the STAGED twin (origin badge, §7): prefill every
+  // field from the twin's own saved data — its name, brand, panel (in its stored
+  // basis), portions, and the user's OWN captured photos — and pin `editEntityId`
+  // to the twin so the re-save enriches THAT entity in place rather than minting a
+  // duplicate. A `gtin:` twin also re-derives its barcode so the key-follows-the-
+  // barcode contract (§6) and the OFF-contribution offer keep working.
+  function editStaged() {
+    if (!staged) return;
+    const attrs = staged.payload.attributes;
+    method = "custom";
+    status = "idle";
+    error = "";
+    nudge = false;
+    captureReason = "edit";
+    captureCompleteness = undefined;
+    // The twin already IS the record — nothing to preserve beside it (unlike poor).
+    captureOffPayload = null;
+    editEntityId = staged.entity;
+    const gtin = /^gtin:(.+)$/.exec(staged.entity);
+    barcode = gtin ? gtin[1] : "";
+    customName = (attrs["food/name"] as string | undefined) ?? "";
+    customBrand = (attrs["twin/brand"] as string | undefined) ?? "";
+    const info = attrs[NUTRITION_INFO_ATTR] as NutritionInfo | undefined;
+    // Invert the stored `serving_size` back onto the #52 basis toggle: "100 g" is
+    // per-100 g; a bare "N g" is a weighed serving; anything else falls to serving.
+    const serving = info?.serving_size;
+    if (serving === PER_100G) {
+      customBasis = "per_100g";
+      customServingGrams = "";
+    } else {
+      const g = serving ? parseFloat(serving) : NaN;
+      customBasis = "per_serving";
+      customServingGrams = Number.isFinite(g) && g > 0 ? String(g) : "";
+    }
+    const values: Record<string, string> = {};
+    for (const f of ALL_FIELDS) {
+      const grams = info?.[f.key];
+      values[f.key] = typeof grams === "number" ? toDisplay(grams, f.unit) : "";
+    }
+    customValues = values;
+    // Editing your own saved values — nothing is "unverified" (no amber accent).
+    prefilled = new Set();
+    skipped = new Set();
+    const portions = attrs[FOOD_PORTIONS_ATTR] as Portion[] | undefined;
+    customPortions = (portions ?? []).map((p) => ({
+      label: p.label,
+      grams: String(p.grams),
+    }));
+    // The twin's own captured photos re-open in the user's capture set (editable),
+    // not as OFF reference shots — this is the user editing their own capture.
+    const photos = attrs["food/label_photos"] as string[] | undefined;
+    labelPhotos = photos ?? [];
+    offRefPhotos = [];
+    staged = null;
   }
 
   // Initialise the form from an AIAutofillResult — the seam that serves BOTH
@@ -1115,6 +1180,9 @@
         // in the unreadable banner) enriches `gtin:<code>` in place; an empty one
         // mints a fresh `food:custom_` twin. The host maps this to the save key.
         barcode: barcode.trim() || undefined,
+        // An origin-badge edit (§7) pins the twin's own id so the host enriches
+        // it in place; the barcode alone would mint a duplicate for a custom twin.
+        editEntityId: editEntityId ?? undefined,
         // The found-but-poor door's OFF record, so the host preserves its
         // provenance beside the correction (§6/§7 dual-origin). Absent otherwise.
         offPayload: captureOffPayload ?? undefined,
@@ -1243,12 +1311,24 @@
                   <div class="staged-head">
                     <h3>{staged.name}</h3>
                     {#if stagedOrigin}
-                      <!-- Origin badge (§7): user-entered vs OFF-sourced, at a glance. -->
-                      <span class="origin-badge" data-testid="origin-badge">
-                        ✏️ {stagedOrigin === "edited"
-                          ? "edited from label"
-                          : "your entry"}
-                      </span>
+                      <!-- Origin badge (§7): user-entered vs OFF-sourced, at a glance.
+                      Clicking it re-opens the label form on this twin to edit it again. -->
+                      <button
+                        type="button"
+                        class="origin-badge"
+                        data-testid="origin-badge"
+                        onclick={editStaged}
+                        title="Edit this entry from the label"
+                      >
+                        <span class="origin-badge-icon" aria-hidden="true"
+                          >✏️</span
+                        >
+                        <span
+                          >{stagedOrigin === "edited"
+                            ? "edited from label"
+                            : "your entry"}</span
+                        >
+                      </button>
                     {/if}
                   </div>
                   {#if nudge}
@@ -1955,25 +2035,65 @@
   }
   .staged-head {
     display: flex;
-    align-items: baseline;
+    /* Title and pill share one centre line; the pill sits hard against the right
+       edge with the name on the left (space-between). */
+    align-items: center;
+    justify-content: space-between;
     flex-wrap: wrap;
     gap: var(--space-2xs);
   }
   .staged h3 {
     font-size: var(--step-1);
     font-weight: 700;
+    /* Take the row's slack so the pill is pushed to the far edge; wrap rather than
+       shove the pill off-screen on a long name. */
+    flex: 1 1 auto;
+    min-width: 0;
   }
-  /* Origin badge (§7) — a quiet advisory pill, never competing with the name. */
+  /* Origin badge (§7) — clicking re-opens the label form to edit this entry again
+     (`editStaged`). Styled as a real brutalist button (ink edge + hard offset
+     shadow that presses on tap) so it plainly reads as tappable, not a passive
+     label. inline-flex + align-items:center centres the pencil and text on one
+     line — a plain baseline layout let the emoji's metrics push the text high in
+     the box (its glyph mid-point ≠ the box mid-point). */
   .origin-badge {
     flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+    font-family: inherit;
     font-size: 0.68rem;
     font-weight: 700;
-    color: var(--text-secondary);
-    background: var(--surface-2, var(--bg-input));
-    border: 1px solid var(--border);
+    line-height: 1;
+    color: var(--ink);
+    background: var(--paper);
+    border: var(--edge-thin);
     border-radius: var(--radius);
-    padding: 0.1rem 0.5rem;
+    padding: 0.32rem 0.5rem;
     white-space: nowrap;
+    cursor: pointer;
+    box-shadow: var(--shadow-1);
+    transition:
+      box-shadow 0.06s ease,
+      transform 0.06s ease;
+  }
+  .origin-badge-icon {
+    /* Kill the emoji's extra vertical bearing so its optical centre matches the
+       label's — the flex row then sits dead-centre in the button box. */
+    font-size: 0.9em;
+    line-height: 1;
+  }
+  .origin-badge:hover {
+    box-shadow: var(--shadow-2);
+    transform: translate(-1px, -1px);
+  }
+  .origin-badge:active {
+    box-shadow: none;
+    transform: translate(2px, 2px);
+  }
+  .origin-badge:focus-visible {
+    outline: var(--edge);
+    outline-offset: 2px;
   }
   /* Found-but-poor nudge (§1) — soft amber, dismissible; never blocks the Log
      button beneath it. */

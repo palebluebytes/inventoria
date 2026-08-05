@@ -373,7 +373,12 @@
               choice.labelPhotos ??
               (choice.photo_base64 ? [choice.photo_base64] : []),
             labelCapture: choice.labelCapture,
-            entityId: choice.barcode ? `gtin:${choice.barcode}` : undefined,
+            // An edit re-opened from the origin badge (§7) carries the twin's own
+            // id so the correction enriches THAT entity in place (custom or gtin);
+            // a fresh capture keys off the barcode as before (gtin enrich vs mint).
+            entityId:
+              choice.editEntityId ??
+              (choice.barcode ? `gtin:${choice.barcode}` : undefined),
           });
         } else {
           twinId = await saveCustomFood(
