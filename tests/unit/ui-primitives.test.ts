@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { render } from "svelte/server";
 import Button from "../../src/lib/ui/Button.svelte";
 import Card from "../../src/lib/ui/Card.svelte";
+import Badge from "../../src/lib/ui/Badge.svelte";
 
 // These render the primitives through Svelte's SSR path (no DOM needed) and
 // assert on the emitted HTML. They pin the three things #77 makes contractual:
@@ -93,5 +94,18 @@ describe("Card", () => {
     expect(body).toContain("<button");
     expect(body).toContain("aria-pressed");
     expect(body).toContain('aria-controls="panel-1"');
+  });
+});
+
+describe("Badge", () => {
+  it("emits the default variant class", () => {
+    const { body } = render(Badge, { props: {} });
+    expect(body).toContain("badge-default");
+  });
+
+  it("supports the neutral variant (the category grey fallback)", () => {
+    const { body } = render(Badge, { props: { variant: "neutral" } });
+    expect(body).toContain("badge-neutral");
+    expect(body).not.toContain("badge-default");
   });
 });

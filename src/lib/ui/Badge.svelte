@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import type { BadgeVariant } from "./badge";
 
   let {
     id = undefined,
@@ -8,7 +9,7 @@
     class: className = "",
   }: {
     id?: string;
-    variant?: "default" | "success" | "error" | "warning";
+    variant?: BadgeVariant;
     children?: Snippet;
     class?: string;
   } = $props();
@@ -52,6 +53,12 @@
 
   .badge-warning {
     background: var(--amber-bg);
+    color: var(--ink);
+    border: var(--edge-thin);
+  }
+
+  .badge-neutral {
+    background: var(--border);
     color: var(--ink);
     border: var(--edge-thin);
   }
