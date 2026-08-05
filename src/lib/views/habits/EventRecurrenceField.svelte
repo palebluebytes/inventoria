@@ -3,6 +3,8 @@
   import type { DayOfWeek } from "../../recurrence/rules";
   import type { RecurType } from "../../cal_events/event-schedule-rules";
   import DateField from "./DateField.svelte";
+  import Card from "../../ui/Card.svelte";
+  import Button from "../../ui/Button.svelte";
 
   // The add-event form's RECURRENCE card: how often the event repeats (daily /
   // weekly / monthly / yearly), an optional until date, and — for a timed,
@@ -72,7 +74,7 @@
   }
 </script>
 
-<div class="field-card">
+<Card class="field-card">
   <span class="field-label">RECURRENCE</span>
   <div class="seg-control seg-grid" style="margin-bottom: var(--space-s);">
     {#each [["specific_days", "DAILY"], ["weekly", "WEEKLY"], ["monthly", "MONTHLY"], ["yearly", "YEARLY"]] as [val, label]}
@@ -156,10 +158,12 @@
                   updateTimeSlot(i, (e.target as HTMLInputElement).value)}
               />
             </div>
-            <button
+            <Button
+              variant="danger"
+              size="sm"
               class="remove-btn"
               onclick={() => removeTimeSlot(i)}
-              aria-label="Remove">✕</button
+              aria-label="Remove">✕</Button
             >
           </div>
         {/each}
@@ -173,19 +177,18 @@
       >
     </div>
   {/if}
-</div>
+</Card>
 
 <style>
-  /* Card chrome shared with the sheet's other field cards (Svelte scopes these
-     per component, so this card carries its own copy). */
-  .field-card {
-    border: var(--edge);
+  /* The panel frame is now the shared Card (ADR-0039); its edge, shadow and bg
+     tokens are identical to the old bespoke ones, so this keeps only the compact
+     padding, column layout and positioning context, reached via `:global` under
+     the doubled `.card` class so they win over Card's base. */
+  :global(.card.field-card) {
     padding: var(--space-s);
-    background: var(--bg-surface);
     display: flex;
     flex-direction: column;
     gap: var(--space-xs);
-    box-shadow: var(--shadow-2);
     position: relative;
   }
   .field-label {
@@ -310,20 +313,16 @@
     max-width: none;
   }
 
-  .remove-btn {
-    background: var(--red-bg);
-    color: var(--paper);
-    border: var(--edge);
-    font-family: var(--font-mono);
-    font-weight: 900;
-    font-size: var(--step-n2);
+  /* The ✕ slot-remove is a small destructive action → Button (danger, sm); the
+     red fill, edge, shadow and press are the primitive's (ADR-0039). This keeps
+     only the fixed square size and heavier glyph weight, reached via the doubled
+     `.btn` class so they win over Button's sm padding/weight. */
+  :global(.btn.remove-btn) {
     width: 32px;
     height: 32px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    padding: 0;
     flex-shrink: 0;
+    font-weight: 900;
   }
 
   .add-slot-btn {

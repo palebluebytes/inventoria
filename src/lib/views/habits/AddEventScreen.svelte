@@ -2,6 +2,7 @@
   import type { ScheduleRule, DayOfWeek } from "../../habits/habits";
   import { CalendarDate, parseDate } from "@internationalized/date";
   import BottomSheet from "../../ui/BottomSheet.svelte";
+  import Card from "../../ui/Card.svelte";
   import DateField from "./DateField.svelte";
   import EventRecurrenceField from "./EventRecurrenceField.svelte";
   import {
@@ -176,7 +177,7 @@
 <BottomSheet isOpen title="New event" {onClose} class="add-event-sheet">
   <div class="event-fields">
     <!-- Title -->
-    <div class="field-hero" class:error={titleError}>
+    <Card class="field-hero {titleError ? 'error' : ''}">
       <input
         class="hero-input"
         type="text"
@@ -188,10 +189,10 @@
         spellcheck={false}
       />
       {#if titleError}<span class="field-error">REQUIRED</span>{/if}
-    </div>
+    </Card>
 
     <!-- Date/Time Selection -->
-    <div class="field-card" class:error={!!endError}>
+    <Card class="field-card {endError ? 'error' : ''}">
       <div
         class="field-header"
         style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: var(--space-s);"
@@ -274,7 +275,7 @@
           style="display: block; margin-top: var(--space-xs);">{endError}</span
         >
       {/if}
-    </div>
+    </Card>
 
     <!-- Schedule: Recurrence & Time slots -->
     <EventRecurrenceField
@@ -291,7 +292,7 @@
     />
 
     <!-- Requires confirmation -->
-    <div class="field-card">
+    <Card class="field-card">
       <button
         type="button"
         class="toggle-row"
@@ -310,10 +311,10 @@
           </span>
         </div>
       </button>
-    </div>
+    </Card>
 
     <!-- Description -->
-    <div class="field-card">
+    <Card class="field-card">
       <span class="field-label"
         >DESCRIPTION <span class="optional">(OPTIONAL)</span></span
       >
@@ -323,7 +324,7 @@
         rows="3"
         bind:value={description}
       ></textarea>
-    </div>
+    </Card>
   </div>
 
   {#snippet footer()}
@@ -345,13 +346,17 @@
     font-family: var(--font-mono);
   }
 
-  /* Hero title */
-  .field-hero {
-    border: var(--edge);
+  /* Hero title — the panel frame is now the shared Card (ADR-0039); this keeps
+     only the compact padding, positioning context (for the absolute error
+     badge) and the error tint, reached via `:global` under the doubled `.card`
+     class so they win over Card's base. The hero previously had edge-only chrome;
+     it now also carries Card's --shadow-2 — a deliberate unification, not a slip
+     (ADR-0039 "visual shift, intended"). */
+  :global(.card.field-hero) {
     padding: var(--space-s);
     position: relative;
   }
-  .field-hero.error {
+  :global(.card.field-hero.error) {
     border-color: var(--red-bg);
   }
 
@@ -380,18 +385,18 @@
     right: 8px;
   }
 
-  /* Card */
-  .field-card {
-    border: var(--edge);
+  /* Card — the panel frame is now the shared Card (ADR-0039); its edge, shadow
+     and bg tokens are identical to the old bespoke ones, so this keeps only the
+     compact padding, column layout and error tint, reached via `:global` under
+     the doubled `.card` class so they win over Card's base. */
+  :global(.card.field-card) {
     padding: var(--space-s);
-    background: var(--bg-surface);
     display: flex;
     flex-direction: column;
     gap: var(--space-xs);
-    box-shadow: var(--shadow-2);
     position: relative;
   }
-  .field-card.error {
+  :global(.card.field-card.error) {
     border-color: var(--red-bg);
   }
 
