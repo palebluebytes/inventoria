@@ -9,6 +9,7 @@
     overlayBg = "rgba(0, 0, 0, 0.7)",
     overlayBlur = "blur(8px)",
     overlayZ = 998,
+    overlayEnter = false,
     children,
   }: {
     /** Bind for externally-controlled sheets; defaults open (parent mounts to show). */
@@ -28,6 +29,12 @@
      * app's dialog layer.
      */
     overlayZ?: number;
+    /**
+     * Fade the backdrop in on open so the dim arrives with a sliding card
+     * instead of popping to full opacity in one frame. Left off (instant) by
+     * default; sheets that slide up set it so dim and card enter together.
+     */
+    overlayEnter?: boolean;
     /** Renders the dialog card. Spread `props` onto your card element and call
         `close()` from close/cancel buttons. */
     children: Snippet<[{ props: Record<string, unknown>; close: () => void }]>;
@@ -49,6 +56,7 @@
         <div
           {...props}
           class="modal-overlay"
+          class:enter={overlayEnter}
           style:background={overlayBg}
           style:backdrop-filter={overlayBlur}
           style:z-index={overlayZ}
@@ -75,5 +83,22 @@
   .modal-overlay {
     position: fixed;
     inset: 0;
+  }
+
+  /* Coordinated entrance: fade the dim in over the same 0.25s a sliding sheet
+     takes to arrive, so the backdrop no longer pops to full opacity a frame
+     before the card. Opt-in (`overlayEnter`) — instant dim stays the default
+     for dialogs that don't animate in. */
+  .modal-overlay.enter {
+    animation: overlayFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+
+  @keyframes overlayFadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 </style>

@@ -80,6 +80,7 @@
   overlayBg="rgba(0, 0, 0, 0.4)"
   overlayBlur="blur(2px)"
   {overlayZ}
+  overlayEnter={animate}
   {title}
 >
   {#snippet children({ props, close })}
@@ -145,7 +146,9 @@
     max-height: 85vh;
     display: flex;
     flex-direction: column;
-    animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    /* `backwards` commits the `from` keyframe before the first paint, so the
+       sheet never flashes at its resting position for a frame on mount. */
+    animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) backwards;
   }
 
   /* A sheet that continues an already-open flow (the recipe sub-sheets) appears
@@ -284,9 +287,13 @@
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-s));
   }
 
+  /* Start 12px lower than a bare `translateY(100%)` so the sheet's top
+     `box-shadow: 0 -8px 0` (an 8px ink bar above its top edge) clears the
+     viewport bottom at rest — otherwise that bar flicks at the screen edge on
+     the first frames of the slide. */
   @keyframes slideUp {
     from {
-      transform: translateX(-50%) translateY(100%);
+      transform: translateX(-50%) translateY(calc(100% + 12px));
     }
     to {
       transform: translateX(-50%) translateY(0);
