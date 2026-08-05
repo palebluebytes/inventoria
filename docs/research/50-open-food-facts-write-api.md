@@ -158,3 +158,25 @@ Sources: [contribute page](https://world.openfoodfacts.org/contribute), [Data qu
 
 - **CORS from the browser:** whether a direct SPA POST to `cgi/product_jqm2.pl` is allowed cross-origin is **not documented**; must be verified against staging before committing to server-less writes (a proxy may be unavoidable).
 - **Full-panel write vs the 4-macro stub:** `submitToOpenFoodFacts` currently only accepts name + 4 macros; contributing a full twin (map decision 3) needs the wider `nutriment_*` set + serving + tags + photos — the stub signature will need to grow.
+
+## Addendum (2026-08-05): categories, the language-keyed name, and the `taxonomy_suggestions` type-ahead
+
+Follow-up dig (verified against OFF's [API intro](https://openfoodfacts.github.io/openfoodfacts-server/api/) + [cheatsheet](https://openfoodfacts.github.io/openfoodfacts-server/api/ref-cheatsheet/) and the [dart SDK docs](https://github.com/openfoodfacts/openfoodfacts-dart/blob/master/DOCUMENTATION.md)), prompted by "how does OFF handle a Spanish-labelled product". Two of the shipped #61 write path's fields (`buildOffWriteBody`, `src/lib/food/open-food-facts.ts`) diverge from the "minimum good field set" this research already named, so recording the specifics.
+
+**A name is language-keyed; there is no single `product_name`.** OFF stores the name per language as `product_name_<lc>` (`product_name_en`, `product_name_es`, …). Each product carries **`lang`** (the language printed on the front of the pack) and **`lc`** (the interface/request language). The bare `product_name` is only a fallback OFF resolves against the product's `lang`. Names are **transcribed as printed, never translated** — cross-language equivalence is _not_ carried by the name. OFF's docs explicitly warn: use the language-suffixed field on write, "otherwise you might accidentally corrupt products by overwriting proper-language data with improper-language data."
+⇒ **Shipped gap:** `buildOffWriteBody` sets a **bare `product_name`** (`open-food-facts.ts:428`) with no `_<lc>` suffix and no `lang` — the exact pattern OFF warns can clobber another language's name on a shared barcode.
+
+**Categories are the language-neutral identity — and we don't send them.** "This is peanut butter" is carried not by the name but by the **categories taxonomy** node (`en:peanut-butters`), which OFF canonicalizes from whatever language/synonym you submit ("crema de cacahuete" → `en:peanut-butters`). `add_categories` **appends** (same idiom as the already-wired `add_brands`), so enriching never clobbers an existing list — and there is **no language-slot corruption risk**, unlike the name. Our **read** mapper already stores this as `food/category` (`open-food-facts.ts:234`), but the **write** never sends it ⇒ identity comes _in_ and never goes back _out_. `categories` was in this doc's own §"Minimum good field set"; #61 dropped it.
+
+**OFF has a live category type-ahead — the user never has to guess.**
+
+- Autocomplete: `GET /api/v3/taxonomy_suggestions?tagtype=categories&string=<prefix>&lc=<lang>&limit=N` (legacy: `GET /cgi/suggest.pl?tagtype=categories&term=…`) → localized matches as you type.
+- Full dump (offline/seed): `GET /api/v2/taxonomy?tagtype=categories`.
+  This turns a category field from "free-text and hope it matches" into a debounced type-ahead over OFF's canonical, localized list — the same widget vocabulary as the #65 food-search **bits-ui Combobox**, backed by a remote fetch instead of the local index. It rides the existing browser-side OFF GET infra (`lookupBarcode`), so no backend (consistent with ADR-0034 §8 / #54), and degrades to plain free-text offline (OFF re-canonicalizes on write regardless).
+
+**Watch-outs for the implementer.**
+
+- **Comma is OFF's category separator** — a single free-text category containing a comma splits into multiple. For a one-box input, document "one category" or split-and-trim intentionally; don't post a raw comma-bearing string blind.
+- **Don't force `en:` taxonomy IDs on the user** — free text in the label's language is correct and sufficient; OFF canonicalizes server-side. Pre-fill `en:`-prefixed ids only from a known-good source (an existing `food/category`, or a future extractor).
+
+**Recommended landing (→ ticket, ADR-0034 §8 amendment).** Add `category?` to `OffContribution`; emit `add_categories` (append) in `buildOffWriteBody`; **seed** it from the existing `food/category`; add a category field on the capture form — ideally the `taxonomy_suggestions`-backed Combobox, storing the canonical id, degrading to free-text. Feed a future #62 vision-extractor category guess through `taxonomy_suggestions` before pre-fill. Keep the **`product_name_<lc>` + `lang`** fix as a **separate, riskier follow-up** (it changes name-write semantics; categories is the safe, high-value one to do first).

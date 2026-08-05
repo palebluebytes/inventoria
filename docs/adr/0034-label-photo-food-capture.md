@@ -257,6 +257,22 @@ Contribution is **offered only** for a `gtin:` twin **and** a logged-in OFF user
   prod in build). **Online-only**, with a persistent "Contribute to OFF"
   affordance on the twin for manual retry.
 
+**Amendment (2026-08-05):** The **Payload** bullet above under-specifies two
+name/identity fields, and the shipped write path (`buildOffWriteBody`, #61)
+followed it literally. (1) **Categories must be contributed.** OFF's
+language-neutral identity for "what this product is" lives in the **categories
+taxonomy** (`en:peanut-butters`), not the name — and `buildOffWriteBody` never
+sends it, though our read mapper already stores `food/category`. The payload must
+also emit **`add_categories`** (append, like `add_brands`); OFF's
+`taxonomy_suggestions` endpoint lets the capture form offer a localized
+type-ahead. (2) **The name is language-keyed.** A bare `product_name` (what we
+send today) has no `product_name_<lc>` suffix or `lang` field; OFF's docs warn
+this can clobber another language's name on a shared barcode — a latent write bug,
+tracked as a riskier separate follow-up. Full detail and the OFF-taxonomy
+grounding are in `docs/research/50-open-food-facts-write-api.md` → Addendum
+(2026-08-05); the categories fix is cut as
+[#84](https://github.com/inkpot-monkey/inventoria/issues/84).
+
 ## Consequences
 
 - **`lookupBarcode` / `mapOffProductToPayload` must surface `completeness`** on the
