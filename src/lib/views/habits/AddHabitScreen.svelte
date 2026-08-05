@@ -7,6 +7,8 @@
   import { slide } from "svelte/transition";
   import ScheduleRuleEditor from "./ScheduleRuleEditor.svelte";
   import BottomSheet from "../../ui/BottomSheet.svelte";
+  import Card from "../../ui/Card.svelte";
+  import Button from "../../ui/Button.svelte";
 
   let {
     dbReady,
@@ -166,7 +168,7 @@
     <ScheduleRuleEditor bind:value={scheduleRule} />
 
     <!-- Category Section -->
-    <div class="section-card">
+    <Card class="section-card">
       <h3 class="section-legend">Category</h3>
       <div class="category-grid">
         {#each custom_categories as cat}
@@ -194,13 +196,9 @@
               }}
               use:focusOnMount
             />
-            <button
-              type="button"
-              class="btn-inline-save"
-              onclick={add_custom_category}
-            >
+            <Button variant="primary" size="sm" onclick={add_custom_category}>
               +
-            </button>
+            </Button>
           </div>
         {:else if custom_categories.length < 10}
           <button
@@ -212,14 +210,12 @@
           </button>
         {/if}
       </div>
-    </div>
+    </Card>
 
     <!-- Equipment Link Section -->
-    <div class="section-card">
-      <button
-        type="button"
-        class="equipment-toggle-btn"
-        class:active={use_equipment}
+    <Card class="section-card">
+      <Card
+        class="equipment-toggle-btn {use_equipment ? 'active' : ''}"
         onclick={() => {
           use_equipment = !use_equipment;
           if (!use_equipment) clear_equipment();
@@ -227,7 +223,7 @@
       >
         <span class="custom-checkbox" class:checked={use_equipment}></span>
         <span class="toggle-label">EQUIPMENT REQUIRED?</span>
-      </button>
+      </Card>
 
       {#if use_equipment}
         <div
@@ -239,6 +235,10 @@
               <span class="badge-text"
                 >USING: {selected_equipment_name.toUpperCase()}</span
               >
+              <!-- Left bespoke: a small amber-tinted action nested inside the ink
+                   equipment badge chrome. Amber maps to no Button variant, and
+                   ADR-0039 folds tone into the four variants rather than a free
+                   tone prop, so this stays with the badge (chip/badge family). -->
               <button
                 type="button"
                 class="clear-equipment-btn"
@@ -274,7 +274,7 @@
           {/if}
         </div>
       {/if}
-    </div>
+    </Card>
 
     <!-- Error Box -->
     {#if habit_status === "error"}
@@ -334,12 +334,13 @@
     color: var(--text-muted);
   }
 
-  .section-card {
-    border: var(--edge);
-    background: var(--bg-surface);
+  /* The panel frame is now the shared Card (ADR-0039); `.section-card` keeps
+     only its compact padding + positioning context, reached via `:global` under
+     the doubled `.card` class so it wins over Card's base padding. Card's edge,
+     shadow and bg tokens are identical to the old bespoke ones. */
+  :global(.card.section-card) {
     padding: var(--space-s);
     position: relative;
-    box-shadow: var(--shadow-2);
   }
 
   .section-legend {
@@ -413,40 +414,22 @@
     border-radius: var(--radius);
   }
 
-  .btn-inline-save {
-    font-family: var(--font-mono);
-    font-size: var(--step-n2);
-    font-weight: 700;
-    padding: var(--space-3xs) var(--space-2xs);
-    border: var(--edge);
-    background: var(--ink);
-    color: var(--paper);
-    cursor: pointer;
-  }
-
-  /* Equipment styling */
-  .equipment-toggle-btn {
-    width: 100%;
-    background: var(--bg-surface);
-    border: var(--edge);
-    padding: var(--space-s);
+  /* Equipment styling — the toggle is an interactive framed tile → pressable
+     Card (ADR-0039). The Card owns the edge/shadow/press-flush + keyboard; this
+     keeps the row layout, mono type and the amber active tint, reached via the
+     doubled `.card` class so they win over Card's button reset. */
+  :global(.card.equipment-toggle-btn) {
     display: flex;
     align-items: center;
     gap: var(--space-xs);
-    cursor: pointer;
+    padding: var(--space-s);
     font-family: var(--font-mono);
     font-size: var(--step-n1);
     font-weight: 700;
     text-align: left;
-    outline: none;
-    transition: background-color 0.1s ease;
   }
 
-  .equipment-toggle-btn:hover {
-    background: var(--bg-input);
-  }
-
-  .equipment-toggle-btn.active {
+  :global(.card.equipment-toggle-btn.active) {
     background: var(--amber-bg);
   }
 

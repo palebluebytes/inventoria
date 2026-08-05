@@ -2,6 +2,8 @@
   import { untrack } from "svelte";
   import { slide } from "svelte/transition";
   import type { ScheduleRule, DayOfWeek } from "../../habits/habits";
+  import Card from "../../ui/Card.svelte";
+  import Button from "../../ui/Button.svelte";
 
   // Two-way bound: the editor owns the widget state and writes the current
   // ScheduleRule back to `value`. Seeded once from the incoming rule so both the
@@ -105,7 +107,7 @@
 </script>
 
 <!-- Schedule Type -->
-<div class="section-card">
+<Card class="section-card">
   <h3 class="section-legend">Schedule Type</h3>
   <div class="segmented-control">
     {#each scheduleTypes as type}
@@ -121,149 +123,163 @@
       </button>
     {/each}
   </div>
-</div>
+</Card>
 
 <!-- Daily Config -->
 {#if scheduleType === "daily_multiple"}
-  <div class="section-card" transition:slide={{ duration: 200 }}>
-    <h3 class="section-legend">Daily Schedule</h3>
+  <!-- Svelte transitions apply to elements, not components, so the slide rides a
+       thin wrapper and the frame is the shared Card (ADR-0039). -->
+  <div transition:slide={{ duration: 200 }}>
+    <Card class="section-card">
+      <h3 class="section-legend">Daily Schedule</h3>
 
-    <button
-      type="button"
-      class="specific-times-btn"
-      class:active={dailyUseSubtargets}
-      onclick={() => (dailyUseSubtargets = !dailyUseSubtargets)}
-    >
-      <span class="custom-checkbox" class:checked={dailyUseSubtargets}></span>
-      <span class="toggle-label">SPECIFIC TIMES?</span>
-    </button>
+      <Card
+        class="specific-times-btn {dailyUseSubtargets ? 'active' : ''}"
+        onclick={() => (dailyUseSubtargets = !dailyUseSubtargets)}
+      >
+        <span class="custom-checkbox" class:checked={dailyUseSubtargets}></span>
+        <span class="toggle-label">SPECIFIC TIMES?</span>
+      </Card>
 
-    {#if dailyUseSubtargets}
-      <div class="subtargets-list-brutal" transition:slide={{ duration: 200 }}>
-        {#each dailySubtargets as tgt, idx}
-          <div class="subtarget-row-brutal">
-            <input
-              type="time"
-              bind:value={tgt.time_hint}
-              class="input-brutal small-input time-input"
-            />
-            <button
-              type="button"
-              class="delete-subtarget-btn"
-              onclick={() => {
-                dailySubtargets = dailySubtargets.filter((_, i) => i !== idx);
-              }}
-              aria-label="Delete slot"
-            >
-              ✕
-            </button>
-          </div>
-        {/each}
-        <button
-          type="button"
-          class="add-subtarget-btn"
-          onclick={() => {
-            dailySubtargets = [
-              ...dailySubtargets,
-              {
-                id: "slot_" + Math.random().toString(36).substring(2, 9),
-                time_hint: "",
-              },
-            ];
-          }}
+      {#if dailyUseSubtargets}
+        <div
+          class="subtargets-list-brutal"
+          transition:slide={{ duration: 200 }}
         >
-          + ADD TIME SLOT
-        </button>
-      </div>
-    {:else}
-      <div class="reps-counter-container" transition:slide={{ duration: 200 }}>
-        <span class="counter-label-desc">TARGET REPS PER DAY:</span>
-        <div class="reps-counter">
-          <button
-            type="button"
-            class="counter-btn"
+          {#each dailySubtargets as tgt, idx}
+            <div class="subtarget-row-brutal">
+              <input
+                type="time"
+                bind:value={tgt.time_hint}
+                class="input-brutal small-input time-input"
+              />
+              <Button
+                variant="danger"
+                size="sm"
+                class="delete-subtarget-btn"
+                onclick={() => {
+                  dailySubtargets = dailySubtargets.filter((_, i) => i !== idx);
+                }}
+                aria-label="Delete slot"
+              >
+                ✕
+              </Button>
+            </div>
+          {/each}
+          <Button
+            variant="secondary"
+            class="add-subtarget-btn"
             onclick={() => {
-              if (dailyCount > 1) dailyCount--;
+              dailySubtargets = [
+                ...dailySubtargets,
+                {
+                  id: "slot_" + Math.random().toString(36).substring(2, 9),
+                  time_hint: "",
+                },
+              ];
             }}
           >
-            -
-          </button>
-          <span class="counter-val"
-            >{dailyCount} {dailyCount === 1 ? "REP" : "REPS"}</span
-          >
-          <button
-            type="button"
-            class="counter-btn"
-            onclick={() => dailyCount++}
-          >
-            +
-          </button>
+            + ADD TIME SLOT
+          </Button>
         </div>
-      </div>
-    {/if}
+      {:else}
+        <div
+          class="reps-counter-container"
+          transition:slide={{ duration: 200 }}
+        >
+          <span class="counter-label-desc">TARGET REPS PER DAY:</span>
+          <div class="reps-counter">
+            <button
+              type="button"
+              class="counter-btn"
+              onclick={() => {
+                if (dailyCount > 1) dailyCount--;
+              }}
+            >
+              -
+            </button>
+            <span class="counter-val"
+              >{dailyCount} {dailyCount === 1 ? "REP" : "REPS"}</span
+            >
+            <button
+              type="button"
+              class="counter-btn"
+              onclick={() => dailyCount++}
+            >
+              +
+            </button>
+          </div>
+        </div>
+      {/if}
+    </Card>
   </div>
 {/if}
 
 <!-- Weekly Specific Days Config -->
 {#if scheduleType === "weekly_days"}
-  <div class="section-card" transition:slide={{ duration: 200 }}>
-    <h3 class="section-legend">Scheduled Days</h3>
-    <div class="days-grid-brutal">
-      {#each ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as day}
-        <button
-          type="button"
-          class="day-btn-brutal"
-          class:selected={weeklyDaysSelected[day]}
-          onclick={() => (weeklyDaysSelected[day] = !weeklyDaysSelected[day])}
-        >
-          {day.toUpperCase()}
-        </button>
-      {/each}
-    </div>
+  <div transition:slide={{ duration: 200 }}>
+    <Card class="section-card">
+      <h3 class="section-legend">Scheduled Days</h3>
+      <div class="days-grid-brutal">
+        {#each ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as day}
+          <button
+            type="button"
+            class="day-btn-brutal"
+            class:selected={weeklyDaysSelected[day]}
+            onclick={() => (weeklyDaysSelected[day] = !weeklyDaysSelected[day])}
+          >
+            {day.toUpperCase()}
+          </button>
+        {/each}
+      </div>
+    </Card>
   </div>
 {/if}
 
 <!-- Weekly Flexible Config -->
 {#if scheduleType === "weekly_flexible"}
-  <div class="section-card" transition:slide={{ duration: 200 }}>
-    <h3 class="section-legend">Flexible Target</h3>
-    <div class="reps-counter-container">
-      <span class="counter-label-desc">COMPLETIONS PER WEEK:</span>
-      <div class="reps-counter">
-        <button
-          type="button"
-          class="counter-btn"
-          onclick={() => {
-            if (weeklyFlexCount > 1) weeklyFlexCount--;
-          }}
-        >
-          -
-        </button>
-        <span class="counter-val">
-          {weeklyFlexCount}
-          {weeklyFlexCount === 1 ? "TIME" : "TIMES"} / WEEK
-        </span>
-        <button
-          type="button"
-          class="counter-btn"
-          onclick={() => {
-            if (weeklyFlexCount < 7) weeklyFlexCount++;
-          }}
-        >
-          +
-        </button>
+  <div transition:slide={{ duration: 200 }}>
+    <Card class="section-card">
+      <h3 class="section-legend">Flexible Target</h3>
+      <div class="reps-counter-container">
+        <span class="counter-label-desc">COMPLETIONS PER WEEK:</span>
+        <div class="reps-counter">
+          <button
+            type="button"
+            class="counter-btn"
+            onclick={() => {
+              if (weeklyFlexCount > 1) weeklyFlexCount--;
+            }}
+          >
+            -
+          </button>
+          <span class="counter-val">
+            {weeklyFlexCount}
+            {weeklyFlexCount === 1 ? "TIME" : "TIMES"} / WEEK
+          </span>
+          <button
+            type="button"
+            class="counter-btn"
+            onclick={() => {
+              if (weeklyFlexCount < 7) weeklyFlexCount++;
+            }}
+          >
+            +
+          </button>
+        </div>
       </div>
-    </div>
+    </Card>
   </div>
 {/if}
 
 <style>
-  .section-card {
-    border: var(--edge);
-    background: var(--bg-surface);
+  /* Panel frames are now the shared Card (ADR-0039); its edge, shadow and bg
+     tokens are identical to the old bespoke ones, so this keeps only the compact
+     padding + positioning context, reached via `:global` under the doubled
+     `.card` class so it wins over Card's base padding. */
+  :global(.card.section-card) {
     padding: var(--space-s);
     position: relative;
-    box-shadow: var(--shadow-2);
   }
 
   .section-legend {
@@ -309,30 +325,24 @@
     color: var(--paper);
   }
 
-  /* Daily Config styling */
-  .specific-times-btn {
-    width: 100%;
-    background: var(--bg-surface);
-    border: var(--edge);
-    padding: var(--space-s);
+  /* Daily Config — the SPECIFIC TIMES toggle is an interactive framed tile →
+     pressable Card (ADR-0039). The Card owns the edge/shadow/press-flush +
+     keyboard; this keeps the row layout, mono type, spacing and the green active
+     tint, reached via the doubled `.card` class so they win over Card's button
+     reset. */
+  :global(.card.specific-times-btn) {
     display: flex;
     align-items: center;
     gap: var(--space-xs);
-    cursor: pointer;
+    padding: var(--space-s);
     font-family: var(--font-mono);
     font-size: var(--step-n1);
     font-weight: 700;
     text-align: left;
-    outline: none;
     margin-bottom: var(--space-xs);
-    transition: background-color 0.1s ease;
   }
 
-  .specific-times-btn:hover {
-    background: var(--bg-input);
-  }
-
-  .specific-times-btn.active {
+  :global(.card.specific-times-btn.active) {
     background: var(--green-bg);
   }
 
@@ -362,33 +372,22 @@
     flex: 1;
   }
 
-  .delete-subtarget-btn {
-    background: var(--red-bg);
-    color: var(--paper);
-    border: var(--edge);
-    padding: var(--space-xs);
-    font-family: var(--font-mono);
-    font-weight: 700;
-    cursor: pointer;
+  /* The ✕ slot-delete is a small destructive action → Button (danger, sm); the
+     red fill, edge, shadow and press are the primitive's. This keeps only the
+     fixed 44px hit target, reached via the doubled `.btn` class. */
+  :global(.btn.delete-subtarget-btn) {
     width: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .add-subtarget-btn {
-    width: 100%;
-    background: var(--bg-surface);
-    border: var(--edge);
-    padding: var(--space-xs);
-    font-family: var(--font-mono);
+    padding: 0;
     font-weight: 700;
-    cursor: pointer;
-    text-transform: uppercase;
   }
 
-  .add-subtarget-btn:hover {
-    background: var(--bg-input);
+  /* The full-width solid-edge "+ ADD TIME SLOT" is a secondary action → Button
+     (secondary); the paper fill, edge, shadow and ink-fill hover are the
+     primitive's. This keeps the full width and uppercase glyphs. */
+  :global(.btn.add-subtarget-btn) {
+    width: 100%;
+    text-transform: uppercase;
+    font-weight: 700;
   }
 
   /* Reps Counter styling */
