@@ -379,7 +379,7 @@
     border: var(--edge-thin);
   }
   .note-indicator {
-    background: #fef08a; /* Yellow for notes */
+    background: var(--highlight-bg); /* Yellow for notes */
   }
 
   /* Utility Classes Re-added */

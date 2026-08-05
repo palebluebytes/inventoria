@@ -594,7 +594,7 @@
   }
   .rda-chip-pct {
     font-variant-numeric: tabular-nums;
-    color: var(--rda-over, #b45309);
+    color: var(--rda-over);
   }
 
   /* The RDA cell body — a `value / target` figure above a fill bar — that the
@@ -608,7 +608,7 @@
     font-variant-numeric: tabular-nums;
   }
   .rda-cell-vt.over {
-    color: var(--rda-over, #b45309);
+    color: var(--rda-over);
   }
   .rda-cell-vt.absent {
     color: var(--text-muted);

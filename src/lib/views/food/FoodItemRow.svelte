@@ -99,7 +99,7 @@
     touch-action: manipulation;
   }
   .food-item.selected {
-    background: #ffffe0;
+    background: var(--highlight-bg);
     box-shadow: var(--shadow-2);
   }
   .details {

@@ -296,7 +296,7 @@
   }
   .lpr-remove {
     border-color: rgba(255, 120, 120, 0.6);
-    color: #ff9a9a;
+    color: var(--red-bg);
   }
   .lpr-add {
     background: var(--green-bg);

@@ -65,6 +65,13 @@
   --red-bg: #ff3333; /* Pure striking red for error */
   --amber-bg: #ffcc00; /* Sharp yellow for warning */
 
+  /* Semantic status foregrounds — dark accents on light surfaces */
+  --red-text: #b91c1c; /* error/negative text */
+  --green-text: #15803d; /* success text */
+  --rda-over: #b45309; /* nutrition over-limit warning (rust/amber) */
+  /* Note / highlight fill */
+  --highlight-bg: #fef08a; /* soft post-it yellow for note & highlight surfaces */
+
   /* Ink & paper — the pure brutalist fill/edge pair */
   --ink: #000;
   --paper: #fff;

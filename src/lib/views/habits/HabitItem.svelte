@@ -290,14 +290,14 @@
     background-color: var(--green-bg);
   }
   .agenda-row.completed:active {
-    background-color: #b3e600; /* slightly darker green */
+    filter: brightness(0.9);
   }
 
   .agenda-row.in-progress {
     background-color: var(--amber-bg);
   }
   .agenda-row.in-progress:active {
-    background-color: #e6b800; /* slightly darker yellow */
+    filter: brightness(0.9);
   }
 
   .agenda-row:active {

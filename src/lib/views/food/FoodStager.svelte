@@ -1984,7 +1984,7 @@
     margin-top: var(--space-2xs);
     padding: var(--space-xs) var(--space-s);
     background: rgba(255, 204, 0, 0.12);
-    border: 1px solid #f5b301;
+    border: 1px solid var(--amber-bg);
     border-radius: 10px;
   }
   .nudge-text {
@@ -2121,7 +2121,7 @@
     margin-bottom: var(--space-s);
     padding: var(--space-xs);
     background: rgba(255, 204, 0, 0.1);
-    border: 1px solid #f5b301;
+    border: 1px solid var(--amber-bg);
     border-radius: 10px;
   }
   .cf-reason p {
@@ -2399,7 +2399,7 @@
   /* Restrained AI-confirm "unverified" accent — a left rule + faint wash, not a
      loud fill; clears the instant the row is edited (markReviewed), §4. */
   .cf-row.unverified {
-    box-shadow: inset 3px 0 0 #f5b301;
+    box-shadow: inset 3px 0 0 var(--amber-bg);
     background: rgba(255, 204, 0, 0.09);
   }
   .cf-prow {
@@ -2424,7 +2424,7 @@
   /* A portion label that's just a weight (e.g. "30 g") gets an amber border and
      a hint line — soft, never blocks saving. Matches the found-but-poor nudge. */
   .cf input.cf-in-warn {
-    border-color: #f5b301;
+    border-color: var(--amber-bg);
     background: rgba(255, 204, 0, 0.1);
   }
   .cf-prow-warn {
@@ -2518,10 +2518,10 @@
     margin: var(--space-2xs) 0 0;
     font-size: 0.8rem;
     font-weight: 600;
-    color: #b91c1c;
+    color: var(--red-text);
   }
   .cf-contrib-msg.ok {
-    color: #15803d;
+    color: var(--green-text);
   }
 
   /* Running kcal + "N to review" chip, in the dock above the sticky Save. */
@@ -2539,7 +2539,7 @@
   .cf-review-chip {
     font-size: 0.68rem;
     font-weight: 700;
-    background: #f5b301;
+    background: var(--amber-bg);
     color: var(--ink);
     padding: 0.1rem 0.45rem;
     border-radius: 999px;

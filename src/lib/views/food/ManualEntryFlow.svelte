@@ -523,7 +523,7 @@
   }
   .mini-err {
     font-size: var(--step-n2);
-    color: var(--red-text, #b00);
+    color: var(--red-text);
   }
   .hidden-file-input {
     position: absolute;

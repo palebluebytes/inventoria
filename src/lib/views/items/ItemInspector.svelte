@@ -273,7 +273,7 @@
   /* Note box rendering on card/inspector */
   .item-note-box {
     margin-top: var(--space-s);
-    background: #fef08a; /* Soft retro yellow post-it */
+    background: var(--highlight-bg); /* Soft retro yellow post-it */
     border: var(--edge);
     padding: 8px var(--space-xs);
     box-shadow: var(--shadow-1);

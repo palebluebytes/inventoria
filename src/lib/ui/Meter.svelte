@@ -77,6 +77,6 @@
   }
   /* Day total past target — the fill runs full and tints amber. */
   :global(.meter-track[data-meter-state="over"] .meter-fill) {
-    background: var(--rda-over, #b45309);
+    background: var(--rda-over);
   }
 </style>
