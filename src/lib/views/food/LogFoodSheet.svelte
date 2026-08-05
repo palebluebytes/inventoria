@@ -13,12 +13,27 @@
     saveLabelFood,
     saveManualFood,
     retractConsumptionEvent,
+    seedRowsFromTemplate,
     recipeTwinsStore,
     consumptionStore,
     type ConsumptionEvent,
   } from "../../stores/calorie.store";
-  import { parseLoggedQuantity } from "../../food/recipe-ingredient";
-  import { scaleNutrition, type NutritionInfo } from "../../food/nutrition";
+  import {
+    parseLoggedQuantity,
+    toReferenceIngredient,
+    panelFromIngredients,
+  } from "../../food/recipe-ingredient";
+  import {
+    scaleNutrition,
+    roundFoodDisplay,
+    type NutritionInfo,
+    type NutritionBreakdown,
+  } from "../../food/nutrition";
+  import {
+    deriveRecipeNutrition,
+    sanitizeYield,
+  } from "../../food/recipe-nutrition";
+  import { nutritionDisplayDecimals } from "../../stores/settings.store";
   import type { ManualEntry } from "../../food/provenance";
   import { parseDatomValue } from "../../db/datom-fold";
   import type {
@@ -29,8 +44,6 @@
   } from "../../food/food-staging";
 
   import BottomSheet from "../../ui/BottomSheet.svelte";
-  import Card from "../../ui/Card.svelte";
-  import Button from "../../ui/Button.svelte";
   import FoodStager from "./FoodStager.svelte";
   import CommitButton from "./CommitButton.svelte";
   import RecipeInstantiator from "./RecipeInstantiator.svelte";
@@ -77,6 +90,46 @@
       out.push({ entity: row.entity, name });
     }
     return out;
+  });
+
+  // Each recipe's per-serving panel, resolved lazily so a recipe row can carry
+  // the same two-line card as a Recent food (name + a muted macros line). A
+  // recipe twin stores only bare ingredient refs (ADR-0021), so the panel is
+  // derived — fetch the twin, resolve its ingredients, run the shared
+  // `deriveRecipeNutrition` — exactly as the instantiation editor does. Cached by
+  // entity (the `.has` guard) so re-opening the tab doesn't refetch; the name
+  // shows immediately and its macros line fills in once the derivation lands.
+  let recipeNutrition = $state<Map<string, NutritionBreakdown | null>>(
+    new Map()
+  );
+  $effect(() => {
+    const list = recipes;
+    let cancelled = false;
+    void (async () => {
+      const next = new Map(recipeNutrition);
+      let changed = false;
+      for (const r of list) {
+        if (next.has(r.entity)) continue;
+        let panel: NutritionBreakdown | null = null;
+        const twin = await getLocalFoodTwin(r.entity);
+        if (twin) {
+          const rows = await seedRowsFromTemplate(twin.attributes);
+          const refs = rows.map(toReferenceIngredient);
+          const resolve = (ref: string) => panelFromIngredients(rows, ref);
+          const y = sanitizeYield(
+            (twin.attributes["recipe/yield"] as number) ?? 1
+          );
+          panel = deriveRecipeNutrition(refs, y, resolve);
+        }
+        if (cancelled) return;
+        next.set(r.entity, panel);
+        changed = true;
+      }
+      if (!cancelled && changed) recipeNutrition = next;
+    })();
+    return () => {
+      cancelled = true;
+    };
   });
 
   // Recently logged foods for one-tap re-logging, shown in the stager's Search
@@ -403,10 +456,12 @@
     {#snippet tabContent(tab)}
       {#if tab === "recipe"}
         {#if recipeView.kind === "instantiate"}
+          {@const template = recipeView.template}
           <RecipeInstantiator
             {meal_type}
             {selectedDate}
-            template={recipeView.template}
+            {template}
+            onEdit={() => editRecipe(template.entity)}
             onCommitted={onClose}
             bind:requestSave={recipeRequestSave}
             bind:saveReady={recipeSaveReady}
@@ -428,26 +483,43 @@
             by selecting logged foods on the dashboard.
           </p>
         {:else}
-          <p class="fl">Your recipes</p>
+          <p class="recipes-head">Your recipes</p>
           <ul class="recipe-list">
             {#each recipes as r (r.entity)}
+              {@const panel = recipeNutrition.get(r.entity)}
               <li>
-                <!-- The recipe row is an interactive framed tile → polymorphic
-                     Card (ADR-0039 / #78); the `.recipe-pick` class is kept as the
-                     e2e hook and for its flex sizing in the row. -->
-                <Card class="recipe-pick" onclick={() => pickRecipe(r.entity)}>
-                  <span class="recipe-pick-inner">
-                    <span class="recipe-pick-name">{r.name}</span>
-                    <span class="recipe-pick-go" aria-hidden="true">›</span>
-                  </span>
-                </Card>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  class="recipe-edit"
-                  onclick={() => editRecipe(r.entity)}
-                  aria-label="Edit {r.name}">Edit</Button
+                <!-- The recipe row mirrors the stager's Recent/Results card
+                     (`.result-item`): flat thin-edge tile, two-line details (name
+                     + a muted per-serving macros line) and a trailing arrow.
+                     Picking opens the recipe; Edit lives inside the opened recipe,
+                     not here. `.recipe-pick` stays the e2e hook. -->
+                <button
+                  type="button"
+                  class="recipe-pick"
+                  onclick={() => pickRecipe(r.entity)}
                 >
+                  <span class="recipe-details">
+                    <span class="recipe-pick-name">{r.name}</span>
+                    {#if panel}
+                      <span class="recipe-pick-macros">
+                        Per serving: {roundFoodDisplay(
+                          panel.calories,
+                          $nutritionDisplayDecimals
+                        )} kcal | P: {roundFoodDisplay(
+                          panel.protein,
+                          $nutritionDisplayDecimals
+                        )}g | F: {roundFoodDisplay(
+                          panel.fat,
+                          $nutritionDisplayDecimals
+                        )}g | C: {roundFoodDisplay(
+                          panel.carbs,
+                          $nutritionDisplayDecimals
+                        )}g
+                      </span>
+                    {/if}
+                  </span>
+                  <span class="recipe-pick-go" aria-hidden="true">→</span>
+                </button>
               </li>
             {/each}
           </ul>
@@ -481,18 +553,20 @@
 
 <style>
   /* Recipe browser (the Recipe method tab), rendered into the stager via the
-     tabContent snippet — `.hint` / `.fl` are shared with the stager's copy. */
+     tabContent snippet — `.hint` is shared with the stager's copy. */
   .hint {
     font-size: var(--step-n2);
     color: var(--text-secondary);
     margin-top: var(--space-s);
   }
-  .fl {
+  /* Matches the stager's "Recent" / "Results" heading (`.results-head`) so the
+     recipe browser reads as the same surface as the search results. */
+  .recipes-head {
     display: block;
-    font-size: var(--step-n2);
-    font-weight: 700;
-    text-transform: uppercase;
-    margin: var(--space-m) 0 var(--space-3xs);
+    font-size: var(--step-n1);
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-xs);
   }
   .recipe-list {
     list-style: none;
@@ -501,36 +575,47 @@
     gap: var(--space-2xs);
     margin-top: var(--space-2xs);
   }
-  .recipe-list li {
-    display: flex;
-    gap: var(--space-2xs);
-  }
-  /* The row's frame is now the shared Card / Button (ADR-0039); `.recipe-pick`
-     keeps only its flex sizing in the row, its inner span the row layout. The
-     Card/Button classes ride child components, so their sizing is reached via
-     `:global` under the scoped list (the bits `.methods` precedent). */
-  .recipe-list li :global(.recipe-pick) {
-    flex: 1;
-    min-width: 0;
-  }
-  .recipe-list li :global(.recipe-edit) {
-    flex-shrink: 0;
-    text-transform: uppercase;
-  }
-  .recipe-pick-inner {
+  /* The row mirrors the stager's Recent/Results card (`.result-item` in
+     FoodStager): a flat thin-edge tile — no Card shadow — so the recipe browser
+     reads as the same surface as the search results the user just came from. */
+  .recipe-pick {
+    width: 100%;
+    background: var(--food-surface-bg, var(--paper));
+    border: var(--food-surface-border, var(--edge-thin));
+    border-radius: var(--food-item-radius, var(--radius));
+    padding: var(--space-xs) var(--space-s);
+    /* `.result-item` is a <div> and inherits the page line-height (1.5); this
+       row is a <button>, which UA-resets to `line-height: normal` and shrinks
+       the two-line card. `font: inherit` restores the inherited metrics so the
+       card is the same height as a Recent food card. */
+    font: inherit;
+    text-align: left;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-s);
-    min-height: 28px;
-    text-align: left;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .recipe-pick:hover {
+    background: var(--food-surface-hover, var(--bg-input));
+  }
+  .recipe-details {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
   }
   .recipe-pick-name {
-    font-weight: 700;
+    font-weight: 600;
     font-size: var(--step-n1);
   }
+  .recipe-pick-macros {
+    font-size: var(--step-n3);
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
   .recipe-pick-go {
-    font-size: var(--step-1);
-    font-weight: 800;
+    color: var(--text-muted);
+    font-size: var(--step-0);
   }
 </style>

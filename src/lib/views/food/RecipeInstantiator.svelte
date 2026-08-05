@@ -16,6 +16,7 @@
   } from "../../food/recipe-ingredient";
   import { sanitizeYield } from "../../food/recipe-nutrition";
   import Alert from "../../ui/Alert.svelte";
+  import Button from "../../ui/Button.svelte";
   import IngredientListEditor from "./IngredientListEditor.svelte";
 
   // The editor body behind the Instantiate verb and the correction of a past
@@ -37,6 +38,7 @@
     template = null,
     edit = null,
     onCommitted,
+    onEdit,
     requestSave = $bindable(),
     saveReady = $bindable(false),
   }: {
@@ -48,6 +50,12 @@
     edit?: ConsumptionEvent | null;
     /** Called once the instantiation is logged (the host closes/returns). */
     onCommitted: () => void;
+    /**
+     * Opens the recipe's template for editing. Shown as an "Edit" button beside
+     * the recipe name when instantiating from a template; omitted on the
+     * dashboard Correct path (no template to edit).
+     */
+    onEdit?: () => void;
     /** The host's dock fires this to commit; readiness gates its button. */
     requestSave?: () => void;
     saveReady?: boolean;
@@ -158,7 +166,17 @@
   });
 </script>
 
-<p class="rname" data-testid="instantiation-name">{title}</p>
+<div class="rhead">
+  <p class="rname" data-testid="instantiation-name">{title}</p>
+  {#if onEdit}
+    <Button
+      variant="secondary"
+      size="sm"
+      onclick={onEdit}
+      aria-label="Edit {title}">Edit</Button
+    >
+  {/if}
+</div>
 {#if ready}
   <IngredientListEditor bind:ingredients bind:recipeYield />
 {:else}
@@ -170,6 +188,12 @@
 {/if}
 
 <style>
+  .rhead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-s);
+  }
   .rname {
     font-size: var(--step-1);
     font-weight: 800;
