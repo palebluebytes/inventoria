@@ -6,6 +6,7 @@
   import { emptyPlateEstimate } from "../../food/plate-estimator";
   import { readImageAsDataUrl } from "../../food/image-file";
   import type { FoodChoice, ManualEntrySeed } from "../../food/food-staging";
+  import Card from "../../ui/Card.svelte";
 
   // The Custom tab's intent chooser and its three purpose-built mini-forms
   // (ADR-0035). The label form is NOT reached here — it stays on the barcode
@@ -255,19 +256,24 @@
        an option here (ADR-0035 §1) — it lives on the barcode doors. -->
   <div class="chooser" data-testid="manual-intent-chooser">
     {#each INTENTS as opt (opt.kind)}
-      <button
-        type="button"
+      <!-- An interactive framed tile → the polymorphic Card renders a native
+           <button> with the brutalist frame, press-flush and keyboard path (the
+           #78 migration onto ADR-0039). The row layout lives on an inner span so
+           it doesn't fight Card's own block button. -->
+      <Card
         class="intent"
         data-testid={`intent-${opt.kind}`}
         onclick={() => choose(opt.kind)}
       >
-        <span class="intent-ico" aria-hidden="true">{opt.icon}</span>
-        <span class="intent-text">
-          <span class="intent-title">{opt.title}</span>
-          <span class="intent-blurb">{opt.blurb}</span>
+        <span class="intent-inner">
+          <span class="intent-ico" aria-hidden="true">{opt.icon}</span>
+          <span class="intent-text">
+            <span class="intent-title">{opt.title}</span>
+            <span class="intent-blurb">{opt.blurb}</span>
+          </span>
+          <span class="intent-go" aria-hidden="true">›</span>
         </span>
-        <span class="intent-go" aria-hidden="true">›</span>
-      </button>
+      </Card>
     {/each}
   </div>
 {:else}
@@ -377,24 +383,14 @@
     flex-direction: column;
     gap: var(--space-s);
   }
-  .intent {
+  /* The intent tile's frame (edge, radius, shadow, press-flush, focus ring) is
+     now the shared Card (ADR-0039); only its inner row layout stays here. */
+  .intent-inner {
     display: flex;
     align-items: center;
     gap: var(--space-s);
-    width: 100%;
-    background: var(--paper);
-    border: var(--edge);
-    padding: var(--space-m);
-    font-family: inherit;
+    min-height: 40px;
     text-align: left;
-    cursor: pointer;
-    min-height: 64px;
-  }
-  .intent:hover {
-    background: var(--bg-input);
-  }
-  .intent:active {
-    box-shadow: var(--shadow-2);
   }
   .intent-ico {
     font-size: var(--step-3);
