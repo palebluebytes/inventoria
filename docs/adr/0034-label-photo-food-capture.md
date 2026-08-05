@@ -273,6 +273,15 @@ grounding are in `docs/research/50-open-food-facts-write-api.md` → Addendum
 (2026-08-05); the categories fix is cut as
 [#84](https://github.com/inkpot-monkey/inventoria/issues/84).
 
+**Implemented (#84):** Categories now flow both ways. `OffContribution` gains a
+`category?`; `buildOffWriteBody` emits **`add_categories`** (append), split-and-
+trimmed on the comma (OFF's multi-value separator) so a comma-bearing
+`food/category` is never posted raw. The capture form carries a free-text
+**Category** field, seeded from the twin's / found-but-poor payload's own
+`food/category`, and persisted back via `saveLabelFood` (`food/category`), so an
+enrichment forwards the identity it already has. The `taxonomy_suggestions`
+type-ahead and the language-keyed `product_name_<lc>` fix (2) remain follow-ups.
+
 ## Consequences
 
 - **`lookupBarcode` / `mapOffProductToPayload` must surface `completeness`** on the
