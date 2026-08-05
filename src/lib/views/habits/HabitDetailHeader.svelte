@@ -18,7 +18,7 @@
       case "health":
         return "background-color: var(--red-bg); color: var(--ink); border-color: var(--ink);";
       case "mind":
-        return "background-color: var(--paper); color: var(--ink); border-color: var(--ink);";
+        return "background-color: var(--ink); color: var(--paper); border-color: var(--ink);";
       case "productivity":
         return "background-color: var(--amber-bg); color: var(--ink); border-color: var(--ink);";
       default:
