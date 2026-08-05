@@ -3,6 +3,7 @@
   import { getProxyImageUrl } from "../ingestion/fetcher";
   import Badge from "../ui/Badge.svelte";
   import Alert from "../ui/Alert.svelte";
+  import Card from "../ui/Card.svelte";
 
   // Sub-components
   import ItemImportPanel from "./items/ItemImportPanel.svelte";
@@ -167,7 +168,12 @@
       </div>
     {:else}
       {#each filteredList as item}
-        <button
+        <!-- An interactive framed tile with no interactive children → the
+             polymorphic Card renders a native <button> with the brutalist frame,
+             keyboard path and press-flush (ADR-0039). aria-label/title ride
+             Card's ...rest; the grid sizing and persistent selected highlight
+             ride the class via :global. -->
+        <Card
           class="inventory-slot {selectedItemId === item.id ? 'selected' : ''}"
           onclick={() =>
             (selectedItemId = selectedItemId === item.id ? null : item.id)}
@@ -187,7 +193,7 @@
           {#if item.note}
             <div class="slot-indicator note-indicator" title="Has Note"></div>
           {/if}
-        </button>
+        </Card>
       {/each}
     {/if}
   </div>
@@ -328,41 +334,34 @@
     opacity: 0.5;
   }
 
-  /* Inventory Slot */
-  .inventory-slot {
+  /* Inventory Slot — the frame (edge, radius, offset shadow, hover-lift,
+     press-flush, focus ring) is now the pressable Card (ADR-0039). Only the
+     grid cell's shape, its zeroed padding and the persistent selected
+     highlight stay here; they ride the class via :global since it sits on the
+     Card's root. (Card's --bg-card matches the old --paper, so the white
+     product-image backdrop is preserved.) */
+  .inventory-grid :global(.inventory-slot) {
     aspect-ratio: 1;
-    border: var(--edge);
-    background: var(
-      --paper
-    ); /* White background to blend with product images */
     padding: 0;
     position: relative;
-    cursor: pointer;
-    box-shadow: var(--shadow-1);
-    transition: all 0.1s ease;
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
   }
-  .inventory-slot:hover {
-    transform: translate(-2px, -2px);
-    box-shadow: var(--shadow-2);
-    background: var(--border);
-  }
-  .inventory-slot.selected {
+  .inventory-grid :global(.inventory-slot.selected) {
     background: var(--ink);
     border-color: var(--ink);
     box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.2);
     transform: translate(-1px, -1px);
   }
-  .inventory-slot img {
+  .inventory-grid :global(.inventory-slot img) {
     width: 100%;
     height: 100%;
     object-fit: contain;
     transition: opacity 0.2s;
   }
-  .inventory-slot.selected img {
+  .inventory-grid :global(.inventory-slot.selected img) {
     opacity: 0.8;
   }
   .placeholder-icon {
