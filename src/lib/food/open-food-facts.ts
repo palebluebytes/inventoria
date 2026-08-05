@@ -311,6 +311,59 @@ export async function lookupBarcode(barcode: string): Promise<OffPayload> {
 }
 
 // ---------------------------------------------------------------------------
+// Category taxonomy (read) — #84
+// ---------------------------------------------------------------------------
+
+// OFF's live category-autocomplete over its canonical taxonomy. A browser-side
+// GET against prod (reads always hit the org host, like `lookupBarcode`); no
+// backend, consistent with ADR-0034 §8 / #54.
+const OFF_SUGGEST =
+  "https://world.openfoodfacts.org/api/v3/taxonomy_suggestions";
+
+/**
+ * Splits OFF's category value into distinct trimmed entries. Comma is OFF's
+ * multi-value separator, so the language-neutral list OFF stores ("Peanut
+ * butters, Nut butters") — and anything the form joins back with commas — round-
+ * trips through one representation; empty pieces are dropped so a raw comma-
+ * bearing string never yields a phantom blank category (§8, #84).
+ */
+export function parseCategoryList(value: string | undefined): string[] {
+  return (value ?? "")
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Fetches canonical English category suggestions from OFF's taxonomy for a typed
+ * prefix (#84), so the capture form offers discrete taxonomy entries ("Peanut
+ * butters") to pick instead of free text — OFF canonicalizes them to `en:` ids on
+ * write. English-only for now (`lc=en`). Any empty prefix short-circuits to `[]`
+ * with no request; any network/parse failure degrades to `[]` so the field
+ * silently falls back to free entry offline.
+ */
+export async function fetchCategorySuggestions(
+  prefix: string,
+  limit = 8
+): Promise<string[]> {
+  const string = prefix.trim();
+  if (!string) return [];
+  try {
+    const url = `${OFF_SUGGEST}?tagtype=categories&string=${encodeURIComponent(
+      string
+    )}&lc=en&limit=${limit}`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const data = (await res.json()) as { suggestions?: unknown };
+    return Array.isArray(data.suggestions)
+      ? data.suggestions.filter((s): s is string => typeof s === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Contribution (write) — ADR-0034 §8, grounded in research/50
 // ---------------------------------------------------------------------------
 //
@@ -443,11 +496,7 @@ export function buildOffWriteBody(
   // the name can't ("this is peanut butter" = en:peanut-butters). Comma is OFF's
   // multi-value separator, so split-and-trim into distinct values rather than
   // posting a raw comma-bearing string blind; OFF canonicalizes the result.
-  const category = contribution.category
-    ?.split(",")
-    .map((c) => c.trim())
-    .filter(Boolean)
-    .join(", ");
+  const category = parseCategoryList(contribution.category).join(", ");
   if (category) body.set("add_categories", category);
 
   // `nutrition_data_per` is GLOBAL to the whole panel (#50): send the full set on

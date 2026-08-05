@@ -6,6 +6,8 @@ import {
   submitToOpenFoodFacts,
   buildOffWriteBody,
   offWriteHost,
+  parseCategoryList,
+  fetchCategorySuggestions,
   type OFFProduct,
 } from "../../src/lib/food/open-food-facts";
 import { getSecret } from "../../src/lib/stores/secrets";
@@ -501,6 +503,70 @@ describe("offWriteHost", () => {
     vi.stubEnv("VITE_OFF_WRITE_HOST", "https://example.test/");
     expect(offWriteHost()).toBe("https://example.test");
     vi.unstubAllEnvs();
+  });
+});
+
+describe("parseCategoryList", () => {
+  it("splits OFF's comma value into trimmed, non-empty entries", () => {
+    expect(parseCategoryList("Peanut butters, Nut butters")).toEqual([
+      "Peanut butters",
+      "Nut butters",
+    ]);
+    // Extra whitespace and empty pieces are dropped, not kept as blanks.
+    expect(parseCategoryList("  Spreads ,, Peanut butters ,")).toEqual([
+      "Spreads",
+      "Peanut butters",
+    ]);
+  });
+
+  it("returns an empty list for undefined or blank", () => {
+    expect(parseCategoryList(undefined)).toEqual([]);
+    expect(parseCategoryList("   ")).toEqual([]);
+  });
+});
+
+describe("fetchCategorySuggestions", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("short-circuits an empty prefix to [] with no request", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    expect(await fetchCategorySuggestions("   ")).toEqual([]);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("queries the categories taxonomy in English and returns the suggestions", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ suggestions: ["Peanut butters", "Peanut oils"] }),
+    } as Response);
+
+    const out = await fetchCategorySuggestions("peanut", 6);
+    expect(out).toEqual(["Peanut butters", "Peanut oils"]);
+    const url = fetchSpy.mock.calls[0][0] as string;
+    expect(url).toContain("/taxonomy_suggestions");
+    expect(url).toContain("tagtype=categories");
+    expect(url).toContain("string=peanut");
+    expect(url).toContain("lc=en");
+    expect(url).toContain("limit=6");
+  });
+
+  it("degrades to [] on a non-ok response, a throw, or a malformed body", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({}),
+    } as Response);
+    expect(await fetchCategorySuggestions("peanut")).toEqual([]);
+
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("offline"));
+    expect(await fetchCategorySuggestions("peanut")).toEqual([]);
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ suggestions: "nope" }),
+    } as Response);
+    expect(await fetchCategorySuggestions("peanut")).toEqual([]);
   });
 });
 
