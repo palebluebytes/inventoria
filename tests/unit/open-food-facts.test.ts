@@ -444,6 +444,44 @@ describe("buildOffWriteBody", () => {
     expect(body.get("nutriment_fiber")).toBeNull();
   });
 
+  it("appends a category via add_categories (never the replacing `categories`)", () => {
+    const body = buildOffWriteBody(
+      "3017620422003",
+      { name: "Nutella", category: "en:peanut-butters", nutrition: PANEL },
+      { user_id: "t", password: "p" }
+    );
+    // Identity the name can't carry ("this is peanut butter") appends, so a poor
+    // product's existing taxonomy survives (§8) — never the clobbering `categories`.
+    expect(body.get("add_categories")).toBe("en:peanut-butters");
+    expect(body.get("categories")).toBeNull();
+  });
+
+  it("splits and trims a comma-bearing category into distinct values", () => {
+    const body = buildOffWriteBody(
+      "3017620422003",
+      {
+        name: "Nutella",
+        // OFF's own read `food/category` is a comma-separated list — comma is OFF's
+        // multi-value separator, so it is split-and-trimmed, never posted raw.
+        category: "Plant-based foods,  Spreads , ,Peanut butters",
+        nutrition: PANEL,
+      },
+      { user_id: "t", password: "p" }
+    );
+    expect(body.get("add_categories")).toBe(
+      "Plant-based foods, Spreads, Peanut butters"
+    );
+  });
+
+  it("omits add_categories when no category is supplied", () => {
+    const body = buildOffWriteBody(
+      "3017620422003",
+      { name: "Nutella", nutrition: PANEL },
+      { user_id: "t", password: "p" }
+    );
+    expect(body.get("add_categories")).toBeNull();
+  });
+
   it("maps a per-serving basis to serving + serving_size", () => {
     const body = buildOffWriteBody(
       "111",

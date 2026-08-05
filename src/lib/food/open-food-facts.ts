@@ -381,6 +381,15 @@ export interface OffContribution {
   /** Brand — posted as `add_brands` so it appends, never clobbers (§8/#50). */
   brand?: string;
   /**
+   * Category — OFF's language-neutral "what this is" (e.g. `en:peanut-butters`),
+   * the identity a `product_name` can't carry across languages. Posted as
+   * `add_categories` so it APPENDS (§8), mirroring `add_brands`. Comma is OFF's
+   * multi-value separator, so a comma-bearing value (OFF's own `food/category` is
+   * a comma list) is split-and-trimmed into distinct values, never posted raw;
+   * OFF re-canonicalizes on write, so free text in the label's language is fine.
+   */
+  category?: string;
+  /**
    * The confirmed panel: grams (kcal for energy), `serving_size` its basis. Only
    * the keys the user actually supplied are present — an absent key is simply not
    * posted (absent ≠ 0), so a partial panel never writes phantom zeroes to OFF.
@@ -430,6 +439,16 @@ export function buildOffWriteBody(
   // its existing brands rather than overwriting the list.
   const brand = contribution.brand?.trim();
   if (brand) body.set("add_brands", brand);
+  // Categories APPEND via `add_` too (§8), carrying OFF's language-neutral identity
+  // the name can't ("this is peanut butter" = en:peanut-butters). Comma is OFF's
+  // multi-value separator, so split-and-trim into distinct values rather than
+  // posting a raw comma-bearing string blind; OFF canonicalizes the result.
+  const category = contribution.category
+    ?.split(",")
+    .map((c) => c.trim())
+    .filter(Boolean)
+    .join(", ");
+  if (category) body.set("add_categories", category);
 
   // `nutrition_data_per` is GLOBAL to the whole panel (#50): send the full set on
   // one basis. Our panel stamps `100 g` for the per-100 g case, else a serving
