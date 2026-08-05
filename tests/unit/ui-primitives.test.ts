@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { render } from "svelte/server";
 import Button from "../../src/lib/ui/Button.svelte";
 import Card from "../../src/lib/ui/Card.svelte";
+import ToggleGroup from "../../src/lib/ui/ToggleGroup.svelte";
 
 // These render the primitives through Svelte's SSR path (no DOM needed) and
 // assert on the emitted HTML. They pin the three things #77 makes contractual:
@@ -93,5 +94,57 @@ describe("Card", () => {
     expect(body).toContain("<button");
     expect(body).toContain("aria-pressed");
     expect(body).toContain('aria-controls="panel-1"');
+  });
+});
+
+describe("ToggleGroup", () => {
+  const options = [
+    { value: "", label: "All" },
+    { value: "books", label: "books" },
+    { value: "tools", label: "tools" },
+  ];
+
+  it("renders a role=group of role=radio items, one per option", () => {
+    const { body } = render(ToggleGroup, {
+      props: { options, ariaLabel: "Filter" },
+    });
+    // Group root carries the group role; a type="single" group makes each item
+    // a role=radio (the deselectable single-select semantics).
+    expect(body).toContain('role="group"');
+    expect(body).toContain('role="radio"');
+    expect(body).toContain('data-value="books"');
+    expect(body).toContain('data-value="tools"');
+    // Each label surfaces in the emitted HTML.
+    expect(body).toContain(">All<");
+    expect(body).toContain(">books<");
+  });
+
+  it("marks the bound value as the pressed (data-state=on) item", () => {
+    const { body } = render(ToggleGroup, {
+      props: { options, value: "books" },
+    });
+    // The selected cell inverts via bits' data-state="on"; the others are off.
+    expect(body).toMatch(/data-value="books"[^>]*data-state="on"/);
+    expect(body).toMatch(/data-value="tools"[^>]*data-state="off"/);
+  });
+
+  it("treats an empty value as nothing-selected, lighting the empty (All) item", () => {
+    const { body } = render(ToggleGroup, {
+      props: { options, value: "" },
+    });
+    // value "" is the deselect-to-empty state: the "" ("All") item is the only
+    // one pressed, and no tag item is on.
+    expect(body).toMatch(/data-value=""[^>]*data-state="on"/);
+    expect(body).toMatch(/data-value="books"[^>]*data-state="off"/);
+    expect(body).toMatch(/data-value="tools"[^>]*data-state="off"/);
+  });
+
+  it("renders a visible label wired as the group's accessible name", () => {
+    const { body } = render(ToggleGroup, {
+      props: { options, label: "Filter by tag" },
+    });
+    expect(body).toContain("Filter by tag");
+    expect(body).toMatch(/id="tg-[^"]+"/);
+    expect(body).toMatch(/aria-labelledby="tg-[^"]+"/);
   });
 });
