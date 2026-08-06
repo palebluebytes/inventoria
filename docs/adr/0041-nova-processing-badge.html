@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR 0041 · Inventoria</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+      <nav class="site-nav">
+        <p class="nav-title">Inventoria</p>
+        <a href="../index.html">Introduction</a>
+        <div class="nav-section">
+          <p class="nav-section-label">Reference</p>
+          <a href="../glossary.html">Glossary</a>
+          <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+        </div>
+        <div class="nav-section">
+          <p class="nav-section-label">Explanation</p>
+          <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+        </div>
+        <div class="nav-section">
+          <a href="index.html" class="active">Architectural Decision Records</a>
+        </div>
+      </nav>
+  <div class="content-area">
+    <main>
+<h1 id="adr-0041-a-nova-processing-badge--reading-back-the-foodassessment-blob">ADR 0041: A NOVA processing badge — reading back the <code>food/assessment</code> blob</h1>
+<p><strong>Status:</strong> Accepted. Cuts four <code>ready-for-agent</code> implementation tickets (#90–#93); none built yet. <strong>Date:</strong> 2026-08-06</p>
+<h2 id="context">Context</h2>
+<p>The food twin already captures Open Food Facts' NOVA classification. The OFF mapper (<code>src/lib/food/open-food-facts.ts:194</code>) folds <code>nova_group</code> — OFF's 1–4 ultra-processing score — into the atomic <code>food/assessment</code> blob (ADR-0030 §4), alongside <code>additives</code>, Nutri-Score, and the rest. But that blob is <strong>write-only</strong>: nothing in <code>src/</code> reads it back. ADR-0030 §4 foresaw exactly this gap — its Consequences record that "the full-panel display is still owed — micronutrients and <code>food/assessment</code>." This ADR closes the NOVA slice of that debt.</p>
+<p>Wayfinder map #85 ("surface a food's processing level from OFF data") charted the route. Two decision tickets resolved the shape before this synthesis:</p>
+<ul>
+<li><strong><a href="https://github.com/inkpot-monkey/inventoria/issues/86">#86 research</a></strong> — <code>docs/research/86-nova-ultra-processing-in-off.md</code>. Only <strong>~25% of OFF products carry a NOVA group; ~75% are unknown</strong>. <code>nova_group</code> is algorithmic (gated on parsed ingredients + a matched category), so absence is common and expected. Known-vs-missing is <code>nova_groups_tags</code> ≠ <code>["unknown"]</code>; equivalently, a present <code>nova_group</code> number <em>is</em> a known verdict. Per-product <strong>evidence is reachable</strong> via <code>nova_group_debug</code> (the trail of markers that drove the verdict) plus <code>additives_tags</code>. ODbL requires <strong>visible attribution</strong> wherever OFF data shows.</li>
+<li><strong><a href="https://github.com/inkpot-monkey/inventoria/issues/87">#87 prototype</a></strong> — the badge + explainer, prototyped against real brutalist tokens. Visual spec: <a href="https://claude.ai/code/artifact/75de4901-85b8-4795-827a-1ea5a53479d7">https://claude.ai/code/artifact/75de4901-85b8-4795-827a-1ea5a53479d7</a>. It settled the badge form (word-first), dropped the warning state in favour of a neutral "not rated", and pulled a <strong>constrained NOVA-1 inference</strong> for basic USDA whole foods into scope.</li>
+</ul>
+<p>This ADR folds #86 + #87 into one decision and cuts the implementation tickets. The exact USDA inference rule is settled in parallel by <strong><a href="https://github.com/inkpot-monkey/inventoria/issues/89">#89 research</a></strong> and lands in ticket D.</p>
+<h2 id="decision">Decision</h2>
+<p>Surface a <strong>per-food NOVA processing badge</strong>, derived by reading back the captured <code>food/assessment</code> blob, at log-time (<code>FoodStager</code>) and on the food detail. Everything below is the destination the map converged on.</p>
+<h3 id="1-badge-vocabulary--word-first-colour-weighted-87-d1">1. Badge vocabulary — word-first, colour-weighted (#87 D1)</h3>
+<p>The badge leads with a <strong>plain-language word</strong>, not a bare number, so it reads without tapping through. A small tier pip carries the numeral for those who want it:</p>
+<table>
+<thead>
+<tr>
+<th>NOVA</th>
+<th>Word</th>
+<th>Weight</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Unprocessed</td>
+<td>lime</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Ingredient</td>
+<td>pale lime</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Processed</td>
+<td>amber</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Ultra-processed</td>
+<td><strong>red (caution)</strong></td>
+</tr>
+</tbody>
+</table>
+<p>NOVA 2's word is <strong>"Ingredient"</strong> (the group is culinary oils, salt, sugar), not a literal "processed ingredient" — it reads as a pantry staple, which is what it is. Only tier 4 reads as caution; the badge informs, it does not scold.</p>
+<h3 id="2-no-warning-state--everything-unrated-is-a-neutral-not-rated-87-d2">2. No warning state — everything unrated is a neutral "not rated" (#87 D2)</h3>
+<p>There is <strong>no hazard/warning badge</strong>. Any food without an <em>authoritative</em> NOVA value — an OFF product OFF could not classify (the ~75%), <strong>and</strong> any non-OFF food (manual, USDA, recipe) — wears the same quiet, greyed <strong>"— not rated"</strong>. It is never alarming and never silent: the badge is always present, so the absence of a rating is itself legible rather than a blank.</p>
+<blockquote>
+<p><strong>This amends the map's headline decision.</strong> #85 opened with "unknown → a warning-style badge, never silent." #87 kept "never silent" and swapped "warning-style" → "neutral." A raw banana with no OFF record must not wear a warning; "not rated" is an honest data-coverage statement, not a verdict.</p>
+</blockquote>
+<h3 id="3-inferred-nova-1--est-for-basic-usda-whole-foods-87-d3-rule--89">3. Inferred "NOVA 1 · est" for basic USDA whole foods (#87 D3, rule → #89)</h3>
+<p>A basic USDA whole food (a banana, an egg, raw chicken) reads as <strong>NOVA 1</strong>, shown in a <strong>visually distinct</strong> state — dashed edge + an "est" tag — so it can never be mistaken for OFF's authoritative rating. This is a <strong>constrained</strong> carve-out of the map's Q2 client-side-inference ban: <strong>NOVA-1-only, single/basic foods only, never a 2/3/4 guess.</strong></p>
+<p>The exact rule (data type ∈ {Foundation, SR Legacy} <strong>and</strong> a <code>foodCategory</code> allow-list, erring toward under-claiming) is settled by <a href="https://github.com/inkpot-monkey/inventoria/issues/89">#89</a> and implemented in ticket D. Everything else this ADR specifies is independent of that rule.</p>
+<h3 id="4-the-verdict-is-computed-on-read-not-written-on-save">4. The verdict is computed on read, not written on save</h3>
+<p>There is <strong>no new written attribute</strong>. A pure selector —</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode ts"><code class="sourceCode typescript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">deriveNovaVerdict</span>(food)<span class="op">:</span> NovaVerdict</span></code></pre></div>
+<p>— reads the already-captured <code>food/assessment</code> (and, for the ·est branch, the USDA <code>foodCategory</code>) at render time and returns one value object:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode ts"><code class="sourceCode typescript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> NovaVerdict <span class="op">=</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="op">|</span> { state<span class="op">:</span> <span class="st">&quot;rated&quot;</span><span class="op">;</span> tier<span class="op">:</span> <span class="dv">1</span> <span class="op">|</span> <span class="dv">2</span> <span class="op">|</span> <span class="dv">3</span> <span class="op">|</span> <span class="dv">4</span><span class="op">;</span> source<span class="op">:</span> <span class="st">&quot;off&quot;</span><span class="op">;</span> evidence<span class="op">:</span> NovaEvidence }</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="op">|</span> { state<span class="op">:</span> <span class="st">&quot;rated&quot;</span><span class="op">;</span> tier<span class="op">:</span> <span class="dv">1</span><span class="op">;</span>            source<span class="op">:</span> <span class="st">&quot;inferred&quot;</span> }  <span class="co">// the ·est case</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="op">|</span> { state<span class="op">:</span> <span class="st">&quot;not-rated&quot;</span> }<span class="op">;</span></span></code></pre></div>
+<p>Computing on read (rather than persisting a resolved verdict at capture time) was a deliberate choice: it needs no migration, works for <strong>already-captured</strong> foods, keeps the inference rule re-tunable without re-writing stored data, and matches the map's whole framing — <em>reading back</em> the write-only blob. The selector is a pure, table-testable function; both surfaces and the explainer consume its output.</p>
+<h3 id="5-placement--foodstager--food-detail-list-rows-stay-clean-87-d4">5. Placement — <code>FoodStager</code> + food detail; list rows stay clean (#87 D4)</h3>
+<p>The badge renders in the <code>FoodStager</code> badge-row (beside the origin badge, at log-time) and on the per-food detail. Recent/Search <strong>list rows stay clean</strong> in v1 — the badge is a decision-support signal at the moment of logging and on inspection, not list furniture.</p>
+<h3 id="6-the-explainer--tap-through-sheet-three-states-evidence--odbl-87-d5">6. The explainer — tap-through sheet, three states, evidence + ODbL (#87 D5)</h3>
+<p>Tapping the badge opens the house <code>BottomSheet</code> (ADR-0027/0028; the #67 reader Modal precedent), with three faces keyed off the verdict state:</p>
+<ul>
+<li><strong>rated</strong> — the hero tier, the four-group scale, and <strong>this product's evidence</strong>: the additives (E-numbers from <code>additives_tags</code>) and the <code>nova_group_debug</code> trail that drove OFF's verdict, where present.</li>
+<li><strong>not-rated</strong> — an honest coverage statement: "no rating — about 3 in 4 products aren't rated yet; this is not a safe/unsafe verdict."</li>
+<li><strong>inferred · est</strong> — "our estimate, not OFF's, because this is a single basic whole food."</li>
+</ul>
+<p><strong>Visible ODbL attribution to Open Food Facts</strong> appears wherever OFF data is shown, per #86 and the OFF licence.</p>
+<h3 id="7-widen-the-off-mapper-for-evidence-forward-only-86-4-87-d6">7. Widen the OFF mapper for evidence, forward-only (#86 §4, #87 D6)</h3>
+<p><code>nova_group</code> and <code>additives</code> are already captured, so the "widening" is narrow: add <strong><code>nova_group_debug</code></strong> (the evidence trail) to the mapper and the <code>FoodAssessment</code> type, and optionally the labelled <strong><code>nova_groups_tags</code></strong>. This is <strong>forward-only</strong> — the debug trail exists only for foods captured after the change; older foods still show their tier (from the already-captured <code>nova_group</code>) with a thinner evidence section. The explainer degrades gracefully: a rated verdict never depends on <code>nova_group_debug</code> being present.</p>
+<h2 id="implementation-tickets">Implementation tickets</h2>
+<p>Four <code>ready-for-agent</code> tickets, sequenced by the read-back selector as the shared spine (mirroring the ADR-0030 → #23–#27 split). The <code>deriveNovaVerdict</code> value object is designed up front with the <code>inferred</code> source slot <strong>reserved</strong>, so ticket D is purely additive and A/B/C need not wait on the USDA rule.</p>
+<pre><code>A Data spine  ──► B Badge
+              └─► C Explainer
+D ·est inference (← A, ← #89)   fills the reserved `inferred` slot</code></pre>
+<ul>
+<li><strong>A — [#90]</strong> Data spine: widen the OFF mapper (<code>nova_group_debug</code>, forward-only) + the <code>deriveNovaVerdict</code> read-back selector producing <code>NovaVerdict</code> (OFF tiers 1–4 + <code>not-rated</code>, with the <code>inferred</code> slot reserved and unfilled). Unit-tested against fixture assessments. <strong>Unblocked.</strong></li>
+<li><strong>B — [#91]</strong> The NOVA badge component: word-first, colour-weighted, tier pip; all visual states including the dashed <code>·est</code> and the neutral not-rated; wired into <code>FoodStager</code> + food detail. <strong>← #90.</strong></li>
+<li><strong>C — [#92]</strong> The explainer sheet: house <code>BottomSheet</code>, three states, evidence (additives + <code>nova_group_debug</code>) + visible ODbL attribution. <strong>← #90.</strong></li>
+<li><strong>D — [#93]</strong> The USDA "NOVA 1 · est" inference: implement #89's category allow-list rule in the verdict's <code>inferred</code> branch + widen the USDA mapper for <code>foodCategory</code>. <strong>← #90, ← #89.</strong></li>
+</ul>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li>The write-only <code>food/assessment</code> blob gains its first reader — the NOVA slice of the "full-panel display still owed" debt ADR-0030 §4 recorded.</li>
+<li>Data coverage is surfaced honestly: ~75% of OFF products, and every non-OFF food, read "not rated" rather than pretending to a verdict. This is a feature, not a gap to paper over.</li>
+<li>The only client-side inference in the app is the constrained NOVA-1-for-USDA case; the broader map-Q2 ban on 2/3/4 guesses stands.</li>
+<li>Evidence is forward-only. Foods captured before ticket A ships show their tier but a thin evidence trail — acceptable, and it heals as foods are re-captured.</li>
+<li>The aggregate day/week UPF-share <strong>meter</strong> and any behavioural <strong>nudge</strong> remain out of scope (map #85); this ADR is the badge, and only the badge. Those efforts presuppose it and can build on <code>deriveNovaVerdict</code>.</li>
+</ul>
+<h2 id="alternatives-considered">Alternatives considered</h2>
+<ul>
+<li><strong>A warning-style "unknown" badge</strong> (the map's original headline). Rejected in #87: with ~75% of products unrated, a warning on every unrated food is noise, and it misreads "no data" as "bad." Neutral "not rated" is the honest signal.</li>
+<li><strong>Persisting a resolved verdict on save.</strong> Rejected (§4): forward-only, needs a migration, freezes the inference rule into stored data, and helps no already-captured food. The read-back selector avoids all four.</li>
+<li><strong>Client-side NOVA 2/3/4 heuristics</strong> when OFF is blank. Out of scope (map Q2): a homemade processing verdict is exactly the false-confidence the neutral not-rated state refuses. Only the unambiguous NOVA-1 whole-food case is inferred.</li>
+<li><strong>Reusing the RDA/limits meter machinery.</strong> Rejected (map Notes): the aggregate meter is a different, out-of-scope effort; the badge is a discrete per-food chip.</li>
+</ul>
+    </main>
+  </div>
+</div>
+</body>
+</html>
