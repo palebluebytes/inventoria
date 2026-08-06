@@ -1,7 +1,10 @@
 # ADR 0041: A NOVA processing badge — reading back the `food/assessment` blob
 
-**Status:** Accepted. Cuts four `ready-for-agent` implementation tickets (#90–#93);
-none built yet. **Date:** 2026-08-06
+**Status:** Accepted, then **amended post-implementation (2026-08-06)** — all four
+tickets (#90–#93) shipped, then the badge was simplified to a word-only chip and
+its placement moved. The original decision text is preserved below as the record;
+the [Amendment](#amendment-2026-08-06-word-only-badge-plain-inference-placement)
+supersedes the specific clauses it names (§1, §3, §5, §6). **Date:** 2026-08-06
 
 ## Context
 
@@ -59,6 +62,11 @@ NOVA 2's word is **"Ingredient"** (the group is culinary oils, salt, sugar), not
 a literal "processed ingredient" — it reads as a pantry staple, which is what it
 is. Only tier 4 reads as caution; the badge informs, it does not scold.
 
+> **Amended (2026-08-06):** the badge shipped **word-only** — the tier pip (the
+> numeral) and the outer frame border were dropped as visual clutter. The
+> colour-weighted word alone carries the tier; the words and weights above are
+> unchanged. See the [Amendment](#amendment-2026-08-06-word-only-badge-plain-inference-placement).
+
 ### 2. No warning state — everything unrated is a neutral "not rated" (#87 D2)
 
 There is **no hazard/warning badge**. Any food without an _authoritative_ NOVA
@@ -84,6 +92,14 @@ The exact rule (data type ∈ {Foundation, SR Legacy} **and** a `foodCategory`
 allow-list, erring toward under-claiming) is settled by
 [#89](https://github.com/inkpot-monkey/inventoria/issues/89) and implemented in
 ticket D. Everything else this ADR specifies is independent of that rule.
+
+> **Amended (2026-08-06):** the inference itself is unchanged and still ships — a
+> basic USDA whole food still reads **NOVA 1 — Unprocessed**. What was dropped is
+> the **visual distinction**: the badge renders the inferred NOVA-1 **plainly**,
+> identical to an OFF NOVA-1 (no dashed edge, no "est" tag). The inferred source
+> marker is retained internally _only_ to keep the explainer honest — its sheet
+> never attributes the reading to OFF or shows ODbL for it. See the
+> [Amendment](#amendment-2026-08-06-word-only-badge-plain-inference-placement).
 
 ### 4. The verdict is computed on read, not written on save
 
@@ -121,6 +137,14 @@ log-time) and on the per-food detail. Recent/Search **list rows stay clean** in
 v1 — the badge is a decision-support signal at the moment of logging and on
 inspection, not list furniture.
 
+> **Amended (2026-08-06):** unchanged in _which_ surfaces show the badge (both
+> staging and detail; list rows stay clean) but changed in _where_ on the surface.
+> The badge now rides the **"Quantity (grams)" label row, floated right**, on both
+> surfaces — not beside the origin badge and not in its own row above the amount
+> body. Both go through one shared slot (`FoodAmountPanel`'s optional `badge`
+> snippet), so the position is identical everywhere the amount panel appears. See
+> the [Amendment](#amendment-2026-08-06-word-only-badge-plain-inference-placement).
+
 ### 6. The explainer — tap-through sheet, three states, evidence + ODbL (#87 D5)
 
 Tapping the badge opens the house `BottomSheet` (ADR-0027/0028; the #67 reader
@@ -136,6 +160,14 @@ Modal precedent), with three faces keyed off the verdict state:
 
 **Visible ODbL attribution to Open Food Facts** appears wherever OFF data is
 shown, per #86 and the OFF licence.
+
+> **Amended (2026-08-06):** the three faces still exist, but the inferred face
+> dropped the "· est" label and dashed treatment to match the plain badge (§3).
+> Its copy is now neutral — "a single basic whole food … reads as NOVA 1 —
+> Unprocessed" — and, because the reading is not OFF's, that face shows **no OFF
+> evidence and no ODbL attribution**. ODbL remains on the **rated (OFF)** face,
+> the only face that shows OFF data. See the
+> [Amendment](#amendment-2026-08-06-word-only-badge-plain-inference-placement).
 
 ### 7. Widen the OFF mapper for evidence, forward-only (#86 §4, #87 D6)
 
@@ -172,6 +204,41 @@ D ·est inference (← A, ← #89)   fills the reserved `inferred` slot
 - **D — [#93]** The USDA "NOVA 1 · est" inference: implement #89's category
   allow-list rule in the verdict's `inferred` branch + widen the USDA mapper for
   `foodCategory`. **← #90, ← #89.**
+
+## Amendment (2026-08-06): word-only badge, plain inference, placement
+
+All four tickets (#90–#93) shipped as specified. In review the badge chrome read
+as cluttered, so three things changed **after** implementation. The data model
+(`deriveNovaVerdict` and the `NovaVerdict` shape in §4) is **unchanged** — these
+are presentation and placement changes only.
+
+1. **Badge is word-only (supersedes §1).** The tier pip (the numeral) and the
+   badge's outer frame border were removed. The colour-weighted word — the same
+   words and weights as the §1 table — carries the tier on its own. The neutral
+   state reads a plain **"not rated"** (the leading em dash went with the pip).
+
+2. **The NOVA-1 inference is kept but rendered plainly (supersedes §3, §6).** A
+   basic USDA whole food still reads **NOVA 1 — Unprocessed**; the constrained
+   #89 rule is fully implemented in `deriveNovaVerdict`. What was dropped is the
+   dashed-edge + "est" visual distinction — an inferred NOVA-1 now looks exactly
+   like an OFF NOVA-1 on the badge. `source: "inferred"` is retained in the value
+   object purely so the explainer stays honest: the inferred explainer face uses
+   neutral copy and shows **no OFF evidence and no ODbL** (that reading is ours,
+   not OFF's), while ODbL remains on the OFF-rated face.
+
+   > The visual distinction was originally there to stop an estimate posing as an
+   > authoritative OFF rating. With it gone, the badge no longer signals "estimate"
+   > to the eye; the honesty now lives one tap deeper, in the explainer copy and
+   > the withheld OFF attribution. This was a deliberate owner call favouring a
+   > calmer badge over an at-a-glance provenance cue.
+
+3. **Placement moved to the amount row (supersedes §5).** Instead of sitting
+   beside the origin badge (staging) or in its own row above the amount body
+   (detail), the badge now rides the **"Quantity (grams)" label row, floated
+   right**, on both surfaces. It is passed through a single optional `badge`
+   snippet on the shared `FoodAmountPanel`, so staging and the detail sheet render
+   it identically. Which surfaces show the badge, and the clean list rows, are
+   unchanged.
 
 ## Consequences
 

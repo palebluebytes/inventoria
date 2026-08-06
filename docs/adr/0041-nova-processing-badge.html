@@ -27,7 +27,7 @@
   <div class="content-area">
     <main>
 <h1 id="adr-0041-a-nova-processing-badge--reading-back-the-foodassessment-blob">ADR 0041: A NOVA processing badge — reading back the <code>food/assessment</code> blob</h1>
-<p><strong>Status:</strong> Accepted. Cuts four <code>ready-for-agent</code> implementation tickets (#90–#93); none built yet. <strong>Date:</strong> 2026-08-06</p>
+<p><strong>Status:</strong> Accepted, then <strong>amended post-implementation (2026-08-06)</strong> — all four tickets (#90–#93) shipped, then the badge was simplified to a word-only chip and its placement moved. The original decision text is preserved below as the record; the <a href="#amendment-2026-08-06-word-only-badge-plain-inference-placement">Amendment</a> supersedes the specific clauses it names (§1, §3, §5, §6). <strong>Date:</strong> 2026-08-06</p>
 <h2 id="context">Context</h2>
 <p>The food twin already captures Open Food Facts' NOVA classification. The OFF mapper (<code>src/lib/food/open-food-facts.ts:194</code>) folds <code>nova_group</code> — OFF's 1–4 ultra-processing score — into the atomic <code>food/assessment</code> blob (ADR-0030 §4), alongside <code>additives</code>, Nutri-Score, and the rest. But that blob is <strong>write-only</strong>: nothing in <code>src/</code> reads it back. ADR-0030 §4 foresaw exactly this gap — its Consequences record that "the full-panel display is still owed — micronutrients and <code>food/assessment</code>." This ADR closes the NOVA slice of that debt.</p>
 <p>Wayfinder map #85 ("surface a food's processing level from OFF data") charted the route. Two decision tickets resolved the shape before this synthesis:</p>
@@ -72,6 +72,9 @@
 </tbody>
 </table>
 <p>NOVA 2's word is <strong>"Ingredient"</strong> (the group is culinary oils, salt, sugar), not a literal "processed ingredient" — it reads as a pantry staple, which is what it is. Only tier 4 reads as caution; the badge informs, it does not scold.</p>
+<blockquote>
+<p><strong>Amended (2026-08-06):</strong> the badge shipped <strong>word-only</strong> — the tier pip (the numeral) and the outer frame border were dropped as visual clutter. The colour-weighted word alone carries the tier; the words and weights above are unchanged. See the <a href="#amendment-2026-08-06-word-only-badge-plain-inference-placement">Amendment</a>.</p>
+</blockquote>
 <h3 id="2-no-warning-state--everything-unrated-is-a-neutral-not-rated-87-d2">2. No warning state — everything unrated is a neutral "not rated" (#87 D2)</h3>
 <p>There is <strong>no hazard/warning badge</strong>. Any food without an <em>authoritative</em> NOVA value — an OFF product OFF could not classify (the ~75%), <strong>and</strong> any non-OFF food (manual, USDA, recipe) — wears the same quiet, greyed <strong>"— not rated"</strong>. It is never alarming and never silent: the badge is always present, so the absence of a rating is itself legible rather than a blank.</p>
 <blockquote>
@@ -80,17 +83,28 @@
 <h3 id="3-inferred-nova-1--est-for-basic-usda-whole-foods-87-d3-rule--89">3. Inferred "NOVA 1 · est" for basic USDA whole foods (#87 D3, rule → #89)</h3>
 <p>A basic USDA whole food (a banana, an egg, raw chicken) reads as <strong>NOVA 1</strong>, shown in a <strong>visually distinct</strong> state — dashed edge + an "est" tag — so it can never be mistaken for OFF's authoritative rating. This is a <strong>constrained</strong> carve-out of the map's Q2 client-side-inference ban: <strong>NOVA-1-only, single/basic foods only, never a 2/3/4 guess.</strong></p>
 <p>The exact rule (data type ∈ {Foundation, SR Legacy} <strong>and</strong> a <code>foodCategory</code> allow-list, erring toward under-claiming) is settled by <a href="https://github.com/inkpot-monkey/inventoria/issues/89">#89</a> and implemented in ticket D. Everything else this ADR specifies is independent of that rule.</p>
+<blockquote>
+<p><strong>Amended (2026-08-06):</strong> the inference itself is unchanged and still ships — a basic USDA whole food still reads <strong>NOVA 1 — Unprocessed</strong>. What was dropped is the <strong>visual distinction</strong>: the badge renders the inferred NOVA-1 <strong>plainly</strong>, identical to an OFF NOVA-1 (no dashed edge, no "est" tag). The inferred source marker is retained internally <em>only</em> to keep the explainer honest — its sheet never attributes the reading to OFF or shows ODbL for it. See the <a href="#amendment-2026-08-06-word-only-badge-plain-inference-placement">Amendment</a>.</p>
+</blockquote>
 <h3 id="4-the-verdict-is-computed-on-read-not-written-on-save">4. The verdict is computed on read, not written on save</h3>
 <p>There is <strong>no new written attribute</strong>. A pure selector —</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode ts"><code class="sourceCode typescript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">deriveNovaVerdict</span>(food)<span class="op">:</span> NovaVerdict</span></code></pre></div>
 <p>— reads the already-captured <code>food/assessment</code> (and, for the ·est branch, the USDA <code>foodCategory</code>) at render time and returns one value object:</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode ts"><code class="sourceCode typescript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">type</span> NovaVerdict <span class="op">=</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="op">|</span> { state<span class="op">:</span> <span class="st">&quot;rated&quot;</span><span class="op">;</span> tier<span class="op">:</span> <span class="dv">1</span> <span class="op">|</span> <span class="dv">2</span> <span class="op">|</span> <span class="dv">3</span> <span class="op">|</span> <span class="dv">4</span><span class="op">;</span> source<span class="op">:</span> <span class="st">&quot;off&quot;</span><span class="op">;</span> evidence<span class="op">:</span> NovaEvidence }</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="op">|</span> { state<span class="op">:</span> <span class="st">&quot;rated&quot;</span><span class="op">;</span> tier<span class="op">:</span> <span class="dv">1</span><span class="op">;</span>            source<span class="op">:</span> <span class="st">&quot;inferred&quot;</span> }  <span class="co">// the ·est case</span></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="op">|</span> { state<span class="op">:</span> <span class="st">&quot;not-rated&quot;</span> }<span class="op">;</span></span></code></pre></div>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="op">|</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>      state<span class="op">:</span> <span class="st">&quot;rated&quot;</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>      tier<span class="op">:</span> <span class="dv">1</span> <span class="op">|</span> <span class="dv">2</span> <span class="op">|</span> <span class="dv">3</span> <span class="op">|</span> <span class="dv">4</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>      source<span class="op">:</span> <span class="st">&quot;off&quot;</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>      evidence<span class="op">:</span> NovaEvidence<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="op">|</span> { state<span class="op">:</span> <span class="st">&quot;rated&quot;</span><span class="op">;</span> tier<span class="op">:</span> <span class="dv">1</span><span class="op">;</span> source<span class="op">:</span> <span class="st">&quot;inferred&quot;</span> } <span class="co">// the ·est case</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="op">|</span> { state<span class="op">:</span> <span class="st">&quot;not-rated&quot;</span> }<span class="op">;</span></span></code></pre></div>
 <p>Computing on read (rather than persisting a resolved verdict at capture time) was a deliberate choice: it needs no migration, works for <strong>already-captured</strong> foods, keeps the inference rule re-tunable without re-writing stored data, and matches the map's whole framing — <em>reading back</em> the write-only blob. The selector is a pure, table-testable function; both surfaces and the explainer consume its output.</p>
 <h3 id="5-placement--foodstager--food-detail-list-rows-stay-clean-87-d4">5. Placement — <code>FoodStager</code> + food detail; list rows stay clean (#87 D4)</h3>
 <p>The badge renders in the <code>FoodStager</code> badge-row (beside the origin badge, at log-time) and on the per-food detail. Recent/Search <strong>list rows stay clean</strong> in v1 — the badge is a decision-support signal at the moment of logging and on inspection, not list furniture.</p>
+<blockquote>
+<p><strong>Amended (2026-08-06):</strong> unchanged in <em>which</em> surfaces show the badge (both staging and detail; list rows stay clean) but changed in <em>where</em> on the surface. The badge now rides the <strong>"Quantity (grams)" label row, floated right</strong>, on both surfaces — not beside the origin badge and not in its own row above the amount body. Both go through one shared slot (<code>FoodAmountPanel</code>'s optional <code>badge</code> snippet), so the position is identical everywhere the amount panel appears. See the <a href="#amendment-2026-08-06-word-only-badge-plain-inference-placement">Amendment</a>.</p>
+</blockquote>
 <h3 id="6-the-explainer--tap-through-sheet-three-states-evidence--odbl-87-d5">6. The explainer — tap-through sheet, three states, evidence + ODbL (#87 D5)</h3>
 <p>Tapping the badge opens the house <code>BottomSheet</code> (ADR-0027/0028; the #67 reader Modal precedent), with three faces keyed off the verdict state:</p>
 <ul>
@@ -99,6 +113,9 @@
 <li><strong>inferred · est</strong> — "our estimate, not OFF's, because this is a single basic whole food."</li>
 </ul>
 <p><strong>Visible ODbL attribution to Open Food Facts</strong> appears wherever OFF data is shown, per #86 and the OFF licence.</p>
+<blockquote>
+<p><strong>Amended (2026-08-06):</strong> the three faces still exist, but the inferred face dropped the "· est" label and dashed treatment to match the plain badge (§3). Its copy is now neutral — "a single basic whole food … reads as NOVA 1 — Unprocessed" — and, because the reading is not OFF's, that face shows <strong>no OFF evidence and no ODbL attribution</strong>. ODbL remains on the <strong>rated (OFF)</strong> face, the only face that shows OFF data. See the <a href="#amendment-2026-08-06-word-only-badge-plain-inference-placement">Amendment</a>.</p>
+</blockquote>
 <h3 id="7-widen-the-off-mapper-for-evidence-forward-only-86-4-87-d6">7. Widen the OFF mapper for evidence, forward-only (#86 §4, #87 D6)</h3>
 <p><code>nova_group</code> and <code>additives</code> are already captured, so the "widening" is narrow: add <strong><code>nova_group_debug</code></strong> (the evidence trail) to the mapper and the <code>FoodAssessment</code> type, and optionally the labelled <strong><code>nova_groups_tags</code></strong>. This is <strong>forward-only</strong> — the debug trail exists only for foods captured after the change; older foods still show their tier (from the already-captured <code>nova_group</code>) with a thinner evidence section. The explainer degrades gracefully: a rated verdict never depends on <code>nova_group_debug</code> being present.</p>
 <h2 id="implementation-tickets">Implementation tickets</h2>
@@ -112,6 +129,16 @@ D ·est inference (← A, ← #89)   fills the reserved `inferred` slot</code></
 <li><strong>C — [#92]</strong> The explainer sheet: house <code>BottomSheet</code>, three states, evidence (additives + <code>nova_group_debug</code>) + visible ODbL attribution. <strong>← #90.</strong></li>
 <li><strong>D — [#93]</strong> The USDA "NOVA 1 · est" inference: implement #89's category allow-list rule in the verdict's <code>inferred</code> branch + widen the USDA mapper for <code>foodCategory</code>. <strong>← #90, ← #89.</strong></li>
 </ul>
+<h2 id="amendment-2026-08-06-word-only-badge-plain-inference-placement">Amendment (2026-08-06): word-only badge, plain inference, placement</h2>
+<p>All four tickets (#90–#93) shipped as specified. In review the badge chrome read as cluttered, so three things changed <strong>after</strong> implementation. The data model (<code>deriveNovaVerdict</code> and the <code>NovaVerdict</code> shape in §4) is <strong>unchanged</strong> — these are presentation and placement changes only.</p>
+<ol type="1">
+<li><p><strong>Badge is word-only (supersedes §1).</strong> The tier pip (the numeral) and the badge's outer frame border were removed. The colour-weighted word — the same words and weights as the §1 table — carries the tier on its own. The neutral state reads a plain <strong>"not rated"</strong> (the leading em dash went with the pip).</p></li>
+<li><p><strong>The NOVA-1 inference is kept but rendered plainly (supersedes §3, §6).</strong> A basic USDA whole food still reads <strong>NOVA 1 — Unprocessed</strong>; the constrained #89 rule is fully implemented in <code>deriveNovaVerdict</code>. What was dropped is the dashed-edge + "est" visual distinction — an inferred NOVA-1 now looks exactly like an OFF NOVA-1 on the badge. <code>source: "inferred"</code> is retained in the value object purely so the explainer stays honest: the inferred explainer face uses neutral copy and shows <strong>no OFF evidence and no ODbL</strong> (that reading is ours, not OFF's), while ODbL remains on the OFF-rated face.</p>
+<blockquote>
+<p>The visual distinction was originally there to stop an estimate posing as an authoritative OFF rating. With it gone, the badge no longer signals "estimate" to the eye; the honesty now lives one tap deeper, in the explainer copy and the withheld OFF attribution. This was a deliberate owner call favouring a calmer badge over an at-a-glance provenance cue.</p>
+</blockquote></li>
+<li><p><strong>Placement moved to the amount row (supersedes §5).</strong> Instead of sitting beside the origin badge (staging) or in its own row above the amount body (detail), the badge now rides the <strong>"Quantity (grams)" label row, floated right</strong>, on both surfaces. It is passed through a single optional <code>badge</code> snippet on the shared <code>FoodAmountPanel</code>, so staging and the detail sheet render it identically. Which surfaces show the badge, and the clean list rows, are unchanged.</p></li>
+</ol>
 <h2 id="consequences">Consequences</h2>
 <ul>
 <li>The write-only <code>food/assessment</code> blob gains its first reader — the NOVA slice of the "full-panel display still owed" debt ADR-0030 §4 recorded.</li>
