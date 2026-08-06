@@ -22,16 +22,14 @@ export type NovaTone =
   | "not-rated";
 
 /**
- * What the badge draws for a verdict. `tier` is the numeral for the pip (null when
- * unrated → the pip shows an em dash); `estimated` marks the inferred NOVA-1 `·est`
- * state (dashed edge + "est" tag) so it can never pose as OFF's authoritative
- * rating (ADR-0041 §3).
+ * What the badge draws for a verdict. `tier` is the numeral (null when unrated);
+ * `tone` selects the colour weight. The badge itself renders the word only, but
+ * the tier/tone remain part of the model for the explainer's hero + scale.
  */
 export interface NovaBadgeView {
   word: string;
   tier: 1 | 2 | 3 | 4 | null;
   tone: NovaTone;
-  estimated: boolean;
 }
 
 // The word + tone for each OFF tier (ADR-0041 §1). NOVA 2 is "Ingredient" (the
@@ -44,11 +42,10 @@ const TIERS: Record<1 | 2 | 3 | 4, { word: string; tone: NovaTone }> = {
 };
 
 /**
- * Map a {@link NovaVerdict} to its badge presentation (ADR-0041 §1–§3). A rated
- * verdict (OFF or the reserved inferred NOVA-1) yields its word + tone + pip; the
- * inferred source flips `estimated` so the skin draws the distinct `·est` state.
- * Everything unrated collapses to the neutral, greyed "not rated" chip — never a
- * warning (ADR-0041 §2), always present so absence is legible rather than blank.
+ * Map a {@link NovaVerdict} to its badge presentation (ADR-0041 §1, §2). A rated
+ * OFF verdict yields its word + tone + tier; everything unrated collapses to the
+ * neutral, greyed "not rated" chip — never a warning (ADR-0041 §2), always
+ * present so absence is legible rather than blank.
  */
 export function novaBadgeView(verdict: NovaVerdict): NovaBadgeView {
   if (verdict.state === "not-rated") {
@@ -56,7 +53,6 @@ export function novaBadgeView(verdict: NovaVerdict): NovaBadgeView {
       word: "not rated",
       tier: null,
       tone: "not-rated",
-      estimated: false,
     };
   }
   const { word, tone } = TIERS[verdict.tier];
@@ -64,6 +60,5 @@ export function novaBadgeView(verdict: NovaVerdict): NovaBadgeView {
     word,
     tier: verdict.tier,
     tone,
-    estimated: verdict.source === "inferred",
   };
 }

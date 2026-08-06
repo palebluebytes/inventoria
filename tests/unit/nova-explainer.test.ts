@@ -80,7 +80,7 @@ describe("novaExplainerView — rated / OFF-authoritative", () => {
   });
 });
 
-describe("novaExplainerView — inferred (·est) and not-rated", () => {
+describe("novaExplainerView — inferred and not-rated", () => {
   it("renders the inferred NOVA-1 face with tier 1 + scale, no evidence", () => {
     const view = novaExplainerView({
       state: "rated",
@@ -91,6 +91,7 @@ describe("novaExplainerView — inferred (·est) and not-rated", () => {
     if (view.face !== "inferred") throw new Error("expected inferred");
     expect(view.tier).toBe(1);
     expect(view.word).toBe("Unprocessed");
+    expect(view.tone).toBe("unprocessed");
     expect(view.scale).toBe(NOVA_SCALE);
   });
 

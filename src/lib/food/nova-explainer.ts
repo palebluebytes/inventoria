@@ -10,7 +10,7 @@ import { novaBadgeView, type NovaTone } from "./nova-badge";
  * per-product OFF evidence all live here, tested in one place rather than in markup.
  */
 
-/** One row of the static four-group NOVA scale shown on the rated + inferred faces. */
+/** One row of the static four-group NOVA scale shown on the rated face. */
 export interface NovaScaleRow {
   tier: 1 | 2 | 3 | 4;
   word: string;
@@ -73,8 +73,8 @@ export interface NovaEvidenceView {
  *
  * - **rated** — an OFF-authoritative tier 1–4: the hero tier, the four-group
  *   scale, this product's evidence, and (in the skin) visible ODbL attribution.
- * - **inferred** — the NOVA-1 `·est` estimate (ticket D/#93): our own call for a
- *   basic whole food, not OFF's; no OFF evidence, no OFF attribution.
+ * - **inferred** — our own NOVA-1 read for a basic USDA whole food: the hero tier
+ *   + scale, but no OFF evidence and no OFF attribution (it isn't OFF data).
  * - **not-rated** — the neutral coverage face; no tier, no OFF data.
  */
 export type NovaExplainerView =

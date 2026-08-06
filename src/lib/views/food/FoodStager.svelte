@@ -373,8 +373,8 @@
 
   // The staged food's NOVA processing verdict (ADR-0041 §4/§5), read back off its
   // captured `food/assessment` at render time — never a written attribute. Drives
-  // the word-first badge beside the origin badge; `not-rated` for a blank/non-OFF
-  // food, so a badge is always shown.
+  // the word-first badge on the "Quantity (grams)" row; `not-rated` for a
+  // blank/non-OFF food, so a badge is always shown.
   let stagedNova = $derived<NovaVerdict | null>(
     staged ? deriveNovaVerdict(staged.payload) : null
   );
@@ -1371,15 +1371,6 @@
                         >
                       </button>
                     {/if}
-                    <!-- NOVA processing badge (ADR-0041 §5): beside the origin
-                    badge at log-time. Always present (even `not rated`); tapping
-                    hands its verdict to the explainer seam (#92). -->
-                    {#if stagedNova}
-                      <NovaBadge
-                        verdict={stagedNova}
-                        onExplain={() => explainNova(stagedNova)}
-                      />
-                    {/if}
                   </div>
                   {#if nudge}
                     <!-- Found-but-poor nudge (§1): soft, dismissible, never blocks logging
@@ -1401,11 +1392,23 @@
                       >
                     </div>
                   {/if}
+                  <!-- NOVA processing badge (ADR-0041 §5): rides the "Quantity
+                  (grams)" label row, floated right. Always present (even `not
+                  rated`); tapping hands its verdict to the explainer seam (#92).
+                  Declared as a local snippet (child of a <div>, not a component)
+                  so it can be handed to FoodAmountPanel's `badge` slot. -->
+                  {#snippet stagedNovaBadge()}
+                    <NovaBadge
+                      verdict={stagedNova!}
+                      onExplain={() => explainNova(stagedNova!)}
+                    />
+                  {/snippet}
                   <FoodAmountPanel
                     panel={stagedInfo}
                     portions={stagedPortions}
                     hydrating={hydratingPortions}
                     bind:grams
+                    badge={stagedNova ? stagedNovaBadge : undefined}
                   />
                 </div>
               {:else if isExtra(method)}

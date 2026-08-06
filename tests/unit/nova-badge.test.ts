@@ -3,19 +3,19 @@ import { novaBadgeView } from "../../src/lib/food/nova-badge";
 import type { NovaBadgeView } from "../../src/lib/food/nova-badge";
 import type { NovaVerdict } from "../../src/lib/food/nova-verdict";
 
-// The badge presentation model (ADR-0041 §1–§3) is pure, so assert the word, pip
-// numeral, tone bucket and the `·est` flag directly across every verdict face:
-// the four OFF tiers, the reserved inferred NOVA-1, and the neutral not-rated.
+// The badge presentation model (ADR-0041 §1, §2) is pure, so assert the word,
+// tier numeral and tone bucket directly across every verdict face: the four OFF
+// tiers and the neutral not-rated.
 
 describe("novaBadgeView — OFF-authoritative tiers", () => {
   const expected: Record<1 | 2 | 3 | 4, NovaBadgeView> = {
-    1: { word: "Unprocessed", tier: 1, tone: "unprocessed", estimated: false },
-    2: { word: "Ingredient", tier: 2, tone: "ingredient", estimated: false },
-    3: { word: "Processed", tier: 3, tone: "processed", estimated: false },
-    4: { word: "Ultra-processed", tier: 4, tone: "ultra", estimated: false },
+    1: { word: "Unprocessed", tier: 1, tone: "unprocessed" },
+    2: { word: "Ingredient", tier: 2, tone: "ingredient" },
+    3: { word: "Processed", tier: 3, tone: "processed" },
+    4: { word: "Ultra-processed", tier: 4, tone: "ultra" },
   };
   for (const tier of [1, 2, 3, 4] as const) {
-    it(`draws NOVA ${tier} word-first with its tone and pip`, () => {
+    it(`draws NOVA ${tier} word-first with its tone`, () => {
       const verdict: NovaVerdict = {
         state: "rated",
         tier,
@@ -36,29 +36,24 @@ describe("novaBadgeView — OFF-authoritative tiers", () => {
   });
 });
 
-describe("novaBadgeView — inferred NOVA-1 (·est, reserved for #93)", () => {
-  it("keeps the tier-1 word but flags it estimated", () => {
-    const verdict: NovaVerdict = {
-      state: "rated",
-      tier: 1,
-      source: "inferred",
-    };
-    expect(novaBadgeView(verdict)).toEqual<NovaBadgeView>({
+describe("novaBadgeView — inferred NOVA-1 (USDA whole foods)", () => {
+  it("renders exactly like a plain OFF NOVA-1 badge — no estimate marker", () => {
+    expect(
+      novaBadgeView({ state: "rated", tier: 1, source: "inferred" })
+    ).toEqual<NovaBadgeView>({
       word: "Unprocessed",
       tier: 1,
       tone: "unprocessed",
-      estimated: true,
     });
   });
 });
 
 describe("novaBadgeView — not rated", () => {
-  it("collapses to a neutral, pip-less greyed chip", () => {
+  it("collapses to a neutral greyed chip", () => {
     expect(novaBadgeView({ state: "not-rated" })).toEqual<NovaBadgeView>({
       word: "not rated",
       tier: null,
       tone: "not-rated",
-      estimated: false,
     });
   });
 });

@@ -26,12 +26,14 @@ export interface NovaEvidence {
  * attribute, no migration. Three faces:
  *
  * - **rated / off** — an OFF-authoritative tier 1–4, carrying its evidence.
- * - **rated / inferred** — the NOVA-1 `· est` slot for basic USDA whole foods,
- *   filled by ticket D (#93) from the USDA category allow-list rule
- *   (`docs/research/89-*`). The app's ONE constrained client-side inference.
+ * - **rated / inferred** — a basic USDA whole food (banana, egg, raw chicken)
+ *   reads as NOVA 1 unprocessed, our own constrained client-side inference from
+ *   the USDA category allow-list (`docs/research/89-*`). Rendered plainly, exactly
+ *   like an OFF NOVA-1; the `inferred` source only keeps the explainer honest
+ *   (no false OFF attribution). NOVA-1 is the ONLY value the app ever infers.
  * - **not-rated** — everything else: the ~75% of OFF products OFF could not
- *   classify, and every non-OFF food (manual, USDA-without-inference, recipe). A
- *   neutral, honest coverage statement — never a warning (ADR-0041 §2).
+ *   classify, and every other non-OFF food (manual, recipe). A neutral, honest
+ *   coverage statement — never a warning (ADR-0041 §2).
  */
 export type NovaVerdict =
   | {
@@ -40,7 +42,7 @@ export type NovaVerdict =
       source: "off";
       evidence: NovaEvidence;
     }
-  | { state: "rated"; tier: 1; source: "inferred" } // reserved for #93
+  | { state: "rated"; tier: 1; source: "inferred" }
   | { state: "not-rated" };
 
 // OFF's authoritative NOVA scale is exactly 1–4; anything else in the blob (a 0,
@@ -117,7 +119,7 @@ const USDA_EGG_HEAD = /^eggs?,/i;
  *    an OFF rating always wins.
  * 2. **inferred** — a basic USDA whole food (`fdc:*` entity, allow-listed
  *    `food/category` or a plain egg, no NOVA-3 deny-substring in its name) yields
- *    `NOVA 1 · est`. See the gate constants above (§89 rule).
+ *    an inferred NOVA 1. See the gate constants above (§89 rule).
  *
  * Everything else — a blank/absent assessment, a non-OFF non-inferable food —
  * yields `not-rated`.
@@ -144,9 +146,9 @@ export function deriveNovaVerdict(food: EntityPayload): NovaVerdict {
       evidence,
     };
   }
-  // The `inferred` NOVA-1 slot for basic USDA whole foods (#93, rule → #89). Runs
-  // only AFTER the OFF branch, so an OFF-authoritative rating always wins. Guarded
-  // on three fronts (all must hold): an `fdc:` food (⟹ Foundation/SR Legacy by
+  // The inferred NOVA-1 branch for basic USDA whole foods (rule → #89). Runs only
+  // AFTER the OFF branch, so an OFF-authoritative rating always wins. Guarded on
+  // three fronts (all must hold): an `fdc:` food (⟹ Foundation/SR Legacy by
   // construction of `searchFdc`), an allow-listed whole-food category OR a plain
   // egg, and no NOVA-3 deny-substring in the name.
   if (food.entity.startsWith("fdc:")) {

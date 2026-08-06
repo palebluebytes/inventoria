@@ -6,8 +6,9 @@ import type { FoodAssessment } from "../../src/lib/food/open-food-facts";
 
 // The NOVA read-back selector (ADR-0041 §4) is the first reader of the write-only
 // `food/assessment` blob. Pure, so assert its verdict directly across the cases
-// the ADR fixes: OFF-authoritative tiers 1–4, OFF-blank, and non-OFF foods (which
-// read "not rated" — the `· est` USDA inference is ticket D/#93, not this one).
+// the ADR fixes: OFF-authoritative tiers 1–4, OFF-blank, non-OFF foods (which read
+// "not rated"), and the one constrained inference — NOVA 1 for basic USDA whole
+// foods, gated on the category allow-list + deny guard (rule → #89).
 
 /** A minimal OFF food twin carrying `attrs` as its attribute bag. */
 function offFood(attrs: Record<string, unknown>): EntityPayload {
@@ -149,14 +150,14 @@ describe("deriveNovaVerdict — not rated", () => {
   });
 });
 
-describe("deriveNovaVerdict — inferred NOVA 1 · est (USDA whole foods, #93)", () => {
+describe("deriveNovaVerdict — inferred NOVA 1 (USDA whole foods, rule → #89)", () => {
   const INFERRED: NovaVerdict = {
     state: "rated",
     tier: 1,
     source: "inferred",
   };
 
-  // Allow-list categories → NOVA 1 · est. One representative food per group so a
+  // Allow-list categories → inferred NOVA 1. One representative food per group so a
   // rename or a dropped entry breaks a test (§4a of docs/research/89-*).
   const allowListed: ReadonlyArray<[string, string]> = [
     ["Bananas, raw", "Fruits and Fruit Juices"],
@@ -171,14 +172,14 @@ describe("deriveNovaVerdict — inferred NOVA 1 · est (USDA whole foods, #93)",
     ["Pork, ground, raw", "Pork Products"],
   ];
   for (const [name, category] of allowListed) {
-    it(`infers NOVA 1 · est for ${category} (${name})`, () => {
+    it(`infers NOVA 1 for ${category} (${name})`, () => {
       expect(deriveNovaVerdict(fdcFood(name, category))).toEqual<NovaVerdict>(
         INFERRED
       );
     });
   }
 
-  it("infers NOVA 1 · est for a plain egg despite Dairy & Egg being excluded", () => {
+  it("infers NOVA 1 for a plain egg despite Dairy & Egg being excluded", () => {
     // Targeted egg include: name matches /^eggs?,/i with no egg-specific deny.
     expect(
       deriveNovaVerdict(
@@ -250,7 +251,6 @@ describe("deriveNovaVerdict — inferred NOVA 1 · est (USDA whole foods, #93)",
   });
 
   it("is not-rated for an egg-adjacent product caught by the egg deny-substrings", () => {
-    // eggnog is not `eggs?,` headed; egg-substitute / egg roll / egg powder are.
     expect(
       deriveNovaVerdict(
         fdcFood("Egg, substitute, liquid", "Dairy and Egg Products")
@@ -271,15 +271,12 @@ describe("deriveNovaVerdict — inferred NOVA 1 · est (USDA whole foods, #93)",
     expect(
       deriveNovaVerdict(fdcFood("Cornflakes", "Breakfast Cereals"))
     ).toEqual<NovaVerdict>({ state: "not-rated" });
-    // A USDA food that carries no category at all and is not an egg.
     expect(deriveNovaVerdict(fdcFood("Mystery dish"))).toEqual<NovaVerdict>({
       state: "not-rated",
     });
   });
 
   it("does not touch non-fdc foods (OFF verdict still wins; manual stays not-rated)", () => {
-    // An OFF food in an allow-listed-looking category is unaffected by the USDA
-    // branch — the OFF branch owns it, and here it has no rating so → not-rated.
     expect(
       deriveNovaVerdict(
         offFood({

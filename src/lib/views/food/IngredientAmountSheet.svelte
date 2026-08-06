@@ -39,8 +39,8 @@
      *  the working amount; omit it to render the plain amount picker. */
     panel?: NutritionInfo;
     /** The food's NOVA processing verdict (ADR-0041 §5), read back off its twin
-     *  by the caller. Renders the word-first badge at the head of the detail; omit
-     *  it (a caller that hasn't resolved a twin) to hide the badge. */
+     *  by the caller. Renders the word-first badge on the "Quantity (grams)" row,
+     *  floated right; omit it (a caller that hasn't resolved a twin) to hide it. */
     verdict?: NovaVerdict;
     /** Tap-through on the NOVA badge — the explainer handoff seam (#92). */
     onExplainNova?: (verdict: NovaVerdict) => void;
@@ -61,26 +61,25 @@
   }
 </script>
 
+<!-- The NOVA badge rides the "Quantity (grams)" label row, floated right
+     (ADR-0041 §5). Declared at the top level (not inside BottomSheet) so it is a
+     local snippet this component can hand to FoodAmountPanel's `badge` slot. -->
+{#snippet novaBadge()}
+  <NovaBadge
+    verdict={verdict!}
+    onExplain={onExplainNova ? () => onExplainNova(verdict!) : undefined}
+  />
+{/snippet}
+
 <BottomSheet isOpen title={name} class="amount-sheet" elevated {onClose}>
-  {#if verdict}
-    <div class="nova-row">
-      <NovaBadge
-        {verdict}
-        onExplain={onExplainNova ? () => onExplainNova(verdict) : undefined}
-      />
-    </div>
-  {/if}
-  <FoodAmountPanel {panel} {portions} bind:grams={value} />
+  <FoodAmountPanel
+    {panel}
+    {portions}
+    bind:grams={value}
+    badge={verdict ? novaBadge : undefined}
+  />
 
   {#snippet footer()}
     <CommitButton id="amount-done-btn" onclick={done}>Done</CommitButton>
   {/snippet}
 </BottomSheet>
-
-<style>
-  /* The NOVA badge heads the food detail, above the amount body (ADR-0041 §5). */
-  .nova-row {
-    display: flex;
-    margin-bottom: var(--space-s);
-  }
-</style>

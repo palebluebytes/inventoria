@@ -11,7 +11,8 @@
   //               (additives + the `nova_group_debug` trail, degrading gracefully
   //               when a pre-#90 food carries neither), and visible ODbL
   //               attribution to Open Food Facts wherever OFF data is shown.
-  //  • inferred — the NOVA-1 `·est` estimate (ticket D/#93): our call, not OFF's.
+  //  • inferred — our own NOVA-1 read for a basic USDA whole food: hero + scale,
+  //               no OFF evidence and no OFF attribution (it isn't OFF data).
   //  • not-rated— an honest coverage statement, never a safe/unsafe verdict.
   //
   // Conditionally mounted by each surface (FoodStager, FoodView) off a
@@ -57,22 +58,15 @@
     </p>
   {:else}
     <!-- rated + inferred share the hero + scale; only rated carries OFF evidence. -->
-    <div
-      class="hero"
-      data-tone={view.tone}
-      class:est={view.face === "inferred"}
-    >
+    <div class="hero" data-tone={view.tone}>
       <span class="hero-pip" aria-hidden="true">{view.tier}</span>
       <span class="hero-word">{view.word}</span>
-      {#if view.face === "inferred"}<span class="hero-est">est</span>{/if}
     </div>
 
     {#if view.face === "inferred"}
       <p class="lead">
-        This is <strong>our estimate</strong>, not Open Food Facts' — a single
-        basic whole food (a banana, an egg, plain rice) reads as NOVA&nbsp;1
-        unprocessed. It's marked <span class="est-inline">est</span> so it can never
-        be mistaken for an authoritative rating.
+        A single basic whole food — a banana, an egg, plain rice — reads as
+        <strong>NOVA 1 — Unprocessed</strong> on the four-group processing scale.
       </p>
     {:else}
       <p class="lead">
@@ -157,9 +151,6 @@
     box-shadow: var(--shadow-2);
     margin-bottom: var(--space-m);
   }
-  .hero.est {
-    border-style: dashed;
-  }
   .hero-pip {
     display: inline-flex;
     align-items: center;
@@ -179,16 +170,6 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.02em;
-    color: var(--ink);
-  }
-  .hero-est {
-    font-size: var(--step-n1);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    padding: 0.1rem 0.35rem;
-    border: 1px dashed var(--ink);
-    border-radius: var(--radius);
     color: var(--ink);
   }
 
@@ -233,12 +214,6 @@
     font-size: var(--step-n1);
     line-height: 1.4;
     color: var(--text-secondary);
-  }
-  .est-inline {
-    font-weight: 700;
-    text-transform: uppercase;
-    font-size: 0.82em;
-    letter-spacing: 0.03em;
   }
 
   /* The four-group scale. The current tier is pulled out with a heavier edge +

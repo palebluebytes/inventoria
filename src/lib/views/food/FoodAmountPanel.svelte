@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import {
     scaleNutrition,
     type NutritionInfo,
@@ -34,6 +35,7 @@
     portions = [],
     hydrating = false,
     grams = $bindable(100),
+    badge = undefined,
   }: {
     /** The food's `nutrition/info` panel, per its serving basis. Omit for a
      *  panel-less food — then only the amount control renders. */
@@ -43,6 +45,9 @@
     /** True while a searched food's portions are still being fetched (§5). */
     hydrating?: boolean;
     grams: number;
+    /** Optional trailing content for the "Quantity (grams)" label row, floated to
+     *  the right (e.g. the NOVA badge in the detail sheet). */
+    badge?: Snippet;
   } = $props();
 
   // The amount total: the full panel scaled from its own basis to the typed grams.
@@ -68,7 +73,10 @@
   );
 </script>
 
-<span class="fl">Quantity (grams)</span>
+<div class="ql-row">
+  <span class="fl">Quantity (grams)</span>
+  {#if badge}<div class="ql-badge">{@render badge()}</div>{/if}
+</div>
 <QuantityGrams bind:grams {portions} {hydrating} />
 
 {#if panel}
@@ -81,12 +89,23 @@
 {/if}
 
 <style>
+  /* The "Quantity (grams)" label and its optional trailing badge share a row, the
+     badge pushed to the right edge. */
+  .ql-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-s);
+    margin: var(--space-m) 0 var(--space-3xs);
+  }
   .fl {
-    display: block;
     font-size: var(--step-n2);
     font-weight: 700;
     text-transform: uppercase;
-    margin: var(--space-m) 0 var(--space-3xs);
+  }
+  .ql-badge {
+    display: flex;
+    flex: 0 0 auto;
   }
   .preview {
     margin-top: var(--space-m);
