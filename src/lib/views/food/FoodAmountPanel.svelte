@@ -98,6 +98,14 @@
     gap: var(--space-s);
     margin: var(--space-m) 0 var(--space-3xs);
   }
+  /* When the panel leads a padded sheet body (the edit-amount sheet, where the
+     food name lives in the sheet header rather than above the row), this row is
+     the body's first child and its top margin doubles up on the body's own
+     padding. Collapse it there; the FoodStager staged card keeps the margin,
+     since the name header precedes the row and it isn't a first child. */
+  .ql-row:first-child {
+    margin-top: 0;
+  }
   .fl {
     font-size: var(--step-n2);
     font-weight: 700;
