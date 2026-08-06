@@ -4,6 +4,9 @@ import {
   mapFdcDetailToPayload,
   hydrateFdcFood,
   searchFdc,
+  isBrandSpecific,
+  isProcessedProduct,
+  isPreparedProduct,
   type FdcFood,
   type FdcFoodDetail,
 } from "../../src/lib/food/usda-fdc";
@@ -397,6 +400,215 @@ describe("hydrateFdcFood", () => {
 
 // ---- unit: searchFdc -------------------------------------------------------
 
+describe("isBrandSpecific", () => {
+  it("flags an SR Legacy record with a brand baked into the description", () => {
+    // brandOwner/brandName are null on these records; the ALL-CAPS token is the
+    // only signal that this is a specific product, not a generic food.
+    expect(
+      isBrandSpecific(
+        "Grapefruit juice, white, bottled, unsweetened, OCEAN SPRAY"
+      )
+    ).toBe(true);
+  });
+
+  it("keeps generic foods that carry no brand token", () => {
+    expect(isBrandSpecific("Grapes, red, seedless, raw")).toBe(false);
+    expect(isBrandSpecific("Beef, ground, 80% lean, raw")).toBe(false);
+  });
+
+  it("never flags on a two-letter all-caps token (unit / state code)", () => {
+    // "NY" here is a cut of beef, not a brand — the >=3-letter guard protects it.
+    expect(isBrandSpecific("Beef, short loin (NY strip steak), raw")).toBe(
+      false
+    );
+  });
+
+  it("never flags a generic all-caps acronym (USDA commodity, DHA/ARA)", () => {
+    expect(isBrandSpecific("Cheese, cheddar, USDA commodity")).toBe(false);
+  });
+
+  it("drops trademark cereals but keeps USDA's generic 'assorted brands' composite", () => {
+    // Cream of Wheat / Cream of Rice are trademarked products -> dropped.
+    expect(isBrandSpecific("Cereals, CREAM OF WHEAT, dry")).toBe(true);
+    expect(isBrandSpecific("Cereals, CREAM OF RICE, dry")).toBe(true);
+    // The generic farina composite that merely names the brand is kept.
+    expect(
+      isBrandSpecific(
+        "Cereals, farina, enriched, assorted brands including CREAM OF WHEAT, dry"
+      )
+    ).toBe(false);
+  });
+
+  it("always drops a brand, even one the query names (brands -> OFF path)", () => {
+    // Brands belong to the OFF barcode path, so USDA search drops them whether
+    // or not the query names them — generic equivalents win instead.
+    expect(isBrandSpecific("Beverages, OCEAN SPRAY, Cran Grape")).toBe(true);
+    expect(isBrandSpecific("Babyfood, GERBER, 2nd Foods, apple")).toBe(true);
+  });
+
+  it("drops a brand a query merely prefix-matches (apple -> APPLEBEE'S)", () => {
+    // "apple" prefixes "applebee's" and "almond" == the capitalised ALMOND in a
+    // candy brand — both must still drop, so the fruit/nut search stays clean.
+    expect(isBrandSpecific("APPLEBEE'S, chicken tenders platter")).toBe(true);
+    expect(isBrandSpecific("Candies, ALMOND JOY Candy Bar")).toBe(true);
+    expect(
+      isBrandSpecific("Cereals ready-to-eat, POST, GRAPE-NUTS Cereal")
+    ).toBe(true);
+  });
+});
+
+describe("isProcessedProduct", () => {
+  it("flags packaged/processed forms that carry a barcode (OFF's job)", () => {
+    expect(
+      isProcessedProduct("Grapes, canned, thompson seedless, heavy syrup pack")
+    ).toBe(true);
+    expect(isProcessedProduct("Beverages, carbonated, grape soda")).toBe(true);
+    expect(isProcessedProduct("Beverages, grape drink, canned")).toBe(true);
+    expect(isProcessedProduct("Fruit cocktail, (peach and pear), canned")).toBe(
+      true
+    );
+    // packaged cereals and juices are barcoded products too
+    expect(isProcessedProduct("Cereals ready-to-eat, corn flakes")).toBe(true);
+    expect(
+      isProcessedProduct("Grape juice, canned or bottled, unsweetened")
+    ).toBe(true);
+  });
+
+  it("keeps base ingredients that never carry a marker", () => {
+    expect(isProcessedProduct("Grapes, red, seedless, raw")).toBe(false);
+    expect(isProcessedProduct("Oil, grapeseed")).toBe(false);
+    expect(isProcessedProduct("Cheese, cheddar")).toBe(false);
+    expect(isProcessedProduct("Spices, cinnamon, ground")).toBe(false);
+    // raw-pressed juice is a base ingredient — the raw exemption keeps it
+    expect(isProcessedProduct("Lemon juice, raw")).toBe(false);
+  });
+
+  it("never drops a food described 'raw', even a retail cut sold frozen", () => {
+    // "frozen" is a marker, but the raw NZ lamb is a base ingredient, so the
+    // raw exemption keeps it.
+    expect(
+      isProcessedProduct("Lamb, New Zealand, imported, frozen, loin, raw")
+    ).toBe(false);
+  });
+
+  it("uses 'carbonated' (not 'soda') so baking soda survives", () => {
+    expect(isProcessedProduct("Leavening agents, baking soda")).toBe(false);
+  });
+});
+
+describe("isPreparedProduct", () => {
+  it("drops wholly-prepared categories (composite foods with no brand/marker)", () => {
+    expect(
+      isPreparedProduct(
+        "Breakfast Cereals",
+        "Cereals ready-to-eat, corn flakes"
+      )
+    ).toBe(true);
+    expect(
+      isPreparedProduct("Soups, Sauces, and Gravies", "Sauce, barbecue")
+    ).toBe(true);
+    expect(
+      isPreparedProduct("Meals, Entrees, and Side Dishes", "Lasagna, cheese")
+    ).toBe(true);
+    expect(isPreparedProduct("Snacks", "Snacks, potato chips")).toBe(true);
+  });
+
+  it("keeps generic beverages (coffee/tea) — packaged drinks fall to markers", () => {
+    expect(isPreparedProduct("Beverages", "Beverages, coffee, brewed")).toBe(
+      false
+    );
+    expect(
+      isPreparedProduct("Beverages", "Beverages, tea, black, brewed")
+    ).toBe(false);
+  });
+
+  it("drops composite dishes that leak into base categories (potato salad)", () => {
+    expect(
+      isPreparedProduct(
+        "Vegetables and Vegetable Products",
+        "Potato salad, home-prepared"
+      )
+    ).toBe(true);
+    expect(
+      isPreparedProduct(
+        "Vegetables and Vegetable Products",
+        "Potatoes, au gratin, home-prepared from recipe using butter"
+      )
+    ).toBe(true);
+    expect(
+      isPreparedProduct("Finfish and Shellfish Products", "Fish, tuna salad")
+    ).toBe(true);
+  });
+
+  it("keeps a base cooking oil that uses 'salad' as a descriptor", () => {
+    // "salad or cooking" names a base oil, not a salad dish.
+    expect(
+      isPreparedProduct("Fats and Oils", "Oil, olive, salad or cooking")
+    ).toBe(false);
+    expect(
+      isPreparedProduct("Fats and Oils", "Oil, soybean, salad or cooking")
+    ).toBe(false);
+  });
+
+  it("drops confections in the mixed Sweets category", () => {
+    expect(
+      isPreparedProduct("Sweets", "Candies, milk chocolate, with almonds")
+    ).toBe(true);
+    expect(isPreparedProduct("Sweets", "Chocolate, dark, 70-85% cacao")).toBe(
+      true
+    );
+    expect(isPreparedProduct("Sweets", "Jams and preserves")).toBe(true);
+  });
+
+  it("keeps bready staples in Baked Products, drops the sweet treats", () => {
+    // Reference foods like a croissant stay; cake/cookies/doughnuts go.
+    expect(isPreparedProduct("Baked Products", "Croissants, butter")).toBe(
+      false
+    );
+    expect(
+      isPreparedProduct("Baked Products", "Bread, 100% whole wheat, commercial")
+    ).toBe(false);
+    expect(isPreparedProduct("Baked Products", "Bagels, plain, enriched")).toBe(
+      false
+    );
+    expect(
+      isPreparedProduct("Baked Products", "English muffins, plain, enriched")
+    ).toBe(false);
+    expect(
+      isPreparedProduct(
+        "Baked Products",
+        "Cake, angelfood, commercially prepared"
+      )
+    ).toBe(true);
+    expect(
+      isPreparedProduct("Baked Products", "Doughnuts, cake-type, plain, glazed")
+    ).toBe(true);
+    expect(isPreparedProduct("Baked Products", "Cookies, chocolate")).toBe(
+      true
+    );
+  });
+
+  it("keeps single-ingredient sweeteners in Sweets (honey, sugar, cocoa)", () => {
+    expect(isPreparedProduct("Sweets", "Honey")).toBe(false);
+    expect(isPreparedProduct("Sweets", "Sugars, granulated")).toBe(false);
+    expect(isPreparedProduct("Sweets", "Cocoa, dry powder, unsweetened")).toBe(
+      false
+    );
+    expect(isPreparedProduct("Sweets", "Molasses")).toBe(false);
+  });
+
+  it("keeps base-ingredient categories and records with no category", () => {
+    expect(
+      isPreparedProduct("Fruits and Fruit Juices", "Apples, fuji, raw")
+    ).toBe(false);
+    expect(isPreparedProduct("Dairy and Egg Products", "Cheese, cheddar")).toBe(
+      false
+    );
+    expect(isPreparedProduct("Fats and Oils", "Oil, olive")).toBe(false);
+    expect(isPreparedProduct(undefined, "Some food, raw")).toBe(false);
+  });
+});
+
 describe("searchFdc", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -524,7 +736,7 @@ describe("searchFdc", () => {
         foods: [
           {
             fdcId: 101,
-            description: "Bananas, dehydrated",
+            description: "Bananas, ripe and slightly ripe",
             dataType: "SR Legacy",
             foodNutrients: [],
           },
@@ -552,15 +764,53 @@ describe("searchFdc", () => {
 
     const results = await searchFdc("banana", "KEY");
 
-    // Deduplication should leave 3 entries: dehydrated, raw (Foundation), overripe raw
+    // Deduplication should leave 3 entries: ripe (non-raw), raw (Foundation), overripe raw
     expect(results).toHaveLength(3);
 
-    // Sorting order should prioritize "Bananas, raw" (ends in ', raw', 1 comma -> score 3)
-    // then "Bananas, overripe, raw" (ends in ', raw', 2 commas -> score 2)
-    // then "Bananas, dehydrated" (score 0)
+    // Raw foods sort to the top (isRaw before the ripe, non-raw entry), then the
+    // comma tiebreak orders the two raw ones: "Bananas, raw" (1 comma -> 3)
+    // before "Bananas, overripe, raw" (2 commas -> 2); the ripe entry ranks last.
     expect(results[0].entity).toBe("fdc:103"); // Bananas, raw
     expect(results[1].entity).toBe("fdc:104"); // Bananas, overripe, raw
-    expect(results[2].entity).toBe("fdc:101"); // Bananas, dehydrated
+    expect(results[2].entity).toBe("fdc:101"); // Bananas, ripe and slightly ripe
+  });
+
+  it("ranks grapes first for a partial query still short of a whole word", async () => {
+    // "grap" prefix-matches grape, grapefruit and grape leaves alike, so none
+    // reaches the whole-word tier yet. The head-completeness tiebreaker floats
+    // the closest completion ("Grapes") above grapefruit (a longer word) and
+    // grape leaves (an unmatched second head word) before the user finishes.
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        foods: [
+          {
+            fdcId: 501,
+            description: "Grapefruit, raw",
+            dataType: "Foundation",
+            foodNutrients: [],
+          },
+          {
+            fdcId: 502,
+            description: "Grape leaves, raw",
+            dataType: "SR Legacy",
+            foodNutrients: [],
+          },
+          {
+            fdcId: 503,
+            description: "Grapes, red, seedless, raw",
+            dataType: "Foundation",
+            foodNutrients: [],
+          },
+        ],
+      }),
+    } as Response);
+
+    const order = (await searchFdc("grap", "KEY")).map((r) => r.entity);
+
+    expect(order[0]).toBe("fdc:503"); // Grapes leads
+    expect(order.indexOf("fdc:503")).toBeLessThan(order.indexOf("fdc:501"));
+    expect(order.indexOf("fdc:503")).toBeLessThan(order.indexOf("fdc:502"));
   });
 
   it("ranks foods matching every query token above partial (single-token) matches", async () => {
@@ -579,13 +829,13 @@ describe("searchFdc", () => {
           },
           {
             fdcId: 202,
-            description: "Soy milk, sweetened, plain, refrigerated", // both tokens
+            description: "Soy milk, original, plain, refrigerated", // both tokens
             dataType: "Foundation",
             foodNutrients: [],
           },
           {
             fdcId: 203,
-            description: "Soy milk, unsweetened, plain, shelf stable", // both tokens
+            description: "Soy milk, plain, shelf stable", // both tokens
             dataType: "Foundation",
             foodNutrients: [],
           },
@@ -597,9 +847,153 @@ describe("searchFdc", () => {
 
     // The two soy-milk foods (both tokens) come first, in FDC's original order;
     // the milk-only rice milk falls to the bottom despite leading the raw list.
-    expect(results[0].entity).toBe("fdc:202"); // Soy milk, sweetened
-    expect(results[1].entity).toBe("fdc:203"); // Soy milk, unsweetened
+    expect(results[0].entity).toBe("fdc:202"); // Soy milk, original
+    expect(results[1].entity).toBe("fdc:203"); // Soy milk, plain
     expect(results[2].entity).toBe("fdc:201"); // Beverages, rice milk
+  });
+
+  it("ranks the searched fruit above prefix-only lookalikes (grape vs grapefruit)", async () => {
+    // `grape*` prefix-matches grapefruit and grape leaves too, and FDC floats
+    // them up. The head-phrase / whole-word tiers must put the actual grapes
+    // first: "Grapes, ..." (head is the query) > "Grape leaves, raw" / "Tomatoes,
+    // grape, raw" (grape is a whole word) > "Grapefruit, raw" (grape is a prefix).
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        foods: [
+          {
+            fdcId: 301,
+            description: "Grapefruit, raw",
+            dataType: "Foundation",
+            foodNutrients: [],
+          },
+          {
+            fdcId: 302,
+            description: "Grape leaves, raw",
+            dataType: "SR Legacy",
+            foodNutrients: [],
+          },
+          {
+            fdcId: 303,
+            description: "Grapes, red, seedless, raw",
+            dataType: "Foundation",
+            foodNutrients: [],
+          },
+          {
+            fdcId: 304,
+            description: "Tomatoes, grape, raw",
+            dataType: "Foundation",
+            foodNutrients: [],
+          },
+        ],
+      }),
+    } as Response);
+
+    const results = await searchFdc("grape", "KEY");
+    const order = results.map((r) => r.entity);
+
+    // The real grape leads; grapefruit (prefix-only) sinks below every
+    // whole-word "grape" match despite its tidy single-comma ", raw" name.
+    expect(order[0]).toBe("fdc:303"); // Grapes, red, seedless, raw
+    expect(order.indexOf("fdc:303")).toBeLessThan(order.indexOf("fdc:301"));
+    expect(order.indexOf("fdc:302")).toBeLessThan(order.indexOf("fdc:301"));
+    expect(order.indexOf("fdc:304")).toBeLessThan(order.indexOf("fdc:301")); // grape tomatoes (whole word) > grapefruit
+  });
+
+  it("drops packaged/processed rows (canned, soda) from the results", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        foods: [
+          {
+            fdcId: 601,
+            description: "Grapes, red, seedless, raw",
+            dataType: "Foundation",
+            foodNutrients: [],
+          },
+          {
+            fdcId: 602,
+            description: "Grapes, canned, thompson seedless, heavy syrup pack",
+            dataType: "SR Legacy",
+            foodNutrients: [],
+          },
+          {
+            fdcId: 603,
+            description: "Beverages, carbonated, grape soda",
+            dataType: "SR Legacy",
+            foodNutrients: [],
+          },
+        ],
+      }),
+    } as Response);
+
+    const ids = (await searchFdc("grape", "KEY")).map((r) => r.entity);
+
+    expect(ids).toEqual(["fdc:601"]); // only the raw grape survives
+  });
+
+  it("drops prepared-category rows (a Sweets confection) from the results", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        foods: [
+          {
+            fdcId: 701,
+            description: "Nuts, almonds, whole, raw",
+            dataType: "Foundation",
+            foodCategory: "Nut and Seed Products",
+            foodNutrients: [],
+          },
+          {
+            fdcId: 702,
+            description: "Candies, milk chocolate, with almonds",
+            dataType: "SR Legacy",
+            foodCategory: "Sweets",
+            foodNutrients: [],
+          },
+        ],
+      }),
+    } as Response);
+
+    const ids = (await searchFdc("almond", "KEY")).map((r) => r.entity);
+
+    expect(ids).toEqual(["fdc:701"]); // the candy is dropped by category
+  });
+
+  it("drops brand-specific SR Legacy rows from the results", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        foods: [
+          {
+            fdcId: 401,
+            description: "Grapes, red, seedless, raw",
+            dataType: "Foundation",
+            foodNutrients: [],
+          },
+          {
+            fdcId: 402,
+            description: "Grape leaves, raw",
+            dataType: "SR Legacy",
+            foodNutrients: [],
+          },
+          {
+            fdcId: 403,
+            description: "Beverages, OCEAN SPRAY, Cran Grape",
+            dataType: "SR Legacy",
+            foodNutrients: [],
+          },
+        ],
+      }),
+    } as Response);
+
+    const results = await searchFdc("grape", "KEY");
+    const ids = results.map((r) => r.entity);
+
+    // The generic grapes and grape leaves survive; the OCEAN SPRAY drink is gone.
+    expect(ids).toContain("fdc:401");
+    expect(ids).toContain("fdc:402");
+    expect(ids).not.toContain("fdc:403");
   });
 
   it("deduplicates the same food across datasets by ndbNumber despite differing descriptions", async () => {

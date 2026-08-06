@@ -319,6 +319,248 @@ export async function hydrateFdcFood(
 
 const FDC_BASE = "https://api.nal.usda.gov/fdc/v1/foods/search";
 
+// ---------------------------------------------------------------------------
+// Brand exclusion
+//
+// SR Legacy (a frozen, discontinued USDA dataset) bakes brand names directly
+// into otherwise-generic descriptions — "Grapefruit juice, white, bottled,
+// unsweetened, OCEAN SPRAY" — with NO structured brand field to filter on
+// (brandOwner / brandName / gtinUpc are all null on these records). USDA's
+// editorial convention renders those brands in ALL CAPS, so an all-caps token
+// is the only available signal. We drop such records so generic whole foods win
+// the search.
+//
+// Brands belong to the OFF barcode path, never to the USDA base-ingredient
+// search, so a branded record is ALWAYS dropped — even when the query names the
+// brand. (An earlier query-aware rescue leaked lookalikes: "apple" kept
+// APPLEBEE'S, "almond" kept ALMOND JOY, because a generic food word capitalised
+// inside a brand name matched the query.)
+//
+// Precision comes first — never drop a real food. Validated against the entire
+// 7,793-record SR Legacy corpus: 901 records dropped, 0 of them generic foods
+// (the sole raw casualty is "Kiwifruit, ZESPRI SunGold, raw", and generic kiwi
+// remains). Three guards keep it precise:
+//   1. a trigger needs >=3 letters, so 2-letter units and state codes never
+//      match ("US", "LB", and "Beef, short loin (NY strip steak), raw");
+//   2. generic all-caps acronyms are stoplisted (USDA commodity foods; DHA/ARA
+//      in infant formula; NFS/BBQ; capitalised stopwords);
+//   3. USDA's generic "assorted brands" composites name a brand as an example
+//      ("Cereals, farina, enriched, assorted brands including CREAM OF WHEAT")
+//      but are themselves generic — a small safelist keeps them. Trademarked
+//      products in their own right (Cream of Wheat, Cream of Rice) are dropped.
+// ---------------------------------------------------------------------------
+
+const BRAND_CAPS = /\b[A-Z][A-Z&'.\-]*[A-Z]\b/g;
+
+const GENERIC_CAPS_ACRONYMS = new Set([
+  "USDA",
+  "USA",
+  "DHA",
+  "ARA",
+  "NFS",
+  "NFSMI",
+  "BBQ",
+  "LGG",
+  "TLC",
+  "NOS",
+  "EPA",
+  "MSG",
+  "UHT",
+  "RTE",
+  "RTD",
+  "GMO",
+  "THE",
+  "AND",
+  "WITH",
+  "OVER",
+]);
+
+// USDA's generic "assorted brands" composites name a specific brand only as an
+// example ("...assorted brands including CREAM OF WHEAT") yet are themselves
+// generic, so keep them. Matched as a lowercased substring. Note this does NOT
+// safelist the trademarked products in their own right ("Cereals, CREAM OF
+// WHEAT, dry"), which are dropped like any other brand.
+const GENERIC_FOOD_SAFELIST = ["assorted brands"];
+
+// Trademarked products whose name is built entirely from otherwise-generic
+// words ("cream", "wheat"). The all-caps token check below can't tell these from
+// a real food, so drop them unconditionally. Matched as a lowercased substring,
+// after the safelist above (so the generic "assorted brands" farina that merely
+// names one is still kept).
+const TRADEMARK_DENYLIST = ["cream of wheat", "cream of rice"];
+
+/**
+ * True when an FDC description names a specific brand — an ALL-CAPS token that is
+ * not a generic acronym and not a safelisted generic food. Used to drop
+ * brand-specific SR Legacy records so generic whole foods win the search; brands
+ * belong to the OFF scan path. See the block comment above for the precision
+ * guards and the corpus validation.
+ */
+export function isBrandSpecific(description: string): boolean {
+  const lower = description.toLowerCase();
+  if (GENERIC_FOOD_SAFELIST.some((phrase) => lower.includes(phrase)))
+    return false;
+  if (TRADEMARK_DENYLIST.some((phrase) => lower.includes(phrase))) return true;
+
+  return (description.match(BRAND_CAPS) ?? []).some(
+    (token) =>
+      token.replace(/[^A-Z]/g, "").length >= 3 &&
+      !GENERIC_CAPS_ACRONYMS.has(token)
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Processed-product exclusion
+//
+// The USDA search is for un-barcoded BASE ingredients; a packaged/processed food
+// (canned grapes, grape soda, juice drink, fruit cocktail) carries a barcode and
+// belongs to the Open Food Facts scan path instead. Drop those so a food search
+// returns raw and minimally-processed base foods.
+//
+// The markers are packaging/processing states — NOT cooking states — so generic
+// cooked/roasted staples survive, and base foods that never carry "raw" (cheese,
+// oil, spices, flour) stay findable (that's why this is narrower than a raw-only
+// filter, which would drop those entirely). Two guards keep it precise:
+//   - a food described "raw" is always a base ingredient and is never dropped,
+//     even retail cuts sold frozen ("Lamb, … frozen, … raw");
+//   - "carbonated" (not "soda") marks fizzy drinks, so "baking soda" survives.
+// ---------------------------------------------------------------------------
+
+const PROCESSED_MARKERS =
+  /\b(canned|frozen|bottled|sweetened|syrup|drink|carbonated|concentrate|babyfood|cocktail|dehydrated|instant|ready-to-eat|juice)\b/i;
+
+/**
+ * True when an FDC description names a packaged/processed product (a barcode-
+ * bearing form handled by the OFF scan path) rather than a base ingredient.
+ * Foods described as "raw" are always treated as base ingredients. See the block
+ * comment above for the marker set and its guards.
+ */
+export function isProcessedProduct(description: string): boolean {
+  if (/\braw\b/.test(description.toLowerCase())) return false;
+  return PROCESSED_MARKERS.test(description);
+}
+
+// ---------------------------------------------------------------------------
+// Prepared-food exclusion
+//
+// Some prepared/composite foods carry no brand and no packaging marker yet are
+// plainly not base ingredients — "Candies, milk chocolate, with almonds",
+// "Cookies, …", "Potato salad, home-prepared". Two signals drop them:
+//
+// 1. foodCategory — USDA files each food under a structured category, so the
+//    categories that are wholly prepared are dropped outright. Beverages is NOT
+//    among them: generic coffee/tea/water are reference foods worth keeping, and
+//    the packaged drinks (soda, juice, ready-to-drink) already fall to the
+//    brand/marker filters.
+// 2. Composite-dish description markers — home-prepared dishes leak into base
+//    categories ("Potato salad" is filed under Vegetables), so catch them by
+//    description regardless of category.
+//
+// Two categories are mixed and split by the food's head word rather than dropped
+// wholesale:
+//   - "Sweets" holds confections (candies, chocolate, jams) AND single-ingredient
+//     pantry sweeteners (honey, sugar, cocoa, molasses, syrup); only the
+//     confections are dropped.
+//   - "Baked Products" holds bready staples (bread, croissant, bagel, tortilla,
+//     English muffin, biscuit) AND sweet treats (cake, cookies, doughnuts, pie);
+//     only the treats are dropped, so a reference food like a croissant stays.
+// Both keep their staples consistent with keeping oil, flour and spices.
+// ---------------------------------------------------------------------------
+
+const PREPARED_CATEGORIES = new Set([
+  "Soups, Sauces, and Gravies",
+  "Sausages and Luncheon Meats",
+  "Breakfast Cereals",
+  "Fast Foods",
+  "Restaurant Foods",
+  "Meals, Entrees, and Side Dishes",
+  "Snacks",
+  "Baby Foods",
+]);
+
+// Composite home dishes that leak into base categories (e.g. "Potato salad" is
+// filed under Vegetables). Matched by description regardless of category.
+// ("home recipe" catches e.g. "crab cakes, home recipe"; distinct from a bread's
+// "prepared from recipe", which is deliberately NOT a marker.)
+const PREPARED_DISH_MARKERS =
+  /\b(home[- ](?:prepared|recipe)|au gratin|scalloped)\b/i;
+// "salad" names a dish ("Potato salad") — but also a use for a base cooking oil
+// ("Oil, olive, salad or cooking"), which must NOT be dropped.
+const SALAD_DISH = /\bsalad\b/i;
+const SALAD_AS_OIL_USE =
+  /salad (?:or|and) cooking|cooking (?:or|and) salad|salad oil/i;
+
+// Head words of the single-ingredient sweeteners in the mixed "Sweets" category
+// that are base pantry staples, kept while the confections around them go.
+const SWEETENER_HEADS = new Set([
+  "honey",
+  "sugar",
+  "sugars",
+  "syrup",
+  "syrups",
+  "molasses",
+  "cocoa",
+  "sweeteners",
+]);
+
+// Head words of the bready staples in the mixed "Baked Products" category that
+// are reference foods, kept while the sweet treats (cake, cookies, doughnuts,
+// pie) are dropped. "english" catches "English muffins"; plain "muffins" (corn,
+// blueberry) are treats and stay out.
+const BAKED_STAPLE_HEADS = new Set([
+  "bread",
+  "breads",
+  "bagel",
+  "bagels",
+  "croissant",
+  "croissants",
+  "tortilla",
+  "tortillas",
+  "roll",
+  "rolls",
+  "bun",
+  "buns",
+  "biscuit",
+  "biscuits",
+  "pita",
+  "naan",
+  "english",
+]);
+
+/** The first alphanumeric word of a description, lowercased ("" if none). */
+function headWord(description: string): string {
+  return (
+    description
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter(Boolean)[0] ?? ""
+  );
+}
+
+/**
+ * True when an FDC record is a prepared/composite food rather than a base
+ * ingredient — by its foodCategory (wholly-prepared categories) or by a
+ * composite-dish marker in its description (a home-prepared dish filed under a
+ * base category, like "Potato salad"). The mixed "Sweets" and "Baked Products"
+ * categories keep their staples (sweeteners; bready reference foods) and drop
+ * the rest. See the block comment above.
+ */
+export function isPreparedProduct(
+  foodCategory: string | undefined,
+  description: string
+): boolean {
+  if (PREPARED_DISH_MARKERS.test(description)) return true;
+  if (SALAD_DISH.test(description) && !SALAD_AS_OIL_USE.test(description))
+    return true;
+  if (!foodCategory) return false;
+  if (PREPARED_CATEGORIES.has(foodCategory)) return true;
+  if (foodCategory === "Sweets")
+    return !SWEETENER_HEADS.has(headWord(description));
+  if (foodCategory === "Baked Products")
+    return !BAKED_STAPLE_HEADS.has(headWord(description));
+  return false;
+}
+
 /**
  * Turns a free-text query into an FDC prefix search. FDC matches whole words,
  * so a fragment like "bana" matches nothing on the small Foundation/SR Legacy
@@ -389,14 +631,6 @@ export async function searchFdc(
     }
   }
 
-  const uniqueFoods = Array.from(foodMap.values());
-
-  // FDC matches the wildcarded tokens with OR semantics, so "soy milk" also
-  // returns foods that match only one word — and FDC's own relevance can float
-  // one of those above the real thing (e.g. "Beverages, rice milk" outranking
-  // "Soy milk"). Re-rank so foods whose name contains EVERY query token come
-  // first, then apply the raw-food preference within each group. Array.sort is
-  // stable, so FDC's relevance order is preserved on ties.
   const queryTokens = query
     .trim()
     .toLowerCase()
@@ -404,17 +638,110 @@ export async function searchFdc(
     .map((t) => t.replace(/\*+$/, ""))
     .filter(Boolean);
 
-  // Every token prefix-matches some word in the name (mirrors the "*" search).
-  const matchesAllTokens = (desc: string): boolean => {
-    const words = desc
+  // Keep only un-barcoded base ingredients: drop brand-specific records
+  // ("… OCEAN SPRAY"), packaged/processed forms (canned, soda, juice drinks) and
+  // prepared/composite foods by category (candies, cookies, soups, beverages) —
+  // all of which belong to the OFF scan path. Raw foods are always base
+  // ingredients (see isProcessedProduct); Sweets keeps its base sweeteners (see
+  // isPreparedProduct).
+  const uniqueFoods = Array.from(foodMap.values()).filter(
+    (food) =>
+      !isBrandSpecific(food.description) &&
+      !isProcessedProduct(food.description) &&
+      !isPreparedProduct(food.foodCategory, food.description)
+  );
+
+  // FDC matches the wildcarded tokens with OR semantics AND prefix-matches, so
+  // "grape*" returns grapefruit, grape-nuts and grape soda, and "soy milk" also
+  // returns foods that match only one word ("Beverages, rice milk"). FDC's own
+  // relevance then floats these lookalikes above the real thing. Re-rank by how
+  // *exactly* the name matches the query — head-phrase, then whole-word, then
+  // mere prefix — then, within a tier, by how completely the query fills the
+  // head phrase (so a still-being-typed "grap" prefers "Grapes" over
+  // "Grapefruit"), then by the raw-food preference. Array.sort is stable, so
+  // FDC's relevance order is preserved on ties.
+
+  const wordsOf = (desc: string): string[] =>
+    desc
       .toLowerCase()
       .split(/[^a-z0-9]+/)
       .filter(Boolean);
+
+  // Loose singular/plural equality so the query word "grape" matches the food's
+  // (usually plural) head noun "grapes" — while a different word that merely
+  // shares the prefix, like "grapefruit" or "grape-nuts", does NOT. This is the
+  // distinction the wildcard search itself cannot draw.
+  const stem = (w: string): string => w.replace(/s$/, "");
+  const stemEqual = (a: string, b: string): boolean => stem(a) === stem(b);
+
+  // Weakest signal: every token prefix-matches some word (mirrors the "*"
+  // search). This is what lets grapefruit in for a "grape" query.
+  const matchesAllTokens = (desc: string): boolean => {
+    const words = wordsOf(desc);
     return queryTokens.every((t) => words.some((w) => w.startsWith(t)));
   };
 
-  // Raw-food preference: "Bananas, raw" (score 3) over "Bananas, overripe, raw"
-  // (score 2) over anything merely containing "raw" (1) over the rest (0).
+  // Stronger: every token equals some whole word (modulo plural) — "grape" is
+  // really present as a word, not just as the head of a longer one.
+  const matchesAllWholeWords = (desc: string): boolean => {
+    const words = wordsOf(desc);
+    return queryTokens.every((t) => words.some((w) => stemEqual(w, t)));
+  };
+
+  // Strongest: the head phrase (before the first comma) IS the query — every
+  // head word is a query token — so the food's name is exactly what was searched.
+  // Separates "Grapes, red, seedless, raw" (head "grapes") from "Grape leaves,
+  // raw" (head "grape leaves") and "Grapefruit, raw" (head "grapefruit").
+  const headIsQuery = (desc: string): boolean => {
+    const head = wordsOf(desc.split(",")[0] ?? "");
+    return (
+      head.length > 0 &&
+      head.every((w) => queryTokens.some((t) => stemEqual(w, t)))
+    );
+  };
+
+  // Structural relevance, strongest first: head-is-the-query (40) > whole-word
+  // match (20) > prefix-only match (10) > none. `headIsQuery` also requires the
+  // prefix match, so a "green grape" query can't head-match red grapes. Each
+  // tier's floor clears the one below plus the maximum rawScore (3), so a
+  // stronger match never loses to a weaker one on raw-ness alone.
+  const structuralScore = (desc: string): number => {
+    if (matchesAllTokens(desc) && headIsQuery(desc)) return 40;
+    if (matchesAllWholeWords(desc)) return 20;
+    if (matchesAllTokens(desc)) return 10;
+    return 0;
+  };
+
+  // Within a structural tier, prefer the food whose head phrase (before the
+  // first comma) is fully prefix-matched by the query and shortest. This is what
+  // orders results while the user is still mid-word: for "grap", stemEqual can't
+  // yet match "grapes", so every grape food collapses into the prefix tier — and
+  // this floats "Grapes, …" (head "grapes", 2 chars past the query) above
+  // "Grapefruit, …" (6 past) and "Grape leaves, …" (unmatched 2nd head word),
+  // which the raw-food comma preference would otherwise rank first. A larger
+  // value is better, matching the descending sort.
+  const HEAD_UNMATCHED = -1e6;
+  const headCompleteness = (desc: string): number => {
+    const head = wordsOf(desc.split(",")[0] ?? "");
+    if (head.length === 0) return HEAD_UNMATCHED;
+    const covered = head.every((w) => queryTokens.some((t) => w.startsWith(t)));
+    if (!covered) return HEAD_UNMATCHED;
+    const headChars = head.reduce((n, w) => n + w.length, 0);
+    const queryChars = queryTokens.reduce((n, t) => n + t.length, 0);
+    return -(headChars - queryChars);
+  };
+
+  // Base-ingredient preference: someone searching a food wants the raw base
+  // form, so raw ("… raw" anywhere in the name) outranks every processed form.
+  // This sits above head-completeness (but below the relevance tier, so an
+  // off-target raw food never beats an on-target one), making "raw" a first-
+  // class intent signal rather than a last-ditch tiebreak.
+  const isRaw = (desc: string): number =>
+    /\braw\b/.test(desc.toLowerCase()) ? 1 : 0;
+
+  // Simplicity tiebreak among raw foods: "Bananas, raw" (3) over "Bananas,
+  // overripe, raw" (2) over anything merely containing "raw" (1) over the rest
+  // (0) — orders variants once tier, raw-ness and head-completeness are equal.
   const rawScore = (desc: string): number => {
     const d = desc.toLowerCase().trim();
     if (d.endsWith(", raw")) {
@@ -424,12 +751,20 @@ export async function searchFdc(
     return /\braw\b/.test(d) ? 1 : 0;
   };
 
-  // All-tokens match dominates (weight 10 > max rawScore of 3), so a full-name
-  // match always outranks a partial one regardless of how "raw" it is.
-  const score = (desc: string): number =>
-    (matchesAllTokens(desc) ? 10 : 0) + rawScore(desc);
-
-  uniqueFoods.sort((a, b) => score(b.description) - score(a.description));
+  // Sort by relevance tier, then raw base-ingredient preference, then how
+  // completely the query fills the head phrase, then raw simplicity. Array.sort
+  // is stable, so FDC's relevance order breaks any remaining ties.
+  uniqueFoods.sort((a, b) => {
+    const tier =
+      structuralScore(b.description) - structuralScore(a.description);
+    if (tier !== 0) return tier;
+    const raw = isRaw(b.description) - isRaw(a.description);
+    if (raw !== 0) return raw;
+    const head =
+      headCompleteness(b.description) - headCompleteness(a.description);
+    if (head !== 0) return head;
+    return rawScore(b.description) - rawScore(a.description);
+  });
 
   return uniqueFoods.map(mapFdcFoodToPayload);
 }
