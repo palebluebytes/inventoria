@@ -32,18 +32,22 @@ describe("computeEnergyAndMacros — worked Example A (Active, Maintain)", () =>
     goal: "maintain",
   });
 
-  it("reproduces the worked figures (energy 2496, protein 112, fat 83, carbs 325)", () => {
+  it("reproduces the worked figures (energy 2496, protein 112, fat 83, carbs 325, fibre 35)", () => {
     expect(Math.round(result.energy)).toBe(2496);
     expect(Math.round(result.protein)).toBe(112);
     expect(Math.round(result.fat)).toBe(83);
     expect(Math.round(result.carbs)).toBe(325);
+    // Fibre scales with energy: 14 g/1000 kcal × 2496.375 ≈ 34.9 → 35 g, above the
+    // baked 28 g because this person's target exceeds the 2000-kcal reference.
+    expect(Math.round(result.fiber_content)).toBe(35);
   });
 
-  it("returns unrounded values (TDEE ×1.75, protein exactly 1.6 g/kg)", () => {
+  it("returns unrounded values (TDEE ×1.75, protein exactly 1.6 g/kg, fibre per-kcal)", () => {
     expect(result.energy).toBeCloseTo(2496.375, 3);
     expect(result.protein).toBe(112); // 1.6 × 70, exact
     expect(result.fat).toBeCloseTo(83.2125, 3); // 0.30 × 2496.375 / 9
     expect(result.carbs).toBeCloseTo(324.865625, 3);
+    expect(result.fiber_content).toBeCloseTo(34.94925, 5); // 14 × 2496.375 / 1000
   });
 
   it("stays above BMR, so the safety clamp does not bite", () => {
@@ -122,6 +126,40 @@ describe("computeEnergyAndMacros — BMR safety clamp (never below resting burn)
     expect(result.energy).toBe(2200);
     // Macros track the accepted (nudged) energy, not the pre-nudge TDEE.
     expect(result.fat).toBeCloseTo((0.3 * 2200) / 9, 6);
+    // Fibre scales off the same accepted energy: 14 g/1000 kcal × 2200 = 30.8 g.
+    expect(result.fiber_content).toBeCloseTo((14 * 2200) / 1000, 6);
+  });
+});
+
+describe("computeEnergyAndMacros — fibre (energy-scaled, ADR-0033 Amendment 2)", () => {
+  it("reproduces the baked 28 g exactly when the accepted energy is the 2000-kcal reference", () => {
+    // A person whose maintain target lands on 2000 kcal via a manual nudge — the
+    // personalized fibre must equal the baked default at the reference diet, so the
+    // new rule never disagrees with the old flat value at 2000 kcal.
+    const result = computeEnergyAndMacros({
+      sex: "female",
+      weightKg: 70,
+      heightCm: 170,
+      ageYr: 35,
+      activity: "active",
+      goal: "maintain",
+      energyOverrideKcal: 2000,
+    });
+    expect(result.fiber_content).toBe(28); // 14 × 2000 / 1000
+  });
+
+  it("floors fibre at the resting-burn diet, never below (clamp propagates)", () => {
+    // Same clamp case as the energy floor: sedentary + lose lands at BMR (1780), so
+    // fibre is 14 × 1780 / 1000 = 24.92 g, not a below-resting figure.
+    const result = computeEnergyAndMacros({
+      sex: "male",
+      weightKg: 80,
+      heightCm: 180,
+      ageYr: 30,
+      activity: "sedentary",
+      goal: "lose",
+    });
+    expect(result.fiber_content).toBeCloseTo((14 * 1780) / 1000, 6);
   });
 });
 

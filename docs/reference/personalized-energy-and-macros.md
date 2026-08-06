@@ -49,7 +49,7 @@ model (ADR-0031 §2). This doc is the derivation; ADR-0033 is the decision recor
 
 ## The composed formula
 
-The helper computes in four steps: BMR → TDEE → goal-adjusted energy (floored) → macros.
+The helper computes in five steps: BMR → TDEE → goal-adjusted energy (floored) → macros → fibre.
 
 ```
 1. BMR  (kcal/day, Mifflin-St Jeor):
@@ -69,10 +69,14 @@ The helper computes in four steps: BMR → TDEE → goal-adjusted energy (floore
      protein_g = 1.6 × weight_kg
      fat_g     = 0.30 × target / 9            (30 % of energy, Atwater fat = 9 kcal/g)
      carbs_g   = max(0, (target − 4·protein_g − 9·fat_g) / 4)
+
+5. Fibre (energy-scaled — the AI is a per-kcal rate, ADR-0033 Amendment 2):
+     fiber_g   = 14 × target / 1000          (14 g / 1000 kcal, IOM 2005 Total Fiber AI)
+                                             (= 28 g at the 2000-kcal reference)
 ```
 
 All body inputs are **metric** (kg, cm); the helper is metric-only (ADR-0033). Energy is kcal;
-macros are grams — the same canonical units the override blob stores.
+macros and fibre are grams — the same canonical units the override blob stores.
 
 ### Mifflin-St Jeor (step 1)
 
@@ -149,6 +153,20 @@ never suggests eating below resting burn. The UI shows a short note when the flo
   **clamped at ≥ 0**. At high protein + a deep deficit the remainder could theoretically go negative;
   the clamp prevents a nonsensical target and the UI surfaces a gentle note if it ever bites.
 
+### Fibre (step 5) — energy-scaled, not a fixed gram figure
+
+- **Fibre — 14 g / 1000 kcal of the (clamped) energy target.** The IOM 2005 Total Fiber **Adequate
+  Intake** is defined as a **per-kcal rate**, not an absolute gram amount — it is the fibre intake
+  found protective against coronary heart disease, expressed per 1000 kcal. Fibre has **no AMDR**, so
+  this rate _is_ its guideline. The baked default (`active-adult-macros.md`, 28 g) is nothing more
+  than this rate applied to the 2000-kcal reference diet (14 × 2 = 28). Since the calculator
+  personalizes the **energy** target, the honest application scales fibre by that same target rather
+  than freezing it at 28 g — otherwise a 2800-kcal user reaches toward only 28 g when the app's own
+  cited basis says ~39 g. It scales off the **clamped** energy, so it respects the resting-burn floor
+  and tracks the manual nudge, and it **reproduces 28 g exactly at 2000 kcal** so a user at the
+  reference diet is unchanged. This is why fibre joins `PERSONALIZED_TARGET_KEYS` (ADR-0033 Amendment
+  2); the twelve micronutrients have no energy-linked basis and stay baked-only.
+
 ---
 
 ## Worked examples (show your work)
@@ -162,7 +180,8 @@ target= 2496 × 1.00 (Maintain) = 2496 kcal   (> BMR, no clamp)
 protein = 1.6 × 70                = 112 g   (448 kcal)
 fat     = 0.30 × 2496 / 9         = 83 g    (749 kcal)
 carbs   = (2496 − 448 − 749) / 4  = 325 g   (1299 kcal)
-check: 448 + 749 + 1299 = 2496 kcal ✓
+fibre   = 14 × 2496 / 1000        = 35 g    (energy-scaled; > baked 28 g at this target)
+check: 448 + 749 + 1299 = 2496 kcal ✓   (fibre is not an energy contributor)
 ```
 
 **Example B — same person, goal = Lose (−20 %).**
@@ -172,6 +191,7 @@ target  = 2496 × 0.80 = 1997 kcal   (> BMR 1427, no clamp)
 protein = 1.6 × 70    = 112 g        (unchanged — the point of the g/kg anchor)
 fat     = 0.30 × 1997 / 9 = 67 g     (599 kcal)
 carbs   = (1997 − 448 − 599) / 4 = 238 g
+fibre   = 14 × 1997 / 1000 = 28 g    (this cut lands near the 2000-kcal reference)
 ```
 
 Protein holds at 112 g while calories drop ~500 and carbs absorb the deficit — the physiologically
@@ -193,6 +213,10 @@ correct behaviour a flat %-split could not produce.
   sourced, the exact percentages are ours.
 - **Protein 1.6 g/kg** is the Morton (2018) breakpoint inside the ISSN (2017) range — first-party
   from those papers. **Fat 30 %** is mid-AMDR (IOM 2005). **Atwater 4/4/9** factors are universal.
+- **Fibre 14 g/1000 kcal** is the IOM 2005 Total Fiber Adequate Intake — the same primary source and
+  arithmetic as the baked 28 g in `active-adult-macros.md`, only applied to the personalized energy
+  instead of the fixed 2000-kcal reference. Not a new figure; the per-kcal basis is the AI's own
+  definition, and it reproduces 28 g at 2000 kcal.
 - All predictive-equation estimates are approximations; ±10 % on a BMR is ±~150 kcal. The helper's
   output is a **starting point**, not a prescription — the UI says so, and the manual nudge exists
   for exactly this reason. Accuracy degrades in obesity (MSJ with actual weight remains the
@@ -230,6 +254,7 @@ const GOAL_FACTOR: Record<EnergyGoal, number> = {
 };
 const PROTEIN_G_PER_KG = 1.6; // Morton 2018 / ISSN 2017
 const FAT_ENERGY_FRACTION = 0.3; // mid-AMDR (IOM 2005)
+const FIBER_G_PER_1000_KCAL = 14; // IOM 2005 Total Fiber AI (= 28 g at 2000 kcal)
 
 export function mifflinStJeorBmr(
   sex: BiologicalSex,
@@ -241,7 +266,7 @@ export function mifflinStJeorBmr(
   return 10 * weightKg + 6.25 * heightCm - 5 * ageYr + s;
 }
 
-// Returns kcal + macro grams to write straight into the targets override blob.
+// Returns kcal + macro/fibre grams to write straight into the targets override blob.
 export function computeEnergyAndMacros(input: {
   sex: BiologicalSex;
   weightKg: number;
@@ -250,7 +275,13 @@ export function computeEnergyAndMacros(input: {
   activity: ActivityLevel;
   goal: EnergyGoal;
   energyOverrideKcal?: number; // the manual nudge, if the user adjusted it
-}): { energy: number; protein: number; fat: number; carbs: number } {
+}): {
+  energy: number;
+  protein: number;
+  fat: number;
+  carbs: number;
+  fiber_content: number;
+} {
   const bmr = mifflinStJeorBmr(
     input.sex,
     input.weightKg,
@@ -263,10 +294,12 @@ export function computeEnergyAndMacros(input: {
   const protein = PROTEIN_G_PER_KG * input.weightKg;
   const fat = (FAT_ENERGY_FRACTION * energy) / 9;
   const carbs = Math.max(0, (energy - 4 * protein - 9 * fat) / 4);
-  return { energy, protein, fat, carbs };
+  const fiber_content = (FIBER_G_PER_1000_KCAL * energy) / 1000; // per-kcal AI, floored energy
+  return { energy, protein, fat, carbs, fiber_content };
 }
 ```
 
-Note: the four numbers map to the reach-toward keys `energy` (kcal), `protein`, `fat`, `carbs`
-(grams). Fibre and the micronutrients are **not** set by the helper — they keep their baked
-defaults. See `active-adult-macros.md` and `fda-daily-values.md` for those.
+Note: the five numbers map to the reach-toward keys `energy` (kcal), `protein`, `fat`, `carbs`,
+`fiber_content` (grams). Fibre is energy-scaled off the same target (ADR-0033 Amendment 2); the
+twelve micronutrients are **not** set by the helper — they keep their baked defaults. See
+`active-adult-macros.md` and `fda-daily-values.md` for those.

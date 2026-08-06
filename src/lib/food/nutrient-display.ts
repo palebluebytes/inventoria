@@ -532,11 +532,23 @@ export interface DayRdaView {
 export function buildDayRdaView(
   breakdown: NutritionBreakdown,
   targets: Partial<Record<string, number>>,
-  decimals: number = FOOD_DISPLAY_DECIMALS,
-  gapLimit = 3,
-  selection?: string[],
-  limits: Partial<Record<string, number>> = {}
+  opts: {
+    /** Display precision; defaults to {@link FOOD_DISPLAY_DECIMALS}. */
+    decimals?: number;
+    /** Max present-nutrient gaps ranked in the strip (default 3). */
+    gapLimit?: number;
+    /** Visible meters the gaps strip ranks; omit → rank every targeted nutrient. */
+    selection?: string[];
+    /** Resolved stay-under caps for the Limits section (ADR-0032). */
+    limits?: Partial<Record<string, number>>;
+  } = {}
 ): DayRdaView {
+  const {
+    decimals = FOOD_DISPLAY_DECIMALS,
+    gapLimit = 3,
+    selection,
+    limits = {},
+  } = opts;
   const hasTarget = (key: string): boolean => {
     const t = targets[key];
     return typeof t === "number" && t > 0;

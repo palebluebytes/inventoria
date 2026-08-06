@@ -8,6 +8,8 @@
     type ActivityLevel,
     type BiologicalSex,
     type EnergyGoal,
+    type EnergyMacros,
+    type EnergyMacrosInput,
   } from "../../food/personalized-energy-macros";
   import {
     formatCalories,
@@ -34,19 +36,12 @@
     profile?: FoodProfile | null;
     /**
      * Called on Apply with the accepted targets (already rounded to the display
-     * precision the preview showed) and the profile to persist. The editor merges
-     * the four keys into `settings/food/targets`, auto-tracks the macros, and
-     * writes the profile — this sheet stays persistence-free beyond that call.
+     * precision the preview showed) and the profile to persist. The editor stores
+     * the four keys as the new *default* layer (`settings/food/calculated_targets`)
+     * and clears any override on them, auto-tracks the macros, and writes the
+     * profile — this sheet stays persistence-free beyond that call.
      */
-    onApply: (
-      targets: {
-        energy: number;
-        protein: number;
-        fat: number;
-        carbs: number;
-      },
-      profile: FoodProfile
-    ) => void;
+    onApply: (targets: EnergyMacros, profile: FoodProfile) => void;
     /** Forwarded to BottomSheet so the parent unmounts on any close. */
     onClose: () => void;
   } = $props();
@@ -119,29 +114,26 @@
   const bmr = $derived(
     valid ? mifflinStJeorBmr(sex!, weightN, heightN, ageN) : null
   );
-  // The computed set with no nudge — seeds the nudge field's default value.
-  const base = $derived(
+  // The shared math input — built once so the two computes below can't drift.
+  const metrics = $derived<EnergyMacrosInput | null>(
     valid
-      ? computeEnergyAndMacros({
+      ? {
           sex: sex!,
           weightKg: weightN,
           heightCm: heightN,
           ageYr: ageN,
           activity,
           goal,
-        })
+        }
       : null
   );
+  // The computed set with no nudge — seeds the nudge field's default value.
+  const base = $derived(metrics ? computeEnergyAndMacros(metrics) : null);
   // The live preview: the computed set with the nudge applied (floored at BMR).
   const result = $derived(
-    valid
+    metrics
       ? computeEnergyAndMacros({
-          sex: sex!,
-          weightKg: weightN,
-          heightCm: heightN,
-          ageYr: ageN,
-          activity,
-          goal,
+          ...metrics,
           energyOverrideKcal: nudgeKcal ?? undefined,
         })
       : null
@@ -180,6 +172,7 @@
         protein: roundFoodDisplay(result.protein, d),
         fat: roundFoodDisplay(result.fat, d),
         carbs: roundFoodDisplay(result.carbs, d),
+        fiber_content: roundFoodDisplay(result.fiber_content, d),
       },
       {
         sex,
@@ -334,6 +327,16 @@
             <span class="macro-val"
               >{formatNutrientValue(
                 result.carbs,
+                "g",
+                $nutritionDisplayDecimals
+              )}</span
+            ></span
+          >
+          <span class="macro" data-preview-fiber
+            ><span class="macro-label">Fibre</span>
+            <span class="macro-val"
+              >{formatNutrientValue(
+                result.fiber_content,
                 "g",
                 $nutritionDisplayDecimals
               )}</span

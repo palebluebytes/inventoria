@@ -23,6 +23,7 @@ import {
   saveSettings,
   saveFoodTargets,
   saveFoodLimits,
+  saveCalculatorPlan,
   nutritionDisplayDecimals,
 } from "../../src/lib/stores/settings.store";
 import { FOOD_DISPLAY_DECIMALS } from "../../src/lib/food/nutrition";
@@ -339,6 +340,86 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
     expect(get(settingsStore).food_limits).toEqual({});
   });
 
+  it("defaults food_calculated_targets to empty when the helper has never run", () => {
+    expect(get(settingsStore).food_calculated_targets).toEqual({});
+  });
+
+  it("folds a stored food/calculated_targets blob back to the default set", () => {
+    datomsWritable.set([
+      {
+        attribute: "settings/food/calculated_targets",
+        value: JSON.stringify({
+          energy: 2143.75,
+          protein: 112,
+          fat: 71.5,
+          carbs: 240,
+        }),
+        time: 1,
+      },
+    ]);
+    expect(get(settingsStore).food_calculated_targets).toEqual({
+      energy: 2143.75,
+      protein: 112,
+      fat: 71.5,
+      carbs: 240,
+    });
+  });
+
+  it("filters a food/calculated_targets blob to the five personalizable keys", () => {
+    // Only energy + the three macros + fibre are personalizable; a stray micro,
+    // limit, or non-numeric value must never reach the default resolver.
+    datomsWritable.set([
+      {
+        attribute: "settings/food/calculated_targets",
+        value: JSON.stringify({
+          energy: 2200,
+          protein: 130,
+          fiber_content: 40, // personalizable (energy-scaled) — kept
+          calcium: 1.5, // a micronutrient — dropped
+          sodium_content: 1.5, // a limit — dropped
+          fat: "lots", // non-numeric — dropped
+        }),
+        time: 1,
+      },
+    ]);
+    expect(get(settingsStore).food_calculated_targets).toEqual({
+      energy: 2200,
+      protein: 130,
+      fiber_content: 40,
+    });
+  });
+
+  it("tolerates a malformed food/calculated_targets value (folds to empty)", () => {
+    datomsWritable.set([
+      {
+        attribute: "settings/food/calculated_targets",
+        value: JSON.stringify("not-an-object"),
+        time: 1,
+      },
+    ]);
+    expect(get(settingsStore).food_calculated_targets).toEqual({});
+  });
+
+  it("keeps food/targets and food/calculated_targets as independent datoms", () => {
+    // The override layer and the default layer are separate blobs: applying the
+    // calculator writes the default set without disturbing an untouched override.
+    datomsWritable.set([
+      {
+        attribute: "settings/food/targets",
+        value: JSON.stringify({ calcium: 1.5 }),
+        time: 1,
+      },
+      {
+        attribute: "settings/food/calculated_targets",
+        value: JSON.stringify({ energy: 2200, protein: 130 }),
+        time: 2,
+      },
+    ]);
+    const s = get(settingsStore);
+    expect(s.food_targets).toEqual({ calcium: 1.5 });
+    expect(s.food_calculated_targets).toEqual({ energy: 2200, protein: 130 });
+  });
+
   it("reflects reactive updates to the underlying datoms", () => {
     datomsWritable.set([
       {
@@ -477,6 +558,58 @@ describe("saveSettings", () => {
     const datoms = appendMock.mock.calls[0][0] as any[];
     const attrs = datoms.map((d) => d.attribute);
     expect(attrs).not.toContain("settings/food/targets");
+    expect(attrs).not.toContain("settings/food/calculated_targets");
+  });
+});
+
+describe("saveCalculatorPlan", () => {
+  const plan = {
+    calculated_targets: {
+      energy: 2143.75,
+      protein: 112,
+      fat: 71.5,
+      carbs: 240,
+    },
+    targets: { calcium: 1200 },
+    profile: {
+      sex: "female" as const,
+      age: 35,
+      height_cm: 170,
+      weight_kg: 70,
+      activity: "active" as const,
+      goal: "maintain" as const,
+    },
+  };
+
+  it("writes calculated_targets, targets and profile as one atomic append", async () => {
+    await saveCalculatorPlan(plan);
+    // One append call — the whole plan commits or rolls back together (§5),
+    // even though each attribute is still its own datom.
+    expect(appendMock).toHaveBeenCalledTimes(1);
+    const datoms = appendMock.mock.calls[0][0] as any[];
+    const byAttr = Object.fromEntries(
+      datoms.map((d) => [d.attribute, d.value])
+    );
+    expect(datoms.every((d) => d.entity === "settings:global")).toBe(true);
+    expect(byAttr["settings/food/calculated_targets"]).toEqual(
+      plan.calculated_targets
+    );
+    expect(byAttr["settings/food/targets"]).toEqual(plan.targets);
+    expect(byAttr["settings/food/profile"]).toEqual(plan.profile);
+    // No visibility datom when the caller omits the list (nothing auto-tracked).
+    expect(byAttr["settings/food/visible_nutrients"]).toBeUndefined();
+  });
+
+  it("includes the visible_nutrients datom when auto-track added a macro", async () => {
+    await saveCalculatorPlan({
+      ...plan,
+      visible_nutrients: ["protein", "fat"],
+    });
+    const datoms = appendMock.mock.calls[0][0] as any[];
+    const visible = datoms.find(
+      (d) => d.attribute === "settings/food/visible_nutrients"
+    );
+    expect(visible?.value).toEqual(["protein", "fat"]);
   });
 });
 
