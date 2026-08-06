@@ -26,6 +26,7 @@
   import RecipeModal from "./food/RecipeModal.svelte";
   import InstantiationSheet from "./food/InstantiationSheet.svelte";
   import IngredientAmountSheet from "./food/IngredientAmountSheet.svelte";
+  import NovaExplainerSheet from "./food/NovaExplainerSheet.svelte";
   import FoodSettingsSheet from "./food/FoodSettingsSheet.svelte";
 
   import Card from "../ui/Card.svelte";
@@ -421,9 +422,13 @@
 {/if}
 
 {#if novaExplain}
-  <!-- Explainer seam (#92, ADR-0041 §6): ticket C mounts its NOVA explainer
-       BottomSheet here, driven by `novaExplain` and closing via
-       `novaExplain = null`. #91 owns only the tappable badge. -->
+  <!-- NOVA explainer (#92, ADR-0041 §6): the badge's tap-through sheet, opened
+       over the amount sheet the badge sits in, closed back to null. #91 owns the
+       tappable badge; this owns the sheet body. -->
+  <NovaExplainerSheet
+    verdict={novaExplain}
+    onClose={() => (novaExplain = null)}
+  />
 {/if}
 
 <!-- Selection action bar — only when foods are selected (long-press) -->

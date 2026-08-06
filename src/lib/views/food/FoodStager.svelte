@@ -72,6 +72,7 @@
   import ManualEntryFlow from "./ManualEntryFlow.svelte";
   import CommitButton from "./CommitButton.svelte";
   import NovaBadge from "./NovaBadge.svelte";
+  import NovaExplainerSheet from "./NovaExplainerSheet.svelte";
   import { deriveNovaVerdict, type NovaVerdict } from "../../food/nova-verdict";
 
   // The shared food-staging surface behind both the direct-log sheet and the
@@ -2057,9 +2058,13 @@
 {/if}
 
 {#if novaExplain}
-  <!-- Explainer seam (#92, ADR-0041 §6): ticket C mounts its NOVA explainer
-       BottomSheet here, driven by `novaExplain` (the tapped verdict) and closing
-       via `novaExplain = null`. #91 leaves the sheet body to #92. -->
+  <!-- NOVA explainer (#92, ADR-0041 §6): the tapped verdict's tap-through sheet,
+       mounted off `novaExplain` and closed back to null. #91 owns the tappable
+       badge; this owns the sheet body. -->
+  <NovaExplainerSheet
+    verdict={novaExplain}
+    onClose={() => (novaExplain = null)}
+  />
 {/if}
 
 <style>
