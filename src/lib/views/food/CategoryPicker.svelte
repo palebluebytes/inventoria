@@ -43,32 +43,45 @@
   // Seeds arrive from OFF's stored food/category, which is in the product's own
   // language — so verify each against the English taxonomy and drop the ones that
   // aren't English (isEnglishCategory === false). A category the taxonomy couldn't
-  // be asked about (null, offline) is kept, never erased. Only KEPT categories are
-  // remembered, so a dropped non-English one is re-checked if it's ever re-seeded;
-  // `inflight` just avoids launching a duplicate check for the same in-progress
-  // term. Picked suggestions are already English, so add() marks them kept.
+  // be asked about (null, offline) is kept, never erased.
+  //
+  // A chip is shown only once it has SETTLED — verified English, undetermined-keep,
+  // or a known English pick. One still being checked stays hidden behind a
+  // "Checking categories…" line until its verdict lands, so a non-English seed
+  // never flashes in and then vanishes. `verified` is the plain skip-set (only KEPT
+  // categories, so a dropped non-English one is re-checked if re-seeded); `checking`
+  // is the reactive set of keys with a check in flight, driving both the hide and
+  // the loading line. Picked suggestions are already English, so add() marks them.
   const verified = new Set<string>();
-  const inflight = new Set<string>();
+  let checking = $state<Set<string>>(new Set());
+  const shownChips = $derived(
+    value.filter((v) => !checking.has(v.toLowerCase()))
+  );
+
   async function verifySeeds(cats: string[]) {
-    cats.forEach((c) => inflight.add(c.toLowerCase()));
+    const started = new Set(checking);
+    cats.forEach((c) => started.add(c.toLowerCase()));
+    checking = started;
     const verdicts = await Promise.all(
       cats.map(async (c) => ({ c, english: await isEnglishCategory(c) }))
     );
     const drop = new Set<string>();
+    const done = new Set(checking);
     for (const { c, english } of verdicts) {
       const key = c.toLowerCase();
-      inflight.delete(key);
+      done.delete(key);
       if (english === false) drop.add(key);
       else verified.add(key); // English or undetermined → keep, don't re-check
     }
+    checking = done;
     if (drop.size) value = value.filter((v) => !drop.has(v.toLowerCase()));
   }
   $effect(() => {
-    const pending = value.filter((v) => {
+    const toCheck = value.filter((v) => {
       const key = v.toLowerCase();
-      return !verified.has(key) && !inflight.has(key);
+      return !verified.has(key) && !checking.has(key);
     });
-    if (pending.length) verifySeeds(pending);
+    if (toCheck.length) verifySeeds(toCheck);
   });
 
   function add(raw: string, known: boolean) {
@@ -86,8 +99,10 @@
     active = -1;
   }
 
-  function remove(i: number) {
-    value = value.filter((_, idx) => idx !== i);
+  function remove(cat: string) {
+    // Remove by value — categories are deduped, and the shown list is a filtered
+    // subset of `value`, so an index wouldn't line up.
+    value = value.filter((v) => v !== cat);
   }
 
   function onInput() {
@@ -142,19 +157,22 @@
 </script>
 
 <div class="catpick">
-  {#if value.length}
+  {#if shownChips.length}
     <ul class="catpick-chips">
-      {#each value as cat, i (cat)}
+      {#each shownChips as cat (cat)}
         <li class="catpick-chip">
           <span>{cat}</span>
           <button
             type="button"
-            onclick={() => remove(i)}
+            onclick={() => remove(cat)}
             aria-label={`Remove ${cat}`}>✕</button
           >
         </li>
       {/each}
     </ul>
+  {/if}
+  {#if checking.size}
+    <p class="catpick-checking" role="status">Checking categories…</p>
   {/if}
 
   <div class="catpick-field">
@@ -240,6 +258,11 @@
     color: var(--text-secondary);
     cursor: pointer;
     font: inherit;
+  }
+  .catpick-checking {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
   }
   .catpick-field {
     position: relative;
