@@ -171,6 +171,36 @@ describe("mapOffProductToPayload", () => {
     expect(attrs["food/assessment"]).toEqual({ nutri_score: "e" });
   });
 
+  it("captures the NOVA evidence trail forward-only (adapter v6, ADR-0041 §7)", () => {
+    // A product looked up after the widening carries OFF's nova_group_debug
+    // marker trail and the labelled nova_groups_tags alongside the numeric tier,
+    // so the explainer (#92) can show why OFF landed on the verdict.
+    const product: OFFProduct = {
+      ...nutella,
+      product: {
+        ...nutella.product,
+        nova_group_debug: "additives: en:e322 -> 4",
+        nova_groups_tags: ["4"],
+      },
+    };
+    const assessment = mapOffProductToPayload(product).attributes[
+      "food/assessment"
+    ] as Record<string, unknown>;
+    expect(assessment.nova_group).toBe(4);
+    expect(assessment.nova_group_debug).toBe("additives: en:e322 -> 4");
+    expect(assessment.nova_groups_tags).toEqual(["4"]);
+  });
+
+  it("omits the NOVA evidence fields when the product carries neither (forward-only)", () => {
+    // Older/sparse records: the tier still rides in nova_group, but the debug
+    // trail and tags are simply absent rather than emitted empty.
+    const assessment = mapOffProductToPayload(nutella).attributes[
+      "food/assessment"
+    ] as Record<string, unknown>;
+    expect(assessment).not.toHaveProperty("nova_group_debug");
+    expect(assessment).not.toHaveProperty("nova_groups_tags");
+  });
+
   it("surfaces OFF completeness as a read-through sibling, never a datom (ADR-0034 §1)", () => {
     // A product-level completeness rides the returned payload so the found-but-
     // poor predicate can read it — but it is NOT an attribute, so `ingestEntity`

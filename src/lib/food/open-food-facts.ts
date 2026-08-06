@@ -17,7 +17,11 @@ import { getSecret } from "../stores/secrets";
 //     twin/brand (brands) and the OFF-only food/assessment blob (ADR-0030 §4).
 // v5: emits a single food/portions entry from serving_quantity/serving_size
 //     when the product carries serving data (ADR-0030 §2/§5).
-const ADAPTER_VERSION = "5";
+// v6: assessment gains OFF's NOVA evidence trail — nova_group_debug (the marker
+//     trail behind the verdict) and the labelled nova_groups_tags — read back by
+//     the NOVA badge's `deriveNovaVerdict` selector (ADR-0041 §7). Forward-only:
+//     the tier itself already rides in `nova_group`, so older foods still rate.
+const ADAPTER_VERSION = "6";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -64,6 +68,20 @@ export interface OFFNutriments {
  */
 export interface FoodAssessment {
   nova_group?: number;
+  /**
+   * OFF's `nova_group_debug` — the human-readable trail of markers that drove the
+   * NOVA verdict (e.g. which additive or ingredient forced group 4). The
+   * evidence the explainer (#92) shows; the NOVA badge's `deriveNovaVerdict`
+   * reads it into a verdict's `evidence.debug`. Forward-only (adapter v6): older
+   * foods carry the tier without the trail (ADR-0041 §7).
+   */
+  nova_group_debug?: string;
+  /**
+   * OFF's labelled `nova_groups_tags` (e.g. `["4"]`, or `["unknown"]` when OFF
+   * could not classify) — belt-and-braces alongside the numeric `nova_group` for
+   * the known-vs-missing distinction (ADR-0041 §7). Forward-only (adapter v6).
+   */
+  nova_groups_tags?: string[];
   nutri_score?: string;
   eco_score?: string;
   nutrient_levels?: Record<string, string>;
@@ -105,6 +123,11 @@ export interface OFFProduct {
     categories?: string;
     ingredients_text?: string;
     nova_group?: number;
+    // OFF's NOVA evidence (adapter v6, ADR-0041 §7). `nova_group_debug` is the
+    // marker trail behind the verdict; `nova_groups_tags` its labelled form
+    // (`["4"]` / `["unknown"]`). Both optional — many products carry neither.
+    nova_group_debug?: string;
+    nova_groups_tags?: string[];
     nutriscore_grade?: string;
     ecoscore_grade?: string;
     nutrient_levels?: Record<string, string>;
@@ -240,6 +263,11 @@ export function mapOffProductToPayload(product: OFFProduct): OffPayload {
   // sub-field is dropped entirely rather than emitted empty.
   const assessment: FoodAssessment = {};
   if (p.nova_group != null) assessment.nova_group = p.nova_group;
+  // NOVA evidence trail (adapter v6, ADR-0041 §7) — forward-only: captured only
+  // for foods looked up after this change, so the tier reads even when absent.
+  if (p.nova_group_debug) assessment.nova_group_debug = p.nova_group_debug;
+  if (p.nova_groups_tags?.length)
+    assessment.nova_groups_tags = p.nova_groups_tags;
   if (p.nutriscore_grade) assessment.nutri_score = p.nutriscore_grade;
   if (p.ecoscore_grade) assessment.eco_score = p.ecoscore_grade;
   if (p.nutrient_levels && Object.keys(p.nutrient_levels).length > 0)
