@@ -22,6 +22,13 @@ function offFoodWithAssessment(assessment: FoodAssessment): EntityPayload {
   });
 }
 
+/** A USDA FDC food twin (`fdc:*` entity) carrying `food/name` + `food/category`. */
+function fdcFood(name: string, category?: string): EntityPayload {
+  const attributes: Record<string, unknown> = { "food/name": name };
+  if (category !== undefined) attributes["food/category"] = category;
+  return { entity: "fdc:173944", attributes };
+}
+
 describe("deriveNovaVerdict — OFF-authoritative tiers", () => {
   const tiers = [1, 2, 3, 4] as const;
   for (const tier of tiers) {
@@ -136,21 +143,166 @@ describe("deriveNovaVerdict — not rated", () => {
     expect(verdict).toEqual<NovaVerdict>({ state: "not-rated" });
   });
 
-  it("is not-rated for a USDA food (the `· est` inference is ticket #93, not here)", () => {
-    // The reserved `inferred` slot stays UNFILLED in this ticket: a banana reads
-    // not-rated until #93 lands the USDA category rule.
-    const verdict = deriveNovaVerdict({
-      entity: "fdc:173944",
-      attributes: {
-        "food/name": "Bananas, raw",
-        "food/category": "Fruits and Fruit Juices",
-      },
-    });
-    expect(verdict).toEqual<NovaVerdict>({ state: "not-rated" });
-  });
-
   it("is not-rated for an out-of-range NOVA value (guards a stray 0)", () => {
     const verdict = deriveNovaVerdict(offFoodWithAssessment({ nova_group: 0 }));
     expect(verdict).toEqual<NovaVerdict>({ state: "not-rated" });
+  });
+});
+
+describe("deriveNovaVerdict — inferred NOVA 1 · est (USDA whole foods, #93)", () => {
+  const INFERRED: NovaVerdict = {
+    state: "rated",
+    tier: 1,
+    source: "inferred",
+  };
+
+  // Allow-list categories → NOVA 1 · est. One representative food per group so a
+  // rename or a dropped entry breaks a test (§4a of docs/research/89-*).
+  const allowListed: ReadonlyArray<[string, string]> = [
+    ["Bananas, raw", "Fruits and Fruit Juices"],
+    ["Broccoli, raw", "Vegetables and Vegetable Products"],
+    ["Beans, black, mature seeds, raw", "Legumes and Legume Products"],
+    ["Almonds, raw", "Nut and Seed Products"],
+    ["Basil, fresh", "Spices and Herbs"],
+    ["Beef, ground, raw", "Beef Products"],
+    ["Chicken, broilers, meat only, raw", "Poultry Products"],
+    ["Lamb, ground, raw", "Lamb, Veal, and Game Products"],
+    ["Salmon, Atlantic, wild, raw", "Finfish and Shellfish Products"],
+    ["Pork, ground, raw", "Pork Products"],
+  ];
+  for (const [name, category] of allowListed) {
+    it(`infers NOVA 1 · est for ${category} (${name})`, () => {
+      expect(deriveNovaVerdict(fdcFood(name, category))).toEqual<NovaVerdict>(
+        INFERRED
+      );
+    });
+  }
+
+  it("infers NOVA 1 · est for a plain egg despite Dairy & Egg being excluded", () => {
+    // Targeted egg include: name matches /^eggs?,/i with no egg-specific deny.
+    expect(
+      deriveNovaVerdict(
+        fdcFood("Egg, whole, raw, fresh", "Dairy and Egg Products")
+      )
+    ).toEqual<NovaVerdict>(INFERRED);
+    expect(
+      deriveNovaVerdict(
+        fdcFood("Eggs, Grade A, large", "Dairy and Egg Products")
+      )
+    ).toEqual<NovaVerdict>(INFERRED);
+  });
+
+  it("still infers when the fdc food carries no category but is a plain egg", () => {
+    // Pre-v6 twin without food/category: the egg regex alone carries it.
+    expect(deriveNovaVerdict(fdcFood("Egg, whole, raw"))).toEqual<NovaVerdict>(
+      INFERRED
+    );
+  });
+
+  it("is not-rated for excluded categories (cheese, milk, dry pasta, soup)", () => {
+    expect(
+      deriveNovaVerdict(fdcFood("Cheese, cheddar", "Dairy and Egg Products"))
+    ).toEqual<NovaVerdict>({ state: "not-rated" });
+    expect(
+      deriveNovaVerdict(fdcFood("Milk, whole", "Dairy and Egg Products"))
+    ).toEqual<NovaVerdict>({ state: "not-rated" });
+    expect(
+      deriveNovaVerdict(fdcFood("Spaghetti, dry", "Cereal Grains and Pasta"))
+    ).toEqual<NovaVerdict>({ state: "not-rated" });
+    expect(
+      deriveNovaVerdict(
+        fdcFood("Soup, chicken noodle, canned", "Soups, Sauces, and Gravies")
+      )
+    ).toEqual<NovaVerdict>({ state: "not-rated" });
+  });
+
+  it("is not-rated for an allow-listed category with a deny-substring in the name", () => {
+    const denied: ReadonlyArray<[string, string]> = [
+      ["Pineapple, canned", "Fruits and Fruit Juices"],
+      ["Peaches, in syrup", "Fruits and Fruit Juices"],
+      ["Ham, cured", "Pork Products"],
+      ["Salmon, smoked", "Finfish and Shellfish Products"],
+      ["Cucumber, pickled", "Vegetables and Vegetable Products"],
+      ["Beef in gravy sauce", "Beef Products"],
+      ["Chicken, breaded", "Poultry Products"],
+      ["Onion rings, fried", "Vegetables and Vegetable Products"],
+      ["Corn, creamed", "Vegetables and Vegetable Products"],
+      ["Cheese-stuffed peppers", "Vegetables and Vegetable Products"],
+      ["Tofu, firm", "Legumes and Legume Products"],
+    ];
+    for (const [name, category] of denied) {
+      expect(deriveNovaVerdict(fdcFood(name, category))).toEqual<NovaVerdict>({
+        state: "not-rated",
+      });
+    }
+  });
+
+  it("is case-insensitive on the deny-substring guard", () => {
+    expect(
+      deriveNovaVerdict(fdcFood("Pineapple, CANNED", "Fruits and Fruit Juices"))
+    ).toEqual<NovaVerdict>({ state: "not-rated" });
+  });
+
+  it("matches the allow-list case-sensitively (a lowercased category falls through)", () => {
+    expect(
+      deriveNovaVerdict(fdcFood("Bananas, raw", "fruits and fruit juices"))
+    ).toEqual<NovaVerdict>({ state: "not-rated" });
+  });
+
+  it("is not-rated for an egg-adjacent product caught by the egg deny-substrings", () => {
+    // eggnog is not `eggs?,` headed; egg-substitute / egg roll / egg powder are.
+    expect(
+      deriveNovaVerdict(
+        fdcFood("Egg, substitute, liquid", "Dairy and Egg Products")
+      )
+    ).toEqual<NovaVerdict>({ state: "not-rated" });
+    expect(
+      deriveNovaVerdict(fdcFood("Egg roll, frozen", "Dairy and Egg Products"))
+    ).toEqual<NovaVerdict>({ state: "not-rated" });
+    expect(
+      deriveNovaVerdict(fdcFood("Egg, powder, whole", "Dairy and Egg Products"))
+    ).toEqual<NovaVerdict>({ state: "not-rated" });
+    expect(
+      deriveNovaVerdict(fdcFood("Eggnog", "Dairy and Egg Products"))
+    ).toEqual<NovaVerdict>({ state: "not-rated" });
+  });
+
+  it("is not-rated for a USDA food in no allow-listed category and not an egg", () => {
+    expect(
+      deriveNovaVerdict(fdcFood("Cornflakes", "Breakfast Cereals"))
+    ).toEqual<NovaVerdict>({ state: "not-rated" });
+    // A USDA food that carries no category at all and is not an egg.
+    expect(deriveNovaVerdict(fdcFood("Mystery dish"))).toEqual<NovaVerdict>({
+      state: "not-rated",
+    });
+  });
+
+  it("does not touch non-fdc foods (OFF verdict still wins; manual stays not-rated)", () => {
+    // An OFF food in an allow-listed-looking category is unaffected by the USDA
+    // branch — the OFF branch owns it, and here it has no rating so → not-rated.
+    expect(
+      deriveNovaVerdict(
+        offFood({
+          "food/name": "Bananas, raw",
+          "food/category": "Fruits and Fruit Juices",
+        })
+      )
+    ).toEqual<NovaVerdict>({ state: "not-rated" });
+    // An OFF food that IS rated keeps its authoritative off verdict — the USDA
+    // inference never overrides it (OFF branch runs first).
+    expect(
+      deriveNovaVerdict(
+        offFood({
+          "food/name": "Bananas, raw",
+          "food/category": "Fruits and Fruit Juices",
+          "food/assessment": { nova_group: 4 } as FoodAssessment,
+        })
+      )
+    ).toEqual<NovaVerdict>({
+      state: "rated",
+      tier: 4,
+      source: "off",
+      evidence: {},
+    });
   });
 });
