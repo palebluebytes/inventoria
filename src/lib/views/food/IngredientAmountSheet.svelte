@@ -1,7 +1,9 @@
 <script lang="ts">
   import type { NutritionInfo, Portion } from "../../food/nutrition";
+  import type { NovaVerdict } from "../../food/nova-verdict";
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import FoodAmountPanel from "./FoodAmountPanel.svelte";
+  import NovaBadge from "./NovaBadge.svelte";
   import CommitButton from "./CommitButton.svelte";
 
   // Edits a single food line's gram amount in a small sheet raised over the
@@ -22,6 +24,8 @@
     amount,
     portions = [],
     panel,
+    verdict,
+    onExplainNova,
     onCommit,
     onClose,
   }: {
@@ -34,6 +38,12 @@
      *  sheet shows the basis caption + macro preview + full breakdown scaled to
      *  the working amount; omit it to render the plain amount picker. */
     panel?: NutritionInfo;
+    /** The food's NOVA processing verdict (ADR-0041 §5), read back off its twin
+     *  by the caller. Renders the word-first badge at the head of the detail; omit
+     *  it (a caller that hasn't resolved a twin) to hide the badge. */
+    verdict?: NovaVerdict;
+    /** Tap-through on the NOVA badge — the explainer handoff seam (#92). */
+    onExplainNova?: (verdict: NovaVerdict) => void;
     onCommit: (amount: number) => void;
     onClose: () => void;
   } = $props();
@@ -52,9 +62,25 @@
 </script>
 
 <BottomSheet isOpen title={name} class="amount-sheet" elevated {onClose}>
+  {#if verdict}
+    <div class="nova-row">
+      <NovaBadge
+        {verdict}
+        onExplain={onExplainNova ? () => onExplainNova(verdict) : undefined}
+      />
+    </div>
+  {/if}
   <FoodAmountPanel {panel} {portions} bind:grams={value} />
 
   {#snippet footer()}
     <CommitButton id="amount-done-btn" onclick={done}>Done</CommitButton>
   {/snippet}
 </BottomSheet>
+
+<style>
+  /* The NOVA badge heads the food detail, above the amount body (ADR-0041 §5). */
+  .nova-row {
+    display: flex;
+    margin-bottom: var(--space-s);
+  }
+</style>

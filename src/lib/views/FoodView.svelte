@@ -20,6 +20,7 @@
     type NutritionInfo,
     type Portion,
   } from "../food/nutrition";
+  import { deriveNovaVerdict, type NovaVerdict } from "../food/nova-verdict";
   import DailyDashboard from "./food/DailyDashboard.svelte";
   import LogFoodSheet from "./food/LogFoodSheet.svelte";
   import RecipeModal from "./food/RecipeModal.svelte";
@@ -89,7 +90,13 @@
     grams: number;
     panel?: NutritionInfo;
     portions: Portion[];
+    verdict?: NovaVerdict;
   } | null>(null);
+
+  // Explainer handoff seam (#92, ADR-0041 §6): tapping the food-detail badge parks
+  // its verdict here for the explainer sheet (ticket C) to mount off. #91 owns
+  // only the tappable badge.
+  let novaExplain = $state<NovaVerdict | null>(null);
 
   const entityName = "Food";
 
@@ -166,6 +173,9 @@
         grams: openGrams,
         panel,
         portions,
+        // The NOVA processing verdict, read back off the resolved twin (ADR-0041
+        // §4/§5). A twin-less event has no assessment to read, so no badge.
+        verdict: twin ? deriveNovaVerdict(twin) : undefined,
       };
       return;
     }
@@ -403,9 +413,17 @@
     amount={ae.grams}
     panel={ae.panel}
     portions={ae.portions}
+    verdict={ae.verdict}
+    onExplainNova={(v) => (novaExplain = v)}
     onCommit={(grams) => changeLoggedFoodAmount(ae.event, grams)}
     onClose={() => (amountEdit = null)}
   />
+{/if}
+
+{#if novaExplain}
+  <!-- Explainer seam (#92, ADR-0041 §6): ticket C mounts its NOVA explainer
+       BottomSheet here, driven by `novaExplain` and closing via
+       `novaExplain = null`. #91 owns only the tappable badge. -->
 {/if}
 
 <!-- Selection action bar — only when foods are selected (long-press) -->

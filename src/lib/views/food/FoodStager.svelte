@@ -71,6 +71,8 @@
   import FoodAmountPanel from "./FoodAmountPanel.svelte";
   import ManualEntryFlow from "./ManualEntryFlow.svelte";
   import CommitButton from "./CommitButton.svelte";
+  import NovaBadge from "./NovaBadge.svelte";
+  import { deriveNovaVerdict, type NovaVerdict } from "../../food/nova-verdict";
 
   // The shared food-staging surface behind both the direct-log sheet and the
   // add-ingredient sheet (issue #16). It owns the Search / Scan / Custom method
@@ -367,6 +369,22 @@
     if (!attrs?.["food/label_capture"]) return null;
     return attrs["twin/raw_provenance"] ? "edited" : "your";
   });
+
+  // The staged food's NOVA processing verdict (ADR-0041 §4/§5), read back off its
+  // captured `food/assessment` at render time — never a written attribute. Drives
+  // the word-first badge beside the origin badge; `not-rated` for a blank/non-OFF
+  // food, so a badge is always shown.
+  let stagedNova = $derived<NovaVerdict | null>(
+    staged ? deriveNovaVerdict(staged.payload) : null
+  );
+
+  // Explainer handoff seam (#92): tapping a badge parks its verdict here; the
+  // explainer sheet (ticket C) mounts off this state and clears it on close. #91
+  // owns only the tappable badge — the sheet contents are #92's.
+  let novaExplain = $state<NovaVerdict | null>(null);
+  function explainNova(v: NovaVerdict) {
+    novaExplain = v;
+  }
 
   // Reason-specific copy shown at the top of the Custom form per door (§1).
   const CAPTURE_COPY: Record<CaptureReason, string> = {
@@ -1352,6 +1370,15 @@
                         >
                       </button>
                     {/if}
+                    <!-- NOVA processing badge (ADR-0041 §5): beside the origin
+                    badge at log-time. Always present (even `not rated`); tapping
+                    hands its verdict to the explainer seam (#92). -->
+                    {#if stagedNova}
+                      <NovaBadge
+                        verdict={stagedNova}
+                        onExplain={() => explainNova(stagedNova)}
+                      />
+                    {/if}
                   </div>
                   {#if nudge}
                     <!-- Found-but-poor nudge (§1): soft, dismissible, never blocks logging
@@ -2027,6 +2054,12 @@
     startIndex={refReaderIndex}
     onClose={() => (refReaderIndex = null)}
   />
+{/if}
+
+{#if novaExplain}
+  <!-- Explainer seam (#92, ADR-0041 §6): ticket C mounts its NOVA explainer
+       BottomSheet here, driven by `novaExplain` (the tapped verdict) and closing
+       via `novaExplain = null`. #91 leaves the sheet body to #92. -->
 {/if}
 
 <style>
