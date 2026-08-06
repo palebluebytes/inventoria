@@ -478,12 +478,18 @@ const PREPARED_CATEGORIES = new Set([
   "Baby Foods",
 ]);
 
-// Composite home dishes that leak into base categories (e.g. "Potato salad" is
-// filed under Vegetables). Matched by description regardless of category.
-// ("home recipe" catches e.g. "crab cakes, home recipe"; distinct from a bread's
-// "prepared from recipe", which is deliberately NOT a marker.)
+// Composite/prepared dishes that leak into base categories (e.g. "Potato salad"
+// under Vegetables, "Chicken … cooked, fried, flour" under Poultry). Matched by
+// description regardless of category. The breaded/battered/deep-fried markers
+// catch fried DISHES (breaded fried chicken, french fries, breaded fish) while
+// leaving simple cooked preparations alone — a plain fried egg, pan-fried meat
+// or stir-fried mushroom is a reference food like a scrambled egg or a roast, so
+// bare "fried" is NOT a marker; the flour/batter/breading coating is the signal
+// (see the fried+flour rule in isPreparedProduct). No ", raw" food carries any
+// of these words. ("home recipe" catches "crab cakes, home recipe"; distinct
+// from a bread's "prepared from recipe", which is deliberately NOT a marker.)
 const PREPARED_DISH_MARKERS =
-  /\b(home[- ](?:prepared|recipe)|au gratin|scalloped)\b/i;
+  /\b(home[- ](?:prepared|recipe)|au gratin|scalloped|breaded|breading|batter|french[- ]fried)\b/i;
 // "salad" names a dish ("Potato salad") — but also a use for a base cooking oil
 // ("Oil, olive, salad or cooking"), which must NOT be dropped.
 const SALAD_DISH = /\bsalad\b/i;
@@ -550,6 +556,13 @@ export function isPreparedProduct(
   description: string
 ): boolean {
   if (PREPARED_DISH_MARKERS.test(description)) return true;
+  // Flour-battered deep-fried dishes ("Chicken … cooked, fried, flour"). Needs
+  // both words, so a plain fried egg is kept and plain flour is not touched.
+  if (
+    /\bfried\b/.test(description.toLowerCase()) &&
+    /\bflour\b/.test(description.toLowerCase())
+  )
+    return true;
   if (SALAD_DISH.test(description) && !SALAD_AS_OIL_USE.test(description))
     return true;
   if (!foodCategory) return false;

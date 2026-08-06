@@ -540,6 +540,40 @@ describe("isPreparedProduct", () => {
     ).toBe(true);
   });
 
+  it("drops breaded/battered fried dishes but keeps simple cooked foods", () => {
+    // Breaded fried chicken ("cooked, fried, flour") only matched a "flour"
+    // search via its coating — a dish. French fries and breaded fish likewise.
+    expect(
+      isPreparedProduct(
+        "Poultry Products",
+        "Chicken, broilers or fryers, meat and skin, cooked, fried, flour"
+      )
+    ).toBe(true);
+    expect(
+      isPreparedProduct(
+        "Vegetables and Vegetable Products",
+        "Potatoes, french fried, all types, salt added in processing"
+      )
+    ).toBe(true);
+    expect(
+      isPreparedProduct(
+        "Finfish and Shellfish Products",
+        "Fish, fried, breaded"
+      )
+    ).toBe(true);
+    // Simple cooked preparations stay — a plain fried egg is a reference food
+    // like a scrambled egg, and a roast/pan-fried meat like a roast.
+    expect(
+      isPreparedProduct("Dairy and Egg Products", "Egg, whole, cooked, fried")
+    ).toBe(false);
+    expect(
+      isPreparedProduct(
+        "Poultry Products",
+        "Chicken, broilers or fryers, breast, meat only, cooked, roasted"
+      )
+    ).toBe(false);
+  });
+
   it("keeps a base cooking oil that uses 'salad' as a descriptor", () => {
     // "salad or cooking" names a base oil, not a salad dish.
     expect(
