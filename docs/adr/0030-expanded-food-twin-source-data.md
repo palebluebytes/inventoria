@@ -132,6 +132,11 @@ does **not** broaden the dataset to Branded foods. OFF needs no second call: its
 single product response already carries `serving_quantity`, the assessments, and
 everything else, mapped at lookup time.
 
+> **Amendment (2026-08-07):** Search is no longer otherwise "unchanged." It now
+> filters (dropping brand-specific, packaged, and composite-dish records), ranks
+> (raw base ingredients first), and query-weights the same Foundation + SR Legacy
+> results — see **ADR-0042**. The dataset scope described here is unchanged.
+
 Both adapters bump their `ADAPTER_VERSION` (the mapper-version marker), since the
 FDC → panel/twin and OFF → panel/twin normalisations now emit new keys.
 

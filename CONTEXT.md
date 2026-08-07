@@ -20,6 +20,22 @@ _Avoid_: View, read model, materialized view, query result
 A virtual representation of a physical or distinct external item, tracked via static or slowly-changing attributes derived from external databases (e.g. Open Food Facts for food, TMDB for media).
 _Avoid_: Product, item, asset
 
+**Reference food**:
+A generic, non-branded, standardised food entry — what the USDA FoodData Central search (Foundation + SR Legacy) returns and is _for_. Includes both raw whole foods and generic prepared staples (coffee, croissant, cheddar). This is the set the food search keeps; Brand-specific foods, packaged products, and Composite dishes are excluded from it and reached instead via the Open Food Facts barcode path (ADR-0034). See ADR-0042.
+_Avoid_: Generic food, USDA food, ingredient (when a prepared reference item is meant)
+
+**Base ingredient**:
+A raw or minimally-processed single whole food (an apple, raw spinach, dry rice) — a _subset_ of Reference food. Base ingredients rank first in the food search (raw-forward ordering). See ADR-0042.
+_Avoid_: Whole food, raw food (as a category name), ingredient
+
+**Composite dish**:
+A multi-ingredient, home-prepared, or battered/deep-fried prepared food (potato salad, breaded fried chicken, casseroles). Not a Reference food: it is dropped from the food search, and is instead logged from its Base ingredients or captured via the barcode path. See ADR-0042.
+_Avoid_: Prepared dish, meal, dish, recipe (a Recipe Twin is the app's own composite, distinct from a USDA-source dish)
+
+**Brand-specific food**:
+A food record naming a specific commercial brand (OCEAN SPRAY, GERBER, Grape-Nuts). Brand-specific foods belong to the barcode path (scan the product against Open Food Facts, ADR-0034) and are always dropped from the USDA reference-food search, even when the query names the brand. See ADR-0042.
+_Avoid_: Branded product (when the `twin/brand` attribute is meant), product
+
 **Habit Lineage**:
 A conceptual continuous habit that spans multiple immutable Habit Blueprints linked together chronologically.
 _Avoid_: Habit history, habit chain

@@ -20,7 +20,8 @@ import { buildRawProvenance } from "./provenance";
 //     food/scientific_name (scientificName) captured at search-map time (ADR-0030).
 // v7: hydrateFdcFood maps the /food/{id} detail record's foodPortions[] ->
 //     food/portions and refreshes twin/raw_provenance with the fuller record
-//     (ADR-0030 §5). Search itself is unchanged (Foundation + SR Legacy).
+//     (ADR-0030 §5). The search dataset stays Foundation + SR Legacy; its
+//     filtering, ranking and query-weighting are ADR-0042.
 const ADAPTER_VERSION = "7";
 const FDC_FOOD_BASE = "https://api.nal.usda.gov/fdc/v1/food";
 
