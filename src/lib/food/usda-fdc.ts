@@ -575,17 +575,32 @@ export function isPreparedProduct(
 }
 
 /**
- * Turns a free-text query into an FDC prefix search. FDC matches whole words,
- * so a fragment like "bana" matches nothing on the small Foundation/SR Legacy
- * datasets; appending a Lucene "*" wildcard to each token makes it prefix-match
- * ("bana" -> "bana*"), so results appear while the user is still typing.
+ * Builds the FDC Lucene query for a free-text search. Two parts:
+ *
+ *  1. A wildcard prefix on each token ("bana" -> "bana*"). FDC matches whole
+ *     words, so a fragment matches nothing on the small Foundation/SR Legacy
+ *     datasets without the "*"; this makes results appear while typing.
+ *
+ *  2. A heavy boost on foods whose NAME starts with the query. A broad short
+ *     prefix like "gra*" matches ~1000 foods (grain, grass-fed, granny, grape),
+ *     and FDC scores every wildcard hit identically, returning them in a fixed
+ *     order that buries the obvious "Grapes" ~400 deep — past the fetched page.
+ *     `lowercaseDescription.keyword` is the NON-tokenised description field, so
+ *     `lowercaseDescription.keyword:gra*` is a true starts-with; boosting it
+ *     floats the name-leading foods ("Grapes", "Grains") to the top of the very
+ *     first page while the wildcard clause preserves full coverage.
  */
-function toPrefixQuery(query: string): string {
-  return query
+function toFdcQuery(query: string): string {
+  const tokens = query
     .trim()
     .split(/\s+/)
-    .map((token) => (token.endsWith("*") ? token : `${token}*`))
-    .join(" ");
+    .filter(Boolean)
+    .map((token) => (token.endsWith("*") ? token : `${token}*`));
+  const wildcard = tokens.join(" ");
+  // Boost on the first token's prefix — for USDA's "Food, qualifier" naming the
+  // food name leads the description, so this rewards typing the food itself.
+  const headPrefix = tokens[0] ?? "";
+  return `${wildcard} lowercaseDescription.keyword:${headPrefix}^500`;
 }
 
 /**
@@ -602,7 +617,7 @@ export async function searchFdc(
   if (!apiKey) {
     throw new Error("USDA API Key is not configured.");
   }
-  const search = encodeURIComponent(toPrefixQuery(query));
+  const search = encodeURIComponent(toFdcQuery(query));
   const url = `${FDC_BASE}?query=${search}&dataType=Foundation,SR%20Legacy&api_key=${apiKey}`;
   const res = await fetch(url);
   // A failed request (bad/expired key -> 403, exhausted quota -> 429, outage ->

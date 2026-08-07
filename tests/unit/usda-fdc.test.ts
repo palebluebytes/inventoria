@@ -666,13 +666,14 @@ describe("searchFdc", () => {
 
   it("builds the correct USDA FDC search URL with a wildcard query", async () => {
     // FDC matches whole words on the small Foundation/SR Legacy datasets, so the
-    // query is prefix-wildcarded (banana -> banana*) to match while typing.
+    // query is prefix-wildcarded (banana -> banana*) to match while typing, plus
+    // a lowercaseDescription.keyword boost that floats name-leading foods first.
     const fetchSpy = mockFetchOk();
 
     await searchFdc("banana", "TEST_KEY");
 
     expect(fetchSpy).toHaveBeenCalledWith(
-      "https://api.nal.usda.gov/fdc/v1/foods/search?query=banana*&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
+      "https://api.nal.usda.gov/fdc/v1/foods/search?query=banana*%20lowercaseDescription.keyword%3Abanana*%5E500&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
     );
   });
 
@@ -681,8 +682,9 @@ describe("searchFdc", () => {
 
     await searchFdc("  greek yog  ", "TEST_KEY");
 
+    // Every token is wildcarded; the head boost uses the first token's prefix.
     expect(fetchSpy).toHaveBeenCalledWith(
-      "https://api.nal.usda.gov/fdc/v1/foods/search?query=greek*%20yog*&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
+      "https://api.nal.usda.gov/fdc/v1/foods/search?query=greek*%20yog*%20lowercaseDescription.keyword%3Agreek*%5E500&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
     );
   });
 
@@ -692,7 +694,7 @@ describe("searchFdc", () => {
     await searchFdc("bana*", "TEST_KEY");
 
     expect(fetchSpy).toHaveBeenCalledWith(
-      "https://api.nal.usda.gov/fdc/v1/foods/search?query=bana*&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
+      "https://api.nal.usda.gov/fdc/v1/foods/search?query=bana*%20lowercaseDescription.keyword%3Abana*%5E500&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
     );
   });
 
