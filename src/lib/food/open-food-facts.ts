@@ -21,7 +21,11 @@ import { getSecret } from "../stores/secrets";
 //     trail behind the verdict) and the labelled nova_groups_tags — read back by
 //     the NOVA badge's `deriveNovaVerdict` selector (ADR-0041 §7). Forward-only:
 //     the tier itself already rides in `nova_group`, so older foods still rate.
-const ADAPTER_VERSION = "6";
+// v7: assessment gains OFF's traces_tags (cross-contamination "may contain"),
+//     read back by `deriveAllergenVerdict`'s May-contain line (ADR-0043 §6).
+//     Forward-only: older foods simply lack that source; Contains/Free-from
+//     still read from their already-captured allergens_tags/labels_tags.
+const ADAPTER_VERSION = "7";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -86,6 +90,14 @@ export interface FoodAssessment {
   eco_score?: string;
   nutrient_levels?: Record<string, string>;
   allergens?: string[];
+  /**
+   * OFF's `traces_tags` — cross-contamination "may contain" allergens, a list
+   * DISTINCT from `allergens` (present ingredients). Read back by
+   * `deriveAllergenVerdict`'s May-contain line (ADR-0043 §6). Forward-only
+   * (adapter v7): captured only for foods looked up after the widening, so an
+   * older food simply has no May-contain source. No selector depends on it.
+   */
+  traces?: string[];
   additives?: string[];
   labels?: string[];
 }
@@ -132,6 +144,9 @@ export interface OFFProduct {
     ecoscore_grade?: string;
     nutrient_levels?: Record<string, string>;
     allergens_tags?: string[];
+    // OFF's "may contain" / cross-contamination allergens (adapter v7,
+    // ADR-0043 §6) — a field DISTINCT from `allergens_tags` (present allergens).
+    traces_tags?: string[];
     additives_tags?: string[];
     labels_tags?: string[];
   };
@@ -273,6 +288,9 @@ export function mapOffProductToPayload(product: OFFProduct): OffPayload {
   if (p.nutrient_levels && Object.keys(p.nutrient_levels).length > 0)
     assessment.nutrient_levels = p.nutrient_levels;
   if (p.allergens_tags?.length) assessment.allergens = p.allergens_tags;
+  // May-contain / cross-contamination allergens (adapter v7, ADR-0043 §6) —
+  // forward-only: only foods captured after this change carry the source.
+  if (p.traces_tags?.length) assessment.traces = p.traces_tags;
   if (p.additives_tags?.length) assessment.additives = p.additives_tags;
   if (p.labels_tags?.length) assessment.labels = p.labels_tags;
   if (Object.keys(assessment).length > 0)

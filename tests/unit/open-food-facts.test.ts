@@ -152,6 +152,32 @@ describe("mapOffProductToPayload", () => {
     });
   });
 
+  it("folds traces_tags into the assessment blob (adapter v7, ADR-0043 §6)", () => {
+    // Forward-only May-contain source, DISTINCT from allergens_tags. Present only
+    // when the product carries it; older foods simply lack the field.
+    const product: OFFProduct = {
+      ...nutella,
+      product: { ...nutella.product, traces_tags: ["en:peanuts", "en:eggs"] },
+    };
+    const assessment = mapOffProductToPayload(product).attributes[
+      "food/assessment"
+    ] as { traces?: string[] };
+    expect(assessment.traces).toEqual(["en:peanuts", "en:eggs"]);
+  });
+
+  it("omits traces from the assessment when traces_tags is absent or empty", () => {
+    // The Nutella fixture carries no traces_tags → no traces key emitted.
+    const bare = mapOffProductToPayload(nutella).attributes["food/assessment"];
+    expect(bare).not.toHaveProperty("traces");
+    const emptied: OFFProduct = {
+      ...nutella,
+      product: { ...nutella.product, traces_tags: [] },
+    };
+    expect(
+      mapOffProductToPayload(emptied).attributes["food/assessment"]
+    ).not.toHaveProperty("traces");
+  });
+
   it("includes only the assessment sub-fields the product carries", () => {
     // A product with just a Nutri-Score emits an assessment holding that one
     // key — empty/absent signals are omitted, not zeroed.
