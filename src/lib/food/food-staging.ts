@@ -22,6 +22,14 @@ export interface LabelCaptureSeed {
    */
   category?: string;
   /**
+   * Canonical OFF ingredients (`food/ingredients_text`) as read from OFF/the twin
+   * or corrected on the form — true read-along (ADR-0043 §5). Carried so a
+   * found-but-poor enrichment forwards the ingredients it already has, and so an
+   * OFF contribution can send them back (bare `ingredients_text`, REPLACE). NB the
+   * canonical OFF text, NOT `food/ingredients` (the menu-descriptor, ADR-0035).
+   */
+  ingredientsText?: string;
+  /**
    * The panel-so-far: a partial {@link NutritionInfo} the doors prefill (an OFF
    * partial payload, or empty for guided-manual). Absent keys mean "not on the
    * label", never 0 — the same absent-not-zero discipline the panel keeps.

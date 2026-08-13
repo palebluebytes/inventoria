@@ -541,6 +541,46 @@ describe("buildOffWriteBody", () => {
     expect(body.get("add_categories")).toBeNull();
   });
 
+  it("sends corrected ingredients as a bare ingredients_text (REPLACE, never _en)", () => {
+    const body = buildOffWriteBody(
+      "3017620422003",
+      {
+        name: "Nutella",
+        // The corrected transcription the user read off the label — REPLACES OFF's
+        // parsed ingredients (like product_name), so the whole point of the fix works.
+        ingredientsText:
+          "Sugar, palm oil, hazelnuts (13%), skimmed milk powder",
+        nutrition: PANEL,
+      },
+      { user_id: "t", password: "p" }
+    );
+    expect(body.get("ingredients_text")).toBe(
+      "Sugar, palm oil, hazelnuts (13%), skimmed milk powder"
+    );
+    // Never the language-slotted param — that would mislabel a non-English label
+    // as English (ADR-0043 §5). Round-trip the bare main-language slot only.
+    expect(body.get("ingredients_text_en")).toBeNull();
+  });
+
+  it("suppresses ingredients_text when the field is untouched (absent, not empty)", () => {
+    const body = buildOffWriteBody(
+      "3017620422003",
+      { name: "Nutella", nutrition: PANEL },
+      { user_id: "t", password: "p" }
+    );
+    // An untouched field never posts, so it can't wipe OFF's existing ingredients.
+    expect(body.has("ingredients_text")).toBe(false);
+  });
+
+  it("suppresses ingredients_text for a whitespace-only field", () => {
+    const body = buildOffWriteBody(
+      "3017620422003",
+      { name: "Nutella", ingredientsText: "   ", nutrition: PANEL },
+      { user_id: "t", password: "p" }
+    );
+    expect(body.has("ingredients_text")).toBe(false);
+  });
+
   it("maps a per-serving basis to serving + serving_size", () => {
     const body = buildOffWriteBody(
       "111",

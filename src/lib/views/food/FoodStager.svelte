@@ -292,6 +292,12 @@
   // twin/OFF payload's own comma-separated category, joined back on save/contribute
   // (`add_categories`), so a found-but-poor enrichment forwards what it already has.
   let customCategories = $state<string[]>([]);
+  // Canonical OFF ingredients (`food/ingredients_text`) as free text — true
+  // read-along (ADR-0043 §5): seeded from OFF's / the twin's own parsed
+  // ingredients, corrected here, written back to `food/ingredients_text` and sent
+  // to OFF as a bare `ingredients_text` (REPLACE). NB this is OFF's canonical
+  // ingredients text, NOT `food/ingredients` (the ADR-0035 menu-descriptor).
+  let customIngredients = $state("");
   let customBasis = $state<Basis>("per_100g");
   const BASIS_OPTIONS: { value: Basis; label: string }[] = [
     { value: "per_100g", label: "100 g" },
@@ -428,6 +434,7 @@
   function resetCustomForm() {
     applyAutofill(emptyAutofillResult());
     customCategories = [];
+    customIngredients = "";
     customServingGrams = "";
     customPortions = [];
     skipped = new Set();
@@ -450,6 +457,10 @@
     customCategories = parseCategoryList(
       attrs["food/category"] as string | undefined
     );
+    // True read-along (ADR-0043 §5): show OFF's own parsed ingredients so the user
+    // corrects them in place; the corrected value flows back to OFF on contribute.
+    customIngredients =
+      (attrs["food/ingredients_text"] as string | undefined) ?? "";
     // OFF panels are per-100 g (the mapper stamps PER_100G); the form matches.
     customBasis = "per_100g";
     customServingGrams = "";
@@ -499,6 +510,9 @@
     customCategories = parseCategoryList(
       attrs["food/category"] as string | undefined
     );
+    // Read-along: re-open the twin's own saved ingredients for further correction.
+    customIngredients =
+      (attrs["food/ingredients_text"] as string | undefined) ?? "";
     const info = attrs[NUTRITION_INFO_ATTR] as NutritionInfo | undefined;
     // Invert the stored `serving_size` back onto the #52 basis toggle: "100 g" is
     // per-100 g; a bare "N g" is a weighed serving; anything else falls to serving.
@@ -664,6 +678,9 @@
         name: customName.trim(),
         brand: customBrand.trim() || undefined,
         category: customCategories.join(", ") || undefined,
+        // Bare `ingredients_text`, REPLACE + suppress-when-empty (ADR-0043 §5);
+        // buildOffWriteBody drops it when blank, so an untouched field can't wipe OFF.
+        ingredientsText: customIngredients.trim() || undefined,
         nutrition: builtPanel.nutrition,
       });
     } finally {
@@ -689,6 +706,7 @@
       customName = seed.name;
       if (seed.brand) customBrand = seed.brand;
       if (seed.category) customCategories = parseCategoryList(seed.category);
+      if (seed.ingredientsText) customIngredients = seed.ingredientsText;
       // Edit mode carries the singular frozen photo; seed it as the array's first.
       labelPhotos = seed.photo_base64 ? [seed.photo_base64] : [];
       // Re-open the four macro rows from the edited per-serving entry (strings,
@@ -1213,6 +1231,9 @@
         photo_base64: photos[0] ?? null,
         brand: customBrand.trim() || undefined,
         category: customCategories.join(", ") || undefined,
+        // Canonical OFF ingredients (ADR-0043 §5) → `food/ingredients_text`;
+        // saveLabelFood suppresses it when blank. NOT `food/ingredients`.
+        ingredientsText: customIngredients.trim() || undefined,
         nutrition,
         portions: portions.length ? portions : undefined,
         labelPhotos: photos.length ? photos : undefined,
@@ -1860,6 +1881,28 @@
                       </div>
                     </div>
                     <CategoryPicker bind:value={customCategories} />
+                  </section>
+
+                  <!-- Ingredients (ADR-0043 §5): OFF's canonical `food/ingredients_text`,
+                       true read-along — seeded from OFF's own parsed ingredients so the
+                       user corrects them in place, then written back to the twin and
+                       (for a barcoded product) contributed to OFF as a bare
+                       `ingredients_text`. NOT `food/ingredients` (the ADR-0035 menu
+                       descriptor). Label-language capture (`lc`) is deferred. -->
+                  <section class="cf-group">
+                    <div class="cf-grouphead">
+                      <div class="cf-gh-text">
+                        <h3>Ingredients</h3>
+                        <span class="cf-gh-hint">optional</span>
+                      </div>
+                    </div>
+                    <textarea
+                      class="cf-ingredients"
+                      data-testid="cf-ingredients"
+                      rows="3"
+                      placeholder="e.g. Sugar, palm oil, hazelnuts (13%), skimmed milk powder"
+                      bind:value={customIngredients}
+                    ></textarea>
                   </section>
 
                   {#if contributeOffered}
@@ -2599,6 +2642,18 @@
     gap: var(--space-xs);
     align-items: center;
     padding: 0.25rem 0.4rem;
+  }
+  /* The read-along ingredients transcription (ADR-0043 §5) — a plain multi-line
+     field, full width, same frame chrome as the rest of the form. */
+  .cf-ingredients {
+    width: 100%;
+    padding: 0.5rem;
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font: inherit;
+    resize: vertical;
+    min-height: 3.5rem;
   }
   .cf-add {
     margin-top: var(--space-2xs);

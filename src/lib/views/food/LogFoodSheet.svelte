@@ -368,6 +368,9 @@
             name: choice.name,
             brand: choice.brand,
             category: choice.category,
+            // Canonical OFF ingredients text (ADR-0043 §5); saveLabelFood
+            // suppresses it when blank so no empty datom is appended.
+            ingredientsText: choice.ingredientsText,
             nutrition: choice.nutrition as NutritionInfo,
             portions: choice.portions,
             labelPhotos:

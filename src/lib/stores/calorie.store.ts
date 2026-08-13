@@ -206,6 +206,15 @@ export interface LabelFoodInput {
    */
   category?: string;
   /**
+   * The corrected ingredients transcription (ADR-0043 §5) → canonical OFF
+   * `food/ingredients_text`. True read-along: seeded from the twin's existing
+   * `food/ingredients_text`, corrected on the form, written back here. NB this is
+   * the canonical OFF ingredients text, NOT `food/ingredients` (the unrelated
+   * menu-descriptor, ADR-0035). Written only when non-empty (suppress-when-empty),
+   * so an untouched field never appends a blank datom.
+   */
+  ingredientsText?: string;
+  /**
    * The full nutrition panel the user confirmed. Stored VERBATIM: grams, and
    * **absent ≠ 0** — the form omits any row the label didn't carry, and this
    * writer never fills a missing key with 0 (ADR-0030 / #28).
@@ -262,6 +271,10 @@ export async function saveLabelFood(input: LabelFoodInput): Promise<string> {
   };
   if (input.brand) attributes["twin/brand"] = input.brand;
   if (input.category) attributes["food/category"] = input.category;
+  // Canonical OFF ingredients (ADR-0043 §5) — appended only when non-empty, so an
+  // untouched read-along field never writes a blank. NOT `food/ingredients`.
+  if (input.ingredientsText?.trim())
+    attributes["food/ingredients_text"] = input.ingredientsText.trim();
   if (input.portions?.length) attributes["food/portions"] = input.portions;
   if (input.labelPhotos.length > 0) {
     attributes["food/label_photos"] = input.labelPhotos;

@@ -395,6 +395,7 @@ describe("saveLabelFood (ADR-0034 §6)", () => {
       name: "Homemade Granola",
       brand: "Acme",
       category: "en:granolas",
+      ingredientsText: "Oats, honey, almonds",
       nutrition: PANEL,
       portions: PORTIONS,
       labelPhotos: [
@@ -414,6 +415,10 @@ describe("saveLabelFood (ADR-0034 §6)", () => {
     expect(twin.attributes["food/name"]).toBe("Homemade Granola");
     expect(twin.attributes["twin/brand"]).toBe("Acme");
     expect(twin.attributes["food/category"]).toBe("en:granolas");
+    // Canonical OFF ingredients (ADR-0043 §5) — NOT `food/ingredients`.
+    expect(twin.attributes["food/ingredients_text"]).toBe(
+      "Oats, honey, almonds"
+    );
     expect(twin.attributes["nutrition/info"]).toEqual(PANEL);
     expect(twin.attributes["food/portions"]).toEqual(PORTIONS);
     expect(twin.attributes["food/label_photos"]).toEqual([
@@ -514,6 +519,30 @@ describe("saveLabelFood (ADR-0034 §6)", () => {
     expect(
       appended.find((d) => d.attribute === "food/label_capture")?.value
     ).toEqual(CAPTURE);
+  });
+
+  it("appends no food/ingredients_text datom when the field is absent or whitespace (ADR-0043 §5 suppress-when-empty)", async () => {
+    const appended = captureAppends();
+
+    // Absent field — nothing to write back, so no blank datom appended.
+    await saveLabelFood({
+      name: "No Ingredients",
+      nutrition: PANEL,
+      labelPhotos: [],
+      labelCapture: CAPTURE,
+    });
+    // Whitespace-only field — still suppressed (an untouched read-along field).
+    await saveLabelFood({
+      name: "Blank Ingredients",
+      ingredientsText: "   ",
+      nutrition: PANEL,
+      labelPhotos: [],
+      labelCapture: CAPTURE,
+    });
+
+    expect(
+      appended.find((d) => d.attribute === "food/ingredients_text")
+    ).toBeUndefined();
   });
 });
 

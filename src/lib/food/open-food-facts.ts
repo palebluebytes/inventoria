@@ -521,6 +521,16 @@ export interface OffContribution {
    */
   category?: string;
   /**
+   * The corrected ingredients transcription (ADR-0043 §5) — posted as a BARE
+   * `ingredients_text` param, which REPLACES OFF's parsed value (like `product_name`,
+   * NOT `add_`), and is SUPPRESSED-WHEN-EMPTY so an untouched field never wipes OFF's
+   * data. The bare (main-language) slot is round-tripped from the same read — never
+   * `ingredients_text_en`, which would mislabel a non-English label as English.
+   * Deferred (not built): OFF's `lc` label-language param, and `serving_quantity`
+   * grams on write (§ Known gaps) — the write still sends only `serving_size`.
+   */
+  ingredientsText?: string;
+  /**
    * The confirmed panel: grams (kcal for energy), `serving_size` its basis. Only
    * the keys the user actually supplied are present — an absent key is simply not
    * posted (absent ≠ 0), so a partial panel never writes phantom zeroes to OFF.
@@ -576,6 +586,13 @@ export function buildOffWriteBody(
   // posting a raw comma-bearing string blind; OFF canonicalizes the result.
   const category = parseCategoryList(contribution.category).join(", ");
   if (category) body.set("add_categories", category);
+  // Ingredients REPLACE via the BARE param (ADR-0043 §5) — a corrected transcription
+  // supersedes OFF's parsed value, like `product_name`. Suppress-when-empty: an
+  // untouched/blank field never posts, so it can't wipe OFF's existing ingredients.
+  // Deliberately the bare main-language slot, NEVER `ingredients_text_en` (that would
+  // mislabel a non-English label as English); the `lc` label-language edge is deferred.
+  const ingredientsText = contribution.ingredientsText?.trim();
+  if (ingredientsText) body.set("ingredients_text", ingredientsText);
 
   // `nutrition_data_per` is GLOBAL to the whole panel (#50): send the full set on
   // one basis. Our panel stamps `100 g` for the per-100 g case, else a serving
