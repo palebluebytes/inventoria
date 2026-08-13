@@ -147,7 +147,7 @@
        The keys insert "/" and "*" (what the parser reads) at the caret;
        `pointerdown` is prevented so tapping one never blurs the field
        mid-expression. -->
-  <div class="ops-row">
+  <div class="ops">
     <Slider.Root
       type="single"
       value={sliderValue}
@@ -155,6 +155,7 @@
       min={0}
       max={sliderMax}
       step={1}
+      thumbPositioning="exact"
       class="qty-slider"
     >
       {#snippet children({ thumbItems })}
@@ -179,8 +180,10 @@
       onpointerdown={(e) => e.preventDefault()}
       onclick={() => insertOp("*")}>×</button
     >
+    <!-- The 0 / max scale sits in the slider's grid column only, so its ends line
+         up with the track rather than the ÷ / × keys. -->
+    <div class="scale"><span>0</span><span>{sliderMax} g</span></div>
   </div>
-  <div class="scale"><span>0</span><span>{sliderMax} g</span></div>
 
   {#if showPortionSlot || badge}
     <!-- Portions row: the household-portion chips sit left, the NOVA badge (when
@@ -283,16 +286,20 @@
     font-weight: 700;
   }
 
-  /* Slider row: the slider takes the width, the ÷ / × keys sit as the right-most
-     elements (the number pad omits operators). */
-  .ops-row {
-    display: flex;
-    align-items: stretch;
-    gap: var(--space-2xs);
+  /* Slider, the ÷ / × keys, and the 0/max scale on a grid: the slider + scale share
+     the 1fr first column (scale on the second row), the keys sit in the two auto
+     columns on the first row. This keeps the scale's ends aligned with the track,
+     not the keys (the number pad omits operators, so ÷ / × live here). */
+  .ops {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    column-gap: var(--space-2xs);
     width: 100%;
   }
   .op {
-    flex: 0 0 auto;
+    grid-row: 1;
+    align-self: stretch;
     width: 2.6rem;
     display: flex;
     align-items: center;
@@ -319,13 +326,19 @@
 
   /* bits-ui renders these elements itself, so target them with :global. */
   :global(.qty-slider) {
+    grid-column: 1;
+    grid-row: 1;
     position: relative;
     display: flex;
     align-items: center;
-    flex: 1;
     min-width: 0;
     height: 44px;
     touch-action: none;
+    /* `thumbPositioning="exact"` runs the thumb centre to the rail ends (so the
+       value tracks exactly and the fill is truly empty at 0); the thumb then
+       overflows half its 30px width past each end. This 15px gutter gives that
+       overflow room, so it never clips at the left or collides with the ÷ key. */
+    margin-inline: 15px;
   }
   :global(.qty-rail) {
     position: absolute;
@@ -337,20 +350,29 @@
     background: var(--bg-surface);
     border: var(--edge-thick);
   }
+  /* No border on the fill — the rail already frames the track, and a border here
+     would show as a sliver at 0 (zero-width but still stroked). bits-ui sets both
+     `left` and `right` on the range, so `margin-inline-start` nudges the fill in
+     past the rail's 3px left border (else the fill would paint over it). The 6px
+     height matches the rail's inner height, so the top/bottom borders show. */
   :global(.qty-range) {
     position: absolute;
     top: 50%;
-    height: 12px;
+    height: 6px;
+    margin-inline-start: 3px;
     transform: translateY(-50%);
     background: var(--green-bg);
-    border: var(--edge-thick);
   }
   :global(.qty-thumb) {
     position: absolute;
     top: 50%;
     width: 30px;
     height: 30px;
-    transform: translate(-50%, -50%);
+    /* Vertical centring only — bits-ui already sets `translate: -50% 0` on the
+       thumb to centre it horizontally on the value. A `transform: translateX(-50%)`
+       here would stack with that and shift the thumb a whole extra half-width left
+       (off the rail end at 0, short of it at max). */
+    transform: translateY(-50%);
     background: var(--bg-surface);
     border: var(--edge-thick);
     border-radius: 50%;
@@ -361,9 +383,12 @@
     outline-offset: 3px;
   }
   .scale {
+    grid-column: 1;
+    grid-row: 2;
     display: flex;
     justify-content: space-between;
-    width: 100%;
+    /* Match the slider's 15px thumb gutter so 0 / max sit under the rail ends. */
+    margin-inline: 15px;
     margin-top: -8px;
     font-size: var(--step-n2);
     font-weight: 700;
