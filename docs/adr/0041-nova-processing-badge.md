@@ -240,6 +240,15 @@ are presentation and placement changes only.
    it identically. Which surfaces show the badge, and the clean list rows, are
    unchanged.
 
+   > **Superseded on the staged card by [ADR-0043 §2](0043-off-assessment-signals-and-ingredients-contribution.html)
+   > (#103).** On the `FoodStager` staged card the badge no longer rides the
+   > "Quantity (grams)" row: it moves into a new tags row below the food name
+   > (`source · dietary · NOVA`, NOVA last), so the three marks read as one family,
+   > and the additives count now rides it as a small circular disc. The badge's
+   > **word-only, colour-weighted form (Amendment §1) is unchanged** — only its
+   > position moves. The food-detail sheet (`IngredientAmountSheet`) still renders
+   > the badge on the amount row via `FoodAmountPanel`'s `badge` slot, unchanged.
+
 ## Consequences
 
 - The write-only `food/assessment` blob gains its first reader — the NOVA slice

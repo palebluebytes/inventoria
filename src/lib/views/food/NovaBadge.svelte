@@ -15,12 +15,19 @@
   let {
     verdict,
     onExplain,
+    additivesCount = 0,
   }: {
     /** The food's NOVA verdict from `deriveNovaVerdict(payload)` (ADR-0041 §4). */
     verdict: NovaVerdict;
     /** Tap-through intent — the explainer handoff seam (#92). Omit for a passive
      *  label. */
     onExplain?: () => void;
+    /**
+     * Additives count from `deriveDietaryVerdict` (ADR-0043 §2). When > 0 a small
+     * circular disc rides the NOVA tag — the E-number detail lives in the NOVA
+     * explainer. Default 0 → no disc (so the detail sheet's badge is unaffected).
+     */
+    additivesCount?: number;
   } = $props();
 
   let view = $derived(novaBadgeView(verdict));
@@ -28,6 +35,12 @@
     view.tone === "not-rated"
       ? "NOVA processing: not rated"
       : `NOVA processing: ${view.word}`
+  );
+  // "N additive(s)" once, reused in every aria-label below.
+  let additivesPhrase = $derived(
+    additivesCount > 0
+      ? `, ${additivesCount} additive${additivesCount === 1 ? "" : "s"}`
+      : ""
   );
 </script>
 
@@ -37,21 +50,30 @@
     class="nova-badge"
     data-tone={view.tone}
     data-testid="nova-badge"
-    aria-label={`${label}. Tap for details`}
+    aria-label={`${label}${additivesPhrase}. Tap for details`}
     title={label}
     onclick={onExplain}
   >
     <span class="word">{view.word}</span>
+    {#if additivesCount > 0}
+      <!-- Additives count (ADR-0043 §2): the ONE round mark in the food UI — a
+           deliberate `--radius:0` exception (ADR-0038). E-numbers are named in
+           the NOVA explainer via the OFF additives taxonomy. -->
+      <span class="additives-disc" aria-hidden="true">{additivesCount}</span>
+    {/if}
   </button>
 {:else}
   <span
     class="nova-badge"
     data-tone={view.tone}
     data-testid="nova-badge"
-    aria-label={label}
+    aria-label={`${label}${additivesPhrase}`}
     title={label}
   >
     <span class="word">{view.word}</span>
+    {#if additivesCount > 0}
+      <span class="additives-disc" aria-hidden="true">{additivesCount}</span>
+    {/if}
   </span>
 {/if}
 
@@ -80,6 +102,23 @@
   }
   button.nova-badge {
     cursor: pointer;
+  }
+  /* The additives count (ADR-0043 §2) — a small filled circle, the ONE round mark
+     in the food UI and a deliberate exception to ADR-0038's square-frame rule.
+     Ink fill / paper digit so it reads as a count, not a caution. */
+  .additives-disc {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.1em;
+    height: 1.1em;
+    padding: 0 0.2em;
+    border-radius: 50%;
+    background: var(--ink);
+    color: var(--paper);
+    font-size: 0.82em;
+    font-weight: 700;
+    line-height: 1;
   }
   button.nova-badge:hover {
     box-shadow: var(--shadow-2);

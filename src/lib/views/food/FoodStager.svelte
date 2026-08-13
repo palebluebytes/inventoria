@@ -73,7 +73,15 @@
   import CommitButton from "./CommitButton.svelte";
   import NovaBadge from "./NovaBadge.svelte";
   import NovaExplainerSheet from "./NovaExplainerSheet.svelte";
+  import SourceExplainerSheet from "./SourceExplainerSheet.svelte";
+  import DietaryExplainerSheet from "./DietaryExplainerSheet.svelte";
   import { deriveNovaVerdict, type NovaVerdict } from "../../food/nova-verdict";
+  import {
+    deriveDietaryVerdict,
+    type DietaryVerdict,
+  } from "../../food/off-signals";
+  import { dietaryTagsView } from "../../food/dietary-tag";
+  import { foodSourceView, type FoodSourceKind } from "../../food/food-source";
 
   // The shared food-staging surface behind both the direct-log sheet and the
   // add-ingredient sheet (issue #16). It owns the Search / Scan / Custom method
@@ -392,6 +400,41 @@
   function explainNova(v: NovaVerdict) {
     novaExplain = v;
   }
+
+  // ── The tags row: source · dietary · NOVA (ADR-0043 §2, #103) ───────────────
+  // The staged food's source tag (its origin — OFF / USDA / manual / recipe),
+  // read off the entity id. Floats top-right of the name; ALWAYS shown (every food
+  // has an origin). Tapping it opens the per-origin source explainer.
+  let stagedSource = $derived(staged ? foodSourceView(staged.payload) : null);
+  // The staged food's dietary verdict (ADR-0043 §4), read back off its captured
+  // `food/assessment` at render time — never a written attribute. Drives the
+  // present-only dietary tags in the row AND the additives count riding the NOVA
+  // tag's circular disc. Absent (silent — no "not rated") for a non-OFF food.
+  let stagedDietary = $derived<DietaryVerdict | null>(
+    staged ? deriveDietaryVerdict(staged.payload) : null
+  );
+  // The render-ready dietary tags (glyph + short form). Empty when absent, so the
+  // row degrades to just the source + NOVA marks.
+  let stagedDietaryTags = $derived(
+    stagedDietary ? dietaryTagsView(stagedDietary) : []
+  );
+  // The additives disc rides the NOVA tag ONLY when the NOVA explainer will
+  // actually detail those additives — i.e. an OFF-rated verdict (the sole branch
+  // where `deriveNovaVerdict` carries the additives as evidence). Otherwise the
+  // disc would promise a count the explainer withholds (an OFF food with
+  // additives but no NOVA group reads "not rated"). Gating here keeps the disc and
+  // the explainer's additive list driven by the same condition.
+  let stagedAdditivesCount = $derived(
+    stagedNova?.state === "rated" && stagedNova.source === "off"
+      ? (stagedDietary?.additivesCount ?? 0)
+      : 0
+  );
+
+  // Source explainer seam: tapping the source tag parks its origin here.
+  let sourceExplain = $state<FoodSourceKind | null>(null);
+  // Dietary explainer seam: tapping a dietary tag parks the verdict here (all the
+  // present claims share one explainer, so any tag opens the same sheet).
+  let dietaryExplain = $state<DietaryVerdict | null>(null);
 
   // Reason-specific copy shown at the top of the Custom form per door (§1).
   const CAPTURE_COPY: Record<CaptureReason, string> = {
@@ -1372,25 +1415,73 @@
                 <div class="staged">
                   <div class="staged-head">
                     <h3>{staged.name}</h3>
-                    {#if stagedOrigin}
-                      <!-- Origin badge (§7): user-entered vs OFF-sourced, at a glance.
-                      Clicking it re-opens the label form on this twin to edit it again. -->
+                    <div class="head-badges">
+                      {#if stagedOrigin}
+                        <!-- Origin badge (§7): user-entered vs OFF-sourced, at a glance.
+                        Clicking it re-opens the label form on this twin to edit it again. -->
+                        <button
+                          type="button"
+                          class="origin-badge"
+                          data-testid="origin-badge"
+                          onclick={editStaged}
+                          title="Edit this entry from the label"
+                        >
+                          <span class="origin-badge-icon" aria-hidden="true"
+                            >✏️</span
+                          >
+                          <span
+                            >{stagedOrigin === "edited"
+                              ? "edited from label"
+                              : "your entry"}</span
+                          >
+                        </button>
+                      {/if}
+                      {#if stagedSource}
+                        <!-- Source tag (ADR-0043 §2): the food's origin, floated
+                        top-right of the name. Always shown; taps through to the
+                        per-origin trust explainer. Same brutalist tag design as the
+                        dietary + NOVA marks below (only the fill differs). -->
+                        <button
+                          type="button"
+                          class="tag tag-source"
+                          data-testid="source-tag"
+                          data-kind={stagedSource.kind}
+                          aria-label={`Source: ${stagedSource.label}. Tap for details`}
+                          title={`Source: ${stagedSource.label}`}
+                          onclick={() => (sourceExplain = stagedSource!.kind)}
+                        >
+                          {stagedSource.label}
+                        </button>
+                      {/if}
+                    </div>
+                  </div>
+                  <!-- Tags row (ADR-0043 §2): dietary claims then the NOVA badge
+                  (NOVA last), one visual design across all three. Dietary tags are
+                  present-only (silent when OFF carries none), so the row degrades
+                  to just the NOVA badge — which is always shown. The additives
+                  count rides the NOVA tag as its circular disc. -->
+                  <div class="tags-row" data-testid="food-tags-row">
+                    {#each stagedDietaryTags as dt (dt.tag)}
                       <button
                         type="button"
-                        class="origin-badge"
-                        data-testid="origin-badge"
-                        onclick={editStaged}
-                        title="Edit this entry from the label"
+                        class="tag tag-dietary"
+                        data-testid="dietary-tag"
+                        aria-label={`${dt.shortForm}. Tap for details`}
+                        title={dt.shortForm}
+                        onclick={() => (dietaryExplain = stagedDietary)}
                       >
-                        <span class="origin-badge-icon" aria-hidden="true"
-                          >✏️</span
+                        <span class="tag-glyph" aria-hidden="true"
+                          >{dt.glyph}</span
                         >
-                        <span
-                          >{stagedOrigin === "edited"
-                            ? "edited from label"
-                            : "your entry"}</span
-                        >
+                        <span>{dt.shortForm}</span>
                       </button>
+                    {/each}
+                    {#if stagedNova}
+                      <NovaBadge
+                        verdict={stagedNova}
+                        additivesCount={stagedAdditivesCount}
+                        onExplain={() => explainNova(stagedNova!)}
+                      />
                     {/if}
                   </div>
                   {#if nudge}
@@ -1413,23 +1504,14 @@
                       >
                     </div>
                   {/if}
-                  <!-- NOVA processing badge (ADR-0041 §5): rides the "Quantity
-                  (grams)" label row, floated right. Always present (even `not
-                  rated`); tapping hands its verdict to the explainer seam (#92).
-                  Declared as a local snippet (child of a <div>, not a component)
-                  so it can be handed to FoodAmountPanel's `badge` slot. -->
-                  {#snippet stagedNovaBadge()}
-                    <NovaBadge
-                      verdict={stagedNova!}
-                      onExplain={() => explainNova(stagedNova!)}
-                    />
-                  {/snippet}
+                  <!-- The NOVA badge now lives in the tags row above (ADR-0043 §2,
+                  superseding ADR-0041 Amendment §3); the amount panel's `badge`
+                  slot is left unused here. -->
                   <FoodAmountPanel
                     panel={stagedInfo}
                     portions={stagedPortions}
                     hydrating={hydratingPortions}
                     bind:grams
-                    badge={stagedNova ? stagedNovaBadge : undefined}
                   />
                 </div>
               {:else if isExtra(method)}
@@ -2113,6 +2195,24 @@
   />
 {/if}
 
+{#if sourceExplain}
+  <!-- Source explainer (ADR-0043 §2, #103): per-origin trust copy for the tapped
+       source tag, mounted off `sourceExplain` and closed back to null. -->
+  <SourceExplainerSheet
+    kind={sourceExplain}
+    onClose={() => (sourceExplain = null)}
+  />
+{/if}
+
+{#if dietaryExplain}
+  <!-- Dietary explainer (ADR-0043 §2, #103): the placeholder glyphs, their short
+       forms, and the "on-pack claim, not our verdict" caveat. -->
+  <DietaryExplainerSheet
+    verdict={dietaryExplain}
+    onClose={() => (dietaryExplain = null)}
+  />
+{/if}
+
 <style>
   .stager {
     display: flex;
@@ -2213,6 +2313,66 @@
   .origin-badge:focus-visible {
     outline: var(--edge);
     outline-offset: 2px;
+  }
+  /* The name's right-hand badge cluster: the edit origin-badge (§7) and the source
+     tag (ADR-0043 §2) sit together, pushed to the far edge by the head's
+     space-between and wrapping under a long name rather than overflowing. */
+  .head-badges {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--space-2xs);
+  }
+
+  /* The tags row (ADR-0043 §2): dietary claims then the NOVA badge, one shared
+     brutalist tag idiom (ink-edged paper chip with a hard offset shadow that
+     presses on tap — matching NovaBadge; only the fill differs). */
+  .tags-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-2xs);
+    margin-top: var(--space-xs);
+  }
+  .tag {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.34em;
+    font-family: inherit;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+    background: var(--paper);
+    border-radius: var(--radius);
+    padding: 0.3rem 0.5rem;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: var(--shadow-1);
+    transition:
+      box-shadow 0.06s ease,
+      transform 0.06s ease;
+  }
+  .tag:hover {
+    box-shadow: var(--shadow-2);
+    transform: translate(-1px, -1px);
+  }
+  .tag:active {
+    box-shadow: none;
+    transform: translate(2px, 2px);
+  }
+  .tag:focus-visible {
+    outline: var(--edge);
+    outline-offset: 2px;
+  }
+  .tag-glyph {
+    font-size: 0.9em;
+    line-height: 1;
   }
   /* Found-but-poor nudge (§1) — soft amber, dismissible; never blocks the Log
      button beneath it. */

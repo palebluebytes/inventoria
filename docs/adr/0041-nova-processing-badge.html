@@ -137,7 +137,10 @@ D ·est inference (← A, ← #89)   fills the reserved `inferred` slot</code></
 <blockquote>
 <p>The visual distinction was originally there to stop an estimate posing as an authoritative OFF rating. With it gone, the badge no longer signals "estimate" to the eye; the honesty now lives one tap deeper, in the explainer copy and the withheld OFF attribution. This was a deliberate owner call favouring a calmer badge over an at-a-glance provenance cue.</p>
 </blockquote></li>
-<li><p><strong>Placement moved to the amount row (supersedes §5).</strong> Instead of sitting beside the origin badge (staging) or in its own row above the amount body (detail), the badge now rides the <strong>"Quantity (grams)" label row, floated right</strong>, on both surfaces. It is passed through a single optional <code>badge</code> snippet on the shared <code>FoodAmountPanel</code>, so staging and the detail sheet render it identically. Which surfaces show the badge, and the clean list rows, are unchanged.</p></li>
+<li><p><strong>Placement moved to the amount row (supersedes §5).</strong> Instead of sitting beside the origin badge (staging) or in its own row above the amount body (detail), the badge now rides the <strong>"Quantity (grams)" label row, floated right</strong>, on both surfaces. It is passed through a single optional <code>badge</code> snippet on the shared <code>FoodAmountPanel</code>, so staging and the detail sheet render it identically. Which surfaces show the badge, and the clean list rows, are unchanged.</p>
+<blockquote>
+<p><strong>Superseded on the staged card by <a href="0043-off-assessment-signals-and-ingredients-contribution.html">ADR-0043 §2</a> (#103).</strong> On the <code>FoodStager</code> staged card the badge no longer rides the "Quantity (grams)" row: it moves into a new tags row below the food name (<code>source · dietary · NOVA</code>, NOVA last), so the three marks read as one family, and the additives count now rides it as a small circular disc. The badge's <strong>word-only, colour-weighted form (Amendment §1) is unchanged</strong> — only its position moves. The food-detail sheet (<code>IngredientAmountSheet</code>) still renders the badge on the amount row via <code>FoodAmountPanel</code>'s <code>badge</code> slot, unchanged.</p>
+</blockquote></li>
 </ol>
 <h2 id="consequences">Consequences</h2>
 <ul>

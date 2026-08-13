@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { NovaVerdict } from "../../food/nova-verdict";
   import { novaExplainerView } from "../../food/nova-explainer";
+  import { ensureTaxonomy, resolveTag } from "../../food/off-taxonomy";
   import BottomSheet from "../../ui/BottomSheet.svelte";
 
   // The NOVA processing explainer (ADR-0041 §6, ticket C/#92) — the tap-through
@@ -30,6 +31,30 @@
   } = $props();
 
   let view = $derived(novaExplainerView(verdict));
+
+  // Fold the additives into the explainer with proper names (ADR-0043 §2): the
+  // raw `en:eNNN` tags ride the OFF verdict; resolve each through the OFF
+  // additives taxonomy so "en:e330" reads "E330 - Citric acid", not a bare code.
+  // Kept in the skin (not the pure `novaExplainerView`) because resolution is an
+  // async cache load; it degrades to the prettified E-number when unloaded.
+  let additiveTags = $derived(
+    verdict.state === "rated" && verdict.source === "off"
+      ? (verdict.evidence.additives ?? [])
+      : []
+  );
+  // A reactive tick bumped once the taxonomy finishes loading, so the resolved
+  // names recompute from the freshly-populated cache (resolveTag is a plain sync
+  // read Svelte can't otherwise observe).
+  let taxonomyTick = $state(0);
+  $effect(() => {
+    if (additiveTags.length > 0) {
+      void ensureTaxonomy("additives").then(() => taxonomyTick++);
+    }
+  });
+  let additiveNames = $derived.by(() => {
+    taxonomyTick;
+    return additiveTags.map((tag) => resolveTag("additives", tag));
+  });
 </script>
 
 <!-- Elevated so it floats over the sheet the badge was tapped in (the log sheet in
@@ -102,12 +127,12 @@
       <section class="evidence" aria-label="Evidence for this product">
         <h3 class="evidence-head">Why this rating</h3>
         {#if view.evidence.present}
-          {#if view.evidence.additives.length > 0}
+          {#if additiveNames.length > 0}
             <div class="ev-block">
               <span class="ev-label">Additives flagged</span>
               <ul class="additives">
-                {#each view.evidence.additives as e (e)}
-                  <li class="additive">{e}</li>
+                {#each additiveNames as name, i (additiveTags[i])}
+                  <li class="additive">{name}</li>
                 {/each}
               </ul>
             </div>
