@@ -75,10 +75,13 @@
   import NovaExplainerSheet from "./NovaExplainerSheet.svelte";
   import SourceExplainerSheet from "./SourceExplainerSheet.svelte";
   import DietaryExplainerSheet from "./DietaryExplainerSheet.svelte";
+  import AllergenSafetyBlock from "./AllergenSafetyBlock.svelte";
   import { deriveNovaVerdict, type NovaVerdict } from "../../food/nova-verdict";
   import {
     deriveDietaryVerdict,
+    deriveAllergenVerdict,
     type DietaryVerdict,
+    type AllergenVerdict,
   } from "../../food/off-signals";
   import { dietaryTagsView } from "../../food/dietary-tag";
   import { foodSourceView, type FoodSourceKind } from "../../food/food-source";
@@ -417,6 +420,13 @@
   // row degrades to just the source + NOVA marks.
   let stagedDietaryTags = $derived(
     stagedDietary ? dietaryTagsView(stagedDietary) : []
+  );
+  // The staged food's allergen safety verdict (ADR-0043 §3, #104), read back off
+  // its captured `food/assessment` at render time — never a written attribute.
+  // Drives the static safety block below the amount panel; "absent" (silent — no
+  // "not rated") for a non-OFF food or an OFF product carrying no allergen data.
+  let stagedAllergen = $derived<AllergenVerdict | null>(
+    staged ? deriveAllergenVerdict(staged.payload) : null
   );
   // The additives disc rides the NOVA tag ONLY when the NOVA explainer will
   // actually detail those additives — i.e. an OFF-rated verdict (the sole branch
@@ -1513,6 +1523,14 @@
                     hydrating={hydratingPortions}
                     bind:grams
                   />
+                  <!-- Allergen safety block (ADR-0043 §3, #104): a static,
+                  present-only block below the quantity row — Contains ›
+                  May-contain › Free-from, one allergen per line, the mandatory
+                  disclaimer behind an (i) toggle. Silent (renders nothing) when
+                  OFF carries no allergen data; never inferred from absence. -->
+                  {#if stagedAllergen}
+                    <AllergenSafetyBlock verdict={stagedAllergen} />
+                  {/if}
                 </div>
               {:else if isExtra(method)}
                 {@render tabContent?.(method)}
