@@ -9,6 +9,7 @@
   import {
     buildNutrientPills,
     buildNutrientBreakdown,
+    ABSENT_NUTRIENT,
   } from "../../food/nutrient-display";
   import {
     settingsStore,
@@ -54,21 +55,23 @@
     panel ? grams / parseServingGrams(panel.serving_size) : 0
   );
   let breakdown = $derived(scaleNutrition(panel, factor));
-  // A single food's preview lists only the macros it actually carries a value for
-  // — a missing or 0 g nutrient (no fibre, 0 g fat) shows no pill (hideEmpty),
-  // rather than a stable "–"/"0 g" set.
+  // The preview grid shows Calories plus every tracked nutrient (`visible_nutrients`)
+  // the food actually carries a value for — including a real 0 (hideEmpty=false
+  // keeps reported zeros), but NOT one the food has no data for. An absent tracked
+  // nutrient (value "–") is dropped, so the grid never shows a "–" for something
+  // the food simply doesn't measure. Anything NOT tracked drops to full nutrition.
   let pills = $derived(
     buildNutrientPills(
       breakdown,
       $settingsStore.visible_nutrients,
       $nutritionDisplayDecimals,
-      true
-    )
+      false
+    ).filter((p) => p.value !== ABSENT_NUTRIENT)
   );
-  // The disclosure lists only what the food carries a value for too — same
-  // missing/zero hiding as the pills, so the two never disagree — and excludes
-  // whatever the macro grid already shows (Calories + the macro pills above), so
-  // "full nutrition" is the *extras* not on the card, never a repeat of the grid.
+  // The disclosure carries what the food actually has that ISN'T already in the
+  // grid: hide missing/zero rows, and exclude whatever the grid shows (Calories +
+  // the tracked pills), so a non-tracked nutrient the food carries surfaces here
+  // and nothing is ever shown twice.
   let pillKeys = $derived(new Set(pills.map((p) => p.key)));
   let fullRows = $derived(
     buildNutrientBreakdown(breakdown, $nutritionDisplayDecimals, true, pillKeys)
