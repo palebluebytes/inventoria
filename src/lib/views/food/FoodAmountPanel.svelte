@@ -45,8 +45,8 @@
     /** True while a searched food's portions are still being fetched (§5). */
     hydrating?: boolean;
     grams: number;
-    /** Optional trailing content for the "Quantity (grams)" label row, floated to
-     *  the right (e.g. the NOVA badge in the detail sheet). */
+    /** Trailing content for the amount row — passed straight to QuantityGrams,
+     *  which renders it (see its `badge` prop for the ADR-0041/0043 rationale). */
     badge?: Snippet;
   } = $props();
 
@@ -73,11 +73,7 @@
   );
 </script>
 
-<div class="ql-row">
-  <span class="fl">Quantity (grams)</span>
-  {#if badge}<div class="ql-badge">{@render badge()}</div>{/if}
-</div>
-<QuantityGrams bind:grams {portions} {hydrating} />
+<QuantityGrams bind:grams {portions} {hydrating} {badge} />
 
 {#if panel}
   <div class="preview">
@@ -89,32 +85,6 @@
 {/if}
 
 <style>
-  /* The "Quantity (grams)" label and its optional trailing badge share a row, the
-     badge pushed to the right edge. */
-  .ql-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-s);
-    margin: var(--space-m) 0 var(--space-3xs);
-  }
-  /* When the panel leads a padded sheet body (the edit-amount sheet, where the
-     food name lives in the sheet header rather than above the row), this row is
-     the body's first child and its top margin doubles up on the body's own
-     padding. Collapse it there; the FoodStager staged card keeps the margin,
-     since the name header precedes the row and it isn't a first child. */
-  .ql-row:first-child {
-    margin-top: 0;
-  }
-  .fl {
-    font-size: var(--step-n2);
-    font-weight: 700;
-    text-transform: uppercase;
-  }
-  .ql-badge {
-    display: flex;
-    flex: 0 0 auto;
-  }
   .preview {
     margin-top: var(--space-m);
   }

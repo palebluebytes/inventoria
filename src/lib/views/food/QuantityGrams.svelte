@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from "svelte";
+  import { tick, type Snippet } from "svelte";
   import { Slider } from "bits-ui";
   import Button from "../../ui/Button.svelte";
   import {
@@ -28,6 +28,7 @@
     presets = [25, 50, 100, 150, 200, 300],
     portions = [],
     hydrating = false,
+    badge = undefined,
   }: {
     grams: number;
     sliderMax?: number;
@@ -36,6 +37,11 @@
     // True while the food's portions are being fetched (ADR-0030 §5): the slot
     // shows skeleton chips so the real ones land in place, no layout shift.
     hydrating?: boolean;
+    // Optional trailing content that rides the amount row, between the label and
+    // the grams value (the NOVA badge in the dashboard edit-amount sheet, ADR-0041
+    // §5). The staged card carries NOVA on its tags row instead (ADR-0043 §2), so
+    // it passes nothing.
+    badge?: Snippet;
   } = $props();
 
   // The chip view-models are derived once from the raw portions by the food
@@ -112,66 +118,74 @@
 </script>
 
 <div class="qty">
-  <div class="entry">
-    <label class="field">
-      <input
-        bind:this={inputEl}
-        class="num"
-        inputmode="decimal"
-        autocomplete="off"
-        autocorrect="off"
-        autocapitalize="off"
-        spellcheck="false"
-        aria-label="Quantity in grams — a number, or a sum with the × and ÷ keys"
-        value={raw}
-        oninput={onInput}
-        onfocus={(e) => {
-          focused = true;
-          e.currentTarget.select();
-        }}
-        onblur={commit}
-        onkeydown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-      />
-      <span class="unit">g</span>
-    </label>
-    <!-- Sum keys: the number pad omits operators, so ÷ and × live here. They
-         insert "/" and "*" (what the parser reads) at the caret. `pointerdown`
-         is prevented so tapping a key never blurs the field mid-expression. -->
-    <div class="ops">
-      <button
-        type="button"
-        class="op"
-        aria-label="Divide"
-        onpointerdown={(e) => e.preventDefault()}
-        onclick={() => insertOp("/")}>÷</button
-      >
-      <button
-        type="button"
-        class="op"
-        aria-label="Multiply"
-        onpointerdown={(e) => e.preventDefault()}
-        onclick={() => insertOp("*")}>×</button
-      >
+  <!-- Amount box: the "Quantity (grams)" label inline-left, the grams value
+       right-aligned. One bordered card; the ÷ / × sum keys ride the slider row
+       below (ADR-0043 §2 relayout). -->
+  <div class="qty-row">
+    <span class="qty-label">Quantity (grams)</span>
+    <div class="qty-end">
+      {#if badge}<div class="qty-badge">{@render badge()}</div>{/if}
+      <label class="value">
+        <input
+          bind:this={inputEl}
+          class="num"
+          inputmode="decimal"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+          aria-label="Quantity in grams — a number, or a sum with the × and ÷ keys"
+          value={raw}
+          oninput={onInput}
+          onfocus={(e) => {
+            focused = true;
+            e.currentTarget.select();
+          }}
+          onblur={commit}
+          onkeydown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+        />
+        <span class="unit">g</span>
+      </label>
     </div>
   </div>
 
-  <Slider.Root
-    type="single"
-    value={sliderValue}
-    onValueChange={(v) => (grams = v)}
-    min={0}
-    max={sliderMax}
-    step={1}
-    class="qty-slider"
-  >
-    {#snippet children({ thumbItems })}
-      <span class="qty-rail"></span>
-      <Slider.Range class="qty-range" />
-      {#each thumbItems as { index } (index)}
-        <Slider.Thumb {index} class="qty-thumb" />
-      {/each}
-    {/snippet}
-  </Slider.Root>
+  <!-- Slider skims the amount, with the ÷ / × keys as the right-most elements.
+       The keys insert "/" and "*" (what the parser reads) at the caret;
+       `pointerdown` is prevented so tapping one never blurs the field
+       mid-expression. -->
+  <div class="ops-row">
+    <Slider.Root
+      type="single"
+      value={sliderValue}
+      onValueChange={(v) => (grams = v)}
+      min={0}
+      max={sliderMax}
+      step={1}
+      class="qty-slider"
+    >
+      {#snippet children({ thumbItems })}
+        <span class="qty-rail"></span>
+        <Slider.Range class="qty-range" />
+        {#each thumbItems as { index } (index)}
+          <Slider.Thumb {index} class="qty-thumb" />
+        {/each}
+      {/snippet}
+    </Slider.Root>
+    <button
+      type="button"
+      class="op"
+      aria-label="Divide"
+      onpointerdown={(e) => e.preventDefault()}
+      onclick={() => insertOp("/")}>÷</button
+    >
+    <button
+      type="button"
+      class="op"
+      aria-label="Multiply"
+      onpointerdown={(e) => e.preventDefault()}
+      onclick={() => insertOp("*")}>×</button
+    >
+  </div>
   <div class="scale"><span>0</span><span>{sliderMax} g</span></div>
 
   {#if showPortionSlot}
@@ -219,38 +233,86 @@
     flex-direction: column;
     gap: var(--space-s);
     width: 100%;
+    margin-top: var(--space-m);
   }
-  .entry {
+  /* When the control leads a padded sheet body (the edit-amount sheet, where the
+     food name lives in the sheet header), it is the body's first child and its
+     top margin would double up on the body's own padding. Collapse it there; the
+     staged card keeps the margin, since the meta/tags rows precede it. */
+  .qty:first-child {
+    margin-top: 0;
+  }
+  /* Amount box: the label inline-left, the grams value right-aligned. One
+     bordered card that frames the value (which carries no border of its own). */
+  .qty-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2xs);
+    padding: var(--space-2xs) var(--space-xs);
+    border: var(--edge);
+    box-shadow: var(--shadow-1);
+  }
+  .qty-row:focus-within {
+    outline: var(--edge-thick);
+    outline-offset: 3px;
+  }
+  .qty-label {
+    font-weight: 700;
+  }
+  /* Badge (when any) + value ride flush right; the value stays right-aligned. */
+  .qty-end {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2xs);
+  }
+  .qty-badge {
+    display: flex;
+    flex: 0 0 auto;
+  }
+  .value {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    cursor: text;
+  }
+  .num {
+    width: 5rem;
+    border: none;
+    outline: none;
+    text-align: right;
+    font-family: inherit;
+    font-size: var(--step-1);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    background: none;
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+  .unit {
+    font-size: var(--step-n1);
+    font-weight: 700;
+  }
+
+  /* Slider row: the slider takes the width, the ÷ / × keys sit as the right-most
+     elements (the number pad omits operators). */
+  .ops-row {
     display: flex;
     align-items: stretch;
     gap: var(--space-2xs);
     width: 100%;
   }
-  .field {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    align-items: baseline;
-    justify-content: center;
-    gap: 4px;
-    border: var(--edge-thick);
-    padding: var(--space-2xs) var(--space-xs);
-    cursor: text;
-  }
-  /* Sum keys sit flush beside the field, sized to match its height. */
-  .ops {
-    display: flex;
-    gap: var(--space-2xs);
-  }
   .op {
+    flex: 0 0 auto;
+    width: 2.6rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 48px;
-    border: var(--edge-thick);
-    background: var(--bg-surface);
+    border: var(--edge);
+    box-shadow: var(--shadow-1);
+    background: var(--paper);
     font-family: inherit;
-    font-size: var(--step-2);
+    font-size: var(--step-1);
     font-weight: 800;
     line-height: 1;
     color: var(--text-primary);
@@ -258,31 +320,12 @@
   }
   .op:active {
     background: var(--green-bg);
+    box-shadow: none;
+    transform: translate(1px, 1px);
   }
   .op:focus-visible {
     outline: var(--edge-thick);
     outline-offset: 3px;
-  }
-  .field:focus-within {
-    outline: var(--edge-thick);
-    outline-offset: 3px;
-  }
-  .num {
-    width: 100%;
-    border: none;
-    outline: none;
-    text-align: center;
-    font-family: inherit;
-    font-size: var(--step-4);
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
-    background: none;
-    -moz-appearance: textfield;
-    appearance: textfield;
-  }
-  .unit {
-    font-size: var(--step-1);
-    font-weight: 700;
   }
 
   /* bits-ui renders these elements itself, so target them with :global. */
@@ -290,7 +333,8 @@
     position: relative;
     display: flex;
     align-items: center;
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     height: 44px;
     touch-action: none;
   }
