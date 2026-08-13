@@ -78,15 +78,16 @@ There is **no unified "assessment section."** The signals surface **inline** on
 the staged food card, in both add and edit modes, exactly where the food already
 lives. A **tags row** sits below the food name:
 
-- **order:** `source · dietary · NOVA` — **NOVA last**. The **source** and
-  **NOVA** marks share **one brutalist framed tag** (uppercase, ink-edged chip;
-  the only difference is fill). The **dietary** marks do **not** wear that frame —
-  see below.
+- **order:** `source · dietary` on the card head; the **NOVA** mark no longer
+  rides here — it floats right on the **portions row** inside the amount panel
+  (see the amendment below). The **source** and **NOVA** marks still share **one
+  brutalist framed tag** (uppercase, ink-edged chip; the only difference is fill).
+  The **dietary** marks do **not** wear that frame — see below.
 - the **source tag** (the food's origin — OFF / USDA / manual / recipe) **floats
   top-right of the name**, not inline in the row, and carries a **leading origin
   icon** (`◆` for a resolved data source — OFF / USDA / a computed recipe — and
   `✎` for a hand-authored manual entry) before its label.
-- the **dietary + NOVA** marks sit on a **meta-row below the name, floated right**
+- the **dietary** marks sit on a **meta-row below the name, floated right**
   against the brand (brand left) — not a standalone left-aligned row.
 - **additives** render as a **circular count** on the NOVA tag (e.g. a small
   `3` disc) — a deliberate `--radius:0` **exception** to ADR-0038's square-frame
@@ -105,11 +106,17 @@ USDA" / "manual" means for trust), a new **dietary explainer** (the bare symbol
 glyphs, their short forms, and the "on-pack claim, not our verdict" caveat), and
 the **existing NOVA explainer**, now also carrying the additives detail.
 
-> **This re-places the NOVA badge (supersedes ADR-0041 Amendment §3).** ADR-0041
-> shipped the NOVA badge on the "Quantity (grams)" label row, floated right. It
-> now moves into this tags row (NOVA last), so the three marks read as one family.
-> The badge's **word-only, colour-weighted** form (ADR-0041 Amendment §1) is
-> unchanged — only its position moves.
+> **Amendment (2026-08-13): the NOVA badge floats right on the portions row, not
+> the tags row.** ADR-0041 shipped the NOVA badge on the "Quantity (grams)" label
+> row, floated right; this ADR first moved it into the card's tags row. It now
+> sits **floated right on the household-portions row inside the amount panel**
+> (`QuantityGrams`) — the same place on the staged card **and** the dashboard
+> edit-amount sheet, so the badge reads identically on every screen rather than
+> living in two different spots. This still supersedes ADR-0041 Amendment §3 (the
+> badge is off the quantity label row). The additives count disc still rides the
+> NOVA tag and the tap-through NOVA explainer is unchanged; the badge's
+> **word-only, colour-weighted** form (ADR-0041 Amendment §1) is unchanged — only
+> its position moves.
 
 ### 3. Allergens — a present-only safety block, never inferred from absence (#96)
 
