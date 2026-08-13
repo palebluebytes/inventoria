@@ -7,8 +7,9 @@
   // the caller builds `rows` via buildNutrientBreakdown(scaleNutrition(panel,
   // factor)), so absent fields are already omitted and micronutrients already
   // reformatted to mg/µg; this only lays them out behind a <summary> so the
-  // default card/pills stay uncluttered. Rendered only when the food carries
-  // something beyond the always-on calories row.
+  // default card/pills stay uncluttered. Rendered only when there is at least one
+  // row to show — on the staged card the caller excludes the macro grid's keys, so
+  // `rows` is already just the extras, and an empty extras list renders nothing.
   let {
     rows,
     label = "Full nutrition",
@@ -16,7 +17,7 @@
   }: { rows: NutrientRow[]; label?: string; testid?: string } = $props();
 </script>
 
-{#if rows.length > 1}
+{#if rows.length > 0}
   <details class="breakdown" data-testid={testid}>
     <summary>{label}</summary>
     <dl class="rows">

@@ -769,4 +769,52 @@ describe("buildNutrientBreakdown", () => {
       "fiber_content"
     );
   });
+
+  it("excludes the given keys (the macro grid's) so full nutrition lists only extras", () => {
+    // The staged card shows Calories + Protein/Fat/Carbs/Fibre in the grid, then
+    // this disclosure — passing the grid's keys leaves only the extras (sodium,
+    // sat fat, the micronutrients), never repeating a grid row. Calories itself
+    // drops when excluded.
+    const scaled: NutritionBreakdown = {
+      calories: 134,
+      protein: 1.65,
+      fat: 0.45,
+      carbs: 34.2,
+      fiber_content: 3,
+      sodium_content: 0.001,
+      saturated_fat_content: 0.15,
+      calcium: 0.008,
+    };
+    const gridKeys = new Set([
+      "calories",
+      "protein",
+      "fat",
+      "carbs",
+      "fiber_content",
+    ]);
+    expect(
+      buildNutrientBreakdown(scaled, undefined, true, gridKeys).map(
+        (r) => r.key
+      )
+    ).toEqual(["sodium_content", "saturated_fat_content", "calcium"]);
+  });
+
+  it("with no exclusion still leads with calories and lists every carried nutrient", () => {
+    // The default (empty exclusion) path is unchanged — a caller wanting the full
+    // list gets calories + every extra, exactly as before.
+    const scaled: NutritionBreakdown = {
+      calories: 89,
+      protein: 1.1,
+      fat: 0.3,
+      carbs: 22.8,
+      calcium: 0.005,
+    };
+    expect(buildNutrientBreakdown(scaled).map((r) => r.key)).toEqual([
+      "calories",
+      "protein",
+      "fat",
+      "carbs",
+      "calcium",
+    ]);
+  });
 });

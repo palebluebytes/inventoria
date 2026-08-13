@@ -319,6 +319,10 @@ function nutrientRow(
   };
 }
 
+/** Shared empty exclusion set — the default for {@link buildNutrientBreakdown}, so
+ *  the no-exclusion path allocates nothing. */
+const EMPTY_KEY_SET: ReadonlySet<string> = new Set();
+
 /**
  * Builds the full nutrient breakdown for a (already-scaled) panel — the ordered
  * list a food's disclosure/expander renders (ticket #30, parent #21). Leads with
@@ -338,20 +342,30 @@ function nutrientRow(
  * survives) — the single-food disclosure then lists only what the food carries a
  * value for, matching its pill preview ({@link buildNutrientPills}). Calories
  * always lead, never hidden.
+ *
+ * `exclude` drops any nutrient whose key it contains — including `calories`. The
+ * staged-food card shows a macro grid ({@link buildNutrientPills}) above this
+ * disclosure, so it passes the grid's shown keys here to keep the "full nutrition"
+ * list to the *extras* not already on the card, never repeating them. Default is
+ * empty: with no exclusion Calories still leads and every carried nutrient shows,
+ * so callers that want the complete list are unaffected.
  */
 export function buildNutrientBreakdown(
   breakdown: NutritionBreakdown,
   decimals: number = FOOD_DISPLAY_DECIMALS,
-  hideEmpty: boolean = false
+  hideEmpty: boolean = false,
+  exclude: ReadonlySet<string> = EMPTY_KEY_SET
 ): NutrientRow[] {
-  const rows: NutrientRow[] = [
-    {
+  const rows: NutrientRow[] = [];
+  if (!exclude.has("calories")) {
+    rows.push({
       key: "calories",
       label: "Calories",
       value: formatCalories(totalFor(breakdown, "calories"), decimals),
-    },
-  ];
+    });
+  }
   for (const d of NUTRIENT_CATALOGUE) {
+    if (exclude.has(d.key)) continue;
     if (!(d.key in breakdown)) continue;
     if (
       hideEmpty &&

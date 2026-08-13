@@ -66,9 +66,12 @@
     )
   );
   // The disclosure lists only what the food carries a value for too — same
-  // missing/zero hiding as the pills, so the two never disagree.
+  // missing/zero hiding as the pills, so the two never disagree — and excludes
+  // whatever the macro grid already shows (Calories + the macro pills above), so
+  // "full nutrition" is the *extras* not on the card, never a repeat of the grid.
+  let pillKeys = $derived(new Set(pills.map((p) => p.key)));
   let fullRows = $derived(
-    buildNutrientBreakdown(breakdown, $nutritionDisplayDecimals, true)
+    buildNutrientBreakdown(breakdown, $nutritionDisplayDecimals, true, pillKeys)
   );
 </script>
 
