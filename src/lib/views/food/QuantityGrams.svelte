@@ -111,7 +111,9 @@
     raw = String(grams);
   }
 
-  let sliderValue = $derived(Math.min(grams, sliderMax));
+  // The slider skims a 1..sliderMax range (a 0 g amount is meaningless); the field
+  // still holds the exact typed grams, so a typed 0 just pins the thumb at 1.
+  let sliderValue = $derived(Math.min(Math.max(grams, 1), sliderMax));
 </script>
 
 <div class="qty">
@@ -152,7 +154,7 @@
       type="single"
       value={sliderValue}
       onValueChange={(v) => (grams = v)}
-      min={0}
+      min={1}
       max={sliderMax}
       step={1}
       thumbPositioning="exact"
@@ -182,7 +184,7 @@
     >
     <!-- The 0 / max scale sits in the slider's grid column only, so its ends line
          up with the track rather than the ÷ / × keys. -->
-    <div class="scale"><span>0</span><span>{sliderMax} g</span></div>
+    <div class="scale"><span>1</span><span>{sliderMax} g</span></div>
   </div>
 
   {#if showPortionSlot || badge}
