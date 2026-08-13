@@ -1474,16 +1474,15 @@
                       {/if}
                     </div>
                   </div>
-                  <!-- Meta row (ADR-0043 §2): the brand sits left, the dietary
-                  claims then the NOVA badge (NOVA last) float right against it.
-                  Dietary marks are bare placeholder glyphs (no frame); the NOVA
-                  mark keeps the brutalist framed tag. Dietary tags are present-only
-                  (silent when OFF carries none), so the cluster degrades to just
-                  the NOVA badge — which is always shown. The additives count rides
-                  the NOVA tag as its circular disc. -->
+                  <!-- Meta row: the brand sits left, the dietary claims float right
+                  against it. Dietary marks are bare placeholder glyphs (no frame);
+                  present-only, so the cluster is silent when OFF carries none. The
+                  NOVA badge no longer rides here — it floats right on the portions
+                  row (passed to FoodAmountPanel's `badge` slot below) so it reads
+                  the same on the staged card and the edit-amount sheet. -->
                   <div class="meta-row">
                     {#if stagedBrand}<p class="brand">{stagedBrand}</p>{/if}
-                    {#if stagedDietaryTags.length || stagedNova}
+                    {#if stagedDietaryTags.length}
                       <div class="tags" data-testid="food-tags-row">
                         {#each stagedDietaryTags as dt (dt.tag)}
                           <button
@@ -1499,13 +1498,6 @@
                             >
                           </button>
                         {/each}
-                        {#if stagedNova}
-                          <NovaBadge
-                            verdict={stagedNova}
-                            additivesCount={stagedAdditivesCount}
-                            onExplain={() => explainNova(stagedNova!)}
-                          />
-                        {/if}
                       </div>
                     {/if}
                   </div>
@@ -1529,14 +1521,23 @@
                       >
                     </div>
                   {/if}
-                  <!-- The NOVA badge now lives in the tags row above (ADR-0043 §2,
-                  superseding ADR-0041 Amendment §3); the amount panel's `badge`
-                  slot is left unused here. -->
+                  <!-- The NOVA badge floats right on the portions row inside the
+                  amount panel (passed to its `badge` slot), so it sits in the same
+                  place on the staged card and the edit-amount sheet. Carries the
+                  additives count disc; taps through to the NOVA explainer. -->
+                  {#snippet novaBadge()}
+                    <NovaBadge
+                      verdict={stagedNova!}
+                      additivesCount={stagedAdditivesCount}
+                      onExplain={() => explainNova(stagedNova!)}
+                    />
+                  {/snippet}
                   <FoodAmountPanel
                     panel={stagedInfo}
                     portions={stagedPortions}
                     hydrating={hydratingPortions}
                     bind:grams
+                    badge={stagedNova ? novaBadge : undefined}
                   />
                   <!-- Allergen safety block (ADR-0043 §3, #104): a static,
                   present-only block below the quantity row — Contains ›

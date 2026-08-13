@@ -34,10 +34,10 @@
     // True while the food's portions are being fetched (ADR-0030 §5): the slot
     // shows skeleton chips so the real ones land in place, no layout shift.
     hydrating?: boolean;
-    // Optional trailing content that rides the amount row, between the label and
-    // the grams value (the NOVA badge in the dashboard edit-amount sheet, ADR-0041
-    // §5). The staged card carries NOVA on its tags row instead (ADR-0043 §2), so
-    // it passes nothing.
+    // Optional content floated to the right of the portions row — the NOVA badge
+    // (ADR-0041 §5), passed by both the staged card and the dashboard edit-amount
+    // sheet so it reads the same on every screen. The row shows for the badge alone
+    // when a food carries no portion chips.
     badge?: Snippet;
   } = $props();
 
@@ -120,30 +120,27 @@
        below (ADR-0043 §2 relayout). -->
   <div class="qty-row">
     <span class="qty-label">Quantity (grams)</span>
-    <div class="qty-end">
-      {#if badge}<div class="qty-badge">{@render badge()}</div>{/if}
-      <label class="value">
-        <input
-          bind:this={inputEl}
-          class="num"
-          inputmode="decimal"
-          autocomplete="off"
-          autocorrect="off"
-          autocapitalize="off"
-          spellcheck="false"
-          aria-label="Quantity in grams — a number, or a sum with the × and ÷ keys"
-          value={raw}
-          oninput={onInput}
-          onfocus={(e) => {
-            focused = true;
-            e.currentTarget.select();
-          }}
-          onblur={commit}
-          onkeydown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-        />
-        <span class="unit">g</span>
-      </label>
-    </div>
+    <label class="value">
+      <input
+        bind:this={inputEl}
+        class="num"
+        inputmode="decimal"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
+        aria-label="Quantity in grams — a number, or a sum with the × and ÷ keys"
+        value={raw}
+        oninput={onInput}
+        onfocus={(e) => {
+          focused = true;
+          e.currentTarget.select();
+        }}
+        onblur={commit}
+        onkeydown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+      />
+      <span class="unit">g</span>
+    </label>
   </div>
 
   <!-- Slider skims the amount, with the ÷ / × keys as the right-most elements.
@@ -185,31 +182,45 @@
   </div>
   <div class="scale"><span>0</span><span>{sliderMax} g</span></div>
 
-  {#if showPortionSlot}
-    <div
-      class="portions"
-      data-testid="portion-presets"
-      aria-busy={portionOptions.length === 0 && hydrating}
-    >
-      {#if portionOptions.length > 0}
-        {#each portionOptions as p (p.label)}
-          <Button
-            variant={grams === p.grams ? "primary" : "secondary"}
-            class="portion-chip"
-            onclick={() => pickPortion(p.label, p.grams)}>{p.display}</Button
-          >
-        {/each}
-      {:else}
-        <!-- Portions loading: skeleton chips holding the row's height so the
+  {#if showPortionSlot || badge}
+    <!-- Portions row: the household-portion chips sit left, the NOVA badge (when
+         any) is always floated to the right (ADR-0041 §5 badge, relocated here so
+         it reads the same on every screen — staged card and edit-amount sheet).
+         The row still shows for the badge alone when a food carries no portions. -->
+    <div class="portions-row">
+      {#if showPortionSlot}
+        <div
+          class="portions"
+          data-testid="portion-presets"
+          aria-busy={portionOptions.length === 0 && hydrating}
+        >
+          {#if portionOptions.length > 0}
+            {#each portionOptions as p (p.label)}
+              <Button
+                variant={grams === p.grams ? "primary" : "secondary"}
+                class="portion-chip"
+                onclick={() => pickPortion(p.label, p.grams)}
+                >{p.display}</Button
+              >
+            {/each}
+          {:else}
+            <!-- Portions loading: skeleton chips holding the row's height so the
              real chips replace them without shifting the picker below. -->
-        <span class="portion-skeleton" style="width: 6.5rem" aria-hidden="true"
-          >&nbsp;</span
-        >
-        <span class="portion-skeleton" style="width: 7.5rem" aria-hidden="true"
-          >&nbsp;</span
-        >
-        <span class="sr-only" role="status">Loading portion sizes…</span>
+            <span
+              class="portion-skeleton"
+              style="width: 6.5rem"
+              aria-hidden="true">&nbsp;</span
+            >
+            <span
+              class="portion-skeleton"
+              style="width: 7.5rem"
+              aria-hidden="true">&nbsp;</span
+            >
+            <span class="sr-only" role="status">Loading portion sizes…</span>
+          {/if}
+        </div>
       {/if}
+      {#if badge}<div class="qty-badge">{@render badge()}</div>{/if}
     </div>
   {/if}
 </div>
@@ -246,18 +257,9 @@
   .qty-label {
     font-weight: 700;
   }
-  /* Badge (when any) + value ride flush right; the value stays right-aligned. */
-  .qty-end {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: var(--space-2xs);
-  }
-  .qty-badge {
-    display: flex;
-    flex: 0 0 auto;
-  }
+  /* The grams value rides flush right in the amount box, right-aligned. */
   .value {
+    margin-left: auto;
     display: flex;
     align-items: baseline;
     gap: 4px;
@@ -367,13 +369,28 @@
     font-weight: 700;
     color: var(--text-secondary);
   }
+  /* Portions row: chips left (taking the width), the NOVA badge floated right. The
+     badge's margin-left:auto also floats it right on its own when a food carries no
+     portion chips (then this row holds only the badge). */
+  .portions-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2xs);
+    width: 100%;
+  }
+  .qty-badge {
+    display: flex;
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
   /* Portion chips wrap (a food can offer several measures, and each label is
-     wider than a gram number), below the slider row. */
+     wider than a gram number). */
   .portions {
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-3xs);
-    width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
   }
   .portions :global(.portion-chip) {
     flex: 0 1 auto;
