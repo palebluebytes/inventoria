@@ -130,7 +130,7 @@
          is a DISTINCT line ("may contain" ≠ "contains"); Free-from is declared
          `en:no-*` claims ONLY, never synthesised from an empty allergens list. -->
     {#each resolvedLines as line (line.key)}
-      <div class="allergen-group">
+      <div class="allergen-group" data-line={line.key}>
         <span class="allergen-label">{line.label}</span>
         <ul class="allergen-list">
           {#each line.items as item (item.tag)}
@@ -144,12 +144,15 @@
 
 <style>
   /* A framed safety block, set apart from the amount panel above it so it reads
-     as its own always-present statement rather than an inline mark. */
+     as its own always-present statement rather than an inline mark. The heavier
+     edge + hard offset shadow (prototype #97) mark it as the card's one safety
+     statement, distinct from the lighter nutrient rows. */
   .allergens {
     margin-top: var(--space-s);
     padding: var(--space-s);
-    border: var(--edge-thin);
+    border: var(--edge-thick);
     border-radius: var(--radius);
+    box-shadow: var(--shadow-1);
     background: var(--paper);
   }
   .allergen-head {
@@ -214,6 +217,15 @@
     text-transform: uppercase;
     letter-spacing: 0.02em;
     color: var(--ink);
+  }
+  /* Precedence read at a glance (prototype #97): the "Contains" label is red,
+     and the whole "Free from" line reads green. May-contain stays ink. */
+  .allergen-group[data-line="contains"] .allergen-label {
+    color: var(--red-text);
+  }
+  .allergen-group[data-line="free"] .allergen-label,
+  .allergen-group[data-line="free"] .allergen-list {
+    color: var(--green-text);
   }
   /* One allergen per line (ADR-0043 §3) — a stacked list, never a comma-jammed
      run, so each surfaced allergen is read on its own. */

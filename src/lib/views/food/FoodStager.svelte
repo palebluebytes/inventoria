@@ -409,6 +409,12 @@
   // read off the entity id. Floats top-right of the name; ALWAYS shown (every food
   // has an origin). Tapping it opens the per-origin source explainer.
   let stagedSource = $derived(staged ? foodSourceView(staged.payload) : null);
+  // The staged food's brand (`twin/brand`, ADR-0030) — the left of the meta-row
+  // that the dietary · NOVA tags float against. Absent for foods with no brand
+  // (USDA/manual), in which case the tags simply sit alone at the right edge.
+  let stagedBrand = $derived<string | undefined>(
+    staged?.payload.attributes["twin/brand"] as string | undefined
+  );
   // The staged food's dietary verdict (ADR-0043 §4), read back off its captured
   // `food/assessment` at render time — never a written attribute. Drives the
   // present-only dietary tags in the row AND the additives count riding the NOVA
@@ -1449,8 +1455,9 @@
                       {#if stagedSource}
                         <!-- Source tag (ADR-0043 §2): the food's origin, floated
                         top-right of the name. Always shown; taps through to the
-                        per-origin trust explainer. Same brutalist tag design as the
-                        dietary + NOVA marks below (only the fill differs). -->
+                        per-origin trust explainer. A leading origin icon (◆ data
+                        source / ✎ hand entry) precedes the label; the brutalist
+                        framed tag idiom is shared with the NOVA mark below. -->
                         <button
                           type="button"
                           class="tag tag-source"
@@ -1460,38 +1467,46 @@
                           title={`Source: ${stagedSource.label}`}
                           onclick={() => (sourceExplain = stagedSource!.kind)}
                         >
-                          {stagedSource.label}
+                          <span class="tag-icon" aria-hidden="true"
+                            >{stagedSource.icon}</span
+                          >{stagedSource.label}
                         </button>
                       {/if}
                     </div>
                   </div>
-                  <!-- Tags row (ADR-0043 §2): dietary claims then the NOVA badge
-                  (NOVA last), one visual design across all three. Dietary tags are
-                  present-only (silent when OFF carries none), so the row degrades
-                  to just the NOVA badge — which is always shown. The additives
-                  count rides the NOVA tag as its circular disc. -->
-                  <div class="tags-row" data-testid="food-tags-row">
-                    {#each stagedDietaryTags as dt (dt.tag)}
-                      <button
-                        type="button"
-                        class="tag tag-dietary"
-                        data-testid="dietary-tag"
-                        aria-label={`${dt.shortForm}. Tap for details`}
-                        title={dt.shortForm}
-                        onclick={() => (dietaryExplain = stagedDietary)}
-                      >
-                        <span class="tag-glyph" aria-hidden="true"
-                          >{dt.glyph}</span
-                        >
-                        <span>{dt.shortForm}</span>
-                      </button>
-                    {/each}
-                    {#if stagedNova}
-                      <NovaBadge
-                        verdict={stagedNova}
-                        additivesCount={stagedAdditivesCount}
-                        onExplain={() => explainNova(stagedNova!)}
-                      />
+                  <!-- Meta row (ADR-0043 §2): the brand sits left, the dietary
+                  claims then the NOVA badge (NOVA last) float right against it.
+                  Dietary marks are bare placeholder glyphs (no frame); the NOVA
+                  mark keeps the brutalist framed tag. Dietary tags are present-only
+                  (silent when OFF carries none), so the cluster degrades to just
+                  the NOVA badge — which is always shown. The additives count rides
+                  the NOVA tag as its circular disc. -->
+                  <div class="meta-row">
+                    {#if stagedBrand}<p class="brand">{stagedBrand}</p>{/if}
+                    {#if stagedDietaryTags.length || stagedNova}
+                      <div class="tags" data-testid="food-tags-row">
+                        {#each stagedDietaryTags as dt (dt.tag)}
+                          <button
+                            type="button"
+                            class="tag tag-dietary"
+                            data-testid="dietary-tag"
+                            aria-label={`${dt.shortForm}. Tap for details`}
+                            title={dt.shortForm}
+                            onclick={() => (dietaryExplain = stagedDietary)}
+                          >
+                            <span class="tag-glyph" aria-hidden="true"
+                              >{dt.glyph}</span
+                            >
+                          </button>
+                        {/each}
+                        {#if stagedNova}
+                          <NovaBadge
+                            verdict={stagedNova}
+                            additivesCount={stagedAdditivesCount}
+                            onExplain={() => explainNova(stagedNova!)}
+                          />
+                        {/if}
+                      </div>
                     {/if}
                   </div>
                   {#if nudge}
@@ -2344,16 +2359,33 @@
     gap: var(--space-2xs);
   }
 
-  /* The tags row (ADR-0043 §2): dietary claims then the NOVA badge, one shared
-     brutalist tag idiom (ink-edged paper chip with a hard offset shadow that
-     presses on tap — matching NovaBadge; only the fill differs). */
-  .tags-row {
+  /* Meta row (ADR-0043 §2): the brand sits left, the dietary + NOVA tags float
+     right against it (margin-left:auto), sharing one row. */
+  .meta-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2xs);
+    margin-top: var(--space-3xs);
+    min-height: 1.7rem;
+  }
+  .brand {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: var(--step-n1);
+    min-width: 0;
+  }
+  /* The tag cluster — floated to the right edge of the brand row. */
+  .tags {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
+    justify-content: flex-end;
     gap: var(--space-2xs);
-    margin-top: var(--space-xs);
+    margin-left: auto;
   }
+  /* The source + NOVA marks share this brutalist tag idiom (ink-edged paper chip
+     with a hard offset shadow that presses on tap — matching NovaBadge; only the
+     fill differs). Dietary marks opt out of the frame below (bare glyphs). */
   .tag {
     flex: 0 0 auto;
     display: inline-flex;
@@ -2388,8 +2420,35 @@
     outline: var(--edge);
     outline-offset: 2px;
   }
+  /* The source tag's leading origin icon (◆ / ✎) — em-centred glyphs that read
+     low beside all-caps text, so lift them a hair onto the caps' optical centre. */
+  .tag-icon {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+    transform: translateY(-0.08em);
+  }
+  /* Dietary marks are bare placeholder glyphs (ADR-0043 §2, prototype #97) — no
+     frame, no fill, no shadow, no visible text; the short form lives in the tag's
+     title/aria-label. They still tap through to the shared dietary explainer. */
+  .tag-dietary {
+    background: none;
+    padding: 0.1rem;
+    box-shadow: none;
+  }
+  .tag-dietary:hover {
+    box-shadow: none;
+    transform: none;
+  }
+  .tag-dietary:active {
+    box-shadow: none;
+    transform: translateY(1px);
+  }
   .tag-glyph {
-    font-size: 0.9em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--step-0);
     line-height: 1;
   }
   /* Found-but-poor nudge (§1) — soft amber, dismissible; never blocks the Log

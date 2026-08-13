@@ -17,11 +17,17 @@ import type { EntityPayload } from "../ingestion/ingest";
 /** A food's origin bucket. `manual` is the catch-all for user-authored twins. */
 export type FoodSourceKind = "off" | "usda" | "manual" | "recipe";
 
-/** What the source tag draws: the origin bucket + its short uppercase label. */
+/** What the source tag draws: origin bucket, short uppercase label, leading icon. */
 export interface FoodSourceView {
   kind: FoodSourceKind;
   /** Short label the brutalist tag renders (uppercased by the skin). */
   label: string;
+  /**
+   * Leading origin glyph rendered before the label (ADR-0043 §2, prototype #97).
+   * `◆` marks a resolved data source (OFF / USDA / a computed recipe); `✎` marks
+   * a hand-authored manual entry.
+   */
+  icon: string;
 }
 
 // Entity-id prefix → origin. Order is irrelevant (prefixes are disjoint); the
@@ -32,11 +38,16 @@ const PREFIX_SOURCES: readonly { prefix: string; kind: FoodSourceKind }[] = [
   { prefix: "recipe:", kind: "recipe" },
 ];
 
-const SOURCE_LABEL: Record<FoodSourceKind, string> = {
-  off: "OFF",
-  usda: "USDA",
-  manual: "Manual",
-  recipe: "Recipe",
+// A kind's full tag presentation in one place: its short label + leading origin
+// glyph (prototype #97 — ◆ marks a resolved data source, ✎ a hand-authored entry).
+const SOURCE_PRESENTATION: Record<
+  FoodSourceKind,
+  { label: string; icon: string }
+> = {
+  off: { label: "OFF", icon: "◆" },
+  usda: { label: "USDA", icon: "◆" },
+  recipe: { label: "Recipe", icon: "◆" },
+  manual: { label: "Manual", icon: "✎" },
 };
 
 /**
@@ -49,7 +60,8 @@ const SOURCE_LABEL: Record<FoodSourceKind, string> = {
 export function foodSourceView(food: EntityPayload): FoodSourceView {
   const entity = food.entity ?? "";
   for (const { prefix, kind } of PREFIX_SOURCES) {
-    if (entity.startsWith(prefix)) return { kind, label: SOURCE_LABEL[kind] };
+    if (entity.startsWith(prefix))
+      return { kind, ...SOURCE_PRESENTATION[kind] };
   }
-  return { kind: "manual", label: SOURCE_LABEL.manual };
+  return { kind: "manual", ...SOURCE_PRESENTATION.manual };
 }

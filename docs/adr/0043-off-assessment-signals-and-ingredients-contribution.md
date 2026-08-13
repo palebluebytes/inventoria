@@ -78,17 +78,24 @@ There is **no unified "assessment section."** The signals surface **inline** on
 the staged food card, in both add and edit modes, exactly where the food already
 lives. A **tags row** sits below the food name:
 
-- **order:** `source · dietary · NOVA` — **NOVA last**, one visual design across
-  all three (uppercase, brutalist frame; the only difference is fill).
+- **order:** `source · dietary · NOVA` — **NOVA last**. The **source** and
+  **NOVA** marks share **one brutalist framed tag** (uppercase, ink-edged chip;
+  the only difference is fill). The **dietary** marks do **not** wear that frame —
+  see below.
 - the **source tag** (the food's origin — OFF / USDA / manual / recipe) **floats
-  top-right of the name**, not inline in the row.
+  top-right of the name**, not inline in the row, and carries a **leading origin
+  icon** (`◆` for a resolved data source — OFF / USDA / a computed recipe — and
+  `✎` for a hand-authored manual entry) before its label.
+- the **dietary + NOVA** marks sit on a **meta-row below the name, floated right**
+  against the brand (brand left) — not a standalone left-aligned row.
 - **additives** render as a **circular count** on the NOVA tag (e.g. a small
   `3` disc) — a deliberate `--radius:0` **exception** to ADR-0038's square-frame
   rule, the one round mark in the food UI.
-- **dietary tags** carry short-form symbol glyphs (🌱 vegan, Ⓥ vegetarian,
-  🏵️ organic). **These glyphs are placeholders** — the real iconography
-  (trademarked V-Label / EU-organic marks vs a monochrome custom set) is settled
-  by standalone research
+- **dietary tags** are **bare placeholder glyphs** (🌱 vegan, Ⓥ vegetarian,
+  🏵️ organic) — **no frame, no fill, no visible text**; the short form lives in
+  the tag's title / aria-label, and tapping the glyph opens the dietary explainer.
+  **These glyphs are placeholders** — the real iconography (trademarked V-Label /
+  EU-organic marks vs a monochrome custom set) is settled by standalone research
   [#100](https://github.com/inkpot-monkey/inventoria/issues/100), deferrable past
   this map's destination.
 
