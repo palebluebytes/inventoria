@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR 0043 · Inventoria</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page-wrapper">
+      <nav class="site-nav">
+        <p class="nav-title">Inventoria</p>
+        <a href="../index.html">Introduction</a>
+        <div class="nav-section">
+          <p class="nav-section-label">Reference</p>
+          <a href="../glossary.html">Glossary</a>
+          <a href="../eavt-vocabulary.html">EAVT Vocabulary</a>
+        </div>
+        <div class="nav-section">
+          <p class="nav-section-label">Explanation</p>
+          <a href="../append-only-ledger.html">State Is a Reading of the Past</a>
+        </div>
+        <div class="nav-section">
+          <a href="index.html" class="active">Architectural Decision Records</a>
+        </div>
+      </nav>
+  <div class="content-area">
+    <main>
+<h1 id="adr-0043-surfacing-off-assessment-signals-allergens--dietary-labels-and-contributing-back-ingredients_text">ADR 0043: Surfacing OFF assessment signals (allergens + dietary labels) and contributing back <code>ingredients_text</code></h1>
+<p><strong>Status:</strong> Accepted. <strong>Date:</strong> 2026-08-13</p>
+<h2 id="context">Context</h2>
+<p>The food twin captures Open Food Facts' consumer-facing signals as one atomic <code>food/assessment</code> blob (ADR-0030 §4): <code>nova_group</code>, <code>nutri_score</code>, <code>eco_score</code>, <code>nutrient_levels</code>, <code>allergens</code>, <code>additives</code>, <code>labels</code>. That blob was <strong>write-only</strong> until <a href="0041-nova-processing-badge.html">ADR-0041</a> gave it its first reader — the NOVA processing badge, computed on read via a pure <code>deriveNovaVerdict</code> selector. ADR-0041 surfaced <strong>exactly one of the blob's signals</strong>; the rest still never reach the UI.</p>
+<p>In the other direction, the contribute-back path (<code>OffContribution</code> / <code>buildOffWriteBody</code> / <code>submitToOpenFoodFacts</code>, ADR-0034 §8) sends a product's name, brand, category, and nutrient panel back to OFF — but not its <strong>ingredients</strong>, even though the read-along capture flow is the natural place to author them.</p>
+<p>Wayfinder map <a href="https://github.com/inkpot-monkey/inventoria/issues/94">#94</a> charted the route to close these gaps <strong>in both directions</strong>, within a <strong>nutrition + safety + dietary-labels</strong> mission boundary, mirroring the NOVA arc. Four decision tickets resolved the shape before this synthesis:</p>
+<ul>
+<li><strong><a href="https://github.com/inkpot-monkey/inventoria/issues/95">#95 research</a></strong> — <code>docs/research/95-off-assessment-signals.md</code>. We store the right fields (<code>nutrient_levels</code> is an object not <code>_tags</code>; Nutri-Score is <strong>versioned</strong> 2021/2023; <code>traces_tags</code> is <strong>separate</strong> from <code>allergens_tags</code>). <strong>Coverage:</strong> Nutri-Score / traffic-lights ~33%, allergens / additives ~28%, <strong>dietary labels sparse (3–6%)</strong>. <strong>Readability:</strong> allergens / additives / labels are cryptic <code>en:</code> tags with <strong>no display name in the API response</strong> → a tag→name lookup is required, reachable client-side via <strong>static taxonomy JSON</strong> (<code>allergens/additives/labels.json</code>, CORS-open). <strong>Safety:</strong> an empty <code>allergens_tags</code> means "none found in the parsed ingredients", <strong>not</strong> allergen-free; a declared free-from claim lives only in <code>labels_tags</code> (<code>en:no-gluten</code>). ODbL credit already carried by the NOVA badge covers these.</li>
+<li><strong><a href="https://github.com/inkpot-monkey/inventoria/issues/96">#96 grilling</a></strong> — the roster and the allergen safety framing (folded into §1 / §3 below).</li>
+<li><strong><a href="https://github.com/inkpot-monkey/inventoria/issues/97">#97 prototype</a></strong> — the surface, prototyped against the real staged card in add + edit modes (throwaway branch <code>prototype/97-off-assessment-surface</code>, <code>0dd498e</code>). Settled layout, marks, explainers, and placement (folded into §2 / §4 below).</li>
+<li><strong><a href="https://github.com/inkpot-monkey/inventoria/issues/98">#98 grilling</a></strong> — the contribute-back extension, after correcting a premise (folded into §5 below).</li>
+</ul>
+<p>This ADR folds #95–#98 into one decision and cuts the implementation tickets. It extends ADR-0041 (the NOVA precedent it generalizes) and ADR-0034 §8 (the contribute-back path it widens). Reading the blob back is pure implementation, so it lives in the tickets this ADR cuts, not in any further decision ticket.</p>
+<h2 id="decision">Decision</h2>
+<h3 id="1-the-surfacing-roster--allergens--dietary-labels-only-96">1. The surfacing roster — allergens + dietary labels only (#96)</h3>
+<p>Of the blob's seven captured signals, <strong>two</strong> reach the UI:</p>
+<table>
+<thead>
+<tr>
+<th>Signal</th>
+<th>Decision</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Allergens</strong> (+ traces)</td>
+<td><strong>Surface</strong> — a static safety block (§3).</td>
+</tr>
+<tr>
+<td><strong>Dietary labels</strong></td>
+<td><strong>Surface</strong> — vegan / vegetarian / gluten-free / organic tags (§2).</td>
+</tr>
+<tr>
+<td>Additives</td>
+<td><strong>Explainer only</strong> — no badge; at most an <code>additives_n</code> count (§2).</td>
+</tr>
+<tr>
+<td>NOVA (<code>nova_group</code>)</td>
+<td>Already surfaced (ADR-0041); this ADR only <strong>re-places</strong> its badge.</td>
+</tr>
+<tr>
+<td>Nutri-Score</td>
+<td><strong>Out of scope</strong> — single-jurisdiction (SPF); NOVA carries processing.</td>
+</tr>
+<tr>
+<td>Traffic-lights (<code>nutrient_levels</code>)</td>
+<td><strong>Out of scope</strong> — single-jurisdiction (UK-FSA).</td>
+</tr>
+<tr>
+<td><code>eco_score</code></td>
+<td><strong>Out of scope</strong> — outside the nutrition/safety/dietary boundary.</td>
+</tr>
+</tbody>
+</table>
+<p>Nutri-Score and traffic-lights are <strong>cut from the roster</strong> — single-jurisdiction schemes we don't trust as cross-market signals, and NOVA already carries the processing story. <strong>Additives</strong> get no badge of their own; they fold into the existing NOVA explainer, surfaced at most as a small count. Every survivor is a <strong>tag-list</strong> (<code>en:</code>-prefixed), so both go through <strong>one shared taxonomy lookup</strong> and neither carries a numeric or letter mark.</p>
+<h3 id="2-dietary--source-tags--an-inline-row-below-the-name-97">2. Dietary + source tags — an inline row below the name (#97)</h3>
+<p>There is <strong>no unified "assessment section."</strong> The signals surface <strong>inline</strong> on the staged food card, in both add and edit modes, exactly where the food already lives. A <strong>tags row</strong> sits below the food name:</p>
+<ul>
+<li><strong>order:</strong> <code>source · dietary · NOVA</code> — <strong>NOVA last</strong>, one visual design across all three (uppercase, brutalist frame; the only difference is fill).</li>
+<li>the <strong>source tag</strong> (the food's origin — OFF / USDA / manual / recipe) <strong>floats top-right of the name</strong>, not inline in the row.</li>
+<li><strong>additives</strong> render as a <strong>circular count</strong> on the NOVA tag (e.g. a small <code>3</code> disc) — a deliberate <code>--radius:0</code> <strong>exception</strong> to ADR-0038's square-frame rule, the one round mark in the food UI.</li>
+<li><strong>dietary tags</strong> carry short-form symbol glyphs (🌱 vegan, Ⓥ vegetarian, 🏵️ organic). <strong>These glyphs are placeholders</strong> — the real iconography (trademarked V-Label / EU-organic marks vs a monochrome custom set) is settled by standalone research <a href="https://github.com/inkpot-monkey/inventoria/issues/100">#100</a>, deferrable past this map's destination.</li>
+</ul>
+<p>Each tag <strong>taps through</strong> to a house <code>BottomSheet</code> (ADR-0027/0028; the #67 Modal precedent): a new <strong>source explainer</strong> (per-origin — what "from OFF" / "from USDA" / "manual" means for trust), a new <strong>dietary explainer</strong> (the bare symbol glyphs, their short forms, and the "on-pack claim, not our verdict" caveat), and the <strong>existing NOVA explainer</strong>, now also carrying the additives detail.</p>
+<blockquote>
+<p><strong>This re-places the NOVA badge (supersedes ADR-0041 Amendment §3).</strong> ADR-0041 shipped the NOVA badge on the "Quantity (grams)" label row, floated right. It now moves into this tags row (NOVA last), so the three marks read as one family. The badge's <strong>word-only, colour-weighted</strong> form (ADR-0041 Amendment §1) is unchanged — only its position moves.</p>
+</blockquote>
+<h3 id="3-allergens--a-present-only-safety-block-never-inferred-from-absence-96">3. Allergens — a present-only safety block, never inferred from absence (#96)</h3>
+<p>Allergens are a <strong>safety</strong> signal, so they get their own <strong>static block</strong> below the quantity row (not a tap-through tag), and they follow one hard rule: <strong>surface only what is positively present; never infer allergen-freeness from absence.</strong> The block has three lines, in strict <strong>precedence</strong> order, each allergen on its <strong>own line</strong>:</p>
+<ol type="1">
+<li><strong>Contains</strong> — from <code>allergens_tags</code>.</li>
+<li><strong>May contain</strong> — from <code>traces_tags</code> (a <strong>distinct</strong> line; cross-contamination ≠ an ingredient).</li>
+<li><strong>Free from</strong> — declared free-from claims <strong>only</strong> from <code>labels_tags</code> (<code>en:no-gluten</code>, <code>en:no-…</code>); <strong>never</strong> synthesized from an empty <code>allergens_tags</code>. <code>no-gluten</code> is <strong>de-duplicated</strong> out of the dietary gluten-free tag into this line.</li>
+</ol>
+<p>The block always carries the <strong>mandatory disclaimer</strong> — "OFF's reading of the ingredients; check the packaging" — behind an <strong>(i) toggle</strong>, because an empty <code>allergens_tags</code> means "none found in the parsed ingredients", not "allergen-free" (#95). When OFF carries <strong>no</strong> allergen/traces/free-from data at all, the block is <strong>silent</strong> — it does not render.</p>
+<p>There are <strong>no "not rated" states</strong> anywhere in this surface (a departure from the NOVA badge's always-present neutral chip): both allergens and dietary labels <strong>degrade to silence</strong> for manual / USDA / recipe foods and for OFF products that carry no such data. The signals are sparse and positive-only; a "not rated" allergen line would be noise at best and dangerously reassuring at worst.</p>
+<h3 id="4-verdicts-computed-on-read--pure-selectors-no-new-attribute-97">4. Verdicts computed on read — pure selectors, no new attribute (#97)</h3>
+<p>Mirroring ADR-0041 §4, there is <strong>no new written attribute and no migration</strong>. Two pure selectors read the already-captured <code>food/assessment</code> at render time and return value objects:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode ts"><code class="sourceCode typescript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">deriveDietaryVerdict</span>(food)<span class="op">:</span> DietaryVerdict   <span class="co">// vegan/vegetarian/gluten-free/organic + additives count</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">deriveAllergenVerdict</span>(food)<span class="op">:</span> AllergenVerdict <span class="co">// contains / may-contain / free-from tag lists</span></span></code></pre></div>
+<p>Both are <strong>present-only and silent-on-empty</strong> (they return an "absent" value, not a "not-rated" one, when OFF has no data), pure, and table-testable — the same shape <code>deriveNovaVerdict</code> established. Two <strong>domain rules</strong> are baked into the selectors:</p>
+<ul>
+<li><strong><code>vegan ⟹ suppress vegetarian</code></strong> — a vegan food is trivially vegetarian, so the vegetarian tag is dropped when vegan is present (no redundant pair).</li>
+<li><strong>allergen-line precedence</strong> (Contains › May-contain › Free-from) and the <code>no-gluten</code> de-dup live in <code>deriveAllergenVerdict</code>, so the block is a dumb renderer of an already-ordered structure.</li>
+</ul>
+<p>The selectors return <strong><code>en:</code> tags</strong>, not display names. Resolving a tag to its human name is a <strong>separate concern</strong>: a client-side <strong>taxonomy resolver</strong> loads OFF's static taxonomy JSON (<code>allergens.json</code> / <code>additives.json</code> / <code>labels.json</code>, CORS-open), caches it, and maps <code>en:peanuts → "Peanuts"</code>. It <strong>degrades gracefully</strong> — an unknown or not-yet-loaded tag falls back to a prettified form of the bare <code>en:</code> slug, so a missing taxonomy never blanks a safety line. Keeping the resolver out of the selectors keeps the selectors pure and synchronous.</p>
+<p><strong>Visible ODbL attribution to Open Food Facts</strong> already rides the NOVA badge on every OFF food (ADR-0041); it covers these OFF-derived signals too — no new attribution surface is owed.</p>
+<h3 id="5-contribute-back-ingredients_text--the-read-along-form-authors-it-98">5. Contribute back <code>ingredients_text</code> — the read-along form authors it (#98)</h3>
+<p><strong>Premise corrected.</strong> The read-along capture form captured <strong>no</strong> ingredients today: <code>food/ingredients</code> is the unrelated <em>menu-descriptor</em> attribute (ADR-0035), while OFF's canonical <code>food/ingredients_text</code> was written <strong>only</strong> by the read mapper. So the extension is:</p>
+<ol type="1">
+<li><strong>Add an ingredients field to the read-along capture form</strong>, <strong>seeded from the twin's existing <code>food/ingredients_text</code></strong> — true read-along: show OFF's parsed ingredients, let the user correct them.</li>
+<li><strong><code>saveLabelFood</code> writes <code>food/ingredients_text</code></strong> from that field.</li>
+<li><strong><code>buildOffWriteBody</code> sends it as a bare <code>ingredients_text</code></strong> — <strong>REPLACE</strong> (like <code>product_name</code>, not <code>add_</code>), <strong>suppress-when-empty</strong> (an untouched empty field never posts, so it can't wipe OFF's data).</li>
+</ol>
+<p><strong>Language safety.</strong> The write round-trips the <strong>same main-language slot</strong>: seed from the bare <code>ingredients_text</code> read, write to the bare <code>ingredients_text</code>; <strong>never <code>_en</code></strong>, which would mislabel a non-English label as English. The transcribe-a-different-language edge (needs label-language capture + OFF's <code>lc</code> param) is a <strong>deferred refinement</strong>, not v1.</p>
+<p>Ingredients is the <strong>whole</strong> extension — dietary labels and allergens are OFF-derived, never user-authored here, so nothing else is added to the write path. It rides the <strong>existing model-C per-capture consent</strong> (ADR-0034 §8 / #61); <strong>no new consent gate</strong>.</p>
+<h3 id="6-widen-the-off-mapper-for-traces_tags-forward-only">6. Widen the OFF mapper for <code>traces_tags</code>, forward-only</h3>
+<p><code>allergens</code>, <code>additives</code>, and <code>labels</code> are already captured, so the only mapper widening is <strong><code>traces_tags</code> → <code>FoodAssessment.traces</code></strong> (the May-contain line has no source today). This is <strong>forward-only</strong> (adapter bump), matching ADR-0041 §7: the May-contain line appears only for foods captured after the change; older foods still show Contains and Free-from from their already-captured tags. No selector ever depends on <code>traces</code> being present.</p>
+<h2 id="known-gaps-carried-forward-not-tickets">Known gaps (carried forward, not tickets)</h2>
+<ul>
+<li><strong><code>serving_quantity</code> (grams) on write</strong> — the contribute-back path sends only the human <code>serving_size</code> string, not a grams value; deriving trustworthy grams from a display string is fiddly and low-value (#98). Left open, noted.</li>
+<li><strong>Ingredients label-language (<code>lc</code>)</strong> — transcribing a label in a language other than OFF's main slot needs label-language capture; deferred (#98).</li>
+<li><strong>Dietary iconography</strong> — the placeholder glyphs (§2) await research <a href="https://github.com/inkpot-monkey/inventoria/issues/100">#100</a> (trademarked marks vs a custom monochrome set). Deferrable past this map's destination.</li>
+</ul>
+<h2 id="implementation-tickets">Implementation tickets</h2>
+<p>Four <code>ready-for-agent</code> tickets, sequenced by the read-back selectors + taxonomy resolver as the shared spine (mirroring ADR-0041's #90–#93 split). The contribute-back ticket touches a disjoint code path (the write side), so it is <strong>independent and unblocked from the start</strong>.</p>
+<pre><code>A Data spine ──► B Dietary + source tags row (+ explainers)
+             └─► C Allergen safety block
+D Contribute-back ingredients_text   (independent, unblocked)</code></pre>
+<ul>
+<li><strong>A — Data spine.</strong> Widen the OFF mapper for <code>traces_tags</code> (forward-only) + <code>FoodAssessment.traces</code>; the two pure read-back selectors <code>deriveDietaryVerdict</code> / <code>deriveAllergenVerdict</code> (present-only, silent-on-empty, <code>vegan ⟹ suppress vegetarian</code>, allergen-line precedence + <code>no-gluten</code> de-dup); and the client-side taxonomy resolver (static <code>allergens</code>/<code>additives</code>/<code>labels</code> JSON, cached, graceful <code>en:</code>-prettify fallback). Unit-tested against fixture assessments. <strong>Unblocked.</strong></li>
+<li><strong>B — Dietary + source tags row.</strong> The inline tags row below the name (<code>source · dietary · NOVA</code>, NOVA last, one design); <strong>relocate the existing NOVA badge</strong> into it (supersedes ADR-0041 Amendment §3); additives as a circular count (<code>--radius:0</code> exception) on the NOVA tag; the source explainer + dietary explainer sheets (house <code>BottomSheet</code>, placeholder glyphs → #100) and fold additives into the existing NOVA explainer. <strong>← A.</strong></li>
+<li><strong>C — Allergen safety block.</strong> The static block below the quantity row — Contains › May-contain › Free-from precedence, each allergen one line, the mandatory disclaimer behind an (i) toggle, silent when OFF has no data. <strong>← A.</strong></li>
+<li><strong>D — Contribute-back <code>ingredients_text</code>.</strong> Add the ingredients field to the read-along capture form (seeded from the twin's <code>food/ingredients_text</code>); <code>saveLabelFood</code> writes <code>food/ingredients_text</code>; <code>buildOffWriteBody</code> sends bare <code>ingredients_text</code> REPLACE, suppress-when-empty; rides existing model-C consent. Note the deferred <code>lc</code> + <code>serving_quantity</code> gaps. <strong>Independent, unblocked.</strong></li>
+</ul>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li>The <code>food/assessment</code> blob gains its second and third readers (allergens + dietary labels), leaving only the deliberately out-of-scope signals (Nutri-Score, traffic-lights, <code>eco_score</code>) unread.</li>
+<li>Allergen safety is surfaced <strong>honestly</strong>: present-only, never inferred from absence, always disclaimed. The app never tells a user a food is allergen-free.</li>
+<li>Sparse signals stay quiet: with dietary coverage at 3–6%, silence (not a "not rated" chip) keeps the card clean for the overwhelming majority of foods.</li>
+<li>The write path finally lets a user <strong>correct OFF's ingredients</strong> — the missing half of the read-along flow — under the existing consent, with language-slot safety.</li>
+<li>The read side is pure and migration-free; the taxonomy resolver is the only new network dependency, and it degrades to prettified slugs when unreachable.</li>
+<li>Two known gaps (<code>serving_quantity</code> grams, ingredients <code>lc</code>) and the iconography question (#100) are carried forward, not built.</li>
+</ul>
+<h2 id="alternatives-considered">Alternatives considered</h2>
+<ul>
+<li><strong>Surface Nutri-Score + traffic-lights too</strong> (the Destination's example roster). Rejected in #96: single-jurisdiction algorithmic scores we don't trust as cross-market signals; NOVA already carries the processing story.</li>
+<li><strong>A unified "assessment section."</strong> Rejected in #97: an inline tags row + a static allergen block keep each signal where the food already is, rather than inventing a panel the sparse data can't fill.</li>
+<li><strong>Infer "allergen-free" from an empty <code>allergens_tags</code>.</strong> Rejected (#95/#96): empty means "none found in the parsed ingredients", not "safe" — the single most dangerous misread of OFF data. Free-from claims come only from explicit labels.</li>
+<li><strong>A "not rated" chip for missing allergens/dietary data</strong> (the NOVA badge's neutral state). Rejected (§3): safe here means silent; a persistent "not rated" allergen line is noise, and a reassuring-looking one is unsafe.</li>
+<li><strong>Send <code>ingredients_text_en</code>.</strong> Rejected (#98): mislabels a non-English label as English. Round-trip the bare main-language slot instead.</li>
+<li><strong>Persist resolved verdicts on save.</strong> Rejected, per ADR-0041 §4: the read-back selectors need no migration and re-tune freely.</li>
+</ul>
+    </main>
+  </div>
+</div>
+</body>
+</html>
