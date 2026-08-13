@@ -13,26 +13,23 @@
     type Portion,
   } from "../../food/nutrition";
 
-  // Amount control for a staged food: a full-width field (the primary, precise
-  // entry — you can type a plain number *or* a little sum like `65 / 2` and the
-  // field logs the result), a slider that skims the common range, and preset
-  // chips for one-tap jumps.
+  // Amount control for a staged food: a boxed field (the primary, precise entry —
+  // you can type a plain number *or* a little sum like `65 / 2` and the field logs
+  // the result) and a slider that skims the common range.
   // The slider is a coarse accelerator only: typed values may exceed `sliderMax`,
   // in which case the thumb pins at the end while `grams` keeps the exact number.
   // When the food carries household portions (ADR-0030, ticket #27) they render
-  // as an extra chip row above the gram presets: tapping "1 medium — 118 g" fills
-  // the resolved grams. A portion-less food shows the control exactly as before.
+  // as a chip row below the slider: tapping "1 medium — 118 g" fills the resolved
+  // grams. A portion-less food shows just the field and slider.
   let {
     grams = $bindable(100),
     sliderMax = 500,
-    presets = [25, 50, 100, 150, 200, 300],
     portions = [],
     hydrating = false,
     badge = undefined,
   }: {
     grams: number;
     sliderMax?: number;
-    presets?: number[];
     portions?: Portion[];
     // True while the food's portions are being fetched (ADR-0030 §5): the slot
     // shows skeleton chips so the real ones land in place, no layout shift.
@@ -215,16 +212,6 @@
       {/if}
     </div>
   {/if}
-
-  <div class="presets">
-    {#each presets as p}
-      <Button
-        variant={grams === p ? "primary" : "secondary"}
-        class="chip-fit"
-        onclick={() => (grams = p)}>{p}</Button
-      >
-    {/each}
-  </div>
 </div>
 
 <style>
@@ -381,7 +368,7 @@
     color: var(--text-secondary);
   }
   /* Portion chips wrap (a food can offer several measures, and each label is
-     wider than a gram number), sitting above the fixed gram-preset row. */
+     wider than a gram number), below the slider row. */
   .portions {
     display: flex;
     flex-wrap: wrap;
@@ -437,20 +424,5 @@
     clip-path: inset(50%);
     white-space: nowrap;
     border: 0;
-  }
-  .presets {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: var(--space-3xs);
-    width: 100%;
-  }
-  /* Reuse the app's <Button> (secondary/primary), just make the presets share
-     the row equally and shrink instead of wrap — override its wide padding. */
-  .presets :global(.chip-fit) {
-    flex: 1 1 0;
-    min-width: 0;
-    padding-left: var(--space-3xs);
-    padding-right: var(--space-3xs);
-    font-size: var(--step-n2);
   }
 </style>

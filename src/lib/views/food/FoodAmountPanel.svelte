@@ -15,7 +15,6 @@
     nutritionDisplayDecimals,
   } from "../../stores/settings.store";
   import QuantityGrams from "./QuantityGrams.svelte";
-  import MacroPills from "./MacroPills.svelte";
   import NutrientBreakdown from "./NutrientBreakdown.svelte";
 
   // The shared amount-and-preview body of a food: the basis caption ("Per 100 g"
@@ -76,8 +75,19 @@
 <QuantityGrams bind:grams {portions} {hydrating} {badge} />
 
 {#if panel}
+  <!-- Macro preview (#97 prototype): a 2-column grid of thin-framed rows, each
+       reading label → value on one line (e.g. "Energy   634 kcal"). Values come
+       from buildNutrientPills (Calories always leads, then the visible nutrients
+       the food actually carries — same hideEmpty behaviour); only the layout
+       differs from the old pill row. -->
   <div class="preview">
-    <MacroPills {pills} />
+    <div class="nutrients">
+      {#each pills as pill (pill.key)}
+        <div class="n">
+          <span>{pill.label}</span><strong>{pill.value}</strong>
+        </div>
+      {/each}
+    </div>
   </div>
   <div class="full-panel">
     <NutrientBreakdown rows={fullRows} testid="food-nutrient-breakdown" />
@@ -87,6 +97,23 @@
 <style>
   .preview {
     margin-top: var(--space-m);
+  }
+  /* Two-column macro grid: each cell a thin-framed row, label left, value right. */
+  .nutrients {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3xs);
+  }
+  .n {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-2xs);
+    border: var(--edge-thin);
+    padding: var(--space-3xs) var(--space-2xs);
+    font-size: var(--step-n1);
+  }
+  .n strong {
+    font-weight: 700;
   }
   .full-panel {
     margin-top: var(--space-s);
