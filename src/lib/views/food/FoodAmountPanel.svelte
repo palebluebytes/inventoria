@@ -9,7 +9,6 @@
   import {
     buildNutrientPills,
     buildNutrientBreakdown,
-    ABSENT_NUTRIENT,
   } from "../../food/nutrient-display";
   import {
     settingsStore,
@@ -56,17 +55,17 @@
   );
   let breakdown = $derived(scaleNutrition(panel, factor));
   // The preview grid shows Calories plus every tracked nutrient (`visible_nutrients`)
-  // the food actually carries a value for — including a real 0 (hideEmpty=false
-  // keeps reported zeros), but NOT one the food has no data for. An absent tracked
-  // nutrient (value "–") is dropped, so the grid never shows a "–" for something
-  // the food simply doesn't measure. Anything NOT tracked drops to full nutrition.
+  // the food has a real amount of — hideEmpty drops both absent nutrients (no data,
+  // e.g. a food that never measured fibre) AND declared/scaled zeros (OFF's olive
+  // oil reports 0 g protein/carbs/fibre), so the grid stays the "meaningfully
+  // present" set. Anything NOT tracked but present drops to full nutrition below.
   let pills = $derived(
     buildNutrientPills(
       breakdown,
       $settingsStore.visible_nutrients,
       $nutritionDisplayDecimals,
-      false
-    ).filter((p) => p.value !== ABSENT_NUTRIENT)
+      true
+    )
   );
   // The disclosure carries what the food actually has that ISN'T already in the
   // grid: hide missing/zero rows, and exclude whatever the grid shows (Calories +
