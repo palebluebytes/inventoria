@@ -159,18 +159,24 @@ Calendar Event Blueprints.
 
 Every logged Event.
 
-- `type`, `target`, `target_id`, `status`, `rating`, `season`, `episode`, `review`,
-  `pages_read`, `quantity`, `instrument_used`, `slot_id`, `metadata`.
+- `type`: the event verb, a closed set of six. `ConsumeAction` (food),
+  `WatchAction` and `ReadAction` (media), `ExerciseAction` (habits),
+  `OccurrenceAction` (calendar), `AcquisitionAction` (physical items).
+- `target`: polymorphic. It references **any** twin, across all four food prefixes
+  (`gtin:`, `fdc:`, `food:custom_`, `recipe:`) as well as media and physical-item
+  twins. Also `target_id`.
+- `status`: the meaning depends on `type`. For media Engagement Events it is the
+  shared four-value enum `saved`, `started`, `progress`, `completed`. For Acquisition
+  Events it is `wanted` or `owned`. For Execution Events it is `completed`, `exempt`,
+  or `uncompleted`.
+- `quantity`: a **formatted string**, not a number (`"30g"`, `"1 serving"`), parsed by
+  `src/lib/food/recipe-ingredient.ts`.
+- `rating`: an optional 1 to 5 scale.
+- `season`, `episode`, `review`, `pages_read`, `instrument_used`, `slot_id`,
+  `metadata`.
 - `meal_type`: the **Meal Type**.
 - `replaced_by`: the correction link written when a logged event is superseded
   ([ADR-0022](adr/0022-recipe-instantiations-as-editable-snapshots.md)).
-
-Note that there is **no `acquisition/` namespace**. A physical item's wanted-to-owned
-state is not an attribute on the twin: it is folded from `event:acquire_` events
-carrying `event/type: "AcquisitionAction"`, `event/target` pointing at the twin, and
-`event/status` of `wanted` or `owned`. The fold lives in
-`src/lib/acquisition/state.ts`, which is a module path, not an attribute prefix.
-
 - `metrics`: the frozen breakdown scaled to the amount logged. The
   `{ calories, protein, fat, carbs }` headline plus every extra nutrient the food
   carried, each under its `nutrition/info` panel name such as `fiber_content` or
@@ -180,6 +186,12 @@ carrying `event/type: "AcquisitionAction"`, `event/target` pointing at the twin,
   Holds `based_on`, `yield`, and per-row
   `{ ref, name, amount, unit, calories, protein, fat, carbs, ... }` carrying the same
   full breakdown.
+
+Note that there is **no `acquisition/` namespace**. A physical item's wanted-to-owned
+state is not an attribute on the twin: it is folded from `event:acquire_` events
+carrying `event/type: "AcquisitionAction"`, `event/target` pointing at the twin, and
+`event/status` of `wanted` or `owned`. The fold lives in
+`src/lib/acquisition/state.ts`, which is a module path, not an attribute prefix.
 
 ### `settings/`
 

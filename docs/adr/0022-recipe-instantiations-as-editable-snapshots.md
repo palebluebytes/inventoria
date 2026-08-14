@@ -132,7 +132,7 @@ builder's inline-amount editor (issue #9).
 ## Consequences
 
 - **Revises** ADR-0021's read-path derivation and the recipe shape in
-  `V1_REQUIREMENTS.md` §3/§4; `event/instantiation` is registered in
+  `docs/history/V1_REQUIREMENTS.md` §3/§4; `event/instantiation` is registered in
   `docs/eavt-vocabulary.md`. `CONTEXT.md` gains **Recipe Twin** and **Recipe
   Instantiation**.
 - The split-brain branch in `consumption-state.ts` is deleted; the low blast
@@ -171,7 +171,7 @@ on read" rule freezing _more_ at write time; logged history stays immutable.
   froze and never fabricates a zero for an un-measured nutrient.
 - Verified headless at Seam 2 (store action → `computeConsumption` round-trip);
   no twin storage, no `{ ref, amount, unit }` change, no UI change. Docs updated:
-  `V1_REQUIREMENTS.md` §Module A and `eavt-vocabulary.md` `event/*` shapes.
+  `docs/history/V1_REQUIREMENTS.md` §Module A and `eavt-vocabulary.md` `event/*` shapes.
 
 ## Amendment (food-addition flow unification): Define now logs one serving
 

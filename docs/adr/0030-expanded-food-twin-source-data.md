@@ -165,8 +165,10 @@ noticeable.
   `food/scientific_name`, `food/ingredients_text` (OFF), `food/portions`,
   `food/assessment` (OFF), `nutrition/info` (now with micronutrients),
   `twin/brand` (OFF), `twin/raw_provenance`. All must be registered in
-  `docs/eavt-vocabulary.md`, and the food twin shape in `V1_REQUIREMENTS.md`
-  Module A updated.
+  `docs/eavt-vocabulary.md`. (The clause requiring the food twin shape in
+  `V1_REQUIREMENTS.md` Module A to be updated is discharged: that document is
+  archived at `docs/history/V1_REQUIREMENTS.md` and `docs/eavt-vocabulary.md` is now
+  the sole registry.)
 - **The consumption snapshot is unaffected.** `event/metrics` and the
   recipe-instantiation rows stay four macros — new nutrition fields are twin-only.
 - **Staging a searched FDC food becomes async** (one detail fetch) and needs a

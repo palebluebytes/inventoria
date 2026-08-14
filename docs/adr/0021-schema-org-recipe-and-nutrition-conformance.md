@@ -17,7 +17,7 @@ model does **not** hold that standard:
 
 - The `recipe/*` namespace is ad-hoc (`recipe/source`, `recipe/notes`,
   `recipe/steps`) — it maps to no reputable schema, and it silently drifted from
-  the recipe shape documented in `docs/V1_REQUIREMENTS.md` §3
+  the recipe shape documented in `docs/history/V1_REQUIREMENTS.md` §3
   (`recipe/description`, `recipe/scrape_url`). The projection
   (`consumption-state.ts`) now reads _both_ vocabularies, so dead branches exist
   for names nothing emits.
@@ -127,7 +127,7 @@ aligned to the nutrition vocabulary.
 
 ## Consequences
 
-- **Supersedes** the recipe twin shape in `V1_REQUIREMENTS.md` §3 and revises the
+- **Supersedes** the recipe twin shape in `docs/history/V1_REQUIREMENTS.md` §3 and revises the
   food twin shape in §1; both must be updated, and new attributes registered in
   `docs/eavt-vocabulary.md`.
 - **No backward compatibility** with `a4b55aa` recipe/food data — explicitly
@@ -141,3 +141,17 @@ aligned to the nutrition vocabulary.
 - `recipe/yield` defaults to 1, preserving the current "build a recipe from
   today's logged foods → retract them" replace flow (ADR-0008 retraction).
   Multi-serving batch semantics for that flow are out of scope.
+
+## Amendment (2026-08-14): the worked example's sodium figure is salt, not sodium
+
+The `nutrition/info` example in the Decision section gives
+`"sodium_content": 0.107` for Nutella. That is OFF's **salt** figure. The shipped
+mapper takes OFF's own sodium figure instead (`sodium_100g`, 0.0428 for the same
+product) at `src/lib/food/open-food-facts.ts:239`, which is what
+schema.org's `sodiumContent` means.
+
+The mapping rule is: **read `sodium_100g`, never `salt_100g`.** The two differ by
+roughly the 2.5x sodium-to-salt conversion, so taking the wrong one overstates
+sodium by that factor. The example's number is wrong; the code is right. This rule
+was previously stated only as an inline comment in the archived
+`docs/history/V1_REQUIREMENTS.md`, which is why it is recorded here.

@@ -111,7 +111,7 @@ A standardized classification (`meal_type`) used to organize Consumption Events 
 _Avoid_: mealType, meal-type
 
 **Engagement Event**:
-A logged instance of watching a movie/show or reading a book, recorded as a timestamped action in the ledger linking to a media Digital Twin.
+A logged instance of watching a movie/show or reading a book, recorded as a timestamped action in the ledger (`WatchAction` or `ReadAction`) linking to a media Digital Twin. All media engagements share one closed status enum: `saved`, `started`, `progress`, `completed`.
 _Avoid_: Consumption event (when referring to media), activity log
 
 **Acquisition Event**:
