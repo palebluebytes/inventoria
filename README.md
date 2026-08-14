@@ -47,6 +47,10 @@ flowchart LR
     classDef future stroke-dasharray: 4 4,fill:none,stroke:#888
 ```
 
+_Everything flows through one store: outside sources seed twins through a thin proxy,
+writes only append, and every reader folds the same history forward. The dashed path
+is the intended future._
+
 External data enters through that thin proxy and nowhere else. Open Food Facts, USDA
 FoodData Central, TMDB, and Open Library supply the facts that seed a **Digital
 Twin**, and a small Cloudflare Worker relays the requests so the browser can sidestep

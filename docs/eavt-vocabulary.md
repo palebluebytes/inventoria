@@ -142,13 +142,6 @@ Physical item twins.
 - `name`, `brand`, `image`, `note`, `description`, `tags`, `source_url`.
 - `raw_provenance`: the **Provenance** blob.
 
-### `acquisition/`
-
-Physical item acquisition tracking.
-
-- `state`: where the item sits on the wanted-to-owned path. Folded by the acquisition
-  projection in `src/lib/db/projections.ts`.
-
 ### `habit/`
 
 Habit Blueprints.
@@ -171,6 +164,13 @@ Every logged Event.
 - `meal_type`: the **Meal Type**.
 - `replaced_by`: the correction link written when a logged event is superseded
   ([ADR-0022](adr/0022-recipe-instantiations-as-editable-snapshots.md)).
+
+Note that there is **no `acquisition/` namespace**. A physical item's wanted-to-owned
+state is not an attribute on the twin: it is folded from `event:acquire_` events
+carrying `event/type: "AcquisitionAction"`, `event/target` pointing at the twin, and
+`event/status` of `wanted` or `owned`. The fold lives in
+`src/lib/acquisition/state.ts`, which is a module path, not an attribute prefix.
+
 - `metrics`: the frozen breakdown scaled to the amount logged. The
   `{ calories, protein, fat, carbs }` headline plus every extra nutrient the food
   carried, each under its `nutrition/info` panel name such as `fiber_content` or

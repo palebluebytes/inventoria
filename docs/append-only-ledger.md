@@ -30,14 +30,14 @@ each attribute win, so the current state falls out of the log without anything b
 mutated to produce it. Because the fold is a pure function of the datoms, the same
 history always yields the same state.
 
-Two datoms about one physical item:
+Two datoms about one food twin, the second a label correction:
 
-| entity        | attribute           | value    | when    |
-| ------------- | ------------------- | -------- | ------- |
-| `twin:mug_01` | `acquisition/state` | `wanted` | earlier |
-| `twin:mug_01` | `acquisition/state` | `owned`  | later   |
+| entity               | attribute   | value                     | when    |
+| -------------------- | ----------- | ------------------------- | ------- |
+| `gtin:3017620422003` | `food/name` | `Nutella`                 | earlier |
+| `gtin:3017620422003` | `food/name` | `Nutella Hazelnut Spread` | later   |
 
-The read resolves to `owned`, because the later datom wins. The earlier `wanted` fact
+The read resolves to the later name, because the later datom wins. The earlier fact
 is never deleted; the read simply prefers the newer one. Current state is not stored
 anywhere. It is what falls out when the log is folded forward.
 
