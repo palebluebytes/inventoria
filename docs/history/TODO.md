@@ -1,3 +1,7 @@
+> **Historical.** This document is superseded and is kept only as a record of
+> how the project got here. Nothing in it is current. See
+> [docs/history/README.md](README.md).
+
 # V1 Milestones & Execution Order
 
 - [x] **Environment Setup:** Construct a foundational `flake.nix` that mounts Node.js, `pnpm`, and SQLite. Initialize a Svelte + TypeScript project workspace using Vite.

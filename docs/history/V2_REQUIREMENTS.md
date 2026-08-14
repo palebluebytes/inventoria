@@ -1,3 +1,7 @@
+> **Historical.** This document is superseded and is kept only as a record of
+> how the project got here. Nothing in it is current. See
+> [docs/history/README.md](README.md).
+
 # V2 Domain Implementations
 
 V2 expands upon the solid EAVT foundation and unified physical digital twin tracker by introducing direct environmental inputs (Camera, Real-Time scanning) and advanced AI multimodal analysis.
