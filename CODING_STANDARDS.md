@@ -20,8 +20,13 @@ protecting that property.
 
 ## 1. Non-negotiable invariants
 
-These are the red lines from `AGENTS.md`. Breaking one is never a style nit — it
-corrupts the data model. A change that violates one does not merge.
+These are the red lines from `AGENTS.md` §3, mirrored here deliberately: that file
+is always in an agent's context and this one is not, so both carry them. **If you
+change one, change both.** Where the two disagree, `AGENTS.md` wins, but that is a
+tiebreaker that should never need to fire.
+
+Breaking one is never a style nit — it corrupts the data model. A change that
+violates one does not merge.
 
 ### 1.1 The ledger is append-only
 

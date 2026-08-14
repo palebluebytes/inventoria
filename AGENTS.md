@@ -12,15 +12,28 @@ You are working on Inventoria, a local-first Progressive Web App (PWA) built wit
 
 ## 2. Progressive Disclosure (Context Routing)
 
-Consult these files for deep domain context rather than hallucinating structures:
+Consult these files rather than hallucinating structures. Read the ones that touch
+what you are about to change; do not read all of them by default.
 
-- **Database & Architecture:** Read `docs/ARCHITECTURE.md` before touching SQLite WASM, OPFS, or EAVT sync.
-- **Domain Logic:** Read `docs/V1_REQUIREMENTS.md` to see exact data shapes for Digital Twins and Habits.
-- **Execution Plan:** Consult `docs/TODO.md` to update progress and locate the active milestone.
+| Before you…                                       | Read                                                                                 |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Write any code at all                             | `CODING_STANDARDS.md` — the document code review checks against                      |
+| Name anything                                     | `CONTEXT.md` — the ubiquitous language, including the UI primitive vocabulary        |
+| Ask why something is the way it is                | `docs/adr/` — one record per decision; `docs/adr/README.md` explains the conventions |
+| Touch SQLite WASM, OPFS, or the schema            | `docs/ARCHITECTURE.md`                                                               |
+| Add or change a ledger attribute or entity prefix | `docs/eavt-vocabulary.md` — the canonical registry; update it in the same change     |
+| Add a whole new tracked domain                    | `docs/how-to-add-a-tracked-domain.md`                                                |
+| Argue about the storage model                     | `docs/append-only-ledger.md`                                                         |
+
+Work in flight is tracked as GitHub issues, not in a file. `docs/history/` holds
+superseded planning documents and is not current; do not take direction from it.
 
 ## 3. Architectural Red Lines
 
-- **Immutability First:** The database is an append-only ledger. NEVER generate `UPDATE` or `DELETE` statements. State shifts are managed solely by appending newer timestamps (`time`).
+These three mirror `CODING_STANDARDS.md` §1, deliberately: this file is always in
+context and that one is not. If you change one, change both.
+
+- **Immutability First:** The database is an append-only ledger. NEVER generate `UPDATE` or `DELETE` statements. State shifts are managed solely by appending a newer datom, which wins because it carries a later hybrid logical clock stamp (ADR-0020), not because of its `time` value.
 - **Thread Isolation:** All SQLite execution must occur inside a dedicated Web Worker. The main thread only receives read-only views or emits append actions.
 - **Naming Casing:** Always use snake_case for EAVT ledger attributes and associated client variables/store properties (e.g., `meal_type` and `selected_meal_type`). NEVER introduce camelCase equivalents like `mealType`.
 

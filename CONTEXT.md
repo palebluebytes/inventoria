@@ -4,8 +4,14 @@ A local-first Progressive Web App (PWA) for tracking physical items and temporal
 
 ## Language
 
+This is the ubiquitous language: the term as defined here is the term to use in code,
+issue titles, tests, and prose. Each entry's `_Avoid_` line lists the synonyms that
+have caused confusion, which are not stylistic preferences but names to stop using.
+
+### Storage core
+
 **Datom**:
-The atomic unit of storage representing a single fact, consisting of an entity ID, an attribute, a value, and a timestamp.
+The atomic unit of storage representing a single fact, consisting of an entity ID, an attribute, a value, a domain timestamp, and a hybrid logical clock stamp that gives it a deterministic total order (ADR-0020). Reads fold in clock order, not timestamp order. The full column list is in `docs/eavt-vocabulary.md`.
 _Avoid_: Row, record, database entry
 
 **Ledger**:
@@ -15,6 +21,12 @@ _Avoid_: Relational database, mutable table, state table
 **Projection**:
 A derived, read-only view of current state, produced by folding the Ledger's datoms forward through a pure function. A Projection takes no runtime parameters: it returns the full enriched set for one kind of entity, and any date, slot, or range narrowing is applied afterward by the UI. It is the only way the application reads state; the Ledger is never queried for "current" rows directly.
 _Avoid_: View, read model, materialized view, query result
+
+**Provenance**:
+The immutable, original payload retrieved from an external API or scraper at the moment of ingestion, stored as a JSON blob alongside its extraction metadata (timestamp, source URI, adapter version). Ensures that future schema evolutions (e.g. EU DPP legislation updates) can remap historical data without network loss.
+_Avoid_: Raw data, API response, backup payload
+
+### Digital Twins
 
 **Digital Twin**:
 A virtual representation of a physical or distinct external item, tracked via static or slowly-changing attributes derived from external databases (e.g. Open Food Facts for food, TMDB for media).
@@ -36,6 +48,8 @@ _Avoid_: Prepared dish, meal, dish, recipe (a Recipe Twin is the app's own compo
 A food record naming a specific commercial brand (OCEAN SPRAY, GERBER, Grape-Nuts). Brand-specific foods belong to the barcode path (scan the product against Open Food Facts, ADR-0034) and are always dropped from the USDA reference-food search, even when the query names the brand. See ADR-0042.
 _Avoid_: Branded product (when the `twin/brand` attribute is meant), product
 
+### Habits
+
 **Habit Lineage**:
 A conceptual continuous habit that spans multiple immutable Habit Blueprints linked together chronologically.
 _Avoid_: Habit history, habit chain
@@ -56,6 +70,8 @@ _Avoid_: Time slot, session, checklist item
 A logged instance of a behavior or habit completion recorded as a timestamped action in the ledger. Qualitative and quantitative metrics are stored as a flexible JSON blob. Its status is `completed`, `exempt` (used to pause a streak gracefully without breaking it), or `uncompleted` (an append-only undo: a later datom that cancels the single most recent matching completion, since the ledger is never mutated in place). The datom `time` field captures the exact millisecond the user confirmed completion.
 _Avoid_: Activity log, workout record, check-in
 
+### Calendar
+
 **Calendar Event Blueprint**:
 An immutable scheduled appointment or recurring reminder entity (entity prefix `cal_event:`) with a required start datetime (`cal_event/dtstart`), an optional end datetime (`cal_event/dtend`), an optional description (`cal_event/description`), a Schedule Rule, and a boolean `cal_event/tracking` attribute. A non-recurring Event Blueprint is a single appointment with no Schedule Rule. It is the direct source for iCal VEVENT export in V2.
 _Avoid_: Habit, event definition
@@ -75,6 +91,8 @@ _Avoid_: Calendar entry, completed event, confirmed appointment
 **Agenda**:
 The tab and view that presents a unified, date-navigable view of the user's day. It contains two sections: SCHEDULE (a chronological timeline mixing projected Calendar Event Blueprint slots and timed Habit Blueprint Sub-Targets, sorted by time) and HABITS (Habit Blueprints without specific intra-day times, e.g. weekly or flexible habits).
 _Avoid_: Habits view, schedule view, calendar view
+
+### Events
 
 **Consumption Event**:
 A logged instance of a digital twin or recipe intake recorded as a timestamped action in the ledger. Nutritional metrics are stored as a flexible JSON blob. When its target is a Recipe Twin, the Consumption Event is a Recipe Instantiation.
@@ -100,6 +118,8 @@ _Avoid_: Consumption event (when referring to media), activity log
 A logged instance representing the ownership state of a physical Digital Twin, recorded as a timestamped action in the ledger with a status of either `owned` or `wanted`.
 _Avoid_: Ownership event, item status, inventory log
 
+### Notes and checklists
+
 **Checklist**:
 An ordered, free-form scratchpad list of manually-ticked Checklist Items. It carries no Schedule Rule, no tracking, and no streak, and it never appears on the Agenda. Deliberately separate from the Agenda's scheduled obligations (Habit Blueprints, Compliance Events).
 _Avoid_: To-do list, task list, agenda
@@ -112,6 +132,59 @@ _Avoid_: To-Do, Task, habit, completion
 A free-form, user-authored entry with a title and a text body, where the body merges concurrent edits from multiple devices without conflict. Distinct from the `twin/note` annotation attribute on a Digital Twin, which is a single field rather than a standalone entity.
 _Avoid_: twin/note (the Twin annotation field), memo, comment
 
-**Provenance**:
-The immutable, original payload retrieved from an external API or scraper at the moment of ingestion, stored as a JSON blob alongside its extraction metadata (timestamp, source URI, adapter version). Ensures that future schema evolutions (e.g. EU DPP legislation updates) can remap historical data without network loss.
-_Avoid_: Raw data, API response, backup payload
+### Interface primitives
+
+Five ADRs establish this vocabulary and forbid alternatives to it. The `_Avoid_` lines
+here matter more than most: the recurring failure is inventing a fourth thing that
+already exists as one of these.
+
+**BottomSheet**:
+The one sheet primitive (`ui/BottomSheet.svelte`). Every sheet in the app is this
+component, including the docked-footer and over-dialog variants. See ADR-0027 and
+ADR-0028.
+_Avoid_: Drawer, panel, tray, modal (when a sheet is meant), a second sheet component
+
+**Modal**:
+The centred dialog primitive (`ui/Modal.svelte`), distinct from BottomSheet by
+position rather than by behaviour. See ADR-0027.
+_Avoid_: Dialog, popup, overlay
+
+**Segmented**:
+A single-choice control whose selection must persist once made: mode switches, sex
+and goal pickers (`ui/Segmented.svelte`). See ADR-0036.
+_Avoid_: Tab bar (when no panel is switched), radio row, toggle
+
+**ToggleGroup**:
+The deselectable sibling of Segmented (`ui/ToggleGroup.svelte`): clicking the active
+item clears the selection. Wraps rather than forcing equal widths. Use it wherever a
+filter may be turned off again. See ADR-0040.
+_Avoid_: Chip group, filter chips, multi-select
+
+**Badge**:
+A display-only status or category label (`ui/Badge.svelte`). Its colour comes from
+the shared `categoryBadgeVariant(category)` helper, never from a re-declared inline
+map. See ADR-0040.
+_Avoid_: Chip, pill, tag, label
+
+**Button**:
+The canonical interactive frame primitive (`ui/Button.svelte`). A control that toggles
+a selection is a Button whose variant reflects the selected state, not a new
+primitive. See ADR-0039 and ADR-0040.
+_Avoid_: Selected chip, toggle button (as a distinct component)
+
+**Card**:
+The canonical container frame primitive (`ui/Card.svelte`), carrying the ADR-0038
+edge and elevation tokens. See ADR-0039.
+_Avoid_: Panel, box, tile, surface
+
+**Meter**:
+The shared proportional-readout primitive (`ui/Meter.svelte`) behind the nutrition
+bars, the dashboard RDA cells, and the calorie ring. See ADR-0037.
+_Avoid_: Progress bar, gauge, ring (as separate components)
+
+**Chip**:
+Not a thing. There is deliberately no `Chip` primitive; the space it would occupy is
+covered by Badge (display), Button (selected), and ToggleGroup (deselectable). See
+ADR-0040.
+_Avoid_: Chip, pill (use Badge, Button, or ToggleGroup, whichever the behaviour calls
+for)
