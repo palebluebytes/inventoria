@@ -295,7 +295,7 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator(".nav-item", { hasText: "Food" }).click();
     await page.getByRole("button", { name: "Add breakfast" }).click();
     await page.locator("#food-search-input").fill("banana");
-    await page.locator(".result-item-btn", { hasText: "Mock Banana" }).click();
+    await page.locator(".result-item", { hasText: "Mock Banana" }).click();
     await page.getByLabel("Quantity in grams").fill("150");
     await page.locator("#log-food-btn").click();
 
