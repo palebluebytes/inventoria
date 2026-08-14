@@ -366,7 +366,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   ) {
     await page.getByRole("button", { name: `Add ${meal}` }).click();
     await page.locator("#food-search-input").fill(query);
-    await page.locator(".result-item-btn", { hasText: resultName }).click();
+    await page.locator(".result-item", { hasText: resultName }).click();
     await page.getByLabel("Quantity in grams").fill(grams);
     await page.locator("#log-food-btn").click();
   }
@@ -441,7 +441,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // Search (debounced) and select the result.
     await page.locator("#food-search-input").fill("banana");
-    await page.locator(".result-item-btn", { hasText: "Mock Banana" }).click();
+    await page.locator(".result-item", { hasText: "Mock Banana" }).click();
 
     // Staging a food hides the method switcher — the sheet is now just "log this".
     await expect(page.locator(".method")).toHaveCount(0);
@@ -473,7 +473,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // fibre/sugar/sodium, so the breakdown must show the former and omit the latter.
     await page.getByRole("button", { name: "Add breakfast" }).click();
     await page.locator("#food-search-input").fill("banana");
-    await page.locator(".result-item-btn", { hasText: "Mock Banana" }).click();
+    await page.locator(".result-item", { hasText: "Mock Banana" }).click();
 
     const breakdown = page.locator('[data-testid="food-nutrient-breakdown"]');
     await expect(breakdown).toBeVisible();
@@ -524,7 +524,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // shown against target, summed across the day's frozen event snapshots (#28).
     await page.getByRole("button", { name: "Show full day nutrition" }).click();
     await expect(breakdown).toBeVisible();
-    await expect(breakdown.locator(".nutrient-calories")).toBeVisible();
+    await expect(
+      breakdown.locator(".nutrient-card.nutrient-calories")
+    ).toBeVisible();
     // Calcium/iron total across just the two bananas that carried them, each shown
     // against its baked target (#42 renders `value / target`).
     await expect(breakdown.locator(".nutrient-calcium")).toContainText(
@@ -533,13 +535,15 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(breakdown.locator(".nutrient-calcium")).toContainText("10 mg");
     await expect(breakdown.locator(".nutrient-iron")).toContainText("0.52 mg");
     // A macro every food carries is present too.
-    await expect(breakdown.locator(".nutrient-protein")).toBeVisible();
+    await expect(
+      breakdown.locator(".nutrient-card.nutrient-protein")
+    ).toBeVisible();
 
     // A reach-toward nutrient no food carried is NOT omitted under #42 — it shows
     // against its target with the absent marker (`— / 28 g`), distinct from a 0.
-    await expect(breakdown.locator(".nutrient-fiber_content")).toContainText(
-      "— / 28 g"
-    );
+    await expect(
+      breakdown.locator(".nutrient-card.nutrient-fiber_content")
+    ).toContainText("— / 28 g");
     // Limit nutrients no food carried have no target, so with none logged they
     // stay off the modal entirely (the "Not tracked" section only lists carried
     // ones) — never shown as 0.
@@ -695,7 +699,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.locator(".macro-item.protein")).toContainText("/ 125 g");
 
     // Open the calculator from its action card in the Energy & macros grid.
-    await page.locator(".nav-item", { hasText: "Settings" }).click();
+    await openFoodSettings(page);
     await page.locator("button[data-open-calculator]").click();
 
     // The live preview stays empty until the body metrics are complete.
@@ -704,12 +708,18 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     );
 
     // Worked Example A (ADR-0033 / #44): 35 y ♀, 70 kg, 170 cm, Active, Maintain.
-    await page.locator('button[data-sex="female"]').click();
+    await page
+      .locator('[data-testid="calc-sex"] [data-value="female"]')
+      .click();
     await page.locator('input[data-field="age"]').fill("35");
     await page.locator('input[data-field="height"]').fill("170");
     await page.locator('input[data-field="weight"]').fill("70");
-    await page.locator('button[data-activity="active"]').click();
-    await page.locator('button[data-goal="maintain"]').click();
+    await page
+      .locator('[data-testid="calc-activity"] [data-value="active"]')
+      .click();
+    await page
+      .locator('[data-testid="calc-goal"] [data-value="maintain"]')
+      .click();
 
     // The preview shows the protein anchor (1.6 g/kg × 70 = 112 g exactly — the
     // one whole-number figure of Example A, robust against display rounding).
@@ -729,7 +739,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // On the dashboard the protein meter now reaches toward the computed 112 g,
     // and the baked 125 default is gone — the write reached the resolver.
-    await page.locator(".nav-item", { hasText: "Food" }).click();
+    await closeFoodSettings(page);
     const protein = page.locator(".macro-item.protein");
     await expect(protein).toContainText("/ 112 g");
     await expect(protein).not.toContainText("/ 125 g");
@@ -741,7 +751,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.goto("/?mem=1");
     await waitForDbReady(page);
 
-    await page.locator(".nav-item", { hasText: "Settings" }).click();
+    await openFoodSettings(page);
     const satFat = page.locator('input[data-limit="saturated_fat_content"]');
     const satFatReset = page.locator(
       'button[data-reset-limit="saturated_fat_content"]'
@@ -772,7 +782,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.goto("/?mem=1");
     await waitForDbReady(page);
 
-    await page.locator(".nav-item", { hasText: "Settings" }).click();
+    await openFoodSettings(page);
 
     // The Limits section head carries a "Why these defaults?" ⓘ.
     await page
@@ -828,11 +838,15 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       r.url().includes("/fdc/v1/food/171705")
     );
     await page.locator("#food-search-input").fill("banana");
-    await page.locator(".result-item-btn", { hasText: "Mock Banana" }).click();
+    await page.locator(".result-item", { hasText: "Mock Banana" }).click();
     await detail;
 
-    // Default 100 g of Mock Banana (89 kcal/100 g) → the log button shows 89.
-    await expect(page.locator("#log-food-btn")).toHaveText("Log 89 kcal");
+    // Default 100 g of Mock Banana (89 kcal/100 g). The log button is a plain
+    // "Log" now; the scaled total is surfaced in the staged macro preview grid.
+    await expect(page.locator("#log-food-btn")).toHaveText("Log");
+    await expect(
+      page.locator(".staged .nutrients .n", { hasText: "Calories" })
+    ).toContainText("89 kcal");
 
     // The hydrated portions appear as presets alongside the gram control.
     const portions = page.locator('[data-testid="portion-presets"]');
@@ -844,7 +858,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // 118 g of 89 kcal/100 g → 89 × 1.18 = 105.02 kcal.
     await portions.getByRole("button", { name: "1 medium — 118 g" }).click();
     await expect(page.getByLabel("Quantity in grams")).toHaveValue("118");
-    await expect(page.locator("#log-food-btn")).toHaveText("Log 105.02 kcal");
+    await expect(
+      page.locator(".staged .nutrients .n", { hasText: "Calories" })
+    ).toContainText("105.02 kcal");
 
     // The logged Consumption Event stays gram-valued — no "portion" unit.
     await page.locator("#log-food-btn").click();
@@ -868,7 +884,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       r.url().includes("/fdc/v1/food/1102706")
     );
     await page.locator("#food-search-input").fill("oats");
-    await page.locator(".result-item-btn", { hasText: "Mock Oats" }).click();
+    await page.locator(".result-item", { hasText: "Mock Oats" }).click();
     await detail;
 
     // No preset chips; the gram field + slider are the whole control, as today.
@@ -893,15 +909,15 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     await page.getByRole("button", { name: "Add breakfast" }).click();
     await page.locator("#food-search-input").fill("banana");
-    await page.locator(".result-item-btn", { hasText: "Mock Banana" }).click();
+    await page.locator(".result-item", { hasText: "Mock Banana" }).click();
     const afterSearch = searches;
     expect(afterSearch).toBeGreaterThan(0);
 
     // "Change food" returns to the list; the cached results show without a
     // second network search.
-    await page.getByRole("button", { name: "Change food" }).click();
+    await page.getByRole("button", { name: "Back" }).click();
     await expect(
-      page.locator(".result-item-btn", { hasText: "Mock Banana" })
+      page.locator(".result-item", { hasText: "Mock Banana" })
     ).toBeVisible();
     await page.waitForTimeout(700); // past the 400ms debounce
     expect(searches).toBe(afterSearch);
@@ -963,15 +979,15 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.goto("/?mem=1");
     await waitForDbReady(page);
 
-    // Open the sheet for lunch and switch to the Custom method.
+    // Open the sheet for lunch, switch to the Custom method, then pick the
+    // "Quick estimate" intent. Per ADR-0035 the Custom tab is now an intent
+    // chooser and a manual entry is calories-only (no macros).
     await page.getByRole("button", { name: "Add lunch" }).click();
     await page.locator(".method", { hasText: "Custom" }).click();
+    await page.locator('[data-testid="intent-quick_estimate"]').click();
 
-    await page.locator("#custom-name").fill("Avocado Salad");
     await page.locator("#custom-cal").fill("300");
-    await page.locator("#custom-prot").fill("6");
-    await page.locator("#custom-fat").fill("25");
-    await page.locator("#custom-carb").fill("12");
+    await page.locator("#custom-name").fill("Avocado Salad");
 
     // Attach a photo (optional attribute of the custom entry).
     await page.setInputFiles(".hidden-file-input", {
@@ -979,7 +995,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       mimeType: "image/png",
       buffer: Buffer.from("dummy-image-data-base64"),
     });
-    await expect(page.locator(".photo-preview")).toBeVisible();
+    await expect(page.locator(".mini-thumb")).toBeVisible();
 
     await page.locator("#log-food-btn").click();
 
@@ -996,12 +1012,32 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.goto("/?mem=1");
     await waitForDbReady(page);
 
-    // Open Custom — now the #52 full-panel "Read-along" form (ADR-0034 §2).
-    await page.getByRole("button", { name: "Add lunch" }).click();
-    await page.locator(".method", { hasText: "Custom" }).click();
+    // The Read-along full-panel form is reached via a barcode door now (ADR-0035
+    // §2: the direct-log Custom tab is the intent chooser; the label form lives on
+    // the scan doors). Scan a code OFF doesn't have → the "missing" door opens the
+    // empty Read-along form keyed to that barcode.
+    const MISSING_CODE = "0000000000017";
+    await page.route(
+      `**/api/v3/product/${MISSING_CODE}.json`,
+      async (route) => {
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({ code: MISSING_CODE, status: 0 }),
+        });
+      }
+    );
 
-    // The read-along body lays every panel row out grouped, macros first, so a
-    // micronutrient row (Iron) is present without a mode switch (§3).
+    await page.getByRole("button", { name: "Add lunch" }).click();
+    await page.locator(".method", { hasText: "Scan" }).click();
+    await page.locator("#barcode-input").fill(MISSING_CODE);
+    await page.locator("#barcode-input").press("Enter");
+
+    // The missing door explains why it landed here; the read-along body then lays
+    // every panel row out grouped, macros first, so a micronutrient row (Iron) is
+    // present without a mode switch (§3).
+    await expect(page.locator('[data-testid="capture-reason"]')).toContainText(
+      "Open Food Facts"
+    );
     await expect(
       page.locator(".cf-group", { hasText: "Vitamins" })
     ).toBeVisible();
@@ -1041,8 +1077,23 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.goto("/?mem=1");
     await waitForDbReady(page);
 
+    // Reach the Read-along form via the "missing" barcode door (ADR-0035 §2).
+    const MISSING_CODE = "0000000000024";
+    await page.route(
+      `**/api/v3/product/${MISSING_CODE}.json`,
+      async (route) => {
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({ code: MISSING_CODE, status: 0 }),
+        });
+      }
+    );
+
     await page.getByRole("button", { name: "Add lunch" }).click();
-    await page.locator(".method", { hasText: "Custom" }).click();
+    await page.locator(".method", { hasText: "Scan" }).click();
+    await page.locator("#barcode-input").fill(MISSING_CODE);
+    await page.locator("#barcode-input").press("Enter");
+    await expect(page.locator('[data-testid="capture-reason"]')).toBeVisible();
 
     await page.locator("#custom-name").fill("Olive Oil");
     await page.locator("#custom-cal").fill("823");
@@ -1073,9 +1124,12 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       "1 / 3"
     );
 
-    // Swipe forward with the nav control to the middle shot, then remove it —
-    // leaving [front, back] ordered (a bad shot doesn't persist) (§5).
-    await reader.getByRole("button", { name: "Next photo" }).click();
+    // Page forward to the middle shot with the reader-local carousel key
+    // (ArrowRight), then remove it — leaving [front, back] ordered (a bad shot
+    // doesn't persist) (§5). Keyboard rather than a synthetic click on the arrow:
+    // the arrow sits inside .lpr-stage, whose pointerdown setPointerCapture (for
+    // swipe) swallows Playwright's synthetic click; real pointers/swipe are fine.
+    await page.keyboard.press("ArrowRight");
     await expect(page.locator('[data-testid="lpr-counter"]')).toHaveText(
       "2 / 3"
     );
@@ -1414,7 +1468,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // Stage a food NOT already in the recipe (the seed has oats + banana).
     await addSheet.locator("#ai-search").fill("urad");
     await addSheet
-      .locator(".result-item-btn", { hasText: "Black Urad Dal" })
+      .locator(".result-item", { hasText: "Black Urad Dal" })
       .click();
 
     // The staged card shows the quantity control: a numeric field + a real
@@ -1428,8 +1482,8 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await addSheet.getByLabel("Quantity in grams").fill("50");
     await expect(confirm).toHaveText("Add 170.5 kcal");
 
-    // A preset chip jumps to a common amount: 100 g → 341.
-    await addSheet.getByRole("button", { name: "100", exact: true }).click();
+    // Typing 100 g back in returns to the full amount: 100 g → 341.
+    await addSheet.getByLabel("Quantity in grams").fill("100");
     await expect(confirm).toHaveText("Add 341 kcal");
 
     // Adding folds the ingredient into the recipe: 323 + 341 = 664.
@@ -1456,9 +1510,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.locator("#add-ingredient-btn").click();
     const addSheet = page.locator(".add-ingredient-sheet");
     await addSheet.locator("#ai-search").fill("oats");
-    await addSheet
-      .locator(".result-item-btn", { hasText: "Mock Oats" })
-      .click();
+    await addSheet.locator(".result-item", { hasText: "Mock Oats" }).click();
     await addSheet.getByLabel("Quantity in grams").fill("50");
     await addSheet.locator("#add-ingredient-confirm").click();
 
@@ -1514,7 +1566,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // Logging is purely additive — it writes a new instantiation and retracts
     // nothing. The dinner instantiation stays put at 323.
-    await page.locator("#save-instantiation-btn").click();
+    await page.locator("#log-recipe-btn").click();
 
     const breakfastSection = page.locator(
       '.meal-section:has(.meal-title:text-is("BREAKFAST"))'
@@ -1578,13 +1630,13 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.locator("#add-ingredient-btn").click();
     const addSheet = page.locator(".add-ingredient-sheet");
     await addSheet.locator("#ai-search").fill(query);
-    await addSheet.locator(".result-item-btn", { hasText: resultName }).click();
+    await addSheet.locator(".result-item", { hasText: resultName }).click();
     await addSheet.getByLabel("Quantity in grams").fill(grams);
     await addSheet.locator("#add-ingredient-confirm").click();
     await expect(addSheet).toBeHidden();
   }
 
-  test("defines a Recipe Twin from scratch without logging a consumption", async ({
+  test("defines a Recipe Twin from scratch, logging one serving onto the day (ADR-0022 amended)", async ({
     page,
   }) => {
     await page.goto("/?mem=1");
@@ -1597,7 +1649,8 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.locator("#define-recipe-btn").click();
 
     // The builder opens empty in Define mode — saving here logs nothing.
-    await expect(page.locator("h2", { hasText: "New recipe" })).toBeVisible();
+    await expect(page.locator("#recipe-name")).toBeVisible();
+    await expect(page.locator("#recipe-name")).toHaveValue("");
     await page.locator("#recipe-name").fill("Scratch Bowl");
 
     // Build it from search: oats 50 g (189.5) + banana 150 g (133.5) = 323/serving.
@@ -1605,15 +1658,16 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await addSearchedIngredient(page, "banana", "Mock Banana", "150");
     await expect(page.locator(".recipe-total")).toContainText("323 kcal");
 
-    await page.locator("#save-recipe-btn").click();
+    await page.locator("#log-recipe-btn").click();
 
-    // Define logs NOTHING: the day stays empty (zero-instantiation template).
-    await expect(page.locator(".calories-num")).toHaveText("0");
+    // Define now ALSO logs one serving onto the day it was built (ADR-0022
+    // amended): the breakfast it was opened from carries the 323 kcal serving.
+    await expect(page.locator(".calories-num")).toHaveText("323");
     await expect(
       page.locator('.meal-section:has(.meal-title:text-is("BREAKFAST"))')
-    ).toContainText("No breakfast logged yet.");
+    ).toContainText("Scratch Bowl");
 
-    // Yet the template now exists in the browser, ready to instantiate later.
+    // And the template now exists in the browser, ready to instantiate again later.
     await page.getByRole("button", { name: "Add lunch" }).click();
     await page.locator(".method", { hasText: "Recipe" }).click();
     await expect(
@@ -1635,10 +1689,12 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // Edit the TEMPLATE (not the logged occasion) via the Recipe browser.
     await page.getByRole("button", { name: "Add lunch" }).click();
     await page.locator(".method", { hasText: "Recipe" }).click();
+    // Editing now lives inside the opened recipe: pick it, then Edit by its title.
+    await page.locator(".recipe-pick", { hasText: "Dinner Combo" }).click();
     await page.getByRole("button", { name: "Edit Dinner Combo" }).click();
 
     // Edit mode seeds from the template's CURRENT ingredients (323/serving).
-    await expect(page.locator("h2", { hasText: "Edit recipe" })).toBeVisible();
+    await expect(page.locator("#log-recipe-btn")).toContainText("Save changes");
     await expect(page.locator("#recipe-name")).toHaveValue("Dinner Combo");
     await expect(page.locator(".recipe-total")).toContainText("323 kcal");
 
@@ -1650,7 +1706,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     ).toHaveText("50g");
     await setIngredientGrams(page, "Mock Oats", "100");
     await expect(page.locator(".recipe-total")).toContainText("512.5 kcal");
-    await page.locator("#save-recipe-btn").click();
+    await page.locator("#log-recipe-btn").click();
 
     // The edit logs nothing and never disturbs history: the already-logged
     // instantiation is a snapshot, so it stays frozen at 323.
@@ -1665,7 +1721,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       "Dinner Combo"
     );
     await expect(page.locator(".recipe-total")).toContainText("512.5 kcal");
-    await page.locator("#save-instantiation-btn").click();
+    await page.locator("#log-recipe-btn").click();
 
     const breakfastSection = page.locator(
       '.meal-section:has(.meal-title:text-is("BREAKFAST"))'
