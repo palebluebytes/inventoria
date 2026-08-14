@@ -1,7 +1,7 @@
 # Research: the USDA whole-food NOVA-1 inference rule (#89)
 
-**Parent map:** [#85](https://github.com/inkpot-monkey/inventoria/issues/85) — surface a food's processing level (NOVA / ultra-processed).
-**Sibling:** [#87](https://github.com/inkpot-monkey/inventoria/issues/87) prototype pulled a _constrained_ NOVA-1 inference into scope — a basic USDA whole food (banana, egg, raw chicken) should read **"NOVA 1 · est"** with a visually-distinct estimated badge. This ticket settles the **exact rule** for when to infer it.
+**Parent map:** [#85](https://github.com/palebluebytes/inventoria/issues/85) — surface a food's processing level (NOVA / ultra-processed).
+**Sibling:** [#87](https://github.com/palebluebytes/inventoria/issues/87) prototype pulled a _constrained_ NOVA-1 inference into scope — a basic USDA whole food (banana, egg, raw chicken) should read **"NOVA 1 · est"** with a visually-distinct estimated badge. This ticket settles the **exact rule** for when to infer it.
 **Grounds:** `searchFdc` / `mapFdcFoodToPayload` in `src/lib/food/usda-fdc.ts`, which already restricts search to `dataType=Foundation,SR Legacy` (line ~351) and already emits `food/category` (adapter v6, lines 59 / 207).
 **Date:** 2026-08-06. Category strings verified against the live FDC API (`api.nal.usda.gov/fdc/v1/foods/search`) queried the same day; food-group taxonomy verified against the USDA SR documentation PDF. **Status:** research only.
 

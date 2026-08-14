@@ -25,7 +25,7 @@ cited, overridable denominator. Implementation is a separate effort, as ADR-0030
 was — this ADR plus its `ready-for-agent` tickets are the hand-off.
 
 The design decisions below were each grilled and closed as child tickets of the
-[wayfinder map (#32)](https://github.com/inkpot-monkey/inventoria/issues/32); this
+[wayfinder map (#32)](https://github.com/palebluebytes/inventoria/issues/32); this
 ADR is the synthesis. Two primary-source reference assets underpin the numbers:
 `docs/reference/fda-daily-values.md` (the 21 CFR 101.9 Daily Values, #33) and
 `docs/reference/active-adult-macros.md` (the IOM-2005-derived active-adult macros,

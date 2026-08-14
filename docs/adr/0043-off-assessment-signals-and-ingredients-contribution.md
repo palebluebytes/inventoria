@@ -20,12 +20,12 @@ sends a product's name, brand, category, and nutrient panel back to OFF — but 
 its **ingredients**, even though the read-along capture flow is the natural place
 to author them.
 
-Wayfinder map [#94](https://github.com/inkpot-monkey/inventoria/issues/94) charted
+Wayfinder map [#94](https://github.com/palebluebytes/inventoria/issues/94) charted
 the route to close these gaps **in both directions**, within a
 **nutrition + safety + dietary-labels** mission boundary, mirroring the NOVA arc.
 Four decision tickets resolved the shape before this synthesis:
 
-- **[#95 research](https://github.com/inkpot-monkey/inventoria/issues/95)** —
+- **[#95 research](https://github.com/palebluebytes/inventoria/issues/95)** —
   `docs/research/95-off-assessment-signals.md`. We store the right fields
   (`nutrient_levels` is an object not `_tags`; Nutri-Score is **versioned**
   2021/2023; `traces_tags` is **separate** from `allergens_tags`). **Coverage:**
@@ -37,13 +37,13 @@ Four decision tickets resolved the shape before this synthesis:
   `allergens_tags` means "none found in the parsed ingredients", **not**
   allergen-free; a declared free-from claim lives only in `labels_tags`
   (`en:no-gluten`). ODbL credit already carried by the NOVA badge covers these.
-- **[#96 grilling](https://github.com/inkpot-monkey/inventoria/issues/96)** — the
+- **[#96 grilling](https://github.com/palebluebytes/inventoria/issues/96)** — the
   roster and the allergen safety framing (folded into §1 / §3 below).
-- **[#97 prototype](https://github.com/inkpot-monkey/inventoria/issues/97)** — the
+- **[#97 prototype](https://github.com/palebluebytes/inventoria/issues/97)** — the
   surface, prototyped against the real staged card in add + edit modes
   (throwaway branch `prototype/97-off-assessment-surface`, `0dd498e`). Settled
   layout, marks, explainers, and placement (folded into §2 / §4 below).
-- **[#98 grilling](https://github.com/inkpot-monkey/inventoria/issues/98)** — the
+- **[#98 grilling](https://github.com/palebluebytes/inventoria/issues/98)** — the
   contribute-back extension, after correcting a premise (folded into §5 below).
 
 This ADR folds #95–#98 into one decision and cuts the implementation tickets. It
@@ -99,7 +99,7 @@ lives. A **tags row** sits below the food name:
   the tag's title / aria-label, and tapping the glyph opens the dietary explainer.
   **These glyphs are placeholders** — the real iconography (trademarked V-Label /
   EU-organic marks vs a monochrome custom set) is settled by standalone research
-  [#100](https://github.com/inkpot-monkey/inventoria/issues/100), deferrable past
+  [#100](https://github.com/palebluebytes/inventoria/issues/100), deferrable past
   this map's destination.
 
 Each tag **taps through** to a house `BottomSheet` (ADR-0027/0028; the #67 Modal
@@ -225,7 +225,7 @@ ever depends on `traces` being present.
 - **Ingredients label-language (`lc`)** — transcribing a label in a language other
   than OFF's main slot needs label-language capture; deferred (#98).
 - **Dietary iconography** — the placeholder glyphs (§2) await research
-  [#100](https://github.com/inkpot-monkey/inventoria/issues/100) (trademarked
+  [#100](https://github.com/palebluebytes/inventoria/issues/100) (trademarked
   marks vs a custom monochrome set). Deferrable past this map's destination.
 
 ## Implementation tickets

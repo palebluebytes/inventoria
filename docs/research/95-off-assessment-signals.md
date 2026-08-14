@@ -1,7 +1,7 @@
 # Research: the other OFF assessment signals (allergens, Nutri-Score, traffic-lights, additives, labels) (#95)
 
-**Parent map:** [#95](https://github.com/inkpot-monkey/inventoria/issues/95) — surface the OFF consumer-assessment signals Inventoria already captures but does not yet show.
-**Grounds:** the `food/assessment` blob emitted by `mapProductToAttributes` in `src/lib/food/open-food-facts.ts` (ADR-0030 §4). It already stores `allergens` (`allergens_tags`), `nutri_score` (`nutriscore_grade`), `nutrient_levels`, `additives` (`additives_tags`), and `labels` (`labels_tags`) — all write-only today. Sibling of [#86](https://github.com/inkpot-monkey/inventoria/issues/86) (NOVA), which shipped as ADR-0041.
+**Parent map:** [#95](https://github.com/palebluebytes/inventoria/issues/95) — surface the OFF consumer-assessment signals Inventoria already captures but does not yet show.
+**Grounds:** the `food/assessment` blob emitted by `mapProductToAttributes` in `src/lib/food/open-food-facts.ts` (ADR-0030 §4). It already stores `allergens` (`allergens_tags`), `nutri_score` (`nutriscore_grade`), `nutrient_levels`, `additives` (`additives_tags`), and `labels` (`labels_tags`) — all write-only today. Sibling of [#86](https://github.com/palebluebytes/inventoria/issues/86) (NOVA), which shipped as ADR-0041.
 **Date:** 2026-08-07. Field shapes verified against the live OFF **API v3** (`world.openfoodfacts.org/api/v3/product/<gtin>.json`) and coverage counts against **API v2 search** (`/api/v2/search`), both queried the same day. **Status:** research only.
 
 ---

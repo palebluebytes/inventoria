@@ -1,6 +1,6 @@
 # Research: NOVA / ultra-processing data in Open Food Facts (#86)
 
-**Parent map:** [#85](https://github.com/inkpot-monkey/inventoria/issues/85) — surface a food's processing level (NOVA / ultra-processed) from OFF data.
+**Parent map:** [#85](https://github.com/palebluebytes/inventoria/issues/85) — surface a food's processing level (NOVA / ultra-processed) from OFF data.
 **Grounds:** the write-only `food/assessment` blob emitted by `mapProductToAttributes` in `src/lib/food/open-food-facts.ts` (ADR-0030 §4), which already carries `nova_group`.
 **Date:** 2026-08-06. Verified against the live OFF API (`world.openfoodfacts.org/api/v2/search`) queried the same day. **Status:** research only.
 

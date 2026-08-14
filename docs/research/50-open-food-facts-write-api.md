@@ -1,6 +1,6 @@
 # Research: Open Food Facts contribution / write API + auth (#50)
 
-**Parent map:** [#47](https://github.com/inkpot-monkey/inventoria/issues/47) — label-photo food-capture flow.
+**Parent map:** [#47](https://github.com/palebluebytes/inventoria/issues/47) — label-photo food-capture flow.
 **Grounds:** `submitToOpenFoodFacts(barcode, {name, calories, protein, fat, carbs})` and (indirectly) `autofillFromPackageImage(imageBase64)` in `src/lib/food/open-food-facts.ts` / `src/lib/food/ai-autofill.ts`.
 **Date:** 2026-07-31. **Status:** research only — no submission code written.
 
@@ -145,7 +145,7 @@ Sources: [contribute page](https://world.openfoodfacts.org/contribute), [Data qu
 
 ## Bottom line for #54 (OFF contribution consent + submission UX)
 
-[#54](https://github.com/inkpot-monkey/inventoria/issues/47) is blocked on this. Concrete answers:
+[#54](https://github.com/palebluebytes/inventoria/issues/47) is blocked on this. Concrete answers:
 
 - **Auth model (SPA-safe):** the **user supplies their own OFF credentials** — `user_id` (username, _not_ email) + `password` posted as body params on the write, or a session cookie from `GET /cgi/session.pl`. A **shipped global app account is NOT viable** for a static Vite SPA (it would embed a public secret); OFF's app-account attribution (`app_name`/`app_version`/`app_uuid`) only works safely with a server-side relay, which #47 doesn't have. OAuth/Keycloak is future, not usable yet. So #54's consent UX should gate on the user's own OFF login.
 - **Write endpoint:** `POST /cgi/product_jqm2.pl` as `multipart/form-data` (it carries nutriments; v3 PATCH does not yet). Upsert-by-barcode — same call creates a new product or edits an existing one. Use `add_`-prefixed tag fields when enriching an existing poor product rather than replacing.

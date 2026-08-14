@@ -20,7 +20,7 @@ tab**, whose `saveCustomFood` (`src/lib/stores/calorie.store.ts`) captures \*\*n
   one.
 
 A grounding investigation (three real products photographed, 2026-07-31, recorded
-on the [wayfinder map (#47)](https://github.com/inkpot-monkey/inventoria/issues/47))
+on the [wayfinder map (#47)](https://github.com/palebluebytes/inventoria/issues/47))
 showed the gap is **threefold**, not just "product not in OFF":
 
 - a peanut butter **in OFF but with a blank name** (completeness 0.78);
@@ -42,13 +42,13 @@ wayfinder map; this ADR is the terminal synthesis and, with its
 `ready-for-agent` tickets, the hand-off to implementation — a separate effort, as
 ADR-0030's and ADR-0031's were. The closed tickets it folds:
 
-- [#48 — define "poor or missing data" and when to trigger](https://github.com/inkpot-monkey/inventoria/issues/48) (the trigger);
-- [#49 — multimodal-LLM cost & accuracy research](https://github.com/inkpot-monkey/inventoria/issues/49) → `docs/research/49-multimodal-llm-nutrition-extraction.md`;
-- [#50 — OFF write-API + auth research](https://github.com/inkpot-monkey/inventoria/issues/50) → `docs/research/50-open-food-facts-write-api.md`;
-- [#51 — the extraction mechanism](https://github.com/inkpot-monkey/inventoria/issues/51) (the guided-manual / AI-autofill deferral);
-- [#52 — the full-panel confirm/entry form](https://github.com/inkpot-monkey/inventoria/issues/52) (Variant B "Read-along");
-- [#53 — the end-to-end flow, placement, identity & provenance](https://github.com/inkpot-monkey/inventoria/issues/53) → `docs/design/53-label-capture-flow.md`;
-- [#54 — the OFF contribution consent + submission UX](https://github.com/inkpot-monkey/inventoria/issues/54).
+- [#48 — define "poor or missing data" and when to trigger](https://github.com/palebluebytes/inventoria/issues/48) (the trigger);
+- [#49 — multimodal-LLM cost & accuracy research](https://github.com/palebluebytes/inventoria/issues/49) → `docs/research/49-multimodal-llm-nutrition-extraction.md`;
+- [#50 — OFF write-API + auth research](https://github.com/palebluebytes/inventoria/issues/50) → `docs/research/50-open-food-facts-write-api.md`;
+- [#51 — the extraction mechanism](https://github.com/palebluebytes/inventoria/issues/51) (the guided-manual / AI-autofill deferral);
+- [#52 — the full-panel confirm/entry form](https://github.com/palebluebytes/inventoria/issues/52) (Variant B "Read-along");
+- [#53 — the end-to-end flow, placement, identity & provenance](https://github.com/palebluebytes/inventoria/issues/53) → `docs/design/53-label-capture-flow.md`;
+- [#54 — the OFF contribution consent + submission UX](https://github.com/palebluebytes/inventoria/issues/54).
 
 **Scope.** Structured label capture into a full local twin, plus an optional
 structured contribution back to OFF. Ruled **out** (map Out of scope): uploading
@@ -273,7 +273,7 @@ this can clobber another language's name on a shared barcode — a latent write 
 tracked as a riskier separate follow-up. Full detail and the OFF-taxonomy
 grounding are in `docs/research/50-open-food-facts-write-api.md` → Addendum
 (2026-08-05); the categories fix is cut as
-[#84](https://github.com/inkpot-monkey/inventoria/issues/84).
+[#84](https://github.com/palebluebytes/inventoria/issues/84).
 
 **Implemented (#84):** Categories now flow both ways. `OffContribution` gains a
 `category?`; `buildOffWriteBody` emits **`add_categories`** (append), split-and-

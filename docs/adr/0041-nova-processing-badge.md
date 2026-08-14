@@ -18,7 +18,7 @@ and `food/assessment`." This ADR closes the NOVA slice of that debt.
 Wayfinder map #85 ("surface a food's processing level from OFF data") charted the
 route. Two decision tickets resolved the shape before this synthesis:
 
-- **[#86 research](https://github.com/inkpot-monkey/inventoria/issues/86)** —
+- **[#86 research](https://github.com/palebluebytes/inventoria/issues/86)** —
   `docs/research/86-nova-ultra-processing-in-off.md`. Only **~25% of OFF products
   carry a NOVA group; ~75% are unknown**. `nova_group` is algorithmic (gated on
   parsed ingredients + a matched category), so absence is common and expected.
@@ -26,12 +26,12 @@ route. Two decision tickets resolved the shape before this synthesis:
   `nova_group` number _is_ a known verdict. Per-product **evidence is reachable**
   via `nova_group_debug` (the trail of markers that drove the verdict) plus
   `additives_tags`. ODbL requires **visible attribution** wherever OFF data shows.
-- **[#89 research](https://github.com/inkpot-monkey/inventoria/issues/89)** —
+- **[#89 research](https://github.com/palebluebytes/inventoria/issues/89)** —
   `docs/research/89-usda-nova1-whole-food-rule.md`. Settled the rule behind the
   inferred "NOVA 1·est" verdict for USDA whole foods: a `food/category` allow-list
   plus deny-substrings, with a targeted egg include. No mapper widening is needed
   because the category is already captured. Implemented by #93.
-- **[#87 prototype](https://github.com/inkpot-monkey/inventoria/issues/87)** — the
+- **[#87 prototype](https://github.com/palebluebytes/inventoria/issues/87)** — the
   badge + explainer, prototyped against real brutalist tokens. Visual spec:
   <https://claude.ai/code/artifact/75de4901-85b8-4795-827a-1ea5a53479d7>. It settled
   the badge form (word-first), dropped the warning state in favour of a neutral
@@ -40,7 +40,7 @@ route. Two decision tickets resolved the shape before this synthesis:
 
 This ADR folds #86 + #87 into one decision and cuts the implementation tickets.
 The exact USDA inference rule is settled in parallel by
-**[#89 research](https://github.com/inkpot-monkey/inventoria/issues/89)** and
+**[#89 research](https://github.com/palebluebytes/inventoria/issues/89)** and
 lands in ticket D.
 
 ## Decision
@@ -94,7 +94,7 @@ foods only, never a 2/3/4 guess.**
 
 The exact rule (data type ∈ {Foundation, SR Legacy} **and** a `foodCategory`
 allow-list, erring toward under-claiming) is settled by
-[#89](https://github.com/inkpot-monkey/inventoria/issues/89) and implemented in
+[#89](https://github.com/palebluebytes/inventoria/issues/89) and implemented in
 ticket D. Everything else this ADR specifies is independent of that rule.
 
 > **Amended (2026-08-06):** the inference itself is unchanged and still ships — a
