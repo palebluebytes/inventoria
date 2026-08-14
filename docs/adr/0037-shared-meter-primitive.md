@@ -1,6 +1,8 @@
 # ADR 0037: A shared `Meter` primitive for the nutrition bars and the calorie ring
 
-**Status:** Accepted; implemented (`ui/Meter.svelte`, migrated `MacroMeters`, `DailyDashboard` RDA cells, `CalorieRing`). **Date:** 2026-08-04
+**Status:** Accepted  
+**Date:** 2026-08-04  
+**Implemented:** `ui/Meter.svelte`; `MacroMeters`, `DailyDashboard` RDA cells, `CalorieRing`
 
 ## Context
 

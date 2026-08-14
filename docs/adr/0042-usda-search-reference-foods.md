@@ -1,7 +1,8 @@
 # ADR 0042: USDA food search returns generic reference foods, base ingredients first
 
-**Status:** Accepted, implemented (branch `worktree-barcode-scanning-improvements`, 2026-08-07)
-**Date:** 2026-08-07
+**Status:** Accepted  
+**Date:** 2026-08-07  
+**Implemented:** `dabb1fe`, `082ad31`, `fcb3b60`, `1365343`; `src/lib/food/food-search.ts`
 
 ## Context
 

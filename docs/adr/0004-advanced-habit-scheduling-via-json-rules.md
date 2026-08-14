@@ -1,10 +1,9 @@
 # 4. Advanced Habit Scheduling via JSON Rules
 
+**Status:** Accepted  
+**Implemented:** `habit/schedule_rules` in `src/lib/habits/state.ts`
+
 Date: 2026-06-03
-
-## Status
-
-Accepted
 
 ## Context
 

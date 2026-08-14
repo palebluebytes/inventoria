@@ -1,6 +1,8 @@
 # ADR 0040: No monolithic `Chip` — the chip/pill/badge vocabulary
 
-**Status:** Accepted; implemented. `ui/ToggleGroup.svelte` + the tag-bar adoption ship in #82 (which also renders this ADR); the `Badge` colour axis (`neutral` variant + `categoryBadgeVariant` helper) lands in the parallel #81. **Date:** 2026-08-05
+**Status:** Accepted  
+**Date:** 2026-08-05  
+**Implemented:** #82 (`ui/ToggleGroup.svelte` + tag-bar adoption), #81 (`Badge` colour axis)
 
 ## Context
 

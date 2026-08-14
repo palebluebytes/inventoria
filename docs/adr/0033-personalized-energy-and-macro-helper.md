@@ -1,9 +1,8 @@
 # ADR 0033: A personalized energy/macro helper and default-rationale info buttons
 
-**Status:** Accepted and implemented (specced 2026-07-31); **amended 2026-07-31** — the
-calculator's result is now a **frozen default layer**, not an override write (see
-[Amendment](#amendment-2026-07-31-calculated-targets-are-a-frozen-default-layer)).
-**Date:** 2026-07-31
+**Status:** Accepted  
+**Date:** 2026-07-31  
+**Implemented:** `src/lib/food/personalized-energy-macros.ts`, `CalorieCalculatorSheet.svelte`; see the amendment below
 
 ## Amendment (2026-07-31): calculated targets are a frozen default layer
 

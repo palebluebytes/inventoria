@@ -1,7 +1,7 @@
 # ADR 0020: Order Datoms by a Conflict-Free Logical Clock, Not a Bare Wall-Clock Key
 
-**Status:** Accepted; implemented 2026-07-06 (commit `0568955`, `src/lib/db/hlc.ts`)
-**Date:** 2026-07-06
+**Status:** Accepted  
+**Implemented:** 2026-07-06, `0568955`, `src/lib/db/hlc.ts`
 
 ## Context
 

@@ -1,7 +1,9 @@
 # ADR 0031: Baked, user-overridable daily nutrition targets for the food panel
 
-**Status:** Accepted; not yet implemented (specced 2026-07-30, this ADR)
-**Date:** 2026-07-30
+**Status:** Accepted  
+**Date:** 2026-07-30  
+**Amended by:** ADR-0032 (the deferred stay-under half), ADR-0033 (a frozen personalized default layer)  
+**Implemented:** #41 (`65b1dac`, `25151a5`), #42 (`8c1993e`); `src/lib/food/nutrition-targets.ts`
 
 ## Context
 

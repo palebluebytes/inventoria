@@ -1,10 +1,9 @@
 # 16. Declarative Ingestion Registry and Provenance Storage
 
+**Status:** Accepted  
+**Implemented:** `src/lib/ingestion/registry.ts`, `twin/raw_provenance`
+
 Date: 2026-06-22
-
-## Status
-
-Accepted
 
 ## Context
 

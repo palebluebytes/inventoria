@@ -1,7 +1,7 @@
 # ADR 0018: Notes & Checklist as a CRDT Op-Log in the Ledger
 
-**Status:** Accepted
-**Date:** 2026-06-24
+**Status:** Accepted  
+**Implemented:** `loro-crdt`; `src/lib/notes/loro-doc.ts`
 
 ## Context
 

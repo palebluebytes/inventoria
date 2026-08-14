@@ -1,7 +1,9 @@
 # ADR 0034: Capture a full-fidelity food twin from its label photo (barcode-optional, OFF-gap-filling)
 
-**Status:** Accepted; not yet implemented (specced 2026-08-01, this ADR)
-**Date:** 2026-08-01
+**Status:** Accepted  
+**Date:** 2026-08-01  
+**Amended by:** ADR-0035 §1 and §2 (the Custom tab becomes an intent chooser)  
+**Implemented:** #56 `a4be6a9`, #57 `a7e3e8f`, #58 `f3404f2`, #59 `dfd7b64`, #60 `20f0f76`, #61 `5311e71`, #67 `08c361f`, #84 `324050f`
 
 ## Context
 

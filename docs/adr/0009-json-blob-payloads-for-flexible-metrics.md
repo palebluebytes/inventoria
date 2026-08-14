@@ -1,8 +1,7 @@
----
-status: accepted
----
-
 # 9. JSON Blob Payloads for Flexible Metrics
+
+**Status:** Accepted  
+**Implemented:** JSON blob payloads throughout the ledger
 
 **Context:**
 When logging execution events for habits, users need the ability to add rich context such as notes, duration, or difficulty. Similarly, calorie tracking currently uses flat attributes (e.g., `event/calories`, `event/protein`) for each metric. Adding flat attributes for every possible metric across habits and food tracking leads to schema sprawl and requires database migrations (conceptually) whenever a new metric type is introduced.

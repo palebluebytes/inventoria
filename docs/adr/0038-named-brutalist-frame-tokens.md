@@ -1,6 +1,9 @@
 # ADR 0038: Named brutalist frame tokens (edge, elevation, ink/paper)
 
-**Status:** Accepted; implemented. The tokens and their adoption ship in #71–#75 (expand→edge→fill→semantic-colour→lint); the §Enforcement lint rules are completed by #75 (colour) and #83 (radius, shadow-shape, colour keywords). **Date:** 2026-08-04
+**Status:** Accepted  
+**Date:** 2026-08-04  
+**Amended by:** ADR-0039 (narrows how these tokens may be applied: `Button` and `Card` become their canonical carriers)  
+**Implemented:** #71-#75, plus #75 (colour) and #83 (radius, shadow shape, colour keywords) for the §Enforcement lint rules
 
 ## Context
 

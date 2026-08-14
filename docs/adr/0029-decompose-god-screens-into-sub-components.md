@@ -1,7 +1,7 @@
 # ADR 0029: Decompose the god-screen components into focused sub-components
 
-**Status:** Accepted; implemented (`food/DailyDashboard.svelte`, `AgendaView.svelte`, `habits/AddEventScreen.svelte`, and their new children).
-**Date:** 2026-07-28
+**Status:** Accepted  
+**Implemented:** `food/DailyDashboard.svelte`, `AgendaView.svelte`, `habits/AddEventScreen.svelte`
 
 ## Context
 

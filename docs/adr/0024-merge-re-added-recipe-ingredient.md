@@ -1,7 +1,7 @@
 # ADR 0024: Re-adding a food already in a recipe merges into its row; cross-unit collisions are blocked
 
-**Status:** Accepted; implemented (issue #14, `addOrMergeIngredient` in `recipe-ingredient.ts`).
-**Date:** 2026-07-27
+**Status:** Accepted  
+**Implemented:** #14, `addOrMergeIngredient` in `recipe-ingredient.ts`
 
 ## Context
 

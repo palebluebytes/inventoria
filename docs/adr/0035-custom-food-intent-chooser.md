@@ -1,7 +1,8 @@
 # ADR 0035: The Custom tab becomes an intent chooser — quick-estimate, from-a-menu, from-a-plate-photo
 
-**Status:** Accepted (specced 2026-08-03, this ADR; implemented on branch barcode-scanning-improvements)
-**Date:** 2026-08-03
+**Status:** Accepted  
+**Date:** 2026-08-03  
+**Implemented:** `17382f7`, `915a732`, `c696190`, `f7f3054`; `ManualEntryFlow.svelte`
 
 ## Context
 

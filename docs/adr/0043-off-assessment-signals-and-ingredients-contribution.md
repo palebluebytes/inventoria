@@ -1,6 +1,8 @@
 # ADR 0043: Surfacing OFF assessment signals (allergens + dietary labels) and contributing back `ingredients_text`
 
-**Status:** Accepted. **Date:** 2026-08-13
+**Status:** Accepted  
+**Date:** 2026-08-13  
+**Implemented:** #101 `45f6b21`, #102 `535aedf`, #103 `10188bc`, #104 `01dd9c8`
 
 ## Context
 

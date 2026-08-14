@@ -1,10 +1,9 @@
 # 11. Calendar Event Blueprint as a Distinct Entity Prefix
 
+**Status:** Accepted  
+**Implemented:** `src/lib/cal_events/`
+
 Date: 2026-06-05
-
-## Status
-
-Accepted
 
 ## Context
 

@@ -1,6 +1,8 @@
 # ADR 0036: A shared `Segmented` primitive for single-choice controls
 
-**Status:** Accepted; implemented (`ui/Segmented.svelte`, migrated `CalorieCalculatorSheet` and `FoodStager`). **Date:** 2026-08-04
+**Status:** Accepted  
+**Date:** 2026-08-04  
+**Implemented:** `ui/Segmented.svelte`; `CalorieCalculatorSheet`, `FoodStager`
 
 ## Context
 

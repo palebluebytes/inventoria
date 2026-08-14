@@ -1,7 +1,7 @@
 # ADR 0027: Grow BottomSheet into the one sheet primitive — docked footer + over-dialog
 
-**Status:** Accepted; implemented (`ui/BottomSheet.svelte`, `ui/Modal.svelte`).
-**Date:** 2026-07-28
+**Status:** Accepted  
+**Implemented:** `ui/BottomSheet.svelte`, `ui/Modal.svelte`
 
 ## Context
 

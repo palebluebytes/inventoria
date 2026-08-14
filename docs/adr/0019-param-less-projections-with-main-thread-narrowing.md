@@ -1,7 +1,7 @@
 # ADR 0019: Projections Stay Param-less; Narrowing Is a Main-Thread Concern
 
-**Status:** Accepted
-**Date:** 2026-07-01
+**Status:** Accepted  
+**Implemented:** `src/lib/db/projections.ts` (no params field)
 
 ## Context
 

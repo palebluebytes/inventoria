@@ -1,7 +1,9 @@
 # ADR 0030: Capture the full source record on food twins — micronutrients, portions, and provenance signals
 
-**Status:** Accepted; not yet implemented (specced 2026-07-29, this ADR)
-**Date:** 2026-07-29
+**Status:** Accepted  
+**Date:** 2026-07-29  
+**Amended by:** ADR-0042 (see the amendment below)  
+**Implemented:** `fa43de4`, `e385044`, `0ac469e`, `712b8f5`; `portionPresets` in `QuantityGrams.svelte`
 
 ## Context
 

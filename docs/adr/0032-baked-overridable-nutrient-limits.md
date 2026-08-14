@@ -1,7 +1,8 @@
 # ADR 0032: Baked, user-overridable daily nutrient limits (the stay-under counterpart to ADR-0031)
 
-**Status:** Accepted; not yet implemented (specced 2026-07-31, this ADR)
-**Date:** 2026-07-31
+**Status:** Accepted  
+**Date:** 2026-07-31  
+**Implemented:** #43 (`600a602`, `792e28b`, `755e664`, `496f484`, `f20625d`)
 
 ## Context
 

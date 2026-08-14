@@ -1,10 +1,9 @@
 # 12. Nix-Driven Reproducible Development Environment
 
+**Status:** Accepted  
+**Implemented:** `flake.nix`, `flake.lock`
+
 Date: 2026-06-22
-
-## Status
-
-Accepted
 
 ## Context
 

@@ -1,10 +1,9 @@
 # ADR 0041: A NOVA processing badge — reading back the `food/assessment` blob
 
-**Status:** Accepted, then **amended post-implementation (2026-08-06)** — all four
-tickets (#90–#93) shipped, then the badge was simplified to a word-only chip and
-its placement moved. The original decision text is preserved below as the record;
-the [Amendment](#amendment-2026-08-06-word-only-badge-plain-inference-placement)
-supersedes the specific clauses it names (§1, §3, §5, §6). **Date:** 2026-08-06
+**Status:** Accepted  
+**Date:** 2026-08-06  
+**Amended by:** ADR-0043 §2 (the badge moves onto the portions row as one of several tags); and the Amendment below, which supersedes §1, §3, §5, §6 of the original decision  
+**Implemented:** #90 `71424e5`, #91 `51c926e`, #92 `ec06149`, #93 `2b09ccc`
 
 ## Context
 
@@ -27,6 +26,11 @@ route. Two decision tickets resolved the shape before this synthesis:
   `nova_group` number _is_ a known verdict. Per-product **evidence is reachable**
   via `nova_group_debug` (the trail of markers that drove the verdict) plus
   `additives_tags`. ODbL requires **visible attribution** wherever OFF data shows.
+- **[#89 research](https://github.com/inkpot-monkey/inventoria/issues/89)** —
+  `docs/research/89-usda-nova1-whole-food-rule.md`. Settled the rule behind the
+  inferred "NOVA 1·est" verdict for USDA whole foods: a `food/category` allow-list
+  plus deny-substrings, with a targeted egg include. No mapper widening is needed
+  because the category is already captured. Implemented by #93.
 - **[#87 prototype](https://github.com/inkpot-monkey/inventoria/issues/87)** — the
   badge + explainer, prototyped against real brutalist tokens. Visual spec:
   <https://claude.ai/code/artifact/75de4901-85b8-4795-827a-1ea5a53479d7>. It settled
@@ -241,10 +245,12 @@ are presentation and placement changes only.
    unchanged.
 
    > **Superseded on the staged card by [ADR-0043 §2](0043-off-assessment-signals-and-ingredients-contribution.md)
-   > (#103).** On the `FoodStager` staged card the badge no longer rides the
-   > "Quantity (grams)" row: it moves into a new tags row below the food name
-   > (`source · dietary · NOVA`, NOVA last), so the three marks read as one family,
-   > and the additives count now rides it as a small circular disc. The badge's
+   > (#103), then moved again by ADR-0043's own Amendment (2026-08-13, `a709908`):
+   > the badge now floats on the household-portions row in `QuantityGrams`, on
+   > every screen.** The intermediate placement described below, a tags row below
+   > the food name, lasted about a week and is recorded only as history. The
+   > tags-row grouping itself (`source · dietary · NOVA`, NOVA last) stands, and
+   > the additives count rides the badge as a small circular disc. The badge's
    > **word-only, colour-weighted form (Amendment §1) is unchanged** — only its
    > position moves. The food-detail sheet (`IngredientAmountSheet`) still renders
    > the badge on the amount row via `FoodAmountPanel`'s `badge` slot, unchanged.

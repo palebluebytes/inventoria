@@ -1,10 +1,9 @@
 # 3. Grayscale Brutalist Minimal UI Aesthetic
 
+**Status:** Accepted  
+**Implemented:** `src/app.css`; see the amendments below
+
 Date: 2026-05-31
-
-## Status
-
-Accepted
 
 ## Context
 

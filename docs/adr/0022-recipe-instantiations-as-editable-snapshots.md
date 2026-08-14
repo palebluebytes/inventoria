@@ -1,9 +1,8 @@
 # ADR 0022: Recipes are templates; each logging is an editable instantiation snapshot
 
-**Status:** Accepted; implemented (issues #11 foundation, #12 Instantiate +
-correct, #13 Define + template edit). Extends and revises the read-path stance of
-ADR-0021.
-**Date:** 2026-07-27
+**Status:** Accepted  
+**Amended by:** ADR-0030 (#28), see the amendment below  
+**Implemented:** #11 foundation, #12 Instantiate + correct, #13 Define + template edit
 
 ## Context
 
@@ -149,8 +148,6 @@ builder's inline-amount editor (issue #9).
 
 ## Amendment (ADR-0030 / #28): `event/metrics` widened to the full scaled panel; forward-only
 
-**Date:** 2026-07-29
-
 To surface fibre and micronutrients **for the day** (parent #21), the frozen
 snapshot must carry more than the four macros. This amendment widens the snapshot
 shape without changing the model — it is the same "snapshot on write, never derive
@@ -177,8 +174,6 @@ on read" rule freezing _more_ at write time; logged history stays immutable.
   `V1_REQUIREMENTS.md` §Module A and `eavt-vocabulary.md` `event/*` shapes.
 
 ## Amendment (food-addition flow unification): Define now logs one serving
-
-**Date:** 2026-08-04
 
 The three-verb table above gave **Define** "Logs instantiation: no" — a new
 template existed with zero instantiations. In practice a user who builds a brand

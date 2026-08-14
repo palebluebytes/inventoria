@@ -1,7 +1,7 @@
 # ADR 0023: Numeric-first amount entry; drag controls are accelerators, not the primary affordance
 
-**Status:** Accepted; implemented (commit `8e5a854`, `QuantityGrams.svelte`).
-**Date:** 2026-07-27
+**Status:** Accepted  
+**Implemented:** `8e5a854`, `QuantityGrams.svelte`; see the amendment below
 
 ## Context
 
@@ -94,3 +94,22 @@ Concretely, `QuantityGrams.svelte`:
   ingredient. `grams` there simplified from `number | string` to `number` too.
 - **Deferred:** a `valuetext` for richer screen-reader announcement (e.g. "128
   grams, ≈ 497 kcal").
+
+## Amendment (2026-08-14): the preset chips are gone
+
+Two clauses of the decision above are no longer true and are corrected here rather
+than rewritten, so the original record stands.
+
+- **Preset chips were removed** by `4620922` (2026-08-13), which dropped the
+  `25 / 50 / 100 / 150 / 200 / 300` row and the `presets` prop from
+  `QuantityGrams.svelte`. The Decision clause "Preset chips cover one-tap common
+  amounts" and the Consequence "an e2e test drives it end-to-end (type → preset →
+  add-to-recipe)" no longer describe the control. The numeric-first stance itself,
+  which is what this ADR is actually about, is unchanged; only one of the two
+  accelerators is gone. Household portions from
+  [ADR-0030](0030-expanded-food-twin-source-data.md) now occupy that role, and
+  they are per-food rather than a fixed ladder.
+- **`--border-accent` was retired** by `9e2b216` (#73) in the
+  [ADR-0038](0038-named-brutalist-frame-tokens.md) frame-token sweep. The token
+  list in the Consequences section names it; read that as a statement about the
+  palette at the time of writing, not a current token.

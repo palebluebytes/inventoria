@@ -1,7 +1,7 @@
 # ADR 0028: Migrate the food sheets onto the shared BottomSheet primitive
 
-**Status:** Accepted; implemented (`ui/BottomSheet.svelte`, the five food sheets).
-**Date:** 2026-07-28
+**Status:** Accepted  
+**Implemented:** `ui/BottomSheet.svelte`, the five food sheets
 
 ## Context
 

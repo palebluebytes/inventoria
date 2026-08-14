@@ -1,7 +1,7 @@
 # ADR 0017: Unified Recurrence Engine
 
 **Status:** Accepted  
-**Date:** 2026-06-22
+**Implemented:** `src/lib/recurrence/rules.ts`
 
 ## Context
 

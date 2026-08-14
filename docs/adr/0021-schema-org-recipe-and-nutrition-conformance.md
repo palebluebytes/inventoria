@@ -1,7 +1,9 @@
 # ADR 0021: Back Recipes and Nutrition with schema.org/Recipe and NutritionInformation
 
-**Status:** Accepted; not yet implemented (specced 2026-07-26, this ADR)
-**Date:** 2026-07-26
+**Status:** Accepted  
+**Date:** 2026-07-26  
+**Amended by:** ADR-0030 (widens the `nutrition/info` panel)  
+**Implemented:** `nutrition/info` and the schema.org recipe vocabulary; the ad-hoc `recipe/source` / `recipe/notes` / `recipe/steps` attributes are gone
 
 ## Context
 

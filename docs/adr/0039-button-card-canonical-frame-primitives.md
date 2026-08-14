@@ -1,6 +1,8 @@
 # ADR 0039: `Button` and `Card` as the canonical brutalist frame primitives
 
-**Status:** Accepted; implemented (`ui/Button.svelte`, `ui/Card.svelte`; `tests/unit/ui-primitives.test.ts`). Blocking foundation for the #69 adoption arc. **Date:** 2026-08-05
+**Status:** Accepted  
+**Date:** 2026-08-05  
+**Implemented:** `ui/Button.svelte`, `ui/Card.svelte`, `tests/unit/ui-primitives.test.ts`
 
 ## Context
 

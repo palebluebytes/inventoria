@@ -1,7 +1,7 @@
 # ADR 0025: One food row, one amount picker — shared across the dashboard and recipe lists
 
-**Status:** Accepted; implemented (`FoodItemRow.svelte`, `IngredientAmountSheet.svelte`, `changeLoggedFoodAmount`).
-**Date:** 2026-07-28
+**Status:** Accepted  
+**Implemented:** `FoodItemRow.svelte`, `IngredientAmountSheet.svelte`, `changeLoggedFoodAmount`
 
 ## Context
 

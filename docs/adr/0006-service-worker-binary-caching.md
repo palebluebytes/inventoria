@@ -1,10 +1,9 @@
 # 6. Service Worker Binary Caching for Digital Twin Images
 
+**Status:** Accepted  
+**Implemented:** `runtimeCaching` in `vite.config.ts`
+
 We need to support offline visual tracking of physical Digital Twins by caching external images locally. Rather than fetching and base64-encoding images into the immutable Ledger (which would dramatically bloat the database and impact RPC query performance over the worker thread), we delegate dynamic binary storage to the browser's Cache Storage API via Service Worker Runtime Caching.
-
-## Status
-
-Accepted
 
 ## Considered Options
 

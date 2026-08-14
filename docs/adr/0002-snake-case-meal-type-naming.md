@@ -1,10 +1,9 @@
 # 2. Unified Use of snake_case for meal_type
 
+**Status:** Accepted  
+**Implemented:** `event/meal_type` throughout; `src/lib/stores/calorie.store.ts`
+
 We have adopted a strict naming convention to use snake_case `meal_type` across all layers of the application, including the ledger/EAVT database attributes (`event/meal_type`), client-side Svelte stores, and all UI code (variables, parameters, properties, and mock data).
-
-## Status
-
-Accepted
 
 ## Context
 
@@ -21,3 +20,15 @@ During the implementation of Svelte-based calorie tracking, some files were intr
 
 - Improved consistency and developer readability by removing casing mismatches.
 - Direct alignment between database attributes, Svelte store properties, and component properties, reducing mapping translations.
+
+## Amendment (2026-08-14): the named components no longer exist
+
+The decision holds without change: `meal_type` is snake_case everywhere the ledger
+is involved, and that is enforced as a non-negotiable invariant in
+`CODING_STANDARDS.md` §1.3.
+
+The UI-layer clause names four components as examples. Two of them,
+`FoodSearchModal.svelte` and `AddPhotoModal.svelte`, were removed by the food-screen
+decomposition in [ADR-0029](0029-decompose-god-screens-into-sub-components.md) and
+the sheet migration in [ADR-0028](0028-migrate-food-sheets-onto-bottomsheet.md).
+Read the list as illustrative of the layer, not as a current inventory.

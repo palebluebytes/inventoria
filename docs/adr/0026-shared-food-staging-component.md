@@ -1,7 +1,7 @@
 # ADR 0026: One food-staging component, shared by the direct-log and add-ingredient sheets
 
-**Status:** Accepted; implemented (`FoodStager.svelte`, `food-staging.ts`).
-**Date:** 2026-07-28
+**Status:** Accepted  
+**Implemented:** `FoodStager.svelte`, `food-staging.ts`
 
 ## Context
 

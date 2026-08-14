@@ -1,10 +1,9 @@
 # 13. Reactive Query Store Invalidation Bridge
 
+**Status:** Accepted  
+**Implemented:** `src/lib/stores/datoms.store.ts`
+
 Date: 2026-06-22
-
-## Status
-
-Accepted
 
 ## Context
 

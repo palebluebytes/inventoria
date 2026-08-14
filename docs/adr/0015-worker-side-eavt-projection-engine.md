@@ -1,10 +1,9 @@
 # 15. Worker-Side EAVT Projection Engine
 
+**Status:** Accepted  
+**Implemented:** `src/lib/db/projections.ts`, dispatched from `db.worker.ts`
+
 Date: 2026-06-22
-
-## Status
-
-Accepted
 
 ## Context
 
