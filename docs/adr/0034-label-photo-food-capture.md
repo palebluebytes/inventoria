@@ -294,7 +294,7 @@ protein, fat, carbs, photo_base64}` to seed the full panel + barcode +
   `saveCustomFood` stays for the plain fast path or is folded in as the writer's
   no-panel case (implementer's call).
 - **New / changed food-twin attributes** to register in
-  `docs/eavt-vocabulary.html`: `food/label_photos` (`string[]`),
+  `docs/eavt-vocabulary.md`: `food/label_photos` (`string[]`),
   `food/label_capture` (object), and the reuse of `nutrition/info`, `twin/brand`,
   `food/portions` on a `gtin:` twin now written by the user.
 - **The Custom tab is no longer the four-macro grid** — it is the full-panel form;

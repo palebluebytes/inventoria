@@ -28,7 +28,7 @@ was about a layer that **re-derives live from the profile** (a "live-vs-stale co
 does **not**: the numbers are **frozen at apply-time** (the profile stays inert, Decision 2), never
 recomputed, so a later tweak to the helper's constants can't silently shift a user's defaults, and
 re-applying after a weight change is still a conscious act. The live-vs-stale objection does not
-apply to a frozen snapshot. Registered in `docs/eavt-vocabulary.html` alongside the profile blob.
+apply to a frozen snapshot. Registered in `docs/eavt-vocabulary.md` alongside the profile blob.
 
 ## Amendment 2 (2026-07-31): fibre is energy-scaled in the calculated layer
 
@@ -192,7 +192,7 @@ trans/HRT users may prefer to nudge the result. An **invented averaged third con
 ### 7. Register the new attribute
 
 `settings/food/profile` joins `settings/food/{visible_nutrients,round_nutrition,targets,limits}` in
-`docs/eavt-vocabulary.html` (the food-settings family). As with ADR-0031/0032, there are no existing
+`docs/eavt-vocabulary.md` (the food-settings family). As with ADR-0031/0032, there are no existing
 users, so no migration is needed.
 
 ## Consequences
@@ -271,7 +271,7 @@ users, so no migration is needed.
    `nutrition-targets.ts`, with unit tests covering the worked examples, the BMR clamp, and the
    carbs-≥0 clamp.
 2. **The `settings/food/profile` blob + store wiring.** New inert blob datom, `saveFoodProfile`
-   writer, read-fold in the settings store, `docs/eavt-vocabulary.html` registration.
+   writer, read-fold in the settings store, `docs/eavt-vocabulary.md` registration.
 3. **The calculator UI.** The distinct action card in the Energy & macros grid's empty cell, the
    `BottomSheet` form (biological-sex/age/height/weight/activity/goal + PAL sentence), live preview,
    manual nudge, and the Apply flow (overwrite four keys + auto-track macros).

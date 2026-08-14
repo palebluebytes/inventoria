@@ -181,7 +181,7 @@ names.
   are visible now render a fill bar (they were bar-less before).
 - **A new blob attribute** `settings/food/targets` and **two renamed attributes**
   (`settings/food/visible_nutrients`, `settings/food/round_nutrition`) must be
-  registered in `docs/eavt-vocabulary.html`; the old names are removed.
+  registered in `docs/eavt-vocabulary.md`; the old names are removed.
 - **The consumption snapshot is untouched.** Targets are a display-time denominator
   only — no `event/metrics` or recipe-instantiation row changes; the frozen snapshot
   (ADR-0022) is unaffected.

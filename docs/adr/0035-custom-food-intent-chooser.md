@@ -177,7 +177,7 @@ dashboard must treat an omitted macro on an event as _not counted_, never as 0.
   `LogFoodSheet.handleChoose` to the writers.
 - **A new `food/ingredients` (free text) attribute** and the reuse of `twin/brand`
   for "Place" on a `food:custom_` twin — both to register in
-  `docs/eavt-vocabulary.html`.
+  `docs/eavt-vocabulary.md`.
 - **A new `food/manual_entry` provenance attribute** (object, `kind`-keyed) with a
   `buildManualEntry` builder in `provenance.ts` — to register in the EAVT
   vocabulary beside `food/label_capture`.
@@ -198,8 +198,7 @@ dashboard must treat an omitted macro on an event as _not counted_, never as 0.
   the manual-entry writer — so the re-saved twin stays a manual entry of the same
   `kind` and a menu dish stays in Recent. It must NOT fall back to the label form
   (which would strip `food/manual_entry` and drop the dish from the catalogue).
-- **Docs to render/index after acceptance**: `0035-*.html` + an entry in
-  `docs/adr/index.html`; EAVT-vocabulary updates above.
+- **Docs to update after acceptance**: the EAVT-vocabulary updates above.
 
 ## Alternatives considered
 

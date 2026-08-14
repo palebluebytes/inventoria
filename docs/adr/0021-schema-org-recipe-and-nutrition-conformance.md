@@ -127,7 +127,7 @@ aligned to the nutrition vocabulary.
 
 - **Supersedes** the recipe twin shape in `V1_REQUIREMENTS.md` §3 and revises the
   food twin shape in §1; both must be updated, and new attributes registered in
-  `docs/eavt-vocabulary.html`.
+  `docs/eavt-vocabulary.md`.
 - **No backward compatibility** with `a4b55aa` recipe/food data — explicitly
   waived. Readers drop the dead old-vocabulary branches in `consumption-state.ts`.
 - One nutrition model spans USDA/OFF/custom/derived-recipe — no per-source

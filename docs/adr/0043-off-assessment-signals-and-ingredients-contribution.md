@@ -7,7 +7,7 @@
 The food twin captures Open Food Facts' consumer-facing signals as one atomic
 `food/assessment` blob (ADR-0030 §4): `nova_group`, `nutri_score`, `eco_score`,
 `nutrient_levels`, `allergens`, `additives`, `labels`. That blob was **write-only**
-until [ADR-0041](0041-nova-processing-badge.html) gave it its first reader — the
+until [ADR-0041](0041-nova-processing-badge.md) gave it its first reader — the
 NOVA processing badge, computed on read via a pure `deriveNovaVerdict` selector.
 ADR-0041 surfaced **exactly one of the blob's signals**; the rest still never
 reach the UI.

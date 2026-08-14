@@ -221,9 +221,10 @@ centralising it, and a simpler model to a cleverer mechanism.
   semicolons, `printWidth` 80, `trailingComma: es5`, always-parenthesised arrow
   params. Don't hand-fight it; a Husky pre-commit hook formats staged files.
 - **`pnpm check`** (svelte-check + `tsc`) must be clean before you push.
-- **Generated files stay generated.** `docs/adr/*.html` is produced by
-  `docs/render-adrs.sh` and is `.prettierignore`d — edit the generator or the
-  source `.md`, never the emitted HTML, and keep it byte-identical.
+- **`pnpm docs:check`** must be clean before you push. It checks documentation
+  structure across the repo (links resolve, ADR statuses use the closed
+  vocabulary, declared supersessions are linked back) and prose style on the
+  handful of pages written to be read start to finish.
 
 ---
 

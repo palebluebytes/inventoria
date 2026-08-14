@@ -240,7 +240,7 @@ are presentation and placement changes only.
    it identically. Which surfaces show the badge, and the clean list rows, are
    unchanged.
 
-   > **Superseded on the staged card by [ADR-0043 §2](0043-off-assessment-signals-and-ingredients-contribution.html)
+   > **Superseded on the staged card by [ADR-0043 §2](0043-off-assessment-signals-and-ingredients-contribution.md)
    > (#103).** On the `FoodStager` staged card the badge no longer rides the
    > "Quantity (grams)" row: it moves into a new tags row below the food name
    > (`source · dietary · NOVA`, NOVA last), so the three marks read as one family,

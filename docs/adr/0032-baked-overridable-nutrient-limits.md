@@ -125,7 +125,7 @@ prominent "over your limit" cue is a deferred follow-up (see Consequences).
 ### 5. Register the new attribute
 
 `settings/food/limits` joins `settings/food/{visible_nutrients,round_nutrition,targets}`
-in `docs/eavt-vocabulary.html`. As with ADR-0031, there are no existing users, so no
+in `docs/eavt-vocabulary.md`. As with ADR-0031, there are no existing users, so no
 migration is needed.
 
 ## Consequences
