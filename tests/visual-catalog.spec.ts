@@ -259,6 +259,11 @@ test.describe("Visual Catalog Generator", () => {
   test("generates visual catalog screenshots of all dashboards", async ({
     page,
   }) => {
+    // One test drives every dashboard end to end and screenshots each one, so
+    // the default 30s budget is too tight — especially under the slower Pixel 5
+    // emulation, where it expired mid-run on the Notes tab.
+    test.slow();
+
     // Install deterministic clock
     await page.clock.install({ time: new Date("2026-06-05T08:30:00Z") });
 
