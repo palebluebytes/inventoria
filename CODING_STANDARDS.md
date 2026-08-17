@@ -201,7 +201,8 @@ centralising it, and a simpler model to a cleverer mechanism.
 - **Unit tests** are `tests/unit/**/*.test.ts`, run by Vitest via
   `pnpm test:unit`. **E2E tests** are `tests/*.spec.ts`, run by Playwright via
   `pnpm test:e2e`. Keep the `.test.ts` / `.spec.ts` split — Vitest only collects
-  `tests/unit`.
+  `tests/unit`. The E2E suite runs in CI on every push
+  (`.github/workflows/e2e.yml`); it is not part of the local gate roster in §7.
 - **Test the pure core against the real engine.** DB-level invariants are tested
   against the actual sqlite-wasm build, not a mock (`db-append-only.test.ts`,
   `db-migration.test.ts`), because that's where the invariant actually lives.
@@ -225,11 +226,13 @@ centralising it, and a simpler model to a cleverer mechanism.
 - **Prettier is authoritative** (`.prettierrc`): 2-space indent, double quotes,
   semicolons, `printWidth` 80, `trailingComma: es5`, always-parenthesised arrow
   params. Don't hand-fight it; a Husky pre-commit hook formats staged files.
-- **`pnpm check`** (svelte-check + `tsc`) must be clean before you push.
-- **`pnpm docs:check`** must be clean before you push. It checks documentation
-  structure across the repo (links resolve, ADR statuses use the closed
-  vocabulary, declared supersessions are linked back) and prose style on the
-  handful of pages written to be read start to finish.
+- **Gates:** `pnpm check`, `pnpm test:unit`, and `pnpm lint:css` must be clean
+  before you push — the same roster `AGENTS.md` §1 carries. `pnpm check` runs
+  svelte-check, `tsc`, and the docs check, which verifies documentation structure
+  across the repo (links resolve, ADR statuses use the closed vocabulary,
+  declared supersessions are linked back) plus prose style on the handful of
+  pages written to be read start to finish. `pnpm docs:check` runs that last part
+  alone when you want a faster loop.
 
 ---
 
@@ -274,6 +277,6 @@ A change is ready when:
       file pushed past ~1000 lines without justification.
 - [ ] Writes are atomic and roll back cleanly; worker errors return as messages.
 - [ ] Schema/migration/append changes carry tests; pure modules stay injectable.
-- [ ] `pnpm check` and `pnpm test:unit` pass; Prettier-clean.
+- [ ] `pnpm check`, `pnpm test:unit`, and `pnpm lint:css` pass; Prettier-clean.
 - [ ] Non-obvious decisions captured as/against an ADR; new terms in `CONTEXT.md`.
 - [ ] Conventional-commit messages, one logical change each.

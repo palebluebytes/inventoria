@@ -1,22 +1,22 @@
 # Issue tracker: GitHub
 
-Issues and PRDs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
+Issues and PRDs for this repo live as GitHub issues, worked through the `gh`
+CLI. Triage labels are listed in `AGENTS.md` §2.
 
-## Conventions
+Most of `gh` needs no notes here. These three are the ones worth carrying:
 
-- **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
-- **Read an issue**: `gh issue view <number> --comments`, filtering comments by `jq` and also fetching labels.
-- **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
-- **Comment on an issue**: `gh issue comment <number> --body "..."`
-- **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
-- **Close**: `gh issue close <number> --comment "..."`
+- **Reading an issue** means reading its thread: `gh issue view <number> --comments`.
+  A ticket's real specification usually lives in the comments, not the body.
+- **Multi-line bodies go through a heredoc**, not an escaped `--body` string.
+- **Listing with full context** in one shot:
 
-Infer the repo from `git remote -v` — `gh` does this automatically when run inside a clone.
+  ```sh
+  gh issue list --state open \
+    --json number,title,body,labels,comments \
+    --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'
+  ```
 
-## When a skill says "publish to the issue tracker"
+  Add `--label` / `--state` filters as needed.
 
-Create a GitHub issue.
-
-## When a skill says "fetch the relevant ticket"
-
-Run `gh issue view <number> --comments`.
+When a skill says "publish to the issue tracker", create a GitHub issue. When it
+says "fetch the relevant ticket", run the `view` command above.
