@@ -11,15 +11,22 @@
  * text, and the visual snapshots depend on the font being identical on every
  * machine rather than on whatever the network returned that run.
  *
- * One variable file per subset, covering weights 400-900. The CDN import this
- * replaced only fetched 300-700, so the 800 and 900 weights the design system
- * asks for were being synthesised by the browser; they now render as drawn.
- * SIL Open Font License 1.1 — see fonts/LICENSE.txt.
+ * One variable file per subset. The declared range is the file's real wght axis,
+ * 100-900; the CDN import this replaced only fetched 300-700, so the 800 and 900
+ * weights the design system asks for were being synthesised by the browser and
+ * now render as drawn.
+ *
+ * Licensing: OFL 1.1 clause 2 wants the copyright notice and the licence to
+ * travel with each distributed copy, as a stand-alone file, a readable header,
+ * or binary metadata. Google's subsets keep the copyright (name ID 0) and a
+ * licence URL (14) but drop the licence text (13), and a CSS header does not
+ * survive minification here, so the stand-alone route is the one that works:
+ * public/fonts/OFL.txt ships the full text to /fonts/OFL.txt.
  */
 @font-face {
   font-family: "Epilogue";
   font-style: normal;
-  font-weight: 400 900;
+  font-weight: 100 900;
   font-display: swap;
   src: url("./assets/fonts/epilogue-latin.woff2") format("woff2");
   unicode-range:
@@ -30,7 +37,7 @@
 @font-face {
   font-family: "Epilogue";
   font-style: normal;
-  font-weight: 400 900;
+  font-weight: 100 900;
   font-display: swap;
   src: url("./assets/fonts/epilogue-latin-ext.woff2") format("woff2");
   unicode-range:
@@ -41,7 +48,7 @@
 @font-face {
   font-family: "Epilogue";
   font-style: normal;
-  font-weight: 400 900;
+  font-weight: 100 900;
   font-display: swap;
   src: url("./assets/fonts/epilogue-vietnamese.woff2") format("woff2");
   unicode-range:
