@@ -3,10 +3,22 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests",
   testIgnore: ["**/unit/**"],
-  fullyParallel: false,
+  // Tests are independent by construction, so they may run concurrently: every
+  // spec but persistence.spec.ts loads `?mem=1`, which forces a fresh in-memory
+  // database per page (see db.client.ts), and Playwright hands each test its own
+  // context. Nothing declares `describe.serial`, a `beforeAll`, or module state.
+  //
+  // File-level parallelism alone would barely help: food-ui.spec.ts is 34 of the
+  // 50 tests and 72% of the runtime, so the suite is only as fast as that one
+  // file unless its tests can split across workers.
+  fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: 1,
+  // Half the runner's 4 vCPUs, which is Playwright's own default ratio: each
+  // worker is a browser, and they share the box with the Vite dev server that
+  // serves them. Retries cost 3x, so buying wall-clock with contention is a bad
+  // trade — raise this only against measured run times, not by intuition.
+  workers: process.env.CI ? 2 : 1,
   reporter: "list",
   use: {
     baseURL: "http://localhost:5173",
