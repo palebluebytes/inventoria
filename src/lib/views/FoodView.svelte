@@ -548,7 +548,7 @@
     border-bottom: none;
   }
   .twin-entity {
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-size: var(--step-n2);
     color: var(--text-muted);
     flex-shrink: 0;

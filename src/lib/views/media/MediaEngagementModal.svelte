@@ -290,7 +290,7 @@
   }
 
   .publish-year {
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-size: var(--step-n1);
     font-weight: 700;
     color: var(--text-secondary);
@@ -311,7 +311,7 @@
   .blurb-section h4,
   .subjects-section h4 {
     margin: 0 0 var(--space-3xs) 0;
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-size: var(--step-n1);
     font-weight: 700;
     text-transform: uppercase;
@@ -364,7 +364,7 @@
 
   .banner-info p {
     margin: 0;
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-size: var(--step-n1);
     font-weight: 700;
     color: var(--ink);
@@ -389,7 +389,7 @@
   }
 
   .form-group label {
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-size: var(--step-n1);
     font-weight: 700;
     text-transform: uppercase;
@@ -403,7 +403,7 @@
     border: var(--edge);
     padding: var(--space-s);
     font-size: var(--step-0);
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-weight: 700;
     border-radius: var(--radius);
     background: var(--paper);
@@ -422,7 +422,7 @@
     border: var(--edge);
     padding: var(--space-s);
     font-size: var(--step-0);
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-weight: 700;
     border-radius: var(--radius);
     background: var(--paper);
@@ -441,7 +441,7 @@
     border: var(--edge);
     padding: var(--space-s);
     font-size: var(--step-0);
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-weight: 700;
     border-radius: var(--radius);
     resize: vertical;

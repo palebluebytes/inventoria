@@ -306,7 +306,7 @@
     border: var(--edge);
     padding: var(--space-s);
     font-size: var(--step-0);
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-weight: 700;
     border-radius: var(--radius);
     background: var(--paper);

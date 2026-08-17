@@ -182,7 +182,7 @@
 
   :global(.card-type-badge) {
     align-self: flex-start;
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-size: 0.7rem !important;
     padding: 2px 6px !important;
     background: var(--ink) !important;
@@ -200,7 +200,7 @@
   }
 
   .card-creator {
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-size: var(--step-n2);
     color: var(--ink);
     margin: 0;
@@ -208,7 +208,7 @@
   }
 
   .card-date {
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-size: var(--step-n2);
     color: var(--ink);
     margin: 0;
@@ -219,7 +219,7 @@
   }
 
   .card-progress-stat {
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-size: var(--step-n2);
     font-weight: 700;
     background: var(--ink);

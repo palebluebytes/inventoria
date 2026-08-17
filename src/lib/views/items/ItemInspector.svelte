@@ -241,7 +241,7 @@
     border-top: var(--edge-thin);
   }
   .item-id {
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-size: 0.7rem;
     color: var(--text-muted);
     word-break: break-all;

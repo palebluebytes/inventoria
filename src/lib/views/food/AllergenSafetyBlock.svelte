@@ -182,7 +182,7 @@
     border-radius: 50%;
     background: transparent;
     color: var(--ink);
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: var(--font-serif);
     font-size: var(--step-n1);
     font-weight: 700;
     font-style: italic;

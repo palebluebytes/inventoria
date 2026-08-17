@@ -326,7 +326,7 @@
   }
 
   .empty-column {
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-size: var(--step-n1);
     color: var(--ink);
     text-align: center;
@@ -357,7 +357,7 @@
     border-right: var(--edge-thin);
     margin: 0;
     padding: var(--space-xs) 0;
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-weight: 700;
     font-size: var(--step-n2);
     text-transform: uppercase;

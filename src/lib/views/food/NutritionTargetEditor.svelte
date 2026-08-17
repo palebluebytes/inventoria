@@ -696,7 +696,7 @@
     border-radius: 50%;
     background: transparent;
     color: inherit;
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: var(--font-serif);
     font-size: var(--step-n1);
     font-weight: 700;
     font-style: italic;
@@ -737,7 +737,7 @@
     /* Snug horizontal padding — the field is only ~4rem wide in a phone column,
        so a wider inset would clip a four/five-figure target's own digits. */
     padding: var(--space-3xs);
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-weight: 700;
     font-size: var(--step-n1);
     text-align: right;

@@ -58,7 +58,7 @@
   .instrument-code {
     background: var(--bg-input);
     padding: 2px 6px;
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-size: 0.9em;
   }
 </style>

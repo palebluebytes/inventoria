@@ -455,7 +455,7 @@
     width: 100%;
     min-width: 0;
     padding: var(--space-2xs) var(--space-xs);
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-weight: 700;
     font-size: var(--step-n1);
     color: var(--ink);
@@ -497,7 +497,7 @@
   }
   .preview-cals {
     margin-top: var(--space-3xs);
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-size: var(--step-2);
     font-weight: 800;
     color: var(--ink);
@@ -519,7 +519,7 @@
     color: var(--text-secondary);
   }
   .macro-val {
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-size: var(--step-0);
     font-weight: 700;
     color: var(--ink);

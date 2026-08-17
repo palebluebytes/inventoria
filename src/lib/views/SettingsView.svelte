@@ -454,7 +454,7 @@
     border: var(--edge);
     padding: var(--space-s);
     font-size: var(--step-0);
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-weight: 700;
     border-radius: var(--radius);
     background: var(--paper);
@@ -524,7 +524,7 @@
     background: var(--bg-input);
   }
   .mono {
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-weight: bold;
   }
   .attr {
@@ -541,7 +541,7 @@
     color: var(--text-secondary);
     text-align: center;
     padding: var(--space-xl) 0;
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-style: italic;
   }
   /* Container context so the label font can respond to the card's width

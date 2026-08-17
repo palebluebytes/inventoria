@@ -127,7 +127,7 @@
     color: var(--text-muted);
   }
   .doc-note code {
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-style: normal;
   }
 </style>

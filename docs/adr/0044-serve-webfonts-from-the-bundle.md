@@ -96,5 +96,14 @@ and the same synthesis was happening before. Epilogue does publish a true italic
 adding it means a second file per subset and another catalog rebaseline, and it
 should be picked up the next time the baselines are being redrawn anyway.
 
+> **Note (2026-08-17):** taken up, along with the rest of the families. The app
+> now ships drawn italics for all three, so nothing is obliqued mechanically. The
+> monospace and serif stacks that this record left alone are bundled too, behind
+> `--font-mono` and `--font-serif`, so every family the CSS names is served from
+> the bundle rather than resolved from the platform. Precaching is the one place
+> that does not follow: Fontsource ships Cyrillic and Greek subsets this app
+> never draws, and `globIgnores` in vite.config.ts keeps them out of the offline
+> install while leaving them fetchable.
+
 The licence obligation is now per-font and manual. Every font added under this
 record carries its own notice into `public/fonts/`, and no gate checks that.

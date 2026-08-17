@@ -144,6 +144,12 @@ export default defineConfig({
         // default rather than extending it, so the other extensions have to
         // stay named here.
         globPatterns: ["**/*.{js,css,html,svg,png,ico,wasm,webmanifest,woff2}"],
+        // Fontsource ships every subset it has, and the browser only fetches
+        // the ones a rendered character needs. Precaching is the exception:
+        // it pulls everything up front, so this app would install ~120KB of
+        // Cyrillic and Greek it never draws. They stay in the bundle and stay
+        // fetchable; they just do not ride along on the offline install.
+        globIgnores: ["**/*-{cyrillic,cyrillic-ext,greek,greek-ext}-*.woff2"],
         runtimeCaching: [
           {
             urlPattern: ({ request }) => request.destination === "image",

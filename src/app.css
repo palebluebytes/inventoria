@@ -57,9 +57,12 @@
 
 /* ── Colour tokens ───────────────────────────────────────────────────────── */
 :root {
+  /* Bundled first, platform stack behind it. Every mono and serif site goes
+     through these two tokens so the typeface is one edit, not eighty-four. */
   --font-mono:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    monospace;
+    "Source Code Pro Variable", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", monospace;
+  --font-serif: "Source Serif 4 Variable", Georgia, "Times New Roman", serif;
   --bg-base: #fafafa;
   --bg-surface: #ffffff;
   --bg-card: #ffffff;

@@ -299,7 +299,7 @@
     border: var(--edge);
     padding: var(--space-s);
     font-size: var(--step-0);
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-weight: 700;
     border-radius: var(--radius);
     background: var(--paper);
@@ -368,7 +368,7 @@
   }
 
   .result-creator {
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-size: var(--step-n2);
     color: var(--text-secondary);
   }
@@ -376,14 +376,14 @@
   .no-results {
     text-align: center;
     color: var(--text-muted);
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-style: italic;
     padding: var(--space-s);
   }
 
   .searching-spinner {
     text-align: center;
-    font-family: monospace;
+    font-family: var(--font-mono);
     padding: var(--space-m);
     font-style: italic;
   }
