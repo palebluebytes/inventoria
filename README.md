@@ -113,7 +113,7 @@ The repository uses **Nix flakes** for a reproducible environment and **pnpm** f
 node modules. Never use `npm`, `yarn`, or `bun`.
 
 ```bash
-nix develop      # enter the dev shell (node, pnpm, sqlite, gh, playwright)
+nix develop      # dev shell: node, pnpm, sqlite, gh, playwright (chromium only)
 pnpm install
 pnpm dev         # vite dev server on :5173
 ```
@@ -125,11 +125,12 @@ pnpm check       # svelte-check + tsc
 pnpm test:unit   # vitest
 pnpm lint:css    # stylelint
 pnpm docs:check  # documentation structure and prose
-pnpm test:e2e    # playwright; slow, and it rebuilds visual snapshots
+pnpm test:e2e    # playwright; slow, and normally left to CI
 ```
 
-`pnpm check`, `pnpm lint:css`, and lint-staged run on every commit; `pnpm test:e2e`
-runs on push.
+`pnpm check`, `pnpm lint:css`, and lint-staged run on every commit. The Playwright
+suite runs in GitHub Actions on every push, not on your machine, so a push is not
+held up by a slow browser run.
 
 ## Where the documentation lives
 

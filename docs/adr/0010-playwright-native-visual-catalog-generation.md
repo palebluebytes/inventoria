@@ -25,3 +25,9 @@ Snapshots are committed to the repository, allowing developers to review changes
 - **Cons:**
   - committing binary PNG files directly to git can increase the repository size (mitigated by only keeping visual catalog screenshots for key pages).
   - Lacks a hosted PR review dashboard out-of-the-box, though visual comparison tools are built directly into HTML report output.
+
+**Note (2026-08-17):** two details above have drifted from the code.
+
+Mobile Safari was never added. `playwright.config.ts` defines two projects, Desktop Chrome and Mobile Chrome, and both are Chromium. The Nix environment now ships Chromium alone, so WebKit is not available to add one without changing `flake.nix` first.
+
+Baselines are produced by CI rather than locally. The suite runs on `ubuntu-latest` via `.github/workflows/e2e.yml`, whose fonts and rendering differ from a NixOS workstation, so a baseline captured locally is not the image the runner compares against. To rebaseline, run that workflow by hand with its `update-snapshots` input on and commit the artifact it uploads. The local command above still works for inspecting a diff on your own machine; it just does not produce the committed baseline.
