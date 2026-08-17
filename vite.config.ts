@@ -137,6 +137,13 @@ export default defineConfig({
         // precached so Notes works offline on first load. Raise the precache
         // size cap above workbox's 2 MiB default to include it.
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        // Everything the default pattern already caught, plus `woff2`: the
+        // default omits fonts, so the self-hosted Epilogue subsets shipped in
+        // src/assets/fonts would be fetched over the network on a cold offline
+        // load and fall back to a system face. Listing this replaces the
+        // default rather than extending it, so the other extensions have to
+        // stay named here.
+        globPatterns: ["**/*.{js,css,html,svg,png,ico,wasm,webmanifest,woff2}"],
         runtimeCaching: [
           {
             urlPattern: ({ request }) => request.destination === "image",
