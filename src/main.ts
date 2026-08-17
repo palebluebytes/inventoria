@@ -1,4 +1,7 @@
 import { mount } from "svelte";
+// Before app.css, so the @font-face rules are registered before the rules that
+// reference the family. Ships the upright variable subsets; see app.css.
+import "@fontsource-variable/epilogue";
 import "./app.css";
 import App from "./App.svelte";
 

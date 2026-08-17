@@ -80,6 +80,15 @@ Updating a font becomes a deliberate act. There is no CDN quietly serving a newe
 build, which is the point, but it does mean a font fix reaches us only when
 somebody fetches it. Nothing warns that a newer version exists.
 
+> **Note (2026-08-17):** the paragraph above no longer holds. Epilogue now
+> arrives as `@fontsource-variable/epilogue`, an npm package, so the version sits
+> in the lockfile and `pnpm outdated` reports a stale typeface. The decision is
+> unchanged — the files are still bundled and served from our own origin — only
+> how they reach the repo. The package's subsets are byte-identical to the
+> hand-copied v20 files, so nothing rendered differently. Its family name is
+> "Epilogue Variable". It also ships italic variable subsets, which makes the
+> deferral in the paragraph below a one-line import plus a rebaseline.
+
 Italics are still synthesised. Eleven rules set `font-style: italic`, and the
 upright variable file is all we ship, so the browser obliques it mechanically.
 This is not a regression, since the CDN import requested no italic axis either
