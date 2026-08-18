@@ -22,10 +22,11 @@
  */
 
 import { createHash } from "node:crypto";
-import { mkdir, readFile, rm, writeFile, stat } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { countArchiveRecords } from "./usda-archive.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST_PATH = join(ROOT, "scripts", "usda-backup.manifest.json");
@@ -60,26 +61,49 @@ async function digest(path) {
 /** Verifies one archive against its manifest entry. Returns true when sound. */
 async function verifyOne(archive) {
   const path = join(dir, archive.file);
-  const size = await stat(path).then(
-    (s) => s.size,
-    () => null
-  );
-  if (size === null) {
+  const zip = await readFile(path).catch(() => null);
+  if (zip === null) {
     fail(`${archive.file}: not present in ${dir} (run \`fetch\` first)`);
     return false;
   }
-  if (size !== archive.bytes) {
-    fail(`${archive.file}: ${size} bytes, manifest says ${archive.bytes}`);
+  if (zip.length !== archive.bytes) {
+    fail(
+      `${archive.file}: ${zip.length} bytes, manifest says ${archive.bytes}`
+    );
     return false;
   }
-  const sha256 = await digest(path);
+  const sha256 = createHash("sha256").update(zip).digest("hex");
   if (sha256 !== archive.sha256) {
     // A checksum mismatch is never a formatting nit: either the file is damaged
     // or USDA re-cut a release under the same name. Both need a human.
     fail(`${archive.file}: sha256 ${sha256}, manifest says ${archive.sha256}`);
     return false;
   }
-  ok(`${archive.file} (${archive.dataset}, ${archive.release})`);
+  // The digest already proves the bytes are the ones the manifest describes, so
+  // this is not a second integrity check: it is what keeps the DESCRIPTION
+  // honest. `records` is read by humans sizing a bundle or a coverage claim,
+  // nothing else consumed it, and it silently drifted 9% out on Foundation for
+  // exactly that reason.
+  const counted = await countArchiveRecords(zip, archive.root_key);
+  if (!counted.found) {
+    fail(
+      `${archive.file}: no "${archive.root_key}" array inside; the archive's shape has changed`
+    );
+    return false;
+  }
+  if (
+    counted.records !== archive.records ||
+    counted.null_entries !== archive.null_entries
+  ) {
+    fail(
+      `${archive.file}: ${counted.records} records and ${counted.null_entries} null entries, ` +
+        `manifest says ${archive.records} and ${archive.null_entries}`
+    );
+    return false;
+  }
+  ok(
+    `${archive.file} (${archive.dataset}, ${archive.release}, ${counted.records} records)`
+  );
   return true;
 }
 

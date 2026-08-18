@@ -81,6 +81,6 @@ jobs:
           $REPORT
           \`\`\`
 
-          To refresh: update the \`file\`, \`release\`, \`bytes\`, \`sha256\` and \`records\` fields for the affected dataset in the manifest, then run \`pnpm usda:backup fetch\` and \`pnpm usda:backup upload\`. Archive keys carry their release date, so this adds objects rather than replacing them and the older snapshot stays restorable. See \`docs/how-to-back-up-the-usda-datasets.md\`.
+          To refresh: update the \`file\`, \`release\`, \`bytes\`, \`sha256\`, \`records\` and \`null_entries\` fields for the affected dataset in the manifest, then run \`pnpm usda:backup fetch\` and \`pnpm usda:backup upload\`. \`fetch\` measures both counts out of the archive and fails if they disagree with the manifest. Archive keys carry their release date, so this adds objects rather than replacing them and the older snapshot stays restorable. See \`docs/how-to-back-up-the-usda-datasets.md\`.
 
           A failure to READ the release index reports here too, and means the check itself needs fixing rather than the mirror."

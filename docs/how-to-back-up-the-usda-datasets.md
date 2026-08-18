@@ -13,15 +13,22 @@ that ADR stays open.
 
 | Archive                                            | Release    | Size    | Records | Why                                                                 |
 | -------------------------------------------------- | ---------- | ------- | ------- | ------------------------------------------------------------------- |
-| `FoodData_Central_foundation_food_json_*.zip`      | 2026-04-30 | 469 KB  | 395     | The base record of every merged search hit; carries `foodPortions`. |
+| `FoodData_Central_foundation_food_json_*.zip`      | 2026-04-30 | 469 KB  | 363     | The base record of every merged search hit; carries `foodPortions`. |
 | `FoodData_Central_sr_legacy_food_json_2018-04.zip` | 2018-04    | 13.5 MB | 7,793   | Frozen and discontinued. The one archive that cannot be re-created. |
 | `FoodData_Central_survey_food_json_*.zip`          | 2024-10-31 | 3.8 MB  | 5,432   | Unused by search; kept for its household portions.                  |
 
 Branded Foods is deliberately absent: it is the barcode path's territory, Open Food
 Facts covers it (ADR-0034 §8), and it is 3 GB.
 
+**An array length is not a record count.** Foundation's `FoundationFoods` array holds
+395 entries and the last 32 of them are literally `null`, so the number above is 363
+and reading the length instead overstates the dataset by 9%. The manifest states both,
+as `records` and `null_entries`.
+
 Sizes, record counts and SHA-256 digests live in `scripts/usda-backup.manifest.json`,
-which is the source of truth the script verifies against.
+which is the source of truth the script verifies against. Verification measures the two
+counts out of the archive rather than trusting them, so a refresh that leaves the old
+number behind fails instead of quietly publishing it.
 
 ## Running it
 
@@ -73,12 +80,14 @@ nothing operationally. What it bounds is how current a restore would be.
 
 ## Refreshing it
 
-Update the `file`, `release`, `bytes`, `sha256` and `records` fields for the affected
-dataset in the manifest, run `fetch`, then `upload`. Archive keys carry their release
-date, so a refresh **adds** objects rather than replacing them and every earlier
-snapshot stays restorable. The manifest is uploaded twice for the same reason: a
-rolling `fdc/manifest.json` and a frozen `fdc/manifest-<retrieved>.json`, so the older
-archives stay described once the rolling copy moves on.
+Update the `file`, `release`, `bytes`, `sha256`, `records` and `null_entries` fields
+for the affected dataset in the manifest, run `fetch`, then `upload`. `fetch` verifies
+what it downloaded, so the two counts are the ones it reports back at you if you guess
+them; take them from that failure rather than from the release notes. Archive keys
+carry their release date, so a refresh **adds** objects rather than replacing them and
+every earlier snapshot stays restorable. The manifest is uploaded twice for the same
+reason: a rolling `fdc/manifest.json` and a frozen `fdc/manifest-<retrieved>.json`, so
+the older archives stay described once the rolling copy moves on.
 
 A digest mismatch on SR Legacy is never an update. It means the local copy is
 damaged.
