@@ -1617,7 +1617,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       .locator(".meal-item-card", { hasText: "Dinner Combo" })
       .locator(".fi-name")
       .click();
-    await expect(page.locator("h2", { hasText: "Correct" })).toBeVisible();
+    // The correction sheet heads with the thing, not the verb (`text-is`, since
+    // "Recipe" is a substring of the add flow's "Log recipe").
+    await expect(page.locator('h2:text-is("Recipe")')).toBeVisible();
     await expect(page.locator('[data-testid="instantiation-name"]')).toHaveText(
       "Dinner Combo"
     );

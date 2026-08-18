@@ -29,7 +29,9 @@
   let saveReady = $state(false);
 </script>
 
-<BottomSheet isOpen title={edit ? "Correct" : "Log recipe"} {onClose}>
+<!-- The header names the thing, not the verb: correcting a logged recipe is
+     still just its recipe on screen, and "Correct" read as an instruction. -->
+<BottomSheet isOpen title={edit ? "Recipe" : "Log recipe"} {onClose}>
   <RecipeInstantiator
     {meal_type}
     {selectedDate}
