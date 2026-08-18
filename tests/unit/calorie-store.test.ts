@@ -641,7 +641,7 @@ describe("changeLoggedFoodAmount", () => {
       .spyOn(dbClient, "append")
       .mockResolvedValue(undefined);
 
-    await changeLoggedFoodAmount(
+    const newId = await changeLoggedFoodAmount(
       {
         id: "event:consume_old",
         target: "fdc:oats",
@@ -675,6 +675,13 @@ describe("changeLoggedFoodAmount", () => {
     expect(retract.find((d) => d.attribute === "event/status")?.value).toBe(
       "retracted"
     );
+
+    // The replacement's id comes back so a caller holding the retracted id (the
+    // dashboard's selection) can follow the food to its new event.
+    expect(newId).toBe(newDatoms[0].entity);
+    expect(
+      retract.find((d) => d.attribute === "event/replaced_by")?.value
+    ).toBe(newId);
   });
 
   it("no-ops when the twin carries no nutrition panel (can't re-derive)", async () => {
@@ -683,12 +690,14 @@ describe("changeLoggedFoodAmount", () => {
       .spyOn(dbClient, "append")
       .mockResolvedValue(undefined);
 
-    await changeLoggedFoodAmount(
+    const newId = await changeLoggedFoodAmount(
       { id: "event:x", target: "fdc:ghost", quantity: "50g", time: 0 } as any,
       100
     );
 
     expect(mockAppend).not.toHaveBeenCalled();
+    // null, not a fabricated id: the food was left exactly as it was.
+    expect(newId).toBeNull();
   });
 });
 

@@ -513,20 +513,26 @@ export async function retractConsumptionEvent(
  * from the food twin's `nutrition/info` panel at the new amount (the ADR-0021
  * formula, the same one the recipe rows use), logs a fresh Consumption Event,
  * and retracts the old one — the amount-picker equivalent of `LogFoodSheet`'s
- * edit, but amount-only (ADR-0008). No-op when the twin has no panel to scale
- * from. Only for gram-unit plain foods; recipe instantiations are corrected on
- * their own editor and whole-serving foods are locked (future work).
+ * edit, but amount-only (ADR-0008). Only for gram-unit plain foods; recipe
+ * instantiations are corrected on their own editor and whole-serving foods are
+ * locked (future work).
+ *
+ * Returns the id of the Consumption Event that replaced the old one, or `null`
+ * when there was nothing to scale from (no target, or a twin carrying no
+ * panel). Callers holding the old id — the dashboard's selection — need the new
+ * one, since the old event is now retracted; `null` tells them the food was
+ * left exactly as it was.
  */
 export async function changeLoggedFoodAmount(
   event: ConsumptionEvent,
   grams: number
-): Promise<void> {
-  if (!event.target) return;
+): Promise<string | null> {
+  if (!event.target) return null;
   const twin = await getLocalFoodTwin(event.target);
   const panel = twin?.attributes?.["nutrition/info"] as
     | NutritionInfo
     | undefined;
-  if (!panel) return;
+  if (!panel) return null;
   const breakdown = deriveIngredientMacros(
     { ref: event.target, amount: grams, unit: "g" },
     () => panel
@@ -544,6 +550,7 @@ export async function changeLoggedFoodAmount(
     breakdown
   );
   await retractConsumptionEvent(event.id, newId);
+  return newId;
 }
 
 /**
