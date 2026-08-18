@@ -1,0 +1,40 @@
+{
+  "description": "Off-USDA copy of the FoodData Central bulk archives the base-food search depends on (ADR-0045). SR Legacy is discontinued and its final release was 2018-04, so upstream availability is insured rather than assumed.",
+  "bucket": "inventoria-usda-backup",
+  "prefix": "fdc",
+  "retrieved": "2026-08-18",
+  "base_url": "https://fdc.nal.usda.gov/fdc-datasets",
+  "release_index": "https://fdc.nal.usda.gov/download-datasets/",
+  "archives": [
+    {
+      "dataset": "Foundation Foods",
+      "release": "2026-04-30",
+      "file": "FoodData_Central_foundation_food_json_2026-04-30.zip",
+      "bytes": 469303,
+      "sha256": "186e988ec542e913f51ef62b86a47758e8cdd0d1dc3889e7b055581f3c09c77a",
+      "root_key": "FoundationFoods",
+      "records": 395,
+      "note": "The base record of every merged search hit. Carries foodPortions."
+    },
+    {
+      "dataset": "SR Legacy",
+      "release": "2018-04",
+      "file": "FoodData_Central_sr_legacy_food_json_2018-04.zip",
+      "bytes": 13456312,
+      "sha256": "0fe8ae486a2c8eb42cb96413f058deb51863a46c8fb8eeb4b1fb45006dd338ef",
+      "root_key": "SRLegacyFoods",
+      "records": 7793,
+      "note": "Frozen and discontinued: the fill source for ADR-0045 section 2 and the only copy of most base foods. The one archive that cannot be re-created if it disappears."
+    },
+    {
+      "dataset": "Survey (FNDDS 2021-2023)",
+      "release": "2024-10-31",
+      "file": "FoodData_Central_survey_food_json_2024-10-31.zip",
+      "bytes": 3835292,
+      "sha256": "dfb06ae7ddc397ccd570b91c14b75438ab2ba39f64f22d321f61d4a52a77f3eb",
+      "root_key": "SurveyFoods",
+      "records": 5432,
+      "note": "Not used by search. Kept for its household portions, the named follow-up if portions ever need widening (research note 108)."
+    }
+  ]
+}

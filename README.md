@@ -134,16 +134,17 @@ held up by a slow browser run.
 
 ## Where the documentation lives
 
-| You want                               | Read                                                                       |
-| -------------------------------------- | -------------------------------------------------------------------------- |
-| The words this project uses, precisely | [CONTEXT.md](CONTEXT.md)                                                   |
-| The rules code is reviewed against     | [CODING_STANDARDS.md](CODING_STANDARDS.md)                                 |
-| Why a thing is the way it is           | [docs/adr/](docs/adr/)                                                     |
-| The storage layer and its schema       | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                               |
-| Entity prefixes and attribute keys     | [docs/eavt-vocabulary.md](docs/eavt-vocabulary.md)                         |
-| Why the ledger is append-only          | [docs/append-only-ledger.md](docs/append-only-ledger.md)                   |
-| How to add a new tracked domain        | [docs/how-to-add-a-tracked-domain.md](docs/how-to-add-a-tracked-domain.md) |
-| Rules for AI agents working here       | [AGENTS.md](AGENTS.md)                                                     |
+| You want                               | Read                                                                                 |
+| -------------------------------------- | ------------------------------------------------------------------------------------ |
+| The words this project uses, precisely | [CONTEXT.md](CONTEXT.md)                                                             |
+| The rules code is reviewed against     | [CODING_STANDARDS.md](CODING_STANDARDS.md)                                           |
+| Why a thing is the way it is           | [docs/adr/](docs/adr/)                                                               |
+| The storage layer and its schema       | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                                         |
+| Entity prefixes and attribute keys     | [docs/eavt-vocabulary.md](docs/eavt-vocabulary.md)                                   |
+| Why the ledger is append-only          | [docs/append-only-ledger.md](docs/append-only-ledger.md)                             |
+| How to add a new tracked domain        | [docs/how-to-add-a-tracked-domain.md](docs/how-to-add-a-tracked-domain.md)           |
+| How the USDA data is backed up         | [docs/how-to-back-up-the-usda-datasets.md](docs/how-to-back-up-the-usda-datasets.md) |
+| Rules for AI agents working here       | [AGENTS.md](AGENTS.md)                                                               |
 
 Work is tracked as GitHub issues via the `gh` CLI. Superseded planning documents are
 kept under [docs/history/](docs/history/).
