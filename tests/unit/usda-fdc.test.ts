@@ -13,6 +13,7 @@ import {
 import bananaSearch from "./support/fixtures/usda-fdc-banana.json";
 import cheddarSearch from "./support/fixtures/usda-fdc-cheddar.json";
 import bananaDetail from "./support/fixtures/usda-fdc-banana-detail.json";
+import blueberriesSearch from "./support/fixtures/usda-fdc-blueberries.json";
 
 // Seam 1 (ADR-0016 isolated-Mapper contract): feed the mapper a saved copy of a
 // real USDA FoodData Central search response and assert the emitted
@@ -368,7 +369,7 @@ describe("hydrateFdcFood", () => {
       json: async () => bananaDetail,
     } as Response);
 
-    await hydrateFdcFood(173944, "TEST_KEY");
+    await hydrateFdcFood(173944, [], "TEST_KEY");
 
     expect(fetchSpy).toHaveBeenCalledWith(
       "https://api.nal.usda.gov/fdc/v1/food/173944?api_key=TEST_KEY"
@@ -381,7 +382,7 @@ describe("hydrateFdcFood", () => {
       json: async () => bananaDetail,
     } as Response);
 
-    const payload = await hydrateFdcFood(173944, "TEST_KEY");
+    const payload = await hydrateFdcFood(173944, [], "TEST_KEY");
     expect(payload.entity).toBe("fdc:173944");
     expect(payload.attributes["food/portions"]).toHaveLength(3);
     expect(payload.attributes["food/portions"][0].label).toBe("1 medium");
@@ -394,7 +395,7 @@ describe("hydrateFdcFood", () => {
       json: async () => ({}),
     } as Response);
 
-    await expect(hydrateFdcFood(1, "BAD_KEY")).rejects.toThrow(/key/i);
+    await expect(hydrateFdcFood(1, [], "BAD_KEY")).rejects.toThrow(/key/i);
   });
 });
 
@@ -1124,5 +1125,128 @@ describe("searchFdc", () => {
 
     expect(results).toHaveLength(2);
     expect(results.map((r) => r.entity).sort()).toEqual(["fdc:301", "fdc:302"]);
+  });
+
+  // ── ADR-0045 §2/§3: the Foundation + SR Legacy twin merges fill-only ────────
+
+  function mockFoods(foods: unknown[]) {
+    return vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ foods }),
+    } as Response);
+  }
+
+  // Both real records USDA returns for ndbNumber 9050: the 2022 Foundation
+  // re-assay (26 nutrients, no fibre, energy only as Atwater factors) and the
+  // 2019 SR Legacy record (106 nutrients, fibre 2.4 g, energy 57 kcal).
+  const blueberryFoods = blueberriesSearch.foods as unknown[];
+
+  it("fills a Foundation food's missing panel fields from its SR Legacy twin", async () => {
+    mockFoods(blueberryFoods);
+
+    const results = await searchFdc("blueberries", "KEY");
+
+    expect(results).toHaveLength(1);
+    // The Foundation record stays the food: its id, its description.
+    expect(results[0].entity).toBe("fdc:2346411");
+    const n = results[0].attributes["nutrition/info"];
+    // Fibre was absent from Foundation entirely and is borrowed.
+    expect(n.fiber_content).toBe(2.4);
+    // So is the micronutrient tail Foundation never measured.
+    expect(n.vitamin_a).toBe(3e-6);
+    expect(n.folate).toBe(6e-6);
+  });
+
+  it("keeps the Foundation value for a field both records carry", async () => {
+    mockFoods(blueberryFoods);
+
+    const n = (await searchFdc("blueberries", "KEY"))[0].attributes[
+      "nutrition/info"
+    ];
+
+    // Calcium: Foundation 11.7 mg, SR Legacy 6.0 mg. The newer assay stands.
+    expect(n.calcium).toBeCloseTo(0.0117, 6);
+  });
+
+  it("does not borrow energy when the base record reports it under another id", async () => {
+    // ADR-0045 §3: energy is ONE panel field carried by three ids. Foundation
+    // reports it as Atwater general factors (2047), so SR Legacy's 1008 (57) is
+    // not borrowed — 63.9 is the figure that reconciles with the Foundation
+    // macros shown beside it, and is what USDA's own FNDDS record states.
+    mockFoods(blueberryFoods);
+
+    const n = (await searchFdc("blueberries", "KEY"))[0].attributes[
+      "nutrition/info"
+    ];
+
+    expect(n.calories).toBe(63.9);
+  });
+
+  it("names the twin and the borrowed fields in provenance", async () => {
+    mockFoods(blueberryFoods);
+
+    const provenance = (await searchFdc("blueberries", "KEY"))[0].attributes[
+      "twin/raw_provenance"
+    ];
+
+    expect(provenance.raw_data.fdcId).toBe(2346411);
+    expect(provenance.merged_from).toHaveLength(1);
+    const [twin] = provenance.merged_from;
+    expect(twin.source_uri).toBe("https://api.nal.usda.gov/fdc/v1/food/171711");
+    expect(twin.data_type).toBe("SR Legacy");
+    expect(twin.description).toBe("Blueberries, raw");
+    expect(twin.filled_fields).toContain("fiber_content");
+    expect(twin.filled_fields).not.toContain("calories");
+  });
+
+  it("merges the same way whichever record USDA returns first", async () => {
+    mockFoods([...blueberryFoods].reverse());
+
+    const results = await searchFdc("blueberries", "KEY");
+
+    expect(results).toHaveLength(1);
+    expect(results[0].entity).toBe("fdc:2346411");
+    const n = results[0].attributes["nutrition/info"];
+    expect(n.fiber_content).toBe(2.4);
+    expect(n.calories).toBe(63.9);
+  });
+
+  it("leaves an unmerged food's provenance exactly as it was", async () => {
+    // A food with no twin carries no merged_from key at all — not an empty one.
+    mockFoods([blueberryFoods[0]]);
+
+    const provenance = (await searchFdc("blueberries", "KEY"))[0].attributes[
+      "twin/raw_provenance"
+    ];
+
+    expect(provenance).not.toHaveProperty("merged_from");
+    expect(provenance.adapter_version).toBe("8");
+  });
+
+  it("carries the merge reference through detail hydration", async () => {
+    // The /food/{id} detail record is Foundation's alone, so without threading
+    // the reference the refreshed provenance would drop the twin whose values
+    // the panel already carries (ADR-0045 §4).
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => bananaDetail,
+    } as Response);
+
+    const payload = await hydrateFdcFood(
+      173944,
+      [
+        {
+          source_uri: "https://api.nal.usda.gov/fdc/v1/food/171711",
+          description: "Blueberries, raw",
+          data_type: "SR Legacy",
+          filled_fields: ["fiber_content"],
+        },
+      ],
+      "TEST_KEY"
+    );
+
+    expect(payload.attributes["twin/raw_provenance"].merged_from).toHaveLength(
+      1
+    );
   });
 });

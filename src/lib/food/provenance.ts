@@ -29,6 +29,29 @@ export interface RawProvenance<RawT = unknown> {
   adapter: string;
   /** Mapper version, bumped when the normalisation logic changes. */
   adapter_version: string;
+  /**
+   * Sibling records from the SAME source whose values filled fields `raw_data`
+   * does not carry (ADR-0045 §4). Present only when a merge actually happened,
+   * so an unmerged twin's blob is byte-identical to what it was before.
+   *
+   * A merged panel must never read as one record the source served: this is what
+   * lets a later reader tell a measured value from a borrowed one, and re-fetch
+   * either record. Merging across DIFFERENT sources is forbidden (ADR-0045 §5),
+   * so every entry here shares `adapter` with the envelope.
+   */
+  merged_from?: MergedSource[];
+}
+
+/** One record that filled gaps in a {@link RawProvenance}'s `raw_data`. */
+export interface MergedSource {
+  /** Canonical URI of the record the values came from. */
+  source_uri: string;
+  /** How the source names the record, for whoever reads the blob later. */
+  description: string;
+  /** The source's own name for the dataset the record belongs to, if it has one. */
+  data_type?: string;
+  /** Mapped-payload fields taken from this record rather than from `raw_data`. */
+  filled_fields: string[];
 }
 
 /**
@@ -40,13 +63,18 @@ export function buildRawProvenance<RawT>(args: {
   adapter_version: string;
   source_uri: string;
   raw_data: RawT;
+  merged_from?: readonly MergedSource[];
 }): RawProvenance<RawT> {
-  return {
+  const provenance: RawProvenance<RawT> = {
     raw_data: args.raw_data,
     source_uri: args.source_uri,
     adapter: args.adapter,
     adapter_version: args.adapter_version,
   };
+  // Omitted, not emitted empty: a food with no merged twin keeps exactly the
+  // blob it had before ADR-0045.
+  if (args.merged_from?.length) provenance.merged_from = [...args.merged_from];
+  return provenance;
 }
 
 // ---------------------------------------------------------------------------

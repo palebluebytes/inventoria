@@ -52,6 +52,7 @@
     type AIAutofillResult,
   } from "../../food/ai-autofill";
   import { hydrateFdcFood } from "../../food/usda-fdc";
+  import type { RawProvenance } from "../../food/provenance";
   import { readImageAsDataUrl } from "../../food/image-file";
   import type {
     FoodChoice,
@@ -268,7 +269,16 @@
     }
     hydratingPortions = true;
     try {
-      const augmentation = await hydrateFdcFood(fdcId);
+      // The staged food's own merge reference rides along: the detail record is
+      // Foundation's alone, so hydration would otherwise refresh provenance into
+      // a blob that no longer names the SR Legacy twin its panel borrowed from
+      // (ADR-0045 §4).
+      const provenance: RawProvenance | undefined =
+        item.payload.attributes["twin/raw_provenance"];
+      const augmentation = await hydrateFdcFood(
+        fdcId,
+        provenance?.merged_from ?? []
+      );
       portionCache.set(fdcId, augmentation.attributes);
       const merged = mergePortions(item, augmentation.attributes);
       // Only apply if this food is still the staged one — a fast user may have

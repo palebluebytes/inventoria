@@ -140,7 +140,9 @@ Media Digital Twins.
 Physical item twins.
 
 - `name`, `brand`, `image`, `note`, `description`, `tags`, `source_url`.
-- `raw_provenance`: the **Provenance** blob.
+- `raw_provenance`: the **Provenance** blob. Where two records from one source were
+  merged to complete a panel, it also names the record that filled the gaps and the
+  fields it supplied (`merged_from`, [ADR-0045](adr/0045-usda-stays-the-base-food-composition-authority.md) §4).
 
 ### `habit/`
 

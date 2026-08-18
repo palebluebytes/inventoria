@@ -7,7 +7,7 @@ import {
   type NutritionInfo,
   type Portion,
 } from "./nutrition";
-import { buildRawProvenance } from "./provenance";
+import { buildRawProvenance, type MergedSource } from "./provenance";
 
 // Mapper version, bumped when the FDC -> nutrition/info normalisation changes.
 // v2: energy falls back to the Atwater IDs so Foundation foods aren't 0 kcal.
@@ -22,7 +22,12 @@ import { buildRawProvenance } from "./provenance";
 //     food/portions and refreshes twin/raw_provenance with the fuller record
 //     (ADR-0030 §5). The search dataset stays Foundation + SR Legacy; its
 //     filtering, ranking and query-weighting are ADR-0042.
-const ADAPTER_VERSION = "7";
+// v8: when Foundation and SR Legacy carry the same ndbNumber, search MERGES the
+//     pair fill-only instead of discarding the SR Legacy twin (ADR-0045 §2):
+//     Foundation stays the base record and the twin supplies only the panel
+//     fields it does not carry. Borrowed values are named in
+//     twin/raw_provenance.merged_from (§4).
+const ADAPTER_VERSION = "8";
 const FDC_FOOD_BASE = "https://api.nal.usda.gov/fdc/v1/food";
 
 // Read the current key on demand (evaluated per call) from the localStorage-
@@ -137,6 +142,102 @@ const MASS_NUTRIENTS: { ids: number[]; key: MassField }[] = [
 const MUFA_ID = 1292;
 const PUFA_ID = 1293;
 
+/** A field of the emitted panel — everything except the fixed serving basis. */
+type PanelField = Exclude<keyof NutritionInfo, "serving_size">;
+
+// Every panel field with the FDC nutrient ids that can carry it. This is the
+// granularity the twin merge works at (ADR-0045 §3): a field carried by more
+// than one id (energy 1008/2047/2048, carbohydrate 1005/1050, sugars 2000/1063)
+// counts as PRESENT under any of them, so a Foundation food that reports energy
+// only as Atwater factors never borrows SR Legacy's 1008 and stays coherent with
+// the macros shown beside it.
+const PANEL_FIELDS: readonly { key: PanelField; ids: readonly number[] }[] = [
+  { key: "calories", ids: ENERGY_IDS },
+  ...MASS_NUTRIENTS,
+  // Present-if-either, matching the rule above: a base record carrying only MUFA
+  // keeps its own partial sum rather than mixing in the twin's PUFA.
+  { key: "unsaturated_fat_content", ids: [MUFA_ID, PUFA_ID] },
+];
+
+/** True when `food` reports the panel field under any of the ids that carry it. */
+function hasPanelField(food: FdcFood, ids: readonly number[]): boolean {
+  return ids.some((id) => findNutrient(food.foodNutrients, id) !== undefined);
+}
+
+/**
+ * Fills the panel fields `base` does not carry from `twin`, and reports which
+ * fields were borrowed (ADR-0045 §2/§3).
+ *
+ * Fill-only: a value `base` already reports is NEVER overwritten, because the
+ * Foundation assay is the newer measurement. The base record's identity —
+ * fdcId, description, category, scientific name — is untouched, so the merged
+ * food keeps its own entity id.
+ */
+function fillFromTwin(
+  base: FdcFood,
+  twin: FdcFood
+): { food: FdcFood; filled_fields: PanelField[] } {
+  const borrowed: FdcNutrient[] = [];
+  const filled_fields: PanelField[] = [];
+
+  for (const { key, ids } of PANEL_FIELDS) {
+    if (hasPanelField(base, ids)) continue;
+    const donors = ids
+      .map((id) => findNutrient(twin.foodNutrients, id))
+      .filter((n): n is FdcNutrient => n !== undefined);
+    if (donors.length === 0) continue;
+    // Every donor id is appended, not just the first: the mapper's own
+    // preference order still picks the winner, and unsaturated fat genuinely
+    // needs both of its ids.
+    borrowed.push(...donors);
+    filled_fields.push(key);
+  }
+
+  if (borrowed.length === 0) return { food: base, filled_fields };
+  return {
+    food: { ...base, foodNutrients: [...base.foodNutrients, ...borrowed] },
+    filled_fields,
+  };
+}
+
+/** A search hit after its same-food siblings have been folded into it. */
+interface ResolvedFdcFood {
+  food: FdcFood;
+  /** The twins that filled gaps, for provenance. Empty when nothing merged. */
+  merged_from: MergedSource[];
+}
+
+/**
+ * Folds every record USDA returned for one food identity into a single result:
+ * the Foundation re-sample is the base (its newer assay and natural-language
+ * description win), and the remaining records fill only the panel fields it
+ * lacks (ADR-0045 §2).
+ *
+ * Order-independent by construction — the base is chosen by data type, not by
+ * arrival — so the merged food does not depend on the order FDC happened to
+ * return the group in.
+ */
+function resolveFdcGroup(group: readonly FdcFood[]): ResolvedFdcFood {
+  const base = group.find((f) => f.dataType === "Foundation") ?? group[0];
+  const merged_from: MergedSource[] = [];
+  let food = base;
+
+  for (const twin of group) {
+    if (twin === base) continue;
+    const { food: filled, filled_fields } = fillFromTwin(food, twin);
+    if (filled_fields.length === 0) continue;
+    food = filled;
+    merged_from.push({
+      source_uri: `${FDC_FOOD_BASE}/${twin.fdcId}`,
+      description: twin.description,
+      data_type: twin.dataType,
+      filled_fields,
+    });
+  }
+
+  return { food, merged_from };
+}
+
 // ---------------------------------------------------------------------------
 // Mapper
 // ---------------------------------------------------------------------------
@@ -166,8 +267,16 @@ function toGrams(value: number, unitName: string): number {
  * ingestion into the EAVT ledger. Nutrition is emitted as a single atomic
  * `nutrition/info` panel (ADR-0021), populated with whatever subset of the
  * schema.org fields the food provides.
+ *
+ * @param food        - The search hit, already merged with any same-food twin.
+ * @param merged_from - Twins that filled gaps in `food`, named in provenance so
+ *                      a borrowed value stays distinguishable from a measured
+ *                      one (ADR-0045 §4). Omitted when nothing was merged.
  */
-export function mapFdcFoodToPayload(food: FdcFood): EntityPayload {
+export function mapFdcFoodToPayload(
+  food: FdcFood,
+  merged_from: readonly MergedSource[] = []
+): EntityPayload {
   const nutrition: NutritionInfo = { serving_size: PER_100G };
 
   for (const id of ENERGY_IDS) {
@@ -221,6 +330,7 @@ export function mapFdcFoodToPayload(food: FdcFood): EntityPayload {
         adapter_version: ADAPTER_VERSION,
         source_uri: `${FDC_FOOD_BASE}/${food.fdcId}`,
         raw_data: food,
+        merged_from,
       }),
     },
   };
@@ -262,8 +372,14 @@ function mapFdcPortion(portion: FdcFoodPortion): Portion {
  * were already captured at search-map time, and the detail record's nutrients
  * live on in provenance for a later backfill. When the record carries no usable
  * portions, `food/portions` is omitted (never emitted empty).
+ *
+ * `merged_from` is the staged food's own merge reference, passed back in so the
+ * refreshed provenance keeps naming the twin whose values the panel carries.
  */
-export function mapFdcDetailToPayload(detail: FdcFoodDetail): EntityPayload {
+export function mapFdcDetailToPayload(
+  detail: FdcFoodDetail,
+  merged_from: readonly MergedSource[] = []
+): EntityPayload {
   const portions = (detail.foodPortions ?? [])
     .filter((p) => p && Number.isFinite(p.gramWeight) && p.gramWeight > 0)
     .map(mapFdcPortion);
@@ -277,6 +393,10 @@ export function mapFdcDetailToPayload(detail: FdcFoodDetail): EntityPayload {
       adapter_version: ADAPTER_VERSION,
       source_uri: `${FDC_FOOD_BASE}/${detail.fdcId}`,
       raw_data: detail,
+      // Carried through, not re-derived: the detail record is Foundation's
+      // alone, so without this the refreshed blob would silently drop the twin
+      // that supplied the panel's borrowed fields (ADR-0045 §4).
+      merged_from,
     }),
   };
   if (portions.length > 0) attributes[FOOD_PORTIONS_ATTR] = portions;
@@ -291,11 +411,15 @@ export function mapFdcDetailToPayload(detail: FdcFoodDetail): EntityPayload {
  * `foodPortions` is absent from the Foundation/SR Legacy search response
  * (ADR-0030 §5). Search itself stays the cheap prefix query.
  *
- * @param fdcId  - The FDC id of the staged food.
- * @param apiKey - USDA FDC API key. Defaults to the configured key.
+ * @param fdcId       - The FDC id of the staged food.
+ * @param merged_from - The staged food's merge reference (ADR-0045 §4), echoed
+ *                      into the refreshed provenance so hydration does not drop
+ *                      it. Empty for a food that merged nothing.
+ * @param apiKey      - USDA FDC API key. Defaults to the configured key.
  */
 export async function hydrateFdcFood(
   fdcId: number,
+  merged_from: readonly MergedSource[] = [],
   apiKey: string = activeUsdaKey()
 ): Promise<EntityPayload> {
   if (!apiKey) {
@@ -311,7 +435,7 @@ export async function hydrateFdcFood(
     throw new Error(`USDA API request failed (${res.status}).`);
   }
   const detail: FdcFoodDetail = await res.json();
-  return mapFdcDetailToPayload(detail);
+  return mapFdcDetailToPayload(detail, merged_from);
 }
 
 // ---------------------------------------------------------------------------
@@ -656,30 +780,29 @@ export async function searchFdc(
   }
   const data: { foods: FdcFood[] } = await res.json();
 
-  // Deduplicate by USDA food identity (ndbNumber), preferring Foundation over
-  // SR Legacy. Keying on ndbNumber — not the description — collapses the two
-  // records USDA carries for one food across the Foundation and SR Legacy
-  // datasets, whose descriptions it rewrites between them (e.g. chia's "Chia
-  // seeds, dry, raw" vs "Seeds, chia seeds, dried", both ndbNumber 12006).
-  const foodMap = new Map<string | number, FdcFood>();
+  // Group by USDA food identity (ndbNumber), then fold each group into one
+  // result. Keying on ndbNumber — not the description — collects the two records
+  // USDA carries for one food across the Foundation and SR Legacy datasets,
+  // whose descriptions it rewrites between them (e.g. chia's "Chia seeds, dry,
+  // raw" vs "Seeds, chia seeds, dried", both ndbNumber 12006).
+  //
+  // The group is MERGED, not thinned (ADR-0045 §2). Foundation is a newer but
+  // far narrower re-assay — 45% of its records carry no fibre at all — so the
+  // old "Foundation replaces SR Legacy" rule kept the sparser of the two
+  // records: blueberries (ndbNumber 9050) lost the twin's 2.4 g of fibre and its
+  // whole micronutrient tail. Foundation still wins every value it reports; the
+  // twin only fills what Foundation is silent about.
+  const groups = new Map<string | number, FdcFood[]>();
   for (const food of data.foods ?? []) {
     // Fall back to the description for the rare record with no ndbNumber, so it
-    // still dedups exactly as before rather than colliding on `undefined`. Use
+    // still groups exactly as before rather than colliding on `undefined`. Use
     // `??` (not `||`) and a `desc:` prefix so a numeric id and a description key
     // can never collide.
     const key =
       food.ndbNumber ?? `desc:${food.description.toLowerCase().trim()}`;
-    const existing = foodMap.get(key);
-    if (!existing) {
-      foodMap.set(key, food);
-    } else if (
-      existing.dataType === "SR Legacy" &&
-      food.dataType === "Foundation"
-    ) {
-      // Replace an SR Legacy record with the Foundation re-sample of the same
-      // food; its natural-language description also survives as a nicety.
-      foodMap.set(key, food);
-    }
+    const group = groups.get(key);
+    if (group) group.push(food);
+    else groups.set(key, [food]);
   }
 
   const queryTokens = query
@@ -695,12 +818,14 @@ export async function searchFdc(
   // all of which belong to the OFF scan path. Raw foods are always base
   // ingredients (see isProcessedProduct); Sweets keeps its base sweeteners (see
   // isPreparedProduct).
-  const uniqueFoods = Array.from(foodMap.values()).filter(
-    (food) =>
-      !isBrandSpecific(food.description) &&
-      !isProcessedProduct(food.description) &&
-      !isPreparedProduct(food.foodCategory, food.description)
-  );
+  const uniqueFoods = Array.from(groups.values())
+    .map(resolveFdcGroup)
+    .filter(
+      ({ food }) =>
+        !isBrandSpecific(food.description) &&
+        !isProcessedProduct(food.description) &&
+        !isPreparedProduct(food.foodCategory, food.description)
+    );
 
   // FDC matches the wildcarded tokens with OR semantics AND prefix-matches, so
   // "grape*" returns grapefruit, grape-nuts and grape soda, and "soy milk" also
@@ -807,15 +932,18 @@ export async function searchFdc(
   // is stable, so FDC's relevance order breaks any remaining ties.
   uniqueFoods.sort((a, b) => {
     const tier =
-      structuralScore(b.description) - structuralScore(a.description);
+      structuralScore(b.food.description) - structuralScore(a.food.description);
     if (tier !== 0) return tier;
-    const raw = isRaw(b.description) - isRaw(a.description);
+    const raw = isRaw(b.food.description) - isRaw(a.food.description);
     if (raw !== 0) return raw;
     const head =
-      headCompleteness(b.description) - headCompleteness(a.description);
+      headCompleteness(b.food.description) -
+      headCompleteness(a.food.description);
     if (head !== 0) return head;
-    return rawScore(b.description) - rawScore(a.description);
+    return rawScore(b.food.description) - rawScore(a.food.description);
   });
 
-  return uniqueFoods.map(mapFdcFoodToPayload);
+  return uniqueFoods.map(({ food, merged_from }) =>
+    mapFdcFoodToPayload(food, merged_from)
+  );
 }
