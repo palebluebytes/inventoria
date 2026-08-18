@@ -49,7 +49,7 @@
 <div class="nutrients">
   {#each pills as pill (pill.key)}
     <div class="n nutrient-{pill.key}">
-      <span>{pill.label}</span><strong>{pill.value}</strong>
+      <span title={pill.label}>{pill.label}</span><strong>{pill.value}</strong>
     </div>
   {/each}
 </div>
@@ -67,12 +67,27 @@
   .n {
     display: flex;
     justify-content: space-between;
+    align-items: baseline;
     gap: var(--space-2xs);
     border: var(--edge-thin);
     padding: var(--space-3xs) var(--space-2xs);
     font-size: var(--step-n1);
   }
+  /* A value is one token — "437 kcal" breaking after the number left a two-line
+     cell in a grid of one-line ones, and the whole row grew with it. So the
+     value never wraps and the label gives way instead: it shrinks, and at the
+     extreme ellipsises (its full text stays in the `title`). A clipped
+     "Saturat…" still reads; a wrapped value breaks the layout. This is the same
+     rule the full-nutrition rows already keep. */
+  .n span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .n strong {
+    flex: 0 0 auto;
+    white-space: nowrap;
     font-weight: 700;
   }
   .full-panel {
