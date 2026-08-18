@@ -308,8 +308,12 @@
   .yield-row .fl {
     margin: 0;
   }
+  /* Sized for what it holds — a serving count is one or two digits, so the field
+     is narrow and its padding tighter than the full-width `.tin` it borrows the
+     frame from. */
   .yield-in {
-    width: 6rem;
+    width: 3.5rem;
+    padding: var(--space-2xs);
     text-align: center;
     font-weight: 700;
   }
