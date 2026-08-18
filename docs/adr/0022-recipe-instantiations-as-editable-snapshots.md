@@ -213,7 +213,20 @@ hidden in the UI, so newly-created recipes and instantiations are single-serving
   rows are supposed to record ("record exactly what I made — its ingredients,
   amounts, yield"). The ×/÷ control remains on the dashboard's selection bar,
   where it means what it says: rescale foods actually logged.
-- **A logging still records one serving.** `logRecipeConsumption` freezes the
-  per-serving snapshot, so a recipe that makes four puts a quarter of the batch on
-  the day — the behaviour the model always specified and the "/ serving" labels
-  always claimed.
+- **A logging records one serving by default.** `logRecipeConsumption` freezes
+  `Σrows ÷ yield`, so instantiating a recipe that makes four puts a quarter of the
+  batch on the day — the behaviour the model always specified and the "/ serving"
+  labels always claimed.
+- **The control asks a different question per verb, because the verbs mean
+  different things by "servings".** Defining a recipe asks what the batch _makes_
+  and binds `recipeYield`: more servings, same ingredients, smaller portions.
+  Instantiating one asks how many servings _this occasion is_ — the yield is
+  already settled on the template, so the count scales the ingredient AMOUNTS
+  instead, and `Σrows ÷ yield` follows to exactly that many servings' worth. Two
+  servings of a recipe is two servings of its ingredients, which is also what the
+  frozen rows should say went in.
+- **The derived figures are named for what they are.** On the instantiation
+  surface the rows are scaled to the servings being had, so the panel reads "This
+  entry" rather than "Per serving" — at two servings the latter would be a plain
+  lie. No storage change: rows are still the batch as cooked, yield is still the
+  template's, and the divided invariant is untouched.

@@ -178,7 +178,14 @@
   {/if}
 </div>
 {#if ready}
-  <IngredientListEditor bind:ingredients bind:recipeYield />
+  <!-- Instantiating asks how many servings THIS occasion is: the recipe's yield
+       is already settled on the template, so the count scales the amounts and
+       the logged headline follows (ADR-0022 amendment). -->
+  <IngredientListEditor
+    bind:ingredients
+    bind:recipeYield
+    servingsMode="portions"
+  />
 {:else}
   <p class="loading">Loading recipe…</p>
 {/if}

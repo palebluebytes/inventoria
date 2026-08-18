@@ -4,6 +4,7 @@
     panelFromIngredients,
     nameFromIngredients,
     addOrMergeIngredient,
+    coerceAmount,
     type RecipeIngredient,
     type IngredientAddOutcome,
   } from "../../food/recipe-ingredient";
@@ -13,6 +14,7 @@
     sanitizeYield,
   } from "../../food/recipe-nutrition";
   import { roundFoodDisplay, type Portion } from "../../food/nutrition";
+  import { scaleAmount } from "../../food/scale-amount";
   import { buildNutrientPills } from "../../food/nutrient-display";
   import { nutritionDisplayDecimals } from "../../stores/settings.store";
   import AddIngredientSheet from "./AddIngredientSheet.svelte";
@@ -23,21 +25,68 @@
   // The shared ingredient-list surface behind both the recipe builder
   // (Consolidate/Define) and the instantiation editor (Instantiate/Correct):
   // an editable list of {name · inline amount · unit · live kcal · remove}, an
-  // add-ingredient action, a servings (yield) control, and a live per-serving
-  // panel. Every
-  // number is DERIVED from each ingredient's real `nutrition/info` panel via the
+  // add-ingredient action, a servings control, and a live per-serving panel.
+  // Every number is DERIVED from each ingredient's real `nutrition/info` panel via the
   // one food-domain formula (ADR-0021), so a displayed row can never rot against
   // its `amount`. The inline amount editor is #9, reused here rather than
   // reinvented.
   let {
     ingredients = $bindable(),
     recipeYield = $bindable(),
+    servingsMode = "makes",
   }: {
     ingredients: RecipeIngredient[];
     /** schema.org recipeYield; held loosely so the field can be cleared while
      *  typing, sanitised to a positive number for the live derivation. */
     recipeYield: number | string;
+    /**
+     * What the servings control means on this surface — the two verbs ask
+     * genuinely different questions of the same number:
+     *
+     *  • `makes` — defining the recipe: "this batch makes N servings". It binds
+     *    `recipeYield`, so raising it divides the batch into more, smaller
+     *    servings and the amounts stand still.
+     *  • `portions` — instantiating one: "I am having N servings". The recipe's
+     *    yield is already settled, so the number scales the AMOUNTS instead —
+     *    two servings of a recipe is twice the ingredients, and the logged
+     *    headline (Σrows ÷ yield) follows to exactly two servings' worth.
+     */
+    servingsMode?: "makes" | "portions";
   } = $props();
+
+  // `portions` mode only: how many servings this occasion is, against which the
+  // seeded amounts are one. Held as text so the field can be cleared mid-type.
+  let servings = $state<number | string>(1);
+  // The last APPLIED count — the basis each change scales from, so the amounts
+  // move by the ratio between the two rather than accumulating from 1.
+  let appliedServings = 1;
+
+  /**
+   * Rescale every ingredient to `next` servings. A no-op for anything that is
+   * not yet a usable count (an empty field mid-type, a zero, a negative), which
+   * leaves both the amounts and the applied basis where they were.
+   */
+  function changeServings(next: number | string) {
+    servings = next;
+    const count = Number(next);
+    if (!Number.isFinite(count) || count <= 0 || count === appliedServings)
+      return;
+    const factor = count / appliedServings;
+    appliedServings = count;
+    ingredients = ingredients.map((ing) => ({
+      ...ing,
+      amount: scaleAmount(coerceAmount(ing.amount), factor, "multiply"),
+    }));
+  }
+
+  // What the derived figures ARE on this surface. Defining a recipe divides the
+  // batch by its yield, so they are one serving. Instantiating scales the rows to
+  // the servings being had, so they are this entry's total — calling that "per
+  // serving" while the user sits at 2 servings would be a plain lie.
+  let figuresLabel = $derived(
+    servingsMode === "makes" ? "Per serving" : "This entry"
+  );
+  let figuresSuffix = $derived(servingsMode === "makes" ? " / serving" : "");
 
   let showAdd = $state(false);
   // The row whose amount is being edited in the picker sheet, by list index.
@@ -96,7 +145,7 @@
     >{roundFoodDisplay(perServing.calories, $nutritionDisplayDecimals)} kcal · {roundFoodDisplay(
       perServing.protein,
       $nutritionDisplayDecimals
-    )}g P / serving</span
+    )}g P{figuresSuffix}</span
   >
 </div>
 <ul class="ings">
@@ -128,27 +177,41 @@
   >+ Add ingredient</button
 >
 
-<!-- Servings — schema.org `recipeYield` (ADR-0021), the number the whole surface
-     is read against: the ingredient amounts above are the BATCH as it goes in the
-     pot, and everything headline (the kcal beside "Ingredients", the per-serving
-     panel below, what one logging records) is that batch divided by this. Asking
-     for it here, beside the list it divides, is why the list no longer offers a
-     ×/÷ on the amounts: "this makes four" is the thing a cook actually knows,
-     and halving every ingredient by hand was only ever a way of saying it. -->
+<!-- Servings — the number the whole surface is read against, asked in the terms
+     of whichever verb brought the user here (see `servingsMode`). Defining a
+     recipe asks what the batch MAKES (schema.org `recipeYield`, ADR-0021) and
+     divides by it; instantiating one asks how many servings this occasion is and
+     scales the amounts to match. Either way it sits beside the list it governs,
+     which is why the list no longer offers a ×/÷ on individual amounts: the
+     serving count is the thing a cook actually knows, and rescaling every
+     ingredient by hand was only ever a way of saying it. -->
 <div class="yield-row">
-  <label class="fl" for="recipe-yield">Makes (servings)</label>
-  <input
-    id="recipe-yield"
-    class="tin yield-in"
-    type="number"
-    inputmode="numeric"
-    min="1"
-    bind:value={recipeYield}
-  />
+  {#if servingsMode === "makes"}
+    <label class="fl" for="recipe-yield">Makes (servings)</label>
+    <input
+      id="recipe-yield"
+      class="tin yield-in"
+      type="number"
+      inputmode="numeric"
+      min="1"
+      bind:value={recipeYield}
+    />
+  {:else}
+    <label class="fl" for="recipe-servings">Servings</label>
+    <input
+      id="recipe-servings"
+      class="tin yield-in"
+      type="number"
+      inputmode="numeric"
+      min="1"
+      value={servings}
+      oninput={(e) => changeServings(e.currentTarget.value)}
+    />
+  {/if}
 </div>
 
 <div class="per-serving" data-testid="per-serving">
-  <span class="fl">Per serving</span>
+  <span class="fl">{figuresLabel}</span>
   <MacroPills
     pills={buildNutrientPills(
       perServing,
