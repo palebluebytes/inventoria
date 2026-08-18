@@ -12,6 +12,7 @@
     saveCustomFood,
     saveLabelFood,
     saveManualFood,
+    changeLoggedFoodAmount,
     retractConsumptionEvent,
     seedRowsFromTemplate,
     recipeTwinsStore,
@@ -61,6 +62,7 @@
     selectedDate,
     onClose,
     edit = null,
+    editLabel = false,
     initialMethod = undefined,
   }: {
     dbReady: boolean;
@@ -76,6 +78,13 @@
      * retracts `edit` (append-only), so history stays immutable (ADR-0008).
      */
     edit?: ConsumptionEvent | null;
+    /**
+     * Open that edit straight on the label form rather than on the food's card.
+     * Set by "Edit" in the source explainer, where the user has already said
+     * which screen they want — landing them on the card first would make them
+     * ask for the same thing twice.
+     */
+    editLabel?: boolean;
   } = $props();
 
   // Saved Recipe Twins for the Instantiate browser, deduped by entity (newest
@@ -234,14 +243,14 @@
   // originally). A whole-serving entry re-opens pre-filled — but which surface
   // depends on the twin: a manual-entry (ADR-0035) re-opens its intent's OWN
   // mini-form (so the re-saved twin stays a manual entry and a menu dish stays in
-  // Recent), while any other custom/label entry re-opens the label form from the
-  // event's frozen macros. The gram + manual cases resolve the twin asynchronously,
-  // so the seed lands once that fetch completes.
+  // Recent), while any other custom/label entry re-opens the label form seeded
+  // from THE TWIN, exactly as the staged card's pencil does. Every case resolves
+  // the twin asynchronously, so the seed lands once that fetch completes.
   let seed = $state<StagerSeed | null>(null);
   let editLoaded = false;
 
-  // The label-form fallback seed for a per-serving entry with no manual-entry
-  // provenance (a legacy custom, or a label capture) — the pre-ADR-0035 path.
+  // The last-resort seed for a per-serving entry whose twin can no longer be
+  // read: the event's own frozen four macros, all that survives without it.
   function customSeedFromEvent(e: ConsumptionEvent): StagerSeed {
     return {
       kind: "custom",
@@ -259,6 +268,17 @@
     editLoaded = true;
     const e = edit;
     const { amount, unit } = parseLoggedQuantity(e.quantity);
+    if (editLabel && e.target) {
+      // Straight to the label form on this food's own twin, whatever unit it was
+      // logged in — the amount is preserved on save (see handleChoose).
+      void getLocalFoodTwin(e.target).then((twin) => {
+        const attrs = twin?.attributes as Record<string, unknown> | undefined;
+        seed = attrs
+          ? { kind: "edit_twin", entity: e.target!, attributes: attrs }
+          : customSeedFromEvent(e);
+      });
+      return;
+    }
     if (unit === "serving") {
       if (!e.target) {
         seed = customSeedFromEvent(e);
@@ -289,7 +309,15 @@
             photo_base64:
               (attrs["food/photo_base64"] as string) ?? e.photoBase64 ?? null,
           };
+        } else if (attrs) {
+          // Seed the label form from the twin itself: its brand, categories,
+          // ingredients, full panel, basis, portions and photos all survive the
+          // edit, and pinning its entity means the re-save enriches this twin
+          // rather than minting a stripped-down duplicate beside it.
+          seed = { kind: "edit_twin", entity: e.target!, attributes: attrs };
         } else {
+          // No twin left to read (a legacy or deleted target) — fall back to the
+          // event's own frozen macros, which is all there is.
           seed = customSeedFromEvent(e);
         }
       });
@@ -398,17 +426,31 @@
         // the daily macro meters never move for it (absent ≠ 0, ADR-0035 §7). The
         // label / legacy paths freeze the four macros as before.
         const macrosOnly = !choice.manualEntry;
-        const newId = await logFoodConsumption(
-          twinId,
-          "1 serving",
-          meal_type,
-          choice.calories,
-          macrosOnly ? choice.protein : undefined,
-          macrosOnly ? choice.fat : undefined,
-          macrosOnly ? choice.carbs : undefined,
-          selectedDate
-        );
-        if (edit) await retractConsumptionEvent(edit.id, newId);
+        // Correcting a food's panel must not silently change how much of it was
+        // eaten. A gram-logged entry is therefore re-logged at the SAME grams
+        // with its macros re-derived from the corrected twin — the amount
+        // editor's own path — instead of collapsing to the "1 serving" the
+        // custom form otherwise writes. (`target` follows the save: an enrich
+        // returns the same twin, a mint a new one.)
+        const logged = edit ? parseLoggedQuantity(edit.quantity) : null;
+        if (edit && logged?.unit === "g") {
+          await changeLoggedFoodAmount(
+            { ...edit, target: twinId },
+            logged.amount
+          );
+        } else {
+          const newId = await logFoodConsumption(
+            twinId,
+            "1 serving",
+            meal_type,
+            choice.calories,
+            macrosOnly ? choice.protein : undefined,
+            macrosOnly ? choice.fat : undefined,
+            macrosOnly ? choice.carbs : undefined,
+            selectedDate
+          );
+          if (edit) await retractConsumptionEvent(edit.id, newId);
+        }
       }
       onClose();
       return { ok: true };

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick, type Snippet } from "svelte";
+  import { tick } from "svelte";
   import { Slider } from "bits-ui";
   import Button from "../../ui/Button.svelte";
   import {
@@ -26,7 +26,6 @@
     sliderMax = 500,
     portions = [],
     hydrating = false,
-    badge = undefined,
   }: {
     grams: number;
     sliderMax?: number;
@@ -34,11 +33,6 @@
     // True while the food's portions are being fetched (ADR-0030 §5): the slot
     // shows skeleton chips so the real ones land in place, no layout shift.
     hydrating?: boolean;
-    // Optional content floated to the right of the portions row — the NOVA badge
-    // (ADR-0041 §5), passed by both the staged card and the dashboard edit-amount
-    // sheet so it reads the same on every screen. The row shows for the badge alone
-    // when a food carries no portion chips.
-    badge?: Snippet;
   } = $props();
 
   // The chip view-models are derived once from the raw portions by the food
@@ -187,45 +181,34 @@
     <div class="scale"><span>1</span><span>{sliderMax} g</span></div>
   </div>
 
-  {#if showPortionSlot || badge}
-    <!-- Portions row: the household-portion chips sit left, the NOVA badge (when
-         any) is always floated to the right (ADR-0041 §5 badge, relocated here so
-         it reads the same on every screen — staged card and edit-amount sheet).
-         The row still shows for the badge alone when a food carries no portions. -->
-    <div class="portions-row">
-      {#if showPortionSlot}
-        <div
-          class="portions"
-          data-testid="portion-presets"
-          aria-busy={portionOptions.length === 0 && hydrating}
-        >
-          {#if portionOptions.length > 0}
-            {#each portionOptions as p (p.label)}
-              <Button
-                variant={grams === p.grams ? "primary" : "secondary"}
-                class="portion-chip"
-                onclick={() => pickPortion(p.label, p.grams)}
-                >{p.display}</Button
-              >
-            {/each}
-          {:else}
-            <!-- Portions loading: skeleton chips holding the row's height so the
+  {#if showPortionSlot}
+    <!-- Portion chips, taking the control's full width (the NOVA badge that used
+         to share this row now rides the head with the other tags, which is also
+         what gives a long portion label room to sit on its own line). -->
+    <div
+      class="portions"
+      data-testid="portion-presets"
+      aria-busy={portionOptions.length === 0 && hydrating}
+    >
+      {#if portionOptions.length > 0}
+        {#each portionOptions as p (p.label)}
+          <Button
+            variant={grams === p.grams ? "primary" : "secondary"}
+            class="portion-chip"
+            onclick={() => pickPortion(p.label, p.grams)}>{p.display}</Button
+          >
+        {/each}
+      {:else}
+        <!-- Portions loading: skeleton chips holding the row's height so the
              real chips replace them without shifting the picker below. -->
-            <span
-              class="portion-skeleton"
-              style="width: 6.5rem"
-              aria-hidden="true">&nbsp;</span
-            >
-            <span
-              class="portion-skeleton"
-              style="width: 7.5rem"
-              aria-hidden="true">&nbsp;</span
-            >
-            <span class="sr-only" role="status">Loading portion sizes…</span>
-          {/if}
-        </div>
+        <span class="portion-skeleton" style="width: 6.5rem" aria-hidden="true"
+          >&nbsp;</span
+        >
+        <span class="portion-skeleton" style="width: 7.5rem" aria-hidden="true"
+          >&nbsp;</span
+        >
+        <span class="sr-only" role="status">Loading portion sizes…</span>
       {/if}
-      {#if badge}<div class="qty-badge">{@render badge()}</div>{/if}
     </div>
   {/if}
 </div>
@@ -396,35 +379,35 @@
     font-weight: 700;
     color: var(--text-secondary);
   }
-  /* Portions row: chips left (taking the width), the NOVA badge floated right. The
-     badge's margin-left:auto also floats it right on its own when a food carries no
-     portion chips (then this row holds only the badge). */
-  .portions-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2xs);
-    width: 100%;
-  }
-  .qty-badge {
-    display: flex;
-    flex: 0 0 auto;
-    margin-left: auto;
-  }
   /* Portion chips wrap (a food can offer several measures, and each label is
      wider than a gram number). */
   .portions {
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-3xs);
-    flex: 1 1 auto;
+    width: 100%;
     min-width: 0;
   }
+  /* A USDA portion label is a sentence ("Potato large (3\" to 4-1/4\" dia) —
+     369 g"), far wider than any chip. Button defaults to one nowrap line clipped
+     at both ends by its own overflow:hidden, which cut the label mid-word on
+     BOTH sides and read as broken. Here the label wraps inside the chip and the
+     chip is capped at the row's width, so a portion always fits its container —
+     tall chips, never clipped ones. Left-aligned, since a wrapped sentence
+     centred over two lines reads worse than a block of text. */
   .portions :global(.portion-chip) {
     flex: 0 1 auto;
+    max-width: 100%;
     min-width: 0;
     padding-left: var(--space-xs);
     padding-right: var(--space-xs);
     font-size: var(--step-n2);
+    white-space: normal;
+    /* Last-resort break, so even a label with no space or hyphen to break at
+       stays inside the chip rather than spilling out of it. */
+    overflow-wrap: anywhere;
+    text-align: left;
+    justify-content: flex-start;
   }
   /* Placeholder chips shown while portions hydrate. Same padding/border/font as
      a real .portion-chip so the row is exactly one chip tall and the real chips

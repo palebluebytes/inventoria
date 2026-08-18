@@ -151,6 +151,14 @@ export interface ManualEntrySeed {
  */
 export type StagerSeed =
   | { kind: "food"; food: FoodResult; grams: number }
+  /**
+   * Edit a food's own twin in the label form (ADR-0034 §7). The whole twin
+   * rides along because a logged event freezes only the four headline macros:
+   * seeding an edit from the event would drop the brand, the rest of the panel,
+   * the portions, the photos — and the entity, so the re-save would mint a
+   * duplicate twin instead of enriching this one.
+   */
+  | { kind: "edit_twin"; entity: string; attributes: Record<string, unknown> }
   | ({ kind: "manual" } & ManualEntrySeed)
   | ({
       kind: "custom";

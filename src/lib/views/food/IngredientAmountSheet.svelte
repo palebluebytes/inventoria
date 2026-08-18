@@ -1,9 +1,11 @@
 <script lang="ts">
+  import type { EntityPayload } from "../../ingestion/ingest";
   import type { NutritionInfo, Portion } from "../../food/nutrition";
   import type { NovaVerdict } from "../../food/nova-verdict";
+  import type { DietaryVerdict } from "../../food/off-signals";
+  import type { FoodSourceKind } from "../../food/food-source";
   import BottomSheet from "../../ui/BottomSheet.svelte";
-  import FoodAmountPanel from "./FoodAmountPanel.svelte";
-  import NovaBadge from "./NovaBadge.svelte";
+  import FoodCard from "./FoodCard.svelte";
   import CommitButton from "./CommitButton.svelte";
 
   // Edits a single food line's gram amount in a small sheet raised over the
@@ -15,20 +17,27 @@
   // in with its serving surfaced as a "1 serving — N g" portion chip (via the
   // caller's servingSizePortion), so a whole-serving food is edited in grams too.
   //
-  // The amount body — basis caption, gram control, portion chips, macro preview,
-  // full breakdown — is the shared FoodAmountPanel, the very screen the search /
-  // scan staging flow shows (DRY). This sheet adds only the over-dialog chrome
-  // (BottomSheet, ADR-0027/0028) and the docked Done action.
+  // The body IS the staging screen's food card (FoodCard): the same tags, name,
+  // meta row, amount control and allergen block, derived from the same twin. The
+  // two screens differ only in the sheet header above them — "Edit amount" here,
+  // the meal there. This sheet adds only the over-dialog chrome (BottomSheet,
+  // ADR-0027/0028) and the docked Done action.
   let {
+    payload,
     name,
     amount,
     portions = [],
     panel,
-    verdict,
+    onEdit,
     onExplainNova,
+    onExplainSource,
+    onExplainDietary,
     onCommit,
     onClose,
   }: {
+    /** The food twin behind the logged line — every mark on the card reads from
+     *  it, exactly as the staging screen's does. */
+    payload: EntityPayload;
     name: string;
     amount: number;
     /** The food's household portions (ADR-0030) plus any synthesised serving,
@@ -38,12 +47,15 @@
      *  sheet shows the basis caption + macro preview + full breakdown scaled to
      *  the working amount; omit it to render the plain amount picker. */
     panel?: NutritionInfo;
-    /** The food's NOVA processing verdict (ADR-0041 §5), read back off its twin
-     *  by the caller. Renders the word-first badge floated right on the portions
-     *  row; omit it (a caller that hasn't resolved a twin) to hide it. */
-    verdict?: NovaVerdict;
+    /** Correct this food from its label — the card's pencil badge and the source
+     *  explainer's edit action. Omit where the host has no edit surface. */
+    onEdit?: () => void;
     /** Tap-through on the NOVA badge — the explainer handoff seam (#92). */
     onExplainNova?: (verdict: NovaVerdict) => void;
+    /** Tap-through on the source tag — the per-origin trust explainer. */
+    onExplainSource?: (kind: FoodSourceKind) => void;
+    /** Tap-through on a dietary mark — the on-pack claims explainer. */
+    onExplainDietary?: (verdict: DietaryVerdict) => void;
     onCommit: (amount: number) => void;
     onClose: () => void;
   } = $props();
@@ -61,25 +73,33 @@
   }
 </script>
 
-<!-- The NOVA badge floats right on the portions row (ADR-0041 §5). Declared at the
-     top level (not inside BottomSheet) so it is a local snippet this component can
-     hand to FoodAmountPanel's `badge` slot. -->
-{#snippet novaBadge()}
-  <NovaBadge
-    verdict={verdict!}
-    onExplain={onExplainNova ? () => onExplainNova(verdict!) : undefined}
-  />
-{/snippet}
-
-<BottomSheet isOpen title={name} class="amount-sheet" elevated {onClose}>
-  <FoodAmountPanel
+<!-- The header carries the VERB, not the food: it is one nowrap line that
+     ellipsises, and a food name ("Bananas, ripe and…") is exactly what that
+     truncates. The name belongs in the card, where it can wrap and be read in
+     full — under the same top-right tag corner the staged card uses. -->
+<BottomSheet isOpen title="Edit amount" class="amount-sheet" elevated {onClose}>
+  <FoodCard
+    {payload}
+    {name}
     {panel}
     {portions}
     bind:grams={value}
-    badge={verdict ? novaBadge : undefined}
+    {onEdit}
+    {onExplainSource}
+    {onExplainNova}
+    {onExplainDietary}
   />
 
   {#snippet footer()}
     <CommitButton id="amount-done-btn" onclick={done}>Done</CommitButton>
   {/snippet}
 </BottomSheet>
+
+<style>
+  /* The staging screen's stage pads at --space-s; this body defaults to the
+     prose --space-m, which made the identical card sit narrower and lower. Match
+     it, so the two screens differ only in their header. */
+  :global(.amount-sheet .bottom-sheet-body) {
+    padding: var(--space-s);
+  }
+</style>

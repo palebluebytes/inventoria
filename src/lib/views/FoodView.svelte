@@ -9,6 +9,7 @@
     changeLoggedFoodAmount,
     type ConsumptionEvent,
   } from "../stores/calorie.store";
+  import { scaleAmount, type ScaleOp } from "../food/scale-amount";
   import {
     customIngredient,
     parseLoggedQuantity,
@@ -20,14 +21,20 @@
     type NutritionInfo,
     type Portion,
   } from "../food/nutrition";
-  import { deriveNovaVerdict, type NovaVerdict } from "../food/nova-verdict";
+  import type { NovaVerdict } from "../food/nova-verdict";
+  import type { DietaryVerdict } from "../food/off-signals";
+  import type { EntityPayload } from "../ingestion/ingest";
+  import type { FoodSourceKind } from "../food/food-source";
   import DailyDashboard from "./food/DailyDashboard.svelte";
   import LogFoodSheet from "./food/LogFoodSheet.svelte";
   import RecipeModal from "./food/RecipeModal.svelte";
   import InstantiationSheet from "./food/InstantiationSheet.svelte";
   import IngredientAmountSheet from "./food/IngredientAmountSheet.svelte";
   import NovaExplainerSheet from "./food/NovaExplainerSheet.svelte";
+  import SourceExplainerSheet from "./food/SourceExplainerSheet.svelte";
+  import DietaryExplainerSheet from "./food/DietaryExplainerSheet.svelte";
   import FoodSettingsSheet from "./food/FoodSettingsSheet.svelte";
+  import ScaleControl from "./food/ScaleControl.svelte";
 
   import Card from "../ui/Card.svelte";
   import Badge from "../ui/Badge.svelte";
@@ -59,6 +66,10 @@
   // The logged event being edited (null = adding). When set, the log sheet opens
   // in edit mode and saving replaces this event (append-only).
   let editEvent = $state<ConsumptionEvent | null>(null);
+  // Whether that edit was asked for from the source explainer's "Edit" — then the
+  // sheet opens straight on the label form instead of the food's card, since the
+  // user has already said which screen they want.
+  let edit_label = $state(false);
   // Consumption-event ids selected (long-press) for building a recipe.
   let selected_ids = $state<Set<string>>(new Set());
   let recipeOpen = $state(false);
@@ -80,24 +91,34 @@
     attributes: Record<string, any>;
   } | null>(null);
   let instantiate_edit = $state<ConsumptionEvent | null>(null);
-  // A logged food whose amount is being changed in the picker sheet (the shared
-  // FoodAmountPanel; the dashboard equivalent of a recipe row tap). Carries the
-  // resolved twin panel + portions so the sheet shows the same screen the search
-  // flow does — with the food's serving surfaced as a chip. `grams` is the
-  // opening amount; Done retract-and-replaces the event via changeLoggedFoodAmount.
-  let amountEdit = $state<{
+  // A logged food resolved to the gram amount it is currently at, plus what the
+  // amount picker (the shared FoodAmountPanel; the dashboard equivalent of a
+  // recipe row tap) needs to show it: the twin's panel + portions, so the sheet
+  // shows the same screen the search flow does, with the food's serving
+  // surfaced as a chip. `grams` is the opening amount; Done retract-and-replaces
+  // the event via changeLoggedFoodAmount.
+  interface GramEdit {
     event: ConsumptionEvent;
     name: string;
     grams: number;
     panel?: NutritionInfo;
     portions: Portion[];
-    verdict?: NovaVerdict;
-  } | null>(null);
+    /** The resolved food twin — the card derives every mark on it from this. */
+    payload: EntityPayload;
+  }
+  // The food whose amount is being changed in the picker sheet (null = closed).
+  let amountEdit = $state<GramEdit | null>(null);
 
   // Explainer handoff seam (#92, ADR-0041 §6): tapping the food-detail badge parks
   // its verdict here for the explainer sheet (ticket C) to mount off. #91 owns
   // only the tappable badge.
   let novaExplain = $state<NovaVerdict | null>(null);
+  // The same handoff for the source tag: the tapped food's origin parks here for
+  // the per-origin trust explainer (ADR-0043 §2), cleared back to null on close.
+  let sourceExplain = $state<FoodSourceKind | null>(null);
+  // …and for a dietary mark: all the present claims share one explainer, so any
+  // tag opens the same sheet.
+  let dietaryExplain = $state<DietaryVerdict | null>(null);
 
   const entityName = "Food";
 
@@ -115,6 +136,7 @@
 
   function openSheet(meal_type: MealType) {
     editEvent = null;
+    edit_label = false;
     sheet_meal_type = meal_type;
   }
 
@@ -129,12 +151,35 @@
       instantiateOpen = true;
       return;
     }
-    // Both a gram-logged food and a per-serving food with a KNOWN serving weight
-    // edit their amount in the shared picker — the same screen the search flow
-    // stages into. Resolve the twin for its panel + portions, and surface the
-    // food's own serving as a chip so a whole-serving food is a one-tap away from
-    // its serving while still editable to any gram amount. Both re-log in grams
-    // via changeLoggedFoodAmount (which scales the panel from ITS basis).
+    const gramEdit = await resolveGramEdit(item);
+    if (gramEdit) {
+      amountEdit = gramEdit;
+      return;
+    }
+
+    // A weightless "1 serving" custom food (no panel or no gram basis to scale
+    // by) can't be gram-edited, so it still opens the full edit sheet where its
+    // macros, name and photo remain editable.
+    editEvent = item;
+    edit_label = false;
+    sheet_meal_type = asMealType(item.meal_type, "snack");
+  }
+
+  /**
+   * Resolves a logged food to the gram amount it stands at, or `null` when it
+   * carries no gram basis at all. Both a gram-logged food and a per-serving food
+   * with a KNOWN serving weight resolve — they edit their amount in the shared
+   * picker, the same screen the search flow stages into — and both re-log in
+   * grams via changeLoggedFoodAmount (which scales the panel from ITS basis).
+   * The food's own serving is surfaced as a chip so a whole-serving food is one
+   * tap from its serving while still editable to any gram amount.
+   *
+   * The tap-to-edit path and the selection bar's bulk ×/÷ both read the basis
+   * through here, so the two can never disagree about which foods are scalable.
+   */
+  async function resolveGramEdit(
+    item: ConsumptionEvent
+  ): Promise<GramEdit | null> {
     const { amount, unit } = parseLoggedQuantity(item.quantity);
     const twin = item.target ? await getLocalFoodTwin(item.target) : null;
     const panel = twin?.attributes?.["nutrition/info"] as
@@ -167,25 +212,18 @@
     else if (unit === "serving" && panel != null && servingGrams != null)
       openGrams = servingGrams * amount;
 
-    if (openGrams != null) {
-      amountEdit = {
-        event: item,
-        name: item.foodName ?? "Food",
-        grams: openGrams,
-        panel,
-        portions,
-        // The NOVA processing verdict, read back off the resolved twin (ADR-0041
-        // §4/§5). A twin-less event has no assessment to read, so no badge.
-        verdict: twin ? deriveNovaVerdict(twin) : undefined,
-      };
-      return;
-    }
-
-    // A weightless "1 serving" custom food (no panel or no gram basis to scale
-    // by) can't be gram-edited, so it still opens the full edit sheet where its
-    // macros, name and photo remain editable.
-    editEvent = item;
-    sheet_meal_type = asMealType(item.meal_type, "snack");
+    if (openGrams == null) return null;
+    return {
+      event: item,
+      name: item.foodName ?? "Food",
+      grams: openGrams,
+      panel,
+      portions,
+      // A twin-less event still carries the id it was logged against, and the
+      // origin reads off that id alone (ADR-0043 §2) — so the card degrades to
+      // its source tag rather than to nothing.
+      payload: twin ?? { entity: item.target ?? "", attributes: {} },
+    };
   }
 
   // Drop portions that resolve to a gram weight already listed — keeps the first
@@ -198,6 +236,19 @@
       seen.add(p.grams);
       return true;
     });
+  }
+
+  // "Correct this food from its label", tapped in the source explainer over the
+  // amount sheet: leave the amount picker for the full edit sheet on the SAME
+  // logged event, which re-stages its twin — where the label form is one tap
+  // away. The amount sheet closes first, so the two never stack.
+  function editFoodFromAmountSheet() {
+    const ae = amountEdit;
+    if (!ae) return;
+    amountEdit = null;
+    editEvent = ae.event;
+    edit_label = true;
+    sheet_meal_type = asMealType(ae.event.meal_type, "snack");
   }
 
   function closeInstantiation() {
@@ -232,12 +283,20 @@
   function closeSheet() {
     sheet_meal_type = null;
     editEvent = null;
+    edit_label = false;
+  }
+
+  // Every change of selection goes through here, so the scale bar's note can
+  // never outlive the selection it described.
+  function setSelection(next: Set<string>) {
+    selected_ids = next;
+    scale_note = "";
   }
 
   function longPress(id: string) {
     const next = new Set(selected_ids);
     next.add(id);
-    selected_ids = next;
+    setSelection(next);
   }
 
   function tapItem(id: string) {
@@ -245,11 +304,77 @@
     const next = new Set(selected_ids);
     if (next.has(id)) next.delete(id);
     else next.add(id);
-    selected_ids = next;
+    setSelection(next);
   }
 
   function clearSelection() {
-    selected_ids = new Set();
+    setSelection(new Set());
+  }
+
+  // Bulk ×/÷ over the selection. Guarded against a second tap landing mid-flight
+  // (each food is a read-then-append round trip), and reported on when some of
+  // the selection couldn't move.
+  let scaling = $state(false);
+  let scale_note = $state("");
+
+  /**
+   * Rescales every selected food by the factor, append-only: each one is
+   * re-logged at its scaled gram amount and the original retracted, so the day's
+   * nutrition re-derives from the twins rather than being edited in place — the
+   * same path the amount picker's Done takes, applied across the selection.
+   *
+   * Two kinds of logged food carry no gram amount to scale: a weightless
+   * "1 serving" custom entry (a quick calorie estimate has no weight to double)
+   * and a Recipe Instantiation, which is corrected on its own editor so its
+   * frozen per-ingredient snapshot stays coherent (ADR-0022). Both are left
+   * exactly as they were and counted, so the bar can say so rather than
+   * appearing to have done nothing.
+   */
+  async function scaleSelected(factor: number, op: ScaleOp) {
+    if (scaling) return;
+    scaling = true;
+    // Snapshot: each append re-derives the projection under us.
+    const items = selectedItems;
+    const next = new Set(selected_ids);
+    let scaled = 0;
+    let skipped = 0;
+    let failed = 0;
+    try {
+      for (const item of items) {
+        // Per food, so one failed append leaves the rest of the selection
+        // scalable instead of aborting the run half-applied.
+        try {
+          const gramEdit = item.instantiation
+            ? null
+            : await resolveGramEdit(item);
+          const newId = gramEdit
+            ? await changeLoggedFoodAmount(
+                item,
+                scaleAmount(gramEdit.grams, factor, op)
+              )
+            : null;
+          if (!newId) {
+            skipped++;
+            continue;
+          }
+          // The rescaled food is a NEW Consumption Event; keep it selected in
+          // the retracted one's place so the selection survives the operation.
+          next.delete(item.id);
+          next.add(newId);
+          scaled++;
+        } catch (e) {
+          console.error("scaling a logged food failed", e);
+          failed++;
+        }
+      }
+    } finally {
+      scaling = false;
+    }
+    setSelection(next);
+    const parts = [`${scaled} scaled`];
+    if (skipped > 0) parts.push(`${skipped} with no weight to scale`);
+    if (failed > 0) parts.push(`${failed} failed`);
+    if (skipped + failed > 0) scale_note = parts.join(" · ");
   }
 
   // Turn selected consumption events into recipe ingredients carrying each
@@ -388,6 +513,7 @@
     meal_type={sheet_meal_type}
     {selectedDate}
     edit={editEvent}
+    editLabel={edit_label}
     onClose={closeSheet}
   />
 {/if}
@@ -414,10 +540,33 @@
     amount={ae.grams}
     panel={ae.panel}
     portions={ae.portions}
-    verdict={ae.verdict}
+    payload={ae.payload}
+    onEdit={editFoodFromAmountSheet}
     onExplainNova={(v) => (novaExplain = v)}
+    onExplainSource={(kind) => (sourceExplain = kind)}
+    onExplainDietary={(v) => (dietaryExplain = v)}
     onCommit={(grams) => changeLoggedFoodAmount(ae.event, grams)}
     onClose={() => (amountEdit = null)}
+  />
+{/if}
+
+{#if sourceExplain}
+  <!-- Source explainer (ADR-0043 §2): the source tag's tap-through, opened over
+       the amount sheet the tag sits in — the same seam the staging screen uses. -->
+  <SourceExplainerSheet
+    kind={sourceExplain}
+    onEdit={amountEdit ? editFoodFromAmountSheet : undefined}
+    onClose={() => (sourceExplain = null)}
+  />
+{/if}
+
+{#if dietaryExplain}
+  <!-- Dietary explainer (ADR-0043 §2): the on-pack claims behind the card's
+       dietary marks, opened over the amount sheet exactly as on the staging
+       screen. -->
+  <DietaryExplainerSheet
+    verdict={dietaryExplain}
+    onClose={() => (dietaryExplain = null)}
   />
 {/if}
 
@@ -435,6 +584,16 @@
 {#if selected_ids.size > 0}
   <div class="selbar">
     <span class="selcount">{selected_ids.size} selected</span>
+    <!-- Rescale the whole selection: ×2 for a second helping, ÷2 when the
+         portion was half what was logged. -->
+    <ScaleControl
+      target="the selected foods"
+      onScale={scaleSelected}
+      disabled={scaling}
+    />
+    {#if scale_note}
+      <span class="selnote" role="status">{scale_note}</span>
+    {/if}
     <button class="selclear" onclick={clearSelection}>Clear</button>
     <button class="selbuild" id="build-recipe-btn" onclick={buildRecipe}
       >🍲 Build recipe</button
@@ -575,7 +734,8 @@
     z-index: 900;
     display: flex;
     align-items: center;
-    gap: var(--space-s);
+    flex-wrap: wrap;
+    gap: var(--space-2xs) var(--space-s);
     padding: var(--space-s);
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-s));
     background: var(--ink);
@@ -584,6 +744,11 @@
   }
   .selcount {
     font-weight: 700;
+  }
+  /* The scale control pushes the bar past a phone's width, so it wraps rather
+     than overflowing; Clear/Build stay together on the trailing line. */
+  .selnote {
+    font-size: var(--step-n2);
   }
   .selclear {
     margin-left: auto;

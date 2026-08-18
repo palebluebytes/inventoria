@@ -3,6 +3,7 @@
     lookupBarcode,
     submitToOpenFoodFacts,
     parseCategoryList,
+    offReferenceImagesFromTwin,
     ProductNotFoundError,
     type OffPayload,
     type OffSubmitResult,
@@ -68,23 +69,15 @@
   import Segmented from "../../ui/Segmented.svelte";
   import LabelPhotoReader from "./LabelPhotoReader.svelte";
   import CategoryPicker from "./CategoryPicker.svelte";
-  import FoodAmountPanel from "./FoodAmountPanel.svelte";
+  import FoodCard from "./FoodCard.svelte";
   import ManualEntryFlow from "./ManualEntryFlow.svelte";
   import CommitButton from "./CommitButton.svelte";
-  import NovaBadge from "./NovaBadge.svelte";
   import NovaExplainerSheet from "./NovaExplainerSheet.svelte";
   import SourceExplainerSheet from "./SourceExplainerSheet.svelte";
   import DietaryExplainerSheet from "./DietaryExplainerSheet.svelte";
-  import AllergenSafetyBlock from "./AllergenSafetyBlock.svelte";
-  import { deriveNovaVerdict, type NovaVerdict } from "../../food/nova-verdict";
-  import {
-    deriveDietaryVerdict,
-    deriveAllergenVerdict,
-    type DietaryVerdict,
-    type AllergenVerdict,
-  } from "../../food/off-signals";
-  import { dietaryTagsView } from "../../food/dietary-tag";
-  import { foodSourceView, type FoodSourceKind } from "../../food/food-source";
+  import type { NovaVerdict } from "../../food/nova-verdict";
+  import type { DietaryVerdict } from "../../food/off-signals";
+  import type { FoodSourceKind } from "../../food/food-source";
 
   // The shared food-staging surface behind both the direct-log sheet and the
   // add-ingredient sheet (issue #16). It owns the Search / Scan / Custom method
@@ -372,79 +365,28 @@
   // enriched `gtin:` twin is genuinely dual-origin (ADR-0034 §6/§7). Null for the
   // missing/unreadable/manual doors, which have no OFF record to preserve.
   let captureOffPayload = $state<EntityPayload | null>(null);
+  // What leaving the capture form returns to: the card it was opened from, and
+  // the method that card belonged to. Null when the form WAS the entry point (a
+  // missing/unreadable barcode door, or a dashboard edit that opens straight
+  // onto it) — then back falls through to the scan view as before.
+  let captureReturn = $state<{ food: FoodResult; method: string } | null>(null);
+  // Which food the form's current draft belongs to (`reason:entity`). Re-opening
+  // the same door for the same food keeps what the user typed rather than
+  // re-prefilling over it — backing out to check the card is not "discard".
+  let captureDraftKey = $state<string | null>(null);
   // Unreadable door: the scanner elevates a "photograph the label" escape after a
   // persistent failure. A tunable threshold (~10 s), not a hard requirement (#48).
   const UNREADABLE_ELEVATE_MS = 10_000;
   let scanStalled = $state(false);
   let stallTimer: ReturnType<typeof setTimeout> | null = null;
 
-  // The staged twin's origin badge (§7), driven purely by the PRESENCE of a
-  // `food/label_capture` datom: "edited from label" when OFF provenance sits
-  // beside it (a corrected `gtin:` twin), "your entry" when it stands alone (a
-  // `food:custom_` mint). Advisory only — it never changes logging.
-  let stagedOrigin = $derived.by<null | "edited" | "your">(() => {
-    const attrs = staged?.payload.attributes;
-    if (!attrs?.["food/label_capture"]) return null;
-    return attrs["twin/raw_provenance"] ? "edited" : "your";
-  });
-
-  // The staged food's NOVA processing verdict (ADR-0041 §4/§5), read back off its
-  // captured `food/assessment` at render time — never a written attribute. Drives
-  // the word-first badge on the "Quantity (grams)" row; `not-rated` for a
-  // blank/non-OFF food, so a badge is always shown.
-  let stagedNova = $derived<NovaVerdict | null>(
-    staged ? deriveNovaVerdict(staged.payload) : null
-  );
-
-  // Explainer handoff seam (#92): tapping a badge parks its verdict here; the
-  // explainer sheet (ticket C) mounts off this state and clears it on close. #91
-  // owns only the tappable badge — the sheet contents are #92's.
+  // Explainer handoff seams (#92, ADR-0043 §2). The card owns the tappable
+  // marks and derives every verdict from the staged twin itself; each seam just
+  // parks what its mark handed up, and the sheet mounts off that state.
   let novaExplain = $state<NovaVerdict | null>(null);
   function explainNova(v: NovaVerdict) {
     novaExplain = v;
   }
-
-  // ── The tags row: source · dietary · NOVA (ADR-0043 §2, #103) ───────────────
-  // The staged food's source tag (its origin — OFF / USDA / manual / recipe),
-  // read off the entity id. Floats top-right of the name; ALWAYS shown (every food
-  // has an origin). Tapping it opens the per-origin source explainer.
-  let stagedSource = $derived(staged ? foodSourceView(staged.payload) : null);
-  // The staged food's brand (`twin/brand`, ADR-0030) — the left of the meta-row
-  // that the dietary · NOVA tags float against. Absent for foods with no brand
-  // (USDA/manual), in which case the tags simply sit alone at the right edge.
-  let stagedBrand = $derived<string | undefined>(
-    staged?.payload.attributes["twin/brand"] as string | undefined
-  );
-  // The staged food's dietary verdict (ADR-0043 §4), read back off its captured
-  // `food/assessment` at render time — never a written attribute. Drives the
-  // present-only dietary tags in the row AND the additives count riding the NOVA
-  // tag's circular disc. Absent (silent — no "not rated") for a non-OFF food.
-  let stagedDietary = $derived<DietaryVerdict | null>(
-    staged ? deriveDietaryVerdict(staged.payload) : null
-  );
-  // The render-ready dietary tags (glyph + short form). Empty when absent, so the
-  // row degrades to just the source + NOVA marks.
-  let stagedDietaryTags = $derived(
-    stagedDietary ? dietaryTagsView(stagedDietary) : []
-  );
-  // The staged food's allergen safety verdict (ADR-0043 §3, #104), read back off
-  // its captured `food/assessment` at render time — never a written attribute.
-  // Drives the static safety block below the amount panel; "absent" (silent — no
-  // "not rated") for a non-OFF food or an OFF product carrying no allergen data.
-  let stagedAllergen = $derived<AllergenVerdict | null>(
-    staged ? deriveAllergenVerdict(staged.payload) : null
-  );
-  // The additives disc rides the NOVA tag ONLY when the NOVA explainer will
-  // actually detail those additives — i.e. an OFF-rated verdict (the sole branch
-  // where `deriveNovaVerdict` carries the additives as evidence). Otherwise the
-  // disc would promise a count the explainer withholds (an OFF food with
-  // additives but no NOVA group reads "not rated"). Gating here keeps the disc and
-  // the explainer's additive list driven by the same condition.
-  let stagedAdditivesCount = $derived(
-    stagedNova?.state === "rated" && stagedNova.source === "off"
-      ? (stagedDietary?.additivesCount ?? 0)
-      : 0
-  );
 
   // Source explainer seam: tapping the source tag parks its origin here.
   let sourceExplain = $state<FoodSourceKind | null>(null);
@@ -470,6 +412,11 @@
     payload?: OffPayload,
     completeness?: number
   ) {
+    // Captured BEFORE the switch below, so back can restore both.
+    captureReturn = staged ? { food: staged, method } : null;
+    const draftKey = `${reason}:${payload?.entity ?? barcode.trim()}`;
+    const returningToDraft = captureDraftKey === draftKey;
+    captureDraftKey = draftKey;
     method = "custom";
     staged = null;
     status = "idle";
@@ -481,8 +428,12 @@
     editEntityId = null;
     // Only the found-but-poor door preserves an OFF record beside the correction.
     captureOffPayload = reason === "poor" ? (payload ?? null) : null;
-    if (payload) prefillFromPayload(payload);
-    else resetCustomForm();
+    // Re-entering the same capture keeps the draft; a different food (or a
+    // different door onto it) starts from the source's own values again.
+    if (!returningToDraft) {
+      if (payload) prefillFromPayload(payload);
+      else resetCustomForm();
+    }
     // Desktop upload path: the photo that was dropped/chosen to reach this door
     // rides in as the label photo, so a desktop capture arrives with its photo
     // attached exactly as a phone capture would (both reset labelPhotos above).
@@ -544,15 +495,20 @@
     offRefPhotos = payload.referenceImages ?? [];
   }
 
-  // Re-open the label form on the STAGED twin (origin badge, §7): prefill every
-  // field from the twin's own saved data — its name, brand, panel (in its stored
+  // Re-open the label form on a twin (the staged card's origin badge §7, and the
+  // dashboard's "edit this logged food"): prefill every field from the twin's own
+  // saved data — its name, brand, categories, ingredients, panel (in its stored
   // basis), portions, and the user's OWN captured photos — and pin `editEntityId`
   // to the twin so the re-save enriches THAT entity in place rather than minting a
   // duplicate. A `gtin:` twin also re-derives its barcode so the key-follows-the-
   // barcode contract (§6) and the OFF-contribution offer keep working.
-  function editStaged() {
-    if (!staged) return;
-    const attrs = staged.payload.attributes;
+  //
+  // The twin is the ONLY honest seed for an edit: a logged event freezes just the
+  // four headline macros, so seeding from one would silently drop the brand, the
+  // rest of the panel, the portions, the photos and the entity itself.
+  function openEditForm(entity: string, attrs: Record<string, any>) {
+    captureReturn = staged ? { food: staged, method } : null;
+    captureDraftKey = `edit:${entity}`;
     method = "custom";
     status = "idle";
     error = "";
@@ -561,10 +517,14 @@
     captureCompleteness = undefined;
     // The twin already IS the record — nothing to preserve beside it (unlike poor).
     captureOffPayload = null;
-    editEntityId = staged.entity;
-    const gtin = /^gtin:(.+)$/.exec(staged.entity);
+    editEntityId = entity;
+    const gtin = /^gtin:(.+)$/.exec(entity);
     barcode = gtin ? gtin[1] : "";
-    customName = (attrs["food/name"] as string | undefined) ?? "";
+    // "Unknown" is the OFF mapper's placeholder for a product with no
+    // `product_name`, not something the user typed — open the field empty rather
+    // than making them delete it, exactly as the found-but-poor door does.
+    const twinName = (attrs["food/name"] as string | undefined) ?? "";
+    customName = twinName === "Unknown" ? "" : twinName;
     customBrand = (attrs["twin/brand"] as string | undefined) ?? "";
     customCategories = parseCategoryList(
       attrs["food/category"] as string | undefined
@@ -602,8 +562,19 @@
     // not as OFF reference shots — this is the user editing their own capture.
     const photos = attrs["food/label_photos"] as string[] | undefined;
     labelPhotos = photos ?? [];
-    offRefPhotos = [];
+    // OFF's own label shots ride alongside, read-only, recovered from the twin's
+    // stored provenance. Without this an OFF product had NO photo on this screen
+    // the moment its twin was in the ledger — the live `referenceImages` are a
+    // read-through that a saved twin (or a second scan of the same barcode)
+    // never carries, so the one surface for reading the label off went blank.
+    offRefPhotos = offReferenceImagesFromTwin(attrs);
     staged = null;
+  }
+
+  /** The staged card's pencil: edit the twin currently on the card. */
+  function editStaged() {
+    if (!staged) return;
+    openEditForm(staged.entity, staged.payload.attributes);
   }
 
   // Initialise the form from an AIAutofillResult — the seam that serves BOTH
@@ -756,6 +727,9 @@
     if (seed.kind === "food") {
       staged = seed.food;
       grams = seed.grams;
+    } else if (seed.kind === "edit_twin") {
+      // Same screen the staged card's pencil opens, seeded from the same twin.
+      openEditForm(seed.entity, seed.attributes);
     } else if (seed.kind === "manual") {
       // A manual-entry edit: just switch to the Custom method so ManualEntryFlow
       // renders (`showManualFlow`); it prefills its own mini-form from this seed.
@@ -1226,6 +1200,8 @@
       captureReason = null;
       captureCompleteness = undefined;
       captureOffPayload = null;
+      captureReturn = null;
+      captureDraftKey = null;
       offRefPhotos = [];
       refReaderIndex = null;
       barcode = "";
@@ -1367,7 +1343,9 @@
   // via its `tabBack`.
   let stagerCanGoBack = $derived(
     (!!staged && !lockMethods) ||
-      captureReason !== null ||
+      // A capture form offers back when there is somewhere to go: the card it
+      // was opened from, or (for a barcode door) the scan view behind it.
+      (captureReason !== null && (captureReturn !== null || !lockMethods)) ||
       manualCanBack ||
       (isExtra(method) && !!tabBack)
   );
@@ -1377,11 +1355,27 @@
       return;
     }
     if (captureReason !== null) {
-      // Leave the capture form and return to the scan door it opened from,
-      // clearing the reason banner and its preserved OFF/completeness context.
+      // Leave the capture form for whatever it was opened from. A door reached
+      // from a card (Improve on a found-but-poor scan, the pencil on a staged
+      // twin) returns to THAT card — the scan already found this food, so
+      // dropping the user back at an empty scanner loses the thing they were
+      // working on. Only a door that WAS the entry point falls back to the scan
+      // view. The draft survives either way (`captureDraftKey`), so stepping
+      // back to check the card and returning keeps what was typed.
+      const back = captureReturn;
+      const wasPoor = captureReason === "poor";
       captureReason = null;
       captureCompleteness = undefined;
       captureOffPayload = null;
+      captureReturn = null;
+      if (back) {
+        staged = back.food;
+        method = back.method;
+        // The food is still the poor one it was — restore the nudge that offered
+        // the improvement, so the door stays open.
+        nudge = wasPoor;
+        return;
+      }
       method = "scan";
       return;
     }
@@ -1429,124 +1423,51 @@
             <div class="stage" {...stageProps}>
               {#if staged}
                 <div class="staged">
-                  <div class="staged-head">
-                    <h3>{staged.name}</h3>
-                    <div class="head-badges">
-                      {#if stagedOrigin}
-                        <!-- Origin badge (§7): user-entered vs OFF-sourced, at a glance.
-                        Clicking it re-opens the label form on this twin to edit it again. -->
-                        <button
-                          type="button"
-                          class="origin-badge"
-                          data-testid="origin-badge"
-                          onclick={editStaged}
-                          title="Edit this entry from the label"
-                        >
-                          <span class="origin-badge-icon" aria-hidden="true"
-                            >✏️</span
-                          >
-                          <span
-                            >{stagedOrigin === "edited"
-                              ? "edited from label"
-                              : "your entry"}</span
-                          >
-                        </button>
-                      {/if}
-                      {#if stagedSource}
-                        <!-- Source tag (ADR-0043 §2): the food's origin, floated
-                        top-right of the name. Always shown; taps through to the
-                        per-origin trust explainer. A leading origin icon (◆ data
-                        source / ✎ hand entry) precedes the label; the brutalist
-                        framed tag idiom is shared with the NOVA mark below. -->
-                        <button
-                          type="button"
-                          class="tag tag-source"
-                          data-testid="source-tag"
-                          data-kind={stagedSource.kind}
-                          aria-label={`Source: ${stagedSource.label}. Tap for details`}
-                          title={`Source: ${stagedSource.label}`}
-                          onclick={() => (sourceExplain = stagedSource!.kind)}
-                        >
-                          <span class="tag-icon" aria-hidden="true"
-                            >{stagedSource.icon}</span
-                          >{stagedSource.label}
-                        </button>
-                      {/if}
-                    </div>
-                  </div>
-                  <!-- Meta row: the brand sits left, the dietary claims float right
-                  against it. Dietary marks are bare placeholder glyphs (no frame);
-                  present-only, so the cluster is silent when OFF carries none. The
-                  NOVA badge no longer rides here — it floats right on the portions
-                  row (passed to FoodAmountPanel's `badge` slot below) so it reads
-                  the same on the staged card and the edit-amount sheet. -->
-                  <div class="meta-row">
-                    {#if stagedBrand}<p class="brand">{stagedBrand}</p>{/if}
-                    {#if stagedDietaryTags.length}
-                      <div class="tags" data-testid="food-tags-row">
-                        {#each stagedDietaryTags as dt (dt.tag)}
-                          <button
-                            type="button"
-                            class="tag tag-dietary"
-                            data-testid="dietary-tag"
-                            aria-label={`${dt.shortForm}. Tap for details`}
-                            title={dt.shortForm}
-                            onclick={() => (dietaryExplain = stagedDietary)}
-                          >
-                            <span class="tag-glyph" aria-hidden="true"
-                              >{dt.glyph}</span
-                            >
-                          </button>
-                        {/each}
-                      </div>
-                    {/if}
-                  </div>
-                  {#if nudge}
-                    <!-- Found-but-poor nudge (§1): soft, dismissible, never blocks logging
-               the poor twin as-is — the Log button below stays live. -->
-                    <div class="nudge" data-testid="poor-nudge" role="status">
-                      <span class="nudge-text"
-                        >This entry looks incomplete. Improve it from the label?</span
-                      >
-                      <button
-                        type="button"
-                        class="nudge-go"
-                        data-testid="poor-nudge-improve"
-                        onclick={() =>
-                          openCaptureForm(
-                            "poor",
-                            poorPayload ?? undefined,
-                            captureCompleteness
-                          )}>Improve</button
-                      >
-                    </div>
-                  {/if}
-                  <!-- The NOVA badge floats right on the portions row inside the
-                  amount panel (passed to its `badge` slot), so it sits in the same
-                  place on the staged card and the edit-amount sheet. Carries the
-                  additives count disc; taps through to the NOVA explainer. -->
-                  {#snippet novaBadge()}
-                    <NovaBadge
-                      verdict={stagedNova!}
-                      additivesCount={stagedAdditivesCount}
-                      onExplain={() => explainNova(stagedNova!)}
-                    />
-                  {/snippet}
-                  <FoodAmountPanel
+                  <!-- The staged food IS the food card the edit-amount sheet
+                  shows (FoodCard): tags over the name, meta row, amount panel,
+                  allergen block. Staging adds only the found-but-poor nudge,
+                  slotted between the meta row and the amount. -->
+                  <FoodCard
+                    payload={staged.payload}
+                    name={staged.name}
                     panel={stagedInfo}
                     portions={stagedPortions}
                     hydrating={hydratingPortions}
                     bind:grams
-                    badge={stagedNova ? novaBadge : undefined}
-                  />
-                  <!-- Allergen safety block (ADR-0043 §3, #104): a static,
-                  present-only block below the quantity row — Contains ›
-                  May-contain › Free-from, one allergen per line, the mandatory
-                  disclaimer behind an (i) toggle. Silent (renders nothing) when
-                  OFF carries no allergen data; never inferred from absence. -->
-                  {#if stagedAllergen}
-                    <AllergenSafetyBlock verdict={stagedAllergen} />
-                  {/if}
+                    onEdit={editStaged}
+                    onExplainSource={(kind) => (sourceExplain = kind)}
+                    onExplainNova={explainNova}
+                    onExplainDietary={(v) => (dietaryExplain = v)}
+                  >
+                    {#snippet beforeAmount()}
+                      {#if nudge}
+                        <!-- Found-but-poor nudge (§1): soft, dismissible, never
+                        blocks logging the poor twin as-is — the Log button below
+                        stays live. -->
+                        <div
+                          class="nudge"
+                          data-testid="poor-nudge"
+                          role="status"
+                        >
+                          <span class="nudge-text"
+                            >This entry looks incomplete. Improve it from the
+                            label?</span
+                          >
+                          <button
+                            type="button"
+                            class="nudge-go"
+                            data-testid="poor-nudge-improve"
+                            onclick={() =>
+                              openCaptureForm(
+                                "poor",
+                                poorPayload ?? undefined,
+                                captureCompleteness
+                              )}>Improve</button
+                          >
+                        </div>
+                      {/if}
+                    {/snippet}
+                  </FoodCard>
                 </div>
               {:else if isExtra(method)}
                 {@render tabContent?.(method)}
@@ -1821,6 +1742,28 @@
                               >+{labelPhotos.length - 1}</span
                             >
                           {/if}
+                        </button>
+                      {:else if offRefPhotos.length > 0}
+                        <!-- No photo of your own yet, but OFF has one: show its
+                   front shot so the slot carries the product's face instead of
+                   an empty camera box. It stays OFF's image — read-only, never
+                   merged into `labelPhotos`, never saved onto the twin — so
+                   tapping still opens the picker to add your own, and the strip
+                   above opens OFF's shots full-size. -->
+                        <button
+                          class="cf-thumb cf-thumb-off"
+                          data-testid="off-default-photo"
+                          onclick={() => fileInput?.click()}
+                          aria-label="Add your own label photo (showing the Open Food Facts photo)"
+                        >
+                          <img
+                            src={offRefPhotos[0]}
+                            alt=""
+                            class="photo-preview"
+                            loading="lazy"
+                            crossorigin="anonymous"
+                          />
+                          <span class="cf-thumb-badge">OFF</span>
                         </button>
                       {:else}
                         <button
@@ -2114,11 +2057,19 @@
                       {@const bitsOnInput = props.oninput as
                         | ((e: Event) => void)
                         | undefined}
+                      <!-- A phone capitalises the first word and offers
+                         corrections; food names are not prose, and USDA matches
+                         them literally, so both are turned off here rather than
+                         patched up downstream. -->
                       <input
                         {...props}
                         id={ids.search}
                         class="cb-input"
                         placeholder="Search foods…"
+                        autocapitalize="none"
+                        autocorrect="off"
+                        autocomplete="off"
+                        spellcheck="false"
                         value={query}
                         disabled={!hasKey}
                         oninput={(e) => {
@@ -2234,6 +2185,7 @@
        source tag, mounted off `sourceExplain` and closed back to null. -->
   <SourceExplainerSheet
     kind={sourceExplain}
+    onEdit={staged ? editStaged : undefined}
     onClose={() => (sourceExplain = null)}
   />
 {/if}
@@ -2285,172 +2237,6 @@
   .staged {
     display: flex;
     flex-direction: column;
-  }
-  .staged-head {
-    display: flex;
-    /* Title and pill share one centre line; the pill sits hard against the right
-       edge with the name on the left (space-between). */
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: var(--space-2xs);
-  }
-  .staged h3 {
-    font-size: var(--step-1);
-    font-weight: 700;
-    /* Take the row's slack so the pill is pushed to the far edge; wrap rather than
-       shove the pill off-screen on a long name. */
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-  /* Origin badge (§7) — clicking re-opens the label form to edit this entry again
-     (`editStaged`). Styled as a real brutalist button (ink edge + hard offset
-     shadow that presses on tap) so it plainly reads as tappable, not a passive
-     label. inline-flex + align-items:center centres the pencil and text on one
-     line — a plain baseline layout let the emoji's metrics push the text high in
-     the box (its glyph mid-point ≠ the box mid-point). */
-  .origin-badge {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3em;
-    font-family: inherit;
-    font-size: 0.68rem;
-    font-weight: 700;
-    line-height: 1;
-    color: var(--ink);
-    background: var(--paper);
-    border: var(--edge-thin);
-    border-radius: var(--radius);
-    padding: 0.32rem 0.5rem;
-    white-space: nowrap;
-    cursor: pointer;
-    box-shadow: var(--shadow-1);
-    transition:
-      box-shadow 0.06s ease,
-      transform 0.06s ease;
-  }
-  .origin-badge-icon {
-    /* Kill the emoji's extra vertical bearing so its optical centre matches the
-       label's — the flex row then sits dead-centre in the button box. */
-    font-size: 0.9em;
-    line-height: 1;
-  }
-  .origin-badge:hover {
-    box-shadow: var(--shadow-2);
-    transform: translate(-1px, -1px);
-  }
-  .origin-badge:active {
-    box-shadow: none;
-    transform: translate(2px, 2px);
-  }
-  .origin-badge:focus-visible {
-    outline: var(--edge);
-    outline-offset: 2px;
-  }
-  /* The name's right-hand badge cluster: the edit origin-badge (§7) and the source
-     tag (ADR-0043 §2) sit together, pushed to the far edge by the head's
-     space-between and wrapping under a long name rather than overflowing. */
-  .head-badges {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: var(--space-2xs);
-  }
-
-  /* Meta row (ADR-0043 §2): the brand sits left, the dietary + NOVA tags float
-     right against it (margin-left:auto), sharing one row. */
-  .meta-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2xs);
-    margin-top: var(--space-3xs);
-    min-height: 1.7rem;
-  }
-  .brand {
-    margin: 0;
-    color: var(--text-secondary);
-    font-size: var(--step-n1);
-    min-width: 0;
-  }
-  /* The tag cluster — floated to the right edge of the brand row. */
-  .tags {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: var(--space-2xs);
-    margin-left: auto;
-  }
-  /* The source + NOVA marks share this brutalist tag idiom (ink-edged paper chip
-     with a hard offset shadow that presses on tap — matching NovaBadge; only the
-     fill differs). Dietary marks opt out of the frame below (bare glyphs). */
-  .tag {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.34em;
-    font-family: inherit;
-    font-size: 0.68rem;
-    font-weight: 700;
-    line-height: 1;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-    color: var(--ink);
-    background: var(--paper);
-    border-radius: var(--radius);
-    padding: 0.3rem 0.5rem;
-    white-space: nowrap;
-    cursor: pointer;
-    box-shadow: var(--shadow-1);
-    transition:
-      box-shadow 0.06s ease,
-      transform 0.06s ease;
-  }
-  .tag:hover {
-    box-shadow: var(--shadow-2);
-    transform: translate(-1px, -1px);
-  }
-  .tag:active {
-    box-shadow: none;
-    transform: translate(2px, 2px);
-  }
-  .tag:focus-visible {
-    outline: var(--edge);
-    outline-offset: 2px;
-  }
-  /* The source tag's leading origin icon (◆ / ✎) — em-centred glyphs that read
-     low beside all-caps text, so lift them a hair onto the caps' optical centre. */
-  .tag-icon {
-    display: inline-flex;
-    align-items: center;
-    line-height: 1;
-    transform: translateY(-0.08em);
-  }
-  /* Dietary marks are bare placeholder glyphs (ADR-0043 §2, prototype #97) — no
-     frame, no fill, no shadow, no visible text; the short form lives in the tag's
-     title/aria-label. They still tap through to the shared dietary explainer. */
-  .tag-dietary {
-    background: none;
-    padding: 0.1rem;
-    box-shadow: none;
-  }
-  .tag-dietary:hover {
-    box-shadow: none;
-    transform: none;
-  }
-  .tag-dietary:active {
-    box-shadow: none;
-    transform: translateY(1px);
-  }
-  .tag-glyph {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: var(--step-0);
-    line-height: 1;
   }
   /* Found-but-poor nudge (§1) — soft amber, dismissible; never blocks the Log
      button beneath it. */
@@ -2732,6 +2518,12 @@
     font-weight: 800;
     line-height: 18px;
     text-align: center;
+  }
+  /* OFF's front shot standing in for a photo you haven't taken: the dashed edge
+     keeps saying "this slot is still yours to fill" while the image gives the
+     product a face. */
+  .cf-thumb-off {
+    border-style: dashed;
   }
   .cf-thumb-empty {
     display: flex;

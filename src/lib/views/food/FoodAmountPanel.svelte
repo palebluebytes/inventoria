@@ -1,5 +1,4 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
   import {
     scaleNutrition,
     type NutritionInfo,
@@ -34,7 +33,6 @@
     portions = [],
     hydrating = false,
     grams = $bindable(100),
-    badge = undefined,
   }: {
     /** The food's `nutrition/info` panel, per its serving basis. Omit for a
      *  panel-less food — then only the amount control renders. */
@@ -44,9 +42,6 @@
     /** True while a searched food's portions are still being fetched (§5). */
     hydrating?: boolean;
     grams: number;
-    /** Trailing content for the amount row — passed straight to QuantityGrams,
-     *  which renders it (see its `badge` prop for the ADR-0041/0043 rationale). */
-    badge?: Snippet;
   } = $props();
 
   // The amount total: the full panel scaled from its own basis to the typed grams.
@@ -77,7 +72,7 @@
   );
 </script>
 
-<QuantityGrams bind:grams {portions} {hydrating} {badge} />
+<QuantityGrams bind:grams {portions} {hydrating} />
 
 {#if panel}
   <!-- Macro preview (#97 prototype): a 2-column grid of thin-framed rows, each

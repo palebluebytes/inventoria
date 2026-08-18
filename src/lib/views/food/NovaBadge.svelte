@@ -78,27 +78,26 @@
 {/if}
 
 <style>
-  /* A brutalist chip: ink edge + hard offset shadow that presses on tap (matching
-     the origin badge's idiom, §5). The tone is a background fill only; foreground
-     stays ink, per the ADR-0003 palette amendment. */
+  /* A quiet mark sharing SourceTag's measurements exactly (thin edge, no offset
+     shadow, tight padding) so the two read as one row of tags above the food
+     name rather than two competing chips. The tone is a background fill only;
+     foreground stays ink, per the ADR-0003 palette amendment. */
   .nova-badge {
     flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
-    gap: 0.34em;
+    gap: 0.3em;
     font-family: inherit;
-    font-size: 0.68rem;
+    font-size: 0.6rem;
     font-weight: 700;
     line-height: 1;
     color: var(--ink);
     background: var(--paper);
+    border: var(--edge-thin);
     border-radius: var(--radius);
-    padding: 0.3rem 0.5rem;
+    padding: 0.2rem 0.36rem;
     white-space: nowrap;
-    box-shadow: var(--shadow-1);
-    transition:
-      box-shadow 0.06s ease,
-      transform 0.06s ease;
+    transition: transform 0.06s ease;
   }
   button.nova-badge {
     cursor: pointer;
@@ -120,13 +119,8 @@
     font-weight: 700;
     line-height: 1;
   }
-  button.nova-badge:hover {
-    box-shadow: var(--shadow-2);
-    transform: translate(-1px, -1px);
-  }
   button.nova-badge:active {
-    box-shadow: none;
-    transform: translate(2px, 2px);
+    transform: translate(1px, 1px);
   }
   button.nova-badge:focus-visible {
     outline: var(--edge);
@@ -146,15 +140,10 @@
   .nova-badge[data-tone="ultra"] {
     background: var(--red-bg);
   }
-  /* Not rated (ADR-0041 §2) — a quiet, greyed chip: no fill, muted ink, no
-     shadow, so it reads as an honest coverage statement, never a caution. */
+  /* Not rated (ADR-0041 §2) — quieter still: no fill, muted ink, so it reads as
+     an honest coverage statement, never a caution. */
   .nova-badge[data-tone="not-rated"] {
     background: var(--paper);
     color: var(--text-muted);
-    box-shadow: none;
-  }
-  .nova-badge[data-tone="not-rated"]:hover {
-    box-shadow: none;
-    transform: none;
   }
 </style>

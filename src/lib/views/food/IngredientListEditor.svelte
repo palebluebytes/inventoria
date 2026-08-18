@@ -4,9 +4,11 @@
     panelFromIngredients,
     nameFromIngredients,
     addOrMergeIngredient,
+    coerceAmount,
     type RecipeIngredient,
     type IngredientAddOutcome,
   } from "../../food/recipe-ingredient";
+  import { scaleAmount, type ScaleOp } from "../../food/scale-amount";
   import {
     deriveRecipeNutrition,
     deriveIngredientMacros,
@@ -19,6 +21,7 @@
   import IngredientAmountSheet from "./IngredientAmountSheet.svelte";
   import FoodItemRow from "./FoodItemRow.svelte";
   import MacroPills from "./MacroPills.svelte";
+  import ScaleControl from "./ScaleControl.svelte";
 
   // The shared ingredient-list surface behind both the recipe builder
   // (Consolidate/Define) and the instantiation editor (Instantiate/Correct):
@@ -69,6 +72,18 @@
 
   function removeIngredient(entity: string) {
     ingredients = ingredients.filter((i) => i.entity !== entity);
+  }
+  // Scale the whole list at once — halving a recipe, or doubling it for two.
+  // Only each row's `amount` moves: every displayed number (its kcal, the
+  // per-serving panel, the saved reference) already derives from that amount
+  // against the twin's real panel, so they follow without being touched. Both
+  // units scale, since a serving-unit custom ingredient is as multipliable as a
+  // gram-unit one here.
+  function scaleIngredients(factor: number, op: ScaleOp) {
+    ingredients = ingredients.map((ing) => ({
+      ...ing,
+      amount: scaleAmount(coerceAmount(ing.amount), factor, op),
+    }));
   }
   // Fold the chosen food into the list. Re-adding a food already referenced
   // merges into its row (one row per twin — the list is entity-keyed), so the
@@ -127,6 +142,15 @@
   >+ Add ingredient</button
 >
 
+<!-- List-level action, so it sits with Add rather than on any one row. Hidden
+     while the list is empty: there is nothing to scale yet. -->
+{#if ingredients.length > 0}
+  <div class="scale-row">
+    <span class="fl">Scale recipe</span>
+    <ScaleControl target="the recipe ingredients" onScale={scaleIngredients} />
+  </div>
+{/if}
+
 <!-- Yield control hidden for now — multi-serving batch semantics aren't ready to
      expose (ADR-0021 scoped them out; ADR-0022 records the model). Kept behind
      `{#if false}` (not deleted) so `recipeYield` stays bound and every recipe /
@@ -162,6 +186,7 @@
 
 {#if editingIndex !== null}
   <IngredientAmountSheet
+    payload={ingredients[editingIndex].payload}
     name={ingredients[editingIndex].name}
     amount={rowView(ingredients[editingIndex]).amount}
     portions={ingredients[editingIndex].payload.attributes["food/portions"] as
@@ -227,6 +252,16 @@
     font-size: var(--step-0);
     font-family: inherit;
     background: var(--paper);
+  }
+  .scale-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-s);
+    margin-top: var(--space-s);
+  }
+  .scale-row .fl {
+    margin: 0;
   }
   .yield-row {
     display: flex;
