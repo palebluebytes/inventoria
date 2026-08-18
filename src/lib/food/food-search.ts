@@ -1,5 +1,6 @@
 import type { EntityPayload } from "../ingestion/ingest";
 import { searchFdc } from "./usda-fdc";
+import { curatedMatches } from "./curated-foods";
 import { macrosFromNutrition, type NutritionInfo } from "./nutrition";
 import { manualEntryIsReusable, type ManualEntry } from "./provenance";
 
@@ -114,15 +115,29 @@ export function isCatalogueFood(
 }
 
 /**
- * Searches USDA FoodData Central and maps the matches to FoodResults. Throws if
- * the query is empty or nothing matched, so callers only handle the error path.
+ * Searches USDA FoodData Central and maps the matches to FoodResults, folding in
+ * any curated stand-in the query reaches (ADR-0046 §1) — a base ingredient no
+ * reference table carries, pinned to one vetted OFF record. Throws if the query
+ * is empty or nothing matched, so callers only handle the error path.
+ *
+ * An exact curated hit LEADS the list and a partial one TRAILS it, so the stand-in
+ * is the answer for "cacao nibs" without displacing USDA's cocoa powder for the
+ * broader "cocoa". USDA errors (missing key, quota, outage) still propagate
+ * untouched: a curated entry needs no key, but silently succeeding on one query
+ * while the rest of search is misconfigured would hide the real fault.
  */
 export async function searchUsdaFoods(query: string): Promise<FoodResult[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
+  const curated = curatedMatches(trimmed);
   const payloads = await searchFdc(trimmed);
-  if (payloads.length === 0) {
+  const results = [
+    ...curated.filter((m) => m.exact),
+    ...payloads.map((payload) => ({ payload, exact: false })),
+    ...curated.filter((m) => !m.exact),
+  ].map(({ payload }) => mapPayloadToFoodResult(payload));
+  if (results.length === 0) {
     throw new Error("No foods found matching your query.");
   }
-  return payloads.map(mapPayloadToFoodResult);
+  return results;
 }

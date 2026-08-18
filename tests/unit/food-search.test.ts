@@ -1,8 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   isPoorFoodTwin,
   isCatalogueFood,
+  searchUsdaFoods,
 } from "../../src/lib/food/food-search";
+import { searchFdc } from "../../src/lib/food/usda-fdc";
 import type { NutritionInfo } from "../../src/lib/food/nutrition";
 import { buildManualEntry } from "../../src/lib/food/provenance";
 
@@ -162,5 +164,64 @@ describe("isCatalogueFood", () => {
 
   it("drops a whole-serving food with no manual-entry (label capture / legacy custom)", () => {
     expect(isCatalogueFood({ "twin/brand": "Acme" }, "serving")).toBe(false);
+  });
+});
+
+// ── Curated stand-ins folded into search (ADR-0046 §1) ──────────────────────
+// The merge order is the whole behaviour: an exact curated hit LEADS so "cacao
+// nibs" answers with the stand-in, and a partial one TRAILS so a broad "cocoa"
+// never displaces USDA's cocoa powder. `searchFdc` is stubbed because the real
+// one needs a key and a network; what is under test is the ordering, not USDA.
+
+vi.mock("../../src/lib/food/usda-fdc", () => ({
+  searchFdc: vi.fn(),
+}));
+
+const usdaFood = (entity: string, name: string) => ({
+  entity,
+  attributes: {
+    "food/name": name,
+    "nutrition/info": { serving_size: "100 g", calories: 228 },
+  },
+});
+
+describe("searchUsdaFoods with curated stand-ins", () => {
+  // Every case sets its own implementation with `mockImplementation(async …)`.
+  // `mockResolvedValue` is avoided deliberately: in Vitest 4 it makes a later
+  // case's rejection surface as an unhandled one, which reads as a failure in
+  // the code under test rather than in the harness.
+  const stubFdc = (impl: () => Promise<unknown[]>) =>
+    vi.mocked(searchFdc).mockImplementation(impl as typeof searchFdc);
+
+  it("leads with the stand-in when the query IS the food", async () => {
+    stubFdc(async () => []);
+    const results = await searchUsdaFoods("cacao nibs");
+    expect(results.map((r) => r.entity)).toEqual(["gtin:5400706613279"]);
+    expect(results[0].name).toBe("Cacao Nibs");
+  });
+
+  it("puts a partial hit BEHIND the USDA results", async () => {
+    stubFdc(async () => [usdaFood("fdc:1", "Cocoa, dry powder, unsweetened")]);
+    const results = await searchUsdaFoods("cocoa");
+    expect(results.map((r) => r.entity)).toEqual([
+      "fdc:1",
+      "gtin:5400706613279",
+    ]);
+  });
+
+  it("still throws when neither USDA nor the curated list has anything", async () => {
+    stubFdc(async () => []);
+    await expect(searchUsdaFoods("gorgonzola nibs of the sea")).rejects.toThrow(
+      "No foods found"
+    );
+  });
+
+  it("lets a USDA failure propagate rather than masking it with a stand-in", async () => {
+    // A missing key or exhausted quota is a real fault the user must see, even
+    // on a query the curated list could have answered by itself.
+    stubFdc(async () => {
+      throw new Error("USDA API rate limit reached.");
+    });
+    await expect(searchUsdaFoods("cacao nibs")).rejects.toThrow("rate limit");
   });
 });
