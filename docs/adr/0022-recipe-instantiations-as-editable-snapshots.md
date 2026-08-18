@@ -194,3 +194,26 @@ is brought in line with the other add flows.
   "Creates twin: yes · Logs instantiation: **yes** · Retracts source foods: no".
 - No storage/model change — same snapshot shape and `{ ref, amount, unit }`
   references; only the mode guard in `RecipeModal.handleSave` widened.
+
+## Amendment (servings control exposed): the yield input returns
+
+The decision above records the model in full but notes that the yield _input_ is
+hidden in the UI, so newly-created recipes and instantiations are single-serving
+"until the control returns". It has returned, as **Servings**.
+
+- **The recipe surface asks how many servings the batch makes**
+  (`IngredientListEditor`, labelled "Makes (servings)"), bound to the same
+  `recipeYield` the derivation and `saveRecipe` already read. Nothing in the model
+  changes: `recipe/yield` still defaults to 1, the divided invariant
+  (`headline == Σrows ÷ yield`) is unchanged, and the rows still carry the batch.
+- **It replaces a ×/÷ scaler on the ingredient amounts.** Halving every amount by
+  hand was only ever a way of saying "this makes fewer" — an operation that
+  rewrote the ingredients to express a fact about the batch. Asking for the fact
+  directly leaves the amounts as the cook entered them, which is what the frozen
+  rows are supposed to record ("record exactly what I made — its ingredients,
+  amounts, yield"). The ×/÷ control remains on the dashboard's selection bar,
+  where it means what it says: rescale foods actually logged.
+- **A logging still records one serving.** `logRecipeConsumption` freezes the
+  per-serving snapshot, so a recipe that makes four puts a quarter of the batch on
+  the day — the behaviour the model always specified and the "/ serving" labels
+  always claimed.

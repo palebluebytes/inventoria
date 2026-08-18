@@ -4,11 +4,9 @@
     panelFromIngredients,
     nameFromIngredients,
     addOrMergeIngredient,
-    coerceAmount,
     type RecipeIngredient,
     type IngredientAddOutcome,
   } from "../../food/recipe-ingredient";
-  import { scaleAmount, type ScaleOp } from "../../food/scale-amount";
   import {
     deriveRecipeNutrition,
     deriveIngredientMacros,
@@ -21,12 +19,12 @@
   import IngredientAmountSheet from "./IngredientAmountSheet.svelte";
   import FoodItemRow from "./FoodItemRow.svelte";
   import MacroPills from "./MacroPills.svelte";
-  import ScaleControl from "./ScaleControl.svelte";
 
   // The shared ingredient-list surface behind both the recipe builder
   // (Consolidate/Define) and the instantiation editor (Instantiate/Correct):
   // an editable list of {name · inline amount · unit · live kcal · remove}, an
-  // add-ingredient action, a yield control, and a live per-serving panel. Every
+  // add-ingredient action, a servings (yield) control, and a live per-serving
+  // panel. Every
   // number is DERIVED from each ingredient's real `nutrition/info` panel via the
   // one food-domain formula (ADR-0021), so a displayed row can never rot against
   // its `amount`. The inline amount editor is #9, reused here rather than
@@ -72,18 +70,6 @@
 
   function removeIngredient(entity: string) {
     ingredients = ingredients.filter((i) => i.entity !== entity);
-  }
-  // Scale the whole list at once — halving a recipe, or doubling it for two.
-  // Only each row's `amount` moves: every displayed number (its kcal, the
-  // per-serving panel, the saved reference) already derives from that amount
-  // against the twin's real panel, so they follow without being touched. Both
-  // units scale, since a serving-unit custom ingredient is as multipliable as a
-  // gram-unit one here.
-  function scaleIngredients(factor: number, op: ScaleOp) {
-    ingredients = ingredients.map((ing) => ({
-      ...ing,
-      amount: scaleAmount(coerceAmount(ing.amount), factor, op),
-    }));
   }
   // Fold the chosen food into the list. Re-adding a food already referenced
   // merges into its row (one row per twin — the list is entity-keyed), so the
@@ -142,32 +128,24 @@
   >+ Add ingredient</button
 >
 
-<!-- List-level action, so it sits with Add rather than on any one row. Hidden
-     while the list is empty: there is nothing to scale yet. -->
-{#if ingredients.length > 0}
-  <div class="scale-row">
-    <span class="fl">Scale recipe</span>
-    <ScaleControl target="the recipe ingredients" onScale={scaleIngredients} />
-  </div>
-{/if}
-
-<!-- Yield control hidden for now — multi-serving batch semantics aren't ready to
-     expose (ADR-0021 scoped them out; ADR-0022 records the model). Kept behind
-     `{#if false}` (not deleted) so `recipeYield` stays bound and every recipe /
-     instantiation is single-serving until this returns. -->
-{#if false}
-  <div class="yield-row">
-    <label class="fl" for="recipe-yield">Yield (servings)</label>
-    <input
-      id="recipe-yield"
-      class="tin yield-in"
-      type="number"
-      inputmode="numeric"
-      min="1"
-      bind:value={recipeYield}
-    />
-  </div>
-{/if}
+<!-- Servings — schema.org `recipeYield` (ADR-0021), the number the whole surface
+     is read against: the ingredient amounts above are the BATCH as it goes in the
+     pot, and everything headline (the kcal beside "Ingredients", the per-serving
+     panel below, what one logging records) is that batch divided by this. Asking
+     for it here, beside the list it divides, is why the list no longer offers a
+     ×/÷ on the amounts: "this makes four" is the thing a cook actually knows,
+     and halving every ingredient by hand was only ever a way of saying it. -->
+<div class="yield-row">
+  <label class="fl" for="recipe-yield">Makes (servings)</label>
+  <input
+    id="recipe-yield"
+    class="tin yield-in"
+    type="number"
+    inputmode="numeric"
+    min="1"
+    bind:value={recipeYield}
+  />
+</div>
 
 <div class="per-serving" data-testid="per-serving">
   <span class="fl">Per serving</span>
@@ -252,16 +230,6 @@
     font-size: var(--step-0);
     font-family: inherit;
     background: var(--paper);
-  }
-  .scale-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-s);
-    margin-top: var(--space-s);
-  }
-  .scale-row .fl {
-    margin: 0;
   }
   .yield-row {
     display: flex;
