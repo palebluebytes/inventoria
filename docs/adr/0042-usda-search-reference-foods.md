@@ -2,6 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-07  
+**Amended by:** ADR-0045 §2 (§6's "dedup keeps preferring Foundation" becomes a fill-only merge)  
 **Implemented:** `dabb1fe`, `082ad31`, `fcb3b60`, `1365343`; `src/lib/food/food-search.ts`
 
 ## Context
@@ -110,6 +111,11 @@ discontinued and noisier, but ~89% of the raw base foods — and the only copy o
 common ones (spinach, lentils, mushroom, tuna) — live there; Foundation alone is
 ~400 records. Dedup keeps preferring Foundation (ADR-0030). SR Legacy's noise is
 handled by the filters above, not by dropping the dataset.
+
+> **Amendment (2026-08-18):** "Dedup keeps preferring Foundation" is superseded by
+> **ADR-0045** §2: the two records are merged fill-only instead, with Foundation as
+> the base. Keeping both datasets — the decision this section actually makes — is
+> unchanged and is now load-bearing for the panel, not just for coverage.
 
 ## Consequences
 

@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-07-29  
-**Amended by:** ADR-0042 (see the amendment below)  
+**Amended by:** ADR-0042 (see the amendment below); ADR-0045 (the Foundation/SR dedup fills from the twin instead of discarding it)  
 **Implemented:** `fa43de4`, `e385044`, `0ac469e`, `712b8f5`; `portionPresets` in `QuantityGrams.svelte`
 
 ## Context
@@ -158,6 +158,15 @@ occasionally reuses one `ndbNumber` across genuinely distinct foods (e.g. ndb 95
 spans a Foundation "honeycrisp" and an SR Legacy "golden delicious" apple), which
 this collapses; a description-token-similarity guard is the fix if that proves
 noticeable.
+
+> **Amendment (2026-08-18):** Dedup no longer discards the losing record. Foundation
+> and SR Legacy records sharing an `ndbNumber` are MERGED fill-only — Foundation
+> stays the base and the twin supplies only the panel fields it lacks — because
+> "preferring Foundation" was keeping the sparser of the two records (45% of
+> Foundation carries no fibre). See **ADR-0045**. The `ndbNumber` key, the
+> description fallback and the in-memory-only scope described here are unchanged;
+> the varietal-collision limitation is now handled by naming every borrowed value
+> in provenance rather than by a similarity guard.
 
 ## Consequences
 
