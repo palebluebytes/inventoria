@@ -103,10 +103,19 @@
   /* Square corner */
   --radius: 0;
 
-  /* Elevation — solid un-blurred offset; 3 steps */
-  --shadow-1: 2px 2px 0 var(--ink);
-  --shadow-2: 4px 4px 0 var(--ink);
-  --shadow-3: 8px 8px 0 var(--ink);
+  /* Elevation — solid un-blurred offset; 3 steps. Each is written as a smaller
+     offset plus a 1px spread (1+1, 3+1, 7+1) rather than a flush 2/4/8, so the
+     shadow reaches exactly as far as before while running a whole pixel UNDER
+     the element's own edge instead of abutting it. Abutting edges land on a
+     fractional device pixel whenever the fluid type/space scale gives an element
+     a fractional height or offset: border and shadow are each antialiased to
+     partial coverage and composite to a pale seam, so the frame reads thin on
+     whichever elements happen to fall off-pixel. The overlap is covered by the
+     element's own border or fill, which is why a surface carrying one of these
+     wants an opaque background. */
+  --shadow-1: 1px 1px 0 1px var(--ink);
+  --shadow-2: 3px 3px 0 1px var(--ink);
+  --shadow-3: 7px 7px 0 1px var(--ink);
 
   /* ── Font ──────────────────────────────────────────────────────────────── */
   font-family:
