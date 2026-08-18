@@ -1341,7 +1341,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // The builder derives per-serving nutrition, not batch totals. Yield defaults
     // to 1, so per-serving equals the batch: oats 189.5 + banana 133.5 = 323.
     const perServingCal = page.locator(
-      '[data-testid="per-serving"] .cal .pill-val'
+      '[data-testid="per-serving"] .nutrient-calories strong'
     );
     await expect(page.locator("#recipe-yield")).toHaveValue("1");
     await expect(perServingCal).toHaveText("323 kcal");
@@ -1384,7 +1384,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // Seeded with oats 50 g (189.5) + banana 150 g (133.5); yield 1 → 323 per serving.
     const perServingCal = page.locator(
-      '[data-testid="per-serving"] .cal .pill-val'
+      '[data-testid="per-serving"] .nutrient-calories strong'
     );
     await expect(perServingCal).toHaveText("323 kcal");
     await expect(page.locator(".recipe-total")).toContainText("323 kcal");

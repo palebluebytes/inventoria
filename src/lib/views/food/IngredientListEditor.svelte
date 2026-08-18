@@ -15,12 +15,11 @@
   } from "../../food/recipe-nutrition";
   import { roundFoodDisplay, type Portion } from "../../food/nutrition";
   import { scaleAmount } from "../../food/scale-amount";
-  import { buildNutrientPills } from "../../food/nutrient-display";
   import { nutritionDisplayDecimals } from "../../stores/settings.store";
   import AddIngredientSheet from "./AddIngredientSheet.svelte";
   import IngredientAmountSheet from "./IngredientAmountSheet.svelte";
   import FoodItemRow from "./FoodItemRow.svelte";
-  import MacroPills from "./MacroPills.svelte";
+  import NutrientPreview from "./NutrientPreview.svelte";
 
   // The shared ingredient-list surface behind both the recipe builder
   // (Consolidate/Define) and the instantiation editor (Instantiate/Correct):
@@ -210,15 +209,14 @@
   {/if}
 </div>
 
+<!-- The derived figures, shown through the SAME preview a food's card uses
+     (NutrientPreview): the tracked nutrients as a grid, the rest of the panel
+     behind the full-nutrition disclosure. A recipe's numbers are derived rather
+     than read off a source panel, but there is no reason to read them
+     differently — the old three-macro pill row showed strictly less. -->
 <div class="per-serving" data-testid="per-serving">
   <span class="fl">{figuresLabel}</span>
-  <MacroPills
-    pills={buildNutrientPills(
-      perServing,
-      ["protein", "fat", "carbs"],
-      $nutritionDisplayDecimals
-    )}
-  />
+  <NutrientPreview breakdown={perServing} testid="recipe-nutrient-breakdown" />
 </div>
 
 {#if showAdd}

@@ -5,16 +5,8 @@
     type Portion,
   } from "../../food/nutrition";
   import { parseServingGrams } from "../../food/recipe-nutrition";
-  import {
-    buildNutrientPills,
-    buildNutrientBreakdown,
-  } from "../../food/nutrient-display";
-  import {
-    settingsStore,
-    nutritionDisplayDecimals,
-  } from "../../stores/settings.store";
   import QuantityGrams from "./QuantityGrams.svelte";
-  import NutrientBreakdown from "./NutrientBreakdown.svelte";
+  import NutrientPreview from "./NutrientPreview.svelte";
 
   // The shared amount-and-preview body of a food: the basis caption ("Per 100 g"
   // or "Per serving (30 g)"), the gram QuantityGrams control (with any household
@@ -49,73 +41,21 @@
     panel ? grams / parseServingGrams(panel.serving_size) : 0
   );
   let breakdown = $derived(scaleNutrition(panel, factor));
-  // The preview grid shows Calories plus every tracked nutrient (`visible_nutrients`)
-  // the food has a real amount of — hideEmpty drops both absent nutrients (no data,
-  // e.g. a food that never measured fibre) AND declared/scaled zeros (OFF's olive
-  // oil reports 0 g protein/carbs/fibre), so the grid stays the "meaningfully
-  // present" set. Anything NOT tracked but present drops to full nutrition below.
-  let pills = $derived(
-    buildNutrientPills(
-      breakdown,
-      $settingsStore.visible_nutrients,
-      $nutritionDisplayDecimals,
-      true
-    )
-  );
-  // The disclosure carries what the food actually has that ISN'T already in the
-  // grid: hide missing/zero rows, and exclude whatever the grid shows (Calories +
-  // the tracked pills), so a non-tracked nutrient the food carries surfaces here
-  // and nothing is ever shown twice.
-  let pillKeys = $derived(new Set(pills.map((p) => p.key)));
-  let fullRows = $derived(
-    buildNutrientBreakdown(breakdown, $nutritionDisplayDecimals, true, pillKeys)
-  );
 </script>
 
 <QuantityGrams bind:grams {portions} {hydrating} />
 
 {#if panel}
-  <!-- Macro preview (#97 prototype): a 2-column grid of thin-framed rows, each
-       reading label → value on one line (e.g. "Energy   634 kcal"). Values come
-       from buildNutrientPills (Calories always leads, then the visible nutrients
-       the food actually carries — same hideEmpty behaviour); only the layout
-       differs from the old pill row. -->
+  <!-- The shared preview (#97 prototype): the tracked figures as a 2-column grid,
+       the rest behind the full-nutrition disclosure. The recipe surface shows its
+       derived figures through the very same component. -->
   <div class="preview">
-    <div class="nutrients">
-      {#each pills as pill (pill.key)}
-        <div class="n">
-          <span>{pill.label}</span><strong>{pill.value}</strong>
-        </div>
-      {/each}
-    </div>
-  </div>
-  <div class="full-panel">
-    <NutrientBreakdown rows={fullRows} testid="food-nutrient-breakdown" />
+    <NutrientPreview {breakdown} testid="food-nutrient-breakdown" />
   </div>
 {/if}
 
 <style>
   .preview {
     margin-top: var(--space-m);
-  }
-  /* Two-column macro grid: each cell a thin-framed row, label left, value right. */
-  .nutrients {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-3xs);
-  }
-  .n {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--space-2xs);
-    border: var(--edge-thin);
-    padding: var(--space-3xs) var(--space-2xs);
-    font-size: var(--step-n1);
-  }
-  .n strong {
-    font-weight: 700;
-  }
-  .full-panel {
-    margin-top: var(--space-s);
   }
 </style>
