@@ -12,6 +12,7 @@
     "lint:css": "stylelint \"src/**/*.{css,svelte}\"",
     "test:unit": "vitest run tests/unit",
     "usda:backup": "node scripts/usda-backup.mjs",
+    "curated:check": "node scripts/curated-snapshot-check.mjs",
     "test:e2e": "playwright test",
     "prepare": "husky"
   },
