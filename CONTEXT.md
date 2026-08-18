@@ -36,6 +36,10 @@ _Avoid_: Product, item, asset
 A generic, non-branded, standardised food entry — what the USDA FoodData Central search (Foundation + SR Legacy) returns and is _for_. Includes both raw whole foods and generic prepared staples (coffee, croissant, cheddar). This is the set the food search keeps; Brand-specific foods, packaged products, and Composite dishes are excluded from it and reached instead via the Open Food Facts barcode path (ADR-0034). See ADR-0042.
 _Avoid_: Generic food, USDA food, ingredient (when a prepared reference item is meant)
 
+**Curated stand-in**:
+One specific Open Food Facts product, pinned by hand, answering a search for a base ingredient that **no** composition table carries — not USDA Foundation, SR Legacy or Survey, not CIQUAL. Cacao nibs is the founding case. It is an enumerable exception list against a coverage hole, never a second composition table: the entity stays the real barcode, the origin still reads OFF, and the substitution is disclosed rather than hidden. Admission is evidential and the list is capped. See ADR-0046.
+_Avoid_: Curated food, fallback food, default food, custom food (which means a user's own entry)
+
 **Base ingredient**:
 A raw or minimally-processed single whole food (an apple, raw spinach, dry rice) — a _subset_ of Reference food. Base ingredients rank first in the food search (raw-forward ordering). See ADR-0042.
 _Avoid_: Whole food, raw food (as a category name), ingredient
