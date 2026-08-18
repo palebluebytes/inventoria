@@ -1,0 +1,114 @@
+# Have the curated stand-ins' pinned OFF records moved?
+#
+# ADR-0046 §4 snapshots each curated stand-in's Open Food Facts record into the
+# repo rather than fetching it per search, and accepts silent staleness as the
+# cost: a snapshot that drifts is "wrong slowly and visibly at review, where a
+# live value is wrong instantly and invisibly". Visible at review only happens if
+# something looks, and nothing about an OFF edit — or a delisting — announces
+# itself here. This is what looks.
+#
+# Quarterly, like usda-mirror-check, but for a different reason: OFF has no
+# release calendar to time a check against, since anyone may edit a record at any
+# moment. What sets the cadence is the cost of being wrong. A stand-in stands in
+# for a base ingredient a user weighs into recipes, so a moved panel matters; but
+# it is one hand-vetted record per entry, changing rarely, and a monthly job would
+# mostly report that nothing happened. Four looks a year bound the staleness to a
+# quarter and keep the signal worth reading.
+name: curated-snapshot-check
+
+on:
+  schedule:
+    # 10:00 UTC on the 15th of January, April, July and October — mid-month and
+    # mid-quarter, deliberately clear of usda-mirror-check's 1st-of-the-month
+    # slot so two issue-filing jobs never land the same morning.
+    - cron: "0 10 15 1,4,7,10 *"
+  workflow_dispatch:
+
+# The job reads the repo and files an issue. Nothing else — and in particular it
+# never writes back a corrected snapshot, which is the whole point of ADR-0046 §4.
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # No Nix and no pnpm install here, unlike the e2e workflow: the script is
+      # plain Node built-ins with no dependencies, and it reads the curated table
+      # straight out of its TypeScript module, which is kept type-import-only so
+      # the runner's own Node can load it. The whole job finishes in seconds.
+      - name: Re-fetch each pinned barcode and diff it against the snapshot
+        id: check
+        run: |
+          set +e
+          output=$(node scripts/curated-snapshot-check.mjs 2>&1)
+          status=$?
+          echo "$output"
+          {
+            echo "report<<REPORT"
+            echo "$output"
+            echo "REPORT"
+          } >> "$GITHUB_OUTPUT"
+          echo "drifted=$([ $status -eq 0 ] && echo false || echo true)" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      # One open issue at a time. A quarterly job that filed a fresh issue every
+      # run would bury the first report under duplicates while the re-vetting is
+      # still outstanding.
+      - name: File an issue when a pinned record has moved
+        if: steps.check.outputs.drifted == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPORT: ${{ steps.check.outputs.report }}
+        run: |
+          gh label create curated-snapshot \
+            --description "The pinned OFF records behind the curated stand-ins" \
+            --color BFD4F2 --force
+
+          # The prose sits in quoted heredocs so the markdown reaches the issue
+          # exactly as written — backticks and all — with only $REPORT expanded,
+          # between them.
+          {
+            cat <<'INTRO'
+          The quarterly check found that a barcode pinned in `src/lib/food/curated-stand-ins.ts` no longer matches the snapshot beside it.
+
+          ```
+          INTRO
+            echo "$REPORT"
+            cat <<'OUTRO'
+          ```
+
+          Nothing has been rewritten, and nothing will be: ADR-0046 §4 snapshots these values precisely so an editable third-party number cannot change a panel unseen, and a job that pulled the new one in silently would undo that. Drift is a prompt to re-vet.
+
+          To clear it, re-run ADR-0046 §2 for the entry — the absence proven across the complete archives, the single-ingredient text, the cross-product consensus, the independent corroboration — and then either update the `snapshot` and its `captured` date by hand, pin a different record that still clears the bar, or drop the entry. `GONE` is the case with no snapshot to update: the product behind the stand-in has been delisted while search keeps answering from it.
+
+          An `UNCHECKED` line means the run never reached OFF. That is the check needing a fix rather than the table.
+          OUTRO
+          } > issue-body.md
+
+          existing=$(gh issue list --state open --label curated-snapshot --limit 1 --json number --jq '.[].number')
+          if [ -n "$existing" ]; then
+            echo "Issue #$existing is already open; adding a comment instead."
+            {
+              cat <<HEAD
+          Still drifted as of $(date -u +%Y-%m-%d):
+
+          \`\`\`
+          HEAD
+              echo "$REPORT"
+              cat <<'TAIL'
+          ```
+          TAIL
+            } > comment-body.md
+            gh issue comment "$existing" --body-file comment-body.md
+            exit 0
+          fi
+          gh issue create \
+            --title "A curated stand-in's pinned OFF record has moved" \
+            --label curated-snapshot \
+            --body-file issue-body.md
