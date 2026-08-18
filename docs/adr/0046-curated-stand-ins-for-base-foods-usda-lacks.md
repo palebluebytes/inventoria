@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-18  
-**Implemented:** #109
+**Implemented:** #109 `38b9a0e` (data spine), `70ff025` (disclosure); `src/lib/food/curated-foods.ts`
 
 This record amends [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md) §1 (USDA is the only base-food source) and [ADR-0042](0042-usda-search-reference-foods.md) §3 (a brand-specific record is always dropped from search).
 
