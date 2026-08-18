@@ -236,7 +236,11 @@ hidden in the UI, so newly-created recipes and instantiations are single-serving
   form, `headline == Σrows`, and the rows record what was eaten rather than what
   was cooked. The batch and what it makes remain on the template, which is where
   a cook looks for them.
-- **The derived figures are named for what they are.** On the instantiation
-  surface the rows are scaled to the servings being had, so the panel reads "This
-  entry" rather than "Per serving" — at two servings the latter would be a plain
-  lie.
+- **The editing surfaces show the sum of the rows on screen, undivided.** A
+  builder headed "46 kcal / serving" over two rows totalling 185 read as an
+  arithmetic error, and only reconciled if the reader noticed the suffix — the
+  labelling this ADR relied on was doing more work than labelling can. Both
+  surfaces now show Σ of what is listed, named for what that is: "Recipe total"
+  while defining (the yield is recorded on the template and divides at LOG time,
+  moving nothing on screen) and "This entry" while instantiating (where the rows
+  are already scaled to the serving count). The stored snapshot is unchanged.

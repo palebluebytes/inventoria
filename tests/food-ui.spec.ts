@@ -1338,30 +1338,30 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     const dinnerSection = await selectTwoAndBuild(page);
     await page.locator("#recipe-name").fill("Dinner Combo");
 
-    // The builder derives per-serving nutrition, not batch totals. Yield defaults
-    // to 1, so per-serving equals the batch: oats 189.5 + banana 133.5 = 323.
-    const perServingCal = page.locator(
-      '[data-testid="per-serving"] .nutrient-calories strong'
+    // The builder's figures are the recipe as listed: oats 189.5 + banana 133.5
+    // = 323, whatever the serving count says.
+    const figuresCal = page.locator(
+      '[data-testid="recipe-figures"] .nutrient-calories strong'
     );
     await expect(page.locator("#recipe-yield")).toHaveValue("1");
-    await expect(perServingCal).toHaveText("323 kcal");
+    await expect(figuresCal).toHaveText("323 kcal");
     await expect(page.locator(".recipe-total")).toContainText("323 kcal");
 
-    // Raising the yield halves the per-serving totals live — no save needed.
+    // Saying the batch makes 2 moves nothing on this surface — not the amounts,
+    // not the figures. It is recorded on the template and divides at log time.
     await page.locator("#recipe-yield").fill("2");
-    await expect(perServingCal).toHaveText("161.5 kcal"); // 323 / 2
-    await expect(page.locator(".recipe-total")).toContainText("161.5 kcal");
+    await expect(figuresCal).toHaveText("323 kcal");
+    await expect(page.locator(".recipe-total")).toContainText("323 kcal");
 
-    // Removing an ingredient re-derives live too, composing with the yield:
-    // just oats now, 189.5 / 2 = 94.75 per serving.
+    // Removing an ingredient does re-derive them live: just oats now.
     await page
       .locator(".recipe-ingredient", { hasText: "Mock Banana" })
       .locator(".fi-remove")
       .click();
-    await expect(perServingCal).toHaveText("94.75 kcal");
+    await expect(figuresCal).toHaveText("189.5 kcal");
 
-    // Save at yield 2: the frozen snapshot is the 95 kcal per-serving figure the
-    // builder showed. Oats (still an ingredient) is replaced/retracted; Banana
+    // Save at yield 2: the log records ONE serving, so the frozen snapshot is
+    // the listed 189.5 divided by the 2 the batch makes. Oats (still an ingredient) is replaced/retracted; Banana
     // (removed from the builder) stays logged on its own.
     await page.locator("#save-recipe-btn").click();
 
@@ -1383,10 +1383,10 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.locator("#recipe-name").fill("Dinner Combo");
 
     // Seeded with oats 50 g (189.5) + banana 150 g (133.5); yield 1 → 323 per serving.
-    const perServingCal = page.locator(
-      '[data-testid="per-serving"] .nutrient-calories strong'
+    const figuresCal = page.locator(
+      '[data-testid="recipe-figures"] .nutrient-calories strong'
     );
-    await expect(perServingCal).toHaveText("323 kcal");
+    await expect(figuresCal).toHaveText("323 kcal");
     await expect(page.locator(".recipe-total")).toContainText("323 kcal");
 
     // The oats row shows a "50g" quantity subtitle; tapping the row opens the
@@ -1413,7 +1413,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.locator(".amount-sheet")).toBeHidden();
     await expect(oatsQty).toHaveText("100g");
     await expect(oatsRow).toContainText("379 kcal");
-    await expect(perServingCal).toHaveText("512.5 kcal"); // 379 + 133.5
+    await expect(figuresCal).toHaveText("512.5 kcal"); // 379 + 133.5
     await expect(page.locator(".recipe-total")).toContainText("512.5 kcal");
 
     // Save (yield 1): the frozen snapshot reflects the edited amounts. Both

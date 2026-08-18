@@ -11,7 +11,6 @@
   import {
     deriveRecipeNutrition,
     deriveIngredientMacros,
-    sanitizeYield,
   } from "../../food/recipe-nutrition";
   import { roundFoodDisplay, type Portion } from "../../food/nutrition";
   import { scaleAmount } from "../../food/scale-amount";
@@ -24,7 +23,8 @@
   // The shared ingredient-list surface behind both the recipe builder
   // (Consolidate/Define) and the instantiation editor (Instantiate/Correct):
   // an editable list of {name · inline amount · unit · live kcal · remove}, an
-  // add-ingredient action, a servings control, and a live per-serving panel.
+  // add-ingredient action, a servings control, and the live figures for what is
+  // listed.
   // Every number is DERIVED from each ingredient's real `nutrition/info` panel via the
   // one food-domain formula (ADR-0021), so a displayed row can never rot against
   // its `amount`. The inline amount editor is #9, reused here rather than
@@ -43,8 +43,9 @@
      * genuinely different questions of the same number:
      *
      *  • `makes` — defining the recipe: "this batch makes N servings". It binds
-     *    `recipeYield`, so raising it divides the batch into more, smaller
-     *    servings and the amounts stand still.
+     *    `recipeYield`, which is recorded on the template and divides the batch
+     *    at LOG time; it moves nothing on this surface, neither the amounts nor
+     *    the figures, which describe the recipe as listed.
      *  • `portions` — instantiating one: "I am having N servings". The recipe's
      *    yield is already settled, so the number scales the AMOUNTS instead —
      *    two servings of a recipe is twice the ingredients, and the logged
@@ -78,20 +79,17 @@
     }));
   }
 
-  // What the derived figures ARE on this surface. Defining a recipe divides the
-  // batch by its yield, so they are one serving. Instantiating scales the rows to
-  // the servings being had, so they are this entry's total — calling that "per
-  // serving" while the user sits at 2 servings would be a plain lie.
+  // What the figures ARE: the whole recipe as listed while defining it, and the
+  // portion being logged while instantiating one (where the rows have already
+  // been scaled to the serving count). Either way they are the sum of what is on
+  // screen, so neither label promises a division that isn't happening.
   let figuresLabel = $derived(
-    servingsMode === "makes" ? "Per serving" : "This entry"
+    servingsMode === "makes" ? "Recipe total" : "This entry"
   );
-  let figuresSuffix = $derived(servingsMode === "makes" ? " / serving" : "");
 
   let showAdd = $state(false);
   // The row whose amount is being edited in the picker sheet, by list index.
   let editingIndex = $state<number | null>(null);
-
-  let yieldNum = $derived(sanitizeYield(recipeYield));
 
   // Pure {ref, amount, unit} references — the shape the derivation reads.
   let referenceIngredients = $derived(ingredients.map(toReferenceIngredient));
@@ -100,10 +98,15 @@
   const resolvePanel = (ref: string) => panelFromIngredients(ingredients, ref);
   const resolveName = (ref: string) => nameFromIngredients(ingredients, ref);
 
-  // Live per-serving macros via the SAME derivation the Consumption projection
-  // and log-time snapshot use: Σ(panel × amount ÷ serving_size) ÷ yield.
-  let perServing = $derived(
-    deriveRecipeNutrition(referenceIngredients, yieldNum, resolvePanel)
+  // The figures describe the ingredients ON SCREEN: Σ(panel × amount ÷
+  // serving_size) over the rows, via the same derivation the projection and the
+  // log-time snapshot use — but never divided. Dividing by the serving count
+  // made the header disagree with the list under it (two rows totalling 185 kcal
+  // headed "46 kcal") and the arithmetic only reconciled if you noticed a "/
+  // serving" suffix. What the yield divides is what gets LOGGED, which is the
+  // saving surface's business, not this list's.
+  let visibleTotal = $derived(
+    deriveRecipeNutrition(referenceIngredients, 1, resolvePanel)
   );
   // A row's derived display: the clean {ref, amount, unit} (its `amount` coerced
   // once at this boundary, since the inline editor's numeric input is briefly
@@ -141,10 +144,10 @@
 <div class="ing-head">
   <span class="fl">Ingredients ({ingredients.length})</span>
   <span class="tot recipe-total"
-    >{roundFoodDisplay(perServing.calories, $nutritionDisplayDecimals)} kcal · {roundFoodDisplay(
-      perServing.protein,
+    >{roundFoodDisplay(visibleTotal.calories, $nutritionDisplayDecimals)} kcal · {roundFoodDisplay(
+      visibleTotal.protein,
       $nutritionDisplayDecimals
-    )}g P{figuresSuffix}</span
+    )}g P</span
   >
 </div>
 <ul class="ings">
@@ -178,9 +181,9 @@
 
 <!-- Servings — the number the whole surface is read against, asked in the terms
      of whichever verb brought the user here (see `servingsMode`). Defining a
-     recipe asks what the batch MAKES (schema.org `recipeYield`, ADR-0021) and
-     divides by it; instantiating one asks how many servings this occasion is and
-     scales the amounts to match. Either way it sits beside the list it governs,
+     recipe asks what the batch MAKES (schema.org `recipeYield`, ADR-0021), which
+     is recorded on the template and divides it at log time; instantiating one
+     asks how many servings this occasion is and scales the amounts to match. Either way it sits beside the list it governs,
      which is why the list no longer offers a ×/÷ on individual amounts: the
      serving count is the thing a cook actually knows, and rescaling every
      ingredient by hand was only ever a way of saying it. -->
@@ -214,9 +217,12 @@
      behind the full-nutrition disclosure. A recipe's numbers are derived rather
      than read off a source panel, but there is no reason to read them
      differently — the old three-macro pill row showed strictly less. -->
-<div class="per-serving" data-testid="per-serving">
+<div class="recipe-figures" data-testid="recipe-figures">
   <span class="fl">{figuresLabel}</span>
-  <NutrientPreview breakdown={perServing} testid="recipe-nutrient-breakdown" />
+  <NutrientPreview
+    breakdown={visibleTotal}
+    testid="recipe-nutrient-breakdown"
+  />
 </div>
 
 {#if showAdd}
@@ -307,10 +313,10 @@
     text-align: center;
     font-weight: 700;
   }
-  .per-serving {
+  .recipe-figures {
     margin-top: var(--space-s);
   }
-  .per-serving .fl {
+  .recipe-figures .fl {
     margin: 0 0 var(--space-2xs);
   }
 </style>

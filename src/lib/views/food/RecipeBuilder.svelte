@@ -28,7 +28,8 @@
   //     (ADR-0022 amended): a recipe you just built lands on the day you built it.
   //   • edit — amend an existing template in place; re-seeds only FUTURE
   //     instantiations (past snapshots never move), logs nothing.
-  // Leads with Name + Ingredients + Yield + live per-serving; Source / Notes /
+  // Leads with Name + Ingredients + Servings + the live recipe total; Source /
+  // Notes /
   // Steps / Image are collapsible. Its commit is driven by the host's shared dock:
   // it exposes `requestSave` / `saveReady` / `saveLabel` (ManualEntryFlow pattern)
   // and calls `onCommitted` on success.
