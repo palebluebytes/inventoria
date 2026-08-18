@@ -590,10 +590,18 @@ export function isPreparedProduct(
  *     `lowercaseDescription.keyword:gra*` is a true starts-with; boosting it
  *     floats the name-leading foods ("Grapes", "Grains") to the top of the very
  *     first page while the wildcard clause preserves full coverage.
+ *
+ *  3. Everything lowercased. Both targets hold lowercase text, and a WILDCARD
+ *     term is matched literally — the index analyser never folds its case — so
+ *     "Banana*" matches nothing at all while "banana*" matches. That is not a
+ *     hypothetical: a phone capitalises the first word and its predictive bar
+ *     inserts words capitalised, so a search typed on a phone would silently
+ *     return no foods while the same word typed on a desktop worked.
  */
 function toFdcQuery(query: string): string {
   const tokens = query
     .trim()
+    .toLowerCase()
     .split(/\s+/)
     .filter(Boolean)
     .map((token) => (token.endsWith("*") ? token : `${token}*`));

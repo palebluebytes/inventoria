@@ -698,6 +698,21 @@ describe("searchFdc", () => {
     );
   });
 
+  it("lowercases the query so a phone's capitalised word still matches", async () => {
+    // Both targets hold lowercase text and a wildcard term is matched literally
+    // (never analysed), so "Banana*" would match nothing. A phone capitalises the
+    // first word and its predictive bar inserts capitalised words, which is how
+    // this reached a user: the same search worked on a desktop and returned
+    // nothing on a phone.
+    const fetchSpy = mockFetchOk();
+
+    await searchFdc("Banana", "TEST_KEY");
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://api.nal.usda.gov/fdc/v1/foods/search?query=banana*%20lowercaseDescription.keyword%3Abanana*%5E500&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
+    );
+  });
+
   it("returns an array of EntityPayloads on success", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
