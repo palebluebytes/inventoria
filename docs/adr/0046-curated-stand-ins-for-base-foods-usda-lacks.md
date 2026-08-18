@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-18  
-**Implemented:** #109 `38b9a0e` (data spine), `70ff025` (disclosure); `src/lib/food/curated-foods.ts`
+**Implemented:** #109 `38b9a0e` (data spine), `70ff025` (disclosure); #117 `715d605` (staleness check), `e8d4c1a` (quarterly job); `src/lib/food/curated-foods.ts`
 
 This record amends [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md) §1 (USDA is the only base-food source) and [ADR-0042](0042-usda-search-reference-foods.md) §3 (a brand-specific record is always dropped from search).
 
@@ -136,7 +136,11 @@ revisit CIQUAL under ADR-0045 §5, not to keep curating.
   internally consistent with the macros shown beside it.
 - **The snapshot can go stale.** An upstream correction, or a product delisting, will
   not reach the app until someone looks. The entry's retrieval date is what makes that
-  auditable.
+  auditable, and `curated-snapshot-check` is what looks: quarterly, it re-fetches every
+  pinned barcode and reports a moved macro, a delisted product and a record that has
+  stopped being single-ingredient as three separate findings. It never rewrites a
+  snapshot — that would undo §4 — so drift arrives as an issue asking for §2 to be
+  re-run, not as a new value.
 - **This does not close the "not reported vs zero" gap** ADR-0045 names as the largest
   remaining honesty problem in the panel. A curated stand-in inherits it like any other
   food.
