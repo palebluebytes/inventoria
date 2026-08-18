@@ -31,6 +31,55 @@ describe("foodSourceView — origin from the entity id", () => {
     });
   }
 
+  it("reads the ingested record's adapter ahead of the id", () => {
+    // A corrected OFF product: the user's label capture sits BESIDE the OFF
+    // record it enriched, so the food still descends from OFF and still reads
+    // OFF — even were it living under an id with no source prefix.
+    const edited: EntityPayload = {
+      entity: "food:custom_a1b2c3",
+      attributes: {
+        "food/name": "X",
+        "twin/raw_provenance": {
+          adapter: "off",
+          adapter_version: "1",
+          source_uri: "https://world.openfoodfacts.org/api/v2/product/123",
+          raw_data: {},
+        },
+        "food/label_capture": { adapter: "label" },
+      },
+    };
+    expect(foodSourceView(edited)).toEqual<FoodSourceView>({
+      kind: "off",
+      label: "OFF",
+      icon: "◆",
+    });
+  });
+
+  it("reads a USDA ingest from its adapter too", () => {
+    const usda: EntityPayload = {
+      entity: "whatever",
+      attributes: {
+        "twin/raw_provenance": {
+          adapter: "fdc",
+          adapter_version: "1",
+          source_uri: "https://api.nal.usda.gov/fdc/v1/food/167512",
+          raw_data: {},
+        },
+      },
+    };
+    expect(foodSourceView(usda).kind).toBe("usda");
+  });
+
+  it("ignores an unrecognised adapter and falls through to the id", () => {
+    const odd: EntityPayload = {
+      entity: "gtin:5000159407236",
+      attributes: {
+        "twin/raw_provenance": { adapter: "somewhere-else" },
+      },
+    };
+    expect(foodSourceView(odd).kind).toBe("off");
+  });
+
   it("falls back to manual for an unrecognised / bare id", () => {
     expect(foodSourceView(food("whatever"))).toEqual<FoodSourceView>({
       kind: "manual",
