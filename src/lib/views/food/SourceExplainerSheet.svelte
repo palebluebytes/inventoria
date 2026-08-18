@@ -1,5 +1,9 @@
 <script lang="ts">
   import type { FoodSourceKind } from "../../food/food-source";
+  import {
+    curatedStandInNote,
+    type CuratedStandIn,
+  } from "../../food/curated-foods";
   import Button from "../../ui/Button.svelte";
   import ExplainerSheet from "./ExplainerSheet.svelte";
 
@@ -12,11 +16,19 @@
   // `onClose` → that state back to null, mirroring the NOVA explainer seam.
   let {
     kind,
+    standIn,
     onEdit,
     onClose,
   }: {
     /** The tapped food's origin bucket from `foodSourceView` (ADR-0043 §2). */
     kind: FoodSourceKind;
+    /**
+     * Set when this food is a curated stand-in for a base ingredient no reference
+     * table carries (ADR-0046 §5). The origin sheet is where the disclosure
+     * belongs: the stand-in IS an origin story, and the tag that opens this is
+     * already the one saying "OFF".
+     */
+    standIn?: CuratedStandIn;
     /**
      * Correct this food from its label. Offered for EVERY origin, not just a
      * hand entry: a source panel the user can see is wrong is exactly the one
@@ -53,6 +65,7 @@
   };
 
   let copy = $derived(COPY[kind]);
+  let note = $derived(standIn ? curatedStandInNote(standIn) : null);
 </script>
 
 <!-- The shared explainer frame supplies the over-sheet elevation and the one
@@ -60,6 +73,15 @@
 <ExplainerSheet title="Where this came from" class="source-explainer" {onClose}>
   <h3 class="source-title">{copy.title}</h3>
   <p class="source-body">{copy.body}</p>
+
+  {#if note}
+    <!-- The stand-in disclosure (ADR-0046 §5). Above the edit affordance, because
+         a user who reads this is exactly the one who may want to correct it. -->
+    <div class="stand-in" data-testid="stand-in-note">
+      <p class="stand-in-head">{note.headline}</p>
+      <p class="source-body">{note.body}</p>
+    </div>
+  {/if}
 
   {#if onEdit}
     <!-- The correction affordance lives with the origin it corrects: this is the
@@ -90,6 +112,20 @@
   }
   .source-edit {
     margin-top: var(--space-m);
+  }
+  /* Set apart from the origin copy above it without inventing a new surface:
+     the house edge token, the same one every framed block uses (ADR-0038). */
+  .stand-in {
+    margin-top: var(--space-m);
+    padding: var(--space-s);
+    border: var(--edge);
+    background: var(--highlight-bg);
+  }
+  .stand-in-head {
+    margin: 0 0 var(--space-2xs);
+    font-size: var(--step-0);
+    font-weight: 700;
+    color: var(--ink);
   }
   .source-body {
     margin: 0;

@@ -75,6 +75,7 @@
   import CommitButton from "./CommitButton.svelte";
   import NovaExplainerSheet from "./NovaExplainerSheet.svelte";
   import SourceExplainerSheet from "./SourceExplainerSheet.svelte";
+  import { curatedStandInFor } from "../../food/curated-foods";
   import DietaryExplainerSheet from "./DietaryExplainerSheet.svelte";
   import type { NovaVerdict } from "../../food/nova-verdict";
   import type { DietaryVerdict } from "../../food/off-signals";
@@ -1509,7 +1510,18 @@
                               {...optProps}
                             >
                               <div class="result-details">
-                                <span class="result-name">{item.name}</span>
+                                <span class="result-name">
+                                  {item.name}
+                                  {#if curatedStandInFor(item.entity)}
+                                    <!-- A curated stand-in is a specific product
+                                    answering for a base food no reference table
+                                    carries (ADR-0046 §5). Marked here so it is
+                                    visible BEFORE selection; the full disclosure
+                                    is in the source explainer on the staged card,
+                                    since a role=option cannot hold a button. -->
+                                    <span class="stand-in-tag">stand-in</span>
+                                  {/if}
+                                </span>
                                 <span class="result-macros">
                                   Per 100g: {roundFoodDisplay(
                                     item.calories,
@@ -2189,6 +2201,7 @@
        source tag, mounted off `sourceExplain` and closed back to null. -->
   <SourceExplainerSheet
     kind={sourceExplain}
+    standIn={curatedStandInFor(staged?.entity)}
     onEdit={staged ? editStaged : undefined}
     onClose={() => (sourceExplain = null)}
   />
@@ -2899,6 +2912,21 @@
   .result-name {
     font-size: var(--step-n1);
     font-weight: 600;
+  }
+  /* A curated stand-in, marked in the row so the substitution is visible before
+     the food is chosen (ADR-0046 §5). Non-interactive by necessity — the row is
+     a role=option — so it reads as a tag, not a control. */
+  .stand-in-tag {
+    margin-left: var(--space-2xs);
+    padding: 0 4px;
+    border: var(--edge-thin);
+    font-size: var(--step-n3);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    color: var(--ink);
+    background: var(--highlight-bg);
   }
   .result-macros {
     font-size: var(--step-n3);
