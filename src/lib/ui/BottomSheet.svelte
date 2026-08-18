@@ -190,6 +190,10 @@
     display: grid;
     grid-template-columns: 2.5rem 1fr 2.5rem;
     align-items: center;
+    /* Query container for the title below. Safe to contain: the header's inline
+       size comes from the sheet (width:100%, max 600px), never from its own
+       contents, which is the condition `inline-size` containment requires. */
+    container-type: inline-size;
     border-bottom: var(--edge);
     padding: 0 var(--space-m) var(--space-xs) var(--space-m);
     margin-top: var(--space-xs);
@@ -197,17 +201,33 @@
 
   .bottom-sheet-header h2 {
     grid-column: 2;
-    font-size: var(--step-1);
+    /* Sized against the header's own width (`cqi`), not the viewport: the title
+       column is what the text has to fit into, and on a phone --step-1 was wide
+       enough to push a short label ("Where this came from") onto a second line.
+       It floors at --step-n1 so a title never shrinks to unreadable, and caps at
+       --step-1 so a roomy 600px sheet keeps the full heading size.
+
+       Note this is width-driven, not line-driven: CSS cannot ask "did this
+       wrap?", so the nowrap below is what enforces the single line — the
+       container query is what makes that one line usually enough. */
+    font-size: clamp(var(--step-n1), 5.4cqi, var(--step-1));
     font-weight: 700;
     margin: 0;
     text-transform: uppercase;
     text-align: center;
-    /* Match the icon buttons' tight line box so all three share one centre line
-       (a `normal` line-height would seat the caps higher than the glyphs). */
-    line-height: 1;
+    /* One line, always: the header is a fixed band beside two icon buttons, so a
+       title that wrapped would push them off their centre line. A title too long
+       even at the smallest size ellipsises rather than wrapping.
+
+       The leading must clear the font's ink, not just its em box: at
+       `line-height: 1` the caps overflowed a line box the ellipsis `overflow:
+       hidden` then shaved, so a title read as slightly clipped top and bottom.
+       Growing it symmetrically leaves the caps' optical centre — what the glyph
+       nudges below are measured against — exactly where it was. */
+    line-height: 1.25;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   /* The side glyphs (‹ / ×) are flex-centred in a box the height of the title's

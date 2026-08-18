@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { DietaryVerdict } from "../../food/off-signals";
   import { dietaryTagsView } from "../../food/dietary-tag";
-  import BottomSheet from "../../ui/BottomSheet.svelte";
+  import ExplainerSheet from "./ExplainerSheet.svelte";
 
   // The dietary explainer (ADR-0043 §2, ticket B/#103) — the tap-through sheet a
   // dietary tag hands its verdict to. One house `BottomSheet`: it lists each
@@ -31,7 +31,7 @@
   };
 </script>
 
-<BottomSheet isOpen elevated title="Dietary labels" {onClose}>
+<ExplainerSheet title="Dietary labels" class="dietary-explainer" {onClose}>
   <ul class="claims">
     {#each tags as tag (tag.tag)}
       <li class="claim">
@@ -51,7 +51,7 @@
     Facts — not a verdict this app makes. Check the packaging if a claim matters
     for you.
   </p>
-</BottomSheet>
+</ExplainerSheet>
 
 <style>
   .claims {

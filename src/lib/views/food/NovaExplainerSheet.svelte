@@ -2,7 +2,7 @@
   import type { NovaVerdict } from "../../food/nova-verdict";
   import { novaExplainerView } from "../../food/nova-explainer";
   import { ensureTaxonomy, resolveTag } from "../../food/off-taxonomy";
-  import BottomSheet from "../../ui/BottomSheet.svelte";
+  import ExplainerSheet from "./ExplainerSheet.svelte";
 
   // The NOVA processing explainer (ADR-0041 §6, ticket C/#92) — the tap-through
   // sheet the badge (#91) hands its verdict to. One house `BottomSheet` with three
@@ -57,16 +57,10 @@
   });
 </script>
 
-<!-- Elevated so it floats over the sheet the badge was tapped in (the log sheet in
-     FoodStager, the amount sheet in FoodView), matching the reader/amount-sheet
-     over-sheet precedent (ADR-0027/0028). -->
-<BottomSheet
-  isOpen
-  elevated
-  title="NOVA processing"
-  class="nova-explainer"
-  {onClose}
->
+<!-- The shared explainer frame supplies the over-sheet elevation (ADR-0027/0028)
+     and the one explainer height, so this sheet is the same card as the source
+     and dietary ones however long its tallest face runs. -->
+<ExplainerSheet title="NOVA processing" class="nova-explainer" {onClose}>
   {#if view.face === "not-rated"}
     <!-- Honest coverage, never a warning (ADR-0041 §2). -->
     <div class="hero" data-tone="not-rated">
@@ -159,7 +153,7 @@
       </p>
     {/if}
   {/if}
-</BottomSheet>
+</ExplainerSheet>
 
 <style>
   /* The hero band — a big word-first restatement of the badge that opened the
