@@ -225,8 +225,18 @@ hidden in the UI, so newly-created recipes and instantiations are single-serving
   instead, and `Σrows ÷ yield` follows to exactly that many servings' worth. Two
   servings of a recipe is two servings of its ingredients, which is also what the
   frozen rows should say went in.
+- **An instantiation opens at one serving, and its rows are the portion, not the
+  batch.** The count defaults to 1, so the amounts it opens with must be one
+  serving's worth or the number on screen would describe something other than the
+  amounts beside it: the seed divides the template's batch by what it makes (a
+  correction divides its snapshot by the yield it stored) and holds the
+  instantiation's own yield at 1. The logged total is identical either way —
+  `Σrows ÷ yield` is the same number whether the rows are the batch over its
+  yield or one serving over 1 — but the invariant now reads in its collapsed
+  form, `headline == Σrows`, and the rows record what was eaten rather than what
+  was cooked. The batch and what it makes remain on the template, which is where
+  a cook looks for them.
 - **The derived figures are named for what they are.** On the instantiation
   surface the rows are scaled to the servings being had, so the panel reads "This
   entry" rather than "Per serving" — at two servings the latter would be a plain
-  lie. No storage change: rows are still the batch as cooked, yield is still the
-  template's, and the divided invariant is untouched.
+  lie.

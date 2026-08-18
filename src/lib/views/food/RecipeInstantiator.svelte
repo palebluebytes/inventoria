@@ -15,6 +15,7 @@
     type RecipeIngredient,
   } from "../../food/recipe-ingredient";
   import { sanitizeYield } from "../../food/recipe-nutrition";
+  import { scaleAmount } from "../../food/scale-amount";
   import Alert from "../../ui/Alert.svelte";
   import Button from "../../ui/Button.svelte";
   import IngredientListEditor from "./IngredientListEditor.svelte";
@@ -82,14 +83,36 @@
     void seed();
   });
 
+  /**
+   * Open at ONE serving. A template stores the batch and what that batch makes;
+   * this surface asks how many servings the occasion is, defaulting to 1 — so
+   * the rows it opens with have to be one serving's worth, not the batch, or the
+   * count on screen would describe something other than the amounts beside it.
+   * Dividing here (and holding the yield at 1) means the two always agree, the
+   * logged figure is simply what the rows say, and raising the count raises the
+   * amounts and the logging together.
+   *
+   * The logged total is unchanged by this: `Σrows ÷ yield` is the same number
+   * whether the rows are the batch over its yield or one serving over 1.
+   */
+  function openAtOneServing(rows: RecipeIngredient[], batchYield: number) {
+    recipeYield = 1;
+    ingredients =
+      batchYield === 1
+        ? rows
+        : rows.map((ing) => ({
+            ...ing,
+            amount: scaleAmount(ing.amount, batchYield, "divide"),
+          }));
+  }
+
   async function seed() {
     try {
       if (edit?.instantiation) {
         const inst = edit.instantiation;
         based_on = inst.based_on || edit.target || "";
         title = edit.foodName || "Recipe";
-        recipeYield = inst.yield || 1;
-        ingredients = await Promise.all(
+        const rows = await Promise.all(
           inst.ingredients.map((r) =>
             seedRowFromRef(r.ref, r.amount, r.unit, {
               name: r.name,
@@ -100,11 +123,14 @@
             })
           )
         );
+        openAtOneServing(rows, sanitizeYield(inst.yield || 1));
       } else if (template) {
         based_on = template.entity;
         title = template.attributes["recipe/name"] || "Recipe";
-        recipeYield = template.attributes["recipe/yield"] || 1;
-        ingredients = await seedRowsFromTemplate(template.attributes);
+        openAtOneServing(
+          await seedRowsFromTemplate(template.attributes),
+          sanitizeYield(template.attributes["recipe/yield"] || 1)
+        );
       }
     } catch (e: any) {
       status = "error";
