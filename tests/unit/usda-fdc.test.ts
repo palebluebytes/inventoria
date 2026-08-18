@@ -673,7 +673,7 @@ describe("searchFdc", () => {
     await searchFdc("banana", "TEST_KEY");
 
     expect(fetchSpy).toHaveBeenCalledWith(
-      "https://api.nal.usda.gov/fdc/v1/foods/search?query=banana*%20lowercaseDescription.keyword%3Abanana*%5E500&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
+      "https://api.nal.usda.gov/fdc/v1/foods/search?query=banana%20banana*%20lowercaseDescription.keyword%3Abanana*%5E500&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
     );
   });
 
@@ -684,7 +684,7 @@ describe("searchFdc", () => {
 
     // Every token is wildcarded; the head boost uses the first token's prefix.
     expect(fetchSpy).toHaveBeenCalledWith(
-      "https://api.nal.usda.gov/fdc/v1/foods/search?query=greek*%20yog*%20lowercaseDescription.keyword%3Agreek*%5E500&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
+      "https://api.nal.usda.gov/fdc/v1/foods/search?query=greek%20yog%20greek*%20yog*%20lowercaseDescription.keyword%3Agreek*%5E500&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
     );
   });
 
@@ -694,7 +694,23 @@ describe("searchFdc", () => {
     await searchFdc("bana*", "TEST_KEY");
 
     expect(fetchSpy).toHaveBeenCalledWith(
-      "https://api.nal.usda.gov/fdc/v1/foods/search?query=bana*%20lowercaseDescription.keyword%3Abana*%5E500&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
+      "https://api.nal.usda.gov/fdc/v1/foods/search?query=bana%20bana*%20lowercaseDescription.keyword%3Abana*%5E500&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
+    );
+  });
+
+  it("sends the bare token too, so a stemmed word is reachable", async () => {
+    // FDC's description index is stemmed and a wildcard term is matched
+    // literally against the stored terms, never analysed: "balsamic" is indexed
+    // as "balsam", so `balsamic*` matched nothing and searching balsamic
+    // returned no balsamic vinegar. The bare token stems the same way the index
+    // did and finds it; FDC ORs the clauses, so the wildcard still covers
+    // mid-typing prefixes.
+    const fetchSpy = mockFetchOk();
+
+    await searchFdc("balsamic", "TEST_KEY");
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://api.nal.usda.gov/fdc/v1/foods/search?query=balsamic%20balsamic*%20lowercaseDescription.keyword%3Abalsamic*%5E500&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
     );
   });
 
@@ -709,7 +725,7 @@ describe("searchFdc", () => {
     await searchFdc("Banana", "TEST_KEY");
 
     expect(fetchSpy).toHaveBeenCalledWith(
-      "https://api.nal.usda.gov/fdc/v1/foods/search?query=banana*%20lowercaseDescription.keyword%3Abanana*%5E500&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
+      "https://api.nal.usda.gov/fdc/v1/foods/search?query=banana%20banana*%20lowercaseDescription.keyword%3Abanana*%5E500&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
     );
   });
 

@@ -578,9 +578,20 @@ export function isPreparedProduct(
 /**
  * Builds the FDC Lucene query for a free-text search. Two parts:
  *
- *  1. A wildcard prefix on each token ("bana" -> "bana*"). FDC matches whole
- *     words, so a fragment matches nothing on the small Foundation/SR Legacy
- *     datasets without the "*"; this makes results appear while typing.
+ *  1. The tokens as typed AND a wildcard prefix on each ("bana" -> "bana bana*").
+ *     FDC matches whole words, so a fragment matches nothing on the small
+ *     Foundation/SR Legacy datasets without the "*"; the wildcard is what makes
+ *     results appear while typing.
+ *
+ *     The bare term has to ride along because FDC's description index is
+ *     STEMMED and a wildcard term is matched literally, against the stored
+ *     terms, never through the analyser. So a word whose stem differs from what
+ *     the user typed is unreachable by wildcard alone: "balsamic" is indexed as
+ *     "balsam", `balsamic*` matches nothing, and searching balsamic returned no
+ *     balsamic vinegar. The bare token goes through the analyser, stems the same
+ *     way the index did, and finds it. FDC ORs the clauses
+ *     (`requireAllWords: false`), so the pair is a union: the stemmed term
+ *     catches whole words, the wildcard catches prefixes mid-type.
  *
  *  2. A heavy boost on foods whose NAME starts with the query. A broad short
  *     prefix like "gra*" matches ~1000 foods (grain, grass-fed, granny, grape),
@@ -599,17 +610,20 @@ export function isPreparedProduct(
  *     return no foods while the same word typed on a desktop worked.
  */
 function toFdcQuery(query: string): string {
-  const tokens = query
+  // The tokens as typed (any wildcard the caller supplied stripped, so the
+  // analyser sees a real word), then the same tokens wildcarded.
+  const bare = query
     .trim()
     .toLowerCase()
     .split(/\s+/)
-    .filter(Boolean)
-    .map((token) => (token.endsWith("*") ? token : `${token}*`));
-  const wildcard = tokens.join(" ");
+    .map((token) => token.replace(/\*+$/, ""))
+    .filter(Boolean);
+  const tokens = bare.map((token) => `${token}*`);
+  const terms = [...bare, ...tokens].join(" ");
   // Boost on the first token's prefix — for USDA's "Food, qualifier" naming the
   // food name leads the description, so this rewards typing the food itself.
   const headPrefix = tokens[0] ?? "";
-  return `${wildcard} lowercaseDescription.keyword:${headPrefix}^500`;
+  return `${terms} lowercaseDescription.keyword:${headPrefix}^500`;
 }
 
 /**
