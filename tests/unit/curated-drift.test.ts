@@ -1,5 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { spawnSync } from "node:child_process";
+import {
+  lookupBarcode,
+  ProductNotFoundError,
+} from "../../src/lib/food/open-food-facts";
 // A plain-Node ops script, deliberately outside the app's tsconfig: the
 // staleness check runs on a bare GitHub runner with no install step.
 // @ts-ignore
@@ -33,6 +37,8 @@ const entry = (overrides: Record<string, unknown> = {}) => ({
         fat_100g: 55,
         sodium_100g: 0,
       },
+      serving_quantity: 100,
+      serving_size: "100 g",
       ingredients_text: "100% organic cacao nibs",
     },
   },
@@ -47,6 +53,10 @@ const fetched = (product: Record<string, unknown>) => ({
 });
 
 const unchanged = () => fetched(entry().snapshot.product);
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("countIngredients", () => {
   it("reads a single-ingredient text as one ingredient", () => {
@@ -69,6 +79,13 @@ describe("countIngredients", () => {
   it("ignores trailing punctuation and empty segments", () => {
     expect(countIngredients("cacao nibs.")).toBe(1);
     expect(countIngredients("cocoa mass, sugar,")).toBe(2);
+  });
+
+  it("does not read an annotation as a second ingredient", () => {
+    // "cacao nibs, 100%" still names one food. A segment has to carry a letter
+    // to be an ingredient, which keeps the commonest false positive out.
+    expect(countIngredients("cacao nibs, 100%")).toBe(1);
+    expect(countIngredients("cocoa beans (100%)")).toBe(1);
   });
 
   it("reads an absent or blank text as no ingredients at all", () => {
@@ -127,7 +144,7 @@ describe("driftFindings — has the pinned panel moved?", () => {
   it("reports a macro that moved beyond the epsilon", () => {
     const findings = moved("fat_100g", 58);
     expect(findings).toHaveLength(1);
-    expect(findings[0].kind).toBe("macro");
+    expect(findings[0].kind).toBe("panel");
     expect(findings[0].message).toContain("fat_100g");
     expect(findings[0].message).toContain("55");
     expect(findings[0].message).toContain("58");
@@ -147,14 +164,14 @@ describe("driftFindings — has the pinned panel moved?", () => {
       nutriments: { "energy-kcal_100g": 652, sodium_100g: 0 },
     });
     expect(findings).toHaveLength(1);
-    expect(findings[0].kind).toBe("macro");
+    expect(findings[0].kind).toBe("panel");
     expect(findings[0].message).toContain("no longer reported");
   });
 
   it("reports a nutriment that stopped being a number", () => {
     const findings = moved("fat_100g", "unknown");
     expect(findings).toHaveLength(1);
-    expect(findings[0].kind).toBe("macro");
+    expect(findings[0].kind).toBe("panel");
   });
 
   it("stays quiet about a nutriment the snapshot never carried", () => {
@@ -162,6 +179,44 @@ describe("driftFindings — has the pinned panel moved?", () => {
     // than it holds is the normal case, not staleness. A nutriment gained
     // upstream is an enrichment to pick up at the next re-vet.
     expect(moved("iron_100g", 0.004)).toEqual([]);
+  });
+
+  it("reports a serving size that has moved", () => {
+    // The mapper turns the serving fields into a `food/portions` entry, so a
+    // changed `serving_quantity` changes how many grams a logged serving
+    // weighs. That is as much what the user eats off as a macro is.
+    const findings = driftFindings(entry().snapshot.product, {
+      ...unchanged().product,
+      serving_quantity: 15,
+      serving_size: "15 g",
+    });
+    expect(findings).toHaveLength(2);
+    expect(findings.every((f: { kind: string }) => f.kind === "panel")).toBe(
+      true
+    );
+    expect(
+      findings.map((f: { message: string }) => f.message).join(" ")
+    ).toMatch(/serving_quantity.*serving_size/s);
+  });
+
+  it("reports serving data OFF has dropped", () => {
+    const {
+      serving_quantity: _q,
+      serving_size: _s,
+      ...withoutServing
+    } = unchanged().product;
+    expect(
+      driftFindings(entry().snapshot.product, withoutServing)
+    ).toHaveLength(2);
+  });
+
+  it("stays quiet about serving data the snapshot never carried", () => {
+    const {
+      serving_quantity: _q,
+      serving_size: _s,
+      ...pinnedWithout
+    } = entry().snapshot.product;
+    expect(driftFindings(pinnedWithout, unchanged().product)).toEqual([]);
   });
 
   it("reports a record that is no longer single-ingredient", () => {
@@ -299,7 +354,7 @@ describe("formatReport", () => {
 
   it("carries each finding's own wording", () => {
     const text = report([
-      { kind: "macro", message: "fat_100g: 55 -> 58" },
+      { kind: "panel", message: "fat_100g: 55 -> 58" },
       { kind: "ingredients", message: "no longer single-ingredient" },
     ]);
     expect(text).toContain("fat_100g: 55 -> 58");
@@ -311,7 +366,42 @@ describe("formatReport", () => {
     // change the panel unseen; a job that quietly pulled the new one would undo
     // exactly that. The report has to say so, because it is the only place a
     // reader learns what to do next.
-    expect(report([{ kind: "macro", message: "x" }])).toMatch(/re-vet/i);
+    expect(report([{ kind: "panel", message: "x" }])).toMatch(/re-vet/i);
+  });
+});
+
+describe("the check and the app agree on what 'gone' means", () => {
+  // `productFromResponse` restates `lookupBarcode`'s gone-ness rules, because
+  // the check runs where the app's module cannot be imported. Nothing but this
+  // test keeps the two in step, and a disagreement is invisible either way: the
+  // check would report a delisting the app never sees, or miss one it does.
+  const goneShapes: [string, number, unknown][] = [
+    ["a 404", 404, null],
+    ["v3's string failure", 200, { status: "failure" }],
+    ["v2's integer failure", 200, { status: 0 }],
+  ];
+
+  it.each(goneShapes)("both read %s as gone", async (_name, status, body) => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: status === 200,
+      status,
+      json: async () => body,
+    } as Response);
+    await expect(lookupBarcode("5400706613279")).rejects.toBeInstanceOf(
+      ProductNotFoundError
+    );
+    expect(productFromResponse(status, body).found).toBe(false);
+  });
+
+  it("both read a real product as present", async () => {
+    const body = { code: "5400706613279", status: "success", product: {} };
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => body,
+    } as Response);
+    await expect(lookupBarcode("5400706613279")).resolves.toBeTruthy();
+    expect(productFromResponse(200, body).found).toBe(true);
   });
 });
 

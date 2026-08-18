@@ -14,7 +14,8 @@
  *  - the product is GONE (delisted, or the barcode now 404s), which is the worst
  *    case: search keeps answering from the snapshot while the record behind it
  *    no longer exists;
- *  - a MACRO moved, and the panel is what the user eats off;
+ *  - the PANEL moved: a macro, or the serving size a portion is logged in,
+ *    and the panel is what the user eats off;
  *  - the record is no longer SINGLE-INGREDIENT, which retroactively fails
  *    ADR-0046 §2's second admission.
  *
@@ -41,10 +42,10 @@
  * decimal, so the floor is the resolution of the source itself, and the relative
  * term keeps the rule honest across a panel spanning 0 g of sodium and 652 kcal.
  */
-export const DRIFT_EPSILON = { relative: 0.005, absolute: 0.1 };
+const DRIFT_EPSILON = { relative: 0.005, absolute: 0.1 };
 
 /** How long to wait between two OFF requests, in ms (their rate guidance). */
-export const REQUEST_INTERVAL_MS = 1000;
+const REQUEST_INTERVAL_MS = 1000;
 
 /** The separators an ingredients list uses, in every form OFF records them. */
 const INGREDIENT_SEPARATOR = /,|;|\+|&|\band\b/;
@@ -54,13 +55,17 @@ const INGREDIENT_SEPARATOR = /,|;|\+|&|\band\b/;
  * ADR-0046 §2 requires; zero means the record can no longer evidence it either
  * way. Text, not taxonomy: OFF's parsed ingredient list is absent on many
  * records, and the admission was made against the text a human read.
+ *
+ * A segment counts only if it contains a letter, so the annotations that trail a
+ * single ingredient ("cacao nibs, 100%") do not read as a second one. The rule
+ * still over-splits on some phrasings, and errs that way on purpose: a wasted
+ * look costs a human five minutes, where a missed compound product leaves an
+ * ingredient's panel standing on a record ADR-0046 §2 would no longer admit.
  */
 export function countIngredients(text) {
   if (typeof text !== "string") return 0;
-  return text
-    .split(INGREDIENT_SEPARATOR)
-    .map((part) => part.replace(/[.\s]+$/, "").trim())
-    .filter(Boolean).length;
+  return text.split(INGREDIENT_SEPARATOR).filter((part) => /\p{L}/u.test(part))
+    .length;
 }
 
 /**
@@ -92,6 +97,41 @@ function hasDrifted(pinned, current) {
 }
 
 /**
+ * What has become of one pinned number: nothing, or the single finding that
+ * says how it moved, stopped being reported, or stopped being a number at all.
+ *
+ * The pinned side is trusted — it is this repo's own hand-vetted table — while
+ * the current side is guarded, because OFF is a third-party JSON boundary that
+ * has served strings where numbers belong. A value that stopped being a number
+ * is as much a reason to re-vet as one that moved.
+ */
+function valueFindings(name, pinnedValue, currentValue) {
+  if (pinnedValue === undefined) return [];
+  if (currentValue === undefined || currentValue === null)
+    return [
+      {
+        kind: "panel",
+        message: `${name}: ${pinnedValue} pinned, no longer reported by OFF`,
+      },
+    ];
+  const now = Number(currentValue);
+  if (!Number.isFinite(now))
+    return [
+      {
+        kind: "panel",
+        message: `${name}: ${pinnedValue} pinned, OFF now reports ${JSON.stringify(currentValue)}`,
+      },
+    ];
+  if (!hasDrifted(pinnedValue, now)) return [];
+  return [
+    {
+      kind: "panel",
+      message: `${name}: ${pinnedValue} pinned, ${now} on OFF today`,
+    },
+  ];
+}
+
+/**
  * Everything that has moved between the pinned snapshot's product and the one
  * OFF serves today, as `{ kind, message }` findings.
  *
@@ -106,32 +146,27 @@ export function driftFindings(snapshotProduct, currentProduct) {
   const pinned = snapshotProduct.nutriments ?? {};
   const current = currentProduct.nutriments ?? {};
 
-  for (const [name, pinnedValue] of Object.entries(pinned)) {
-    const currentValue = current[name];
-    if (currentValue === undefined || currentValue === null) {
-      findings.push({
-        kind: "macro",
-        message: `${name}: ${pinnedValue} pinned, no longer reported by OFF`,
-      });
-      continue;
-    }
-    // A third-party JSON boundary: OFF has served strings here, and a value
-    // that stopped being a number is as much a reason to re-vet as one that
-    // moved.
-    const now = Number(currentValue);
-    if (!Number.isFinite(now)) {
-      findings.push({
-        kind: "macro",
-        message: `${name}: ${pinnedValue} pinned, OFF now reports ${JSON.stringify(currentValue)}`,
-      });
-      continue;
-    }
-    if (hasDrifted(Number(pinnedValue), now))
-      findings.push({
-        kind: "macro",
-        message: `${name}: ${pinnedValue} pinned, ${now} on OFF today`,
-      });
-  }
+  for (const [name, pinnedValue] of Object.entries(pinned))
+    findings.push(...valueFindings(name, pinnedValue, current[name]));
+
+  // The serving fields are part of the panel too, and the mapper turns them into
+  // a `food/portions` entry (ADR-0030 §2/§5): an OFF edit to `serving_quantity`
+  // changes how many grams a logged serving weighs, which is as much "what the
+  // user eats off" as a macro is. `serving_size` is the human label beside it,
+  // compared as text because that is what it is.
+  findings.push(
+    ...valueFindings(
+      "serving_quantity",
+      snapshotProduct.serving_quantity,
+      currentProduct.serving_quantity
+    )
+  );
+  const pinnedLabel = snapshotProduct.serving_size;
+  if (pinnedLabel !== undefined && currentProduct.serving_size !== pinnedLabel)
+    findings.push({
+      kind: "panel",
+      message: `serving_size: "${pinnedLabel}" pinned, ${JSON.stringify(currentProduct.serving_size) ?? "nothing"} on OFF today`,
+    });
 
   const ingredients = currentProduct.ingredients_text;
   const count = countIngredients(ingredients);
@@ -207,7 +242,7 @@ export function sleep(ms) {
 /** What each kind of finding means to whoever reads the report. */
 const KIND_LABEL = {
   delisted: "GONE",
-  macro: "PANEL",
+  panel: "PANEL",
   ingredients: "ADMISSION",
   unreachable: "UNCHECKED",
 };

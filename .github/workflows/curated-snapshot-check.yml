@@ -38,10 +38,20 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Pinned rather than left to the runner's default, and this is the one
+      # thing that does not mirror usda-mirror-check: that job runs a `.mjs`,
+      # while this one imports a `.ts` module directly, which needs a Node with
+      # unflagged type stripping (24 has it). A runner rolling back to an older
+      # default would crash the import, and a crash here files an issue claiming
+      # a record has moved when nothing has.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
       # No Nix and no pnpm install here, unlike the e2e workflow: the script is
       # plain Node built-ins with no dependencies, and it reads the curated table
       # straight out of its TypeScript module, which is kept type-import-only so
-      # the runner's own Node can load it. The whole job finishes in seconds.
+      # that Node can load it unaided. The whole job finishes in seconds.
       - name: Re-fetch each pinned barcode and diff it against the snapshot
         id: check
         run: |
@@ -83,11 +93,9 @@ jobs:
             cat <<'OUTRO'
           ```
 
-          Nothing has been rewritten, and nothing will be: ADR-0046 §4 snapshots these values precisely so an editable third-party number cannot change a panel unseen, and a job that pulled the new one in silently would undo that. Drift is a prompt to re-vet.
+          Re-vetting means re-running ADR-0046 §2 for the entry — the absence proven across the complete archives, the single-ingredient text, the cross-product consensus, the independent corroboration — and then either updating the `snapshot` and its `captured` date by hand, pinning a different record that still clears the bar, or dropping the entry. `GONE` is the case with no snapshot to update: the product behind the stand-in has been delisted while search keeps answering from it.
 
-          To clear it, re-run ADR-0046 §2 for the entry — the absence proven across the complete archives, the single-ingredient text, the cross-product consensus, the independent corroboration — and then either update the `snapshot` and its `captured` date by hand, pin a different record that still clears the bar, or drop the entry. `GONE` is the case with no snapshot to update: the product behind the stand-in has been delisted while search keeps answering from it.
-
-          An `UNCHECKED` line means the run never reached OFF. That is the check needing a fix rather than the table.
+          An `UNCHECKED` line means the run never reached OFF, and a block that is a stack trace rather than a report means the check itself failed. Either way the table is unchanged and it is the check that needs a look.
           OUTRO
           } > issue-body.md
 
