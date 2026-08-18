@@ -38,10 +38,10 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-xs);
-  }
-  :global(.macro-item) {
-    padding: var(--space-xs) var(--space-m) !important;
-    background: rgba(255, 255, 255, 0.01) !important;
+    /* Tighter than a default card, and filled with the page ground it sits on
+       rather than the card fill. Both inherit into the Cards below. */
+    --card-padding: var(--space-xs) var(--space-m);
+    --card-bg: var(--bg-base);
   }
   .macro-meta {
     display: flex;

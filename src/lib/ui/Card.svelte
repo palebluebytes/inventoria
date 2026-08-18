@@ -37,13 +37,27 @@
 {/if}
 
 <style>
+  /* Fill and padding are the two things callers routinely need to vary, so they
+     read through custom properties rather than being overridden by a competing
+     selector: Svelte scopes this rule to `.card.svelte-<hash>`, which an outside
+     `:global(.macro-item)` can never outrank without `!important`. A caller sets
+     `--card-bg` / `--card-padding` on the card or any ancestor and it inherits
+     down. `--card-bg` must be an opaque colour — the fill is what hides the
+     pixel of frame shadow that runs under the border (see box-shadow below). */
   .card {
-    background: var(--bg-card);
+    background: var(--card-bg, var(--bg-card));
     /* The brutalist frame (ADR-0038). */
     border: var(--edge);
     border-radius: var(--radius);
-    box-shadow: var(--shadow-2);
-    padding: var(--space-m) var(--space-l);
+    /* --shadow-2's frame (4px past the bottom/right), drawn as offset 3 + spread
+       1 so the shadow runs a whole pixel *under* the card's own border instead of
+       abutting it. Abutting edges land on a fractional device pixel whenever the
+       fluid type/space scale gives the card a fractional height or offset: border
+       and shadow are each antialiased to partial coverage and composite to a
+       light seam, so the frame reads thin on whichever cards happen to fall
+       off-pixel. The overlapping pixel hides behind the card's opaque fill. */
+    box-shadow: 3px 3px 0 1px var(--ink);
+    padding: var(--card-padding, var(--space-m) var(--space-l));
     transition:
       transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
       box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -79,7 +93,8 @@
   @media (hover: hover) {
     .card-pressable:hover {
       transform: translateY(-2px);
-      box-shadow: var(--shadow-3);
+      /* --shadow-3's frame, same flush-under-the-border geometry as above. */
+      box-shadow: 7px 7px 0 1px var(--ink);
     }
   }
 </style>
