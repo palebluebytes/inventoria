@@ -1283,7 +1283,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // Seeded with both foods: 189.5 + 133.5 = 323 kcal.
     await page.locator("#recipe-name").fill("Dinner Combo");
-    await expect(page.locator(".recipe-total")).toContainText("323 kcal");
+    await expect(
+      page.locator('[data-testid="recipe-figures"] .nutrient-calories strong')
+    ).toContainText("323 kcal");
     await page.locator("#save-recipe-btn").click();
 
     // The recipe appears; the two originals are replaced (retracted).
@@ -1309,7 +1311,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       .locator(".fi-remove")
       .click();
     await page.locator("#recipe-name").fill("Just Oats");
-    await expect(page.locator(".recipe-total")).toContainText("189.5 kcal");
+    await expect(
+      page.locator('[data-testid="recipe-figures"] .nutrient-calories strong')
+    ).toContainText("189.5 kcal");
 
     // Add a discrete step for good measure.
     await page.locator('[data-section="steps"]').click();
@@ -1345,13 +1349,17 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     );
     await expect(page.locator("#recipe-yield")).toHaveValue("1");
     await expect(figuresCal).toHaveText("323 kcal");
-    await expect(page.locator(".recipe-total")).toContainText("323 kcal");
+    await expect(
+      page.locator('[data-testid="recipe-figures"] .nutrient-calories strong')
+    ).toContainText("323 kcal");
 
     // Saying the batch makes 2 moves nothing on this surface — not the amounts,
     // not the figures. It is recorded on the template and divides at log time.
     await page.locator("#recipe-yield").fill("2");
     await expect(figuresCal).toHaveText("323 kcal");
-    await expect(page.locator(".recipe-total")).toContainText("323 kcal");
+    await expect(
+      page.locator('[data-testid="recipe-figures"] .nutrient-calories strong')
+    ).toContainText("323 kcal");
 
     // Removing an ingredient does re-derive them live: just oats now.
     await page
@@ -1387,7 +1395,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       '[data-testid="recipe-figures"] .nutrient-calories strong'
     );
     await expect(figuresCal).toHaveText("323 kcal");
-    await expect(page.locator(".recipe-total")).toContainText("323 kcal");
+    await expect(
+      page.locator('[data-testid="recipe-figures"] .nutrient-calories strong')
+    ).toContainText("323 kcal");
 
     // The oats row shows a "50g" quantity subtitle; tapping the row opens the
     // picker.
@@ -1414,7 +1424,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(oatsQty).toHaveText("100g");
     await expect(oatsRow).toContainText("379 kcal");
     await expect(figuresCal).toHaveText("512.5 kcal"); // 379 + 133.5
-    await expect(page.locator(".recipe-total")).toContainText("512.5 kcal");
+    await expect(
+      page.locator('[data-testid="recipe-figures"] .nutrient-calories strong')
+    ).toContainText("512.5 kcal");
 
     // Save (yield 1): the frozen snapshot reflects the edited amounts. Both
     // ingredients are replaced/retracted, so only the recipe counts.
@@ -1458,7 +1470,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // Recipe builder open, seeded with oats 50 g (189.5) + banana 150 g (133.5) = 323.
     await selectTwoAndBuild(page);
-    await expect(page.locator(".recipe-total")).toContainText("323 kcal");
+    await expect(
+      page.locator('[data-testid="recipe-figures"] .nutrient-calories strong')
+    ).toContainText("323 kcal");
 
     // Open the add-ingredient sheet and stage a food via search.
     await page.locator("#add-ingredient-btn").click();
@@ -1487,7 +1501,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // Adding folds the ingredient into the recipe: 323 + 341 = 664.
     await confirm.click();
     await expect(addSheet).toBeHidden();
-    await expect(page.locator(".recipe-total")).toContainText("664 kcal");
+    await expect(
+      page.locator('[data-testid="recipe-figures"] .nutrient-calories strong')
+    ).toContainText("664 kcal");
   });
 
   test("re-adding a food already in the recipe merges into its row (issue #14)", async ({
@@ -1500,7 +1516,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // Recipe builder open, seeded with oats 50 g + banana 150 g = 323 kcal.
     await selectTwoAndBuild(page);
     await expect(page.locator(".ing-head .fl")).toHaveText("Ingredients (2)");
-    await expect(page.locator(".recipe-total")).toContainText("323 kcal");
+    await expect(
+      page.locator('[data-testid="recipe-figures"] .nutrient-calories strong')
+    ).toContainText("323 kcal");
 
     // Re-add Mock Oats — a food ALREADY in the recipe. The keyed ingredient list
     // is entity-keyed, so this used to mint a duplicate key and abort the render:
@@ -1520,7 +1538,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       hasText: "Mock Oats",
     });
     await expect(oatsRow.locator(".fi-qty")).toHaveText("100g");
-    await expect(page.locator(".recipe-total")).toContainText("512.5 kcal");
+    await expect(
+      page.locator('[data-testid="recipe-figures"] .nutrient-calories strong')
+    ).toContainText("512.5 kcal");
   });
 
   // ── Seam 3: Instantiate a Recipe Twin + correct an instantiation (ADR-0022) ──
@@ -1530,7 +1550,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   async function buildDinnerCombo(page: import("@playwright/test").Page) {
     const dinnerSection = await selectTwoAndBuild(page);
     await page.locator("#recipe-name").fill("Dinner Combo");
-    await expect(page.locator(".recipe-total")).toContainText("323 kcal");
+    await expect(
+      page.locator('[data-testid="recipe-figures"] .nutrient-calories strong')
+    ).toContainText("323 kcal");
     await page.locator("#save-recipe-btn").click();
     await expect(dinnerSection).toContainText("Dinner Combo");
     await expect(page.locator(".calories-num")).toHaveText("323");
@@ -1556,11 +1578,15 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.locator('[data-testid="instantiation-name"]')).toHaveText(
       "Dinner Combo"
     );
-    await expect(page.locator(".recipe-total")).toContainText("323 kcal");
+    await expect(
+      page.locator('[data-testid="recipe-figures"] .nutrient-calories strong')
+    ).toContainText("323 kcal");
 
     // Diverge for THIS occasion only: bump the oats to 100 g → 379 + 133.5 = 512.5.
     await setIngredientGrams(page, "Mock Oats", "100");
-    await expect(page.locator(".recipe-total")).toContainText("512.5 kcal");
+    await expect(
+      page.locator('[data-testid="recipe-figures"] .nutrient-calories strong')
+    ).toContainText("512.5 kcal");
 
     // Logging is purely additive — it writes a new instantiation and retracts
     // nothing. The dinner instantiation stays put at 323.
@@ -1603,7 +1629,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
         .locator(".fi-qty")
     ).toHaveText("50g");
     await setIngredientGrams(page, "Mock Oats", "100"); // 379 + 133.5 = 512.5
-    await expect(page.locator(".recipe-total")).toContainText("512.5 kcal");
+    await expect(
+      page.locator('[data-testid="recipe-figures"] .nutrient-calories strong')
+    ).toContainText("512.5 kcal");
 
     await page.locator("#save-instantiation-btn").click();
 
@@ -1654,7 +1682,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // Build it from search: oats 50 g (189.5) + banana 150 g (133.5) = 323/serving.
     await addSearchedIngredient(page, "oats", "Mock Oats", "50");
     await addSearchedIngredient(page, "banana", "Mock Banana", "150");
-    await expect(page.locator(".recipe-total")).toContainText("323 kcal");
+    await expect(
+      page.locator('[data-testid="recipe-figures"] .nutrient-calories strong')
+    ).toContainText("323 kcal");
 
     await page.locator("#log-recipe-btn").click();
 
@@ -1694,7 +1724,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // Edit mode seeds from the template's CURRENT ingredients (323/serving).
     await expect(page.locator("#log-recipe-btn")).toContainText("Save changes");
     await expect(page.locator("#recipe-name")).toHaveValue("Dinner Combo");
-    await expect(page.locator(".recipe-total")).toContainText("323 kcal");
+    await expect(
+      page.locator('[data-testid="recipe-figures"] .nutrient-calories strong')
+    ).toContainText("323 kcal");
 
     // Bump the oats 50 → 100 g (379 + 133.5 = 512.5/serving) and save the template.
     await expect(
@@ -1703,7 +1735,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
         .locator(".fi-qty")
     ).toHaveText("50g");
     await setIngredientGrams(page, "Mock Oats", "100");
-    await expect(page.locator(".recipe-total")).toContainText("512.5 kcal");
+    await expect(
+      page.locator('[data-testid="recipe-figures"] .nutrient-calories strong')
+    ).toContainText("512.5 kcal");
     await page.locator("#log-recipe-btn").click();
 
     // The edit logs nothing and never disturbs history: the already-logged
@@ -1718,7 +1752,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.locator('[data-testid="instantiation-name"]')).toHaveText(
       "Dinner Combo"
     );
-    await expect(page.locator(".recipe-total")).toContainText("512.5 kcal");
+    await expect(
+      page.locator('[data-testid="recipe-figures"] .nutrient-calories strong')
+    ).toContainText("512.5 kcal");
     await page.locator("#log-recipe-btn").click();
 
     const breakfastSection = page.locator(

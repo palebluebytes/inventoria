@@ -12,9 +12,8 @@
     deriveRecipeNutrition,
     deriveIngredientMacros,
   } from "../../food/recipe-nutrition";
-  import { roundFoodDisplay, type Portion } from "../../food/nutrition";
+  import type { Portion } from "../../food/nutrition";
   import { scaleAmount } from "../../food/scale-amount";
-  import { nutritionDisplayDecimals } from "../../stores/settings.store";
   import AddIngredientSheet from "./AddIngredientSheet.svelte";
   import IngredientAmountSheet from "./IngredientAmountSheet.svelte";
   import FoodItemRow from "./FoodItemRow.svelte";
@@ -141,14 +140,11 @@
   }
 </script>
 
+<!-- Just the count: the figures for the whole list live at the foot of it, and
+     repeating a kcal/protein headline here only invited the eye to check one
+     against the other. -->
 <div class="ing-head">
   <span class="fl">Ingredients ({ingredients.length})</span>
-  <span class="tot recipe-total"
-    >{roundFoodDisplay(visibleTotal.calories, $nutritionDisplayDecimals)} kcal · {roundFoodDisplay(
-      visibleTotal.protein,
-      $nutritionDisplayDecimals
-    )}g P</span
-  >
 </div>
 <ul class="ings">
   {#each ingredients as ing, i (ing.entity)}
@@ -254,16 +250,10 @@
     margin: var(--space-s) 0 var(--space-3xs);
   }
   .ing-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
     margin-top: var(--space-m);
   }
   .ing-head .fl {
     margin: 0;
-  }
-  .tot {
-    font-weight: 800;
   }
   .ings {
     list-style: none;
