@@ -2,7 +2,7 @@
   import type { Snippet } from "svelte";
   import { unitLabel } from "../../food/recipe-ingredient";
   import { roundFoodDisplay } from "../../food/nutrition";
-  import { nutritionDisplayDecimals } from "../../stores/settings.store";
+  import { calorieDisplayDecimals } from "../../stores/settings.store";
 
   // One food line, shared by the dashboard's logged-food list and the
   // recipe/instantiation ingredient list so the two read identically — modelled
@@ -71,7 +71,7 @@
     <span class="fi-qty">{qtyLabel}</span>
   </div>
   <span class="fi-cals"
-    >{roundFoodDisplay(calories, $nutritionDisplayDecimals)} kcal</span
+    >{roundFoodDisplay(calories, $calorieDisplayDecimals)} kcal</span
   >
   {#if corner}
     <span class="fi-corner">{@render corner()}</span>

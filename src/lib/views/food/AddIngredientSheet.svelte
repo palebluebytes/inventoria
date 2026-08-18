@@ -12,7 +12,7 @@
     PrimaryLabelContext,
   } from "../../food/food-staging";
   import { roundFoodDisplay } from "../../food/nutrition";
-  import { nutritionDisplayDecimals } from "../../stores/settings.store";
+  import { calorieDisplayDecimals } from "../../stores/settings.store";
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import FoodStager from "./FoodStager.svelte";
 
@@ -65,7 +65,7 @@
 
   function primaryLabel(ctx: PrimaryLabelContext): string {
     if (ctx.staged)
-      return `Add ${roundFoodDisplay(ctx.staged.calories * ctx.factor, $nutritionDisplayDecimals)} kcal`;
+      return `Add ${roundFoodDisplay(ctx.staged.calories * ctx.factor, $calorieDisplayDecimals)} kcal`;
     if (ctx.method === "custom")
       return ctx.toReview > 0 ? "Review & add" : "Add";
     if (ctx.method === "scan") return "Look up";

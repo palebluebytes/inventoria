@@ -17,7 +17,7 @@
   } from "../../food/nutrient-display";
   import { roundFoodDisplay } from "../../food/nutrition";
   import {
-    nutritionDisplayDecimals,
+    calorieDisplayDecimals,
     type FoodProfile,
   } from "../../stores/settings.store";
 
@@ -162,17 +162,17 @@
 
   // Hand the accepted numbers to the editor, rounded to the same display precision
   // the preview showed (ADR-0033 §4: "the live preview already showed what is being
-  // accepted"), plus the profile to persist for next time.
+  // accepted") — the whole-number toggle for the kcal figure, the fixed nutrient
+  // precision for the macro grams — plus the profile to persist for next time.
   function applyTargets(close: () => void) {
     if (result === null || sex === null) return;
-    const d = $nutritionDisplayDecimals;
     onApply(
       {
-        energy: roundFoodDisplay(result.energy, d),
-        protein: roundFoodDisplay(result.protein, d),
-        fat: roundFoodDisplay(result.fat, d),
-        carbs: roundFoodDisplay(result.carbs, d),
-        fiber_content: roundFoodDisplay(result.fiber_content, d),
+        energy: roundFoodDisplay(result.energy, $calorieDisplayDecimals),
+        protein: roundFoodDisplay(result.protein),
+        fat: roundFoodDisplay(result.fat),
+        carbs: roundFoodDisplay(result.carbs),
+        fiber_content: roundFoodDisplay(result.fiber_content),
       },
       {
         sex,
@@ -299,47 +299,30 @@
       <span class="preview-head">Suggested daily target</span>
       {#if result !== null}
         <div class="preview-cals" data-preview-calories>
-          {formatCalories(result.energy, $nutritionDisplayDecimals)}
+          {formatCalories(result.energy, $calorieDisplayDecimals)}
         </div>
         <div class="preview-macros">
           <span class="macro" data-preview-protein
             ><span class="macro-label">Protein</span>
             <span class="macro-val"
-              >{formatNutrientValue(
-                result.protein,
-                "g",
-                $nutritionDisplayDecimals
-              )}</span
+              >{formatNutrientValue(result.protein, "g")}</span
             ></span
           >
           <span class="macro" data-preview-fat
             ><span class="macro-label">Fat</span>
-            <span class="macro-val"
-              >{formatNutrientValue(
-                result.fat,
-                "g",
-                $nutritionDisplayDecimals
-              )}</span
+            <span class="macro-val">{formatNutrientValue(result.fat, "g")}</span
             ></span
           >
           <span class="macro" data-preview-carbs
             ><span class="macro-label">Carbs</span>
             <span class="macro-val"
-              >{formatNutrientValue(
-                result.carbs,
-                "g",
-                $nutritionDisplayDecimals
-              )}</span
+              >{formatNutrientValue(result.carbs, "g")}</span
             ></span
           >
           <span class="macro" data-preview-fiber
             ><span class="macro-label">Fibre</span>
             <span class="macro-val"
-              >{formatNutrientValue(
-                result.fiber_content,
-                "g",
-                $nutritionDisplayDecimals
-              )}</span
+              >{formatNutrientValue(result.fiber_content, "g")}</span
             ></span
           >
         </div>
@@ -374,7 +357,7 @@
           <p class="hint floor-note" data-floor-note>
             Kept at your resting burn ({formatCalories(
               bmr ?? 0,
-              $nutritionDisplayDecimals
+              $calorieDisplayDecimals
             )}) — the helper won't suggest eating below it.
           </p>
         {/if}

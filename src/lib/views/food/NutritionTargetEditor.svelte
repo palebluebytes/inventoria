@@ -5,7 +5,7 @@
     saveFoodTargets,
     saveFoodLimits,
     saveCalculatorPlan,
-    nutritionDisplayDecimals,
+    calorieDisplayDecimals,
     type FoodProfile,
   } from "../../stores/settings.store";
   import type { EnergyMacros } from "../../food/personalized-energy-macros";
@@ -55,7 +55,7 @@
   // re-writing the already-saved API keys from the store so an unsaved edit in
   // the credentials form is never clobbered. Calories are always-on via the ring.
   let visible_nutrients = $state<string[]>([]);
-  // Whether nutrition reads rounded to whole numbers (display-only, ticket #29).
+  // Whether calories read rounded to whole numbers (display-only, ticket #29).
   // Default on now — seeded from the store, which also defaults on.
   let round_nutrition = $state(true);
   // Per-nutrient target overrides (ticket #41, ADR-0031 §3): mirrors the
@@ -102,13 +102,13 @@
   // The baked/calculated default or an override as the plain number the user sees
   // in the card's display unit — the input's placeholder / value. `energy` is in
   // kcal already (a personalized default can be fractional); every other key is
-  // baked in grams and reformats to g/mg/µg. Both honour the whole-number toggle
-  // ($nutritionDisplayDecimals) so the Nutrition Display values round in step with
-  // the dashboard/pills/calculator.
+  // baked in grams and reformats to g/mg/µg. Only the kcal branch honours the
+  // whole-number toggle ($calorieDisplayDecimals) — the same scope the dashboard,
+  // pills, and calculator apply it at; a gram target always shows its decimals.
   const displayNumber = (grams: number, unit: TargetUnit): string =>
     unit === "kcal"
-      ? String(roundFoodDisplay(grams, $nutritionDisplayDecimals))
-      : String(nutrientDisplayValue(grams, unit, $nutritionDisplayDecimals));
+      ? String(roundFoodDisplay(grams, $calorieDisplayDecimals))
+      : String(nutrientDisplayValue(grams, unit));
   // The placeholder is the resolved default (baked, or the calculator's frozen
   // figure once it has run) — what the field reverts to when its override clears.
   const placeholderFor = (key: string, unit: TargetUnit): string =>
@@ -550,11 +550,11 @@
         checked={round_nutrition}
         onchange={toggleRoundNutrition}
       />
-      <span class="toggle-text">Round to whole numbers</span>
+      <span class="toggle-text">Round calories to whole numbers</span>
     </label>
     <span class="help-text"
-      >Show calories and nutrients as whole numbers. Stored values keep full
-      precision either way.</span
+      >Show calorie figures as whole numbers. Nutrient amounts always keep their
+      decimals, and stored values keep full precision either way.</span
     >
   </div>
 </section>

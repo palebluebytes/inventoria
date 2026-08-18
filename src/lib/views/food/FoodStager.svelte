@@ -17,7 +17,7 @@
   import type { EntityPayload } from "../../ingestion/ingest";
   import { getLocalFoodTwin } from "../../stores/calorie.store";
   import { settingsStore } from "../../stores/settings.store";
-  import { nutritionDisplayDecimals } from "../../stores/settings.store";
+  import { calorieDisplayDecimals } from "../../stores/settings.store";
   import { secretsStore } from "../../stores/secrets";
   import {
     portionLabelIsBareWeight,
@@ -1503,16 +1503,10 @@
                                 <span class="result-macros">
                                   Per 100g: {roundFoodDisplay(
                                     item.calories,
-                                    $nutritionDisplayDecimals
-                                  )} kcal | P: {roundFoodDisplay(
-                                    item.protein,
-                                    $nutritionDisplayDecimals
-                                  )}g | F: {roundFoodDisplay(
-                                    item.fat,
-                                    $nutritionDisplayDecimals
-                                  )}g | C: {roundFoodDisplay(
-                                    item.carbs,
-                                    $nutritionDisplayDecimals
+                                    $calorieDisplayDecimals
+                                  )} kcal | P: {roundFoodDisplay(item.protein)}g
+                                  | F: {roundFoodDisplay(item.fat)}g | C: {roundFoodDisplay(
+                                    item.carbs
                                   )}g
                                 </span>
                               </div>

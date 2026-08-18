@@ -34,7 +34,7 @@
     deriveRecipeNutrition,
     sanitizeYield,
   } from "../../food/recipe-nutrition";
-  import { nutritionDisplayDecimals } from "../../stores/settings.store";
+  import { calorieDisplayDecimals } from "../../stores/settings.store";
   import type { ManualEntry } from "../../food/provenance";
   import { parseDatomValue } from "../../db/datom-fold";
   import type {
@@ -555,17 +555,10 @@
                       <span class="recipe-pick-macros">
                         Per serving: {roundFoodDisplay(
                           panel.calories,
-                          $nutritionDisplayDecimals
-                        )} kcal | P: {roundFoodDisplay(
-                          panel.protein,
-                          $nutritionDisplayDecimals
-                        )}g | F: {roundFoodDisplay(
-                          panel.fat,
-                          $nutritionDisplayDecimals
-                        )}g | C: {roundFoodDisplay(
-                          panel.carbs,
-                          $nutritionDisplayDecimals
-                        )}g
+                          $calorieDisplayDecimals
+                        )} kcal | P: {roundFoodDisplay(panel.protein)}g | F: {roundFoodDisplay(
+                          panel.fat
+                        )}g | C: {roundFoodDisplay(panel.carbs)}g
                       </span>
                     {/if}
                   </span>

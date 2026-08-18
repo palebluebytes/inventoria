@@ -65,11 +65,14 @@ export interface SettingsState {
    */
   visible_nutrients: string[];
   /**
-   * Whether nutrition values are displayed rounded to whole numbers instead of
-   * the {@link FOOD_DISPLAY_DECIMALS}-place precision. Display-only: the frozen
-   * snapshot always keeps full precision, so this never changes stored history —
-   * only how calories/macros/micronutrients read on screen (dashboard, staged
-   * pills, the calculator, AND the target editor's own baked/override values).
+   * Whether **calorie** figures are displayed rounded to whole numbers instead of
+   * the {@link FOOD_DISPLAY_DECIMALS}-place precision. Scoped to kcal: a nutrient
+   * amount (grams/mg/µg) always shows at the full display precision either way,
+   * because dropping a gram figure's decimals costs real information where
+   * dropping a kcal figure's does not. Display-only: the frozen snapshot always
+   * keeps full precision, so this never changes stored history — only how the
+   * calories read on screen (dashboard ring, staged pills, the calculator, AND
+   * the target editor's own baked/override energy value).
    * Default **on**: absent → `true`, and only an explicit stored `false` turns it
    * off. A JSON boolean, so like `visible_nutrients` it is NOT a
    * `SETTINGS_STRING_ATTR`.
@@ -422,12 +425,14 @@ export async function saveCalculatorPlan(plan: {
 }
 
 /**
- * The display precision every food number obeys, resolved from the user's
+ * The display precision **calorie** figures obey, resolved from the user's
  * {@link SettingsState.round_nutrition} choice: `0` places when whole-number
  * display is on, otherwise {@link FOOD_DISPLAY_DECIMALS}. Views pass this into
- * `roundFoodDisplay` / the nutrient-display builders, so the round-vs-exact
- * logic lives here once rather than in every view.
+ * `roundFoodDisplay` / the `calorieDecimals` slot of the nutrient-display
+ * builders, so the round-vs-exact logic lives here once rather than in every
+ * view. Nutrient amounts take no precision argument at all — `formatNutrientValue`
+ * fixes theirs — so this store can only ever reach a kcal number.
  */
-export const nutritionDisplayDecimals = derived(settingsStore, ($s) =>
+export const calorieDisplayDecimals = derived(settingsStore, ($s) =>
   $s.round_nutrition ? 0 : FOOD_DISPLAY_DECIMALS
 );

@@ -206,7 +206,8 @@ attribute is `settings/food/targets`, not `food/targets`.
 - `settings/off_contribute`: the model-C consent toggle for contributing back to Open
   Food Facts (ADR-0034 §8).
 - `settings/food/visible_nutrients`: the dashboard nutrient selection.
-- `settings/food/round_nutrition`: whole-number display toggle.
+- `settings/food/round_nutrition`: whole-number **calorie** display toggle (nutrient
+  amounts always show at the fixed display precision).
 - `settings/food/targets`: a blob override map of daily nutrition targets, in canonical
   units, layered over the baked reference set
   ([ADR-0031](adr/0031-baked-overridable-nutrition-targets.md)).

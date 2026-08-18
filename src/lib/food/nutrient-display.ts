@@ -170,21 +170,23 @@ export function selectedNutrients(
 
 /**
  * Formats a nutrient's stored-grams value into its display unit, e.g. 0.5 g of
- * sodium → "500 mg", 12.345 g of protein → "12.35 g". Rounded to `decimals`
- * (default {@link FOOD_DISPLAY_DECIMALS}; `0` for whole-number display) so summed
- * floats don't leak their mantissa; never returns NaN.
+ * sodium → "500 mg", 12.345 g of protein → "12.35 g". Always at
+ * {@link FOOD_DISPLAY_DECIMALS} so summed floats don't leak their mantissa;
+ * never returns NaN.
+ *
+ * Precision is fixed here on purpose: the whole-number display setting
+ * (`settings/food/round_nutrition`) governs **calories only**, so a nutrient
+ * amount reads the same either way. A gram figure is small enough that dropping
+ * its decimals would cost real information (0.6 g of fibre reading "1 g"),
+ * whereas a kcal figure is not — see {@link formatCalories}.
  */
-export function formatNutrientValue(
-  grams: number,
-  unit: NutrientUnit,
-  decimals: number = FOOD_DISPLAY_DECIMALS
-): string {
-  return `${nutrientDisplayValue(grams, unit, decimals)} ${unit}`;
+export function formatNutrientValue(grams: number, unit: NutrientUnit): string {
+  return `${nutrientDisplayValue(grams, unit)} ${unit}`;
 }
 
 /**
  * A nutrient's stored-grams value as the plain number it reads as in its display
- * unit (0.5 g sodium → `500` for "mg"), rounded to `decimals`. This is the
+ * unit (0.5 g sodium → `500` for "mg"), at the same fixed precision. This is the
  * numeric half of {@link formatNutrientValue} — that function is just this plus
  * the unit suffix — so the two can never drift. The settings target editor
  * (ticket #41) shows a baked default / override in a numeric input whose unit
@@ -193,10 +195,12 @@ export function formatNutrientValue(
  */
 export function nutrientDisplayValue(
   grams: number,
-  unit: NutrientUnit,
-  decimals: number = FOOD_DISPLAY_DECIMALS
+  unit: NutrientUnit
 ): number {
-  return roundFoodDisplay((Number(grams) || 0) * UNIT_SCALE[unit], decimals);
+  return roundFoodDisplay(
+    (Number(grams) || 0) * UNIT_SCALE[unit],
+    FOOD_DISPLAY_DECIMALS
+  );
 }
 
 /**
@@ -217,7 +221,12 @@ export function parseNutrientEntry(
   return unit === "kcal" ? n : n / UNIT_SCALE[unit];
 }
 
-/** Formats a calories total, always shown in kcal — the always-on headline. */
+/**
+ * Formats a calories total, always shown in kcal — the always-on headline, and
+ * the *only* figure the whole-number display setting moves: callers pass `0`
+ * when `settings/food/round_nutrition` is on. Nutrient amounts keep their fixed
+ * precision regardless ({@link formatNutrientValue}).
+ */
 export function formatCalories(
   kcal: number,
   decimals: number = FOOD_DISPLAY_DECIMALS
@@ -270,20 +279,19 @@ export interface NutrientMeter {
 export function buildNutrientMeters(
   breakdown: NutritionBreakdown,
   selection: string[] | undefined,
-  targets: Partial<Record<string, number>> = {},
-  decimals: number = FOOD_DISPLAY_DECIMALS
+  targets: Partial<Record<string, number>> = {}
 ): NutrientMeter[] {
   return selectedNutrients(selection).map((d) => {
     const grams = totalFor(breakdown, d.key);
     const meter: NutrientMeter = {
       key: d.key,
       label: d.label,
-      value: formatNutrientValue(grams, d.unit, decimals),
+      value: formatNutrientValue(grams, d.unit),
     };
     const target = targets[d.key];
     if (typeof target === "number" && target > 0) {
       meter.fill = Math.min((grams / target) * 100, 100);
-      meter.target = formatNutrientValue(target, d.unit, decimals);
+      meter.target = formatNutrientValue(target, d.unit);
     }
     return meter;
   });
@@ -309,13 +317,12 @@ export interface NutrientRow {
  */
 function nutrientRow(
   breakdown: NutritionBreakdown,
-  d: NutrientDescriptor,
-  decimals: number
+  d: NutrientDescriptor
 ): NutrientRow {
   return {
     key: d.key,
     label: d.label,
-    value: formatNutrientValue(totalFor(breakdown, d.key), d.unit, decimals),
+    value: formatNutrientValue(totalFor(breakdown, d.key), d.unit),
   };
 }
 
@@ -343,6 +350,10 @@ const EMPTY_KEY_SET: ReadonlySet<string> = new Set();
  * value for, matching its pill preview ({@link buildNutrientPills}). Calories
  * always lead, never hidden.
  *
+ * `calorieDecimals` is the whole-number display setting, and it reaches the
+ * leading Calories row alone: every nutrient row formats at the fixed precision
+ * {@link formatNutrientValue} sets.
+ *
  * `exclude` drops any nutrient whose key it contains — including `calories`. The
  * staged-food card shows a macro grid ({@link buildNutrientPills}) above this
  * disclosure, so it passes the grid's shown keys here to keep the "full nutrition"
@@ -352,7 +363,7 @@ const EMPTY_KEY_SET: ReadonlySet<string> = new Set();
  */
 export function buildNutrientBreakdown(
   breakdown: NutritionBreakdown,
-  decimals: number = FOOD_DISPLAY_DECIMALS,
+  calorieDecimals: number = FOOD_DISPLAY_DECIMALS,
   hideEmpty: boolean = false,
   exclude: ReadonlySet<string> = EMPTY_KEY_SET
 ): NutrientRow[] {
@@ -361,7 +372,7 @@ export function buildNutrientBreakdown(
     rows.push({
       key: "calories",
       label: "Calories",
-      value: formatCalories(totalFor(breakdown, "calories"), decimals),
+      value: formatCalories(totalFor(breakdown, "calories"), calorieDecimals),
     });
   }
   for (const d of NUTRIENT_CATALOGUE) {
@@ -369,10 +380,10 @@ export function buildNutrientBreakdown(
     if (!(d.key in breakdown)) continue;
     if (
       hideEmpty &&
-      nutrientDisplayValue(totalFor(breakdown, d.key), d.unit, decimals) === 0
+      nutrientDisplayValue(totalFor(breakdown, d.key), d.unit) === 0
     )
       continue;
-    rows.push(nutrientRow(breakdown, d, decimals));
+    rows.push(nutrientRow(breakdown, d));
   }
   return rows;
 }
@@ -547,8 +558,8 @@ export function buildDayRdaView(
   breakdown: NutritionBreakdown,
   targets: Partial<Record<string, number>>,
   opts: {
-    /** Display precision; defaults to {@link FOOD_DISPLAY_DECIMALS}. */
-    decimals?: number;
+    /** Calorie display precision; defaults to {@link FOOD_DISPLAY_DECIMALS}. */
+    calorieDecimals?: number;
     /** Max present-nutrient gaps ranked in the strip (default 3). */
     gapLimit?: number;
     /** Visible meters the gaps strip ranks; omit → rank every targeted nutrient. */
@@ -558,7 +569,7 @@ export function buildDayRdaView(
   } = {}
 ): DayRdaView {
   const {
-    decimals = FOOD_DISPLAY_DECIMALS,
+    calorieDecimals = FOOD_DISPLAY_DECIMALS,
     gapLimit = 3,
     selection,
     limits = {},
@@ -590,8 +601,8 @@ export function buildDayRdaView(
     const total = totalFor(breakdown, breakdownKey);
     const fmt = (v: number): string =>
       unit === "kcal"
-        ? formatCalories(v, decimals)
-        : formatNutrientValue(v, unit, decimals);
+        ? formatCalories(v, calorieDecimals)
+        : formatNutrientValue(v, unit);
     const bar = present && target > 0;
     return {
       key: breakdownKey,
@@ -640,7 +651,7 @@ export function buildDayRdaView(
   const untracked: NutrientRow[] = [];
   for (const d of NUTRIENT_CATALOGUE) {
     if (!(d.key in breakdown) || hasTarget(d.key) || hasLimit(d.key)) continue;
-    untracked.push(nutrientRow(breakdown, d, decimals));
+    untracked.push(nutrientRow(breakdown, d));
   }
 
   // Biggest gaps: the "no data" nutrients first — the day carried none, OR carried
@@ -688,6 +699,9 @@ export interface NutrientPill {
  * #21/#30); a genuine reported zero still formats normally. Pure: the `.svelte`
  * view just renders it.
  *
+ * `calorieDecimals` reaches the leading Calories pill alone — a nutrient pill
+ * formats at the fixed precision {@link formatNutrientValue} sets.
+ *
  * `hideEmpty` drops any selected nutrient that is missing OR reads as zero at its
  * display precision — a food preview and the per-meal subtotal then list only the
  * nutrients they actually carry a value for (no fibre, or 0 g fat, shows neither
@@ -698,14 +712,14 @@ export interface NutrientPill {
 export function buildNutrientPills(
   breakdown: NutritionBreakdown,
   selection: string[] | undefined,
-  decimals: number = FOOD_DISPLAY_DECIMALS,
+  calorieDecimals: number = FOOD_DISPLAY_DECIMALS,
   hideEmpty: boolean = false
 ): NutrientPill[] {
   const pills: NutrientPill[] = [
     {
       key: "calories",
       label: "Calories",
-      value: formatCalories(totalFor(breakdown, "calories"), decimals),
+      value: formatCalories(totalFor(breakdown, "calories"), calorieDecimals),
     },
   ];
   for (const d of selectedNutrients(selection)) {
@@ -714,17 +728,12 @@ export function buildNutrientPills(
     // In the food preview, an absent nutrient AND one that rounds to 0 in its own
     // display unit (0 g fat, 0 mg sodium — checked per-unit so a real 0.26 mg
     // micronutrient survives) are both dropped rather than shown.
-    if (
-      hideEmpty &&
-      (!present || nutrientDisplayValue(grams, d.unit, decimals) === 0)
-    )
+    if (hideEmpty && (!present || nutrientDisplayValue(grams, d.unit) === 0))
       continue;
     pills.push({
       key: d.key,
       label: d.label,
-      value: present
-        ? formatNutrientValue(grams, d.unit, decimals)
-        : ABSENT_NUTRIENT,
+      value: present ? formatNutrientValue(grams, d.unit) : ABSENT_NUTRIENT,
     });
   }
   return pills;

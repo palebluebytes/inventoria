@@ -6,7 +6,7 @@
   } from "../../food/nutrient-display";
   import {
     settingsStore,
-    nutritionDisplayDecimals,
+    calorieDisplayDecimals,
   } from "../../stores/settings.store";
   import NutrientBreakdown from "./NutrientBreakdown.svelte";
 
@@ -36,13 +36,13 @@
     buildNutrientPills(
       breakdown,
       $settingsStore.visible_nutrients,
-      $nutritionDisplayDecimals,
+      $calorieDisplayDecimals,
       true
     )
   );
   let pillKeys = $derived(new Set(pills.map((p) => p.key)));
   let fullRows = $derived(
-    buildNutrientBreakdown(breakdown, $nutritionDisplayDecimals, true, pillKeys)
+    buildNutrientBreakdown(breakdown, $calorieDisplayDecimals, true, pillKeys)
   );
 </script>
 

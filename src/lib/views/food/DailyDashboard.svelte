@@ -23,7 +23,7 @@
   } from "../../food/nutrition-targets";
   import {
     settingsStore,
-    nutritionDisplayDecimals,
+    calorieDisplayDecimals,
   } from "../../stores/settings.store";
   import { parseLoggedQuantity } from "../../food/recipe-ingredient";
   import Modal from "../../ui/Modal.svelte";
@@ -130,8 +130,7 @@
     buildNutrientMeters(
       dayTotals,
       $settingsStore.visible_nutrients,
-      resolvedTargets,
-      $nutritionDisplayDecimals
+      resolvedTargets
     )
   );
 
@@ -144,7 +143,7 @@
   // selection-gated. The Limits section shows only the limits the day carried.
   let dayRda = $derived(
     buildDayRdaView(dayTotals, resolvedTargets, {
-      decimals: $nutritionDisplayDecimals,
+      calorieDecimals: $calorieDisplayDecimals,
       selection: $settingsStore.visible_nutrients,
       limits: resolvedLimits,
     })
@@ -214,7 +213,7 @@
   <CalorieRing
     {totalCalories}
     targetCalories={resolvedTargets.energy}
-    decimals={$nutritionDisplayDecimals}
+    decimals={$calorieDisplayDecimals}
   />
 
   <MacroMeters {meters} />
@@ -255,7 +254,7 @@
         {@const mealPills = buildNutrientPills(
           totalNutrition(groupedMeals[meal_type]),
           macroNutrients($settingsStore.visible_nutrients),
-          $nutritionDisplayDecimals,
+          $calorieDisplayDecimals,
           true
         )}
         <div class="meal-items-list">

@@ -24,7 +24,7 @@ import {
   saveFoodTargets,
   saveFoodLimits,
   saveCalculatorPlan,
-  nutritionDisplayDecimals,
+  calorieDisplayDecimals,
 } from "../../src/lib/stores/settings.store";
 import { FOOD_DISPLAY_DECIMALS } from "../../src/lib/food/nutrition";
 
@@ -440,9 +440,9 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
   });
 });
 
-describe("nutritionDisplayDecimals (derived display precision)", () => {
+describe("calorieDisplayDecimals (derived display precision)", () => {
   it("is 0 places by default (whole-number display is the default now)", () => {
-    expect(get(nutritionDisplayDecimals)).toBe(0);
+    expect(get(calorieDisplayDecimals)).toBe(0);
   });
 
   it("rises to the full display precision when whole-number display is turned off", () => {
@@ -453,7 +453,7 @@ describe("nutritionDisplayDecimals (derived display precision)", () => {
         time: 1,
       },
     ]);
-    expect(get(nutritionDisplayDecimals)).toBe(FOOD_DISPLAY_DECIMALS);
+    expect(get(calorieDisplayDecimals)).toBe(FOOD_DISPLAY_DECIMALS);
   });
 });
 

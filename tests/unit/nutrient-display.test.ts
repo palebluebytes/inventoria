@@ -137,11 +137,17 @@ describe("formatNutrientValue", () => {
     expect(formatCalories(133.5)).toBe("133.5 kcal");
   });
 
-  it("rounds to whole numbers when decimals=0 (settings/food/round_nutrition)", () => {
+  it("rounds CALORIES to whole numbers when decimals=0 (settings/food/round_nutrition)", () => {
     // The whole-number display mode passes 0 places; the exact default keeps 2.
     expect(formatCalories(133.5, 0)).toBe("134 kcal");
-    expect(formatNutrientValue(12.345, "g", 0)).toBe("12 g");
-    expect(formatNutrientValue(0.5, "mg", 0)).toBe("500 mg");
+  });
+
+  it("fixes a nutrient's precision — the round setting can't reach it", () => {
+    // formatNutrientValue takes no precision argument at all, so a gram figure
+    // reads the same whichever way the whole-number toggle is set.
+    expect(formatNutrientValue(12.345, "g")).toBe("12.35 g");
+    expect(formatNutrientValue(0.6, "g")).toBe("0.6 g");
+    expect(formatNutrientValue(0.0005, "mg")).toBe("0.5 mg");
   });
 });
 
@@ -424,11 +430,14 @@ describe("buildDayRdaView", () => {
     expect(view.gaps.every((g) => g.percent !== 0)).toBe(true);
   });
 
-  it("threads display precision to every section (decimals=0)", () => {
-    const view = buildDayRdaView(day, baked, { decimals: 0 });
+  it("threads the calorie precision to the calories row only (calorieDecimals=0)", () => {
+    const view = buildDayRdaView(day, baked, { calorieDecimals: 0 });
+    const calories = view.macros.find((r) => r.key === "calories")!;
+    expect(calories.value).toBe(formatCalories(day.calories, 0));
+    // A micronutrient keeps its own fixed precision either way.
     const iron = view.micros.find((r) => r.key === "iron")!;
-    expect(iron.value).toBe("14 mg");
-    expect(iron.target).toBe("18 mg");
+    expect(iron.value).toBe(formatNutrientValue(day.iron!, "mg"));
+    expect(iron.target).toBe(formatNutrientValue(baked.iron!, "mg"));
   });
 
   it("is independent of visible_nutrients — always the full reach-toward set", () => {
@@ -585,9 +594,13 @@ describe("buildNutrientPills", () => {
     expect(pills[1].value).toBe("0 mg");
   });
 
-  it("threads the display precision to every pill (decimals=0)", () => {
+  it("threads the calorie precision to the calories pill only (calorieDecimals=0)", () => {
     const pills = buildNutrientPills(scaled, ["protein", "fiber_content"], 0);
-    expect(pills.map((p) => p.value)).toEqual(["134 kcal", "2 g", "3 g"]);
+    expect(pills[0].value).toBe("134 kcal");
+    expect(pills.slice(1).map((p) => p.value)).toEqual([
+      formatNutrientValue(scaled.protein, "g"),
+      formatNutrientValue(scaled.fiber_content!, "g"),
+    ]);
   });
 
   it("hideEmpty drops a selected-but-absent nutrient's pill entirely", () => {
