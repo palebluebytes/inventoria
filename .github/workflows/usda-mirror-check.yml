@@ -1,0 +1,86 @@
+# Is the USDA mirror still current?
+#
+# The base-food search reads USDA FoodData Central live, so a stale mirror costs
+# nothing day to day. What it bounds is how current a RESTORE would be, and one of
+# the mirrored datasets (SR Legacy) is discontinued upstream — see ADR-0045 and
+# docs/how-to-back-up-the-usda-datasets.md.
+#
+# Quarterly rather than monthly: measured over the 15 releases USDA published
+# between 2019 and 2026, Foundation ships about every 183 days, nominally April
+# and October, and slips (October 2025 landed in December). Four checks a year
+# catch every release within roughly three months without generating noise in the
+# nine months when nothing can possibly have changed.
+name: usda-mirror-check
+
+on:
+  schedule:
+    # 09:00 UTC on the 1st of February, May, August and November — a month after
+    # each release window, including the late ones.
+    - cron: "0 9 1 2,5,8,11 *"
+  workflow_dispatch:
+
+# The job reads the repo and files an issue. Nothing else.
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # No Nix and no pnpm install here, unlike the e2e workflow: the script is
+      # plain Node built-ins with no dependencies, so the runner's own Node is the
+      # whole toolchain and the job finishes in seconds.
+      - name: Compare the manifest against USDA's published releases
+        id: check
+        run: |
+          set +e
+          output=$(node scripts/usda-backup.mjs check 2>&1)
+          status=$?
+          echo "$output"
+          {
+            echo "report<<REPORT"
+            echo "$output"
+            echo "REPORT"
+          } >> "$GITHUB_OUTPUT"
+          echo "stale=$([ $status -eq 0 ] && echo false || echo true)" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      # One open issue at a time. A quarterly job that files a fresh issue every
+      # run would bury the first report under duplicates while the refresh is
+      # still pending.
+      - name: File an issue when the mirror is behind
+        if: steps.check.outputs.stale == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPORT: ${{ steps.check.outputs.report }}
+        run: |
+          gh label create usda-mirror \
+            --description "The off-USDA backup of FoodData Central" \
+            --color BFD4F2 --force
+          existing=$(gh issue list --state open --label usda-mirror --limit 1 --json number --jq '.[].number')
+          if [ -n "$existing" ]; then
+            echo "Issue #$existing is already open; adding a comment instead."
+            gh issue comment "$existing" --body "Still behind as of $(date -u +%Y-%m-%d):
+
+          \`\`\`
+          $REPORT
+          \`\`\`"
+            exit 0
+          fi
+          gh issue create \
+            --title "USDA mirror is behind the published releases" \
+            --label usda-mirror \
+            --body "The quarterly check found a newer USDA release than the one in \`scripts/usda-backup.manifest.json\`.
+
+          \`\`\`
+          $REPORT
+          \`\`\`
+
+          To refresh: update the \`file\`, \`release\`, \`bytes\`, \`sha256\` and \`records\` fields for the affected dataset in the manifest, then run \`pnpm usda:backup fetch\` and \`pnpm usda:backup upload\`. Archive keys carry their release date, so this adds objects rather than replacing them and the older snapshot stays restorable. See \`docs/how-to-back-up-the-usda-datasets.md\`.
+
+          A failure to READ the release index reports here too, and means the check itself needs fixing rather than the mirror."
