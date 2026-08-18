@@ -5,7 +5,7 @@ import {
   type NutritionInfo,
   type Portion,
 } from "./nutrition";
-import { buildRawProvenance } from "./provenance";
+import { buildRawProvenance, type RawProvenance } from "./provenance";
 import { getSecret } from "../stores/secrets";
 
 // Mapper version, bumped when the OFF -> nutrition/info normalisation changes.
@@ -182,6 +182,27 @@ function offReferenceImages(p: OFFProduct["product"]): string[] {
     p.image_ingredients_url,
     p.image_packaging_url,
   ].filter((url): url is string => typeof url === "string" && url.length > 0);
+}
+
+/**
+ * The same photo URLs, recovered from a SAVED twin rather than a live lookup.
+ *
+ * `referenceImages` is a read-through on the live {@link OffPayload} and never
+ * becomes a datom, so a twin already in the ledger — a barcode scanned a second
+ * time, or any logged food re-opened for editing — has no reference images to
+ * hand. They are still there, though: the untouched OFF response is kept as
+ * `twin/raw_provenance` precisely so nothing has to be re-fetched (ADR-0016).
+ * This reads them back out, and returns empty for a twin from any other source.
+ */
+export function offReferenceImagesFromTwin(
+  attributes: Record<string, unknown> | undefined
+): string[] {
+  const provenance = attributes?.["twin/raw_provenance"] as
+    | RawProvenance<OFFProduct>
+    | undefined;
+  if (provenance?.adapter !== "off") return [];
+  const product = provenance.raw_data?.product;
+  return product ? offReferenceImages(product) : [];
 }
 
 export class ProductNotFoundError extends Error {

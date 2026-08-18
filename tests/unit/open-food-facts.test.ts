@@ -7,6 +7,7 @@ import {
   buildOffWriteBody,
   offWriteHost,
   parseCategoryList,
+  offReferenceImagesFromTwin,
   fetchCategorySuggestions,
   isEnglishCategory,
   type OFFProduct,
@@ -808,5 +809,49 @@ describe("submitToOpenFoodFacts", () => {
     });
     expect(result).toMatchObject({ ok: false, kind: "config" });
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("offReferenceImagesFromTwin", () => {
+  // A saved twin has no live `referenceImages` (they are a read-through, never a
+  // datom), so the label shots have to come back out of the stored OFF response.
+  const twin = (raw: unknown) => ({
+    "twin/raw_provenance": {
+      adapter: "off",
+      adapter_version: "8",
+      source_uri: "https://world.openfoodfacts.org/api/v0/product/123.json",
+      raw_data: raw,
+    },
+  });
+
+  it("recovers the label shots in read order", () => {
+    expect(
+      offReferenceImagesFromTwin(
+        twin({
+          code: "123",
+          product: {
+            image_front_url: "front.jpg",
+            image_nutrition_url: "nutrition.jpg",
+            image_ingredients_url: "ingredients.jpg",
+          },
+        })
+      )
+    ).toEqual(["front.jpg", "nutrition.jpg", "ingredients.jpg"]);
+  });
+
+  it("returns empty for a product carrying no photos", () => {
+    expect(
+      offReferenceImagesFromTwin(twin({ code: "1", product: {} }))
+    ).toEqual([]);
+  });
+
+  it("returns empty for a twin from another source, or none at all", () => {
+    expect(
+      offReferenceImagesFromTwin({
+        "twin/raw_provenance": { adapter: "fdc", raw_data: {} },
+      })
+    ).toEqual([]);
+    expect(offReferenceImagesFromTwin({ "food/name": "X" })).toEqual([]);
+    expect(offReferenceImagesFromTwin(undefined)).toEqual([]);
   });
 });
