@@ -154,3 +154,17 @@ handled by the filters above, not by dropping the dataset.
 - **Keep a brand the user searched for (query-aware rescue).** Tried and removed:
   a generic food word capitalised inside a brand name tripped it, so brands are
   always dropped instead (Decision 3).
+
+## Amendment (2026-08-18): Foundation is 363 records, not ~400
+
+Decision 6 keeps both datasets on the grounds that "~89% of the raw base foods ... live
+[in SR Legacy]; Foundation alone is ~400 records". The second figure is wrong. Measured
+from the 2026-04-30 bulk archive, Foundation carries **363** records: its
+`FoundationFoods` array holds 395 entries and the last 32 are literally `null`, and the
+394 that the surrounding measurements were taken over is not reproducible from that
+distribution. See the
+[correction in research note #108](../research/108-base-food-composition-sources.md#correction-2026-08-18-foundation-carries-363-records-not-394).
+
+The decision holds, more firmly than before. A smaller Foundation makes SR Legacy a
+larger share of the base foods search exists to surface, which is the argument Decision
+6 already makes.

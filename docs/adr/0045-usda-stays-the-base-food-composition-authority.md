@@ -136,3 +136,24 @@ food that exists.
 - **CIQUAL remains the named fallback**, not a rejected one. What would trigger picking
   it back up: a USDA outlier we cannot defend to a user, or a European-supply gap that
   the synonym layer cannot reach. It would enter under Decision 5, as its own food.
+
+## Amendment (2026-08-18): Foundation is 363 records, not 394
+
+The decision is unaffected. It turns on what happens when one `ndbNumber` appears in
+both datasets, and that is per-food arithmetic — no clause of it depends on how large
+Foundation is.
+
+Two figures in the Consequences do. Foundation's 2026-04-30 bulk archive carries **363
+records**, not the 394 this record's measurements were taken over: its
+`FoundationFoods` array holds 395 entries and the last 32 are literally `null`. So the
+`184` Foundation foods with no SR Legacy twin and the `210` twinned pairs, which sum to
+exactly 394, describe a population 8% larger than the archive does; and the bundling
+figure of "8,187 foods" is 363 + 7,793 = **8,156**. The 361 KiB gzipped measurement
+beside it was taken over the larger set and has not been re-taken.
+
+Neither changes an argument. A thinner Foundation strengthens the case for filling it
+from SR Legacy rather than weakening it, and 8,156 foods bundle much as 8,187 do. The
+correction is recorded because the number is quoted when sizing a bundle or a coverage
+claim, and because it was wrong in three places at once — see the
+[correction in research note #108](../research/108-base-food-composition-sources.md#correction-2026-08-18-foundation-carries-363-records-not-394).
+Verification now measures the count out of the archive instead of restating it.
