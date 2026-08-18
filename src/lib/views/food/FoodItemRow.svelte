@@ -9,8 +9,9 @@
   // on the dashboard card: name over a muted quantity subtitle, the kcal on the
   // right, a corner remove. Tapping the row opens the amount picker (via
   // `onclick`); the dashboard instead lets its own wrapper handle the tap, so it
-  // passes no `onclick` here. `lead` slots a photo thumb or selection check
-  // ahead of the name without this component knowing about either.
+  // passes no `onclick` here. `lead` slots a photo thumb ahead of the name, and
+  // `corner` slots the dashboard's selection check into the top-right, without
+  // this component knowing about either.
   let {
     name,
     amount,
@@ -19,6 +20,7 @@
     onRemove,
     onclick,
     lead,
+    corner,
     selected = false,
     class: extraClass = "",
   }: {
@@ -31,6 +33,9 @@
      *  the dashboard's wrapper owns the tap; a locked serving row passes none. */
     onclick?: () => void;
     lead?: Snippet;
+    /** Top-right corner content. Takes the remove ✕'s place when given — the
+     *  dashboard puts its selection check here while a selection is active. */
+    corner?: Snippet;
     /** Dashboard selection highlight; ignored by the recipe list. */
     selected?: boolean;
     class?: string;
@@ -68,7 +73,9 @@
   <span class="fi-cals"
     >{roundFoodDisplay(calories, $nutritionDisplayDecimals)} kcal</span
   >
-  {#if onRemove}
+  {#if corner}
+    <span class="fi-corner">{@render corner()}</span>
+  {:else if onRemove}
     <button
       class="fi-remove"
       aria-label="Remove {name}"
@@ -125,8 +132,10 @@
     font-weight: 700;
     color: var(--text-primary);
   }
-  /* Borderless ✕ tucked into the row's top-right corner. */
-  .fi-remove {
+  /* Borderless ✕ tucked into the row's top-right corner — and the same box for
+     whatever `corner` puts there instead, so the two never shift the row. */
+  .fi-remove,
+  .fi-corner {
     position: absolute;
     top: var(--space-3xs);
     right: var(--space-3xs);
@@ -135,6 +144,8 @@
     justify-content: center;
     width: 1.5rem;
     height: 1.5rem;
+  }
+  .fi-remove {
     padding: 0;
     background: none;
     border: none;

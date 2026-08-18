@@ -262,6 +262,16 @@
           {#each groupedMeals[meal_type] as item}
             {@const isSelected = selectedIds.has(item.id)}
             {@const qty = parseLoggedQuantity(item.quantity)}
+            <!-- While a selection is active the check takes the remove ✕'s
+                 corner: the whole card is the tap target then, so the ✕ has no
+                 role, and the check reads where the eye already looks. -->
+            {#snippet selectCheck()}
+              <span
+                class="select-check"
+                class:on={isSelected}
+                aria-hidden="true">{isSelected ? "✓" : ""}</span
+              >
+            {/snippet}
             <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
             <div
               class="meal-item-card"
@@ -284,15 +294,9 @@
                 calories={Number(item.calories) || 0}
                 selected={isSelected}
                 onRemove={() => onRemoveItem(item.id)}
+                corner={selectionActive ? selectCheck : undefined}
               >
                 {#snippet lead()}
-                  {#if selectionActive}
-                    <span
-                      class="select-check"
-                      class:on={isSelected}
-                      aria-hidden="true">{isSelected ? "✓" : ""}</span
-                    >
-                  {/if}
                   {#if item.photoBase64}
                     <button
                       type="button"
