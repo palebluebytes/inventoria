@@ -960,12 +960,17 @@ describe("searchFdc", () => {
     const results = (await searchFdc("grape", "KEY")).foods;
     const order = results.map((r) => r.entity);
 
-    // The real grape leads; grapefruit (prefix-only) sinks below every
-    // whole-word "grape" match despite its tidy single-comma ", raw" name.
+    // The real grape leads, and "Grape leaves" — which carries the typed word IN
+    // its head — still outranks the grapefruit that merely starts with it.
     expect(order[0]).toBe("fdc:303"); // Grapes, red, seedless, raw
     expect(order.indexOf("fdc:303")).toBeLessThan(order.indexOf("fdc:301"));
     expect(order.indexOf("fdc:302")).toBeLessThan(order.indexOf("fdc:301"));
-    expect(order.indexOf("fdc:304")).toBeLessThan(order.indexOf("fdc:301")); // grape tomatoes (whole word) > grapefruit
+    // Grapefruit now outranks "Tomatoes, grape, raw", which this case used to
+    // assert the other way round. Both are wrong answers to "grape"; what
+    // changed is that a head the query completes beats a whole word buried in a
+    // qualifier, which is the rule that gets "pot" to potatoes at all (#113).
+    // It also restores what ADR-0042 §2's retired "name starts with" boost did.
+    expect(order.indexOf("fdc:301")).toBeLessThan(order.indexOf("fdc:304"));
   });
 
   it("drops packaged/processed rows (canned, soda) from the results", async () => {

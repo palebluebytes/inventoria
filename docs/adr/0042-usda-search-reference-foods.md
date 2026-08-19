@@ -5,6 +5,7 @@
 **Amended by:** ADR-0045 §2 (§6's "dedup keeps preferring Foundation" becomes a fill-only merge)  
 **Amended by:** ADR-0046 §1 (§3's "a brand-specific record is always dropped" gains a curated exception)  
 **Amended by:** ADR-0047 §1 and §4 (the corpus is bundled and pre-filtered at generation time; §2's Lucene boost is retired)  
+**Amended by:** the Amendment below, which supersedes §1's structural tier  
 **Implemented:** `dabb1fe`, `082ad31`, `fcb3b60`, `1365343`; `src/lib/food/food-search.ts`
 
 ## Context
@@ -51,6 +52,12 @@ Results are ordered by, in priority:
 1. **Structural tier** — how exactly the name matches the query: head-phrase (the
    name _is_ the query) > whole-word (plural-aware) > mere prefix. Floats
    "Grapes" above prefix-lookalikes like "Grapefruit" and "grass-fed".
+
+   > Superseded by the [Amendment](#amendment-2026-08-19-113-the-tier-asks-where-in-the-name-the-query-landed).
+   > Three tiers were not enough once §2's boost was retired and ranking ran over
+   > the whole corpus; there are now five, and they distinguish a match in the
+   > head phrase from one in a qualifier.
+
 2. **Base-ingredient (raw) preference** — a raw whole food outranks a processed
    form _within_ a tier, so the search surfaces the base ingredient.
 3. **Head-completeness** — for a partial query still short of a whole word
@@ -138,6 +145,62 @@ handled by the filters above, not by dropping the dataset.
   raise them).
 - The marker/category/token lists live in code and are expected to be tuned; this
   ADR is the stable _why_, `usda-fdc.ts` the living _how_.
+
+## Amendment (2026-08-19, #113): the tier asks WHERE in the name the query landed
+
+ADR-0047 moved search onto a bundled index and retired §2's Lucene boost, on the
+reading that the boost solved a page-boundary problem that ranking the whole corpus
+does not have. That reading was incomplete. The boost was
+`lowercaseDescription.keyword:<prefix>*^500` — a "name starts with" boost, as §2 says
+in its own words — so it was also doing structural ranking: floating foods whose
+_name_ leads with the typed prefix above foods that merely contain the word somewhere.
+The local scorer had no equivalent, and §1's three tiers put any whole-word match above
+any prefix match regardless of where in the name it fell.
+
+Measured over the shipped index: searching **"pot" returned "Beef, chuck, arm pot roast,
+…" first**, with the first `Potatoes,` row at **position 40**. "pot" is a whole word in
+"pot roast" (tier 20) and only a prefix in "Potatoes" (tier 10).
+
+A second, older defect compounded it. The plural stemmer dropped a trailing `s`, so
+`potatoes` became `potatoe`, which no spelling of `potato` equals. Searching the food
+by its own full name ranked it below "Sweet potato leaves"; `Potatoes,` first appeared
+at **position 13** for the query "potato". `-oes` and `-ies` are now handled.
+
+### The tier becomes five rungs
+
+USDA names a food `Food, qualifier`, so the head phrase before the first comma is the
+food's identity and everything after it describes it. Every rung asks how much of that
+identity the query accounts for:
+
+| rung | the query…                                     | for "grape"                  |
+| ---- | ---------------------------------------------- | ---------------------------- |
+| 50   | IS the head phrase                             | `Grapes, red, seedless, raw` |
+| 40   | contains a word that IS a head word            | `Grape leaves, raw`          |
+| 30   | completes the head phrase by prefix            | `Grapefruit, raw`            |
+| 20   | contains a whole word, but only in a qualifier | `Tomatoes, grape, raw`       |
+| 10   | merely prefix-matches some word                | —                            |
+
+Rung 40 sits above rung 30 deliberately: a typed word landing exactly on a head word
+beats one that merely prefixes a longer, different head word. Grape leaves are a grape;
+a grapefruit is not. Without that rung, adding rung 30 alone put grapefruit above grape
+leaves — which the first attempt at this fix did.
+
+**One ordering flips.** For "grape", `Grapefruit, raw` (30) now outranks
+`Tomatoes, grape, raw` (20), where §1 put the whole-word grape tomato first. Both are
+wrong answers to "grape"; what is bought is the rule that gets "pot" to potatoes at all,
+and it restores what the retired boost did.
+
+### Head-completeness is an absolute distance
+
+§1's third key, head-completeness, was signed: `-(headChars - queryChars)`. A head
+SHORTER than the query therefore scored **positive** and beat an exact fill, so
+"soy milk" answered with `Milk, imitation, non-soy` (head 4 characters, +3) ahead of
+`Soy milk, unsweetened, …` (head 7, exactly 0). A head the query overflows is a mismatch
+in the same way one it underfills is, so the distance is now absolute. This defect
+predates ADR-0047 and was found while fixing the tier.
+
+Everything else in §1 is unchanged: rawness still gates below relevance, head-
+completeness still breaks ties within a rung, and raw simplicity is still the last word.
 
 ## Alternatives considered
 

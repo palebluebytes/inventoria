@@ -72,6 +72,19 @@ describe("searchIndexRows", () => {
     expect(descriptionsFor("banana")[0]).toMatch(/^Bananas,/);
   });
 
+  it("reaches the food a partial query is naming, not a qualifier it lands on", () => {
+    // "pot" used to return "Beef, chuck, arm pot roast, …" first, with the first
+    // "Potatoes," row at position 40 — the retired ADR-0042 §2 boost had been
+    // doing this job, and ranking the whole corpus had no equivalent.
+    expect(descriptionsFor("pot")[0]).toMatch(/^Potatoes,/);
+    expect(descriptionsFor("potato")[0]).toMatch(/^Potatoes,/);
+    expect(descriptionsFor("tomato")[0]).toMatch(/^Tomatoes,/);
+  });
+
+  it("leads with the food the whole query names, not one word of it", () => {
+    expect(descriptionsFor("soy milk")[0]).toMatch(/^Soy milk,/);
+  });
+
   it("matches every token, not just one of them", () => {
     // A rice milk answers "milk" but not "soy milk"; an OR-of-prefixes query
     // returned it and the ranking had to bury it. Locally it never matches.
