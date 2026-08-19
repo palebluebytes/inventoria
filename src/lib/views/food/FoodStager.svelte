@@ -684,8 +684,6 @@
     skipped = new Set(skipped);
   }
 
-  let hasKey = $derived(!!$secretsStore.usda_api_key);
-
   // ── OFF contribution (ADR-0034 §8) ─────────────────────────────────────────
   // Give a corrected barcoded twin back to Open Food Facts. Offered ONLY when the
   // form is keyed to a barcode (a `gtin:` twin — `barcode` holds the code that
@@ -805,7 +803,6 @@
       lastQuery = "";
     } else if (
       trimmed.length >= 3 &&
-      hasKey &&
       // Skip if these results already match the query (e.g. we just came back
       // from staging a food); a failed query is not cached, so it can retry.
       !(trimmed === lastQuery && status !== "error")
@@ -1505,11 +1502,6 @@
               {:else if isExtra(method)}
                 {@render tabContent?.(method)}
               {:else if method === "search"}
-                {#if !hasKey}
-                  <Alert variant="warning">
-                    Add a USDA API key in Settings to search the food database.
-                  </Alert>
-                {/if}
                 <!-- The listbox half of the combobox: the recent foods while idle,
                    the async matches once searching. The heading and the "no
                    matches" hint sit OUTSIDE the role=listbox so only options are
@@ -2117,7 +2109,6 @@
                         autocomplete="off"
                         spellcheck="false"
                         value={query}
-                        disabled={!hasKey}
                         oninput={(e) => {
                           bitsOnInput?.(e);
                           query = e.currentTarget.value;
