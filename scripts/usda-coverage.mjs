@@ -3,8 +3,12 @@
  * How much of the nutrition panel each USDA bulk dataset actually reports
  * (research note #108 §4, ADR-0045).
  *
- *   node scripts/usda-coverage.mjs            # both datasets, from .usda-backup
- *   node scripts/usda-coverage.mjs --dir path
+ *   pnpm usda:coverage              # both datasets, from .usda-backup
+ *   pnpm usda:coverage --dir path
+ *
+ * It reads local copies and never downloads: `pnpm usda:backup fetch` puts them
+ * there, and pinning matters more than freshness here, because these figures are
+ * published against the release the manifest names.
  *
  * Why this exists: the completeness table in research note #108 was measured
  * over a Foundation population of 394 records that the bulk distribution does
@@ -23,6 +27,7 @@
  * `usda-archive.mjs` and only the tallies survive them.
  */
 
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -198,9 +203,30 @@ export function formatCoverageTable(columns) {
   ].join("\n");
 }
 
-/** Measures one archive: its coverage tally and its `ndbNumber` -> description map. */
+/**
+ * Measures one archive: its coverage tally and its `ndbNumber` -> description map.
+ *
+ * The digest is checked first, and this is not a duplicate of
+ * `usda:backup verify`. Every figure printed here is published in a record that
+ * states which bytes it was taken over, so measuring bytes the manifest does not
+ * describe would produce exactly the kind of unreproducible number the whole
+ * exercise exists to retire. Nothing is downloaded: fetching is `usda:backup`'s
+ * job, and a measurement that silently re-fetched would measure whatever USDA
+ * serves today rather than the release the manifest pins.
+ */
 async function measureArchive(archive, dir) {
-  const zip = await readFile(join(dir, archive.file));
+  const zip = await readFile(join(dir, archive.file)).catch(() => null);
+  if (zip === null)
+    throw new Error(
+      `${archive.file} is not in ${dir}. Run \`pnpm usda:backup fetch\` first ` +
+        `(it downloads all three archives and verifies them against the manifest).`
+    );
+  const sha256 = createHash("sha256").update(zip).digest("hex");
+  if (sha256 !== archive.sha256)
+    throw new Error(
+      `${archive.file}: sha256 ${sha256}, manifest says ${archive.sha256}. ` +
+        `Measuring undescribed bytes would publish a number nobody can reproduce.`
+    );
   const tally = createCoverageTally();
   const descriptions = new Map();
   // A dataset mapping one ndbNumber to two records would make the join ambiguous
@@ -282,4 +308,9 @@ async function main() {
 // Only when run, never on import: the tallies above are unit-tested, and reading
 // 210 MB of JSON is not something a test suite should be made to do.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
-  await main();
+  // A missing or wrong archive is an operator problem with a known remedy, not a
+  // crash: say what to run, and keep the stack for genuine bugs.
+  await main().catch((error) => {
+    console.error(`\n${error.message}`);
+    process.exit(1);
+  });
