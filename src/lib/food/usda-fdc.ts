@@ -32,10 +32,16 @@ import {
 //     Foundation stays the base record and the twin supplies only the panel
 //     fields it does not carry. Borrowed values are named in
 //     twin/raw_provenance.merged_from (§4).
+// v9: staging reads the bundled artifacts and never the API (ADR-0047). The
+//     `/food/{fdcId}` detail fetch is gone with hydrateFdcFood and
+//     mapFdcDetailToPayload: portions ride on the generated row (§6), the panel
+//     is rebuilt from the Nutrient store through buildNutritionPanel (§2), and
+//     twin/raw_provenance carries that row rather than an untouched API record
+//     (§7). toGrams also folds the archives' "µg" onto the API's "UG".
 // Exported so `usda-corpus.ts` stamps a bundled row with the SAME adapter
 // identity: a Search index row is this adapter's output, generated ahead of time
 // rather than mapped live, and a second version string would let the two drift.
-export const ADAPTER_VERSION = "8";
+export const ADAPTER_VERSION = "9";
 export const FDC_FOOD_BASE = "https://api.nal.usda.gov/fdc/v1/food";
 
 // Read the current key on demand (evaluated per call) from the localStorage-
@@ -86,18 +92,6 @@ export interface FdcFoodPortion {
   modifier?: string;
   portionDescription?: string;
   measureUnit?: { name?: string; abbreviation?: string };
-}
-
-// The `/food/{fdcId}` detail record. It is a superset of the search hit (fuller
-// nutrients, record metadata) but only its `foodPortions[]` is mapped here — the
-// rest is kept verbatim in provenance, not re-normalised (the nutrition panel is
-// already captured at search-map time). Modelled as a subset: the extra detail
-// fields ride along untyped inside the provenance blob.
-export interface FdcFoodDetail {
-  fdcId: number;
-  description?: string;
-  dataType?: string;
-  foodPortions?: FdcFoodPortion[];
 }
 
 // FDC nutrient IDs mapped onto the schema.org nutrition panel. FDC reports macro
@@ -280,23 +274,84 @@ export function resolveFdcGroup(group: readonly FdcFood[]): ResolvedFdcFood {
 // ---------------------------------------------------------------------------
 
 function findNutrient(
-  nutrients: FdcNutrient[],
+  nutrients: readonly FdcNutrient[],
   id: number
 ): FdcNutrient | undefined {
   return nutrients.find((n) => n.nutrientId === id);
 }
 
-/** Normalises an FDC mass value to grams from its (case-insensitive) unit. */
+/**
+ * Normalises an FDC mass value to grams from its (case-insensitive) unit.
+ *
+ * Micrograms arrive spelled three ways and all three have to land on the same
+ * branch: the API writes "UG", the bulk archives write "µg" with the MICRO SIGN,
+ * and `"µ".toUpperCase()` is GREEK CAPITAL MU rather than itself — so matching
+ * an upper-cased "µG" literal silently misses every archive record and stages a
+ * microgram of vitamin A as a gram of it. Folding both micro signs to "U" first
+ * is what keeps the bundled corpus (ADR-0047) reading like the API did.
+ */
 function toGrams(value: number, unitName: string): number {
-  switch (unitName.toUpperCase()) {
+  switch (
+    unitName
+      .trim()
+      .toUpperCase()
+      .replace(/[\u00b5\u03bc\u039c]/g, "U")
+  ) {
     case "MG":
       return value / 1000;
     case "UG":
-    case "µG":
       return value / 1_000_000;
     default:
       return value; // G
   }
+}
+
+/**
+ * The `nutrition/info` panel one record's nutrients make (ADR-0021): every
+ * schema.org field the ids below can fill, per 100 g, with each mass normalised
+ * to grams and absent left absent rather than zeroed.
+ *
+ * Exported because a staged food's panel is rebuilt from the bundled Nutrient
+ * store rather than from a search hit (ADR-0047 §2): the store keeps USDA's own
+ * amounts under USDA's own units, so the id preference order, the mg/µg
+ * normalisation and the mono+poly sum have to be these ones and not a second
+ * copy of them.
+ */
+export function buildNutritionPanel(
+  nutrients: readonly FdcNutrient[]
+): NutritionInfo {
+  const nutrition: NutritionInfo = { serving_size: PER_100G };
+
+  for (const id of ENERGY_IDS) {
+    const energy = findNutrient(nutrients, id);
+    if (energy) {
+      nutrition.calories = energy.value;
+      break;
+    }
+  }
+
+  for (const { ids, key } of MASS_NUTRIENTS) {
+    for (const id of ids) {
+      const n = findNutrient(nutrients, id);
+      if (n) {
+        nutrition[key] = toGrams(n.value, n.unitName);
+        break;
+      }
+    }
+  }
+
+  // Unsaturated fat = mono + poly (schema.org has no separate fields). Sum
+  // whatever the food carries; round to shed float noise from the addition.
+  const mufa = findNutrient(nutrients, MUFA_ID);
+  const pufa = findNutrient(nutrients, PUFA_ID);
+  if (mufa || pufa) {
+    const total =
+      toGrams(mufa?.value ?? 0, mufa?.unitName ?? "G") +
+      toGrams(pufa?.value ?? 0, pufa?.unitName ?? "G");
+    nutrition.unsaturated_fat_content = Math.round(total * 1e6) / 1e6;
+  }
+
+  return nutrition;
 }
 
 /**
@@ -314,36 +369,7 @@ export function mapFdcFoodToPayload(
   food: FdcFood,
   merged_from: readonly MergedSource[] = []
 ): EntityPayload {
-  const nutrition: NutritionInfo = { serving_size: PER_100G };
-
-  for (const id of ENERGY_IDS) {
-    const energy = findNutrient(food.foodNutrients, id);
-    if (energy) {
-      nutrition.calories = energy.value;
-      break;
-    }
-  }
-
-  for (const { ids, key } of MASS_NUTRIENTS) {
-    for (const id of ids) {
-      const n = findNutrient(food.foodNutrients, id);
-      if (n) {
-        nutrition[key] = toGrams(n.value, n.unitName);
-        break;
-      }
-    }
-  }
-
-  // Unsaturated fat = mono + poly (schema.org has no separate fields). Sum
-  // whatever the food carries; round to shed float noise from the addition.
-  const mufa = findNutrient(food.foodNutrients, MUFA_ID);
-  const pufa = findNutrient(food.foodNutrients, PUFA_ID);
-  if (mufa || pufa) {
-    const total =
-      toGrams(mufa?.value ?? 0, mufa?.unitName ?? "G") +
-      toGrams(pufa?.value ?? 0, pufa?.unitName ?? "G");
-    nutrition.unsaturated_fat_content = Math.round(total * 1e6) / 1e6;
-  }
+  const nutrition = buildNutritionPanel(food.foodNutrients);
 
   const attributes: EntityPayload["attributes"] = {
     "food/name": food.description,
@@ -374,7 +400,7 @@ export function mapFdcFoodToPayload(
 }
 
 // ---------------------------------------------------------------------------
-// Detail hydration: foodPortions -> food/portions (ADR-0030 §5)
+// Portions: USDA's foodPortions[] -> food/portions (ADR-0030 §5, ADR-0047 §6)
 // ---------------------------------------------------------------------------
 
 /**
@@ -406,87 +432,13 @@ function mapFdcPortion(portion: FdcFoodPortion): Portion {
  *
  * Exported because `scripts/usda-bundle.mjs` runs this at generation time
  * (ADR-0047 §6): the bulk archives carry the portions the search response omits,
- * so a bundled row ships the mapped {@link Portion} list rather than USDA's raw
- * measures, and the generated artifact cannot drift from what hydration mapped.
+ * so a bundled row ships the mapped {@link Portion} list and a staged food has
+ * its measures already, with no second request to fetch them.
  */
 export function mapFdcPortions(portions: readonly FdcFoodPortion[]): Portion[] {
   return portions
     .filter((p) => p && Number.isFinite(p.gramWeight) && p.gramWeight > 0)
     .map(mapFdcPortion);
-}
-
-/**
- * Maps a USDA `/food/{fdcId}` detail record to the augmentation payload that
- * hydration appends to a staged food twin: the household `food/portions` derived
- * from `foodPortions[]`, plus a refreshed `twin/raw_provenance` holding the
- * fuller detail record (ADR-0030 §5). Pure — the Seam-1 contract point.
- *
- * It re-maps nothing else: the `nutrition/info` panel and food-identity scalars
- * were already captured at search-map time, and the detail record's nutrients
- * live on in provenance for a later backfill. When the record carries no usable
- * portions, `food/portions` is omitted (never emitted empty).
- *
- * `merged_from` is the staged food's own merge reference, passed back in so the
- * refreshed provenance keeps naming the twin whose values the panel carries.
- */
-export function mapFdcDetailToPayload(
-  detail: FdcFoodDetail,
-  merged_from: readonly MergedSource[] = []
-): EntityPayload {
-  const portions = mapFdcPortions(detail.foodPortions ?? []);
-
-  const attributes: EntityPayload["attributes"] = {
-    // Refresh Provenance with the fuller detail record (larger than the search
-    // hit), so any nutrient still not in the panel can be backfilled with no
-    // further re-fetch (ADR-0016).
-    "twin/raw_provenance": buildRawProvenance({
-      adapter: "fdc",
-      adapter_version: ADAPTER_VERSION,
-      source_uri: `${FDC_FOOD_BASE}/${detail.fdcId}`,
-      raw_data: detail,
-      // Carried through, not re-derived: the detail record is Foundation's
-      // alone, so without this the refreshed blob would silently drop the twin
-      // that supplied the panel's borrowed fields (ADR-0045 §4).
-      merged_from,
-    }),
-  };
-  if (portions.length > 0) attributes[FOOD_PORTIONS_ATTR] = portions;
-
-  return { entity: `fdc:${detail.fdcId}`, attributes };
-}
-
-/**
- * Fetches a searched food's `/food/{fdcId}` detail record and maps it to the
- * portions-and-provenance augmentation (see {@link mapFdcDetailToPayload}).
- * Called once when a searched food is staged (not per keystroke), since
- * `foodPortions` is absent from the Foundation/SR Legacy search response
- * (ADR-0030 §5). Search itself stays the cheap prefix query.
- *
- * @param fdcId       - The FDC id of the staged food.
- * @param merged_from - The staged food's merge reference (ADR-0045 §4), echoed
- *                      into the refreshed provenance so hydration does not drop
- *                      it. Empty for a food that merged nothing.
- * @param apiKey      - USDA FDC API key. Defaults to the configured key.
- */
-export async function hydrateFdcFood(
-  fdcId: number,
-  merged_from: readonly MergedSource[] = [],
-  apiKey: string = activeUsdaKey()
-): Promise<EntityPayload> {
-  if (!apiKey) {
-    throw new Error("USDA API Key is not configured.");
-  }
-  const url = `${FDC_FOOD_BASE}/${fdcId}?api_key=${apiKey}`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    if (res.status === 403)
-      throw new Error("USDA API rejected the key. Check it in Settings.");
-    if (res.status === 429)
-      throw new Error("USDA API rate limit reached. Try again shortly.");
-    throw new Error(`USDA API request failed (${res.status}).`);
-  }
-  const detail: FdcFoodDetail = await res.json();
-  return mapFdcDetailToPayload(detail, merged_from);
 }
 
 // ---------------------------------------------------------------------------

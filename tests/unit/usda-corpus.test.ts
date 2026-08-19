@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import {
   SEARCH_RESULT_LIMIT,
@@ -6,6 +6,9 @@ import {
   mapIndexRowToPayload,
   searchIndexRows,
   searchUsdaCorpus,
+  storedPanelFor,
+  completeStagedPanel,
+  type NutrientStore,
   type SearchIndex,
   type UsdaIndexRow,
 } from "../../src/lib/food/usda-corpus";
@@ -16,6 +19,7 @@ import {
   type NutritionInfo,
 } from "../../src/lib/food/nutrition";
 import type { RawProvenance } from "../../src/lib/food/provenance";
+import type { EntityPayload } from "../../src/lib/ingestion/ingest";
 
 // The committed artifact itself is the fixture (ADR-0047 §3). Search is only
 // keyless and offline if it answers from THIS file, so the ADR-0042 ordering
@@ -194,5 +198,209 @@ describe("searchUsdaCorpus", () => {
 
   it("returns nothing for an empty query", async () => {
     expect(await searchUsdaCorpus("  ", loadFixture)).toEqual([]);
+  });
+});
+
+// ── Staging: the full panel, read out of the Nutrient store (#114) ───────────
+// A search row renders four macros (ADR-0047 §2), so the other nineteen panel
+// fields are read from the Nutrient store when the food is staged. These assert
+// the store answers with the SAME panel the mapper builds from a live record —
+// the drift the two artifacts could otherwise develop is invisible in the app
+// and permanent in the ledger, because a log freezes its own macros (ADR-0022).
+
+const store: NutrientStore = JSON.parse(
+  readFileSync("public/usda/nutrient-store.json", "utf8")
+);
+
+/** A Nutrient store holding one food, for the normalisation cases. */
+const storeOf = (
+  amounts: Record<string, number>,
+  nutrients: NutrientStore["nutrients"]
+): NutrientStore => ({
+  artifact: "usda-nutrient-store",
+  schema_version: 1,
+  generated_from: [],
+  nutrients,
+  foods: { "1": amounts },
+});
+
+describe("storedPanelFor", () => {
+  it("fills the nineteen panel fields a search row does not carry", () => {
+    const panel = storedPanelFor(store, 1105314);
+    expect(panel?.serving_size).toBe(PER_100G);
+    // The row carries these four; the store has to reproduce them exactly, or a
+    // staged food's panel would disagree with the list it was chosen from.
+    expect(panel).toMatchObject(rowFor(BANANA).macros);
+    // And these nineteen are what staging is for.
+    expect(panel?.fiber_content).toBe(1.7);
+    expect(panel?.sugar_content).toBe(15.8);
+    expect(panel?.saturated_fat_content).toBe(0.112);
+    expect(panel?.potassium).toBeCloseTo(0.326, 6);
+    expect(panel?.vitamin_c).toBeCloseTo(0.0123, 6);
+  });
+
+  it("rebuilds every row's macros exactly, across the whole corpus", () => {
+    // The two artifacts are generated from one merged record, so a row's macros
+    // and the store's amounts are the same numbers twice. Assert it over all
+    // 4,491 rather than on one food: a generator change that filled one artifact
+    // and not the other would otherwise ship silently.
+    const disagreeing = index.foods.filter((row) => {
+      const panel = storedPanelFor(store, row.fdcId);
+      return (
+        !panel ||
+        Object.entries(row.macros).some(
+          ([key, value]) => panel[key as keyof NutritionInfo] !== value
+        )
+      );
+    });
+    expect(disagreeing).toEqual([]);
+  });
+
+  it("carries the fields a merged food borrowed from its SR Legacy twin", () => {
+    // ADR-0045 §2 merges at panel-field granularity and the store holds the
+    // merged record's nutrients, so a borrowed field has to survive into the
+    // staged panel — `merged_from` naming a field the panel then lacks would be
+    // a provenance claim about a value nobody can see.
+    const merged = index.foods.find((f) => f.merged_from);
+    const panel = storedPanelFor(store, merged!.fdcId);
+    for (const field of merged!.merged_from![0].filled_fields)
+      expect(panel?.[field as keyof NutritionInfo]).toBeDefined();
+  });
+
+  it("normalises USDA's published units to the panel's grams", () => {
+    // The archives write micrograms as "µg" where the API wrote "UG", and the
+    // panel's fixed unit is grams (ADR-0021).
+    const panel = storedPanelFor(
+      storeOf(
+        { "1087": 5, "1106": 1 },
+        {
+          "1087": { name: "Calcium, Ca", unit: "mg" },
+          "1106": { name: "Vitamin A, RAE", unit: "µg" },
+        }
+      ),
+      1
+    );
+    expect(panel?.calcium).toBeCloseTo(0.005, 9);
+    expect(panel?.vitamin_a).toBeCloseTo(0.000001, 12);
+  });
+
+  it("reads energy through the Atwater fallback a Foundation food needs", () => {
+    // Foundation records omit 1008 and publish Atwater factors instead, so a
+    // stored panel that only looked at 1008 would stage them at no calories.
+    const panel = storedPanelFor(
+      storeOf(
+        { "2047": 88 },
+        { "2047": { name: "Energy (Atwater General Factors)", unit: "kcal" } }
+      ),
+      1
+    );
+    expect(panel?.calories).toBe(88);
+  });
+
+  it("sums mono and poly into the one unsaturated fat the panel has", () => {
+    const panel = storedPanelFor(
+      storeOf(
+        { "1292": 0.032, "1293": 0.073 },
+        {
+          "1292": { name: "Fatty acids, total monounsaturated", unit: "g" },
+          "1293": { name: "Fatty acids, total polyunsaturated", unit: "g" },
+        }
+      ),
+      1
+    );
+    expect(panel?.unsaturated_fat_content).toBeCloseTo(0.105, 6);
+  });
+
+  it("has no panel for a food the store does not carry", () => {
+    expect(storedPanelFor(store, 4242424242)).toBeUndefined();
+  });
+});
+
+describe("completeStagedPanel", () => {
+  const loadStore = async () => store;
+
+  it("stages a searched food on its full panel, with no key and no network", async () => {
+    // No fetch is stubbed: the panel comes out of the committed artifact or the
+    // call fails. This is the ADR-0047 §6 claim — staging needs no second
+    // request now that the archives ship with the app.
+    const staged = await completeStagedPanel(
+      mapIndexRowToPayload(rowFor(BANANA)),
+      loadStore
+    );
+    const panel = staged.attributes[NUTRITION_INFO_ATTR] as NutritionInfo;
+    expect(panel.potassium).toBeCloseTo(0.326, 6);
+    expect(panel.calories).toBe(rowFor(BANANA).macros.calories);
+  });
+
+  it("leaves identity, portions and provenance exactly as the row wrote them", async () => {
+    // Only the panel deepens. `twin/raw_provenance` stays present and stays the
+    // generated row (ADR-0047 §7) — the origin badge reads its adapter and
+    // FoodCard reads that it is there.
+    const before = mapIndexRowToPayload(rowFor(BANANA));
+    const after = await completeStagedPanel(before, loadStore);
+    expect(after.entity).toBe(before.entity);
+    expect(after.attributes["food/name"]).toBe(before.attributes["food/name"]);
+    expect(after.attributes[FOOD_PORTIONS_ATTR]).toEqual(
+      before.attributes[FOOD_PORTIONS_ATTR]
+    );
+    const provenance = after.attributes[
+      "twin/raw_provenance"
+    ] as RawProvenance<UsdaIndexRow>;
+    expect(provenance.raw_data.fdcId).toBe(1105314);
+    expect(provenance.merged_from?.[0].source_uri).toContain("173944");
+  });
+
+  it("does not read the store for a food that did not come from the corpus", async () => {
+    // A scanned OFF product or a manual entry carries its own panel and has no
+    // row in the store; loading a 4 MB artifact to learn that would be a cost
+    // paid on every scan.
+    const off: EntityPayload = {
+      entity: "off:5000112637922",
+      attributes: { "food/name": "Cola" },
+    };
+    const untouched = await completeStagedPanel(off, () => {
+      throw new Error("the Nutrient store was loaded for a non-USDA food");
+    });
+    expect(untouched).toBe(off);
+  });
+
+  it("keeps the row's macros when the store carries no entry for the food", async () => {
+    // A row the store has no nutrients for still stages and still logs, on the
+    // four macros it carries — a partial artifact degrades the panel, never the
+    // food.
+    const row: UsdaIndexRow = { ...rowFor(BANANA), fdcId: 4242424242 };
+    const staged = await completeStagedPanel(
+      mapIndexRowToPayload(row),
+      loadStore
+    );
+    expect(staged.attributes[NUTRITION_INFO_ATTR]).toEqual({
+      serving_size: PER_100G,
+      ...row.macros,
+    });
+  });
+});
+
+// ── Loading the artifacts ───────────────────────────────────────────────────
+
+describe("loadNutrientStore", () => {
+  it("retries after a failed load instead of caching the failure", async () => {
+    // The store is warmed at startup, where the likeliest failure is a service
+    // worker that has not taken control yet. A cached rejection would then stage
+    // every food of the session on four macros — silently, and permanently once
+    // logged (ADR-0022).
+    vi.resetModules();
+    const { loadNutrientStore } =
+      await import("../../src/lib/food/usda-corpus");
+    const fetches = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: false, status: 503 } as Response)
+      .mockResolvedValue({ ok: true, json: async () => store } as Response);
+
+    await expect(loadNutrientStore()).rejects.toThrow(/503/);
+    await expect(loadNutrientStore()).resolves.toBe(store);
+    // ...and the load that succeeded IS memoised: one parse per session.
+    await loadNutrientStore();
+    expect(fetches).toHaveBeenCalledTimes(2);
+    vi.restoreAllMocks();
   });
 });

@@ -1,14 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   mapFdcFoodToPayload,
-  mapFdcDetailToPayload,
-  hydrateFdcFood,
+  mapFdcPortions,
   searchFdc,
   isBrandSpecific,
   isProcessedProduct,
   isPreparedProduct,
   type FdcFood,
-  type FdcFoodDetail,
+  type FdcFoodPortion,
 } from "../../src/lib/food/usda-fdc";
 import bananaSearch from "./support/fixtures/usda-fdc-banana.json";
 import cheddarSearch from "./support/fixtures/usda-fdc-cheddar.json";
@@ -23,7 +22,7 @@ import blueberriesSearch from "./support/fixtures/usda-fdc-blueberries.json";
 
 const banana = bananaSearch.foods[0] as unknown as FdcFood;
 const cheddar = cheddarSearch.foods[0] as unknown as FdcFood;
-const detail = bananaDetail as unknown as FdcFoodDetail;
+const detailPortions = bananaDetail.foodPortions as unknown as FdcFoodPortion[];
 
 describe("mapFdcFoodToPayload", () => {
   it("maps fdcId to entity id with fdc: prefix", () => {
@@ -98,6 +97,28 @@ describe("mapFdcFoodToPayload", () => {
     expect(n.vitamin_b6).toBeCloseTo(0.000069, 9); // 0.069 mg
     expect(n.vitamin_b12).toBeCloseTo(0.00000106, 10); // 1.06 µg
     expect(n.folate).toBeCloseTo(0.000021, 9); // 21 µg
+  });
+
+  it('reads the archives\' "µg" as micrograms, like the API\'s "UG"', () => {
+    // The API writes "UG" and the bulk archives write "µg" with the MICRO SIGN,
+    // and the bundled corpus (ADR-0047) is generated from the archives — so a
+    // unit match that missed the micro sign would stage 316 µg of vitamin A as
+    // 316 GRAMS of it, and freeze that into the log.
+    const microSign: FdcFood = {
+      fdcId: 9,
+      description: "Micrograms, as the archives spell them",
+      dataType: "Foundation",
+      foodNutrients: [
+        {
+          nutrientId: 1106,
+          nutrientName: "Vitamin A, RAE",
+          value: 316,
+          unitName: "µg",
+        },
+      ],
+    };
+    const n = mapFdcFoodToPayload(microSign).attributes["nutrition/info"];
+    expect(n.vitamin_a).toBeCloseTo(0.000316, 8);
   });
 
   it("omits micronutrients the food does not report", () => {
@@ -266,18 +287,19 @@ describe("mapFdcFoodToPayload", () => {
   });
 });
 
-// ---- Seam 1: mapFdcDetailToPayload (foodPortions -> food/portions) ---------
+// ---- Seam 1: mapFdcPortions (foodPortions -> food/portions) ----------------
+//
+// The portion mapping outlived the detail fetch that used to feed it: ADR-0047
+// §6 retires `/food/{fdcId}` and `scripts/usda-bundle.mjs` runs this over the
+// bulk archives instead, so a staged food's measures ride on the generated row.
+// The mapping itself is unchanged, and these cover it directly rather than
+// through a mapper that no longer exists.
 
-describe("mapFdcDetailToPayload", () => {
-  it("keys the augmentation to the same fdc: entity", () => {
-    expect(mapFdcDetailToPayload(detail).entity).toBe("fdc:173944");
-  });
-
+describe("mapFdcPortions", () => {
   it("maps foodPortions[] to an ordered food/portions list (ADR-0030)", () => {
     // Each portion resolves to its gramWeight; the label falls back to
     // amount + modifier when the record supplies no portionDescription.
-    const portions = mapFdcDetailToPayload(detail).attributes["food/portions"];
-    expect(portions).toEqual([
+    expect(mapFdcPortions(detailPortions)).toEqual([
       { label: "1 medium", amount: 1, unit: "medium", grams: 118 },
       { label: "1 cup, sliced", amount: 1, unit: "cup, sliced", grams: 150 },
       { label: "1 large", amount: 1, unit: "large", grams: 136 },
@@ -285,117 +307,39 @@ describe("mapFdcDetailToPayload", () => {
   });
 
   it("prefers a portionDescription label over the amount+unit fallback", () => {
-    const withDescription: FdcFoodDetail = {
-      fdcId: 1,
-      foodPortions: [
-        {
-          amount: 1,
-          gramWeight: 57,
-          portionDescription: "1 croissant",
-          measureUnit: { name: "undetermined" },
-        },
-      ],
-    };
-    const portions =
-      mapFdcDetailToPayload(withDescription).attributes["food/portions"];
+    const portions = mapFdcPortions([
+      {
+        amount: 1,
+        gramWeight: 57,
+        portionDescription: "1 croissant",
+        measureUnit: { name: "undetermined" },
+      },
+    ]);
     expect(portions[0].label).toBe("1 croissant");
     expect(portions[0].grams).toBe(57);
   });
 
   it("falls back to the named measureUnit when there is no modifier", () => {
-    const withMeasure: FdcFoodDetail = {
-      fdcId: 2,
-      foodPortions: [
+    expect(
+      mapFdcPortions([
         { amount: 2, gramWeight: 30, measureUnit: { name: "tbsp" } },
-      ],
-    };
-    const portions =
-      mapFdcDetailToPayload(withMeasure).attributes["food/portions"];
-    expect(portions[0]).toEqual({
-      label: "2 tbsp",
-      amount: 2,
-      unit: "tbsp",
-      grams: 30,
-    });
+      ])
+    ).toEqual([{ label: "2 tbsp", amount: 2, unit: "tbsp", grams: 30 }]);
   });
 
-  it("omits food/portions when the detail record carries none", () => {
-    const noPortions: FdcFoodDetail = { fdcId: 3, foodPortions: [] };
-    const attrs = mapFdcDetailToPayload(noPortions).attributes;
-    expect(attrs).not.toHaveProperty("food/portions");
-    // absent entirely (not just empty) is also handled
-    const missing: FdcFoodDetail = { fdcId: 4 };
-    expect(mapFdcDetailToPayload(missing).attributes).not.toHaveProperty(
-      "food/portions"
-    );
+  it("maps a record with no portions to no portions at all", () => {
+    // Emitted as nothing rather than as an empty measure: the caller omits
+    // `food/portions` entirely for a food USDA gives no household measure for.
+    expect(mapFdcPortions([])).toEqual([]);
   });
 
   it("skips portions with no usable gram weight", () => {
-    const mixed: FdcFoodDetail = {
-      fdcId: 5,
-      foodPortions: [
+    expect(
+      mapFdcPortions([
         { amount: 1, gramWeight: 0, modifier: "pinch" },
         { amount: 1, gramWeight: 40, modifier: "slice" },
-      ],
-    };
-    const portions = mapFdcDetailToPayload(mixed).attributes["food/portions"];
-    expect(portions).toEqual([
-      { label: "1 slice", amount: 1, unit: "slice", grams: 40 },
-    ]);
-  });
-
-  it("refreshes twin/raw_provenance with the fuller detail record", () => {
-    // Provenance now holds the /food/{id} detail (larger than the search hit),
-    // verbatim, under the bumped adapter version.
-    const prov =
-      mapFdcDetailToPayload(detail).attributes["twin/raw_provenance"];
-    expect(prov.raw_data).toEqual(detail);
-    expect(prov.source_uri).toBe("https://api.nal.usda.gov/fdc/v1/food/173944");
-    expect(prov.adapter).toBe("fdc");
-    expect(prov.adapter_version).toEqual(expect.any(String));
-  });
-});
-
-// ---- unit: hydrateFdcFood --------------------------------------------------
-
-describe("hydrateFdcFood", () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("fetches the /food/{id} detail endpoint with the api key", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => bananaDetail,
-    } as Response);
-
-    await hydrateFdcFood(173944, [], "TEST_KEY");
-
-    expect(fetchSpy).toHaveBeenCalledWith(
-      "https://api.nal.usda.gov/fdc/v1/food/173944?api_key=TEST_KEY"
-    );
-  });
-
-  it("returns the mapped portions-and-provenance augmentation", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => bananaDetail,
-    } as Response);
-
-    const payload = await hydrateFdcFood(173944, [], "TEST_KEY");
-    expect(payload.entity).toBe("fdc:173944");
-    expect(payload.attributes["food/portions"]).toHaveLength(3);
-    expect(payload.attributes["food/portions"][0].label).toBe("1 medium");
-  });
-
-  it("surfaces a key error on a 403", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: false,
-      status: 403,
-      json: async () => ({}),
-    } as Response);
-
-    await expect(hydrateFdcFood(1, [], "BAD_KEY")).rejects.toThrow(/key/i);
+      ])
+    ).toEqual([{ label: "1 slice", amount: 1, unit: "slice", grams: 40 }]);
   });
 });
 
@@ -1223,34 +1167,7 @@ describe("searchFdc", () => {
       .attributes["twin/raw_provenance"];
 
     expect(provenance).not.toHaveProperty("merged_from");
-    expect(provenance.adapter_version).toBe("8");
-  });
-
-  it("carries the merge reference through detail hydration", async () => {
-    // The /food/{id} detail record is Foundation's alone, so without threading
-    // the reference the refreshed provenance would drop the twin whose values
-    // the panel already carries (ADR-0045 §4).
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => bananaDetail,
-    } as Response);
-
-    const payload = await hydrateFdcFood(
-      173944,
-      [
-        {
-          source_uri: "https://api.nal.usda.gov/fdc/v1/food/171711",
-          description: "Blueberries, raw",
-          data_type: "SR Legacy",
-          filled_fields: ["fiber_content"],
-        },
-      ],
-      "TEST_KEY"
-    );
-
-    expect(payload.attributes["twin/raw_provenance"].merged_from).toHaveLength(
-      1
-    );
+    expect(provenance.adapter_version).toBe("9");
   });
 
   // ── The pre-filter match count (issue #118) ────────────────────────────────

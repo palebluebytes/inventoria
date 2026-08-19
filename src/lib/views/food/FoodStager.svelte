@@ -53,8 +53,7 @@
     emptyAutofillResult,
     type AIAutofillResult,
   } from "../../food/ai-autofill";
-  import { hydrateFdcFood } from "../../food/usda-fdc";
-  import type { RawProvenance } from "../../food/provenance";
+  import { completeStagedPanel } from "../../food/usda-corpus";
   import { readImageAsDataUrl } from "../../food/image-file";
   import type {
     FoodChoice,
@@ -221,83 +220,52 @@
   );
 
   // The staged food's household portions (ADR-0030), surfaced as picker presets.
-  // Read live off the staged payload so they appear the moment hydration spreads
-  // them on; empty (and the picker renders as today) for a portion-less food.
+  // A searched food carries them on its bundled row (ADR-0047 §6); empty (and
+  // the picker renders as today) for a portion-less food.
   let stagedPortions = $derived<Portion[]>(
     (staged?.payload.attributes[FOOD_PORTIONS_ATTR] as Portion[] | undefined) ??
       []
   );
-  // True while a searched food's detail record is being fetched for its portions
-  // — a non-blocking affordance only: the gram field is fully usable throughout,
-  // and a failed fetch degrades to no portions (ADR-0030 §5).
-  let hydratingPortions = $state(false);
+  // The food whose panel is still being read out of the Nutrient store, by
+  // entity. Held as the entity rather than as a flag so it self-clears: staging
+  // another food or backing out of the staged card ends the wait by definition,
+  // and no `staged = null` site has to remember to reset it.
+  let completingEntity = $state<string | null>(null);
+  let completingPanel = $derived(
+    completingEntity !== null && staged?.entity === completingEntity
+  );
 
-  // Portion detail fetched this staging session, keyed by FDC id. Re-selecting a
-  // searched food (tapping back to the results and choosing it again) reuses
-  // this instead of re-hitting `/food/{fdcId}` — the search results array holds
-  // the un-hydrated item, so without the cache every re-selection refetches.
-  // Foods that were *logged* already persist their portions on the ledger twin
-  // (they arrive via `recent` carrying `food/portions` and skip below), so this
-  // only covers the not-yet-logged, in-session re-selection path.
-  const portionCache = new Map<number, Record<string, unknown>>();
-
-  // Spread a portion/provenance augmentation onto a search result's payload,
-  // keeping its search-time name and nutrition and merely adding portions.
-  function mergePortions(
-    item: FoodResult,
-    attributes: Record<string, unknown>
-  ): FoodResult {
-    return {
-      ...item,
-      payload: {
-        ...item.payload,
-        attributes: { ...item.payload.attributes, ...attributes },
-      },
-    };
-  }
-
-  // Stage a chosen food and, for a searched USDA food that arrived without
-  // portions, hydrate its `/food/{fdcId}` detail once (ADR-0030 §5) — not per
-  // keystroke, off the select. The augmentation (portions + refreshed
-  // provenance) is SPREAD onto the staged payload so the food keeps its
-  // search-time name and nutrition and merely gains portions; the search-time
-  // nutrition/info is never re-mapped. A non-fdc food (a scanned OFF product, a
-  // local recent twin) or one already carrying portions skips the fetch, as does
-  // one whose portions this session already fetched.
-  async function stageFood(item: FoodResult) {
+  // Stage a chosen food, deepening a SEARCHED USDA food's four-macro row into
+  // its full panel from the bundled Nutrient store (ADR-0047 §2). No key, no
+  // network and no second request: portions already ride on the row, and the
+  // panel is the only thing staging still has to read — from a precached file.
+  //
+  // Only a searched food is deepened. A Recent food is a ledger twin carrying
+  // the panel it was captured with, which the user may since have corrected from
+  // a label (§7) — re-reading USDA over the top of that would silently throw the
+  // correction away on the next log.
+  //
+  // The food is staged first and the panel lands when the store resolves, so the
+  // card, its name and its portions appear on the tap. What the wait does gate
+  // is the Log button (`canPrimary`): a log freezes its own macros (ADR-0022),
+  // so logging inside that window would put four fields into history for ever,
+  // which is the failure ADR-0047 retired the API to avoid.
+  async function stageFood(item: FoodResult, searched: boolean) {
     staged = item;
     grams = 100;
-    hydratingPortions = false;
-    const match = /^fdc:(\d+)$/.exec(item.entity);
-    if (!match) return;
-    if (item.payload.attributes[FOOD_PORTIONS_ATTR]) return;
-    const fdcId = Number(match[1]);
-    const cached = portionCache.get(fdcId);
-    if (cached) {
-      staged = mergePortions(item, cached);
-      return;
-    }
-    hydratingPortions = true;
+    if (!searched) return;
+    completingEntity = item.entity;
     try {
-      // The staged food's own merge reference rides along: the detail record is
-      // Foundation's alone, so hydration would otherwise refresh provenance into
-      // a blob that no longer names the SR Legacy twin its panel borrowed from
-      // (ADR-0045 §4).
-      const provenance: RawProvenance | undefined =
-        item.payload.attributes["twin/raw_provenance"];
-      const augmentation = await hydrateFdcFood(
-        fdcId,
-        provenance?.merged_from ?? []
-      );
-      portionCache.set(fdcId, augmentation.attributes);
-      const merged = mergePortions(item, augmentation.attributes);
+      const completed = await completeStagedPanel(item.payload);
       // Only apply if this food is still the staged one — a fast user may have
-      // gone back or staged another before the fetch resolved.
-      if (staged?.entity === item.entity) staged = merged;
+      // gone back or staged another before the store resolved.
+      if (staged?.entity === item.entity)
+        staged = mapPayloadToFoodResult(completed);
     } catch {
-      // Degrade to no portions; gram logging is never blocked (ADR-0030 §5).
+      // Degrade to the row's four macros: a broken artifact costs the panel's
+      // depth, never the user's ability to log the food.
     } finally {
-      if (staged?.entity === item.entity) hydratingPortions = false;
+      if (completingEntity === item.entity) completingEntity = null;
     }
   }
 
@@ -854,7 +822,10 @@
     if (!v) return;
     const item = comboItems.find((f) => f.entity === v);
     comboValue = "";
-    if (item) stageFood(item);
+    // Which list the option came off decides whether its panel is deepened, and
+    // the query is what chose that list: the results are bundled rows, the
+    // recent list is ledger twins.
+    if (item) stageFood(item, query.trim().length > 0);
   }
 
   // ── Camera barcode scanning ────────────────────────────────────────────────
@@ -1252,7 +1223,7 @@
   }
 
   let canPrimary = $derived(
-    (!!staged && grams > 0) ||
+    (!!staged && grams > 0 && !completingPanel) ||
       (method === "custom" && !!customName.trim() && runningKcal !== "") ||
       (method === "scan" && !staged && !!barcode.trim())
   );
@@ -1475,7 +1446,6 @@
                     name={staged.name}
                     panel={stagedInfo}
                     portions={stagedPortions}
-                    hydrating={hydratingPortions}
                     bind:grams
                     onEdit={editStaged}
                     onExplainSource={(kind) => (sourceExplain = kind)}

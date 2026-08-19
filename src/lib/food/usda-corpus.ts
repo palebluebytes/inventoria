@@ -7,7 +7,12 @@ import {
   type Portion,
 } from "./nutrition";
 import { buildRawProvenance, type MergedSource } from "./provenance";
-import { ADAPTER_VERSION, FDC_FOOD_BASE } from "./usda-fdc";
+import {
+  ADAPTER_VERSION,
+  FDC_FOOD_BASE,
+  buildNutritionPanel,
+  type FdcNutrient,
+} from "./usda-fdc";
 import {
   compileReferenceFoodQuery,
   compareRelevance,
@@ -17,8 +22,8 @@ import {
 
 /**
  * The bundled USDA corpus: the Search index the food search reads and the
- * Nutrient store staging will read, both committed artifacts generated from
- * USDA's bulk archives by `scripts/usda-bundle.mjs` (ADR-0047).
+ * Nutrient store a staged food's panel is read out of, both committed artifacts
+ * generated from USDA's bulk archives by `scripts/usda-bundle.mjs` (ADR-0047).
  *
  * This module owns their shape, their loading, and the search over them. It is
  * the whole of what replaces `api.nal.usda.gov`: no key, no quota, no network,
@@ -188,6 +193,79 @@ export function mapIndexRowToPayload(row: UsdaIndexRow): EntityPayload {
   return { entity: `fdc:${row.fdcId}`, attributes };
 }
 
+// ---------------------------------------------------------------------------
+// Staging: the full panel, read out of the Nutrient store
+// ---------------------------------------------------------------------------
+
+/**
+ * The FDC id a food twin's entity names, or null for a twin that did not come
+ * out of the corpus — a scanned Open Food Facts product, a manual entry, a
+ * recipe. The Nutrient store has nothing to say about those, and a 4 MB parse to
+ * discover that is a cost every scan would pay.
+ */
+function fdcIdFor(entity: string): number | null {
+  const match = /^fdc:(\d+)$/.exec(entity);
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * The full `nutrition/info` panel for one bundled food, or undefined where the
+ * store carries no nutrients for it.
+ *
+ * The store keeps USDA's own amounts under USDA's own units, so the panel is
+ * built by handing the mapper the shape it reads (ADR-0047 §5): the id-keyed
+ * amounts rejoined to the id dictionary's unit, then normalised by the app's one
+ * normalisation. A stored amount alone cannot be read — 5 is 5 mg of calcium and
+ * 5 µg of folate — which is what the dictionary is for.
+ */
+export function storedPanelFor(
+  store: NutrientStore,
+  fdcId: number
+): NutritionInfo | undefined {
+  const amounts = store.foods[String(fdcId)];
+  if (!amounts) return undefined;
+  const nutrients: FdcNutrient[] = Object.entries(amounts).map(
+    ([id, value]) => ({
+      nutrientId: Number(id),
+      nutrientName: store.nutrients[id].name,
+      value,
+      unitName: store.nutrients[id].unit,
+    })
+  );
+  return buildNutritionPanel(nutrients);
+}
+
+/**
+ * Deepens a staged food's panel from the Nutrient store: the four macros a
+ * search row renders become the whole panel the mapper builds, from the same
+ * merged record the row was generated from (ADR-0047 §2).
+ *
+ * This is where the bundle earns its second artifact. A log freezes its own
+ * macros (ADR-0022), so a food logged on the row's four fields would carry four
+ * fields for ever — which is the reason ADR-0047 rejected keeping the API for
+ * detail hydration rather than a reason to repeat it here. Nothing else about
+ * the payload moves: identity, portions and `twin/raw_provenance` are the row's
+ * (§7), and only the panel's depth changes.
+ *
+ * `load` is a parameter for the same reason search's is: the panel is asserted
+ * against the committed artifact without a fetch. A food the store has no entry
+ * for keeps the row's macros — a partial artifact degrades the panel, never the
+ * user's ability to log the food.
+ */
+export async function completeStagedPanel(
+  payload: EntityPayload,
+  load: () => Promise<NutrientStore> = loadNutrientStore
+): Promise<EntityPayload> {
+  const fdcId = fdcIdFor(payload.entity);
+  if (fdcId === null) return payload;
+  const panel = storedPanelFor(await load(), fdcId);
+  if (!panel) return payload;
+  return {
+    ...payload,
+    attributes: { ...payload.attributes, [NUTRITION_INFO_ATTR]: panel },
+  };
+}
+
 /**
  * Searches the bundled corpus and maps the matches to food twin payloads.
  *
@@ -221,30 +299,50 @@ async function fetchArtifact<T>(url: string): Promise<T> {
 let loadedCorpus: Promise<SearchCorpus> | null = null;
 let loadedNutrients: Promise<NutrientStore> | null = null;
 
-/** The Search index, fetched, parsed and read into words once per session. */
+/**
+ * The Search index, fetched, parsed and read into words once per session.
+ *
+ * A SUCCESS is what is memoised: a failed load is forgotten so the next search
+ * tries again. Caching the rejection would be worse than not caching at all —
+ * the likeliest way this fetch fails is a service worker that has not taken
+ * control yet during the startup warm (see {@link warmUsdaCorpus}), and a cached
+ * rejection would answer every search for the rest of the session.
+ */
 export function loadSearchCorpus(): Promise<SearchCorpus> {
-  loadedCorpus ??=
-    fetchArtifact<SearchIndex>(SEARCH_INDEX_URL).then(buildSearchCorpus);
+  loadedCorpus ??= fetchArtifact<SearchIndex>(SEARCH_INDEX_URL)
+    .then(buildSearchCorpus)
+    .catch((error) => {
+      loadedCorpus = null;
+      throw error;
+    });
   return loadedCorpus;
 }
 
 /**
- * The Nutrient store, fetched and parsed once per session. No caller yet: #114
- * is what reads a staged food's nutrients out of it. Loading it is this module's
- * business either way, and warming it is what keeps that 102 ms parse off the
- * first stage.
+ * The Nutrient store, fetched and parsed once per session — by
+ * {@link completeStagedPanel}, once per staged food and never per keystroke.
+ * Memoised, so the second stage of a session pays nothing, and warmed at idle
+ * (see {@link warmUsdaCorpus}) so the first one usually pays nothing either.
  */
 export function loadNutrientStore(): Promise<NutrientStore> {
-  loadedNutrients ??= fetchArtifact<NutrientStore>(NUTRIENT_STORE_URL);
+  loadedNutrients ??= fetchArtifact<NutrientStore>(NUTRIENT_STORE_URL).catch(
+    (error) => {
+      // Forgotten on failure, for the reason {@link loadSearchCorpus} gives —
+      // and here a cached rejection would quietly stage every food of the
+      // session on four macros rather than on its panel.
+      loadedNutrients = null;
+      throw error;
+    }
+  );
   return loadedNutrients;
 }
 
 /**
  * Warms both artifacts, on the schedule ADR-0047 §2 sets: the index now, because
  * the food screen is the app's first and a search must not wait on a fetch; the
- * nutrient store at idle, because its 102 ms parse belongs nowhere near first
- * paint. Nothing reads a nutrient yet — #114 is what stages a food from the
- * store — and warming it here is what makes it warm before that first stage.
+ * nutrient store at idle, because its parse belongs nowhere near first paint.
+ * Staging is what reads it, and a stage is several seconds of typing and choosing
+ * away, so warming at idle is what makes it already parsed when that stage comes.
  *
  * Failures are swallowed deliberately — this is a warm-up, and the real search
  * and staging paths await the same promises and report their own errors.
