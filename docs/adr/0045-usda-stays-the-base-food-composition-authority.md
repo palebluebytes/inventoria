@@ -236,3 +236,62 @@ Foundation's 321, so nothing downstream should recompute one from the other. And
 Atwater general factors count fibre at 4 kcal/g where UK labelling counts it at 2,
 which is a property of Decision 1's choice of authority rather than of the merge;
 that is raised as [#122](https://github.com/palebluebytes/inventoria/issues/122).
+
+## Amendment (2026-08-19): the bundle is 509 KiB, not 361
+
+The last consequence sizes the offline option at "361 KiB gzipped for 8,187 foods".
+Both figures were taken over the 394-record Foundation population the first amendment
+retires. The food count has been corrected twice since, to 8,156 and then to 7,966;
+the 361 KiB never was, and this record said so. It has now been re-taken over the
+merged population the archives actually hold ([#120](https://github.com/palebluebytes/inventoria/issues/120)),
+and unlike the corrections above, it does not land close enough to leave the argument
+where it was.
+
+**509 KiB gzipped, over 7,966 distinct foods.** Built out of the two mirrored bulk
+archives, merged as Decision 2 merges them, trimmed to the panel the app fills, and
+gzipped at level 9. `pnpm usda:coverage` prints it; `buildBundle` and
+`serialiseBundle` in `scripts/usda-coverage.mjs` are what it runs, and
+`usda-coverage.test.ts` locks the panel to the app's own `PANEL_FIELDS`.
+
+| Panel                                  | gzipped | sorted by description |
+| -------------------------------------- | ------- | --------------------- |
+| 23 fields, everything the app fills    | 509 KiB | 462 KiB               |
+| 21 nutrient masses                     | 457 KiB | 415 KiB               |
+| identity only, `fdcId` and description | 106 KiB | 95 KiB                |
+
+**Which twenty-one.** The consequence says "a 21-nutrient panel" without saying which
+nutrients, and the panel is **twenty-three** fields wide today, not the twenty-four
+#120 counted. The twenty-one are the gram-valued masses: protein, fat, carbohydrate,
+fibre, saturated fat, trans fat, cholesterol, sodium, sugars, vitamin D, calcium,
+iron, potassium, vitamin A, vitamin C, vitamin E, B6, B12, folate, magnesium and zinc.
+The two the panel adds to them are energy, which USDA calculates rather than assays,
+and unsaturated fat, which is monounsaturated plus polyunsaturated rather than one
+nutrient. Both trims are published above because there is no way to tell which the
+original meant.
+
+**The merge rule, stated beside the number.** Foundation and SR Legacy join on
+`ndbNumber`; the Foundation record is the base and keeps its `fdcId` and description,
+and the twin fills only the panel fields it does not carry, at field granularity, per
+Decisions 2 and 3. That is 190 pairs merged, 1,527 panel fields borrowed, and 7,966
+distinct foods rather than 8,156 records counted once per dataset.
+
+**What the bytes are.** Each food is its `fdcId`, its description, and the panel
+fields it reports, with amounts exactly as USDA publishes them in the nutrient's own
+unit — one unit per field across both archives, measured rather than assumed, so a
+reader can carry the units instead of every record repeating them. A field the record
+does not report is omitted rather than written as null, since "not measured" is a
+distinction the panel keeps and null costs bytes to say nothing. Order is a free
+variable in any compressed size, so both are given: archive order is Foundation
+followed by the untwinned SR Legacy remainder, and sorting by description groups like
+foods and saves 9%.
+
+**This one does change the conversation.** Research note #108's own bundle-size axis
+wants a trimmed table at "~100–400 KiB gzipped". The 361 KiB cleared that; 509 does
+not, and neither does the most favourable reading available — the 21-nutrient trim,
+sorted by description, at 415 KiB. Nothing ships against this figure and no Decision
+here moves: USDA stays the authority, and bundling its own distribution stays the
+right first move ahead of importing a foreign table. What changes is the size of the
+move. It is a 0.4 to 0.5 MB asset rather than a third of one, of which 95 KiB is food
+names before a single nutrient is carried, so no amount of nutrient trimming brings it
+near 361 KiB. Where that number came from cannot be reconstructed, like the population
+it was measured over.

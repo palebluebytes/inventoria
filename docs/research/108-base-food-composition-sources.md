@@ -226,3 +226,45 @@ The correction above fixed the record count and stopped there, leaving §4's Fou
 **No argument in this document moves.** Foundation is still the thinnest table here, which is the whole case for filling it from its SR Legacy twin. SR Legacy still beats CIQUAL on every micronutrient measured (vitamin C 94% against 68%, B12 91% against 61%, folate 88% against 43%), and CIQUAL's fibre edge survives at 97% against 93%. What changes is that these two columns now have a stated denominator and a rule behind them, so the "not reported versus zero" work in step 1 of §1 can be sized against a population we ship rather than one we cannot reconstruct.
 
 **The twin pair count is settled too.** Joining the two archives on `ndbNumber` gives **190 twinned pairs**, **173 untwinned Foundation foods** (190 + 173 = 363) and **7,966 distinct foods** once the pairs merge — reproducing #111's independent build-time figure exactly, against ADR-0045's 210 and 184. That record's [amendment](../adr/0045-usda-stays-the-base-food-composition-authority.md#amendment-2026-08-18-foundation-is-363-records-not-394) now carries the corrected split.
+
+## Correction (2026-08-19): the bundle estimate in recommendation step 2, re-measured
+
+Step 2 of §1 sizes the offline option at "**361 KiB gzipped** for 8,187 foods
+(_measured_)". The food count was corrected twice above — to 8,156, then to 7,966 once
+twinned foods stop being counted twice — and the correction of 2026-08-18 flagged the
+KiB figure as carried over rather than re-derived, because it was taken over the same
+394-record Foundation population that does not exist. It has now been re-taken from the
+mirrored archives. Read step 2 as **509 KiB gzipped for 7,966 foods**.
+
+`pnpm usda:coverage` produced it, from `FoodData_Central_foundation_food_json_2026-04-30.zip`
+and `FoodData_Central_sr_legacy_food_json_2018-04.zip`, both verified against the
+manifest first. The two archives are joined on `ndbNumber` and merged as
+[ADR-0045](../adr/0045-usda-stays-the-base-food-composition-authority.md) §2 and §3
+merge them: Foundation is the base record and the SR Legacy twin fills only the panel
+fields it does not carry, so a twinned food is one food. Each food is written as its
+`fdcId`, its description and the panel fields it reports, at the amounts USDA
+publishes and in the nutrient's own unit; a field the record does not report is
+omitted rather than written as null; gzip is level 9.
+
+| Panel                                  | gzipped | sorted by description |
+| -------------------------------------- | ------- | --------------------- |
+| 23 fields, everything the app fills    | 509 KiB | 462 KiB               |
+| 21 nutrient masses                     | 457 KiB | 415 KiB               |
+| identity only, `fdcId` and description | 106 KiB | 95 KiB                |
+
+The middle row is the nearest reconstruction of step 2's "21-nutrient panel", which
+does not say which twenty-one: the panel is twenty-three fields wide, and the
+twenty-one gram-valued masses are it less energy, which USDA calculates rather than
+assays, and less unsaturated fat, which is two nutrients summed. The field lists and
+the merge rule are stated in full in that record's
+[amendment](../adr/0045-usda-stays-the-base-food-composition-authority.md#amendment-2026-08-19-the-bundle-is-509-kib-not-361).
+
+**This one moves an argument, unlike the corrections above.** §2's bundle-size axis
+asks for a trimmed table at "~100–400 KiB gzipped". The 361 KiB cleared that budget and
+509 KiB does not, and neither does the most favourable packing measured — the
+21-nutrient trim, sorted by description, at 415 KiB. Step 2 stands as the first move to
+try if keyless or offline ever matters, because it is still the only option with no new
+provenance story, no licence to propagate and no second blueberry in search. It is a
+0.4 to 0.5 MB asset rather than a third of one, and 95 KiB of that is food names before
+any nutrient is carried, so trimming nutrients alone will not reach the old figure.
+Where the 361 KiB came from cannot be reconstructed, as with the population beside it.

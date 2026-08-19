@@ -45,9 +45,10 @@ A fifth command reads the archives rather than checking them:
 pnpm usda:coverage         # how much of the panel each dataset reports, and the twin pairs
 ```
 
-It prints the completeness table in [research note #108](research/108-base-food-composition-sources.md) and the
-`ndbNumber` join behind [ADR-0045](adr/0045-usda-stays-the-base-food-composition-authority.md) §2, measured
-over the local copies. Re-run it after a refresh: those figures are quoted when sizing
+It prints the completeness table in [research note #108](research/108-base-food-composition-sources.md), the
+`ndbNumber` join behind [ADR-0045](adr/0045-usda-stays-the-base-food-composition-authority.md) §2, and the
+gzipped size of the merged panel that record's last consequence sizes an offline
+bundle by, measured over the local copies. Re-run it after a refresh: those figures are quoted when sizing
 a bundle or a coverage claim, and they move with the release.
 
 `check` needs no credentials and exits non-zero when anything is behind, which is
