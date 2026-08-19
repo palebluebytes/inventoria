@@ -217,6 +217,13 @@ function fdcIdFor(entity: string): number | null {
  * amounts rejoined to the id dictionary's unit, then normalised by the app's one
  * normalisation. A stored amount alone cannot be read — 5 is 5 mg of calcium and
  * 5 µg of folate — which is what the dictionary is for.
+ *
+ * The one guard is on the food, because a caller can legitimately ask about an
+ * id the store does not carry. The dictionary is NOT guarded, deliberately: the
+ * generator builds it from the very records it then writes the amounts from, so
+ * an amount under an unlisted id is a corrupt artifact rather than a case, and
+ * `usda-bundle.test.ts` re-serialises the committed files byte for byte to keep
+ * one from being hand-edited into existence.
  */
 export function storedPanelFor(
   store: NutrientStore,

@@ -1453,6 +1453,19 @@
                     onExplainDietary={(v) => (dietaryExplain = v)}
                   >
                     {#snippet beforeAmount()}
+                      {#if completingPanel}
+                        <!-- The Log button is held while the staged food's panel
+                        is read out of the Nutrient store, so say why: on a cold
+                        first stage that read is a fetch and a parse, and a dead
+                        button with no explanation is worse than the wait. -->
+                        <p
+                          class="hint"
+                          role="status"
+                          data-testid="completing-panel"
+                        >
+                          Reading the full nutrition panel…
+                        </p>
+                      {/if}
                       {#if nudge}
                         <!-- Found-but-poor nudge (§1): soft, dismissible, never
                         blocks logging the poor twin as-is — the Log button below
