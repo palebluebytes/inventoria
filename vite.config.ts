@@ -133,10 +133,14 @@ export default defineConfig({
         },
       },
       workbox: {
-        // The Loro CRDT WASM (~3.1 MB) is bundled as an asset and must be
-        // precached so Notes works offline on first load. Raise the precache
-        // size cap above workbox's 2 MiB default to include it.
-        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        // Two assets sit far above workbox's 2 MiB default and both must be
+        // precached: the Loro CRDT WASM (~3.1 MB), so Notes works offline on
+        // first load, and the USDA Nutrient store, so food staging does
+        // (ADR-0047 §11). Workbox weighs the raw file, not the ~782 KiB gzip it
+        // is served as, and the store measured 4.03 MiB on 2026-08-19 — over the
+        // 4 MiB this used to allow, which failed the build outright. The headroom
+        // is for a mirror refresh growing it, not for a second asset this size.
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         // Everything the default pattern already caught, plus `woff2`: the
         // default omits fonts, so the self-hosted Epilogue subsets shipped in
         // src/assets/fonts would be fetched over the network on a cold offline
