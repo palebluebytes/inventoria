@@ -39,10 +39,11 @@ pnpm usda:backup verify    # re-check the local copies
 pnpm usda:backup upload    # push to R2, then read each object back and compare
 ```
 
-A fifth command reads the archives rather than checking them:
+Two more commands read the archives rather than checking them:
 
 ```sh
 pnpm usda:coverage         # how much of the panel each dataset reports, and the twin pairs
+pnpm usda:bundle           # regenerate the two committed artifacts the app ships
 ```
 
 It prints the completeness table in [research note #108](research/108-base-food-composition-sources.md), the
@@ -50,6 +51,34 @@ It prints the completeness table in [research note #108](research/108-base-food-
 gzipped size of the merged panel that record's last consequence sizes an offline
 bundle by, measured over the local copies. Re-run it after a refresh: those figures are quoted when sizing
 a bundle or a coverage claim, and they move with the release.
+
+## Generating the bundled artifacts
+
+[ADR-0047](adr/0047-bundle-the-usda-archives-and-retire-the-api.md) ships USDA's own
+distribution rather than calling its API, so `public/usda/search-index.json` and
+`public/usda/nutrient-store.json` are generated from these archives and **committed**.
+`pnpm usda:bundle` writes them; `pnpm usda:bundle --report` measures and writes
+nothing.
+
+The script reaches the app's own filters, merge, panel and portion mapping by
+bundling `src/lib/food/usda-fdc.ts` with esbuild, which it finds on the PATH or
+through `nix shell nixpkgs#esbuild`. Nothing in it restates that logic, so a bundled
+row is the row a live search would have produced. What it does own is the shim
+between the archives' serialisation and the search API's, described under
+[Restoring from it](#restoring-from-it) below.
+
+Its output is deliberately stable: one array sorted by `fdcId`, nutrients keyed and
+sorted by nutrient id, one food per line, and no generation timestamp anywhere.
+Regenerating from the same archives is a no-op diff, which is what makes a refresh
+reviewable rather than merely large. Every size it prints names the compressor beside
+it, because a size quoted without one is how a wrong figure survived three records
+before [#120](https://github.com/palebluebytes/inventoria/issues/120) caught it.
+
+Both artifacts record the release and the SHA-256 of each archive they were generated
+from, and the script refuses to run against bytes the manifest does not describe. So
+a regeneration always says which snapshot it is a picture of.
+
+## Notes on the commands
 
 `check` needs no credentials and exits non-zero when anything is behind, which is
 what the scheduled job below acts on. It fails loudly if it cannot parse USDA's
@@ -87,8 +116,10 @@ including the late ones. When it finds something newer it opens an issue labelle
 `usda-mirror`, and comments on that issue rather than filing a second one if the
 refresh is still outstanding. It can also be run by hand from the Actions tab.
 
-Because the app reads the live USDA API, a mirror that lags by a quarter costs
-nothing operationally. What it bounds is how current a restore would be.
+The mirror stopped being insurance when ADR-0047 made it the source of the committed
+artifacts. A lag is no longer only about how current a restore would be: it is how far
+behind USDA every user's food search is, bounded by the same measurement the record
+publishes — one Foundation release cycle moved two records out of 365.
 
 ## Refreshing it
 
@@ -113,5 +144,7 @@ a search response**. A bulk record nests its nutrients as
 adapter into the `FdcFood` shape in `src/lib/food/usda-fdc.ts`; the mapper, the merge
 and the panel logic all work unchanged behind it.
 
-That shim is the same piece of work the bundled-offline option would need, which is
-why it has not been written speculatively.
+That shim now exists: `projectArchiveFood` in `scripts/usda-bundle.mjs`. It is the one
+piece of code that knows the two serialisations differ, and it also flattens
+`foodCategory` from the archives' object to the API's plain string and orders
+`foodPortions` by `sequenceNumber`.

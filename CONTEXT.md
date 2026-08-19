@@ -36,6 +36,14 @@ _Avoid_: Product, item, asset
 A generic, non-branded, standardised food entry — what the USDA FoodData Central search (Foundation + SR Legacy) returns and is _for_. Includes both raw whole foods and generic prepared staples (coffee, croissant, cheddar). This is the set the food search keeps; Brand-specific foods, packaged products, and Composite dishes are excluded from it and reached instead via the Open Food Facts barcode path (ADR-0034). See ADR-0042.
 _Avoid_: Generic food, USDA food, ingredient (when a prepared reference item is meant)
 
+**Search index**:
+The committed artifact the food search reads, one row per Reference food: identity, the fields ranking reads, the macros a result row renders, the household portions, and the reference to any SR Legacy twin whose values the row borrowed. Generated from USDA's bulk archives with the ADR-0042 filters already applied, so it holds the 4,491 survivors rather than all 7,966 merged foods, and the filters run once per generation instead of once per keystroke. See ADR-0047.
+_Avoid_: Food index, USDA index, the bundle, offline database
+
+**Nutrient store**:
+The committed artifact holding every nutrient USDA reports for a Reference food, keyed by FDC nutrient id and carrying USDA's own published unit. It is a separate file from the Search index and is parsed lazily, because search never reads a nutrient and staging reads all of them. No coverage gate and none of USDA's per-record scaffolding — derivation codes, footnotes, sample counts. See ADR-0047.
+_Avoid_: Nutrient table, nutrition bundle, micronutrient tail (which is what the store makes reachable, not the store)
+
 **Curated stand-in**:
 One specific Open Food Facts product, pinned by hand, answering a search for a base ingredient that **no** composition table carries — not USDA Foundation, SR Legacy or Survey, not CIQUAL. Cacao nibs is the founding case. It is an enumerable exception list against a coverage hole, never a second composition table: the entity stays the real barcode, the origin still reads OFF, and the substitution is disclosed rather than hidden. Admission is evidential and the list is capped. See ADR-0046.
 _Avoid_: Curated food, fallback food, default food, custom food (which means a user's own entry)
