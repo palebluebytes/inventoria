@@ -791,6 +791,15 @@
   // the search again. Plain let — not an $effect dependency.
   let lastQuery = "";
   let debounceTimer: ReturnType<typeof setTimeout>;
+  // How long typing has to settle before the search runs. This is a coalescer
+  // for a mid-word burst, NOT a network guard: the 400 ms it replaces was sized
+  // for the FDC API's 717–980 ms round trip and its request quota, and searching
+  // the bundled corpus (ADR-0047) costs 13 ms from keystroke to painted results
+  // at desktop speed, 28 ms at 4x CPU throttle. Firing on every keystroke was
+  // measured smooth — nine consecutive searches held a 2–7 ms median frame — so
+  // the value sits under a fast typist's inter-key interval and lets the results
+  // track the word instead of waiting for it.
+  const SEARCH_DEBOUNCE_MS = 120;
   $effect(() => {
     const trimmed = query.trim();
     if (method !== "search" || staged) return;
@@ -807,8 +816,12 @@
       // from staging a food); a failed query is not cached, so it can retry.
       !(trimmed === lastQuery && status !== "error")
     ) {
-      status = "loading";
-      debounceTimer = setTimeout(() => handleSearch(), 400);
+      // No pre-emptive "loading" here. It existed to acknowledge the 400 ms wait
+      // above, and at 120 ms it only strobes the in-field spinner — measured at
+      // ten mount/unmount transitions across one typed word. `handleSearch` still
+      // sets it, so the one search that can genuinely be slow (the first, with
+      // the corpus still being fetched and read) still says so.
+      debounceTimer = setTimeout(() => handleSearch(), SEARCH_DEBOUNCE_MS);
     }
     return () => clearTimeout(debounceTimer);
   });
