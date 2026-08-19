@@ -23,7 +23,6 @@
   let {
     panel = undefined,
     portions = [],
-    hydrating = false,
     grams = $bindable(100),
   }: {
     /** The food's `nutrition/info` panel, per its serving basis. Omit for a
@@ -31,8 +30,6 @@
     panel?: NutritionInfo;
     /** Household portions surfaced as picker chips (ADR-0030). */
     portions?: Portion[];
-    /** True while a searched food's portions are still being fetched (§5). */
-    hydrating?: boolean;
     grams: number;
   } = $props();
 
@@ -43,7 +40,7 @@
   let breakdown = $derived(scaleNutrition(panel, factor));
 </script>
 
-<QuantityGrams bind:grams {portions} {hydrating} />
+<QuantityGrams bind:grams {portions} />
 
 {#if panel}
   <!-- The shared preview (#97 prototype): the tracked figures as a 2-column grid,

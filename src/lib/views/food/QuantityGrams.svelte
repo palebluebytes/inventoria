@@ -25,23 +25,15 @@
     grams = $bindable(100),
     sliderMax = 500,
     portions = [],
-    hydrating = false,
   }: {
     grams: number;
     sliderMax?: number;
     portions?: Portion[];
-    // True while the food's portions are being fetched (ADR-0030 §5): the slot
-    // shows skeleton chips so the real ones land in place, no layout shift.
-    hydrating?: boolean;
   } = $props();
 
   // The chip view-models are derived once from the raw portions by the food
   // domain helper; the .svelte file holds no portion mapping of its own.
   let portionOptions = $derived(portionPresets(portions));
-  // Reserve the portion row while portions exist OR are loading, so the real
-  // chips replace the skeleton in the same space. Only a food that finishes
-  // hydrating with no portions collapses the slot (a rare, gentle upward move).
-  let showPortionSlot = $derived(portionOptions.length > 0 || hydrating);
 
   // Tapping a portion chip fills its resolved grams — via the shared resolver so
   // the picker and any downstream reader agree — falling back to the preset's
@@ -181,34 +173,20 @@
     <div class="scale"><span>1</span><span>{sliderMax} g</span></div>
   </div>
 
-  {#if showPortionSlot}
+  {#if portionOptions.length > 0}
     <!-- Portion chips, taking the control's full width (the NOVA badge that used
          to share this row now rides the head with the other tags, which is also
-         what gives a long portion label room to sit on its own line). -->
-    <div
-      class="portions"
-      data-testid="portion-presets"
-      aria-busy={portionOptions.length === 0 && hydrating}
-    >
-      {#if portionOptions.length > 0}
-        {#each portionOptions as p (p.label)}
-          <Button
-            variant={grams === p.grams ? "primary" : "secondary"}
-            class="portion-chip"
-            onclick={() => pickPortion(p.label, p.grams)}>{p.display}</Button
-          >
-        {/each}
-      {:else}
-        <!-- Portions loading: skeleton chips holding the row's height so the
-             real chips replace them without shifting the picker below. -->
-        <span class="portion-skeleton" style="width: 6.5rem" aria-hidden="true"
-          >&nbsp;</span
+         what gives a long portion label room to sit on its own line). A food's
+         portions arrive with it now (ADR-0047 §6), so the row is either there or
+         it is not — there is no loading state left to hold space for. -->
+    <div class="portions" data-testid="portion-presets">
+      {#each portionOptions as p (p.label)}
+        <Button
+          variant={grams === p.grams ? "primary" : "secondary"}
+          class="portion-chip"
+          onclick={() => pickPortion(p.label, p.grams)}>{p.display}</Button
         >
-        <span class="portion-skeleton" style="width: 7.5rem" aria-hidden="true"
-          >&nbsp;</span
-        >
-        <span class="sr-only" role="status">Loading portion sizes…</span>
-      {/if}
+      {/each}
     </div>
   {/if}
 </div>
@@ -408,48 +386,5 @@
     overflow-wrap: anywhere;
     text-align: left;
     justify-content: flex-start;
-  }
-  /* Placeholder chips shown while portions hydrate. Same padding/border/font as
-     a real .portion-chip so the row is exactly one chip tall and the real chips
-     drop straight in — no layout shift. The &nbsp; forces the matching line box. */
-  .portion-skeleton {
-    display: inline-block;
-    box-sizing: border-box;
-    padding: var(--space-2xs) var(--space-xs);
-    border: var(--edge-thin);
-    font-size: var(--step-n2);
-    overflow: hidden;
-    background: var(--bg-surface);
-    opacity: 0.55;
-    animation: portion-pulse 1.1s ease-in-out infinite;
-  }
-  .portion-skeleton:nth-of-type(2) {
-    animation-delay: 0.18s;
-  }
-  @keyframes portion-pulse {
-    0%,
-    100% {
-      opacity: 0.35;
-    }
-    50% {
-      opacity: 0.7;
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .portion-skeleton {
-      animation: none;
-      opacity: 0.5;
-    }
-  }
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-    border: 0;
   }
 </style>

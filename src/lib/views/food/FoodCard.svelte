@@ -33,7 +33,6 @@
     name,
     panel = undefined,
     portions = [],
-    hydrating = false,
     grams = $bindable(100),
     onEdit,
     onExplainSource,
@@ -49,8 +48,6 @@
     panel?: NutritionInfo;
     /** Household portions surfaced as picker chips (ADR-0030). */
     portions?: Portion[];
-    /** True while a searched food's portions are still being fetched. */
-    hydrating?: boolean;
     grams?: number;
     /**
      * Correct this food from its label. Drives the pencil origin badge, which
@@ -173,7 +170,7 @@
 
   {@render beforeAmount?.()}
 
-  <FoodAmountPanel {panel} {portions} {hydrating} bind:grams />
+  <FoodAmountPanel {panel} {portions} bind:grams />
 
   <!-- Allergen safety block (ADR-0043 §3, #104): a static, present-only block
        below the quantity row — Contains › May-contain › Free-from, one allergen
