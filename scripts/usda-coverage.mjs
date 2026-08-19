@@ -92,18 +92,82 @@ export function createCoverageTally(rows = PANEL_ROWS) {
 }
 
 /**
- * The twinned pairs between two datasets: `{ pairs, untwinned }`, counted over
- * distinct `ndbNumber`s, which is the key ADR-0045 §2 merges on. `untwinned`
- * counts the first dataset's unpaired foods, Foundation being the base record.
+ * The twinned foods between two datasets, joined on `ndbNumber` as ADR-0045 §2
+ * merges them: `{ pairs, untwinned }`, where each pair carries both
+ * descriptions and `untwinned` counts the base dataset's unpaired foods.
+ *
+ * `base` and `twin` are `ndbNumber` -> description maps. A record with no
+ * `ndbNumber` is unjoinable and is dropped rather than matched against every
+ * other record that lacks one.
  */
-export function countSharedNdbNumbers(a, b) {
-  const distinct = (values) =>
-    new Set([...values].filter((ndb) => ndb !== undefined && ndb !== null));
-  const first = distinct(a);
-  const second = distinct(b);
-  let pairs = 0;
-  for (const ndb of first) if (second.has(ndb)) pairs++;
-  return { pairs, untwinned: first.size - pairs };
+export function pairTwins(base, twin) {
+  const pairs = [];
+  let untwinned = 0;
+  for (const [ndbNumber, description] of base) {
+    if (ndbNumber === undefined || ndbNumber === null) continue;
+    if (twin.has(ndbNumber))
+      pairs.push({ ndbNumber, base: description, twin: twin.get(ndbNumber) });
+    else untwinned++;
+  }
+  return { pairs, untwinned };
+}
+
+/**
+ * A description cut into the tokens the varietal comparison runs over:
+ * lowercased, split on everything that is not a letter or a digit, and stripped
+ * of tokens under three characters, which are units and conjunctions rather
+ * than varietal signal.
+ */
+export function descriptionTokens(description) {
+  return new Set(
+    description
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((token) => token.length >= 3)
+  );
+}
+
+/** Shared tokens over all of them; 0 for two empty sets rather than NaN. */
+export function jaccard(a, b) {
+  const union = new Set([...a, ...b]).size;
+  if (!union) return 0;
+  let shared = 0;
+  for (const token of a) if (b.has(token)) shared++;
+  return shared / union;
+}
+
+/**
+ * How sound the `ndbNumber` link looks across every pair, which is the evidence
+ * behind ADR-0045's varietal residual.
+ *
+ * The median is reported as the mean of the two middle scores when the count is
+ * even, and `belowHalf` and `noSharedToken` are reported beside it because a
+ * median alone hides the tail: the pairs that need Decision 4's auditability are
+ * exactly the ones it averages away.
+ */
+export function summarisePairSimilarity(pairs) {
+  const scored = pairs
+    .map((pair) => ({
+      ...pair,
+      score: jaccard(
+        descriptionTokens(pair.base),
+        descriptionTokens(pair.twin)
+      ),
+    }))
+    .sort((a, b) => a.score - b.score);
+  const middle = scored.length >> 1;
+  return {
+    pairs: scored.length,
+    median: !scored.length
+      ? 0
+      : scored.length % 2
+        ? scored[middle].score
+        : (scored[middle - 1].score + scored[middle].score) / 2,
+    identical: scored.filter((p) => p.base === p.twin).length,
+    belowHalf: scored.filter((p) => p.score < 0.5).length,
+    noSharedToken: scored.filter((p) => p.score === 0).length,
+    weakest: scored.slice(0, 5),
+  };
 }
 
 /**
@@ -134,21 +198,25 @@ export function formatCoverageTable(columns) {
   ].join("\n");
 }
 
-/** Measures one archive: its coverage tally and every `ndbNumber` it carries. */
+/** Measures one archive: its coverage tally and its `ndbNumber` -> description map. */
 async function measureArchive(archive, dir) {
   const zip = await readFile(join(dir, archive.file));
   const tally = createCoverageTally();
-  const ndbNumbers = [];
+  const descriptions = new Map();
+  // A dataset mapping one ndbNumber to two records would make the join ambiguous
+  // and the map would silently keep the last one, so it is counted, not assumed.
+  let repeatedNdbNumbers = 0;
   const counted = await countArchiveRecords(zip, archive.root_key, (text) => {
     const food = JSON.parse(text);
     tally.add(food);
-    ndbNumbers.push(food.ndbNumber);
+    if (descriptions.has(food.ndbNumber)) repeatedNdbNumbers++;
+    descriptions.set(food.ndbNumber, food.description);
   });
   if (!counted.found)
     throw new Error(
       `${archive.file}: no "${archive.root_key}" array inside; the archive's shape has changed`
     );
-  return { total: tally.total(), ndbNumbers, counted };
+  return { total: tally.total(), descriptions, repeatedNdbNumbers, counted };
 }
 
 async function main() {
@@ -171,10 +239,11 @@ async function main() {
     measured.push({ archive, ...(await measureArchive(archive, dir)) });
   }
 
-  for (const { archive, counted } of measured)
+  for (const { archive, counted, repeatedNdbNumbers } of measured)
     console.log(
       `\n${archive.dataset} ${archive.release}: ${counted.records} records, ` +
-        `${counted.null_entries} null slots (manifest says ${archive.records} and ${archive.null_entries})`
+        `${counted.null_entries} null slots (manifest says ${archive.records} and ${archive.null_entries}), ` +
+        `${repeatedNdbNumbers} repeated ndbNumbers`
     );
 
   console.log(
@@ -187,14 +256,27 @@ async function main() {
   );
 
   const [foundation, srLegacy] = measured;
-  const { pairs, untwinned } = countSharedNdbNumbers(
-    foundation.ndbNumbers,
-    srLegacy.ndbNumbers
+  const { pairs, untwinned } = pairTwins(
+    foundation.descriptions,
+    srLegacy.descriptions
   );
   console.log(
-    `\ntwinned by ndbNumber: ${pairs} pairs, ${untwinned} Foundation foods untwinned, ` +
-      `${foundation.total.records + srLegacy.total.records - pairs} merged records`
+    `\ntwinned by ndbNumber: ${pairs.length} pairs, ${untwinned} Foundation foods untwinned, ` +
+      `${foundation.total.records + srLegacy.total.records - pairs.length} merged records`
   );
+
+  // The varietal residual ADR-0045 accepts: how alike a pair's two descriptions
+  // are is the only evidence that one ndbNumber names one food.
+  const similarity = summarisePairSimilarity(pairs);
+  console.log(
+    `description token-Jaccard: median ${similarity.median.toFixed(2)}, ` +
+      `${similarity.identical} identical, ${similarity.belowHalf} below 0.5, ` +
+      `${similarity.noSharedToken} with no shared token`
+  );
+  for (const pair of similarity.weakest)
+    console.log(
+      `  ${pair.score.toFixed(2)} ${pair.ndbNumber}  ${pair.base} || ${pair.twin}`
+    );
 }
 
 // Only when run, never on import: the tallies above are unit-tested, and reading

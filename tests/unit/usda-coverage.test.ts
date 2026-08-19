@@ -6,7 +6,10 @@ import {
   PANEL_ROWS,
   reportsField,
   createCoverageTally,
-  countSharedNdbNumbers,
+  pairTwins,
+  descriptionTokens,
+  jaccard,
+  summarisePairSimilarity,
   formatCoverageTable,
 } from "../../scripts/usda-coverage.mjs";
 import { PANEL_FIELDS } from "../../src/lib/food/usda-fdc";
@@ -87,27 +90,149 @@ describe("createCoverageTally — presence over a whole dataset", () => {
   });
 });
 
-describe("countSharedNdbNumbers — the twinned pairs between two datasets", () => {
-  it("counts the ndbNumbers carried by both datasets", () => {
-    expect(
-      countSharedNdbNumbers([9050, 11090, 16158], [9050, 16158, 9999])
-    ).toEqual({
-      pairs: 2,
-      untwinned: 1,
-    });
+describe("pairTwins — the twinned foods between two datasets", () => {
+  const foundation = new Map([
+    [9050, "Blueberries, raw"],
+    [11090, "Broccoli, raw"],
+    [16158, "Hummus, commercial"],
+  ]);
+
+  it("pairs the ndbNumbers both datasets carry, keeping both descriptions", () => {
+    const { pairs, untwinned } = pairTwins(
+      foundation,
+      new Map([
+        [9050, "Blueberries, raw"],
+        [16158, "Hummus, home prepared"],
+        [9999, "Something else"],
+      ])
+    );
+    expect(pairs).toEqual([
+      { ndbNumber: 9050, base: "Blueberries, raw", twin: "Blueberries, raw" },
+      {
+        ndbNumber: 16158,
+        base: "Hummus, commercial",
+        twin: "Hummus, home prepared",
+      },
+    ]);
+    expect(untwinned).toBe(1);
   });
 
-  it("ignores a record with no ndbNumber rather than pairing on absence", () => {
-    expect(
-      countSharedNdbNumbers([9050, undefined, null], [9050, undefined])
-    ).toEqual({ pairs: 1, untwinned: 0 });
+  it("counts every base food as untwinned when nothing pairs", () => {
+    expect(pairTwins(foundation, new Map()).untwinned).toBe(3);
   });
 
-  it("counts one pair per distinct ndbNumber, however often it repeats", () => {
-    expect(countSharedNdbNumbers([9050, 9050], [9050, 9050, 9050])).toEqual({
-      pairs: 1,
-      untwinned: 0,
-    });
+  it("refuses to pair on an absent ndbNumber", () => {
+    // A record with no ndbNumber is unjoinable, not a match for every other
+    // record without one.
+    const { pairs, untwinned } = pairTwins(
+      new Map<number | undefined | null, string>([
+        [undefined, "Foundation food with no number"],
+        [null, "Another"],
+        [9050, "Blueberries, raw"],
+      ]),
+      new Map<number | undefined | null, string>([
+        [undefined, "SR food with no number"],
+        [9050, "Blueberries, raw"],
+      ])
+    );
+    expect(pairs.map((p: { ndbNumber: number }) => p.ndbNumber)).toEqual([
+      9050,
+    ]);
+    expect(untwinned).toBe(0);
+  });
+});
+
+describe("descriptionTokens — how a description is cut up for comparison", () => {
+  it("lowercases and splits on everything that is not a letter or digit", () => {
+    expect([...descriptionTokens("Beans, snap (green), raw")]).toEqual([
+      "beans",
+      "snap",
+      "green",
+      "raw",
+    ]);
+  });
+
+  it("drops tokens under three characters, which carry no varietal signal", () => {
+    expect([...descriptionTokens("Oats, w/ salt")]).toEqual(["oats", "salt"]);
+  });
+
+  it("counts a repeated word once", () => {
+    expect([...descriptionTokens("Milk, milk, milk")]).toEqual(["milk"]);
+  });
+});
+
+describe("jaccard — how alike two token sets are", () => {
+  const of = (...words: string[]) => new Set(words);
+
+  it("scores identical sets 1 and disjoint sets 0", () => {
+    expect(jaccard(of("blueberries", "raw"), of("blueberries", "raw"))).toBe(1);
+    expect(jaccard(of("blueberries"), of("broccoli"))).toBe(0);
+  });
+
+  it("scores an overlap as the shared tokens over all of them", () => {
+    expect(
+      jaccard(of("oats", "rolled"), of("oats", "steel", "cut"))
+    ).toBeCloseTo(1 / 4);
+  });
+
+  it("scores two empty sets 0 rather than dividing by nothing", () => {
+    expect(jaccard(of(), of())).toBe(0);
+  });
+});
+
+describe("summarisePairSimilarity — how sound the ndbNumber link is", () => {
+  const pair = (ndbNumber: number, base: string, twin: string) => ({
+    ndbNumber,
+    base,
+    twin,
+  });
+
+  it("reports the median, and the tail the median hides", () => {
+    const summary = summarisePairSimilarity([
+      pair(1, "Blueberries, raw", "Blueberries, raw"),
+      pair(2, "Broccoli, raw", "Broccoli, raw"),
+      // Weak but joinable: shares "soy", so it is tail rather than nonsense.
+      pair(
+        3,
+        "Soy milk, unsweetened, plain",
+        "Soy beverage, all flavors, with calcium, vitamins added"
+      ),
+    ]);
+    expect(summary.pairs).toBe(3);
+    expect(summary.median).toBe(1);
+    expect(summary.identical).toBe(2);
+    expect(summary.belowHalf).toBe(1);
+    expect(summary.noSharedToken).toBe(0);
+  });
+
+  it("averages the two middle scores when the pair count is even", () => {
+    // The median is the figure ADR-0045 quotes, so which convention produced it
+    // is part of the measurement, not an implementation detail.
+    const summary = summarisePairSimilarity([
+      pair(1, "aaa", "aaa"),
+      pair(2, "aaa", "bbb"),
+      pair(3, "aaa bbb", "aaa ccc"),
+      pair(4, "aaa", "aaa"),
+    ]);
+    expect(summary.median).toBeCloseTo((1 / 3 + 1) / 2);
+  });
+
+  it("counts a pair whose descriptions share no token at all", () => {
+    const summary = summarisePairSimilarity([pair(1, "oats", "porridge")]);
+    expect(summary.noSharedToken).toBe(1);
+    expect(summary.median).toBe(0);
+  });
+
+  it("names the weakest pairs, worst first, so the tail can be read", () => {
+    const summary = summarisePairSimilarity([
+      pair(1, "aaa bbb", "aaa bbb"),
+      pair(2, "oats", "porridge"),
+      pair(3, "aaa bbb", "aaa ccc"),
+    ]);
+    expect(
+      summary.weakest.map((w: { ndbNumber: number }) => w.ndbNumber)
+    ).toEqual([2, 3, 1]);
+    expect(summary.weakest[0].score).toBe(0);
   });
 });
 
