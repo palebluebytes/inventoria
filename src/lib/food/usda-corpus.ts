@@ -7,19 +7,18 @@ import {
   type Portion,
 } from "./nutrition";
 import { buildRawProvenance, type MergedSource } from "./provenance";
+import { ADAPTER_VERSION, FDC_FOOD_BASE } from "./usda-fdc";
 import {
-  ADAPTER_VERSION,
-  FDC_FOOD_BASE,
   compileReferenceFoodQuery,
   compareRelevance,
   readReferenceFoodName,
   type ReferenceFoodName,
-} from "./usda-fdc";
+} from "./reference-food-ranking";
 
 /**
  * The bundled USDA corpus: the Search index the food search reads and the
- * Nutrient store staging reads, both committed artifacts generated from USDA's
- * bulk archives by `scripts/usda-bundle.mjs` (ADR-0047).
+ * Nutrient store staging will read, both committed artifacts generated from
+ * USDA's bulk archives by `scripts/usda-bundle.mjs` (ADR-0047).
  *
  * This module owns their shape, their loading, and the search over them. It is
  * the whole of what replaces `api.nal.usda.gov`: no key, no quota, no network,
@@ -229,7 +228,12 @@ export function loadSearchCorpus(): Promise<SearchCorpus> {
   return loadedCorpus;
 }
 
-/** The Nutrient store, fetched and parsed once per session. */
+/**
+ * The Nutrient store, fetched and parsed once per session. No caller yet: #114
+ * is what reads a staged food's nutrients out of it. Loading it is this module's
+ * business either way, and warming it is what keeps that 102 ms parse off the
+ * first stage.
+ */
 export function loadNutrientStore(): Promise<NutrientStore> {
   loadedNutrients ??= fetchArtifact<NutrientStore>(NUTRIENT_STORE_URL);
   return loadedNutrients;
@@ -239,7 +243,8 @@ export function loadNutrientStore(): Promise<NutrientStore> {
  * Warms both artifacts, on the schedule ADR-0047 §2 sets: the index now, because
  * the food screen is the app's first and a search must not wait on a fetch; the
  * nutrient store at idle, because its 102 ms parse belongs nowhere near first
- * paint and nothing reads it until a food is staged.
+ * paint. Nothing reads a nutrient yet — #114 is what stages a food from the
+ * store — and warming it here is what makes it warm before that first stage.
  *
  * Failures are swallowed deliberately — this is a warm-up, and the real search
  * and staging paths await the same promises and report their own errors.
