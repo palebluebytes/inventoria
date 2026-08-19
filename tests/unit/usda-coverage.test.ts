@@ -10,6 +10,10 @@ import {
   descriptionTokens,
   jaccard,
   summarisePairSimilarity,
+  energyProfile,
+  reconcilesWithMacros,
+  summariseEnergy,
+  summariseMergedEnergy,
   formatCoverageTable,
 } from "../../scripts/usda-coverage.mjs";
 import { PANEL_FIELDS } from "../../src/lib/food/usda-fdc";
@@ -183,8 +187,8 @@ describe("jaccard — how alike two token sets are", () => {
 describe("summarisePairSimilarity — how sound the ndbNumber link is", () => {
   const pair = (ndbNumber: number, base: string, twin: string) => ({
     ndbNumber,
-    base,
-    twin,
+    base: { description: base },
+    twin: { description: twin },
   });
 
   it("reports the median, and the tail the median hides", () => {
@@ -293,5 +297,234 @@ describe("PANEL_ROWS — the fields the note's completeness table names", () => 
       "B12",
       "Folate",
     ]);
+  });
+});
+
+// Energy is the one panel field USDA never measures: every value in both bulk
+// archives is calculated from the macros beside it, under one of two Atwater
+// factor systems. That is what makes the twin merge worth checking — a borrowed
+// calorie is a calculation over another record's macros.
+
+const nutrient = (id: number, amount: number) => ({
+  nutrient: { id },
+  amount,
+});
+const bulkFood = (
+  description: string,
+  nutrients: { nutrient: { id: number }; amount: number }[],
+  factors?: {
+    proteinValue: number;
+    fatValue: number;
+    carbohydrateValue: number;
+  }
+) => ({
+  description,
+  foodNutrients: nutrients,
+  nutrientConversionFactors: factors
+    ? [{ type: ".CalorieConversionFactor", ...factors }]
+    : [],
+});
+
+describe("energyProfile — what a record says about its own calories", () => {
+  it("reads the energy the panel would show, and names which id carried it", () => {
+    // Foundation omits 1008 and publishes Atwater factors instead; the app
+    // prefers 1008, then general, then specific (ADR-0045 §3).
+    const profile = energyProfile(
+      bulkFood("Blueberries, raw", [
+        nutrient(2047, 63.9),
+        nutrient(2048, 57.4),
+        nutrient(1003, 0.703),
+        nutrient(1004, 0.306),
+        nutrient(1005, 14.6),
+      ])
+    );
+    expect(profile.basis).toBe(2047);
+    // Both systems are published; only one is what the panel shows.
+    expect(profile.published).toEqual([2047, 2048]);
+    expect(profile.kcal).toBe(63.9);
+    expect(profile.protein).toBe(0.703);
+    expect(profile.carbohydrate).toBe(14.6);
+  });
+
+  it("keeps the derivation code, which says whether USDA calculated or imputed it", () => {
+    const food = bulkFood("x", [nutrient(2047, 165)]);
+    food.foodNutrients[0].foodNutrientDerivation = { code: "NC" };
+    expect(energyProfile(food).derivation).toBe("NC");
+    expect(energyProfile(bulkFood("y", [nutrient(2047, 165)])).derivation).toBe(
+      "unstated"
+    );
+    expect(energyProfile(bulkFood("z", [])).derivation).toBe(null);
+  });
+
+  it("prefers 1008 where a record carries it", () => {
+    expect(
+      energyProfile(bulkFood("x", [nutrient(1008, 57), nutrient(2047, 63.9)]))
+        .basis
+    ).toBe(1008);
+  });
+
+  it("reports no basis at all for a record that reports no energy", () => {
+    const profile = energyProfile(
+      bulkFood("Oil, canola", [nutrient(1004, 100)])
+    );
+    expect(profile.basis).toBe(null);
+    expect(profile.kcal).toBeUndefined();
+    expect(profile.fat).toBe(100);
+  });
+
+  it("keeps the record's own calorie factors when it publishes them", () => {
+    const profile = energyProfile(
+      bulkFood("Hummus, commercial", [nutrient(1008, 100)], {
+        proteinValue: 3.47,
+        fatValue: 8.37,
+        carbohydrateValue: 4.07,
+      })
+    );
+    expect(profile.factors).toEqual({
+      proteinValue: 3.47,
+      fatValue: 8.37,
+      carbohydrateValue: 4.07,
+    });
+  });
+});
+
+describe("reconcilesWithMacros — is the stated energy the macros times its factors", () => {
+  const macros = [nutrient(1003, 10), nutrient(1004, 5), nutrient(1005, 20)];
+
+  it("checks a general-factor energy against 4/4/9", () => {
+    // 4(10) + 4(20) + 9(5) = 165
+    expect(
+      reconcilesWithMacros(
+        energyProfile(bulkFood("x", [nutrient(2047, 165), ...macros]))
+      )
+    ).toBe(true);
+    expect(
+      reconcilesWithMacros(
+        energyProfile(bulkFood("x", [nutrient(2047, 140), ...macros]))
+      )
+    ).toBe(false);
+  });
+
+  it("checks a specific-factor energy against the record's own factors", () => {
+    // 3(10) + 4(20) + 8(5) = 150, which 4/4/9 would put at 165
+    const food = bulkFood("x", [nutrient(2048, 150), ...macros], {
+      proteinValue: 3,
+      fatValue: 8,
+      carbohydrateValue: 4,
+    });
+    expect(reconcilesWithMacros(energyProfile(food))).toBe(true);
+  });
+
+  it("falls back to general factors for a 1008 energy with no factors published", () => {
+    expect(
+      reconcilesWithMacros(
+        energyProfile(bulkFood("x", [nutrient(1008, 165), ...macros]))
+      )
+    ).toBe(true);
+  });
+
+  it("allows a point of rounding, since the archives publish three significant figures", () => {
+    expect(
+      reconcilesWithMacros(energyProfile(bulkFood("x", [nutrient(2047, 166)])))
+    ).toBeUndefined();
+    expect(
+      reconcilesWithMacros(
+        energyProfile(bulkFood("x", [nutrient(2047, 166), ...macros]))
+      )
+    ).toBe(true);
+  });
+
+  it("cannot answer for a record missing energy or a macro", () => {
+    expect(
+      reconcilesWithMacros(energyProfile(bulkFood("x", macros)))
+    ).toBeUndefined();
+    expect(
+      reconcilesWithMacros(
+        energyProfile(bulkFood("x", [nutrient(2047, 165), nutrient(1003, 10)]))
+      )
+    ).toBeUndefined();
+  });
+});
+
+describe("summariseEnergy — how a dataset states its calories", () => {
+  it("counts the basis each record used, and whether energy travels with its macros", () => {
+    const summary = summariseEnergy([
+      energyProfile(
+        bulkFood("a", [
+          nutrient(2047, 165),
+          nutrient(1003, 10),
+          nutrient(1004, 5),
+          nutrient(1005, 20),
+        ])
+      ),
+      energyProfile(bulkFood("b", [nutrient(1008, 100), nutrient(1003, 25)])),
+      energyProfile(bulkFood("c", [nutrient(1004, 100)])),
+    ]);
+    expect(summary.records).toBe(3);
+    expect(summary.basis).toEqual({ 1008: 1, 2047: 1, 2048: 0, none: 1 });
+    expect(summary.publishing).toEqual({ 1008: 1, 2047: 1, 2048: 0 });
+    expect(summary.derivations).toEqual({ unstated: 2 });
+    // "b" states energy without a full macro set behind it
+    expect(summary.energyWithoutFullMacros).toBe(1);
+    expect(summary.reconciling).toBe(1);
+    expect(summary.measurable).toBe(1);
+  });
+});
+
+describe("summariseMergedEnergy — what the twin merge does to a calorie", () => {
+  const profile = (
+    kcal: number | undefined,
+    p?: number,
+    fat?: number,
+    c?: number
+  ) =>
+    energyProfile(
+      bulkFood("x", [
+        ...(kcal === undefined ? [] : [nutrient(2047, kcal)]),
+        ...(p === undefined ? [] : [nutrient(1003, p)]),
+        ...(fat === undefined ? [] : [nutrient(1004, fat)]),
+        ...(c === undefined ? [] : [nutrient(1005, c)]),
+      ])
+    );
+
+  it("counts a pair that borrows the calorie itself", () => {
+    const summary = summariseMergedEnergy([
+      {
+        ndbNumber: 1,
+        base: profile(undefined, undefined, 100),
+        twin: profile(884, 0, 100, 0),
+      },
+    ]);
+    expect(summary.energyBorrowed).toBe(1);
+    expect(summary.macroBorrowedUnderEnergy).toBe(0);
+  });
+
+  it("counts the case that would break the panel: a macro borrowed under the base's own energy", () => {
+    const summary = summariseMergedEnergy([
+      {
+        ndbNumber: 1,
+        base: profile(165, 10, 5, undefined),
+        twin: profile(200, 12, 6, 20),
+      },
+    ]);
+    expect(summary.macroBorrowedUnderEnergy).toBe(1);
+    expect(summary.energyBorrowed).toBe(0);
+  });
+
+  it("reports whether the merge moved a panel's coherence at all", () => {
+    const summary = summariseMergedEnergy([
+      {
+        ndbNumber: 1,
+        base: profile(165, 10, 5, 20),
+        twin: profile(165, 10, 5, 20),
+      },
+      {
+        ndbNumber: 2,
+        base: profile(165, 10, 5, 20),
+        twin: profile(999, 99, 99, 99),
+      },
+    ]);
+    expect(summary.coherenceMeasurable).toBe(2);
+    expect(summary.coherenceUnchanged).toBe(2);
   });
 });

@@ -48,10 +48,13 @@ const MANIFEST_PATH = join(ROOT, "scripts", "usda-backup.manifest.json");
  * rows are the note's, not the app's: §4 measures thirteen fields, the panel
  * carries twenty-four.
  */
+/** Energy ids in the order the app reads them (ADR-0045 §3). */
+const ENERGY_IDS = [1008, 2047, 2048];
+
 export const PANEL_ROWS = [
   // Foundation omits 1008 and reports energy as Atwater factors only, so a
   // single-id measurement would read most of the dataset as having no calories.
-  { label: "Energy", field: "calories", ids: [1008, 2047, 2048] },
+  { label: "Energy", field: "calories", ids: ENERGY_IDS },
   { label: "Protein", field: "protein_content", ids: [1003] },
   { label: "Carbohydrate", field: "carbohydrate_content", ids: [1005, 1050] },
   { label: "Fibre", field: "fiber_content", ids: [1079, 2033] },
@@ -101,7 +104,7 @@ export function createCoverageTally(rows = PANEL_ROWS) {
  * merges them: `{ pairs, untwinned }`, where each pair carries both
  * descriptions and `untwinned` counts the base dataset's unpaired foods.
  *
- * `base` and `twin` are `ndbNumber` -> description maps. A record with no
+ * `base` and `twin` are `ndbNumber` -> record-profile maps. A record with no
  * `ndbNumber` is unjoinable and is dropped rather than matched against every
  * other record that lacks one.
  */
@@ -155,8 +158,8 @@ export function summarisePairSimilarity(pairs) {
     .map((pair) => ({
       ...pair,
       score: jaccard(
-        descriptionTokens(pair.base),
-        descriptionTokens(pair.twin)
+        descriptionTokens(pair.base.description),
+        descriptionTokens(pair.twin.description)
       ),
     }))
     .sort((a, b) => a.score - b.score);
@@ -168,11 +171,165 @@ export function summarisePairSimilarity(pairs) {
       : scored.length % 2
         ? scored[middle].score
         : (scored[middle - 1].score + scored[middle].score) / 2,
-    identical: scored.filter((p) => p.base === p.twin).length,
+    identical: scored.filter((p) => p.base.description === p.twin.description)
+      .length,
     belowHalf: scored.filter((p) => p.score < 0.5).length,
     noSharedToken: scored.filter((p) => p.score === 0).length,
     weakest: scored.slice(0, 5),
   };
+}
+
+/**
+ * What one record says about its own calories, small enough to keep for every
+ * food in a 210 MB archive.
+ *
+ * Energy is the one panel field USDA never measures: every value in both bulk
+ * archives carries derivation code `NC`, Calculated. It is the macros times a
+ * factor system, and the macros are themselves derived — protein from nitrogen,
+ * carbohydrate by difference from water, protein, fat, ash and alcohol. `basis`
+ * names the nutrient id the panel would read, in the app's preference order.
+ */
+export function energyProfile(food) {
+  const entryOf = (id) =>
+    (food.foodNutrients ?? []).find((x) => x.nutrient?.id === id);
+  const amountOf = (id) => {
+    const n = entryOf(id);
+    return typeof n?.amount === "number" ? n.amount : undefined;
+  };
+  const published = ENERGY_IDS.filter((id) => amountOf(id) !== undefined);
+  const [basis = null] = published;
+  const factors = (food.nutrientConversionFactors ?? []).find(
+    (f) => f.type === ".CalorieConversionFactor"
+  );
+  return {
+    description: food.description,
+    // What the record carries, against what the panel would read from it: a
+    // Foundation food publishing both Atwater systems is read as general, so a
+    // count of bases alone would report specific factors as absent.
+    published,
+    basis,
+    // How USDA says it arrived at the figure. `NC` is Calculated; the rest are
+    // imputed or taken from another food, which is why some records state an
+    // energy their own macros do not produce.
+    derivation:
+      basis === null
+        ? null
+        : (entryOf(basis)?.foodNutrientDerivation?.code ?? "unstated"),
+    kcal: basis === null ? undefined : amountOf(basis),
+    protein: amountOf(1003),
+    fat: amountOf(1004),
+    carbohydrate: amountOf(1005) ?? amountOf(1050),
+    factors: factors
+      ? {
+          proteinValue: factors.proteinValue,
+          fatValue: factors.fatValue,
+          carbohydrateValue: factors.carbohydrateValue,
+        }
+      : null,
+  };
+}
+
+/** The macros times a factor system: Atwater general unless `factors` are given. */
+function atwater({ protein, fat, carbohydrate }, factors) {
+  if ([protein, fat, carbohydrate].some((v) => v === undefined))
+    return undefined;
+  const f = factors ?? { proteinValue: 4, fatValue: 9, carbohydrateValue: 4 };
+  return (
+    f.proteinValue * protein +
+    f.fatValue * fat +
+    f.carbohydrateValue * carbohydrate
+  );
+}
+
+/**
+ * Whether a record's stated energy is what its own macros produce, judged under
+ * the factor system its `basis` names: 2047 is general by definition, 2048 is
+ * the record's published specific factors, and 1008 is specific where a record
+ * publishes factors and general where it does not.
+ *
+ * `undefined` where the question cannot be asked — no energy, or no full macro
+ * set to ask it against. The tolerance is a point either way, because the
+ * archives publish three significant figures and the arithmetic is done behind
+ * them.
+ */
+export function reconcilesWithMacros(profile) {
+  if (profile.basis === null) return undefined;
+  const system = profile.basis === 2047 ? null : profile.factors;
+  const computed = atwater(profile, system);
+  if (computed === undefined) return undefined;
+  return Math.abs(profile.kcal - computed) <= Math.max(1, 0.01 * computed);
+}
+
+/** How a whole dataset states its calories. */
+export function summariseEnergy(profiles) {
+  const summary = {
+    records: profiles.length,
+    basis: { 1008: 0, 2047: 0, 2048: 0, none: 0 },
+    publishing: { 1008: 0, 2047: 0, 2048: 0 },
+    derivations: {},
+    energyWithoutFullMacros: 0,
+    reconciling: 0,
+    measurable: 0,
+  };
+  for (const profile of profiles) {
+    summary.basis[profile.basis ?? "none"]++;
+    for (const id of profile.published) summary.publishing[id]++;
+    if (profile.derivation !== null)
+      summary.derivations[profile.derivation] =
+        (summary.derivations[profile.derivation] ?? 0) + 1;
+    const complete = [profile.protein, profile.fat, profile.carbohydrate].every(
+      (v) => v !== undefined
+    );
+    if (profile.basis !== null && !complete) summary.energyWithoutFullMacros++;
+    const reconciles = reconcilesWithMacros(profile);
+    if (reconciles !== undefined) {
+      summary.measurable++;
+      if (reconciles) summary.reconciling++;
+    }
+  }
+  return summary;
+}
+
+/**
+ * What ADR-0045 §2's fill-only merge does to a calorie.
+ *
+ * The failure worth counting is `macroBorrowedUnderEnergy`: a panel showing the
+ * base record's energy over a macro taken from the twin states a calorie that
+ * its own grams do not produce. `energyBorrowed` is the milder inverse, where
+ * the calorie comes from the twin and the macros beside it may not be the ones
+ * it was calculated from.
+ */
+export function summariseMergedEnergy(pairs) {
+  const MACROS = ["protein", "fat", "carbohydrate"];
+  const summary = {
+    pairs: pairs.length,
+    energyBorrowed: 0,
+    macroBorrowedUnderEnergy: 0,
+    coherenceMeasurable: 0,
+    coherenceUnchanged: 0,
+  };
+  const gap = (profile) => {
+    const general = atwater(profile, null);
+    if (general === undefined || profile.kcal === undefined) return undefined;
+    return general === 0 ? 0 : Math.abs((profile.kcal - general) / general);
+  };
+  for (const { base, twin } of pairs) {
+    const merged = { kcal: base.kcal ?? twin.kcal };
+    for (const macro of MACROS) merged[macro] = base[macro] ?? twin[macro];
+    if (base.kcal === undefined && twin.kcal !== undefined)
+      summary.energyBorrowed++;
+    else if (
+      base.kcal !== undefined &&
+      MACROS.some((m) => base[m] === undefined && twin[m] !== undefined)
+    )
+      summary.macroBorrowedUnderEnergy++;
+    const before = gap(base);
+    const after = gap(merged);
+    if (before === undefined || after === undefined) continue;
+    summary.coherenceMeasurable++;
+    if (Math.abs(after - before) <= 0.001) summary.coherenceUnchanged++;
+  }
+  return summary;
 }
 
 /**
@@ -228,21 +385,32 @@ async function measureArchive(archive, dir) {
         `Measuring undescribed bytes would publish a number nobody can reproduce.`
     );
   const tally = createCoverageTally();
-  const descriptions = new Map();
+  const profiles = new Map();
+  const energy = [];
   // A dataset mapping one ndbNumber to two records would make the join ambiguous
   // and the map would silently keep the last one, so it is counted, not assumed.
   let repeatedNdbNumbers = 0;
   const counted = await countArchiveRecords(zip, archive.root_key, (text) => {
     const food = JSON.parse(text);
     tally.add(food);
-    if (descriptions.has(food.ndbNumber)) repeatedNdbNumbers++;
-    descriptions.set(food.ndbNumber, food.description);
+    if (profiles.has(food.ndbNumber)) repeatedNdbNumbers++;
+    // One small projection per record serves both the twin join and the energy
+    // audit; keeping the records themselves would mean holding 210 MB.
+    const profile = energyProfile(food);
+    profiles.set(food.ndbNumber, profile);
+    energy.push(profile);
   });
   if (!counted.found)
     throw new Error(
       `${archive.file}: no "${archive.root_key}" array inside; the archive's shape has changed`
     );
-  return { total: tally.total(), descriptions, repeatedNdbNumbers, counted };
+  return {
+    total: tally.total(),
+    profiles,
+    energy,
+    repeatedNdbNumbers,
+    counted,
+  };
 }
 
 async function main() {
@@ -283,8 +451,8 @@ async function main() {
 
   const [foundation, srLegacy] = measured;
   const { pairs, untwinned } = pairTwins(
-    foundation.descriptions,
-    srLegacy.descriptions
+    foundation.profiles,
+    srLegacy.profiles
   );
   console.log(
     `\ntwinned by ndbNumber: ${pairs.length} pairs, ${untwinned} Foundation foods untwinned, ` +
@@ -301,8 +469,34 @@ async function main() {
   );
   for (const pair of similarity.weakest)
     console.log(
-      `  ${pair.score.toFixed(2)} ${pair.ndbNumber}  ${pair.base} || ${pair.twin}`
+      `  ${pair.score.toFixed(2)} ${pair.ndbNumber}  ${pair.base.description} || ${pair.twin.description}`
     );
+
+  // Energy is calculated rather than measured, so a merged panel could state a
+  // calorie its own grams do not produce. This is the check that it does not.
+  console.log("\nenergy, by the id the panel reads (and what is published):");
+  for (const { archive, energy } of measured) {
+    const e = summariseEnergy(energy);
+    console.log(
+      `  ${archive.dataset.padEnd(17)} reads 1008 ${e.basis[1008]}, general 2047 ${e.basis[2047]}, ` +
+        `none ${e.basis.none} (published: 1008 ${e.publishing[1008]}, 2047 ${e.publishing[2047]}, ` +
+        `specific 2048 ${e.publishing[2048]}); ` +
+        `${e.reconciling}/${e.measurable} reconcile with their own macros; ` +
+        `${e.energyWithoutFullMacros} state energy without a full macro set`
+    );
+    console.log(
+      `                    derivations: ${Object.entries(e.derivations)
+        .sort((a, b) => b[1] - a[1])
+        .map(([code, n]) => `${code} ${n}`)
+        .join(", ")}`
+    );
+  }
+  const merged = summariseMergedEnergy(pairs);
+  console.log(
+    `  merge: ${merged.energyBorrowed} pairs borrow the calorie itself, ` +
+      `${merged.macroBorrowedUnderEnergy} borrow a macro under the base's own energy, ` +
+      `${merged.coherenceUnchanged}/${merged.coherenceMeasurable} unchanged in coherence`
+  );
 }
 
 // Only when run, never on import: the tallies above are unit-tested, and reading
