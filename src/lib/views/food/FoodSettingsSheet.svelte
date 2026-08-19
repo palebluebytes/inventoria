@@ -5,26 +5,27 @@
   import NutritionTargetEditor from "./NutritionTargetEditor.svelte";
 
   // The food screen's own settings surface (top-right gear on FoodView). Holds
-  // just the food-relevant settings — the USDA + Open Food Facts credentials,
-  // the OFF-contribution consent toggle, and the nutrition-target editor — that
+  // just the food-relevant settings — the Open Food Facts login, the
+  // OFF-contribution consent toggle, and the nutrition-target editor — that
   // moved off the global Settings tab so food config lives with the food. The
   // TMDB key, scraper proxy, ledger and dev options stay on Settings.
+  //
+  // USDA needs nothing here: the base-food corpus is bundled, so there is no key
+  // to enter and no quota to explain (ADR-0047 §1/§9).
   //
   // There is no Save button: every field persists the moment it changes (a
   // secret on blur, the toggle on change), matching how the nutrition editor
   // below already auto-saves. So the sheet is dismissed, never "submitted".
   let { onClose }: { onClose: () => void } = $props();
 
-  // Local form state. The USDA key and OFF login are secrets (localStorage,
-  // ADR-0034 §8); the contribution toggle is a non-secret settings datom.
-  let usdaKey = $state("");
+  // Local form state. The OFF login is a secret (localStorage, ADR-0034 §8); the
+  // contribution toggle is a non-secret settings datom.
   let offUserId = $state("");
   let offPassword = $state("");
   // OFF-contribution consent MASTER toggle (ADR-0034 §8, model C). Default off;
   // it only seeds the per-capture checkbox in the capture form, never submits.
   let offContribute = $state(false);
 
-  let showUsda = $state(false);
   let showOffPassword = $state(false);
 
   // Seed the form once the stores load. Secrets come from the localStorage-backed
@@ -32,7 +33,6 @@
   let initialized = $state(false);
   $effect(() => {
     if (!initialized && $settingsStore) {
-      usdaKey = $secretsStore.usda_api_key;
       offUserId = $secretsStore.off_user_id;
       offPassword = $secretsStore.off_password;
       offContribute = $settingsStore.off_contribute;
@@ -42,10 +42,7 @@
 
   // Each secret persists straight to localStorage on blur — never a datom
   // (ADR-0034 §8). The password is stored verbatim (it may legitimately contain
-  // spaces); the key and username are trimmed like any pasted credential.
-  function persistUsda() {
-    setSecret("usda_api_key", usdaKey.trim());
-  }
+  // spaces); the username is trimmed like any pasted credential.
   function persistOffUserId() {
     setSecret("off_user_id", offUserId.trim());
   }
@@ -124,28 +121,6 @@
   <section class="settings-section">
     <h2>Food Data Sources</h2>
     <div class="settings-form mt-4">
-      <div class="form-group">
-        <label for="food-usda-api-key">USDA FoodData Central API Key</label>
-        <div class="input-wrapper">
-          <input
-            id="food-usda-api-key"
-            type={showUsda ? "text" : "password"}
-            bind:value={usdaKey}
-            onblur={persistUsda}
-            placeholder="USDA FDC API key..."
-            class="retro-input has-reveal"
-          />
-          {@render revealToggle(
-            showUsda,
-            () => (showUsda = !showUsda),
-            showUsda ? "Hide USDA API key" : "Show USDA API key"
-          )}
-        </div>
-        <span class="help-text"
-          >Used for searching ingredients in recipes and food logging.</span
-        >
-      </div>
-
       <div class="form-group">
         <label for="food-off-user-id">Open Food Facts Username</label>
         <input

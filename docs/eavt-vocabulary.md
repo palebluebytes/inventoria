@@ -203,8 +203,11 @@ Note that the food-related settings keys carry a second path segment, so the ful
 attribute is `settings/food/targets`, not `food/targets`.
 
 - `settings/scraper_proxy_url`.
-- `settings/tmdb_api_key`, `settings/usda_api_key`: both retired. Moved to
-  `localStorage` and no longer read (ADR-0034 §8).
+- `settings/tmdb_api_key`, `settings/usda_api_key`: both retired. The TMDB key moved
+  to `localStorage` (ADR-0034 §8); the USDA key is gone entirely with the FoodData
+  Central API behind it
+  ([ADR-0047](adr/0047-bundle-the-usda-archives-and-retire-the-api.md) §1). Neither
+  attribute is read.
 - `settings/off_contribute`: the model-C consent toggle for contributing back to Open
   Food Facts (ADR-0034 §8).
 - `settings/food/visible_nutrients`: the dashboard nutrient selection.
