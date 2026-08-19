@@ -1,6 +1,6 @@
 /**
- * Reading a record count out of a FoodData Central bulk archive, for
- * `scripts/usda-backup.mjs` (ADR-0045).
+ * Reading the records out of a FoodData Central bulk archive, for
+ * `scripts/usda-backup.mjs` and `scripts/usda-coverage.mjs` (ADR-0045).
  *
  * Why this exists: the manifest's `records` field drifted unnoticed because
  * nothing checked it. Foundation's 2026-04-30 archive states 395 array entries,
@@ -12,7 +12,7 @@
  * GitHub runner with no `pnpm install`, so this is Node built-ins only; and SR
  * Legacy expands to 210 MB of JSON, so nothing here ever holds the parsed
  * document — the counter walks the inflate stream a chunk at a time and keeps
- * only two integers.
+ * only two integers, or a single record while a reader is looking at it.
  */
 
 import { createInflateRaw } from "node:zlib";
@@ -35,7 +35,8 @@ const isSkippable = (byte) =>
   byte === 0x3a;
 
 /**
- * A streaming count of the array under `root_key`.
+ * A streaming count of the array under `root_key`, optionally handing each
+ * record to `on_record` as its JSON text.
  *
  * Scanning bytes rather than characters is deliberate: every structural
  * character in JSON is ASCII and every UTF-8 continuation byte is >= 0x80, so a
@@ -46,8 +47,14 @@ const isSkippable = (byte) =>
  * `found` distinguishes an empty array from a key that is not there. A counter
  * that returned a bare 0 for both would turn a renamed root key into a silent
  * pass, which is the failure this whole check exists to prevent.
+ *
+ * `on_record` is what lets a caller measure the records rather than only tally
+ * them, at one record of memory instead of the whole document: SR Legacy
+ * expands to 210 MB of JSON, so a coverage measurement that parsed the array
+ * would have to hold all of it. Nothing is buffered unless a reader asks for it,
+ * and null slots are never handed over — they are absence, not records.
  */
-export function createRecordCounter(root_key) {
+export function createRecordCounter(root_key, on_record) {
   let depth = 0;
   let inString = false;
   let escaped = false;
@@ -58,22 +65,52 @@ export function createRecordCounter(root_key) {
   let arrayDepth = 0;
   let found = false;
   let inSlot = false;
+  /** True while the open slot holds a record rather than a `null`. */
+  let slotIsRecord = false;
   let records = 0;
   let null_entries = 0;
-
-  /** A value has started at element level, so an array slot begins here. */
-  const beginSlot = (byte) => {
-    if (!arrayDepth || depth !== arrayDepth || inSlot) return;
-    inSlot = true;
-    // `null` is the only value that can begin with an `n` at element level, and
-    // Foundation's archive ends in a run of them. They are slots, not records.
-    if (byte === LOWER_N) null_entries++;
-    else records++;
-  };
+  /** Bytes of the open record carried over from earlier chunks. */
+  let carried = [];
 
   return {
     push(chunk) {
-      for (const byte of chunk) {
+      // Where the open record starts in THIS chunk: 0 when one is already open
+      // from an earlier chunk, -1 while none is. Slicing the chunk once per
+      // record beats appending 210 MB one byte at a time.
+      let start = on_record && inSlot && slotIsRecord ? 0 : -1;
+
+      /** A value has started at element level, so an array slot begins here. */
+      const beginSlot = (byte, at) => {
+        if (!arrayDepth || depth !== arrayDepth || inSlot) return;
+        inSlot = true;
+        // `null` is the only value that can begin with an `n` at element level,
+        // and Foundation's archive ends in a run of them. They are slots, not
+        // records.
+        slotIsRecord = byte !== LOWER_N;
+        if (slotIsRecord) records++;
+        else null_entries++;
+        if (on_record && slotIsRecord) start = at;
+      };
+
+      /** The open slot ends before `at`; a record's text goes to the reader. */
+      const endSlot = (at) => {
+        inSlot = false;
+        if (!on_record || !slotIsRecord || start === -1) {
+          start = -1;
+          carried = [];
+          return;
+        }
+        const tail = chunk.subarray(start, at);
+        const text = carried.length
+          ? Buffer.concat([...carried, tail]).toString("utf8")
+          : tail.toString("utf8");
+        start = -1;
+        carried = [];
+        on_record(text.trim());
+      };
+
+      for (let i = 0; i < chunk.length; i++) {
+        const byte = chunk[i];
         if (inString) {
           if (escaped) escaped = false;
           else if (byte === BACKSLASH) escaped = true;
@@ -89,7 +126,7 @@ export function createRecordCounter(root_key) {
           continue;
         }
         if (byte === QUOTE) {
-          beginSlot(byte);
+          beginSlot(byte, i);
           inString = true;
           // Only the keys of the root object can name the array, so nothing
           // deeper is worth buffering — and buffering it would mean holding a
@@ -98,7 +135,7 @@ export function createRecordCounter(root_key) {
           continue;
         }
         if (byte === OPEN_BRACE || byte === OPEN_BRACKET) {
-          beginSlot(byte);
+          beginSlot(byte, i);
           depth++;
           if (!found && byte === OPEN_BRACKET && lastKey === root_key) {
             arrayDepth = depth;
@@ -108,15 +145,25 @@ export function createRecordCounter(root_key) {
         }
         if (byte === CLOSE_BRACE || byte === CLOSE_BRACKET) {
           depth--;
-          if (arrayDepth && depth < arrayDepth) arrayDepth = 0;
+          // The array's own closing bracket ends the last slot; a record's
+          // inner brackets close above `arrayDepth` and end nothing.
+          if (arrayDepth && depth < arrayDepth) {
+            arrayDepth = 0;
+            if (inSlot) endSlot(i);
+          }
           continue;
         }
         if (byte === COMMA) {
-          if (arrayDepth && depth === arrayDepth) inSlot = false;
+          if (arrayDepth && depth === arrayDepth && inSlot) endSlot(i);
           continue;
         }
         if (isSkippable(byte)) continue;
-        beginSlot(byte);
+        beginSlot(byte, i);
+      }
+
+      if (start !== -1) {
+        carried.push(chunk.subarray(start));
+        start = -1;
       }
     },
     total() {
@@ -176,11 +223,12 @@ function readZipEntries(zip) {
 
 /**
  * Counts the records in a zipped FDC archive: `{ found, records, null_entries }`.
+ * Each record's JSON text goes to `on_record` when one is given.
  *
  * `zip` is the compressed bytes, which are small enough to hold (13 MB at the
  * largest); only what comes out of the inflater is streamed.
  */
-export async function countArchiveRecords(zip, root_key) {
+export async function countArchiveRecords(zip, root_key, on_record) {
   const entries = readZipEntries(zip);
   if (entries.length !== 1)
     throw new Error(
@@ -189,7 +237,7 @@ export async function countArchiveRecords(zip, root_key) {
     );
   const [entry] = entries;
   const body = zip.subarray(entry.dataAt, entry.dataAt + entry.compressedSize);
-  const counter = createRecordCounter(root_key);
+  const counter = createRecordCounter(root_key, on_record);
 
   // Every FDC archive is one deflated JSON file. Anything else is a shape change
   // worth stopping on rather than quietly widening to accept.

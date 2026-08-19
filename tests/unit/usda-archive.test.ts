@@ -205,3 +205,86 @@ describe("countArchiveRecords — reading the count out of the zip", () => {
     );
   });
 });
+
+describe("createRecordCounter — handing each record to a reader", () => {
+  const read = (json: string, root_key: string) => {
+    const seen: string[] = [];
+    const counter = createRecordCounter(root_key, (text: string) =>
+      seen.push(text)
+    );
+    counter.push(Buffer.from(json, "utf8"));
+    return { seen, total: counter.total() };
+  };
+
+  it("hands over each record whole, and nothing for a null slot", () => {
+    const { seen, total } = read(
+      '{"FoundationFoods":[{"fdcId":1},null,{"fdcId":2}]}',
+      "FoundationFoods"
+    );
+    expect(seen).toEqual(['{"fdcId":1}', '{"fdcId":2}']);
+    expect(total).toEqual({ found: true, records: 2, null_entries: 1 });
+  });
+
+  it("keeps a record's own braces, brackets and commas intact", () => {
+    const { seen } = read(
+      '{"SRLegacyFoods":[{"description":"Beans, snap [green]","foodNutrients":[{"amount":2.4}]}]}',
+      "SRLegacyFoods"
+    );
+    expect(JSON.parse(seen[0])).toEqual({
+      description: "Beans, snap [green]",
+      foodNutrients: [{ amount: 2.4 }],
+    });
+  });
+
+  it("reassembles a record split across chunks, byte by byte", () => {
+    const json = '{"FoundationFoods":[{"description":"Piña, raw"},{"a":1}]}';
+    const bytes = Buffer.from(json, "utf8");
+    const seen: string[] = [];
+    const counter = createRecordCounter("FoundationFoods", (text: string) =>
+      seen.push(text)
+    );
+    for (const byte of bytes) counter.push(Buffer.from([byte]));
+    expect(seen.map((text) => JSON.parse(text))).toEqual([
+      { description: "Piña, raw" },
+      { a: 1 },
+    ]);
+  });
+
+  it("hands over a scalar element as readily as an object", () => {
+    const { seen } = read(
+      '{"FoundationFoods":["a",1,true]}',
+      "FoundationFoods"
+    );
+    expect(seen).toEqual(['"a"', "1", "true"]);
+  });
+
+  it("reads the records out of a deflated archive, not just their count", async () => {
+    const zip = zipOf([
+      {
+        name: "FoodData_Central_foundation_food_json.json",
+        body: Buffer.from(
+          '{"FoundationFoods":[{"ndbNumber":9050},null,{"ndbNumber":11090}]}',
+          "utf8"
+        ),
+        method: 8,
+      },
+    ]);
+    const seen: string[] = [];
+    await expect(
+      countArchiveRecords(zip, "FoundationFoods", (text: string) =>
+        seen.push(text)
+      )
+    ).resolves.toEqual({ found: true, records: 2, null_entries: 1 });
+    expect(seen.map((text) => JSON.parse(text).ndbNumber)).toEqual([
+      9050, 11090,
+    ]);
+  });
+
+  it("stops at the end of the array, not at the end of the document", () => {
+    const { seen } = read(
+      '{"FoundationFoods":[{"fdcId":1}],"trailing":[{"fdcId":9}]}',
+      "FoundationFoods"
+    );
+    expect(seen).toEqual(['{"fdcId":1}']);
+  });
+});
