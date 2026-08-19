@@ -44,6 +44,7 @@ Two more commands read the archives rather than checking them:
 ```sh
 pnpm usda:coverage         # how much of the panel each dataset reports, and the twin pairs
 pnpm usda:bundle           # regenerate the two committed artifacts the app ships
+pnpm usda:bundle --report  # measure them and print, writing nothing
 ```
 
 It prints the completeness table in [research note #108](research/108-base-food-composition-sources.md), the
@@ -77,6 +78,17 @@ before [#120](https://github.com/palebluebytes/inventoria/issues/120) caught it.
 Both artifacts record the release and the SHA-256 of each archive they were generated
 from, and the script refuses to run against bytes the manifest does not describe. So
 a regeneration always says which snapshot it is a picture of.
+
+It also asks USDA what it currently publishes before it writes anything, and refuses
+to generate when the manifest is behind — the gate ADR-0047 §12 asks for, scoped to
+the two datasets the bundle reads so a Survey release nothing here consumes cannot
+block it. `--skip-freshness` regenerates from the mirror as it stands, which is what
+an offline machine needs; it is a flag rather than a fallback so that skipping the
+check is a thing somebody typed.
+
+`tests/unit/usda-bundle.test.ts` re-serialises the committed artifacts and compares
+them byte for byte with what the generator would write. A hand-edit, a reordering or
+a half-finished regeneration fails there rather than reaching a user.
 
 ## Notes on the commands
 

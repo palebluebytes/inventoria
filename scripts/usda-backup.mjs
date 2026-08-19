@@ -27,6 +27,10 @@ import { spawnSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { countArchiveRecords } from "./usda-archive.mjs";
+import {
+  compareToPublished,
+  fetchPublishedArchives,
+} from "./usda-releases.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST_PATH = join(ROOT, "scripts", "usda-backup.manifest.json");
@@ -125,17 +129,6 @@ async function fetchAll() {
 }
 
 /**
- * Splits an archive filename into its family and its release date, so a manifest
- * entry can be matched against whatever USDA has published since. Foundation and
- * Survey releases are dated to the day; SR Legacy's lone release is dated to the
- * month.
- */
-function splitRelease(file) {
-  const m = /^(.*_)(\d{4}-\d{2}(?:-\d{2})?)\.zip$/.exec(file);
-  return m ? { family: m[1], release: m[2] } : null;
-}
-
-/**
  * Asks USDA what it currently publishes and compares that to the manifest.
  *
  * The cadence this serves, measured over the 15 releases published between 2019
@@ -144,50 +137,21 @@ function splitRelease(file) {
  * USDA's own statement. SR Legacy is finished, so a NEWER SR Legacy release would
  * be news rather than routine and is reported the same way.
  *
- * Exits non-zero when anything is stale, so a scheduled job can act on it.
+ * Exits non-zero when anything is stale, so a scheduled job can act on it — and
+ * so can `pnpm usda:bundle`, which refuses to generate against a manifest that
+ * is behind (ADR-0047 §12).
  */
 async function check() {
-  const response = await fetch(manifest.release_index);
-  if (!response.ok) {
-    fail(`${manifest.release_index} returned ${response.status}`);
+  let published;
+  try {
+    published = await fetchPublishedArchives(manifest.release_index);
+  } catch (error) {
+    fail(error.message);
     return;
   }
-  const published = [
-    ...(await response.text()).matchAll(/\/fdc-datasets\/([^"'<> ]+\.zip)/g),
-  ].map((m) => m[1]);
-  if (published.length === 0) {
-    // Never read "no newer release" out of a page we failed to parse: that turns
-    // a broken check into a false all-clear, the one outcome a mirror cannot
-    // afford.
-    fail(
-      `no archive links found at ${manifest.release_index}; the page layout has changed`
-    );
-    return;
-  }
-
-  for (const archive of manifest.archives) {
-    const mine = splitRelease(archive.file);
-    if (!mine) {
-      fail(`${archive.file}: cannot read a release date out of the filename`);
-      continue;
-    }
-    const newest = published
-      .filter((file) => file.startsWith(mine.family))
-      .map((file) => splitRelease(file))
-      .filter(Boolean)
-      .map((r) => r.release)
-      .sort()
-      .at(-1);
-    if (!newest) {
-      fail(`${archive.dataset}: nothing matching ${mine.family}* is published`);
-    } else if (newest > mine.release) {
-      fail(
-        `${archive.dataset}: mirror holds ${mine.release}, USDA now publishes ${newest}`
-      );
-    } else {
-      ok(`${archive.dataset} is current (${mine.release})`);
-    }
-  }
+  for (const verdict of compareToPublished(manifest.archives, published))
+    if (verdict.state === "current") ok(verdict.message);
+    else fail(verdict.message);
 }
 
 /**
