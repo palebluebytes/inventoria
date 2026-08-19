@@ -192,3 +192,35 @@ Which population the 394 came from cannot be reconstructed from what is written 
 Nothing in §1's recommendation moves. Foundation was already the thinnest table in the document and is kept as the base record rather than trusted alone; being 8% smaller than stated argues the same way. What the error did reach is the bundling estimate in recommendation step 2, which is now over 8,156 foods rather than 8,187.
 
 The number is checked from now on. `pnpm usda:backup verify` measures `records` and `null_entries` out of each archive and fails when the manifest disagrees, so a release cannot drift the figure unnoticed again — see [how to back up the USDA datasets](../how-to-back-up-the-usda-datasets.md).
+
+## Correction (2026-08-19): the USDA columns of the completeness table, re-measured
+
+The correction above fixed the record count and stopped there, leaving §4's Foundation column carried over rather than re-derived — its 394-record population is not reproducible from the distribution this document names. Both USDA columns are now re-measured from the mirrored bulk archives, which is the population that will actually ship: `FoodData_Central_foundation_food_json_2026-04-30.zip` (**363 records**, the 32 `null` slots excluded) and `FoodData_Central_sr_legacy_food_json_2018-04.zip` (**7,793 records**). `pnpm usda:backup verify` proves both are the bytes the manifest describes; `node scripts/usda-coverage.mjs` produced everything below.
+
+**The presence rule.** A record reports a field when its `foodNutrients` array carries an entry under one of the FDC nutrient ids that field is served by, with a non-null `amount`. A reported zero counts as a value. The id list is the app's own (`PANEL_FIELDS` in `src/lib/food/usda-fdc.ts`, [ADR-0045](../adr/0045-usda-stays-the-base-food-composition-authority.md) §3), so this measures what the panel can fill, not what a single assay id happens to be called.
+
+| Field         | USDA SR Legacy (7,793, re-measured) | USDA Foundation (363, re-measured) | CIQUAL 2025 (3,484, carried over) | CoFID 2021 (2,887, carried over) |
+| ------------- | ----------------------------------- | ---------------------------------- | --------------------------------- | -------------------------------- |
+| Energy        | 100%                                | 88%                                | 95%                               | 98%                              |
+| Protein       | 100%                                | 97%                                | 99%                               | 98%                              |
+| Carbohydrate  | 100%                                | 88%                                | 97%                               | 95%                              |
+| **Fibre**     | **93%**                             | **56%**                            | **97%**                           | **51% AOAC / 84% NSP**           |
+| Saturated fat | 96%                                 | 29%                                | 92%                               | —                                |
+| Sodium        | 99%                                 | 92%                                | 88%                               | —                                |
+| Calcium       | 99%                                 | 97%                                | 77%                               | —                                |
+| Iron          | 99%                                 | 97%                                | 76%                               | —                                |
+| Vitamin C     | 94%                                 | 31%                                | 68%                               | —                                |
+| Vitamin D     | 67%                                 | 14%                                | 62%                               | —                                |
+| Vitamin A     | 89%                                 | 14%                                | 74% (retinol)                     | —                                |
+| B12           | 91%                                 | 18%                                | 61%                               | —                                |
+| Folate        | 88%                                 | 34%                                | 43%                               | —                                |
+
+**Only the two USDA columns were re-measured.** CIQUAL and CoFID stand exactly as §4 printed them: re-measuring either means re-downloading a distribution, and nothing here casts doubt on them. Read this table as two re-derived columns beside two inherited ones, not as a uniformly restated §4.
+
+**What moved.** SR Legacy lands within a point of §4 everywhere, which is the expected result: that column was measured over the same 7,793 records all along. Foundation rises across the board — protein, calcium and iron from 89/92/92% to 97%, energy and carbohydrate from 81% to 88%, vitamin A from 12% to 14%, fibre from 54% to 56%, with B12 (18%) and folate (34%) unchanged. Most of that is the denominator: the old percentages were taken over a population 8% larger. The old and new numerators do not reconcile record-for-record under either denominator, which is the same finding as the correction above — the 394-record population was a different set of foods, not the archive's with padding.
+
+**Two measurement choices are worth stating, because one of them matters.** Counting a field present under **any** of its ids is what separates 56% fibre from **51%**: 185 Foundation records report fibre under `1079` (total dietary) and 17 more report it only under `2033` (AOAC 2011.25), and the app reads either. The same choice is the difference between 88% energy and 26% — Foundation reports energy as Atwater factors (`2047`/`2048`) and mostly omits `1008`. The non-null `amount` rule, by contrast, changes nothing at all: 27 of Foundation's 15,193 nutrient entries carry no numeric amount and none of them is a panel field, and SR Legacy has none.
+
+**No argument in this document moves.** Foundation is still the thinnest table here, which is the whole case for filling it from its SR Legacy twin. SR Legacy still beats CIQUAL on every micronutrient measured (vitamin C 94% against 68%, B12 91% against 61%, folate 88% against 43%), and CIQUAL's fibre edge survives at 97% against 93%. What changes is that these two columns now have a stated denominator and a rule behind them, so the "not reported versus zero" work in step 1 of §1 can be sized against a population we ship rather than one we cannot reconstruct.
+
+**The twin pair count is settled too.** Joining the two archives on `ndbNumber` gives **190 twinned pairs**, **173 untwinned Foundation foods** (190 + 173 = 363) and **7,966 distinct foods** once the pairs merge — reproducing #111's independent build-time figure exactly, against ADR-0045's 210 and 184. That record's [amendment](../adr/0045-usda-stays-the-base-food-composition-authority.md#amendment-2026-08-18-foundation-is-363-records-not-394) now carries the corrected split.

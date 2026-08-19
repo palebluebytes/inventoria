@@ -157,3 +157,19 @@ correction is recorded because the number is quoted when sizing a bundle or a co
 claim, and because it was wrong in three places at once — see the
 [correction in research note #108](../research/108-base-food-composition-sources.md#correction-2026-08-18-foundation-carries-363-records-not-394).
 Verification now measures the count out of the archive instead of restating it.
+
+**Extended 2026-08-19: the split is 190 pairs and 173 untwinned.** The two figures
+above were flagged as approximate rather than re-derived. Joining the two bulk
+archives on `ndbNumber` now gives **190 twinned pairs** against **173** Foundation
+foods with no twin, which sum to the archive's 363 and reproduce the figure #111's
+build-time measurement reaches by its own route. Read `210` and `184` in the
+Consequences as `190` and `173`.
+
+Nothing in the Decision moves, and Decision 4 keeps its wording: the varietal
+residual it answers for was always per-pair, and the description token-Jaccard
+measured over the old pair set has not been re-taken. The bundling total tightens
+once more, in the other direction — 363 + 7,793 counts each twinned food twice, so a
+bundle merging them as Decision 2 does carries **7,966** distinct foods, not 8,156.
+Measured by `node scripts/usda-coverage.mjs`; the re-measured completeness table
+beside it is the
+[2026-08-19 correction in research note #108](../research/108-base-food-composition-sources.md#correction-2026-08-19-the-usda-columns-of-the-completeness-table-re-measured).
