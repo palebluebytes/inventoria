@@ -207,3 +207,32 @@ against CIQUAL's 43%; re-measured over the archive it is 88%, and vitamin C (94%
 B12 (91%) are unchanged. The comparison it supports is untouched. The full re-measured
 table is the
 [2026-08-19 correction in research note #108](../research/108-base-food-composition-sources.md#correction-2026-08-19-the-usda-columns-of-the-completeness-table-re-measured).
+
+## Amendment (2026-08-19): §3's energy reasoning, measured rather than argued
+
+Decision 3 keeps energy coherent by refusing to borrow a twin's energy when the base
+record states its own, and argues it from one food — blueberries at 63.9 kcal rather
+than 57. [Research note #121](../research/121-usda-energy-derivation.md) tests that
+reasoning over both complete archives. It holds, and for a stronger reason than the
+worked example gives.
+
+**Energy cannot travel without its macros.** USDA never assays a calorie; it computes
+one from the macros, which are themselves derived — protein from nitrogen,
+carbohydrate by difference. So a record with an energy value necessarily has the
+macros behind it. _Measured:_ of Foundation's 321 energy-stating records, none lacks a
+full macro set, and of the 42 stating no energy, none has one.
+
+The consequence is that Decision 2's fill-only merge cannot produce the panel this
+decision was written to prevent. Across all 190 twinned pairs, **no pair borrows a
+macro underneath the base record's own calorie**, and coherence is unchanged on all
+181 pairs where it can be measured. Nine pairs borrow the calorie itself — five oils,
+two butters, salt and blackberries, all foods where Foundation assayed a partial panel
+— and there the borrowed figure can sit 2–3% away from what the displayed grams
+produce. Salted butter is the widest: 717 kcal against macros implying 743.
+
+Two findings from the same measurement bear on this record without changing it. A
+calorie and a macro row inside **one** USDA record already disagree on 30 of
+Foundation's 321, so nothing downstream should recompute one from the other. And
+Atwater general factors count fibre at 4 kcal/g where UK labelling counts it at 2,
+which is a property of Decision 1's choice of authority rather than of the merge;
+that is raised as [#122](https://github.com/palebluebytes/inventoria/issues/122).
