@@ -39,6 +39,17 @@ pnpm usda:backup verify    # re-check the local copies
 pnpm usda:backup upload    # push to R2, then read each object back and compare
 ```
 
+A fifth command reads the archives rather than checking them:
+
+```sh
+pnpm usda:coverage         # how much of the panel each dataset reports, and the twin pairs
+```
+
+It prints the completeness table in [research note #108](research/108-base-food-composition-sources.md) and the
+`ndbNumber` join behind [ADR-0045](adr/0045-usda-stays-the-base-food-composition-authority.md) §2, measured
+over the local copies. Re-run it after a refresh: those figures are quoted when sizing
+a bundle or a coverage claim, and they move with the release.
+
 `check` needs no credentials and exits non-zero when anything is behind, which is
 what the scheduled job below acts on. It fails loudly if it cannot parse USDA's
 release index at all, because a broken check that reports "nothing newer" is worse
