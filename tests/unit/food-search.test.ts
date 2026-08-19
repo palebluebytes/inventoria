@@ -3,10 +3,10 @@ import {
   isPoorFoodTwin,
   isCatalogueFood,
   searchUsdaFoods,
-  explainEmptySearch,
   NoReferenceFoodError,
+  NO_FOOD_FOUND,
 } from "../../src/lib/food/food-search";
-import { searchFdc } from "../../src/lib/food/usda-fdc";
+import { searchUsdaCorpus } from "../../src/lib/food/usda-corpus";
 import type { NutritionInfo } from "../../src/lib/food/nutrition";
 import { buildManualEntry } from "../../src/lib/food/provenance";
 
@@ -172,11 +172,12 @@ describe("isCatalogueFood", () => {
 // ── Curated stand-ins folded into search (ADR-0046 §1) ──────────────────────
 // The merge order is the whole behaviour: an exact curated hit LEADS so "cacao
 // nibs" answers with the stand-in, and a partial one TRAILS so a broad "cocoa"
-// never displaces USDA's cocoa powder. `searchFdc` is stubbed because the real
-// one needs a key and a network; what is under test is the ordering, not USDA.
+// never displaces USDA's cocoa powder. `searchUsdaCorpus` is stubbed because the
+// ordering, not the corpus, is what is under test here — `usda-corpus.test.ts`
+// asserts the search itself against the committed artifact.
 
-vi.mock("../../src/lib/food/usda-fdc", () => ({
-  searchFdc: vi.fn(),
+vi.mock("../../src/lib/food/usda-corpus", () => ({
+  searchUsdaCorpus: vi.fn(),
 }));
 
 const usdaFood = (entity: string, name: string) => ({
@@ -192,24 +193,21 @@ describe("searchUsdaFoods with curated stand-ins", () => {
   // `mockResolvedValue` is avoided deliberately: in Vitest 4 it makes a later
   // case's rejection surface as an unhandled one, which reads as a failure in
   // the code under test rather than in the harness.
-  const stubFdc = (impl: () => Promise<unknown>) =>
-    vi.mocked(searchFdc).mockImplementation(impl as typeof searchFdc);
-  const found =
-    (foods: unknown[], matchedFoods = foods.length) =>
-    async () => ({
-      foods,
-      matchedFoods,
-    });
+  const stubCorpus = (impl: () => Promise<unknown>) =>
+    vi
+      .mocked(searchUsdaCorpus)
+      .mockImplementation(impl as typeof searchUsdaCorpus);
+  const found = (foods: unknown[]) => async () => foods;
 
   it("leads with the stand-in when the query IS the food", async () => {
-    stubFdc(found([]));
+    stubCorpus(found([]));
     const results = await searchUsdaFoods("cacao nibs");
     expect(results.map((r) => r.entity)).toEqual(["gtin:5400706613279"]);
     expect(results[0].name).toBe("Cacao Nibs");
   });
 
   it("puts a partial hit BEHIND the USDA results", async () => {
-    stubFdc(found([usdaFood("fdc:1", "Cocoa, dry powder, unsweetened")]));
+    stubCorpus(found([usdaFood("fdc:1", "Cocoa, dry powder, unsweetened")]));
     const results = await searchUsdaFoods("cocoa");
     expect(results.map((r) => r.entity)).toEqual([
       "fdc:1",
@@ -217,120 +215,27 @@ describe("searchUsdaFoods with curated stand-ins", () => {
     ]);
   });
 
-  it("still throws when neither USDA nor the curated list has anything", async () => {
-    stubFdc(found([]));
-    await expect(
-      searchUsdaFoods("gorgonzola nibs of the sea")
-    ).rejects.toBeInstanceOf(NoReferenceFoodError);
-  });
-
-  it("says NOT COVERED when USDA matched nothing at all", async () => {
-    stubFdc(found([], 0));
+  it("says only that no food was found, and offers no scan (ADR-0047 §10)", async () => {
+    // The two verdicts #118 drew collapsed with the evidence for them: the
+    // filtered-out records are no longer in the index to be counted. #123 is
+    // where a better empty state gets worked out.
+    stubCorpus(found([]));
     const error = await searchUsdaFoods("gorgonzola nibs of the sea").catch(
       (e) => e
     );
     expect(error).toBeInstanceOf(NoReferenceFoodError);
-    expect(error.verdict.reason).toBe("not-covered");
-    expect(error.verdict.offerScan).toBe(false);
+    expect(error.message).toBe(NO_FOOD_FOUND);
+    expect(NO_FOOD_FOUND).not.toMatch(/barcode|scan/i);
   });
 
-  it("says FILTERED OUT when USDA matched records the filters dropped", async () => {
-    // Twelve chocolate bars, every one brand-specific: a food we do hold records
-    // of and route to the barcode path, not a food we have no record of.
-    stubFdc(found([], 12));
-    const error = await searchUsdaFoods("gorgonzola nibs of the sea").catch(
-      (e) => e
-    );
-    expect(error.verdict.reason).toBe("filtered-out");
-    expect(error.verdict.offerScan).toBe(true);
-  });
-
-  it("lets a USDA failure propagate rather than masking it with a stand-in", async () => {
-    // A missing key or exhausted quota is a real fault the user must see, even
-    // on a query the curated list could have answered by itself.
-    stubFdc(async () => {
-      throw new Error("USDA API rate limit reached.");
-    });
-    await expect(searchUsdaFoods("cacao nibs")).rejects.toThrow("rate limit");
-  });
-
-  it("keeps a real API failure a failure, never a coverage verdict", async () => {
-    // The distinction only means anything if an outage cannot wear it.
-    stubFdc(async () => {
-      throw new Error("USDA API request failed (500).");
+  it("keeps a real fault a failure, never a coverage verdict", async () => {
+    // A missing artifact is a broken install, not a food the tables lack, and
+    // the user must see it as the fault it is.
+    stubCorpus(async () => {
+      throw new Error("Failed to load /usda/search-index.json (404).");
     });
     const error = await searchUsdaFoods("banana").catch((e) => e);
     expect(error).not.toBeInstanceOf(NoReferenceFoodError);
-    expect(error.message).toContain("500");
-  });
-});
-
-// ── Why a search came back empty (issue #118) ───────────────────────────────
-// USDA returning twelve brand-specific chocolate bars that the ADR-0042 filters
-// then drop is a different event from USDA matching nothing at all, and only the
-// first can honestly say "we hold records here, none of them reference foods".
-// The distinction is this pure verdict, asserted directly rather than through
-// the markup that renders it.
-
-describe("explainEmptySearch", () => {
-  it("says the filters emptied the results when USDA did return foods", () => {
-    const verdict = explainEmptySearch({
-      query: "twix",
-      matchedFoods: 12,
-    });
-    expect(verdict.reason).toBe("filtered-out");
-    expect(verdict.message).toContain("twix");
-  });
-
-  it("points an all-filtered query at the barcode path", () => {
-    const verdict = explainEmptySearch({ query: "twix", matchedFoods: 12 });
-    expect(verdict.offerScan).toBe(true);
-    expect(verdict.message).toMatch(/barcode/i);
-  });
-
-  it("quotes no count, since the count is one page of a wildcarded query", () => {
-    // "USDA holds 12 records for X" would assert a total nobody asked FDC for,
-    // and a relevance an OR-of-prefixes query does not guarantee. That USDA
-    // returned something is all that is known, so it is all that is said.
-    const twelve = explainEmptySearch({ query: "twix", matchedFoods: 12 });
-    const one = explainEmptySearch({ query: "twix", matchedFoods: 1 });
-    expect(twelve.message).toBe(one.message);
-    expect(twelve.message).not.toMatch(/\d/);
-  });
-
-  it("names every filter family, not just the ones with barcodes", () => {
-    // The count cannot say WHICH ADR-0042 filter emptied the list, so the copy
-    // may not claim they were all brand-specific packs.
-    const message = explainEmptySearch({
-      query: "potato salad",
-      matchedFoods: 5,
-    }).message;
-    expect(message).toContain("brand-specific, packaged and prepared");
-  });
-
-  it("says the food is not covered when USDA matched nothing", () => {
-    const verdict = explainEmptySearch({
-      query: "gorgonzola nibs",
-      matchedFoods: 0,
-    });
-    expect(verdict.reason).toBe("not-covered");
-    expect(verdict.message).toContain("gorgonzola nibs");
-  });
-
-  it("does not push the barcode path where it is only a guess", () => {
-    // Nothing matched, so there is no evidence the pack is in OFF either — the
-    // other doors are named, not prescribed.
-    expect(explainEmptySearch({ query: "x", matchedFoods: 0 }).offerScan).toBe(
-      false
-    );
-  });
-
-  it("claims only that USDA does not carry the food, never that it does not exist", () => {
-    const message = explainEmptySearch({
-      query: "cacao nibs",
-      matchedFoods: 0,
-    }).message;
-    expect(message).toMatch(/USDA/);
-    expect(message).not.toMatch(/does not exist|no such food|isn't a food/i);
+    expect(error.message).toContain("404");
   });
 });

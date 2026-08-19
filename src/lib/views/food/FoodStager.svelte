@@ -13,8 +13,8 @@
     mapPayloadToFoodResult,
     isPoorFoodTwin,
     NoReferenceFoodError,
+    NO_FOOD_FOUND,
     type FoodResult,
-    type EmptySearchVerdict,
   } from "../../food/food-search";
   import type { EntityPayload } from "../../ingestion/ingest";
   import { getLocalFoodTwin } from "../../stores/calorie.store";
@@ -199,15 +199,13 @@
   let status = $state<"idle" | "loading" | "error">("idle");
   let error = $state("");
   let results = $state<FoodResult[]>([]);
-  // Why the last search came back empty (#118), or null while it did not. An
+  // The query the last search came back empty for, or null while it did not. An
   // empty result is an outcome, not a fault, so it never takes the error state
-  // the API failures above it keep. The verdict is paired with the query it
-  // answers: a message naming a query the field no longer holds is stale, and
-  // typing back below the search threshold fires nothing that would clear it.
-  let emptySearch = $state<{
-    query: string;
-    verdict: EmptySearchVerdict;
-  } | null>(null);
+  // the failures above it keep. It is held as the query it answers, not as a
+  // flag: an empty state left over from a query the field no longer holds is
+  // stale, and typing back below the search threshold fires nothing that would
+  // clear it.
+  let emptySearch = $state<{ query: string } | null>(null);
 
   // `grams` is the authoritative amount owned by the QuantityGrams control
   // (ADR-0023); it stays a clean number, so `factor` simply scales by it.
@@ -1106,12 +1104,12 @@
       lastQuery = query.trim();
       status = "idle";
     } catch (e: any) {
-      // An empty result is an answer — which one is `explainEmptySearch`'s
-      // verdict to give (#118). Cache the query as if it had succeeded: it did
-      // reach USDA, and a settled outcome must not re-fire the search. A real
-      // API failure (key, quota, outage) is NOT this, and still reads as one.
+      // An empty result is an answer, not a fault (ADR-0047 §10). Cache the
+      // query as if it had succeeded: the corpus did answer, and a settled
+      // outcome must not re-fire the search. A failure to reach the corpus at
+      // all is NOT this, and still reads as one.
       if (e instanceof NoReferenceFoodError) {
-        emptySearch = { query: query.trim(), verdict: e.verdict };
+        emptySearch = { query: query.trim() };
         lastQuery = query.trim();
         status = "idle";
         return;
@@ -1567,22 +1565,14 @@
                   {/snippet}
                 </Combobox.ContentStatic>
                 {#if emptySearch && emptySearch.query === query.trim()}
-                  <!-- Why the search came back empty (#118). USDA holding records
-                     the reference-food filters then dropped is a different event
-                     from USDA holding nothing, and only the first can honestly
-                     send the user to the barcode path — so both the wording and
-                     that judgement are `explainEmptySearch`'s, not this markup's.
-                     The offer is an affordance for what the message already says. -->
+                  <!-- One message, and no route out of it (ADR-0047 §10). The
+                     index holds only the reference foods that survived the
+                     ADR-0042 filters, so nothing here can tell a food we hold
+                     and decline to show from one no table carries — and without
+                     that, pointing at the barcode path would be a guess. #123
+                     carries the better answer. The copy is food-search.ts's. -->
                   <p class="hint" role="status" data-testid="empty-search">
-                    {emptySearch.verdict.message}
-                    {#if emptySearch.verdict.offerScan}
-                      <button
-                        class="link"
-                        data-testid="empty-search-scan"
-                        onclick={() => switchMethod("scan")}
-                        >Scan it instead</button
-                      >.
-                    {/if}
+                    {NO_FOOD_FOUND}
                   </p>
                 {/if}
               {:else if method === "scan"}

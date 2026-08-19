@@ -56,10 +56,6 @@ _Avoid_: Whole food, raw food (as a category name), ingredient
 A multi-ingredient, home-prepared, or battered/deep-fried prepared food (potato salad, breaded fried chicken, casseroles). Not a Reference food: it is dropped from the food search, and is instead logged from its Base ingredients or captured via the barcode path. See ADR-0042.
 _Avoid_: Prepared dish, meal, dish, recipe (a Recipe Twin is the app's own composite, distinct from a USDA-source dish)
 
-**Empty-search verdict**:
-Why a food search came back with nothing, decided once as a pure verdict rather than as copy in the markup. Two values: _filtered out_ (USDA returned foods for the query and the ADR-0042 filters dropped every one, so the records exist and search leaves them to the barcode path) and _not covered_ (USDA returned nothing, which says only that its tables do not carry the food). An API failure is neither, and still reads as a failure. See ADR-0046's #118 amendment.
-_Avoid_: No results, empty state, not found (which is the barcode path's 404)
-
 **Brand-specific food**:
 A food record naming a specific commercial brand (OCEAN SPRAY, GERBER, Grape-Nuts). Brand-specific foods belong to the barcode path (scan the product against Open Food Facts, ADR-0034) and are always dropped from the USDA reference-food search, even when the query names the brand. See ADR-0042.
 _Avoid_: Branded product (when the `twin/brand` attribute is meant), product

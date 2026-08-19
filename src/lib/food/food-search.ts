@@ -1,5 +1,5 @@
 import type { EntityPayload } from "../ingestion/ingest";
-import { searchFdc } from "./usda-fdc";
+import { searchUsdaCorpus } from "./usda-corpus";
 import { curatedMatches } from "./curated-foods";
 import { macrosFromNutrition, type NutritionInfo } from "./nutrition";
 import { manualEntryIsReusable, type ManualEntry } from "./provenance";
@@ -114,103 +114,57 @@ export function isCatalogueFood(
   return manualEntry != null && manualEntryIsReusable(manualEntry.kind);
 }
 
-// ── Why a search came back empty (issue #118) ───────────────────────────────
-// An empty result set has two causes the user must be able to tell apart, and
-// USDA already reports the difference: a query it matched records for, all of
-// which the ADR-0042 brand/processed/prepared filters then dropped, versus a
-// query it matched nothing for. The first is a food we hold records of and
-// deliberately route to the barcode path; the second is a coverage hole. Only
-// the first can honestly point at scanning. Neither is an API failure — those
-// throw out of `searchFdc` before this is ever reached, and stay failures.
+// ── Why a search came back empty (ADR-0047 §10) ────────────────────────────
+// One message, because there is one thing left to say. #118 gave an empty search
+// two verdicts — records USDA holds that the ADR-0042 filters dropped, versus
+// records USDA does not hold — and ADR-0047 §4 removes the evidence for the
+// distinction: the dropped records are not in the Search index to be counted, so
+// every empty search now looks alike from here. The barcode route the first
+// verdict offered goes with it.
+//
+// That is a deliberate regression and #123 carries the better answer, which is
+// probably not a message at all. This constant is where the copy lives until it
+// does; do not grow a replacement verdict here.
 
-export type EmptySearchReason = "filtered-out" | "not-covered";
-
-export interface EmptySearchVerdict {
-  reason: EmptySearchReason;
-  /** The sentence shown to the user; the ONE place this copy lives. */
-  message: string;
-  /** True only where the barcode path is genuinely the better next route. */
-  offerScan: boolean;
-}
+/** The one thing an empty food search says (ADR-0047 §10). */
+export const NO_FOOD_FOUND = "No food found.";
 
 /**
- * Decides which empty-search story a query got, from how many records USDA
- * matched BEFORE the ADR-0042 reference-food filters ran. Pure, so the wording
- * and the distinction are asserted directly instead of branched inside markup.
- *
- * The `not-covered` wording claims only what is known — that USDA's tables do
- * not carry the food — and never that the food does not exist. Absence from a
- * composition table is exactly the hole ADR-0046 curates against, not a verdict
- * on the world.
- */
-export function explainEmptySearch(input: {
-  query: string;
-  matchedFoods: number;
-}): EmptySearchVerdict {
-  const { query, matchedFoods } = input;
-  if (matchedFoods > 0) {
-    // No count in the copy: `matchedFoods` is one page of a wildcarded OR query,
-    // so "USDA holds 12 records for X" would assert both a total we did not ask
-    // for and a relevance the query does not guarantee. That USDA returned
-    // something is the whole of what is known, and the whole of what is said.
-    return {
-      reason: "filtered-out",
-      message: `USDA does hold records for “${query}”, but none of them is a reference food — search leaves brand-specific, packaged and prepared foods to the barcode path.`,
-      offerScan: true,
-    };
-  }
-  return {
-    reason: "not-covered",
-    message: `No reference food matches “${query}”. USDA’s tables do not carry every food — a packaged product belongs to the barcode path, and anything else you can add by hand.`,
-    offerScan: false,
-  };
-}
-
-/**
- * Thrown when a search returns no food, carrying the verdict that says WHY.
- * Distinct from the plain `Error`s `searchFdc` throws for a missing key, an
- * exhausted quota or an outage, so a real fault is never folded into
- * "not covered" (issue #118).
+ * Thrown when a search returns no food. Distinct from the plain `Error`s the
+ * search path throws for a genuine fault, so a broken artifact or a broken
+ * service worker is never folded into "no food found".
  */
 export class NoReferenceFoodError extends Error {
-  readonly verdict: EmptySearchVerdict;
-  constructor(verdict: EmptySearchVerdict) {
-    super(verdict.message);
+  constructor() {
+    super(NO_FOOD_FOUND);
     this.name = "NoReferenceFoodError";
-    this.verdict = verdict;
   }
 }
 
 /**
- * Searches USDA FoodData Central and maps the matches to FoodResults, folding in
- * any curated stand-in the query reaches (ADR-0046 §1) — a base ingredient no
+ * Searches the bundled USDA corpus and maps the matches to FoodResults, folding
+ * in any curated stand-in the query reaches (ADR-0046 §1) — a base ingredient no
  * reference table carries, pinned to one vetted OFF record. Throws if nothing
  * matched, so callers only handle the error path; an empty query returns [].
  *
  * An exact curated hit LEADS the list and a partial one TRAILS it, so the stand-in
  * is the answer for "cacao nibs" without displacing USDA's cocoa powder for the
- * broader "cocoa". USDA errors (missing key, quota, outage) still propagate
- * untouched: a curated entry needs no key, but silently succeeding on one query
- * while the rest of search is misconfigured would hide the real fault.
+ * broader "cocoa".
  *
- * The empty case throws a `NoReferenceFoodError` carrying `explainEmptySearch`'s
- * verdict, so the caller can say whether the food was filtered out or is simply
- * not covered.
+ * No key, no quota and no network (ADR-0047 §1): the corpus is a committed
+ * artifact precached at install, so this answers on a plane and on a cold
+ * offline install alike.
  */
 export async function searchUsdaFoods(query: string): Promise<FoodResult[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
   const curated = curatedMatches(trimmed);
-  const { foods, matchedFoods } = await searchFdc(trimmed);
+  const foods = await searchUsdaCorpus(trimmed);
   const results = [
     ...curated.filter((m) => m.exact),
     ...foods.map((payload) => ({ payload, exact: false })),
     ...curated.filter((m) => !m.exact),
   ].map(({ payload }) => mapPayloadToFoodResult(payload));
-  if (results.length === 0) {
-    throw new NoReferenceFoodError(
-      explainEmptySearch({ query: trimmed, matchedFoods })
-    );
-  }
+  if (results.length === 0) throw new NoReferenceFoodError();
   return results;
 }
