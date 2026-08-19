@@ -1,5 +1,4 @@
 import type { EntityPayload } from "../ingestion/ingest";
-import { getSecret } from "../stores/secrets";
 import {
   PER_100G,
   FOOD_PORTIONS_ATTR,
@@ -8,11 +7,6 @@ import {
   type Portion,
 } from "./nutrition";
 import { buildRawProvenance, type MergedSource } from "./provenance";
-import {
-  compileReferenceFoodQuery,
-  compareRelevance,
-  readReferenceFoodName,
-} from "./reference-food-ranking";
 
 // Mapper version, bumped when the FDC -> nutrition/info normalisation changes.
 // v2: energy falls back to the Atwater IDs so Foundation foods aren't 0 kcal.
@@ -43,12 +37,6 @@ import {
 // rather than mapped live, and a second version string would let the two drift.
 export const ADAPTER_VERSION = "9";
 export const FDC_FOOD_BASE = "https://api.nal.usda.gov/fdc/v1/food";
-
-// Read the current key on demand (evaluated per call) from the localStorage-
-// backed secrets accessor (ADR-0034 §8), rather than the EAVT ledger.
-function activeUsdaKey(): string {
-  return getSecret("usda_api_key");
-}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -442,12 +430,6 @@ export function mapFdcPortions(portions: readonly FdcFoodPortion[]): Portion[] {
 }
 
 // ---------------------------------------------------------------------------
-// API
-// ---------------------------------------------------------------------------
-
-const FDC_BASE = "https://api.nal.usda.gov/fdc/v1/foods/search";
-
-// ---------------------------------------------------------------------------
 // Brand exclusion
 //
 // SR Legacy (a frozen, discontinued USDA dataset) bakes brand names directly
@@ -700,156 +682,4 @@ export function isPreparedProduct(
   if (foodCategory === "Baked Products")
     return !BAKED_STAPLE_HEADS.has(headWord(description));
   return false;
-}
-
-/**
- * Builds the FDC Lucene query for a free-text search. Two parts:
- *
- *  1. The tokens as typed AND a wildcard prefix on each ("bana" -> "bana bana*").
- *     FDC matches whole words, so a fragment matches nothing on the small
- *     Foundation/SR Legacy datasets without the "*"; the wildcard is what makes
- *     results appear while typing.
- *
- *     The bare term has to ride along because FDC's description index is
- *     STEMMED and a wildcard term is matched literally, against the stored
- *     terms, never through the analyser. So a word whose stem differs from what
- *     the user typed is unreachable by wildcard alone: "balsamic" is indexed as
- *     "balsam", `balsamic*` matches nothing, and searching balsamic returned no
- *     balsamic vinegar. The bare token goes through the analyser, stems the same
- *     way the index did, and finds it. FDC ORs the clauses
- *     (`requireAllWords: false`), so the pair is a union: the stemmed term
- *     catches whole words, the wildcard catches prefixes mid-type.
- *
- *  2. A heavy boost on foods whose NAME starts with the query. A broad short
- *     prefix like "gra*" matches ~1000 foods (grain, grass-fed, granny, grape),
- *     and FDC scores every wildcard hit identically, returning them in a fixed
- *     order that buries the obvious "Grapes" ~400 deep — past the fetched page.
- *     `lowercaseDescription.keyword` is the NON-tokenised description field, so
- *     `lowercaseDescription.keyword:gra*` is a true starts-with; boosting it
- *     floats the name-leading foods ("Grapes", "Grains") to the top of the very
- *     first page while the wildcard clause preserves full coverage.
- *
- *  3. Everything lowercased. Both targets hold lowercase text, and a WILDCARD
- *     term is matched literally — the index analyser never folds its case — so
- *     "Banana*" matches nothing at all while "banana*" matches. That is not a
- *     hypothetical: a phone capitalises the first word and its predictive bar
- *     inserts words capitalised, so a search typed on a phone would silently
- *     return no foods while the same word typed on a desktop worked.
- */
-function toFdcQuery(query: string): string {
-  // The tokens as typed (any wildcard the caller supplied stripped, so the
-  // analyser sees a real word), then the same tokens wildcarded.
-  const bare = query
-    .trim()
-    .toLowerCase()
-    .split(/\s+/)
-    .map((token) => token.replace(/\*+$/, ""))
-    .filter(Boolean);
-  const tokens = bare.map((token) => `${token}*`);
-  const terms = [...bare, ...tokens].join(" ");
-  // Boost on the first token's prefix — for USDA's "Food, qualifier" naming the
-  // food name leads the description, so this rewards typing the food itself.
-  const headPrefix = tokens[0] ?? "";
-  return `${terms} lowercaseDescription.keyword:${headPrefix}^500`;
-}
-
-/** The outcome of one FDC search: what survived, and what there was to survive. */
-export interface FdcSearchResult {
-  /** The reference foods left after the ADR-0042 filters, ranked. */
-  foods: EntityPayload[];
-  /**
-   * How many foods came back BEFORE those filters ran — twins already folded,
-   * so it counts foods rather than dataset rows, and it counts the page FDC
-   * returned rather than every record it holds (the query sets no `pageSize`
-   * and `totalHits` goes unread). It is therefore a floor, not a total: read it
-   * as "USDA returned something" versus "USDA returned nothing", which is the
-   * distinction the caller needs to say why a search came back empty (#118).
-   */
-  matchedFoods: number;
-}
-
-/**
- * Searches the USDA FoodData Central API and returns the matching reference
- * foods as EntityPayloads, alongside how many records the query matched before
- * filtering.
- *
- * @param query  - Free-text search query (e.g. "banana").
- * @param apiKey - USDA FDC API key. Defaults to VITE_USDA_FDC_API_KEY env var.
- */
-export async function searchFdc(
-  query: string,
-  apiKey: string = activeUsdaKey()
-): Promise<FdcSearchResult> {
-  if (!apiKey) {
-    throw new Error("USDA API Key is not configured.");
-  }
-  const search = encodeURIComponent(toFdcQuery(query));
-  const url = `${FDC_BASE}?query=${search}&dataType=Foundation,SR%20Legacy&api_key=${apiKey}`;
-  const res = await fetch(url);
-  // A failed request (bad/expired key -> 403, exhausted quota -> 429, outage ->
-  // 5xx) returns a body with no `foods` field. Without this guard that collapses
-  // to an empty result set, which the caller would then report as a food USDA
-  // does not carry (issue #118) — a fault wearing a coverage verdict. Failing on
-  // the status is what keeps the two apart for every failure that carries one.
-  if (!res.ok) {
-    if (res.status === 403)
-      throw new Error("USDA API rejected the key. Check it in Settings.");
-    if (res.status === 429)
-      throw new Error("USDA API rate limit reached. Try again shortly.");
-    throw new Error(`USDA API request failed (${res.status}).`);
-  }
-  const data: { foods: FdcFood[] } = await res.json();
-
-  // Group by USDA food identity (ndbNumber), then fold each group into one
-  // result. Keying on ndbNumber — not the description — collects the two records
-  // USDA carries for one food across the Foundation and SR Legacy datasets,
-  // whose descriptions it rewrites between them (e.g. chia's "Chia seeds, dry,
-  // raw" vs "Seeds, chia seeds, dried", both ndbNumber 12006).
-  //
-  // The group is MERGED, not thinned (ADR-0045 §2). Foundation is a newer but
-  // far narrower re-assay — 45% of its records carry no fibre at all — so the
-  // old "Foundation replaces SR Legacy" rule kept the sparser of the two
-  // records: blueberries (ndbNumber 9050) lost the twin's 2.4 g of fibre and its
-  // whole micronutrient tail. Foundation still wins every value it reports; the
-  // twin only fills what Foundation is silent about.
-  const groups = new Map<string | number, FdcFood[]>();
-  for (const food of data.foods ?? []) {
-    const key = fdcIdentityKey(food);
-    const group = groups.get(key);
-    if (group) group.push(food);
-    else groups.set(key, [food]);
-  }
-
-  // Keep only un-barcoded base ingredients: drop brand-specific records
-  // ("… OCEAN SPRAY"), packaged/processed forms (canned, soda, juice drinks) and
-  // prepared/composite foods by category (candies, cookies, soups, beverages) —
-  // all of which belong to the OFF scan path. Raw foods are always base
-  // ingredients (see isProcessedProduct); Sweets keeps its base sweeteners (see
-  // isPreparedProduct).
-  const uniqueFoods = Array.from(groups.values())
-    .map(resolveFdcGroup)
-    .filter(
-      ({ food }) =>
-        !isBrandSpecific(food.description) &&
-        !isProcessedProduct(food.description) &&
-        !isPreparedProduct(food.foodCategory, food.description)
-    );
-
-  // Re-rank by how *exactly* each name matches the query (ADR-0042 §5): FDC's
-  // own relevance floats the prefix lookalikes its wildcarded OR query returns
-  // above the real thing. Sorting is stable, so FDC's order breaks ties.
-  const rank = compileReferenceFoodQuery(query);
-  const ranked = uniqueFoods
-    .map((resolved) => ({
-      resolved,
-      key: rank(readReferenceFoodName(resolved.food.description)),
-    }))
-    .sort((a, b) => compareRelevance(a.key, b.key));
-
-  return {
-    foods: ranked.map(({ resolved: { food, merged_from } }) =>
-      mapFdcFoodToPayload(food, merged_from)
-    ),
-    matchedFoods: groups.size,
-  };
 }

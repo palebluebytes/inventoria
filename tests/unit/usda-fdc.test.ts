@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   mapFdcFoodToPayload,
   mapFdcPortions,
-  searchFdc,
+  resolveFdcGroup,
   isBrandSpecific,
   isProcessedProduct,
   isPreparedProduct,
@@ -343,7 +343,7 @@ describe("mapFdcPortions", () => {
   });
 });
 
-// ---- unit: searchFdc -------------------------------------------------------
+// ---- the ADR-0042 filters, run once per generation (ADR-0047 §4) -----------
 
 describe("isBrandSpecific", () => {
   it("flags an SR Legacy record with a brand baked into the description", () => {
@@ -588,517 +588,30 @@ describe("isPreparedProduct", () => {
   });
 });
 
-describe("searchFdc", () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
+// ── ADR-0045 §2/§3: the Foundation + SR Legacy twin merges fill-only ─────────
+// The merge runs at generation time now (ADR-0047 §4) rather than per keystroke,
+// but it is still this module's rule and `scripts/usda-bundle.mjs` reaches for
+// this function rather than restating it. Asserted here against the two real
+// records USDA returns for ndbNumber 9050 — the 2022 Foundation re-assay (26
+// nutrients, no fibre, energy only as Atwater factors) and the 2019 SR Legacy
+// record (106 nutrients, fibre 2.4 g, energy 57 kcal) — which is the shape the
+// synthetic pair in `usda-bundle.test.ts` cannot show.
 
-  function mockFetchOk() {
-    return vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        foods: [
-          {
-            fdcId: 171705,
-            description: "Bananas, raw",
-            dataType: "Foundation",
-            foodNutrients: [],
-          },
-        ],
-      }),
-    } as Response);
+describe("resolveFdcGroup", () => {
+  const blueberryGroup = blueberriesSearch.foods as unknown as FdcFood[];
+
+  /** The group folded and mapped, as the generator maps a survivor. */
+  function stage(group: FdcFood[]) {
+    const { food, merged_from } = resolveFdcGroup(group);
+    return mapFdcFoodToPayload(food, merged_from);
   }
 
-  it("builds the correct USDA FDC search URL with a wildcard query", async () => {
-    // FDC matches whole words on the small Foundation/SR Legacy datasets, so the
-    // query is prefix-wildcarded (banana -> banana*) to match while typing, plus
-    // a lowercaseDescription.keyword boost that floats name-leading foods first.
-    const fetchSpy = mockFetchOk();
+  it("fills a Foundation food's missing panel fields from its SR Legacy twin", () => {
+    const payload = stage(blueberryGroup);
 
-    await searchFdc("banana", "TEST_KEY");
-
-    expect(fetchSpy).toHaveBeenCalledWith(
-      "https://api.nal.usda.gov/fdc/v1/foods/search?query=banana%20banana*%20lowercaseDescription.keyword%3Abanana*%5E500&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
-    );
-  });
-
-  it("wildcards each token so partial multi-word queries still match", async () => {
-    const fetchSpy = mockFetchOk();
-
-    await searchFdc("  greek yog  ", "TEST_KEY");
-
-    // Every token is wildcarded; the head boost uses the first token's prefix.
-    expect(fetchSpy).toHaveBeenCalledWith(
-      "https://api.nal.usda.gov/fdc/v1/foods/search?query=greek%20yog%20greek*%20yog*%20lowercaseDescription.keyword%3Agreek*%5E500&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
-    );
-  });
-
-  it("does not double-append a wildcard the caller already supplied", async () => {
-    const fetchSpy = mockFetchOk();
-
-    await searchFdc("bana*", "TEST_KEY");
-
-    expect(fetchSpy).toHaveBeenCalledWith(
-      "https://api.nal.usda.gov/fdc/v1/foods/search?query=bana%20bana*%20lowercaseDescription.keyword%3Abana*%5E500&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
-    );
-  });
-
-  it("sends the bare token too, so a stemmed word is reachable", async () => {
-    // FDC's description index is stemmed and a wildcard term is matched
-    // literally against the stored terms, never analysed: "balsamic" is indexed
-    // as "balsam", so `balsamic*` matched nothing and searching balsamic
-    // returned no balsamic vinegar. The bare token stems the same way the index
-    // did and finds it; FDC ORs the clauses, so the wildcard still covers
-    // mid-typing prefixes.
-    const fetchSpy = mockFetchOk();
-
-    await searchFdc("balsamic", "TEST_KEY");
-
-    expect(fetchSpy).toHaveBeenCalledWith(
-      "https://api.nal.usda.gov/fdc/v1/foods/search?query=balsamic%20balsamic*%20lowercaseDescription.keyword%3Abalsamic*%5E500&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
-    );
-  });
-
-  it("lowercases the query so a phone's capitalised word still matches", async () => {
-    // Both targets hold lowercase text and a wildcard term is matched literally
-    // (never analysed), so "Banana*" would match nothing. A phone capitalises the
-    // first word and its predictive bar inserts capitalised words, which is how
-    // this reached a user: the same search worked on a desktop and returned
-    // nothing on a phone.
-    const fetchSpy = mockFetchOk();
-
-    await searchFdc("Banana", "TEST_KEY");
-
-    expect(fetchSpy).toHaveBeenCalledWith(
-      "https://api.nal.usda.gov/fdc/v1/foods/search?query=banana%20banana*%20lowercaseDescription.keyword%3Abanana*%5E500&dataType=Foundation,SR%20Legacy&api_key=TEST_KEY"
-    );
-  });
-
-  it("returns an array of EntityPayloads on success", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        foods: [
-          {
-            fdcId: 171705,
-            description: "Bananas, raw",
-            dataType: "Foundation",
-            foodNutrients: [
-              {
-                nutrientId: 1008,
-                nutrientName: "Energy",
-                value: 89,
-                unitName: "kcal",
-              },
-            ],
-          },
-        ],
-      }),
-    } as Response);
-
-    const results = (await searchFdc("banana", "KEY")).foods;
-    expect(results).toHaveLength(1);
-    expect(results[0].entity).toBe("fdc:171705");
-  });
-
-  it("throws a key error (not 'no foods') on a 403", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: false,
-      status: 403,
-      json: async () => ({ error: { code: "API_KEY_INVALID" } }),
-    } as Response);
-
-    await expect(searchFdc("banana", "BAD_KEY")).rejects.toThrow(/key/i);
-  });
-
-  it("throws a rate-limit error on a 429", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: false,
-      status: 429,
-      json: async () => ({ error: { code: "OVER_RATE_LIMIT" } }),
-    } as Response);
-
-    await expect(searchFdc("banana", "KEY")).rejects.toThrow(/rate limit/i);
-  });
-
-  it("throws a generic request error on other failures", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: false,
-      status: 500,
-      json: async () => ({}),
-    } as Response);
-
-    await expect(searchFdc("banana", "KEY")).rejects.toThrow(/500/);
-  });
-
-  it("returns empty array when result set is empty", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => ({ foods: [] }),
-    } as Response);
-
-    const results = (await searchFdc("zzznomatch", "KEY")).foods;
-    expect(results).toHaveLength(0);
-  });
-
-  it("deduplicates results preferring Foundation and sorts raw foods to the top", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        foods: [
-          {
-            fdcId: 101,
-            description: "Bananas, ripe and slightly ripe",
-            dataType: "SR Legacy",
-            foodNutrients: [],
-          },
-          {
-            fdcId: 102,
-            description: "Bananas, raw",
-            dataType: "SR Legacy", // duplicate, but Foundation exists below
-            foodNutrients: [],
-          },
-          {
-            fdcId: 103,
-            description: "Bananas, raw",
-            dataType: "Foundation", // will overwrite fdcId 102
-            foodNutrients: [],
-          },
-          {
-            fdcId: 104,
-            description: "Bananas, overripe, raw",
-            dataType: "Foundation",
-            foodNutrients: [],
-          },
-        ],
-      }),
-    } as Response);
-
-    const results = (await searchFdc("banana", "KEY")).foods;
-
-    // Deduplication should leave 3 entries: ripe (non-raw), raw (Foundation), overripe raw
-    expect(results).toHaveLength(3);
-
-    // Raw foods sort to the top (isRaw before the ripe, non-raw entry), then the
-    // comma tiebreak orders the two raw ones: "Bananas, raw" (1 comma -> 3)
-    // before "Bananas, overripe, raw" (2 commas -> 2); the ripe entry ranks last.
-    expect(results[0].entity).toBe("fdc:103"); // Bananas, raw
-    expect(results[1].entity).toBe("fdc:104"); // Bananas, overripe, raw
-    expect(results[2].entity).toBe("fdc:101"); // Bananas, ripe and slightly ripe
-  });
-
-  it("ranks grapes first for a partial query still short of a whole word", async () => {
-    // "grap" prefix-matches grape, grapefruit and grape leaves alike, so none
-    // reaches the whole-word tier yet. The head-completeness tiebreaker floats
-    // the closest completion ("Grapes") above grapefruit (a longer word) and
-    // grape leaves (an unmatched second head word) before the user finishes.
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        foods: [
-          {
-            fdcId: 501,
-            description: "Grapefruit, raw",
-            dataType: "Foundation",
-            foodNutrients: [],
-          },
-          {
-            fdcId: 502,
-            description: "Grape leaves, raw",
-            dataType: "SR Legacy",
-            foodNutrients: [],
-          },
-          {
-            fdcId: 503,
-            description: "Grapes, red, seedless, raw",
-            dataType: "Foundation",
-            foodNutrients: [],
-          },
-        ],
-      }),
-    } as Response);
-
-    const order = (await searchFdc("grap", "KEY")).foods.map((r) => r.entity);
-
-    expect(order[0]).toBe("fdc:503"); // Grapes leads
-    expect(order.indexOf("fdc:503")).toBeLessThan(order.indexOf("fdc:501"));
-    expect(order.indexOf("fdc:503")).toBeLessThan(order.indexOf("fdc:502"));
-  });
-
-  it("ranks foods matching every query token above partial (single-token) matches", async () => {
-    // FDC's OR semantics let a food matching only "milk" (rice milk) rank above
-    // the real "Soy milk" in the raw relevance order. Re-ranking must float the
-    // foods whose name contains BOTH tokens to the top.
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        foods: [
-          {
-            fdcId: 201,
-            description: "Beverages, rice milk, unsweetened", // matches "milk" only
-            dataType: "SR Legacy",
-            foodNutrients: [],
-          },
-          {
-            fdcId: 202,
-            description: "Soy milk, original, plain, refrigerated", // both tokens
-            dataType: "Foundation",
-            foodNutrients: [],
-          },
-          {
-            fdcId: 203,
-            description: "Soy milk, plain, shelf stable", // both tokens
-            dataType: "Foundation",
-            foodNutrients: [],
-          },
-        ],
-      }),
-    } as Response);
-
-    const results = (await searchFdc("Soy milk", "KEY")).foods;
-
-    // The two soy-milk foods (both tokens) come first, in FDC's original order;
-    // the milk-only rice milk falls to the bottom despite leading the raw list.
-    expect(results[0].entity).toBe("fdc:202"); // Soy milk, original
-    expect(results[1].entity).toBe("fdc:203"); // Soy milk, plain
-    expect(results[2].entity).toBe("fdc:201"); // Beverages, rice milk
-  });
-
-  it("ranks the searched fruit above prefix-only lookalikes (grape vs grapefruit)", async () => {
-    // `grape*` prefix-matches grapefruit and grape leaves too, and FDC floats
-    // them up. The head-phrase / whole-word tiers must put the actual grapes
-    // first: "Grapes, ..." (head is the query) > "Grape leaves, raw" / "Tomatoes,
-    // grape, raw" (grape is a whole word) > "Grapefruit, raw" (grape is a prefix).
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        foods: [
-          {
-            fdcId: 301,
-            description: "Grapefruit, raw",
-            dataType: "Foundation",
-            foodNutrients: [],
-          },
-          {
-            fdcId: 302,
-            description: "Grape leaves, raw",
-            dataType: "SR Legacy",
-            foodNutrients: [],
-          },
-          {
-            fdcId: 303,
-            description: "Grapes, red, seedless, raw",
-            dataType: "Foundation",
-            foodNutrients: [],
-          },
-          {
-            fdcId: 304,
-            description: "Tomatoes, grape, raw",
-            dataType: "Foundation",
-            foodNutrients: [],
-          },
-        ],
-      }),
-    } as Response);
-
-    const results = (await searchFdc("grape", "KEY")).foods;
-    const order = results.map((r) => r.entity);
-
-    // The real grape leads, and "Grape leaves" — which carries the typed word IN
-    // its head — still outranks the grapefruit that merely starts with it.
-    expect(order[0]).toBe("fdc:303"); // Grapes, red, seedless, raw
-    expect(order.indexOf("fdc:303")).toBeLessThan(order.indexOf("fdc:301"));
-    expect(order.indexOf("fdc:302")).toBeLessThan(order.indexOf("fdc:301"));
-    // Grapefruit now outranks "Tomatoes, grape, raw", which this case used to
-    // assert the other way round. Both are wrong answers to "grape"; what
-    // changed is that a head the query completes beats a whole word buried in a
-    // qualifier, which is the rule that gets "pot" to potatoes at all (#113).
-    // It also restores what ADR-0042 §2's retired "name starts with" boost did.
-    expect(order.indexOf("fdc:301")).toBeLessThan(order.indexOf("fdc:304"));
-  });
-
-  it("drops packaged/processed rows (canned, soda) from the results", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        foods: [
-          {
-            fdcId: 601,
-            description: "Grapes, red, seedless, raw",
-            dataType: "Foundation",
-            foodNutrients: [],
-          },
-          {
-            fdcId: 602,
-            description: "Grapes, canned, thompson seedless, heavy syrup pack",
-            dataType: "SR Legacy",
-            foodNutrients: [],
-          },
-          {
-            fdcId: 603,
-            description: "Beverages, carbonated, grape soda",
-            dataType: "SR Legacy",
-            foodNutrients: [],
-          },
-        ],
-      }),
-    } as Response);
-
-    const ids = (await searchFdc("grape", "KEY")).foods.map((r) => r.entity);
-
-    expect(ids).toEqual(["fdc:601"]); // only the raw grape survives
-  });
-
-  it("drops prepared-category rows (a Sweets confection) from the results", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        foods: [
-          {
-            fdcId: 701,
-            description: "Nuts, almonds, whole, raw",
-            dataType: "Foundation",
-            foodCategory: "Nut and Seed Products",
-            foodNutrients: [],
-          },
-          {
-            fdcId: 702,
-            description: "Candies, milk chocolate, with almonds",
-            dataType: "SR Legacy",
-            foodCategory: "Sweets",
-            foodNutrients: [],
-          },
-        ],
-      }),
-    } as Response);
-
-    const ids = (await searchFdc("almond", "KEY")).foods.map((r) => r.entity);
-
-    expect(ids).toEqual(["fdc:701"]); // the candy is dropped by category
-  });
-
-  it("drops brand-specific SR Legacy rows from the results", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        foods: [
-          {
-            fdcId: 401,
-            description: "Grapes, red, seedless, raw",
-            dataType: "Foundation",
-            foodNutrients: [],
-          },
-          {
-            fdcId: 402,
-            description: "Grape leaves, raw",
-            dataType: "SR Legacy",
-            foodNutrients: [],
-          },
-          {
-            fdcId: 403,
-            description: "Beverages, OCEAN SPRAY, Cran Grape",
-            dataType: "SR Legacy",
-            foodNutrients: [],
-          },
-        ],
-      }),
-    } as Response);
-
-    const results = (await searchFdc("grape", "KEY")).foods;
-    const ids = results.map((r) => r.entity);
-
-    // The generic grapes and grape leaves survive; the OCEAN SPRAY drink is gone.
-    expect(ids).toContain("fdc:401");
-    expect(ids).toContain("fdc:402");
-    expect(ids).not.toContain("fdc:403");
-  });
-
-  it("deduplicates the same food across datasets by ndbNumber despite differing descriptions", async () => {
-    // The real chia case: USDA carries one food as two records with unrelated
-    // descriptions across Foundation and SR Legacy, linked only by ndbNumber.
-    // Keying dedup on the description leaves both; keying on ndbNumber collapses
-    // them, and the Foundation re-sample (nicer description) wins.
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        foods: [
-          {
-            fdcId: 170554,
-            description: "Seeds, chia seeds, dried",
-            dataType: "SR Legacy",
-            ndbNumber: 12006,
-            foodNutrients: [],
-          },
-          {
-            fdcId: 2710819,
-            description: "Chia seeds, dry, raw",
-            dataType: "Foundation",
-            ndbNumber: 12006,
-            foodNutrients: [],
-          },
-        ],
-      }),
-    } as Response);
-
-    const results = (await searchFdc("chia", "KEY")).foods;
-
-    expect(results).toHaveLength(1);
-    expect(results[0].entity).toBe("fdc:2710819"); // Foundation re-sample wins
-    expect(results[0].attributes["food/name"]).toBe("Chia seeds, dry, raw");
-  });
-
-  it("keeps records with no ndbNumber distinct, deduping them by description", async () => {
-    // The fallback path: a record lacking ndbNumber must not collide with other
-    // ndbNumber-less records on `undefined`; each stays keyed by its description.
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        foods: [
-          {
-            fdcId: 301,
-            description: "Homemade trail mix",
-            dataType: "SR Legacy",
-            foodNutrients: [],
-          },
-          {
-            fdcId: 302,
-            description: "Homemade granola",
-            dataType: "SR Legacy",
-            foodNutrients: [],
-          },
-        ],
-      }),
-    } as Response);
-
-    const results = (await searchFdc("homemade", "KEY")).foods;
-
-    expect(results).toHaveLength(2);
-    expect(results.map((r) => r.entity).sort()).toEqual(["fdc:301", "fdc:302"]);
-  });
-
-  // ── ADR-0045 §2/§3: the Foundation + SR Legacy twin merges fill-only ────────
-
-  function mockFoods(foods: unknown[]) {
-    return vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => ({ foods }),
-    } as Response);
-  }
-
-  // Both real records USDA returns for ndbNumber 9050: the 2022 Foundation
-  // re-assay (26 nutrients, no fibre, energy only as Atwater factors) and the
-  // 2019 SR Legacy record (106 nutrients, fibre 2.4 g, energy 57 kcal).
-  const blueberryFoods = blueberriesSearch.foods as unknown[];
-
-  it("fills a Foundation food's missing panel fields from its SR Legacy twin", async () => {
-    mockFoods(blueberryFoods);
-
-    const results = (await searchFdc("blueberries", "KEY")).foods;
-
-    expect(results).toHaveLength(1);
     // The Foundation record stays the food: its id, its description.
-    expect(results[0].entity).toBe("fdc:2346411");
-    const n = results[0].attributes["nutrition/info"];
+    expect(payload.entity).toBe("fdc:2346411");
+    const n = payload.attributes["nutrition/info"];
     // Fibre was absent from Foundation entirely and is borrowed.
     expect(n.fiber_content).toBe(2.4);
     // So is the micronutrient tail Foundation never measured.
@@ -1106,36 +619,25 @@ describe("searchFdc", () => {
     expect(n.folate).toBe(6e-6);
   });
 
-  it("keeps the Foundation value for a field both records carry", async () => {
-    mockFoods(blueberryFoods);
-
-    const n = (await searchFdc("blueberries", "KEY")).foods[0].attributes[
-      "nutrition/info"
-    ];
+  it("keeps the Foundation value for a field both records carry", () => {
+    const n = stage(blueberryGroup).attributes["nutrition/info"];
 
     // Calcium: Foundation 11.7 mg, SR Legacy 6.0 mg. The newer assay stands.
     expect(n.calcium).toBeCloseTo(0.0117, 6);
   });
 
-  it("does not borrow energy when the base record reports it under another id", async () => {
+  it("does not borrow energy when the base record reports it under another id", () => {
     // ADR-0045 §3: energy is ONE panel field carried by three ids. Foundation
     // reports it as Atwater general factors (2047), so SR Legacy's 1008 (57) is
     // not borrowed — 63.9 is the figure that reconciles with the Foundation
     // macros shown beside it, and is what USDA's own FNDDS record states.
-    mockFoods(blueberryFoods);
-
-    const n = (await searchFdc("blueberries", "KEY")).foods[0].attributes[
-      "nutrition/info"
-    ];
+    const n = stage(blueberryGroup).attributes["nutrition/info"];
 
     expect(n.calories).toBe(63.9);
   });
 
-  it("names the twin and the borrowed fields in provenance", async () => {
-    mockFoods(blueberryFoods);
-
-    const provenance = (await searchFdc("blueberries", "KEY")).foods[0]
-      .attributes["twin/raw_provenance"];
+  it("names the twin and the borrowed fields in provenance", () => {
+    const provenance = stage(blueberryGroup).attributes["twin/raw_provenance"];
 
     expect(provenance.raw_data.fdcId).toBe(2346411);
     expect(provenance.merged_from).toHaveLength(1);
@@ -1147,78 +649,22 @@ describe("searchFdc", () => {
     expect(twin.filled_fields).not.toContain("calories");
   });
 
-  it("merges the same way whichever record USDA returns first", async () => {
-    mockFoods([...blueberryFoods].reverse());
+  it("merges the same way whichever record USDA lists first", () => {
+    const payload = stage([...blueberryGroup].reverse());
 
-    const results = (await searchFdc("blueberries", "KEY")).foods;
-
-    expect(results).toHaveLength(1);
-    expect(results[0].entity).toBe("fdc:2346411");
-    const n = results[0].attributes["nutrition/info"];
+    expect(payload.entity).toBe("fdc:2346411");
+    const n = payload.attributes["nutrition/info"];
     expect(n.fiber_content).toBe(2.4);
     expect(n.calories).toBe(63.9);
   });
 
-  it("leaves an unmerged food's provenance exactly as it was", async () => {
+  it("leaves an unmerged food's provenance exactly as it was", () => {
     // A food with no twin carries no merged_from key at all — not an empty one.
-    mockFoods([blueberryFoods[0]]);
-
-    const provenance = (await searchFdc("blueberries", "KEY")).foods[0]
-      .attributes["twin/raw_provenance"];
+    const provenance = stage([blueberryGroup[0]]).attributes[
+      "twin/raw_provenance"
+    ];
 
     expect(provenance).not.toHaveProperty("merged_from");
     expect(provenance.adapter_version).toBe("9");
-  });
-
-  // ── The pre-filter match count (issue #118) ────────────────────────────────
-  // An empty result set has two causes and only the search itself can tell them
-  // apart: USDA matched nothing, or it matched records the ADR-0042 filters then
-  // dropped. `matchedFoods` is what carries that difference out to the caller.
-
-  it("reports no matched foods when USDA itself returned nothing", async () => {
-    mockFoods([]);
-
-    expect((await searchFdc("zzznomatch", "KEY")).matchedFoods).toBe(0);
-  });
-
-  it("counts the foods USDA returned even when the filters drop every one", async () => {
-    // Three brand-specific records: search empties, but USDA plainly does hold
-    // records for the query — the case that can honestly point at the barcode.
-    mockFoods([
-      {
-        fdcId: 401,
-        ndbNumber: 4001,
-        description: "Cereals, CREAM OF WHEAT, dry",
-        dataType: "SR Legacy",
-        foodNutrients: [],
-      },
-      {
-        fdcId: 402,
-        ndbNumber: 4002,
-        description: "Cereals ready-to-eat, GENERAL MILLS, Cheerios",
-        dataType: "SR Legacy",
-        foodNutrients: [],
-      },
-      {
-        fdcId: 403,
-        ndbNumber: 4003,
-        description: "Cereals, QUAKER, instant oatmeal",
-        dataType: "SR Legacy",
-        foodNutrients: [],
-      },
-    ]);
-
-    const result = await searchFdc("cereal", "KEY");
-
-    expect(result.foods).toHaveLength(0);
-    expect(result.matchedFoods).toBe(3);
-  });
-
-  it("counts a Foundation + SR Legacy twin as the one food it is", async () => {
-    // The count is of foods, not dataset rows: the pair USDA carries for
-    // blueberries has already folded into one before the count is taken.
-    mockFoods(blueberryFoods);
-
-    expect((await searchFdc("blueberries", "KEY")).matchedFoods).toBe(1);
   });
 });
