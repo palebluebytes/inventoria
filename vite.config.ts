@@ -143,7 +143,14 @@ export default defineConfig({
         // load and fall back to a system face. Listing this replaces the
         // default rather than extending it, so the other extensions have to
         // stay named here.
-        globPatterns: ["**/*.{js,css,html,svg,png,ico,wasm,webmanifest,woff2}"],
+        // …and `json`: the USDA Search index and Nutrient store are committed
+        // assets, not code, so the default pattern would silently omit them and
+        // leave a cold offline install with no food data at all. An app whose
+        // case rests on keyless offline search must not need a network for its
+        // first search (ADR-0047 §11).
+        globPatterns: [
+          "**/*.{js,css,html,svg,png,ico,wasm,webmanifest,woff2,json}",
+        ],
         // Fontsource ships every subset it has, and the browser only fetches
         // the ones a rendered character needs. Precaching is the exception:
         // it pulls everything up front, so this app would install ~120KB of

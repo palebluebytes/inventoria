@@ -9,6 +9,7 @@
   import ItemsView from "./lib/views/ItemsView.svelte";
   import NotesView from "./lib/views/NotesView.svelte";
   import ReloadPrompt from "./lib/ui/ReloadPrompt.svelte";
+  import { warmUsdaCorpus } from "./lib/food/usda-corpus";
 
   // Dev/e2e-only UI-primitive harness: `?demo=bottomsheet` swaps the whole app
   // for a component demo, so a Playwright spec can drive the primitive in
@@ -36,6 +37,12 @@
   const initPromise = dbClient.init("/inventoria.db");
 
   onMount(async () => {
+    // Food is the app's first screen and its search reads the bundled corpus, so
+    // warm both artifacts here rather than on the first keystroke: the Search
+    // index straight away (~30 ms to fetch, parse and read into words), the
+    // Nutrient store at idle (~100 ms to parse, and nothing reads it until a
+    // food is staged) — ADR-0047 §2.
+    warmUsdaCorpus();
     try {
       await initPromise;
       dbReady = true;
