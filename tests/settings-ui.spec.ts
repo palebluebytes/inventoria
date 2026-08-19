@@ -24,8 +24,9 @@ test.describe("Settings — API key reveal toggle", () => {
   test("reveal toggle is an icon inside the input that flips masking", async ({
     page,
   }) => {
-    // The USDA key moved to the Food screen's settings sheet; the TMDB key keeps
-    // the identical reveal toggle on this screen, so it's the regression proof here.
+    // The USDA key is retired (ADR-0047 §1) and the OFF password lives on the
+    // Food screen's settings sheet; the TMDB key keeps the identical reveal
+    // toggle on this screen, so it's the regression proof here.
     const input = page.locator("#tmdb-api-key");
     await input.fill("secret-tmdb-key");
 

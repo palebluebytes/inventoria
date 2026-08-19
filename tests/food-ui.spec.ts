@@ -8,262 +8,95 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       console.log(`[BROWSER CONSOLE - ${msg.type()}]:`, msg.text());
     });
 
-    // Intercept USDA query route
-    await page.route("**/fdc/v1/foods/search**", async (route) => {
-      const url = new URL(route.request().url());
-      const query = url.searchParams.get("query")?.toLowerCase() || "";
-
-      let foods = [];
-      if (query.includes("banana")) {
-        foods = [
-          {
-            fdcId: 171705,
-            description: "Mock Banana",
-            foodNutrients: [
-              {
-                nutrientId: 1008,
-                nutrientName: "Energy",
-                value: 89,
-                unitName: "kcal",
-              },
-              {
-                nutrientId: 1003,
-                nutrientName: "Protein",
-                value: 1.1,
-                unitName: "g",
-              },
-              {
-                nutrientId: 1004,
-                nutrientName: "Total lipid (fat)",
-                value: 0.3,
-                unitName: "g",
-              },
-              {
-                nutrientId: 1005,
-                nutrientName: "Carbohydrate, by difference",
-                value: 22.8,
-                unitName: "g",
-              },
-              // Two micronutrients (ADR-0030) so the full breakdown (#30) has
-              // vitamin/mineral data to show; reported in mg like FDC does.
-              {
-                nutrientId: 1087,
-                nutrientName: "Calcium, Ca",
-                value: 5,
-                unitName: "mg",
-              },
-              {
-                nutrientId: 1089,
-                nutrientName: "Iron, Fe",
-                value: 0.26,
-                unitName: "mg",
-              },
-            ],
-          },
-        ];
-      } else if (query.includes("oats")) {
-        foods = [
-          {
-            fdcId: 1102706,
-            description: "Mock Oats",
-            foodNutrients: [
-              {
-                nutrientId: 1008,
-                nutrientName: "Energy",
-                value: 379,
-                unitName: "kcal",
-              },
-              {
-                nutrientId: 1003,
-                nutrientName: "Protein",
-                value: 13.1,
-                unitName: "g",
-              },
-              {
-                nutrientId: 1004,
-                nutrientName: "Total lipid (fat)",
-                value: 6.5,
-                unitName: "g",
-              },
-              {
-                nutrientId: 1005,
-                nutrientName: "Carbohydrate, by difference",
-                value: 67.7,
-                unitName: "g",
-              },
-            ],
-          },
-        ];
-      } else if (query.includes("urad")) {
-        foods = [
-          {
-            fdcId: 200001,
-            description: "Black Urad Dal",
-            foodNutrients: [
-              {
-                nutrientId: 1008,
-                nutrientName: "Energy",
-                value: 341,
-                unitName: "kcal",
-              },
-              {
-                nutrientId: 1003,
-                nutrientName: "Protein",
-                value: 25,
-                unitName: "g",
-              },
-              {
-                nutrientId: 1004,
-                nutrientName: "Total lipid (fat)",
-                value: 1.5,
-                unitName: "g",
-              },
-              {
-                nutrientId: 1005,
-                nutrientName: "Carbohydrate, by difference",
-                value: 59,
-                unitName: "g",
-              },
-            ],
-          },
-        ];
-      } else if (query.includes("rajma")) {
-        foods = [
-          {
-            fdcId: 200002,
-            description: "Red Kidney Beans (Rajma)",
-            foodNutrients: [
-              {
-                nutrientId: 1008,
-                nutrientName: "Energy",
-                value: 333,
-                unitName: "kcal",
-              },
-              {
-                nutrientId: 1003,
-                nutrientName: "Protein",
-                value: 24,
-                unitName: "g",
-              },
-              {
-                nutrientId: 1004,
-                nutrientName: "Total lipid (fat)",
-                value: 0.8,
-                unitName: "g",
-              },
-              {
-                nutrientId: 1005,
-                nutrientName: "Carbohydrate, by difference",
-                value: 60,
-                unitName: "g",
-              },
-            ],
-          },
-        ];
-      } else if (query.includes("butter")) {
-        foods = [
-          {
-            fdcId: 200003,
-            description: "Unsalted Butter",
-            foodNutrients: [
-              {
-                nutrientId: 1008,
-                nutrientName: "Energy",
-                value: 717,
-                unitName: "kcal",
-              },
-              {
-                nutrientId: 1003,
-                nutrientName: "Protein",
-                value: 0.9,
-                unitName: "g",
-              },
-              {
-                nutrientId: 1004,
-                nutrientName: "Total lipid (fat)",
-                value: 81,
-                unitName: "g",
-              },
-              {
-                nutrientId: 1005,
-                nutrientName: "Carbohydrate, by difference",
-                value: 0.1,
-                unitName: "g",
-              },
-            ],
-          },
-        ];
-      } else if (query.includes("cream")) {
-        foods = [
-          {
-            fdcId: 200004,
-            description: "Heavy Whipping Cream",
-            foodNutrients: [
-              {
-                nutrientId: 1008,
-                nutrientName: "Energy",
-                value: 345,
-                unitName: "kcal",
-              },
-              {
-                nutrientId: 1003,
-                nutrientName: "Protein",
-                value: 2.8,
-                unitName: "g",
-              },
-              {
-                nutrientId: 1004,
-                nutrientName: "Total lipid (fat)",
-                value: 37,
-                unitName: "g",
-              },
-              {
-                nutrientId: 1005,
-                nutrientName: "Carbohydrate, by difference",
-                value: 2.8,
-                unitName: "g",
-              },
-            ],
-          },
-        ];
-      } else {
-        foods = [
-          {
-            fdcId: 999999,
-            description: `Mock ${query}`,
-            foodNutrients: [
-              {
-                nutrientId: 1008,
-                nutrientName: "Energy",
-                value: 100,
-                unitName: "kcal",
-              },
-              {
-                nutrientId: 1003,
-                nutrientName: "Protein",
-                value: 10,
-                unitName: "g",
-              },
-              {
-                nutrientId: 1004,
-                nutrientName: "Total lipid (fat)",
-                value: 10,
-                unitName: "g",
-              },
-              {
-                nutrientId: 1005,
-                nutrientName: "Carbohydrate, by difference",
-                value: 10,
-                unitName: "g",
-              },
-            ],
-          },
-        ];
-      }
-
+    // Serve the bundled USDA corpus (ADR-0047) as a fixture. Food search reads
+    // the committed Search index and staging reads the Nutrient store, so these
+    // two routes are the whole of what the suite has to pin — there is no API
+    // to intercept, no key to enter and no quota to explain. Fixed foods keep
+    // the arithmetic below the suite's own rather than USDA's.
+    await page.route("**/usda/search-index.json", async (route) => {
       await route.fulfill({
         contentType: "application/json",
-        body: JSON.stringify({ foods }),
+        body: JSON.stringify({
+          artifact: "usda-search-index",
+          schema_version: 1,
+          generated_from: [],
+          foods: [
+            {
+              fdcId: 171705,
+              description: "Mock Banana",
+              dataType: "Foundation",
+              macros: {
+                calories: 89,
+                protein_content: 1.1,
+                fat_content: 0.3,
+                carbohydrate_content: 22.8,
+              },
+              // Household portions ride on the row (ADR-0047 §6). Mock Oats
+              // carries none, so the picker renders its gram controls unchanged.
+              portions: [
+                { label: "1 medium", amount: 1, unit: "medium", grams: 118 },
+                { label: "1 large", amount: 1, unit: "large", grams: 150 },
+              ],
+            },
+            {
+              fdcId: 1102706,
+              description: "Mock Oats",
+              dataType: "Foundation",
+              macros: {
+                calories: 379,
+                protein_content: 13.1,
+                fat_content: 6.5,
+                carbohydrate_content: 67.7,
+              },
+            },
+            {
+              fdcId: 200001,
+              description: "Black Urad Dal",
+              dataType: "SR Legacy",
+              macros: {
+                calories: 341,
+                protein_content: 25,
+                fat_content: 1.5,
+                carbohydrate_content: 59,
+              },
+            },
+          ],
+        }),
+      });
+    });
+
+    // The Nutrient store carries USDA's own amounts in USDA's own units, and a
+    // staged food's whole panel is rebuilt from it — so each food repeats its
+    // macros here, and Mock Banana adds two micronutrients (ADR-0030) so the
+    // full breakdown (#30) has vitamin/mineral data to show.
+    await page.route("**/usda/nutrient-store.json", async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          artifact: "usda-nutrient-store",
+          schema_version: 1,
+          generated_from: [],
+          nutrients: {
+            1003: { name: "Protein", unit: "G" },
+            1004: { name: "Total lipid (fat)", unit: "G" },
+            1005: { name: "Carbohydrate, by difference", unit: "G" },
+            1008: { name: "Energy", unit: "KCAL" },
+            1087: { name: "Calcium, Ca", unit: "MG" },
+            1089: { name: "Iron, Fe", unit: "MG" },
+          },
+          foods: {
+            171705: {
+              1003: 1.1,
+              1004: 0.3,
+              1005: 22.8,
+              1008: 89,
+              1087: 5,
+              1089: 0.26,
+            },
+            1102706: { 1003: 13.1, 1004: 6.5, 1005: 67.7, 1008: 379 },
+            200001: { 1003: 25, 1004: 1.5, 1005: 59, 1008: 341 },
+          },
+        }),
       });
     });
 
@@ -326,16 +159,14 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       .locator("button[type='submit']", { hasText: "Save Settings" })
       .click();
     await expect(page.locator(".saved-badge")).toBeVisible();
-    // …while the USDA key is now entered on the Food screen's settings sheet,
-    // where each field auto-saves on blur (no Save button). While the sheet is
-    // open, also turn OFF whole-number rounding: it now defaults ON, but the
-    // logging/recipe tests below assert the projection's exact 2-dp math (e.g.
-    // 89 × 1.5 = 133.5), which is a computation check, not a display-preference
-    // one. Rounding itself is covered by the unit tests.
+    // …while the Food screen's own settings sheet is where whole-number rounding
+    // is turned OFF: it defaults ON, but the logging/recipe tests below assert
+    // the projection's exact 2-dp math (e.g. 89 × 1.5 = 133.5), which is a
+    // computation check, not a display-preference one. Rounding itself is
+    // covered by the unit tests. USDA needs nothing here — its corpus is
+    // bundled, so there is no key to enter (ADR-0047 §1).
     await page.locator(".nav-item", { hasText: "Food" }).click();
     await openFoodSettings(page);
-    await page.locator("#food-usda-api-key").fill("test-usda-key");
-    await page.locator("#food-usda-api-key").blur();
     await page.locator("#round-nutrition-toggle").uncheck();
     await closeFoodSettings(page);
   }
@@ -802,44 +633,18 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     ).toBeVisible();
   });
 
-  // Route the USDA detail endpoint (`/food/{fdcId}`) — the source of household
-  // portions (ADR-0030 §5), absent from the search response. Banana (171705)
-  // carries portions; every other food hydrates to none, so the picker renders
-  // its gram controls unchanged.
-  async function routeFdcDetail(page: import("@playwright/test").Page) {
-    await page.route("**/fdc/v1/food/*", async (route) => {
-      const url = new URL(route.request().url());
-      const fdcId = Number(url.pathname.split("/").pop());
-      const foodPortions =
-        fdcId === 171705
-          ? [
-              { amount: 1, gramWeight: 118, modifier: "medium" },
-              { amount: 1, gramWeight: 150, modifier: "large" },
-            ]
-          : [];
-      await route.fulfill({
-        contentType: "application/json",
-        body: JSON.stringify({ fdcId, foodPortions }),
-      });
-    });
-  }
-
   test("stages a food's household portions as amount-picker presets (ADR-0030)", async ({
     page,
   }) => {
     await page.goto("/?mem=1");
     await waitForDbReady(page);
     await setupApiKeys(page);
-    await routeFdcDetail(page);
 
-    // Stage a food WITH portions. Selecting it hydrates the detail record once.
+    // Stage a food WITH portions — they came bundled with the row, so selecting
+    // it fetches nothing.
     await page.getByRole("button", { name: "Add breakfast" }).click();
-    const detail = page.waitForResponse((r) =>
-      r.url().includes("/fdc/v1/food/171705")
-    );
     await page.locator("#food-search-input").fill("banana");
     await page.locator(".result-item", { hasText: "Mock Banana" }).click();
-    await detail;
 
     // Default 100 g of Mock Banana (89 kcal/100 g). The log button is a plain
     // "Log" now; the scaled total is surfaced in the staged macro preview grid.
@@ -848,7 +653,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       page.locator(".staged .nutrients .n", { hasText: "Calories" })
     ).toContainText("89 kcal");
 
-    // The hydrated portions appear as presets alongside the gram control.
+    // The row's portions appear as presets alongside the gram control.
     const portions = page.locator('[data-testid="portion-presets"]');
     await expect(
       portions.getByRole("button", { name: "1 medium — 118 g" })
@@ -876,16 +681,11 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.goto("/?mem=1");
     await waitForDbReady(page);
     await setupApiKeys(page);
-    await routeFdcDetail(page);
 
-    // Stage a food whose detail record carries no portions.
+    // Stage a food whose bundled row carries no portions.
     await page.getByRole("button", { name: "Add breakfast" }).click();
-    const detail = page.waitForResponse((r) =>
-      r.url().includes("/fdc/v1/food/1102706")
-    );
     await page.locator("#food-search-input").fill("oats");
     await page.locator(".result-item", { hasText: "Mock Oats" }).click();
-    await detail;
 
     // No preset chips; the gram field + slider are the whole control, as today.
     await expect(page.locator('[data-testid="portion-presets"]')).toHaveCount(
@@ -895,12 +695,15 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.getByLabel("Quantity in grams")).toHaveValue("100");
   });
 
-  test("caches search results when returning from a staged food", async ({
+  test("keeps the search results when returning from a staged food", async ({
     page,
   }) => {
-    let searches = 0;
+    // The Search index is fetched once at startup and every search runs over it
+    // in memory (ADR-0047 §2), so a return trip must re-fetch nothing — and the
+    // results must still be on screen without retyping the query.
+    let indexFetches = 0;
     page.on("request", (req) => {
-      if (req.url().includes("/fdc/v1/foods/search")) searches++;
+      if (req.url().includes("/usda/search-index.json")) indexFetches++;
     });
 
     await page.goto("/?mem=1");
@@ -910,17 +713,14 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.getByRole("button", { name: "Add breakfast" }).click();
     await page.locator("#food-search-input").fill("banana");
     await page.locator(".result-item", { hasText: "Mock Banana" }).click();
-    const afterSearch = searches;
-    expect(afterSearch).toBeGreaterThan(0);
 
-    // "Change food" returns to the list; the cached results show without a
-    // second network search.
+    // "Change food" returns to the list; the results show straight away.
     await page.getByRole("button", { name: "Back" }).click();
     await expect(
       page.locator(".result-item", { hasText: "Mock Banana" })
     ).toBeVisible();
-    await page.waitForTimeout(700); // past the 400ms debounce
-    expect(searches).toBe(afterSearch);
+    await page.waitForTimeout(700); // past the search debounce
+    expect(indexFetches).toBe(1);
   });
 
   test("removes a logged food via the card's ✕ button", async ({ page }) => {

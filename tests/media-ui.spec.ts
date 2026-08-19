@@ -78,8 +78,7 @@ test("Media Library UI - search, save, and log engagement for books and movies",
     { timeout: 10000 }
   );
 
-  // Switch to Settings tab and set credentials. The USDA key moved to the Food
-  // screen's settings sheet and isn't needed for media import.
+  // Switch to Settings tab and set credentials.
   await page.locator(".nav-item", { hasText: "Settings" }).click();
   await page.locator("#tmdb-api-key").fill("test-tmdb-key");
   await page.locator("#scraper-proxy-url").fill("/api/proxy?url=");

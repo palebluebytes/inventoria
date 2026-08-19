@@ -9,43 +9,50 @@ test.describe("Visual Catalog Generator", () => {
       console.log("PAGE UNCAUGHT ERROR:", err.message)
     );
 
-    // USDA API intercept
-    await page.route("**/fdc/v1/foods/search**", async (route) => {
+    // The bundled USDA corpus (ADR-0047), served as a fixture: food search reads
+    // the committed Search index and staging reads the Nutrient store, so these
+    // two routes pin the one food the catalogue logs. There is no API to
+    // intercept and no key to enter.
+    await page.route("**/usda/search-index.json", async (route) => {
       await route.fulfill({
         contentType: "application/json",
         body: JSON.stringify({
+          artifact: "usda-search-index",
+          schema_version: 1,
+          generated_from: [],
           foods: [
             {
               fdcId: 171705,
               description: "Mock Banana",
-              foodNutrients: [
-                {
-                  nutrientId: 1008,
-                  nutrientName: "Energy",
-                  value: 89,
-                  unitName: "kcal",
-                },
-                {
-                  nutrientId: 1003,
-                  nutrientName: "Protein",
-                  value: 1.1,
-                  unitName: "g",
-                },
-                {
-                  nutrientId: 1004,
-                  nutrientName: "Total lipid (fat)",
-                  value: 0.3,
-                  unitName: "g",
-                },
-                {
-                  nutrientId: 1005,
-                  nutrientName: "Carbohydrate, by difference",
-                  value: 22.8,
-                  unitName: "g",
-                },
-              ],
+              dataType: "Foundation",
+              macros: {
+                calories: 89,
+                protein_content: 1.1,
+                fat_content: 0.3,
+                carbohydrate_content: 22.8,
+              },
             },
           ],
+        }),
+      });
+    });
+
+    await page.route("**/usda/nutrient-store.json", async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          artifact: "usda-nutrient-store",
+          schema_version: 1,
+          generated_from: [],
+          nutrients: {
+            1003: { name: "Protein", unit: "G" },
+            1004: { name: "Total lipid (fat)", unit: "G" },
+            1005: { name: "Carbohydrate, by difference", unit: "G" },
+            1008: { name: "Energy", unit: "KCAL" },
+          },
+          foods: {
+            171705: { 1003: 1.1, 1004: 0.3, 1005: 22.8, 1008: 89 },
+          },
         }),
       });
     });
@@ -166,7 +173,7 @@ test.describe("Visual Catalog Generator", () => {
   }
 
   async function setupApiKeys(page: import("@playwright/test").Page) {
-    // TMDB + scraper live on the global Settings tab…
+    // TMDB + scraper live on the global Settings tab.
     await page.locator(".nav-item", { hasText: "Settings" }).click();
     await page.locator("#tmdb-api-key").fill("test-tmdb-key");
     await page.locator("#scraper-proxy-url").fill("/api/proxy?url=");
@@ -174,20 +181,8 @@ test.describe("Visual Catalog Generator", () => {
       .locator("button[type='submit']", { hasText: "Save Settings" })
       .click();
     await expect(page.locator(".saved-badge")).toBeVisible();
-    // …while the USDA key is entered on the Food screen's settings sheet (the
-    // top-right gear), which is where food search reads it from now. Each field
-    // auto-saves on blur — there is no Save button.
-    await page.locator(".nav-item", { hasText: "Food" }).click();
-    await page.locator("#food-settings-btn").click();
-    await expect(
-      page.getByRole("heading", { name: "Food Settings" })
-    ).toBeVisible();
-    await page.locator("#food-usda-api-key").fill("test-usda-key");
-    await page.locator("#food-usda-api-key").blur();
-    await page.locator(".bottom-sheet-content .close-btn").first().click();
-    await expect(
-      page.getByRole("heading", { name: "Food Settings" })
-    ).toBeHidden();
+    // USDA needs nothing beside them: its corpus is bundled, so food search has
+    // no key to be given (ADR-0047 §1).
   }
 
   async function resetDatabase(page: import("@playwright/test").Page) {
