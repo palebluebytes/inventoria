@@ -45,10 +45,10 @@ test.describe("Visual Catalog Generator", () => {
           schema_version: 1,
           generated_from: [],
           nutrients: {
-            1003: { name: "Protein", unit: "G" },
-            1004: { name: "Total lipid (fat)", unit: "G" },
-            1005: { name: "Carbohydrate, by difference", unit: "G" },
-            1008: { name: "Energy", unit: "KCAL" },
+            1003: { name: "Protein", unit: "g" },
+            1004: { name: "Total lipid (fat)", unit: "g" },
+            1005: { name: "Carbohydrate, by difference", unit: "g" },
+            1008: { name: "Energy", unit: "kcal" },
           },
           foods: {
             171705: { 1003: 1.1, 1004: 0.3, 1005: 22.8, 1008: 89 },

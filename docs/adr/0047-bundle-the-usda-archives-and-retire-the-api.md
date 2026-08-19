@@ -1,7 +1,8 @@
 # ADR 0047: Bundle USDA's own archives and retire the FoodData Central API
 
 **Status:** Accepted  
-**Date:** 2026-08-19
+**Date:** 2026-08-19  
+**Implemented:** #111 `a8a36e3`, #113 `4d02063`, #114 `37e7d67`, #115 `c0a99a1`
 
 This record revises five earlier ones. It amends
 [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md), whose Consequences

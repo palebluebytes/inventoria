@@ -77,12 +77,12 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
           schema_version: 1,
           generated_from: [],
           nutrients: {
-            1003: { name: "Protein", unit: "G" },
-            1004: { name: "Total lipid (fat)", unit: "G" },
-            1005: { name: "Carbohydrate, by difference", unit: "G" },
-            1008: { name: "Energy", unit: "KCAL" },
-            1087: { name: "Calcium, Ca", unit: "MG" },
-            1089: { name: "Iron, Fe", unit: "MG" },
+            1003: { name: "Protein", unit: "g" },
+            1004: { name: "Total lipid (fat)", unit: "g" },
+            1005: { name: "Carbohydrate, by difference", unit: "g" },
+            1008: { name: "Energy", unit: "kcal" },
+            1087: { name: "Calcium, Ca", unit: "mg" },
+            1089: { name: "Iron, Fe", unit: "mg" },
           },
           foods: {
             171705: {

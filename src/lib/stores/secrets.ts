@@ -91,7 +91,8 @@ function snapshot(): SecretsState {
 }
 
 // A reactive view of the secrets, so Svelte consumers (e.g. the TMDB-key gate in
-// MediaIngestModal) re-render the moment a key is saved in Settings — `setSecret` re-snapshots and pushes the new value.
+// MediaIngestModal) re-render the moment a key is saved in Settings —
+// `setSecret` re-snapshots and pushes the new value.
 const store = writable<SecretsState>(snapshot());
 
 /** Reactive secrets store — subscribe for gating UI on a key's presence. */
