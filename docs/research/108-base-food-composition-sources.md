@@ -234,7 +234,8 @@ Step 2 of §1 sizes the offline option at "**361 KiB gzipped** for 8,187 foods
 twinned foods stop being counted twice — and the correction of 2026-08-18 flagged the
 KiB figure as carried over rather than re-derived, because it was taken over the same
 394-record Foundation population that does not exist. It has now been re-taken from the
-mirrored archives. Read step 2 as **509 KiB gzipped for 7,966 foods**.
+mirrored archives. Read step 2's 21-nutrient panel as **457 KiB gzipped for 7,966
+foods**, and the twenty-three fields the app actually fills today as **509 KiB**.
 
 `pnpm usda:coverage` produced it, from `FoodData_Central_foundation_food_json_2026-04-30.zip`
 and `FoodData_Central_sr_legacy_food_json_2018-04.zip`, both verified against the
@@ -257,14 +258,15 @@ does not say which twenty-one: the panel is twenty-three fields wide, and the
 twenty-one gram-valued masses are it less energy, which USDA calculates rather than
 assays, and less unsaturated fat, which is two nutrients summed. The field lists and
 the merge rule are stated in full in that record's
-[amendment](../adr/0045-usda-stays-the-base-food-composition-authority.md#amendment-2026-08-19-the-bundle-is-509-kib-not-361).
+[amendment](../adr/0045-usda-stays-the-base-food-composition-authority.md#amendment-2026-08-19-the-bundle-is-457-to-509-kib-not-361).
 
 **This one moves an argument, unlike the corrections above.** §2's bundle-size axis
 asks for a trimmed table at "~100–400 KiB gzipped". The 361 KiB cleared that budget and
-509 KiB does not, and neither does the most favourable packing measured — the
-21-nutrient trim, sorted by description, at 415 KiB. Step 2 stands as the first move to
+457 KiB does not, and neither does the most favourable packing measured — the same
+trim, sorted by description, at 415 KiB. Step 2 stands as the first move to
 try if keyless or offline ever matters, because it is still the only option with no new
 provenance story, no licence to propagate and no second blueberry in search. It is a
-0.4 to 0.5 MB asset rather than a third of one, and 95 KiB of that is food names before
-any nutrient is carried, so trimming nutrients alone will not reach the old figure.
+0.4 to 0.5 MB asset rather than a third of one, and 95 to 106 KiB of that is food names
+before any nutrient is carried, so trimming nutrients alone will not reach the old
+figure.
 Where the 361 KiB came from cannot be reconstructed, as with the population beside it.

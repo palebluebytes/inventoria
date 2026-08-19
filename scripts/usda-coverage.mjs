@@ -165,14 +165,14 @@ export const NUTRIENT_MASS_PANEL = BUNDLE_PANEL.filter(
  * Normalising to grams is the mapper's job at read time and doing it here would
  * turn 0.3 mg into 0.00029999999999999997 and measure float noise as bytes.
  */
-export function panelEntries(food, fields = BUNDLE_PANEL) {
+export function panelEntries(food) {
   const nutrients = food.foodNutrients ?? [];
   const find = (id) =>
     nutrients.find(
       (n) => n.nutrient?.id === id && typeof n.amount === "number"
     );
   const entries = {};
-  for (const { key, ids, sum } of fields) {
+  for (const { key, ids, sum } of BUNDLE_PANEL) {
     const found = ids.map(find).filter((n) => n !== undefined);
     if (!found.length) continue;
     entries[key] = {
@@ -193,9 +193,12 @@ export function panelEntries(food, fields = BUNDLE_PANEL) {
  * One record reduced to what a bundle would ship of it: its FDC id, its
  * description, and its panel values, with `ndbNumber` carried alongside for the
  * merge join and the units for the fixed-unit check. Neither is serialised.
+ *
+ * Always the whole panel: which fields a bundle would actually carry is a
+ * question for `serialiseBundle`, so one pass over the archives sizes any trim.
  */
-export function bundleFood(food, fields = BUNDLE_PANEL) {
-  const entries = panelEntries(food, fields);
+export function bundleFood(food) {
+  const entries = panelEntries(food);
   const values = {};
   const units = {};
   for (const [key, entry] of Object.entries(entries)) {
@@ -735,7 +738,7 @@ async function main() {
     a.description < b.description ? -1 : a.description > b.description ? 1 : 0
   );
   const kib = (bytes) => `${Math.round(bytes / 1024)} KiB`;
-  const size = (label, fields) => {
+  const printSize = (label, fields) => {
     const text = serialiseBundle(bundle.records, fields);
     const gzipped = gzippedBytes(text);
     const alphabetical = gzippedBytes(serialiseBundle(sorted, fields));
@@ -749,11 +752,11 @@ async function main() {
     `\nbundle: ${bundle.records.length.toLocaleString("en-GB")} distinct foods ` +
       `(${bundle.twinned} twinned, ${bundle.filled} panel fields borrowed)`
   );
-  size(`${BUNDLE_PANEL.length}-field panel`, BUNDLE_PANEL);
-  size(`${NUTRIENT_MASS_PANEL.length}-nutrient trim`, NUTRIENT_MASS_PANEL);
+  printSize(`${BUNDLE_PANEL.length}-field panel`, BUNDLE_PANEL);
+  printSize(`${NUTRIENT_MASS_PANEL.length}-nutrient trim`, NUTRIENT_MASS_PANEL);
   // The floor the panel is added to: a bundle has to name its foods whatever
   // else it drops, so this is how much of the weight is not nutrition at all.
-  size("identity only", []);
+  printSize("identity only", []);
   const multiUnit = [
     ...unitsByField([...foundation.bundle, ...srLegacy.bundle]),
   ]

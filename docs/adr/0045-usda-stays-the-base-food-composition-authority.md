@@ -237,7 +237,7 @@ Atwater general factors count fibre at 4 kcal/g where UK labelling counts it at 
 which is a property of Decision 1's choice of authority rather than of the merge;
 that is raised as [#122](https://github.com/palebluebytes/inventoria/issues/122).
 
-## Amendment (2026-08-19): the bundle is 509 KiB, not 361
+## Amendment (2026-08-19): the bundle is 457 to 509 KiB, not 361
 
 The last consequence sizes the offline option at "361 KiB gzipped for 8,187 foods".
 Both figures were taken over the 394-record Foundation population the first amendment
@@ -247,7 +247,8 @@ merged population the archives actually hold ([#120](https://github.com/paleblue
 and unlike the corrections above, it does not land close enough to leave the argument
 where it was.
 
-**509 KiB gzipped, over 7,966 distinct foods.** Built out of the two mirrored bulk
+**457 KiB gzipped for the 21 nutrients the consequence names, 509 KiB for the whole
+panel, over 7,966 distinct foods.** Built out of the two mirrored bulk
 archives, merged as Decision 2 merges them, trimmed to the panel the app fills, and
 gzipped at level 9. `pnpm usda:coverage` prints it; `buildBundle` and
 `serialiseBundle` in `scripts/usda-coverage.mjs` are what it runs, and
@@ -287,11 +288,11 @@ foods and saves 9%.
 
 **This one does change the conversation.** Research note #108's own bundle-size axis
 wants a trimmed table at "~100–400 KiB gzipped". The 361 KiB cleared that; 509 does
-not, and neither does the most favourable reading available — the 21-nutrient trim,
+not, and neither does 457, nor the most favourable reading available — the same trim,
 sorted by description, at 415 KiB. Nothing ships against this figure and no Decision
 here moves: USDA stays the authority, and bundling its own distribution stays the
 right first move ahead of importing a foreign table. What changes is the size of the
-move. It is a 0.4 to 0.5 MB asset rather than a third of one, of which 95 KiB is food
-names before a single nutrient is carried, so no amount of nutrient trimming brings it
-near 361 KiB. Where that number came from cannot be reconstructed, like the population
+move. It is a 0.4 to 0.5 MB asset rather than a third of one, of which 95 to 106 KiB is
+food names before a single nutrient is carried, so no amount of nutrient trimming
+brings it near 361 KiB. Where that number came from cannot be reconstructed, like the population
 it was measured over.
