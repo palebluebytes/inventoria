@@ -205,7 +205,7 @@ function fillFromTwin(
 }
 
 /** A search hit after its same-food siblings have been folded into it. */
-interface ResolvedFdcFood {
+export interface ResolvedFdcFood {
   food: FdcFood;
   /** The twins that filled gaps, for provenance. Empty when nothing merged. */
   merged_from: MergedSource[];
@@ -220,8 +220,13 @@ interface ResolvedFdcFood {
  * Order-independent by construction — the base is chosen by data type, not by
  * arrival — so the merged food does not depend on the order FDC happened to
  * return the group in.
+ *
+ * Exported because `scripts/usda-bundle.mjs` precomputes the same merge over the
+ * bulk archives (ADR-0047 §2). It runs the merge through this function rather
+ * than restating it, so the bundled row and a live search can never disagree
+ * about which field came from which record.
  */
-function resolveFdcGroup(group: readonly FdcFood[]): ResolvedFdcFood {
+export function resolveFdcGroup(group: readonly FdcFood[]): ResolvedFdcFood {
   const base = group.find((f) => f.dataType === "Foundation") ?? group[0];
   const merged_from: MergedSource[] = [];
   let food = base;
@@ -367,6 +372,24 @@ function mapFdcPortion(portion: FdcFoodPortion): Portion {
 }
 
 /**
+ * Maps a record's `foodPortions[]` to the ordered `food/portions` value, dropping
+ * every entry that resolves to no usable weight — a portion whose grams are
+ * missing, zero or non-finite names a measure the app cannot scale by.
+ *
+ * Exported because `scripts/usda-bundle.mjs` runs this at generation time
+ * (ADR-0047 §6): the bulk archives carry the portions the search response omits,
+ * so a bundled row ships the mapped {@link Portion} list rather than USDA's raw
+ * measures, and the generated artifact cannot drift from what hydration mapped.
+ */
+export function mapFdcPortions(
+  portions: readonly FdcFoodPortion[] = []
+): Portion[] {
+  return portions
+    .filter((p) => p && Number.isFinite(p.gramWeight) && p.gramWeight > 0)
+    .map(mapFdcPortion);
+}
+
+/**
  * Maps a USDA `/food/{fdcId}` detail record to the augmentation payload that
  * hydration appends to a staged food twin: the household `food/portions` derived
  * from `foodPortions[]`, plus a refreshed `twin/raw_provenance` holding the
@@ -384,9 +407,7 @@ export function mapFdcDetailToPayload(
   detail: FdcFoodDetail,
   merged_from: readonly MergedSource[] = []
 ): EntityPayload {
-  const portions = (detail.foodPortions ?? [])
-    .filter((p) => p && Number.isFinite(p.gramWeight) && p.gramWeight > 0)
-    .map(mapFdcPortion);
+  const portions = mapFdcPortions(detail.foodPortions);
 
   const attributes: EntityPayload["attributes"] = {
     // Refresh Provenance with the fuller detail record (larger than the search

@@ -4,3 +4,9 @@ dist/
 flake.lock
 package-lock.json
 pnpm-lock.yaml
+
+# The generated USDA artifacts (scripts/usda-bundle.mjs, ADR-0047 section 3).
+# Their serialisation is one food per line so that a mirror refresh diffs as
+# changed, added and removed foods; Prettier would re-wrap 4.7 MB of them into
+# half a million lines and take the reviewable diff with it.
+public/usda/
