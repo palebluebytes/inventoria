@@ -36,7 +36,7 @@ const isSkippable = (byte) =>
 
 /**
  * A streaming count of the array under `root_key`, optionally handing each
- * record to `on_record` as its JSON text.
+ * record to `onRecord` as its JSON text.
  *
  * Scanning bytes rather than characters is deliberate: every structural
  * character in JSON is ASCII and every UTF-8 continuation byte is >= 0x80, so a
@@ -48,13 +48,13 @@ const isSkippable = (byte) =>
  * that returned a bare 0 for both would turn a renamed root key into a silent
  * pass, which is the failure this whole check exists to prevent.
  *
- * `on_record` is what lets a caller measure the records rather than only tally
+ * `onRecord` is what lets a caller measure the records rather than only tally
  * them, at one record of memory instead of the whole document: SR Legacy
  * expands to 210 MB of JSON, so a coverage measurement that parsed the array
  * would have to hold all of it. Nothing is buffered unless a reader asks for it,
  * and null slots are never handed over — they are absence, not records.
  */
-export function createRecordCounter(root_key, on_record) {
+export function createRecordCounter(root_key, onRecord) {
   let depth = 0;
   let inString = false;
   let escaped = false;
@@ -77,7 +77,7 @@ export function createRecordCounter(root_key, on_record) {
       // Where the open record starts in THIS chunk: 0 when one is already open
       // from an earlier chunk, -1 while none is. Slicing the chunk once per
       // record beats appending 210 MB one byte at a time.
-      let start = on_record && inSlot && slotIsRecord ? 0 : -1;
+      let start = onRecord && inSlot && slotIsRecord ? 0 : -1;
 
       /** A value has started at element level, so an array slot begins here. */
       const beginSlot = (byte, at) => {
@@ -89,13 +89,13 @@ export function createRecordCounter(root_key, on_record) {
         slotIsRecord = byte !== LOWER_N;
         if (slotIsRecord) records++;
         else null_entries++;
-        if (on_record && slotIsRecord) start = at;
+        if (onRecord && slotIsRecord) start = at;
       };
 
       /** The open slot ends before `at`; a record's text goes to the reader. */
       const endSlot = (at) => {
         inSlot = false;
-        if (!on_record || !slotIsRecord || start === -1) {
+        if (!onRecord || !slotIsRecord || start === -1) {
           start = -1;
           carried = [];
           return;
@@ -106,7 +106,7 @@ export function createRecordCounter(root_key, on_record) {
           : tail.toString("utf8");
         start = -1;
         carried = [];
-        on_record(text.trim());
+        onRecord(text.trim());
       };
 
       for (let i = 0; i < chunk.length; i++) {
@@ -223,12 +223,12 @@ function readZipEntries(zip) {
 
 /**
  * Counts the records in a zipped FDC archive: `{ found, records, null_entries }`.
- * Each record's JSON text goes to `on_record` when one is given.
+ * Each record's JSON text goes to `onRecord` when one is given.
  *
  * `zip` is the compressed bytes, which are small enough to hold (13 MB at the
  * largest); only what comes out of the inflater is streamed.
  */
-export async function countArchiveRecords(zip, root_key, on_record) {
+export async function countArchiveRecords(zip, root_key, onRecord) {
   const entries = readZipEntries(zip);
   if (entries.length !== 1)
     throw new Error(
@@ -237,7 +237,7 @@ export async function countArchiveRecords(zip, root_key, on_record) {
     );
   const [entry] = entries;
   const body = zip.subarray(entry.dataAt, entry.dataAt + entry.compressedSize);
-  const counter = createRecordCounter(root_key, on_record);
+  const counter = createRecordCounter(root_key, onRecord);
 
   // Every FDC archive is one deflated JSON file. Anything else is a shape change
   // worth stopping on rather than quietly widening to accept.

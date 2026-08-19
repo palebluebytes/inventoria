@@ -36,26 +36,29 @@ const MANIFEST_PATH = join(ROOT, "scripts", "usda-backup.manifest.json");
  *
  * The ids mirror `PANEL_FIELDS` in `src/lib/food/usda-fdc.ts`, which is what the
  * app reads, and are restated rather than imported because that module is
- * TypeScript inside the app's bundle and this is a plain-Node ops script. The
+ * TypeScript inside the app's bundle and this is a plain-Node ops script. Each
+ * row names the panel field it measures so the two can be checked against each
+ * other; `usda-coverage.test.ts` does exactly that, because a measurement that
+ * quietly stopped describing what the app fills would be worse than none. The
  * rows are the note's, not the app's: §4 measures thirteen fields, the panel
  * carries twenty-four.
  */
 export const PANEL_ROWS = [
   // Foundation omits 1008 and reports energy as Atwater factors only, so a
   // single-id measurement would read most of the dataset as having no calories.
-  { label: "Energy", ids: [1008, 2047, 2048] },
-  { label: "Protein", ids: [1003] },
-  { label: "Carbohydrate", ids: [1005, 1050] },
-  { label: "Fibre", ids: [1079, 2033] },
-  { label: "Saturated fat", ids: [1258] },
-  { label: "Sodium", ids: [1093] },
-  { label: "Calcium", ids: [1087] },
-  { label: "Iron", ids: [1089] },
-  { label: "Vitamin C", ids: [1162] },
-  { label: "Vitamin D", ids: [1114] },
-  { label: "Vitamin A", ids: [1106] },
-  { label: "B12", ids: [1178] },
-  { label: "Folate", ids: [1177] },
+  { label: "Energy", field: "calories", ids: [1008, 2047, 2048] },
+  { label: "Protein", field: "protein_content", ids: [1003] },
+  { label: "Carbohydrate", field: "carbohydrate_content", ids: [1005, 1050] },
+  { label: "Fibre", field: "fiber_content", ids: [1079, 2033] },
+  { label: "Saturated fat", field: "saturated_fat_content", ids: [1258] },
+  { label: "Sodium", field: "sodium_content", ids: [1093] },
+  { label: "Calcium", field: "calcium", ids: [1087] },
+  { label: "Iron", field: "iron", ids: [1089] },
+  { label: "Vitamin C", field: "vitamin_c", ids: [1162] },
+  { label: "Vitamin D", field: "vitamin_d", ids: [1114] },
+  { label: "Vitamin A", field: "vitamin_a", ids: [1106] },
+  { label: "B12", field: "vitamin_b12", ids: [1178] },
+  { label: "Folate", field: "folate", ids: [1177] },
 ];
 
 /**
@@ -94,16 +97,21 @@ export function createCoverageTally(rows = PANEL_ROWS) {
  * counts the first dataset's unpaired foods, Foundation being the base record.
  */
 export function countSharedNdbNumbers(a, b) {
-  const has = (values) =>
-    new Set(values.filter((ndb) => ndb !== undefined && ndb !== null));
-  const first = has([...a]);
-  const second = has([...b]);
+  const distinct = (values) =>
+    new Set([...values].filter((ndb) => ndb !== undefined && ndb !== null));
+  const first = distinct(a);
+  const second = distinct(b);
   let pairs = 0;
   for (const ndb of first) if (second.has(ndb)) pairs++;
   return { pairs, untwinned: first.size - pairs };
 }
 
-/** The measured columns as a markdown table, denominators in the headings. */
+/**
+ * The measured columns as a markdown table, denominators in the headings.
+ *
+ * Precondition: every column was tallied over the same rows, which holds because
+ * every tally is created from `PANEL_ROWS`. The first column names them.
+ */
 export function formatCoverageTable(columns) {
   const rows = Object.keys(columns[0].total.present);
   const percent = (n, total) =>
@@ -130,22 +138,24 @@ export function formatCoverageTable(columns) {
 async function measureArchive(archive, dir) {
   const zip = await readFile(join(dir, archive.file));
   const tally = createCoverageTally();
-  const ndb_numbers = [];
+  const ndbNumbers = [];
   const counted = await countArchiveRecords(zip, archive.root_key, (text) => {
     const food = JSON.parse(text);
     tally.add(food);
-    ndb_numbers.push(food.ndbNumber);
+    ndbNumbers.push(food.ndbNumber);
   });
   if (!counted.found)
     throw new Error(
       `${archive.file}: no "${archive.root_key}" array inside; the archive's shape has changed`
     );
-  return { total: tally.total(), ndb_numbers, counted };
+  return { total: tally.total(), ndbNumbers, counted };
 }
 
 async function main() {
   const args = process.argv.slice(2);
   const flagAt = args.indexOf("--dir");
+  if (flagAt !== -1 && !args[flagAt + 1])
+    throw new Error("--dir needs a path after it");
   const dir = resolve(ROOT, flagAt === -1 ? ".usda-backup" : args[flagAt + 1]);
   const manifest = JSON.parse(await readFile(MANIFEST_PATH, "utf8"));
   const wanted = ["Foundation Foods", "SR Legacy"];
@@ -176,14 +186,14 @@ async function main() {
     )}`
   );
 
-  const [foundation, sr_legacy] = measured;
+  const [foundation, srLegacy] = measured;
   const { pairs, untwinned } = countSharedNdbNumbers(
-    foundation.ndb_numbers,
-    sr_legacy.ndb_numbers
+    foundation.ndbNumbers,
+    srLegacy.ndbNumbers
   );
   console.log(
     `\ntwinned by ndbNumber: ${pairs} pairs, ${untwinned} Foundation foods untwinned, ` +
-      `${foundation.total.records + sr_legacy.total.records - pairs} merged records`
+      `${foundation.total.records + srLegacy.total.records - pairs} merged records`
   );
 }
 

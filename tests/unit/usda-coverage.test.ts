@@ -9,6 +9,7 @@ import {
   countSharedNdbNumbers,
   formatCoverageTable,
 } from "../../scripts/usda-coverage.mjs";
+import { PANEL_FIELDS } from "../../src/lib/food/usda-fdc";
 
 // The measurement behind the completeness table in research note #108. What it
 // answers is narrow: how many records of a bulk dataset report a panel field at
@@ -139,6 +140,18 @@ describe("formatCoverageTable — the table the correction quotes", () => {
 });
 
 describe("PANEL_ROWS — the fields the note's completeness table names", () => {
+  it("measures each field under the same ids the app fills it from", () => {
+    // The ids are restated rather than imported, because the measurement is a
+    // plain-Node script and the panel is app TypeScript. This is what keeps the
+    // restatement honest: a measured completeness that stopped describing what
+    // the panel can fill would misdescribe the app while looking right.
+    for (const row of PANEL_ROWS as { field: string; ids: number[] }[]) {
+      const field = PANEL_FIELDS.find((f) => f.key === row.field);
+      expect(field, `no panel field named ${row.field}`).toBeDefined();
+      expect(field?.ids, row.field).toEqual(row.ids);
+    }
+  });
+
   it("carries every row of the §4 table, in the note's order", () => {
     expect(PANEL_ROWS.map((row: { label: string }) => row.label)).toEqual([
       "Energy",

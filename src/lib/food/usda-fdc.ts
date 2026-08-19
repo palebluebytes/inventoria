@@ -150,8 +150,12 @@ type PanelField = Exclude<keyof NutritionInfo, "serving_size">;
 // than one id (energy 1008/2047/2048, carbohydrate 1005/1050, sugars 2000/1063)
 // counts as PRESENT under any of them, so a Foundation food that reports energy
 // only as Atwater factors never borrows SR Legacy's 1008 and stays coherent with
-// the macros shown beside it.
-const PANEL_FIELDS: readonly { key: PanelField; ids: readonly number[] }[] = [
+// the macros shown beside it. Exported because `scripts/usda-coverage.mjs`
+// measures the bulk archives against the same ids and is checked against these.
+export const PANEL_FIELDS: readonly {
+  key: PanelField;
+  ids: readonly number[];
+}[] = [
   { key: "calories", ids: ENERGY_IDS },
   ...MASS_NUTRIENTS,
   // Present-if-either, matching the rule above: a base record carrying only MUFA

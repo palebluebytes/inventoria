@@ -170,6 +170,6 @@ residual it answers for was always per-pair, and the description token-Jaccard
 measured over the old pair set has not been re-taken. The bundling total tightens
 once more, in the other direction — 363 + 7,793 counts each twinned food twice, so a
 bundle merging them as Decision 2 does carries **7,966** distinct foods, not 8,156.
-Measured by `node scripts/usda-coverage.mjs`; the re-measured completeness table
+Measured by `pnpm usda:coverage`; the re-measured completeness table
 beside it is the
 [2026-08-19 correction in research note #108](../research/108-base-food-composition-sources.md#correction-2026-08-19-the-usda-columns-of-the-completeness-table-re-measured).
