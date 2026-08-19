@@ -4,6 +4,7 @@
 **Date:** 2026-08-07  
 **Amended by:** ADR-0045 §2 (§6's "dedup keeps preferring Foundation" becomes a fill-only merge)  
 **Amended by:** ADR-0046 §1 (§3's "a brand-specific record is always dropped" gains a curated exception)  
+**Amended by:** ADR-0047 §1 and §4 (the corpus is bundled and pre-filtered at generation time; §2's Lucene boost is retired)  
 **Implemented:** `dabb1fe`, `082ad31`, `fcb3b60`, `1365343`; `src/lib/food/food-search.ts`
 
 ## Context

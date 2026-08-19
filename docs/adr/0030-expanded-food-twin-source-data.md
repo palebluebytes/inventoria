@@ -3,6 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-07-29  
 **Amended by:** ADR-0042 (see the amendment below); ADR-0045 (the Foundation/SR dedup fills from the twin instead of discarding it)  
+**Amended by:** ADR-0047 §6 (§5's lazy detail-hydration for portions is retired; portions ship in the bundle)  
 **Implemented:** `fa43de4`, `e385044`, `0ac469e`, `712b8f5`; `portionPresets` in `QuantityGrams.svelte`
 
 ## Context

@@ -1,6 +1,7 @@
 # 16. Declarative Ingestion Registry and Provenance Storage
 
 **Status:** Accepted  
+**Amended by:** ADR-0047 §7 (a USDA food twin's Provenance carries the generated bundle row, not the untouched API record)  
 **Implemented:** `src/lib/ingestion/registry.ts`, `twin/raw_provenance`
 
 Date: 2026-06-22
