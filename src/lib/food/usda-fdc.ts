@@ -750,9 +750,25 @@ function toFdcQuery(query: string): string {
   return `${terms} lowercaseDescription.keyword:${headPrefix}^500`;
 }
 
+/** The outcome of one FDC search: what survived, and what there was to survive. */
+export interface FdcSearchResult {
+  /** The reference foods left after the ADR-0042 filters, ranked. */
+  foods: EntityPayload[];
+  /**
+   * How many foods came back BEFORE those filters ran — twins already folded,
+   * so it counts foods rather than dataset rows, and it counts the page FDC
+   * returned rather than every record it holds (the query sets no `pageSize`
+   * and `totalHits` goes unread). It is therefore a floor, not a total: read it
+   * as "USDA returned something" versus "USDA returned nothing", which is the
+   * distinction the caller needs to say why a search came back empty (#118).
+   */
+  matchedFoods: number;
+}
+
 /**
- * Searches the USDA FoodData Central API and returns matching foods as
- * EntityPayloads.
+ * Searches the USDA FoodData Central API and returns the matching reference
+ * foods as EntityPayloads, alongside how many records the query matched before
+ * filtering.
  *
  * @param query  - Free-text search query (e.g. "banana").
  * @param apiKey - USDA FDC API key. Defaults to VITE_USDA_FDC_API_KEY env var.
@@ -760,7 +776,7 @@ function toFdcQuery(query: string): string {
 export async function searchFdc(
   query: string,
   apiKey: string = activeUsdaKey()
-): Promise<EntityPayload[]> {
+): Promise<FdcSearchResult> {
   if (!apiKey) {
     throw new Error("USDA API Key is not configured.");
   }
@@ -769,8 +785,9 @@ export async function searchFdc(
   const res = await fetch(url);
   // A failed request (bad/expired key -> 403, exhausted quota -> 429, outage ->
   // 5xx) returns a body with no `foods` field. Without this guard that collapses
-  // to an empty result set and surfaces as "No foods found", masking the real
-  // cause; distinguish the common failures so the user can act on them.
+  // to an empty result set, which the caller would then report as a food USDA
+  // does not carry (issue #118) — a fault wearing a coverage verdict. Failing on
+  // the status is what keeps the two apart for every failure that carries one.
   if (!res.ok) {
     if (res.status === 403)
       throw new Error("USDA API rejected the key. Check it in Settings.");
@@ -943,7 +960,10 @@ export async function searchFdc(
     return rawScore(b.food.description) - rawScore(a.food.description);
   });
 
-  return uniqueFoods.map(({ food, merged_from }) =>
-    mapFdcFoodToPayload(food, merged_from)
-  );
+  return {
+    foods: uniqueFoods.map(({ food, merged_from }) =>
+      mapFdcFoodToPayload(food, merged_from)
+    ),
+    matchedFoods: groups.size,
+  };
 }

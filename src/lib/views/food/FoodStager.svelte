@@ -12,7 +12,9 @@
     searchUsdaFoods,
     mapPayloadToFoodResult,
     isPoorFoodTwin,
+    NoReferenceFoodError,
     type FoodResult,
+    type EmptySearchVerdict,
   } from "../../food/food-search";
   import type { EntityPayload } from "../../ingestion/ingest";
   import { getLocalFoodTwin } from "../../stores/calorie.store";
@@ -197,6 +199,15 @@
   let status = $state<"idle" | "loading" | "error">("idle");
   let error = $state("");
   let results = $state<FoodResult[]>([]);
+  // Why the last search came back empty (#118), or null while it did not. An
+  // empty result is an outcome, not a fault, so it never takes the error state
+  // the API failures above it keep. The verdict is paired with the query it
+  // answers: a message naming a query the field no longer holds is stale, and
+  // typing back below the search threshold fires nothing that would clear it.
+  let emptySearch = $state<{
+    query: string;
+    verdict: EmptySearchVerdict;
+  } | null>(null);
 
   // `grams` is the authoritative amount owned by the QuantityGrams control
   // (ADR-0023); it stays a clean number, so `factor` simply scales by it.
@@ -792,6 +803,7 @@
       results = [];
       status = "idle";
       error = "";
+      emptySearch = null;
       lastQuery = "";
     } else if (
       trimmed.length >= 3 &&
@@ -1086,6 +1098,7 @@
     if (!query.trim()) return;
     status = "loading";
     error = "";
+    emptySearch = null;
     results = [];
     staged = null;
     try {
@@ -1093,6 +1106,16 @@
       lastQuery = query.trim();
       status = "idle";
     } catch (e: any) {
+      // An empty result is an answer — which one is `explainEmptySearch`'s
+      // verdict to give (#118). Cache the query as if it had succeeded: it did
+      // reach USDA, and a settled outcome must not re-fire the search. A real
+      // API failure (key, quota, outage) is NOT this, and still reads as one.
+      if (e instanceof NoReferenceFoodError) {
+        emptySearch = { query: query.trim(), verdict: e.verdict };
+        lastQuery = query.trim();
+        status = "idle";
+        return;
+      }
       status = "error";
       error = e.message ?? String(e);
     }
@@ -1195,6 +1218,7 @@
     staged = null;
     method = m;
     error = "";
+    emptySearch = null;
     status = "idle";
     nudge = false;
     // Drop any upload state a prior Scan visit left, so a fresh scan/upload or a
@@ -1542,8 +1566,24 @@
                     </div>
                   {/snippet}
                 </Combobox.ContentStatic>
-                {#if hasKey && status === "idle" && query.trim().length >= 3 && comboItems.length === 0}
-                  <p class="hint">No matches for “{query.trim()}”.</p>
+                {#if emptySearch && emptySearch.query === query.trim()}
+                  <!-- Why the search came back empty (#118). USDA holding records
+                     the reference-food filters then dropped is a different event
+                     from USDA holding nothing, and only the first can honestly
+                     send the user to the barcode path — so both the wording and
+                     that judgement are `explainEmptySearch`'s, not this markup's.
+                     The offer is an affordance for what the message already says. -->
+                  <p class="hint" role="status" data-testid="empty-search">
+                    {emptySearch.verdict.message}
+                    {#if emptySearch.verdict.offerScan}
+                      <button
+                        class="link"
+                        data-testid="empty-search-scan"
+                        onclick={() => switchMethod("scan")}
+                        >Scan it instead</button
+                      >.
+                    {/if}
+                  </p>
                 {/if}
               {:else if method === "scan"}
                 {#if scanError}<Alert variant="warning">{scanError}</Alert>{/if}

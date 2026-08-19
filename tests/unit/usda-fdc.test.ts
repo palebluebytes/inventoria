@@ -752,7 +752,7 @@ describe("searchFdc", () => {
       }),
     } as Response);
 
-    const results = await searchFdc("banana", "KEY");
+    const results = (await searchFdc("banana", "KEY")).foods;
     expect(results).toHaveLength(1);
     expect(results[0].entity).toBe("fdc:171705");
   });
@@ -793,7 +793,7 @@ describe("searchFdc", () => {
       json: async () => ({ foods: [] }),
     } as Response);
 
-    const results = await searchFdc("zzznomatch", "KEY");
+    const results = (await searchFdc("zzznomatch", "KEY")).foods;
     expect(results).toHaveLength(0);
   });
 
@@ -830,7 +830,7 @@ describe("searchFdc", () => {
       }),
     } as Response);
 
-    const results = await searchFdc("banana", "KEY");
+    const results = (await searchFdc("banana", "KEY")).foods;
 
     // Deduplication should leave 3 entries: ripe (non-raw), raw (Foundation), overripe raw
     expect(results).toHaveLength(3);
@@ -874,7 +874,7 @@ describe("searchFdc", () => {
       }),
     } as Response);
 
-    const order = (await searchFdc("grap", "KEY")).map((r) => r.entity);
+    const order = (await searchFdc("grap", "KEY")).foods.map((r) => r.entity);
 
     expect(order[0]).toBe("fdc:503"); // Grapes leads
     expect(order.indexOf("fdc:503")).toBeLessThan(order.indexOf("fdc:501"));
@@ -911,7 +911,7 @@ describe("searchFdc", () => {
       }),
     } as Response);
 
-    const results = await searchFdc("Soy milk", "KEY");
+    const results = (await searchFdc("Soy milk", "KEY")).foods;
 
     // The two soy-milk foods (both tokens) come first, in FDC's original order;
     // the milk-only rice milk falls to the bottom despite leading the raw list.
@@ -957,7 +957,7 @@ describe("searchFdc", () => {
       }),
     } as Response);
 
-    const results = await searchFdc("grape", "KEY");
+    const results = (await searchFdc("grape", "KEY")).foods;
     const order = results.map((r) => r.entity);
 
     // The real grape leads; grapefruit (prefix-only) sinks below every
@@ -995,7 +995,7 @@ describe("searchFdc", () => {
       }),
     } as Response);
 
-    const ids = (await searchFdc("grape", "KEY")).map((r) => r.entity);
+    const ids = (await searchFdc("grape", "KEY")).foods.map((r) => r.entity);
 
     expect(ids).toEqual(["fdc:601"]); // only the raw grape survives
   });
@@ -1023,7 +1023,7 @@ describe("searchFdc", () => {
       }),
     } as Response);
 
-    const ids = (await searchFdc("almond", "KEY")).map((r) => r.entity);
+    const ids = (await searchFdc("almond", "KEY")).foods.map((r) => r.entity);
 
     expect(ids).toEqual(["fdc:701"]); // the candy is dropped by category
   });
@@ -1055,7 +1055,7 @@ describe("searchFdc", () => {
       }),
     } as Response);
 
-    const results = await searchFdc("grape", "KEY");
+    const results = (await searchFdc("grape", "KEY")).foods;
     const ids = results.map((r) => r.entity);
 
     // The generic grapes and grape leaves survive; the OCEAN SPRAY drink is gone.
@@ -1091,7 +1091,7 @@ describe("searchFdc", () => {
       }),
     } as Response);
 
-    const results = await searchFdc("chia", "KEY");
+    const results = (await searchFdc("chia", "KEY")).foods;
 
     expect(results).toHaveLength(1);
     expect(results[0].entity).toBe("fdc:2710819"); // Foundation re-sample wins
@@ -1121,7 +1121,7 @@ describe("searchFdc", () => {
       }),
     } as Response);
 
-    const results = await searchFdc("homemade", "KEY");
+    const results = (await searchFdc("homemade", "KEY")).foods;
 
     expect(results).toHaveLength(2);
     expect(results.map((r) => r.entity).sort()).toEqual(["fdc:301", "fdc:302"]);
@@ -1144,7 +1144,7 @@ describe("searchFdc", () => {
   it("fills a Foundation food's missing panel fields from its SR Legacy twin", async () => {
     mockFoods(blueberryFoods);
 
-    const results = await searchFdc("blueberries", "KEY");
+    const results = (await searchFdc("blueberries", "KEY")).foods;
 
     expect(results).toHaveLength(1);
     // The Foundation record stays the food: its id, its description.
@@ -1160,7 +1160,7 @@ describe("searchFdc", () => {
   it("keeps the Foundation value for a field both records carry", async () => {
     mockFoods(blueberryFoods);
 
-    const n = (await searchFdc("blueberries", "KEY"))[0].attributes[
+    const n = (await searchFdc("blueberries", "KEY")).foods[0].attributes[
       "nutrition/info"
     ];
 
@@ -1175,7 +1175,7 @@ describe("searchFdc", () => {
     // macros shown beside it, and is what USDA's own FNDDS record states.
     mockFoods(blueberryFoods);
 
-    const n = (await searchFdc("blueberries", "KEY"))[0].attributes[
+    const n = (await searchFdc("blueberries", "KEY")).foods[0].attributes[
       "nutrition/info"
     ];
 
@@ -1185,9 +1185,8 @@ describe("searchFdc", () => {
   it("names the twin and the borrowed fields in provenance", async () => {
     mockFoods(blueberryFoods);
 
-    const provenance = (await searchFdc("blueberries", "KEY"))[0].attributes[
-      "twin/raw_provenance"
-    ];
+    const provenance = (await searchFdc("blueberries", "KEY")).foods[0]
+      .attributes["twin/raw_provenance"];
 
     expect(provenance.raw_data.fdcId).toBe(2346411);
     expect(provenance.merged_from).toHaveLength(1);
@@ -1202,7 +1201,7 @@ describe("searchFdc", () => {
   it("merges the same way whichever record USDA returns first", async () => {
     mockFoods([...blueberryFoods].reverse());
 
-    const results = await searchFdc("blueberries", "KEY");
+    const results = (await searchFdc("blueberries", "KEY")).foods;
 
     expect(results).toHaveLength(1);
     expect(results[0].entity).toBe("fdc:2346411");
@@ -1215,9 +1214,8 @@ describe("searchFdc", () => {
     // A food with no twin carries no merged_from key at all — not an empty one.
     mockFoods([blueberryFoods[0]]);
 
-    const provenance = (await searchFdc("blueberries", "KEY"))[0].attributes[
-      "twin/raw_provenance"
-    ];
+    const provenance = (await searchFdc("blueberries", "KEY")).foods[0]
+      .attributes["twin/raw_provenance"];
 
     expect(provenance).not.toHaveProperty("merged_from");
     expect(provenance.adapter_version).toBe("8");
@@ -1248,5 +1246,57 @@ describe("searchFdc", () => {
     expect(payload.attributes["twin/raw_provenance"].merged_from).toHaveLength(
       1
     );
+  });
+
+  // ── The pre-filter match count (issue #118) ────────────────────────────────
+  // An empty result set has two causes and only the search itself can tell them
+  // apart: USDA matched nothing, or it matched records the ADR-0042 filters then
+  // dropped. `matchedFoods` is what carries that difference out to the caller.
+
+  it("reports no matched foods when USDA itself returned nothing", async () => {
+    mockFoods([]);
+
+    expect((await searchFdc("zzznomatch", "KEY")).matchedFoods).toBe(0);
+  });
+
+  it("counts the foods USDA returned even when the filters drop every one", async () => {
+    // Three brand-specific records: search empties, but USDA plainly does hold
+    // records for the query — the case that can honestly point at the barcode.
+    mockFoods([
+      {
+        fdcId: 401,
+        ndbNumber: 4001,
+        description: "Cereals, CREAM OF WHEAT, dry",
+        dataType: "SR Legacy",
+        foodNutrients: [],
+      },
+      {
+        fdcId: 402,
+        ndbNumber: 4002,
+        description: "Cereals ready-to-eat, GENERAL MILLS, Cheerios",
+        dataType: "SR Legacy",
+        foodNutrients: [],
+      },
+      {
+        fdcId: 403,
+        ndbNumber: 4003,
+        description: "Cereals, QUAKER, instant oatmeal",
+        dataType: "SR Legacy",
+        foodNutrients: [],
+      },
+    ]);
+
+    const result = await searchFdc("cereal", "KEY");
+
+    expect(result.foods).toHaveLength(0);
+    expect(result.matchedFoods).toBe(3);
+  });
+
+  it("counts a Foundation + SR Legacy twin as the one food it is", async () => {
+    // The count is of foods, not dataset rows: the pair USDA carries for
+    // blueberries has already folded into one before the count is taken.
+    mockFoods(blueberryFoods);
+
+    expect((await searchFdc("blueberries", "KEY")).matchedFoods).toBe(1);
   });
 });
