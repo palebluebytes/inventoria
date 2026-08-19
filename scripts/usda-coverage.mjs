@@ -28,6 +28,7 @@
  */
 
 import { createHash } from "node:crypto";
+import { gzipSync } from "node:zlib";
 import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -46,7 +47,7 @@ const MANIFEST_PATH = join(ROOT, "scripts", "usda-backup.manifest.json");
  * other; `usda-coverage.test.ts` does exactly that, because a measurement that
  * quietly stopped describing what the app fills would be worse than none. The
  * rows are the note's, not the app's: §4 measures thirteen fields, the panel
- * carries twenty-four.
+ * carries twenty-three (`BUNDLE_PANEL` below).
  */
 /** Energy ids in the order the app reads them (ADR-0045 §3). */
 const ENERGY_IDS = [1008, 2047, 2048];
@@ -97,6 +98,224 @@ export function createCoverageTally(rows = PANEL_ROWS) {
       return { records, present };
     },
   };
+}
+
+/**
+ * The whole panel a bundled offline subset would have to carry, restated from
+ * `PANEL_FIELDS` in `src/lib/food/usda-fdc.ts` for the same reason `PANEL_ROWS`
+ * is — this is a plain-Node ops script and that is TypeScript inside the app's
+ * bundle. `usda-coverage.test.ts` asserts the two are identical, key for key and
+ * id for id, so a panel that grows in the app cannot leave a published bundle
+ * size describing a narrower one.
+ *
+ * Twenty-three fields, where `PANEL_ROWS` measures thirteen: coverage asks how
+ * much of the panel a dataset reports, and this asks what a bundle would weigh,
+ * which is every field the app can fill.
+ *
+ * `sum` marks the one field with no single FDC id behind it: schema.org's
+ * unsaturated fat is monounsaturated plus polyunsaturated, and the mapper adds
+ * whichever of the two a record carries.
+ */
+export const BUNDLE_PANEL = [
+  { key: "calories", ids: ENERGY_IDS },
+  { key: "protein_content", ids: [1003] },
+  { key: "fat_content", ids: [1004] },
+  { key: "carbohydrate_content", ids: [1005, 1050] },
+  { key: "fiber_content", ids: [1079, 2033] },
+  { key: "saturated_fat_content", ids: [1258] },
+  { key: "trans_fat_content", ids: [1257] },
+  { key: "cholesterol_content", ids: [1253] },
+  { key: "sodium_content", ids: [1093] },
+  { key: "sugar_content", ids: [2000, 1063] },
+  { key: "vitamin_d", ids: [1114] },
+  { key: "calcium", ids: [1087] },
+  { key: "iron", ids: [1089] },
+  { key: "potassium", ids: [1092] },
+  { key: "vitamin_a", ids: [1106] },
+  { key: "vitamin_c", ids: [1162] },
+  { key: "vitamin_e", ids: [1109] },
+  { key: "vitamin_b6", ids: [1175] },
+  { key: "vitamin_b12", ids: [1178] },
+  { key: "folate", ids: [1177] },
+  { key: "magnesium", ids: [1090] },
+  { key: "zinc", ids: [1095] },
+  { key: "unsaturated_fat_content", ids: [1292, 1293], sum: true },
+];
+
+/**
+ * The twenty-one gram-valued nutrients of that panel: it less energy, which
+ * USDA calculates rather than assays, and less the mono + poly sum, which is
+ * two nutrients added together rather than one.
+ *
+ * This exists to size the "21-nutrient panel" ADR-0045's last consequence names.
+ * Which twenty-one it meant is not written down anywhere and cannot be
+ * recovered; these are the twenty-one a reader counting nutrients rather than
+ * fields would arrive at, and both figures are published so the difference
+ * between them can be seen rather than argued.
+ */
+export const NUTRIENT_MASS_PANEL = BUNDLE_PANEL.filter(
+  (field) => field.key !== "calories" && !field.sum
+);
+
+/**
+ * What one record would contribute to a bundle: `{ amount, unit }` per panel
+ * field it reports, keyed by the app's field name and in panel order.
+ *
+ * Amounts are kept exactly as USDA publishes them, in the nutrient's own unit.
+ * Normalising to grams is the mapper's job at read time and doing it here would
+ * turn 0.3 mg into 0.00029999999999999997 and measure float noise as bytes.
+ */
+export function panelEntries(food, fields = BUNDLE_PANEL) {
+  const nutrients = food.foodNutrients ?? [];
+  const find = (id) =>
+    nutrients.find(
+      (n) => n.nutrient?.id === id && typeof n.amount === "number"
+    );
+  const entries = {};
+  for (const { key, ids, sum } of fields) {
+    const found = ids.map(find).filter((n) => n !== undefined);
+    if (!found.length) continue;
+    entries[key] = {
+      // First id present wins, in the app's preference order; a summed field
+      // takes every id it carries, and rounds as the mapper does to shed the
+      // float noise the addition introduces.
+      amount: sum
+        ? Math.round(found.reduce((total, n) => total + n.amount, 0) * 1e6) /
+          1e6
+        : found[0].amount,
+      unit: found[0].nutrient?.unitName ?? "",
+    };
+  }
+  return entries;
+}
+
+/**
+ * One record reduced to what a bundle would ship of it: its FDC id, its
+ * description, and its panel values, with `ndbNumber` carried alongside for the
+ * merge join and the units for the fixed-unit check. Neither is serialised.
+ */
+export function bundleFood(food, fields = BUNDLE_PANEL) {
+  const entries = panelEntries(food, fields);
+  const values = {};
+  const units = {};
+  for (const [key, entry] of Object.entries(entries)) {
+    values[key] = entry.amount;
+    units[key] = entry.unit;
+  }
+  return {
+    ndbNumber: food.ndbNumber,
+    id: food.fdcId,
+    description: food.description,
+    values,
+    units,
+  };
+}
+
+/**
+ * ADR-0045 §2 and §3 at bundle scale: the twin fills only the panel fields the
+ * base does not carry, and the base's identity is untouched, so the merged food
+ * still answers to `fdc:<foundation id>`.
+ *
+ * Returns the merged record and the fields it borrowed.
+ */
+export function mergeBundleFoods(base, twin) {
+  const values = { ...base.values };
+  const filled = [];
+  for (const [key, amount] of Object.entries(twin.values)) {
+    if (key in values) continue;
+    values[key] = amount;
+    filled.push(key);
+  }
+  return { record: { ...base, values }, filled };
+}
+
+/**
+ * The population a bundle would actually carry: every Foundation record filled
+ * from its SR Legacy twin, then every SR Legacy food with no Foundation
+ * counterpart — 7,966 distinct foods, not the 8,156 that counts each twinned
+ * food once per dataset.
+ *
+ * A record with no `ndbNumber` is unjoinable and is kept whole rather than
+ * matched against every other record that lacks one, as `pairTwins` drops them.
+ */
+export function buildBundle(foundation, srLegacy) {
+  const joinable = (record) =>
+    record.ndbNumber !== undefined && record.ndbNumber !== null;
+  const twins = new Map();
+  for (const record of srLegacy)
+    if (joinable(record)) twins.set(record.ndbNumber, record);
+  const claimed = new Set(
+    foundation.filter(joinable).map((record) => record.ndbNumber)
+  );
+
+  const records = [];
+  let twinned = 0;
+  let filled = 0;
+  for (const base of foundation) {
+    const twin = joinable(base) ? twins.get(base.ndbNumber) : undefined;
+    if (!twin) {
+      records.push(base);
+      continue;
+    }
+    twinned++;
+    const merged = mergeBundleFoods(base, twin);
+    filled += merged.filled.length;
+    records.push(merged.record);
+  }
+  for (const record of srLegacy)
+    if (!joinable(record) || !claimed.has(record.ndbNumber))
+      records.push(record);
+  return { records, twinned, filled };
+}
+
+/**
+ * The bytes the size is taken over: identity plus every field the record
+ * reports, written in panel order.
+ *
+ * The order is fixed rather than whatever the merge happened to produce,
+ * because a borrowed field arrives last and two records with the same fields in
+ * different orders compress worse than they should. An unreported field is
+ * omitted, not written as null: "not measured" is the panel's own distinction
+ * and null costs bytes to say nothing.
+ */
+export function serialiseBundle(records, fields = BUNDLE_PANEL) {
+  return JSON.stringify(
+    records.map((record) => {
+      const out = { id: record.id, description: record.description };
+      for (const { key } of fields)
+        if (record.values[key] !== undefined) out[key] = record.values[key];
+      return out;
+    })
+  );
+}
+
+/**
+ * Gzipped size in bytes, at level 9.
+ *
+ * Level is stated because it is a choice: a bundle is compressed once at build
+ * time and served many times, so the best ratio the format offers is the honest
+ * one to quote for a shipped asset.
+ */
+export function gzippedBytes(text) {
+  return gzipSync(Buffer.from(text, "utf8"), { level: 9 }).length;
+}
+
+/**
+ * The distinct units each panel field is published in, across a set of bundle
+ * records: field -> `Set` of unit names.
+ *
+ * A bundle that ships published amounts rather than normalised grams is only
+ * readable if the unit is a property of the field rather than of the record, so
+ * that is measured here rather than assumed.
+ */
+export function unitsByField(records) {
+  const units = new Map();
+  for (const record of records)
+    for (const [key, unit] of Object.entries(record.units ?? {})) {
+      if (!units.has(key)) units.set(key, new Set());
+      units.get(key).add(unit);
+    }
+  return units;
 }
 
 /**
@@ -387,6 +606,9 @@ async function measureArchive(archive, dir) {
   const tally = createCoverageTally();
   const profiles = new Map();
   const energy = [];
+  // One trimmed record per food, which is what a bundle would ship of it: 363 +
+  // 7,793 of these fit in memory where the archives they come from do not.
+  const bundle = [];
   // A dataset mapping one ndbNumber to two records would make the join ambiguous
   // and the map would silently keep the last one, so it is counted, not assumed.
   let repeatedNdbNumbers = 0;
@@ -399,6 +621,7 @@ async function measureArchive(archive, dir) {
     const profile = energyProfile(food);
     profiles.set(food.ndbNumber, profile);
     energy.push(profile);
+    bundle.push(bundleFood(food));
   });
   if (!counted.found)
     throw new Error(
@@ -408,6 +631,7 @@ async function measureArchive(archive, dir) {
     total: tally.total(),
     profiles,
     energy,
+    bundle,
     repeatedNdbNumbers,
     counted,
   };
@@ -496,6 +720,47 @@ async function main() {
     `  merge: ${merged.energyBorrowed} pairs borrow the calorie itself, ` +
       `${merged.macroBorrowedUnderEnergy} borrow a macro under the base's own energy, ` +
       `${merged.coherenceUnchanged}/${merged.coherenceMeasurable} unchanged in coherence`
+  );
+
+  // What a bundled offline subset would weigh (ADR-0045's last consequence,
+  // re-taken over the merged population for #120). Two panels are sized: the
+  // one the app fills today, and the twenty-one nutrient masses inside it,
+  // because the original estimate said "21-nutrient panel" and did not say
+  // which twenty-one.
+  const bundle = buildBundle(foundation.bundle, srLegacy.bundle);
+  // Order is a free variable in any compressed size, so both are printed rather
+  // than one being left as an unstated assumption: alphabetical order groups
+  // like descriptions together and gzip pays less for them.
+  const sorted = [...bundle.records].sort((a, b) =>
+    a.description < b.description ? -1 : a.description > b.description ? 1 : 0
+  );
+  const kib = (bytes) => `${Math.round(bytes / 1024)} KiB`;
+  const size = (label, fields) => {
+    const text = serialiseBundle(bundle.records, fields);
+    const gzipped = gzippedBytes(text);
+    const alphabetical = gzippedBytes(serialiseBundle(sorted, fields));
+    console.log(
+      `  ${label.padEnd(22)} ${Buffer.byteLength(text).toLocaleString("en-GB")} B JSON, ` +
+        `${gzipped.toLocaleString("en-GB")} B gzipped (${kib(gzipped)}); ` +
+        `sorted by description ${kib(alphabetical)}`
+    );
+  };
+  console.log(
+    `\nbundle: ${bundle.records.length.toLocaleString("en-GB")} distinct foods ` +
+      `(${bundle.twinned} twinned, ${bundle.filled} panel fields borrowed)`
+  );
+  size(`${BUNDLE_PANEL.length}-field panel`, BUNDLE_PANEL);
+  size(`${NUTRIENT_MASS_PANEL.length}-nutrient trim`, NUTRIENT_MASS_PANEL);
+  // The floor the panel is added to: a bundle has to name its foods whatever
+  // else it drops, so this is how much of the weight is not nutrition at all.
+  size("identity only", []);
+  const multiUnit = [
+    ...unitsByField([...foundation.bundle, ...srLegacy.bundle]),
+  ]
+    .filter(([, units]) => units.size > 1)
+    .map(([field, units]) => `${field} (${[...units].join("/")})`);
+  console.log(
+    `  units: ${multiUnit.length ? multiUnit.join(", ") : "one per panel field, across both archives"}`
   );
 }
 

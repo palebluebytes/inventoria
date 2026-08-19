@@ -15,6 +15,15 @@ import {
   summariseEnergy,
   summariseMergedEnergy,
   formatCoverageTable,
+  BUNDLE_PANEL,
+  NUTRIENT_MASS_PANEL,
+  panelEntries,
+  bundleFood,
+  mergeBundleFoods,
+  buildBundle,
+  serialiseBundle,
+  gzippedBytes,
+  unitsByField,
 } from "../../scripts/usda-coverage.mjs";
 import { PANEL_FIELDS } from "../../src/lib/food/usda-fdc";
 
@@ -526,5 +535,209 @@ describe("summariseMergedEnergy — what the twin merge does to a calorie", () =
     ]);
     expect(summary.coherenceMeasurable).toBe(2);
     expect(summary.coherenceUnchanged).toBe(2);
+  });
+});
+
+// Sizing the offline bundle ADR-0045's last consequence leaves open (#120). The
+// question is narrow: how many gzipped bytes are the two archives, merged as
+// Decision 2 merges them and trimmed to the panel the app fills?
+
+const panelNutrient = (id: number, amount: number, unitName = "G") => ({
+  nutrient: { id, unitName },
+  amount,
+});
+const panelFood = (
+  fdcId: number,
+  description: string,
+  nutrients: ReturnType<typeof panelNutrient>[],
+  ndbNumber?: number
+) => ({ fdcId, description, ndbNumber, foodNutrients: nutrients });
+
+describe("BUNDLE_PANEL — the whole panel a bundled subset would have to carry", () => {
+  it("is the app's PANEL_FIELDS, key for key and id for id", () => {
+    // The §4 rows measure thirteen fields; a bundle carries all of them, so the
+    // two lists have to be locked together or the size describes a narrower
+    // panel than the one that would ship.
+    expect(
+      BUNDLE_PANEL.map(({ key, ids }: { key: string; ids: number[] }) => ({
+        key,
+        ids,
+      }))
+    ).toEqual(PANEL_FIELDS.map(({ key, ids }) => ({ key, ids: [...ids] })));
+  });
+
+  it("is twenty-three fields, of which twenty-one are the nutrient masses", () => {
+    // "A 21-nutrient panel" is what the original estimate said it trimmed to.
+    // The twenty-one are the gram-valued nutrients: the panel less energy,
+    // which USDA calculates rather than assays, and less the mono + poly sum.
+    expect(BUNDLE_PANEL).toHaveLength(23);
+    expect(NUTRIENT_MASS_PANEL).toHaveLength(21);
+    expect(
+      NUTRIENT_MASS_PANEL.map((field: { key: string }) => field.key)
+    ).not.toContain("calories");
+    expect(
+      NUTRIENT_MASS_PANEL.map((field: { key: string }) => field.key)
+    ).not.toContain("unsaturated_fat_content");
+  });
+});
+
+describe("panelEntries — the values a bundle would carry out of one record", () => {
+  it("takes the first id present, in the app's preference order", () => {
+    const entries = panelEntries(
+      panelFood(1, "x", [panelNutrient(1050, 12), panelNutrient(1005, 14.6)])
+    );
+    expect(entries.carbohydrate_content).toEqual({ amount: 14.6, unit: "G" });
+  });
+
+  it("keeps the published amount and its unit rather than normalising", () => {
+    // A bundle ships what USDA published; mg -> g is the mapper's job at read
+    // time, and doing it here would measure float noise as bytes.
+    const entries = panelEntries(
+      panelFood(1, "x", [panelNutrient(1093, 0.3, "MG")])
+    );
+    expect(entries.sodium_content).toEqual({ amount: 0.3, unit: "MG" });
+  });
+
+  it("sums the two unsaturated ids, as the panel does", () => {
+    const entries = panelEntries(
+      panelFood(1, "x", [panelNutrient(1292, 0.1), panelNutrient(1293, 0.2)])
+    );
+    expect(entries.unsaturated_fat_content).toEqual({
+      amount: 0.3,
+      unit: "G",
+    });
+  });
+
+  it("omits a field the record does not report", () => {
+    const entries = panelEntries(panelFood(1, "x", [panelNutrient(1003, 1)]));
+    expect("fiber_content" in entries).toBe(false);
+    expect(Object.keys(entries)).toEqual(["protein_content"]);
+  });
+
+  it("omits a field whose entry carries no amount", () => {
+    const entries = panelEntries({
+      foodNutrients: [{ nutrient: { id: 1003, unitName: "G" }, amount: null }],
+    });
+    expect(Object.keys(entries)).toEqual([]);
+  });
+});
+
+describe("mergeBundleFoods — the fill-only merge, at bundle scale", () => {
+  const base = panelFood(
+    1,
+    "Blueberries, raw",
+    [panelNutrient(2047, 63.9), panelNutrient(1003, 0.703)],
+    9050
+  );
+  const twin = panelFood(
+    2,
+    "Blueberries, raw (SR)",
+    [panelNutrient(1008, 57), panelNutrient(1079, 2.4)],
+    9050
+  );
+
+  it("fills only what the base does not carry, and never its energy", () => {
+    const { record, filled } = mergeBundleFoods(
+      bundleFood(base),
+      bundleFood(twin)
+    );
+    expect(record.values.calories).toBe(63.9);
+    expect(record.values.fiber_content).toBe(2.4);
+    expect(filled).toEqual(["fiber_content"]);
+  });
+
+  it("keeps the base record's identity, so the entity id does not move", () => {
+    const { record } = mergeBundleFoods(bundleFood(base), bundleFood(twin));
+    expect(record.id).toBe(1);
+    expect(record.description).toBe("Blueberries, raw");
+  });
+});
+
+describe("buildBundle — the merged population a bundle would ship", () => {
+  const foundation = [
+    bundleFood(panelFood(1, "Twinned", [panelNutrient(1003, 1)], 100)),
+    bundleFood(panelFood(2, "Foundation only", [panelNutrient(1003, 2)], 200)),
+  ];
+  const srLegacy = [
+    bundleFood(panelFood(3, "Twinned, older", [panelNutrient(1079, 3)], 100)),
+    bundleFood(panelFood(4, "SR only", [panelNutrient(1003, 4)], 300)),
+  ];
+
+  it("counts each twinned food once, not once per dataset", () => {
+    const bundle = buildBundle(foundation, srLegacy);
+    expect(bundle.records).toHaveLength(3);
+    expect(bundle.twinned).toBe(1);
+    expect(bundle.records.map((r: { id: number }) => r.id)).toEqual([1, 2, 4]);
+  });
+
+  it("reports how many panel fields the merge borrowed", () => {
+    expect(buildBundle(foundation, srLegacy).filled).toBe(1);
+  });
+
+  it("keeps a record with no ndbNumber rather than joining it to every other", () => {
+    const orphan = bundleFood(panelFood(5, "Unjoinable", [], undefined));
+    const bundle = buildBundle([...foundation, orphan], [...srLegacy, orphan]);
+    expect(bundle.records).toHaveLength(5);
+    expect(bundle.twinned).toBe(1);
+  });
+});
+
+describe("serialiseBundle — what gets gzipped", () => {
+  const record = bundleFood(
+    panelFood(9050, "Blueberries, raw", [
+      panelNutrient(1079, 2.4),
+      panelNutrient(2047, 63.9),
+    ])
+  );
+
+  it("writes identity plus the reported fields, in panel order", () => {
+    expect(serialiseBundle([record])).toBe(
+      '[{"id":9050,"description":"Blueberries, raw","calories":63.9,"fiber_content":2.4}]'
+    );
+  });
+
+  it("writes only the fields it was asked for, so a trim can be sized", () => {
+    expect(serialiseBundle([record], NUTRIENT_MASS_PANEL)).toBe(
+      '[{"id":9050,"description":"Blueberries, raw","fiber_content":2.4}]'
+    );
+  });
+});
+
+describe("gzippedBytes — the figure the record quotes", () => {
+  it("measures the deflated size of the text it is given", () => {
+    const text = serialiseBundle([
+      bundleFood(panelFood(1, "x", [panelNutrient(1003, 1)])),
+    ]);
+    expect(gzippedBytes(text)).toBeGreaterThan(0);
+    expect(gzippedBytes(text)).toBeLessThan(Buffer.byteLength(text) + 32);
+  });
+
+  it("is deterministic, so a published number can be re-derived", () => {
+    const text = serialiseBundle(
+      Array.from({ length: 50 }, (_, i) =>
+        bundleFood(panelFood(i, `Food ${i}`, [panelNutrient(1003, i)]))
+      )
+    );
+    expect(gzippedBytes(text)).toBe(gzippedBytes(text));
+  });
+});
+
+describe("unitsByField — is a unit a property of the field or of the record", () => {
+  it("collects every unit a field's values are published in", () => {
+    const units = unitsByField([
+      bundleFood(panelFood(1, "a", [panelNutrient(1093, 1, "MG")])),
+      bundleFood(panelFood(2, "b", [panelNutrient(1093, 2, "MG")])),
+      bundleFood(panelFood(3, "c", [panelNutrient(1114, 3, "UG")])),
+    ]);
+    expect([...units.get("sodium_content")]).toEqual(["MG"]);
+    expect([...units.get("vitamin_d")]).toEqual(["UG"]);
+  });
+
+  it("shows a field published two ways, which a bundle could not ship unitless", () => {
+    const units = unitsByField([
+      bundleFood(panelFood(1, "a", [panelNutrient(1114, 1, "UG")])),
+      bundleFood(panelFood(2, "b", [panelNutrient(1114, 2, "IU")])),
+    ]);
+    expect(units.get("vitamin_d")?.size).toBe(2);
   });
 });
