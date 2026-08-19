@@ -204,6 +204,26 @@ function fillFromTwin(
   };
 }
 
+/**
+ * The key one USDA food identity is collected under: `ndbNumber` where a record
+ * carries one, else its description behind a `desc:` prefix so a numeric id and
+ * a description can never collide.
+ *
+ * Keying on `ndbNumber` rather than on the description is what collects the two
+ * records USDA holds for one food across Foundation and SR Legacy, whose
+ * free-text descriptions it rewrites between them (e.g. "Chia seeds, dry, raw"
+ * and "Seeds, chia seeds, dried", both ndbNumber 12006). The `??` is deliberate
+ * where `||` is not: a record with no `ndbNumber` groups by description rather
+ * than colliding with every other record that lacks one.
+ *
+ * Exported alongside {@link resolveFdcGroup} because `scripts/usda-bundle.mjs`
+ * pairs the twins over the bulk archives (ADR-0047 §2), and the key that decides
+ * WHICH records merge has to be the same one search uses.
+ */
+export function fdcIdentityKey(food: FdcFood): string | number {
+  return food.ndbNumber ?? `desc:${food.description.toLowerCase().trim()}`;
+}
+
 /** A search hit after its same-food siblings have been folded into it. */
 export interface ResolvedFdcFood {
   food: FdcFood;
@@ -381,9 +401,7 @@ function mapFdcPortion(portion: FdcFoodPortion): Portion {
  * so a bundled row ships the mapped {@link Portion} list rather than USDA's raw
  * measures, and the generated artifact cannot drift from what hydration mapped.
  */
-export function mapFdcPortions(
-  portions: readonly FdcFoodPortion[] = []
-): Portion[] {
+export function mapFdcPortions(portions: readonly FdcFoodPortion[]): Portion[] {
   return portions
     .filter((p) => p && Number.isFinite(p.gramWeight) && p.gramWeight > 0)
     .map(mapFdcPortion);
@@ -407,7 +425,7 @@ export function mapFdcDetailToPayload(
   detail: FdcFoodDetail,
   merged_from: readonly MergedSource[] = []
 ): EntityPayload {
-  const portions = mapFdcPortions(detail.foodPortions);
+  const portions = mapFdcPortions(detail.foodPortions ?? []);
 
   const attributes: EntityPayload["attributes"] = {
     // Refresh Provenance with the fuller detail record (larger than the search
@@ -836,12 +854,7 @@ export async function searchFdc(
   // twin only fills what Foundation is silent about.
   const groups = new Map<string | number, FdcFood[]>();
   for (const food of data.foods ?? []) {
-    // Fall back to the description for the rare record with no ndbNumber, so it
-    // still groups exactly as before rather than colliding on `undefined`. Use
-    // `??` (not `||`) and a `desc:` prefix so a numeric id and a description key
-    // can never collide.
-    const key =
-      food.ndbNumber ?? `desc:${food.description.toLowerCase().trim()}`;
+    const key = fdcIdentityKey(food);
     const group = groups.get(key);
     if (group) group.push(food);
     else groups.set(key, [food]);

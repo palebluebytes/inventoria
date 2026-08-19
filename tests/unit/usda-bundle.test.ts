@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
 // A plain-Node ops script, deliberately outside the app's tsconfig: it reads the
 // mirrored archives with Node built-ins only, like the backup and coverage
 // scripts beside it.
@@ -13,7 +14,6 @@ import {
   buildNutrientEntry,
   collectNutrientDictionary,
   groupByIdentity,
-  identityKey,
   generatedFrom,
   projectArchiveFood,
   serialiseIndex,
@@ -22,6 +22,7 @@ import {
 import * as usdaFdc from "../../src/lib/food/usda-fdc";
 import {
   PANEL_FIELDS,
+  fdcIdentityKey,
   isBrandSpecific,
   isPreparedProduct,
   isProcessedProduct,
@@ -40,6 +41,7 @@ const app = {
   isBrandSpecific,
   isProcessedProduct,
   isPreparedProduct,
+  fdcIdentityKey,
   resolveFdcGroup,
   mapFdcFoodToPayload,
   mapFdcPortions,
@@ -142,27 +144,46 @@ describe("projectArchiveFood — the archives' serialisation against the app's",
   });
 });
 
-describe("identityKey — collecting the two records USDA holds for one food", () => {
-  it("keys on ndbNumber, which is what links a Foundation re-sample to its twin", () => {
-    expect(identityKey({ ndbNumber: 12006, description: "Chia seeds" })).toBe(
-      12006
-    );
-  });
-
-  it("falls back to a prefixed description so an id and a name cannot collide", () => {
-    expect(identityKey({ description: "  Chia Seeds " })).toBe(
-      "desc:chia seeds"
-    );
+describe("groupByIdentity — collecting the two records USDA holds for one food", () => {
+  /** A projected record, as `projectArchiveFood` hands one over. */
+  const projected = (
+    fdcId: number,
+    description: string,
+    ndbNumber?: number
+  ) => ({
+    food: {
+      fdcId,
+      description,
+      dataType: "SR Legacy",
+      foodNutrients: [],
+      ...(ndbNumber === undefined ? {} : { ndbNumber }),
+    },
   });
 
   it("groups the pair under one key and leaves a lone record alone", () => {
-    const groups = groupByIdentity([
-      { food: { ndbNumber: 9132, description: "Grapes" } },
-      { food: { ndbNumber: 9132, description: "Grapes, raw" } },
-      { food: { ndbNumber: 9999, description: "Pears" } },
-    ]);
+    const groups = groupByIdentity(
+      [
+        projected(1, "Grapes", 9132),
+        projected(2, "Grapes, raw", 9132),
+        projected(3, "Pears", 9999),
+      ],
+      app
+    );
     expect([...groups.keys()]).toEqual([9132, 9999]);
     expect(groups.get(9132)).toHaveLength(2);
+  });
+
+  it("keys through the app's own fdcIdentityKey, not a mirror of it", () => {
+    // The key decides WHICH records merge, so a copy here would let the bundled
+    // corpus pair twins a live search never paired.
+    const foods = [
+      projected(1, "Chia seeds, dry, raw", 12006),
+      projected(2, "  Cocoa Nibs "),
+    ];
+    expect([...groupByIdentity(foods, app).keys()]).toEqual(
+      foods.map(({ food }) => fdcIdentityKey(food))
+    );
+    expect(fdcIdentityKey(foods[1].food)).toBe("desc:cocoa nibs");
   });
 });
 
@@ -215,14 +236,17 @@ describe("buildCorpus — the ADR-0042 survivors, merged at generation time", ()
 
   it("keeps a reference food and drops each kind the filters exist to drop", () => {
     const corpus = buildCorpus(
-      groupByIdentity([
-        entry(1, "Grapes, red or green, raw"),
-        entry(2, "Grapefruit juice, white, unsweetened, OCEAN SPRAY"),
-        entry(3, "Grapes, canned, heavy syrup pack"),
-        entry(4, "Potato salad, home-prepared", {
-          foodCategory: "Vegetables and Vegetable Products",
-        }),
-      ]),
+      groupByIdentity(
+        [
+          entry(1, "Grapes, red or green, raw"),
+          entry(2, "Grapefruit juice, white, unsweetened, OCEAN SPRAY"),
+          entry(3, "Grapes, canned, heavy syrup pack"),
+          entry(4, "Potato salad, home-prepared", {
+            foodCategory: "Vegetables and Vegetable Products",
+          }),
+        ],
+        app
+      ),
       app
     );
     expect(
@@ -273,7 +297,7 @@ describe("buildCorpus — the ADR-0042 survivors, merged at generation time", ()
       )
       .map(({ food }) => food.fdcId);
 
-    const built = buildCorpus(groupByIdentity(corpus), app);
+    const built = buildCorpus(groupByIdentity(corpus, app), app);
     expect(
       built.survivors.map((s: { food: { fdcId: number } }) => s.food.fdcId)
     ).toEqual(expected);
@@ -285,11 +309,14 @@ describe("buildCorpus — the ADR-0042 survivors, merged at generation time", ()
 
   it("sorts by fdcId, so the artifact's order is the key rather than arrival", () => {
     const built = buildCorpus(
-      groupByIdentity([
-        entry(900, "Pears, raw"),
-        entry(100, "Grapes, raw"),
-        entry(500, "Apples, raw"),
-      ]),
+      groupByIdentity(
+        [
+          entry(900, "Pears, raw"),
+          entry(100, "Grapes, raw"),
+          entry(500, "Apples, raw"),
+        ],
+        app
+      ),
       app
     );
     expect(
@@ -343,7 +370,10 @@ describe("buildCorpus — the ADR-0042 survivors, merged at generation time", ()
       [foundation, twin],
       [twin, foundation],
     ]) {
-      const [survivor] = buildCorpus(groupByIdentity(order), app).survivors;
+      const [survivor] = buildCorpus(
+        groupByIdentity(order, app),
+        app
+      ).survivors;
       expect(survivor.food.fdcId).toBe(11);
       // Fill-only: the base's own protein survives, the twin's fibre arrives.
       const values = Object.fromEntries(
@@ -445,19 +475,40 @@ describe("buildIndexRow — identity plus what a result row renders", () => {
       }),
       app
     );
-    expect(row.merged_from[0].source_uri).toContain("/food/22");
-    expect(row.merged_from[0].filled_fields).toEqual(["fiber_content"]);
+    const [twin] = row.merged_from ?? [];
+    expect(twin.source_uri).toContain("/food/22");
+    expect(twin.filled_fields).toEqual(["fiber_content"]);
   });
 });
 
 describe("buildNutrientEntry — every nutrient the record reports", () => {
   it("keys by nutrient id, sorted, in USDA's published unit", () => {
     const entry = buildNutrientEntry({
+      merged_from: [],
+      foodPortions: [],
       food: {
+        fdcId: 1001,
+        description: "Grapes, red or green, raw",
+        dataType: "SR Legacy",
         foodNutrients: [
-          { nutrientId: 1093, value: 2, unitName: "mg" },
-          { nutrientId: 1003, value: 0.72, unitName: "g" },
-          { nutrientId: 1008, value: 69, unitName: "kcal" },
+          {
+            nutrientId: 1093,
+            nutrientName: "Sodium",
+            value: 2,
+            unitName: "mg",
+          },
+          {
+            nutrientId: 1003,
+            nutrientName: "Protein",
+            value: 0.72,
+            unitName: "g",
+          },
+          {
+            nutrientId: 1008,
+            nutrientName: "Energy",
+            value: 69,
+            unitName: "kcal",
+          },
         ],
       },
     });
@@ -545,5 +596,73 @@ describe("serialisation — stable, diffable, one food per line", () => {
 
   it("writes an empty corpus without emitting a stray blank line", () => {
     expect(serialiseIndex({ ...index, foods: [] })).toContain('"foods": []');
+  });
+});
+
+describe("the committed artifacts", () => {
+  // These are the bytes the app ships (ADR-0047 section 3). Nothing else reads
+  // them yet — #113 and #114 are what will — so without this they would sit in
+  // the repo unchecked until a hand-edit or a half-finished regeneration reached
+  // a user.
+  const manifest = JSON.parse(
+    readFileSync("scripts/usda-backup.manifest.json", "utf8")
+  );
+  const read = (name: string) =>
+    readFileSync(`public/usda/${name}.json`, "utf8");
+  const indexText = read("search-index");
+  const storeText = read("nutrient-store");
+  const index = JSON.parse(indexText);
+  const store = JSON.parse(storeText);
+
+  it("is exactly what the generator writes, byte for byte", () => {
+    // The strongest form the stability rule can take without the archives on
+    // hand: re-serialising what is committed reproduces the committed file, so
+    // a hand-edit, a reordering or a stray reformat fails here.
+    expect(serialiseIndex(index)).toBe(indexText);
+    expect(serialiseNutrientStore(store)).toBe(storeText);
+  });
+
+  it("names the archive releases and digests the manifest pins", () => {
+    const pinned = generatedFrom(
+      BUNDLE_DATASETS.map((dataset: string) =>
+        manifest.archives.find(
+          (a: { dataset: string }) => a.dataset === dataset
+        )
+      )
+    );
+    expect(index.generated_from).toEqual(pinned);
+    expect(store.generated_from).toEqual(pinned);
+  });
+
+  it("carries the schema version both readers check", () => {
+    expect(index.schema_version).toBe(SCHEMA_VERSION);
+    expect(store.schema_version).toBe(SCHEMA_VERSION);
+  });
+
+  it("is sorted by fdcId, strictly ascending, with no duplicate food", () => {
+    const ids = index.foods.map((row: { fdcId: number }) => row.fdcId);
+    expect(ids).toEqual([...ids].sort((a: number, b: number) => a - b));
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("holds one nutrient-store entry per index row, and no orphans", () => {
+    const ids = index.foods.map((row: { fdcId: number }) => String(row.fdcId));
+    expect(Object.keys(store.foods).sort()).toEqual([...ids].sort());
+  });
+
+  it("names every nutrient id its foods report", () => {
+    const named = new Set(Object.keys(store.nutrients));
+    const reported = new Set(
+      Object.values(store.foods).flatMap((entry) =>
+        Object.keys(entry as Record<string, number>)
+      )
+    );
+    for (const id of reported) expect(named.has(id)).toBe(true);
+  });
+
+  it("gives every row the macros a result list renders it by", () => {
+    for (const row of index.foods)
+      for (const key of Object.keys(row.macros))
+        expect(ROW_MACRO_KEYS).toContain(key);
   });
 });

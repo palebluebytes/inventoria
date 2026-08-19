@@ -5,7 +5,8 @@
  *   pnpm usda:bundle              # regenerate both artifacts into public/usda/
  *   pnpm usda:bundle --report     # measure and print, write nothing
  *
- * Flags: --dir <path> (archives, default .usda-backup), --out <path>.
+ * Flags: --dir <path> (where the archives are, default .usda-backup),
+ * --skip-freshness (generate without asking USDA what it publishes).
  *
  * Why this exists: ADR-0047 retires the FoodData Central API and ships USDA's
  * own bulk distribution instead, so food search works with no key, no quota and
@@ -41,10 +42,16 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { brotliCompressSync, constants, gzipSync } from "node:zlib";
 import { countArchiveRecords } from "./usda-archive.mjs";
+import {
+  compareToPublished,
+  fetchPublishedArchives,
+} from "./usda-releases.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST_PATH = join(ROOT, "scripts", "usda-backup.manifest.json");
 const APP_MODULE = join(ROOT, "src", "lib", "food", "usda-fdc.ts");
+/** Where the committed artifacts live, and where `pnpm build` picks them up. */
+const ARTIFACT_DIR = join(ROOT, "public", "usda");
 
 /** Bumped when either artifact's shape changes, so a reader can refuse an old one. */
 export const SCHEMA_VERSION = 1;
@@ -68,6 +75,7 @@ export const APP_EXPORTS = [
   "isBrandSpecific",
   "isProcessedProduct",
   "isPreparedProduct",
+  "fdcIdentityKey",
   "resolveFdcGroup",
   "mapFdcFoodToPayload",
   "mapFdcPortions",
@@ -118,6 +126,20 @@ export const ROW_MACRO_KEYS = [
  * @property {string} description
  * @property {string} [data_type]
  * @property {string[]} filled_fields
+ */
+
+/**
+ * The app's own logic, in the shape {@link loadAppModule} hands it over: exactly
+ * {@link APP_EXPORTS}, and nothing this script is allowed to reimplement.
+ *
+ * @typedef {object} AppModule
+ * @property {(description: string) => boolean} isBrandSpecific
+ * @property {(description: string) => boolean} isProcessedProduct
+ * @property {(foodCategory: string | undefined, description: string) => boolean} isPreparedProduct
+ * @property {(food: BundleFood) => string | number} fdcIdentityKey
+ * @property {(group: BundleFood[]) => { food: BundleFood, merged_from: MergedSource[] }} resolveFdcGroup
+ * @property {(food: BundleFood, merged_from: MergedSource[]) => { attributes: Record<string, any> }} mapFdcFoodToPayload
+ * @property {(portions: Survivor["foodPortions"]) => Portion[]} mapFdcPortions
  */
 
 /**
@@ -214,7 +236,11 @@ export async function loadAppModule(scratchDir) {
   );
 }
 
-/** Fails unless the app module exports everything {@link APP_EXPORTS} names. */
+/**
+ * Fails unless the app module exports everything {@link APP_EXPORTS} names.
+ *
+ * @returns {AppModule}
+ */
 export function assertAppExports(app) {
   const missing = APP_EXPORTS.filter((name) => typeof app[name] !== "function");
   if (missing.length)
@@ -278,22 +304,21 @@ export function projectArchiveFood(record) {
 }
 
 /**
- * The key one USDA food identity is collected under, mirroring `searchFdc`
- * exactly: `ndbNumber` where a record carries one, else the description behind a
- * `desc:` prefix so a numeric id and a description can never collide.
+ * Groups projected records by the app's own `fdcIdentityKey`, preserving arrival
+ * order.
  *
- * This is what pairs a Foundation re-sample with its SR Legacy twin, whose
- * free-text descriptions USDA rewrites between the two datasets.
+ * The key comes from the app rather than being mirrored here because it is the
+ * single input that decides WHICH records merge: a twin paired differently at
+ * generation time than at search time would put values in a bundled row that a
+ * live search never produced.
+ *
+ * @param {{ food: BundleFood }[]} entries
+ * @param {AppModule} app
  */
-export function identityKey(food) {
-  return food.ndbNumber ?? `desc:${food.description.toLowerCase().trim()}`;
-}
-
-/** Groups projected records by {@link identityKey}, preserving arrival order. */
-export function groupByIdentity(entries) {
+export function groupByIdentity(entries, app) {
   const groups = new Map();
   for (const entry of entries) {
-    const key = identityKey(entry.food);
+    const key = app.fdcIdentityKey(entry.food);
     const group = groups.get(key);
     if (group) group.push(entry);
     else groups.set(key, [entry]);
@@ -349,13 +374,21 @@ export function collectNutrientDictionary(foods) {
  * so the three tallies sum to the foods removed rather than double-counting a
  * food two filters agree on.
  *
- * @returns {{ survivors: Survivor[], dropped: Record<string, number>, twinned: number, identities: number }}
+ * @param {Map<string | number, { food: BundleFood, foodPortions: Survivor["foodPortions"] }[]>} groups
+ * @param {AppModule} app
+ * `twinned` counts the identities USDA holds two records for and
+ * `twinned_survivors` how many of those the filters kept, because the two
+ * numbers are what explain the merged_from count on the artifact: most twinned
+ * pairs are brand-specific or packaged foods that never reach it.
+ *
+ * @returns {{ survivors: Survivor[], dropped: Record<string, number>, twinned: number, twinned_survivors: number, identities: number }}
  */
 export function buildCorpus(groups, app) {
   /** @type {Survivor[]} */
   const survivors = [];
   const dropped = { brand_specific: 0, processed: 0, prepared: 0 };
   let twinned = 0;
+  let twinned_survivors = 0;
 
   for (const group of groups.values()) {
     if (group.length > 1) twinned++;
@@ -372,12 +405,21 @@ export function buildCorpus(groups, app) {
       dropped.prepared++;
       continue;
     }
+    // Always found: the merge keeps the base record's identity, so the resolved
+    // food's fdcId is one the group carries.
     const base = group.find((e) => e.food.fdcId === food.fdcId);
+    if (group.length > 1) twinned_survivors++;
     survivors.push({ food, merged_from, foodPortions: base.foodPortions });
   }
 
   survivors.sort((a, b) => a.food.fdcId - b.food.fdcId);
-  return { survivors, dropped, twinned, identities: groups.size };
+  return {
+    survivors,
+    dropped,
+    twinned,
+    twinned_survivors,
+    identities: groups.size,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -416,7 +458,7 @@ export function generatedFrom(archives) {
  * distinction the panel makes, and `null` costs bytes to say nothing.
  *
  * @param {Survivor} survivor
- * @param {Record<string, Function>} app
+ * @param {AppModule} app
  * @returns {IndexRow}
  */
 export function buildIndexRow({ food, merged_from, foodPortions }, app) {
@@ -476,50 +518,72 @@ function linePerEntry(open, close, lines) {
     : open + close;
 }
 
+/**
+ * A JSON document written as ordered `"key": <already-rendered value>` sections.
+ *
+ * The two artifacts share this envelope — what they are, the schema a reader has
+ * to understand, and the archives behind them — and differ only in the sections
+ * that follow it.
+ */
+function serialiseDocument(sections) {
+  const body = sections
+    .map(([key, rendered]) => `${JSON.stringify(key)}: ${rendered}`)
+    .join(",\n");
+  return `{\n${body}\n}\n`;
+}
+
+/** The `generated_from` block both artifacts carry, one archive per line. */
+function renderProvenance(generated_from) {
+  return linePerEntry(
+    "[",
+    "]",
+    generated_from.map((archive) => JSON.stringify(archive))
+  );
+}
+
 /** The search index, serialised as one food per line, sorted by `fdcId` (§3). */
 export function serialiseIndex(artifact) {
-  return (
+  return serialiseDocument([
+    ["artifact", '"usda-search-index"'],
+    ["schema_version", String(artifact.schema_version)],
+    ["generated_from", renderProvenance(artifact.generated_from)],
     [
-      "{",
-      `"artifact": "usda-search-index",`,
-      `"schema_version": ${artifact.schema_version},`,
-      `"generated_from": ${linePerEntry(
-        "[",
-        "]",
-        artifact.generated_from.map((a) => JSON.stringify(a))
-      )},`,
-      `"foods": ${linePerEntry(
+      "foods",
+      linePerEntry(
         "[",
         "]",
         artifact.foods.map((row) => JSON.stringify(row))
-      )}`,
-      "}",
-    ].join("\n") + "\n"
-  );
+      ),
+    ],
+  ]);
 }
 
 /** The nutrient store, serialised as one food per line, keyed by `fdcId` (§3). */
 export function serialiseNutrientStore(artifact) {
-  const pair = ([key, value]) =>
-    `${JSON.stringify(String(key))}: ${JSON.stringify(value)}`;
-  return (
-    [
+  const keyed = (entries) =>
+    linePerEntry(
       "{",
-      `"artifact": "usda-nutrient-store",`,
-      `"schema_version": ${artifact.schema_version},`,
-      `"generated_from": ${linePerEntry(
-        "[",
-        "]",
-        artifact.generated_from.map((a) => JSON.stringify(a))
-      )},`,
-      `"nutrients": ${linePerEntry("{", "}", Object.entries(artifact.nutrients).map(pair))},`,
-      `"foods": ${linePerEntry("{", "}", Object.entries(artifact.foods).map(pair))}`,
       "}",
-    ].join("\n") + "\n"
-  );
+      entries.map(
+        ([key, value]) =>
+          `${JSON.stringify(String(key))}: ${JSON.stringify(value)}`
+      )
+    );
+  return serialiseDocument([
+    ["artifact", '"usda-nutrient-store"'],
+    ["schema_version", String(artifact.schema_version)],
+    ["generated_from", renderProvenance(artifact.generated_from)],
+    ["nutrients", keyed(Object.entries(artifact.nutrients))],
+    ["foods", keyed(Object.entries(artifact.foods))],
+  ]);
 }
 
-/** Both artifacts, built over one corpus. */
+/**
+ * Both artifacts, built over one corpus.
+ *
+ * @param {Survivor[]} survivors
+ * @param {AppModule} app
+ */
 export function buildArtifacts(survivors, archives, app) {
   const dictionary = collectNutrientDictionary(survivors.map((s) => s.food));
   const generated_from = generatedFrom(archives);
@@ -588,6 +652,42 @@ async function readArchive(archive, dir) {
   return entries;
 }
 
+/**
+ * Refuses to generate against a manifest USDA has moved past (ADR-0047 §12).
+ *
+ * The mirror stopped being insurance when these artifacts started being
+ * generated from it: a release the manifest has not caught up with is not a
+ * stale backup, it is a lag shipped to every user until somebody regenerates.
+ * Scoped to the datasets the bundle actually reads, so a Survey release nothing
+ * here consumes cannot block a generation.
+ *
+ * `--skip-freshness` is the offline escape hatch, and it is a flag rather than a
+ * fallback so that skipping the check is a thing somebody typed.
+ */
+async function assertMirrorIsCurrent(manifest, archives) {
+  let published;
+  try {
+    published = await fetchPublishedArchives(manifest.release_index);
+  } catch (error) {
+    throw new Error(
+      `could not ask USDA what it publishes: ${error.message}\n` +
+        "Pass --skip-freshness to generate from the mirror as it stands."
+    );
+  }
+  const behind = compareToPublished(archives, published).filter(
+    (verdict) => verdict.state !== "current"
+  );
+  if (behind.length)
+    throw new Error(
+      `${behind.map((verdict) => verdict.message).join("\n")}\n\n` +
+        "Refresh the mirror first (docs/how-to-back-up-the-usda-datasets.md): an " +
+        "artifact generated from a release USDA has moved past ships that lag to " +
+        "every user. Pass --skip-freshness to regenerate from the mirror as it stands."
+    );
+  for (const verdict of compareToPublished(archives, published))
+    process.stdout.write(`  ok  ${verdict.message}\n`);
+}
+
 const kib = (bytes) => `${Math.round(bytes / 1024)} KiB`;
 
 /**
@@ -641,7 +741,6 @@ async function main() {
     return args[at + 1];
   };
   const dir = resolve(ROOT, flag("dir", ".usda-backup"));
-  const out = resolve(ROOT, flag("out", join("public", "usda")));
   const reportOnly = args.includes("--report");
 
   const manifest = JSON.parse(await readFile(MANIFEST_PATH, "utf8"));
@@ -650,6 +749,9 @@ async function main() {
     if (!archive) throw new Error(`no "${dataset}" archive in the manifest`);
     return archive;
   });
+
+  if (!args.includes("--skip-freshness"))
+    await assertMirrorIsCurrent(manifest, archives);
 
   const scratch = await mkdtemp(join(tmpdir(), "usda-bundle-"));
   const app = assertAppExports(await loadAppModule(scratch));
@@ -661,10 +763,8 @@ async function main() {
     entries.push(...(await readArchive(archive, dir)));
   }
 
-  const { survivors, dropped, twinned, identities } = buildCorpus(
-    groupByIdentity(entries),
-    app
-  );
+  const { survivors, dropped, twinned, twinned_survivors, identities } =
+    buildCorpus(groupByIdentity(entries, app), app);
   const { index, nutrientStore } = buildArtifacts(survivors, archives, app);
   const indexText = serialiseIndex(index);
   const nutrientText = serialiseNutrientStore(nutrientStore);
@@ -682,7 +782,11 @@ async function main() {
       `${dropped.prepared} prepared or composite dropped)`
   );
   console.log(
-    `  ${merged} rows name a twin in merged_from, ${withPortions} carry portions, ` +
+    `  ${twinned_survivors} twinned foods survive, of which ${merged} borrowed a ` +
+      `field and so name a twin in merged_from`
+  );
+  console.log(
+    `  ${withPortions} rows carry portions, ` +
       `${Object.keys(nutrientStore.nutrients).length} distinct nutrient ids ` +
       `(${(nutrientCount / survivors.length).toFixed(1)} per food)`
   );
@@ -704,11 +808,12 @@ async function main() {
     console.log("\n--report: measured only, nothing written.");
     return;
   }
-  await mkdir(out, { recursive: true });
-  await writeFile(join(out, "search-index.json"), indexText);
-  await writeFile(join(out, "nutrient-store.json"), nutrientText);
+  await mkdir(ARTIFACT_DIR, { recursive: true });
+  await writeFile(join(ARTIFACT_DIR, "search-index.json"), indexText);
+  await writeFile(join(ARTIFACT_DIR, "nutrient-store.json"), nutrientText);
   console.log(
-    `\nwritten to ${out}/search-index.json and ${out}/nutrient-store.json`
+    `\nwritten to ${ARTIFACT_DIR}/search-index.json and ` +
+      `${ARTIFACT_DIR}/nutrient-store.json`
   );
 }
 
