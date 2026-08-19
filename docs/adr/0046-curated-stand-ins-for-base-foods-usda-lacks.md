@@ -149,6 +149,38 @@ revisit CIQUAL under ADR-0045 §5, not to keep curating.
   "nothing matched" from "not covered" is a separate improvement this record neither
   makes nor blocks.
 
+## Amendment (2026-08-19, #118): the empty-result message says which emptiness it is
+
+The consequence above left the generic no-results message wrong for every food this
+list does not curate. It no longer is, and the repair needed no new data: USDA already
+returns foods for a query the ADR-0042 filters may then empty. `searchFdc` now reports
+how many came back before those filters ran (`FdcSearchResult.matchedFoods`, counted
+after the ADR-0045 §2 twin merge, so it counts foods rather than dataset rows), and the
+pure `explainEmptySearch` turns it into one of two verdicts:
+
+- **Filtered out** — USDA returned foods for the query and every one was dropped as
+  brand-specific, packaged or prepared. The message says so and names the barcode path,
+  which is genuinely where those records live rather than a consolation prize.
+- **Not covered** — USDA returned nothing. The message claims only that USDA's tables do
+  not carry the food, never that the food does not exist; that is the coverage hole
+  §1 curates against, not a verdict on the world.
+
+The count is a floor, not a total, and the copy is written to that limit. FDC returns
+one page for a query built as an OR of prefix wildcards, and `totalHits` goes unread —
+so "USDA holds 12 records for X" would assert both a total nobody asked for and a
+relevance the query does not guarantee. The verdict says only that USDA returned
+something. For the same reason it names all three filter families rather than the
+packaged one alone: the count cannot say which filter fired, and a home-prepared soup
+has no barcode to point at.
+
+An API failure is neither: a missing key, an exhausted quota and an outage still throw
+out of `searchFdc` before a verdict is reached, and still read as failures. The empty
+case throws a `NoReferenceFoodError` carrying its verdict, so the two are distinguished
+by type at the call site rather than by parsing a message.
+
+This changes no decision in this record. A curated stand-in still answers the queries
+it covers, and the two verdicts describe what happens for everything else.
+
 ## Alternatives considered
 
 - **OFF text-search fallback when USDA returns zero.** Rejected on measurement: 21 of
