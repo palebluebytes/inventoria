@@ -10,6 +10,7 @@
   import NotesView from "./lib/views/NotesView.svelte";
   import ReloadPrompt from "./lib/ui/ReloadPrompt.svelte";
   import { warmUsdaCorpus } from "./lib/food/usda-corpus";
+  import { clearRetiredSecrets } from "./lib/stores/secrets";
 
   // Dev/e2e-only UI-primitive harness: `?demo=bottomsheet` swaps the whole app
   // for a component demo, so a Playwright spec can drive the primitive in
@@ -43,6 +44,10 @@
     // Nutrient store at idle (~100 ms to parse, and nothing reads it until a
     // food is staged) — ADR-0047 §2.
     warmUsdaCorpus();
+    // Take the retired USDA API key off the device (ADR-0047 §1). Here rather
+    // than at module scope so it runs on a real load of the app, and beside the
+    // warm because both are the same kind of startup errand.
+    clearRetiredSecrets();
     try {
       await initPromise;
       dbReady = true;
