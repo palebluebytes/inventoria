@@ -149,7 +149,8 @@ records**, not the 394 this record's measurements were taken over: its
 `184` Foundation foods with no SR Legacy twin and the `210` twinned pairs, which sum to
 exactly 394, describe a population 8% larger than the archive does; and the bundling
 figure of "8,187 foods" is 363 + 7,793 = **8,156**. The 361 KiB gzipped measurement
-beside it was taken over the larger set and has not been re-taken.
+beside it was taken over the larger set and has not been re-taken; that is tracked as
+[#120](https://github.com/palebluebytes/inventoria/issues/120).
 
 Neither changes an argument. A thinner Foundation strengthens the case for filling it
 from SR Legacy rather than weakening it, and 8,156 foods bundle much as 8,187 do. The
@@ -165,11 +166,44 @@ foods with no twin, which sum to the archive's 363 and reproduce the figure #111
 build-time measurement reaches by its own route. Read `210` and `184` in the
 Consequences as `190` and `173`.
 
-Nothing in the Decision moves, and Decision 4 keeps its wording: the varietal
-residual it answers for was always per-pair, and the description token-Jaccard
-measured over the old pair set has not been re-taken. The bundling total tightens
+Nothing in the Decision moves. The bundling total tightens
 once more, in the other direction — 363 + 7,793 counts each twinned food twice, so a
 bundle merging them as Decision 2 does carries **7,966** distinct foods, not 8,156.
 Measured by `pnpm usda:coverage`; the re-measured completeness table
 beside it is the
+[2026-08-19 correction in research note #108](../research/108-base-food-composition-sources.md#correction-2026-08-19-the-usda-columns-of-the-completeness-table-re-measured).
+The varietal evidence quoted in the same bullet is re-derived in the amendment below.
+
+## Amendment (2026-08-19): the varietal residual, re-derived, and one completeness figure
+
+The Consequences accept a varietal residual on the strength of one statistic —
+"measured over all 210 pairs the link is sound, median description token-Jaccard
+0.83". That was taken over the 394-record population, so it has been re-taken over the
+190 pairs the archives actually hold.
+
+**Median 0.94, not 0.83.** Of the 190 pairs, **88 carry byte-identical descriptions**,
+none has two descriptions sharing no token at all, and no `ndbNumber` maps to two
+records in either dataset. The 0.83 does not reproduce, and the reason is almost
+certainly method rather than data: a Jaccard median depends entirely on how a
+description is cut into tokens and on which middle is taken, and the original record
+states neither. This one states both. Tokens are the description lowercased, split on
+every run of characters that is not a letter or a digit, with tokens under three
+characters dropped; the median of an even count is the mean of the two middle scores.
+`pnpm usda:coverage` prints it, and the tokeniser is `descriptionTokens` in
+`scripts/usda-coverage.mjs`.
+
+**The median was the wrong statistic to quote alone.** The distribution is bimodal:
+95 pairs score 1.00, and **52 of 190 score below 0.5** — soy milk against soymilk with
+added calcium (0.07), rolled oats against the Food Distribution Program's "Oats"
+(0.08), not-from-concentrate orange juice against "Orange juice, raw" (0.13), creamy
+peanut butter against "Peanut butter, smooth style, with salt" (0.14). Those are the
+borrowings Decision 4 exists for, and a median that averages them away is evidence for
+the auditability requirement rather than against it. Decision 4 stands unchanged and
+better supported: read the varietal residual as narrow for most pairs and real for
+roughly a quarter of them.
+
+**One completeness figure moves with it.** The Context bullet reads folate as 87%
+against CIQUAL's 43%; re-measured over the archive it is 88%, and vitamin C (94%) and
+B12 (91%) are unchanged. The comparison it supports is untouched. The full re-measured
+table is the
 [2026-08-19 correction in research note #108](../research/108-base-food-composition-sources.md#correction-2026-08-19-the-usda-columns-of-the-completeness-table-re-measured).
