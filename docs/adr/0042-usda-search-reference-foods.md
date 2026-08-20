@@ -10,6 +10,7 @@
 **Amended by:** the #131 Amendment below, which corrects §3's "ALL CAPS is the only available signal" and accepts the gap that leaves  
 **Amended by:** the #133 Amendment below, which lets §5's dish markers be a conjunction of two ordinary words  
 **Amended by:** the #136 Amendment below, which reads a typed query with the same tokeniser as a food's name  
+**Amended by:** the #135 Amendment below, which widens §1's stemmer by two English plurals  
 **Implemented:** `dabb1fe`, `082ad31`, `fcb3b60`, `1365343`; `src/lib/food/food-search.ts`
 
 ## Context
@@ -400,3 +401,38 @@ key order is blind to where a matched word sits, and neither is this
 amendment's. What this one buys is that all 4,429 are now retrieved at all.
 
 **#136 implemented:** `2892081` (the shared tokeniser and the per-row pin), `949452e` (the no-word guard), `0889be6` (curated matching reads through the same tokeniser).
+
+## Amendment (2026-08-20, #135): two more English plurals, and the two that were rejected
+
+§1's stemmer handles `-oes` and `-ies` and says in its own words that nothing else is
+handled. Two more are worth the same treatment, decided as part of
+[ADR-0049](0049-a-derived-vocabulary-for-food-search.md) §5 and recorded here because
+this is where the stemmer lives:
+
+- **`(ch|sh|x|ss|z)es` drops the `es`** — `radishes → radish`, `peaches → peach`.
+- **`leaves → leaf`, as a one-entry irregular list**, not a `-ves` rule.
+
+Measured over 1,978 probes — every distinct corpus word, its de-pluralised form, every
+head phrase and its singularised form — this changes **12 answers and regresses none**.
+Nine are queries that retrieve nothing today (`grape leaf`, `taro leaf`, `pumpkin leaf`,
+`sweet potato leaf`, `amaranth leaf`, `chrysanthemum leaf`, `drumstick leaf`,
+`winged bean leaf`, `coriander (cilantro) leaf`). Of the other three, `coriander leaf`
+moves from `Spices, coriander leaf, dried` to `Coriander (cilantro) leaves, raw` —
+[#130](https://github.com/palebluebytes/inventoria/issues/130) §8's third known case —
+`radish` moves from `Radish seeds, sprouted, raw` to `Radishes, raw`, and bare `leaf`
+moves from pork leaf fat to amaranth leaves.
+
+**A blanket `-ves` rule is rejected on measurement.** The corpus holds six `-ves` words
+and only two are plurals; the rule would stem `chives → chif`, `cloves → clof`,
+`olives → olif` and `additives → additif`. Those still match themselves, because the
+tokeniser is symmetric — but a user typing the **singular** `chive`, `clove` or `olive`
+would stop whole-word-matching the plural name, which works today. It breaks three real
+foods to fix two words. **`halves → half` is rejected the same way**: it regresses
+`halves` from `Nuts, walnuts, English, halves, raw` to a pork rump half and improves
+nothing.
+
+§1's warning that a more aggressive stemmer "starts merging words that name different
+foods" is discharged rather than ignored. A query stem is only ever tested against
+corpus stems, so a false positive requires two **corpus** words to collide; across all
+1,744 distinct corpus words these rules create exactly the two intended pairs,
+`leaf`/`leaves` and `radish`/`radishes`.
