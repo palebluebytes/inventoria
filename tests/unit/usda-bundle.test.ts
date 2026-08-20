@@ -19,11 +19,14 @@ import {
   serialiseIndex,
   serialiseNutrientStore,
 } from "../../scripts/usda-bundle.mjs";
+import { reportsNoEnergy } from "../../src/lib/food/nutrition";
 import * as usdaFdc from "../../src/lib/food/usda-fdc";
 import {
   PANEL_FIELDS,
   fdcIdentityKey,
+  fdcReportsNoEnergy,
   isBrandSpecific,
+  isDryBasisRecord,
   isPreparedProduct,
   isProcessedProduct,
   mapFdcFoodToPayload,
@@ -41,6 +44,8 @@ const app = {
   isBrandSpecific,
   isProcessedProduct,
   isPreparedProduct,
+  isDryBasisRecord,
+  fdcReportsNoEnergy,
   fdcIdentityKey,
   resolveFdcGroup,
   mapFdcFoodToPayload,
@@ -218,6 +223,15 @@ describe("collectNutrientDictionary — one unit per nutrient id", () => {
 });
 
 describe("buildCorpus — the ADR-0042 survivors, merged at generation time", () => {
+  // Energy by default, because a row without it no longer ships (ADR-0048 §5):
+  // these cases are about the food-kind filters, so each food carries the one
+  // measurement that keeps it loggable and the energy tests below override it.
+  const energy = {
+    nutrientId: 1008,
+    nutrientName: "Energy",
+    value: 69,
+    unitName: "kcal",
+  };
   const entry = (
     fdcId: number,
     description: string,
@@ -227,7 +241,7 @@ describe("buildCorpus — the ADR-0042 survivors, merged at generation time", ()
       fdcId,
       description,
       dataType: "SR Legacy",
-      foodNutrients: [],
+      foodNutrients: [energy],
       foodCategory: "Fruits and Fruit Juices",
       ...over,
     },
@@ -256,6 +270,8 @@ describe("buildCorpus — the ADR-0042 survivors, merged at generation time", ()
       brand_specific: 1,
       processed: 1,
       prepared: 1,
+      dry_basis: 0,
+      no_energy: 0,
     });
   });
 
@@ -361,6 +377,12 @@ describe("buildCorpus — the ADR-0042 survivors, merged at generation time", ()
             value: 2.4,
             unitName: "g",
           },
+          {
+            nutrientId: 1008,
+            nutrientName: "Energy",
+            value: 57,
+            unitName: "kcal",
+          },
         ],
       },
       foodPortions: [{ amount: 1, gramWeight: 999, modifier: "cup" }],
@@ -381,13 +403,191 @@ describe("buildCorpus — the ADR-0042 survivors, merged at generation time", ()
           (n: { nutrientId: number; value: number }) => [n.nutrientId, n.value]
         )
       );
-      expect(values).toEqual({ 1003: 0.5, 1079: 2.4 });
+      expect(values).toEqual({ 1003: 0.5, 1079: 2.4, 1008: 57 });
       expect(survivor.merged_from).toHaveLength(1);
-      expect(survivor.merged_from[0].filled_fields).toEqual(["fiber_content"]);
+      expect(survivor.merged_from[0].filled_fields).toEqual([
+        "calories",
+        "fiber_content",
+      ]);
       // Portions come from the base record: a borrowed gram weight would
       // describe a different sample than the description names.
       expect(survivor.foodPortions[0].gramWeight).toBe(148);
     }
+  });
+
+  // ── ADR-0048 §5: two more filters, after the merge ────────────────────────
+
+  it("drops a dry-basis assay and a record that reports no energy, each on its own tally", () => {
+    const corpus = buildCorpus(
+      groupByIdentity(
+        [
+          entry(1, "Beans, black, mature seeds, raw"),
+          entry(2, "Beans, Dry, Black (0% moisture)"),
+          entry(3, "Oil, olive, extra virgin", {
+            foodCategory: "Fats and Oils",
+            foodNutrients: [
+              {
+                nutrientId: 1085,
+                nutrientName: "Total fat (NLEA)",
+                value: 100,
+                unitName: "g",
+              },
+            ],
+          }),
+        ],
+        app
+      ),
+      app
+    );
+
+    expect(
+      corpus.survivors.map((s: { food: { fdcId: number } }) => s.food.fdcId)
+    ).toEqual([1]);
+    expect(corpus.dropped).toEqual({
+      brand_specific: 0,
+      processed: 0,
+      prepared: 0,
+      dry_basis: 1,
+      no_energy: 1,
+    });
+  });
+
+  it("keeps a measured zero — tap water is not the bug (§1)", () => {
+    const corpus = buildCorpus(
+      groupByIdentity(
+        [
+          entry(1, "Beverages, water, tap, drinking", {
+            foodCategory: "Beverages",
+            foodNutrients: [
+              {
+                nutrientId: 1008,
+                nutrientName: "Energy",
+                value: 0,
+                unitName: "kcal",
+              },
+            ],
+          }),
+        ],
+        app
+      ),
+      app
+    );
+
+    expect(corpus.survivors).toHaveLength(1);
+    expect(corpus.dropped.no_energy).toBe(0);
+  });
+
+  it("runs the energy filter AFTER the merge, so a twinned oil survives on its twin's energy", () => {
+    // The load-bearing ordering: `Oil, canola` (Foundation) reports no energy of
+    // its own and borrows SR Legacy's 884 kcal along with its fat (ADR-0045 §2).
+    // Filtering before `resolveFdcGroup` would drop it and four oils like it.
+    const foundation = {
+      food: {
+        fdcId: 100258,
+        description: "Oil, canola",
+        dataType: "Foundation",
+        ndbNumber: 4582,
+        foodCategory: "Fats and Oils",
+        foodNutrients: [
+          {
+            nutrientId: 1085,
+            nutrientName: "Total fat (NLEA)",
+            value: 94.5,
+            unitName: "g",
+          },
+        ],
+      },
+      foodPortions: [],
+    };
+    const twin = {
+      food: {
+        fdcId: 171413,
+        description: "Oil, canola",
+        dataType: "SR Legacy",
+        ndbNumber: 4582,
+        foodCategory: "Fats and Oils",
+        foodNutrients: [
+          {
+            nutrientId: 1008,
+            nutrientName: "Energy",
+            value: 884,
+            unitName: "kcal",
+          },
+          {
+            nutrientId: 1004,
+            nutrientName: "Total lipid (fat)",
+            value: 100,
+            unitName: "g",
+          },
+        ],
+      },
+      foodPortions: [],
+    };
+
+    const built = buildCorpus(groupByIdentity([foundation, twin], app), app);
+    expect(built.survivors).toHaveLength(1);
+    expect(built.dropped.no_energy).toBe(0);
+    // And it ships the twin's energy beside the twin's fat, not 94.5 g of NLEA
+    // fat beside 884 kcal (ADR-0048 §2 — fat stays `1004`).
+    const row = buildIndexRow(built.survivors[0], app);
+    expect(row.macros).toEqual({ calories: 884, fat_content: 100 });
+  });
+
+  it("cannot disagree with the food card about what 'no energy' means", () => {
+    // ADR-0048 §6, as a property rather than as an assertion about one row: the
+    // survivors are exactly the foods whose MAPPED panel the card would accept,
+    // because `fdcReportsNoEnergy` is written in terms of `reportsNoEnergy`.
+    // A second predicate anywhere — an id list restated in the script, a
+    // `macros.calories` check bolted on beside it — fails here.
+    const corpus = [
+      entry(1, "Grapes, red or green, raw"),
+      entry(2, "Oil, olive, extra virgin", { foodNutrients: [] }),
+      entry(3, "Beverages, water, tap, drinking", {
+        foodCategory: "Beverages",
+        foodNutrients: [
+          {
+            nutrientId: 1008,
+            nutrientName: "Energy",
+            value: 0,
+            unitName: "kcal",
+          },
+        ],
+      }),
+      entry(4, "Blueberries, raw", {
+        foodNutrients: [
+          {
+            nutrientId: 2047,
+            nutrientName: "Energy (Atwater General)",
+            value: 63.9,
+            unitName: "kcal",
+          },
+        ],
+      }),
+      entry(5, "Watermelon, seedless, flesh only, raw", {
+        foodNutrients: [
+          {
+            nutrientId: 1003,
+            nutrientName: "Protein",
+            value: 0.871,
+            unitName: "g",
+          },
+        ],
+      }),
+    ];
+    const cardWouldAccept = corpus
+      .filter(
+        ({ food }) =>
+          !reportsNoEnergy(
+            mapFdcFoodToPayload(food as never).attributes["nutrition/info"]
+          )
+      )
+      .map(({ food }) => food.fdcId);
+
+    const built = buildCorpus(groupByIdentity(corpus, app), app);
+    expect(
+      built.survivors.map((s: { food: { fdcId: number } }) => s.food.fdcId)
+    ).toEqual(cardWouldAccept);
+    expect(cardWouldAccept).toEqual([1, 3, 4]);
   });
 });
 

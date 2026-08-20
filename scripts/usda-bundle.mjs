@@ -16,11 +16,14 @@
  *
  * Two properties are load-bearing and everything below is shaped by them.
  *
- * **Nothing here restates app logic.** The ADR-0042 reference-food filters, the
- * ADR-0045 §2 twin merge, the nutrition panel and the portion mapping all come
- * out of `src/lib/food/usda-fdc.ts` itself, loaded through esbuild (see
+ * **Nothing here restates app logic.** The ADR-0042 reference-food filters,
+ * ADR-0048 §5's dry-basis and no-energy filters, the ADR-0045 §2 twin merge, the
+ * nutrition panel and the portion mapping all come out of
+ * `src/lib/food/usda-fdc.ts` itself, loaded through esbuild (see
  * `loadAppModule`). A bundled row is therefore exactly the row a live search
  * would have produced, and a filter retune cannot leave the artifact behind.
+ * The no-energy filter is the sharpest case: the same predicate decides whether
+ * a row ships here and whether the food card will log it (ADR-0048 §6).
  *
  * **The output is stable so the diff is readable** (§3): one array sorted by
  * `fdcId`, nutrients as an id-keyed object with sorted keys, one food per line,
@@ -75,6 +78,8 @@ export const APP_EXPORTS = [
   "isBrandSpecific",
   "isProcessedProduct",
   "isPreparedProduct",
+  "isDryBasisRecord",
+  "fdcReportsNoEnergy",
   "fdcIdentityKey",
   "resolveFdcGroup",
   "mapFdcFoodToPayload",
@@ -136,6 +141,8 @@ export const ROW_MACRO_KEYS = [
  * @property {(description: string) => boolean} isBrandSpecific
  * @property {(description: string) => boolean} isProcessedProduct
  * @property {(foodCategory: string | undefined, description: string) => boolean} isPreparedProduct
+ * @property {(description: string) => boolean} isDryBasisRecord
+ * @property {(food: BundleFood) => boolean} fdcReportsNoEnergy
  * @property {(food: BundleFood) => string | number} fdcIdentityKey
  * @property {(group: BundleFood[]) => { food: BundleFood, merged_from: MergedSource[] }} resolveFdcGroup
  * @property {(food: BundleFood, merged_from: MergedSource[]) => { attributes: Record<string, any> }} mapFdcFoodToPayload
@@ -371,8 +378,13 @@ export function collectNutrientDictionary(foods) {
  * gram weight would describe a different sample than the description names.
  *
  * `dropped` counts each filter's own casualties in the order they are applied,
- * so the three tallies sum to the foods removed rather than double-counting a
+ * so the five tallies sum to the foods removed rather than double-counting a
  * food two filters agree on.
+ *
+ * The last two are ADR-0048 §5's, and their position after `resolveFdcGroup` is
+ * load-bearing: five oils report no energy of their own and borrow their SR
+ * Legacy twin's, so filtering before the merge would drop foods the merge
+ * rescues.
  *
  * @param {Map<string | number, { food: BundleFood, foodPortions: Survivor["foodPortions"] }[]>} groups
  * @param {AppModule} app
@@ -386,7 +398,13 @@ export function collectNutrientDictionary(foods) {
 export function buildCorpus(groups, app) {
   /** @type {Survivor[]} */
   const survivors = [];
-  const dropped = { brand_specific: 0, processed: 0, prepared: 0 };
+  const dropped = {
+    brand_specific: 0,
+    processed: 0,
+    prepared: 0,
+    dry_basis: 0,
+    no_energy: 0,
+  };
   let twinned = 0;
   let twinned_survivors = 0;
 
@@ -403,6 +421,20 @@ export function buildCorpus(groups, app) {
     }
     if (app.isPreparedProduct(food.foodCategory, food.description)) {
       dropped.prepared++;
+      continue;
+    }
+    // A dry-basis assay is not a food (ADR-0048 §5) — a food-kind judgement of
+    // the same species as the three above, and it holds whether or not the
+    // record ever gains an energy value, so it is asked first.
+    if (app.isDryBasisRecord(food.description)) {
+      dropped.dry_basis++;
+      continue;
+    }
+    // A record with no energy cannot be logged, so it does not ship. The app
+    // owns the question — this asks the same one the food card asks of the
+    // mapped panel, and does not restate the ids behind it (§6).
+    if (app.fdcReportsNoEnergy(food)) {
+      dropped.no_energy++;
       continue;
     }
     // Always found: the merge keeps the base record's identity, so the resolved
@@ -777,9 +809,10 @@ async function main() {
   );
   console.log(
     `\n${identities.toLocaleString("en-GB")} food identities across ${archives.length} archives, ` +
-      `${twinned} twinned; ${survivors.length.toLocaleString("en-GB")} survive the ADR-0042 filters ` +
+      `${twinned} twinned; ${survivors.length.toLocaleString("en-GB")} survive the filters ` +
       `(${dropped.brand_specific} brand-specific, ${dropped.processed} packaged or processed, ` +
-      `${dropped.prepared} prepared or composite dropped)`
+      `${dropped.prepared} prepared or composite, ${dropped.dry_basis} dry-basis, ` +
+      `${dropped.no_energy} reporting no energy dropped)`
   );
   console.log(
     `  ${twinned_survivors} twinned foods survive, of which ${merged} borrowed a ` +
