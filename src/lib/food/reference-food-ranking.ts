@@ -54,6 +54,20 @@ const stemOf = (word: string): string => {
   return word.endsWith("s") ? word.slice(0, -1) : word;
 };
 
+/**
+ * Splits text into the words ranking compares, on every non-alphanumeric run.
+ *
+ * The ONE tokeniser: a typed query and a food's description are read by the same
+ * function, because a token is only ever compared against a word this produced.
+ * They used to differ — the query split on whitespace alone — so a hyphen,
+ * apostrophe, bracket or comma inside a typed word produced a token no name word
+ * could equal or prefix, and the query collapsed to `NO_MATCH`. `mahi-mahi`,
+ * `whole-wheat pasta` and `yambean (jicama)` all found nothing, and 4,394 of the
+ * 4,429 shipped rows could not be reached by their own full description (#136).
+ *
+ * It also drops the Lucene-style trailing `*` that callers pass, since a
+ * wildcard is not alphanumeric either.
+ */
 const wordsOf = (text: string): string[] =>
   text
     .toLowerCase()
@@ -174,12 +188,7 @@ export type ReferenceFoodQuery = (name: ReferenceFoodName) => RelevanceKey;
  * Callers that treat an empty query as "no search" guard it before compiling.
  */
 export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
-  const tokens = query
-    .trim()
-    .toLowerCase()
-    .split(/\s+/)
-    .map((t) => t.replace(/\*+$/, ""))
-    .filter(Boolean);
+  const tokens = wordsOf(query);
   const tokenStems = tokens.map(stemOf);
   const queryChars = tokens.reduce((n, t) => n + t.length, 0);
 

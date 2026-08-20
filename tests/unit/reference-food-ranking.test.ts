@@ -145,6 +145,46 @@ describe("compileReferenceFoodQuery", () => {
   it("is case-blind, so a phone's capitalised first word still searches", () => {
     expect(rank("Banana", "Bananas, raw").tier).toBe(50);
   });
+
+  it("splits a typed word on punctuation, the way a name is split", () => {
+    // The name tokeniser has always split on every non-alphanumeric run, so a
+    // hyphen, apostrophe, bracket, slash or comma inside a TYPED word used to
+    // make a token no name word could equal or prefix — and the whole query
+    // collapsed to NO_MATCH. 4,394 of the 4,429 shipped rows could not be
+    // reached by their own full description (#136).
+    expect(rank("mahi-mahi", "Fish, mahimahi, raw").tier).toBeGreaterThan(0);
+    expect(
+      rank("hyacinth-beans", "Hyacinth-beans, immature seeds, raw").tier
+    ).toBe(50);
+    expect(rank("sheep's milk", "Milk, sheep, fluid").tier).toBeGreaterThan(0);
+    expect(rank("yambean (jicama)", "Yambean (jicama), raw").tier).toBe(50);
+  });
+
+  it("reaches the same row whether the punctuation is typed or spaced", () => {
+    // The acceptance the fix is written against: punctuation is a separator, so
+    // typing it can only ever agree with typing a space in its place.
+    const spaced = (query: string, description: string) =>
+      rank(query.replace(/[^a-z0-9]+/gi, " "), description);
+    for (const [query, description] of [
+      ["yambean (jicama)", "Yambean (jicama), raw"],
+      ["whole-wheat pasta", "Pasta, whole-wheat, dry"],
+      ["margarine-like", "Margarine-like, vegetable oil spread, 60% fat"],
+      ["black-eyed peas", "Cowpeas (blackeyes), immature seeds, raw"],
+    ] as const) {
+      expect(rank(query, description)).toEqual(spaced(query, description));
+    }
+  });
+
+  it("still reads a hyphenated name as the two words it holds", () => {
+    // Splitting "whole-wheat" turns one unmatchable token into two matchable
+    // ones, which is the intent: the name has them as two words too.
+    expect(readReferenceFoodName("Pasta, whole-wheat, dry").words).toContain(
+      "wheat"
+    );
+    expect(rank("whole wheat", "Pasta, whole-wheat, dry").tier).toBe(
+      rank("whole-wheat", "Pasta, whole-wheat, dry").tier
+    );
+  });
 });
 
 describe("compareRelevance", () => {

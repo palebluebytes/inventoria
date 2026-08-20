@@ -26,6 +26,7 @@ import {
   isPreparedProduct,
   isProcessedProduct,
 } from "../../src/lib/food/usda-fdc";
+import { compileReferenceFoodQuery } from "../../src/lib/food/reference-food-ranking";
 import type { RawProvenance } from "../../src/lib/food/provenance";
 import type { EntityPayload } from "../../src/lib/ingestion/ingest";
 
@@ -293,6 +294,49 @@ describe("searchIndexRows", () => {
     // row, so the cap is what the FDC page size used to be.
     const broad = searchIndexRows(corpus, "b");
     expect(broad.length).toBe(SEARCH_RESULT_LIMIT);
+  });
+
+  it("reaches a food whose own name carries a hyphen or a bracket", () => {
+    // #136: the query used to split on whitespace alone while a description
+    // split on every non-alphanumeric run, so a typed hyphen, apostrophe or
+    // bracket made a token no name word could equal, and the search collapsed.
+    // These are the rows the corpus actually ships under those names.
+    expect(descriptionsFor("mahi-mahi")[0]).toBe("Fish, mahimahi, raw");
+    expect(descriptionsFor("hyacinth-beans")[0]).toBe(
+      "Hyacinth-beans, immature seeds, raw"
+    );
+    expect(descriptionsFor("yambean (jicama)")[0]).toBe(
+      "Yambean (jicama), raw"
+    );
+    expect(descriptionsFor("pak-choi")).not.toEqual([]);
+    expect(descriptionsFor("freeze-dried chives")).toContain(
+      "Chives, freeze-dried"
+    );
+  });
+
+  it("answers a typed punctuation mark exactly as it answers a space", () => {
+    for (const query of [
+      "yambean (jicama)",
+      "margarine-like",
+      "whole-wheat pasta",
+      "cabbage, chinese",
+    ]) {
+      expect(descriptionsFor(query)).toEqual(
+        descriptionsFor(query.replace(/[^a-z0-9]+/gi, " "))
+      );
+    }
+  });
+
+  it("reaches every shipped row by its own full description", () => {
+    // The blunt statement of the same defect: 4,394 of the 4,429 rows scored
+    // NO_MATCH against their OWN description, because the commas in it survived
+    // tokenisation. A row the corpus ships and its own name cannot reach is a
+    // search that cannot be trusted to have looked.
+    const unreachable = corpus.filter(
+      (food) =>
+        compileReferenceFoodQuery(food.row.description)(food.name).tier < 50
+    );
+    expect(unreachable.map((food) => food.row.description)).toEqual([]);
   });
 });
 
