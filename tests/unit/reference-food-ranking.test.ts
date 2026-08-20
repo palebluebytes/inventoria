@@ -177,15 +177,12 @@ describe("compileReferenceFoodQuery", () => {
     // "olive" at word 4 against word 1; "oil" is word 0 in both.
     expect(blend.position).toBe(-4);
     expect(oil.position).toBe(-1);
-  });
-
-  it("sums per token rather than taking the smallest index", () => {
-    // The obvious reading does nothing at all on the founding case: the
-    // smallest matched index anywhere is 0 for both candidates, because "oil"
-    // is the head word of each. Summing asks how far into the name the query's
-    // words landed IN TOTAL, and degrades gracefully as a query lengthens.
-    expect(rank("olive oil", "Oil, corn, peanut, and olive").position).toBe(-4);
-    expect(rank("olive oil", "Oil, olive, salad or cooking").position).toBe(-1);
+    // Which is also why the key sums rather than taking the smallest matched
+    // index anywhere in the name. That reading scores both candidates 0 and
+    // does nothing at all — "oil" alone, the token that ties them, is proof:
+    // it sits at word 0 of each, and a minimum can never see past it.
+    expect(rank("oil", "Oil, corn, peanut, and olive").position).toBe(0);
+    expect(rank("oil", "Oil, olive, salad or cooking").position).toBe(0);
   });
 
   it("charges the head word nothing, so the key never restates the tier", () => {

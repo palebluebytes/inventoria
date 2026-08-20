@@ -505,19 +505,9 @@ section gives.
 This key addresses `adjective + noun` queries and **leaves head-only ties
 untouched**, by construction: when the query is the head phrase, every candidate
 matches at index 0 and every candidate ties, exactly as the four existing keys
-already do.
-
-> **Corrected on implementation.** This paragraph continued "run over the 337
-> rows that tie on every key when searched by their own full description, it
-> breaks none of them and worsens none", and that is wrong. A self-name query is
-> a row's WHOLE description rather than its head phrase, so the key does read it:
-> `Cheese, cheddar` places "cheddar" at word 1 in the row itself and at word 3 in
-> `Cheese, pasteurized process, cheddar or American, low sodium`. Measured on the
-> way in, the #136 Amendment's 356 not-first rows fall to **172**; 184 rows gained
-> the lead and **none lost it**. The claim about head-only ties above is
-> unaffected, because a head phrase really is index 0 for every candidate — the
-> mistake was reading a self-name query as one of those. Both counts are now
-> pinned as a corpus test.
+already do. Run over the 337 rows that tie on every key when searched by their
+own full description (the #136 Amendment above), it breaks none of them and
+worsens none.
 
 Two sizing claims inherited from
 [#130](https://github.com/palebluebytes/inventoria/issues/130) are wrong and are
@@ -567,13 +557,45 @@ derived from whether a phrase retrieves anything at all, and its runtime fallbac
 fires only on an empty result. Neither can be disturbed by a change that cannot
 empty or fill a result set.
 
-**#124 implemented:** `47f6cdb` (the key), `dce9cc4` (the `qualifier` pass in
-`pnpm usda:ranking-audit`, and the regenerated `130-ranking-audit.json`).
+**#124 implemented:** see the amendment below, which records what the pass this
+one asked for actually found, and corrects one clause of this one.
 
-The pass this amendment asked for reports, over 1,328 generated queries: 76 leads
-moved, the defect fell from 92 queries to 16, and 516 answers rose against 548
-that fell. `bacon pork` is in the worsened column as predicted, and no guard was
-added for it. The falls are almost all beef and chicken cut records reordering
-among near-identical siblings; the postscript to
+## Amendment (2026-08-20, #124 implemented): the position key, and the clause it disproved
+
+The #124 Amendment above shipped as `47f6cdb` (the key) and `dce9cc4` (the
+`qualifier` pass in `pnpm usda:ranking-audit`, with the regenerated
+`130-ranking-audit.json`).
+
+**One clause of it is false and is corrected here rather than edited above.** It
+says the key, run over the 337 rows that tie on every key when searched by their
+own full description, "breaks none of them and worsens none". It breaks 184 of
+them. A self-name query is a row's WHOLE description rather than its head phrase,
+so the key does read it: `Cheese, cheddar` places "cheddar" at word 1 in the row
+itself and at word 3 in `Cheese, pasteurized process, cheddar or American, low
+sodium`. Measured on the way in, the #136 Amendment's 356 not-first rows fall to
+**172**, of which 154 still tie. **184 rows gained the lead and none lost it**,
+and both halves of that are pinned as a corpus test rather than left as a claim.
+
+The clause either side of it survives. Head-only ties really are untouched,
+because a head phrase really is index 0 for every candidate; the mistake was
+reading a self-name query as one of those. That class is still
+[#143](https://github.com/palebluebytes/inventoria/issues/143).
+
+**What the pass found.** Over 1,328 generated queries, 76 leads move. The defect
+this amendment opens with — a leading row beaten on summed token index by a
+candidate below it — falls from 92 queries to 16, the residue being leads that
+win on tier, rawness or head-completeness, which the key sits below. 951 answers
+rise and 773 fall. `bacon pork` is in the worsened column as predicted, lifting a
+rendered-fat record over five cured bacons, and no guard was added for it. The
+falls are almost all beef and chicken cut records reordering among
+near-identical siblings; the postscript to
 [the #130 research note](../research/130-reference-food-ranking-and-recall.md)
 carries the reading.
+
+**One thing the pass had to learn the hard way.** Regenerating
+`130-ranking-audit.json` reset all 914 of #130's hand adjudications to null,
+destroying the record the ranking work was measured against. The script now
+carries verdicts forward by case identity and flags the ones whose leading row
+has moved, stickily, so a second regenerate cannot quietly clear the doubt. A
+generated artifact that also holds human judgement has to be told the
+difference.

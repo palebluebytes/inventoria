@@ -31,6 +31,7 @@ import {
   compileReferenceFoodQuery,
   readReferenceFoodName,
   stemOf,
+  type RelevanceKey,
 } from "../../src/lib/food/reference-food-ranking";
 import type { RawProvenance } from "../../src/lib/food/provenance";
 import type { EntityPayload } from "../../src/lib/ingestion/ingest";
@@ -385,6 +386,16 @@ describe("searchIndexRows", () => {
     const touched = words
       .filter((w) => /(ch|sh|x|ss|z)es$/.test(w) || /ves$/.test(w))
       .sort();
+    // Two nets, because neither catches what the other does. This total counts
+    // every merge the stemmer makes over the whole corpus, however it made it,
+    // so a fifth rule reaching endings the table below does not enumerate still
+    // fails here — it was 120 before the two #138 rules added their pair each.
+    // It cannot see a rule that BREAKS a merge while adding one, which is
+    // exactly the blanket "-ves" shape; the table below is what catches that,
+    // by pinning "olives" to the singular it still has to answer.
+    const merged = new Set(words.map(stemOf));
+    expect(words.length - merged.size).toBe(122);
+
     expect(touched.map((w) => [w, stemOf(w), sharing(w)])).toEqual([
       ["additives", "additive", []],
       ["chives", "chive", []],
@@ -502,23 +513,52 @@ describe("searchIndexRows", () => {
     // regressed here: 184 rows gained the lead and none lost it.
     // 4,429 queries over 4,429 rows, so the winner is taken in one pass rather
     // than by sorting each result list — the sort costs seconds, the scan does
-    // not, and only the leading row is being asked about.
-    const notFirst = corpus.filter((food) => {
-      const rank = compileReferenceFoodQuery(food.row.description);
-      let best = corpus[0].row.description;
-      let bestKey = rank(corpus[0].name);
+    // not, and only the leading row is being asked about. Each query is ordered
+    // twice: once under the shipped keys, and once under the four that preceded
+    // the position key, which is the only way to say which DIRECTION a row moved.
+    const leaderUnder = (
+      compare: (a: RelevanceKey, b: RelevanceKey) => number,
+      rank: ReturnType<typeof compileReferenceFoodQuery>
+    ) => {
+      let best = "";
+      let bestKey: RelevanceKey | null = null;
       for (const other of corpus) {
         const key = rank(other.name);
         if (key.tier === 0) continue;
-        if (bestKey.tier === 0 || compareRelevance(key, bestKey) < 0) {
+        if (bestKey === null || compare(key, bestKey) < 0) {
           best = other.row.description;
           bestKey = key;
         }
       }
-      return best !== food.row.description;
+      return best;
+    };
+    const withoutPosition = (a: RelevanceKey, b: RelevanceKey) =>
+      b.tier - a.tier ||
+      b.raw - a.raw ||
+      b.head - a.head ||
+      b.simplicity - a.simplicity;
+
+    let notFirst = 0;
+    let gained = 0;
+    let lost = 0;
+    for (const food of corpus) {
+      const rank = compileReferenceFoodQuery(food.row.description);
+      const before = leaderUnder(withoutPosition, rank);
+      const after = leaderUnder(compareRelevance, rank);
+      if (after !== food.row.description) notFirst++;
+      if (before !== food.row.description && after === food.row.description)
+        gained++;
+      if (before === food.row.description && after !== food.row.description)
+        lost++;
+    }
+    // The total AND the split. A later key could reach 172 while quietly costing
+    // a row that leads today, and the total alone would not notice.
+    expect({ notFirst, gained, lost }).toEqual({
+      notFirst: 172,
+      gained: 184,
+      lost: 0,
     });
-    expect(notFirst.length).toBe(172);
-  }, 20_000);
+  }, 30_000);
 
   it("names every shipped row by its own full description", () => {
     // The blunt statement of the same defect: 4,394 of the 4,429 rows scored
