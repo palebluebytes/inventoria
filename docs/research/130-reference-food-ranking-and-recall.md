@@ -279,7 +279,8 @@ Over 1,328 generated queries, 76 leads move. The defect itself — a leading row
 beaten on summed token index by a candidate below it — falls from 92 queries to 16. The residue is leads that win on tier, rawness or head-completeness, which
 the position key sits below and cannot overrule.
 
-516 answers rise and 548 fall, and both columns are real. The falls are almost
+951 answers rise and 773 fall, counted over every query rather than only the 76
+whose lead moved, and both columns are real. The falls are almost
 entirely beef and chicken cut records reordering among near-identical siblings
 (`top beef`, `loin beef`, `skin chicken`), where no candidate is the obviously
 right one; §3.2's `peers` verdict is the honest reading of most of them.
@@ -295,3 +296,22 @@ phrase, so the position key reads it: `Cheese, cheddar` places "cheddar" at word
 low sodium`. The #136 Amendment's 356 rows that are not first by their own name
 fall to 172. 184 rows gained the lead and none lost it, so both counts are now
 pinned as a corpus test rather than left as a claim.
+
+### The judgements in this file nearly did not survive the regenerate
+
+§9 says the judgements are all in `130-ranking-audit.json` "so they can be
+disagreed with individually rather than taken on trust". Re-running the script
+reset all 914 of them to null. The ranking work destroyed the record it was being
+measured against, and nothing in the file said so.
+
+The script now carries verdicts forward by case identity. 906 of the 914 came
+back; 8 went with cases the sweep no longer emits, because the ranking change
+made their synonym groups agree. 109 are flagged `verdict_stale`: the case is
+still here and the verdict is still attached, but the leading row it was looking
+at has moved, so it needs re-reading before it is quoted again. The flag is
+sticky, or the next regenerate would compare against the run that already moved
+the row and quietly clear the doubt.
+
+The counts in §3 and §4 were taken on the 914-case run and are left as they were.
+Where they and the file now disagree, the file is current and the tables are
+dated.

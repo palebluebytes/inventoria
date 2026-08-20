@@ -442,8 +442,10 @@ function qualifierPass(corpus) {
       order.some((r) => r.key.position > order[0].key.position);
     if (leadBeaten(before)) leadBeatenBefore++;
     if (leadBeaten(after)) leadBeatenAfter++;
-    if (before[0].description === after[0].description) continue;
 
+    // Counted over EVERY query, before the lead-changed filter below: an answer
+    // can rise or fall while the row above it stays put, and a count that only
+    // watched the leads would report a smaller sweep than it ran.
     const moved = [...answers]
       .map((description) => ({
         description,
@@ -455,6 +457,11 @@ function qualifierPass(corpus) {
     const fell = moved.filter((a) => a.after > a.before).length;
     improved += rose;
     worsened += fell;
+
+    // Only the queries whose LEAD moved are emitted as cases. The rest moved
+    // rows nobody was looking at first, and 1,328 records of that would bury the
+    // 76 that a reader has to check.
+    if (before[0].description === after[0].description) continue;
 
     cases.push({
       pass: "qualifier",
@@ -471,7 +478,14 @@ function qualifierPass(corpus) {
     });
   }
 
-  return { cases, leadBeatenBefore, leadBeatenAfter, improved, worsened };
+  return {
+    cases,
+    queries: queries.size,
+    leadBeatenBefore,
+    leadBeatenAfter,
+    improved,
+    worsened,
+  };
 }
 
 /** The British-usage list, on its own denominator (see {@link BRITISH_QUERIES}). */
@@ -546,6 +560,71 @@ async function explainAbsence(term) {
   return hits;
 }
 
+// ── prior adjudications ────────────────────────────────────────────────────
+
+/**
+ * Identity of a case across runs: the thing that was judged, not the judgement.
+ * A synonym case is a taxonomy group; every other pass is one query.
+ */
+const identityOf = (kase) => `${kase.pass}:${kase.tag ?? kase.query}`;
+
+/**
+ * Carries the hand adjudications forward onto a fresh sweep.
+ *
+ * #130 judged 914 cases by hand, and the note's whole claim to be arguable rests
+ * on those judgements being in the file "so they can be disagreed with
+ * individually rather than taken on trust". A plain regenerate silently resets
+ * every one of them to null, which is what happened when #124's pass was first
+ * added — the ranking work destroyed the record it was measured against. So the
+ * previous file is read back and its verdicts are re-attached by identity.
+ *
+ * A verdict was made against the ordering of its own run, so a carried one can
+ * be stale. Rather than pretend otherwise, a case whose leading row has moved
+ * since is flagged `verdict_stale`, which says exactly what a re-reader has to
+ * look at again. The flag is sticky, because the next regenerate compares
+ * against the run that already moved the row and would otherwise read false.
+ * Cases the sweep no longer emits — a synonym group whose members now agree —
+ * take their verdicts with them, and the count is reported.
+ */
+function carryVerdicts(cases, previousPath) {
+  let previous;
+  try {
+    previous = JSON.parse(readFileSync(previousPath, "utf8"));
+  } catch {
+    return { carried: 0, stale: 0, dropped: 0 };
+  }
+  const judged = new Map(
+    previous.cases
+      .filter((kase) => kase.verdict !== null)
+      .map((kase) => [identityOf(kase), kase])
+  );
+  // The leading row a judgement was looking at, however the pass records it.
+  const leadOf = (kase) =>
+    kase.pass === "synonym"
+      ? (kase.members ?? []).map((m) => m.top ?? "").join("|")
+      : (kase.results?.[0]?.description ?? null);
+
+  let carried = 0;
+  let stale = 0;
+  for (const kase of cases) {
+    const before = judged.get(identityOf(kase));
+    if (!before) continue;
+    kase.verdict = before.verdict;
+    kase.cause = before.cause;
+    kase.note = before.note;
+    // Sticky. A second regenerate compares against the run that already moved
+    // the row, so a freshly-computed flag would read false and the doubt would
+    // quietly disappear. It clears when a human re-judges the case, not when the
+    // script runs again.
+    kase.verdict_stale =
+      (before.verdict_stale ?? false) || leadOf(kase) !== leadOf(before);
+    carried++;
+    if (kase.verdict_stale) stale++;
+    judged.delete(identityOf(kase));
+  }
+  return { carried, stale, dropped: judged.size };
+}
+
 // ── entry point ────────────────────────────────────────────────────────────
 
 const args = process.argv.slice(2);
@@ -578,6 +657,8 @@ if (args.includes("--vocab")) {
     ...qualifier.cases,
   ];
   const tally = (pass) => cases.filter((c) => c.pass === pass).length;
+  // Before anything is written: the hand judgements this file already carries.
+  const adjudications = carryVerdicts(cases, CANDIDATES_PATH);
   const output = {
     measured: {
       // What a later run needs to tell "the ranking changed" from "the corpus
@@ -590,6 +671,11 @@ if (args.includes("--vocab")) {
       pair_sample: PAIR_SAMPLE,
       pair_seed: PAIR_SEED,
     },
+    // #130's hand judgements, re-attached to this sweep. `stale` are the ones
+    // whose leading row has moved since they were made and which therefore need
+    // re-reading; `dropped` are cases this sweep no longer emits, whose verdicts
+    // went with them.
+    adjudications,
     // Q6's harm distribution over every (member, candidate) pair the synonym
     // pass produced. Aggregated here rather than stamped on each case: per case
     // it is a one-line map of `harm.ranks`, but the distribution is the metric
@@ -612,14 +698,16 @@ if (args.includes("--vocab")) {
       british: tally("british"),
       // #124's pass. Only the queries whose LEAD moved are emitted as cases, so
       // this count is smaller than the query set the two counters below span.
+      qualifier_queries: qualifier.queries,
       qualifier_lead_changed: tally("qualifier"),
       // The defect, before and after: a leading row that something below it
       // beats on summed token index.
       qualifier_lead_beaten_on_position_before: qualifier.leadBeatenBefore,
       qualifier_lead_beaten_on_position_after: qualifier.leadBeatenAfter,
-      // Both directions, over every row that legitimately answers a query. One
-      // query routinely appears in both columns; `bacon pork` is the pre-named
-      // example, and #124 accepted it in advance.
+      // Both directions, over every row that legitimately answers any of the
+      // queries above — not only the ones whose lead moved. A query routinely
+      // appears in both columns; `bacon pork` is the pre-named example, and #124
+      // accepted it in advance.
       qualifier_answers_improved: qualifier.improved,
       qualifier_answers_worsened: qualifier.worsened,
     },
@@ -627,4 +715,7 @@ if (args.includes("--vocab")) {
   };
   writeFileSync(CANDIDATES_PATH, JSON.stringify(output, null, 2) + "\n");
   console.log(JSON.stringify(output.counts, null, 2));
+  console.log(
+    `carried ${adjudications.carried} hand verdicts (${adjudications.stale} now stale, ${adjudications.dropped} dropped with their case)`
+  );
 }
