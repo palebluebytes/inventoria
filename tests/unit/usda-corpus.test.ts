@@ -315,28 +315,33 @@ describe("searchIndexRows", () => {
   });
 
   it("answers a typed punctuation mark exactly as it answers a space", () => {
-    for (const query of [
-      "yambean (jicama)",
-      "margarine-like",
-      "whole-wheat pasta",
-      "cabbage, chinese",
+    for (const [typed, spaced] of [
+      ["yambean (jicama)", "yambean jicama"],
+      ["margarine-like", "margarine like"],
+      ["whole-wheat pasta", "whole wheat pasta"],
+      ["cabbage, chinese", "cabbage chinese"],
     ]) {
-      expect(descriptionsFor(query)).toEqual(
-        descriptionsFor(query.replace(/[^a-z0-9]+/gi, " "))
-      );
+      expect(descriptionsFor(typed)).toEqual(descriptionsFor(spaced));
     }
   });
 
-  it("reaches every shipped row by its own full description", () => {
+  it("answers nothing to a query that is punctuation and no word", () => {
+    // "-" is not blank, so the caller's own emptiness guard passes it through.
+    expect(descriptionsFor("-")).toEqual([]);
+    expect(descriptionsFor("...")).toEqual([]);
+  });
+
+  it("names every shipped row by its own full description", () => {
     // The blunt statement of the same defect: 4,394 of the 4,429 rows scored
     // NO_MATCH against their OWN description, because the commas in it survived
-    // tokenisation. A row the corpus ships and its own name cannot reach is a
-    // search that cannot be trusted to have looked.
-    const unreachable = corpus.filter(
+    // tokenisation. Every row now reaches its own top rung — the query IS the
+    // head phrase — and a row that does not is one whose own name has stopped
+    // naming it.
+    const misnamed = corpus.filter(
       (food) =>
         compileReferenceFoodQuery(food.row.description)(food.name).tier < 50
     );
-    expect(unreachable.map((food) => food.row.description)).toEqual([]);
+    expect(misnamed.map((food) => food.row.description)).toEqual([]);
   });
 });
 

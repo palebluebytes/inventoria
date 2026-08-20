@@ -162,16 +162,30 @@ describe("compileReferenceFoodQuery", () => {
 
   it("reaches the same row whether the punctuation is typed or spaced", () => {
     // The acceptance the fix is written against: punctuation is a separator, so
-    // typing it can only ever agree with typing a space in its place.
-    const spaced = (query: string, description: string) =>
-      rank(query.replace(/[^a-z0-9]+/gi, " "), description);
-    for (const [query, description] of [
-      ["yambean (jicama)", "Yambean (jicama), raw"],
-      ["whole-wheat pasta", "Pasta, whole-wheat, dry"],
-      ["margarine-like", "Margarine-like, vegetable oil spread, 60% fat"],
-      ["black-eyed peas", "Cowpeas (blackeyes), immature seeds, raw"],
+    // typing it can only ever agree with typing a space in its place. The spaced
+    // form is spelled out rather than derived, so the case cannot agree with the
+    // tokeniser by construction.
+    for (const [typed, spaced, description] of [
+      ["yambean (jicama)", "yambean jicama", "Yambean (jicama), raw"],
+      ["whole-wheat pasta", "whole wheat pasta", "Pasta, whole-wheat, dry"],
+      [
+        "margarine-like",
+        "margarine like",
+        "Margarine-like, vegetable oil spread, 60% fat",
+      ],
+      ["cabbage, chinese", "cabbage chinese", "Cabbage, chinese, raw"],
     ] as const) {
-      expect(rank(query, description)).toEqual(spaced(query, description));
+      expect(rank(typed, description)).toEqual(rank(spaced, description));
+    }
+  });
+
+  it("answers nothing at all to a query that holds no word", () => {
+    // Punctuation is a separator, so "-" or "(" tokenises to nothing — and a
+    // query with no tokens passes every test over them vacuously, which would
+    // land every name in the whole-word tier and hand back the corpus. A caller
+    // guarding on `query.trim()` does not catch it: "-" is not blank.
+    for (const query of ["", "   ", "-", "(", "%", "..."]) {
+      expect(rank(query, "Bananas, raw").tier).toBe(0);
     }
   });
 

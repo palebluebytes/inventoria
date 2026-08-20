@@ -183,12 +183,14 @@ export type ReferenceFoodQuery = (name: ReferenceFoodName) => RelevanceKey;
  * re-derives both sides on every one of the ~n log n comparisons — 205 ms for a
  * bare "b" over the bundled corpus, against 5 ms for scoring then sorting.
  *
- * An empty query has no tokens, so every test over them passes vacuously and no
- * head word can be one: every name lands in the whole-word tier, undifferentiated.
- * Callers that treat an empty query as "no search" guard it before compiling.
+ * A query holding no word answers nothing. Every test over its tokens would
+ * otherwise pass vacuously and land every name in the whole-word tier, handing
+ * back the corpus; and since punctuation is a separator, "-" and "..." reach
+ * that state while sailing through a caller's `query.trim()` emptiness guard.
  */
 export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
   const tokens = wordsOf(query);
+  if (tokens.length === 0) return () => NO_MATCH;
   const tokenStems = tokens.map(stemOf);
   const queryChars = tokens.reduce((n, t) => n + t.length, 0);
 

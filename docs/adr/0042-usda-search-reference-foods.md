@@ -375,17 +375,28 @@ produced, so one function produces both. The Lucene-style trailing `*` callers
 pass falls out of it — a wildcard is not alphanumeric either — rather than being
 stripped separately.
 
+One consequence needs a guard rather than a rule. A query of pure punctuation now
+holds no word at all, and §1's tests over its tokens all pass vacuously, so `-`
+would land every name in the whole-word tier and answer with the corpus. A
+caller's own "did they type anything" check does not catch it, since `-` is not
+blank. **A query holding no word answers nothing**, decided where the tokens are
+counted rather than at each call site.
+
 **A typed hyphen now means two tokens, and §1 requires every token.** `whole-wheat`
 stops being one unmatchable token and becomes `whole` and `wheat`, both of which
 have to match; that is the intent, since the name holds them as two words too. A
 query is never made narrower by this, because the token it replaces matched
 nothing.
 
-This closes recall by a food's own name; it does not close ranking. Nineteen rows
-are still outranked by a sibling record when searched by their own full
-description — `Yardlong bean, raw` loses to `Yardlong beans, mature seeds, raw`
-on head-completeness, `Fat, chicken` to a raw chicken fat — which is
+This closes recall by a food's own name; it does not close ranking. **356 rows are
+still not first when searched by their own full description**: 19 are strictly
+outranked by a sibling record — `Yardlong bean, raw` loses to `Yardlong beans,
+mature seeds, raw` on head-completeness, `Fat, chicken` to a raw chicken fat —
+and the other 337 tie on every key and lose the stable sort, `Cheese, cheddar`
+behind `Cheese, pasteurized process, cheddar or American, low sodium`. Both
+halves are
 [#124](https://github.com/palebluebytes/inventoria/issues/124)'s class, where the
-key order is blind to where a matched word sits, and not this amendment's.
+key order is blind to where a matched word sits, and neither is this
+amendment's. What this one buys is that all 4,429 are now retrieved at all.
 
 **#136 implemented:** `2892081` (the shared tokeniser and the per-row pin).
