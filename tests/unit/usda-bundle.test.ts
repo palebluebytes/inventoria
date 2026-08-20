@@ -32,6 +32,7 @@ import {
   mapFdcFoodToPayload,
   mapFdcPortions,
   resolveFdcGroup,
+  type FdcFood,
 } from "../../src/lib/food/usda-fdc";
 
 // The generation step behind ADR-0047: USDA's bulk archives reduced to the two
@@ -87,6 +88,32 @@ describe("APP_EXPORTS — the script borrows the app's logic instead of copying 
 
   it("builds the corpus from Foundation and SR Legacy alone", () => {
     expect(BUNDLE_DATASETS).toEqual(["Foundation Foods", "SR Legacy"]);
+  });
+
+  // ── ADR-0048 §6: one predicate, and no second one ─────────────────────────
+  // The behavioural tests below hold the generator and the food card to the same
+  // ANSWER; these two hold them to the same EXPRESSION, which an exact copy
+  // would otherwise satisfy silently. A restated id list is the specific drift
+  // ADR-0047 §4's import-don't-copy rule exists to prevent.
+
+  it("never states what counts as energy where the corpus is generated", () => {
+    const script = readFileSync("scripts/usda-bundle.mjs", "utf8");
+    // `ROW_MACRO_KEYS` names "calories" as a key to read off the mapped payload,
+    // which is not a claim about which ids carry it and not a test of presence.
+    expect(script).not.toMatch(/\b(?:1008|2047|2048)\b/);
+    expect(script).not.toMatch(/ENERGY_IDS/);
+    expect(script).not.toMatch(/calories\s*(?:===|!==|==|!=|\?\?)/);
+  });
+
+  it("asks the panel's own question rather than re-deriving it", () => {
+    const app = readFileSync("src/lib/food/usda-fdc.ts", "utf8");
+    const body =
+      /export function fdcReportsNoEnergy\([\s\S]*?\n}/.exec(app)?.[0] ?? "";
+
+    expect(body).toContain("reportsNoEnergy(buildNutritionPanel(");
+    // An id loop here would answer the same way today and diverge the first time
+    // `ENERGY_IDS` changed.
+    expect(body).not.toMatch(/\b(?:1008|2047|2048)\b/);
   });
 });
 
@@ -235,8 +262,8 @@ describe("buildCorpus — the ADR-0042 survivors, merged at generation time", ()
   const entry = (
     fdcId: number,
     description: string,
-    over: Record<string, unknown> = {}
-  ) => ({
+    over: Partial<FdcFood> = {}
+  ): { food: FdcFood; foodPortions: [] } => ({
     food: {
       fdcId,
       description,
@@ -578,7 +605,7 @@ describe("buildCorpus — the ADR-0042 survivors, merged at generation time", ()
       .filter(
         ({ food }) =>
           !reportsNoEnergy(
-            mapFdcFoodToPayload(food as never).attributes["nutrition/info"]
+            mapFdcFoodToPayload(food).attributes["nutrition/info"]
           )
       )
       .map(({ food }) => food.fdcId);

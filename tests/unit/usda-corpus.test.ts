@@ -67,6 +67,25 @@ describe("the bundled search index", () => {
     expect(measuredZero).toHaveLength(9);
   });
 
+  it("keeps the five twinned oils, on their twin's energy and their twin's fat", () => {
+    // ADR-0048 §5's ordering, verified against the shipped artifact rather than
+    // a fixture: each of these reports no energy of its own and borrows it from
+    // an SR Legacy twin, so a filter placed before `resolveFdcGroup` would have
+    // dropped all five. `fat 100` is the twin's `1004` — §2 declined to read the
+    // `1085` these records carry, which would have shipped 884 kcal beside 94.5 g.
+    const oils = ["canola", "corn", "soybean", "peanut", "safflower"].map(
+      (kind) => index.foods.find((row) => row.description === `Oil, ${kind}`)
+    );
+    expect(oils.map((row) => row?.macros.fat_content)).toEqual([
+      100, 100, 100, 100, 100,
+    ]);
+    expect(oils.map((row) => row?.macros.calories)).toEqual([
+      884, 900, 884, 884, 884,
+    ]);
+    for (const oil of oils)
+      expect(oil?.merged_from?.[0].filled_fields).toContain("calories");
+  });
+
   it("offers no dry-basis assay as a food", () => {
     // The seventeen `Beans, Dry, … (0% moisture)` records: per 100 g of dry
     // matter, published to compare cultivars, and not a food anyone eats
