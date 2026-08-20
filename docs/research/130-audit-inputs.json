@@ -1,0 +1,3213 @@
+{
+  "source": {
+    "url": "https://static.openfoodfacts.org/data/taxonomies/ingredients.full.json",
+    "sha256": "efb3cc8ea813cc18b720803485a01c66a3708ba5f92986ca193aa9dbc466416e",
+    "bytes": 6418982,
+    "fetched": "2026-08-20",
+    "licence": "ODbL, Open Food Facts"
+  },
+  "note": "Derived set: the English multi-synonym groups that reach the bundled corpus. The 6.4 MB source is not committed and never enters the app bundle; the sha256 above pins what was measured.",
+  "groups": [
+    {
+      "tag": "en:flavouring",
+      "members": [
+        "flavouring",
+        "flavour",
+        "flavor",
+        "flavoring",
+        "aroma",
+        "flavours",
+        "flavors",
+        "flavourings",
+        "flavorings",
+        "aromas"
+      ]
+    },
+    {
+      "tag": "en:dried-apple",
+      "members": ["dried apple", "dried apples"],
+      "ciqual_food_code": "13111"
+    },
+    {
+      "tag": "en:dishcloth",
+      "members": ["dishcloth", "towelgourd", "sponge gourd", "luffa"],
+      "usda_ndb_code": "11220"
+    },
+    {
+      "tag": "en:lemonade",
+      "members": ["lemonade", "lemonades"]
+    },
+    {
+      "tag": "en:herb",
+      "members": ["herb", "mixed herbs", "aromatic plants"]
+    },
+    {
+      "tag": "en:cooked-beef-meat",
+      "members": ["cooked beef meat", "cooked beef"]
+    },
+    {
+      "tag": "en:spice",
+      "members": ["spice", "spices"]
+    },
+    {
+      "tag": "en:coconut-water",
+      "members": ["coconut water", "coconut juice"],
+      "usda_ndb_code": "12119",
+      "ciqual_food_code": "18011"
+    },
+    {
+      "tag": "en:palm-oil",
+      "members": [
+        "palm oil",
+        "palmoil",
+        "sustainable palm fruit oil",
+        "palm vegetable oil",
+        "vegetable palm oil",
+        "sustainable palm oil",
+        "sustainable palm"
+      ],
+      "ciqual_food_code": "16129"
+    },
+    {
+      "tag": "en:red-bean",
+      "members": ["red bean", "red beans", "red kidney beans"]
+    },
+    {
+      "tag": "en:pacific-oyster",
+      "members": ["pacific oyster", "crassostrea gigas"],
+      "ciqual_food_code": "10035"
+    },
+    {
+      "tag": "en:anti-foaming-agent",
+      "members": [
+        "anti-foaming agent",
+        "de-foaming agent",
+        "antifoaming agent",
+        "defoaming agent",
+        "anti-foaming"
+      ]
+    },
+    {
+      "tag": "en:noodle",
+      "members": ["noodle", "noodles"]
+    },
+    {
+      "tag": "en:skimmed-milk",
+      "members": [
+        "skimmed milk",
+        "skim milk",
+        "non-fat milk",
+        "nonfat milk",
+        "fat-free milk",
+        "low-fat milk",
+        "1% fat milk",
+        "lowfat milk"
+      ]
+    },
+    {
+      "tag": "en:lemongrass",
+      "members": ["lemongrass", "lemon grass"]
+    },
+    {
+      "tag": "en:cisco",
+      "members": ["cisco", "lake herring"],
+      "usda_ndb_code": "15013"
+    },
+    {
+      "tag": "en:jam",
+      "members": ["jam", "confiture"]
+    },
+    {
+      "tag": "en:bitter-melon",
+      "members": ["bitter melon", "momordic", "balsam pear", "bitter gourd"]
+    },
+    {
+      "tag": "en:hot-chili-peppers",
+      "members": ["hot chili peppers", "hot pepper"]
+    },
+    {
+      "tag": "en:beef-meat",
+      "members": ["beef meat", "pure beef meat"]
+    },
+    {
+      "tag": "en:broad-leaved-endive",
+      "members": [
+        "broad-leaved endive",
+        "batavian endive",
+        "escarole",
+        "flat endive"
+      ]
+    },
+    {
+      "tag": "en:green-pepper",
+      "members": ["green pepper", "green peppercorns"]
+    },
+    {
+      "tag": "en:milk-chocolate",
+      "members": ["milk chocolate", "milk chocolate bar"],
+      "ciqual_food_code": "31004"
+    },
+    {
+      "tag": "en:milk-powder",
+      "members": ["milk powder", "powdered milk", "dry milk"]
+    },
+    {
+      "tag": "en:soft-whole-wheat-flour",
+      "members": ["soft whole wheat flour", "wholemeal soft wheat flour"],
+      "usda_ndb_code": "20649"
+    },
+    {
+      "tag": "en:yautia",
+      "members": ["yautia", "malanga", "taro coco", "tannier"],
+      "usda_ndb_code": "11991"
+    },
+    {
+      "tag": "en:cowpea",
+      "members": ["cowpea", "cowpeas"],
+      "usda_ndb_code": "11191"
+    },
+    {
+      "tag": "en:onion",
+      "members": ["onion", "onions"]
+    },
+    {
+      "tag": "en:mammy-apple",
+      "members": ["mammy apple", "mamey"],
+      "usda_ndb_code": "9175"
+    },
+    {
+      "tag": "en:roselle-flower",
+      "members": [
+        "roselle flower",
+        "hibiscus flower",
+        "hibiscus flowers",
+        "hibiscus",
+        "roselle"
+      ],
+      "usda_ndb_code": "9311"
+    },
+    {
+      "tag": "en:bulgur",
+      "members": ["bulgur", "bulgur wheat"],
+      "usda_ndb_code": "20012",
+      "ciqual_food_code": "9690"
+    },
+    {
+      "tag": "en:pork-skin",
+      "members": ["pork skin", "sausage skin"]
+    },
+    {
+      "tag": "en:pine-nuts",
+      "members": ["pine nuts", "pine nut kernels", "pinenuts"],
+      "usda_ndb_code": "12147",
+      "ciqual_food_code": "15025"
+    },
+    {
+      "tag": "en:feta",
+      "members": ["feta", "feta cheese"],
+      "usda_ndb_code": "1019",
+      "ciqual_food_code": "12061"
+    },
+    {
+      "tag": "en:quail-eggs",
+      "members": ["quail eggs", "quail egg"]
+    },
+    {
+      "tag": "en:folic-acid",
+      "members": [
+        "folic acid",
+        "pteroylmonoglutamic acid",
+        "vitamin b9",
+        "b9",
+        "vitamin m"
+      ]
+    },
+    {
+      "tag": "en:hummus",
+      "members": ["hummus", "houmous"],
+      "usda_ndb_code": "16158",
+      "ciqual_food_code": "25621"
+    },
+    {
+      "tag": "en:rhubarb",
+      "members": ["rhubarb", "rhubarbs"],
+      "usda_ndb_code": "9307"
+    },
+    {
+      "tag": "en:shorea-robusta-seed-oil",
+      "members": [
+        "shorea robusta seed oil",
+        "shorea robusta oil",
+        "sal tree oil",
+        "sal oil"
+      ]
+    },
+    {
+      "tag": "en:whey-powder",
+      "members": ["whey powder", "powdered whey", "milk whey powder"]
+    },
+    {
+      "tag": "en:octopus",
+      "members": ["octopus", "raw common octopus"],
+      "ciqual_food_code": "10018"
+    },
+    {
+      "tag": "en:acidity-regulator",
+      "members": [
+        "acidity regulator",
+        "alkali",
+        "base",
+        "buffer",
+        "buffering agent",
+        "ph adjusting agent",
+        "corrector of acidity",
+        "acid regulator",
+        "controls acidity"
+      ]
+    },
+    {
+      "tag": "en:sweetener",
+      "members": [
+        "sweetener",
+        "bulk sweetener",
+        "intense sweetener",
+        "natural sweetener"
+      ]
+    },
+    {
+      "tag": "en:mustard-cabbage",
+      "members": ["mustard cabbage", "gai choy", "chinese mustard"],
+      "usda_ndb_code": "43144"
+    },
+    {
+      "tag": "en:red-bell-pepper",
+      "members": ["red bell pepper", "red pepper", "red capsicum"],
+      "ciqual_food_code": "20087"
+    },
+    {
+      "tag": "en:kanpyo",
+      "members": ["kanpyo", "dried gourd strips"],
+      "usda_ndb_code": "11237"
+    },
+    {
+      "tag": "en:fontina",
+      "members": ["fontina", "fontina cheese"],
+      "usda_ndb_code": "1020"
+    },
+    {
+      "tag": "en:beef-tongue",
+      "members": ["beef tongue", "raw beef tongue"],
+      "ciqual_food_code": "40202"
+    },
+    {
+      "tag": "en:soft-wheat",
+      "members": ["soft wheat", "tender wheat"]
+    },
+    {
+      "tag": "en:added-sugar",
+      "members": ["added sugar", "various sugars"]
+    },
+    {
+      "tag": "en:bay-leaf",
+      "members": ["bay leaf", "bay leaves", "bay", "laurel", "bayleaf"],
+      "usda_ndb_code": "2004",
+      "ciqual_food_code": "11053"
+    },
+    {
+      "tag": "en:enoki-mushrooms",
+      "members": [
+        "enoki mushrooms",
+        "enokitake",
+        "golden needle mushrooms",
+        "velvet shank"
+      ],
+      "usda_ndb_code": "11950"
+    },
+    {
+      "tag": "en:broad-bean",
+      "members": [
+        "broad bean",
+        "fava bean",
+        "faba bean",
+        "vicia faba",
+        "horse bean",
+        "broadbean"
+      ]
+    },
+    {
+      "tag": "en:chili-pepper",
+      "members": [
+        "chili pepper",
+        "chilli pepper",
+        "chilli",
+        "chillies",
+        "chile",
+        "chile pepper"
+      ],
+      "usda_ndb_code": "11962",
+      "ciqual_food_code": "20151"
+    },
+    {
+      "tag": "en:nigari",
+      "members": ["nigari", "bittern"]
+    },
+    {
+      "tag": "en:sweetcorn",
+      "members": ["sweetcorn", "sweet corn", "sweet corn in kernels"]
+    },
+    {
+      "tag": "en:whole-egg",
+      "members": ["whole egg", "whole eggs"]
+    },
+    {
+      "tag": "en:cassava",
+      "members": [
+        "cassava",
+        "cassava root",
+        "manioc",
+        "manioc root",
+        "yuca",
+        "yuca root"
+      ]
+    },
+    {
+      "tag": "en:corn-starch",
+      "members": ["corn starch", "maize starch", "cornstarch"],
+      "usda_ndb_code": "20027",
+      "ciqual_food_code": "9510"
+    },
+    {
+      "tag": "en:green-bean",
+      "members": ["green bean", "green beans", "french bean"],
+      "ciqual_food_code": "20061"
+    },
+    {
+      "tag": "en:cardamom",
+      "members": ["cardamom", "cardamon", "elaichi"],
+      "usda_ndb_code": "2006"
+    },
+    {
+      "tag": "en:soya",
+      "members": ["soya", "soy", "soja", "soia"]
+    },
+    {
+      "tag": "en:acid",
+      "members": [
+        "acid",
+        "acidifier",
+        "acidulant",
+        "tartness",
+        "provides tartness",
+        "food acid"
+      ]
+    },
+    {
+      "tag": "en:venison",
+      "members": ["venison", "deer meat"],
+      "usda_ndb_code": "17164"
+    },
+    {
+      "tag": "en:passion-fruit-juice",
+      "members": ["passion fruit juice", "passionfruit juice"]
+    },
+    {
+      "tag": "en:lactose",
+      "members": ["lactose", "milk sugar", "milk lactose"]
+    },
+    {
+      "tag": "en:tortilla",
+      "members": ["tortilla", "tortilla wrap"]
+    },
+    {
+      "tag": "en:tofu",
+      "members": ["tofu", "tofus", "bean curds"],
+      "ciqual_food_code": "20904"
+    },
+    {
+      "tag": "en:heart-of-palm",
+      "members": ["heart of palm", "hearts of palm", "palm heart"]
+    },
+    {
+      "tag": "en:pasteurised-egg-yolk",
+      "members": ["pasteurised egg yolk", "pasteurized egg yolk"]
+    },
+    {
+      "tag": "en:mustard-spinach",
+      "members": ["mustard spinach", "komatsuna"],
+      "usda_ndb_code": "11274"
+    },
+    {
+      "tag": "en:turnip",
+      "members": ["turnip", "turnips"],
+      "ciqual_food_code": "20064"
+    },
+    {
+      "tag": "en:e282",
+      "members": [
+        "e282",
+        "calcium propionate",
+        "calcium propanoate",
+        "cal. pro.",
+        "cal.pro."
+      ]
+    },
+    {
+      "tag": "en:green-chili-pepper",
+      "members": [
+        "green chili pepper",
+        "green chili",
+        "green chilli pepper",
+        "green chilli",
+        "green chillies",
+        "green chile",
+        "green chile pepper"
+      ]
+    },
+    {
+      "tag": "en:potato",
+      "members": ["potato", "potatoes"],
+      "usda_ndb_code": "11352"
+    },
+    {
+      "tag": "en:cream",
+      "members": ["cream", "milk cream"],
+      "ciqual_food_code": "19402"
+    },
+    {
+      "tag": "en:vitamin-e",
+      "members": ["vitamin e", "tocopherol"]
+    },
+    {
+      "tag": "en:aubergine",
+      "members": ["aubergine", "eggplant"]
+    },
+    {
+      "tag": "en:safflower",
+      "members": ["safflower", "carthamus"]
+    },
+    {
+      "tag": "en:cloudberry",
+      "members": [
+        "cloudberry",
+        "cloudberries",
+        "rubus chamaemorus",
+        "nordic berry",
+        "bakeapple",
+        "knotberry",
+        "knotberries",
+        "knoutberry"
+      ]
+    },
+    {
+      "tag": "en:vegetable",
+      "members": ["vegetable", "vegetables"]
+    },
+    {
+      "tag": "en:e516",
+      "members": [
+        "e516",
+        "calcium sulphate",
+        "gypsum",
+        "selenite",
+        "calcium sulfate",
+        "calcium sulfate added to prevent caking"
+      ]
+    },
+    {
+      "tag": "en:goat-cheese",
+      "members": ["goat cheese", "chèvre cheese"]
+    },
+    {
+      "tag": "en:poppyseed",
+      "members": ["poppyseed", "poppy seed", "poppy seeds"],
+      "usda_ndb_code": "2033",
+      "ciqual_food_code": "11061"
+    },
+    {
+      "tag": "en:coconut-butter",
+      "members": ["coconut butter", "creamed coconut"]
+    },
+    {
+      "tag": "en:mahi-mahi",
+      "members": ["mahi-mahi", "mahimahi"],
+      "usda_ndb_code": "15023"
+    },
+    {
+      "tag": "en:chayotte",
+      "members": ["chayotte", "chayote"],
+      "usda_ndb_code": "11149"
+    },
+    {
+      "tag": "en:buffalo-milk",
+      "members": ["buffalo milk", "buffalo's milk"]
+    },
+    {
+      "tag": "en:sultana",
+      "members": [
+        "sultana",
+        "sultanas",
+        "sultanina",
+        "thompson seedless",
+        "lady de coverly"
+      ]
+    },
+    {
+      "tag": "en:sprouted-alfalfa-seeds",
+      "members": ["sprouted alfalfa seeds", "germinated alfalfa"]
+    },
+    {
+      "tag": "en:whole-grain-brown-rice",
+      "members": ["whole grain brown rice", "wholegrain brown rice"]
+    },
+    {
+      "tag": "en:vitamins",
+      "members": ["vitamins", "vitamin", "vit."]
+    },
+    {
+      "tag": "en:soya-oil",
+      "members": ["soya oil", "soybean oil", "soy oil", "soyabean oil"],
+      "ciqual_food_code": "17420"
+    },
+    {
+      "tag": "en:soya-bean",
+      "members": [
+        "soya bean",
+        "soy beans",
+        "soya beans",
+        "soybean",
+        "soybeans"
+      ],
+      "usda_ndb_code": "16108",
+      "ciqual_food_code": "20901"
+    },
+    {
+      "tag": "en:romaine-lettuce",
+      "members": ["romaine lettuce", "cos"],
+      "usda_ndb_code": "11251",
+      "ciqual_food_code": "20171"
+    },
+    {
+      "tag": "en:whole-grain-triticale-flour",
+      "members": ["whole grain triticale flour", "whole-grain triticale flour"],
+      "usda_ndb_code": "20070"
+    },
+    {
+      "tag": "en:garland-chrysanthemum",
+      "members": ["garland chrysanthemum", "chrysanthemum leaves"],
+      "usda_ndb_code": "11157"
+    },
+    {
+      "tag": "en:chicken-breast",
+      "members": ["chicken breast", "chicken breast meat"]
+    },
+    {
+      "tag": "en:cornmeal",
+      "members": ["cornmeal", "corn grits", "corn semolina", "corn meal"],
+      "ciqual_food_code": "9616"
+    },
+    {
+      "tag": "en:whey-protein-isolate",
+      "members": ["whey protein isolate", "whey isolate"]
+    },
+    {
+      "tag": "en:port",
+      "members": ["port", "port wine"]
+    },
+    {
+      "tag": "en:whole-grain-corn-flour",
+      "members": [
+        "whole grain corn flour",
+        "wholegrain corn flour",
+        "wholegrain maize flour",
+        "whole grain maize flour"
+      ]
+    },
+    {
+      "tag": "en:chives",
+      "members": ["chives", "chive"]
+    },
+    {
+      "tag": "en:ketchup",
+      "members": ["ketchup", "catsup"],
+      "usda_ndb_code": "11935",
+      "ciqual_food_code": "11008"
+    },
+    {
+      "tag": "en:chard",
+      "members": [
+        "chard",
+        "chards",
+        "swiss chard",
+        "silver beet",
+        "seakale beet",
+        "leaf beet"
+      ],
+      "usda_ndb_code": "11147",
+      "ciqual_food_code": "20004"
+    },
+    {
+      "tag": "en:whole-wheat-flour",
+      "members": [
+        "whole wheat flour",
+        "wholewheat flour",
+        "wholemeal wheat flour",
+        "atta"
+      ]
+    },
+    {
+      "tag": "en:crust",
+      "members": ["crust", "rind"]
+    },
+    {
+      "tag": "en:green-olive",
+      "members": ["green olive", "green olives"],
+      "ciqual_food_code": "13033"
+    },
+    {
+      "tag": "en:no8",
+      "members": ["no8", "n8", "8"]
+    },
+    {
+      "tag": "en:mozzarella",
+      "members": ["mozzarella", "mozzarella cheese", "mozzarella soft cheese"],
+      "ciqual_food_code": "19590"
+    },
+    {
+      "tag": "en:patty",
+      "members": ["patty", "patties"]
+    },
+    {
+      "tag": "en:welsh-onion",
+      "members": [
+        "welsh onion",
+        "bunching onion",
+        "long green onion",
+        "korean leek"
+      ],
+      "usda_ndb_code": "11293"
+    },
+    {
+      "tag": "en:semi-skimmed-milk",
+      "members": [
+        "semi-skimmed milk",
+        "reduced-fat milk",
+        "partly skimmed milk",
+        "partially skimmed milk",
+        "part skim milk"
+      ]
+    },
+    {
+      "tag": "en:chinese-cabbage",
+      "members": [
+        "chinese cabbage",
+        "napa cabbage",
+        "kimchi cabbage",
+        "wombok"
+      ],
+      "ciqual_food_code": "20167"
+    },
+    {
+      "tag": "en:sablefish",
+      "members": ["sablefish", "black cod"],
+      "usda_ndb_code": "15074"
+    },
+    {
+      "tag": "en:barley-malt-flour",
+      "members": ["barley malt flour", "malted barley flour"],
+      "usda_ndb_code": "20131"
+    },
+    {
+      "tag": "en:corinthian-raisins",
+      "members": ["corinthian raisins", "zante currants"],
+      "usda_ndb_code": "9085"
+    },
+    {
+      "tag": "en:cashew-nuts",
+      "members": [
+        "cashew nuts",
+        "cashews",
+        "cashew",
+        "cashewnut",
+        "cashew nut"
+      ],
+      "usda_ndb_code": "12087"
+    },
+    {
+      "tag": "en:carob-bean",
+      "members": [
+        "carob bean",
+        "locust bean",
+        "carob seeds",
+        "carob",
+        "carobin"
+      ]
+    },
+    {
+      "tag": "en:selenium",
+      "members": ["selenium", "sn"]
+    },
+    {
+      "tag": "en:cooked-rutabaga",
+      "members": ["cooked rutabaga", "cooked swede"]
+    },
+    {
+      "tag": "en:whole-milk-powder",
+      "members": [
+        "whole milk powder",
+        "dried whole milk",
+        "powdered whole milk",
+        "whole powdered milk",
+        "whole dry milk",
+        "dry whole milk"
+      ],
+      "ciqual_food_code": "19021"
+    },
+    {
+      "tag": "en:breadcrumbs",
+      "members": ["breadcrumbs", "bread crumbs", "breading"],
+      "ciqual_food_code": "7500"
+    },
+    {
+      "tag": "en:moth-bean",
+      "members": ["moth bean", "matki", "mothbean"],
+      "usda_ndb_code": "16078"
+    },
+    {
+      "tag": "en:hydrolysed-soy-protein",
+      "members": ["hydrolysed soy protein", "hydrolyzed soy protein"]
+    },
+    {
+      "tag": "en:d-anjou-pear",
+      "members": ["d'anjou pear", "anjou pear"]
+    },
+    {
+      "tag": "en:hydrolysed",
+      "members": ["hydrolysed", "hydrolyzed"]
+    },
+    {
+      "tag": "en:beans",
+      "members": ["beans", "common bean", "bean", "rajma", "rajmah"]
+    },
+    {
+      "tag": "en:unrefined-sugar",
+      "members": ["unrefined sugar", "raw sugar"]
+    },
+    {
+      "tag": "en:pasta",
+      "members": ["pasta", "pastas"]
+    },
+    {
+      "tag": "en:e954",
+      "members": [
+        "e954",
+        "saccharin and its salts",
+        "saccharin",
+        "saccharin sodium salt",
+        "saccharin sodium",
+        "sodium saccharin salt",
+        "saccharin calcium salt",
+        "saccharin calcium",
+        "calcium saccharine",
+        "saccharin potassium salt",
+        "saccharine potassium",
+        "potassium saccharine",
+        "sodium saccharin"
+      ],
+      "ciqual_food_code": "31064"
+    },
+    {
+      "tag": "en:ricotta",
+      "members": ["ricotta", "ricotta cheese"],
+      "ciqual_food_code": "19585"
+    },
+    {
+      "tag": "en:soy-milk",
+      "members": ["soy milk", "soy drink"],
+      "ciqual_food_code": "18900"
+    },
+    {
+      "tag": "en:peanut",
+      "members": ["peanut", "peanuts"],
+      "usda_ndb_code": "16087",
+      "ciqual_food_code": "15001"
+    },
+    {
+      "tag": "en:whiskey",
+      "members": ["whiskey", "whiskeys"]
+    },
+    {
+      "tag": "en:mulberry",
+      "members": ["mulberry", "mulberries"],
+      "usda_ndb_code": "9190"
+    },
+    {
+      "tag": "en:goji",
+      "members": ["goji", "goji berries"]
+    },
+    {
+      "tag": "en:e518",
+      "members": [
+        "e518",
+        "magnesium sulphate",
+        "epsom salts",
+        "magnesium sulfate"
+      ]
+    },
+    {
+      "tag": "en:soya-flour",
+      "members": ["soya flour", "soy flour", "soybean meal"],
+      "ciqual_food_code": "20900"
+    },
+    {
+      "tag": "en:e123",
+      "members": ["e123", "amaranth", "fd&c red 2"]
+    },
+    {
+      "tag": "en:chickpea",
+      "members": [
+        "chickpea",
+        "chickpeas",
+        "garbanzo",
+        "garbanzo beans",
+        "chick pea",
+        "chick peas",
+        "split bengal gram",
+        "chana dal"
+      ],
+      "ciqual_food_code": "20532"
+    },
+    {
+      "tag": "en:egg-yolk",
+      "members": ["egg yolk", "eggs yolk"],
+      "ciqual_food_code": "22002"
+    },
+    {
+      "tag": "en:pimiento",
+      "members": ["pimiento", "pimientos", "pimento", "pimentos"]
+    },
+    {
+      "tag": "en:skimmed-milk-powder",
+      "members": [
+        "skimmed milk powder",
+        "nonfat dry milk",
+        "skimmed cow's milk powder"
+      ],
+      "ciqual_food_code": "19054"
+    },
+    {
+      "tag": "en:tuber",
+      "members": ["tuber", "tubers", "tuber vegetable"]
+    },
+    {
+      "tag": "en:soursop",
+      "members": ["soursop", "graviola"],
+      "usda_ndb_code": "9315"
+    },
+    {
+      "tag": "en:fresh-garlic",
+      "members": ["fresh garlic", "raw garlic"],
+      "usda_ndb_code": "11215"
+    },
+    {
+      "tag": "en:cod",
+      "members": ["cod", "codfish"],
+      "ciqual_food_code": "26043"
+    },
+    {
+      "tag": "en:roasted-peanut",
+      "members": ["roasted peanut", "roasted peanuts"],
+      "ciqual_food_code": "15037"
+    },
+    {
+      "tag": "en:rose-hip",
+      "members": ["rose hip", "rosehip", "rosehips"]
+    },
+    {
+      "tag": "en:no4",
+      "members": ["no4", "n4", "4"]
+    },
+    {
+      "tag": "en:blue-mussel",
+      "members": ["blue mussel", "common mussel", "mytilus edulis"]
+    },
+    {
+      "tag": "en:atlantic-salmon",
+      "members": ["atlantic salmon", "salmo salar salmon"]
+    },
+    {
+      "tag": "en:rice-flour",
+      "members": ["rice flour", "riceflour"],
+      "ciqual_food_code": "9520"
+    },
+    {
+      "tag": "en:kumquat",
+      "members": ["kumquat", "kumquats"],
+      "ciqual_food_code": "13549"
+    },
+    {
+      "tag": "en:rutabaga",
+      "members": ["rutabaga", "swede"],
+      "usda_ndb_code": "11435",
+      "ciqual_food_code": "20201"
+    },
+    {
+      "tag": "en:shiitake",
+      "members": [
+        "shiitake",
+        "lentinula edodes",
+        "lentinus edodes",
+        "shiitake mushrooms"
+      ],
+      "usda_ndb_code": "11238"
+    },
+    {
+      "tag": "en:soba",
+      "members": ["soba", "soba noodle"]
+    },
+    {
+      "tag": "en:elderberry",
+      "members": ["elderberry", "elderberries"],
+      "ciqual_food_code": "13126"
+    },
+    {
+      "tag": "en:tomato-powder",
+      "members": ["tomato powder", "powdered tomato"],
+      "usda_ndb_code": "11548"
+    },
+    {
+      "tag": "en:persimmon",
+      "members": ["persimmon", "sharon fruit", "khaki", "kaki"]
+    },
+    {
+      "tag": "en:mutton",
+      "members": ["mutton", "sheeps meat"]
+    },
+    {
+      "tag": "en:butterfat",
+      "members": [
+        "butterfat",
+        "butter fat",
+        "pastry butter",
+        "anhydrous milk fat",
+        "concentrated butter",
+        "concentrated dairy butter",
+        "butter oil",
+        "anhydrous butter"
+      ],
+      "usda_ndb_code": "1003",
+      "ciqual_food_code": "16401"
+    },
+    {
+      "tag": "en:colby-cheese",
+      "members": ["colby cheese", "colby"],
+      "usda_ndb_code": "1011"
+    },
+    {
+      "tag": "en:mixed-condiments",
+      "members": [
+        "mixed condiments",
+        "seasoning blend",
+        "seasoning mix",
+        "flavored seasoning"
+      ]
+    },
+    {
+      "tag": "en:pistachio-nuts",
+      "members": ["pistachio nuts", "pistachio", "american pistachios"],
+      "usda_ndb_code": "12151"
+    },
+    {
+      "tag": "en:coating",
+      "members": ["coating", "seasoning"]
+    },
+    {
+      "tag": "en:mussel",
+      "members": ["mussel", "mussels"],
+      "ciqual_food_code": "10014"
+    },
+    {
+      "tag": "en:scallop",
+      "members": ["scallop", "scallops"]
+    },
+    {
+      "tag": "en:cape-gooseberry",
+      "members": [
+        "cape gooseberry",
+        "cape gooseberries",
+        "goldenberry",
+        "goldenberries",
+        "golden berry",
+        "golden berries",
+        "peruvian groundcherry",
+        "groundcherries",
+        "poha"
+      ],
+      "usda_ndb_code": "9138"
+    },
+    {
+      "tag": "en:alcohol",
+      "members": ["alcohol", "pure alcohol"],
+      "ciqual_food_code": "1014"
+    },
+    {
+      "tag": "en:pak-choi",
+      "members": ["pak choi", "bok choy", "pok choi"],
+      "usda_ndb_code": "11116",
+      "ciqual_food_code": "20167"
+    },
+    {
+      "tag": "en:whey-protein",
+      "members": ["whey protein", "whey proteins", "milk whey proteins"]
+    },
+    {
+      "tag": "en:vine-spinach",
+      "members": ["vine spinach", "vinespinach", "basella", "malabar spinach"],
+      "usda_ndb_code": "11587"
+    },
+    {
+      "tag": "en:brie",
+      "members": ["brie", "brie cheese"],
+      "usda_ndb_code": "1006",
+      "ciqual_food_code": "12020"
+    },
+    {
+      "tag": "en:oat-flour",
+      "members": ["oat flour", "oatflour"]
+    },
+    {
+      "tag": "en:lupin-bean",
+      "members": [
+        "lupin bean",
+        "lupine bean",
+        "lupin",
+        "lupines",
+        "lupine",
+        "sweet lupin",
+        "lupini",
+        "lupini beans"
+      ],
+      "usda_ndb_code": "16076",
+      "ciqual_food_code": "20534"
+    },
+    {
+      "tag": "en:gooseberry",
+      "members": ["gooseberry", "gooseberries"],
+      "ciqual_food_code": "13020"
+    },
+    {
+      "tag": "en:milk",
+      "members": ["milk", "milk ingredients"]
+    },
+    {
+      "tag": "en:peach",
+      "members": ["peach", "peaches"]
+    },
+    {
+      "tag": "en:burdock-root",
+      "members": ["burdock root", "gobō"],
+      "usda_ndb_code": "11104"
+    },
+    {
+      "tag": "en:no6",
+      "members": ["no6", "n6", "6"]
+    },
+    {
+      "tag": "en:vegetable-fat",
+      "members": ["vegetable fat", "vegetal fat", "vegetable fats"]
+    },
+    {
+      "tag": "en:vitamin-d",
+      "members": ["vitamin d", "d"]
+    },
+    {
+      "tag": "en:inosine-monophosphate",
+      "members": [
+        "inosine monophosphate",
+        "inosine-5'-monophosphate",
+        "inosine 5'-phosphoric acid",
+        "imp"
+      ]
+    },
+    {
+      "tag": "en:ginger-powder",
+      "members": ["ginger powder", "ground ginger"],
+      "usda_ndb_code": "2021",
+      "ciqual_food_code": "11006"
+    },
+    {
+      "tag": "en:brown-mushroom",
+      "members": ["brown mushroom", "brown mushrooms"]
+    },
+    {
+      "tag": "en:sheeps-milk",
+      "members": [
+        "sheeps milk",
+        "sheep milk",
+        "ewes milk",
+        "ewe's milk",
+        "sheep's milk"
+      ]
+    },
+    {
+      "tag": "en:oil",
+      "members": ["oil", "cooking oil"]
+    },
+    {
+      "tag": "en:beef-kidney",
+      "members": ["beef kidney", "raw beef kidney"],
+      "ciqual_food_code": "40402"
+    },
+    {
+      "tag": "en:high-fructose-corn-syrup",
+      "members": ["high fructose corn syrup", "isoglucose", "hcfs"],
+      "usda_ndb_code": "19351"
+    },
+    {
+      "tag": "en:white-whole-grain-corn-flour",
+      "members": [
+        "white whole grain corn flour",
+        "white whole-grain corn flour"
+      ],
+      "usda_ndb_code": "20316"
+    },
+    {
+      "tag": "en:split-pea",
+      "members": ["split pea", "split peas"]
+    },
+    {
+      "tag": "en:yogurt",
+      "members": ["yogurt", "yoghurt", "yogourt", "yoghourt"]
+    },
+    {
+      "tag": "en:shea-butter",
+      "members": ["shea butter", "shea", "shea fat"],
+      "ciqual_food_code": "16110"
+    },
+    {
+      "tag": "en:lima-bean",
+      "members": ["lima bean", "lima beans", "butter bean"],
+      "ciqual_food_code": "20126"
+    },
+    {
+      "tag": "en:pouting",
+      "members": ["pouting", "bib", "pout"],
+      "ciqual_food_code": "26133"
+    },
+    {
+      "tag": "en:sausage",
+      "members": ["sausage", "sausages"]
+    },
+    {
+      "tag": "en:buttermilk",
+      "members": ["buttermilk", "butter milk", "sweet cream buttermilk"],
+      "ciqual_food_code": "19801"
+    },
+    {
+      "tag": "en:microbial-culture",
+      "members": [
+        "microbial culture",
+        "culture",
+        "active cultures",
+        "live cultures",
+        "starter culture"
+      ]
+    },
+    {
+      "tag": "en:pepeao",
+      "members": ["pepeao", "pepeiao", "wood ear mushroom"],
+      "usda_ndb_code": "11230"
+    },
+    {
+      "tag": "en:mixed-cheese",
+      "members": ["mixed cheese", "cheese blend"]
+    },
+    {
+      "tag": "en:chickpea-flour",
+      "members": [
+        "chickpea flour",
+        "chick pea flour",
+        "gram flour",
+        "garbanzo bean flour",
+        "besan"
+      ],
+      "usda_ndb_code": "16157",
+      "ciqual_food_code": "9580"
+    },
+    {
+      "tag": "en:almond",
+      "members": [
+        "almond",
+        "almonds",
+        "almond kernel",
+        "mamra giri",
+        "badaam giri",
+        "raw almond kernels"
+      ],
+      "usda_ndb_code": "12061",
+      "ciqual_food_code": "15041"
+    },
+    {
+      "tag": "en:e164",
+      "members": ["e164", "saffron", "gardenia yellow"],
+      "ciqual_food_code": "11039"
+    },
+    {
+      "tag": "en:e955",
+      "members": ["e955", "sucralose"]
+    },
+    {
+      "tag": "en:sugared",
+      "members": ["sugared", "sugary"]
+    },
+    {
+      "tag": "en:allspice",
+      "members": ["allspice", "all spice", "jamaica pepper", "myrtle pepper"],
+      "usda_ndb_code": "2001"
+    },
+    {
+      "tag": "en:bilberry",
+      "members": [
+        "bilberry",
+        "bilberries",
+        "huckleberry",
+        "huckleberries",
+        "whortleberry",
+        "whortleberries"
+      ]
+    },
+    {
+      "tag": "en:omelette",
+      "members": ["omelette", "omelet"]
+    },
+    {
+      "tag": "en:tahini",
+      "members": ["tahini", "tahini paste", "sesame tahini"],
+      "ciqual_food_code": "15203"
+    },
+    {
+      "tag": "en:hazelnut",
+      "members": ["hazelnut", "hazelnuts", "filbert"],
+      "usda_ndb_code": "12120",
+      "ciqual_food_code": "15004"
+    },
+    {
+      "tag": "en:pear",
+      "members": ["pear", "pears"]
+    },
+    {
+      "tag": "en:plant-protein",
+      "members": ["plant protein", "vegetable protein", "vegetal protein"]
+    },
+    {
+      "tag": "en:iodised-salt",
+      "members": ["iodised salt", "iodized salt"],
+      "ciqual_food_code": "11058"
+    },
+    {
+      "tag": "en:muenster-cheese",
+      "members": ["muenster cheese", "muenster"],
+      "usda_ndb_code": "1030"
+    },
+    {
+      "tag": "en:atlantic-bay-scallop",
+      "members": ["atlantic bay scallop", "bay scallop"]
+    },
+    {
+      "tag": "en:icing-sugar",
+      "members": ["icing sugar", "powdered sugar"],
+      "usda_ndb_code": "19336"
+    },
+    {
+      "tag": "en:roasted-lamb-shoulders",
+      "members": ["roasted lamb shoulders", "baked lamb shoulders"],
+      "ciqual_food_code": "21506"
+    },
+    {
+      "tag": "en:macadamia-nut",
+      "members": ["macadamia nut", "macadamia", "queensland nuts"],
+      "usda_ndb_code": "12131",
+      "ciqual_food_code": "15027"
+    },
+    {
+      "tag": "en:cider",
+      "members": ["cider", "apple cider"],
+      "ciqual_food_code": "5020"
+    },
+    {
+      "tag": "en:whey",
+      "members": ["whey", "milk whey"]
+    },
+    {
+      "tag": "en:black-gram",
+      "members": [
+        "black gram",
+        "urd bean",
+        "urd",
+        "urad bean",
+        "mungo bean",
+        "black matpe bean",
+        "urad dal"
+      ],
+      "usda_ndb_code": "16083"
+    },
+    {
+      "tag": "en:boston-butt",
+      "members": ["boston butt", "pork rack"],
+      "ciqual_food_code": "28104"
+    },
+    {
+      "tag": "en:jerusalem-artichoke",
+      "members": ["jerusalem artichoke", "root artichoke"],
+      "usda_ndb_code": "11226",
+      "ciqual_food_code": "20196"
+    },
+    {
+      "tag": "en:shallot",
+      "members": ["shallot", "shallots"],
+      "usda_ndb_code": "11677",
+      "ciqual_food_code": "20097"
+    },
+    {
+      "tag": "en:coriander-leaf",
+      "members": ["coriander leaf", "coriander leaves", "cilantro"]
+    },
+    {
+      "tag": "en:adzuki-bean",
+      "members": ["adzuki bean", "azuki bean"]
+    },
+    {
+      "tag": "en:asparagus",
+      "members": ["asparagus", "asparagus spears"],
+      "usda_ndb_code": "11011"
+    },
+    {
+      "tag": "en:wholemeal-oat",
+      "members": ["wholemeal oat", "wholegrain oats", "whole grain oats"]
+    },
+    {
+      "tag": "en:sour-cream",
+      "members": [
+        "sour cream",
+        "soured cream",
+        "grade a cultured cream",
+        "cultured cream"
+      ]
+    },
+    {
+      "tag": "en:parmigiano-reggiano",
+      "members": [
+        "parmigiano reggiano",
+        "parmesan",
+        "parmesan cheese",
+        "parmigiano reggiano cheese",
+        "parmesan cheese from cow's milk"
+      ],
+      "ciqual_food_code": "12120"
+    },
+    {
+      "tag": "en:dried-tomatoes",
+      "members": ["dried tomatoes", "dried tomato"],
+      "ciqual_food_code": "20189"
+    },
+    {
+      "tag": "en:pitanga",
+      "members": ["pitanga", "surinam cherry", "brazilian cherry"],
+      "usda_ndb_code": "9276"
+    },
+    {
+      "tag": "en:soy-sauce",
+      "members": ["soy sauce", "soya sauce", "soy sauces"],
+      "ciqual_food_code": "11104"
+    },
+    {
+      "tag": "en:corn-kernel",
+      "members": ["corn kernel", "corn kernels"]
+    },
+    {
+      "tag": "en:salsify",
+      "members": ["salsify", "black salsify"],
+      "ciqual_food_code": "20197"
+    },
+    {
+      "tag": "en:lemon-peel",
+      "members": ["lemon peel", "lemon rind"]
+    },
+    {
+      "tag": "en:black-bean",
+      "members": ["black bean", "black beans"]
+    },
+    {
+      "tag": "en:pork-belly",
+      "members": ["pork belly", "pork bellies"],
+      "ciqual_food_code": "28002"
+    },
+    {
+      "tag": "en:hops",
+      "members": ["hops", "hop"]
+    },
+    {
+      "tag": "en:blueberry",
+      "members": ["blueberry", "blueberries"],
+      "usda_ndb_code": "9050",
+      "ciqual_food_code": "13028"
+    },
+    {
+      "tag": "en:morel",
+      "members": ["morel", "morels"],
+      "usda_ndb_code": "11240"
+    },
+    {
+      "tag": "en:whole-wheat",
+      "members": [
+        "whole wheat",
+        "whole grain wheat",
+        "wholegrain wheat",
+        "wholewheat"
+      ],
+      "ciqual_food_code": "9010"
+    },
+    {
+      "tag": "en:whole-grain-rice",
+      "members": [
+        "whole grain rice",
+        "full grain rice",
+        "wholegrain rice",
+        "whole rice"
+      ],
+      "ciqual_food_code": "9102"
+    },
+    {
+      "tag": "en:long-grain-brown-rice",
+      "members": ["long grain brown rice", "brown long grain rice"]
+    },
+    {
+      "tag": "en:wax-bean",
+      "members": ["wax bean", "yellow bean"],
+      "ciqual_food_code": "20195"
+    },
+    {
+      "tag": "en:red-chili-pepper",
+      "members": [
+        "red chili pepper",
+        "red chili",
+        "red chilli pepper",
+        "red chilli",
+        "red chillies",
+        "red chile",
+        "red chile pepper"
+      ]
+    },
+    {
+      "tag": "en:sesame-paste",
+      "members": ["sesame paste", "sesame seed paste"],
+      "usda_ndb_code": "12169"
+    },
+    {
+      "tag": "en:mandarin-peel",
+      "members": ["mandarin peel", "mandarin with peel"]
+    },
+    {
+      "tag": "en:flax-seed",
+      "members": [
+        "flax seed",
+        "flax seeds",
+        "flaxseed",
+        "linseed",
+        "linseeds",
+        "linseed seeds"
+      ],
+      "usda_ndb_code": "12220",
+      "ciqual_food_code": "15034"
+    },
+    {
+      "tag": "en:babassu-oil",
+      "members": ["babassu oil", "babassu"],
+      "usda_ndb_code": "4534"
+    },
+    {
+      "tag": "en:mollusc",
+      "members": ["mollusc", "molluscs", "mollusks", "mollusk"]
+    },
+    {
+      "tag": "en:sardine",
+      "members": ["sardine", "sardines", "european pilchard"],
+      "ciqual_food_code": "26065"
+    },
+    {
+      "tag": "en:pork-knuckle",
+      "members": ["pork knuckle", "pork shank"],
+      "ciqual_food_code": "28004"
+    },
+    {
+      "tag": "en:whole-milk",
+      "members": ["whole milk", "full cream milk"],
+      "ciqual_food_code": "19023"
+    },
+    {
+      "tag": "en:lamb-rib",
+      "members": ["lamb rib", "raw lamb rib chop"],
+      "ciqual_food_code": "21517"
+    },
+    {
+      "tag": "en:mashed-potato",
+      "members": ["mashed potato", "mashed potatoes"]
+    },
+    {
+      "tag": "en:goat-milk",
+      "members": ["goat milk", "goat's milk", "goats milk", "goats' milk"]
+    },
+    {
+      "tag": "en:sulfates",
+      "members": ["sulfates", "sulfate", "sulphate"]
+    },
+    {
+      "tag": "en:provolone",
+      "members": ["provolone", "provolone cheese"],
+      "usda_ndb_code": "1035",
+      "ciqual_food_code": "12716"
+    },
+    {
+      "tag": "en:couscous",
+      "members": ["couscous", "cous cous"],
+      "usda_ndb_code": "20028",
+      "ciqual_food_code": "9683"
+    },
+    {
+      "tag": "en:e175",
+      "members": ["e175", "gold", "pigment metal 3", "element 79"]
+    },
+    {
+      "tag": "en:brazil-nut",
+      "members": ["brazil nut", "brazil nuts"],
+      "ciqual_food_code": "15008"
+    },
+    {
+      "tag": "en:raisin",
+      "members": ["raisin", "raisins"],
+      "ciqual_food_code": "13046"
+    },
+    {
+      "tag": "en:whole-sorghum-flour",
+      "members": ["whole sorghum flour", "whole grain sorghum flour"],
+      "usda_ndb_code": "20648"
+    },
+    {
+      "tag": "en:e949",
+      "members": ["e949", "hydrogen"]
+    },
+    {
+      "tag": "en:wheat-flour",
+      "members": ["wheat flour", "wheatflour"]
+    },
+    {
+      "tag": "en:cannellini-beans",
+      "members": ["cannellini beans", "white kidney beans"]
+    },
+    {
+      "tag": "en:courgette",
+      "members": ["courgette", "zucchini"],
+      "ciqual_food_code": "20020"
+    },
+    {
+      "tag": "en:walnut",
+      "members": ["walnut", "walnuts"],
+      "usda_ndb_code": "12155"
+    },
+    {
+      "tag": "en:white-grape",
+      "members": ["white grape", "green grape"],
+      "ciqual_food_code": "13044"
+    },
+    {
+      "tag": "en:pastry",
+      "members": ["pastry", "pastry dough", "pie dough"]
+    },
+    {
+      "tag": "en:shea-oil",
+      "members": ["shea oil", "sheanut oil"],
+      "usda_ndb_code": "4536"
+    },
+    {
+      "tag": "en:tapioca",
+      "members": ["tapioca", "tapioca starch", "manioc starch"],
+      "ciqual_food_code": "4000"
+    },
+    {
+      "tag": "en:ginger",
+      "members": ["ginger", "stem ginger", "ginger root"]
+    },
+    {
+      "tag": "en:yambean",
+      "members": ["yambean", "jícama", "mexican turnip", "mexican yam bean"],
+      "usda_ndb_code": "11603"
+    },
+    {
+      "tag": "en:lettuce",
+      "members": ["lettuce", "lettuces"],
+      "ciqual_food_code": "20031"
+    },
+    {
+      "tag": "en:wheat-germ",
+      "members": ["wheat germ", "wheatgerm"],
+      "usda_ndb_code": "20078",
+      "ciqual_food_code": "9660"
+    },
+    {
+      "tag": "en:no12",
+      "members": ["no12", "n12", "12"]
+    },
+    {
+      "tag": "en:sugar-apple",
+      "members": ["sugar apple", "sweetsop"],
+      "usda_ndb_code": "9321"
+    },
+    {
+      "tag": "en:pigeon-pea",
+      "members": [
+        "pigeon pea",
+        "red gram",
+        "pigeon peas",
+        "gandules",
+        "toor",
+        "arhar",
+        "gungo peas"
+      ],
+      "usda_ndb_code": "11344"
+    },
+    {
+      "tag": "en:daikon",
+      "members": [
+        "daikon",
+        "white radish",
+        "winter radish",
+        "oriental radish",
+        "long white radish"
+      ],
+      "usda_ndb_code": "11430"
+    },
+    {
+      "tag": "en:whole-cream",
+      "members": ["whole cream", "full cream"]
+    },
+    {
+      "tag": "en:skimmed-yogurt",
+      "members": ["skimmed yogurt", "fat free yogurt", "low fat yogurt"],
+      "usda_ndb_code": "1117"
+    },
+    {
+      "tag": "en:garlic",
+      "members": ["garlic", "garlic bulb", "garlic clove"]
+    },
+    {
+      "tag": "en:crustacean",
+      "members": ["crustacean", "crustaceans"]
+    },
+    {
+      "tag": "en:e570",
+      "members": [
+        "e570",
+        "fatty acids",
+        "linear fatty acids",
+        "caprylic acid (c8)",
+        "caprylic acid",
+        "capric acid (c10)",
+        "capric acid",
+        "lauric acid (c12)",
+        "lauric acid",
+        "myristic acid (c14)",
+        "myristic acid",
+        "palmitic acid (c16)",
+        "palmitic acid",
+        "stearic acid (c18)",
+        "stearic acid",
+        "fatty acid"
+      ]
+    },
+    {
+      "tag": "en:wine",
+      "members": ["wine", "fruit wine"]
+    },
+    {
+      "tag": "en:carob-seed-flour",
+      "members": ["carob seed flour", "carob kernel flour", "carob flour"],
+      "usda_ndb_code": "16055"
+    },
+    {
+      "tag": "en:wholemeal-spelt-flour",
+      "members": [
+        "wholemeal spelt flour",
+        "whole grain spelt flour",
+        "wholegrain spelt flour"
+      ]
+    },
+    {
+      "tag": "en:whitecurrant",
+      "members": ["whitecurrant", "white currant"]
+    },
+    {
+      "tag": "en:java-plum",
+      "members": ["java plum", "java-plum", "jambolan"],
+      "usda_ndb_code": "9145"
+    },
+    {
+      "tag": "en:minced-beef",
+      "members": ["minced beef", "ground beef"]
+    },
+    {
+      "tag": "en:biscuit",
+      "members": ["biscuit", "biscuits"],
+      "ciqual_food_code": "24000"
+    },
+    {
+      "tag": "en:vermicelli",
+      "members": ["vermicelli", "semiya"]
+    },
+    {
+      "tag": "en:no10",
+      "members": ["no10", "n10", "10"]
+    },
+    {
+      "tag": "en:roquefort",
+      "members": [
+        "roquefort",
+        "roquefort cheese",
+        "roquefort cheese from ewe's milk"
+      ],
+      "usda_ndb_code": "1039",
+      "ciqual_food_code": "12500"
+    },
+    {
+      "tag": "en:sake",
+      "members": ["sake", "sake wine"],
+      "usda_ndb_code": "43479",
+      "ciqual_food_code": "1026"
+    },
+    {
+      "tag": "en:corn-flour",
+      "members": ["corn flour", "maize flour", "cornflour"],
+      "ciqual_food_code": "9545"
+    },
+    {
+      "tag": "en:salt",
+      "members": [
+        "salt",
+        "table salt",
+        "common salt",
+        "cooking salt",
+        "dry salt",
+        "edible salt",
+        "edible common salt",
+        "food salt"
+      ],
+      "usda_ndb_code": "2047",
+      "ciqual_food_code": "11058"
+    },
+    {
+      "tag": "en:quince",
+      "members": ["quince", "quinces"]
+    },
+    {
+      "tag": "en:custard-apple",
+      "members": ["custard apple", "cherimoya"]
+    },
+    {
+      "tag": "en:dairy",
+      "members": [
+        "dairy",
+        "dairy product",
+        "dairy products",
+        "dairy food",
+        "dairy foods",
+        "milk product",
+        "milk products",
+        "milk based product"
+      ]
+    },
+    {
+      "tag": "en:seedless-golden-raisin",
+      "members": ["seedless golden raisin", "seedless golden raisins"],
+      "usda_ndb_code": "9297"
+    },
+    {
+      "tag": "en:jalapeno-pepper",
+      "members": [
+        "jalapeno pepper",
+        "jalapeño pepper",
+        "jalapeño chilli",
+        "jalapeño chillies"
+      ],
+      "usda_ndb_code": "11979"
+    },
+    {
+      "tag": "en:cotija-cheese",
+      "members": ["cotija cheese", "cotija"]
+    },
+    {
+      "tag": "en:peri-peri",
+      "members": [
+        "peri-peri",
+        "peri peri",
+        "piri-piri",
+        "pili-pili",
+        "pili pili"
+      ]
+    },
+    {
+      "tag": "en:egg-white",
+      "members": ["egg white", "egg albumen", "egg albumin"],
+      "ciqual_food_code": "22001"
+    },
+    {
+      "tag": "en:monkfish",
+      "members": ["monkfish", "anglerfish", "angler fish"],
+      "usda_ndb_code": "15054",
+      "ciqual_food_code": "26018"
+    },
+    {
+      "tag": "en:kale",
+      "members": ["kale", "curly cale", "curly kale"],
+      "usda_ndb_code": "11233",
+      "ciqual_food_code": "20218"
+    },
+    {
+      "tag": "en:kiwifruit",
+      "members": ["kiwifruit", "kiwi", "kiwi fruit", "chinese gooseberry"],
+      "usda_ndb_code": "9148",
+      "ciqual_food_code": "13021"
+    },
+    {
+      "tag": "en:water-spinach",
+      "members": [
+        "water spinach",
+        "water convolvulus",
+        "morning glory",
+        "kangkong"
+      ],
+      "usda_ndb_code": "11503"
+    },
+    {
+      "tag": "en:tangerine-juice",
+      "members": ["tangerine juice", "mandarin juice"]
+    },
+    {
+      "tag": "en:papaya",
+      "members": ["papaya", "papaw", "pawpaw"],
+      "usda_ndb_code": "9226",
+      "ciqual_food_code": "13035"
+    },
+    {
+      "tag": "en:vegetable-oil-and-fat",
+      "members": ["vegetable oil and fat", "vegetable fat and oil"]
+    },
+    {
+      "tag": "en:beechnut",
+      "members": ["beechnut", "beeechnuts"],
+      "usda_ndb_code": "12077"
+    },
+    {
+      "tag": "en:olive",
+      "members": ["olive", "olives"],
+      "ciqual_food_code": "13184"
+    },
+    {
+      "tag": "en:chia-seed",
+      "members": ["chia seed", "chia seeds"],
+      "usda_ndb_code": "12006",
+      "ciqual_food_code": "15047"
+    },
+    {
+      "tag": "en:rocket",
+      "members": [
+        "rocket",
+        "arugula",
+        "garden rocket",
+        "eruca",
+        "rucola",
+        "rucoli",
+        "rugula",
+        "colewort",
+        "roquette",
+        "salad rocket"
+      ]
+    },
+    {
+      "tag": "en:cantaloupe",
+      "members": ["cantaloupe", "cantaloupe melon"],
+      "usda_ndb_code": "9181"
+    },
+    {
+      "tag": "en:mango",
+      "members": ["mango", "mangoes"],
+      "usda_ndb_code": "9176",
+      "ciqual_food_code": "13025"
+    },
+    {
+      "tag": "en:e322i",
+      "members": ["e322i", "lecithin"]
+    },
+    {
+      "tag": "en:cocoa-processed-with-alkali",
+      "members": ["cocoa processed with alkali", "alkalized cocoa"]
+    },
+    {
+      "tag": "en:grape",
+      "members": ["grape", "vine fruit", "mixed vine fruit"],
+      "ciqual_food_code": "13112"
+    },
+    {
+      "tag": "en:soya-lecithin",
+      "members": [
+        "soya lecithin",
+        "soy lecithin",
+        "soybean lecithin",
+        "emulsifer soya lecithin"
+      ],
+      "usda_ndb_code": "4531",
+      "ciqual_food_code": "42200"
+    },
+    {
+      "tag": "en:camomile",
+      "members": ["camomile", "chamomile"]
+    },
+    {
+      "tag": "en:blackberry",
+      "members": ["blackberry", "blackberries"],
+      "usda_ndb_code": "9042",
+      "ciqual_food_code": "13029"
+    },
+    {
+      "tag": "en:immature-cowpeas",
+      "members": ["immature cowpeas", "immature blackeyes"],
+      "usda_ndb_code": "11191"
+    },
+    {
+      "tag": "en:durum-wheat",
+      "members": ["durum wheat", "hard wheat"],
+      "usda_ndb_code": "20076"
+    },
+    {
+      "tag": "en:prune",
+      "members": ["prune", "dried plum"],
+      "usda_ndb_code": "9291",
+      "ciqual_food_code": "13042"
+    },
+    {
+      "tag": "en:einkorn-wheat",
+      "members": ["einkorn wheat", "einkorn"]
+    },
+    {
+      "tag": "en:wild-blueberry",
+      "members": ["wild blueberry", "wild blueberries"],
+      "usda_ndb_code": "9053"
+    },
+    {
+      "tag": "en:water",
+      "members": ["water", "drinking water", "tap water"],
+      "ciqual_food_code": "18066"
+    },
+    {
+      "tag": "en:chicken",
+      "members": ["chicken", "chickens"]
+    },
+    {
+      "tag": "en:hydrogenated-coconut-oil",
+      "members": ["hydrogenated coconut oil", "fully hydrogenated coconut oil"]
+    },
+    {
+      "tag": "en:linseed-oil",
+      "members": ["linseed oil", "flaxseed oil"],
+      "ciqual_food_code": "17180"
+    },
+    {
+      "tag": "en:date",
+      "members": ["date", "dates"],
+      "ciqual_food_code": "13011"
+    },
+    {
+      "tag": "en:gouda",
+      "members": ["gouda", "gouda cheese", "gouda cheese from cow's milk"],
+      "usda_ndb_code": "1022",
+      "ciqual_food_code": "12736"
+    },
+    {
+      "tag": "en:bell-pepper",
+      "members": ["bell pepper", "sweet pepper"],
+      "ciqual_food_code": "20041"
+    },
+    {
+      "tag": "en:vegetable-oil",
+      "members": [
+        "vegetable oil",
+        "vegetal oil",
+        "vegetal oils",
+        "vegetable oils",
+        "plant oils"
+      ]
+    },
+    {
+      "tag": "en:gai-lan",
+      "members": [
+        "gai lan",
+        "chinese broccoli",
+        "chinese kale",
+        "gai-lan",
+        "kailan",
+        "kai-lan"
+      ],
+      "usda_ndb_code": "11994"
+    },
+    {
+      "tag": "en:french-fries",
+      "members": ["french fries", "fries", "french fried potatoes"]
+    },
+    {
+      "tag": "en:chestnut",
+      "members": ["chestnut", "chestnuts", "chesnut", "chesnuts"],
+      "ciqual_food_code": "15024"
+    },
+    {
+      "tag": "en:yellow-bell-pepper",
+      "members": ["yellow bell pepper", "yellow pepper", "yellow capsicum"],
+      "ciqual_food_code": "20168"
+    },
+    {
+      "tag": "en:grape-juice",
+      "members": ["grape juice", "raisin juice"],
+      "ciqual_food_code": "2016"
+    },
+    {
+      "tag": "en:e270",
+      "members": ["e270", "lactic acid", "milk acid", "2-hydroxypropanoic acid"]
+    },
+    {
+      "tag": "en:e174",
+      "members": ["e174", "silver", "element 47"]
+    },
+    {
+      "tag": "en:wholemeal-oat-flour",
+      "members": ["wholemeal oat flour", "whole grain oat flour"]
+    },
+    {
+      "tag": "en:lychee",
+      "members": ["lychee", "litchi", "litchis"],
+      "usda_ndb_code": "9164",
+      "ciqual_food_code": "13023"
+    },
+    {
+      "tag": "en:atlantic-cod",
+      "members": ["atlantic cod", "gadus morhua"]
+    },
+    {
+      "tag": "en:cottonseed",
+      "members": ["cottonseed", "cotton seed"]
+    },
+    {
+      "tag": "en:aniseed",
+      "members": ["aniseed", "anise"]
+    },
+    {
+      "tag": "en:sodium",
+      "members": ["sodium", "natrium"]
+    },
+    {
+      "tag": "en:endive",
+      "members": ["endive", "endives"]
+    },
+    {
+      "tag": "en:common-octopus",
+      "members": ["common octopus", "octopus vulgaris"]
+    },
+    {
+      "tag": "en:prepared-meat",
+      "members": ["prepared meat", "processed meat", "cured meat"]
+    },
+    {
+      "tag": "en:chicken-thigh",
+      "members": ["chicken thigh", "chicken drumstick"],
+      "ciqual_food_code": "36006"
+    },
+    {
+      "tag": "en:beetroot",
+      "members": ["beetroot", "beet", "beet root"],
+      "usda_ndb_code": "11080"
+    },
+    {
+      "tag": "en:sunflower-oil",
+      "members": [
+        "sunflower oil",
+        "sunflower seed oil",
+        "sunflower vegetable oil"
+      ],
+      "ciqual_food_code": "17440"
+    },
+    {
+      "tag": "en:black-eyed-pea",
+      "members": [
+        "black-eyed pea",
+        "blackeye peas",
+        "black eye beans",
+        "black eyed beans"
+      ]
+    },
+    {
+      "tag": "en:palm-or-palm-kernel-oil",
+      "members": [
+        "palm or palm kernel oil",
+        "palm oil or palm kernel oil",
+        "palm or palm kernel"
+      ]
+    },
+    {
+      "tag": "en:pumpkin-seed",
+      "members": ["pumpkin seed", "seeds of squash"],
+      "usda_ndb_code": "12014",
+      "ciqual_food_code": "15064"
+    },
+    {
+      "tag": "en:wasabi",
+      "members": ["wasabi", "wasabi root"],
+      "usda_ndb_code": "11990"
+    },
+    {
+      "tag": "en:non-hydrogenated-palm-fat",
+      "members": ["non hydrogenated palm fat", "unhydrogenated palm fat"]
+    },
+    {
+      "tag": "en:no2",
+      "members": ["no2", "n2", "2"]
+    },
+    {
+      "tag": "en:fat",
+      "members": ["fat", "fats"]
+    },
+    {
+      "tag": "en:cheddar",
+      "members": [
+        "cheddar",
+        "cheddar cheese",
+        "cheddar cheese from cow's milk"
+      ],
+      "usda_ndb_code": "1009",
+      "ciqual_food_code": "12726"
+    },
+    {
+      "tag": "en:roe",
+      "members": ["roe", "hard roe"]
+    },
+    {
+      "tag": "en:no7",
+      "members": ["no7", "n7", "7"]
+    },
+    {
+      "tag": "en:whole-grain-oat-flakes",
+      "members": [
+        "whole grain oat flakes",
+        "wholegrain oat flakes",
+        "whole grain rolled oats",
+        "whole oat flakes"
+      ]
+    },
+    {
+      "tag": "en:pumpkin-leaves",
+      "members": ["pumpkin leaves", "pumpkin leaf"],
+      "usda_ndb_code": "11418"
+    },
+    {
+      "tag": "en:filling",
+      "members": ["filling", "stuffing"]
+    },
+    {
+      "tag": "en:camembert",
+      "members": ["camembert", "camembert cheese"],
+      "usda_ndb_code": "1007",
+      "ciqual_food_code": "12001"
+    },
+    {
+      "tag": "en:arrowroot-powder",
+      "members": ["arrowroot powder", "arrowroot starch", "arrowroot flour"],
+      "usda_ndb_code": "20003"
+    },
+    {
+      "tag": "en:cake",
+      "members": ["cake", "cakes"]
+    },
+    {
+      "tag": "en:grape-leaf",
+      "members": ["grape leaf", "grape leaves"],
+      "usda_ndb_code": "11974"
+    },
+    {
+      "tag": "en:flour-blend",
+      "members": ["flour blend", "flour mix"]
+    },
+    {
+      "tag": "en:whiting",
+      "members": ["whiting", "merling"],
+      "ciqual_food_code": "26095"
+    },
+    {
+      "tag": "en:raspberry",
+      "members": ["raspberry", "raspberries"],
+      "usda_ndb_code": "9302",
+      "ciqual_food_code": "13015"
+    },
+    {
+      "tag": "en:cocoa",
+      "members": ["cocoa", "cacao"]
+    },
+    {
+      "tag": "en:wild-boar",
+      "members": ["wild boar", "boar"],
+      "ciqual_food_code": "14002"
+    },
+    {
+      "tag": "en:red-onion",
+      "members": ["red onion", "red onions"]
+    },
+    {
+      "tag": "en:mung-bean",
+      "members": ["mung bean", "mungbean", "mung dal", "moong dal"],
+      "usda_ndb_code": "16080"
+    },
+    {
+      "tag": "en:fresh-egg",
+      "members": ["fresh egg", "fresh eggs"]
+    },
+    {
+      "tag": "en:hungarian-peppers",
+      "members": ["hungarian peppers", "hungarian wax pepper"],
+      "usda_ndb_code": "11981"
+    },
+    {
+      "tag": "en:no9",
+      "members": ["no9", "n9", "9"]
+    },
+    {
+      "tag": "en:redcurrant",
+      "members": ["redcurrant", "red currant"],
+      "ciqual_food_code": "13019"
+    },
+    {
+      "tag": "en:carambola",
+      "members": ["carambola", "star fruit"],
+      "usda_ndb_code": "9060",
+      "ciqual_food_code": "13054"
+    },
+    {
+      "tag": "en:n",
+      "members": ["n°", "no", "number", "nb"]
+    },
+    {
+      "tag": "en:ice-cream",
+      "members": ["ice cream", "ice creams"]
+    },
+    {
+      "tag": "en:mandarin",
+      "members": [
+        "mandarin",
+        "mandarine",
+        "mandarin orange",
+        "tangerine",
+        "tangerines"
+      ]
+    },
+    {
+      "tag": "en:soy-base",
+      "members": ["soy base", "soya base"]
+    },
+    {
+      "tag": "en:celtuce",
+      "members": [
+        "celtuce",
+        "stem lettuce",
+        "celery lettuce",
+        "chinese lettuce"
+      ],
+      "usda_ndb_code": "11145"
+    },
+    {
+      "tag": "en:soft-wheat-flour",
+      "members": ["soft wheat flour", "tender wheat flour"]
+    },
+    {
+      "tag": "en:hyacinth-bean",
+      "members": [
+        "hyacinth bean",
+        "lablab beans",
+        "dolichos beans",
+        "egyptian beans"
+      ],
+      "usda_ndb_code": "16067"
+    },
+    {
+      "tag": "en:butternut-squash",
+      "members": ["butternut squash", "butternut"],
+      "ciqual_food_code": "20128"
+    },
+    {
+      "tag": "en:tamari",
+      "members": ["tamari", "tamari sauce", "tamari soy sauce"]
+    },
+    {
+      "tag": "en:lard",
+      "members": ["lard", "pork lard"],
+      "ciqual_food_code": "16520"
+    },
+    {
+      "tag": "en:anchovy",
+      "members": ["anchovy", "anchovies"],
+      "ciqual_food_code": "26079"
+    },
+    {
+      "tag": "en:sesame-oil",
+      "members": ["sesame oil", "sesame seed oil"],
+      "ciqual_food_code": "17400"
+    },
+    {
+      "tag": "en:coconut-oil",
+      "members": ["coconut oil", "copra oil", "copra", "coconut vegetable oil"],
+      "usda_ndb_code": "4047",
+      "ciqual_food_code": "16040"
+    },
+    {
+      "tag": "en:e142",
+      "members": ["e142", "green s", "ci food green 4"]
+    },
+    {
+      "tag": "en:soured-milk",
+      "members": ["soured milk", "cultured milk", "fermented milk"]
+    },
+    {
+      "tag": "en:ergocalciferol",
+      "members": ["ergocalciferol", "vitamin d2", "d2"]
+    },
+    {
+      "tag": "en:vegetable-blend",
+      "members": ["vegetable blend", "vegetable mix", "mixed vegetables"]
+    },
+    {
+      "tag": "en:apple",
+      "members": ["apple", "apples", "raw", "without skin"],
+      "ciqual_food_code": "13050"
+    },
+    {
+      "tag": "en:tomato",
+      "members": ["tomato", "tomatoes"],
+      "ciqual_food_code": "20047"
+    },
+    {
+      "tag": "en:oat-bran",
+      "members": ["oat bran", "oatbran"],
+      "ciqual_food_code": "9640"
+    },
+    {
+      "tag": "en:spiny-lobster",
+      "members": ["spiny lobster", "langustas", "langouste", "rock lobsters"]
+    },
+    {
+      "tag": "en:no1",
+      "members": ["no1", "n1", "1"]
+    },
+    {
+      "tag": "en:e322",
+      "members": ["e322", "lecithins", "phosphatides"]
+    },
+    {
+      "tag": "en:radish",
+      "members": ["radish", "radishes"],
+      "usda_ndb_code": "11429",
+      "ciqual_food_code": "20045"
+    },
+    {
+      "tag": "en:turkey-breast",
+      "members": ["turkey breast", "turkey fillet", "turkey breast meat"]
+    },
+    {
+      "tag": "en:oyster",
+      "members": ["oyster", "oysters"],
+      "ciqual_food_code": "10011"
+    },
+    {
+      "tag": "en:spring-onion",
+      "members": [
+        "spring onion",
+        "green onion",
+        "scallions",
+        "spring onions",
+        "green onions"
+      ],
+      "usda_ndb_code": "11291",
+      "ciqual_food_code": "11003"
+    },
+    {
+      "tag": "en:brown-rice-flour",
+      "members": [
+        "brown rice flour",
+        "full rice flour",
+        "whole rice flour",
+        "whole grain rice flour"
+      ],
+      "usda_ndb_code": "20090"
+    },
+    {
+      "tag": "en:partially-hydrogenated-vegetable-fat",
+      "members": [
+        "partially hydrogenated vegetable fat",
+        "partly hydrogenated vegetable fat"
+      ]
+    },
+    {
+      "tag": "en:sour-cherry",
+      "members": ["sour cherry", "sour cherries"],
+      "ciqual_food_code": "13110"
+    },
+    {
+      "tag": "en:maize-bran",
+      "members": ["maize bran", "corn bran"],
+      "ciqual_food_code": "9641"
+    },
+    {
+      "tag": "en:berries",
+      "members": ["berries", "berry"]
+    },
+    {
+      "tag": "en:white-beans",
+      "members": [
+        "white beans",
+        "navy beans",
+        "great northern beans",
+        "haricot beans"
+      ]
+    },
+    {
+      "tag": "en:gala-apple",
+      "members": ["gala apple", "gala apples"]
+    },
+    {
+      "tag": "en:no11",
+      "members": ["no11", "n11", "11"]
+    },
+    {
+      "tag": "en:cayenne-pepper",
+      "members": ["cayenne pepper", "cayenne"],
+      "usda_ndb_code": "2031",
+      "ciqual_food_code": "11088"
+    },
+    {
+      "tag": "en:mung-bean-sprout",
+      "members": ["mung bean sprout", "mung bean seedlings"],
+      "ciqual_food_code": "20183"
+    },
+    {
+      "tag": "en:button-mushroom",
+      "members": ["button mushroom", "white mushroom", "white mushrooms"]
+    },
+    {
+      "tag": "en:gruyere",
+      "members": [
+        "gruyère",
+        "gruyere cheese",
+        "gruyere cheese from cow's milk"
+      ],
+      "usda_ndb_code": "1023",
+      "ciqual_food_code": "12114"
+    },
+    {
+      "tag": "en:cooked-chickpeas",
+      "members": ["cooked chickpeas", "boiled chickpeas"],
+      "ciqual_food_code": "20507"
+    },
+    {
+      "tag": "en:cranberry",
+      "members": ["cranberry", "cranberries"],
+      "usda_ndb_code": "9078",
+      "ciqual_food_code": "13113"
+    },
+    {
+      "tag": "en:cereal",
+      "members": ["cereal", "cereal grains"]
+    },
+    {
+      "tag": "en:pomelo",
+      "members": ["pomelo", "pummelo"]
+    },
+    {
+      "tag": "en:e101",
+      "members": [
+        "e101",
+        "riboflavin",
+        "vitamin b2",
+        "flavaxin",
+        "vitamin b 2",
+        "vitamin g",
+        "riboflavine",
+        "lactoflavine",
+        "lactoflavin",
+        "e101i"
+      ]
+    },
+    {
+      "tag": "en:cardoon",
+      "members": ["cardoon", "artichoke thistle", "cardoons"]
+    },
+    {
+      "tag": "en:starch",
+      "members": ["starch", "food starch", "starches"]
+    },
+    {
+      "tag": "en:fig",
+      "members": ["fig", "figs"],
+      "usda_ndb_code": "9089",
+      "ciqual_food_code": "13012"
+    },
+    {
+      "tag": "en:pea",
+      "members": ["pea", "peas"]
+    },
+    {
+      "tag": "en:e509",
+      "members": ["e509", "calcium chloride"]
+    },
+    {
+      "tag": "en:carissa",
+      "members": ["carissa", "natal plum"],
+      "usda_ndb_code": "9061"
+    },
+    {
+      "tag": "en:spot",
+      "members": ["spot", "spot croaker"],
+      "usda_ndb_code": "15103"
+    },
+    {
+      "tag": "en:pineapple",
+      "members": ["pineapple", "ananas"],
+      "usda_ndb_code": "9266",
+      "ciqual_food_code": "13002"
+    },
+    {
+      "tag": "en:pita",
+      "members": ["pita", "pitta", "pita bread", "pitta bread"]
+    },
+    {
+      "tag": "en:sunflower-seed",
+      "members": ["sunflower seed", "sunflower seeds", "sunflower kernels"],
+      "usda_ndb_code": "12036",
+      "ciqual_food_code": "15011"
+    },
+    {
+      "tag": "en:passionfruit",
+      "members": ["passionfruit", "passion fruit", "maracuja"],
+      "ciqual_food_code": "13016"
+    },
+    {
+      "tag": "en:pickled-gherkin",
+      "members": ["pickled gherkin", "pickle"]
+    },
+    {
+      "tag": "en:okara",
+      "members": ["okara", "soy pulp"],
+      "usda_ndb_code": "16130"
+    },
+    {
+      "tag": "en:shrimp",
+      "members": ["shrimp", "prawn"],
+      "usda_ndb_code": "15270",
+      "ciqual_food_code": "10021"
+    },
+    {
+      "tag": "en:beef",
+      "members": ["beef", "steers"]
+    },
+    {
+      "tag": "en:pecan-nut",
+      "members": ["pecan nut", "pecan nuts", "pecan", "pecans"],
+      "usda_ndb_code": "12142",
+      "ciqual_food_code": "15026"
+    },
+    {
+      "tag": "en:protein",
+      "members": ["protein", "proteins"]
+    },
+    {
+      "tag": "en:scup",
+      "members": ["scup", "porgy", "scuppaug"],
+      "usda_ndb_code": "15090"
+    },
+    {
+      "tag": "en:hass-avocado",
+      "members": ["hass avocado", "hass avocadoes"]
+    },
+    {
+      "tag": "en:minerals",
+      "members": ["minerals", "mineral"]
+    },
+    {
+      "tag": "en:wheat-tortilla",
+      "members": [
+        "wheat tortilla",
+        "wheat flour tortilla",
+        "wheat flour tortilla wrap",
+        "flour tortilla"
+      ]
+    },
+    {
+      "tag": "en:e511",
+      "members": ["e511", "magnesium chloride"]
+    },
+    {
+      "tag": "en:orange-zest",
+      "members": ["orange zest", "orange peel"]
+    },
+    {
+      "tag": "en:cherry",
+      "members": ["cherry", "cherries"],
+      "ciqual_food_code": "13008"
+    },
+    {
+      "tag": "en:salad",
+      "members": ["salad", "leafy greens", "salad greens"]
+    },
+    {
+      "tag": "en:ōhelo-berry",
+      "members": ["ōhelo berry", "ōheloberries", "oheloberries"],
+      "usda_ndb_code": "9192"
+    },
+    {
+      "tag": "en:nettle",
+      "members": ["nettle", "stinging nettle", "perrenial nettle"]
+    },
+    {
+      "tag": "en:roasted-almonds",
+      "members": ["roasted almonds", "dry roasted almonds"]
+    },
+    {
+      "tag": "en:turkey-thigh",
+      "members": ["turkey thigh", "turkey leg", "turkey drumstick"]
+    },
+    {
+      "tag": "en:burdock",
+      "members": ["burdock", "arctium"]
+    },
+    {
+      "tag": "en:onion-powder",
+      "members": ["onion powder", "granulated onion", "dried minced onion"],
+      "usda_ndb_code": "2026"
+    },
+    {
+      "tag": "en:chub-mackerel",
+      "members": ["chub mackerel", "pacific mackerel", "pacific chub mackerel"],
+      "ciqual_food_code": "26102"
+    },
+    {
+      "tag": "en:summer-savory",
+      "members": ["summer savory", "savory"],
+      "usda_ndb_code": "2039"
+    },
+    {
+      "tag": "en:rapini",
+      "members": ["rapini", "broccoli rabe", "broccoli raab", "broccolii rabe"]
+    },
+    {
+      "tag": "en:cucumber",
+      "members": ["cucumber", "cucumbers"],
+      "usda_ndb_code": "11205",
+      "ciqual_food_code": "20019"
+    },
+    {
+      "tag": "en:monterey-jack",
+      "members": ["monterey jack", "monterey jack cheese"]
+    },
+    {
+      "tag": "en:fenugreek-seed",
+      "members": ["fenugreek seed", "fenugreek seeds"],
+      "usda_ndb_code": "2019",
+      "ciqual_food_code": "11077"
+    },
+    {
+      "tag": "en:dill-seed",
+      "members": ["dill seed", "dill seeds"],
+      "usda_ndb_code": "2016"
+    },
+    {
+      "tag": "en:rye-grain",
+      "members": ["rye grain", "rye grains"],
+      "usda_ndb_code": "20062"
+    },
+    {
+      "tag": "en:farmed-tilapia",
+      "members": ["farmed tilapia", "farm raised tilapia"]
+    },
+    {
+      "tag": "en:collard-greens",
+      "members": ["collard greens", "collard"],
+      "usda_ndb_code": "11161"
+    },
+    {
+      "tag": "en:grape-seed",
+      "members": ["grape seed", "grape seeds"]
+    },
+    {
+      "tag": "en:pasteurised",
+      "members": ["pasteurised", "pasteurized"]
+    },
+    {
+      "tag": "en:seed",
+      "members": ["seed", "seeds", "seed blend", "seed mix", "mixed seeds"]
+    },
+    {
+      "tag": "en:vegetable-margarine",
+      "members": ["vegetable margarine", "vegetal margarine"]
+    },
+    {
+      "tag": "en:khorasan-wheat",
+      "members": ["khorasan wheat", "kamut"]
+    },
+    {
+      "tag": "en:e160b",
+      "members": [
+        "e160b",
+        "annatto",
+        "bixin",
+        "norbixin",
+        "roucou",
+        "achiote",
+        "annatto norbixin",
+        "annatto bixin",
+        "orlean",
+        "terre orellana",
+        "l. orange",
+        "ci natural orange 4",
+        "e160bi",
+        "e160bii"
+      ]
+    },
+    {
+      "tag": "en:spelt-flour",
+      "members": ["spelt flour", "spelt wheat flour"],
+      "ciqual_food_code": "9480"
+    },
+    {
+      "tag": "en:blanches-almonds",
+      "members": ["blanches almonds", "almonds blanched"],
+      "usda_ndb_code": "12062"
+    },
+    {
+      "tag": "en:palm-kernel-oil",
+      "members": [
+        "palm kernel oil",
+        "palm kernel",
+        "palm kernel vegetable oil"
+      ],
+      "usda_ndb_code": "4513"
+    },
+    {
+      "tag": "en:acerola",
+      "members": [
+        "acerola",
+        "acerola cherry",
+        "acerola cherries",
+        "west indian cherry",
+        "west indian cherries",
+        "barbados cherry",
+        "barbados cherries"
+      ],
+      "usda_ndb_code": "9001"
+    },
+    {
+      "tag": "en:e406",
+      "members": [
+        "e406",
+        "agar",
+        "gelose",
+        "kanten",
+        "bengal",
+        "ceylon",
+        "chinese or japanese isinglass",
+        "agar-agar",
+        "agar agar"
+      ],
+      "usda_ndb_code": "11442",
+      "ciqual_food_code": "11084"
+    },
+    {
+      "tag": "en:cream-powder",
+      "members": ["cream powder", "powdered cream"]
+    },
+    {
+      "tag": "en:wholemeal",
+      "members": ["wholemeal", "whole", "whole grain", "wholegrain", "complete"]
+    },
+    {
+      "tag": "en:clementine",
+      "members": ["clementine", "clementins"],
+      "usda_ndb_code": "9433",
+      "ciqual_food_code": "13082"
+    },
+    {
+      "tag": "en:dulce-de-leche",
+      "members": ["dulce de leche", "milk jam"],
+      "usda_ndb_code": "1225",
+      "ciqual_food_code": "31040"
+    },
+    {
+      "tag": "en:soy-protein-isolate",
+      "members": [
+        "soy protein isolate",
+        "soya protein isolate",
+        "isolated soy protein"
+      ],
+      "usda_ndb_code": "16122"
+    },
+    {
+      "tag": "en:lentils",
+      "members": ["lentils", "lentil", "masoor dal", "masur dal"]
+    },
+    {
+      "tag": "en:pork",
+      "members": ["pork", "swine"]
+    },
+    {
+      "tag": "en:e951",
+      "members": [
+        "e951",
+        "aspartame",
+        "1-methyl n-l-alpha-aspartyl-l-phenylalanine",
+        "asp-phe-ome",
+        "3-amino-n-(alpha-methoxycarbonylphenethyl) succinamic acid",
+        "3-amino-n-(α-carboxyphenethyl)succinamic acid n-methyl ester",
+        "l-aspartyl-l-phenylalanine methyl ester",
+        "1-methyl n-l-α-aspartyl-l-phenylalanate",
+        "aspartylphenylalanine methyl ester",
+        "3-amino-n-(alpha-carboxyphenethyl)succinamic acid n-methyl ester",
+        "3-amino-n-(α-methoxycarbonylphenethyl) succinamic acid",
+        "1-methyl n-l-alpha-aspartyl-l-phenylalanate"
+      ]
+    },
+    {
+      "tag": "en:powdered-egg-white",
+      "members": [
+        "powdered egg white",
+        "dehydrated egg white",
+        "egg white powder"
+      ],
+      "usda_ndb_code": "1173",
+      "ciqual_food_code": "22004"
+    },
+    {
+      "tag": "en:alaska-pollock",
+      "members": ["alaska pollock", "alaskan pollock", "theragra chalcogramma"],
+      "ciqual_food_code": "26006"
+    },
+    {
+      "tag": "en:borlotti-bean",
+      "members": ["borlotti bean", "borlotti", "cranberry bean"]
+    },
+    {
+      "tag": "en:oat-flakes",
+      "members": ["oat flakes", "oatflakes", "rolled oats", "oatmeal flakes"],
+      "ciqual_food_code": "9311"
+    },
+    {
+      "tag": "en:molasses",
+      "members": ["molasses", "black treacle"],
+      "usda_ndb_code": "19304"
+    },
+    {
+      "tag": "en:meatball",
+      "members": ["meatball", "meatballs"]
+    },
+    {
+      "tag": "en:guava",
+      "members": ["guava", "guavas"],
+      "usda_ndb_code": "9139",
+      "ciqual_food_code": "13083"
+    },
+    {
+      "tag": "en:broccoli",
+      "members": ["broccoli", "broccoli cuts"],
+      "usda_ndb_code": "11090",
+      "ciqual_food_code": "20057"
+    },
+    {
+      "tag": "en:blackcurrant",
+      "members": ["blackcurrant", "black currant", "blackcurrants"],
+      "usda_ndb_code": "9083",
+      "ciqual_food_code": "13007"
+    },
+    {
+      "tag": "en:mushroom",
+      "members": ["mushroom", "edible fungi"],
+      "ciqual_food_code": "20056"
+    },
+    {
+      "tag": "en:dandelion",
+      "members": [
+        "dandelion",
+        "common dandelion",
+        "dandelion leaf",
+        "dandelion leaves"
+      ],
+      "usda_ndb_code": "11207",
+      "ciqual_food_code": "20038"
+    },
+    {
+      "tag": "en:duck-wing",
+      "members": ["duck wing", "duck wings"]
+    },
+    {
+      "tag": "en:pork-fillet",
+      "members": ["pork fillet", "pork tenderloin"],
+      "ciqual_food_code": "28201"
+    },
+    {
+      "tag": "en:medlar",
+      "members": ["medlar", "loquat"],
+      "usda_ndb_code": "9174"
+    },
+    {
+      "tag": "en:cottonseed-oil",
+      "members": ["cottonseed oil", "cotton seed oil"],
+      "usda_ndb_code": "4502",
+      "ciqual_food_code": "17170"
+    },
+    {
+      "tag": "en:strawberry",
+      "members": ["strawberry", "strawberries"],
+      "usda_ndb_code": "9316",
+      "ciqual_food_code": "13014"
+    },
+    {
+      "tag": "en:milkfat",
+      "members": ["milkfat", "milk fat"]
+    },
+    {
+      "tag": "en:williams-bon-chretien-pear",
+      "members": [
+        "williams' bon chrétien pear",
+        "williams pear",
+        "bartlett pear"
+      ],
+      "usda_ndb_code": "9412"
+    },
+    {
+      "tag": "en:nut",
+      "members": ["nut", "nuts", "mixed nuts", "other nuts"]
+    },
+    {
+      "tag": "en:hydrogenated-palm-kernel-oil",
+      "members": ["hydrogenated palm kernel oil", "hydrogenated palm kernel"]
+    },
+    {
+      "tag": "en:corn-oil",
+      "members": ["corn oil", "maize oil"],
+      "usda_ndb_code": "42289",
+      "ciqual_food_code": "17190"
+    },
+    {
+      "tag": "en:bamboo-shoot",
+      "members": ["bamboo shoot", "bamboo sprouts"],
+      "usda_ndb_code": "11026",
+      "ciqual_food_code": "20198"
+    },
+    {
+      "tag": "en:roasted-lamb-leg",
+      "members": ["roasted lamb leg", "baked lamb leg"],
+      "ciqual_food_code": "21503"
+    },
+    {
+      "tag": "en:asian-pear",
+      "members": ["asian pear", "nashi pear", "apple pear"],
+      "usda_ndb_code": "9340"
+    },
+    {
+      "tag": "en:white-flowered-gourd",
+      "members": [
+        "white-flowered gourd",
+        "bottle gourd",
+        "calabash gourd",
+        "opo squash",
+        "long melon"
+      ],
+      "usda_ndb_code": "11218"
+    },
+    {
+      "tag": "en:bosc-pear",
+      "members": ["bosc pear", "beurré bosc pear"],
+      "usda_ndb_code": "9414"
+    },
+    {
+      "tag": "en:miso",
+      "members": ["miso", "miso paste"],
+      "usda_ndb_code": "16112",
+      "ciqual_food_code": "20916"
+    },
+    {
+      "tag": "en:savoy-cabbage",
+      "members": ["savoy cabbage", "green cabbage"],
+      "ciqual_food_code": "20069"
+    },
+    {
+      "tag": "en:no3",
+      "members": ["no3", "n3", "3"]
+    },
+    {
+      "tag": "en:edam",
+      "members": ["edam", "edam cheese", "edam cheese from cow's milk"],
+      "usda_ndb_code": "1018",
+      "ciqual_food_code": "12729"
+    },
+    {
+      "tag": "en:cocoa-butter",
+      "members": ["cocoa butter", "cacao butter", "cocoa fat"],
+      "usda_ndb_code": "4501",
+      "ciqual_food_code": "16030"
+    },
+    {
+      "tag": "en:raw-almonds",
+      "members": ["raw almonds", "natural whole almonds", "raw natural almonds"]
+    },
+    {
+      "tag": "en:horned-melon",
+      "members": ["horned melon", "kiwano"],
+      "usda_ndb_code": "9451"
+    },
+    {
+      "tag": "en:roasted-lean-lamb-shoulder",
+      "members": ["roasted lean lamb shoulder", "baked lean lamb shoulder"],
+      "ciqual_food_code": "21507"
+    },
+    {
+      "tag": "en:malted-barley",
+      "members": ["malted barley", "barley malt"]
+    },
+    {
+      "tag": "en:egg-powder",
+      "members": ["egg powder", "powdered egg"]
+    },
+    {
+      "tag": "en:salmon-fish-oil",
+      "members": ["salmon fish oil", "salmon oil"],
+      "usda_ndb_code": "4593"
+    },
+    {
+      "tag": "en:egg",
+      "members": ["egg", "eggs"],
+      "ciqual_food_code": "22000"
+    },
+    {
+      "tag": "en:duck-leg",
+      "members": ["duck leg", "duck legs"]
+    },
+    {
+      "tag": "en:chinese-yam",
+      "members": [
+        "chinese yam",
+        "japanese mountain yam",
+        "satsuma imo",
+        "yamaimo",
+        "onagaimo",
+        "hawaii mountain yam"
+      ],
+      "usda_ndb_code": "11258"
+    },
+    {
+      "tag": "en:fortified-wheat-flour",
+      "members": ["fortified wheat flour", "enriched wheat flour"]
+    },
+    {
+      "tag": "en:no5",
+      "members": ["no5", "n5", "5"]
+    },
+    {
+      "tag": "en:horseradish",
+      "members": ["horseradish", "horseradish root"],
+      "ciqual_food_code": "11016"
+    },
+    {
+      "tag": "en:lemon-powder",
+      "members": ["lemon powder", "dried lemon juice"]
+    },
+    {
+      "tag": "en:oil-and-fat",
+      "members": ["oil and fat", "oils and fats"]
+    },
+    {
+      "tag": "en:reduced-fat-mayonnaise",
+      "members": [
+        "reduced fat mayonnaise",
+        "low fat mayonnaise",
+        "light mayonnaise"
+      ],
+      "ciqual_food_code": "11079"
+    },
+    {
+      "tag": "en:corn",
+      "members": ["corn", "maize", "corn cereal"],
+      "ciqual_food_code": "9200"
+    },
+    {
+      "tag": "en:long-grain-parboiled-rice",
+      "members": ["long grain parboiled rice", "parboiled long grain rice"]
+    },
+    {
+      "tag": "en:irish-moss",
+      "members": ["irish moss", "carrageen moss", "irishmoss", "sea moss"],
+      "usda_ndb_code": "11444"
+    },
+    {
+      "tag": "en:ham",
+      "members": ["ham", "pork ham"]
+    },
+    {
+      "tag": "en:saithe",
+      "members": ["saithe", "pollock"],
+      "ciqual_food_code": "26134"
+    },
+    {
+      "tag": "en:grilled-pistachio-nut",
+      "members": ["grilled pistachio nut", "dry roasted pistachios"],
+      "ciqual_food_code": "15044"
+    },
+    {
+      "tag": "en:cocoa-powder-processed-with-alkali",
+      "members": [
+        "cocoa powder processed with alkali",
+        "alkalized cocoa powder"
+      ]
+    },
+    {
+      "tag": "en:clam",
+      "members": ["clam", "clams"]
+    },
+    {
+      "tag": "en:romano-cheese",
+      "members": ["romano cheese", "romano"]
+    },
+    {
+      "tag": "en:wheat-semolina",
+      "members": ["wheat semolina", "suji", "sooji"]
+    }
+  ],
+  "british_queries": [
+    "courgette",
+    "aubergine",
+    "rocket",
+    "coriander",
+    "spring onion",
+    "swede",
+    "beetroot",
+    "mange tout",
+    "chickpeas",
+    "prawns",
+    "gammon",
+    "mince",
+    "porridge oats",
+    "double cream",
+    "natural yoghurt",
+    "cornflour",
+    "plain flour",
+    "caster sugar",
+    "sultanas",
+    "jacket potato"
+  ]
+}
