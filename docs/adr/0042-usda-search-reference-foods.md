@@ -115,6 +115,12 @@ raw retail cuts sold frozen, and raw-pressed juice, survive.
   home-recipe, au-gratin, scalloped, salad, breaded/battered/french-fried) drops
   them regardless of category. Bare "fried" is _not_ a marker: a plain fried egg
   is a reference food like a scrambled one; only battering/breading marks a dish.
+
+  > Amended by the [#133 Amendment](#amendment-2026-08-20-133-a-marker-may-be-a-conjunction-not-just-a-word).
+  > A marker may also be a conjunction of two ordinary words, for composites whose
+  > only tell is a form ("ice cream" AND "sandwich"), and "fast food" joins the
+  > list for the items USDA filed outside the prepared categories.
+
 - **Two mixed categories split by head word.** _Sweets_ keeps its
   single-ingredient sweeteners (honey, sugar, cocoa, molasses, syrup) and drops
   confections. _Baked Products_ keeps bready staples (bread, croissant, bagel,

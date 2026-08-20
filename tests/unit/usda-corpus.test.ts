@@ -19,7 +19,13 @@ import {
   reportsNoEnergy,
   type NutritionInfo,
 } from "../../src/lib/food/nutrition";
-import { isDryBasisRecord } from "../../src/lib/food/usda-fdc";
+import {
+  BRAND_CAPS,
+  isBrandSpecific,
+  isDryBasisRecord,
+  isPreparedProduct,
+  isProcessedProduct,
+} from "../../src/lib/food/usda-fdc";
 import type { RawProvenance } from "../../src/lib/food/provenance";
 import type { EntityPayload } from "../../src/lib/ingestion/ingest";
 
@@ -89,9 +95,7 @@ describe("the bundled search index", () => {
     // worth a human deciding — which is the point of pinning the whole set
     // rather than asserting a blocklist.
     const capsTokens = new Set(
-      index.foods.flatMap(
-        (row) => row.description.match(/\b[A-Z][A-Z&'.-]*[A-Z]\b/g) ?? []
-      )
+      index.foods.flatMap((row) => row.description.match(BRAND_CAPS) ?? [])
     );
     expect([...capsTokens].sort()).toEqual(["BBQ", "NY", "USDA"]);
   });
@@ -143,58 +147,51 @@ describe("the bundled search index", () => {
     expect(leaked.map((row) => row.description)).toEqual([]);
   });
 
-  it("keeps the base foods the branded rows were standing in front of", () => {
-    // The other half of #131: dropping twenty rows is only correct because a
-    // generic equivalent was already there. Assert the survivors by name, so a
-    // future tightening that takes the generic with the brand fails here rather
-    // than quietly emptying an aisle.
-    const descriptions = index.foods.map((row) => row.description);
-    expect(descriptions).toContain(
-      "Tofu, raw, firm, prepared with calcium sulfate"
+  it("holds nothing its own filters would reject", () => {
+    // The artifact and the predicates have to agree, and asking the predicates
+    // is the only way to keep them agreeing: a test that restated a rule would
+    // still pass after the rule moved, which is how a filter and its corpus
+    // drift apart (ADR-0047 §4, and the reason `usda-bundle.mjs` imports these
+    // rather than reimplementing them).
+    //
+    // This is what catches a mirror refresh reintroducing a dropped kind, and
+    // it subsumes the particular cases #131 and #133 were about.
+    const rejected = index.foods.filter(
+      (row) =>
+        isBrandSpecific(row.description) ||
+        isProcessedProduct(row.description) ||
+        isPreparedProduct(row.foodCategory, row.description) ||
+        isDryBasisRecord(row.description)
     );
-    expect(descriptions).toContain(
-      "Soymilk, original and vanilla, unfortified"
-    );
-    expect(descriptions).toContain("Oil, canola");
-    expect(descriptions).toContain(
-      "Cream, whipped, cream topping, pressurized"
-    );
-    // And the Beverages rows a "drop every beverage" rule would have cost.
-    expect(descriptions).toContain("Beverages, water, tap, drinking");
-    expect(descriptions).toContain(
-      "Beverages, coffee, brewed, prepared with tap water"
-    );
-    expect(descriptions).toContain(
-      "Beverages, tea, black, brewed, prepared with tap water"
-    );
+    expect(rejected.map((row) => row.description)).toEqual([]);
   });
 
-  it("offers no assembled dessert or fast-food item, and still offers plain ice cream", () => {
-    // #133, pinned over the artifact for the same reason as its neighbours: the
-    // filters run at generation, so a mirror refresh is how these come back.
-    // The pairing is the whole point of the rule — the novelty goes, the tub
-    // stays, and a future tightening that cannot tell them apart fails here.
+  it("still offers the base foods the dropped rows were standing in front of", () => {
+    // The other half of #131 and #133: a drop is only correct because a generic
+    // equivalent stayed. Assert the survivors by name, so a future tightening
+    // that cannot tell a brand from a base food, or a wafer from a tub, fails
+    // here rather than quietly emptying an aisle.
     const descriptions = index.foods.map((row) => row.description);
-    const assembled = descriptions.filter(
-      (d) =>
-        /ice cream/i.test(d) &&
-        /\b(bar|stick|cone|cookie|sandwich|sundae)\b/i.test(d)
-    );
-    expect(assembled).toEqual([]);
-    expect(descriptions.filter((d) => /\bfast food\b/i.test(d))).toEqual([]);
-
-    expect(descriptions).toContain("Ice cream, soft serve, chocolate");
-    expect(descriptions).toContain(
-      "Fat free ice cream, no sugar added, flavors other than chocolate"
-    );
-    // The three base foods a bare "sandwich" marker would have taken.
-    expect(descriptions).toContain("Sandwich spread, meatless");
-    expect(descriptions).toContain(
-      "Beef, sandwich steaks, flaked, chopped, formed and thinly sliced, raw"
-    );
-    expect(descriptions).toContain(
-      "Tortilla, includes plain and from mutton sandwich (Navajo)"
-    );
+    for (const kept of [
+      // #131's brand leaks
+      "Tofu, raw, firm, prepared with calcium sulfate",
+      "Soymilk, original and vanilla, unfortified",
+      "Oil, canola",
+      "Cream, whipped, cream topping, pressurized",
+      // the Beverages rows a "drop every beverage" rule would have cost
+      "Beverages, water, tap, drinking",
+      "Beverages, coffee, brewed, prepared with tap water",
+      "Beverages, tea, black, brewed, prepared with tap water",
+      // #133's plain tubs, and the three base foods a bare "sandwich" marker
+      // would have taken with the novelties
+      "Ice cream, soft serve, chocolate",
+      "Fat free ice cream, no sugar added, flavors other than chocolate",
+      "Sandwich spread, meatless",
+      "Beef, sandwich steaks, flaked, chopped, formed and thinly sliced, raw",
+      "Tortilla, includes plain and from mutton sandwich (Navajo)",
+    ]) {
+      expect(descriptions).toContain(kept);
+    }
   });
 
   it("keeps the five twinned oils, on their twin's energy and their twin's fat", () => {

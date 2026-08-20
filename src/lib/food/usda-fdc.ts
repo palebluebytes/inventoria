@@ -470,7 +470,15 @@ export function mapFdcPortions(portions: readonly FdcFoodPortion[]): Portion[] {
 // tripwire, not a proof the class is empty (ADR-0042 §3 as amended).
 // ---------------------------------------------------------------------------
 
-const BRAND_CAPS = /\b[A-Z][A-Z&'.\-]*[A-Z]\b/g;
+/**
+ * USDA's brand convention as a pattern: an all-caps token of two or more
+ * letters. Exported so the corpus test can pin the all-caps vocabulary that
+ * survives into the committed artifact against this expression rather than a
+ * copy of it — the surviving set IS the audit of whether the convention still
+ * holds, and a test that restated the pattern would keep agreeing with itself
+ * after the pattern moved.
+ */
+export const BRAND_CAPS = /\b[A-Z][A-Z&'.\-]*[A-Z]\b/g;
 
 const GENERIC_CAPS_ACRONYMS = new Set([
   "USDA",
@@ -634,7 +642,7 @@ const PREPARED_DISH_MARKERS =
 // ordinary English: a bare \bsandwich\b marker would take "Sandwich spread,
 // meatless", "Beef, sandwich steaks, flaked, chopped, formed and thinly sliced,
 // raw" and "Tortilla, includes plain and from mutton sandwich (Navajo)" with it.
-const ICE_CREAM_NOVELTY = /ice cream/i;
+const ICE_CREAM = /ice cream/i;
 const ASSEMBLED_DESSERT_FORM = /\b(bar|stick|cone|cookie|sandwich|sundae)\b/i;
 // "salad" names a dish ("Potato salad") — but also a use for a base cooking oil
 // ("Oil, olive, salad or cooking"), which must NOT be dropped.
@@ -748,10 +756,7 @@ export function isPreparedProduct(
   description: string
 ): boolean {
   if (PREPARED_DISH_MARKERS.test(description)) return true;
-  if (
-    ICE_CREAM_NOVELTY.test(description) &&
-    ASSEMBLED_DESSERT_FORM.test(description)
-  )
+  if (ICE_CREAM.test(description) && ASSEMBLED_DESSERT_FORM.test(description))
     return true;
   // Flour-battered deep-fried dishes ("Chicken … cooked, fried, flour"). Needs
   // both words, so a plain fried egg is kept and plain flour is not touched.
