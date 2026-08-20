@@ -4,6 +4,7 @@
 **Date:** 2026-08-18  
 **Amended by:** ADR-0046 §1 (§1 gains an exception for a base food no reference table carries)  
 **Amended by:** ADR-0047 (the Consequences' open offline/bundling question is resolved: USDA's archives are bundled and the API retired)  
+**Amended by:** ADR-0048 §2 and §4 (§3's multi-id list gains fat 1004/1085; §2's merge is closed to pairing on anything but `ndbNumber`)  
 **Implemented:** #107 `014e57a`; the off-USDA mirror it relies on, `f3a159f` and `5db28f9`
 
 This record amends [ADR-0030](0030-expanded-food-twin-source-data.md) and [ADR-0042](0042-usda-search-reference-foods.md) §6, both of which kept the rule that dedup prefers Foundation.

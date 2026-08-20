@@ -3,6 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-08-18  
 **Amended by:** ADR-0047 §10 (the #118 amendment's two empty-search verdicts collapse into one message)  
+**Amended by:** ADR-0048 §7 (§1's bar is restated as a food no table yields a loggable record for, not one no table carries)  
 **Implemented:** #109 `38b9a0e` (data spine), `70ff025` (disclosure); #117 `715d605` (staleness check), `e8d4c1a` (quarterly job); `src/lib/food/curated-foods.ts`
 
 This record amends [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md) §1 (USDA is the only base-food source) and [ADR-0042](0042-usda-search-reference-foods.md) §3 (a brand-specific record is always dropped from search).

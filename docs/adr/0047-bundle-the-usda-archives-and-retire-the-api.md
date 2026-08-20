@@ -2,6 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-19  
+**Amended by:** ADR-0048 §5 (§4's filter roster gains two members; the corpus is 4,461 rows, not 4,491)  
 **Implemented:** #111 `a8a36e3`, #113 `4d02063`, #114 `37e7d67`, #115 `c0a99a1`
 
 This record revises five earlier ones. It amends
