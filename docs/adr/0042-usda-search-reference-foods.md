@@ -438,6 +438,11 @@ corpus stems, so a false positive requires two **corpus** words to collide; acro
 1,744 distinct corpus words these rules create exactly the two intended pairs,
 `leaf`/`leaves` and `radish`/`radishes`.
 
+**#138 implemented:** `238835d`. Re-measured on the way in: over every distinct corpus
+word, its singular, every head phrase and its singular, exactly the twelve answers named
+above change and no others do. The two collisions are pinned as a corpus test rather
+than left as a claim, so a fifth rule has to face the same check.
+
 ## Amendment (2026-08-20, #124): where in the name the query landed, summed
 
 §1's four keys ask how much of a food's own name the query accounts for. None of
