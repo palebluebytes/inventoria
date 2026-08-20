@@ -31,12 +31,15 @@ events, all sharing the same store.
 ```mermaid
 flowchart LR
     OFF[Open Food Facts]:::src
-    USDA[USDA FoodData Central]:::src
     TMDB[TMDB]:::src
     OL[Open Library]:::src
+    PAGE[A page you share in]:::src
+    USDA[USDA archives<br/>bundled with the app]:::src
 
-    OFF & USDA & TMDB & OL --> PROXY[Cloudflare Worker proxy]
-    PROXY --> LEDGER[(Append-only EAVT ledger<br/>SQLite WASM in OPFS)]
+    OFF & TMDB & OL --> LEDGER[(Append-only EAVT ledger<br/>SQLite WASM in OPFS)]
+    USDA --> LEDGER
+    PAGE --> PROXY[Cloudflare Worker proxy]
+    PROXY --> LEDGER
     UI[Svelte UI] -- "append only" --> LEDGER
     LEDGER --> PROJ[Projections<br/>fold history forward]
     PROJ --> STORES[Svelte stores]
@@ -47,14 +50,17 @@ flowchart LR
     classDef future stroke-dasharray: 4 4,fill:none,stroke:#888
 ```
 
-_Everything flows through one store: outside sources seed twins through a thin proxy,
-writes only append, and every reader folds the same history forward. The dashed path
-is the intended future._
+_Everything flows through one store: outside sources seed twins, writes only append,
+and every reader folds the same history forward. The dashed path is the intended
+future._
 
-External data enters through that thin proxy and nowhere else. Open Food Facts, USDA
-FoodData Central, TMDB, and Open Library supply the facts that seed a **Digital
-Twin**, and a small Cloudflare Worker relays the requests so the browser can sidestep
-cross-origin limits.
+Outside sources seed a **Digital Twin** and then get out of the way. Open Food Facts,
+TMDB, and Open Library are called straight from the browser. USDA FoodData Central is
+not called at all: its archives ship with the app as two generated files, so food
+search needs no key and no network
+([ADR-0047](docs/adr/0047-bundle-the-usda-archives-and-retire-the-api.md)). What does
+need relaying is an arbitrary page you share in, which a small Cloudflare Worker
+fetches so the browser can sidestep cross-origin limits.
 
 From there the rule is absolute: writes only append. When the worker commits a new
 datom it broadcasts a signal, and every Svelte store watching a folded view re-runs
@@ -134,17 +140,17 @@ held up by a slow browser run.
 
 ## Where the documentation lives
 
-| You want                               | Read                                                                                 |
-| -------------------------------------- | ------------------------------------------------------------------------------------ |
-| The words this project uses, precisely | [CONTEXT.md](CONTEXT.md)                                                             |
-| The rules code is reviewed against     | [CODING_STANDARDS.md](CODING_STANDARDS.md)                                           |
-| Why a thing is the way it is           | [docs/adr/](docs/adr/)                                                               |
-| The storage layer and its schema       | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                                         |
-| Entity prefixes and attribute keys     | [docs/eavt-vocabulary.md](docs/eavt-vocabulary.md)                                   |
-| Why the ledger is append-only          | [docs/append-only-ledger.md](docs/append-only-ledger.md)                             |
-| How to add a new tracked domain        | [docs/how-to-add-a-tracked-domain.md](docs/how-to-add-a-tracked-domain.md)           |
-| How the USDA data is backed up         | [docs/how-to-back-up-the-usda-datasets.md](docs/how-to-back-up-the-usda-datasets.md) |
-| Rules for AI agents working here       | [AGENTS.md](AGENTS.md)                                                               |
+| You want                                   | Read                                                                                 |
+| ------------------------------------------ | ------------------------------------------------------------------------------------ |
+| The words this project uses, precisely     | [CONTEXT.md](CONTEXT.md)                                                             |
+| The rules code is reviewed against         | [CODING_STANDARDS.md](CODING_STANDARDS.md)                                           |
+| Why a thing is the way it is               | [docs/adr/](docs/adr/)                                                               |
+| The storage layer and its schema           | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                                         |
+| Entity prefixes and attribute keys         | [docs/eavt-vocabulary.md](docs/eavt-vocabulary.md)                                   |
+| Why the ledger is append-only              | [docs/append-only-ledger.md](docs/append-only-ledger.md)                             |
+| How to add a new tracked domain            | [docs/how-to-add-a-tracked-domain.md](docs/how-to-add-a-tracked-domain.md)           |
+| How the USDA data is backed up and bundled | [docs/how-to-back-up-the-usda-datasets.md](docs/how-to-back-up-the-usda-datasets.md) |
+| Rules for AI agents working here           | [AGENTS.md](AGENTS.md)                                                               |
 
 Work is tracked as GitHub issues via the `gh` CLI. Superseded planning documents are
 kept under [docs/history/](docs/history/).
