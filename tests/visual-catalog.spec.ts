@@ -18,8 +18,20 @@ test.describe("Visual Catalog Generator", () => {
         contentType: "application/json",
         body: JSON.stringify({
           artifact: "usda-search-index",
-          schema_version: 1,
+          schema_version: 2,
           generated_from: [],
+          // Structurally required since ADR-0049 §4 put the Vocabulary map in
+          // this artifact: `buildSearchCorpus` reads the section, so a fixture
+          // without one throws before a single search runs. Deliberately EMPTY —
+          // these specs are about the food flows, and an expansion here would
+          // make them depend on a retrieval fallback they do not exercise.
+          vocabulary_off: {
+            licence: "ODbL",
+            source: "Open Food Facts",
+            url: "https://static.openfoodfacts.org/data/taxonomies/ingredients.full.json",
+            sha256: "fixture",
+            expansions: {},
+          },
           foods: [
             {
               fdcId: 171705,
@@ -42,7 +54,7 @@ test.describe("Visual Catalog Generator", () => {
         contentType: "application/json",
         body: JSON.stringify({
           artifact: "usda-nutrient-store",
-          schema_version: 1,
+          schema_version: 2,
           generated_from: [],
           nutrients: {
             1003: { name: "Protein", unit: "g" },
