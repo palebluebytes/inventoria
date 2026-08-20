@@ -74,6 +74,22 @@
   <h3 class="source-title">{copy.title}</h3>
   <p class="source-body">{copy.body}</p>
 
+  {#if kind === "usda"}
+    <!-- ODbL attribution (ADR-0049 §4). No OFF data is DISPLAYED on a USDA food;
+         the search simply understands alternative names for it, which is still a
+         substantial extraction from OFF's taxonomy and still owes the licence a
+         visible line. It rides on every USDA food rather than only the ones an
+         expansion reached, which over-attributes in the safe direction and needs
+         no navigation and no tracking of how a food was found. Same quiet-but-
+         visible treatment as the NOVA explainer's. -->
+    <p class="attribution">
+      Search understands other names for these foods — aubergine, courgette,
+      minced beef — from <strong>Open Food Facts</strong>' ingredient taxonomy,
+      made available under the
+      <span class="odbl">Open Database License (ODbL)</span>.
+    </p>
+  {/if}
+
   {#if note}
     <!-- The stand-in disclosure (ADR-0046 §5). Above the edit affordance, because
          a user who reads this is exactly the one who may want to correct it. -->
@@ -132,5 +148,19 @@
     font-size: var(--step-0);
     line-height: 1.5;
     color: var(--ink);
+  }
+  /* ODbL attribution — quiet but visible, per the OFF licence (ADR-0049 §4).
+     Deliberately the NOVA explainer's treatment, so one licence line reads the
+     same wherever it appears. */
+  .attribution {
+    margin: var(--space-m) 0 0;
+    padding-top: var(--space-s);
+    border-top: var(--edge-thin);
+    font-size: var(--step-n2);
+    line-height: 1.4;
+    color: var(--text-secondary);
+  }
+  .odbl {
+    white-space: nowrap;
   }
 </style>
