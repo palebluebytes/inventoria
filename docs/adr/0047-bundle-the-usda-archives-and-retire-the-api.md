@@ -155,12 +155,15 @@ takes with the curated stand-ins' committed OFF snapshots, at larger scale, and 
 same reason: a pinned third-party value that is wrong slowly and visibly at review beats
 one that is wrong instantly and invisibly.
 
-### 4. The corpus is the ADR-0042 survivors, filtered at generation time
+### 4. The corpus is the reference foods, filtered at generation time
 
-**4,491 of 7,966 merged foods** survive ADR-0042's brand, packaged and prepared filters —
-901 dropped as brand-specific, 1,324 as packaged or processed, 1,250 as prepared or
-composite. Only the survivors ship. The filters themselves are unchanged; what changes is
-that they run once per generation instead of once per keystroke.
+**4,461 of 7,966 merged foods** survive the generation-time filters — 901 dropped as
+brand-specific, 1,324 as packaged or processed, 1,250 as prepared or composite, 17 as
+dry-basis assays and 13 as reporting no energy. The first three are ADR-0042's and are
+unchanged; the last two are
+[ADR-0048](0048-an-absent-measurement-is-not-a-zero.md) §5's, and run after the twin
+merge. What changes for all five is that they run once per generation instead of once per
+keystroke.
 
 This is the clause that costs something, and the cost is asymmetric. ADR-0042's filters
 are precision-first, so their expected failure is a leak — something that should have

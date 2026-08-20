@@ -37,7 +37,7 @@ A generic, non-branded, standardised food entry — what the USDA FoodData Centr
 _Avoid_: Generic food, USDA food, ingredient (when a prepared reference item is meant)
 
 **Search index**:
-The committed artifact the food search reads, one row per Reference food: identity, the fields ranking reads, the macros a result row renders, the household portions, and the reference to any SR Legacy twin whose values the row borrowed. Generated from USDA's bulk archives with the ADR-0042 filters already applied, so it holds the 4,491 survivors rather than all 7,966 merged foods, and the filters run once per generation instead of once per keystroke. See ADR-0047.
+The committed artifact the food search reads, one row per Reference food: identity, the fields ranking reads, the macros a result row renders, the household portions, and the reference to any SR Legacy twin whose values the row borrowed. Generated from USDA's bulk archives with the reference-food filters already applied, so it holds the 4,461 survivors rather than all 7,966 merged foods, and the filters run once per generation instead of once per keystroke. Every row carries an energy value, because a record that reports none cannot be logged and does not ship. See ADR-0047 and ADR-0048.
 _Avoid_: Food index, USDA index, the bundle, offline database
 
 **Nutrient store**:
