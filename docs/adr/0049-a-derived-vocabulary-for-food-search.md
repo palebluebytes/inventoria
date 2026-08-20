@@ -1,7 +1,8 @@
 # ADR 0049: A word the corpus does not use is expanded before search gives up, from a vocabulary derived rather than written
 
 **Status:** Accepted  
-**Date:** 2026-08-20
+**Date:** 2026-08-20  
+**Amended by:** the #139 Amendment below, which measures §3's stopword threshold and corrects the size §3 quotes for the map
 
 This record amends [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md)
 §1, which settled that USDA is the single composition authority and ruled Open Food
@@ -288,3 +289,65 @@ unmeasured recall cost of ADR-0048's drop, confirmed on spinach, parsley, basil,
 oats and millet, and
 [#134](https://github.com/palebluebytes/inventoria/issues/134) carries the 144
 regional rows that keep winning top slots.
+
+## Amendment (2026-08-20, #139): the threshold, measured — and what measuring it moved
+
+§3 left the stopword guard's threshold to be "measured and recorded in the
+generator, not chosen by taste". [#139](https://github.com/palebluebytes/inventoria/issues/139)
+derived the map and measured it. The threshold is **1.1% of the corpus**, 49 rows
+of 4,429, and the map it produces is **433 keys over 329 distinct targets,
+16.4 KiB raw and 4.22 KiB gzipped** — not the 425 over 316 §3 quotes. Those two
+sizes measure the map alone, as §3's do; the `vocabulary_off` section that
+carries it, licence and digest included, is 16.6 KiB raw and 4.4 KiB gzipped.
+
+### The value comes from a plateau, not a preference
+
+Sorted by how many rows they reach, the candidate targets step 424, 217, 116,
+116, 89, 88, 83, 77, 57, 44, 43 and then downwards in ones. **Every threshold
+between 44 and 56 rows — 1.0% to 1.26% of the corpus — therefore produces the
+identical map**, and 1.1% sits in the middle of that band, so a corpus that moves
+by a tenth does not move the vocabulary with it. The guard drops nine targets:
+`salt` 424, `whole` 217, `beans` 116, `bean` 116, `nut` 89, `milk` 88, `nuts` 83,
+`corn` 77 and `nước mắm` 57. The widest it keeps is `cream` at 44. Each
+regeneration prints all of that, so the measurement is restated rather than
+remembered.
+
+### Reproducing 425 would cost four synonyms
+
+The 425 in §3 needs a threshold near 0.61%. That is not a different reading of
+the same evidence: it additionally drops `yoghurt → yogurt`,
+`soya bean → soybean`, `minced beef → ground beef` and `milk cream → cream`.
+Those are synonyms by any reading, and two of them answer queries #130's own
+British list contains. The eight extra keys are that repair, not a loosened
+filter — the three cases §3 names as the guard's reason for existing, `salt`,
+`whole` and `beans`, are all still dropped.
+
+The guard's one casualty worth naming in the other direction is **`maize`**,
+whose only target is `corn` at 77 rows. It is dropped with `corn`, and a
+hand-written `vocabulary_local` is where it would come back.
+
+### The deny-list carries 160 tags, not 163
+
+§3 seeds the deny-list from #130's `implausible-query` verdicts and counts 163.
+`130-ranking-audit.json` now holds 160: [#136](https://github.com/palebluebytes/inventoria/issues/136)'s
+tokeniser fix made every member of `en:java-plum`, `en:pumpkin-leaves` and
+`en:grape-leaf` retrieve, so the sweep stopped emitting them as cases. The effect
+filter drops all three before the deny-list is consulted, so the shorter list
+admits nothing the longer one refused.
+
+### What shipped
+
+Data only, as the ticket scoped it. `search-index.json` gains the
+`vocabulary_off` section — `licence`, `source`, `url`, `sha256` and an
+`expansions` map, one phrase per line — and `schema_version` moves to 2. The
+taxonomy is pinned in `scripts/usda-backup.manifest.json` and read from a local
+copy that `pnpm usda:backup fetch` puts there. **Nothing reads the map yet**: the
+retrieval fallback §1 describes, the curated-matching change in §6 and the
+stemmer widening in §5 are separate tickets.
+
+**§4's visible attribution has not shipped either**, and it is worth naming
+separately because the ODbL derivative is already distributed. The sentence on
+`SourceExplainerSheet`'s USDA panel naming Open Food Facts and the Open Database
+License rides with the fallback in
+[#140](https://github.com/palebluebytes/inventoria/issues/140). Until it lands
+the licence is declared in the artifact and nowhere a user can see.

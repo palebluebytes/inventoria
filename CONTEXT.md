@@ -44,6 +44,10 @@ _Avoid_: Food index, USDA index, the bundle, offline database
 The committed artifact holding every nutrient USDA reports for a Reference food, keyed by FDC nutrient id and carrying USDA's own published unit. It is a separate file from the Search index and is parsed lazily, because search never reads a nutrient and staging reads all of them. No coverage gate and none of USDA's per-record scaffolding — derivation codes, footnotes, sample counts. See ADR-0047.
 _Avoid_: Nutrient table, nutrition bundle, micronutrient tail (which is what the store makes reachable, not the store)
 
+**Vocabulary map**:
+The derived table of phrases the Search index does not use, each mapped to the phrases it does — `aubergine` to `eggplant`, `courgette` to `zucchini`, `minced beef` to `ground beef`. Derived from Open Food Facts' ingredients taxonomy rather than written by hand, filtered to the groups that can change an answer, and committed inside the Search index under its own ODbL section (`vocabulary_off`). It is a **retrieval fallback**: a query that already retrieves something is answered exactly as it is today. See ADR-0049.
+_Avoid_: Synonym list, alias table (a Curated stand-in's `aliases` are a different thing), thesaurus, spell-check
+
 **Curated stand-in**:
 One specific Open Food Facts product, pinned by hand, answering a search for a base ingredient that **no** composition table carries — not USDA Foundation, SR Legacy or Survey, not CIQUAL. Cacao nibs is the founding case. It is an enumerable exception list against a coverage hole, never a second composition table: the entity stays the real barcode, the origin still reads OFF, and the substitution is disclosed rather than hidden. Admission is evidential and the list is capped. See ADR-0046.
 _Avoid_: Curated food, fallback food, default food, custom food (which means a user's own entry)
