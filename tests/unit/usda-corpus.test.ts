@@ -25,7 +25,7 @@ import type { EntityPayload } from "../../src/lib/ingestion/ingest";
 
 // The committed artifact itself is the fixture (ADR-0047 §3). Search is only
 // keyless and offline if it answers from THIS file, so the ADR-0042 ordering
-// cases are asserted over the 4,461 rows the app actually ships rather than
+// cases are asserted over the 4,441 rows the app actually ships rather than
 // over a hand-built stand-in that could agree with the code and not the data.
 const index: SearchIndex = JSON.parse(
   readFileSync("public/usda/search-index.json", "utf8")
@@ -36,7 +36,7 @@ const descriptionsFor = (query: string): string[] =>
 
 describe("the bundled search index", () => {
   it("is the surviving reference foods, and says which archives it came from", () => {
-    expect(index.foods.length).toBe(4461);
+    expect(index.foods.length).toBe(4441);
     expect(index.generated_from.map((a) => a.dataset)).toEqual([
       "Foundation Foods",
       "SR Legacy",
@@ -51,7 +51,7 @@ describe("the bundled search index", () => {
   // place (#126).
 
   it("carries an energy value on every row — an absent measurement is not a zero", () => {
-    // PRESENCE, not non-zero (ADR-0048 §1). Nine rows report a measured 0 and
+    // PRESENCE, not non-zero (ADR-0048 §1). Eight rows report a measured 0 and
     // are correct: tap water, iodised salt, decaffeinated coffee and tea.
     const silent = index.foods.filter((row) =>
       reportsNoEnergy({ serving_size: PER_100G, ...row.macros })
@@ -64,7 +64,109 @@ describe("the bundled search index", () => {
     expect(measuredZero.map((row) => row.description)).toContain(
       "Beverages, water, tap, drinking"
     );
-    expect(measuredZero).toHaveLength(9);
+    // Eight, not the nine ADR-0048 counted: the ninth was "Beverages, Powerade
+    // Zero Ion4", which really is calorie-free and passed this filter honestly.
+    // It left the corpus as a brand instead (#131), which is how the leak was
+    // noticed in the first place.
+    expect(measuredZero).toHaveLength(8);
+  });
+
+  // ── ADR-0042 §3's brand invariant, over the artifact itself ───────────────
+  // Locked here for the same reason as the energy invariant above: the brand
+  // filter runs at generation, so a mirror refresh is how a brand comes back,
+  // and it would ship silently. #131 is the proof — sixteen "Vitasoy USA …"
+  // rows sat in the corpus as generic foods until somebody read the data for an
+  // unrelated ticket.
+
+  it("shouts no brand: the surviving all-caps vocabulary is three known words", () => {
+    // USDA's editorial convention renders brands in ALL CAPS, so the set of
+    // all-caps tokens that survive the filter IS the audit. It is small enough
+    // to read, and every member has to earn its place:
+    //   USDA — "Includes Foods for USDA's Food Distribution Program"
+    //   BBQ  — "Chicken, broiler, rotisserie, BBQ, …"
+    //   NY   — "Beef, short loin (NY strip steak), raw"
+    // A fourth member appearing is not necessarily a bug, but it is always
+    // worth a human deciding — which is the point of pinning the whole set
+    // rather than asserting a blocklist.
+    const capsTokens = new Set(
+      index.foods.flatMap(
+        (row) => row.description.match(/\b[A-Z][A-Z&'.-]*[A-Z]\b/g) ?? []
+      )
+    );
+    expect([...capsTokens].sort()).toEqual(["BBQ", "NY", "USDA"]);
+  });
+
+  it("carries none of the brands that have leaked past the filter before", () => {
+    // A tripwire, NOT a proof the class is empty — it can only catch a brand
+    // somebody thought to list, which is exactly the weakness that let #131 sit
+    // undiscovered. The real guard against a shouted brand is the caps pin
+    // above; a Title-Case brand arriving on a refresh is a known, accepted gap
+    // (ADR-0042 §3 as amended), and this roster is the only thing watching for
+    // it. Add to it whenever a leak is found.
+    const KNOWN_BRANDS = [
+      "vitasoy",
+      "nasoya",
+      "azumaya",
+      "powerade",
+      "gatorade",
+      "creamsicle",
+      "reddi wip",
+      "natreon",
+      "coca-cola",
+      "pepsi",
+      "kellogg",
+      "nestle",
+      "quaker",
+      "kraft",
+      "campbell",
+      "heinz",
+      "cheerios",
+      "oreo",
+      "hershey",
+      "mcdonald",
+      "subway",
+      "applebee",
+      "gerber",
+      "ocean spray",
+      "bimbo",
+      "zespri",
+      "cream of wheat",
+      "cream of rice",
+      "post",
+      "almond joy",
+    ];
+    const leaked = index.foods.filter((row) =>
+      KNOWN_BRANDS.some((brand) =>
+        row.description.toLowerCase().includes(brand)
+      )
+    );
+    expect(leaked.map((row) => row.description)).toEqual([]);
+  });
+
+  it("keeps the base foods the branded rows were standing in front of", () => {
+    // The other half of #131: dropping twenty rows is only correct because a
+    // generic equivalent was already there. Assert the survivors by name, so a
+    // future tightening that takes the generic with the brand fails here rather
+    // than quietly emptying an aisle.
+    const descriptions = index.foods.map((row) => row.description);
+    expect(descriptions).toContain(
+      "Tofu, raw, firm, prepared with calcium sulfate"
+    );
+    expect(descriptions).toContain(
+      "Soymilk, original and vanilla, unfortified"
+    );
+    expect(descriptions).toContain("Oil, canola");
+    expect(descriptions).toContain(
+      "Cream, whipped, cream topping, pressurized"
+    );
+    // And the Beverages rows a "drop every beverage" rule would have cost.
+    expect(descriptions).toContain("Beverages, water, tap, drinking");
+    expect(descriptions).toContain(
+      "Beverages, coffee, brewed, prepared with tap water"
+    );
+    expect(descriptions).toContain(
+      "Beverages, tea, black, brewed, prepared with tap water"
+    );
   });
 
   it("keeps the five twinned oils, on their twin's energy and their twin's fat", () => {
@@ -300,7 +402,7 @@ describe("storedPanelFor", () => {
   it("rebuilds every row's macros exactly, across the whole corpus", () => {
     // The two artifacts are generated from one merged record, so a row's macros
     // and the store's amounts are the same numbers twice. Assert it over all
-    // 4,461 rather than on one food: a generator change that filled one artifact
+    // 4,441 rather than on one food: a generator change that filled one artifact
     // and not the other would otherwise ship silently.
     const disagreeing = index.foods.filter((row) => {
       const panel = storedPanelFor(store, row.fdcId);

@@ -2,7 +2,7 @@
  * ADR-0042's reference-food ranking: how a free-text query orders the foods it
  * reaches. Its own module because it outlives its first caller — the FDC search
  * API built it, and the bundled corpus (ADR-0047) is what runs it now, over
- * 4,461 rows per keystroke rather than over one page of API results.
+ * 4,441 rows per keystroke rather than over one page of API results.
  */
 
 /**
@@ -10,7 +10,7 @@
  * as a string, with the query-independent half of the score already settled.
  *
  * Separated from the description because the corpus a keystroke ranks is now the
- * whole 4,461-row Search index (ADR-0047 §4). Re-splitting every description on
+ * whole 4,441-row Search index (ADR-0047 §4). Re-splitting every description on
  * every keystroke measured 17 ms; splitting each once and comparing the words
  * costs 1.4 ms, and the split does not depend on what was typed.
  */
