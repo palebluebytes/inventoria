@@ -447,25 +447,33 @@ export function mapFdcPortions(portions: readonly FdcFoodPortion[]): Portion[] {
 // APPLEBEE'S, "almond" kept ALMOND JOY, because a generic food word capitalised
 // inside a brand name matched the query.)
 //
-// Precision comes first — never drop a real food. Validated against the entire
-// 7,793-record SR Legacy corpus: 901 records dropped, 0 of them generic foods
-// (the sole raw casualty is "Kiwifruit, ZESPRI SunGold, raw", and generic kiwi
-// remains). Three guards keep it precise:
+// Precision comes first — never drop a real food. The generator reports 922 of
+// 7,966 merged identities dropped here, 0 of them generic foods (the sole raw
+// casualty is "Kiwifruit, ZESPRI SunGold, raw", and generic kiwi remains).
+// Three guards keep it precise:
 //   1. a trigger needs >=3 letters, so 2-letter units and state codes never
 //      match ("US", "LB", and "Beef, short loin (NY strip steak), raw");
 //   2. generic all-caps acronyms are stoplisted (USDA commodity foods; DHA/ARA
-//      in infant formula; NFS/BBQ; capitalised stopwords);
+//      in infant formula; NFS/BBQ; capitalised stopwords) — the stoplist is for
+//      acronyms that describe a FOOD, which is why "USA" is not among them:
+//      it earned its place nowhere and cost sixteen "Vitasoy USA …" tofu and
+//      soymilk rows, which reached the corpus as generic foods (#131);
 //   3. USDA's generic "assorted brands" composites name a brand as an example
 //      ("Cereals, farina, enriched, assorted brands including CREAM OF WHEAT")
 //      but are themselves generic — a small safelist keeps them. Trademarked
 //      products in their own right (Cream of Wheat, Cream of Rice) are dropped.
+//
+// The convention is not universal, and the residual gap is known and accepted:
+// a brand USDA rendered in Title Case is invisible here and reaches the corpus
+// unless the denylist below names it. `tests/unit/usda-corpus.test.ts` pins the
+// surviving all-caps vocabulary and sweeps a named-brand roster, which is a
+// tripwire, not a proof the class is empty (ADR-0042 §3 as amended).
 // ---------------------------------------------------------------------------
 
 const BRAND_CAPS = /\b[A-Z][A-Z&'.\-]*[A-Z]\b/g;
 
 const GENERIC_CAPS_ACRONYMS = new Set([
   "USDA",
-  "USA",
   "DHA",
   "ARA",
   "NFS",
@@ -493,12 +501,27 @@ const GENERIC_CAPS_ACRONYMS = new Set([
 // WHEAT, dry"), which are dropped like any other brand.
 const GENERIC_FOOD_SAFELIST = ["assorted brands"];
 
-// Trademarked products whose name is built entirely from otherwise-generic
-// words ("cream", "wheat"). The all-caps token check below can't tell these from
-// a real food, so drop them unconditionally. Matched as a lowercased substring,
-// after the safelist above (so the generic "assorted brands" farina that merely
-// names one is still kept).
-const TRADEMARK_DENYLIST = ["cream of wheat", "cream of rice"];
+// Trademarks the all-caps token check below cannot see, dropped unconditionally.
+// They go invisible two ways: a name built entirely from otherwise-generic words
+// ("cream", "wheat"), or a name USDA simply did not shout — SR Legacy's house
+// style is ALL CAPS for brands, but a handful arrived in Title Case and read to
+// the check like any cultivar (#131). Matched as a lowercased substring, after
+// the safelist above (so the generic "assorted brands" farina that merely names
+// one is still kept).
+//
+// Deliberately a list of four rather than a Title-Case proper-noun rule: 697
+// corpus rows carry a mid-description Title-Case token and nearly all name a
+// cultivar, grade, geography or varietal ("Tommy Atkins", "Grade A", "New
+// Zealand", "Pinot Noir"), so widening would cost precision this filter is built
+// to protect (ADR-0042 §3).
+const TRADEMARK_DENYLIST = [
+  "cream of wheat",
+  "cream of rice",
+  "powerade",
+  "reddi wip",
+  "creamsicle",
+  "natreon",
+];
 
 /**
  * True when an FDC description names a specific brand — an ALL-CAPS token that is

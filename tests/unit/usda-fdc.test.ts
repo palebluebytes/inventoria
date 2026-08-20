@@ -375,6 +375,51 @@ describe("isBrandSpecific", () => {
     expect(isBrandSpecific("Cheese, cheddar, USDA commodity")).toBe(false);
   });
 
+  it("drops a brand whose only caps token is the country it trades under", () => {
+    // #131: "USA" sat in the generic-acronym safelist, so every "Vitasoy USA …"
+    // record was waved through the caps rule — sixteen branded tofu and soymilk
+    // rows reached the corpus. The safelist is for acronyms that describe a food
+    // (USDA commodity, DHA/ARA), not for the incorporation suffix on a brand.
+    expect(isBrandSpecific("Vitasoy USA, Nasoya Lite Firm Tofu")).toBe(true);
+    expect(isBrandSpecific("Vitasoy USA Azumaya, Firm Tofu")).toBe(true);
+    expect(
+      isBrandSpecific("Vitasoy USA, Vitasoy Organic Creamy Original Soymilk")
+    ).toBe(true);
+    // The generic tofu the corpus keeps instead carries no caps token at all.
+    expect(
+      isBrandSpecific("Tofu, raw, firm, prepared with calcium sulfate")
+    ).toBe(false);
+  });
+
+  it("drops a Title-Case trademark the caps rule cannot see", () => {
+    // #131's other hole: a trademark USDA did not shout. There is no ALL-CAPS
+    // token to find and no processing marker in the description, so only the
+    // denylist catches these four.
+    expect(
+      isBrandSpecific(
+        "Beverages, Powerade Zero Ion4, calorie-free, assorted flavors"
+      )
+    ).toBe(true);
+    expect(isBrandSpecific("Reddi Wip Fat Free Whipped Topping")).toBe(true);
+    expect(isBrandSpecific("Light ice cream, Creamsicle")).toBe(true);
+    expect(
+      isBrandSpecific(
+        "Oil, vegetable, Natreon canola, high stability, non trans, high oleic (70%)"
+      )
+    ).toBe(true);
+  });
+
+  it("keeps the Title-Case cultivars and grades a proper-noun rule would eat", () => {
+    // Why #131 denylists four records instead of widening to Title Case: 697
+    // corpus rows carry a mid-description Title-Case token and nearly all name a
+    // cultivar, grade, geography or varietal rather than a brand.
+    expect(isBrandSpecific("Mango, Tommy Atkins, peeled, raw")).toBe(false);
+    expect(isBrandSpecific("Eggs, Grade A, Large, egg white")).toBe(false);
+    expect(
+      isBrandSpecific("Alcoholic Beverage, wine, table, red, Pinot Noir")
+    ).toBe(false);
+  });
+
   it("drops trademark cereals but keeps USDA's generic 'assorted brands' composite", () => {
     // Cream of Wheat / Cream of Rice are trademarked products -> dropped.
     expect(isBrandSpecific("Cereals, CREAM OF WHEAT, dry")).toBe(true);
