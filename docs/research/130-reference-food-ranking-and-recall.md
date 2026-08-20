@@ -193,3 +193,75 @@ head `whey` (correct) · head `blueberries` (correct) · pair `domesticated duck
 It is drawn with the same seed the pair sample uses, so `pnpm usda:ranking-audit` re-derives it. Verdicts are shown so a disagreement is one lookup rather than a hunt.
 
 The two most load-bearing judgements to check are `implausible-query` (163 cases, and if that call is systematically wrong in either direction the vocabulary count moves with it) and `peers` (39 across all passes, the verdict that keeps the miss rate honest).
+
+---
+
+## Correction (2026-08-20, from #124's grilling)
+
+The 914 adjudications stand. What fails is the sizing derived from them in §6 and
+§9, and two cause assignments in §4. Corrected here rather than by reopening
+[#130](https://github.com/palebluebytes/inventoria/issues/130), so that anything
+citing this note reads the correction alongside the claim.
+
+### §6's split is not the split
+
+§6 divides the 43 `qualifier-position` misses into 35 head-only and 7 where "the
+discriminating word sits in a qualifier", and hands #124 the 7 as the class its
+positional key would fix. **The key fixes none of the 7.** Each was re-read from
+its per-case record in `130-ranking-audit.json` and scored against a summed
+positional key over the shipped index:
+
+| case                 | this note's own note on it                       | positional?                        |
+| -------------------- | ------------------------------------------------ | ---------------------------------- |
+| `white wheat flour`  | self-rising over plain all-purpose               | no — same index in both            |
+| `white mushroom`     | the UV-exposed record                            | no — same index in both            |
+| `parmesan cheese`    | low sodium over plain hard parmesan              | no — same index in both            |
+| `australian beef`    | external **fat** rather than a cut               | no                                 |
+| `bread flour`        | gluten-free _bread_; the flour is never reached  | no — retrieval, not order          |
+| `shiitake mushrooms` | stir-fried; **no raw shiitake survives**         | no — §8's class, ADR-0048's ledger |
+| `bacon pork`         | reduced-sodium cooked over the unprepared record | moves — to a _rendered fat_ record |
+
+Six are the least-qualified problem or a coverage gap wearing a positional label.
+The seventh moves to `Pork, bacon, rendered fat, cooked`, which is the shape this
+note files as a miss under `australian beef`.
+
+### §4's cause table mis-files two of #124's real cases
+
+`coconut oil` and `cheddar cheese` are counted under `vocabulary` in the synonym
+pass, while their own notes name a ranking defect — "leads with an INDUSTRIAL
+confection fat, not the culinary oil"; "'cheddar cheese' with process cheese".
+They belong to #124's class. `olive oil`, the defect's founding case, appears in
+none of the 914.
+
+The consequence is not a small reallocation between buckets. **This note's cause
+taxonomy cannot size #124 in either direction**: it under-counts the class by
+filing it as vocabulary, and over-counts it by filing least-qualified and
+coverage failures as positional. #124 is sized by a mechanical structural sweep
+instead — the signature is countable without an adjudicator.
+
+### §9's recommendation 3 names the wrong measure
+
+"Preferring the least-qualified record decides all 35" does not hold. Scored over
+the shipped index, a fewest-qualifiers key — counted by qualifier words or by
+commas, the two agree — picks:
+
+| query        | fewest-qualifiers picks                         | what should lead                                       |
+| ------------ | ----------------------------------------------- | ------------------------------------------------------ |
+| `milk`       | `Milk, imitation, non-soy` (3)                  | `Milk, whole, 3.25% milkfat, with added vitamin D` (6) |
+| `mayonnaise` | `Mayonnaise, made with tofu`                    | no plain mayonnaise row exists                         |
+| `yogurt`     | ties plain whole-milk with nonfat fruit variety | the plain one                                          |
+| `cheese`     | `Cheese, cheddar` (1)                           | holds                                                  |
+| `bread`      | `Bread, white wheat` (2)                        | holds                                                  |
+
+USDA writes the canonical milk with more qualifiers than the imitation one, so
+"fewest qualifiers" conflates _shortest name_ with _most canonical_. The
+observation §6 makes — that nothing prefers the least-qualified record, and that
+`simplicity` already carries the idea gated behind `raw` — survives. The measure
+does not. Defining and measuring one is the first acceptance line of the ticket
+that inherits the 35, not an assumption inside it.
+
+### What is unaffected
+
+§5's recall finding (236 vocabulary misses, 17 of 20 British queries), §7's
+tokeniser diagnosis, §8's three known cases, and recommendations 1, 2, 4 and 5.
+None of them depends on the `qualifier-position` split.

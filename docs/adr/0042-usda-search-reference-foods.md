@@ -11,6 +11,7 @@
 **Amended by:** the #133 Amendment below, which lets §5's dish markers be a conjunction of two ordinary words  
 **Amended by:** the #136 Amendment below, which reads a typed query with the same tokeniser as a food's name  
 **Amended by:** the #135 Amendment below, which widens §1's stemmer by two English plurals  
+**Amended by:** the #124 Amendment below, which adds a fifth key asking where in the name the query landed  
 **Implemented:** `dabb1fe`, `082ad31`, `fcb3b60`, `1365343`; `src/lib/food/food-search.ts`
 
 ## Context
@@ -436,3 +437,117 @@ foods" is discharged rather than ignored. A query stem is only ever tested again
 corpus stems, so a false positive requires two **corpus** words to collide; across all
 1,744 distinct corpus words these rules create exactly the two intended pairs,
 `leaf`/`leaves` and `radish`/`radishes`.
+
+## Amendment (2026-08-20, #124): where in the name the query landed, summed
+
+§1's four keys ask how much of a food's own name the query accounts for. None of
+them asks **where** the accounted-for words sat. Past the head phrase the order
+is blind to position, so `Oil, olive, salad or cooking` and `Oil, corn, peanut,
+and olive` score identically on all four and `Array.sort`'s stability hands the
+result to whichever `fdcId` is lower — a blend, for a query naming a single oil.
+The same collapse hits any `adjective + noun` query where USDA writes the food as
+`Noun, adjective, …`, which is most of them.
+
+§1 gains a fifth key, `position`, between head-completeness and raw simplicity:
+
+> **`position`** — for each typed token, the index of the first word in the name
+> that either stem-equals it or starts with it; summed across tokens, negated so
+> that larger is better, as every other key is. USDA orders qualifiers by
+> descending importance, so `Oil, olive, extra virgin` names olive first because
+> that is what the food is.
+
+### Summed, not smallest
+
+The obvious reading — the smallest matched index anywhere in the name — does
+nothing at all, and the ticket that proposed it named it that way. Measured on
+its own founding case, both candidates score 0, because `oil` sits at index 0 in
+each:
+
+```
+Oil, corn, peanut, and olive    per-token [4, 0]   min 0   sum 4
+Oil, olive, salad or cooking    per-token [1, 0]   min 0   sum 1
+```
+
+Summing reads as "how far into the name did the query's words land, in total". It
+degrades gracefully as a query lengthens, where a max-of-tokens reads only the
+worst-placed one. It also settles, for free and without an exclusion rule,
+whether a head match should count: a token in the head is index 0 and contributes
+nothing, so the key never restates what the tier already said.
+
+Every token of a retrieved row has an index by construction. §1 admits a row when
+every token prefix-matches some word **or** every token stem-matches some word,
+so under either branch each token has at least one word answering it, and the
+first such word is the index.
+
+### The slot, and the one reserved after it
+
+`tier → raw → head → position → simplicity`. Measured, the placement is
+unfalsified: putting `position` above rawness, below head-completeness, or dead
+last produces identical leading rows on every case examined, including all nine
+of §1's must-not-regress queries. It is therefore settled on principle rather
+than on evidence — §1 states the raw base-ingredient preference as a principle,
+and a mechanical positional signal should not outrank a stated principle on a tie
+the evidence cannot adjudicate.
+
+The slot **after** `position` is reserved for a least-qualified key, which will
+absorb `simplicity`. With `raw` already a key of its own, today's 3/2/1/0
+`simplicity` is only "fewest qualifiers, among raw foods"; a general form
+subsumes it without loss. That key is not written here, for the reason the next
+section gives.
+
+### What this does not fix, and the correction it carries
+
+This key addresses `adjective + noun` queries and **leaves head-only ties
+untouched**, by construction: when the query is the head phrase, every candidate
+matches at index 0 and every candidate ties, exactly as the four existing keys
+already do. Run over the 337 rows that tie on every key when searched by their
+own full description (the #136 Amendment above), it breaks none of them and
+worsens none.
+
+Two sizing claims inherited from
+[#130](https://github.com/palebluebytes/inventoria/issues/130) are wrong and are
+corrected here rather than carried:
+
+- **"The key fixes 7 of the 43 `qualifier-position` misses" is wrong on all
+  seven.** Measured against the per-case records in `130-ranking-audit.json`,
+  six of those seven are not positional at all — `white wheat flour`,
+  `white mushroom` and `parmesan cheese` place the discriminating word at the
+  same index in every candidate and differ only in how much else the name says;
+  `shiitake mushrooms` has no raw record left to reach, which is ADR-0048's
+  ledger; and `bread flour` never retrieves the flour, which is retrieval rather
+  than order.
+- **"Preferring the least-qualified record decides all 35 head-only misses" is
+  also wrong.** A fewest-qualifiers key, counted by words or by commas alike,
+  picks `Milk, imitation, non-soy` over `Milk, whole, 3.25% milkfat, with added
+vitamin D`, and `Mayonnaise, made with tofu` over nothing better. USDA writes
+  the canonical milk with _more_ qualifiers than the imitation one. The idea is
+  still the right shape; "fewest qualifiers" is not the right measure of it, and
+  what is remains to be measured.
+
+The evidence that does support this key was found outside those buckets:
+`coconut oil` and `cheddar cheese` sit in the audit's synonym pass filed as
+`vocabulary` misses, with notes describing this defect verbatim, and `olive oil`
+is absent from all 914 adjudicated cases.
+
+### The cost this accepts
+
+`bacon pork` is the one case among the seven the key moves, and it moves it to
+`Pork, bacon, rendered fat, cooked` — a separable-fat record, which is the same
+shape the audit files as a miss when a bare `beef` query returns `Beef, retail
+cuts, separable fat, raw`. This is accepted rather than guarded. Preferring a
+whole food over its rendered or separable fat is the missing canonical-record
+signal that the reserved slot above is for, and supplying it here would couple
+two changes whose evidence is at different stages.
+
+All nine of §1's must-not-regress queries — `pot`, `pota`, `potato`, `potatoes`,
+`tomato`, `grape`, `gra`, `balsamic`, `soy milk` — are unmoved by this key under
+every placement tried.
+
+### Retrieval is untouched
+
+The key changes order only. The set of rows a query retrieves is identical before
+and after, which is what keeps this independent of
+[ADR-0049](0049-a-derived-vocabulary-for-food-search.md): its vocabulary map is
+derived from whether a phrase retrieves anything at all, and its runtime fallback
+fires only on an empty result. Neither can be disturbed by a change that cannot
+empty or fill a result set.
