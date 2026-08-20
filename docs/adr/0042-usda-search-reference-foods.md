@@ -9,6 +9,7 @@
 **Amended by:** ADR-0048 §5 (§3's generation-time filter roster gains a dry-basis filter and an energy-absence filter)  
 **Amended by:** the #131 Amendment below, which corrects §3's "ALL CAPS is the only available signal" and accepts the gap that leaves  
 **Amended by:** the #133 Amendment below, which lets §5's dish markers be a conjunction of two ordinary words  
+**Amended by:** the #136 Amendment below, which reads a typed query with the same tokeniser as a food's name  
 **Implemented:** `dabb1fe`, `082ad31`, `fcb3b60`, `1365343`; `src/lib/food/food-search.ts`
 
 ## Context
@@ -349,3 +350,42 @@ belongs in the corpus at all is [#134](https://github.com/palebluebytes/inventor
 question, not this one's.
 
 **#133 implemented:** `9571b93` (the conjunction marker), `09186d2` (the regeneration and the pins).
+
+## Amendment (2026-08-20, #136): one tokeniser, for the query and the name alike
+
+§1 ranks by comparing typed tokens against a name's words, and the two were split
+by different rules. A description split on every non-alphanumeric run; a typed
+query split on whitespace alone. So a hyphen, apostrophe, bracket, slash or comma
+inside a typed word produced a token that no name word could ever equal or
+prefix, and the whole query collapsed to no match — `mahi-mahi`, `pak-choi`,
+`whole-wheat pasta`, `freeze-dried chives`, `yambean (jicama)`, all returning
+nothing while the rows they name sit in the corpus.
+
+[#130](https://github.com/palebluebytes/inventoria/issues/130)'s measurement put
+the blunt version of it: **4,394 of the 4,429 shipped rows scored no match
+against their own full description**, because the commas in the description
+survived tokenisation. Its real-world weight is much smaller than that number —
+12 of 435 synonym members, 13 of 272 contested heads, 20 of 200 sampled pairs —
+but it is a failure that reads as absence, and an absent row cannot be
+distinguished from one the filters never kept.
+
+The rule is that **punctuation is a word separator on both sides of the
+comparison**: a token is only ever compared against a word the same function
+produced, so one function produces both. The Lucene-style trailing `*` callers
+pass falls out of it — a wildcard is not alphanumeric either — rather than being
+stripped separately.
+
+**A typed hyphen now means two tokens, and §1 requires every token.** `whole-wheat`
+stops being one unmatchable token and becomes `whole` and `wheat`, both of which
+have to match; that is the intent, since the name holds them as two words too. A
+query is never made narrower by this, because the token it replaces matched
+nothing.
+
+This closes recall by a food's own name; it does not close ranking. Nineteen rows
+are still outranked by a sibling record when searched by their own full
+description — `Yardlong bean, raw` loses to `Yardlong beans, mature seeds, raw`
+on head-completeness, `Fat, chicken` to a raw chicken fat — which is
+[#124](https://github.com/palebluebytes/inventoria/issues/124)'s class, where the
+key order is blind to where a matched word sits, and not this amendment's.
+
+**#136 implemented:** `2892081` (the shared tokeniser and the per-row pin).
