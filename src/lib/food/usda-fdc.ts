@@ -623,7 +623,19 @@ const PREPARED_CATEGORIES = new Set([
 // of these words. ("home recipe" catches "crab cakes, home recipe"; distinct
 // from a bread's "prepared from recipe", which is deliberately NOT a marker.)
 const PREPARED_DISH_MARKERS =
-  /\b(home[- ](?:prepared|recipe)|au gratin|scalloped|breaded|breading|batter|french[- ]fried)\b/i;
+  /\b(home[- ](?:prepared|recipe)|au gratin|scalloped|breaded|breading|batter|french[- ]fried|fast food)\b/i;
+// An assembled retail dessert, which USDA files under Dairy beside the plain
+// tubs: "Ice cream sandwich", "Ice cream bar, … with crunch coating", "Ice
+// cream sundae cone". The signal is the wafer, biscuit, stick or coating AROUND
+// the ice cream, so the marker needs both halves — plain "Ice cream, soft serve,
+// chocolate" is a base dairy food and stays, like cheese and butter.
+//
+// Anchored to ice cream rather than matched bare because the form words are
+// ordinary English: a bare \bsandwich\b marker would take "Sandwich spread,
+// meatless", "Beef, sandwich steaks, flaked, chopped, formed and thinly sliced,
+// raw" and "Tortilla, includes plain and from mutton sandwich (Navajo)" with it.
+const ICE_CREAM_NOVELTY = /ice cream/i;
+const ASSEMBLED_DESSERT_FORM = /\b(bar|stick|cone|cookie|sandwich|sundae)\b/i;
 // "salad" names a dish ("Potato salad") — but also a use for a base cooking oil
 // ("Oil, olive, salad or cooking"), which must NOT be dropped.
 const SALAD_DISH = /\bsalad\b/i;
@@ -736,6 +748,11 @@ export function isPreparedProduct(
   description: string
 ): boolean {
   if (PREPARED_DISH_MARKERS.test(description)) return true;
+  if (
+    ICE_CREAM_NOVELTY.test(description) &&
+    ASSEMBLED_DESSERT_FORM.test(description)
+  )
+    return true;
   // Flour-battered deep-fried dishes ("Chicken … cooked, fried, flour"). Needs
   // both words, so a plain fried egg is kept and plain flour is not touched.
   if (

@@ -533,6 +533,80 @@ describe("isPreparedProduct", () => {
     ).toBe(true);
   });
 
+  it("drops a fast-food item USDA filed outside Fast Foods", () => {
+    // #133: USDA filed both milkshakes under Beverages, so PREPARED_CATEGORIES
+    // never saw them and no dish marker described them — the marker set was
+    // built for home-prepared dishes, and a milkshake is neither home-prepared
+    // nor a base ingredient.
+    expect(isPreparedProduct("Beverages", "Shake, fast food, vanilla")).toBe(
+      true
+    );
+    expect(
+      isPreparedProduct("Beverages", "Beverages, shake, fast food, strawberry")
+    ).toBe(true);
+  });
+
+  it("drops an ice cream that names an assembled form, keeps the plain tub", () => {
+    // #133: the signal is the wafer, biscuit, stick or coating around the ice
+    // cream, not the ice cream. A plain tub is a base dairy food on the same
+    // reasoning that keeps cheese and butter.
+    const DAIRY = "Dairy and Egg Products";
+    expect(isPreparedProduct(DAIRY, "Ice cream sandwich")).toBe(true);
+    expect(isPreparedProduct(DAIRY, "Ice cream cookie sandwich")).toBe(true);
+    expect(
+      isPreparedProduct(
+        DAIRY,
+        "Ice cream bar, stick or nugget, with crunch coating"
+      )
+    ).toBe(true);
+    expect(
+      isPreparedProduct(DAIRY, "Ice cream, bar or stick, chocolate covered")
+    ).toBe(true);
+    expect(isPreparedProduct(DAIRY, "Ice cream sundae cone")).toBe(true);
+    expect(
+      isPreparedProduct(
+        DAIRY,
+        "Ice cream, lowfat, no sugar added, cone, added peanuts and chocolate sauce"
+      )
+    ).toBe(true);
+
+    expect(isPreparedProduct(DAIRY, "Ice cream, soft serve, chocolate")).toBe(
+      false
+    );
+    expect(
+      isPreparedProduct(DAIRY, "Ice cream, light, soft serve, chocolate")
+    ).toBe(false);
+    expect(
+      isPreparedProduct(
+        DAIRY,
+        "Fat free ice cream, no sugar added, flavors other than chocolate"
+      )
+    ).toBe(false);
+  });
+
+  it("never matches 'sandwich' on its own — three base foods carry the word", () => {
+    // Why the novelty rule is anchored to ice cream. A bare \\bsandwich\\b marker
+    // would take a spread, a raw beef cut and a Navajo tortilla with it.
+    expect(
+      isPreparedProduct(
+        "Legumes and Legume Products",
+        "Sandwich spread, meatless"
+      )
+    ).toBe(false);
+    expect(
+      isPreparedProduct(
+        "Beef Products",
+        "Beef, sandwich steaks, flaked, chopped, formed and thinly sliced, raw"
+      )
+    ).toBe(false);
+    expect(
+      isPreparedProduct(
+        "American Indian/Alaska Native Foods",
+        "Tortilla, includes plain and from mutton sandwich (Navajo)"
+      )
+    ).toBe(false);
+  });
+
   it("drops breaded/battered fried dishes but keeps simple cooked foods", () => {
     // Breaded fried chicken ("cooked, fried, flour") only matched a "flour"
     // search via its coating — a dish. French fries and breaded fish likewise.
