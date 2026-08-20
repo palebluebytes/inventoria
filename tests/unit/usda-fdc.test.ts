@@ -6,9 +6,12 @@ import {
   isBrandSpecific,
   isProcessedProduct,
   isPreparedProduct,
+  isDryBasisRecord,
+  fdcReportsNoEnergy,
   type FdcFood,
   type FdcFoodPortion,
 } from "../../src/lib/food/usda-fdc";
+import { reportsNoEnergy } from "../../src/lib/food/nutrition";
 import bananaSearch from "./support/fixtures/usda-fdc-banana.json";
 import cheddarSearch from "./support/fixtures/usda-fdc-cheddar.json";
 import bananaDetail from "./support/fixtures/usda-fdc-banana-detail.json";
@@ -666,5 +669,119 @@ describe("resolveFdcGroup", () => {
 
     expect(provenance).not.toHaveProperty("merged_from");
     expect(provenance.adapter_version).toBe("9");
+  });
+});
+
+// ── ADR-0048: the two things that make a record unloggable ──────────────────
+// Both are asked at generation time (`scripts/usda-bundle.mjs`), and the second
+// is asked again at log time by the food card. What these lock is that they are
+// asked in ONE place: `fdcReportsNoEnergy` is written in terms of the app's own
+// `buildNutritionPanel` and `reportsNoEnergy`, so an id joining `ENERGY_IDS`
+// moves both answers at once and neither can drift from the other.
+
+describe("isDryBasisRecord", () => {
+  it("drops the dry-basis assays USDA marks (0% moisture)", () => {
+    expect(isDryBasisRecord("Beans, Dry, Black (0% moisture)")).toBe(true);
+    expect(isDryBasisRecord("Beans, Dry, Dark Red Kidney (0% moisture)")).toBe(
+      true
+    );
+  });
+
+  it("keeps the dried beans anyone actually buys", () => {
+    // The corpus holds 38 of these, with complete panels; the dry-basis record
+    // beside them is a laboratory basis, not a second food (ADR-0048 §5).
+    expect(isDryBasisRecord("Beans, black, mature seeds, raw")).toBe(false);
+    expect(isDryBasisRecord("Beans, pinto, mature seeds, raw")).toBe(false);
+  });
+
+  it("does not fire on a description that merely says the word", () => {
+    // Seven corpus rows say "moisture" without being a dry-basis assay — four
+    // "(may contain additives to retain moisture)" and three low-moisture
+    // mozzarellas. A bare /moisture/ would have taken every one of them.
+    expect(
+      isDryBasisRecord(
+        "Fish, cod, Pacific, cooked, dry heat (may contain additives to retain moisture)"
+      )
+    ).toBe(false);
+    expect(
+      isDryBasisRecord("Cheese, mozzarella, whole milk, low moisture")
+    ).toBe(false);
+    expect(isDryBasisRecord("Beans, Dry, Black (12% moisture)")).toBe(false);
+  });
+});
+
+describe("fdcReportsNoEnergy", () => {
+  const food = (nutrients: FdcFood["foodNutrients"]): FdcFood => ({
+    fdcId: 748608,
+    description: "Oil, olive, extra virgin",
+    dataType: "Foundation",
+    foodNutrients: nutrients,
+  });
+  const n = (nutrientId: number, value: number) => ({
+    nutrientId,
+    nutrientName: "n",
+    value,
+    unitName: "KCAL",
+  });
+
+  it("is true for a record carrying no energy id at all", () => {
+    // Foundation 748608 as USDA publishes it: 30 nutrients, none of them energy,
+    // and not even total fat. This is the record #126 was reported against.
+    expect(
+      fdcReportsNoEnergy(
+        food([
+          { nutrientId: 1085, nutrientName: "n", value: 100, unitName: "G" },
+        ])
+      )
+    ).toBe(true);
+    expect(fdcReportsNoEnergy(food([]))).toBe(true);
+  });
+
+  it("is false under any of the three energy ids, not just 1008", () => {
+    // The Atwater fallback ENERGY_IDS already reads is the whole of what counts
+    // as energy here — a Foundation food reporting only 2047 ships.
+    expect(fdcReportsNoEnergy(food([n(1008, 884)]))).toBe(false);
+    expect(fdcReportsNoEnergy(food([n(2047, 63.9)]))).toBe(false);
+    expect(fdcReportsNoEnergy(food([n(2048, 63.9)]))).toBe(false);
+  });
+
+  it("is false for a measured zero, so tap water keeps its record", () => {
+    expect(fdcReportsNoEnergy(food([n(1008, 0)]))).toBe(false);
+  });
+
+  it("answers exactly what the food card answers about the mapped panel", () => {
+    // The §6 clause, as a property: the generator holds an FdcFood and the card
+    // holds a NutritionInfo, and the bridge is the app's own mapper. Every
+    // combination of the three energy ids, present and absent, zero and not.
+    const cases: FdcFood[] = [
+      food([]),
+      food([n(1008, 884)]),
+      food([n(1008, 0)]),
+      food([n(2047, 63.9)]),
+      food([n(2048, 63.9)]),
+      food([n(2047, 0)]),
+      food([
+        { nutrientId: 1003, nutrientName: "n", value: 0.87, unitName: "G" },
+      ]),
+    ];
+    for (const c of cases) {
+      const panel = mapFdcFoodToPayload(c).attributes["nutrition/info"];
+      expect(fdcReportsNoEnergy(c)).toBe(reportsNoEnergy(panel));
+    }
+  });
+
+  it("reads the merged record, so a twin's energy saves the base", () => {
+    // ADR-0048 §5's ordering, at the predicate: the five twinned oils carry no
+    // energy of their own and borrow SR Legacy's, so the filter must run on the
+    // resolved food and not on the Foundation record that went into it.
+    const base = food([]);
+    const twin: FdcFood = {
+      fdcId: 171413,
+      description: "Oil, canola",
+      dataType: "SR Legacy",
+      foodNutrients: [n(1008, 884)],
+    };
+    expect(fdcReportsNoEnergy(base)).toBe(true);
+    expect(fdcReportsNoEnergy(resolveFdcGroup([base, twin]).food)).toBe(false);
   });
 });

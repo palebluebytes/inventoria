@@ -313,9 +313,36 @@ export interface Macros {
 }
 
 /**
+ * True when a panel reports no energy at all — an **absent** measurement, which
+ * is not a zero (ADR-0048 §1). A panel carrying `calories: 0` is asserting a
+ * measurement and is not this: tap water, iodised salt and decaffeinated tea all
+ * genuinely contain no calories, and each of them answers `false` here.
+ *
+ * This is the **one** expression of that question in the app, and it has two
+ * askers on purpose (ADR-0048 §6): the food card, deciding whether a log would be
+ * honest, and `scripts/usda-bundle.mjs`, deciding whether a corpus row ships —
+ * the latter through {@link fdcReportsNoEnergy}, which is written in terms of this
+ * one so the two can never disagree about what "no energy" means. A second
+ * expression of it, anywhere, is the drift ADR-0047 §4's import-don't-copy rule
+ * exists to prevent, and it would be silent.
+ *
+ * A panel-less food answers `true`: it logs the same silent zero a calorie-less
+ * panel does, and the card has no more honest thing to say about it.
+ */
+export function reportsNoEnergy(info: NutritionInfo | undefined): boolean {
+  return !Number.isFinite(info?.calories);
+}
+
+/**
  * Reads the four display macros out of a nutrition panel, defaulting any field
  * the source omitted to 0. This is the single place the panel's schema.org
  * field names are mapped to the app's short macro names.
+ *
+ * The `?? 0` stays, deliberately (ADR-0048 §1): this is the display and
+ * arithmetic path, where every consumer — meters, rings, day totals — already
+ * expects a number, and where a zero is the right thing to render. The absent-
+ * versus-measured distinction lives one level up in the panel, and is asked
+ * there with {@link reportsNoEnergy}.
  */
 export function macrosFromNutrition(info: NutritionInfo | undefined): Macros {
   return {

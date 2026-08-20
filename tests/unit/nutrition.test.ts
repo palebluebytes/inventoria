@@ -5,7 +5,9 @@ import {
   formatPortionLabel,
   formatPortionPreset,
   portionLabelIsBareWeight,
+  macrosFromNutrition,
   portionPresets,
+  reportsNoEnergy,
   resolvePortionGrams,
   scaleNutrition,
   sumNutrition,
@@ -68,6 +70,58 @@ const RICH_PANEL: NutritionInfo = {
   saturated_fat_content: 1.2,
   iron: 0.0047,
 };
+
+describe("reportsNoEnergy", () => {
+  // ADR-0048 §1: a panel that omits calories is SILENT about energy; a panel
+  // carrying 0 is asserting a measurement. This is the one place the app draws
+  // that line, and both the generator and the food card ask it here.
+  it("is true for a panel that never measured energy", () => {
+    expect(reportsNoEnergy({ serving_size: "100 g" })).toBe(true);
+    // `Oil, olive, extra virgin` — protein and carbohydrate absent too.
+    expect(
+      reportsNoEnergy({ serving_size: "100 g", protein_content: 0.87 })
+    ).toBe(true);
+  });
+
+  it("is false for a measured zero — tap water is not a defect", () => {
+    expect(reportsNoEnergy({ serving_size: "100 g", calories: 0 })).toBe(false);
+  });
+
+  it("is false for any energy the source actually reported", () => {
+    expect(reportsNoEnergy({ serving_size: "100 g", calories: 884 })).toBe(
+      false
+    );
+    expect(reportsNoEnergy({ serving_size: "100 g", calories: 0.4 })).toBe(
+      false
+    );
+  });
+
+  it("is true for no panel at all, and for a number that is not one", () => {
+    // A food with no panel logs the same silent zero a calorie-less one does,
+    // and a NaN/Infinity energy is no measurement either.
+    expect(reportsNoEnergy(undefined)).toBe(true);
+    expect(reportsNoEnergy({ serving_size: "100 g", calories: NaN })).toBe(
+      true
+    );
+    expect(reportsNoEnergy({ serving_size: "100 g", calories: Infinity })).toBe(
+      true
+    );
+  });
+});
+
+describe("macrosFromNutrition", () => {
+  it("keeps its ?? 0, because the display path wants a number (ADR-0048 §1)", () => {
+    // The distinction between absent and zero lives one level up, in the panel.
+    // Restoring it HERE would widen Macros.calories to `number | undefined` and
+    // push an absence check into every meter, ring and sum in the app.
+    expect(macrosFromNutrition({ serving_size: "100 g" })).toEqual({
+      calories: 0,
+      protein: 0,
+      fat: 0,
+      carbs: 0,
+    });
+  });
+});
 
 describe("scaleNutrition", () => {
   it("scales every nutrient the panel carries by the factor, rounded to food precision", () => {

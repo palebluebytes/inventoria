@@ -3,6 +3,7 @@ import {
   PER_100G,
   FOOD_PORTIONS_ATTR,
   formatPortionLabel,
+  reportsNoEnergy,
   type NutritionInfo,
   type Portion,
 } from "./nutrition";
@@ -651,6 +652,52 @@ function headWord(description: string): string {
       .split(/[^a-z0-9]+/)
       .filter(Boolean)[0] ?? ""
   );
+}
+
+/**
+ * The basis USDA marks on a record measured against zero water — a laboratory
+ * assay expressed per 100 g of dry matter, published so cultivars can be
+ * compared. Anchored on the parenthesised marker rather than on the word, because
+ * seven corpus rows say "moisture" and mean something else entirely (four
+ * "(may contain additives to retain moisture)" fish and shrimp, three
+ * low-moisture mozzarellas).
+ */
+const DRY_BASIS_MARKER = /\(\s*0\s*%\s*moisture\s*\)/i;
+
+/**
+ * True when an FDC record describes a basis nobody eats rather than a food
+ * (ADR-0048 §5) — the seventeen `Beans, Dry, … (0% moisture)` assays.
+ *
+ * A food-kind judgement of the same species as {@link isPreparedProduct} and
+ * {@link isProcessedProduct} beside it, and it holds whether or not the record
+ * ever gains an energy value: dried beans as sold are already in the corpus with
+ * complete panels, so keeping the dry-basis row would not add a food but a wrong
+ * one — logging 100 g against a record that insists it contains no water
+ * overstates every nutrient by about twelve per cent.
+ *
+ * Exported for the same reason its neighbours are: `scripts/usda-bundle.mjs`
+ * applies it at generation time and must not restate it (ADR-0047 §4).
+ */
+export function isDryBasisRecord(description: string): boolean {
+  return DRY_BASIS_MARKER.test(description);
+}
+
+/**
+ * True when an FDC record reports no energy under any of {@link ENERGY_IDS} —
+ * the {@link reportsNoEnergy} question, asked about a record instead of about a
+ * panel (ADR-0048 §6).
+ *
+ * It is not a second predicate and must never become one: it maps the record
+ * through the app's own {@link buildNutritionPanel} and defers, so the generator
+ * dropping a row and the food card refusing a log are the same decision reached
+ * the same way. An id joining `ENERGY_IDS` moves both at once.
+ *
+ * Ask it of the **merged** food, never of a raw Foundation record: five oils
+ * carry no energy of their own and borrow their SR Legacy twin's (ADR-0045 §2),
+ * which is why ADR-0048 §5 puts this filter after `resolveFdcGroup`.
+ */
+export function fdcReportsNoEnergy(food: FdcFood): boolean {
+  return reportsNoEnergy(buildNutritionPanel(food.foodNutrients));
 }
 
 /**
