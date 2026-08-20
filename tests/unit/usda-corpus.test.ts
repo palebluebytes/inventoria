@@ -45,7 +45,7 @@ const index: SearchIndex = JSON.parse(
 );
 const corpus = buildSearchCorpus(index);
 const descriptionsFor = (query: string): string[] =>
-  searchIndexRows(corpus, query).map((row) => row.description);
+  searchIndexRows(corpus, query).rows.map((row) => row.description);
 
 describe("the bundled search index", () => {
   it("is the surviving reference foods, and says which archives it came from", () => {
@@ -292,13 +292,13 @@ describe("searchIndexRows", () => {
   });
 
   it("returns nothing for an empty query rather than the whole corpus", () => {
-    expect(searchIndexRows(corpus, "   ")).toEqual([]);
+    expect(searchIndexRows(corpus, "   ").rows).toEqual([]);
   });
 
   it("caps a broad query at one page rather than handing over the corpus", () => {
     // A bare "b" matches thousands of rows. The list is rendered one option per
     // row, so the cap is what the FDC page size used to be.
-    const broad = searchIndexRows(corpus, "b");
+    const broad = searchIndexRows(corpus, "b").rows;
     expect(broad.length).toBe(SEARCH_RESULT_LIMIT);
   });
 
@@ -467,9 +467,9 @@ describe("searchIndexRows", () => {
       "b",
     ]) {
       const rank = compileReferenceFoodQuery(query);
-      const admitted = corpus.filter((food) => rank(food.name).tier > 0);
+      const admitted = corpus.foods.filter((food) => rank(food.name).tier > 0);
       const returned = new Set(
-        searchIndexRows(corpus, query).map((row) => row.description)
+        searchIndexRows(corpus, query).rows.map((row) => row.description)
       );
       // Every returned row was admitted, and the cap is the only thing that
       // ever removes one.
@@ -490,7 +490,7 @@ describe("searchIndexRows", () => {
     // a sentinel is not the fix — retrieval has broken.
     for (const query of ["olive oil", "grap", "raw", "soy milk", "b"]) {
       const rank = compileReferenceFoodQuery(query);
-      const admitted = corpus
+      const admitted = corpus.foods
         .map((food) => rank(food.name))
         .filter((key) => key.tier > 0);
       expect(admitted.length).toBeGreaterThan(0);
@@ -522,7 +522,7 @@ describe("searchIndexRows", () => {
     ) => {
       let best = "";
       let bestKey: RelevanceKey | null = null;
-      for (const other of corpus) {
+      for (const other of corpus.foods) {
         const key = rank(other.name);
         if (key.tier === 0) continue;
         if (bestKey === null || compare(key, bestKey) < 0) {
@@ -541,7 +541,7 @@ describe("searchIndexRows", () => {
     let notFirst = 0;
     let gained = 0;
     let lost = 0;
-    for (const food of corpus) {
+    for (const food of corpus.foods) {
       const rank = compileReferenceFoodQuery(food.row.description);
       const before = leaderUnder(withoutPosition, rank);
       const after = leaderUnder(compareRelevance, rank);
@@ -566,7 +566,7 @@ describe("searchIndexRows", () => {
     // tokenisation. Every row now reaches its own top rung — the query IS the
     // head phrase — and a row that does not is one whose own name has stopped
     // naming it.
-    const misnamed = corpus.filter(
+    const misnamed = corpus.foods.filter(
       (food) =>
         compileReferenceFoodQuery(food.row.description)(food.name).tier < 50
     );
@@ -654,13 +654,16 @@ describe("searchUsdaCorpus", () => {
   it("answers from the bundled index, with no key and no network", async () => {
     // No fetch is stubbed and no key is configured: if either were reached the
     // call would throw rather than return foods.
-    const foods = await searchUsdaCorpus("banana", loadFixture);
+    const { foods } = await searchUsdaCorpus("banana", loadFixture);
     expect(foods[0].attributes["food/name"]).toMatch(/^Bananas,/);
     expect(foods[0].attributes["nutrition/info"].calories).toBeGreaterThan(0);
   });
 
   it("returns nothing for an empty query", async () => {
-    expect(await searchUsdaCorpus("  ", loadFixture)).toEqual([]);
+    expect(await searchUsdaCorpus("  ", loadFixture)).toEqual({
+      phrases: [],
+      foods: [],
+    });
   });
 });
 

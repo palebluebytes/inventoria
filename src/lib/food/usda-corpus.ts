@@ -17,7 +17,10 @@ import {
   compileReferenceFoodQuery,
   compareRelevance,
   readReferenceFoodName,
+  stemOf,
+  wordsOf,
   type ReferenceFoodName,
+  type RelevanceKey,
 } from "./reference-food-ranking";
 
 /**
@@ -146,45 +149,155 @@ export interface SearchableFood {
 
 /**
  * The Search index in the form a keystroke searches: every description split
- * into words once, at load, rather than 4,429 times per keystroke.
+ * into words once, at load, rather than 4,429 times per keystroke, beside the
+ * Vocabulary map the retrieval fallback reads.
  *
- * This is what makes the corpus an index rather than a list, and it is measured
- * rather than assumed. Reading the names costs 18.5 ms once and takes a search
- * from 17 ms to 0.6–1.5 ms, and the splitting does not depend on what was typed,
- * so paying it once is the whole of the difference.
+ * The reading is what makes the corpus an index rather than a list, and it is
+ * measured rather than assumed. Reading the names costs 18.5 ms once and takes a
+ * search from 17 ms to 0.6–1.5 ms, and the splitting does not depend on what was
+ * typed, so paying it once is the whole of the difference.
  */
-export type SearchCorpus = SearchableFood[];
+export interface SearchCorpus {
+  foods: SearchableFood[];
+  /**
+   * ADR-0049's Vocabulary map, in the form the fallback reads it: a phrase this
+   * corpus retrieves nothing for, mapped to the phrases it does. Carried here
+   * rather than looked up separately because it ships inside the same artifact
+   * and was validated against these very rows (ADR-0049 §4).
+   */
+  vocabulary: Record<string, string[]>;
+}
 
 /** Reads a parsed Search index into the searchable corpus. Pure. */
 export function buildSearchCorpus(index: SearchIndex): SearchCorpus {
-  return index.foods.map((row) => ({
-    row,
-    name: readReferenceFoodName(row.description),
-  }));
+  return {
+    foods: index.foods.map((row) => ({
+      row,
+      name: readReferenceFoodName(row.description),
+    })),
+    vocabulary: index.vocabulary_off.expansions,
+  };
 }
 
 /**
- * The reference foods answering `query`, best first (ADR-0042 §5), capped at one
- * page. Pure — the corpus is passed in — so the ordering is asserted against the
- * committed artifact rather than through a fetch.
+ * The vocabulary phrases a typed query expands to, or none for a query the map
+ * has no key for. Pure, and the whole of what reads the map.
+ *
+ * Two tiers, the shape `curatedMatches` (ADR-0046 §1) already uses, and for the
+ * same reason — a key has to be reachable while it is still being typed. An
+ * EXACT hit is a query whose words are the key's words, modulo plural; failing
+ * that, a PREFIX hit is one where every typed word starts the key word in the
+ * same position, so `aubergin` reaches `aubergine` rather than answering
+ * "No food found" until the final keystroke. Exact hits win outright: where a
+ * key is squarely typed, the keys it merely prefixes have nothing to add.
+ *
+ * The query is read with `wordsOf`/`stemOf` and so is every key, because a key
+ * must never be compared against tokens some other function produced — the
+ * defect #136 fixed, where a typed hyphen produced a token no word could equal.
+ *
+ * Matching is POSITIONAL, which is what keeps the map phrase-keyed: `flax seed`
+ * is a key and `seed flax` is not a way of typing it. It also means a key longer
+ * than the query can still be reached mid-phrase while a key SHORTER than the
+ * query is never reached at all, so `aubergine` expands and `raw aubergine` does
+ * not (ADR-0049 Consequences — deliberate, and unmeasured rather than unwanted).
+ */
+export function expandThroughVocabulary(
+  vocabulary: Record<string, string[]>,
+  query: string
+): string[] {
+  const typed = wordsOf(query);
+  if (typed.length === 0) return [];
+  const typedStems = typed.map(stemOf);
+  const exact: string[] = [];
+  const prefixed: string[] = [];
+  for (const [key, targets] of Object.entries(vocabulary)) {
+    const keyWords = wordsOf(key);
+    if (keyWords.length < typed.length) continue;
+    if (
+      keyWords.length === typed.length &&
+      keyWords.every((word, i) => stemOf(word) === typedStems[i])
+    )
+      exact.push(...targets);
+    else if (typed.every((token, i) => keyWords[i].startsWith(token)))
+      prefixed.push(...targets);
+  }
+  return [...new Set(exact.length > 0 ? exact : prefixed)];
+}
+
+/**
+ * A finished search over the index: the rows, and the phrases that reached them.
+ *
+ * The phrases are part of the answer because a second path reads them. When the
+ * fallback fires they are the expansions rather than what was typed, and
+ * ADR-0049 §6 hands those same phrases to curated matching, so the two paths
+ * cannot disagree about what the search was for.
+ */
+export interface IndexSearch {
+  /** What the rows were ranked against: the query, or its expansions. */
+  phrases: string[];
+  rows: UsdaIndexRow[];
+}
+
+/**
+ * The reference foods answering `phrases`, best first (ADR-0042 §5), capped at
+ * one page.
+ *
+ * Each row is scored against EVERY phrase and keeps its best key, and the whole
+ * set is sorted once. Concatenating one ranked list per phrase would let the
+ * order a key happens to list its values in decide the ordering; keeping the
+ * best key makes the values unordered data, which is what they are.
  *
  * There is no filter step. The reference-food filters ran once at generation
  * time and the index holds only their 4,429 survivors (ADR-0047 §4, widened by
  * ADR-0048 §5), so re-running them per keystroke would be work over a corpus
  * that cannot fail them.
  */
-export function searchIndexRows(
-  corpus: SearchCorpus,
-  query: string
+function rankAgainst(
+  foods: SearchableFood[],
+  phrases: string[]
 ): UsdaIndexRow[] {
-  if (!query.trim()) return [];
-  const rank = compileReferenceFoodQuery(query);
-  return corpus
-    .map((food) => ({ row: food.row, key: rank(food.name) }))
-    .filter(({ key }) => key.tier > 0)
+  const ranks = phrases.map(compileReferenceFoodQuery);
+  const scored: { row: UsdaIndexRow; key: RelevanceKey }[] = [];
+  for (const food of foods) {
+    let best: RelevanceKey | undefined;
+    for (const rank of ranks) {
+      const key = rank(food.name);
+      if (key.tier > 0 && (!best || compareRelevance(key, best) < 0))
+        best = key;
+    }
+    if (best) scored.push({ row: food.row, key: best });
+  }
+  return scored
     .sort((a, b) => compareRelevance(a.key, b.key))
     .slice(0, SEARCH_RESULT_LIMIT)
     .map(({ row }) => row);
+}
+
+/**
+ * The reference foods answering `query`, best first. Pure — the corpus is passed
+ * in — so the ordering is asserted against the committed artifact rather than
+ * through a fetch.
+ *
+ * Two passes, and the second runs only when the first returns NOTHING
+ * (ADR-0049 §1). That gate is the whole of the vocabulary's integration: an
+ * expansion can never reorder, displace or truncate a result that exists today,
+ * because it does not run when one does, which makes the no-regression property
+ * structural rather than disciplinary. It is also why the ranking gains no key,
+ * no tier and no clause for the vocabulary — there is never a literal match
+ * present for an expanded one to rank against.
+ */
+export function searchIndexRows(
+  corpus: SearchCorpus,
+  query: string
+): IndexSearch {
+  if (!query.trim()) return { phrases: [], rows: [] };
+  const rows = rankAgainst(corpus.foods, [query]);
+  if (rows.length > 0) return { phrases: [query], rows };
+  const expanded = expandThroughVocabulary(corpus.vocabulary, query);
+  // A query the map has no key for keeps naming itself, so a caller reading the
+  // phrases sees what was typed rather than an empty list it has to interpret.
+  if (expanded.length === 0) return { phrases: [query], rows: [] };
+  return { phrases: expanded, rows: rankAgainst(corpus.foods, expanded) };
 }
 
 /**
@@ -303,8 +416,19 @@ export async function completeStagedPanel(
   };
 }
 
+/** A finished search over the bundled corpus, as {@link IndexSearch} in twins. */
+export interface UsdaSearch {
+  /** What the foods answered: the query, or its vocabulary expansions. */
+  phrases: string[];
+  foods: EntityPayload[];
+}
+
 /**
  * Searches the bundled corpus and maps the matches to food twin payloads.
+ *
+ * The phrases come back with the foods because curated matching reads them too
+ * (ADR-0049 §6): when the vocabulary fallback fires, both paths must be looking
+ * for the same thing.
  *
  * `load` is a parameter so the search is testable against a fixture without a
  * fetch, matching how the rest of the app injects its impure edges.
@@ -312,9 +436,10 @@ export async function completeStagedPanel(
 export async function searchUsdaCorpus(
   query: string,
   load: () => Promise<SearchCorpus> = loadSearchCorpus
-): Promise<EntityPayload[]> {
-  if (!query.trim()) return [];
-  return searchIndexRows(await load(), query).map(mapIndexRowToPayload);
+): Promise<UsdaSearch> {
+  if (!query.trim()) return { phrases: [], foods: [] };
+  const { phrases, rows } = searchIndexRows(await load(), query);
+  return { phrases, foods: rows.map(mapIndexRowToPayload) };
 }
 
 // ---------------------------------------------------------------------------

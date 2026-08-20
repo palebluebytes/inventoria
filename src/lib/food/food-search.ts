@@ -158,8 +158,11 @@ export class NoReferenceFoodError extends Error {
 export async function searchUsdaFoods(query: string): Promise<FoodResult[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
-  const curated = curatedMatches(trimmed);
-  const foods = await searchUsdaCorpus(trimmed);
+  // The phrases come back with the foods because the curated table reads them
+  // too (ADR-0049 §6): usually the one thing typed, but the vocabulary
+  // expansions where that reached no reference food at all.
+  const { phrases, foods } = await searchUsdaCorpus(trimmed);
+  const curated = curatedMatches(phrases);
   const results = [
     ...curated.filter((m) => m.exact),
     ...foods.map((payload) => ({ payload, exact: false })),

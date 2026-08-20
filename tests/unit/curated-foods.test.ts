@@ -18,18 +18,18 @@ import type { NutritionInfo } from "../../src/lib/food/nutrition";
 
 describe("curatedMatches", () => {
   it("returns the stand-in for the food's own name, as an exact hit", () => {
-    const matches = curatedMatches("cacao nibs");
+    const matches = curatedMatches(["cacao nibs"]);
     expect(matches).toHaveLength(1);
     expect(matches[0].entry.food).toBe("cacao nibs");
     expect(matches[0].exact).toBe(true);
   });
 
   it("matches plural-tolerantly, so a singular query still lands", () => {
-    expect(curatedMatches("cacao nib")[0]?.exact).toBe(true);
+    expect(curatedMatches(["cacao nib"])[0]?.exact).toBe(true);
   });
 
   it("matches mid-type, as a partial hit", () => {
-    const matches = curatedMatches("cacao ni");
+    const matches = curatedMatches(["cacao ni"]);
     expect(matches).toHaveLength(1);
     expect(matches[0].exact).toBe(false);
   });
@@ -37,29 +37,29 @@ describe("curatedMatches", () => {
   it("treats a broad query as partial, so USDA keeps the lead for it", () => {
     // "cocoa" must not displace USDA's cocoa powder — the food a user typing
     // that word is most likely after.
-    const matches = curatedMatches("cocoa");
+    const matches = curatedMatches(["cocoa"]);
     expect(matches).toHaveLength(1);
     expect(matches[0].exact).toBe(false);
   });
 
   it("does not match a different food that shares a word", () => {
-    expect(curatedMatches("cocoa butter")).toEqual([]);
-    expect(curatedMatches("cacao powder")).toEqual([]);
+    expect(curatedMatches(["cocoa butter"])).toEqual([]);
+    expect(curatedMatches(["cacao powder"])).toEqual([]);
   });
 
   it("ignores case, punctuation and surrounding space", () => {
-    expect(curatedMatches("  Cacao-Nibs ")[0]?.exact).toBe(true);
+    expect(curatedMatches(["  Cacao-Nibs "])[0]?.exact).toBe(true);
   });
 
   it("returns nothing for an empty or wordless query", () => {
-    expect(curatedMatches("")).toEqual([]);
-    expect(curatedMatches("   ")).toEqual([]);
-    expect(curatedMatches("!!")).toEqual([]);
+    expect(curatedMatches([""])).toEqual([]);
+    expect(curatedMatches(["   "])).toEqual([]);
+    expect(curatedMatches(["!!"])).toEqual([]);
   });
 });
 
 describe("the mapped payload", () => {
-  const payload = curatedMatches("cacao nibs")[0].payload;
+  const payload = curatedMatches(["cacao nibs"])[0].payload;
 
   it("is keyed by the real barcode, so scanning the pack finds the same twin", () => {
     // ADR-0046 §3: deliberately NOT a `curated:` prefix of its own.

@@ -197,17 +197,27 @@ describe("searchUsdaFoods with curated stand-ins", () => {
     vi
       .mocked(searchUsdaCorpus)
       .mockImplementation(impl as typeof searchUsdaCorpus);
-  const found = (foods: unknown[]) => async () => foods;
+  /**
+   * The corpus search's two-part answer (ADR-0049 §1): the foods, and the
+   * phrases that reached them. `phrases` is what was typed unless the vocabulary
+   * fallback fired, which is the case the last test here covers.
+   */
+  const found = (phrases: string[], foods: unknown[]) => async () => ({
+    phrases,
+    foods,
+  });
 
   it("leads with the stand-in when the query IS the food", async () => {
-    stubCorpus(found([]));
+    stubCorpus(found(["cacao nibs"], []));
     const results = await searchUsdaFoods("cacao nibs");
     expect(results.map((r) => r.entity)).toEqual(["gtin:5400706613279"]);
     expect(results[0].name).toBe("Cacao Nibs");
   });
 
   it("puts a partial hit BEHIND the USDA results", async () => {
-    stubCorpus(found([usdaFood("fdc:1", "Cocoa, dry powder, unsweetened")]));
+    stubCorpus(
+      found(["cocoa"], [usdaFood("fdc:1", "Cocoa, dry powder, unsweetened")])
+    );
     const results = await searchUsdaFoods("cocoa");
     expect(results.map((r) => r.entity)).toEqual([
       "fdc:1",
@@ -219,7 +229,7 @@ describe("searchUsdaFoods with curated stand-ins", () => {
     // The two verdicts #118 drew collapsed with the evidence for them: the
     // filtered-out records are no longer in the index to be counted. #123 is
     // where a better empty state gets worked out.
-    stubCorpus(found([]));
+    stubCorpus(found(["gorgonzola nibs of the sea"], []));
     const error = await searchUsdaFoods("gorgonzola nibs of the sea").catch(
       (e) => e
     );
@@ -237,5 +247,20 @@ describe("searchUsdaFoods with curated stand-ins", () => {
     const error = await searchUsdaFoods("banana").catch((e) => e);
     expect(error).not.toBeInstanceOf(NoReferenceFoodError);
     expect(error.message).toContain("404");
+  });
+
+  it("reads the curated table with the phrases the search ran over", async () => {
+    // ADR-0049 §6: when the vocabulary fallback fires, the reference-food search
+    // and the curated table must be looking for the same thing. Here "cacao"
+    // retrieved nothing and expanded to "cocoa", so the stand-in is reached
+    // through the expansion — and trails, because "cocoa" is a partial hit.
+    stubCorpus(
+      found(["cocoa"], [usdaFood("fdc:1", "Cocoa, dry powder, unsweetened")])
+    );
+    const results = await searchUsdaFoods("cacao");
+    expect(results.map((r) => r.entity)).toEqual([
+      "fdc:1",
+      "gtin:5400706613279",
+    ]);
   });
 });

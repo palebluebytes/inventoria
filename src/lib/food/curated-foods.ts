@@ -24,61 +24,77 @@ import { stemOf, wordsOf } from "./reference-food-ranking";
 export { CURATED_CEILING, CURATED_STAND_INS } from "./curated-stand-ins";
 export type { CuratedStandIn } from "./curated-stand-ins";
 
-/** One curated entry a query reached, and how squarely it hit. */
+/** One curated entry a search reached, and how squarely it hit. */
 export interface CuratedMatch {
   entry: CuratedStandIn;
   payload: EntityPayload;
   /**
-   * True when the query IS one of the aliases (modulo plural) rather than merely
-   * a prefix of one. Exact matches lead the result list; partial ones trail the
-   * USDA results, so a broad query never displaces a real reference food.
+   * True when a searched phrase IS one of the aliases (modulo plural) rather
+   * than merely a prefix of one. Exact matches lead the result list; partial ones
+   * trail the USDA results, so a broad query never displaces a reference food.
    */
   exact: boolean;
 }
 
 /**
- * The curated stand-ins a free-text query reaches (ADR-0046 §1), each already
+ * How squarely one phrase hits one curated entry, or null for no hit at all.
+ *
+ * Two tiers, mirroring ADR-0042 §1's structural ranking rather than inventing a
+ * second one: a phrase whose words EQUAL an alias's words is exact; a phrase
+ * whose every word prefix-matches an alias word is partial. So "cacao nibs" and
+ * "nib" are exact, "cocoa" is partial, and "cocoa butter" hits nothing.
+ */
+function aliasHit(
+  entry: CuratedStandIn,
+  phrase: string
+): "exact" | "partial" | null {
+  const queryWords = wordsOf(phrase);
+  if (queryWords.length === 0) return null;
+  let partial = false;
+  for (const alias of entry.aliases) {
+    const aliasWords = wordsOf(alias);
+    // Exact: same number of words, each pairing up modulo plural, in order.
+    if (
+      aliasWords.length === queryWords.length &&
+      aliasWords.every((w, i) => stemOf(w) === stemOf(queryWords[i] ?? ""))
+    )
+      return "exact";
+    // Partial: every typed word is the start of some alias word. This is the
+    // mid-type case ("cacao ni"), and the broad-query case ("cocoa").
+    if (
+      queryWords.every((t) => aliasWords.some((w) => w.startsWith(t))) ||
+      queryWords.every((t) => aliasWords.some((w) => stemOf(w) === stemOf(t)))
+    )
+      partial = true;
+  }
+  return partial ? "partial" : null;
+}
+
+/**
+ * The curated stand-ins a search's phrases reach (ADR-0046 §1), each already
  * mapped to a payload by the ordinary OFF mapper. Pure and synchronous — the
  * snapshots are in the bundle, so this costs no network and cannot fail.
  *
- * Two tiers, mirroring ADR-0042 §1's structural ranking rather than inventing a
- * second one: a query whose words EQUAL an alias's words is an exact hit and
- * leads; a query whose every word prefix-matches an alias word is partial and
- * trails. So "cacao nibs" and "nib" lead, "cocoa" trails behind USDA's cocoa
- * powder, and "cocoa butter" reaches nothing here at all.
+ * An exact hit leads the result list and a partial one trails it, so "cacao
+ * nibs" answers with the stand-in while a broad "cocoa" never displaces USDA's
+ * cocoa powder.
+ *
+ * PHRASES rather than one query, because ADR-0049 §6 hands this the same phrases
+ * the reference-food search ran over: usually the one thing typed, but the
+ * vocabulary expansions where a typed word reached nothing. Two paths reading
+ * one typed query must not disagree about what was typed — the reason `0889be6`
+ * gave this the shared tokeniser in the first place.
  */
-export function curatedMatches(query: string): CuratedMatch[] {
-  const queryWords = wordsOf(query);
-  if (queryWords.length === 0) return [];
-
+export function curatedMatches(phrases: readonly string[]): CuratedMatch[] {
   const matches: CuratedMatch[] = [];
   for (const entry of CURATED_STAND_INS) {
-    let exact = false;
-    let partial = false;
-    for (const alias of entry.aliases) {
-      const aliasWords = wordsOf(alias);
-      // Exact: same number of words, each pairing up modulo plural, in order.
-      if (
-        aliasWords.length === queryWords.length &&
-        aliasWords.every((w, i) => stemOf(w) === stemOf(queryWords[i] ?? ""))
-      ) {
-        exact = true;
-        break;
-      }
-      // Partial: every typed word is the start of some alias word. This is the
-      // mid-type case ("cacao ni"), and the broad-query case ("cocoa").
-      if (
-        queryWords.every((t) => aliasWords.some((w) => w.startsWith(t))) ||
-        queryWords.every((t) => aliasWords.some((w) => stemOf(w) === stemOf(t)))
-      )
-        partial = true;
-    }
-    if (exact || partial)
-      matches.push({
-        entry,
-        payload: mapOffProductToPayload(entry.snapshot),
-        exact,
-      });
+    const hits = phrases.map((phrase) => aliasHit(entry, phrase));
+    if (hits.every((hit) => hit === null)) continue;
+    matches.push({
+      entry,
+      payload: mapOffProductToPayload(entry.snapshot),
+      exact: hits.includes("exact"),
+    });
   }
   return matches;
 }
