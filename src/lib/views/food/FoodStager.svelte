@@ -23,6 +23,7 @@
   import { secretsStore } from "../../stores/secrets";
   import {
     portionLabelIsBareWeight,
+    reportsNoEnergy,
     roundFoodDisplay,
     FOOD_PORTIONS_ATTR,
     NUTRITION_INFO_ATTR,
@@ -1222,8 +1223,13 @@
     }
   }
 
+  // A staged food whose panel reports no energy is not loggable, and the card
+  // above says so (ADR-0048 §6). Held rather than warned about: logging it would
+  // freeze a zero into history for ever, which is the failure #126 reported.
+  let stagedNoEnergy = $derived(!!staged && reportsNoEnergy(stagedInfo));
+
   let canPrimary = $derived(
-    (!!staged && grams > 0 && !completingPanel) ||
+    (!!staged && grams > 0 && !completingPanel && !stagedNoEnergy) ||
       (method === "custom" && !!customName.trim() && runningKcal !== "") ||
       (method === "scan" && !staged && !!barcode.trim())
   );

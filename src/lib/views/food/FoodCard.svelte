@@ -1,7 +1,11 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import type { EntityPayload } from "../../ingestion/ingest";
-  import type { NutritionInfo, Portion } from "../../food/nutrition";
+  import {
+    reportsNoEnergy,
+    type NutritionInfo,
+    type Portion,
+  } from "../../food/nutrition";
   import { deriveNovaVerdict, type NovaVerdict } from "../../food/nova-verdict";
   import {
     deriveDietaryVerdict,
@@ -103,6 +107,18 @@
   );
   // Allergens (ADR-0043 §3): present-only, silent when OFF carries none.
   let allergen = $derived(deriveAllergenVerdict(payload));
+
+  // No energy data (ADR-0048 §6). A panel that omits calories is silent about
+  // them, not asserting zero, and logging it would put a zero into history for
+  // ever — so the card says so and its host holds the commit. It never warns and
+  // logs anyway, and it never prompts for the number: a food this app cannot
+  // source already has a route, which is manual entry (ADR-0035).
+  //
+  // Read from the panel and not from the source, because the source is not the
+  // point: the bundled corpus can no longer produce such a food (§5), and what
+  // reaches this is an OFF record, a curated stand-in, a label capture, or a
+  // corpus row a future mirror refresh admits.
+  let noEnergy = $derived(reportsNoEnergy(panel));
 </script>
 
 <div class="food-card">
@@ -169,6 +185,15 @@
   {/if}
 
   {@render beforeAmount?.()}
+
+  {#if noEnergy}
+    <!-- The refusal (ADR-0048 §6). Stated above the amount, where the dead
+         commit button below is about to be explained by it. -->
+    <p class="no-energy" role="status" data-testid="no-energy">
+      This record carries no energy data, so it cannot be logged. Enter it by
+      hand instead.
+    </p>
+  {/if}
 
   <FoodAmountPanel {panel} {portions} bind:grams />
 
@@ -312,5 +337,19 @@
     justify-content: center;
     font-size: var(--step-0);
     line-height: 1;
+  }
+
+  /* The no-energy refusal (ADR-0048 §6). A framed statement rather than a
+     warning tint: nothing here is recoverable by trying again, so it reads as
+     the card's own plain speech about what it holds. */
+  .no-energy {
+    margin-top: var(--space-2xs);
+    padding: var(--space-xs) var(--space-s);
+    border: var(--edge);
+    border-radius: var(--radius);
+    background: var(--paper);
+    color: var(--red-text);
+    font-size: var(--step-n1);
+    line-height: 1.4;
   }
 </style>

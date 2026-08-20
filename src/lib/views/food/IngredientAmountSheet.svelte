@@ -1,6 +1,10 @@
 <script lang="ts">
   import type { EntityPayload } from "../../ingestion/ingest";
-  import type { NutritionInfo, Portion } from "../../food/nutrition";
+  import {
+    reportsNoEnergy,
+    type NutritionInfo,
+    type Portion,
+  } from "../../food/nutrition";
   import type { NovaVerdict } from "../../food/nova-verdict";
   import type { DietaryVerdict } from "../../food/off-signals";
   import type { FoodSourceKind } from "../../food/food-source";
@@ -67,6 +71,14 @@
   // svelte-ignore state_referenced_locally
   let value = $state(amount);
 
+  // A panel that reports no energy cannot be committed at any amount, and the
+  // card says why (ADR-0048 §6). Held here as well as on the staging screen
+  // because Done writes a fresh row — a retract-and-replace on the dashboard,
+  // an in-memory ingredient in the builder — and both would carry the zero
+  // forward. Nothing is migrated (§ Consequences), so an entry already written
+  // against such a food keeps its zero; the row's ✕ is the way out of it.
+  let noEnergy = $derived(reportsNoEnergy(panel));
+
   function done() {
     onCommit(value);
     onClose();
@@ -91,7 +103,9 @@
   />
 
   {#snippet footer()}
-    <CommitButton id="amount-done-btn" onclick={done}>Done</CommitButton>
+    <CommitButton id="amount-done-btn" disabled={noEnergy} onclick={done}
+      >Done</CommitButton
+    >
   {/snippet}
 </BottomSheet>
 
