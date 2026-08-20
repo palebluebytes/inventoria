@@ -48,7 +48,7 @@ export interface ReferenceFoodName {
  * that name different foods, and the tiers below are built on the assumption
  * that two stems being equal means two words being the same word.
  */
-const stemOf = (word: string): string => {
+export const stemOf = (word: string): string => {
   if (word.length > 4 && word.endsWith("ies")) return word.slice(0, -3) + "y";
   if (word.endsWith("oes")) return word.slice(0, -2);
   return word.endsWith("s") ? word.slice(0, -1) : word;
@@ -68,7 +68,7 @@ const stemOf = (word: string): string => {
  * It also drops the Lucene-style trailing `*` that callers pass, since a
  * wildcard is not alphanumeric either.
  */
-const wordsOf = (text: string): string[] =>
+export const wordsOf = (text: string): string[] =>
   text
     .toLowerCase()
     .split(/[^a-z0-9]+/)

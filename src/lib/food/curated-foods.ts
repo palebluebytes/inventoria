@@ -1,6 +1,10 @@
 import type { EntityPayload } from "../ingestion/ingest";
 import { mapOffProductToPayload } from "./open-food-facts";
 import { CURATED_STAND_INS, type CuratedStandIn } from "./curated-stand-ins";
+// Reaching a stand-in reads a query the way ADR-0042 §1 reads one — same words,
+// same singular/plural rule — so the two paths cannot disagree about what was
+// typed. Ranking owns both, since it is where §1 lives.
+import { stemOf, wordsOf } from "./reference-food-ranking";
 
 // ---------------------------------------------------------------------------
 // Curated stand-ins (ADR-0046): reaching them, and saying what they are
@@ -19,19 +23,6 @@ import { CURATED_STAND_INS, type CuratedStandIn } from "./curated-stand-ins";
 
 export { CURATED_CEILING, CURATED_STAND_INS } from "./curated-stand-ins";
 export type { CuratedStandIn } from "./curated-stand-ins";
-
-/** Words of a phrase, lowercased, punctuation dropped ("Cacao-nibs" → two). */
-function wordsOf(text: string): string[] {
-  return text
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter(Boolean);
-}
-
-// Loose singular/plural equality, the same rule ADR-0042 §1 uses to match a query
-// word against a food's usually-plural head noun: "nib" reaches "nibs", while a
-// different word sharing the prefix does not.
-const stem = (w: string): string => w.replace(/s$/, "");
 
 /** One curated entry a query reached, and how squarely it hit. */
 export interface CuratedMatch {
@@ -69,7 +60,7 @@ export function curatedMatches(query: string): CuratedMatch[] {
       // Exact: same number of words, each pairing up modulo plural, in order.
       if (
         aliasWords.length === queryWords.length &&
-        aliasWords.every((w, i) => stem(w) === stem(queryWords[i] ?? ""))
+        aliasWords.every((w, i) => stemOf(w) === stemOf(queryWords[i] ?? ""))
       ) {
         exact = true;
         break;
@@ -78,7 +69,7 @@ export function curatedMatches(query: string): CuratedMatch[] {
       // mid-type case ("cacao ni"), and the broad-query case ("cocoa").
       if (
         queryWords.every((t) => aliasWords.some((w) => w.startsWith(t))) ||
-        queryWords.every((t) => aliasWords.some((w) => stem(w) === stem(t)))
+        queryWords.every((t) => aliasWords.some((w) => stemOf(w) === stemOf(t)))
       )
         partial = true;
     }
