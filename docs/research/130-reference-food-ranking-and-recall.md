@@ -84,24 +84,112 @@ An LLM applying §3.1–§3.3 case by case, with every judgement recorded in `13
 
 ## 4. Results
 
-_Pending the sweep._
+Every figure below is _measured_ by `pnpm usda:ranking-audit` over the 4,429-row index and the vocabulary pinned in `130-audit-inputs.json`. Every individual judgement is in `130-ranking-audit.json`.
+
+**914 cases adjudicated**, on four denominators that are never added together:
+
+| pass                                        | cases |    miss | correct | peers | implausible | other |
+| ------------------------------------------- | ----: | ------: | ------: | ----: | ----------: | ----: |
+| synonym (flagged, of 549 applicable groups) |   422 | **238** |       6 |    14 |         163 |     1 |
+| contested head (all)                        |   272 |  **39** |     198 |    22 |           — |    13 |
+| head+qualifier (200 sampled of 1,336)       |   200 |   **7** |     170 |     3 |           — |    20 |
+| British usage (all)                         |    20 |  **17** |       3 |     — |           — |     — |
+
+Causes of the misses:
+
+| cause                | synonym | head | pair | British |
+| -------------------- | ------: | ---: | ---: | ------: |
+| `vocabulary`         |     236 |    — |    — |      17 |
+| `qualifier-position` |       1 |   35 |    7 |       — |
+| `filter-dropped`     |       1 |    4 |    — |       — |
+| `usda-absent`        |       — |    — |    — |       — |
+
+Q6's harm buckets, over all 1,711 (member, candidate) pairs the synonym pass produced:
+
+| bucket                             |     count |
+| ---------------------------------- | --------: |
+| `leads` (rank 1)                   |       608 |
+| `visible` (rank 2–5)               |        49 |
+| `buried` (rank 6–50)               |        20 |
+| **`absent`** (not in the 50 shown) | **1,034** |
+
+**That ratio is the whole finding in one line.** Where a query does not lead with the right record, it fails to retrieve it at all **15 times more often** than it merely buries it. #130 was filed against the 69, and the 1,034 is what was actually there. Per-pair ranks are in `130-ranking-audit.json` under each case's `harm`, so a future metric can be recomputed without re-running the sweep.
+
+`other` came to **34 of 914 (3.7%)**, inside the 10% ceiling §3.3 set. It is enumerated in §7 and is not the miscellany the category was braced for: 33 of the 34 are one mechanism the pre-registered taxonomy did not know about.
 
 ## 5. The recall class
 
-_Pending the sweep._
+**236 vocabulary misses** against a threshold of 100. The recall recommendation clears, and not narrowly.
+
+The failure is always the same shape: the corpus holds the right record, and the word the user typed is not in it. `aubergine` returns nothing while `Eggplant, raw` sits in the index. So does `courgette`, `swede`, `beetroot`, `rocket`, `prawns`, `sultanas`, `cornflour`, `yoghurt`, `chilli`, `soya`, `wholemeal`, `omelette`, `lychee`, `pomelo`, `borlotti`, `haricot`, `passionfruit`, `blackcurrant`, `mollusc`, `iodised`, `pasteurised`, `camomile`, `maize`, `linseed`, `saithe` and `daikon`.
+
+**The British-usage list is the sharpest single number in this note: 17 of 20 everyday queries return nothing at all.** Only `coriander`, `spring onion` and `chickpeas` work. Every one of the 17 has a record in the corpus under an American name, verified individually — `mince` → `Beef, ground, …`, `double cream` → `Cream, heavy`, `caster sugar` → `Sugars, granulated`, `jacket potato` → `Potatoes, baked, flesh and skin, without salt`, `mange tout` → `Peas, edible-podded, raw`. This is not a long tail. It is the everyday shopping vocabulary of the person using the app.
+
+### Is the class bounded?
+
+Yes, and the bound is already written down by somebody else. The 549 groups that reach this corpus serialise to **32.3 KiB raw, 10.3 KiB gzip** — against the 509 KiB the bundle already ships (#120). A synonym layer sourced from OFF is roughly a 2% addition to an artifact that is already over its budget, which is a cost worth naming but not one that decides anything.
+
+It is worth being clear about what the 163 `implausible-query` verdicts mean. OFF's vocabulary is an ingredient-label vocabulary, so it carries `milk lactose`, `cooked beef meat`, `anti-foaming agent` and 40-odd E-numbers alongside the food names. **Slightly under two-fifths of the flagged groups are not food searches at all.** Any layer built from this source has to filter them, and `usda_ndb_code` / `ciqual_food_code` are on the entries as a candidate filter — 661 and 805 of 6,446 respectively. That filter was deliberately not used to pre-screen here (§3.3), because it would have silently dropped real cases and left no record of what was lost.
 
 ## 6. The ranking class, and what #124 inherits
 
-_Pending the sweep._
+**43 `qualifier-position` misses.** They split cleanly, and the split is the finding:
+
+- **35 where the query IS the head phrase.** `milk` → cultured reduced-fat buttermilk. `cheese` → lactose-reduced lowfat cottage cheese. `butter` → clarified butter (ghee). `egg` → duck egg. `beef` → separable fat. `oil` → bearded seal oil. `mayonnaise` → the tofu one. `yogurt` → nonfat fruit variety. `sour cream` → imitation. `vanilla extract` → imitation. `bread` → Salvadoran sweet cheese bread. `peppers` → jalapeno. `pasta` → gluten-free corn.
+- **7 where the discriminating word sits in a qualifier.** `white wheat flour` → self-rising. `white mushroom` → the ultraviolet-exposed record. `parmesan cheese` → low sodium. `shiitake mushrooms` → stir-fried. `bacon pork` → reduced sodium.
+
+**#124's proposed smallest-matched-word-index key fixes the 7 and cannot touch the 35.** When the query is the head, every candidate matches at word index 0, so the new key ties on all of them exactly as the existing keys do. §3.4's threshold was 25 misses surviving #124's fix; 35 survive.
+
+So the recommendation §1 gets is **not** the one #130 anticipated. The gap is not vocabulary in the ranking and it is not #124's positional key. It is that **nothing prefers the least-qualified record**. ADR-0042 §1 has exactly that idea already — `simplicity`, "Bananas, raw (3) over Bananas, overripe, raw (2)" — but it is gated behind `raw`, so it never fires for cheese, butter, bread, oil or mayonnaise. Every one of the 35 would be decided correctly by preferring the record with the fewest qualifiers. That is one key, and it is a key ADR-0042 already contains in a narrower form.
+
+This note does not decide it. It is handed to #124 as sizing, with the observation that #124's own remedy addresses a seventh of the class it was filed against.
 
 ## 7. `other`, enumerated
 
-_Pending the sweep._
+34 cases, of which **33 are one mechanism**: `compileReferenceFoodQuery` splits the typed query on whitespace only, while `readReferenceFoodName` splits a description on every non-alphanumeric character. A hyphen, apostrophe, bracket, slash or percent inside a typed word therefore produces a token that no name word can ever equal or prefix, and the query collapses to `NO_MATCH`.
+
+The diagnostic is stark: **4,394 of the 4,429 rows retrieve nothing when searched by their own full description**, because the commas in the description survive tokenisation. 81 rows have a head phrase containing a bracket, hyphen or apostrophe, and none of them can be reached by that head phrase — `Yambean (jicama), raw` is unreachable by `yambean (jicama)` but reached instantly by `yambean jicama`.
+
+Its real-world weight is much smaller than that number suggests, and the passes disagree about it because they type different things: it explains only **12 of the 435 empty synonym members** but **13 of 272 contested heads** and **20 of 200 sampled pairs**. Plausible everyday casualties are `mahi-mahi`, `pak-choi`, `black-eyed peas`, `low-fat milk`, `sheep's milk`, `whole-wheat pasta`, `freeze-dried chives` and `peri-peri`.
+
+It is a one-line fix — tokenise the query the way names are tokenised — and it is not in this note's scope to make it.
+
+The remaining `other` is `en:apple`, whose OFF synonym list contains the bare strings `raw` and `without skin`. That is corrupt upstream data, not a defect here.
 
 ## 8. The three known cases
 
-_Pending the sweep._
+Excluded from every rate above, per §3.5.
+
+- **`green onion`** — confirmed, and confirmed to be a recall failure rather than the ranking failure #130 describes. `Onions, spring or scallions (includes tops and bulb), raw` scores `NO_MATCH`; the single returned row is the tops-only record. The OFF group `en:spring-onion` names the right record through four of its five members.
+- **`napa cabbage`** — **the ticket's diagnosis was wrong.** `Cabbage, chinese (pe-tsai), raw` is in the corpus and is raw napa cabbage. `napa cabbage` reaches only `Cabbage, napa, cooked`, and `wombok` reaches nothing. A vocabulary miss, not a coverage gap.
+- **`coriander leaf` / `cilantro`** — found by this measurement, not known before. `coriander leaf` singular reaches `Spices, coriander leaf, dried`; the plural and `cilantro` reach `Coriander (cilantro) leaves, raw`. A user typing the singular gets a dried spice where they meant a fresh herb.
+
+### What the archives said about absences
+
+Two synonym cases and four head cases needed the sha-pinned archives to separate "our filter took it" from "USDA never had it". **Every one came back `filter-dropped`; none came back `usda-absent`.**
+
+The mechanism is the same in all six: the record passes all four ADR-0042 name filters and is dropped afterwards, by ADR-0048's energy rule or the twin merge. `Whey, sweet, dry` — the plain whey powder — is gone, leaving only protein isolates. `Spinach, raw` is in **both** archives and neither copy ships, so searching `spinach` cannot reach raw spinach at all; it returns boiled spinach, baby and mature. `Parsley, raw`, `Basil, raw`, `Oats, raw` and `Millet, raw` are likewise absent with no raw row of any kind left under those names.
+
+This is a cost of #126 that #126 did not measure, and it is not the same thing as the calorie-less rows it set out to remove. **It is not quantified here and this note does not attempt to**: a crude head-match flagged 38 candidates, spot-checking 15 confirmed 5 and refuted 10, and a number that unreliable does not belong in a finding. It needs its own measurement, against ADR-0048 rather than ADR-0042.
 
 ## 9. Recommendation
 
-_Pending the sweep._
+**1. ADR-0042 §5 needs no amendment; the citation in #130 is wrong.** §5 drops composite dishes. Nothing in this measurement bears on it.
+
+**2. Recall: build the synonym layer, sourced from OFF, not hand-written.** 236 vocabulary misses over plausible food searches, plus 17 of 20 everyday British queries returning nothing. The class is bounded at 549 groups and 10.3 KiB gzipped, it is externally maintained under ODbL, and it is attributable — the same argument ADR-0046 made for pinning third-party data rather than inventing it. A hand-curated list is now clearly the wrong shape: it would have to reach 236 entries to match what an existing file already knows.
+
+**3. Ranking: §1 needs one key that #124 does not supply.** 35 of the 43 ranking misses are queries that name the food exactly, where every candidate ties and an arbitrary qualifier wins. Preferring the least-qualified record decides all 35. ADR-0042 §1 already has this idea as `simplicity` and gates it behind `raw`; ungating it is the shape of the remedy. **#124 stays open and this note decides nothing for it** — it gets the sizing and the observation that its own key addresses 7 of the 43.
+
+**4. Fix the query tokeniser.** One line, independent of everything above, and it is currently the reason 4,394 of 4,429 rows cannot be found by their own name.
+
+**5. Measure what ADR-0048's drop cost recall.** Confirmed on spinach, parsley, basil, oats and millet; unquantified, and deliberately so.
+
+### What this note is not
+
+The adjudication was performed by an LLM applying §3.1–§3.3, one case at a time. The judgements are all in `130-ranking-audit.json` so they can be disagreed with individually rather than taken on trust. A seeded random 30 for spot-checking:
+
+head `whey` (correct) · head `blueberries` (correct) · pair `domesticated duck` (correct) · head `dates` (peers) · head `margarine` (correct) · pair `hamburger pickle relish` (correct) · head `peanuts` (correct) · `en:grape-juice` (miss) · head `oil` (miss) · head `raisins` (correct) · british `porridge oats` (miss) · british `caster sugar` (miss) · pair `horse game meat` (correct) · `en:no5` (implausible) · head `pineapple` (correct) · head `lamb` (correct) · pair `yellow onions` (correct) · `en:beetroot` (miss) · `en:butterfat` (miss) · head `carrots` (correct) · head `collards` (correct) · `en:goat-milk` (miss) · pair `raw ginger root` (correct) · head `fish oil` (correct) · head `couscous` (correct) · head `bear` (miss) · head `cherries` (correct) · `en:mammy-apple` (correct) · pair `no fat free ice cream` (correct) · `en:no3` (implausible)
+
+It is drawn with the same seed the pair sample uses, so `pnpm usda:ranking-audit` re-derives it. Verdicts are shown so a disagreement is one lookup rather than a hunt.
+
+The two most load-bearing judgements to check are `implausible-query` (163 cases, and if that call is systematically wrong in either direction the vocabulary count moves with it) and `peers` (39 across all passes, the verdict that keeps the miss rate honest).

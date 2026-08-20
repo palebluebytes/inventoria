@@ -40,6 +40,8 @@
 
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -242,16 +244,20 @@ function synonymPass(corpus, groups) {
     const someEmpty = members.some((m) => !m.top);
     if (!disagrees && !someEmpty) continue;
 
-    // Where each member's top row sits in every OTHER member's result list. An
-    // "absent" here is the recall failure; a number is the ranking failure and
-    // says how far down the right answer was.
-    const crossRanks = {};
+    // Where each member's top row lands in every OTHER member's list. This is
+    // what separates the two failures: an `absent` here is a recall miss and a
+    // number is a ranking miss saying how far down the right answer was.
+    //
+    // Ranks are keyed by POSITION in `tops` rather than repeated as strings.
+    // The same matrix written out longhand cost 137 KB, which is why it looks
+    // like this and not like a list of {description, rank} objects.
+    const tops = [...distinctTops];
+    const ranks = {};
     for (const member of members) {
-      crossRanks[member.query] = [...distinctTops].map((description) => ({
-        description,
-        rank: rankOf(search(corpus, member.query), description),
-      }));
+      const results = search(corpus, member.query);
+      ranks[member.query] = tops.map((d) => rankOf(results, d));
     }
+
     cases.push({
       pass: "synonym",
       tag: group.tag,
@@ -260,7 +266,7 @@ function synonymPass(corpus, groups) {
       usda_ndb_code: group.usda_ndb_code ?? null,
       ciqual_food_code: group.ciqual_food_code ?? null,
       members,
-      cross_ranks: crossRanks,
+      harm: { tops, ranks },
       verdict: null,
       cause: null,
       note: null,
@@ -349,7 +355,14 @@ const britishPass = (corpus, queries) =>
  */
 async function explainAbsence(term) {
   const { countArchiveRecords } = await import("./usda-archive.mjs");
-  const app = await import("../src/lib/food/usda-fdc.ts");
+  // The filters live in `usda-fdc.ts`, which Node's type-stripping cannot load
+  // directly the way it loads the ranking: that module imports its siblings
+  // extensionless, and bare Node will not resolve those. `usda-bundle.mjs`
+  // already solved this for the same filters, so borrow its loader rather than
+  // keep a second copy of the answer.
+  const { loadAppModule } = await import("./usda-bundle.mjs");
+  const scratch = await mkdtemp(join(tmpdir(), "ranking-audit-"));
+  const app = await loadAppModule(scratch);
   const manifest = JSON.parse(readFileSync(MANIFEST_PATH, "utf8"));
   const needle = term.toLowerCase();
   const shipped = new Set(readIndex().foods.map((f) => f.description));
@@ -386,6 +399,7 @@ async function explainAbsence(term) {
       });
     });
   }
+  await rm(scratch, { recursive: true, force: true });
   return hits;
 }
 
@@ -431,6 +445,18 @@ if (args.includes("--vocab")) {
       pair_sample: PAIR_SAMPLE,
       pair_seed: PAIR_SEED,
     },
+    // Q6's harm distribution over every (member, candidate) pair the synonym
+    // pass produced. Aggregated here rather than stamped on each case: per case
+    // it is a one-line map of `harm.ranks`, but the distribution is the metric
+    // the finding actually quotes.
+    harm: cases
+      .filter((c) => c.pass === "synonym")
+      .flatMap((c) => Object.values(c.harm.ranks).flat())
+      .reduce((acc, r) => {
+        const bucket = harmOf(r);
+        acc[bucket] = (acc[bucket] ?? 0) + 1;
+        return acc;
+      }, {}),
     counts: {
       synonym_flagged: tally("synonym"),
       synonym_disagree: cases.filter((c) => c.disagrees).length,
