@@ -8,6 +8,7 @@
 **Amended by:** the Amendment below, which supersedes §1's structural tier  
 **Amended by:** ADR-0048 §5 (§3's generation-time filter roster gains a dry-basis filter and an energy-absence filter)  
 **Amended by:** the #131 Amendment below, which corrects §3's "ALL CAPS is the only available signal" and accepts the gap that leaves  
+**Amended by:** the #133 Amendment below, which lets §5's dish markers be a conjunction of two ordinary words  
 **Implemented:** `dabb1fe`, `082ad31`, `fcb3b60`, `1365343`; `src/lib/food/food-search.ts`
 
 ## Context
@@ -306,4 +307,39 @@ The list edits themselves — one stoplist entry removed, four denylist entries 
 are not recorded here. Decision 3 already says the lists "are expected to drift as new
 cases surface", and this amendment records only what the drift revealed about the rule.
 
-**Implemented:** `1c37180` (the filter), `9caf374` (the regeneration and the pins).
+**#131 implemented:** `1c37180` (the filter), `9caf374` (the regeneration and the pins).
+
+## Amendment (2026-08-20, #133): a marker may be a conjunction, not just a word
+
+Decision 5 catches composite dishes that leak into base categories with a list of
+description markers, each a word or phrase that is a dish signal on its own — `home-prepared`,
+`au gratin`, `breaded`. Twelve rows showed that some composites have no such word.
+
+Two fast-food milkshakes were filed under `Beverages` rather than `Fast Foods`, so the
+category rule never saw them. That one is ordinary drift: `fast food` joins the marker
+list and catches both, with nothing else in the corpus matching.
+
+The ten ice cream novelties are the interesting half. `Ice cream sandwich`, `Ice cream
+bar, stick or nugget, with crunch coating` and `Ice cream sundae cone` are assembled
+retail desserts sitting in `Dairy and Egg Products` beside three plain tubs that are base
+foods, kept on the same reasoning that keeps cheese and butter. **The signal is the wafer,
+biscuit, stick or coating around the ice cream, not the ice cream** — and none of those
+words is a dish signal by itself. Measured over the corpus, a bare `\bsandwich\b` marker
+would also take `Sandwich spread, meatless`, `Beef, sandwich steaks, flaked, chopped,
+formed and thinly sliced, raw` and `Tortilla, includes plain and from mutton sandwich
+(Navajo)`.
+
+So the marker is a conjunction: a description that names ice cream **and** an assembled
+form (`bar`, `stick`, `cone`, `cookie`, `sandwich`, `sundae`). Decision 5 already had one
+of these — the flour-battered deep-fried rule needs both `fried` and `flour`, for the same
+reason and stated the same way. This amendment records that the conjunction is a
+deliberate shape rather than a one-off, and that reaching for it is the right move when a
+composite's only tell is an ordinary English word.
+
+Traditional composite dishes in `American Indian/Alaska Native Foods` are untouched here.
+Three agutuk rows name an "(Alaskan ice cream)" and none names an assembled form, so they
+survive the marker by construction rather than by luck; whether that 159-row category
+belongs in the corpus at all is [#134](https://github.com/palebluebytes/inventoria/issues/134)'s
+question, not this one's.
+
+**#133 implemented:** `9571b93` (the conjunction marker), `09186d2` (the regeneration and the pins).
