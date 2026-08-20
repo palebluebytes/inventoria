@@ -265,3 +265,33 @@ that inherits the 35, not an assumption inside it.
 §5's recall finding (236 vocabulary misses, 17 of 20 British queries), §7's
 tokeniser diagnosis, §8's three known cases, and recommendations 1, 2, 4 and 5.
 None of them depends on the `qualifier-position` split.
+
+## Postscript (2026-08-20, #124 shipped)
+
+The correction above says this note's cause taxonomy cannot size #124, and that a
+mechanical structural sweep would size it instead. That sweep now exists as the
+`qualifier` pass in `pnpm usda:ranking-audit`, and its numbers are in
+`130-ranking-audit.json` beside everything else here. It reads differently from
+the four passes above: it measures a change rather than a state, ordering each
+query twice and diffing.
+
+Over 1,328 generated queries, 76 leads move. The defect itself — a leading row
+beaten on summed token index by a candidate below it — falls from 92 queries to 16. The residue is leads that win on tier, rawness or head-completeness, which
+the position key sits below and cannot overrule.
+
+516 answers rise and 548 fall, and both columns are real. The falls are almost
+entirely beef and chicken cut records reordering among near-identical siblings
+(`top beef`, `loin beef`, `skin chicken`), where no candidate is the obviously
+right one; §3.2's `peers` verdict is the honest reading of most of them.
+`bacon pork` is the exception worth naming, and #124 named it in advance: it
+lifts `Pork, bacon, rendered fat, cooked` over five cured bacons, which is the
+shape this note files as a miss under `australian beef`. No guard was added.
+That is the reserved-slot key's job.
+
+One thing the sweep found that neither this note nor #124 predicted. Ranked by
+its own full description, a row's query is a whole name rather than a head
+phrase, so the position key reads it: `Cheese, cheddar` places "cheddar" at word
+1 in itself and at word 3 in `Cheese, pasteurized process, cheddar or American,
+low sodium`. The #136 Amendment's 356 rows that are not first by their own name
+fall to 172. 184 rows gained the lead and none lost it, so both counts are now
+pinned as a corpus test rather than left as a claim.

@@ -505,9 +505,19 @@ section gives.
 This key addresses `adjective + noun` queries and **leaves head-only ties
 untouched**, by construction: when the query is the head phrase, every candidate
 matches at index 0 and every candidate ties, exactly as the four existing keys
-already do. Run over the 337 rows that tie on every key when searched by their
-own full description (the #136 Amendment above), it breaks none of them and
-worsens none.
+already do.
+
+> **Corrected on implementation.** This paragraph continued "run over the 337
+> rows that tie on every key when searched by their own full description, it
+> breaks none of them and worsens none", and that is wrong. A self-name query is
+> a row's WHOLE description rather than its head phrase, so the key does read it:
+> `Cheese, cheddar` places "cheddar" at word 1 in the row itself and at word 3 in
+> `Cheese, pasteurized process, cheddar or American, low sodium`. Measured on the
+> way in, the #136 Amendment's 356 not-first rows fall to **172**; 184 rows gained
+> the lead and **none lost it**. The claim about head-only ties above is
+> unaffected, because a head phrase really is index 0 for every candidate — the
+> mistake was reading a self-name query as one of those. Both counts are now
+> pinned as a corpus test.
 
 Two sizing claims inherited from
 [#130](https://github.com/palebluebytes/inventoria/issues/130) are wrong and are
@@ -556,3 +566,14 @@ and after, which is what keeps this independent of
 derived from whether a phrase retrieves anything at all, and its runtime fallback
 fires only on an empty result. Neither can be disturbed by a change that cannot
 empty or fill a result set.
+
+**#124 implemented:** `47f6cdb` (the key), `dce9cc4` (the `qualifier` pass in
+`pnpm usda:ranking-audit`, and the regenerated `130-ranking-audit.json`).
+
+The pass this amendment asked for reports, over 1,328 generated queries: 76 leads
+moved, the defect fell from 92 queries to 16, and 516 answers rose against 548
+that fell. `bacon pork` is in the worsened column as predicted, and no guard was
+added for it. The falls are almost all beef and chicken cut records reordering
+among near-identical siblings; the postscript to
+[the #130 research note](../research/130-reference-food-ranking-and-recall.md)
+carries the reading.
