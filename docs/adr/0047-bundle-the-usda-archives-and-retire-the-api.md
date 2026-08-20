@@ -332,3 +332,45 @@ distinction that record exists to hold.
 - **Deferred behind a seam:** parsing the nutrient store in a Web Worker (§2), and
   name-only stubs for the filtered-out records (§10, #123). Neither is built; both have a
   measured cost and a named trigger.
+
+## Amendment (2026-08-20): §4's asymmetry is gone, and §3's third benefit with it
+
+§4 says "tightening a filter still works as a pure code change, because the runtime
+filter still runs over the survivors". There is no runtime filter. [#113](https://github.com/palebluebytes/inventoria/issues/113)
+took the filter step out of the search path entirely — `searchIndexRows` ranks the
+index and does nothing else — on the reasoning that re-running the ADR-0042 predicates
+per keystroke is work over a corpus that cannot fail them. That reasoning is sound and
+the Decision is unaffected; what falls is the cost analysis around it.
+
+**The cost is symmetric, not asymmetric.** A real food wrongly dropped needs a
+regeneration, exactly as §4 says. A brand or a packaged form that leaked past the
+filters now needs one too, because tightening the predicate changes nothing until the
+artifact is rebuilt from it. Both directions cost the same, and the "expected failure
+is a leak, and leaks are cheap" reading of §4 is wrong in the cheap direction.
+
+**§3's third benefit rests on the same premise.** "And a filter retune (§4) needs no
+archives on hand" was true only while the runtime filter caught the tightening.
+`scripts/usda-bundle.mjs` reads `.usda-backup/`, so a regeneration needs the mirror,
+and a retune in either direction is now a regeneration. §3's other two benefits — a
+clone that builds with no archives, and a mirror refresh that arrives as a reviewable
+diff — are untouched.
+
+Restoring a runtime filter over the index would buy the tightening direction back for
+the cost §4 originally weighed against it. It is deliberately not proposed here: the
+measurement that removed it stands, and the right moment to reopen it is the first
+retune that actually hurts, not this correction.
+
+## Amendment (2026-08-20): §11's precache cap did not clear both artifacts
+
+§11 says "The existing `maximumFileSizeToCacheInBytes` of 4 MiB is untouched and clears
+both artifacts comfortably." It did not, and the failure was not silent: `nutrient-store.json`
+is **4,225,796 bytes** against the cap's 4,194,304, and `pnpm build` aborted rather than
+shipping a service worker missing it.
+
+The error was reading the served size as the cached one. The store is about 782 KiB
+gzipped, which is what a browser fetches, but workbox weighs the **raw** file. `fa03877`
+raised the cap to 5 MiB, with the reason recorded beside it in `vite.config.ts`; the
+headroom is for a mirror refresh growing the store, not for a second asset that size.
+
+The rest of §11 held. Adding `json` to `globPatterns` was necessary and sufficient, and
+both artifacts precache at install.
