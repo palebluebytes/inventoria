@@ -44,6 +44,11 @@ labels `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and
 `wontfix`. `docs/history/` holds superseded planning documents and is not
 current; do not take direction from it.
 
+**Every commit on a ticket names it in a trailer** — `Closes #NN` when it finishes
+the ticket, `Refs #NN` when it advances one it does not finish. `CODING_STANDARDS.md`
+§9 carries the rule, including why `Closes` leaves the issue open until the branch
+reaches `main`.
+
 ## 3. Architectural Red Lines
 
 These three mirror `CODING_STANDARDS.md` §1, deliberately: this file is always in

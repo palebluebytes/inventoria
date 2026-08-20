@@ -261,6 +261,15 @@ type(scope): imperative, lowercase subject, no trailing period
   `ci`, `chore`, `revert`. Scope reflects the area (`db`, `site`, `adr`, `habits`).
 - **One self-contained change per commit.** Split unrelated work; stage with
   explicit paths or `git add -p`, not a blanket `git add -A`.
+- **Name the issue in the trailer.** A commit that finishes a ticket ends
+  `Closes #NN`; one that advances a ticket it does not finish ends `Refs #NN`.
+  Split work is the common case, so a three-commit ticket is two `Refs` and one
+  `Closes`. The trailer is what lets a reader arrive from the issue and land on
+  the change, and it is the only durable link once the branch is gone.
+- **`Closes` fires on `main`, not on your branch.** GitHub honours the keyword
+  when the commit reaches the default branch, so a pushed feature branch leaves
+  the issue open until it merges. Close it by hand when the work is done and the
+  merge is not imminent, and say in the closing comment where it shipped.
 
 ---
 
@@ -279,4 +288,5 @@ A change is ready when:
 - [ ] Schema/migration/append changes carry tests; pure modules stay injectable.
 - [ ] `pnpm check`, `pnpm test:unit`, and `pnpm lint:css` pass; Prettier-clean.
 - [ ] Non-obvious decisions captured as/against an ADR; new terms in `CONTEXT.md`.
-- [ ] Conventional-commit messages, one logical change each.
+- [ ] Conventional-commit messages, one logical change each, each naming its
+      issue (`Closes #NN` when it finishes the ticket, `Refs #NN` when it does not).
