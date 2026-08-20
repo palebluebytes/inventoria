@@ -399,4 +399,4 @@ halves are
 key order is blind to where a matched word sits, and neither is this
 amendment's. What this one buys is that all 4,429 are now retrieved at all.
 
-**#136 implemented:** `2892081` (the shared tokeniser and the per-row pin).
+**#136 implemented:** `2892081` (the shared tokeniser and the per-row pin), `949452e` (the no-word guard), `0889be6` (curated matching reads through the same tokeniser).
