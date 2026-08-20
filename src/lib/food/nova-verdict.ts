@@ -1,5 +1,6 @@
 import type { EntityPayload } from "../ingestion/ingest";
 import type { FoodAssessment } from "./open-food-facts";
+import type { RawProvenance } from "./provenance";
 
 /**
  * The NOVA read-back selector (ADR-0041 §4) — the first reader of the write-only
@@ -152,7 +153,20 @@ export function deriveNovaVerdict(food: EntityPayload): NovaVerdict {
   // construction of `searchFdc`), an allow-listed whole-food category OR a plain
   // egg, and no NOVA-3 deny-substring in the name.
   if (food.entity.startsWith("fdc:")) {
-    const name = (food.attributes["food/name"] as string | undefined) ?? "";
+    // USDA's OWN description, not the twin's display name. A vocabulary-expanded
+    // search widens that name with the word that reached the food (ADR-0049 §1),
+    // and nineteen of the 433 keys carry one of the deny-substrings below —
+    // "ginger powder" alone would suppress the inference for `Ginger, ground`.
+    // The untouched row is in the provenance blob for exactly this kind of
+    // reader (ADR-0047 §7); a twin from before the bundle carries FDC's own
+    // record there, which spells the field the same way.
+    const provenance = food.attributes["twin/raw_provenance"] as
+      | RawProvenance<{ description?: string }>
+      | undefined;
+    const name =
+      provenance?.raw_data?.description ??
+      (food.attributes["food/name"] as string | undefined) ??
+      "";
     const category = food.attributes["food/category"] as string | undefined;
     const lowerName = name.toLowerCase();
     const categoryAllowed =

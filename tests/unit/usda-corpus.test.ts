@@ -45,7 +45,7 @@ const index: SearchIndex = JSON.parse(
 );
 const corpus = buildSearchCorpus(index);
 const descriptionsFor = (query: string): string[] =>
-  searchIndexRows(corpus, query).rows.map((row) => row.description);
+  searchIndexRows(corpus, query).hits.map(({ row }) => row.description);
 
 describe("the bundled search index", () => {
   it("is the surviving reference foods, and says which archives it came from", () => {
@@ -292,13 +292,13 @@ describe("searchIndexRows", () => {
   });
 
   it("returns nothing for an empty query rather than the whole corpus", () => {
-    expect(searchIndexRows(corpus, "   ").rows).toEqual([]);
+    expect(searchIndexRows(corpus, "   ").hits).toEqual([]);
   });
 
   it("caps a broad query at one page rather than handing over the corpus", () => {
     // A bare "b" matches thousands of rows. The list is rendered one option per
     // row, so the cap is what the FDC page size used to be.
-    const broad = searchIndexRows(corpus, "b").rows;
+    const broad = searchIndexRows(corpus, "b").hits;
     expect(broad.length).toBe(SEARCH_RESULT_LIMIT);
   });
 
@@ -469,7 +469,7 @@ describe("searchIndexRows", () => {
       const rank = compileReferenceFoodQuery(query);
       const admitted = corpus.foods.filter((food) => rank(food.name).tier > 0);
       const returned = new Set(
-        searchIndexRows(corpus, query).rows.map((row) => row.description)
+        searchIndexRows(corpus, query).hits.map(({ row }) => row.description)
       );
       // Every returned row was admitted, and the cap is the only thing that
       // ever removes one.

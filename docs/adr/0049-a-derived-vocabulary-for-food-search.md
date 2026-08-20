@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-20  
-**Amended by:** the #139 Amendment below, which measures §3's stopword threshold and corrects the size §3 quotes for the map; and the #140 Amendment below, which corrects Consequences' count of the British queries OFF reaches and refines §6  
+**Amended by:** the #139 Amendment below, which measures §3's stopword threshold and corrects the size §3 quotes for the map; and the #140 Amendment below, which corrects Consequences' count of the British queries OFF reaches, refines §6, and admits one change to what a panel says that Scope excluded  
 **Implemented:** #139 `4a01dd1`, `5868a7f`, `efadfad` (the map); #140 (the fallback that reads it)
 
 This record amends [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md)
@@ -436,6 +436,45 @@ row's best key. The curated table is not indifferent, and that is the whole
 reason it is there. §1's strict-addition property now holds of both halves of a
 search rather than of the reference-food half alone, which is what the ticket's
 third acceptance criterion asks for.
+
+### A food is shown under the name that reached it
+
+Scope says this record "does not change what the corpus contains, what any panel
+says, or how results are ordered once retrieved". The second of those three no
+longer holds, and it was the wrong exclusion. A search for `aubergine` that
+answers with `Eggplant, raw` and says nothing else leaves the user to guess
+whether the app understood the word or merely found something adjacent — and the
+food they then log is called something they did not type.
+
+So a food reached through the vocabulary is displayed under **both** names:
+`Eggplant, raw, aubergine`. The alias is the vocabulary KEY rather than the raw
+keystrokes, so a mid-type `aubergin` still shows the whole word, and it is the key
+whose expansion actually won that row rather than any key the query touched.
+
+It goes on `food/name` rather than into a sibling attribute, and that is the
+load-bearing choice. A food's display name is read at a dozen surfaces — the
+results list, the staged card, the log, a recipe's ingredients — one of which is a
+raw `SELECT` over `food/name` datoms for the recent list. A sibling attribute
+would reach the surfaces somebody remembered to join it at, and "everywhere it is
+displayed" is the requirement.
+
+Three consequences, none of them free:
+
+- **The alias enters the ledger**, and the ledger is append-only, so it is the
+  last search that named the food. Staging the same food again from a plain
+  `eggplant` writes `Eggplant, raw` and the alias is gone from every surface at
+  once. That is latest-wins working normally, not a defect, but it means the name
+  records how the food was last reached rather than how it was first found.
+- **`food/name` is now a display name, not the source's own**, which
+  `docs/eavt-vocabulary.md` records. Anything deciding something ABOUT a food has
+  to read `twin/raw_provenance.raw_data`, where USDA's untouched description
+  stays. `deriveNovaVerdict` is the one such reader today and now does: nineteen
+  of the 433 keys carry one of its NOVA-3 deny-substrings, and `ginger powder`
+  alone would have dropped `Ginger, ground` out of its inferred NOVA 1.
+- **The displayed word is OFF's**, where the sentence below assumed none would
+  be. The attribution it describes already covers it — it names aubergine,
+  courgette and minced beef in its own copy — but the reasoning "no OFF data is
+  displayed here at all, only used" is no longer why the treatment is light.
 
 ### The attribution the #139 Amendment left declared and invisible
 

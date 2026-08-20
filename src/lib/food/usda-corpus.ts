@@ -180,6 +180,22 @@ export function buildSearchCorpus(index: SearchIndex): SearchCorpus {
 }
 
 /**
+ * One phrase the vocabulary offered in a typed query's place, and the key that
+ * offered it.
+ *
+ * The alias travels with the phrase because it is what the user is shown: a food
+ * reached this way is displayed under its own name AND the name that reached it,
+ * "Eggplant, raw, aubergine", so a search that quietly answered with another word
+ * says which word it answered with (see {@link mapIndexRowToPayload}).
+ */
+export interface VocabularyExpansion {
+  /** The vocabulary key the typed query reached — the name to show the food under. */
+  alias: string;
+  /** A phrase the corpus DOES use, to rank against in the typed query's place. */
+  phrase: string;
+}
+
+/**
  * The vocabulary phrases a typed query expands to, or none for a query the map
  * has no key for. Pure, and the whole of what reads the map.
  *
@@ -210,24 +226,31 @@ export function buildSearchCorpus(index: SearchIndex): SearchCorpus {
 export function expandThroughVocabulary(
   vocabulary: VocabularyMap["expansions"],
   query: string
-): string[] {
+): VocabularyExpansion[] {
   const typed = wordsOf(query);
   if (typed.length === 0) return [];
   const typedStems = typed.map(stemOf);
-  const exact: string[] = [];
-  const prefixed: string[] = [];
-  for (const [key, targets] of Object.entries(vocabulary)) {
-    const keyWords = wordsOf(key);
+  const exact: VocabularyExpansion[] = [];
+  const prefixed: VocabularyExpansion[] = [];
+  for (const [alias, phrases] of Object.entries(vocabulary)) {
+    const keyWords = wordsOf(alias);
     if (keyWords.length < typed.length) continue;
-    if (
+    const reached =
       keyWords.length === typed.length &&
       keyWords.every((word, i) => stemOf(word) === typedStems[i])
-    )
-      exact.push(...targets);
-    else if (typed.every((token, i) => keyWords[i].startsWith(token)))
-      prefixed.push(...targets);
+        ? exact
+        : typed.every((token, i) => keyWords[i].startsWith(token))
+          ? prefixed
+          : null;
+    if (reached) for (const phrase of phrases) reached.push({ alias, phrase });
   }
-  return [...new Set(exact.length > 0 ? exact : prefixed)];
+  // One phrase, one alias. Two keys can offer the same phrase — `soy beans` and
+  // `soya bean` both offer `soybean` — and a row can only be shown under one
+  // name, so the first key in the map's own order takes it.
+  const byPhrase = new Map<string, VocabularyExpansion>();
+  for (const reached of exact.length > 0 ? exact : prefixed)
+    if (!byPhrase.has(reached.phrase)) byPhrase.set(reached.phrase, reached);
+  return [...byPhrase.values()];
 }
 
 /**
@@ -247,9 +270,21 @@ export interface SearchedPhrases {
   phrases: string[];
 }
 
-/** A finished search over the index: the phrases, and the rows they reached. */
+/** One reference food a search reached, and the name that reached it. */
+export interface SearchHit {
+  row: UsdaIndexRow;
+  /**
+   * The vocabulary key this row answered, on the searches where the typed word
+   * reached nothing and the vocabulary offered another (ADR-0049 §1). Absent on
+   * every search that answered literally, which is what keeps the widened name
+   * off every food that never needed one.
+   */
+  alias?: string;
+}
+
+/** A finished search over the index: the phrases, and the foods they reached. */
 export interface IndexSearch extends SearchedPhrases {
-  rows: UsdaIndexRow[];
+  hits: SearchHit[];
 }
 
 /**
@@ -259,7 +294,9 @@ export interface IndexSearch extends SearchedPhrases {
  * Each row is scored against EVERY phrase and keeps its best key, and the whole
  * set is sorted once. Concatenating one ranked list per phrase would let the
  * order a key happens to list its values in decide the ordering; keeping the
- * best key makes the values unordered data, which is what they are.
+ * best key makes the values unordered data, which is what they are. The winning
+ * phrase comes back with the row because it is also what NAMES the row: it is
+ * the one of the k phrases this food actually answered.
  *
  * There is no filter step. The reference-food filters ran once at generation
  * time and the index holds only their 4,429 survivors (ADR-0047 §4, widened by
@@ -269,22 +306,25 @@ export interface IndexSearch extends SearchedPhrases {
 function rankAgainst(
   foods: SearchableFood[],
   phrases: string[]
-): UsdaIndexRow[] {
+): { row: UsdaIndexRow; phrase: string }[] {
   const ranks = phrases.map(compileReferenceFoodQuery);
-  const scored: { row: UsdaIndexRow; key: RelevanceKey }[] = [];
+  const scored: { row: UsdaIndexRow; phrase: string; key: RelevanceKey }[] = [];
   for (const food of foods) {
     let best: RelevanceKey | undefined;
-    for (const rank of ranks) {
-      const key = rank(food.name);
-      if (key.tier > 0 && (!best || compareRelevance(key, best) < 0))
+    let bestPhrase = "";
+    for (let i = 0; i < ranks.length; i++) {
+      const key = ranks[i](food.name);
+      if (key.tier > 0 && (!best || compareRelevance(key, best) < 0)) {
         best = key;
+        bestPhrase = phrases[i];
+      }
     }
-    if (best) scored.push({ row: food.row, key: best });
+    if (best) scored.push({ row: food.row, phrase: bestPhrase, key: best });
   }
   return scored
     .sort((a, b) => compareRelevance(a.key, b.key))
     .slice(0, SEARCH_RESULT_LIMIT)
-    .map(({ row }) => row);
+    .map(({ row, phrase }) => ({ row, phrase }));
 }
 
 /**
@@ -304,17 +344,26 @@ export function searchIndexRows(
   corpus: SearchCorpus,
   query: string
 ): IndexSearch {
-  if (!query.trim()) return { phrases: [], rows: [] };
-  const rows = rankAgainst(corpus.foods, [query]);
-  if (rows.length > 0) return { phrases: [query], rows };
+  if (!query.trim()) return { phrases: [], hits: [] };
+  const literal = rankAgainst(corpus.foods, [query]);
+  if (literal.length > 0)
+    return { phrases: [query], hits: literal.map(({ row }) => ({ row })) };
   const expanded = expandThroughVocabulary(corpus.vocabulary, query);
-  if (expanded.length === 0) return { phrases: [query], rows: [] };
+  if (expanded.length === 0) return { phrases: [query], hits: [] };
   // The typed query rides along, and costs the ranking nothing: the pass above
   // just proved it matches no row, so it can never be any row's best key. What
   // it buys is the curated table still seeing what was typed (see
-  // {@link SearchedPhrases}).
-  const phrases = [query, ...expanded];
-  return { phrases, rows: rankAgainst(corpus.foods, phrases) };
+  // {@link SearchedPhrases}) — and, for the same reason, a row that somehow won
+  // on it carries no alias, because there is no other name to show it under.
+  const aliasOf = new Map(expanded.map((e) => [e.phrase, e.alias]));
+  const phrases = [query, ...expanded.map((e) => e.phrase)];
+  return {
+    phrases,
+    hits: rankAgainst(corpus.foods, phrases).map(({ row, phrase }) => ({
+      row,
+      alias: aliasOf.get(phrase),
+    })),
+  };
 }
 
 /**
@@ -324,10 +373,26 @@ export function searchIndexRows(
  *
  * The panel carries the four macros the row holds. The rest of USDA's nutrients
  * live in the Nutrient store and are read when the food is staged (ADR-0047 §2).
+ *
+ * `alias` is the vocabulary key a search needed to reach this row, and it is
+ * appended to the NAME — "Eggplant, raw" becomes "Eggplant, raw, aubergine".
+ * `food/name` rather than a sibling attribute because the display name is read
+ * in a dozen places, one of them a raw `SELECT` over `food/name` datoms
+ * (`FoodView`'s recent list), and the alias has to reach all of them: a user who
+ * searched a word deserves to see that word on the food they logged, in the log,
+ * in Recent and in a recipe's ingredients.
+ *
+ * `twin/raw_provenance.raw_data` keeps USDA's untouched row, so the widened name
+ * never masquerades as USDA's own (ADR-0045 §4) — and `deriveNovaVerdict` reads
+ * the description back out of it rather than off this name, because nineteen
+ * vocabulary keys carry one of its deny-substrings.
  */
-export function mapIndexRowToPayload(row: UsdaIndexRow): EntityPayload {
+export function mapIndexRowToPayload(
+  row: UsdaIndexRow,
+  alias?: string
+): EntityPayload {
   const attributes: EntityPayload["attributes"] = {
-    "food/name": row.description,
+    "food/name": alias ? `${row.description}, ${alias}` : row.description,
     [NUTRITION_INFO_ATTR]: {
       serving_size: PER_100G,
       ...row.macros,
@@ -453,8 +518,11 @@ export async function searchUsdaCorpus(
   load: () => Promise<SearchCorpus> = loadSearchCorpus
 ): Promise<UsdaSearch> {
   if (!query.trim()) return { phrases: [], foods: [] };
-  const { phrases, rows } = searchIndexRows(await load(), query);
-  return { phrases, foods: rows.map(mapIndexRowToPayload) };
+  const { phrases, hits } = searchIndexRows(await load(), query);
+  return {
+    phrases,
+    foods: hits.map(({ row, alias }) => mapIndexRowToPayload(row, alias)),
+  };
 }
 
 // ---------------------------------------------------------------------------

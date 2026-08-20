@@ -76,6 +76,13 @@ The attributes listed below are representative, not exhaustive; the source under
 Food Digital Twins.
 
 - `name`, `photo_base64`, `category`, `scientific_name` (food-identity record metadata).
+  `name` is the food's DISPLAY name, not the source's own: a bundled USDA food reached
+  through the Vocabulary map carries the name that reached it too, `Eggplant, raw,
+aubergine`, because a display name is read at a dozen surfaces including a raw
+  `SELECT` over these datoms
+  ([ADR-0049](adr/0049-a-derived-vocabulary-for-food-search.md) §1). The source's
+  untouched description stays in `twin/raw_provenance.raw_data`, which is what any
+  reader deciding something ABOUT the food (rather than showing it) must read.
 - `ingredients_text`: Open Food Facts' raw ingredients string, distinct from a recipe's
   structured `recipe/ingredients`.
 - `portions`: an ordered list of household measures (`{ label, amount, unit, grams }`)

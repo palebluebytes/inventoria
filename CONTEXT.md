@@ -45,7 +45,7 @@ The committed artifact holding every nutrient USDA reports for a Reference food,
 _Avoid_: Nutrient table, nutrition bundle, micronutrient tail (which is what the store makes reachable, not the store)
 
 **Vocabulary map**:
-The derived table of phrases the Search index does not use, each mapped to the phrases it does — `aubergine` to `eggplant`, `courgette` to `zucchini`, `minced beef` to `ground beef`. Derived from Open Food Facts' ingredients taxonomy rather than written by hand, filtered to the groups that can change an answer, and committed inside the Search index under its own ODbL section (`vocabulary_off`). It is a **retrieval fallback**: a query that already retrieves something is answered exactly as it is today. See ADR-0049.
+The derived table of phrases the Search index does not use, each mapped to the phrases it does — `aubergine` to `eggplant`, `courgette` to `zucchini`, `minced beef` to `ground beef`. Derived from Open Food Facts' ingredients taxonomy rather than written by hand, filtered to the groups that can change an answer, and committed inside the Search index under its own ODbL section (`vocabulary_off`). It is a **retrieval fallback**: a query that already retrieves something is answered exactly as it is today. A food reached through it is displayed under both names — `Eggplant, raw, aubergine` — so a search that quietly answered with another word says which word. See ADR-0049.
 _Avoid_: Synonym list, alias table (a Curated stand-in's `aliases` are a different thing), thesaurus, spell-check
 
 **Curated stand-in**:

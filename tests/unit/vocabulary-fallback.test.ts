@@ -4,10 +4,14 @@ import { curatedMatches } from "../../src/lib/food/curated-foods";
 import {
   buildSearchCorpus,
   expandThroughVocabulary,
+  mapIndexRowToPayload,
   searchIndexRows,
   type SearchCorpus,
   type SearchIndex,
+  type UsdaIndexRow,
 } from "../../src/lib/food/usda-corpus";
+import { deriveNovaVerdict } from "../../src/lib/food/nova-verdict";
+import type { RawProvenance } from "../../src/lib/food/provenance";
 
 // ADR-0049 §1's retrieval fallback, asserted over the bytes the app ships. The
 // committed artifact is the fixture for the same reason `usda-corpus.test.ts`
@@ -27,9 +31,15 @@ const corpus = buildSearchCorpus(index);
 const literalOnly: SearchCorpus = { foods: corpus.foods, vocabulary: {} };
 
 const topFor = (query: string): string | undefined =>
-  searchIndexRows(corpus, query).rows[0]?.description;
+  searchIndexRows(corpus, query).hits[0]?.row.description;
 const retrieves = (c: SearchCorpus, query: string): boolean =>
-  searchIndexRows(c, query).rows.length > 0;
+  searchIndexRows(c, query).hits.length > 0;
+
+/** The phrases an expansion offers, without the aliases, for the shape tests. */
+const phrasesOf = (
+  vocabulary: Record<string, string[]>,
+  query: string
+): string[] => expandThroughVocabulary(vocabulary, query).map((e) => e.phrase);
 
 describe("expandThroughVocabulary", () => {
   const vocabulary = {
@@ -40,14 +50,12 @@ describe("expandThroughVocabulary", () => {
   };
 
   it("expands a phrase the corpus has no name for", () => {
-    expect(expandThroughVocabulary(vocabulary, "aubergine")).toEqual([
-      "eggplant",
-    ]);
+    expect(phrasesOf(vocabulary, "aubergine")).toEqual(["eggplant"]);
   });
 
   it("keeps every value a key carries, because they are different foods", () => {
     // 144 of the 433 keys carry two to six targets; `chilli` is why (ADR-0049 §3).
-    expect(expandThroughVocabulary(vocabulary, "chilli")).toEqual([
+    expect(phrasesOf(vocabulary, "chilli")).toEqual([
       "chili pepper",
       "chile",
       "chile pepper",
@@ -55,51 +63,63 @@ describe("expandThroughVocabulary", () => {
   });
 
   it("reaches a key mid-type, so the fallback fires before the last keystroke", () => {
-    expect(expandThroughVocabulary(vocabulary, "aubergin")).toEqual([
-      "eggplant",
-    ]);
-    expect(expandThroughVocabulary(vocabulary, "flax se")).toEqual([
-      "flaxseed",
-    ]);
+    expect(phrasesOf(vocabulary, "aubergin")).toEqual(["eggplant"]);
+    expect(phrasesOf(vocabulary, "flax se")).toEqual(["flaxseed"]);
   });
 
   it("prefers an exact key over the keys a prefix would also reach", () => {
     // "chilli" is a whole key and also a prefix of nothing else here; the tier
     // that matters is that an exact hit never blends with a partial one.
     const twoTier = { chilli: ["chile"], "chilli powder": ["chili powder"] };
-    expect(expandThroughVocabulary(twoTier, "chilli")).toEqual(["chile"]);
-    expect(expandThroughVocabulary(twoTier, "chill")).toEqual([
-      "chile",
-      "chili powder",
-    ]);
+    expect(phrasesOf(twoTier, "chilli")).toEqual(["chile"]);
+    expect(phrasesOf(twoTier, "chill")).toEqual(["chile", "chili powder"]);
   });
 
   it("matches a key modulo plural, the way the ranking reads a word", () => {
-    expect(expandThroughVocabulary(vocabulary, "flax seeds")).toEqual([
-      "flaxseed",
-    ]);
+    expect(phrasesOf(vocabulary, "flax seeds")).toEqual(["flaxseed"]);
   });
 
   it("matches typed words against key words in order, not in any order", () => {
-    expect(expandThroughVocabulary(vocabulary, "seed flax")).toEqual([]);
+    expect(phrasesOf(vocabulary, "seed flax")).toEqual([]);
   });
 
   it("does not expand a key that is only part of what was typed", () => {
     // The map is phrase-keyed: `aubergine` expands and `raw aubergine` does not
     // (ADR-0049 Consequences). Deliberate, and unmeasured rather than unwanted.
-    expect(expandThroughVocabulary(vocabulary, "raw aubergine")).toEqual([]);
+    expect(phrasesOf(vocabulary, "raw aubergine")).toEqual([]);
+  });
+
+  it("names the key that reached each phrase, not just the phrase", () => {
+    // The alias is what the food is shown under, so it has to be the WHOLE key
+    // even when the query was still being typed: "aubergin" reaches the food
+    // under "aubergine", never under half a word.
+    expect(expandThroughVocabulary(vocabulary, "aubergin")).toEqual([
+      { alias: "aubergine", phrase: "eggplant" },
+    ]);
+    expect(expandThroughVocabulary(vocabulary, "soya beans")).toEqual([
+      { alias: "soya bean", phrase: "soybean" },
+      { alias: "soya bean", phrase: "soybeans" },
+    ]);
+  });
+
+  it("gives one phrase one alias, so a food is shown under one name", () => {
+    // Two keys can offer the same phrase; a row can only be shown under one name.
+    expect(
+      expandThroughVocabulary(
+        { "soy beans": ["soybean"], "soya bean": ["soybean"] },
+        "soy bean"
+      )
+    ).toEqual([{ alias: "soy beans", phrase: "soybean" }]);
   });
 
   it("answers nothing for a query holding no word at all", () => {
-    expect(expandThroughVocabulary(vocabulary, "   ")).toEqual([]);
-    expect(expandThroughVocabulary(vocabulary, "!!")).toEqual([]);
+    expect(phrasesOf(vocabulary, "   ")).toEqual([]);
+    expect(phrasesOf(vocabulary, "!!")).toEqual([]);
   });
 
   it("reads a typed word the way the tokeniser does, punctuation included", () => {
     // #136: a key is never compared against tokens some other function produced.
-    expect(expandThroughVocabulary(vocabulary, "flax-seed")).toEqual([
-      "flaxseed",
-    ]);
+    expect(phrasesOf(vocabulary, "flax-seed")).toEqual(["flaxseed"]);
   });
 });
 
@@ -129,8 +149,8 @@ describe("the vocabulary fallback in the search", () => {
     // `chilli` carries three targets. Concatenate-and-dedupe would let the order
     // of a key's values decide the ordering; scoring every row against every
     // expansion and keeping the best key means the values are unordered data.
-    const forward = searchIndexRows(corpus, "chilli").rows.map(
-      (r) => r.description
+    const forward = searchIndexRows(corpus, "chilli").hits.map(
+      (h) => h.row.description
     );
     const reversed = searchIndexRows(
       {
@@ -138,23 +158,72 @@ describe("the vocabulary fallback in the search", () => {
         vocabulary: { chilli: ["chile pepper", "chile"] },
       },
       "chilli"
-    ).rows.map((r) => r.description);
+    ).hits.map((h) => h.row.description);
     const sameValuesOtherOrder = searchIndexRows(
       {
         foods: corpus.foods,
         vocabulary: { chilli: ["chile", "chile pepper"] },
       },
       "chilli"
-    ).rows.map((r) => r.description);
+    ).hits.map((h) => h.row.description);
     expect(reversed).toEqual(sameValuesOtherOrder);
     expect(forward.length).toBeGreaterThan(0);
   });
 
+  it("shows the food under the name that reached it", () => {
+    // What the user asked for: a search that quietly answered with another word
+    // says which word. `mapIndexRowToPayload` puts it on `food/name`, so it
+    // reaches every surface that displays a food rather than only the results
+    // list — the staged card, the log, Recent, a recipe's ingredients.
+    const [hit] = searchIndexRows(corpus, "aubergine").hits;
+    expect(hit.alias).toBe("aubergine");
+    expect(
+      mapIndexRowToPayload(hit.row, hit.alias).attributes["food/name"]
+    ).toBe("Eggplant, raw, aubergine");
+  });
+
+  it("leaves USDA's own description untouched in the provenance blob", () => {
+    // The widened name must never masquerade as USDA's (ADR-0045 §4), and it is
+    // what `deriveNovaVerdict` reads back rather than the display name.
+    const [hit] = searchIndexRows(corpus, "aubergine").hits;
+    const payload = mapIndexRowToPayload(hit.row, hit.alias);
+    const provenance = payload.attributes[
+      "twin/raw_provenance"
+    ] as RawProvenance<UsdaIndexRow>;
+    expect(provenance.raw_data.description).toBe("Eggplant, raw");
+  });
+
+  it("keeps a NOVA inference a vocabulary key would otherwise have suppressed", () => {
+    // `ginger powder -> ground ginger` is one of nineteen keys carrying a
+    // NOVA-3 deny-substring. Read off the display name, "powder" would drop
+    // `Ginger, ground` out of its inferred NOVA 1.
+    const [hit] = searchIndexRows(corpus, "ginger powder").hits;
+    expect(hit.alias).toBe("ginger powder");
+    const payload = mapIndexRowToPayload(hit.row, hit.alias);
+    expect(payload.attributes["food/name"]).toContain("powder");
+    expect(deriveNovaVerdict(payload)).toEqual({
+      state: "rated",
+      tier: 1,
+      source: "inferred",
+    });
+  });
+
+  it("names no food a search answered without help", () => {
+    // The other half of strict addition: a food the typed word reached is shown
+    // exactly as it is today.
+    for (const hit of searchIndexRows(corpus, "banana").hits) {
+      expect(hit.alias).toBeUndefined();
+      expect(
+        mapIndexRowToPayload(hit.row, hit.alias).attributes["food/name"]
+      ).toBe(hit.row.description);
+    }
+  });
+
   it("still answers nothing for a query no phrase reaches", () => {
-    expect(searchIndexRows(corpus, "gorgonzola nibs of the sea").rows).toEqual(
+    expect(searchIndexRows(corpus, "gorgonzola nibs of the sea").hits).toEqual(
       []
     );
-    expect(searchIndexRows(corpus, "   ").rows).toEqual([]);
+    expect(searchIndexRows(corpus, "   ").hits).toEqual([]);
   });
 });
 
@@ -232,10 +301,10 @@ describe("what the fallback buys, against the bars set before it was built", () 
     }
     let asserted = 0;
     for (const query of queries) {
-      const before = searchIndexRows(literalOnly, query).rows;
+      const before = searchIndexRows(literalOnly, query).hits;
       if (before.length === 0) continue;
       asserted++;
-      expect([query, searchIndexRows(corpus, query).rows]).toEqual([
+      expect([query, searchIndexRows(corpus, query).hits]).toEqual([
         query,
         before,
       ]);
