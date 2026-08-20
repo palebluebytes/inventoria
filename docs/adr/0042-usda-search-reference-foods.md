@@ -7,6 +7,7 @@
 **Amended by:** ADR-0047 §1 and §4 (the corpus is bundled and pre-filtered at generation time; §2's Lucene boost is retired)  
 **Amended by:** the Amendment below, which supersedes §1's structural tier  
 **Amended by:** ADR-0048 §5 (§3's generation-time filter roster gains a dry-basis filter and an energy-absence filter)  
+**Amended by:** the #131 Amendment below, which corrects §3's "ALL CAPS is the only available signal" and accepts the gap that leaves  
 **Implemented:** `dabb1fe`, `082ad31`, `fcb3b60`, `1365343`; `src/lib/food/food-search.ts`
 
 ## Context
@@ -89,6 +90,11 @@ from generic words like Cream of Wheat). Corpus-validated at zero generic-food
 false drops. A query-aware "rescue" was tried and removed (a generic food word
 capitalised inside a brand — "apple" → APPLEBEE'S, "almond" → ALMOND JOY —
 tripped it).
+
+> Amended by the [#131 Amendment](#amendment-2026-08-20-131-all-caps-is-not-the-only-signal-and-the-gap-that-leaves).
+> The convention is not universal, one of this decision's own precision guards
+> admitted a brand, and the residual Title-Case gap is now accepted in writing
+> rather than implied to be closed.
 
 ### 4. Drop packaged forms by marker
 
@@ -233,3 +239,71 @@ distribution. See the
 The decision holds, more firmly than before. A smaller Foundation makes SR Legacy a
 larger share of the base foods search exists to surface, which is the argument Decision
 6 already makes.
+
+## Amendment (2026-08-20, #131): ALL CAPS is not the only signal, and the gap that leaves
+
+Decision 3 rests on an editorial convention: "USDA's editorial convention writes brands
+in ALL CAPS, the only available signal". The convention is real and still carries the
+filter, but it is not universal, and the sentence read as though it were. Twenty branded
+rows were in the corpus when somebody finally read the data.
+
+Sixteen of them were not a failure of the convention at all. `Vitasoy USA, Nasoya Lite
+Firm Tofu` shouts exactly as the convention predicts, but `USA` sat in the
+generic-acronym stoplist — one of Decision 3's own precision guards — so the detector
+declined to fire. The stoplist exists for acronyms that describe a food, and `USA`
+describes a company's country of incorporation. It protected no record, carried no test,
+and was never measured; it simply looked generic. **A precision guard is itself a hole
+unless something proves it is still earning its place.**
+
+The remaining four are the genuine article: `Powerade Zero Ion4`, `Reddi Wip`,
+`Creamsicle` and `Natreon canola`, trademarks USDA rendered in Title Case. They join the
+trademark denylist, which now exists for two reasons rather than one — a brand goes
+invisible either by being built from generic words (Cream of Wheat) or by not being
+shouted.
+
+### Two rules that were considered and are now closed
+
+**A `beverage` marker in Decision 4 is rejected**, on measurement rather than taste. A
+named commercial drink is a packaged product however it is capitalised, so the marker
+looks principled; but `Beverages` is 116 corpus rows, and the rule would take all three
+`water, tap, …` records, brewed coffee, brewed tea, shelf-stable almond milk,
+refrigerated oat milk and forty-odd wine varietals in order to catch one Powerade.
+Decision 4's markers describe what was done to a food; "beverage" describes only what
+kind of food it is.
+
+**A Title-Case proper-noun rule is rejected.** It is the rule that would have caught
+Powerade, and it cannot be had at an acceptable price: 697 corpus rows carry a
+mid-description Title-Case token, drawn from 184 distinct words, and nearly all of them
+name a cultivar, a grade, a geography or a varietal — `Mango, Tommy Atkins`, `Eggs,
+Grade A, Large`, `Lamb, New Zealand`, `wine, table, red, Pinot Noir`. Frequency does not
+separate the two populations either: `Lemberger` appears once and is a grape, `Nasoya`
+ten times and is a brand. Decision 3 is precision-first because ADR-0047 §4 made a wrong
+drop cost a regeneration, and this rule inverts that.
+
+### The surviving all-caps vocabulary is now pinned
+
+Because the convention is the filter, the set of all-caps tokens that survive into the
+corpus is the audit of whether the filter still works. It is three words — `USDA`,
+`BBQ`, `NY` — and `tests/unit/usda-corpus.test.ts` now asserts exactly that set over the
+committed artifact.
+
+Pinned over the artifact rather than in the generator, and as a whole set rather than a
+blocklist, for the reason ADR-0048 §5's energy invariant is pinned the same way: the
+filters run once at generation, so the way a brand returns is a mirror refresh, and it
+returns silently. A fourth member is not necessarily wrong. It is necessarily worth a
+human deciding.
+
+### The gap this leaves is accepted, not closed
+
+**A brand USDA renders in Title Case will reach the corpus on a future mirror refresh,
+and nothing will fail.** The denylist names four; the roster test beside the caps pin
+names about thirty; both can only catch a brand somebody already thought of, which is
+precisely the weakness that let these twenty sit undiscovered. That is the accepted
+residue of keeping Decision 3 precision-first, and it is written here so the next reader
+meets a known limit instead of assuming the class is empty.
+
+The list edits themselves — one stoplist entry removed, four denylist entries added —
+are not recorded here. Decision 3 already says the lists "are expected to drift as new
+cases surface", and this amendment records only what the drift revealed about the rule.
+
+**Implemented:** `1c37180` (the filter), `9caf374` (the regeneration and the pins).
