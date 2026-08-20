@@ -16,14 +16,16 @@ import {
   PER_100G,
   FOOD_PORTIONS_ATTR,
   NUTRITION_INFO_ATTR,
+  reportsNoEnergy,
   type NutritionInfo,
 } from "../../src/lib/food/nutrition";
+import { isDryBasisRecord } from "../../src/lib/food/usda-fdc";
 import type { RawProvenance } from "../../src/lib/food/provenance";
 import type { EntityPayload } from "../../src/lib/ingestion/ingest";
 
 // The committed artifact itself is the fixture (ADR-0047 §3). Search is only
 // keyless and offline if it answers from THIS file, so the ADR-0042 ordering
-// cases are asserted over the 4,491 rows the app actually ships rather than
+// cases are asserted over the 4,461 rows the app actually ships rather than
 // over a hand-built stand-in that could agree with the code and not the data.
 const index: SearchIndex = JSON.parse(
   readFileSync("public/usda/search-index.json", "utf8")
@@ -33,12 +35,49 @@ const descriptionsFor = (query: string): string[] =>
   searchIndexRows(corpus, query).map((row) => row.description);
 
 describe("the bundled search index", () => {
-  it("is the ADR-0042 survivors, and says which archives it came from", () => {
-    expect(index.foods.length).toBe(4491);
+  it("is the surviving reference foods, and says which archives it came from", () => {
+    expect(index.foods.length).toBe(4461);
     expect(index.generated_from.map((a) => a.dataset)).toEqual([
       "Foundation Foods",
       "SR Legacy",
     ]);
+  });
+
+  // ── ADR-0048's invariant, over the artifact itself ────────────────────────
+  // Locked here rather than in the generator because a mirror refresh is the
+  // way it would come back: the filters run at generation, and a refresh that
+  // reintroduced a calorie-less record would otherwise ship it silently — which
+  // is exactly how `Oil, olive, extra virgin` reached the corpus in the first
+  // place (#126).
+
+  it("carries an energy value on every row — an absent measurement is not a zero", () => {
+    // PRESENCE, not non-zero (ADR-0048 §1). Nine rows report a measured 0 and
+    // are correct: tap water, iodised salt, decaffeinated coffee and tea.
+    const silent = index.foods.filter((row) =>
+      reportsNoEnergy({ serving_size: PER_100G, ...row.macros })
+    );
+    expect(silent.map((row) => row.description)).toEqual([]);
+
+    // Not vacuous, and the distinction is the whole point: the measured zeros
+    // are still here.
+    const measuredZero = index.foods.filter((row) => row.macros.calories === 0);
+    expect(measuredZero.map((row) => row.description)).toContain(
+      "Beverages, water, tap, drinking"
+    );
+    expect(measuredZero).toHaveLength(9);
+  });
+
+  it("offers no dry-basis assay as a food", () => {
+    // The seventeen `Beans, Dry, … (0% moisture)` records: per 100 g of dry
+    // matter, published to compare cultivars, and not a food anyone eats
+    // (ADR-0048 §5). The dried beans as sold stay.
+    expect(
+      index.foods.filter((row) => isDryBasisRecord(row.description))
+    ).toEqual([]);
+    expect(
+      index.foods.filter((row) => /mature seeds, raw$/.test(row.description))
+        .length
+    ).toBeGreaterThan(30);
   });
 });
 
@@ -242,7 +281,7 @@ describe("storedPanelFor", () => {
   it("rebuilds every row's macros exactly, across the whole corpus", () => {
     // The two artifacts are generated from one merged record, so a row's macros
     // and the store's amounts are the same numbers twice. Assert it over all
-    // 4,491 rather than on one food: a generator change that filled one artifact
+    // 4,461 rather than on one food: a generator change that filled one artifact
     // and not the other would otherwise ship silently.
     const disagreeing = index.foods.filter((row) => {
       const panel = storedPanelFor(store, row.fdcId);
