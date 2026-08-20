@@ -116,7 +116,7 @@ export interface SearchableFood {
 
 /**
  * The Search index in the form a keystroke searches: every description split
- * into words once, at load, rather than 4,441 times per keystroke.
+ * into words once, at load, rather than 4,429 times per keystroke.
  *
  * This is what makes the corpus an index rather than a list, and it is measured
  * rather than assumed. Reading the names costs 18.5 ms once and takes a search
@@ -139,7 +139,7 @@ export function buildSearchCorpus(index: SearchIndex): SearchCorpus {
  * committed artifact rather than through a fetch.
  *
  * There is no filter step. The reference-food filters ran once at generation
- * time and the index holds only their 4,441 survivors (ADR-0047 §4, widened by
+ * time and the index holds only their 4,429 survivors (ADR-0047 §4, widened by
  * ADR-0048 §5), so re-running them per keystroke would be work over a corpus
  * that cannot fail them.
  */

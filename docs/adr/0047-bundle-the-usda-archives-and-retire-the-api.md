@@ -3,7 +3,8 @@
 **Status:** Accepted  
 **Date:** 2026-08-19  
 **Amended by:** ADR-0048 §5 (§4's filter roster gains two members; the corpus fell from 4,491 rows to 4,461)  
-**Amended by:** ADR-0042's #131 amendment (§4's brand-filter tally: the corpus is now 4,441 rows)  
+**Amended by:** ADR-0042's #131 amendment (§4's brand-filter tally; the corpus fell from 4,461 rows to 4,441)  
+**Amended by:** ADR-0042 §5's #133 drift (§4's prepared-composite tally: the corpus is now 4,429 rows)  
 **Implemented:** #111 `a8a36e3`, #113 `4d02063`, #114 `37e7d67`, #115 `c0a99a1`
 
 This record revises five earlier ones. It amends
@@ -158,8 +159,8 @@ one that is wrong instantly and invisibly.
 
 ### 4. The corpus is the reference foods, filtered at generation time
 
-**4,441 of 7,966 merged foods** survive the generation-time filters — 922 dropped as
-brand-specific, 1,324 as packaged or processed, 1,249 as prepared or composite, 17 as
+**4,429 of 7,966 merged foods** survive the generation-time filters — 922 dropped as
+brand-specific, 1,324 as packaged or processed, 1,261 as prepared or composite, 17 as
 dry-basis assays and 13 as reporting no energy. The first three are ADR-0042's, the last
 two are [ADR-0048](0048-an-absent-measurement-is-not-a-zero.md) §5's and run after the
 twin merge. What changes for all five is that they run once per generation instead of
@@ -171,6 +172,11 @@ treating "USA" as a generic acronym (#131): of the 21 records it newly claims, o
 prepared composite, so it changes column rather than adding one. That asymmetry is the
 tally working as intended — the filters are ordered, and a record leaves by the first
 door that fits.
+
+The prepared-composite tally moved by 12 with no such asymmetry (#133), which is the
+ordinary case: twelve assembled desserts and fast-food shakes that USDA had filed under
+Dairy and Beverages were caught by description, where no other filter had a claim on
+them.
 
 This is the clause that costs something, and the cost is asymmetric. ADR-0042's filters
 are precision-first, so their expected failure is a leak — something that should have

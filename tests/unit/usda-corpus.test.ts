@@ -25,7 +25,7 @@ import type { EntityPayload } from "../../src/lib/ingestion/ingest";
 
 // The committed artifact itself is the fixture (ADR-0047 §3). Search is only
 // keyless and offline if it answers from THIS file, so the ADR-0042 ordering
-// cases are asserted over the 4,441 rows the app actually ships rather than
+// cases are asserted over the 4,429 rows the app actually ships rather than
 // over a hand-built stand-in that could agree with the code and not the data.
 const index: SearchIndex = JSON.parse(
   readFileSync("public/usda/search-index.json", "utf8")
@@ -36,7 +36,7 @@ const descriptionsFor = (query: string): string[] =>
 
 describe("the bundled search index", () => {
   it("is the surviving reference foods, and says which archives it came from", () => {
-    expect(index.foods.length).toBe(4441);
+    expect(index.foods.length).toBe(4429);
     expect(index.generated_from.map((a) => a.dataset)).toEqual([
       "Foundation Foods",
       "SR Legacy",
@@ -166,6 +166,34 @@ describe("the bundled search index", () => {
     );
     expect(descriptions).toContain(
       "Beverages, tea, black, brewed, prepared with tap water"
+    );
+  });
+
+  it("offers no assembled dessert or fast-food item, and still offers plain ice cream", () => {
+    // #133, pinned over the artifact for the same reason as its neighbours: the
+    // filters run at generation, so a mirror refresh is how these come back.
+    // The pairing is the whole point of the rule — the novelty goes, the tub
+    // stays, and a future tightening that cannot tell them apart fails here.
+    const descriptions = index.foods.map((row) => row.description);
+    const assembled = descriptions.filter(
+      (d) =>
+        /ice cream/i.test(d) &&
+        /\b(bar|stick|cone|cookie|sandwich|sundae)\b/i.test(d)
+    );
+    expect(assembled).toEqual([]);
+    expect(descriptions.filter((d) => /\bfast food\b/i.test(d))).toEqual([]);
+
+    expect(descriptions).toContain("Ice cream, soft serve, chocolate");
+    expect(descriptions).toContain(
+      "Fat free ice cream, no sugar added, flavors other than chocolate"
+    );
+    // The three base foods a bare "sandwich" marker would have taken.
+    expect(descriptions).toContain("Sandwich spread, meatless");
+    expect(descriptions).toContain(
+      "Beef, sandwich steaks, flaked, chopped, formed and thinly sliced, raw"
+    );
+    expect(descriptions).toContain(
+      "Tortilla, includes plain and from mutton sandwich (Navajo)"
     );
   });
 
@@ -402,7 +430,7 @@ describe("storedPanelFor", () => {
   it("rebuilds every row's macros exactly, across the whole corpus", () => {
     // The two artifacts are generated from one merged record, so a row's macros
     // and the store's amounts are the same numbers twice. Assert it over all
-    // 4,441 rather than on one food: a generator change that filled one artifact
+    // 4,429 rather than on one food: a generator change that filled one artifact
     // and not the other would otherwise ship silently.
     const disagreeing = index.foods.filter((row) => {
       const panel = storedPanelFor(store, row.fdcId);
