@@ -774,6 +774,13 @@ describe("serialisation — stable, diffable, one food per line", () => {
   const index = {
     schema_version: SCHEMA_VERSION,
     generated_from: [{ dataset: "SR Legacy", release: "2018-04" }],
+    vocabulary_off: {
+      licence: "ODbL",
+      source: "Open Food Facts",
+      url: "https://static.openfoodfacts.org/x.json",
+      sha256: "abc",
+      expansions: { aubergine: ["eggplant"], courgette: ["zucchini"] },
+    },
     foods: [
       { fdcId: 100, description: "Apples, raw" },
       { fdcId: 900, description: "Pears, raw" },
@@ -823,6 +830,27 @@ describe("serialisation — stable, diffable, one food per line", () => {
 
   it("writes an empty corpus without emitting a stray blank line", () => {
     expect(serialiseIndex({ ...index, foods: [] })).toContain('"foods": []');
+  });
+
+  it("puts each vocabulary phrase on its own line, so a refresh diffs as words", () => {
+    // The committed map IS the review gate for a source that is unversioned and
+    // rewritten in place (ADR-0049 section 2), so a taxonomy that moves has to
+    // diff as the handful of phrases that moved.
+    const lines = serialiseIndex(index).trimEnd().split("\n");
+    expect(lines).toContain('"aubergine": ["eggplant"],');
+    expect(lines).toContain('"courgette": ["zucchini"]');
+  });
+
+  it("keeps the vocabulary a section of its own, beside foods", () => {
+    const parsed = JSON.parse(serialiseIndex(index));
+    expect(parsed.vocabulary_off).toEqual(index.vocabulary_off);
+    expect(Object.keys(parsed)).toEqual([
+      "artifact",
+      "schema_version",
+      "generated_from",
+      "vocabulary_off",
+      "foods",
+    ]);
   });
 });
 

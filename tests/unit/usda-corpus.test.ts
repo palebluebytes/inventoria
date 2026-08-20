@@ -681,7 +681,7 @@ const storeOf = (
   nutrients: NutrientStore["nutrients"]
 ): NutrientStore => ({
   artifact: "usda-nutrient-store",
-  schema_version: 1,
+  schema_version: 2,
   generated_from: [],
   nutrients,
   foods: { "1": amounts },

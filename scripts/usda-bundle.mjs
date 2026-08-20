@@ -34,7 +34,11 @@
  * It reads local copies and never downloads: `pnpm usda:backup fetch` puts the
  * archives there, and every archive is checked against its manifest digest
  * first, because an artifact generated from undescribed bytes is one nobody can
- * reproduce.
+ * reproduce. The pinned vocabulary source beside them follows the same rule.
+ *
+ * The search index also carries the derived vocabulary (ADR-0049). That
+ * derivation lives in `usda-vocabulary.mjs` and runs from {@link main} after the
+ * corpus is final, because its filters ask what the FINISHED corpus retrieves.
  */
 
 import { createHash } from "node:crypto";
@@ -49,15 +53,47 @@ import {
   compareToPublished,
   fetchPublishedArchives,
 } from "./usda-releases.mjs";
+import {
+  RANKING_EXPORTS,
+  VOCABULARY_EXPORTS,
+  assertVocabularyHolds,
+  buildVocabularySection,
+  deriveVocabulary,
+  describeVocabulary,
+  readTaxonomyGroups,
+  readVocabularySource,
+  retrievalCounter,
+} from "./usda-vocabulary.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST_PATH = join(ROOT, "scripts", "usda-backup.manifest.json");
 const APP_MODULE = join(ROOT, "src", "lib", "food", "usda-fdc.ts");
+const RANKING_MODULE = join(
+  ROOT,
+  "src",
+  "lib",
+  "food",
+  "reference-food-ranking.ts"
+);
+const VOCABULARY_MODULE = join(
+  ROOT,
+  "src",
+  "lib",
+  "food",
+  "food-vocabulary.ts"
+);
 /** Where the committed artifacts live, and where `pnpm build` picks them up. */
 const ARTIFACT_DIR = join(ROOT, "public", "usda");
 
-/** Bumped when either artifact's shape changes, so a reader can refuse an old one. */
-export const SCHEMA_VERSION = 1;
+/**
+ * Bumped when either artifact's shape changes, so a reader can refuse an old one.
+ *
+ * 2 adds the search index's `vocabulary_off` section (ADR-0049 §4). Both files
+ * carry the version because both are generated together from one corpus, and a
+ * pair that disagreed about their version would be the bug the number exists to
+ * catch.
+ */
+export const SCHEMA_VERSION = 2;
 
 /**
  * The datasets the corpus is built from, in the manifest's own naming. Survey is
@@ -147,6 +183,9 @@ export const ROW_MACRO_KEYS = [
  * @property {(group: BundleFood[]) => { food: BundleFood, merged_from: MergedSource[] }} resolveFdcGroup
  * @property {(food: BundleFood, merged_from: MergedSource[]) => { attributes: Record<string, any> }} mapFdcFoodToPayload
  * @property {(portions: Survivor["foodPortions"]) => Portion[]} mapFdcPortions
+ * @property {(description: string) => object} readReferenceFoodName
+ * @property {(query: string) => (name: object) => { tier: number }} compileReferenceFoodQuery
+ * @property {readonly string[]} DENIED_VOCABULARY_TAGS
  */
 
 /**
@@ -192,8 +231,21 @@ export const ROW_MACRO_KEYS = [
 // ---------------------------------------------------------------------------
 
 /**
- * Bundles `usda-fdc.ts` to a temporary ES module and imports it, so this plain-
- * Node script can call the app's TypeScript directly.
+ * Every app module this script borrows from, with what it takes from each.
+ *
+ * One table rather than three call sites, so the entry {@link loadAppModule}
+ * writes and the check {@link assertAppExports} runs cannot fall out of step
+ * with each other.
+ */
+const BORROWED = [
+  [APP_MODULE, APP_EXPORTS],
+  [RANKING_MODULE, RANKING_EXPORTS],
+  [VOCABULARY_MODULE, VOCABULARY_EXPORTS],
+];
+
+/**
+ * Bundles the app modules above to a temporary ES module and imports them, so
+ * this plain-Node script can call the app's TypeScript directly.
  *
  * Copying the filter lists was the alternative and is what this exists to avoid:
  * they are ~200 lines of editorial judgement (brand acronym stoplist, sweetener
@@ -204,15 +256,19 @@ export const ROW_MACRO_KEYS = [
  *
  * esbuild is reached the way `AGENTS.md` §1 reaches any one-off binary: from the
  * PATH if the shell already has it, else through `nix shell nixpkgs#esbuild`.
- * The entry re-exports only {@link APP_EXPORTS}, so the bundle tree-shakes to
- * ~12 kB and pulls in no browser API this script would have to stub.
+ * The entry re-exports only what {@link BORROWED} names, so the bundle
+ * tree-shakes to a few tens of kB and pulls in no browser API this script would
+ * have to stub.
  */
 export async function loadAppModule(scratchDir) {
   const entry = join(scratchDir, "app-entry.ts");
   const out = join(scratchDir, "app-bundle.mjs");
   await writeFile(
     entry,
-    `export { ${APP_EXPORTS.join(", ")} } from ${JSON.stringify(APP_MODULE)};\n`
+    BORROWED.map(
+      ([module, names]) =>
+        `export { ${names.join(", ")} } from ${JSON.stringify(module)};\n`
+    ).join("")
   );
 
   const argv = [
@@ -249,13 +305,15 @@ export async function loadAppModule(scratchDir) {
  * @returns {AppModule}
  */
 export function assertAppExports(app) {
-  const missing = APP_EXPORTS.filter((name) => typeof app[name] !== "function");
-  if (missing.length)
-    throw new Error(
-      `src/lib/food/usda-fdc.ts no longer exports ${missing.join(", ")}. ` +
-        "The bundle is generated from the app's own filters and merge, so a " +
-        "rename there has to be followed here rather than forked."
-    );
+  for (const [module, names] of BORROWED) {
+    const missing = names.filter((name) => app[name] === undefined);
+    if (missing.length)
+      throw new Error(
+        `${module} no longer exports ${missing.join(", ")}. The bundle is ` +
+          "generated from the app's own filters, merge and ranking, so a rename " +
+          "there has to be followed here rather than forked."
+      );
+  }
   return app;
 }
 
@@ -551,17 +609,23 @@ function linePerEntry(open, close, lines) {
 }
 
 /**
- * A JSON document written as ordered `"key": <already-rendered value>` sections.
+ * A JSON object written as ordered `"key": <already-rendered value>` sections.
  *
  * The two artifacts share this envelope — what they are, the schema a reader has
  * to understand, and the archives behind them — and differ only in the sections
- * that follow it.
+ * that follow it. `vocabulary_off` nests one inside another, which is why this
+ * renders no trailing newline and {@link serialiseDocument} adds it.
  */
-function serialiseDocument(sections) {
+function renderObject(sections) {
   const body = sections
     .map(([key, rendered]) => `${JSON.stringify(key)}: ${rendered}`)
     .join(",\n");
-  return `{\n${body}\n}\n`;
+  return `{\n${body}\n}`;
+}
+
+/** {@link renderObject} as a whole file: one trailing newline, as POSIX wants. */
+function serialiseDocument(sections) {
+  return `${renderObject(sections)}\n`;
 }
 
 /** The `generated_from` block both artifacts carry, one archive per line. */
@@ -573,12 +637,40 @@ function renderProvenance(generated_from) {
   );
 }
 
+/**
+ * The `vocabulary_off` section, one key per line (ADR-0049 §4).
+ *
+ * Per line for the reason the foods are: a taxonomy refresh has to diff as the
+ * handful of phrases that moved, since the committed map IS the review gate for
+ * a source that is unversioned and rewritten in place.
+ */
+function renderVocabulary(vocabulary) {
+  return renderObject([
+    ["licence", JSON.stringify(vocabulary.licence)],
+    ["source", JSON.stringify(vocabulary.source)],
+    ["url", JSON.stringify(vocabulary.url)],
+    ["sha256", JSON.stringify(vocabulary.sha256)],
+    [
+      "expansions",
+      linePerEntry(
+        "{",
+        "}",
+        Object.entries(vocabulary.expansions).map(
+          ([phrase, targets]) =>
+            `${JSON.stringify(phrase)}: ${JSON.stringify(targets)}`
+        )
+      ),
+    ],
+  ]);
+}
+
 /** The search index, serialised as one food per line, sorted by `fdcId` (§3). */
 export function serialiseIndex(artifact) {
   return serialiseDocument([
     ["artifact", '"usda-search-index"'],
     ["schema_version", String(artifact.schema_version)],
     ["generated_from", renderProvenance(artifact.generated_from)],
+    ["vocabulary_off", renderVocabulary(artifact.vocabulary_off)],
     [
       "foods",
       linePerEntry(
@@ -613,10 +705,15 @@ export function serialiseNutrientStore(artifact) {
 /**
  * Both artifacts, built over one corpus.
  *
+ * The vocabulary is passed in rather than derived here because it is derived
+ * FROM the finished corpus (ADR-0049 §3): the effect filter asks what these
+ * survivors retrieve, so it cannot run until they are known.
+ *
  * @param {Survivor[]} survivors
  * @param {AppModule} app
+ * @param {ReturnType<typeof buildVocabularySection>} vocabulary_off
  */
-export function buildArtifacts(survivors, archives, app) {
+export function buildArtifacts(survivors, archives, app, vocabulary_off) {
   const dictionary = collectNutrientDictionary(survivors.map((s) => s.food));
   const generated_from = generatedFrom(archives);
   const nutrients = {};
@@ -630,6 +727,7 @@ export function buildArtifacts(survivors, archives, app) {
     index: {
       schema_version: SCHEMA_VERSION,
       generated_from,
+      vocabulary_off,
       foods: survivors.map((survivor) => buildIndexRow(survivor, app)),
     },
     nutrientStore: {
@@ -797,7 +895,37 @@ async function main() {
 
   const { survivors, dropped, twinned, twinned_survivors, identities } =
     buildCorpus(groupByIdentity(entries, app), app);
-  const { index, nutrientStore } = buildArtifacts(survivors, archives, app);
+
+  // After the corpus, never before: both of ADR-0049 §3's filters ask what the
+  // FINISHED corpus retrieves, so a group's members are compared against the
+  // rows that survived rather than against the archives they came from.
+  const countMatches = retrievalCounter(
+    survivors.map((survivor) => survivor.food.description),
+    app
+  );
+  const vocabulary = deriveVocabulary(
+    readTaxonomyGroups(await readVocabularySource(manifest.vocabulary, dir)),
+    {
+      denied: app.DENIED_VOCABULARY_TAGS,
+      countMatches,
+      corpusSize: survivors.length,
+    }
+  );
+  // Re-measured with a counter of its own, so the check cannot simply agree with
+  // the cache that built the map (ADR-0049's two acceptance properties).
+  assertVocabularyHolds(
+    vocabulary.expansions,
+    retrievalCounter(
+      survivors.map((survivor) => survivor.food.description),
+      app
+    )
+  );
+  const { index, nutrientStore } = buildArtifacts(
+    survivors,
+    archives,
+    app,
+    buildVocabularySection(vocabulary.expansions, manifest.vocabulary)
+  );
   const indexText = serialiseIndex(index);
   const nutrientText = serialiseNutrientStore(nutrientStore);
 
@@ -823,6 +951,8 @@ async function main() {
       `${Object.keys(nutrientStore.nutrients).length} distinct nutrient ids ` +
       `(${(nutrientCount / survivors.length).toFixed(1)} per food)`
   );
+
+  console.log(`\n${describeVocabulary(vocabulary)}`);
 
   console.log("");
   for (const [label, text] of [

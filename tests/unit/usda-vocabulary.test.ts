@@ -1,0 +1,368 @@
+import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+// A plain-Node ops script, deliberately outside the app's tsconfig, like the
+// bundle and backup scripts beside it.
+// @ts-ignore
+import {
+  RANKING_EXPORTS,
+  VOCABULARY_EXPORTS,
+  VOCABULARY_TARGET_SHARE,
+  assertVocabularyHolds,
+  buildVocabularySection,
+  deriveVocabulary,
+  readTaxonomyGroups,
+  retrievalCounter,
+} from "../../scripts/usda-vocabulary.mjs";
+import { DENIED_VOCABULARY_TAGS } from "../../src/lib/food/food-vocabulary";
+import * as ranking from "../../src/lib/food/reference-food-ranking";
+
+// The derivation behind ADR-0049: Open Food Facts' ingredients taxonomy reduced
+// to the phrases this corpus has no name for, and the phrases that answer them.
+// What matters here is that a key is a phrase the shipped search retrieves
+// NOTHING for, that every key reaches something that retrieves, and that the two
+// filters between the taxonomy and the map are the ones the record describes.
+
+describe("the vocabulary seam — the derivation borrows the app instead of copying it", () => {
+  it("names only real exports of the ranking and the deny-list", () => {
+    // The same lock over the two modules ADR-0049 added to the seam: the
+    // vocabulary is derived by asking the SHIPPED ranking what retrieves, so a
+    // rename there has to be followed here rather than forked.
+    for (const name of RANKING_EXPORTS)
+      expect(typeof (ranking as Record<string, unknown>)[name]).toBe(
+        "function"
+      );
+    expect(VOCABULARY_EXPORTS).toEqual(["DENIED_VOCABULARY_TAGS"]);
+    expect(Array.isArray(DENIED_VOCABULARY_TAGS)).toBe(true);
+  });
+});
+
+describe("readTaxonomyGroups — the English synonym groups OFF publishes", () => {
+  it("keeps a group OFF names more than one way", () => {
+    expect(
+      readTaxonomyGroups({
+        "en:eggplant": { synonyms: { en: ["eggplant", "aubergine"] } },
+      })
+    ).toEqual([{ tag: "en:eggplant", members: ["eggplant", "aubergine"] }]);
+  });
+
+  it("drops a group with a single name, which can expand nothing", () => {
+    expect(
+      readTaxonomyGroups({ "en:okra": { synonyms: { en: ["okra"] } } })
+    ).toEqual([]);
+  });
+
+  it("drops a group with no English synonyms at all", () => {
+    expect(
+      readTaxonomyGroups({
+        "fr:aubergine": { synonyms: { fr: ["aubergine", "aubergines"] } },
+      })
+    ).toEqual([]);
+  });
+
+  it("lower-cases and de-duplicates, because OFF repeats names in both cases", () => {
+    // Left alone this inflates the member counts and mints two keys the search
+    // cannot tell apart.
+    expect(
+      readTaxonomyGroups({
+        "en:swede": { synonyms: { en: ["Swede", "swede", " RUTABAGA ", ""] } },
+      })
+    ).toEqual([{ tag: "en:swede", members: ["swede", "rutabaga"] }]);
+  });
+});
+
+describe("deriveVocabulary — a phrase that retrieves nothing, mapped to ones that do", () => {
+  type Group = { tag: string; members: string[] };
+
+  /** A corpus stub: a phrase not named here retrieves nothing. */
+  const derive = (
+    groups: Group[],
+    rows: Record<string, number>,
+    denied: string[] = []
+  ) =>
+    deriveVocabulary(groups, {
+      denied,
+      countMatches: (phrase: string) => rows[phrase] ?? 0,
+      corpusSize: 4429,
+    });
+
+  it("inverts a group into the miss that needs help and the names that answer", () => {
+    expect(
+      derive(
+        [{ tag: "en:eggplant", members: ["aubergine", "eggplant", "brinjal"] }],
+        { eggplant: 6 }
+      ).expansions
+    ).toEqual({ aubergine: ["eggplant"], brinjal: ["eggplant"] });
+  });
+
+  it("stores phrases, never rows, so the map cannot freeze a ranking", () => {
+    // Freezing the retrieved records at generation time would pin the ordering
+    // #124 exists to change, and a corpus refresh would silently redirect a key.
+    const { expansions } = derive(
+      [{ tag: "en:eggplant", members: ["aubergine", "eggplant"] }],
+      { eggplant: 6 }
+    );
+    expect(Object.values(expansions).flat()).toEqual(["eggplant"]);
+  });
+
+  it("drops a group whose members all agree, whichever way they agree", () => {
+    // Both retrieve: nothing to expand. Neither does: nothing to expand TO.
+    expect(
+      derive(
+        [
+          { tag: "en:apple", members: ["apple", "apples"] },
+          { tag: "en:cod", members: ["gadus morhua", "gadus"] },
+        ],
+        { apple: 30, apples: 30 }
+      ).expansions
+    ).toEqual({});
+  });
+
+  it("refuses a denied tag even where its members would have qualified", () => {
+    const { expansions, denied_groups } = derive(
+      [{ tag: "en:folic-acid", members: ["folic acid", "vitamin m"] }],
+      { "vitamin m": 1 },
+      ["en:folic-acid"]
+    );
+    expect(expansions).toEqual({});
+    expect(denied_groups).toBe(1);
+  });
+
+  it("gathers the targets of a phrase two groups both miss on", () => {
+    expect(
+      derive(
+        [
+          { tag: "en:chili", members: ["chilli", "chili pepper"] },
+          { tag: "en:chile", members: ["chilli", "chile"] },
+        ],
+        { "chili pepper": 9, chile: 4 }
+      ).expansions
+    ).toEqual({ chilli: ["chili pepper", "chile"] });
+  });
+
+  it("drops a target too broad to be a synonym, and says which", () => {
+    // ADR-0049 section 3's own case: `whole` matches 217 unrelated descriptions,
+    // so expanding to it answers with a page of arbitrary rows.
+    const { expansions, dropped_targets } = derive(
+      [{ tag: "en:whole", members: ["wholemeal", "whole", "whole grain"] }],
+      { whole: 217, "whole grain": 27 }
+    );
+    expect(expansions).toEqual({ wholemeal: ["whole grain"] });
+    expect(dropped_targets).toEqual([{ phrase: "whole", rows: 217 }]);
+  });
+
+  it("drops a key the guard leaves with nothing to reach", () => {
+    const { expansions, orphaned_keys } = derive(
+      [{ tag: "en:salt", members: ["cooking salt", "salt"] }],
+      { salt: 424 }
+    );
+    expect(expansions).toEqual({});
+    expect(orphaned_keys).toEqual(["cooking salt"]);
+  });
+
+  it("puts the guard at a share of the corpus, not at a row count", () => {
+    // The same target survives a big corpus and fails a small one, which is what
+    // makes the threshold survive a refresh.
+    const group = [{ tag: "en:whole", members: ["wholemeal", "whole"] }];
+    const rows = { whole: 40 };
+    const at = (corpusSize: number) =>
+      deriveVocabulary(group, {
+        denied: [],
+        countMatches: (phrase: string) => rows[phrase] ?? 0,
+        corpusSize,
+      }).expansions;
+    expect(at(4429)).toEqual({ wholemeal: ["whole"] });
+    expect(at(1000)).toEqual({});
+    expect(VOCABULARY_TARGET_SHARE).toBeLessThan(0.0262);
+  });
+
+  it("sorts its keys, so a regeneration diffs as changed entries", () => {
+    expect(
+      Object.keys(
+        derive(
+          [
+            { tag: "en:zucchini", members: ["courgette", "zucchini"] },
+            { tag: "en:arugula", members: ["rocket", "arugula"] },
+          ],
+          { zucchini: 5, arugula: 3 }
+        ).expansions
+      )
+    ).toEqual(["courgette", "rocket"]);
+  });
+});
+
+describe("assertVocabularyHolds — the finished map, re-measured", () => {
+  it("passes a map whose keys retrieve nothing and whose targets retrieve", () => {
+    const map = { aubergine: ["eggplant"], courgette: ["zucchini"] };
+    const count = (phrase: string) =>
+      phrase === "eggplant" ? 6 : phrase === "zucchini" ? 5 : 0;
+    expect(assertVocabularyHolds(map, count)).toBe(map);
+  });
+
+  it("refuses a key that retrieves rows of its own", () => {
+    // ADR-0049 section 1 expands only when a search returns zero rows, so a key
+    // that already answers would never be reached — and a key that shadowed a
+    // real answer would be a regression the map cannot see.
+    expect(() =>
+      assertVocabularyHolds({ apple: ["apples"] }, () => 30)
+    ).toThrow(/"apple" retrieves rows of its own/);
+  });
+
+  it("refuses a key that expands to nothing that retrieves", () => {
+    // Otherwise the search answers "No food found" twice, more slowly.
+    expect(() =>
+      assertVocabularyHolds({ courgette: ["zucchino"] }, () => 0)
+    ).toThrow(/"courgette" expands to nothing that retrieves/);
+  });
+
+  it("is the check the generator runs with a counter of its own", () => {
+    // Handed the derivation's memoised counter it would read back the cached
+    // answers that admitted each phrase and could never fail, which is a
+    // restatement rather than a check. This is why it is a separate function.
+    const built = deriveVocabulary(
+      [{ tag: "en:zucchini", members: ["courgette", "zucchini"] }],
+      {
+        denied: [],
+        countMatches: (phrase: string) => (phrase === "zucchini" ? 5 : 0),
+        corpusSize: 4429,
+      }
+    );
+    expect(() => assertVocabularyHolds(built.expansions, () => 12)).toThrow(
+      /retrieves rows of its own/
+    );
+  });
+});
+
+describe("retrievalCounter — the shipped search, asked how much a phrase reaches", () => {
+  // The ranking module itself, which is the whole of what this borrows: the
+  // point of the seam is that the map is derived by the search that ships.
+  const count = retrievalCounter(
+    ["Eggplant, raw", "Zucchini, baby, raw", "Squash, summer, zucchini, raw"],
+    ranking
+  );
+
+  it("counts every row a phrase reaches, not the page the app would show", () => {
+    expect(count("zucchini")).toBe(2);
+    expect(count("eggplant")).toBe(1);
+  });
+
+  it("answers nothing for the phrase the corpus does not use", () => {
+    expect(count("courgette")).toBe(0);
+    expect(count("aubergine")).toBe(0);
+  });
+});
+
+describe("buildVocabularySection — the map under its own licence", () => {
+  const pinned = {
+    url: "https://static.openfoodfacts.org/data/taxonomies/ingredients.full.json",
+    sha256: "abc",
+    licence: "ODbL",
+    source: "Open Food Facts",
+  };
+
+  it("carries the licence, source, url and digest beside the map", () => {
+    // The map is a substantial extraction from OFF and so a derivative database
+    // under ODbL. A section that did not say so would make the whole artifact
+    // one (ADR-0049 section 4).
+    expect(buildVocabularySection({ aubergine: ["eggplant"] }, pinned)).toEqual(
+      {
+        licence: "ODbL",
+        source: "Open Food Facts",
+        url: pinned.url,
+        sha256: "abc",
+        expansions: { aubergine: ["eggplant"] },
+      }
+    );
+  });
+});
+
+describe("the committed vocabulary", () => {
+  // These are the bytes the app ships. Nothing reads the map yet (#140 is what
+  // will), so without this it would sit in the repo unchecked until a hand-edit
+  // or a half-finished regeneration reached a user.
+  const manifest = JSON.parse(
+    readFileSync("scripts/usda-backup.manifest.json", "utf8")
+  );
+  const index = JSON.parse(
+    readFileSync("public/usda/search-index.json", "utf8")
+  );
+
+  describe("the derived vocabulary", () => {
+    const vocabulary = index.vocabulary_off;
+    const expansions: Record<string, string[]> = vocabulary.expansions;
+    const count = retrievalCounter(
+      index.foods.map((row: { description: string }) => row.description),
+      ranking
+    );
+
+    it("names the licence, the source and the digest it was derived from", () => {
+      // ODbL obliges the derivative to be offered under the same licence, and
+      // the digest is the whole of the drift detector for a file OFF rewrites
+      // in place (ADR-0049 sections 2 and 4).
+      expect(vocabulary.licence).toBe("ODbL");
+      expect(vocabulary.source).toBe("Open Food Facts");
+      expect(vocabulary.sha256).toBe(manifest.vocabulary.sha256);
+      expect(vocabulary.url).toBe(manifest.vocabulary.url);
+    });
+
+    it("keys only phrases the finished corpus retrieves nothing for", () => {
+      // The property ADR-0049 section 1 rests on: expansion runs only when a
+      // search returns zero rows, so a key that answered would never be reached
+      // and a key that shadowed a real answer would be a regression.
+      const answering = Object.keys(expansions).filter(
+        (phrase) => count(phrase) > 0
+      );
+      expect(answering).toEqual([]);
+    });
+
+    it("gives every key at least one target that retrieves", () => {
+      const empty = Object.entries(expansions).filter(
+        ([, targets]) => !targets.some((target) => count(target) > 0)
+      );
+      expect(empty).toEqual([]);
+    });
+
+    it("reaches the words this corpus has no name for", () => {
+      // Nine of the classes a hand-written list would not have thought to
+      // enumerate: regional English, spacing, word order, and a loanword.
+      expect(expansions.aubergine).toEqual(["eggplant"]);
+      expect(expansions.courgette).toEqual(["zucchini"]);
+      expect(expansions.swede).toEqual(["rutabaga"]);
+      expect(expansions.rocket).toEqual(["arugula"]);
+      expect(expansions.cornflour).toEqual(["corn flour"]);
+      expect(expansions["skimmed milk"]).toContain("skim milk");
+      expect(expansions["flax seed"]).toEqual(["flaxseed"]);
+      expect(expansions["ginger powder"]).toEqual(["ground ginger"]);
+      expect(expansions.wombok).toContain("chinese cabbage");
+    });
+
+    it("keys no phrase from a group the deny-list refuses", () => {
+      // Unfiltered these answer with margarine, snail and soybean oil
+      // respectively, through members OFF carries for label reading rather than
+      // for searching.
+      for (const phrase of [
+        "folic acid",
+        "selenium",
+        "sal tree oil",
+        "confiture",
+      ])
+        expect(expansions).not.toHaveProperty(phrase);
+      expect(DENIED_VOCABULARY_TAGS.length).toBeGreaterThan(100);
+    });
+
+    it("expands to no phrase broad enough to answer with a page of anything", () => {
+      // `wholemeal -> whole` is the entry that shows why the guard exists: a
+      // target 217 unrelated descriptions happen to contain is a word, not a
+      // synonym (ADR-0049 section 3).
+      const targets = [...new Set(Object.values(expansions).flat())];
+      const limit = VOCABULARY_TARGET_SHARE * index.foods.length;
+      expect(targets.filter((target) => count(target) > limit)).toEqual([]);
+      for (const word of ["salt", "whole", "beans"])
+        expect(targets).not.toContain(word);
+    });
+
+    it("is sorted by key, so a taxonomy refresh diffs as changed phrases", () => {
+      const keys = Object.keys(expansions);
+      expect(keys).toEqual([...keys].sort());
+    });
+  });
+});

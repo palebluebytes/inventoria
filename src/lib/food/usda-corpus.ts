@@ -77,11 +77,41 @@ export interface UsdaIndexRow {
   merged_from?: MergedSource[];
 }
 
+/**
+ * The Vocabulary map derived from Open Food Facts' ingredients taxonomy
+ * (ADR-0049 §3): a phrase the corpus does not use, mapped to the phrases it does.
+ *
+ * The key is `vocabulary_off` rather than `vocabulary` because the section names
+ * WHERE its words came from: ADR-0049 leaves room for a hand-written
+ * `vocabulary_local` beside it, outside the ODbL derivative.
+ *
+ * `aubergine` names a food this corpus holds and retrieves nothing, because the
+ * rows say `Eggplant`. Every key is such a phrase and every key has at least one
+ * target that retrieves, both asserted where the map is generated.
+ *
+ * It rides inside the Search index rather than beside it so drift between the
+ * map and the corpus it was validated against is structurally impossible, and it
+ * is a SECTION of its own rather than folded into the rows for a licensing
+ * reason: the map is a substantial extraction from OFF and therefore a
+ * derivative database under ODbL, and keeping it distinct and self-describing
+ * makes this file a collective work with one ODbL component (ADR-0049 §4).
+ */
+export interface VocabularyMap {
+  licence: string;
+  source: string;
+  url: string;
+  /** The digest of the taxonomy the map was derived from. OFF publishes no releases. */
+  sha256: string;
+  /** Phrase that retrieves nothing -> the phrases in its OFF group that do. */
+  expansions: Record<string, string[]>;
+}
+
 /** The committed Search index artifact. */
 export interface SearchIndex {
   artifact: "usda-search-index";
   schema_version: number;
   generated_from: ArchiveSource[];
+  vocabulary_off: VocabularyMap;
   foods: UsdaIndexRow[];
 }
 
