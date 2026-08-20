@@ -4,7 +4,8 @@
 **Date:** 2026-08-20
 
 This record amends [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md)
-§2 and §3, [ADR-0042](0042-usda-search-reference-foods.md) §3 and
+§2 and §3, whose merge is closed to any pairing but `ndbNumber` and whose
+present-under-any-id rule gains a constraint on adding ids, [ADR-0042](0042-usda-search-reference-foods.md) §3 and
 [ADR-0047](0047-bundle-the-usda-archives-and-retire-the-api.md) §4, whose filter roster
 gains two members, and [ADR-0046](0046-curated-stand-ins-for-base-foods-usda-lacks.md)
 §1, whose admission bar is restated in terms of what search can offer rather than what a
@@ -39,11 +40,11 @@ invariant this record locks. That criterion would ban tap water.
 
 ### The population, and why it is three groups
 
-| count | what they are                                                                                                                                                                                                                                                        | what they carry                                       |
-| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| 3     | `Oil, olive, extra virgin`, `Oil, olive, extra light`, `Oil, sunflower`                                                                                                                                                                                              | no energy, no `1004` fat, no protein, no carbohydrate |
-| 17    | `Beans, Dry, … (0% moisture)`                                                                                                                                                                                                                                        | protein and fat; no carbohydrate, no energy           |
-| 10    | `Watermelon, seedless, flesh only, raw`, `Rutabaga, peeled, raw`, `Leeks…`, `Shallots…`, `Tomatillos, dehusked, raw`, `Cabbage, napa, leaf, destemmed, raw`, `Squash, spaghetti…`, `Squash, pie pumpkin…`, `Green onion, (scallion)…`, `Pawpaw, peeled, seeded, raw` | protein only                                          |
+| count | what they are                                                                                                                                                                                                                                                        | what they carry                                               |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| 3     | `Oil, olive, extra virgin`, `Oil, olive, extra light`, `Oil, sunflower`                                                                                                                                                                                              | no energy, no protein, no carbohydrate; fat only under `1085` |
+| 17    | `Beans, Dry, … (0% moisture)`                                                                                                                                                                                                                                        | protein and fat; no carbohydrate, no energy                   |
+| 10    | `Watermelon, seedless, flesh only, raw`, `Rutabaga, peeled, raw`, `Leeks…`, `Shallots…`, `Tomatillos, dehusked, raw`, `Cabbage, napa, leaf, destemmed, raw`, `Squash, spaghetti…`, `Squash, pie pumpkin…`, `Green onion, (scallion)…`, `Pawpaw, peeled, seeded, raw` | protein only                                                  |
 
 This is not a regression from the bundle. `mapFdcFoodToPayload` has always emitted an
 empty panel for such a record and the live API would have done the same. What ADR-0047
@@ -94,6 +95,11 @@ for these records: the produce is 100382–100387, the oils 100258 and 100262, a
 deliberately, by description similarity, inside a merge whose failure mode is silently
 attributing one food's calories to another.
 
+**Widen the fat id list to include `1085 Total fat (NLEA)`,** so the three oils at least
+carry their own record's fat. Ruled out on measurement, and the reasoning became §2: the
+widening helps no record in the corpus and rounds five correct oils down, because
+ADR-0045 §3's present-under-any-id rule governs the twin merge as well as the mapper.
+
 **Refuse to stage and leave the corpus alone.** Honest, and it needs no regeneration. But
 the ranking measurement above makes it a dead end at the _top_ of the result list for six
 of twelve foods, with the working record one line below. It is the right backstop and the
@@ -141,21 +147,45 @@ Tap water is not a defect.
 default of zero is correct and where every consumer already expects a number. The
 distinction lives one level up, in the panel, where it already exists.
 
-### 2. Fat is carried by `1004` or `1085`, and a field present under either is present
+### 2. A panel field's id list is closed unless widening it survives the merge's presence test — fat stays `1004`
 
 ADR-0045 §3 rules that a panel field carried by more than one FDC nutrient id counts as
-present under any of them, and names energy (1008/2047/2048), carbohydrate (1005/1050)
-and sugars (2000/1063). Fat belongs on that list and was omitted: `MASS_NUTRIENTS` reads
-`1004 Total lipid (fat)` alone, and eight Foundation records — all oils — report only
-`1085 Total fat (NLEA)`.
+present under **any** of them. That rule does two jobs at once: it decides which id the
+mapper reads, and it decides whether `fillFromTwin` considers the field already filled.
+An id added for the first job silently changes the second.
 
-`1085` joins `1004` as a second id for `fat_content`, ordered behind it. The order is not
-cosmetic: where a record carries both, the two disagree by a median of 11% and by as much
-as 79% (`Broccoli, raw`, 0.34 against 0.07), so `1085` is read **only** when `1004` is
-absent, exactly as §3's present-under-any-id rule requires.
+So a new id is never added to `PANEL_FIELDS` or `MASS_NUTRIENTS` on the strength of
+records that lack the field entirely. It must first be checked against the records that
+_have_ it, and specifically against what the twin would otherwise have supplied.
 
-This gives the three energy-less oils their own record's fat. It does not give them
-energy, and §3 forbids inventing it.
+**Fat therefore stays `[1004]`, and `1085 Total fat (NLEA)` is not adopted.** The case
+for adopting it looked strong: eight Foundation records report only `1085`, among them
+the three energy-less oils, so widening the list would give them their own record's fat.
+Measured, it gives nothing and costs five records.
+
+| oil              | Foundation `1004` | Foundation `1085` | twin `1004` | fat today | fat if `1085` were adopted |
+| ---------------- | ----------------- | ----------------- | ----------- | --------- | -------------------------- |
+| `Oil, canola`    | absent            | 94.5              | 100         | 100       | **94.5**                   |
+| `Oil, corn`      | absent            | 94.0              | 100         | 100       | **94.0**                   |
+| `Oil, soybean`   | absent            | 94.6              | 100         | 100       | **94.6**                   |
+| `Oil, peanut`    | absent            | 93.4              | 100         | 100       | **93.4**                   |
+| `Oil, safflower` | absent            | 93.2              | 100         | 100       | **93.2**                   |
+
+These five carry `1085` and have an SR Legacy twin. Adopting `1085` makes
+`hasPanelField` return true for them, so they stop borrowing the twin's `1004 = 100`.
+Their energy still comes from the twin, because the Foundation record has none — leaving
+a panel that claims 884 kcal from 94.5 g of fat, with about 5% of the oil being neither
+fat nor anything else the panel names.
+
+The benefit, meanwhile, is void: the three oils the widening was for are dropped by §5,
+which runs on energy and not on fat. And **no row in the corpus carries an energy value
+without a fat value**, before or after that drop, so there is no record anywhere that the
+widening improves.
+
+The general rule is what survives this. The specific finding — that `1085` and `1004`
+also disagree by a median of 11% and by as much as 79% (`Broccoli, raw`, 0.34 against
+0.07) where both are present — is a second reason not to treat them as one measurement,
+and would matter if the presence-test problem were ever solved.
 
 ### 3. Energy is never derived
 
@@ -257,9 +287,15 @@ record.
 - **§5 costs a regeneration to revisit, like every filter since ADR-0047 §4.** The
   amendment to that section makes the cost symmetric in both directions, and it applies
   here unchanged: loosening either new filter changes nothing until the artifact is rebuilt.
-- **The `1085` fallback is narrow on purpose.** It fires only where `1004` is absent, which
-  today is eight oil records. It is not a general second opinion on fat, and §2's
-  measurement of how far the two ids diverge is the reason.
+- **Three oils leave the corpus carrying a fat measurement nobody reads.**
+  `Oil, olive, extra virgin`, `Oil, olive, extra light` and `Oil, sunflower` report
+  `1085` and no energy, so §5 drops them and §2 declines to read the fat they do have.
+  That is the honest outcome — a fat number with no energy beside it is not a loggable
+  food — but it is the one place this record leaves real data on the floor.
+- **§2 closes a door that looked open.** Adding an id to a panel field is no longer a
+  local change to what the mapper reads; it is a change to the twin merge, and the two
+  have to be weighed together. That is a real constraint on future work and it is meant
+  to be.
 - **The runtime guard is mostly dormant on the day it lands**, because §5 empties the case
   it was written for. That is the point: it is the part of this record that is still true
   after the next mirror refresh, and the corpus filters are not.
