@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Off-USDA backup of the FoodData Central bulk archives (ADR-0045).
+ * Off-USDA backup of the FoodData Central bulk archives (ADR-0045), and the
+ * pinned local copy of the vocabulary source beside them (ADR-0049 §2).
  *
  * Why this exists: the base-food search reads two USDA datasets, and one of them
  * (SR Legacy) is discontinued — its final release was 2018-04 and there will not
@@ -15,6 +16,12 @@
  *   node scripts/usda-backup.mjs upload   # push to R2 and read each object back
  *
  * Flags: --dir <path> (default .usda-backup), --bucket <name>, --skip-readback.
+ *
+ * The vocabulary source is Open Food Facts' ingredients taxonomy: unversioned,
+ * live, and pinned by digest rather than by a release name, since OFF publishes
+ * no releases to compare against. It is fetched and verified with the archives
+ * and deliberately NOT uploaded — ADR-0049 §2 declines the off-vendor mirror
+ * because OFF maintains the file, where SR Legacy is discontinued.
  *
  * `upload` shells out to the wrangler in worker/node_modules and needs a logged-in
  * Cloudflare session (`wrangler login`) or CLOUDFLARE_API_TOKEN in the environment.
@@ -111,6 +118,39 @@ async function verifyOne(archive) {
   return true;
 }
 
+/**
+ * Verifies the local copy of the vocabulary source against its manifest entry.
+ *
+ * Bytes and digest only: there is no record count to keep honest, and no release
+ * index to ask, because OFF publishes this file at one unversioned URL and
+ * rewrites it in place. The digest is therefore the whole of the drift detector,
+ * and a mismatch means OFF has moved — which is news, not damage. The remedy is
+ * to re-pin and regenerate, so the map's diff is what gets reviewed (ADR-0049 §2).
+ */
+async function verifyVocabulary() {
+  const { file, bytes, sha256, dataset } = manifest.vocabulary;
+  const body = await readFile(join(dir, file)).catch(() => null);
+  if (body === null) {
+    fail(`${file}: not present in ${dir} (run \`fetch\` first)`);
+    return false;
+  }
+  if (body.length !== bytes) {
+    fail(`${file}: ${body.length} bytes, manifest says ${bytes}`);
+    return false;
+  }
+  const digest = createHash("sha256").update(body).digest("hex");
+  if (digest !== sha256) {
+    fail(
+      `${file}: sha256 ${digest}, manifest says ${sha256}. OFF rewrites this ` +
+        "file in place, so re-pin the manifest and regenerate rather than " +
+        "assuming damage."
+    );
+    return false;
+  }
+  ok(`${file} (${dataset}, fetched ${manifest.vocabulary.fetched})`);
+  return true;
+}
+
 async function fetchAll() {
   await mkdir(dir, { recursive: true });
   for (const archive of manifest.archives) {
@@ -126,6 +166,15 @@ async function fetchAll() {
       Buffer.from(await response.arrayBuffer())
     );
   }
+  // Its own absolute URL rather than `base_url`: the taxonomy is somebody
+  // else's file on somebody else's host, and joining it to USDA's base would
+  // read as though it were one of theirs.
+  const { file, url } = manifest.vocabulary;
+  process.stdout.write(`  .. ${file}\n`);
+  const response = await fetch(url);
+  if (!response.ok) fail(`${file}: ${url} returned ${response.status}`);
+  else
+    await writeFile(join(dir, file), Buffer.from(await response.arrayBuffer()));
 }
 
 /**
@@ -292,9 +341,11 @@ switch (command) {
   case "fetch":
     await fetchAll();
     for (const archive of manifest.archives) await verifyOne(archive);
+    await verifyVocabulary();
     break;
   case "verify":
     for (const archive of manifest.archives) await verifyOne(archive);
+    await verifyVocabulary();
     break;
   case "upload":
     await upload();
@@ -308,7 +359,9 @@ switch (command) {
 const scope =
   command === "check"
     ? `${manifest.archives.length} datasets against USDA's published releases`
-    : `${manifest.archives.length} archives, bucket ${bucket}`;
+    : command === "upload"
+      ? `${manifest.archives.length} archives, bucket ${bucket}`
+      : `${manifest.archives.length} archives and the vocabulary source`;
 console.log(
   failures === 0
     ? `\n${command} complete: ${scope}.`

@@ -6,6 +6,17 @@
   "retrieved": "2026-08-18",
   "base_url": "https://fdc.nal.usda.gov/fdc-datasets",
   "release_index": "https://fdc.nal.usda.gov/download-datasets/",
+  "vocabulary": {
+    "dataset": "Open Food Facts ingredients taxonomy",
+    "url": "https://static.openfoodfacts.org/data/taxonomies/ingredients.full.json",
+    "file": "off-ingredients.full.json",
+    "bytes": 6418982,
+    "sha256": "efb3cc8ea813cc18b720803485a01c66a3708ba5f92986ca193aa9dbc466416e",
+    "fetched": "2026-08-20",
+    "licence": "ODbL",
+    "source": "Open Food Facts",
+    "note": "The words the derived search vocabulary is built from (ADR-0049 \u00a72). Unversioned and live, so the digest rather than a release name is what pins it, and `usda:bundle` reads the local copy only. Deliberately NOT mirrored to R2: OFF maintains this file, where SR Legacy is discontinued. It is the `.full` variant, the only one carrying synonyms."
+  },
   "archives": [
     {
       "dataset": "Foundation Foods",
