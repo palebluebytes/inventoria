@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-20  
-**Amended by:** the #139 Amendment below, which measures §3's stopword threshold and corrects the size §3 quotes for the map; and the #140 Amendment below, which corrects Consequences' count of the British queries OFF reaches  
+**Amended by:** the #139 Amendment below, which measures §3's stopword threshold and corrects the size §3 quotes for the map; and the #140 Amendment below, which corrects Consequences' count of the British queries OFF reaches and refines §6  
 **Implemented:** #139 `4a01dd1`, `5868a7f`, `efadfad` (the map); #140 (the fallback that reads it)
 
 This record amends [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md)
@@ -368,6 +368,12 @@ dropping. `maize` is named there as the one worth naming; `rajma`,
 `common bean`, `milk ingredients` and `corn cereal` are the rest of that same
 bill.
 
+The `130-ranking-audit.json` this is measured over holds **233** `synonym`/`miss`
+groups, not the 238 §3 counts and #140 pre-registered. The file has not been
+regenerated since; the bar of 200 was set against 238 and is cleared against 233
+either way, and the test that asserts it pins the denominator so a regeneration
+that shrinks the set fails rather than flatters.
+
 ### Nine British queries answer, not the seven Consequences counted
 
 `prawns` and `mince` answer too, and Consequences names both among the ten OFF
@@ -413,9 +419,23 @@ expansions and the whole set is sorted once, so the order a key happens to list
 its values in decides nothing.
 
 `searchIndexRows` now returns the phrases it ranked against beside the rows,
-because §6's curated matching reads them: when the fallback fires those are the
-expansions rather than what was typed, and the two paths must not disagree about
-what the search was for.
+because §6's curated matching reads them.
+
+### §6's expanded query is the typed query AND its expansions
+
+§6 says `curatedMatches` is handed the expanded query. Read as "the expansions
+INSTEAD of what was typed", it takes a stand-in away from a query that answers
+today: `cacao b` retrieves no reference food and prefix-matches the key
+`cacao butter`, whose expansions — `cocoa butter`, `cocoa fat` — reach none of
+the cacao-nibs aliases, so the one result that query has today would disappear.
+
+So the phrase list a search hands on is what was typed followed by anything the
+vocabulary offered for it. Ranking is indifferent to the extra phrase, because
+the pass that just ran proved it matches no row and it can therefore never be any
+row's best key. The curated table is not indifferent, and that is the whole
+reason it is there. §1's strict-addition property now holds of both halves of a
+search rather than of the reference-food half alone, which is what the ticket's
+third acceptance criterion asks for.
 
 ### The attribution the #139 Amendment left declared and invisible
 

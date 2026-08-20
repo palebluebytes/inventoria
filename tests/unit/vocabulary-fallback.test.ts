@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
+import { curatedMatches } from "../../src/lib/food/curated-foods";
 import {
   buildSearchCorpus,
   expandThroughVocabulary,
@@ -108,8 +109,13 @@ describe("the vocabulary fallback in the search", () => {
     expect(topFor("aubergine")).toBe("Eggplant, raw");
   });
 
-  it("says which phrases the rows answered", () => {
-    expect(searchIndexRows(corpus, "aubergine").phrases).toEqual(["eggplant"]);
+  it("keeps the typed query beside the phrases it expanded to", () => {
+    // The typed word costs the ranking nothing — it just retrieved nothing — and
+    // it is what keeps the curated table seeing what was typed.
+    expect(searchIndexRows(corpus, "aubergine").phrases).toEqual([
+      "aubergine",
+      "eggplant",
+    ]);
   });
 
   it("names the typed query itself when nothing was expanded", () => {
@@ -181,7 +187,9 @@ describe("what the fallback buys, against the bars set before it was built", () 
       (group.members ?? []).every((m) => retrieves(corpus, m.query))
     );
     expect(closed.length).toBeGreaterThanOrEqual(200);
-  });
+    // Nine hundred-odd searches over 4,429 rows, so the default 5 s timeout is
+    // a coin-toss under a loaded machine rather than a signal about the code.
+  }, 30_000);
 
   it("answers seven of the seventeen failing British queries, with the right row", () => {
     // Seven and not fifteen because that is what OFF actually knows; the other
@@ -211,9 +219,16 @@ describe("what the fallback buys, against the bars set before it was built", () 
     const keys = Object.keys(index.vocabulary_off.expansions);
     const queries = new Set<string>();
     for (const key of keys) {
-      queries.add(key);
-      const first = key.split(" ")[0];
-      for (const n of [1, 3, first.length]) queries.add(first.slice(0, n));
+      // Prefixes of the WHOLE key, not of its first word: a multi-word key is
+      // reachable mid-phrase ("flax se"), and those queries have to be in the
+      // set or the widest tier goes unchecked. Sampled at the lengths that can
+      // change the answer — the first word, and a word boundary either side —
+      // because every prefix of every key is 5,000 searches for no more cases.
+      const lengths = new Set([1, 3, key.indexOf(" "), key.length]);
+      for (let i = key.indexOf(" "); i >= 0; i = key.indexOf(" ", i + 1))
+        for (const n of [i, i + 2, i + 4]) lengths.add(n);
+      for (const n of lengths)
+        if (n > 0 && n <= key.length) queries.add(key.slice(0, n).trim());
     }
     let asserted = 0;
     for (const query of queries) {
@@ -227,5 +242,33 @@ describe("what the fallback buys, against the bars set before it was built", () 
     }
     // Not vacuous: a good few of those prefixes really do answer today.
     expect(asserted).toBeGreaterThan(100);
+  }, 30_000);
+
+  it("is a strict addition for the curated table too, not only for the rows", () => {
+    // The half of `searchUsdaFoods` the fallback also changed (ADR-0049 §6). A
+    // curated stand-in reached today has to still be reached, which is why the
+    // typed query stays in the phrase set: "cacao b" retrieves no reference food
+    // and prefix-matches the key `cacao butter`, whose expansions reach the
+    // stand-in's aliases not at all.
+    for (const query of [
+      "cacao",
+      "cacao b",
+      "cacao bean",
+      "cacao nibs",
+      "cocoa",
+      "nibs",
+      "nib",
+    ]) {
+      const before = curatedMatches([query]);
+      const after = curatedMatches(searchIndexRows(corpus, query).phrases);
+      expect([query, after.map((m) => m.entry.food)]).toEqual([
+        query,
+        before.map((m) => m.entry.food),
+      ]);
+      expect([query, after.map((m) => m.exact)]).toEqual([
+        query,
+        before.map((m) => m.exact),
+      ]);
+    }
   });
 });

@@ -165,7 +165,7 @@ export interface SearchCorpus {
    * rather than looked up separately because it ships inside the same artifact
    * and was validated against these very rows (ADR-0049 §4).
    */
-  vocabulary: Record<string, string[]>;
+  vocabulary: VocabularyMap["expansions"];
 }
 
 /** Reads a parsed Search index into the searchable corpus. Pure. */
@@ -200,9 +200,15 @@ export function buildSearchCorpus(index: SearchIndex): SearchCorpus {
  * than the query can still be reached mid-phrase while a key SHORTER than the
  * query is never reached at all, so `aubergine` expands and `raw aubergine` does
  * not (ADR-0049 Consequences — deliberate, and unmeasured rather than unwanted).
+ *
+ * That is the ONE place this parts company with `curatedMatches`, whose partial
+ * tier is position-free, and the difference is the tables': a stand-in's aliases
+ * are unordered names for one product, while a vocabulary key IS a phrase.
+ * ADR-0049 §6 keeps them apart for that reason — "which a vocabulary table has
+ * no way to express".
  */
 export function expandThroughVocabulary(
-  vocabulary: Record<string, string[]>,
+  vocabulary: VocabularyMap["expansions"],
   query: string
 ): string[] {
   const typed = wordsOf(query);
@@ -225,16 +231,24 @@ export function expandThroughVocabulary(
 }
 
 /**
- * A finished search over the index: the rows, and the phrases that reached them.
+ * What one search ran over: the typed query, followed by any vocabulary
+ * expansions of it (ADR-0049 §1). Empty only for an empty query.
  *
- * The phrases are part of the answer because a second path reads them. When the
- * fallback fires they are the expansions rather than what was typed, and
- * ADR-0049 §6 hands those same phrases to curated matching, so the two paths
- * cannot disagree about what the search was for.
+ * Part of every search's answer because a second path reads it — ADR-0049 §6
+ * hands these same phrases to curated matching, so the two cannot disagree about
+ * what the search was for.
+ *
+ * The typed query STAYS in the list when the fallback fires, even though it is
+ * by definition the phrase that just retrieved nothing. Ranking is indifferent
+ * to it for exactly that reason, and the curated table is not: dropping it would
+ * take the cacao-nibs stand-in away from a typed "cacao b", which answers today.
  */
-export interface IndexSearch {
-  /** What the rows were ranked against: the query, or its expansions. */
+export interface SearchedPhrases {
   phrases: string[];
+}
+
+/** A finished search over the index: the phrases, and the rows they reached. */
+export interface IndexSearch extends SearchedPhrases {
   rows: UsdaIndexRow[];
 }
 
@@ -294,10 +308,13 @@ export function searchIndexRows(
   const rows = rankAgainst(corpus.foods, [query]);
   if (rows.length > 0) return { phrases: [query], rows };
   const expanded = expandThroughVocabulary(corpus.vocabulary, query);
-  // A query the map has no key for keeps naming itself, so a caller reading the
-  // phrases sees what was typed rather than an empty list it has to interpret.
   if (expanded.length === 0) return { phrases: [query], rows: [] };
-  return { phrases: expanded, rows: rankAgainst(corpus.foods, expanded) };
+  // The typed query rides along, and costs the ranking nothing: the pass above
+  // just proved it matches no row, so it can never be any row's best key. What
+  // it buys is the curated table still seeing what was typed (see
+  // {@link SearchedPhrases}).
+  const phrases = [query, ...expanded];
+  return { phrases, rows: rankAgainst(corpus.foods, phrases) };
 }
 
 /**
@@ -416,10 +433,8 @@ export async function completeStagedPanel(
   };
 }
 
-/** A finished search over the bundled corpus, as {@link IndexSearch} in twins. */
-export interface UsdaSearch {
-  /** What the foods answered: the query, or its vocabulary expansions. */
-  phrases: string[];
+/** A finished search over the bundled corpus: {@link IndexSearch} in twins. */
+export interface UsdaSearch extends SearchedPhrases {
   foods: EntityPayload[];
 }
 

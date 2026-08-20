@@ -143,7 +143,7 @@ export class NoReferenceFoodError extends Error {
 
 /**
  * Searches the bundled USDA corpus and maps the matches to FoodResults, folding
- * in any curated stand-in the query reaches (ADR-0046 §1) — a base ingredient no
+ * in any curated stand-in the search reaches (ADR-0046 §1) — a base ingredient no
  * reference table carries, pinned to one vetted OFF record. Throws if nothing
  * matched, so callers only handle the error path; an empty query returns [].
  *
@@ -159,8 +159,8 @@ export async function searchUsdaFoods(query: string): Promise<FoodResult[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
   // The phrases come back with the foods because the curated table reads them
-  // too (ADR-0049 §6): usually the one thing typed, but the vocabulary
-  // expansions where that reached no reference food at all.
+  // too (ADR-0049 §6): what was typed, plus the vocabulary's expansions of it
+  // where what was typed reached no reference food at all.
   const { phrases, foods } = await searchUsdaCorpus(trimmed);
   const curated = curatedMatches(phrases);
   const results = [
