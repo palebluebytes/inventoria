@@ -26,7 +26,11 @@ import {
   isPreparedProduct,
   isProcessedProduct,
 } from "../../src/lib/food/usda-fdc";
-import { compileReferenceFoodQuery } from "../../src/lib/food/reference-food-ranking";
+import {
+  compileReferenceFoodQuery,
+  readReferenceFoodName,
+  stemOf,
+} from "../../src/lib/food/reference-food-ranking";
 import type { RawProvenance } from "../../src/lib/food/provenance";
 import type { EntityPayload } from "../../src/lib/ingestion/ingest";
 
@@ -329,6 +333,74 @@ describe("searchIndexRows", () => {
     // "-" is not blank, so the caller's own emptiness guard passes it through.
     expect(descriptionsFor("-")).toEqual([]);
     expect(descriptionsFor("...")).toEqual([]);
+  });
+
+  it("reaches a leaf by its singular, and a radish past its seeds", () => {
+    // #138's complete acceptance table: the twelve answers the two new stemmer
+    // rules change, measured over 1,978 probes — every distinct corpus word,
+    // its de-pluralised form, every head phrase and its singularised form. Nine
+    // of these retrieved NOTHING before, because "leaf" stemmed to "leaf" and
+    // "leaves" to "leave", so no name word could ever answer a typed singular.
+    for (const [query, expected] of [
+      ["grape leaf", "Grape leaves, raw"],
+      ["taro leaf", "Taro leaves, raw"],
+      ["pumpkin leaf", "Pumpkin leaves, raw"],
+      ["sweet potato leaf", "Sweet potato leaves, raw"],
+      ["amaranth leaf", "Amaranth leaves, raw"],
+      ["chrysanthemum leaf", "Chrysanthemum leaves, raw"],
+      ["drumstick leaf", "Drumstick leaves, raw"],
+      ["winged bean leaf", "Winged bean leaves, raw"],
+      ["coriander (cilantro) leaf", "Coriander (cilantro) leaves, raw"],
+      // …and three that answered, but with the wrong food. The first is
+      // #130 §8's third known case: a dried spice for a fresh herb.
+      ["coriander leaf", "Coriander (cilantro) leaves, raw"],
+      ["radish", "Radishes, raw"],
+      ["leaf", "Amaranth leaves, raw"],
+    ] as const) {
+      expect([query, descriptionsFor(query)[0]]).toEqual([query, expected]);
+    }
+  });
+
+  it("merges exactly two pairs of corpus words, and no others", () => {
+    // ADR-0042 §1 warns that a more aggressive stemmer "starts merging words
+    // that name different foods". #138 discharges the warning rather than
+    // repeating it: a query stem is only ever tested against corpus stems, so a
+    // false positive needs two CORPUS words to collide. These are all six words
+    // the two new rules touch, and what each of them now shares a stem with.
+    //
+    // This is the check to run before proposing a fifth rule, and it is why a
+    // blanket "-ves" rule was rejected: it would stem "chives" to "chif",
+    // "cloves" to "clof" and "olives" to "olif", breaking each away from the
+    // singular a user types, which works today.
+    const words = [
+      ...new Set(
+        index.foods.flatMap(
+          (row) => readReferenceFoodName(row.description).words
+        )
+      ),
+    ];
+    const sharing = (word: string) =>
+      words.filter((w) => w !== word && stemOf(w) === stemOf(word)).sort();
+    const touched = words
+      .filter((w) => /(ch|sh|x|ss|z)es$/.test(w) || /ves$/.test(w))
+      .sort();
+    expect(touched.map((w) => [w, stemOf(w), sharing(w)])).toEqual([
+      ["additives", "additive", []],
+      ["chives", "chive", []],
+      ["classes", "class", []],
+      ["cloves", "clove", []],
+      ["halves", "halve", []],
+      // The two intended merges, and the only two.
+      ["leaves", "leaf", ["leaf"]],
+      ["molasses", "molass", []],
+      // Not a new merge — the bare "s" rule has always made "olives" answer
+      // "olive", and this is the pair a blanket "-ves" rule would break by
+      // stemming the plural to "olif" instead. Same for a typed "chive" or
+      // "clove", whose singulars this corpus happens not to carry as words.
+      ["olives", "olive", ["olive"]],
+      ["peaches", "peach", []],
+      ["radishes", "radish", ["radish"]],
+    ]);
   });
 
   it("names every shipped row by its own full description", () => {

@@ -40,6 +40,40 @@ describe("readReferenceFoodName", () => {
     expect(readReferenceFoodName("Pies, apple").stems).toContain("pie");
   });
 
+  it("drops the -es English adds after a sibilant, so 'radish' answers both", () => {
+    // #138: a bare "s" leaves "radishe", which no spelling of "radish" equals,
+    // so a search for the vegetable led with "Radish seeds, sprouted, raw".
+    // (ch|sh|x|ss|z) is the whole set of endings English does this to.
+    expect(readReferenceFoodName("Radishes, raw").stems).toContain("radish");
+    expect(readReferenceFoodName("Peaches, yellow, raw").stems).toContain(
+      "peach"
+    );
+    // A word that only LOOKS like one of those plurals stems wrongly and
+    // harmlessly: "molasses" becomes "molass", which no other corpus word
+    // becomes, so it still answers itself and nothing else.
+    expect(readReferenceFoodName("Molasses").stems).toEqual(["molass"]);
+  });
+
+  it("singularises 'leaves' as the one irregular it carries, not as a -ves rule", () => {
+    // #138: the corpus holds six -ves words and only two are plurals, so a
+    // blanket rule would stem "chives" to "chif", "cloves" to "clof" and
+    // "olives" to "olif" — each of which still matches itself, but stops
+    // answering the SINGULAR a user types, which works today.
+    expect(readReferenceFoodName("Grape leaves, raw").stems).toContain("leaf");
+    expect(readReferenceFoodName("Chives, raw").stems).toContain("chive");
+    expect(readReferenceFoodName("Spices, cloves, ground").stems).toContain(
+      "clove"
+    );
+    expect(readReferenceFoodName("Olives, ripe, canned").stems).toContain(
+      "olive"
+    );
+    // "halves" is rejected on the same measurement: half-ing it regresses
+    // "halves" from walnut halves to a pork rump half and improves nothing.
+    expect(readReferenceFoodName("Nuts, walnuts, halves, raw").stems).toContain(
+      "halve"
+    );
+  });
+
   it("stems only a trailing plural, so 'grapes' answers 'grape'", () => {
     expect(readReferenceFoodName("Grapes, raw").stems).toContain("grape");
     // Not a stemmer: "grapefruit" keeps its own identity, which is the whole

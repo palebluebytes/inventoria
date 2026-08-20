@@ -35,22 +35,47 @@ export interface ReferenceFoodName {
 }
 
 /**
+ * The plurals English spells with "es" after a sibilant: radishes, peaches,
+ * boxes, glasses. A bare "s" leaves "radishe", which no spelling of "radish"
+ * equals, so the vegetable ranked below "Radish seeds, sprouted, raw" (#138).
+ */
+const SIBILANT_PLURAL = /(?:ch|sh|x|ss|z)es$/;
+
+/**
  * Reduces a word to its singular, the whole of the stemming this ranking does.
  *
  * Dropping a trailing "s" alone is not enough, and the gap was a real defect:
  * "potatoes" became "potatoe", which no spelling of "potato" ever equals, so
  * searching the food by its own name ranked it below "Sweet potato leaves".
- * The two English plurals that a bare "s" gets wrong and that food names are
- * full of are "-oes" (potatoes, tomatoes, mangoes) and "-ies" (berries,
- * cherries), so both are handled and nothing else is.
+ * Four English plurals that a bare "s" gets wrong are common enough in food
+ * names to handle, and nothing else is: "-oes" (potatoes, tomatoes, mangoes),
+ * "-ies" (berries, cherries), "-es" after a sibilant (radishes, peaches), and
+ * the single irregular "leaves", without which a typed "grape leaf" reached
+ * nothing at all.
+ *
+ * "leaves" is an entry rather than a "-ves" rule, on measurement. The corpus
+ * holds six "-ves" words and only two are plurals; the general rule would stem
+ * "chives" to "chif", "cloves" to "clof" and "olives" to "olif". Each still
+ * matches itself, because a query and a name run through this same function —
+ * but a user typing the SINGULAR "chive", "clove" or "olive" would stop
+ * whole-word-matching the plural name, which works today. It breaks three real
+ * foods to fix two words. "halves" is rejected the same way: it regresses a
+ * search for "halves" from walnut halves to a pork rump half and improves
+ * nothing.
  *
  * Deliberately not a real stemmer. Anything more aggressive starts merging words
  * that name different foods, and the tiers below are built on the assumption
- * that two stems being equal means two words being the same word.
+ * that two stems being equal means two words being the same word. That
+ * assumption is checked rather than trusted: a query stem is only ever tested
+ * against corpus stems, so a false positive needs two CORPUS words to collide,
+ * and `usda-corpus.test.ts` pins every word these rules touch against what it
+ * now shares a stem with. Run that check before adding a fifth rule.
  */
 export const stemOf = (word: string): string => {
+  if (word === "leaves") return "leaf";
   if (word.length > 4 && word.endsWith("ies")) return word.slice(0, -3) + "y";
   if (word.endsWith("oes")) return word.slice(0, -2);
+  if (SIBILANT_PLURAL.test(word)) return word.slice(0, -2);
   return word.endsWith("s") ? word.slice(0, -1) : word;
 };
 
