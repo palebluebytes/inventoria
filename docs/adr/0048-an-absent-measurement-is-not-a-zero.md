@@ -1,7 +1,8 @@
 # ADR 0048: An absent nutrient measurement is not a zero — unloggable USDA records leave the corpus, and no source may log an energy it never measured
 
 **Status:** Accepted  
-**Date:** 2026-08-20
+**Date:** 2026-08-20  
+**Implemented:** #126 `35f454e` (the predicate), `7bce806` (§5's two filters), `40a6115` (the regenerated artifacts), `80dfac9` (§6's refusal on the card)
 
 This record amends [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md)
 §2 and §3, whose merge is closed to any pairing but `ndbNumber` and whose
