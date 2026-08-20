@@ -16,6 +16,12 @@
  *   RANKING  — given it was retrieved, where did it land. This is #124's class,
  *              where `olive oil` puts the right record at rank 2 of a full list.
  *
+ * The `qualifier` pass is #124's own pre-registration and reads differently from
+ * the other four: it measures a CHANGE rather than a state, by ordering every
+ * query twice — once under the shipped ranking and once under the four keys that
+ * preceded the position key — and reporting both directions of the difference.
+ * See {@link qualifierPass}.
+ *
  * The query vocabulary is the hard part and the reason this file exists rather
  * than a handful of assertions. A recall miss is BY CONSTRUCTION a query whose
  * words the right record does not contain, so a query set derived from corpus
@@ -102,6 +108,20 @@ function search(corpus, query) {
     .sort((a, b) => compareRelevance(a.key, b.key))
     .slice(0, RESULT_LIMIT);
 }
+
+/**
+ * The order this ranking produced BEFORE #124's position key: tier, rawness,
+ * head-completeness, raw simplicity. The one place in this file that restates
+ * ranking rather than importing it, because a diff needs a second ordering and
+ * the code that ships only carries one. It reads the shipped key's own fields
+ * and simply declines to consult `position`, so it cannot drift from the four
+ * keys it names.
+ */
+const comparePreviousRelevance = (a, b) =>
+  b.tier - a.tier ||
+  b.raw - a.raw ||
+  b.head - a.head ||
+  b.simplicity - a.simplicity;
 
 /** Where a known description landed, 1-based; 0 for absent from the window. */
 const rankOf = (results, description) =>
@@ -217,6 +237,7 @@ const summarise = (results) =>
     tier: r.key.tier,
     raw: r.key.raw,
     head: r.key.head,
+    position: r.key.position,
   }));
 
 /**
@@ -310,6 +331,10 @@ function headPass(corpus, index) {
  * food as "Oil, olive, …", so the everyday phrasing puts the qualifier first.
  * Sampled, because these are evidence handed to #124 rather than the set #130's
  * own thresholds are judged against.
+ *
+ * Kept as #130 committed it, and superseded as #124's evidence by
+ * {@link qualifierPass}, which sweeps the same query shape exhaustively and
+ * diffs the two orderings instead of photographing one.
  */
 function pairPass(corpus, index) {
   const pairs = new Set();
@@ -329,6 +354,124 @@ function pairPass(corpus, index) {
     cause: null,
     note: null,
   }));
+}
+
+/**
+ * #124's pre-registered pass: what did the position key move, in both
+ * directions?
+ *
+ * The other four passes photograph one ordering. This one measures a CHANGE, so
+ * it orders every query twice — under the shipped comparator, and under
+ * {@link comparePreviousRelevance}, the four keys that preceded the position
+ * key — and diffs them. There is no adjudicator anywhere in it: the query set,
+ * the answer set and both orderings are structural, so every number below is a
+ * count rather than a judgement. A pre-registration whose failure mode is
+ * invisible is what produced the sizing #124 had to overturn.
+ *
+ * QUERIES are the everyday phrasing USDA's naming inverts: it writes a food
+ * "Noun, adjective, …" and English says "adjective noun", so each row admits
+ * `<its first qualifier word> <its head phrase>` — "olive oil" from
+ * "Oil, olive, …", "cheddar cheese" from "Cheese, cheddar, …". A qualifier word
+ * already in the head is skipped, since it would ask nothing new.
+ *
+ * ANSWERS are every row that legitimately serves the query: same head phrase,
+ * with that qualifier word somewhere past it. Wider than the one row the query
+ * was generated from, deliberately — "bacon pork" is served by every cured
+ * bacon in the corpus, and a pass that only watched the generating row could
+ * not see the other five move.
+ *
+ * BOTH DIRECTIONS then fall out. An answer that rises is `improved`, one that
+ * falls is `worsened`, and the columns are counted independently because one
+ * query routinely does both: `bacon pork` lifts "Pork, bacon, rendered fat,
+ * cooked" over five cured-bacon records, which is the cost #124 accepted in
+ * advance rather than guarded against. Preferring a whole food over its rendered
+ * fat is the reserved-slot key (#143), not this one.
+ *
+ * The headline the ticket asks for is `lead_beaten_on_position`: how many
+ * queries lead with a row that some candidate below it beats on summed token
+ * index. That is the defect stated as a number, before and after.
+ */
+function qualifierPass(corpus) {
+  const headOf = (description) => {
+    const name = readReferenceFoodName(description.split(",")[0] ?? "");
+    return name.words.join(" ");
+  };
+
+  const queries = new Set();
+  for (const food of corpus) {
+    const parts = food.description.split(",");
+    if (parts.length < 2) continue;
+    const head = headOf(food.description);
+    const qualifier = readReferenceFoodName(parts[1]).words[0];
+    if (!head || !qualifier || head.split(" ").includes(qualifier)) continue;
+    queries.add(`${qualifier} ${head}`);
+  }
+
+  const cases = [];
+  let leadBeatenBefore = 0;
+  let leadBeatenAfter = 0;
+  let improved = 0;
+  let worsened = 0;
+
+  for (const query of [...queries].sort()) {
+    const [qualifier, ...headWords] = query.split(" ");
+    const head = headWords.join(" ");
+    const answers = new Set(
+      corpus
+        .filter(
+          (food) =>
+            headOf(food.description) === head &&
+            food.name.words.slice(food.name.headLength).includes(qualifier)
+        )
+        .map((food) => food.description)
+    );
+
+    const rank = compileReferenceFoodQuery(query);
+    const scored = corpus
+      .map((food) => ({ description: food.description, key: rank(food.name) }))
+      .filter(({ key }) => key.tier > 0);
+    if (scored.length === 0) continue;
+
+    const after = [...scored].sort((a, b) => compareRelevance(a.key, b.key));
+    const before = [...scored].sort((a, b) =>
+      comparePreviousRelevance(a.key, b.key)
+    );
+    // "The leading row is beaten on summed token index by a candidate below it"
+    // — the defect, counted rather than described.
+    const leadBeaten = (order) =>
+      order.some((r) => r.key.position > order[0].key.position);
+    if (leadBeaten(before)) leadBeatenBefore++;
+    if (leadBeaten(after)) leadBeatenAfter++;
+    if (before[0].description === after[0].description) continue;
+
+    const moved = [...answers]
+      .map((description) => ({
+        description,
+        before: rankOf(before, description),
+        after: rankOf(after, description),
+      }))
+      .filter((a) => a.before !== a.after);
+    const rose = moved.filter((a) => a.after < a.before).length;
+    const fell = moved.filter((a) => a.after > a.before).length;
+    improved += rose;
+    worsened += fell;
+
+    cases.push({
+      pass: "qualifier",
+      query,
+      answers: answers.size,
+      led_before: before[0].description,
+      leads_after: after[0].description,
+      improved: rose,
+      worsened: fell,
+      moved,
+      verdict: null,
+      cause: null,
+      note: null,
+    });
+  }
+
+  return { cases, leadBeatenBefore, leadBeatenAfter, improved, worsened };
 }
 
 /** The British-usage list, on its own denominator (see {@link BRITISH_QUERIES}). */
@@ -426,11 +569,13 @@ if (args.includes("--vocab")) {
   }
 } else {
   const inputs = JSON.parse(readFileSync(INPUTS_PATH, "utf8"));
+  const qualifier = qualifierPass(corpus);
   const cases = [
     ...synonymPass(corpus, inputs.groups),
     ...headPass(corpus, index),
     ...pairPass(corpus, index),
     ...britishPass(corpus, inputs.british_queries),
+    ...qualifier.cases,
   ];
   const tally = (pass) => cases.filter((c) => c.pass === pass).length;
   const output = {
@@ -465,6 +610,18 @@ if (args.includes("--vocab")) {
       contested_heads: tally("head"),
       pairs_sampled: tally("pair"),
       british: tally("british"),
+      // #124's pass. Only the queries whose LEAD moved are emitted as cases, so
+      // this count is smaller than the query set the two counters below span.
+      qualifier_lead_changed: tally("qualifier"),
+      // The defect, before and after: a leading row that something below it
+      // beats on summed token index.
+      qualifier_lead_beaten_on_position_before: qualifier.leadBeatenBefore,
+      qualifier_lead_beaten_on_position_after: qualifier.leadBeatenAfter,
+      // Both directions, over every row that legitimately answers a query. One
+      // query routinely appears in both columns; `bacon pork` is the pre-named
+      // example, and #124 accepted it in advance.
+      qualifier_answers_improved: qualifier.improved,
+      qualifier_answers_worsened: qualifier.worsened,
     },
     cases,
   };
