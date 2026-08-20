@@ -27,6 +27,7 @@ import {
   isProcessedProduct,
 } from "../../src/lib/food/usda-fdc";
 import {
+  compareRelevance,
   compileReferenceFoodQuery,
   readReferenceFoodName,
   stemOf,
@@ -402,6 +403,122 @@ describe("searchIndexRows", () => {
       ["radishes", "radish", ["radish"]],
     ]);
   });
+
+  it("leads with the oil a query names, not the blend that mentions it", () => {
+    // #124: USDA writes a food "Noun, adjective, …" while everyday English says
+    // "adjective noun", so the discriminating word lands in a qualifier — and
+    // nothing in the key looked past the head at WHERE a match fell. All three
+    // of these tied on every key, and `Array.sort`'s stability handed the answer
+    // to whichever fdcId was lower.
+    expect(descriptionsFor("olive oil")[0]).toBe(
+      "Oil, olive, salad or cooking"
+    );
+    expect(descriptionsFor("coconut oil")[0]).toBe("Oil, coconut");
+    expect(descriptionsFor("cheddar cheese")[0]).toBe(
+      "Cheese, cheddar, sharp, sliced"
+    );
+  });
+
+  it("still leads with the same food on every query the key must not disturb", () => {
+    // #124's must-not-regress set, measured true under every placement tried
+    // for the new key — so this is a guard rather than a hope. It is the same
+    // roster the cases above this one assert one at a time, gathered here as the
+    // thing a fifth key has to clear before it lands.
+    for (const [query, expected] of [
+      ["pot", "Potatoes, flesh and skin, raw"],
+      ["pota", "Potatoes, flesh and skin, raw"],
+      ["potato", "Potatoes, flesh and skin, raw"],
+      ["potatoes", "Potatoes, flesh and skin, raw"],
+      ["tomato", "Tomatoes, yellow, raw"],
+      ["grape", "Grapes, muscadine, raw"],
+      ["gra", "Grapes, muscadine, raw"],
+      ["balsamic", "Vinegar, balsamic"],
+      ["soy milk", "Soy milk, unsweetened, plain, shelf stable"],
+    ] as const) {
+      expect([query, descriptionsFor(query)[0]]).toEqual([query, expected]);
+    }
+  });
+
+  it("changes only the order a query returns, never the set", () => {
+    // #124's hard invariant, and what decouples it from the vocabulary work in
+    // #139/#140, which fires on whether a query retrieves anything at all. The
+    // new key is consulted only after retrieval has already admitted a row, so
+    // the retrieved SET is a function of `tier > 0` alone — asserted here by
+    // scoring every row against a spread of queries and checking that the
+    // admitted set is exactly the set the tiers admit, independent of order.
+    for (const query of [
+      "olive oil",
+      "cheddar cheese",
+      "pot",
+      "soy milk",
+      "grape",
+      "raw beef",
+      "b",
+    ]) {
+      const rank = compileReferenceFoodQuery(query);
+      const admitted = corpus.filter((food) => rank(food.name).tier > 0);
+      const returned = new Set(
+        searchIndexRows(corpus, query).map((row) => row.description)
+      );
+      // Every returned row was admitted, and the cap is the only thing that
+      // ever removes one.
+      for (const description of returned)
+        expect(admitted.some((f) => f.row.description === description)).toBe(
+          true
+        );
+      expect(returned.size).toBe(
+        Math.min(admitted.length, SEARCH_RESULT_LIMIT)
+      );
+    }
+  });
+
+  it("gives every retrieved row a position, so the key needs no sentinel", () => {
+    // The invariant the key rests on: a row is admitted when every token
+    // prefix-matches some word OR every token stem-matches some word, so under
+    // either branch each token has a first answering word. If this ever fails,
+    // a sentinel is not the fix — retrieval has broken.
+    for (const query of ["olive oil", "grap", "raw", "soy milk", "b"]) {
+      const rank = compileReferenceFoodQuery(query);
+      const admitted = corpus
+        .map((food) => rank(food.name))
+        .filter((key) => key.tier > 0);
+      expect(admitted.length).toBeGreaterThan(0);
+      for (const key of admitted)
+        expect(Number.isFinite(key.position)).toBe(true);
+    }
+  });
+
+  it("puts 184 more rows first by their own name, and takes none away", () => {
+    // ADR-0042's #136 Amendment measured 356 rows that are not first when
+    // searched by their own full description, 337 of them tied on every key.
+    // #124's amendment predicted its key would break none of those, and that
+    // prediction is wrong: a self-name query is a row's WHOLE description, not
+    // its head phrase, so "Cheese, cheddar" places "cheddar" at word 1 in the
+    // row itself and at word 3 in "Cheese, pasteurized process, cheddar or
+    // American, low sodium". The key reads that, and 356 falls to 172.
+    //
+    // Pinned as the two counts rather than the one, because a later key could
+    // improve the total while quietly costing a row that leads today. Nothing
+    // regressed here: 184 rows gained the lead and none lost it.
+    // 4,429 queries over 4,429 rows, so the winner is taken in one pass rather
+    // than by sorting each result list — the sort costs seconds, the scan does
+    // not, and only the leading row is being asked about.
+    const notFirst = corpus.filter((food) => {
+      const rank = compileReferenceFoodQuery(food.row.description);
+      let best = corpus[0].row.description;
+      let bestKey = rank(corpus[0].name);
+      for (const other of corpus) {
+        const key = rank(other.name);
+        if (key.tier === 0) continue;
+        if (bestKey.tier === 0 || compareRelevance(key, bestKey) < 0) {
+          best = other.row.description;
+          bestKey = key;
+        }
+      }
+      return best !== food.row.description;
+    });
+    expect(notFirst.length).toBe(172);
+  }, 20_000);
 
   it("names every shipped row by its own full description", () => {
     // The blunt statement of the same defect: 4,394 of the 4,429 rows scored

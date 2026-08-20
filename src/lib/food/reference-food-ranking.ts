@@ -166,12 +166,49 @@ export interface RelevanceKey {
   raw: number;
   /** How completely the query fills the head phrase; negative chars-to-go. */
   head: number;
+  /**
+   * Where in the name the query landed: for each typed token, the index of the
+   * first word that answers it, summed across tokens and negated so that larger
+   * is better, as every other key is.
+   *
+   * Past the head phrase the other four keys are blind to position, so
+   * "Oil, olive, salad or cooking" and "Oil, corn, peanut, and olive" scored
+   * identically on all of them and `Array.sort`'s stability handed "olive oil"
+   * to whichever `fdcId` was lower — a blend, for a query naming a single oil
+   * (#124). USDA orders qualifiers by descending importance, so
+   * "Oil, olive, extra virgin" names olive first because that is what the food
+   * is, and how far in a word sits says how much the food is that thing.
+   *
+   * SUMMED, not smallest. The obvious reading does nothing at all on the case
+   * that prompted it, because "oil" is word 0 of both candidates:
+   *
+   * ```
+   * Oil, corn, peanut, and olive    per-token [4, 0]   min 0   sum 4
+   * Oil, olive, salad or cooking    per-token [1, 0]   min 0   sum 1
+   * ```
+   *
+   * Summing reads as "how far into the name did the query's words land, in
+   * total". It also settles, for free and with no exclusion rule, whether a head
+   * match should count: index 0 contributes 0, so the key never restates what
+   * the tier already said.
+   *
+   * It addresses `adjective + noun` queries and leaves head-only ties untouched
+   * by construction — when the query IS the head phrase every candidate matches
+   * at index 0 and every candidate still ties. That class is #143.
+   */
+  position: number;
   /** The name's raw simplicity, carried through for the same reason. */
   simplicity: number;
 }
 
 /** A name that does not answer the query at all — every later key is moot. */
-const NO_MATCH: RelevanceKey = { tier: 0, raw: 0, head: 0, simplicity: 0 };
+const NO_MATCH: RelevanceKey = {
+  tier: 0,
+  raw: 0,
+  head: 0,
+  position: 0,
+  simplicity: 0,
+};
 
 /** A head phrase the query does not cover, ranked below every one it does. */
 const HEAD_UNMATCHED = -1e6;
@@ -182,6 +219,7 @@ export function compareRelevance(a: RelevanceKey, b: RelevanceKey): number {
     b.tier - a.tier ||
     b.raw - a.raw ||
     b.head - a.head ||
+    b.position - a.position ||
     b.simplicity - a.simplicity
   );
 }
@@ -261,6 +299,21 @@ export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
               ? 20
               : 10;
 
+    // Where each typed word landed. Only reachable past the retrieval test
+    // above, which is what guarantees every token has an answering word: a row
+    // is admitted when EVERY token prefix-matches some word or EVERY token
+    // stem-matches some word, so under either branch the loop below always
+    // finds one. A sentinel here would mean retrieval had broken.
+    let position = 0;
+    for (let t = 0; t < tokens.length; t++) {
+      for (let i = 0; i < words.length; i++) {
+        if (stems[i] === tokenStems[t] || words[i].startsWith(tokens[t])) {
+          position -= i;
+          break;
+        }
+      }
+    }
+
     return {
       tier,
       raw,
@@ -275,6 +328,7 @@ export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
       // "Milk, imitation, non-soy" (head 4 characters, +3) above "Soy milk,
       // unsweetened, …" (head 7, exactly 0).
       head: headCovered ? -Math.abs(headChars - queryChars) : HEAD_UNMATCHED,
+      position,
       simplicity,
     };
   };

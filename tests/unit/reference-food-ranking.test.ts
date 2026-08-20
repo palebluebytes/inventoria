@@ -164,6 +164,59 @@ describe("compileReferenceFoodQuery", () => {
     expect(exact.head).toBeCloseTo(0);
   });
 
+  it("sums how far into the name each typed word landed", () => {
+    // #124's key. "Oil, corn, peanut, and olive" and "Oil, olive, salad or
+    // cooking" score identically on all four earlier keys, so `Array.sort`'s
+    // stability handed "olive oil" to whichever fdcId was lower — a blend, for
+    // a query naming a single oil. USDA orders qualifiers by descending
+    // importance, so where a word sits says how much the food is that thing.
+    const blend = rank("olive oil", "Oil, corn, peanut, and olive");
+    const oil = rank("olive oil", "Oil, olive, salad or cooking");
+    expect(blend.tier).toBe(oil.tier);
+    expect(blend.head).toBe(oil.head);
+    // "olive" at word 4 against word 1; "oil" is word 0 in both.
+    expect(blend.position).toBe(-4);
+    expect(oil.position).toBe(-1);
+  });
+
+  it("sums per token rather than taking the smallest index", () => {
+    // The obvious reading does nothing at all on the founding case: the
+    // smallest matched index anywhere is 0 for both candidates, because "oil"
+    // is the head word of each. Summing asks how far into the name the query's
+    // words landed IN TOTAL, and degrades gracefully as a query lengthens.
+    expect(rank("olive oil", "Oil, corn, peanut, and olive").position).toBe(-4);
+    expect(rank("olive oil", "Oil, olive, salad or cooking").position).toBe(-1);
+  });
+
+  it("charges the head word nothing, so the key never restates the tier", () => {
+    // Index 0 contributes 0 to the sum, which settles for free — and with no
+    // exclusion rule — whether a word matched in the head should count.
+    expect(rank("grape", "Grapes, raw").position).toBe(0);
+    // A head of two words costs 1, because its second word IS at index 1 — but
+    // it costs every candidate sharing that head the same 1, which is why the
+    // key cannot break a head-only tie (#143).
+    expect(rank("soy milk", "Soy milk, unsweetened").position).toBe(-1);
+    expect(
+      rank("soy milk", "Soy milk, chocolate, ready to drink").position
+    ).toBe(-1);
+  });
+
+  it("takes the FIRST word answering a token, by stem or by prefix", () => {
+    // Either branch of the retrieval test can be the one that answers, so both
+    // count — and whichever answers first is the index.
+    expect(rank("potato", "Sweet potato leaves, raw").position).toBe(-1);
+    // "grap" only prefix-matches, and the earliest such word is the head.
+    expect(rank("grap", "Juice, grape, canned").position).toBe(-1);
+  });
+
+  it("gives every retrieved name a position, with no sentinel", () => {
+    // A row is retrieved when every token prefix-matches some word OR every
+    // token stem-matches some word, so under either branch each token has a
+    // first answering word. A name that answers nothing never gets this far.
+    expect(rank("gorgonzola", "Bananas, raw").position).toBe(0);
+    expect(rank("gorgonzola", "Bananas, raw").tier).toBe(0);
+  });
+
   it("ranks a head the query does not cover below every head it does", () => {
     expect(rank("grape", "Juice, grape, canned").head).toBeLessThan(
       rank("grape", "Grapefruit, raw").head
@@ -241,23 +294,29 @@ describe("compareRelevance", () => {
       tier: number,
       raw: number,
       head: number,
+      position: number,
       simplicity: number
-    ) => ({ tier, raw, head, simplicity });
+    ) => ({ tier, raw, head, position, simplicity });
     // A stronger tier wins even against a raw food.
-    expect(compareRelevance(key(40, 0, 0, 0), key(20, 1, 0, 3))).toBeLessThan(
-      0
-    );
+    expect(
+      compareRelevance(key(40, 0, 0, 0, 0), key(20, 1, 0, 0, 3))
+    ).toBeLessThan(0);
     // Within a tier, raw wins over head-completeness.
-    expect(compareRelevance(key(20, 1, -9, 0), key(20, 0, 0, 3))).toBeLessThan(
+    expect(
+      compareRelevance(key(20, 1, -9, 0, 0), key(20, 0, 0, 0, 3))
+    ).toBeLessThan(0);
+    // Then head-completeness, then position, then simplicity.
+    expect(
+      compareRelevance(key(20, 1, -1, -9, 0), key(20, 1, -9, 0, 3))
+    ).toBeLessThan(0);
+    expect(
+      compareRelevance(key(20, 1, -1, -1, 0), key(20, 1, -1, -9, 3))
+    ).toBeLessThan(0);
+    expect(
+      compareRelevance(key(20, 1, -1, -1, 3), key(20, 1, -1, -1, 2))
+    ).toBeLessThan(0);
+    expect(compareRelevance(key(20, 1, -1, -1, 3), key(20, 1, -1, -1, 3))).toBe(
       0
     );
-    // Then head-completeness, then simplicity.
-    expect(compareRelevance(key(20, 1, -1, 0), key(20, 1, -9, 3))).toBeLessThan(
-      0
-    );
-    expect(compareRelevance(key(20, 1, -1, 3), key(20, 1, -1, 2))).toBeLessThan(
-      0
-    );
-    expect(compareRelevance(key(20, 1, -1, 3), key(20, 1, -1, 3))).toBe(0);
   });
 });
