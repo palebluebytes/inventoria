@@ -2,7 +2,8 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-20  
-**Amended by:** the #139 Amendment below, which measures §3's stopword threshold and corrects the size §3 quotes for the map
+**Amended by:** the #139 Amendment below, which measures §3's stopword threshold and corrects the size §3 quotes for the map; and the #140 Amendment below, which corrects Consequences' count of the British queries OFF reaches  
+**Implemented:** #139 `4a01dd1`, `5868a7f`, `efadfad` (the map); #140 (the fallback that reads it)
 
 This record amends [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md)
 §1, which settled that USDA is the single composition authority and ruled Open Food
@@ -351,3 +352,75 @@ separately because the ODbL derivative is already distributed. The sentence on
 License rides with the fallback in
 [#140](https://github.com/palebluebytes/inventoria/issues/140). Until it lands
 the licence is declared in the artifact and nowhere a user can see.
+
+## Amendment (2026-08-21, #140): the fallback, built and measured
+
+§1's retrieval fallback, §6's curated-matching change and §4's visible
+attribution have shipped.
+[#140](https://github.com/palebluebytes/inventoria/issues/140) built them against
+the three bars it pre-registered, and cleared all three. **230 of the 233 `miss`
+groups close** — every member of the group retrieves — against a bar of 200 and a
+starting point of 19. **Every one of the 433 keys now retrieves.** The three
+groups that stay open are `en:beans`, `en:milk` and `en:corn`, and they are the
+stopword guard's own casualties: their retrieving members are `beans`, `bean`,
+`milk` and `corn`, the four widest targets the #139 Amendment records the guard
+dropping. `maize` is named there as the one worth naming; `rajma`,
+`common bean`, `milk ingredients` and `corn cereal` are the rest of that same
+bill.
+
+### Nine British queries answer, not the seven Consequences counted
+
+`prawns` and `mince` answer too, and Consequences names both among the ten OFF
+does not carry. It was wrong about both, in two different ways, and neither is a
+change of scope:
+
+- **`prawns` reaches the key `prawn`** through §5's plural rule. The count was
+  taken over key strings rather than over what the matcher does with them.
+- **`mince` reaches the key `minced beef`** through the mid-type tier below,
+  which matches a typed word against the key word in the same position. That
+  entry is one of the four §3's 425 would have dropped and the measured 1.1%
+  threshold keeps.
+
+Eight remain: `mange tout`, `gammon`, `porridge oats`, `double cream`,
+`natural yoghurt`, `plain flour`, `caster sugar`, `jacket potato`. The
+hand-written `vocabulary_local` those wait on is unchanged, and so is what it
+waits on, which is #124.
+
+### Matching is positional, and that is what keeps the map phrase-keyed
+
+§1 says a query is expanded; it does not say how a typed query reaches a key.
+The fallback reads one the way `curatedMatches` does and for the same reason — a
+key has to be reachable while it is still being typed. An **exact** hit is a query
+whose words are the key's words modulo plural; failing that, a **prefix** hit is
+one where every typed word starts the key word in the **same position**, so
+`aubergin` answers rather than waiting for the final keystroke. Exact hits win
+outright.
+
+Positional matching is what makes the phrase-keyed rule mechanical rather than
+disciplinary. A key longer than the query is still reachable mid-phrase, and a
+key **shorter** than the query is never reachable at all, so `aubergine` expands
+and `raw aubergine` does not, exactly as Consequences describes. `seed flax` is
+not a way of typing `flax seed` either.
+
+### What it cost
+
+Nothing on the path that already answers. The literal pass runs first and returns
+early, so a search that retrieves something scores the corpus once, as it did
+before: 2.06 ms for `banana`. Only an empty result pays the second pass, and it
+pays it once per expansion the key carries — 2.14 ms for `aubergine`'s single
+target, 6.13 ms for `chilli`'s three. Each row keeps its best key across the
+expansions and the whole set is sorted once, so the order a key happens to list
+its values in decides nothing.
+
+`searchIndexRows` now returns the phrases it ranked against beside the rows,
+because §6's curated matching reads them: when the fallback fires those are the
+expansions rather than what was typed, and the two paths must not disagree about
+what the search was for.
+
+### The attribution the #139 Amendment left declared and invisible
+
+One line on `SourceExplainerSheet`'s USDA panel now names Open Food Facts and the
+Open Database License, in the quiet-but-visible treatment `NovaExplainerSheet`
+uses. It says what is true: no OFF data is shown on a USDA food, but search
+understands other names for it from OFF's taxonomy. It shows for every USDA food,
+which is §4's deliberate over-attribution in the safe direction.
