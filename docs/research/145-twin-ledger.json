@@ -1,0 +1,4839 @@
+{
+  "pairs": [
+    {
+      "ndbNumber": 1001,
+      "foundation": {
+        "fdcId": 790508,
+        "description": "Butter, stick, salted"
+      },
+      "sr_legacy": {
+        "fdcId": 173410,
+        "description": "Butter, salted"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "calories",
+        "protein_content",
+        "carbohydrate_content",
+        "fiber_content",
+        "trans_fat_content",
+        "vitamin_c"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1009,
+      "foundation": {
+        "fdcId": 328637,
+        "description": "Cheese, cheddar"
+      },
+      "sr_legacy": {
+        "fdcId": 173414,
+        "description": "Cheese, cheddar"
+      },
+      "names_read_alike": true,
+      "filled_fields": ["fiber_content", "vitamin_d", "vitamin_c"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1012,
+      "foundation": {
+        "fdcId": 2346384,
+        "description": "Cottage cheese, full fat, large or small curd"
+      },
+      "sr_legacy": {
+        "fdcId": 172179,
+        "description": "Cheese, cottage, creamed, large or small curd"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1015,
+      "foundation": {
+        "fdcId": 328841,
+        "description": "Cheese, cottage, lowfat, 2% milkfat"
+      },
+      "sr_legacy": {
+        "fdcId": 172182,
+        "description": "Cheese, cottage, lowfat, 2% milkfat"
+      },
+      "names_read_alike": true,
+      "filled_fields": ["fiber_content", "vitamin_d", "vitamin_c"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1017,
+      "foundation": {
+        "fdcId": 2346385,
+        "description": "Cream cheese, full fat, block"
+      },
+      "sr_legacy": {
+        "fdcId": 173418,
+        "description": "Cheese, cream"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "trans_fat_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1019,
+      "foundation": {
+        "fdcId": 2259796,
+        "description": "Cheese, feta, whole milk, crumbled"
+      },
+      "sr_legacy": {
+        "fdcId": 173420,
+        "description": "Cheese, feta"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1029,
+      "foundation": {
+        "fdcId": 329370,
+        "description": "Cheese, mozzarella, low moisture, part-skim"
+      },
+      "sr_legacy": {
+        "fdcId": 171244,
+        "description": "Cheese, mozzarella, low moisture, part-skim"
+      },
+      "names_read_alike": true,
+      "filled_fields": ["fiber_content", "vitamin_d", "vitamin_c"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1032,
+      "foundation": {
+        "fdcId": 325036,
+        "description": "Cheese, parmesan, grated"
+      },
+      "sr_legacy": {
+        "fdcId": 171247,
+        "description": "Cheese, parmesan, grated"
+      },
+      "names_read_alike": true,
+      "filled_fields": ["fiber_content", "vitamin_d", "vitamin_c"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1036,
+      "foundation": {
+        "fdcId": 746766,
+        "description": "Cheese, ricotta, whole milk"
+      },
+      "sr_legacy": {
+        "fdcId": 170851,
+        "description": "Cheese, ricotta, whole milk"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_c"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1040,
+      "foundation": {
+        "fdcId": 746767,
+        "description": "Cheese, swiss"
+      },
+      "sr_legacy": {
+        "fdcId": 171251,
+        "description": "Cheese, swiss"
+      },
+      "names_read_alike": true,
+      "filled_fields": ["fiber_content", "vitamin_c"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1042,
+      "foundation": {
+        "fdcId": 325198,
+        "description": "Cheese, pasteurized process, American, vitamin D fortified"
+      },
+      "sr_legacy": {
+        "fdcId": 170853,
+        "description": "Cheese, pasteurized process, American, fortified with vitamin D"
+      },
+      "names_read_alike": false,
+      "filled_fields": ["fiber_content", "vitamin_c", "folate"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1053,
+      "foundation": {
+        "fdcId": 2346386,
+        "description": "Cream, heavy"
+      },
+      "sr_legacy": {
+        "fdcId": 170859,
+        "description": "Cream, fluid, heavy whipping"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "trans_fat_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1056,
+      "foundation": {
+        "fdcId": 2346387,
+        "description": "Cream, sour, full fat"
+      },
+      "sr_legacy": {
+        "fdcId": 171257,
+        "description": "Cream, sour, cultured"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "trans_fat_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1077,
+      "foundation": {
+        "fdcId": 746782,
+        "description": "Milk, whole, 3.25% milkfat, with added vitamin D"
+      },
+      "sr_legacy": {
+        "fdcId": 171265,
+        "description": "Milk, whole, 3.25% milkfat, with added vitamin D"
+      },
+      "names_read_alike": true,
+      "filled_fields": ["fiber_content", "vitamin_c"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1079,
+      "foundation": {
+        "fdcId": 746778,
+        "description": "Milk, reduced fat, fluid, 2% milkfat, with added vitamin A and vitamin D"
+      },
+      "sr_legacy": {
+        "fdcId": 171267,
+        "description": "Milk, reduced fat, fluid, 2% milkfat, with added vitamin A and vitamin D"
+      },
+      "names_read_alike": true,
+      "filled_fields": ["fiber_content", "vitamin_c"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1082,
+      "foundation": {
+        "fdcId": 746772,
+        "description": "Milk, lowfat, fluid, 1% milkfat, with added vitamin A and vitamin D"
+      },
+      "sr_legacy": {
+        "fdcId": 170872,
+        "description": "Milk, lowfat, fluid, 1% milkfat, with added vitamin A and vitamin D"
+      },
+      "names_read_alike": true,
+      "filled_fields": ["fiber_content", "vitamin_c"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1085,
+      "foundation": {
+        "fdcId": 746776,
+        "description": "Milk, nonfat, fluid, with added vitamin A and vitamin D (fat free or skim)"
+      },
+      "sr_legacy": {
+        "fdcId": 171269,
+        "description": "Milk, nonfat, fluid, with added vitamin A and vitamin D (fat free or skim)"
+      },
+      "names_read_alike": true,
+      "filled_fields": ["fiber_content", "vitamin_c"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1088,
+      "foundation": {
+        "fdcId": 2259792,
+        "description": "Buttermilk, low fat"
+      },
+      "sr_legacy": {
+        "fdcId": 170874,
+        "description": "Milk, buttermilk, fluid, cultured, lowfat"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "sugar_content",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1116,
+      "foundation": {
+        "fdcId": 2259793,
+        "description": "Yogurt, plain, whole milk"
+      },
+      "sr_legacy": {
+        "fdcId": 171284,
+        "description": "Yogurt, plain, whole milk"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1123,
+      "foundation": {
+        "fdcId": 748967,
+        "description": "Eggs, Grade A, Large, egg whole"
+      },
+      "sr_legacy": {
+        "fdcId": 171287,
+        "description": "Egg, whole, raw, fresh"
+      },
+      "names_read_alike": false,
+      "filled_fields": ["trans_fat_content", "vitamin_c", "vitamin_e"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1124,
+      "foundation": {
+        "fdcId": 747997,
+        "description": "Eggs, Grade A, Large, egg white"
+      },
+      "sr_legacy": {
+        "fdcId": 172183,
+        "description": "Egg, white, raw, fresh"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "cholesterol_content",
+        "sodium_content",
+        "sugar_content",
+        "vitamin_d",
+        "calcium",
+        "iron",
+        "potassium",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "magnesium",
+        "zinc",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1125,
+      "foundation": {
+        "fdcId": 748236,
+        "description": "Eggs, Grade A, Large, egg yolk"
+      },
+      "sr_legacy": {
+        "fdcId": 172184,
+        "description": "Egg, yolk, raw, fresh"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "cholesterol_content",
+        "sodium_content",
+        "sugar_content",
+        "vitamin_d",
+        "calcium",
+        "iron",
+        "potassium",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "magnesium",
+        "zinc",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1126,
+      "foundation": {
+        "fdcId": 329596,
+        "description": "Egg, yolk, raw, frozen, pasteurized"
+      },
+      "sr_legacy": {
+        "fdcId": 173421,
+        "description": "Egg, yolk, raw, frozen, pasteurized"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "sugar_content",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1133,
+      "foundation": {
+        "fdcId": 329490,
+        "description": "Egg, whole, dried"
+      },
+      "sr_legacy": {
+        "fdcId": 172188,
+        "description": "Egg, whole, dried"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "sugar_content",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1137,
+      "foundation": {
+        "fdcId": 329716,
+        "description": "Egg, yolk, dried"
+      },
+      "sr_legacy": {
+        "fdcId": 173428,
+        "description": "Egg, yolk, dried"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "sugar_content",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1145,
+      "foundation": {
+        "fdcId": 789828,
+        "description": "Butter, stick, unsalted"
+      },
+      "sr_legacy": {
+        "fdcId": 173430,
+        "description": "Butter, without salt"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "calories",
+        "protein_content",
+        "carbohydrate_content",
+        "fiber_content",
+        "saturated_fat_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1171,
+      "foundation": {
+        "fdcId": 323604,
+        "description": "Egg, whole, raw, frozen, pasteurized"
+      },
+      "sr_legacy": {
+        "fdcId": 172202,
+        "description": "Egg, whole, raw, frozen, pasteurized"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "sugar_content",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1172,
+      "foundation": {
+        "fdcId": 323697,
+        "description": "Egg, white, raw, frozen, pasteurized"
+      },
+      "sr_legacy": {
+        "fdcId": 172203,
+        "description": "Egg, white, raw, frozen, pasteurized"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "sugar_content",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1173,
+      "foundation": {
+        "fdcId": 323793,
+        "description": "Egg, white, dried"
+      },
+      "sr_legacy": {
+        "fdcId": 172204,
+        "description": "Egg, white, dried"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "sugar_content",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1227,
+      "foundation": {
+        "fdcId": 746765,
+        "description": "Cheese, dry white, queso seco"
+      },
+      "sr_legacy": {
+        "fdcId": 172222,
+        "description": "Cheese, dry white, queso seco"
+      },
+      "names_read_alike": true,
+      "filled_fields": [],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1256,
+      "foundation": {
+        "fdcId": 330137,
+        "description": "Yogurt, Greek, plain, nonfat"
+      },
+      "sr_legacy": {
+        "fdcId": 170894,
+        "description": "Yogurt, Greek, plain, nonfat"
+      },
+      "names_read_alike": true,
+      "filled_fields": ["fiber_content", "vitamin_c", "folate"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1285,
+      "foundation": {
+        "fdcId": 330415,
+        "description": "Yogurt, Greek, strawberry, nonfat"
+      },
+      "sr_legacy": {
+        "fdcId": 170901,
+        "description": "Yogurt, Greek, strawberry, nonfat"
+      },
+      "names_read_alike": true,
+      "filled_fields": ["vitamin_e"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 1293,
+      "foundation": {
+        "fdcId": 2259794,
+        "description": "Yogurt, Greek, plain, whole milk"
+      },
+      "sr_legacy": {
+        "fdcId": 171304,
+        "description": "Yogurt, Greek, plain, whole milk"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "trans_fat_content",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 2046,
+      "foundation": {
+        "fdcId": 326698,
+        "description": "Mustard, prepared, yellow"
+      },
+      "sr_legacy": {
+        "fdcId": 172234,
+        "description": "Mustard, prepared, yellow"
+      },
+      "names_read_alike": true,
+      "filled_fields": ["cholesterol_content", "vitamin_d", "vitamin_b12"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 2047,
+      "foundation": {
+        "fdcId": 746775,
+        "description": "Salt, table, iodized"
+      },
+      "sr_legacy": {
+        "fdcId": 173468,
+        "description": "Salt, table"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "calories",
+        "protein_content",
+        "fat_content",
+        "carbohydrate_content",
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 4042,
+      "foundation": {
+        "fdcId": 1750348,
+        "description": "Oil, peanut"
+      },
+      "sr_legacy": {
+        "fdcId": 171410,
+        "description": "Oil, peanut, salad or cooking"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "calories",
+        "protein_content",
+        "fat_content",
+        "carbohydrate_content",
+        "fiber_content",
+        "cholesterol_content",
+        "sodium_content",
+        "sugar_content",
+        "vitamin_d",
+        "calcium",
+        "iron",
+        "potassium",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "magnesium",
+        "zinc"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 4044,
+      "foundation": {
+        "fdcId": 748366,
+        "description": "Oil, soybean"
+      },
+      "sr_legacy": {
+        "fdcId": 171411,
+        "description": "Oil, soybean, salad or cooking"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "calories",
+        "protein_content",
+        "fat_content",
+        "carbohydrate_content",
+        "fiber_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sodium_content",
+        "sugar_content",
+        "vitamin_d",
+        "calcium",
+        "iron",
+        "potassium",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "magnesium",
+        "zinc"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 4047,
+      "foundation": {
+        "fdcId": 330458,
+        "description": "Oil, coconut"
+      },
+      "sr_legacy": {
+        "fdcId": 171412,
+        "description": "Oil, coconut"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 4511,
+      "foundation": {
+        "fdcId": 1750350,
+        "description": "Oil, safflower"
+      },
+      "sr_legacy": {
+        "fdcId": 171027,
+        "description": "Oil, safflower, salad or cooking, high oleic (primary safflower oil of commerce)"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "calories",
+        "protein_content",
+        "fat_content",
+        "carbohydrate_content",
+        "fiber_content",
+        "cholesterol_content",
+        "sodium_content",
+        "sugar_content",
+        "vitamin_d",
+        "calcium",
+        "iron",
+        "potassium",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "magnesium",
+        "zinc"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 4518,
+      "foundation": {
+        "fdcId": 748323,
+        "description": "Oil, corn"
+      },
+      "sr_legacy": {
+        "fdcId": 171029,
+        "description": "Oil, corn, industrial and retail, all purpose salad or cooking"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "calories",
+        "protein_content",
+        "fat_content",
+        "carbohydrate_content",
+        "fiber_content",
+        "cholesterol_content",
+        "sodium_content",
+        "sugar_content",
+        "vitamin_d",
+        "calcium",
+        "iron",
+        "potassium",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "magnesium",
+        "zinc"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 4582,
+      "foundation": {
+        "fdcId": 748278,
+        "description": "Oil, canola"
+      },
+      "sr_legacy": {
+        "fdcId": 172336,
+        "description": "Oil, canola"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "calories",
+        "protein_content",
+        "fat_content",
+        "carbohydrate_content",
+        "fiber_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sodium_content",
+        "sugar_content",
+        "vitamin_d",
+        "calcium",
+        "iron",
+        "potassium",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "magnesium",
+        "zinc"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 5332,
+      "foundation": {
+        "fdcId": 2514746,
+        "description": "Chicken, ground, with additives, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 171116,
+        "description": "Chicken, ground, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "sugar_content",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 5665,
+      "foundation": {
+        "fdcId": 2514747,
+        "description": "Turkey, ground, 93% lean/ 7% fat, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 172850,
+        "description": "Turkey, ground, 93% lean, 7% fat, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 5666,
+      "foundation": {
+        "fdcId": 746785,
+        "description": "Turkey, ground, 93% lean, 7% fat, pan-broiled crumbles"
+      },
+      "sr_legacy": {
+        "fdcId": 172851,
+        "description": "Turkey, ground, 93% lean, 7% fat, pan-broiled crumbles"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_c",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 5671,
+      "foundation": {
+        "fdcId": 331897,
+        "description": "Chicken, broilers or fryers, drumstick, meat only, cooked, braised"
+      },
+      "sr_legacy": {
+        "fdcId": 172852,
+        "description": "Chicken, broilers or fryers, dark meat, drumstick, meat only, cooked, braised"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "sugar_content",
+        "vitamin_c",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 5746,
+      "foundation": {
+        "fdcId": 331960,
+        "description": "Chicken, broiler or fryers, breast, skinless, boneless, meat only, cooked, braised"
+      },
+      "sr_legacy": {
+        "fdcId": 171140,
+        "description": "Chicken, broiler or fryers, breast, skinless, boneless, meat only, cooked, braised"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 6164,
+      "foundation": {
+        "fdcId": 746777,
+        "description": "Sauce, salsa, ready-to-serve"
+      },
+      "sr_legacy": {
+        "fdcId": 174524,
+        "description": "Sauce, salsa, ready-to-serve"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_c",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 6931,
+      "foundation": {
+        "fdcId": 332282,
+        "description": "Sauce, pasta, spaghetti/marinara, ready-to-serve"
+      },
+      "sr_legacy": {
+        "fdcId": 171192,
+        "description": "Sauce, pasta, spaghetti/marinara, ready-to-serve"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate"
+      ],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 7022,
+      "foundation": {
+        "fdcId": 323121,
+        "description": "Frankfurter, beef, unheated"
+      },
+      "sr_legacy": {
+        "fdcId": 173862,
+        "description": "Frankfurter, beef, unheated"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_c"
+      ],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 7028,
+      "foundation": {
+        "fdcId": 332397,
+        "description": "Ham, sliced, pre-packaged, deli meat (96%fat free, water added)"
+      },
+      "sr_legacy": {
+        "fdcId": 173863,
+        "description": "Ham, sliced, pre-packaged, deli meat (96%fat free, water added)"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate"
+      ],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 7089,
+      "foundation": {
+        "fdcId": 746780,
+        "description": "Sausage, Italian, pork, mild, cooked, pan-fried"
+      },
+      "sr_legacy": {
+        "fdcId": 174586,
+        "description": "Sausage, Italian, pork, mild, cooked, pan-fried"
+      },
+      "names_read_alike": true,
+      "filled_fields": ["fiber_content", "vitamin_d", "vitamin_c"],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 7919,
+      "foundation": {
+        "fdcId": 746783,
+        "description": "Sausage, turkey, breakfast links, mild, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 174600,
+        "description": "Sausage, turkey, breakfast links, mild, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "folate"
+      ],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 7954,
+      "foundation": {
+        "fdcId": 746779,
+        "description": "Sausage, breakfast sausage, beef, pre-cooked, unprepared"
+      },
+      "sr_legacy": {
+        "fdcId": 174616,
+        "description": "Sausage, breakfast sausage, beef, pre-cooked, unprepared"
+      },
+      "names_read_alike": true,
+      "filled_fields": ["fiber_content", "vitamin_d", "folate"],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9021,
+      "foundation": {
+        "fdcId": 2710815,
+        "description": "Apricot, with skin, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 171697,
+        "description": "Apricots, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9040,
+      "foundation": {
+        "fdcId": 1105314,
+        "description": "Bananas, ripe and slightly ripe, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 173944,
+        "description": "Bananas, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9042,
+      "foundation": {
+        "fdcId": 2727581,
+        "description": "Blackberries, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 173946,
+        "description": "Blackberries, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "calories",
+        "fat_content",
+        "carbohydrate_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9050,
+      "foundation": {
+        "fdcId": 2346411,
+        "description": "Blueberries, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 171711,
+        "description": "Blueberries, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9070,
+      "foundation": {
+        "fdcId": 2346399,
+        "description": "Cherries, sweet, dark red, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 171719,
+        "description": "Cherries, sweet, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9094,
+      "foundation": {
+        "fdcId": 746768,
+        "description": "Figs, dried, uncooked"
+      },
+      "sr_legacy": {
+        "fdcId": 174665,
+        "description": "Figs, dried, uncooked"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9123,
+      "foundation": {
+        "fdcId": 325287,
+        "description": "Grapefruit juice, white, canned or bottled, unsweetened"
+      },
+      "sr_legacy": {
+        "fdcId": 174678,
+        "description": "Grapefruit juice, white, canned or bottled, unsweetened"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9130,
+      "foundation": {
+        "fdcId": 2003592,
+        "description": "Grape juice, purple, with added vitamin C, from concentrate, shelf stable"
+      },
+      "sr_legacy": {
+        "fdcId": 173041,
+        "description": "Grape juice, canned or bottled, unsweetened, with added ascorbic acid"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9148,
+      "foundation": {
+        "fdcId": 327046,
+        "description": "Kiwifruit, green, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 168153,
+        "description": "Kiwifruit, green, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9181,
+      "foundation": {
+        "fdcId": 746770,
+        "description": "Melons, cantaloupe, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 169092,
+        "description": "Melons, cantaloupe, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9184,
+      "foundation": {
+        "fdcId": 2710816,
+        "description": "Melons, honeydew, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 169911,
+        "description": "Melons, honeydew, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9191,
+      "foundation": {
+        "fdcId": 327357,
+        "description": "Nectarines, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 169914,
+        "description": "Nectarines, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_b12"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9202,
+      "foundation": {
+        "fdcId": 746771,
+        "description": "Oranges, raw, navels"
+      },
+      "sr_legacy": {
+        "fdcId": 169917,
+        "description": "Oranges, raw, navels"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9206,
+      "foundation": {
+        "fdcId": 2003597,
+        "description": "Orange juice, no pulp, not fortified, not from concentrate, refrigerated"
+      },
+      "sr_legacy": {
+        "fdcId": 169098,
+        "description": "Orange juice, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9209,
+      "foundation": {
+        "fdcId": 2003591,
+        "description": "Orange juice, no pulp, not fortified, from concentrate, refrigerated"
+      },
+      "sr_legacy": {
+        "fdcId": 169100,
+        "description": "Orange juice, chilled, includes from concentrate"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9236,
+      "foundation": {
+        "fdcId": 325430,
+        "description": "Peaches, yellow, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 169928,
+        "description": "Peaches, yellow, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9266,
+      "foundation": {
+        "fdcId": 2346398,
+        "description": "Pineapple, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 169124,
+        "description": "Pineapple, raw, all varieties"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9277,
+      "foundation": {
+        "fdcId": 2710817,
+        "description": "Plantains, ripe, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 169130,
+        "description": "Plantains, yellow, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9302,
+      "foundation": {
+        "fdcId": 2346410,
+        "description": "Raspberries, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 167755,
+        "description": "Raspberries, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9316,
+      "foundation": {
+        "fdcId": 2346409,
+        "description": "Strawberries, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 167762,
+        "description": "Strawberries, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9400,
+      "foundation": {
+        "fdcId": 2003590,
+        "description": "Apple juice, with added vitamin C, from concentrate, shelf stable"
+      },
+      "sr_legacy": {
+        "fdcId": 167771,
+        "description": "Apple juice, canned or bottled, unsweetened, with added ascorbic acid"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9401,
+      "foundation": {
+        "fdcId": 2346414,
+        "description": "Applesauce, unsweetened, with added vitamin C"
+      },
+      "sr_legacy": {
+        "fdcId": 167772,
+        "description": "Applesauce, canned, unsweetened, with added ascorbic acid"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9412,
+      "foundation": {
+        "fdcId": 746773,
+        "description": "Pears, raw, bartlett"
+      },
+      "sr_legacy": {
+        "fdcId": 167776,
+        "description": "Pears, raw, bartlett"
+      },
+      "names_read_alike": true,
+      "filled_fields": ["trans_fat_content", "vitamin_e"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9415,
+      "foundation": {
+        "fdcId": 2710836,
+        "description": "Pear, Anjou, green, with skin, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 167779,
+        "description": "Pears, raw, green anjou"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "trans_fat_content",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b6",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9500,
+      "foundation": {
+        "fdcId": 1750339,
+        "description": "Apples, red delicious, with skin, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 168201,
+        "description": "Apples, raw, red delicious, with skin"
+      },
+      "names_read_alike": false,
+      "filled_fields": ["trans_fat_content", "vitamin_a", "vitamin_e"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9501,
+      "foundation": {
+        "fdcId": 1750343,
+        "description": "Apples, honeycrisp, with skin, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 168202,
+        "description": "Apples, raw, golden delicious, with skin"
+      },
+      "names_read_alike": false,
+      "filled_fields": ["trans_fat_content", "vitamin_a", "vitamin_e"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9502,
+      "foundation": {
+        "fdcId": 1750342,
+        "description": "Apples, granny smith, with skin, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 168203,
+        "description": "Apples, raw, granny smith, with skin"
+      },
+      "names_read_alike": false,
+      "filled_fields": ["trans_fat_content", "vitamin_a", "vitamin_e"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9503,
+      "foundation": {
+        "fdcId": 1750341,
+        "description": "Apples, gala, with skin, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 168204,
+        "description": "Apples, raw, gala, with skin"
+      },
+      "names_read_alike": false,
+      "filled_fields": ["trans_fat_content", "vitamin_a", "vitamin_e"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9504,
+      "foundation": {
+        "fdcId": 1750340,
+        "description": "Apples, fuji, with skin, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 167793,
+        "description": "Apples, raw, fuji, with skin"
+      },
+      "names_read_alike": false,
+      "filled_fields": ["trans_fat_content", "vitamin_a", "vitamin_e"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 9542,
+      "foundation": {
+        "fdcId": 2710818,
+        "description": "Plantains, underripe, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 168215,
+        "description": "Plantains, green, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 10219,
+      "foundation": {
+        "fdcId": 2514745,
+        "description": "Pork, ground, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 167902,
+        "description": "Pork, fresh, ground, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11052,
+      "foundation": {
+        "fdcId": 2346400,
+        "description": "Beans, snap, green, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 169961,
+        "description": "Beans, snap, green, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11056,
+      "foundation": {
+        "fdcId": 321611,
+        "description": "Beans, snap, green, canned, regular pack, drained solids"
+      },
+      "sr_legacy": {
+        "fdcId": 169143,
+        "description": "Beans, snap, green, canned, regular pack, drained solids"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11080,
+      "foundation": {
+        "fdcId": 2685576,
+        "description": "Beets, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 169145,
+        "description": "Beets, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11086,
+      "foundation": {
+        "fdcId": 2747653,
+        "description": "Beet greens, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 170375,
+        "description": "Beet greens, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11090,
+      "foundation": {
+        "fdcId": 747447,
+        "description": "Broccoli, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 170379,
+        "description": "Broccoli, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_b12"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11098,
+      "foundation": {
+        "fdcId": 2685575,
+        "description": "Brussels sprouts, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 170383,
+        "description": "Brussels sprouts, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11109,
+      "foundation": {
+        "fdcId": 2346407,
+        "description": "Cabbage, green, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 169975,
+        "description": "Cabbage, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11112,
+      "foundation": {
+        "fdcId": 2346408,
+        "description": "Cabbage, red, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 169977,
+        "description": "Cabbage, red, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11116,
+      "foundation": {
+        "fdcId": 2685572,
+        "description": "Cabbage, bok choy, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 170390,
+        "description": "Cabbage, chinese (pak-choi), raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11124,
+      "foundation": {
+        "fdcId": 2258586,
+        "description": "Carrots, mature, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 170393,
+        "description": "Carrots, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11130,
+      "foundation": {
+        "fdcId": 746764,
+        "description": "Carrots, frozen, unprepared"
+      },
+      "sr_legacy": {
+        "fdcId": 169983,
+        "description": "Carrots, frozen, unprepared"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_b12"
+      ],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11135,
+      "foundation": {
+        "fdcId": 2685573,
+        "description": "Cauliflower, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 169986,
+        "description": "Cauliflower, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11143,
+      "foundation": {
+        "fdcId": 2346405,
+        "description": "Celery, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 169988,
+        "description": "Celery, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11161,
+      "foundation": {
+        "fdcId": 2685574,
+        "description": "Collards, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 170406,
+        "description": "Collards, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11205,
+      "foundation": {
+        "fdcId": 2346406,
+        "description": "Cucumber, with peel, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 168409,
+        "description": "Cucumber, with peel, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11209,
+      "foundation": {
+        "fdcId": 2685577,
+        "description": "Eggplant, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 169228,
+        "description": "Eggplant, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11215,
+      "foundation": {
+        "fdcId": 1104647,
+        "description": "Garlic, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 169230,
+        "description": "Garlic, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sodium_content",
+        "sugar_content",
+        "vitamin_d",
+        "calcium",
+        "iron",
+        "potassium",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "magnesium",
+        "zinc",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11233,
+      "foundation": {
+        "fdcId": 323505,
+        "description": "Kale, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 168421,
+        "description": "Kale, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11236,
+      "foundation": {
+        "fdcId": 326196,
+        "description": "Kale, frozen, cooked, boiled, drained, without salt"
+      },
+      "sr_legacy": {
+        "fdcId": 169240,
+        "description": "Kale, frozen, cooked, boiled, drained, without salt"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11238,
+      "foundation": {
+        "fdcId": 1999628,
+        "description": "Mushrooms, shiitake"
+      },
+      "sr_legacy": {
+        "fdcId": 169242,
+        "description": "Mushrooms, shiitake, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": ["trans_fat_content", "sugar_content"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11243,
+      "foundation": {
+        "fdcId": 2003598,
+        "description": "Mushroom, portabella"
+      },
+      "sr_legacy": {
+        "fdcId": 169243,
+        "description": "Mushrooms, portabella, grilled"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11251,
+      "foundation": {
+        "fdcId": 746769,
+        "description": "Lettuce, cos or romaine, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 169247,
+        "description": "Lettuce, cos or romaine, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sodium_content",
+        "vitamin_d",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11252,
+      "foundation": {
+        "fdcId": 2346388,
+        "description": "Lettuce, iceberg, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 169248,
+        "description": "Lettuce, iceberg (includes crisphead types), raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11253,
+      "foundation": {
+        "fdcId": 2346391,
+        "description": "Lettuce, leaf, green, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 169249,
+        "description": "Lettuce, green leaf, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11257,
+      "foundation": {
+        "fdcId": 2346390,
+        "description": "Lettuce, leaf, red, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 168431,
+        "description": "Lettuce, red leaf, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11260,
+      "foundation": {
+        "fdcId": 1999629,
+        "description": "Mushrooms, white button"
+      },
+      "sr_legacy": {
+        "fdcId": 169251,
+        "description": "Mushrooms, white, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11266,
+      "foundation": {
+        "fdcId": 2003601,
+        "description": "Mushroom, crimini"
+      },
+      "sr_legacy": {
+        "fdcId": 168434,
+        "description": "Mushrooms, brown, italian, or crimini, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11296,
+      "foundation": {
+        "fdcId": 324317,
+        "description": "Onion rings, breaded, par fried, frozen, prepared, heated in oven"
+      },
+      "sr_legacy": {
+        "fdcId": 170415,
+        "description": "Onion rings, breaded, par fried, frozen, prepared, heated in oven"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_b12"
+      ],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11298,
+      "foundation": {
+        "fdcId": 2747659,
+        "description": "Parsnips, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 170417,
+        "description": "Parsnips, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11333,
+      "foundation": {
+        "fdcId": 2258588,
+        "description": "Peppers, bell, green, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 170427,
+        "description": "Peppers, sweet, green, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11413,
+      "foundation": {
+        "fdcId": 2261422,
+        "description": "Flour, potato"
+      },
+      "sr_legacy": {
+        "fdcId": 168446,
+        "description": "Potato flour"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11457,
+      "foundation": {
+        "fdcId": 1999633,
+        "description": "Spinach, mature"
+      },
+      "sr_legacy": {
+        "fdcId": 168462,
+        "description": "Spinach, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11482,
+      "foundation": {
+        "fdcId": 2685571,
+        "description": "Squash, winter, acorn, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 168472,
+        "description": "Squash, winter, acorn, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_b6",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11485,
+      "foundation": {
+        "fdcId": 2685570,
+        "description": "Squash, winter, butternut, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 169295,
+        "description": "Squash, winter, butternut, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11540,
+      "foundation": {
+        "fdcId": 2003596,
+        "description": "Tomato juice, with added ingredients, from concentrate, shelf stable"
+      },
+      "sr_legacy": {
+        "fdcId": 170458,
+        "description": "Tomato juice, canned, with salt added"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11546,
+      "foundation": {
+        "fdcId": 2685580,
+        "description": "Tomato, paste, canned, without salt added"
+      },
+      "sr_legacy": {
+        "fdcId": 170459,
+        "description": "Tomato products, canned, paste, without salt added"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11564,
+      "foundation": {
+        "fdcId": 2747674,
+        "description": "Turnips, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 170465,
+        "description": "Turnips, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11693,
+      "foundation": {
+        "fdcId": 2685581,
+        "description": "Tomatoes, crushed, canned"
+      },
+      "sr_legacy": {
+        "fdcId": 170501,
+        "description": "Tomatoes, crushed, canned"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11821,
+      "foundation": {
+        "fdcId": 2258590,
+        "description": "Peppers, bell, red, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 170108,
+        "description": "Peppers, sweet, red, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11937,
+      "foundation": {
+        "fdcId": 324653,
+        "description": "Pickles, cucumber, dill or kosher dill"
+      },
+      "sr_legacy": {
+        "fdcId": 168558,
+        "description": "Pickles, cucumber, dill or kosher dill"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11950,
+      "foundation": {
+        "fdcId": 2003600,
+        "description": "Mushroom, enoki"
+      },
+      "sr_legacy": {
+        "fdcId": 169382,
+        "description": "Mushrooms, enoki, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11951,
+      "foundation": {
+        "fdcId": 2258589,
+        "description": "Peppers, bell, yellow, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 169383,
+        "description": "Peppers, sweet, yellow, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_b12"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11952,
+      "foundation": {
+        "fdcId": 2747664,
+        "description": "Radicchio, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 168564,
+        "description": "Radicchio, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11957,
+      "foundation": {
+        "fdcId": 2747655,
+        "description": "Fennel, bulb, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 169385,
+        "description": "Fennel, bulb, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11960,
+      "foundation": {
+        "fdcId": 2258587,
+        "description": "Carrots, baby, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 168568,
+        "description": "Carrots, baby, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11987,
+      "foundation": {
+        "fdcId": 1999627,
+        "description": "Mushroom, oyster"
+      },
+      "sr_legacy": {
+        "fdcId": 168580,
+        "description": "Mushrooms, oyster, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 11993,
+      "foundation": {
+        "fdcId": 2003602,
+        "description": "Mushroom, maitake"
+      },
+      "sr_legacy": {
+        "fdcId": 169403,
+        "description": "Mushrooms, maitake, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 12006,
+      "foundation": {
+        "fdcId": 2710819,
+        "description": "Chia seeds, dry, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 170554,
+        "description": "Seeds, chia seeds, dried"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 12014,
+      "foundation": {
+        "fdcId": 2515380,
+        "description": "Seeds, pumpkin seeds (pepitas), raw"
+      },
+      "sr_legacy": {
+        "fdcId": 170556,
+        "description": "Seeds, pumpkin and squash seed kernels, dried"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 12036,
+      "foundation": {
+        "fdcId": 2515381,
+        "description": "Seeds, sunflower seed, kernel, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 170562,
+        "description": "Seeds, sunflower seed kernels, dried"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 12061,
+      "foundation": {
+        "fdcId": 2346393,
+        "description": "Nuts, almonds, whole, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 170567,
+        "description": "Nuts, almonds"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 12087,
+      "foundation": {
+        "fdcId": 2515374,
+        "description": "Nuts, cashew nuts, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 170162,
+        "description": "Nuts, cashew nuts, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 12120,
+      "foundation": {
+        "fdcId": 2515375,
+        "description": "Nuts, hazelnuts or filberts, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 170581,
+        "description": "Nuts, hazelnuts or filberts"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 12131,
+      "foundation": {
+        "fdcId": 2515378,
+        "description": "Nuts, macadamia nuts, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 170178,
+        "description": "Nuts, macadamia nuts, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 12142,
+      "foundation": {
+        "fdcId": 2346395,
+        "description": "Nuts, pecans, halves, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 170182,
+        "description": "Nuts, pecans"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 12147,
+      "foundation": {
+        "fdcId": 2346392,
+        "description": "Nuts, pine nuts, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 170591,
+        "description": "Nuts, pine nuts, dried"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 12151,
+      "foundation": {
+        "fdcId": 2515379,
+        "description": "Nuts, pistachio nuts, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 170184,
+        "description": "Nuts, pistachio nuts, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 12155,
+      "foundation": {
+        "fdcId": 2346394,
+        "description": "Nuts, walnuts, English, halves, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 170187,
+        "description": "Nuts, walnuts, english"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 12195,
+      "foundation": {
+        "fdcId": 2262074,
+        "description": "Almond butter, creamy"
+      },
+      "sr_legacy": {
+        "fdcId": 168588,
+        "description": "Nuts, almond butter, plain, without salt added"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_b12"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 12220,
+      "foundation": {
+        "fdcId": 2262075,
+        "description": "Flaxseed, ground"
+      },
+      "sr_legacy": {
+        "fdcId": 169414,
+        "description": "Seeds, flaxseed"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_b12"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 12537,
+      "foundation": {
+        "fdcId": 325524,
+        "description": "Seeds, sunflower seed kernels, dry roasted, with salt added"
+      },
+      "sr_legacy": {
+        "fdcId": 169418,
+        "description": "Seeds, sunflower seed kernels, dry roasted, with salt added"
+      },
+      "names_read_alike": true,
+      "filled_fields": ["cholesterol_content", "vitamin_d", "vitamin_b12"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 12563,
+      "foundation": {
+        "fdcId": 323294,
+        "description": "Nuts, almonds, dry roasted, with salt added"
+      },
+      "sr_legacy": {
+        "fdcId": 168596,
+        "description": "Nuts, almonds, dry roasted, with salt added"
+      },
+      "names_read_alike": true,
+      "filled_fields": ["cholesterol_content", "vitamin_d", "vitamin_b12"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 13236,
+      "foundation": {
+        "fdcId": 746763,
+        "description": "Beef, short loin, t-bone steak, bone-in, separable lean only, trimmed to 1/8\" fat, choice, cooked, grilled"
+      },
+      "sr_legacy": {
+        "fdcId": 168620,
+        "description": "Beef, short loin, t-bone steak, bone-in, separable lean only, trimmed to 1/8\" fat, choice, cooked, grilled"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 13468,
+      "foundation": {
+        "fdcId": 746762,
+        "description": "Beef, short loin, porterhouse steak, separable lean only, trimmed to 1/8\" fat, select, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 168640,
+        "description": "Beef, short loin, porterhouse steak, separable lean only, trimmed to 1/8\" fat, select, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 14091,
+      "foundation": {
+        "fdcId": 1999631,
+        "description": "Almond milk, unsweetened, plain, shelf stable"
+      },
+      "sr_legacy": {
+        "fdcId": 174832,
+        "description": "Beverages, almond milk, unsweetened, shelf stable"
+      },
+      "names_read_alike": false,
+      "filled_fields": ["cholesterol_content", "vitamin_c"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 15033,
+      "foundation": {
+        "fdcId": 333374,
+        "description": "Fish, haddock, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 171964,
+        "description": "Fish, haddock, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "sugar_content",
+        "vitamin_a",
+        "vitamin_c",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 15066,
+      "foundation": {
+        "fdcId": 333476,
+        "description": "Fish, pollock, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 175130,
+        "description": "Fish, pollock, Alaska, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": ["fiber_content", "sugar_content", "folate"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 15121,
+      "foundation": {
+        "fdcId": 334194,
+        "description": "Fish, tuna, light, canned in water, drained solids"
+      },
+      "sr_legacy": {
+        "fdcId": 173709,
+        "description": "Fish, tuna, light, canned in water, drained solids"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "folate"
+      ],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 15234,
+      "foundation": {
+        "fdcId": 2684445,
+        "description": "Fish, catfish, farm raised, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 175165,
+        "description": "Fish, catfish, channel, farmed, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "trans_fat_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 15236,
+      "foundation": {
+        "fdcId": 2684441,
+        "description": "Fish, salmon, Atlantic, farm raised, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 175167,
+        "description": "Fish, salmon, Atlantic, farmed, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 16087,
+      "foundation": {
+        "fdcId": 2515376,
+        "description": "Peanuts, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 172430,
+        "description": "Peanuts, all types, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 16098,
+      "foundation": {
+        "fdcId": 2262072,
+        "description": "Peanut butter, creamy"
+      },
+      "sr_legacy": {
+        "fdcId": 174266,
+        "description": "Peanut butter, smooth style, with salt"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_b12"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 16115,
+      "foundation": {
+        "fdcId": 1104766,
+        "description": "Flour, soy, full-fat"
+      },
+      "sr_legacy": {
+        "fdcId": 174273,
+        "description": "Soy flour, full-fat, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 16117,
+      "foundation": {
+        "fdcId": 1104705,
+        "description": "Flour, soy, defatted"
+      },
+      "sr_legacy": {
+        "fdcId": 174275,
+        "description": "Soy flour, defatted"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 16158,
+      "foundation": {
+        "fdcId": 321358,
+        "description": "Hummus, commercial"
+      },
+      "sr_legacy": {
+        "fdcId": 174289,
+        "description": "Hummus, commercial"
+      },
+      "names_read_alike": true,
+      "filled_fields": ["cholesterol_content", "vitamin_d", "vitamin_b12"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 16222,
+      "foundation": {
+        "fdcId": 1999630,
+        "description": "Soy milk, unsweetened, plain, shelf stable"
+      },
+      "sr_legacy": {
+        "fdcId": 175215,
+        "description": "Soymilk (all flavors), unsweetened, with added calcium, vitamins A and D"
+      },
+      "names_read_alike": false,
+      "filled_fields": ["cholesterol_content", "vitamin_c"],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 17224,
+      "foundation": {
+        "fdcId": 2727570,
+        "description": "Lamb, ground, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 174370,
+        "description": "Lamb, ground, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 19335,
+      "foundation": {
+        "fdcId": 746784,
+        "description": "Sugars, granulated"
+      },
+      "sr_legacy": {
+        "fdcId": 169655,
+        "description": "Sugars, granulated"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 20008,
+      "foundation": {
+        "fdcId": 2512378,
+        "description": "Buckwheat, whole grain"
+      },
+      "sr_legacy": {
+        "fdcId": 170286,
+        "description": "Buckwheat"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 20011,
+      "foundation": {
+        "fdcId": 2512374,
+        "description": "Flour, buckwheat"
+      },
+      "sr_legacy": {
+        "fdcId": 170687,
+        "description": "Buckwheat flour, whole-groat"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 20012,
+      "foundation": {
+        "fdcId": 2710820,
+        "description": "Bulgur, dry, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 170688,
+        "description": "Bulgur, dry"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 20031,
+      "foundation": {
+        "fdcId": 2512379,
+        "description": "Millet, whole grain"
+      },
+      "sr_legacy": {
+        "fdcId": 169702,
+        "description": "Millet, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 20036,
+      "foundation": {
+        "fdcId": 2512380,
+        "description": "Rice, brown, long grain, unenriched, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 169703,
+        "description": "Rice, brown, long-grain, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 20038,
+      "foundation": {
+        "fdcId": 2346396,
+        "description": "Oats, whole grain, rolled, old fashioned"
+      },
+      "sr_legacy": {
+        "fdcId": 169705,
+        "description": "Oats"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 20061,
+      "foundation": {
+        "fdcId": 790214,
+        "description": "Flour, rice, white, unenriched"
+      },
+      "sr_legacy": {
+        "fdcId": 169714,
+        "description": "Rice flour, white, unenriched"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 20080,
+      "foundation": {
+        "fdcId": 790085,
+        "description": "Flour, whole wheat, unenriched"
+      },
+      "sr_legacy": {
+        "fdcId": 168893,
+        "description": "Wheat flour, whole-grain"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 20081,
+      "foundation": {
+        "fdcId": 789890,
+        "description": "Flour, wheat, all-purpose, enriched, bleached"
+      },
+      "sr_legacy": {
+        "fdcId": 168894,
+        "description": "Wheat flour, white, all-purpose, enriched, bleached"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 20083,
+      "foundation": {
+        "fdcId": 790146,
+        "description": "Flour, bread, white, enriched, unbleached"
+      },
+      "sr_legacy": {
+        "fdcId": 168896,
+        "description": "Wheat flour, white, bread, enriched"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 20088,
+      "foundation": {
+        "fdcId": 2710821,
+        "description": "Wild rice, dry, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 169726,
+        "description": "Wild rice, raw"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 20090,
+      "foundation": {
+        "fdcId": 1104812,
+        "description": "Flour, rice, brown"
+      },
+      "sr_legacy": {
+        "fdcId": 168898,
+        "description": "Rice flour, brown"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 20130,
+      "foundation": {
+        "fdcId": 2512376,
+        "description": "Flour, barley"
+      },
+      "sr_legacy": {
+        "fdcId": 169739,
+        "description": "Barley flour or meal"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 20140,
+      "foundation": {
+        "fdcId": 2003587,
+        "description": "Flour, spelt, whole grain"
+      },
+      "sr_legacy": {
+        "fdcId": 169745,
+        "description": "Spelt, uncooked"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 20444,
+      "foundation": {
+        "fdcId": 2512381,
+        "description": "Rice, white, long grain, unenriched, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 169756,
+        "description": "Rice, white, long-grain, regular, raw, unenriched"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "folate",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 20481,
+      "foundation": {
+        "fdcId": 790018,
+        "description": "Flour, wheat, all-purpose, unenriched, unbleached"
+      },
+      "sr_legacy": {
+        "fdcId": 169761,
+        "description": "Wheat flour, white, all-purpose, unenriched"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "saturated_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 20581,
+      "foundation": {
+        "fdcId": 789951,
+        "description": "Flour, wheat, all-purpose, enriched, unbleached"
+      },
+      "sr_legacy": {
+        "fdcId": 168936,
+        "description": "Wheat flour, white, all-purpose, enriched, unbleached"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "cholesterol_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 23359,
+      "foundation": {
+        "fdcId": 746761,
+        "description": "Beef, round, top round roast, boneless, separable lean only, trimmed to 0\" fat, select, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 173997,
+        "description": "Beef, round, top round roast, boneless, separable lean only, trimmed to 0\" fat, select, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "sugar_content",
+        "vitamin_a",
+        "vitamin_c",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 23362,
+      "foundation": {
+        "fdcId": 746760,
+        "description": "Beef, round, eye of round roast, boneless, separable lean only, trimmed to 0\" fat, select, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 171761,
+        "description": "Beef, round, eye of round roast, boneless, separable lean only, trimmed to 0\" fat, select, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 23377,
+      "foundation": {
+        "fdcId": 746758,
+        "description": "Beef, loin, tenderloin roast, separable lean only, boneless, trimmed to 0\" fat, select, cooked, roasted"
+      },
+      "sr_legacy": {
+        "fdcId": 174006,
+        "description": "Beef, loin, tenderloin roast, separable lean only, boneless, trimmed to 0\" fat, select, cooked, roasted"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 23385,
+      "foundation": {
+        "fdcId": 746759,
+        "description": "Beef, loin, top loin steak, boneless, lip-on, separable lean only, trimmed to 1/8\" fat, choice, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 174010,
+        "description": "Beef, loin, top loin steak, boneless, lip-on, separable lean only, trimmed to 1/8\" fat, choice, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "sugar_content",
+        "vitamin_a",
+        "vitamin_c",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 23562,
+      "foundation": {
+        "fdcId": 2514743,
+        "description": "Beef, ground, 90% lean meat / 10% fat, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 174030,
+        "description": "Beef, ground, 90% lean meat / 10% fat, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 23572,
+      "foundation": {
+        "fdcId": 2514744,
+        "description": "Beef, ground, 80% lean meat / 20% fat, raw"
+      },
+      "sr_legacy": {
+        "fdcId": 174036,
+        "description": "Beef, ground, 80% lean meat / 20% fat, raw"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "sugar_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate"
+      ],
+      "merged_row_ships": true,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 36408,
+      "foundation": {
+        "fdcId": 334720,
+        "description": "Restaurant, Latino, pupusas con frijoles (pupusas, bean)"
+      },
+      "sr_legacy": {
+        "fdcId": 167661,
+        "description": "Restaurant, Latino, pupusas con frijoles (pupusas, bean)"
+      },
+      "names_read_alike": true,
+      "filled_fields": [],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 36412,
+      "foundation": {
+        "fdcId": 334628,
+        "description": "Restaurant, Latino, tamale, pork"
+      },
+      "sr_legacy": {
+        "fdcId": 168067,
+        "description": "Restaurant, Latino, tamale, pork"
+      },
+      "names_read_alike": true,
+      "filled_fields": ["vitamin_d", "vitamin_c", "folate"],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 36602,
+      "foundation": {
+        "fdcId": 334536,
+        "description": "Restaurant, Chinese, fried rice, without meat"
+      },
+      "sr_legacy": {
+        "fdcId": 167668,
+        "description": "Restaurant, Chinese, fried rice, without meat"
+      },
+      "names_read_alike": true,
+      "filled_fields": [
+        "fiber_content",
+        "cholesterol_content",
+        "vitamin_c",
+        "vitamin_e",
+        "vitamin_b6",
+        "vitamin_b12",
+        "folate"
+      ],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 36622,
+      "foundation": {
+        "fdcId": 746774,
+        "description": "Restaurant, Chinese, sweet and sour pork"
+      },
+      "sr_legacy": {
+        "fdcId": 168082,
+        "description": "Restaurant, Chinese, sweet and sour pork"
+      },
+      "names_read_alike": true,
+      "filled_fields": [],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    },
+    {
+      "ndbNumber": 43382,
+      "foundation": {
+        "fdcId": 2003594,
+        "description": "Cranberry juice, not fortified, from concentrate, shelf stable"
+      },
+      "sr_legacy": {
+        "fdcId": 168117,
+        "description": "Cranberry juice, unsweetened"
+      },
+      "names_read_alike": false,
+      "filled_fields": [
+        "fiber_content",
+        "saturated_fat_content",
+        "trans_fat_content",
+        "cholesterol_content",
+        "vitamin_d",
+        "vitamin_a",
+        "vitamin_e",
+        "vitamin_b12",
+        "unsaturated_fat_content"
+      ],
+      "merged_row_ships": false,
+      "verdict": null,
+      "reason_code": null,
+      "note": null
+    }
+  ]
+}
