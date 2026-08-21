@@ -295,6 +295,27 @@ describe("the bundled search index", () => {
       expect(oil?.merged_from?.[0].filled_fields).toContain("calories");
   });
 
+  it("still stops the cream ladder a rung below double cream", () => {
+    // ADR-0046's #116 Amendment admits a curated stand-in for double cream on
+    // the strength of this absence: the UK standard is not less than 48% milk
+    // fat, and the fattiest cream any table carries is 35.6 g. The failure this
+    // guards is the quiet one — a mirror refresh that adds a 48% cream would
+    // make the stand-in a branded record standing in front of a real reference
+    // food, and nothing else in the suite would notice.
+    const creams = index.foods.filter(
+      (row) =>
+        /^Cream,/.test(row.description) && (row.macros.fat_content ?? 0) >= 25
+    );
+    expect(creams.map((row) => row.description)).toEqual([
+      "Cream, fluid, light whipping",
+      "Cream, heavy",
+    ]);
+    expect(Math.max(...creams.map((row) => row.macros.fat_content ?? 0))).toBe(
+      35.6
+    );
+    expect(descriptionsFor("double cream")).toEqual([]);
+  });
+
   it("offers no dry-basis assay as a food", () => {
     // The seventeen `Beans, Dry, … (0% moisture)` records: per 100 g of dry
     // matter, published to compare cultivars, and not a food anyone eats

@@ -58,6 +58,74 @@ describe("curatedMatches", () => {
   });
 });
 
+// Double cream is the second entry (#116), and the one that shows the list is
+// about a FOOD rather than a name: USDA carries cream at four fat levels and
+// stops at 35.6 g, where the UK compositional standard for double cream starts
+// at 48. The queries below are the ones that could go wrong — a UK shelf name
+// must land, and the American name for a food USDA DOES carry must not.
+describe("curatedMatches, on double cream", () => {
+  it("returns the stand-in for the name a UK user types", () => {
+    const matches = curatedMatches(["double cream"]);
+    expect(matches).toHaveLength(1);
+    expect(matches[0].entry.food).toBe("double cream");
+    expect(matches[0].exact).toBe(true);
+  });
+
+  it("lands on the thick variants the same shelf sells", () => {
+    expect(curatedMatches(["extra thick double cream"])[0]?.exact).toBe(true);
+    expect(curatedMatches(["thick double cream"])[0]?.exact).toBe(true);
+  });
+
+  it("leaves `heavy cream` to USDA, which has that food", () => {
+    // `Cream, heavy` is a real reference food at 35.6 g fat. Aliasing the
+    // American name onto a 50.5 g British one would swap a record the corpus
+    // holds for a branded stand-in — the opposite of what ADR-0046 §1 admits.
+    expect(curatedMatches(["heavy cream"])).toEqual([]);
+  });
+
+  it("leaves `clotted cream` alone, curated or not", () => {
+    // Absent from every table too, and deliberately NOT curated (#116 §7): a
+    // second absent cream is a second admission, not a free ride on this one.
+    expect(curatedMatches(["clotted cream"])).toEqual([]);
+  });
+
+  it("treats a bare `cream` as partial, so USDA keeps the lead for it", () => {
+    const matches = curatedMatches(["cream"]);
+    expect(matches).toHaveLength(1);
+    expect(matches[0].entry.food).toBe("double cream");
+    expect(matches[0].exact).toBe(false);
+  });
+});
+
+describe("the double cream payload", () => {
+  const payload = curatedMatches(["double cream"])[0].payload;
+
+  it("is keyed by the real barcode", () => {
+    expect(payload.entity).toBe("gtin:5010251341352");
+  });
+
+  it("carries the panel the record was vetted on", () => {
+    const macros = macrosFromNutrition(
+      payload.attributes["nutrition/info"] as NutritionInfo
+    );
+    expect(macros).toEqual({
+      calories: 467,
+      protein: 1.5,
+      fat: 50.5,
+      carbs: 1.6,
+    });
+  });
+
+  it("goes through the ordinary OFF mapper, so derived readings work", () => {
+    const assessment = payload.attributes["food/assessment"] as {
+      nova_group?: number;
+      allergens?: string[];
+    };
+    expect(assessment.nova_group).toBe(1);
+    expect(assessment.allergens).toEqual(["en:milk"]);
+  });
+});
+
 describe("the mapped payload", () => {
   const payload = curatedMatches(["cacao nibs"])[0].payload;
 

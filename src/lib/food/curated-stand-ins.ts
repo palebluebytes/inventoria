@@ -142,4 +142,54 @@ export const CURATED_STAND_INS: readonly CuratedStandIn[] = [
       },
     },
   },
+  {
+    food: "double cream",
+    // "cream" is deliberately NOT an alias — it prefix-matches instead, so
+    // USDA's four creams keep the lead for that query. "heavy cream" is
+    // deliberately not one either: that food IS in the corpus, at 35.6 g fat,
+    // and aliasing the American name onto a 50.5 g British one would swap a
+    // reference food for a branded stand-in.
+    aliases: ["double cream", "extra thick double cream", "thick double cream"],
+    captured: "2026-08-21",
+    absence:
+      "No table carries a cream at the UK's compositional standard of not less than 48% milk fat. Searched over the complete mirrored archives, the fattiest cream is `Cream, heavy` at 35.6 g fat in Foundation (fdcId 2346386) and in Survey FNDDS, and `Cream, fluid, heavy whipping` at 36.1 g in SR Legacy; CIQUAL 2025 stops at `Creme d'Isigny, >= 35% MG`. Every table climbs the cream ladder and halts a rung below this food, understating the macro that dominates it by about a quarter (research note #116).",
+    corroboration:
+      "Median of 58 UK and Irish double-cream records on OFF, 23 of them single-ingredient: 467 kcal, 50.5 g fat, 31.4 g saturated, 1.6 g carbohydrate, 1.5 g protein per 100 g. Independently, USDA's own halves recombine to that panel: `Cream, heavy` with `Butter oil, anhydrous` at 76.7:23.3 gives 467 kcal and 30.1 g saturated, and butter oil with skim milk at 50.7:49.3 gives 461 kcal and 31.4 g saturated. Energy transfers here where it did not for cacao nibs, because cream carries no fibre for the label convention and USDA's Atwater factors to disagree about. Carbohydrate is the figure that does not transfer: USDA computes it by difference and lands at 2.4-2.9 g against the label's 1.6.",
+    snapshot: {
+      code: "5010251341352",
+      status: "success",
+      product: {
+        product_name: "Double Cream",
+        completeness: 0.7875,
+        nutriments: {
+          "energy-kcal_100g": 467,
+          fat_100g: 50.5,
+          "saturated-fat_100g": 31.4,
+          carbohydrates_100g: 1.6,
+          sugars_100g: 1.6,
+          proteins_100g: 1.5,
+          sodium_100g: 0.04,
+        },
+        brands: "Morrisons",
+        categories: "Creams, Double cream",
+        ingredients_text: "pasteurised double cream",
+        nova_group: 1,
+        nova_groups_tags: ["en:1-unprocessed-or-minimally-processed-foods"],
+        nutriscore_grade: "d",
+        nutrient_levels: {
+          fat: "high",
+          salt: "low",
+          "saturated-fat": "high",
+          sugars: "low",
+        },
+        allergens_tags: ["en:milk"],
+        image_front_url:
+          "https://images.openfoodfacts.org/images/products/501/025/134/1352/front_en.3.400.jpg",
+        image_nutrition_url:
+          "https://images.openfoodfacts.org/images/products/501/025/134/1352/nutrition_en.5.400.jpg",
+        image_ingredients_url:
+          "https://images.openfoodfacts.org/images/products/501/025/134/1352/ingredients_en.12.400.jpg",
+      },
+    },
+  },
 ];
