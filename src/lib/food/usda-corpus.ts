@@ -88,6 +88,31 @@ export interface UsdaIndexRow {
 }
 
 /**
+ * The hand-written half of the Vocabulary map (ADR-0049's #141 Amendment): the
+ * everyday names OFF's taxonomy does not carry either.
+ *
+ * `gammon`, `mange tout`, `caster sugar` — eight British food names that name a
+ * food this corpus holds and that neither the corpus nor OFF uses. It is a
+ * SECTION of its own rather than eight more keys in `vocabulary_off`, and the
+ * reason is the licence: the derived map is a substantial extraction from OFF
+ * and so a derivative database under ODbL, and these words are nobody's
+ * extraction. It carries a `source` and no `licence`, `url` or `sha256`, because
+ * there is nothing upstream to pin and the absence is what says this half is not
+ * the derivative.
+ *
+ * Every entry is admitted against four conditions, three of them re-measured at
+ * every generation — the key retrieves nothing, `vocabulary_off` does not
+ * already reach it, and the search leads with the exact row the entry recorded.
+ * The evidence for each lives in `src/lib/food/food-vocabulary.ts` and stays
+ * there: the artifact carries the map alone.
+ */
+export interface LocalVocabularyMap {
+  source: string;
+  /** Phrase that retrieves nothing -> the phrases a human found that do. */
+  expansions: Record<string, string[]>;
+}
+
+/**
  * The Vocabulary map derived from Open Food Facts' ingredients taxonomy
  * (ADR-0049 §3): a phrase the corpus does not use, mapped to the phrases it does.
  *
@@ -105,15 +130,17 @@ export interface UsdaIndexRow {
  * reason: the map is a substantial extraction from OFF and therefore a
  * derivative database under ODbL, and keeping it distinct and self-describing
  * makes this file a collective work with one ODbL component (ADR-0049 §4).
+ *
+ * It is the hand-written shape plus the three fields a derivative owes: the
+ * licence it is offered under, the url it came from, and the digest of the bytes
+ * it was derived from. Composed rather than restated, so what separates the two
+ * halves is exactly those three fields.
  */
-export interface VocabularyMap {
+export interface VocabularyMap extends LocalVocabularyMap {
   licence: string;
-  source: string;
   url: string;
   /** The digest of the taxonomy the map was derived from. OFF publishes no releases. */
   sha256: string;
-  /** Phrase that retrieves nothing -> the phrases in its OFF group that do. */
-  expansions: Record<string, string[]>;
 }
 
 /** The committed Search index artifact. */
@@ -122,6 +149,7 @@ export interface SearchIndex {
   schema_version: number;
   generated_from: ArchiveSource[];
   vocabulary_off: VocabularyMap;
+  vocabulary_local: LocalVocabularyMap;
   foods: UsdaIndexRow[];
 }
 
@@ -175,14 +203,26 @@ export interface SearchCorpus {
   foods: SearchableFood[];
   /**
    * ADR-0049's Vocabulary map, in the form the fallback reads it: a phrase this
-   * corpus retrieves nothing for, mapped to the phrases it does. Carried here
-   * rather than looked up separately because it ships inside the same artifact
-   * and was validated against these very rows (ADR-0049 §4).
+   * corpus retrieves nothing for, mapped to the phrases it does. Both halves of
+   * it — the derived section and the hand-written one — merged, because the
+   * fallback reads one map. Carried here rather than looked up separately
+   * because it ships inside the same artifact and was validated against these
+   * very rows (ADR-0049 §4).
    */
   vocabulary: VocabularyMap["expansions"];
 }
 
-/** Reads a parsed Search index into the searchable corpus. Pure. */
+/**
+ * Reads a parsed Search index into the searchable corpus. Pure.
+ *
+ * The two vocabulary sections become ONE map, which is the whole of what the
+ * hand-written half costs the reader: they are kept apart in the artifact for a
+ * licensing reason (ADR-0049 §4) and the fallback has no business knowing which
+ * half a key came from. The derived keys go in first, so a phrase both halves
+ * offered would be named by OFF's key — a collision the generator forbids
+ * outright, since a hand entry is admitted only where the derived map reaches
+ * nothing.
+ */
 export function buildSearchCorpus(index: SearchIndex): SearchCorpus {
   return {
     foods: index.foods.map((row) => ({
@@ -190,7 +230,10 @@ export function buildSearchCorpus(index: SearchIndex): SearchCorpus {
       name: readReferenceFoodName(row.description),
       also: (row.also ?? []).map(readReferenceFoodName),
     })),
-    vocabulary: index.vocabulary_off.expansions,
+    vocabulary: {
+      ...index.vocabulary_off.expansions,
+      ...index.vocabulary_local.expansions,
+    },
   };
 }
 

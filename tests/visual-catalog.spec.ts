@@ -32,6 +32,10 @@ test.describe("Visual Catalog Generator", () => {
             sha256: "fixture",
             expansions: {},
           },
+          vocabulary_local: {
+            source: "Inventoria, hand-written",
+            expansions: {},
+          },
           foods: [
             {
               fdcId: 171705,

@@ -67,7 +67,9 @@ import {
   fetchPublishedArchives,
 } from "./usda-releases.mjs";
 import {
+  admitLocalVocabulary,
   assertVocabularyHolds,
+  buildLocalVocabularySection,
   buildVocabularySection,
   deriveVocabulary,
   describeVocabulary,
@@ -85,11 +87,13 @@ const ARTIFACT_DIR = join(ROOT, "public", "usda");
  * Bumped when either artifact's shape changes, so a reader can refuse an old one.
  *
  * 2 adds the search index's `vocabulary_off` section (ADR-0049 §4). 3 adds a
- * row's `also`, the names the twin merge discarded (#137). Both files carry the
- * version because both are generated together from one corpus, and a pair that
- * disagreed about their version would be the bug the number exists to catch.
+ * row's `also`, the names the twin merge discarded (#137). 4 adds the
+ * `vocabulary_local` section beside it, the hand-written half the ODbL
+ * derivative does not cover (#141). Both files carry the version because both
+ * are generated together from one corpus, and a pair that disagreed about their
+ * version would be the bug the number exists to catch.
  */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 /**
  * The datasets the corpus is built from, in the manifest's own naming. Survey is
@@ -147,8 +151,8 @@ export const ROW_MACRO_KEYS = [
 
 /**
  * The app's own logic, in the shape `loadAppModule` hands it over: exactly what
- * `usda-app-module.mjs` names in `APP_EXPORTS`, `RANKING_EXPORTS` and
- * `VOCABULARY_EXPORTS`, and nothing this script is allowed to reimplement.
+ * `usda-app-module.mjs` names in its six rosters, and nothing this script is
+ * allowed to reimplement.
  *
  * Described here rather than beside the loader because it is stated in terms of
  * the shapes above — `BundleFood`, `MergedSource`, `Survivor` — which belong to
@@ -171,6 +175,10 @@ export const ROW_MACRO_KEYS = [
  * @property {(description: string) => object} readReferenceFoodName
  * @property {(query: string) => (name: object) => { tier: number }} compileReferenceFoodQuery
  * @property {readonly string[]} DENIED_VOCABULARY_TAGS
+ * @property {readonly { key: string, targets: readonly string[], lands_on: string, why: string }[]} LOCAL_VOCABULARY
+ * @property {number} LOCAL_VOCABULARY_CEILING
+ * @property {(index: object) => { foods: object[] }} buildSearchCorpus
+ * @property {(corpus: object, query: string) => { hits: { row: { description: string } }[] }} searchIndexRows
  * @property {readonly TwinLedgerEntry[]} TWIN_LEDGER
  * @property {ReadonlySet<number>} SPLIT_TWIN_NDB_NUMBERS
  */
@@ -684,13 +692,22 @@ export function buildNutrientEntry({ food }) {
  *
  * The vocabulary is passed in rather than derived here because it is derived
  * FROM the finished corpus (ADR-0049 §3): the effect filter asks what these
- * survivors retrieve, so it cannot run until they are known.
+ * survivors retrieve, so it cannot run until they are known. The hand-written
+ * section rides in the same way, though for the opposite reason — it is not
+ * derived from anything, and it is CHECKED against the index this returns.
  *
  * @param {Survivor[]} survivors
  * @param {AppModule} app
  * @param {ReturnType<typeof buildVocabularySection>} vocabulary_off
+ * @param {ReturnType<typeof buildLocalVocabularySection>} vocabulary_local
  */
-export function buildArtifacts(survivors, archives, app, vocabulary_off) {
+export function buildArtifacts(
+  survivors,
+  archives,
+  app,
+  vocabulary_off,
+  vocabulary_local
+) {
   const dictionary = collectNutrientDictionary(survivors.map((s) => s.food));
   const generated_from = generatedFrom(archives);
   const nutrients = {};
@@ -705,6 +722,7 @@ export function buildArtifacts(survivors, archives, app, vocabulary_off) {
       schema_version: SCHEMA_VERSION,
       generated_from,
       vocabulary_off,
+      vocabulary_local,
       foods: survivors.map((survivor) => buildIndexRow(survivor, app)),
     },
     nutrientStore: {
@@ -887,8 +905,12 @@ async function main() {
     survivors,
     archives,
     app,
-    buildVocabularySection(vocabulary.expansions, manifest.vocabulary)
+    buildVocabularySection(vocabulary.expansions, manifest.vocabulary),
+    buildLocalVocabularySection(app.LOCAL_VOCABULARY)
   );
+  // Nothing is written until this returns: an entry whose expected row has moved
+  // stops the generation (ADR-0049's #141 Amendment).
+  const hand_written = admitLocalVocabulary(index, app);
   const indexText = serialiseIndex(index);
   const nutrientText = serialiseNutrientStore(nutrientStore);
 
@@ -933,7 +955,7 @@ async function main() {
       `(${(nutrientCount / survivors.length).toFixed(1)} per food)`
   );
 
-  console.log(`\n${describeVocabulary(vocabulary)}`);
+  console.log(`\n${describeVocabulary(vocabulary)}\n${hand_written}`);
 
   console.log("");
   for (const [label, text] of [

@@ -222,3 +222,130 @@ export const DENIED_VOCABULARY_TAGS: readonly string[] = [
   "en:wine",
   "en:ōhelo-berry",
 ];
+
+// ---------------------------------------------------------------------------
+// The hand-written vocabulary (ADR-0049's #141 Amendment)
+// ---------------------------------------------------------------------------
+//
+// `gammon` returns nothing, and so do `mange tout`, `porridge oats`,
+// `double cream`, `natural yoghurt`, `plain flour`, `caster sugar` and
+// `jacket potato`. Every one of them names a food the corpus holds, under a name
+// neither the corpus nor OFF's taxonomy uses — #130 measured them among the
+// twenty everyday British queries, and #139/#140's derived map answered nine of
+// the seventeen that failed, leaving these eight.
+//
+// A hand list is the WRONG shape at the scale of the 236 misses ADR-0049 rejects
+// it for, and the reason there is not length: nobody would have written the right
+// 236, because the derived classes (spacing, word order, possessives, diacritics,
+// loanwords) are ones a hand list would not have thought to enumerate. Eight
+// regional synonyms, each individually verified, is the shape a hand list IS
+// right for — and OFF's file, having been asked, does not know them.
+//
+// It is a second SECTION rather than eight more keys in the derived one, because
+// the derived map is a substantial extraction from OFF and therefore an ODbL
+// derivative database (ADR-0049 §4). These words are nobody's extraction, and
+// keeping them in a section of their own is what leaves them outside it.
+// ---------------------------------------------------------------------------
+
+/**
+ * One hand-written vocabulary entry: a phrase this corpus answers nothing for,
+ * the phrases it does answer, and the row a search for the key is expected to
+ * lead with.
+ *
+ * Four admissions govern an entry, and THREE OF THEM ARE ENFORCED AT GENERATION
+ * (`assertLocalVocabularyHolds`), so a corpus refresh that moves an answer fails
+ * the build rather than silently redirecting `caster sugar`:
+ *
+ *  1. The key retrieves nothing on its own.
+ *  2. The key's targets retrieve, and lead with {@link landsOn}.
+ *  3. No OFF group already covers the key — a derived answer is preferred to a
+ *     written one wherever the taxonomy has an opinion.
+ *  4. The key is a name in everyday use, not a brand and not a dish. That one no
+ *     machine can check, so {@link why} is where a human asserts it.
+ */
+export interface LocalVocabularyEntry {
+  /** The phrase that retrieves nothing. Lower-case, as the map's keys are. */
+  key: string;
+  /**
+   * The phrases the corpus DOES use, ranked against in the key's place. Phrases
+   * rather than `fdcId`s, for ADR-0049 §3's reason: freezing rows would pin the
+   * ranking, and a refresh would silently redirect the key.
+   */
+  targets: readonly string[];
+  /**
+   * The description a search for {@link key} is expected to lead with, once the
+   * entry is in the map. Admission 2's whole point: this is a claim about the
+   * finished corpus AND the shipped ranking, re-measured every generation.
+   */
+  landsOn: string;
+  /** Admission 4, asserted by a human: why this is a name people type. */
+  why: string;
+}
+
+/**
+ * The ceiling on the hand list, in the ADR-0046 §6 style.
+ *
+ * **Twenty.** Not a cap to raise: reaching it says the vocabulary problem is
+ * bigger than a hand list and wants re-deriving — a second taxonomy, a wider
+ * source, a different derivation — which is a decision no generation-time check
+ * can make. Enforced at generation anyway, because unlike ADR-0046's list this
+ * one is read by a machine before it is read by a reviewer.
+ */
+export const LOCAL_VOCABULARY_CEILING = 20;
+
+/**
+ * The eight everyday British food names OFF's taxonomy does not carry (#141).
+ *
+ * Ordered by key, as the derived map is, so an addition diffs as one entry.
+ */
+export const LOCAL_VOCABULARY: readonly LocalVocabularyEntry[] = [
+  {
+    key: "caster sugar",
+    targets: ["sugars granulated"],
+    landsOn: "Sugars, granulated",
+    why: "The British shelf name for the fine-ground white sugar sold as granulated sugar; the grind differs, the composition does not.",
+  },
+  {
+    key: "double cream",
+    targets: ["cream heavy"],
+    landsOn: "Cream, heavy",
+    why: "The British grade name for the thickest pouring cream. `Cream, heavy` is the nearest grade USDA carries and the panel is its own, not double cream's — US heavy cream is legally ~36% fat where double cream is ~48%.",
+  },
+  {
+    key: "gammon",
+    targets: ["pork cured ham"],
+    landsOn:
+      "Pork, cured, ham, center slice, country-style, separable lean only, raw",
+    why: "The British name for cured leg of pork sold raw, to be cooked at home; the American register calls the same cut ham.",
+  },
+  {
+    key: "jacket potato",
+    targets: ["potatoes baked"],
+    landsOn: "Potatoes, baked, flesh, without salt",
+    why: "The British name for a whole baked potato, on every pub menu and freezer aisle in the country.",
+  },
+  {
+    key: "mange tout",
+    targets: ["peas edible podded"],
+    landsOn: "Peas, edible-podded, raw",
+    why: "The British name, borrowed from French, for the flat pea eaten pod and all; USDA files it under the description rather than a name.",
+  },
+  {
+    key: "natural yoghurt",
+    targets: ["yogurt plain whole milk"],
+    landsOn: "Yogurt, plain, whole milk",
+    why: "The British shelf name for unsweetened, unflavoured yoghurt — `natural` where the American spelling says `plain`, and the British spelling of the word besides.",
+  },
+  {
+    key: "plain flour",
+    targets: ["all purpose flour"],
+    landsOn: "Flour, wheat, all-purpose, enriched, bleached",
+    why: "The British name for wheat flour with no raising agent, which is what all-purpose flour is. The target is deliberately not `wheat flour white all purpose`, which leads with the SELF-RISING row — #130 §6's case, still open.",
+  },
+  {
+    key: "porridge oats",
+    targets: ["oats rolled"],
+    landsOn: "Oats, whole grain, rolled, old fashioned",
+    why: "The British name for the rolled oats porridge is made from; `oatmeal` names the cooked dish here and the raw grain there.",
+  },
+];

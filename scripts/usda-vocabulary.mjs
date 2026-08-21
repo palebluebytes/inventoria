@@ -302,6 +302,187 @@ export function buildVocabularySection(expansions, pinned) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// The hand-written section (ADR-0049's #141 Amendment)
+// ---------------------------------------------------------------------------
+
+/**
+ * The `vocabulary_local` section as the artifact carries it: the same
+ * phrase→phrases map the derived section ships, and nothing else.
+ *
+ * A section of its own rather than eight more keys in `vocabulary_off`, and the
+ * reason is the licence ADR-0049 §4 wrote it in for. The derived map is a
+ * substantial extraction from OFF and therefore a derivative database under
+ * ODbL; these words are nobody's extraction, and folding them in would put them
+ * inside an obligation they do not owe. It carries no `url` and no `sha256`
+ * because there is nothing upstream to pin, and no `licence` because declaring
+ * one here is the mistake — the absence is what says this half is not the
+ * derivative.
+ *
+ * `landsOn` and `why` do not travel. They are what a generation and a reviewer
+ * hold an entry to, and shipping them would put a paragraph per entry in a file
+ * every user downloads to say something no reader of it can act on.
+ *
+ * @param {{ key: string, targets: readonly string[] }[]} entries
+ */
+export function buildLocalVocabularySection(entries) {
+  /** @type {Record<string, string[]>} */
+  const expansions = {};
+  for (const entry of [...entries].sort((a, b) => a.key.localeCompare(b.key)))
+    expansions[entry.key] = [...entry.targets];
+  return {
+    source:
+      "Inventoria, hand-written — not derived from Open Food Facts, and so " +
+      "outside the ODbL derivative beside it (ADR-0049 §4)",
+    expansions,
+  };
+}
+
+/**
+ * Refuses the hand list unless every one of ADR-0049's #141 admissions holds.
+ *
+ * Three of the four are mechanical, and each is the SAME question asked over a
+ * different vocabulary — which is what makes them three admissions rather than
+ * one opinion:
+ *
+ *   ADMISSION 1  over NO vocabulary, the key must lead with nothing. A phrase
+ *                that already answers is one §1's zero-results trigger would
+ *                never reach.
+ *   ADMISSION 3  over the DERIVED map, the key must still lead with nothing. A
+ *                word OFF knows is not a word to spend a hand-written line on,
+ *                and an entry shadowing a derived one would leave two maps
+ *                disagreeing with the merge order deciding.
+ *   ADMISSION 2  over the ENTRY ALONE, the key must lead with the row the entry
+ *                names. This is the one the whole list waited on #143 for: it
+ *                pins a claim about the finished corpus AND the shipped ranking,
+ *                so a refresh that moves the answer fails the build instead of
+ *                silently redirecting `caster sugar`.
+ *
+ * Admission 4 — that the key is a name in everyday use rather than a brand or a
+ * dish — no machine can check, so what is enforced is that a human wrote a
+ * reason down.
+ *
+ * `leads` is a parameter rather than a corpus, the arrangement
+ * {@link deriveVocabulary} uses for `countMatches` and for the same two reasons:
+ * the admissions are asserted against a handful of stated answers instead of
+ * 4,360 rows, and the one impure, expensive step stays in
+ * {@link leadingRowReader}.
+ *
+ * The ceiling comes in with the entries because it is recorded beside them, in
+ * `food-vocabulary.ts`, where the human adding a ninth reads it. A generator
+ * that owned the number would let the list and its limit drift apart.
+ *
+ * @param {{ key: string, targets: readonly string[], landsOn: string, why: string }[]} entries
+ * @param {{ derived: Record<string, string[]>, leads: (query: string, vocabulary: Record<string, string[]>) => string | null, ceiling: number }} options
+ */
+export function assertLocalVocabularyHolds(
+  entries,
+  { derived, leads, ceiling }
+) {
+  if (entries.length > ceiling)
+    throw new Error(
+      `the hand-written vocabulary is ${entries.length} entries, over its ` +
+        `ceiling of ${ceiling}. The ceiling is not a cap to ` +
+        "raise: reaching it says the vocabulary problem is bigger than a hand " +
+        "list and wants re-deriving (ADR-0049's #141 Amendment)."
+    );
+  const seen = new Set();
+  for (const { key } of entries) {
+    if (seen.has(key))
+      throw new Error(`"${key}" appears twice in the hand list`);
+    seen.add(key);
+  }
+
+  for (const { key, targets, landsOn, why } of entries) {
+    if (!why.trim())
+      throw new Error(
+        `"${key}" records no reason for being a name in everyday use. That is ` +
+          "the one admission no machine can check, so it is the one a human " +
+          "has to write down."
+      );
+    const literal = leads(key, {});
+    if (literal !== null)
+      throw new Error(
+        `"${key}" already retrieves — it leads with "${literal}". The fallback ` +
+          "runs only on zero results, so nothing would ever reach this entry."
+      );
+    const already = leads(key, derived);
+    if (already !== null)
+      throw new Error(
+        `"${key}" is already reached by the derived vocabulary, which leads ` +
+          `with "${already}". A word OFF's taxonomy knows is not one to write ` +
+          "by hand."
+      );
+    const led = leads(key, { [key]: [...targets] });
+    if (led === null)
+      throw new Error(
+        `"${key}" reaches nothing: none of [${targets.join(", ")}] retrieves.`
+      );
+    if (led !== landsOn)
+      throw new Error(
+        `"${key}" leads with "${led}", not "${landsOn}" as its entry records. ` +
+          "Either the corpus moved under the entry or the ranking did; " +
+          "re-measure and re-choose rather than restating what it now does."
+      );
+  }
+  return entries;
+}
+
+/**
+ * What a phrase leads with over this corpus and a given vocabulary, or `null`
+ * for a phrase that answers nothing. The one impure, expensive step behind
+ * {@link assertLocalVocabularyHolds}.
+ *
+ * It asks the app's OWN search — the fallback, the two matching tiers, the six
+ * ranking keys and the alias scoring, none of them restated here — because
+ * admission 2 is a claim about what a user typing the key SEES, and only the
+ * shipped search can answer that. `retrievalCounter` beside it cannot: the map's
+ * derivation needs "nothing" against "something" and deliberately does not rank.
+ *
+ * The names are read ONCE, off the finished index, and the vocabulary is swapped
+ * on the corpus per question. Rebuilding the corpus per call would re-read 4,360
+ * descriptions to change one field.
+ *
+ * @param {object} index the finished search index, as it is about to be written
+ * @param {{ buildSearchCorpus: (index: object) => { foods: object[] }, searchIndexRows: (corpus: object, query: string) => { hits: { row: { description: string } }[] } }} app
+ */
+export function leadingRowReader(index, app) {
+  const { foods } = app.buildSearchCorpus(index);
+  return (query, vocabulary) =>
+    app.searchIndexRows({ foods, vocabulary }, query).hits[0]?.row
+      .description ?? null;
+}
+
+/**
+ * The hand list held to its admissions against the finished index, and the one
+ * line the run reports about it.
+ *
+ * The check and its report together, where the derived map keeps them apart in
+ * {@link assertVocabularyHolds} and {@link describeVocabulary}. The split there
+ * earns its keep because a derivation has a measurement to restate — what the
+ * stopword guard dropped, and by how much. A hand list has none: what passed IS
+ * the report.
+ *
+ * It is asked of the FINISHED index rather than of the survivors, because every
+ * admission is a claim about what a user typing the key sees — the fallback and
+ * the ranking the app ships, over the rows about to be written beside them.
+ *
+ * @param {object} index the finished search index, as it is about to be written
+ * @param {Parameters<typeof leadingRowReader>[1] & { LOCAL_VOCABULARY: readonly { key: string }[], LOCAL_VOCABULARY_CEILING: number }} app
+ */
+export function admitLocalVocabulary(index, app) {
+  const entries = assertLocalVocabularyHolds(app.LOCAL_VOCABULARY, {
+    derived: index.vocabulary_off.expansions,
+    leads: leadingRowReader(index, app),
+    ceiling: app.LOCAL_VOCABULARY_CEILING,
+  });
+  return (
+    `  hand-written: ${entries.length} of ${app.LOCAL_VOCABULARY_CEILING} ` +
+    `entries OFF's taxonomy does not carry, each leading with the row it ` +
+    `records [${entries.map((entry) => entry.key).join(", ")}]`
+  );
+}
+
 /**
  * The pinned vocabulary source, read from the local copy and checked against the
  * manifest digest (ADR-0049 §2).

@@ -755,7 +755,7 @@ describe("the twin merge's discarded names, as search aliases", () => {
   const corpusOf = (foods: UsdaIndexRow[]) =>
     buildSearchCorpus({
       artifact: "usda-search-index",
-      schema_version: 3,
+      schema_version: 4,
       generated_from: [],
       vocabulary_off: {
         licence: "ODbL",
@@ -764,6 +764,7 @@ describe("the twin merge's discarded names, as search aliases", () => {
         sha256: "abc",
         expansions: {},
       },
+      vocabulary_local: { source: "Inventoria, hand-written", expansions: {} },
       foods,
     });
   const row = (

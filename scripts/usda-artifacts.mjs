@@ -61,24 +61,30 @@ function renderProvenance(generated_from) {
 }
 
 /**
- * The `vocabulary_off` section, one key per line (ADR-0049 §4).
+ * A vocabulary section, one key per line (ADR-0049 §4).
  *
  * Per line for the reason the foods are: a taxonomy refresh has to diff as the
  * handful of phrases that moved, since the committed map IS the review gate for
  * a source that is unversioned and rewritten in place.
+ *
+ * The provenance fields are rendered from what the section HAS rather than from
+ * a fixed list, because the two sections deliberately differ in exactly those
+ * fields (ADR-0049 §4 and its #141 Amendment). Listing four keys here would emit
+ * `"licence": undefined` for the half whose whole point is not having one.
  */
 function renderVocabulary(vocabulary) {
+  const { expansions, ...provenance } = vocabulary;
   return renderObject([
-    ["licence", JSON.stringify(vocabulary.licence)],
-    ["source", JSON.stringify(vocabulary.source)],
-    ["url", JSON.stringify(vocabulary.url)],
-    ["sha256", JSON.stringify(vocabulary.sha256)],
+    ...Object.entries(provenance).map(([field, value]) => [
+      field,
+      JSON.stringify(value),
+    ]),
     [
       "expansions",
       linePerEntry(
         "{",
         "}",
-        Object.entries(vocabulary.expansions).map(
+        Object.entries(expansions).map(
           ([phrase, targets]) =>
             `${JSON.stringify(phrase)}: ${JSON.stringify(targets)}`
         )
@@ -94,6 +100,7 @@ export function serialiseIndex(artifact) {
     ["schema_version", String(artifact.schema_version)],
     ["generated_from", renderProvenance(artifact.generated_from)],
     ["vocabulary_off", renderVocabulary(artifact.vocabulary_off)],
+    ["vocabulary_local", renderVocabulary(artifact.vocabulary_local)],
     [
       "foods",
       linePerEntry(

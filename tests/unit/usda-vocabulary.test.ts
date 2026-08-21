@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
+import { importersOf } from "./support/importers";
 // A plain-Node ops script, deliberately outside the app's tsconfig, like the
 // bundle and backup scripts beside it.
 // @ts-ignore
@@ -10,9 +11,18 @@ import {
   deriveVocabulary,
   readTaxonomyGroups,
   retrievalCounter,
+  assertLocalVocabularyHolds,
+  buildLocalVocabularySection,
+  leadingRowReader,
 } from "../../scripts/usda-vocabulary.mjs";
-import { DENIED_VOCABULARY_TAGS } from "../../src/lib/food/food-vocabulary";
+import {
+  DENIED_VOCABULARY_TAGS,
+  LOCAL_VOCABULARY,
+  LOCAL_VOCABULARY_CEILING,
+  type LocalVocabularyEntry,
+} from "../../src/lib/food/food-vocabulary";
 import type { SearchIndex } from "../../src/lib/food/usda-corpus";
+import * as corpusModule from "../../src/lib/food/usda-corpus";
 import * as ranking from "../../src/lib/food/reference-food-ranking";
 
 // The derivation behind ADR-0049: Open Food Facts' ingredients taxonomy reduced
@@ -260,6 +270,157 @@ describe("retrievalCounter — the shipped search, asked how much a phrase reach
   });
 });
 
+// ---------------------------------------------------------------------------
+// The hand-written section (ADR-0049's #141 Amendment)
+// ---------------------------------------------------------------------------
+
+/** One admissible entry, varied a field at a time by the cases below. */
+const entry = (
+  over: Partial<LocalVocabularyEntry> = {}
+): LocalVocabularyEntry => ({
+  key: "gammon",
+  targets: ["pork cured ham"],
+  landsOn: "Pork, cured, ham",
+  why: "the British name for cured leg of pork",
+  ...over,
+});
+
+describe("buildLocalVocabularySection — the hand list as the artifact carries it", () => {
+  it("reduces the entries to the same phrase -> phrases map the derived one is", () => {
+    // The fallback reads one map. A second SHAPE beside the derived section
+    // would mean a second reader, and the point of the section is that there is
+    // not one (ADR-0049 section 4).
+    expect(buildLocalVocabularySection([entry({})]).expansions).toEqual({
+      gammon: ["pork cured ham"],
+    });
+  });
+
+  it("sorts by key, so an addition diffs as one entry", () => {
+    expect(
+      Object.keys(
+        buildLocalVocabularySection([
+          entry({ key: "porridge oats" }),
+          entry({ key: "caster sugar" }),
+        ]).expansions
+      )
+    ).toEqual(["caster sugar", "porridge oats"]);
+  });
+
+  it("carries neither a url nor a digest, and says why in its source", () => {
+    // The derived section is a substantial extraction from OFF and therefore an
+    // ODbL derivative database. These words are nobody's extraction, and the
+    // whole reason ADR-0049 section 4 left room for a section of their own is
+    // that they stay outside it. A section that stated an ODbL licence would
+    // give the obligation away for free.
+    const section = buildLocalVocabularySection([entry()]);
+    expect(section).not.toHaveProperty("licence");
+    expect(section).not.toHaveProperty("url");
+    expect(section).not.toHaveProperty("sha256");
+    expect(section.source).toMatch(/hand-written/);
+    expect(section.source).toMatch(/Open Food Facts/);
+  });
+
+  it("drops the evidence, which is the repo's and not the artifact's", () => {
+    // `landsOn` and `why` are what a generation and a reviewer check the entry
+    // against. Shipping them would put a paragraph of prose per entry in a file
+    // every user downloads, to say something no reader of it can act on.
+    expect(
+      Object.values(buildLocalVocabularySection([entry()]).expansions)
+    ).toEqual([["pork cured ham"]]);
+  });
+});
+
+describe("assertLocalVocabularyHolds — the four admissions, three of them mechanical", () => {
+  /**
+   * What each phrase leads with, given a vocabulary. Injected the way
+   * `countMatches` is, so the admissions are asserted against a handful of
+   * stated answers rather than against 4,360 rows — and so the one impure,
+   * expensive step stays in {@link leadingRowReader}.
+   */
+  const corpus: Record<string, string> = {
+    "pork cured ham": "Pork, cured, ham",
+    ham: "Pork, cured, ham",
+  };
+  const leads = (query: string, vocabulary: Record<string, string[]>) => {
+    for (const phrase of corpus[query] ? [query] : (vocabulary[query] ?? []))
+      if (corpus[phrase]) return corpus[phrase];
+    return null;
+  };
+  const holds = (
+    entries: LocalVocabularyEntry[],
+    derived: Record<string, string[]> = {}
+  ) =>
+    assertLocalVocabularyHolds(entries, {
+      derived,
+      leads,
+      ceiling: LOCAL_VOCABULARY_CEILING,
+    });
+
+  it("passes an entry that retrieves nothing and leads with the row it names", () => {
+    expect(holds([entry()])).toEqual([entry()]);
+  });
+
+  it("refuses a key that already retrieves (admission 1)", () => {
+    // The fallback runs only on zero results, so an entry for a phrase that
+    // answers is an entry nothing would ever reach.
+    expect(() => holds([entry({ key: "ham" })])).toThrow(
+      /"ham" already retrieves/
+    );
+  });
+
+  it("refuses a key the derived map already covers (admission 3)", () => {
+    // A word OFF knows is a word this list should not be spending a line on,
+    // and a hand entry that shadowed a derived one would be the harder bug: the
+    // two maps would disagree and the merge order would decide.
+    expect(() => holds([entry()], { gammon: ["pork cured ham"] })).toThrow(
+      /"gammon" is already reached by the derived vocabulary/
+    );
+  });
+
+  it("refuses an entry whose targets retrieve nothing (admission 2)", () => {
+    expect(() => holds([entry({ targets: ["pork gammon joint"] })])).toThrow(
+      /"gammon" reaches nothing/
+    );
+  });
+
+  it("refuses an entry whose expected row has moved (admission 2)", () => {
+    // The admission the whole list waited on #143 for. A corpus refresh that
+    // moves the answer fails generation instead of silently redirecting the key
+    // to whatever the ranking now leads with.
+    expect(() =>
+      holds([entry({ landsOn: "Pork, fresh, leg (ham), raw" })])
+    ).toThrow(
+      /"gammon" leads with "Pork, cured, ham", not "Pork, fresh, leg \(ham\), raw"/
+    );
+  });
+
+  it("refuses an entry with no reason beside it (admission 4)", () => {
+    // The one admission no machine can check is the one a human has to write
+    // down. An empty `why` is an entry nobody asserted anything about.
+    expect(() => holds([entry({ why: "  " })])).toThrow(
+      /"gammon" records no reason/
+    );
+  });
+
+  it("refuses the same key twice", () => {
+    // Two entries for one key is one entry silently winning; which one depends
+    // on insertion order, which is not a decision anybody made.
+    expect(() => holds([entry(), entry({ landsOn: "Ham" })])).toThrow(
+      /"gammon" appears twice/
+    );
+  });
+
+  it("refuses a list over the ceiling", () => {
+    // ADR-0046 section 6's shape. Reaching it says the vocabulary problem is
+    // bigger than a hand list and wants re-deriving, which is a decision this
+    // check exists to force rather than to make.
+    const over = Array.from({ length: LOCAL_VOCABULARY_CEILING + 1 }, (_, at) =>
+      entry({ key: `gammon ${at}` })
+    );
+    expect(() => holds(over)).toThrow(/ceiling of 20/);
+  });
+});
+
 describe("buildVocabularySection — the map under its own licence", () => {
   const pinned = {
     url: "https://static.openfoodfacts.org/data/taxonomies/ingredients.full.json",
@@ -379,6 +540,62 @@ describe("the committed vocabulary", () => {
     it("is sorted by key, so a taxonomy refresh diffs as changed phrases", () => {
       const keys = Object.keys(expansions);
       expect(keys).toEqual([...keys].sort());
+    });
+  });
+
+  describe("the hand-written vocabulary", () => {
+    const local = index.vocabulary_local;
+
+    it("is the section the entries reduce to, and nothing more", () => {
+      // The artifact carries the map; `landsOn` and `why` stay in the repo.
+      expect(local).toEqual(buildLocalVocabularySection(LOCAL_VOCABULARY));
+    });
+
+    it("holds all four admissions against the shipped bytes", () => {
+      // The generation-time check, re-run here over the committed artifact
+      // rather than over the corpus a run happened to hold in memory. It is the
+      // same function given the app's own search, so a hand-edited entry or a
+      // half-finished regeneration fails here before it reaches a user.
+      expect(() =>
+        assertLocalVocabularyHolds(LOCAL_VOCABULARY, {
+          derived: index.vocabulary_off.expansions,
+          leads: leadingRowReader(index, corpusModule),
+          ceiling: LOCAL_VOCABULARY_CEILING,
+        })
+      ).not.toThrow();
+    });
+
+    it("declares no licence, because the words are not OFF's to license", () => {
+      // ADR-0049 section 4 keeps the derived map a distinct ODbL section so the
+      // artifact is a collective work with one ODbL component rather than an
+      // ODbL artifact. A hand list declaring the same licence would give that
+      // away for nothing.
+      expect(local).not.toHaveProperty("licence");
+      expect(local.source).toMatch(/hand-written/);
+    });
+
+    it("shares no key with the derived map", () => {
+      // Admission 3 the other way round. The two sections merge into one map at
+      // load, so a shared key would be one section silently winning.
+      const derived = new Set(Object.keys(index.vocabulary_off.expansions));
+      expect(
+        Object.keys(local.expansions).filter((key) => derived.has(key))
+      ).toEqual([]);
+    });
+
+    it("stays under its ceiling, which is a signal and not a cap", () => {
+      expect(LOCAL_VOCABULARY.length).toBeLessThanOrEqual(
+        LOCAL_VOCABULARY_CEILING
+      );
+    });
+
+    it("is reached by the generator alone, never by the app", () => {
+      // The arrangement the module's own header describes, now that it carries
+      // eight entries of evidence beside the 160-tag deny-list: the app reads
+      // the finished map out of `search-index.json`, and none of the prose
+      // admitting an entry ever enters a bundle a user downloads. The same lock
+      // `usda-twin-ledger` and `usda-food-kind` carry.
+      expect(importersOf("food-vocabulary")).toEqual([]);
     });
   });
 });

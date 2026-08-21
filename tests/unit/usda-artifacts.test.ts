@@ -26,6 +26,10 @@ describe("serialisation — stable, diffable, one food per line", () => {
       sha256: "abc",
       expansions: { aubergine: ["eggplant"], courgette: ["zucchini"] },
     },
+    vocabulary_local: {
+      source: "Inventoria, hand-written",
+      expansions: { gammon: ["pork cured ham"] },
+    },
     foods: [
       { fdcId: 100, description: "Apples, raw" },
       { fdcId: 900, description: "Pears, raw" },
@@ -86,16 +90,29 @@ describe("serialisation — stable, diffable, one food per line", () => {
     expect(lines).toContain('"courgette": ["zucchini"]');
   });
 
-  it("keeps the vocabulary a section of its own, beside foods", () => {
+  it("keeps each vocabulary a section of its own, beside foods", () => {
     const parsed = JSON.parse(serialiseIndex(index));
     expect(parsed.vocabulary_off).toEqual(index.vocabulary_off);
+    expect(parsed.vocabulary_local).toEqual(index.vocabulary_local);
     expect(Object.keys(parsed)).toEqual([
       "artifact",
       "schema_version",
       "generated_from",
       "vocabulary_off",
+      "vocabulary_local",
       "foods",
     ]);
+  });
+
+  it("renders the fields a section has rather than the fields ODbL needs", () => {
+    // The hand-written section has no upstream to pin and no ODbL obligation to
+    // declare, which is the whole reason it is a section of its own (ADR-0049
+    // section 4). A renderer with the derived section's four fields baked in
+    // would emit `"licence": undefined` for the half whose point is the absence.
+    const lines = serialiseIndex(index).trimEnd().split("\n");
+    expect(lines).toContain('"source": "Inventoria, hand-written",');
+    expect(lines).toContain('"gammon": ["pork cured ham"]');
+    expect(serialiseIndex(index)).not.toContain("undefined");
   });
 });
 

@@ -34,6 +34,7 @@ const VOCABULARY_MODULE = join(
   "food",
   "food-vocabulary.ts"
 );
+const CORPUS_MODULE = join(ROOT, "src", "lib", "food", "usda-corpus.ts");
 const TWIN_LEDGER_MODULE = join(
   ROOT,
   "src",
@@ -93,11 +94,30 @@ export const RANKING_EXPORTS = [
 ];
 
 /**
- * The one input to the derivation a machine cannot supply: which OFF groups name
- * nothing a person would type. Reached through the same seam so it stays out of
- * the app bundle (`src/lib/food/food-vocabulary.ts` explains the arrangement).
+ * The two inputs to the vocabulary a machine cannot supply: which OFF groups name
+ * nothing a person would type, and the everyday names OFF's taxonomy does not
+ * carry at all. Reached through the same seam so they stay out of the app bundle
+ * (`src/lib/food/food-vocabulary.ts` explains the arrangement) — the app reads
+ * the finished map out of the artifact and never the evidence behind it.
  */
-export const VOCABULARY_EXPORTS = ["DENIED_VOCABULARY_TAGS"];
+export const VOCABULARY_EXPORTS = [
+  "DENIED_VOCABULARY_TAGS",
+  "LOCAL_VOCABULARY",
+  "LOCAL_VOCABULARY_CEILING",
+];
+
+/**
+ * The search itself, borrowed for the hand-written vocabulary's second
+ * admission (ADR-0049's #141 Amendment).
+ *
+ * `RANKING_EXPORTS` above answers "does this phrase retrieve anything?", which
+ * is all the derivation needs. An entry in the hand list claims more: that a
+ * user typing `caster sugar` LEADS with `Sugars, granulated`. That is a question
+ * about the fallback, the two matching tiers, the six ranking keys and the alias
+ * scoring together, and only the shipped search can answer it. Restating it here
+ * would pin the entries to a ranking the app does not have.
+ */
+export const CORPUS_EXPORTS = ["buildSearchCorpus", "searchIndexRows"];
 
 /**
  * The twin adjudication, borrowed for the same reason and through the same seam
@@ -117,7 +137,7 @@ export const TWIN_LEDGER_EXPORTS = ["TWIN_LEDGER", "SPLIT_TWIN_NDB_NUMBERS"];
 /**
  * Every app module this script borrows from, with what it takes from each.
  *
- * One table rather than three call sites, so the entry {@link loadAppModule}
+ * One table rather than one call site per module, so the entry {@link loadAppModule}
  * writes and the check {@link assertAppExports} runs cannot fall out of step
  * with each other.
  */
@@ -126,6 +146,7 @@ const BORROWED = [
   [FOOD_KIND_MODULE, FOOD_KIND_EXPORTS],
   [RANKING_MODULE, RANKING_EXPORTS],
   [VOCABULARY_MODULE, VOCABULARY_EXPORTS],
+  [CORPUS_MODULE, CORPUS_EXPORTS],
   [TWIN_LEDGER_MODULE, TWIN_LEDGER_EXPORTS],
 ];
 

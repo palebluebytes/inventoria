@@ -265,8 +265,9 @@ describe("what the fallback buys, against the bars set before it was built", () 
   }, 30_000);
 
   it("answers seven of the seventeen failing British queries, with the right row", () => {
-    // Seven and not fifteen because that is what OFF actually knows; the other
-    // ten wait on a hand-written `vocabulary_local` (ADR-0049 Consequences).
+    // Seven and not fifteen because that is what OFF's taxonomy knows. Two more
+    // (`prawns`, `mince`) answer through keys it spells differently, and the
+    // last eight are the hand-written section below (#141).
     for (const [query, expected] of [
       ["aubergine", "Eggplant, raw"],
       ["courgette", "Squash, zucchini, baby, raw"],
@@ -282,6 +283,50 @@ describe("what the fallback buys, against the bars set before it was built", () 
       expect([query, retrieves(literalOnly, query)]).toEqual([query, false]);
       expect([query, topFor(query)]).toEqual([query, expected]);
     }
+  });
+
+  it("answers the last eight British queries from the hand-written section", () => {
+    // The eight #130 measured failing that OFF's taxonomy does not carry either
+    // (ADR-0049's #141 Amendment). Each is asserted the same way the seven above
+    // are: nothing without the vocabulary, the exact row with it — and the row
+    // is the one the entry recorded, which is what the generator re-measures.
+    for (const [query, expected] of [
+      ["caster sugar", "Sugars, granulated"],
+      ["double cream", "Cream, heavy"],
+      [
+        "gammon",
+        "Pork, cured, ham, center slice, country-style, separable lean only, raw",
+      ],
+      ["jacket potato", "Potatoes, baked, flesh, without salt"],
+      ["mange tout", "Peas, edible-podded, raw"],
+      ["natural yoghurt", "Yogurt, plain, whole milk"],
+      ["plain flour", "Flour, wheat, all-purpose, enriched, bleached"],
+      ["porridge oats", "Oats, whole grain, rolled, old fashioned"],
+    ] as const) {
+      expect([query, retrieves(literalOnly, query)]).toEqual([query, false]);
+      expect([query, topFor(query)]).toEqual([query, expected]);
+    }
+  });
+
+  it("shows a hand-reached food under the word that reached it", () => {
+    // The same treatment a derived key gets (ADR-0049's #140 Amendment): a
+    // search that quietly answered with another word says which word. Nothing
+    // in the fallback knows which half of the map a key came from, and this is
+    // what that buys.
+    const [hit] = searchIndexRows(corpus, "gammon").hits;
+    expect(hit.alias).toBe("gammon");
+    expect(
+      mapIndexRowToPayload(hit.row, hit.alias).attributes["food/name"]
+    ).toBe(
+      "Pork, cured, ham, center slice, country-style, separable lean only, raw, gammon"
+    );
+  });
+
+  it("reaches a hand-written key mid-type, as the derived ones are reached", () => {
+    // One matcher, one map. `expandThroughVocabulary` never asked which section
+    // a key came from, and merging the two at load is the whole integration.
+    expect(topFor("caster sug")).toBe("Sugars, granulated");
+    expect(topFor("mange to")).toBe("Peas, edible-podded, raw");
   });
 
   it("is a strict addition: no query that answers today answers differently", () => {

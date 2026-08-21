@@ -7,12 +7,18 @@ import {
   FOOD_KIND_EXPORTS,
   RANKING_EXPORTS,
   VOCABULARY_EXPORTS,
+  CORPUS_EXPORTS,
   TWIN_LEDGER_EXPORTS,
 } from "../../scripts/usda-app-module.mjs";
 import * as usdaFdc from "../../src/lib/food/usda-fdc";
 import * as foodKind from "../../src/lib/food/usda-food-kind";
 import * as ranking from "../../src/lib/food/reference-food-ranking";
-import { DENIED_VOCABULARY_TAGS } from "../../src/lib/food/food-vocabulary";
+import {
+  DENIED_VOCABULARY_TAGS,
+  LOCAL_VOCABULARY,
+  LOCAL_VOCABULARY_CEILING,
+} from "../../src/lib/food/food-vocabulary";
+import * as corpus from "../../src/lib/food/usda-corpus";
 
 // ADR-0047 §4's import-don't-copy rule, over the one module that carries it.
 // The corpus is produced by the app's own filters, ranked by the app's own
@@ -42,13 +48,27 @@ describe("the app seam — the scripts borrow the app instead of copying it", ()
       );
   });
 
-  it("names the one input to the vocabulary a machine cannot supply", () => {
-    expect(VOCABULARY_EXPORTS).toEqual(["DENIED_VOCABULARY_TAGS"]);
+  it("names the inputs to the vocabulary a machine cannot supply", () => {
+    expect(VOCABULARY_EXPORTS).toEqual([
+      "DENIED_VOCABULARY_TAGS",
+      "LOCAL_VOCABULARY",
+      "LOCAL_VOCABULARY_CEILING",
+    ]);
     expect(Array.isArray(DENIED_VOCABULARY_TAGS)).toBe(true);
+    expect(Array.isArray(LOCAL_VOCABULARY)).toBe(true);
+    expect(typeof LOCAL_VOCABULARY_CEILING).toBe("number");
+  });
+
+  it("names the search the hand list's expected rows are measured through", () => {
+    // The hand-written vocabulary claims what a query LEADS with, which the
+    // ranking alone cannot answer — the fallback and the matching tiers are
+    // part of it (ADR-0049's #141 Amendment).
+    for (const name of CORPUS_EXPORTS)
+      expect(typeof (corpus as Record<string, unknown>)[name]).toBe("function");
   });
 
   it("borrows each name from exactly one module", () => {
-    // Five rosters composed into one bundle: a name in two of them would make
+    // Six rosters composed into one bundle: a name in two of them would make
     // whichever module the entry re-exports last silently win. That is the
     // failure the #146 split could have introduced — a filter left behind in
     // `APP_EXPORTS` as well as named in the new one would still load, and would
@@ -58,6 +78,7 @@ describe("the app seam — the scripts borrow the app instead of copying it", ()
       ...FOOD_KIND_EXPORTS,
       ...RANKING_EXPORTS,
       ...VOCABULARY_EXPORTS,
+      ...CORPUS_EXPORTS,
       ...TWIN_LEDGER_EXPORTS,
     ];
     expect(new Set(all).size).toBe(all.length);
