@@ -45,6 +45,20 @@ Four candidates die here, and each dies differently enough to be worth stating s
 
 **`kefir` is carried three times over, and the corpus miss is the brand filter.** SR Legacy's two records are both LIFEWAY and both dropped as brand-specific; FNDDS carries a generic `Kefir` but is not a bundled dataset; CIQUAL carries `Milk kefir`. So search returns nothing for `kefir` today, and every reason it does is a decision this project made about which rows to ship — not an absence upstream. ADR-0048 §7 widened eligibility to "a food for which no reference table yields a record this app can honestly log", and it is worth being precise that it does not stretch this far: the tables yield three usable kefir records, and curating around our own filter would make the exception list a place to park filter regressions.
 
+### 3.1 The CoFID hint, followed
+
+The ticket passes on #108's measurement that CoFID is missing chia, oat drink, soya drink, kefir and miso, "which is the same hole in a different table and a hint about where to look". Followed, the hint finds nothing: **USDA carries all three of the foods not already on the candidate list**, and all three ship.
+
+| Food       | Where                                                                           | Corpus                                 |
+| ---------- | ------------------------------------------------------------------------------- | -------------------------------------- |
+| chia       | Foundation `Chia seeds, dry, raw`, SR Legacy `Seeds, chia seeds, dried`, CIQUAL | `Chia seeds, dry, raw` (the two merge) |
+| miso       | SR Legacy `Miso` (172442), Survey, CIQUAL                                       | `Miso`                                 |
+| soya drink | Foundation `Soy milk, unsweetened, plain, shelf stable`, Survey, CIQUAL         | `Soy milk, unsweetened…`               |
+
+`soya drink` retrieves nothing for the same reason `oat drink` does, and belongs in the same place — the vocabulary, not this list.
+
+That is worth stating as a result rather than as an absence of one. CoFID's holes and USDA's are **different holes**, so a food missing from one table is not evidence about the other, and the hint's value was in being cheap to check rather than in being right.
+
 ## 4. `lucuma`: absent, and no panel worth pinning
 
 Absence is real — no `lucuma` in any USDA archive, none in CIQUAL. It fails admission 3.

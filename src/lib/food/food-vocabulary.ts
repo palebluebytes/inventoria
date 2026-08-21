@@ -238,7 +238,10 @@ export const DENIED_VOCABULARY_TAGS: readonly string[] = [
 // equivalent. `Cream, heavy` is the nearest grade and it is a different food —
 // legally about 36% fat where double cream is about 48% — so an entry would put
 // the typed word on a panel that is not the food's. A name with no right answer
-// is not a vocabulary problem.
+// is not a vocabulary problem, and #116 settled where it is one instead: the
+// food cleared ADR-0046 §2's four admissions and is now a curated stand-in, so
+// the typed word is answered from outside the corpus rather than redirected
+// inside it.
 //
 // A hand list is the WRONG shape at the scale of the 236 misses ADR-0049 rejects
 // it for, and the reason there is not length: nobody would have written the right

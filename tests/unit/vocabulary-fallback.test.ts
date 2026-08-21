@@ -315,7 +315,10 @@ describe("what the fallback buys, against the bars set before it was built", () 
     // `Cream, heavy` is the nearest grade and a different food — about 36% fat
     // where double cream is about 48% — so an entry would put the typed word on
     // a panel that is not the food's. A name with no right answer is not a
-    // vocabulary problem, and the fourth admission is where that is decided.
+    // vocabulary problem, and ADR-0046 §2's admissions are where it was decided
+    // to be a coverage one: #116 curated the food, which leaves this assertion
+    // saying what it always said. The corpus still holds nothing for the query;
+    // what answers it now sits outside the corpus entirely.
     expect(searchIndexRows(corpus, "double cream").hits).toEqual([]);
   });
 

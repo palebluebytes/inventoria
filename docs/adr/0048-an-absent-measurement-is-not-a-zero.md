@@ -4,6 +4,7 @@
 **Date:** 2026-08-20  
 **Amended by:** the #137 Amendment below, which corrects two Consequences about what §5 left standing  
 **Amended by:** [ADR-0051](0051-a-shared-ndb-number-is-not-proof-of-one-food.md) §1 (§4 governed a NEW ndbNumber and not the converse; a shared one now collects two records only where an adjudication has not refused it)  
+**Amended by:** the #116 Amendment below, which says where §7's "merely incomplete" stops  
 **Implemented:** #126 `35f454e` (the predicate), `7bce806` (§5's two filters), `40a6115` (the regenerated artifacts), `80dfac9` (§6's refusal on the card)
 
 This record amends [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md)
@@ -341,3 +342,28 @@ and it is not this record's to settle: OFF's taxonomy makes the same call for
 Nothing here reopens §5. The drop was measured on the generator's own tallies and
 those hold; what fell is two claims about the corpus a broken tool was asked to
 describe.
+
+## Amendment (2026-08-21, #116): where §7's "merely incomplete" stops
+
+§7 widened ADR-0046's eligibility from "a food no reference table carries" to "a food for
+which no reference table yields a record this app can honestly log", and named the
+incomplete table alongside the silent one. Applying ADR-0046 §2 to eight candidates
+([research note #116](../research/116-curated-stand-in-candidates.md)) found two foods
+that read as eligible under that sentence and are not.
+
+`kefir` returns nothing from search because both SR Legacy records are LIFEWAY and the
+ADR-0042 brand filter drops them. `oat drink` returns nothing because Foundation files the
+food as `Oat milk` and no description carries the word `drink`. In both cases a reference
+table measured the food perfectly well and this project decided, for its own good reasons,
+not to put that row in front of that query.
+
+**That is not what this section widened to reach.** The case §5 creates is a record USDA
+published without the measurement search needs — pawpaw and raw napa cabbage, named in the
+Consequences above. Eligibility follows the **measurement**, not the query: a row the
+ADR-0042 filters took is that record's problem, and a name they do not use is
+[ADR-0049](0049-a-derived-vocabulary-for-food-search.md)'s. Curating around either would
+make a deliberately small exception list the place both get parked, which is the growth
+ADR-0046 §6's ceiling exists to catch and the worst way to catch it.
+
+Nothing in §7 changes. Both foods were rejected under it, and this records the reading
+that rejected them.
