@@ -103,6 +103,14 @@ Drawn from the 271 multi-row head phrases by a rule fixed here, before any answe
 
 Animal names stay in: `beef`, `egg`, `duck` are typed, and shape (b) applies to them. Expected size ~50. The resulting list is committed before adjudication begins.
 
+> **Amendment (2026-08-21), written before adjudication began.** The rule, applied by hand to all 271 multi-row heads, **admits 150**, not ~50 — 92 of them in the 163 tie set and 58 already untied. 150 is past what §8.3's ratification can afford in a sitting, so the gold set is a **stated stratified cut** of the admitted set rather than the whole of it:
+>
+> 1. **every admitted head a candidate shape can reach** — 22;
+> 2. plus **#143's own named cases not already caught** — 4 (`peppers`, `egg`, `tomatoes`, `butter`; `oil` and `bread` are excluded by the rule above as category heads);
+> 3. plus a **seeded fill** from the remaining admitted heads to reach 50 — 24, drawn with the repo's `seededPick` convention at seed 143.
+>
+> The set is therefore **deliberately over-sampled on the cases the key can move**, which is what §8.5's shape-case threshold measures, and the 24 controls are drawn blind to catch regressions. 36 of the 50 are tied at the top today. Committed as `143-gold-set.json` with every `verdict` and `should_lead` still `null`, so the commit history shows the list was fixed before a case was read.
+
 ### 8.2 Verdicts
 
 #130 §3.2's vocabulary, unchanged, so the two notes stay comparable: `miss` · `peers` · `correct` · `implausible-query`. Each gold-set case additionally records **which row should lead** — a designated row, not just a verdict — plus a shape tag (a / b / c / d) and a free-text note.
