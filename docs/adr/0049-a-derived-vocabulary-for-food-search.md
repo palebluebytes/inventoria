@@ -696,8 +696,8 @@ the 58. Every rescued lead names the food the query asked for, read by hand.
 
 So the paragraph's "it is **unmeasured**" no longer holds, and its "it does not
 rescue as much as it appears to" holds only in the deflated sense the note gives:
-58 keys are 35 foods, because the map records five spellings of arugula and three
-of yogurt, and the honest figure is 28 of 35 rather than 48 of 58. What no sweep
+58 keys are 35 foods, because the map records seven spellings of arugula and
+three of yogurt, and the honest figure is 28 of 35 rather than 48 of 58. What no sweep
 here can supply is usage — this app keeps no query telemetry by construction — so
 whether 28 foods justify a tier remains a judgement rather than a calculation, and
 #142 stays open carrying it.

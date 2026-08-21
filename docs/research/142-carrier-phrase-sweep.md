@@ -127,6 +127,8 @@ Run on 2026-08-21 over the 4,360-row index, `pnpm usda:ranking-audit`, cases in 
 
 **72 of 348 probes are rescued, across 48 of the 58 keys.** `raw X` alone rescues 47, over the ⅓ threshold §7 set at 20. The mechanism has something to reach.
 
+Over the ticket's own three carriers and nothing else, it is **47 of 174** — every one of them `raw X`, since `chopped X` and `X salad` rescue nothing. The three carriers added here move the key count not at all and the probe count by 25, so the headline does not rest on them; what they buy is the evidence in §9.2 and §9.3 that the nulls are the carriers' fault rather than the mechanism's.
+
 ### 9.1 One probe answers, and not through the tier §3 predicted
 
 `cooked swede` retrieves two rows today. Not through the prefix tier: **it is itself a key in the map**, expanding to `cooked rutabaga`. OFF's taxonomy names some cooked and dried forms as their own synonym groups, and the derivation carried eight of them through — `cooked swede`, `raw spelt`, `raw almond kernels`, `dried whole milk`, `dried minced onion`, `fresh garlic`, `salad rocket`, `field salad`.
@@ -158,7 +160,7 @@ Two are worth naming, and neither is a retrieval failure:
 
 ### 9.5 The count deflates: 58 keys are 35 foods
 
-The 58 keys name **35 distinct foods**, because the map holds every spelling OFF records: five ways to write arugula (`rocket`, `roquette`, `rucola`, `rucoli`, `rugula`), four for cloudberry, three for yogurt, two each for persimmon, chestnut, cassava, papaya, huckleberry, lupin, scup and mollusc.
+The 58 keys name **35 distinct foods**, because the map holds every spelling OFF records. Twelve foods take more than one key: seven ways to write arugula (`colewort`, `eruca`, `rocket`, `roquette`, `rucola`, `rucoli`, `rugula`), four each for cloudberry and huckleberry, three each for lupin and yogurt, and two each for cardamom, chestnut, cassava, mollusc, papaya, persimmon and scup. The other 23 keys stand alone.
 
 So the honest headline is **28 distinct foods rescued out of 35**, not 48 of 58. Both numbers are in the table above and the larger one should not be quoted alone.
 
@@ -169,6 +171,8 @@ So the honest headline is **28 distinct foods rescued out of 35**, not 48 of 58.
 ## 10. Verdict
 
 **Band 3 of §7.1: cut a build ticket.** `raw X` rescues 47 of 58 keys against a threshold of 20, and the hand pass over all 72 rescues found no implausible lead.
+
+The band's wording overreaches the scope the triage set, and this is where that shows: it says "cut a build ticket" where the triage says the sweep "does not cover building per-token expansion". The pre-registered action is therefore not carried out as written, and the deviation is stated rather than quietly resolved.
 
 **No new issue is cut, because the build ticket already exists.** #142 carries the mechanism's full specification in its own body — whole phrase first, at most one substitution, drawn only from this subset, capped at a small k, firing only on an empty result — and its triage scoped `ready-for-agent` to the sweep alone. So the ticket stays open with this measurement attached, and the decision to build it is the maintainer's, which is what §7 pre-registered and what "a zero closes it, a non-zero does not open it" means.
 

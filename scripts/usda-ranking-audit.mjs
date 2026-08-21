@@ -38,12 +38,15 @@
  * expands and `raw aubergine` does not, and the pass measures what a single
  * per-token substitution would have filled. See {@link carrierPass}.
  *
- * Node built-ins only, and the ranking is IMPORTED rather than restated: this
- * measures the code that ships or it measures nothing. That works because Node
- * strips the types itself and `reference-food-ranking.ts` imports nothing. The
- * `carrier` pass needs the search ITSELF rather than the ranking, and that one
- * cannot be imported bare, so a plain sweep now bundles the app through
- * `usda-app-module.mjs` and needs esbuild — as `--explain` already did.
+ * No dependencies of its own, and the ranking is IMPORTED rather than restated:
+ * this measures the code that ships or it measures nothing. That works because
+ * Node strips the types itself and `reference-food-ranking.ts` imports nothing.
+ *
+ * The `carrier` pass needs the SEARCH rather than the ranking, and that one
+ * cannot be imported bare — `usda-corpus.ts` imports its siblings extensionless.
+ * So a plain sweep bundles the app through `usda-app-module.mjs` and needs
+ * esbuild, reached from the PATH or through `nix shell`, as `--explain` already
+ * did. Node built-ins only remains true of everything else here.
  *
  * It changes no ranking code and asserts nothing. It is a dated finding, not an
  * invariant, so it is deliberately not wired into `pnpm check` — a gate here
@@ -52,12 +55,12 @@
  * tests by the ticket that fixes them, the way #113 and #131 did.
  */
 
-import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { deriveVocabulary } from "./usda-ranking-queries.mjs";
 import {
   readReferenceFoodName,
   compileReferenceFoodQuery,
@@ -76,15 +79,6 @@ const CANDIDATES_PATH = join(
   "130-ranking-audit.json"
 );
 const MANIFEST_PATH = join(ROOT, "scripts", "usda-backup.manifest.json");
-
-/**
- * OFF's ingredients taxonomy, the query vocabulary's source. The `.full`
- * variant, NOT the `ingredients.json` the app already fetches in
- * `off-taxonomy.ts` (ADR-0043 §4) — that one is 3.2 MB and carries `name` only.
- * Synonyms live in this file and nowhere else.
- */
-const OFF_TAXONOMY_URL =
-  "https://static.openfoodfacts.org/data/taxonomies/ingredients.full.json";
 
 /** How many results a search shows, so "buried" and "absent" mean something. */
 const RESULT_LIMIT = 50;
@@ -157,86 +151,7 @@ const harmOf = (rank) =>
         ? "visible"
         : "buried";
 
-// ── the query vocabulary ───────────────────────────────────────────────────
-
-/**
- * ~20 everyday British-usage queries, the one gap OFF's American-leaning
- * English structurally leaves. Fixed BEFORE the sweep ran and counted on their
- * own denominator — a hand-written list blended into a mechanical sweep would
- * make every percentage in the note uninterpretable.
- */
-const BRITISH_QUERIES = [
-  "courgette",
-  "aubergine",
-  "rocket",
-  "coriander",
-  "spring onion",
-  "swede",
-  "beetroot",
-  "mange tout",
-  "chickpeas",
-  "prawns",
-  "gammon",
-  "mince",
-  "porridge oats",
-  "double cream",
-  "natural yoghurt",
-  "cornflour",
-  "plain flour",
-  "caster sugar",
-  "sultanas",
-  "jacket potato",
-];
-
-/**
- * Fetches OFF's taxonomy and keeps the English synonym groups that reach this
- * corpus at all. The filter is "at least one member retrieves something": a
- * group naming an additive or a manufacturing input touches no reference food,
- * and 1,370 of 1,919 groups are that. It is applied HERE, at derivation, so the
- * committed vocabulary is the set actually measured.
- *
- * Members are lowercased and de-duplicated because OFF's lists repeat entries in
- * different cases, which would otherwise inflate the member counts.
- */
-async function deriveVocabulary(corpus) {
-  const response = await fetch(OFF_TAXONOMY_URL);
-  if (!response.ok)
-    throw new Error(`OFF taxonomy fetch failed (${response.status}).`);
-  const body = Buffer.from(await response.arrayBuffer());
-  const sha256 = createHash("sha256").update(body).digest("hex");
-  const taxonomy = JSON.parse(body.toString("utf8"));
-
-  const groups = [];
-  for (const [tag, entry] of Object.entries(taxonomy)) {
-    const members = [
-      ...new Set((entry.synonyms?.en ?? []).map((s) => s.toLowerCase().trim())),
-    ].filter(Boolean);
-    if (members.length < 2) continue;
-    if (!members.some((m) => search(corpus, m).length > 0)) continue;
-    groups.push({
-      tag,
-      members,
-      // OFF's own cross-references, kept so the note can report whether a cheap
-      // "is this a whole food" filter would have matched the hand judgement.
-      usda_ndb_code: entry.usda_ndb_code?.en,
-      ciqual_food_code: entry.ciqual_food_code?.en,
-    });
-  }
-  return {
-    source: {
-      url: OFF_TAXONOMY_URL,
-      sha256,
-      bytes: body.length,
-      fetched: new Date().toISOString().slice(0, 10),
-      licence: "ODbL, Open Food Facts",
-    },
-    note: "Derived set: the English multi-synonym groups that reach the bundled corpus. The 6.4 MB source is not committed and never enters the app bundle; the sha256 above pins what was measured.",
-    groups,
-    british_queries: BRITISH_QUERIES,
-  };
-}
-
-// ── the three passes ───────────────────────────────────────────────────────
+// ── the passes ─────────────────────────────────────────────────────────────
 
 /** Deterministic sampling: a seeded LCG, so a re-run draws the same pairs. */
 function seededPick(items, count, seed) {
@@ -518,7 +433,10 @@ function qualifierPass(corpus) {
   };
 }
 
-/** The British-usage list, on its own denominator (see {@link BRITISH_QUERIES}). */
+/**
+ * The British-usage list, on its own denominator — see `BRITISH_QUERIES` in
+ * `usda-ranking-queries.mjs`, which is where the list is fixed.
+ */
 const britishPass = (corpus, queries) =>
   queries.map((query) => ({
     pass: "british",
@@ -528,6 +446,25 @@ const britishPass = (corpus, queries) =>
     cause: null,
     note: null,
   }));
+
+/**
+ * The app's own filters, merge, ranking and search, bundled and imported.
+ *
+ * Two modes here need it — `--explain` re-runs the generator and the `carrier`
+ * pass borrows the shipped search — and both need it exactly once, so the
+ * scratch directory it is built in is opened and removed here rather than twice
+ * over. `usda-app-module.mjs` is the seam itself; this is only how this script
+ * holds it.
+ */
+async function borrowApp() {
+  const { loadAppModule } = await import("./usda-app-module.mjs");
+  const scratch = await mkdtemp(join(tmpdir(), "ranking-audit-"));
+  try {
+    return await loadAppModule(scratch);
+  } finally {
+    await rm(scratch, { recursive: true, force: true });
+  }
+}
 
 /**
  * The carrier shapes #142's sweep types each substitutable vocabulary key
@@ -546,12 +483,12 @@ const britishPass = (corpus, queries) =>
  * and differ only in the ordering `position` gives them.
  */
 const CARRIERS = [
-  { word: "raw", phrase: (name) => `raw ${name}` },
-  { word: "chopped", phrase: (name) => `chopped ${name}` },
-  { word: "salad", phrase: (name) => `${name} salad` },
-  { word: "cooked", phrase: (name) => `cooked ${name}` },
-  { word: "fresh", phrase: (name) => `fresh ${name}` },
-  { word: "dried", phrase: (name) => `dried ${name}` },
+  { word: "raw", carry: (name) => `raw ${name}` },
+  { word: "chopped", carry: (name) => `chopped ${name}` },
+  { word: "salad", carry: (name) => `${name} salad` },
+  { word: "cooked", carry: (name) => `cooked ${name}` },
+  { word: "fresh", carry: (name) => `fresh ${name}` },
+  { word: "dried", carry: (name) => `dried ${name}` },
 ];
 
 /**
@@ -565,7 +502,7 @@ const CARRIERS = [
  * They lose nothing by it today — a typed query goes through the same function,
  * so both halves line up on both sides — but they are not this mechanism's.
  */
-const substitutableKeys = (vocabulary) =>
+const substitutableEntries = (vocabulary) =>
   Object.entries(vocabulary).filter(
     ([key, phrases]) =>
       wordsOf(key).length === 1 &&
@@ -600,51 +537,37 @@ const substitutableKeys = (vocabulary) =>
  * The cost is that a plain sweep now needs esbuild, as `--explain` already did.
  */
 async function carrierPass(index, corpus) {
-  const { loadAppModule } = await import("./usda-app-module.mjs");
-  const scratch = await mkdtemp(join(tmpdir(), "ranking-audit-"));
-  const app = await loadAppModule(scratch);
-  await rm(scratch, { recursive: true, force: true });
+  const app = await borrowApp();
   // The MERGED map, which is what a keystroke reads: the derived section and
   // #141's hand-written one, joined by the app rather than by this file. The
   // ticket and its triage comment both size the subset against `vocabulary_off`
   // alone, and the merge moves the denominator.
   const searchable = app.buildSearchCorpus(index);
-  const keys = substitutableKeys(searchable.vocabulary);
+  const entries = substitutableEntries(searchable.vocabulary);
   const hitsFor = (query) => app.searchIndexRows(searchable, query).hits;
+  // The one statement of what a rescue is. Both the per-case count and the
+  // per-shape tallies below read it, so the two cannot drift apart.
+  const rescues = (carrier) =>
+    carrier.probe_found === 0 && carrier.expansion_found > 0;
 
-  const shapes = CARRIERS.map(({ word, phrase }) => ({
-    shape: phrase("X"),
-    // Rows carrying the carrier word at all. A carrier the corpus does not use
-    // cannot indict the vocabulary: `chopped courgette` retrieves nothing, and
-    // so does `chopped zucchini`.
-    corpus_reach: corpus.filter((food) =>
-      food.names.some((name) => name.stems.includes(stemOf(word)))
-    ).length,
-    probes: keys.length,
-    answering: 0,
-    rescued: 0,
-  }));
-
-  const cases = keys.map(([key, phrases]) => {
-    const carriers = CARRIERS.map(({ phrase }, i) => {
-      const probe = phrase(key);
+  const cases = entries.map(([key, phrases]) => {
+    const carriers = CARRIERS.map(({ carry }) => {
+      const probe = carry(key);
       const probeHits = hitsFor(probe);
       // Each value in turn, first one that retrieves wins — exactly the k-capped
       // candidate list the deferred mechanism would build, one substitution deep.
-      let expansion = phrase(phrases[0]);
+      let expansion = carry(phrases[0]);
       let expansionHits = [];
       for (const candidate of phrases) {
-        const hits = hitsFor(phrase(candidate));
+        const hits = hitsFor(carry(candidate));
         if (hits.length > 0) {
-          expansion = phrase(candidate);
+          expansion = carry(candidate);
           expansionHits = hits;
           break;
         }
       }
-      if (probeHits.length > 0) shapes[i].answering++;
-      else if (expansionHits.length > 0) shapes[i].rescued++;
       return {
-        shape: shapes[i].shape,
+        shape: carry("X"),
         probe,
         probe_found: probeHits.length,
         expansion,
@@ -665,12 +588,29 @@ async function carrierPass(index, corpus) {
         .slice(0, 5)
         .map((hit) => ({ description: hit.row.description })),
       carriers,
-      rescued: carriers.filter(
-        (c) => c.probe_found === 0 && c.expansion_found > 0
-      ).length,
+      rescued: carriers.filter(rescues).length,
       verdict: null,
       cause: null,
       note: null,
+    };
+  });
+
+  // The per-shape tallies, folded OUT of the cases rather than accumulated while
+  // building them: the cases are the measurement and these are a view of it, so
+  // reading them back is what keeps the two from disagreeing.
+  const shapes = CARRIERS.map(({ word, carry }, i) => {
+    const column = cases.map((kase) => kase.carriers[i]);
+    return {
+      shape: carry("X"),
+      // Rows carrying the carrier word at all. A carrier the corpus does not use
+      // cannot indict the vocabulary: `chopped courgette` retrieves nothing, and
+      // so does `chopped zucchini`.
+      corpus_reach: corpus.filter((food) =>
+        food.names.some((name) => name.stems.includes(stemOf(word)))
+      ).length,
+      probes: column.length,
+      answering: column.filter((c) => c.probe_found > 0).length,
+      rescued: column.filter(rescues).length,
     };
   });
 
@@ -748,17 +688,14 @@ async function explainAbsence(term) {
   // Node will not resolve those. `usda-app-module.mjs`
   // is the one place that solves it, for every script that borrows the app's
   // own logic rather than keeping a second copy of the answer (ADR-0047 §4).
-  const { loadAppModule } = await import("./usda-app-module.mjs");
   const { readBundleArchives, groupByIdentity, buildCorpus } =
     await import("./usda-bundle.mjs");
-  const scratch = await mkdtemp(join(tmpdir(), "ranking-audit-"));
-  const app = await loadAppModule(scratch);
+  const app = await borrowApp();
   const manifest = JSON.parse(readFileSync(MANIFEST_PATH, "utf8"));
   const entries = await readBundleArchives(
     manifest,
     join(ROOT, ".usda-backup")
   );
-  await rm(scratch, { recursive: true, force: true });
 
   const needle = term.toLowerCase();
   const verdicts = [];
@@ -867,7 +804,7 @@ const index = readIndex();
 const corpus = buildCorpus(index);
 
 if (args.includes("--vocab")) {
-  const vocabulary = await deriveVocabulary(corpus);
+  const vocabulary = await deriveVocabulary(corpus, search);
   writeFileSync(INPUTS_PATH, JSON.stringify(vocabulary, null, 2) + "\n");
   console.log(
     `Pinned ${vocabulary.groups.length} applicable groups from ${vocabulary.source.url}`
