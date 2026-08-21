@@ -251,11 +251,14 @@ describe("what the fallback buys, against the bars set before it was built", () 
     const misses = audit.cases.filter(
       (c) => c.pass === "synonym" && c.verdict === "miss"
     );
-    // 233 when #140 shipped, 230 since #137: three groups whose every member now
-    // retrieves against a corpus that answers to the names the twin merge had
-    // discarded, so the sweep no longer calls them misses. The floor moves with
-    // the finding rather than being pinned to a number the corpus has left.
-    expect(misses.length).toBeGreaterThanOrEqual(230);
+    // 233 when #140 shipped, 230 since #137, 229 since the sweep was re-run over
+    // #145's corpus. The floor moves with the finding rather than being pinned
+    // to a number the corpus has left — but the last step down is not a close
+    // and should not be read as one. `en:iodised-salt` left the sweep because
+    // BOTH its members now retrieve nothing: `Salt, table, iodized` is dropped
+    // by ADR-0048 §5's no-energy rule, so the group lost its oracle rather than
+    // its miss. `iodised salt` still answers nothing, and no map can fix it.
+    expect(misses.length).toBeGreaterThanOrEqual(229);
     const closed = misses.filter((group) =>
       (group.members ?? []).every((m) => retrieves(corpus, m.query))
     );
