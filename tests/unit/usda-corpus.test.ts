@@ -867,6 +867,47 @@ describe("the twin merge's discarded names, as search aliases", () => {
     expect(descriptionsFor("carrots raw")[0]).toBe("Carrots, mature, raw");
   });
 
+  it("reaches the foods a reused ndbNumber used to fuse away", () => {
+    // ADR-0051's eight refusals, named one at a time rather than counted. Every
+    // one of these returned the OTHER food's row before the split, or nothing.
+    for (const [query, description] of [
+      ["golden delicious", "Apples, raw, golden delicious, with skin"],
+      ["spelt uncooked", "Spelt, uncooked"],
+      ["table salt", "Salt, table"],
+      [
+        "orange juice raw",
+        "Orange juice, raw (Includes foods for USDA's Food Distribution Program)",
+      ],
+      ["grilled portabella", "Mushrooms, portabella, grilled"],
+      ["ground chicken", "Chicken, ground, raw"],
+      ["plain soy milk", "Soy milk, unsweetened, plain, shelf stable"],
+    ])
+      expect([query, descriptionsFor(query)[0]]).toEqual([query, description]);
+
+    // The survivors keep their own names and their own leads, which is the half
+    // of the split that is meant to look like nothing happened.
+    expect(descriptionsFor("honeycrisp")[0]).toBe(
+      "Apples, honeycrisp, with skin, raw"
+    );
+    expect(descriptionsFor("portabella")[0]).toBe("Mushrooms, portabella, raw");
+  });
+
+  it("has no iodized salt, on purpose", () => {
+    // The one row the split deletes. `Salt, table, iodized` is a Foundation
+    // record that measured nothing at all and borrowed every one of its
+    // seventeen panel fields from plain table salt, so un-merged it reports no
+    // energy and ADR-0048 §5 drops it.
+    //
+    // Asserted rather than left as an absence: a deleted row that is only
+    // visible as a missing search result reads as a bug to whoever finds it
+    // next, and the corpus is meant to hold plain salt instead.
+    expect(index.foods.filter((f) => /iodized/i.test(f.description))).toEqual(
+      []
+    );
+    expect(descriptionsFor("iodized salt")).toEqual([]);
+    expect(descriptionsFor("table salt")[0]).toBe("Salt, table");
+  });
+
   it("carries an alias only where USDA held a second name for the food", () => {
     const aliased = index.foods.filter((food) => food.also);
 
