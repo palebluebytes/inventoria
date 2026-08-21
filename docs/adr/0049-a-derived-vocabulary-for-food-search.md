@@ -5,7 +5,8 @@
 **Amended by:** the #139 Amendment below, which measures §3's stopword threshold and corrects the size §3 quotes for the map; and the #140 Amendment below, which corrects Consequences' count of the British queries OFF reaches, refines §6, and admits one change to what a panel says that Scope excluded  
 **Amended by:** the #144 Amendment below, which re-derives the map over the corpus [ADR-0042](0042-usda-search-reference-foods.md)'s #144 amendment left behind  
 **Amended by:** [ADR-0050](0050-a-merged-food-keeps-the-name-its-twin-lost.md) §5 (§3's two filters are asked of a row's every name, not of its description alone, and the map re-derives over the aliases)  
-**Implemented:** #139 `4a01dd1`, `5868a7f`, `efadfad` (the map); #140 (the fallback that reads it)
+**Amended by:** the #141 Amendment below, which writes the hand-written `vocabulary_local` §4 left room for and Consequences deferred  
+**Implemented:** #139 `4a01dd1`, `5868a7f`, `efadfad` (the map); #140 (the fallback that reads it); #141 (the hand-written section)
 
 This record amends [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md)
 §1, which settled that USDA is the single composition authority and ruled Open Food
@@ -553,3 +554,109 @@ exists to avoid.
 
 The stopword guard is unmoved at 1.1% of the corpus, and the deny-list is
 untouched.
+
+## Amendment (2026-08-21, #141): the hand-written section, written
+
+§4 left room for a `vocabulary_local` beside the derived map, and Consequences
+deferred it. [#141](https://github.com/palebluebytes/inventoria/issues/141) has
+written it. **Eight everyday British food names now answer**, and the seventeen
+failing queries #130 measured are down to none this record knows how to close.
+
+### Eight, because OFF's taxonomy already knew two of the ten
+
+Consequences names ten queries OFF does not carry. The #140 Amendment above
+corrected two of them — `prawns` reaches the key `prawn` through §5's plural
+rule, `mince` reaches `minced beef` through the mid-type tier — and re-measuring
+at `b1bbb83` over the 4,360-row corpus confirms both lead with the right row
+today. Writing an entry for either would give the generator a key that already
+retrieves, which the first admission below forbids outright.
+
+The eight, each with the phrase it expands to and the row a search for it now
+leads with:
+
+| query             | expands to                | leads with                                                                |
+| ----------------- | ------------------------- | ------------------------------------------------------------------------- |
+| `caster sugar`    | `sugars granulated`       | `Sugars, granulated`                                                      |
+| `double cream`    | `cream heavy`             | `Cream, heavy`                                                            |
+| `gammon`          | `pork cured ham`          | `Pork, cured, ham, center slice, country-style, separable lean only, raw` |
+| `jacket potato`   | `potatoes baked`          | `Potatoes, baked, flesh, without salt`                                    |
+| `mange tout`      | `peas edible podded`      | `Peas, edible-podded, raw`                                                |
+| `natural yoghurt` | `yogurt plain whole milk` | `Yogurt, plain, whole milk`                                               |
+| `plain flour`     | `all purpose flour`       | `Flour, wheat, all-purpose, enriched, bleached`                           |
+| `porridge oats`   | `oats rolled`             | `Oats, whole grain, rolled, old fashioned`                                |
+
+### Four admissions, and three of them are one question asked three ways
+
+An entry states a key, the phrases it reaches, the description it expects to lead
+with, and a one-line reason. What makes the list a list rather than a habit is
+that three of its four admissions are re-measured at every generation, through
+the app's own `searchIndexRows` rather than through a second ranking:
+
+1. **The key retrieves nothing.** Asked over NO vocabulary. §1's fallback runs
+   only on zero results, so an entry for a phrase that already answers is one
+   nothing would ever reach.
+2. **The key leads with the row the entry names.** Asked over THAT ENTRY alone.
+   This is the admission the whole list waited on, and it pins a claim about the
+   finished corpus and the shipped ranking together, so a refresh that moves the
+   answer fails the build instead of silently redirecting `caster sugar`.
+3. **No OFF group already covers it.** Asked over the DERIVED map, which is
+   narrower than the words OFF holds: a key whose group §3's effect, deny or
+   stopword filter removed is admissible here, and deliberately so — a group
+   that was filtered out covers nothing. What the check refuses is a key the
+   shipped map already answers for. An entry shadowing a derived key would leave
+   two maps disagreeing with the merge order deciding.
+4. **The key is a name in everyday use, not a brand and not a dish.** No machine
+   can check this, so what is enforced is that a human wrote the reason down.
+
+Three vocabularies, one question — what does this phrase lead with — which is why
+the admissions can be stated mechanically rather than as review discipline. The
+check runs before either artifact is written, and a broken expectation stops the
+generation with the row it now leads with in the message.
+
+**The ceiling is twenty**, in the ADR-0046 §6 style, and enforced for the same
+reason the entries are: reaching it says the vocabulary problem is bigger than a
+hand list and wants re-deriving. It is not a cap to raise.
+
+### The section is separate for the licence, and merged for the matcher
+
+`search-index.json` gains a `vocabulary_local` key beside `vocabulary_off`, and
+`schema_version` moves to 4. It carries a `source` and deliberately no `licence`,
+`url` or `sha256`: there is nothing upstream to pin, and the absence is what says
+this half is not the ODbL derivative §4 keeps distinct. The evidence behind each
+entry — the expected row and the reason — stays in
+`src/lib/food/food-vocabulary.ts` beside the deny-list, reached only through the
+generator's esbuild seam, so no prose admitting an entry enters a bundle a user
+downloads. The section costs 431 raw bytes, and adds 475 raw / 211 gzip-9 / 262
+brotli-11 to `search-index.json` — a size never quoted without its compressor
+(#120).
+
+`buildSearchCorpus` merges the two into one map at load, and that is the whole of
+the integration. `expandThroughVocabulary` never asked which section a key came
+from, so `caster sug` reaches its key mid-type exactly as `aubergin` does, and a
+food reached this way is shown under the name that reached it — `Pork, cured,
+ham, center slice, country-style, separable lean only, raw, gammon`. Admission 3
+is what makes the merge safe to state as a spread: a hand entry exists only where
+the derived map reaches nothing.
+
+Nothing else moved. The derived map is the same 446 keys over the same 4,360
+rows, and the corpus is untouched.
+
+### Two entries answer with the nearest row rather than the right one
+
+Worth recording, because the alias treatment puts the typed word on a panel whose
+numbers are the row's:
+
+- **`double cream` leads with `Cream, heavy`**, and US heavy cream is legally
+  about 36% fat where double cream is about 48%. It is the nearest grade USDA
+  carries, and the panel is heavy cream's. The alternative was no answer at all.
+- **`jacket potato` leads with `Potatoes, baked, flesh, without salt`**, which is
+  the flesh alone where a jacket potato is eaten with its skin. The two differ by
+  a rounding error in energy, and the flesh-and-skin row is reachable by typing
+  the words; the entry keeps the target the ticket measured.
+
+`plain flour`'s entry carries a workaround rather than a compromise. Its target is
+`all purpose flour` and not `wheat flour white all purpose`, which still leads
+with the **self-rising** row — #130 §6's case, which
+[#143](https://github.com/palebluebytes/inventoria/issues/143) measured and left
+open because the tie is seventeen rows deep and the leader carries no marker the
+new key can reach.
