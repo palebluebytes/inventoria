@@ -20,9 +20,9 @@
         "vitamin_c"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`Butter, salted` and `Butter, stick, salted` name one product; `stick` is a form descriptor."
     },
     {
       "ndbNumber": 1009,
@@ -37,9 +37,9 @@
       "names_read_alike": true,
       "filled_fields": ["fiber_content", "vitamin_d", "vitamin_c"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 1012,
@@ -62,9 +62,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`Cheese, cottage, creamed, large or small curd` reordered to `Cottage cheese, full fat, large or small curd`."
     },
     {
       "ndbNumber": 1015,
@@ -79,9 +79,9 @@
       "names_read_alike": true,
       "filled_fields": ["fiber_content", "vitamin_d", "vitamin_c"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 1017,
@@ -105,9 +105,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`Cheese, cream` reordered to `Cream cheese, full fat, block`."
     },
     {
       "ndbNumber": 1019,
@@ -129,9 +129,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "narrowing",
+      "note": "Whole-milk crumbled feta is the default feta; no reduced-fat feta holds a separate number. Fat-content and physical-form descriptors are not on §6's closed list of identity-forming dimensions."
     },
     {
       "ndbNumber": 1029,
@@ -146,9 +146,9 @@
       "names_read_alike": true,
       "filled_fields": ["fiber_content", "vitamin_d", "vitamin_c"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 1032,
@@ -163,9 +163,9 @@
       "names_read_alike": true,
       "filled_fields": ["fiber_content", "vitamin_d", "vitamin_c"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 1036,
@@ -185,9 +185,9 @@
         "vitamin_c"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 1040,
@@ -202,9 +202,9 @@
       "names_read_alike": true,
       "filled_fields": ["fiber_content", "vitamin_c"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 1042,
@@ -219,9 +219,9 @@
       "names_read_alike": false,
       "filled_fields": ["fiber_content", "vitamin_c", "folate"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Word order only: `fortified with vitamin D` against `vitamin D fortified`."
     },
     {
       "ndbNumber": 1053,
@@ -245,9 +245,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`Cream, fluid, heavy whipping` and `Cream, heavy` name one product."
     },
     {
       "ndbNumber": 1056,
@@ -271,9 +271,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`cultured` and `full fat` both describe ordinary sour cream."
     },
     {
       "ndbNumber": 1077,
@@ -288,9 +288,9 @@
       "names_read_alike": true,
       "filled_fields": ["fiber_content", "vitamin_c"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 1079,
@@ -305,9 +305,9 @@
       "names_read_alike": true,
       "filled_fields": ["fiber_content", "vitamin_c"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 1082,
@@ -322,9 +322,9 @@
       "names_read_alike": true,
       "filled_fields": ["fiber_content", "vitamin_c"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 1085,
@@ -339,9 +339,9 @@
       "names_read_alike": true,
       "filled_fields": ["fiber_content", "vitamin_c"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 1088,
@@ -364,9 +364,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`Milk, buttermilk, fluid, cultured, lowfat` reordered to `Buttermilk, low fat`."
     },
     {
       "ndbNumber": 1116,
@@ -388,9 +388,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 1123,
@@ -405,9 +405,9 @@
       "names_read_alike": false,
       "filled_fields": ["trans_fat_content", "vitamin_c", "vitamin_e"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Frozen pasteurized (1171) and dried (1133) whole egg hold their own numbers, so 1123 is the fresh raw whole egg."
     },
     {
       "ndbNumber": 1124,
@@ -441,9 +441,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Frozen pasteurized (1172) and dried (1173) egg white hold their own numbers, so 1124 is the fresh raw white."
     },
     {
       "ndbNumber": 1125,
@@ -476,9 +476,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Frozen pasteurized (1126) and dried (1137) egg yolk hold their own numbers, so 1125 is the fresh raw yolk."
     },
     {
       "ndbNumber": 1126,
@@ -505,9 +505,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 1133,
@@ -534,9 +534,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 1137,
@@ -563,9 +563,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 1145,
@@ -595,9 +595,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`Butter, without salt` and `Butter, stick, unsalted` name one product."
     },
     {
       "ndbNumber": 1171,
@@ -624,9 +624,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 1172,
@@ -653,9 +653,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 1173,
@@ -681,9 +681,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 1227,
@@ -698,9 +698,9 @@
       "names_read_alike": true,
       "filled_fields": [],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 1256,
@@ -715,9 +715,9 @@
       "names_read_alike": true,
       "filled_fields": ["fiber_content", "vitamin_c", "folate"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 1285,
@@ -732,9 +732,9 @@
       "names_read_alike": true,
       "filled_fields": ["vitamin_e"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 1293,
@@ -757,9 +757,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 2046,
@@ -774,9 +774,9 @@
       "names_read_alike": true,
       "filled_fields": ["cholesterol_content", "vitamin_d", "vitamin_b12"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 2047,
@@ -809,9 +809,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "split",
+      "reason_code": "added-ingredient",
+      "note": "Iodized salt against plain table salt; potassium iodide is an added ingredient and no third salt record exists. Cost: DELETES `Salt, table, iodized` — the Foundation record measured nothing at all and borrowed all seventeen panel fields, so un-merged it reports no energy and ADR-0048 §5 drops it. Plain `Salt, table` ships in its place."
     },
     {
       "ndbNumber": 4042,
@@ -846,9 +846,9 @@
         "zinc"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`salad or cooking` is a use, not an identity; both name refined peanut oil."
     },
     {
       "ndbNumber": 4044,
@@ -884,9 +884,9 @@
         "zinc"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`salad or cooking` is a use; both name refined soybean oil."
     },
     {
       "ndbNumber": 4047,
@@ -911,9 +911,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 4511,
@@ -948,9 +948,9 @@
         "zinc"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`salad or cooking, high oleic (primary safflower oil of commerce)` is USDA describing which safflower oil is the commercial default — the same oil Foundation names plainly."
     },
     {
       "ndbNumber": 4518,
@@ -985,9 +985,9 @@
         "zinc"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`industrial and retail, all purpose salad or cooking` is a use; both name refined corn oil."
     },
     {
       "ndbNumber": 4582,
@@ -1023,9 +1023,9 @@
         "zinc"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 5332,
@@ -1049,9 +1049,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "split",
+      "reason_code": "added-ingredient",
+      "note": "Ground chicken with an added solution against plain ground chicken. USDA treats added solution as a separate identity elsewhere — the corpus already ships `Chicken, broiler or fryers, breast … cooked, grilled` and `… with added solution, cooked, grilled` as two rows. Cost: none."
     },
     {
       "ndbNumber": 5665,
@@ -1076,9 +1076,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 5666,
@@ -1099,9 +1099,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 5671,
@@ -1121,9 +1121,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "A drumstick is dark meat, so `dark meat, drumstick` and `drumstick` name one cut."
     },
     {
       "ndbNumber": 5746,
@@ -1144,9 +1144,9 @@
         "vitamin_c"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 6164,
@@ -1169,9 +1169,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 6931,
@@ -1194,9 +1194,9 @@
         "folate"
       ],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 7022,
@@ -1216,9 +1216,9 @@
         "vitamin_c"
       ],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 7028,
@@ -1244,9 +1244,9 @@
         "folate"
       ],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 7089,
@@ -1261,9 +1261,9 @@
       "names_read_alike": true,
       "filled_fields": ["fiber_content", "vitamin_d", "vitamin_c"],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 7919,
@@ -1285,9 +1285,9 @@
         "folate"
       ],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 7954,
@@ -1302,9 +1302,9 @@
       "names_read_alike": true,
       "filled_fields": ["fiber_content", "vitamin_d", "folate"],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 9021,
@@ -1330,9 +1330,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "narrowing",
+      "note": "`with skin` is the default state for a raw apricot; no skinless apricot record exists."
     },
     {
       "ndbNumber": 9040,
@@ -1355,9 +1355,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`Bananas, overripe, raw` was given a new number (100254), so 9040 remains the ordinary ripe banana."
     },
     {
       "ndbNumber": 9042,
@@ -1386,9 +1386,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 9050,
@@ -1415,9 +1415,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 9070,
@@ -1443,9 +1443,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "narrowing",
+      "note": "`dark red` narrows within sweet cherries; every other sweet-cherry record at a separate number is a canned preparation. Colour is not on §6's list."
     },
     {
       "ndbNumber": 9094,
@@ -1466,9 +1466,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 9123,
@@ -1490,9 +1490,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 9130,
@@ -1517,9 +1517,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "White grape juice was given a NEW number (100266), so 9130 remains the purple grape juice the SR Legacy generic described. `ascorbic acid` and `vitamin C` are the same addition."
     },
     {
       "ndbNumber": 9148,
@@ -1541,9 +1541,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 9181,
@@ -1566,9 +1566,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 9184,
@@ -1595,9 +1595,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 9191,
@@ -1617,9 +1617,9 @@
         "vitamin_b12"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 9202,
@@ -1643,9 +1643,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 9206,
@@ -1670,9 +1670,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "split",
+      "reason_code": "preparation-state",
+      "note": "Raw squeezed juice against a pasteurised refrigerated not-from-concentrate carton. SR Legacy gives every other orange juice form its own number (9207 canned, 9209 chilled from concentrate, 9215 frozen concentrate), so 9206 is the raw slot. Cost: none, and a gain — the merged row is dropped as a processed product today, so `Orange juice, raw` is absent from the corpus with no judgement ever made about it. The split ships it."
     },
     {
       "ndbNumber": 9209,
@@ -1697,9 +1697,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Both name chilled orange juice made from concentrate."
     },
     {
       "ndbNumber": 9236,
@@ -1722,9 +1722,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 9266,
@@ -1749,9 +1749,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`all varieties` is what a generic pineapple record already is."
     },
     {
       "ndbNumber": 9277,
@@ -1776,9 +1776,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`yellow` and `ripe` name the same stage of plantain; the underripe stage holds ndb 9542."
     },
     {
       "ndbNumber": 9302,
@@ -1805,9 +1805,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 9316,
@@ -1834,9 +1834,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 9400,
@@ -1861,9 +1861,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`ascorbic acid` and `vitamin C` are the same addition; both name shelf-stable bottled apple juice."
     },
     {
       "ndbNumber": 9401,
@@ -1890,9 +1890,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`ascorbic acid` and `vitamin C` are the same addition; both name unsweetened applesauce."
     },
     {
       "ndbNumber": 9412,
@@ -1907,9 +1907,9 @@
       "names_read_alike": true,
       "filled_fields": ["trans_fat_content", "vitamin_e"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 9415,
@@ -1930,9 +1930,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Word order: `Pears, raw, green anjou` against `Pear, Anjou, green, with skin, raw`."
     },
     {
       "ndbNumber": 9500,
@@ -1947,9 +1947,9 @@
       "names_read_alike": false,
       "filled_fields": ["trans_fat_content", "vitamin_a", "vitamin_e"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Word order only; same cultivar named on both sides."
     },
     {
       "ndbNumber": 9501,
@@ -1964,9 +1964,9 @@
       "names_read_alike": false,
       "filled_fields": ["trans_fat_content", "vitamin_a", "vitamin_e"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "split",
+      "reason_code": "cultivar",
+      "note": "Two named apple cultivars. Siblings 9500 red delicious, 9502 granny smith, 9503 gala and 9504 fuji each hold exactly one cultivar per number, so one number cannot hold Golden Delicious and Honeycrisp both. Cost: none; both rows carry their own energy. Honeycrisp loses the borrowed trans fat, vit A and vit E."
     },
     {
       "ndbNumber": 9502,
@@ -1981,9 +1981,9 @@
       "names_read_alike": false,
       "filled_fields": ["trans_fat_content", "vitamin_a", "vitamin_e"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Word order only; same cultivar named on both sides."
     },
     {
       "ndbNumber": 9503,
@@ -1998,9 +1998,9 @@
       "names_read_alike": false,
       "filled_fields": ["trans_fat_content", "vitamin_a", "vitamin_e"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Word order only; same cultivar named on both sides."
     },
     {
       "ndbNumber": 9504,
@@ -2015,9 +2015,9 @@
       "names_read_alike": false,
       "filled_fields": ["trans_fat_content", "vitamin_a", "vitamin_e"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Word order only; same cultivar named on both sides."
     },
     {
       "ndbNumber": 9542,
@@ -2037,9 +2037,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`green` and `underripe` name the same stage; the ripe stage holds ndb 9277."
     },
     {
       "ndbNumber": 10219,
@@ -2061,9 +2061,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`fresh` is what raw ground pork already is."
     },
     {
       "ndbNumber": 11052,
@@ -2089,9 +2089,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11056,
@@ -2119,9 +2119,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11080,
@@ -2146,9 +2146,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11086,
@@ -2172,9 +2172,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11090,
@@ -2194,9 +2194,9 @@
         "vitamin_b12"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11098,
@@ -2222,9 +2222,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11109,
@@ -2251,9 +2251,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "narrowing",
+      "note": "Red cabbage holds ndb 11112 and savoy, napa and pak-choi hold their own, so 11109 is the generic green cabbage. The pair is generic-and-default, not two varieties."
     },
     {
       "ndbNumber": 11112,
@@ -2280,9 +2280,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11116,
@@ -2308,9 +2308,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`bok choy` and `chinese (pak-choi)` are two spellings of one vegetable."
     },
     {
       "ndbNumber": 11124,
@@ -2336,9 +2336,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`Carrots, baby, raw` holds ndb 11960 in BOTH archives, so 11124 is the mature carrot in both."
     },
     {
       "ndbNumber": 11130,
@@ -2359,9 +2359,9 @@
         "vitamin_b12"
       ],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11135,
@@ -2387,9 +2387,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11143,
@@ -2417,9 +2417,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11161,
@@ -2445,9 +2445,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11205,
@@ -2476,9 +2476,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11209,
@@ -2503,9 +2503,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11215,
@@ -2538,9 +2538,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11233,
@@ -2562,9 +2562,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11236,
@@ -2587,9 +2587,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11238,
@@ -2604,9 +2604,9 @@
       "names_read_alike": false,
       "filled_fields": ["trans_fat_content", "sugar_content"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Shiitake stir-fried (11267), dried (11268) and cooked (11269) each hold their own number, so 11238 is the raw shiitake."
     },
     {
       "ndbNumber": 11243,
@@ -2632,9 +2632,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "split",
+      "reason_code": "separate-ndb-elsewhere",
+      "note": "SR Legacy holds raw portabella separately as ndb 11265, fdcId 169255, so 11243 cannot be both the raw and the grilled record. Cost: none. Both rows pass the filter roster — `grilled` marks 151 shipped rows already, including `Mushrooms, portabella, exposed to ultraviolet light, grilled` (ndb 11939) — so the split ships two rows and deletes nothing."
     },
     {
       "ndbNumber": 11251,
@@ -2657,9 +2657,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11252,
@@ -2687,9 +2687,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`(includes crisphead types)` is a parenthetical gloss on iceberg."
     },
     {
       "ndbNumber": 11253,
@@ -2716,9 +2716,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Word order: `green leaf` against `leaf, green`."
     },
     {
       "ndbNumber": 11257,
@@ -2745,9 +2745,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Word order: `red leaf` against `leaf, red`."
     },
     {
       "ndbNumber": 11260,
@@ -2772,9 +2772,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`Mushroom, white, exposed to ultraviolet light, raw` holds ndb 11938 and the cooked forms hold theirs, so 11260 is the plain raw white mushroom."
     },
     {
       "ndbNumber": 11266,
@@ -2800,9 +2800,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`Mushrooms, brown, italian, or crimini, exposed to ultraviolet light, raw` holds ndb 11936, so 11266 is the plain raw crimini."
     },
     {
       "ndbNumber": 11296,
@@ -2822,9 +2822,9 @@
         "vitamin_b12"
       ],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11298,
@@ -2849,9 +2849,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11333,
@@ -2876,9 +2876,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`sweet` and `bell` name one pepper."
     },
     {
       "ndbNumber": 11413,
@@ -2904,9 +2904,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Word order: `Potato flour` against `Flour, potato`."
     },
     {
       "ndbNumber": 11457,
@@ -2930,9 +2930,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`Spinach, baby` was given a NEW number (100260) in Foundation, which is USDA saying 11457 is the mature spinach the SR Legacy generic already described."
     },
     {
       "ndbNumber": 11482,
@@ -2956,9 +2956,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11485,
@@ -2984,9 +2984,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11540,
@@ -3011,9 +3011,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`Tomato juice, canned, without salt added` holds ndb 11886, so 11540 is the salted tomato juice; `with added ingredients` names the same salt."
     },
     {
       "ndbNumber": 11546,
@@ -3039,9 +3039,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`Tomato products, canned, paste` against `Tomato, paste, canned`; same product, unsalted on both sides."
     },
     {
       "ndbNumber": 11564,
@@ -3065,9 +3065,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11693,
@@ -3093,9 +3093,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11821,
@@ -3120,9 +3120,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`sweet` and `bell` name one pepper."
     },
     {
       "ndbNumber": 11937,
@@ -3144,9 +3144,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11950,
@@ -3171,9 +3171,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Foundation dropped `, raw` from the enoki record."
     },
     {
       "ndbNumber": 11951,
@@ -3195,9 +3195,9 @@
         "vitamin_b12"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`sweet` and `bell` name one pepper."
     },
     {
       "ndbNumber": 11952,
@@ -3222,9 +3222,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11957,
@@ -3249,9 +3249,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11960,
@@ -3276,9 +3276,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 11987,
@@ -3303,9 +3303,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Foundation dropped `, raw` from the oyster mushroom record."
     },
     {
       "ndbNumber": 11993,
@@ -3331,9 +3331,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Foundation dropped `, raw` from the maitake record."
     },
     {
       "ndbNumber": 12006,
@@ -3358,9 +3358,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Chia is sold only dry; `dry, raw` and `dried` name one commodity and no roasted or other chia record exists to contrast with."
     },
     {
       "ndbNumber": 12014,
@@ -3388,9 +3388,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Same pattern: 12016 roasted without salt and 12516 roasted with salt hold separate numbers, so 12014 is the unroasted kernel that Foundation renamed `raw`."
     },
     {
       "ndbNumber": 12036,
@@ -3417,9 +3417,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`dried` is the unroasted baseline — 12037 dry roasted without salt, 12039 toasted, 12537 dry roasted with salt all hold separate numbers. Foundation renamed the same kernel `raw`."
     },
     {
       "ndbNumber": 12061,
@@ -3444,9 +3444,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`whole, raw` states what a plain almond record already is."
     },
     {
       "ndbNumber": 12087,
@@ -3473,9 +3473,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 12120,
@@ -3502,9 +3502,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`raw` states what a plain hazelnut record already is."
     },
     {
       "ndbNumber": 12131,
@@ -3531,9 +3531,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 12142,
@@ -3557,9 +3557,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`halves, raw` describes the form of the same pecan."
     },
     {
       "ndbNumber": 12147,
@@ -3585,9 +3585,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "USDA's `dried` on a nut means unroasted, not dehydrated: `Nuts, pine nuts, pinyon, dried` holds its own number (12149) and the roasted forms hold theirs. 12147 is the plain pine nut in both archives."
     },
     {
       "ndbNumber": 12151,
@@ -3615,9 +3615,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 12155,
@@ -3641,9 +3641,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`halves, raw` describes the form of the same English walnut."
     },
     {
       "ndbNumber": 12195,
@@ -3665,9 +3665,9 @@
         "vitamin_b12"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`Nuts, almond butter, plain, with salt added` holds ndb 12695, so 12195 is the unsalted almond butter that Foundation renamed `creamy`."
     },
     {
       "ndbNumber": 12220,
@@ -3689,9 +3689,9 @@
         "vitamin_b12"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "split",
+      "reason_code": "milled-form",
+      "note": "Ground flaxseed against whole flaxseed. Level 2 fires on the names as USDA wrote them. Recorded doubt: the two are compositionally identical per 100 g and USDA may have named the assay rather than a different food — but §6 resolves doubt to split, and whole and ground flaxseed are bought and used as different things. Cost: none."
     },
     {
       "ndbNumber": 12537,
@@ -3706,9 +3706,9 @@
       "names_read_alike": true,
       "filled_fields": ["cholesterol_content", "vitamin_d", "vitamin_b12"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 12563,
@@ -3723,9 +3723,9 @@
       "names_read_alike": true,
       "filled_fields": ["cholesterol_content", "vitamin_d", "vitamin_b12"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 13236,
@@ -3748,9 +3748,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 13468,
@@ -3773,9 +3773,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 14091,
@@ -3790,9 +3790,9 @@
       "names_read_alike": false,
       "filled_fields": ["cholesterol_content", "vitamin_c"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`Beverages, almond milk, unsweetened, shelf stable` reordered; `plain` adds nothing."
     },
     {
       "ndbNumber": 15033,
@@ -3813,9 +3813,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 15066,
@@ -3830,9 +3830,9 @@
       "names_read_alike": false,
       "filled_fields": ["fiber_content", "sugar_content", "folate"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Not two species. The Foundation record's scientificName is `Theragra chalcogramma (Pallas)` — Alaska pollock — and Atlantic pollock holds a separate number (15065). Foundation merely dropped `Alaska` from the name, which is what the ADR-0050 alias now carries."
     },
     {
       "ndbNumber": 15121,
@@ -3853,9 +3853,9 @@
         "folate"
       ],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 15234,
@@ -3880,9 +3880,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`Fish, catfish, channel, wild, raw` holds ndb 15010, so 15234 is the farmed channel catfish in both archives."
     },
     {
       "ndbNumber": 15236,
@@ -3906,9 +3906,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`farmed` and `farm raised` are the same word."
     },
     {
       "ndbNumber": 16087,
@@ -3936,9 +3936,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Valencia (16093) and virginia (16095) peanuts hold their own numbers, so 16087 is the all-types peanut."
     },
     {
       "ndbNumber": 16098,
@@ -3961,9 +3961,9 @@
         "vitamin_b12"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "The unsalted peanut butters hold their own numbers (16397 chunk, 16398 smooth) and reduced sodium holds 42291, so 16098 is the standard salted smooth peanut butter Foundation renamed `creamy`."
     },
     {
       "ndbNumber": 16115,
@@ -3991,9 +3991,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Word order: `Soy flour, full-fat, raw` against `Flour, soy, full-fat`."
     },
     {
       "ndbNumber": 16117,
@@ -4020,9 +4020,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Word order: `Soy flour, defatted` against `Flour, soy, defatted`."
     },
     {
       "ndbNumber": 16158,
@@ -4037,9 +4037,9 @@
       "names_read_alike": true,
       "filled_fields": ["cholesterol_content", "vitamin_d", "vitamin_b12"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 16222,
@@ -4054,9 +4054,9 @@
       "names_read_alike": false,
       "filled_fields": ["cholesterol_content", "vitamin_c"],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "split",
+      "reason_code": "added-ingredient",
+      "note": "Calcium- and vitamin-A/D-fortified soymilk against plain unfortified soy milk. Fortification is an added ingredient and USDA mints numbers across soy milk variants freely (100275 for sweetened refrigerated, 16120 for unfortified original). Cost: none."
     },
     {
       "ndbNumber": 17224,
@@ -4083,9 +4083,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 19335,
@@ -4112,9 +4112,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 20008,
@@ -4138,9 +4138,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Buckwheat groats roasted (20009), cooked (20010) and flour (20011) hold their own numbers, so 20008 is the raw buckwheat grain."
     },
     {
       "ndbNumber": 20011,
@@ -4166,9 +4166,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`whole-groat` is what plain buckwheat flour already is."
     },
     {
       "ndbNumber": 20012,
@@ -4194,9 +4194,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`Bulgur, cooked` holds ndb 20013, so 20012 is the dry bulgur under both names."
     },
     {
       "ndbNumber": 20031,
@@ -4221,9 +4221,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Millet cooked (20032), puffed (43483) and flour (20647) hold their own numbers, so 20031 is the raw millet grain."
     },
     {
       "ndbNumber": 20036,
@@ -4250,9 +4250,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Brown rice is not enriched; `unenriched` states what 20036 already was, and cooked brown rice holds 20037."
     },
     {
       "ndbNumber": 20038,
@@ -4275,9 +4275,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Foundation minted a NEW number (100282) for steel-cut oats and kept rolled old-fashioned at 20038 — which is USDA assigning 20038 to rolled oats specifically, not to oat grain generically."
     },
     {
       "ndbNumber": 20061,
@@ -4302,9 +4302,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Word order: `Rice flour, white, unenriched` against `Flour, rice, white, unenriched`."
     },
     {
       "ndbNumber": 20080,
@@ -4329,9 +4329,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`Wheat flour, whole-grain, soft wheat` holds ndb 20649, so 20080 is the standard whole wheat flour."
     },
     {
       "ndbNumber": 20081,
@@ -4357,9 +4357,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Word order; enriched and bleached on both sides."
     },
     {
       "ndbNumber": 20083,
@@ -4385,9 +4385,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "20083 is USDA's only white bread flour; `unbleached` states the sample."
     },
     {
       "ndbNumber": 20088,
@@ -4413,9 +4413,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`Wild rice, cooked` holds ndb 20089, so 20088 is the dry raw grain under both names."
     },
     {
       "ndbNumber": 20090,
@@ -4441,9 +4441,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Word order: `Rice flour, brown` against `Flour, rice, brown`."
     },
     {
       "ndbNumber": 20130,
@@ -4469,9 +4469,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "`Barley flour or meal` against `Flour, barley`."
     },
     {
       "ndbNumber": 20140,
@@ -4495,9 +4495,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "split",
+      "reason_code": "milled-form",
+      "note": "Whole spelt grain against spelt flour. SR Legacy holds `Spelt, cooked` at ndb 20141, fdcId 169746, so 20140 is USDA's spelt-grain slot and the Foundation flour record has taken it. Cost: none; both rows carry their own energy."
     },
     {
       "ndbNumber": 20444,
@@ -4523,9 +4523,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "The enriched long-grain white rice holds ndb 20044, so 20444 is the unenriched one both names describe."
     },
     {
       "ndbNumber": 20481,
@@ -4550,9 +4550,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "20481 is USDA's only unenriched all-purpose flour; `unbleached` states the sample rather than narrowing the identity."
     },
     {
       "ndbNumber": 20581,
@@ -4578,9 +4578,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Word order; enriched and unbleached on both sides."
     },
     {
       "ndbNumber": 23359,
@@ -4601,9 +4601,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 23362,
@@ -4626,9 +4626,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 23377,
@@ -4651,9 +4651,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 23385,
@@ -4674,9 +4674,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 23562,
@@ -4701,9 +4701,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 23572,
@@ -4728,9 +4728,9 @@
         "folate"
       ],
       "merged_row_ships": true,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 36408,
@@ -4745,9 +4745,9 @@
       "names_read_alike": true,
       "filled_fields": [],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 36412,
@@ -4762,9 +4762,9 @@
       "names_read_alike": true,
       "filled_fields": ["vitamin_d", "vitamin_c", "folate"],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 36602,
@@ -4787,9 +4787,9 @@
         "folate"
       ],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 36622,
@@ -4804,9 +4804,9 @@
       "names_read_alike": true,
       "filled_fields": [],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "same-name",
+      "note": "The two descriptions read alike once archive boilerplate is stripped. Two records USDA gave one name are not two foods."
     },
     {
       "ndbNumber": 43382,
@@ -4831,9 +4831,9 @@
         "unsaturated_fat_content"
       ],
       "merged_row_ships": false,
-      "verdict": null,
-      "reason_code": null,
-      "note": null
+      "verdict": "merge",
+      "reason_code": "rename",
+      "note": "Both name unsweetened pure cranberry juice; the cocktails hold their own numbers (14242, 14430)."
     }
   ]
 }

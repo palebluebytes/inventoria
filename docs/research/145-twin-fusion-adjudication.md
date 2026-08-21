@@ -181,3 +181,62 @@ Registered here so that none of them can be reported later as a discovery:
 - **Ranking damage from near-duplicates** → a finding in ADR-0051 and, if material, its own ticket against ADR-0042 §1. Not fixed here.
 - **`desc:`-keyed fusion** → not a live defect: zero multi-record groups are keyed by the fallback today. Not fixed, but no longer assumed — the §8.6 census check fails on one the day it appears.
 - **Pairs USDA will fuse in future refreshes** → the census check, not a rule. This note does not claim the 190 are the last of them.
+
+---
+
+## 11. Results: the sweep
+
+Run 2026-08-21 against the pre-registration above. All 190 pairs adjudicated; `145-twin-ledger.json` carries every verdict, reason code and note.
+
+**8 pairs of 190 adjudicate `split`.** §8.3 predicted 15–30 and was wrong on the high side, for the reason §11.2 gives.
+
+| verdict / code                     | count |
+| ---------------------------------- | ----- |
+| `merge` / `same-name`              | 96    |
+| `merge` / `rename`                 | 82    |
+| `merge` / `narrowing`              | 4     |
+| `split` / `added-ingredient`       | 3     |
+| `split` / `milled-form`            | 2     |
+| `split` / `separate-ndb-elsewhere` | 1     |
+| `split` / `preparation-state`      | 1     |
+| `split` / `cultivar`               | 1     |
+
+§7.3's contradiction check is clean: no reason code carries opposite verdicts.
+
+### 11.1 The eight, and what each costs
+
+Every cost below is measured by running both records of the pair through the filter roster and `fdcReportsNoEnergy` independently, not asserted.
+
+| ndb   | the pair                                                                                                                  | code                     | effect                                                           |
+| ----- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------ | ---------------------------------------------------------------- |
+| 11243 | `Mushroom, portabella` / `Mushrooms, portabella, grilled`                                                                 | `separate-ndb-elsewhere` | both ship                                                        |
+| 9501  | `Apples, honeycrisp, with skin, raw` / `Apples, raw, golden delicious, with skin`                                         | `cultivar`               | both ship                                                        |
+| 20140 | `Flour, spelt, whole grain` / `Spelt, uncooked`                                                                           | `milled-form`            | both ship                                                        |
+| 12220 | `Flaxseed, ground` / `Seeds, flaxseed`                                                                                    | `milled-form`            | both ship                                                        |
+| 5332  | `Chicken, ground, with additives, raw` / `Chicken, ground, raw`                                                           | `added-ingredient`       | both ship                                                        |
+| 16222 | `Soy milk, unsweetened, plain, shelf stable` / `Soymilk (all flavors), unsweetened, with added calcium, vitamins A and D` | `added-ingredient`       | both ship                                                        |
+| 2047  | `Salt, table, iodized` / `Salt, table`                                                                                    | `added-ingredient`       | **iodized salt is deleted**, plain salt ships                    |
+| 9206  | `Orange juice, no pulp, not fortified, not from concentrate, refrigerated` / `Orange juice, raw`                          | `preparation-state`      | Foundation row stays dropped, **`Orange juice, raw` is rescued** |
+
+**Corpus effect: 4,353 rows to 4,360.** Six pairs become two rows each; `Salt, table, iodized` measured nothing of its own and ADR-0048 §5 deletes it un-merged, exactly as §2.2 registered; `Orange juice, raw` enters a corpus that never judged it.
+
+**Alias effect: 87 to 80.** A split pair mints no alias by construction, and §12's regression is one name, not a class: **`Salt, table, iodized` becomes unreachable** and is the only name in the whole population that does. Nothing else that is reachable today stops being reachable.
+
+### 11.2 Why the estimate was too high
+
+The three dried-against-raw pairs the ticket flagged as needing a call — pine nuts, sunflower kernels, chia — **all three adjudicate `merge`**, and so does the fourth of that shape, pumpkin seeds. The evidence is general and worth stating once: **USDA's `dried` on a nut or seed means unroasted, not dehydrated.** Every roasted form holds its own number — sunflower 12037 and 12537, pumpkin 12016 and 12516, pine nut pinyon 12149 — so the base number is the plain commodity, and Foundation renaming it `raw` describes the same thing. Reading `dried` as a preparation state would have split four pairs that are one food each.
+
+Two further merges came within reach of a wrong split and were caught by naming the third record:
+
+- **`Fish, pollock, raw` / `Fish, pollock, Alaska, raw`** looked like two species. The Foundation record's `scientificName` is `Theragra chalcogramma (Pallas)`, which is Alaska pollock, and Atlantic pollock holds a separate number (15065). One food; Foundation dropped a word.
+- **`Oats` / `Oats, whole grain, rolled, old fashioned`** looked like grain against rolled oats. Foundation minted a **new** number for steel-cut oats (100282) and kept rolled at 20038, which is USDA assigning 20038 to rolled specifically.
+
+The same third-record test settles a whole family the other way from how the names read: `Spinach, mature`, `Carrots, mature, raw`, `Cabbage, green, raw` and `Bananas, ripe and slightly ripe, raw` all look like narrowings of a generic record, and all four are renames — because USDA gave the thing being excluded its own number (baby spinach 100260, baby carrots 11960, red cabbage 11112, overripe bananas 100254).
+
+Of the 8 splits, at most 3 carry a preparation word, so #137's refuted state-word test would have found 3 of 8 while raising the 30 false alarms it was already known to raise. §4's refutation holds.
+
+### 11.3 Verdict against §8.4
+
+**Ship the split.** Eight pairs adjudicate `split` on evidence-hierarchy level 1 or 2; none rests on `uncertain` alone; §8.5's guards are unmoved by construction, since 182 of 190 pairs merge exactly as they do today.
+
+One measurement is deferred rather than skipped. §9 commits to reporting how many queries gain a second row from the same split pair in their top three, and that can only be measured against a regenerated index. The population at risk is small and nameable now: of the six pairs where both records ship, three are the same food in a different form (`Chicken, ground` with and without additives, `Flaxseed` ground and whole, `Soy milk` fortified and plain) and three are plainly distinct foods (two apple cultivars, raw and grilled portabella, spelt grain and spelt flour). The measurement runs at regeneration and its result is reported in ADR-0051.
