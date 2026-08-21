@@ -27,6 +27,7 @@ import {
   fdcReportsNoEnergy,
   isBrandSpecific,
   isDryBasisRecord,
+  isManufacturingInput,
   isPreparedProduct,
   isProcessedProduct,
   mapFdcFoodToPayload,
@@ -46,6 +47,7 @@ const app = {
   isProcessedProduct,
   isPreparedProduct,
   isDryBasisRecord,
+  isManufacturingInput,
   fdcReportsNoEnergy,
   fdcIdentityKey,
   resolveFdcGroup,
@@ -298,6 +300,7 @@ describe("buildCorpus — the ADR-0042 survivors, merged at generation time", ()
       processed: 1,
       prepared: 1,
       dry_basis: 0,
+      manufacturing_input: 0,
       no_energy: 0,
     });
   });
@@ -475,6 +478,7 @@ describe("buildCorpus — the ADR-0042 survivors, merged at generation time", ()
       processed: 0,
       prepared: 0,
       dry_basis: 1,
+      manufacturing_input: 0,
       no_energy: 1,
     });
   });

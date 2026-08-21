@@ -7,6 +7,7 @@ import {
   isProcessedProduct,
   isPreparedProduct,
   isDryBasisRecord,
+  isManufacturingInput,
   fdcReportsNoEnergy,
   type FdcFood,
   type FdcFoodPortion,
@@ -487,6 +488,32 @@ describe("isProcessedProduct", () => {
   it("uses 'carbonated' (not 'soda') so baking soda survives", () => {
     expect(isProcessedProduct("Leavening agents, baking soda")).toBe(false);
   });
+
+  it("drops a boxed dry mix, and the food reconstituted from one (#144)", () => {
+    // §5's head-word keep list was letting two cornbread mixes through under
+    // `bread`; a dry mix is a boxed, barcoded product, so it is §4's line, not
+    // §5's. All nine corpus rows carrying the phrase are mixes or a serving
+    // made up from one.
+    expect(
+      isProcessedProduct(
+        "Bread, cornbread, dry mix, enriched (includes corn muffin mix)"
+      )
+    ).toBe(true);
+    expect(isProcessedProduct("Bread, stuffing, dry mix")).toBe(true);
+    expect(
+      isProcessedProduct("Biscuits, plain or buttermilk, dry mix, prepared")
+    ).toBe(true);
+    // The from-scratch cornbread beside them is a bready staple and stays.
+    expect(
+      isProcessedProduct(
+        "Bread, cornbread, prepared from recipe, made with low fat (2%) milk"
+      )
+    ).toBe(false);
+    // "mix" alone is not the marker: a dry seasoning is a pantry staple.
+    expect(
+      isProcessedProduct("Seasoning mix, dry, sazon, coriander & annatto")
+    ).toBe(false);
+  });
 });
 
 describe("isPreparedProduct", () => {
@@ -698,6 +725,139 @@ describe("isPreparedProduct", () => {
     expect(isPreparedProduct("Sweets", "Molasses")).toBe(false);
   });
 
+  it("drops a confection the head-word keep list named after a staple (#144)", () => {
+    // §5 keeps two mixed categories by head word, which cannot tell a staple
+    // from a confection USDA happened to name after one. A pound cake filed as
+    // "Bread, …" and a pancake table blend filed as "Syrups, …" both escaped.
+    expect(
+      isPreparedProduct(
+        "Baked Products",
+        "Bread, pound cake type, pan de torta salvadoran"
+      )
+    ).toBe(true);
+    expect(
+      isPreparedProduct(
+        "Baked Products",
+        "Bread, salvadoran sweet cheese (quesadilla salvadorena)"
+      )
+    ).toBe(true);
+    expect(
+      isPreparedProduct("Baked Products", "Bread, pan dulce, sweet yeast bread")
+    ).toBe(true);
+    expect(isPreparedProduct("Baked Products", "Rolls, dinner, sweet")).toBe(
+      true
+    );
+    expect(
+      isPreparedProduct("Sweets", "Syrups, table blends, pancake, with butter")
+    ).toBe(true);
+    expect(
+      isPreparedProduct(
+        "Sweets",
+        "Syrups, table blends, corn, refiner, and sugar"
+      )
+    ).toBe(true);
+    expect(isPreparedProduct("Sweets", "Syrups, chocolate, fudge-type")).toBe(
+      true
+    );
+  });
+
+  it("scopes the confection markers to the two mixed categories (#144)", () => {
+    // "sweet" and "cake" are ordinary English elsewhere: 37 corpus rows say
+    // "sweet" and 34 of them are not baked — sweet potatoes, sweetcorn, sweet
+    // peppers, sweet cherries — and cake flour is flour. None of those rows is
+    // in a category the escape hatch is consulted for, so none can be taken.
+    expect(
+      isPreparedProduct(
+        "Vegetables and Vegetable Products",
+        "Sweet potato, raw, unprepared"
+      )
+    ).toBe(false);
+    expect(
+      isPreparedProduct(
+        "Vegetables and Vegetable Products",
+        "Corn, sweet, white, raw"
+      )
+    ).toBe(false);
+    expect(
+      isPreparedProduct(
+        "Cereal Grains and Pasta",
+        "Wheat flour, white, cake, enriched"
+      )
+    ).toBe(false);
+    // And the markers leave the staples the keep lists were written for.
+    expect(
+      isPreparedProduct(
+        "Baked Products",
+        "Bread, whole-wheat, commercially prepared"
+      )
+    ).toBe(false);
+    expect(isPreparedProduct("Sweets", "Syrups, maple")).toBe(false);
+  });
+
+  it("drops a stew but keeps the raw cut sold for one (#144)", () => {
+    // Eight composite stews sit in `American Indian/Alaska Native Foods`, which
+    // is not a prepared category, with no dish marker between them. The word is
+    // the marker; "for stew" names what a raw retail cut is SOLD for, which is
+    // the same shape as the salad-oil exemption beside it.
+    expect(
+      isPreparedProduct(
+        "American Indian/Alaska Native Foods",
+        "Stew, mutton, corn, squash (Navajo)"
+      )
+    ).toBe(true);
+    expect(
+      isPreparedProduct(
+        "American Indian/Alaska Native Foods",
+        "Stew/soup, caribou (Alaska Native)"
+      )
+    ).toBe(true);
+    expect(
+      isPreparedProduct(
+        "American Indian/Alaska Native Foods",
+        "Acorn stew (Apache)"
+      )
+    ).toBe(true);
+    expect(
+      isPreparedProduct(
+        "Beef Products",
+        "Beef, chuck for stew, separable lean and fat, select, raw"
+      )
+    ).toBe(false);
+    expect(
+      isPreparedProduct(
+        "Lamb, Veal, and Game Products",
+        'Lamb, cubed for stew or kabob (leg and shoulder), separable lean only, trimmed to 1/4" fat, cooked, braised'
+      )
+    ).toBe(false);
+  });
+
+  it("drops a packaged dessert topping but keeps real whipped cream (#144)", () => {
+    // USDA files the three whipped-topping products beside the dairy they
+    // imitate. They are packaged desserts and belong to the barcode path; the
+    // cream and the grated parmesan beside them are base dairy foods.
+    expect(
+      isPreparedProduct("Dairy and Egg Products", "Dessert topping, powdered")
+    ).toBe(true);
+    expect(
+      isPreparedProduct(
+        "Dairy and Egg Products",
+        "Dessert topping, pressurized"
+      )
+    ).toBe(true);
+    expect(
+      isPreparedProduct(
+        "Dairy and Egg Products",
+        "Cream, whipped, cream topping, pressurized"
+      )
+    ).toBe(false);
+    expect(
+      isPreparedProduct(
+        "Dairy and Egg Products",
+        "Parmesan cheese topping, fat free"
+      )
+    ).toBe(false);
+  });
+
   it("keeps base-ingredient categories and records with no category", () => {
     expect(
       isPreparedProduct("Fruits and Fruit Juices", "Apples, fuji, raw")
@@ -826,6 +986,53 @@ describe("isDryBasisRecord", () => {
       isDryBasisRecord("Cheese, mozzarella, whole milk, low moisture")
     ).toBe(false);
     expect(isDryBasisRecord("Beans, Dry, Black (12% moisture)")).toBe(false);
+  });
+});
+
+describe("isManufacturingInput", () => {
+  it("drops the ingredient specifications USDA marks 'industrial' (#144)", () => {
+    // USDA's own word for a food-manufacturing input sold to a factory rather
+    // than a food anyone logs. #144 named one row; the corpus held 45.
+    expect(
+      isManufacturingInput(
+        "Oil, industrial, coconut, principal uses candy coatings, oil sprays, roasting nuts"
+      )
+    ).toBe(true);
+    expect(
+      isManufacturingInput(
+        "Oil, industrial, palm kernel (hydrogenated), confection fat, intermediate grade product"
+      )
+    ).toBe(true);
+    expect(
+      isManufacturingInput(
+        "Wheat flour, white (industrial), 11.5% protein, bleached, enriched"
+      )
+    ).toBe(true);
+    expect(
+      isManufacturingInput("Shortening industrial, lard and vegetable oil")
+    ).toBe(true);
+    expect(
+      isManufacturingInput(
+        "Margarine, industrial, soy and partially hydrogenated soy oil, use for baking, sauces and candy"
+      )
+    ).toBe(true);
+  });
+
+  it("keeps the retail forms of everything it drops", () => {
+    // A drop is only correct because a generic equivalent stayed: the flours
+    // come back as Foundation's own rows, and the household fats keep theirs.
+    expect(
+      isManufacturingInput("Flour, wheat, all-purpose, enriched, bleached")
+    ).toBe(false);
+    expect(isManufacturingInput("Oil, olive, salad or cooking")).toBe(false);
+    expect(
+      isManufacturingInput("Shortening, vegetable, household, composite")
+    ).toBe(false);
+    expect(
+      isManufacturingInput(
+        "Margarine, regular, 80% fat, composite, stick, with salt"
+      )
+    ).toBe(false);
   });
 });
 

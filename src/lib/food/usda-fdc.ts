@@ -569,7 +569,7 @@ export function isBrandSpecific(description: string): boolean {
 // ---------------------------------------------------------------------------
 
 const PROCESSED_MARKERS =
-  /\b(canned|frozen|bottled|sweetened|syrup|drink|carbonated|concentrate|babyfood|cocktail|dehydrated|instant|ready-to-eat|juice)\b/i;
+  /\b(canned|frozen|bottled|sweetened|syrup|drink|carbonated|concentrate|babyfood|cocktail|dehydrated|instant|ready-to-eat|juice|dry mix)\b/i;
 
 /**
  * True when an FDC description names a packaged/processed product (a barcode-
@@ -607,6 +607,10 @@ export function isProcessedProduct(description: string): boolean {
 //     English muffin, biscuit) AND sweet treats (cake, cookies, doughnuts, pie);
 //     only the treats are dropped, so a reference food like a croissant stays.
 // Both keep their staples consistent with keeping oil, flour and spices.
+//
+// A head word alone cannot tell a staple from a confection USDA happened to name
+// after one (#144), so each keep list carries an escape hatch: a marker that
+// overrides the head word, scoped to the one category it is safe in.
 // ---------------------------------------------------------------------------
 
 const PREPARED_CATEGORIES = new Set([
@@ -649,6 +653,17 @@ const ASSEMBLED_DESSERT_FORM = /\b(bar|stick|cone|cookie|sandwich|sundae)\b/i;
 const SALAD_DISH = /\bsalad\b/i;
 const SALAD_AS_OIL_USE =
   /salad (?:or|and) cooking|cooking (?:or|and) salad|salad oil/i;
+// The same shape again, for the eight stews USDA files under "American
+// Indian/Alaska Native Foods" — a category that is not wholly prepared, so §5's
+// category rule never sees them, and no dish marker beside them fires (#144). A
+// stew is the composite dish §5 exists to drop; "for stew" names what a raw
+// retail cut is SOLD for ("Beef, chuck for stew, … raw"), which is not one.
+const STEW_DISH = /\bstew\b/i;
+const STEW_AS_CUT_USE = /\bfor stew\b/i;
+// A packaged whipped topping, which USDA files under Dairy beside the cream it
+// imitates. Named in full rather than by "topping" alone, because real whipped
+// cream and grated parmesan are both described as toppings and are base foods.
+const DESSERT_TOPPING = /\bdessert topping\b/i;
 
 // Head words of the single-ingredient sweeteners in the mixed "Sweets" category
 // that are base pantry staples, kept while the confections around them go.
@@ -686,6 +701,17 @@ const BAKED_STAPLE_HEADS = new Set([
   "naan",
   "english",
 ]);
+
+// The escape hatches for the two head-word keep lists above (#144). Each is
+// consulted ONLY inside its own category, which is what makes these ordinary
+// words safe: 37 corpus rows say "sweet" and 34 of them are not baked (sweet
+// potatoes, sweetcorn, sweet peppers, sweet cherries), and cake flour is flour,
+// but none of those rows is ever asked. Inside the mixed categories the words are
+// exactly the ones the block comment uses to say what each drops — "sweet treats
+// (cake, cookies, doughnuts, pie)" and "confections" — so the marker states the
+// rule the head word could only approximate.
+const SWEET_CONFECTION_MARKERS = /\b(table blends?|fudge)\b/i;
+const BAKED_TREAT_MARKERS = /\b(cake|sweet)\b/i;
 
 /** The first alphanumeric word of a description, lowercased ("" if none). */
 function headWord(description: string): string {
@@ -726,6 +752,33 @@ export function isDryBasisRecord(description: string): boolean {
 }
 
 /**
+ * USDA's own word for an ingredient specification sold to a factory rather than
+ * a food anyone buys: `Oil, industrial, palm kernel (hydrogenated), confection
+ * fat`, `Wheat flour, white (industrial), 11.5% protein, bleached, enriched`.
+ */
+const INDUSTRIAL_MARKER = /\bindustrial\b/i;
+
+/**
+ * True when an FDC record describes a food-manufacturing input rather than a
+ * food (#144) — the third judgement of the {@link isDryBasisRecord} species,
+ * and its own filter for the same reason: it is neither a packaging state
+ * ({@link isProcessedProduct}) nor a composite dish ({@link isPreparedProduct}),
+ * so folding it into either would make that predicate answer two questions.
+ *
+ * Every drop has a retail equivalent left standing — Foundation carries the
+ * all-purpose flours by name, and the household shortenings and margarines keep
+ * their own rows — which is what makes a bare word marker safe here. It reaches
+ * 45 corpus rows, all of them USDA's `industrial` convention and none of them a
+ * food a person logs.
+ *
+ * Exported for the same reason its neighbours are: `scripts/usda-bundle.mjs`
+ * applies it at generation time and must not restate it (ADR-0047 §4).
+ */
+export function isManufacturingInput(description: string): boolean {
+  return INDUSTRIAL_MARKER.test(description);
+}
+
+/**
  * True when an FDC record reports no energy under any of {@link ENERGY_IDS} —
  * the {@link reportsNoEnergy} question, asked about a record instead of about a
  * panel (ADR-0048 §6).
@@ -749,7 +802,8 @@ export function fdcReportsNoEnergy(food: FdcFood): boolean {
  * composite-dish marker in its description (a home-prepared dish filed under a
  * base category, like "Potato salad"). The mixed "Sweets" and "Baked Products"
  * categories keep their staples (sweeteners; bready reference foods) and drop
- * the rest. See the block comment above.
+ * the rest, unless the description names a confection the head word cannot see.
+ * See the block comment above.
  */
 export function isPreparedProduct(
   foodCategory: string | undefined,
@@ -767,11 +821,20 @@ export function isPreparedProduct(
     return true;
   if (SALAD_DISH.test(description) && !SALAD_AS_OIL_USE.test(description))
     return true;
+  if (STEW_DISH.test(description) && !STEW_AS_CUT_USE.test(description))
+    return true;
+  if (DESSERT_TOPPING.test(description)) return true;
   if (!foodCategory) return false;
   if (PREPARED_CATEGORIES.has(foodCategory)) return true;
   if (foodCategory === "Sweets")
-    return !SWEETENER_HEADS.has(headWord(description));
+    return (
+      !SWEETENER_HEADS.has(headWord(description)) ||
+      SWEET_CONFECTION_MARKERS.test(description)
+    );
   if (foodCategory === "Baked Products")
-    return !BAKED_STAPLE_HEADS.has(headWord(description));
+    return (
+      !BAKED_STAPLE_HEADS.has(headWord(description)) ||
+      BAKED_TREAT_MARKERS.test(description)
+    );
   return false;
 }

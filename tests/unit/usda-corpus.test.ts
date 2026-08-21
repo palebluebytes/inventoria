@@ -23,6 +23,7 @@ import {
   BRAND_CAPS,
   isBrandSpecific,
   isDryBasisRecord,
+  isManufacturingInput,
   isPreparedProduct,
   isProcessedProduct,
 } from "../../src/lib/food/usda-fdc";
@@ -38,7 +39,7 @@ import type { EntityPayload } from "../../src/lib/ingestion/ingest";
 
 // The committed artifact itself is the fixture (ADR-0047 §3). Search is only
 // keyless and offline if it answers from THIS file, so the ADR-0042 ordering
-// cases are asserted over the 4,429 rows the app actually ships rather than
+// cases are asserted over the 4,353 rows the app actually ships rather than
 // over a hand-built stand-in that could agree with the code and not the data.
 const index: SearchIndex = JSON.parse(
   readFileSync("public/usda/search-index.json", "utf8")
@@ -49,7 +50,7 @@ const descriptionsFor = (query: string): string[] =>
 
 describe("the bundled search index", () => {
   it("is the surviving reference foods, and says which archives it came from", () => {
-    expect(index.foods.length).toBe(4429);
+    expect(index.foods.length).toBe(4353);
     expect(index.generated_from.map((a) => a.dataset)).toEqual([
       "Foundation Foods",
       "SR Legacy",
@@ -168,7 +169,8 @@ describe("the bundled search index", () => {
         isBrandSpecific(row.description) ||
         isProcessedProduct(row.description) ||
         isPreparedProduct(row.foodCategory, row.description) ||
-        isDryBasisRecord(row.description)
+        isDryBasisRecord(row.description) ||
+        isManufacturingInput(row.description)
     );
     expect(rejected.map((row) => row.description)).toEqual([]);
   });
@@ -196,9 +198,50 @@ describe("the bundled search index", () => {
       "Sandwich spread, meatless",
       "Beef, sandwich steaks, flaked, chopped, formed and thinly sliced, raw",
       "Tortilla, includes plain and from mutton sandwich (Navajo)",
+      // #144: what each of its four new rules had to leave standing
+      "Bread, whole-wheat, commercially prepared",
+      "Syrups, maple",
+      "Bread, cornbread, prepared from recipe, made with low fat (2%) milk",
+      "Beef, chuck for stew, separable lean and fat, select, raw",
+      "Flour, wheat, all-purpose, enriched, bleached",
+      "Shortening, vegetable, household, composite",
+      "Wheat flour, white, cake, enriched",
+      "Sweet potato, raw, unprepared (Includes foods for USDA's Food Distribution Program)",
     ]) {
       expect(descriptions).toContain(kept);
     }
+  });
+
+  it("offers no confection its head word used to keep, and no factory input", () => {
+    // #144's four escapes, pinned by name over the shipped artifact. The
+    // predicates already agree with the corpus above; what these add is that the
+    // particular rows the ticket adjudicated are the ones that left, so a
+    // retune that merely moved the counts around still fails here.
+    const descriptions = index.foods.map((row) => row.description);
+    for (const gone of [
+      // a pound cake and a sweet bread kept by `bread`
+      "Bread, pound cake type, pan de torta salvadoran",
+      "Bread, salvadoran sweet cheese (quesadilla salvadorena)",
+      // a table blend and a fudge sauce kept by `syrups`
+      "Syrups, table blends, pancake",
+      "Syrups, chocolate, fudge-type",
+      // boxed mixes, which are §4's line rather than §5's
+      "Bread, cornbread, dry mix, enriched (includes corn muffin mix)",
+      "Bread, stuffing, dry mix",
+      // composite dishes with no marker and no prepared category
+      "Stew, mutton, corn, squash (Navajo)",
+      "Stew/soup, caribou (Alaska Native)",
+      // packaged whipped toppings beside the cream they imitate
+      "Dessert topping, powdered",
+      // the manufacturing inputs: #144 named one, the corpus held 45
+      "Oil, industrial, coconut, principal uses candy coatings, oil sprays, roasting nuts",
+      "Wheat flour, white (industrial), 11.5% protein, bleached, enriched",
+    ]) {
+      expect(descriptions).not.toContain(gone);
+    }
+    expect(
+      index.foods.filter((row) => isManufacturingInput(row.description))
+    ).toEqual([]);
   });
 
   it("keeps the five twinned oils, on their twin's energy and their twin's fat", () => {
@@ -389,12 +432,13 @@ describe("searchIndexRows", () => {
     // Two nets, because neither catches what the other does. This total counts
     // every merge the stemmer makes over the whole corpus, however it made it,
     // so a fifth rule reaching endings the table below does not enumerate still
-    // fails here — it was 120 before the two #138 rules added their pair each.
+    // fails here — it was 120 before the two #138 rules added their pair each,
+    // and 122 before #144's filters took 76 rows and the words only they carried.
     // It cannot see a rule that BREAKS a merge while adding one, which is
     // exactly the blanket "-ves" shape; the table below is what catches that,
     // by pinning "olives" to the singular it still has to answer.
     const merged = new Set(words.map(stemOf));
-    expect(words.length - merged.size).toBe(122);
+    expect(words.length - merged.size).toBe(112);
 
     expect(touched.map((w) => [w, stemOf(w), sharing(w)])).toEqual([
       ["additives", "additive", []],
@@ -570,7 +614,7 @@ describe("searchIndexRows", () => {
     }
   });
 
-  it("puts 184 more rows first by their own name, and takes none away", () => {
+  it("puts 186 more rows first by their own name, and takes none away", () => {
     // ADR-0042's #136 Amendment measured 356 rows that are not first when
     // searched by their own full description, 337 of them tied on every key.
     // #124's amendment predicted its key would break none of those, and that
@@ -582,7 +626,7 @@ describe("searchIndexRows", () => {
     // Pinned as the two counts rather than the one, because a later key could
     // improve the total while quietly costing a row that leads today. Nothing
     // regressed here: 184 rows gained the lead and none lost it.
-    // 4,429 queries over 4,429 rows, so the winner is taken in one pass rather
+    // 4,353 queries over 4,353 rows, so the winner is taken in one pass rather
     // than by sorting each result list — the sort costs seconds, the scan does
     // not, and only the leading row is being asked about. Each query is ordered
     // twice: once under the shipped keys, and once under the four that preceded
@@ -622,23 +666,25 @@ describe("searchIndexRows", () => {
       if (before === food.row.description && after !== food.row.description)
         lost++;
     }
-    // The total AND the split. A later key could reach 164 while quietly costing
+    // The total AND the split. A later key could reach 163 while quietly costing
     // a row that leads today, and the total alone would not notice.
     //
     // Re-measured for #143's `plain` key, which #143 §8.8 required: 184 gained
-    // and 172 not-first became 192 and 164. `lost` is the invariant and is still
-    // zero — the sixth key took the lead from no row that already held it. The
-    // baseline this diffs against is the pre-#124 order, so both keys are being
-    // measured here at once.
+    // and 172 not-first became 192 and 164. #144's filters then took 76 rows out
+    // of the corpus, and with them six of the rows that had gained a lead and one
+    // that was not first — 186 and 163. `lost` is the invariant and is still
+    // zero: neither the sixth key nor the smaller corpus took the lead from a row
+    // that already held it. The baseline this diffs against is the pre-#124
+    // order, so both keys are being measured here at once.
     expect({ notFirst, gained, lost }).toEqual({
-      notFirst: 164,
-      gained: 192,
+      notFirst: 163,
+      gained: 186,
       lost: 0,
     });
   }, 30_000);
 
   it("names every shipped row by its own full description", () => {
-    // The blunt statement of the same defect: 4,394 of the 4,429 rows scored
+    // The blunt statement of the same defect: 4,394 of the then-4,429 rows scored
     // NO_MATCH against their OWN description, because the commas in it survived
     // tokenisation. Every row now reaches its own top rung — the query IS the
     // head phrase — and a row that does not is one whose own name has stopped
@@ -785,7 +831,7 @@ describe("storedPanelFor", () => {
   it("rebuilds every row's macros exactly, across the whole corpus", () => {
     // The two artifacts are generated from one merged record, so a row's macros
     // and the store's amounts are the same numbers twice. Assert it over all
-    // 4,429 rather than on one food: a generator change that filled one artifact
+    // 4,353 rather than on one food: a generator change that filled one artifact
     // and not the other would otherwise ship silently.
     const disagreeing = index.foods.filter((row) => {
       const panel = storedPanelFor(store, row.fdcId);

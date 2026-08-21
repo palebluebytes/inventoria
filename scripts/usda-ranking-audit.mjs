@@ -552,7 +552,9 @@ async function explainAbsence(term) {
               ? "prepared"
               : app.isDryBasisRecord(food.description)
                 ? "dry_basis"
-                : null,
+                : app.isManufacturingInput(food.description)
+                  ? "manufacturing_input"
+                  : null,
       });
     });
   }

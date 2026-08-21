@@ -82,7 +82,7 @@ describe("deriveVocabulary — a phrase that retrieves nothing, mapped to ones t
     deriveVocabulary(groups, {
       denied,
       countMatches: (phrase: string) => rows[phrase] ?? 0,
-      corpusSize: 4429,
+      corpusSize: 4353,
     });
 
   it("inverts a group into the miss that needs help and the names that answer", () => {
@@ -170,7 +170,7 @@ describe("deriveVocabulary — a phrase that retrieves nothing, mapped to ones t
         countMatches: (phrase: string) => rows[phrase] ?? 0,
         corpusSize,
       }).expansions;
-    expect(at(4429)).toEqual({ wholemeal: ["whole"] });
+    expect(at(4353)).toEqual({ wholemeal: ["whole"] });
     expect(at(1000)).toEqual({});
     expect(VOCABULARY_TARGET_SHARE).toBeLessThan(0.0262);
   });
@@ -223,7 +223,7 @@ describe("assertVocabularyHolds — the finished map, re-measured", () => {
       {
         denied: [],
         countMatches: (phrase: string) => (phrase === "zucchini" ? 5 : 0),
-        corpusSize: 4429,
+        corpusSize: 4353,
       }
     );
     expect(() => assertVocabularyHolds(built.expansions, () => 12)).toThrow(

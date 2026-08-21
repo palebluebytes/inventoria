@@ -2,7 +2,7 @@
  * ADR-0042's reference-food ranking: how a free-text query orders the foods it
  * reaches. Its own module because it outlives its first caller — the FDC search
  * API built it, and the bundled corpus (ADR-0047) is what runs it now, over
- * 4,429 rows per keystroke rather than over one page of API results.
+ * 4,353 rows per keystroke rather than over one page of API results.
  */
 
 /**
@@ -42,7 +42,7 @@ const PREPARED_FORM =
  * as a string, with the query-independent half of the score already settled.
  *
  * Separated from the description because the corpus a keystroke ranks is now the
- * whole 4,429-row Search index (ADR-0047 §4). Re-splitting every description on
+ * whole 4,353-row Search index (ADR-0047 §4). Re-splitting every description on
  * every keystroke measured 17 ms; splitting each once and comparing the words
  * costs 1.4 ms, and the split does not depend on what was typed.
  */
@@ -122,7 +122,7 @@ export const stemOf = (word: string): string => {
  * apostrophe, bracket or comma inside a typed word produced a token no name word
  * could equal or prefix, and the query collapsed to `NO_MATCH`. `mahi-mahi`,
  * `whole-wheat pasta` and `yambean (jicama)` all found nothing, and 4,394 of the
- * 4,429 shipped rows could not be reached by their own full description (#136).
+ * 4,394 of the then-4,429 shipped rows could not be reached by their own name (#136).
  *
  * It also drops the Lucene-style trailing `*` that callers pass, since a
  * wildcard is not alphanumeric either.

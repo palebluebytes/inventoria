@@ -115,6 +115,7 @@ export const APP_EXPORTS = [
   "isProcessedProduct",
   "isPreparedProduct",
   "isDryBasisRecord",
+  "isManufacturingInput",
   "fdcReportsNoEnergy",
   "fdcIdentityKey",
   "resolveFdcGroup",
@@ -178,6 +179,7 @@ export const ROW_MACRO_KEYS = [
  * @property {(description: string) => boolean} isProcessedProduct
  * @property {(foodCategory: string | undefined, description: string) => boolean} isPreparedProduct
  * @property {(description: string) => boolean} isDryBasisRecord
+ * @property {(description: string) => boolean} isManufacturingInput
  * @property {(food: BundleFood) => boolean} fdcReportsNoEnergy
  * @property {(food: BundleFood) => string | number} fdcIdentityKey
  * @property {(group: BundleFood[]) => { food: BundleFood, merged_from: MergedSource[] }} resolveFdcGroup
@@ -436,13 +438,13 @@ export function collectNutrientDictionary(foods) {
  * gram weight would describe a different sample than the description names.
  *
  * `dropped` counts each filter's own casualties in the order they are applied,
- * so the five tallies sum to the foods removed rather than double-counting a
+ * so the six tallies sum to the foods removed rather than double-counting a
  * food two filters agree on.
  *
- * The last two are ADR-0048 §5's, and their position after `resolveFdcGroup` is
- * load-bearing: five oils report no energy of their own and borrow their SR
- * Legacy twin's, so filtering before the merge would drop foods the merge
- * rescues.
+ * The last two are ADR-0048 §5's and #144's, and their position after
+ * `resolveFdcGroup` is load-bearing: five oils report no energy of their own and
+ * borrow their SR Legacy twin's, so filtering before the merge would drop foods
+ * the merge rescues.
  *
  * @param {Map<string | number, { food: BundleFood, foodPortions: Survivor["foodPortions"] }[]>} groups
  * @param {AppModule} app
@@ -461,6 +463,7 @@ export function buildCorpus(groups, app) {
     processed: 0,
     prepared: 0,
     dry_basis: 0,
+    manufacturing_input: 0,
     no_energy: 0,
   };
   let twinned = 0;
@@ -486,6 +489,12 @@ export function buildCorpus(groups, app) {
     // record ever gains an energy value, so it is asked first.
     if (app.isDryBasisRecord(food.description)) {
       dropped.dry_basis++;
+      continue;
+    }
+    // Nor is a food-manufacturing input a food (#144) — the same species of
+    // judgement, asked in the same place and for the same reason.
+    if (app.isManufacturingInput(food.description)) {
+      dropped.manufacturing_input++;
       continue;
     }
     // A record with no energy cannot be logged, so it does not ship. The app
@@ -940,6 +949,7 @@ async function main() {
       `${twinned} twinned; ${survivors.length.toLocaleString("en-GB")} survive the filters ` +
       `(${dropped.brand_specific} brand-specific, ${dropped.processed} packaged or processed, ` +
       `${dropped.prepared} prepared or composite, ${dropped.dry_basis} dry-basis, ` +
+      `${dropped.manufacturing_input} manufacturing inputs, ` +
       `${dropped.no_energy} reporting no energy dropped)`
   );
   console.log(
