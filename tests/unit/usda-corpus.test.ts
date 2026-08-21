@@ -244,6 +244,38 @@ describe("the bundled search index", () => {
     ).toEqual([]);
   });
 
+  it("keeps #144's markers to the reach they were measured at", () => {
+    // #131's rule, which #144 restates: an unmeasured precision guard is a hole.
+    // The reach of a drop rule cannot be read off the shipped corpus — every row
+    // it takes is gone — so what is pinned is the population it had to leave
+    // behind. A marker that widened would empty one of these; one that narrowed
+    // would refill it.
+    const inCategory = (category: string) =>
+      index.foods.filter((row) => row.foodCategory === category).length;
+    // 127 and 31 before the escape hatches took four treats and seven confections.
+    expect(inCategory("Baked Products")).toBe(114);
+    expect(inCategory("Sweets")).toBe(24);
+    // Eleven of the nineteen rows naming a stew are raw retail cuts sold for one,
+    // and the exemption has to keep every one of them.
+    const stews = index.foods.filter((row) =>
+      /\bstew\b/i.test(row.description)
+    );
+    expect(stews.length).toBe(11);
+    expect(stews.every((row) => /\bfor stew\b/i.test(row.description))).toBe(
+      true
+    );
+    // All nine boxed-mix rows are gone, and no dry seasoning went with them.
+    expect(
+      index.foods.filter((row) => /\bdry mix\b/i.test(row.description))
+    ).toEqual([]);
+    expect(
+      index.foods.some(
+        (row) =>
+          row.description === "Seasoning mix, dry, sazon, coriander & annatto"
+      )
+    ).toBe(true);
+  });
+
   it("keeps the five twinned oils, on their twin's energy and their twin's fat", () => {
     // ADR-0048 §5's ordering, verified against the shipped artifact rather than
     // a fixture: each of these reports no energy of its own and borrows it from

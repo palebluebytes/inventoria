@@ -122,7 +122,7 @@ export const stemOf = (word: string): string => {
  * apostrophe, bracket or comma inside a typed word produced a token no name word
  * could equal or prefix, and the query collapsed to `NO_MATCH`. `mahi-mahi`,
  * `whole-wheat pasta` and `yambean (jicama)` all found nothing, and 4,394 of the
- * 4,394 of the then-4,429 shipped rows could not be reached by their own name (#136).
+ * then-4,429 shipped rows could not be reached by their own description (#136).
  *
  * It also drops the Lucene-style trailing `*` that callers pass, since a
  * wildcard is not alphanumeric either.

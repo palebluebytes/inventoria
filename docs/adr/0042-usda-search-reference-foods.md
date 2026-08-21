@@ -769,10 +769,26 @@ sweet potatoes, sweetcorn, sweet peppers, sweet cherries, sweet whey — and cak
 flour is flour. None of those rows sits in a category the escape hatch is ever
 consulted for, so none can be taken.
 
-Seven rows leave Sweets: the six `table blends` and `Syrups, chocolate, fudge-type`,
-which is the same defect the ticket names and was found beside it. Four leave Baked
-Products: the pound cake, `Bread, salvadoran sweet cheese (quesadilla salvadorena)`,
-`Bread, pan dulce, sweet yeast bread` and `Rolls, dinner, sweet`.
+Seven rows leave Sweets and four leave Baked Products. Three of the eleven are not
+among the nine #144 lists, and are adjudicated here rather than absorbed:
+
+- `Syrups, table blends, corn, refiner, and sugar` is the sixth `table blends` row.
+  The ticket's five are pancake syrups and this one is three sugars with no
+  flavouring, so it is not the ticket's own argument ("corn syrup plus flavouring")
+  that takes it. It goes on the phrase instead: `table blends` is USDA's name for a
+  manufactured table syrup sold in a bottle, which is the packaged product §4 and
+  the governing principle send to the barcode path, and all six are that one thing.
+  The unblended syrups beside them — corn, malt, maple, sorghum — stay.
+- `Syrups, chocolate, fudge-type` is a confection sauce kept by the `syrups` head
+  word, which is exactly the defect the ticket names, found beside it.
+- `Rolls, dinner, sweet` and `Bread, pan dulce, sweet yeast bread` are the cost of
+  the `sweet` marker, and it is a real cost: a sweet dinner roll is nearer a bread
+  than a cake. It is accepted because `sweet` is the **only** signal on
+  `Bread, salvadoran sweet cheese (quesadilla salvadorena)`, which is a cake and is
+  one of the two escapes the ticket exists to close — USDA gives it no other word.
+  A marker narrow enough to spare the rolls spares the cake too. The plain siblings
+  stay (`Rolls, dinner, plain`, `Rolls, dinner, wheat`, and every other roll), so
+  the loss is a sweetened variant of a food the corpus still carries.
 
 ### A dry mix is §4's line, not §5's
 
@@ -836,7 +852,7 @@ The escape hatch is a marker, not a judgement about sweetness, so baked goods th
 USDA does not describe as sweet or as cake stay: `Bread, banana, prepared from
 recipe`, `Croissants, apple`, `Bread, cinnamon`, `Bread, raisin`. So do
 `Syrups, grenadine` and `Syrups, sugar free`, which are flavoured but are the
-pour-from-a-bottle pantry sweetener the keep list is for, and the four
+pour-from-a-bottle pantry sweetener the keep list is for, and the five
 `Biscuits, … refrigerated dough` rows, which name a dough rather than a mix. These
 are §5's stated "precision-first, not perfect recall" leak, ranked low rather than
 dropped, and they are listed so a reader does not re-discover them as defects.

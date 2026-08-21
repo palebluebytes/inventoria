@@ -502,8 +502,9 @@ not the 433 over 329 the #139 Amendment measured.
 **The threshold did not move, which is the claim §3 made for it.** The corpus fell
 1.7%, the guard stayed at 1.1% — 48 rows rather than 49 — and it drops the same nine
 targets and the same seven keys. That is the 44-to-56-row plateau above doing exactly
-what it was measured for. `beans` now matches 115 rows rather than 116, which is the
-only figure in §3's stopword paragraph that moves.
+what it was measured for. Re-measured, §3's stopword paragraph now reads `salt` 424 of
+**4,353** rows, `whole` 217 and `beans` **115**: only the denominator and `beans` move,
+and the generator comment that restates those three carries the new figures.
 
 **Both new keys are phrases that used to "retrieve" one wrong row.** `powdered milk`
 matched a single record, `Dessert topping, powdered, 1.5 ounce prepared with 1/2 cup
