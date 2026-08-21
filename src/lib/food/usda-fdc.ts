@@ -544,7 +544,7 @@ export function mapFdcPortions(portions: readonly FdcFoodPortion[]): Portion[] {
 // inside a brand name matched the query.)
 //
 // Precision comes first — never drop a real food. The generator reports 922 of
-// 7,966 merged identities dropped here, 0 of them generic foods (the sole raw
+// 7,974 merged identities dropped here, 0 of them generic foods (the sole raw
 // casualty is "Kiwifruit, ZESPRI SunGold, raw", and generic kiwi remains).
 // Three guards keep it precise:
 //   1. a trigger needs >=3 letters, so 2-letter units and state codes never

@@ -39,7 +39,7 @@ import type { EntityPayload } from "../../src/lib/ingestion/ingest";
 
 // The committed artifact itself is the fixture (ADR-0047 §3). Search is only
 // keyless and offline if it answers from THIS file, so the ADR-0042 ordering
-// cases are asserted over the 4,353 rows the app actually ships rather than
+// cases are asserted over the 4,360 rows the app actually ships rather than
 // over a hand-built stand-in that could agree with the code and not the data.
 const index: SearchIndex = JSON.parse(
   readFileSync("public/usda/search-index.json", "utf8")
@@ -50,7 +50,7 @@ const descriptionsFor = (query: string): string[] =>
 
 describe("the bundled search index", () => {
   it("is the surviving reference foods, and says which archives it came from", () => {
-    expect(index.foods.length).toBe(4353);
+    expect(index.foods.length).toBe(4360);
     expect(index.generated_from.map((a) => a.dataset)).toEqual([
       "Foundation Foods",
       "SR Legacy",
@@ -666,7 +666,7 @@ describe("searchIndexRows", () => {
     // Pinned as the two counts rather than the one, because a later key could
     // improve the total while quietly costing a row that leads today. Nothing
     // regressed here: 184 rows gained the lead and none lost it.
-    // 4,353 queries over 4,353 rows, so the winner is taken in one pass rather
+    // 4,360 queries over 4,360 rows, so the winner is taken in one pass rather
     // than by sorting each result list — the sort costs seconds, the scan does
     // not, and only the leading row is being asked about. Each query is ordered
     // twice: once under the shipped keys, and once under the four that preceded
@@ -870,7 +870,11 @@ describe("the twin merge's discarded names, as search aliases", () => {
   it("carries an alias only where USDA held a second name for the food", () => {
     const aliased = index.foods.filter((food) => food.also);
 
-    expect(aliased).toHaveLength(87);
+    // 80, not #137's 87: an alias exists because a merge discarded a name, so
+    // the eight pairs ADR-0051 refuses to merge mint none — each ships under its
+    // own name instead. Seven of the eight were aliased here before the split;
+    // the eighth's merged row never survived the filters (`Orange juice, raw`).
+    expect(aliased).toHaveLength(80);
     // Never the row's own name back to it, and never a name it already reads as.
     for (const food of aliased)
       expect(food.also).not.toContain(food.description);
@@ -998,7 +1002,7 @@ describe("storedPanelFor", () => {
   it("rebuilds every row's macros exactly, across the whole corpus", () => {
     // The two artifacts are generated from one merged record, so a row's macros
     // and the store's amounts are the same numbers twice. Assert it over all
-    // 4,353 rather than on one food: a generator change that filled one artifact
+    // 4,360 rather than on one food: a generator change that filled one artifact
     // and not the other would otherwise ship silently.
     const disagreeing = index.foods.filter((row) => {
       const panel = storedPanelFor(store, row.fdcId);

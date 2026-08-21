@@ -235,7 +235,7 @@ export function mergeBundleFoods(base, twin) {
 /**
  * The population a bundle would actually carry: every Foundation record filled
  * from its SR Legacy twin, then every SR Legacy food with no Foundation
- * counterpart — 7,966 distinct foods, not the 8,156 that counts each twinned
+ * counterpart — 7,974 distinct foods, not the 8,156 that counts each twinned
  * food once per dataset.
  *
  * A record with no `ndbNumber` is unjoinable and is kept whole rather than

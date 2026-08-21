@@ -163,7 +163,7 @@ export interface SearchableFood {
 
 /**
  * The Search index in the form a keystroke searches: every description split
- * into words once, at load, rather than 4,353 times per keystroke, beside the
+ * into words once, at load, rather than 4,360 times per keystroke, beside the
  * Vocabulary map the retrieval fallback reads.
  *
  * The reading is what makes the corpus an index rather than a list, and it is
@@ -338,7 +338,7 @@ function bestNameKey(
  * the one of the k phrases this food actually answered.
  *
  * There is no filter step. The reference-food filters ran once at generation
- * time and the index holds only their 4,353 survivors (ADR-0047 §4, widened by
+ * time and the index holds only their 4,360 survivors (ADR-0047 §4, widened by
  * ADR-0048 §5), so re-running them per keystroke would be work over a corpus
  * that cannot fail them.
  */
