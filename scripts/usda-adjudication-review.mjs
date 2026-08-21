@@ -131,9 +131,88 @@ const PAGE = `<!doctype html><html><head><meta charset="utf-8">
  input[type=text]{font:inherit;width:100%;padding:.3rem;border:2px solid var(--edge);background:var(--paper);color:var(--ink)}
  .ro{opacity:.75} .row{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;margin:.4rem 0}
  .lead{background:var(--warn);padding:.2rem .4rem}
+ details.intro{border:2px solid var(--edge);padding:.75rem;margin-bottom:1rem}
+ details.intro summary{cursor:pointer;font-weight:bold}
+ details.intro h3{margin:1rem 0 .3rem;font-size:.95rem}
+ details.intro p,details.intro li{max-width:78ch}
+ details.intro dl{margin:.3rem 0} details.intro dt{font-weight:bold;margin-top:.4rem}
+ details.intro dd{margin:0 0 0 1.5rem;color:var(--dim)}
+ .swatch{display:inline-block;padding:0 .5rem;border:1px solid var(--dim)}
 </style></head><body>
 <header><strong>#143 gold set</strong> — <span id="count"></span> ratified.
 Click a row to designate it <em>should lead</em>. Every change saves immediately.</header>
+<details class="intro" open><summary>What this page is, and what you are being asked to do</summary>
+
+<h3>The problem being measured</h3>
+<p>When a typed search query <em>is</em> a food's head phrase — the part of a USDA
+description before the first comma — every candidate row scores identically on all
+five ranking keys. 163 head queries end in a tie like this. Nothing breaks the tie, so
+<code>Array.sort</code>'s stability hands the result to whichever row has the lowest
+<code>fdcId</code>. That is why <code>milk</code> leads with a cultured reduced-fat
+buttermilk and <code>cheese</code> with a lactose-reduced cottage cheese.</p>
+
+<p>#143 is measuring whether a new ranking key could pick the <em>canonical</em> row
+instead. To measure that, something has to say which row is canonical. That is what
+these 50 cases are, and it is a judgement, not a computation.</p>
+
+<h3>Why you are reading them</h3>
+<p>The verdicts below were proposed by an LLM. Research note #143 §8.3 requires a human
+to ratify every one before any ranking key is written. The precedent is #130: its 914
+adjudications were sound, but its two most load-bearing verdict classes were never
+independently read, and the sizing derived from them had to be overturned afterwards.
+50 cases is small enough to actually read. Disagreeing is the point — if a verdict is
+wrong, change it here and the measurement re-runs against your version.</p>
+
+<h3>Reading a card</h3>
+<p>Each card is one query. The heading gives the total number of rows the query
+retrieves and how many of them are <strong>tied at the top</strong>. Then the top 12
+rows in the order the shipped ranking puts them, with the five key values it sorted on.</p>
+<dl>
+ <dt><span class="swatch" style="background:var(--tie)">yellow rows</span></dt>
+ <dd>Tied with the leader — identical on every key. Their order is arbitrary. This is
+     the defect, made visible: if the yellow band is 87 rows deep, 87 cheeses are
+     equally "best" and one won by its ID number.</dd>
+ <dt><span class="swatch" style="background:var(--warn)">leads today</span></dt>
+ <dd>The row a user actually sees first right now.</dd>
+ <dt>tier · raw · head · pos · simp</dt>
+ <dd>The five ranking keys, read in that order, larger is better, each consulted only
+     when the one before it ties. <strong>tier</strong> how exactly the name matches
+     (50 = the head phrase IS the query). <strong>raw</strong> 1 for a raw food.
+     <strong>head</strong> how completely the query fills the head phrase.
+     <strong>pos</strong> how far into the name the query's words landed.
+     <strong>simp</strong> raw simplicity.</dd>
+ <dt>[a-modifier] [b-part] [c-prepared]</dt>
+ <dd>A tag means a candidate key could <em>reach</em> this case — the leading row
+     carries that kind of marker while a tied row does not. Untagged cases are in the
+     gold set as controls, to catch a key that breaks something already correct.</dd>
+</dl>
+
+<h3>What to do</h3>
+<ol>
+ <li><strong>Click a row</strong> to designate it <em>should lead</em> — your answer to
+     "which of these is the canonical record?". Clicking it again clears it. Outlined
+     row = currently designated. Leave it unset when no candidate deserves it.</li>
+ <li><strong>Pick a verdict</strong> (#130 §3.2's vocabulary, unchanged):
+     <ul>
+      <li><code>correct</code> — the ranking is already right; leave it alone.</li>
+      <li><code>miss</code> — a better row exists and the query did not lead with it.</li>
+      <li><code>peers</code> — the candidates are different foods, or equally good forms
+          of one. <em>Not</em> a miss. This verdict is what keeps the miss count honest.</li>
+      <li><code>implausible-query</code> — nobody types this into a food search.
+          Excluded from every rate.</li>
+     </ul></li>
+ <li><strong>Leave a note</strong> if the case needs one — press Tab or click away to save it.</li>
+ <li><strong>Toggle "ratified"</strong> when you have read the case. The card turns
+     green. The counter at the top is how many are done.</li>
+</ol>
+
+<h3>Where it goes</h3>
+<p>Every click writes straight into <code>docs/research/143-gold-set.json</code>
+immediately — there is no save button and nothing to download. Close the tab whenever
+you like and re-run <code>pnpm usda:review</code> to carry on. Stop the server with
+Ctrl-C. The file is committed, so <code>git diff</code> shows exactly what you changed.</p>
+
+</details>
 <main id="app"></main>
 <script>
 const VERDICTS=${JSON.stringify(VERDICTS)};
@@ -157,7 +236,12 @@ function card(c){
     '<h2>'+esc(c.head)+' <span class="meta">— '+r.total+' hits, '+r.tiedAtTop+' tied at top'+
     (c.shapes.length?" ["+c.shapes.join("+")+"]":"")+'</span></h2>'+
     '<div class="meta">leads today: <span class="lead">'+esc(c.lead_today)+'</span></div>'+
-    '<table><thead><tr><th>row</th><th>tier</th><th>raw</th><th>head</th><th>pos</th><th>simp</th></tr></thead>'+
+    '<table><thead><tr><th>row</th>'+
+    '<th title="structural tier: 50 = the head phrase IS the query">tier</th>'+
+    '<th title="1 for a raw food">raw</th>'+
+    '<th title="how completely the query fills the head phrase">head</th>'+
+    '<th title="how far into the name the query landed, summed and negated">pos</th>'+
+    '<th title="raw simplicity">simp</th></tr></thead>'+
     '<tbody>'+rows+'</tbody></table>'+
     '<div class="row">'+VERDICTS.map(v=>'<button data-v="'+v+'" data-head="'+esc(c.head)+'" aria-pressed="'+
       (c.verdict===v)+'">'+v+'</button>').join("")+'</div>'+
