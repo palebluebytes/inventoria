@@ -33,6 +33,13 @@ const VOCABULARY_MODULE = join(
   "food",
   "food-vocabulary.ts"
 );
+const TWIN_LEDGER_MODULE = join(
+  ROOT,
+  "src",
+  "lib",
+  "food",
+  "usda-twin-ledger.ts"
+);
 
 /**
  * Everything this script borrows from the app, by name.
@@ -78,6 +85,17 @@ export const RANKING_EXPORTS = [
  */
 export const VOCABULARY_EXPORTS = ["DENIED_VOCABULARY_TAGS"];
 
+/**
+ * The twin adjudication, borrowed for the same reason and through the same seam
+ * (ADR-0051).
+ *
+ * `fdcIdentityKey` takes the split set as an argument, so the generator is where
+ * the ledger and the key meet. Reaching the ledger this way keeps 190 rows of
+ * adjudication out of the app bundle while leaving them beside the merge they
+ * constrain, which is the arrangement `food-vocabulary.ts` already uses.
+ */
+export const TWIN_LEDGER_EXPORTS = ["TWIN_LEDGER", "SPLIT_TWIN_NDB_NUMBERS"];
+
 // ---------------------------------------------------------------------------
 // Reaching the app's own logic
 // ---------------------------------------------------------------------------
@@ -93,6 +111,7 @@ const BORROWED = [
   [APP_MODULE, APP_EXPORTS],
   [RANKING_MODULE, RANKING_EXPORTS],
   [VOCABULARY_MODULE, VOCABULARY_EXPORTS],
+  [TWIN_LEDGER_MODULE, TWIN_LEDGER_EXPORTS],
 ];
 
 /**

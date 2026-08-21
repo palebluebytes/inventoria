@@ -204,16 +204,38 @@ function fillFromTwin(
  * Keying on `ndbNumber` rather than on the description is what collects the two
  * records USDA holds for one food across Foundation and SR Legacy, whose
  * free-text descriptions it rewrites between them (e.g. "Chia seeds, dry, raw"
- * and "Seeds, chia seeds, dried", both ndbNumber 12006). The `??` is deliberate
- * where `||` is not: a record with no `ndbNumber` groups by description rather
- * than colliding with every other record that lacks one.
+ * and "Seeds, chia seeds, dried", both ndbNumber 12006). A record with no
+ * `ndbNumber` falls back to its description, and the absence is tested rather
+ * than treated as falsy: an `ndbNumber` of `0` is a number USDA assigned, and
+ * `??`/`||` disagree about it.
+ *
+ * A shared `ndbNumber` is USDA saying two records are one food, and that is not
+ * reliably true: 11243 holds a raw portabella and a grilled one, 9501 holds
+ * Honeycrisp and Golden Delicious. `splitNdbNumbers` names the numbers an
+ * adjudication refused, and each of their records keys alone — `${ndb}:${fdcId}`,
+ * which no other record can collide with — so the two never meet and nothing
+ * downstream has to know why (ADR-0051; the set is `SPLIT_TWIN_NDB_NUMBERS` in
+ * `usda-twin-ledger.ts`).
+ *
+ * The set is an ARGUMENT rather than an import, and it is required rather than
+ * defaulted. The ledger is 190 rows of adjudication that must not enter a user's
+ * bundle, and a default of "no splits" would let a caller group records one way
+ * while the generator groups them another — the drift ADR-0047 §4 exists to
+ * prevent. There is exactly one caller, and it passes the ledger.
  *
  * Exported alongside {@link resolveFdcGroup} because `scripts/usda-bundle.mjs`
  * pairs the twins over the bulk archives (ADR-0047 §2), and the key that decides
  * WHICH records merge has to be the same one search uses.
  */
-export function fdcIdentityKey(food: FdcFood): string | number {
-  return food.ndbNumber ?? `desc:${food.description.toLowerCase().trim()}`;
+export function fdcIdentityKey(
+  food: FdcFood,
+  splitNdbNumbers: ReadonlySet<number>
+): string | number {
+  if (food.ndbNumber === undefined)
+    return `desc:${food.description.toLowerCase().trim()}`;
+  return splitNdbNumbers.has(food.ndbNumber)
+    ? `${food.ndbNumber}:${food.fdcId}`
+    : food.ndbNumber;
 }
 
 /** A search hit after its same-food siblings have been folded into it. */

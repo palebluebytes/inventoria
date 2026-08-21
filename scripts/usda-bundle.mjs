@@ -161,7 +161,7 @@ export const ROW_MACRO_KEYS = [
  * @property {(description: string) => boolean} isDryBasisRecord
  * @property {(description: string) => boolean} isManufacturingInput
  * @property {(food: BundleFood) => boolean} fdcReportsNoEnergy
- * @property {(food: BundleFood) => string | number} fdcIdentityKey
+ * @property {(food: BundleFood, splitNdbNumbers: ReadonlySet<number>) => string | number} fdcIdentityKey
  * @property {(group: BundleFood[]) => { food: BundleFood, merged_from: MergedSource[] }} resolveFdcGroup
  * @property {(description: string) => string} stripArchiveBoilerplate
  * @property {(descriptions: string[], surviving: string) => string[]} twinSearchAliases
@@ -170,6 +170,8 @@ export const ROW_MACRO_KEYS = [
  * @property {(description: string) => object} readReferenceFoodName
  * @property {(query: string) => (name: object) => { tier: number }} compileReferenceFoodQuery
  * @property {readonly string[]} DENIED_VOCABULARY_TAGS
+ * @property {readonly TwinLedgerEntry[]} TWIN_LEDGER
+ * @property {ReadonlySet<number>} SPLIT_TWIN_NDB_NUMBERS
  */
 
 /**
@@ -270,15 +272,26 @@ export function projectArchiveFood(record) {
  * The key comes from the app rather than being mirrored here because it is the
  * single input that decides WHICH records merge: a twin paired differently at
  * generation time than at search time would put values in a bundled row that a
- * live search never produced.
+ * live search never produced. The adjudicated splits travel the same way, as the
+ * key's own argument (ADR-0051), so the refusal cannot drift from the rule.
+ *
+ * `splitNdbNumbers` is overridable for one caller: passing an EMPTY set groups by
+ * USDA's numbering alone, which is the population {@link assertTwinLedgerCovers}
+ * is a census of. Asked with the splits applied it would find no pair at all,
+ * because a split pair's two records key apart by construction — and would then
+ * report the whole ledger as stale.
  *
  * @param {{ food: BundleFood }[]} entries
  * @param {AppModule} app
  */
-export function groupByIdentity(entries, app) {
+export function groupByIdentity(
+  entries,
+  app,
+  splitNdbNumbers = app.SPLIT_TWIN_NDB_NUMBERS
+) {
   const groups = new Map();
   for (const entry of entries) {
-    const key = app.fdcIdentityKey(entry.food);
+    const key = app.fdcIdentityKey(entry.food, splitNdbNumbers);
     const group = groups.get(key);
     if (group) group.push(entry);
     else groups.set(key, [entry]);
@@ -466,6 +479,92 @@ const retrievalRows = (survivors) =>
     description: survivor.food.description,
     also: survivor.also,
   }));
+
+/**
+ * Refuses a corpus holding a twin pair nobody has adjudicated, and a ledger entry
+ * the archives no longer hold (ADR-0051).
+ *
+ * The merge is decided at grouping time, before a filter has run, so this asks
+ * the GROUPS rather than the survivors — the pair behind `Orange juice, raw` is
+ * one whose merged row is dropped, and skipping it is how that food went missing
+ * with no judgement ever made about it.
+ *
+ * It fails in BOTH directions on purpose. A pair the ledger does not name is an
+ * unexamined merge, which is the defect this whole record exists to close. A
+ * ledger entry the archives never produce is a verdict about words USDA has
+ * moved past, and leaving it would let the census claim a coverage it no longer
+ * has. Either way the answer is to adjudicate, not to default.
+ *
+ * The comparison is `ndbNumber` plus BOTH descriptions, boilerplate stripped,
+ * because the verdict was reached by reading those words. A refresh that rewrites
+ * either one stops the build rather than silently reusing a judgement about a
+ * different name.
+ *
+ * A generation that stops beats a test that goes red later, for the reason
+ * {@link assertTwinNamesRetrieve} gives: the population is a function of USDA's
+ * own `ndbNumber` assignments, and the next mirror refresh can introduce twins
+ * nobody has looked at.
+ *
+ * Asks for the two things it reads rather than the whole {@link AppModule}, so a
+ * test can hand it one entry and a strip without standing up a filter roster.
+ *
+ * @typedef {readonly [ndbNumber: number, reason: string, foundation: string, sr_legacy: string]} TwinLedgerEntry
+ *
+ * @param {Map<string | number, { food: BundleFood }[]>} groups
+ * @param {{ TWIN_LEDGER: readonly TwinLedgerEntry[], stripArchiveBoilerplate: (description: string) => string }} app
+ * @returns {number} how many adjudicated pairs were matched
+ */
+export function assertTwinLedgerCovers(groups, app) {
+  const strip = (description) => app.stripArchiveBoilerplate(description);
+  const key = (ndbNumber, foundation, sr_legacy) =>
+    `${ndbNumber}\u0000${foundation}\u0000${sr_legacy}`;
+
+  const unseen = new Map(
+    app.TWIN_LEDGER.map((entry) => [key(entry[0], entry[2], entry[3]), entry])
+  );
+
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const foundation = group.find((e) => e.food.dataType === "Foundation");
+    const twin = group.find((e) => e !== foundation);
+    // Every pair in both archives is one Foundation record and one SR Legacy
+    // record; a group of another shape is a change in USDA's data this ledger
+    // has never been asked about.
+    if (!foundation || !twin || group.length > 2)
+      throw new Error(
+        `${group.length} records share the identity of ` +
+          `"${group[0].food.description}". The twin ledger adjudicates pairs of ` +
+          "one Foundation and one SR Legacy record, and this is neither."
+      );
+    const ndbNumber = foundation.food.ndbNumber;
+    const found = key(
+      ndbNumber,
+      strip(foundation.food.description),
+      strip(twin.food.description)
+    );
+    if (!unseen.delete(found))
+      throw new Error(
+        `no twin-ledger verdict for ndbNumber ${ndbNumber}: ` +
+          `"${strip(foundation.food.description)}" and ` +
+          `"${strip(twin.food.description)}". USDA numbered two records alike ` +
+          "and nobody has decided whether they are one food. Adjudicate it in " +
+          "src/lib/food/usda-twin-ledger.ts against " +
+          "docs/research/145-twin-fusion-adjudication.md §6."
+      );
+  }
+
+  if (unseen.size)
+    throw new Error(
+      `the twin ledger holds ${unseen.size} entr` +
+        (unseen.size === 1 ? "y" : "ies") +
+        " the archives no longer produce, the first being ndbNumber " +
+        `${[...unseen.values()][0][0]} ("${[...unseen.values()][0][2]}"). ` +
+        "A verdict about words USDA has moved past is not coverage; re-read the " +
+        "pair and update or remove the entry."
+    );
+
+  return app.TWIN_LEDGER.length;
+}
 
 export function assertTwinNamesRetrieve(groups, survivors, app) {
   const kept = new Map(survivors.map((s) => [s.food.fdcId, s]));
@@ -753,6 +852,13 @@ async function main() {
 
   const entries = await readBundleArchives(manifest, dir);
 
+  // Two groupings, and the order matters. The first asks what USDA's numbering
+  // makes, which is the population the ledger adjudicates; the second applies
+  // that adjudication and is what the corpus is built from (ADR-0051).
+  const adjudicated = assertTwinLedgerCovers(
+    groupByIdentity(entries, app, new Set()),
+    app
+  );
   const groups = groupByIdentity(entries, app);
   const { survivors, dropped, twinned, twinned_survivors, identities } =
     buildCorpus(groups, app);
@@ -815,6 +921,10 @@ async function main() {
       `(${aliased.reduce((n, row) => n + row.also.length, 0)} aliases, ` +
       `${aliasBytes.toLocaleString("en-GB")} bytes of the index); ` +
       `all ${twinNames} archived names retrieve`
+  );
+  console.log(
+    `  ${adjudicated} twin pairs adjudicated, ` +
+      `${app.SPLIT_TWIN_NDB_NUMBERS.size} of them refused the merge (ADR-0051)`
   );
   console.log(
     `  ${withPortions} rows carry portions, ` +

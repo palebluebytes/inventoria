@@ -5,7 +5,10 @@ import { readFileSync } from "node:fs";
 // scripts beside it.
 // @ts-ignore
 // @ts-ignore
-import { APP_EXPORTS } from "../../scripts/usda-app-module.mjs";
+import {
+  APP_EXPORTS,
+  TWIN_LEDGER_EXPORTS,
+} from "../../scripts/usda-app-module.mjs";
 // @ts-ignore
 import {
   BUNDLE_DATASETS,
@@ -31,6 +34,10 @@ import {
   readReferenceFoodName,
 } from "../../src/lib/food/reference-food-ranking";
 import { reportsNoEnergy } from "../../src/lib/food/nutrition";
+import {
+  TWIN_LEDGER,
+  SPLIT_TWIN_NDB_NUMBERS,
+} from "../../src/lib/food/usda-twin-ledger";
 import * as usdaFdc from "../../src/lib/food/usda-fdc";
 import {
   PANEL_FIELDS,
@@ -68,6 +75,8 @@ const app = {
   twinSearchAliases,
   mapFdcFoodToPayload,
   mapFdcPortions,
+  TWIN_LEDGER,
+  SPLIT_TWIN_NDB_NUMBERS,
 };
 
 /** One record in the bulk archives' own serialisation. */
@@ -93,7 +102,11 @@ describe("what the generator borrows, and what it never restates", () => {
     // The roster lives in `usda-app-module.mjs`; what this pins is that the
     // generator's own stub uses all of it and nothing else, so a call site added
     // here without a roster entry fails rather than reaching a bare undefined.
-    expect([...APP_EXPORTS].sort()).toEqual(Object.keys(app).sort());
+    // Two rosters, because the twin ledger is reached through the same seam from
+    // a module of its own (ADR-0051) — both are borrowed, neither is restated.
+    expect([...APP_EXPORTS, ...TWIN_LEDGER_EXPORTS].sort()).toEqual(
+      Object.keys(app).sort()
+    );
   });
 
   it("builds the corpus from Foundation and SR Legacy alone", () => {
@@ -223,9 +236,11 @@ describe("groupByIdentity — collecting the two records USDA holds for one food
       projected(2, "  Cocoa Nibs "),
     ];
     expect([...groupByIdentity(foods, app).keys()]).toEqual(
-      foods.map(({ food }) => fdcIdentityKey(food))
+      foods.map(({ food }) => fdcIdentityKey(food, SPLIT_TWIN_NDB_NUMBERS))
     );
-    expect(fdcIdentityKey(foods[1].food)).toBe("desc:cocoa nibs");
+    expect(fdcIdentityKey(foods[1].food, SPLIT_TWIN_NDB_NUMBERS)).toBe(
+      "desc:cocoa nibs"
+    );
   });
 });
 
