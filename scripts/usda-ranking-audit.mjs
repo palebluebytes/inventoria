@@ -502,64 +502,68 @@ const britishPass = (corpus, queries) =>
 // ── absence post-mortem ────────────────────────────────────────────────────
 
 /**
- * Why a record is not in the corpus: our own filter dropped it, or USDA never
- * had it. Only the archives can tell those apart, and the distinction matters
- * because #131 and #133 both tightened those filters on 2026-08-20.
+ * Why a record is not in the corpus: our own filter dropped it, the twin merge
+ * filed it under another name, or USDA never had it. Only the archives can tell
+ * those apart, and the distinction matters because #131, #133 and #144 all
+ * tightened those filters.
  *
  * Separate mode rather than part of the sweep: it is needed only where
  * adjudication concludes the right record is absent entirely, which the group's
  * own members usually disprove.
+ *
+ * It answers by RE-RUNNING the generator over the same archives, one identity at
+ * a time, rather than by matching descriptions against the shipped index. Two
+ * defects made that necessary (#137). It read all three archives, including the
+ * Survey release the bundle never consumes, so 5,432 records that were never
+ * eligible were reported as our casualties. And it asked the filters about each
+ * raw record, where the generator asks them about the merged identity — so it
+ * could name a filter that never ran, and it had no way at all to say that a
+ * record left because its twin's name won, which is what a residual bucket
+ * reading "no_energy or the twin merge" was hiding.
  */
 async function explainAbsence(term) {
-  const { countArchiveRecords } = await import("./usda-archive.mjs");
   // The filters live in `usda-fdc.ts`, which Node's type-stripping cannot load
   // directly the way it loads the ranking: that module imports its siblings
   // extensionless, and bare Node will not resolve those. `usda-bundle.mjs`
   // already solved this for the same filters, so borrow its loader rather than
   // keep a second copy of the answer.
-  const { loadAppModule } = await import("./usda-bundle.mjs");
+  const { loadAppModule, readBundleArchives, groupByIdentity, buildCorpus } =
+    await import("./usda-bundle.mjs");
   const scratch = await mkdtemp(join(tmpdir(), "ranking-audit-"));
   const app = await loadAppModule(scratch);
   const manifest = JSON.parse(readFileSync(MANIFEST_PATH, "utf8"));
-  const needle = term.toLowerCase();
-  const shipped = new Set(readIndex().foods.map((f) => f.description));
-  const hits = [];
-
-  for (const archive of manifest.archives) {
-    if (archive.dataset === "Survey (FNDDS)") continue;
-    const zip = readFileSync(join(ROOT, ".usda-backup", archive.file));
-    // Same contract as `usda:coverage`: prove the bytes are the ones the
-    // manifest describes before quoting a figure derived from them.
-    const sha256 = createHash("sha256").update(zip).digest("hex");
-    if (sha256 !== archive.sha256)
-      throw new Error(`${archive.file}: sha256 mismatch against the manifest.`);
-
-    await countArchiveRecords(zip, archive.root_key, (text) => {
-      const food = JSON.parse(text);
-      if (!food?.description?.toLowerCase().includes(needle)) return;
-      hits.push({
-        dataset: archive.dataset,
-        description: food.description,
-        shipped: shipped.has(food.description),
-        // The ADR-0042 filters in the order `usda-bundle.mjs` applies them, so
-        // the answer names the FIRST rule that would have taken the record —
-        // which is the one that actually did.
-        dropped_by: app.isBrandSpecific(food.description)
-          ? "brand_specific"
-          : app.isProcessedProduct(food.description)
-            ? "processed"
-            : app.isPreparedProduct(food.foodCategory, food.description)
-              ? "prepared"
-              : app.isDryBasisRecord(food.description)
-                ? "dry_basis"
-                : app.isManufacturingInput(food.description)
-                  ? "manufacturing_input"
-                  : null,
-      });
-    });
-  }
+  const entries = await readBundleArchives(
+    manifest,
+    join(ROOT, ".usda-backup")
+  );
   await rm(scratch, { recursive: true, force: true });
-  return hits;
+
+  const needle = term.toLowerCase();
+  const verdicts = [];
+  for (const [key, group] of groupByIdentity(entries, app)) {
+    const hits = group.filter((entry) =>
+      entry.food.description.toLowerCase().includes(needle)
+    );
+    if (hits.length === 0) continue;
+    // One group at a time through the REAL generator, so the verdict is the
+    // decision that actually shipped rather than a restatement of it: exactly
+    // one of the six tallies is 1 for a group nobody kept, and it names the
+    // filter that took the merged identity.
+    const { survivors, dropped } = buildCorpus(new Map([[key, group]]), app);
+    const shipped = survivors[0]?.food.description ?? null;
+    const dropped_by = shipped
+      ? null
+      : Object.entries(dropped).find(([, count]) => count > 0)[0];
+    for (const hit of hits)
+      verdicts.push({
+        dataset: hit.food.dataType,
+        description: hit.food.description,
+        shipped: hit.food.description === shipped,
+        merged_into: shipped === hit.food.description ? null : shipped,
+        dropped_by,
+      });
+  }
+  return verdicts;
 }
 
 // ── prior adjudications ────────────────────────────────────────────────────
@@ -645,8 +649,10 @@ if (args.includes("--vocab")) {
   for (const hit of await explainAbsence(term)) {
     const state = hit.shipped
       ? "SHIPPED"
-      : `dropped by ${hit.dropped_by ?? "no_energy (ADR-0048) or the twin merge"}`;
-    console.log(`${state.padEnd(34)} ${hit.description}`);
+      : hit.merged_into
+        ? `merged into "${hit.merged_into}"`
+        : `dropped by ${hit.dropped_by}`;
+    console.log(`${state.padEnd(38)} ${hit.description}`);
   }
 } else {
   const inputs = JSON.parse(readFileSync(INPUTS_PATH, "utf8"));

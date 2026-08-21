@@ -762,6 +762,41 @@ export function buildArtifacts(survivors, archives, app, vocabulary_off) {
  * inflates to 210 MB of JSON; what survives is the projection, which is a
  * twentieth of that.
  */
+/**
+ * The manifest entries for the datasets this bundle consumes, in the order it
+ * reads them.
+ *
+ * Exported because a second reader needs the same answer: `usda:ranking-audit`
+ * has to know which archives could possibly have produced a shipped row, and it
+ * used to restate that as a literal dataset name. The manifest renamed the
+ * Survey release and the restatement silently stopped matching, so every one of
+ * its 5,432 records was reported as a corpus casualty (#137).
+ *
+ * @param {{ archives: { dataset: string }[] }} manifest
+ */
+export function bundleArchives(manifest) {
+  return BUNDLE_DATASETS.map((dataset) => {
+    const archive = manifest.archives.find((a) => a.dataset === dataset);
+    if (!archive) throw new Error(`no "${dataset}" archive in the manifest`);
+    return archive;
+  });
+}
+
+/**
+ * Every projected record the bundled datasets hold, digests checked.
+ *
+ * @param {{ archives: object[] }} manifest
+ * @param {string} dir
+ */
+export async function readBundleArchives(manifest, dir) {
+  const entries = [];
+  for (const archive of bundleArchives(manifest)) {
+    process.stdout.write(`  .. ${archive.file}\n`);
+    entries.push(...(await readArchive(archive, dir)));
+  }
+  return entries;
+}
+
 async function readArchive(archive, dir) {
   const path = join(dir, archive.file);
   const zip = await readFile(path).catch(() => null);
@@ -883,11 +918,7 @@ async function main() {
   const reportOnly = args.includes("--report");
 
   const manifest = JSON.parse(await readFile(MANIFEST_PATH, "utf8"));
-  const archives = BUNDLE_DATASETS.map((dataset) => {
-    const archive = manifest.archives.find((a) => a.dataset === dataset);
-    if (!archive) throw new Error(`no "${dataset}" archive in the manifest`);
-    return archive;
-  });
+  const archives = bundleArchives(manifest);
 
   if (!args.includes("--skip-freshness"))
     await assertMirrorIsCurrent(manifest, archives);
@@ -896,11 +927,7 @@ async function main() {
   const app = assertAppExports(await loadAppModule(scratch));
   await rm(scratch, { recursive: true, force: true });
 
-  const entries = [];
-  for (const archive of archives) {
-    process.stdout.write(`  .. ${archive.file}\n`);
-    entries.push(...(await readArchive(archive, dir)));
-  }
+  const entries = await readBundleArchives(manifest, dir);
 
   const { survivors, dropped, twinned, twinned_survivors, identities } =
     buildCorpus(groupByIdentity(entries, app), app);

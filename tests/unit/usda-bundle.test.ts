@@ -12,6 +12,7 @@ import {
   buildCorpus,
   buildIndexRow,
   buildNutrientEntry,
+  bundleArchives,
   collectNutrientDictionary,
   groupByIdentity,
   generatedFrom,
@@ -747,6 +748,39 @@ describe("buildNutrientEntry — every nutrient the record reports", () => {
     // Sodium stays 2 mg rather than becoming 0.002 g: normalising here would
     // store float noise, and the mapper normalises at read time anyway.
     expect(entry["1093"]).toBe(2);
+  });
+});
+
+describe("bundleArchives — which datasets the bundle consumes", () => {
+  const manifest = {
+    archives: [
+      { dataset: "Foundation Foods", file: "foundation.zip" },
+      { dataset: "SR Legacy", file: "sr.zip" },
+      { dataset: "Survey (FNDDS 2021-2023)", file: "survey.zip" },
+    ],
+  };
+
+  it("selects the bundled datasets in the order they are read", () => {
+    expect(bundleArchives(manifest).map((a) => a.dataset)).toEqual(
+      BUNDLE_DATASETS
+    );
+  });
+
+  it("leaves the Survey release out, since no Survey record can ship", () => {
+    expect(bundleArchives(manifest).map((a) => a.file)).not.toContain(
+      "survey.zip"
+    );
+  });
+
+  it("refuses a manifest that has renamed a dataset out from under it", () => {
+    // The defect this replaced was silent in exactly this situation: the audit
+    // named a dataset the manifest no longer spelled that way, matched nothing,
+    // and reported 5,432 ineligible records as corpus casualties (#137).
+    expect(() =>
+      bundleArchives({
+        archives: [{ dataset: "Foundation Foods, 2026", file: "f.zip" }],
+      })
+    ).toThrow(/no "Foundation Foods" archive/);
   });
 });
 
