@@ -149,9 +149,9 @@
       "tied_at_top": 2,
       "lead_today": "Almond milk, unsweetened, plain, shelf stable",
       "shapes": [],
-      "verdict": null,
+      "verdict": "peers",
       "should_lead": null,
-      "note": null
+      "note": "Shelf-stable and refrigerated are the same product; neither is more canonical."
     },
     {
       "head": "arugula",
@@ -159,9 +159,9 @@
       "tied_at_top": 1,
       "lead_today": "Arugula, raw",
       "shapes": [],
-      "verdict": null,
+      "verdict": "correct",
       "should_lead": null,
-      "note": null
+      "note": "Arugula, raw leads."
     },
     {
       "head": "bacon",
@@ -169,9 +169,9 @@
       "tied_at_top": 2,
       "lead_today": "Bacon, pre-sliced, reduced/low sodium, unprepared",
       "shapes": ["a-modifier"],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Pork, cured, bacon, unprepared",
+      "note": "The plain cured bacon is tier-blocked at rank 8 because its head is 'Pork'. Within the tie, demoting the reduced-sodium lead promotes 'Bacon, meatless' — a substitute — so the modifier list is INCOMPLETE, not wrong."
     },
     {
       "head": "bagels",
@@ -179,9 +179,9 @@
       "tied_at_top": 12,
       "lead_today": "Bagels, wheat",
       "shapes": [],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Bagels, plain, enriched, with calcium propionate (includes onion, poppy, sesame)",
+      "note": "Plain should lead a bare 'bagels'. Not reachable: the lead 'Bagels, wheat' carries no marker."
     },
     {
       "head": "bamboo shoots",
@@ -189,9 +189,9 @@
       "tied_at_top": 1,
       "lead_today": "Bamboo shoots, raw",
       "shapes": [],
-      "verdict": null,
+      "verdict": "correct",
       "should_lead": null,
-      "note": null
+      "note": "Raw leads."
     },
     {
       "head": "bananas",
@@ -199,9 +199,9 @@
       "tied_at_top": 2,
       "lead_today": "Bananas, overripe, raw",
       "shapes": [],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Bananas, ripe and slightly ripe, raw",
+      "note": "'overripe' is a modifier the candidate list does not carry."
     },
     {
       "head": "beef",
@@ -209,9 +209,9 @@
       "tied_at_top": 413,
       "lead_today": "Beef, retail cuts, separable fat, raw",
       "shapes": ["b-part"],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Beef, grass-fed, ground, raw",
+      "note": "Separable fat is the sharpest §3.1 wrongness: a fraction leading the food."
     },
     {
       "head": "blackberries",
@@ -219,7 +219,7 @@
       "tied_at_top": 1,
       "lead_today": "Blackberries, raw",
       "shapes": [],
-      "verdict": null,
+      "verdict": "correct",
       "should_lead": null,
       "note": null
     },
@@ -229,7 +229,7 @@
       "tied_at_top": 1,
       "lead_today": "Blueberries, raw",
       "shapes": [],
-      "verdict": null,
+      "verdict": "correct",
       "should_lead": null,
       "note": null
     },
@@ -239,7 +239,7 @@
       "tied_at_top": 1,
       "lead_today": "Broccoli, raw",
       "shapes": [],
-      "verdict": null,
+      "verdict": "correct",
       "should_lead": null,
       "note": null
     },
@@ -249,9 +249,9 @@
       "tied_at_top": 6,
       "lead_today": "Butter, Clarified butter (ghee)",
       "shapes": [],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Butter, stick, salted",
+      "note": "Ghee leads. 'light' and 'whipped' are modifiers the candidate list does not carry."
     },
     {
       "head": "cauliflower",
@@ -259,7 +259,7 @@
       "tied_at_top": 1,
       "lead_today": "Cauliflower, raw",
       "shapes": [],
-      "verdict": null,
+      "verdict": "correct",
       "should_lead": null,
       "note": null
     },
@@ -269,7 +269,7 @@
       "tied_at_top": 1,
       "lead_today": "Chard, swiss, raw",
       "shapes": [],
-      "verdict": null,
+      "verdict": "correct",
       "should_lead": null,
       "note": null
     },
@@ -279,9 +279,9 @@
       "tied_at_top": 87,
       "lead_today": "Cheese, cottage, lowfat, 1% milkfat, lactose reduced",
       "shapes": ["a-modifier"],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Cheese, cheddar",
+      "note": "87 rows tie; the lead is a lactose-reduced lowfat cottage cheese."
     },
     {
       "head": "chicken",
@@ -289,9 +289,9 @@
       "tied_at_top": 57,
       "lead_today": "Chicken, broilers or fryers, meat and skin and giblets and neck, raw",
       "shapes": ["b-part"],
-      "verdict": null,
+      "verdict": "correct",
       "should_lead": null,
-      "note": null
+      "note": "'meat and skin and giblets and neck' IS the whole bird, which §3.1 ranks first. The part key would DEMOTE it — a regression the candidate list creates."
     },
     {
       "head": "cowpeas",
@@ -299,9 +299,9 @@
       "tied_at_top": 4,
       "lead_today": "Cowpeas, young pods with seeds, raw",
       "shapes": ["b-part"],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Cowpeas, common (blackeyes, crowder, southern), mature seeds, raw",
+      "note": "The part key fires on 'seeds' and would promote 'leafy tips' — which is itself a part. Worse, not better."
     },
     {
       "head": "egg",
@@ -309,9 +309,9 @@
       "tied_at_top": 4,
       "lead_today": "Egg, duck, whole, fresh, raw",
       "shapes": [],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Egg, whole, raw, frozen, pasteurized",
+      "note": "Leads with a duck egg. NB there is NO plain fresh shell-egg row in the corpus; the designated row is the best available, not the right one."
     },
     {
       "head": "eggs",
@@ -319,9 +319,9 @@
       "tied_at_top": 3,
       "lead_today": "Eggs, Grade A, Large, egg white",
       "shapes": [],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Eggs, Grade A, Large, egg whole",
+      "note": "White and yolk are parts; whole is the food. Not reachable: 'egg white' is not in the part list."
     },
     {
       "head": "english muffins",
@@ -329,9 +329,9 @@
       "tied_at_top": 4,
       "lead_today": "English muffins, plain, unenriched, with calcium propionate (includes sourdough)",
       "shapes": [],
-      "verdict": null,
+      "verdict": "peers",
       "should_lead": null,
-      "note": null
+      "note": "Enriched vs unenriched plain; both are plain English muffins."
     },
     {
       "head": "lamb",
@@ -339,9 +339,9 @@
       "tied_at_top": 129,
       "lead_today": "Lamb, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/4\" fat, choice, raw",
       "shapes": ["b-part"],
-      "verdict": null,
+      "verdict": "correct",
       "should_lead": null,
-      "note": null
+      "note": "'composite of trimmed retail cuts' is the generic lamb. The part key fires on 'separable lean' and would demote it."
     },
     {
       "head": "leeks",
@@ -349,7 +349,7 @@
       "tied_at_top": 1,
       "lead_today": "Leeks, (bulb and lower leaf-portion), raw",
       "shapes": [],
-      "verdict": null,
+      "verdict": "correct",
       "should_lead": null,
       "note": null
     },
@@ -359,9 +359,9 @@
       "tied_at_top": 4,
       "lead_today": "Mayonnaise, made with tofu",
       "shapes": ["a-modifier"],
-      "verdict": null,
+      "verdict": "peers",
       "should_lead": null,
-      "note": null
+      "note": "All five candidates are modified forms and no plain mayonnaise row exists. The corpus is wrong here, not the ranking."
     },
     {
       "head": "milk",
@@ -369,9 +369,9 @@
       "tied_at_top": 41,
       "lead_today": "Milk, buttermilk, fluid, cultured, reduced fat",
       "shapes": ["a-modifier"],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Milk, whole, 3.25% milkfat, with added vitamin D",
+      "note": "41 rows tie; the lead is a cultured reduced-fat buttermilk."
     },
     {
       "head": "millet",
@@ -379,9 +379,9 @@
       "tied_at_top": 2,
       "lead_today": "Millet, cooked",
       "shapes": ["c-prepared"],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Millet, whole grain",
+      "note": "Cooked leads the unprepared grain."
     },
     {
       "head": "mustard greens",
@@ -389,7 +389,7 @@
       "tied_at_top": 1,
       "lead_today": "Mustard greens, raw",
       "shapes": [],
-      "verdict": null,
+      "verdict": "correct",
       "should_lead": null,
       "note": null
     },
@@ -399,9 +399,9 @@
       "tied_at_top": 14,
       "lead_today": "Noodles, chinese, chow mein",
       "shapes": [],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Noodles, egg, dry, enriched",
+      "note": "Chow mein leads. Not reachable: no marker on the lead."
     },
     {
       "head": "pasta",
@@ -409,9 +409,9 @@
       "tied_at_top": 21,
       "lead_today": "Pasta, gluten-free, corn, dry",
       "shapes": ["a-modifier"],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Pasta, dry, unenriched",
+      "note": "All 21 tie; gluten-free corn leads."
     },
     {
       "head": "peanut butter",
@@ -419,9 +419,9 @@
       "tied_at_top": 9,
       "lead_today": "Peanut butter, reduced sodium",
       "shapes": ["a-modifier"],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Peanut butter, creamy",
+      "note": "Reduced sodium leads a nine-way tie."
     },
     {
       "head": "peppers",
@@ -429,9 +429,9 @@
       "tied_at_top": 13,
       "lead_today": "Peppers, jalapeno, raw",
       "shapes": [],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Peppers, bell, green, raw",
+      "note": "Jalapeno leads. Varietal prototypicality, out of scope by §4."
     },
     {
       "head": "pickles",
@@ -439,9 +439,9 @@
       "tied_at_top": 7,
       "lead_today": "Pickles, cucumber, sour, low sodium",
       "shapes": ["a-modifier"],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Pickles, cucumber, dill or kosher dill",
+      "note": "Low-sodium sour leads a seven-way tie."
     },
     {
       "head": "pineapple",
@@ -449,7 +449,7 @@
       "tied_at_top": 1,
       "lead_today": "Pineapple, raw",
       "shapes": [],
-      "verdict": null,
+      "verdict": "correct",
       "should_lead": null,
       "note": null
     },
@@ -459,9 +459,9 @@
       "tied_at_top": 84,
       "lead_today": "Pork, fresh, composite of trimmed leg, loin, shoulder, and spareribs, (includes cuts to be cured), separable lean and fat, raw",
       "shapes": ["b-part"],
-      "verdict": null,
+      "verdict": "correct",
       "should_lead": null,
-      "note": null
+      "note": "The generic composite leads. The part key fires on 'separable lean' and would demote it."
     },
     {
       "head": "pumpkin",
@@ -469,7 +469,7 @@
       "tied_at_top": 1,
       "lead_today": "Pumpkin, raw",
       "shapes": [],
-      "verdict": null,
+      "verdict": "correct",
       "should_lead": null,
       "note": null
     },
@@ -479,9 +479,9 @@
       "tied_at_top": 3,
       "lead_today": "Raisins, golden, seedless",
       "shapes": [],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Raisins, dark, seedless (Includes foods for USDA's Food Distribution Program)",
+      "note": "Golden is the qualified form; dark is the default raisin. Weak call."
     },
     {
       "head": "raspberries",
@@ -489,7 +489,7 @@
       "tied_at_top": 1,
       "lead_today": "Raspberries, raw",
       "shapes": [],
-      "verdict": null,
+      "verdict": "correct",
       "should_lead": null,
       "note": null
     },
@@ -499,9 +499,9 @@
       "tied_at_top": 2,
       "lead_today": "Rice noodles, cooked",
       "shapes": ["c-prepared"],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Rice noodles, dry",
+      "note": "Cooked leads the unprepared form, against §3.1's raw-over-cooked."
     },
     {
       "head": "rolls",
@@ -509,9 +509,9 @@
       "tied_at_top": 20,
       "lead_today": "Rolls, pumpernickel",
       "shapes": [],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Rolls, dinner, plain, commercially prepared (includes brown-and-serve)",
+      "note": "Pumpernickel leads a 20-way tie. Not reachable: no marker on the lead."
     },
     {
       "head": "rutabagas",
@@ -519,7 +519,7 @@
       "tied_at_top": 1,
       "lead_today": "Rutabagas, raw",
       "shapes": [],
-      "verdict": null,
+      "verdict": "correct",
       "should_lead": null,
       "note": null
     },
@@ -529,9 +529,9 @@
       "tied_at_top": 4,
       "lead_today": "Sour cream, imitation, cultured",
       "shapes": ["a-modifier"],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Cream, sour, full fat",
+      "note": "Imitation leads. No plain 'Sour cream,' row exists, so the designated row is tier-blocked at rank 5."
     },
     {
       "head": "spinach",
@@ -539,9 +539,9 @@
       "tied_at_top": 4,
       "lead_today": "Spinach, cooked, boiled, drained, without salt",
       "shapes": ["c-prepared"],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Spinach, baby",
+      "note": "Cooked leads. 'Spinach, raw' is in BOTH archives and neither copy ships (#130 §8) — this designation is the best row LEFT, and #137 may change it."
     },
     {
       "head": "succotash",
@@ -549,7 +549,7 @@
       "tied_at_top": 1,
       "lead_today": "Succotash, (corn and limas), raw",
       "shapes": [],
-      "verdict": null,
+      "verdict": "correct",
       "should_lead": null,
       "note": null
     },
@@ -559,8 +559,8 @@
       "tied_at_top": 2,
       "lead_today": "Teff, cooked",
       "shapes": ["c-prepared"],
-      "verdict": null,
-      "should_lead": null,
+      "verdict": "miss",
+      "should_lead": "Teff, uncooked",
       "note": null
     },
     {
@@ -569,8 +569,8 @@
       "tied_at_top": 2,
       "lead_today": "Tempeh, cooked",
       "shapes": ["c-prepared"],
-      "verdict": null,
-      "should_lead": null,
+      "verdict": "miss",
+      "should_lead": "Tempeh",
       "note": null
     },
     {
@@ -579,9 +579,9 @@
       "tied_at_top": 4,
       "lead_today": "Tomatoes, yellow, raw",
       "shapes": [],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Tomatoes, red, ripe, raw, year round average",
+      "note": "Yellow leads. Varietal, out of scope by §4."
     },
     {
       "head": "turkey",
@@ -589,9 +589,9 @@
       "tied_at_top": 47,
       "lead_today": "Turkey, whole, meat and skin, raw",
       "shapes": ["b-part"],
-      "verdict": null,
+      "verdict": "correct",
       "should_lead": null,
-      "note": null
+      "note": "'Turkey, whole, meat and skin, raw' is the whole bird. The part key fires on 'meat and skin' and would demote it."
     },
     {
       "head": "vanilla extract",
@@ -599,9 +599,9 @@
       "tied_at_top": 3,
       "lead_today": "Vanilla extract, imitation, alcohol",
       "shapes": ["a-modifier"],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Vanilla extract",
+      "note": "Both imitations outrank the real extract."
     },
     {
       "head": "veal",
@@ -609,9 +609,9 @@
       "tied_at_top": 43,
       "lead_today": "Veal, Australian, rib, rib roast, separable lean only, raw",
       "shapes": ["b-part"],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Veal, composite of trimmed retail cuts, separable lean and fat, raw",
+      "note": "An Australian rib roast leads. The generic composite exists and is buried."
     },
     {
       "head": "wheat flour",
@@ -619,9 +619,9 @@
       "tied_at_top": 17,
       "lead_today": "Wheat flour, white, all-purpose, self-rising, enriched",
       "shapes": [],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Wheat flour, white, all-purpose, enriched, calcium-fortified",
+      "note": "Self-rising leads a 17-way tie. The plain all-purpose row is filed under the head 'Flour', not 'Wheat flour', so it is tier-blocked; the designated row is the best one under this head. Not reachable: no marker on the lead."
     },
     {
       "head": "whey",
@@ -629,9 +629,9 @@
       "tied_at_top": 4,
       "lead_today": "Whey, acid, fluid",
       "shapes": [],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Whey, sweet, dried",
+      "note": "Acid whey leads; sweet whey is the default. Weak call."
     },
     {
       "head": "yogurt",
@@ -639,9 +639,19 @@
       "tied_at_top": 26,
       "lead_today": "Yogurt, fruit variety, nonfat",
       "shapes": ["a-modifier"],
-      "verdict": null,
-      "should_lead": null,
-      "note": null
+      "verdict": "miss",
+      "should_lead": "Yogurt, plain, whole milk",
+      "note": "Nonfat fruit variety leads a 26-way tie."
     }
-  ]
+  ],
+  "adjudication": {
+    "by": "LLM, one case at a time, against #130 §3.1 precedence and §3.2 vocabulary",
+    "date": "2026-08-21",
+    "ratified_by_maintainer": false,
+    "tally": {
+      "correct": 18,
+      "miss": 29,
+      "peers": 3
+    }
+  }
 }

@@ -162,3 +162,67 @@ The last-resort tie-break is deliberately **left as corpus order**. Every availa
 Each card shows the query, the top ~10 ranked rows with all five key values as columns so a tie reads as a tie rather than being asserted, and the proposed best row with its one-line reason. Controls: click a row to designate "should lead"; set a verdict; tag the shape; flag a #144 filter escape; leave a note. The 135 unreached cases appear **read-only**, grouped by §9's routing, flaggable but not adjudicated — which is what keeps §8.3's ratification affordable.
 
 Built once the sweep has adjudications to load.
+
+---
+
+# Results (2026-08-21)
+
+Everything above this line was committed before the sweep ran. Nothing above it has been edited since; what follows either confirms it or corrects it by name.
+
+## 11. The gold set, adjudicated
+
+50 cases, adjudicated one at a time against §8.2 and #130 §3.1, recorded in `143-gold-set.json`: **29 `miss`, 18 `correct`, 3 `peers`.** Of the 22 cases a candidate shape reaches, 17 are misses, 4 are `correct` and 1 is `peers`.
+
+The four `correct` cases a shape reaches matter more than their number suggests, and §12 turns on them.
+
+## 12. The part key is refuted
+
+`whole` — demote a name carrying a part-or-fraction marker — **fixes nothing and breaks four of the eighteen `correct` cases**:
+
+| query     | leads today, adjudicated correct                                                                      | the part key promotes                                              |
+| --------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `chicken` | `Chicken, broilers or fryers, meat and skin and giblets and neck, raw`                                | `Chicken, … giblets, raw`                                          |
+| `turkey`  | `Turkey, whole, meat and skin, raw`                                                                   | `Turkey, whole, giblets, raw`                                      |
+| `pork`    | `Pork, fresh, composite of trimmed leg, loin, shoulder, and spareribs, … separable lean and fat, raw` | `Pork, fresh, backfat, raw`                                        |
+| `lamb`    | `Lamb, composite of trimmed retail cuts, separable lean and fat, … raw`                               | `Lamb, variety meats and by-products, mechanically separated, raw` |
+
+The mechanism is exact and it inverts the premise. **USDA names its most generic animal rows with part vocabulary**, because a whole chicken _is_ meat and skin and giblets and neck, and the generic pork row _is_ a composite of separable lean and fat. The markers therefore select **for** the canonical row, not against it. Adding it to the two-key design costs three net correct leads (21 against 24 without it).
+
+It also fails where it does fire: `cowpeas` moves from `young pods with seeds` to `leafy tips` — one part replaced by another — and `veal` from an Australian rib roast to `variety meats and by-products, spleen`.
+
+**#130 §3.1's "whole over part" precedence is not wrong; it is unreadable from a USDA description.** The words that name a part and the words that name the whole animal are the same words. This is the same class of failure as §3's two dead signals, found one layer later.
+
+## 13. What the surviving key does
+
+`plain` alone — demote a name carrying a modifier or preparation marker — in #124's reserved slot:
+
+- **6 of 14 modifier/prepared misses now lead with the designated row (43%)**: `millet`, `rice noodles`, `spinach`, `teff`, `tempeh`, `vanilla extract`.
+- **0 of the 18 `correct` cases break.**
+- **All nine §8.6 guards hold**, and ADR-0046's curated stand-in order is untouched.
+- **18 leads move across the 163 tie queries.** Read one at a time: **11 better, 1 worse, 4 sideways, 2 noise.** Better includes `Yogurt, fruit variety, nonfat` → `Yogurt, plain, skim milk`, `Sour cream, imitation, cultured` → `Sour cream, light`, and the low-sodium soy sauce yielding to the plain one. The one worse is `cheese`, which moves from a lactose-reduced cottage cheese to `Cheese, cottage, with vegetables`. The two noise cases are `stew` and `wocas`, both already routed to #144 and #134.
+
+The eight modifier misses it does **not** fix — `bacon`, `cheese`, `milk`, `pasta`, `peanut butter`, `pickles`, `sour cream`, `yogurt` — all move, and all move to a different wrong row. In a tie of 41 milks or 87 cheeses, demoting the marked ones still leaves dozens of unmarked ones tied, and corpus order picks again among the survivors.
+
+## 14. Against §8.5's bands
+
+**43% is between 1/3 and 2/3, so this is a `report and return` result.** The decision goes back to the maintainer; this note does not resolve it.
+
+**One of §8.5's three conditions was written ambiguously and is not used.** "Falls ≤ ¼ of rises" does not say what is counted. #124's precedent counts _answers_ — rows that legitimately serve the query — and a head-phrase query has no equivalent answer set, so the only thing I could count was every row in every result list, which gives 627 rises against 1,135 falls (1.81) for a key that demotes 40% of the corpus by construction. That ratio is an artefact of the measure, not a finding, and leaning on it either way would be dishonest. **The 18 leads in §13, read individually, are the honest version of the same question**, and they say 11:1.
+
+## 15. §8.7's three tests
+
+- **Placement is unfalsified.** Above `raw`, between `head` and `position`, and in the reserved slot all give identical results — 6 fixed, 0 broken, guards held. Default to the reserved slot, as #124 did on the same finding. The §3.1-versus-§1 tension over whether whole-over-part outranks raw is now **moot**, since there is no part key to place.
+- **#124's `simplicity` absorption clause is DISPROVEN.** Deleting `simplicity` breaks **five** of the eighteen `correct` cases. The clause — "today's 3/2/1/0 `simplicity` is only 'fewest qualifiers, among raw foods'; a general form subsumes it without loss" — is false, and `simplicity` stays. Per §8.7 this is corrected in the amendment rather than edited into #124's text.
+- **`raw` stays, and now on evidence rather than only principle.** Deleting it moves one of the nine guards.
+
+## 16. §7's protocol caught a hole in this note's own candidate list
+
+`made with`, proposed in §6, touches 20 rows and is **wrong on most of them**: `Frybread, made with lard (Navajo)`, `Pasta, homemade, made with egg, cooked`, `Rolls, gluten-free, white, made with brown rice flour…`. Those are recipes, not substitutes. It was removed before the numbers above were taken. `meatless` was added in its place — 8 rows, all of them meat substitutes — after which `bacon` stops moving to `Bacon, meatless` and stops moving at all, its tie being uniformly marked.
+
+Priced and kept: `imitation` (9 rows, all imitations), `substitute` (14, all substitutes), `filled` (3, all filled dairy), `meatless` (8). This is #131's rule doing its job on the very list that cited it.
+
+## 17. Recommendation
+
+**Report and return, with a recommendation to ship the narrow key.** The bar it misses is one this note set for a two-key design that no longer exists; what survives is smaller, cleaner and net-positive on every unambiguous measure: 6 designated rows reached, 0 correct cases broken, 9 of 9 guards held, and 11 better leads against 1 worse. The maintainer's call is whether 18 moved leads out of a 163-query class is worth an ADR-0042 amendment and a sixth key.
+
+If it ships, the amendment must carry three things beyond the key: the part-key refutation in §12, the `simplicity` correction in §15, and the honest ceiling — **this key reaches 18 of 163, and 135 leads are still decided by `fdcId` order.**
