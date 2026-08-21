@@ -5,7 +5,8 @@
 **Amended by:** ADR-0048 §5 (§4's filter roster gains two members; the corpus fell from 4,491 rows to 4,461)  
 **Amended by:** ADR-0042's #131 amendment (§4's brand-filter tally; the corpus fell from 4,461 rows to 4,441)  
 **Amended by:** ADR-0042 §5's #133 drift (§4's prepared-composite tally: the corpus fell from 4,441 rows to 4,429)  
-**Amended by:** ADR-0042's #144 amendment (§4's filter roster gains a sixth member; the corpus is now 4,353 rows)  
+**Amended by:** ADR-0042's #144 amendment (§4's filter roster gains a sixth member; the corpus fell from 4,429 rows to 4,353)  
+**Amended by:** [ADR-0051](0051-a-shared-ndb-number-is-not-proof-of-one-food.md) (eight refused merges become two rows each; the corpus is now 4,360 rows)  
 **Implemented:** #111 `a8a36e3`, #113 `4d02063`, #114 `37e7d67`, #115 `c0a99a1`
 
 This record revises five earlier ones. It amends

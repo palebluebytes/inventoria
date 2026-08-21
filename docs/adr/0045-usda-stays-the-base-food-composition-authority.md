@@ -1,6 +1,7 @@
 # ADR 0045: Keep USDA FoodData Central as the single base-food composition authority, and fill Foundation from its SR Legacy twin
 
 **Status:** Accepted  
+**Amended by:** [ADR-0051](0051-a-shared-ndb-number-is-not-proof-of-one-food.md) §1 (§2's merge collects a shared `ndbNumber` only where an adjudication has not refused it)  
 **Date:** 2026-08-18  
 **Amended by:** ADR-0046 §1 (§1 gains an exception for a base food no reference table carries)  
 **Amended by:** ADR-0047 (the Consequences' open offline/bundling question is resolved: USDA's archives are bundled and the API retired)  

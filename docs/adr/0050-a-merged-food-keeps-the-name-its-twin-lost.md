@@ -2,6 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-21  
+**Amended by:** [ADR-0051](0051-a-shared-ndb-number-is-not-proof-of-one-food.md) (the rule stands; the alias population falls from 87 to 80, because a refused merge discards no name)  
 **Implemented:** #137 `2e52374` (the absence tool), `3afcc17` (the alias), `cd19059` (the two instruments)
 
 This record amends [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md)

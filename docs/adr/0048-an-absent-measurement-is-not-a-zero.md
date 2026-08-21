@@ -3,6 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-08-20  
 **Amended by:** the #137 Amendment below, which corrects two Consequences about what §5 left standing  
+**Amended by:** [ADR-0051](0051-a-shared-ndb-number-is-not-proof-of-one-food.md) §1 (§4 governed a NEW ndbNumber and not the converse; a shared one now collects two records only where an adjudication has not refused it)  
 **Implemented:** #126 `35f454e` (the predicate), `7bce806` (§5's two filters), `40a6115` (the regenerated artifacts), `80dfac9` (§6's refusal on the card)
 
 This record amends [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md)
