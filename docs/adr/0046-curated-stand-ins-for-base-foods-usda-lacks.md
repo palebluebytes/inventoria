@@ -4,7 +4,7 @@
 **Date:** 2026-08-18  
 **Amended by:** ADR-0047 §10 (the #118 amendment's two empty-search verdicts collapse into one message)  
 **Amended by:** ADR-0048 §7 (§1's bar is restated as a food no table yields a loggable record for, not one no table carries)  
-**Implemented:** #109 `38b9a0e` (data spine), `70ff025` (disclosure); #117 `715d605` (staleness check), `e8d4c1a` (quarterly job); `src/lib/food/curated-foods.ts`
+**Implemented:** #109 `38b9a0e` (data spine), `70ff025` (disclosure); #117 `715d605` (staleness check), `e8d4c1a` (quarterly job); #116 (double cream admitted); `src/lib/food/curated-foods.ts`
 
 This record amends [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md) §1 (USDA is the only base-food source) and [ADR-0042](0042-usda-search-reference-foods.md) §3 (a brand-specific record is always dropped from search).
 
@@ -182,6 +182,56 @@ by type at the call site rather than by parsing a message.
 
 This changes no decision in this record. A curated stand-in still answers the queries
 it covers, and the two verdicts describe what happens for everything else.
+
+## Amendment (2026-08-21, #116): the second entry, and seven foods that are not one
+
+§2's bar was written from one case. [Research note #116](../research/116-curated-stand-in-candidates.md)
+ran eight candidates through it — the seven [#109](../research/109-base-foods-no-composition-table-carries.md)
+§6 named as plausible neighbours, plus `double cream`, which [ADR-0049](0049-a-derived-vocabulary-for-food-search.md)'s
+#141 Amendment refused as a vocabulary entry and sent here as a coverage argument.
+**One was admitted.** No decision in this record changes; what follows is what applying
+it taught.
+
+**`double cream` is the second entry**, at Morrisons `5010251341352`. Every table climbs
+the cream ladder and stops a rung below the UK's not-less-than-48% standard — 35.6 g fat
+in Foundation and Survey, 36.1 g in SR Legacy, `>= 35% MG` in CIQUAL — so the nearest
+survivor understates by about a quarter the macro that dominates the food. The panel sits
+on a 58-record UK and Irish consensus, and recombining USDA's own `Cream, heavy` with
+`Butter oil, anhydrous` reproduces it.
+
+**Energy transferred, and that is a limit on this record's own Consequences.** The
+consequence above says a curated stand-in "reads about 20% hotter than USDA's would", and
+that is true of cacao nibs rather than of curation. The reconstruction lands on double
+cream's label energy exactly, because the ~100 kcal spread #109 §5 measured is a
+disagreement about **fibre** — label energy counts it at 4 kcal/g where USDA applies
+food-specific factors — and cream has none. The gap is a property of the food, not of the
+mechanism, and a future entry's energy has to be checked rather than assumed hot.
+
+**Seven rejections, in two kinds, and the kinds matter more than the count.**
+
+- **Four fail admission 1 because a table carries the food**: `tempeh` (SR Legacy and
+  CIQUAL), `oat drink` (Foundation and CIQUAL), `nutritional yeast` (CIQUAL's
+  `Yeast, flakes`), `kefir` (SR Legacy, Survey and CIQUAL). Two of those four return
+  nothing from search today anyway — `oat drink` because no description carries the word,
+  `kefir` because both SR Legacy records are brand-specific and dropped. Neither is a
+  coverage hole, and this record does not cover them. A name USDA has an equivalent for is
+  ADR-0049's problem, and a row the ADR-0042 filters take is that record's problem;
+  curating around either would make this list a place to park them. [ADR-0048](0048-an-absent-measurement-is-not-a-zero.md)
+  §7's widening reaches a food no table yields a loggable record for, and does not reach a
+  food whose record we chose not to ship.
+- **Three fail on the record**: `lucuma` and `tigernut flour` are absent everywhere and
+  have no panel worth pinning — lucuma's eight single-ingredient records span 14.8 to
+  87.5 g carbohydrate, and tigernut's cluster prints two different energies beside one set
+  of macros that sum to 126 g per 100 g. `green jackfruit` is absent as a food and sold as
+  a compound one, with declared salt spanning a factor of 76 across the field because
+  brine uptake belongs to the pack. All three land where §2 says they land: the barcode
+  path.
+
+**The ceiling is not reached.** Two of eight seats are taken. §6's trigger has not fired,
+and this sweep did not bring it closer. It did leave one piece of evidence for the
+decision §6 points at: three of the four admission-1 rejections were CIQUAL's doing, which
+is a small measured fact about what adopting it would buy, and it belongs to
+[ADR-0045](0045-usda-stays-the-base-food-composition-authority.md) §5 rather than here.
 
 ## Alternatives considered
 
