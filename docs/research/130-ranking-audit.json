@@ -24,7 +24,7 @@
   "adjudications": {
     "carried": 696,
     "stale": 116,
-    "dropped": 20
+    "dropped": 0
   },
   "harm": {
     "absent": 1009,
@@ -32,6 +32,50 @@
     "buried": 16,
     "visible": 53
   },
+  "carrier": [
+    {
+      "shape": "raw X",
+      "corpus_reach": 1458,
+      "probes": 58,
+      "answering": 0,
+      "rescued": 47
+    },
+    {
+      "shape": "chopped X",
+      "corpus_reach": 3,
+      "probes": 58,
+      "answering": 0,
+      "rescued": 0
+    },
+    {
+      "shape": "X salad",
+      "corpus_reach": 10,
+      "probes": 58,
+      "answering": 0,
+      "rescued": 0
+    },
+    {
+      "shape": "cooked X",
+      "corpus_reach": 1588,
+      "probes": 58,
+      "answering": 1,
+      "rescued": 18
+    },
+    {
+      "shape": "fresh X",
+      "corpus_reach": 306,
+      "probes": 58,
+      "answering": 0,
+      "rescued": 0
+    },
+    {
+      "shape": "dried X",
+      "corpus_reach": 105,
+      "probes": 58,
+      "answering": 0,
+      "rescued": 7
+    }
+  ],
   "counts": {
     "synonym_flagged": 409,
     "synonym_disagree": 77,
@@ -39,6 +83,10 @@
     "contested_heads": 270,
     "pairs_sampled": 200,
     "british": 20,
+    "carrier_keys": 58,
+    "carrier_probes": 348,
+    "carrier_probes_answering": 1,
+    "carrier_rescued": 72,
     "twin_names": 80,
     "twin_not_led": 5,
     "twin_absent": 0,
@@ -55169,6 +55217,3988 @@
           "after": 4
         }
       ],
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "anglerfish",
+      "expands_to": ["monkfish"],
+      "results": [
+        {
+          "description": "Fish, monkfish, raw"
+        },
+        {
+          "description": "Fish, monkfish, cooked, dry heat"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw anglerfish",
+          "probe_found": 0,
+          "expansion": "raw monkfish",
+          "expansion_found": 1,
+          "expansion_top": "Fish, monkfish, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped anglerfish",
+          "probe_found": 0,
+          "expansion": "chopped monkfish",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "anglerfish salad",
+          "probe_found": 0,
+          "expansion": "monkfish salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked anglerfish",
+          "probe_found": 0,
+          "expansion": "cooked monkfish",
+          "expansion_found": 1,
+          "expansion_top": "Fish, monkfish, cooked, dry heat"
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh anglerfish",
+          "probe_found": 0,
+          "expansion": "fresh monkfish",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried anglerfish",
+          "probe_found": 0,
+          "expansion": "dried monkfish",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 2,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "aniseed",
+      "expands_to": ["anise"],
+      "results": [
+        {
+          "description": "Spices, anise seed"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw aniseed",
+          "probe_found": 0,
+          "expansion": "raw anise",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped aniseed",
+          "probe_found": 0,
+          "expansion": "chopped anise",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "aniseed salad",
+          "probe_found": 0,
+          "expansion": "anise salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked aniseed",
+          "probe_found": 0,
+          "expansion": "cooked anise",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh aniseed",
+          "probe_found": 0,
+          "expansion": "fresh anise",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried aniseed",
+          "probe_found": 0,
+          "expansion": "dried anise",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 0,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "aubergine",
+      "expands_to": ["eggplant"],
+      "results": [
+        {
+          "description": "Eggplant, raw"
+        },
+        {
+          "description": "Eggplant, pickled"
+        },
+        {
+          "description": "Eggplant, cooked, boiled, drained, without salt"
+        },
+        {
+          "description": "Eggplant, cooked, boiled, drained, with salt"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw aubergine",
+          "probe_found": 0,
+          "expansion": "raw eggplant",
+          "expansion_found": 1,
+          "expansion_top": "Eggplant, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped aubergine",
+          "probe_found": 0,
+          "expansion": "chopped eggplant",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "aubergine salad",
+          "probe_found": 0,
+          "expansion": "eggplant salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked aubergine",
+          "probe_found": 0,
+          "expansion": "cooked eggplant",
+          "expansion_found": 2,
+          "expansion_top": "Eggplant, cooked, boiled, drained, without salt"
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh aubergine",
+          "probe_found": 0,
+          "expansion": "fresh eggplant",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried aubergine",
+          "probe_found": 0,
+          "expansion": "dried eggplant",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 2,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "bakeapple",
+      "expands_to": ["cloudberry", "cloudberries"],
+      "results": [
+        {
+          "description": "Cloudberries, raw (Alaska Native)"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw bakeapple",
+          "probe_found": 0,
+          "expansion": "raw cloudberry",
+          "expansion_found": 1,
+          "expansion_top": "Cloudberries, raw (Alaska Native)"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped bakeapple",
+          "probe_found": 0,
+          "expansion": "chopped cloudberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "bakeapple salad",
+          "probe_found": 0,
+          "expansion": "cloudberry salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked bakeapple",
+          "probe_found": 0,
+          "expansion": "cooked cloudberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh bakeapple",
+          "probe_found": 0,
+          "expansion": "fresh cloudberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried bakeapple",
+          "probe_found": 0,
+          "expansion": "dried cloudberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "beetroot",
+      "expands_to": ["beet"],
+      "results": [
+        {
+          "description": "Beets, raw"
+        },
+        {
+          "description": "Beets, cooked, boiled. drained, with salt"
+        },
+        {
+          "description": "Beets, cooked, boiled, drained"
+        },
+        {
+          "description": "Beet greens, raw"
+        },
+        {
+          "description": "Beet greens, cooked, boiled, drained, with salt"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw beetroot",
+          "probe_found": 0,
+          "expansion": "raw beet",
+          "expansion_found": 2,
+          "expansion_top": "Beets, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped beetroot",
+          "probe_found": 0,
+          "expansion": "chopped beet",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "beetroot salad",
+          "probe_found": 0,
+          "expansion": "beet salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked beetroot",
+          "probe_found": 0,
+          "expansion": "cooked beet",
+          "expansion_found": 4,
+          "expansion_top": "Beets, cooked, boiled. drained, with salt"
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh beetroot",
+          "probe_found": 0,
+          "expansion": "fresh beet",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried beetroot",
+          "probe_found": 0,
+          "expansion": "dried beet",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 2,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "bilberries",
+      "expands_to": ["huckleberry", "huckleberries"],
+      "results": [
+        {
+          "description": "Huckleberries, raw (Alaska Native)"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw bilberries",
+          "probe_found": 0,
+          "expansion": "raw huckleberry",
+          "expansion_found": 1,
+          "expansion_top": "Huckleberries, raw (Alaska Native)"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped bilberries",
+          "probe_found": 0,
+          "expansion": "chopped huckleberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "bilberries salad",
+          "probe_found": 0,
+          "expansion": "huckleberry salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked bilberries",
+          "probe_found": 0,
+          "expansion": "cooked huckleberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh bilberries",
+          "probe_found": 0,
+          "expansion": "fresh huckleberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried bilberries",
+          "probe_found": 0,
+          "expansion": "dried huckleberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "bilberry",
+      "expands_to": ["huckleberry", "huckleberries"],
+      "results": [
+        {
+          "description": "Huckleberries, raw (Alaska Native)"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw bilberry",
+          "probe_found": 0,
+          "expansion": "raw huckleberry",
+          "expansion_found": 1,
+          "expansion_top": "Huckleberries, raw (Alaska Native)"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped bilberry",
+          "probe_found": 0,
+          "expansion": "chopped huckleberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "bilberry salad",
+          "probe_found": 0,
+          "expansion": "huckleberry salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked bilberry",
+          "probe_found": 0,
+          "expansion": "cooked huckleberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh bilberry",
+          "probe_found": 0,
+          "expansion": "fresh huckleberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried bilberry",
+          "probe_found": 0,
+          "expansion": "dried huckleberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "cacao",
+      "expands_to": ["cocoa"],
+      "results": [
+        {
+          "description": "Cocoa, dry powder, unsweetened"
+        },
+        {
+          "description": "Cocoa, dry powder, unsweetened, processed with alkali"
+        },
+        {
+          "description": "Cocoa, dry powder, hi-fat or breakfast, processed with alkali"
+        },
+        {
+          "description": "Oil, cocoa butter"
+        },
+        {
+          "description": "Beverages, Cocoa mix, no sugar added, powder"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw cacao",
+          "probe_found": 0,
+          "expansion": "raw cocoa",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped cacao",
+          "probe_found": 0,
+          "expansion": "chopped cocoa",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "cacao salad",
+          "probe_found": 0,
+          "expansion": "cocoa salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked cacao",
+          "probe_found": 0,
+          "expansion": "cooked cocoa",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh cacao",
+          "probe_found": 0,
+          "expansion": "fresh cocoa",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried cacao",
+          "probe_found": 0,
+          "expansion": "dried cocoa",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 0,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "camomile",
+      "expands_to": ["chamomile"],
+      "results": [
+        {
+          "description": "Beverages, tea, herb, brewed, chamomile"
+        },
+        {
+          "description": "Beverages, tea, herb, other than chamomile, brewed"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw camomile",
+          "probe_found": 0,
+          "expansion": "raw chamomile",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped camomile",
+          "probe_found": 0,
+          "expansion": "chopped chamomile",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "camomile salad",
+          "probe_found": 0,
+          "expansion": "chamomile salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked camomile",
+          "probe_found": 0,
+          "expansion": "cooked chamomile",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh camomile",
+          "probe_found": 0,
+          "expansion": "fresh chamomile",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried camomile",
+          "probe_found": 0,
+          "expansion": "dried chamomile",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 0,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "cardamon",
+      "expands_to": ["cardamom"],
+      "results": [
+        {
+          "description": "Spices, cardamom"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw cardamon",
+          "probe_found": 0,
+          "expansion": "raw cardamom",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped cardamon",
+          "probe_found": 0,
+          "expansion": "chopped cardamom",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "cardamon salad",
+          "probe_found": 0,
+          "expansion": "cardamom salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked cardamon",
+          "probe_found": 0,
+          "expansion": "cooked cardamom",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh cardamon",
+          "probe_found": 0,
+          "expansion": "fresh cardamom",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried cardamon",
+          "probe_found": 0,
+          "expansion": "dried cardamom",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 0,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "carobin",
+      "expands_to": ["carob"],
+      "results": [
+        {
+          "description": "Carob flour"
+        },
+        {
+          "description": "Beverages, Carob-flavor beverage mix, powder"
+        },
+        {
+          "description": "Beverages, Carob-flavor beverage mix, powder, prepared with whole milk"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw carobin",
+          "probe_found": 0,
+          "expansion": "raw carob",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped carobin",
+          "probe_found": 0,
+          "expansion": "chopped carob",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "carobin salad",
+          "probe_found": 0,
+          "expansion": "carob salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked carobin",
+          "probe_found": 0,
+          "expansion": "cooked carob",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh carobin",
+          "probe_found": 0,
+          "expansion": "fresh carob",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried carobin",
+          "probe_found": 0,
+          "expansion": "dried carob",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 0,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "chayotte",
+      "expands_to": ["chayote"],
+      "results": [
+        {
+          "description": "Chayote, fruit, raw"
+        },
+        {
+          "description": "Chayote, fruit, cooked, boiled, drained, with salt"
+        },
+        {
+          "description": "Chayote, fruit, cooked, boiled, drained, without salt"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw chayotte",
+          "probe_found": 0,
+          "expansion": "raw chayote",
+          "expansion_found": 1,
+          "expansion_top": "Chayote, fruit, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped chayotte",
+          "probe_found": 0,
+          "expansion": "chopped chayote",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "chayotte salad",
+          "probe_found": 0,
+          "expansion": "chayote salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked chayotte",
+          "probe_found": 0,
+          "expansion": "cooked chayote",
+          "expansion_found": 2,
+          "expansion_top": "Chayote, fruit, cooked, boiled, drained, with salt"
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh chayotte",
+          "probe_found": 0,
+          "expansion": "fresh chayote",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried chayotte",
+          "probe_found": 0,
+          "expansion": "dried chayote",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 2,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "chesnut",
+      "expands_to": ["chestnut", "chestnuts"],
+      "results": [
+        {
+          "description": "Nuts, chestnuts, japanese, raw"
+        },
+        {
+          "description": "Nuts, chestnuts, chinese, raw"
+        },
+        {
+          "description": "Nuts, chestnuts, european, raw, unpeeled"
+        },
+        {
+          "description": "Nuts, chestnuts, european, raw, peeled"
+        },
+        {
+          "description": "Nuts, chestnuts, japanese, dried"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw chesnut",
+          "probe_found": 0,
+          "expansion": "raw chestnut",
+          "expansion_found": 4,
+          "expansion_top": "Nuts, chestnuts, japanese, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped chesnut",
+          "probe_found": 0,
+          "expansion": "chopped chestnut",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "chesnut salad",
+          "probe_found": 0,
+          "expansion": "chestnut salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked chesnut",
+          "probe_found": 0,
+          "expansion": "cooked chestnut",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh chesnut",
+          "probe_found": 0,
+          "expansion": "fresh chestnut",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried chesnut",
+          "probe_found": 0,
+          "expansion": "dried chestnut",
+          "expansion_found": 4,
+          "expansion_top": "Nuts, chestnuts, japanese, dried"
+        }
+      ],
+      "rescued": 2,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "chesnuts",
+      "expands_to": ["chestnut", "chestnuts"],
+      "results": [
+        {
+          "description": "Nuts, chestnuts, japanese, raw"
+        },
+        {
+          "description": "Nuts, chestnuts, chinese, raw"
+        },
+        {
+          "description": "Nuts, chestnuts, european, raw, unpeeled"
+        },
+        {
+          "description": "Nuts, chestnuts, european, raw, peeled"
+        },
+        {
+          "description": "Nuts, chestnuts, japanese, dried"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw chesnuts",
+          "probe_found": 0,
+          "expansion": "raw chestnut",
+          "expansion_found": 4,
+          "expansion_top": "Nuts, chestnuts, japanese, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped chesnuts",
+          "probe_found": 0,
+          "expansion": "chopped chestnut",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "chesnuts salad",
+          "probe_found": 0,
+          "expansion": "chestnut salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked chesnuts",
+          "probe_found": 0,
+          "expansion": "cooked chestnut",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh chesnuts",
+          "probe_found": 0,
+          "expansion": "fresh chestnut",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried chesnuts",
+          "probe_found": 0,
+          "expansion": "dried chestnut",
+          "expansion_found": 4,
+          "expansion_top": "Nuts, chestnuts, japanese, dried"
+        }
+      ],
+      "rescued": 2,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "codfish",
+      "expands_to": ["cod"],
+      "results": [
+        {
+          "description": "Fish, cod, Atlantic, raw"
+        },
+        {
+          "description": "Fish, cod, Atlantic, wild caught, raw"
+        },
+        {
+          "description": "Fish, cod, Pacific, raw (may have been previously frozen)"
+        },
+        {
+          "description": "Fish, cod, Atlantic, dried and salted"
+        },
+        {
+          "description": "Fish, cod, Atlantic, cooked, dry heat"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw codfish",
+          "probe_found": 0,
+          "expansion": "raw cod",
+          "expansion_found": 3,
+          "expansion_top": "Fish, cod, Atlantic, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped codfish",
+          "probe_found": 0,
+          "expansion": "chopped cod",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "codfish salad",
+          "probe_found": 0,
+          "expansion": "cod salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked codfish",
+          "probe_found": 0,
+          "expansion": "cooked cod",
+          "expansion_found": 3,
+          "expansion_top": "Fish, cod, Atlantic, cooked, dry heat"
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh codfish",
+          "probe_found": 0,
+          "expansion": "fresh cod",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried codfish",
+          "probe_found": 0,
+          "expansion": "dried cod",
+          "expansion_found": 1,
+          "expansion_top": "Fish, cod, Atlantic, dried and salted"
+        }
+      ],
+      "rescued": 3,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "colewort",
+      "expands_to": ["arugula"],
+      "results": [
+        {
+          "description": "Arugula, raw"
+        },
+        {
+          "description": "Arugula, baby, raw"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw colewort",
+          "probe_found": 0,
+          "expansion": "raw arugula",
+          "expansion_found": 2,
+          "expansion_top": "Arugula, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped colewort",
+          "probe_found": 0,
+          "expansion": "chopped arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "colewort salad",
+          "probe_found": 0,
+          "expansion": "arugula salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked colewort",
+          "probe_found": 0,
+          "expansion": "cooked arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh colewort",
+          "probe_found": 0,
+          "expansion": "fresh arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried colewort",
+          "probe_found": 0,
+          "expansion": "dried arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "courgette",
+      "expands_to": ["zucchini"],
+      "results": [
+        {
+          "description": "Squash, zucchini, baby, raw"
+        },
+        {
+          "description": "Squash, summer, zucchini, includes skin, raw"
+        },
+        {
+          "description": "Squash, summer, green, zucchini, includes skin, raw"
+        },
+        {
+          "description": "Squash, summer, zucchini, includes skin, cooked, boiled, drained, without salt"
+        },
+        {
+          "description": "Squash, summer, zucchini, includes skin, cooked, boiled, drained, with salt"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw courgette",
+          "probe_found": 0,
+          "expansion": "raw zucchini",
+          "expansion_found": 3,
+          "expansion_top": "Squash, zucchini, baby, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped courgette",
+          "probe_found": 0,
+          "expansion": "chopped zucchini",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "courgette salad",
+          "probe_found": 0,
+          "expansion": "zucchini salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked courgette",
+          "probe_found": 0,
+          "expansion": "cooked zucchini",
+          "expansion_found": 2,
+          "expansion_top": "Squash, summer, zucchini, includes skin, cooked, boiled, drained, without salt"
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh courgette",
+          "probe_found": 0,
+          "expansion": "fresh zucchini",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried courgette",
+          "probe_found": 0,
+          "expansion": "dried zucchini",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 2,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "elaichi",
+      "expands_to": ["cardamom"],
+      "results": [
+        {
+          "description": "Spices, cardamom"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw elaichi",
+          "probe_found": 0,
+          "expansion": "raw cardamom",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped elaichi",
+          "probe_found": 0,
+          "expansion": "chopped cardamom",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "elaichi salad",
+          "probe_found": 0,
+          "expansion": "cardamom salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked elaichi",
+          "probe_found": 0,
+          "expansion": "cooked cardamom",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh elaichi",
+          "probe_found": 0,
+          "expansion": "fresh cardamom",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried elaichi",
+          "probe_found": 0,
+          "expansion": "dried cardamom",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 0,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "eruca",
+      "expands_to": ["arugula"],
+      "results": [
+        {
+          "description": "Arugula, raw"
+        },
+        {
+          "description": "Arugula, baby, raw"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw eruca",
+          "probe_found": 0,
+          "expansion": "raw arugula",
+          "expansion_found": 2,
+          "expansion_top": "Arugula, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped eruca",
+          "probe_found": 0,
+          "expansion": "chopped arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "eruca salad",
+          "probe_found": 0,
+          "expansion": "arugula salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked eruca",
+          "probe_found": 0,
+          "expansion": "cooked arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh eruca",
+          "probe_found": 0,
+          "expansion": "fresh arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried eruca",
+          "probe_found": 0,
+          "expansion": "dried arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "graviola",
+      "expands_to": ["soursop"],
+      "results": [
+        {
+          "description": "Soursop, raw"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw graviola",
+          "probe_found": 0,
+          "expansion": "raw soursop",
+          "expansion_found": 1,
+          "expansion_top": "Soursop, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped graviola",
+          "probe_found": 0,
+          "expansion": "chopped soursop",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "graviola salad",
+          "probe_found": 0,
+          "expansion": "soursop salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked graviola",
+          "probe_found": 0,
+          "expansion": "cooked soursop",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh graviola",
+          "probe_found": 0,
+          "expansion": "fresh soursop",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried graviola",
+          "probe_found": 0,
+          "expansion": "dried soursop",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "houmous",
+      "expands_to": ["hummus"],
+      "results": [
+        {
+          "description": "Hummus, commercial"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw houmous",
+          "probe_found": 0,
+          "expansion": "raw hummus",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped houmous",
+          "probe_found": 0,
+          "expansion": "chopped hummus",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "houmous salad",
+          "probe_found": 0,
+          "expansion": "hummus salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked houmous",
+          "probe_found": 0,
+          "expansion": "cooked hummus",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh houmous",
+          "probe_found": 0,
+          "expansion": "fresh hummus",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried houmous",
+          "probe_found": 0,
+          "expansion": "dried hummus",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 0,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "kaki",
+      "expands_to": ["persimmon"],
+      "results": [
+        {
+          "description": "Persimmons, japanese, raw"
+        },
+        {
+          "description": "Persimmons, native, raw"
+        },
+        {
+          "description": "Persimmons, japanese, dried"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw kaki",
+          "probe_found": 0,
+          "expansion": "raw persimmon",
+          "expansion_found": 2,
+          "expansion_top": "Persimmons, japanese, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped kaki",
+          "probe_found": 0,
+          "expansion": "chopped persimmon",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "kaki salad",
+          "probe_found": 0,
+          "expansion": "persimmon salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked kaki",
+          "probe_found": 0,
+          "expansion": "cooked persimmon",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh kaki",
+          "probe_found": 0,
+          "expansion": "fresh persimmon",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried kaki",
+          "probe_found": 0,
+          "expansion": "dried persimmon",
+          "expansion_found": 1,
+          "expansion_top": "Persimmons, japanese, dried"
+        }
+      ],
+      "rescued": 2,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "khaki",
+      "expands_to": ["persimmon"],
+      "results": [
+        {
+          "description": "Persimmons, japanese, raw"
+        },
+        {
+          "description": "Persimmons, native, raw"
+        },
+        {
+          "description": "Persimmons, japanese, dried"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw khaki",
+          "probe_found": 0,
+          "expansion": "raw persimmon",
+          "expansion_found": 2,
+          "expansion_top": "Persimmons, japanese, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped khaki",
+          "probe_found": 0,
+          "expansion": "chopped persimmon",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "khaki salad",
+          "probe_found": 0,
+          "expansion": "persimmon salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked khaki",
+          "probe_found": 0,
+          "expansion": "cooked persimmon",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh khaki",
+          "probe_found": 0,
+          "expansion": "fresh persimmon",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried khaki",
+          "probe_found": 0,
+          "expansion": "dried persimmon",
+          "expansion_found": 1,
+          "expansion_top": "Persimmons, japanese, dried"
+        }
+      ],
+      "rescued": 2,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "knotberries",
+      "expands_to": ["cloudberry", "cloudberries"],
+      "results": [
+        {
+          "description": "Cloudberries, raw (Alaska Native)"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw knotberries",
+          "probe_found": 0,
+          "expansion": "raw cloudberry",
+          "expansion_found": 1,
+          "expansion_top": "Cloudberries, raw (Alaska Native)"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped knotberries",
+          "probe_found": 0,
+          "expansion": "chopped cloudberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "knotberries salad",
+          "probe_found": 0,
+          "expansion": "cloudberry salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked knotberries",
+          "probe_found": 0,
+          "expansion": "cooked cloudberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh knotberries",
+          "probe_found": 0,
+          "expansion": "fresh cloudberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried knotberries",
+          "probe_found": 0,
+          "expansion": "dried cloudberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "knotberry",
+      "expands_to": ["cloudberry", "cloudberries"],
+      "results": [
+        {
+          "description": "Cloudberries, raw (Alaska Native)"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw knotberry",
+          "probe_found": 0,
+          "expansion": "raw cloudberry",
+          "expansion_found": 1,
+          "expansion_top": "Cloudberries, raw (Alaska Native)"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped knotberry",
+          "probe_found": 0,
+          "expansion": "chopped cloudberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "knotberry salad",
+          "probe_found": 0,
+          "expansion": "cloudberry salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked knotberry",
+          "probe_found": 0,
+          "expansion": "cooked cloudberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh knotberry",
+          "probe_found": 0,
+          "expansion": "fresh cloudberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried knotberry",
+          "probe_found": 0,
+          "expansion": "dried cloudberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "knoutberry",
+      "expands_to": ["cloudberry", "cloudberries"],
+      "results": [
+        {
+          "description": "Cloudberries, raw (Alaska Native)"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw knoutberry",
+          "probe_found": 0,
+          "expansion": "raw cloudberry",
+          "expansion_found": 1,
+          "expansion_top": "Cloudberries, raw (Alaska Native)"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped knoutberry",
+          "probe_found": 0,
+          "expansion": "chopped cloudberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "knoutberry salad",
+          "probe_found": 0,
+          "expansion": "cloudberry salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked knoutberry",
+          "probe_found": 0,
+          "expansion": "cooked cloudberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh knoutberry",
+          "probe_found": 0,
+          "expansion": "fresh cloudberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried knoutberry",
+          "probe_found": 0,
+          "expansion": "dried cloudberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "luffa",
+      "expands_to": ["dishcloth", "towelgourd"],
+      "results": [
+        {
+          "description": "Gourd, dishcloth (towelgourd), raw"
+        },
+        {
+          "description": "Gourd, dishcloth (towelgourd), cooked, boiled, drained, without salt"
+        },
+        {
+          "description": "Gourd, dishcloth (towelgourd), cooked, boiled, drained, with salt"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw luffa",
+          "probe_found": 0,
+          "expansion": "raw dishcloth",
+          "expansion_found": 1,
+          "expansion_top": "Gourd, dishcloth (towelgourd), raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped luffa",
+          "probe_found": 0,
+          "expansion": "chopped dishcloth",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "luffa salad",
+          "probe_found": 0,
+          "expansion": "dishcloth salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked luffa",
+          "probe_found": 0,
+          "expansion": "cooked dishcloth",
+          "expansion_found": 2,
+          "expansion_top": "Gourd, dishcloth (towelgourd), cooked, boiled, drained, without salt"
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh luffa",
+          "probe_found": 0,
+          "expansion": "fresh dishcloth",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried luffa",
+          "probe_found": 0,
+          "expansion": "dried dishcloth",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 2,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "lupine",
+      "expands_to": ["lupin"],
+      "results": [
+        {
+          "description": "Lupins, mature seeds, raw"
+        },
+        {
+          "description": "Lupins, mature seeds, cooked, boiled, without salt"
+        },
+        {
+          "description": "Lupins, mature seeds, cooked, boiled, with salt"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw lupine",
+          "probe_found": 0,
+          "expansion": "raw lupin",
+          "expansion_found": 1,
+          "expansion_top": "Lupins, mature seeds, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped lupine",
+          "probe_found": 0,
+          "expansion": "chopped lupin",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "lupine salad",
+          "probe_found": 0,
+          "expansion": "lupin salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked lupine",
+          "probe_found": 0,
+          "expansion": "cooked lupin",
+          "expansion_found": 2,
+          "expansion_top": "Lupins, mature seeds, cooked, boiled, without salt"
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh lupine",
+          "probe_found": 0,
+          "expansion": "fresh lupin",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried lupine",
+          "probe_found": 0,
+          "expansion": "dried lupin",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 2,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "lupines",
+      "expands_to": ["lupin"],
+      "results": [
+        {
+          "description": "Lupins, mature seeds, raw"
+        },
+        {
+          "description": "Lupins, mature seeds, cooked, boiled, without salt"
+        },
+        {
+          "description": "Lupins, mature seeds, cooked, boiled, with salt"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw lupines",
+          "probe_found": 0,
+          "expansion": "raw lupin",
+          "expansion_found": 1,
+          "expansion_top": "Lupins, mature seeds, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped lupines",
+          "probe_found": 0,
+          "expansion": "chopped lupin",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "lupines salad",
+          "probe_found": 0,
+          "expansion": "lupin salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked lupines",
+          "probe_found": 0,
+          "expansion": "cooked lupin",
+          "expansion_found": 2,
+          "expansion_top": "Lupins, mature seeds, cooked, boiled, without salt"
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh lupines",
+          "probe_found": 0,
+          "expansion": "fresh lupin",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried lupines",
+          "probe_found": 0,
+          "expansion": "dried lupin",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 2,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "lupini",
+      "expands_to": ["lupin"],
+      "results": [
+        {
+          "description": "Lupins, mature seeds, raw"
+        },
+        {
+          "description": "Lupins, mature seeds, cooked, boiled, without salt"
+        },
+        {
+          "description": "Lupins, mature seeds, cooked, boiled, with salt"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw lupini",
+          "probe_found": 0,
+          "expansion": "raw lupin",
+          "expansion_found": 1,
+          "expansion_top": "Lupins, mature seeds, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped lupini",
+          "probe_found": 0,
+          "expansion": "chopped lupin",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "lupini salad",
+          "probe_found": 0,
+          "expansion": "lupin salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked lupini",
+          "probe_found": 0,
+          "expansion": "cooked lupin",
+          "expansion_found": 2,
+          "expansion_top": "Lupins, mature seeds, cooked, boiled, without salt"
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh lupini",
+          "probe_found": 0,
+          "expansion": "fresh lupin",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried lupini",
+          "probe_found": 0,
+          "expansion": "dried lupin",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 2,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "lychee",
+      "expands_to": ["litchi", "litchis"],
+      "results": [
+        {
+          "description": "Litchis, raw"
+        },
+        {
+          "description": "Litchis, dried"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw lychee",
+          "probe_found": 0,
+          "expansion": "raw litchi",
+          "expansion_found": 1,
+          "expansion_top": "Litchis, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped lychee",
+          "probe_found": 0,
+          "expansion": "chopped litchi",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "lychee salad",
+          "probe_found": 0,
+          "expansion": "litchi salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked lychee",
+          "probe_found": 0,
+          "expansion": "cooked litchi",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh lychee",
+          "probe_found": 0,
+          "expansion": "fresh litchi",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried lychee",
+          "probe_found": 0,
+          "expansion": "dried litchi",
+          "expansion_found": 1,
+          "expansion_top": "Litchis, dried"
+        }
+      ],
+      "rescued": 2,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "malanga",
+      "expands_to": ["yautia", "tannier"],
+      "results": [
+        {
+          "description": "Yautia (tannier), raw"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw malanga",
+          "probe_found": 0,
+          "expansion": "raw yautia",
+          "expansion_found": 1,
+          "expansion_top": "Yautia (tannier), raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped malanga",
+          "probe_found": 0,
+          "expansion": "chopped yautia",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "malanga salad",
+          "probe_found": 0,
+          "expansion": "yautia salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked malanga",
+          "probe_found": 0,
+          "expansion": "cooked yautia",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh malanga",
+          "probe_found": 0,
+          "expansion": "fresh yautia",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried malanga",
+          "probe_found": 0,
+          "expansion": "dried yautia",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "manioc",
+      "expands_to": ["cassava"],
+      "results": [
+        {
+          "description": "Cassava, raw"
+        },
+        {
+          "description": "Flour, cassava"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw manioc",
+          "probe_found": 0,
+          "expansion": "raw cassava",
+          "expansion_found": 1,
+          "expansion_top": "Cassava, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped manioc",
+          "probe_found": 0,
+          "expansion": "chopped cassava",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "manioc salad",
+          "probe_found": 0,
+          "expansion": "cassava salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked manioc",
+          "probe_found": 0,
+          "expansion": "cooked cassava",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh manioc",
+          "probe_found": 0,
+          "expansion": "fresh cassava",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried manioc",
+          "probe_found": 0,
+          "expansion": "dried cassava",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "matki",
+      "expands_to": ["mothbean"],
+      "results": [
+        {
+          "description": "Mothbeans, mature seeds, raw"
+        },
+        {
+          "description": "Mothbeans, mature seeds, cooked, boiled, without salt"
+        },
+        {
+          "description": "Mothbeans, mature seeds, cooked, boiled, with salt"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw matki",
+          "probe_found": 0,
+          "expansion": "raw mothbean",
+          "expansion_found": 1,
+          "expansion_top": "Mothbeans, mature seeds, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped matki",
+          "probe_found": 0,
+          "expansion": "chopped mothbean",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "matki salad",
+          "probe_found": 0,
+          "expansion": "mothbean salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked matki",
+          "probe_found": 0,
+          "expansion": "cooked mothbean",
+          "expansion_found": 2,
+          "expansion_top": "Mothbeans, mature seeds, cooked, boiled, without salt"
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh matki",
+          "probe_found": 0,
+          "expansion": "fresh mothbean",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried matki",
+          "probe_found": 0,
+          "expansion": "dried mothbean",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 2,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "medlar",
+      "expands_to": ["loquat"],
+      "results": [
+        {
+          "description": "Loquats, raw"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw medlar",
+          "probe_found": 0,
+          "expansion": "raw loquat",
+          "expansion_found": 1,
+          "expansion_top": "Loquats, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped medlar",
+          "probe_found": 0,
+          "expansion": "chopped loquat",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "medlar salad",
+          "probe_found": 0,
+          "expansion": "loquat salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked medlar",
+          "probe_found": 0,
+          "expansion": "cooked loquat",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh medlar",
+          "probe_found": 0,
+          "expansion": "fresh loquat",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried medlar",
+          "probe_found": 0,
+          "expansion": "dried loquat",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "mollusc",
+      "expands_to": ["mollusks", "mollusk"],
+      "results": [
+        {
+          "description": "Mollusks, snail, raw"
+        },
+        {
+          "description": "Mollusks, oyster, eastern, wild, raw"
+        },
+        {
+          "description": "Mollusks, whelk, unspecified, raw"
+        },
+        {
+          "description": "Mollusks, abalone, mixed species, raw"
+        },
+        {
+          "description": "Mollusks, clam, mixed species, raw"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw mollusc",
+          "probe_found": 0,
+          "expansion": "raw mollusks",
+          "expansion_found": 12,
+          "expansion_top": "Mollusks, snail, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped mollusc",
+          "probe_found": 0,
+          "expansion": "chopped mollusks",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "mollusc salad",
+          "probe_found": 0,
+          "expansion": "mollusks salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked mollusc",
+          "probe_found": 0,
+          "expansion": "cooked mollusks",
+          "expansion_found": 12,
+          "expansion_top": "Mollusks, whelk, unspecified, cooked, moist heat"
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh mollusc",
+          "probe_found": 0,
+          "expansion": "fresh mollusks",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried mollusc",
+          "probe_found": 0,
+          "expansion": "dried mollusks",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 2,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "molluscs",
+      "expands_to": ["mollusks", "mollusk"],
+      "results": [
+        {
+          "description": "Mollusks, snail, raw"
+        },
+        {
+          "description": "Mollusks, oyster, eastern, wild, raw"
+        },
+        {
+          "description": "Mollusks, whelk, unspecified, raw"
+        },
+        {
+          "description": "Mollusks, abalone, mixed species, raw"
+        },
+        {
+          "description": "Mollusks, clam, mixed species, raw"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw molluscs",
+          "probe_found": 0,
+          "expansion": "raw mollusks",
+          "expansion_found": 12,
+          "expansion_top": "Mollusks, snail, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped molluscs",
+          "probe_found": 0,
+          "expansion": "chopped mollusks",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "molluscs salad",
+          "probe_found": 0,
+          "expansion": "mollusks salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked molluscs",
+          "probe_found": 0,
+          "expansion": "cooked mollusks",
+          "expansion_found": 12,
+          "expansion_top": "Mollusks, whelk, unspecified, cooked, moist heat"
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh molluscs",
+          "probe_found": 0,
+          "expansion": "fresh mollusks",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried molluscs",
+          "probe_found": 0,
+          "expansion": "dried mollusks",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 2,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "omelette",
+      "expands_to": ["omelet"],
+      "results": [
+        {
+          "description": "Egg, whole, cooked, omelet"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw omelette",
+          "probe_found": 0,
+          "expansion": "raw omelet",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped omelette",
+          "probe_found": 0,
+          "expansion": "chopped omelet",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "omelette salad",
+          "probe_found": 0,
+          "expansion": "omelet salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked omelette",
+          "probe_found": 0,
+          "expansion": "cooked omelet",
+          "expansion_found": 1,
+          "expansion_top": "Egg, whole, cooked, omelet"
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh omelette",
+          "probe_found": 0,
+          "expansion": "fresh omelet",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried omelette",
+          "probe_found": 0,
+          "expansion": "dried omelet",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "papaw",
+      "expands_to": ["papaya"],
+      "results": [
+        {
+          "description": "Papayas, raw"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw papaw",
+          "probe_found": 0,
+          "expansion": "raw papaya",
+          "expansion_found": 1,
+          "expansion_top": "Papayas, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped papaw",
+          "probe_found": 0,
+          "expansion": "chopped papaya",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "papaw salad",
+          "probe_found": 0,
+          "expansion": "papaya salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked papaw",
+          "probe_found": 0,
+          "expansion": "cooked papaya",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh papaw",
+          "probe_found": 0,
+          "expansion": "fresh papaya",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried papaw",
+          "probe_found": 0,
+          "expansion": "dried papaya",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "pawpaw",
+      "expands_to": ["papaya"],
+      "results": [
+        {
+          "description": "Papayas, raw"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw pawpaw",
+          "probe_found": 0,
+          "expansion": "raw papaya",
+          "expansion_found": 1,
+          "expansion_top": "Papayas, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped pawpaw",
+          "probe_found": 0,
+          "expansion": "chopped papaya",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "pawpaw salad",
+          "probe_found": 0,
+          "expansion": "papaya salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked pawpaw",
+          "probe_found": 0,
+          "expansion": "cooked papaya",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh pawpaw",
+          "probe_found": 0,
+          "expansion": "fresh papaya",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried pawpaw",
+          "probe_found": 0,
+          "expansion": "dried papaya",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "pepeiao",
+      "expands_to": ["pepeao"],
+      "results": [
+        {
+          "description": "Pepeao, dried"
+        },
+        {
+          "description": "Jew's ear, (pepeao), raw"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw pepeiao",
+          "probe_found": 0,
+          "expansion": "raw pepeao",
+          "expansion_found": 1,
+          "expansion_top": "Jew's ear, (pepeao), raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped pepeiao",
+          "probe_found": 0,
+          "expansion": "chopped pepeao",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "pepeiao salad",
+          "probe_found": 0,
+          "expansion": "pepeao salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked pepeiao",
+          "probe_found": 0,
+          "expansion": "cooked pepeao",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh pepeiao",
+          "probe_found": 0,
+          "expansion": "fresh pepeao",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried pepeiao",
+          "probe_found": 0,
+          "expansion": "dried pepeao",
+          "expansion_found": 1,
+          "expansion_top": "Pepeao, dried"
+        }
+      ],
+      "rescued": 2,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "pomelo",
+      "expands_to": ["pummelo"],
+      "results": [
+        {
+          "description": "Pummelo, raw"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw pomelo",
+          "probe_found": 0,
+          "expansion": "raw pummelo",
+          "expansion_found": 1,
+          "expansion_top": "Pummelo, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped pomelo",
+          "probe_found": 0,
+          "expansion": "chopped pummelo",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "pomelo salad",
+          "probe_found": 0,
+          "expansion": "pummelo salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked pomelo",
+          "probe_found": 0,
+          "expansion": "cooked pummelo",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh pomelo",
+          "probe_found": 0,
+          "expansion": "fresh pummelo",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried pomelo",
+          "probe_found": 0,
+          "expansion": "dried pummelo",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "porgy",
+      "expands_to": ["scup"],
+      "results": [
+        {
+          "description": "Fish, scup, raw"
+        },
+        {
+          "description": "Fish, scup, cooked, dry heat"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw porgy",
+          "probe_found": 0,
+          "expansion": "raw scup",
+          "expansion_found": 1,
+          "expansion_top": "Fish, scup, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped porgy",
+          "probe_found": 0,
+          "expansion": "chopped scup",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "porgy salad",
+          "probe_found": 0,
+          "expansion": "scup salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked porgy",
+          "probe_found": 0,
+          "expansion": "cooked scup",
+          "expansion_found": 1,
+          "expansion_top": "Fish, scup, cooked, dry heat"
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh porgy",
+          "probe_found": 0,
+          "expansion": "fresh scup",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried porgy",
+          "probe_found": 0,
+          "expansion": "dried scup",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 2,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "prawn",
+      "expands_to": ["shrimp"],
+      "results": [
+        {
+          "description": "Crustaceans, shrimp, raw"
+        },
+        {
+          "description": "Crustaceans, shrimp, farm raised, raw"
+        },
+        {
+          "description": "Crustaceans, shrimp, mixed species, raw (may contain additives to retain moisture)"
+        },
+        {
+          "description": "Crustaceans, shrimp, mixed species, cooked, moist heat (may contain additives to retain moisture)"
+        },
+        {
+          "description": "Crustaceans, shrimp, mixed species, imitation, made from surimi"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw prawn",
+          "probe_found": 0,
+          "expansion": "raw shrimp",
+          "expansion_found": 3,
+          "expansion_top": "Crustaceans, shrimp, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped prawn",
+          "probe_found": 0,
+          "expansion": "chopped shrimp",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "prawn salad",
+          "probe_found": 0,
+          "expansion": "shrimp salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked prawn",
+          "probe_found": 0,
+          "expansion": "cooked shrimp",
+          "expansion_found": 2,
+          "expansion_top": "Crustaceans, shrimp, cooked"
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh prawn",
+          "probe_found": 0,
+          "expansion": "fresh shrimp",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried prawn",
+          "probe_found": 0,
+          "expansion": "dried shrimp",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 2,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "rocket",
+      "expands_to": ["arugula"],
+      "results": [
+        {
+          "description": "Arugula, raw"
+        },
+        {
+          "description": "Arugula, baby, raw"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw rocket",
+          "probe_found": 0,
+          "expansion": "raw arugula",
+          "expansion_found": 2,
+          "expansion_top": "Arugula, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped rocket",
+          "probe_found": 0,
+          "expansion": "chopped arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "rocket salad",
+          "probe_found": 0,
+          "expansion": "arugula salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked rocket",
+          "probe_found": 0,
+          "expansion": "cooked arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh rocket",
+          "probe_found": 0,
+          "expansion": "fresh arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried rocket",
+          "probe_found": 0,
+          "expansion": "dried arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "roquette",
+      "expands_to": ["arugula"],
+      "results": [
+        {
+          "description": "Arugula, raw"
+        },
+        {
+          "description": "Arugula, baby, raw"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw roquette",
+          "probe_found": 0,
+          "expansion": "raw arugula",
+          "expansion_found": 2,
+          "expansion_top": "Arugula, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped roquette",
+          "probe_found": 0,
+          "expansion": "chopped arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "roquette salad",
+          "probe_found": 0,
+          "expansion": "arugula salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked roquette",
+          "probe_found": 0,
+          "expansion": "cooked arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh roquette",
+          "probe_found": 0,
+          "expansion": "fresh arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried roquette",
+          "probe_found": 0,
+          "expansion": "dried arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "rucola",
+      "expands_to": ["arugula"],
+      "results": [
+        {
+          "description": "Arugula, raw"
+        },
+        {
+          "description": "Arugula, baby, raw"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw rucola",
+          "probe_found": 0,
+          "expansion": "raw arugula",
+          "expansion_found": 2,
+          "expansion_top": "Arugula, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped rucola",
+          "probe_found": 0,
+          "expansion": "chopped arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "rucola salad",
+          "probe_found": 0,
+          "expansion": "arugula salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked rucola",
+          "probe_found": 0,
+          "expansion": "cooked arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh rucola",
+          "probe_found": 0,
+          "expansion": "fresh arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried rucola",
+          "probe_found": 0,
+          "expansion": "dried arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "rucoli",
+      "expands_to": ["arugula"],
+      "results": [
+        {
+          "description": "Arugula, raw"
+        },
+        {
+          "description": "Arugula, baby, raw"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw rucoli",
+          "probe_found": 0,
+          "expansion": "raw arugula",
+          "expansion_found": 2,
+          "expansion_top": "Arugula, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped rucoli",
+          "probe_found": 0,
+          "expansion": "chopped arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "rucoli salad",
+          "probe_found": 0,
+          "expansion": "arugula salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked rucoli",
+          "probe_found": 0,
+          "expansion": "cooked arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh rucoli",
+          "probe_found": 0,
+          "expansion": "fresh arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried rucoli",
+          "probe_found": 0,
+          "expansion": "dried arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "rugula",
+      "expands_to": ["arugula"],
+      "results": [
+        {
+          "description": "Arugula, raw"
+        },
+        {
+          "description": "Arugula, baby, raw"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw rugula",
+          "probe_found": 0,
+          "expansion": "raw arugula",
+          "expansion_found": 2,
+          "expansion_top": "Arugula, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped rugula",
+          "probe_found": 0,
+          "expansion": "chopped arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "rugula salad",
+          "probe_found": 0,
+          "expansion": "arugula salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked rugula",
+          "probe_found": 0,
+          "expansion": "cooked arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh rugula",
+          "probe_found": 0,
+          "expansion": "fresh arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried rugula",
+          "probe_found": 0,
+          "expansion": "dried arugula",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "saithe",
+      "expands_to": ["pollock"],
+      "results": [
+        {
+          "description": "Fish, pollock, Alaska, raw"
+        },
+        {
+          "description": "Fish, pollock, Atlantic, raw"
+        },
+        {
+          "description": "Fish, pollock, raw"
+        },
+        {
+          "description": "Fish, pollock, Alaska, cooked, dry heat (may contain additives to retain moisture)"
+        },
+        {
+          "description": "Fish, pollock, Alaska, cooked"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw saithe",
+          "probe_found": 0,
+          "expansion": "raw pollock",
+          "expansion_found": 3,
+          "expansion_top": "Fish, pollock, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped saithe",
+          "probe_found": 0,
+          "expansion": "chopped pollock",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "saithe salad",
+          "probe_found": 0,
+          "expansion": "pollock salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked saithe",
+          "probe_found": 0,
+          "expansion": "cooked pollock",
+          "expansion_found": 3,
+          "expansion_top": "Fish, pollock, Alaska, cooked, dry heat (may contain additives to retain moisture)"
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh saithe",
+          "probe_found": 0,
+          "expansion": "fresh pollock",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried saithe",
+          "probe_found": 0,
+          "expansion": "dried pollock",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 2,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "scuppaug",
+      "expands_to": ["scup"],
+      "results": [
+        {
+          "description": "Fish, scup, raw"
+        },
+        {
+          "description": "Fish, scup, cooked, dry heat"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw scuppaug",
+          "probe_found": 0,
+          "expansion": "raw scup",
+          "expansion_found": 1,
+          "expansion_top": "Fish, scup, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped scuppaug",
+          "probe_found": 0,
+          "expansion": "chopped scup",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "scuppaug salad",
+          "probe_found": 0,
+          "expansion": "scup salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked scuppaug",
+          "probe_found": 0,
+          "expansion": "cooked scup",
+          "expansion_found": 1,
+          "expansion_top": "Fish, scup, cooked, dry heat"
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh scuppaug",
+          "probe_found": 0,
+          "expansion": "fresh scup",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried scuppaug",
+          "probe_found": 0,
+          "expansion": "dried scup",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 2,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "swede",
+      "expands_to": ["rutabaga"],
+      "results": [
+        {
+          "description": "Rutabagas, raw"
+        },
+        {
+          "description": "Rutabagas, cooked, boiled, drained, without salt"
+        },
+        {
+          "description": "Rutabagas, cooked, boiled, drained, with salt"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw swede",
+          "probe_found": 0,
+          "expansion": "raw rutabaga",
+          "expansion_found": 1,
+          "expansion_top": "Rutabagas, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped swede",
+          "probe_found": 0,
+          "expansion": "chopped rutabaga",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "swede salad",
+          "probe_found": 0,
+          "expansion": "rutabaga salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked swede",
+          "probe_found": 2,
+          "expansion": "cooked rutabaga",
+          "expansion_found": 2,
+          "expansion_top": "Rutabagas, cooked, boiled, drained, without salt"
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh swede",
+          "probe_found": 0,
+          "expansion": "fresh rutabaga",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried swede",
+          "probe_found": 0,
+          "expansion": "dried rutabaga",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "whortleberries",
+      "expands_to": ["huckleberry", "huckleberries"],
+      "results": [
+        {
+          "description": "Huckleberries, raw (Alaska Native)"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw whortleberries",
+          "probe_found": 0,
+          "expansion": "raw huckleberry",
+          "expansion_found": 1,
+          "expansion_top": "Huckleberries, raw (Alaska Native)"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped whortleberries",
+          "probe_found": 0,
+          "expansion": "chopped huckleberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "whortleberries salad",
+          "probe_found": 0,
+          "expansion": "huckleberry salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked whortleberries",
+          "probe_found": 0,
+          "expansion": "cooked huckleberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh whortleberries",
+          "probe_found": 0,
+          "expansion": "fresh huckleberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried whortleberries",
+          "probe_found": 0,
+          "expansion": "dried huckleberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "whortleberry",
+      "expands_to": ["huckleberry", "huckleberries"],
+      "results": [
+        {
+          "description": "Huckleberries, raw (Alaska Native)"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw whortleberry",
+          "probe_found": 0,
+          "expansion": "raw huckleberry",
+          "expansion_found": 1,
+          "expansion_top": "Huckleberries, raw (Alaska Native)"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped whortleberry",
+          "probe_found": 0,
+          "expansion": "chopped huckleberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "whortleberry salad",
+          "probe_found": 0,
+          "expansion": "huckleberry salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked whortleberry",
+          "probe_found": 0,
+          "expansion": "cooked huckleberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh whortleberry",
+          "probe_found": 0,
+          "expansion": "fresh huckleberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried whortleberry",
+          "probe_found": 0,
+          "expansion": "dried huckleberry",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "yoghourt",
+      "expands_to": ["yogurt"],
+      "results": [
+        {
+          "description": "Yogurt, plain, skim milk"
+        },
+        {
+          "description": "Yogurt, Greek, fruit, whole milk"
+        },
+        {
+          "description": "Yogurt, vanilla, non-fat"
+        },
+        {
+          "description": "Yogurt, plain, whole milk"
+        },
+        {
+          "description": "Yogurt, Greek, plain, whole milk"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw yoghourt",
+          "probe_found": 0,
+          "expansion": "raw yogurt",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped yoghourt",
+          "probe_found": 0,
+          "expansion": "chopped yogurt",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "yoghourt salad",
+          "probe_found": 0,
+          "expansion": "yogurt salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked yoghourt",
+          "probe_found": 0,
+          "expansion": "cooked yogurt",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh yoghourt",
+          "probe_found": 0,
+          "expansion": "fresh yogurt",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried yoghourt",
+          "probe_found": 0,
+          "expansion": "dried yogurt",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 0,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "yoghurt",
+      "expands_to": ["yogurt"],
+      "results": [
+        {
+          "description": "Yogurt, plain, skim milk"
+        },
+        {
+          "description": "Yogurt, Greek, fruit, whole milk"
+        },
+        {
+          "description": "Yogurt, vanilla, non-fat"
+        },
+        {
+          "description": "Yogurt, plain, whole milk"
+        },
+        {
+          "description": "Yogurt, Greek, plain, whole milk"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw yoghurt",
+          "probe_found": 0,
+          "expansion": "raw yogurt",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped yoghurt",
+          "probe_found": 0,
+          "expansion": "chopped yogurt",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "yoghurt salad",
+          "probe_found": 0,
+          "expansion": "yogurt salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked yoghurt",
+          "probe_found": 0,
+          "expansion": "cooked yogurt",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh yoghurt",
+          "probe_found": 0,
+          "expansion": "fresh yogurt",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried yoghurt",
+          "probe_found": 0,
+          "expansion": "dried yogurt",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 0,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "yogourt",
+      "expands_to": ["yogurt"],
+      "results": [
+        {
+          "description": "Yogurt, plain, skim milk"
+        },
+        {
+          "description": "Yogurt, Greek, fruit, whole milk"
+        },
+        {
+          "description": "Yogurt, vanilla, non-fat"
+        },
+        {
+          "description": "Yogurt, plain, whole milk"
+        },
+        {
+          "description": "Yogurt, Greek, plain, whole milk"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw yogourt",
+          "probe_found": 0,
+          "expansion": "raw yogurt",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped yogourt",
+          "probe_found": 0,
+          "expansion": "chopped yogurt",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "yogourt salad",
+          "probe_found": 0,
+          "expansion": "yogurt salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked yogourt",
+          "probe_found": 0,
+          "expansion": "cooked yogurt",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh yogourt",
+          "probe_found": 0,
+          "expansion": "fresh yogurt",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried yogourt",
+          "probe_found": 0,
+          "expansion": "dried yogurt",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 0,
+      "verdict": null,
+      "cause": null,
+      "note": null
+    },
+    {
+      "pass": "carrier",
+      "query": "yuca",
+      "expands_to": ["cassava"],
+      "results": [
+        {
+          "description": "Cassava, raw"
+        },
+        {
+          "description": "Flour, cassava"
+        }
+      ],
+      "carriers": [
+        {
+          "shape": "raw X",
+          "probe": "raw yuca",
+          "probe_found": 0,
+          "expansion": "raw cassava",
+          "expansion_found": 1,
+          "expansion_top": "Cassava, raw"
+        },
+        {
+          "shape": "chopped X",
+          "probe": "chopped yuca",
+          "probe_found": 0,
+          "expansion": "chopped cassava",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "X salad",
+          "probe": "yuca salad",
+          "probe_found": 0,
+          "expansion": "cassava salad",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "cooked X",
+          "probe": "cooked yuca",
+          "probe_found": 0,
+          "expansion": "cooked cassava",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "fresh X",
+          "probe": "fresh yuca",
+          "probe_found": 0,
+          "expansion": "fresh cassava",
+          "expansion_found": 0,
+          "expansion_top": null
+        },
+        {
+          "shape": "dried X",
+          "probe": "dried yuca",
+          "probe_found": 0,
+          "expansion": "dried cassava",
+          "expansion_found": 0,
+          "expansion_top": null
+        }
+      ],
+      "rescued": 1,
       "verdict": null,
       "cause": null,
       "note": null

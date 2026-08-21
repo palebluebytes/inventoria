@@ -33,9 +33,17 @@
  * carries its own oracle — when `wombok` retrieves nothing, a sibling member has
  * already named the record it should have reached.
  *
+ * The `carrier` pass is #142's, and is the one that asks about RETRIEVAL rather
+ * than about order: the vocabulary fallback is phrase-keyed, so `aubergine`
+ * expands and `raw aubergine` does not, and the pass measures what a single
+ * per-token substitution would have filled. See {@link carrierPass}.
+ *
  * Node built-ins only, and the ranking is IMPORTED rather than restated: this
  * measures the code that ships or it measures nothing. That works because Node
- * strips the types itself and `reference-food-ranking.ts` imports nothing.
+ * strips the types itself and `reference-food-ranking.ts` imports nothing. The
+ * `carrier` pass needs the search ITSELF rather than the ranking, and that one
+ * cannot be imported bare, so a plain sweep now bundles the app through
+ * `usda-app-module.mjs` and needs esbuild — as `--explain` already did.
  *
  * It changes no ranking code and asserts nothing. It is a dated finding, not an
  * invariant, so it is deliberately not wired into `pnpm check` — a gate here
@@ -54,6 +62,8 @@ import {
   readReferenceFoodName,
   compileReferenceFoodQuery,
   compareRelevance,
+  wordsOf,
+  stemOf,
 } from "../src/lib/food/reference-food-ranking.ts";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -520,6 +530,158 @@ const britishPass = (corpus, queries) =>
   }));
 
 /**
+ * The carrier shapes #142's sweep types each substitutable vocabulary key
+ * inside, and the word each is priced on.
+ *
+ * The first three are the ticket's own, kept verbatim. Two of them name a word
+ * the corpus barely holds — 3 rows carry `chopped` and 10 carry `salad` — so a
+ * sweep over those alone would return a null about the word rather than about
+ * the mechanism; the last three are added for reach. Every one of the six is
+ * priced against the corpus in the output, so a reader can see which carrier
+ * could have indicted anything (research note #142 §4).
+ *
+ * The carrier's POSITION is not varied, because it cannot change the answer:
+ * retrieval asks only whether every typed token matches somewhere and is blind
+ * to where, so `courgette salad` and `salad courgette` retrieve the same rows
+ * and differ only in the ordering `position` gives them.
+ */
+const CARRIERS = [
+  { word: "raw", phrase: (name) => `raw ${name}` },
+  { word: "chopped", phrase: (name) => `chopped ${name}` },
+  { word: "salad", phrase: (name) => `${name} salad` },
+  { word: "cooked", phrase: (name) => `cooked ${name}` },
+  { word: "fresh", phrase: (name) => `fresh ${name}` },
+  { word: "dried", phrase: (name) => `dried ${name}` },
+];
+
+/**
+ * The vocabulary keys a single substitution could safely replace anywhere in a
+ * query: one token in, one token out.
+ *
+ * Counted with the app's own `wordsOf` rather than on whitespace, because that
+ * is what a per-token substitution would replace. The two differ: `crêpe` and
+ * `jícama` hold no ASCII-alphanumeric run across the accent, so the tokeniser
+ * reads them as two tokens each and four keys that look single-word are not.
+ * They lose nothing by it today — a typed query goes through the same function,
+ * so both halves line up on both sides — but they are not this mechanism's.
+ */
+const substitutableKeys = (vocabulary) =>
+  Object.entries(vocabulary).filter(
+    ([key, phrases]) =>
+      wordsOf(key).length === 1 &&
+      phrases.every((phrase) => wordsOf(phrase).length === 1)
+  );
+
+/**
+ * The carrier pass (#142): the vocabulary expands `aubergine` and not
+ * `raw aubergine`, so how much is that costing?
+ *
+ * Pre-registered in `docs/research/142-carrier-phrase-sweep.md`, whose §3 is the
+ * reason this measures what it does. That every probe returns nothing is a
+ * PROOF, not a finding: retrieval admits a row only when every typed token
+ * matches it, a vocabulary key is in the map precisely because no row answers
+ * its token, and adding a carrier word cannot make that token match. So the
+ * number that decides the ticket is not how many probes are empty — all of them
+ * are — but how many one substitution would FILL, which is the objection the
+ * ticket raises against itself and the count it asks for does not answer.
+ *
+ * It runs the probes anyway, to check that proof against the shipped code and
+ * because `expandThroughVocabulary` has a second tier the proof does not cover:
+ * it also matches a key LONGER than the query, so a probe could in principle be
+ * answered by a two-word key whose first word starts with `raw`. Any probe that
+ * answers is a finding about that tier.
+ *
+ * Alone among the passes here it borrows the app's own `searchIndexRows` rather
+ * than the restated {@link search}, through the same seam ADR-0047 §4's
+ * import-don't-copy rule already provides. The restated helper knows nothing of
+ * the vocabulary, which is right for every other pass and wrong for this one:
+ * the vocabulary is the whole subject, and a bare key retrieves NOTHING
+ * literally, so scoring it here would measure a search the app does not run.
+ * The cost is that a plain sweep now needs esbuild, as `--explain` already did.
+ */
+async function carrierPass(index, corpus) {
+  const { loadAppModule } = await import("./usda-app-module.mjs");
+  const scratch = await mkdtemp(join(tmpdir(), "ranking-audit-"));
+  const app = await loadAppModule(scratch);
+  await rm(scratch, { recursive: true, force: true });
+  // The MERGED map, which is what a keystroke reads: the derived section and
+  // #141's hand-written one, joined by the app rather than by this file. The
+  // ticket and its triage comment both size the subset against `vocabulary_off`
+  // alone, and the merge moves the denominator.
+  const searchable = app.buildSearchCorpus(index);
+  const keys = substitutableKeys(searchable.vocabulary);
+  const hitsFor = (query) => app.searchIndexRows(searchable, query).hits;
+
+  const shapes = CARRIERS.map(({ word, phrase }) => ({
+    shape: phrase("X"),
+    // Rows carrying the carrier word at all. A carrier the corpus does not use
+    // cannot indict the vocabulary: `chopped courgette` retrieves nothing, and
+    // so does `chopped zucchini`.
+    corpus_reach: corpus.filter((food) =>
+      food.names.some((name) => name.stems.includes(stemOf(word)))
+    ).length,
+    probes: keys.length,
+    answering: 0,
+    rescued: 0,
+  }));
+
+  const cases = keys.map(([key, phrases]) => {
+    const carriers = CARRIERS.map(({ phrase }, i) => {
+      const probe = phrase(key);
+      const probeHits = hitsFor(probe);
+      // Each value in turn, first one that retrieves wins — exactly the k-capped
+      // candidate list the deferred mechanism would build, one substitution deep.
+      let expansion = phrase(phrases[0]);
+      let expansionHits = [];
+      for (const candidate of phrases) {
+        const hits = hitsFor(phrase(candidate));
+        if (hits.length > 0) {
+          expansion = phrase(candidate);
+          expansionHits = hits;
+          break;
+        }
+      }
+      if (probeHits.length > 0) shapes[i].answering++;
+      else if (expansionHits.length > 0) shapes[i].rescued++;
+      return {
+        shape: shapes[i].shape,
+        probe,
+        probe_found: probeHits.length,
+        expansion,
+        expansion_found: expansionHits.length,
+        expansion_top: expansionHits[0]?.row.description ?? null,
+      };
+    });
+    return {
+      pass: "carrier",
+      query: key,
+      expands_to: phrases,
+      // What the bare key leads with today, through the fallback this ticket
+      // would extend — the context a rescue has to be read against. Descriptions
+      // only, because the shipped search returns rows rather than keys; the field
+      // keeps the name every other pass uses so {@link carryVerdicts} can see the
+      // lead move.
+      results: hitsFor(key)
+        .slice(0, 5)
+        .map((hit) => ({ description: hit.row.description })),
+      carriers,
+      rescued: carriers.filter(
+        (c) => c.probe_found === 0 && c.expansion_found > 0
+      ).length,
+      verdict: null,
+      cause: null,
+      note: null,
+    };
+  });
+
+  // Every key emitted, none filtered. The other passes filter to the interesting
+  // cases because they emit hundreds; 58 is small enough to read whole, and a
+  // filtered emission would hide exactly the unrescued keys a null verdict rests
+  // on.
+  return { cases, shapes };
+}
+
+/**
  * The twin pass (#137): for each name the merge discarded, what does typing it
  * reach now, and what did the row lose by shipping under the other name.
  *
@@ -724,6 +886,7 @@ if (args.includes("--vocab")) {
 } else {
   const inputs = JSON.parse(readFileSync(INPUTS_PATH, "utf8"));
   const qualifier = qualifierPass(corpus);
+  const carrier = await carrierPass(index, corpus);
   const cases = [
     ...synonymPass(corpus, inputs.groups),
     ...headPass(corpus, index),
@@ -731,6 +894,7 @@ if (args.includes("--vocab")) {
     ...britishPass(corpus, inputs.british_queries),
     ...twinPass(corpus, index),
     ...qualifier.cases,
+    ...carrier.cases,
   ];
   const tally = (pass) => cases.filter((c) => c.pass === pass).length;
   // Before anything is written: the hand judgements this file already carries.
@@ -764,6 +928,12 @@ if (args.includes("--vocab")) {
         acc[bucket] = (acc[bucket] ?? 0) + 1;
         return acc;
       }, {}),
+    // #142's pass, per carrier shape: what the corpus holds of the carrier word,
+    // how many probes it answers today, and how many one substitution rescues.
+    // Beside `harm` rather than in `counts` for the same reason — the per-shape
+    // breakdown is the finding, and a flat total would hide that a carrier the
+    // corpus has three rows of rescues nothing because it can rescue nothing.
+    carrier: carrier.shapes,
     counts: {
       synonym_flagged: tally("synonym"),
       synonym_disagree: cases.filter((c) => c.disagrees).length,
@@ -772,6 +942,18 @@ if (args.includes("--vocab")) {
       contested_heads: tally("head"),
       pairs_sampled: tally("pair"),
       british: tally("british"),
+      // #142's pass. `carrier_keys` is the substitutable subset — one token in,
+      // one token out — and the probes are that times the six carrier shapes.
+      // `carrier_probes_answering` is expected to be 0 and is measured anyway:
+      // the proof that a carrier phrase cannot retrieve covers the literal pass
+      // and not the fallback's prefix tier (research note #142 §3).
+      carrier_keys: tally("carrier"),
+      carrier_probes: carrier.shapes.reduce((n, s) => n + s.probes, 0),
+      carrier_probes_answering: carrier.shapes.reduce(
+        (n, s) => n + s.answering,
+        0
+      ),
+      carrier_rescued: carrier.shapes.reduce((n, s) => n + s.rescued, 0),
       // #137's pass: one case per name the twin merge discarded. `not_led` is
       // the number where typing the archived name does not put the row that
       // took its identity first, and `absent` those where it is not in the 50
