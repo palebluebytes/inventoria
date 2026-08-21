@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { deriveNovaVerdict } from "../../src/lib/food/nova-verdict";
 import type { NovaVerdict } from "../../src/lib/food/nova-verdict";
 import type { EntityPayload } from "../../src/lib/ingestion/ingest";
+import { mapIndexRowToPayload } from "../../src/lib/food/usda-corpus";
 import type { FoodAssessment } from "../../src/lib/food/open-food-facts";
 
 // The NOVA read-back selector (ADR-0041 §4) is the first reader of the write-only
@@ -23,8 +24,40 @@ function offFoodWithAssessment(assessment: FoodAssessment): EntityPayload {
   });
 }
 
-/** A USDA FDC food twin (`fdc:*` entity) carrying `food/name` + `food/category`. */
-function fdcFood(name: string, category?: string): EntityPayload {
+/**
+ * A USDA FDC food twin, minted through the corpus mapper rather than hand-built,
+ * so the twin under test carries what a real one carries — `food/name`, the
+ * optional `food/category`, and the `twin/raw_provenance` blob holding USDA's
+ * untouched row (ADR-0047 §7).
+ *
+ * The provenance is not decoration here. The inference reads its `description`
+ * rather than `food/name`, because a display name may carry a vocabulary alias
+ * (ADR-0049's #140 Amendment), and a hand-built twin without one would have made
+ * that unreadable distinction look like it did not exist.
+ */
+function fdcFood(
+  name: string,
+  category?: string,
+  alias?: string
+): EntityPayload {
+  return mapIndexRowToPayload(
+    {
+      fdcId: 173944,
+      description: name,
+      dataType: "SR Legacy",
+      macros: { calories: 89 },
+      ...(category !== undefined ? { foodCategory: category } : {}),
+    },
+    alias
+  );
+}
+
+/**
+ * The same food as a payload with no source record: `seedRowFromRef`'s
+ * placeholder for a dangling recipe reference, which is the one shape that
+ * reaches the selector carrying a name and nothing to check it against.
+ */
+function refPlaceholder(name: string, category?: string): EntityPayload {
   const attributes: Record<string, unknown> = { "food/name": name };
   if (category !== undefined) attributes["food/category"] = category;
   return { entity: "fdc:173944", attributes };
@@ -264,6 +297,47 @@ describe("deriveNovaVerdict — inferred NOVA 1 (USDA whole foods, rule → #89)
     ).toEqual<NovaVerdict>({ state: "not-rated" });
     expect(
       deriveNovaVerdict(fdcFood("Eggnog", "Dairy and Egg Products"))
+    ).toEqual<NovaVerdict>({ state: "not-rated" });
+  });
+
+  it("judges USDA's own description, not the name a vocabulary search widened", () => {
+    // `ginger powder -> ground ginger` is one of nineteen keys carrying a
+    // deny-substring. Read off the display name, "powder" would cost
+    // `Ginger, ground` the NOVA 1 it has when reached by its own name.
+    const widened = fdcFood(
+      "Ginger, ground",
+      "Spices and Herbs",
+      "ginger powder"
+    );
+    expect(widened.attributes["food/name"]).toBe(
+      "Ginger, ground, ginger powder"
+    );
+    expect(deriveNovaVerdict(widened)).toEqual<NovaVerdict>({
+      state: "rated",
+      tier: 1,
+      source: "inferred",
+    });
+    // And the alias cannot buy an inference either: it is not read at all.
+    expect(
+      deriveNovaVerdict(fdcFood("Cornflakes", "Breakfast Cereals", "eggs"))
+    ).toEqual<NovaVerdict>({ state: "not-rated" });
+  });
+
+  it("declines to infer for a USDA payload carrying no source record", () => {
+    // `seedRowFromRef`'s placeholder for a dangling recipe reference has a name
+    // and nothing to check it against. Falling back to that name would reinstate
+    // the miscall above; falling back to "" would skip the deny guard entirely
+    // and infer NOVA 1 for a canned soup. A twin we cannot judge is not rated,
+    // which ADR-0041 §2 makes neutral rather than a warning.
+    expect(
+      deriveNovaVerdict(
+        refPlaceholder("Bananas, raw", "Fruits and Fruit Juices")
+      )
+    ).toEqual<NovaVerdict>({ state: "not-rated" });
+    expect(
+      deriveNovaVerdict(
+        refPlaceholder("Ginger, ground, ginger powder", "Spices and Herbs")
+      )
     ).toEqual<NovaVerdict>({ state: "not-rated" });
   });
 

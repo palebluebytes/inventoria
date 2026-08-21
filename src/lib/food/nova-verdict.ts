@@ -111,6 +111,38 @@ const USDA_DENY_SUBSTRINGS: readonly string[] = [
 const USDA_EGG_HEAD = /^eggs?,/i;
 
 /**
+ * USDA's own description for a bundled food, or undefined for every other twin
+ * AND for an `fdc:` payload that does not carry the record it came from.
+ *
+ * The inference below is a claim about the food USDA described, so it has to read
+ * USDA's words. It cannot read `food/name`: that is a DISPLAY name, and a
+ * vocabulary-expanded search widens it with the word that reached the food
+ * (ADR-0049's #140 Amendment). Nineteen of the 433 keys carry one of the
+ * deny-substrings below, so `Ginger, ground` displayed as
+ * "Ginger, ground, ginger powder" would lose its NOVA 1 to its own alias.
+ *
+ * Undefined means NO INFERENCE, never a looser one. Falling back to the display
+ * name would reinstate exactly that miscall, and falling back to an empty string
+ * would be worse still — it skips the deny-substring guard altogether while the
+ * category allow-list happily passes. A twin without its source record is one we
+ * cannot judge, and "not rated" is the neutral, never-a-warning answer ADR-0041
+ * §2 reserves for that. `seedRowFromRef`'s placeholder for a dangling recipe
+ * reference is the payload that reaches here without one.
+ *
+ * Every real `fdc:` twin carries the blob — `mapIndexRowToPayload` writes it
+ * (ADR-0047 §7) and so did the retired `mapFdcFoodToPayload`, which spells the
+ * field the same way — so the one `?` is on the envelope, which can genuinely be
+ * absent, and not on the description, which cannot.
+ */
+function usdaDescriptionOf(food: EntityPayload): string | undefined {
+  if (!food.entity.startsWith("fdc:")) return undefined;
+  const provenance = food.attributes["twin/raw_provenance"] as
+    | RawProvenance<{ description: string }>
+    | undefined;
+  return provenance?.raw_data.description;
+}
+
+/**
  * Reads a food twin's NOVA verdict back off its captured `food/assessment`
  * (ADR-0041 §4). Two branches, in order:
  *
@@ -149,29 +181,16 @@ export function deriveNovaVerdict(food: EntityPayload): NovaVerdict {
   }
   // The inferred NOVA-1 branch for basic USDA whole foods (rule → #89). Runs only
   // AFTER the OFF branch, so an OFF-authoritative rating always wins. Guarded on
-  // three fronts (all must hold): an `fdc:` food (⟹ Foundation/SR Legacy by
-  // construction of `searchFdc`), an allow-listed whole-food category OR a plain
-  // egg, and no NOVA-3 deny-substring in the name.
-  if (food.entity.startsWith("fdc:")) {
-    // USDA's OWN description, not the twin's display name. A vocabulary-expanded
-    // search widens that name with the word that reached the food (ADR-0049 §1),
-    // and nineteen of the 433 keys carry one of the deny-substrings below —
-    // "ginger powder" alone would suppress the inference for `Ginger, ground`.
-    // The untouched row is in the provenance blob for exactly this kind of
-    // reader (ADR-0047 §7); a twin from before the bundle carries FDC's own
-    // record there, which spells the field the same way.
-    const provenance = food.attributes["twin/raw_provenance"] as
-      | RawProvenance<{ description?: string }>
-      | undefined;
-    const name =
-      provenance?.raw_data?.description ??
-      (food.attributes["food/name"] as string | undefined) ??
-      "";
+  // three fronts (all must hold): a USDA record we can read the description of,
+  // an allow-listed whole-food category OR a plain egg, and no NOVA-3
+  // deny-substring in that description.
+  const description = usdaDescriptionOf(food);
+  if (description !== undefined) {
     const category = food.attributes["food/category"] as string | undefined;
-    const lowerName = name.toLowerCase();
+    const lowerName = description.toLowerCase();
     const categoryAllowed =
       (category != null && USDA_WHOLE_FOOD_CATEGORIES.has(category)) ||
-      USDA_EGG_HEAD.test(name);
+      USDA_EGG_HEAD.test(description);
     const denied = USDA_DENY_SUBSTRINGS.some((sub) => lowerName.includes(sub));
     if (categoryAllowed && !denied) {
       return { state: "rated", tier: 1, source: "inferred" };

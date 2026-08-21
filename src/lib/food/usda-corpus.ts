@@ -375,17 +375,19 @@ export function searchIndexRows(
  * live in the Nutrient store and are read when the food is staged (ADR-0047 §2).
  *
  * `alias` is the vocabulary key a search needed to reach this row, and it is
- * appended to the NAME — "Eggplant, raw" becomes "Eggplant, raw, aubergine".
- * `food/name` rather than a sibling attribute because the display name is read
- * in a dozen places, one of them a raw `SELECT` over `food/name` datoms
- * (`FoodView`'s recent list), and the alias has to reach all of them: a user who
- * searched a word deserves to see that word on the food they logged, in the log,
- * in Recent and in a recipe's ingredients.
+ * appended to the NAME — "Eggplant, raw" becomes "Eggplant, raw, aubergine"
+ * (ADR-0049's #140 Amendment). `food/name` rather than a sibling attribute
+ * because several INDEPENDENT readers show a food's name and only this one goes
+ * through here: the consumption fold names a logged event off the twin, the
+ * recent list and the recipe ingredient resolver each read their own, and the
+ * stager's edit form seeds from it again. A user who searched a word deserves to
+ * see that word wherever the food turns up, not only in the results list.
  *
  * `twin/raw_provenance.raw_data` keeps USDA's untouched row, so the widened name
  * never masquerades as USDA's own (ADR-0045 §4) — and `deriveNovaVerdict` reads
  * the description back out of it rather than off this name, because nineteen
- * vocabulary keys carry one of its deny-substrings.
+ * vocabulary keys carry one of its deny-substrings. Anything else deciding
+ * something ABOUT a food has to read it the same way.
  */
 export function mapIndexRowToPayload(
   row: UsdaIndexRow,

@@ -452,11 +452,17 @@ keystrokes, so a mid-type `aubergin` still shows the whole word, and it is the k
 whose expansion actually won that row rather than any key the query touched.
 
 It goes on `food/name` rather than into a sibling attribute, and that is the
-load-bearing choice. A food's display name is read at a dozen surfaces — the
-results list, the staged card, the log, a recipe's ingredients — one of which is a
-raw `SELECT` over `food/name` datoms for the recent list. A sibling attribute
-would reach the surfaces somebody remembered to join it at, and "everywhere it is
-displayed" is the requirement.
+load-bearing choice. A food's display name has several INDEPENDENT readers, and
+only one of them goes through the search mapper: the consumption fold sets a
+logged event's name off the twin, the recent list resolves each twin through
+`getLocalFoodTwin`, the recipe ingredient resolver reads its own, and the
+stager's edit form seeds from it again. A sibling attribute would reach the
+readers somebody remembered to join it at, and "everywhere it is displayed" is the
+requirement.
+
+A logged event reads the twin's name LIVE rather than freezing it, which is what
+makes one write reach every past log of that food at once — and what makes the
+first consequence below bite.
 
 Three consequences, none of them free:
 
