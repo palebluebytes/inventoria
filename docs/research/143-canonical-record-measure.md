@@ -240,3 +240,45 @@ Priced and kept: `imitation` (9 rows, all imitations), `substitute` (14, all sub
 **Report and return, with a recommendation to ship the narrow key.** The bar it misses is one this note set for a two-key design that no longer exists; what survives is smaller, cleaner and net-positive on every unambiguous measure: 6 designated rows reached, 0 correct cases broken, 9 of 9 guards held, and 11 better leads against 1 worse. The maintainer's call is whether 18 moved leads out of a 163-query class is worth an ADR-0042 amendment and a sixth key.
 
 If it ships, the amendment must carry three things beyond the key: the part-key refutation in §12, the `simplicity` correction in §15, and the honest ceiling — **this key reaches 18 of 163, and 135 leads are still decided by `fdcId` order.**
+
+---
+
+## Amendment (2026-08-21, from #137): two gold-set leads moved, and both resolve
+
+#137's sequencing note promised this measurement would be re-run after it, and
+that cases like `spinach` might **evaporate rather than be fixed**. Two did.
+
+Measured by ranking each of the 50 gold-set heads twice over the same committed
+index, once with #137's aliases and once with them stripped:
+
+| head      | led                                              | leads now                              | its verdict here |
+| --------- | ------------------------------------------------ | -------------------------------------- | ---------------- |
+| `spinach` | `Spinach, cooked, boiled, drained, without salt` | `Spinach, mature`                      | `miss`           |
+| `bananas` | `Bananas, overripe, raw`                         | `Bananas, ripe and slightly ripe, raw` | `miss`           |
+
+**Both were misses, and neither designation survives its own premise.**
+
+`spinach`'s note reads "'Spinach, raw' is in BOTH archives and neither copy ships
+(#130 §8) — this designation is the best row LEFT, and #137 may change it." The
+premise was false: `Spinach, raw` is SR Legacy 168462 and it carries ndb 11457,
+the same number as Foundation's `Spinach, mature`, so the twin merge collapsed
+them and raw spinach was in the corpus the whole time under Foundation's name.
+`should_lead: Spinach, baby` was the best row left under a mistake. With the
+discarded name carried as an alias ([ADR-0050](../adr/0050-a-merged-food-keeps-the-name-its-twin-lost.md)),
+the `raw` key decides this two rungs above `plain`, and the row that leads is the
+food itself.
+
+`bananas` had `should_lead: null` — no candidate shape reached it, because
+"overripe" is a modifier none of them carried. None was needed. The merge had
+discarded SR Legacy's `Bananas, raw`, and carrying it gives the surviving row a
+name that ends in ", raw": simplicity 3, against the 2 that had been winning.
+
+**No case measured as `correct` moved**, and the `plain` key's own tally is
+untouched — the six rows §13 says it reaches still tie on `raw` and are still
+decided by it. What moved is two rows that `raw` should always have decided and
+could not, because the name carrying the word had been thrown away.
+
+The two cases carry a `readjudicated` block in `143-gold-set.json` rather than
+being overwritten. §10's ratification waiver still stands and this does not
+disturb it: nothing here revises the key, only two of the leads it was measured
+beside.

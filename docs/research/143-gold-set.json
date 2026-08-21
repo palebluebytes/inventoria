@@ -207,7 +207,14 @@
       "verdict": "miss",
       "should_lead": null,
       "note": "'overripe' is a modifier the candidate list does not carry.",
-      "ratified": false
+      "ratified": false,
+      "readjudicated": {
+        "by": "#137",
+        "date": "2026-08-21",
+        "lead_now": "Bananas, ripe and slightly ripe, raw",
+        "verdict_now": "correct",
+        "note": "The miss is resolved rather than moved. 'overripe' was a modifier no candidate shape carried, and no shape was needed: the merge had discarded SR Legacy's `Bananas, raw`, and carrying it as an alias (ADR-0050) gives the surviving row a name ending in ', raw' \u2014 simplicity 3 against the 2 that had been winning."
+      }
     },
     {
       "head": "beef",
@@ -581,7 +588,14 @@
       "verdict": "miss",
       "should_lead": "Spinach, baby",
       "note": "Cooked leads. 'Spinach, raw' is in BOTH archives and neither copy ships (#130 \u00a78) \u2014 this designation is the best row LEFT, and #137 may change it.",
-      "ratified": false
+      "ratified": false,
+      "readjudicated": {
+        "by": "#137",
+        "date": "2026-08-21",
+        "lead_now": "Spinach, mature",
+        "verdict_now": "correct",
+        "note": "This case's own note said #137 might change it, and it did. #130 \u00a78's premise was wrong: SR Legacy's `Spinach, raw` (168462) shares ndb 11457 with Foundation's `Spinach, mature` and merges into it, so raw spinach was in the corpus all along. Carrying the discarded name as a search alias (ADR-0050) lets the `raw` key decide this two rungs above the plain one. `should_lead: Spinach, baby` was the best row LEFT under a false premise; the row that leads now is the food itself."
+      }
     },
     {
       "head": "succotash",

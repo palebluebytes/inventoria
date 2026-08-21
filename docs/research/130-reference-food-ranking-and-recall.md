@@ -315,3 +315,69 @@ the row and quietly clear the doubt.
 The counts in §3 and §4 were taken on the 914-case run and are left as they were.
 Where they and the file now disagree, the file is current and the tables are
 dated.
+
+---
+
+## Correction (2026-08-21, from #137's grilling): §8's six absence verdicts are all wrong
+
+Every one of them is the same defect in the tool that produced them, and the tool
+is `pnpm usda:ranking-audit --explain`, which this note names as the grounds for
+"What the archives said about absences".
+
+`explainAbsence` skipped the Survey archive by comparing `archive.dataset` against
+the literal `"Survey (FNDDS)"`. `scripts/usda-backup.manifest.json` says
+`"Survey (FNDDS 2021-2023)"`. The guard never fired, so the post-mortem read all
+**5,432 Survey records** — a dataset `BUNDLE_DATASETS` deliberately never consumes,
+because bundling it would ship the composite dishes the ADR-0042 filters exist to
+drop — and reported every one of them as a corpus casualty.
+
+Two further defects went with it. The filter chain was asked of each raw record
+where the generator asks it of the merged identity, so it could name a filter that
+never ran. And it had no bucket for the twin merge at all: a record that left
+because its twin's name won landed in a residual labelled "no_energy (ADR-0048) or
+the twin merge", which is the ambiguity this section then reported as a finding.
+
+### The six, re-filed
+
+| §8 says                                                       | what is true                                                                                                                                                                                                                                                             |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Parsley, raw` is gone                                        | It is in the Survey archive and nowhere else. `Parsley, fresh` (SR Legacy 11297) ships.                                                                                                                                                                                  |
+| `Basil, raw` is gone                                          | Survey only. `Basil, fresh` ships.                                                                                                                                                                                                                                       |
+| `Oats, raw` is gone                                           | Survey only. SR Legacy `Oats` merged into `Oats, whole grain, rolled, old fashioned`, which ships.                                                                                                                                                                       |
+| `Whey, sweet, dry` is gone                                    | Survey only. `Whey, sweet, dried` (SR Legacy 1115) is in the corpus.                                                                                                                                                                                                     |
+| `Spinach, raw` is in **both** archives and neither copy ships | It is in Survey and in SR Legacy (168462). Foundation holds `Spinach, baby` and `Spinach, mature`, not a third copy. 168462 carries ndb **11457**, the same number as `Spinach, mature`, so the twin merge collapses them and raw spinach ships under Foundation's name. |
+| `Millet, raw` is gone                                         | SR Legacy 20031, merged into `Millet, whole grain`, which ships.                                                                                                                                                                                                         |
+
+**None of the six is an ADR-0048 casualty.** That record's ledger is closed and it
+is 13 rows, all of them enumerated in the record itself. Re-measured against the
+same archives on 2026-08-21: 7,966 identities to 4,353 survivors, dropping 922
+brand-specific, 1,427 processed, 1,189 prepared, 17 dry-basis, 45 manufacturing
+inputs and 13 reporting no energy.
+
+### What §5's recommendation becomes
+
+Retargeted, not withdrawn. The mechanism that loses a name is the **twin merge**:
+`resolveFdcGroup` keeps the base record's identity, and 93 of the 165 surviving
+twinned foods ship under a name that replaced a different archived one. Typing the
+archived name reached nothing for 40 of them and failed to lead for 59. That is
+[#137](https://github.com/palebluebytes/inventoria/issues/137), settled as
+[ADR-0050](../adr/0050-a-merged-food-keeps-the-name-its-twin-lost.md).
+
+Underneath it sits a second finding this note could not have seen: USDA **reuses**
+`ndbNumber` across the two archives, so some of those merges fused two different
+foods. `Apples, raw, golden delicious, with skin` and
+`Apples, honeycrisp, with skin, raw` both carry 9501, and Golden Delicious is not
+in the corpus at all. That is
+[#145](https://github.com/palebluebytes/inventoria/issues/145).
+
+### What still stands
+
+Everything else. §5's 236 vocabulary misses, §6's split of the 43 ranking misses,
+§7's tokeniser diagnosis and §4's rates were all measured through the ranking over
+the committed index, not through the absence tool. Only §8 and §9's item 5 rest on
+`--explain`, and only they fall.
+
+The napa cabbage entry in §8's list of three known cases was already right, and
+ADR-0048's Consequences went on asserting the opposite until this correction;
+`Cabbage, chinese (pe-tsai), raw` is in the corpus and the failure is that
+`napa cabbage` never reaches it.

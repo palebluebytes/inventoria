@@ -307,3 +307,35 @@ record.
   their zero. There are none in any corpus this project has shipped that could be
   distinguished from a genuine zero after the fact, and inventing a value for them would
   violate §3.
+
+## Amendment (2026-08-21): two Consequences were wrong about what §5 left standing
+
+Both bullets were written from the absence tool
+`pnpm usda:ranking-audit --explain`, which was broken in a way nobody could see
+until [#137](https://github.com/palebluebytes/inventoria/issues/137) looked: it
+skipped the Survey archive by matching a dataset name the manifest had moved past,
+so it read 5,432 records that were never eligible to ship and reported them as
+this record's casualties. §5's own tally of 30 is unaffected — that came from the
+generator, not from the tool — and re-measured against the current archives it is
+still 17 dry-basis and 13 no-energy rows, exactly the ones named above.
+
+**"Raw napa cabbage leaves only `Cabbage, napa, cooked`, a different preparation"
+is false.** `Cabbage, chinese (pe-tsai), raw` is in the corpus and pe-tsai _is_
+napa cabbage. What is true is narrower and belongs to a different record: the
+query `napa cabbage` retrieves the cooked row, so
+[ADR-0049](0049-a-derived-vocabulary-for-food-search.md) §1's fallback never
+fires and the raw row is not reached. A vocabulary miss, not a coverage gap.
+Research note [130](../research/130-reference-food-ranking-and-recall.md) §8
+caught this first and this record went on asserting it.
+
+**The pawpaw bullet is right about the row and stale about the search.**
+`Pawpaw, peeled, seeded, raw` is still absent from the corpus and from SR Legacy.
+It no longer gives the ADR-0047 §10 "not covered" verdict, because ADR-0049's
+vocabulary expands `pawpaw` to `papaya` and hands back `Papayas, raw`. Whether
+that is an answer or a wrong answer depends on where the user learned the word,
+and it is not this record's to settle: OFF's taxonomy makes the same call for
+`papaw`.
+
+Nothing here reopens §5. The drop was measured on the generator's own tallies and
+those hold; what fell is two claims about the corpus a broken tool was asked to
+describe.

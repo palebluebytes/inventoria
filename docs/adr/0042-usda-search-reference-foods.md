@@ -10,6 +10,7 @@
 **Amended by:** the #131 Amendment below, which corrects §3's "ALL CAPS is the only available signal" and accepts the gap that leaves  
 **Amended by:** the #133 Amendment below, which lets §5's dish markers be a conjunction of two ordinary words  
 **Amended by:** the #136 Amendment below, which reads a typed query with the same tokeniser as a food's name  
+**Amended by:** ADR-0050 §4 (a row is scored as the best of its names, where the ranking had assumed a row has one)  
 **Amended by:** the #135 Amendment below, which widens §1's stemmer by two English plurals  
 **Amended by:** the #124 Amendment below, which adds a fifth key asking where in the name the query landed  
 **Amended by:** the #143 Amendment below, which fills the slot the #124 Amendment reserved, and corrects what it reserved it for  
