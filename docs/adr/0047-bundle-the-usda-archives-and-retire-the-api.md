@@ -4,7 +4,8 @@
 **Date:** 2026-08-19  
 **Amended by:** ADR-0048 §5 (§4's filter roster gains two members; the corpus fell from 4,491 rows to 4,461)  
 **Amended by:** ADR-0042's #131 amendment (§4's brand-filter tally; the corpus fell from 4,461 rows to 4,441)  
-**Amended by:** ADR-0042 §5's #133 drift (§4's prepared-composite tally: the corpus is now 4,429 rows)  
+**Amended by:** ADR-0042 §5's #133 drift (§4's prepared-composite tally: the corpus fell from 4,441 rows to 4,429)  
+**Amended by:** ADR-0042's #144 amendment (§4's filter roster gains a sixth member; the corpus is now 4,353 rows)  
 **Implemented:** #111 `a8a36e3`, #113 `4d02063`, #114 `37e7d67`, #115 `c0a99a1`
 
 This record revises five earlier ones. It amends
@@ -159,12 +160,18 @@ one that is wrong instantly and invisibly.
 
 ### 4. The corpus is the reference foods, filtered at generation time
 
-**4,429 of 7,966 merged foods** survive the generation-time filters — 922 dropped as
-brand-specific, 1,324 as packaged or processed, 1,261 as prepared or composite, 17 as
-dry-basis assays and 13 as reporting no energy. The first three are ADR-0042's, the last
-two are [ADR-0048](0048-an-absent-measurement-is-not-a-zero.md) §5's and run after the
-twin merge. What changes for all five is that they run once per generation instead of
-once per keystroke.
+**4,353 of 7,966 merged foods** survive the generation-time filters — 922 dropped as
+brand-specific, 1,427 as packaged or processed, 1,189 as prepared or composite, 17 as
+dry-basis assays, 45 as manufacturing inputs and 13 as reporting no energy. The first
+three are ADR-0042's, the dry-basis and no-energy filters are
+[ADR-0048](0048-an-absent-measurement-is-not-a-zero.md) §5's and the manufacturing-input
+filter is ADR-0042's #144 amendment; the last three run after the twin merge. What
+changes for all six is that they run once per generation instead of once per keystroke.
+
+The packaged and prepared columns moved against each other again when #144 made
+`dry mix` a packaging marker: the phrase reaches 103 merged records, 94 of which were
+already leaving as prepared composites, so most of that +103/−94 swing is records
+changing door rather than records being dropped.
 
 The brand tally moved by 21 and the corpus by 20 when ADR-0042's brand filter stopped
 treating "USA" as a generic acronym (#131): of the 21 records it newly claims, one

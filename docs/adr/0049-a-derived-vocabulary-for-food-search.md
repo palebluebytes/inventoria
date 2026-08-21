@@ -3,6 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-08-20  
 **Amended by:** the #139 Amendment below, which measures §3's stopword threshold and corrects the size §3 quotes for the map; and the #140 Amendment below, which corrects Consequences' count of the British queries OFF reaches, refines §6, and admits one change to what a panel says that Scope excluded  
+**Amended by:** the #144 Amendment below, which re-derives the map over the corpus [ADR-0042](0042-usda-search-reference-foods.md)'s #144 amendment left behind  
 **Implemented:** #139 `4a01dd1`, `5868a7f`, `efadfad` (the map); #140 (the fallback that reads it)
 
 This record amends [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md)
@@ -489,3 +490,25 @@ Open Database License, in the quiet-but-visible treatment `NovaExplainerSheet`
 uses. It says what is true: no OFF data is shown on a USDA food, but search
 understands other names for it from OFF's taxonomy. It shows for every USDA food,
 which is §4's deliberate over-attribution in the safe direction.
+
+## Amendment (2026-08-21, #144): the map re-derived over a smaller corpus
+
+§3 derives the map **from the finished corpus**, so a filter change moves it.
+[ADR-0042](0042-usda-search-reference-foods.md)'s
+[#144 amendment](0042-usda-search-reference-foods.md#amendment-2026-08-21-144-a-head-word-cannot-tell-a-staple-from-a-confection-and-a-manufacturing-input-is-not-a-food)
+dropped 76 rows, and the regenerated map is **435 keys over 332 distinct targets**,
+not the 433 over 329 the #139 Amendment measured.
+
+**The threshold did not move, which is the claim §3 made for it.** The corpus fell
+1.7%, the guard stayed at 1.1% — 48 rows rather than 49 — and it drops the same nine
+targets and the same seven keys. That is the 44-to-56-row plateau above doing exactly
+what it was measured for. `beans` now matches 115 rows rather than 116, which is the
+only figure in §3's stopword paragraph that moves.
+
+**Both new keys are phrases that used to "retrieve" one wrong row.** `powdered milk`
+matched a single record, `Dessert topping, powdered, 1.5 ounce prepared with 1/2 cup
+milk`, and `hydrogenated palm kernel oil` matched only the industrial confection fats.
+With those gone the phrases retrieve nothing and become misses the map answers —
+`powdered milk` with `milk powder` and `dry milk`, and the palm kernel phrase with the
+confectionery shortening that is still there. A smaller corpus made the fallback
+larger, and in both cases more nearly right.

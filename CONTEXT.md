@@ -37,7 +37,7 @@ A generic, non-branded, standardised food entry — what the USDA FoodData Centr
 _Avoid_: Generic food, USDA food, ingredient (when a prepared reference item is meant)
 
 **Search index**:
-The committed artifact the food search reads, one row per Reference food: identity, the fields ranking reads, the macros a result row renders, the household portions, and the reference to any SR Legacy twin whose values the row borrowed. Generated from USDA's bulk archives with the reference-food filters already applied, so it holds the 4,429 survivors rather than all 7,966 merged foods, and the filters run once per generation instead of once per keystroke. Every row carries an energy value, because a record that reports none cannot be logged and does not ship. See ADR-0047 and ADR-0048.
+The committed artifact the food search reads, one row per Reference food: identity, the fields ranking reads, the macros a result row renders, the household portions, and the reference to any SR Legacy twin whose values the row borrowed. Generated from USDA's bulk archives with the reference-food filters already applied, so it holds the 4,353 survivors rather than all 7,966 merged foods, and the filters run once per generation instead of once per keystroke. Every row carries an energy value, because a record that reports none cannot be logged and does not ship. See ADR-0047 and ADR-0048.
 _Avoid_: Food index, USDA index, the bundle, offline database
 
 **Nutrient store**:
@@ -63,6 +63,10 @@ _Avoid_: Prepared dish, meal, dish, recipe (a Recipe Twin is the app's own compo
 **Brand-specific food**:
 A food record naming a specific commercial brand (OCEAN SPRAY, GERBER, Grape-Nuts). Brand-specific foods belong to the barcode path (scan the product against Open Food Facts, ADR-0034) and are always dropped from the USDA reference-food search, even when the query names the brand. See ADR-0042.
 _Avoid_: Branded product (when the `twin/brand` attribute is meant), product
+
+**Manufacturing input**:
+A USDA record specifying a food-industry ingredient sold to a factory rather than a food anyone buys or logs — a confection fat, a filling fat, a commodity flour graded by protein percentage. USDA marks them `industrial` in the description. Not a Reference food and not a Composite dish either: it is dropped by its own generation-time filter, and the retail equivalent it stands in front of (all-purpose flour, household shortening) stays. See ADR-0042.
+_Avoid_: Commercial food, bulk ingredient, industrial food (which reads as a processing judgement rather than a market one)
 
 ### Habits
 

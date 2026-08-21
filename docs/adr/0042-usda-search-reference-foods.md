@@ -13,6 +13,7 @@
 **Amended by:** the #135 Amendment below, which widens §1's stemmer by two English plurals  
 **Amended by:** the #124 Amendment below, which adds a fifth key asking where in the name the query landed  
 **Amended by:** the #143 Amendment below, which fills the slot the #124 Amendment reserved, and corrects what it reserved it for  
+**Amended by:** the #144 Amendment below, which gives §5's two head-word keep lists an escape hatch, moves boxed mixes to §4, and adds a manufacturing-input filter  
 **Implemented:** `dabb1fe`, `082ad31`, `fcb3b60`, `1365343`; `src/lib/food/food-search.ts`
 
 ## Context
@@ -112,6 +113,10 @@ sweetened, drink, juice, ready-to-eat, …) are dropped as barcode-bearing
 products. A food described "raw" is always a base ingredient and is exempt — so
 raw retail cuts sold frozen, and raw-pressed juice, survive.
 
+> Amended by the [#144 Amendment](#amendment-2026-08-21-144-a-head-word-cannot-tell-a-staple-from-a-confection-and-a-manufacturing-input-is-not-a-food).
+> `dry mix` joins the marker set: a boxed mix is a barcode-bearing product, which
+> is this rule's line rather than §5's.
+
 ### 5. Drop prepared/composite foods by category and dish-marker
 
 - **By `foodCategory`** — wholly-prepared categories (Soups/Sauces, Sausages,
@@ -134,6 +139,13 @@ raw retail cuts sold frozen, and raw-pressed juice, survive.
   confections. _Baked Products_ keeps bready staples (bread, croissant, bagel,
   tortilla, English muffin) and drops sweet treats (cake, cookies, doughnuts,
   pie). Both mirror the "keep the base staple, drop the composite" line.
+
+  > Amended by the [#144 Amendment](#amendment-2026-08-21-144-a-head-word-cannot-tell-a-staple-from-a-confection-and-a-manufacturing-input-is-not-a-food).
+  > A head word cannot tell a staple from a confection USDA named after one, so
+  > each keep list gains a marker that overrides it, scoped to its own category.
+  > The same amendment adds a stew marker with a "for stew" retail-cut exemption,
+  > a dessert-topping marker, and a separate manufacturing-input filter beside
+  > this one.
 
 ### 6. Keep both Foundation and SR Legacy
 
@@ -729,3 +741,117 @@ result are counts, not judgements.
 
 **Implemented:** `src/lib/food/reference-food-ranking.ts`; measured in
 [`docs/research/143-canonical-record-measure.md`](../research/143-canonical-record-measure.md).
+
+## Amendment (2026-08-21, #144): a head word cannot tell a staple from a confection, and a manufacturing input is not a food
+
+§5 splits two mixed categories by **head word** — `SWEETENER_HEADS` inside Sweets,
+`BAKED_STAPLE_HEADS` inside Baked Products — and the head word is the whole of what
+either rule reads. [#144](https://github.com/palebluebytes/inventoria/issues/144),
+spun off from #143's tie-class sizing, showed what that admits:
+`Bread, pound cake type, pan de torta salvadoran` is kept by `bread`, and five
+`Syrups, table blends, pancake` rows by `syrups`. Neither is the bready staple or
+the single-ingredient sweetener the keep list was written for.
+
+Measuring that escape found three more gaps beside it. **The corpus falls from
+4,429 rows to 4,353.**
+
+### Each keep list gains an escape hatch, scoped to its own category
+
+A marker that overrides the head word: `table blends`/`fudge` inside Sweets,
+`cake`/`sweet` inside Baked Products. The words are the ones §5's own text already
+uses to say what each category drops — "confections", "sweet treats (cake, cookies,
+doughnuts, pie)" — so the marker states the rule the head word could only
+approximate.
+
+The scoping is what makes ordinary English safe here, and it is load-bearing rather
+than incidental: **37 corpus rows say `sweet` and 34 of them are not baked** —
+sweet potatoes, sweetcorn, sweet peppers, sweet cherries, sweet whey — and cake
+flour is flour. None of those rows sits in a category the escape hatch is ever
+consulted for, so none can be taken.
+
+Seven rows leave Sweets: the six `table blends` and `Syrups, chocolate, fudge-type`,
+which is the same defect the ticket names and was found beside it. Four leave Baked
+Products: the pound cake, `Bread, salvadoran sweet cheese (quesadilla salvadorena)`,
+`Bread, pan dulce, sweet yeast bread` and `Rolls, dinner, sweet`.
+
+### A dry mix is §4's line, not §5's
+
+The two cornbread rows #144 lists are boxed mixes, and a boxed mix is a
+barcode-bearing product. `dry mix` joins §4's marker set. It reaches nine corpus
+rows — four stuffings, two biscuit mixes and three cornbreads — every one of them a
+mix or a serving made up from one; the from-scratch
+`Bread, cornbread, prepared from recipe, made with low fat (2%) milk` beside them is
+a bready staple and stays. `mix` alone is not the marker: a dry seasoning is a
+pantry staple.
+
+Over the whole 7,966-record merged set the phrase reaches 103 records, so 94 of
+them were already leaving by §5's door and now change column rather than adding
+one — the same asymmetry ADR-0047 §4 records for #131.
+
+### A stew is a dish; "for stew" is a cut
+
+Eight stews sit in `American Indian/Alaska Native Foods`, which is not one of §5's
+prepared categories, with no dish marker between them. `stew` becomes a marker with
+an exemption for `for stew`, which is the shape of the salad-oil rescue beside it:
+`Beef, chuck for stew, … raw` and the ten other retail cuts name what they are
+**sold for**, not what they are.
+
+#144 lists six stews. There are eight — `Stew/soup, caribou (Alaska Native)` and
+`Acorn stew (Apache)` are not head-word matches and so were outside the sample the
+ticket drew from.
+
+### The open call, decided: a packaged dessert topping goes
+
+#144 left `Dessert topping, powdered` explicitly undecided. All three whipped-topping
+rows go: they are packaged desserts filed under Dairy beside the cream they imitate,
+which is the governing principle's own line, not a new one. The marker names the
+phrase in full rather than matching `topping`, because
+`Cream, whipped, cream topping, pressurized` and `Parmesan cheese topping, fat free`
+are both described as toppings and are base dairy foods.
+
+### A manufacturing input is a new filter, not a widened one
+
+#144 names one industrial row. **The corpus held 45.** That is the failure #131's
+correction block already catalogues twice — an unmeasured guard understates its own
+reach — and it is why the ticket required a printed corpus reach before any marker
+went in. All 45 carry USDA's own `industrial` convention: 33 oils, shortenings and
+margarines specified for a factory (`confection fat`, `filling fat`,
+`pourable clear fry`) and 12 `Wheat flour, white (industrial), N% protein` commodity
+grades.
+
+`isManufacturingInput` is its own predicate and its own step in the generation-time
+roster rather than a widening of §4 or §5, for the reason
+[ADR-0048](0048-an-absent-measurement-is-not-a-zero.md) §5 gives `isDryBasisRecord`:
+it is neither a packaging state nor a composite dish, and folding it into either
+would make that predicate answer two questions.
+
+A bare word marker is safe here only because every drop leaves a retail equivalent
+standing, and that was checked rather than assumed: Foundation carries all-purpose,
+bread, pastry, whole-wheat and 00 flour under its own names, and the household
+shortenings and the 32 margarine rows keep theirs.
+
+### What is deliberately left, and why
+
+The escape hatch is a marker, not a judgement about sweetness, so baked goods that
+USDA does not describe as sweet or as cake stay: `Bread, banana, prepared from
+recipe`, `Croissants, apple`, `Bread, cinnamon`, `Bread, raisin`. So do
+`Syrups, grenadine` and `Syrups, sugar free`, which are flavoured but are the
+pour-from-a-bottle pantry sweetener the keep list is for, and the four
+`Biscuits, … refrigerated dough` rows, which name a dough rather than a mix. These
+are §5's stated "precision-first, not perfect recall" leak, ranked low rather than
+dropped, and they are listed so a reader does not re-discover them as defects.
+
+`American Indian/Alaska Native Foods` as a whole remains
+[#134](https://github.com/palebluebytes/inventoria/issues/134)'s question. This
+amendment removes eight stews from it by description, not the category.
+
+### What the smaller corpus moved
+
+Re-measured over the shipped artifact: the rows that lead when searched by their own
+full description fall from 192 to **186 gained and 163 not-first, with `lost` still
+zero** — the 76 dropped rows took six leads with them and cost none. The stemmer's
+corpus-wide merge count falls from 122 to 112 for the same reason. Both are pinned in
+`usda-corpus.test.ts`.
+
+**Implemented:** `src/lib/food/usda-fdc.ts`; the escapes and their survivors pinned by
+name in `tests/unit/usda-fdc.test.ts` and `tests/unit/usda-corpus.test.ts`.
