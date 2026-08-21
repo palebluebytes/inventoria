@@ -4,8 +4,10 @@ import { readFileSync } from "node:fs";
 // mirrored archives with Node built-ins only, like the backup and coverage
 // scripts beside it.
 // @ts-ignore
+// @ts-ignore
+import { APP_EXPORTS } from "../../scripts/usda-app-module.mjs";
+// @ts-ignore
 import {
-  APP_EXPORTS,
   BUNDLE_DATASETS,
   ROW_MACRO_KEYS,
   SCHEMA_VERSION,
@@ -86,18 +88,11 @@ const nutrient = (id: number, amount: number, unitName = "g", name = "n") => ({
   amount,
 });
 
-describe("APP_EXPORTS — the script borrows the app's logic instead of copying it", () => {
-  it("names only real exports of usda-fdc.ts", () => {
-    // The lock the ticket asks for: the survivor population is produced by the
-    // app's own filters, so a rename there has to be followed here. Failing as a
-    // test beats failing as a regeneration nobody runs for months.
-    for (const name of APP_EXPORTS)
-      expect(typeof (usdaFdc as Record<string, unknown>)[name]).toBe(
-        "function"
-      );
-  });
-
+describe("what the generator borrows, and what it never restates", () => {
   it("covers everything the corpus and the rows are built from", () => {
+    // The roster lives in `usda-app-module.mjs`; what this pins is that the
+    // generator's own stub uses all of it and nothing else, so a call site added
+    // here without a roster entry fails rather than reaching a bare undefined.
     expect([...APP_EXPORTS].sort()).toEqual(Object.keys(app).sort());
   });
 

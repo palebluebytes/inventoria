@@ -4,8 +4,6 @@ import { readFileSync } from "node:fs";
 // bundle and backup scripts beside it.
 // @ts-ignore
 import {
-  RANKING_EXPORTS,
-  VOCABULARY_EXPORTS,
   VOCABULARY_TARGET_SHARE,
   assertVocabularyHolds,
   buildVocabularySection,
@@ -22,20 +20,6 @@ import * as ranking from "../../src/lib/food/reference-food-ranking";
 // What matters here is that a key is a phrase the shipped search retrieves
 // NOTHING for, that every key reaches something that retrieves, and that the two
 // filters between the taxonomy and the map are the ones the record describes.
-
-describe("the vocabulary seam — the derivation borrows the app instead of copying it", () => {
-  it("names only real exports of the ranking and the deny-list", () => {
-    // The same lock over the two modules ADR-0049 added to the seam: the
-    // vocabulary is derived by asking the SHIPPED ranking what retrieves, so a
-    // rename there has to be followed here rather than forked.
-    for (const name of RANKING_EXPORTS)
-      expect(typeof (ranking as Record<string, unknown>)[name]).toBe(
-        "function"
-      );
-    expect(VOCABULARY_EXPORTS).toEqual(["DENIED_VOCABULARY_TAGS"]);
-    expect(Array.isArray(DENIED_VOCABULARY_TAGS)).toBe(true);
-  });
-});
 
 describe("readTaxonomyGroups — the English synonym groups OFF publishes", () => {
   it("keeps a group OFF names more than one way", () => {

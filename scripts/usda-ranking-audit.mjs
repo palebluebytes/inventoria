@@ -582,10 +582,11 @@ function twinPass(corpus, index) {
 async function explainAbsence(term) {
   // The filters live in `usda-fdc.ts`, which Node's type-stripping cannot load
   // directly the way it loads the ranking: that module imports its siblings
-  // extensionless, and bare Node will not resolve those. `usda-bundle.mjs`
-  // already solved this for the same filters, so borrow its loader rather than
-  // keep a second copy of the answer.
-  const { loadAppModule, readBundleArchives, groupByIdentity, buildCorpus } =
+  // extensionless, and bare Node will not resolve those. `usda-app-module.mjs`
+  // is the one place that solves it, for every script that borrows the app's
+  // own logic rather than keeping a second copy of the answer (ADR-0047 §4).
+  const { loadAppModule } = await import("./usda-app-module.mjs");
+  const { readBundleArchives, groupByIdentity, buildCorpus } =
     await import("./usda-bundle.mjs");
   const scratch = await mkdtemp(join(tmpdir(), "ranking-audit-"));
   const app = await loadAppModule(scratch);

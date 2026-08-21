@@ -43,15 +43,17 @@
  * What the finished bytes LOOK like is `usda-artifacts.mjs`: ADR-0047 §3's
  * per-line layout and the size report beside it. This file decides what ships;
  * that one decides how it is written, and the two change for different reasons.
+ * How the app's own filters, merge and ranking are reached at all is
+ * `usda-app-module.mjs`, which is ADR-0047 §4's import-don't-copy rule.
  */
 
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { countArchiveRecords } from "./usda-archive.mjs";
+import { assertAppExports, loadAppModule } from "./usda-app-module.mjs";
 import {
   kib,
   measure,
@@ -64,8 +66,6 @@ import {
   fetchPublishedArchives,
 } from "./usda-releases.mjs";
 import {
-  RANKING_EXPORTS,
-  VOCABULARY_EXPORTS,
   assertVocabularyHolds,
   buildVocabularySection,
   deriveVocabulary,
@@ -77,21 +77,6 @@ import {
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST_PATH = join(ROOT, "scripts", "usda-backup.manifest.json");
-const APP_MODULE = join(ROOT, "src", "lib", "food", "usda-fdc.ts");
-const RANKING_MODULE = join(
-  ROOT,
-  "src",
-  "lib",
-  "food",
-  "reference-food-ranking.ts"
-);
-const VOCABULARY_MODULE = join(
-  ROOT,
-  "src",
-  "lib",
-  "food",
-  "food-vocabulary.ts"
-);
 /** Where the committed artifacts live, and where `pnpm build` picks them up. */
 const ARTIFACT_DIR = join(ROOT, "public", "usda");
 
@@ -111,29 +96,6 @@ export const SCHEMA_VERSION = 3;
  * ship 5,432 composite dishes the ADR-0042 filters exist to drop.
  */
 export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
-
-/**
- * Everything this script borrows from the app, by name.
- *
- * The list is exported so `usda-bundle.test.ts` can assert every one of these is
- * a real export of `usda-fdc.ts` — the same lock `usda-coverage.test.ts` puts on
- * `PANEL_FIELDS`. A rename in the app then fails a test rather than failing a
- * regeneration months later.
- */
-export const APP_EXPORTS = [
-  "isBrandSpecific",
-  "isProcessedProduct",
-  "isPreparedProduct",
-  "isDryBasisRecord",
-  "isManufacturingInput",
-  "fdcReportsNoEnergy",
-  "fdcIdentityKey",
-  "resolveFdcGroup",
-  "stripArchiveBoilerplate",
-  "twinSearchAliases",
-  "mapFdcFoodToPayload",
-  "mapFdcPortions",
-];
 
 /**
  * The panel fields a search result row renders, which is the whole of what the
@@ -183,8 +145,14 @@ export const ROW_MACRO_KEYS = [
  */
 
 /**
- * The app's own logic, in the shape {@link loadAppModule} hands it over: exactly
- * {@link APP_EXPORTS}, and nothing this script is allowed to reimplement.
+ * The app's own logic, in the shape `loadAppModule` hands it over: exactly what
+ * `usda-app-module.mjs` names in `APP_EXPORTS`, `RANKING_EXPORTS` and
+ * `VOCABULARY_EXPORTS`, and nothing this script is allowed to reimplement.
+ *
+ * Described here rather than beside the loader because it is stated in terms of
+ * the shapes above — `BundleFood`, `MergedSource`, `Survivor` — which belong to
+ * what this file builds. The loader composes named exports and has no opinion
+ * about their types.
  *
  * @typedef {object} AppModule
  * @property {(description: string) => boolean} isBrandSpecific
@@ -243,97 +211,6 @@ export const ROW_MACRO_KEYS = [
  * @property {{ amount: number, gramWeight: number, modifier?: string, portionDescription?: string, measureUnit?: { name?: string }, sequenceNumber?: number }[]} foodPortions
  * @property {string[]} [also]
  */
-
-// ---------------------------------------------------------------------------
-// Reaching the app's own logic
-// ---------------------------------------------------------------------------
-
-/**
- * Every app module this script borrows from, with what it takes from each.
- *
- * One table rather than three call sites, so the entry {@link loadAppModule}
- * writes and the check {@link assertAppExports} runs cannot fall out of step
- * with each other.
- */
-const BORROWED = [
-  [APP_MODULE, APP_EXPORTS],
-  [RANKING_MODULE, RANKING_EXPORTS],
-  [VOCABULARY_MODULE, VOCABULARY_EXPORTS],
-];
-
-/**
- * Bundles the app modules above to a temporary ES module and imports them, so
- * this plain-Node script can call the app's TypeScript directly.
- *
- * Copying the filter lists was the alternative and is what this exists to avoid:
- * they are ~200 lines of editorial judgement (brand acronym stoplist, sweetener
- * and baked-staple head words, the salad-versus-salad-oil rule) tuned against
- * the corpus, and a second copy would drift silently — the artifact would keep
- * shipping foods the app had learned to drop, or drop foods it had learned to
- * keep, with nothing to notice.
- *
- * esbuild is reached the way `AGENTS.md` §1 reaches any one-off binary: from the
- * PATH if the shell already has it, else through `nix shell nixpkgs#esbuild`.
- * The entry re-exports only what {@link BORROWED} names, so the bundle
- * tree-shakes to a few tens of kB and pulls in no browser API this script would
- * have to stub.
- */
-export async function loadAppModule(scratchDir) {
-  const entry = join(scratchDir, "app-entry.ts");
-  const out = join(scratchDir, "app-bundle.mjs");
-  await writeFile(
-    entry,
-    BORROWED.map(
-      ([module, names]) =>
-        `export { ${names.join(", ")} } from ${JSON.stringify(module)};\n`
-    ).join("")
-  );
-
-  const argv = [
-    entry,
-    "--bundle",
-    "--format=esm",
-    "--platform=node",
-    `--outfile=${out}`,
-  ];
-  const attempts = [
-    ["esbuild", argv],
-    ["nix", ["shell", "nixpkgs#esbuild", "-c", "esbuild", ...argv]],
-  ];
-  let last = null;
-  for (const [command, args] of attempts) {
-    last = spawnSync(command, args, { cwd: ROOT, encoding: "utf8" });
-    if (last.status === 0) {
-      // The temp module has to be imported before it is removed, so the entry
-      // goes now and the bundle goes with the scratch directory afterwards.
-      await rm(entry, { force: true });
-      return await import(pathToFileURL(out).href);
-    }
-  }
-  throw new Error(
-    "could not bundle the app's filters with esbuild. It is reached from the " +
-      "PATH or through `nix shell nixpkgs#esbuild`; install Nix, or put esbuild " +
-      `on the PATH, and re-run.\n${last?.stderr ?? last?.error?.message ?? ""}`
-  );
-}
-
-/**
- * Fails unless the app module exports everything {@link APP_EXPORTS} names.
- *
- * @returns {AppModule}
- */
-export function assertAppExports(app) {
-  for (const [module, names] of BORROWED) {
-    const missing = names.filter((name) => app[name] === undefined);
-    if (missing.length)
-      throw new Error(
-        `${module} no longer exports ${missing.join(", ")}. The bundle is ` +
-          "generated from the app's own filters, merge and ranking, so a rename " +
-          "there has to be followed here rather than forked."
-      );
-  }
-  return app;
-}
 
 // ---------------------------------------------------------------------------
 // Archive record -> the shape the app reads

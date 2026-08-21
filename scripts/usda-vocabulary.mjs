@@ -39,27 +39,6 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 /**
- * The ranking, borrowed for the same reason the filters are (ADR-0049 §2).
- *
- * The vocabulary is built by asking, thousands of times, "does this phrase
- * retrieve anything?" — which is a question only the shipped search can answer.
- * A second implementation here would decide a key belongs in the map by rules
- * the app does not use, and every disagreement would ship as a key that already
- * answers or a miss that never got one.
- */
-export const RANKING_EXPORTS = [
-  "readReferenceFoodName",
-  "compileReferenceFoodQuery",
-];
-
-/**
- * The one input to the derivation a machine cannot supply: which OFF groups name
- * nothing a person would type. Reached through the same seam so it stays out of
- * the app bundle (`src/lib/food/food-vocabulary.ts` explains the arrangement).
- */
-export const VOCABULARY_EXPORTS = ["DENIED_VOCABULARY_TAGS"];
-
-/**
  * The share of the corpus above which a target phrase is not a synonym.
  *
  * MEASURED, not chosen. ADR-0049 §3 names three cases the guard has to catch —
