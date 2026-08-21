@@ -8,6 +8,7 @@ import {
   isPreparedProduct,
   isDryBasisRecord,
   isManufacturingInput,
+  twinSearchAliases,
   fdcReportsNoEnergy,
   type FdcFood,
   type FdcFoodPortion,
@@ -948,6 +949,88 @@ describe("resolveFdcGroup", () => {
 
     expect(provenance).not.toHaveProperty("merged_from");
     expect(provenance.adapter_version).toBe("9");
+  });
+});
+
+describe("twinSearchAliases", () => {
+  it("keeps the name the merge discarded", () => {
+    expect(
+      twinSearchAliases(["Spinach, mature", "Spinach, raw"], "Spinach, mature")
+    ).toEqual(["Spinach, raw"]);
+  });
+
+  it("keeps a name whose words the surviving one already has", () => {
+    // `Bananas, raw` retrieves the row today and still loses to another banana,
+    // because the surviving name buries "raw" behind two qualifiers. The alias
+    // is the same food's better-formed name, and ranking reads it as one.
+    expect(
+      twinSearchAliases(
+        ["Bananas, ripe and slightly ripe, raw", "Bananas, raw"],
+        "Bananas, ripe and slightly ripe, raw"
+      )
+    ).toEqual(["Bananas, raw"]);
+  });
+
+  it("strips USDA's boilerplate parentheticals from an alias it keeps", () => {
+    expect(
+      twinSearchAliases(
+        [
+          "Fish, pollock, raw",
+          "Fish, pollock, Alaska, raw (may contain additives to retain moisture)",
+        ],
+        "Fish, pollock, raw"
+      )
+    ).toEqual(["Fish, pollock, Alaska, raw"]);
+  });
+
+  it("keeps a parenthetical that names the food", () => {
+    // Only the two boilerplate phrases go. A parenthetical is usually a NAME —
+    // pak-choi, jicama, scallion — and stripping those would take the very words
+    // an alias exists to carry.
+    expect(
+      twinSearchAliases(
+        ["Cabbage, bok choy, raw", "Cabbage, chinese (pak-choi), raw"],
+        "Cabbage, bok choy, raw"
+      )
+    ).toEqual(["Cabbage, chinese (pak-choi), raw"]);
+  });
+
+  it("offers no alias where only the boilerplate differed", () => {
+    expect(
+      twinSearchAliases(
+        [
+          "Cheese, cheddar",
+          "Cheese, cheddar (Includes foods for USDA's Food Distribution Program)",
+        ],
+        "Cheese, cheddar"
+      )
+    ).toEqual([]);
+  });
+
+  it("does not read a record's own boilerplate back to it as an alias", () => {
+    // Stripping the boilerplate off the SURVIVING description leaves a different
+    // string, and it is not a name the merge discarded: nothing discarded it.
+    expect(
+      twinSearchAliases(
+        [
+          "Raisins, dark, seedless (Includes foods for USDA's Food Distribution Program)",
+        ],
+        "Raisins, dark, seedless (Includes foods for USDA's Food Distribution Program)"
+      )
+    ).toEqual([]);
+  });
+
+  it("offers no alias for an untwinned food", () => {
+    expect(twinSearchAliases(["Kale, raw"], "Kale, raw")).toEqual([]);
+  });
+
+  it("offers each distinct name once", () => {
+    expect(
+      twinSearchAliases(
+        ["Millet, whole grain", "Millet, raw", "Millet, Raw"],
+        "Millet, whole grain"
+      )
+    ).toEqual(["Millet, raw"]);
   });
 });
 

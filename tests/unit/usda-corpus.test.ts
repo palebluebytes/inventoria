@@ -538,11 +538,12 @@ describe("searchIndexRows", () => {
       ["teff", "Teff, uncooked"],
       ["tempeh", "Tempeh"],
       ["vanilla extract", "Vanilla extract"],
-      // `Spinach, raw` is in both archives and neither copy ships (#130 §8), so
-      // this is the best row LEFT rather than the right one. #137 may restore
-      // the raw row, at which point the `raw` key above takes it and this
-      // expectation changes — deliberately pinned so that it has to be read.
-      ["spinach", "Spinach, baby"],
+      // Not spinach: #130 §8's claim that neither copy of `Spinach, raw` ships
+      // was an artifact of a broken absence tool, and #137 found the row all
+      // along — SR Legacy's `Spinach, raw` shares ndb 11457 with Foundation's
+      // `Spinach, mature` and merges into it. With the discarded name carried as
+      // an alias the `raw` key decides this two rungs above the plain one, which
+      // is what the pin was written to catch.
     ] as const) {
       expect([query, descriptionsFor(query)[0]]).toEqual([query, expected]);
     }
@@ -594,7 +595,14 @@ describe("searchIndexRows", () => {
     // `simplicity` "without loss". #143 measured that and it is false: deleting
     // `simplicity` breaks five cases measured as already correct. This pins one
     // of them, so the claim cannot be quietly re-adopted.
-    expect(descriptionsFor("bananas")[0]).toBe("Bananas, overripe, raw");
+    //
+    // The row moved with #137 and the key did not: the merge discarded SR
+    // Legacy's `Bananas, raw`, and carrying it as an alias gives the surviving
+    // row a name that ends in ", raw" — simplicity 3, against the 2 that had
+    // been winning this. Plain bananas over overripe ones.
+    expect(descriptionsFor("bananas")[0]).toBe(
+      "Bananas, ripe and slightly ripe, raw"
+    );
   });
 
   it("changes only the order a query returns, never the set", () => {
@@ -741,6 +749,133 @@ const rowFor = (description: string): UsdaIndexRow => {
   if (!row) throw new Error(`no index row for “${description}”`);
   return row;
 };
+
+describe("the twin merge's discarded names, as search aliases", () => {
+  /** A corpus of hand-built rows, so the cases are the ones being reasoned about. */
+  const corpusOf = (foods: UsdaIndexRow[]) =>
+    buildSearchCorpus({
+      artifact: "usda-search-index",
+      schema_version: 3,
+      generated_from: [],
+      vocabulary_off: {
+        licence: "ODbL",
+        source: "Open Food Facts",
+        url: "https://example.invalid/x.json",
+        sha256: "abc",
+        expansions: {},
+      },
+      foods,
+    });
+  const row = (
+    fdcId: number,
+    description: string,
+    also?: string[]
+  ): UsdaIndexRow => ({
+    fdcId,
+    description,
+    dataType: "Foundation",
+    macros: { calories: 1 },
+    ...(also ? { also } : {}),
+  });
+
+  it("reaches a food by the name the merge discarded", () => {
+    const corpus = corpusOf([
+      row(1, "Spinach, mature", ["Spinach, raw"]),
+      row(2, "Spinach, cooked, boiled, drained, without salt"),
+    ]);
+
+    expect(
+      searchIndexRows(corpus, "spinach raw").hits.map((h) => h.row.description)
+    ).toEqual(["Spinach, mature"]);
+  });
+
+  it("lets the discarded name win the ordering when it is the better one", () => {
+    // `Bananas, raw` retrieved the row before this change and still lost, because
+    // the surviving name buries "raw" behind two qualifiers. The alias is read as
+    // a name in its own right, so its `simplicity` is the one that counts.
+    const corpus = corpusOf([
+      row(1, "Bananas, dehydrated, or banana powder"),
+      row(2, "Bananas, ripe and slightly ripe, raw", ["Bananas, raw"]),
+    ]);
+
+    expect(searchIndexRows(corpus, "bananas raw").hits[0].row.fdcId).toBe(2);
+  });
+
+  it("keeps the food's own name the one it is shown and staged under", () => {
+    // Search-only: an alias says the row answers to that name, never that the
+    // row IS it. Nothing is appended the way a vocabulary key is (ADR-0049).
+    const corpus = corpusOf([row(1, "Spinach, mature", ["Spinach, raw"])]);
+    const [hit] = searchIndexRows(corpus, "spinach raw").hits;
+
+    expect(hit.row.description).toBe("Spinach, mature");
+    expect(hit.alias).toBeUndefined();
+    expect(mapIndexRowToPayload(hit.row).attributes["food/name"]).toBe(
+      "Spinach, mature"
+    );
+  });
+
+  it("never lets an alias demote the name the row ships under", () => {
+    // The best key of ALL the row's names wins, so carrying a worse-matching
+    // alias cannot cost a row a place it holds on its own name.
+    const withAlias = corpusOf([
+      row(1, "Peppers, bell, green, raw", ["Peppers, sweet, green, raw"]),
+      row(2, "Peppers, hot chili, green, raw"),
+    ]);
+    const without = corpusOf([
+      row(1, "Peppers, bell, green, raw"),
+      row(2, "Peppers, hot chili, green, raw"),
+    ]);
+
+    expect(searchIndexRows(withAlias, "bell peppers").hits[0].row.fdcId).toBe(
+      searchIndexRows(without, "bell peppers").hits[0].row.fdcId
+    );
+  });
+
+  it("answers a row with no alias exactly as it did before", () => {
+    const corpus = corpusOf([row(1, "Kale, raw")]);
+
+    expect(searchIndexRows(corpus, "kale").hits).toHaveLength(1);
+  });
+
+  // ── over the committed artifact ───────────────────────────────────────────
+  // The cases #137 was filed on, against the rows the app actually ships. Every
+  // one of these retrieved NOTHING before the aliases, and each is a food whose
+  // record was in the corpus the whole time under USDA's other name for it.
+
+  it("reaches the foods whose archived names the merge discarded", () => {
+    for (const [query, description] of [
+      ["spinach raw", "Spinach, mature"],
+      ["millet raw", "Millet, whole grain"],
+      ["shiitake mushrooms raw", "Mushrooms, shiitake"],
+      ["egg whole raw fresh", "Eggs, Grade A, Large, egg whole"],
+      ["heavy whipping cream", "Cream, heavy"],
+      ["sweet peppers green", "Peppers, bell, green, raw"],
+      ["pak-choi", "Cabbage, bok choy, raw"],
+      ["butter without salt", "Butter, stick, unsalted"],
+    ])
+      expect([query, descriptionsFor(query)[0]]).toEqual([query, description]);
+  });
+
+  it("leads with the food whose archived name is the better-formed one", () => {
+    // Retrieval was never the problem for these three; the ordering was. The
+    // surviving name buries "raw" behind qualifiers the archived name does not
+    // have, so `simplicity` had nothing to prefer.
+    expect(descriptionsFor("bananas raw")[0]).toBe(
+      "Bananas, ripe and slightly ripe, raw"
+    );
+    expect(descriptionsFor("cabbage raw")[0]).toBe("Cabbage, green, raw");
+    expect(descriptionsFor("carrots raw")[0]).toBe("Carrots, mature, raw");
+  });
+
+  it("carries an alias only where USDA held a second name for the food", () => {
+    const aliased = index.foods.filter((food) => food.also);
+
+    expect(aliased).toHaveLength(87);
+    // Never the row's own name back to it, and never a name it already reads as.
+    for (const food of aliased)
+      expect(food.also).not.toContain(food.description);
+  });
+});
 
 describe("mapIndexRowToPayload", () => {
   it("carries identity, the macros a result row renders, and the portions", () => {

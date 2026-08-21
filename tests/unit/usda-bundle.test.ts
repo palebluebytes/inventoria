@@ -31,6 +31,7 @@ import {
   isManufacturingInput,
   isPreparedProduct,
   isProcessedProduct,
+  twinSearchAliases,
   mapFdcFoodToPayload,
   mapFdcPortions,
   resolveFdcGroup,
@@ -52,6 +53,7 @@ const app = {
   fdcReportsNoEnergy,
   fdcIdentityKey,
   resolveFdcGroup,
+  twinSearchAliases,
   mapFdcFoodToPayload,
   mapFdcPortions,
 };

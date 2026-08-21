@@ -271,12 +271,20 @@ export function describeVocabulary(vocabulary) {
  * "something", and `SEARCH_RESULT_LIMIT` would hide the breadth the stopword
  * guard measures.
  *
- * @param {string[]} descriptions
+ * A row is read as ALL of its names — its description and any alias the twin
+ * merge left it (#137) — because that is what a keystroke reaches it by. A
+ * counter that modelled descriptions alone would measure a corpus the app no
+ * longer searches, and both of ADR-0049 §3's filters are stated over what the
+ * finished corpus retrieves.
+ *
+ * @param {{ description: string, also?: string[] }[]} rows
  * @param {{ readReferenceFoodName: (description: string) => object, compileReferenceFoodQuery: (query: string) => (name: object) => { tier: number } }} app
  */
-export function retrievalCounter(descriptions, app) {
-  const names = descriptions.map((description) =>
-    app.readReferenceFoodName(description)
+export function retrievalCounter(rows, app) {
+  const names = rows.map((row) =>
+    [row.description, ...(row.also ?? [])].map((description) =>
+      app.readReferenceFoodName(description)
+    )
   );
   const counted = new Map();
   return (phrase) => {
@@ -284,7 +292,8 @@ export function retrievalCounter(descriptions, app) {
     if (known !== undefined) return known;
     const rank = app.compileReferenceFoodQuery(phrase);
     let rows = 0;
-    for (const name of names) if (rank(name).tier > 0) rows++;
+    for (const row of names)
+      if (row.some((name) => rank(name).tier > 0)) rows++;
     counted.set(phrase, rows);
     return rows;
   };

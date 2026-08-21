@@ -236,7 +236,11 @@ describe("retrievalCounter — the shipped search, asked how much a phrase reach
   // The ranking module itself, which is the whole of what this borrows: the
   // point of the seam is that the map is derived by the search that ships.
   const count = retrievalCounter(
-    ["Eggplant, raw", "Zucchini, baby, raw", "Squash, summer, zucchini, raw"],
+    [
+      { description: "Eggplant, raw" },
+      { description: "Zucchini, baby, raw" },
+      { description: "Squash, summer, zucchini, raw" },
+    ],
     ranking
   );
 
@@ -248,6 +252,26 @@ describe("retrievalCounter — the shipped search, asked how much a phrase reach
   it("answers nothing for the phrase the corpus does not use", () => {
     expect(count("courgette")).toBe(0);
     expect(count("aubergine")).toBe(0);
+  });
+
+  it("reads a row by every name it answers to, aliases included", () => {
+    // The corpus the app searches is rows-with-aliases (#137), so a map derived
+    // against descriptions alone would key phrases that DO retrieve.
+    const withAlias = retrievalCounter(
+      [{ description: "Spinach, mature", also: ["Spinach, raw"] }],
+      ranking
+    );
+
+    expect(withAlias("spinach raw")).toBe(1);
+  });
+
+  it("counts a row once however many of its names answer", () => {
+    const withAlias = retrievalCounter(
+      [{ description: "Millet, whole grain", also: ["Millet, raw"] }],
+      ranking
+    );
+
+    expect(withAlias("millet")).toBe(1);
   });
 });
 
@@ -290,7 +314,7 @@ describe("the committed vocabulary", () => {
     const vocabulary = index.vocabulary_off;
     const expansions: Record<string, string[]> = vocabulary.expansions;
     const count = retrievalCounter(
-      index.foods.map((row: { description: string }) => row.description),
+      index.foods as { description: string; also?: string[] }[],
       ranking
     );
 
@@ -330,9 +354,19 @@ describe("the committed vocabulary", () => {
       expect(expansions.rocket).toEqual(["arugula"]);
       expect(expansions.cornflour).toEqual(["corn flour"]);
       expect(expansions["skimmed milk"]).toContain("skim milk");
-      expect(expansions["flax seed"]).toEqual(["flaxseed"]);
+      expect(expansions.linseed).toContain("flaxseed");
       expect(expansions["ginger powder"]).toEqual(["ground ginger"]);
       expect(expansions.wombok).toContain("chinese cabbage");
+    });
+
+    it("drops a key the corpus learned to answer for itself", () => {
+      // `flax seed` was a key until the twin merge's discarded names became
+      // search aliases (#137): `Flaxseed, ground` now also answers to SR
+      // Legacy's `Seeds, flaxseed`, so the phrase retrieves and ADR-0049 §1's
+      // fallback would never reach it. A key that answers is the one thing the
+      // map must not hold.
+      expect(count("flax seed")).toBeGreaterThan(0);
+      expect(expansions).not.toHaveProperty("flax seed");
     });
 
     it("keys no phrase from a group the deny-list refuses", () => {

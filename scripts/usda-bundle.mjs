@@ -88,12 +88,12 @@ const ARTIFACT_DIR = join(ROOT, "public", "usda");
 /**
  * Bumped when either artifact's shape changes, so a reader can refuse an old one.
  *
- * 2 adds the search index's `vocabulary_off` section (ADR-0049 §4). Both files
- * carry the version because both are generated together from one corpus, and a
- * pair that disagreed about their version would be the bug the number exists to
- * catch.
+ * 2 adds the search index's `vocabulary_off` section (ADR-0049 §4). 3 adds a
+ * row's `also`, the names the twin merge discarded (#137). Both files carry the
+ * version because both are generated together from one corpus, and a pair that
+ * disagreed about their version would be the bug the number exists to catch.
  */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 /**
  * The datasets the corpus is built from, in the manifest's own naming. Survey is
@@ -119,6 +119,7 @@ export const APP_EXPORTS = [
   "fdcReportsNoEnergy",
   "fdcIdentityKey",
   "resolveFdcGroup",
+  "twinSearchAliases",
   "mapFdcFoodToPayload",
   "mapFdcPortions",
 ];
@@ -183,6 +184,7 @@ export const ROW_MACRO_KEYS = [
  * @property {(food: BundleFood) => boolean} fdcReportsNoEnergy
  * @property {(food: BundleFood) => string | number} fdcIdentityKey
  * @property {(group: BundleFood[]) => { food: BundleFood, merged_from: MergedSource[] }} resolveFdcGroup
+ * @property {(descriptions: string[], surviving: string) => string[]} twinSearchAliases
  * @property {(food: BundleFood, merged_from: MergedSource[]) => { attributes: Record<string, any> }} mapFdcFoodToPayload
  * @property {(portions: Survivor["foodPortions"]) => Portion[]} mapFdcPortions
  * @property {(description: string) => object} readReferenceFoodName
@@ -203,6 +205,7 @@ export const ROW_MACRO_KEYS = [
  * @property {Record<string, number>} macros
  * @property {Portion[]} [portions]
  * @property {MergedSource[]} [merged_from]
+ * @property {string[]} [also]
  */
 
 /**
@@ -226,6 +229,7 @@ export const ROW_MACRO_KEYS = [
  * @property {BundleFood} food
  * @property {MergedSource[]} merged_from
  * @property {{ amount: number, gramWeight: number, modifier?: string, portionDescription?: string, measureUnit?: { name?: string }, sequenceNumber?: number }[]} foodPortions
+ * @property {string[]} [also]
  */
 
 // ---------------------------------------------------------------------------
@@ -508,7 +512,20 @@ export function buildCorpus(groups, app) {
     // food's fdcId is one the group carries.
     const base = group.find((e) => e.food.fdcId === food.fdcId);
     if (group.length > 1) twinned_survivors++;
-    survivors.push({ food, merged_from, foodPortions: base.foodPortions });
+    // The names the merge just discarded, so the row still answers to them
+    // (#137). Asked of the WHOLE group rather than of `merged_from`, which
+    // names only the twins that filled a panel field: a twin that borrowed
+    // nothing still took its name with it.
+    const also = app.twinSearchAliases(
+      group.map((e) => e.food.description),
+      food.description
+    );
+    survivors.push({
+      food,
+      merged_from,
+      foodPortions: base.foodPortions,
+      ...(also.length ? { also } : {}),
+    });
   }
 
   survivors.sort((a, b) => a.food.fdcId - b.food.fdcId);
@@ -560,7 +577,7 @@ export function generatedFrom(archives) {
  * @param {AppModule} app
  * @returns {IndexRow}
  */
-export function buildIndexRow({ food, merged_from, foodPortions }, app) {
+export function buildIndexRow({ food, merged_from, foodPortions, also }, app) {
   const payload = app.mapFdcFoodToPayload(food, merged_from);
   const panel = payload.attributes["nutrition/info"];
   const macros = {};
@@ -578,6 +595,7 @@ export function buildIndexRow({ food, merged_from, foodPortions }, app) {
   const portions = app.mapFdcPortions(foodPortions);
   if (portions.length) row.portions = portions;
   if (merged_from.length) row.merged_from = merged_from;
+  if (also?.length) row.also = also;
   return row;
 }
 
@@ -936,7 +954,10 @@ async function main() {
   // FINISHED corpus retrieves, so a group's members are compared against the
   // rows that survived rather than against the archives they came from.
   const countMatches = retrievalCounter(
-    survivors.map((survivor) => survivor.food.description),
+    survivors.map((survivor) => ({
+      description: survivor.food.description,
+      also: survivor.also,
+    })),
     app
   );
   const vocabulary = deriveVocabulary(
@@ -952,7 +973,10 @@ async function main() {
   assertVocabularyHolds(
     vocabulary.expansions,
     retrievalCounter(
-      survivors.map((survivor) => survivor.food.description),
+      survivors.map((survivor) => ({
+        description: survivor.food.description,
+        also: survivor.also,
+      })),
       app
     )
   );
@@ -979,9 +1003,21 @@ async function main() {
       `${dropped.manufacturing_input} manufacturing inputs, ` +
       `${dropped.no_energy} reporting no energy dropped)`
   );
+  const aliased = index.foods.filter((row) => row.also);
+  const aliasBytes = aliased.reduce(
+    (total, row) => total + JSON.stringify(row.also).length + ',"also":'.length,
+    0
+  );
   console.log(
     `  ${twinned_survivors} twinned foods survive, of which ${merged} borrowed a ` +
       `field and so name a twin in merged_from`
+  );
+  // Measured, not estimated: #120 caught this artifact being 40% larger than the
+  // ADR describing it claimed, on an estimate nobody had re-run.
+  console.log(
+    `  ${aliased.length} of them answer to a name the merge discarded ` +
+      `(${aliased.reduce((n, row) => n + row.also.length, 0)} aliases, ` +
+      `${aliasBytes.toLocaleString("en-GB")} bytes of the index)`
   );
   console.log(
     `  ${withPortions} rows carry portions, ` +

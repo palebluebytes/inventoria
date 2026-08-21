@@ -20,6 +20,7 @@ import {
   stemOf,
   wordsOf,
   type ReferenceFoodName,
+  type ReferenceFoodQuery,
   type RelevanceKey,
 } from "./reference-food-ranking";
 
@@ -78,6 +79,12 @@ export interface UsdaIndexRow {
   macros: IndexMacros;
   portions?: Portion[];
   merged_from?: MergedSource[];
+  /**
+   * The names this row also answers to: the descriptions USDA's twin records
+   * carry that the merge discarded (#137). Search-only — the row is shown and
+   * staged under `description`, never under one of these.
+   */
+  also?: string[];
 }
 
 /**
@@ -145,6 +152,13 @@ export const SEARCH_RESULT_LIMIT = 50;
 export interface SearchableFood {
   row: UsdaIndexRow;
   name: ReferenceFoodName;
+  /**
+   * The row's aliases, read the same way — one name each, not a bag of extra
+   * words. Every ranking key derives from a description and its word order, so
+   * an alias only earns its `raw`, `plain` and `simplicity` by being read as the
+   * name it is. Empty for all but the twinned rows.
+   */
+  also: ReferenceFoodName[];
 }
 
 /**
@@ -174,6 +188,7 @@ export function buildSearchCorpus(index: SearchIndex): SearchCorpus {
     foods: index.foods.map((row) => ({
       row,
       name: readReferenceFoodName(row.description),
+      also: (row.also ?? []).map(readReferenceFoodName),
     })),
     vocabulary: index.vocabulary_off.expansions,
   };
@@ -288,6 +303,30 @@ export interface IndexSearch extends SearchedPhrases {
 }
 
 /**
+ * How well one row answers a query, over every name it has: its own, and any the
+ * twin merge discarded (#137).
+ *
+ * The BEST key of all of them, which is what makes an alias unable to cost a row
+ * a place it already holds — a worse-matching alias simply never wins. It is
+ * also why the ranking gains no tier, key or clause for aliases: an alias is a
+ * name, scored by the same scorer as every other name.
+ *
+ * The loop is skipped entirely for the 4,265 rows that have no alias, so a
+ * keystroke pays for this only where USDA held two names for one food.
+ */
+function bestNameKey(
+  rank: ReferenceFoodQuery,
+  food: SearchableFood
+): RelevanceKey {
+  let best = rank(food.name);
+  for (const alias of food.also) {
+    const key = rank(alias);
+    if (compareRelevance(key, best) < 0) best = key;
+  }
+  return best;
+}
+
+/**
  * The reference foods answering `phrases`, best first (ADR-0042 §5), capped at
  * one page.
  *
@@ -313,7 +352,7 @@ function rankAgainst(
     let best: RelevanceKey | undefined;
     let bestPhrase = "";
     for (let i = 0; i < ranks.length; i++) {
-      const key = ranks[i](food.name);
+      const key = bestNameKey(ranks[i], food);
       if (key.tier > 0 && (!best || compareRelevance(key, best) < 0)) {
         best = key;
         bestPhrase = phrases[i];

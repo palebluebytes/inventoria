@@ -8,6 +8,7 @@ import {
   type Portion,
 } from "./nutrition";
 import { buildRawProvenance, type MergedSource } from "./provenance";
+import { wordsOf } from "./reference-food-ranking";
 
 // Mapper version, bumped when the FDC -> nutrition/info normalisation changes.
 // v2: energy falls back to the Atwater IDs so Foundation foods aren't 0 kcal.
@@ -386,6 +387,66 @@ export function mapFdcFoodToPayload(
       }),
     },
   };
+}
+
+/**
+ * USDA's two editorial parentheticals, which say something about the record's
+ * distribution or its labelling rather than naming the food.
+ *
+ * A closed list of two phrases, not a rule about parentheses. A parenthetical is
+ * usually a NAME in these archives — `Cabbage, chinese (pak-choi), raw`,
+ * `Yambean (jicama), raw`, `Green onion, (scallion)` — so a general strip would
+ * take the very words an alias exists to carry.
+ */
+const ARCHIVE_BOILERPLATE =
+  /\s*\((?:includes foods for usda's food distribution program|may contain additives to retain moisture)\)/gi;
+
+/**
+ * The names a merged identity answers to besides the one it ships under.
+ *
+ * {@link resolveFdcGroup} keeps the base record's identity, so where USDA holds
+ * one `ndbNumber` under two descriptions the loser's name is discarded and
+ * nothing carries it: raw spinach ships as `Spinach, mature`, raw millet as
+ * `Millet, whole grain`, and a person typing either archived name reaches
+ * nothing at all. These are what the search index carries so that it does
+ * (#137).
+ *
+ * An alias asserts **retrievability, not identity**. It says this row answers to
+ * that name; it never says the two names are the same food. Where USDA reused an
+ * `ndbNumber` across two genuinely different foods the merge already fused them
+ * and this makes the fusion visible rather than hidden — see #145, whose
+ * worklist is exactly what this function emits.
+ *
+ * A name is kept when ranking would read it differently from the surviving one,
+ * which is the whole of the rule. That covers both gains without a judgement
+ * about which key matters: a name carrying a word the survivor lacks
+ * (`Spinach, raw`) is what retrieval needs, and a better-formed name for the
+ * same words (`Bananas, raw`, which ends in ", raw" where the survivor buries it
+ * behind two qualifiers) is what the ordering needs.
+ *
+ * Exported for the same reason its neighbours are: `scripts/usda-bundle.mjs`
+ * applies it at generation time and must not restate it (ADR-0047 §4).
+ */
+export function twinSearchAliases(
+  descriptions: readonly string[],
+  surviving: string
+): string[] {
+  const asRead = (description: string) => wordsOf(description).join(" ");
+  const seen = new Set([asRead(surviving)]);
+  const aliases: string[] = [];
+  for (const description of descriptions) {
+    // The surviving record contributes no alias, even where stripping the
+    // boilerplate would leave a different string. Nothing discarded that name —
+    // the row already ships under it, and reading a record's own description
+    // back to it is a different feature from carrying a twin's.
+    if (description === surviving) continue;
+    const alias = description.replace(ARCHIVE_BOILERPLATE, "").trim();
+    const read = asRead(alias);
+    if (seen.has(read)) continue;
+    seen.add(read);
+    aliases.push(alias);
+  }
+  return aliases;
 }
 
 // ---------------------------------------------------------------------------
