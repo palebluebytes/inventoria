@@ -6,6 +6,38 @@
  */
 
 /**
+ * Names a form that is a MODIFICATION of the food rather than the food: an
+ * imitation, a substitute, or a fat/sodium reduction. #143's measure of what
+ * makes a record canonical, and the half of it that survived measurement.
+ *
+ * Phrases, not bare words, and every one priced against the corpus before it
+ * landed (#131: an unmeasured precision guard is a hole). A bare "low" matches
+ * "Seal, bearded (Oogruk), meat, low quadrant"; "made with" was proposed and
+ * REMOVED, because its 20 rows are mostly recipes rather than substitutes
+ * ("Frybread, made with lard", "Pasta, homemade, made with egg"). What ships
+ * touches 9 rows for `imitation`, 14 for `substitute`, 8 for `meatless` and 3
+ * for `filled`, and every one of those was read.
+ */
+const MODIFIED_FORM =
+  /\b(imitation|substitute|meatless|low sodium|low fat|lowfat|reduced fat|reduced sodium|fat free|fat-free|nonfat|gluten[- ]free|filled|non-soy)\b/i;
+
+/**
+ * Names a food that has been cooked. The `raw` key above already prefers a raw
+ * food, but it cannot separate a PREPARED row from a merely unqualified one:
+ * 1,204 of the corpus rows are neither raw nor cooked, so "Spinach, cooked,
+ * boiled, drained" and "Spinach, baby" tie on `raw` at 0 and nothing else
+ * looked. That gap is the whole of what this closes (#143).
+ *
+ * Deliberately NOT a corpus filter. A preparation word touches 40% of the rows,
+ * and dropping them would leave a logged bowl of rice costed at dry-rice energy
+ * — ~360 kcal/100 g against ~130 — which is #126's silent-miscount harm with a
+ * plausible number on it. ADR-0042 §5 keeps a plain fried egg for the same
+ * reason. The preference belongs here, in the order, not in the filter.
+ */
+const PREPARED_FORM =
+  /\b(cooked|boiled|roasted|baked|fried|broiled|grilled|braised|steamed|stewed|simmered|poached|microwaved|toasted|blanched|sauteed)\b/i;
+
+/**
  * A reference food's name, read the way ranking reads it: as words rather than
  * as a string, with the query-independent half of the score already settled.
  *
@@ -32,6 +64,8 @@ export interface ReferenceFoodName {
   raw: number;
   /** Raw simplicity: "Bananas, raw" (3) over "Bananas, overripe, raw" (2). */
   simplicity: number;
+  /** 1 for a name that is neither a modified form nor a prepared one (#143). */
+  plain: number;
 }
 
 /**
@@ -117,6 +151,9 @@ export function readReferenceFoodName(description: string): ReferenceFoodName {
       ? 3
       : 2
     : raw;
+  // The canonical-record preference: among rows that tie on everything else,
+  // the plain form of the food beats a modified or cooked one.
+  const plain = MODIFIED_FORM.test(lower) || PREPARED_FORM.test(lower) ? 0 : 1;
   return {
     words,
     stems: words.map(stemOf),
@@ -124,6 +161,7 @@ export function readReferenceFoodName(description: string): ReferenceFoodName {
     headChars: head.reduce((n, w) => n + w.length, 0),
     raw,
     simplicity,
+    plain,
   };
 }
 
@@ -197,6 +235,33 @@ export interface RelevanceKey {
    * at index 0 and every candidate still ties. That class is #143.
    */
   position: number;
+  /**
+   * Whether the name is the PLAIN form of its food: 1 unless it is a modified
+   * form (imitation, substitute, reduced-fat) or a prepared one.
+   *
+   * The key ADR-0042's #124 Amendment reserved this slot for, and it is not the
+   * key that Amendment predicted. Two things it assumed did not survive
+   * measurement (#143):
+   *
+   * - It reserved the slot for a "least-qualified" key. Counting qualifiers is
+   *   the measure #130 already disproved — USDA writes the canonical milk with
+   *   MORE qualifiers than the imitation one — so this is a boolean.
+   * - It expected the key to absorb `simplicity`. Deleting `simplicity` breaks
+   *   five of the eighteen cases measured as already correct, so it stays.
+   *
+   * A companion key preferring a WHOLE food over a part of it was measured and
+   * rejected outright: USDA names its most GENERIC animal rows with part
+   * vocabulary — a whole chicken is "meat and skin and giblets and neck", and
+   * the generic pork row is "a composite of … separable lean and fat" — so such
+   * markers select FOR the canonical row. It broke four correct leads and fixed
+   * none.
+   *
+   * No query branch, and none is needed: retrieval admits a row only when EVERY
+   * typed token matches it, so a typed marker word is present in every retrieved
+   * row and this key ties across all of them. Someone searching "boiled egg" or
+   * "low fat milk" is not demoted by it, measured over 15 such queries.
+   */
+  plain: number;
   /** The name's raw simplicity, carried through for the same reason. */
   simplicity: number;
 }
@@ -207,6 +272,7 @@ const NO_MATCH: RelevanceKey = {
   raw: 0,
   head: 0,
   position: 0,
+  plain: 0,
   simplicity: 0,
 };
 
@@ -220,6 +286,7 @@ export function compareRelevance(a: RelevanceKey, b: RelevanceKey): number {
     b.raw - a.raw ||
     b.head - a.head ||
     b.position - a.position ||
+    b.plain - a.plain ||
     b.simplicity - a.simplicity
   );
 }
@@ -257,7 +324,7 @@ export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
   const tokenStems = tokens.map(stemOf);
   const queryChars = tokens.reduce((n, t) => n + t.length, 0);
 
-  return ({ words, stems, headLength, headChars, raw, simplicity }) => {
+  return ({ words, stems, headLength, headChars, raw, simplicity, plain }) => {
     // Weakest signal: every token prefix-matches some word (this is what lets
     // grapefruit in for a "grape" query). Strongest of the name-wide signals:
     // every token IS some word, modulo plural — "grape" really present as a word
@@ -329,6 +396,7 @@ export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
       // unsweetened, …" (head 7, exactly 0).
       head: headCovered ? -Math.abs(headChars - queryChars) : HEAD_UNMATCHED,
       position,
+      plain,
       simplicity,
     };
   };

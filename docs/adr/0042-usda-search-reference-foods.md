@@ -12,6 +12,7 @@
 **Amended by:** the #136 Amendment below, which reads a typed query with the same tokeniser as a food's name  
 **Amended by:** the #135 Amendment below, which widens §1's stemmer by two English plurals  
 **Amended by:** the #124 Amendment below, which adds a fifth key asking where in the name the query landed  
+**Amended by:** the #143 Amendment below, which fills the slot the #124 Amendment reserved, and corrects what it reserved it for  
 **Implemented:** `dabb1fe`, `082ad31`, `fcb3b60`, `1365343`; `src/lib/food/food-search.ts`
 
 ## Context
@@ -70,6 +71,10 @@ Results are ordered by, in priority:
    ("grap"), the food whose name most completely fills the query wins.
 4. **Raw simplicity** — the simplest raw form (fewest qualifiers) as the final
    tiebreak.
+
+   > Joined by the [#143 Amendment](#amendment-2026-08-21-143-the-plain-form-of-a-food-and-what-the-reserved-slot-was-not-for),
+   > which adds a sixth key above this one and, contrary to the #124 Amendment's
+   > prediction, does **not** absorb it.
 
 Relevance gates rawness: an off-target raw food never beats an on-target one.
 
@@ -599,3 +604,128 @@ carries verdicts forward by case identity and flags the ones whose leading row
 has moved, stickily, so a second regenerate cannot quietly clear the doubt. A
 generated artifact that also holds human judgement has to be told the
 difference.
+
+## Amendment (2026-08-21, #143): the plain form of a food, and what the reserved slot was NOT for
+
+The #124 Amendment above reserved the slot after `position` "for a least-qualified
+key, which will absorb `simplicity`". [#143](https://github.com/palebluebytes/inventoria/issues/143)
+measured what should go there. The slot is now filled, and **both halves of the
+sentence reserving it were wrong**.
+
+§1 gains a sixth key, between `position` and raw simplicity:
+
+> **`plain`** — 1 unless the name is a **modified** form of its food (imitation,
+> substitute, meatless, reduced-fat, low-sodium, fat-free, gluten-free, filled)
+> or a **prepared** one (cooked, boiled, roasted, fried, …). Among rows that tie
+> on everything before it, the plain form of a food leads.
+
+`tier → raw → head → position → plain → simplicity`.
+
+### The defect it addresses
+
+When a typed query IS a food's head phrase, every candidate matches at word index
+0 and ties on all five preceding keys, so `Array.sort`'s stability hands the
+answer to whichever `fdcId` is lowest. **163 of the corpus's 271 multi-row head
+phrases end in such a tie, across 2,033 rows**, and in every one of the 163 the
+leading row is simply the earliest tied row in the index. `milk` led with a
+cultured reduced-fat buttermilk; `yogurt` with a nonfat fruit variety; `spinach`
+with a boiled one; `vanilla extract` with an imitation.
+
+`raw` already states the base-ingredient preference, but it cannot separate a
+prepared row from a merely unqualified one: **1,204 rows are neither raw nor
+cooked**, so `Spinach, cooked, boiled, drained` and `Spinach, baby` both score
+`raw` 0 and nothing else looked. That is the gap.
+
+### Boolean, not a count
+
+"Fewest qualifiers" is the measure [#130](https://github.com/palebluebytes/inventoria/issues/130)'s
+correction block already disproved: USDA writes the canonical milk with **more**
+qualifiers than the imitation one, and a fewest-qualifiers key picks
+`Milk, imitation, non-soy` and `Mayonnaise, made with tofu`. Counting qualifiers
+conflates _shortest name_ with _most canonical_. The key is therefore a boolean
+over a closed, corpus-priced vocabulary, not a count of anything.
+
+### It does not absorb `simplicity`
+
+The #124 Amendment predicted it would, "without loss". Measured, deleting
+`simplicity` breaks **five** of the eighteen gold-set cases adjudicated as
+already correct. That clause is **false and is corrected here rather than edited
+above**, following the precedent the #124-implemented Amendment set. `raw` was
+tested the same way and also stays: deleting it moves one of §1's nine guards, so
+it is now held by evidence as well as by principle.
+
+### The companion key that was measured and rejected
+
+#143 also measured a `whole` key preferring a food over a part or fraction of it,
+which #130 §3.1 ranks as the _sharpest_ wrongness. It **fixes nothing and breaks
+four correct leads**, and the mechanism inverts its own premise: **USDA names its
+most GENERIC animal rows with part vocabulary.** A whole chicken is
+`meat and skin and giblets and neck`; the generic pork row is
+`a composite of … separable lean and fat`. Part markers therefore select **for**
+the canonical row. It sent `chicken` and `turkey` to giblets, `pork` to backfat
+and `lamb` to a mechanically-separated record, and where it did fire it swapped
+one part for another (`cowpeas`, from young pods to leafy tips).
+
+§3.1's whole-over-part precedence is sound and simply **unreadable from a USDA
+description** — the words naming the part and the words naming the whole animal
+are the same words. The four leads it broke are pinned as tests, so the idea
+cannot be re-adopted without meeting them.
+
+### No query branch, and none is needed
+
+Retrieval admits a row only when **every** typed token matches it, so a typed
+marker word is present in every retrieved row and this key ties across all of
+them. Someone searching `boiled egg`, `cooked rice`, `low fat milk` or
+`imitation cheese` is not demoted by it — measured over 15 such queries, all
+uniform, and pinned. This is the same shape as the #124 Amendment's "summing
+settles it for free, with no exclusion rule".
+
+### Prepared rows are ranked down, never dropped
+
+A preparation word touches **1,784 of 4,429 rows (40.3%)**. Dropping them was
+considered and rejected: dry rice is ~360 kcal/100 g against cooked ~130, so a
+corpus without prepared rows costs a logged bowl of rice at triple, silently —
+[#126](https://github.com/palebluebytes/inventoria/issues/126)'s harm wearing a
+plausible number. §5's "a plain fried egg is a reference food like a scrambled
+one" is unchanged. The preference lives in the order, not in the filter.
+
+### What this key does NOT do, stated plainly
+
+**It reaches 18 of the 163 tie queries. 135 leads are still decided by `fdcId`
+order.** The residue is not a ranking defect a name rule can see, and it is
+routed rather than left silent: filter escapes to
+[#144](https://github.com/palebluebytes/inventoria/issues/144); category heads
+(`fish` with 82 tied rows, `oil` 72, `bread` 76) and ethnic-designated records to
+[#134](https://github.com/palebluebytes/inventoria/issues/134); genuine varietal
+peers (`Corn, sweet, white` against yellow, `Dates, medjool`) to a written
+`peers` verdict with no remedy.
+
+Even among the cases it moves, eight modifier misses — `milk`, `cheese`,
+`yogurt`, `pasta`, `pickles`, `peanut butter`, `sour cream`, `bacon` — move to a
+_different_ wrong row. Demoting the marked rows in an 87-way tie leaves dozens
+still tied, and `fdcId` picks again among the survivors.
+
+Measured, the 18 moved leads read **11 better, 1 worse, 4 sideways, 2 noise**;
+the one worse is `cheese`, moving from a lactose-reduced cottage cheese to
+`Cheese, cottage, with vegetables`. Across the whole corpus the rows that lead
+when searched by their own full description rise from 184 to **192, with none
+lost**.
+
+### The bar this did not clear, and why it shipped anyway
+
+#143 pre-registered "ship at ≥ 2/3 of gold-set shape misses". The result is
+**43%**, which its own bands call `report and return`. It was returned, and the
+maintainer's decision was to ship. Recorded here rather than smoothed over,
+because the pre-registration is only worth having if a miss is reported as one.
+
+**Ratification was waived.** #143 §8.3 required a human to read all 50 gold-set
+judgements before a key was written; a review tool was built for it and then
+removed at the maintainer's direction. The 50 adjudications in
+`143-gold-set.json` therefore stand **unratified**, exactly the exposure #130's
+correction block describes, and that is this key's largest caveat. What is not
+caveated is the mechanical half: the 18 moved leads, the four broken leads that
+killed the `whole` key, the 192/0 corpus re-measure and the query-uniformity
+result are counts, not judgements.
+
+**Implemented:** `src/lib/food/reference-food-ranking.ts`; measured in
+[`docs/research/143-canonical-record-measure.md`](../research/143-canonical-record-measure.md).

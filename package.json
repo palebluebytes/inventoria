@@ -17,8 +17,7 @@
     "curated:check": "node scripts/curated-snapshot-check.mjs",
     "test:e2e": "playwright test",
     "prepare": "husky",
-    "usda:ranking-audit": "node scripts/usda-ranking-audit.mjs",
-    "usda:review": "node scripts/usda-adjudication-review.mjs"
+    "usda:ranking-audit": "node scripts/usda-ranking-audit.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",

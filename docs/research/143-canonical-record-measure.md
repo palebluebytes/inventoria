@@ -155,13 +155,27 @@ Routed, not fixed, and enumerated in the results section when the sweep runs:
 
 The last-resort tie-break is deliberately **left as corpus order**. Every available proxy — shortest name, `fdcId`, dataType — is either the disproven fewest-qualifiers measure or the dead provenance signal of §3, and replacing an arbitrary order with a differently-arbitrary one buys nothing while looking like a decision.
 
-## 10. The review tool
+## 10. Ratification, and its waiver
 
-`scripts/usda-adjudication-review.mjs`, Node built-ins only, serving a self-contained page on its own port — **never 5173**, which is the app's dev port and reusing it is how the stale-server trap bites. The page `PUT`s each verdict straight into the audit JSON in place, so there is no download-and-merge step where judgements get lost.
+§8.3 requires a human to read all 50 judgements before a key is written. A review
+tool was built for it — `scripts/usda-adjudication-review.mjs`, serving the cases
+on its own port and writing verdicts back into the JSON in place — and was then
+**removed at the maintainer's direction**, along with the ratification step.
 
-Each card shows the query, the top ~10 ranked rows with all five key values as columns so a tie reads as a tie rather than being asserted, and the proposed best row with its one-line reason. Controls: click a row to designate "should lead"; set a verdict; tag the shape; flag a #144 filter escape; leave a note. The 135 unreached cases appear **read-only**, grouped by §9's routing, flaggable but not adjudicated — which is what keeps §8.3's ratification affordable.
+**The 50 adjudications in `143-gold-set.json` therefore stand unratified**, and
+every case carries `ratified: false`. This is recorded rather than quietly
+dropped, because it is exactly the exposure #130's correction block describes: an
+adjudication nobody independently read is a judgement taken on trust, and #130's
+sizing had to be overturned for that reason.
 
-Built once the sweep has adjudications to load.
+What the waiver does **not** touch is the mechanical half of this measurement,
+which contains no adjudicator at all: the 163-query class and its corpus-order
+finding (§2), the two dead signals (§3), the 28-case ceiling (§4), the four
+correct leads the part key breaks (§12), the 18 moved leads (§13), the corpus
+re-measure from 184 to 192 rows leading by their own name, and the query
+uniformity result (§5). Those are counts. The 43% in §14 is the number that rests
+on the unratified judgements, and it is the number the decision went against
+anyway.
 
 ---
 

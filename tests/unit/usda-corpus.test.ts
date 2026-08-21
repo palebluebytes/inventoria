@@ -450,6 +450,77 @@ describe("searchIndexRows", () => {
     }
   });
 
+  it("leads with the plain form of a food, not a cooked or imitated one", () => {
+    // #143. When the query IS a food's head phrase, every candidate matches at
+    // word index 0 and ties on all five keys before this one, so `Array.sort`'s
+    // stability handed the answer to whichever fdcId was lowest. These six are
+    // the cases the sixth key decides, measured against the gold set in
+    // `docs/research/143-gold-set.json`.
+    for (const [query, expected] of [
+      ["millet", "Millet, whole grain"],
+      ["rice noodles", "Rice noodles, dry"],
+      ["teff", "Teff, uncooked"],
+      ["tempeh", "Tempeh"],
+      ["vanilla extract", "Vanilla extract"],
+      // `Spinach, raw` is in both archives and neither copy ships (#130 §8), so
+      // this is the best row LEFT rather than the right one. #137 may restore
+      // the raw row, at which point the `raw` key above takes it and this
+      // expectation changes — deliberately pinned so that it has to be read.
+      ["spinach", "Spinach, baby"],
+    ] as const) {
+      expect([query, descriptionsFor(query)[0]]).toEqual([query, expected]);
+    }
+  });
+
+  it("does not demote a prepared or modified food the query asked for", () => {
+    // #143's reason for having no query-aware branch: retrieval admits a row
+    // only when EVERY typed token matches it, so a typed marker word is present
+    // in every retrieved row and the key ties across all of them. If that ever
+    // stops holding, someone searching "boiled egg" starts being handed a row
+    // that is not boiled, and this is where it shows up.
+    for (const [query, marker] of [
+      ["boiled egg", "boil"],
+      ["cooked rice", "cook"],
+      ["low fat milk", "low"],
+      ["imitation cheese", "imitation"],
+      ["roasted chicken", "roast"],
+    ] as const) {
+      const found = descriptionsFor(query);
+      expect(found.length).toBeGreaterThan(0);
+      expect(found.filter((d) => !d.toLowerCase().includes(marker))).toEqual(
+        []
+      );
+    }
+  });
+
+  it("keeps leading with the generic animal row, which USDA names by its parts", () => {
+    // #143 measured a companion key preferring a WHOLE food over a part of it
+    // and rejected it: USDA names its most GENERIC animal rows with part
+    // vocabulary, so part markers select FOR the canonical row. These four are
+    // the leads that key broke. They are pinned as the reason it is not here.
+    for (const [query, expected] of [
+      [
+        "chicken",
+        "Chicken, broilers or fryers, meat and skin and giblets and neck, raw",
+      ],
+      ["turkey", "Turkey, whole, meat and skin, raw"],
+      [
+        "lamb",
+        'Lamb, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/4" fat, choice, raw',
+      ],
+    ] as const) {
+      expect([query, descriptionsFor(query)[0]]).toEqual([query, expected]);
+    }
+  });
+
+  it("still needs raw simplicity, which the reserved slot was to have absorbed", () => {
+    // ADR-0042's #124 Amendment reserved this slot for a key that would absorb
+    // `simplicity` "without loss". #143 measured that and it is false: deleting
+    // `simplicity` breaks five cases measured as already correct. This pins one
+    // of them, so the claim cannot be quietly re-adopted.
+    expect(descriptionsFor("bananas")[0]).toBe("Bananas, overripe, raw");
+  });
+
   it("changes only the order a query returns, never the set", () => {
     // #124's hard invariant, and what decouples it from the vocabulary work in
     // #139/#140, which fires on whether a query retrieves anything at all. The
@@ -551,11 +622,17 @@ describe("searchIndexRows", () => {
       if (before === food.row.description && after !== food.row.description)
         lost++;
     }
-    // The total AND the split. A later key could reach 172 while quietly costing
+    // The total AND the split. A later key could reach 164 while quietly costing
     // a row that leads today, and the total alone would not notice.
+    //
+    // Re-measured for #143's `plain` key, which #143 §8.8 required: 184 gained
+    // and 172 not-first became 192 and 164. `lost` is the invariant and is still
+    // zero — the sixth key took the lead from no row that already held it. The
+    // baseline this diffs against is the pre-#124 order, so both keys are being
+    // measured here at once.
     expect({ notFirst, gained, lost }).toEqual({
-      notFirst: 172,
-      gained: 184,
+      notFirst: 164,
+      gained: 192,
       lost: 0,
     });
   }, 30_000);
