@@ -97,65 +97,53 @@ describe("curatedMatches, on double cream", () => {
   });
 });
 
-describe("the double cream payload", () => {
-  const payload = curatedMatches(["double cream"])[0].payload;
+// One table per entry rather than one block per entry, so the third stand-in
+// adds a row instead of a copy of these four cases. What the entry's own
+// evidence has to say is asserted below, over the whole list.
+const MAPPED = [
+  {
+    query: "cacao nibs",
+    entity: "gtin:5400706613279",
+    macros: { calories: 652, protein: 12, fat: 55, carbs: 29.5 },
+    nova: 1,
+    ingredients: "100% organic cacao nibs",
+    allergens: undefined,
+  },
+  {
+    query: "double cream",
+    entity: "gtin:5010251341352",
+    macros: { calories: 467, protein: 1.5, fat: 50.5, carbs: 1.6 },
+    nova: 1,
+    ingredients: "pasteurised double cream",
+    allergens: ["en:milk"],
+  },
+] as const;
 
-  it("is keyed by the real barcode", () => {
-    expect(payload.entity).toBe("gtin:5010251341352");
+describe.each(MAPPED)("the mapped payload for $query", (entry) => {
+  const payload = curatedMatches([entry.query])[0].payload;
+
+  it("is keyed by the real barcode, so scanning the pack finds the same twin", () => {
+    // ADR-0046 §3: deliberately NOT a `curated:` prefix of its own.
+    expect(payload.entity).toBe(entry.entity);
   });
 
   it("carries the panel the record was vetted on", () => {
     const macros = macrosFromNutrition(
       payload.attributes["nutrition/info"] as NutritionInfo
     );
-    expect(macros).toEqual({
-      calories: 467,
-      protein: 1.5,
-      fat: 50.5,
-      carbs: 1.6,
-    });
+    expect(macros).toEqual(entry.macros);
   });
 
   it("goes through the ordinary OFF mapper, so derived readings work", () => {
+    // NOVA and allergens ride `food/assessment`; the badge, the explainer and
+    // the allergen block read it with no special case for curated foods.
     const assessment = payload.attributes["food/assessment"] as {
       nova_group?: number;
       allergens?: string[];
     };
-    expect(assessment.nova_group).toBe(1);
-    expect(assessment.allergens).toEqual(["en:milk"]);
-  });
-});
-
-describe("the mapped payload", () => {
-  const payload = curatedMatches(["cacao nibs"])[0].payload;
-
-  it("is keyed by the real barcode, so scanning the pack finds the same twin", () => {
-    // ADR-0046 §3: deliberately NOT a `curated:` prefix of its own.
-    expect(payload.entity).toBe("gtin:5400706613279");
-  });
-
-  it("carries the panel the record was vetted on", () => {
-    const macros = macrosFromNutrition(
-      payload.attributes["nutrition/info"] as NutritionInfo
-    );
-    expect(macros).toEqual({
-      calories: 652,
-      protein: 12,
-      fat: 55,
-      carbs: 29.5,
-    });
-  });
-
-  it("goes through the ordinary OFF mapper, so derived readings work", () => {
-    // NOVA rides `food/assessment`; the badge and explainer read it with no
-    // special case for curated foods. OFF rates these nibs group 1.
-    const assessment = payload.attributes["food/assessment"] as {
-      nova_group?: number;
-    };
-    expect(assessment.nova_group).toBe(1);
-    expect(payload.attributes["food/ingredients_text"]).toBe(
-      "100% organic cacao nibs"
-    );
+    expect(assessment.nova_group).toBe(entry.nova);
+    expect(assessment.allergens).toEqual(entry.allergens);
+    expect(payload.attributes["food/ingredients_text"]).toBe(entry.ingredients);
   });
 
   it("keeps the OFF record as provenance, so the source tag reads OFF", () => {
@@ -164,7 +152,7 @@ describe("the mapped payload", () => {
       source_uri: string;
     };
     expect(provenance.adapter).toBe("off");
-    expect(provenance.source_uri).toContain("5400706613279");
+    expect(provenance.source_uri).toContain(entry.entity.slice("gtin:".length));
   });
 });
 

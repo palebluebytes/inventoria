@@ -300,20 +300,28 @@ describe("the bundled search index", () => {
     // the strength of this absence: the UK standard is not less than 48% milk
     // fat, and the fattiest cream any table carries is 35.6 g. The failure this
     // guards is the quiet one — a mirror refresh that adds a 48% cream would
-    // make the stand-in a branded record standing in front of a real reference
-    // food, and nothing else in the suite would notice.
+    // leave a branded record standing in front of a real reference food, and
+    // nothing else in the suite would notice.
+
+    // The naming-independent half. Whatever USDA were to call such a row, it
+    // has to answer these words before it can displace anything.
+    expect(descriptionsFor("double cream")).toEqual([]);
+
+    // And the compositional half, for a row arriving under a name the query
+    // misses. Dairy creams only: the nut butters and the clarified butters
+    // above 48 g are not what a recipe means by cream.
     const creams = index.foods.filter(
       (row) =>
-        /^Cream,/.test(row.description) && (row.macros.fat_content ?? 0) >= 25
+        row.foodCategory === "Dairy and Egg Products" &&
+        /\bcream\b/i.test(row.description)
     );
-    expect(creams.map((row) => row.description)).toEqual([
-      "Cream, fluid, light whipping",
-      "Cream, heavy",
-    ]);
-    expect(Math.max(...creams.map((row) => row.macros.fat_content ?? 0))).toBe(
-      35.6
-    );
-    expect(descriptionsFor("double cream")).toEqual([]);
+    const fats = creams
+      .map((row) => row.macros.fat_content)
+      .filter((fat): fat is number => typeof fat === "number");
+    // Never `?? 0`: reading an absent fat as a zero would let exactly the row
+    // this guards against through it (ADR-0048 §1).
+    expect(fats).toHaveLength(creams.length);
+    expect(Math.max(...fats)).toBe(35.6);
   });
 
   it("offers no dry-basis assay as a food", () => {
