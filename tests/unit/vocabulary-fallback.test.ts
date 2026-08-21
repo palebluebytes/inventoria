@@ -251,7 +251,11 @@ describe("what the fallback buys, against the bars set before it was built", () 
     const misses = audit.cases.filter(
       (c) => c.pass === "synonym" && c.verdict === "miss"
     );
-    expect(misses.length).toBeGreaterThanOrEqual(233);
+    // 233 when #140 shipped, 230 since #137: three groups whose every member now
+    // retrieves against a corpus that answers to the names the twin merge had
+    // discarded, so the sweep no longer calls them misses. The floor moves with
+    // the finding rather than being pinned to a number the corpus has left.
+    expect(misses.length).toBeGreaterThanOrEqual(230);
     const closed = misses.filter((group) =>
       (group.members ?? []).every((m) => retrieves(corpus, m.query))
     );

@@ -402,6 +402,19 @@ const ARCHIVE_BOILERPLATE =
   /\s*\((?:includes foods for usda's food distribution program|may contain additives to retain moisture)\)/gi;
 
 /**
+ * A description with {@link ARCHIVE_BOILERPLATE} taken off: the form an alias is
+ * carried in, and the form the generator's own check searches by.
+ *
+ * Its own export so that the rule below and the check in
+ * `scripts/usda-bundle.mjs` can share a strip without sharing an answer — the
+ * check asks whether the finished row still answers to a name USDA holds, and
+ * it has to ask in the spelling the rule would have kept.
+ */
+export function stripArchiveBoilerplate(description: string): string {
+  return description.replace(ARCHIVE_BOILERPLATE, "").trim();
+}
+
+/**
  * The names a merged identity answers to besides the one it ships under.
  *
  * {@link resolveFdcGroup} keeps the base record's identity, so where USDA holds
@@ -440,7 +453,7 @@ export function twinSearchAliases(
     // the row already ships under it, and reading a record's own description
     // back to it is a different feature from carrying a twin's.
     if (description === surviving) continue;
-    const alias = description.replace(ARCHIVE_BOILERPLATE, "").trim();
+    const alias = stripArchiveBoilerplate(description);
     const read = asRead(alias);
     if (seen.has(read)) continue;
     seen.add(read);

@@ -87,23 +87,33 @@ const PAIR_SEED = 130;
 
 const readIndex = () => JSON.parse(readFileSync(INDEX_PATH, "utf8"));
 
-/** Every row read into words once, which is what `buildSearchCorpus` does. */
+/**
+ * Every row read into names once, which is what `buildSearchCorpus` does — ALL
+ * of a row's names, its own and the ones the twin merge discarded (#137), since
+ * a keystroke reaches it by any of them.
+ */
 const buildCorpus = (index) =>
   index.foods.map((row) => ({
     description: row.description,
-    name: readReferenceFoodName(row.description),
+    names: [row.description, ...(row.also ?? [])].map(readReferenceFoodName),
   }));
 
 /**
  * The shipped result list for a query: `searchIndexRows` restated over the
  * plain-JSON row shape. Deliberately the same four steps in the same order —
  * score, drop tier 0, sort, truncate — so a divergence here is a bug rather
- * than a finding.
+ * than a finding. A row scores as the BEST of its names, which is the fifth
+ * thing that has to match and the reason `names` is a list.
  */
 function search(corpus, query) {
   const rank = compileReferenceFoodQuery(query);
   return corpus
-    .map((food) => ({ description: food.description, key: rank(food.name) }))
+    .map((food) => ({
+      description: food.description,
+      key: food.names
+        .map(rank)
+        .reduce((best, key) => (compareRelevance(key, best) < 0 ? key : best)),
+    }))
     .filter(({ key }) => key.tier > 0)
     .sort((a, b) => compareRelevance(a.key, b.key))
     .slice(0, RESULT_LIMIT);
@@ -416,19 +426,29 @@ function qualifierPass(corpus) {
   for (const query of [...queries].sort()) {
     const [qualifier, ...headWords] = query.split(" ");
     const head = headWords.join(" ");
+    // A row's OWN name, not the best of its names. This pass is #124's frozen
+    // pre-registration and it diffs two orderings of one key; letting #137's
+    // aliases into it would fold a second change into a difference the whole
+    // pass exists to attribute. `twinPass` is where the aliases are measured.
+    const ownName = (food) => food.names[0];
     const answers = new Set(
       corpus
-        .filter(
-          (food) =>
+        .filter((food) => {
+          const name = ownName(food);
+          return (
             headOf(food.description) === head &&
-            food.name.words.slice(food.name.headLength).includes(qualifier)
-        )
+            name.words.slice(name.headLength).includes(qualifier)
+          );
+        })
         .map((food) => food.description)
     );
 
     const rank = compileReferenceFoodQuery(query);
     const scored = corpus
-      .map((food) => ({ description: food.description, key: rank(food.name) }))
+      .map((food) => ({
+        description: food.description,
+        key: rank(ownName(food)),
+      }))
       .filter(({ key }) => key.tier > 0);
     if (scored.length === 0) continue;
 
@@ -498,6 +518,44 @@ const britishPass = (corpus, queries) =>
     cause: null,
     note: null,
   }));
+
+/**
+ * The twin pass (#137): for each name the merge discarded, what does typing it
+ * reach now, and what did the row lose by shipping under the other name.
+ *
+ * It reads the shipped `also` rather than the archives, deliberately. The
+ * archives are where the population is DECIDED and `usda-bundle.mjs` asserts
+ * against them at generation; what this measures is the outcome, over the same
+ * corpus every other pass here runs on, so a case can be compared against a
+ * `head` or `qualifier` case without one of them describing a different file.
+ *
+ * `lost` is the substantive half of the finding: which words of the archived
+ * name the surviving one does not have. It is stated in stems, because that is
+ * what retrieval compares, and it is what separates "the row is unreachable"
+ * from "the row is merely mis-ordered".
+ */
+function twinPass(corpus, index) {
+  const cases = [];
+  for (const food of index.foods) {
+    if (!food.also) continue;
+    const own = new Set(readReferenceFoodName(food.description).stems);
+    for (const alias of food.also) {
+      const results = search(corpus, alias);
+      cases.push({
+        pass: "twin",
+        query: alias,
+        ships_as: food.description,
+        lost: readReferenceFoodName(alias).stems.filter((w) => !own.has(w)),
+        rank: rankOf(results, food.description),
+        results: summarise(results),
+        verdict: null,
+        cause: null,
+        note: null,
+      });
+    }
+  }
+  return cases;
+}
 
 // ── absence post-mortem ────────────────────────────────────────────────────
 
@@ -662,6 +720,7 @@ if (args.includes("--vocab")) {
     ...headPass(corpus, index),
     ...pairPass(corpus, index),
     ...britishPass(corpus, inputs.british_queries),
+    ...twinPass(corpus, index),
     ...qualifier.cases,
   ];
   const tally = (pass) => cases.filter((c) => c.pass === pass).length;
@@ -704,6 +763,15 @@ if (args.includes("--vocab")) {
       contested_heads: tally("head"),
       pairs_sampled: tally("pair"),
       british: tally("british"),
+      // #137's pass: one case per name the twin merge discarded. `not_led` is
+      // the number where typing the archived name does not put the row that
+      // took its identity first, and `unreachable` those it does not reach at
+      // all — which is what the aliases exist to keep at zero.
+      twin_names: tally("twin"),
+      twin_not_led: cases.filter((c) => c.pass === "twin" && c.rank !== 1)
+        .length,
+      twin_unreachable: cases.filter((c) => c.pass === "twin" && c.rank === 0)
+        .length,
       // #124's pass. Only the queries whose LEAD moved are emitted as cases, so
       // this count is smaller than the query set the two counters below span.
       qualifier_queries: qualifier.queries,

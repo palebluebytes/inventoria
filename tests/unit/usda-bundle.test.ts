@@ -11,6 +11,7 @@ import {
   SCHEMA_VERSION,
   buildCorpus,
   buildIndexRow,
+  assertTwinNamesRetrieve,
   buildNutrientEntry,
   bundleArchives,
   collectNutrientDictionary,
@@ -20,6 +21,10 @@ import {
   serialiseIndex,
   serialiseNutrientStore,
 } from "../../scripts/usda-bundle.mjs";
+import {
+  compileReferenceFoodQuery,
+  readReferenceFoodName,
+} from "../../src/lib/food/reference-food-ranking";
 import { reportsNoEnergy } from "../../src/lib/food/nutrition";
 import * as usdaFdc from "../../src/lib/food/usda-fdc";
 import {
@@ -31,6 +36,7 @@ import {
   isManufacturingInput,
   isPreparedProduct,
   isProcessedProduct,
+  stripArchiveBoilerplate,
   twinSearchAliases,
   mapFdcFoodToPayload,
   mapFdcPortions,
@@ -53,6 +59,7 @@ const app = {
   fdcReportsNoEnergy,
   fdcIdentityKey,
   resolveFdcGroup,
+  stripArchiveBoilerplate,
   twinSearchAliases,
   mapFdcFoodToPayload,
   mapFdcPortions,
@@ -750,6 +757,74 @@ describe("buildNutrientEntry — every nutrient the record reports", () => {
     // Sodium stays 2 mg rather than becoming 0.002 g: normalising here would
     // store float noise, and the mapper normalises at read time anyway.
     expect(entry["1093"]).toBe(2);
+  });
+});
+
+describe("assertTwinNamesRetrieve — no archived name left unanswerable", () => {
+  const named = (fdcId: number, description: string) => ({
+    food: { fdcId, description },
+  });
+  const groups = new Map([
+    [11457, [named(1999633, "Spinach, mature"), named(168462, "Spinach, raw")]],
+  ]);
+  const ranking = {
+    readReferenceFoodName,
+    compileReferenceFoodQuery,
+    stripArchiveBoilerplate,
+  };
+
+  it("passes when the surviving row carries the discarded name", () => {
+    expect(
+      assertTwinNamesRetrieve(
+        groups,
+        [
+          {
+            food: { fdcId: 1999633, description: "Spinach, mature" },
+            also: ["Spinach, raw"],
+          },
+        ],
+        ranking
+      )
+    ).toBe(2);
+  });
+
+  it("refuses a corpus whose surviving row lost a name USDA holds", () => {
+    // The failure a future mirror refresh can introduce: a twin whose shape the
+    // alias rule does not handle, discarded with nothing carrying it.
+    expect(() =>
+      assertTwinNamesRetrieve(
+        groups,
+        [{ food: { fdcId: 1999633, description: "Spinach, mature" } }],
+        ranking
+      )
+    ).toThrow(/does not answer to it/);
+  });
+
+  it("looks for a name in the spelling an alias would carry", () => {
+    // USDA's distribution note is stripped from an alias, so the check has to
+    // ask for the food rather than for the note.
+    expect(
+      assertTwinNamesRetrieve(
+        new Map([
+          [
+            1009,
+            [
+              named(1, "Cheese, cheddar"),
+              named(
+                2,
+                "Cheese, cheddar (Includes foods for USDA's Food Distribution Program)"
+              ),
+            ],
+          ],
+        ]),
+        [{ food: { fdcId: 1, description: "Cheese, cheddar" } }],
+        ranking
+      )
+    ).toBe(2);
+  });
+
+  it("says nothing about an identity every filter dropped", () => {
+    expect(assertTwinNamesRetrieve(groups, [], ranking)).toBe(0);
   });
 });
 

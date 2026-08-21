@@ -119,6 +119,7 @@ export const APP_EXPORTS = [
   "fdcReportsNoEnergy",
   "fdcIdentityKey",
   "resolveFdcGroup",
+  "stripArchiveBoilerplate",
   "twinSearchAliases",
   "mapFdcFoodToPayload",
   "mapFdcPortions",
@@ -184,6 +185,7 @@ export const ROW_MACRO_KEYS = [
  * @property {(food: BundleFood) => boolean} fdcReportsNoEnergy
  * @property {(food: BundleFood) => string | number} fdcIdentityKey
  * @property {(group: BundleFood[]) => { food: BundleFood, merged_from: MergedSource[] }} resolveFdcGroup
+ * @property {(description: string) => string} stripArchiveBoilerplate
  * @property {(descriptions: string[], surviving: string) => string[]} twinSearchAliases
  * @property {(food: BundleFood, merged_from: MergedSource[]) => { attributes: Record<string, any> }} mapFdcFoodToPayload
  * @property {(portions: Survivor["foodPortions"]) => Portion[]} mapFdcPortions
@@ -536,6 +538,57 @@ export function buildCorpus(groups, app) {
     twinned_survivors,
     identities: groups.size,
   };
+}
+
+/**
+ * Refuses a corpus in which USDA holds a name for a surviving food that the
+ * finished row no longer answers to.
+ *
+ * Stated over the ARCHIVES and measured over the finished names, which is what
+ * keeps it from restating {@link buildCorpus}: the group is where every name
+ * USDA published lives, and the row is where the ones it kept do. An alias the
+ * rule failed to emit shows up here as a name that retrieves nothing.
+ *
+ * The one thing it borrows is the strip, because a name has to be looked for in
+ * the spelling an alias would carry — `Cheese, cheddar (Includes foods for
+ * USDA's Food Distribution Program)` is USDA saying something about a
+ * distribution programme, and no user types it.
+ *
+ * A generation that stops beats a test that goes red later: the population is a
+ * function of USDA's own `ndbNumber` assignments, so the next mirror refresh can
+ * introduce twins nobody has looked at, and this is what looks at them (#137).
+ *
+ * @param {Map<string | number, { food: BundleFood }[]>} groups
+ * @param {Survivor[]} survivors
+ * @param {AppModule} app
+ * @returns {number} how many archived names were checked
+ */
+export function assertTwinNamesRetrieve(groups, survivors, app) {
+  const kept = new Map(survivors.map((s) => [s.food.fdcId, s]));
+  let checked = 0;
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const survivor = group
+      .map((entry) => kept.get(entry.food.fdcId))
+      .find(Boolean);
+    // The whole identity failed a filter; no name of it is expected to answer.
+    if (!survivor) continue;
+    const names = [survivor.food.description, ...(survivor.also ?? [])].map(
+      (description) => app.readReferenceFoodName(description)
+    );
+    for (const entry of group) {
+      const phrase = app.stripArchiveBoilerplate(entry.food.description);
+      const rank = app.compileReferenceFoodQuery(phrase);
+      if (!names.some((name) => rank(name).tier > 0))
+        throw new Error(
+          `USDA holds "${entry.food.description}" under the identity that ships ` +
+            `as "${survivor.food.description}", and the shipped row does not ` +
+            "answer to it. The merge discarded a name no alias carries."
+        );
+      checked++;
+    }
+  }
+  return checked;
 }
 
 // ---------------------------------------------------------------------------
@@ -947,8 +1000,10 @@ async function main() {
 
   const entries = await readBundleArchives(manifest, dir);
 
+  const groups = groupByIdentity(entries, app);
   const { survivors, dropped, twinned, twinned_survivors, identities } =
-    buildCorpus(groupByIdentity(entries, app), app);
+    buildCorpus(groups, app);
+  const twinNames = assertTwinNamesRetrieve(groups, survivors, app);
 
   // After the corpus, never before: both of ADR-0049 §3's filters ask what the
   // FINISHED corpus retrieves, so a group's members are compared against the
@@ -1017,7 +1072,8 @@ async function main() {
   console.log(
     `  ${aliased.length} of them answer to a name the merge discarded ` +
       `(${aliased.reduce((n, row) => n + row.also.length, 0)} aliases, ` +
-      `${aliasBytes.toLocaleString("en-GB")} bytes of the index)`
+      `${aliasBytes.toLocaleString("en-GB")} bytes of the index); ` +
+      `all ${twinNames} archived names retrieve`
   );
   console.log(
     `  ${withPortions} rows carry portions, ` +
