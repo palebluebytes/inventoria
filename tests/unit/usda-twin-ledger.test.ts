@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { importersOf } from "./support/importers";
 import {
   TWIN_LEDGER,
   SPLIT_TWINS,
@@ -116,18 +117,7 @@ describe("the twin ledger is the adjudication, not a second opinion of it", () =
       "TWIN_LEDGER",
       "SPLIT_TWIN_NDB_NUMBERS",
     ]);
-    // An IMPORT, not a mention: `usda-fdc.ts` names this module in the comment
-    // explaining where `fdcIdentityKey`'s argument comes from, and a substring
-    // grep would read that as a dependency and be satisfied by deleting the
-    // sentence that documents the arrangement.
-    const importers = readdirSync("src/lib/food")
-      .filter((name) => name.endsWith(".ts") && name !== "usda-twin-ledger.ts")
-      .filter((name) =>
-        /^\s*import[\s\S]*?from\s+["'][^"']*usda-twin-ledger["']/m.test(
-          readFileSync(`src/lib/food/${name}`, "utf8")
-        )
-      );
-    expect(importers).toEqual([]);
+    expect(importersOf("usda-twin-ledger")).toEqual([]);
   });
 });
 

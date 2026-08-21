@@ -64,14 +64,11 @@ export const APP_EXPORTS = [
 
 /**
  * The five food-kind judgements, borrowed through the same seam and for the same
- * reason — they are just no longer in the same file (#146).
+ * reason {@link loadAppModule} gives below — they are just no longer in the same
+ * file as the merge and the panel (#146).
  *
- * They are ~200 lines of editorial judgement tuned against the corpus (the brand
- * acronym stoplist, the sweetener and baked-staple head words, the
- * salad-versus-salad-oil rule), and a second copy would drift silently: the
- * artifact would keep shipping foods the app had learned to drop, or drop foods
- * it had learned to keep, with nothing to notice. Nothing in `src/` imports the
- * module, so this list is the whole of its readership.
+ * Nothing in `src/` imports that module, so this list is the whole of its
+ * readership.
  */
 export const FOOD_KIND_EXPORTS = [
   "isBrandSpecific",

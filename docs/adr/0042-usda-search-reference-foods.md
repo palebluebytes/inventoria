@@ -15,7 +15,7 @@
 **Amended by:** the #124 Amendment below, which adds a fifth key asking where in the name the query landed  
 **Amended by:** the #143 Amendment below, which fills the slot the #124 Amendment reserved, and corrects what it reserved it for  
 **Amended by:** the #144 Amendment below, which gives §5's two head-word keep lists an escape hatch, moves boxed mixes to §4, and adds a manufacturing-input filter  
-**Implemented:** `dabb1fe`, `082ad31`, `fcb3b60`, `1365343`; `src/lib/food/food-search.ts`
+**Implemented:** `dabb1fe`, `082ad31`, `fcb3b60`, `1365343`; `src/lib/food/food-search.ts`, and since `aa6c53b` the filter roster §3 describes is `src/lib/food/usda-food-kind.ts` rather than `src/lib/food/usda-fdc.ts` (see the Note below)
 
 ## Context
 
@@ -875,22 +875,10 @@ name in `tests/unit/usda-fdc.test.ts` and `tests/unit/usda-corpus.test.ts`.
 
 ## Note (2026-08-21, #146): where §3's lists live now
 
-This revises nothing. §3 and the Consequences both name `src/lib/food/usda-fdc.ts`
-as the home of the token, marker and category lists, and half of that file has since
-moved: the five filters and the nineteen editorial tables behind them are now
-`src/lib/food/usda-food-kind.ts`. The adapter keeps the name — the panel, the merge,
-the identity key, the portions, and `fdcReportsNoEnergy`, which is the panel's own
-question rather than a food-kind judgement (ADR-0048 §6).
-
-The two halves change for different reasons, which is why they are now two files. The
-adapter moves when USDA's serialisation or the panel moves, and every
-`ADAPTER_VERSION` bump names one of those. The roster moves when somebody measures an
-escape, as the #131, #133 and #144 amendments above each did, and none of those
-touched the adapter. Nothing in `src/` imports the roster: the corpus is filtered once
-at generation time, and `scripts/usda-app-module.mjs` reaches the five filters through
-the same esbuild seam it already reached them through.
-
-The tests followed the same cut, so the "pinned by name in `tests/unit/usda-fdc.test.ts`"
-pointers in the amendments above now read `tests/unit/usda-food-kind.test.ts` for
-anything about the filters. Those amendments are historical and keep the path they
-were written against.
+This revises nothing. §3 and the Consequences name `src/lib/food/usda-fdc.ts` as the
+home of the token, marker and category lists, and the five filters and the nineteen
+tables behind them have since moved to `src/lib/food/usda-food-kind.ts` — because the
+adapter changes when USDA's serialisation does and the roster changes when somebody
+measures an escape, as the #131, #133 and #144 amendments above each did. Read every
+"pinned by name in `tests/unit/usda-fdc.test.ts`" above as
+`tests/unit/usda-food-kind.test.ts` for anything about the filters.

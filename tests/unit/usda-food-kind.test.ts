@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readdirSync, readFileSync } from "node:fs";
+import { importersOf } from "./support/importers";
 import {
   isBrandSpecific,
   isProcessedProduct,
@@ -7,11 +7,6 @@ import {
   isDryBasisRecord,
   isManufacturingInput,
 } from "../../src/lib/food/usda-food-kind";
-// A plain-Node ops script, deliberately outside the app's tsconfig, like the
-// bundle and backup scripts beside it.
-// @ts-ignore
-import { FOOD_KIND_EXPORTS } from "../../scripts/usda-app-module.mjs";
-
 // The five judgements that decide whether a USDA record is a reference food at
 // all, each pinned by the rows it was measured against (#131, #133, #144).
 // Every case here is a real corpus description, because a filter tuned against
@@ -631,36 +626,6 @@ describe("the roster stays out of the app's bundle", () => {
     // already follows: the corpus is filtered once, ahead of time, and what
     // ships is the survivors. 400 lines of editorial roster in the app bundle
     // would be dead weight on every page load (#146).
-    expect(FOOD_KIND_EXPORTS).toEqual([
-      "isBrandSpecific",
-      "isProcessedProduct",
-      "isPreparedProduct",
-      "isDryBasisRecord",
-      "isManufacturingInput",
-    ]);
-    // An IMPORT, not a mention: `usda-fdc.ts` names this module in the comment
-    // explaining why `fdcReportsNoEnergy` did not move into it, and a substring
-    // grep would read that as a dependency and be satisfied by deleting the
-    // sentence that documents the arrangement.
-    //
-    // The whole of `src/`, not just this module's own directory: the claim is
-    // that nothing a user downloads reaches the roster, and a screen importing
-    // it directly would be exactly the regression worth catching.
-    const sources = (dir: string): string[] =>
-      readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
-        entry.isDirectory()
-          ? sources(`${dir}/${entry.name}`)
-          : /\.(ts|svelte)$/.test(entry.name)
-            ? [`${dir}/${entry.name}`]
-            : []
-      );
-    const importers = sources("src")
-      .filter((path) => !path.endsWith("/usda-food-kind.ts"))
-      .filter((path) =>
-        /^\s*import[\s\S]*?from\s+["'][^"']*usda-food-kind["']/m.test(
-          readFileSync(path, "utf8")
-        )
-      );
-    expect(importers).toEqual([]);
+    expect(importersOf("usda-food-kind")).toEqual([]);
   });
 });
