@@ -228,16 +228,22 @@ export const DENIED_VOCABULARY_TAGS: readonly string[] = [
 // ---------------------------------------------------------------------------
 //
 // `gammon` returns nothing, and so do `mange tout`, `porridge oats`,
-// `double cream`, `natural yoghurt`, `plain flour`, `caster sugar` and
-// `jacket potato`. Every one of them names a food the corpus holds, under a name
-// neither the corpus nor OFF's taxonomy uses — #130 measured them among the
-// twenty everyday British queries, and #139/#140's derived map answered nine of
-// the seventeen that failed, leaving these eight.
+// `natural yoghurt`, `plain flour`, `caster sugar` and `jacket potato`. Every one
+// of them names a food the corpus holds, under a name neither the corpus nor
+// OFF's taxonomy uses — #130 measured them among the twenty everyday British
+// queries, and #139/#140's derived map answered nine of the seventeen that
+// failed.
+//
+// `double cream` was the eighth and is deliberately absent: USDA carries no
+// equivalent. `Cream, heavy` is the nearest grade and it is a different food —
+// legally about 36% fat where double cream is about 48% — so an entry would put
+// the typed word on a panel that is not the food's. A name with no right answer
+// is not a vocabulary problem.
 //
 // A hand list is the WRONG shape at the scale of the 236 misses ADR-0049 rejects
 // it for, and the reason there is not length: nobody would have written the right
 // 236, because the derived classes (spacing, word order, possessives, diacritics,
-// loanwords) are ones a hand list would not have thought to enumerate. Eight
+// loanwords) are ones a hand list would not have thought to enumerate. Seven
 // regional synonyms, each individually verified, is the shape a hand list IS
 // right for — and OFF's file, having been asked, does not know them.
 //
@@ -294,7 +300,8 @@ export interface LocalVocabularyEntry {
 export const LOCAL_VOCABULARY_CEILING = 20;
 
 /**
- * The eight everyday British food names OFF's taxonomy does not carry (#141).
+ * The seven everyday British food names OFF's taxonomy does not carry, and USDA
+ * does (#141).
  *
  * Ordered by key, as the derived map is, so an addition diffs as one entry.
  */
@@ -306,12 +313,6 @@ export const LOCAL_VOCABULARY: readonly LocalVocabularyEntry[] = [
     why: "The British shelf name for the fine-ground white sugar sold as granulated sugar; the grind differs, the composition does not.",
   },
   {
-    key: "double cream",
-    targets: ["cream heavy"],
-    landsOn: "Cream, heavy",
-    why: "The British grade name for the thickest pouring cream. `Cream, heavy` is the nearest grade USDA carries and the panel is its own, not double cream's — US heavy cream is legally ~36% fat where double cream is ~48%.",
-  },
-  {
     key: "gammon",
     targets: ["pork cured ham"],
     landsOn:
@@ -320,9 +321,9 @@ export const LOCAL_VOCABULARY: readonly LocalVocabularyEntry[] = [
   },
   {
     key: "jacket potato",
-    targets: ["potatoes baked"],
-    landsOn: "Potatoes, baked, flesh, without salt",
-    why: "The British name for a whole baked potato, on every pub menu and freezer aisle in the country.",
+    targets: ["potatoes baked flesh and skin"],
+    landsOn: "Potatoes, baked, flesh and skin, without salt",
+    why: "The British name for a whole baked potato, on every pub menu and freezer aisle in the country. The target names the skin because a jacket potato is eaten with it; the bare `potatoes baked` leads with the flesh alone.",
   },
   {
     key: "mange tout",

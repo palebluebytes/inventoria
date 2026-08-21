@@ -559,10 +559,10 @@ untouched.
 
 §4 left room for a `vocabulary_local` beside the derived map, and Consequences
 deferred it. [#141](https://github.com/palebluebytes/inventoria/issues/141) has
-written it. **Eight everyday British food names now answer**, and the seventeen
-failing queries #130 measured are down to none this record knows how to close.
+written it. **Seven everyday British food names now answer**, and of the
+seventeen failing queries #130 measured, one is left that no entry can close.
 
-### Eight, because OFF's taxonomy already knew two of the ten
+### Seven, because OFF already knew two of the ten and USDA carries no third
 
 Consequences names ten queries OFF does not carry. The #140 Amendment above
 corrected two of them — `prawns` reaches the key `prawn` through §5's plural
@@ -626,7 +626,7 @@ this half is not the ODbL derivative §4 keeps distinct. The evidence behind eac
 entry — the expected row and the reason — stays in
 `src/lib/food/food-vocabulary.ts` beside the deny-list, reached only through the
 generator's esbuild seam, so no prose admitting an entry enters a bundle a user
-downloads. The section costs 431 raw bytes, and adds 475 raw / 211 gzip-9 / 262
+downloads. The section costs 415 raw bytes, and adds 457 raw / 206 gzip-9 / 244
 brotli-11 to `search-index.json` — a size never quoted without its compressor
 (#120).
 
@@ -641,20 +641,18 @@ the derived map reaches nothing.
 Nothing else moved. The derived map is the same 446 keys over the same 4,360
 rows, and the corpus is untouched.
 
-### Two entries answer with the nearest row rather than the right one
+### An entry names the row it wants, not the row the shortest phrase reaches
 
-Worth recording, because the alias treatment puts the typed word on a panel whose
-numbers are the row's:
+The ticket measured `jacket potato` against the target `potatoes baked`, which
+leads with `Potatoes, baked, flesh, without salt` — the flesh alone, where a
+jacket potato is eaten with its skin. The entry names
+`potatoes baked flesh and skin` instead and lands on the flesh-and-skin row. The
+two differ by a rounding error in energy, so this is a naming point rather than a
+nutritional one, and it is worth stating as a rule: the second admission pins
+whatever row the entry chooses, so the choosing is the work and the check only
+holds it still.
 
-- **`double cream` leads with `Cream, heavy`**, and US heavy cream is legally
-  about 36% fat where double cream is about 48%. It is the nearest grade USDA
-  carries, and the panel is heavy cream's. The alternative was no answer at all.
-- **`jacket potato` leads with `Potatoes, baked, flesh, without salt`**, which is
-  the flesh alone where a jacket potato is eaten with its skin. The two differ by
-  a rounding error in energy, and the flesh-and-skin row is reachable by typing
-  the words; the entry keeps the target the ticket measured.
-
-`plain flour`'s entry carries a workaround rather than a compromise. Its target is
+`plain flour`'s entry carries a workaround rather than a choice. Its target is
 `all purpose flour` and not `wheat flour white all purpose`, which still leads
 with the **self-rising** row — #130 §6's case, which
 [#143](https://github.com/palebluebytes/inventoria/issues/143) measured and left

@@ -463,9 +463,8 @@
 "source": "Inventoria, hand-written — not derived from Open Food Facts, and so outside the ODbL derivative beside it (ADR-0049 §4)",
 "expansions": {
 "caster sugar": ["sugars granulated"],
-"double cream": ["cream heavy"],
 "gammon": ["pork cured ham"],
-"jacket potato": ["potatoes baked"],
+"jacket potato": ["potatoes baked flesh and skin"],
 "mange tout": ["peas edible podded"],
 "natural yoghurt": ["yogurt plain whole milk"],
 "plain flour": ["all purpose flour"],

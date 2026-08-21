@@ -266,8 +266,8 @@ describe("what the fallback buys, against the bars set before it was built", () 
 
   it("answers seven of the seventeen failing British queries, with the right row", () => {
     // Seven and not fifteen because that is what OFF's taxonomy knows. Two more
-    // (`prawns`, `mince`) answer through keys it spells differently, and the
-    // last eight are the hand-written section below (#141).
+    // (`prawns`, `mince`) answer through keys it spells differently, seven more
+    // are the hand-written section below, and `double cream` is refused (#141).
     for (const [query, expected] of [
       ["aubergine", "Eggplant, raw"],
       ["courgette", "Squash, zucchini, baby, raw"],
@@ -285,19 +285,18 @@ describe("what the fallback buys, against the bars set before it was built", () 
     }
   });
 
-  it("answers the last eight British queries from the hand-written section", () => {
-    // The eight #130 measured failing that OFF's taxonomy does not carry either
+  it("answers seven more British queries from the hand-written section", () => {
+    // The ones #130 measured failing that OFF's taxonomy does not carry either
     // (ADR-0049's #141 Amendment). Each is asserted the same way the seven above
     // are: nothing without the vocabulary, the exact row with it — and the row
     // is the one the entry recorded, which is what the generator re-measures.
     for (const [query, expected] of [
       ["caster sugar", "Sugars, granulated"],
-      ["double cream", "Cream, heavy"],
       [
         "gammon",
         "Pork, cured, ham, center slice, country-style, separable lean only, raw",
       ],
-      ["jacket potato", "Potatoes, baked, flesh, without salt"],
+      ["jacket potato", "Potatoes, baked, flesh and skin, without salt"],
       ["mange tout", "Peas, edible-podded, raw"],
       ["natural yoghurt", "Yogurt, plain, whole milk"],
       ["plain flour", "Flour, wheat, all-purpose, enriched, bleached"],
@@ -306,6 +305,15 @@ describe("what the fallback buys, against the bars set before it was built", () 
       expect([query, retrieves(literalOnly, query)]).toEqual([query, false]);
       expect([query, topFor(query)]).toEqual([query, expected]);
     }
+  });
+
+  it("leaves `double cream` unanswered, because USDA carries no such food", () => {
+    // The eighth of #130's British queries, and the one this section refuses.
+    // `Cream, heavy` is the nearest grade and a different food — about 36% fat
+    // where double cream is about 48% — so an entry would put the typed word on
+    // a panel that is not the food's. A name with no right answer is not a
+    // vocabulary problem, and the fourth admission is where that is decided.
+    expect(searchIndexRows(corpus, "double cream").hits).toEqual([]);
   });
 
   it("shows a hand-reached food under the word that reached it", () => {
