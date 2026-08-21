@@ -62,11 +62,13 @@ distribution rather than calling its API, so `public/usda/search-index.json` and
 nothing.
 
 The script reaches the app's own filters, merge, panel and portion mapping by
-bundling `src/lib/food/usda-fdc.ts` with esbuild, which it finds on the PATH or
-through `nix shell nixpkgs#esbuild`. Nothing in it restates that logic, so a bundled
-row is the row a live search would have produced. What it does own is the shim
-between the archives' serialisation and the search API's, described under
-[Restoring from it](#restoring-from-it) below.
+bundling the modules `scripts/usda-app-module.mjs` names with esbuild, which it finds
+on the PATH or through `nix shell nixpkgs#esbuild`. The merge, panel and portions come
+from `src/lib/food/usda-fdc.ts`; the five filters that decide whether a record is a
+reference food at all come from `src/lib/food/usda-food-kind.ts`. Nothing in it
+restates that logic, so a bundled row is the row a live search would have produced.
+What it does own is the shim between the archives' serialisation and the search API's,
+described under [Restoring from it](#restoring-from-it) below.
 
 Its output is deliberately stable: one array sorted by `fdcId`, nutrients keyed and
 sorted by nutrient id, one food per line, and no generation timestamp anywhere.
