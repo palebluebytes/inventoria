@@ -396,3 +396,18 @@ The napa cabbage entry in §8's list of three known cases was already right, and
 ADR-0048's Consequences went on asserting the opposite until this correction;
 `Cabbage, chinese (pe-tsai), raw` is in the corpus and the failure is that
 `napa cabbage` never reaches it.
+
+## Postscript (2026-08-21, #142): a sixth pass shares this file
+
+`130-ranking-audit.json` now carries a `carrier` pass and a `carrier` block of
+per-shape tallies that belong to
+[#142](https://github.com/palebluebytes/inventoria/issues/142) rather than to this
+note. It is pre-registered and reported in
+[`142-carrier-phrase-sweep.md`](142-carrier-phrase-sweep.md), and it is the one
+pass here that asks about the vocabulary fallback rather than about the ranking:
+whether a synonym typed inside a longer phrase reaches anything.
+
+Nothing in this note moves. The other five passes re-ran byte-identical beside it,
+and the pass adds no verdicts to adjudicate — it borrows the app's own
+`searchIndexRows` instead of the restated scorer, so a plain sweep now needs
+esbuild, as `--explain` already did.

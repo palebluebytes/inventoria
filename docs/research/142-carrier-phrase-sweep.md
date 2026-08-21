@@ -2,7 +2,7 @@
 
 **Grounds:** `expandThroughVocabulary` / `searchIndexRows` / `buildSearchCorpus` in `src/lib/food/usda-corpus.ts` and `compileReferenceFoodQuery` in `src/lib/food/reference-food-ranking.ts`, measured over the committed `public/usda/search-index.json` via `pnpm usda:ranking-audit`. [ADR-0049](../adr/0049-a-derived-vocabulary-for-food-search.md) §1 governs the fallback and its Consequences names this gap.
 **Siblings:** [#130](https://github.com/palebluebytes/inventoria/issues/130) is the sweep this one copies its shape from, and the audit it adds a pass to. [#140](https://github.com/palebluebytes/inventoria/issues/140) shipped the whole-phrase fallback this would extend. [#141](https://github.com/palebluebytes/inventoria/issues/141) added the hand-written half of the map, which changes the denominator and settles one of the ticket's own examples.
-**Date:** 2026-08-21. **Status:** pre-registration. §2 and §4 are measured inputs and dated; §§3 and 5–8 are written **before the sweep runs**, and no search or ranking code has changed.
+**Date:** 2026-08-21. **Status:** measured. §§1–8 are the pre-registration, committed at `5dbb1a9` **before the pass that measures against them existed**; §§9–10 are the result. No search or ranking code has changed, and none is proposed here.
 
 ---
 
@@ -109,3 +109,70 @@ The results section of this note, written under the numbers when they arrive. Th
 
 - **The figures.** That paragraph quotes 425 / 125 / 64, which was pre-measurement; §2 above is 453 / 124 / 58 over the map the app reads.
 - **The illustration.** It argues the mechanism rescues less than it looks by pointing at `natural yoghurt` substituting to `natural yogurt`, which also retrieves nothing. That example is spent: #141 put `natural yoghurt` in the hand-written map, where it leads with `Yogurt, plain, whole milk`. The argument it was serving — that a substitution can hand back a phrase as empty as the one typed — is what this sweep exists to size, and after the sweep it will have a number instead of an anecdote.
+
+---
+
+## 9. Results
+
+Run on 2026-08-21 over the 4,360-row index, `pnpm usda:ranking-audit`, cases in `130-ranking-audit.json` under `pass: "carrier"` and the per-carrier tallies under `carrier`.
+
+| carrier     | corpus reach | probes | answering today | rescued by one substitution |
+| ----------- | -----------: | -----: | --------------: | --------------------------: |
+| `raw X`     |        1,458 |     58 |               0 |                      **47** |
+| `cooked X`  |        1,588 |     58 |               1 |                      **18** |
+| `dried X`   |          105 |     58 |               0 |                       **7** |
+| `fresh X`   |          306 |     58 |               0 |                           0 |
+| `X salad`   |           10 |     58 |               0 |                           0 |
+| `chopped X` |            3 |     58 |               0 |                           0 |
+
+**72 of 348 probes are rescued, across 48 of the 58 keys.** `raw X` alone rescues 47, over the ⅓ threshold §7 set at 20. The mechanism has something to reach.
+
+### 9.1 One probe answers, and not through the tier §3 predicted
+
+`cooked swede` retrieves two rows today. Not through the prefix tier: **it is itself a key in the map**, expanding to `cooked rutabaga`. OFF's taxonomy names some cooked and dried forms as their own synonym groups, and the derivation carried eight of them through — `cooked swede`, `raw spelt`, `raw almond kernels`, `dried whole milk`, `dried minced onion`, `fresh garlic`, `salad rocket`, `field salad`.
+
+So the phrase-keyed map already pre-empts a sliver of the per-token mechanism, arbitrarily, wherever OFF happened to write the carrier phrase down. Eight keys of 453, one of which this sweep's carriers happened to hit. §3's proof stands otherwise: 347 of 348 probes retrieve nothing, and the prefix tier answered none of them.
+
+### 9.2 Reach is not usable reach
+
+`fresh X` has 306 rows behind it and rescues nothing. The reason is that this corpus almost never uses `fresh` in the everyday sense: **201 of the 306 are `Pork, fresh, …` and 76 are `Lamb, Australian, imported, fresh, …`**, where USDA's `fresh` means uncured. The 29 that remain are herbs, pasta and tuna, and none of them is a food any of the 58 keys names.
+
+Pricing a carrier by how many rows carry the word is therefore a necessary filter and not a sufficient one — it caught `chopped` and `salad` in advance (§4) and would have passed `fresh`. A carrier's reach has to be read as _rows this carrier could serve_, which is only visible once the probes run.
+
+### 9.3 What is not rescued, and why it is not the mechanism's fault
+
+Ten keys are rescued by no carrier at all — seven distinct foods: `anise` (`aniseed`), `cocoa` (`cacao`), `chamomile` (`camomile`), `cardamom` (`cardamon`, `elaichi`), `carob` (`carobin`), `hummus` (`houmous`), `yogurt` (`yoghurt`, `yoghourt`, `yogourt`).
+
+Every one is a spice, a powder or a prepared food, and the corpus holds no raw, cooked or dried row for any of them. The carriers are the wrong carriers for those foods rather than the mechanism being wrong about them: `raw cocoa` and `cooked hummus` are phrases nobody types either.
+
+`omelette` is the one key rescued by `cooked X` and nothing else, which is exactly right — `Egg, whole, cooked, omelet` is the only form there is.
+
+### 9.4 The hand pass over the rescued set
+
+All 72 read. **Every one leads with the food the query named**, including the two that look least likely on paper: `raw luffa` → `raw dishcloth` → `Gourd, dishcloth (towelgourd), raw`, and `raw pepeiao` → `raw pepeao` → `Jew's ear, (pepeao), raw`.
+
+Two are worth naming, and neither is a retrieval failure:
+
+- `raw courgette` → `raw zucchini` leads with `Squash, zucchini, baby, raw` rather than the plain summer squash. That is a tie among rows the query already reached, which is [#143](https://github.com/palebluebytes/inventoria/issues/143)'s class and not this one's.
+- `raw mollusc` → `raw mollusks` reaches 12 rows and leads with `Mollusks, snail, raw`. `mollusks` is a category head, which [#134](https://github.com/palebluebytes/inventoria/issues/134) owns; the substitution did its job and the ordering behind it is someone else's question.
+
+### 9.5 The count deflates: 58 keys are 35 foods
+
+The 58 keys name **35 distinct foods**, because the map holds every spelling OFF records: five ways to write arugula (`rocket`, `roquette`, `rucola`, `rucoli`, `rugula`), four for cloudberry, three for yogurt, two each for persimmon, chestnut, cassava, papaya, huckleberry, lupin, scup and mollusc.
+
+So the honest headline is **28 distinct foods rescued out of 35**, not 48 of 58. Both numbers are in the table above and the larger one should not be quoted alone.
+
+### 9.6 What this still does not show
+
+§6, unchanged and now load-bearing: nothing here says a user types `raw aubergine`. The sweep shows 28 foods are reachable that way and are not reached today. Whether that is worth a tier in the fallback is a judgement about usage, and this project has no usage data by construction.
+
+## 10. Verdict
+
+**Band 3 of §7.1: cut a build ticket.** `raw X` rescues 47 of 58 keys against a threshold of 20, and the hand pass over all 72 rescues found no implausible lead.
+
+**No new issue is cut, because the build ticket already exists.** #142 carries the mechanism's full specification in its own body — whole phrase first, at most one substitution, drawn only from this subset, capped at a small k, firing only on an empty result — and its triage scoped `ready-for-agent` to the sweep alone. So the ticket stays open with this measurement attached, and the decision to build it is the maintainer's, which is what §7 pre-registered and what "a zero closes it, a non-zero does not open it" means.
+
+Two things the build should carry that this sweep found rather than assumed:
+
+- **The subset is 58, tokenised** (§2), not the 64 or 62 the ticket and its triage comment quote. A build sized on either would be sized on the wrong map.
+- **Eight keys are already carrier phrases** (§9.1). Whatever tier is added has to run after the whole-phrase match, or `cooked swede` gets expanded twice.

@@ -6,6 +6,7 @@
 **Amended by:** the #144 Amendment below, which re-derives the map over the corpus [ADR-0042](0042-usda-search-reference-foods.md)'s #144 amendment left behind  
 **Amended by:** [ADR-0050](0050-a-merged-food-keeps-the-name-its-twin-lost.md) §5 (§3's two filters are asked of a row's every name, not of its description alone, and the map re-derives over the aliases)  
 **Amended by:** the #141 Amendment below, which writes the hand-written `vocabulary_local` §4 left room for and Consequences deferred  
+**Amended by:** the #142 Amendment below, which corrects the three figures Consequences quotes for the substitutable subset, retires the `natural yoghurt` example it argues from, and replaces "unmeasured" with a measurement  
 **Implemented:** #139 `4a01dd1`, `5868a7f`, `efadfad` (the map); #140 (the fallback that reads it); #141 (the hand-written section)
 
 This record amends [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md)
@@ -658,3 +659,53 @@ with the **self-rising** row — #130 §6's case, which
 [#143](https://github.com/palebluebytes/inventoria/issues/143) measured and left
 open because the tie is seventeen rows deep and the leader carries no marker the
 new key can reach.
+
+## Amendment (2026-08-21, #142): the single-token gap, measured
+
+Consequences says single-token substitution inside a longer query "is not done",
+gives three figures for the subset it would draw on, and argues from
+`natural yoghurt` that it rescues less than it looks.
+[#142](https://github.com/palebluebytes/inventoria/issues/142) measured it. Every
+part of that paragraph moves except the decision itself, which stands: the
+mechanism is still not built.
+
+**The figures were counted against the wrong map, and the wrong unit.** The
+paragraph says 425 keys, 125 single words, 64 with all-single-word values. The
+app does not read the derived section alone — `buildSearchCorpus` merges it with
+the hand-written one and the fallback reads the merge — and a per-token
+substitution replaces the tokens `wordsOf` produces rather than the strings
+whitespace happens to delimit. Counted that way the map is **453 keys, 124 single-token keys,
+and 58 with all-single-token values**.
+
+Both corrections cut the subset rather than growing it. The seven hand-written
+entries add none, because six are phrases and the seventh, `gammon`, expands to
+one. Four more leave on the tokeniser: `crêpe` and `jícama` hold no
+ASCII-alphanumeric run across the accent, so they are two tokens each and the
+keys that expand to them are not single-token substitutions.
+
+**The `natural yoghurt` example is spent.** It was true when this record was
+written and the #141 Amendment above retired it: `natural yoghurt` is a
+hand-written entry now and leads with `Yogurt, plain, whole milk`. The argument
+it was serving — that a substitution can hand back a phrase as empty as the one
+typed — survives, and now has a number instead of an anecdote.
+
+**The number.** `docs/research/142-carrier-phrase-sweep.md` types each of the 58
+keys inside six carrier phrases and asks what one substitution would fill: **72 of
+348 probes, across 48 keys and 28 distinct foods.** `raw X` alone rescues 47 of
+the 58. Every rescued lead names the food the query asked for, read by hand.
+
+So the paragraph's "it is **unmeasured**" no longer holds, and its "it does not
+rescue as much as it appears to" holds only in the deflated sense the note gives:
+58 keys are 35 foods, because the map records five spellings of arugula and three
+of yogurt, and the honest figure is 28 of 35 rather than 48 of 58. What no sweep
+here can supply is usage — this app keeps no query telemetry by construction — so
+whether 28 foods justify a tier remains a judgement rather than a calculation, and
+#142 stays open carrying it.
+
+**One thing the map already does, found while measuring.** Eight of the 453 keys
+are themselves carrier phrases OFF's taxonomy happened to record — `cooked swede`,
+`raw spelt`, `raw almond kernels`, `dried whole milk`, `dried minced onion`,
+`fresh garlic`, `salad rocket`, `field salad`. So a typed `cooked swede` already
+expands, by whole phrase, while a typed `raw swede` still finds nothing. Any
+per-token tier has to run after the whole-phrase match, or those eight keys expand
+twice.
