@@ -4,10 +4,13 @@ import { describe, it, expect } from "vitest";
 // @ts-ignore
 import {
   APP_EXPORTS,
+  FOOD_KIND_EXPORTS,
   RANKING_EXPORTS,
   VOCABULARY_EXPORTS,
+  TWIN_LEDGER_EXPORTS,
 } from "../../scripts/usda-app-module.mjs";
 import * as usdaFdc from "../../src/lib/food/usda-fdc";
+import * as foodKind from "../../src/lib/food/usda-food-kind";
 import * as ranking from "../../src/lib/food/reference-food-ranking";
 import { DENIED_VOCABULARY_TAGS } from "../../src/lib/food/food-vocabulary";
 
@@ -25,6 +28,13 @@ describe("the app seam — the scripts borrow the app instead of copying it", ()
       );
   });
 
+  it("names only real exports of usda-food-kind.ts", () => {
+    for (const name of FOOD_KIND_EXPORTS)
+      expect(typeof (foodKind as Record<string, unknown>)[name]).toBe(
+        "function"
+      );
+  });
+
   it("names only real exports of the ranking", () => {
     for (const name of RANKING_EXPORTS)
       expect(typeof (ranking as Record<string, unknown>)[name]).toBe(
@@ -38,9 +48,18 @@ describe("the app seam — the scripts borrow the app instead of copying it", ()
   });
 
   it("borrows each name from exactly one module", () => {
-    // Three rosters composed into one bundle: a name in two of them would make
-    // whichever module the entry re-exports last silently win.
-    const all = [...APP_EXPORTS, ...RANKING_EXPORTS, ...VOCABULARY_EXPORTS];
+    // Five rosters composed into one bundle: a name in two of them would make
+    // whichever module the entry re-exports last silently win. That is the
+    // failure the #146 split could have introduced — a filter left behind in
+    // `APP_EXPORTS` as well as named in the new one would still load, and would
+    // load whichever copy esbuild wrote second.
+    const all = [
+      ...APP_EXPORTS,
+      ...FOOD_KIND_EXPORTS,
+      ...RANKING_EXPORTS,
+      ...VOCABULARY_EXPORTS,
+      ...TWIN_LEDGER_EXPORTS,
+    ];
     expect(new Set(all).size).toBe(all.length);
   });
 });

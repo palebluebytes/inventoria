@@ -580,9 +580,10 @@ function twinPass(corpus, index) {
  * reading "no_energy or the twin merge" was hiding.
  */
 async function explainAbsence(term) {
-  // The filters live in `usda-fdc.ts`, which Node's type-stripping cannot load
-  // directly the way it loads the ranking: that module imports its siblings
-  // extensionless, and bare Node will not resolve those. `usda-app-module.mjs`
+  // The filters live in `usda-food-kind.ts` and the merge in `usda-fdc.ts`,
+  // neither of which Node's type-stripping can load directly the way it loads
+  // the ranking: those modules import their siblings extensionless, and bare
+  // Node will not resolve those. `usda-app-module.mjs`
   // is the one place that solves it, for every script that borrows the app's
   // own logic rather than keeping a second copy of the answer (ADR-0047 §4).
   const { loadAppModule } = await import("./usda-app-module.mjs");

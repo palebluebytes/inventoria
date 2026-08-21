@@ -26,7 +26,7 @@ import {
   isManufacturingInput,
   isPreparedProduct,
   isProcessedProduct,
-} from "../../src/lib/food/usda-fdc";
+} from "../../src/lib/food/usda-food-kind";
 import {
   compareRelevance,
   compileReferenceFoodQuery,

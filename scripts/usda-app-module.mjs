@@ -19,6 +19,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const APP_MODULE = join(ROOT, "src", "lib", "food", "usda-fdc.ts");
+const FOOD_KIND_MODULE = join(ROOT, "src", "lib", "food", "usda-food-kind.ts");
 const RANKING_MODULE = join(
   ROOT,
   "src",
@@ -44,17 +45,14 @@ const TWIN_LEDGER_MODULE = join(
 /**
  * Everything this script borrows from the app, by name.
  *
- * The list is exported so `usda-bundle.test.ts` can assert every one of these is
- * a real export of `usda-fdc.ts` — the same lock `usda-coverage.test.ts` puts on
- * `PANEL_FIELDS`. A rename in the app then fails a test rather than failing a
- * regeneration months later.
+ * The list is exported so `usda-app-module.test.ts` can assert every one of these
+ * is a real export of `usda-fdc.ts` — the same lock `usda-coverage.test.ts` puts
+ * on `PANEL_FIELDS`. A rename in the app then fails a test rather than failing a
+ * regeneration months later. Every roster below is locked the same way, and
+ * `usda-bundle.test.ts` checks the union of them against the generator's own
+ * stub, so a call site added without a roster entry fails too.
  */
 export const APP_EXPORTS = [
-  "isBrandSpecific",
-  "isProcessedProduct",
-  "isPreparedProduct",
-  "isDryBasisRecord",
-  "isManufacturingInput",
   "fdcReportsNoEnergy",
   "fdcIdentityKey",
   "resolveFdcGroup",
@@ -62,6 +60,25 @@ export const APP_EXPORTS = [
   "twinSearchAliases",
   "mapFdcFoodToPayload",
   "mapFdcPortions",
+];
+
+/**
+ * The five food-kind judgements, borrowed through the same seam and for the same
+ * reason — they are just no longer in the same file (#146).
+ *
+ * They are ~200 lines of editorial judgement tuned against the corpus (the brand
+ * acronym stoplist, the sweetener and baked-staple head words, the
+ * salad-versus-salad-oil rule), and a second copy would drift silently: the
+ * artifact would keep shipping foods the app had learned to drop, or drop foods
+ * it had learned to keep, with nothing to notice. Nothing in `src/` imports the
+ * module, so this list is the whole of its readership.
+ */
+export const FOOD_KIND_EXPORTS = [
+  "isBrandSpecific",
+  "isProcessedProduct",
+  "isPreparedProduct",
+  "isDryBasisRecord",
+  "isManufacturingInput",
 ];
 
 /**
@@ -109,6 +126,7 @@ export const TWIN_LEDGER_EXPORTS = ["TWIN_LEDGER", "SPLIT_TWIN_NDB_NUMBERS"];
  */
 const BORROWED = [
   [APP_MODULE, APP_EXPORTS],
+  [FOOD_KIND_MODULE, FOOD_KIND_EXPORTS],
   [RANKING_MODULE, RANKING_EXPORTS],
   [VOCABULARY_MODULE, VOCABULARY_EXPORTS],
   [TWIN_LEDGER_MODULE, TWIN_LEDGER_EXPORTS],

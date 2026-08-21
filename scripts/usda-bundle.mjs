@@ -16,11 +16,11 @@
  *
  * Two properties are load-bearing and everything below is shaped by them.
  *
- * **Nothing here restates app logic.** The ADR-0042 reference-food filters,
- * ADR-0048 §5's dry-basis and no-energy filters, the ADR-0045 §2 twin merge, the
- * nutrition panel and the portion mapping all come out of
- * `src/lib/food/usda-fdc.ts` itself, loaded through esbuild (see
- * `loadAppModule`). A bundled row is therefore exactly the row a live search
+ * **Nothing here restates app logic.** The ADR-0042 reference-food filters and
+ * ADR-0048 §5's dry-basis filter come out of `src/lib/food/usda-food-kind.ts`;
+ * the ADR-0045 §2 twin merge, the nutrition panel, the portion mapping and
+ * ADR-0048 §6's no-energy filter come out of `src/lib/food/usda-fdc.ts`. Both are
+ * loaded through esbuild (see `loadAppModule`). A bundled row is therefore exactly the row a live search
  * would have produced, and a filter retune cannot leave the artifact behind.
  * The no-energy filter is the sharpest case: the same predicate decides whether
  * a row ships here and whether the food card will log it (ADR-0048 §6).

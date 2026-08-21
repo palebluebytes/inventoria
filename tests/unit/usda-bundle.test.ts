@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 // @ts-ignore
 import {
   APP_EXPORTS,
+  FOOD_KIND_EXPORTS,
   TWIN_LEDGER_EXPORTS,
 } from "../../scripts/usda-app-module.mjs";
 // @ts-ignore
@@ -43,11 +44,6 @@ import {
   PANEL_FIELDS,
   fdcIdentityKey,
   fdcReportsNoEnergy,
-  isBrandSpecific,
-  isDryBasisRecord,
-  isManufacturingInput,
-  isPreparedProduct,
-  isProcessedProduct,
   stripArchiveBoilerplate,
   twinSearchAliases,
   mapFdcFoodToPayload,
@@ -55,6 +51,13 @@ import {
   resolveFdcGroup,
   type FdcFood,
 } from "../../src/lib/food/usda-fdc";
+import {
+  isBrandSpecific,
+  isDryBasisRecord,
+  isManufacturingInput,
+  isPreparedProduct,
+  isProcessedProduct,
+} from "../../src/lib/food/usda-food-kind";
 
 // The generation step behind ADR-0047: USDA's bulk archives reduced to the two
 // artifacts the app ships. What matters here is that the bundled row is exactly
@@ -102,11 +105,12 @@ describe("what the generator borrows, and what it never restates", () => {
     // The roster lives in `usda-app-module.mjs`; what this pins is that the
     // generator's own stub uses all of it and nothing else, so a call site added
     // here without a roster entry fails rather than reaching a bare undefined.
-    // Two rosters, because the twin ledger is reached through the same seam from
-    // a module of its own (ADR-0051) — both are borrowed, neither is restated.
-    expect([...APP_EXPORTS, ...TWIN_LEDGER_EXPORTS].sort()).toEqual(
-      Object.keys(app).sort()
-    );
+    // Three rosters, because the twin ledger (ADR-0051) and the five food-kind
+    // judgements (#146) are each reached through the same seam from a module of
+    // their own — all three are borrowed, none is restated.
+    expect(
+      [...APP_EXPORTS, ...FOOD_KIND_EXPORTS, ...TWIN_LEDGER_EXPORTS].sort()
+    ).toEqual(Object.keys(app).sort());
   });
 
   it("builds the corpus from Foundation and SR Legacy alone", () => {
