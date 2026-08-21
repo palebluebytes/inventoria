@@ -2,6 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-20  
+**Amended by:** the #137 Amendment below, which corrects two Consequences about what §5 left standing  
 **Implemented:** #126 `35f454e` (the predicate), `7bce806` (§5's two filters), `40a6115` (the regenerated artifacts), `80dfac9` (§6's refusal on the card)
 
 This record amends [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md)

@@ -311,7 +311,7 @@ export interface IndexSearch extends SearchedPhrases {
  * also why the ranking gains no tier, key or clause for aliases: an alias is a
  * name, scored by the same scorer as every other name.
  *
- * The loop is skipped entirely for the 4,265 rows that have no alias, so a
+ * The loop is skipped entirely for the 4,266 rows that have no alias, so a
  * keystroke pays for this only where USDA held two names for one food.
  */
 function bestNameKey(

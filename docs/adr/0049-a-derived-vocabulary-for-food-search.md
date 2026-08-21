@@ -4,6 +4,7 @@
 **Date:** 2026-08-20  
 **Amended by:** the #139 Amendment below, which measures §3's stopword threshold and corrects the size §3 quotes for the map; and the #140 Amendment below, which corrects Consequences' count of the British queries OFF reaches, refines §6, and admits one change to what a panel says that Scope excluded  
 **Amended by:** the #144 Amendment below, which re-derives the map over the corpus [ADR-0042](0042-usda-search-reference-foods.md)'s #144 amendment left behind  
+**Amended by:** [ADR-0050](0050-a-merged-food-keeps-the-name-its-twin-lost.md) §5 (§3's two filters are asked of a row's every name, not of its description alone, and the map re-derives over the aliases)  
 **Implemented:** #139 `4a01dd1`, `5868a7f`, `efadfad` (the map); #140 (the fallback that reads it)
 
 This record amends [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md)
@@ -513,3 +514,42 @@ With those gone the phrases retrieve nothing and become misses the map answers �
 `powdered milk` with `milk powder` and `dry milk`, and the palm kernel phrase with the
 confectionery shortening that is still there. A smaller corpus made the fallback
 larger, and in both cases more nearly right.
+
+## Amendment (2026-08-21, #137): the filters are asked of a row, not of a description
+
+[ADR-0050](0050-a-merged-food-keeps-the-name-its-twin-lost.md) gives a Search
+index row a second kind of name — the description USDA published for the other
+record of its merged identity, discarded when the merge kept the base record's.
+A keystroke reaches a row by any of them, so `retrievalCounter` reads a row as
+all of its names and the map re-derives whenever they change.
+
+§3's two filters are unchanged as rules. What changed is the corpus they are
+stated over, which §3 always said was the **finished** one: a counter modelling
+descriptions alone would key phrases that do retrieve, and a key that answers is
+the one thing §1's zero-results trigger cannot tolerate.
+
+**The map goes from 435 keys to 446**, over 337 targets from 380 applicable OFF
+groups. §3's "435 keys over 332 distinct targets", itself the #144 Amendment's
+correction of the #139 Amendment's 433, is superseded by these figures.
+
+Two directions, both expected:
+
+- **`flax seed` and `flax seeds` leave the map**, having learned to answer for
+  themselves. `Flaxseed, ground` now also answers to SR Legacy's `Seeds,
+flaxseed`, so the phrases retrieve and the fallback would never reach them.
+- **Thirteen phrases join it**, because an alias finally gave their OFF group a
+  target that retrieves — `raw spelt` through `Spelt, uncooked`, the corn-salad
+  group (`lamb's lettuce`, `rapunzel`, `doucette`, `fetticus`, `field salad`,
+  `nut lettuce`, `raiponce`, `nusslisalat`, `common cornsalad`), and the
+  ascorbic-acid group (`e300`, `l-ascorbic acid`, `synonyms l-xylo-ascorbic
+acid`) through `Applesauce, canned, unsweetened, with added ascorbic acid`.
+
+That last group is worth naming rather than hiding: it is the
+`implausible-query` class this record already accepts, arriving through a name
+USDA itself published. `ascorbic acid` now returns an applesauce where it
+returned nothing. Filtering it would mean ruling on which of USDA's own
+descriptions are real food names, which is the editorial judgement ADR-0050 §3
+exists to avoid.
+
+The stopword guard is unmoved at 1.1% of the corpus, and the deny-list is
+untouched.

@@ -563,6 +563,23 @@ export function buildCorpus(groups, app) {
  * @param {AppModule} app
  * @returns {number} how many archived names were checked
  */
+/**
+ * The survivors as {@link retrievalCounter} reads them: every name a row answers
+ * to, which after ADR-0050 is its description and its aliases.
+ *
+ * Its own function because two counters are built from it, and ADR-0049's second
+ * one has to be fresh — a check handed the derivation's memoised counter reads
+ * back the answers that admitted each phrase and can never fail. What must not
+ * differ between them is the corpus; what must differ is the cache.
+ *
+ * @param {Survivor[]} survivors
+ */
+const retrievalRows = (survivors) =>
+  survivors.map((survivor) => ({
+    description: survivor.food.description,
+    also: survivor.also,
+  }));
+
 export function assertTwinNamesRetrieve(groups, survivors, app) {
   const kept = new Map(survivors.map((s) => [s.food.fdcId, s]));
   let checked = 0;
@@ -1008,13 +1025,7 @@ async function main() {
   // After the corpus, never before: both of ADR-0049 §3's filters ask what the
   // FINISHED corpus retrieves, so a group's members are compared against the
   // rows that survived rather than against the archives they came from.
-  const countMatches = retrievalCounter(
-    survivors.map((survivor) => ({
-      description: survivor.food.description,
-      also: survivor.also,
-    })),
-    app
-  );
+  const countMatches = retrievalCounter(retrievalRows(survivors), app);
   const vocabulary = deriveVocabulary(
     readTaxonomyGroups(await readVocabularySource(manifest.vocabulary, dir)),
     {
@@ -1027,13 +1038,7 @@ async function main() {
   // the cache that built the map (ADR-0049's two acceptance properties).
   assertVocabularyHolds(
     vocabulary.expansions,
-    retrievalCounter(
-      survivors.map((survivor) => ({
-        description: survivor.food.description,
-        also: survivor.also,
-      })),
-      app
-    )
+    retrievalCounter(retrievalRows(survivors), app)
   );
   const { index, nutrientStore } = buildArtifacts(
     survivors,

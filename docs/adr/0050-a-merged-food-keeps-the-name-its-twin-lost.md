@@ -7,10 +7,11 @@
 This record amends [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md)
 §2, whose merge decided which record wins and never considered that the loser's
 name was worth keeping, and [ADR-0042](0042-usda-search-reference-foods.md),
-whose ranking has no concept of a row having more than one name. It reads
-alongside [ADR-0049](0049-a-derived-vocabulary-for-food-search.md), which gives
-search a second source of words, and is deliberately not an extension of it: a
-vocabulary key is a phrase anyone might type, and this is one row's other name.
+whose ranking has no concept of a row having more than one name. §5 also amends
+[ADR-0049](0049-a-derived-vocabulary-for-food-search.md) §3, whose two filters
+are asked of a row's every name rather than of its description alone. It is
+deliberately not an extension of that record: a vocabulary key is a phrase anyone
+might type, and this is one row's other name.
 
 ## Context
 

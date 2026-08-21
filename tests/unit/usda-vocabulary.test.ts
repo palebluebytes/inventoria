@@ -14,6 +14,7 @@ import {
   retrievalCounter,
 } from "../../scripts/usda-vocabulary.mjs";
 import { DENIED_VOCABULARY_TAGS } from "../../src/lib/food/food-vocabulary";
+import type { SearchIndex } from "../../src/lib/food/usda-corpus";
 import * as ranking from "../../src/lib/food/reference-food-ranking";
 
 // The derivation behind ADR-0049: Open Food Facts' ingredients taxonomy reduced
@@ -306,17 +307,14 @@ describe("the committed vocabulary", () => {
   const manifest = JSON.parse(
     readFileSync("scripts/usda-backup.manifest.json", "utf8")
   );
-  const index = JSON.parse(
+  const index: SearchIndex = JSON.parse(
     readFileSync("public/usda/search-index.json", "utf8")
   );
 
   describe("the derived vocabulary", () => {
     const vocabulary = index.vocabulary_off;
     const expansions: Record<string, string[]> = vocabulary.expansions;
-    const count = retrievalCounter(
-      index.foods as { description: string; also?: string[] }[],
-      ranking
-    );
+    const count = retrievalCounter(index.foods, ranking);
 
     it("names the licence, the source and the digest it was derived from", () => {
       // ODbL obliges the derivative to be offered under the same licence, and

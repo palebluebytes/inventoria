@@ -281,7 +281,7 @@ export function describeVocabulary(vocabulary) {
  * @param {{ readReferenceFoodName: (description: string) => object, compileReferenceFoodQuery: (query: string) => (name: object) => { tier: number } }} app
  */
 export function retrievalCounter(rows, app) {
-  const names = rows.map((row) =>
+  const namesPerRow = rows.map((row) =>
     [row.description, ...(row.also ?? [])].map((description) =>
       app.readReferenceFoodName(description)
     )
@@ -291,11 +291,11 @@ export function retrievalCounter(rows, app) {
     const known = counted.get(phrase);
     if (known !== undefined) return known;
     const rank = app.compileReferenceFoodQuery(phrase);
-    let rows = 0;
-    for (const row of names)
-      if (row.some((name) => rank(name).tier > 0)) rows++;
-    counted.set(phrase, rows);
-    return rows;
+    let reached = 0;
+    for (const names of namesPerRow)
+      if (names.some((name) => rank(name).tier > 0)) reached++;
+    counted.set(phrase, reached);
+    return reached;
   };
 }
 

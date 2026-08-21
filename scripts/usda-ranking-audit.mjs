@@ -609,9 +609,16 @@ async function explainAbsence(term) {
     // filter that took the merged identity.
     const { survivors, dropped } = buildCorpus(new Map([[key, group]]), app);
     const shipped = survivors[0]?.food.description ?? null;
-    const dropped_by = shipped
-      ? null
-      : Object.entries(dropped).find(([, count]) => count > 0)[0];
+    const filter = Object.entries(dropped).find(([, count]) => count > 0);
+    // A group that neither survives nor files a tally would mean `buildCorpus`
+    // had grown a drop path that counts nothing, which is a bug in the thing
+    // this mode exists to explain rather than a verdict about a record.
+    if (!shipped && !filter)
+      throw new Error(
+        `identity ${key} ships nothing and no filter claims it; buildCorpus has ` +
+          "a drop path that files no tally"
+      );
+    const dropped_by = shipped ? null : filter[0];
     for (const hit of hits)
       verdicts.push({
         dataset: hit.food.dataType,
@@ -765,12 +772,14 @@ if (args.includes("--vocab")) {
       british: tally("british"),
       // #137's pass: one case per name the twin merge discarded. `not_led` is
       // the number where typing the archived name does not put the row that
-      // took its identity first, and `unreachable` those it does not reach at
-      // all — which is what the aliases exist to keep at zero.
+      // took its identity first, and `absent` those where it is not in the 50
+      // shown — the same window every other pass here reports against, and what
+      // the aliases exist to keep at zero. The generator's own assertion is the
+      // stricter one, over `tier` rather than over a page.
       twin_names: tally("twin"),
       twin_not_led: cases.filter((c) => c.pass === "twin" && c.rank !== 1)
         .length,
-      twin_unreachable: cases.filter((c) => c.pass === "twin" && c.rank === 0)
+      twin_absent: cases.filter((c) => c.pass === "twin" && c.rank === 0)
         .length,
       // #124's pass. Only the queries whose LEAD moved are emitted as cases, so
       // this count is smaller than the query set the two counters below span.

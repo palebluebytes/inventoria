@@ -23,8 +23,8 @@
   },
   "adjudications": {
     "carried": 716,
-    "stale": 124,
-    "dropped": 190
+    "stale": 122,
+    "dropped": 0
   },
   "harm": {
     "absent": 1005,
@@ -41,7 +41,7 @@
     "british": 20,
     "twin_names": 87,
     "twin_not_led": 5,
-    "twin_unreachable": 0,
+    "twin_absent": 0,
     "qualifier_queries": 1307,
     "qualifier_lead_changed": 93,
     "qualifier_lead_beaten_on_position_before": 85,
@@ -33304,10 +33304,10 @@
           "position": -1
         }
       ],
-      "verdict": "miss",
-      "cause": "filter-dropped",
-      "note": "`Spinach, raw` is in BOTH archives and ADR-0048 no_energy dropped both copies; searching spinach cannot reach raw spinach at all",
-      "verdict_stale": true
+      "verdict": "correct",
+      "cause": "correct",
+      "note": "Re-judged 2026-08-21 (#137). The previous note was wrong on its facts: `Spinach, raw` is in SR Legacy and the Survey archive, not in both bundled archives, and ADR-0048 did not drop it — it carries ndb 11457, the same number as Foundation's `Spinach, mature`, so the twin merge collapsed the two. With the discarded name carried as an alias (ADR-0050) the lead is `Spinach, mature`, which is that merged record: raw spinach, with SR Legacy's values merged in.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -34538,10 +34538,10 @@
           "position": 0
         }
       ],
-      "verdict": "miss",
-      "cause": "qualifier-position",
-      "note": "'millet' leads with COOKED over whole grain",
-      "verdict_stale": true
+      "verdict": "correct",
+      "cause": "correct",
+      "note": "Re-judged 2026-08-21 (#137). `Millet, raw` (SR Legacy, ndb 20031) merged into `Millet, whole grain` and the name went with it. Carried as an alias (ADR-0050), it leads, and cooked millet no longer does.",
+      "verdict_stale": false
     },
     {
       "pass": "head",

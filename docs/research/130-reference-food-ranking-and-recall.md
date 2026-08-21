@@ -370,6 +370,21 @@ foods. `Apples, raw, golden delicious, with skin` and
 in the corpus at all. That is
 [#145](https://github.com/palebluebytes/inventoria/issues/145).
 
+### Two carried verdicts were re-judged, and 122 were not
+
+`head:spinach` carried `verdict: miss`, `cause: filter-dropped`, and a note
+saying "`Spinach, raw` is in BOTH archives and ADR-0048 no_energy dropped both
+copies". That is the claim this correction retracts, so leaving it in the
+machine-readable file while the prose disowned it would put the two at odds.
+`head:millet` carried "'millet' leads with COOKED over whole grain", which is no
+longer true either. Both are now `correct`, with the reason in the note, and both
+clear their `verdict_stale` flag because a human read them.
+
+The other 122 stale flags stay sticky and are **not** this correction's to clear.
+The file they were carried from was measured over a 4,429-row index, so most of
+them moved with #143 and #144 rather than with #137, and the flag exists to say
+"nobody has re-read this" rather than "something is wrong".
+
 ### What still stands
 
 Everything else. §5's 236 vocabulary misses, §6's split of the 43 ranking misses,
