@@ -2,7 +2,8 @@
 
 **Grounds:** `mapFdcFoodToPayload` / `fillFromTwin` in `src/lib/food/usda-fdc.ts`; [ADR-0045](../adr/0045-usda-stays-the-base-food-composition-authority.md) §2 and §3, whose energy-coherence argument this tests.
 **Sibling:** [#119](https://github.com/palebluebytes/inventoria/issues/119) built the archive reader and the `ndbNumber` join this measures over.
-**Date:** 2026-08-19. Figures marked _measured_ were computed that day over the complete bulk archives in `.usda-backup/` — Foundation 2026-04-30 (363 records) and SR Legacy 2018-04 (7,793) — and are reproduced by `pnpm usda:coverage`, which verifies each archive's sha256 against `scripts/usda-backup.manifest.json` before counting. Documentary claims come from the pages cited. **Status:** research only — no code beyond the measurement, no ADR.
+**Date:** 2026-08-19. Figures marked _measured_ were computed that day over the complete bulk archives in `.usda-backup/` — Foundation 2026-04-30 (363 records) and SR Legacy 2018-04 (7,793) — and are reproduced by `pnpm usda:coverage`, which verifies each archive's sha256 against `scripts/usda-backup.manifest.json` before counting. Documentary claims come from the pages cited. **Status:** research only — no code beyond the measurement, no ADR.  
+**Corrected by:** the [#122 Addendum](#addendum-2026-08-23-122-52-was-right-about-the-mechanism-and-wrong-about-the-size-and-the-direction) below, which overturns §5.2's chia table and the "roughly 10%" in §1's last bullet, and measures the comparison over the shipped corpus in both directions.
 
 ---
 
@@ -126,6 +127,8 @@ Atwater general factors apply 4 kcal/g to carbohydrate by difference, which incl
 
 USDA's specific factors already discount some of it, which is why the stated 486 sits between. Against a British packet our panel still reads about 10% high for chia, and similarly for pulses. This is a property of choosing USDA as the authority ([ADR-0045](../adr/0045-usda-stays-the-base-food-composition-authority.md) §1), not a defect in the merge, and it interacts with the "not reported versus zero" work research note [#108](108-base-food-composition-sources.md) names as escalation step 1. It is raised separately as [#122](https://github.com/palebluebytes/inventoria/issues/122); nothing here proposes acting on it.
 
+> **Overtaken.** Every figure in this section was superseded when #122 was settled: the chia record we ship is no longer the SR Legacy row, the gap is 15.3% rather than "about 10%", and it does not run one way. See the [#122 Addendum](#addendum-2026-08-23-122-52-was-right-about-the-mechanism-and-wrong-about-the-size-and-the-direction) below.
+
 ## 6. What this does not establish
 
 - **Whether USDA's factors are right.** This measures what the archives say and whether it is internally consistent, not whether the metabolisable energy is correct for a human.
@@ -137,3 +140,66 @@ USDA's specific factors already discount some of it, which is why the stated 486
 ## Caveat
 
 "Reconciles" here means the stated energy is within a point of what the record's own macros produce under the factor system its nutrient id names. A record can reconcile perfectly and still be wrong about the food: reconciliation is internal consistency, not accuracy, and says nothing about how old the assay is or how many samples stood behind it.
+
+---
+
+## Addendum (2026-08-23, #122): §5.2 was right about the mechanism and wrong about the size and the direction
+
+§5.2 was written against the archives. [#122](https://github.com/palebluebytes/inventoria/issues/122) asked what to do about it, and answering that meant measuring the same thing over the corpus we actually ship. Three of §5.2's claims did not survive, and one of them was the load-bearing one.
+
+**Method.** Over `public/usda/nutrient-store.json` as generated at `420cc37` — 4,360 foods, the artefact the app reads. "What we display" is the energy the app's own preference order lands on (1008, then 2047, then 2048; `PANEL_FIELDS` in `usda-fdc.ts`). "The EU figure" is what Regulation 1169/2011 Annex XIV produces from the same record: `4×protein + 9×fat + 4×carbohydrate + 7×alcohol − 2×fibre`, the subtraction being what turns USDA's carbohydrate _by difference_ — which includes fibre — into the available carbohydrate at 4 plus fibre at 2. Polyols and organic acids are ignored; neither is carried in the panel. Of the 4,360, **8** state no energy, **397** carry no fibre row at all (absent, not zero — ADR-0048 §1, so the comparison is not computable rather than trivially equal), and **12** produce an EU figure at or below 5 kcal, where a percentage means nothing. **3,943 rows remain**, and every figure below is over those. This is not wired into `pnpm usda:coverage`: that script reads the archives, this reads the bundle, and the two inputs should not share a script.
+
+### The mechanism is real, and §5.2 understated it on the food it chose
+
+| Chia seeds, per 100 g                                                                             | kcal    |
+| ------------------------------------------------------------------------------------------------- | ------- |
+| §5.2's table, `Seeds, chia seeds, dried` (SR Legacy 170554)                                       | 486     |
+| **What we ship**, `Chia seeds, dry, raw` (Foundation 2710819, merged fill-only under ADR-0045 §2) | **517** |
+| The EU figure for the record we ship                                                              | 448     |
+
+**+69 kcal, 15.3%** — not the "about 10%" §5.2 and §1 both quote. The sentence _"USDA's specific factors already discount some of it, which is why the stated 486 sits between"_ is now false for this food: the Foundation record is the base of the merge and carries its own energy under general factors, so the SR row's specific factors never reach the display. Chia sits in the top handful of the whole corpus on this measure.
+
+### It does not run one way, and the biggest deviations run the other way
+
+This is the finding §5.2 missed, and it is the one that decided #122.
+
+|                                   | rows        |
+| --------------------------------- | ----------- |
+| we read **high** by ≥5%           | 598         |
+| we read **low** by ≥5%            | **240**     |
+| within ±3% either way             | 2,009 (51%) |
+| high by ≥10% _and_ ≥25 kcal/100 g | 28          |
+
+The largest absolute deviations in the corpus are **under**-reports:
+
+| Food                           | We show | EU figure |      |
+| ------------------------------ | ------- | --------- | ---- |
+| Cocoa, dry powder, unsweetened | 228     | 359       | −131 |
+| Oat bran, raw                  | 246     | 366       | −120 |
+| Seaweed, spirulina, dried      | 290     | 388       | −98  |
+| Wheat bran, crude              | 216     | 273       | −57  |
+
+Two causes, and neither is the fibre factor. USDA's per-food specific factors over-discount high-fibre plant foods past what the EU convention would take off; and some rows do not reconcile with their own macros at all — **191 of the 240 low rows sit more than 10% below their own flat 4/4/9**, which is §5.1's population, not §5.2's. A disclosure saying "we count fibre generously, so we read high" would be plainly wrong in front of oat bran, and oat bran is a food a British user logs.
+
+### Most of it is small
+
+| Absolute gap   | rows        |
+| -------------- | ----------- |
+| ≥10 kcal/100 g | 526 (13.3%) |
+| ≥20            | 201 (5.1%)  |
+| ≥30            | 92 (2.3%)   |
+| ≥50            | 24 (0.6%)   |
+
+Median 4.9 kcal/100 g, p90 13.1, p95 20.4, p99 41.0, max 144. Everyday high-fibre foods land modestly: cooked lentils 116 vs 104, wholemeal bread 252 vs 240. Raw broccoli reads 31 against an EU figure of 34 — **low**, by 7.8%.
+
+### The class the ticket's correction asked about is 118 pairs, and it is not fibre
+
+The #122 comment asked how large the class is where a Foundation re-assay won the merge from an SR Legacy row carrying specific factors. Measured over the 190 twinned pairs: **181 state energy on both sides, and 118 read higher under Foundation, 102 of them by ≥2%.**
+
+But the premise needs correcting. **SR Legacy publishes nutrient id 2048 on 0 of its 7,793 records** — §3's table says as much — so no specific-factor row is being displaced; SR's specific factors, where it has them, are folded into `1008`. And the largest movers carry almost no fibre: bok choy +56%, collards +47%, leaf lettuce +35–47%, mushrooms +38–42%, Brussels sprouts +38%. That is a newer assay reporting different macros, which is exactly what ADR-0045 §2 buys. It is a larger effect than fibre and a different one, and it is carried out to its own ticket rather than folded in here.
+
+### What #122 decided
+
+Nothing is recomputed. [ADR-0048](../adr/0048-an-absent-measurement-is-not-a-zero.md) §3 already forecloses it — _"No panel's energy is ever computed from other fields — not by Atwater factors"_ — so the option §5.2's ticket wanted argued was never live. The panel discloses instead, in one sentence of the USDA source explainer, and the decision is recorded as an amendment to [ADR-0045](../adr/0045-usda-stays-the-base-food-composition-authority.md).
+
+One "Related" line in the ticket is also settled: the "not reported versus zero" gap this section pointed at closed under ADR-0048, so the two no longer want settling together.
