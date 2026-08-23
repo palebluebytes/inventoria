@@ -1089,7 +1089,7 @@
     results = [];
     staged = null;
     try {
-      results = await searchUsdaFoods(query);
+      results = (await searchUsdaFoods(query)).results;
       lastQuery = query.trim();
       status = "idle";
     } catch (e: any) {

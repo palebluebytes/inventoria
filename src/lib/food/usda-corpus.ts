@@ -202,6 +202,13 @@ export interface SearchableFood {
 export interface SearchCorpus {
   foods: SearchableFood[];
   /**
+   * The artifact's own `schema_version`, carried through unread by the search
+   * itself. #149's search log stores it beside every capture, because the
+   * vocabulary re-derives on every corpus change and a flag computed against one
+   * version has to say which version that was (ADR-0053 §4).
+   */
+  schema_version: number;
+  /**
    * ADR-0049's Vocabulary map, in the form the fallback reads it: a phrase this
    * corpus retrieves nothing for, mapped to the phrases it does. Both halves of
    * it — the derived section and the hand-written one — merged, because the
@@ -230,6 +237,7 @@ export function buildSearchCorpus(index: SearchIndex): SearchCorpus {
       name: readReferenceFoodName(row.description),
       also: (row.also ?? []).map(readReferenceFoodName),
     })),
+    schema_version: index.schema_version,
     vocabulary: {
       ...index.vocabulary_off.expansions,
       ...index.vocabulary_local.expansions,
@@ -585,6 +593,18 @@ export async function completeStagedPanel(
 /** A finished search over the bundled corpus: {@link IndexSearch} in twins. */
 export interface UsdaSearch extends SearchedPhrases {
   foods: EntityPayload[];
+  /**
+   * Whether the typed query retrieved nothing and ADR-0049's vocabulary answered
+   * in its place — true exactly when a returned food was reached through a
+   * vocabulary key rather than through what was typed.
+   *
+   * It rides on the answer because it is knowable only here: by the time a
+   * caller has the foods, the key that reached them is inside a name. #149's
+   * search log is what reads it, and ADR-0053 §3 is why — a rescued query never
+   * showed "No food found", so it is recorded under its own outcome and left out
+   * of the §7 denominator.
+   */
+  rescued_by_vocabulary: boolean;
 }
 
 /**
@@ -601,11 +621,16 @@ export async function searchUsdaCorpus(
   query: string,
   load: () => Promise<SearchCorpus> = loadSearchCorpus
 ): Promise<UsdaSearch> {
-  if (!query.trim()) return { phrases: [], foods: [] };
+  if (!query.trim())
+    return { phrases: [], foods: [], rescued_by_vocabulary: false };
   const { phrases, hits } = searchIndexRows(await load(), query);
   return {
     phrases,
     foods: hits.map(({ row, alias }) => mapIndexRowToPayload(row, alias)),
+    // A hit carries an alias only on the searches where the typed word reached
+    // nothing and the vocabulary offered another, so asking the hits is asking
+    // the fallback itself rather than re-deciding what it did.
+    rescued_by_vocabulary: hits.some(({ alias }) => alias !== undefined),
   };
 }
 

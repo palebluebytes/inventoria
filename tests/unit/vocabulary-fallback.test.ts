@@ -28,7 +28,7 @@ const corpus = buildSearchCorpus(index);
  * the "today" side of the strict-addition property rather than a second copy of
  * the ranking, which could drift from the one that ships.
  */
-const literalOnly: SearchCorpus = { foods: corpus.foods, vocabulary: {} };
+const literalOnly: SearchCorpus = { ...corpus, vocabulary: {} };
 
 const topFor = (query: string): string | undefined =>
   searchIndexRows(corpus, query).hits[0]?.row.description;

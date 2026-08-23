@@ -203,14 +203,17 @@ describe("searchUsdaFoods with curated stand-ins", () => {
    * phrases that reached them. `phrases` is what was typed unless the vocabulary
    * fallback fired, which is the case the last test here covers.
    */
-  const found = (phrases: string[], foods: unknown[]) => async () => ({
-    phrases,
-    foods,
-  });
+  const found =
+    (phrases: string[], foods: unknown[], rescued = false) =>
+    async () => ({
+      phrases,
+      foods,
+      rescued_by_vocabulary: rescued,
+    });
 
   it("leads with the stand-in when the query IS the food", async () => {
     stubCorpus(found(["cacao nibs"], []));
-    const results = await searchUsdaFoods("cacao nibs");
+    const { results } = await searchUsdaFoods("cacao nibs");
     expect(results.map((r) => r.entity)).toEqual(["gtin:5400706613279"]);
     expect(results[0].name).toBe("Cacao Nibs");
   });
@@ -219,7 +222,7 @@ describe("searchUsdaFoods with curated stand-ins", () => {
     stubCorpus(
       found(["cocoa"], [usdaFood("fdc:1", "Cocoa, dry powder, unsweetened")])
     );
-    const results = await searchUsdaFoods("cocoa");
+    const { results } = await searchUsdaFoods("cocoa");
     expect(results.map((r) => r.entity)).toEqual([
       "fdc:1",
       "gtin:5400706613279",
@@ -258,11 +261,22 @@ describe("searchUsdaFoods with curated stand-ins", () => {
     stubCorpus(
       found(["cocoa"], [usdaFood("fdc:1", "Cocoa, dry powder, unsweetened")])
     );
-    const results = await searchUsdaFoods("cacao");
+    const { results } = await searchUsdaFoods("cacao");
     expect(results.map((r) => r.entity)).toEqual([
       "fdc:1",
       "gtin:5400706613279",
     ]);
+  });
+
+  it("passes on whether the vocabulary answered, for #149's log", async () => {
+    // The one caller that needs it is the search log (ADR-0053 §3): a rescued
+    // query is recorded under its own outcome, and it is the search — not the
+    // results — that knows a rescue happened.
+    stubCorpus(found(["cocoa"], [usdaFood("fdc:1", "Cocoa")], true));
+    expect((await searchUsdaFoods("cacao")).rescued_by_vocabulary).toBe(true);
+
+    stubCorpus(found(["banana"], [usdaFood("fdc:2", "Bananas, raw")]));
+    expect((await searchUsdaFoods("banana")).rescued_by_vocabulary).toBe(false);
   });
 });
 

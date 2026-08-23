@@ -1028,7 +1028,24 @@ describe("searchUsdaCorpus", () => {
     expect(await searchUsdaCorpus("  ", loadFixture)).toEqual({
       phrases: [],
       foods: [],
+      rescued_by_vocabulary: false,
     });
+  });
+
+  // The one thing about a search only the search knows, and #149's log needs it:
+  // a query the vocabulary answered never showed the user "No food found", so it
+  // is recorded under its own outcome and left out of ADR-0053 §7's denominator.
+  it("says when the vocabulary answered in the typed query's place", async () => {
+    const literal = await searchUsdaCorpus("banana", loadFixture);
+    expect(literal.rescued_by_vocabulary).toBe(false);
+
+    const rescued = await searchUsdaCorpus("aubergine", loadFixture);
+    expect(rescued.foods.length).toBeGreaterThan(0);
+    expect(rescued.rescued_by_vocabulary).toBe(true);
+  });
+
+  it("carries the index schema_version the corpus was read from", () => {
+    expect(corpus.schema_version).toBe(index.schema_version);
   });
 });
 

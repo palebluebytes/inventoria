@@ -154,10 +154,24 @@ export class NoReferenceFoodError extends Error {
 }
 
 /**
+ * A finished reference-food search: the rows the user sees, and whether the
+ * Vocabulary map is what reached them.
+ *
+ * The flag is here rather than derived by the caller because only the search
+ * knows it — a rescued row arrives with the key folded into its name, and
+ * nothing downstream can tell that from a food that was simply called that.
+ * #149's search log is its one reader (ADR-0053 §3).
+ */
+export interface ReferenceFoodSearch {
+  results: FoodResult[];
+  rescued_by_vocabulary: boolean;
+}
+
+/**
  * Searches the bundled USDA corpus and maps the matches to FoodResults, folding
  * in any curated stand-in the search reaches (ADR-0046 §1) — a base ingredient no
  * reference table carries, pinned to one vetted OFF record. Throws if nothing
- * matched, so callers only handle the error path; an empty query returns [].
+ * matched, so callers only handle the error path; an empty query returns no rows.
  *
  * An exact curated hit LEADS the list and a partial one TRAILS it, so the stand-in
  * is the answer for "cacao nibs" without displacing USDA's cocoa powder for the
@@ -167,13 +181,16 @@ export class NoReferenceFoodError extends Error {
  * artifact precached at install, so this answers on a plane and on a cold
  * offline install alike.
  */
-export async function searchUsdaFoods(query: string): Promise<FoodResult[]> {
+export async function searchUsdaFoods(
+  query: string
+): Promise<ReferenceFoodSearch> {
   const trimmed = query.trim();
-  if (!trimmed) return [];
+  if (!trimmed) return { results: [], rescued_by_vocabulary: false };
   // The phrases come back with the foods because the curated table reads them
   // too (ADR-0049 §6): what was typed, plus the vocabulary's expansions of it
   // where what was typed reached no reference food at all.
-  const { phrases, foods } = await searchUsdaCorpus(trimmed);
+  const { phrases, foods, rescued_by_vocabulary } =
+    await searchUsdaCorpus(trimmed);
   const curated = curatedMatches(phrases);
   const results = [
     ...curated.filter((m) => m.exact),
@@ -181,5 +198,8 @@ export async function searchUsdaFoods(query: string): Promise<FoodResult[]> {
     ...curated.filter((m) => !m.exact),
   ].map(({ payload }) => mapPayloadToFoodResult(payload));
   if (results.length === 0) throw new NoReferenceFoodError();
-  return results;
+  // A curated stand-in answering a query the corpus could not is not a rescue:
+  // the flag says the VOCABULARY answered, and the two tables are deliberately
+  // separate mechanisms (ADR-0049 §6).
+  return { results, rescued_by_vocabulary };
 }
