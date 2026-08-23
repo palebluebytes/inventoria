@@ -3,6 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-08-23  
 **Amended by:** the Amendment below, which moves the log out of the ledger into `localStorage` — §6's redaction and §7's retention cap both require deleting a datom, which `AGENTS.md` §3 forbids
+**Amended by:** [ADR-0054](0054-one-local-log-facility-and-no-channel-without-a-reader.md), which makes §3's record the first channel of a shared local log facility rather than a store of its own
 
 ## Context
 
