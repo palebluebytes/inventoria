@@ -1,5 +1,6 @@
 import type { EntityPayload } from "../ingestion/ingest";
 import {
+  isPer100Basis,
   PER_100G,
   PER_100ML,
   FOOD_PORTIONS_ATTR,
@@ -235,6 +236,15 @@ export class ProductNotFoundError extends Error {
 // ---------------------------------------------------------------------------
 
 /**
+ * OFF's `product_quantity_unit` and `serving_quantity_unit` are each documented as
+ * "either g or ml". This reads one of them; which one is the whole question, and
+ * the two callers below ask deliberately different ones (ADR-0052 §1/§2).
+ */
+function isMillilitres(unit: string | undefined): boolean {
+  return unit?.trim().toLowerCase() === "ml";
+}
+
+/**
  * Builds a food's `food/portions` list from OFF's serving fields (ADR-0030 §5).
  * OFF offers exactly one serving, so the list is 0 or 1 long: a single portion
  * that resolves to `serving_quantity` grams, labelled by `serving_size` (falling
@@ -255,7 +265,7 @@ function offPortions(
   serving_quantity_unit: string | undefined,
   serving_size: string | undefined
 ): Portion[] {
-  if (serving_quantity_unit?.trim().toLowerCase() === "ml") return [];
+  if (isMillilitres(serving_quantity_unit)) return [];
   const grams =
     typeof serving_quantity === "string"
       ? Number(serving_quantity)
@@ -277,9 +287,7 @@ function offPortions(
  * was `100g` on 24, absent on 74 and `100ml` on none.
  */
 function offPanelBasis(product_quantity_unit: string | undefined): string {
-  return product_quantity_unit?.trim().toLowerCase() === "ml"
-    ? PER_100ML
-    : PER_100G;
+  return isMillilitres(product_quantity_unit) ? PER_100ML : PER_100G;
 }
 
 /**
@@ -679,7 +687,7 @@ export function buildOffWriteBody(
   // drink, and posting our own `100 ml` verbatim would send an out-of-enum value.
   // Letting a `100 ml` panel fall through to `serving` would be worse still: it
   // would declare the whole nutriment set as one serving of "100 ml".
-  const per100 = n.serving_size === PER_100G || n.serving_size === PER_100ML;
+  const per100 = isPer100Basis(n.serving_size);
   body.set("nutrition_data_per", per100 ? "100g" : "serving");
   if (!per100 && n.serving_size) body.set("serving_size", n.serving_size);
 

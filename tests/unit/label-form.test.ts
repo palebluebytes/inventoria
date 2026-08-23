@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildLabelPanel,
+  invertServingSize,
   resolveServingSize,
   toDisplay,
   toGrams,
@@ -17,6 +18,32 @@ import { formatNutrientValue } from "../../src/lib/food/nutrient-display";
 function blankValues(): Record<string, string> {
   return Object.fromEntries(ALL_FIELDS.map((f) => [f.key, ""]));
 }
+
+describe("invertServingSize (serving_size → basis, the inverse)", () => {
+  it("round-trips every basis resolveServingSize can emit", () => {
+    for (const [basis, servingGrams] of [
+      ["per_100g", ""],
+      ["per_100ml", ""],
+      ["per_serving", "45"],
+      ["per_serving", ""],
+    ] as const) {
+      expect(
+        invertServingSize(resolveServingSize(basis, servingGrams))
+      ).toEqual({ basis, servingGrams });
+    }
+  });
+
+  it("reads a basis it has no field for as a weightless serving", () => {
+    expect(invertServingSize(undefined)).toEqual({
+      basis: "per_serving",
+      servingGrams: "",
+    });
+    expect(invertServingSize("1 portion (330 ml)")).toEqual({
+      basis: "per_serving",
+      servingGrams: "",
+    });
+  });
+});
 
 describe("resolveServingSize (basis → serving_size, §3)", () => {
   it("per-100 g resolves to the canonical '100 g'", () => {

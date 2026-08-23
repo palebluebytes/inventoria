@@ -21,6 +21,8 @@ import {
   type NutrientUnit,
 } from "./nutrient-display";
 import {
+  isPer100Basis,
+  servingSizeGrams,
   PER_100G,
   PER_100ML,
   PER_SERVING,
@@ -129,6 +131,40 @@ export function resolveServingSize(basis: Basis, servingGrams: string): string {
   if (basis === "per_100ml") return PER_100ML;
   const n = Number(servingGrams.trim());
   return Number.isFinite(n) && n > 0 ? `${n} g` : PER_SERVING;
+}
+
+/** How a stored panel's basis reads back onto the form's two controls. */
+export interface InvertedBasis {
+  basis: Basis;
+  /** What the serving-weight field shows; empty for a per-100 basis. */
+  servingGrams: string;
+}
+
+/**
+ * The inverse of {@link resolveServingSize}: a saved panel's basis read back onto
+ * the form's toggle, so re-opening a twin for correction shows the basis it was
+ * stored with rather than a guess. Lives beside the forward mapping so the two
+ * cannot drift, and round-trips every basis that mapping can emit.
+ *
+ * The weight comes from {@link servingSizeGrams}, which requires an explicit gram
+ * unit. A bare `parseFloat` finds a `1` in "1 serving" and in OFF's "1 portion
+ * (330 ml)", so re-opening a whole-serving panel used to offer a serving weight of
+ * one gram — and saving it would have written that back as the panel's basis.
+ */
+export function invertServingSize(
+  serving_size: string | undefined
+): InvertedBasis {
+  if (isPer100Basis(serving_size)) {
+    return {
+      basis: serving_size === PER_100ML ? "per_100ml" : "per_100g",
+      servingGrams: "",
+    };
+  }
+  const grams = serving_size ? servingSizeGrams(serving_size) : null;
+  return {
+    basis: "per_serving",
+    servingGrams: grams == null ? "" : String(grams),
+  };
 }
 
 export interface LabelPanelInput {

@@ -282,12 +282,13 @@ export function portionPresets(
 
 /**
  * The gram weight a panel's `serving_size` names, or `null` when it names no
- * concrete weight. Unlike {@link parseServingGrams} (which falls back to 100 g so
- * a scaler always has a divisor), this returns `null` for the two basis sentinels
- * that carry no household serving: the per-100 g reference basis ({@link PER_100G})
- * and a bare "1 serving" of unknown weight ({@link PER_SERVING}, which parses to
- * `NaN`). So it answers a different question — "does this food weigh a known amount
- * per serving?" — used to decide whether a serving is surfaceable at all.
+ * concrete weight. Unlike {@link parseBasisQuantity} (which falls back to 100 so a
+ * scaler always has a divisor), this returns `null` for every basis sentinel
+ * that carries no household serving: the two per-100 reference bases
+ * ({@link PER_100G}, {@link PER_100ML}) and a bare "1 serving" of unknown weight
+ * ({@link PER_SERVING}, which parses to `NaN`). So it answers a different question
+ * — "does this food weigh a known amount per serving?" — used to decide whether a
+ * serving is surfaceable at all.
  */
 export function servingSizeGrams(serving_size: string): number | null {
   const t = serving_size.trim();
@@ -338,6 +339,16 @@ const BASIS_QUANTITY = /^(\d+(?:\.\d+)?)\s*(?:g(?:rams?)?|ml)$/i;
  * unknown, so it takes the fallback rather than the `1` a bare `parseFloat` finds
  * in it, which would have scaled a whole-serving panel by the gram count.
  */
+/**
+ * True for a basis measured against 100 of the food's own unit, whichever unit
+ * that is. The one place the two per-100 sentinels are named together, so a
+ * caller asking "is this a per-100 panel?" cannot answer it for only one of them
+ * — which is how a drink would slip into the per-serving branch (ADR-0052 §3).
+ */
+export function isPer100Basis(serving_size: string | undefined): boolean {
+  return serving_size === PER_100G || serving_size === PER_100ML;
+}
+
 export function parseBasisQuantity(serving_size: string | undefined): number {
   const match = BASIS_QUANTITY.exec((serving_size ?? "").trim());
   const quantity = match ? Number(match[1]) : NaN;

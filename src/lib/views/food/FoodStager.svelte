@@ -28,8 +28,6 @@
     roundFoodDisplay,
     FOOD_PORTIONS_ATTR,
     NUTRITION_INFO_ATTR,
-    PER_100G,
-    PER_100ML,
     type Portion,
     type NutritionInfo,
   } from "../../food/nutrition";
@@ -39,6 +37,7 @@
     MICROS,
     ALL_FIELDS,
     buildLabelPanel,
+    invertServingSize,
     toDisplay,
     type FieldDef,
     type Basis,
@@ -304,7 +303,7 @@
   // restamped as a weight on save (#148); every other food sees "100 g" exactly
   // as before. The toggle still offers two choices — typing a per-100 ml label
   // from scratch is #127, not this.
-  let BASIS_OPTIONS = $derived<{ value: Basis; label: string }[]>([
+  let basisOptions = $derived<{ value: Basis; label: string }[]>([
     customBasis === "per_100ml"
       ? { value: "per_100ml", label: "100 ml" }
       : { value: "per_100g", label: "100 g" },
@@ -477,8 +476,8 @@
     const info = attrs[NUTRITION_INFO_ATTR] as NutritionInfo | undefined;
     // An OFF panel is per 100 of the pack's own base unit — grams, or millilitres
     // for a drink (#148). The form matches whichever the mapper stamped.
-    customBasis = info?.serving_size === PER_100ML ? "per_100ml" : "per_100g";
-    customServingGrams = "";
+    ({ basis: customBasis, servingGrams: customServingGrams } =
+      invertServingSize(info?.serving_size));
     const values: Record<string, string> = {};
     for (const f of ALL_FIELDS) {
       const grams = info?.[f.key];
@@ -537,18 +536,10 @@
     customIngredients =
       (attrs["food/ingredients_text"] as string | undefined) ?? "";
     const info = attrs[NUTRITION_INFO_ATTR] as NutritionInfo | undefined;
-    // Invert the stored `serving_size` back onto the #52 basis toggle: "100 g" is
-    // per-100 g, "100 ml" the drink basis OFF published (#148); a bare "N g" is a
-    // weighed serving; anything else falls to serving.
-    const serving = info?.serving_size;
-    if (serving === PER_100G || serving === PER_100ML) {
-      customBasis = serving === PER_100ML ? "per_100ml" : "per_100g";
-      customServingGrams = "";
-    } else {
-      const g = serving ? parseFloat(serving) : NaN;
-      customBasis = "per_serving";
-      customServingGrams = Number.isFinite(g) && g > 0 ? String(g) : "";
-    }
+    // Invert the stored `serving_size` back onto the #52 basis toggle, through the
+    // same mapping that resolved it on save.
+    ({ basis: customBasis, servingGrams: customServingGrams } =
+      invertServingSize(info?.serving_size));
     const values: Record<string, string> = {};
     for (const f of ALL_FIELDS) {
       const grams = info?.[f.key];
@@ -1857,7 +1848,7 @@
                   <div class="cf-basis">
                     <Segmented
                       label="Values per"
-                      options={BASIS_OPTIONS}
+                      options={basisOptions}
                       bind:value={customBasis}
                       testid="cf-basis"
                     />

@@ -12,6 +12,7 @@ import {
   scaleNutrition,
   sumNutrition,
   PER_100ML,
+  isPer100Basis,
   parseBasisQuantity,
   servingSizeGrams,
   servingSizePortion,
@@ -467,6 +468,19 @@ describe("servingSizeGrams", () => {
     // A drink's panel basis is a volume; surfacing it as a weighed serving would
     // put "1 serving = 100 g" on a can of cola (ADR-0052 §1).
     expect(servingSizeGrams(PER_100ML)).toBeNull();
+  });
+});
+
+describe("isPer100Basis", () => {
+  it("is true for both per-100 bases, whichever unit the 100 is in", () => {
+    expect(isPer100Basis("100 g")).toBe(true);
+    expect(isPer100Basis("100 ml")).toBe(true);
+  });
+
+  it("is false for a serving basis and for no basis at all", () => {
+    expect(isPer100Basis("30 g")).toBe(false);
+    expect(isPer100Basis("1 serving")).toBe(false);
+    expect(isPer100Basis(undefined)).toBe(false);
   });
 });
 

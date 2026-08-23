@@ -4,6 +4,11 @@
 **Date:** 2026-08-23  
 **Implemented:** #148 `547ca65` (one divisor), `3dc8520` (the read), `b91a4eb` (the write, the correction form, the row caption)
 
+This record amends [ADR-0030](0030-expanded-food-twin-source-data.md) §2, whose
+`food/portions` mapping gains a serving it declines to take, and
+[ADR-0034](0034-label-photo-food-capture.md) §3, whose basis toggle resolves a third
+value it does not offer.
+
 ## Context
 
 Open Food Facts publishes a liquid's nutriments **per 100 millilitres** under the
@@ -144,8 +149,11 @@ forward-only and this one follows, in preference to a one-shot repair pass over
 
 **The residual is disclosed rather than hidden.** A user who types 200 against a
 per-100 ml milk panel is still off by the density, about 3%. Labelling the basis
-honestly is what makes that visible — the amount screen and the Recent row now say
-what a figure is per. Making the arithmetic right needs the user to be able to say
+honestly is what makes that visible — a Recent row now says what its figure is per,
+and every scaler divides by the basis rather than by an assumed 100. The amount
+screen itself still prints no basis caption, so a drink staged from a scan shows a
+gram field over a volume panel with nothing on screen naming the difference. That
+gap is #127's to close. Making the arithmetic right needs the user to be able to say
 "330 ml", which is #127. If anything converts, it converts the user's entry at the
 point of logging, where the volume is stated rather than assumed.
 
