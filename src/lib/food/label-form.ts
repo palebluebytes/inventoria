@@ -20,10 +20,23 @@ import {
   nutrientDisplayValue,
   type NutrientUnit,
 } from "./nutrient-display";
-import { PER_100G, PER_SERVING, type NutritionInfo } from "./nutrition";
+import {
+  PER_100G,
+  PER_100ML,
+  PER_SERVING,
+  type NutritionInfo,
+} from "./nutrition";
 
-/** The basis a label printed its values against — the #52 form's toggle. */
-export type Basis = "per_100g" | "per_serving";
+/**
+ * The basis a label printed its values against — the #52 form's toggle.
+ *
+ * `per_100ml` is not a value the toggle offers: it is only ever inverted back
+ * out of a twin OFF already published per 100 ml, so correcting a drink through
+ * the read-along form keeps the basis it was read with instead of quietly
+ * restamping it as a weight (ADR-0052 §1, #148). Typing a per-100 ml label from
+ * scratch is [#127](https://github.com/palebluebytes/inventoria/issues/127).
+ */
+export type Basis = "per_100g" | "per_100ml" | "per_serving";
 /** A row is typed in kcal (energy) or a nutrient mass unit; grams are stored. */
 export type FieldUnit = "kcal" | NutrientUnit;
 
@@ -107,11 +120,13 @@ export function toGrams(display: string, unit: FieldUnit): number | undefined {
 
 /**
  * The #52 basis toggle resolved to the panel's `serving_size` string (ADR-0034
- * §3): `100 g` when the label prints per 100 g, else `N g` when a serving weight
- * was given, or the bare `1 serving` when it was not.
+ * §3): `100 g` when the label prints per 100 g, `100 ml` for a drink carried at
+ * the basis OFF published it against, else `N g` when a serving weight was given,
+ * or the bare `1 serving` when it was not.
  */
 export function resolveServingSize(basis: Basis, servingGrams: string): string {
   if (basis === "per_100g") return PER_100G;
+  if (basis === "per_100ml") return PER_100ML;
   const n = Number(servingGrams.trim());
   return Number.isFinite(n) && n > 0 ? `${n} g` : PER_SERVING;
 }

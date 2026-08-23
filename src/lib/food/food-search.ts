@@ -1,7 +1,7 @@
 import type { EntityPayload } from "../ingestion/ingest";
 import { searchUsdaCorpus } from "./usda-corpus";
 import { curatedMatches } from "./curated-foods";
-import { macrosFromNutrition, type NutritionInfo } from "./nutrition";
+import { macrosFromNutrition, PER_100G, type NutritionInfo } from "./nutrition";
 import { manualEntryIsReusable, type ManualEntry } from "./provenance";
 
 /**
@@ -18,13 +18,24 @@ export interface FoodResult {
   protein: number;
   fat: number;
   carbs: number;
+  /**
+   * The panel basis the four macros above are quoted against — `"100 g"` for a
+   * searched reference food, `"100 ml"` for a drink OFF publishes by volume, a
+   * weighed `"N g"` for a label-corrected twin. Carried on the row because a
+   * list that prints a figure has to say what it is per, and a Recent row can
+   * hold any of the three (#148). `"100 g"` when the food has no panel at all.
+   */
+  basis: string;
   payload: EntityPayload;
 }
 
 /**
- * Maps a food twin payload into the result shape both modals render, reading
- * its per-serving macros from the `nutrition/info` panel (ADR-0021). The panel
- * basis is 100 g for searched/scanned foods, which is what the modals scale by.
+ * Maps a food twin payload into the result shape both modals render, reading its
+ * macros and the basis they are quoted against from the `nutrition/info` panel
+ * (ADR-0021). A searched reference food is per 100 g, but a Recent row is any
+ * ledger twin — a drink OFF published per 100 ml, or a label-corrected serving —
+ * so the basis is carried rather than assumed (#148); every scaler reads it back
+ * off the panel through `parseBasisQuantity`.
  */
 export function mapPayloadToFoodResult(payload: EntityPayload): FoodResult {
   const info = payload.attributes["nutrition/info"] as
@@ -35,6 +46,7 @@ export function mapPayloadToFoodResult(payload: EntityPayload): FoodResult {
     entity: payload.entity,
     name: payload.attributes["food/name"],
     ...macros,
+    basis: info?.serving_size ?? PER_100G,
     payload,
   };
 }

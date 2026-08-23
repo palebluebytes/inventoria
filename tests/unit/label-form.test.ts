@@ -25,6 +25,13 @@ describe("resolveServingSize (basis → serving_size, §3)", () => {
     expect(resolveServingSize("per_100g", "45")).toBe("100 g");
   });
 
+  it("per-100 ml resolves to '100 ml', the basis OFF published (#148)", () => {
+    // Only ever inverted back out of a drink twin, never chosen from scratch:
+    // correcting a drink must not restamp its volume basis as a weight.
+    expect(resolveServingSize("per_100ml", "")).toBe("100 ml");
+    expect(resolveServingSize("per_100ml", "45")).toBe("100 ml");
+  });
+
   it("per-serving resolves to 'N g' with a weight, else bare '1 serving'", () => {
     expect(resolveServingSize("per_serving", "45")).toBe("45 g");
     expect(resolveServingSize("per_serving", "")).toBe("1 serving");

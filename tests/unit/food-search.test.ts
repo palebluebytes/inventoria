@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   isPoorFoodTwin,
+  mapPayloadToFoodResult,
   isCatalogueFood,
   searchUsdaFoods,
   NoReferenceFoodError,
@@ -262,5 +263,29 @@ describe("searchUsdaFoods with curated stand-ins", () => {
       "fdc:1",
       "gtin:5400706613279",
     ]);
+  });
+});
+
+describe("mapPayloadToFoodResult", () => {
+  it("carries the panel's own basis onto the row (#148)", () => {
+    // A Recent row is any ledger twin, so the basis a list prints its figure
+    // against cannot be assumed to be per 100 g.
+    const cola = mapPayloadToFoodResult({
+      entity: "gtin:5449000000996",
+      attributes: {
+        "food/name": "Coca-Cola",
+        "nutrition/info": { serving_size: "100 ml", calories: 42 },
+      },
+    });
+    expect(cola.basis).toBe("100 ml");
+    expect(cola.calories).toBe(42);
+  });
+
+  it("falls back to the per-100 g reference basis for a panel-less twin", () => {
+    const bare = mapPayloadToFoodResult({
+      entity: "food:custom_x",
+      attributes: { "food/name": "Leftovers" },
+    });
+    expect(bare.basis).toBe("100 g");
   });
 });

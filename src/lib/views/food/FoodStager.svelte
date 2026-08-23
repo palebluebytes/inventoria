@@ -22,12 +22,14 @@
   import { calorieDisplayDecimals } from "../../stores/settings.store";
   import { secretsStore } from "../../stores/secrets";
   import {
+    parseBasisQuantity,
     portionLabelIsBareWeight,
     reportsNoEnergy,
     roundFoodDisplay,
     FOOD_PORTIONS_ATTR,
     NUTRITION_INFO_ATTR,
     PER_100G,
+    PER_100ML,
     type Portion,
     type NutritionInfo,
   } from "../../food/nutrition";
@@ -208,9 +210,8 @@
   let emptySearch = $state<{ query: string } | null>(null);
 
   // `grams` is the authoritative amount owned by the QuantityGrams control
-  // (ADR-0023); it stays a clean number, so `factor` simply scales by it.
+  // (ADR-0023); it stays a clean number.
   let grams = $state(100);
-  let factor = $derived(grams / 100);
 
   // The staged food's full nutrition panel (per its serving basis). Handed to
   // FoodAmountPanel, which scales it to the typed amount for the pill preview and
@@ -219,6 +220,12 @@
   let stagedInfo = $derived(
     staged?.payload.attributes[NUTRITION_INFO_ATTR] as NutritionInfo | undefined
   );
+
+  // The commit button's headline scales by the staged panel's OWN basis, the
+  // same divisor FoodAmountPanel's preview directly above it uses (#148). A
+  // hardcoded /100 here disagreed with that preview on every panel not measured
+  // per 100 — a label-corrected `gtin:` twin restaged from a re-scan, say.
+  let factor = $derived(grams / parseBasisQuantity(stagedInfo?.serving_size));
 
   // The staged food's household portions (ADR-0030), surfaced as picker presets.
   // A searched food carries them on its bundled row (ADR-0047 §6); empty (and
@@ -292,10 +299,17 @@
   // ingredients text, NOT `food/ingredients` (the ADR-0035 menu-descriptor).
   let customIngredients = $state("");
   let customBasis = $state<Basis>("per_100g");
-  const BASIS_OPTIONS: { value: Basis; label: string }[] = [
-    { value: "per_100g", label: "100 g" },
+  // The per-100 segment follows the basis the form was opened with. A drink OFF
+  // publishes per 100 ml keeps that basis through a correction instead of being
+  // restamped as a weight on save (#148); every other food sees "100 g" exactly
+  // as before. The toggle still offers two choices — typing a per-100 ml label
+  // from scratch is #127, not this.
+  let BASIS_OPTIONS = $derived<{ value: Basis; label: string }[]>([
+    customBasis === "per_100ml"
+      ? { value: "per_100ml", label: "100 ml" }
+      : { value: "per_100g", label: "100 g" },
     { value: "per_serving", label: "serving" },
-  ];
+  ]);
   // Grams one serving weighs — only meaningful when the basis is per_serving.
   let customServingGrams = $state("");
   // Per-field typed strings keyed by NutritionInfo field; "" ⇒ absent (not 0).
@@ -460,10 +474,11 @@
     // corrects them in place; the corrected value flows back to OFF on contribute.
     customIngredients =
       (attrs["food/ingredients_text"] as string | undefined) ?? "";
-    // OFF panels are per-100 g (the mapper stamps PER_100G); the form matches.
-    customBasis = "per_100g";
-    customServingGrams = "";
     const info = attrs[NUTRITION_INFO_ATTR] as NutritionInfo | undefined;
+    // An OFF panel is per 100 of the pack's own base unit — grams, or millilitres
+    // for a drink (#148). The form matches whichever the mapper stamped.
+    customBasis = info?.serving_size === PER_100ML ? "per_100ml" : "per_100g";
+    customServingGrams = "";
     const values: Record<string, string> = {};
     for (const f of ALL_FIELDS) {
       const grams = info?.[f.key];
@@ -523,10 +538,11 @@
       (attrs["food/ingredients_text"] as string | undefined) ?? "";
     const info = attrs[NUTRITION_INFO_ATTR] as NutritionInfo | undefined;
     // Invert the stored `serving_size` back onto the #52 basis toggle: "100 g" is
-    // per-100 g; a bare "N g" is a weighed serving; anything else falls to serving.
+    // per-100 g, "100 ml" the drink basis OFF published (#148); a bare "N g" is a
+    // weighed serving; anything else falls to serving.
     const serving = info?.serving_size;
-    if (serving === PER_100G) {
-      customBasis = "per_100g";
+    if (serving === PER_100G || serving === PER_100ML) {
+      customBasis = serving === PER_100ML ? "per_100ml" : "per_100g";
       customServingGrams = "";
     } else {
       const g = serving ? parseFloat(serving) : NaN;
@@ -1539,7 +1555,12 @@
                                   {/if}
                                 </span>
                                 <span class="result-macros">
-                                  Per 100g: {roundFoodDisplay(
+                                  <!-- The row says what its figure is PER: a
+                                  Recent row can hold a drink OFF publishes per
+                                  100 ml or a label-corrected serving, not only
+                                  the per-100 g reference foods search returns
+                                  (#148). -->
+                                  Per {item.basis}: {roundFoodDisplay(
                                     item.calories,
                                     $calorieDisplayDecimals
                                   )} kcal | P: {roundFoodDisplay(item.protein)}g
