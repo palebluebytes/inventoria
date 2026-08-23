@@ -3,6 +3,7 @@
 **Grounds:** `expandThroughVocabulary` / `searchIndexRows` / `buildSearchCorpus` in `src/lib/food/usda-corpus.ts` and `compileReferenceFoodQuery` in `src/lib/food/reference-food-ranking.ts`, measured over the committed `public/usda/search-index.json` via `pnpm usda:ranking-audit`. [ADR-0049](../adr/0049-a-derived-vocabulary-for-food-search.md) §1 governs the fallback and its Consequences names this gap.
 **Siblings:** [#130](https://github.com/palebluebytes/inventoria/issues/130) is the sweep this one copies its shape from, and the audit it adds a pass to. [#140](https://github.com/palebluebytes/inventoria/issues/140) shipped the whole-phrase fallback this would extend. [#141](https://github.com/palebluebytes/inventoria/issues/141) added the hand-written half of the map, which changes the denominator and settles one of the ticket's own examples.
 **Date:** 2026-08-21. **Status:** measured. §§1–8 are the pre-registration, committed at `5dbb1a9` **before the pass that measures against them existed**; §§9–10 are the result. No search or ranking code has changed, and none is proposed here.
+**Corrected:** §11 (2026-08-23) retracts §6's and §9.6's claim that usage evidence cannot exist, and records that §7.1's band 3 was mis-drafted. Nothing above it is edited; the pre-registration is left as it was written.
 
 ---
 
@@ -180,3 +181,31 @@ Two things the build should carry that this sweep found rather than assumed:
 
 - **The subset is 58, tokenised** (§2), not the 64 or 62 the ticket and its triage comment quote. A build sized on either would be sized on the wrong map.
 - **Eight keys are already carrier phrases** (§9.1). Whatever tier is added has to run after the whole-phrase match, or `cooked swede` gets expanded twice.
+
+---
+
+## 11. Correction (2026-08-23, #142)
+
+Two things this note asserts are wrong. Neither is edited above — §§1–8 are the pre-registration and were committed on their own so that they could not be rewritten after the numbers arrived, and that property is worth more than a tidy document. Both corrections came out of a grilling of the ticket on 2026-08-23, and both are carried into [ADR-0053](../adr/0053-an-empty-food-search-is-recorded-locally-and-leaves-only-by-hand.md).
+
+### 11.1 Usage evidence is descoped, not impossible
+
+§6 says the ticket's first justification "is not available here and will not be available later", and §9.6 repeats it as "this project has no usage data by construction". That states a permanent fact, and what is actually true is narrower: **query telemetry is not planned for v1.** It is a scoping decision, and scoping decisions are revisited.
+
+The distinction matters because the two readings recommend opposite things. If usage evidence can never exist, this ticket is a permanent no and the four commits spent measuring reach were spent on a question that was already closed — the ceiling in §6 was written before the pass ran, so nothing could have changed the answer. If it is merely absent for now, the sweep's number is real evidence held against a bar that has not been reached yet, which is what it is.
+
+There is also a third path §6 did not consider, and it is the one taken. Off-device telemetry is not the only way to learn whether anyone types `raw aubergine`: a **local** record of empty searches, never transmitted, answers the same question at no privacy cost. ADR-0053 decides its shape, and #142 is now blocked on it rather than on a judgement.
+
+### 11.2 §7.1's band 3 was mis-drafted, not overruled
+
+§10 records a deviation: `raw X` rescued 47 against a threshold of 20, which is band 3, and the verdict declines to carry out what band 3 says. It calls this the band's wording overreaching the scope, and stops there.
+
+The sharper statement is that the pre-registration contradicted itself, in writing, before any numbers existed. §7.1 band 3 says _cut a build ticket_; §6 says a positive result "establishes that the mechanism has something to reach, which is strictly less than establishing that it is worth reaching for". A reach measurement cannot license a build, so band 3 named an action its own measurement could never support.
+
+That is a mis-drafting rather than a result being overruled, and the difference is not cosmetic — declining a band that was sound is goalpost-moving, while declining one that was already incoherent is reading it correctly. The rule this leaves behind, and the one ADR-0053 §7 is written to: **a pre-registered band must name a decision that the measurement it gates can actually support.**
+
+### 11.3 What does not change
+
+The numbers. 72 of 348 probes rescued, 48 of 58 keys, 28 distinct foods of 35; `fresh X` reaching 306 rows and rescuing none; the eight keys OFF already records as carrier phrases. §2's re-count to 453 / 124 / 58 stands as a count of the subset it defines.
+
+One reading of them is sharpened rather than corrected. §9.5's deflation to 28 foods is right and does not go far enough: **all 28 are reachable today by deleting a word.** The tier would make no food reachable that is not; it would spare a user a guess. Retries saved is the unit, and ADR-0053 §2 builds the instrument to observe one directly.
