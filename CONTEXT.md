@@ -164,6 +164,34 @@ _Avoid_: To-Do, Task, habit, completion
 A free-form, user-authored entry with a title and a text body, where the body merges concurrent edits from multiple devices without conflict. Distinct from the `twin/note` annotation attribute on a Digital Twin, which is a single field rather than a standalone entity.
 _Avoid_: twin/note (the Twin annotation field), memo, comment
 
+### Local logs
+
+**Log facility**:
+The one module (`src/lib/logs/log-facility.ts`) that owns local diagnostic and
+instrumentation records: their storage, their caps, their redaction and the
+hand-export they leave by. Records are `localStorage` JSON under one namespaced key
+per Log channel, never datoms, because redaction has to delete and the ledger is
+append-only and syncs. It has no transport of any kind, so nothing it holds can leave
+the device except through a file the user exports after reading it. See ADR-0054.
+_Avoid_: Telemetry, analytics, tracking, the logger (`console.*` is not this)
+
+**Log channel**:
+A named stream inside the Log facility, declaring its `name`, `reader`, `cap` and
+`sensitivity` (`personal` or `technical`). It may not exist without a **reader**
+naming a real consumer and the decision that consumer will take; "it might be useful
+later" is not a reader, and a channel whose question has been answered is removed
+rather than left running. Declaring one registers it. See ADR-0054 §2.
+_Avoid_: Log level, severity, category, stream
+
+**Search session**:
+One visit to the food search: it opens when the search field first goes non-empty and
+ends when the user abandons it, clears it, or stages a food. It leaves **one** entry
+in the search Log channel, and only if it ever reached an empty result, holding the
+last query that returned nothing plus the correction that answered it. The unit is
+the session and never the search, because the field runs on a 120 ms debounce and one
+typed phrase fires about eleven of them. See ADR-0053 §2.
+_Avoid_: Search event, query log, keystroke, empty search (for the session itself)
+
 ### Interface primitives
 
 Five ADRs establish this vocabulary and forbid alternatives to it. The `_Avoid_` lines

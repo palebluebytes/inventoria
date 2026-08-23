@@ -5,6 +5,7 @@
 **Amended by:** the Amendment below, which moves the log out of the ledger into `localStorage` — §6's redaction and §7's retention cap both require deleting a datom, which `AGENTS.md` §3 forbids
 **Amended by:** [ADR-0054](0054-one-local-log-facility-and-no-channel-without-a-reader.md), which makes §3's record the first channel of a shared local log facility rather than a store of its own
 **Amended by:** the second Amendment below, which replaces §7's rate-over-a-window with two self-triggering counts, since the app is not yet in use and a window presumes a user
+**Implemented:** #149 `f955c40` (the channel, the session and the bar), `c31b3df` (the rescue signal the outcome needs), `b990903` (the count, the recording switch and the clear)
 
 ## Context
 
