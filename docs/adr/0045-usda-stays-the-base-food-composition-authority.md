@@ -301,3 +301,72 @@ move. It is a 0.4 to 0.5 MB asset rather than a third of one, of which 95 to 106
 food names before a single nutrient is carried, so no amount of nutrient trimming
 brings it near 361 KiB. Where that number came from cannot be reconstructed, like the population
 it was measured over.
+
+## Amendment (2026-08-23, #122): our calorie is not a label calorie, and the panel says so
+
+No Decision changes. §1 still names USDA the single composition authority and §5 still
+forbids assembling a panel across sources. What this adds is a Consequence §1 always
+carried and never wrote down, and the disposal of the one alternative that looked open.
+
+**What was measured.** [#121's #122 Addendum](../research/121-usda-energy-derivation.md#addendum-2026-08-23-122-52-was-right-about-the-mechanism-and-wrong-about-the-size-and-the-direction)
+compares what we display against what Regulation 1169/2011 Annex XIV produces from the
+same record, over the 3,943 shipped foods where the comparison is computable. The gap
+runs **both ways**: 598 rows read high by 5% or more, **240 read low by 5% or more**,
+and 2,009 sit inside 3% either side. Median absolute gap is 4.9 kcal/100 g; 0.6% of
+rows exceed 50. Chia is near the ceiling at 517 against 448, and the biggest deviations
+in the corpus are under-reports — cocoa powder 228 against 359, oat bran 246 against 366.
+
+Fibre at 4 kcal/g against a British label's 2 is the largest single driver, but it is
+not the only one, and three others push the other way or sideways: USDA's per-food
+specific factors, which over-discount high-fibre plant foods; rows whose stated energy
+does not reconcile with their own macros at all (#121 §5.1); and §2's nine pairs that
+borrow the calorie itself. From the reader's chair the four are indistinguishable. The
+question a user asks at the panel is never "which Atwater factor is this" but "why does
+this not match my packet".
+
+### Recomputing under the EU convention was never live
+
+[ADR-0048](0048-an-absent-measurement-is-not-a-zero.md) §3 already settles it: _"No
+panel's energy is ever computed from other fields — not by Atwater factors."_ Deriving
+an EU figure is exactly that, and it would break §4's traceability promise besides —
+`twin/raw_provenance` names a record USDA served, and a recomputed calorie is not in
+it. Nothing here weakens §3 or needs to; the ticket that asked for the argument gets it
+by citation.
+
+The measured direction is the second reason. A recomputation would move 240 rows **up**
+as well as 598 down, so it is not a correction toward the packet — it is a different
+account of the food, which is what §1 exists to refuse.
+
+### The panel discloses instead
+
+The `usda` copy in `SourceExplainerSheet` gains one sentence saying our figures are
+calculated differently from a UK or EU label and can read either side of one. It is
+unconditional, on every USDA food, for three reasons: no threshold can be honest when
+the direction is not uniform; deciding a threshold would mean computing the comparison
+figure at panel time, which is the arithmetic §3 forbids even when only a sentence
+depends on it; and half the corpus sits inside 3%, so a gated note would build a
+mechanism for a 0.6% tail.
+
+It rides in the source explainer rather than beside the number because that sheet
+already carries the `Edit` affordance — a correction appends beside the USDA record
+without displacing it (ADR-0034 §6/§7). That is what keeps this from being an inert
+caveat: the disclosure names a discrepancy the user can act on, immediately below it.
+
+Scope is USDA only. OFF panels are transcribed labels and already carry the EU
+convention; curated stand-ins are OFF-origin products under a real barcode
+([ADR-0046](0046-curated-stand-ins-for-base-foods-usda-lacks.md) §5); recipes defer to
+their ingredients; manual entries are the user's own arithmetic.
+
+### One consequence is larger than the one that prompted this
+
+Measured over §2's 190 twinned pairs, 181 state energy on both sides and **118 read
+higher under Foundation than under the SR Legacy twin's `1008`**, 102 of them by 2% or
+more — bok choy by 56%, leaf lettuce and collards by around 47%, mushrooms by 38 to
+42%. None of that is fibre; SR Legacy publishes nutrient id 2048 on **0** of its 7,793
+records, so no specific-factor row is being displaced. It is a newer assay reporting
+different macros, which is precisely what §2 buys and §3's field-level fill protects.
+
+It is nonetheless a bigger number in front of a user than the fibre gap, on foods eaten
+far more often than chia, and it is left to its own ticket rather than folded in here.
+Recording it as a line in this amendment would bury the larger effect inside the
+smaller one.
