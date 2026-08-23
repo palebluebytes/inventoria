@@ -52,7 +52,7 @@
     },
     usda: {
       title: "USDA FoodData Central",
-      body: "A base ingredient from the US government's FoodData Central — laboratory-analysed reference values for whole and lightly-processed foods. These are among the most trustworthy figures available, but they describe a generic food, not a specific brand.",
+      body: "A base ingredient from the US government's FoodData Central — laboratory-analysed reference values for whole and lightly-processed foods. These are among the most trustworthy figures available, but they describe a generic food, not a specific brand. They are also calculated differently from a UK or EU label — American conventions count fibre as fully caloric where a British label counts it at half, among other differences — so a packet in your hand can read either side of the calories here. Usually that is a few calories per 100 g; on very high-fibre foods like chia, bran or cocoa it can be fifty or more, in either direction.",
     },
     manual: {
       title: "Your own entry",
@@ -103,8 +103,18 @@
     <!-- The correction affordance lives with the origin it corrects: this is the
          screen where the user decides the numbers are wrong. A correction is an
          append beside the source record (ADR-0034 §6/§7), so an OFF or USDA food
-         keeps its origin — the tag does not flip to "manual". -->
+         keeps its origin — the tag does not flip to "manual".
+
+         The lead-in is what stops the bodies above being inert caveats: each one
+         names a reason the panel may disagree with the thing the user is holding,
+         and this is the sentence that says the disagreement is actionable. It
+         lives inside the `onEdit` guard rather than in the per-origin copy
+         because a host with no edit surface must not promise one (ADR-0045's
+         #122 Amendment). -->
     <div class="source-edit">
+      <p class="source-body">
+        Your pack is the better authority for what you actually bought.
+      </p>
       <Button
         variant="secondary"
         data-testid="source-edit-btn"
@@ -128,6 +138,11 @@
   }
   .source-edit {
     margin-top: var(--space-m);
+  }
+  /* `.source-body` is margin-free because it is the last thing in every other
+     block; here it leads the button, so it needs the gap back. */
+  .source-edit .source-body {
+    margin-bottom: var(--space-s);
   }
   /* Set apart from the origin copy above it without inventing a new surface:
      the house edge token, the same one every framed block uses (ADR-0038). */
