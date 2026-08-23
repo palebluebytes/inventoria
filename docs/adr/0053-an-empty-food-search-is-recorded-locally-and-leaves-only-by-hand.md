@@ -1,7 +1,8 @@
 # ADR 0053: An empty food search is recorded locally, and leaves the device only by hand
 
 **Status:** Accepted  
-**Date:** 2026-08-23
+**Date:** 2026-08-23  
+**Amended by:** the Amendment below, which moves the log out of the ledger into `localStorage` — §6's redaction and §7's retention cap both require deleting a datom, which `AGENTS.md` §3 forbids
 
 ## Context
 
@@ -258,3 +259,76 @@ nagging surface built for an audience of one.
 **The bar may be wrong.** Forty sessions is a guess about how much one person uses
 a food search, made by the party that cannot see it. §7 pins it so that a
 correction is an amendment to this record and not a quiet edit to a threshold.
+
+## Amendment (2026-08-23): the log leaves the ledger, and the drift goes with it
+
+Consequences named a drift and left it standing: `search/` would be the first
+namespace here to describe what the app _does_ rather than what it is _about_,
+every other one — `event/`, `food/`, `habit/`, `recipe/`, `twin/`, `settings/` —
+naming a thing the domain contains. Recorded as "worth noticing early rather than a
+precedent to lean on", which is a note, not a decision.
+
+Looking at it properly shows it was a symptom, and that two clauses above are not
+merely awkward in the ledger but **cannot be implemented in it**.
+
+### §6's redaction and §7's cap both require deleting a datom
+
+The ledger is append-only, and `AGENTS.md` §3 makes that a red line: `UPDATE` and
+`DELETE` against `datoms` are never generated, and exactly two destructive
+operations are sanctioned — `resetLedgerSchema` and the one-shot ADR-0020
+migration — with "do not add others" stated outright.
+
+§6 requires redaction to be **deletion from the log** rather than exclusion from
+one export, so that the review screen shows what exists. §7 requires retention to
+be **the last 200 entries, oldest dropped**. Neither is expressible as an append.
+
+Retraction-by-append does not rescue §6, and the reason is the point of the
+clause rather than a technicality. Someone redacts a search because they do not
+want that text to leave the device; a tombstone datom shadows the value in a
+projection and leaves it sitting in the ledger, where the next thing to read the
+table finds it. A redaction that does not remove is not a redaction.
+
+### So the log lives in `localStorage`, where the secrets already went
+
+`src/lib/stores/secrets.ts` states the principle this record should have applied
+in its own header: **"The ledger is undeletable and it syncs — the wrong home for
+a password."** ADR-0034 §8 moved the OFF credentials and the TMDB key out for
+those two properties, and this log needs both of them for the same reasons.
+
+§3's table is therefore not a set of ledger attributes. The same fields become the
+shape of one JSON record under a namespaced `localStorage` key, written through a
+single module in the way `secrets.ts` is the single path for every secret. `AGENTS.md`
+§2's requirement to register a new namespace in `docs/eavt-vocabulary.md` falls
+away with it, because there is no new namespace; `CONTEXT.md` still gains the term,
+since the concept is real whatever stores it.
+
+**The consent toggle stays a `settings/` datom.** It is a preference, which is
+what that namespace is for, and it is the same split ADR-0034 §8 made — the
+setting in the ledger, the sensitive payload outside it.
+
+### What this buys beyond legality
+
+**§6's exclusion becomes structural rather than disciplinary.** That clause
+constrains [#105](https://github.com/palebluebytes/inventoria/issues/105) to keep
+`search/` out of a wholesale export and out of peer sync — a rule that has to be
+remembered by someone who has no reason to think about this record. Off the
+ledger, there is nothing to remember and nothing to leak: `localStorage` is
+per-device and unsynced, so the reviewed hand-export of §6 is the only path that
+exists rather than the only path that is permitted. This is the same move
+ADR-0049 §1 makes about its no-regression property, and for the same reason: a
+guarantee the structure enforces beats one that discipline enforces.
+
+**And the drift is gone rather than contained.** The ledger stays domain-shaped,
+with no instrumentation namespace in it and no precedent for the next one.
+
+The comment already filed on #105 is left standing. It now over-warns, which is
+the harmless direction, and it records why the constraint was thought necessary.
+
+### What this costs
+
+The log gets no HLC ordering and does not participate in the ledger's projections,
+which is nothing here: the instrument is per-device by design and 200 entries in
+arrival order is the whole of what it needs. It is also lost by a browser storage
+clear that leaves the ledger intact, which shortens some six-week windows and is
+accepted — §7's short-window branch already says what happens then, and it does not
+say extend.
