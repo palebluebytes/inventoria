@@ -196,7 +196,7 @@ Median 4.9 kcal/100 g, p90 13.1, p95 20.4, p99 41.0, max 144. Everyday high-fibr
 
 The #122 comment asked how large the class is where a Foundation re-assay won the merge from an SR Legacy row carrying specific factors. Measured over the 190 twinned pairs: **181 state energy on both sides, and 118 read higher under Foundation, 102 of them by ≥2%.**
 
-But the premise needs correcting. **SR Legacy publishes nutrient id 2048 on 0 of its 7,793 records** — §3's table says as much — so no specific-factor row is being displaced; SR's specific factors, where it has them, are folded into `1008`. And the largest movers carry almost no fibre: bok choy +56%, collards +47%, leaf lettuce +35–47%, mushrooms +38–42%, Brussels sprouts +38%. That is a newer assay reporting different macros, which is exactly what ADR-0045 §2 buys. It is a larger effect than fibre and a different one, and it is carried out to its own ticket rather than folded in here.
+But the premise needs correcting. **SR Legacy publishes nutrient id 2048 on 0 of its 7,793 records** — §3's table says as much — so no specific-factor row is being displaced; SR's specific factors, where it has them, are folded into `1008`. And the largest movers carry almost no fibre: bok choy +56%, collards +47%, leaf lettuce +35–47%, mushrooms +38–42%, Brussels sprouts +38%. That is a newer assay reporting different macros, which is exactly what ADR-0045 §2 buys. It is a larger effect than fibre and a different one, and it is carried out to [#147](https://github.com/palebluebytes/inventoria/issues/147) rather than folded in here.
 
 ### What #122 decided
 

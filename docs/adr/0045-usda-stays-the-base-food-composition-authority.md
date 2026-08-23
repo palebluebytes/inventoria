@@ -367,6 +367,7 @@ records, so no specific-factor row is being displaced. It is a newer assay repor
 different macros, which is precisely what §2 buys and §3's field-level fill protects.
 
 It is nonetheless a bigger number in front of a user than the fibre gap, on foods eaten
-far more often than chia, and it is left to its own ticket rather than folded in here.
+far more often than chia, and it is left to
+[#147](https://github.com/palebluebytes/inventoria/issues/147) rather than folded in here.
 Recording it as a line in this amendment would bury the larger effect inside the
 smaller one.
