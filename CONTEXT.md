@@ -32,6 +32,10 @@ _Avoid_: Raw data, API response, backup payload
 A virtual representation of a physical or distinct external item, tracked via static or slowly-changing attributes derived from external databases (e.g. Open Food Facts for food, TMDB for media).
 _Avoid_: Product, item, asset
 
+**Panel basis**:
+What a `nutrition/info` panel's figures are measured against, held on its `serving_size` field: `100 g` for a reference food or a solid product, `100 ml` for a drink Open Food Facts publishes by volume, or the serving a label prints (`30 g`, or a bare `1 serving` of unknown weight). It is data, never an assumption — a per-100 panel is not necessarily a per-gram one, and `parseBasisQuantity` is the single reader that turns it into a divisor. A volume basis is carried as published and never converted to a weight. See ADR-0052.
+_Avoid_: Serving size (when the basis is meant), per-100g, the panel's grams
+
 **Reference food**:
 A generic, non-branded, standardised food entry — what the USDA FoodData Central search (Foundation + SR Legacy) returns and is _for_. Includes both raw whole foods and generic prepared staples (coffee, croissant, cheddar). This is the set the food search keeps; Brand-specific foods, packaged products, and Composite dishes are excluded from it and reached instead via the Open Food Facts barcode path (ADR-0034). See ADR-0042.
 _Avoid_: Generic food, USDA food, ingredient (when a prepared reference item is meant)

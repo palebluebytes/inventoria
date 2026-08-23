@@ -121,7 +121,9 @@ may also be user-written as a menu dish's "Place" on a `food:custom_` twin
 
 Nutrition panels on food-bearing twins (schema.org/NutritionInformation).
 
-- `info`: one atomic panel blob (`serving_size`, `calories`, `protein_content`,
+- `info`: one atomic panel blob (`serving_size`, the Panel basis: `100 g`, or
+  `100 ml` for a drink OFF publishes by volume (ADR-0052), or the serving a label
+  prints; plus `calories`, `protein_content`,
   `fat_content`, `carbohydrate_content`, and so on) plus the twelve Nutrition-Facts
   micronutrient extensions in grams, which have no schema.org counterpart (ADR-0030):
   `vitamin_d`, `calcium`, `iron`, `potassium`, `vitamin_a`, `vitamin_c`, `vitamin_e`,
