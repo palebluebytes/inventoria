@@ -3,7 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-08-23  
 **Amends:** [ADR-0053](0053-an-empty-food-search-is-recorded-locally-and-leaves-only-by-hand.md) — its §3 record becomes the first channel of the facility decided here, rather than a store of its own
-**Implemented:** #149 `cd77667` (the facility, its caps and its budget), `b990903` (the per-channel review, redaction and export)
+**Implemented:** #149 `cd77667` (the facility, its caps and its budget), `b990903` (the per-channel review, redaction and export), `b9460df` (the recording switch's key, off the channel keyspace)
 
 ## Context
 
