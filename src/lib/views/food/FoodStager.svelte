@@ -56,6 +56,14 @@
     type AIAutofillResult,
   } from "../../food/ai-autofill";
   import { completeStagedPanel } from "../../food/usda-corpus";
+  import {
+    beginSearchSession,
+    recordSearchSession,
+    searchFoundFood,
+    searchFoundNothing,
+    typedIntoSession,
+    type SearchSession,
+  } from "../../logs/search-log";
   import { readImageAsDataUrl } from "../../food/image-file";
   import type {
     FoodChoice,
@@ -66,6 +74,7 @@
     PrimaryLabelContext,
   } from "../../food/food-staging";
 
+  import { onDestroy } from "svelte";
   import { Tabs, Combobox } from "bits-ui";
   import Alert from "../../ui/Alert.svelte";
   import Button from "../../ui/Button.svelte";
@@ -258,6 +267,9 @@
   // so logging inside that window would put four fields into history for ever,
   // which is the failure ADR-0047 retired the API to avoid.
   async function stageFood(item: FoodResult, searched: boolean) {
+    // Staging a food ends the search session (ADR-0053 §2). A food picked off
+    // the Recent list closes nothing — no session was ever open.
+    endSearchSession();
     staged = item;
     grams = 100;
     if (!searched) return;
@@ -776,6 +788,27 @@
   // the value sits under a fast typist's inter-key interval and lets the results
   // track the word instead of waiting for it.
   const SEARCH_DEBOUNCE_MS = 120;
+
+  // ── The search log's session (ADR-0053 §2, #149) ───────────────────────────
+  // One entry per search session, never one per debounced search: the search effect
+  // below fires roughly eleven times across `raw aubergine`, ten of them
+  // keystroke states. The session opens when the field first goes non-empty and
+  // closes when the user clears it, stages a food, or leaves the sheet — and it
+  // only leaves an entry behind if it ever reached an empty result. A plain
+  // `let`, because nothing renders it and an `$state` would make the effect that
+  // updates it depend on itself.
+  let searchSession: SearchSession | null = null;
+
+  function endSearchSession() {
+    if (!searchSession) return;
+    // Never awaited: a log that could not be written must cost the user nothing
+    // (ADR-0054 §3).
+    void recordSearchSession(searchSession);
+    searchSession = null;
+  }
+
+  onDestroy(endSearchSession);
+
   $effect(() => {
     const trimmed = query.trim();
     if (method !== "search" || staged) return;
@@ -786,18 +819,29 @@
       error = "";
       emptySearch = null;
       lastQuery = "";
-    } else if (
-      trimmed.length >= 3 &&
-      // Skip if these results already match the query (e.g. we just came back
-      // from staging a food); a failed query is not cached, so it can retry.
-      !(trimmed === lastQuery && status !== "error")
-    ) {
-      // No pre-emptive "loading" here. It existed to acknowledge the 400 ms wait
-      // above, and at 120 ms it only strobes the in-field spinner — measured at
-      // ten mount/unmount transitions across one typed word. `handleSearch` still
-      // sets it, so the one search that can genuinely be slow (the first, with
-      // the corpus still being fetched and read) still says so.
-      debounceTimer = setTimeout(() => handleSearch(), SEARCH_DEBOUNCE_MS);
+      // Clearing the field is one of the three ways a session ends, and the
+      // session closes on the state it had BEFORE the clear — otherwise every
+      // cleared session would look abandoned mid-word (ADR-0053 §2).
+      endSearchSession();
+    } else {
+      searchSession = typedIntoSession(
+        searchSession ?? beginSearchSession(),
+        trimmed
+      );
+      if (
+        trimmed.length >= 3 &&
+        // Skip if these results already match the query (e.g. we just came back
+        // from staging a food); a failed query is not cached, so it can retry.
+        !(trimmed === lastQuery && status !== "error")
+      ) {
+        // No pre-emptive "loading" here. It existed to acknowledge the 400 ms
+        // wait above, and at 120 ms it only strobes the in-field spinner —
+        // measured at ten mount/unmount transitions across one typed word.
+        // `handleSearch` still sets it, so the one search that can genuinely be
+        // slow (the first, with the corpus still being fetched and read) still
+        // says so.
+        debounceTimer = setTimeout(() => handleSearch(), SEARCH_DEBOUNCE_MS);
+      }
     }
     return () => clearTimeout(debounceTimer);
   });
@@ -1089,9 +1133,16 @@
     results = [];
     staged = null;
     try {
-      results = (await searchUsdaFoods(query)).results;
+      const search = await searchUsdaFoods(query);
+      results = search.results;
       lastQuery = query.trim();
       status = "idle";
+      if (searchSession)
+        searchSession = searchFoundFood(
+          searchSession,
+          query,
+          search.rescued_by_vocabulary
+        );
     } catch (e: any) {
       // An empty result is an answer, not a fault (ADR-0047 §10). Cache the
       // query as if it had succeeded: the corpus did answer, and a settled
@@ -1101,6 +1152,12 @@
         emptySearch = { query: query.trim() };
         lastQuery = query.trim();
         status = "idle";
+        // The ONE thing the search log records, and only this: a plain `Error`
+        // is a broken artifact or a broken service worker, and folding one into
+        // "no food found" would count an offline fetch as a vocabulary miss
+        // (ADR-0053 §3).
+        if (searchSession)
+          searchSession = searchFoundNothing(searchSession, query);
         return;
       }
       status = "error";
