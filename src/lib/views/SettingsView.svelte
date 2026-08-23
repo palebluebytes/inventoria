@@ -12,6 +12,7 @@
   } from "../db/db.test-harness";
 
   import Card from "../ui/Card.svelte";
+  import LogSettingsSection from "./logs/LogSettingsSection.svelte";
   import Button from "../ui/Button.svelte";
   import Alert from "../ui/Alert.svelte";
   import Badge from "../ui/Badge.svelte";
@@ -193,7 +194,10 @@
 
 <header class="page-header">
   <h1>Settings</h1>
-  <p>Manage secure API credentials, database ledger, and developer tests.</p>
+  <p>
+    Manage secure API credentials, database ledger, local logs, and developer
+    tests.
+  </p>
 </header>
 
 <Card>
@@ -297,6 +301,8 @@
     </div>
   {/if}
 </Card>
+
+<LogSettingsSection />
 
 <Card class="mt-4">
   <h2>Developer Options</h2>

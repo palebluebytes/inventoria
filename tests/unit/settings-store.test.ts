@@ -24,6 +24,7 @@ import {
   saveFoodTargets,
   saveFoodLimits,
   saveCalculatorPlan,
+  saveLogExportConsent,
   calorieDisplayDecimals,
 } from "../../src/lib/stores/settings.store";
 import { FOOD_DISPLAY_DECIMALS } from "../../src/lib/food/nutrition";
@@ -225,6 +226,30 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
       },
     ]);
     expect(get(settingsStore).off_contribute).toBe(false);
+  });
+
+  it("defaults log_export to false (opt-in) when unset", () => {
+    // No datom → the local logs stay un-exportable (ADR-0054 §4).
+    expect(get(settingsStore).log_export).toBe(false);
+  });
+
+  it("decodes a stored log_export boolean, and only a literal true", () => {
+    datomsWritable.set([
+      {
+        attribute: "settings/log_export",
+        value: JSON.stringify(true),
+        time: 1,
+      },
+    ]);
+    expect(get(settingsStore).log_export).toBe(true);
+    datomsWritable.set([
+      {
+        attribute: "settings/log_export",
+        value: JSON.stringify("yes"),
+        time: 2,
+      },
+    ]);
+    expect(get(settingsStore).log_export).toBe(false);
   });
 
   it("defaults food_targets to an empty override map when unset", () => {
@@ -559,6 +584,18 @@ describe("saveSettings", () => {
     const attrs = datoms.map((d) => d.attribute);
     expect(attrs).not.toContain("settings/food/targets");
     expect(attrs).not.toContain("settings/food/calculated_targets");
+  });
+});
+
+describe("saveLogExportConsent", () => {
+  it("writes its own datom and touches nothing else", async () => {
+    // Its own writer, so a screen that does not own this toggle cannot clobber
+    // it — three screens already call saveSettings for settings of their own.
+    await saveLogExportConsent(true);
+    const datoms = appendMock.mock.calls[0][0] as any[];
+    expect(datoms.map((d) => d.attribute)).toEqual(["settings/log_export"]);
+    expect(datoms[0].value).toBe(true);
+    expect(datoms[0].entity).toBe("settings:global");
   });
 });
 

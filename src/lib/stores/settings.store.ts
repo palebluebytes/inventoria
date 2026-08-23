@@ -133,6 +133,18 @@ export interface SettingsState {
    * ledger rather than localStorage.
    */
   off_contribute: boolean;
+  /**
+   * The consent MASTER toggle for exporting the local logs (ADR-0054 §4).
+   * Default **off**. It is not itself the consent to export — the review sheet
+   * still shows the exact payload, and the channels are chosen individually
+   * there, because bundling a `personal` channel with a `technical` one behind
+   * one yes is a consent surface that does not mean what it appears to.
+   *
+   * A preference, so it rides the ledger; the records it governs do not, and
+   * cannot (`src/lib/logs/log-facility.ts`). That split is ADR-0034 §8's, made
+   * for the same two reasons: the ledger is undeletable and it syncs.
+   */
+  log_export: boolean;
 }
 
 /**
@@ -251,6 +263,8 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
     food_profile: null,
     // Unset → OFF contribution consent stays off (opt-in, ADR-0034 §8).
     off_contribute: false,
+    // Unset → log export stays off (opt-in, ADR-0054 §4).
+    log_export: false,
   };
 
   for (const d of $datoms) {
@@ -312,6 +326,13 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
         parseDatomValue("settings/off_contribute", d.value) === true;
       continue;
     }
+    // log_export is a JSON boolean, read exactly like off_contribute — only a
+    // literal `true` opts in, so a malformed value can never enable an export.
+    if (d.attribute === "settings/log_export") {
+      settings.log_export =
+        parseDatomValue("settings/log_export", d.value) === true;
+      continue;
+    }
     if (d.attribute === "settings/scraper_proxy_url") {
       settings.scraper_proxy_url = String(
         parseDatomValue(d.attribute, d.value, SETTINGS_STRING_ATTRS)
@@ -350,6 +371,9 @@ export async function saveSettings(
     | "food_calculated_targets"
     | "food_profile"
     | "off_contribute"
+    // The log-export consent rides `saveLogExportConsent`, so a screen that does
+    // not own it cannot clobber it back to off (ADR-0054 §4).
+    | "log_export"
   > & {
     // The OFF-contribution consent toggle is optional so pre-#61 callers (and the
     // store tests) still type-check; omitted → off, the opt-in default.
@@ -368,6 +392,19 @@ export async function saveSettings(
     // OFF-contribution consent master toggle (ADR-0034 §8); default off.
     "settings/off_contribute": state.off_contribute ?? false,
   });
+}
+
+/**
+ * Persists the local-log export consent as its own datom `settings/log_export`
+ * (ADR-0054 §4), independent of every other settings write.
+ *
+ * Its own writer rather than a field on {@link saveSettings} for the reason
+ * ADR-0031 §2 gives about the targets: a screen that does not own this toggle
+ * must not have to remember to read it through, and three screens already call
+ * `saveSettings` for settings of their own.
+ */
+export async function saveLogExportConsent(enabled: boolean): Promise<void> {
+  await appendSettings({ "settings/log_export": enabled });
 }
 
 /**

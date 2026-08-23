@@ -220,6 +220,10 @@ attribute is `settings/food/targets`, not `food/targets`.
   attribute is read.
 - `settings/off_contribute`: the model-C consent toggle for contributing back to Open
   Food Facts (ADR-0034 §8).
+- `settings/log_export`: the master consent toggle for exporting the local logs
+  ([ADR-0054](adr/0054-one-local-log-facility-and-no-channel-without-a-reader.md) §4).
+  The one ledger-side fact about the log facility: the records themselves are
+  `localStorage`, because redaction there is a deletion and the cap removes entries.
 - `settings/food/visible_nutrients`: the dashboard nutrient selection.
 - `settings/food/round_nutrition`: whole-number **calorie** display toggle (nutrient
   amounts always show at the fixed display precision).
