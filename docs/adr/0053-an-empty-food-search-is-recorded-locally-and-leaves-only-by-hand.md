@@ -4,6 +4,7 @@
 **Date:** 2026-08-23  
 **Amended by:** the Amendment below, which moves the log out of the ledger into `localStorage` — §6's redaction and §7's retention cap both require deleting a datom, which `AGENTS.md` §3 forbids
 **Amended by:** [ADR-0054](0054-one-local-log-facility-and-no-channel-without-a-reader.md), which makes §3's record the first channel of a shared local log facility rather than a store of its own
+**Amended by:** the second Amendment below, which replaces §7's rate-over-a-window with two self-triggering counts, since the app is not yet in use and a window presumes a user
 
 ## Context
 
@@ -333,3 +334,69 @@ arrival order is the whole of what it needs. It is also lost by a browser storag
 clear that leaves the ledger intact, which shortens some six-week windows and is
 accepted — §7's short-window branch already says what happens then, and it does not
 say extend.
+
+## Amendment (2026-08-23): §7 is two counts, and the calendar goes
+
+§7 pre-registered a rate over a window: 40 settled empty sessions in six weeks,
+with #142 building at ≥ 15% of them containing a mid-phrase vocabulary key. Both
+halves of that are wrong, for two different reasons.
+
+### The window presumed a user, and there is not one yet
+
+**The app is still in development and nobody is using it.** "Six weeks of ordinary
+use" therefore has no start date, and if the clock were taken to run from the
+instrument being built, §7's short-window branch would fire almost immediately and
+send #142 back to the sweep's reach number — the exact outcome the grilling behind
+this record was arranged to avoid, arriving through a number chosen carelessly.
+
+Working the arithmetic backwards makes it worse rather than better. Forty empty
+sessions inside six weeks needs between 20 and 133 search sessions a week, depending
+on what share of searches come back empty — three to nineteen food searches every
+day, sustained. The Recent list catches repeat foods, so the empty share is likely
+at the low end, which puts the requirement at the high end.
+
+### A rate over a small denominator is fragile
+
+Six of forty and five of thirty-three are the same evidence and land on opposite
+sides of a 15% line. The rate also implies a precision the sample cannot carry: an
+observed 6 of 40 has a 95% interval of roughly 4% to 26%, so it detects a signal and
+does not estimate a rate.
+
+The underlying numbers were sound as a detector, and they are kept. At a true rate
+of 5% the bar fires 1% of the time; at 20% it fires 84%. What changes is their form.
+
+### The rule
+
+**Build trigger.** The channel holds **6 sessions whose empty query contained a
+mid-phrase vocabulary key**. #142 builds. Whenever that arrives.
+
+**Close trigger.** The channel holds **40 settled empty sessions with fewer than 6
+of them mid-phrase**. #142 closes as a settled no.
+
+Both are counts the instrument can evaluate on every write, so each fires itself.
+No window, no review date, and nothing for anyone to remember six weeks from a day
+nobody wrote down.
+
+**The no-extend property survives, and is now structural.** §7's window existed to
+stop an instrument being run until it said yes; the close trigger does that job
+properly, because it fires at a fixed denominator whatever the operator wants.
+
+**The denominator is settled empty sessions the user actually saw.** `settled: true`,
+and outcome `nothing` or `resolved_after_correction`. **A `rescued_by_vocabulary`
+session is excluded**: the fallback answered, the user never saw "No food found", so
+no guess was forced and no retry was saved. Those sessions count only towards
+pricing ADR-0049's shipped fallback, which is a different question in the same
+channel.
+
+### What this costs
+
+**If the app is never used enough, #142 is never decided.** It stays blocked rather
+than falling back to the sweep's reach number, and that is the honest position: the
+sweep measured what a tier could reach, this record already found that number
+insufficient to license a build, and no amount of waiting converts one into the
+other. A question that needs usage data is open until there is usage data.
+
+**Building the instrument before there are users is deliberate.** Early use is when
+a corpus disappoints most, so a log that starts collecting on the first real day
+captures the best evidence there will be. An instrument added later starts blind to
+exactly that period.
