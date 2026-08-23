@@ -1,4 +1,5 @@
 import {
+  parseBasisQuantity,
   roundFood,
   scaleNutrition,
   EXTRA_NUTRIENT_KEYS,
@@ -24,16 +25,6 @@ export interface ReferenceIngredient {
 }
 
 /**
- * Parses the gram basis out of a `nutrition/info.serving_size` string like
- * "100 g" → 100. Falls back to 100 g — the basis reputable sources (USDA, OFF)
- * report against — when the string carries no usable number.
- */
-export function parseServingGrams(serving_size: string | undefined): number {
-  const grams = parseFloat(serving_size ?? "");
-  return Number.isFinite(grams) && grams > 0 ? grams : 100;
-}
-
-/**
  * Sanitises a `recipeYield` — held loosely in the editor so the field can be
  * cleared/retyped (`number | string`, transiently empty) — to a positive divisor.
  * The single rule behind every per-serving division (the live editor, the
@@ -49,8 +40,9 @@ export function sanitizeYield(recipeYield: number | string): number {
  * Derives a recipe's per-serving macros from its reference ingredients
  * (ADR-0021): `Σ(ingredient panel × amount ÷ serving_size) ÷ yield`. Each
  * ingredient's panel is resolved from its referenced food twin via `resolve`; a
- * `g` ingredient scales by `amount ÷ (grams in the panel's serving_size)`, a
- * `serving` ingredient by `amount` against a per-serving panel. Pure, and the
+ * `g` ingredient scales by `amount ÷ (the quantity the panel's serving_size
+ * names)`, a `serving` ingredient by `amount` against a per-serving panel. Pure,
+ * and the
  * single derivation formula: the same helper over the same real ingredient
  * panels runs at log time (`logRecipeConsumption`, freezing the `event/metrics`
  * headline) and in the live editor / template-browsing paths (`RecipeModal`'s
@@ -86,7 +78,7 @@ export function deriveRecipeNutrition(
     const panel = resolve(ing.ref);
     const factor =
       ing.unit === "g"
-        ? ing.amount / parseServingGrams(panel?.serving_size)
+        ? ing.amount / parseBasisQuantity(panel?.serving_size)
         : ing.amount;
     const scaled = scaleNutrition(panel, factor);
     total.calories += scaled.calories;

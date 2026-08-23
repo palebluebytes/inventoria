@@ -25,6 +25,7 @@
     panelFromIngredients,
   } from "../../food/recipe-ingredient";
   import {
+    parseBasisQuantity,
     scaleNutrition,
     roundFoodDisplay,
     type NutritionInfo,
@@ -341,7 +342,6 @@
     try {
       if (choice.kind === "food") {
         const f = choice.food;
-        const factor = choice.grams / 100;
         await dbClient.append(ingestEntity(f.payload));
         // Freeze the food's FULL panel scaled to the amount, not just the four
         // macros (ADR-0030 / #28). The headline stays exactly the macros the
@@ -350,6 +350,12 @@
         const panel = f.payload.attributes["nutrition/info"] as
           | NutritionInfo
           | undefined;
+        // Scale by the panel's OWN basis, like every other scaler (#148). This
+        // divided by a hardcoded 100 while the amount screen the user just read
+        // divided by the basis, so the two disagreed on any panel not measured
+        // per 100 — and this is the one that freezes into `event/metrics`, which
+        // history never recomputes.
+        const factor = choice.grams / parseBasisQuantity(panel?.serving_size);
         const breakdown = scaleNutrition(panel, factor);
         const newId = await logFoodConsumption(
           f.entity,

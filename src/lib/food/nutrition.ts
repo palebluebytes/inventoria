@@ -79,6 +79,17 @@ export const PER_100G: string = "100 g";
 export const PER_SERVING: string = "1 serving";
 
 /**
+ * The basis a drink's panel is measured against. Open Food Facts publishes a
+ * liquid's `*_100g` nutriments per 100 **millilitres**, and says so through
+ * `product_quantity_unit` rather than through `nutrition_data_per` (whose enum
+ * holds only `serving` and `100g`) — so a drink read from OFF carries this
+ * basis, stated as published. It is never converted to a gram basis: rescaling
+ * a panel by an assumed density would compute one measurement from another,
+ * which ADR-0048 §3 forbids (ADR-0052).
+ */
+export const PER_100ML: string = "100 ml";
+
+/**
  * The precision food values are *stored* at — calories, macro grams, and
  * logged/typed amounts alike. 3 dp, fine enough to log a food entered with
  * milligram-ish amounts (e.g. 0.125 g) without inventing precision a coarser
@@ -302,6 +313,35 @@ export function servingSizePortion(info: NutritionInfo | undefined): Portion[] {
   const grams = info ? servingSizeGrams(info.serving_size) : null;
   if (grams == null) return [];
   return [{ label: "1 serving", amount: 1, unit: "serving", grams }];
+}
+
+/** Matches a basis that names a quantity we can divide by: "100 g", "250 ml". */
+const BASIS_QUANTITY = /^(\d+(?:\.\d+)?)\s*(?:g(?:rams?)?|ml)$/i;
+
+/**
+ * The quantity a panel's `serving_size` measures against — 100 for `"100 g"` and
+ * for `"100 ml"`, 30 for a `"30 g"` label serving. **The one divisor** behind
+ * every "scale this panel to the amount in front of me": the recipe derivation,
+ * the amount panel's live preview, the staged card's button, and the log itself.
+ *
+ * Deliberately quantity, not grams. A per-100 ml drink panel divides by its own
+ * 100 like any other basis; the millilitres are carried, never converted to a
+ * weight, because rescaling a published panel by an assumed density computes a
+ * measurement from another one (ADR-0048 §3, ADR-0052). What that leaves is a
+ * residual: a user who typed a gram weight against a volume basis is off by the
+ * density, disclosed by the basis rather than hidden by a conversion.
+ *
+ * Unlike {@link servingSizeGrams} — which answers "does one serving weigh a known
+ * amount?" and returns `null` when it does not — this always yields a usable
+ * divisor, falling back to 100 (the basis reputable sources report against) for
+ * any string naming no quantity. `"1 serving"` is such a string: its weight is
+ * unknown, so it takes the fallback rather than the `1` a bare `parseFloat` finds
+ * in it, which would have scaled a whole-serving panel by the gram count.
+ */
+export function parseBasisQuantity(serving_size: string | undefined): number {
+  const match = BASIS_QUANTITY.exec((serving_size ?? "").trim());
+  const quantity = match ? Number(match[1]) : NaN;
+  return Number.isFinite(quantity) && quantity > 0 ? quantity : 100;
 }
 
 /** The four macros the food dashboard and recipe builder display and sum. */

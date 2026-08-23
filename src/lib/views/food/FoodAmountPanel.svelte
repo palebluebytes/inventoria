@@ -1,10 +1,10 @@
 <script lang="ts">
   import {
+    parseBasisQuantity,
     scaleNutrition,
     type NutritionInfo,
     type Portion,
   } from "../../food/nutrition";
-  import { parseServingGrams } from "../../food/recipe-nutrition";
   import QuantityGrams from "./QuantityGrams.svelte";
   import NutrientPreview from "./NutrientPreview.svelte";
 
@@ -15,7 +15,7 @@
   // staged card so the same screen serves the search/scan staging flow AND the
   // dashboard's edit-amount sheet (IngredientAmountSheet), keeping the two DRY.
   //
-  // Scaling reads the panel's OWN basis via `parseServingGrams(serving_size)` —
+  // Scaling reads the panel's OWN basis via `parseBasisQuantity(serving_size)` —
   // 100 for a per-100 g source (USDA/OFF), the serving weight for a per-serving
   // label food — so a `30 g`-serving food scales by grams/30, not grams/100. A
   // panel-less food (a manual ingredient with no source panel) renders just the
@@ -35,7 +35,7 @@
 
   // The amount total: the full panel scaled from its own basis to the typed grams.
   let factor = $derived(
-    panel ? grams / parseServingGrams(panel.serving_size) : 0
+    panel ? grams / parseBasisQuantity(panel.serving_size) : 0
   );
   let breakdown = $derived(scaleNutrition(panel, factor));
 </script>

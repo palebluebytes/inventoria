@@ -11,6 +11,8 @@ import {
   resolvePortionGrams,
   scaleNutrition,
   sumNutrition,
+  PER_100ML,
+  parseBasisQuantity,
   servingSizeGrams,
   servingSizePortion,
   type NutritionBreakdown,
@@ -459,6 +461,47 @@ describe("servingSizeGrams", () => {
   it("is null for a non-gram unit", () => {
     expect(servingSizeGrams("240 ml")).toBeNull();
     expect(servingSizeGrams("")).toBeNull();
+  });
+
+  it("is null for the per-100 ml drink basis (never a 100 g serving chip)", () => {
+    // A drink's panel basis is a volume; surfacing it as a weighed serving would
+    // put "1 serving = 100 g" on a can of cola (ADR-0052 §1).
+    expect(servingSizeGrams(PER_100ML)).toBeNull();
+  });
+});
+
+describe("parseBasisQuantity", () => {
+  it("reads the quantity a per-100 basis names", () => {
+    expect(parseBasisQuantity("100 g")).toBe(100);
+    expect(parseBasisQuantity("100 ml")).toBe(100);
+  });
+
+  it("reads a weighed label serving's own quantity", () => {
+    expect(parseBasisQuantity("30 g")).toBe(30);
+    expect(parseBasisQuantity("30g")).toBe(30);
+    expect(parseBasisQuantity("62.5 g")).toBe(62.5);
+  });
+
+  it("divides a millilitre basis by its own quantity, never by a density", () => {
+    // A per-100 ml drink panel scales like any other per-100 panel: 330 against
+    // 100. Converting millilitres to grams would compute one measurement from
+    // another (ADR-0048 §3), so the volume is carried, not converted.
+    expect(parseBasisQuantity("250 ml")).toBe(250);
+    expect(parseBasisQuantity("330ml")).toBe(330);
+  });
+
+  it("falls back to 100 for a weightless serving, never the '1' in it", () => {
+    // parseFloat("1 serving") === 1, which would have scaled a whole-serving
+    // panel by the typed gram count — a custom food logged at 100 g reading
+    // 100x its calories.
+    expect(parseBasisQuantity("1 serving")).toBe(100);
+  });
+
+  it("falls back to 100 for a basis naming no quantity", () => {
+    expect(parseBasisQuantity(undefined)).toBe(100);
+    expect(parseBasisQuantity("")).toBe(100);
+    expect(parseBasisQuantity("1 portion (330 ml)")).toBe(100);
+    expect(parseBasisQuantity("0 g")).toBe(100);
   });
 });
 

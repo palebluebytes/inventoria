@@ -22,6 +22,14 @@ const PANELS: Record<string, NutritionInfo> = {
     fat_content: 0.3,
     carbohydrate_content: 22.8,
   },
+  // A drink read from OFF: published per 100 ml, carried as published (#148).
+  "gtin:cola": {
+    serving_size: "100 ml",
+    calories: 42,
+    protein_content: 0,
+    fat_content: 0,
+    carbohydrate_content: 10.6,
+  },
 };
 const resolve = (ref: string): NutritionInfo | undefined => PANELS[ref];
 
@@ -96,6 +104,36 @@ describe("deriveIngredientMacros", () => {
 // The recipe path mirrors the food path: the full panel — not just the four
 // macros — is derived and frozen (ADR-0030 / #28), summed across ingredients that
 // carry each nutrient and never fabricating a zero for one that omits it.
+describe("deriveRecipeNutrition — a millilitre basis (#148)", () => {
+  it("divides a per-100 ml panel by its own 100, not by a density", () => {
+    // 330 against the panel's own basis of 100: 3.3 x 42 kcal. Converting the
+    // volume to a weight would compute one measurement from another (ADR-0048
+    // §3); the residual is disclosed by the basis instead (ADR-0052 §1).
+    const cola: ReferenceIngredient = {
+      ref: "gtin:cola",
+      amount: 330,
+      unit: "g",
+    };
+    expect(deriveIngredientMacros(cola, resolve)).toEqual({
+      calories: 138.6,
+      protein: 0,
+      fat: 0,
+      carbs: 34.98,
+    });
+  });
+
+  it("no longer scales a weightless panel by the '1' in '1 serving'", () => {
+    // parseFloat("1 serving") === 1 made a 100 g gram-row read 100x its
+    // calories. The basis names no quantity, so it takes the 100 fallback.
+    const custom: ReferenceIngredient = {
+      ref: "food:custom",
+      amount: 100,
+      unit: "g",
+    };
+    expect(deriveIngredientMacros(custom, resolve).calories).toBe(90);
+  });
+});
+
 describe("deriveRecipeNutrition — full breakdown", () => {
   const PANELS_FULL: Record<string, NutritionInfo> = {
     "fdc:oats": {
