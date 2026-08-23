@@ -1,6 +1,7 @@
 import type { EntityPayload } from "../ingestion/ingest";
 import {
   PER_100G,
+  PER_100ML,
   FOOD_PORTIONS_ATTR,
   type NutritionInfo,
   type Portion,
@@ -25,7 +26,12 @@ import { getSecret } from "../stores/secrets";
 //     read back by `deriveAllergenVerdict`'s May-contain line (ADR-0043 §6).
 //     Forward-only: older foods simply lack that source; Contains/Free-from
 //     still read from their already-captured allergens_tags/labels_tags.
-const ADAPTER_VERSION = "7";
+// v8: a product whose base unit is millilitres carries the `100 ml` panel basis
+//     instead of being stamped `100 g`, and a millilitre serving_quantity emits
+//     no portion rather than a weight it never was (ADR-0052, #148). Forward-only
+//     like every bump above it: drinks already in the ledger keep the old stamp
+//     until they are looked up again.
+const ADAPTER_VERSION = "8";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -124,11 +130,23 @@ export interface OFFProduct {
     image_ingredients_url?: string;
     image_packaging_url?: string;
     nutriments?: OFFNutriments;
-    // Serving data (ADR-0030 §2/§5). OFF normalises `serving_quantity` to grams;
-    // `serving_size` is the human label ("15 g", "1 portion (37 g)"). Either can
-    // be absent, in which case no food/portions entry is emitted.
+    // Serving data (ADR-0030 §2/§5). `serving_quantity` is OFF's normalised
+    // serving amount and `serving_quantity_unit` the unit it is in — "either g
+    // or ml", NOT grams as this comment claimed until #148; `serving_size` is the
+    // human label ("15 g", "1 portion (330 ml)"). Any of them can be absent, and
+    // a millilitre serving emits no food/portions entry (ADR-0052 §2).
     serving_quantity?: number | string;
+    serving_quantity_unit?: string;
     serving_size?: string;
+    /**
+     * The unit — "either g or ml" — of the product's own `quantity`, which is what
+     * OFF's `*_100g` nutriments are per (ADR-0052 §1). The panel's basis is read
+     * from HERE and not from `nutrition_data_per`, whose enum holds only `serving`
+     * and `100g`: a 330 ml Coca-Cola reports `nutrition_data_per: "100g"` while
+     * `product_quantity_unit` correctly says `ml`. Absent on a product OFF could
+     * not parse a quantity from, which keeps the per-100 g default.
+     */
+    product_quantity_unit?: string;
     // Record-level source signals (ADR-0030 §4). All optional; a missing field
     // is omitted from the payload rather than emitted as empty/null.
     brands?: string;
@@ -223,11 +241,21 @@ export class ProductNotFoundError extends Error {
  * back to a generic "1 serving" when the label is absent). Returns an empty list
  * — never a zero-gram portion — when there is no usable serving weight, so the
  * caller omits the attribute rather than emitting an empty one.
+ *
+ * A **millilitre** serving is one of those unusable weights (ADR-0052 §2, #148).
+ * A `Portion` resolves to grams, so a 330 ml can stored as `grams: 330` would be
+ * a volume masquerading as a weight; better no portion than a wrong one, and the
+ * empty-list rule above already carries that precedent. `serving_quantity_unit`
+ * is the one field that answers this — it is `ml` on 57 of 100 sampled OFF
+ * beverages, and it disagrees with the product's own unit in both directions: a
+ * drink powder sold by the 260 g tin states its serving as the prepared 100 ml.
  */
 function offPortions(
   serving_quantity: number | string | undefined,
+  serving_quantity_unit: string | undefined,
   serving_size: string | undefined
 ): Portion[] {
+  if (serving_quantity_unit?.trim().toLowerCase() === "ml") return [];
   const grams =
     typeof serving_quantity === "string"
       ? Number(serving_quantity)
@@ -235,6 +263,23 @@ function offPortions(
   if (grams == null || !Number.isFinite(grams) || grams <= 0) return [];
   const label = serving_size?.trim() || "1 serving";
   return [{ label, amount: 1, unit: "serving", grams }];
+}
+
+/**
+ * The basis OFF's `*_100g` nutriments are actually measured against: 100 ml for a
+ * product OFF holds in millilitres, 100 g otherwise (ADR-0052 §1, #148).
+ *
+ * OFF publishes a liquid's nutriments per 100 ml under the same `*_100g` keys —
+ * its API reference describes them as "per 100g or 100ml" — and does not say
+ * which in `nutrition_data_per`, whose enum is `serving | 100g` and nothing else.
+ * `product_quantity_unit`, computed from the pack's own `quantity`, is the field
+ * that does say: `ml` on 69 of 100 sampled beverages, where `nutrition_data_per`
+ * was `100g` on 24, absent on 74 and `100ml` on none.
+ */
+function offPanelBasis(product_quantity_unit: string | undefined): string {
+  return product_quantity_unit?.trim().toLowerCase() === "ml"
+    ? PER_100ML
+    : PER_100G;
 }
 
 /**
@@ -247,7 +292,9 @@ export function mapOffProductToPayload(product: OFFProduct): OffPayload {
   const p = product.product;
   const n = p.nutriments ?? {};
 
-  const nutrition: NutritionInfo = { serving_size: PER_100G };
+  const nutrition: NutritionInfo = {
+    serving_size: offPanelBasis(p.product_quantity_unit),
+  };
   const set = (value: number | undefined, key: keyof NutritionInfo) => {
     if (value != null) (nutrition[key] as number) = value;
   };
@@ -318,10 +365,15 @@ export function mapOffProductToPayload(product: OFFProduct): OffPayload {
     attributes["food/assessment"] = assessment;
 
   // Household portion (ADR-0030 §2/§5). OFF's single product response already
-  // carries the serving, so no second network call: map serving_quantity (grams)
-  // to one food/portions entry, labelled by serving_size when present. Omitted
-  // entirely when the product reports no usable serving weight.
-  const portions = offPortions(p.serving_quantity, p.serving_size);
+  // carries the serving, so no second network call: map serving_quantity to one
+  // food/portions entry, labelled by serving_size when present. Omitted entirely
+  // when the product reports no usable serving weight — including a serving OFF
+  // measured in millilitres (ADR-0052 §2).
+  const portions = offPortions(
+    p.serving_quantity,
+    p.serving_quantity_unit,
+    p.serving_size
+  );
   if (portions.length > 0) attributes[FOOD_PORTIONS_ATTR] = portions;
 
   return {
@@ -616,9 +668,18 @@ export function buildOffWriteBody(
   if (ingredientsText) body.set("ingredients_text", ingredientsText);
 
   // `nutrition_data_per` is GLOBAL to the whole panel (#50): send the full set on
-  // one basis. Our panel stamps `100 g` for the per-100 g case, else a serving
-  // string, which maps to OFF's `serving` basis with the human `serving_size`.
-  const per100 = n.serving_size === PER_100G;
+  // one basis. Our panel stamps `100 g` or `100 ml` for a per-100 panel, else a
+  // serving string, which maps to OFF's `serving` basis with the human
+  // `serving_size`.
+  //
+  // BOTH per-100 bases post OFF's `100g` (ADR-0052 §3, #148). OFF has no `100ml`
+  // value — the field's enum is `serving | 100g`, and OFF resolves that 100 to
+  // the product's own base unit, which is exactly why a 330 ml Coca-Cola reads
+  // back `nutrition_data_per: "100g"`. So `100g` is what OFF itself stores for a
+  // drink, and posting our own `100 ml` verbatim would send an out-of-enum value.
+  // Letting a `100 ml` panel fall through to `serving` would be worse still: it
+  // would declare the whole nutriment set as one serving of "100 ml".
+  const per100 = n.serving_size === PER_100G || n.serving_size === PER_100ML;
   body.set("nutrition_data_per", per100 ? "100g" : "serving");
   if (!per100 && n.serving_size) body.set("serving_size", n.serving_size);
 

@@ -287,6 +287,64 @@ describe("mapOffProductToPayload", () => {
     expect(attrs).not.toHaveProperty("food/ingredients_text");
   });
 
+  it("stamps the 100 ml basis for a product OFF holds in millilitres (#148)", () => {
+    // OFF publishes a liquid's nutriments per 100 ml under the same `*_100g`
+    // keys. `nutrition_data_per` cannot say so — its enum is `serving | 100g` —
+    // so the basis is read from the pack's own unit (ADR-0052 §1).
+    const drink: OFFProduct = {
+      ...nutella,
+      product: {
+        ...nutella.product,
+        product_quantity_unit: "ml",
+      },
+    };
+    const n = mapOffProductToPayload(drink).attributes[
+      "nutrition/info"
+    ] as NutritionInfo;
+    expect(n.serving_size).toBe("100 ml");
+    // Carried as published: no density rescale of the values themselves.
+    expect(n.calories).toBe(539);
+  });
+
+  it("keeps the 100 g basis for a gram product and when OFF states no unit", () => {
+    expect(
+      (
+        mapOffProductToPayload({
+          ...nutella,
+          product: { ...nutella.product, product_quantity_unit: "g" },
+        }).attributes["nutrition/info"] as NutritionInfo
+      ).serving_size
+    ).toBe("100 g");
+    // The Nutella fixture carries no product_quantity_unit at all.
+    expect(
+      (
+        mapOffProductToPayload(nutella).attributes[
+          "nutrition/info"
+        ] as NutritionInfo
+      ).serving_size
+    ).toBe("100 g");
+  });
+
+  it("does not read the panel basis off a drink powder's millilitre serving (#148)", () => {
+    // A cocoa sold by the 260 g tin states its serving as the prepared 100 ml.
+    // Its nutriments are per 100 g of POWDER, so the serving's unit must not
+    // decide the panel's basis — only the pack's own unit does.
+    const powder: OFFProduct = {
+      ...nutella,
+      product: {
+        ...nutella.product,
+        product_quantity_unit: "g",
+        serving_quantity: 100,
+        serving_quantity_unit: "ml",
+      },
+    };
+    const attrs = mapOffProductToPayload(powder).attributes;
+    expect((attrs["nutrition/info"] as NutritionInfo).serving_size).toBe(
+      "100 g"
+    );
+    expect(attrs).not.toHaveProperty("food/portions");
+  });
+
   it("maps serving_quantity/serving_size to a single food/portions entry (ADR-0030)", () => {
     // OFF's one serving becomes one household portion resolving to its grams,
     // labelled by serving_size; no second network call is made.
@@ -342,6 +400,47 @@ describe("mapOffProductToPayload", () => {
     expect(mapOffProductToPayload(bad).attributes).not.toHaveProperty(
       "food/portions"
     );
+  });
+
+  it("emits no portion for a serving OFF measured in millilitres (#148)", () => {
+    // A Portion resolves to grams, so a 330 ml can stored as `grams: 330` would
+    // be a volume masquerading as a weight. Better no portion (ADR-0052 §2).
+    const can: OFFProduct = {
+      ...nutella,
+      product: {
+        ...nutella.product,
+        product_quantity_unit: "ml",
+        serving_quantity: 330,
+        serving_quantity_unit: "ml",
+        serving_size: "1 can (330 ml)",
+      },
+    };
+    expect(mapOffProductToPayload(can).attributes).not.toHaveProperty(
+      "food/portions"
+    );
+  });
+
+  it("keeps a gram serving on a millilitre product (#148)", () => {
+    // Alpro's oat milks are 1 L cartons whose serving OFF holds as 100 g. The
+    // panel is per 100 ml and the portion is a genuine weight — two fields
+    // answering two questions.
+    const oat: OFFProduct = {
+      ...nutella,
+      product: {
+        ...nutella.product,
+        product_quantity_unit: "ml",
+        serving_quantity: 100,
+        serving_quantity_unit: "g",
+        serving_size: "100 g",
+      },
+    };
+    const attrs = mapOffProductToPayload(oat).attributes;
+    expect((attrs["nutrition/info"] as NutritionInfo).serving_size).toBe(
+      "100 ml"
+    );
+    expect(attrs["food/portions"]).toEqual([
+      { label: "100 g", amount: 1, unit: "serving", grams: 100 },
+    ]);
   });
 
   it("stores the raw source response as twin/raw_provenance (ADR-0016)", () => {
@@ -580,6 +679,21 @@ describe("buildOffWriteBody", () => {
       { user_id: "t", password: "p" }
     );
     expect(body.has("ingredients_text")).toBe(false);
+  });
+
+  it("posts OFF's 100g for a per-100 ml panel, which has no OFF value (#148)", () => {
+    // `nutrition_data_per`'s enum is `serving | 100g` and OFF resolves that 100
+    // to the product's own base unit — which is why a 330 ml Coca-Cola reads
+    // back `"100g"`. Posting our `100 ml` verbatim would be out of enum, and
+    // falling through to `serving` would declare the set as one 100 ml serving.
+    const body = buildOffWriteBody(
+      "5449000000996",
+      { name: "Cola", nutrition: { serving_size: "100 ml", calories: 42 } },
+      { user_id: "t", password: "p" }
+    );
+    expect(body.get("nutrition_data_per")).toBe("100g");
+    expect(body.get("serving_size")).toBeNull();
+    expect(body.get("nutriment_energy-kcal")).toBe("42");
   });
 
   it("maps a per-serving basis to serving + serving_size", () => {
