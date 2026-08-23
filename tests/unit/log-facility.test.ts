@@ -313,6 +313,23 @@ describe("the recording switch", () => {
     expect(facility.readChannel(channel)).toEqual([{ text: "one" }]);
   });
 
+  it("keeps its own key out of the channel keyspace", async () => {
+    // `inventoria_log_paused` would be the key of a channel named `paused`, and
+    // the duplicate-name guard only sees channel against channel — so the two
+    // would silently wipe each other.
+    const ls = makeFakeLocalStorage();
+    vi.stubGlobal("localStorage", ls);
+    const facility = await loadFacility();
+    const paused = declareNotes(facility, "paused");
+
+    facility.setChannelRecording(paused, false);
+    facility.setChannelRecording(paused, true);
+    facility.appendToChannel(paused, { text: "one" });
+
+    expect(facility.readChannel(paused)).toEqual([{ text: "one" }]);
+    expect([...ls.store.keys()]).toEqual(["inventoria_log_paused"]);
+  });
+
   it("records by default", async () => {
     vi.stubGlobal("localStorage", makeFakeLocalStorage());
     const facility = await loadFacility();

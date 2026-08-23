@@ -592,7 +592,11 @@ describe("saveLogExportConsent", () => {
     // Its own writer, so a screen that does not own this toggle cannot clobber
     // it — three screens already call saveSettings for settings of their own.
     await saveLogExportConsent(true);
-    const datoms = appendMock.mock.calls[0][0] as any[];
+    const datoms = appendMock.mock.calls[0][0] as {
+      entity: string;
+      attribute: string;
+      value: unknown;
+    }[];
     expect(datoms.map((d) => d.attribute)).toEqual(["settings/log_export"]);
     expect(datoms[0].value).toBe(true);
     expect(datoms[0].entity).toBe("settings:global");

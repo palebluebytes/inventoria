@@ -382,9 +382,18 @@ export const SEARCH_CHANNEL = defineChannel({
 });
 
 /**
- * Records a finished session, if it has anything to say. Never throws, never
- * blocks the caller, and returns a promise only so a test can await the write it
- * would otherwise have to guess at — no caller awaits one.
+ * Records a finished session, if it has anything to say, and returns what the
+ * bar reads once it is in — `null` for a session that left no entry.
+ *
+ * The bar is evaluated **on the write**, which is what "each trigger fires
+ * itself" means (ADR-0053 §7, as amended): the counts need no window, no review
+ * date and nobody to remember a day six weeks ago. Nothing is pushed at the user
+ * on the strength of it, and that is deliberate — ADR-0053's Consequences accept
+ * that the Settings surface is the only affordance, "because the alternative is
+ * a nagging surface built for an audience of one".
+ *
+ * Never throws and never blocks: the promise exists so a reader can have the
+ * reading, not so a caller can wait for it.
  *
  * The early return matters: a session that found its food every time must not
  * reach for the corpus, because a user who never searched would pay a fetch for
@@ -393,8 +402,9 @@ export const SEARCH_CHANNEL = defineChannel({
 export async function recordSearchSession(
   session: SearchSession,
   load: () => Promise<SearchCorpus> = loadSearchCorpus
-): Promise<void> {
-  if (session.empty_query === null && session.rescued_query === null) return;
+): Promise<VocabularyBarReading | null> {
+  if (session.empty_query === null && session.rescued_query === null)
+    return null;
   try {
     const corpus = await load();
     const entry = closeSearchSession(session, {
@@ -403,10 +413,13 @@ export async function recordSearchSession(
       vocabulary: corpus.vocabulary,
       schema_version: corpus.schema_version,
     });
-    if (entry) appendToChannel(SEARCH_CHANNEL, entry);
+    if (!entry) return null;
+    appendToChannel(SEARCH_CHANNEL, entry);
+    return readSearchChannelBar();
   } catch {
     // The corpus is precached, so a failure here is a broken install — and a
     // broken install must not also break the search that just answered.
+    return null;
   }
 }
 
@@ -462,7 +475,33 @@ export function readVocabularyBar(
   };
 }
 
-/** The bar as the channel currently stands — what Settings shows. */
+/**
+ * The bar over the flags each session was captured with. Synchronous, because
+ * the entries carry everything it needs.
+ */
 export function readSearchChannelBar(): VocabularyBarReading {
   return readVocabularyBar(readChannel(SEARCH_CHANNEL));
+}
+
+/**
+ * The same bar, re-read against the Vocabulary map **as it stands now**
+ * (ADR-0053 §4). The corpus has to be loaded for that, so this one is async; it
+ * is the same memoised artifact the search itself reads, warmed at startup.
+ *
+ * Both readings are shown, and neither replaces the other. A session that would
+ * have been flagged under the map it was captured against and would not be under
+ * today's is a finding about churn — the vocabulary re-derives on every corpus
+ * change — rather than a discrepancy to reconcile away.
+ */
+export async function recomputeSearchChannelBar(
+  load: () => Promise<SearchCorpus> = loadSearchCorpus
+): Promise<VocabularyBarReading> {
+  const corpus = await load();
+  return readVocabularyBar(
+    withCurrentVocabulary(
+      readChannel(SEARCH_CHANNEL),
+      corpus.vocabulary,
+      corpus.schema_version
+    )
+  );
 }

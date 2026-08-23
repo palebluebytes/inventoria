@@ -133,11 +133,17 @@ export function registeredChannels(): LogChannel<unknown>[] {
 
 const LS_PREFIX = "inventoria_log_";
 // The channels whose recording the user has switched off, as one JSON list.
-// Not a `settings/` datom: the entries it governs are per-device and unsynced,
-// and a switch that syncs would silence an instrument on a device its owner has
-// never seen. The one ledger-side preference is the export consent toggle,
-// which is about disclosure rather than about this device (ADR-0053 §1).
-const LS_PAUSED_KEY = "inventoria_log_paused";
+//
+// Deliberately OUTSIDE the `inventoria_log_<name>` keyspace: a channel named
+// `paused` would otherwise claim this very key, and the duplicate-name guard
+// only ever compares a channel against another channel, so the two would
+// silently delete each other's records.
+//
+// Not a `settings/` datom either: the entries it governs are per-device and
+// unsynced, and a switch that syncs would silence an instrument on a device its
+// owner has never seen. The one ledger-side preference is the export consent
+// toggle, which is about disclosure rather than about this device (ADR-0053 §1).
+const LS_PAUSED_KEY = "inventoria_logs_paused";
 
 // `localStorage` is absent under the Node unit runner and can throw outright in
 // a privacy-locked browser, so every access is guarded — the arrangement

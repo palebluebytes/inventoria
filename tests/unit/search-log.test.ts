@@ -356,6 +356,42 @@ describe("the search channel", () => {
 });
 
 describe("recording a finished session", () => {
+  it("evaluates the bar on the write, so each trigger fires itself", async () => {
+    vi.stubGlobal("localStorage", makeFakeLocalStorage());
+    const log = await loadSearchLog();
+
+    let session = log.beginSearchSession();
+    session = log.typedIntoSession(session, "raw aubergine");
+    session = log.searchFoundNothing(session, "raw aubergine");
+
+    // The reading comes back from the write itself rather than waiting for
+    // someone to open Settings (ADR-0053 §7, as amended).
+    expect(await log.recordSearchSession(session, corpusOf)).toEqual({
+      settled_empty: 1,
+      mid_phrase: 1,
+      verdict: "undecided",
+    });
+  });
+
+  it("re-reads the bar against the vocabulary as it stands now", async () => {
+    vi.stubGlobal("localStorage", makeFakeLocalStorage());
+    const log = await loadSearchLog();
+
+    let session = log.beginSearchSession();
+    session = log.typedIntoSession(session, "raw aubergine");
+    session = log.searchFoundNothing(session, "raw aubergine");
+    await log.recordSearchSession(session, corpusOf);
+
+    // Captured against a map that had the key; re-read against one that has
+    // dropped it, which is the churn finding ADR-0053 §4 exists to surface.
+    expect(log.readSearchChannelBar().mid_phrase).toBe(1);
+    expect(
+      await log.recomputeSearchChannelBar(() =>
+        Promise.resolve({ foods: [], vocabulary: {}, schema_version: 9 })
+      )
+    ).toEqual({ settled_empty: 1, mid_phrase: 0, verdict: "undecided" });
+  });
+
   it("appends one entry through the facility", async () => {
     vi.stubGlobal("localStorage", makeFakeLocalStorage());
     const log = await loadSearchLog();
@@ -386,7 +422,7 @@ describe("recording a finished session", () => {
     let session = log.beginSearchSession();
     session = log.typedIntoSession(session, "banana");
     session = log.searchFoundFood(session, "banana", false);
-    await log.recordSearchSession(session, load);
+    expect(await log.recordSearchSession(session, load)).toBeNull();
 
     // A user who finds their food must not trigger a fetch of an artifact the
     // search never needed.
@@ -407,7 +443,7 @@ describe("recording a finished session", () => {
           new Error("Failed to load /usda/search-index.json (404).")
         )
       )
-    ).resolves.toBeUndefined();
+    ).resolves.toBeNull();
 
     expect(facility.readChannel(log.SEARCH_CHANNEL)).toEqual([]);
   });

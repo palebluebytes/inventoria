@@ -15,7 +15,11 @@
     setChannelRecording,
     type LogChannel,
   } from "../../logs/log-facility";
-  import { readSearchChannelBar } from "../../logs/search-log";
+  import type { VocabularyBarReading } from "../../logs/search-log";
+  import {
+    readSearchChannelBar,
+    recomputeSearchChannelBar,
+  } from "../../logs/search-log";
 
   // The controls ADR-0053 §1 names — the entry count, a switch that stops the
   // recording, and an action that clears the log — plus ADR-0054 §4's master
@@ -33,20 +37,31 @@
   // are re-read rather than trusted from a snapshot.
   let revision = $state(0);
 
-  let rows = $derived.by(() => {
+  // One derivation for everything read out of storage, keyed on `revision`:
+  // these are plain reads rather than reactive stores, so a write has to say so.
+  let stored = $derived.by(() => {
     void revision;
-    return channels.map((channel) => ({
-      channel,
-      entries: channelEntryCount(channel),
-      recording: isChannelRecording(channel),
-    }));
+    return {
+      rows: channels.map((channel) => ({
+        channel,
+        entries: channelEntryCount(channel),
+        recording: isChannelRecording(channel),
+      })),
+      // What the channel says about #142 (ADR-0053 §7, as amended): two counts
+      // rather than a rate over a window, because the app is not in use yet and
+      // a calendar with no start decides nothing.
+      bar: readSearchChannelBar(),
+    };
   });
-  // What the channel currently says about #142 (ADR-0053 §7, as amended). Two
-  // counts rather than a rate over a window, evaluated on every read, because
-  // the app is not in use yet and a calendar with no start decides nothing.
-  let bar = $derived.by(() => {
+  // The same bar re-read against the vocabulary as it stands now (§4). Async,
+  // because it needs the corpus; null until it arrives, and null for good if the
+  // artifact will not load, which costs this panel a line and nothing else.
+  let barToday = $state<VocabularyBarReading | null>(null);
+  $effect(() => {
     void revision;
-    return readSearchChannelBar();
+    recomputeSearchChannelBar()
+      .then((reading) => (barToday = reading))
+      .catch(() => (barToday = null));
   });
 
   let reviewing = $state(false);
@@ -94,7 +109,7 @@
     >
   </div>
 
-  {#each rows as { channel, entries, recording } (channel.name)}
+  {#each stored.rows as { channel, entries, recording } (channel.name)}
     <section class="channel">
       <div class="channel-head">
         <span class="channel-name">{channel.name}</span>
@@ -127,11 +142,18 @@
   <section class="channel">
     <h3>What the search log says about #142</h3>
     <p class="reader">
-      {bar.mid_phrase} of {bar.settled_empty} settled empty searches carried a vocabulary
-      word inside a longer phrase. Six of them build the per-token tier; forty settled
-      empty searches with fewer than six close it as a settled no.
+      {stored.bar.mid_phrase} of {stored.bar.settled_empty} settled empty searches
+      carried a vocabulary word inside a longer phrase. Six of them build the per-token
+      tier; forty settled empty searches with fewer than six close it as a settled
+      no.
     </p>
-    <p class="verdict">Verdict: {bar.verdict}</p>
+    <p class="verdict">Verdict: {stored.bar.verdict}</p>
+    {#if barToday}
+      <p class="reader">
+        Against today's vocabulary, which re-derives on every corpus change: {barToday.mid_phrase}
+        of {barToday.settled_empty} — {barToday.verdict}.
+      </p>
+    {/if}
   </section>
 
   <div class="actions-row mt-4">
