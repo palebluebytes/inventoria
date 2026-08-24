@@ -83,8 +83,8 @@ Results are ordered by, in priority:
    > §3 and §5. Two of the keys now read the ROW rather than the name — whether a
    > plainer twin of it exists in the corpus, and whether USDA published it for a
    > designated population — because neither fact is legible from a description
-   > alone. The order becomes `tier, raw, head, position, plainSibling, plain,
-simplicity, designated`.
+   > alone. The order becomes
+   > `tier, raw, head, position, plainSibling, plain, simplicity, designated`.
 
 Relevance gates rawness: an off-target raw food never beats an on-target one.
 
