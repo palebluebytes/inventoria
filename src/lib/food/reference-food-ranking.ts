@@ -211,6 +211,37 @@ export interface NameKey {
   /** How completely the query fills the head phrase; negative chars-to-go. */
   head: number;
   /**
+   * Whether the query accounts for the WHOLE name: 1 when every word of the
+   * name is answered by a typed token, 0 when any word is left over.
+   *
+   * `head` above asks this of the head phrase and stops at the first comma, so
+   * nothing asked it of the rest of the name. That gap is what left
+   * "Oil, soybean" and "Oil, soybean lecithin" agreeing on all eight keys for a
+   * typed "soybean oil", with `Array.sort`'s stability handing the lead to the
+   * lower `fdcId` — an emulsifier, for a query naming an oil (#155).
+   *
+   * A BOOLEAN, and the ticket's own "fewer unaccounted words" is refused. USDA
+   * writes its most generic animal rows with the most words — a whole chicken
+   * is "meat and skin and giblets and neck" — so counting leftovers prefers
+   * "Chicken, ground, raw" to the generic row, which is #143's rejected part key
+   * arriving by a different route. Measured over the same 3,376-query sweep that
+   * priced this key, the count breaks all four of #143's generic-animal leads —
+   * every one to a `… ground, raw` row — and moves 339 leads against this
+   * key's 4.
+   *
+   * The boolean cannot reach them, and not by luck: it fires only where some
+   * candidate is FULLY accounted, and no chicken row is named "Chicken". Where
+   * nothing is fully accounted every candidate scores 0, the key ties uniformly
+   * and the order is unchanged — the same self-gating ADR-0055 §4 relies on.
+   *
+   * Its slot could not be measured. Run after `head`, after `position`, after
+   * `simplicity` and dead last, it changes the same four leads and no others, so
+   * the placement is an argument rather than a finding: it sits beside `head`
+   * because it asks `head`'s question of the whole name, the way `plainSibling`
+   * sits beside `plain` because it asks `plain`'s question of the corpus.
+   */
+  accounted: number;
+  /**
    * Where in the name the query landed: for each typed token, the index of the
    * first word that answers it, summed across tokens and negated so that larger
    * is better, as every other key is.
@@ -289,6 +320,7 @@ const NO_MATCH: NameKey = {
   tier: 0,
   raw: 0,
   head: 0,
+  accounted: 0,
   position: 0,
   plain: 0,
   simplicity: 0,
@@ -302,17 +334,21 @@ const HEAD_UNMATCHED = -1e6;
  *
  * The one place the order is expressed, which is why the two row keys ADR-0055
  * adds are fields here rather than a second sort in `usda-corpus.ts`.
- * `plainSibling` sits beside `plain` and above it, because it asks `plain`'s
- * question of the corpus rather than of the name; `designated` sits last,
- * because it is the weakest signal available and, measured over every corpus
- * head phrase and head word, placing it last rather than immediately after
- * `position` changes the same two leads and no others.
+ *
+ * Three of the slots were argued rather than measured, and each says which:
+ * `accounted` sits beside `head` because it asks `head`'s question of the whole
+ * name; `plainSibling` sits beside `plain` and above it, because it asks
+ * `plain`'s question of the corpus rather than of the name; `designated` sits
+ * last, because it is the weakest signal available and, measured over every
+ * corpus head phrase and head word, placing it last rather than immediately
+ * after `position` changes the same two leads and no others.
  */
 export function compareRelevance(a: RelevanceKey, b: RelevanceKey): number {
   return (
     b.tier - a.tier ||
     b.raw - a.raw ||
     b.head - a.head ||
+    b.accounted - a.accounted ||
     b.position - a.position ||
     b.plainSibling - a.plainSibling ||
     b.plain - a.plain ||
@@ -336,8 +372,9 @@ export type ReferenceFoodQuery = (name: ReferenceFoodName) => NameKey;
  * ("Beverages, rice milk") — and a source's own relevance floats those above the
  * real thing. So the order is re-derived from how *exactly* the name matches:
  * head-phrase, then whole-word, then mere prefix; then the raw base-ingredient
- * preference; then how completely the query fills the head phrase; then raw
- * simplicity. Sorting is stable, so the candidate order breaks any remaining tie.
+ * preference; then how completely the query fills the head phrase, and whether
+ * it accounts for the rest of the name as well; then raw simplicity. Sorting is
+ * stable, so the candidate order breaks any remaining tie.
  *
  * It scores each name once rather than comparing two, because a comparator
  * re-derives both sides on every one of the ~n log n comparisons — 205 ms for a
@@ -411,6 +448,27 @@ export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
       }
     }
 
+    // Whether anything of the name is left over. The mirror of the loop above —
+    // that one asks each TOKEN which word answered it, this asks each WORD
+    // whether any token did — and deliberately its own pass rather than a
+    // `matched[]` array threaded through it: the two questions are not the same
+    // shape, and the cost of asking them separately is confined to queries that
+    // return thousands of rows.
+    //
+    // The same test retrieval uses, on purpose. A completeness key that
+    // disagreed with retrieval about what a token matched would be a second
+    // copy of that answer, free to drift from it (#131).
+    let accounted = 1;
+    for (let i = 0; i < words.length; i++) {
+      if (
+        !tokenStems.includes(stems[i]) &&
+        !tokens.some((t) => words[i].startsWith(t))
+      ) {
+        accounted = 0;
+        break;
+      }
+    }
+
     return {
       tier,
       raw,
@@ -425,6 +483,7 @@ export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
       // "Milk, imitation, non-soy" (head 4 characters, +3) above "Soy milk,
       // unsweetened, …" (head 7, exactly 0).
       head: headCovered ? -Math.abs(headChars - queryChars) : HEAD_UNMATCHED,
+      accounted,
       position,
       plain,
       simplicity,

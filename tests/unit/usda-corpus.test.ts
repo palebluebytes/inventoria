@@ -657,26 +657,79 @@ describe("searchIndexRows", () => {
     ]);
   });
 
-  it("costs two leads it cannot fix, and lifts the right row on both", () => {
-    // The whole price of ADR-0055 §3, pinned rather than described. Demoting
-    // `Oil, soybean, salad or cooking, (partially hydrogenated)` beneath its
-    // plain parent exposes a tie the ranking cannot separate: `Oil, soybean` and
-    // `Oil, soybean lecithin` agree on every key, so corpus order decides, and
-    // an emulsifier leads a query for an oil. The key did not create that tie —
-    // it is #143's unfixed class — but it is what made it visible, and the row
-    // anyone searching this actually wants moves from 4th to 2nd either way.
-    for (const query of ["soybean oil", "soy oil"] as const) {
-      const found = descriptionsFor(query);
-      expect([query, found[0]]).toEqual([query, "Oil, soybean lecithin"]);
-      expect([query, found[1]]).toEqual([query, "Oil, soybean"]);
+  it("leads with the oil, not the emulsifier or the blend", () => {
+    // ADR-0042's #155 Amendment, and the three leads ADR-0055 §3 was adopted
+    // knowing it cost. Demoting `Oil, soybean, salad or cooking, (partially
+    // hydrogenated)` beneath its plain parent uncovered a tie no key separated:
+    // `Oil, soybean` and `Oil, soybean lecithin` agreed on all eight, so corpus
+    // order decided and an emulsifier led a query for an oil. `corn oil` was the
+    // same defect a shade milder, leading with a blend while `Oil, corn` — §3's
+    // own worked example of a parent — sat second.
+    //
+    // `accounted` separates them by asking what `head` asks of the head phrase
+    // of the whole name: "soybean oil" accounts for every word of `Oil, soybean`
+    // and leaves `lecithin` over in the other.
+    for (const [query, expected] of [
+      ["soybean oil", "Oil, soybean"],
+      ["soy oil", "Oil, soybean"],
+      ["corn oil", "Oil, corn"],
+    ] as const) {
+      expect([query, descriptionsFor(query)[0]]).toEqual([query, expected]);
     }
-    // `corn oil` is the same defect with a milder symptom, and pinned so it is
-    // not mistaken for a wash: the lead moved between two blends, and `Oil, corn`
-    // — §3's own worked example of a parent — is second for the same reason.
-    expect(descriptionsFor("corn oil").slice(0, 2)).toEqual([
-      "Oil, corn and canola",
-      "Oil, corn",
-    ]);
+    // The key's whole collateral in a 3,376-query sweep, pinned as itself rather
+    // than folded into a total. Oat bran bread is the higher-fibre loaf made
+    // with the bran fraction; oatmeal bread is what "oat bread" ordinarily
+    // names, so this was adjudicated an improvement, and it is here so a future
+    // reading of it as a regression has something to argue with.
+    expect(descriptionsFor("oat bread")[0]).toBe("Bread, oatmeal");
+  });
+
+  it("ranks a search the vocabulary rescued by the same keys as a literal one", () => {
+    // The first guard on that path. Every other ranking pin here types a query
+    // the corpus answers literally, so `rankAgainst`'s other job — score each
+    // row against ALL of the expanded phrases and keep its best key — has never
+    // been asserted against. A new key can behave differently there, because it
+    // is scored per phrase and the best one wins.
+    //
+    // These three are the British names for the two oils above, and the reason
+    // the defect was worth fixing rather than pinning: it reached the everyday
+    // vocabulary ADR-0049 and #141 exist to serve, not only the USDA spelling.
+    for (const [query, expected] of [
+      ["maize oil", "Oil, corn"],
+      ["soya oil", "Oil, soybean"],
+      ["soyabean oil", "Oil, soybean"],
+    ] as const) {
+      const { hits, phrases } = searchIndexRows(corpus, query);
+      expect([query, phrases[0]]).toEqual([query, query]);
+      expect([query, phrases.length]).not.toEqual([query, 1]);
+      expect([query, hits[0]?.row.description]).toEqual([query, expected]);
+    }
+  });
+
+  it("lets an alias account for a row, where a sibling flag must not", () => {
+    // The two keys read aliases in opposite directions, and both are right.
+    //
+    // ADR-0055 §3 builds its sibling set from descriptions ALONE, because
+    // `Oil, corn` is the prefix of its own alias and would otherwise demote
+    // itself — fourteen canonical rows would. `accounted` has the opposite
+    // rule: a row is scored as the best of its names (ADR-0050 §4), and an
+    // alias IS one of the food's names, so a query that accounts for the alias
+    // has named the food. `Oats, whole grain, rolled, old fashioned` carries the
+    // alias `Oats`, which a typed "oats" accounts for completely, while its
+    // steel-cut sibling has no alias and four words left over.
+    //
+    // The questions differ, which is why the rules do: one asks whether a
+    // plainer row exists, and an alias there is a row talking about itself; the
+    // other asks whether the user named this food, and an alias there is one of
+    // the names they could have used.
+    expect(descriptionsFor("oats")[0]).toBe(
+      "Oats, whole grain, rolled, old fashioned"
+    );
+    expect(
+      index.foods.find(
+        (row) => row.description === "Oats, whole grain, rolled, old fashioned"
+      )?.also
+    ).toEqual(["Oats"]);
   });
 
   it("leads with the undesignated row where a designated one merely ties", () => {
@@ -772,12 +825,23 @@ describe("searchIndexRows", () => {
     // and rejected it: USDA names its most GENERIC animal rows with part
     // vocabulary, so part markers select FOR the canonical row. These four are
     // the leads that key broke. They are pinned as the reason it is not here.
+    //
+    // `pork` was missing from this list until #155, which is the ticket that
+    // needed it: the counted form of `accounted` — prefer the name with fewer
+    // words left over — is #143's rejected key arriving by another route, and it
+    // takes all four of these to `… ground, raw`. The boolean that shipped
+    // instead cannot reach them, because no candidate here is ever fully
+    // accounted, so it scores 0 across the tie and the order is unchanged.
     for (const [query, expected] of [
       [
         "chicken",
         "Chicken, broilers or fryers, meat and skin and giblets and neck, raw",
       ],
       ["turkey", "Turkey, whole, meat and skin, raw"],
+      [
+        "pork",
+        "Pork, fresh, composite of trimmed leg, loin, shoulder, and spareribs, (includes cuts to be cured), separable lean and fat, raw",
+      ],
       [
         "lamb",
         'Lamb, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/4" fat, choice, raw',
@@ -909,13 +973,17 @@ describe("searchIndexRows", () => {
     // Re-measured for #143's `plain` key, which #143 §8.8 required: 184 gained
     // and 172 not-first became 192 and 164. #144's filters then took 76 rows out
     // of the corpus, and with them six of the rows that had gained a lead and one
-    // that was not first — 186 and 163. `lost` is the invariant and is still
-    // zero: neither the sixth key nor the smaller corpus took the lead from a row
-    // that already held it. The baseline this diffs against is the pre-#124
-    // order, so both keys are being measured here at once.
+    // that was not first — 186 and 163. #155's `accounted` key then moved 32 rows
+    // from not-first to gained — 218 and 131 — which is the population it is
+    // built for: a row searched by its OWN full description is the one name the
+    // query accounts for completely, and every rival carries a word it does not.
+    // `lost` is the invariant and is still zero: no key and no corpus change has
+    // ever taken the lead from a row that already held it. The baseline this
+    // diffs against is the pre-#124 order, so all three keys are being measured
+    // here at once.
     expect({ notFirst, gained, lost }).toEqual({
-      notFirst: 163,
-      gained: 186,
+      notFirst: 131,
+      gained: 218,
       lost: 0,
     });
   }, 30_000);

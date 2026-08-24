@@ -223,6 +223,33 @@ describe("compileReferenceFoodQuery", () => {
     );
   });
 
+  it("says whether anything of the name is left over", () => {
+    // #155. `head` asks this of the head phrase and stops at the first comma;
+    // this asks it of the whole name. "soybean oil" accounts for every word of
+    // `Oil, soybean` and leaves `lecithin` over in the other, which is the whole
+    // of what separated an oil from an emulsifier.
+    expect(rank("soybean oil", "Oil, soybean").accounted).toBe(1);
+    expect(rank("soybean oil", "Oil, soybean lecithin").accounted).toBe(0);
+  });
+
+  it("accounts for a word by the same test retrieval uses", () => {
+    // Stem OR prefix, not whole-word equality: a name is scored by the rule that
+    // admitted it, so the key cannot disagree with retrieval about what a token
+    // matched. "oat" reaches "oatmeal" as a prefix and "berry" reaches "berries"
+    // as a stem, and both leave the name fully accounted.
+    expect(rank("oat bread", "Bread, oatmeal").accounted).toBe(1);
+    expect(rank("berry", "Berries").accounted).toBe(1);
+    expect(rank("oat bread", "Bread, oat bran").accounted).toBe(0);
+  });
+
+  it("scores a name no token reaches as unaccounted, not as complete", () => {
+    // The vacuous reading a `for`-loop over zero unmatched words would give: a
+    // name that answers nothing has nothing left over either. `NO_MATCH` carries
+    // 0 so the key can never float a row the query does not reach.
+    expect(rank("gorgonzola", "Bananas, raw").accounted).toBe(0);
+    expect(rank("gorgonzola", "Bananas, raw").tier).toBe(0);
+  });
+
   it("strips a wildcard the caller supplied, so 'bana*' is 'bana'", () => {
     expect(rank("bana*", "Bananas, raw").tier).toBe(
       rank("bana", "Bananas, raw").tier
@@ -298,6 +325,7 @@ describe("compareRelevance", () => {
       tier: 20,
       raw: 1,
       head: -1,
+      accounted: 1,
       position: -1,
       plainSibling: 1,
       plain: 1,
@@ -316,6 +344,7 @@ describe("compareRelevance", () => {
           tier: 40,
           raw: 0,
           head: -9,
+          accounted: 0,
           position: -9,
           plainSibling: 0,
           plain: 0,
@@ -330,6 +359,7 @@ describe("compareRelevance", () => {
         {
           raw: 1,
           head: -9,
+          accounted: 0,
           position: -9,
           plainSibling: 0,
           plain: 0,
@@ -343,6 +373,7 @@ describe("compareRelevance", () => {
       beats(
         {
           head: -1,
+          accounted: 0,
           position: -9,
           plainSibling: 0,
           plain: 0,
@@ -350,6 +381,23 @@ describe("compareRelevance", () => {
           designated: 0,
         },
         { head: -9 }
+      )
+    ).toBeLessThan(0);
+    // ADR-0042's #155 Amendment: `accounted` sits beside `head`, below it,
+    // because it asks `head`'s question of the whole name rather than of the
+    // head phrase. Its slot could not be measured — four placements move the
+    // same four leads — so this is the argument, pinned.
+    expect(
+      beats(
+        {
+          accounted: 1,
+          position: -9,
+          plainSibling: 0,
+          plain: 0,
+          simplicity: 0,
+          designated: 0,
+        },
+        { accounted: 0 }
       )
     ).toBeLessThan(0);
     expect(
