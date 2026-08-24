@@ -447,13 +447,14 @@ touches retrieval**, so a ranking change cannot move a RETRIEVAL number.
 
 **One of the two headline numbers did move, and it is named here rather than left to
 the table above.** #156 asked after "236 vocabulary misses"; cases carrying
-`verdict: miss` with `cause: vocabulary` fell **244 to 243**, and synonym-pass misses
-229 to 228. It did not move because retrieval changed — every retrieval count above is
-identical — but because `en:oil` was re-judged out of `miss` below. A verdict count is
-an adjudication number wearing a recall number's clothes, and the two come apart
-exactly when a judgement changes. So the honest statement is narrower than "unchanged":
-**nothing this file measures about retrieval moved, and one thing it counts about
-judgements did, by one case, for a reason recorded in the table below.**
+`verdict: miss` with `cause: vocabulary` fell **244 to 240**, and synonym-pass misses
+229 to 227. None of that is retrieval changing — every retrieval count above is
+identical — it is judgements changing: `en:oil` and `en:ham` left `miss`, and two more
+`vocabulary` causes were re-filed once it was clear both their members retrieve. A
+verdict count is an adjudication number wearing a recall number's clothes, and the two
+come apart exactly when a judgement changes. So the honest statement is narrower than
+"unchanged": **nothing this file measures about retrieval moved, and what it counts
+about judgements moved wherever a judgement was re-made.**
 
 The block that moved most is `qualifier`, which measures a CHANGE rather than a state
 by ordering every query twice: `lead_changed` 93 to 98, `answers_improved` 1,109 to
@@ -504,13 +505,63 @@ member that retrieves nothing, and in three of the four the RANKING half of the
 original complaint is fixed. The verdicts stand on narrower ground than when they were
 made, which a bare "reaffirmed" would have hidden.
 
-### 78 cases are left stale, deliberately
+### And the 78 that were already stale
 
-They were stale in the committed file before this regeneration touched anything, and
-each is a judgement whose leading row moved under some earlier ticket that did not
-clear it. They are inherited debt, not something this run created, and clearing them is
-a different job from the one #156 scoped — this note records the count rather than
-letting it disappear. Of the 78: 44 `synonym`, 33 `head`, 1 `pair`.
+They were flagged in the committed file before this regeneration touched anything —
+inherited from earlier tickets that moved a row and did not clear their own flags. They
+were **all judged too**, so the file now carries **zero** `verdict_stale` cases for the
+first time since the flag was introduced.
 
-`adjudications.stale` in the artifact reads 87, which is what the RUN found. Nine were
-judged after it, so 78 remain in the file.
+`adjudications.stale` in the artifact reads 87, which is what the RUN found before any
+of this. All 87 have since been judged.
+
+**The tokeniser class is retired entirely.** Thirteen `head` cases carried
+`cause: tokenizer` and the same note — _the head query returns NOTHING_ — because a
+hyphen, a parenthesis or a comma inside parentheses made a row unmatchable by its own
+name: `broadbeans (fava beans)`, `hyacinth-beans`, `passion-fruit juice`,
+`chickpeas (garbanzo beans`, `margarine-like`, `soymilk (all flavors)` and seven more.
+#136 gave the query and the name one tokeniser, and **every one of the thirteen now
+leads its own row**. `cause: tokenizer` is now zero, and the `other` VERDICT falls 14
+to 1 with it.
+
+**`apricots` is retired by the corpus rather than by a key.** Its verdict was
+`miss` / `filter-dropped` on the note _"has no raw row; only dried and stewed survive"_.
+`Apricot, with skin, raw` now leads it. The verdict was true when it was made.
+
+**Four `qualifier-position` misses are fixed, five are not, and the five have changed
+mechanism.** Fixed: `bread` (a Salvadoran sweet cheese bread gave way to
+`Bread, white wheat`), `yogurt` (a nonfat fruit variety gave way to
+`Yogurt, plain, skim milk`), `vanilla extract` (the imitation gave way to the real one)
+and `bananas` (overripe gave way to ripe). Still missing: `milk`, `cheese`, `pasta`,
+`peanut butter` and `sour cream` — but **none of them is still a position failure**.
+The typed word now sits at word 0 of every candidate, so the position key ties and the
+lead falls to `fdcId` order. Their cause is re-filed to `other`, and four of the five
+are the complete-tie class cut as
+[#158](https://github.com/palebluebytes/inventoria/issues/158). The fifth, `sour cream`,
+is a KNOWN accepted cost: ADR-0042's #154 Amendment pins that lead and prices it.
+
+**One was a false positive.** `en:ham` was `miss` on the note _"leads with a RESTAURANT
+sliced record"_. The corpus holds exactly one row whose name begins `Ham,` and that is
+it; everything else is `Pork, cured, ham, …` or a raw leg cut. Nothing was being buried.
+
+**Thirty-three synonym misses hold on evidence checked case by case.** Each rests on a
+member the corpus cannot answer at all, and for each the note now names which member is
+still empty — so the reaffirmation says what it was checked against rather than
+asserting itself. What moved their rows was a sibling member that DOES retrieve, which
+is not what those verdicts are about.
+
+### What the judging moved
+
+|                    | before | after |
+| ------------------ | ------ | ----- |
+| `verdict_stale`    | 116    | **0** |
+| `correct`          | 208    | 227   |
+| `miss`             | 283    | 273   |
+| `peers`            | 35     | 38    |
+| `other` (verdict)  | 14     | 1     |
+| `cause: tokenizer` | 13     | **0** |
+| `cause: other`     | 1      | 6     |
+
+§3.3 says that if `other` exceeds ~10% the taxonomy was wrong. As a cause it now stands
+at **0.9%** of judged cases, so the taxonomy holds — and the five additions are all one
+newly-visible shape, a tie no ranking key separates, which is why #158 exists.

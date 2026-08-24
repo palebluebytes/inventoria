@@ -1013,8 +1013,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "British 'skimmed milk' and 'fat-free milk' both retrieve nothing; 'skim milk' works",
-      "verdict_stale": true
+      "note": "British 'skimmed milk' and 'fat-free milk' both retrieve nothing; 'skim milk' works — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"skimmed milk\" still retrieves nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -1455,8 +1455,8 @@
       },
       "verdict": "peers",
       "cause": "peers",
-      "note": "green pepper is ambiguous between bell and chilli; both are defensible",
-      "verdict_stale": true
+      "note": "green pepper is ambiguous between bell and chilli; both are defensible — reaffirmed #156. The empty member is 'green peppercorns', a different food, and the bell lead is unchanged.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -1641,8 +1641,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'milk powder' and 'powdered milk' both lose to composite drinks; 'dry milk' finds it",
-      "verdict_stale": true
+      "note": "'milk powder' and 'powdered milk' both lose to composite drinks; 'dry milk' finds it — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"powdered milk\" still retrieves nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -2700,8 +2700,8 @@
       },
       "verdict": "peers",
       "cause": "peers",
-      "note": "'red pepper' is genuinely ambiguous between bell and chilli in both dialects",
-      "verdict_stale": true
+      "note": "'red pepper' is genuinely ambiguous between bell and chilli in both dialects — reaffirmed #156. Both retrieving members still lead `Peppers, bell, red, raw`.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -2909,8 +2909,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'bay leaves' plural and 'laurel' retrieve nothing; 'bay' alone hits scallops",
-      "verdict_stale": true
+      "note": "'bay leaves' plural and 'laurel' retrieve nothing; 'bay' alone hits scallops — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"laurel\" and \"bayleaf\" still retrieve nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -3456,9 +3456,9 @@
         }
       },
       "verdict": "miss",
-      "cause": "vocabulary",
-      "note": "'whole egg' leads with DUCK egg over the hen Grade A record",
-      "verdict_stale": true
+      "cause": "qualifier-position",
+      "note": "Re-judged #156. The recorded complaint is gone — the duck egg is now 4th — but 'whole egg' leads `Egg, whole, raw, frozen, salted, pasteurized` with the hen record `Eggs, Grade A, Large, egg whole` 3rd, while the PLURAL 'whole eggs' leads the hen record. A singular and its plural disagreeing is #124's class: 'egg' sits at word 0 of the frozen product and 'whole' at word 5 of the Grade A name. Cause re-filed from vocabulary, since both members retrieve.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -3599,8 +3599,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'corn starch' two words loses to a gluten-free roll; 'cornstarch' finds it",
-      "verdict_stale": true
+      "note": "'corn starch' two words loses to a gluten-free roll; 'cornstarch' finds it — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"maize starch\" still retrieves nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -4378,8 +4378,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "British 'pasteurised' spelling retrieves nothing",
-      "verdict_stale": true
+      "note": "British 'pasteurised' spelling retrieves nothing — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"pasteurised egg yolk\" still retrieves nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -6901,8 +6901,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'mozzarella' leads with the LOW SODIUM record over plain mozzarella",
-      "verdict_stale": true
+      "note": "'mozzarella' leads with the LOW SODIUM record over plain mozzarella — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"mozzarella soft cheese\" still retrieves nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -7064,8 +7064,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "British 'semi-skimmed milk' retrieves NOTHING, and so does every US paraphrase",
-      "verdict_stale": true
+      "note": "British 'semi-skimmed milk' retrieves NOTHING, and so does every US paraphrase — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"semi-skimmed milk\" and \"partly skimmed milk\" and \"partially skimmed milk\" still retrieve nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -7825,8 +7825,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'whole milk powder' leads with a chocolate drink mix; only 'dry whole milk' finds it",
-      "verdict_stale": true
+      "note": "'whole milk powder' leads with a chocolate drink mix; only 'dry whole milk' finds it — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"dried whole milk\" and \"powdered whole milk\" and \"whole powdered milk\" still retrieve nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -8582,8 +8582,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "British 'soya flour' retrieves nothing; 'soy flour' works",
-      "verdict_stale": true
+      "note": "British 'soya flour' retrieves nothing; 'soy flour' works — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"soya flour\" and \"soybean meal\" still retrieve nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -9832,8 +9832,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'shiitake' leads with STIR-FRIED over any raw record",
-      "verdict_stale": true
+      "note": "'shiitake' leads with STIR-FRIED over any raw record — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"lentinula edodes\" and \"lentinus edodes\" still retrieve nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -10632,8 +10632,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'pak choi' reaches the SALTED cooked row; 'bok choy' finds the raw one",
-      "verdict_stale": true
+      "note": "'pak choi' reaches the SALTED cooked row; 'bok choy' finds the raw one — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"pok choi\" still retrieves nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -10987,8 +10987,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'milk' leads with cultured reduced-fat BUTTERMILK",
-      "verdict_stale": true
+      "note": "'milk' leads with cultured reduced-fat BUTTERMILK — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"milk ingredients\" still retrieves nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -11541,8 +11541,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "every possessive and 'ewe's milk' retrieve nothing",
-      "verdict_stale": true
+      "note": "every possessive and 'ewe's milk' retrieve nothing — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"ewes milk\" and \"ewe's milk\" still retrieve nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -11780,8 +11780,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'yoghurt', the standard British spelling, retrieves NOTHING",
-      "verdict_stale": true
+      "note": "'yoghurt', the standard British spelling, retrieves NOTHING — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"yoghurt\" and \"yogourt\" and \"yoghourt\" still retrieve nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -12111,8 +12111,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'butter milk' spaced reaches a different record from 'buttermilk'",
-      "verdict_stale": true
+      "note": "'butter milk' spaced reaches a different record from 'buttermilk' — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"sweet cream buttermilk\" still retrieves nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -14090,8 +14090,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'sour cream' leads with IMITATION sour cream; 'soured cream' retrieves nothing",
-      "verdict_stale": true
+      "note": "'sour cream' leads with IMITATION sour cream; 'soured cream' retrieves nothing — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"soured cream\" and \"grade a cultured cream\" still retrieve nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -14216,8 +14216,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'parmigiano reggiano', the legal name, retrieves NOTHING; 'parmesan' reaches a fat-free topping",
-      "verdict_stale": true
+      "note": "'parmigiano reggiano', the legal name, retrieves NOTHING; 'parmesan' reaches a fat-free topping — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"parmigiano reggiano\" and \"parmigiano reggiano cheese\" and \"parmesan cheese from cow's milk\" still retrieve nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -14387,8 +14387,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "British 'soya sauce' retrieves NOTHING",
-      "verdict_stale": true
+      "note": "British 'soya sauce' retrieves NOTHING — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"soya sauce\" still retrieves nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -14826,8 +14826,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'wax bean' retrieves nothing; 'yellow bean' finds it",
-      "verdict_stale": true
+      "note": "'wax bean' retrieves nothing; 'yellow bean' finds it — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"wax bean\" still retrieves nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -15057,8 +15057,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'flax seed(s)' spaced and British 'linseed(s)' all retrieve NOTHING",
-      "verdict_stale": true
+      "note": "'flax seed(s)' spaced and British 'linseed(s)' all retrieve NOTHING — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"linseed\" and \"linseeds\" and \"linseed seeds\" still retrieve nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -15374,8 +15374,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'whole milk' leads with DRY whole milk; 'full cream milk' retrieves nothing",
-      "verdict_stale": true
+      "note": "'whole milk' leads with DRY whole milk; 'full cream milk' retrieves nothing — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"full cream milk\" still retrieves nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -15461,8 +15461,8 @@
       },
       "verdict": "peers",
       "cause": "peers",
-      "note": "both reach a lamb rib record",
-      "verdict_stale": true
+      "note": "both reach a lamb rib record — reaffirmed #156. The second member now reaches an Australian frenched rack rather than a domestic rib, which ADR-0055 settled is the answer for this app's user rather than the defect.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -15532,8 +15532,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "apostrophe forms retrieve nothing",
-      "verdict_stale": true
+      "note": "apostrophe forms retrieve nothing — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"goat's milk\" still retrieves nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -16048,8 +16048,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'white grape' reaches GRAPEFRUIT, not a grape",
-      "verdict_stale": true
+      "note": "'white grape' reaches GRAPEFRUIT, not a grape — reaffirmed #156, unchanged in substance. The corpus calls them green (`Grapes, green, seedless, raw`, which 'green grape' reaches), so 'white' is a name it does not carry and retrieving the wrong fruit is the symptom rather than the defect. Only the grapefruit VARIETY at the top moved.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -16211,8 +16211,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'tapioca starch' reaches a gluten-free roll; 'manioc starch' retrieves nothing",
-      "verdict_stale": true
+      "note": "'tapioca starch' reaches a gluten-free roll; 'manioc starch' retrieves nothing — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"manioc starch\" still retrieves nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -17301,8 +17301,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'minced beef', the standard British name, retrieves NOTHING",
-      "verdict_stale": true
+      "note": "'minced beef', the standard British name, retrieves NOTHING — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"minced beef\" still retrieves nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -17799,8 +17799,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'cooking salt' retrieves nothing and every paraphrase reaches a salted VEGETABLE",
-      "verdict_stale": true
+      "note": "'cooking salt' retrieves nothing and every paraphrase reaches a salted VEGETABLE — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"cooking salt\" and \"edible common salt\" still retrieve nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -17980,8 +17980,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "every peri-peri spelling fails; the pili-pili hit is a nut",
-      "verdict_stale": true
+      "note": "every peri-peri spelling fails; the pili-pili hit is a nut — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"peri-peri\" and \"peri peri\" and \"piri-piri\" still retrieve nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -18909,8 +18909,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "British 'camomile' spelling retrieves NOTHING",
-      "verdict_stale": true
+      "note": "British 'camomile' spelling retrieves NOTHING — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"camomile\" still retrieves nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -19055,9 +19055,9 @@
         }
       },
       "verdict": "miss",
-      "cause": "vocabulary",
-      "note": "'prune' leads with prune PUREE over the dried fruit",
-      "verdict_stale": true
+      "cause": "qualifier-position",
+      "note": "'prune' leads with prune PUREE over the dried fruit — reaffirmed #156, unchanged. Cause re-filed from vocabulary: both members retrieve, and the mechanism is where the word lands. 'Prune puree' has `prune` as a head word (rung 40) while `Plums, dried (prunes), uncooked` has it in a parenthetical qualifier (rung 20), so the puree wins on tier before any later key looks.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -20424,8 +20424,8 @@
       },
       "verdict": "peers",
       "cause": "peers",
-      "note": "thigh and drumstick are different cuts and both are found",
-      "verdict_stale": true
+      "note": "thigh and drumstick are different cuts and both are found — reaffirmed #156, unchanged.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -20958,8 +20958,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'cheddar' leads with IMITATION cheese and 'cheddar cheese' with process cheese",
-      "verdict_stale": true
+      "note": "'cheddar' leads with IMITATION cheese and 'cheddar cheese' with process cheese — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"cheddar cheese from cow's milk\" still retrieves nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -22293,8 +22293,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'coconut oil' leads with an INDUSTRIAL confection fat, not the culinary oil",
-      "verdict_stale": true
+      "note": "'coconut oil' leads with an INDUSTRIAL confection fat, not the culinary oil — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"copra oil\" and \"copra\" and \"coconut vegetable oil\" still retrieve nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -22727,8 +22727,8 @@
       },
       "verdict": "other",
       "cause": "other",
-      "note": "OFF's group is corrupt: bare 'raw' and 'without skin' are not synonyms of apple",
-      "verdict_stale": true
+      "note": "OFF's group is corrupt: bare 'raw' and 'without skin' are not synonyms of apple — reaffirmed #156. Still exactly true, and it is a fault in the source vocabulary rather than in this search.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -23541,8 +23541,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'haricot beans', the standard British name, retrieves NOTHING",
-      "verdict_stale": true
+      "note": "'haricot beans', the standard British name, retrieves NOTHING — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"haricot beans\" still retrieves nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -24560,8 +24560,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'pickled gherkin', the standard British name, retrieves NOTHING",
-      "verdict_stale": true
+      "note": "'pickled gherkin', the standard British name, retrieves NOTHING — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"pickled gherkin\" still retrieves nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -25393,8 +25393,8 @@
       },
       "verdict": "peers",
       "cause": "peers",
-      "note": "thigh, leg and drumstick are different cuts and all are found",
-      "verdict_stale": true
+      "note": "thigh, leg and drumstick are different cuts and all are found — reaffirmed #156, unchanged.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -27818,8 +27818,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'pork fillet', the standard British name, retrieves NOTHING",
-      "verdict_stale": true
+      "note": "'pork fillet', the standard British name, retrieves NOTHING — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"pork fillet\" still retrieves nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -28597,8 +28597,8 @@
       },
       "verdict": "miss",
       "cause": "vocabulary",
-      "note": "'bottle gourd' and 'opo squash', the usual names, retrieve nothing",
-      "verdict_stale": true
+      "note": "'bottle gourd' and 'opo squash', the usual names, retrieve nothing — reaffirmed #156: the verdict rests on a member the corpus cannot answer, and \"bottle gourd\" and \"opo squash\" and \"long melon\" still retrieve nothing. The flag raised because a member that DOES retrieve changed its lead, which is not what this verdict is about.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -29421,8 +29421,8 @@
       },
       "verdict": "peers",
       "cause": "peers",
-      "note": "both reach an enriched white wheat flour",
-      "verdict_stale": true
+      "note": "both reach an enriched white wheat flour — reaffirmed #156, unchanged.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -29871,10 +29871,10 @@
           "pork ham": [0, 1]
         }
       },
-      "verdict": "miss",
-      "cause": "vocabulary",
-      "note": "'ham' leads with a RESTAURANT sliced record",
-      "verdict_stale": true
+      "verdict": "correct",
+      "cause": "correct",
+      "note": "Re-judged #156 from miss. The recorded complaint was that 'ham' leads a RESTAURANT record, but the corpus holds exactly ONE row whose name begins `Ham,` and that is it; every other candidate is `Pork, cured, ham, …` or a raw leg cut. Sliced ham is the food a person logging ham means, and `restaurant` is USDA's sampling context rather than a different product. Nothing is buried, so this was a false positive.",
+      "verdict_stale": false
     },
     {
       "pass": "synonym",
@@ -30153,10 +30153,10 @@
           "position": 0
         }
       ],
-      "verdict": "miss",
-      "cause": "qualifier-position",
-      "note": "'bread' leads with a Salvadoran sweet cheese bread over any plain loaf",
-      "verdict_stale": true
+      "verdict": "correct",
+      "cause": "correct",
+      "note": "Re-judged #156 from miss. Led with a Salvadoran sweet cheese bread; now leads `Bread, white wheat`, a plain loaf.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -31149,9 +31149,9 @@
         }
       ],
       "verdict": "miss",
-      "cause": "qualifier-position",
-      "note": "'milk' leads with cultured reduced-fat BUTTERMILK",
-      "verdict_stale": true
+      "cause": "other",
+      "note": "Was: leads with cultured reduced-fat BUTTERMILK. Re-judged #156 — the buttermilk is gone, but the lead is `Milk, dry, whole, with added vitamin D`, a POWDER, while a fluid whole milk row exists below it. Still a miss. Cause re-filed from qualifier-position: `milk` sits at word 0 of both, so the position key ties and nothing separates them. `dry` is not in `MODIFIED_FORM` or `PREPARED_FORM`, so the plain-form preference cannot see it.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -31195,9 +31195,9 @@
         }
       ],
       "verdict": "miss",
-      "cause": "qualifier-position",
-      "note": "'cheese' leads with lactose-reduced lowfat COTTAGE cheese",
-      "verdict_stale": true
+      "cause": "other",
+      "note": "Was: leads with lactose-reduced lowfat COTTAGE cheese. Re-judged #156 — the lactose-reduced row is gone and the lead is `Cheese, cottage, with vegetables`, still a cottage cheese answering a bare `cheese`. Still a miss. Cause re-filed: every `Cheese, X` row ties at rung 50 with head distance 0, so `fdcId` order decides. This is the complete-tie class cut as #158.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -31815,10 +31815,10 @@
           "position": 0
         }
       ],
-      "verdict": "miss",
-      "cause": "qualifier-position",
-      "note": "'syrups' leads with a pancake blend containing butter",
-      "verdict_stale": true
+      "verdict": "peers",
+      "cause": "peers",
+      "note": "Re-judged #156 from miss. The recorded defect was a pancake blend containing butter; the lead is now `Syrups, grenadine`, a plain syrup. What is left is a field of different syrups with no canonical member, which is `peers` by §3.2 and not a miss.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -32375,10 +32375,10 @@
           "position": -6
         }
       ],
-      "verdict": "other",
-      "cause": "tokenizer",
-      "note": "the head query returns NOTHING: parentheses in the head phrase make it unmatchable by its own name",
-      "verdict_stale": true
+      "verdict": "correct",
+      "cause": "correct",
+      "note": "Re-judged #156 from other/tokenizer. The recorded defect was that this head query returned NOTHING — a hyphen, a parenthesis or an inner comma made the row unmatchable by its own name. #136 gave the query and the name ONE tokeniser, and it now leads its own row: `Balsam-pear (bitter gourd), leafy tips, raw`.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -32513,10 +32513,10 @@
           "position": -2
         }
       ],
-      "verdict": "other",
-      "cause": "tokenizer",
-      "note": "the head query returns NOTHING: parentheses again",
-      "verdict_stale": true
+      "verdict": "correct",
+      "cause": "correct",
+      "note": "Re-judged #156 from other/tokenizer. The recorded defect was that this head query returned NOTHING — a hyphen, a parenthesis or an inner comma made the row unmatchable by its own name. #136 gave the query and the name ONE tokeniser, and it now leads its own row: `Cowpeas (blackeyes), immature seeds, raw`.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -33898,8 +33898,8 @@
       ],
       "verdict": "correct",
       "cause": "correct",
-      "note": null,
-      "verdict_stale": true
+      "note": "Reaffirmed #156: leads `Cabbage, green, raw`, the plain raw cabbage.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -34091,10 +34091,10 @@
           "position": -1
         }
       ],
-      "verdict": "other",
-      "cause": "tokenizer",
-      "note": "the head query returns NOTHING: the hyphen in 'hyacinth-beans' makes the row unmatchable by its own name",
-      "verdict_stale": true
+      "verdict": "correct",
+      "cause": "correct",
+      "note": "Re-judged #156 from other/tokenizer. The recorded defect was that this head query returned NOTHING — a hyphen, a parenthesis or an inner comma made the row unmatchable by its own name. #136 gave the query and the name ONE tokeniser, and it now leads its own row: `Hyacinth-beans, immature seeds, raw`.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -34313,8 +34313,8 @@
       ],
       "verdict": "correct",
       "cause": "correct",
-      "note": null,
-      "verdict_stale": true
+      "note": "Reaffirmed #156: leads a cucumber pickle. Sweet against sour is arbitrary among pickles, not a miss.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -34925,9 +34925,9 @@
         }
       ],
       "verdict": "miss",
-      "cause": "qualifier-position",
-      "note": "'pasta' leads with gluten-free corn pasta",
-      "verdict_stale": true
+      "cause": "other",
+      "note": "Was: leads with gluten-free corn pasta. Re-judged #156 — now leads `Pasta, whole grain, 51% whole wheat, remaining unenriched semolina, dry`, with `Pasta, dry, unenriched` second. Better, and still a miss: the plain dry pasta should lead. Same tie shape as `cheese` above.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -35068,8 +35068,8 @@
       ],
       "verdict": "correct",
       "cause": "correct",
-      "note": null,
-      "verdict_stale": true
+      "note": "Reaffirmed #156: leads `Rice noodles, dry`, the plain form.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -35093,8 +35093,8 @@
       ],
       "verdict": "correct",
       "cause": "correct",
-      "note": null,
-      "verdict_stale": true
+      "note": "Reaffirmed #156: leads `Teff, uncooked`.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -35487,8 +35487,8 @@
       ],
       "verdict": "peers",
       "cause": "peers",
-      "note": "both records are tribe-sourced",
-      "verdict_stale": true
+      "note": "both records are tribe-sourced — reaffirmed #156. ADR-0055 §1 governs: prevalence may rank these and may never drop them, and there is no non-designated wocas to prefer.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -35531,10 +35531,10 @@
           "position": 0
         }
       ],
-      "verdict": "other",
-      "cause": "tokenizer",
-      "note": "head query returns NOTHING: the hyphen in 'margarine-like' is one token to the query and two words to the name",
-      "verdict_stale": true
+      "verdict": "correct",
+      "cause": "correct",
+      "note": "Re-judged #156 from other/tokenizer. The recorded defect was that this head query returned NOTHING — a hyphen, a parenthesis or an inner comma made the row unmatchable by its own name. #136 gave the query and the name ONE tokeniser, and it now leads its own row: `Margarine-like, butter-margarine blend, 80% fat, stick, without salt`.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -35558,8 +35558,8 @@
       ],
       "verdict": "correct",
       "cause": "correct",
-      "note": null,
-      "verdict_stale": true
+      "note": "Reaffirmed #156: leads the regular sandwich spread over the meatless one.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -35755,10 +35755,10 @@
           "position": -3
         }
       ],
-      "verdict": "other",
-      "cause": "tokenizer",
-      "note": "head query returns NOTHING: hyphen",
-      "verdict_stale": true
+      "verdict": "correct",
+      "cause": "correct",
+      "note": "Re-judged #156 from other/tokenizer. The recorded defect was that this head query returned NOTHING — a hyphen, a parenthesis or an inner comma made the row unmatchable by its own name. #136 gave the query and the name ONE tokeniser, and it now leads its own row: `Passion-fruit juice, purple, raw`.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -36568,10 +36568,10 @@
           "position": -1
         }
       ],
-      "verdict": "other",
-      "cause": "tokenizer",
-      "note": "head query returns NOTHING: parentheses",
-      "verdict_stale": true
+      "verdict": "correct",
+      "cause": "correct",
+      "note": "Re-judged #156 from other/tokenizer. The recorded defect was that this head query returned NOTHING — a hyphen, a parenthesis or an inner comma made the row unmatchable by its own name. #136 gave the query and the name ONE tokeniser, and it now leads its own row: `Yambean (jicama), raw`.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -36951,9 +36951,9 @@
         }
       ],
       "verdict": "miss",
-      "cause": "qualifier-position",
-      "note": "'peanut butter' leads with REDUCED SODIUM over plain peanut butter",
-      "verdict_stale": true
+      "cause": "other",
+      "note": "Was: leads with REDUCED SODIUM over plain peanut butter. Re-judged #156 — now leads `Peanut butter, smooth, vitamin and mineral fortified`, with `Peanut butter, chunk style, without salt` third. Still a miss for the same reason: `fortified` is not a marker the plain-form preference reads.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -37042,10 +37042,10 @@
           "position": 0
         }
       ],
-      "verdict": "miss",
-      "cause": "qualifier-position",
-      "note": "'yogurt' leads with a nonfat FRUIT variety over plain yogurt",
-      "verdict_stale": true
+      "verdict": "correct",
+      "cause": "correct",
+      "note": "Re-judged #156 from miss. Led with a nonfat FRUIT variety; now leads `Yogurt, plain, skim milk` — the plain form, which is what the verdict asked for.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -37930,9 +37930,9 @@
         }
       ],
       "verdict": "miss",
-      "cause": "qualifier-position",
-      "note": "'sour cream' leads with IMITATION sour cream",
-      "verdict_stale": true
+      "cause": "other",
+      "note": "Was: leads with IMITATION sour cream. Reaffirmed #156, unchanged, and it is a KNOWN accepted cost rather than an open defect: ADR-0042's #154 Amendment pins this lead and prices it at 208 kcal against real sour cream's 196. Both `imitation` and `reduced fat` are in `MODIFIED_FORM`, so the two candidates tie at 0 on `plain` and neither can demote the other; the real `Cream, sour, full fat` is tier-blocked because its head is `Cream`.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -38680,10 +38680,10 @@
           "position": -1
         }
       ],
-      "verdict": "miss",
-      "cause": "qualifier-position",
-      "note": "'vanilla extract' leads with IMITATION extract; the real one is third",
-      "verdict_stale": true
+      "verdict": "correct",
+      "cause": "correct",
+      "note": "Re-judged #156 from miss. Led with IMITATION extract with the real one third; now leads the bare `Vanilla extract`.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -38808,10 +38808,10 @@
           "position": -6
         }
       ],
-      "verdict": "other",
-      "cause": "tokenizer",
-      "note": "head query returns NOTHING: parentheses",
-      "verdict_stale": true
+      "verdict": "correct",
+      "cause": "correct",
+      "note": "Re-judged #156 from other/tokenizer. The recorded defect was that this head query returned NOTHING — a hyphen, a parenthesis or an inner comma made the row unmatchable by its own name. #136 gave the query and the name ONE tokeniser, and it now leads its own row: `Shortening frying (heavy duty), palm (hydrogenated)`.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -38879,10 +38879,10 @@
           "position": -10
         }
       ],
-      "verdict": "other",
-      "cause": "tokenizer",
-      "note": "head query returns NOTHING: hyphen",
-      "verdict_stale": true
+      "verdict": "correct",
+      "cause": "correct",
+      "note": "Re-judged #156 from other/tokenizer. The recorded defect was that this head query returned NOTHING — a hyphen, a parenthesis or an inner comma made the row unmatchable by its own name. #136 gave the query and the name ONE tokeniser, and it now leads its own row: `Margarine-like spread with yogurt, 70% fat, stick, with salt`.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -39119,8 +39119,8 @@
       ],
       "verdict": "correct",
       "cause": "correct",
-      "note": null,
-      "verdict_stale": true
+      "note": "Reaffirmed #156: leads `Peanut flour, defatted`; the corpus carries no full-fat peanut flour to prefer.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -39149,10 +39149,10 @@
           "position": -6
         }
       ],
-      "verdict": "other",
-      "cause": "tokenizer",
-      "note": "head query returns NOTHING: parentheses",
-      "verdict_stale": true
+      "verdict": "correct",
+      "cause": "correct",
+      "note": "Re-judged #156 from other/tokenizer. The recorded defect was that this head query returned NOTHING — a hyphen, a parenthesis or an inner comma made the row unmatchable by its own name. #136 gave the query and the name ONE tokeniser, and it now leads its own row: `Pigeon peas (red gram), mature seeds, raw`.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -39190,8 +39190,8 @@
       ],
       "verdict": "correct",
       "cause": "correct",
-      "note": null,
-      "verdict_stale": true
+      "note": "Reaffirmed #156: leads `Flour, soy, full-fat`, which is the plain form of the two.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -39307,8 +39307,8 @@
       ],
       "verdict": "correct",
       "cause": "correct",
-      "note": null,
-      "verdict_stale": true
+      "note": "Reaffirmed #156: leads the bare `Tempeh` over the cooked row, which is ADR-0042 §1's preference working.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -39330,10 +39330,10 @@
           "position": -24
         }
       ],
-      "verdict": "other",
-      "cause": "tokenizer",
-      "note": "head query returns NOTHING: parentheses",
-      "verdict_stale": true
+      "verdict": "correct",
+      "cause": "correct",
+      "note": "Re-judged #156 from other/tokenizer. The recorded defect was that this head query returned NOTHING — a hyphen, a parenthesis or an inner comma made the row unmatchable by its own name. #136 gave the query and the name ONE tokeniser, and it now leads its own row: `Soy sauce made from soy and wheat (shoyu)`.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -39879,10 +39879,10 @@
           "position": -3
         }
       ],
-      "verdict": "other",
-      "cause": "tokenizer",
-      "note": "head query returns NOTHING: parentheses",
-      "verdict_stale": true
+      "verdict": "correct",
+      "cause": "correct",
+      "note": "Re-judged #156 from other/tokenizer. The recorded defect was that this head query returned NOTHING — a hyphen, a parenthesis or an inner comma made the row unmatchable by its own name. #136 gave the query and the name ONE tokeniser, and it now leads its own row: `Broadbeans (fava beans), mature seeds, raw`.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -39918,10 +39918,10 @@
           "position": -3
         }
       ],
-      "verdict": "other",
-      "cause": "tokenizer",
-      "note": "head query returns NOTHING: the comma inside the parentheses truncates the head",
-      "verdict_stale": true
+      "verdict": "correct",
+      "cause": "correct",
+      "note": "Re-judged #156 from other/tokenizer. The recorded defect was that this head query returned NOTHING — a hyphen, a parenthesis or an inner comma made the row unmatchable by its own name. #136 gave the query and the name ONE tokeniser, and it now leads its own row: `Chickpeas (garbanzo beans, bengal gram), mature seeds, raw`.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -39957,10 +39957,10 @@
           "position": -3
         }
       ],
-      "verdict": "other",
-      "cause": "tokenizer",
-      "note": "head query returns NOTHING: parentheses",
-      "verdict_stale": true
+      "verdict": "correct",
+      "cause": "correct",
+      "note": "Re-judged #156 from other/tokenizer. The recorded defect was that this head query returned NOTHING — a hyphen, a parenthesis or an inner comma made the row unmatchable by its own name. #136 gave the query and the name ONE tokeniser, and it now leads its own row: `Soymilk (All flavors), enhanced`.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -40049,10 +40049,10 @@
           "position": -1
         }
       ],
-      "verdict": "miss",
-      "cause": "filter-dropped",
-      "note": "'apricots' has no raw row; only dried and stewed survive",
-      "verdict_stale": true
+      "verdict": "correct",
+      "cause": "correct",
+      "note": "Re-judged #156 from miss/filter-dropped. The recorded defect was that `apricots` had no raw row and only dried and stewed survived the filters. A raw apricot is now in the corpus and leads: `Apricot, with skin, raw`. The verdict was true when made and the corpus has since answered it.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -40375,10 +40375,10 @@
           "position": -1
         }
       ],
-      "verdict": "miss",
-      "cause": "qualifier-position",
-      "note": "'bananas' leads with OVERRIPE over ripe",
-      "verdict_stale": true
+      "verdict": "correct",
+      "cause": "correct",
+      "note": "Re-judged #156 from miss. Led with OVERRIPE over ripe; now leads `Bananas, ripe and slightly ripe, raw`, with the overripe row second.",
+      "verdict_stale": false
     },
     {
       "pass": "head",
@@ -42511,8 +42511,8 @@
       ],
       "verdict": "correct",
       "cause": "correct",
-      "note": null,
-      "verdict_stale": true
+      "note": "Reaffirmed #156, and improved: the lead dropped its `light` qualifier under ADR-0055 §3's plainSibling, from `Ice cream, light, soft serve, chocolate` to `Ice cream, soft serve, chocolate`.",
+      "verdict_stale": false
     },
     {
       "pass": "pair",

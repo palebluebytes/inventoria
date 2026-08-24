@@ -261,13 +261,16 @@ describe("what the fallback buys, against the bars set before it was built", () 
     // ADR-0048 §5's no-energy rule, so the group lost its oracle rather than its
     // miss. `iodised salt` still answers nothing, and no map can fix it.
     //
-    // 229 -> 228 IS the ranking getting better. #156 re-judged `en:oil` from
-    // `miss` to `peers`: it led with `Oil, bearded seal (Oogruk) (Alaska
-    // Native)` and now leads `Oil, flaxseed, cold pressed`, which is ADR-0055's
+    // 229 -> 227 IS the ranking getting better, twice, and #156 judged both.
+    // `en:oil` went `miss` -> `peers`: it led with `Oil, bearded seal (Oogruk)
+    // (Alaska Native)` and now leads `Oil, flaxseed, cold pressed`, ADR-0055's
     // `designated` key on one of the two head phrases that record predicted it
-    // would move. A field of culinary oils with no canonical member is `peers`
-    // by the note's §3.2 and not a miss, so this one left by being fixed.
-    expect(misses.length).toBeGreaterThanOrEqual(228);
+    // would move; a field of culinary oils with no canonical member is `peers`
+    // by the note's §3.2. `en:ham` went `miss` -> `correct`: the corpus holds
+    // exactly ONE row whose name begins `Ham,`, so nothing was being buried and
+    // the flag was a false positive. Both left by being looked at, not by
+    // leaving the sweep.
+    expect(misses.length).toBeGreaterThanOrEqual(227);
     const closed = misses.filter((group) =>
       (group.members ?? []).every((m) => retrieves(corpus, m.query))
     );
