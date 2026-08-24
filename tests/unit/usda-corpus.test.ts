@@ -732,6 +732,38 @@ describe("searchIndexRows", () => {
     expect(descriptionsFor("red wine vinegar")[0]).toBe("Vinegar, red wine");
   });
 
+  it("pins what the shelf-label discount costs, as itself", () => {
+    // #155's precedent: a key's collateral is pinned rather than left for
+    // somebody to rediscover and read as a fresh bug. Seventeen leads moved in
+    // a 3,935-query sweep, twelve of them wins; these four are the rest, and
+    // one of them is worse by inspection.
+    //
+    // `chocolate` is the cost. Every `Beverages, chocolate …` row now names its
+    // food at word 0 rather than word 1, so a malt powder sits where
+    // `Milk, chocolate, fluid` did — which is the key working exactly as
+    // described and answering worse. It is one query, the row IS a chocolate
+    // drink, and the same shape is what moves `maple` from `Sugars, maple` to
+    // `Syrups, maple` and `red wine` off a vinegar.
+    expect(descriptionsFor("chocolate")[0]).toBe(
+      "Beverages, chocolate malt powder, prepared with 1% milk, fortified"
+    );
+    // The three washes: two rows nobody typing `dried meat` means, a bare
+    // `blend` that was already answering with an arbitrary blend, and a sour
+    // cream that trades a light one for an imitation — 208 kcal against real
+    // sour cream's 196, where the light row read 136. The gold set's own note
+    // calls that modifier list incomplete rather than wrong, and this ticket
+    // does not widen it.
+    expect(descriptionsFor("dried meat")[0]).toBe(
+      "Nuts, coconut meat, dried (desiccated), creamed"
+    );
+    expect(descriptionsFor("sour cream")[0]).toBe(
+      "Sour cream, imitation, cultured"
+    );
+    expect(descriptionsFor("blend")[0]).toBe(
+      "Margarine-like, butter-margarine blend, 80% fat, stick, without salt"
+    );
+  });
+
   it("answers a bare drink name with something drinkable", () => {
     // The second half of #154, and a different shape from the first: seven wine
     // rows tie on every key here, so this is not a ranking win but the removal

@@ -17,6 +17,10 @@
  */
 
 import { createHash } from "node:crypto";
+import {
+  readReferenceFoodName,
+  wordsOf,
+} from "../src/lib/food/reference-food-ranking.ts";
 
 /**
  * OFF's ingredients taxonomy, the query vocabulary's source. The `.full`
@@ -106,4 +110,63 @@ export async function deriveVocabulary(corpus, search) {
     groups,
     british_queries: BRITISH_QUERIES,
   };
+}
+
+/**
+ * Every query a lead sweep should ask of the corpus, from the corpus itself.
+ *
+ * The instrument #151 and #154 both had to hand-roll, and the reason it exists
+ * here rather than in either ticket's scratch directory: the sweep ADR-0055 §2
+ * quotes could not contain the cases the rule it priced was written for, twice
+ * over. Its first form was every head phrase and every head word, so every
+ * query of more than one word was outside it by construction — the Amendment
+ * says so. Its 3,390-query replacement added `qualifier + head` pairs, and
+ * still could not generate `red wine` or a bare `wine`, because for a
+ * shelf-labelled row the head is `alcoholic beverage`: the pair it builds is
+ * `wine alcoholic beverage`, which nobody types.
+ *
+ * So two of the four shapes anchor on where the food's OWN NAME starts rather
+ * than on the head phrase, and `readReferenceFoodName` is asked where that is —
+ * imported, never restated, so the roster deciding it has one home (ADR-0047
+ * §4).
+ *
+ * - **head** — every head phrase, and every word of one.
+ * - **name** — the bare word USDA files a shelf-labelled food under: `wine`,
+ *   `tea`, `salmon`, `basil`. No earlier shape could produce these at all.
+ * - **pair** — `adjective noun` over the food's own name, which is the shape
+ *   #124 is about: `red wine` and `table wine`, not `wine alcoholic beverage`.
+ *
+ * Deliberately not wired into any pass. The passes photograph an ordering for
+ * hand adjudication and their query sets are pinned by what they have already
+ * measured; this answers a different question — what did a change MOVE — and is
+ * read by `--leads`, which writes nothing and judges nothing.
+ */
+export function sweepQueries(descriptions) {
+  const queries = new Set();
+  for (const description of descriptions) {
+    const parts = description
+      .toLowerCase()
+      .split(",")
+      .map((part) => part.trim().replace(/\s+/g, " "))
+      .filter(Boolean);
+    if (!parts.length) continue;
+    queries.add(parts[0]);
+    for (const word of wordsOf(parts[0])) queries.add(word);
+
+    // Where the food's own name starts: past the shelf label, if there is one.
+    const shelved = readReferenceFoodName(description).shelfLength > 0;
+    const nameIndex = shelved ? 1 : 0;
+    const nameWords = wordsOf(parts[nameIndex] ?? "");
+    if (!nameWords.length) continue;
+    if (shelved) for (const word of nameWords) queries.add(word);
+
+    // The noun an adjective is put in front of is the last word of that part:
+    // "wine" from `wine`, "vinegar" from `Vinegar`, "milk" from `Soy milk`.
+    const noun = nameWords[nameWords.length - 1];
+    for (let i = nameIndex + 1; i < parts.length; i++) {
+      const adjective = wordsOf(parts[i])[0];
+      if (adjective && adjective !== noun) queries.add(`${adjective} ${noun}`);
+    }
+  }
+  return [...queries].sort();
 }

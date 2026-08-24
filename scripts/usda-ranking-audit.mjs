@@ -6,6 +6,8 @@
  *   pnpm usda:ranking-audit --vocab     # re-derive the pinned query vocabulary
  *   pnpm usda:ranking-audit             # run the sweep, write the candidate set
  *   pnpm usda:ranking-audit --explain "napa"   # why is a record not in the corpus
+ *   pnpm usda:ranking-audit --leads     # one line per query: what leads it today
+ *   pnpm usda:ranking-audit --leads q.txt      # ...asking the queries in a file
  *
  * TWO failures, measured separately and never blended, because they have
  * different causes, different sizes and different harms:
@@ -68,7 +70,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { deriveVocabulary } from "./usda-ranking-queries.mjs";
+import { deriveVocabulary, sweepQueries } from "./usda-ranking-queries.mjs";
 import {
   readReferenceFoodName,
   compileReferenceFoodQuery,
@@ -832,6 +834,34 @@ if (args.includes("--vocab")) {
     `Pinned ${vocabulary.groups.length} applicable groups from ${vocabulary.source.url}`
   );
   console.log(`  sha256 ${vocabulary.source.sha256}`);
+} else if (args.includes("--leads")) {
+  // What did a ranking change MOVE? The passes cannot answer that: they
+  // photograph one ordering for hand adjudication, and #124's `qualifier` pass
+  // measures its own pre-registered pair of orderings and no other. This writes
+  // nothing and judges nothing — run it on both sides of a change and diff the
+  // two outputs, which is what #151 and #154 each built by hand and threw away.
+  //
+  // The query set is `sweepQueries`, whose shapes reach a shelf-labelled row.
+  // ADR-0055 §2's sweep could not: for `Alcoholic beverage, wine, table, red`
+  // it builds `wine alcoholic beverage`, so the three cases §3 was adopted to
+  // fix were outside the measurement that priced it.
+  //
+  // A file of queries can be given instead, and for a diff it must be. The
+  // shapes ask `readReferenceFoodName` where a food's own name starts, so a
+  // change to the shelf-label roster changes the QUESTIONS as well as the
+  // answers — measured across #154, 836 of them — and two runs of the derived
+  // set would silently compare different sweeps. Generate once, ask both sides:
+  //
+  //     pnpm usda:ranking-audit --leads | cut -f1 > /tmp/q.txt
+  //     git stash && pnpm usda:ranking-audit --leads /tmp/q.txt > /tmp/before
+  const given = args[args.indexOf("--leads") + 1];
+  const queries = given
+    ? readFileSync(given, "utf8").split("\n").filter(Boolean)
+    : sweepQueries(index.foods.map((f) => f.description));
+  for (const query of queries) {
+    const lead = search(corpus, query)[0]?.description ?? "";
+    console.log(`${query}\t${lead}`);
+  }
 } else if (args.includes("--explain")) {
   const term = args[args.indexOf("--explain") + 1];
   for (const hit of await explainAbsence(term)) {
