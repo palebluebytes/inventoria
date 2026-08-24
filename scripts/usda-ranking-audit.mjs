@@ -53,6 +53,14 @@
  * would fail on every legitimate ranking improvement and train people to
  * regenerate without reading. Cases worth locking get pinned as ordinary corpus
  * tests by the ticket that fixes them, the way #113 and #131 did.
+ *
+ * The committed `130-ranking-audit.json` is OLDER than the tool that writes it.
+ * It was last regenerated before ADR-0055, and #155 fixed the row-key bug
+ * {@link buildCorpus} describes without regenerating it, because
+ * {@link carryVerdicts} would have stuck a sticky `verdict_stale` on every one
+ * of #130's hand judgements whose lead had moved — destroying the record as a
+ * side effect of a ranking change, which is the exact thing that function was
+ * written to prevent. Regenerating and re-judging it is its own ticket.
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
@@ -65,6 +73,7 @@ import {
   readReferenceFoodName,
   compileReferenceFoodQuery,
   compareRelevance,
+  readRowRank,
   wordsOf,
   stemOf,
 } from "../src/lib/food/reference-food-ranking.ts";
@@ -94,11 +103,19 @@ const readIndex = () => JSON.parse(readFileSync(INDEX_PATH, "utf8"));
 /**
  * Every row read into names once, which is what `buildSearchCorpus` does — ALL
  * of a row's names, its own and the ones the twin merge discarded (#137), since
- * a keystroke reaches it by any of them.
+ * a keystroke reaches it by any of them — plus the row's own two ranking keys.
+ *
+ * `readRowRank` is not optional decoration. ADR-0055's `plainSibling` and
+ * `designated` read the ROW rather than the name, so a corpus without them
+ * hands `compareRelevance` a key missing two fields, and the way it fails is
+ * silent: `undefined - undefined` is `NaN`, `NaN` is falsy, and the `||` chain
+ * walks straight past both keys to the one after. A sweep run that way measures
+ * a two-key-old ranking and says nothing about it (#155).
  */
 const buildCorpus = (index) =>
   index.foods.map((row) => ({
     description: row.description,
+    rank: readRowRank(row),
     names: [row.description, ...(row.also ?? [])].map(readReferenceFoodName),
   }));
 
@@ -108,6 +125,11 @@ const buildCorpus = (index) =>
  * score, drop tier 0, sort, truncate — so a divergence here is a bug rather
  * than a finding. A row scores as the BEST of its names, which is the fifth
  * thing that has to match and the reason `names` is a list.
+ *
+ * The sixth is that a scored name carries its ROW's keys too, the way
+ * `bestNameKey` spreads them: a restatement that drops them does not rank worse,
+ * it ranks differently and quietly, for the `NaN`-is-falsy reason
+ * {@link buildCorpus} gives.
  */
 function search(corpus, query) {
   const rank = compileReferenceFoodQuery(query);
@@ -115,7 +137,7 @@ function search(corpus, query) {
     .map((food) => ({
       description: food.description,
       key: food.names
-        .map(rank)
+        .map((name) => ({ ...rank(name), ...food.rank }))
         .reduce((best, key) => (compareRelevance(key, best) < 0 ? key : best)),
     }))
     .filter(({ key }) => key.tier > 0)
