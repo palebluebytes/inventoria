@@ -3,13 +3,12 @@ import { describe, it, expect } from "vitest";
 // bundle and backup scripts beside it.
 // @ts-ignore
 import {
+  SCHEMA_VERSION,
   kib,
   measure,
   serialiseIndex,
   serialiseNutrientStore,
 } from "../../scripts/usda-artifacts.mjs";
-// @ts-ignore
-import { SCHEMA_VERSION } from "../../scripts/usda-bundle.mjs";
 
 // ADR-0047 §3: both artifacts are committed, so their bytes are a review
 // surface. The layout is what makes a mirror refresh diff as the foods that

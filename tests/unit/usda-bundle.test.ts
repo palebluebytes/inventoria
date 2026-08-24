@@ -13,21 +13,21 @@ import {
 // @ts-ignore
 import {
   BUNDLE_DATASETS,
-  ROW_MACRO_KEYS,
-  SCHEMA_VERSION,
-  buildArtifacts,
   buildCorpus,
-  buildIndexRow,
   assertTwinNamesRetrieve,
-  buildNutrientEntry,
   bundleArchives,
-  collectNutrientDictionary,
   groupByIdentity,
-  generatedFrom,
   projectArchiveFood,
 } from "../../scripts/usda-bundle.mjs";
 // @ts-ignore
 import {
+  ROW_MACRO_KEYS,
+  SCHEMA_VERSION,
+  buildArtifacts,
+  buildIndexRow,
+  buildNutrientEntry,
+  collectNutrientDictionary,
+  generatedFrom,
   serialiseIndex,
   serialiseNutrientStore,
 } from "../../scripts/usda-artifacts.mjs";
