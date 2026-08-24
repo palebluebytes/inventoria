@@ -625,9 +625,91 @@ describe("isManufacturingInput", () => {
     ).toBe(true);
   });
 
+  it("drops the beef USDA grades for manufacturing (#157)", () => {
+    // The second word of the marker, and the same species of claim as the
+    // first: `manufacturing beef` is the trade grade for boneless beef sold to
+    // be ground, not a cut anybody buys. It reaches these two rows and no other
+    // in the corpus.
+    expect(
+      isManufacturingInput(
+        "Beef, New Zealand, imported, manufacturing beef, raw"
+      )
+    ).toBe(true);
+    expect(
+      isManufacturingInput(
+        "Beef, New Zealand, imported, manufacturing beef, cooked, boiled"
+      )
+    ).toBe(true);
+  });
+
+  it("drops a shortening sold into a trade rather than a kitchen (#157)", () => {
+    // USDA writes the contrast itself: fourteen rows are head-worded
+    // `Shortening` and four of them say `household`. What the other ten name is
+    // the line of a factory or a bakery — a fryer, a cake mix, a confectionery
+    // fat — which is a claim about the specification, not about who eats it.
+    for (const description of [
+      "Shortening bread, soybean (hydrogenated) and cottonseed",
+      "Shortening cake mix, soybean (hydrogenated) and cottonseed (hydrogenated)",
+      "Shortening frying (heavy duty), palm (hydrogenated)",
+      "Shortening frying (heavy duty), soybean (hydrogenated), linoleic (less than 1%)",
+      "Shortening, confectionery, fractionated palm",
+      "Shortening frying (heavy duty), beef tallow and cottonseed",
+      "Shortening confectionery, coconut (hydrogenated) and or palm kernel (hydrogenated)",
+      "Shortening, special purpose for cakes and frostings, soybean (hydrogenated)",
+      "Shortening, special purpose for baking, soybean (hydrogenated) palm and cottonseed",
+      "Shortening, multipurpose, soybean (hydrogenated) and palm (hydrogenated)",
+    ]) {
+      expect([description, isManufacturingInput(description)]).toEqual([
+        description,
+        true,
+      ]);
+    }
+  });
+
+  it("drops the emulsifier the corpus sells as an oil (#157)", () => {
+    // The clause that reaches exactly one row, kept as a marker rather than a
+    // name in a list because `lecithin` has no unsafe form — it names one
+    // substance and cannot reach a food by accident, which is what separates it
+    // from the `powder` marker ADR-0055 §7 refused.
+    expect(isManufacturingInput("Oil, soybean lecithin")).toBe(true);
+    // The oil it was standing in front of, and the row `soybean oil` leads with.
+    expect(isManufacturingInput("Oil, soybean")).toBe(false);
+  });
+
+  it("keeps every shortening USDA calls household (#157)", () => {
+    // The keep-word is the whole precision guard, and it is USDA's word rather
+    // than ours. All four spellings the corpus uses, including the one with no
+    // comma after the head word.
+    for (const description of [
+      "Shortening, household, soybean (partially hydrogenated)-cottonseed (partially hydrogenated)",
+      "Shortening, household, lard and vegetable oil",
+      "Shortening household soybean (hydrogenated) and palm",
+      "Shortening, vegetable, household, composite",
+    ]) {
+      expect([description, isManufacturingInput(description)]).toEqual([
+        description,
+        false,
+      ]);
+    }
+  });
+
+  it("never asks the shortening question of a food merely made with one", () => {
+    // Why the clause reads the HEAD WORD and not the description: one corpus row
+    // says `shortening` somewhere else, and it is a dish. #144 scoped its escape
+    // hatches by category because words like `sweet` and `cake` are unsafe
+    // corpus-wide; `shortening` is not, so the head word does the same work for
+    // the price of no extra parameter.
+    expect(
+      isManufacturingInput(
+        "Agutuk, fish with shortening (Alaskan ice cream) (Alaska Native)"
+      )
+    ).toBe(false);
+  });
+
   it("keeps the retail forms of everything it drops", () => {
     // A drop is only correct because a generic equivalent stayed: the flours
-    // come back as Foundation's own rows, and the household fats keep theirs.
+    // come back as Foundation's own rows, the household fats keep theirs, and
+    // 958 beef rows including every ground form outlive the two grades above.
     expect(
       isManufacturingInput("Flour, wheat, all-purpose, enriched, bleached")
     ).toBe(false);
@@ -640,6 +722,68 @@ describe("isManufacturingInput", () => {
         "Margarine, regular, 80% fat, composite, stick, with salt"
       )
     ).toBe(false);
+    expect(isManufacturingInput("Oil, soybean")).toBe(false);
+    expect(
+      isManufacturingInput("Beef, ground, 80% lean meat / 20% fat, raw")
+    ).toBe(false);
+  });
+
+  it("takes no food whose name merely sounds like a specification (#157)", () => {
+    // The narrow reading, pinned as the rows it must not reach. "Not a base
+    // food" is the wider claim, and ADR-0055 §1 does not admit it: measured, it
+    // deletes every one of these, and not one has a plain twin left standing.
+    //
+    // `crude` is USDA's word for UNPROCESSED — the opposite of a purchase
+    // specification — and these four are the only wheat germ, wheat bran, rice
+    // bran and corn bran the corpus has.
+    for (const description of [
+      "Wheat germ, crude",
+      "Wheat bran, crude",
+      "Rice bran, crude",
+      "Corn bran, crude",
+      // A supermarket baking-aisle product, and the only gluten row that is not
+      // a gluten-FREE bread.
+      "Vital wheat gluten",
+      // `defatted` is a composition word, not a channel word: USDA writes these
+      // in a fat spectrum beside `high-fat`, `low-fat` and `full-fat` siblings,
+      // so taking this row while keeping `Soy flour, low-fat` is incoherent.
+      "Flour, soy, defatted",
+      "Peanut flour, defatted",
+      "Seeds, sesame flour, partially defatted",
+      // Retailed as whey powder.
+      "Whey, sweet, dried",
+    ]) {
+      expect([description, isManufacturingInput(description)]).toEqual([
+        description,
+        false,
+      ]);
+    }
+  });
+
+  it("leaves the two candidates #157 refused in the corpus", () => {
+    // Recorded as tests so the refusals are re-read rather than re-proposed;
+    // ADR-0042's #157 Amendment carries the reasons.
+    //
+    // `glucose reduced` is an industrial storage-stability spec and passes the
+    // retail-twin test (`Egg, white, dried` and `Egg, whole, dried` both stay),
+    // but it describes how a food was MADE rather than who it is sold to, and
+    // no drop here has ever turned on a process.
+    for (const description of [
+      "Egg, white, dried, stabilized, glucose reduced",
+      "Egg, whole, dried, stabilized, glucose reduced",
+      "Egg, white, dried, flakes, stabilized, glucose reduced",
+      "Egg, white, dried, powder, stabilized, glucose reduced",
+      // A protein isolate is both a factory input and a tub in a shop, and
+      // ADR-0055 §7 already refuses a powder-or-supplement marker in writing.
+      "Soy protein isolate",
+      "Soy protein isolate, potassium type",
+      "Beverages, Whey protein powder isolate",
+    ]) {
+      expect([description, isManufacturingInput(description)]).toEqual([
+        description,
+        false,
+      ]);
+    }
   });
 });
 

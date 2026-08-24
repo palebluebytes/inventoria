@@ -41,7 +41,7 @@ import type { EntityPayload } from "../../src/lib/ingestion/ingest";
 
 // The committed artifact itself is the fixture (ADR-0047 §3). Search is only
 // keyless and offline if it answers from THIS file, so the ADR-0042 ordering
-// cases are asserted over the 4,348 rows the app actually ships rather than
+// cases are asserted over the 4,335 rows the app actually ships rather than
 // over a hand-built stand-in that could agree with the code and not the data.
 const index: SearchIndex = JSON.parse(
   readFileSync("public/usda/search-index.json", "utf8")
@@ -122,7 +122,7 @@ describe("the bundled search index", () => {
   });
 
   it("is the surviving reference foods, and says which archives it came from", () => {
-    expect(index.foods.length).toBe(4348);
+    expect(index.foods.length).toBe(4335);
     expect(index.generated_from.map((a) => a.dataset)).toEqual([
       "Foundation Foods",
       "SR Legacy",
@@ -301,6 +301,20 @@ describe("the bundled search index", () => {
       "Flour, wheat, all-purpose, enriched, bleached",
       "Shortening, vegetable, household, composite",
       "Wheat flour, white, cake, enriched",
+      // #157: the retail equivalents its three clauses had to leave standing,
+      // and the rows the WIDER reading it refused would have deleted. Not one
+      // of the last five has a plain twin — `crude` is USDA's word for
+      // UNPROCESSED, so these are the only wheat germ, wheat bran, rice bran
+      // and corn bran the corpus has, and the only gluten row that is not a
+      // gluten-free bread.
+      "Oil, soybean",
+      "Beef, ground, 80% lean meat / 20% fat, raw",
+      "Agutuk, fish with shortening (Alaskan ice cream) (Alaska Native)",
+      "Wheat germ, crude",
+      "Wheat bran, crude",
+      "Rice bran, crude",
+      "Corn bran, crude",
+      "Vital wheat gluten",
       "Sweet potato, raw, unprepared (Includes foods for USDA's Food Distribution Program)",
     ]) {
       expect(descriptions).toContain(kept);
@@ -331,6 +345,14 @@ describe("the bundled search index", () => {
       // the manufacturing inputs: #144 named one, the corpus held 45
       "Oil, industrial, coconut, principal uses candy coatings, oil sprays, roasting nuts",
       "Wheat flour, white (industrial), 11.5% protein, bleached, enriched",
+      // #157's thirteen, one per clause. `manufacturing beef` is the trade
+      // grade for boneless beef sold to be ground; a confectionery fat names
+      // the line it is sold onto; and the lecithin is the emulsifier that stood
+      // in `Fats and Oils` in front of the oil.
+      "Beef, New Zealand, imported, manufacturing beef, raw",
+      "Shortening confectionery, coconut (hydrogenated) and or palm kernel (hydrogenated)",
+      "Shortening, special purpose for baking, soybean (hydrogenated) palm and cottonseed",
+      "Oil, soybean lecithin",
     ]) {
       expect(descriptions).not.toContain(gone);
     }
@@ -371,6 +393,53 @@ describe("the bundled search index", () => {
           row.description === "Seasoning mix, dry, sazon, coriander & annatto"
       )
     ).toBe(true);
+  });
+
+  it("keeps #157's clauses to the reach they were measured at", () => {
+    // #131's rule again: the reach of a drop rule cannot be read off the corpus
+    // it emptied, so what is pinned is the population each clause LEFT. A
+    // widened clause empties one of these; a narrowed one refills it.
+    const descriptions = index.foods.map((row) => row.description);
+    const headWord = (d: string) =>
+      d
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter(Boolean)[0] ?? "";
+    // The keep-word is USDA's own contrast term, and all four spellings of it
+    // survive — including the one with no comma after the head word.
+    const shortenings = descriptions.filter(
+      (d) => headWord(d) === "shortening"
+    );
+    expect(shortenings.sort()).toEqual([
+      "Shortening household soybean (hydrogenated) and palm",
+      "Shortening, household, lard and vegetable oil",
+      "Shortening, household, soybean (partially hydrogenated)-cottonseed (partially hydrogenated)",
+      "Shortening, vegetable, household, composite",
+    ]);
+    // And the one row that says `shortening` somewhere other than the head
+    // word, which is the whole reason the clause reads the head word: it is a
+    // dish, and a description-wide marker would have taken it.
+    expect(
+      descriptions.filter(
+        (d) => /shortening/i.test(d) && headWord(d) !== "shortening"
+      )
+    ).toEqual([
+      "Agutuk, fish with shortening (Alaskan ice cream) (Alaska Native)",
+    ]);
+    // `manufacturing` took two beef rows out of 74 New Zealand imports, leaving
+    // 72. That number is the one ADR-0055 §1 protects: it barred a PREVALENCE
+    // argument against these rows, and a trade grade is a claim about the
+    // specification instead, so the clause takes two and leaves the rest.
+    expect(descriptions.filter((d) => /\bmanufacturing\b/i.test(d))).toEqual(
+      []
+    );
+    expect(
+      descriptions.filter((d) => d.startsWith("Beef, New Zealand, imported"))
+        .length
+    ).toBe(72);
+    // The one-row clause, and the row it was standing in front of.
+    expect(descriptions.filter((d) => /\blecithin\b/i.test(d))).toEqual([]);
+    expect(descriptions).toContain("Oil, soybean");
   });
 
   it("keeps the five twinned oils, on their twin's energy and their twin's fat", () => {
@@ -591,12 +660,16 @@ describe("searchIndexRows", () => {
     // every merge the stemmer makes over the whole corpus, however it made it,
     // so a fifth rule reaching endings the table below does not enumerate still
     // fails here — it was 120 before the two #138 rules added their pair each,
-    // and 122 before #144's filters took 76 rows and the words only they carried.
+    // 122 before #144's filters took 76 rows and the words only they carried,
+    // and 112 before #157 took thirteen more. The one merge that change cost is
+    // "cakes"/"cake": the corpus carried "cakes" in exactly one description,
+    // `Shortening, special purpose for cakes and frostings`, and a filter drop
+    // takes a merge with it the same way it takes a word.
     // It cannot see a rule that BREAKS a merge while adding one, which is
     // exactly the blanket "-ves" shape; the table below is what catches that,
     // by pinning "olives" to the singular it still has to answer.
     const merged = new Set(words.map(stemOf));
-    expect(words.length - merged.size).toBe(112);
+    expect(words.length - merged.size).toBe(111);
 
     expect(touched.map((w) => [w, stemOf(w), sharing(w)])).toEqual([
       ["additives", "additive", []],
@@ -876,6 +949,14 @@ describe("searchIndexRows", () => {
     // `accounted` separates them by asking what `head` asks of the head phrase
     // of the whole name: "soybean oil" accounts for every word of `Oil, soybean`
     // and leaves `lecithin` over in the other.
+    //
+    // #157 then took the emulsifier out of the corpus altogether, on the
+    // separate question of whether it was ever a reference food. So `soybean
+    // oil` and `soy oil` now have only one soybean oil to find, and this pin
+    // guards `corn oil` — a blend, still shipped, still contesting `Oil, corn`
+    // — where the key is doing work no filter does. Kept whole rather than
+    // trimmed to the surviving case: a key that stops separating a tie is worth
+    // failing on even when a drop happens to hide it.
     for (const [query, expected] of [
       ["soybean oil", "Oil, soybean"],
       ["soy oil", "Oil, soybean"],
@@ -1156,7 +1237,7 @@ describe("searchIndexRows", () => {
     // Pinned as the two counts rather than the one, because a later key could
     // improve the total while quietly costing a row that leads today. Nothing
     // regressed here: 184 rows gained the lead and none lost it.
-    // 4,348 queries over 4,348 rows, so the winner is taken in one pass rather
+    // 4,335 queries over 4,335 rows, so the winner is taken in one pass rather
     // than by sorting each result list — the sort costs seconds, the scan does
     // not, and only the leading row is being asked about. Each query is ordered
     // twice: once under the shipped keys, and once under the four that preceded
@@ -1555,7 +1636,7 @@ describe("storedPanelFor", () => {
   it("rebuilds every row's macros exactly, across the whole corpus", () => {
     // The two artifacts are generated from one merged record, so a row's macros
     // and the store's amounts are the same numbers twice. Assert it over all
-    // 4,348 rather than on one food: a generator change that filled one artifact
+    // 4,335 rather than on one food: a generator change that filled one artifact
     // and not the other would otherwise ship silently.
     const disagreeing = index.foods.filter((row) => {
       const panel = storedPanelFor(store, row.fdcId);

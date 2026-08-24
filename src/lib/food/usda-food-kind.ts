@@ -406,28 +406,82 @@ export function isDryBasisRecord(description: string): boolean {
 }
 
 /**
- * USDA's own word for an ingredient specification sold to a factory rather than
- * a food anyone buys: `Oil, industrial, palm kernel (hydrogenated), confection
- * fat`, `Wheat flour, white (industrial), 11.5% protein, bleached, enriched`.
+ * USDA's own words for an ingredient specification sold into a trade rather
+ * than a food anyone buys: `Oil, industrial, palm kernel (hydrogenated),
+ * confection fat`, `Wheat flour, white (industrial), 11.5% protein, bleached,
+ * enriched`, `Beef, New Zealand, imported, manufacturing beef, raw`.
+ *
+ * Two words, not one, since #157. `manufacturing` is the trade grade for
+ * boneless beef sold to be ground, reaches exactly the two rows above, and is
+ * the same kind of claim `industrial` makes.
  */
-const INDUSTRIAL_MARKER = /\bindustrial\b/i;
+const TRADE_SPECIFICATION_MARKER = /\b(industrial|manufacturing)\b/i;
+
+/**
+ * The one keep-word that decides a shortening (#157). USDA files fourteen rows
+ * under the head word `Shortening` and writes the contrast itself: four say
+ * `household` and are the tub in a cupboard; the other ten name the line they
+ * are sold onto — a fryer, a cake mix, a confectionery fat, a bakery.
+ */
+const HOUSEHOLD_MARKER = /\bhousehold\b/i;
+
+/**
+ * The one emulsifier the corpus sells as an oil (#157): `Oil, soybean lecithin`,
+ * a soap-and-chocolate ingredient standing in `Fats and Oils` beside the fats
+ * people cook with.
+ *
+ * A marker rather than a denylist entry even though it reaches ONE row, and the
+ * distinction from ADR-0055 §7's refused powder marker is that this word has no
+ * unsafe form. §7 refused `powder` because widening it far enough to be useful
+ * took curry, garlic, onion and chili powder, three cocoa powders, tomato
+ * powder, baobab powder and dried egg white — fifteen real foods. `lecithin`
+ * names one substance and cannot reach a food by accident, so a marker also
+ * catches the next lecithin row USDA publishes, which a name in a list would
+ * not.
+ */
+const LECITHIN_MARKER = /\blecithin\b/i;
 
 /**
  * True when an FDC record describes a food-manufacturing input rather than a
- * food (#144) — the third judgement of the {@link isDryBasisRecord} species,
- * and its own filter for the same reason: it is neither a packaging state
- * ({@link isProcessedProduct}) nor a composite dish ({@link isPreparedProduct}),
- * so folding it into either would make that predicate answer two questions.
+ * food (#144, #157) — the third judgement of the {@link isDryBasisRecord}
+ * species, and its own filter for the same reason: it is neither a packaging
+ * state ({@link isProcessedProduct}) nor a composite dish
+ * ({@link isPreparedProduct}), so folding it into either would make that
+ * predicate answer two questions.
  *
- * Every drop has a retail equivalent left standing — Foundation carries the
- * all-purpose flours by name, and the household shortenings and margarines keep
- * their own rows — which is what makes a bare word marker safe here. It reaches
- * 45 corpus rows, all of them USDA's `industrial` convention and none of them a
- * food a person logs.
+ * What it asks is whether the DESCRIPTION names a trade grade, a sales channel
+ * or a purchase specification — never whether the food is one this app's users
+ * eat, which ADR-0055 §1 forbids as a drop reason. The narrow reading is
+ * load-bearing and was measured: the wider "not a base food" deletes
+ * `Wheat germ, crude`, `Wheat bran, crude`, `Rice bran, crude`,
+ * `Corn bran, crude` and `Vital wheat gluten`, and there is no plain twin for
+ * any of them — `crude` is USDA's word for UNPROCESSED, the opposite of a
+ * specification. The honesty test is that every drop has a retail equivalent
+ * left standing: Foundation carries the all-purpose flours by name, the
+ * household shortenings and margarines keep their own rows, `Oil, soybean`
+ * outlives its lecithin, and 958 beef rows including every ground form outlive
+ * the two grades.
+ *
+ * The shortening clause reads the HEAD WORD rather than the category, which is
+ * what makes an ordinary word safe here: `shortening` appears in exactly one
+ * non-head-word corpus row, `Agutuk, fish with shortening (Alaskan ice cream)
+ * (Alaska Native)`, and that is a dish. #144 scoped its escape hatches by
+ * category because `sweet` and `cake` are unsafe corpus-wide; scoping this one
+ * would cost a `foodCategory` parameter and buy nothing measured.
+ *
+ * It reaches **58 rows**: 45 on `industrial`, all of them USDA's own
+ * convention; 2 on `manufacturing`; 10 shortenings the head word takes and
+ * `household` does not save; and `Oil, soybean lecithin`, an emulsifier
+ * standing in front of the oil.
  *
  * Exported for the same reason its neighbours are: `scripts/usda-bundle.mjs`
  * applies it at generation time and must not restate it (ADR-0047 §4).
  */
 export function isManufacturingInput(description: string): boolean {
-  return INDUSTRIAL_MARKER.test(description);
+  if (TRADE_SPECIFICATION_MARKER.test(description)) return true;
+  if (LECITHIN_MARKER.test(description)) return true;
+  return (
+    headWord(description) === "shortening" &&
+    !HOUSEHOLD_MARKER.test(description)
+  );
 }
