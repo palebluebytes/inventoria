@@ -58,7 +58,7 @@
  *
  * The committed `130-ranking-audit.json` is OLDER than the tool that writes it.
  * It was last regenerated before ADR-0055, and #155 fixed the row-key bug
- * {@link buildCorpus} describes without regenerating it, because
+ * `usda-ranking-corpus.mjs` describes without regenerating it, because
  * {@link carryVerdicts} would have stuck a sticky `verdict_stale` on every one
  * of #130's hand judgements whose lead had moved — destroying the record as a
  * side effect of a ranking change, which is the exact thing that function was
@@ -70,18 +70,22 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  RESULT_LIMIT,
+  buildCorpus,
+  readIndex,
+  search,
+} from "./usda-ranking-corpus.mjs";
 import { deriveVocabulary, sweepQueries } from "./usda-ranking-queries.mjs";
 import {
   readReferenceFoodName,
   compileReferenceFoodQuery,
   compareRelevance,
-  readRowRank,
   wordsOf,
   stemOf,
 } from "../src/lib/food/reference-food-ranking.ts";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const INDEX_PATH = join(ROOT, "public", "usda", "search-index.json");
 const INPUTS_PATH = join(ROOT, "docs", "research", "130-audit-inputs.json");
 const CANDIDATES_PATH = join(
   ROOT,
@@ -91,61 +95,9 @@ const CANDIDATES_PATH = join(
 );
 const MANIFEST_PATH = join(ROOT, "scripts", "usda-backup.manifest.json");
 
-/** How many results a search shows, so "buried" and "absent" mean something. */
-const RESULT_LIMIT = 50;
-
 /** Head+qualifier pairs are #124's evidence, not this ticket's, so they sample. */
 const PAIR_SAMPLE = 200;
 const PAIR_SEED = 130;
-
-// ── the corpus, ranked the way the app ranks it ────────────────────────────
-
-const readIndex = () => JSON.parse(readFileSync(INDEX_PATH, "utf8"));
-
-/**
- * Every row read into names once, which is what `buildSearchCorpus` does — ALL
- * of a row's names, its own and the ones the twin merge discarded (#137), since
- * a keystroke reaches it by any of them — plus the row's own two ranking keys.
- *
- * `readRowRank` is not optional decoration. ADR-0055's `plainSibling` and
- * `designated` read the ROW rather than the name, so a corpus without them
- * hands `compareRelevance` a key missing two fields, and the way it fails is
- * silent: `undefined - undefined` is `NaN`, `NaN` is falsy, and the `||` chain
- * walks straight past both keys to the one after. A sweep run that way measures
- * a two-key-old ranking and says nothing about it (#155).
- */
-const buildCorpus = (index) =>
-  index.foods.map((row) => ({
-    description: row.description,
-    rank: readRowRank(row),
-    names: [row.description, ...(row.also ?? [])].map(readReferenceFoodName),
-  }));
-
-/**
- * The shipped result list for a query: `searchIndexRows` restated over the
- * plain-JSON row shape. Deliberately the same four steps in the same order —
- * score, drop tier 0, sort, truncate — so a divergence here is a bug rather
- * than a finding. A row scores as the BEST of its names, which is the fifth
- * thing that has to match and the reason `names` is a list.
- *
- * The sixth is that a scored name carries its ROW's keys too, the way
- * `bestNameKey` spreads them: a restatement that drops them does not rank worse,
- * it ranks differently and quietly, for the `NaN`-is-falsy reason
- * {@link buildCorpus} gives.
- */
-function search(corpus, query) {
-  const rank = compileReferenceFoodQuery(query);
-  return corpus
-    .map((food) => ({
-      description: food.description,
-      key: food.names
-        .map((name) => ({ ...rank(name), ...food.rank }))
-        .reduce((best, key) => (compareRelevance(key, best) < 0 ? key : best)),
-    }))
-    .filter(({ key }) => key.tier > 0)
-    .sort((a, b) => compareRelevance(a.key, b.key))
-    .slice(0, RESULT_LIMIT);
-}
 
 /**
  * The order this ranking produced BEFORE #124's position key: tier, rawness,
