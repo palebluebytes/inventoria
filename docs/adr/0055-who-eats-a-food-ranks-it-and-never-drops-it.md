@@ -288,10 +288,15 @@ first qualifier word as the `adjective noun` shape #124 is about:
 The gold-set result is unchanged: **zero broken leads** across the 29 adjudicated
 `should_lead` cases in `docs/research/143-gold-set.json`.
 
-### The two it costs
+### The three it costs, two of them the same defect
 
 `soybean oil` led with `Oil, soybean, salad or cooking, (partially hydrogenated)`
 and now leads with **`Oil, soybean lecithin`**, an emulsifier rather than an oil.
+`corn oil` moved between two blends, from `Oil, corn, peanut, and olive` to
+`Oil, corn and canola`, and is the same defect with a milder symptom: it was
+first logged here as a wash, which understated it, because the row that should
+lead is `Oil, corn` — §3's own worked-example parent — and it sits second behind
+a blend for exactly the reason lecithin leads soybean.
 
 The key did what §3 says: `Oil, soybean, salad or cooking, …` is a qualified form
 of `Oil, soybean`, which is a row, so it sorts below it. What that uncovered is a
@@ -304,8 +309,11 @@ the row a person searching for soybean oil actually wants moves **from 4th to
 
 ### §2 is not weakened, and here is what it now means
 
-§2 says a rule must break no lead **already measured correct**. Neither of these
-was: they are not in the gold set and were never adjudicated. They are worse by
+§2 says a rule must break no lead **already measured correct**. None of these
+was: they are not in the gold set and were never adjudicated. The gold set's own
+result is now a guard rather than a claim — `usda-corpus.test.ts` pins the six
+cases that lead correctly today, so the bar fails a future key instead of being
+re-measured by hand. They are worse by
 inspection, which is the same standard #143 rejected its part key on, so they are
 recorded here and pinned in `usda-corpus.test.ts` rather than left for somebody to
 rediscover. The difference from #143 is the ratio and the direction: that key
@@ -313,6 +321,7 @@ broke four leads and fixed **none**, where this one fixes nineteen and leaves th
 right row higher in both cases it worsens. Shipping it was a decision taken with
 these numbers in hand, not a bar quietly lowered.
 
-The residual tie is [#155](https://github.com/palebluebytes/inventoria/issues/155).
-It is a question about two rows that no key distinguishes, which is exactly what
-#143 left open for the 135 ties its `plain` key did not reach.
+The residual tie is [#155](https://github.com/palebluebytes/inventoria/issues/155),
+which carries all three queries. It is a question about two rows that no key
+distinguishes, which is exactly what #143 left open for the 135 ties its `plain`
+key did not reach.

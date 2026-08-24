@@ -591,6 +591,32 @@ describe("searchIndexRows", () => {
     }
   });
 
+  it("never shrinks the set of gold-set cases that lead correctly", () => {
+    // ADR-0055 §2's bar, as a guard rather than a claim. `143-gold-set.json` is
+    // the 50 head-phrase ties #143 adjudicated by hand; 29 carry a `should_lead`
+    // and most are still misses, because #143's key was measured to reach only
+    // the three shapes with a name-structural tell. So the invariant is not
+    // "they all pass" — it is that the ones that DO pass keep passing, which is
+    // exactly what "break no lead already measured correct" means.
+    const gold: { cases: { head: string; should_lead?: string }[] } =
+      JSON.parse(readFileSync("docs/research/143-gold-set.json", "utf8"));
+    const leading = gold.cases
+      .filter((c) => c.should_lead)
+      .filter((c) => descriptionsFor(c.head)[0] === c.should_lead)
+      .map((c) => c.head);
+    // Six, and #143's own five plus `almond milk`, whose two rows its note calls
+    // peers. ADR-0055's keys neither added to this nor took from it — they reach
+    // a different class, which is the measurement the amendment reports.
+    expect(leading).toEqual([
+      "almond milk",
+      "millet",
+      "rice noodles",
+      "teff",
+      "tempeh",
+      "vanilla extract",
+    ]);
+  });
+
   it("leads with the plain twin of a food, not one of its varietals", () => {
     // ADR-0055 §3. #134 proposed dropping the 28 varietal wines; measured, a
     // drop rule takes `wine, table, white, late harvest` with them, which is a
@@ -626,6 +652,13 @@ describe("searchIndexRows", () => {
       expect([query, found[0]]).toEqual([query, "Oil, soybean lecithin"]);
       expect([query, found[1]]).toEqual([query, "Oil, soybean"]);
     }
+    // `corn oil` is the same defect with a milder symptom, and pinned so it is
+    // not mistaken for a wash: the lead moved between two blends, and `Oil, corn`
+    // — §3's own worked example of a parent — is second for the same reason.
+    expect(descriptionsFor("corn oil").slice(0, 2)).toEqual([
+      "Oil, corn and canola",
+      "Oil, corn",
+    ]);
   });
 
   it("leads with the undesignated row where a designated one merely ties", () => {
