@@ -17,6 +17,7 @@
 **Amended by:** the #144 Amendment below, which gives §5's two head-word keep lists an escape hatch, moves boxed mixes to §4, and adds a manufacturing-input filter  
 **Amended by:** the #152 Amendment below, which adds a fifth Title-Case trademark to §3's denylist and corrects what the #131 sweep found  
 **Amended by:** [ADR-0055](0055-who-eats-a-food-ranks-it-and-never-drops-it.md) §3 and §4 (§1 gains two keys that read a ROW rather than a name), and §1 of that record settles what the governing principle left open: prevalence may rank a reference food and may never drop one  
+**Amended by:** the #155 Amendment below, which adds a seventh name key asking whether the query accounts for the whole name, and separates the tie ADR-0055's #151 Amendment left open  
 **Implemented:** `dabb1fe`, `082ad31`, `fcb3b60`, `1365343`; `src/lib/food/food-search.ts`, and since `aa6c53b` the filter roster §3 describes is `src/lib/food/usda-food-kind.ts` rather than `src/lib/food/usda-fdc.ts` (see the Note below)
 
 ## Context
@@ -86,6 +87,12 @@ Results are ordered by, in priority:
    > designated population — because neither fact is legible from a description
    > alone. The order becomes
    > `tier, raw, head, position, plainSibling, plain, simplicity, designated`.
+
+   > And once more by the [#155 Amendment](#amendment-2026-08-24-155-what-head-asks-of-the-head-phrase-asked-of-the-rest-of-the-name),
+   > which adds `accounted` between `head` and `position`: whether the query
+   > accounts for the whole name, and not only the head phrase key 3 reads. The
+   > order becomes
+   > `tier, raw, head, accounted, position, plainSibling, plain, simplicity, designated`.
 
 Relevance gates rawness: an off-target raw food never beats an on-target one.
 
@@ -974,3 +981,151 @@ adapter changes when USDA's serialisation does and the roster changes when someb
 measures an escape, as the #131, #133 and #144 amendments above each did. Read every
 "pinned by name in `tests/unit/usda-fdc.test.ts`" above as
 `tests/unit/usda-food-kind.test.ts` for anything about the filters.
+
+## Amendment (2026-08-24, #155): what `head` asks of the head phrase, asked of the rest of the name
+
+[ADR-0055](0055-who-eats-a-food-ranks-it-and-never-drops-it.md)'s #151 Amendment
+shipped §3's plain-sibling key knowing it cost two leads, and recorded the residual
+tie as [#155](https://github.com/palebluebytes/inventoria/issues/155). That tie is
+now separated, by a key the eight before it had left no room for.
+
+§1 gains a seventh name key, **between `head` and `position`**:
+
+> **`accounted`** — 1 when every word of the name is answered by a typed token,
+> 0 when any word is left over.
+
+```
+tier, raw, head, accounted, position, plainSibling, plain, simplicity, designated
+```
+
+### The defect
+
+`head` measures how completely a query fills the **head phrase** and stops at the
+first comma. Nothing asked the same question of the rest of the name. So for a
+typed `soybean oil`:
+
+|           | `Oil, soybean`                                                                            | `Oil, soybean lecithin` |
+| --------- | ----------------------------------------------------------------------------------------- | ----------------------- |
+| every key | tier 50, raw 0, head -7, position -1, plainSibling 1, plain 1, simplicity 0, designated 1 | identical               |
+
+Both rows agreed on all eight, `Array.sort` is stable, and the lower `fdcId` won
+— the lecithin row. An emulsifier led a query naming an oil. `corn oil` was the
+same defect a shade milder: `Oil, corn and canola` led while `Oil, corn`, §3's own
+worked example of a parent, sat second.
+
+The query `soybean oil` accounts for the whole of `Oil, soybean` and leaves
+`lecithin` unaccounted in the other. That is the only thing that distinguishes
+them, and until now nothing read it.
+
+### Boolean, and the counted form is refused
+
+The ticket describes the candidate as "fewer unaccounted words". That form is
+**rejected on measurement**, and it is the #143 Amendment's rejected part key
+arriving by another route: USDA writes its most generic animal rows with the most
+words. Over the same 3,376-query sweep that priced this key, the count **moves 339
+leads against this key's 4** and breaks all four of #143's generic-animal leads,
+every one to a `… ground, raw` row.
+
+The boolean cannot reach them, and not by luck. It fires only where some candidate
+is **fully** accounted, and no chicken row is named `Chicken` — so on those queries
+every candidate scores 0, the key ties uniformly and the order is unchanged. That
+is the same self-gating ADR-0055 §4 relies on for `designated`.
+
+### The class, in both populations
+
+The ticket asks for a re-derived count of head-phrase ties. The finding is that
+**the class does not live there**:
+
+| population        | queries | tied at top | tie differs on accounting | lead moves |
+| ----------------- | ------- | ----------- | ------------------------- | ---------- |
+| head phrases only | 522     | 140         | **1**                     | **0**      |
+| full sweep        | 3,376   | 661         | 7                         | 4          |
+
+The 140 reproduces ADR-0055's own re-derived figure. A head-phrase query can only
+account for a whole name if the name **is** its head phrase, and essentially no
+corpus row is — so #143's population, which is head phrases, contains one member
+of this class and it was already leading correctly. The class lives in multi-word
+queries, exactly the shape ADR-0055's #151 Amendment confessed its 753-query sweep
+could not contain by construction. Anyone reaching for #143's population to size a
+ranking defect again should expect it to measure zero and should not conclude the
+defect is imaginary.
+
+All seven are ties of two. Three already led with the accounted row and are
+confirmed rather than moved (`oats`, `oat`, `monterey cheese`); four move, and all
+four move to the right row.
+
+### What it costs
+
+Four changed leads in 3,376 queries. Three are the targets. The fourth is
+`oat bread`, from `Bread, oat bran` to `Bread, oatmeal` — **adjudicated an
+improvement**: oat bran bread is the higher-fibre loaf made from the bran
+fraction, and oatmeal bread is what the phrase ordinarily names. It is pinned as
+itself rather than folded into a total, so a future reader who disagrees has
+something to argue with.
+
+Against ADR-0055 §2's bar: **zero broken leads** on the 29 `should_lead` cases in
+`docs/research/143-gold-set.json` (the six that pass still pass), the four
+generic-animal leads hold, and all six of ADR-0055 §3's pins hold. The band was
+pre-registered on the ticket before the sweep ran.
+
+Two results the sweep was not looking for:
+
+- **The vocabulary-rescue path had never been swept.** Every ranking measurement
+  this repo has run scores bare queries; expansion is fallback-only, so the class
+  cannot hide there, but a rescued search still ranks and `rankAgainst` keeps each
+  row's best key across phrases. Swept over all 453 vocabulary keys, it moves
+  three leads — `maize oil`, `soya oil`, `soyabean oil` — which is the same defect
+  reaching the British names ADR-0049 and #141 exist to serve. It is now guarded
+  by a test, the first on that path.
+- **32 more rows lead their own name.** The standing measurement of "search every
+  row by its own full description; does it lead" moves from 163 not-first to 131,
+  with `lost` still 0. That is the population the key is built for: a row searched
+  by its own description is the one name a query accounts for completely.
+
+### The slot is an argument, not a finding
+
+Run after `head`, after `position`, after `simplicity` and dead last, the key
+changes **the same four leads and no others**. The measurement cannot choose its
+slot, and saying so is part of the record.
+
+It sits beside `head` because it asks `head`'s question of the whole name, the way
+ADR-0055 §5 puts `plainSibling` beside `plain` because it asks `plain`'s question
+of the corpus. The cost of that reading is stated rather than hidden: above
+`position`, a future corpus could let this key pre-empt the #124 Amendment's,
+where placing it last never could.
+
+### Aliases: the opposite rule to `plainSibling`, and both are right
+
+ADR-0055 §3 builds its sibling set from **descriptions alone**, because `Oil, corn`
+is the prefix of its own alias and fourteen canonical rows would otherwise demote
+themselves. `accounted` has the **opposite** rule: a row is scored as the best of
+its names ([ADR-0050](0050-a-merged-food-keeps-the-name-its-twin-lost.md) §4), and
+an alias is one of the food's names, so a query accounting for the alias has named
+the food. `Oats, whole grain, rolled, old fashioned` carries the alias `Oats` and
+leads a typed `oats` on it.
+
+The rules differ because the questions do. One asks whether a plainer row exists,
+where an alias is a row talking about itself; the other asks whether the user named
+this food, where an alias is one of the names they could have used. Both are pinned.
+
+### Cost
+
+Its own loop rather than a `matched[]` array threaded through `position`'s: the two
+ask different questions in different shapes, and the cost of asking them separately
+is confined to queries returning thousands of rows. Measured against the shipped
+module, best-of-200 per process: a bare `b` (2,450 hits) goes **1.61 ms to
+1.98 ms**, and every narrower query — `ch` at 978 hits, `chicken` at 179,
+`corn oil` at 4 — sits inside the noise floor. §1's own comparison point is 5 ms
+for score-then-sort against 205 ms for a comparator, so this stays the same order.
+
+### No schema change
+
+`accounted` is a function of a name and a query, so it is computed on read. The
+Search index does not move and `schema_version` stays at 5 — the rule ADR-0055 §6
+sets, and ADR-0041 before it.
+
+**Implemented:** `src/lib/food/reference-food-ranking.ts`; pinned in
+`tests/unit/reference-food-ranking.test.ts` (the key, its predicate, and its slot in
+the order) and `tests/unit/usda-corpus.test.ts` (the three leads, the `oat bread`
+collateral, the rescue path, the alias rule, and `pork` joining the generic-animal
+guard, which had named only three of #143's four).

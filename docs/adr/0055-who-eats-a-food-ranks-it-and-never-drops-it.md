@@ -193,6 +193,13 @@ tier, raw, head, position, plainSibling, plain, simplicity, designated
 placing it last costs nothing: run immediately after `position` and run dead last,
 it changes the same two leads and no others.
 
+> An eighth slot opened between `head` and `position` in
+> [#155](https://github.com/palebluebytes/inventoria/issues/155) — see ADR-0042's
+> [#155 Amendment](0042-usda-search-reference-foods.md#amendment-2026-08-24-155-what-head-asks-of-the-head-phrase-asked-of-the-rest-of-the-name),
+> which reads
+> `tier, raw, head, accounted, position, plainSibling, plain, simplicity, designated`.
+> Nothing in this section moves; the block above is one key short of current.
+
 ### 6. What cannot be derived is baked; what can be derived is read
 
 `plainSibling` needs corpus-wide knowledge and is computed at generation time,
@@ -332,3 +339,19 @@ The residual tie is [#155](https://github.com/palebluebytes/inventoria/issues/15
 which carries all three queries. It is a question about two rows that no key
 distinguishes, which is exactly what #143 left open for the 135 ties its `plain`
 key did not reach.
+
+> Closed in [#155](https://github.com/palebluebytes/inventoria/issues/155), as
+> ADR-0042's [#155 Amendment](0042-usda-search-reference-foods.md#amendment-2026-08-24-155-what-head-asks-of-the-head-phrase-asked-of-the-rest-of-the-name).
+> A seventh name key, `accounted`, asks of the whole name what `head` asks of the
+> head phrase, and all three queries now lead with the plain oil. **The three
+> leads this Amendment records as its price are therefore no longer paid**, and
+> the pins in `usda-corpus.test.ts` were replaced rather than deleted, as the
+> ticket required.
+>
+> Two things worth carrying back here. §3's key did not create the tie and does
+> not widen it — measured at implementation, the class is **seven ties in a
+> 3,376-query sweep**, four of which moved. And the ticket's premise that the
+> class would be found among head-phrase ties was **wrong**: 140 of those tie at
+> the top and exactly one differs in accounting, already leading correctly. The
+> class is a multi-word-query class, which is what this Amendment's own
+> confession about the 753-query sweep should have predicted.
