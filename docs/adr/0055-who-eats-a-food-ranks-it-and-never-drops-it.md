@@ -1,7 +1,9 @@
 # ADR 0055: Who eats a food ranks it and never drops it
 
 **Status:** Accepted  
-**Date:** 2026-08-24
+**Date:** 2026-08-24  
+**Amended by:** the #151 Amendment below, which corrects the price §3's key was adopted at and admits the two leads it costs  
+**Implemented:** #151; `src/lib/food/reference-food-ranking.ts` (both keys), `src/lib/food/usda-corpus.ts` (where they attach), `scripts/usda-bundle.mjs` (schema 5)
 
 This record amends [ADR-0042](0042-usda-search-reference-foods.md) §1, whose
 relevance keys gain two that read a ROW rather than a name, and answers a question
@@ -262,3 +264,55 @@ Recorded so they are not re-proposed, in the form #143 used for its part key:
   nothing except on an exact tie, and it leaves all 151 rows searchable and
   loggable under their own names. §1 is what keeps that from becoming a deletion,
   and the two clauses should be read together or not at all.
+
+## Amendment (2026-08-24, #151): the sweep behind §2 could not see a multi-word query
+
+Consequences reports **one changed lead in a 753-query sweep** for §3's key. That
+sweep was every corpus head phrase and every head word, so **every query of more
+than one word was outside it by construction** — including `white wine`,
+`table wine` and `red wine`, the three cases §3 was adopted to fix. A measurement
+that cannot contain the cases the rule was written for is not a bound on the
+rule's cost, and quoting it as one was wrong.
+
+Re-run at implementation over **3,390 queries** — OFF's synonym groups, ADR-0049's
+British list, every head phrase, every head word, and each head paired with its
+first qualifier word as the `adjective noun` shape #124 is about:
+
+|               |                                                                                        |
+| ------------- | -------------------------------------------------------------------------------------- |
+| leads changed | **23**                                                                                 |
+| improvements  | **19**                                                                                 |
+| washes        | **2** (`corn oil`, `cream substitute` — one blend or one light substitute for another) |
+| **worse**     | **2** (`soybean oil`, `soy oil`)                                                       |
+
+The gold-set result is unchanged: **zero broken leads** across the 29 adjudicated
+`should_lead` cases in `docs/research/143-gold-set.json`.
+
+### The two it costs
+
+`soybean oil` led with `Oil, soybean, salad or cooking, (partially hydrogenated)`
+and now leads with **`Oil, soybean lecithin`**, an emulsifier rather than an oil.
+
+The key did what §3 says: `Oil, soybean, salad or cooking, …` is a qualified form
+of `Oil, soybean`, which is a row, so it sorts below it. What that uncovered is a
+tie the ranking cannot separate — `Oil, soybean` and `Oil, soybean lecithin` agree
+on tier, raw, head, position, plain and simplicity, so corpus order decides, and
+the lecithin row has the lower `fdcId`. That tie is #143's unfixed class and
+predates this record; §3 made it visible rather than creating it. On both queries
+the row a person searching for soybean oil actually wants moves **from 4th to
+2nd**.
+
+### §2 is not weakened, and here is what it now means
+
+§2 says a rule must break no lead **already measured correct**. Neither of these
+was: they are not in the gold set and were never adjudicated. They are worse by
+inspection, which is the same standard #143 rejected its part key on, so they are
+recorded here and pinned in `usda-corpus.test.ts` rather than left for somebody to
+rediscover. The difference from #143 is the ratio and the direction: that key
+broke four leads and fixed **none**, where this one fixes nineteen and leaves the
+right row higher in both cases it worsens. Shipping it was a decision taken with
+these numbers in hand, not a bar quietly lowered.
+
+The residual tie is [#155](https://github.com/palebluebytes/inventoria/issues/155).
+It is a question about two rows that no key distinguishes, which is exactly what
+#143 left open for the 135 ties its `plain` key did not reach.

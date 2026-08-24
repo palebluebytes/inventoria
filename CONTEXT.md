@@ -76,6 +76,14 @@ _Avoid_: Prepared dish, meal, dish, recipe (a Recipe Twin is the app's own compo
 A food record naming a specific commercial brand (OCEAN SPRAY, GERBER, Grape-Nuts). Brand-specific foods belong to the barcode path (scan the product against Open Food Facts, ADR-0034) and are always dropped from the USDA reference-food search, even when the query names the brand. See ADR-0042.
 _Avoid_: Branded product (when the `twin/brand` attribute is meant), product
 
+**Plain twin**:
+The shorter of two Reference foods whose names differ only by trailing qualifiers — `Alcoholic beverage, wine, table, white` beside `…, table, white, Riesling`, or `Oil, corn` beside `Oil, corn, peanut, and olive`. A food with a plain twin in the corpus ranks below it, so the varietal, the sharp sliced form and the salad-or-cooking grade all sort under the plain row rather than in front of it. A ranking key, never a filter: nothing is dropped for having a plain twin, and the flag is baked into the Search index because deciding it needs every description at once. See ADR-0055.
+_Avoid_: Parent row, canonical form (which is what the `plain` key already means about a NAME), duplicate
+
+**Designated-population record**:
+A USDA record published as reference composition for a documented population rather than for everybody — the `American Indian/Alaska Native Foods` category, which holds mutton, agave, cloudberries and seal oil. Still a Reference food, still searchable and loggable under its own name; it simply ranks below an undesignated row where the two answer a query equally well. The handle is the category, never the parenthesised tag in the description. See ADR-0055.
+_Avoid_: Ethnic food, traditional food, cultural food (each reads as a judgement about the food rather than about who the record was published for)
+
 **Manufacturing input**:
 A USDA record specifying a food-industry ingredient sold to a factory rather than a food anyone buys or logs — a confection fat, a filling fat, a commodity flour graded by protein percentage. USDA marks them `industrial` in the description. Not a Reference food and not a Composite dish either: it is dropped by its own generation-time filter, and the retail equivalent it stands in front of (all-purpose flour, household shortening) stays. See ADR-0042.
 _Avoid_: Commercial food, bulk ingredient, industrial food (which reads as a processing judgement rather than a market one)
