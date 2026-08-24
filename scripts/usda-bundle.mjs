@@ -89,11 +89,13 @@ const ARTIFACT_DIR = join(ROOT, "public", "usda");
  * 2 adds the search index's `vocabulary_off` section (ADR-0049 §4). 3 adds a
  * row's `also`, the names the twin merge discarded (#137). 4 adds the
  * `vocabulary_local` section beside it, the hand-written half the ODbL
- * derivative does not cover (#141). Both files carry the version because both
- * are generated together from one corpus, and a pair that disagreed about their
- * version would be the bug the number exists to catch.
+ * derivative does not cover (#141). 5 adds a row's `plain_sibling`, the one
+ * ranking key that cannot be derived from a description (ADR-0055 §6). Both
+ * files carry the version because both are generated together from one corpus,
+ * and a pair that disagreed about their version would be the bug the number
+ * exists to catch.
  */
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 /**
  * The datasets the corpus is built from, in the manifest's own naming. Survey is
@@ -717,13 +719,25 @@ export function buildArtifacts(
   for (const survivor of survivors)
     foods[survivor.food.fdcId] = buildNutrientEntry(survivor);
 
+  // ADR-0055 §3's key, decided here rather than in `buildIndexRow` because it
+  // is the only field on a row that the row cannot answer: a name is a qualified
+  // form only relative to the OTHER names in the corpus. Descriptions alone go
+  // in — an `also` alias has no way to become a parent, which is what stops the
+  // fourteen rows that are a row AND the prefix of their own alias (`Oil, corn`,
+  // `Pineapple, raw`, `Nuts, almonds, whole, raw`) from demoting themselves.
+  const rows = survivors.map((survivor) => buildIndexRow(survivor, app));
+  const qualified = app.plainSiblingsOf(rows.map((row) => row.description));
+  rows.forEach((row, i) => {
+    if (qualified[i]) row.plain_sibling = true;
+  });
+
   return {
     index: {
       schema_version: SCHEMA_VERSION,
       generated_from,
       vocabulary_off,
       vocabulary_local,
-      foods: survivors.map((survivor) => buildIndexRow(survivor, app)),
+      foods: rows,
     },
     nutrientStore: {
       schema_version: SCHEMA_VERSION,

@@ -15,6 +15,7 @@ import {
   BUNDLE_DATASETS,
   ROW_MACRO_KEYS,
   SCHEMA_VERSION,
+  buildArtifacts,
   buildCorpus,
   buildIndexRow,
   assertTwinNamesRetrieve,
@@ -32,6 +33,7 @@ import {
 } from "../../scripts/usda-artifacts.mjs";
 import {
   compileReferenceFoodQuery,
+  plainSiblingsOf,
   readReferenceFoodName,
 } from "../../src/lib/food/reference-food-ranking";
 import { reportsNoEnergy } from "../../src/lib/food/nutrition";
@@ -80,7 +82,14 @@ const app = {
   mapFdcPortions,
   TWIN_LEDGER,
   SPLIT_TWIN_NDB_NUMBERS,
+  plainSiblingsOf,
 };
+
+/**
+ * The one ranking export the ROWS are built from (ADR-0055 §6). The rest of
+ * `RANKING_EXPORTS` is the vocabulary's, and never reaches `buildArtifacts`.
+ */
+const BUNDLE_RANKING_EXPORTS = ["plainSiblingsOf"];
 
 /** One record in the bulk archives' own serialisation. */
 const archiveFood = (over: Record<string, unknown> = {}) => ({
@@ -109,7 +118,12 @@ describe("what the generator borrows, and what it never restates", () => {
     // judgements (#146) are each reached through the same seam from a module of
     // their own — all three are borrowed, none is restated.
     expect(
-      [...APP_EXPORTS, ...FOOD_KIND_EXPORTS, ...TWIN_LEDGER_EXPORTS].sort()
+      [
+        ...APP_EXPORTS,
+        ...FOOD_KIND_EXPORTS,
+        ...TWIN_LEDGER_EXPORTS,
+        ...BUNDLE_RANKING_EXPORTS,
+      ].sort()
     ).toEqual(Object.keys(app).sort());
   });
 
@@ -736,6 +750,61 @@ describe("buildIndexRow — identity plus what a result row renders", () => {
     const [twin] = row.merged_from ?? [];
     expect(twin.source_uri).toContain("/food/22");
     expect(twin.filled_fields).toEqual(["fiber_content"]);
+  });
+});
+
+describe("buildArtifacts — the plain-sibling flag (ADR-0055 §3)", () => {
+  const survivor = (fdcId: number, description: string) => ({
+    food: {
+      fdcId,
+      description,
+      dataType: "SR Legacy",
+      foodCategory: "Beverages",
+      foodNutrients: [
+        {
+          nutrientId: 1008,
+          nutrientName: "Energy",
+          value: 83,
+          unitName: "kcal",
+        },
+      ],
+    },
+    merged_from: [],
+    foodPortions: [],
+  });
+  const flags = (descriptions: string[]) =>
+    buildArtifacts(
+      descriptions.map((d, i) => survivor(1000 + i, d)),
+      [],
+      app,
+      { source: "off", licence: "ODbL", url: "u", sha256: "d", expansions: {} },
+      { source: "hand", expansions: {} }
+    ).index.foods.map((row) => row.plain_sibling);
+
+  it("marks a row a plainer twin of it is a strict qualifier-prefix of", () => {
+    expect(
+      flags([
+        "Alcoholic beverage, wine, table, white",
+        "Alcoholic beverage, wine, table, white, Riesling",
+        "Grapes, red, seedless, raw",
+      ])
+    ).toEqual([undefined, true, undefined]);
+  });
+
+  it("decides the flag over the whole corpus, not one row at a time", () => {
+    // The parent is what makes the child a qualified form, so the answer cannot
+    // be read off a description alone — which is why this is `buildArtifacts`'
+    // job and not `buildIndexRow`'s.
+    expect(flags(["Alcoholic beverage, wine, table, white, Riesling"])).toEqual(
+      [undefined]
+    );
+  });
+
+  it("never lets a row's alias make it its own parent", () => {
+    // `Oil, corn` carries the alias "Oil, corn, industrial and retail, all
+    // purpose salad or cooking", and fourteen rows are shaped like that. The
+    // generator passes DESCRIPTIONS, so an alias has no way in.
+    expect(flags(["Oil, corn"])).toEqual([undefined]);
   });
 });
 

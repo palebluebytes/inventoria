@@ -87,10 +87,17 @@ export const FOOD_KIND_EXPORTS = [
  * A second implementation here would decide a key belongs in the map by rules
  * the app does not use, and every disagreement would ship as a key that already
  * answers or a miss that never got one.
+ *
+ * `plainSiblingsOf` is here for the other half of the same rule and is the one
+ * entry the ROWS use rather than the vocabulary: ADR-0055 §6 bakes that key into
+ * the artifact because deriving it at load costs 24 ms against the 18.5 ms the
+ * whole corpus load costs, and baking a value means the generator and the search
+ * have to agree about it exactly.
  */
 export const RANKING_EXPORTS = [
   "readReferenceFoodName",
   "compileReferenceFoodQuery",
+  "plainSiblingsOf",
 ];
 
 /**
