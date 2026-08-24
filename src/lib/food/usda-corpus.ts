@@ -385,21 +385,22 @@ export interface IndexSearch extends SearchedPhrases {
  * The loop is skipped entirely for the 4,266 rows that have no alias, so a
  * keystroke pays for this only where USDA held two names for one food.
  *
- * The row's own two keys (ADR-0055 §5) go on afterwards rather than inside the
- * loop, because they are the same for every name of one row and so can decide
- * nothing between them. This is the one place a `RelevanceKey` learns anything
- * that is not about a name.
+ * The row's own two keys (ADR-0055 §5) join each name's key here, which is the
+ * ONE place a finished `RelevanceKey` is built: `rank` scores a name and returns
+ * a `NameKey`, so a query scorer has no way to invent a row fact. They decide
+ * nothing between a row's own names, being the same for all of them — what they
+ * decide is this row against every other.
  */
 function bestNameKey(
   rank: ReferenceFoodQuery,
   food: SearchableFood
 ): RelevanceKey {
-  let best = rank(food.name);
+  let best: RelevanceKey = { ...rank(food.name), ...food.rank };
   for (const alias of food.also) {
-    const key = rank(alias);
+    const key: RelevanceKey = { ...rank(alias), ...food.rank };
     if (compareRelevance(key, best) < 0) best = key;
   }
-  return { ...best, ...food.rank };
+  return best;
 }
 
 /**

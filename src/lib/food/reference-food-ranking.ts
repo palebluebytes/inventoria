@@ -176,7 +176,7 @@ export function readReferenceFoodName(description: string): ReferenceFoodName {
  * Larger is better in every field, and each is only consulted when the one
  * before it ties.
  */
-export interface RelevanceKey extends RowRank {
+export interface NameKey {
   /**
    * Structural relevance, strongest first. Every rung asks the same question —
    * how much of the food's OWN NAME the query accounts for — because USDA names
@@ -272,16 +272,26 @@ export interface RelevanceKey extends RowRank {
   simplicity: number;
 }
 
+/**
+ * A finished key: how well one NAME answers the query, plus the two facts about
+ * the ROW that name belongs to.
+ *
+ * Split rather than one interface so a query scorer cannot invent a row fact. It
+ * scores a name and its return type says so; only `bestNameKey`, which has the
+ * row, can produce one of these. The alternative was for
+ * {@link compileReferenceFoodQuery} to emit placeholder 1s and trust a later
+ * spread to overwrite them, which is an invariant a comment has to carry.
+ */
+export interface RelevanceKey extends NameKey, RowRank {}
+
 /** A name that does not answer the query at all — every later key is moot. */
-const NO_MATCH: RelevanceKey = {
+const NO_MATCH: NameKey = {
   tier: 0,
   raw: 0,
   head: 0,
   position: 0,
-  plainSibling: 1,
   plain: 0,
   simplicity: 0,
-  designated: 1,
 };
 
 /** A head phrase the query does not cover, ranked below every one it does. */
@@ -315,7 +325,7 @@ export function compareRelevance(a: RelevanceKey, b: RelevanceKey): number {
  * A free-text query compiled once: scores one reference-food name, with `tier` 0
  * meaning the name does not answer the query at all.
  */
-export type ReferenceFoodQuery = (name: ReferenceFoodName) => RelevanceKey;
+export type ReferenceFoodQuery = (name: ReferenceFoodName) => NameKey;
 
 /**
  * Compiles a query into the ADR-0042 scorer, the ONE place the ordering of a
@@ -416,13 +426,8 @@ export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
       // unsweetened, …" (head 7, exactly 0).
       head: headCovered ? -Math.abs(headChars - queryChars) : HEAD_UNMATCHED,
       position,
-      // Both row keys sit at their undemoted value here, because a query scores
-      // a NAME and neither fact is one. `bestNameKey` overwrites them with the
-      // row's own {@link RowRank} once it has picked a name (ADR-0055 §5).
-      plainSibling: 1,
       plain,
       simplicity,
-      designated: 1,
     };
   };
 }
