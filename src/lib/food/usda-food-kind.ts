@@ -232,10 +232,21 @@ const PREPARED_CATEGORIES = new Set([
 // or stir-fried mushroom is a reference food like a scrambled egg or a roast, so
 // bare "fried" is NOT a marker; the flour/batter/breading coating is the signal
 // (see the fried+flour rule in isPreparedProduct). No ", raw" food carries any
-// of these words. ("home recipe" catches "crab cakes, home recipe"; distinct
-// from a bread's "prepared from recipe", which is deliberately NOT a marker.)
+// of these words.
+//
+// `prepared from recipe` is USDA's own marker for a record whose composition was
+// COMPUTED from a recipe rather than assayed, which is a claim about what the
+// record IS and so a drop reason ADR-0055 §1 allows. It was deliberately excluded
+// until #161 on the reading that a bread is a staple whatever its provenance.
+// Measured, that reading was inconsistent rather than lenient: the phrase reaches
+// 49 archive rows and the category rules already took 39 of them — every cake,
+// pie, cookie, muffin, pancake, waffle, pie crust and French toast — leaving
+// gingerbread, brownies and waffles ABSENT from the corpus as sole records
+// nobody objected to losing. The 10 survivors survived only because
+// `BAKED_STAPLE_HEADS` holds their head word, so `Bread, banana` stayed while
+// `Cake, gingerbread` went for the same reason on the same evidence.
 const PREPARED_DISH_MARKERS =
-  /\b(home[- ](?:prepared|recipe)|au gratin|scalloped|breaded|breading|batter|french[- ]fried|fast food)\b/i;
+  /\b(home[- ](?:prepared|recipe)|prepared from recipe|au gratin|scalloped|breaded|breading|batter|french[- ]fried|fast food)\b/i;
 // An assembled retail dessert, which USDA files under Dairy beside the plain
 // tubs: "Ice cream sandwich", "Ice cream bar, … with crunch coating", "Ice
 // cream sundae cone". The signal is the wafer, biscuit, stick or coating AROUND

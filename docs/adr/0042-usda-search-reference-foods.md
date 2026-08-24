@@ -1381,3 +1381,85 @@ nine-way tea tie, and `Game meat, buffalo, water` being water buffalo where the
 corpus files American bison under `bison` — are cut as their own tickets. Any
 further roster is a fresh pre-registration, because every candidate from here is
 chosen having seen these diffs.
+
+## Amendment (2026-08-24, #161): a composition computed from a recipe is not a measurement
+
+§5's prepared-dish markers deliberately excluded `prepared from recipe`, and the
+predicate carried a comment saying so: _"'home recipe' catches 'crab cakes, home
+recipe'; distinct from a bread's 'prepared from recipe', which is deliberately NOT a
+marker."_ The reading was that a bread is a staple whatever its provenance.
+
+Measured, that reading was **inconsistent rather than lenient**, and the phrase is now a
+marker.
+
+### The evidence
+
+`prepared from recipe` reaches **49 rows** across the two archives. The category rules
+already took **39** of them — every cake, pie, cookie, muffin, pancake, waffle, pie
+crust and French toast — because those head words are not in `BAKED_STAPLE_HEADS`. So
+`Cake, gingerbread`, `Cookies, brownies` and `Waffles, plain` left the corpus as the
+only record of their food, and nothing has been heard about it since: **gingerbread,
+brownies and waffles are simply absent.**
+
+The **10 survivors** survived on their head word alone — `Bread`, `Biscuits`, `Rolls` —
+and not on any claim about what they are. Keeping `Bread, banana, prepared from recipe`
+while `Cake, gingerbread, prepared from recipe` goes, on identical evidence, is the
+inconsistency this amendment removes.
+
+### Why it is a legitimate drop rule
+
+[ADR-0055](0055-who-eats-a-food-ranks-it-and-never-drops-it.md) §1 requires that a drop
+rule be a claim about what the record IS, never about who eats it. `prepared from
+recipe` is USDA's own marker for a record whose composition was **computed from a
+recipe rather than assayed** — a derived figure standing where a measurement goes. That
+is a claim about the record, of the same kind as brand, package, dish, laboratory basis
+and manufacturing input.
+
+### What it costs, stated as the population it left
+
+Three of the ten were the only record of their food, and the corpus no longer holds a
+cornbread, a banana bread or an Irish soda bread. That is the cost, and it is accepted
+on the consistency argument above rather than waved through: the same rule already cost
+gingerbread and brownies, and ADR-0046 exists for base foods USDA lacks if any of the
+three is ever wanted back.
+
+The other seven stood in front of a twin that survives — `Bread, whole-wheat,
+commercially prepared` for the whole-wheat pair, four `Bread, white, commercially
+prepared` rows, four `Biscuits, … refrigerated dough` rows, and `Rolls, dinner, plain,
+commercially prepared`. Nothing is lost there. One of the ten,
+`Cheese sauce, prepared from recipe`, was a sauce filed under `Dairy and Egg Products`
+and so outside `PREPARED_CATEGORIES`; this rule takes it, but the general escape it
+belongs to is #133's and is NOT closed here.
+
+**The corpus falls from 4,358 rows to 4,348**, `Baked Products` from 114 to 105,
+`plainSibling`'s reach from 128 to 127 under the same 78 parents, and the ADR-0049
+vocabulary re-derives to 447 expansions from 446 with `whole` falling 218 to 216.
+
+### One query got better, and it had been broken in an invisible way
+
+`low fat milk` retrieved exactly three rows before this: `Bread, cornbread, …, made with
+low fat (2%) milk` and two siblings. They were **the only rows in the corpus carrying
+`low`, `fat` and `milk` as separate words** — `Milk, lowfat, fluid, 1% milkfat` does not,
+because `lowfat` and `milkfat` are single words and no token `fat` prefixes either. So
+someone typing "low fat milk" was handed a cornbread, a white bread and a dinner roll.
+
+With them gone the query matches nothing literally, ADR-0049's fallback fires on its
+`low-fat milk` entry, and the answer is skim, nonfat and 1%-fat milk. **The fallback is
+doing the work rather than backing it up**, which is the one place in the suite where
+that is true, so it is pinned as its own case.
+
+It also exposed a hole in a test. `does not demote a prepared or modified food the query
+asked for` asserted that every retrieved row carries the typed marker word, on #143's
+reasoning that retrieval admits a row only when every token matches. That is true of
+LITERAL retrieval and not of the fallback, which substitutes a different phrase by
+design — and `low fat milk` was the one case in its list that could fall through. It
+passed only because three bread rows were propping it up. The invariant now says which
+retrieval it is about.
+
+### No schema change
+
+`schema_version` stays at 5. The generator re-runs and the artifacts are committed, as
+§3 of [ADR-0047](0047-bundle-the-usda-archives-and-retire-the-api.md) requires.
+
+**Implemented:** `src/lib/food/usda-food-kind.ts` (`PREPARED_DISH_MARKERS`); pinned in
+`tests/unit/usda-corpus.test.ts`.

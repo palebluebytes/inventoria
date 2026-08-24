@@ -40,7 +40,7 @@ import type { EntityPayload } from "../../src/lib/ingestion/ingest";
 
 // The committed artifact itself is the fixture (ADR-0047 §3). Search is only
 // keyless and offline if it answers from THIS file, so the ADR-0042 ordering
-// cases are asserted over the 4,358 rows the app actually ships rather than
+// cases are asserted over the 4,348 rows the app actually ships rather than
 // over a hand-built stand-in that could agree with the code and not the data.
 const index: SearchIndex = JSON.parse(
   readFileSync("public/usda/search-index.json", "utf8")
@@ -54,7 +54,7 @@ describe("the bundled search index", () => {
     // ADR-0055 §6. A tripwire on the predicate's reach: the flag is baked, so a
     // change to `plainSiblingsOf` that nobody meant shows up as a count here
     // rather than as a silently reordered search months later.
-    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(128);
+    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(127);
     // Omitted rather than emitted false, like every other absent field.
     expect(index.foods.filter((row) => row.plain_sibling === false)).toEqual(
       []
@@ -121,7 +121,7 @@ describe("the bundled search index", () => {
   });
 
   it("is the surviving reference foods, and says which archives it came from", () => {
-    expect(index.foods.length).toBe(4358);
+    expect(index.foods.length).toBe(4348);
     expect(index.generated_from.map((a) => a.dataset)).toEqual([
       "Foundation Foods",
       "SR Legacy",
@@ -287,10 +287,15 @@ describe("the bundled search index", () => {
       "Sandwich spread, meatless",
       "Beef, sandwich steaks, flaked, chopped, formed and thinly sliced, raw",
       "Tortilla, includes plain and from mutton sandwich (Navajo)",
-      // #144: what each of its four new rules had to leave standing
+      // #144: what each of its four new rules had to leave standing.
+      // `Bread, cornbread, prepared from recipe, made with low fat (2%) milk`
+      // stood here until #161, which is a DIFFERENT rule with a different claim:
+      // #144's escape hatches had to leave a staple loaf alone, and they still
+      // do (the whole-wheat row below), while #161 drops what USDA computed from
+      // a recipe rather than assayed. A pin moving between rules is not a pin
+      // being deleted, so it is named here rather than removed silently.
       "Bread, whole-wheat, commercially prepared",
       "Syrups, maple",
-      "Bread, cornbread, prepared from recipe, made with low fat (2%) milk",
       "Beef, chuck for stew, separable lean and fat, select, raw",
       "Flour, wheat, all-purpose, enriched, bleached",
       "Shortening, vegetable, household, composite",
@@ -341,8 +346,10 @@ describe("the bundled search index", () => {
     // would refill it.
     const inCategory = (category: string) =>
       index.foods.filter((row) => row.foodCategory === category).length;
-    // 127 and 31 before the escape hatches took four treats and seven confections.
-    expect(inCategory("Baked Products")).toBe(114);
+    // 127 and 31 before the escape hatches took four treats and seven
+    // confections; 114 until #161 took nine more Baked Products rows that USDA
+    // computed from a recipe.
+    expect(inCategory("Baked Products")).toBe(105);
     expect(inCategory("Sweets")).toBe(24);
     // Eleven of the nineteen rows naming a stew are raw retail cuts sold for one,
     // and the exemption has to keep every one of them.
@@ -931,15 +938,19 @@ describe("searchIndexRows", () => {
   });
 
   it("does not demote a prepared or modified food the query asked for", () => {
-    // #143's reason for having no query-aware branch: retrieval admits a row
-    // only when EVERY typed token matches it, so a typed marker word is present
-    // in every retrieved row and the key ties across all of them. If that ever
-    // stops holding, someone searching "boiled egg" starts being handed a row
-    // that is not boiled, and this is where it shows up.
+    // #143's reason for having no query-aware branch: LITERAL retrieval admits a
+    // row only when EVERY typed token matches it, so a typed marker word is
+    // present in every retrieved row and the key ties across all of them. If
+    // that ever stops holding, someone searching "boiled egg" starts being
+    // handed a row that is not boiled, and this is where it shows up.
+    //
+    // The invariant is about literal retrieval and NOT about the ADR-0049
+    // fallback, which answers a query the corpus cannot match at all by
+    // substituting a different phrase — see the case below this one, which
+    // `low fat milk` used to sit in here and now belongs to.
     for (const [query, marker] of [
       ["boiled egg", "boil"],
       ["cooked rice", "cook"],
-      ["low fat milk", "low"],
       ["imitation cheese", "imitation"],
       ["roasted chicken", "roast"],
     ] as const) {
@@ -949,6 +960,24 @@ describe("searchIndexRows", () => {
         []
       );
     }
+  });
+
+  it("answers 'low fat milk' with milk, which it could not do before #161", () => {
+    // A query the corpus never actually matched, propped up by three rows that
+    // were not milk. `low`, `fat` and `milk` appeared as separate words in
+    // exactly three descriptions — `Bread, cornbread, …, made with low fat (2%)
+    // milk` and two siblings — so someone typing "low fat milk" was handed a
+    // cornbread, a white bread and a dinner roll, and the marker invariant above
+    // held only because all three carried the word `low`.
+    //
+    // #161 dropped them as recipe composites, so the query now retrieves NOTHING
+    // literally, ADR-0049's fallback fires on its `low-fat milk` entry, and the
+    // answer is milk. Pinned because it is the one place in the suite where the
+    // fallback is doing the work rather than backing it up.
+    const found = descriptionsFor("low fat milk");
+    expect(found.length).toBeGreaterThan(0);
+    expect(found.every((d) => /milk/i.test(d))).toBe(true);
+    expect(found.filter((d) => /^Bread|^Rolls/.test(d))).toEqual([]);
   });
 
   it("keeps leading with the generic animal row, which USDA names by its parts", () => {
@@ -1058,7 +1087,7 @@ describe("searchIndexRows", () => {
     // Pinned as the two counts rather than the one, because a later key could
     // improve the total while quietly costing a row that leads today. Nothing
     // regressed here: 184 rows gained the lead and none lost it.
-    // 4,358 queries over 4,358 rows, so the winner is taken in one pass rather
+    // 4,348 queries over 4,348 rows, so the winner is taken in one pass rather
     // than by sorting each result list — the sort costs seconds, the scan does
     // not, and only the leading row is being asked about. Each query is ordered
     // twice: once under the shipped keys, and once under the four that preceded
@@ -1457,7 +1486,7 @@ describe("storedPanelFor", () => {
   it("rebuilds every row's macros exactly, across the whole corpus", () => {
     // The two artifacts are generated from one merged record, so a row's macros
     // and the store's amounts are the same numbers twice. Assert it over all
-    // 4,358 rather than on one food: a generator change that filled one artifact
+    // 4,348 rather than on one food: a generator change that filled one artifact
     // and not the other would otherwise ship silently.
     const disagreeing = index.foods.filter((row) => {
       const panel = storedPanelFor(store, row.fdcId);
