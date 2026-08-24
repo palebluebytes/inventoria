@@ -29,7 +29,7 @@ Over 3,976 sweep queries, **29** bury the row whose own name (past any shelf lab
 - **12 leads that are correct today and must not move** — `cottage` (cottage cheese _is_ the food), `ginger` (fresh root over dried spice, which is #153's own pinned direction), `horse` (Horseradish, for a UK reference user), `melon`, `tomato`, `soybean`, `apricots`, `soy flour`, `winged bean`, `turkey breast`, `turkey thigh`, `beef composite`.
 - **11 unadjudicable** — bare adjectives nobody types as a food: `white`, `dry`, `fresh`, `whole`, `american`, `blue`, `water`, `imitation`, `malt`, `butternuts`, `swiss`.
 
-**The instrument cannot see three of this ticket's eight cases**, and `salmon` is one of them. Where two rows both own the name — `Salmon, red (sockeye), …` and `Fish, salmon, …` — the query matches the lead's own name and the query passes the filter clean. `hazelnuts` and `cranberry` are hidden the same way. A census built on "the exact-name row does not lead" is therefore a lower bound, and the next ticket should not treat it as a count.
+**The instrument cannot see four of this ticket's eight cases**, and `salmon` is one of them. Where two rows both own the name — `Salmon, red (sockeye), …` and `Fish, salmon, …` — the query matches the lead's own name and the query passes the filter clean. `cranberry`, `hazelnuts` and `smelt` are hidden the same way. A census built on "the exact-name row does not lead" is therefore a lower bound, and the next ticket should not treat it as a count.
 
 ## 3. The mechanism, and the three that are closed
 
@@ -74,9 +74,9 @@ Three candidates are closed in writing, before the sweep, so they are not re-der
 
 ## 5. The `designated` half is fully measured
 
-**271 queries lead with a designated row. 55 move; 216 self-gate** — no non-designated row is retrieved at all, so the key ties uniformly and nothing changes. That includes every query ADR-0055's own corpus test names except two (§7).
+**271 queries lead with a designated row. 216 self-gate** — no non-designated row is retrieved at all, so the key ties uniformly and nothing changes. Of the 55 that do not, **52 change lead under the `designated` promotion alone**; the other three change only once `raw` joins it, and are counted with the composite in §10. **52 is the number this note uses for the `designated` half throughout.** That includes every query ADR-0055's own corpus test names except two (§7).
 
-Of the 55: six are the wins in §4 (`salmon`, `trout`, `octopus`, `hazelnuts`, `cranberry`, `smelt`); one is a real loss (`buffalo`, §6); and the remaining ~47 are untyped game meat (`bear`, `moose`, `squirrel`, `caribou`, `elk` and their `raw X` / `meat X` sweep spellings), or sweep junk that names no food (`and`, `in`, `low`, `native`, `alaska`, `lion`, `mush`).
+Of the 52: six are the wins in §4 (`salmon`, `trout`, `octopus`, `hazelnuts`, `cranberry`, `smelt`); one is a real loss (`buffalo`, §6); and the remaining ~47 are untyped game meat (`bear`, `moose`, `squirrel`, `caribou`, `elk` and their `raw X` / `meat X` sweep spellings), or sweep junk that names no food (`and`, `in`, `low`, `native`, `alaska`, `lion`, `mush`).
 
 **`sea`**, handed here by ADR-0042's #162 Amendment, lands on `Seaweed, irishmoss, raw` instead of a Steller sea lion liver. It is a watch item and no acceptance is written on it — `sea` names no food, so whatever it lands on is not adjudicable.
 
@@ -142,13 +142,13 @@ The sweep ran before any ranking code changed, as §9 required. **The band fails
 
 ## 10. Against §8.1
 
-| clause                              |                                              |                                                                                                             |
-| ----------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| 1. eight defects lead               | **pass**                                     | `salmon` 345 → **Fish, salmon, Atlantic, wild, raw 142**; `almonds` 14.6 → **626**; the other six with them |
-| 2. twelve protected leads           | **pass**, `horse` excepted as pre-registered |                                                                                                             |
-| 3. zero broken pins bar one rewrite | **FAIL**                                     | 4 broken, **3 of them undeclared**                                                                          |
-| 4. gold `should_lead` ≥ 7           | **pass**                                     | unchanged at 7                                                                                              |
-| 5. `raw` half ≤ 40 additional leads | **FAIL**                                     | **82**                                                                                                      |
+| clause                              |                                              |                                                                                                                                                                                         |
+| ----------------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. eight defects lead               | **7 of 8**                                   | `salmon` 345 → **Fish, salmon, Atlantic, wild, raw 142**; `almonds` 14.6 → **626**. `deer` lands on `Game meat, deer, ground, raw` (157), not the `Game meat, deer, raw` (120) §4 named |
+| 2. twelve protected leads           | **pass**, `horse` excepted as pre-registered |                                                                                                                                                                                         |
+| 3. zero broken pins bar one rewrite | **FAIL**                                     | 4 broken, **3 of them undeclared**                                                                                                                                                      |
+| 4. gold `should_lead` ≥ 7           | **pass**                                     | unchanged at 7                                                                                                                                                                          |
+| 5. `raw` half ≤ 40 additional leads | **FAIL**                                     | **82**                                                                                                                                                                                  |
 
 **137 leads moved** of 3,976 queries: 52 the `designated` half, **82 the `raw` half**, 3 both. The ceiling was 40, chosen blind in §8.2, and the result is more than double it.
 
@@ -184,29 +184,46 @@ The shape is one shape: with `raw` above `tier`, **any raw row that merely prefi
 
 **§7's own method failed on its own terms.** It read the suite for the pin it expected to break and declared that one. Three more broke, in tests whose subject is a different ticket. Reading the file for _the_ pin a change touches is not the same as running it, and the note asserted the first while claiming the safety of the second.
 
-## 13. ADR-0055 §1 is breached, independently of the band
+## 13. ADR-0055 §1 is breached, and it is the `designated` half that breaches it
 
 Summed across all queries, designated rows inside the 50-row window fall from **845 to 784** — 61 demotions past `RESULT_LIMIT`. #159's constraints define exactly that as a drop: _"a demotion past `RESULT_LIMIT` is a drop as the user meets it."_
 
-This is a red line rather than a band clause, and it would have disqualified the candidate on its own. ADR-0055 §1's measurement in #153's Amendment held because that change kept the window count identical; this one does not.
+Measured per half, the drop is **entirely `designated`'s**:
+
+| ordering                    | designated rows in the 50-row window |
+| --------------------------- | ------------------------------------ |
+| shipped                     | 845                                  |
+| `raw` promoted alone        | **841**                              |
+| `designated` promoted alone | **784**                              |
+| both (the candidate)        | 784                                  |
+
+**25 queries lose a designated row from the window, 61 (query, row) pairs in all, across 48 distinct rows.** The worst are `s` (9 rows), `corn` (8, `Corn, dried (Navajo)` among them), `raw meat` (6), and `oil` and `sea` (5 each). `oil` is one of the two queries ADR-0055 §4's own corpus test pins.
+
+The mechanism is not subtle once seen. Promoting `designated` to first **partitions every result list**: all non-designated rows precede all designated ones. Any query returning more than fifty rows with a mix of both pushes designated rows off the end, regardless of how well they match.
+
+This is a red line rather than a band clause, and it disqualifies the candidate on its own. ADR-0055 §1's measurement in #153's Amendment held because those variants kept the window count identical; this is the first candidate to move it.
 
 ## 14. What this establishes, generally
 
-**Self-gating is the property that decides whether a key may be promoted above `tier`.**
+**Self-gating is the property that decides whether a key may be promoted above `tier` — and it has to hold of the WINDOW, not only of the lead.**
 
-`designated` self-gates: 151 rows of 4,335, and 216 of 271 designated leads are unchanged because no non-designated row is retrieved. Its half moved 52 leads and every one was readable.
+`raw` fails it outright. It touches **1,445 of 4,335 rows (33%)** and is orthogonal to what the query names, so promoting it lets an unrelated raw food win any query whose named food happens not to be raw. **ADR-0042 §1's clause "rank relevance first, then raw base forms" is not an ordering preference; it is what stops the raw key from answering a question it was never asked.**
 
-`raw` does not, and cannot. It touches ~40% of the corpus and is orthogonal to what the query names, so promoting it lets an unrelated raw food win any query whose named food happens not to be raw. **ADR-0042 §1's clause "rank relevance first, then raw base forms" is not an ordering preference; it is what stops the raw key from answering a question it was never asked.**
+`designated` looks like it passes, and does not. It self-gates on **leads** — 151 rows of 4,335, and 216 of 271 designated leads unchanged because no non-designated row is retrieved — which is the property #159's body cited, and that property held. But §13 shows that a key at the top of the order partitions the whole list, so self-gating on the lead says nothing about the fifty rows beneath it. **That distinction is this measurement's main finding**, and #159 did not have it: its body argued from the lead count alone, and so did the first draft of this note.
 
-That widens what ADR-0042's #153 Amendment closed. #153 closed one family — `tier` and `head` reading the shelf-label roster. What this closes is more general: **no key may sit above `tier` unless it is silent on the queries it does not concern**, and only `designated` has been shown to be.
+So ADR-0042's #153 Amendment widens further than that first draft claimed. #153 closed one family — `tier` and `head` reading the shelf-label roster. This closes: **no key may sit above `tier` unless it is silent on the queries it does not concern, across the whole result window and not merely at the top of it.** Neither key measured here satisfies that, and none has yet been shown to.
 
 ## 15. The `designated` half is not salvaged here, deliberately
 
-It looked adjudicable — 52 moved leads, six real wins, one real loss. Shipping it alone would be a candidate narrowed **after seeing which cases spoiled the measurement**, which §8.2 forbids in so many words.
+Its leads looked adjudicable — 52 moved, six real wins, one real loss. Three things stop it, and the first is fatal.
 
-It also would not fix this ticket. `designated` alone leaves `salmon` leading with `Salmon nuggets, cooked as purchased, unheated` at 189 kcal, and §1 records that a lead on the nugget is not the acceptance.
+**It is the half that breaches ADR-0055 §1** (§13). On its own it costs 61 (query, row) pairs across 25 queries and 48 distinct rows, where the `raw` half costs 4. So a `designated`-only promotion is **not the safe residue of a failed experiment; it is the unsafe half**, and this note's own first draft had that backwards.
 
-So it is left where it is. A `designated`-only promotion is available to a **fresh pre-registration** that states its own band before running, and that band now has to answer §12 as well: three of the four broken pins here belong to other tickets, and a candidate touching `compareRelevance` must run the whole suite rather than reading it for the pin it expects.
+**Shipping it now would be a candidate narrowed after seeing which cases spoiled the measurement**, which §8.2 forbids in so many words.
+
+**And it would not fix this ticket.** `designated` alone leaves `salmon` leading with `Salmon nuggets, cooked as purchased, unheated` at 189 kcal, and §1 records that a lead on the nugget is not the acceptance.
+
+A fresh pre-registration may still take it up, but it inherits a harder question than "state a band first": what ADR-0055 §1 means when a key at the top of the order partitions every result list. It also has to answer §12 — three of the four broken pins here belong to other tickets, and a candidate touching `compareRelevance` runs the whole suite rather than reading it for the pin it expects.
 
 ## 16. What #159 leaves standing
 

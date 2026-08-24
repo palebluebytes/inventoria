@@ -1899,19 +1899,21 @@ sweep, with a 40-lead ceiling chosen blind.
 
 `salmon` does lead with `Fish, salmon, Atlantic, wild, raw` at 142 kcal, and
 `almonds` with `Nuts, almonds, whole, raw` at 626 against an almond milk's 14.6.
-Eight named defects, all fixed.
+Seven of the eight named defects fix; `deer` lands on `Game meat, deer, ground,
+raw` rather than the `Game meat, deer, raw` the ticket named, which is 157 kcal
+against 120 and is the one clause-1 miss.
 
 The `raw` half moved **82 leads** against the ceiling of 40, and reading them
-makes the count beside the point:
+makes the count beside the point. Two carry the whole rule:
 
-| query    | today                                    | under the candidate                 |
-| -------- | ---------------------------------------- | ----------------------------------- |
-| `butter` | Butter, Clarified butter (ghee) **900**  | **Butterbur, (fuki), raw 14**       |
-| `bread`  | Bread, white wheat **238**               | **Breadfruit, raw 103**             |
-| `milk`   | Milk, dry, whole, … **496**              | **Nuts, coconut milk, raw 230**     |
-| `salt`   | Salt, table **0**                        | **Pork, cured, salt pork, raw 748** |
-| `honey`  | Honey **304**                            | Apples, honeycrisp, raw **60**      |
-| `ice`    | Ice cream, soft serve, chocolate **222** | Lettuce, iceberg, raw **17.1**      |
+| query    | today                                   | under the candidate             |
+| -------- | --------------------------------------- | ------------------------------- |
+| `butter` | Butter, Clarified butter (ghee) **900** | **Butterbur, (fuki), raw 14**   |
+| `milk`   | Milk, dry, whole, … **496**             | **Nuts, coconut milk, raw 230** |
+
+`bread` goes to `Breadfruit, raw`, `salt` to `Pork, cured, salt pork, raw` at 748
+against table salt's 0, `ice` to `Lettuce, iceberg, raw`. The other 76 are
+enumerated in the note rather than restated here.
 
 `butter` is a 64× understatement, and `milk` lands on the row the #153 Amendment
 above already named as the price of the full shelf-label roster — reached here by
@@ -1929,10 +1931,16 @@ asked, and it stays where it is.
 
 That generalises what the #153 Amendment closed. #153 closed one family: `tier`
 and `head` reading `SHELF_LABEL_HEAD`. This closes a wider one — **no key may sit
-above `tier` unless it is silent on the queries it does not concern.** `raw`
-touches ~40% of the corpus and is orthogonal to what a query names, so it can
-never satisfy that. `designated` can: 151 rows of 4,335, and 216 of 271
-designated leads unchanged because no non-designated row is retrieved at all.
+above `tier` unless it is silent on the queries it does not concern, across the
+whole result window and not merely at the top of it.**
+
+The window clause is not decoration, and it is what #159 got wrong. `raw` fails
+the rule on its face: it touches 1,445 of 4,335 rows (33%) and is orthogonal to
+what a query names. `designated` looks like it passes — 151 rows, and 216 of 271
+designated leads unchanged because no non-designated row is retrieved — and that
+lead-level self-gating is real and is what #159 argued from. It is not enough. A
+key at the top of the order partitions the entire list, so what it does to the
+lead says nothing about the forty-nine rows under it.
 
 ### Three of the four broken pins belonged to other tickets
 
@@ -1947,24 +1955,38 @@ from 0 to 3 against an assertion that nothing is taken away.
 **Reading the suite for the pin a change touches is not running it.** A candidate
 that edits `compareRelevance` runs the whole suite before its band is judged.
 
-### ADR-0055 §1 was breached, which #153's variants never were
+### ADR-0055 §1 was breached, and the `designated` half is what breached it
 
 Designated rows inside the 50-row window fall from **845 to 784** summed across
 the sweep, and #159 defines a demotion past `RESULT_LIMIT` as a drop. That is a
 red line rather than a band clause, and it disqualifies the candidate on its own.
-The #153 Amendment above reports the window count identical before and after for
-every variant it measured; this is the first candidate to move it.
+The #153 Amendment above reports the window count identical for every variant it
+measured; this is the first candidate to move it.
+
+Measured per half, the whole of it is `designated`'s: promoted alone it gives
+**784**, where `raw` promoted alone gives **841**. It costs **61 (query, row)
+pairs across 25 queries and 48 distinct rows** — `corn` loses eight designated
+rows, `oil` five, and `oil` is one of the two queries ADR-0055 §4's own corpus
+test pins.
+
+That follows from what promotion to first position means: all non-designated rows
+precede all designated ones, so any query returning more than fifty rows with a
+mix pushes designated rows off the end however well they match.
 
 ### The `designated` half is left unshipped on purpose
 
-Measured alone it is adjudicable — 52 moved leads, six real wins, one real loss
-(`buffalo` → `Game meat, buffalo, water, raw`, the wrong animal at a 2 kcal
-price). Shipping it here would be a candidate narrowed after seeing which cases
-spoiled the measurement, which the pre-registration forbids in so many words, and
-it does not fix the ticket anyway: `designated` alone leaves `salmon` leading
-with `Salmon nuggets, cooked as purchased, unheated` at 189 kcal.
+Its leads look adjudicable — 52 moved, six real wins, one real loss (`buffalo` →
+`Game meat, buffalo, water, raw`, the wrong animal at a 2 kcal price). It is
+nonetheless **the unsafe half, not the safe residue**: the window breach above is
+entirely its doing, where `raw` costs four rows. Shipping it here would also be a
+candidate narrowed after seeing which cases spoiled the measurement, which the
+pre-registration forbids in so many words, and it does not fix the ticket anyway:
+`designated` alone leaves `salmon` leading with
+`Salmon nuggets, cooked as purchased, unheated` at 189 kcal.
 
-It is available to a fresh pre-registration that states its own band first.
+A fresh pre-registration may take it up, but it inherits the question this one
+opened: what §1 means when a key at the top of the order partitions every result
+list.
 [#163](https://github.com/palebluebytes/inventoria/issues/163) carries the
 `buffalo` half of its price separately, as a vocabulary question rather than a
 ranking one.
