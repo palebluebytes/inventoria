@@ -133,3 +133,81 @@ Every candidate from here is chosen having seen #153's diffs. This note adds to 
 ## 9. Order of work
 
 Sweep first, judge against §8, and do not touch `compareRelevance` if the band fails. The code change is three lines; the ticket is a measurement, and running it the other way round makes the sweep a verification of a decision already taken.
+
+---
+
+# Results (2026-08-24)
+
+The sweep ran before any ranking code changed, as §9 required. **The band fails on two independent clauses, and the mechanism is refuted rather than merely over budget. Nothing shipped.**
+
+## 10. Against §8.1
+
+| clause                              |                                              |                                                                                                             |
+| ----------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| 1. eight defects lead               | **pass**                                     | `salmon` 345 → **Fish, salmon, Atlantic, wild, raw 142**; `almonds` 14.6 → **626**; the other six with them |
+| 2. twelve protected leads           | **pass**, `horse` excepted as pre-registered |                                                                                                             |
+| 3. zero broken pins bar one rewrite | **FAIL**                                     | 4 broken, **3 of them undeclared**                                                                          |
+| 4. gold `should_lead` ≥ 7           | **pass**                                     | unchanged at 7                                                                                              |
+| 5. `raw` half ≤ 40 additional leads | **FAIL**                                     | **82**                                                                                                      |
+
+**137 leads moved** of 3,976 queries: 52 the `designated` half, **82 the `raw` half**, 3 both. The ceiling was 40, chosen blind in §8.2, and the result is more than double it.
+
+## 11. Why 82 is the wrong number to argue about
+
+The ceiling exists to bound adjudication. Reading the 82 makes the count beside the point:
+
+| query     | today                                            | under the candidate                       |
+| --------- | ------------------------------------------------ | ----------------------------------------- |
+| `butter`  | Butter, Clarified butter (ghee) **900**          | **Butterbur, (fuki), raw 14**             |
+| `bread`   | Bread, white wheat **238**                       | **Breadfruit, raw 103**                   |
+| `milk`    | Milk, dry, whole, with added vitamin D **496**   | **Nuts, coconut milk, raw 230**           |
+| `salt`    | Salt, table **0**                                | **Pork, cured, salt pork, raw 748**       |
+| `honey`   | Honey **304**                                    | Apples, honeycrisp, with skin, raw **60** |
+| `ice`     | Ice cream, soft serve, chocolate **222**         | Lettuce, iceberg, raw **17.1**            |
+| `port`    | Cheese, port de salut **352**                    | Mushrooms, portabella, raw **22**         |
+| `cream`   | Cream, fluid, light **195**                      | Nuts, coconut cream, raw **330**          |
+| `mustard` | Mustard, prepared, yellow **61**                 | Mustard greens, raw **27**                |
+| `oats`    | Oats, whole grain, rolled, old fashioned **382** | Oat bran, raw **246**                     |
+
+`butter` is a **64× understatement**. And `milk` → `Nuts, coconut milk, raw` is the _same row_ ADR-0042's #153 Amendment named as the price of the full shelf-label roster, arriving by a completely different mechanism.
+
+The shape is one shape: with `raw` above `tier`, **any raw row that merely prefix-matches the query outranks the row the query names.** A `Butterbur` beats a butter because it is raw and butter is not. That is not a budget overrun to be trimmed; it is the key doing what promoting it means.
+
+## 12. Four pins broke, and only one was declared
+
+| pin                                                                 |                                                                                                                       |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| _"moves nothing on a head phrase only designated rows occupy"_      | **declared** in §7 — `caribou` → `Game meat, caribou, raw`                                                            |
+| _"says out loud that no key picks a tea"_                           | **undeclared.** §6 accepted the `tea` cost but missed that it is pinned in a **second** test, not the one §7 rewrites |
+| _"lets an alias account for a row, where a sibling flag must not"_  | **undeclared.** `oats` → `Oat bran, raw`, which is ADR-0050's alias machinery, not this ticket's subject at all       |
+| _"puts 186 more rows first by their own name, and takes none away"_ | **undeclared.** `lost: 0 → 3` — the #154 shelf-label tripwire, whose whole assertion is that nothing is taken away    |
+
+**§7's own method failed on its own terms.** It read the suite for the pin it expected to break and declared that one. Three more broke, in tests whose subject is a different ticket. Reading the file for _the_ pin a change touches is not the same as running it, and the note asserted the first while claiming the safety of the second.
+
+## 13. ADR-0055 §1 is breached, independently of the band
+
+Summed across all queries, designated rows inside the 50-row window fall from **845 to 784** — 61 demotions past `RESULT_LIMIT`. #159's constraints define exactly that as a drop: _"a demotion past `RESULT_LIMIT` is a drop as the user meets it."_
+
+This is a red line rather than a band clause, and it would have disqualified the candidate on its own. ADR-0055 §1's measurement in #153's Amendment held because that change kept the window count identical; this one does not.
+
+## 14. What this establishes, generally
+
+**Self-gating is the property that decides whether a key may be promoted above `tier`.**
+
+`designated` self-gates: 151 rows of 4,335, and 216 of 271 designated leads are unchanged because no non-designated row is retrieved. Its half moved 52 leads and every one was readable.
+
+`raw` does not, and cannot. It touches ~40% of the corpus and is orthogonal to what the query names, so promoting it lets an unrelated raw food win any query whose named food happens not to be raw. **ADR-0042 §1's clause "rank relevance first, then raw base forms" is not an ordering preference; it is what stops the raw key from answering a question it was never asked.**
+
+That widens what ADR-0042's #153 Amendment closed. #153 closed one family — `tier` and `head` reading the shelf-label roster. What this closes is more general: **no key may sit above `tier` unless it is silent on the queries it does not concern**, and only `designated` has been shown to be.
+
+## 15. The `designated` half is not salvaged here, deliberately
+
+It looked adjudicable — 52 moved leads, six real wins, one real loss. Shipping it alone would be a candidate narrowed **after seeing which cases spoiled the measurement**, which §8.2 forbids in so many words.
+
+It also would not fix this ticket. `designated` alone leaves `salmon` leading with `Salmon nuggets, cooked as purchased, unheated` at 189 kcal, and §1 records that a lead on the nugget is not the acceptance.
+
+So it is left where it is. A `designated`-only promotion is available to a **fresh pre-registration** that states its own band before running, and that band now has to answer §12 as well: three of the four broken pins here belong to other tickets, and a candidate touching `compareRelevance` must run the whole suite rather than reading it for the pin it expects.
+
+## 16. What #159 leaves standing
+
+`salmon` still leads with a 345 kcal smoked sockeye, and `almonds` with a 14.6 kcal almond milk against a 626 kcal nut. Both defects are real, both are measured, and neither has a mechanism that survives its own price.

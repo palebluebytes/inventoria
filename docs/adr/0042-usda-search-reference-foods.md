@@ -1876,3 +1876,101 @@ are.
 `isSeparatedFat`, `AGGREGATE_OF_CUTS`, `ReferenceFoodName.wholeness`,
 `NameKey.wholeness`, the `compareRelevance` slot); pinned in
 `tests/unit/usda-corpus.test.ts`.
+
+## Amendment (2026-08-24, #159): no key sits above `tier` unless it is silent on the queries it does not concern
+
+[#159](https://github.com/palebluebytes/inventoria/issues/159) asked why a typed
+`salmon` leads with a smoked sockeye published for a designated population at 345
+kcal, then a breaded nugget, then a berry, with the first ordinary fillet at rank
+4 of 34. The three offenders sit on three different rungs of §1's ladder, which
+is what makes a single-rung answer useless: demote the sockeye and the nugget
+without the berry and the lead becomes a 47 kcal `Salmonberries`.
+
+The candidate promoted two keys above `tier` —
+`designated → raw → tier → head → …`, `raw` and `tier` swapping and ADR-0055's
+`designated` key moving from last to first. It was pre-registered in
+[research note #159](../research/159-name-match-versus-base-form.md) before the
+sweep, with a 40-lead ceiling chosen blind.
+
+**It is refused, and nothing changed: no ranking code, no test, no filter, no
+`schema_version`.**
+
+### It works, and the price is a different food
+
+`salmon` does lead with `Fish, salmon, Atlantic, wild, raw` at 142 kcal, and
+`almonds` with `Nuts, almonds, whole, raw` at 626 against an almond milk's 14.6.
+Eight named defects, all fixed.
+
+The `raw` half moved **82 leads** against the ceiling of 40, and reading them
+makes the count beside the point:
+
+| query    | today                                    | under the candidate                 |
+| -------- | ---------------------------------------- | ----------------------------------- |
+| `butter` | Butter, Clarified butter (ghee) **900**  | **Butterbur, (fuki), raw 14**       |
+| `bread`  | Bread, white wheat **238**               | **Breadfruit, raw 103**             |
+| `milk`   | Milk, dry, whole, … **496**              | **Nuts, coconut milk, raw 230**     |
+| `salt`   | Salt, table **0**                        | **Pork, cured, salt pork, raw 748** |
+| `honey`  | Honey **304**                            | Apples, honeycrisp, raw **60**      |
+| `ice`    | Ice cream, soft serve, chocolate **222** | Lettuce, iceberg, raw **17.1**      |
+
+`butter` is a 64× understatement, and `milk` lands on the row the #153 Amendment
+above already named as the price of the full shelf-label roster — reached here by
+a completely unrelated mechanism.
+
+### The general rule this establishes
+
+With `raw` above `tier`, **any raw row that merely prefix-matches the query
+outranks the row the query names.** A butterbur beats a butter because it is raw
+and butter is not.
+
+So §1's clause "rank relevance first, then raw base forms" is not an ordering
+preference. It is what stops the raw key from answering a question it was never
+asked, and it stays where it is.
+
+That generalises what the #153 Amendment closed. #153 closed one family: `tier`
+and `head` reading `SHELF_LABEL_HEAD`. This closes a wider one — **no key may sit
+above `tier` unless it is silent on the queries it does not concern.** `raw`
+touches ~40% of the corpus and is orthogonal to what a query names, so it can
+never satisfy that. `designated` can: 151 rows of 4,335, and 216 of 271
+designated leads unchanged because no non-designated row is retrieved at all.
+
+### Three of the four broken pins belonged to other tickets
+
+The pre-registration read `usda-corpus.test.ts` for the pin it expected to break
+and declared that one. Four broke. The declared one was
+"moves nothing on a head phrase only designated rows occupy"; the other three
+were the `tea` pin (a second test, which #159 accepted the cost in but did not
+know was pinned twice), the ADR-0050 alias pin (`oats` →
+`Oat bran, raw`), and #154's own shelf-label tripwire, whose `lost` count went
+from 0 to 3 against an assertion that nothing is taken away.
+
+**Reading the suite for the pin a change touches is not running it.** A candidate
+that edits `compareRelevance` runs the whole suite before its band is judged.
+
+### ADR-0055 §1 was breached, which #153's variants never were
+
+Designated rows inside the 50-row window fall from **845 to 784** summed across
+the sweep, and #159 defines a demotion past `RESULT_LIMIT` as a drop. That is a
+red line rather than a band clause, and it disqualifies the candidate on its own.
+The #153 Amendment above reports the window count identical before and after for
+every variant it measured; this is the first candidate to move it.
+
+### The `designated` half is left unshipped on purpose
+
+Measured alone it is adjudicable — 52 moved leads, six real wins, one real loss
+(`buffalo` → `Game meat, buffalo, water, raw`, the wrong animal at a 2 kcal
+price). Shipping it here would be a candidate narrowed after seeing which cases
+spoiled the measurement, which the pre-registration forbids in so many words, and
+it does not fix the ticket anyway: `designated` alone leaves `salmon` leading
+with `Salmon nuggets, cooked as purchased, unheated` at 189 kcal.
+
+It is available to a fresh pre-registration that states its own band first.
+[#163](https://github.com/palebluebytes/inventoria/issues/163) carries the
+`buffalo` half of its price separately, as a vocabulary question rather than a
+ranking one.
+
+### What is left standing
+
+`salmon` still leads with a 345 kcal smoked sockeye and `almonds` with a 14.6
+kcal almond milk. Both defects are real, both are measured, and neither has a
+mechanism that survives its own price.
