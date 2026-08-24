@@ -30,6 +30,7 @@ import {
 import {
   compareRelevance,
   compileReferenceFoodQuery,
+  isSeparatedFat,
   qualifiersOf,
   readReferenceFoodName,
   readRowRank,
@@ -777,9 +778,19 @@ describe("searchIndexRows", () => {
       .filter((c) => c.should_lead)
       .filter((c) => descriptionsFor(c.head)[0] === c.should_lead)
       .map((c) => c.head);
-    // Six, and #143's own five plus `almond milk`, whose two rows its note calls
-    // peers. ADR-0055's keys neither added to this nor took from it — they reach
-    // a different class, which is the measurement the amendment reports.
+    // Seven: #143's own five, plus `almond milk`, whose two rows its note calls
+    // peers, plus `veal`, which #162's `wholeness` key reached. ADR-0055's keys
+    // neither added to this nor took from it — they reach a different class,
+    // which is the measurement that amendment reports.
+    //
+    // `beef` is NOT here and is not expected to be. #143 designated
+    // `Beef, grass-fed, ground, raw` for it, unratified, and #162 lands on the
+    // composite row instead — deliberately, because `pork` and `lamb` are both
+    // pinned as composites and because #155 measured and rejected the key that
+    // takes all four generic animals to a `… ground, raw` row. The gold set is
+    // #143's committed pre-registration and is left as it was written; the
+    // disagreement is recorded in ADR-0042's #162 Amendment rather than edited
+    // out of the artifact.
     expect(leading).toEqual([
       "almond milk",
       "millet",
@@ -787,6 +798,7 @@ describe("searchIndexRows", () => {
       "teff",
       "tempeh",
       "vanilla extract",
+      "veal",
     ]);
   });
 
@@ -1173,6 +1185,93 @@ describe("searchIndexRows", () => {
     ] as const) {
       expect([query, descriptionsFor(query)[0]]).toEqual([query, expected]);
     }
+  });
+
+  it("answers a bare animal name with the animal, not the fat trimmed off it", () => {
+    // #162. `beef` tied 412 rows on every one of the nine keys — the query IS
+    // the head phrase of all 412 — so `Array.sort`'s stability handed the lead
+    // to the lowest `fdcId`, and what it dealt was `Beef, retail cuts,
+    // separable fat, raw` at 674 kcal against a lean cut's 149. The second
+    // largest calorie spread in #158's whole tie class, and nothing pinned it:
+    // `chicken`, `turkey`, `pork` and `lamb` were pinned above and `beef` was
+    // not, which is half of why it sat unnoticed.
+    //
+    // `wholeness` decides it, and USDA's own word does the deciding. These two
+    // are the exact analogue of the `pork` and `lamb` rows pinned above.
+    expect(descriptionsFor("beef")[0]).toBe(
+      'Beef, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/8" fat, all grades, raw'
+    );
+    expect(descriptionsFor("veal")[0]).toBe(
+      "Veal, composite of trimmed retail cuts, separable lean and fat, raw"
+    );
+  });
+
+  it("answers a query that does not name a fat with a food, not with the fat", () => {
+    // The shape behind `beef`, rather than the one query. Eleven of #158's
+    // 1,115 complete ties led with a row that is the fat trimmed off a food:
+    // `separable fat`, `external fat`, `seam fat`, `intermuscular fat`,
+    // `subcutaneous fat`. `wagyu beef` is the one a person types, and it led
+    // with 596 kcal of external fat.
+    //
+    // Those eleven were six distinct rows under eleven sweep spellings, and
+    // every one of the six is here, plus `veal`. `aust beef`, `imported beef`,
+    // `fresh lamb` and `imported lamb` reach rows this list already names. The
+    // predicate is ASKED rather than restated (#131).
+    for (const query of [
+      "beef",
+      "veal",
+      "wagyu beef",
+      "australian beef",
+      "australian lamb",
+      "new lamb",
+      "frozen lamb",
+      "bowhead whale",
+    ] as const) {
+      const lead = descriptionsFor(query)[0];
+      expect([query, lead && isSeparatedFat(lead)]).toEqual([query, false]);
+    }
+  });
+
+  it("still hands a query that DOES name a fat the fat it named", () => {
+    // The boundary, pinned rather than left implied — the title above is not
+    // "never leads with a separated fat", and 24 sweep queries still do.
+    //
+    // Sixteen of the 24 retrieve no other kind of row at all (`seam beef`,
+    // `tallow`, `intermuscular lamb`), which is the same self-gating `plain`
+    // relies on: literal retrieval admits a row only when every typed token
+    // matches it, so a typed fat word is in every candidate. Of the other
+    // eight, six are decided by `position` and two by `tier`, both above
+    // `wholeness`. `retail beef` is the sharpest and is the case to read:
+    // `retail` is word 1 of `Beef, retail cuts, separable
+    // fat, raw` and word 4 of `Beef, composite of trimmed retail cuts, …`, so
+    // the fat row wins outright rather than tying, and 23 non-fat rows sit
+    // below it.
+    //
+    // That is #124's key doing its job, not this one failing: `wholeness` sits
+    // below `position` precisely so a composite cannot answer a query naming
+    // something it mentions in passing. Both rows are on screen.
+    expect(descriptionsFor("retail beef")[0]).toBe(
+      "Beef, retail cuts, separable fat, raw"
+    );
+    expect(descriptionsFor("seam beef")[0]).toBe(
+      "Beef, Australian, imported, Wagyu, seam fat, Aust. marble score 4/5, raw"
+    );
+  });
+
+  it("pins what the composite preference costs, as itself", () => {
+    // #155's precedent again: a key's collateral is pinned rather than left for
+    // somebody to rediscover and read as a fresh bug. Sixteen leads moved in a
+    // 3,976-query sweep — eleven leaving a separated fat, three a muskrat, and
+    // `veal` an Australian rib roast — and this is the one that goes the other
+    // way.
+    //
+    // `tri` prefix-matches `trimmed`, so the composite answers a query naming
+    // the tri-tip. It is a sweep-generated `adjective noun` pair rather than a
+    // phrase anyone types, which is why it was accepted rather than designed
+    // around — but it is the whole cost, so it is written down.
+    expect(descriptionsFor("tri beef")[0]).toBe(
+      'Beef, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/8" fat, all grades, raw'
+    );
   });
 
   it("still needs raw simplicity, which the reserved slot was to have absorbed", () => {

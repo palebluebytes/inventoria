@@ -122,6 +122,56 @@ const PREPARED_FORM =
   /\b(cooked|boiled|roasted|baked|fried|broiled|grilled|braised|steamed|stewed|simmered|poached|microwaved|toasted|blanched|sauteed)\b/i;
 
 /**
+ * Names a qualifier that is a fat SEPARATED from a food, rather than a food.
+ *
+ * The distinction #162 turns on, and it is a narrower one than it looks. USDA
+ * writes `separable lean and fat` on the rows that ARE the meat and
+ * `separable fat` on the fat a butcher trims off it, so a marker reading the
+ * words `separable` or `fat` selects for both — which is why #143's part key
+ * broke four correct leads. This matches a WHOLE qualifier, the mechanism
+ * {@link MODIFIED_PART} exists for, and that exactness is the whole guard.
+ * `separable lean and fat` alone is 759 rows spanning 107 to 471 kcal, and
+ * `lean and fat`, `boneless separable lean and fat` and
+ * `separable lean and fat only` one row each at 172, 127 and 157; all four are
+ * real meat, and all four are outside this.
+ *
+ * Eight qualifier words and the bare form, because demoting one spelling hands
+ * the lead to the next: taking `external fat` out of `australian beef` promoted
+ * `seam fat` at 562 kcal. Reaches 51 rows, every one of them read, and the
+ * panel says what the name does — the lightest is 444 kcal and the heaviest
+ * 902, where the heaviest row the exclusions keep is 471. The optional trailing
+ * parentheses are USDA's own annotations, `(from ham and arm picnic)` and
+ * `(Alaska Native)`.
+ *
+ * `Whale, bowhead, skin and subcutaneous fat (muktuk) (Alaska Native)` is
+ * deliberately outside it at 465 kcal: muktuk is a food people eat, not a
+ * fraction anyone discards, and it is what `bowhead whale` leads with now.
+ */
+const SEPARATED_FAT =
+  /^(?:composite of )?(?:(?:separable|external|seam|intermuscular|subcutaneous|leaf|rendered|animal) )?fat(?: only)?(?: \([^)]*\))*$/;
+
+/**
+ * Names a row USDA published as the AVERAGE of a food's cuts rather than as one
+ * of them: `Beef, composite of trimmed retail cuts, …`,
+ * `Game meat, rabbit, domesticated, composite of cuts, …`.
+ *
+ * A phrase and not the bare word, measured: `composite` alone reaches 70 rows
+ * and eight of them are a margarine or a shortening blended from several
+ * brands, which is a different sense of the word entirely. `composite of`
+ * reaches 61, across five head phrases — beef, pork, lamb, veal and game meat —
+ * and every one of them is USDA averaging an animal over its cuts.
+ *
+ * 70 less 8 is 62, and the ninth row the phrase drops is stated rather than
+ * rounded away: `Beef composite, separable lean only, trimmed to 1/8" fat,
+ * choice, cooked` is a real composite USDA spelled without the `of`. It is
+ * left out. It is cooked, so `raw` demotes it below every raw candidate two
+ * keys earlier and it can never lead a bare `beef`; and a clause reaching one
+ * row by its head phrase is a denylist entry in a predicate's clothes, which is
+ * the test #157 was cut on.
+ */
+const COMPOSITE_OF_CUTS = /\bcomposite of\b/i;
+
+/**
  * A reference food's name, read the way ranking reads it: as words rather than
  * as a string, with the query-independent half of the score already settled.
  *
@@ -162,6 +212,11 @@ export interface ReferenceFoodName {
   simplicity: number;
   /** 1 for a name that is neither a modified form nor a prepared one (#143). */
   plain: number;
+  /**
+   * How much of its food this row is a record of: 2 the whole animal averaged
+   * over its cuts, 0 a fat separated from it, 1 anything in between (#162).
+   */
+  wholeness: number;
 }
 
 /**
@@ -255,6 +310,26 @@ export const qualifiersOf = (description: string): string[] =>
     .filter(Boolean);
 
 /**
+ * Whether any of a name's qualifiers names a fat separated from the food.
+ *
+ * Taken over qualifiers already split, so the scoring path does not pay for a
+ * second split; {@link isSeparatedFat} is the same question asked of a whole
+ * description, and there is still only ONE answer to it.
+ */
+const hasSeparatedFat = (parts: readonly string[]): boolean =>
+  parts.some((part) => SEPARATED_FAT.test(part));
+
+/**
+ * Whether a description names a fat separated from a food rather than a food.
+ *
+ * Exported so a test can ask the predicate rather than restate it (#131): a
+ * second spelling of {@link SEPARATED_FAT} in the suite would be free to drift
+ * from the one the app applies, and the way it drifts is silent.
+ */
+export const isSeparatedFat = (description: string): boolean =>
+  hasSeparatedFat(qualifiersOf(description));
+
+/**
  * Reads a description into the shape ranking compares. Pure, and cheap enough to
  * call per search hit; the bundled corpus calls it once per row at load instead.
  */
@@ -285,6 +360,16 @@ export function readReferenceFoodName(description: string): ReferenceFoodName {
     parts.some((part) => MODIFIED_PART.has(part))
       ? 0
       : 1;
+  // How much of the food the row is a record OF. The separated-fat test runs
+  // first because the two markers overlap and the fraction wins when they do:
+  // `Veal, composite of trimmed retail cuts, separable fat, raw` is USDA
+  // averaging the TRIMMINGS over the cuts, at 638 kcal, and it is the row a
+  // composite preference alone would have handed `veal`.
+  const wholeness = hasSeparatedFat(parts)
+    ? 0
+    : COMPOSITE_OF_CUTS.test(lower)
+      ? 2
+      : 1;
   return {
     words,
     stems: words.map(stemOf),
@@ -294,6 +379,7 @@ export function readReferenceFoodName(description: string): ReferenceFoodName {
     raw,
     simplicity,
     plain,
+    wholeness,
   };
 }
 
@@ -425,6 +511,54 @@ export interface NameKey {
    * "low fat milk" is not demoted by it, measured over 15 such queries.
    */
   plain: number;
+  /**
+   * How much of its food this row is a record of: 2 the whole animal averaged
+   * over its cuts, 0 a fat separated from it, 1 anything in between.
+   *
+   * This IS the whole-over-part key #143 measured and rejected, and it works
+   * for the reason that one failed: it does not read part vocabulary. USDA
+   * names its most GENERIC animal rows with the most part words — a whole
+   * chicken is "meat and skin and giblets and neck" — so `separable`, `lean`,
+   * `fat` and `retail cuts` select FOR the canonical row as readily as against
+   * a trimming, and #143's key broke four correct leads on exactly that. What
+   * this reads instead is USDA's own word for a composite of cuts,
+   * `composite of`, and a closed list of whole qualifiers naming a separated
+   * fat. See {@link COMPOSITE_OF_CUTS} and {@link SEPARATED_FAT}.
+   *
+   * Measured over the same 3,976-query sweep the other keys are priced on, it
+   * moves 16 leads, and it is the only key in this list that EXPLAINS four
+   * leads the suite already pinned. `pork` and `lamb` lead with a composite row
+   * and always have — but their ties were 84 and 129 rows deep and no key
+   * separated them, so both leads were dealt by `fdcId` rather than won
+   * (#158 §4). This key takes those ties to 5 and 8, keeping the same two rows.
+   * `turkey` has no composite and no fat row in its tie, so it ties uniformly
+   * at 1 and nothing moves; `chicken` fires only to demote
+   * `Chicken, broilers or fryers, separable fat, raw`, 58 rows to 57, and keeps
+   * its lead.
+   *
+   * Its slot WAS measured, and half of it matters. From `position` downwards —
+   * after `position`, after `plainSibling`, here, or after `simplicity` — the
+   * same 16 leads move and no others, so among those four the placement is an
+   * argument: it sits after `plain` because it asks `plain`'s question one step
+   * further out, `plain` asking whether this is the food in its plain form and
+   * this asking whether the row is a record of the food at all.
+   *
+   * ABOVE `position` it is a different key, moving 34 more leads, and those are
+   * the reason it is not there. It starts overriding where the query's words
+   * landed: `blade pork` goes from `Pork, fresh, loin, blade (chops or roasts),
+   * …` to `Pork, fresh, composite of trimmed retail cuts (loin and shoulder
+   * blade), …`, which is a composite mentioning "blade" in passing answering a
+   * query that names a chop. #124 adopted `position` to stop exactly that, and
+   * a wholeness preference is not entitled to outrank it.
+   *
+   * What it deliberately leaves is the tie UNDER the composite marker. USDA
+   * publishes twelve raw beef composites, one per grade and trim, and no key
+   * here separates `all grades` from `choice` or 0" from 1/8" — so `beef` is
+   * still an `fdcId` accident among rows spanning 130 to 224 kcal. That is a
+   * 94 kcal accident where it was a 777 kcal one, and closing it needs a
+   * grade/trim preference nothing in this ranking has asked for yet.
+   */
+  wholeness: number;
   /** The name's raw simplicity, carried through for the same reason. */
   simplicity: number;
 }
@@ -449,6 +583,7 @@ const NO_MATCH: NameKey = {
   accounted: 0,
   position: 0,
   plain: 0,
+  wholeness: 0,
   simplicity: 0,
 };
 
@@ -478,6 +613,7 @@ export function compareRelevance(a: RelevanceKey, b: RelevanceKey): number {
     b.position - a.position ||
     b.plainSibling - a.plainSibling ||
     b.plain - a.plain ||
+    b.wholeness - a.wholeness ||
     b.simplicity - a.simplicity ||
     b.designated - a.designated
   );
@@ -526,6 +662,7 @@ export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
     raw,
     simplicity,
     plain,
+    wholeness,
   }) => {
     // Weakest signal: every token prefix-matches some word (this is what lets
     // grapefruit in for a "grape" query). Strongest of the name-wide signals:
@@ -629,6 +766,7 @@ export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
       accounted,
       position,
       plain,
+      wholeness,
       simplicity,
     };
   };
