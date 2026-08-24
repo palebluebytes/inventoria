@@ -39,7 +39,7 @@ import type { EntityPayload } from "../../src/lib/ingestion/ingest";
 
 // The committed artifact itself is the fixture (ADR-0047 §3). Search is only
 // keyless and offline if it answers from THIS file, so the ADR-0042 ordering
-// cases are asserted over the 4,360 rows the app actually ships rather than
+// cases are asserted over the 4,358 rows the app actually ships rather than
 // over a hand-built stand-in that could agree with the code and not the data.
 const index: SearchIndex = JSON.parse(
   readFileSync("public/usda/search-index.json", "utf8")
@@ -61,7 +61,7 @@ describe("the bundled search index", () => {
   });
 
   it("is the surviving reference foods, and says which archives it came from", () => {
-    expect(index.foods.length).toBe(4360);
+    expect(index.foods.length).toBe(4358);
     expect(index.generated_from.map((a) => a.dataset)).toEqual([
       "Foundation Foods",
       "SR Legacy",
@@ -155,6 +155,7 @@ describe("the bundled search index", () => {
       "zespri",
       "cream of wheat",
       "cream of rice",
+      "muscle milk",
       "post",
       "almond joy",
     ];
@@ -164,6 +165,23 @@ describe("the bundled search index", () => {
       )
     );
     expect(leaked.map((row) => row.description)).toEqual([]);
+  });
+
+  it("answers 'protein powder' with the supplements, not the trademark", () => {
+    // #152. USDA rendered "Muscle Milk" in Title Case, so it read to the caps
+    // rule like any cultivar and led the query over the three generic powders
+    // behind it. What makes the drop correct is the second assertion, not the
+    // first: the denylist names one trademark, and ADR-0055 §7 refused the
+    // powder-or-supplement marker that would have taken the aisle with it.
+    const found = descriptionsFor("protein powder");
+    expect(
+      found.filter((description) => /muscle milk/i.test(description))
+    ).toEqual([]);
+    expect(found.slice(0, 3)).toEqual([
+      "Beverages, Protein powder whey based",
+      "Beverages, Protein powder soy based",
+      "Beverages, Whey protein powder isolate",
+    ]);
   });
 
   it("holds nothing its own filters would reject", () => {
@@ -845,7 +863,7 @@ describe("searchIndexRows", () => {
     // Pinned as the two counts rather than the one, because a later key could
     // improve the total while quietly costing a row that leads today. Nothing
     // regressed here: 184 rows gained the lead and none lost it.
-    // 4,360 queries over 4,360 rows, so the winner is taken in one pass rather
+    // 4,358 queries over 4,358 rows, so the winner is taken in one pass rather
     // than by sorting each result list — the sort costs seconds, the scan does
     // not, and only the leading row is being asked about. Each query is ordered
     // twice: once under the shipped keys, and once under the four that preceded
@@ -1240,7 +1258,7 @@ describe("storedPanelFor", () => {
   it("rebuilds every row's macros exactly, across the whole corpus", () => {
     // The two artifacts are generated from one merged record, so a row's macros
     // and the store's amounts are the same numbers twice. Assert it over all
-    // 4,360 rather than on one food: a generator change that filled one artifact
+    // 4,358 rather than on one food: a generator change that filled one artifact
     // and not the other would otherwise ship silently.
     const disagreeing = index.foods.filter((row) => {
       const panel = storedPanelFor(store, row.fdcId);

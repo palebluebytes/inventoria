@@ -2,7 +2,7 @@
  * ADR-0042's reference-food ranking: how a free-text query orders the foods it
  * reaches. Its own module because it outlives its first caller — the FDC search
  * API built it, and the bundled corpus (ADR-0047) is what runs it now, over
- * 4,360 rows per keystroke rather than over one page of API results.
+ * 4,358 rows per keystroke rather than over one page of API results.
  *
  * Most of the ordering reads a NAME. Two keys read the ROW instead (ADR-0055),
  * and the section at the bottom of this file is theirs: whether a plainer twin
@@ -48,7 +48,7 @@ const PREPARED_FORM =
  * as a string, with the query-independent half of the score already settled.
  *
  * Separated from the description because the corpus a keystroke ranks is now the
- * whole 4,360-row Search index (ADR-0047 §4). Re-splitting every description on
+ * whole 4,358-row Search index (ADR-0047 §4). Re-splitting every description on
  * every keystroke measured 17 ms; splitting each once and comparing the words
  * costs 1.4 ms, and the split does not depend on what was typed.
  */
@@ -520,7 +520,7 @@ const qualifiersOf = (description: string): string[] =>
  * - **A row is never its own sibling.** A strict prefix has strictly fewer
  *   parts, so a name cannot be a prefix of itself however it is spelled.
  *
- * Reaches 128 of the 4,360 shipped rows under 78 parents, the largest two being
+ * Reaches 128 of the 4,358 shipped rows under 78 parents, the largest two being
  * the 15 red and 13 white varietal wines that sent #134's author looking for a
  * drop rule.
  */

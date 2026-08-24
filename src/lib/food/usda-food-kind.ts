@@ -45,7 +45,7 @@
 // APPLEBEE'S, "almond" kept ALMOND JOY, because a generic food word capitalised
 // inside a brand name matched the query.)
 //
-// Precision comes first — never drop a real food. The generator reports 922 of
+// Precision comes first — never drop a real food. The generator reports 924 of
 // 7,974 merged identities dropped here, 0 of them generic foods (the sole raw
 // casualty is "Kiwifruit, ZESPRI SunGold, raw", and generic kiwi remains).
 // Three guards keep it precise:
@@ -115,11 +115,12 @@ const GENERIC_FOOD_SAFELIST = ["assorted brands"];
 // the safelist above (so the generic "assorted brands" farina that merely names
 // one is still kept).
 //
-// Deliberately a list of four rather than a Title-Case proper-noun rule: 697
-// corpus rows carry a mid-description Title-Case token and nearly all name a
-// cultivar, grade, geography or varietal ("Tommy Atkins", "Grade A", "New
-// Zealand", "Pinot Noir"), so widening would cost precision this filter is built
-// to protect (ADR-0042 §3).
+// Deliberately a roster of named trademarks rather than a Title-Case
+// proper-noun rule: 697 corpus rows carry a mid-description Title-Case token and
+// nearly all name a cultivar, grade, geography or varietal ("Tommy Atkins",
+// "Grade A", "New Zealand", "Pinot Noir"), so widening would cost precision this
+// filter is built to protect (ADR-0042 §3). It grows one measured entry at a
+// time; "muscle milk" is #152's.
 const TRADEMARK_DENYLIST = [
   "cream of wheat",
   "cream of rice",
@@ -127,6 +128,7 @@ const TRADEMARK_DENYLIST = [
   "reddi wip",
   "creamsicle",
   "natreon",
+  "muscle milk",
 ];
 
 /**

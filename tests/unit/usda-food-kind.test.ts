@@ -61,7 +61,7 @@ describe("isBrandSpecific", () => {
   it("drops a Title-Case trademark the caps rule cannot see", () => {
     // #131's other hole: a trademark USDA did not shout. There is no ALL-CAPS
     // token to find and no processing marker in the description, so only the
-    // denylist catches these four.
+    // denylist catches these five entries — six rows, because #152's takes two.
     expect(
       isBrandSpecific(
         "Beverages, Powerade Zero Ion4, calorie-free, assorted flavors"
@@ -74,12 +74,35 @@ describe("isBrandSpecific", () => {
         "Oil, vegetable, Natreon canola, high stability, non trans, high oleic (70%)"
       )
     ).toBe(true);
+    // #152. One entry takes both rows, the base product and its Light variant,
+    // because the denylist matches a lowercased substring.
+    expect(
+      isBrandSpecific("Protein supplement, milk based, Muscle Milk, powder")
+    ).toBe(true);
+    expect(
+      isBrandSpecific(
+        "Protein supplement, milk based, Muscle Milk Light, powder"
+      )
+    ).toBe(true);
+  });
+
+  it("keeps the generic protein supplements the Muscle Milk entry stands next to", () => {
+    // #152's other half: the denylist names a trademark, not a food kind. A
+    // powder or supplement marker was refused (ADR-0055 §7), so these three
+    // have to answer "protein powder" with no brand in front of them.
+    expect(isBrandSpecific("Beverages, Whey protein powder isolate")).toBe(
+      false
+    );
+    expect(isBrandSpecific("Beverages, Protein powder whey based")).toBe(false);
+    expect(isBrandSpecific("Beverages, Protein powder soy based")).toBe(false);
   });
 
   it("keeps the Title-Case cultivars and grades a proper-noun rule would eat", () => {
-    // Why #131 denylists four records instead of widening to Title Case: 697
-    // corpus rows carry a mid-description Title-Case token and nearly all name a
-    // cultivar, grade, geography or varietal rather than a brand.
+    // Why the denylist names trademarks one at a time instead of widening to
+    // Title Case: 697 corpus rows carry a mid-description Title-Case token and
+    // nearly all name a cultivar, grade, geography or varietal rather than a
+    // brand. #131 measured it, #152 paid the price of it again, and the rule is
+    // still not worth having.
     expect(isBrandSpecific("Mango, Tommy Atkins, peeled, raw")).toBe(false);
     expect(isBrandSpecific("Eggs, Grade A, Large, egg white")).toBe(false);
     expect(

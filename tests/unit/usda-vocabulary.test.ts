@@ -334,7 +334,7 @@ describe("assertLocalVocabularyHolds — the four admissions, three of them mech
   /**
    * What each phrase leads with, given a vocabulary. Injected the way
    * `countMatches` is, so the admissions are asserted against a handful of
-   * stated answers rather than against 4,360 rows — and so the one impure,
+   * stated answers rather than against 4,358 rows — and so the one impure,
    * expensive step stays in {@link leadingRowReader}.
    */
   const corpus: Record<string, string> = {
