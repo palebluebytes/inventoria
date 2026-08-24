@@ -32,6 +32,7 @@ import {
   compileReferenceFoodQuery,
   qualifiersOf,
   readReferenceFoodName,
+  readRowRank,
   stemOf,
   type RelevanceKey,
 } from "../../src/lib/food/reference-food-ranking";
@@ -793,6 +794,74 @@ describe("searchIndexRows", () => {
     const lead = descriptionsFor("wine")[0];
     expect(lead).not.toMatch(/non-alcoholic|cooking|light/);
     expect(lead).toBe("Alcoholic beverages, wine, rose");
+  });
+
+  it("says out loud that no key picks a tea, rather than pretending one does", () => {
+    // #158, measured and NOT fixed. Every ordinary tea is `Beverages, tea, …`,
+    // so the query is a qualifier match at rung 20 and no key below `tier` can
+    // see past the two `Tea, …` rows above them — that gap is #153's, refused
+    // at three scopes, and #159 owns what is left of it. This test is about the
+    // rung below: given the tea rows alone, which one is the tea?
+    //
+    // None of them, by any key this ranking has. Eight produce ONE key and the
+    // ninth is separated only because ADR-0055 §3 caught it — the decaffeinated
+    // tap-water row's name is a strict extension of the plain tap-water row's,
+    // so `plainSibling` demotes it. That is the whole of what the ranking
+    // decides here. The other eight fall to `Array.prototype.sort`'s stability,
+    // which is to say to `fdcId`.
+    //
+    // The ticket, ADR-0055's Consequences and #153's proposed tripwire all said
+    // "identical on all nine keys". Two counts, both wrong, and a tripwire
+    // written to that claim would have failed the day it landed.
+    const rank = compileReferenceFoodQuery("tea");
+    const teas = index.foods.filter((row) =>
+      row.description.startsWith("Beverages, tea,")
+    );
+    const keyed = teas.map((row) => ({
+      description: row.description,
+      key: {
+        ...rank(readReferenceFoodName(row.description)),
+        ...readRowRank(row),
+      },
+    }));
+    expect(keyed).toHaveLength(9);
+
+    const distinct = new Set(keyed.map(({ key }) => JSON.stringify(key)));
+    expect(distinct.size).toBe(2);
+    expect(
+      keyed
+        .filter(({ key }) => key.plainSibling === 0)
+        .map(({ description }) => description)
+    ).toEqual([
+      "Beverages, tea, black, brewed, prepared with tap water, decaffeinated",
+    ]);
+
+    // And `designated` is not the key that decides among the rest, though the
+    // record used to say so: none of the nine is an American Indian/Alaska
+    // Native record, so the key ties at 1 across all of them.
+    expect(new Set(keyed.map(({ key }) => key.designated))).toEqual(
+      new Set([1])
+    );
+
+    // The record, not a win. Ordered among themselves the eight lead with a
+    // DECAFFEINATED GREEN tea, on nothing but the lowest `fdcId` — so there is
+    // no invariant of the `wine` test's shape available here, because the row
+    // an invariant would exclude is the row that leads. Nothing was shipped for
+    // the reason this line makes plain: every one of the nine is 0–1 kcal with
+    // near-identical panels, so the accident costs a user at most 1 kcal, and
+    // the black tea they meant is four rows down a list of twelve.
+    const ordered = [...keyed].sort((a, b) => compareRelevance(a.key, b.key));
+    expect(ordered[0].description).toBe(
+      "Beverages, tea, green, brewed, decaffeinated"
+    );
+
+    // What the user actually meets today, pinned so that #159 landing shows up
+    // here as a failure rather than as a silent change of subject. When the
+    // tier gap closes, this becomes the decaffeinated green tea above — which
+    // is the watch item #159 carries.
+    expect(descriptionsFor("tea")[0]).toBe(
+      "Tea, tundra, herb and laborador combination (Alaska Native)"
+    );
   });
 
   it("leads with the oil, not the emulsifier or the blend", () => {
