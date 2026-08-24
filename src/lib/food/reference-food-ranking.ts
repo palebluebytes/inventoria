@@ -3,6 +3,12 @@
  * reaches. Its own module because it outlives its first caller — the FDC search
  * API built it, and the bundled corpus (ADR-0047) is what runs it now, over
  * 4,360 rows per keystroke rather than over one page of API results.
+ *
+ * Most of the ordering reads a NAME. Two keys read the ROW instead (ADR-0055),
+ * and the section at the bottom of this file is theirs: whether a plainer twin
+ * of the food exists elsewhere in the corpus, and whether USDA published the
+ * record for a designated population. Neither is legible from a description,
+ * which is why they are not fields of {@link ReferenceFoodName}.
  */
 
 /**
@@ -170,7 +176,7 @@ export function readReferenceFoodName(description: string): ReferenceFoodName {
  * Larger is better in every field, and each is only consulted when the one
  * before it ties.
  */
-export interface RelevanceKey {
+export interface RelevanceKey extends RowRank {
   /**
    * Structural relevance, strongest first. Every rung asks the same question —
    * how much of the food's OWN NAME the query accounts for — because USDA names
@@ -272,22 +278,36 @@ const NO_MATCH: RelevanceKey = {
   raw: 0,
   head: 0,
   position: 0,
+  plainSibling: 1,
   plain: 0,
   simplicity: 0,
+  designated: 1,
 };
 
 /** A head phrase the query does not cover, ranked below every one it does. */
 const HEAD_UNMATCHED = -1e6;
 
-/** Orders two relevance keys best-first, for `Array.prototype.sort`. */
+/**
+ * Orders two relevance keys best-first, for `Array.prototype.sort`.
+ *
+ * The one place the order is expressed, which is why the two row keys ADR-0055
+ * adds are fields here rather than a second sort in `usda-corpus.ts`.
+ * `plainSibling` sits beside `plain` and above it, because it asks `plain`'s
+ * question of the corpus rather than of the name; `designated` sits last,
+ * because it is the weakest signal available and, measured over every corpus
+ * head phrase and head word, placing it last rather than immediately after
+ * `position` changes the same two leads and no others.
+ */
 export function compareRelevance(a: RelevanceKey, b: RelevanceKey): number {
   return (
     b.tier - a.tier ||
     b.raw - a.raw ||
     b.head - a.head ||
     b.position - a.position ||
+    b.plainSibling - a.plainSibling ||
     b.plain - a.plain ||
-    b.simplicity - a.simplicity
+    b.simplicity - a.simplicity ||
+    b.designated - a.designated
   );
 }
 
@@ -396,8 +416,140 @@ export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
       // unsweetened, …" (head 7, exactly 0).
       head: headCovered ? -Math.abs(headChars - queryChars) : HEAD_UNMATCHED,
       position,
+      // Both row keys sit at their undemoted value here, because a query scores
+      // a NAME and neither fact is one. `bestNameKey` overwrites them with the
+      // row's own {@link RowRank} once it has picked a name (ADR-0055 §5).
+      plainSibling: 1,
       plain,
       simplicity,
+      designated: 1,
     };
+  };
+}
+
+// ---------------------------------------------------------------------------
+// The two keys that read a row rather than a name (ADR-0055)
+// ---------------------------------------------------------------------------
+//
+// #134 asked whether four populations belong in a reference-food corpus at all:
+// varietal wines, protein powders, the whole American Indian/Alaska Native Foods
+// category, and origin-qualified meat. The answer was that prevalence may RANK a
+// reference food and may never DROP one (ADR-0055 §1), so four proposed drop
+// rules became these two keys and the corpus lost nothing.
+//
+// Both are facts about a ROW. `ReferenceFoodName` cannot carry either, and the
+// attempt was measured and rejected: that shape is per-NAME, and since ADR-0050
+// §4 a row is scored as the best of its names, with 80 rows carrying an `also`
+// alias. If aliases join the sibling set below, FOURTEEN canonical rows demote
+// themselves — `Oil, corn` is a row AND the prefix of its own alias, as are
+// `Oil, soybean`, `Oil, peanut`, `Nuts, almonds, whole, raw`, `Pineapple, raw`
+// and nine more.
+// ---------------------------------------------------------------------------
+
+/**
+ * The category USDA files its designated-population records under.
+ *
+ * The handle is the CATEGORY, never the parenthesised name tags. The four tags
+ * #134 named — `(Alaska Native)`, `(Navajo)`, `(Hopi)`, `(Shoshone Bannock)` —
+ * reach 129 rows; 22 more say `(Apache)`, `(Southwest)`,
+ * `(Northern Plains Indians)` or `(Klamath)`, and all 151 are in this category.
+ */
+const DESIGNATED_POPULATION_CATEGORY = "American Indian/Alaska Native Foods";
+
+/**
+ * The two ranking keys a description cannot answer, read off the row instead.
+ *
+ * Both are 1 for the undemoted case and 0 for the demoted one, so larger is
+ * better as in every other key and {@link compareRelevance} reads them the same
+ * way.
+ */
+export interface RowRank {
+  /**
+   * 0 when a plainer twin of this food exists elsewhere in the corpus — see
+   * {@link plainSiblingsOf}, which decides it once at generation time.
+   */
+  plainSibling: number;
+  /**
+   * 0 when USDA published the record for a designated population.
+   *
+   * The reason is PROVENANCE, not worth: where two rows answer a query equally
+   * well, the one published for no particular population is the better default.
+   * The key sits last in the order and fires only on an exact tie in every
+   * earlier key, so on the twelve head phrases only this category occupies —
+   * `seal`, `walrus`, `whale`, `caribou`, `elk`, `agutuk`, `frybread`,
+   * `sea lion`, `mouse nuts`, `willow`, `chokecherries`, `tortilla` — every
+   * candidate carries it, the key ties uniformly and nothing moves.
+   */
+  designated: number;
+}
+
+/**
+ * The parts of a description, as the qualifier boundaries USDA writes them.
+ *
+ * Commas rather than words, because a part has to match WHOLE: reading
+ * "Cheese, cheddar" as words would make it a prefix of "Cheese, cheddars" and
+ * every plural would demote its own singular.
+ */
+const qualifiersOf = (description: string): string[] =>
+  description
+    .toLowerCase()
+    .split(",")
+    .map((part) => part.trim().replace(/\s+/g, " "))
+    .filter(Boolean);
+
+/**
+ * Which of these descriptions are a qualified form of another one, in order.
+ *
+ * A row's name is a qualified form when some STRICT prefix of its qualifiers is
+ * itself a name in the set: `Alcoholic beverage, wine, table, white, Riesling`
+ * sits under `Alcoholic beverage, wine, table, white`, and
+ * `Oil, corn, peanut, and olive` under `Oil, corn`. It is the question
+ * {@link RelevanceKey.plain} already asks — is this the plain form of its food —
+ * asked of the corpus instead of the name.
+ *
+ * Two properties the caller does not have to remember, because the signature
+ * carries them:
+ *
+ * - **Only descriptions go in.** An `also` alias has no way to contribute a
+ *   parent, which is what stops the fourteen self-demotions above.
+ * - **A row is never its own sibling.** A strict prefix has strictly fewer
+ *   parts, so a name cannot be a prefix of itself however it is spelled.
+ *
+ * Reaches 128 of the 4,360 shipped rows under 78 parents, the largest two being
+ * the 15 red and 13 white varietal wines that sent #134's author looking for a
+ * drop rule.
+ */
+export function plainSiblingsOf(descriptions: readonly string[]): boolean[] {
+  const parts = descriptions.map(qualifiersOf);
+  const names = new Set(parts.map((p) => p.join(",")));
+  return parts.map((p) => {
+    let prefix = "";
+    for (let n = 0; n < p.length - 1; n++) {
+      prefix = n === 0 ? p[0] : `${prefix},${p[n]}`;
+      if (names.has(prefix)) return true;
+    }
+    return false;
+  });
+}
+
+/**
+ * One row's two row-level keys.
+ *
+ * `plain_sibling` is baked into the Search index at generation time, because
+ * deriving it at load costs 24 ms against the 18.5 ms the whole corpus load
+ * costs (ADR-0055 §6). `foodCategory` is already on every row, so `designated`
+ * is computed here rather than duplicated into a second field that could drift
+ * from it — the rule ADR-0041 set for `deriveNovaVerdict`.
+ *
+ * Structurally typed rather than taking a `UsdaIndexRow`, so this module still
+ * imports nothing.
+ */
+export function readRowRank(row: {
+  foodCategory?: string;
+  plain_sibling?: boolean;
+}): RowRank {
+  return {
+    plainSibling: row.plain_sibling ? 0 : 1,
+    designated: row.foodCategory === DESIGNATED_POPULATION_CATEGORY ? 0 : 1,
   };
 }

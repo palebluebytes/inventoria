@@ -3,7 +3,10 @@ import {
   readReferenceFoodName,
   compileReferenceFoodQuery,
   compareRelevance,
+  plainSiblingsOf,
+  readRowRank,
 } from "../../src/lib/food/reference-food-ranking";
+import type { RelevanceKey } from "../../src/lib/food/reference-food-ranking";
 
 // ADR-0042 §5's ordering, asserted on the two halves it is now built from: the
 // query-independent reading of a name, and the query's score over it. The tiers
@@ -287,33 +290,164 @@ describe("compileReferenceFoodQuery", () => {
 
 describe("compareRelevance", () => {
   it("consults each key only when the one before it ties", () => {
-    const key = (
-      tier: number,
-      raw: number,
-      head: number,
-      position: number,
-      simplicity: number
-    ) => ({ tier, raw, head, position, simplicity });
-    // A stronger tier wins even against a raw food.
+    // Every field, spelled out: a key built from a subset compares `undefined`
+    // to `undefined`, which is NaN, which is falsy, so a missing field reads as
+    // a tie and the test agrees with itself. `plain` went untested that way from
+    // #143 until ADR-0055.
+    const key = (over: Partial<RelevanceKey>): RelevanceKey => ({
+      tier: 20,
+      raw: 1,
+      head: -1,
+      position: -1,
+      plainSibling: 1,
+      plain: 1,
+      simplicity: 3,
+      designated: 1,
+      ...over,
+    });
+    const beats = (a: Partial<RelevanceKey>, b: Partial<RelevanceKey>) =>
+      compareRelevance(key(a), key(b));
+
+    // Each key in turn, beaten by the one before it: the winner is worse on
+    // every later field and still wins.
     expect(
-      compareRelevance(key(40, 0, 0, 0, 0), key(20, 1, 0, 0, 3))
+      beats(
+        {
+          tier: 40,
+          raw: 0,
+          head: -9,
+          position: -9,
+          plainSibling: 0,
+          plain: 0,
+          simplicity: 0,
+          designated: 0,
+        },
+        { tier: 20 }
+      )
     ).toBeLessThan(0);
-    // Within a tier, raw wins over head-completeness.
     expect(
-      compareRelevance(key(20, 1, -9, 0, 0), key(20, 0, 0, 0, 3))
+      beats(
+        {
+          raw: 1,
+          head: -9,
+          position: -9,
+          plainSibling: 0,
+          plain: 0,
+          simplicity: 0,
+          designated: 0,
+        },
+        { raw: 0 }
+      )
     ).toBeLessThan(0);
-    // Then head-completeness, then position, then simplicity.
     expect(
-      compareRelevance(key(20, 1, -1, -9, 0), key(20, 1, -9, 0, 3))
+      beats(
+        {
+          head: -1,
+          position: -9,
+          plainSibling: 0,
+          plain: 0,
+          simplicity: 0,
+          designated: 0,
+        },
+        { head: -9 }
+      )
     ).toBeLessThan(0);
     expect(
-      compareRelevance(key(20, 1, -1, -1, 0), key(20, 1, -1, -9, 3))
+      beats(
+        {
+          position: -1,
+          plainSibling: 0,
+          plain: 0,
+          simplicity: 0,
+          designated: 0,
+        },
+        { position: -9 }
+      )
+    ).toBeLessThan(0);
+    // ADR-0055 §5: plainSibling sits beside `plain`, above it, because it asks
+    // `plain`'s question of the corpus rather than of the name.
+    expect(
+      beats(
+        { plainSibling: 1, plain: 0, simplicity: 0, designated: 0 },
+        { plainSibling: 0 }
+      )
     ).toBeLessThan(0);
     expect(
-      compareRelevance(key(20, 1, -1, -1, 3), key(20, 1, -1, -1, 2))
+      beats({ plain: 1, simplicity: 0, designated: 0 }, { plain: 0 })
     ).toBeLessThan(0);
-    expect(compareRelevance(key(20, 1, -1, -1, 3), key(20, 1, -1, -1, 3))).toBe(
-      0
-    );
+    expect(
+      beats({ simplicity: 3, designated: 0 }, { simplicity: 2 })
+    ).toBeLessThan(0);
+    // …and `designated` last, the weakest signal there is.
+    expect(beats({ designated: 1 }, { designated: 0 })).toBeLessThan(0);
+    expect(beats({}, {})).toBe(0);
+  });
+});
+
+// ADR-0055 §3 and §5: two keys that read a ROW rather than a name. The corpus
+// leads they move are asserted in `usda-corpus.test.ts`; these pin the pieces.
+
+describe("plainSiblingsOf", () => {
+  it("flags a name a shorter name in the same corpus is a strict prefix of", () => {
+    expect(
+      plainSiblingsOf([
+        "Alcoholic beverage, wine, table, white",
+        "Alcoholic beverage, wine, table, white, Riesling",
+        "Oil, corn",
+        "Oil, corn, peanut, and olive",
+        "Grapes, red, seedless, raw",
+      ])
+    ).toEqual([false, true, false, true, false]);
+  });
+
+  it("never flags a name as its own sibling, however it is spelled", () => {
+    // A strict prefix has strictly fewer parts, so an identical name — or the
+    // same name spelled with different spacing or case — can never flag itself.
+    expect(
+      plainSiblingsOf(["Oil, corn", "OIL,  CORN", "Nuts, almonds, whole, raw"])
+    ).toEqual([false, false, false]);
+  });
+
+  it("reads a qualifier boundary as a comma, not as a word", () => {
+    // "Cheese, cheddar" is a prefix of "Cheese, cheddar, sharp" and not of
+    // "Cheese, cheddars" — the parts have to match whole, or every plural would
+    // demote its own singular.
+    expect(
+      plainSiblingsOf([
+        "Cheese, cheddar",
+        "Cheese, cheddar, sharp",
+        "Cheese, cheddars",
+      ])
+    ).toEqual([false, true, false]);
+  });
+});
+
+describe("readRowRank", () => {
+  it("demotes a row USDA published for a designated population", () => {
+    expect(
+      readRowRank({ foodCategory: "American Indian/Alaska Native Foods" })
+        .designated
+    ).toBe(0);
+    expect(
+      readRowRank({ foodCategory: "Vegetables and Vegetable Products" })
+        .designated
+    ).toBe(1);
+    // The category, never the parenthesised name tags: 22 rows carry (Apache),
+    // (Southwest), (Northern Plains Indians) or (Klamath) instead of the four
+    // #134 named, and every one of them is in the category.
+    expect(
+      readRowRank({ foodCategory: "Vegetables and Vegetable Products" })
+        .designated
+    ).toBe(1);
+  });
+
+  it("leaves a row with no category undemoted", () => {
+    expect(readRowRank({}).designated).toBe(1);
+    expect(readRowRank({}).plainSibling).toBe(1);
+  });
+
+  it("carries the baked plain-sibling flag through as a key", () => {
+    expect(readRowRank({ plain_sibling: true }).plainSibling).toBe(0);
+    expect(readRowRank({ plain_sibling: undefined }).plainSibling).toBe(1);
   });
 });
