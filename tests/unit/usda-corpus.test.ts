@@ -399,47 +399,61 @@ describe("the bundled search index", () => {
     // #131's rule again: the reach of a drop rule cannot be read off the corpus
     // it emptied, so what is pinned is the population each clause LEFT. A
     // widened clause empties one of these; a narrowed one refills it.
+    //
+    // That the corpus holds nothing these clauses reject is asserted by asking
+    // the predicate, once, in `holds nothing its own filters would reject`
+    // above. Restating a marker here would only agree with itself.
     const descriptions = index.foods.map((row) => row.description);
-    const headWord = (d: string) =>
-      d
-        .toLowerCase()
-        .split(/[^a-z0-9]+/)
-        .filter(Boolean)[0] ?? "";
-    // The keep-word is USDA's own contrast term, and all four spellings of it
-    // survive — including the one with no comma after the head word.
-    const shortenings = descriptions.filter(
-      (d) => headWord(d) === "shortening"
-    );
-    expect(shortenings.sort()).toEqual([
+    // Every surviving row that says `shortening` at all: USDA's four `household`
+    // spellings, including the one with no comma after the head word, and the
+    // one row that says the word somewhere other than the head word. That last
+    // row is the whole reason the clause reads the head word rather than the
+    // description, because it is a dish and a description-wide marker would
+    // have taken it.
+    expect(descriptions.filter((d) => /shortening/i.test(d)).sort()).toEqual([
+      "Agutuk, fish with shortening (Alaskan ice cream) (Alaska Native)",
       "Shortening household soybean (hydrogenated) and palm",
       "Shortening, household, lard and vegetable oil",
       "Shortening, household, soybean (partially hydrogenated)-cottonseed (partially hydrogenated)",
       "Shortening, vegetable, household, composite",
     ]);
-    // And the one row that says `shortening` somewhere other than the head
-    // word, which is the whole reason the clause reads the head word: it is a
-    // dish, and a description-wide marker would have taken it.
-    expect(
-      descriptions.filter(
-        (d) => /shortening/i.test(d) && headWord(d) !== "shortening"
-      )
-    ).toEqual([
-      "Agutuk, fish with shortening (Alaskan ice cream) (Alaska Native)",
-    ]);
     // `manufacturing` took two beef rows out of 74 New Zealand imports, leaving
     // 72. That number is the one ADR-0055 §1 protects: it barred a PREVALENCE
     // argument against these rows, and a trade grade is a claim about the
     // specification instead, so the clause takes two and leaves the rest.
-    expect(descriptions.filter((d) => /\bmanufacturing\b/i.test(d))).toEqual(
-      []
-    );
     expect(
       descriptions.filter((d) => d.startsWith("Beef, New Zealand, imported"))
         .length
     ).toBe(72);
-    // The one-row clause, and the row it was standing in front of.
-    expect(descriptions.filter((d) => /\blecithin\b/i.test(d))).toEqual([]);
+    // The row the one-row clause was standing in front of.
     expect(descriptions).toContain("Oil, soybean");
+  });
+
+  it("still ships the two candidates #157 refused, as rows", () => {
+    // The refusals asserted where they are claimed: `usda-food-kind.test.ts`
+    // pins that the PREDICATE does not reach these, which is a fact about a
+    // regex. This pins that they are still in the shipped index, which is what
+    // "refused" means and what a later generator or filter change could undo
+    // without either the predicate or its own test noticing.
+    const descriptions = index.foods.map((row) => row.description);
+    for (const kept of [
+      // A process spec, not a channel: `glucose reduced` says how the food was
+      // made. Their plain twins ship too, which is why the retail-twin test
+      // could not decide this one.
+      "Egg, white, dried, stabilized, glucose reduced",
+      "Egg, whole, dried, stabilized, glucose reduced",
+      "Egg, white, dried, flakes, stabilized, glucose reduced",
+      "Egg, white, dried, powder, stabilized, glucose reduced",
+      "Egg, white, dried",
+      "Egg, whole, dried",
+      // Both a factory input and a tub in a shop, and ADR-0055 §7's refusal of a
+      // powder-or-supplement marker is what keeps them.
+      "Soy protein isolate",
+      "Soy protein isolate, potassium type",
+      "Beverages, Whey protein powder isolate",
+    ]) {
+      expect(descriptions).toContain(kept);
+    }
   });
 
   it("keeps the five twinned oils, on their twin's energy and their twin's fat", () => {

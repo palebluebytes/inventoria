@@ -125,6 +125,16 @@ This is why the `American Indian/Alaska Native Foods` category stays whole and
 why 282 rows of imported meat stay: both were proposed for dropping on this
 reason and no other.
 
+> **280 since [#157](https://github.com/palebluebytes/inventoria/issues/157)**,
+> and the Context measurement above reads 283 rather than 285 for the same
+> reason. Two rows left as `manufacturing beef`, USDA's trade grade for boneless
+> beef sold to be ground, which is a claim about the specification and so a
+> reason this section admits. The sentence is corrected rather than rewritten
+> because the number is the point of it: what this section forbids is the
+> argument those rows were originally proposed on, and none of them has left on
+> that argument. See ADR-0042's
+> [#157 Amendment](0042-usda-search-reference-foods.md#amendment-2026-08-24-157-a-specification-sold-into-a-trade-is-not-a-food).
+
 ### 2. A rule adopted here must break no lead already measured correct
 
 Carried from [#143](https://github.com/palebluebytes/inventoria/issues/143), which
