@@ -246,6 +246,19 @@ Recorded so they are not re-proposed, in the form #143 used for its part key:
   `Beverages, tea, …` (rung 20, a qualifier match), and no key below `tier` can
   reach a tier gap. The corpus holds no head-phrase tea row at all. Cut as its own
   ticket; it is a retrieval or naming question, likely ADR-0049's.
+
+  > Measured 2026-08-24 on #153 and **still not fixed**, deliberately. It is not
+  > ADR-0049's: the vocabulary fires only on an empty result and `tea` returns
+  > twelve rows. It is a tier question, and letting `tier` read ADR-0042's
+  > shelf-label roster was swept at three scopes and refused at all three — see
+  > that record's [#153 Amendment](0042-usda-search-reference-foods.md#amendment-2026-08-24-153-the-tier-may-not-read-the-shelf-label-roster-at-any-scope).
+  > Two findings bear on this record. `tea` is one of **nine** head phrases
+  > occupied only by designated rows that a shelf-labelled row contests, seven of
+  > them game meat or fish. And the fix's mechanism would have been this record's
+  > own `designated` key, not `tier`: the nine `Beverages, tea, …` rows are
+  > identical on all nine keys, so a tier answer only equalises them and lets
+  > `designated` decide.
+
 - **A drink query can still be answered by a non-drink.** `red wine` leads with
   `Vinegar, red wine` and bare `wine` with `Beverages, Wine, non-alcoholic`, both
   surviving §3 because both are ADR-0042's #124 position key preferring a word

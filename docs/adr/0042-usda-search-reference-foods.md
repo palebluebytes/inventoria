@@ -1178,14 +1178,21 @@ A shelf label's qualifiers name **distinct foods**; an ordinary head's name part
 or preparations of the one food it already named. `Fish, salmon` is a different
 animal and `Nuts, almonds` a different tree, where `Beef, chuck, arm pot roast` is
 a cut of the beef the head already named. That test keeps `beef`, `pork`, `lamb`,
-`chicken`, `cheese` and `milk` out, and `oil` too: `Oil, olive` is olive oil, and
-#155 settled that family.
+`chicken` and `veal` out, and `oil` too: `Oil, olive` is olive oil, and #155
+settled that family. `cheese` and `milk` satisfy the test and are IN, which the
+#153 Amendment below turns out to matter a great deal.
 
-Sixteen labels over **632 rows** — `fish` 203, `nuts` 79, `game meat` 59,
-`alcoholic beverage` 58, `seeds` 47, `beverages` 47, `spices` 42, `mollusks` 26,
-`crustaceans` 24, `margarine-like` 16, `syrups` 8, `seaweed` 8, `sweeteners` 6,
-`fat` 4, `poultry` 3, `alcoholic beverages` 2. The count is pinned as a tripwire,
-because a hand roster nobody counts is the hole #131 named.
+Eighteen labels over **760 rows** — `fish` 203, `cheese` 87, `nuts` 79,
+`game meat` 59, `alcoholic beverage` 58, `seeds` 47, `beverages` 47, `spices` 42,
+`milk` 41, `mollusks` 26, `crustaceans` 24, `margarine-like` 16, `syrups` 8,
+`seaweed` 8, `sweeteners` 6, `fat` 4, `poultry` 3, `alcoholic beverages` 2. The
+count is pinned as a tripwire, because a hand roster nobody counts is the hole
+#131 named.
+
+> Corrected 2026-08-24 by the [#153 Amendment](#amendment-2026-08-24-153-the-tier-may-not-read-the-shelf-label-roster-at-any-scope):
+> this paragraph said sixteen labels over 632 rows, which was true of a draft of
+> the roster and never of the one that shipped. `cheese` and `milk` are members,
+> and the tripwire in `usda-corpus.test.ts` has said 18 and 760 since #154.
 
 ### A bare drink name is a different shape, and gets a different answer
 
@@ -1272,3 +1279,105 @@ vocabulary does not re-derive.
 `scripts/usda-ranking-queries.mjs` and their `--leads` reader in
 `scripts/usda-ranking-audit.mjs`; pinned in
 `tests/unit/reference-food-ranking.test.ts` and `tests/unit/usda-corpus.test.ts`.
+
+## Amendment (2026-08-24, #153): the tier may not read the shelf-label roster, at any scope
+
+The Amendment above gave `position` and `accounted` a roster that answers "where
+does the food's own name start". [#153](https://github.com/palebluebytes/inventoria/issues/153)
+asked the obvious next question: why not ask it of `tier` and `head` as well?
+
+`tea` led with `Tea, tundra, herb and laborador combination (Alaska Native)`,
+because USDA files every ordinary tea as `Beverages, tea, …` where `tea` is a
+qualifier at rung 20, while the two designated rows are named `Tea, …` so the
+query IS their head phrase at rung 50. `tier` is the first key `compareRelevance`
+reads, so nothing below it can reach that gap.
+
+**The answer is no, at all three scopes measured, and this records the price so
+the next ticket does not re-derive it.**
+
+### The four keys are not separable
+
+A tier-only change is broken rather than cheaper, which was measured rather than
+argued. Move `tier` alone and a shelf-labelled row lands at rung 50 while `head`
+still reads from word 0, so `headCovered` stays false, `head` stays
+`HEAD_UNMATCHED`, and the key after next throws all 760 back down. The change is
+`tier`, `head`, `headLength` and `headChars` reading from the same offset, or it
+is nothing.
+
+### Three scopes, one shape of failure
+
+Swept over 4,012 queries, one query file generated from `HEAD` and asked of both
+sides, against a band pre-registered on the ticket before anything ran.
+
+| roster      | labels | changed leads | the adjudicated lead it breaks                     |
+| ----------- | ------ | ------------- | -------------------------------------------------- |
+| all         | 18     | 164           | `coriander leaf` → `Spices, coriander leaf, dried` |
+| drinks      | 3      | 30            | `chocolate` → `Beverages, chocolate malt powder`   |
+| `beverages` | 1      | 28            | `whiskey sour`, `wine`                             |
+
+Every one of them clears the rest of the band. All three fail on a lead a
+previous ticket adjudicated and pinned, and the failures are two faces of one
+shape.
+
+**The full roster inverts the raw-base preference.** USDA names the dried spice
+`Spices, basil, dried` and the fresh herb `Basil, fresh`, so promoting the first
+to rung 50 takes `basil`, `rosemary`, `thyme`, `ginger`, `chili` and
+`coriander leaf` from the fresh row to the dried one. That last is #138's pinned
+lead and the case [#130](https://github.com/palebluebytes/inventoria/issues/130)
+§8 named as the defect. `cheese` and `milk` add eleven of the same shape: `blue`
+to `Cheese, blue`, `jack` to `Cheese, monterey jack`, `milk` to
+`Nuts, coconut milk, raw`.
+
+**Any partial roster creates an asymmetry.** Discount the powder's aisle and not
+the milk's and the powder wins, which is what the Amendment above already pinned
+`chocolate` against in so many words. The drinks roster does at `tier` exactly
+what #154 refused to do at `position`, and the `beverages`-only roster undoes
+#154's own `whiskey sour` and `wine`.
+
+So there is no free member of this family: the whole roster costs `spices` and
+`cheese`, and every subset costs the boundary it draws.
+
+### What the measurement established anyway
+
+**The class is nine, not one.** Nine head phrases are occupied only by rows
+USDA published for a designated population, while a shelf-labelled row elsewhere
+names that phrase as its first post-shelf qualifier: `salmon`, `tea`, `elk`,
+`caribou`, `moose`, `bear`, `buffalo`, `squirrel`, `smelt`. Seven are game meat
+or fish, so this was never a beverage defect. The loose bound — every occupant
+designated, competing row or not — is 52 of 523 head phrases.
+
+**`tea`'s stated acceptance was unreachable.** The nine `Beverages, tea, …` rows
+are identical on all nine keys, so under any fix the winner is `fdcId` order. A
+tier answer does not rank an ordinary tea first: it equalises `tier` and `head`
+and lets [ADR-0055](0055-who-eats-a-food-ranks-it-and-never-drops-it.md)'s
+`designated` key decide, and which of the nine leads is a coin flip.
+
+**A vocabulary answer was refused in writing rather than measured.**
+[ADR-0049](0049-a-derived-vocabulary-for-food-search.md) §1's no-regression
+property is that the vocabulary fires only when the corpus returns nothing, and
+`tea` returns twelve rows. Making it rank rather than rescue means an expansion
+on every non-empty keystroke and a derived synonym map outvoting a literal match.
+
+**ADR-0055 §1 was never at risk.** The count of designated rows inside the
+50-row result window is identical before and after for every variant, across all
+nine head phrases and over `oil` and `cornmeal`. The demotions are moves within
+the window, never drops. Search stays at the noise floor: a bare `b` best-of-200
+is 2.16 ms either way.
+
+### The sweep cannot see a typed phrase
+
+`coriander leaf` did not appear in 4,012 queries, because `sweepQueries` derives
+from corpus text and builds `coriander` and `leaf` separately. The full roster
+therefore passed the sweep and broke a pinned lead, and only the unit suite
+caught it. **`usda-corpus.test.ts` is the authority on what is pinned; the sweep
+is not**, and a band that builds its pin roster from the tickets rather than from
+the suite will miss the same way this one did.
+
+### Nothing changed
+
+No ranking code, no test, no filter, no `schema_version`. The three defects this
+measurement leaves standing — the eight non-tea members of the class, the
+nine-way tea tie, and `Game meat, buffalo, water` being water buffalo where the
+corpus files American bison under `bison` — are cut as their own tickets. Any
+further roster is a fresh pre-registration, because every candidate from here is
+chosen having seen these diffs.
