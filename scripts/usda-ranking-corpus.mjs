@@ -91,10 +91,12 @@ export function scoreAll(corpus, query) {
  * actually meets.
  *
  * The split is not cosmetic. #158's tie census needs the ordering BEFORE the
- * cut — `beef` ties 413 rows and reads as a 50-way tie through this window, so
- * a census built on the truncated list reports the window's size rather than
- * the ranking's silence. Everything asking what the USER suffers wants this
- * one; anything asking what the RANKING decided wants the other.
+ * cut — `beef` tied 413 rows when it was written, and any tie past fifty reads
+ * as a 50-way one through this window, so a census built on the truncated list
+ * reports the window's size rather than the ranking's silence. Seven queries are
+ * still past the window, `fish` deepest at 82. Everything asking what the USER
+ * suffers wants this one; anything asking what the RANKING decided wants the
+ * other.
  */
 export const search = (corpus, query) =>
   scoreAll(corpus, query).slice(0, RESULT_LIMIT);

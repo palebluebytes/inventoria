@@ -8,7 +8,7 @@
  *
  * A different question from `usda-ranking-audit.mjs`, which is why it is a
  * different file. The audit asks whether a search REACHES the best record and
- * where it lands; this asks how often the nine keys run out and hand the answer
+ * where it lands; this asks how often the ten keys run out and hand the answer
  * to `Array.prototype.sort`'s stability, which is to say to `fdcId` order.
  * Every such lead is an accident — sometimes a lucky one, and #158 found four
  * pinned leads that are exactly that.
@@ -17,8 +17,10 @@
  * ties. The HARM distribution prices them, as the calorie spread across the
  * tied rows: a query whose tied rows all carry the same panel costs a user
  * nothing whichever wins, and a query whose tied rows run 77 to 854 kcal costs
- * them the difference. #158's `tea` is a 1 kcal tie and #158's `beef` is a 777
- * kcal one, and no count that omits the panel can tell them apart.
+ * them the difference. #158's `tea` was a 1 kcal tie and its `beef` a 777 kcal
+ * one, and no count that omits the panel can tell them apart. #162 then took
+ * `beef` to 94 kcal without emptying the tie, which is the shape a key change
+ * makes here: the count barely moves and the harm distribution does.
  *
  * Deliberately not wired into `pnpm check`, for the reason the audit's own
  * header gives: it is a dated finding rather than an invariant, and a gate here
@@ -49,9 +51,10 @@ import { compareRelevance } from "../src/lib/food/reference-food-ranking.ts";
  *
  * The list is already sorted, so the tie is a prefix and the scan stops at the
  * first row that differs. Asked of the UNTRUNCATED ordering, deliberately: the
- * question is how many rows the keys failed to separate, and `beef` fails to
- * separate 413 of them. Through the 50-row window it would read as a 50-way
- * tie, which measures the window rather than the ranking.
+ * question is how many rows the keys failed to separate, and when #158 ran this
+ * `beef` failed to separate 413 of them. Through the 50-row window that reads
+ * as a 50-way tie, which measures the window rather than the ranking. Seven
+ * queries are still past the window and 86 still tie ten rows or more.
  */
 function tieAtTop(results) {
   let n = 1;
