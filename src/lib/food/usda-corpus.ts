@@ -17,11 +17,13 @@ import {
   compileReferenceFoodQuery,
   compareRelevance,
   readReferenceFoodName,
+  readRowRank,
   stemOf,
   wordsOf,
   type ReferenceFoodName,
   type ReferenceFoodQuery,
   type RelevanceKey,
+  type RowRank,
 } from "./reference-food-ranking";
 
 /**
@@ -85,6 +87,16 @@ export interface UsdaIndexRow {
    * staged under `description`, never under one of these.
    */
   also?: string[];
+  /**
+   * True when a plainer twin of this food is in the corpus — some strict
+   * qualifier-prefix of this description is itself a row (ADR-0055 §3).
+   *
+   * Baked by the generator rather than derived here: `plainSiblingsOf` needs
+   * every description at once, and answering it at load measured 24 ms against
+   * the 18.5 ms the whole read below costs. Omitted rather than emitted false,
+   * like every other absent field on a row.
+   */
+  plain_sibling?: boolean;
 }
 
 /**
@@ -187,6 +199,13 @@ export interface SearchableFood {
    * name it is. Empty for all but the twinned rows.
    */
   also: ReferenceFoodName[];
+  /**
+   * The two keys that read the ROW rather than one of its names (ADR-0055 §5) —
+   * whether a plainer twin of it exists, and whether USDA published it for a
+   * designated population. Read once here for the same reason the names are:
+   * neither depends on what was typed.
+   */
+  rank: RowRank;
 }
 
 /**
@@ -236,6 +255,7 @@ export function buildSearchCorpus(index: SearchIndex): SearchCorpus {
       row,
       name: readReferenceFoodName(row.description),
       also: (row.also ?? []).map(readReferenceFoodName),
+      rank: readRowRank(row),
     })),
     schema_version: index.schema_version,
     vocabulary: {
@@ -364,6 +384,11 @@ export interface IndexSearch extends SearchedPhrases {
  *
  * The loop is skipped entirely for the 4,266 rows that have no alias, so a
  * keystroke pays for this only where USDA held two names for one food.
+ *
+ * The row's own two keys (ADR-0055 §5) go on afterwards rather than inside the
+ * loop, because they are the same for every name of one row and so can decide
+ * nothing between them. This is the one place a `RelevanceKey` learns anything
+ * that is not about a name.
  */
 function bestNameKey(
   rank: ReferenceFoodQuery,
@@ -374,7 +399,7 @@ function bestNameKey(
     const key = rank(alias);
     if (compareRelevance(key, best) < 0) best = key;
   }
-  return best;
+  return { ...best, ...food.rank };
 }
 
 /**

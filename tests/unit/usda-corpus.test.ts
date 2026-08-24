@@ -49,6 +49,17 @@ const descriptionsFor = (query: string): string[] =>
   searchIndexRows(corpus, query).hits.map(({ row }) => row.description);
 
 describe("the bundled search index", () => {
+  it("carries the plain-sibling flag the ranking cannot derive at load", () => {
+    // ADR-0055 §6. A tripwire on the predicate's reach: the flag is baked, so a
+    // change to `plainSiblingsOf` that nobody meant shows up as a count here
+    // rather than as a silently reordered search months later.
+    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(128);
+    // Omitted rather than emitted false, like every other absent field.
+    expect(index.foods.filter((row) => row.plain_sibling === false)).toEqual(
+      []
+    );
+  });
+
   it("is the surviving reference foods, and says which archives it came from", () => {
     expect(index.foods.length).toBe(4360);
     expect(index.generated_from.map((a) => a.dataset)).toEqual([
@@ -530,9 +541,11 @@ describe("searchIndexRows", () => {
       "Oil, olive, salad or cooking"
     );
     expect(descriptionsFor("coconut oil")[0]).toBe("Oil, coconut");
-    expect(descriptionsFor("cheddar cheese")[0]).toBe(
-      "Cheese, cheddar, sharp, sliced"
-    );
+    // `cheddar cheese` used to answer "Cheese, cheddar, sharp, sliced" — this
+    // key ties every cheddar and #124's did not separate them either, so the
+    // lead was whichever fdcId was lower. ADR-0055 §3 decides it: a sharp sliced
+    // cheddar is a qualified form of `Cheese, cheddar`, which is a row.
+    expect(descriptionsFor("cheddar cheese")[0]).toBe("Cheese, cheddar");
   });
 
   it("still leads with the same food on every query the key must not disturb", () => {
@@ -575,6 +588,110 @@ describe("searchIndexRows", () => {
       // is what the pin was written to catch.
     ] as const) {
       expect([query, descriptionsFor(query)[0]]).toEqual([query, expected]);
+    }
+  });
+
+  it("leads with the plain twin of a food, not one of its varietals", () => {
+    // ADR-0055 §3. #134 proposed dropping the 28 varietal wines; measured, a
+    // drop rule takes `wine, table, white, late harvest` with them, which is a
+    // dessert wine at 112 kcal against a plain white's 82. Demoting instead
+    // leaves it in the corpus with its own panel, one place further down.
+    for (const [query, expected] of [
+      ["white wine", "Alcoholic beverage, wine, table, white"],
+      ["table wine", "Alcoholic beverage, wine, table, all"],
+      ["cheddar cheese", "Cheese, cheddar"],
+      ["safflower oil", "Oil, safflower"],
+      ["wheat bread", "Bread, wheat"],
+    ] as const) {
+      expect([query, descriptionsFor(query)[0]]).toEqual([query, expected]);
+    }
+    // `red wine` is only moved to second: `Vinegar, red wine` still leads it on
+    // the #124 position key, which is a separate defect and its own ticket.
+    expect(descriptionsFor("red wine").slice(0, 2)).toEqual([
+      "Vinegar, red wine",
+      "Alcoholic beverage, wine, table, red",
+    ]);
+  });
+
+  it("costs two leads it cannot fix, and lifts the right row on both", () => {
+    // The whole price of ADR-0055 §3, pinned rather than described. Demoting
+    // `Oil, soybean, salad or cooking, (partially hydrogenated)` beneath its
+    // plain parent exposes a tie the ranking cannot separate: `Oil, soybean` and
+    // `Oil, soybean lecithin` agree on every key, so corpus order decides, and
+    // an emulsifier leads a query for an oil. The key did not create that tie —
+    // it is #143's unfixed class — but it is what made it visible, and the row
+    // anyone searching this actually wants moves from 4th to 2nd either way.
+    for (const query of ["soybean oil", "soy oil"] as const) {
+      const found = descriptionsFor(query);
+      expect([query, found[0]]).toEqual([query, "Oil, soybean lecithin"]);
+      expect([query, found[1]]).toEqual([query, "Oil, soybean"]);
+    }
+  });
+
+  it("leads with the undesignated row where a designated one merely ties", () => {
+    // ADR-0055 §4. USDA publishes these as composition for a documented
+    // population, so on an exact tie the row published for no particular
+    // population is the better default answer. Both leads were a designated row
+    // decided by fdcId order alone.
+    for (const [query, expected] of [
+      ["oil", "Oil, flaxseed, cold pressed"],
+      ["cornmeal", "Cornmeal, degermed, enriched, yellow"],
+    ] as const) {
+      expect([query, descriptionsFor(query)[0]]).toEqual([query, expected]);
+    }
+  });
+
+  it("moves nothing on a head phrase only designated rows occupy", () => {
+    // The key fires only on a tie, so where every candidate carries the
+    // designation it ties uniformly and the order is unchanged. Twelve of the
+    // fifteen tie-leads #134 counted are these, which is why the 10.7%
+    // over-representation it recorded is arithmetic rather than harm.
+    for (const query of [
+      "seal",
+      "walrus",
+      "whale",
+      "caribou",
+      "elk",
+      "chokecherries",
+    ] as const) {
+      const found = descriptionsFor(query);
+      expect(found.length).toBeGreaterThan(0);
+      expect(found[0]).toContain("(");
+    }
+    // And the foods that only exist here are still reachable by name: ADR-0055
+    // §1 is what keeps a demotion from becoming a deletion.
+    expect(descriptionsFor("mutton")[0]).toBe(
+      "Mutton, cooked, roasted (Navajo)"
+    );
+    expect(descriptionsFor("agave").length).toBeGreaterThan(0);
+  });
+
+  it("never lets a row's own alias make it a qualified form of itself", () => {
+    // Fourteen rows are a row AND the prefix of a name the twin merge discarded,
+    // so an `also` alias in the sibling set would demote every one of them.
+    // `plainSiblingsOf` takes descriptions only, which is what forbids it — this
+    // pins the fourteen the constraint was measured against.
+    for (const description of [
+      "Oil, corn",
+      "Oil, soybean",
+      "Oil, peanut",
+      "Oil, safflower",
+      "Mushrooms, shiitake",
+      "Cheese, feta, whole milk, crumbled",
+      "Nuts, almonds, whole, raw",
+      "Nuts, walnuts, English, halves, raw",
+      "Nuts, pecans, halves, raw",
+      "Oats, whole grain, rolled, old fashioned",
+      "Pineapple, raw",
+      "Buckwheat, whole grain",
+      "Nuts, hazelnuts or filberts, raw",
+      "Bulgur, dry, raw",
+    ]) {
+      const row = index.foods.find((f) => f.description === description);
+      expect([description, row?.plain_sibling]).toEqual([
+        description,
+        undefined,
+      ]);
     }
   });
 
