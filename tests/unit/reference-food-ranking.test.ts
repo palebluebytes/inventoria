@@ -16,6 +16,13 @@ import type { RelevanceKey } from "../../src/lib/food/reference-food-ranking";
 const rank = (query: string, description: string) =>
   compileReferenceFoodQuery(query)(readReferenceFoodName(description));
 
+/** A name key read as a whole relevance key, for the rows that tie on both. */
+const wineKey = (key: ReturnType<typeof rank>): RelevanceKey => ({
+  ...key,
+  plainSibling: 1,
+  designated: 1,
+});
+
 describe("readReferenceFoodName", () => {
   it("reads the head phrase as the words before the first comma", () => {
     const name = readReferenceFoodName("Grapes, red, seedless, raw");
@@ -84,6 +91,71 @@ describe("readReferenceFoodName", () => {
     expect(readReferenceFoodName("Grapefruit, raw").stems).toContain(
       "grapefruit"
     );
+  });
+
+  it("counts the shelf label USDA writes where a food's name should be", () => {
+    // ADR-0042's #154 Amendment. USDA names a drink for the aisle before it
+    // names the drink — the food is `wine`, and two words are spent getting
+    // there — so the words a food's own name starts at are counted here once.
+    expect(
+      readReferenceFoodName("Alcoholic beverage, wine, table, red").shelfLength
+    ).toBe(2);
+    expect(readReferenceFoodName("Beverages, tea, green").shelfLength).toBe(1);
+    expect(
+      readReferenceFoodName("Fish, salmon, Atlantic, raw").shelfLength
+    ).toBe(1);
+    // A head that names the food itself is not a shelf label, however many rows
+    // share it: `Beef, chuck, arm pot roast` qualifies beef by its CUT, where
+    // `Fish, salmon` qualifies fish by a different fish.
+    expect(
+      readReferenceFoodName("Beef, chuck, arm pot roast, raw").shelfLength
+    ).toBe(0);
+    expect(readReferenceFoodName("Oil, olive, extra virgin").shelfLength).toBe(
+      0
+    );
+    // A label with nothing after it is the food's whole name, so there is no
+    // shelf to discount — the row would otherwise have no name at all.
+    expect(readReferenceFoodName("Spices").shelfLength).toBe(0);
+  });
+
+  it("reads a shelf label through the spacing USDA actually wrote", () => {
+    // `Game meat , bison, ground, raw` ships with the space before its comma.
+    expect(
+      readReferenceFoodName("Game meat , bison, ground, raw").shelfLength
+    ).toBe(2);
+  });
+
+  it("demotes a modifier that is only ever the WHOLE qualifier", () => {
+    // ADR-0042's #154 Amendment. `light` as a word reaches 49 corpus rows and
+    // most are not light anything — chicken LIGHT MEAT, mushrooms exposed to
+    // ultraviolet LIGHT — so it is read as a whole comma-part, where all 15 it
+    // reaches are a reduced form of their food.
+    expect(readReferenceFoodName("Sour cream, light").plain).toBe(0);
+    expect(readReferenceFoodName("Alcoholic beverage, wine, light").plain).toBe(
+      0
+    );
+    expect(
+      readReferenceFoodName("Chicken, broilers or fryers, light meat, raw")
+        .plain
+    ).toBe(1);
+    // Same for `cooking`: the whole part is a cooking wine, which is salted and
+    // not a drink; the word alone takes six salad-or-cooking oils with it.
+    expect(
+      readReferenceFoodName("Alcoholic beverage, wine, cooking").plain
+    ).toBe(0);
+    expect(readReferenceFoodName("Oil, olive, salad or cooking").plain).toBe(1);
+  });
+
+  it("reads a de-alcoholised drink as the modified form it is", () => {
+    // `non-alcoholic` needs no new mechanism: it is the family MODIFIED_FORM
+    // already names with `nonfat` and `non-soy`, and both rows it reaches are a
+    // form of a drink with the alcohol taken out.
+    expect(readReferenceFoodName("Beverages, Wine, non-alcoholic").plain).toBe(
+      0
+    );
+    expect(
+      readReferenceFoodName("Malt beverage, includes non-alcoholic beer").plain
+    ).toBe(0);
   });
 
   it("settles the raw keys, which no query changes", () => {
@@ -201,6 +273,28 @@ describe("compileReferenceFoodQuery", () => {
     ).toBe(-1);
   });
 
+  it("charges nothing for the shelf label, so a drink is not last to its own name", () => {
+    // ADR-0042's #154 Amendment, and the defect that prompted it. `red wine`
+    // led with `Vinegar, red wine`, because USDA spends two words on the aisle
+    // before naming the wine and one on naming the vinegar — so the key read
+    // the vinegar as the more wine-ish of the two.
+    const wine = rank("red wine", "Alcoholic beverage, wine, table, red");
+    const vinegar = rank("red wine", "Vinegar, red wine");
+    expect(wine.tier).toBe(vinegar.tier);
+    // "wine" at word 2 and "red" at word 4, less the two shelf words: 0 + 2.
+    expect(wine.position).toBe(-2);
+    expect(vinegar.position).toBe(-3);
+    expect(compareRelevance(wineKey(wine), wineKey(vinegar))).toBeLessThan(0);
+  });
+
+  it("leaves the tier alone, so a shelf label is still not a head match", () => {
+    // The discount reaches the two keys that read where a word SITS, and no
+    // further. `tea` is a qualifier in `Beverages, tea, …` and stays one, which
+    // is what keeps the tier gap that buries ordinary tea a separate question.
+    expect(rank("tea", "Beverages, tea, green, brewed").tier).toBe(20);
+    expect(rank("wine", "Alcoholic beverage, wine, table, red").tier).toBe(20);
+  });
+
   it("takes the FIRST word answering a token, by stem or by prefix", () => {
     // Either branch of the retrieval test can be the one that answers, so both
     // count — and whichever answers first is the index.
@@ -230,6 +324,19 @@ describe("compileReferenceFoodQuery", () => {
     // of what separated an oil from an emulsifier.
     expect(rank("soybean oil", "Oil, soybean").accounted).toBe(1);
     expect(rank("soybean oil", "Oil, soybean lecithin").accounted).toBe(0);
+  });
+
+  it("does not count a shelf label as a word left over", () => {
+    // If the aisle is not part of the food's name for `position`, it is not
+    // part of it for completeness either. "whiskey sour" names the whole of
+    // `Alcoholic beverage, whiskey sour`, and used to lose to a powdered mix
+    // because two words of shelf label were counted against it.
+    expect(
+      rank("whiskey sour", "Alcoholic beverage, whiskey sour").accounted
+    ).toBe(1);
+    expect(
+      rank("whiskey sour", "Beverages, Whiskey sour mix, powder").accounted
+    ).toBe(0);
   });
 
   it("accounts for a word by the same test retrieval uses", () => {

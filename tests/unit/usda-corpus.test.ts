@@ -60,6 +60,60 @@ describe("the bundled search index", () => {
     );
   });
 
+  it("holds 632 rows whose head phrase is a shelf label, under 16 labels", () => {
+    // ADR-0042's #154 Amendment, tripwired the way ADR-0055 §3 tripwired
+    // `plainSibling`: the roster is hand-written, so a head phrase added or
+    // misspelled shows up as a count here rather than as a quietly reordered
+    // search months later (#131 — an unmeasured guard is a hole).
+    const shelved = index.foods.filter(
+      (row) => readReferenceFoodName(row.description).shelfLength > 0
+    );
+    expect(shelved.length).toBe(632);
+    const labels = new Set(
+      shelved.map((row) => row.description.split(",")[0].trim().toLowerCase())
+    );
+    expect(labels.size).toBe(16);
+    // The membership test in one assertion: a shelf label's qualifiers name
+    // DISTINCT FOODS, an ordinary head's name parts of the food it already
+    // named. Beef is the whole reason the roster is not "any head many rows
+    // share" — 959 rows say `Beef`, and every qualifier after it is a cut.
+    expect([...labels]).not.toContain("beef");
+    expect([...labels]).toContain("alcoholic beverage");
+  });
+
+  it("counts the rows each whole-qualifier modifier reaches, and the ones it must not", () => {
+    // Why `light` and `cooking` are read as a whole comma-part rather than as a
+    // word: as words they reach 49 and 7 rows, and most of those are not a
+    // modified anything.
+    const withPart = (part: string) =>
+      index.foods.filter((row) =>
+        row.description
+          .toLowerCase()
+          .split(",")
+          .map((p) => p.trim())
+          .includes(part)
+      );
+    expect(withPart("light").length).toBe(15);
+    expect(withPart("cooking").length).toBe(1);
+    expect(
+      index.foods.filter((row) => /\bnon-alcoholic\b/i.test(row.description))
+        .length
+    ).toBe(2);
+    // The 34 rows the word `light` would have taken and the qualifier does not.
+    // Chicken light meat is not a reduced-fat chicken, and a mushroom exposed
+    // to ultraviolet light is not a light mushroom.
+    for (const description of [
+      "Chicken, broilers or fryers, light meat, meat only, raw",
+      "Mushroom, white, exposed to ultraviolet light, raw",
+    ] as const) {
+      expect([description, readReferenceFoodName(description).plain]).toEqual([
+        description,
+        1,
+      ]);
+    }
+    expect(readReferenceFoodName("Oil, olive, salad or cooking").plain).toBe(1);
+  });
+
   it("is the surviving reference foods, and says which archives it came from", () => {
     expect(index.foods.length).toBe(4358);
     expect(index.generated_from.map((a) => a.dataset)).toEqual([
@@ -649,12 +703,50 @@ describe("searchIndexRows", () => {
     ] as const) {
       expect([query, descriptionsFor(query)[0]]).toEqual([query, expected]);
     }
-    // `red wine` is only moved to second: `Vinegar, red wine` still leads it on
-    // the #124 position key, which is a separate defect and its own ticket.
-    expect(descriptionsFor("red wine").slice(0, 2)).toEqual([
-      "Vinegar, red wine",
-      "Alcoholic beverage, wine, table, red",
-    ]);
+    // `red wine` was pinned here as a defect — this key moved the plain red row
+    // from 4th to 2nd and `Vinegar, red wine` still led it. #154 took the lead
+    // itself; the case moved with it, to the test below.
+  });
+
+  it("leads with the drink, not the aisle USDA filed it under", () => {
+    // ADR-0042's #154 Amendment. USDA writes a shelf label where a food's name
+    // belongs — `Alcoholic beverage, wine, …`, `Beverages, tea, …` — so the
+    // #124 position key charged every drink for the walk down the aisle and
+    // handed `red wine` to the row named in one word: a vinegar MADE from wine.
+    for (const [query, expected] of [
+      ["red wine", "Alcoholic beverage, wine, table, red"],
+      // Not the powdered mix, which `accounted` reached once the label stopped
+      // counting as two words of the name left over.
+      ["whiskey sour", "Alcoholic beverage, whiskey sour"],
+      // The same label on a different aisle: an oyster rather than an OSTRICH
+      // oyster, and a scallop rather than a summer SQUASH cut into scallops.
+      ["raw oyster", "Mollusks, oyster, Pacific, raw"],
+      ["raw scallop", "Mollusks, scallop, mixed species, raw"],
+    ] as const) {
+      expect([query, descriptionsFor(query)[0]]).toEqual([query, expected]);
+    }
+
+    // And the vinegar still answers the query that names it. The key did not
+    // learn that wine beats vinegar — it stopped mis-measuring which row the
+    // words were about.
+    expect(descriptionsFor("red wine vinegar")[0]).toBe("Vinegar, red wine");
+  });
+
+  it("answers a bare drink name with something drinkable", () => {
+    // The second half of #154, and a different shape from the first: seven wine
+    // rows tie on every key here, so this is not a ranking win but the removal
+    // of three rows that were winning the tie wrongly. Today's lead was
+    // `Beverages, Wine, non-alcoholic` at 6 kcal against a table wine's 83 — a
+    // 175 ml glass logged 135 kcal short, which is #126's silent miscount with
+    // a plausible number on it.
+    //
+    // The invariant is the assertion; the exact row is the record. `fdcId`
+    // order picks among what is left, and rosé is 83 kcal — the same figure as
+    // `Alcoholic beverage, wine, table, all`, which is what makes this an
+    // answer rather than an accident.
+    const lead = descriptionsFor("wine")[0];
+    expect(lead).not.toMatch(/non-alcoholic|cooking|light/);
+    expect(lead).toBe("Alcoholic beverages, wine, rose");
   });
 
   it("leads with the oil, not the emulsifier or the blend", () => {

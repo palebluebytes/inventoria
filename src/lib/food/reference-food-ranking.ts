@@ -25,7 +25,74 @@
  * for `filled`, and every one of those was read.
  */
 const MODIFIED_FORM =
-  /\b(imitation|substitute|meatless|low sodium|low fat|lowfat|reduced fat|reduced sodium|fat free|fat-free|nonfat|gluten[- ]free|filled|non-soy)\b/i;
+  /\b(imitation|substitute|meatless|low sodium|low fat|lowfat|reduced fat|reduced sodium|fat free|fat-free|nonfat|non-alcoholic|gluten[- ]free|filled|non-soy)\b/i;
+
+/**
+ * Modifiers that name a modified form ONLY when they are the whole qualifier.
+ *
+ * The same question {@link MODIFIED_FORM} asks, asked of a comma-part rather
+ * than of the string, because for these two words the string is where it goes
+ * wrong. `light` as a word reaches 49 corpus rows and most are not light
+ * anything — chicken and turkey LIGHT MEAT, mushrooms exposed to ultraviolet
+ * LIGHT, `light and dark meat`; as a whole qualifier it reaches 15, and every
+ * one of them is a reduced form of its food. `cooking` reaches 7 as a word, six
+ * of them `salad or cooking` oils, and 1 as a qualifier: a cooking wine, which
+ * is salted and is not a drink.
+ *
+ * So a second mechanism exists for a measured reason rather than a stylistic
+ * one, and `non-alcoholic` above deliberately does not use it: that word is
+ * safe as a word, and belongs to the family `nonfat` and `non-soy` already name
+ * (#154).
+ *
+ * `cooking` reaching a single row is stated rather than hidden. ADR-0055 §7
+ * refused a powder marker that reached four, but the objection there was that
+ * the predicate had no safe form at ANY reach — its wider spelling took curry,
+ * garlic and onion powder with it. This spelling is exact, the row was read,
+ * and `filled` in the list above has shipped at three since #143.
+ */
+const MODIFIED_PART = new Set(["light", "cooking"]);
+
+/**
+ * The head phrases USDA writes as a shelf label instead of as the food's name.
+ *
+ * USDA names a food "Food, qualifier", and everything below leans on that: the
+ * head phrase is the food's identity. For these sixteen it is not. A wine is
+ * filed as `Alcoholic beverage, wine, table, red` and a tea as
+ * `Beverages, tea, green, …`, so the food's own name starts one or two words
+ * in, and every key that reads WHERE a word sits charges the food for the walk
+ * down the aisle. That is the whole of #154: `red wine` led with
+ * `Vinegar, red wine`, because USDA spends one word naming the vinegar and two
+ * getting to the wine.
+ *
+ * The test for membership, so the roster can be extended without guessing: a
+ * shelf label's qualifiers name DISTINCT FOODS, where an ordinary head's name
+ * parts or preparations of the one food it already named. `Fish, salmon` and
+ * `Nuts, almonds` name a different animal and a different tree; `Beef, chuck,
+ * arm pot roast` names a cut of the beef the head already named. That is why
+ * `beef`, `pork`, `lamb`, `chicken`, `cheese` and `milk` are absent, and why
+ * `oil` is too — `Oil, olive` is olive oil, and #155 settled that family.
+ *
+ * Reaches 632 rows, pinned as a tripwire in `usda-corpus.test.ts` the way
+ * ADR-0055 §3 pinned `plainSibling`'s 128 (#131: an unmeasured guard is a hole).
+ */
+const SHELF_LABEL_HEAD = new Set([
+  "alcoholic beverage",
+  "alcoholic beverages",
+  "beverages",
+  "crustaceans",
+  "fat",
+  "fish",
+  "game meat",
+  "margarine-like",
+  "mollusks",
+  "nuts",
+  "poultry",
+  "seaweed",
+  "seeds",
+  "spices",
+  "sweeteners",
+  "syrups",
+]);
 
 /**
  * Names a food that has been cooked. The `raw` key above already prefers a raw
@@ -66,6 +133,18 @@ export interface ReferenceFoodName {
   headLength: number;
   /** Characters across the head phrase's words, for head-completeness. */
   headChars: number;
+  /**
+   * How many leading words are a shelf label rather than the food's own name —
+   * 2 for `Alcoholic beverage, wine, …`, 0 for everything USDA names properly.
+   * See {@link SHELF_LABEL_HEAD}.
+   *
+   * Read by the two keys that ask WHERE a word sits, `position` and `accounted`,
+   * and deliberately by nothing else: `headLength` and `headChars` still cover
+   * the whole head phrase, so the tier a name reaches is exactly what it was
+   * (#154). A tea filed under `Beverages` is still a qualifier match, which is
+   * a separate defect and a separate ticket.
+   */
+  shelfLength: number;
   /** 1 for a raw food, 0 otherwise — the base-ingredient preference. */
   raw: number;
   /** Raw simplicity: "Bananas, raw" (3) over "Bananas, overripe, raw" (2). */
@@ -140,13 +219,39 @@ export const wordsOf = (text: string): string[] =>
     .filter(Boolean);
 
 /**
+ * The parts of a description, as the qualifier boundaries USDA writes them.
+ *
+ * Commas rather than words, because a part has to match WHOLE: reading
+ * "Cheese, cheddar" as words would make it a prefix of "Cheese, cheddars" and
+ * every plural would demote its own singular. Whitespace is collapsed as well as
+ * trimmed, because USDA ships `Game meat , bison, ground, raw` with the space
+ * before its comma, and a roster lookup that missed it would silently skip 59
+ * rows.
+ *
+ * The one place a qualifier boundary is defined: the shelf-label lookup, the
+ * whole-qualifier modifier test and {@link plainSiblingsOf} all ask it, so a
+ * name is cut into parts by one rule rather than three.
+ */
+const qualifiersOf = (description: string): string[] =>
+  description
+    .toLowerCase()
+    .split(",")
+    .map((part) => part.trim().replace(/\s+/g, " "))
+    .filter(Boolean);
+
+/**
  * Reads a description into the shape ranking compares. Pure, and cheap enough to
  * call per search hit; the bundled corpus calls it once per row at load instead.
  */
 export function readReferenceFoodName(description: string): ReferenceFoodName {
   const words = wordsOf(description);
-  const head = wordsOf(description.split(",")[0] ?? "");
+  const parts = qualifiersOf(description);
+  const head = wordsOf(parts[0] ?? "");
   const lower = description.toLowerCase().trim();
+  // Where the food's own name starts (#154). A shelf label with nothing after
+  // it IS the name, so a lone "Spices" keeps its head rather than losing it.
+  const shelfLength =
+    parts.length > 1 && SHELF_LABEL_HEAD.has(parts[0]) ? head.length : 0;
   // Base-ingredient preference: someone searching a food wants the raw base
   // form, so raw ("… raw" anywhere in the name) outranks every processed form.
   const raw = /\braw\b/.test(lower) ? 1 : 0;
@@ -159,12 +264,18 @@ export function readReferenceFoodName(description: string): ReferenceFoodName {
     : raw;
   // The canonical-record preference: among rows that tie on everything else,
   // the plain form of the food beats a modified or cooked one.
-  const plain = MODIFIED_FORM.test(lower) || PREPARED_FORM.test(lower) ? 0 : 1;
+  const plain =
+    MODIFIED_FORM.test(lower) ||
+    PREPARED_FORM.test(lower) ||
+    parts.some((part) => MODIFIED_PART.has(part))
+      ? 0
+      : 1;
   return {
     words,
     stems: words.map(stemOf),
     headLength: head.length,
     headChars: head.reduce((n, w) => n + w.length, 0),
+    shelfLength,
     raw,
     simplicity,
     plain,
@@ -391,7 +502,16 @@ export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
   const tokenStems = tokens.map(stemOf);
   const queryChars = tokens.reduce((n, t) => n + t.length, 0);
 
-  return ({ words, stems, headLength, headChars, raw, simplicity, plain }) => {
+  return ({
+    words,
+    stems,
+    headLength,
+    headChars,
+    shelfLength,
+    raw,
+    simplicity,
+    plain,
+  }) => {
     // Weakest signal: every token prefix-matches some word (this is what lets
     // grapefruit in for a "grape" query). Strongest of the name-wide signals:
     // every token IS some word, modulo plural — "grape" really present as a word
@@ -442,7 +562,11 @@ export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
     for (let t = 0; t < tokens.length; t++) {
       for (let i = 0; i < words.length; i++) {
         if (stems[i] === tokenStems[t] || words[i].startsWith(tokens[t])) {
-          position -= i;
+          // Measured from where the food's own name starts, so a drink is not
+          // charged for the aisle USDA walks down first (#154). A token that
+          // landed IN the shelf label costs 0, which needs no special case and
+          // ties every row under that label uniformly.
+          position -= Math.max(0, i - shelfLength);
           break;
         }
       }
@@ -458,8 +582,12 @@ export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
     // The same test retrieval uses, on purpose. A completeness key that
     // disagreed with retrieval about what a token matched would be a second
     // copy of that answer, free to drift from it (#131).
+    // Starting past the shelf label for the same reason: if the aisle is not
+    // part of the food's name where a word SITS, it is not part of it where the
+    // name is counted either. "whiskey sour" names the whole of
+    // `Alcoholic beverage, whiskey sour` and used to lose to a powdered mix.
     let accounted = 1;
-    for (let i = 0; i < words.length; i++) {
+    for (let i = shelfLength; i < words.length; i++) {
       if (
         !tokenStems.includes(stems[i]) &&
         !tokens.some((t) => words[i].startsWith(t))
@@ -546,20 +674,6 @@ export interface RowRank {
    */
   designated: number;
 }
-
-/**
- * The parts of a description, as the qualifier boundaries USDA writes them.
- *
- * Commas rather than words, because a part has to match WHOLE: reading
- * "Cheese, cheddar" as words would make it a prefix of "Cheese, cheddars" and
- * every plural would demote its own singular.
- */
-const qualifiersOf = (description: string): string[] =>
-  description
-    .toLowerCase()
-    .split(",")
-    .map((part) => part.trim().replace(/\s+/g, " "))
-    .filter(Boolean);
 
 /**
  * Which of these descriptions are a qualified form of another one, in order.
