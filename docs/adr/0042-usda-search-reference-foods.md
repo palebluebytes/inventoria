@@ -1463,3 +1463,71 @@ retrieval it is about.
 
 **Implemented:** `src/lib/food/usda-food-kind.ts` (`PREPARED_DISH_MARKERS`); pinned in
 `tests/unit/usda-corpus.test.ts`.
+
+## Amendment (2026-08-24, #158): the ranking may not read the panel, and 28% of queries end in a tie
+
+The Amendment above refused a tier answer for `tea` and cut the rung below it as
+[#158](https://github.com/palebluebytes/inventoria/issues/158): given the nine
+`Beverages, tea, …` rows, which one is the tea? **None of them, by any key this
+ranking has**, and the ticket ships no ranking change. The measurement is
+[research note #158](../research/158-complete-ties-in-the-ranking.md); this
+records the two refusals, because a refusal is the part a later ticket re-derives.
+
+### The ranking reads a name, or one of two row facts, and never the panel
+
+Caffeine separates the nine correctly — 20 mg for both black teas, 16 for oolong,
+12 for green, 1 for the decaffeinated black, 0 for the greens and herbals — so
+"prefer the most caffeinated" lands `tea` on black tea brewed with tap water and
+meets the ticket's acceptance exactly.
+
+It is refused. It gets the right answer for a reason unrelated to what the word
+means: the same key ranks an espresso above a latte for `coffee`. It would be the
+first key to read a nutrient, and `nutrient-store.json` is not loaded by search at
+all, so it costs an index-schema change — the objection that already killed
+panel-completeness in #143. And its only member is `tea`, which makes it the
+one-member predicate the #153 Amendment above refused under another name.
+
+### "The UK default sense of a word" has no mechanism, and does not get one here
+
+The premise is true and neither existing mechanism reaches it.
+[ADR-0049](0049-a-derived-vocabulary-for-food-search.md) §1's vocabulary fires
+only on an empty result and `tea` returns twelve rows; §1 calls that property
+structural. [ADR-0046](0046-curated-stand-ins-for-base-foods-usda-lacks.md)'s
+stand-ins exist only for base foods USDA lacks, and USDA has black tea three ways.
+A third mechanism whose only member is one word is the same refusal again.
+
+### Self-gating is a precondition on a tenth key, not an outcome
+
+Measured over 3,997 queries, **1,121 (28%) open with a complete tie** — every key
+equal, the order decided by `Array.prototype.sort`'s stability and so by `fdcId`.
+Among them are all four generic-animal leads this record's #155 Amendment pins:
+`chicken` ties 58 rows, `turkey` 46, `pork` 84, `lamb` 129. **Those four leads
+were dealt, not won.**
+
+So any key that separates complete ties in general reaches all four by
+construction. The two keys that shipped, `accounted` and `plain`, survived
+measurement because they tie uniformly across them; the two that were rejected,
+#143's part key and #155's counted qualifiers, both fired and broke them. A
+candidate must be shown to tie uniformly across the four **before** it is swept,
+rather than checked afterwards.
+
+### Two corrections to what this record and ADR-0055 said
+
+The #153 Amendment above says the nine tea rows are "identical on all nine keys"
+and that a tier fix would let `designated` decide. Both are wrong.
+
+The tie is **eight**. `Beverages, tea, black, brewed, prepared with tap water,
+decaffeinated` carries `plain_sibling: true`, its name being a strict extension of
+the plain tap-water row's, so ADR-0055 §3 already demotes it. And `designated`
+cannot decide: none of the nine is an American Indian/Alaska Native record, so the
+key ties at 1 across all of them. The mechanism is `fdcId`, and ordered among
+themselves the eight lead with `Beverages, tea, green, brewed, decaffeinated`.
+
+### Nothing changed in the ranking
+
+No key, no roster, no filter, no `schema_version`. What ships is the instrument
+(`pnpm usda:ranking-ties`), the note, and a tripwire in `usda-corpus.test.ts` that
+asserts what the ranking actually decides here rather than what the tickets
+assumed. The head of the tie class — `beef`, 413 rows tied, 777 kcal of spread,
+leading with `Beef, retail cuts, separable fat, raw` and pinned by nothing — is
+cut as its own ticket.

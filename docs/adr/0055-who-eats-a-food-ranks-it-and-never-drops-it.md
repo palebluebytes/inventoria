@@ -259,6 +259,24 @@ Recorded so they are not re-proposed, in the form #143 used for its part key:
   > identical on all nine keys, so a tier answer only equalises them and lets
   > `designated` decide.
 
+  > Corrected 2026-08-24 on [#158](https://github.com/palebluebytes/inventoria/issues/158),
+  > which measured the sentence above and found both halves wrong. **The tie is
+  > eight, not nine**: `Beverages, tea, black, brewed, prepared with tap water,
+decaffeinated` carries `plain_sibling: true`, its name being a strict
+  > extension of the plain tap-water row's, so §3 of this record already demotes
+  > it. And **`designated` cannot decide** — none of the nine is an American
+  > Indian/Alaska Native record, so the key ties at 1 across all of them. The
+  > mechanism a tier answer would hand `tea` to is `Array.prototype.sort`'s
+  > stability, and ordered among themselves the eight lead with
+  > `Beverages, tea, green, brewed, decaffeinated`. #158 measured no key that
+  > separates them and shipped none: every one of the nine is 0–1 kcal, so the
+  > accident costs at most 1 kcal, and the caffeine signal that would have worked
+  > is refused in ADR-0042's #158 Amendment. What it left is a tripwire saying so
+  > and a note, [#158](../research/158-complete-ties-in-the-ranking.md), whose
+  > wider finding bears on this record's §2: **1,121 of 3,997 queries open with a
+  > complete tie**, and the four generic-animal leads §2's bar protects are
+  > themselves ties that `fdcId` order happens to get right.
+
 - **A drink query can still be answered by a non-drink.** `red wine` leads with
   `Vinegar, red wine` and bare `wine` with `Beverages, Wine, non-alcoholic`, both
   surviving §3 because both are ADR-0042's #124 position key preferring a word
