@@ -15,6 +15,7 @@
 **Amended by:** the #124 Amendment below, which adds a fifth key asking where in the name the query landed  
 **Amended by:** the #143 Amendment below, which fills the slot the #124 Amendment reserved, and corrects what it reserved it for  
 **Amended by:** the #144 Amendment below, which gives §5's two head-word keep lists an escape hatch, moves boxed mixes to §4, and adds a manufacturing-input filter  
+**Amended by:** [ADR-0055](0055-who-eats-a-food-ranks-it-and-never-drops-it.md) §3 and §4 (§1 gains two keys that read a ROW rather than a name), and §1 of that record settles what the governing principle left open: prevalence may rank a reference food and may never drop one  
 **Implemented:** `dabb1fe`, `082ad31`, `fcb3b60`, `1365343`; `src/lib/food/food-search.ts`, and since `aa6c53b` the filter roster §3 describes is `src/lib/food/usda-food-kind.ts` rather than `src/lib/food/usda-fdc.ts` (see the Note below)
 
 ## Context
@@ -77,6 +78,13 @@ Results are ordered by, in priority:
    > Joined by the [#143 Amendment](#amendment-2026-08-21-143-the-plain-form-of-a-food-and-what-the-reserved-slot-was-not-for),
    > which adds a sixth key above this one and, contrary to the #124 Amendment's
    > prediction, does **not** absorb it.
+
+   > Joined again by [ADR-0055](0055-who-eats-a-food-ranks-it-and-never-drops-it.md)
+   > §3 and §5. Two of the keys now read the ROW rather than the name — whether a
+   > plainer twin of it exists in the corpus, and whether USDA published it for a
+   > designated population — because neither fact is legible from a description
+   > alone. The order becomes `tier, raw, head, position, plainSibling, plain,
+simplicity, designated`.
 
 Relevance gates rawness: an off-target raw food never beats an on-target one.
 
