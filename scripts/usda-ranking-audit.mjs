@@ -765,6 +765,23 @@ async function explainAbsence(term) {
 const identityOf = (kase) => `${kase.pass}:${kase.tag ?? kase.query}`;
 
 /**
+ * Verdicts a moved leading row cannot put in doubt.
+ *
+ * `verdict_stale` asks "was this judgement made against an ordering that has
+ * since changed", which presumes the judgement was ABOUT the ordering. One is
+ * not. `implausible-query` says nobody types this into a food search —
+ * `cooked beef meat`, `anti-foaming agent`, `nigari` — and the note the research
+ * file carries for each says so in those words. It is a claim about the QUERY,
+ * the cases are excluded from every rate the note computes, and no reordering of
+ * an answer nobody asked for can make it wrong.
+ *
+ * Measured on #156: 41 of the 128 flags a regenerate raised were this, a third
+ * of the set, every one of them a judgement re-reading could only reaffirm. A
+ * flag that cannot be cleared by looking is noise on the thirty-nine that can.
+ */
+const ORDERING_INDEPENDENT_VERDICTS = new Set(["implausible-query"]);
+
+/**
  * Carries the hand adjudications forward onto a fresh sweep.
  *
  * #130 judged 914 cases by hand, and the note's whole claim to be arguable rests
@@ -777,8 +794,10 @@ const identityOf = (kase) => `${kase.pass}:${kase.tag ?? kase.query}`;
  * A verdict was made against the ordering of its own run, so a carried one can
  * be stale. Rather than pretend otherwise, a case whose leading row has moved
  * since is flagged `verdict_stale`, which says exactly what a re-reader has to
- * look at again. The flag is sticky, because the next regenerate compares
- * against the run that already moved the row and would otherwise read false.
+ * look at again, EXCEPT where the verdict was never about the ordering — see
+ * {@link ORDERING_INDEPENDENT_VERDICTS}. The flag is sticky, because the next
+ * regenerate compares against the run that already moved the row and would
+ * otherwise read false.
  * Cases the sweep no longer emits — a synonym group whose members now agree —
  * take their verdicts with them, and the count is reported.
  */
@@ -813,7 +832,8 @@ function carryVerdicts(cases, previousPath) {
     // quietly disappear. It clears when a human re-judges the case, not when the
     // script runs again.
     kase.verdict_stale =
-      (before.verdict_stale ?? false) || leadOf(kase) !== leadOf(before);
+      !ORDERING_INDEPENDENT_VERDICTS.has(kase.verdict) &&
+      ((before.verdict_stale ?? false) || leadOf(kase) !== leadOf(before));
     carried++;
     if (kase.verdict_stale) stale++;
     judged.delete(identityOf(kase));
