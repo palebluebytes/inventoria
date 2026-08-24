@@ -84,6 +84,14 @@ _Avoid_: Parent row, canonical form (which is what the `plain` key already means
 A head phrase USDA writes as the aisle a record was filed on rather than as the food's name — `Alcoholic beverage, wine, table, red`, `Beverages, tea, green`, `Fish, salmon`, `Nuts, almonds`. Eighteen of them cover 760 rows. The food's own name starts one or two words in, so the ranking keys that read where a typed word SITS measure from there; the tier a name reaches is unaffected, and a tea filed under `Beverages` is still a qualifier match. A shelf label's qualifiers name distinct foods, where an ordinary head's name parts or preparations of the food it already named — which is why `Beef, chuck, arm pot roast` is not one. See ADR-0042's #154 Amendment.
 _Avoid_: Category head (a row's `foodCategory` is a different thing and decides a different key), group name, prefix, aisle
 
+**Separated fat**:
+A USDA record of the fat taken off a food rather than of the food — `Beef, retail cuts, separable fat, raw` at 674 kcal, `Lamb, Australian, imported, fresh, seam fat, raw`, `Fat, chicken`. Fifty-one rows, all 444 to 902 kcal. Still a Reference food and still searchable; it simply never leads, which is what stopped a typed `beef` answering with the trimmings. The handle is a WHOLE qualifier, because `separable lean and fat` is the meat and `separable fat` is what came off it. See ADR-0042's #162 Amendment.
+_Avoid_: Fat, trimmings, by-product (variety meats are USDA's by-products and are a different thing), part
+
+**Composite of cuts**:
+A USDA record published as the average of a food's retail cuts rather than as one of them — `Beef, composite of trimmed retail cuts, …`, `Pork, fresh, composite of trimmed leg, loin, shoulder, and spareribs, …`. Sixty-one rows under beef, pork, lamb, veal and game meat, and the generic sense of each of those words: it is the row that leads when someone types the bare animal. USDA's own marker is the phrase `composite of`, never the bare word, which also names a margarine blended from several brands. See ADR-0042's #162 Amendment.
+_Avoid_: Whole food, generic row, average row, aggregate (each reads as a judgement rather than as what USDA published)
+
 **Designated-population record**:
 A USDA record published as reference composition for a documented population rather than for everybody — the `American Indian/Alaska Native Foods` category, which holds mutton, agave, cloudberries and seal oil. Still a Reference food, still searchable and loggable under its own name; it simply ranks below an undesignated row where the two answer a query equally well. The handle is the category, never the parenthesised tag in the description. See ADR-0055.
 _Avoid_: Ethnic food, traditional food, cultural food (each reads as a judgement about the food rather than about who the record was published for)

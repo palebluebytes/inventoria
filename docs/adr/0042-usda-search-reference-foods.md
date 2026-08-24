@@ -18,6 +18,7 @@
 **Amended by:** the #152 Amendment below, which adds a fifth Title-Case trademark to §3's denylist and corrects what the #131 sweep found  
 **Amended by:** [ADR-0055](0055-who-eats-a-food-ranks-it-and-never-drops-it.md) §3 and §4 (§1 gains two keys that read a ROW rather than a name), and §1 of that record settles what the governing principle left open: prevalence may rank a reference food and may never drop one  
 **Amended by:** the #155 Amendment below, which adds a seventh name key asking whether the query accounts for the whole name, and separates the tie ADR-0055's #151 Amendment left open  
+**Amended by:** the #162 Amendment below, which adds an eighth name key asking how much of its food a row is a record of, and revises the #158 Amendment's precondition on it  
 **Implemented:** `dabb1fe`, `082ad31`, `fcb3b60`, `1365343`; `src/lib/food/food-search.ts`, and since `aa6c53b` the filter roster §3 describes is `src/lib/food/usda-food-kind.ts` rather than `src/lib/food/usda-fdc.ts` (see the Note below)
 
 ## Context
@@ -1697,4 +1698,181 @@ requires.
 **Implemented:** `src/lib/food/usda-food-kind.ts` (`TRADE_SPECIFICATION_MARKER`,
 `HOUSEHOLD_MARKER`, `LECITHIN_MARKER`); the three clauses and both refusals
 pinned in `tests/unit/usda-food-kind.test.ts`, and their corpus reach in
+`tests/unit/usda-corpus.test.ts`.
+
+## Amendment (2026-08-24, #162): a fat trimmed off a food is not the food, and a composite of its cuts is the most of it
+
+The Amendment above measured 1,115 queries whose result list opens with a
+complete tie and named the worst of them:
+[#162](https://github.com/palebluebytes/inventoria/issues/162). A typed `beef`
+tied **412 rows** — the query IS the head phrase of every one of them, so `tier`,
+`head`, `position` and `accounted` all score alike and the five remaining keys
+tie too — and `Array.prototype.sort`'s stability handed the lead to the lowest
+`fdcId`. What it dealt was `Beef, retail cuts, separable fat, raw` at **674
+kcal**, against a lean cut's 149. `veal` was the same shape at 43 rows, leading
+with an Australian rib roast where `Veal, composite of trimmed retail cuts,
+separable lean and fat, raw` sat buried.
+
+### An eighth name key: how much of its food the row is a record of
+
+`wholeness` scores each name **2** when USDA published it as the average of a
+food's cuts, **0** when it names a fat separated from a food, and **1**
+otherwise. It is consulted after `plain`.
+
+The fat test runs first, because the two markers overlap and the fraction has to
+win when they do: `Veal, composite of trimmed retail cuts, separable fat, raw` is
+USDA averaging the TRIMMINGS over the cuts at 638 kcal, and it is exactly the row
+a composite preference on its own would have handed `veal`.
+
+### It is the whole-over-part key #143 rejected, and it reads no part vocabulary
+
+That is the trap the ticket named, so it is answered rather than skirted. USDA
+writes its most GENERIC animal rows with the most part words — a whole chicken is
+`meat and skin and giblets and neck`, the generic pork row is
+`a composite of trimmed leg, loin, shoulder, and spareribs … separable lean and
+fat` — so a marker reading `separable`, `lean`, `fat` or `retail cuts` selects
+**for** the canonical row as readily as against a trimming. #143's key did that
+and broke four correct leads.
+
+What this key reads instead is USDA's own aggregate word and a closed list of
+whole qualifiers:
+
+- **`composite of`**, as a phrase and not the bare word. `composite` alone
+  reaches 70 rows and eight are a margarine or a shortening blended from several
+  brands, which is a different sense entirely. The phrase reaches **61**, across
+  five head phrases — beef, pork, lamb, veal and game meat — and every one is
+  USDA averaging an animal over its cuts.
+- **A separated fat**, as a WHOLE qualifier, the mechanism §1's `MODIFIED_PART`
+  already exists for. Eight qualifier words and the bare form, because demoting
+  one spelling hands the lead to the next: taking `external fat` out of
+  `australian beef` promoted `seam fat` at 562 kcal. Reaches **51 rows**, every
+  one read, and the panel agrees with the name — the lightest is 444 kcal and the
+  heaviest 902.
+
+70 less 8 is 62, and the ninth row is stated rather than rounded away:
+`Beef composite, separable lean only, trimmed to 1/8" fat, choice, cooked` is a
+real composite USDA spelled without the `of`, and it is left out. It is cooked,
+so `raw` demotes it below every raw candidate two keys earlier and it can never
+lead a bare `beef`; and a clause reaching one row by its head phrase is the
+one-member predicate the #157 Amendment refuses.
+
+The exactness is the whole guard, and it is what tells `separable fat` from
+`separable lean and fat`. That qualifier alone is **759 rows spanning 107 to 471
+kcal**, and `lean and fat`, `boneless separable lean and fat` and
+`separable lean and fat only` one row each at 172, 127 and 157. All four are real
+meat and all four are outside the marker.
+
+### The #158 Amendment's precondition is revised: self-gating is the weaker test
+
+That Amendment required a candidate to be shown to **tie uniformly** across
+`chicken`, `turkey`, `pork` and `lamb` before it is swept. This key does not, and
+the stronger thing it does instead is why the precondition is revised rather than
+waived: it **fires on three of the four and confirms the leads they already had**.
+
+| query     | tied before | tied after | lead                                                                  |
+| --------- | ----------- | ---------- | --------------------------------------------------------------------- |
+| `chicken` | 58          | 57         | unchanged; the key only demotes the separable-fat row                 |
+| `turkey`  | 46          | 46         | unchanged; no composite and no fat row in the tie                     |
+| `pork`    | 84          | **5**      | unchanged                                                             |
+| `lamb`    | 129         | **8**      | unchanged                                                             |
+| `beef`    | 412         | **12**     | `Beef, composite of trimmed retail cuts, …, all grades, raw`          |
+| `veal`    | 43          | **2**      | `Veal, composite of trimmed retail cuts, separable lean and fat, raw` |
+
+The #158 Amendment's finding was that those four leads were dealt rather than
+won. This key wins two of them, on the same row they were dealt, which is a
+stronger result than tying uniformly and could not have been reached by a
+candidate that satisfied the precondition as written. **Zero broken leads** is
+what the bar reduces to; "ties uniformly" was a sufficient condition mistaken for
+a necessary one.
+
+### What it costs
+
+Sixteen leads move in a 3,976-query sweep. **Eleven leave a separated fat for a
+meat** — six distinct fat rows under eleven sweep spellings, `beef` itself among
+them, and `wagyu beef`, the one a person types, which led with 596 kcal of
+external fat. **Three** take `game`, `game meat` and `meat` from
+`Game meat, muskrat, raw` to
+`Game meat, rabbit, domesticated, composite of cuts, raw`. **One** is `veal`,
+leaving an Australian rib roast.
+
+One is a cost, and it is pinned as itself in `usda-corpus.test.ts`: **`tri beef`**
+moves from `Beef, bottom sirloin, tri-tip roast, …` to the composite, because
+`tri` prefix-matches `trimmed`. It is a sweep-generated `adjective noun` pair
+rather than a phrase anyone types, and it is the whole collateral.
+
+Priced against the #158 census, the count of tied queries barely moves — 1,115 to
+1,113 — and the harm distribution does: the **200+ kcal band falls from 152
+queries to 130**. This key shrinks ties rather than emptying them, which is the
+shape a name key makes here.
+
+### The slot was measured, and only half of it is free
+
+From `position` downwards — after `position`, after `plainSibling`, after `plain`,
+or after `simplicity` — the same 16 leads move and no others, so among those four
+the placement is an argument. It sits after `plain` because it asks `plain`'s
+question one step further out: `plain` asks whether this is the food in its plain
+form, this asks whether the row is a record of the food at all.
+
+**Above `position` it is a different key**, moving 34 more leads, and that is why
+it is not there. It begins overriding where the query's words landed: `blade pork`
+goes from `Pork, fresh, loin, blade (chops or roasts), bone-in, …` to
+`Pork, fresh, composite of trimmed retail cuts (loin and shoulder blade), …`,
+a composite mentioning "blade" in passing answering a query that names a chop.
+The #124 Amendment adopted `position` to stop exactly that.
+
+### The gold set disagrees about `beef`, and is left as it was written
+
+`143-gold-set.json` designates `Beef, grass-fed, ground, raw` for `beef`,
+unratified. This lands on the composite instead, deliberately: `pork` and `lamb`
+are both pinned as composite rows, and the #155 Amendment measured and rejected
+the counted-qualifier key precisely because it takes all four generic animals to
+a `… ground, raw` row. Adopting `ground, raw` here would be that refused answer
+arriving by a third route.
+
+The gold set is #143 §8.1's pre-registration and is not edited to agree. Its
+`should_lead` count rises from **6 of 29 to 7**, because `veal`'s designated row
+is the one this key reaches — a hand adjudication made a year of tickets ago,
+and the only independent confirmation available for either case.
+
+### What it deliberately leaves
+
+`beef` is still an `fdcId` accident, over twelve raw composites spanning 130 to
+224 kcal. No key here separates `all grades` from `choice`, or 0" trim from 1/8".
+That is a 94 kcal accident where it was a 777 kcal one; closing it needs a
+grade-and-trim preference nothing in this ranking has asked for, and it is not
+proposed here.
+
+**Twenty-four queries still lead with a separated fat**, and the key is not
+failing on them. **Sixteen** retrieve no other kind of row at all — `seam beef`,
+`tallow`, `intermuscular lamb` — which is the self-gating §1 relies on: literal
+retrieval admits a row only when every typed token matches it, so a typed fat
+word is in every candidate. Of the remaining **eight**, six are decided by
+`position` and two by `tier`, both above this key. `retail beef` is the sharpest:
+`retail` is word 1 of
+`Beef, retail cuts, separable fat, raw` and word 4 of
+`Beef, composite of trimmed retail cuts, …`, so the fat row wins outright rather
+than tying, with 23 non-fat rows below it. That is the #124 Amendment's key doing
+what it was adopted for, and it is pinned as the boundary rather than left to be
+found as a bug.
+
+`variety beef` and `variety pork` still lead with a brain and a pig's ear. Those
+queries name variety meats, every retrieved row is one, and the key ties across
+them — the right behaviour, and the remaining head of the harm distribution.
+
+**`sea` is not this shape**, and #162 named it as a neighbouring candidate. It is
+not a fraction case: six rows tie, they are a sea cucumber and five Steller sea
+lion records, and `sea` names no food — it is a head WORD shared by two animals,
+at rung 40 rather than 50. It belongs to the head-phrase class
+[#159](https://github.com/palebluebytes/inventoria/issues/159) owns, and no key
+proposed here reaches it.
+
+### No schema change
+
+No new field, no `schema_version` bump, no regeneration. `wholeness` is derived
+from the description in `readReferenceFoodName`, the way `plain` and `simplicity`
+are.
+
+**Implemented:** `src/lib/food/reference-food-ranking.ts` (`SEPARATED_FAT`,
+`isSeparatedFat`, `AGGREGATE_OF_CUTS`, `ReferenceFoodName.wholeness`,
+`NameKey.wholeness`, the `compareRelevance` slot); pinned in
 `tests/unit/usda-corpus.test.ts`.
