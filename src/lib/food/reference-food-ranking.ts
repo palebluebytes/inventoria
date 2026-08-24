@@ -66,24 +66,35 @@ const MODIFIED_PART = new Set(["light", "cooking"]);
  *
  * The test for membership, so the roster can be extended without guessing: a
  * shelf label's qualifiers name DISTINCT FOODS, where an ordinary head's name
- * parts or preparations of the one food it already named. `Fish, salmon` and
- * `Nuts, almonds` name a different animal and a different tree; `Beef, chuck,
- * arm pot roast` names a cut of the beef the head already named. That is why
- * `beef`, `pork`, `lamb`, `chicken`, `cheese` and `milk` are absent, and why
- * `oil` is too — `Oil, olive` is olive oil, and #155 settled that family.
+ * PARTS OR PREPARATIONS of the one food it already named. `Fish, salmon` and
+ * `Nuts, almonds` name a different animal and a different tree, and
+ * `Cheese, cheddar` a different cheese; `Beef, chuck, arm pot roast` names a
+ * cut of the beef the head already named, as every one of the 959 beef rows
+ * does. That is what keeps `beef`, `pork`, `lamb`, `veal`, `chicken` and
+ * `turkey` out — 1,946 rows between them, and the reason the roster is not
+ * simply "a head many rows share".
  *
- * Reaches 632 rows, pinned as a tripwire in `usda-corpus.test.ts` the way
+ * `oil` satisfies the test and is absent anyway, which is a SCOPING refusal and
+ * not a test outcome: `Oil, olive` and `Oil, corn` are as distinct as two
+ * fishes, but #155 settled that family a week ago and re-opening it belongs to
+ * its own ticket. Measured, so the cost of the refusal is known rather than
+ * assumed: adding `oil` moves exactly one lead, `safflower` from
+ * `Seeds, safflower seed kernels, dried` to `Oil, safflower`.
+ *
+ * Reaches 760 rows, pinned as a tripwire in `usda-corpus.test.ts` the way
  * ADR-0055 §3 pinned `plainSibling`'s 128 (#131: an unmeasured guard is a hole).
  */
 const SHELF_LABEL_HEAD = new Set([
   "alcoholic beverage",
   "alcoholic beverages",
   "beverages",
+  "cheese",
   "crustaceans",
   "fat",
   "fish",
   "game meat",
   "margarine-like",
+  "milk",
   "mollusks",
   "nuts",
   "poultry",
@@ -228,11 +239,15 @@ export const wordsOf = (text: string): string[] =>
  * before its comma, and a roster lookup that missed it would silently skip 59
  * rows.
  *
- * The one place a qualifier boundary is defined: the shelf-label lookup, the
- * whole-qualifier modifier test and {@link plainSiblingsOf} all ask it, so a
- * name is cut into parts by one rule rather than three.
+ * The one place a qualifier boundary is defined, and exported so it stays that:
+ * the shelf-label lookup, the whole-qualifier modifier test,
+ * {@link plainSiblingsOf}, the sweep shapes in `usda-ranking-queries.mjs` and
+ * the tripwires over the shipped corpus all ask it. A second copy is not a
+ * near-duplicate helper but a second answer, free to drift — and the way it
+ * drifts is silent, since a copy that forgot the whitespace collapse would
+ * measure a predicate the app does not apply.
  */
-const qualifiersOf = (description: string): string[] =>
+export const qualifiersOf = (description: string): string[] =>
   description
     .toLowerCase()
     .split(",")

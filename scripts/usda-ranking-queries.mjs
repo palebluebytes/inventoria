@@ -18,6 +18,7 @@
 
 import { createHash } from "node:crypto";
 import {
+  qualifiersOf,
   readReferenceFoodName,
   wordsOf,
 } from "../src/lib/food/reference-food-ranking.ts";
@@ -144,11 +145,7 @@ export async function deriveVocabulary(corpus, search) {
 export function sweepQueries(descriptions) {
   const queries = new Set();
   for (const description of descriptions) {
-    const parts = description
-      .toLowerCase()
-      .split(",")
-      .map((part) => part.trim().replace(/\s+/g, " "))
-      .filter(Boolean);
+    const parts = qualifiersOf(description);
     if (!parts.length) continue;
     queries.add(parts[0]);
     for (const word of wordsOf(parts[0])) queries.add(word);

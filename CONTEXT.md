@@ -81,7 +81,7 @@ The shorter of two Reference foods whose names differ only by trailing qualifier
 _Avoid_: Parent row, canonical form (which is what the `plain` key already means about a NAME), duplicate
 
 **Shelf-label head**:
-A head phrase USDA writes as the aisle a record was filed on rather than as the food's name — `Alcoholic beverage, wine, table, red`, `Beverages, tea, green`, `Fish, salmon`, `Nuts, almonds`. Sixteen of them cover 632 rows. The food's own name starts one or two words in, so the ranking keys that read where a typed word SITS measure from there; the tier a name reaches is unaffected, and a tea filed under `Beverages` is still a qualifier match. A shelf label's qualifiers name distinct foods, where an ordinary head's name parts or preparations of the food it already named — which is why `Beef, chuck, arm pot roast` is not one. See ADR-0042's #154 Amendment.
+A head phrase USDA writes as the aisle a record was filed on rather than as the food's name — `Alcoholic beverage, wine, table, red`, `Beverages, tea, green`, `Fish, salmon`, `Nuts, almonds`. Eighteen of them cover 760 rows. The food's own name starts one or two words in, so the ranking keys that read where a typed word SITS measure from there; the tier a name reaches is unaffected, and a tea filed under `Beverages` is still a qualifier match. A shelf label's qualifiers name distinct foods, where an ordinary head's name parts or preparations of the food it already named — which is why `Beef, chuck, arm pot roast` is not one. See ADR-0042's #154 Amendment.
 _Avoid_: Category head (a row's `foodCategory` is a different thing and decides a different key), group name, prefix, aisle
 
 **Designated-population record**:

@@ -30,6 +30,7 @@ import {
 import {
   compareRelevance,
   compileReferenceFoodQuery,
+  qualifiersOf,
   readReferenceFoodName,
   stemOf,
   type RelevanceKey,
@@ -60,7 +61,7 @@ describe("the bundled search index", () => {
     );
   });
 
-  it("holds 632 rows whose head phrase is a shelf label, under 16 labels", () => {
+  it("holds 760 rows whose head phrase is a shelf label, under 18 labels", () => {
     // ADR-0042's #154 Amendment, tripwired the way ADR-0055 §3 tripwired
     // `plainSibling`: the roster is hand-written, so a head phrase added or
     // misspelled shows up as a count here rather than as a quietly reordered
@@ -68,11 +69,11 @@ describe("the bundled search index", () => {
     const shelved = index.foods.filter(
       (row) => readReferenceFoodName(row.description).shelfLength > 0
     );
-    expect(shelved.length).toBe(632);
+    expect(shelved.length).toBe(760);
     const labels = new Set(
-      shelved.map((row) => row.description.split(",")[0].trim().toLowerCase())
+      shelved.map((row) => qualifiersOf(row.description)[0])
     );
-    expect(labels.size).toBe(16);
+    expect(labels.size).toBe(18);
     // The membership test in one assertion: a shelf label's qualifiers name
     // DISTINCT FOODS, an ordinary head's name parts of the food it already
     // named. Beef is the whole reason the roster is not "any head many rows
@@ -86,19 +87,24 @@ describe("the bundled search index", () => {
     // word: as words they reach 49 and 7 rows, and most of those are not a
     // modified anything.
     const withPart = (part: string) =>
+      index.foods.filter((row) => qualifiersOf(row.description).includes(part));
+    const withWord = (word: string) =>
       index.foods.filter((row) =>
-        row.description
-          .toLowerCase()
-          .split(",")
-          .map((p) => p.trim())
-          .includes(part)
+        new RegExp(`\\b${word}\\b`, "i").test(row.description)
       );
-    expect(withPart("light").length).toBe(15);
-    expect(withPart("cooking").length).toBe(1);
-    expect(
-      index.foods.filter((row) => /\bnon-alcoholic\b/i.test(row.description))
-        .length
-    ).toBe(2);
+    // Both halves of the argument, because only one of them was pinned at
+    // first: the whole-qualifier reach is what ships, and the WORD reach is why
+    // a second mechanism exists at all. If the words stopped being dangerous,
+    // `MODIFIED_PART` would have no reason to be a separate list.
+    expect([withWord("light").length, withPart("light").length]).toEqual([
+      49, 15,
+    ]);
+    expect([withWord("cooking").length, withPart("cooking").length]).toEqual([
+      7, 1,
+    ]);
+    // And `non-alcoholic` is in the regex precisely because it is NOT dangerous
+    // as a word: both rows it reaches are a drink with the alcohol taken out.
+    expect(withWord("non-alcoholic").length).toBe(2);
     // The 34 rows the word `light` would have taken and the qualifier does not.
     // Chicken light meat is not a reduced-fat chicken, and a mushroom exposed
     // to ultraviolet light is not a light mushroom.
@@ -734,33 +740,34 @@ describe("searchIndexRows", () => {
 
   it("pins what the shelf-label discount costs, as itself", () => {
     // #155's precedent: a key's collateral is pinned rather than left for
-    // somebody to rediscover and read as a fresh bug. Seventeen leads moved in
-    // a 3,935-query sweep, twelve of them wins; these four are the rest, and
-    // one of them is worse by inspection.
+    // somebody to rediscover and read as a fresh bug. Twenty leads moved in a
+    // 4,005-query sweep: twelve are wins on queries a person types, five are
+    // washes on ones nobody does (`fluid`, `reduced`, `american`,
+    // `with chocolate`, `dried meat`), and these three are what it costs.
     //
-    // `chocolate` is the cost. Every `Beverages, chocolate …` row now names its
-    // food at word 0 rather than word 1, so a malt powder sits where
-    // `Milk, chocolate, fluid` did — which is the key working exactly as
-    // described and answering worse. It is one query, the row IS a chocolate
-    // drink, and the same shape is what moves `maple` from `Sugars, maple` to
-    // `Syrups, maple` and `red wine` off a vinegar.
-    expect(descriptionsFor("chocolate")[0]).toBe(
-      "Beverages, chocolate malt powder, prepared with 1% milk, fortified"
-    );
-    // The three washes: two rows nobody typing `dried meat` means, a bare
-    // `blend` that was already answering with an arbitrary blend, and a sour
-    // cream that trades a light one for an imitation — 208 kcal against real
-    // sour cream's 196, where the light row read 136. The gold set's own note
-    // calls that modifier list incomplete rather than wrong, and this ticket
-    // does not widen it.
+    // `caraway` is the cost, and the shape is the same one that pays: a spice
+    // and a cheese both name it at word 1 of their own name, so the tie falls
+    // to `fdcId` and the cheese has the lower one. The word means the seed.
+    expect(descriptionsFor("caraway")[0]).toBe("Cheese, caraway");
+    // The two washes. `dried meat` is two rows nobody typing it means. `sour
+    // cream` trades a light one for an imitation — 208 kcal against real sour
+    // cream's 196, where the light row read 136 — and the gold set's own note
+    // already calls that modifier list incomplete rather than wrong, so this
+    // ticket does not widen it.
     expect(descriptionsFor("dried meat")[0]).toBe(
       "Nuts, coconut meat, dried (desiccated), creamed"
     );
     expect(descriptionsFor("sour cream")[0]).toBe(
       "Sour cream, imitation, cultured"
     );
-    expect(descriptionsFor("blend")[0]).toBe(
-      "Margarine-like, butter-margarine blend, 80% fat, stick, without salt"
+    // And the one this roster nearly cost. With `cheese` and `milk` left out —
+    // which the membership test does not license, since a cheddar is a
+    // different cheese exactly as a salmon is a different fish — every
+    // `Beverages, chocolate …` powder outranked chocolate milk, because only
+    // the powder's shelf label was discounted. Pinned as the reason the roster
+    // follows its own rule rather than stopping where the wins were.
+    expect(descriptionsFor("chocolate")[0]).toBe(
+      "Milk, chocolate, fluid, commercial, whole, with added vitamin A and vitamin D"
     );
   });
 

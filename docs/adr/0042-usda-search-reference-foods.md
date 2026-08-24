@@ -1056,67 +1056,30 @@ four move to the right row.
 
 ### What it costs
 
-Four changed leads in 3,376 queries. Three are the targets. The fourth is
-`oat bread`, from `Bread, oat bran` to `Bread, oatmeal` — **adjudicated an
-improvement**: oat bran bread is the higher-fibre loaf made from the bran
-fraction, and oatmeal bread is what the phrase ordinarily names. It is pinned as
-itself rather than folded into a total, so a future reader who disagrees has
-something to argue with.
+Over a 4,005-query sweep, **20 leads moved**. Twelve are wins on queries a person
+types: `red wine`; `wine`; `whiskey sour` off a powdered mix; `raw`/`cooked oyster`
+off an OSTRICH oyster and `raw`/`cooked scallop` off a summer SQUASH; `maple` from
+`Sugars, maple` to `Syrups, maple`; `distilled` from a vinegar to a spirit; and
+three rows shedding a `light`. Five are washes on queries nobody types — `fluid`,
+`reduced`, `american`, `with chocolate`, `dried meat` — each moving between two
+rows that answer the fragment equally badly. The gold set is unchanged: the same
+**six of 29** `should_lead` cases lead correctly before and after, which is
+ADR-0055 §2's bar.
 
-Against ADR-0055 §2's bar: **zero broken leads** on the 29 `should_lead` cases in
-`docs/research/143-gold-set.json` (the six that pass still pass), the four
-generic-animal leads hold, and all six of ADR-0055 §3's pins hold. The band was
-pre-registered on the ticket before the sweep ran.
+Three are the price, and they are pinned in `usda-corpus.test.ts` as themselves
+rather than left to be rediscovered:
 
-Two results the sweep was not looking for:
+| query        | lead now                          | reading                                                               |
+| ------------ | --------------------------------- | --------------------------------------------------------------------- |
+| `caraway`    | `Cheese, caraway`                 | **worse.** The word means the seed, and `Spices, caraway seed` had it |
+| `sour cream` | `Sour cream, imitation, cultured` | 208 kcal against a real 196, where the light row read 136             |
+| `sour`       | as above                          | the same pair, reached by the fragment                                |
 
-- **The vocabulary-rescue path had never been swept.** Every ranking measurement
-  this repo has run scores bare queries; expansion is fallback-only, so the class
-  cannot hide there, but a rescued search still ranks and `rankAgainst` keeps each
-  row's best key across phrases. Swept over all 453 vocabulary keys, it moves
-  three leads — `maize oil`, `soya oil`, `soyabean oil` — which is the same defect
-  reaching the British names ADR-0049 and #141 exist to serve. It is now guarded
-  by a test, the first on that path.
-- **32 more rows lead their own name.** The standing measurement of "search every
-  row by its own full description; does it lead" moves from 163 not-first to 131,
-  with `lost` still 0. That is the population the key is built for: a row searched
-  by its own description is the one name a query accounts for completely.
-
-### The slot is an argument, not a finding
-
-Run after `head`, after `position`, after `simplicity` and dead last, the key
-changes **the same four leads and no others**. The measurement cannot choose its
-slot, and saying so is part of the record.
-
-It sits beside `head` because it asks `head`'s question of the whole name, the way
-ADR-0055 §5 puts `plainSibling` beside `plain` because it asks `plain`'s question
-of the corpus. The cost of that reading is stated rather than hidden: above
-`position`, a future corpus could let this key pre-empt the #124 Amendment's,
-where placing it last never could.
-
-### Aliases: the opposite rule to `plainSibling`, and both are right
-
-ADR-0055 §3 builds its sibling set from **descriptions alone**, because `Oil, corn`
-is the prefix of its own alias and fourteen canonical rows would otherwise demote
-themselves. `accounted` has the **opposite** rule: a row is scored as the best of
-its names ([ADR-0050](0050-a-merged-food-keeps-the-name-its-twin-lost.md) §4), and
-an alias is one of the food's names, so a query accounting for the alias has named
-the food. `Oats, whole grain, rolled, old fashioned` carries the alias `Oats` and
-leads a typed `oats` on it.
-
-The rules differ because the questions do. One asks whether a plainer row exists,
-where an alias is a row talking about itself; the other asks whether the user named
-this food, where an alias is one of the names they could have used. Both are pinned.
-
-### Cost
-
-Its own loop rather than a `matched[]` array threaded through `position`'s: the two
-ask different questions in different shapes, and the cost of asking them separately
-is confined to queries returning thousands of rows. Measured against the shipped
-module, best-of-200 per process: a bare `b` (2,450 hits) goes **1.61 ms to
-1.98 ms**, and every narrower query — `ch` at 978 hits, `chicken` at 179,
-`corn oil` at 4 — sits inside the noise floor. §1's own comparison point is 5 ms
-for score-then-sort against 205 ms for a comparator, so this stays the same order.
+`caraway` is the key working exactly as described and answering worse: a spice and
+a cheese both name it at word 1 of their own name, the tie falls to `fdcId`, and
+the cheese has the lower one. It is one query against twelve, and it is the same
+shape that moves `maple` and `red wine`. Shipping it was a decision taken with that
+number in hand.
 
 ### No schema change
 
@@ -1195,11 +1158,6 @@ Sixteen labels over **632 rows** — `fish` 203, `nuts` 79, `game meat` 59,
 `fat` 4, `poultry` 3, `alcoholic beverages` 2. The count is pinned as a tripwire,
 because a hand roster nobody counts is the hole #131 named.
 
-A **derived** rule was tried first and refused on measurement: "the head phrase is
-a word of the row's own `foodCategory`" reaches **1,975 rows — 45% of the corpus**,
-all of Pork and all of Oil, and still misses `Alcoholic beverage`, whose category
-is `Beverages`.
-
 ### A bare drink name is a different shape, and gets a different answer
 
 `wine` is not a ranking failure. Seven wine rows tie on every key, so `fdcId`
@@ -1216,26 +1174,45 @@ line, is salted and reads 50.
 - **`light` and `cooking` join a new `MODIFIED_PART`**, read as a whole
   comma-part and feeding the same `plain` boolean. As words they reach 49 rows and
   7; the 49 are mostly chicken and turkey LIGHT MEAT and mushrooms exposed to
-  ultraviolet LIGHT, and six of the 7 are `salad or cooking` oils. As whole
-  qualifiers they reach **15 and 1**, and every one is a modified form of its food.
 
-So a second mechanism exists for a measured reason: for these two words the string
-is where it goes wrong. `cooking` reaching **one row** is stated rather than
-hidden. ADR-0055 §7 refused a powder marker that reached four, but the objection
-there was that the predicate had no safe form at any reach — its wider spelling
-took curry, garlic and onion powder with it. This spelling is exact, the row was
-read, and `filled` has shipped in `MODIFIED_FORM` at three rows since #143.
+### Which heads, and the test that decides it
 
-The lead becomes `Alcoholic beverages, wine, rose` at **83 kcal**, which is the
-same figure as `Alcoholic beverage, wine, table, all`. The test pins the invariant
-— the lead is none of the three demoted rows — and the row itself only as the
-record of what `fdcId` picked among the rest.
+A shelf label's qualifiers name **distinct foods**; an ordinary head's name **parts
+or preparations** of the one food it already named. `Fish, salmon` is a different
+animal, `Nuts, almonds` a different tree and `Cheese, cheddar` a different cheese,
+where `Beef, chuck, arm pot roast` is a cut of the beef the head already named — as
+every one of the 959 beef rows is. That is what keeps `beef`, `pork`, `lamb`,
+`veal`, `chicken` and `turkey` out, 1,946 rows between them, and it is the reason
+the roster is not simply "a head that many rows share".
 
-### What it costs
+Eighteen labels over **760 rows** — `fish` 203, `cheese` 87, `nuts` 79,
+`game meat` 59, `alcoholic beverage` 58, `seeds` 47, `beverages` 47, `spices` 42,
+`milk` 41, `mollusks` 26, `crustaceans` 24, `margarine-like` 16, `syrups` 8,
+`seaweed` 8, `sweeteners` 6, `fat` 4, `poultry` 3, `alcoholic beverages` 2. The
+count is pinned as a tripwire, because a hand roster nobody counts is the hole #131
+named.
 
-Over a 3,935-query sweep, **17 leads moved**. Twelve are wins: `red wine`; `wine`;
-`whiskey sour` off a powdered mix; `raw`/`cooked oyster` off an OSTRICH oyster and
-`raw`/`cooked scallop` off a summer SQUASH; `maple` from `Sugars, maple` to
+`cheese` and `milk` were left out of the first draft of this roster, on a reading
+of the test that did not survive review: a cheddar is a kind of cheese in exactly
+the way a salmon is a kind of fish, and neither is a part or a preparation. Leaving
+them out cost a lead, and it was the worst one in the sweep — every
+`Beverages, chocolate …` powder outranked `Milk, chocolate, fluid` for a typed
+`chocolate`, because only the powder's shelf label was discounted. A roster that
+stops where the wins are, rather than where its own rule ends, recreates the
+asymmetry it was written to remove.
+
+`oil` satisfies the test and is absent anyway. That is a **scoping** refusal rather
+than a test outcome: `Oil, olive` and `Oil, corn` are as distinct as two fishes,
+but #155 settled that family a week ago and re-opening it belongs to its own
+ticket. The cost of the refusal is measured rather than assumed — adding `oil`
+moves exactly one lead, `safflower` from `Seeds, safflower seed kernels, dried` to
+`Oil, safflower`.
+
+A **derived** rule was tried before any of this and refused on measurement: "the
+head phrase is a word of the row's own `foodCategory`" reaches **1,975 rows — 45%
+of the corpus**, all of Pork and all of Oil, and still misses `Alcoholic beverage`,
+whose category is `Beverages`.
+
 `Syrups, maple`; `distilled` from a vinegar to a spirit; and three rows shedding a
 `light`. The gold set is unchanged: the same **six of 29** `should_lead` cases lead
 correctly before and after, which is ADR-0055 §2's bar.
@@ -1262,7 +1239,7 @@ generator does not run, no filter gains or loses a member, and the ADR-0049
 vocabulary does not re-derive.
 
 **Implemented:** `src/lib/food/reference-food-ranking.ts`
-(`SHELF_LABEL_HEAD`, `MODIFIED_PART`, `shelfLength`); the sweep shapes in
+(`SHELF_LABEL_HEAD`, `MODIFIED_PART`, `shelfLength`, `qualifiersOf` exported); the sweep shapes in
 `scripts/usda-ranking-queries.mjs` and their `--leads` reader in
 `scripts/usda-ranking-audit.mjs`; pinned in
 `tests/unit/reference-food-ranking.test.ts` and `tests/unit/usda-corpus.test.ts`.

@@ -16,8 +16,8 @@ import type { RelevanceKey } from "../../src/lib/food/reference-food-ranking";
 const rank = (query: string, description: string) =>
   compileReferenceFoodQuery(query)(readReferenceFoodName(description));
 
-/** A name key read as a whole relevance key, for the rows that tie on both. */
-const wineKey = (key: ReturnType<typeof rank>): RelevanceKey => ({
+/** A name key completed with the two ROW keys a pair of rows can tie on. */
+const tiedOnRowKeys = (key: ReturnType<typeof rank>): RelevanceKey => ({
   ...key,
   plainSibling: 1,
   designated: 1,
@@ -284,7 +284,9 @@ describe("compileReferenceFoodQuery", () => {
     // "wine" at word 2 and "red" at word 4, less the two shelf words: 0 + 2.
     expect(wine.position).toBe(-2);
     expect(vinegar.position).toBe(-3);
-    expect(compareRelevance(wineKey(wine), wineKey(vinegar))).toBeLessThan(0);
+    expect(
+      compareRelevance(tiedOnRowKeys(wine), tiedOnRowKeys(vinegar))
+    ).toBeLessThan(0);
   });
 
   it("leaves the tier alone, so a shelf label is still not a head match", () => {
