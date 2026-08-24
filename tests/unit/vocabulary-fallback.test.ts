@@ -252,13 +252,22 @@ describe("what the fallback buys, against the bars set before it was built", () 
       (c) => c.pass === "synonym" && c.verdict === "miss"
     );
     // 233 when #140 shipped, 230 since #137, 229 since the sweep was re-run over
-    // #145's corpus. The floor moves with the finding rather than being pinned
-    // to a number the corpus has left — but the last step down is not a close
-    // and should not be read as one. `en:iodised-salt` left the sweep because
-    // BOTH its members now retrieve nothing: `Salt, table, iodized` is dropped
-    // by ADR-0048 §5's no-energy rule, so the group lost its oracle rather than
-    // its miss. `iodised salt` still answers nothing, and no map can fix it.
-    expect(misses.length).toBeGreaterThanOrEqual(229);
+    // #145's corpus, 228 since #156. The floor moves with the finding rather
+    // than being pinned to a number the corpus has left, and each step down says
+    // which KIND of step it was, because they do not mean the same thing.
+    //
+    // 230 -> 229 was not a close. `en:iodised-salt` left the sweep because BOTH
+    // its members now retrieve nothing: `Salt, table, iodized` is dropped by
+    // ADR-0048 §5's no-energy rule, so the group lost its oracle rather than its
+    // miss. `iodised salt` still answers nothing, and no map can fix it.
+    //
+    // 229 -> 228 IS the ranking getting better. #156 re-judged `en:oil` from
+    // `miss` to `peers`: it led with `Oil, bearded seal (Oogruk) (Alaska
+    // Native)` and now leads `Oil, flaxseed, cold pressed`, which is ADR-0055's
+    // `designated` key on one of the two head phrases that record predicted it
+    // would move. A field of culinary oils with no canonical member is `peers`
+    // by the note's §3.2 and not a miss, so this one left by being fixed.
+    expect(misses.length).toBeGreaterThanOrEqual(228);
     const closed = misses.filter((group) =>
       (group.members ?? []).every((m) => retrieves(corpus, m.query))
     );

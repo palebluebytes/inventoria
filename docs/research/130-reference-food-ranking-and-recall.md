@@ -414,3 +414,103 @@ regenerate's own bookkeeping rather than anything this pass did: the twenty went
 with their cases in the previous run, so this run finds nothing left to drop — it borrows the app's own
 `searchIndexRows` instead of the restated scorer, so a plain sweep now needs
 esbuild, as `--explain` already did.
+
+## Postscript (2026-08-24, #156): regenerated against three keys this file had never seen
+
+The committed artifact was last written at `635b8c7` (#142, 2026-08-21). Since then
+[ADR-0055](../adr/0055-who-eats-a-food-ranks-it-and-never-drops-it.md) added
+`plainSibling` and `designated`, [ADR-0042](../adr/0042-usda-search-reference-foods.md)'s
+#155 Amendment added `accounted`, and #144, #145 and #146 moved the corpus. Worse,
+the sweep could not SEE the first two: `buildCorpus` never called `readRowRank`, so
+both fields were `undefined`, `undefined - undefined` is `NaN`, `NaN` is falsy, and
+`compareRelevance` walked past them. #155 fixed the tool and deliberately left the
+file, which is what [#156](https://github.com/palebluebytes/inventoria/issues/156)
+is for.
+
+Regenerated here against the shipped corpus (4,358 rows, down from 4,360) and the
+shipped ranking.
+
+### Every conclusion in this note survives
+
+Every **retrieval** count is unchanged, to the case:
+
+|                                        | before   | after    |
+| -------------------------------------- | -------- | -------- |
+| `synonym_some_empty`                   | 370      | 370      |
+| British queries returning nothing      | 17 of 20 | 17 of 20 |
+| `carrier_probes` / `carrier_rescued`   | 348 / 72 | 348 / 72 |
+| `synonym_flagged` / `synonym_disagree` | 409 / 77 | 409 / 77 |
+| `twin_names` / `twin_absent`           | 80 / 0   | 80 / 0   |
+
+That is most of the answer #156 asked for, and it was predicted: **no key added since
+touches retrieval**, so a ranking change cannot move a RETRIEVAL number.
+
+**One of the two headline numbers did move, and it is named here rather than left to
+the table above.** #156 asked after "236 vocabulary misses"; cases carrying
+`verdict: miss` with `cause: vocabulary` fell **244 to 243**, and synonym-pass misses
+229 to 228. It did not move because retrieval changed — every retrieval count above is
+identical — but because `en:oil` was re-judged out of `miss` below. A verdict count is
+an adjudication number wearing a recall number's clothes, and the two come apart
+exactly when a judgement changes. So the honest statement is narrower than "unchanged":
+**nothing this file measures about retrieval moved, and one thing it counts about
+judgements did, by one case, for a reason recorded in the table below.**
+
+The block that moved most is `qualifier`, which measures a CHANGE rather than a state
+by ordering every query twice: `lead_changed` 93 to 98, `answers_improved` 1,109 to
+1,145, `answers_worsened` 927 to 938. Three more keys give it more to compare.
+`lead_beaten_on_position` moved 85 to 91 before and 16 to 22 after. Two counts moved
+with the corpus rather than with a key: `contested_heads` 270 to 269 and `twin_not_led`
+5 to 3.
+
+### The stale flag had a third of its members wrong
+
+A plain regenerate flagged **128** carried verdicts `verdict_stale`. Forty-one of them
+were `implausible-query` — the verdict that says nobody types this into a food search
+(`cooked beef meat`, `anti-foaming agent`, `nigari`), which §3.2 excludes from every
+rate. That is a claim about the QUERY. No reordering of an answer nobody asked for can
+put it in doubt, so those flags were noise on the ones that could be cleared by looking.
+
+`carryVerdicts` now refuses to stale an ordering-independent verdict, and the flag
+count falls to **87** without a single judgement being waved through. This is a change
+to the tool and not to a judgement, and it is the one piece of #156 that is not
+adjudication.
+
+### Nine cases, judged
+
+Of the 87, nine moved BECAUSE of this regeneration; 78 were already stale in the
+committed file. The nine, and what moved each:
+
+| case                        | was       | now                                                                                                              |
+| --------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------- |
+| `head` `oil`                | `miss`    | **`peers`** — led with `Oil, bearded seal (Oogruk) (Alaska Native)`, now `Oil, flaxseed, cold pressed`           |
+| `synonym` `en:oil`          | `miss`    | **`peers`** — same row, same cause                                                                               |
+| `head` `cornmeal`           | `miss`    | **`correct`** — led with `Cornmeal, blue (Navajo)`, now `Cornmeal, degermed, enriched, yellow`                   |
+| `synonym` `en:cornmeal`     | `miss`    | `miss` reaffirmed — `corn grits` and `corn semolina` still retrieve nothing                                      |
+| `synonym` `en:corn-oil`     | `miss`    | `miss` reaffirmed — `maize oil` still retrieves nothing, though `corn oil` now leads `Oil, corn` and not a blend |
+| `synonym` `en:soya-oil`     | `miss`    | `miss` reaffirmed — `soya oil` and `soyabean oil` still retrieve nothing                                         |
+| `synonym` `en:d-anjou-pear` | `miss`    | `miss` reaffirmed — the apostrophe form still retrieves nothing                                                  |
+| `head` `cream substitute`   | `correct` | `correct` reaffirmed                                                                                             |
+| `head` `ice cream`          | `correct` | `correct` reaffirmed                                                                                             |
+
+**ADR-0055's `designated` key fixed both head phrases that record named.** Its own
+Consequences said three head phrases were contested by designated-population rows —
+`oil`, `cornmeal` and `tea` — and predicted the key would move the first two. It did,
+and this is the independent measurement of it. The third is
+[#153](https://github.com/palebluebytes/inventoria/issues/153), which measured a fix
+at three scopes and refused all three.
+
+Note what the four reaffirmed `miss` verdicts now rest on. Every one is a **vocabulary**
+member that retrieves nothing, and in three of the four the RANKING half of the
+original complaint is fixed. The verdicts stand on narrower ground than when they were
+made, which a bare "reaffirmed" would have hidden.
+
+### 78 cases are left stale, deliberately
+
+They were stale in the committed file before this regeneration touched anything, and
+each is a judgement whose leading row moved under some earlier ticket that did not
+clear it. They are inherited debt, not something this run created, and clearing them is
+a different job from the one #156 scoped — this note records the count rather than
+letting it disappear. Of the 78: 44 `synonym`, 33 `head`, 1 `pair`.
+
+`adjudications.stale` in the artifact reads 87, which is what the RUN found. Nine were
+judged after it, so 78 remain in the file.
