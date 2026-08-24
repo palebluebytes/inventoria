@@ -251,6 +251,18 @@ Recorded so they are not re-proposed, in the form #143 used for its part key:
   surviving §3 because both are ADR-0042's #124 position key preferring a word
   that lands earlier in the name. Cut separately from `tea`: #130's audit forbids
   blending a tier failure with a ranking one, and these are ranking.
+
+  > Closed in [#154](https://github.com/palebluebytes/inventoria/issues/154), as
+  > ADR-0042's [#154 Amendment](0042-usda-search-reference-foods.md#amendment-2026-08-24-154-the-aisle-usda-walks-down-is-not-the-foods-name).
+  > The cause was neither of the two readings the ticket carried forward from
+  > here. USDA writes a shelf label where a food's name belongs, so `position`
+  > was charging a wine for the two words spent reaching it, and the row that
+  > SHOULD lead has a non-food head phrase too — which is what makes "an
+  > ingredient-of row loses to the food itself" unstatable on this case. The
+  > `non-alcoholic` fix this record's own ticket called nearly free moves zero
+  > leads, because `plain` sits below `position`. The tier gap is untouched and
+  > `tea` did not move.
+
 - **`Muscle Milk` still leads `protein powder`.** It is ADR-0042 §3's Title-Case
   brand gap, accepted there in writing, and belongs on `TRADEMARK_DENYLIST` beside
   `powerade` and `reddi wip`. Cut as its own ticket in
@@ -334,6 +346,16 @@ rediscover. The difference from #143 is the ratio and the direction: that key
 broke four leads and fixed **none**, where this one fixes nineteen and leaves the
 right row higher in both cases it worsens. Shipping it was a decision taken with
 these numbers in hand, not a bar quietly lowered.
+
+> The confession did not go far enough, and #154 found the rest of it. The
+> 3,390-query replacement below **still could not generate `red wine` or a bare
+> `wine`**: its `adjective noun` shape pairs a qualifier with the HEAD phrase,
+> and for `Alcoholic beverage, wine, table, red` that builds
+> `wine alcoholic beverage`, which nobody types. Two of §2's own three worked
+> examples were outside the sweep that priced them, twice over. The shapes that
+> reach a shelf-labelled row now live in `scripts/usda-ranking-queries.mjs`,
+> with a `--leads` reader, so the next key is priced by a tool rather than by
+> whatever its implementer built and threw away.
 
 The residual tie is [#155](https://github.com/palebluebytes/inventoria/issues/155),
 which carries all three queries. It is a question about two rows that no key

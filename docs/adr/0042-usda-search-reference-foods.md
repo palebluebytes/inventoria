@@ -1129,3 +1129,140 @@ sets, and ADR-0041 before it.
 the order) and `tests/unit/usda-corpus.test.ts` (the three leads, the `oat bread`
 collateral, the rescue path, the alias rule, and `pork` joining the generic-animal
 guard, which had named only three of #143's four).
+
+## Amendment (2026-08-24, #154): the aisle USDA walks down is not the food's name
+
+[ADR-0055](0055-who-eats-a-food-ranks-it-and-never-drops-it.md)'s Consequences cut
+[#154](https://github.com/palebluebytes/inventoria/issues/154) for two leads its
+keys could not reach: `red wine` led with `Vinegar, red wine`, and a bare `wine`
+with `Beverages, Wine, non-alcoholic`. Both are the #124 position key working as
+designed and answering wrongly, and the reason is a naming convention §1 assumes
+and USDA does not always keep.
+
+No key is added and no slot moves. Two existing keys stop counting words that were
+never part of the food's name.
+
+### The defect
+
+§1 rests on USDA naming a food "Food, qualifier", so the head phrase before the
+first comma is the food's identity. For sixteen head phrases it is not — it is the
+shelf the record was filed on, and the food's own name starts one or two words in.
+
+The position key reads how far into a name each typed word landed and prefers the
+smaller sum, on the reading that USDA orders qualifiers by descending importance.
+Against a shelf label that reading charges the food for the walk down the aisle:
+
+|                                        | `red` | `wine` | sum |
+| -------------------------------------- | ----- | ------ | --- |
+| `Vinegar, red wine`                    | 1     | 2      | 3   |
+| `Alcoholic beverage, wine, table, red` | 4     | 2      | 6   |
+
+USDA spends one word naming the vinegar and two getting to the wine, so a vinegar
+MADE from wine outranked the wine. The ticket named two naive fixes and asked for
+both to be priced rather than assumed; neither survived. "An ingredient-of row
+loses to the food itself" cannot even be stated here, because the row that should
+lead has a non-food head phrase too. And `non-alcoholic` joining `MODIFIED_FORM`,
+which the ticket called nearly free, moves **zero leads**: `plain` sits below
+`position`, and `position` has already decided.
+
+### Decision
+
+**A head phrase that names a shelf rather than a food is not read as part of the
+name by the keys that ask where a word sits.** `position` measures from where the
+food's own name starts, and `accounted` does not count a shelf label as a word
+left over.
+
+`tier`, `head`, `headLength` and `headChars` are untouched. A tea filed under
+`Beverages` is still a rung-20 qualifier match, and that gap is
+[#153](https://github.com/palebluebytes/inventoria/issues/153)'s. Measured: the
+tier-reading variant of this same roster fixes `tea`, `brewed tea`, `herb tea`,
+`water` and `whiskey sour` at a cost of 31 changed leads, and #130's doctrine
+forbids blending a tier failure with a ranking one, so that measurement was handed
+to #153 rather than spent here.
+
+### Which heads, and the test that decides it
+
+A shelf label's qualifiers name **distinct foods**; an ordinary head's name parts
+or preparations of the one food it already named. `Fish, salmon` is a different
+animal and `Nuts, almonds` a different tree, where `Beef, chuck, arm pot roast` is
+a cut of the beef the head already named. That test keeps `beef`, `pork`, `lamb`,
+`chicken`, `cheese` and `milk` out, and `oil` too: `Oil, olive` is olive oil, and
+#155 settled that family.
+
+Sixteen labels over **632 rows** — `fish` 203, `nuts` 79, `game meat` 59,
+`alcoholic beverage` 58, `seeds` 47, `beverages` 47, `spices` 42, `mollusks` 26,
+`crustaceans` 24, `margarine-like` 16, `syrups` 8, `seaweed` 8, `sweeteners` 6,
+`fat` 4, `poultry` 3, `alcoholic beverages` 2. The count is pinned as a tripwire,
+because a hand roster nobody counts is the hole #131 named.
+
+A **derived** rule was tried first and refused on measurement: "the head phrase is
+a word of the row's own `foodCategory`" reaches **1,975 rows — 45% of the corpus**,
+all of Pork and all of Oil, and still misses `Alcoholic beverage`, whose category
+is `Beverages`.
+
+### A bare drink name is a different shape, and gets a different answer
+
+`wine` is not a ranking failure. Seven wine rows tie on every key, so `fdcId`
+decides and nothing below `tier` can rank one first. What the ranking can do is
+stop three rows winning that tie wrongly, and the harm says it should:
+`Beverages, Wine, non-alcoholic` is **6 kcal** against a table wine's 83, so a
+175 ml glass logged 135 kcal short — [ADR-0048](0048-an-absent-measurement-is-not-a-zero.md)'s
+silent-miscount harm with a plausible number on it. Cooking wine, the next in
+line, is salted and reads 50.
+
+- **`non-alcoholic` joins `MODIFIED_FORM`**, unchanged in mechanism. It is the
+  family `nonfat` and `non-soy` already name, it is safe as a word, and it reaches
+  two rows.
+- **`light` and `cooking` join a new `MODIFIED_PART`**, read as a whole
+  comma-part and feeding the same `plain` boolean. As words they reach 49 rows and
+  7; the 49 are mostly chicken and turkey LIGHT MEAT and mushrooms exposed to
+  ultraviolet LIGHT, and six of the 7 are `salad or cooking` oils. As whole
+  qualifiers they reach **15 and 1**, and every one is a modified form of its food.
+
+So a second mechanism exists for a measured reason: for these two words the string
+is where it goes wrong. `cooking` reaching **one row** is stated rather than
+hidden. ADR-0055 §7 refused a powder marker that reached four, but the objection
+there was that the predicate had no safe form at any reach — its wider spelling
+took curry, garlic and onion powder with it. This spelling is exact, the row was
+read, and `filled` has shipped in `MODIFIED_FORM` at three rows since #143.
+
+The lead becomes `Alcoholic beverages, wine, rose` at **83 kcal**, which is the
+same figure as `Alcoholic beverage, wine, table, all`. The test pins the invariant
+— the lead is none of the three demoted rows — and the row itself only as the
+record of what `fdcId` picked among the rest.
+
+### What it costs
+
+Over a 3,935-query sweep, **17 leads moved**. Twelve are wins: `red wine`; `wine`;
+`whiskey sour` off a powdered mix; `raw`/`cooked oyster` off an OSTRICH oyster and
+`raw`/`cooked scallop` off a summer SQUASH; `maple` from `Sugars, maple` to
+`Syrups, maple`; `distilled` from a vinegar to a spirit; and three rows shedding a
+`light`. The gold set is unchanged: the same **six of 29** `should_lead` cases lead
+correctly before and after, which is ADR-0055 §2's bar.
+
+Four are the price, and they are pinned in `usda-corpus.test.ts` as themselves
+rather than left to be rediscovered:
+
+| query        | lead now                                 | reading                                                   |
+| ------------ | ---------------------------------------- | --------------------------------------------------------- |
+| `chocolate`  | a `Beverages, chocolate malt powder` row | **worse.** Chocolate milk was the better answer           |
+| `sour cream` | `Sour cream, imitation, cultured`        | 208 kcal against a real 196, where the light row read 136 |
+| `dried meat` | `Nuts, coconut meat, dried`              | a wash between two rows nobody typing it means            |
+| `blend`      | a `Margarine-like` butter blend          | a wash; it already answered with an arbitrary blend       |
+
+`chocolate` is the key working exactly as described and answering worse: every
+`Beverages, chocolate …` row now names its food at word 0. It is one query against
+twelve, the row is a chocolate drink, and it is the same shape that moves `maple`
+and `red wine`. Shipping it was a decision taken with that number in hand.
+
+### No schema change
+
+Every fact here is a name shape, computed on read. `schema_version` stays at 5, the
+generator does not run, no filter gains or loses a member, and the ADR-0049
+vocabulary does not re-derive.
+
+**Implemented:** `src/lib/food/reference-food-ranking.ts`
+(`SHELF_LABEL_HEAD`, `MODIFIED_PART`, `shelfLength`); the sweep shapes in
+`scripts/usda-ranking-queries.mjs` and their `--leads` reader in
+`scripts/usda-ranking-audit.mjs`; pinned in
+`tests/unit/reference-food-ranking.test.ts` and `tests/unit/usda-corpus.test.ts`.
