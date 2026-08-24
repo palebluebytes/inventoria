@@ -1531,3 +1531,170 @@ asserts what the ranking actually decides here rather than what the tickets
 assumed. The head of the tie class — `beef`, 413 rows tied, 777 kcal of spread,
 leading with `Beef, retail cuts, separable fat, raw` and pinned by nothing — is
 cut as its own ticket.
+
+## Amendment (2026-08-24, #157): a specification sold into a trade is not a food
+
+The [#155 Amendment](#amendment-2026-08-24-155-what-head-asks-of-the-head-phrase-asked-of-the-rest-of-the-name)
+fixed the ranking symptom on `soybean oil` and left the membership question
+alone: `Oil, soybean lecithin` stopped leading, but an emulsifier was still a
+reference food. [#157](https://github.com/palebluebytes/inventoria/issues/157)
+asked whether it should be one. The answer is that **thirteen rows** should not,
+and §5's `isManufacturingInput` widens to take them.
+
+### The reading is narrow, and the narrowness is the decision
+
+A manufacturing input is a record whose USDA description names a **trade grade, a
+sales channel, or a purchase specification** — what a buyer orders by. That is a
+claim about the record, which is what
+[ADR-0055](0055-who-eats-a-food-ranks-it-and-never-drops-it.md) §1 requires.
+
+The wider reading the ticket was raised on — "not a base food, which is what the
+search is for" — was priced and **refused**. It has no home among §1's five
+predicates, and measured it deletes real foods with nothing left behind them:
+
+| what the wide reading takes                                                      | why it is not a specification                                                                                                                                                                                                                          |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Wheat germ, crude`, `Wheat bran, crude`, `Rice bran, crude`, `Corn bran, crude` | `crude` is USDA's word for **unprocessed**, the opposite of a purchase spec. These four are the **only** wheat germ, wheat bran, rice bran and corn bran the corpus holds                                                                              |
+| `Vital wheat gluten`                                                             | a supermarket baking-aisle product, and the only gluten row that is not a gluten-_free_ bread                                                                                                                                                          |
+| the nine `defatted` seed meals and flours                                        | USDA writes these as a **fat spectrum**, not a channel: `Seeds, sesame flour, high-fat` / `low-fat` / `partially defatted`, `Soy flour, low-fat` / `Flour, soy, full-fat` / `Flour, soy, defatted`. Taking one while keeping its sibling is incoherent |
+| `Whey, acid, dried`, `Whey, sweet, dried`                                        | retailed as whey powder                                                                                                                                                                                                                                |
+
+The honesty test is the one the predicate already set itself in #144: **every
+drop leaves a retail equivalent standing.** All thirteen do.
+
+### Three clauses, and what each reaches
+
+**`manufacturing`, beside `industrial`.** `Beef, New Zealand, imported,
+manufacturing beef, raw` and its cooked sibling. "Manufacturing beef" is the
+literal trade grade for boneless beef sold to be ground. The marker reaches
+**exactly these two rows** in the corpus and nothing else.
+
+**A shortening that is not `household`.** USDA writes the contrast itself:
+fourteen rows are head-worded `Shortening` and **four say `household`**. The
+other ten name the line they are sold onto — `Shortening cake mix`,
+`Shortening frying (heavy duty)` (three), `Shortening confectionery` (two),
+`Shortening, special purpose for baking`, `… for cakes and frostings`,
+`Shortening bread`, `Shortening, multipurpose`.
+
+The clause reads the **head word, not the category**. `shortening` appears in
+exactly one non-head-word row, `Agutuk, fish with shortening (Alaskan ice cream)
+(Alaska Native)`, and that is a dish. #144 scoped its escape hatches by category
+because `sweet` and `cake` are unsafe corpus-wide; this word is not, so scoping
+would cost `isManufacturingInput` a `foodCategory` parameter and its call site in
+`usda-bundle.mjs` and buy nothing measured.
+
+**`lecithin`.** One row, `Oil, soybean lecithin`, and it is the row the ticket was
+raised about.
+
+### The one-row clause, and why it is a marker rather than a name in a list
+
+The ticket predicted that a marker safe enough to take this row would reach
+exactly that row, and called such a thing "a one-row denylist entry wearing a
+predicate's clothes" — the shape ADR-0055 §7 refused for the powder marker. The
+prediction was right about the reach and wrong about the conclusion, twice over.
+
+It was wrong about the class, because it generalised along lecithin's
+**chemistry**: `emulsifier`, `pectin`, `carrageenan`, `xanthan`, `gelatin` and
+`mono/diglyceride` all reach zero, and `starch` reaches eight gluten-free rolls.
+The convention is in USDA's **trade** vocabulary instead, and the other two
+clauses are it.
+
+And it is wrong about the shape, because **`lecithin` has no unsafe form.** §7
+refused `powder` on the measurement that widening it far enough to be useful took
+curry, garlic, onion and chili powder, three cocoa powders, tomato powder, baobab
+powder and dried egg white — fifteen real foods. `lecithin` names one substance
+and cannot reach a food by accident, so a marker costs no precision and catches
+the next lecithin row USDA publishes, which a name in a list would not. §7's
+refusal of a powder-or-supplement marker is untouched.
+
+### Two candidates are refused, and stay refused
+
+| candidate                                                                                              | rows | why it is refused                                                                                                                                                                                                                    |
+| ------------------------------------------------------------------------------------------------------ | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Egg, {white,whole}, dried, stabilized, glucose reduced`                                               | 4    | passes the retail-twin test — `Egg, white, dried`, `Egg, whole, dried` and `Egg, yolk, dried` all stay — but `glucose reduced` describes how the food was **made**, not who it is sold to. No drop here has ever turned on a process |
+| `Soy protein isolate`, `Soy protein isolate, potassium type`, `Beverages, Whey protein powder isolate` | 3    | genuinely both a factory input and a tub in a shop, and **ADR-0055 §7 already refuses a powder-or-supplement marker in writing**. This amendment does not overturn that from the side                                                |
+
+### §1 barred a prevalence argument against these rows, and this is not one
+
+ADR-0055 §1 spent a measurement protecting 285 origin-qualified meat rows, and
+two of them leave here. The two are consistent, and the distinction is the whole
+of §1: the rows were proposed for dropping on the ground that this app's users do
+not eat imported New Zealand beef, which is a claim about the audience and is
+refused. `manufacturing beef` is USDA's own trade grade, which is a claim about
+the specification and is admitted. **Seventy-two of the seventy-four New Zealand
+imports stay**, as do 958 beef rows including every ground and minced form, and
+the count is pinned so a future reading of `74 → 72` as §1 eroding has a test to
+argue with.
+
+### What it costs
+
+Priced with `pnpm usda:ranking-audit --leads` over the **3,997** queries
+`sweepQueries` derives, generated once from the pre-drop corpus and asked of both
+sides:
+
+|               |                                                                                 |
+| ------------- | ------------------------------------------------------------------------------- |
+| leads changed | **21**                                                                          |
+| improvements  | **2** (`cake` → `Wheat flour, white, cake, enriched`, `heavy` → `Cream, heavy`) |
+| became empty  | **19**                                                                          |
+| **worse**     | **0**                                                                           |
+
+**Every one of the 21 was led by a dropped row.** Not one query that led with a
+surviving row moved, which is the shape a drop rule should have and is not
+something a ranking key can claim.
+
+The 19 empties are queries the dropped rows themselves generated — `shortening
+cake mix`, `linoleic duty`, `fractionated shortening`. One is a word a person
+might really type: **`frying`**, which returned three heavy-duty factory
+shortenings and now returns nothing. That is accepted and no stand-in is
+invented. `frying oil` had no right answer in this corpus either way, and
+[ADR-0053](0053-an-empty-food-search-is-recorded-locally-and-leaves-only-by-hand.md)'s log exists
+so a correction can be observed rather than guessed at.
+
+ADR-0055 §2's bar holds: the six gold-set cases that lead correctly still lead
+correctly, and `usda-corpus.test.ts` re-runs the check rather than restating it.
+
+### The sweep could not see the case this record is about
+
+For the third time, the query shapes did not contain the row that motivated the
+change. `sweepQueries` takes the first word of each qualifier part as an
+adjective, and `lecithin` is the **second** word of `soybean lecithin`, so
+**no query in the 3,997 mentions it.** The ADR-0055 Amendment confessed this
+twice — once for multi-word queries, once for shelf-labelled heads — and this is
+a third face of the same limit: the sweep cannot generate a word that sits past
+the start of a qualifier.
+
+The case was therefore priced by hand. `lecithin`, `soy lecithin` and
+`soybean lecithin` all returned the dropped row and now return nothing;
+`soybean oil`, `soy oil` and `corn oil` still lead with the plain oil, which is
+the #155 Amendment's result unchanged. It is recorded here rather than left for a
+fourth ticket to find.
+
+### What the smaller corpus moved
+
+**The corpus falls from 4,348 rows to 4,335.** The stemmer's corpus-wide merge
+count falls from 112 to 111, and the merge it costs is `cakes`/`cake`: the corpus
+carried `cakes` in exactly one description,
+`Shortening, special purpose for cakes and frostings`. `plainSibling`'s reach is
+unchanged at 127 under 78 parents, and `Baked Products` and `Sweets` do not move,
+because no clause here reaches those categories.
+
+The [ADR-0049](0049-a-derived-vocabulary-for-food-search.md) vocabulary
+re-derives from **447 expansions to 444**, and the three it loses are exactly the
+keys that pointed at dropped rows: `soya lecithin` and
+`emulsifer soya lecithin`, both of which expanded to `soy lecithin` /
+`soybean lecithin`, and `hydrogenated palm kernel oil`. A rescue key whose target
+has left is correctly no longer a key. `palm kernel oil` still reaches
+`Vegetable oil, palm kernel`, and the 1.1% stopword guard and its nine dropped
+targets are unchanged.
+
+### No schema change
+
+`schema_version` stays at 5. The generator re-runs and the artifacts are
+committed, as §3 of [ADR-0047](0047-bundle-the-usda-archives-and-retire-the-api.md)
+requires.
+
+**Implemented:** `src/lib/food/usda-food-kind.ts` (`TRADE_SPECIFICATION_MARKER`,
+`HOUSEHOLD_MARKER`, `LECITHIN_MARKER`); the three clauses and both refusals
+pinned in `tests/unit/usda-food-kind.test.ts`, and their corpus reach in
+`tests/unit/usda-corpus.test.ts`.

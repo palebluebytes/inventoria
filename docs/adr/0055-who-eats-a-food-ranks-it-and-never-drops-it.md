@@ -225,6 +225,24 @@ Recorded so they are not re-proposed, in the form #143 used for its part key:
 | "a plain twin exists", applied to origin-qualified meat | measured: reaches **0 of 285**. There is no plain twin, because there is no domestic lamb in the corpus at all                                                                   |
 | a powder or supplement marker                           | a safe form reaches 4 rows; an unsafe one takes curry, garlic, onion and chili powder, three cocoa powders, tomato powder, baobab powder and dried egg white                     |
 
+> Read alongside [ADR-0042](0042-usda-search-reference-foods.md)'s
+> [#157 Amendment](0042-usda-search-reference-foods.md#amendment-2026-08-24-157-a-specification-sold-into-a-trade-is-not-a-food),
+> which widens §5's `isManufacturingInput` by thirteen rows and turns on both §1
+> and the third row of this table. Two things there bear on this record. **The
+> powder-or-supplement refusal held**: `Soy protein isolate` was a live candidate
+> and was refused on this table rather than around it. And **two of the 285
+> origin-qualified meat rows §1 protects leave**, which is consistent rather than
+> an erosion — §1 bars a claim about who eats a food, and `manufacturing beef` is
+> USDA's own trade grade for beef sold to be ground, which is a claim about the
+> specification. Seventy-two of the seventy-four New Zealand imports stay, and
+> the count is pinned as a test.
+>
+> That amendment also records a **third** face of the sweep blind spot the #151
+> Amendment below confesses twice: `sweepQueries` takes only the FIRST word of a
+> qualifier part, so `lecithin` — the second word of `soybean lecithin` — cannot
+> be generated, and the case that motivated the change was outside the 3,997
+> queries that priced it. It was measured by hand instead.
+
 ## Consequences
 
 - **#134 was filed as a membership question and lands as a ranking answer.** No
