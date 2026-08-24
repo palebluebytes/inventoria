@@ -1054,6 +1054,35 @@ All seven are ties of two. Three already led with the accounted row and are
 confirmed rather than moved (`oats`, `oat`, `monterey cheese`); four move, and all
 four move to the right row.
 
+### The class the ticket asked for, and why its shape is the answer
+
+#154 asked for the class to be measured before the fix: how many queries lead with
+a row whose head phrase names a different food that merely takes the query as a
+qualifier, and whether both known cases being drinks was coincidence or the tell.
+
+Measured over the same 4,005 queries, against the ranking as it stood: **966 of
+them, 24.1%,** lead with a row whose head phrase no typed word touches. That number
+is almost entirely noise, and finding out why is what named the defect. **940 of
+the 966 are a shelf-labelled row answering correctly** — `abalone` leads
+`Mollusks, abalone, mixed species, raw`, whose head phrase is untouched because the
+head is a label and the food's own name is one word further in. An untouched head
+means nothing there.
+
+**Twenty-six** have a real food's head taking the query as a qualifier, and that is
+the whole population. Twelve of the twenty-six are what this Amendment moves,
+including `red wine`, both oysters, both scallops, `maple` and `distilled`. The
+rest are single qualifier words nobody types as a whole query — `dry`, `low`,
+`white`, `fresh`, `pasteurized`.
+
+So the drinks were **neither** a coincidence nor the tell. The tell is the shelf
+label, and drinks are where it bites hardest because `Beverages` and
+`Alcoholic beverage` are the labels that put a whole word or two in front of the
+food. Of the twenty-six real-food-head leads, exactly **one** is in `Beverages`.
+The ticket's other framing fails for the same reason: "an ingredient-of row loses
+to the food itself" cannot even be stated on `red wine`, because the row that
+should lead has a non-food head phrase too, and #143 had already refused a
+whole-food-over-fraction key for breaking four correct leads.
+
 ### What it costs
 
 Over a 4,005-query sweep, **20 leads moved**. Twelve are wins on queries a person
