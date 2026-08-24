@@ -15,6 +15,7 @@
 **Amended by:** the #124 Amendment below, which adds a fifth key asking where in the name the query landed  
 **Amended by:** the #143 Amendment below, which fills the slot the #124 Amendment reserved, and corrects what it reserved it for  
 **Amended by:** the #144 Amendment below, which gives §5's two head-word keep lists an escape hatch, moves boxed mixes to §4, and adds a manufacturing-input filter  
+**Amended by:** the #152 Amendment below, which adds a fifth Title-Case trademark to §3's denylist and corrects what the #131 sweep found  
 **Amended by:** [ADR-0055](0055-who-eats-a-food-ranks-it-and-never-drops-it.md) §3 and §4 (§1 gains two keys that read a ROW rather than a name), and §1 of that record settles what the governing principle left open: prevalence may rank a reference food and may never drop one  
 **Implemented:** `dabb1fe`, `082ad31`, `fcb3b60`, `1365343`; `src/lib/food/food-search.ts`, and since `aa6c53b` the filter roster §3 describes is `src/lib/food/usda-food-kind.ts` rather than `src/lib/food/usda-fdc.ts` (see the Note below)
 
@@ -880,6 +881,89 @@ corpus-wide merge count falls from 122 to 112 for the same reason. Both are pinn
 
 **Implemented:** `src/lib/food/usda-fdc.ts`; the escapes and their survivors pinned by
 name in `tests/unit/usda-fdc.test.ts` and `tests/unit/usda-corpus.test.ts`.
+
+## Amendment (2026-08-24, #152): the fifth Title-Case trademark, and what the #131 sweep missed
+
+The list edit itself is the drift §3 provides for, and the
+[#131 Amendment](#amendment-2026-08-20-131-all-caps-is-not-the-only-signal-and-the-gap-that-leaves)
+says in as many words that list edits are not recorded here. `muscle milk` joins the
+trademark denylist and takes both `Protein supplement, milk based, Muscle Milk, powder`
+and its `Light` variant, because the denylist matches a lowercased substring. That part
+needs no record.
+
+What needs one is where the two rows came from. **#131 did not leave a Title-Case gap
+for a future mirror refresh to walk through. It left two rows already standing in it.**
+The gap section above says "a brand USDA renders in Title Case will reach the corpus on
+a future mirror refresh, and nothing will fail", and the corpus that sentence was
+written over already held these two. They survived #131's own regeneration, and #133,
+#144 and #145 after it, and surfaced only because
+[#134](https://github.com/palebluebytes/inventoria/issues/134) was grilling an unrelated
+question and read the top of `protein powder`. The twenty branded rows #131 named were
+twenty-two.
+
+That is not a new failure mode. It is #131's own — an unmeasured precision guard is a
+hole — turned on the remedy: a hand-read of the data, plus a roster test that can only
+catch a brand somebody already thought of, is a guard of exactly that kind, and this is
+its measurement. The denylist now names five Title-Case trademarks rather than four, and
+every one of the five arrived the same way, because a person happened to read a result
+list.
+
+### Both rules the #131 Amendment closed stay closed
+
+**The Title-Case proper-noun rule is still rejected**, on that amendment's measurement
+rather than on repetition: 697 corpus rows carry a mid-description Title-Case token drawn
+from 184 distinct words, and nearly all of them name a cultivar, a grade, a geography or
+a varietal. Two rows do not buy that.
+
+**A powder or supplement marker is refused by
+[ADR-0055](0055-who-eats-a-food-ranks-it-and-never-drops-it.md) §7**, and `protein
+powder` is the query that would have motivated one. A safe form of the marker reaches
+four rows; an unsafe one takes curry, garlic, onion and chili powder, three cocoa
+powders, tomato powder, baobab powder and dried egg white. What is wrong with these two
+rows is the trademark, not the powder.
+
+### What moved, and what did not
+
+The corpus falls from **4,360 rows to 4,358**, and §4's brand tally rises from 922 to
+**924** with no asymmetry: neither row had a claim on it from any other filter, so the
+two tallies move together. `protein powder` now leads with `Beverages, Protein powder
+whey based`, `Beverages, Protein powder soy based` and `Beverages, Whey protein powder
+isolate`, and those three are pinned by name in `tests/unit/usda-corpus.test.ts` beside
+the assertion that no Muscle Milk row answers the query.
+
+**The derived [ADR-0049](0049-a-derived-vocabulary-for-food-search.md) vocabulary did
+not move**, and that is reported rather than assumed, because it did move on #144 and
+again on #142. See that record's #152 amendment for the re-derivation. Unchanged too:
+the self-search split (`186 gained, 163 not-first, lost 0`), the stemmer's 112
+corpus-wide merges, ADR-0055 §3's plain-sibling reach of 128 rows under 78 parents, and
+the surviving all-caps vocabulary of `USDA`, `BBQ` and `NY`.
+
+### Which of the fifteen sites moved, and which are dated measurements
+
+[#152](https://github.com/palebluebytes/inventoria/issues/152) said the row count "lives
+in ~15 files" and listed them, and it is half right. Nine files carry a live claim about
+what the corpus IS — `CONTEXT.md`, `scripts/usda-vocabulary.mjs`,
+`src/lib/food/reference-food-ranking.ts`, `src/lib/food/usda-corpus.ts`, the three tests
+that state it in prose or assert it outright, ADR-0047's amendment header, and ADR-0055
+§3's plain-sibling reach. All nine now read 4,358, and the reach was RE-MEASURED at 128
+rows under 78 parents rather than carried over.
+
+The remainder are **dated measurements, and rewriting one would falsify it.**
+`121-usda-energy-derivation.md` pins its 4,360 to `420cc37`,
+`142-carrier-phrase-sweep.md` to a run on 2026-08-21, and both
+`145-twin-fusion-adjudication.md` and ADR-0051 state their own delta rather than the
+current corpus. `130-ranking-audit.json` carries `index_rows: 4360` as the header of
+#130's sweep, and `vocabulary-fallback.test.ts` reads that file as a floor asserted
+against the LIVE corpus, so the record and the assertion are already right to disagree.
+ADR-0052's density measurement is the one borderline case: #148's method cannot be
+reproduced from the shipped artifact, one of the two dropped rows carries a `1 tbsp`
+portion, and its 958 may therefore be 957 — so it is pinned to the corpus it ran over
+rather than restated at a figure nobody measured. **A count that says what the corpus is
+moves; a count that records what somebody found does not.**
+
+**Implemented:** `src/lib/food/usda-food-kind.ts`; the entry and the three generic
+supplements it stands next to are pinned in `tests/unit/usda-food-kind.test.ts`, and the
+query is pinned over the shipped artifact in `tests/unit/usda-corpus.test.ts`.
 
 ## Note (2026-08-21, #146): where §3's lists live now
 

@@ -58,7 +58,7 @@ computes a measurement from another measurement plus a number we supplied, and
 a product OFF publishes per 100 ml exists nowhere.
 
 The corpus is the secondary argument. #148 re-measured deriving a per-food density
-from USDA's own volume portions over the 4,360 shipped foods: 958 foods (22.0%)
+from USDA's own volume portions over the 4,360 foods shipped when it ran: 958 foods (22.0%)
 carry a volume-named household portion, but the largest categories are `Legumes`,
 `Vegetables` and `Dairy and Egg`, where "1 cup, chopped" is a bulk density and not
 a fluid one. Median derived density across all 1,339 volume portions is 0.854, p10

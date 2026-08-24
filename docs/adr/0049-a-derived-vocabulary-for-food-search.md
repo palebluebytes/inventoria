@@ -7,6 +7,7 @@
 **Amended by:** [ADR-0050](0050-a-merged-food-keeps-the-name-its-twin-lost.md) §5 (§3's two filters are asked of a row's every name, not of its description alone, and the map re-derives over the aliases)  
 **Amended by:** the #141 Amendment below, which writes the hand-written `vocabulary_local` §4 left room for and Consequences deferred  
 **Amended by:** the #142 Amendment below, which corrects the three figures Consequences quotes for the substitutable subset, retires the `natural yoghurt` example it argues from, and replaces "unmeasured" with a measurement  
+**Amended by:** the #152 Amendment below, which re-derives the map over a corpus two rows smaller and reports that nothing moved  
 **Implemented:** #139 `4a01dd1`, `5868a7f`, `efadfad` (the map); #140 (the fallback that reads it); #141 (the hand-written section)
 
 This record amends [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md)
@@ -709,3 +710,34 @@ are themselves carrier phrases OFF's taxonomy happened to record — `cooked swe
 expands, by whole phrase, while a typed `raw swede` still finds nothing. Any
 per-token tier has to run after the whole-phrase match, or those eight keys expand
 twice.
+
+## Amendment (2026-08-24, #152): the map re-derived over a corpus two rows smaller — and it did not move
+
+§3 derives the map from the finished corpus, so a filter change moves it, and the two
+amendments above are both cases where it did. [ADR-0042](0042-usda-search-reference-foods.md)'s
+[#152 amendment](0042-usda-search-reference-foods.md#amendment-2026-08-24-152-the-fifth-title-case-trademark-and-what-the-131-sweep-missed)
+dropped two branded rows, and the regenerated map is **the same 446 keys over the same
+337 targets**, from the same 380 OFF groups with the same 149 denied. The
+`vocabulary_off` and `vocabulary_local` sections of `search-index.json` are byte-identical
+across the regeneration; the whole artifact diff is the two food rows.
+
+**This is reported, not assumed.** The map has moved on smaller provocations than two
+rows: #144's 76-row drop moved it by two keys, and the #137 Amendment moved it by eleven
+with no corpus change at all. Two mechanisms could have fired here and neither did. The
+threshold is a percentage of the corpus, so it re-rounds against the new count — but
+1.1% of 4,358 is the same 48 rows as 1.1% of 4,360, and the guard drops the same nine
+targets and the same seven keys, with `cream` at 44 still the widest kept. §3's stopword
+figures move only in the denominator: `salt` 427 of **4,358** rows, `whole` 218, `beans`
+115, and the generator comment that restates them carries the new figure.
+
+The other mechanism is a target losing its last row, which is what turned #144's
+`powdered milk` from a one-wrong-row "hit" into a miss the map could answer properly.
+**Exactly one of the 337 targets retrieved a dropped row**: `milk powder`, and it
+retrieved nine others besides, so it stays comfortably above §3's requirement that a
+target retrieve something and the key it serves is untouched. What changed is the answer
+underneath it. `milk powder` was LED by `Protein supplement, milk based, Muscle Milk,
+powder` and its `Light` variant, and now leads with a chocolate malt powder; the key
+above it, `powdered milk`, reads both `milk powder` and `dry milk` and was already led by
+the dry-milk half, so a user typing it sees the same `Milk, dry, whole` row first and 16
+results rather than 18. The fallback's answer to that query is two rows less wrong and
+not one row different at the top.

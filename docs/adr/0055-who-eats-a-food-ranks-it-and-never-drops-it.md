@@ -157,7 +157,7 @@ of its food — asked of the corpus instead of the name. It stays a boolean. It 
 not #124's "fewest qualifiers", which #130 disproved by finding USDA writes the
 canonical milk with MORE qualifiers than the imitation one.
 
-**Reach: 128 of 4,360 rows under 78 parents.**
+**Reach: 128 of 4,358 rows under 78 parents.**
 
 ### 4. A record published for a designated population ranks below one that is not
 
@@ -251,6 +251,13 @@ Recorded so they are not re-proposed, in the form #143 used for its part key:
   bundled here: it drops two rows, and a filter change re-derives the ADR-0049
   vocabulary and drags the row count through fifteen files. That sweep is the
   whole of that ticket and would be invisible inside this one.
+
+  > Done in [#152](https://github.com/palebluebytes/inventoria/issues/152), as
+  > ADR-0042's #152 amendment: `muscle milk` joins the denylist, §7's refusal of a
+  > powder-or-supplement marker holds, and the corpus falls to 4,358 rows. The
+  > sweep was worth its own ticket — the map did not move, and reporting that took
+  > the measurement.
+
 - **`plainSibling` is derived data in a shipped artifact**, which can drift from
   the predicate that derived it. The esbuild seam and `usda-bundle.test.ts`'s
   union-versus-stub check are what stop that, and they are the same arrangement
