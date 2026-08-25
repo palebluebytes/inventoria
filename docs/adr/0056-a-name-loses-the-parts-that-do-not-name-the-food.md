@@ -47,9 +47,11 @@ neither Swiss nor optional, and `bengal gram` and `pe-tsai` are the British and
 regional aliases ADR-0049's vocabulary exists to preserve. ADR-0055 §7 already
 refused this predicate in writing; the measurement here agrees with it.
 
-**The cultural designation tags stay.** `(Alaska Native)`, `(Navajo)`,
-`(Apache)`, `(Northern Plains Indians)`, `(Klamath)` and `(Hopi)` were the
-example in the original ask and are the one case this record does not touch.
+**The cultural designation tags stay.** All **eight** of them —
+`(Alaska Native)` on 100 rows, `(Navajo)` 16, `(Northern Plains Indians)` 14,
+`(Shoshone Bannock)` 8, `(Hopi)` 5, `(Apache)` 3, `(Southwest)` 3 and
+`(Klamath)` 2, which is the whole 151-row category. They were the example in the
+original ask and are the one case this record does not touch.
 ADR-0055 §4 demotes that category on an exact tie and §1 forbids dropping it; 45
 of its rows name a food no other row mentions, including the corpus's only
 mutton. Restating one of them without its tag would assert it is a

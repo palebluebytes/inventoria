@@ -87,6 +87,34 @@ describe("the bundled search index", () => {
     expect(leaking.map((row) => row.description)).toEqual([]);
   });
 
+  it("leaves every cultural designation tag on the row that carries it", () => {
+    // ADR-0055 §1 and §4: these rows stay whole and stay named. Counted rather
+    // than listed in prose, because prose is where this went wrong — ADR-0056
+    // and `usda-shipped-name.ts` both said SIX and named six, when the category
+    // carries eight and `(Shoshone Bannock)` and `(Southwest)` were the two
+    // missed. A count that has to add up to the category is a claim a test can
+    // keep honest.
+    const tags = new Map<string, number>();
+    for (const row of index.foods) {
+      if (row.foodCategory !== "American Indian/Alaska Native Foods") continue;
+      const tag =
+        row.description.match(/\(([^()]+)\)\s*$/)?.[1] ?? "(untagged)";
+      tags.set(tag, (tags.get(tag) ?? 0) + 1);
+    }
+    expect(Object.fromEntries([...tags].sort())).toEqual({
+      "Alaska Native": 100,
+      Apache: 3,
+      Hopi: 5,
+      Klamath: 2,
+      Navajo: 16,
+      "Northern Plains Indians": 14,
+      "Shoshone Bannock": 8,
+      Southwest: 3,
+    });
+    // Every row in the category is tagged, and the tags account for all of it.
+    expect([...tags.values()].reduce((a, b) => a + b)).toBe(151);
+  });
+
   it("keeps the origin words where they are the food's own name", () => {
     // The positional rule is the whole safety argument, and this is the case it
     // was built for. New Zealand spinach is Tetragonia, not Spinacia: 12 kcal

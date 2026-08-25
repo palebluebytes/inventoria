@@ -40,9 +40,11 @@ import { qualifiersOf, stemOf, wordsOf } from "./reference-food-ranking";
  * `Swiss` chard is neither Swiss nor optional, and `bengal gram` and `pe-tsai`
  * are the British and regional aliases ADR-0049's vocabulary exists to preserve.
  *
- * The six cultural designation tags — `(Alaska Native)`, `(Navajo)`, `(Apache)`,
- * `(Northern Plains Indians)`, `(Klamath)`, `(Hopi)` — are absent for a
- * different reason. ADR-0055 §4 demotes that category on an exact tie and §1
+ * The eight cultural designation tags — `(Alaska Native)` on 100 rows,
+ * `(Navajo)` 16, `(Northern Plains Indians)` 14, `(Shoshone Bannock)` 8,
+ * `(Hopi)` 5, `(Apache)` 3, `(Southwest)` 3 and `(Klamath)` 2, which together
+ * are the whole 151-row `American Indian/Alaska Native Foods` category — are
+ * absent for a different reason. ADR-0055 §4 demotes that category on an exact tie and §1
  * forbids dropping it; restating one of those rows without its tag would assert
  * it is a general-population reference value, which is not what USDA published.
  */

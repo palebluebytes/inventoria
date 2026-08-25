@@ -334,8 +334,10 @@ describe("the roster", () => {
   });
 
   it("holds only the three commercial origin qualifiers", () => {
-    // The six cultural designation tags — (Alaska Native), (Navajo), (Apache),
-    // (Northern Plains Indians), (Klamath), (Hopi) — are deliberately absent.
+    // The eight cultural designation tags — (Alaska Native), (Navajo),
+    // (Northern Plains Indians), (Shoshone Bannock), (Hopi), (Apache),
+    // (Southwest) and (Klamath), the whole 151-row category — are deliberately
+    // absent.
     // ADR-0055 §4 demotes that category on a tie and §1 forbids dropping it;
     // rewriting its names would assert those rows are general-population
     // reference values, which is not what USDA published them as.
