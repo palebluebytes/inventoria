@@ -152,6 +152,8 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {number} LOCAL_VOCABULARY_CEILING
  * @property {(index: object) => { foods: object[] }} buildSearchCorpus
  * @property {(corpus: object, query: string) => { hits: { row: { description: string } }[] }} searchIndexRows
+ * @property {(rows: { fdcId: number, description: string }[]) => { renamed: ReadonlyMap<number, string>, dropped: ReadonlyMap<number, "collision" | "preparation_sibling"> }} resolveShippedNames
+ * @property {(description: string) => string} stripNonNamingQualifiers
  * @property {readonly TwinLedgerEntry[]} TWIN_LEDGER
  * @property {ReadonlySet<number>} SPLIT_TWIN_NDB_NUMBERS
  */
@@ -390,6 +392,56 @@ export function buildCorpus(groups, app) {
     twinned_survivors,
     identities: groups.size,
   };
+}
+
+/**
+ * The corpus with USDA's commercial origin qualifiers taken out of its names,
+ * and the rows whose name that left already taken (ADR-0056).
+ *
+ * **Where this runs is load-bearing in both directions.** It is after
+ * {@link assertTwinNamesRetrieve}, because that check is a question about the
+ * MERGE and has to be asked of the names USDA actually wrote — a renamed row
+ * cannot answer to the archived description it came from, and asking it to
+ * would fail a check about something else entirely. It is before the vocabulary
+ * derivation, because ADR-0049 §3's filters ask what the FINISHED corpus
+ * retrieves, and after this the finished corpus is sixteen rows
+ * short and 355 names different.
+ *
+ * Aliases are renamed with the descriptions. None carries an origin qualifier
+ * today, so this reaches nothing — but an alias IS a name the row answers to
+ * (ADR-0050 §4), and a rule that took the words out of one kind of name while
+ * leaving them in the other would quietly make `new zealand` searchable again
+ * the first time a refresh produced such a twin.
+ */
+export function applyShippedNames(survivors, app) {
+  const { renamed, dropped } = app.resolveShippedNames(
+    survivors.map((s) => ({
+      fdcId: s.food.fdcId,
+      description: s.food.description,
+    }))
+  );
+  const kept = [];
+  for (const survivor of survivors) {
+    if (dropped.has(survivor.food.fdcId)) continue;
+    const description =
+      renamed.get(survivor.food.fdcId) ?? survivor.food.description;
+    // Every surviving row, not only the renamed ones: a row's own description
+    // can be clean while a name the twin merge discarded is not, and `also` is
+    // ranked against exactly like a description (`bestNameKey`).
+    const { also: discarded, ...rest } = survivor;
+    const also = [
+      ...new Set((discarded ?? []).map(app.stripNonNamingQualifiers)),
+    ].filter((alias) => alias !== description);
+    kept.push({
+      ...rest,
+      food: { ...survivor.food, description },
+      ...(also.length ? { also } : {}),
+    });
+  }
+
+  const origin_dropped = { collision: 0, preparation_sibling: 0 };
+  for (const reason of dropped.values()) origin_dropped[reason]++;
+  return { survivors: kept, renamed: renamed.size, origin_dropped };
 }
 
 /**
@@ -691,9 +743,19 @@ async function main() {
     app
   );
   const groups = groupByIdentity(entries, app);
-  const { survivors, dropped, twinned, twinned_survivors, identities } =
-    buildCorpus(groups, app);
-  const twinNames = assertTwinNamesRetrieve(groups, survivors, app);
+  const {
+    survivors: filtered,
+    dropped,
+    twinned,
+    twinned_survivors,
+    identities,
+  } = buildCorpus(groups, app);
+  // Asked of USDA's own names, so it has to come before the rename (ADR-0056 §4).
+  const twinNames = assertTwinNamesRetrieve(groups, filtered, app);
+  const { survivors, renamed, origin_dropped } = applyShippedNames(
+    filtered,
+    app
+  );
 
   // After the corpus, never before: both of ADR-0049 §3's filters ask what the
   // FINISHED corpus retrieves, so a group's members are compared against the
@@ -739,6 +801,14 @@ async function main() {
       `${dropped.prepared} prepared or composite, ${dropped.dry_basis} dry-basis, ` +
       `${dropped.manufacturing_input} manufacturing inputs, ` +
       `${dropped.no_energy} reporting no energy dropped)`
+  );
+  // Reported rather than assumed, for the reason every other tally here is:
+  // a rule whose reach nobody measured is a hole nobody can see (ADR-0056 §5).
+  console.log(
+    `  ${renamed} lose a commercial origin or USDA's aisle label from their ` +
+      `name; ${origin_dropped.collision} then collide with a row that named no ` +
+      `origin, and ${origin_dropped.preparation_sibling} follow as other ` +
+      "preparations of the same food"
   );
   const aliased = index.foods.filter((row) => row.also);
   const aliasBytes = aliased.reduce(

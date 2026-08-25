@@ -32,12 +32,15 @@ import { brotliCompressSync, constants, gzipSync } from "node:zlib";
  * row's `also`, the names the twin merge discarded (#137). 4 adds the
  * `vocabulary_local` section beside it, the hand-written half the ODbL
  * derivative does not cover (#141). 5 adds a row's `plain_sibling`, the one
- * ranking key that cannot be derived from a description (ADR-0055 §6). Both
+ * ranking key that cannot be derived from a description (ADR-0055 §6). 6 changes
+ * no field but rewrites a value: a row's `description` no longer carries the
+ * commercial origin USDA wrote into it, so a reader holding a captured row can
+ * tell which naming a flag was computed against (ADR-0056). Both
  * files carry the version because both are generated together from one corpus,
  * and a pair that disagreed about their version would be the bug the number
  * exists to catch.
  */
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 /**
  * The panel fields a search result row renders, which is the whole of what the

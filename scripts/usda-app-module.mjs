@@ -35,6 +35,13 @@ const VOCABULARY_MODULE = join(
   "food-vocabulary.ts"
 );
 const CORPUS_MODULE = join(ROOT, "src", "lib", "food", "usda-corpus.ts");
+const SHIPPED_NAME_MODULE = join(
+  ROOT,
+  "src",
+  "lib",
+  "food",
+  "usda-shipped-name.ts"
+);
 const TWIN_LEDGER_MODULE = join(
   ROOT,
   "src",
@@ -127,6 +134,21 @@ export const VOCABULARY_EXPORTS = [
 export const CORPUS_EXPORTS = ["buildSearchCorpus", "searchIndexRows"];
 
 /**
+ * The origin rename, borrowed through the same seam and for the same reason
+ * (ADR-0056 §4).
+ *
+ * `resolveShippedNames` is corpus-wide — whether a stripped name is still free is
+ * not a fact about that name — so it belongs beside `plainSiblingsOf` on the
+ * generator's side of the seam rather than in the app, which reads finished
+ * names and never the rule that produced them. `stripNonNamingQualifiers` comes with
+ * it because the aliases are renamed one at a time, after the verdict.
+ */
+export const SHIPPED_NAME_EXPORTS = [
+  "resolveShippedNames",
+  "stripNonNamingQualifiers",
+];
+
+/**
  * The twin adjudication, borrowed for the same reason and through the same seam
  * (ADR-0051).
  *
@@ -154,6 +176,7 @@ const BORROWED = [
   [RANKING_MODULE, RANKING_EXPORTS],
   [VOCABULARY_MODULE, VOCABULARY_EXPORTS],
   [CORPUS_MODULE, CORPUS_EXPORTS],
+  [SHIPPED_NAME_MODULE, SHIPPED_NAME_EXPORTS],
   [TWIN_LEDGER_MODULE, TWIN_LEDGER_EXPORTS],
 ];
 
