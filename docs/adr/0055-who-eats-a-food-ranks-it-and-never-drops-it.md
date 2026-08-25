@@ -3,6 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-08-24  
 **Amended by:** the #151 Amendment below, which corrects the price §3's key was adopted at and admits the two leads it costs  
+**Amended by:** [ADR-0056](0056-a-name-loses-the-parts-that-do-not-name-the-food.md) §5, which gives §1 one further ground for a drop — a naming rule this project adopted having made two rows indistinguishable — and refuses the composite-drop rule §7 would otherwise have admitted  
 **Implemented:** #151; `src/lib/food/reference-food-ranking.ts` (both keys), `src/lib/food/usda-corpus.ts` (where they attach), `scripts/usda-bundle.mjs` (schema 5)
 
 This record amends [ADR-0042](0042-usda-search-reference-foods.md) §1, whose
@@ -125,6 +126,18 @@ This is why the `American Indian/Alaska Native Foods` category stays whole and
 why 282 rows of imported meat stay: both were proposed for dropping on this
 reason and no other.
 
+> Given one further ground by
+> [ADR-0056](0056-a-name-loses-the-parts-that-do-not-name-the-food.md) §5, and
+> deliberately no more: a row may be dropped when a naming rule **this project**
+> adopted has made it indistinguishable from another row, and it is the row that
+> carried the origin. Sixteen New Zealand offal rows leave on it. That is not a
+> claim about what the record IS — the panels differ, on liver by 40 of 94 shared
+> fields — so it needed saying here rather than being read into this section. The
+> reason given for it was "simplicity preferred to complete coverage", which is
+> nearer the audience claim this section bars than the collision framing alone
+> suggests; that record states it plainly rather than dressing it up. It may not
+> be borrowed for a drop argued on who eats a food.
+
 > **280 since [#157](https://github.com/palebluebytes/inventoria/issues/157)**,
 > and the Context measurement above reads 283 rather than 285 for the same
 > reason. Two rows left as `manufacturing beef`, USDA's trade grade for boneless
@@ -229,11 +242,12 @@ corpus load costs today. Baking it costs about 1 KB against a 509 KiB index.
 
 Recorded so they are not re-proposed, in the form #143 used for its part key:
 
-| predicate                                               | why it is refused                                                                                                                                                                |
-| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| a country or origin word in the name                    | a name-shaped rule for a substance-shaped question; deletes _Tetragonia_, pak choi, napa cabbage, gai lan, Chinese jujube and Irish moss, none of which is a food from a country |
-| "a plain twin exists", applied to origin-qualified meat | measured: reaches **0 of 285**. There is no plain twin, because there is no domestic lamb in the corpus at all                                                                   |
-| a powder or supplement marker                           | a safe form reaches 4 rows; an unsafe one takes curry, garlic, onion and chili powder, three cocoa powders, tomato powder, baobab powder and dried egg white                     |
+| predicate                                               | why it is refused                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| a country or origin word in the name                    | a name-shaped rule for a substance-shaped question; deletes _Tetragonia_, pak choi, napa cabbage, gai lan, Chinese jujube and Irish moss, none of which is a food from a country                                                                                                                                                                                                                                                                                                                         |
+| "a plain twin exists", applied to origin-qualified meat | measured: reaches **0 of 285**. There is no plain twin, because there is no domestic lamb in the corpus at all                                                                                                                                                                                                                                                                                                                                                                                           |
+| a powder or supplement marker                           | a safe form reaches 4 rows; an unsafe one takes curry, garlic, onion and chili powder, three cocoa powders, tomato powder, baobab powder and dried egg white                                                                                                                                                                                                                                                                                                                                             |
+| dropping USDA's `composite of trimmed retail cuts` rows | added by [ADR-0056](0056-a-name-loses-the-parts-that-do-not-name-the-food.md). Proposed as a claim about the record — a statistical construct rather than a food, the shape #157 used for `manufacturing beef` — and refuted by §2's own bar: it deletes the row `docs/research/143-gold-set.json` adjudicates as the correct lead for `veal`, and leaves that query on the Australian rib roast the gold set's note calls the defect. The phrase also reaches only 53 of the corpus's 70 composite rows |
 
 > Read alongside [ADR-0042](0042-usda-search-reference-foods.md)'s
 > [#157 Amendment](0042-usda-search-reference-foods.md#amendment-2026-08-24-157-a-specification-sold-into-a-trade-is-not-a-food),

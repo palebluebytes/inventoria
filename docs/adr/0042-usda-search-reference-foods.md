@@ -19,6 +19,7 @@
 **Amended by:** [ADR-0055](0055-who-eats-a-food-ranks-it-and-never-drops-it.md) §3 and §4 (§1 gains two keys that read a ROW rather than a name), and §1 of that record settles what the governing principle left open: prevalence may rank a reference food and may never drop one  
 **Amended by:** the #155 Amendment below, which adds a seventh name key asking whether the query accounts for the whole name, and separates the tie ADR-0055's #151 Amendment left open  
 **Amended by:** the #162 Amendment below, which adds an eighth name key asking how much of its food a row is a record of, and revises the #158 Amendment's precondition on it  
+**Amended by:** [ADR-0056](0056-a-name-loses-the-parts-that-do-not-name-the-food.md) (§3's principle covered which records ship and how they rank, but never what they are CALLED; a shipped description now loses the qualifier parts that do not name the food)  
 **Implemented:** `dabb1fe`, `082ad31`, `fcb3b60`, `1365343`; `src/lib/food/food-search.ts`, and since `aa6c53b` the filter roster §3 describes is `src/lib/food/usda-food-kind.ts` rather than `src/lib/food/usda-fdc.ts` (see the Note below)
 
 ## Context
