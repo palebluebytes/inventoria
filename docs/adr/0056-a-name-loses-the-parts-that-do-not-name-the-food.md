@@ -16,16 +16,22 @@ earlier one filters (`usda-food-kind.ts`), merges (ADR-0045 §2), ranks
 
 ## Context
 
-USDA writes two things where a food's name belongs.
+USDA writes three things where a food's name belongs.
 
 **Where an imported carcass came from.** `Lamb, New Zealand, imported, loin
 chop, separable lean and fat, raw`. 280 rows carried `New Zealand`, `Australian`
 or `imported` as a standalone qualifier.
 
-**Its own trade category.** `Beef, variety meats and by-products, liver, raw`.
+**Where it filed the row.** `Beef, variety meats and by-products, liver, raw`.
 100 rows carried that phrase as a qualifier of its own, sitting between the
 animal and the organ; 93 of them are renamed and 7 leave under §4. A 101st
 carries it without the comma USDA meant to type, which §4 has to look past.
+
+**How wide the sample behind the row was.** `all grades` (255 rows) averages
+USDA's beef grades; `all classes` (21 rows) does the same over poultry classes,
+the bird's market category by age and sex. Both sit beside rows that name a
+single grade or class — `choice`, `select`, `prime`, `broilers or fryers`,
+`stewing` — and those keep the word that names them.
 
 Neither names the food. Both consume the width of a result row before the cut a
 person is looking for. The ask that produced this record was "remove any foods
@@ -84,9 +90,20 @@ does not address choice overload.
 Two rosters, both in `usda-shipped-name.ts`:
 
 - **Commercial origin** — `new zealand`, `australian`, `imported`.
-- **USDA's aisle label** — `variety meats and by-products`.
+- **USDA's cataloguing apparatus** — `variety meats and by-products`,
+  `all grades`, `all classes`.
 
-Both are removed from a shipped description. Neither is kept anywhere: there is
+Both rosters are removed from a shipped description.
+
+The second roster costs something the first does not, and it is worth stating.
+`all grades` and `all classes` are claims about the MEASUREMENT — they say the
+figure spans every grade or bird class rather than picking one — so removing
+them makes a row look more specific than USDA meant it. They are removed anyway
+because in this corpus they never tell two rows apart: measured, stripping both
+collides with nothing, since every row that names a single grade or class keeps
+the word that names it. `Aust. marble score` is deliberately NOT on this roster
+for the opposite reason — it names a grade rather than averaging over them, so
+it still distinguishes rows, and 16 Wagyu rows keep it. Neither is kept anywhere: there is
 no field holding the original, because a field holding it is an invitation for
 the next reader to search it. `scripts/usda-bundle.mjs` regenerating from the
 archives is the way back.
@@ -172,7 +189,7 @@ dressed as a claim about the records.
 
 ## Consequences
 
-- **The corpus falls from 4,335 rows to 4,319**, and 355 rows are renamed. Eight
+- **The corpus falls from 4,335 rows to 4,319**, and 631 rows are renamed. Eight
   rows leave on §4's collision rule and eight as preparations of them. Every one
   is New Zealand beef or lamb offal.
 - **Sixteen assays are gone, and one of them matters.** The corpus keeps beef
@@ -195,6 +212,14 @@ dressed as a claim about the records.
 - **`tri beef` moved too**, from the beef composite to `Beef, tripe, raw`, which
   the aisle-label strip left short enough to win. Both are sweep-generated pairs
   rather than phrases anyone types.
+- **364 rows now lead when searched by their own full description**, against 218
+  before this record — `lost` stays at zero, the invariant no key or corpus
+  change has ever broken. Most of the gain is `all grades` alone, which takes two
+  words off 255 rows.
+- **The word `classes` has left the corpus**, because it only ever appeared
+  inside `all classes`. The stemmer therefore makes one merge fewer, which
+  `usda-corpus.test.ts` counts: a rename takes a word the same way a filter drop
+  takes one.
 - **The gold set is unmoved: 0 broken, 1 fixed** (`spinach`). ADR-0055 §2's bar
   is met, and `usda-corpus.test.ts` already guards it.
 - **A rename erases the evidence for older measurements.** ADR-0055's #157

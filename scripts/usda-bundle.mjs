@@ -405,7 +405,7 @@ export function buildCorpus(groups, app) {
  * would fail a check about something else entirely. It is before the vocabulary
  * derivation, because ADR-0049 §3's filters ask what the FINISHED corpus
  * retrieves, and after this the finished corpus is sixteen rows
- * short and 355 names different.
+ * short and 631 names different.
  *
  * Aliases are renamed with the descriptions. None carries an origin qualifier
  * today, so this reaches nothing — but an alias IS a name the row answers to
@@ -805,8 +805,8 @@ async function main() {
   // Reported rather than assumed, for the reason every other tally here is:
   // a rule whose reach nobody measured is a hole nobody can see (ADR-0056 §5).
   console.log(
-    `  ${renamed} lose a commercial origin or USDA's aisle label from their ` +
-      `name; ${origin_dropped.collision} then collide with a row that named no ` +
+    `  ${renamed} lose a commercial origin or a cataloguing qualifier from ` +
+      `their name; ${origin_dropped.collision} then collide with a row that named no ` +
       `origin, and ${origin_dropped.preparation_sibling} follow as other ` +
       "preparations of the same food"
   );

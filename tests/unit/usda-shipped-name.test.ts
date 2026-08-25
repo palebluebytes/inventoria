@@ -82,6 +82,42 @@ describe("stripNonNamingQualifiers", () => {
     }
   });
 
+  it("removes USDA's averaged-sample qualifiers", () => {
+    // `all grades` averages USDA's beef grades; `all classes` averages poultry
+    // classes, the bird's market category by age and sex. Neither says which
+    // food the row is, and the rows that DO name a single grade or class keep
+    // the word that names it, so nothing converges on them.
+    expect(
+      stripNonNamingQualifiers(
+        "Beef, brisket, whole, separable lean only, all grades, raw"
+      )
+    ).toBe("Beef, brisket, whole, separable lean only, raw");
+    expect(
+      stripNonNamingQualifiers("Chicken, liver, all classes, cooked, pan-fried")
+    ).toBe("Chicken, liver, cooked, pan-fried");
+    expect(
+      stripNonNamingQualifiers(
+        "Turkey, all classes, breast, meat and skin, raw"
+      )
+    ).toBe("Turkey, breast, meat and skin, raw");
+  });
+
+  it("leaves a qualifier that names one grade rather than averaging them", () => {
+    // The line between the two. `choice`, `select` and `Aust. marble score 9`
+    // each pick a grade, so each still tells two rows apart; `all grades` picks
+    // none. Removing a naming grade would fuse rows with different fat.
+    for (const description of [
+      'Beef, chuck, arm pot roast, separable lean only, trimmed to 0" fat, choice, raw',
+      'Beef, rib, small end (ribs 10-12), separable lean only, trimmed to 0" fat, select, cooked, broiled',
+      "Beef, Wagyu, seam fat, Aust. marble score 4/5, raw",
+    ]) {
+      expect([description, stripNonNamingQualifiers(description)]).toEqual([
+        description,
+        description,
+      ]);
+    }
+  });
+
   it("removes USDA's offal aisle label wherever it is a whole part", () => {
     // Part 1 for beef, veal and lamb; part 2 for pork, which writes `fresh`
     // first. Positional but not fixed-position, which is why the roster is asked
@@ -290,6 +326,13 @@ describe("resolveShippedNames", () => {
 });
 
 describe("the roster", () => {
+  it("keeps a food's own `all` out of the catalogue roster", () => {
+    // `withoutCatalogueText` compares phrases, not words. Filtering the WORDS
+    // would drop `all` from a flour whose name contains it.
+    const description = "Wheat flour, white, all-purpose, enriched, bleached";
+    expect(stripNonNamingQualifiers(description)).toBe(description);
+  });
+
   it("holds only the three commercial origin qualifiers", () => {
     // The six cultural designation tags — (Alaska Native), (Navajo), (Apache),
     // (Northern Plains Indians), (Klamath), (Hopi) — are deliberately absent.

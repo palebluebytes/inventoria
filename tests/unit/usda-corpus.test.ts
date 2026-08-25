@@ -770,7 +770,8 @@ describe("searchIndexRows", () => {
     // so a fifth rule reaching endings the table below does not enumerate still
     // fails here — it was 120 before the two #138 rules added their pair each,
     // 122 before #144's filters took 76 rows and the words only they carried,
-    // and 112 before #157 took thirteen more. The one merge that change cost is
+    // 112 before #157 took thirteen more, and 108 before ADR-0056's rename took
+    // "classes" out of every name that carried it. The one merge #144 cost is
     // "cakes"/"cake": the corpus carried "cakes" in exactly one description,
     // `Shortening, special purpose for cakes and frostings`, and a filter drop
     // takes a merge with it the same way it takes a word.
@@ -778,12 +779,14 @@ describe("searchIndexRows", () => {
     // exactly the blanket "-ves" shape; the table below is what catches that,
     // by pinning "olives" to the singular it still has to answer.
     const merged = new Set(words.map(stemOf));
-    expect(words.length - merged.size).toBe(108);
+    expect(words.length - merged.size).toBe(107);
 
     expect(touched.map((w) => [w, stemOf(w), sharing(w)])).toEqual([
       ["additives", "additive", []],
       ["chives", "chive", []],
-      ["classes", "class", []],
+      // "classes" left the corpus with ADR-0056: the word appeared only inside
+      // `all classes`, so removing the phrase removed the word, and a merge goes
+      // with a word the same way a filter drop takes one.
       ["cloves", "clove", []],
       ["halves", "halve", []],
       // The two intended merges, and the only two.
@@ -1293,7 +1296,7 @@ describe("searchIndexRows", () => {
     // `wholeness` decides it, and USDA's own word does the deciding. These two
     // are the exact analogue of the `pork` and `lamb` rows pinned above.
     expect(descriptionsFor("beef")[0]).toBe(
-      'Beef, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/8" fat, all grades, raw'
+      'Beef, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/8" fat, raw'
     );
     expect(descriptionsFor("veal")[0]).toBe(
       "Veal, composite of trimmed retail cuts, separable lean and fat, raw"
@@ -1479,7 +1482,7 @@ describe("searchIndexRows", () => {
     }
   });
 
-  it("puts 233 more rows first by their own name, and takes none away", () => {
+  it("puts 364 more rows first by their own name, and takes none away", () => {
     // ADR-0042's #136 Amendment measured 356 rows that are not first when
     // searched by their own full description, 337 of them tied on every key.
     // #124's amendment predicted its key would break none of those, and that
@@ -1541,18 +1544,19 @@ describe("searchIndexRows", () => {
     // from not-first to gained — 218 and 131 — which is the population it is
     // built for: a row searched by its OWN full description is the one name the
     // query accounts for completely, and every rival carries a word it does not.
-    // ADR-0056's rename then moved 15 more into gained and one into not-first —
-    // 233 and 132 — for the same reason `accounted` reaches them: a row that
-    // stops carrying `New Zealand, imported` or `variety meats and by-products`
-    // is searched by a shorter name, and the rivals that used to account for it
-    // no longer do.
+    // ADR-0056's rename then moved 146 more into gained and one into not-first
+    // — 364 and 133 — for the same reason `accounted` reaches them: a row that
+    // stops carrying `New Zealand, imported`, `variety meats and by-products`
+    // or `all grades` is searched by a shorter name, and the rivals that used to
+    // account for it no longer do. Most of that is `all grades`, which alone
+    // takes five words off 255 rows.
     // `lost` is the invariant and is still zero: no key and no corpus change has
     // ever taken the lead from a row that already held it. The baseline this
     // diffs against is the pre-#124 order, so all three keys are being measured
     // here at once.
     expect({ notFirst, gained, lost }).toEqual({
-      notFirst: 132,
-      gained: 233,
+      notFirst: 133,
+      gained: 364,
       lost: 0,
     });
   }, 30_000);

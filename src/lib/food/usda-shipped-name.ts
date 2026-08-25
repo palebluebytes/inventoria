@@ -53,29 +53,43 @@ export const ORIGIN_QUALIFIERS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * USDA's own aisle labels, written where a food's name belongs.
+ * USDA's cataloguing apparatus: where it filed a row, and how wide the sample
+ * behind it was. Neither says WHICH food the row is.
  *
- * `Beef, variety meats and by-products, liver, raw` is USDA filing offal under
- * its trade category; nobody calls it that, and the five words sit between the
- * animal and the organ in every result row. Stripped for the same reason the
- * origins are — a qualifier part that does not name the food — and kept in a
- * roster of its own because it decides nothing when two names collide (see
- * {@link resolveShippedNames}).
+ * Two kinds, and they are here together because they behave identically — both
+ * are stripped, and neither decides anything when two names collide (see
+ * {@link resolveShippedNames}). Only an origin does that.
+ *
+ * **Where it was filed.** `Beef, variety meats and by-products, liver, raw` is
+ * USDA putting offal under its trade category; nobody calls it that, and the
+ * five words sit between the animal and the organ in every result row.
+ *
+ * **How wide the sample was.** `all grades` averages USDA's beef grades where a
+ * sibling row names `choice` or `select`; `all classes` does the same over
+ * poultry classes — the bird's market category by age and sex, where a sibling
+ * names `broilers or fryers` or `stewing`. Removing these makes a row look more
+ * specific than USDA meant it, which is a real cost and the reason
+ * `Aust. marble score` is NOT here: that one names a grade rather than
+ * averaging over them, so it still tells two rows apart. These do not — measured
+ * over the corpus, stripping both collides with nothing, because the rows that
+ * name a single grade or class keep the word that names it.
  *
  * Not the same thing as `reference-food-ranking.ts`'s `SHELF_LABEL_HEAD`, which
- * is a set of HEAD phrases two ranking keys discount in place. This is a
- * mid-name qualifier and it is removed rather than discounted; ADR-0042's #153
+ * is a set of HEAD phrases two ranking keys discount in place. These are mid-name
+ * qualifiers and they are removed rather than discounted; ADR-0042's #153
  * Amendment refused letting the tier read that roster at any scope, and this
  * does not reopen it.
  */
-export const SHELF_LABEL_QUALIFIERS: ReadonlySet<string> = new Set([
+export const CATALOGUE_QUALIFIERS: ReadonlySet<string> = new Set([
   "variety meats and by-products",
+  "all grades",
+  "all classes",
 ]);
 
 /** Every qualifier part that is removed from a name, whatever its reason. */
 const STRIPPED_QUALIFIERS: ReadonlySet<string> = new Set([
   ...ORIGIN_QUALIFIERS,
-  ...SHELF_LABEL_QUALIFIERS,
+  ...CATALOGUE_QUALIFIERS,
 ]);
 
 /**
@@ -112,19 +126,24 @@ const PREPARATION: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * The words of {@link SHELF_LABEL_QUALIFIERS}, stemmed, for {@link foodIdentity}
- * to look past when {@link stripNonNamingQualifiers} could not remove them.
+ * A description with every {@link CATALOGUE_QUALIFIERS} phrase gone, wherever it
+ * sits, for {@link foodIdentity} to compare on.
  *
- * Needed because USDA's punctuation is not reliable and the strip is
- * part-exact. `Beef, New Zealand, imported, variety meats and by-products
- * liver, cooked, boiled` has no comma before its organ, so the aisle label and
- * the organ are ONE part, the roster does not match it, and the label survives
- * on that row while its raw sibling loses it. Comparing words rather than the
- * finished name is what keeps the two recognisable as the same liver.
+ * Needed because USDA's punctuation is not reliable and the strip is part-exact.
+ * `Beef, New Zealand, imported, variety meats and by-products liver, cooked,
+ * boiled` has no comma before its organ, so the label and the organ are ONE
+ * part, the roster does not match it, and the label survives on that row while
+ * its raw sibling loses it.
+ *
+ * Phrase-wise rather than word-wise, deliberately. Filtering the WORDS would
+ * drop `all` from `Wheat flour, white, all-purpose`, which is a food's name.
  */
-const NON_NAMING_WORDS: ReadonlySet<string> = new Set(
-  [...SHELF_LABEL_QUALIFIERS].flatMap((phrase) => wordsOf(phrase).map(stemOf))
-);
+const withoutCatalogueText = (description: string): string => {
+  let text = description.toLowerCase();
+  for (const phrase of CATALOGUE_QUALIFIERS)
+    text = text.split(phrase).join(" ");
+  return text;
+};
 
 /** Why a row left the corpus when the rename ran. */
 export type NameDropReason = "collision" | "preparation_sibling";
@@ -200,17 +219,30 @@ export const carriesOriginQualifier = (description: string): boolean =>
 /**
  * The words of a name that say WHICH food it is, ignoring how it was cooked.
  *
- * A stemmed, sorted word set rather than a list of qualifier parts, because
- * USDA's own text is not reliably punctuated: `Beef, New Zealand, imported,
- * variety meats and by-products liver, cooked, boiled` is missing the comma
- * before its organ, and a part-wise key misses that it is the same liver as the
- * raw row above it.
+ * A stemmed word list rather than a list of qualifier parts, because USDA's own
+ * text is not reliably punctuated: `Beef, New Zealand, imported, variety meats
+ * and by-products liver, cooked, boiled` is missing the comma before its organ,
+ * and a part-wise key misses that it is the same liver as the raw row above it.
+ *
+ * A conjunction joining two preparations goes with them — USDA writes
+ * `cooked, soaked and simmered`, and a stray `and` left behind stops that row
+ * matching the raw row it is a preparation of. Only there: `and` is kept in
+ * `Oil, corn, peanut, and olive`, where it joins ingredients rather than
+ * methods, which is why this reads the FOLLOWING word instead of dropping every
+ * conjunction.
  */
-const foodIdentity = (description: string): string =>
-  wordsOf(stripNonNamingQualifiers(description))
-    .map(stemOf)
-    .filter((word) => !PREPARATION.has(word) && !NON_NAMING_WORDS.has(word))
+const foodIdentity = (description: string): string => {
+  const words = wordsOf(
+    withoutCatalogueText(stripNonNamingQualifiers(description))
+  ).map(stemOf);
+  return words
+    .filter(
+      (word, index) =>
+        !PREPARATION.has(word) &&
+        !(word === "and" && PREPARATION.has(words[index + 1] ?? ""))
+    )
     .join(" ");
+};
 
 /**
  * The name a collision is judged on: every word, stemmed, IN ORDER.
