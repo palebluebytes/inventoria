@@ -87,32 +87,50 @@ describe("the bundled search index", () => {
     expect(leaking.map((row) => row.description)).toEqual([]);
   });
 
-  it("leaves every cultural designation tag on the row that carries it", () => {
-    // ADR-0055 §1 and §4: these rows stay whole and stay named. Counted rather
-    // than listed in prose, because prose is where this went wrong — ADR-0056
-    // and `usda-shipped-name.ts` both said SIX and named six, when the category
-    // carries eight and `(Shoshone Bannock)` and `(Southwest)` were the two
-    // missed. A count that has to add up to the category is a claim a test can
-    // keep honest.
-    const tags = new Map<string, number>();
-    for (const row of index.foods) {
-      if (row.foodCategory !== "American Indian/Alaska Native Foods") continue;
-      const tag =
-        row.description.match(/\(([^()]+)\)\s*$/)?.[1] ?? "(untagged)";
-      tags.set(tag, (tags.get(tag) ?? 0) + 1);
-    }
-    expect(Object.fromEntries([...tags].sort())).toEqual({
-      "Alaska Native": 100,
-      Apache: 3,
-      Hopi: 5,
-      Klamath: 2,
-      Navajo: 16,
-      "Northern Plains Indians": 14,
-      "Shoshone Bannock": 8,
-      Southwest: 3,
-    });
-    // Every row in the category is tagged, and the tags account for all of it.
-    expect([...tags.values()].reduce((a, b) => a + b)).toBe(151);
+  it("keeps every designated row, and its tag only where the tag still works", () => {
+    // ADR-0055 §1 and §4: these rows stay whole. ADR-0056's Amendment takes the
+    // parenthesised tag off the NAME, because the designation is already carried
+    // structurally on `foodCategory` — which is where §4's ranking key reads it,
+    // "never on the parenthesised name tags".
+    //
+    // Counted over the category rather than listed in prose, because prose is
+    // where this went wrong once already: the tags were called six when there
+    // are eight, and `(Shoshone Bannock)` and `(Southwest)` were the two missed.
+    const designated = index.foods.filter(
+      (row) => row.foodCategory === "American Indian/Alaska Native Foods"
+    );
+    expect(designated.length).toBe(151);
+
+    // The eight that keep a tag are the six collision groups: the two frybreads
+    // and the two chokecherries would otherwise be indistinguishable from each
+    // other, and the remaining four from an undesignated row of the same name.
+    // Keeping the word is the resolution, never dropping the row — both sides of
+    // two of those groups are designated, and §1 forbids deleting either.
+    const TAG =
+      /\((alaska native|navajo|apache|southwest|northern plains indians|klamath|hopi|shoshone bannock)\)\s*$/i;
+    expect(
+      designated
+        .filter((row) => TAG.test(row.description))
+        .map((row) => row.description)
+        .sort()
+    ).toEqual([
+      "Chokecherries, raw, pitted (Northern Plains Indians)",
+      "Chokecherries, raw, pitted (Shoshone Bannock)",
+      "Fish, Salmon, Chum, raw (Alaska Native)",
+      "Fish, whitefish, mixed species, raw (Alaska Native)",
+      "Frybread, made with lard (Apache)",
+      "Frybread, made with lard (Navajo)",
+      "Lambsquarters, raw (Northern Plains Indians)",
+      "Prickly pears, raw (Northern Plains Indians)",
+    ]);
+
+    // Brackets USDA uses for anything else are untouched: a local name, a
+    // species, a dish's English gloss.
+    const descriptions = index.foods.map((row) => row.description);
+    expect(descriptions).toContain("Seal, bearded (Oogruk), meat, raw");
+    expect(descriptions).toContain(
+      "Agutuk, fish with shortening (Alaskan ice cream)"
+    );
   });
 
   it("keeps the origin words where they are the food's own name", () => {
@@ -169,7 +187,7 @@ describe("the bundled search index", () => {
     // ADR-0055 §6. A tripwire on the predicate's reach: the flag is baked, so a
     // change to `plainSiblingsOf` that nobody meant shows up as a count here
     // rather than as a silently reordered search months later.
-    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(127);
+    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(136);
     // Omitted rather than emitted false, like every other absent field.
     expect(index.foods.filter((row) => row.plain_sibling === false)).toEqual(
       []
@@ -401,7 +419,7 @@ describe("the bundled search index", () => {
       "Fat free ice cream, no sugar added, flavors other than chocolate",
       "Sandwich spread, meatless",
       "Beef, sandwich steaks, flaked, chopped, formed and thinly sliced, raw",
-      "Tortilla, includes plain and from mutton sandwich (Navajo)",
+      "Tortilla, includes plain and from mutton sandwich",
       // #144: what each of its four new rules had to leave standing.
       // `Bread, cornbread, prepared from recipe, made with low fat (2%) milk`
       // stood here until #161, which is a DIFFERENT rule with a different claim:
@@ -423,7 +441,7 @@ describe("the bundled search index", () => {
       // gluten-free bread.
       "Oil, soybean",
       "Beef, ground, 80% lean meat / 20% fat, raw",
-      "Agutuk, fish with shortening (Alaskan ice cream) (Alaska Native)",
+      "Agutuk, fish with shortening (Alaskan ice cream)",
       "Wheat germ, crude",
       "Wheat bran, crude",
       "Rice bran, crude",
@@ -525,7 +543,7 @@ describe("the bundled search index", () => {
     // description, because it is a dish and a description-wide marker would
     // have taken it.
     expect(descriptions.filter((d) => /shortening/i.test(d)).sort()).toEqual([
-      "Agutuk, fish with shortening (Alaskan ice cream) (Alaska Native)",
+      "Agutuk, fish with shortening (Alaskan ice cream)",
       "Shortening household soybean (hydrogenated) and palm",
       "Shortening, household, lard and vegetable oil",
       "Shortening, household, soybean (partially hydrogenated)-cottonseed (partially hydrogenated)",
@@ -1084,7 +1102,7 @@ describe("searchIndexRows", () => {
     // tier gap closes, this becomes the decaffeinated green tea above — which
     // is the watch item #159 carries.
     expect(descriptionsFor("tea")[0]).toBe(
-      "Tea, tundra, herb and laborador combination (Alaska Native)"
+      "Tea, tundra, herb and laborador combination"
     );
   });
 
@@ -1197,15 +1215,17 @@ describe("searchIndexRows", () => {
       "elk",
       "chokecherries",
     ] as const) {
-      const found = descriptionsFor(query);
+      const found = searchIndexRows(corpus, query).hits;
       expect(found.length).toBeGreaterThan(0);
-      expect(found[0]).toContain("(");
+      // Asked of the CATEGORY, not of a bracket in the name. ADR-0056's
+      // Amendment took the tags off, and §4's key never read them anyway.
+      expect(found[0]?.row.foodCategory).toBe(
+        "American Indian/Alaska Native Foods"
+      );
     }
     // And the foods that only exist here are still reachable by name: ADR-0055
     // §1 is what keeps a demotion from becoming a deletion.
-    expect(descriptionsFor("mutton")[0]).toBe(
-      "Mutton, cooked, roasted (Navajo)"
-    );
+    expect(descriptionsFor("mutton")[0]).toBe("Mutton, cooked, roasted");
     expect(descriptionsFor("agave").length).toBeGreaterThan(0);
   });
 
@@ -1527,7 +1547,7 @@ describe("searchIndexRows", () => {
     }
   });
 
-  it("puts 364 more rows first by their own name, and takes none away", () => {
+  it("puts 369 more rows first by their own name, and takes none away", () => {
     // ADR-0042's #136 Amendment measured 356 rows that are not first when
     // searched by their own full description, 337 of them tied on every key.
     // #124's amendment predicted its key would break none of those, and that
@@ -1601,7 +1621,7 @@ describe("searchIndexRows", () => {
     // here at once.
     expect({ notFirst, gained, lost }).toEqual({
       notFirst: 133,
-      gained: 364,
+      gained: 369,
       lost: 0,
     });
   }, 30_000);

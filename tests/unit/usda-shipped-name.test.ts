@@ -4,6 +4,7 @@ import {
   ORIGIN_QUALIFIERS,
   carriesOriginQualifier,
   resolveShippedNames,
+  stripDesignationTag,
   stripNonNamingQualifiers,
 } from "../../src/lib/food/usda-shipped-name";
 
@@ -154,6 +155,34 @@ describe("stripNonNamingQualifiers", () => {
   });
 });
 
+describe("stripDesignationTag", () => {
+  it("removes the trailing population tag", () => {
+    expect(stripDesignationTag("Sea cucumber, yane (Alaska Native)")).toBe(
+      "Sea cucumber, yane"
+    );
+    expect(
+      stripDesignationTag(
+        "Buffalo, free range, top round steak, raw (Shoshone Bannock)"
+      )
+    ).toBe("Buffalo, free range, top round steak, raw");
+  });
+
+  it("keeps brackets USDA uses for anything else", () => {
+    // The roster is matched against, never "the last bracketed thing": these
+    // names bracket a local name, a species and a synonym, and the first one
+    // brackets BOTH kinds at once.
+    expect(
+      stripDesignationTag("Seal, bearded (Oogruk), meat, raw (Alaska Native)")
+    ).toBe("Seal, bearded (Oogruk), meat, raw");
+    for (const kept of [
+      "Acerola, (west indian cherry), raw",
+      "Cabbage, chinese (pe-tsai), raw",
+      "Salsify, (vegetable oyster), raw",
+    ])
+      expect([kept, stripDesignationTag(kept)]).toEqual([kept, kept]);
+  });
+});
+
 describe("resolveShippedNames", () => {
   // The four organs USDA publishes twice — once plain, once as a New Zealand
   // import — plus the rows that prove where the rule stops.
@@ -224,6 +253,33 @@ describe("resolveShippedNames", () => {
     },
     { fdcId: 167532, description: "Bread, white wheat" },
   ];
+
+  it("keeps a designation tag that is the only thing telling two rows apart", () => {
+    // Never a drop here, unlike an origin: both frybreads are designated, so
+    // dropping either deletes a record for a reason ADR-0055 §1 refuses. The tag
+    // costs a name and settles it.
+    const pair = [
+      { fdcId: 1, description: "Frybread, made with lard (Navajo)" },
+      { fdcId: 2, description: "Frybread, made with lard (Apache)" },
+      { fdcId: 3, description: "Sea cucumber, yane (Alaska Native)" },
+    ];
+    const { renamed, dropped } = resolveShippedNames(pair);
+    expect([...dropped.keys()]).toEqual([]);
+    expect(renamed.get(1)).toBeUndefined();
+    expect(renamed.get(2)).toBeUndefined();
+    expect(renamed.get(3)).toBe("Sea cucumber, yane");
+  });
+
+  it("keeps the tag when an undesignated row already holds the untagged name", () => {
+    // The designated row is the one that would have to go, and it may not.
+    const pair = [
+      { fdcId: 1, description: "Lambsquarters, raw (Northern Plains Indians)" },
+      { fdcId: 2, description: "Lambsquarters, raw" },
+    ];
+    const { renamed, dropped } = resolveShippedNames(pair);
+    expect([...dropped.keys()]).toEqual([]);
+    expect(renamed.get(1)).toBeUndefined();
+  });
 
   it("drops the import whose stripped name an existing row already carries", () => {
     const { dropped } = resolveShippedNames(rows);

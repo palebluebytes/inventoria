@@ -88,6 +88,53 @@ export const CATALOGUE_QUALIFIERS: ReadonlySet<string> = new Set([
   "all classes",
 ]);
 
+/**
+ * The populations USDA publishes designated reference composition for, as the
+ * parenthesised tag it puts at the END of a description.
+ *
+ * All eight, which together are the whole 151-row
+ * `American Indian/Alaska Native Foods` category.
+ *
+ * These are removed from the NAME and from nothing else. The designation is not
+ * lost by that: every one of these rows carries the category on `foodCategory`,
+ * and ADR-0055 §4's `designated` ranking key reads that field and says in as
+ * many words that it is "keyed on `foodCategory`, never on the parenthesised
+ * name tags". So the tag in the name is a second copy of a fact the row already
+ * states structurally, and dropping the copy leaves the fact.
+ *
+ * What it is NOT is a licence to drop these rows. ADR-0055 §1 forbids that and
+ * this changes nothing about it: all 151 stay, searchable and loggable, and
+ * {@link resolveShippedNames} keeps the tag on any row that needs it to stay
+ * distinguishable.
+ */
+export const DESIGNATION_TAGS: ReadonlySet<string> = new Set([
+  "alaska native",
+  "navajo",
+  "northern plains indians",
+  "shoshone bannock",
+  "hopi",
+  "apache",
+  "southwest",
+  "klamath",
+]);
+
+/**
+ * A description without its trailing designation tag, or unchanged if it has
+ * none.
+ *
+ * Anchored to the END, and matched against the roster rather than any bracketed
+ * text, because USDA's brackets do other work in the same names: `Seal, bearded
+ * (Oogruk), meat, raw (Alaska Native)` has to keep the Oogruk and lose the
+ * designation, and `Acerola, (west indian cherry), raw` has to keep everything.
+ */
+export function stripDesignationTag(description: string): string {
+  const match = description.match(/^(.*?)\s*\(([^()]+)\)\s*$/);
+  if (!match) return description;
+  return DESIGNATION_TAGS.has(match[2].trim().toLowerCase())
+    ? match[1].trim()
+    : description;
+}
+
 /** Every qualifier part that is removed from a name, whatever its reason. */
 const STRIPPED_QUALIFIERS: ReadonlySet<string> = new Set([
   ...ORIGIN_QUALIFIERS,
@@ -333,6 +380,31 @@ export function resolveShippedNames(
     if (dropped.has(row.fdcId)) continue;
     if (stripNonNamingQualifiers(row.description) !== row.description)
       renamed.set(row.fdcId, stripNonNamingQualifiers(row.description));
+  }
+
+  // 3. The designation tag goes too, EXCEPT where it is the only thing telling
+  //    two surviving rows apart. Never a drop: both frybreads and both
+  //    chokecherries are tagged, so a drop here would delete a distinct record
+  //    for a reason ADR-0055 §1 refuses, and the two fish and the prickly pear
+  //    would lose the designated row to its undesignated twin. Keeping the word
+  //    costs a name and settles it.
+  const survivors = rows.filter((row) => !dropped.has(row.fdcId));
+  const nameOf = (row: ShippedNameRow) =>
+    renamed.get(row.fdcId) ?? row.description;
+  const byUntagged = new Map<string, ShippedNameRow[]>();
+  for (const row of survivors) {
+    const key = wordsOf(stripDesignationTag(nameOf(row)))
+      .map(stemOf)
+      .join(" ");
+    const group = byUntagged.get(key);
+    if (group) group.push(row);
+    else byUntagged.set(key, [row]);
+  }
+  for (const group of byUntagged.values()) {
+    if (group.length > 1) continue;
+    const [row] = group;
+    const untagged = stripDesignationTag(nameOf(row));
+    if (untagged !== nameOf(row)) renamed.set(row.fdcId, untagged);
   }
 
   return { renamed, dropped };

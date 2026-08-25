@@ -1,6 +1,7 @@
 # ADR 0056: A food's name loses the parts that do not name the food
 
 **Status:** Accepted  
+**Amended by:** the Amendment below, which takes the designation tag off the name too, and corrects Context's count of those tags  
 **Date:** 2026-08-25  
 **Implemented:** `src/lib/food/usda-shipped-name.ts`, applied by `scripts/usda-bundle.mjs`; Search index `schema_version` 5 to 6
 
@@ -47,7 +48,10 @@ neither Swiss nor optional, and `bengal gram` and `pe-tsai` are the British and
 regional aliases ADR-0049's vocabulary exists to preserve. ADR-0055 §7 already
 refused this predicate in writing; the measurement here agrees with it.
 
-**The cultural designation tags stay.** All **eight** of them —
+**The cultural designation tags stay.** _(Reversed by the Amendment below,
+which takes the tag off the NAME while leaving every row and its category
+untouched. The reasoning here was right about what may not be lost and wrong
+about where it was being carried.)_ All **eight** of them —
 `(Alaska Native)` on 100 rows, `(Navajo)` 16, `(Northern Plains Indians)` 14,
 `(Shoshone Bannock)` 8, `(Hopi)` 5, `(Apache)` 3, `(Southwest)` 3 and
 `(Klamath)` 2, which is the whole 151-row category. They were the example in the
@@ -242,3 +246,71 @@ dressed as a claim about the records.
 - **Choice overload is untouched**, which was the reason the ticket was raised.
   The trim-and-grade cross product is still there, the composite refusal above
   says why the obvious cut is not the answer, and it wants its own record.
+
+## Amendment (2026-08-25): the designation is carried by the category, not the name
+
+Context above refuses to touch the parenthesised population tags, on the ground
+that "restating one of those rows without its tag would assert it is a
+general-population reference value, which is not what USDA published."
+
+**That is right about what may not be lost and wrong about where it was being
+carried.** Every one of these 151 rows holds
+`foodCategory: "American Indian/Alaska Native Foods"`, and
+[ADR-0055](0055-who-eats-a-food-ranks-it-and-never-drops-it.md) §4 says in as
+many words that its `designated` ranking key "is keyed on `foodCategory`, never
+on the parenthesised name tags". So the tag in the name was a second copy of a
+fact the row already states structurally, and removing the copy leaves the fact —
+along with the ranking key, the category, and every row.
+
+`Sea cucumber, yane (Alaska Native)` is the case that surfaced it: the corpus's
+only sea cucumber, wearing five words of provenance in the middle of a result
+list.
+
+### The decision
+
+**A trailing designation tag is removed from the name, unless it is the only
+thing telling two surviving rows apart.**
+
+Where it is, **the tag is kept on every row in that group — never dropped, and
+never resolved by removing a row.** That is the opposite resolution from §4's,
+and deliberately: two of the six contested groups are designated on BOTH sides,
+so a drop would delete a distinct record for a reason ADR-0055 §1 refuses, and in
+the other four the row that would have to go is the designated one.
+
+**143 of 151 lose the tag. Eight keep it:** both `Frybread, made with lard`
+(Navajo and Apache), both `Chokecherries, raw, pitted` (Shoshone Bannock and
+Northern Plains Indians), and `Fish, whitefish, mixed species, raw`,
+`Fish, Salmon, Chum, raw`, `Lambsquarters, raw` and `Prickly pears, raw`, each of
+which an undesignated row already answers to.
+
+The roster is matched against, never "the last bracketed thing". USDA brackets
+other things in the same position — `Seal, bearded (Oogruk), meat, raw (Alaska
+Native)` keeps its Oogruk and loses its designation, and
+`Agutuk, fish with shortening (Alaskan ice cream)`,
+`Acerola, (west indian cherry), raw` and `Cabbage, chinese (pe-tsai), raw` are
+untouched.
+
+### Context's count was also wrong
+
+That section named **six** tags. There are **eight**: `(Alaska Native)` on 100
+rows, `(Navajo)` 16, `(Northern Plains Indians)` 14, `(Shoshone Bannock)` 8,
+`(Hopi)` 5, `(Apache)` 3, `(Southwest)` 3, `(Klamath)` 2 — together the whole
+category. ADR-0055 §4 had it right and this record paraphrased it wrong. The
+count is now asserted over the shipped corpus rather than stated in prose.
+
+### What it costs
+
+- **A logged food no longer records the population USDA published it for.**
+  `food/name` is frozen at staging, so a row logged as `Sea cucumber, yane` says
+  nothing about provenance where it used to. The category is still on the row and
+  still reachable, but it is not in the name a user reads back, and that is a
+  real loss this decision accepts rather than denies. If it should be surfaced,
+  the honest place is a badge reading the category — not five words in the middle
+  of every result.
+- **`plain_sibling` rises from 127 to 136.** Shortening a name creates
+  qualifier-prefix relations that did not exist, which is ADR-0055 §3 working on
+  a corpus whose names moved.
+- **369 rows now lead when searched by their own description**, against 364
+  before this Amendment, with `lost` still zero.
+- **Foods logged before this keep their tagged name**, because the ledger is
+  append-only.
