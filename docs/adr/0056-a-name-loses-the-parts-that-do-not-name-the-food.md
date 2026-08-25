@@ -268,20 +268,25 @@ list.
 
 ### The decision
 
-**A trailing designation tag is removed from the name, unless it is the only
-thing telling two surviving rows apart.**
+**Every trailing designation tag is removed from the name.** All eight, all 151
+rows, with no exception kept for disambiguation.
 
-Where it is, **the tag is kept on every row in that group — never dropped, and
-never resolved by removing a row.** That is the opposite resolution from §4's,
-and deliberately: two of the six contested groups are designated on BOTH sides,
-so a drop would delete a distinct record for a reason ADR-0055 §1 refuses, and in
-the other four the row that would have to go is the designated one.
+Removing them leaves **six pairs sharing one name**, and one row of each pair
+goes. **The row with the fuller nutrient panel stays**, `fdcId` breaking a tie so
+the answer is stable across regenerations.
 
-**143 of 151 lose the tag. Eight keep it:** both `Frybread, made with lard`
-(Navajo and Apache), both `Chokecherries, raw, pitted` (Shoshone Bannock and
-Northern Plains Indians), and `Fish, whitefish, mixed species, raw`,
-`Fish, Salmon, Chum, raw`, `Lambsquarters, raw` and `Prickly pears, raw`, each of
-which an undesignated row already answers to.
+**The tiebreak reads the panel and never the provenance**, and that is the whole
+of why this is admissible. Two of the six pairs are designated on BOTH sides —
+two tribes' records of frybread, two of chokecherries — so "the undesignated row
+wins" is not merely wrong there, it is unstatable. And where it could be stated
+it would be wrong anyway: `Fish, Salmon, Chum, raw (Alaska Native)` carries
+**112 nutrient fields against the general row's 70**, so under this rule the
+general row is the one that leaves. Panel completeness is a claim about the
+record, which is the only kind ADR-0055 §1 admits.
+
+**Five designated rows leave, and one undesignated row leaves with them.** The
+category falls from 151 to 146. A rule that deleted only somebody's food would
+be the wrong rule, and the count is the evidence that this one does not.
 
 The roster is matched against, never "the last bracketed thing". USDA brackets
 other things in the same position — `Seal, bearded (Oogruk), meat, raw (Alaska
@@ -307,10 +312,14 @@ count is now asserted over the shipped corpus rather than stated in prose.
   real loss this decision accepts rather than denies. If it should be surfaced,
   the honest place is a badge reading the category — not five words in the middle
   of every result.
-- **`plain_sibling` rises from 127 to 136.** Shortening a name creates
-  qualifier-prefix relations that did not exist, which is ADR-0055 §3 working on
-  a corpus whose names moved.
-- **369 rows now lead when searched by their own description**, against 364
-  before this Amendment, with `lost` still zero.
+- **Six rows leave that no filter would have taken**, five of them designated.
+  They are the price of a name, not a judgement about the food, and they are
+  listed rather than counted so a seventh cannot join them quietly. The corpus
+  falls to **4,312**.
+- **`plain_sibling` and the shelf-label tally both move**, because shortening a
+  name creates qualifier-prefix relations that did not exist. That is ADR-0055 §3
+  working on a corpus whose names moved.
+- **The word `classes` is not the only one a rename has taken out of the
+  corpus.** The stemmer now makes 105 merges rather than 107.
 - **Foods logged before this keep their tagged name**, because the ledger is
   append-only.

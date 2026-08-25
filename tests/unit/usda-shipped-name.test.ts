@@ -254,31 +254,49 @@ describe("resolveShippedNames", () => {
     { fdcId: 167532, description: "Bread, white wheat" },
   ];
 
-  it("keeps a designation tag that is the only thing telling two rows apart", () => {
-    // Never a drop here, unlike an origin: both frybreads are designated, so
-    // dropping either deletes a record for a reason ADR-0055 §1 refuses. The tag
-    // costs a name and settles it.
+  it("settles a designation collision on the fuller panel, not on provenance", () => {
+    // Both frybreads are designated, so no fact about who the record was
+    // published for can choose between them — which is why the tiebreak reads
+    // the panel instead. The untagged row keeps the name; the thinner one goes.
     const pair = [
-      { fdcId: 1, description: "Frybread, made with lard (Navajo)" },
-      { fdcId: 2, description: "Frybread, made with lard (Apache)" },
-      { fdcId: 3, description: "Sea cucumber, yane (Alaska Native)" },
+      {
+        fdcId: 1,
+        description: "Frybread, made with lard (Navajo)",
+        panelFields: 72,
+      },
+      {
+        fdcId: 2,
+        description: "Frybread, made with lard (Apache)",
+        panelFields: 73,
+      },
+      {
+        fdcId: 3,
+        description: "Sea cucumber, yane (Alaska Native)",
+        panelFields: 13,
+      },
     ];
     const { renamed, dropped } = resolveShippedNames(pair);
-    expect([...dropped.keys()]).toEqual([]);
+    expect(dropped.get(1)).toBe("designation_collision");
+    expect(renamed.get(2)).toBe("Frybread, made with lard");
     expect(renamed.get(1)).toBeUndefined();
-    expect(renamed.get(2)).toBeUndefined();
     expect(renamed.get(3)).toBe("Sea cucumber, yane");
   });
 
-  it("keeps the tag when an undesignated row already holds the untagged name", () => {
-    // The designated row is the one that would have to go, and it may not.
+  it("lets a designated row beat an undesignated one on completeness", () => {
+    // The rule is not "the general row wins". Measured over the corpus, the
+    // Alaska Native chum salmon carries 112 nutrient fields against the general
+    // row's 70, and it is the general row that goes.
     const pair = [
-      { fdcId: 1, description: "Lambsquarters, raw (Northern Plains Indians)" },
-      { fdcId: 2, description: "Lambsquarters, raw" },
+      {
+        fdcId: 1,
+        description: "Fish, Salmon, Chum, raw (Alaska Native)",
+        panelFields: 112,
+      },
+      { fdcId: 2, description: "Fish, salmon, chum, raw", panelFields: 70 },
     ];
     const { renamed, dropped } = resolveShippedNames(pair);
-    expect([...dropped.keys()]).toEqual([]);
-    expect(renamed.get(1)).toBeUndefined();
+    expect(dropped.get(2)).toBe("designation_collision");
+    expect(renamed.get(1)).toBe("Fish, Salmon, Chum, raw");
   });
 
   it("drops the import whose stripped name an existing row already carries", () => {

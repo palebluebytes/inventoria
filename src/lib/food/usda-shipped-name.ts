@@ -102,10 +102,11 @@ export const CATALOGUE_QUALIFIERS: ReadonlySet<string> = new Set([
  * name tags". So the tag in the name is a second copy of a fact the row already
  * states structurally, and dropping the copy leaves the fact.
  *
- * What it is NOT is a licence to drop these rows. ADR-0055 §1 forbids that and
- * this changes nothing about it: all 151 stay, searchable and loggable, and
- * {@link resolveShippedNames} keeps the tag on any row that needs it to stay
- * distinguishable.
+ * Removing the tag can leave two rows with one name, and then one of them goes.
+ * {@link resolveShippedNames} settles that on panel completeness — never on
+ * whose food it is, which is the claim ADR-0055 §1 forbids and which in two of
+ * the six contested groups could not be made anyway, both sides being
+ * designated.
  */
 export const DESIGNATION_TAGS: ReadonlySet<string> = new Set([
   "alaska native",
@@ -195,12 +196,24 @@ const withoutCatalogueText = (description: string): string => {
 };
 
 /** Why a row left the corpus when the rename ran. */
-export type NameDropReason = "collision" | "preparation_sibling";
+export type NameDropReason =
+  | "collision"
+  | "preparation_sibling"
+  | "designation_collision";
 
 /** The identity and name of one candidate row, as the generator holds it. */
 export interface ShippedNameRow {
   fdcId: number;
   description: string;
+  /**
+   * How many nutrients USDA reports for this record.
+   *
+   * Read only to settle a {@link DESIGNATION_TAGS} collision, where the rows in
+   * contention are two populations' records of one food and no fact about
+   * PROVENANCE may choose between them. Panel completeness is a claim about the
+   * record, which is the only kind of claim ADR-0055 §1 admits.
+   */
+  panelFields?: number;
 }
 
 /** What the rename decided about a whole corpus. */
@@ -382,30 +395,44 @@ export function resolveShippedNames(
       renamed.set(row.fdcId, stripNonNamingQualifiers(row.description));
   }
 
-  // 3. The designation tag goes too, EXCEPT where it is the only thing telling
-  //    two surviving rows apart. Never a drop: both frybreads and both
-  //    chokecherries are tagged, so a drop here would delete a distinct record
-  //    for a reason ADR-0055 §1 refuses, and the two fish and the prickly pear
-  //    would lose the designated row to its undesignated twin. Keeping the word
-  //    costs a name and settles it.
+  // 3. The designation tag goes off every name. Where that leaves two rows with
+  //    the same name, one of them goes — and the FULLER PANEL stays.
+  //
+  //    Not "the undesignated row stays". Measured, that rule is both wrong and
+  //    unstatable: the Alaska Native chum salmon carries 112 nutrient fields
+  //    against the general row's 70, and two of the six contested groups are
+  //    designated on BOTH sides — two tribes' records of frybread, and two of
+  //    chokecherries — where no fact about provenance chooses between them.
+  //    Panel completeness is a claim about the record, which is the only kind
+  //    ADR-0055 §1 admits, and it does not systematically delete anybody's food.
   const survivors = rows.filter((row) => !dropped.has(row.fdcId));
   const nameOf = (row: ShippedNameRow) =>
-    renamed.get(row.fdcId) ?? row.description;
+    stripDesignationTag(renamed.get(row.fdcId) ?? row.description);
   const byUntagged = new Map<string, ShippedNameRow[]>();
   for (const row of survivors) {
-    const key = wordsOf(stripDesignationTag(nameOf(row)))
-      .map(stemOf)
-      .join(" ");
+    const key = wordsOf(nameOf(row)).map(stemOf).join(" ");
     const group = byUntagged.get(key);
     if (group) group.push(row);
     else byUntagged.set(key, [row]);
   }
   for (const group of byUntagged.values()) {
-    if (group.length > 1) continue;
+    if (group.length > 1) {
+      // Deepest panel first; `fdcId` breaks a tie so the answer is stable across
+      // regenerations rather than dependent on corpus order.
+      const ranked = [...group].sort(
+        (a, b) =>
+          (b.panelFields ?? 0) - (a.panelFields ?? 0) || a.fdcId - b.fdcId
+      );
+      for (const row of ranked.slice(1))
+        dropped.set(row.fdcId, "designation_collision");
+      renamed.set(ranked[0].fdcId, nameOf(ranked[0]));
+      continue;
+    }
     const [row] = group;
-    const untagged = stripDesignationTag(nameOf(row));
-    if (untagged !== nameOf(row)) renamed.set(row.fdcId, untagged);
+    if (nameOf(row) !== (renamed.get(row.fdcId) ?? row.description))
+      renamed.set(row.fdcId, nameOf(row));
   }
+  for (const fdcId of dropped.keys()) renamed.delete(fdcId);
 
   return { renamed, dropped };
 }

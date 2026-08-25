@@ -152,7 +152,7 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {number} LOCAL_VOCABULARY_CEILING
  * @property {(index: object) => { foods: object[] }} buildSearchCorpus
  * @property {(corpus: object, query: string) => { hits: { row: { description: string } }[] }} searchIndexRows
- * @property {(rows: { fdcId: number, description: string }[]) => { renamed: ReadonlyMap<number, string>, dropped: ReadonlyMap<number, "collision" | "preparation_sibling"> }} resolveShippedNames
+ * @property {(rows: { fdcId: number, description: string, panelFields?: number }[]) => { renamed: ReadonlyMap<number, string>, dropped: ReadonlyMap<number, string> }} resolveShippedNames
  * @property {(description: string) => string} stripNonNamingQualifiers
  * @property {readonly TwinLedgerEntry[]} TWIN_LEDGER
  * @property {ReadonlySet<number>} SPLIT_TWIN_NDB_NUMBERS
@@ -429,6 +429,9 @@ export function applyShippedNames(survivors, app) {
     survivors.map((s) => ({
       fdcId: s.food.fdcId,
       description: s.food.description,
+      // Only read to settle a designation collision, where provenance may not
+      // choose and completeness can (ADR-0056's Amendment).
+      panelFields: s.food.foodNutrients.length,
     }))
   );
   const kept = [];
@@ -450,7 +453,11 @@ export function applyShippedNames(survivors, app) {
     });
   }
 
-  const origin_dropped = { collision: 0, preparation_sibling: 0 };
+  const origin_dropped = {
+    collision: 0,
+    preparation_sibling: 0,
+    designation_collision: 0,
+  };
   for (const reason of dropped.values()) origin_dropped[reason]++;
   return { survivors: kept, renamed: renamed.size, origin_dropped };
 }
@@ -841,8 +848,9 @@ async function main() {
   console.log(
     `  ${renamed} lose a commercial origin or a cataloguing qualifier from ` +
       `their name; ${origin_dropped.collision} then collide with a row that named no ` +
-      `origin, and ${origin_dropped.preparation_sibling} follow as other ` +
-      "preparations of the same food"
+      `origin, ${origin_dropped.preparation_sibling} follow as other ` +
+      `preparations of the same food, and ${origin_dropped.designation_collision} ` +
+      "lose a designation collision to a fuller panel"
   );
   const aliased = index.foods.filter((row) => row.also);
   const aliasBytes = aliased.reduce(

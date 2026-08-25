@@ -42,7 +42,7 @@ import type { EntityPayload } from "../../src/lib/ingestion/ingest";
 
 // The committed artifact itself is the fixture (ADR-0047 §3). Search is only
 // keyless and offline if it answers from THIS file, so the ADR-0042 ordering
-// cases are asserted over the 4,318 rows the app actually ships rather than
+// cases are asserted over the 4,312 rows the app actually ships rather than
 // over a hand-built stand-in that could agree with the code and not the data.
 const index: SearchIndex = JSON.parse(
   readFileSync("public/usda/search-index.json", "utf8")
@@ -87,46 +87,39 @@ describe("the bundled search index", () => {
     expect(leaking.map((row) => row.description)).toEqual([]);
   });
 
-  it("keeps every designated row, and its tag only where the tag still works", () => {
-    // ADR-0055 §1 and §4: these rows stay whole. ADR-0056's Amendment takes the
-    // parenthesised tag off the NAME, because the designation is already carried
-    // structurally on `foodCategory` — which is where §4's ranking key reads it,
-    // "never on the parenthesised name tags".
-    //
-    // Counted over the category rather than listed in prose, because prose is
-    // where this went wrong once already: the tags were called six when there
-    // are eight, and `(Shoshone Bannock)` and `(Southwest)` were the two missed.
+  it("keeps the designated rows, and no tribal tag on any name", () => {
+    // ADR-0056's Amendment takes every parenthesised population tag off the
+    // name. The designation is not lost by that — it is on `foodCategory`, which
+    // is where ADR-0055 §4's ranking key reads it, "never on the parenthesised
+    // name tags".
+    const TAG =
+      /\((alaska native|navajo|apache|southwest|northern plains indians|klamath|hopi|shoshone bannock)\)/i;
+    expect(
+      index.foods.filter(
+        (row) =>
+          TAG.test(row.description) ||
+          (row.also ?? []).some((alias) => TAG.test(alias))
+      )
+    ).toEqual([]);
+
+    // 146 of the original 151 stay. Five leave, and one row that was NOT
+    // designated leaves with them — which is the point of settling a collision
+    // on panel completeness rather than on whose food it is. The Alaska Native
+    // chum salmon carries 112 nutrient fields against the general row's 70, so
+    // the general row is the one that goes.
     const designated = index.foods.filter(
       (row) => row.foodCategory === "American Indian/Alaska Native Foods"
     );
-    expect(designated.length).toBe(151);
-
-    // The eight that keep a tag are the six collision groups: the two frybreads
-    // and the two chokecherries would otherwise be indistinguishable from each
-    // other, and the remaining four from an undesignated row of the same name.
-    // Keeping the word is the resolution, never dropping the row — both sides of
-    // two of those groups are designated, and §1 forbids deleting either.
-    const TAG =
-      /\((alaska native|navajo|apache|southwest|northern plains indians|klamath|hopi|shoshone bannock)\)\s*$/i;
+    expect(designated.length).toBe(146);
+    const descriptions = index.foods.map((row) => row.description);
+    expect(descriptions).toContain("Fish, Salmon, Chum, raw");
     expect(
-      designated
-        .filter((row) => TAG.test(row.description))
-        .map((row) => row.description)
-        .sort()
-    ).toEqual([
-      "Chokecherries, raw, pitted (Northern Plains Indians)",
-      "Chokecherries, raw, pitted (Shoshone Bannock)",
-      "Fish, Salmon, Chum, raw (Alaska Native)",
-      "Fish, whitefish, mixed species, raw (Alaska Native)",
-      "Frybread, made with lard (Apache)",
-      "Frybread, made with lard (Navajo)",
-      "Lambsquarters, raw (Northern Plains Indians)",
-      "Prickly pears, raw (Northern Plains Indians)",
-    ]);
+      index.foods.find((row) => row.description === "Fish, Salmon, Chum, raw")
+        ?.foodCategory
+    ).toBe("American Indian/Alaska Native Foods");
 
     // Brackets USDA uses for anything else are untouched: a local name, a
     // species, a dish's English gloss.
-    const descriptions = index.foods.map((row) => row.description);
     expect(descriptions).toContain("Seal, bearded (Oogruk), meat, raw");
     expect(descriptions).toContain(
       "Agutuk, fish with shortening (Alaskan ice cream)"
@@ -194,7 +187,7 @@ describe("the bundled search index", () => {
     );
   });
 
-  it("holds 760 rows whose head phrase is a shelf label, under 18 labels", () => {
+  it("holds 758 rows whose head phrase is a shelf label, under 18 labels", () => {
     // ADR-0042's #154 Amendment, tripwired the way ADR-0055 §3 tripwired
     // `plainSibling`: the roster is hand-written, so a head phrase added or
     // misspelled shows up as a count here rather than as a quietly reordered
@@ -202,7 +195,7 @@ describe("the bundled search index", () => {
     const shelved = index.foods.filter(
       (row) => readReferenceFoodName(row.description).shelfLength > 0
     );
-    expect(shelved.length).toBe(760);
+    expect(shelved.length).toBe(758);
     const labels = new Set(
       shelved.map((row) => qualifiersOf(row.description)[0])
     );
@@ -254,7 +247,7 @@ describe("the bundled search index", () => {
   });
 
   it("is the surviving reference foods, and says which archives it came from", () => {
-    expect(index.foods.length).toBe(4318);
+    expect(index.foods.length).toBe(4312);
     expect(index.generated_from.map((a) => a.dataset)).toEqual([
       "Foundation Foods",
       "SR Legacy",
@@ -825,7 +818,7 @@ describe("searchIndexRows", () => {
     // exactly the blanket "-ves" shape; the table below is what catches that,
     // by pinning "olives" to the singular it still has to answer.
     const merged = new Set(words.map(stemOf));
-    expect(words.length - merged.size).toBe(107);
+    expect(words.length - merged.size).toBe(105);
 
     expect(touched.map((w) => [w, stemOf(w), sharing(w)])).toEqual([
       ["additives", "additive", []],
@@ -1559,7 +1552,7 @@ describe("searchIndexRows", () => {
     // Pinned as the two counts rather than the one, because a later key could
     // improve the total while quietly costing a row that leads today. Nothing
     // regressed here: 184 rows gained the lead and none lost it.
-    // 4,318 queries over 4,318 rows, so the winner is taken in one pass rather
+    // 4,312 queries over 4,312 rows, so the winner is taken in one pass rather
     // than by sorting each result list — the sort costs seconds, the scan does
     // not, and only the leading row is being asked about. Each query is ordered
     // twice: once under the shipped keys, and once under the four that preceded
@@ -1964,7 +1957,7 @@ describe("storedPanelFor", () => {
   it("rebuilds every row's macros exactly, across the whole corpus", () => {
     // The two artifacts are generated from one merged record, so a row's macros
     // and the store's amounts are the same numbers twice. Assert it over all
-    // 4,318 rather than on one food: a generator change that filled one artifact
+    // 4,312 rather than on one food: a generator change that filled one artifact
     // and not the other would otherwise ship silently.
     const disagreeing = index.foods.filter((row) => {
       const panel = storedPanelFor(store, row.fdcId);
