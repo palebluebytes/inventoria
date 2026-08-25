@@ -203,3 +203,86 @@ But the premise needs correcting. **SR Legacy publishes nutrient id 2048 on 0 of
 Nothing is recomputed. [ADR-0048](../adr/0048-an-absent-measurement-is-not-a-zero.md) §3 already forecloses it — _"No panel's energy is ever computed from other fields — not by Atwater factors"_ — so the option §5.2's ticket wanted argued was never live. The panel discloses instead, in one sentence of the USDA source explainer, and the decision is recorded as an amendment to [ADR-0045](../adr/0045-usda-stays-the-base-food-composition-authority.md).
 
 One "Related" line in the ticket is also settled: the "not reported versus zero" gap this section pointed at closed under ADR-0048, so the two no longer want settling together.
+
+## Addendum (2026-08-25, #147): the re-assay class, measured on both questions the ticket left open
+
+The Addendum above sized this class at **118 of 181 twinned pairs reading higher under
+Foundation** and carried it out to
+[#147](https://github.com/palebluebytes/inventoria/issues/147) rather than folding it
+in. #147 has now measured the two things it said were unmeasured. Recorded here; the
+decision is [ADR-0045](../adr/0045-usda-stays-the-base-food-composition-authority.md)'s
+#147 Amendment.
+
+Measured over the same bulk archives — Foundation 2026-04-30 (363 records), SR Legacy
+2018-04 (7,793) — paired on `ndbNumber` and read under the app's own energy preference
+order. The headline reproduces exactly: **190 twinned pairs, 181 stating energy on both
+sides, 118 higher under Foundation, 102 of them by ≥2%.**
+
+### 1. The direction runs both ways
+
+**118 higher, 42 lower, 21 equal.** Only the higher half was reported. §5.2's fibre gap
+turned out the same way once counted, and this is the second time in this note that a
+one-directional framing has survived until someone counted the other side.
+
+### 2. Which figure is coherent with the panel beside it
+
+The strongest available test, because no ground truth exists for "closer to the
+vegetable in front of you". ADR-0045 §3 makes this argument for blueberries alone; here
+it is asked of all 181, comparing each energy against a flat 4/4/9 over **Foundation's**
+protein, carbohydrate and fat (the macros actually displayed), with alcohol at 6.93
+where present:
+
+|                                             | reconciles within 5% |
+| ------------------------------------------- | -------------------- |
+| Foundation's energy vs Foundation's macros  | **151 of 181 (83%)** |
+| SR Legacy's `1008` vs the macros we display | **90 of 181 (50%)**  |
+
+Concentrated exactly where it matters. On the ten largest movers Foundation is within
+**0.4%** and SR Legacy is out by **23–43%**:
+
+| food                                             | 4/4/9 |  Foundation |    SR Legacy |
+| ------------------------------------------------ | ----: | ----------: | -----------: |
+| Cranberry juice, not fortified, from concentrate |  32.1 | 32.1 (0.1%) | 46.0 (43.4%) |
+| Cabbage, bok choy, raw                           |  20.2 | 20.3 (0.4%) | 13.0 (35.7%) |
+| Lettuce, leaf, green, raw                        |  22.0 | 22.0 (0.2%) | 15.0 (32.0%) |
+| Collards, raw                                    |  46.9 | 46.9 (0.0%) | 32.0 (31.8%) |
+| Mushrooms, white button                          |  31.2 | 31.2 (0.1%) | 22.0 (29.5%) |
+| Brussels sprouts, raw                            |  59.5 | 59.5 (0.0%) | 43.0 (27.7%) |
+| Mushroom, crimini                                |  30.2 | 30.2 (0.1%) | 22.0 (27.1%) |
+| Lettuce, leaf, red, raw                          |  17.5 | 17.5 (0.1%) | 13.0 (25.8%) |
+| Mushrooms, shiitake                              |  44.1 | 44.1 (0.1%) | 34.0 (22.9%) |
+
+The older figure is not the conservative one. Showing it would contradict the macros
+printed beside it by a third.
+
+### 3. The affected foods are the head of the corpus, not its tail
+
+#147's own framing — "the tail is full of records nobody searches for" — is refuted,
+and it was the reason to think nobody meets this.
+
+Of the 160 pairs whose energy differs: **142 survive the ADR-0042 filters**, and **117
+lead at least one of 3,976 sweep queries** (`sweepQueries` over the shipped index,
+ranked by `compareRelevance`). Only 25 lead none. **Nineteen are both reachable and
+≥20% apart:**
+
+Brussels sprouts +38%, spinach +20%, green cabbage +26%, turnips +21%, pineapple +20%,
+applesauce +23%, collards +47%, iceberg lettuce +22%, red leaf lettuce +35%, white
+button mushrooms +42%, red bell peppers +20%, green beans +29%, bok choy +56%, **plain
+whole-milk yogurt +28%**, shiitake +30%, green leaf lettuce +47%, acorn squash +22%,
+oyster mushrooms +24%, maitake +21%.
+
+"Leads at least one sweep query" is a reachability proxy and not a usage figure. This
+app keeps no query telemetry, so how often anyone types these is not measurable here and
+is not claimed — the same limit
+[#142](https://github.com/palebluebytes/inventoria/issues/142) ran into.
+
+### 4. What this does not establish
+
+**Not which assay is closer to the food.** §2 tests self-consistency, which is the only
+question the data can answer. A record can reconcile perfectly with its own macros and
+still describe a different cultivar, season or country than the vegetable in a British
+kitchen. The 83%-vs-50% split says the merge displays a coherent panel; it does not say
+Foundation's laboratory was right.
+
+**Nothing about the 30 Foundation rows that fail their own 4/4/9.** They exist, they are
+not investigated here, and 19 pairs reconcile with neither figure.

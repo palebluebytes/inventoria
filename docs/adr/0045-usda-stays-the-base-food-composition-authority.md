@@ -371,3 +371,84 @@ far more often than chia, and it is left to
 [#147](https://github.com/palebluebytes/inventoria/issues/147) rather than folded in here.
 Recording it as a line in this amendment would bury the larger effect inside the
 smaller one.
+
+## Amendment (2026-08-25, #147): a re-assay may move a familiar food by half, and the figure it moves to is the only coherent one
+
+The Amendment above measured a larger effect than the fibre gap that prompted it and
+left it to [#147](https://github.com/palebluebytes/inventoria/issues/147): over §2's
+190 twinned pairs, 181 state energy on both sides and 118 read higher under Foundation
+than under the SR Legacy twin's `1008`, 102 of them by 2% or more.
+
+**#147 measured the two things that record left open. Both are settled, nothing in the
+ranking or the merge changes, and this amendment is the whole of the answer.**
+
+### The direction was reported one way and runs both
+
+118 higher is right and incomplete. Measured over the same 181: **118 read higher, 42
+read lower, and 21 are equal.** The same shape as the fibre gap in the Amendment above,
+which also turned out to run both ways once someone counted.
+
+### The re-assayed figure is the only one that reconciles with the panel beside it
+
+§3 argues this for blueberries — that Foundation's general-factor energy is the only
+energy that squares with the macros on screen. Asked of all 181 pairs, comparing each
+figure against a flat 4/4/9 over **Foundation's own** protein, carbohydrate and fat:
+
+|                                                  | reconciles within 5% |
+| ------------------------------------------------ | -------------------- |
+| Foundation's energy against Foundation's macros  | **151 of 181 (83%)** |
+| SR Legacy's `1008` against the macros we display | **90 of 181 (50%)**  |
+
+On the ten largest movers it is not close. Foundation is within **0.4%** on every one
+and SR Legacy is out by **23% to 43%**:
+
+| food                    | 4/4/9 | Foundation  | SR Legacy        |
+| ----------------------- | ----- | ----------- | ---------------- |
+| Cabbage, bok choy, raw  | 20.2  | 20.3 (0.4%) | 13.0 (**35.7%**) |
+| Collards, raw           | 46.9  | 46.9 (0.0%) | 32.0 (**31.8%**) |
+| Mushrooms, white button | 31.2  | 31.2 (0.1%) | 22.0 (**29.5%**) |
+| Brussels sprouts, raw   | 59.5  | 59.5 (0.0%) | 43.0 (**27.7%**) |
+
+So borrowing the older figure would not be a conservative choice. It would put a panel
+on screen whose calories and macros contradict each other by a third, on exactly the
+foods where the gap is widest. **§2 and §3 are not a preference between two defensible
+numbers; on this population they are the only self-consistent option**, and that is now
+measured rather than argued from one example.
+
+### The affected foods are the head of the corpus, not its tail
+
+#147 guessed the opposite — "the tail is full of records nobody searches for" — and the
+guess was wrong, which matters because it was the reason to think nobody meets this.
+
+Of the 160 pairs whose energy differs, **142 survive the §5 filters and 117 lead at
+least one of 3,976 sweep queries.** Only 25 are reachable by scrolling alone.
+**Nineteen are both reachable and 20% or more apart**, and they are ordinary food:
+Brussels sprouts, spinach, green cabbage, turnips, pineapple, collards, iceberg and
+leaf lettuce, white button, shiitake, oyster and maitake mushrooms, bell peppers, green
+beans, bok choy, acorn squash, and plain whole-milk yogurt at 78 against 61.
+
+### Decision: this is accepted and disclosed, and no number moves
+
+No recompute, no data change, no second figure on screen, and no re-opening of §2's
+fill rule. A user meeting Brussels sprouts at 59.5 kcal is meeting the better figure,
+and the measurement above is why.
+
+**What is accepted, stated plainly: if the base food's record changes, the figure the
+app shows changes with it. What has already been logged does not.** A logged entry
+writes its own `nutrition/info` panel into the ledger at the moment of logging
+(`calorie.store.ts`), so it keeps the composition it was logged with for ever. That is
+the append-only ledger working as designed and is not a defect to be repaired — a past
+day is a record of what was known then, not a view that re-derives.
+
+The consequence is that a food logged either side of a corpus regeneration can differ,
+on the nineteen foods above by a fifth or more. It is not reachable today: the corpus
+regenerates only when this repo regenerates it, and no history yet spans one. If it
+ever needs surfacing, it belongs with history and export
+([#105](https://github.com/palebluebytes/inventoria/issues/105)) rather than with the
+merge, because nothing about §2 can reconcile two entries that were both correct when
+written.
+
+### No schema change
+
+No new field, no `schema_version` bump, no regeneration, no code. The measurement is in
+[research note #121](../research/121-usda-energy-derivation.md)'s #147 Addendum.
