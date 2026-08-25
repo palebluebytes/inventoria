@@ -156,6 +156,8 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {(description: string) => string} stripNonNamingQualifiers
  * @property {readonly TwinLedgerEntry[]} TWIN_LEDGER
  * @property {ReadonlySet<number>} SPLIT_TWIN_NDB_NUMBERS
+ * @property {readonly [number, string, string, string][]} SUPERSEDED_RECORDS
+ * @property {ReadonlySet<number>} SUPERSEDED_FDC_IDS
  */
 
 /**
@@ -325,6 +327,7 @@ export function buildCorpus(groups, app) {
     dry_basis: 0,
     manufacturing_input: 0,
     no_energy: 0,
+    superseded: 0,
   };
   let twinned = 0;
   let twinned_survivors = 0;
@@ -355,6 +358,14 @@ export function buildCorpus(groups, app) {
     // judgement, asked in the same place and for the same reason.
     if (app.isManufacturingInput(food.description)) {
       dropped.manufacturing_input++;
+      continue;
+    }
+    // A second, poorer copy of a food the corpus already carries under USDA's
+    // own fuller record (ADR-0051's converse). Written down one row at a time
+    // rather than derived, because no property of the description separates it
+    // — only knowing that napa cabbage and pe-tsai are one vegetable does.
+    if (app.SUPERSEDED_FDC_IDS.has(food.fdcId)) {
+      dropped.superseded++;
       continue;
     }
     // A record with no energy cannot be logged, so it does not ship. The app
@@ -570,6 +581,27 @@ export function assertTwinLedgerCovers(groups, app) {
   return app.TWIN_LEDGER.length;
 }
 
+/**
+ * Refuses a corpus in which a superseded record's survivor is not shipping.
+ *
+ * The whole risk of a written drop list: the entry names one row to remove and
+ * one to keep, and a filter change or a mirror refresh can take the second
+ * without touching the first — leaving the food gone entirely, which is exactly
+ * what ADR-0055 §1 forbids. Checked over the FINISHED corpus for that reason,
+ * and against the description the verdict was reached by reading.
+ */
+export function assertSupersededSurvive(survivors, app) {
+  const shipped = new Set(survivors.map((s) => s.food.description));
+  for (const [fdcId, superseded, survivor] of app.SUPERSEDED_RECORDS)
+    if (!shipped.has(survivor))
+      throw new Error(
+        `"${superseded}" (${fdcId}) is dropped as a second copy of ` +
+          `"${survivor}", and that row is not in the corpus. A drop list that ` +
+          "outlives its survivor deletes the food; re-read the pair."
+      );
+  return app.SUPERSEDED_RECORDS.length;
+}
+
 export function assertTwinNamesRetrieve(groups, survivors, app) {
   const kept = new Map(survivors.map((s) => [s.food.fdcId, s]));
   let checked = 0;
@@ -752,6 +784,7 @@ async function main() {
   } = buildCorpus(groups, app);
   // Asked of USDA's own names, so it has to come before the rename (ADR-0056 §4).
   const twinNames = assertTwinNamesRetrieve(groups, filtered, app);
+  const superseded = assertSupersededSurvive(filtered, app);
   const { survivors, renamed, origin_dropped } = applyShippedNames(
     filtered,
     app
@@ -800,7 +833,8 @@ async function main() {
       `(${dropped.brand_specific} brand-specific, ${dropped.processed} packaged or processed, ` +
       `${dropped.prepared} prepared or composite, ${dropped.dry_basis} dry-basis, ` +
       `${dropped.manufacturing_input} manufacturing inputs, ` +
-      `${dropped.no_energy} reporting no energy dropped)`
+      `${dropped.no_energy} reporting no energy, ` +
+      `${dropped.superseded} superseded dropped)`
   );
   // Reported rather than assumed, for the reason every other tally here is:
   // a rule whose reach nobody measured is a hole nobody can see (ADR-0056 §5).
@@ -825,7 +859,8 @@ async function main() {
     `  ${aliased.length} of them answer to a name the merge discarded ` +
       `(${aliased.reduce((n, row) => n + row.also.length, 0)} aliases, ` +
       `${aliasBytes.toLocaleString("en-GB")} bytes of the index); ` +
-      `all ${twinNames} archived names retrieve`
+      `all ${twinNames} archived names retrieve; ` +
+      `${superseded} superseded record${superseded === 1 ? " keeps" : "s keep"} a survivor`
   );
   console.log(
     `  ${adjudicated} twin pairs adjudicated, ` +

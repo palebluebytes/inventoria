@@ -42,7 +42,7 @@ import type { EntityPayload } from "../../src/lib/ingestion/ingest";
 
 // The committed artifact itself is the fixture (ADR-0047 §3). Search is only
 // keyless and offline if it answers from THIS file, so the ADR-0042 ordering
-// cases are asserted over the 4,319 rows the app actually ships rather than
+// cases are asserted over the 4,318 rows the app actually ships rather than
 // over a hand-built stand-in that could agree with the code and not the data.
 const index: SearchIndex = JSON.parse(
   readFileSync("public/usda/search-index.json", "utf8")
@@ -208,7 +208,7 @@ describe("the bundled search index", () => {
   });
 
   it("is the surviving reference foods, and says which archives it came from", () => {
-    expect(index.foods.length).toBe(4319);
+    expect(index.foods.length).toBe(4318);
     expect(index.generated_from.map((a) => a.dataset)).toEqual([
       "Foundation Foods",
       "SR Legacy",
@@ -1374,6 +1374,23 @@ describe("searchIndexRows", () => {
     );
   });
 
+  it("answers `napa` with raw pe-tsai, which is the same vegetable", () => {
+    // The two are one cabbage under two names. USDA numbered them apart and
+    // filed the napa record under Brassica oleracea — green cabbage's species,
+    // not this plant's — with 40 nutrient fields against 63 and a fifth of the
+    // vitamin C. Dropping it is what lets ADR-0049's fallback answer at all:
+    // the fallback fires only on an empty result, so one poor literal hit was
+    // suppressing the map entry that reaches the right rows.
+    const hits = searchIndexRows(corpus, "napa").hits;
+    expect(hits[0]?.row.description).toBe("Cabbage, chinese (pe-tsai), raw");
+    expect(hits[0]?.alias).toBe("napa cabbage");
+    // And the row it replaced is gone, under either spelling of the query.
+    expect(descriptionsFor("napa")).not.toContain("Cabbage, napa, cooked");
+    expect(
+      index.foods.some((row) => row.description === "Cabbage, napa, cooked")
+    ).toBe(false);
+  });
+
   it("returns nothing for the origin words ADR-0056 took out of the corpus", () => {
     // Q11's decision, pinned as behaviour: the words are gone from the artifact
     // entirely — not searched, not ranked, not displayed — so a query naming one
@@ -1494,7 +1511,7 @@ describe("searchIndexRows", () => {
     // Pinned as the two counts rather than the one, because a later key could
     // improve the total while quietly costing a row that leads today. Nothing
     // regressed here: 184 rows gained the lead and none lost it.
-    // 4,319 queries over 4,319 rows, so the winner is taken in one pass rather
+    // 4,318 queries over 4,318 rows, so the winner is taken in one pass rather
     // than by sorting each result list — the sort costs seconds, the scan does
     // not, and only the leading row is being asked about. Each query is ordered
     // twice: once under the shipped keys, and once under the four that preceded
@@ -1899,7 +1916,7 @@ describe("storedPanelFor", () => {
   it("rebuilds every row's macros exactly, across the whole corpus", () => {
     // The two artifacts are generated from one merged record, so a row's macros
     // and the store's amounts are the same numbers twice. Assert it over all
-    // 4,319 rather than on one food: a generator change that filled one artifact
+    // 4,318 rather than on one food: a generator change that filled one artifact
     // and not the other would otherwise ship silently.
     const disagreeing = index.foods.filter((row) => {
       const panel = storedPanelFor(store, row.fdcId);

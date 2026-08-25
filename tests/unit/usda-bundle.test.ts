@@ -40,6 +40,8 @@ import { reportsNoEnergy } from "../../src/lib/food/nutrition";
 import {
   TWIN_LEDGER,
   SPLIT_TWIN_NDB_NUMBERS,
+  SUPERSEDED_RECORDS,
+  SUPERSEDED_FDC_IDS,
 } from "../../src/lib/food/usda-twin-ledger";
 import * as usdaFdc from "../../src/lib/food/usda-fdc";
 import {
@@ -82,6 +84,8 @@ const app = {
   mapFdcPortions,
   TWIN_LEDGER,
   SPLIT_TWIN_NDB_NUMBERS,
+  SUPERSEDED_RECORDS,
+  SUPERSEDED_FDC_IDS,
   plainSiblingsOf,
 };
 
@@ -343,6 +347,7 @@ describe("buildCorpus — the ADR-0042 survivors, merged at generation time", ()
       dry_basis: 0,
       manufacturing_input: 0,
       no_energy: 0,
+      superseded: 0,
     });
   });
 
@@ -521,6 +526,7 @@ describe("buildCorpus — the ADR-0042 survivors, merged at generation time", ()
       dry_basis: 1,
       manufacturing_input: 0,
       no_energy: 1,
+      superseded: 0,
     });
   });
 

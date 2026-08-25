@@ -1,6 +1,7 @@
 # ADR 0051: A shared `ndbNumber` is evidence, not proof — the twin merge is refused where an adjudication says USDA numbered two foods alike
 
 **Status:** Accepted  
+**Amended by:** the Amendment below, which answers this record's converse and admits a written drop list for it  
 **Date:** 2026-08-21  
 **Implemented:** #145 `c38ff91` (the pre-registration), `ef989ca` (the sweep), `b45b1ab` (the ledger and the key), `b0512bb` (the regenerated corpus), `6c1c57c` (the named assertions)
 
@@ -208,3 +209,70 @@ leads with Honeycrisp and `portabella` still leads with the raw mushroom.
 barcode path or manual entry, does not curate a stand-in for the row it deletes
 (though ADR-0048 §7 makes iodized salt eligible), and does not claim the 190 are
 the last of them. The census check is what handles the next ones.
+
+## Amendment (2026-08-25): numbering two records apart is not proof of two foods
+
+This record asks what a **shared** `ndbNumber` means and answers that sharing one
+is not proof of one food. The converse went unasked, and `napa` is where it
+surfaced.
+
+USDA publishes napa cabbage twice. `Cabbage, napa, cooked` is ndbNumber 11970;
+`Cabbage, chinese (pe-tsai), cooked, boiled, drained, without salt` is 11120.
+They are the same vegetable — napa cabbage IS pe-tsai — and every signal on the
+first record says it is the worse copy:
+
+- its `scientificName` is **Brassica oleracea**, the species of green cabbage,
+  broccoli and kale. The pe-tsai record has **Brassica rapa (Pekinensis Group)**,
+  which is the plant this actually is;
+- **40 nutrient fields against 63**, and 3.2 mg of vitamin C against 15.8;
+- no cooking method, where every other cabbage row in the corpus names one.
+
+**A search for `napa` returned that one row and nothing else**, which is worse
+than returning nothing: ADR-0049's vocabulary fallback fires only on an empty
+result, so a single poor literal hit suppressed the map entry — `napa cabbage`,
+already in OFF's taxonomy beside `wombok` — that reaches the pe-tsai rows. The
+corpus held the right answer and the wrong row stood in front of it.
+
+### The decision
+
+**A record may be dropped as a second, poorer copy of a food the corpus already
+carries.** That is a claim about the record, which is what
+[ADR-0055](0055-who-eats-a-food-ranks-it-and-never-drops-it.md) §1 requires, and
+it is not a claim about who eats it.
+
+Three constraints, because a written drop list is the most dangerous shape a
+drop can take:
+
+1. **It is a list, not a predicate.** No property of the description separates
+   `Cabbage, napa, cooked` from `Cabbage, savoy, cooked`; only knowing that napa
+   and pe-tsai are one vegetable does, and that is a fact about the world. So
+   each entry is adjudicated by hand and carries its reasoning, in the manner of
+   `LOCAL_VOCABULARY`.
+2. **Every entry names its survivor, and generation checks the survivor ships.**
+   `assertSupersededSurvive` refuses a corpus where the row that keeps the food
+   is absent. Without it a later filter change takes the survivor, the drop list
+   takes the copy, and the food disappears entirely — which is the outcome
+   ADR-0055 §1 exists to prevent.
+3. **Both descriptions are carried**, for the same reason `TwinLedgerEntry`
+   carries its two: they are what the verdict was reached by READING, so a
+   mirror refresh that rewrites either fails the build.
+
+The list is **one row**. If it grows past a handful the question stops being
+which row to add and becomes whether USDA's numbering can be read mechanically
+after all — a measurement, not another entry.
+
+### What it costs
+
+- **The corpus falls to 4,318.** `napa` now returns seven rows led by
+  `Cabbage, chinese (pe-tsai), raw`, through the derived key `napa cabbage`,
+  and the vocabulary gained that key **on its own**: the derivation admits a
+  phrase that retrieves nothing, so removing the row was the whole of the fix.
+  No hand-written entry was added, and one would have been refused —
+  `food-vocabulary.ts`'s third admission prefers a derived answer wherever OFF's
+  taxonomy has an opinion, and here it does.
+- **A cooked-napa panel leaves the corpus.** The pe-tsai rows carry cooked
+  figures, so no preparation is lost, but they are a different assay and a user
+  who logged the napa row before this keeps what they logged.
+- **This is a drop list, and drop lists rot.** The survivor assertion is what
+  makes that a build failure rather than a silent deletion, and it is the reason
+  the entry names a description rather than only an `fdcId`.

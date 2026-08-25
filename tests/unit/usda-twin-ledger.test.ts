@@ -6,6 +6,8 @@ import {
   SPLIT_TWINS,
   MERGED_TWINS,
   SPLIT_TWIN_NDB_NUMBERS,
+  SUPERSEDED_RECORDS,
+  SUPERSEDED_FDC_IDS,
   twinVerdictOf,
   type TwinReasonCode,
 } from "../../src/lib/food/usda-twin-ledger";
@@ -108,6 +110,33 @@ describe("the twin ledger is the adjudication, not a second opinion of it", () =
       expect([reason, seen.size]).toEqual([reason, 1]);
   });
 
+  it("names a superseded record and the row that keeps its food", () => {
+    // A written drop, so the discipline is the written kind: each entry carries
+    // BOTH descriptions, because they are what the verdict was reached by
+    // reading, and a mirror refresh that rewrites either one has to fail rather
+    // than quietly drop a row nobody re-read.
+    expect(
+      SUPERSEDED_RECORDS.map(([fdcId, superseded, survivor]) => [
+        fdcId,
+        superseded,
+        survivor,
+      ])
+    ).toEqual([
+      [
+        168572,
+        "Cabbage, napa, cooked",
+        "Cabbage, chinese (pe-tsai), cooked, boiled, drained, without salt",
+      ],
+    ]);
+    // Every entry says why in prose, because no machine can check that two
+    // names are one vegetable.
+    for (const [, superseded, , why] of SUPERSEDED_RECORDS)
+      expect([superseded, why.length > 80]).toEqual([superseded, true]);
+    expect(SUPERSEDED_FDC_IDS).toEqual(
+      new Set(SUPERSEDED_RECORDS.map(([fdcId]) => fdcId))
+    );
+  });
+
   it("stays out of the app's bundle", () => {
     // The arrangement `food-vocabulary.ts` documents: the generator reaches this
     // module through the esbuild seam, and nothing a user downloads imports it.
@@ -116,6 +145,8 @@ describe("the twin ledger is the adjudication, not a second opinion of it", () =
     expect(TWIN_LEDGER_EXPORTS).toEqual([
       "TWIN_LEDGER",
       "SPLIT_TWIN_NDB_NUMBERS",
+      "SUPERSEDED_RECORDS",
+      "SUPERSEDED_FDC_IDS",
     ]);
     expect(importersOf("usda-twin-ledger")).toEqual([]);
   });

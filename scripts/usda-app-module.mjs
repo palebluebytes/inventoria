@@ -157,7 +157,12 @@ export const SHIPPED_NAME_EXPORTS = [
  * adjudication out of the app bundle while leaving them beside the merge they
  * constrain, which is the arrangement `food-vocabulary.ts` already uses.
  */
-export const TWIN_LEDGER_EXPORTS = ["TWIN_LEDGER", "SPLIT_TWIN_NDB_NUMBERS"];
+export const TWIN_LEDGER_EXPORTS = [
+  "TWIN_LEDGER",
+  "SPLIT_TWIN_NDB_NUMBERS",
+  "SUPERSEDED_RECORDS",
+  "SUPERSEDED_FDC_IDS",
+];
 
 // ---------------------------------------------------------------------------
 // Reaching the app's own logic

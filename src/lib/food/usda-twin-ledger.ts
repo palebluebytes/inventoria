@@ -795,3 +795,57 @@ export const TWIN_LEDGER: readonly TwinLedgerEntry[] = [
 export const SPLIT_TWIN_NDB_NUMBERS: ReadonlySet<number> = new Set(
   SPLIT_TWINS.map(([ndbNumber]) => ndbNumber)
 );
+
+// ---------------------------------------------------------------------------
+// Records USDA numbered apart that name a food this corpus already carries
+// ---------------------------------------------------------------------------
+//
+// The converse of everything above. The ledger asks what a SHARED `ndbNumber`
+// means, and ADR-0051 answers that sharing one is not proof of one food. This
+// asks the other half — whether numbering two records apart is proof of two
+// foods — and answers no, for the cases where USDA's own metadata says so.
+//
+// Deliberately not a predicate. There is no property of a description that
+// separates `Cabbage, napa, cooked` from `Cabbage, savoy, cooked`; only knowing
+// that napa cabbage and pe-tsai are one vegetable does, and that is a fact about
+// the world rather than about the string. So it is a written list, adjudicated
+// one row at a time, in the manner of `LOCAL_VOCABULARY` — and like that list it
+// is checked at generation, so a mirror refresh that rewrites either description
+// fails the build rather than silently dropping a row nobody re-read.
+// ---------------------------------------------------------------------------
+
+/**
+ * One superseded record: the `fdcId` that leaves, the description it leaves
+ * under, the description of the record that keeps the food, and why they are one
+ * food.
+ *
+ * Both descriptions are carried for the reason {@link TwinLedgerEntry} carries
+ * its two: they are what the verdict was reached by READING.
+ */
+export type SupersededRecord = readonly [
+  fdcId: number,
+  superseded: string,
+  survivor: string,
+  why: string,
+];
+
+/**
+ * The records dropped as a second, poorer copy of a food already in the corpus.
+ *
+ * **One.** A list this short is a list, not a rule; if it grows past a handful,
+ * the question is whether USDA's numbering can be read mechanically after all,
+ * and that is a measurement rather than another entry.
+ */
+export const SUPERSEDED_RECORDS: readonly SupersededRecord[] = [
+  [
+    168572,
+    "Cabbage, napa, cooked",
+    "Cabbage, chinese (pe-tsai), cooked, boiled, drained, without salt",
+    "Napa cabbage and pe-tsai are one vegetable under two names. USDA numbered them apart (11970 against 11120) but filed this one under Brassica oleracea, the species of green cabbage and broccoli, where the pe-tsai record has Brassica rapa (Pekinensis Group) — which is right. It carries 40 nutrient fields against that record's 63, names no cooking method where every other cabbage row does, and reports 3.2 mg of vitamin C against 15.8. Keeping it also suppressed the vocabulary: `napa` retrieved this row literally, so ADR-0049's fallback never fired and never offered the pe-tsai rows that answer the word properly.",
+  ],
+];
+
+/** The `fdcId`s {@link SUPERSEDED_RECORDS} removes, for the generator's filter. */
+export const SUPERSEDED_FDC_IDS: ReadonlySet<number> = new Set(
+  SUPERSEDED_RECORDS.map(([fdcId]) => fdcId)
+);
