@@ -310,7 +310,7 @@ describe("deriveNovaVerdict — inferred NOVA 1 (USDA whole foods, rule → #89)
       "ginger powder"
     );
     expect(widened.attributes["food/name"]).toBe(
-      "Ginger, ground, ginger powder"
+      "Ginger, ground (ginger powder)"
     );
     expect(deriveNovaVerdict(widened)).toEqual<NovaVerdict>({
       state: "rated",
@@ -336,7 +336,7 @@ describe("deriveNovaVerdict — inferred NOVA 1 (USDA whole foods, rule → #89)
     ).toEqual<NovaVerdict>({ state: "not-rated" });
     expect(
       deriveNovaVerdict(
-        refPlaceholder("Ginger, ground, ginger powder", "Spices and Herbs")
+        refPlaceholder("Ginger, ground (ginger powder)", "Spices and Herbs")
       )
     ).toEqual<NovaVerdict>({ state: "not-rated" });
   });

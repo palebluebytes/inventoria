@@ -271,7 +271,7 @@ export function buildSearchCorpus(index: SearchIndex): SearchCorpus {
  *
  * The alias travels with the phrase because it is what the user is shown: a food
  * reached this way is displayed under its own name AND the name that reached it,
- * "Eggplant, raw, aubergine", so a search that quietly answered with another word
+ * "Eggplant, raw (aubergine)", so a search that quietly answered with another word
  * says which word it answered with (see {@link mapIndexRowToPayload}).
  */
 export interface VocabularyExpansion {
@@ -500,13 +500,22 @@ export function searchIndexRows(
  * live in the Nutrient store and are read when the food is staged (ADR-0047 §2).
  *
  * `alias` is the vocabulary key a search needed to reach this row, and it is
- * appended to the NAME — "Eggplant, raw" becomes "Eggplant, raw, aubergine"
+ * appended to the NAME — "Eggplant, raw" becomes "Eggplant, raw (aubergine)"
  * (ADR-0049's #140 Amendment). `food/name` rather than a sibling attribute
  * because several INDEPENDENT readers show a food's name and only this one goes
  * through here: the consumption fold names a logged event off the twin, the
  * recent list and the recipe ingredient resolver each read their own, and the
  * stager's edit form seeds from it again. A user who searched a word deserves to
  * see that word wherever the food turns up, not only in the results list.
+ *
+ * **Parenthesised, not comma-appended.** A comma made the key read as one more
+ * of USDA's qualifiers, and 211 of the 452 keys that lead somewhere share a word
+ * with the name they land on — `Cabbage, chinese (pe-tsai), raw, napa cabbage`.
+ * Stripping the shared word was measured and refused: no alias is fully
+ * redundant, so what is left is often the generic half, and `arrowroot powder`
+ * becomes `Arrowroot flour, powder` and `beet root` becomes `Beets, raw, root`.
+ * Brackets keep the whole key, which is never misleading, and stop it scanning
+ * as another qualifier.
  *
  * `twin/raw_provenance.raw_data` keeps USDA's untouched row, so the widened name
  * never masquerades as USDA's own (ADR-0045 §4) — and `deriveNovaVerdict` reads
@@ -519,7 +528,7 @@ export function mapIndexRowToPayload(
   alias?: string
 ): EntityPayload {
   const attributes: EntityPayload["attributes"] = {
-    "food/name": alias ? `${row.description}, ${alias}` : row.description,
+    "food/name": alias ? `${row.description} (${alias})` : row.description,
     [NUTRITION_INFO_ATTR]: {
       serving_size: PER_100G,
       ...row.macros,

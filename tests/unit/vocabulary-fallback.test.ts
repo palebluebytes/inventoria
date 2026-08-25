@@ -179,7 +179,7 @@ describe("the vocabulary fallback in the search", () => {
     expect(hit.alias).toBe("aubergine");
     expect(
       mapIndexRowToPayload(hit.row, hit.alias).attributes["food/name"]
-    ).toBe("Eggplant, raw, aubergine");
+    ).toBe("Eggplant, raw (aubergine)");
   });
 
   it("leaves USDA's own description untouched in the provenance blob", () => {
@@ -344,7 +344,7 @@ describe("what the fallback buys, against the bars set before it was built", () 
     expect(
       mapIndexRowToPayload(hit.row, hit.alias).attributes["food/name"]
     ).toBe(
-      "Pork, cured, ham, center slice, country-style, separable lean only, raw, gammon"
+      "Pork, cured, ham, center slice, country-style, separable lean only, raw (gammon)"
     );
   });
 

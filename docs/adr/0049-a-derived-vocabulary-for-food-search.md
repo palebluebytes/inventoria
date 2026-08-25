@@ -8,6 +8,7 @@
 **Amended by:** the #141 Amendment below, which writes the hand-written `vocabulary_local` §4 left room for and Consequences deferred  
 **Amended by:** the #142 Amendment below, which corrects the three figures Consequences quotes for the substitutable subset, retires the `natural yoghurt` example it argues from, and replaces "unmeasured" with a measurement  
 **Amended by:** the #152 Amendment below, which re-derives the map over a corpus two rows smaller and reports that nothing moved  
+**Amended by:** the Amendment below, which brackets the alias the #140 Amendment appends, and refuses the obvious alternative  
 **Implemented:** #139 `4a01dd1`, `5868a7f`, `efadfad` (the map); #140 (the fallback that reads it); #141 (the hand-written section)
 
 This record amends [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md)
@@ -741,3 +742,62 @@ above it, `powdered milk`, reads both `milk powder` and `dry milk` and was alrea
 the dry-milk half, so a user typing it sees the same `Milk, dry, whole` row first and 16
 results rather than 18. The fallback's answer to that query is two rows less wrong and
 not one row different at the top.
+
+## Amendment (2026-08-25): the alias is bracketed, and stripping it was refused
+
+The #140 Amendment appends the vocabulary key to the name with a comma —
+`Eggplant, raw, aubergine`. USDA's own names are comma-delimited qualifier
+lists, so the key reads as one more qualifier, and where it shares a word with
+the name it lands on, the result repeats itself:
+`Cabbage, chinese (pe-tsai), raw, napa cabbage`.
+
+**That is not the edge case it looks like. Measured over the shipped corpus, 211
+of the 452 keys that lead anywhere share a word with the row they lead to** — 47%
+of them.
+
+### The obvious fix is refused
+
+Strip the words the name already carries, and show the remainder. Measured over
+all 211: **not one alias is fully redundant**, so something always remains — but
+what remains is frequently the generic half of the phrase, and the result is
+worse than the repetition it fixes.
+
+| key                | remainder | displayed                                            |
+| ------------------ | --------- | ---------------------------------------------------- |
+| `arrowroot powder` | `powder`  | `Arrowroot flour, powder`                            |
+| `beet root`        | `root`    | `Beets, raw, root`                                   |
+| `apple cider`      | `apple`   | `Vinegar, cider, apple`                              |
+| `bitter melon`     | `melon`   | `Balsam-pear (bitter gourd), leafy tips, raw, melon` |
+| `buffalo's milk`   | `s`       | `Milk, indian buffalo, fluid, s`                     |
+
+Some are fine — `napa`, `borlotti`, `azuki`, `barbados` — and no rule separates
+those from these without knowing which half of a phrase names the food. A name
+that misleads is a worse defect than a name that repeats itself, so the whole key
+is kept.
+
+### The decision
+
+**The alias is bracketed rather than comma-appended.** `Eggplant, raw` becomes
+`Eggplant, raw (aubergine)`, and the napa case becomes
+`Cabbage, chinese (pe-tsai), raw (napa cabbage)`.
+
+Nothing else about the #140 Amendment changes: it is still the vocabulary KEY
+rather than the keystrokes, still on `food/name` rather than a sibling attribute,
+and still frozen into a logged event, for the reasons that record gives.
+
+### What it costs
+
+- **A name can now carry two bracketed groups**, where USDA already used one:
+  `Acerola, (west indian cherry), raw (barbados cherries)`. Read as an aside it
+  is legible; read as USDA's own punctuation it is not, and this is the trade the
+  decision makes.
+- **Foods logged before this keep their comma form.** The ledger is append-only
+  (`AGENTS.md` §3), so `food/name` is a fact about what was logged rather than a
+  cache of the corpus, and nothing migrates.
+- **Taking the alias off `food/name` entirely was the other candidate** — show it
+  on the search result and stage the food under its own name. It fixes all 211
+  with no misleading output and keeps the doubled name out of the ledger, and it
+  was not taken because it contradicts the #140 Amendment's own reason: a user
+  who searched a word deserves to see that word wherever the food turns up, not
+  only in the results list. If that reason is ever revisited, this is the change
+  that follows.
