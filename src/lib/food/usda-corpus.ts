@@ -301,7 +301,16 @@ export interface VocabularyExpansion {
  * is a key and `seed flax` is not a way of typing it. It also means a key longer
  * than the query can still be reached mid-phrase while a key SHORTER than the
  * query is never reached at all, so `aubergine` expands and `raw aubergine` does
- * not (ADR-0049 Consequences — deliberate, and unmeasured rather than unwanted).
+ * not (ADR-0049 Consequences, as corrected by its own #142 Amendment).
+ *
+ * That gap is #142, and it has been MEASURED since: a per-token tier reaches 72
+ * of 348 carrier-phrase probes, which deflates to 28 distinct foods, and every
+ * one of the 28 is already reachable by deleting a word. So the tier saves a
+ * retry rather than making a food findable, and ADR-0053 found reach alone
+ * insufficient to license it — the decision now rests on whether anyone actually
+ * types a synonym mid-phrase, which `logs/search-log.ts` is the instrument for.
+ * Do not re-measure reach here; the numbers are in
+ * `docs/research/142-carrier-phrase-sweep.md`.
  *
  * That is the ONE place this parts company with `curatedMatches`, whose partial
  * tier is position-free, and the difference is the tables': a stand-in's aliases
