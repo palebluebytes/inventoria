@@ -42,16 +42,101 @@ import type { EntityPayload } from "../../src/lib/ingestion/ingest";
 
 // The committed artifact itself is the fixture (ADR-0047 §3). Search is only
 // keyless and offline if it answers from THIS file, so the ADR-0042 ordering
-// cases are asserted over the 4,335 rows the app actually ships rather than
+// cases are asserted over the 4,319 rows the app actually ships rather than
 // over a hand-built stand-in that could agree with the code and not the data.
 const index: SearchIndex = JSON.parse(
   readFileSync("public/usda/search-index.json", "utf8")
 );
+
+/**
+ * The 72 beef rows USDA published as New Zealand imports and #157 left standing,
+ * by identity rather than by name.
+ *
+ * A literal list because ADR-0056 took `New Zealand, imported` out of the
+ * descriptions, so the prefix that used to count this population no longer
+ * exists in the artifact. A rename that erases the evidence for an older
+ * measurement has to leave the measurement askable, or the older decision
+ * quietly stops being checked.
+ */
+const NZ_IMPORT_BEEF_157: readonly number[] = [
+  173073, 173074, 173075, 173076, 173077, 173078, 173079, 173080, 173081,
+  173082, 173083, 173084, 173085, 173087, 173088, 173089, 173090, 173091,
+  173092, 173093, 173094, 173095, 173096, 173097, 173098, 173099, 173100,
+  173101, 173102, 173103, 173104, 173105, 173106, 173107, 173108, 173109,
+  174715, 174716, 174717, 174718, 174719, 174720, 174721, 174722, 174723,
+  174724, 174725, 174726, 174727, 174728, 174729, 174731, 174732, 174733,
+  174734, 174735, 174736, 174737, 174738, 174739, 174740, 174741, 174742,
+  174743, 174744, 174745, 174746, 174747, 174748, 174749, 174750, 174751,
+];
 const corpus = buildSearchCorpus(index);
 const descriptionsFor = (query: string): string[] =>
   searchIndexRows(corpus, query).hits.map(({ row }) => row.description);
 
 describe("the bundled search index", () => {
+  it("carries no commercial origin qualifier, in a description or an alias", () => {
+    // ADR-0056 §3's tripwire. The words leave the artifact entirely and are kept
+    // nowhere — the archives are the way back — so a regression that stopped
+    // stripping them, or a refresh that produced a twin alias carrying one,
+    // fails here rather than quietly making `new zealand` searchable again.
+    const origin = /(^|,\s*)(new zealand|australian|imported)\s*(,|$)/i;
+    const leaking = index.foods.filter(
+      (row) =>
+        origin.test(row.description) ||
+        (row.also ?? []).some((alias) => origin.test(alias))
+    );
+    expect(leaking.map((row) => row.description)).toEqual([]);
+  });
+
+  it("keeps the origin words where they are the food's own name", () => {
+    // The positional rule is the whole safety argument, and this is the case it
+    // was built for. New Zealand spinach is Tetragonia, not Spinacia: 12 kcal
+    // and 0.66 mg iron against 23 and 3.57. The corpus holds no `Spinach, raw`
+    // row, so a collision guard has nothing to notice and would let a lexical
+    // rule file this plant under real spinach's name (ADR-0055 §7).
+    const descriptions = index.foods.map((row) => row.description);
+    for (const kept of [
+      "New Zealand spinach, raw",
+      "New Zealand spinach, cooked, boiled, drained, without salt",
+      "New zealand spinach, cooked, boiled, drained, with salt",
+    ])
+      expect([kept, descriptions.includes(kept)]).toEqual([kept, true]);
+  });
+
+  it("keeps an import that no plain row contests", () => {
+    // Tripe is New Zealand-only, so nothing collides with its stripped name and
+    // it stays — renamed, not dropped. The same line that leaves mutton in the
+    // corpus (ADR-0055 §1): a drop here is caused by a name being taken, never
+    // by whose food it is.
+    const descriptions = index.foods.map((row) => row.description);
+    expect(descriptions).toContain("Beef, tripe cooked, boiled");
+    expect(descriptions).toContain("Beef, tripe uncooked, raw");
+  });
+
+  it("ships exactly one of each beef organ ADR-0056 collapsed", () => {
+    // The cost, pinned where it can be read. Four organs USDA published twice —
+    // once plain, once as a New Zealand import — are now published once, and the
+    // import's figures are gone with it. For liver that means the corpus keeps
+    // 4,970 ugRAE of vitamin A and no longer holds the 28,300 the import
+    // measured, on a nutrient this app meters as a LIMIT. ADR-0056's Consequences state
+    // that; this makes it fail loudly if a later change reintroduces the twin
+    // without revisiting the decision.
+    const organs = index.foods
+      .map((row) => row.description)
+      .filter((d) => /^Beef, (heart|liver|tongue|kidney)/i.test(d))
+      .sort();
+    expect(organs).toEqual([
+      "Beef, heart, cooked, simmered",
+      "Beef, heart, raw",
+      "Beef, kidneys, cooked, simmered",
+      "Beef, kidneys, raw",
+      "Beef, liver, cooked, braised",
+      "Beef, liver, cooked, pan-fried",
+      "Beef, liver, raw",
+      "Beef, tongue, cooked, simmered",
+      "Beef, tongue, raw",
+    ]);
+  });
+
   it("carries the plain-sibling flag the ranking cannot derive at load", () => {
     // ADR-0055 §6. A tripwire on the predicate's reach: the flag is baked, so a
     // change to `plainSiblingsOf` that nobody meant shows up as a count here
@@ -123,7 +208,7 @@ describe("the bundled search index", () => {
   });
 
   it("is the surviving reference foods, and says which archives it came from", () => {
-    expect(index.foods.length).toBe(4335);
+    expect(index.foods.length).toBe(4319);
     expect(index.generated_from.map((a) => a.dataset)).toEqual([
       "Foundation Foods",
       "SR Legacy",
@@ -422,10 +507,19 @@ describe("the bundled search index", () => {
     // 72. That number is the one ADR-0055 §1 protects: it barred a PREVALENCE
     // argument against these rows, and a trade grade is a claim about the
     // specification instead, so the clause takes two and leaves the rest.
-    expect(
-      descriptions.filter((d) => d.startsWith("Beef, New Zealand, imported"))
-        .length
-    ).toBe(72);
+    //
+    // It can no longer be counted by that prefix, because ADR-0056 took the
+    // origin out of the name — which is worth stating rather than quietly
+    // rewriting: the rename DESTROYED the evidence this assertion used to read,
+    // so the population is pinned by identity instead. Eight of the 72 then left
+    // as well, all of them beef offal whose stripped name a plain row already
+    // held, leaving 64. Those eight are the whole of what ADR-0056 §4 drops, and
+    // they are listed rather than counted so a ninth cannot join them silently.
+    const shipped = new Set(index.foods.map((row) => row.fdcId));
+    expect(NZ_IMPORT_BEEF_157.filter((id) => shipped.has(id)).length).toBe(64);
+    expect(NZ_IMPORT_BEEF_157.filter((id) => !shipped.has(id))).toEqual([
+      173081, 173084, 174723, 174727, 174728, 174729, 174737, 174738,
+    ]);
     // The row the one-row clause was standing in front of.
     expect(descriptions).toContain("Oil, soybean");
   });
@@ -684,7 +778,7 @@ describe("searchIndexRows", () => {
     // exactly the blanket "-ves" shape; the table below is what catches that,
     // by pinning "olives" to the singular it still has to answer.
     const merged = new Set(words.map(stemOf));
-    expect(words.length - merged.size).toBe(111);
+    expect(words.length - merged.size).toBe(108);
 
     expect(touched.map((w) => [w, stemOf(w), sharing(w)])).toEqual([
       ["additives", "additive", []],
@@ -1214,16 +1308,18 @@ describe("searchIndexRows", () => {
     // with 596 kcal of external fat.
     //
     // Those eleven were six distinct rows under eleven sweep spellings, and
-    // every one of the six is here, plus `veal`. `aust beef`, `imported beef`,
-    // `fresh lamb` and `imported lamb` reach rows this list already names. The
-    // predicate is ASKED rather than restated (#131).
+    // every one of the six is here, plus `veal`. `aust beef` and `fresh lamb`
+    // reach rows this list already names. The predicate is ASKED rather than
+    // restated (#131).
+    //
+    // `australian beef`, `australian lamb`, `new lamb` and `imported lamb` left
+    // this list when ADR-0056 took those words out of the corpus — they now
+    // retrieve nothing at all, which is the rule working rather than a gap, and
+    // is pinned as its own case below.
     for (const query of [
       "beef",
       "veal",
       "wagyu beef",
-      "australian beef",
-      "australian lamb",
-      "new lamb",
       "frozen lamb",
       "bowhead whale",
     ] as const) {
@@ -1254,8 +1350,51 @@ describe("searchIndexRows", () => {
       "Beef, retail cuts, separable fat, raw"
     );
     expect(descriptionsFor("seam beef")[0]).toBe(
-      "Beef, Australian, imported, Wagyu, seam fat, Aust. marble score 4/5, raw"
+      "Beef, Wagyu, seam fat, Aust. marble score 4/5, raw"
     );
+  });
+
+  it("pins the one lead ADR-0056 moved onto a separated fat", () => {
+    // #151's precedent: collateral is pinned, not left to be rediscovered as a
+    // fresh bug. Measured over 3,976 sweep queries, the rename left 3,898 leads
+    // alone, emptied 7 that named an origin, and moved 71 — of which this is the
+    // only one that went from a food to the fat trimmed off one.
+    //
+    // `aust` matches `Aust. marble score` in both rows, so the query was always
+    // going to answer with Wagyu. Before the rename both candidates carried the
+    // same two extra words; after it, the fat row is short enough that the query
+    // accounts for more of it, and `accounted` sits above `wholeness`. It is a
+    // sweep-generated pair, not a phrase anyone types, and the tenderloin is
+    // still on screen.
+    expect(descriptionsFor("aust beef")[0]).toBe(
+      "Beef, Wagyu, external fat, Aust. marble score 4/5, raw"
+    );
+  });
+
+  it("returns nothing for the origin words ADR-0056 took out of the corpus", () => {
+    // Q11's decision, pinned as behaviour: the words are gone from the artifact
+    // entirely — not searched, not ranked, not displayed — so a query naming one
+    // finds nothing rather than quietly matching on a leftover alias. `also`
+    // aliases are renamed with the descriptions for exactly this reason.
+    for (const query of [
+      "new zealand lamb",
+      "australian beef",
+      "australian lamb",
+      "imported beef",
+      "imported lamb",
+      "new lamb",
+    ] as const)
+      expect([query, descriptionsFor(query)]).toEqual([query, []]);
+
+    // But `new zealand` on its own still answers, because there the words are a
+    // plant. This is the positional rule showing its work: New Zealand spinach
+    // is Tetragonia, and stripping its head phrase would have filed it under
+    // real spinach's name with a fifth of the iron.
+    expect(descriptionsFor("new zealand")).toEqual([
+      "New Zealand spinach, raw",
+      "New Zealand spinach, cooked, boiled, drained, without salt",
+      "New zealand spinach, cooked, boiled, drained, with salt",
+    ]);
   });
 
   it("pins what the composite preference costs, as itself", () => {
@@ -1269,9 +1408,11 @@ describe("searchIndexRows", () => {
     // the tri-tip. It is a sweep-generated `adjective noun` pair rather than a
     // phrase anyone types, which is why it was accepted rather than designed
     // around — but it is the whole cost, so it is written down.
-    expect(descriptionsFor("tri beef")[0]).toBe(
-      'Beef, composite of trimmed retail cuts, separable lean and fat, trimmed to 1/8" fat, all grades, raw'
-    );
+    // ADR-0056 moved this one: `tripe` also prefix-matches `tri`, and losing
+    // `variety meats and by-products` left `Beef, tripe, raw` short enough to
+    // win outright. Still a sweep-generated pair rather than a phrase anyone
+    // types, and still recorded rather than quietly re-pinned.
+    expect(descriptionsFor("tri beef")[0]).toBe("Beef, tripe, raw");
   });
 
   it("still needs raw simplicity, which the reserved slot was to have absorbed", () => {
@@ -1338,7 +1479,7 @@ describe("searchIndexRows", () => {
     }
   });
 
-  it("puts 186 more rows first by their own name, and takes none away", () => {
+  it("puts 233 more rows first by their own name, and takes none away", () => {
     // ADR-0042's #136 Amendment measured 356 rows that are not first when
     // searched by their own full description, 337 of them tied on every key.
     // #124's amendment predicted its key would break none of those, and that
@@ -1350,7 +1491,7 @@ describe("searchIndexRows", () => {
     // Pinned as the two counts rather than the one, because a later key could
     // improve the total while quietly costing a row that leads today. Nothing
     // regressed here: 184 rows gained the lead and none lost it.
-    // 4,335 queries over 4,335 rows, so the winner is taken in one pass rather
+    // 4,319 queries over 4,319 rows, so the winner is taken in one pass rather
     // than by sorting each result list — the sort costs seconds, the scan does
     // not, and only the leading row is being asked about. Each query is ordered
     // twice: once under the shipped keys, and once under the four that preceded
@@ -1400,13 +1541,18 @@ describe("searchIndexRows", () => {
     // from not-first to gained — 218 and 131 — which is the population it is
     // built for: a row searched by its OWN full description is the one name the
     // query accounts for completely, and every rival carries a word it does not.
+    // ADR-0056's rename then moved 15 more into gained and one into not-first —
+    // 233 and 132 — for the same reason `accounted` reaches them: a row that
+    // stops carrying `New Zealand, imported` or `variety meats and by-products`
+    // is searched by a shorter name, and the rivals that used to account for it
+    // no longer do.
     // `lost` is the invariant and is still zero: no key and no corpus change has
     // ever taken the lead from a row that already held it. The baseline this
     // diffs against is the pre-#124 order, so all three keys are being measured
     // here at once.
     expect({ notFirst, gained, lost }).toEqual({
-      notFirst: 131,
-      gained: 218,
+      notFirst: 132,
+      gained: 233,
       lost: 0,
     });
   }, 30_000);
@@ -1749,7 +1895,7 @@ describe("storedPanelFor", () => {
   it("rebuilds every row's macros exactly, across the whole corpus", () => {
     // The two artifacts are generated from one merged record, so a row's macros
     // and the store's amounts are the same numbers twice. Assert it over all
-    // 4,335 rather than on one food: a generator change that filled one artifact
+    // 4,319 rather than on one food: a generator change that filled one artifact
     // and not the other would otherwise ship silently.
     const disagreeing = index.foods.filter((row) => {
       const panel = storedPanelFor(store, row.fdcId);
