@@ -104,6 +104,11 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
 /**
  * One household measure as `food/portions` carries it (ADR-0030 §5).
  *
+ * The attribute also carries a `millilitres` sibling to `grams` (ADR-0060 §6),
+ * absent here because USDA publishes every portion as a weight. It is left out
+ * of this mirror deliberately: this script writes the corpus, and a field it can
+ * never fill has no shape to state.
+ *
  * @typedef {object} Portion
  * @property {string} label   Human-readable measure, e.g. "1 cup, sliced".
  * @property {number} amount  How many of `unit` this portion is.

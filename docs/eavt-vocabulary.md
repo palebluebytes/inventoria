@@ -86,9 +86,14 @@ aubergine`, because several independent readers show a food's name and only one 
   `deriveNovaVerdict` does, and declines to judge a payload carrying no such record.
 - `ingredients_text`: Open Food Facts' raw ingredients string, distinct from a recipe's
   structured `recipe/ingredients`.
-- `portions`: an ordered list of household measures (`{ label, amount, unit, grams }`)
-  that resolve to grams, never a separate reference unit
-  ([ADR-0030](adr/0030-expanded-food-twin-source-data.md)).
+- `portions`: an ordered list of household measures
+  (`{ label, amount, unit, grams | millilitres }`), each resolving to an amount in the
+  unit its own magnitude is stated in
+  ([ADR-0030](adr/0030-expanded-food-twin-source-data.md),
+  [ADR-0060](adr/0060-an-amount-is-entered-in-its-panels-unit.md) §6). `grams` and
+  `millilitres` are siblings and exactly one of them is present, so a reader that knows
+  only `grams` sees no portion for a drink rather than a weight it never was. Nothing
+  converts between the two, at any point.
 - `assessment`: one atomic Open Food Facts blob of consumer signals with no schema.org
   counterpart (`nova_group`, `nutri_score`, `eco_score`, `nutrient_levels`, `allergens`,
   `additives`, `labels`; ADR-0030). Read back by

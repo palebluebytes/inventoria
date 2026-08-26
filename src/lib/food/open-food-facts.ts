@@ -140,7 +140,8 @@ export interface OFFProduct {
     // serving amount and `serving_quantity_unit` the unit it is in — "either g
     // or ml", NOT grams as this comment claimed until #148; `serving_size` is the
     // human label ("15 g", "1 portion (330 ml)"). Any of them can be absent, and
-    // a millilitre serving emits no food/portions entry (ADR-0052 §2).
+    // the unit decides which of a Portion's sibling magnitudes the serving is
+    // emitted under, never whether it is emitted at all (ADR-0060 §6).
     serving_quantity?: number | string;
     serving_quantity_unit?: string;
     serving_size?: string;

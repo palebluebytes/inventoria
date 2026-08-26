@@ -40,6 +40,10 @@ _Avoid_: Serving size (when the basis is meant), per-100g, the panel's grams
 The unit an amount of a food is entered, logged and scaled in — `g` or `ml` for a food measured against its Panel basis, `serving` for one whose panel is a whole-serving total. It is read from the Panel basis and is never a separate choice, and nothing converts between a volume and a weight at any point (ADR-0060). Code asks `isMeasuredUnit` rather than testing for grams, because "is this amount a measurement?" is the real question at every scaler, label and edit gate. It is a persisted shape: it rides on `recipe/ingredients`, on the frozen `event/instantiation` rows, and inside the `event/quantity` string.
 _Avoid_: Grams (when any measured amount is meant), the gram unit, weight
 
+**Portion**:
+One household measure a food's source publishes, carried on the twin's `food/portions` — `1 medium` standing at 118 g, `1 can (330 ml)` at 330 ml. It is source data and never a nutrition reading, and it is the app's whole answer to "how much is one of these?": tapping it fills the AmountField with the amount it stands at, in the unit that amount is stated in. That unit is a field of its own (`grams` or `millilitres`, exactly one present) rather than an overloaded number, so a reader that knows only weights sees no portion for a drink instead of treating a volume as one. A portion stated in a unit the field does not take offers no chip at all, because filling it in would be the density conversion the app refuses. See ADR-0030 and ADR-0060.
+_Avoid_: Serving (which is the Panel basis, a different fact), portion size, household unit, gram weight
+
 **Reference food**:
 A generic, non-branded, standardised food entry — what the USDA FoodData Central search (Foundation + SR Legacy) returns and is _for_. Includes both raw whole foods and generic prepared staples (coffee, croissant, cheddar). This is the set the food search keeps; Brand-specific foods, packaged products, and Composite dishes are excluded from it and reached instead via the Open Food Facts barcode path (ADR-0034). See ADR-0042.
 _Avoid_: Generic food, USDA food, ingredient (when a prepared reference item is meant)
