@@ -329,6 +329,12 @@ export interface PortionPreset {
  * is uninformative — {@link formatPortionPreset} collapses its chip from
  * "30 g — 30 g" to "30 g", and the capture form flags the row so the user can
  * give it a real name. Blank labels are not flagged (they're simply incomplete).
+ *
+ * Weights only, deliberately: this is asked of the capture form's typed rows,
+ * and those are a label and a grams box (`PortionRow`). It is a different
+ * question from {@link formatPortionPreset}'s collapse — that one asks whether a
+ * label equals the amount a portion actually resolves to, in whichever unit, and
+ * so has to know about millilitres where this one has no row that could hold one.
  */
 export function portionLabelIsBareWeight(label: string): boolean {
   const t = label.trim().toLowerCase();

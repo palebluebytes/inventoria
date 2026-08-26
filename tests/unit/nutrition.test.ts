@@ -496,6 +496,20 @@ describe("portionPresets", () => {
     expect(portionPresets(mixed, "g").map((p) => p.label)).toEqual(["100 g"]);
   });
 
+  it("reads a payload written before the millilitre sibling existed", () => {
+    // Forward-only ingestion (ADR-0060 §9) leaves gram-only portions in the
+    // ledger indefinitely. They carry no `millilitres` key at all, and that is
+    // exactly a weight: the chip a food offered before this field existed is
+    // the chip it still offers.
+    const beforeTheSibling = JSON.parse(
+      '[{"label":"1 medium","amount":1,"unit":"medium","grams":118}]'
+    ) as Portion[];
+    expect(portionPresets(beforeTheSibling, "g")).toEqual([
+      { label: "1 medium", amount: 118, display: "1 medium — 118 g" },
+    ]);
+    expect(resolvePortionAmount(beforeTheSibling, "1 medium", "g")).toBe(118);
+  });
+
   it("returns an empty list for a portion-less or missing food", () => {
     expect(portionPresets([], "g")).toEqual([]);
     expect(portionPresets(undefined, "g")).toEqual([]);

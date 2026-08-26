@@ -22,11 +22,13 @@ import {
 } from "./nutrient-display";
 import {
   isPer100Basis,
+  portionMeasure,
   servingSizeGrams,
   PER_100G,
   PER_100ML,
   PER_SERVING,
   type NutritionInfo,
+  type Portion,
 } from "./nutrition";
 
 /**
@@ -93,6 +95,44 @@ export const ALL_FIELDS: FieldDef[] = [...CORE, ...DETAIL, ...MICROS];
 export interface PortionRow {
   label: string;
   grams: string;
+}
+
+/** A twin's portions split into the ones this form can type and the rest. */
+export interface PortionRowSplit {
+  /** The rows the form renders and the user may edit. */
+  rows: PortionRow[];
+  /** The portions it has no row for, to be re-emitted untouched on save. */
+  carried: Portion[];
+}
+
+/**
+ * Splits a twin's `food/portions` for the form: a gram weight becomes an
+ * editable row, and everything else is set aside to be written back exactly as
+ * it was read.
+ *
+ * A row is a label and a grams box, so a **volume** portion (ADR-0060 §6) has
+ * nowhere to sit — the form types a weight, and a volume serving is still not
+ * something it can express. Carrying such a portion through is the difference
+ * between a form that cannot edit a drink's "1 can — 330 ml" and one that
+ * deletes it: without this it would arrive in the grams box as nothing and be
+ * saved back as a zero-gram weight it never was.
+ *
+ * A portion carrying no usable magnitude at all is carried the same way, for the
+ * same reason: the form has no honest row to show it in either.
+ */
+export function splitPortionRows(
+  portions: Portion[] | undefined
+): PortionRowSplit {
+  const split: PortionRowSplit = { rows: [], carried: [] };
+  for (const portion of portions ?? []) {
+    const measure = portionMeasure(portion);
+    if (measure?.unit === "g") {
+      split.rows.push({ label: portion.label, grams: String(measure.amount) });
+    } else {
+      split.carried.push(portion);
+    }
+  }
+  return split;
 }
 
 /**

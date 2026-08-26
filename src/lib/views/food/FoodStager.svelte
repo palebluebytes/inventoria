@@ -26,7 +26,6 @@
     basisUnit,
     parseBasisQuantity,
     portionLabelIsBareWeight,
-    portionMeasure,
     reportsNoEnergy,
     roundFoodDisplay,
     FOOD_PORTIONS_ATTR,
@@ -41,6 +40,7 @@
     ALL_FIELDS,
     buildLabelPanel,
     invertServingSize,
+    splitPortionRows,
     toDisplay,
     type FieldDef,
     type Basis,
@@ -1329,17 +1329,13 @@
       (method === "scan" && !staged && !!barcode.trim())
   );
 
-  // Seed the form's portion rows from a twin's saved `food/portions`. Only a
-  // gram weight has a row to sit in — the rows are a label and a grams box —
-  // so every other portion is set aside on `carriedPortions` and re-emitted
-  // untouched by `buildCustomPortions`. Without that a drink's "1 can — 330 ml"
-  // would arrive in the grams box as nothing and leave the form deleted.
+  // Seed the form's two portion slots from a twin's saved `food/portions`. The
+  // split itself is `splitPortionRows` in the form's own domain module; this
+  // only lands its two halves in component state.
   function seedPortionRows(portions: Portion[] | undefined) {
-    const all = portions ?? [];
-    customPortions = all
-      .filter((p) => portionMeasure(p)?.unit === "g")
-      .map((p) => ({ label: p.label, grams: String(p.grams) }));
-    carriedPortions = all.filter((p) => portionMeasure(p)?.unit !== "g");
+    const split = splitPortionRows(portions);
+    customPortions = split.rows;
+    carriedPortions = split.carried;
   }
 
   // Build the household portions the user typed into `Portion` shape, dropping

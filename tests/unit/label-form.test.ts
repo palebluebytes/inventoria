@@ -5,8 +5,10 @@ import {
   resolveServingSize,
   toDisplay,
   toGrams,
+  splitPortionRows,
   ALL_FIELDS,
 } from "../../src/lib/food/label-form";
+import type { Portion } from "../../src/lib/food/nutrition";
 import { formatNutrientValue } from "../../src/lib/food/nutrient-display";
 
 // The Read-along form's pure panel builder (ADR-0034 §3, #57). The form is a thin
@@ -181,5 +183,48 @@ describe("toDisplay / toGrams round-trip", () => {
     expect(toGrams("", "g")).toBeUndefined();
     expect(toGrams("   ", "mg")).toBeUndefined();
     expect(toGrams("abc", "g")).toBeUndefined();
+  });
+});
+
+describe("splitPortionRows (a twin's portions → the form's rows)", () => {
+  const medium: Portion = {
+    label: "1 medium",
+    amount: 1,
+    unit: "medium",
+    grams: 118,
+  };
+  const can: Portion = {
+    label: "1 can",
+    amount: 1,
+    unit: "serving",
+    millilitres: 330,
+  };
+
+  it("turns each gram portion into an editable row", () => {
+    expect(splitPortionRows([medium])).toEqual({
+      rows: [{ label: "1 medium", grams: "118" }],
+      carried: [],
+    });
+  });
+
+  it("carries a volume portion instead of showing it an empty grams box", () => {
+    // The form types a weight, so a drink's "1 can — 330 ml" has no row to sit
+    // in (ADR-0060 §6) — and re-saving must not turn it into a zero-gram
+    // weight it never was.
+    expect(splitPortionRows([medium, can])).toEqual({
+      rows: [{ label: "1 medium", grams: "118" }],
+      carried: [can],
+    });
+  });
+
+  it("carries a portion with no usable magnitude, for the same reason", () => {
+    const malformed: Portion = { label: "1 splash", amount: 1, unit: "splash" };
+    expect(splitPortionRows([malformed]).rows).toEqual([]);
+    expect(splitPortionRows([malformed]).carried).toEqual([malformed]);
+  });
+
+  it("is two empty halves for a portion-less or missing food", () => {
+    expect(splitPortionRows([])).toEqual({ rows: [], carried: [] });
+    expect(splitPortionRows(undefined)).toEqual({ rows: [], carried: [] });
   });
 });

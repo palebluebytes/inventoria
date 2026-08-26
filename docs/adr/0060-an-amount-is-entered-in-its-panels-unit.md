@@ -183,6 +183,17 @@ exactly today's behaviour. No migration is needed, and no field name lies.
 `dedupePortionsByGrams` (`FoodView.svelte:259`) keys on unit **and** magnitude once a
 portion can be either.
 
+**A chip is offered only in the unit its field takes.** Building this surfaced a case
+this section had not written down: the two units disagree per portion as well as per
+food. Open Food Facts publishes a drink powder's serving as the prepared 100 ml against
+a per-100 g panel, and an oat carton's as 100 g against a per-100 ml one. A chip that
+filled the second into a millilitre field would be a density conversion done silently at
+ratio 1, which §2 refuses, so `portionPresets` takes the field's unit and drops the
+portions stated in the other. The twin keeps every portion its source published; what
+narrows is only what the picker can enter. The cost is named: a gram serving on a
+millilitre product loses the chip ADR-0052 §2 had kept for it, which is the same
+degradation this section already accepts in the other direction.
+
 ### 7. The capture form offers three bases, and there is one basis type
 
 The read-along form's toggle becomes three-way — `100 g` / `100 ml` / `serving` —
