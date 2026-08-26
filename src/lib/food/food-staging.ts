@@ -61,11 +61,17 @@ export interface LabelCaptureSeed {
 
 /**
  * What the stager emits when the user commits: either a searched/scanned food at
- * a gram amount, or a hand-entered custom food with its per-serving macros (and
- * an optional photo, when the host allows it).
+ * an amount, or a hand-entered custom food with its per-serving macros (and an
+ * optional photo, when the host allows it).
+ *
+ * The amount is in the food's OWN panel unit and nothing converts (ADR-0060
+ * §1/§2) — grams for a weighed food, millilitres for a drink published per
+ * 100 ml. The unit is not carried beside it: it is read back off the panel by
+ * `basisUnit` at every site that needs it, so the carrier and the panel cannot
+ * come to disagree about the same food.
  */
 export type FoodChoice =
-  | { kind: "food"; food: FoodResult; grams: number }
+  | { kind: "food"; food: FoodResult; amount: number }
   | ({
       kind: "custom";
       name: string;
@@ -143,14 +149,18 @@ export interface ManualEntrySeed {
 
 /**
  * A one-time pre-population of the stager, used by the direct-log sheet's edit
- * mode: a gram-logged food re-stages on its twin (so the amount editor scales it
- * the same way), a manual-entry log re-opens its intent's mini-form pre-filled
+ * mode: a measured log re-stages on its twin (so the amount editor scales it the
+ * same way), a manual-entry log re-opens its intent's mini-form pre-filled
  * ({@link ManualEntrySeed}), and any other per-serving custom entry re-opens the
  * label form pre-filled. Applied once when it first becomes non-null (the food
  * and manual cases may resolve asynchronously, after the twin is fetched).
+ *
+ * The food case's `amount` is in the twin's own panel unit, exactly as
+ * {@link FoodChoice}'s is — it is the amount that was logged, handed straight
+ * back to the control that entered it.
  */
 export type StagerSeed =
-  | { kind: "food"; food: FoodResult; grams: number }
+  | { kind: "food"; food: FoodResult; amount: number }
   /**
    * Edit a food's own twin in the label form (ADR-0034 §7). The whole twin
    * rides along because a logged event freezes only the four headline macros:

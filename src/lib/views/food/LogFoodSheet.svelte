@@ -103,8 +103,9 @@
     wayIn?: WayIn;
     /**
      * When set, the sheet edits an existing logged event instead of adding a new
-     * one: it opens pre-staged on that event's food (gram amount) or pre-filled
-     * on the custom form (per-serving entry). Saving logs the new event and
+     * one: it opens pre-staged on that event's food (at the amount it was logged
+     * at, in its panel's own unit) or pre-filled on the custom form
+     * (per-serving entry). Saving logs the new event and
      * retracts `edit` (append-only), so history stays immutable (ADR-0008).
      */
     edit?: ConsumptionEvent | null;
@@ -377,7 +378,7 @@
         seed = {
           kind: "food",
           food: mapPayloadToFoodResult(twin),
-          grams: amount,
+          amount,
         };
       });
     }
@@ -404,7 +405,7 @@
         // divided by the basis, so the two disagreed on any panel not measured
         // per 100 — and this is the one that freezes into `event/metrics`, which
         // history never recomputes.
-        const factor = choice.grams / parseBasisQuantity(panel?.serving_size);
+        const factor = choice.amount / parseBasisQuantity(panel?.serving_size);
         const breakdown = scaleNutrition(panel, factor);
         const newId = await logFoodConsumption(
           f.entity,
@@ -412,7 +413,7 @@
           // changeLoggedFoodAmount agreed with `quantityLabel` only by
           // coincidence, and a second spelling is how the two drift. The unit is
           // still hard-coded here; deriving it from the panel is T3's step.
-          quantityLabel(choice.grams, "g"),
+          quantityLabel(choice.amount, "g"),
           meal_type,
           breakdown.calories,
           breakdown.protein,

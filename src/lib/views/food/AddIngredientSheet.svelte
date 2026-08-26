@@ -50,7 +50,7 @@
   // sheet (the parent unmounts us), otherwise the reason keeps it open.
   function handleChoose(choice: FoodChoice): ChooseOutcome {
     if (choice.kind === "food") {
-      return onAdd(ingredientFromFood(choice.food, choice.grams));
+      return onAdd(ingredientFromFood(choice.food, choice.amount));
     }
     return onAdd(
       customIngredient(

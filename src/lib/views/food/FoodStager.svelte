@@ -764,7 +764,7 @@
     seeded = true;
     if (seed.kind === "food") {
       staged = seed.food;
-      amount = seed.grams;
+      amount = seed.amount;
     } else if (seed.kind === "edit_twin") {
       // Same screen the staged card's pencil opens, seeded from the same twin.
       openEditForm(seed.entity, seed.attributes);
@@ -1345,9 +1345,9 @@
 
   function primaryAction() {
     if (staged) {
-      // The carrier is still gram-named; the unit reaches the write path in
-      // ADR-0060 §4's step, not this one's.
-      return commit({ kind: "food", food: staged, grams: amount });
+      // The amount travels in the staged panel's own unit; every host reads that
+      // unit back off the panel rather than off the carrier (ADR-0060 §1).
+      return commit({ kind: "food", food: staged, amount });
     }
     if (method === "custom") {
       if (!customName.trim() || runningKcal === "") return;
