@@ -162,6 +162,10 @@ _Avoid_: Recipe log, recipe entry, instance (bare), cooked recipe
 A standardized classification (`meal_type`) used to organize Consumption Events chronologically and logically in UI timelines.
 _Avoid_: mealType, meal-type
 
+**Recent**:
+The log sheet's default content for one Meal Type (ADR-0057): the distinct food Digital Twins previously logged at **that** meal, newest first, capped at twelve. It is a default rather than a result — judged on being apt, not complete, because search reaches everything else from the same screen — so it is never topped up from other meals to fill its cap, and a meal with no history correctly shows none. Scoping is read per Consumption Event from `meal_type`, so a twin logged at two meals is Recent for both. Membership still passes the catalogue rule (ADR-0035 §6).
+_Avoid_: Recent list (when the unscoped pre-ADR-0057 behavior is meant), recently used, history, food log
+
 **Engagement Event**:
 A logged instance of watching a movie/show or reading a book, recorded as a timestamped action in the ledger (`WatchAction` or `ReadAction`) linking to a media Digital Twin. All media engagements share one closed status enum: `saved`, `started`, `progress`, `completed`.
 _Avoid_: Consumption event (when referring to media), activity log
