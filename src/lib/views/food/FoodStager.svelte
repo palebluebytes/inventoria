@@ -4,6 +4,7 @@
     submitToOpenFoodFacts,
     parseCategoryList,
     offReferenceImagesFromTwin,
+    offPackUnitFromTwin,
     ProductNotFoundError,
     type OffPayload,
     type OffSubmitResult,
@@ -410,6 +411,11 @@
   // filling the form (ADR-0034 §8 read-feature). NOT the user's captured photos —
   // never merged into `labelPhotos`, never saved (they live in raw_provenance).
   let offRefPhotos = $state<string[]>([]);
+  // The unit OFF holds this pack in, read off the same provenance as the photos
+  // above. Not shown anywhere: it exists so a contribution can tell whether OFF
+  // would read our per-100 figures in the unit we measured them in (ADR-0060
+  // §8). Undefined for a barcode OFF has no record of, which reads as grams.
+  let offPackUnit = $state<string | undefined>(undefined);
   // Open the read-only OFF reference reader on this index; null = closed.
   let refReaderIndex = $state<number | null>(null);
   // The OFF payload carried into the form by the found-but-poor door, so the host
@@ -503,6 +509,7 @@
     skipped = new Set();
     labelPhotos = [];
     offRefPhotos = [];
+    offPackUnit = undefined;
   }
 
   // Seed the Custom form from a partial OFF payload (found-but-poor door): name
@@ -543,6 +550,7 @@
     // OFF's own photos ride alongside as a read-only reference to read the label
     // off — never merged into the user's capture set, never saved.
     offRefPhotos = payload.referenceImages ?? [];
+    offPackUnit = offPackUnitFromTwin(payload.attributes);
   }
 
   // Re-open the label form on a twin (the staged card's origin badge §7, and the
@@ -607,6 +615,7 @@
     // read-through that a saved twin (or a second scan of the same barcode)
     // never carries, so the one surface for reading the label off went blank.
     offRefPhotos = offReferenceImagesFromTwin(attrs);
+    offPackUnit = offPackUnitFromTwin(attrs);
     staged = null;
   }
 
@@ -748,6 +757,9 @@
         // Bare `ingredients_text`, REPLACE + suppress-when-empty (ADR-0043 §5);
         // buildOffWriteBody drops it when blank, so an untouched field can't wipe OFF.
         ingredientsText: customIngredients.trim() || undefined,
+        // The pack's own unit, so a per-100 panel measured in the other one
+        // keeps its numbers to itself rather than mislabelling OFF (ADR-0060 §8).
+        packQuantityUnit: offPackUnit,
         nutrition: builtPanel.nutrition,
       });
     } finally {
@@ -1313,6 +1325,7 @@
       captureReturn = null;
       captureDraftKey = null;
       offRefPhotos = [];
+      offPackUnit = undefined;
       refReaderIndex = null;
       barcode = "";
     }

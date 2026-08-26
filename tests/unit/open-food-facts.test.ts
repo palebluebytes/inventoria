@@ -718,12 +718,97 @@ describe("buildOffWriteBody", () => {
     // falling through to `serving` would declare the set as one 100 ml serving.
     const body = buildOffWriteBody(
       "5449000000996",
-      { name: "Cola", nutrition: { serving_size: "100 ml", calories: 42 } },
+      {
+        name: "Cola",
+        // OFF holds the pack in millilitres, so its "100" IS our 100 ml.
+        packQuantityUnit: "ml",
+        nutrition: { serving_size: "100 ml", calories: 42 },
+      },
       { user_id: "t", password: "p" }
     );
     expect(body.get("nutrition_data_per")).toBe("100g");
     expect(body.get("serving_size")).toBeNull();
     expect(body.get("nutriment_energy-kcal")).toBe("42");
+  });
+
+  it("suppresses the whole nutriment set when the pack disputes our basis unit", () => {
+    // ADR-0060 §8: the `100g` above is only right while OFF resolves that 100 to
+    // the same unit we measured in. Declaring 100 ml on a pack OFF holds in
+    // grams breaks that, and there is nothing on hand to say which is right.
+    const body = buildOffWriteBody(
+      "111",
+      {
+        name: "Drink powder",
+        brand: "Acme",
+        category: "en:beverages",
+        ingredientsText: "Cocoa, sugar",
+        packQuantityUnit: "g",
+        nutrition: { serving_size: "100 ml", calories: 42, protein_content: 1 },
+      },
+      { user_id: "t", password: "p" }
+    );
+    expect(body.get("nutrition_data_per")).toBeNull();
+    expect(body.get("nutriment_energy-kcal")).toBeNull();
+    expect(body.get("nutriment_energy-kcal_unit")).toBeNull();
+    expect(body.get("nutriment_proteins")).toBeNull();
+    // The four unit-free fields carry no basis, so they are not held hostage.
+    expect(body.get("product_name")).toBe("Drink powder");
+    expect(body.get("add_brands")).toBe("Acme");
+    expect(body.get("add_categories")).toBe("en:beverages");
+    expect(body.get("ingredients_text")).toBe("Cocoa, sugar");
+  });
+
+  it("suppresses in the other direction too — a gram basis on a millilitre pack", () => {
+    const body = buildOffWriteBody(
+      "222",
+      {
+        name: "Oat drink",
+        packQuantityUnit: "ml",
+        nutrition: { serving_size: "100 g", calories: 45 },
+      },
+      { user_id: "t", password: "p" }
+    );
+    expect(body.get("nutrition_data_per")).toBeNull();
+    expect(body.get("nutriment_energy-kcal")).toBeNull();
+  });
+
+  it("reads an absent pack unit as grams, so a millilitre basis is suppressed", () => {
+    // OFF could parse no `quantity` from these — the eight-in-a-hundred ADR-0052
+    // named. Its "100" then resolves to grams, so our 100 ml would be a mislabel;
+    // a brand-new product OFF has no record of at all lands here for the same
+    // reason, having no base unit to resolve against yet.
+    const suppressed = buildOffWriteBody(
+      "333",
+      { name: "Smoothie", nutrition: { serving_size: "100 ml", calories: 50 } },
+      { user_id: "t", password: "p" }
+    );
+    expect(suppressed.get("nutrition_data_per")).toBeNull();
+    expect(suppressed.get("nutriment_energy-kcal")).toBeNull();
+    // A gram basis agrees with that same default, so it posts exactly as before.
+    const posted = buildOffWriteBody(
+      "333",
+      { name: "Biscuit", nutrition: { serving_size: "100 g", calories: 50 } },
+      { user_id: "t", password: "p" }
+    );
+    expect(posted.get("nutrition_data_per")).toBe("100g");
+    expect(posted.get("nutriment_energy-kcal")).toBe("50");
+  });
+
+  it("leaves a per-serving basis alone — its unit is spelled out, not resolved", () => {
+    // A serving posts its own `serving_size` string, so OFF resolves nothing and
+    // there is no implied unit to dispute. The guard is the per-100 case only.
+    const body = buildOffWriteBody(
+      "444",
+      {
+        name: "Bar",
+        packQuantityUnit: "ml",
+        nutrition: { serving_size: "40 g", calories: 200 },
+      },
+      { user_id: "t", password: "p" }
+    );
+    expect(body.get("nutrition_data_per")).toBe("serving");
+    expect(body.get("serving_size")).toBe("40 g");
+    expect(body.get("nutriment_energy-kcal")).toBe("200");
   });
 
   it("maps a per-serving basis to serving + serving_size", () => {

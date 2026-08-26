@@ -1,6 +1,8 @@
 import type { EntityPayload } from "../ingestion/ingest";
 import {
+  basisUnit,
   isPer100Basis,
+  measuredUnitFrom,
   PER_100G,
   PER_100ML,
   FOOD_PORTIONS_ATTR,
@@ -210,24 +212,55 @@ function offReferenceImages(p: OFFProduct["product"]): string[] {
 }
 
 /**
+ * The untouched OFF product behind a SAVED twin, or `undefined` for a twin from
+ * any other source.
+ *
+ * The mapper keeps the whole response as `twin/raw_provenance` precisely so a
+ * field it did not lift into an attribute can still be read without a network
+ * re-fetch (ADR-0016). Both readers below want a different such field, so the
+ * unwrapping — and the adapter check that makes the cast honest — lives here
+ * once rather than in each of them.
+ */
+function offProductFromTwin(
+  attributes: Record<string, unknown> | undefined
+): OFFProduct["product"] | undefined {
+  const provenance = attributes?.["twin/raw_provenance"] as
+    | RawProvenance<OFFProduct>
+    | undefined;
+  if (provenance?.adapter !== "off") return undefined;
+  return provenance.raw_data?.product;
+}
+
+/**
  * The same photo URLs, recovered from a SAVED twin rather than a live lookup.
  *
  * `referenceImages` is a read-through on the live {@link OffPayload} and never
  * becomes a datom, so a twin already in the ledger — a barcode scanned a second
  * time, or any logged food re-opened for editing — has no reference images to
- * hand. They are still there, though: the untouched OFF response is kept as
- * `twin/raw_provenance` precisely so nothing has to be re-fetched (ADR-0016).
- * This reads them back out, and returns empty for a twin from any other source.
+ * hand. They are still there, though, in the provenance
+ * {@link offProductFromTwin} unwraps. Returns empty for a non-OFF twin.
  */
 export function offReferenceImagesFromTwin(
   attributes: Record<string, unknown> | undefined
 ): string[] {
-  const provenance = attributes?.["twin/raw_provenance"] as
-    | RawProvenance<OFFProduct>
-    | undefined;
-  if (provenance?.adapter !== "off") return [];
-  const product = provenance.raw_data?.product;
+  const product = offProductFromTwin(attributes);
   return product ? offReferenceImages(product) : [];
+}
+
+/**
+ * The unit OFF holds the pack in — its `product_quantity_unit` — recovered from
+ * a saved twin, for the contribution guard (ADR-0060 §8) to weigh against the
+ * basis the user declared.
+ *
+ * Undefined has two causes the caller cannot tell apart and does not need to:
+ * OFF parsed no quantity from the product, or there is no OFF product at all
+ * (the barcode is being added for the first time). Either way OFF's own `100`
+ * resolves to grams, which is exactly how {@link basisUnitDisputed} reads it.
+ */
+export function offPackUnitFromTwin(
+  attributes: Record<string, unknown> | undefined
+): string | undefined {
+  return offProductFromTwin(attributes)?.product_quantity_unit;
 }
 
 export class ProductNotFoundError extends Error {
@@ -625,6 +658,16 @@ export interface OffContribution {
    */
   ingredientsText?: string;
   /**
+   * The unit OFF holds the pack itself in — its `product_quantity_unit`, read
+   * back off the twin's raw provenance ({@link offPackUnitFromTwin}). Absent
+   * when OFF could parse no quantity from the product, and when there is no OFF
+   * product at all (a barcode being added for the first time).
+   *
+   * It is here for one job: {@link buildOffWriteBody} suppresses the nutriments
+   * when it disagrees with the basis we measured them against (ADR-0060 §8).
+   */
+  packQuantityUnit?: string;
+  /**
    * The confirmed panel: grams (kcal for energy), `serving_size` its basis. Only
    * the keys the user actually supplied are present — an absent key is simply not
    * posted (absent ≠ 0), so a partial panel never writes phantom zeroes to OFF.
@@ -700,18 +743,56 @@ export function buildOffWriteBody(
   // drink, and posting our own `100 ml` verbatim would send an out-of-enum value.
   // Letting a `100 ml` panel fall through to `serving` would be worse still: it
   // would declare the whole nutriment set as one serving of "100 ml".
+  //
+  // That `100g` is only right while OFF's resolution lands on the unit we
+  // actually measured in, which is what {@link basisUnitDisputed} checks — and
+  // when it doesn't, the whole nutriment set stays home (ADR-0060 §8).
   const per100 = isPer100Basis(n.serving_size);
-  body.set("nutrition_data_per", per100 ? "100g" : "serving");
-  if (!per100 && n.serving_size) body.set("serving_size", n.serving_size);
+  if (!basisUnitDisputed(n.serving_size, contribution.packQuantityUnit)) {
+    body.set("nutrition_data_per", per100 ? "100g" : "serving");
+    if (!per100 && n.serving_size) body.set("serving_size", n.serving_size);
 
-  for (const [key, id] of NUTRIMENT_IDS) {
-    const value = n[key];
-    if (typeof value !== "number") continue;
-    body.set(`nutriment_${id}`, String(value));
-    // Grams for every mass field, kcal for energy — our stored units.
-    body.set(`nutriment_${id}_unit`, id === "energy-kcal" ? "kcal" : "g");
+    for (const [key, id] of NUTRIMENT_IDS) {
+      const value = n[key];
+      if (typeof value !== "number") continue;
+      body.set(`nutriment_${id}`, String(value));
+      // Grams for every mass field, kcal for energy — our stored units.
+      body.set(`nutriment_${id}_unit`, id === "energy-kcal" ? "kcal" : "g");
+    }
   }
   return body;
+}
+
+/**
+ * Does the pack's own unit contradict the unit our per-100 panel was measured
+ * in (ADR-0060 §8)? True means the contribution posts its name, brand, category
+ * and ingredients and keeps its numbers to itself.
+ *
+ * ADR-0052 §3 posts OFF's `100g` for either per-100 basis, resting on OFF
+ * resolving that 100 to the product's own base unit. The three-way basis toggle
+ * (ADR-0060 §7) can break that: a user may declare `100 ml` on a product OFF
+ * holds in grams, or the reverse on a drink powder. Nothing on hand says which
+ * of the two is right, and a coin-flip is not a contribution — ADR-0052 §3's own
+ * principle being that a wrong basis in a public database is worse than a wrong
+ * number on our own panel.
+ *
+ * An absent pack unit reads as grams, exactly as {@link offPanelBasis} reads it
+ * on the way in: OFF resolves its `100` to grams by default, so declaring
+ * millilitres against a product it parsed no quantity from — or against a
+ * barcode it has no record of yet — is the same mislabel. That deliberately
+ * suppresses more contributions than there are genuinely ambiguous packs.
+ *
+ * A per-SERVING basis is never disputed: it posts its own `serving_size` string,
+ * so the unit is spelled out rather than resolved and there is nothing to
+ * disagree with. (A serving is always stamped in grams today; a volume serving
+ * basis is the gap ADR-0060 leaves open, not one this guard can close.)
+ */
+function basisUnitDisputed(
+  serving_size: string | undefined,
+  packQuantityUnit: string | undefined
+): boolean {
+  if (!isPer100Basis(serving_size)) return false;
+  return basisUnit(serving_size) !== measuredUnitFrom(packQuantityUnit ?? "");
 }
 
 /**
