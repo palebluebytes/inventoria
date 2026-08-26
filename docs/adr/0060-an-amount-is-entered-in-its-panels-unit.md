@@ -1,7 +1,8 @@
 # ADR 0060: An amount is entered in the unit its panel is measured in, and nothing converts
 
 **Status:** Accepted  
-**Date:** 2026-08-26
+**Date:** 2026-08-26  
+**Implemented:** #169 `2287b5d` (the unit union), #170 `f49c2e8` (the amount field and the basis caption), #171 `ed7d394` (the logged quantity), #172 `4e69f6b` (the portion's own unit), #173 `ae98b01` (the third basis and the guarded contribution)
 
 This record amends [ADR-0052](0052-a-drinks-panel-is-carried-per-100-ml.md) §2 (the
 millilitre serving its portions declined to take), §3 (the contribution basis, now
