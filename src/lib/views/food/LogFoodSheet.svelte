@@ -29,7 +29,7 @@
     emptyMealDefaultHint,
   } from "../../food/recent-foods";
   import type { MealType } from "../../food/meal-type";
-  import { wayInLabel, type WayIn } from "../../food/ways-in";
+  import { wayInTitle, type WayIn } from "../../food/ways-in";
   import {
     parseBasisQuantity,
     scaleNutrition,
@@ -91,9 +91,12 @@
      */
     initialMethod?: string;
     /**
-     * Which header control opened this sheet (ADR-0059 §1). It titles the sheet
-     * with that control's own words. Absent in edit mode, which is not a way
-     * into a meal but a correction of something already in one.
+     * Which header control opened this sheet (ADR-0059 §1). It fixes the method
+     * and titles the sheet. The title drops the meal the control named: the
+     * meal is settled by the tap that opened this, so repeating it spends the
+     * header's one line on what the user just did. Absent in edit mode, which
+     * is not a way into a meal but a correction of something already in one —
+     * it titles itself by the correction instead.
      */
     wayIn?: WayIn;
     /**
@@ -521,11 +524,7 @@
 
 <BottomSheet
   isOpen
-  title={edit
-    ? `Edit ${meal_type}`
-    : wayIn
-      ? wayInLabel(wayIn, meal_type)
-      : meal_type}
+  title={edit ? `Edit ${meal_type}` : wayIn ? wayInTitle(wayIn) : meal_type}
   flushBody
   {onClose}
   onBack={canGoBack ? goBack : undefined}

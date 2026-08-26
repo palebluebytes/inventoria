@@ -74,9 +74,21 @@ scan, search** — the past meal nearest the meal name, search furthest from it.
 
 ### 2. Each control opens its own single-purpose sheet, with no method dock
 
-A sheet reached from the header does one thing and says so in its title, which
-is the same words the control's accessible name used. It carries no tab dock,
-because the header already made that choice.
+A sheet reached from the header does one thing and says so in its title. It
+carries no tab dock, because the header already made that choice.
+
+**The control names the meal; its sheet does not.** These were one string when
+this record was written, on the reasoning that a sheet should say the same words
+the control that opened it said. They are two, because the two are answering
+different questions. A control has to identify itself among four identical
+siblings — the header repeats for every meal, so a name that omits the meal is
+worn by four buttons on one screen, which a screen reader reads out four times
+and a by-name lookup resolves wrongly. A sheet has no siblings: you reached it
+by tapping one control in one meal's header, so the meal is settled by the act
+that opened it, and repeating it spends the header's one line restating what the
+user just did. So `wayInLabel(kind, meal_type)` names the control and
+`wayInTitle(kind)` titles the sheet — "Scan a barcode for breakfast" over
+"Scan a barcode".
 
 This amends **ADR-0026**, which gave `FoodStager` "the method state and the
 Search / Scan / Custom sub-flows … and the method dock", and had `LogFoodSheet`

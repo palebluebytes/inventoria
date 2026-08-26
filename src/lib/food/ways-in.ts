@@ -22,9 +22,7 @@ export const WAYS_IN = ["past", "custom", "recipe", "scan", "search"] as const;
 export type WayIn = (typeof WAYS_IN)[number];
 
 /**
- * What a control is called. This is both the button's accessible name and the
- * title of the sheet it opens, because a single-purpose sheet should say the
- * same thing the control that opened it said (ADR-0059 §2).
+ * What a CONTROL is called — its accessible name in the meal header.
  *
  * EVERY label names its meal, including the two where the meal adds nothing to
  * the action itself. The header repeats for all four meals, so a name that
@@ -32,6 +30,9 @@ export type WayIn = (typeof WAYS_IN)[number];
  * reader announces four identical "Scan a barcode"s, and any by-name lookup
  * matches the wrong one. Naming the meal is what makes a control identify
  * itself, which is the job the old `+` did with "Add breakfast".
+ *
+ * The sheet it opens is titled by {@link wayInTitle}, which drops the meal —
+ * see there for why the two diverge.
  */
 export function wayInLabel(kind: WayIn, meal_type: MealType): string {
   switch (kind) {
@@ -45,5 +46,29 @@ export function wayInLabel(kind: WayIn, meal_type: MealType): string {
       return `Scan a barcode for ${meal_type}`;
     case "search":
       return `Search for a ${meal_type} food`;
+  }
+}
+
+/**
+ * What the SHEET a way in opens is called (ADR-0059 §2, as amended).
+ *
+ * The meal is deliberately absent. A control has to identify itself among four
+ * identical siblings, so {@link wayInLabel} names the meal; a sheet has no
+ * siblings — you reached it by tapping one control in one meal's header, and
+ * the meal is settled by the act that opened it. Repeating it in the title
+ * spends the header's one line restating what the user just did.
+ */
+export function wayInTitle(kind: WayIn): string {
+  switch (kind) {
+    case "past":
+      return "Copy a past";
+    case "custom":
+      return "Quick entry";
+    case "recipe":
+      return "Log a recipe";
+    case "scan":
+      return "Scan a barcode";
+    case "search":
+      return "Ingredient search";
   }
 }

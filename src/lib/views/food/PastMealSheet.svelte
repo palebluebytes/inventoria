@@ -7,6 +7,7 @@
   } from "../../food/recipe-ingredient";
   import { calorieDisplayDecimals } from "../../stores/settings.store";
   import { dayLabel, type PastMeal } from "../../food/past-meals";
+  import { wayInTitle } from "../../food/ways-in";
   import type { MealType } from "../../food/meal-type";
 
   // The past-meal picker (ADR-0058 §12): one row per past day, newest first,
@@ -43,7 +44,7 @@
 <!-- `fillHeight`: how many past meals you have is a fact about your history, not
      about this sheet, so the sheet opens at the same size the staging sheets do
      whether it holds one row or twenty. -->
-<BottomSheet isOpen title="Copy a past {meal_type}" fillHeight {onClose}>
+<BottomSheet isOpen title={wayInTitle("past")} fillHeight {onClose}>
   <ul class="pm-list" data-testid="past-meal-list">
     {#each meals as meal (meal.date.getTime())}
       <li>

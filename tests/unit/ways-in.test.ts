@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { WAYS_IN, wayInLabel, type WayIn } from "../../src/lib/food/ways-in";
+import {
+  WAYS_IN,
+  wayInLabel,
+  wayInTitle,
+  type WayIn,
+} from "../../src/lib/food/ways-in";
 import { MEAL_TYPES } from "../../src/lib/food/meal-type";
 
 // The ways into a meal (ADR-0059 §1). The order is load-bearing — it is what
@@ -65,6 +70,37 @@ describe("wayInLabel", () => {
         const label = wayInLabel(kind as WayIn, meal);
         expect(label.length).toBeGreaterThan(0);
         expect(label).not.toMatch(/undefined/);
+      }
+  });
+});
+
+describe("wayInTitle", () => {
+  // The sheet has no siblings to be told apart from — you reached it by tapping
+  // one control in one meal's header — so it drops the meal the control named.
+  it("names the action without the meal", () => {
+    expect(wayInTitle("past")).toBe("Copy a past");
+    expect(wayInTitle("custom")).toBe("Quick entry");
+    expect(wayInTitle("recipe")).toBe("Log a recipe");
+    expect(wayInTitle("scan")).toBe("Scan a barcode");
+    expect(wayInTitle("search")).toBe("Ingredient search");
+  });
+
+  it("gives every way in a title", () => {
+    for (const kind of WAYS_IN) {
+      const title = wayInTitle(kind as WayIn);
+      expect(title.length).toBeGreaterThan(0);
+      expect(title).not.toMatch(/undefined/);
+    }
+  });
+
+  // The two functions answer different questions, and the header's uniqueness
+  // rule belongs to the control alone. A title that had to be unique across
+  // meals would be back to naming the meal.
+  it("never names a meal, unlike the control's own label", () => {
+    for (const kind of WAYS_IN)
+      for (const meal of MEAL_TYPES) {
+        expect(wayInTitle(kind as WayIn)).not.toContain(meal);
+        expect(wayInLabel(kind as WayIn, meal)).toContain(meal);
       }
   });
 });
