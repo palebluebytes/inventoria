@@ -129,6 +129,13 @@ export function toReferenceIngredient(
 }
 
 /**
+ * The basis a food was logged on: a gram amount, or a whole serving. The
+ * catalogue rule keys off it (`isCatalogueFood`, ADR-0035 §6), so it is named
+ * here — where it is decided — rather than restated by each reader.
+ */
+export type LoggedUnit = "g" | "serving";
+
+/**
  * Parses a logged Consumption Event's quantity ("150g", "1 serving") back into
  * the `{ amount, unit }` that a reference ingredient scales its twin's panel by
  * (ADR-0021). A gram amount scales the twin's per-100g panel; anything else is
@@ -137,7 +144,7 @@ export function toReferenceIngredient(
  */
 export function parseLoggedQuantity(quantity: string | undefined): {
   amount: number;
-  unit: "g" | "serving";
+  unit: LoggedUnit;
 } {
   const grams = /^\s*([\d.]+)\s*g\b/i.exec(quantity ?? "");
   if (grams) return { amount: parseFloat(grams[1]), unit: "g" };

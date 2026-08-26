@@ -1,5 +1,6 @@
 import type { ConsumptionEvent } from "./consumption-state";
-import { parseLoggedQuantity } from "./recipe-ingredient";
+import { parseLoggedQuantity, type LoggedUnit } from "./recipe-ingredient";
+import type { MealType } from "./meal-type";
 
 /**
  * The meal's default content (ADR-0057).
@@ -29,7 +30,7 @@ import { parseLoggedQuantity } from "./recipe-ingredient";
  */
 export interface RecentCandidate {
   target: string;
-  unit: "g" | "serving";
+  unit: LoggedUnit;
 }
 
 /**
@@ -46,26 +47,9 @@ export interface RecentCandidate {
  * — and the recompute happens when the store CHANGES (a log, a retraction), not
  * on render.
  */
-/**
- * What the Search tab says when this meal's default is empty (ADR-0057 §5).
- *
- * A blank default used to render as silence, which a first-run user reads
- * correctly and a user with months of history does not: scoping means someone
- * who has never logged a breakfast now meets a blank where they are used to
- * twelve foods, and silence there reads as broken. So the line names the MEAL —
- * saying there is nothing *for this meal* rather than nothing at all — and says
- * what fills it, since the mechanism is not visible from the empty surface.
- *
- * Not a route out: search is already the thing above it, and the twelve slots
- * are never topped up from other meals to hide this state.
- */
-export function emptyMealDefaultHint(meal_type: string): string {
-  return `Nothing logged at ${meal_type} yet. Foods you log here will be waiting next time.`;
-}
-
 export function recentCandidatesForMeal(
   events: readonly ConsumptionEvent[],
-  meal_type: string
+  meal_type: MealType
 ): RecentCandidate[] {
   const seen = new Set<string>();
   const candidates: RecentCandidate[] = [];
@@ -82,4 +66,44 @@ export function recentCandidatesForMeal(
   }
 
   return candidates;
+}
+
+/**
+ * Why a meal's default came back empty, as the caller can tell it apart.
+ *
+ * The two are not the same claim and the surface must not conflate them: the
+ * walk above reports what was LOGGED at the meal, and the caller then drops
+ * whatever the catalogue rule refuses (ADR-0035 §6) or whose twin has gone. A
+ * meal logged only as quick-estimate one-offs has history and offers nothing.
+ */
+export type EmptyMealDefaultReason =
+  /** Nothing has ever been logged at this meal. */
+  | "none"
+  /** Foods were logged here, but none of them can be offered again. */
+  | "nothing-reusable";
+
+/**
+ * What the Search tab says when this meal's default is empty (ADR-0057 §5).
+ *
+ * A blank default used to render as silence, which a first-run user reads
+ * correctly and a user with months of history does not: scoping means someone
+ * who has never logged a breakfast now meets a blank where they are used to
+ * twelve foods, and silence there reads as broken. So the line names the MEAL —
+ * saying there is nothing *for this meal* rather than nothing at all.
+ *
+ * Only the `none` line says what fills the surface, because only there is that
+ * true. The `nothing-reusable` line says less on purpose: it must cover both a
+ * one-off amount the catalogue rule refuses and a twin that has since gone, so
+ * it states the outcome and names no cause it cannot vouch for.
+ *
+ * Neither offers a route out: search is already the thing above it, and the
+ * twelve slots are never topped up from other meals to hide this state.
+ */
+export function emptyMealDefaultHint(
+  meal_type: MealType,
+  reason: EmptyMealDefaultReason
+): string {
+  return reason === "none"
+    ? `Nothing logged at ${meal_type} yet. Foods you log here will be waiting next time.`
+    : `Nothing you've logged at ${meal_type} can be offered again. Search to add a food.`;
 }

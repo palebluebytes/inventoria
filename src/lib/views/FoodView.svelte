@@ -10,6 +10,7 @@
     type ConsumptionEvent,
   } from "../stores/calorie.store";
   import { scaleAmount, type ScaleOp } from "../food/scale-amount";
+  import { asMealType, type MealType } from "../food/meal-type";
   import {
     customIngredient,
     parseLoggedQuantity,
@@ -38,19 +39,6 @@
 
   import Card from "../ui/Card.svelte";
   import Badge from "../ui/Badge.svelte";
-
-  const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack"] as const;
-  type MealType = (typeof MEAL_TYPES)[number];
-
-  // Narrow a stored `event/meal_type` (an arbitrary ledger string) back to the
-  // MealType union at the single read boundary — validating membership rather
-  // than blindly casting, so an out-of-set value falls back instead of slipping
-  // through typed as valid. This is the one sanctioned meal_type cast.
-  function asMealType(value: string | undefined, fallback: MealType): MealType {
-    return (MEAL_TYPES as readonly string[]).includes(value ?? "")
-      ? (value as MealType)
-      : fallback;
-  }
 
   let { dbReady }: { dbReady: boolean } = $props();
 

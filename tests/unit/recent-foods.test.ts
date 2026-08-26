@@ -5,6 +5,8 @@ import {
   type RecentCandidate,
 } from "../../src/lib/food/recent-foods";
 import type { ConsumptionEvent } from "../../src/lib/food/consumption-state";
+import { parseLoggedQuantity } from "../../src/lib/food/recipe-ingredient";
+import { MEAL_TYPES } from "../../src/lib/food/meal-type";
 
 // The meal's default content (ADR-0057): opening `breakfast` offers the foods
 // logged at breakfast. Pure and datoms-in/result-out, so the rule is asserted
@@ -202,14 +204,29 @@ describe("emptyMealDefaultHint", () => {
     // The distinction the line exists for: a user with months of history opening
     // a meal they have never logged must be able to tell "nothing HERE" from
     // "nothing at all".
-    for (const meal_type of ["breakfast", "lunch", "dinner", "snack"]) {
-      expect(emptyMealDefaultHint(meal_type)).toContain(meal_type);
+    for (const meal_type of MEAL_TYPES) {
+      expect(emptyMealDefaultHint(meal_type, "none")).toContain(meal_type);
+      expect(emptyMealDefaultHint(meal_type, "nothing-reusable")).toContain(
+        meal_type
+      );
     }
   });
 
   it("says what fills it, since the empty surface does not show the mechanism", () => {
-    expect(emptyMealDefaultHint("breakfast")).toMatchInlineSnapshot(
+    expect(emptyMealDefaultHint("breakfast", "none")).toMatchInlineSnapshot(
       `"Nothing logged at breakfast yet. Foods you log here will be waiting next time."`
+    );
+  });
+
+  it("does not claim nothing was logged when the catalogue rule emptied the list", () => {
+    // A user who logs breakfast only as quick-estimate one-offs has candidates
+    // and no offerable foods (ADR-0035 §6). Telling them "nothing logged yet" is
+    // false, and re-creates the reads-as-broken failure the line exists to stop.
+    const hint = emptyMealDefaultHint("breakfast", "nothing-reusable");
+
+    expect(hint).not.toContain("Nothing logged");
+    expect(hint).toMatchInlineSnapshot(
+      `"Nothing you've logged at breakfast can be offered again. Search to add a food."`
     );
   });
 });
@@ -246,22 +263,64 @@ describe("recentCandidatesForMeal over a synthetic ledger", () => {
     expect(new Set(targets(candidates)).size).toBe(candidates.length);
   });
 
-  it("costs no more per call than the unscoped walk it replaces", () => {
-    // The pin behind #128's performance criterion. The bound is deliberately
-    // loose: this runs on shared CI where wall-clock is noisy, and the claim
-    // being defended is only that removing the forty-candidate cap did not
-    // change the shape of the work. It did not — both walks sort the same array
-    // once, and the sort dominates the linear pass either way.
+  /**
+   * The walk this replaced, kept here so the bench below has something to
+   * compare against: unscoped, and stopping at forty distinct candidates.
+   * `RECENT_CANDIDATES = 40` is gone from the app (ADR-0057 §4) and this is the
+   * only surviving copy — it is a measuring stick, not a fallback.
+   */
+  function cappedUnscopedWalk(
+    events: readonly ConsumptionEvent[]
+  ): RecentCandidate[] {
+    const seen = new Set<string>();
+    const candidates: RecentCandidate[] = [];
+    for (const event of [...events].sort((a, b) => b.time - a.time)) {
+      if (candidates.length >= 40) break;
+      if (!event.target || seen.has(event.target)) continue;
+      seen.add(event.target);
+      candidates.push({
+        target: event.target,
+        unit: parseLoggedQuantity(event.quantity).unit,
+      });
+    }
+    return candidates;
+  }
+
+  it("costs no more per call than the capped walk it replaces", () => {
+    // The pin behind #128's performance criterion, stated as a RATIO against the
+    // old implementation rather than an absolute millisecond bound — an absolute
+    // bound loose enough to survive shared CI is loose enough to survive any
+    // regression worth catching, and a ratio between two walks over the same
+    // array cancels the noise that makes wall-clock unreliable here.
+    //
+    // The claim being defended: removing the forty-candidate cap did not change
+    // the shape of the work, because both walks copy and sort the entire history
+    // once and the sort dominates the linear pass either way. What this would
+    // catch is a future edit that reintroduces per-candidate work — an I/O call,
+    // or a scan that turns the dedupe quadratic.
     //
     // Worth recording alongside it: this derivation recomputes when the
     // consumption store CHANGES — a log or a retraction — not on render.
     const events = syntheticLedger(5_000);
+    const RUNS = 50;
 
-    const started = performance.now();
-    for (let i = 0; i < 50; i += 1)
+    // Warm both paths first, so neither pays the other's JIT cost.
+    for (let i = 0; i < 10; i += 1) {
       recentCandidatesForMeal(events, "breakfast");
-    const perCall = (performance.now() - started) / 50;
+      cappedUnscopedWalk(events);
+    }
 
-    expect(perCall).toBeLessThan(20);
+    const beforeCapped = performance.now();
+    for (let i = 0; i < RUNS; i += 1) cappedUnscopedWalk(events);
+    const cappedPerCall = (performance.now() - beforeCapped) / RUNS;
+
+    const beforeScoped = performance.now();
+    for (let i = 0; i < RUNS; i += 1)
+      recentCandidatesForMeal(events, "breakfast");
+    const scopedPerCall = (performance.now() - beforeScoped) / RUNS;
+
+    // Four times the old walk. Both should land within a hair of each other; the
+    // headroom is for a loaded CI box, not for a real cost difference.
+    expect(scopedPerCall).toBeLessThan(cappedPerCall * 4);
   });
 });

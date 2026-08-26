@@ -28,6 +28,7 @@
     recentCandidatesForMeal,
     emptyMealDefaultHint,
   } from "../../food/recent-foods";
+  import type { MealType } from "../../food/meal-type";
   import {
     parseBasisQuantity,
     scaleNutrition,
@@ -71,7 +72,7 @@
     initialMethod = undefined,
   }: {
     dbReady: boolean;
-    meal_type: "breakfast" | "lunch" | "dinner" | "snack";
+    meal_type: MealType;
     selectedDate: Date;
     onClose: () => void;
     /** Tab to open on (e.g. "recipe"). Defaults to Search. */
@@ -201,9 +202,18 @@
 
   // Edit mode hides Recent entirely (it locks onto one food's amount), so it
   // gets no line either — an empty list there is the point, not a shortfall.
+  let showsMealDefault = $derived(!edit);
+
+  // Which emptiness this is, since the two make different claims. Candidates are
+  // what was LOGGED here; `recent` is what survived the catalogue rule and the
+  // twin lookup. A meal logged only as quick-estimate one-offs has plenty of
+  // history and nothing to offer, and must not be told "nothing logged yet".
   let recentEmptyHint = $derived(
-    !edit && recentResolved && recent.length === 0
-      ? emptyMealDefaultHint(meal_type)
+    showsMealDefault && recentResolved && recent.length === 0
+      ? emptyMealDefaultHint(
+          meal_type,
+          recentCandidates.length > 0 ? "nothing-reusable" : "none"
+        )
       : ""
   );
 
@@ -504,7 +514,7 @@
     manualIntents
     mealName={meal_type}
     lockMethods={!!edit}
-    recent={edit ? [] : recent}
+    recent={showsMealDefault ? recent : []}
     {recentEmptyHint}
     primaryDisabled={!dbReady}
     ids={{
