@@ -166,6 +166,10 @@ _Avoid_: mealType, meal-type
 The log sheet's default content for one Meal Type (ADR-0057): the distinct food Digital Twins previously logged at **that** meal, newest first, capped at twelve. It is a default rather than a result — judged on being apt, not complete, because search reaches everything else from the same screen — so it is never topped up from other meals to fill its cap, and a meal with no history correctly shows none. Scoping is read per Consumption Event from `meal_type`, so a twin logged at two meals is Recent for both. Membership still passes the catalogue rule (ADR-0035 §6).
 _Avoid_: Recent list (when the unscoped pre-ADR-0057 behavior is meant), recently used, history, food log
 
+**Past meal**:
+A meal as it was logged on an earlier day: its foods _and_ their amounts. Copying one appends those entries to the meal you are viewing (ADR-0058) — wholesale, at the amounts recorded, on the current clock, and only into the same Meal Type. It is the counterpart to **Recent** and the distinction is the point: Recent offers you a food, a past meal offers you an occasion you actually ate, which is why the catalogue rule (ADR-0035 §6) filters the first and not the second. A logged Recipe Instantiation is reproduced from its frozen snapshot, never re-derived from the template.
+_Avoid_: Repeat (that word means recurrence _scheduling_ in this app — `EventRecurrenceField`, `ScheduleRuleEditor`), duplicate, clone, re-log, copy meal
+
 **Engagement Event**:
 A logged instance of watching a movie/show or reading a book, recorded as a timestamped action in the ledger (`WatchAction` or `ReadAction`) linking to a media Digital Twin. All media engagements share one closed status enum: `saved`, `started`, `progress`, `completed`.
 _Avoid_: Consumption event (when referring to media), activity log

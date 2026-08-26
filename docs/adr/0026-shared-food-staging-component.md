@@ -1,6 +1,7 @@
 # ADR 0026: One food-staging component, shared by the direct-log and add-ingredient sheets
 
 **Status:** Accepted  
+**Amended by:** ADR-0059 §2 (the log flow's method dock moves to the meal header; the dock becomes a host's choice, and `AddIngredientSheet` is the only host that keeps it)  
 **Implemented:** `FoodStager.svelte`, `food-staging.ts`
 
 ## Context
