@@ -2,8 +2,9 @@ import type { FoodResult } from "./food-search";
 import type { EntityPayload } from "../ingestion/ingest";
 import {
   isMeasuredUnit,
+  measuredUnitFrom,
   nutritionFromMacros,
-  roundFoodDisplay,
+  roundFood,
   PER_SERVING,
   type AmountUnit,
   type NutritionInfo,
@@ -127,24 +128,26 @@ export function unitLabel(amount: number, unit: AmountUnit): string {
 
 /**
  * The app's one quantity phrase: "363g" / "330ml" for a measured amount (no
- * space), "1 serving" for a whole-serving one. The amount is shown at the fixed
- * display precision — it mirrors what the user typed, so the whole-number
- * nutrition toggle (which governs derived nutrients, not entered amounts)
- * deliberately skips it.
+ * space), "1 serving" for a whole-serving one. It mirrors what the user typed,
+ * so the whole-number nutrition toggle — which governs derived nutrients, not
+ * entered amounts — deliberately skips it.
  *
- * Every surface that shows a logged amount reads it from here — **and so does
- * every site that writes one** (ADR-0060 §4): `event/quantity` is spelled by
- * this function alone, so the logged row, the past-meal row that will become it
- * and the string in the ledger cannot phrase the same amount three ways.
+ * Every surface that shows a logged amount reads it from here, **and every site
+ * that writes one spells it from here too** (ADR-0060 §4): `event/quantity` is
+ * built by this function alone, so the logged row, the past-meal row that will
+ * become it and the string in the ledger cannot phrase the same amount three
+ * ways.
  *
- * Being the write site too, `event/quantity` now records the amount at display
- * precision rather than the finer `FOOD_DECIMALS` an expression like
- * "100/3" evaluates to. That is the trade the one spelling buys, and it costs
- * nothing that is read: the frozen `event/metrics` derive from the entered
- * amount, not from this string.
+ * Being a write site is why it rounds at storage rather than display precision.
+ * `event/quantity` is parsed back — the amount picker opens on it, the bulk ×/÷
+ * rescales it, a recipe seeds from it — so it is data, and
+ * {@link FOOD_DISPLAY_DECIMALS} exists to trim what the view renders while "the
+ * data keeps its full precision". Every amount reaching here has already been
+ * clamped to {@link FOOD_DECIMALS} at entry, so this rounds nothing away; it
+ * only refuses to introduce a lossy step on the way to the ledger.
  */
 export function quantityLabel(amount: number, unit: AmountUnit): string {
-  return `${roundFoodDisplay(amount)}${isMeasuredUnit(unit) ? "" : " "}${unitLabel(
+  return `${roundFood(amount)}${isMeasuredUnit(unit) ? "" : " "}${unitLabel(
     amount,
     unit
   )}`;
@@ -184,7 +187,7 @@ export function parseLoggedQuantity(quantity: string | undefined): {
   if (measured) {
     return {
       amount: parseFloat(measured[1]),
-      unit: measured[2].toLowerCase() === "ml" ? "ml" : "g",
+      unit: measuredUnitFrom(measured[2]),
     };
   }
   return { amount: 1, unit: "serving" };

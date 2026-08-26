@@ -19,10 +19,11 @@
   // the dashboard retract-and-replaces the logged event (append-only, ADR-0008)
   // — without this sheet knowing which. The amount is in the food's OWN panel
   // unit and nothing converts (ADR-0060 §1/§2): grams for a weight basis,
-  // millilitres for a drink published per 100 ml. A per-serving food is passed
-  // in with its serving surfaced as a "1 serving — N g" portion chip (via the
-  // caller's servingSizePortion), so a whole-serving food is edited by
-  // measurement too.
+  // millilitres for a drink published per 100 ml. The control below still names
+  // grams either way — taking the unit as a prop is ADR-0060 §3's step, not this
+  // one's. A per-serving food is passed in with its serving surfaced as a
+  // "1 serving — N g" portion chip (via the caller's servingSizePortion), so a
+  // whole-serving food is edited by measurement too.
   //
   // The body IS the staging screen's food card (FoodCard): the same tags, name,
   // meta row, amount control and allergen block, derived from the same twin. The

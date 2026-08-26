@@ -109,7 +109,8 @@ export function isPoorFoodTwin(input: {
  * logged food twin's attributes and the UNIT it was logged in, decides whether it
  * belongs in the reusable Recent/Search list:
  *
- * - A **gram-basis** log always qualifies (searched/scanned foods, unchanged).
+ * - A **measured** log — grams or millilitres — always qualifies
+ *   (searched/scanned foods, unchanged).
  * - A **whole-serving** log qualifies **only** when it is a reusable `menu`
  *   manual entry. A `quick_estimate` / `plate_estimate` one-off, a legacy custom,
  *   and a label capture all stay out — they re-open via the edit path, never as a

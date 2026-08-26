@@ -111,23 +111,24 @@
     attributes: Record<string, any>;
   } | null>(null);
   let instantiate_edit = $state<ConsumptionEvent | null>(null);
-  // A logged food resolved to the gram amount it is currently at, plus what the
-  // amount picker (the shared FoodAmountPanel; the dashboard equivalent of a
-  // recipe row tap) needs to show it: the twin's panel + portions, so the sheet
-  // shows the same screen the search flow does, with the food's serving
-  // surfaced as a chip. `grams` is the opening amount; Done retract-and-replaces
-  // the event via changeLoggedFoodAmount.
-  interface GramEdit {
+  // A logged food resolved to the amount it is currently at — in its panel's own
+  // unit, never converted (ADR-0060 §1) — plus what the amount picker (the shared
+  // FoodAmountPanel; the dashboard equivalent of a recipe row tap) needs to show
+  // it: the twin's panel + portions, so the sheet shows the same screen the
+  // search flow does, with the food's serving surfaced as a chip. `amount` is
+  // what the picker opens at; Done retract-and-replaces the event via
+  // changeLoggedFoodAmount.
+  interface AmountEdit {
     event: ConsumptionEvent;
     name: string;
-    grams: number;
+    amount: number;
     panel?: NutritionInfo;
     portions: Portion[];
     /** The resolved food twin — the card derives every mark on it from this. */
     payload: EntityPayload;
   }
   // The food whose amount is being changed in the picker sheet (null = closed).
-  let amountEdit = $state<GramEdit | null>(null);
+  let amountEdit = $state<AmountEdit | null>(null);
 
   // Explainer handoff seam (#92, ADR-0041 §6): tapping the food-detail badge parks
   // its verdict here for the explainer sheet (ticket C) to mount off. #91 owns
@@ -216,14 +217,14 @@
       instantiateOpen = true;
       return;
     }
-    const gramEdit = await resolveGramEdit(item);
-    if (gramEdit) {
-      amountEdit = gramEdit;
+    const resolved = await resolveAmountEdit(item);
+    if (resolved) {
+      amountEdit = resolved;
       return;
     }
 
-    // A weightless "1 serving" custom food (no panel or no gram basis to scale
-    // by) can't be gram-edited, so it still opens the full edit sheet where its
+    // A weightless "1 serving" custom food (no panel or no basis to scale
+    // by) can't be amount-edited, so it still opens the full edit sheet where its
     // macros, name and photo remain editable.
     editEvent = item;
     edit_label = false;
@@ -244,9 +245,9 @@
    * The tap-to-edit path and the selection bar's bulk ×/÷ both read the basis
    * through here, so the two can never disagree about which foods are scalable.
    */
-  async function resolveGramEdit(
+  async function resolveAmountEdit(
     item: ConsumptionEvent
-  ): Promise<GramEdit | null> {
+  ): Promise<AmountEdit | null> {
     const { amount, unit } = parseLoggedQuantity(item.quantity);
     const twin = item.target ? await getLocalFoodTwin(item.target) : null;
     const panel = twin?.attributes?.["nutrition/info"] as
@@ -265,7 +266,7 @@
     ]);
     // A gram basis to open at and scale against: the panel's weighed serving if
     // it has one, else the food's first real portion weight (the OFF serving). A
-    // food with neither has no gram basis and can't be gram-edited.
+    // food with neither has no gram basis and can't be amount-edited.
     const servingGrams =
       (panel ? servingSizeGrams(panel.serving_size) : null) ??
       portions.find((p) => Number.isFinite(p.grams) && p.grams > 0)?.grams ??
@@ -275,16 +276,16 @@
     // serving's gram weight × how many servings were logged (per-serving foods
     // with a gram basis). Anything else has no basis and stays null → falls
     // through to the full sheet.
-    let openGrams: number | null = null;
-    if (isMeasuredUnit(unit)) openGrams = amount;
+    let openAmount: number | null = null;
+    if (isMeasuredUnit(unit)) openAmount = amount;
     else if (panel != null && servingGrams != null)
-      openGrams = servingGrams * amount;
+      openAmount = servingGrams * amount;
 
-    if (openGrams == null) return null;
+    if (openAmount == null) return null;
     return {
       event: item,
       name: item.foodName ?? "Food",
-      grams: openGrams,
+      amount: openAmount,
       panel,
       portions,
       // A twin-less event still carries the id it was logged against, and the
@@ -389,11 +390,11 @@
 
   /**
    * Rescales every selected food by the factor, append-only: each one is
-   * re-logged at its scaled gram amount and the original retracted, so the day's
+   * re-logged at its scaled amount and the original retracted, so the day's
    * nutrition re-derives from the twins rather than being edited in place — the
    * same path the amount picker's Done takes, applied across the selection.
    *
-   * Two kinds of logged food carry no gram amount to scale: a weightless
+   * Two kinds of logged food carry no amount to scale: a weightless
    * "1 serving" custom entry (a quick calorie estimate has no weight to double)
    * and a Recipe Instantiation, which is corrected on its own editor so its
    * frozen per-ingredient snapshot stays coherent (ADR-0022). Both are left
@@ -414,13 +415,13 @@
         // Per food, so one failed append leaves the rest of the selection
         // scalable instead of aborting the run half-applied.
         try {
-          const gramEdit = item.instantiation
+          const scalable = item.instantiation
             ? null
-            : await resolveGramEdit(item);
-          const newId = gramEdit
+            : await resolveAmountEdit(item);
+          const newId = scalable
             ? await changeLoggedFoodAmount(
                 item,
-                scaleAmount(gramEdit.grams, factor, op)
+                scaleAmount(scalable.amount, factor, op)
               )
             : null;
           if (!newId) {
@@ -615,12 +616,13 @@
 
 <!-- Amount picker — change a logged food's amount, append-only. The same sheet a
      recipe ingredient row opens (and the search flow stages into); here Done
-     retract-and-replaces the event in grams via changeLoggedFoodAmount. -->
+     retract-and-replaces the event via changeLoggedFoodAmount, in the panel's
+     own unit. -->
 {#if amountEdit}
   {@const ae = amountEdit}
   <IngredientAmountSheet
     name={ae.name}
-    amount={ae.grams}
+    amount={ae.amount}
     panel={ae.panel}
     portions={ae.portions}
     payload={ae.payload}
@@ -628,7 +630,7 @@
     onExplainNova={(v) => (novaExplain = v)}
     onExplainSource={(kind) => (sourceExplain = kind)}
     onExplainDietary={(v) => (dietaryExplain = v)}
-    onCommit={(grams) => changeLoggedFoodAmount(ae.event, grams)}
+    onCommit={(amount) => changeLoggedFoodAmount(ae.event, amount)}
     onClose={() => (amountEdit = null)}
   />
 {/if}

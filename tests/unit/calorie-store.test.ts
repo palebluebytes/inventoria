@@ -10,6 +10,7 @@ import {
   logRecipeConsumption,
   correctInstantiation,
   retractConsumptionEvent,
+  type ConsumptionEvent,
   changeLoggedFoodAmount,
   consumptionForDay,
   copyPastMeal,
@@ -693,30 +694,26 @@ describe("changeLoggedFoodAmount", () => {
     // and goes uneditable once the amount screen starts naming its unit.
     // Nothing converts: 330 against the panel's own 100 is the same division a
     // gram basis gets (§2).
+    const COLA_PANEL: NutritionInfo = {
+      serving_size: "100 ml",
+      calories: 42,
+      carbohydrate_content: 10.6,
+    };
     vi.spyOn(dbClient, "query").mockResolvedValue([
-      {
-        attribute: "nutrition/info",
-        value: JSON.stringify({
-          serving_size: "100 ml",
-          calories: 42,
-          carbohydrate_content: 10.6,
-        } satisfies NutritionInfo),
-      },
-    ] as any);
+      { attribute: "nutrition/info", value: JSON.stringify(COLA_PANEL) },
+    ]);
     const mockAppend = vi
       .spyOn(dbClient, "append")
       .mockResolvedValue(undefined);
 
-    await changeLoggedFoodAmount(
-      {
-        id: "event:consume_old",
-        target: "gtin:cola",
-        quantity: "500ml",
-        meal_type: "lunch",
-        time: new Date("2026-05-31T12:00:00").getTime(),
-      } as any,
-      330
-    );
+    const cola: ConsumptionEvent = {
+      id: "event:consume_old",
+      target: "gtin:cola",
+      quantity: "500ml",
+      meal_type: "lunch",
+      time: new Date("2026-05-31T12:00:00").getTime(),
+    };
+    await changeLoggedFoodAmount(cola, 330);
 
     const newDatoms = mockAppend.mock.calls[0][0];
     expect(newDatoms.find((d) => d.attribute === "event/quantity")?.value).toBe(

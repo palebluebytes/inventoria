@@ -198,6 +198,15 @@ describe("quantityLabel", () => {
     expect(quantityLabel(2, "serving")).toBe("2 servings");
   });
 
+  it("keeps a finely-entered amount whole, being the write site too", () => {
+    // `event/quantity` is parsed back — the picker opens on it, the bulk x/÷
+    // rescales it — so spelling it at display precision would drop a decimal
+    // from stored data. An amount typed as "100/3" reaches here already clamped
+    // to the storage precision, and must survive it.
+    expect(quantityLabel(33.333, "g")).toBe("33.333g");
+    expect(parseLoggedQuantity(quantityLabel(33.333, "g")).amount).toBe(33.333);
+  });
+
   it("round-trips through parseLoggedQuantity", () => {
     // The one spelling (ADR-0060 §4): what a log is written with is what the
     // dashboard reads back.

@@ -401,7 +401,18 @@ export function parseBasisQuantity(serving_size: string | undefined): number {
  */
 export function basisUnit(serving_size: string | undefined): MeasuredUnit {
   const match = BASIS_QUANTITY.exec((serving_size ?? "").trim());
-  return match?.[2].toLowerCase() === "ml" ? "ml" : "g";
+  return match ? measuredUnitFrom(match[2]) : "g";
+}
+
+/**
+ * The unit a matched unit token names. Two regexes read a unit off a string — a
+ * panel's basis ({@link basisUnit}) and a logged quantity
+ * (`parseLoggedQuantity`) — and this is the one narrowing behind both, so they
+ * cannot come to different conclusions about the same "ml", and the next unit is
+ * added here once rather than in each of them.
+ */
+export function measuredUnitFrom(token: string): MeasuredUnit {
+  return token.trim().toLowerCase() === "ml" ? "ml" : "g";
 }
 
 /** The four macros the food dashboard and recipe builder display and sum. */
