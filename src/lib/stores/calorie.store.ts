@@ -155,6 +155,55 @@ export async function logFoodConsumption(
 }
 
 /**
+ * Copies a past meal's entries into `meal_type` on `selectedDate` (ADR-0058).
+ *
+ * Every field a copy needs is already frozen on the source event, so this
+ * re-logs rather than re-derives: the quantity is carried verbatim (§2), the
+ * `event/instantiation` snapshot travels as it was cooked rather than being
+ * re-read from a template that may since have been edited (§9), the full frozen
+ * panel goes through as the breakdown, and an absent macro stays absent rather
+ * than becoming a 0. The stamp is `logFoodConsumption`'s own — now's clock on
+ * the viewed day (§10).
+ *
+ * Per §11 it loops per item and catches per item, so one failed append leaves
+ * the rest of the meal copyable instead of aborting the run half-applied. This
+ * is `scaleSelected`'s contract in `FoodView.svelte`, and the counts it returns
+ * are what {@link copyTally} turns into a line — or into silence.
+ *
+ * `partitionCopyable` has already removed what cannot be reproduced, so `lost`
+ * here counts only appends that actually threw.
+ */
+export async function copyPastMeal(
+  items: ConsumptionEvent[],
+  meal_type: string,
+  selectedDate: Date
+): Promise<{ copied: number; lost: number }> {
+  let copied = 0;
+  let lost = 0;
+  for (const item of items) {
+    try {
+      await logFoodConsumption(
+        item.target as string,
+        item.quantity as string,
+        meal_type,
+        item.calories as number,
+        item.protein,
+        item.fat,
+        item.carbs,
+        selectedDate,
+        item.instantiation,
+        item.metrics
+      );
+      copied += 1;
+    } catch (e) {
+      console.error("copying a logged food failed", e);
+      lost += 1;
+    }
+  }
+  return { copied, lost };
+}
+
+/**
  * Saves a custom manual entry or photo-based food twin.
  */
 export async function saveCustomFood(
