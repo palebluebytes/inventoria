@@ -1,5 +1,6 @@
 import type { ConsumptionEvent } from "./consumption-state";
-import { parseLoggedQuantity, type LoggedUnit } from "./recipe-ingredient";
+import { parseLoggedQuantity } from "./recipe-ingredient";
+import type { AmountUnit } from "./nutrition";
 import type { MealType } from "./meal-type";
 
 /**
@@ -30,7 +31,7 @@ import type { MealType } from "./meal-type";
  */
 export interface RecentCandidate {
   target: string;
-  unit: LoggedUnit;
+  unit: AmountUnit;
 }
 
 /**

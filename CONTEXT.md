@@ -36,6 +36,10 @@ _Avoid_: Product, item, asset
 What a `nutrition/info` panel's figures are measured against, held on its `serving_size` field: `100 g` for a reference food or a solid product, `100 ml` for a drink Open Food Facts publishes by volume, or the serving a label prints (`30 g`, or a bare `1 serving` of unknown weight). It is data, never an assumption — a per-100 panel is not necessarily a per-gram one, and `parseBasisQuantity` is the single reader that turns it into a divisor. A volume basis is carried as published and never converted to a weight. See ADR-0052.
 _Avoid_: Serving size (when the basis is meant), per-100g, the panel's grams
 
+**Amount unit**:
+The unit an amount of a food is entered, logged and scaled in — `g` or `ml` for a food measured against its Panel basis, `serving` for one whose panel is a whole-serving total. It is read from the Panel basis and is never a separate choice, and nothing converts between a volume and a weight at any point (ADR-0060). Code asks `isMeasuredUnit` rather than testing for grams, because "is this amount a measurement?" is the real question at every scaler, label and edit gate. It is a persisted shape: it rides on `recipe/ingredients`, on the frozen `event/instantiation` rows, and inside the `event/quantity` string.
+_Avoid_: Grams (when any measured amount is meant), the gram unit, weight
+
 **Reference food**:
 A generic, non-branded, standardised food entry — what the USDA FoodData Central search (Foundation + SR Legacy) returns and is _for_. Includes both raw whole foods and generic prepared staples (coffee, croissant, cheddar). This is the set the food search keeps; Brand-specific foods, packaged products, and Composite dishes are excluded from it and reached instead via the Open Food Facts barcode path (ADR-0034). See ADR-0042.
 _Avoid_: Generic food, USDA food, ingredient (when a prepared reference item is meant)

@@ -1,9 +1,11 @@
 import type { FoodResult } from "./food-search";
 import type { EntityPayload } from "../ingestion/ingest";
 import {
+  isMeasuredUnit,
   nutritionFromMacros,
   roundFoodDisplay,
   PER_SERVING,
+  type AmountUnit,
   type NutritionInfo,
 } from "./nutrition";
 import type { ReferenceIngredient } from "./recipe-nutrition";
@@ -35,8 +37,9 @@ export interface RecipeIngredient {
    * re-added row ({@link addOrMergeIngredient}) — never against the raw value.
    */
   amount: number;
-  /** `g` for scaled foods, `serving` for whole-serving/custom foods. */
-  unit: "g" | "serving";
+  /** `g`/`ml` for foods scaled against a panel basis, `serving` for
+   *  whole-serving/custom foods ({@link AmountUnit}). */
+  unit: AmountUnit;
   /** Food-twin payload, ingested when the recipe is saved. */
   payload: EntityPayload;
   /** Source consumption-event id, if this ingredient came from the day. */
@@ -84,7 +87,7 @@ export function nameFromIngredients(
 export function ingredientFromTwin(
   twin: EntityPayload | null,
   amount: number,
-  unit: "g" | "serving"
+  unit: AmountUnit
 ): RecipeIngredient | null {
   const panel = twin?.attributes?.["nutrition/info"];
   if (!panel) return null;
@@ -109,27 +112,31 @@ export function coerceAmount(amount: number): number {
 }
 
 /**
- * The unit label shown beside an ingredient's amount: `g` for a scaled food, and
+ * The unit label shown beside an ingredient's amount: the measured unit itself
+ * (`g`, `ml`) for a food scaled against its panel's basis, and
  * `serving`/`servings` (pluralised by the amount) for a whole-serving food. The
  * single source for this label across the row display and the amount editor.
+ *
+ * A measured unit is never pluralised — "330 mls" is not a thing anyone writes —
+ * so the pluralisation belongs to the serving branch alone.
  */
-export function unitLabel(amount: number, unit: "g" | "serving"): string {
-  if (unit === "g") return "g";
+export function unitLabel(amount: number, unit: AmountUnit): string {
+  if (isMeasuredUnit(unit)) return unit;
   return amount === 1 ? "serving" : "servings";
 }
 
 /**
- * The app's one quantity phrase: "363g" for a scaled food (no space), "1
- * serving" for a whole-serving one. The amount is shown at the fixed display
- * precision though it is stored finer — it mirrors what the user typed, so the
- * whole-number nutrition toggle (which governs derived nutrients, not entered
- * amounts) deliberately skips it.
+ * The app's one quantity phrase: "363g" / "330ml" for a measured amount (no
+ * space), "1 serving" for a whole-serving one. The amount is shown at the fixed
+ * display precision — it mirrors what the user typed, so the whole-number
+ * nutrition toggle (which governs derived nutrients, not entered amounts)
+ * deliberately skips it.
  *
  * Every surface that shows a logged amount reads it from here, so the logged
  * row and the past-meal row that will become it cannot phrase it differently.
  */
-export function quantityLabel(amount: number, unit: "g" | "serving"): string {
-  return `${roundFoodDisplay(amount)}${unit === "g" ? "" : " "}${unitLabel(
+export function quantityLabel(amount: number, unit: AmountUnit): string {
+  return `${roundFoodDisplay(amount)}${isMeasuredUnit(unit) ? "" : " "}${unitLabel(
     amount,
     unit
   )}`;
@@ -146,26 +153,32 @@ export function toReferenceIngredient(
   return { ref: ing.entity, amount: coerceAmount(ing.amount), unit: ing.unit };
 }
 
-/**
- * The basis a food was logged on: a gram amount, or a whole serving. The
- * catalogue rule keys off it (`isCatalogueFood`, ADR-0035 §6), so it is named
- * here — where it is decided — rather than restated by each reader.
- */
-export type LoggedUnit = "g" | "serving";
+/** Matches a logged quantity that names a measured amount: "150g", "330 ml". */
+const LOGGED_MEASURED = /^\s*([\d.]+)\s*(g|ml)\b/i;
 
 /**
- * Parses a logged Consumption Event's quantity ("150g", "1 serving") back into
- * the `{ amount, unit }` that a reference ingredient scales its twin's panel by
- * (ADR-0021). A gram amount scales the twin's per-100g panel; anything else is
- * treated as one whole serving. Used when seeding a recipe from today's logged
- * foods so the reference resolves losslessly against the original twin.
+ * Parses a logged Consumption Event's quantity ("150g", "330ml", "1 serving")
+ * back into the `{ amount, unit }` that a reference ingredient scales its twin's
+ * panel by (ADR-0021). A measured amount scales the twin's panel by its own
+ * basis; anything else is treated as one whole serving.
+ *
+ * The millilitre arm is load-bearing rather than cosmetic (ADR-0060 §5). While
+ * the match was gram-only, "330ml" failed it and fell through to
+ * `{ amount: 1, unit: "serving" }` — a **silent misread**, not an error, which
+ * dropped the drink out of the Recent catalogue (`isCatalogueFood`) and
+ * re-seeded it into a recipe as a single serving.
  */
 export function parseLoggedQuantity(quantity: string | undefined): {
   amount: number;
-  unit: LoggedUnit;
+  unit: AmountUnit;
 } {
-  const grams = /^\s*([\d.]+)\s*g\b/i.exec(quantity ?? "");
-  if (grams) return { amount: parseFloat(grams[1]), unit: "g" };
+  const measured = LOGGED_MEASURED.exec(quantity ?? "");
+  if (measured) {
+    return {
+      amount: parseFloat(measured[1]),
+      unit: measured[2].toLowerCase() === "ml" ? "ml" : "g",
+    };
+  }
   return { amount: 1, unit: "serving" };
 }
 

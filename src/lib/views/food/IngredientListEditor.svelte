@@ -12,7 +12,7 @@
     deriveRecipeNutrition,
     deriveIngredientMacros,
   } from "../../food/recipe-nutrition";
-  import type { Portion } from "../../food/nutrition";
+  import { isMeasuredUnit, type Portion } from "../../food/nutrition";
   import { scaleAmount } from "../../food/scale-amount";
   import AddIngredientSheet from "./AddIngredientSheet.svelte";
   import IngredientAmountSheet from "./IngredientAmountSheet.svelte";
@@ -150,19 +150,22 @@
   {#each ingredients as ing, i (ing.entity)}
     {@const row = rowView(ing)}
     <li>
-      <!-- Only gram-unit rows open the amount/breakdown sheet (#30): those are
-           foods from a source, carrying a real nutrition/info panel worth
-           expanding. A serving-unit row is always a custom ingredient — a quick
-           macro-only entry (a restaurant meal, a bare calorie count), so it has
-           no richer panel to break down, and the sheet's gram-scaling factor
-           (value ÷ serving grams) wouldn't apply to a serving amount anyway. -->
+      <!-- Only rows measured against a panel basis open the amount/breakdown
+           sheet (#30): those are foods from a source, carrying a real
+           nutrition/info panel worth expanding. A serving-unit row is always a
+           custom ingredient — a quick macro-only entry (a restaurant meal, a
+           bare calorie count), so it has no richer panel to break down, and the
+           sheet's basis-scaling factor wouldn't apply to a serving amount
+           anyway. -->
       <FoodItemRow
         class="recipe-ingredient"
         name={ing.name}
         amount={row.amount}
         unit={ing.unit}
         calories={row.macros.calories}
-        onclick={ing.unit === "g" ? () => (editingIndex = i) : undefined}
+        onclick={isMeasuredUnit(ing.unit)
+          ? () => (editingIndex = i)
+          : undefined}
         onRemove={() => removeIngredient(ing.entity)}
       />
     </li>

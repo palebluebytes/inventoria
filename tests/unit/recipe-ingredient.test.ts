@@ -4,6 +4,8 @@ import {
   nameFromIngredients,
   ingredientFromTwin,
   addOrMergeIngredient,
+  parseLoggedQuantity,
+  quantityLabel,
   unitLabel,
   type RecipeIngredient,
 } from "../../src/lib/food/recipe-ingredient";
@@ -136,6 +138,11 @@ describe("addOrMergeIngredient", () => {
     expect(unitLabel(0.5, "serving")).toBe("servings");
   });
 
+  it("(unitLabel) shows ml for a volume amount, unpluralised", () => {
+    expect(unitLabel(330, "ml")).toBe("ml");
+    expect(unitLabel(1, "ml")).toBe("ml");
+  });
+
   it("blocks the add when the same twin is present at an incompatible unit", () => {
     // Oats seeded from a logged whole-serving event (unit "serving") cannot be
     // summed with a searched-in gram amount without a conversion — block instead.
@@ -153,5 +160,56 @@ describe("addOrMergeIngredient", () => {
     if (result.ok) return;
     expect(result.reason).toBe("unit_mismatch");
     expect(result.name).toBe("Oats");
+  });
+});
+
+describe("parseLoggedQuantity", () => {
+  it("reads a gram amount back out of a logged quantity", () => {
+    expect(parseLoggedQuantity("150g")).toEqual({ amount: 150, unit: "g" });
+    expect(parseLoggedQuantity("63.5g")).toEqual({ amount: 63.5, unit: "g" });
+    expect(parseLoggedQuantity(" 150 g ")).toEqual({ amount: 150, unit: "g" });
+  });
+
+  it("reads a millilitre amount rather than silently misreading it", () => {
+    // Before ADR-0060 §5 "330ml" failed the gram match and fell through to one
+    // whole serving — a silent misread that dropped the drink out of the Recent
+    // catalogue and re-seeded it into a recipe as a single serving.
+    expect(parseLoggedQuantity("330ml")).toEqual({ amount: 330, unit: "ml" });
+    expect(parseLoggedQuantity("250 ML")).toEqual({ amount: 250, unit: "ml" });
+  });
+
+  it("treats anything naming no measured unit as one whole serving", () => {
+    expect(parseLoggedQuantity("1 serving")).toEqual({
+      amount: 1,
+      unit: "serving",
+    });
+    expect(parseLoggedQuantity(undefined)).toEqual({
+      amount: 1,
+      unit: "serving",
+    });
+  });
+});
+
+describe("quantityLabel", () => {
+  it("closes a measured amount up against its unit, and spaces a serving", () => {
+    expect(quantityLabel(150, "g")).toBe("150g");
+    expect(quantityLabel(330, "ml")).toBe("330ml");
+    expect(quantityLabel(1, "serving")).toBe("1 serving");
+    expect(quantityLabel(2, "serving")).toBe("2 servings");
+  });
+
+  it("round-trips through parseLoggedQuantity", () => {
+    // The one spelling (ADR-0060 §4): what a log is written with is what the
+    // dashboard reads back.
+    for (const [amount, unit] of [
+      [150, "g"],
+      [330, "ml"],
+      [1, "serving"],
+    ] as const) {
+      expect(parseLoggedQuantity(quantityLabel(amount, unit))).toEqual({
+        amount,
+        unit,
+      });
+    }
   });
 });

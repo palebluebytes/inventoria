@@ -31,6 +31,7 @@
   import type { MealType } from "../../food/meal-type";
   import { wayInTitle, type WayIn } from "../../food/ways-in";
   import {
+    isMeasuredUnit,
     parseBasisQuantity,
     scaleNutrition,
     roundFoodDisplay,
@@ -480,13 +481,13 @@
         // label / legacy paths freeze the four macros as before.
         const macrosOnly = !choice.manualEntry;
         // Correcting a food's panel must not silently change how much of it was
-        // eaten. A gram-logged entry is therefore re-logged at the SAME grams
-        // with its macros re-derived from the corrected twin — the amount
-        // editor's own path — instead of collapsing to the "1 serving" the
-        // custom form otherwise writes. (`target` follows the save: an enrich
-        // returns the same twin, a mint a new one.)
+        // eaten. An entry logged against a panel basis is therefore re-logged at
+        // the SAME amount with its macros re-derived from the corrected twin —
+        // the amount editor's own path — instead of collapsing to the
+        // "1 serving" the custom form otherwise writes. (`target` follows the
+        // save: an enrich returns the same twin, a mint a new one.)
         const logged = edit ? parseLoggedQuantity(edit.quantity) : null;
-        if (edit && logged?.unit === "g") {
+        if (edit && logged != null && isMeasuredUnit(logged.unit)) {
           await changeLoggedFoodAmount(
             { ...edit, target: twinId },
             logged.amount

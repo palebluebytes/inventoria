@@ -90,6 +90,39 @@ export const PER_SERVING: string = "1 serving";
 export const PER_100ML: string = "100 ml";
 
 /**
+ * A unit an amount is *measured* in, scaled against its panel's basis — a gram
+ * weight or a millilitre volume. Never converted between the two: no density is
+ * applied at entry, at logging, at scaling, or on display (ADR-0060 §2).
+ */
+export type MeasuredUnit = "g" | "ml";
+
+/**
+ * The unit an amount is expressed in: a measurement against the panel's basis,
+ * or a count of whole servings for a food whose panel is a per-serving total.
+ *
+ * It is the persisted shape — held on `recipe/ingredients` and on the frozen
+ * `event/instantiation` rows, and re-read out of `event/quantity` by
+ * `parseLoggedQuantity` — so it stays a plain string union rather than a
+ * discriminated object, which would be a ledger migration (ADR-0060 §5). The
+ * Recent/Search catalogue rule keys off it (`isCatalogueFood`, ADR-0035 §6).
+ */
+export type AmountUnit = MeasuredUnit | "serving";
+
+/**
+ * True when an amount in `unit` is a measurement to be divided by its panel's
+ * basis, as opposed to a count of whole servings.
+ *
+ * This is what five hand-written `=== "g"` ternaries were really asking, and
+ * spelling it as a gram check is what made the millilitre a lurking bug rather
+ * than a one-line change (ADR-0060 §5): widen the union without routing
+ * `deriveRecipeNutrition`'s factor through here and 330 ml silently means 330
+ * servings. Every scaler, unit label and amount-edit gate asks this instead.
+ */
+export function isMeasuredUnit(unit: AmountUnit): unit is MeasuredUnit {
+  return unit !== "serving";
+}
+
+/**
  * The precision food values are *stored* at — calories, macro grams, and
  * logged/typed amounts alike. 3 dp, fine enough to log a food entered with
  * milligram-ish amounts (e.g. 0.125 g) without inventing precision a coarser
@@ -317,7 +350,7 @@ export function servingSizePortion(info: NutritionInfo | undefined): Portion[] {
 }
 
 /** Matches a basis that names a quantity we can divide by: "100 g", "250 ml". */
-const BASIS_QUANTITY = /^(\d+(?:\.\d+)?)\s*(?:g(?:rams?)?|ml)$/i;
+const BASIS_QUANTITY = /^(\d+(?:\.\d+)?)\s*(g(?:rams?)?|ml)$/i;
 
 /**
  * The quantity a panel's `serving_size` measures against — 100 for `"100 g"` and
@@ -353,6 +386,22 @@ export function parseBasisQuantity(serving_size: string | undefined): number {
   const match = BASIS_QUANTITY.exec((serving_size ?? "").trim());
   const quantity = match ? Number(match[1]) : NaN;
   return Number.isFinite(quantity) && quantity > 0 ? quantity : 100;
+}
+
+/**
+ * The unit a panel's amounts are entered and logged in: millilitres for a volume
+ * basis, grams for everything else (ADR-0060 §1). The sibling of
+ * {@link parseBasisQuantity} — one reads the basis's number, this one its unit —
+ * so the two can never disagree about the same string.
+ *
+ * Grams is the fallback rather than an error, matching that sibling's own
+ * fallback to 100: a weightless `"1 serving"` and a food carrying no panel at
+ * all name no unit, and both are entered in grams. Nothing here converts; the
+ * unit is read off the panel exactly as the source published it (§2).
+ */
+export function basisUnit(serving_size: string | undefined): MeasuredUnit {
+  const match = BASIS_QUANTITY.exec((serving_size ?? "").trim());
+  return match?.[2].toLowerCase() === "ml" ? "ml" : "g";
 }
 
 /** The four macros the food dashboard and recipe builder display and sum. */

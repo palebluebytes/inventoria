@@ -12,6 +12,8 @@ import {
   scaleNutrition,
   sumNutrition,
   PER_100ML,
+  basisUnit,
+  isMeasuredUnit,
   isPer100Basis,
   parseBasisQuantity,
   servingSizeGrams,
@@ -481,6 +483,40 @@ describe("isPer100Basis", () => {
     expect(isPer100Basis("30 g")).toBe(false);
     expect(isPer100Basis("1 serving")).toBe(false);
     expect(isPer100Basis(undefined)).toBe(false);
+  });
+});
+
+describe("isMeasuredUnit", () => {
+  it("is true for every unit scaled against a panel's basis", () => {
+    expect(isMeasuredUnit("g")).toBe(true);
+    expect(isMeasuredUnit("ml")).toBe(true);
+  });
+
+  it("is false for a count of whole servings", () => {
+    // The one question the retired `=== "g"` ternaries were really asking
+    // (ADR-0060 §5): a serving amount is a count, not a measurement to divide.
+    expect(isMeasuredUnit("serving")).toBe(false);
+  });
+});
+
+describe("basisUnit", () => {
+  it("reads millilitres off a volume basis", () => {
+    expect(basisUnit(PER_100ML)).toBe("ml");
+    expect(basisUnit("330ml")).toBe("ml");
+  });
+
+  it("reads grams off a weight basis", () => {
+    expect(basisUnit("100 g")).toBe("g");
+    expect(basisUnit("30g")).toBe("g");
+    expect(basisUnit("62.5 grams")).toBe("g");
+  });
+
+  it("falls back to grams for a basis naming no unit at all", () => {
+    // Mirrors parseBasisQuantity's own fallback: a weightless serving and a
+    // missing panel are entered in grams (ADR-0060 §1).
+    expect(basisUnit("1 serving")).toBe("g");
+    expect(basisUnit(undefined)).toBe("g");
+    expect(basisUnit("")).toBe("g");
   });
 });
 

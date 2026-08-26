@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { quantityLabel } from "../../food/recipe-ingredient";
-  import { roundFoodDisplay } from "../../food/nutrition";
+  import { roundFoodDisplay, type AmountUnit } from "../../food/nutrition";
   import { calorieDisplayDecimals } from "../../stores/settings.store";
 
   // One food line, shared by the dashboard's logged-food list and the
@@ -26,7 +26,7 @@
   }: {
     name: string;
     amount: number;
-    unit: "g" | "serving";
+    unit: AmountUnit;
     calories: number;
     onRemove?: () => void;
     /** Whole-row tap (opens the amount picker). Omit to make the row inert —

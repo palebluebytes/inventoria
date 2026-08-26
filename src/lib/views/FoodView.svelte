@@ -27,6 +27,7 @@
     type RecipeIngredient,
   } from "../food/recipe-ingredient";
   import {
+    isMeasuredUnit,
     servingSizeGrams,
     servingSizePortion,
     type NutritionInfo,
@@ -230,13 +231,15 @@
   }
 
   /**
-   * Resolves a logged food to the gram amount it stands at, or `null` when it
-   * carries no gram basis at all. Both a gram-logged food and a per-serving food
-   * with a KNOWN serving weight resolve — they edit their amount in the shared
-   * picker, the same screen the search flow stages into — and both re-log in
-   * grams via changeLoggedFoodAmount (which scales the panel from ITS basis).
-   * The food's own serving is surfaced as a chip so a whole-serving food is one
-   * tap from its serving while still editable to any gram amount.
+   * Resolves a logged food to the amount it stands at **in its panel's own
+   * unit** (ADR-0060 §1) — grams for a weight basis, millilitres for a drink
+   * published per 100 ml — or `null` when it has no basis to scale against at
+   * all. Both a measured log and a per-serving food with a KNOWN serving weight
+   * resolve: they edit their amount in the shared picker, the same screen the
+   * search flow stages into, and both re-log via changeLoggedFoodAmount (which
+   * reads the unit and the divisor off that same panel). The food's own serving
+   * is surfaced as a chip so a whole-serving food is one tap from its serving
+   * while still editable to any amount.
    *
    * The tap-to-edit path and the selection bar's bulk ×/÷ both read the basis
    * through here, so the two can never disagree about which foods are scalable.
@@ -268,12 +271,13 @@
       portions.find((p) => Number.isFinite(p.grams) && p.grams > 0)?.grams ??
       null;
 
-    // Open at the logged grams (gram foods), or the serving's gram weight × how
-    // many servings were logged (per-serving foods with a gram basis). Anything
-    // else has no gram basis and stays null → falls through to the full sheet.
+    // Open at the logged amount (foods measured against a panel basis), or the
+    // serving's gram weight × how many servings were logged (per-serving foods
+    // with a gram basis). Anything else has no basis and stays null → falls
+    // through to the full sheet.
     let openGrams: number | null = null;
-    if (unit === "g") openGrams = amount;
-    else if (unit === "serving" && panel != null && servingGrams != null)
+    if (isMeasuredUnit(unit)) openGrams = amount;
+    else if (panel != null && servingGrams != null)
       openGrams = servingGrams * amount;
 
     if (openGrams == null) return null;

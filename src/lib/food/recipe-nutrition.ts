@@ -1,8 +1,10 @@
 import {
+  isMeasuredUnit,
   parseBasisQuantity,
   roundFood,
   scaleNutrition,
   EXTRA_NUTRIENT_KEYS,
+  type AmountUnit,
   type Macros,
   type NutritionBreakdown,
   type NutritionInfo,
@@ -20,8 +22,9 @@ export interface ReferenceIngredient {
   ref: string;
   /** How much of the ingredient the recipe uses, expressed in {@link unit}. */
   amount: number;
-  /** `g` scales against the panel's gram basis; `serving` against one serving. */
-  unit: "g" | "serving";
+  /** A measured unit (`g`, `ml`) scales against the panel's own basis;
+   *  `serving` against one serving ({@link AmountUnit}). */
+  unit: AmountUnit;
 }
 
 /**
@@ -40,7 +43,7 @@ export function sanitizeYield(recipeYield: number | string): number {
  * Derives a recipe's per-serving macros from its reference ingredients
  * (ADR-0021): `Σ(ingredient panel × amount ÷ serving_size) ÷ yield`. Each
  * ingredient's panel is resolved from its referenced food twin via `resolve`; a
- * `g` ingredient scales by `amount ÷ (the quantity the panel's serving_size
+ * measured ingredient scales by `amount ÷ (the quantity the panel's serving_size
  * names)`, a `serving` ingredient by `amount` against a per-serving panel. Pure,
  * and the
  * single derivation formula: the same helper over the same real ingredient
@@ -76,10 +79,12 @@ export function deriveRecipeNutrition(
   const extras: Record<string, number> = {};
   for (const ing of ingredients) {
     const panel = resolve(ing.ref);
-    const factor =
-      ing.unit === "g"
-        ? ing.amount / parseBasisQuantity(panel?.serving_size)
-        : ing.amount;
+    // The one site ADR-0060 §5 singles out: ask whether the amount is a
+    // MEASUREMENT, not whether it is grams. Spelled `=== "g"`, a millilitre
+    // ingredient would take the serving arm and 330 ml would mean 330 servings.
+    const factor = isMeasuredUnit(ing.unit)
+      ? ing.amount / parseBasisQuantity(panel?.serving_size)
+      : ing.amount;
     const scaled = scaleNutrition(panel, factor);
     total.calories += scaled.calories;
     total.protein += scaled.protein;

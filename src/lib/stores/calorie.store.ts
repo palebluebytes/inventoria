@@ -8,6 +8,7 @@ import {
   roundFood,
   PER_SERVING,
   EXTRA_NUTRIENT_KEYS,
+  type AmountUnit,
   type NutritionInfo,
   type NutritionBreakdown,
   type Portion,
@@ -652,7 +653,7 @@ export interface FrozenRow {
 export async function seedRowFromRef(
   ref: string,
   amount: number,
-  unit: "g" | "serving",
+  unit: AmountUnit,
   frozen?: FrozenRow
 ): Promise<RecipeIngredient> {
   const twin = await getLocalFoodTwin(ref);
@@ -689,10 +690,7 @@ export async function seedRowFromRef(
 export function seedRowsFromTemplate(
   attributes: Record<string, any>
 ): Promise<RecipeIngredient[]> {
-  const refs = (attributes["recipe/ingredients"] ?? []) as {
-    ref: string;
-    amount: number;
-    unit: "g" | "serving";
-  }[];
+  const refs = (attributes["recipe/ingredients"] ??
+    []) as ReferenceIngredient[];
   return Promise.all(refs.map((r) => seedRowFromRef(r.ref, r.amount, r.unit)));
 }

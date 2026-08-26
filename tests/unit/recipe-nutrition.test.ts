@@ -122,6 +122,24 @@ describe("deriveRecipeNutrition — a millilitre basis (#148)", () => {
     });
   });
 
+  it("scales a millilitre ingredient by amount ÷ basis, never by amount", () => {
+    // ADR-0060 §5's trap: widen the unit union without routing the factor
+    // ternary through isMeasuredUnit and 330 ml silently means 330 SERVINGS.
+    // The figures must match the same amount spelled in grams — the arithmetic
+    // is the basis division either way, and nothing converts (§2).
+    const cola: ReferenceIngredient = {
+      ref: "gtin:cola",
+      amount: 330,
+      unit: "ml",
+    };
+    expect(deriveIngredientMacros(cola, resolve)).toEqual({
+      calories: 138.6,
+      protein: 0,
+      fat: 0,
+      carbs: 34.98,
+    });
+  });
+
   it("no longer scales a weightless panel by the '1' in '1 serving'", () => {
     // parseFloat("1 serving") === 1 made a 100 g gram-row read 100x its
     // calories. The basis names no quantity, so it takes the 100 fallback.

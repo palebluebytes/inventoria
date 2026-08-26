@@ -2,7 +2,11 @@ import {
   deriveIngredientMacros,
   type ReferenceIngredient,
 } from "./recipe-nutrition";
-import type { NutritionBreakdown, NutritionInfo } from "./nutrition";
+import type {
+  AmountUnit,
+  NutritionBreakdown,
+  NutritionInfo,
+} from "./nutrition";
 
 /**
  * One ingredient of a logged Recipe Instantiation, frozen (ADR-0022). It keeps
@@ -21,7 +25,7 @@ export interface InstantiationRow extends NutritionBreakdown {
   ref: string;
   name: string;
   amount: number;
-  unit: "g" | "serving";
+  unit: AmountUnit;
 }
 
 /**
