@@ -922,6 +922,14 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       page.locator(".cf-group", { hasText: "Vitamins" })
     ).toBeVisible();
 
+    // All three bases are offered on a fresh capture (ADR-0060 §7). The 100 ml
+    // cell used to appear only on a form seeded from a drink OFF already
+    // published by volume, which left a bottle printing "per 100 ml" no way to
+    // say so — and this door, having no OFF record at all, never seeded one.
+    const basis = page.locator('[data-testid="cf-basis"]');
+    await expect(basis.locator("[data-value]")).toHaveCount(3);
+    await expect(basis.locator('[data-value="per_100ml"]')).toBeVisible();
+
     // Fast path plus one micro: name + calories, then Iron typed in mg (grams are
     // stored via the parseNutrientEntry round-trip, §3). Protein/fat/carbs and
     // every other micro are left untouched — absent, never 0.

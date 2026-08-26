@@ -8,6 +8,7 @@ import {
   offWriteHost,
   parseCategoryList,
   offReferenceImagesFromTwin,
+  offPackUnitFromTwin,
   fetchCategorySuggestions,
   isEnglishCategory,
   type OFFProduct,
@@ -1082,5 +1083,29 @@ describe("offReferenceImagesFromTwin", () => {
     ).toEqual([]);
     expect(offReferenceImagesFromTwin({ "food/name": "X" })).toEqual([]);
     expect(offReferenceImagesFromTwin(undefined)).toEqual([]);
+  });
+
+  it("recovers the pack's own unit from the same provenance", () => {
+    // The field the mapper reads the panel basis from, kept for the contribution
+    // guard to weigh a declared basis against (ADR-0060 §8).
+    expect(
+      offPackUnitFromTwin(
+        twin({ code: "1", product: { product_quantity_unit: "ml" } })
+      )
+    ).toBe("ml");
+  });
+
+  it("reports no pack unit when OFF parsed no quantity, or the twin is not OFF's", () => {
+    // All three read as grams downstream, which is what OFF resolves its own
+    // `100` to — the guard does not need to tell them apart.
+    expect(
+      offPackUnitFromTwin(twin({ code: "1", product: {} }))
+    ).toBeUndefined();
+    expect(
+      offPackUnitFromTwin({
+        "twin/raw_provenance": { adapter: "fdc", raw_data: {} },
+      })
+    ).toBeUndefined();
+    expect(offPackUnitFromTwin(undefined)).toBeUndefined();
   });
 });

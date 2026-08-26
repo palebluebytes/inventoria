@@ -1,8 +1,6 @@
 import type { EntityPayload } from "../ingestion/ingest";
 import {
-  basisUnit,
   isPer100Basis,
-  measuredUnitFrom,
   PER_100G,
   PER_100ML,
   FOOD_PORTIONS_ATTR,
@@ -747,8 +745,8 @@ export function buildOffWriteBody(
   // That `100g` is only right while OFF's resolution lands on the unit we
   // actually measured in, which is what {@link basisUnitDisputed} checks — and
   // when it doesn't, the whole nutriment set stays home (ADR-0060 §8).
-  const per100 = isPer100Basis(n.serving_size);
   if (!basisUnitDisputed(n.serving_size, contribution.packQuantityUnit)) {
+    const per100 = isPer100Basis(n.serving_size);
     body.set("nutrition_data_per", per100 ? "100g" : "serving");
     if (!per100 && n.serving_size) body.set("serving_size", n.serving_size);
 
@@ -776,11 +774,14 @@ export function buildOffWriteBody(
  * principle being that a wrong basis in a public database is worse than a wrong
  * number on our own panel.
  *
- * An absent pack unit reads as grams, exactly as {@link offPanelBasis} reads it
- * on the way in: OFF resolves its `100` to grams by default, so declaring
- * millilitres against a product it parsed no quantity from — or against a
- * barcode it has no record of yet — is the same mislabel. That deliberately
- * suppresses more contributions than there are genuinely ambiguous packs.
+ * It asks {@link offPanelBasis} — the mapper's own reader of that field — rather
+ * than re-deciding what an OFF unit token means, so the basis we would READ this
+ * product's figures at and the basis we may WRITE them at can never come apart.
+ * That also settles the absent case for free: OFF resolves its `100` to grams by
+ * default, so declaring millilitres against a product it parsed no quantity from
+ * — or against a barcode it has no record of yet — is the same mislabel. That
+ * deliberately suppresses more contributions than there are genuinely ambiguous
+ * packs.
  *
  * A per-SERVING basis is never disputed: it posts its own `serving_size` string,
  * so the unit is spelled out rather than resolved and there is nothing to
@@ -792,7 +793,7 @@ function basisUnitDisputed(
   packQuantityUnit: string | undefined
 ): boolean {
   if (!isPer100Basis(serving_size)) return false;
-  return basisUnit(serving_size) !== measuredUnitFrom(packQuantityUnit ?? "");
+  return offPanelBasis(packQuantityUnit) !== serving_size;
 }
 
 /**

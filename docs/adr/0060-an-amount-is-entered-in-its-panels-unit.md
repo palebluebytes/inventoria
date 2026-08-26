@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-26  
-**Implemented:** #169 `2287b5d` (the unit union), #170 `f49c2e8` (the amount field and the basis caption), #171 `ed7d394` (the logged quantity), #172 `4e69f6b` (the portion's own unit), #173 `ae98b01` (the third basis and the guarded contribution)
+**Implemented:** #169 `2287b5d` (the unit union), #170 `f49c2e8` (the amount field and the basis caption), #171 `ed7d394` (the logged quantity), #172 `4e69f6b` (the portion's own unit), #173 `ae98b01` (the third basis), `7edfa9b` (one basis type), `be55daa` (the guarded contribution)
 
 This record amends [ADR-0052](0052-a-drinks-panel-is-carried-per-100-ml.md) §2 (the
 millilitre serving its portions declined to take), §3 (the contribution basis, now
@@ -303,3 +303,32 @@ those are the ones OFF could parse no `quantity` from. §8 now means such a prod
 declines to contribute its nutriments whenever the user corrects it to millilitres —
 the suppression is doing its job, but the count of suppressed contributions will
 exceed the count of genuinely ambiguous packs.
+
+## Amendment (2026-08-26): §8 suppresses on an absent pack unit too, not only on a contradicting one
+
+§8 names the disagreement as one between "our basis unit and the pack's", and
+Consequences sizes the collateral as the eight products in a hundred Open Food Facts
+could parse no `quantity` from. Building it showed that an absent pack unit is not a
+third case needing its own decision but the same one. `buildOffWriteBody` asks
+`offPanelBasis` — the very reader the mapper uses on the way in — so the basis we
+would READ a product's figures at is the basis we may WRITE them at, and an absent
+unit resolves to grams at both ends. A `100 ml` panel declared against one would post
+figures OFF then reads as per 100 g.
+
+That widens the suppressed population twice over, and both deserve naming here rather
+than being discovered in the code:
+
+- **A barcode Open Food Facts has no record of.** The missing door exists to
+  contribute a product OFF lacks, and such a product has no base unit for OFF's `100`
+  to resolve against — so a per-100 ml capture posts its name, brand, category and
+  ingredients, and no numbers. That is situation B's own user losing the contribution
+  half of their capture. They keep the correct panel on their own twin, which is what
+  §1 and §7 were for.
+- **A pack whose unit we never read.** `offPackUnitFromTwin` recovers the field from a
+  twin's stored provenance, so a barcode typed into the form by hand arrives at the
+  contribution with no pack unit even when OFF holds that product in millilitres.
+  Looking it up at contribute time would be a network call this record does not want.
+
+Neither is a correction of §8's rule. Both are that rule meeting a case §8 did not
+enumerate, and both fail in the direction §8 chose: a contribution withheld rather
+than a basis mislabelled.
