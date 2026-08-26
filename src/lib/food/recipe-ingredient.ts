@@ -2,6 +2,7 @@ import type { FoodResult } from "./food-search";
 import type { EntityPayload } from "../ingestion/ingest";
 import {
   nutritionFromMacros,
+  roundFoodDisplay,
   PER_SERVING,
   type NutritionInfo,
 } from "./nutrition";
@@ -115,6 +116,23 @@ export function coerceAmount(amount: number): number {
 export function unitLabel(amount: number, unit: "g" | "serving"): string {
   if (unit === "g") return "g";
   return amount === 1 ? "serving" : "servings";
+}
+
+/**
+ * The app's one quantity phrase: "363g" for a scaled food (no space), "1
+ * serving" for a whole-serving one. The amount is shown at the fixed display
+ * precision though it is stored finer — it mirrors what the user typed, so the
+ * whole-number nutrition toggle (which governs derived nutrients, not entered
+ * amounts) deliberately skips it.
+ *
+ * Every surface that shows a logged amount reads it from here, so the logged
+ * row and the past-meal row that will become it cannot phrase it differently.
+ */
+export function quantityLabel(amount: number, unit: "g" | "serving"): string {
+  return `${roundFoodDisplay(amount)}${unit === "g" ? "" : " "}${unitLabel(
+    amount,
+    unit
+  )}`;
 }
 
 /**

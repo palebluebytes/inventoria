@@ -12,7 +12,9 @@ import {
   retractConsumptionEvent,
   changeLoggedFoodAmount,
   consumptionForDay,
+  copyPastMeal,
 } from "../../src/lib/stores/calorie.store";
+import type { CopyableEvent } from "../../src/lib/food/past-meals";
 import type { NutritionInfo, Portion } from "../../src/lib/food/nutrition";
 import { buildLabelCapture } from "../../src/lib/food/provenance";
 import {
@@ -1501,5 +1503,165 @@ describe("consumptionForDay", () => {
 
     const result = consumptionForDay(events, day);
     expect(result.map((e) => e.id)).toEqual(["a"]);
+  });
+});
+
+describe("copyPastMeal (ADR-0058)", () => {
+  const appendMock = dbClient.append as unknown as ReturnType<typeof vi.fn>;
+
+  /** A logged entry as `foldConsumptionEvents` hands one back. */
+  function logged(over: Partial<CopyableEvent> = {}): CopyableEvent {
+    return {
+      id: "event:consume_src",
+      time: new Date("2026-08-20T08:14:00").getTime(),
+      type: "ConsumeAction",
+      target: "fdc:oats",
+      quantity: "60g",
+      meal_type: "breakfast",
+      foodName: "Oats, raw",
+      calories: 233,
+      protein: 8.1,
+      fat: 4.2,
+      carbs: 39.6,
+      ...over,
+    } as CopyableEvent;
+  }
+
+  /** The attribute map of the one entity appended by a call. */
+  function appendedAttributes(call: number): Record<string, any> {
+    const datoms = appendMock.mock.calls[call][0] as any[];
+    const attrs: Record<string, any> = {};
+    for (const d of datoms) attrs[d.attribute] = d.value;
+    return attrs;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    appendMock.mockResolvedValue(undefined);
+  });
+
+  // §2 — a copy that silently changed how much you ate would not be a copy.
+  it("carries the amount across exactly as logged", async () => {
+    await copyPastMeal(
+      [logged({ quantity: "63.5g" })],
+      "breakfast",
+      new Date()
+    );
+    expect(appendedAttributes(0)["event/quantity"]).toBe("63.5g");
+  });
+
+  // §10 — a copied entry takes now's clock on the day being viewed, not the
+  // day it was originally eaten.
+  it("stamps the viewed day, not the source day", async () => {
+    const viewed = new Date("2026-08-26T00:00:00");
+    await copyPastMeal([logged()], "breakfast", viewed);
+    const when = new Date(appendMock.mock.calls[0][0][0].time);
+    expect(when.getFullYear()).toBe(2026);
+    expect(when.getMonth()).toBe(7);
+    expect(when.getDate()).toBe(26);
+    expect(when.getHours()).not.toBe(8); // not the source's 08:14
+  });
+
+  // §4 — a past breakfast copied into breakfast, never into another meal.
+  it("logs into the meal it was asked for", async () => {
+    await copyPastMeal([logged()], "breakfast", new Date());
+    expect(appendedAttributes(0)["event/meal_type"]).toBe("breakfast");
+  });
+
+  // §1 — wholesale: every food in the meal, one event each.
+  it("logs one event per food in the meal", async () => {
+    await copyPastMeal(
+      [
+        logged({ id: "a", target: "fdc:oats", foodName: "Oats" }),
+        logged({ id: "b", target: "fdc:milk", foodName: "Milk" }),
+        logged({ id: "c", target: "fdc:banana", foodName: "Banana" }),
+      ],
+      "breakfast",
+      new Date()
+    );
+    expect(appendMock).toHaveBeenCalledTimes(3);
+    expect([0, 1, 2].map((i) => appendedAttributes(i)["event/target"])).toEqual(
+      ["fdc:oats", "fdc:milk", "fdc:banana"]
+    );
+  });
+
+  // §11 / ADR-0035 §7 — an absent macro stays absent. A manual entry froze
+  // calories only, and copying it must not invent three zeroes.
+  it("leaves a macro the source never froze out of the copy", async () => {
+    await copyPastMeal(
+      [
+        logged({
+          foodName: "Canteen jacket potato",
+          quantity: "1 serving",
+          calories: 520,
+          protein: undefined,
+          fat: undefined,
+          carbs: undefined,
+        }),
+      ],
+      "lunch",
+      new Date()
+    );
+    const metrics = appendedAttributes(0)["event/metrics"];
+    expect(metrics.calories).toBe(520);
+    expect(metrics).not.toHaveProperty("protein");
+    expect(metrics).not.toHaveProperty("fat");
+    expect(metrics).not.toHaveProperty("carbs");
+  });
+
+  // §9 — the frozen snapshot travels as it was cooked. Re-deriving it from a
+  // since-edited template would log something the user did not eat.
+  it("copies a recipe serving's instantiation verbatim", async () => {
+    const instantiation = {
+      based_on: "recipe:bolognese",
+      yield: 4,
+      ingredients: [
+        {
+          ref: "fdc:mince",
+          name: "Beef mince",
+          amount: 500,
+          unit: "g" as const,
+          calories: 1090,
+        },
+      ],
+    };
+    await copyPastMeal(
+      [
+        logged({
+          target: "recipe:bolognese",
+          foodName: "Beef bolognese",
+          quantity: "1 serving",
+          instantiation: instantiation as any,
+        }),
+      ],
+      "dinner",
+      new Date()
+    );
+    expect(appendedAttributes(0)["event/instantiation"]).toEqual(instantiation);
+  });
+
+  // §11 — loop per item, catch per item, so one failure does not abort the run
+  // half-applied. `scaleSelected`'s contract.
+  it("keeps copying after one append fails, and counts it", async () => {
+    appendMock
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("append failed"))
+      .mockResolvedValueOnce(undefined);
+    const result = await copyPastMeal(
+      [
+        logged({ id: "a", foodName: "Oats" }),
+        logged({ id: "b", foodName: "Milk" }),
+        logged({ id: "c", foodName: "Banana" }),
+      ],
+      "breakfast",
+      new Date()
+    );
+    expect(result).toEqual({ copied: 2, lost: 1 });
+    expect(appendMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("reports a clean run so the caller can stay silent", async () => {
+    const result = await copyPastMeal([logged()], "breakfast", new Date());
+    expect(result).toEqual({ copied: 1, lost: 0 });
   });
 });

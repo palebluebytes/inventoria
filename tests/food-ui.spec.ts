@@ -283,7 +283,8 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await setupApiKeys(page);
 
     // The header carries one control per way into the meal and no `+`
-    // (ADR-0059 §1), so the search control opens straight onto search.
+    // (ADR-0059 §1), so the search control opens straight onto search. Every
+    // control names its meal, because the header repeats for all four.
     await page
       .getByRole("button", { name: "Search for a breakfast food" })
       .click();
@@ -311,6 +312,57 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(breakfastSection).toContainText("150g");
     await expect(breakfastSection).toContainText("133.5 kcal"); // 89 * 1.5 = 133.5
     await expect(page.locator(".calories-num")).toHaveText("133.5");
+  });
+
+  test("copies a past meal wholesale into the day being viewed (ADR-0058)", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    const copyBreakfast = page.getByRole("button", {
+      name: "Copy a past breakfast",
+    });
+
+    // §7 — with no breakfast on any other day the control is ABSENT, not
+    // disabled. A button that could only disappoint is worse than none.
+    await expect(copyBreakfast).toHaveCount(0);
+
+    // Log a breakfast a week back, so there is a past meal to copy.
+    await page.getByRole("button", { name: "Previous Week" }).click();
+    await page
+      .getByRole("button", { name: "Search for a breakfast food" })
+      .click();
+    await page.locator("#food-search-input").fill("banana");
+    await page.locator(".result-item", { hasText: "Mock Banana" }).click();
+    await page.getByLabel("Quantity in grams").fill("150");
+    await page.locator("#log-food-btn").click();
+
+    // Back to today, where that breakfast is now history.
+    await page.getByRole("button", { name: "Today", exact: true }).click();
+    const breakfast = page.locator(".meal-section", { hasText: "BREAKFAST" });
+    await expect(breakfast).toContainText("No breakfast logged yet");
+    await expect(copyBreakfast).toBeVisible();
+
+    // §12 — the picker spells the meal out with its amount, so the row shows
+    // what it is about to copy without a second tap.
+    await copyBreakfast.click();
+    const picker = page.getByTestId("past-meal-list");
+    await expect(picker).toBeVisible();
+    await expect(picker).toContainText("Mock Banana");
+    await expect(picker).toContainText("150g");
+
+    // §3 — the tap on the row IS the commit; there is no confirm step. §5 — it
+    // appends, and §2 — at the amount it was logged at.
+    await picker.locator(".pm-row").first().click();
+    await expect(picker).toHaveCount(0);
+    await expect(breakfast).toContainText("Mock Banana");
+    await expect(breakfast).toContainText("150g");
+    await expect(page.locator(".calories-num")).toHaveText("133.5");
+
+    // §11 — a clean copy says nothing at all.
+    await expect(breakfast.locator(".meal-note")).toHaveCount(0);
   });
 
   test("expands a staged food's full nutrient breakdown, scaled and omitting absent fields (#30)", async ({
@@ -854,7 +906,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       }
     );
 
-    await page.getByRole("button", { name: "Scan a barcode" }).click();
+    await page
+      .getByRole("button", { name: "Scan a barcode for lunch" })
+      .click();
     await page.locator("#barcode-input").fill(MISSING_CODE);
     await page.locator("#barcode-input").press("Enter");
 
@@ -915,7 +969,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       }
     );
 
-    await page.getByRole("button", { name: "Scan a barcode" }).click();
+    await page
+      .getByRole("button", { name: "Scan a barcode for lunch" })
+      .click();
     await page.locator("#barcode-input").fill(MISSING_CODE);
     await page.locator("#barcode-input").press("Enter");
     await expect(page.locator('[data-testid="capture-reason"]')).toBeVisible();
@@ -1017,7 +1073,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await waitForDbReady(page);
 
     // Scan the poor barcode (typed, since headless has no camera).
-    await page.getByRole("button", { name: "Scan a barcode" }).click();
+    await page
+      .getByRole("button", { name: "Scan a barcode for breakfast" })
+      .click();
     await page.locator("#barcode-input").fill(POOR_CODE);
     await page.locator("#barcode-input").press("Enter");
 
@@ -1060,7 +1118,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // Re-scan the same barcode: the local corrected twin is returned (latest-wins,
     // §6), so the corrected name surfaces — never the poor OFF name again — and
     // the origin badge marks it as an OFF twin the user edited from the label (§7).
-    await page.getByRole("button", { name: "Scan a barcode" }).click();
+    await page
+      .getByRole("button", { name: "Scan a barcode for breakfast" })
+      .click();
     await page.locator("#barcode-input").fill(POOR_CODE);
     await page.locator("#barcode-input").press("Enter");
 
@@ -1392,7 +1452,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     const dinnerSection = await buildDinnerCombo(page);
 
     // Add the SAME recipe to a different meal via the Recipe browser.
-    await page.getByRole("button", { name: "Log a recipe" }).click();
+    await page
+      .getByRole("button", { name: "Log a recipe for breakfast" })
+      .click();
     await page.locator(".recipe-pick", { hasText: "Dinner Combo" }).click();
 
     // The instantiation editor opens seeded from the template's ingredients and
@@ -1494,7 +1556,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await setupApiKeys(page);
 
     // Open the log sheet's Recipe browser and start a brand-new template.
-    await page.getByRole("button", { name: "Log a recipe" }).click();
+    await page
+      .getByRole("button", { name: "Log a recipe for breakfast" })
+      .click();
     await page.locator("#define-recipe-btn").click();
 
     // The builder opens empty in Define mode — saving here logs nothing.
@@ -1519,7 +1583,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     ).toContainText("Scratch Bowl");
 
     // And the template now exists in the browser, ready to instantiate again later.
-    await page.getByRole("button", { name: "Log a recipe" }).click();
+    await page.getByRole("button", { name: "Log a recipe for lunch" }).click();
     await expect(
       page.locator(".recipe-pick", { hasText: "Scratch Bowl" })
     ).toBeVisible();
@@ -1537,7 +1601,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.locator(".calories-num")).toHaveText("323");
 
     // Edit the TEMPLATE (not the logged occasion) via the Recipe browser.
-    await page.getByRole("button", { name: "Log a recipe" }).click();
+    await page.getByRole("button", { name: "Log a recipe for lunch" }).click();
     // Editing now lives inside the opened recipe: pick it, then Edit by its title.
     await page.locator(".recipe-pick", { hasText: "Dinner Combo" }).click();
     await page.getByRole("button", { name: "Edit Dinner Combo" }).click();
@@ -1567,7 +1631,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.locator(".calories-num")).toHaveText("323");
 
     // A NEW instantiation, however, seeds from the edited template (512.5).
-    await page.getByRole("button", { name: "Log a recipe" }).click();
+    await page
+      .getByRole("button", { name: "Log a recipe for breakfast" })
+      .click();
     await page.locator(".recipe-pick", { hasText: "Dinner Combo" }).click();
     await expect(page.locator('[data-testid="instantiation-name"]')).toHaveText(
       "Dinner Combo"

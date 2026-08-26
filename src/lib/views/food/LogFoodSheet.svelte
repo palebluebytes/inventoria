@@ -29,7 +29,7 @@
     emptyMealDefaultHint,
   } from "../../food/recent-foods";
   import type { MealType } from "../../food/meal-type";
-  import { mealEntryLabel, type MealEntryKind } from "../../food/meal-entry";
+  import { wayInLabel, type WayIn } from "../../food/ways-in";
   import {
     parseBasisQuantity,
     scaleNutrition,
@@ -67,7 +67,7 @@
   // Both the meal AND the way in are fixed by the header control that opened it
   // (ADR-0059): this sheet carries no method dock, and its title is the same
   // words that control's accessible name used, so a single-purpose sheet says
-  // what it is for. `entryKind` is the way in; edit mode has none, and titles
+  // what it is for. `wayIn` is the way in; edit mode has none, and titles
   // itself by the correction it is making instead.
   let {
     dbReady,
@@ -77,20 +77,25 @@
     edit = null,
     editLabel = false,
     initialMethod = undefined,
-    entryKind = undefined,
+    wayIn = undefined,
   }: {
     dbReady: boolean;
     meal_type: MealType;
     selectedDate: Date;
     onClose: () => void;
-    /** Method to open on (e.g. "recipe"). Defaults to Search. */
+    /**
+     * Method to open on, for a host that has one but no `wayIn` (the
+     * Recipe browser reopening itself). A header-opened sheet passes only
+     * `wayIn` — four of the five ways in ARE stager methods and share their
+     * id, so the method is derived rather than passed twice.
+     */
     initialMethod?: string;
     /**
      * Which header control opened this sheet (ADR-0059 §1). It titles the sheet
      * with that control's own words. Absent in edit mode, which is not a way
      * into a meal but a correction of something already in one.
      */
-    entryKind?: MealEntryKind;
+    wayIn?: WayIn;
     /**
      * When set, the sheet edits an existing logged event instead of adding a new
      * one: it opens pre-staged on that event's food (gram amount) or pre-filled
@@ -106,6 +111,10 @@
      */
     editLabel?: boolean;
   } = $props();
+
+  // Four of the five ways into a meal are stager methods under the same id, so
+  // the way in fixes the method; `past` never reaches this sheet (it has its own).
+  let openOn = $derived(initialMethod ?? wayIn);
 
   // Saved Recipe Twins for the Instantiate browser, deduped by entity (newest
   // first from the store's HLC-desc order).
@@ -514,8 +523,8 @@
   isOpen
   title={edit
     ? `Edit ${meal_type}`
-    : entryKind
-      ? mealEntryLabel(entryKind, meal_type)
+    : wayIn
+      ? wayInLabel(wayIn, meal_type)
       : meal_type}
   flushBody
   {onClose}
@@ -527,7 +536,7 @@
     bind:canGoBack
     bind:goBack
     {seed}
-    {initialMethod}
+    initialMethod={openOn}
     allowPhoto
     manualIntents
     mealName={meal_type}

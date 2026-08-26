@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { MealEntryKind } from "../../food/meal-entry";
+  import type { WayIn } from "../../food/ways-in";
 
   // One mark per way into a meal (ADR-0059 §5). These sit in the meal header
   // beside the meal name rather than on a tab, so they are drawn rather than
@@ -10,7 +10,7 @@
   // `past` is a clock with a counter-clockwise sweep, not a copy-mark. The
   // action is a copy, but the button opens history, and the mark says what the
   // tap reveals rather than what it will afterwards do (ADR-0058 §13).
-  let { kind }: { kind: MealEntryKind } = $props();
+  let { kind }: { kind: WayIn } = $props();
 </script>
 
 <svg

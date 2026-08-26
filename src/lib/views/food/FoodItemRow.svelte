@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import { unitLabel } from "../../food/recipe-ingredient";
+  import { quantityLabel } from "../../food/recipe-ingredient";
   import { roundFoodDisplay } from "../../food/nutrition";
   import { calorieDisplayDecimals } from "../../stores/settings.store";
 
@@ -41,15 +41,9 @@
     class?: string;
   } = $props();
 
-  // Match the dashboard's quantity string: "363g" for a scaled food (no space),
-  // "1 serving" for a whole-serving one. The label itself comes from unitLabel.
-  // The amount is shown at the fixed display precision (2 dp) though it's stored
-  // finer — it mirrors what the user typed, so the whole-number nutrition toggle
-  // (which governs derived nutrients, not entered amounts) deliberately skips it.
-  let shownAmount = $derived(roundFoodDisplay(amount));
-  let qtyLabel = $derived(
-    `${shownAmount}${unit === "g" ? "" : " "}${unitLabel(amount, unit)}`
-  );
+  // The app's one quantity phrase (`quantityLabel`), shared with the past-meal
+  // picker so a row there reads exactly like the row it will become.
+  let qtyLabel = $derived(quantityLabel(amount, unit));
   let clickable = $derived(!!onclick);
 </script>
 

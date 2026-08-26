@@ -11,6 +11,26 @@ import type { MealType } from "./meal-type";
  * of what a copy needs.
  */
 
+/**
+ * A logged entry a copy can actually reproduce. The four fields
+ * {@link partitionCopyable} checks are non-optional here, so `copyPastMeal`
+ * reads them without casting and the precondition is checked once, in the one
+ * place that establishes it.
+ */
+export type CopyableEvent = ConsumptionEvent &
+  Required<
+    Pick<ConsumptionEvent, "target" | "quantity" | "calories" | "foodName">
+  >;
+
+/** The line a partial copy leaves behind, and the day it is true of. */
+export interface CopyNote {
+  meal_type: MealType;
+  text: string;
+  /** {@link dayKeyOf} of the day copied into. The note carries what it
+   *  describes, so it cannot be shown beside a day it is not about. */
+  day: string;
+}
+
 /** One meal as it was logged on one day — the thing a picker row offers. */
 export interface PastMeal {
   /** Local midnight of the day it was eaten; the row's date line reads this. */
@@ -24,8 +44,14 @@ export interface PastMeal {
 
 const DAY_MS = 86_400_000;
 
-function dayKey(time: number): string {
-  const d = new Date(time);
+/**
+ * A local calendar day's identity, for comparing two instants by the day a
+ * person would say they fell on. Distinct from `getDayBounds`, which answers a
+ * different question — the millisecond range of one day, for filtering a list
+ * down to it. This one buckets a whole history without a range per bucket.
+ */
+export function dayKeyOf(date: Date | number): string {
+  const d = typeof date === "number" ? new Date(date) : date;
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
@@ -37,6 +63,11 @@ function midnight(date: Date): Date {
 
 /**
  * Every past instance of one meal, newest first (ADR-0058 §4 and §6).
+ *
+ * Each meal's `items` are in the order `events` supplied them, which the
+ * CONSUMPTION projection orders by the ledger's logical clock — so a picker row
+ * lists a meal's foods in the order they were logged, the same order the
+ * dashboard's own list uses.
  *
  * §4 fixes the meal type: the control's position gives it its meaning, so a
  * past lunch is never offered for today's breakfast. §6 takes any logged day
@@ -52,12 +83,12 @@ export function pastMealsFor(
   meal_type: MealType,
   viewedDate: Date
 ): PastMeal[] {
-  const viewedKey = dayKey(viewedDate.getTime());
+  const viewedKey = dayKeyOf(viewedDate);
   const byDay = new Map<string, PastMeal>();
 
   for (const event of events) {
     if (event.meal_type !== meal_type) continue;
-    const key = dayKey(event.time);
+    const key = dayKeyOf(event.time);
     if (key === viewedKey) continue;
 
     const calories = typeof event.calories === "number" ? event.calories : 0;
@@ -89,19 +120,31 @@ export function pastMealsFor(
  * simply carrying the event's own fields across. The one real gap is a target
  * whose twin no longer resolves: `foldConsumptionEvents` leaves `foodName`
  * unset for it, and the dashboard renders that as "Unknown Food". Copying one
- * would mint a second Unknown Food, so it is counted as lost instead. An entry
- * with no frozen `calories` is refused for the same reason: §2 makes a copy
- * faithful or nothing, and logging a 0 would be neither.
+ * would mint a second Unknown Food, so it is counted as lost instead. That is
+ * the case §11's line is about.
+ *
+ * The `quantity` and `calories` checks are invariant guards rather than a
+ * second user-facing case: there is exactly one writer of a Consumption Event
+ * and it always freezes both, so no population exists for them to collect. They
+ * are here because they are what makes {@link CopyableEvent} sound — the
+ * precondition is established once, here, instead of being asserted with a cast
+ * at the point of use. If one ever did fire, dropping is still the right answer
+ * over logging a 0: ADR-0048 settled that an absent measurement is not a zero.
  */
 export function partitionCopyable(items: ConsumptionEvent[]): {
-  copyable: ConsumptionEvent[];
+  copyable: CopyableEvent[];
   lost: ConsumptionEvent[];
 } {
-  const copyable: ConsumptionEvent[] = [];
+  const copyable: CopyableEvent[] = [];
   const lost: ConsumptionEvent[] = [];
   for (const item of items) {
-    if (item.target && item.foodName && typeof item.calories === "number")
-      copyable.push(item);
+    if (
+      item.target &&
+      item.quantity &&
+      item.foodName &&
+      typeof item.calories === "number"
+    )
+      copyable.push(item as CopyableEvent);
     else lost.push(item);
   }
   return { copyable, lost };
@@ -113,6 +156,23 @@ export function partitionCopyable(items: ConsumptionEvent[]): {
  * `scale_note` is the precedent, including that the line must not outlive what
  * it described.
  */
+/**
+ * Whether a meal has anything to copy (ADR-0058 §7 / ADR-0059 §4). Cheaper than
+ * asking {@link pastMealsFor} for its length, and it says what the header
+ * actually wants to know: the control is absent, not disabled, when this is
+ * false.
+ */
+export function hasPastMeal(
+  events: ConsumptionEvent[],
+  meal_type: MealType,
+  viewedDate: Date
+): boolean {
+  const viewedKey = dayKeyOf(viewedDate);
+  return events.some(
+    (e) => e.meal_type === meal_type && dayKeyOf(e.time) !== viewedKey
+  );
+}
+
 export function copyTally(copied: number, lost: number): string | null {
   if (lost === 0) return null;
   return `${copied} copied · ${lost} no longer available`;

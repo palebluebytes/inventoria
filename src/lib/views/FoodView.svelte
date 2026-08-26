@@ -12,12 +12,14 @@
   } from "../stores/calorie.store";
   import { scaleAmount, type ScaleOp } from "../food/scale-amount";
   import { asMealType, type MealType } from "../food/meal-type";
-  import type { MealEntryKind } from "../food/meal-entry";
+  import type { WayIn } from "../food/ways-in";
   import {
     pastMealsFor,
     partitionCopyable,
     copyTally,
+    dayKeyOf,
     type PastMeal,
+    type CopyNote,
   } from "../food/past-meals";
   import {
     customIngredient,
@@ -63,13 +65,20 @@
   // Which header control opened the log sheet (ADR-0059 §1). It fixes the
   // stager's method and titles the sheet; null while editing, which is not a
   // way into a meal.
-  let entry_kind = $state<MealEntryKind | null>(null);
+  let way_in = $state<WayIn | null>(null);
   // The meal whose past-meal picker is open (ADR-0058). Its own sheet, not a
   // stager method: every method there picks a food, this picks a meal.
   let past_meal_type = $state<MealType | null>(null);
-  // The line a partial copy left behind (§11). Held here, beside the day it
-  // describes, so it dies with it.
-  let copy_note = $state<{ meal_type: MealType; text: string } | null>(null);
+  // The line a partial copy left behind (§11). It carries the day it is about,
+  // so it CANNOT be shown beside another one — `scale_note`'s rule, that a note
+  // never outlives what it described, made structural rather than swept up
+  // afterwards. That also settles the race: a copy resolving after the user has
+  // paged away attaches its note to the day it actually wrote to, and the view
+  // simply does not render it.
+  let copy_note = $state<CopyNote | null>(null);
+  let visible_copy_note = $derived(
+    copy_note && copy_note.day === dayKeyOf(selectedDate) ? copy_note : null
+  );
   // Guards a second copy while one is mid-flight, as `scaling` does for the
   // bulk rescale.
   let copying = $state(false);
@@ -153,7 +162,7 @@
    * Any of them supersedes whatever a previous copy had to say, so the note
    * goes first.
    */
-  function enterMeal(meal_type: MealType, kind: MealEntryKind) {
+  function enterMeal(meal_type: MealType, kind: WayIn) {
     copy_note = null;
     if (kind === "past") {
       past_meal_type = meal_type;
@@ -161,7 +170,7 @@
     }
     editEvent = null;
     edit_label = false;
-    entry_kind = kind;
+    way_in = kind;
     sheet_meal_type = meal_type;
   }
 
@@ -183,27 +192,22 @@
     const target = meal.meal_type;
     past_meal_type = null;
     try {
+      const day = selectedDate;
       const { copyable, lost } = partitionCopyable(meal.items);
-      const result = await copyPastMeal(copyable, target, selectedDate);
+      const result = await copyPastMeal(copyable, target, day);
       const text = copyTally(result.copied, result.lost + lost.length);
-      copy_note = text ? { meal_type: target, text } : null;
+      copy_note = text ? { meal_type: target, text, day: dayKeyOf(day) } : null;
     } finally {
       copying = false;
     }
   }
 
-  // A copy note describes one copy into one day, so it must not outlive either
-  // — the same reason `setSelection` clears `scale_note`. Changing the viewed
-  // day drops it.
-  $effect(() => {
-    void selectedDate;
-    copy_note = null;
-  });
-
   // Open the right editor for a tapped card. A Recipe Instantiation (carries a
   // frozen `event/instantiation` snapshot) opens the instantiation editor to be
   // corrected by supersession (ADR-0022); a plain food opens the log sheet.
   async function editItem(item: ConsumptionEvent) {
+    // Any further action on the day supersedes what a copy had to say about it.
+    copy_note = null;
     if (item.instantiation) {
       instantiate_template = null;
       instantiate_edit = item;
@@ -341,8 +345,9 @@
   }
 
   function closeSheet() {
+    copy_note = null;
     sheet_meal_type = null;
-    entry_kind = null;
+    way_in = null;
     editEvent = null;
     edit_label = false;
   }
@@ -531,7 +536,7 @@
   {dbReady}
   bind:selectedDate
   onEnterMeal={enterMeal}
-  copyNote={copy_note}
+  copyNote={visible_copy_note}
   selectedIds={selected_ids}
   onLongPressItem={longPress}
   onTapItem={tapItem}
@@ -576,8 +581,7 @@
     {selectedDate}
     edit={editEvent}
     editLabel={edit_label}
-    entryKind={entry_kind ?? undefined}
-    initialMethod={entry_kind ?? undefined}
+    wayIn={way_in ?? undefined}
     onClose={closeSheet}
   />
 {/if}

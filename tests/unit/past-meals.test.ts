@@ -4,6 +4,8 @@ import {
   partitionCopyable,
   copyTally,
   dayLabel,
+  dayKeyOf,
+  hasPastMeal,
 } from "../../src/lib/food/past-meals";
 import type { ConsumptionEvent } from "../../src/lib/food/consumption-state";
 
@@ -217,5 +219,59 @@ describe("dayLabel", () => {
   it("reads a time of day, not just a midnight", () => {
     const yesterdayEvening = new Date(2026, 7, 25, 21, 40);
     expect(dayLabel(yesterdayEvening, anchor)).toBe("Yesterday");
+  });
+});
+
+describe("hasPastMeal", () => {
+  // ADR-0058 §7 / ADR-0059 §4 — this is what decides whether the control is
+  // rendered at all, so it answers the question the header actually asks.
+  it("is false for a meal never logged", () => {
+    expect(
+      hasPastMeal([ate(1, "breakfast", "Oats", 233)], "snack", today())
+    ).toBe(false);
+  });
+
+  it("is false for a meal logged only on the day being viewed", () => {
+    const log = [ate(0, "breakfast", "Toast", 198)];
+    expect(hasPastMeal(log, "breakfast", today())).toBe(false);
+  });
+
+  it("is true as soon as one other day carries that meal", () => {
+    const log = [
+      ate(0, "breakfast", "Toast", 198),
+      ate(3, "breakfast", "Oats", 233),
+    ];
+    expect(hasPastMeal(log, "breakfast", today())).toBe(true);
+  });
+
+  it("agrees with pastMealsFor, which is the list it gates", () => {
+    const log = [
+      ate(2, "lunch", "Soup", 232),
+      ate(0, "dinner", "Salmon", 291),
+      ate(4, "dinner", "Pizza", 638),
+    ];
+    for (const meal of ["breakfast", "lunch", "dinner", "snack"] as const)
+      expect(hasPastMeal(log, meal, today())).toBe(
+        pastMealsFor(log, meal, today()).length > 0
+      );
+  });
+});
+
+describe("dayKeyOf", () => {
+  it("gives two instants on one local day the same key", () => {
+    expect(dayKeyOf(new Date(2026, 7, 26, 0, 0))).toBe(
+      dayKeyOf(new Date(2026, 7, 26, 23, 59))
+    );
+  });
+
+  it("separates adjacent days", () => {
+    expect(dayKeyOf(new Date(2026, 7, 26))).not.toBe(
+      dayKeyOf(new Date(2026, 7, 27))
+    );
+  });
+
+  it("reads an epoch time as readily as a Date", () => {
+    const d = new Date(2026, 7, 26, 12, 0);
+    expect(dayKeyOf(d.getTime())).toBe(dayKeyOf(d));
   });
 });

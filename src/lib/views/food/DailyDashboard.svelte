@@ -4,12 +4,8 @@
     consumptionForDay,
     type ConsumptionEvent,
   } from "../../stores/calorie.store";
-  import { pastMealsFor } from "../../food/past-meals";
-  import {
-    MEAL_ENTRY_KINDS,
-    mealEntryLabel,
-    type MealEntryKind,
-  } from "../../food/meal-entry";
+  import { hasPastMeal, type CopyNote } from "../../food/past-meals";
+  import { WAYS_IN, wayInLabel, type WayIn } from "../../food/ways-in";
   import { MEAL_TYPES, type MealType } from "../../food/meal-type";
   import { totalNutrition } from "../../food/consumption-state";
   import {
@@ -44,7 +40,7 @@
   import NutrientCardGrid from "./NutrientCardGrid.svelte";
   import NutrientGroupHead from "./NutrientGroupHead.svelte";
   import { longpress } from "../../actions/longpress";
-  import MealEntryIcon from "./MealEntryIcon.svelte";
+  import WayInIcon from "./WayInIcon.svelte";
 
   let {
     dbReady,
@@ -60,10 +56,10 @@
     dbReady: boolean;
     selectedDate: Date;
     /** A header control was tapped: which meal, and which way in (ADR-0059). */
-    onEnterMeal: (meal_type: MealType, kind: MealEntryKind) => void;
+    onEnterMeal: (meal_type: MealType, kind: WayIn) => void;
     /** The line a partial copy left behind (ADR-0058 §11), or null after a
-     *  clean one. Owned by the host so it dies with what it described. */
-    copyNote?: { meal_type: MealType; text: string } | null;
+     *  clean one. The host only passes one that belongs to the day on screen. */
+    copyNote?: CopyNote | null;
     selectedIds: Set<string>;
     onLongPressItem: (id: string) => void;
     onTapItem: (id: string) => void;
@@ -187,7 +183,7 @@
   let mealHasPast = $derived.by(() => {
     const has = {} as Record<MealType, boolean>;
     for (const m of meal_types)
-      has[m] = pastMealsFor($consumptionStore, m, selectedDate).length > 0;
+      has[m] = hasPastMeal($consumptionStore, m, selectedDate);
     return has;
   });
 
@@ -257,18 +253,18 @@
              history (§4) — and since it leads the row, the row shortens from
              the meal name's end. -->
         <div class="meal-actions">
-          {#each MEAL_ENTRY_KINDS as kind (kind)}
+          {#each WAYS_IN as kind (kind)}
             {#if kind !== "past" || mealHasPast[meal_type]}
               <Button
                 variant="secondary"
                 size="sm"
                 class="way-in"
                 disabled={!dbReady}
-                aria-label={mealEntryLabel(kind, meal_type)}
-                title={mealEntryLabel(kind, meal_type)}
+                aria-label={wayInLabel(kind, meal_type)}
+                title={wayInLabel(kind, meal_type)}
                 onclick={() => onEnterMeal(meal_type, kind)}
               >
-                <MealEntryIcon {kind} />
+                <WayInIcon {kind} />
               </Button>
             {/if}
           {/each}

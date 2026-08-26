@@ -170,6 +170,10 @@ _Avoid_: Recent list (when the unscoped pre-ADR-0057 behavior is meant), recentl
 A meal as it was logged on an earlier day: its foods _and_ their amounts. Copying one appends those entries to the meal you are viewing (ADR-0058) — wholesale, at the amounts recorded, on the current clock, and only into the same Meal Type. It is the counterpart to **Recent** and the distinction is the point: Recent offers you a food, a past meal offers you an occasion you actually ate, which is why the catalogue rule (ADR-0035 §6) filters the first and not the second. A logged Recipe Instantiation is reproduced from its frozen snapshot, never re-derived from the template.
 _Avoid_: Repeat (that word means recurrence _scheduling_ in this app — `EventRecurrenceField`, `ScheduleRuleEditor`), duplicate, clone, re-log, copy meal
 
+**Way in**:
+One of the five ways to put something in a meal, each a control in that meal's section header: copy a **Past meal**, enter one yourself, log a recipe, scan a barcode, search (ADR-0059). There is no `+` — it never named an action, it opened a sheet that then asked which of these you meant, so it was a lobby rather than a door. Each way in opens its own single-purpose sheet titled with the control's own words and carrying no method dock, since the header already chose. Every label names its meal, because the header repeats for all four. A way in whose sheet could only disappoint is absent rather than disabled — the past-meal control appears only once that meal has history.
+_Avoid_: Entry / meal entry (this app spends _entry_ on a manually entered food, ADR-0035), add button, plus button, Door (ADR-0034 already uses that for the four routes into the label form), Method (that is a **FoodStager** staging tab, which is what a way in replaces)
+
 **Engagement Event**:
 A logged instance of watching a movie/show or reading a book, recorded as a timestamped action in the ledger (`WatchAction` or `ReadAction`) linking to a media Digital Twin. All media engagements share one closed status enum: `saved`, `started`, `progress`, `completed`.
 _Avoid_: Consumption event (when referring to media), activity log

@@ -1,7 +1,10 @@
 <script lang="ts">
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import { roundFoodDisplay } from "../../food/nutrition";
-  import { unitLabel, parseLoggedQuantity } from "../../food/recipe-ingredient";
+  import {
+    quantityLabel,
+    parseLoggedQuantity,
+  } from "../../food/recipe-ingredient";
   import { calorieDisplayDecimals } from "../../stores/settings.store";
   import { dayLabel, type PastMeal } from "../../food/past-meals";
   import type { MealType } from "../../food/meal-type";
@@ -33,14 +36,11 @@
    *  it will become ("60g", "1 serving"). */
   function amountLabel(quantity: string | undefined): string {
     const { amount, unit } = parseLoggedQuantity(quantity);
-    return `${roundFoodDisplay(amount)}${unit === "g" ? "" : " "}${unitLabel(
-      amount,
-      unit
-    )}`;
+    return quantityLabel(amount, unit);
   }
 </script>
 
-<BottomSheet isOpen title="Copy a past {meal_type}" class="pm-sheet" {onClose}>
+<BottomSheet isOpen title="Copy a past {meal_type}" {onClose}>
   <ul class="pm-list" data-testid="past-meal-list">
     {#each meals as meal (meal.date.getTime())}
       <li>
