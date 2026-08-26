@@ -4,6 +4,7 @@ import { HLC_ORDER_ASC, HLC_ORDER_DESC } from "../db/hlc";
 import { createProjectionStore, createQueryStore } from "./datoms.store";
 import type { ConsumptionEvent } from "../food/consumption-state";
 import {
+  basisUnit,
   nutritionFromMacros,
   roundFood,
   PER_SERVING,
@@ -25,6 +26,7 @@ import {
 } from "../food/recipe-instantiation";
 import {
   ingredientFromTwin,
+  quantityLabel,
   type RecipeIngredient,
 } from "../food/recipe-ingredient";
 
@@ -559,13 +561,21 @@ export async function retractConsumptionEvent(
 }
 
 /**
- * Changes a plain logged food's gram amount, append-only: re-derives its macros
- * from the food twin's `nutrition/info` panel at the new amount (the ADR-0021
- * formula, the same one the recipe rows use), logs a fresh Consumption Event,
- * and retracts the old one — the amount-picker equivalent of `LogFoodSheet`'s
- * edit, but amount-only (ADR-0008). Only for gram-unit plain foods; recipe
- * instantiations are corrected on their own editor and whole-serving foods are
- * locked (future work).
+ * Changes a plain logged food's measured amount, append-only: re-derives its
+ * macros from the food twin's `nutrition/info` panel at the new amount (the
+ * ADR-0021 formula, the same one the recipe rows use), logs a fresh Consumption
+ * Event, and retracts the old one — the amount-picker equivalent of
+ * `LogFoodSheet`'s edit, but amount-only (ADR-0008). For plain foods scaled
+ * against a panel; recipe instantiations are corrected on their own editor and
+ * whole-serving foods are locked (future work).
+ *
+ * `amount` is in the panel's OWN unit and nothing converts (ADR-0060 §1/§2): the
+ * twin is already resolved here, so the unit is read straight off its
+ * `serving_size` — millilitres for a drink published per 100 ml, grams for
+ * everything else — and both the scaling factor and the logged quantity string
+ * follow from it. Without that a drink would be re-logged as a gram weight it
+ * was never measured in, and would go uneditable the moment the amount screen
+ * starts naming its unit.
  *
  * Returns the id of the Consumption Event that replaced the old one, or `null`
  * when there was nothing to scale from (no target, or a twin carrying no
@@ -575,7 +585,7 @@ export async function retractConsumptionEvent(
  */
 export async function changeLoggedFoodAmount(
   event: ConsumptionEvent,
-  grams: number
+  amount: number
 ): Promise<string | null> {
   if (!event.target) return null;
   const twin = await getLocalFoodTwin(event.target);
@@ -583,13 +593,14 @@ export async function changeLoggedFoodAmount(
     | NutritionInfo
     | undefined;
   if (!panel) return null;
+  const unit = basisUnit(panel.serving_size);
   const breakdown = deriveIngredientMacros(
-    { ref: event.target, amount: grams, unit: "g" },
+    { ref: event.target, amount, unit },
     () => panel
   );
   const newId = await logFoodConsumption(
     event.target,
-    `${grams}g`,
+    quantityLabel(amount, unit),
     event.meal_type ?? "snack",
     roundFood(breakdown.calories),
     roundFood(breakdown.protein),

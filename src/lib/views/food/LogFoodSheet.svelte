@@ -21,6 +21,7 @@
   } from "../../stores/calorie.store";
   import {
     parseLoggedQuantity,
+    quantityLabel,
     toReferenceIngredient,
     panelFromIngredients,
   } from "../../food/recipe-ingredient";
@@ -407,7 +408,11 @@
         const breakdown = scaleNutrition(panel, factor);
         const newId = await logFoodConsumption(
           f.entity,
-          `${choice.grams}g`,
+          // One spelling for every logged quantity (ADR-0060 §4) — this and
+          // changeLoggedFoodAmount agreed with `quantityLabel` only by
+          // coincidence, and a second spelling is how the two drift. The unit is
+          // still hard-coded here; deriving it from the panel is T3's step.
+          quantityLabel(choice.grams, "g"),
           meal_type,
           breakdown.calories,
           breakdown.protein,

@@ -132,8 +132,16 @@ export function unitLabel(amount: number, unit: AmountUnit): string {
  * nutrition toggle (which governs derived nutrients, not entered amounts)
  * deliberately skips it.
  *
- * Every surface that shows a logged amount reads it from here, so the logged
- * row and the past-meal row that will become it cannot phrase it differently.
+ * Every surface that shows a logged amount reads it from here — **and so does
+ * every site that writes one** (ADR-0060 §4): `event/quantity` is spelled by
+ * this function alone, so the logged row, the past-meal row that will become it
+ * and the string in the ledger cannot phrase the same amount three ways.
+ *
+ * Being the write site too, `event/quantity` now records the amount at display
+ * precision rather than the finer `FOOD_DECIMALS` an expression like
+ * "100/3" evaluates to. That is the trade the one spelling buys, and it costs
+ * nothing that is read: the frozen `event/metrics` derive from the entered
+ * amount, not from this string.
  */
 export function quantityLabel(amount: number, unit: AmountUnit): string {
   return `${roundFoodDisplay(amount)}${isMeasuredUnit(unit) ? "" : " "}${unitLabel(

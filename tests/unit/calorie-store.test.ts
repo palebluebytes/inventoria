@@ -686,6 +686,47 @@ describe("changeLoggedFoodAmount", () => {
     ).toBe(newId);
   });
 
+  it("re-logs a drink in its panel's own unit, never as a gram weight", async () => {
+    // The twin already resolved here declares the unit, so the edit path reads
+    // it off `serving_size` (ADR-0060 §1) — otherwise a drink corrected on the
+    // amount picker comes back spelled as a weight it was never measured in,
+    // and goes uneditable once the amount screen starts naming its unit.
+    // Nothing converts: 330 against the panel's own 100 is the same division a
+    // gram basis gets (§2).
+    vi.spyOn(dbClient, "query").mockResolvedValue([
+      {
+        attribute: "nutrition/info",
+        value: JSON.stringify({
+          serving_size: "100 ml",
+          calories: 42,
+          carbohydrate_content: 10.6,
+        } satisfies NutritionInfo),
+      },
+    ] as any);
+    const mockAppend = vi
+      .spyOn(dbClient, "append")
+      .mockResolvedValue(undefined);
+
+    await changeLoggedFoodAmount(
+      {
+        id: "event:consume_old",
+        target: "gtin:cola",
+        quantity: "500ml",
+        meal_type: "lunch",
+        time: new Date("2026-05-31T12:00:00").getTime(),
+      } as any,
+      330
+    );
+
+    const newDatoms = mockAppend.mock.calls[0][0];
+    expect(newDatoms.find((d) => d.attribute === "event/quantity")?.value).toBe(
+      "330ml"
+    );
+    expect(
+      newDatoms.find((d) => d.attribute === "event/metrics")?.value
+    ).toMatchObject({ calories: 138.6, carbs: 34.98 });
+  });
+
   it("no-ops when the twin carries no nutrition panel (can't re-derive)", async () => {
     vi.spyOn(dbClient, "query").mockResolvedValue([] as any);
     const mockAppend = vi
