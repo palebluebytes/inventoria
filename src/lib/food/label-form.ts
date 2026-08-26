@@ -32,13 +32,13 @@ import {
 } from "./nutrition";
 
 /**
- * The basis a label printed its values against — the #52 form's toggle.
+ * The basis a label printed its values against — the #52 form's toggle, which
+ * offers all three (ADR-0060 §7).
  *
- * `per_100ml` is not a value the toggle offers: it is only ever inverted back
- * out of a twin OFF already published per 100 ml, so correcting a drink through
- * the read-along form keeps the basis it was read with instead of quietly
- * restamping it as a weight (ADR-0052 §1, #148). Typing a per-100 ml label from
- * scratch is [#127](https://github.com/palebluebytes/inventoria/issues/127).
+ * `per_100ml` was for a while inverted-only, reachable solely by re-opening a
+ * twin OFF had already published per 100 ml (ADR-0052 §5, #148). That left a UK
+ * bottle printing "per 100 ml" with no way to say so, so the toggle now offers
+ * it outright.
  */
 export type Basis = "per_100g" | "per_100ml" | "per_serving";
 /** A row is typed in kcal (energy) or a nutrient mass unit; grams are stored. */
@@ -162,9 +162,14 @@ export function toGrams(display: string, unit: FieldUnit): number | undefined {
 
 /**
  * The #52 basis toggle resolved to the panel's `serving_size` string (ADR-0034
- * §3): `100 g` when the label prints per 100 g, `100 ml` for a drink carried at
- * the basis OFF published it against, else `N g` when a serving weight was given,
- * or the bare `1 serving` when it was not.
+ * §3): `100 g` when the label prints per 100 g, `100 ml` when it prints per 100
+ * ml (whether the user said so or a drink arrived carrying the basis OFF
+ * published it against), else `N g` when a serving weight was given, or the bare
+ * `1 serving` when it was not.
+ *
+ * A serving is stamped in grams unconditionally, so a "1 bottle = 330 ml" basis
+ * still has nowhere to go: that is the volume SERVING basis ADR-0060 leaves
+ * open, and it wants `serving_size` properly typed rather than a third literal.
  */
 export function resolveServingSize(basis: Basis, servingGrams: string): string {
   if (basis === "per_100g") return PER_100G;

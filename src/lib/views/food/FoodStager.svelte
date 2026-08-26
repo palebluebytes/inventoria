@@ -343,17 +343,17 @@
   // ingredients text, NOT `food/ingredients` (the ADR-0035 menu-descriptor).
   let customIngredients = $state("");
   let customBasis = $state<Basis>("per_100g");
-  // The per-100 segment follows the basis the form was opened with. A drink OFF
-  // publishes per 100 ml keeps that basis through a correction instead of being
-  // restamped as a weight on save (#148); every other food sees "100 g" exactly
-  // as before. The toggle still offers two choices — typing a per-100 ml label
-  // from scratch is #127, not this.
-  let basisOptions = $derived<{ value: Basis; label: string }[]>([
-    customBasis === "per_100ml"
-      ? { value: "per_100ml", label: "100 ml" }
-      : { value: "per_100g", label: "100 g" },
+  // All three bases, offered unconditionally (ADR-0060 §7). The per-100 ml cell
+  // used to appear only when the form had been seeded from a twin OFF already
+  // published per 100 ml (#148), which meant a UK bottle printing "per 100 ml"
+  // could only be transcribed as grams or weighed — the whole of #127's second
+  // situation. A constant, not a derivation: what the toggle offers no longer
+  // depends on what it was opened with.
+  const basisOptions: { value: Basis; label: string }[] = [
+    { value: "per_100g", label: "100 g" },
+    { value: "per_100ml", label: "100 ml" },
     { value: "per_serving", label: "serving" },
-  ]);
+  ];
   // Grams one serving weighs — only meaningful when the basis is per_serving.
   let customServingGrams = $state("");
   // Per-field typed strings keyed by NutritionInfo field; "" ⇒ absent (not 0).
