@@ -12,8 +12,11 @@ import {
   scaleNutrition,
   sumNutrition,
   PER_100ML,
+  amountDefaults,
+  basisCaption,
   basisUnit,
   isMeasuredUnit,
+  measuredUnitName,
   isPer100Basis,
   parseBasisQuantity,
   servingSizeGrams,
@@ -517,6 +520,57 @@ describe("basisUnit", () => {
     expect(basisUnit("1 serving")).toBe("g");
     expect(basisUnit(undefined)).toBe("g");
     expect(basisUnit("")).toBe("g");
+  });
+});
+
+describe("measuredUnitName", () => {
+  it("spells each measured unit out for a control's own label", () => {
+    expect(measuredUnitName("g")).toBe("grams");
+    expect(measuredUnitName("ml")).toBe("millilitres");
+  });
+});
+
+describe("amountDefaults", () => {
+  it("opens a weighed food at 100 g on a 500 g slider", () => {
+    expect(amountDefaults("g")).toEqual({ amount: 100, sliderMax: 500 });
+  });
+
+  it("opens a drink at a glass, topping out below a litre", () => {
+    // 100 ml is half a glass and 500 ml stops short of a carton, so the same
+    // two numbers read wrong on a volume basis (ADR-0060 §3).
+    expect(amountDefaults("ml")).toEqual({ amount: 250, sliderMax: 1000 });
+  });
+});
+
+describe("basisCaption", () => {
+  it("names a per-100 basis in its own unit", () => {
+    expect(basisCaption("100 g")).toBe("Per 100 g");
+    expect(basisCaption(PER_100ML)).toBe("Per 100 ml");
+  });
+
+  it("names a weighed label serving with the weight it is measured over", () => {
+    // A "30 g" panel divides by 30, which nothing on screen used to say.
+    expect(basisCaption("30 g")).toBe("Per serving (30 g)");
+    expect(basisCaption("62.5 g")).toBe("Per serving (62.5 g)");
+  });
+
+  it("normalises the weight it prints rather than echoing the basis", () => {
+    expect(basisCaption("30g")).toBe("Per serving (30 g)");
+    expect(basisCaption("30 grams")).toBe("Per serving (30 g)");
+  });
+
+  it("gives a bare serving no weight at all", () => {
+    // parseBasisQuantity divides "1 serving" by 100 as a last resort, and that
+    // fallback is not a fact about the food — printing it would show a number
+    // the source never gave (ADR-0060 §3).
+    expect(basisCaption("1 serving")).toBe("Per serving");
+    expect(basisCaption("1 portion (330 ml)")).toBe("Per serving");
+  });
+
+  it("says nothing at all when the food names no basis", () => {
+    // A panel-less food renders no caption, as it renders no preview.
+    expect(basisCaption(undefined)).toBeNull();
+    expect(basisCaption("   ")).toBeNull();
   });
 });
 

@@ -415,6 +415,66 @@ export function measuredUnitFrom(token: string): MeasuredUnit {
   return token.trim().toLowerCase() === "ml" ? "ml" : "g";
 }
 
+/**
+ * A measured unit spelled out, for a control that names what it takes ("Amount
+ * (millilitres)") rather than suffixing a value with it. The long-form sibling
+ * of `unitLabel`, which gives the short `g` / `ml` that rides beside a number.
+ */
+export function measuredUnitName(unit: MeasuredUnit): string {
+  return unit === "ml" ? "millilitres" : "grams";
+}
+
+/** Where an amount control opens, and where its slider stops (ADR-0060 §3). */
+export interface AmountDefaults {
+  /** The amount a freshly staged food is entered at. */
+  amount: number;
+  /** The top of the slider's skim range; a typed amount may exceed it. */
+  sliderMax: number;
+}
+
+/**
+ * The amount control's starting point, which follows the unit it is entered in.
+ * 100 g over a 500 g slider is the weighed food's range as it always was; a
+ * drink opens at a glass and stops below a litre, because 100 ml is half a glass
+ * and a 500 ml ceiling would put a carton out of the slider's reach.
+ *
+ * Held here rather than as literals on the control so the two numbers that
+ * belong to a unit are named together, and so the staging screen (which seeds
+ * the amount) and the control (which draws the slider) cannot pick different
+ * ones.
+ */
+export function amountDefaults(unit: MeasuredUnit): AmountDefaults {
+  return unit === "ml"
+    ? { amount: 250, sliderMax: 1000 }
+    : { amount: 100, sliderMax: 500 };
+}
+
+/**
+ * What the panel's figures are measured per, as a caption: `Per 100 g`,
+ * `Per 100 ml`, `Per serving (30 g)`, `Per serving`.
+ *
+ * A different question from the one the amount control answers — that names the
+ * unit you are typing in, this names the divisor the figures below it come from
+ * — and the two coincide only on a per-100 panel (ADR-0060 §3). A label-captured
+ * food with a `"30 g"` basis divides by 30, which nothing on screen said before.
+ *
+ * A bare `"1 serving"` gets no weight: {@link parseBasisQuantity} divides it by
+ * 100 as a last resort, and that fallback is not a fact about the food, so
+ * printing it would show a number the source never gave. `null` for a food that
+ * names no basis at all — it renders no caption, as it renders no preview.
+ *
+ * The weight is re-spelled from the parsed quantity rather than echoed, so
+ * `"30g"` and `"30 grams"` caption identically.
+ */
+export function basisCaption(serving_size: string | undefined): string | null {
+  const basis = (serving_size ?? "").trim();
+  if (basis === "") return null;
+  if (isPer100Basis(basis)) return `Per ${basis}`;
+  const match = BASIS_QUANTITY.exec(basis);
+  if (!match) return "Per serving";
+  return `Per serving (${Number(match[1])} ${measuredUnitFrom(match[2])})`;
+}
+
 /** The four macros the food dashboard and recipe builder display and sum. */
 export interface Macros {
   calories: number;
