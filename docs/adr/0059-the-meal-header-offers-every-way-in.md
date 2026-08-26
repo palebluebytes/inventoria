@@ -1,7 +1,8 @@
 # ADR 0059: The meal header offers every way into a meal, and each way is its own sheet
 
 **Status:** Accepted  
-**Date:** 2026-08-26
+**Date:** 2026-08-26  
+**Implemented:** [#167](https://github.com/palebluebytes/inventoria/issues/167); `66b03e8` (the read and the copy), `627f8d6` (the header and the sheets), `92b163c` (review fixes); `src/lib/food/ways-in.ts` (the five and their labels), `src/lib/views/food/DailyDashboard.svelte` (the header), `src/lib/views/food/FoodStager.svelte` (`methodDock`), `src/lib/views/food/LogFoodSheet.svelte` (single-purpose)
 
 ## Context
 

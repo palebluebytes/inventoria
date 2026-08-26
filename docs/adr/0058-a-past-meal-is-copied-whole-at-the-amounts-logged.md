@@ -1,7 +1,8 @@
 # ADR 0058: A past meal is copied whole, at the amounts it was logged, into the meal you are viewing
 
 **Status:** Accepted  
-**Date:** 2026-08-26
+**Date:** 2026-08-26  
+**Implemented:** [#167](https://github.com/palebluebytes/inventoria/issues/167); `66b03e8` (the read and the copy), `627f8d6` (the header and the sheets), `92b163c` (review fixes); `src/lib/food/past-meals.ts` (the narrowing, the copyable partition and the tally), `src/lib/stores/calorie.store.ts` (`copyPastMeal`), `src/lib/views/food/PastMealSheet.svelte` (the picker)
 
 ## Context
 
