@@ -2,6 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-23  
+**Amended by:** [ADR-0060](0060-an-amount-is-entered-in-its-panels-unit.md) §6 (§2's declined millilitre serving returns as a portion), §8 (§3's contribution is suppressed when the units disagree) and §7 (§5's hidden basis is offered)  
 **Implemented:** #148 `547ca65` (one divisor), `3dc8520` (the read), `b91a4eb` (the write, the correction form, the row caption)
 
 This record amends [ADR-0030](0030-expanded-food-twin-source-data.md) §2, whose

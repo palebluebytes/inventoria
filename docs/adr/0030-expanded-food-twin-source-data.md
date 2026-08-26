@@ -5,6 +5,7 @@
 **Amended by:** ADR-0042 (see the amendment below); ADR-0045 (the Foundation/SR dedup fills from the twin instead of discarding it)  
 **Amended by:** ADR-0047 §6 (§5's lazy detail-hydration for portions is retired; portions ship in the bundle)  
 **Amended by:** [ADR-0052](0052-a-drinks-panel-is-carried-per-100-ml.md) §2 (§2's portions decline a serving Open Food Facts measured in millilitres)  
+**Amended by:** [ADR-0060](0060-an-amount-is-entered-in-its-panels-unit.md) §6 (a `Portion` carries the unit of its own magnitude, so a millilitre serving is no longer discarded)  
 **Implemented:** `fa43de4`, `e385044`, `0ac469e`, `712b8f5`; `portionPresets` in `QuantityGrams.svelte`
 
 ## Context

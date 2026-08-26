@@ -1,6 +1,7 @@
 # ADR 0023: Numeric-first amount entry; drag controls are accelerators, not the primary affordance
 
 **Status:** Accepted  
+**Amended by:** [ADR-0060](0060-an-amount-is-entered-in-its-panels-unit.md) §3 (the control is renamed `AmountField` and announces the unit its panel is measured in)  
 **Implemented:** `8e5a854`, `QuantityGrams.svelte`; see the amendment below
 
 ## Context
