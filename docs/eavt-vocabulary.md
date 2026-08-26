@@ -181,8 +181,13 @@ Every logged Event.
   shared four-value enum `saved`, `started`, `progress`, `completed`. For Acquisition
   Events it is `wanted` or `owned`. For Execution Events it is `completed`, `exempt`,
   or `uncompleted`.
-- `quantity`: a **formatted string**, not a number (`"30g"`, `"1 serving"`), parsed by
-  `src/lib/food/recipe-ingredient.ts`.
+- `quantity`: a **formatted string**, not a number (`"30g"`, `"330ml"`,
+  `"1 serving"`), written and parsed by `src/lib/food/recipe-ingredient.ts`. The
+  unit is the one the food's Panel basis is measured in, never a separate choice
+  ([ADR-0060](adr/0060-an-amount-is-entered-in-its-panels-unit.md)). Forward-only:
+  a receipt keeps the string it was written with, so a drink logged before that
+  record still reads `"330g"` and is never re-rendered from its twin's current
+  panel.
 - `rating`: an optional 1 to 5 scale.
 - `season`, `episode`, `review`, `pages_read`, `instrument_used`, `slot_id`,
   `metadata`.
