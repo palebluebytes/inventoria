@@ -25,6 +25,10 @@
     panelFromIngredients,
   } from "../../food/recipe-ingredient";
   import {
+    recentCandidatesForMeal,
+    emptyMealDefaultHint,
+  } from "../../food/recent-foods";
+  import {
     parseBasisQuantity,
     scaleNutrition,
     roundFoodDisplay,
@@ -142,35 +146,31 @@
     };
   });
 
-  // Recently logged foods for one-tap re-logging, shown in the stager's Search
-  // tab while its query box is empty. Distinct twins, newest first. Gram-basis
-  // logs qualify; whole-serving logs qualify only as a reusable `menu` manual
-  // entry (ADR-0035 §6) — the catalogue rule lives in `isCatalogueFood`, applied
-  // once the twin is fetched. The candidate list is gathered wider than the final
-  // dozen, since the filter can drop serving foods (quick/plate one-offs, label
-  // captures) that re-open via the edit path, not Recent.
+  // The meal's default content (ADR-0057), shown in the stager's Search tab
+  // while its query box is empty: the foods logged at THIS meal, newest first.
+  // Scoped because this sheet is titled with its meal and a default is judged on
+  // being right rather than complete — every other food is one keystroke away in
+  // the search box beside it.
+  //
+  // Twelve is a cap, not a target: a meal with three foods behind it correctly
+  // offers three. The walk itself is uncapped and lives in `recent-foods.ts`;
+  // the catalogue rule (`isCatalogueFood`, ADR-0035 §6) still applies here,
+  // where the twin it needs is in hand.
   const RECENT_LIMIT = 12;
-  const RECENT_CANDIDATES = 40;
-  let recentCandidates = $derived.by(() => {
-    const seen = new Set<string>();
-    const out: { target: string; unit: string }[] = [];
-    for (const e of [...$consumptionStore].sort((a, b) => b.time - a.time)) {
-      if (!e.target || seen.has(e.target)) continue;
-      seen.add(e.target);
-      out.push({
-        target: e.target,
-        unit: parseLoggedQuantity(e.quantity).unit,
-      });
-      if (out.length >= RECENT_CANDIDATES) break;
-    }
-    return out;
-  });
+  let recentCandidates = $derived(
+    recentCandidatesForMeal($consumptionStore, meal_type)
+  );
 
   // Resolve those candidates to the FoodResult shape the stager stages, reusing
   // the gram edit-path mapping, and keep only catalogue foods (the twin's
   // `food/manual_entry.kind` decides serving foods). Twins are cached across store
   // ticks so a new log doesn't refetch the whole list.
   let recent = $state<FoodResult[]>([]);
+  // Whether the resolution above has finished for the current candidates. The
+  // empty-meal line waits on it: resolving twins is async, so an unguarded
+  // `recent.length === 0` reads as "this meal is empty" for the moment before
+  // the first twin lands, and the line would flash on a meal that has plenty.
+  let recentResolved = $state(false);
   const twinCache = new Map<string, FoodResult>();
   $effect(() => {
     const candidates = recentCandidates;
@@ -189,12 +189,23 @@
         if (!isCatalogueFood(fr.payload.attributes, c.unit)) continue;
         out.push(fr);
       }
-      if (!cancelled) recent = out;
+      if (!cancelled) {
+        recent = out;
+        recentResolved = true;
+      }
     })();
     return () => {
       cancelled = true;
     };
   });
+
+  // Edit mode hides Recent entirely (it locks onto one food's amount), so it
+  // gets no line either — an empty list there is the point, not a shortfall.
+  let recentEmptyHint = $derived(
+    !edit && recentResolved && recent.length === 0
+      ? emptyMealDefaultHint(meal_type)
+      : ""
+  );
 
   // The staged food, bound from the stager so the header's back button can clear
   // it ("Change food"); hidden in edit mode, which locks onto one food's amount.
@@ -494,6 +505,7 @@
     mealName={meal_type}
     lockMethods={!!edit}
     recent={edit ? [] : recent}
+    {recentEmptyHint}
     primaryDisabled={!dbReady}
     ids={{
       search: "food-search-input",

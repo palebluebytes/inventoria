@@ -136,6 +136,12 @@
      *  query box is empty so a repeat food is one tap away. Host-supplied (it
      *  knows what "recent" means for its surface); empty hides the section. */
     recent = [],
+    /** What to say when `recent` is empty and the user has not typed — supplied
+     *  by the host for the same reason `recent` is, since only the host knows
+     *  whether an empty list means anything on its surface. Empty string (the
+     *  default) keeps the silence, which is right for a host that has no Recent
+     *  concept at all. */
+    recentEmptyHint = "",
     /** DOM ids for each host's e2e selectors. */
     ids,
     /** The staged food, exposed so the host header's back button can clear it
@@ -175,6 +181,7 @@
     seed?: StagerSeed | null;
     extraTabs?: StagerExtraTab[];
     recent?: FoodResult[];
+    recentEmptyHint?: string;
     ids: StagerIds;
     staged?: FoodResult | null;
     canGoBack?: boolean;
@@ -1627,6 +1634,18 @@
                     </div>
                   {/snippet}
                 </Combobox.ContentStatic>
+                {#if recentEmptyHint && query.trim().length === 0}
+                  <!-- This meal's default came back empty (ADR-0057 §5). Kept
+                     distinct from the no-matches hint below, which answers a
+                     query: this one answers the absence of one. -->
+                  <p
+                    class="hint"
+                    role="status"
+                    data-testid="empty-meal-default"
+                  >
+                    {recentEmptyHint}
+                  </p>
+                {/if}
                 {#if emptySearch && emptySearch.query === query.trim()}
                   <!-- One message, and no route out of it (ADR-0047 §10). The
                      index holds only the reference foods that survived the
