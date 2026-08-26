@@ -230,7 +230,7 @@ _Avoid_: Search event, query log, keystroke, empty search (for the session itsel
 
 ### Interface primitives
 
-Five ADRs establish this vocabulary and forbid alternatives to it. The `_Avoid_` lines
+These ADRs establish this vocabulary and forbid alternatives to it. The `_Avoid_` lines
 here matter more than most: the recurring failure is inventing a fourth thing that
 already exists as one of these.
 
@@ -277,6 +277,22 @@ _Avoid_: Panel, box, tile, surface
 The shared proportional-readout primitive (`ui/Meter.svelte`) behind the nutrition
 bars, the dashboard RDA cells, and the calorie ring. See ADR-0037.
 _Avoid_: Progress bar, gauge, ring (as separate components)
+
+**AmountField**:
+The one control an amount of a food is typed into (`views/food/AmountField.svelte`):
+the boxed number, the ×/÷ sum keys, the skim slider and the portion chips. It is a
+food-screen control rather than a `ui/` primitive, but it is the only one of its kind
+— every staging screen and every edit-amount sheet reaches an amount through it. It
+takes its **Amount unit** as a prop and names it in its label, its suffix and its
+slider scale, because a unit can never be typed into it. See ADR-0023 and ADR-0060.
+_Avoid_: QuantityGrams, quantity field, gram field, gram picker
+
+**Basis caption**:
+The line above the AmountField naming what the panel's figures are measured per —
+`Per 100 g`, `Per 100 ml`, `Per serving (30 g)`, `Per serving`. It answers a
+different question from the control below it ("what are these figures per?" against
+"what am I typing?"), and the two coincide only on a per-100 panel. See ADR-0060.
+_Avoid_: Serving size (as a caption), per-100 label
 
 **Chip**:
 Not a thing. There is deliberately no `Chip` primitive; the space it would occupy is
