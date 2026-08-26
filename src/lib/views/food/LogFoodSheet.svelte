@@ -32,6 +32,7 @@
   import type { MealType } from "../../food/meal-type";
   import { wayInTitle, type WayIn } from "../../food/ways-in";
   import {
+    basisUnit,
     isMeasuredUnit,
     parseBasisQuantity,
     scaleNutrition,
@@ -411,9 +412,14 @@
           f.entity,
           // One spelling for every logged quantity (ADR-0060 §4) — this and
           // changeLoggedFoodAmount agreed with `quantityLabel` only by
-          // coincidence, and a second spelling is how the two drift. The unit is
-          // still hard-coded here; deriving it from the panel is T3's step.
-          quantityLabel(choice.amount, "g"),
+          // coincidence, and a second spelling is how the two drift.
+          //
+          // The unit is the panel's own (§1): the same `serving_size` the
+          // divisor above is read from, so a drink the user entered on a
+          // millilitre screen is recorded as "330ml" rather than as a weight it
+          // was never measured in. Forward-only, and a receipt already in the
+          // ledger keeps the string it was written with (§9).
+          quantityLabel(choice.amount, basisUnit(panel?.serving_size)),
           meal_type,
           breakdown.calories,
           breakdown.protein,

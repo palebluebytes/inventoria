@@ -1,6 +1,7 @@
 import type { FoodResult } from "./food-search";
 import type { EntityPayload } from "../ingestion/ingest";
 import {
+  basisUnit,
   isMeasuredUnit,
   measuredUnitFrom,
   nutritionFromMacros,
@@ -194,19 +195,29 @@ export function parseLoggedQuantity(quantity: string | undefined): {
 }
 
 /**
- * References a searched/scanned food as an ingredient of `grams` grams. The
- * scaled macros are not captured here — the builder derives each row's
- * contribution from the twin's per-100g panel and this `amount` (ADR-0021).
+ * References a searched/scanned food as an ingredient at `amount` of the unit
+ * its own panel is measured in. The scaled macros are not captured here — the
+ * builder derives each row's contribution from the twin's panel and this
+ * `amount` (ADR-0021).
+ *
+ * The unit is read off the food's basis rather than assumed to be grams
+ * (ADR-0060 §1): a drink published per 100 ml enters a recipe as a millilitre
+ * row, so the amount the user typed on the panel's own screen is the amount
+ * stored. Nothing converts — `basisUnit` falls back to grams for a weightless
+ * `"1 serving"` and for a food carrying no panel, exactly as
+ * {@link parseBasisQuantity} falls back to 100 for the divisor, so the row's
+ * unit and the divisor {@link deriveRecipeNutrition} applies read the same
+ * string to the same conclusion.
  */
 export function ingredientFromFood(
   food: FoodResult,
-  grams: number
+  amount: number
 ): RecipeIngredient {
   return {
     entity: food.entity,
     name: food.name,
-    amount: grams,
-    unit: "g",
+    amount,
+    unit: basisUnit(food.basis),
     payload: food.payload,
   };
 }

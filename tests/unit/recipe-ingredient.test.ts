@@ -3,6 +3,7 @@ import {
   panelFromIngredients,
   nameFromIngredients,
   ingredientFromTwin,
+  ingredientFromFood,
   addOrMergeIngredient,
   parseLoggedQuantity,
   quantityLabel,
@@ -10,6 +11,7 @@ import {
   type RecipeIngredient,
 } from "../../src/lib/food/recipe-ingredient";
 import type { NutritionInfo } from "../../src/lib/food/nutrition";
+import type { FoodResult } from "../../src/lib/food/food-search";
 
 const OATS_PANEL: NutritionInfo = {
   serving_size: "100 g",
@@ -90,6 +92,49 @@ describe("ingredientFromTwin", () => {
       attributes: { "nutrition/info": OATS_PANEL },
     };
     expect(ingredientFromTwin(twin, 50, "g")?.name).toBe("fdc:oats");
+  });
+});
+
+describe("ingredientFromFood", () => {
+  // The staged card's shape, as `mapPayloadToFoodResult` builds it: the panel's
+  // basis rides on the row, and the panel itself rides on the payload.
+  function stagedFood(basis: string): FoodResult {
+    const info: NutritionInfo = { ...OATS_PANEL, serving_size: basis };
+    return {
+      entity: "gtin:5000112637922",
+      name: "Cola",
+      calories: 42,
+      protein: 0,
+      fat: 0,
+      carbs: 10.6,
+      basis,
+      payload: {
+        entity: "gtin:5000112637922",
+        attributes: { "food/name": "Cola", "nutrition/info": info },
+      },
+    };
+  }
+
+  it("references a food published per 100 ml in millilitres", () => {
+    expect(ingredientFromFood(stagedFood("100 ml"), 330)).toMatchObject({
+      amount: 330,
+      unit: "ml",
+    });
+  });
+
+  it("references a weighed food in grams, exactly as before", () => {
+    expect(ingredientFromFood(stagedFood("100 g"), 50)).toMatchObject({
+      amount: 50,
+      unit: "g",
+    });
+  });
+
+  it("falls back to grams for a basis that names no unit", () => {
+    // A weightless "1 serving" and a panel-less food both name no unit, and
+    // both are entered in grams (ADR-0060 §1) — the same fallback `basisUnit`
+    // keeps, so the divisor and the unit agree about the same string.
+    expect(ingredientFromFood(stagedFood("1 serving"), 1).unit).toBe("g");
+    expect(ingredientFromFood(stagedFood("30 g"), 30).unit).toBe("g");
   });
 });
 
