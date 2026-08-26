@@ -639,17 +639,30 @@ describe("dedupePortions", () => {
     unit: "serving",
     grams: 30,
   };
-  const own: Portion = { label: "30 g", amount: 1, unit: "30 g", grams: 30 };
+  // OFF's own serving, as `offPortions` emits it: the `serving_size` string as
+  // the label, standing at the same 30 g the synthesised chip does.
+  const off: Portion = { label: "30 g", amount: 1, unit: "serving", grams: 30 };
   const cup: Portion = { label: "1 cup", amount: 1, unit: "cup", grams: 150 };
 
   it("keeps the first of two portions standing at the same amount", () => {
     // The synthesised serving precedes the twin's own list, so a serving the
     // source also publishes as a portion is one chip, not two.
-    expect(dedupePortions([serving, own, cup])).toEqual([serving, cup]);
+    expect(dedupePortions([serving, off, cup])).toEqual([serving, cup]);
   });
 
   it("keeps portions that stand at different amounts", () => {
-    expect(dedupePortions([own, cup])).toEqual([own, cup]);
+    expect(dedupePortions([off, cup])).toEqual([off, cup]);
+  });
+
+  it("passes through portions with no weight to key on", () => {
+    // Keying two of these on the same non-weight would fold them into one,
+    // which loses a chip; passing them through at worst repeats one, and
+    // `portionPresets` drops both from the picker anyway.
+    const malformed: Portion[] = [
+      { label: "1 splash", amount: 1, unit: "splash", grams: NaN },
+      { label: "1 dash", amount: 1, unit: "dash", grams: NaN },
+    ];
+    expect(dedupePortions(malformed)).toEqual(malformed);
   });
 
   it("is empty for an empty list", () => {

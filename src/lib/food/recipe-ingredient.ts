@@ -203,11 +203,16 @@ export function parseLoggedQuantity(quantity: string | undefined): {
  * The unit is read off the food's basis rather than assumed to be grams
  * (ADR-0060 §1): a drink published per 100 ml enters a recipe as a millilitre
  * row, so the amount the user typed on the panel's own screen is the amount
- * stored. Nothing converts — `basisUnit` falls back to grams for a weightless
- * `"1 serving"` and for a food carrying no panel, exactly as
- * {@link parseBasisQuantity} falls back to 100 for the divisor, so the row's
- * unit and the divisor {@link deriveRecipeNutrition} applies read the same
- * string to the same conclusion.
+ * stored. Nothing converts. `FoodResult.basis` IS the panel's `serving_size`,
+ * carried onto the row by `mapPayloadToFoodResult` — the same string
+ * {@link parseBasisQuantity} takes the divisor from when
+ * {@link deriveRecipeNutrition} scales this row, so a unit and a divisor cannot
+ * read it to different conclusions.
+ *
+ * A basis naming no measured unit keeps grams: a weightless `"1 serving"` takes
+ * `basisUnit`'s fallback, exactly as it takes `parseBasisQuantity`'s fallback to
+ * 100. A food with no panel at all never reaches that fallback — its row carries
+ * the per-100 g basis by construction — and is grams for that reason instead.
  */
 export function ingredientFromFood(
   food: FoodResult,

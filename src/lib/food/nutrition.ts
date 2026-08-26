@@ -355,17 +355,24 @@ export function servingSizePortion(info: NutritionInfo | undefined): Portion[] {
  * {@link servingSizePortion} is concatenated ahead of a twin's own list, and a
  * serving a source also publishes as a portion would otherwise appear twice.
  *
- * The key is the magnitude **and** the unit it is measured in, not the number
- * alone. Every portion resolves to a gram weight today, so the unit half is
- * constant and the two keys agree; it is spelled out here rather than in #172
- * because that is the ticket giving `Portion` its millilitre sibling (ADR-0060
- * §6), and a bare-number key would not merely become insufficient then — it
- * would be wrong, folding every millilitre portion of a drink into one chip on
- * their shared absent `grams`.
+ * The key spells the amount a portion resolves to together with the measured
+ * unit that amount is in — `grams` here, never the household `unit` field
+ * ("1 cup") beside it. Every portion is a gram weight today, so that half is
+ * written out rather than read; it is qualified now rather than in #172 because
+ * that ticket gives `Portion` the millilitre sibling ADR-0060 §6 names, and a
+ * bare-number key would then be wrong rather than merely insufficient.
+ *
+ * A portion carrying no gram weight is therefore **passed through unkeyed**
+ * rather than keyed on the absent number: a key built from one folds every such
+ * portion into the first of them, which is a lost chip, where passing them
+ * through is at worst a repeated one. {@link portionPresets} drops a portion
+ * with no finite weight from the picker regardless, so today this only refuses
+ * to fold two malformed rows together.
  */
 export function dedupePortions(portions: Portion[]): Portion[] {
   const seen = new Set<string>();
   return portions.filter((p) => {
+    if (!Number.isFinite(p.grams)) return true;
     const key = `${p.grams}g`;
     if (seen.has(key)) return false;
     seen.add(key);

@@ -127,14 +127,18 @@ describe("ingredientFromFood", () => {
       amount: 50,
       unit: "g",
     });
+    // A label-captured food divides by its own "30 g" serving, and is still
+    // typed and stored in grams.
+    expect(ingredientFromFood(stagedFood("30 g"), 30).unit).toBe("g");
   });
 
-  it("falls back to grams for a basis that names no unit", () => {
-    // A weightless "1 serving" and a panel-less food both name no unit, and
-    // both are entered in grams (ADR-0060 §1) — the same fallback `basisUnit`
-    // keeps, so the divisor and the unit agree about the same string.
+  it("keeps grams for a basis that names no measured unit", () => {
+    // A weightless "1 serving" names no unit, and is entered in grams
+    // (ADR-0060 §1) — the same fallback `basisUnit` keeps where
+    // `parseBasisQuantity` falls back to 100, so the divisor and the unit agree
+    // about the same string. A panel-less food never reaches this: its row
+    // carries the per-100 g basis by construction.
     expect(ingredientFromFood(stagedFood("1 serving"), 1).unit).toBe("g");
-    expect(ingredientFromFood(stagedFood("30 g"), 30).unit).toBe("g");
   });
 });
 
