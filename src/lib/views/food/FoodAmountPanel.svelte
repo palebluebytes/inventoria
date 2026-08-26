@@ -32,7 +32,7 @@
   let {
     panel = undefined,
     portions = [],
-    amount = $bindable(100),
+    amount = $bindable(),
   }: {
     /** The food's `nutrition/info` panel, per its serving basis. Omit for a
      *  panel-less food — then only the amount control renders. */
@@ -44,7 +44,7 @@
 
   // The unit the amount is entered in, and what the panel's figures are per.
   let unit = $derived(basisUnit(panel?.serving_size));
-  let caption = $derived(panel ? basisCaption(panel.serving_size) : null);
+  let caption = $derived(basisCaption(panel?.serving_size));
 
   // The amount total: the full panel scaled from its own basis to the typed amount.
   let factor = $derived(
@@ -80,7 +80,7 @@
   /* The control carries its own top margin, which is the gap the caption now
      owns; collapse it to a hairline where the caption leads, so the two read as
      one block rather than as two stranded rows. */
-  .basis + :global(.qty) {
+  .basis + :global(.af) {
     margin-top: var(--space-2xs);
   }
   .preview {

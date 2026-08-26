@@ -37,7 +37,7 @@
     name,
     panel = undefined,
     portions = [],
-    amount = $bindable(100),
+    amount = $bindable(),
     onEdit,
     onExplainSource,
     onExplainNova,
@@ -53,7 +53,7 @@
     /** Household portions surfaced as picker chips (ADR-0030). */
     portions?: Portion[];
     /** The amount in view, in the panel's own unit (ADR-0060 §1). */
-    amount?: number;
+    amount: number;
     /**
      * Correct this food from its label. Drives the pencil origin badge, which
      * shows only for a twin that already carries a label capture (§7) — an

@@ -33,13 +33,13 @@
   // gram name, and "quantity" is the ledger's word for the frozen `event/quantity`
   // string, not for a live input.
   let {
-    amount = $bindable(100),
-    unit = "g",
+    amount = $bindable(),
+    unit,
     portions = [],
   }: {
     amount: number;
     /** The unit this amount is entered in — the food's panel basis unit. */
-    unit?: MeasuredUnit;
+    unit: MeasuredUnit;
     portions?: Portion[];
   } = $props();
 
@@ -119,12 +119,12 @@
   let sliderValue = $derived(Math.min(Math.max(amount, 1), sliderMax));
 </script>
 
-<div class="qty">
-  <!-- Amount box: the "Amount (grams)" label inline-left, the value
-       right-aligned. One bordered card; the ÷ / × sum keys ride the slider row
-       below (ADR-0043 §2 relayout). -->
-  <div class="qty-row">
-    <span class="qty-label">Amount ({unitName})</span>
+<div class="af">
+  <!-- Amount box: the unit-naming label inline-left, the value right-aligned.
+       One bordered card; the ÷ / × sum keys ride the slider row below
+       (ADR-0043 §2 relayout). -->
+  <div class="af-row">
+    <span class="af-label">Amount ({unitName})</span>
     <label class="value">
       <input
         bind:this={inputEl}
@@ -161,13 +161,13 @@
       max={sliderMax}
       step={1}
       thumbPositioning="exact"
-      class="qty-slider"
+      class="af-slider"
     >
       {#snippet children({ thumbItems })}
-        <span class="qty-rail"></span>
-        <Slider.Range class="qty-range" />
+        <span class="af-rail"></span>
+        <Slider.Range class="af-range" />
         {#each thumbItems as { index } (index)}
-          <Slider.Thumb {index} class="qty-thumb" />
+          <Slider.Thumb {index} class="af-thumb" />
         {/each}
       {/snippet}
     </Slider.Root>
@@ -209,23 +209,22 @@
 </div>
 
 <style>
-  .qty {
+  .af {
     display: flex;
     flex-direction: column;
     gap: var(--space-s);
     width: 100%;
     margin-top: var(--space-m);
   }
-  /* When the control leads a padded sheet body (the edit-amount sheet, where the
-     food name lives in the sheet header), it is the body's first child and its
-     top margin would double up on the body's own padding. Collapse it there; the
-     staged card keeps the margin, since the meta/tags rows precede it. */
-  .qty:first-child {
+  /* When the control leads a padded body it would double its own top margin up
+     on that body's padding, so collapse it there. A basis caption above the
+     control collapses the same margin from its own side (FoodAmountPanel). */
+  .af:first-child {
     margin-top: 0;
   }
   /* Amount box: the label inline-left, the value right-aligned. One
      bordered card that frames the value (which carries no border of its own). */
-  .qty-row {
+  .af-row {
     display: flex;
     align-items: center;
     gap: var(--space-2xs);
@@ -233,11 +232,11 @@
     border: var(--edge);
     box-shadow: var(--shadow-1);
   }
-  .qty-row:focus-within {
+  .af-row:focus-within {
     outline: var(--edge-thick);
     outline-offset: 3px;
   }
-  .qty-label {
+  .af-label {
     font-weight: 700;
   }
   /* The value rides flush right in the amount box, right-aligned. */
@@ -305,7 +304,7 @@
   }
 
   /* bits-ui renders these elements itself, so target them with :global. */
-  :global(.qty-slider) {
+  :global(.af-slider) {
     grid-column: 1;
     grid-row: 1;
     position: relative;
@@ -320,7 +319,7 @@
        overflow room, so it never clips at the left or collides with the ÷ key. */
     margin-inline: 15px;
   }
-  :global(.qty-rail) {
+  :global(.af-rail) {
     position: absolute;
     top: 50%;
     left: 0;
@@ -335,7 +334,7 @@
      `left` and `right` on the range, so `margin-inline-start` nudges the fill in
      past the rail's 3px left border (else the fill would paint over it). The 6px
      height matches the rail's inner height, so the top/bottom borders show. */
-  :global(.qty-range) {
+  :global(.af-range) {
     position: absolute;
     top: 50%;
     height: 6px;
@@ -343,7 +342,7 @@
     transform: translateY(-50%);
     background: var(--green-bg);
   }
-  :global(.qty-thumb) {
+  :global(.af-thumb) {
     position: absolute;
     top: 50%;
     width: 30px;
@@ -358,7 +357,7 @@
     border-radius: 50%;
     cursor: grab;
   }
-  :global(.qty-thumb:focus-visible) {
+  :global(.af-thumb:focus-visible) {
     outline: var(--edge-thick);
     outline-offset: 3px;
   }

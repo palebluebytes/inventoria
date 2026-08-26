@@ -554,9 +554,13 @@ describe("basisCaption", () => {
     expect(basisCaption("62.5 g")).toBe("Per serving (62.5 g)");
   });
 
-  it("normalises the weight it prints rather than echoing the basis", () => {
+  it("normalises what it prints rather than echoing the basis", () => {
     expect(basisCaption("30g")).toBe("Per serving (30 g)");
     expect(basisCaption("30 grams")).toBe("Per serving (30 g)");
+    // A per-100 basis is per-100 however it was spaced — decided on the
+    // quantity, not on an exact match against the two sentinel strings.
+    expect(basisCaption("100g")).toBe("Per 100 g");
+    expect(basisCaption("100ml")).toBe("Per 100 ml");
   });
 
   it("gives a bare serving no weight at all", () => {
@@ -565,6 +569,9 @@ describe("basisCaption", () => {
     // the source never gave (ADR-0060 §3).
     expect(basisCaption("1 serving")).toBe("Per serving");
     expect(basisCaption("1 portion (330 ml)")).toBe("Per serving");
+    // parseBasisQuantity would hand a zero basis the same 100 fallback, so this
+    // reads the quantity off its own match rather than through that sibling.
+    expect(basisCaption("0 g")).toBe("Per serving");
   });
 
   it("says nothing at all when the food names no basis", () => {

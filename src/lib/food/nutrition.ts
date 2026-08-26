@@ -463,16 +463,24 @@ export function amountDefaults(unit: MeasuredUnit): AmountDefaults {
  * printing it would show a number the source never gave. `null` for a food that
  * names no basis at all — it renders no caption, as it renders no preview.
  *
- * The weight is re-spelled from the parsed quantity rather than echoed, so
- * `"30g"` and `"30 grams"` caption identically.
+ * Both halves are re-spelled from the one match rather than echoed, so `"30g"`,
+ * `"30 grams"` and `"100g"` caption exactly as their spaced forms do. Reading
+ * them off that match is also why this does not simply call
+ * {@link parseBasisQuantity} and {@link basisUnit}: a basis naming a zero
+ * quantity would take the former's 100 fallback and caption a number the source
+ * never gave, which is the one thing this function exists not to do.
  */
 export function basisCaption(serving_size: string | undefined): string | null {
   const basis = (serving_size ?? "").trim();
   if (basis === "") return null;
-  if (isPer100Basis(basis)) return `Per ${basis}`;
   const match = BASIS_QUANTITY.exec(basis);
   if (!match) return "Per serving";
-  return `Per serving (${Number(match[1])} ${measuredUnitFrom(match[2])})`;
+  const quantity = Number(match[1]);
+  if (quantity <= 0) return "Per serving";
+  const unit = measuredUnitFrom(match[2]);
+  return quantity === 100
+    ? `Per ${quantity} ${unit}`
+    : `Per serving (${quantity} ${unit})`;
 }
 
 /** The four macros the food dashboard and recipe builder display and sum. */
