@@ -78,7 +78,7 @@ describe("wayInTitle", () => {
   // The sheet has no siblings to be told apart from — you reached it by tapping
   // one control in one meal's header — so it drops the meal the control named.
   it("names the action without the meal", () => {
-    expect(wayInTitle("past")).toBe("Copy a past");
+    expect(wayInTitle("past")).toBe("Past meal");
     expect(wayInTitle("custom")).toBe("Quick entry");
     expect(wayInTitle("recipe")).toBe("Log a recipe");
     expect(wayInTitle("scan")).toBe("Scan a barcode");

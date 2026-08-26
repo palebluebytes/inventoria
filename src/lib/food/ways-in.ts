@@ -61,7 +61,9 @@ export function wayInLabel(kind: WayIn, meal_type: MealType): string {
 export function wayInTitle(kind: WayIn): string {
   switch (kind) {
     case "past":
-      return "Copy a past";
+      // The domain term itself (CONTEXT.md, *Past meal*), which is what the
+      // sheet holds: not "copy a past" anything, but the past meals you have.
+      return "Past meal";
     case "custom":
       return "Quick entry";
     case "recipe":
