@@ -184,13 +184,25 @@ export const roundExtraNutrient = (n: number): number =>
 // ---------------------------------------------------------------------------
 
 /**
- * One household measure a food's source offers, e.g. "1 medium" -> 118 g. A
- * portion is a **labelled gram weight and nothing more** (ADR-0030 §2): it is
+ * One household measure a food's source offers, e.g. "1 medium" -> 118 g, or a
+ * can's "1 can (330 ml)" -> 330 ml. A portion is a **labelled magnitude in one
+ * measured unit and nothing more** (ADR-0030 §2, widened by ADR-0060 §6): it is
  * captured as source data on the twin (`food/portions`), not a nutrition
- * reading, and it **resolves to grams** at entry time rather than being
- * persisted as a separate reference unit. Picking one fills a gram amount; the
- * logged Consumption Event and recipe `ReferenceIngredient` still store grams,
- * so the `{ ref, amount, unit }` model and `deriveRecipeNutrition` are untouched.
+ * reading, and it resolves at entry time to an amount in the unit its own
+ * magnitude is stated in. Picking one fills the amount field; the logged
+ * Consumption Event and recipe `ReferenceIngredient` store that amount with the
+ * unit beside it, as they do for a typed one.
+ *
+ * `grams` and `millilitres` are siblings and **exactly one of them is present**.
+ * Read the pair through {@link portionMeasure} rather than field by field, so no
+ * caller has to know which of the two a given source filled in.
+ *
+ * The millilitre field is a sibling rather than a widened `grams` deliberately
+ * (ADR-0060 §6): it degrades in the safe direction, because a reader that knows
+ * only `grams` sees no portion at all for a drink — which is exactly what every
+ * reader saw before this field existed. A `grams` that sometimes held
+ * millilitres would instead hand each of them a volume to go on treating as a
+ * weight, and no migration would be needed for that either.
  */
 export interface Portion {
   /** Human-readable measure, e.g. "1 medium" or "1 cup, sliced". */
@@ -199,8 +211,47 @@ export interface Portion {
   amount: number;
   /** The unit the measure is expressed in, e.g. "medium", "cup, sliced". */
   unit: string;
-  /** What this portion weighs, in grams — the value it resolves to. */
-  grams: number;
+  /** What this portion weighs, in grams. Absent on a volume portion. */
+  grams?: number;
+  /** What this portion measures, in millilitres. Absent on a weight portion. */
+  millilitres?: number;
+}
+
+/** The amount a {@link Portion} resolves to, in the unit that amount is in. */
+export interface PortionMeasure {
+  /** The magnitude, as the source stated it (unrounded). */
+  amount: number;
+  /** The unit that magnitude is in — which of the two sibling fields held it. */
+  unit: MeasuredUnit;
+}
+
+/**
+ * What a portion resolves to: its magnitude and the unit that magnitude is in.
+ * **The one reader of `Portion`'s exactly-one-of pair** (ADR-0060 §6) — the
+ * picker's chips, the chip text, the resolver behind a tap and the dedupe all
+ * ask this, so none of them can conclude that a 330 ml can weighs 330 g by
+ * reading the field it happens to know about.
+ *
+ * `null` — never a bogus number — for a portion carrying neither magnitude, or
+ * one whose magnitude is absent, `NaN` or infinite. Callers drop such a portion
+ * rather than filling an amount from it; `food/portions` is source data and a
+ * source may publish a row we cannot use.
+ *
+ * `grams` is asked first, so a malformed row that broke the invariant by
+ * carrying both reads exactly as it did before the sibling existed.
+ */
+export function portionMeasure(
+  portion: Portion | undefined
+): PortionMeasure | null {
+  const grams = portion?.grams;
+  if (typeof grams === "number" && Number.isFinite(grams)) {
+    return { amount: grams, unit: "g" };
+  }
+  const millilitres = portion?.millilitres;
+  if (typeof millilitres === "number" && Number.isFinite(millilitres)) {
+    return { amount: millilitres, unit: "ml" };
+  }
+  return null;
 }
 
 /** The EAVT attribute that holds a food twin's ordered household portions. */
@@ -217,44 +268,56 @@ export function formatPortionLabel(amount: number, unit: string): string {
 }
 
 /**
- * Resolves the gram weight of a chosen portion out of a food's `food/portions`
+ * Resolves the amount a chosen portion fills in, out of a food's `food/portions`
  * list, scaled by how many of that portion the user wants (`quantity`, default
  * 1 — two "1 medium" bananas resolve to 236 g). This is the pure function the
- * amount picker (ticket #27) calls to turn a picked portion into the grams the
- * existing gram path already handles.
+ * amount picker (ticket #27) calls to turn a picked portion into the number its
+ * field takes.
+ *
+ * `unit` is the unit the field is entered in, and a portion stated in the other
+ * one **does not match** (ADR-0060 §2): handing back a 100 g serving for a
+ * millilitre field would be the density conversion this app refuses, performed
+ * silently at ratio 1. Matching on both label and unit is also why this scans
+ * rather than taking the first label hit — a source may publish two servings of
+ * one name, and the one to resolve is the one the field can hold.
  *
  * Returns `undefined` — never a bogus number — when the list is missing or
- * empty, the chosen `label` isn't in it, or the matched portion's `grams` is
- * malformed (absent/`NaN`/infinite), so the caller can fall back to a raw gram
- * entry. Result is rounded to the stored food precision to shed float noise.
+ * empty, no portion matches both `label` and `unit`, or the matched portion
+ * carries no usable magnitude ({@link portionMeasure}), so the caller can fall
+ * back to a raw entry. Result is rounded to the stored food precision to shed
+ * float noise.
  */
-export function resolvePortionGrams(
+export function resolvePortionAmount(
   portions: Portion[] | undefined,
   label: string,
+  unit: MeasuredUnit,
   quantity: number = 1
 ): number | undefined {
   if (!portions?.length) return undefined;
-  const chosen = portions.find((p) => p?.label === label);
-  if (!chosen) return undefined;
-  if (typeof chosen.grams !== "number" || !Number.isFinite(chosen.grams)) {
-    return undefined;
-  }
   if (!Number.isFinite(quantity)) return undefined;
-  return roundFood(quantity * chosen.grams);
+  for (const portion of portions) {
+    if (portion?.label !== label) continue;
+    const measure = portionMeasure(portion);
+    if (measure?.unit === unit) return roundFood(quantity * measure.amount);
+  }
+  return undefined;
 }
 
 /**
  * One household portion prepared for the amount picker (ticket #27): the
- * resolved gram weight it fills in, the source `label` used to resolve it
- * ({@link resolvePortionGrams}), and the chip's display text (e.g.
+ * resolved amount it fills in, the source `label` used to resolve it
+ * ({@link resolvePortionAmount}), and the chip's display text (e.g.
  * "1 medium — 118 g"). A view model, not source data — it never touches the
  * ledger; the twin keeps its raw {@link Portion} list.
+ *
+ * The amount carries no unit of its own: every preset in a list is in the unit
+ * that list was built for, which is the field's own unit ({@link portionPresets}).
  */
 export interface PortionPreset {
-  /** The source portion's label, the key {@link resolvePortionGrams} matches. */
+  /** The source portion's label, the key {@link resolvePortionAmount} matches. */
   label: string;
-  /** The gram weight tapping this preset sets, rounded to stored precision. */
-  grams: number;
+  /** The amount tapping this preset sets, rounded to stored precision. */
+  amount: number;
   /** The chip text shown in the picker, e.g. "1 medium — 118 g". */
   display: string;
 }
@@ -274,43 +337,64 @@ export function portionLabelIsBareWeight(label: string): boolean {
 }
 
 /**
- * Formats a portion chip's display text — its label plus the gram weight it
- * resolves to, e.g. "1 medium — 118 g". Grams are shown at the display
- * precision so a source's finely-weighed portion doesn't read as noise.
+ * Formats a portion chip's display text — its label plus the amount it resolves
+ * to and the unit that amount is in, e.g. "1 medium — 118 g" or
+ * "1 can — 330 ml". The magnitude is shown at the display precision so a
+ * source's finely-weighed portion doesn't read as noise.
  *
- * When the label is *itself* the resolved gram weight — as with an OFF serving
- * size of "30 g" ({@link offPortions}) — the ` — N g` suffix would just repeat
- * it ("30 g — 30 g"), so it's dropped and the chip reads plainly ("30 g").
+ * When the label is *itself* the resolved amount — as with an OFF serving size
+ * of "30 g" or "330 ml" ({@link offPortions}) — the ` — N g` suffix would just
+ * repeat it ("30 g — 30 g"), so it's dropped and the chip reads plainly.
+ *
+ * A portion carrying no usable magnitude reads as its bare label: there is
+ * nothing true left to suffix it with. {@link portionPresets} drops such a
+ * portion from the picker, so this is the defensive branch rather than a chip
+ * anyone sees.
  */
 export function formatPortionPreset(portion: Portion): string {
-  const grams = roundFoodDisplay(portion.grams);
-  // Normalise "30g" / "30 g" / " 30 G " to compare against the resolved weight.
+  const measure = portionMeasure(portion);
+  if (!measure) return portion.label.trim();
+  const amount = roundFoodDisplay(measure.amount);
+  // Normalise "30g" / "30 g" / " 30 G " to compare against the resolved amount.
   const bare = portion.label.trim().toLowerCase().replace(/\s+/g, "");
-  if (bare === `${grams}g`) return portion.label.trim();
-  return `${portion.label} — ${grams} g`;
+  if (bare === `${amount}${measure.unit}`) return portion.label.trim();
+  return `${portion.label} — ${amount} ${measure.unit}`;
 }
 
 /**
  * Maps a twin's `food/portions` to the presets the amount picker renders
  * alongside its numeric + slider control (ticket #27). The single place that
- * decides which portions surface as chips and how each reads: a portion is
- * dropped when its `grams` is absent or non-finite (it could not fill a valid
- * amount), and the kept ones carry the gram weight rounded to stored precision
- * so a tapped chip and {@link resolvePortionGrams} agree exactly. Returns an
- * empty list for a portion-less (or missing) food, so the picker renders as it
- * does today.
+ * decides which portions surface as chips and how each reads.
+ *
+ * Two reasons a portion is dropped, and they are different reasons. One carries
+ * no usable magnitude ({@link portionMeasure}) and so could not fill a valid
+ * amount at all. The other is stated in a unit the field does not take, and
+ * that is the one this ticket's sibling field makes visible: a chip that filled
+ * a 100 g serving into a millilitre field would be a density conversion done
+ * silently at ratio 1, which ADR-0060 §2 refuses. Neither case is hypothetical —
+ * Open Food Facts publishes a drink powder's serving as the prepared 100 ml
+ * against a per-100 g panel, and a millilitre carton's as 100 g.
+ *
+ * The kept ones carry their amount rounded to stored precision so a tapped chip
+ * and {@link resolvePortionAmount} agree exactly. Returns an empty list for a
+ * portion-less (or missing) food, so the picker renders as it does today.
  */
 export function portionPresets(
-  portions: Portion[] | undefined
+  portions: Portion[] | undefined,
+  unit: MeasuredUnit
 ): PortionPreset[] {
   if (!portions?.length) return [];
-  return portions
-    .filter((p) => p && typeof p.grams === "number" && Number.isFinite(p.grams))
-    .map((p) => ({
-      label: p.label,
-      grams: roundFood(p.grams),
-      display: formatPortionPreset(p),
-    }));
+  return portions.flatMap((portion) => {
+    const measure = portionMeasure(portion);
+    if (measure?.unit !== unit) return [];
+    return [
+      {
+        label: portion.label,
+        amount: roundFood(measure.amount),
+        display: formatPortionPreset(portion),
+      },
+    ];
+  });
 }
 
 /**
@@ -356,24 +440,24 @@ export function servingSizePortion(info: NutritionInfo | undefined): Portion[] {
  * serving a source also publishes as a portion would otherwise appear twice.
  *
  * The key spells the amount a portion resolves to together with the measured
- * unit that amount is in — `grams` here, never the household `unit` field
- * ("1 cup") beside it. Every portion is a gram weight today, so that half is
- * written out rather than read; it is qualified now rather than in #172 because
- * that ticket gives `Portion` the millilitre sibling ADR-0060 §6 names, and a
- * bare-number key would then be wrong rather than merely insufficient.
+ * unit that amount is in ({@link portionMeasure}) — never the household `unit`
+ * field ("1 cup") beside it. Both halves are load-bearing now that a portion can
+ * be a volume: 100 g and 100 ml are not the same amount, and folding one into
+ * the other is the conversion ADR-0060 §2 refuses.
  *
- * A portion carrying no gram weight is therefore **passed through unkeyed**
- * rather than keyed on the absent number: a key built from one folds every such
- * portion into the first of them, which is a lost chip, where passing them
- * through is at worst a repeated one. {@link portionPresets} drops a portion
- * with no finite weight from the picker regardless, so today this only refuses
- * to fold two malformed rows together.
+ * A portion carrying no usable magnitude is **passed through unkeyed** rather
+ * than keyed on the absent number: a key built from one folds every such portion
+ * into the first of them, which is a lost chip, where passing them through is at
+ * worst a repeated one. {@link portionPresets} drops a portion with no finite
+ * magnitude from the picker regardless, so this only refuses to fold two
+ * malformed rows together.
  */
 export function dedupePortions(portions: Portion[]): Portion[] {
   const seen = new Set<string>();
   return portions.filter((p) => {
-    if (!Number.isFinite(p.grams)) return true;
-    const key = `${p.grams}g`;
+    const measure = portionMeasure(p);
+    if (!measure) return true;
+    const key = `${measure.amount}${measure.unit}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;

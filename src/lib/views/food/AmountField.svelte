@@ -11,7 +11,7 @@
     measuredUnitName,
     roundFood,
     portionPresets,
-    resolvePortionGrams,
+    resolvePortionAmount,
     type MeasuredUnit,
     type Portion,
   } from "../../food/nutrition";
@@ -23,7 +23,10 @@
   // in which case the thumb pins at the end while `amount` keeps the exact number.
   // When the food carries household portions (ADR-0030, ticket #27) they render
   // as a chip row below the slider: tapping "1 medium — 118 g" fills the resolved
-  // amount. A portion-less food shows just the field and slider.
+  // amount. A portion-less food shows just the field and slider. Only the
+  // portions stated in THIS field's unit become chips — a 330 ml can offers its
+  // "1 can" back (ADR-0060 §6), and a gram serving on a millilitre food offers
+  // nothing, because filling it in would convert by pretending not to.
   //
   // The unit is a property of the CONTROL, never of the input: every keystroke is
   // filtered to `AMOUNT_EXPRESSION_CHARS`, so a unit can't be typed even if we
@@ -50,13 +53,15 @@
 
   // The chip view-models are derived once from the raw portions by the food
   // domain helper; the .svelte file holds no portion mapping of its own.
-  let portionOptions = $derived(portionPresets(portions));
+  let portionOptions = $derived(portionPresets(portions, unit));
 
   // Tapping a portion chip fills its resolved amount — via the shared resolver so
   // the picker and any downstream reader agree — falling back to the preset's
-  // pre-rounded grams if the label somehow can't be resolved.
+  // pre-rounded amount if the label somehow can't be resolved. The unit rides
+  // along, so a chip resolves against the portion the field can actually hold
+  // and never against a same-named one stated in the other unit.
   function pickPortion(label: string, fallback: number) {
-    amount = resolvePortionGrams(portions, label) ?? fallback;
+    amount = resolvePortionAmount(portions, label, unit) ?? fallback;
   }
 
   const HARD_MAX = 10000;
@@ -199,9 +204,9 @@
     <div class="portions" data-testid="portion-presets">
       {#each portionOptions as p (p.label)}
         <Button
-          variant={amount === p.grams ? "primary" : "secondary"}
+          variant={amount === p.amount ? "primary" : "secondary"}
           class="portion-chip"
-          onclick={() => pickPortion(p.label, p.grams)}>{p.display}</Button
+          onclick={() => pickPortion(p.label, p.amount)}>{p.display}</Button
         >
       {/each}
     </div>

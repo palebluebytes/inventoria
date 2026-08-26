@@ -6,9 +6,10 @@ import {
   formatPortionPreset,
   portionLabelIsBareWeight,
   macrosFromNutrition,
+  portionMeasure,
   portionPresets,
   reportsNoEnergy,
-  resolvePortionGrams,
+  resolvePortionAmount,
   scaleNutrition,
   sumNutrition,
   PER_100ML,
@@ -275,6 +276,66 @@ describe("formatPortionLabel", () => {
   });
 });
 
+describe("portionMeasure", () => {
+  it("reads a gram portion as an amount in grams", () => {
+    expect(
+      portionMeasure({
+        label: "1 medium",
+        amount: 1,
+        unit: "medium",
+        grams: 118,
+      })
+    ).toEqual({ amount: 118, unit: "g" });
+  });
+
+  it("reads a millilitre portion as an amount in millilitres", () => {
+    // ADR-0060 §6: a can's serving is a volume, and it stays one.
+    expect(
+      portionMeasure({
+        label: "1 can (330 ml)",
+        amount: 1,
+        unit: "serving",
+        millilitres: 330,
+      })
+    ).toEqual({ amount: 330, unit: "ml" });
+  });
+
+  it("is null for a portion carrying neither magnitude", () => {
+    expect(
+      portionMeasure({ label: "1 splash", amount: 1, unit: "splash" })
+    ).toBe(null);
+    expect(portionMeasure(undefined)).toBe(null);
+  });
+
+  it("is null when the magnitude it carries is not a finite number", () => {
+    expect(
+      portionMeasure({ label: "bad", amount: 1, unit: "x", grams: NaN })
+    ).toBe(null);
+    expect(
+      portionMeasure({
+        label: "bad",
+        amount: 1,
+        unit: "x",
+        millilitres: Infinity,
+      })
+    ).toBe(null);
+  });
+
+  it("reads a malformed both-fields portion as the weight it always was", () => {
+    // The invariant is exactly one of the pair; a ledger row breaking it reads
+    // as it did before the sibling existed rather than flipping to a volume.
+    expect(
+      portionMeasure({
+        label: "both",
+        amount: 1,
+        unit: "x",
+        grams: 100,
+        millilitres: 330,
+      })
+    ).toEqual({ amount: 100, unit: "g" });
+  });
+});
+
 describe("formatPortionPreset", () => {
   it("reads the label plus the gram weight it resolves to", () => {
     expect(
@@ -320,6 +381,36 @@ describe("formatPortionPreset", () => {
       })
     ).toBe("45G");
   });
+
+  it("names the millilitres a volume portion resolves to", () => {
+    // The chip ADR-0052 §2 gave up and ADR-0060 §6 gives back.
+    expect(
+      formatPortionPreset({
+        label: "1 can",
+        amount: 1,
+        unit: "serving",
+        millilitres: 330,
+      })
+    ).toBe("1 can — 330 ml");
+  });
+
+  it("drops the redundant suffix when the label is itself the volume", () => {
+    expect(
+      formatPortionPreset({
+        label: "250 ml",
+        amount: 1,
+        unit: "serving",
+        millilitres: 250,
+      })
+    ).toBe("250 ml");
+  });
+
+  it("reads as the bare label when the portion names no magnitude at all", () => {
+    // Nothing true is left to suffix; the picker drops such a portion anyway.
+    expect(
+      formatPortionPreset({ label: " 1 splash ", amount: 1, unit: "splash" })
+    ).toBe("1 splash");
+  });
 });
 
 describe("portionLabelIsBareWeight", () => {
@@ -356,95 +447,133 @@ describe("portionPresets", () => {
     { label: "1 cup, sliced", amount: 1, unit: "cup, sliced", grams: 150 },
   ];
 
-  it("maps each portion to a chip preset carrying label, grams and display", () => {
-    expect(portionPresets(portions)).toEqual([
-      { label: "1 medium", grams: 118, display: "1 medium — 118 g" },
-      { label: "1 cup, sliced", grams: 150, display: "1 cup, sliced — 150 g" },
+  it("maps each portion to a chip preset carrying label, amount and display", () => {
+    expect(portionPresets(portions, "g")).toEqual([
+      { label: "1 medium", amount: 118, display: "1 medium — 118 g" },
+      { label: "1 cup, sliced", amount: 150, display: "1 cup, sliced — 150 g" },
     ]);
   });
 
-  it("rounds each preset's grams to stored precision so a tap matches resolvePortionGrams", () => {
+  it("rounds each preset's amount to stored precision so a tap matches resolvePortionAmount", () => {
     const raw: Portion[] = [
       { label: "1 slice", amount: 1, unit: "slice", grams: 14.12367 },
     ];
-    const [preset] = portionPresets(raw);
-    expect(preset.grams).toBe(14.124);
-    // The chip's pre-rounded grams equal what resolving its label yields, so the
-    // primary/secondary highlight tracks a tapped chip exactly.
-    expect(resolvePortionGrams(raw, "1 slice")).toBe(preset.grams);
+    const [preset] = portionPresets(raw, "g");
+    expect(preset.amount).toBe(14.124);
+    // The chip's pre-rounded amount equals what resolving its label yields, so
+    // the primary/secondary highlight tracks a tapped chip exactly.
+    expect(resolvePortionAmount(raw, "1 slice", "g")).toBe(preset.amount);
   });
 
-  it("drops a portion whose grams are absent or non-finite", () => {
+  it("drops a portion whose magnitude is absent or non-finite", () => {
     const mixed: Portion[] = [
       { label: "good", amount: 1, unit: "x", grams: 40 },
       { label: "nan", amount: 1, unit: "x", grams: NaN },
-      {
-        label: "missing",
-        amount: 1,
-        unit: "x",
-        grams: undefined as unknown as number,
-      },
+      { label: "missing", amount: 1, unit: "x" },
     ];
-    expect(portionPresets(mixed).map((p) => p.label)).toEqual(["good"]);
+    expect(portionPresets(mixed, "g").map((p) => p.label)).toEqual(["good"]);
+  });
+
+  it("offers a volume portion on a millilitre field", () => {
+    const can: Portion[] = [
+      { label: "1 can", amount: 1, unit: "serving", millilitres: 330 },
+    ];
+    expect(portionPresets(can, "ml")).toEqual([
+      { label: "1 can", amount: 330, display: "1 can — 330 ml" },
+    ]);
+  });
+
+  it("drops a portion whose unit is not the one being entered", () => {
+    // Nothing converts (ADR-0060 §2), so a gram portion on a millilitre field
+    // has no chip to offer: tapping it would enter its weight as a volume. The
+    // pair genuinely occurs — a drink powder sold by the tin states its serving
+    // as the prepared 100 ml, and a millilitre carton states its as 100 g.
+    const mixed: Portion[] = [
+      { label: "1 can", amount: 1, unit: "serving", millilitres: 330 },
+      { label: "100 g", amount: 1, unit: "serving", grams: 100 },
+    ];
+    expect(portionPresets(mixed, "ml").map((p) => p.label)).toEqual(["1 can"]);
+    expect(portionPresets(mixed, "g").map((p) => p.label)).toEqual(["100 g"]);
   });
 
   it("returns an empty list for a portion-less or missing food", () => {
-    expect(portionPresets([])).toEqual([]);
-    expect(portionPresets(undefined)).toEqual([]);
+    expect(portionPresets([], "g")).toEqual([]);
+    expect(portionPresets(undefined, "g")).toEqual([]);
   });
 });
 
-describe("resolvePortionGrams", () => {
+describe("resolvePortionAmount", () => {
   const portions: Portion[] = [
     { label: "1 medium", amount: 1, unit: "medium", grams: 118 },
     { label: "1 cup, sliced", amount: 1, unit: "cup, sliced", grams: 150 },
   ];
 
   it("returns the gram weight of the chosen portion", () => {
-    expect(resolvePortionGrams(portions, "1 medium")).toBe(118);
-    expect(resolvePortionGrams(portions, "1 cup, sliced")).toBe(150);
+    expect(resolvePortionAmount(portions, "1 medium", "g")).toBe(118);
+    expect(resolvePortionAmount(portions, "1 cup, sliced", "g")).toBe(150);
+  });
+
+  it("returns the millilitres of a chosen volume portion", () => {
+    const can: Portion[] = [
+      { label: "1 can", amount: 1, unit: "serving", millilitres: 330 },
+    ];
+    expect(resolvePortionAmount(can, "1 can", "ml")).toBe(330);
   });
 
   it("scales by the quantity of that portion", () => {
     // Two "1 medium" bananas resolve to 236 g; three cups to 450 g.
-    expect(resolvePortionGrams(portions, "1 medium", 2)).toBe(236);
-    expect(resolvePortionGrams(portions, "1 cup, sliced", 3)).toBe(450);
+    expect(resolvePortionAmount(portions, "1 medium", "g", 2)).toBe(236);
+    expect(resolvePortionAmount(portions, "1 cup, sliced", "g", 3)).toBe(450);
   });
 
   it("rounds a fractional-quantity result to the stored food precision", () => {
     // 0.5 × 118 = 59; a non-integer that would carry float noise is trimmed.
-    expect(resolvePortionGrams(portions, "1 medium", 0.5)).toBe(59);
+    expect(resolvePortionAmount(portions, "1 medium", "g", 0.5)).toBe(59);
     expect(
-      resolvePortionGrams([{ ...portions[0], grams: 0.1 }], "1 medium", 3)
+      resolvePortionAmount([{ ...portions[0], grams: 0.1 }], "1 medium", "g", 3)
     ).toBe(0.3);
   });
 
   it("returns undefined when the chosen label is not in the list", () => {
-    expect(resolvePortionGrams(portions, "1 large")).toBeUndefined();
+    expect(resolvePortionAmount(portions, "1 large", "g")).toBeUndefined();
+  });
+
+  it("returns undefined when the matched portion is in the other unit", () => {
+    // The magnitude is there and it is not the one being asked for; handing it
+    // back would be the density conversion ADR-0060 §2 refuses, at ratio 1.
+    expect(resolvePortionAmount(portions, "1 medium", "ml")).toBeUndefined();
+  });
+
+  it("resolves the portion in the asked-for unit when two share a label", () => {
+    const both: Portion[] = [
+      { label: "1 serving", amount: 1, unit: "serving", grams: 100 },
+      { label: "1 serving", amount: 1, unit: "serving", millilitres: 330 },
+    ];
+    expect(resolvePortionAmount(both, "1 serving", "ml")).toBe(330);
+    expect(resolvePortionAmount(both, "1 serving", "g")).toBe(100);
   });
 
   it("returns undefined for an empty or missing portion list", () => {
-    expect(resolvePortionGrams([], "1 medium")).toBeUndefined();
-    expect(resolvePortionGrams(undefined, "1 medium")).toBeUndefined();
+    expect(resolvePortionAmount([], "1 medium", "g")).toBeUndefined();
+    expect(resolvePortionAmount(undefined, "1 medium", "g")).toBeUndefined();
   });
 
-  it("returns undefined when the matched portion's grams are malformed", () => {
+  it("returns undefined when the matched portion's magnitude is malformed", () => {
     const malformed: Portion[] = [
       { label: "bad", amount: 1, unit: "x", grams: NaN },
-      {
-        label: "missing",
-        amount: 1,
-        unit: "x",
-        grams: undefined as unknown as number,
-      },
+      { label: "missing", amount: 1, unit: "x" },
     ];
-    expect(resolvePortionGrams(malformed, "bad")).toBeUndefined();
-    expect(resolvePortionGrams(malformed, "missing")).toBeUndefined();
+    expect(resolvePortionAmount(malformed, "bad", "g")).toBeUndefined();
+    expect(resolvePortionAmount(malformed, "missing", "g")).toBeUndefined();
   });
 
   it("returns undefined for a non-finite quantity", () => {
-    expect(resolvePortionGrams(portions, "1 medium", NaN)).toBeUndefined();
-    expect(resolvePortionGrams(portions, "1 medium", Infinity)).toBeUndefined();
+    expect(
+      resolvePortionAmount(portions, "1 medium", "g", NaN)
+    ).toBeUndefined();
+    expect(
+      resolvePortionAmount(portions, "1 medium", "g", Infinity)
+    ).toBeUndefined();
   });
 });
 
@@ -654,13 +783,47 @@ describe("dedupePortions", () => {
     expect(dedupePortions([off, cup])).toEqual([off, cup]);
   });
 
-  it("passes through portions with no weight to key on", () => {
-    // Keying two of these on the same non-weight would fold them into one,
+  it("keeps two portions standing at the same number in different units", () => {
+    // 100 g and 100 ml are not the same amount, and folding one into the other
+    // is the conversion ADR-0060 §2 refuses.
+    const weight: Portion = {
+      label: "100 g",
+      amount: 1,
+      unit: "serving",
+      grams: 100,
+    };
+    const volume: Portion = {
+      label: "100 ml",
+      amount: 1,
+      unit: "serving",
+      millilitres: 100,
+    };
+    expect(dedupePortions([weight, volume])).toEqual([weight, volume]);
+  });
+
+  it("keeps the first of two volume portions standing at the same amount", () => {
+    const can: Portion = {
+      label: "1 can",
+      amount: 1,
+      unit: "serving",
+      millilitres: 330,
+    };
+    const bottle: Portion = {
+      label: "330 ml",
+      amount: 1,
+      unit: "serving",
+      millilitres: 330,
+    };
+    expect(dedupePortions([can, bottle])).toEqual([can]);
+  });
+
+  it("passes through portions with no magnitude to key on", () => {
+    // Keying two of these on the same non-amount would fold them into one,
     // which loses a chip; passing them through at worst repeats one, and
     // `portionPresets` drops both from the picker anyway.
     const malformed: Portion[] = [
       { label: "1 splash", amount: 1, unit: "splash", grams: NaN },
-      { label: "1 dash", amount: 1, unit: "dash", grams: NaN },
+      { label: "1 dash", amount: 1, unit: "dash" },
     ];
     expect(dedupePortions(malformed)).toEqual(malformed);
   });

@@ -29,6 +29,7 @@
   import {
     dedupePortions,
     isMeasuredUnit,
+    portionMeasure,
     servingSizeGrams,
     servingSizePortion,
     type NutritionInfo,
@@ -267,10 +268,13 @@
     ]);
     // A gram basis to open at and scale against: the panel's weighed serving if
     // it has one, else the food's first real portion weight (the OFF serving). A
-    // food with neither has no gram basis and can't be amount-edited.
+    // food with neither has no gram basis and can't be amount-edited. A volume
+    // portion is not one of those weights (ADR-0060 §6) — it carries no `grams`
+    // to find, which is the safe direction this pair degrades in.
     const servingGrams =
       (panel ? servingSizeGrams(panel.serving_size) : null) ??
-      portions.find((p) => Number.isFinite(p.grams) && p.grams > 0)?.grams ??
+      portions.map(portionMeasure).find((m) => m?.unit === "g" && m.amount > 0)
+        ?.amount ??
       null;
 
     // Open at the logged amount (foods measured against a panel basis), or the

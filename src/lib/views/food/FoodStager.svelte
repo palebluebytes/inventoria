@@ -26,6 +26,7 @@
     basisUnit,
     parseBasisQuantity,
     portionLabelIsBareWeight,
+    portionMeasure,
     reportsNoEnergy,
     roundFoodDisplay,
     FOOD_PORTIONS_ATTR,
@@ -358,6 +359,11 @@
   // Per-field typed strings keyed by NutritionInfo field; "" ⇒ absent (not 0).
   let customValues = $state<Record<string, string>>({});
   let customPortions = $state<PortionRow[]>([]);
+  // Portions the form has no row for, held aside so a re-save carries them
+  // through untouched instead of dropping them. A millilitre portion is the one
+  // that occurs (ADR-0060 §6): the portion rows type a gram weight, and a volume
+  // serving is still not something this form can express.
+  let carriedPortions = $state<Portion[]>([]);
   // Rows ticked "∅ not on label" — read-along ergonomics; the built panel omits
   // empty rows regardless, this only dims + locks them and drives bulk-skip.
   let skipped = $state<Set<string>>(new Set());
@@ -493,6 +499,7 @@
     customIngredients = "";
     customServingGrams = "";
     customPortions = [];
+    carriedPortions = [];
     skipped = new Set();
     labelPhotos = [];
     offRefPhotos = [];
@@ -530,11 +537,7 @@
     customValues = values;
     prefilled = new Set();
     skipped = new Set();
-    const portions = attrs[FOOD_PORTIONS_ATTR] as Portion[] | undefined;
-    customPortions = (portions ?? []).map((p) => ({
-      label: p.label,
-      grams: String(p.grams),
-    }));
+    seedPortionRows(attrs[FOOD_PORTIONS_ATTR] as Portion[] | undefined);
     // The user starts with no captured photos of their own here.
     labelPhotos = [];
     // OFF's own photos ride alongside as a read-only reference to read the label
@@ -593,11 +596,7 @@
     // Editing your own saved values — nothing is "unverified" (no amber accent).
     prefilled = new Set();
     skipped = new Set();
-    const portions = attrs[FOOD_PORTIONS_ATTR] as Portion[] | undefined;
-    customPortions = (portions ?? []).map((p) => ({
-      label: p.label,
-      grams: String(p.grams),
-    }));
+    seedPortionRows(attrs[FOOD_PORTIONS_ATTR] as Portion[] | undefined);
     // The twin's own captured photos re-open in the user's capture set (editable),
     // not as OFF reference shots — this is the user editing their own capture.
     const photos = attrs["food/label_photos"] as string[] | undefined;
@@ -1330,10 +1329,25 @@
       (method === "scan" && !staged && !!barcode.trim())
   );
 
+  // Seed the form's portion rows from a twin's saved `food/portions`. Only a
+  // gram weight has a row to sit in — the rows are a label and a grams box —
+  // so every other portion is set aside on `carriedPortions` and re-emitted
+  // untouched by `buildCustomPortions`. Without that a drink's "1 can — 330 ml"
+  // would arrive in the grams box as nothing and leave the form deleted.
+  function seedPortionRows(portions: Portion[] | undefined) {
+    const all = portions ?? [];
+    customPortions = all
+      .filter((p) => portionMeasure(p)?.unit === "g")
+      .map((p) => ({ label: p.label, grams: String(p.grams) }));
+    carriedPortions = all.filter((p) => portionMeasure(p)?.unit !== "g");
+  }
+
   // Build the household portions the user typed into `Portion` shape, dropping
-  // wholly-blank rows. A hand-typed portion carries its own label as the unit.
+  // wholly-blank rows, then the ones this form has no row for (`seedPortionRows`)
+  // exactly as they were read. A hand-typed portion carries its own label as the
+  // unit, and is always a weight: nothing here can type a volume.
   function buildCustomPortions(): Portion[] {
-    return customPortions
+    const typed = customPortions
       .filter((p) => p.label.trim() !== "" || p.grams.trim() !== "")
       .map((p) => ({
         label: p.label.trim(),
@@ -1341,6 +1355,7 @@
         unit: p.label.trim() || "serving",
         grams: Number(p.grams.trim()) || 0,
       }));
+    return [...typed, ...carriedPortions];
   }
 
   function primaryAction() {
