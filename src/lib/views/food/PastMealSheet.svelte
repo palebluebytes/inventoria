@@ -40,7 +40,10 @@
   }
 </script>
 
-<BottomSheet isOpen title="Copy a past {meal_type}" {onClose}>
+<!-- `fillHeight`: how many past meals you have is a fact about your history, not
+     about this sheet, so the sheet opens at the same size the staging sheets do
+     whether it holds one row or twenty. -->
+<BottomSheet isOpen title="Copy a past {meal_type}" fillHeight {onClose}>
   <ul class="pm-list" data-testid="past-meal-list">
     {#each meals as meal (meal.date.getTime())}
       <li>

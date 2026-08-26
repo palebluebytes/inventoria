@@ -13,6 +13,7 @@
     onBack,
     backLabel = "Back",
     flushBody = false,
+    fillHeight = false,
     elevated = false,
     animate = true,
   }: {
@@ -51,6 +52,18 @@
      */
     flushBody?: boolean;
     /**
+     * Pin the sheet to its full height regardless of how much content it holds,
+     * without handing the body's layout to a child the way `flushBody` does.
+     *
+     * The two are separate because they answer separate questions. `flushBody`
+     * is "who owns the scroll region"; this is "does the sheet size to its
+     * content". A sheet whose content count varies with the user's history —
+     * the past-meal picker has one row or twenty — should not be a different
+     * shape each time it opens, and it does not need to own its own scroll to
+     * say so: the default body already flexes and scrolls.
+     */
+    fillHeight?: boolean;
+    /**
      * Raise this sheet a layer above another sheet it is opened over. A default
      * sheet sits at 1700/1701 (backdrop/content); an elevated one at 1800/1801,
      * so its backdrop dims — and its content floats above — a parent sheet's
@@ -88,6 +101,7 @@
       {...props}
       class="bottom-sheet-content {className}"
       class:flush={flushBody}
+      class:fill={fillHeight}
       class:no-anim={!animate}
       style:z-index={elevated ? 1801 : null}
     >
@@ -158,13 +172,16 @@
     animation: none;
   }
 
-  /* A flush-body sheet hands its layout to a child that owns its own scroll +
-     dock (FoodStager), whose content height swings widely between staging
-     states (empty search → results list → staged food → custom form). Left to
-     size to content, the whole sheet would grow and shrink on every switch, so
-     pin it to the max height — the tallest state already reaches 85vh — and let
-     the child's scroll region flex to absorb the difference. */
-  .bottom-sheet-content.flush {
+  /* Pinned height, for a sheet whose content height swings but whose shape
+     should not. A flush-body sheet always wants this — FoodStager's height
+     changes on every staging switch (empty search → results → staged food →
+     custom form), and left to size to content the whole sheet would grow and
+     shrink under the user. `fill` asks for the same pin on its own, for a sheet
+     that keeps the default body: the tallest state already reaches 85vh, and
+     the body's own `flex: 1; overflow-y: auto` absorbs the difference either
+     way. */
+  .bottom-sheet-content.flush,
+  .bottom-sheet-content.fill {
     height: 85vh;
   }
 
