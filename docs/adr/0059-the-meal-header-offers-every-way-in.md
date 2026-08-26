@@ -45,10 +45,10 @@ Two shapes, on a facsimile of the dashboard over the same fixture (branch
 ### Alternatives that were genuinely live
 
 **Keep the `+` and add one button beside it**, exactly as #166 specified. This
-is the smaller change and it ships ADR-0058 on its own. It was rejected as an
-end state, not as a step: it leaves the header saying that copying a past meal
-is special and the other four ways are not, which is a claim nothing supports.
-§6 keeps it available as the sequencing.
+is the smaller change and it ships ADR-0058 on its own. It leaves the header
+saying that copying a past meal is special and the other four ways are not,
+which is a claim nothing supports. It was rejected as an end state and then, in
+§6, rejected as a step too.
 
 **Keep the `+` as a lobby and put all five behind it**, tidying the dock rather
 than the header. It preserves the deferred tap that #166 exists to remove.
@@ -104,21 +104,28 @@ Header controls use stroke marks on `.add-meal-icon`'s spec — `currentColor`, 
 2.25 square-capped stroke — not the dock's emoji, which read as stickers in a
 grayscale header.
 
-### 6. ADR-0058 may land before this record does
+### 6. ADR-0058 and this record land as one change
 
-The past-meal control is well-defined as a second header button beside a
-surviving `+`, and ADR-0058 does not depend on any clause here. Shipping it that
-way first is sanctioned; this record is then a second change that removes the
-`+` and promotes the other four. Nothing in ADR-0058 has to be rewritten when it
-happens.
+Splitting them was available and was refused. The past-meal control is
+well-defined as a second header button beside a surviving `+`, and ADR-0058
+depends on no clause here, so it could have gone first with this record
+following. It does not, because a `+` that survives one release only to be
+removed the next teaches the header twice, and the second lesson has to unteach
+the first. There is no point shipping a layout already known to be wrong.
+
+The two records stay separate because they settle different questions — what a
+copy does, and where the ways in live. That is a boundary between decisions, not
+a boundary between releases.
 
 ## Consequences
 
 **This is a much larger change than #166 asked for**, and it is worth saying
 plainly. It removes the `+` from four meal headers, moves the log flow's method
 choice out of `FoodStager`, turns the Recipe `extraTab` into a header control,
-and invalidates every selector and screenshot that names `Add {meal}`. §6 exists
-so that the small, useful change is not held hostage to the large one.
+and invalidates every selector and screenshot that names `Add {meal}`. §6 refuses
+the obvious relief — shipping ADR-0058 first behind a surviving `+` — so the
+whole of it arrives at once, and the copy control cannot land early if this half
+runs into trouble. That is the accepted cost of not teaching the header twice.
 
 **Changing your mind now costs a close and reopen.** The dock let a user switch
 method mid-sheet; a single-purpose sheet does not. That is the price of removing
