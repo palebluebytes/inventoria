@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-26  
-**Implemented:** [#128](https://github.com/palebluebytes/inventoria/issues/128); `src/lib/food/recent-foods.ts` (the walk and the empty line), `src/lib/views/food/LogFoodSheet.svelte` (the cap and the catalogue rule), `src/lib/views/food/FoodStager.svelte` (where both render)
+**Implemented:** [#128](https://github.com/palebluebytes/inventoria/issues/128); `src/lib/food/recent-foods.ts` (the walk and the empty lines), `src/lib/food/meal-type.ts` (the four meals and the one narrowing cast), `src/lib/views/food/LogFoodSheet.svelte` (the cap and the catalogue rule), `src/lib/views/food/FoodStager.svelte` (where both render)
 
 ## Context
 
@@ -121,7 +121,7 @@ twin and fetching twins is I/O this fold must not do
 the other: ADR-0035 §6 decides what a food **is**, this record decides what the
 surface is **for**.
 
-### 5. An empty default names its meal
+### 5. An empty default names its meal, and says only what is true of it
 
 When a meal's default is empty, the Search tab says so in one line that names the
 meal, rather than rendering the silence it rendered before.
@@ -132,11 +132,22 @@ silence there reads as broken. The line therefore states that there is nothing
 **for this meal**, and says what fills it, since the mechanism is not visible
 from an empty surface.
 
-It offers no route out, because the route out is the search box already above it.
+**There are two ways to be empty and they make different claims.** The walk
+reports what was _logged_ at the meal; the caller then drops whatever the
+catalogue rule refuses (§4) or whose twin has gone. A user who has only ever
+logged breakfast as quick-estimate one-offs therefore has a full history and an
+empty default, and telling them "nothing logged at breakfast yet" is false — it
+recreates the reads-as-broken failure this clause exists to prevent. So the
+caller passes which case it is, and the second line states the outcome without
+naming a cause it cannot vouch for, since it covers both the refused one-off and
+the missing twin.
 
-The line waits on the twin resolution having settled. An unguarded empty check is
-true for the moment before the first twin lands, which would flash the line on a
-meal that has plenty.
+Neither line offers a route out, because the route out is the search box already
+above it.
+
+Both wait on the twin resolution having settled. An unguarded empty check is true
+for the moment before the first twin lands, which would flash a line on a meal
+that has plenty.
 
 ### 6. No setting
 
@@ -224,11 +235,21 @@ strictly more correct — a serving logged at dinner no longer governs how the s
 food qualifies at breakfast — and it is a behaviour change beyond the scoping
 itself, so it is pinned as a test rather than left to be discovered.
 
+**The four meal names now have one home.** `asMealType` and the union it
+narrows to lived in `FoodView.svelte`, with the four literals re-inlined as the
+log sheet's prop type; the walk needed the union too, and a third copy would have
+let `recentCandidatesForMeal(events, "brekkie")` type-check and silently return
+nothing. They moved to `src/lib/food/meal-type.ts`, which also takes domain logic
+out of a `.svelte` file (`CODING_STANDARDS.md` §2.2) and makes the sanctioned
+cast assertable.
+
 **The walk is now testable and the sheet is thinner.** Extracting it moved domain
 logic out of a `.svelte` file (`CODING_STANDARDS.md` §2.2) and made the rule
 assertable datoms-in / result-out, including a synthetic-ledger bench over five
 thousand events that pins the removal of the forty-candidate cap against the
-performance criterion #128 set.
+performance criterion #128 set. The bench keeps a copy of the capped walk and
+compares the two as a ratio, because an absolute millisecond bound loose enough
+to survive shared CI is loose enough to survive any regression worth catching.
 
 **The empty-state hint is host-supplied.** `FoodStager` takes it as a prop rather
 than deriving it from an empty `recent`, because the stager has another host —
