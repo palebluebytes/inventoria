@@ -39,6 +39,10 @@ import {
  * twin OFF had already published per 100 ml (ADR-0052 §5, #148). That left a UK
  * bottle printing "per 100 ml" with no way to say so, so the toggle now offers
  * it outright.
+ *
+ * It is also the app's ONE basis type: `ai-autofill.ts` reads it from here
+ * rather than keeping a narrower copy of its own, which the next basis value
+ * would leave wrong exactly as `per_100ml` already had.
  */
 export type Basis = "per_100g" | "per_100ml" | "per_serving";
 /** A row is typed in kcal (energy) or a nutrient mass unit; grams are stored. */

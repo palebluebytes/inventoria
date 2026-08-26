@@ -1,3 +1,4 @@
+import type { Basis } from "./label-form";
 import type { NutritionInfo } from "./nutrition";
 
 // ---------------------------------------------------------------------------
@@ -24,14 +25,6 @@ import type { NutritionInfo } from "./nutrition";
 //     the user to verify in the confirm form (#52), never written un-reviewed.
 
 /**
- * Which basis a label printed its values against — the choice the confirm form
- * (#52) resolves before the panel is stored. Labels print per 100 g or per
- * serving; the panel stores against a `serving_size` string (`PER_100G` /
- * `PER_SERVING`), so this maps straight onto that field once confirmed.
- */
-export type NutritionBasis = "per_100g" | "per_serving";
-
-/**
  * A proposed reading of a nutrition label, for the user to confirm/edit (#52) —
  * never a stored panel. Every nutrition row is optional and **absent means "not
  * present / unreadable on the label", never 0**: the same absent-not-zero
@@ -44,8 +37,18 @@ export interface AIAutofillResult {
   name: string | null;
   /** Brand as read from the label; `null` when absent/unreadable. */
   brand: string | null;
-  /** The basis the extracted values were printed against; resolved to a `serving_size` by the confirm form. */
-  basis: NutritionBasis;
+  /**
+   * The basis the extracted values were printed against, resolved to a
+   * `serving_size` by the confirm form through `resolveServingSize`.
+   *
+   * Deliberately {@link Basis} itself rather than a basis type of this module's
+   * own (ADR-0060 §7): a duplicate that lacked `per_100ml` was wrong from the
+   * moment #148 made a panel per-100 ml, and only stayed harmless because the
+   * extractor below is a stub that always answers `per_100g`. The form already
+   * assigns this straight onto its toggle, which is a de facto assertion that
+   * the two are one type — so they are one type.
+   */
+  basis: Basis;
   /**
    * The extracted panel keyed by {@link NutritionInfo} field, so it maps straight
    * onto a stored panel once confirmed. `serving_size` is omitted — {@link basis}
