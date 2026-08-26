@@ -12,16 +12,16 @@
   import FoodCard from "./FoodCard.svelte";
   import CommitButton from "./CommitButton.svelte";
 
-  // Edits a single food line's gram amount in a small sheet raised over the
+  // Edits a single food line's amount in a small sheet raised over the
   // recipe/instantiation dialog or the dashboard. The same picker serves both:
   // it edits a working copy and reports the chosen amount once on Done, so the
   // caller commits it its own way — a recipe mutates the ingredient in memory,
   // the dashboard retract-and-replaces the logged event (append-only, ADR-0008)
   // — without this sheet knowing which. The amount is in the food's OWN panel
   // unit and nothing converts (ADR-0060 §1/§2): grams for a weight basis,
-  // millilitres for a drink published per 100 ml. The control below still names
-  // grams either way — taking the unit as a prop is ADR-0060 §3's step, not this
-  // one's. A per-serving food is passed in with its serving surfaced as a
+  // millilitres for a drink published per 100 ml. The control names that unit and
+  // the caption above it names the basis, both read off the panel this sheet is
+  // handed. A per-serving food is passed in with its serving surfaced as a
   // "1 serving — N g" portion chip (via the caller's servingSizePortion), so a
   // whole-serving food is edited by measurement too.
   //
@@ -99,7 +99,7 @@
     {name}
     {panel}
     {portions}
-    bind:grams={value}
+    bind:amount={value}
     {onEdit}
     {onExplainSource}
     {onExplainNova}

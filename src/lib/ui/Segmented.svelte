@@ -5,7 +5,7 @@
   // mutually-exclusive cells over bits-ui RadioGroup, so the roles
   // (radiogroup/radio), aria-checked, and arrow-key *selection* live in one
   // place instead of being re-hand-rolled at each call site. Headless behaviour,
-  // custom brutalist skin — the same split QuantityGrams' Slider already proves.
+  // custom brutalist skin — the same split AmountField's Slider already proves.
   //
   // It owns a visible label above the row (also the group's accessible name) and
   // nothing else; callers keep whatever chrome sits around it (a hint below, a

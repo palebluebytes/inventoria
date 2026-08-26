@@ -214,7 +214,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.getByRole("button", { name: `Add ${meal}` }).click();
     await page.locator("#food-search-input").fill(query);
     await page.locator(".result-item", { hasText: resultName }).click();
-    await page.getByLabel("Quantity in grams").fill(grams);
+    await page.getByLabel("Amount in grams").fill(grams);
     await page.locator("#log-food-btn").click();
   }
 
@@ -227,7 +227,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   ) {
     await page.locator(".recipe-ingredient", { hasText: name }).click();
     const sheet = page.locator(".amount-sheet");
-    await sheet.getByLabel("Quantity in grams").fill(grams);
+    await sheet.getByLabel("Amount in grams").fill(grams);
     await sheet.locator("#amount-done-btn").click();
     await expect(sheet).toBeHidden();
   }
@@ -301,7 +301,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // Staging uses the numeric+slider amount control (ADR-0023): a real slider
     // (role="slider", from bits-ui) alongside the typed field. Set 150 g and log.
     await expect(page.getByRole("slider")).toBeVisible();
-    await page.getByLabel("Quantity in grams").fill("150");
+    await page.getByLabel("Amount in grams").fill("150");
     await page.locator("#log-food-btn").click();
 
     // Verify on the dashboard.
@@ -336,7 +336,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       .click();
     await page.locator("#food-search-input").fill("banana");
     await page.locator(".result-item", { hasText: "Mock Banana" }).click();
-    await page.getByLabel("Quantity in grams").fill("150");
+    await page.getByLabel("Amount in grams").fill("150");
     await page.locator("#log-food-btn").click();
 
     // Back to today, where that breakfast is now history.
@@ -400,7 +400,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(breakdown.locator(".nutrient-sodium_content")).toHaveCount(0);
 
     // Values scale with amount: double to 200 g → calcium doubles to 10 mg.
-    await page.getByLabel("Quantity in grams").fill("200");
+    await page.getByLabel("Amount in grams").fill("200");
     await expect(breakdown.locator(".nutrient-calcium")).toContainText("10 mg");
     await expect(breakdown.locator(".nutrient-iron")).toContainText("0.52 mg");
   });
@@ -738,7 +738,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // Tapping a preset fills its resolved grams and updates the shown total:
     // 118 g of 89 kcal/100 g → 89 × 1.18 = 105.02 kcal.
     await portions.getByRole("button", { name: "1 medium — 118 g" }).click();
-    await expect(page.getByLabel("Quantity in grams")).toHaveValue("118");
+    await expect(page.getByLabel("Amount in grams")).toHaveValue("118");
     await expect(
       page.locator(".staged .nutrients .n", { hasText: "Calories" })
     ).toContainText("105.02 kcal");
@@ -770,7 +770,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       0
     );
     await expect(page.getByRole("slider")).toBeVisible();
-    await expect(page.getByLabel("Quantity in grams")).toHaveValue("100");
+    await expect(page.getByLabel("Amount in grams")).toHaveValue("100");
   });
 
   test("keeps the search results when returning from a staged food", async ({
@@ -838,12 +838,12 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       .locator(".meal-item-card", { hasText: "Mock Banana" })
       .click();
     const sheet = page.locator(".amount-sheet");
-    await expect(sheet.getByLabel("Quantity in grams")).toHaveValue("150");
+    await expect(sheet.getByLabel("Amount in grams")).toHaveValue("150");
     await expect(sheet.getByRole("slider")).toBeVisible();
 
     // Change the amount and confirm; the entry is replaced (append-only, not
     // duplicated) with macros re-derived from the twin at the new amount.
-    await sheet.getByLabel("Quantity in grams").fill("300"); // 89 * 3 = 267
+    await sheet.getByLabel("Amount in grams").fill("300"); // 89 * 3 = 267
     await sheet.locator("#amount-done-btn").click();
     await expect(sheet).toBeHidden();
 
@@ -1300,7 +1300,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     ).toBeVisible();
     await page
       .locator(".amount-sheet")
-      .getByLabel("Quantity in grams")
+      .getByLabel("Amount in grams")
       .fill("100");
     await page.locator(".amount-sheet #amount-done-btn").click();
     await expect(page.locator(".amount-sheet")).toBeHidden();
@@ -1374,11 +1374,11 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(confirm).toHaveText("Add 341 kcal");
 
     // Typing an exact amount flows straight through (no step snapping): 50 → 170.5.
-    await addSheet.getByLabel("Quantity in grams").fill("50");
+    await addSheet.getByLabel("Amount in grams").fill("50");
     await expect(confirm).toHaveText("Add 170.5 kcal");
 
     // Typing 100 g back in returns to the full amount: 100 g → 341.
-    await addSheet.getByLabel("Quantity in grams").fill("100");
+    await addSheet.getByLabel("Amount in grams").fill("100");
     await expect(confirm).toHaveText("Add 341 kcal");
 
     // Adding folds the ingredient into the recipe: 323 + 341 = 664.
@@ -1410,7 +1410,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     const addSheet = page.locator(".add-ingredient-sheet");
     await addSheet.locator("#ai-search").fill("oats");
     await addSheet.locator(".result-item", { hasText: "Mock Oats" }).click();
-    await addSheet.getByLabel("Quantity in grams").fill("50");
+    await addSheet.getByLabel("Amount in grams").fill("50");
     await addSheet.locator("#add-ingredient-confirm").click();
 
     // The sheet closes and the add sticks: still one Oats row (no duplicate),
@@ -1543,7 +1543,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     const addSheet = page.locator(".add-ingredient-sheet");
     await addSheet.locator("#ai-search").fill(query);
     await addSheet.locator(".result-item", { hasText: resultName }).click();
-    await addSheet.getByLabel("Quantity in grams").fill(grams);
+    await addSheet.getByLabel("Amount in grams").fill(grams);
     await addSheet.locator("#add-ingredient-confirm").click();
     await expect(addSheet).toBeHidden();
   }

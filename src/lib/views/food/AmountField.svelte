@@ -7,39 +7,56 @@
     AMOUNT_EXPRESSION_CHARS,
   } from "../../food/amount-expression";
   import {
+    amountDefaults,
+    measuredUnitName,
     roundFood,
     portionPresets,
     resolvePortionGrams,
+    type MeasuredUnit,
     type Portion,
   } from "../../food/nutrition";
 
-  // Amount control for a staged food: a boxed field (the primary, precise entry —
+  // The app's one amount control: a boxed field (the primary, precise entry —
   // you can type a plain number *or* a little sum like `65 / 2` and the field logs
   // the result) and a slider that skims the common range.
-  // The slider is a coarse accelerator only: typed values may exceed `sliderMax`,
-  // in which case the thumb pins at the end while `grams` keeps the exact number.
+  // The slider is a coarse accelerator only: typed values may exceed its max,
+  // in which case the thumb pins at the end while `amount` keeps the exact number.
   // When the food carries household portions (ADR-0030, ticket #27) they render
   // as a chip row below the slider: tapping "1 medium — 118 g" fills the resolved
-  // grams. A portion-less food shows just the field and slider.
+  // amount. A portion-less food shows just the field and slider.
+  //
+  // The unit is a property of the CONTROL, never of the input: every keystroke is
+  // filtered to `AMOUNT_EXPRESSION_CHARS`, so a unit can't be typed even if we
+  // wanted it to be. It comes from the food's panel basis and nothing converts
+  // (ADR-0060 §1/§2) — which is why this is `AmountField` rather than the
+  // `QuantityGrams` it used to be: the label was a millilitre field wearing a
+  // gram name, and "quantity" is the ledger's word for the frozen `event/quantity`
+  // string, not for a live input.
   let {
-    grams = $bindable(100),
-    sliderMax = 500,
+    amount = $bindable(100),
+    unit = "g",
     portions = [],
   }: {
-    grams: number;
-    sliderMax?: number;
+    amount: number;
+    /** The unit this amount is entered in — the food's panel basis unit. */
+    unit?: MeasuredUnit;
     portions?: Portion[];
   } = $props();
+
+  // The unit's own spellings and range, resolved in one place so the label, the
+  // aria-label, the box suffix and the slider's scale cannot name four things.
+  let unitName = $derived(measuredUnitName(unit));
+  let sliderMax = $derived(amountDefaults(unit).sliderMax);
 
   // The chip view-models are derived once from the raw portions by the food
   // domain helper; the .svelte file holds no portion mapping of its own.
   let portionOptions = $derived(portionPresets(portions));
 
-  // Tapping a portion chip fills its resolved grams — via the shared resolver so
+  // Tapping a portion chip fills its resolved amount — via the shared resolver so
   // the picker and any downstream reader agree — falling back to the preset's
   // pre-rounded grams if the label somehow can't be resolved.
   function pickPortion(label: string, fallback: number) {
-    grams = resolvePortionGrams(portions, label) ?? fallback;
+    amount = resolvePortionGrams(portions, label) ?? fallback;
   }
 
   const HARD_MAX = 10000;
@@ -49,12 +66,12 @@
   const clamp = (v: number) => Math.max(0, Math.min(HARD_MAX, roundFood(v)));
 
   // The field keeps its own raw string so typing (and a transient empty field)
-  // isn't clobbered; `grams` is the source of truth everything else drives.
-  let raw = $state(String(grams));
+  // isn't clobbered; `amount` is the source of truth everything else drives.
+  let raw = $state(String(amount));
   let focused = $state(false);
   let inputEl = $state<HTMLInputElement>();
   $effect(() => {
-    if (!focused) raw = String(grams);
+    if (!focused) raw = String(amount);
   });
 
   // The number pad has no operator keys, so the only sum we support (× and ÷)
@@ -70,7 +87,7 @@
     const next = raw.slice(0, start) + op + raw.slice(end);
     raw = [...next].filter((ch) => AMOUNT_EXPRESSION_CHARS.test(ch)).join("");
     const result = evaluateAmount(raw);
-    if (result !== null) grams = clamp(result);
+    if (result !== null) amount = clamp(result);
     await tick(); // let Svelte push the new value before we place the caret
     el.focus();
     const caret = start + op.length;
@@ -80,34 +97,34 @@
   // Keep only characters a sum can be built from; evaluate live so the slider
   // and any macro preview track a complete expression as it's typed. While the
   // field is mid-expression (`65 /`) or otherwise not yet a number, `evaluateAmount`
-  // returns null and `grams` simply holds its last good value — never clobbered.
+  // returns null and `amount` simply holds its last good value — never clobbered.
   function onInput(e: Event & { currentTarget: HTMLInputElement }) {
     raw = [...e.currentTarget.value]
       .filter((ch) => AMOUNT_EXPRESSION_CHARS.test(ch))
       .join("");
     const result = evaluateAmount(raw);
-    if (result !== null) grams = clamp(result);
+    if (result !== null) amount = clamp(result);
   }
   // On blur/Enter, collapse whatever was typed to its computed value: a valid
-  // sum becomes its result, anything unparseable falls back to the last `grams`.
+  // sum becomes its result, anything unparseable falls back to the last `amount`.
   function commit() {
     focused = false;
     const result = evaluateAmount(raw);
-    grams = clamp(result ?? grams);
-    raw = String(grams);
+    amount = clamp(result ?? amount);
+    raw = String(amount);
   }
 
-  // The slider skims a 1..sliderMax range (a 0 g amount is meaningless); the field
-  // still holds the exact typed grams, so a typed 0 just pins the thumb at 1.
-  let sliderValue = $derived(Math.min(Math.max(grams, 1), sliderMax));
+  // The slider skims a 1..sliderMax range (a zero amount is meaningless); the field
+  // still holds the exact typed number, so a typed 0 just pins the thumb at 1.
+  let sliderValue = $derived(Math.min(Math.max(amount, 1), sliderMax));
 </script>
 
 <div class="qty">
-  <!-- Amount box: the "Quantity (grams)" label inline-left, the grams value
+  <!-- Amount box: the "Amount (grams)" label inline-left, the value
        right-aligned. One bordered card; the ÷ / × sum keys ride the slider row
        below (ADR-0043 §2 relayout). -->
   <div class="qty-row">
-    <span class="qty-label">Quantity (grams)</span>
+    <span class="qty-label">Amount ({unitName})</span>
     <label class="value">
       <input
         bind:this={inputEl}
@@ -117,7 +134,7 @@
         autocorrect="off"
         autocapitalize="off"
         spellcheck="false"
-        aria-label="Quantity in grams — a number, or a sum with the × and ÷ keys"
+        aria-label="Amount in {unitName} — a number, or a sum with the × and ÷ keys"
         value={raw}
         oninput={onInput}
         onfocus={(e) => {
@@ -127,7 +144,7 @@
         onblur={commit}
         onkeydown={(e) => e.key === "Enter" && e.currentTarget.blur()}
       />
-      <span class="unit">g</span>
+      <span class="unit">{unit}</span>
     </label>
   </div>
 
@@ -139,7 +156,7 @@
     <Slider.Root
       type="single"
       value={sliderValue}
-      onValueChange={(v) => (grams = v)}
+      onValueChange={(v) => (amount = v)}
       min={1}
       max={sliderMax}
       step={1}
@@ -170,7 +187,7 @@
     >
     <!-- The 0 / max scale sits in the slider's grid column only, so its ends line
          up with the track rather than the ÷ / × keys. -->
-    <div class="scale"><span>1</span><span>{sliderMax} g</span></div>
+    <div class="scale"><span>1</span><span>{sliderMax} {unit}</span></div>
   </div>
 
   {#if portionOptions.length > 0}
@@ -182,7 +199,7 @@
     <div class="portions" data-testid="portion-presets">
       {#each portionOptions as p (p.label)}
         <Button
-          variant={grams === p.grams ? "primary" : "secondary"}
+          variant={amount === p.grams ? "primary" : "secondary"}
           class="portion-chip"
           onclick={() => pickPortion(p.label, p.grams)}>{p.display}</Button
         >
@@ -206,7 +223,7 @@
   .qty:first-child {
     margin-top: 0;
   }
-  /* Amount box: the label inline-left, the grams value right-aligned. One
+  /* Amount box: the label inline-left, the value right-aligned. One
      bordered card that frames the value (which carries no border of its own). */
   .qty-row {
     display: flex;
@@ -223,7 +240,7 @@
   .qty-label {
     font-weight: 700;
   }
-  /* The grams value rides flush right in the amount box, right-aligned. */
+  /* The value rides flush right in the amount box, right-aligned. */
   .value {
     margin-left: auto;
     display: flex;

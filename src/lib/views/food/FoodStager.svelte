@@ -22,6 +22,8 @@
   import { calorieDisplayDecimals } from "../../stores/settings.store";
   import { secretsStore } from "../../stores/secrets";
   import {
+    amountDefaults,
+    basisUnit,
     parseBasisQuantity,
     portionLabelIsBareWeight,
     reportsNoEnergy,
@@ -96,7 +98,7 @@
   // The shared food-staging surface behind both the direct-log sheet and the
   // add-ingredient sheet (issue #16). It owns the Search / Scan / Custom method
   // switch, each sub-flow, the staged-food card with its live macro preview
-  // (reusing the QuantityGrams control, ADR-0023), and the bottom method dock
+  // (reusing the AmountField control, ADR-0023), and the bottom method dock
   // (input · method tabs · primary action). It never logs or persists anything:
   // it hands the resolved food back through `onChoose` and lets the host decide
   // what to do (log a Consumption Event, or add a recipe ingredient), so staging
@@ -234,9 +236,22 @@
   // clear it.
   let emptySearch = $state<{ query: string } | null>(null);
 
-  // `grams` is the authoritative amount owned by the QuantityGrams control
-  // (ADR-0023); it stays a clean number.
-  let grams = $state(100);
+  // `amount` is the authoritative figure owned by the AmountField control
+  // (ADR-0023); it stays a clean number, in the staged panel's OWN unit — grams
+  // for a weighed food, millilitres for a drink published per 100 ml, and
+  // nothing converts between the two (ADR-0060 §1/§2).
+  let amount = $state(100);
+
+  // Where the control opens for a freshly staged food, which follows that unit:
+  // 100 g for anything weighed, a 250 ml glass for a drink. Read off the
+  // payload rather than off `stagedInfo`, so it never depends on the order a
+  // derived happens to settle in relative to the assignment beside it.
+  function openingAmount(payload: EntityPayload): number {
+    const info = payload.attributes[NUTRITION_INFO_ATTR] as
+      | NutritionInfo
+      | undefined;
+    return amountDefaults(basisUnit(info?.serving_size)).amount;
+  }
 
   // The staged food's full nutrition panel (per its serving basis). Handed to
   // FoodAmountPanel, which scales it to the typed amount for the pill preview and
@@ -250,7 +265,7 @@
   // same divisor FoodAmountPanel's preview directly above it uses (#148). A
   // hardcoded /100 here disagreed with that preview on every panel not measured
   // per 100 — a label-corrected `gtin:` twin restaged from a re-scan, say.
-  let factor = $derived(grams / parseBasisQuantity(stagedInfo?.serving_size));
+  let factor = $derived(amount / parseBasisQuantity(stagedInfo?.serving_size));
 
   // The staged food's household portions (ADR-0030), surfaced as picker presets.
   // A searched food carries them on its bundled row (ADR-0047 §6); empty (and
@@ -288,7 +303,7 @@
     // the Recent list closes nothing — no session was ever open.
     endSearchSession();
     staged = item;
-    grams = 100;
+    amount = openingAmount(item.payload);
     if (!searched) return;
     completingEntity = item.entity;
     try {
@@ -749,7 +764,7 @@
     seeded = true;
     if (seed.kind === "food") {
       staged = seed.food;
-      grams = seed.grams;
+      amount = seed.grams;
     } else if (seed.kind === "edit_twin") {
       // Same screen the staged card's pencil opens, seeded from the same twin.
       openEditForm(seed.entity, seed.attributes);
@@ -1196,13 +1211,13 @@
       // runs the found-but-poor predicate below (§1).
       if (local) {
         staged = mapPayloadToFoodResult(local);
-        grams = 100;
+        amount = openingAmount(local);
         status = "idle";
         return;
       }
       const off = await lookupBarcode(code);
       staged = mapPayloadToFoodResult(off);
-      grams = 100;
+      amount = openingAmount(off);
       status = "idle";
       const info = off.attributes[NUTRITION_INFO_ATTR] as
         | NutritionInfo
@@ -1310,7 +1325,7 @@
   let stagedNoEnergy = $derived(!!staged && reportsNoEnergy(stagedInfo));
 
   let canPrimary = $derived(
-    (!!staged && grams > 0 && !completingPanel && !stagedNoEnergy) ||
+    (!!staged && amount > 0 && !completingPanel && !stagedNoEnergy) ||
       (method === "custom" && !!customName.trim() && runningKcal !== "") ||
       (method === "scan" && !staged && !!barcode.trim())
   );
@@ -1330,7 +1345,9 @@
 
   function primaryAction() {
     if (staged) {
-      return commit({ kind: "food", food: staged, grams });
+      // The carrier is still gram-named; the unit reaches the write path in
+      // ADR-0060 §4's step, not this one's.
+      return commit({ kind: "food", food: staged, grams: amount });
     }
     if (method === "custom") {
       if (!customName.trim() || runningKcal === "") return;
@@ -1535,7 +1552,7 @@
                     name={staged.name}
                     panel={stagedInfo}
                     portions={stagedPortions}
-                    bind:grams
+                    bind:amount
                     onEdit={editStaged}
                     onExplainSource={(kind) => (sourceExplain = kind)}
                     onExplainNova={explainNova}

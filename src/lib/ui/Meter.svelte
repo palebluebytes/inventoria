@@ -50,7 +50,7 @@
 
 <style>
   /* bits-ui renders Meter.Root itself, so target it (and the fill it wraps) with
-     :global, exactly as QuantityGrams styles its bits Slider parts. */
+     :global, exactly as AmountField styles its bits Slider parts. */
   :global(.meter-track) {
     width: 100%;
     height: 6px;

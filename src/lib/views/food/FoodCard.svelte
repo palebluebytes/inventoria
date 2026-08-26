@@ -37,7 +37,7 @@
     name,
     panel = undefined,
     portions = [],
-    grams = $bindable(100),
+    amount = $bindable(100),
     onEdit,
     onExplainSource,
     onExplainNova,
@@ -52,7 +52,8 @@
     panel?: NutritionInfo;
     /** Household portions surfaced as picker chips (ADR-0030). */
     portions?: Portion[];
-    grams?: number;
+    /** The amount in view, in the panel's own unit (ADR-0060 §1). */
+    amount?: number;
     /**
      * Correct this food from its label. Drives the pencil origin badge, which
      * shows only for a twin that already carries a label capture (§7) — an
@@ -195,7 +196,7 @@
     </p>
   {/if}
 
-  <FoodAmountPanel {panel} {portions} bind:grams />
+  <FoodAmountPanel {panel} {portions} bind:amount />
 
   <!-- Allergen safety block (ADR-0043 §3, #104): a static, present-only block
        below the quantity row — Contains › May-contain › Free-from, one allergen

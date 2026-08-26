@@ -314,7 +314,7 @@ test.describe("Visual Catalog Generator", () => {
       .click();
     await page.locator("#food-search-input").fill("banana");
     await page.locator(".result-item", { hasText: "Mock Banana" }).click();
-    await page.getByLabel("Quantity in grams").fill("150");
+    await page.getByLabel("Amount in grams").fill("150");
     await page.locator("#log-food-btn").click();
 
     // Take Food Dashboard Screenshot
