@@ -27,6 +27,7 @@
     type RecipeIngredient,
   } from "../food/recipe-ingredient";
   import {
+    dedupePortions,
     isMeasuredUnit,
     servingSizeGrams,
     servingSizePortion,
@@ -259,8 +260,8 @@
     // synthesised "1 serving — 30 g", the manual/edited label case), then the
     // twin's household portions — which for an OFF product is where its serving
     // lives (OFF panels are per-100 g; the serving is a `food/portions` entry).
-    // Deduped by gram weight so a serving listed both ways isn't doubled.
-    const portions = dedupePortionsByGrams([
+    // Deduped by amount and unit so a serving listed both ways isn't doubled.
+    const portions = dedupePortions([
       ...servingSizePortion(panel),
       ...twinPortions,
     ]);
@@ -293,18 +294,6 @@
       // its source tag rather than to nothing.
       payload: twin ?? { entity: item.target ?? "", attributes: {} },
     };
-  }
-
-  // Drop portions that resolve to a gram weight already listed — keeps the first
-  // (the synthesised "1 serving" precedes the twin's own portions), so the amount
-  // picker never shows two chips for the same weight.
-  function dedupePortionsByGrams(portions: Portion[]): Portion[] {
-    const seen = new Set<number>();
-    return portions.filter((p) => {
-      if (seen.has(p.grams)) return false;
-      seen.add(p.grams);
-      return true;
-    });
   }
 
   // "Correct this food from its label", tapped in the source explainer over the

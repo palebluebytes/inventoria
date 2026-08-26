@@ -15,6 +15,7 @@ import {
   amountDefaults,
   basisCaption,
   basisUnit,
+  dedupePortions,
   isMeasuredUnit,
   measuredUnitName,
   isPer100Basis,
@@ -628,5 +629,30 @@ describe("servingSizePortion", () => {
     expect(servingSizePortion({ serving_size: "100 g" })).toEqual([]);
     expect(servingSizePortion({ serving_size: "1 serving" })).toEqual([]);
     expect(servingSizePortion(undefined)).toEqual([]);
+  });
+});
+
+describe("dedupePortions", () => {
+  const serving: Portion = {
+    label: "1 serving",
+    amount: 1,
+    unit: "serving",
+    grams: 30,
+  };
+  const own: Portion = { label: "30 g", amount: 1, unit: "30 g", grams: 30 };
+  const cup: Portion = { label: "1 cup", amount: 1, unit: "cup", grams: 150 };
+
+  it("keeps the first of two portions standing at the same amount", () => {
+    // The synthesised serving precedes the twin's own list, so a serving the
+    // source also publishes as a portion is one chip, not two.
+    expect(dedupePortions([serving, own, cup])).toEqual([serving, cup]);
+  });
+
+  it("keeps portions that stand at different amounts", () => {
+    expect(dedupePortions([own, cup])).toEqual([own, cup]);
+  });
+
+  it("is empty for an empty list", () => {
+    expect(dedupePortions([])).toEqual([]);
   });
 });

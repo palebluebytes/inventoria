@@ -349,6 +349,30 @@ export function servingSizePortion(info: NutritionInfo | undefined): Portion[] {
   return [{ label: "1 serving", amount: 1, unit: "serving", grams }];
 }
 
+/**
+ * Drops portions that stand at an amount already listed, keeping the first — so
+ * the amount picker never shows two chips for the same thing. The synthesised
+ * {@link servingSizePortion} is concatenated ahead of a twin's own list, and a
+ * serving a source also publishes as a portion would otherwise appear twice.
+ *
+ * The key is the magnitude **and** the unit it is measured in, not the number
+ * alone. Every portion resolves to a gram weight today, so the unit half is
+ * constant and the two keys agree; it is spelled out here rather than in #172
+ * because that is the ticket giving `Portion` its millilitre sibling (ADR-0060
+ * §6), and a bare-number key would not merely become insufficient then — it
+ * would be wrong, folding every millilitre portion of a drink into one chip on
+ * their shared absent `grams`.
+ */
+export function dedupePortions(portions: Portion[]): Portion[] {
+  const seen = new Set<string>();
+  return portions.filter((p) => {
+    const key = `${p.grams}g`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 /** Matches a basis that names a quantity we can divide by: "100 g", "250 ml". */
 const BASIS_QUANTITY = /^(\d+(?:\.\d+)?)\s*(g(?:rams?)?|ml)$/i;
 
