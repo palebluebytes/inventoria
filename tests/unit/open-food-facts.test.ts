@@ -13,7 +13,7 @@ import {
   type OFFProduct,
 } from "../../src/lib/food/open-food-facts";
 import { getSecret } from "../../src/lib/stores/secrets";
-import type { NutritionInfo } from "../../src/lib/food/nutrition";
+import type { NutritionInfo, Portion } from "../../src/lib/food/nutrition";
 import nutellaProduct from "./support/fixtures/off-nutella.json";
 
 // The contribution seam reads the user's OFF login from localStorage (#60) via
@@ -342,7 +342,11 @@ describe("mapOffProductToPayload", () => {
     expect((attrs["nutrition/info"] as NutritionInfo).serving_size).toBe(
       "100 g"
     );
-    expect(attrs).not.toHaveProperty("food/portions");
+    // The serving is still captured, in the unit OFF stated it in — the two
+    // fields answer two questions, and the portion's answer is a volume.
+    expect(attrs["food/portions"]).toEqual([
+      { label: "1 serving", amount: 1, unit: "serving", millilitres: 100 },
+    ]);
   });
 
   it("maps serving_quantity/serving_size to a single food/portions entry (ADR-0030)", () => {
@@ -402,9 +406,10 @@ describe("mapOffProductToPayload", () => {
     );
   });
 
-  it("emits no portion for a serving OFF measured in millilitres (#148)", () => {
-    // A Portion resolves to grams, so a 330 ml can stored as `grams: 330` would
-    // be a volume masquerading as a weight. Better no portion (ADR-0052 §2).
+  it("emits a millilitre portion for a serving OFF measured in millilitres", () => {
+    // ADR-0052 §2 dropped this serving because a Portion was a gram weight and
+    // `grams: 330` would have been a volume masquerading as one. It now has a
+    // field of its own (ADR-0060 §6), so the can gets its "1 can" chip back.
     const can: OFFProduct = {
       ...nutella,
       product: {
@@ -415,7 +420,32 @@ describe("mapOffProductToPayload", () => {
         serving_size: "1 can (330 ml)",
       },
     };
-    expect(mapOffProductToPayload(can).attributes).not.toHaveProperty(
+    const portions = mapOffProductToPayload(can).attributes["food/portions"];
+    expect(portions).toEqual([
+      {
+        label: "1 can (330 ml)",
+        amount: 1,
+        unit: "serving",
+        millilitres: 330,
+      },
+    ]);
+    // The weight field stays absent, which is what makes a reader that knows
+    // only grams see no portion here rather than a 330 g can.
+    expect((portions as Portion[])[0]).not.toHaveProperty("grams");
+  });
+
+  it("emits no portion for a millilitre serving that is zero or unparseable", () => {
+    // The usable-magnitude rule is one rule, asked before the unit is looked at.
+    const zero: OFFProduct = {
+      ...nutella,
+      product: {
+        ...nutella.product,
+        serving_quantity: 0,
+        serving_quantity_unit: "ml",
+        serving_size: "0 ml",
+      },
+    };
+    expect(mapOffProductToPayload(zero).attributes).not.toHaveProperty(
       "food/portions"
     );
   });
@@ -932,7 +962,7 @@ describe("offReferenceImagesFromTwin", () => {
   const twin = (raw: unknown) => ({
     "twin/raw_provenance": {
       adapter: "off",
-      adapter_version: "8",
+      adapter_version: "9",
       source_uri: "https://world.openfoodfacts.org/api/v0/product/123.json",
       raw_data: raw,
     },

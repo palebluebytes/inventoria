@@ -32,7 +32,12 @@ import { getSecret } from "../stores/secrets";
 //     no portion rather than a weight it never was (ADR-0052, #148). Forward-only
 //     like every bump above it: drinks already in the ledger keep the old stamp
 //     until they are looked up again.
-const ADAPTER_VERSION = "8";
+// v9: a millilitre serving_quantity emits a portion again, under `millilitres`
+//     rather than the `grams` it never was (ADR-0060 §6) — so a 330 ml can
+//     offers the "1 can" chip v8 had to give up. Forward-only: a drink already
+//     in the ledger keeps its portion-less payload until it is looked up again,
+//     which is the same thing it shows today.
+const ADAPTER_VERSION = "9";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -247,32 +252,39 @@ function isMillilitres(unit: string | undefined): boolean {
 /**
  * Builds a food's `food/portions` list from OFF's serving fields (ADR-0030 §5).
  * OFF offers exactly one serving, so the list is 0 or 1 long: a single portion
- * that resolves to `serving_quantity` grams, labelled by `serving_size` (falling
- * back to a generic "1 serving" when the label is absent). Returns an empty list
- * — never a zero-gram portion — when there is no usable serving weight, so the
+ * standing at `serving_quantity`, labelled by `serving_size` (falling back to a
+ * generic "1 serving" when the label is absent). Returns an empty list — never a
+ * zero-magnitude portion — when there is no usable serving quantity, so the
  * caller omits the attribute rather than emitting an empty one.
  *
- * A **millilitre** serving is one of those unusable weights (ADR-0052 §2, #148).
- * A `Portion` resolves to grams, so a 330 ml can stored as `grams: 330` would be
- * a volume masquerading as a weight; better no portion than a wrong one, and the
- * empty-list rule above already carries that precedent. `serving_quantity_unit`
- * is the one field that answers this — it is `ml` on 57 of 100 sampled OFF
- * beverages, and it disagrees with the product's own unit in both directions: a
- * drink powder sold by the 260 g tin states its serving as the prepared 100 ml.
+ * `serving_quantity_unit` decides which of {@link Portion}'s sibling fields the
+ * magnitude goes in, and nothing else about the food: it disagrees with the
+ * product's own unit in both directions — a drink powder sold by the 260 g tin
+ * states its serving as the prepared 100 ml — which is why the panel's basis is
+ * read off `product_quantity_unit` instead ({@link offPanelBasis}, ADR-0052 §1).
+ *
+ * ADR-0052 §2 had to discard a millilitre serving outright, because a `Portion`
+ * was a gram weight and a 330 ml can stored as `grams: 330` would have been a
+ * volume masquerading as one. That cost 57 of 100 sampled beverages their
+ * one-tap serving. The sibling field (ADR-0060 §6) is what buys it back, and the
+ * unit is now carried rather than assumed either way.
  */
 function offPortions(
   serving_quantity: number | string | undefined,
   serving_quantity_unit: string | undefined,
   serving_size: string | undefined
 ): Portion[] {
-  if (isMillilitres(serving_quantity_unit)) return [];
-  const grams =
+  const quantity =
     typeof serving_quantity === "string"
       ? Number(serving_quantity)
       : serving_quantity;
-  if (grams == null || !Number.isFinite(grams) || grams <= 0) return [];
+  if (quantity == null || !Number.isFinite(quantity) || quantity <= 0)
+    return [];
   const label = serving_size?.trim() || "1 serving";
-  return [{ label, amount: 1, unit: "serving", grams }];
+  const magnitude = isMillilitres(serving_quantity_unit)
+    ? { millilitres: quantity }
+    : { grams: quantity };
+  return [{ label, amount: 1, unit: "serving", ...magnitude }];
 }
 
 /**
