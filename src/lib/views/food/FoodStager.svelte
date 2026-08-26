@@ -125,8 +125,17 @@
      *  default when the user leaves the name blank (ADR-0035 §3). */
     mealName = "",
     /** Hides the method switcher — the direct-log sheet's edit mode locks onto
-     *  one food's amount. */
+     *  one food's amount. Distinct from `methodDock`: this also suppresses the
+     *  fresh-entry intent chooser, because an edit is not a fresh entry. */
     lockMethods = false,
+    /**
+     * Whether this host shows a method dock at all (ADR-0059 §2). The dock is a
+     * host's choice, not a fixture: the log flow drops it, because the meal
+     * header already chose the way in and a sheet reached from there does one
+     * thing. `AddIngredientSheet` keeps it — it is reached from the recipe
+     * builder, which has no header to hang controls on.
+     */
+    methodDock = true,
     /** One-time pre-population for edit mode (see {@link StagerSeed}). */
     seed = null,
     /** Host-injected method tabs beyond Search / Scan / Custom (e.g. the log
@@ -178,6 +187,7 @@
     manualIntents?: boolean;
     mealName?: string;
     lockMethods?: boolean;
+    methodDock?: boolean;
     seed?: StagerSeed | null;
     extraTabs?: StagerExtraTab[];
     recent?: FoodResult[];
@@ -1379,14 +1389,16 @@
     if (method === "scan") return handleBarcodeLookup();
   }
 
-  // The method switcher hides while staged or method-locked, and also while the
+  // The method switcher hides for a host that has no dock at all (ADR-0059 §2),
+  // and otherwise while staged or method-locked, and also while the
   // read-along form was opened by a scan door (`captureReason` set): that flow is
   // a focused "fill in the label" task, so Search/Scan/Custom/Recipe would only
   // invite the user to abandon it. A manual Custom tap clears captureReason, so
   // the tabs stay put there. It also hides while an extra tab is in a focused
   // sub-state (`tabBack` set) — e.g. a recipe's editor — for the same reason.
   let showTabs = $derived(
-    !staged &&
+    methodDock &&
+      !staged &&
       !lockMethods &&
       captureReason === null &&
       !(isExtra(method) && !!tabBack)

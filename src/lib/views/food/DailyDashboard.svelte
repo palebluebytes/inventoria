@@ -4,6 +4,13 @@
     consumptionForDay,
     type ConsumptionEvent,
   } from "../../stores/calorie.store";
+  import { pastMealsFor } from "../../food/past-meals";
+  import {
+    MEAL_ENTRY_KINDS,
+    mealEntryLabel,
+    type MealEntryKind,
+  } from "../../food/meal-entry";
+  import { MEAL_TYPES, type MealType } from "../../food/meal-type";
   import { totalNutrition } from "../../food/consumption-state";
   import {
     buildNutrientMeters,
@@ -37,11 +44,13 @@
   import NutrientCardGrid from "./NutrientCardGrid.svelte";
   import NutrientGroupHead from "./NutrientGroupHead.svelte";
   import { longpress } from "../../actions/longpress";
+  import MealEntryIcon from "./MealEntryIcon.svelte";
 
   let {
     dbReady,
     selectedDate = $bindable(new Date()),
-    onAddMeal,
+    onEnterMeal,
+    copyNote = null,
     selectedIds,
     onLongPressItem,
     onTapItem,
@@ -50,7 +59,11 @@
   }: {
     dbReady: boolean;
     selectedDate: Date;
-    onAddMeal: (meal_type: "breakfast" | "lunch" | "dinner" | "snack") => void;
+    /** A header control was tapped: which meal, and which way in (ADR-0059). */
+    onEnterMeal: (meal_type: MealType, kind: MealEntryKind) => void;
+    /** The line a partial copy left behind (ADR-0058 §11), or null after a
+     *  clean one. Owned by the host so it dies with what it described. */
+    copyNote?: { meal_type: MealType; text: string } | null;
     selectedIds: Set<string>;
     onLongPressItem: (id: string) => void;
     onTapItem: (id: string) => void;
@@ -166,7 +179,18 @@
   }
 
   // Group events by meal type
-  const meal_types = ["breakfast", "lunch", "dinner", "snack"] as const;
+  const meal_types = MEAL_TYPES;
+  // Which meals have a past instance to copy (ADR-0058 §7 / ADR-0059 §4). The
+  // whole history is walked, not the visible day: the control asks about every
+  // other day. A meal with none loses its control rather than showing a dead
+  // one, so this is read per meal rather than once.
+  let mealHasPast = $derived.by(() => {
+    const has = {} as Record<MealType, boolean>;
+    for (const m of meal_types)
+      has[m] = pastMealsFor($consumptionStore, m, selectedDate).length > 0;
+    return has;
+  });
+
   let groupedMeals = $derived.by(() => {
     const groups: Record<(typeof meal_types)[number], any[]> = {
       breakfast: [],
@@ -225,26 +249,37 @@
     <div class="meal-section">
       <div class="meal-section-header">
         <h3 class="meal-title">{meal_type.toUpperCase()}</h3>
-        <Button
-          variant="primary"
-          size="sm"
-          class="add-meal"
-          disabled={!dbReady}
-          aria-label="Add {meal_type}"
-          title="Add {meal_type}"
-          onclick={() => onAddMeal(meal_type)}
-        >
-          <svg
-            class="add-meal-icon"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-            focusable="false"
-          >
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-        </Button>
+        <!-- Every way into this meal is its own control, in line with the meal
+             name, and there is no `+` (ADR-0059 §1). All five are secondary:
+             with the `+` gone there is no primary action left to protect, and
+             electing one of the five would be a claim nothing supports (§3).
+             The past-meal control is absent, not disabled, until the meal has
+             history (§4) — and since it leads the row, the row shortens from
+             the meal name's end. -->
+        <div class="meal-actions">
+          {#each MEAL_ENTRY_KINDS as kind (kind)}
+            {#if kind !== "past" || mealHasPast[meal_type]}
+              <Button
+                variant="secondary"
+                size="sm"
+                class="way-in"
+                disabled={!dbReady}
+                aria-label={mealEntryLabel(kind, meal_type)}
+                title={mealEntryLabel(kind, meal_type)}
+                onclick={() => onEnterMeal(meal_type, kind)}
+              >
+                <MealEntryIcon {kind} />
+              </Button>
+            {/if}
+          {/each}
+        </div>
       </div>
+
+      {#if copyNote && copyNote.meal_type === meal_type}
+        <!-- ADR-0058 §11: a clean copy says nothing, so this exists only when
+             something went wrong. -->
+        <p class="meal-note" role="status">{copyNote.text}</p>
+      {/if}
 
       {#if groupedMeals[meal_type].length === 0}
         <div class="empty-meal">
@@ -677,23 +712,30 @@
     letter-spacing: 0.05em;
     color: var(--text-primary);
   }
-  /* Icon-only add action — the meal header names the meal, so this just reads as
-     "add here". The primary ink fill, hover-invert, press-flush and focus ring
-     are the shared Button (primary) now (ADR-0039 / #78); only the fixed square
-     icon sizing stays here, reached via `:global` under the scoped header since
-     the class rides a child Button. */
-  .meal-section-header :global(.add-meal) {
+  /* Icon-only actions — the meal header names the meal, so each just reads as
+     its own verb. The frame, hover-invert, press-flush and focus ring are the
+     shared Button (secondary) (ADR-0039 / #78). */
+  /* Five squares plus their gaps is roughly 12rem of header. They wrap rather
+     than push the meal name off, so a narrow screen shows the squeeze. The
+     fixed square sizing stays here, reached via `:global` under the scoped
+     header since the class rides a child Button. */
+  .meal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: var(--space-2xs);
+  }
+  .meal-section-header :global(.way-in) {
     flex-shrink: 0;
     width: 2rem;
     height: 2rem;
     padding: 0;
   }
-  .add-meal-icon {
-    width: 1.1rem;
-    height: 1.1rem;
-    stroke: currentColor;
-    stroke-width: 2.25;
-    stroke-linecap: square;
+  .meal-note {
+    margin: var(--space-3xs) 0 0;
+    font-size: var(--step-n2);
+    color: var(--text-secondary);
   }
   .empty-meal {
     padding: var(--space-m);

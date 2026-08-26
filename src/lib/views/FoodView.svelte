@@ -7,10 +7,18 @@
     getLocalFoodTwin,
     retractConsumptionEvent,
     changeLoggedFoodAmount,
+    copyPastMeal,
     type ConsumptionEvent,
   } from "../stores/calorie.store";
   import { scaleAmount, type ScaleOp } from "../food/scale-amount";
   import { asMealType, type MealType } from "../food/meal-type";
+  import type { MealEntryKind } from "../food/meal-entry";
+  import {
+    pastMealsFor,
+    partitionCopyable,
+    copyTally,
+    type PastMeal,
+  } from "../food/past-meals";
   import {
     customIngredient,
     parseLoggedQuantity,
@@ -27,6 +35,7 @@
   import type { EntityPayload } from "../ingestion/ingest";
   import type { FoodSourceKind } from "../food/food-source";
   import DailyDashboard from "./food/DailyDashboard.svelte";
+  import PastMealSheet from "./food/PastMealSheet.svelte";
   import LogFoodSheet from "./food/LogFoodSheet.svelte";
   import RecipeModal from "./food/RecipeModal.svelte";
   import InstantiationSheet from "./food/InstantiationSheet.svelte";
@@ -51,6 +60,19 @@
   // The meal whose log sheet is open (null = closed). Opening is direct — no
   // intermediate chooser.
   let sheet_meal_type = $state<MealType | null>(null);
+  // Which header control opened the log sheet (ADR-0059 §1). It fixes the
+  // stager's method and titles the sheet; null while editing, which is not a
+  // way into a meal.
+  let entry_kind = $state<MealEntryKind | null>(null);
+  // The meal whose past-meal picker is open (ADR-0058). Its own sheet, not a
+  // stager method: every method there picks a food, this picks a meal.
+  let past_meal_type = $state<MealType | null>(null);
+  // The line a partial copy left behind (§11). Held here, beside the day it
+  // describes, so it dies with it.
+  let copy_note = $state<{ meal_type: MealType; text: string } | null>(null);
+  // Guards a second copy while one is mid-flight, as `scaling` does for the
+  // bulk rescale.
+  let copying = $state(false);
   // The logged event being edited (null = adding). When set, the log sheet opens
   // in edit mode and saving replaces this event (append-only).
   let editEvent = $state<ConsumptionEvent | null>(null);
@@ -122,11 +144,61 @@
   let dayItems = $derived(consumptionForDay($consumptionStore, selectedDate));
   let selectedItems = $derived(dayItems.filter((i) => selected_ids.has(i.id)));
 
-  function openSheet(meal_type: MealType) {
+  /**
+   * A header control was tapped (ADR-0059 §1). Four of the five ways in are
+   * `FoodStager` methods and share their id with it, so they open the log sheet
+   * straight onto that method with no dock; `past` picks a meal rather than a
+   * food and gets its own sheet (ADR-0058).
+   *
+   * Any of them supersedes whatever a previous copy had to say, so the note
+   * goes first.
+   */
+  function enterMeal(meal_type: MealType, kind: MealEntryKind) {
+    copy_note = null;
+    if (kind === "past") {
+      past_meal_type = meal_type;
+      return;
+    }
     editEvent = null;
     edit_label = false;
+    entry_kind = kind;
     sheet_meal_type = meal_type;
   }
+
+  let past_meals = $derived(
+    past_meal_type
+      ? pastMealsFor($consumptionStore, past_meal_type, selectedDate)
+      : []
+  );
+
+  /**
+   * Copies a past meal into the meal being viewed (ADR-0058). Wholesale (§1),
+   * at the amounts logged (§2), appending (§5), on now's clock (§10). The tap
+   * on the row was the commit (§3), so this closes the sheet and says nothing
+   * unless something went wrong (§11).
+   */
+  async function copyMeal(meal: PastMeal) {
+    if (copying) return;
+    copying = true;
+    const target = meal.meal_type;
+    past_meal_type = null;
+    try {
+      const { copyable, lost } = partitionCopyable(meal.items);
+      const result = await copyPastMeal(copyable, target, selectedDate);
+      const text = copyTally(result.copied, result.lost + lost.length);
+      copy_note = text ? { meal_type: target, text } : null;
+    } finally {
+      copying = false;
+    }
+  }
+
+  // A copy note describes one copy into one day, so it must not outlive either
+  // — the same reason `setSelection` clears `scale_note`. Changing the viewed
+  // day drops it.
+  $effect(() => {
+    void selectedDate;
+    copy_note = null;
+  });
 
   // Open the right editor for a tapped card. A Recipe Instantiation (carries a
   // frozen `event/instantiation` snapshot) opens the instantiation editor to be
@@ -270,6 +342,7 @@
 
   function closeSheet() {
     sheet_meal_type = null;
+    entry_kind = null;
     editEvent = null;
     edit_label = false;
   }
@@ -457,7 +530,8 @@
 <DailyDashboard
   {dbReady}
   bind:selectedDate
-  onAddMeal={openSheet}
+  onEnterMeal={enterMeal}
+  copyNote={copy_note}
   selectedIds={selected_ids}
   onLongPressItem={longPress}
   onTapItem={tapItem}
@@ -502,7 +576,20 @@
     {selectedDate}
     edit={editEvent}
     editLabel={edit_label}
+    entryKind={entry_kind ?? undefined}
+    initialMethod={entry_kind ?? undefined}
     onClose={closeSheet}
+  />
+{/if}
+
+<!-- The past-meal picker (ADR-0058). Reached from its own header control, so
+     it opens beside the log sheet rather than inside it. -->
+{#if past_meal_type}
+  <PastMealSheet
+    meal_type={past_meal_type}
+    meals={past_meals}
+    onCopy={copyMeal}
+    onClose={() => (past_meal_type = null)}
   />
 {/if}
 

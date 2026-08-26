@@ -29,6 +29,7 @@
     emptyMealDefaultHint,
   } from "../../food/recent-foods";
   import type { MealType } from "../../food/meal-type";
+  import { mealEntryLabel, type MealEntryKind } from "../../food/meal-entry";
   import {
     parseBasisQuantity,
     scaleNutrition,
@@ -58,10 +59,16 @@
 
   // A single sheet for logging food into one meal. Opens directly on "+ Add"
   // (no chooser); the shared FoodStager (issue #16) owns the Search / Scan /
-  // Custom staging flow, and this sheet adds the log-specific shell: the meal is
-  // fixed by the "+ Add {meal}" button that opened it, a chosen food is logged
-  // as a Consumption Event (or an edited one retracted and replaced), and the
-  // Recipe browser tab instantiates / defines / edits saved Recipe Twins.
+  // Custom staging flow, and this sheet adds the log-specific shell: a chosen
+  // food is logged as a Consumption Event (or an edited one retracted and
+  // replaced), and the Recipe browser instantiates / defines / edits saved
+  // Recipe Twins.
+  //
+  // Both the meal AND the way in are fixed by the header control that opened it
+  // (ADR-0059): this sheet carries no method dock, and its title is the same
+  // words that control's accessible name used, so a single-purpose sheet says
+  // what it is for. `entryKind` is the way in; edit mode has none, and titles
+  // itself by the correction it is making instead.
   let {
     dbReady,
     meal_type,
@@ -70,13 +77,20 @@
     edit = null,
     editLabel = false,
     initialMethod = undefined,
+    entryKind = undefined,
   }: {
     dbReady: boolean;
     meal_type: MealType;
     selectedDate: Date;
     onClose: () => void;
-    /** Tab to open on (e.g. "recipe"). Defaults to Search. */
+    /** Method to open on (e.g. "recipe"). Defaults to Search. */
     initialMethod?: string;
+    /**
+     * Which header control opened this sheet (ADR-0059 §1). It titles the sheet
+     * with that control's own words. Absent in edit mode, which is not a way
+     * into a meal but a correction of something already in one.
+     */
+    entryKind?: MealEntryKind;
     /**
      * When set, the sheet edits an existing logged event instead of adding a new
      * one: it opens pre-staged on that event's food (gram amount) or pre-filled
@@ -498,7 +512,11 @@
 
 <BottomSheet
   isOpen
-  title={edit ? `Edit ${meal_type}` : meal_type}
+  title={edit
+    ? `Edit ${meal_type}`
+    : entryKind
+      ? mealEntryLabel(entryKind, meal_type)
+      : meal_type}
   flushBody
   {onClose}
   onBack={canGoBack ? goBack : undefined}
@@ -514,6 +532,7 @@
     manualIntents
     mealName={meal_type}
     lockMethods={!!edit}
+    methodDock={false}
     recent={showsMealDefault ? recent : []}
     {recentEmptyHint}
     primaryDisabled={!dbReady}

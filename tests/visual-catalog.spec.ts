@@ -309,7 +309,9 @@ test.describe("Visual Catalog Generator", () => {
 
     // 2. Populate Food Dashboard (Log a Breakfast item via the direct sheet)
     await page.locator(".nav-item", { hasText: "Food" }).click();
-    await page.getByRole("button", { name: "Add breakfast" }).click();
+    await page
+      .getByRole("button", { name: "Search for a breakfast food" })
+      .click();
     await page.locator("#food-search-input").fill("banana");
     await page.locator(".result-item", { hasText: "Mock Banana" }).click();
     await page.getByLabel("Quantity in grams").fill("150");
