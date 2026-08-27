@@ -250,9 +250,13 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     });
     await expect(dashboardTitle).toBeVisible();
 
-    // Verify macro target details are present (.calories-num should be 0, calories-sub / 2000 kcal)
-    await expect(page.locator(".calories-num")).toHaveText("0");
-    await expect(page.locator(".calories-sub")).toContainText("2000");
+    // Calories are the leading meter, filling toward the baked 2000 kcal target.
+    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
+      "0 kcal"
+    );
+    await expect(page.locator(".macro-item.calories")).toContainText(
+      "/ 2000 kcal"
+    );
   });
 
   test("the Today button appears off-today and snaps the strip back", async ({
@@ -316,7 +320,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(breakfastSection).toContainText("Mock Banana");
     await expect(breakfastSection).toContainText("150g");
     await expect(breakfastSection).toContainText("133.5 kcal"); // 89 * 1.5 = 133.5
-    await expect(page.locator(".calories-num")).toHaveText("133.5");
+    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
+      "133.5 kcal"
+    );
   });
 
   test("copies a past meal wholesale into the day being viewed (ADR-0058)", async ({
@@ -364,7 +370,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(picker).toHaveCount(0);
     await expect(breakfast).toContainText("Mock Banana");
     await expect(breakfast).toContainText("150g");
-    await expect(page.locator(".calories-num")).toHaveText("133.5");
+    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
+      "133.5 kcal"
+    );
 
     // §11 — a clean copy says nothing at all.
     await expect(breakfast.locator(".meal-note")).toHaveCount(0);
@@ -816,7 +824,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await logUsdaFood(page, "breakfast", "banana", "Mock Banana", "150");
     const breakfast = page.locator(".meal-section", { hasText: "BREAKFAST" });
     await expect(breakfast).toContainText("Mock Banana");
-    await expect(page.locator(".calories-num")).toHaveText("133.5");
+    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
+      "133.5 kcal"
+    );
 
     // The ✕ retracts the entry (append-only) — it must not open the editor.
     await breakfast
@@ -826,7 +836,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     await expect(breakfast).not.toContainText("Mock Banana");
     await expect(breakfast).toContainText("No breakfast logged yet.");
-    await expect(page.locator(".calories-num")).toHaveText("0");
+    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
+      "0 kcal"
+    );
   });
 
   test("edits a logged food's amount by tapping its card", async ({ page }) => {
@@ -857,7 +869,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     ).toHaveCount(1);
     await expect(breakfast).toContainText("300g");
     await expect(breakfast).toContainText("267 kcal");
-    await expect(page.locator(".calories-num")).toHaveText("267");
+    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
+      "267 kcal"
+    );
   });
 
   test("logs a custom food with macros and a photo", async ({ page }) => {
@@ -1189,7 +1203,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(dinnerSection).not.toContainText("Mock Oats");
     await expect(dinnerSection).not.toContainText("Mock Banana");
     // Only the recipe is counted now.
-    await expect(page.locator(".calories-num")).toHaveText("323");
+    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
+      "323 kcal"
+    );
   });
 
   test("keeps an ingredient logged when removed from the recipe", async ({
@@ -1222,7 +1238,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(dinnerSection).toContainText("Mock Banana");
     await expect(dinnerSection).not.toContainText("Mock Oats");
     // Recipe 189.5 + kept Banana 133.5 = 323.
-    await expect(page.locator(".calories-num")).toHaveText("323");
+    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
+      "323 kcal"
+    );
   });
 
   // The servings (yield) control is on the recipe surface now, so this covers it
@@ -1273,7 +1291,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(dinnerSection).toContainText("Mock Banana");
     await expect(dinnerSection).not.toContainText("Mock Oats");
     // Recipe 94.75 (per serving, yield 2) + kept Banana 133.5 = 228.25.
-    await expect(page.locator(".calories-num")).toHaveText("228.25");
+    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
+      "228.25 kcal"
+    );
   });
 
   test("editing an ingredient amount re-derives per-serving totals live and freezes them on save", async ({
@@ -1331,7 +1351,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(dinnerSection).toContainText("Dinner Combo");
     await expect(dinnerSection).not.toContainText("Mock Oats");
     await expect(dinnerSection).not.toContainText("Mock Banana");
-    await expect(page.locator(".calories-num")).toHaveText("512.5");
+    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
+      "512.5 kcal"
+    );
   });
 
   test("the add-ingredient back button returns to the recipe builder", async ({
@@ -1451,7 +1473,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     ).toContainText("323 kcal");
     await page.locator("#save-recipe-btn").click();
     await expect(dinnerSection).toContainText("Dinner Combo");
-    await expect(page.locator(".calories-num")).toHaveText("323");
+    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
+      "323 kcal"
+    );
     return dinnerSection;
   }
 
@@ -1496,7 +1520,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(breakfastSection).toContainText("512.5 kcal");
     await expect(dinnerSection).toContainText("Dinner Combo");
     // Both occasions counted: 512.5 (breakfast) + 323 (dinner) = 835.5.
-    await expect(page.locator(".calories-num")).toHaveText("835.5");
+    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
+      "835.5 kcal"
+    );
   });
 
   test("corrects a past instantiation by supersession (retract-and-replace)", async ({
@@ -1540,7 +1566,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       dinnerSection.locator(".meal-item-card", { hasText: "Dinner Combo" })
     ).toHaveCount(1);
     await expect(dinnerSection).toContainText("512.5 kcal");
-    await expect(page.locator(".calories-num")).toHaveText("512.5");
+    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
+      "512.5 kcal"
+    );
   });
 
   // ── Seam 3: Define a Recipe Twin without logging + edit a template (#13) ──
@@ -1590,7 +1618,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // Define now ALSO logs one serving onto the day it was built (ADR-0022
     // amended): the breakfast it was opened from carries the 323 kcal serving.
-    await expect(page.locator(".calories-num")).toHaveText("323");
+    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
+      "323 kcal"
+    );
     await expect(
       page.locator('.meal-section:has(.meal-title:text-is("BREAKFAST"))')
     ).toContainText("Scratch Bowl");
@@ -1611,7 +1641,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // One logged instantiation of Dinner Combo (323) already sits in dinner.
     const dinnerSection = await buildDinnerCombo(page);
-    await expect(page.locator(".calories-num")).toHaveText("323");
+    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
+      "323 kcal"
+    );
 
     // Edit the TEMPLATE (not the logged occasion) via the Recipe browser.
     await page.getByRole("button", { name: "Log a recipe for lunch" }).click();
@@ -1641,7 +1673,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // The edit logs nothing and never disturbs history: the already-logged
     // instantiation is a snapshot, so it stays frozen at 323.
     await expect(dinnerSection).toContainText("323 kcal");
-    await expect(page.locator(".calories-num")).toHaveText("323");
+    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
+      "323 kcal"
+    );
 
     // A NEW instantiation, however, seeds from the edited template (512.5).
     await page
@@ -1661,7 +1695,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     );
     await expect(breakfastSection).toContainText("512.5 kcal");
     // Frozen past (323) + freshly-seeded future (512.5) = 835.5.
-    await expect(page.locator(".calories-num")).toHaveText("835.5");
+    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
+      "835.5 kcal"
+    );
   });
 
   test("configurable visible nutrients: fibre by default, toggling updates the summary (#29)", async ({

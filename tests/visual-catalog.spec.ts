@@ -253,15 +253,11 @@ test.describe("Visual Catalog Generator", () => {
     try {
       await expect(page).toHaveScreenshot(name, {
         fullPage: true,
-        // The calorie ring is an SVG arc whose antialiased rounded cap renders
-        // at slightly different sub-pixels run-to-run, flaking the comparison
-        // even frozen. Mask it (a solid box) — its value is asserted directly in
-        // food-ui.spec.ts. The locator is a no-op on non-food dashboards.
-        mask: [page.locator(".ring-container")],
-        // The cap still bleeds a hair past the mask's own edges, so allow a
-        // bounded pixel budget to absorb that antialiasing (the observed flake is
-        // ~2372 px). Any real content/layout change on a full-page shot dwarfs
-        // this, so structural regressions still fail.
+        // A bounded pixel budget for antialiasing that lands on different
+        // sub-pixels run-to-run. It was sized for the calorie ring's rounded arc
+        // cap (~2372 px of observed flake); the ring is gone, but the budget is
+        // kept for the rest. Any real content/layout change on a full-page shot
+        // dwarfs it, so structural regressions still fail.
         maxDiffPixels: 5000,
       });
     } finally {
