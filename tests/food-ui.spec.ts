@@ -211,7 +211,12 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     resultName: string,
     grams: string
   ) {
-    await page.getByRole("button", { name: `Add ${meal}` }).click();
+    // The `+` is gone (ADR-0059 §1): the header carries one control per way
+    // into the meal, and each names its meal, so the search control opens the
+    // sheet straight onto search. This is `wayInLabel("search", meal)`.
+    await page
+      .getByRole("button", { name: `Search for a ${meal} food` })
+      .click();
     await page.locator("#food-search-input").fill(query);
     await page.locator(".result-item", { hasText: resultName }).click();
     await page.getByLabel("Amount in grams").fill(grams);
