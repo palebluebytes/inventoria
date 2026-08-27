@@ -244,3 +244,27 @@ hidden in the UI, so newly-created recipes and instantiations are single-serving
   while defining (the yield is recorded on the template and divides at LOG time,
   moving nothing on screen) and "This entry" while instantiating (where the rows
   are already scaled to the serving count). The stored snapshot is unchanged.
+
+## Amendment (2026-08-28): a fourth verb, `create`, for the screen header's recipe button
+
+The amendment above brought Define in line with the other add flows: a new
+recipe now logs one serving onto the day it was built. That reasoning holds for
+where Define is reached from. Every path to it runs through a meal — pick
+breakfast, open its Recipe tab, then "＋ New recipe" — so the meal is settled by
+the act that opened the builder, and the serving lands somewhere honest.
+
+The food screen's header now carries a standing recipe button, so that a recipe
+can be written down as its own act rather than as a step inside logging a meal.
+It has no meal, and `recipe_meal_type` would default it to `dinner`: a silent
+write to a meal the user never named.
+
+- **`create` is a fourth verb: creates twin: yes, logs instantiation: no,
+  retracts source foods: no.** It is Define's twin in every respect but the log,
+  and the mode guard in the builder's save path is what separates them.
+- **Define is unchanged.** It still logs, still from the meal it was opened in.
+  The two verbs differ by where they are reached from, which is exactly the
+  thing that decides whether a serving has a meal to land in.
+- **The CTA names the verb.** Consolidate and Define read "Log"; `create` reads
+  "Save recipe", so the button says what it will and will not do.
+- No storage or model change: same `{ ref, amount, unit }` references, same
+  template write. Only the mode union and the save path's log guard move.

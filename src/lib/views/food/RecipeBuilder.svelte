@@ -47,7 +47,7 @@
     meal_type: "breakfast" | "lunch" | "dinner" | "snack";
     selectedDate: Date;
     /** Which verb this surface performs (see above). Default: consolidate. */
-    mode?: "consolidate" | "define" | "edit";
+    mode?: "consolidate" | "define" | "create" | "edit";
     /** The Recipe Twin being amended (edit mode only; getLocalFoodTwin shape). */
     template?: { entity: string; attributes: Record<string, any> } | null;
     /** Foods selected on the dashboard, seeded as ingredients (carry event_id). */
@@ -207,7 +207,9 @@
       // 3. Consolidate and Define both LOG the recipe onto the current day — a
       //    recipe you just built should appear on the day you built it (ADR-0022,
       //    amended). Edit stays template-only: it re-seeds only FUTURE
-      //    instantiations, so it logs nothing.
+      //    instantiations, so it logs nothing. Create is template-only for the
+      //    opposite reason: it is reached from the screen header rather than
+      //    from a meal, so there is no meal it could honestly log into.
       if (mode === "consolidate" || mode === "define") {
         // Log the recipe: the store derives its per-serving snapshot with the
         // shared formula over each ingredient's REAL nutrition/info panel and
@@ -257,7 +259,8 @@
   ];
 
   // Surface commit + readiness + label to the host's shared dock. Define and
-  // Consolidate share the "Log" CTA (they log onto the day); Edit is a
+  // Consolidate share the "Log" CTA (they log onto the day); Create saves the
+  // template alone, so it says so; Edit is a
   // template-only amendment, so it reads "Save changes"; "Saving…" while in
   // flight.
   requestSave = save;
@@ -274,7 +277,9 @@
         ? "Saving…"
         : mode === "edit"
           ? "Save changes"
-          : "Log";
+          : mode === "create"
+            ? "Save recipe"
+            : "Log";
   });
 </script>
 

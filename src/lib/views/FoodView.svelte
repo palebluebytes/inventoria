@@ -40,6 +40,7 @@
   import type { EntityPayload } from "../ingestion/ingest";
   import type { FoodSourceKind } from "../food/food-source";
   import DailyDashboard from "./food/DailyDashboard.svelte";
+  import WayInIcon from "./food/WayInIcon.svelte";
   import PastMealSheet from "./food/PastMealSheet.svelte";
   import LogFoodSheet from "./food/LogFoodSheet.svelte";
   import RecipeModal from "./food/RecipeModal.svelte";
@@ -115,8 +116,11 @@
   let recipe_meal_type = $state<MealType>("dinner");
   let recipe_seed = $state<RecipeIngredient[]>([]);
   // Which verb the recipe builder performs (ADR-0022): consolidate (build from
-  // selected foods), define (new template, no log), or edit (amend a template).
-  let recipe_mode = $state<"consolidate" | "define" | "edit">("consolidate");
+  // selected foods), define (new template, logged onto the day), create (new
+  // template, nothing logged), or edit (amend a template).
+  let recipe_mode = $state<"consolidate" | "define" | "create" | "edit">(
+    "consolidate"
+  );
   let recipe_template = $state<{
     entity: string;
     attributes: Record<string, any>;
@@ -339,7 +343,7 @@
   // Open the recipe builder in one verb. The (mode, template, seed) triple is set
   // together here so the three never drift apart; closeRecipe is its inverse.
   function openRecipe(
-    mode: "consolidate" | "define" | "edit",
+    mode: "consolidate" | "define" | "create" | "edit",
     template: { entity: string; attributes: Record<string, any> } | null,
     seed: RecipeIngredient[] = []
   ) {
@@ -570,6 +574,23 @@
           <line x1="12" y1="16" x2="12" y2="12"></line>
           <line x1="12" y1="8" x2="12.01" y2="8"></line>
         </svg>
+      </button>
+      <!-- Recipes have only ever been reachable through a meal: pick breakfast,
+         open its Recipe tab, then "New recipe" — and that path LOGS a serving
+         onto the day (ADR-0022 as amended), because you were logging a meal when
+         you built it. This button is the standing place to write one down
+         instead. It is reached from the screen header, so there is no meal it
+         could honestly log into, and the `create` verb saves the template alone.
+         The mark is the meal header's own recipe pot, so the same thing looks
+         the same in both places. -->
+      <button
+        type="button"
+        class="header-icon-btn"
+        id="food-new-recipe-btn"
+        aria-label="Create a recipe"
+        onclick={() => openRecipe("create", null)}
+      >
+        <WayInIcon kind="recipe" />
       </button>
       <button
         type="button"
@@ -827,6 +848,13 @@
     transition: transform 0.1s ease-out;
   }
   .header-icon-btn svg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+  /* The recipe mark rides a child WayInIcon, which sizes itself for the meal
+     header's smaller squares, so it is reached here with `:global` and sized to
+     match its two neighbours. */
+  .header-icon-btn :global(.entry-icon) {
     width: 1.5rem;
     height: 1.5rem;
   }

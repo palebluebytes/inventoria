@@ -1632,6 +1632,47 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     ).toBeVisible();
   });
 
+  test("the header's recipe button writes a template and logs nothing", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
+      "0 kcal"
+    );
+
+    // The standing place to write a recipe down: reached from the screen
+    // header, without first picking a meal.
+    await page.getByRole("button", { name: "Create a recipe" }).click();
+    await expect(page.locator("#recipe-name")).toHaveValue("");
+    await page.locator("#recipe-name").fill("Pantry Bowl");
+    await addSearchedIngredient(page, "oats", "Mock Oats", "50");
+    await addSearchedIngredient(page, "banana", "Mock Banana", "150");
+
+    // The CTA says which verb this is: no meal was chosen, so nothing is logged.
+    await expect(page.locator("#save-recipe-btn")).toContainText("Save recipe");
+    await page.locator("#save-recipe-btn").click();
+
+    // The day is untouched — this is the whole point of the verb. No meal
+    // gained a serving and the running total never moved off zero.
+    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
+      "0 kcal"
+    );
+    for (const meal of ["BREAKFAST", "LUNCH", "DINNER", "SNACK"]) {
+      await expect(
+        page.locator(`.meal-section:has(.meal-title:text-is("${meal}"))`)
+      ).not.toContainText("Pantry Bowl");
+    }
+
+    // The template is real all the same, ready to instantiate from any meal.
+    await page.getByRole("button", { name: "Log a recipe for lunch" }).click();
+    await expect(
+      page.locator(".recipe-pick", { hasText: "Pantry Bowl" })
+    ).toBeVisible();
+  });
+
   test("edits a template so future instantiations re-seed while past ones stay frozen", async ({
     page,
   }) => {
