@@ -223,7 +223,9 @@ describe("buildNutrientMeters", () => {
   };
 
   it("gives a targeted macro a fill and formatted target", () => {
-    const [protein] = buildNutrientMeters(total, ["protein"], { protein: 130 });
+    const [, protein] = buildNutrientMeters(total, ["protein"], {
+      protein: 130,
+    });
     expect(protein.value).toBe("40 g");
     expect(protein.target).toBe("130 g");
     // 40 / 130 ≈ 30.8%.
@@ -231,12 +233,14 @@ describe("buildNutrientMeters", () => {
   });
 
   it("clamps an over-target fill to 100%", () => {
-    const [protein] = buildNutrientMeters(total, ["protein"], { protein: 20 });
+    const [, protein] = buildNutrientMeters(total, ["protein"], {
+      protein: 20,
+    });
     expect(protein.fill).toBe(100);
   });
 
   it("renders a no-target nutrient as a bare total (no fill, no target)", () => {
-    const [fibre] = buildNutrientMeters(total, ["fiber_content"], {
+    const [, fibre] = buildNutrientMeters(total, ["fiber_content"], {
       protein: 130,
     });
     expect(fibre.label).toBe("Fibre");
@@ -246,18 +250,60 @@ describe("buildNutrientMeters", () => {
   });
 
   it("treats a nutrient the day never carried as 0, never NaN", () => {
-    const [unsat] = buildNutrientMeters(total, ["unsaturated_fat_content"], {});
+    const [, unsat] = buildNutrientMeters(
+      total,
+      ["unsaturated_fat_content"],
+      {}
+    );
     expect(unsat.value).toBe("0 g");
     expect(unsat.fill).toBeUndefined();
   });
 
   it("builds the default Protein/Fat/Carbs/Fibre meters when unset", () => {
     expect(buildNutrientMeters(total, undefined).map((m) => m.label)).toEqual([
+      "Calories",
       "Protein",
       "Fat",
       "Carbs",
       "Fibre",
     ]);
+  });
+
+  // Calories are a bar like the rest: same shape, same fill rule, filling toward
+  // the resolved `energy` target rather than a gram one.
+  it("leads with a Calories meter filling toward the energy target", () => {
+    const [calories] = buildNutrientMeters(total, [], { energy: 2000 });
+    expect(calories.key).toBe("calories");
+    expect(calories.label).toBe("Calories");
+    expect(calories.value).toBe("500 kcal");
+    expect(calories.target).toBe("2000 kcal");
+    expect(calories.fill).toBeCloseTo(25, 5);
+  });
+
+  it("clamps an over-target calorie fill to 100%", () => {
+    const [calories] = buildNutrientMeters(total, [], { energy: 400 });
+    expect(calories.fill).toBe(100);
+  });
+
+  it("renders calories bar-less when no energy target is configured", () => {
+    const [calories] = buildNutrientMeters(total, []);
+    expect(calories.value).toBe("500 kcal");
+    expect(calories.fill).toBeUndefined();
+    expect(calories.target).toBeUndefined();
+  });
+
+  // The whole-number display setting reaches the calorie meter alone — the same
+  // rule the pills and the breakdown follow.
+  it("honours the whole-number calorie setting on the calorie meter only", () => {
+    const fractional: NutritionBreakdown = { ...total, calories: 133.5 };
+    const [calories, protein] = buildNutrientMeters(
+      fractional,
+      ["protein"],
+      { energy: 2000, protein: 130 },
+      0
+    );
+    expect(calories.value).toBe("134 kcal");
+    expect(protein.value).toBe("40 g");
   });
 });
 

@@ -33,7 +33,6 @@
   import Meter from "../../ui/Meter.svelte";
   import Button from "../../ui/Button.svelte";
   import FoodItemRow from "./FoodItemRow.svelte";
-  import CalorieRing from "./CalorieRing.svelte";
   import MacroMeters from "./MacroMeters.svelte";
   import WeekStrip from "./WeekStrip.svelte";
   import NutrientCard from "./NutrientCard.svelte";
@@ -111,7 +110,7 @@
   // the user's per-nutrient overrides via the merge resolver (ADR-0031 §1/§2). An
   // untouched target stays at that default; a `> 0` override wins; a `0` opts a
   // nutrient out of a bar. `energy` clamps a non-positive override back to the
-  // default so the always-on ring can never be target-less. Every visible
+  // default so the always-on calorie meter can never be target-less. Every visible
   // micronutrient fills against its FDA Daily Value instead of an empty track.
   let resolvedTargets = $derived(
     resolveNutrientTargets(
@@ -131,17 +130,28 @@
   // metrics (#28's totalNutrition) — the single source the meters read from, so
   // we never re-derive day totals here.
   let dayTotals = $derived(totalNutrition(dayItems));
-  let totalCalories = $derived(dayTotals.calories);
 
   // Turn the user's selection (default Protein/Fat/Carbs/Fibre) + the day totals
-  // + the macro targets into the meter view models the summary renders.
+  // + the targets into the meter view models the summary renders. Calories lead
+  // that list as one more bar — the builder adds them, filling toward the
+  // resolved `energy` target, in the same shape as every other nutrient.
   let meters = $derived(
     buildNutrientMeters(
       dayTotals,
       $settingsStore.visible_nutrients,
-      resolvedTargets
+      resolvedTargets,
+      $calorieDisplayDecimals
     )
   );
+
+  // Whether the meter block is open. The bars are the page's tallest block and
+  // the meals below them are what a user comes back to during the day, so the
+  // whole set folds away behind its header. Component state, not a setting: it
+  // is a "get this out of my way for now", and it opens fresh each visit.
+  let metersOpen = $state(true);
+  // Stable id so the header's toggle can point `aria-controls` at the body it
+  // opens. localhost/PWA is always a secure context, so randomUUID exists.
+  const metersId = `day-meters-${crypto.randomUUID()}`;
 
   // The full-day RDA-vs-target view (ticket #42/#43, ADR-0031 §4 / ADR-0032 §4):
   // the same day totals grouped against the resolved targets and limits — Biggest
@@ -219,25 +229,39 @@
   <h2>{formatDateHeader(selectedDate)}</h2>
 </div>
 
-<!-- Aggregates Grid — tapping anywhere on the ring + meters opens the full day
-     RDA-vs-target modal (ticket #42). It is a bare button wrapper, so the
-     presentational cards inside are unchanged. Always tappable: an untouched day
-     opens to a plain "no food added" state rather than nothing. -->
-<button
-  type="button"
-  class="aggregates-grid tappable"
-  aria-haspopup="dialog"
-  aria-label="Show full day nutrition"
-  onclick={() => (showFullDay = true)}
->
-  <CalorieRing
-    {totalCalories}
-    targetCalories={resolvedTargets.energy}
-    decimals={$calorieDisplayDecimals}
-  />
-
-  <MacroMeters {meters} />
-</button>
+<!-- The day's totals: one bar per nutrient, Calories first among equals. Its
+     header carries both controls — the disclosure that folds the bars away, and
+     the way into the full day RDA-vs-target modal (ticket #42), which used to be
+     an unlabelled tap on the whole block. The modal control stays in the header
+     so it is still reachable with the bars collapsed, and it keeps its old
+     accessible name. Always openable: an untouched day opens to a plain "no food
+     added" state rather than nothing. -->
+<section class="aggregates">
+  <div class="aggregates-head">
+    <button
+      type="button"
+      class="aggregates-toggle"
+      aria-expanded={metersOpen}
+      aria-controls={metersId}
+      onclick={() => (metersOpen = !metersOpen)}
+    >
+      <span class="aggregates-caret" aria-hidden="true"
+        >{metersOpen ? "▾" : "▸"}</span
+      >
+      <span class="aggregates-title">Nutrition</span>
+    </button>
+    <Button
+      variant="secondary"
+      size="sm"
+      aria-haspopup="dialog"
+      aria-label="Show full day nutrition"
+      onclick={() => (showFullDay = true)}>Full day</Button
+    >
+  </div>
+  <div id={metersId} class="aggregates-body" hidden={!metersOpen}>
+    <MacroMeters {meters} />
+  </div>
+</section>
 
 <!-- Timeline & Logged Meals -->
 <div class="timeline mt-6">
@@ -515,38 +539,57 @@
     color: var(--text-primary);
   }
 
-  /* The aggregates are a bare button wrapper so the whole ring + meters block is
-     one tap target for the full-day modal. Strip the native button chrome and
-     inherit typography so the cards inside render exactly as before. */
-  .aggregates-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-m);
+  .aggregates {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
     margin-top: var(--space-m);
-    width: 100%;
+  }
+  /* Same rule as a meal's header — a titled row with its controls on the right,
+     underlined — so the totals read as one more section of the day. */
+  .aggregates-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-s);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: var(--space-3xs);
+  }
+  /* The disclosure is the whole title, so the target is the words and not just
+     the caret. Bare: the frame belongs to the Button beside it. */
+  .aggregates-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2xs);
     padding: 0;
     border: none;
     background: none;
     font: inherit;
     color: inherit;
-    text-align: inherit;
-    appearance: none;
-  }
-  .aggregates-grid.tappable {
     cursor: pointer;
   }
-  /* No focus frame around the block: it wraps the ring + meters purely as a tap
-     target, and a full-width ring/outline reads as a stray border (it lingers
-     after the modal closes and restores focus here). */
-  .aggregates-grid:focus,
-  .aggregates-grid:focus-visible {
-    outline: none;
-    box-shadow: none;
+  /* The same hard offset ring the Button and the pressable Card carry
+     (ADR-0039), since this one draws its own chrome. */
+  .aggregates-toggle:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
   }
-  @media (max-width: 768px) {
-    .aggregates-grid {
-      grid-template-columns: 1fr;
-    }
+  .aggregates-caret {
+    font-size: var(--step-n1);
+    line-height: 1;
+    color: var(--text-secondary);
+  }
+  .aggregates-title {
+    font-size: var(--step-n1);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-primary);
+  }
+  /* `hidden` collapses the body; the attribute is what the toggle's
+     aria-expanded describes, so the bars leave the accessibility tree with it. */
+  .aggregates-body[hidden] {
+    display: none;
   }
 
   /* Full day nutrition modal */

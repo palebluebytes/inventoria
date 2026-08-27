@@ -3,12 +3,14 @@
   import Card from "../../ui/Card.svelte";
   import Meter from "../../ui/Meter.svelte";
 
-  // The dashboard's nutrient meters: a labelled row per selected nutrient with a
-  // fill bar clamped to its target. Presentational — the caller (via
-  // buildNutrientMeters) supplies each meter's formatted value and, when the
-  // nutrient has a configured target, its fill percent + formatted target. A
-  // meter with no target renders as a plain total over a neutral (empty) track,
-  // never a NaN bar.
+  // The dashboard's nutrient meters: a labelled row per nutrient with a fill bar
+  // clamped to its target. Presentational — the caller (via buildNutrientMeters)
+  // supplies each meter's formatted value and, when the nutrient has a configured
+  // target, its fill percent + formatted target. A meter with no target renders
+  // as a plain total over a neutral (empty) track, never a NaN bar.
+  //
+  // Calories arrive as the leading meter like any other: the row draws whatever
+  // the builder hands it, so nothing here knows kcal from grams.
   let { meters }: { meters: NutrientMeter[] } = $props();
 </script>
 
@@ -18,7 +20,7 @@
       <div class="macro-meta">
         <span class="macro-name">{meter.label}</span>
         <span class="macro-val"
-          >{meter.value}
+          ><span class="macro-now">{meter.value}</span>
           {#if meter.target}<span class="macro-target">/ {meter.target}</span
             >{/if}</span
         >

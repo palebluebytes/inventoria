@@ -275,13 +275,35 @@ export interface NutrientMeter {
  * only the macros carry one today). Each selected nutrient becomes a meter; one
  * with a positive target gets a fill bar, one without gets a neutral no-target
  * rendering. Pure: the `.svelte` view just renders the returned list.
+ *
+ * Calories lead the list as an ordinary meter, exactly as they lead
+ * {@link buildNutrientPills}: the same label/value/fill/target shape, filling
+ * toward the resolved `energy` target in kcal. They are not selectable (there is
+ * no calories entry in {@link NUTRIENT_CATALOGUE}), which is the only sense in
+ * which they differ — on the bar itself they are one nutrient among the rest.
+ *
+ * `calorieDecimals` is the whole-number display setting and reaches the leading
+ * Calories meter alone; every nutrient meter formats at the fixed precision
+ * {@link formatNutrientValue} sets.
  */
 export function buildNutrientMeters(
   breakdown: NutritionBreakdown,
   selection: string[] | undefined,
-  targets: Partial<Record<string, number>> = {}
+  targets: Partial<Record<string, number>> = {},
+  calorieDecimals: number = FOOD_DISPLAY_DECIMALS
 ): NutrientMeter[] {
-  return selectedNutrients(selection).map((d) => {
+  const kcal = totalFor(breakdown, "calories");
+  const calories: NutrientMeter = {
+    key: "calories",
+    label: "Calories",
+    value: formatCalories(kcal, calorieDecimals),
+  };
+  const energy = targets.energy;
+  if (typeof energy === "number" && energy > 0) {
+    calories.fill = Math.min((kcal / energy) * 100, 100);
+    calories.target = formatCalories(energy, calorieDecimals);
+  }
+  const nutrients = selectedNutrients(selection).map((d) => {
     const grams = totalFor(breakdown, d.key);
     const meter: NutrientMeter = {
       key: d.key,
@@ -295,6 +317,7 @@ export function buildNutrientMeters(
     }
     return meter;
   });
+  return [calories, ...nutrients];
 }
 
 /**
