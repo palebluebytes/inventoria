@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-04  
-**Implemented:** `ui/Meter.svelte`; `MacroMeters`, `DailyDashboard` RDA cells, `CalorieRing`
+**Implemented:** `ui/Meter.svelte`; `MacroMeters`, `DailyDashboard` RDA cells
 
 ## Context
 
@@ -70,3 +70,37 @@ give the calorie ring its meter semantics directly.**
   untargeted one shows the empty track) preserved.
 - The behaviour under these surfaces (`buildNutrientMeters` and the RDA row view
   models) is unchanged and still covered by its own unit tests below the UI seam.
+
+## Amendment (2026-08-27): the ring is gone; calories are a bar like the rest
+
+The decision above kept the calorie dial as a bespoke SVG visual and gave it
+meter semantics of its own, on the reasoning that routing it through the bar
+module would mean a visual-override slot with exactly one caller. That reasoning
+was sound about the module; it was the dial itself that did not survive.
+
+Calories now render as an ordinary `Meter` row at the head of `MacroMeters`.
+`CalorieRing.svelte` is deleted, and with it the third meter surface: there are
+two again, both bars, both the shared module.
+
+- **`buildNutrientMeters` leads with a Calories meter**, in the same
+  label/value/fill/target shape as every nutrient after it, filling toward the
+  resolved `energy` target in kcal. It mirrors `buildNutrientPills`, which has
+  always led with calories. Calories stay out of `NUTRIENT_CATALOGUE`, so they
+  remain unselectable; that is now the only way they differ from a macro.
+- **The one over-target rule is unchanged.** A day past its calorie target fills
+  to 100% and stops, exactly as an over-target macro does. The amber `over` tint
+  stays where ADR-0032 put it, on the stay-under limits.
+- **`ui/Meter.svelte` is untouched.** The ring's removal takes a caller away from
+  the module; it asks nothing new of it.
+- **The dashboard aggregates are collapsible.** The bars were the tallest block on
+  the screen and sat above the meals a user returns to through the day, so they
+  fold away behind a titled header. The header also carries the way into the
+  full-day RDA modal, which used to be an unlabelled tap on the whole aggregates
+  block: with the block foldable, that tap would have taken the modal with it.
+  The open/closed state is component state, not a setting — it is a "not now",
+  and it opens fresh each visit.
+
+The `.calories-num` / `.calories-sub` hooks the ring published are gone. The
+day-total assertions in `food-ui.spec.ts` read `.macro-item.calories .macro-now`
+instead, and `visual-catalog.spec.ts` drops the `.ring-container` mask that
+existed only to hide the arc cap's antialiasing.
