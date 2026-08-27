@@ -1,6 +1,18 @@
 /// <reference types="node" />
 import { test, expect } from "@playwright/test";
 
+/** Shared by both catalogues below: nothing is worth capturing until the ledger
+ *  has answered, and every screen here reads from it. */
+async function waitForDbReady(page: import("@playwright/test").Page) {
+  await page.waitForFunction(
+    () => {
+      const badge = document.querySelector(".db-badge");
+      return badge?.textContent?.includes("DB Ready");
+    },
+    { timeout: 10000 }
+  );
+}
+
 test.describe("Visual Catalog Generator", () => {
   test.beforeEach(async ({ page }) => {
     // Capture page console logs for debugging
@@ -177,16 +189,6 @@ test.describe("Visual Catalog Generator", () => {
       });
     });
   });
-
-  async function waitForDbReady(page: import("@playwright/test").Page) {
-    await page.waitForFunction(
-      () => {
-        const badge = document.querySelector(".db-badge");
-        return badge?.textContent?.includes("DB Ready");
-      },
-      { timeout: 10000 }
-    );
-  }
 
   async function setupApiKeys(page: import("@playwright/test").Page) {
     // TMDB + scraper live on the global Settings tab.
@@ -675,5 +677,232 @@ test.describe("Visual Catalog Generator", () => {
     // 7. Settings Page Screenshot
     await page.locator(".nav-item", { hasText: "Settings" }).click();
     await takeFullPageScreenshot(page, "settings-page.png");
+  });
+});
+
+/**
+ * The surfaces a meal opens — the second half of the catalogue.
+ *
+ * These are sheets, not screens, so they are catalogued differently on two
+ * counts. Each is its OWN test rather than another leg of the monolith above:
+ * that one takes its captures with a plain `expect`, so it stops at the first
+ * image that differs and leaves every later one unverified — which is exactly
+ * how `settings-page` sat stale behind `food-dashboard`. Six more captures on
+ * the same thread would deepen that hole; six tests fail independently, and
+ * `fullyParallel` runs them at once.
+ *
+ * And each captures the SHEET rather than the page. A sheet is a fixed overlay:
+ * `fullPage` would photograph the dashboard behind it and make every one of
+ * these baselines hostage to a dashboard change, which is the coupling the
+ * monolith already suffers from.
+ */
+test.describe("Visual Catalog — the surfaces a meal opens", () => {
+  test.beforeEach(async ({ page }) => {
+    page.on("pageerror", (err) =>
+      console.log("PAGE UNCAUGHT ERROR:", err.message)
+    );
+
+    // A fixture of this describe's own, deliberately NOT the one above. These
+    // surfaces need a food the dashboard catalogue never asks for: a
+    // `foodCategory` on the allow-list so the NOVA badge reads an inferred
+    // tier 1 (ADR-0041 §3), household portions so the amount panel shows its
+    // preset chips (ADR-0030), and two micronutrients so the breakdown has
+    // rows. Widening the shared fixture instead would move `food-dashboard.png`
+    // for reasons that have nothing to do with the dashboard.
+    await page.route("**/usda/search-index.json", async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          artifact: "usda-search-index",
+          schema_version: 2,
+          generated_from: [],
+          vocabulary_off: {
+            licence: "ODbL",
+            source: "Open Food Facts",
+            url: "https://static.openfoodfacts.org/data/taxonomies/ingredients.full.json",
+            sha256: "fixture",
+            expansions: {},
+          },
+          vocabulary_local: {
+            source: "Inventoria, hand-written",
+            expansions: {},
+          },
+          foods: [
+            {
+              fdcId: 171705,
+              description: "Mock Banana",
+              dataType: "Foundation",
+              // On the NOVA-1 allow-list, and the name carries none of the
+              // deny-substrings, so this food infers "Unprocessed" — the one
+              // tier the app ever infers for itself.
+              foodCategory: "Fruits and Fruit Juices",
+              macros: {
+                calories: 89,
+                protein_content: 1.1,
+                fat_content: 0.3,
+                carbohydrate_content: 22.8,
+              },
+              portions: [
+                { label: "1 medium", amount: 1, unit: "medium", grams: 118 },
+                { label: "1 large", amount: 1, unit: "large", grams: 150 },
+              ],
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.route("**/usda/nutrient-store.json", async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          artifact: "usda-nutrient-store",
+          schema_version: 2,
+          generated_from: [],
+          nutrients: {
+            1003: { name: "Protein", unit: "g" },
+            1004: { name: "Total lipid (fat)", unit: "g" },
+            1005: { name: "Carbohydrate, by difference", unit: "g" },
+            1008: { name: "Energy", unit: "kcal" },
+            1087: { name: "Calcium, Ca", unit: "mg" },
+            1089: { name: "Iron, Fe", unit: "mg" },
+          },
+          foods: {
+            171705: {
+              1003: 1.1,
+              1004: 0.3,
+              1005: 22.8,
+              1008: 89,
+              1087: 5,
+              1089: 0.26,
+            },
+          },
+        }),
+      });
+    });
+  });
+
+  /** The food screen on a pinned day. The clock is fixed for the same reason the
+   *  catalogue above fixes it, and for one more: the past-meal picker prints the
+   *  day it is offering, so a live clock would restale that baseline nightly. */
+  async function openFood(page: import("@playwright/test").Page) {
+    await page.clock.install({ time: new Date("2026-06-05T08:30:00Z") });
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+  }
+
+  /** Search breakfast for the one food the fixture serves, and stage it. */
+  async function stageBanana(page: import("@playwright/test").Page) {
+    await page
+      .getByRole("button", { name: "Search for a breakfast food" })
+      .click();
+    await page.locator("#food-search-input").fill("banana");
+    await page.locator(".result-item", { hasText: "Mock Banana" }).click();
+    await expect(page.locator(".staged")).toBeVisible();
+    // The Log button is held while the full panel is read out of the Nutrient
+    // store, and a hint says so. Capture before it clears and the card is
+    // photographed mid-read.
+    await expect(page.getByTestId("completing-panel")).toHaveCount(0);
+  }
+
+  async function takeSheetScreenshot(
+    page: import("@playwright/test").Page,
+    sheet: import("@playwright/test").Locator,
+    name: string
+  ) {
+    const styleHandle = await page.addStyleTag({
+      content: `
+        /* A sheet slides and fades in, so a capture can land mid-transition and
+           flake run-to-run. Snap it to its end state. The dashboard catalogue
+           freezes motion the same way and then flattens the app shell as well,
+           which an element capture has no need of. */
+        *, *::before, *::after {
+          animation: none !important;
+          transition: none !important;
+        }
+      `,
+    });
+    try {
+      await expect(sheet).toHaveScreenshot(name);
+    } finally {
+      await styleHandle.evaluate((el) => (el as Element).remove());
+    }
+  }
+
+  /** The sheet a way in opened. Unique while one is open; the explainers below
+   *  are elevated OVER this one and are matched by their own class instead. */
+  const sheet = (page: import("@playwright/test").Page) =>
+    page.locator(".bottom-sheet-content").first();
+
+  test("the search way in, holding its results", async ({ page }) => {
+    await openFood(page);
+    await page
+      .getByRole("button", { name: "Search for a breakfast food" })
+      .click();
+    await page.locator("#food-search-input").fill("banana");
+    await expect(
+      page.locator(".result-item", { hasText: "Mock Banana" })
+    ).toBeVisible();
+
+    await takeSheetScreenshot(page, sheet(page), "food-way-in-search.png");
+  });
+
+  test("a staged food, with its tags and its amount panel", async ({
+    page,
+  }) => {
+    await openFood(page);
+    await stageBanana(page);
+
+    // The two framed marks over the name, which the two explainers below open.
+    await expect(page.getByTestId("source-tag")).toBeVisible();
+    await expect(page.getByTestId("nova-badge")).toContainText("Unprocessed");
+
+    await takeSheetScreenshot(page, sheet(page), "food-staged-food.png");
+  });
+
+  test("the quick-entry intent chooser", async ({ page }) => {
+    await openFood(page);
+    await page
+      .getByRole("button", { name: "Enter a breakfast yourself" })
+      .click();
+    await expect(page.getByTestId("manual-intent-chooser")).toBeVisible();
+
+    await takeSheetScreenshot(page, sheet(page), "food-quick-entry.png");
+  });
+
+  test("the past-meal picker", async ({ page }) => {
+    await openFood(page);
+
+    // Give the day before something to copy: a breakfast a week back.
+    await page.getByRole("button", { name: "Previous Week" }).click();
+    await stageBanana(page);
+    await page.getByLabel("Amount in grams").fill("150");
+    await page.locator("#log-food-btn").click();
+    await page.getByRole("button", { name: "Today", exact: true }).click();
+
+    await page.getByRole("button", { name: "Copy a past breakfast" }).click();
+    await expect(page.getByTestId("past-meal-list")).toBeVisible();
+
+    await takeSheetScreenshot(page, sheet(page), "food-past-meal.png");
+  });
+
+  test("the source explainer, opened from the source tag", async ({ page }) => {
+    await openFood(page);
+    await stageBanana(page);
+    await page.getByTestId("source-tag").click();
+
+    const explainer = page.locator(".bottom-sheet-content.source-explainer");
+    await expect(explainer).toBeVisible();
+    await takeSheetScreenshot(page, explainer, "food-source-explainer.png");
+  });
+
+  test("the NOVA explainer, opened from the badge", async ({ page }) => {
+    await openFood(page);
+    await stageBanana(page);
+    await page.getByTestId("nova-badge").click();
+
+    const explainer = page.locator(".bottom-sheet-content.nova-explainer");
+    await expect(explainer).toBeVisible();
+    await takeSheetScreenshot(page, explainer, "food-nova-explainer.png");
   });
 });
