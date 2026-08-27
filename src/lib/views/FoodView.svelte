@@ -61,7 +61,24 @@
   // that moved off the global Settings tab so they live with the food.
   let settingsOpen = $state(false);
 
+  // The standing blurb under the title is orientation for a first visit and
+  // dead weight on every one after, and on a phone it costs three lines above
+  // the fold. It folds away behind the ⓘ beside the gear, closed by default:
+  // the screen is called FOOD and the meals are right there, so the sentence
+  // earns its space only when asked for. Component state, like the dashboard's
+  // own meter fold — a "not now", not a setting.
+  let aboutOpen = $state(false);
+  // localhost/PWA is always a secure context, so randomUUID exists.
+  const aboutId = `food-about-${crypto.randomUUID()}`;
+
   let selectedDate = $state(new Date());
+  // Whether the strip is parked on the current day. The snap-back control used
+  // to be a button on its own row under the strip, appearing only when off
+  // today, so every trip away from the current day shoved the whole page down a
+  // row and every trip back pulled it up again. It is an icon in the header row
+  // instead: that row is right-aligned, so a control that comes and goes grows
+  // into the empty space beside the title and moves nothing else.
+  let onToday = $derived(dayKeyOf(selectedDate) === dayKeyOf(new Date()));
   // The meal whose log sheet is open (null = closed). Opening is direct — no
   // intermediate chooser.
   let sheet_meal_type = $state<MealType | null>(null);
@@ -498,35 +515,90 @@
 </script>
 
 <header class="page-header">
-  <div class="header-text">
+  <!-- Title and icons are one row of their own, so they share a centre line
+       whether or not the blurb below is unfolded. The blurb is a sibling of that
+       row rather than a sibling of the title, which is what keeps the icons
+       beside the word FOOD instead of drifting to the middle of a paragraph. -->
+  <div class="header-bar">
     <h1>{entityName}</h1>
-    <p>
-      Track your daily nutritional intake, build custom recipes, and log food
-      photos locally.
-    </p>
+    <div class="header-actions">
+      <!-- Leads the row, so the three standing controls keep their places when it
+         comes and goes. A calendar with today's dot on it: the mark says where
+         the tap lands rather than that it is a return. -->
+      {#if !onToday}
+        <button
+          type="button"
+          class="header-icon-btn"
+          aria-label="Today"
+          onclick={() => (selectedDate = new Date())}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="3" y="5" width="18" height="16"></rect>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+            <line x1="8" y1="3" x2="8" y2="7"></line>
+            <line x1="16" y1="3" x2="16" y2="7"></line>
+            <circle cx="12" cy="15.5" r="1.75" fill="currentColor"></circle>
+          </svg>
+        </button>
+      {/if}
+      <button
+        type="button"
+        class="header-icon-btn"
+        aria-expanded={aboutOpen}
+        aria-controls={aboutId}
+        aria-label="About the food screen"
+        onclick={() => (aboutOpen = !aboutOpen)}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+      </button>
+      <button
+        type="button"
+        class="header-icon-btn"
+        id="food-settings-btn"
+        aria-label="Food settings"
+        onclick={() => (settingsOpen = true)}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="3"></circle>
+          <path
+            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+          ></path>
+        </svg>
+      </button>
+    </div>
   </div>
-  <button
-    type="button"
-    class="settings-btn"
-    id="food-settings-btn"
-    aria-label="Food settings"
-    onclick={() => (settingsOpen = true)}
-  >
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="3"></circle>
-      <path
-        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
-      ></path>
-    </svg>
-  </button>
+  <p id={aboutId} class="page-about" hidden={!aboutOpen}>
+    Track your daily nutritional intake, build custom recipes, and log food
+    photos locally.
+  </p>
 </header>
 
 <!-- Main Dashboard -->
@@ -701,20 +773,46 @@
 <style>
   .page-header {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: var(--space-s);
-    margin-bottom: var(--space-m);
+    flex-direction: column;
+    gap: var(--space-2xs);
+    /* Tight on a phone, where everything above the meals is overhead. The
+       desktop query below restores the roomier rhythm. */
+    margin-bottom: var(--space-xs);
     animation: fadeIn 0.4s ease-out;
     border-bottom: var(--edge);
-    padding-bottom: var(--space-s);
+    padding-bottom: var(--space-2xs);
   }
-  .header-text {
-    min-width: 0;
+  /* `center` is what puts the title's centre line through the icons: the word
+     and the 2.75rem icon squares are different heights, and top-aligning them
+     left the icons sitting low against it. */
+  .header-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-s);
   }
-  /* Top-right gear: a bare icon button (no box) that opens the food settings
-     sheet. Sits opposite the title, aligned to the header's top. */
-  .settings-btn {
+  @media (min-width: 768px) {
+    .page-header {
+      margin-bottom: var(--space-m);
+      padding-bottom: var(--space-s);
+    }
+  }
+  /* The blurb, folded away by default behind the header's ⓘ. `hidden` is what
+     the toggle's aria-expanded describes, so it leaves the accessibility tree
+     with the box. */
+  .page-about[hidden] {
+    display: none;
+  }
+  .header-actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3xs);
+  }
+  /* Top-right icons — the ⓘ that unfolds the blurb and the gear that opens the
+     food settings sheet. Bare (no box), opposite the title, aligned to the
+     header's top. */
+  .header-icon-btn {
     flex: 0 0 auto;
     display: flex;
     align-items: center;
@@ -728,17 +826,17 @@
     cursor: pointer;
     transition: transform 0.1s ease-out;
   }
-  .settings-btn svg {
+  .header-icon-btn svg {
     width: 1.5rem;
     height: 1.5rem;
   }
-  .settings-btn:hover {
+  .header-icon-btn:hover {
     color: var(--text-secondary);
   }
-  .settings-btn:active {
+  .header-icon-btn:active {
     transform: scale(0.92);
   }
-  .settings-btn:focus-visible {
+  .header-icon-btn:focus-visible {
     outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
@@ -746,9 +844,20 @@
     font-size: var(--step-2);
     font-weight: 700;
     color: var(--text-primary);
-    margin-bottom: var(--space-3xs);
+    /* No trailing margin: the header column's own gap spaces the blurb, and a
+       margin here would drop the title off the row's centre line. */
+    min-width: 0;
     letter-spacing: -0.05em;
     text-transform: uppercase;
+    /* Centring the BOXES is not centring the letters. An all-caps word has no
+       descenders, so its glyphs sit roughly 5px above the middle of its own line
+       box (measured: glyph centre 72.2, icon centre 76.8), and the title reads
+       high against the icons even with align-items: center. Trimming the box to
+       the cap-height/baseline block makes the box the letters, so centring it
+       centres what the eye actually sees. Chromium and Safari honour this;
+       anywhere else it is ignored and the title sits as it did before. */
+    text-box-trim: trim-both;
+    text-box-edge: cap alphabetic;
   }
   h2 {
     font-size: var(--step-0);

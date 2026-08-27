@@ -1,9 +1,14 @@
 <script lang="ts">
-  import Button from "../../ui/Button.svelte";
-
   // The dashboard's week-strip date selector: a Monday-aligned row of seven day
   // buttons with prev/next-week arrows. Owns its own week math; the selected day
   // is two-way bound so the dashboard reacts to taps here.
+  //
+  // Snapping back to today is NOT here. It used to be a button on a second row
+  // that existed only when off today, so the whole page below it jumped by a row
+  // whenever you left or returned to the current day. It now lives in the food
+  // screen's header (FoodView), where a conditional control costs no layout: the
+  // icon row is right-aligned, so a new icon grows into the empty space beside
+  // the title and the icons already there do not move.
   let { selectedDate = $bindable(new Date()) }: { selectedDate: Date } =
     $props();
 
@@ -33,12 +38,6 @@
     selectedDate = newDate;
   }
 
-  // Snap back to the current day — the escape hatch after paging away by week
-  // or tapping an earlier day.
-  function goToToday() {
-    selectedDate = new Date();
-  }
-
   function isSameDay(d1: Date, d2: Date) {
     return (
       d1.getFullYear() === d2.getFullYear() &&
@@ -46,10 +45,6 @@
       d1.getDate() === d2.getDate()
     );
   }
-
-  // Only offer "Today" when we've navigated off it — no point when the selected
-  // day already is today.
-  let onToday = $derived(isSameDay(selectedDate, new Date()));
 
   // The scrollable day row. On a narrow strip only ~3 of the 7 days fit, so keep
   // the selected day centred in view — on first render and after every change
@@ -73,54 +68,57 @@
   });
 </script>
 
-<div class="week-strip">
-  <div class="week-strip-container">
-    <button
-      class="nav-arrow"
-      onclick={() => changeWeek(-1)}
-      aria-label="Previous Week"
-    >
-      &larr;
-    </button>
-    <div class="week-days" bind:this={daysEl}>
-      {#each weekDays as day}
-        {@const active = isSameDay(day, selectedDate)}
-        {@const isToday = isSameDay(day, new Date())}
-        <button
-          class="day-btn"
-          class:active
-          class:is-today={isToday}
-          onclick={() => selectDate(day)}
-        >
-          <span class="day-label">
-            {day.toLocaleDateString("en-US", { weekday: "short" })}
-          </span>
-          <span class="day-number">{day.getDate()}</span>
-        </button>
-      {/each}
-    </div>
-    <button
-      class="nav-arrow"
-      onclick={() => changeWeek(1)}
-      aria-label="Next Week"
-    >
-      &rarr;
-    </button>
+<div class="week-strip-container">
+  <button
+    class="nav-arrow"
+    onclick={() => changeWeek(-1)}
+    aria-label="Previous Week"
+  >
+    &larr;
+  </button>
+  <div class="week-days" bind:this={daysEl}>
+    {#each weekDays as day}
+      {@const active = isSameDay(day, selectedDate)}
+      {@const isToday = isSameDay(day, new Date())}
+      <!-- The visible label is as terse as the width allows, so the reading
+             lives in aria-label instead: the full weekday and date, with
+             aria-pressed carrying the selection a screen reader had no way to
+             hear before. Both spans are decorative. -->
+      <button
+        class="day-btn"
+        class:active
+        class:is-today={isToday}
+        aria-pressed={active}
+        aria-label={day.toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+        })}
+        onclick={() => selectDate(day)}
+      >
+        <span class="day-label day-label-narrow" aria-hidden="true">
+          {day.toLocaleDateString("en-US", { weekday: "narrow" })}
+        </span>
+        <span class="day-label day-label-short" aria-hidden="true">
+          {day.toLocaleDateString("en-US", { weekday: "short" })}
+        </span>
+        <span class="day-number" aria-hidden="true">{day.getDate()}</span>
+      </button>
+    {/each}
   </div>
-  {#if !onToday}
-    <Button variant="secondary" size="sm" class="today-btn" onclick={goToToday}
-      >Today</Button
-    >
-  {/if}
+  <button
+    class="nav-arrow"
+    onclick={() => changeWeek(1)}
+    aria-label="Next Week"
+  >
+    &rarr;
+  </button>
 </div>
 
 <style>
-  .week-strip {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-xs);
-  }
+  /* Mobile first, and the whole week has to fit: seven days plus two arrows in
+     roughly 20rem, so the chrome is pared to the frame itself. The desktop
+     query at the bottom restores the roomier original. */
   .week-strip-container {
     display: flex;
     align-items: center;
@@ -128,24 +126,15 @@
     background: var(--paper);
     border: var(--edge-thin);
     border-radius: var(--radius);
-    padding: var(--space-xs);
+    padding: var(--space-3xs);
     width: 100%;
-  }
-  /* "Today" snap-back: the paper→ink invert, frame, shadow and press are the
-     shared Button (secondary) now (ADR-0039 / #78); only its uppercase caps and
-     roomier horizontal padding stay here, reached via `:global` under the scoped
-     strip since the class rides a child Button. Only rendered when off today. */
-  .week-strip :global(.today-btn) {
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    padding-inline: var(--space-m);
   }
   .nav-arrow {
     background: none;
     border: none;
     color: var(--ink);
-    font-size: var(--step-0);
-    padding: var(--space-xs);
+    font-size: var(--step-n1);
+    padding: var(--space-3xs) var(--space-2xs);
     cursor: pointer;
     transition: color 0.2s;
     flex-shrink: 0;
@@ -165,18 +154,21 @@
   .week-days::-webkit-scrollbar {
     display: none; /* Chrome/Safari/Opera */
   }
+  /* Every day takes an equal share of what is left, so all seven are on screen
+     at once and none can be clipped mid-cell at the strip's edge. */
   .day-btn {
     display: flex;
+    flex: 1 1 0;
+    min-width: 0;
     flex-direction: column;
     align-items: center;
     background: none;
     border: 1px solid transparent;
-    padding: var(--space-xs) var(--space-s);
+    padding: var(--space-3xs) var(--space-3xs);
     border-radius: var(--radius);
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     color: var(--ink);
-    flex-shrink: 0;
   }
   .day-btn:hover {
     background: var(--bg-input);
@@ -197,9 +189,35 @@
     letter-spacing: 0.05em;
     font-weight: 500;
   }
+  /* One letter on a phone (the calendar convention), the three-letter name once
+     there is room for it. The full weekday is on the button's aria-label either
+     way, so nothing is lost to a screen reader by the narrow form. */
+  .day-label-short {
+    display: none;
+  }
   .day-number {
     font-size: var(--step-n1);
     font-weight: 700;
     margin-top: var(--space-3xs);
+  }
+
+  @media (min-width: 768px) {
+    .week-strip-container {
+      padding: var(--space-xs);
+    }
+    .nav-arrow {
+      font-size: var(--step-0);
+      padding: var(--space-xs);
+    }
+    .day-btn {
+      flex: 0 0 auto;
+      padding: var(--space-xs) var(--space-s);
+    }
+    .day-label-narrow {
+      display: none;
+    }
+    .day-label-short {
+      display: block;
+    }
   }
 </style>

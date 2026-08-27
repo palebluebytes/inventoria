@@ -225,7 +225,7 @@
 <WeekStrip bind:selectedDate />
 
 <!-- Header Info -->
-<div class="dashboard-header mt-4">
+<div class="dashboard-header">
   <h2>{formatDateHeader(selectedDate)}</h2>
 </div>
 
@@ -530,20 +530,39 @@
 {/if}
 
 <style>
+  /* The strip shows the day number; this line is what carries the month. It
+     rides tight against the strip on a phone and opens up on a wide screen.
+     (It used to carry an `mt-4` class this component never defined, so its only
+     spacing was whatever the block below it pushed down.) */
   .dashboard-header {
     text-align: center;
+    margin-top: var(--space-2xs);
   }
   .dashboard-header h2 {
-    font-size: var(--step-1);
+    font-size: var(--step-0);
     font-weight: 700;
     color: var(--text-primary);
+  }
+  @media (min-width: 768px) {
+    .dashboard-header {
+      margin-top: var(--space-xs);
+    }
+    .dashboard-header h2 {
+      font-size: var(--step-1);
+    }
   }
 
   .aggregates {
     display: flex;
     flex-direction: column;
-    gap: var(--space-xs);
-    margin-top: var(--space-m);
+    gap: var(--space-2xs);
+    margin-top: var(--space-xs);
+  }
+  @media (min-width: 768px) {
+    .aggregates {
+      gap: var(--space-xs);
+      margin-top: var(--space-m);
+    }
   }
   /* Same rule as a meal's header — a titled row with its controls on the right,
      underlined — so the totals read as one more section of the day. */
@@ -727,7 +746,12 @@
   .timeline {
     display: flex;
     flex-direction: column;
-    gap: var(--space-l);
+    gap: var(--space-m);
+  }
+  @media (min-width: 768px) {
+    .timeline {
+      gap: var(--space-l);
+    }
   }
   .meal-section {
     display: flex;
@@ -776,12 +800,19 @@
     font-size: var(--step-n2);
     color: var(--text-secondary);
   }
+  /* Four meals a day means up to four of these, so an empty one says its piece
+     in as little height as it can get away with. */
   .empty-meal {
-    padding: var(--space-m);
+    padding: var(--space-xs);
     text-align: center;
     background: var(--paper);
     border: 1px dashed var(--ink);
     border-radius: var(--radius);
+  }
+  @media (min-width: 768px) {
+    .empty-meal {
+      padding: var(--space-m);
+    }
   }
   .empty-meal p {
     color: var(--text-muted);
@@ -909,6 +940,11 @@
   }
 
   :global(.mt-6) {
-    margin-top: var(--space-l);
+    margin-top: var(--space-m);
+  }
+  @media (min-width: 768px) {
+    :global(.mt-6) {
+      margin-top: var(--space-l);
+    }
   }
 </style>
