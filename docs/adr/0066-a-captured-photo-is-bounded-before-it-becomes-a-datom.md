@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-28  
-**Implemented:** #181 `dee9077` (the bound and the seam it is tested through)
+**Implemented:** #181 `dee9077` (the bound and the seam it is tested through), `505cca5` (review fixes, including §2's smoothing setting), `10c7868` (the e2e photo fixtures that now have to decode)
 
 ## Context
 
@@ -175,4 +175,4 @@ never large in the frame to begin with.
 `RecipeBuilder.svelte` reads a recipe image through its own inline
 `FileReader`, not through this helper, so it is not bounded by this record. It
 is the one capture surface left outside, and folding it into the shared helper
-is the obvious follow-up.
+is [#183](https://github.com/palebluebytes/inventoria/issues/183).
