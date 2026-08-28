@@ -240,13 +240,21 @@ adjudicated cases in `docs/research/143-gold-set.json` unchanged. `milk` returns
 **seventeen rows, fifteen of them milk** and two of them the milkfish §4 declines
 to chase, which is what §1's Consequences claim.
 
-### Corrections to the table in §1
+### The table in §1, re-measured on the corpus that ships
 
-Measured over the corpus as ADR-0061's drops and §2's renames left it, rather
-than at the commit those counts were taken: `milk` is **18** rows and not 25, and
-`raw` is **1,444** and not 1,432. `cooked` at 1,578, `salt` at 426, `water` at 50
-and `oil` at 42 all hold. After the gate, `salt` returns table salt alone, `water`
-12 rows and `oil` 70.
+§1's counts stand as they are written. They were taken before ADR-0061's drops
+and §2's renames, and the corpus they describe is gone, so they are not edited
+here — these are what the same six tokens reach on the 4,238 rows that ship, and
+they are the figures the tripwire in `usda-corpus.test.ts` holds:
+
+| token    | §1, before the drops | reaches past the name now | retrieved after the rule |
+| -------- | -------------------- | ------------------------- | ------------------------ |
+| `cooked` | 1,578                | 1,578                     | 1,578, all of them       |
+| `raw`    | 1,432                | 1,444                     | 1,444, all of them       |
+| `salt`   | 423                  | 426                       | 1                        |
+| `water`  | 50                   | 50                        | 12                       |
+| `oil`    | 45                   | 42                        | 70                       |
+| `milk`   | 25                   | 18                        | 17                       |
 
 ### What it costs, stated
 
@@ -255,9 +263,18 @@ returns 44 rows rather than 91, and a typed `whole milk` two rather than
 thirteen. Every dropped row still answers the words that name it: the mozzarella
 leads `mozzarella`, and the pot roast answers `pot roast`.
 
-### Where it lives
+### Where it lives, and per what
 
-`retrievedByName` in `reference-food-ranking.ts`, applied in `rankAgainst`
+`withoutStrayMentions` in `reference-food-ranking.ts`, applied in `rankAgainst`
 before the sort. `named` rides on `NameKey` because it is the same reading of the
 same tokens the ranking already does, and `compareRelevance` deliberately does
 not read it: §1 decides what is retrieved and nothing about the order.
+
+**Per phrase, not per query.** Where a vocabulary key expands to several phrases
+(ADR-0049 §1), each is a query and the rung another phrase reached is no evidence
+about this one. Measured over the 155 multi-phrase keys the map ships, one bar
+across the union drops rows in 21 of them that a phrase of their own names —
+`cacao butter` loses `Oil, cocoa butter` to a cocoa powder, because USDA files
+the butter under `Oil` — and hands `mandarine` a tangerine where a mandarin
+answers. Applied per phrase it keeps everything the union keeps and those rows
+besides, which is why the search scores each phrase, filters, and then merges.
