@@ -2,11 +2,11 @@ import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
 import { projections } from "./projections";
 import {
   appendDatoms,
-  countDatoms,
   ensureLedgerSchema,
   getOrCreateDeviceId,
   readHlcHighWater,
   readLedgerPage,
+  readLedgerSummary,
   resetLedgerSchema,
   execRows,
   type LedgerDb,
@@ -138,7 +138,7 @@ self.onmessage = async (event: MessageEvent) => {
       self.postMessage({
         id,
         status: "ok",
-        data: { row_count: countDatoms(db), device_id },
+        data: readLedgerSummary(db, device_id),
       });
     } else if (type === "ledger_page") {
       if (!db) {
@@ -146,11 +146,11 @@ self.onmessage = async (event: MessageEvent) => {
       }
       // The export's read seam. Rows leave a page at a time, bounded by bytes,
       // so a ledger full of label photos never crosses the boundary whole.
-      const { after, budget_bytes } = payload;
+      const { after, budgetBytes } = payload;
       self.postMessage({
         id,
         status: "ok",
-        data: readLedgerPage(db, after ?? null, budget_bytes),
+        data: readLedgerPage(db, after ?? null, budgetBytes),
       });
     } else if (type === "clear") {
       if (!db) {

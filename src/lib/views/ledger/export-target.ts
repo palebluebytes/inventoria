@@ -1,5 +1,5 @@
 /**
- * Where a ledger export goes on this particular browser (ADR-0064).
+ * Where a ledger export goes on this particular browser (ADR-0064 §6).
  *
  * The intended path is the File System Access API: `showSaveFilePicker` gives
  * the user the location, `createWritable()` gives us a stream, and the file is
@@ -8,12 +8,15 @@
  * else.
  *
  * Where it is missing there is no streaming write at all, so the fallback
- * assembles the file in memory and refuses above a stated ceiling. Everything
- * that decides *what* gets written lives in `ledger-export.ts` and is pure;
- * this module is the browser half, and holds nothing worth testing without one.
+ * assembles the file in memory and refuses above the stated ceiling.
+ *
+ * This lives beside the screen that calls it rather than under `db/`, because
+ * nothing in it is about the ledger: it is a save dialog, a `Blob` and an
+ * anchor. Everything that decides *what* gets written is pure and lives in
+ * `src/lib/db/ledger-export.ts`.
  */
 
-import { bufferedSink, type ExportSink } from "./ledger-export";
+import { bufferedSink, type ExportSink } from "../../db/ledger-export";
 
 /**
  * `showSaveFilePicker` is not in TypeScript's DOM library, so the shape it
@@ -43,8 +46,9 @@ export function exportFilename(exported_at: number): string {
 /**
  * Roughly how many bytes this origin is using, or `null` where the browser will
  * not say. It covers everything the origin stores, the cached USDA bundle
- * included, so it over-states the ledger rather than under-stating it; the
- * screen that shows it says so.
+ * included, so it over-states the ledger rather than under-stating it, and the
+ * screen that shows it says so. It is never used to refuse an export for that
+ * reason: the ceiling is enforced on the bytes actually written.
  */
 export async function estimateStoredBytes(): Promise<number | null> {
   if (
@@ -64,13 +68,6 @@ export async function estimateStoredBytes(): Promise<number | null> {
   }
 }
 
-/** Where an export is going, and whether getting there costs memory. */
-export interface ExportTarget {
-  sink: ExportSink;
-  /** True when the whole file has to be assembled before any of it is saved. */
-  buffered: boolean;
-}
-
 /**
  * Opens the browser's save dialog and returns somewhere to write, or `null`
  * when the user dismissed it. Must be called from the click that asked for the
@@ -78,15 +75,12 @@ export interface ExportTarget {
  */
 export async function chooseExportTarget(
   filename: string,
-  ceiling_bytes: number
-): Promise<ExportTarget | null> {
+  ceilingBytes: number
+): Promise<ExportSink | null> {
   if (!canStreamToFile()) {
-    return {
-      sink: bufferedSink(ceiling_bytes, (parts) =>
-        downloadParts(parts, filename)
-      ),
-      buffered: true,
-    };
+    return bufferedSink(ceilingBytes, (parts) =>
+      downloadParts(parts, filename)
+    );
   }
 
   let handle: FileSystemFileHandle;
@@ -109,14 +103,12 @@ export async function chooseExportTarget(
 
   const writable = await handle.createWritable();
   return {
-    sink: {
-      write: (chunk) => writable.write(chunk),
-      close: () => writable.close(),
-      // `abort` discards the swap file the browser has been filling, so a
-      // failed export leaves no half-written file at the chosen location.
-      abort: () => writable.abort(),
-    },
-    buffered: false,
+    write: (chunk) => writable.write(chunk),
+    close: () => writable.close(),
+    // Aborting discards the swap file the browser has been filling, so a failed
+    // export leaves no half-written file at the chosen location. The reason
+    // travels with it, which is what the stream surfaces to the platform.
+    abort: (reason) => writable.abort(reason),
   };
 }
 
@@ -129,5 +121,8 @@ function downloadParts(parts: string[], filename: string): void {
   link.href = url;
   link.download = filename;
   link.click();
-  URL.revokeObjectURL(url);
+  // Revoked on a later task rather than immediately. The blob here can run to
+  // tens of megabytes, and revoking in the same tick races the download the
+  // click just started.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }

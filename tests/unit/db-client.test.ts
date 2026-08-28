@@ -155,7 +155,7 @@ describe("DBClient RPC layer", () => {
     const p = c.ledgerPage(after, 2048);
     expect(getWorker().posted[1]).toMatchObject({
       type: "ledger_page",
-      payload: { after, budget_bytes: 2048 },
+      payload: { after, budgetBytes: 2048 },
     });
     getWorker().respond(getWorker().lastId, { status: "ok", data: [] });
     await expect(p).resolves.toEqual([]);

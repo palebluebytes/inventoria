@@ -236,16 +236,35 @@ export function countDatoms(db: LedgerDb): number {
   return rows[0].row_count;
 }
 
+/** What the ledger says about itself, for the export envelope to carry. */
+export function readLedgerSummary(
+  db: LedgerDb,
+  device_id: string
+): LedgerSummary {
+  return { row_count: countDatoms(db), device_id };
+}
+
+/** The position a paged read resumes from, taken off the row it stopped at. */
+export function cursorOf(row: LedgerRow): LedgerCursor {
+  return {
+    entity: row.entity,
+    attribute: row.attribute,
+    hlc_ms: row.hlc_ms,
+    hlc_ctr: row.hlc_ctr,
+    device_id: row.device_id,
+  };
+}
+
 /**
  * The most rows one page will look at, whatever the byte budget allows. It
  * bounds the size probe below, which is the only part of a page read that
  * touches more rows than it returns.
  */
-export const LEDGER_PAGE_MAX_ROWS = 256;
+const LEDGER_PAGE_MAX_ROWS = 256;
 
 /**
  * The next rows after `after`, in primary-key order, stopping once their values
- * exceed `budget_bytes`. An empty result means the walk is finished.
+ * exceed `budgetBytes`. An empty result means the walk is finished.
  *
  * The budget is what keeps a photo-carrying ledger streamable: rows are counted
  * in bytes rather than in rows because a single `food/label_photo` value is
@@ -259,7 +278,7 @@ export const LEDGER_PAGE_MAX_ROWS = 256;
 export function readLedgerPage(
   db: LedgerDb,
   after: LedgerCursor | null,
-  budget_bytes: number
+  budgetBytes: number
 ): LedgerRow[] {
   const where = after ? `WHERE (${LEDGER_KEY}) > (?, ?, ?, ?, ?) ` : "";
   const bind = after
@@ -271,11 +290,16 @@ export function readLedgerPage(
         after.device_id,
       ]
     : [];
+  // The probe and the fetch must walk the same rows in the same order, so they
+  // share one query shape and differ only in what they select.
+  const pageSql = (select: string) =>
+    `SELECT ${select} FROM datoms ${where}ORDER BY ${LEDGER_KEY} LIMIT ?;`;
+
   // `length()` over TEXT counts characters; the cast makes it count the UTF-8
   // bytes the file will actually carry.
   const widths = execRows<{ value_bytes: number }>(
     db,
-    `SELECT length(CAST(value AS BLOB)) AS value_bytes FROM datoms ${where}ORDER BY ${LEDGER_KEY} LIMIT ?;`,
+    pageSql("length(CAST(value AS BLOB)) AS value_bytes"),
     [...bind, LEDGER_PAGE_MAX_ROWS]
   );
   if (widths.length === 0) return [];
@@ -284,17 +308,13 @@ export function readLedgerPage(
   let bytes = 0;
   while (
     taken < widths.length &&
-    (taken === 0 || bytes + widths[taken].value_bytes <= budget_bytes)
+    (taken === 0 || bytes + widths[taken].value_bytes <= budgetBytes)
   ) {
     bytes += widths[taken].value_bytes;
     taken += 1;
   }
 
-  return execRows<LedgerRow>(
-    db,
-    `SELECT ${LEDGER_COLUMNS} FROM datoms ${where}ORDER BY ${LEDGER_KEY} LIMIT ?;`,
-    [...bind, taken]
-  );
+  return execRows<LedgerRow>(db, pageSql(LEDGER_COLUMNS), [...bind, taken]);
 }
 
 /**

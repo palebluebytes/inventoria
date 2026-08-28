@@ -118,11 +118,12 @@ credentials that [ADR-0034](0034-label-photo-food-capture.md) §8 moved there, a
 the [ADR-0053](0053-an-empty-food-search-is-recorded-locally-and-leaves-only-by-hand.md)
 search log that followed them.
 
-**No exclusion logic is written for the search log, because none is possible.** That
-record's §6 constrained this ticket to keep a `search/` namespace out of a wholesale
-export. The namespace never existed: §6's redaction requires deleting an entry and
-§7's cap requires dropping the oldest, and neither is expressible against an
-append-only table, so the log went to `localStorage` before this was built. A
+**No exclusion logic is written for the search log, because none is possible.** This
+record amends ADR-0053 §6, which constrained this ticket to keep a `search/`
+namespace out of a wholesale export. The namespace never existed: §6's redaction
+requires deleting an entry and §7's cap requires dropping the oldest, and neither is
+expressible against an append-only table, so the log went to `localStorage` before
+this record's work began. A
 wholesale export of `datoms` cannot carry the search log because the search log is
 not in `datoms`. The constraint is structural rather than disciplinary, and this
 clause exists so the point stops being re-litigated by the next reader who arrives
@@ -158,11 +159,17 @@ Refusing is the honest answer: a tab that dies partway through an export is wors
 than a message saying it cannot, because the first leaves the user believing they
 have a backup. The refusal names both figures and says which browser would work.
 
+**The ceiling is measured on the bytes actually written, never on the estimate.**
+The screen says the ceiling exists before the export starts, on the browsers that
+have one, but the decision to stop is taken by the thing doing the writing. An
+estimate that includes the cached USDA bundle would refuse ledgers that fit, and a
+refusal that is wrong about its own reason is worse than a slow one.
+
 The user is told the approximate size before the write starts, from
 `navigator.storage.estimate()`, feature-detected because it is absent in some
-environments. That figure covers everything the origin stores, the cached USDA
-bundle included, so it over-states the ledger rather than under-stating it, and the
-screen says so instead of implying a precision it does not have.
+environments. That figure covers everything the origin stores, so it over-states the
+ledger rather than under-stating it, and the screen says so instead of implying a
+precision it does not have.
 
 ### 7. There is no review gate
 

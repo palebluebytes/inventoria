@@ -4,7 +4,9 @@ import {
   appendDatoms,
   countDatoms,
   createLedgerSchema,
+  cursorOf,
   readLedgerPage,
+  readLedgerSummary,
   type Datom,
   type LedgerCursor,
   type LedgerDb,
@@ -42,21 +44,14 @@ const datom = (over: Partial<Datom> = {}): Datom => ({
 });
 
 /** Walks every page the way an export does, and returns the rows in order. */
-function readAll(budget_bytes: number): LedgerRow[] {
+function readAll(budgetBytes: number): LedgerRow[] {
   const all: LedgerRow[] = [];
   let after: LedgerCursor | null = null;
   for (let guard = 0; guard < 1_000; guard++) {
-    const page = readLedgerPage(db, after, budget_bytes);
+    const page = readLedgerPage(db, after, budgetBytes);
     if (page.length === 0) return all;
     all.push(...page);
-    const last = page[page.length - 1];
-    after = {
-      entity: last.entity,
-      attribute: last.attribute,
-      hlc_ms: last.hlc_ms,
-      hlc_ctr: last.hlc_ctr,
-      device_id: last.device_id,
-    };
+    after = cursorOf(page[page.length - 1]);
   }
   throw new Error("paged read did not terminate");
 }
@@ -71,6 +66,14 @@ describe("counting the ledger", () => {
     wall = 2_000;
     append([datom({ value: "Sit quietly" })]);
     expect(countDatoms(db)).toBe(2);
+  });
+
+  it("describes itself with the count and the device an envelope needs", () => {
+    append([datom()]);
+    expect(readLedgerSummary(db, "device_a")).toEqual({
+      row_count: 1,
+      device_id: "device_a",
+    });
   });
 });
 

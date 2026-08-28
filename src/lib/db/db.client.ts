@@ -123,7 +123,7 @@ export class DBClient {
   }
 
   /**
-   * The next rows of the ledger after `after`, bounded by `budget_bytes` of
+   * The next rows of the ledger after `after`, bounded by `budgetBytes` of
    * value, or an empty array once the walk is finished.
    *
    * This is the export's read seam. SQLite stays in the worker and the table
@@ -132,9 +132,9 @@ export class DBClient {
    */
   async ledgerPage(
     after: LedgerCursor | null,
-    budget_bytes: number
+    budgetBytes: number
   ): Promise<LedgerRow[]> {
-    return this.send<LedgerRow[]>("ledger_page", { after, budget_bytes });
+    return this.send<LedgerRow[]>("ledger_page", { after, budgetBytes });
   }
 
   /**

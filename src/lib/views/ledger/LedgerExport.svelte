@@ -18,17 +18,17 @@
     chooseExportTarget,
     estimateStoredBytes,
     exportFilename,
-  } from "../../db/ledger-export-target";
+  } from "./export-target";
 
   let { dbReady }: { dbReady: boolean } = $props();
 
   let summary = $state<LedgerSummary | null>(null);
-  let estimate_bytes = $state<number | null>(null);
+  let estimateBytes = $state<number | null>(null);
   let outcome = $state<"idle" | "running" | "done" | "refused" | "failed">(
     "idle"
   );
   let message = $state("");
-  let rows_written = $state(0);
+  let rowsWritten = $state(0);
 
   // Read once the worker is up. Both are snapshots rather than stores: the
   // figures describe the moment before an export, and nothing here should churn
@@ -39,67 +39,70 @@
       .ledgerSummary()
       .then((read) => (summary = read))
       .catch((err) => console.error("Failed to read the ledger summary", err));
-    estimateStoredBytes().then((bytes) => (estimate_bytes = bytes));
+    estimateStoredBytes().then((bytes) => (estimateBytes = bytes));
   });
 
-  let size_line = $derived.by(() => {
+  let sizeLine = $derived.by(() => {
     if (!summary) return "Reading the ledger.";
     const datoms = `${summary.row_count.toLocaleString()} datoms, superseded facts included`;
-    if (estimate_bytes === null) {
+    if (estimateBytes === null) {
       return `${datoms}. This browser will not estimate the size.`;
     }
-    return `${datoms}. This site is using about ${describeBytes(estimate_bytes)} of storage in total, which is the ledger plus everything else cached for it.`;
+    return `${datoms}. This site is using about ${describeBytes(estimateBytes)} of storage in total, which is the ledger plus everything else cached for it.`;
   });
+
+  // Said before the export rather than discovered during it. The estimate above
+  // covers the whole origin, so it cannot decide whether this ledger fits; the
+  // ceiling is enforced on the bytes actually written, and this line is what
+  // warns that there is one.
+  let capLine = $derived(
+    canStreamToFile()
+      ? ""
+      : `This browser cannot write a file as it goes, so the export is assembled in memory and stops at ${describeBytes(EXPORT_FALLBACK_CEILING_BYTES)}.`
+  );
 
   async function runExport() {
     if (!summary) return;
     outcome = "running";
     message = "";
-    rows_written = 0;
+    rowsWritten = 0;
     const exported_at = Date.now();
 
     try {
-      // Refuse before the save dialog where the estimate already says the
-      // in-memory fallback cannot hold it, rather than after buffering most of
-      // a file. The sink enforces the same ceiling for the case where no
-      // estimate was available.
-      if (
-        !canStreamToFile() &&
-        estimate_bytes !== null &&
-        estimate_bytes > EXPORT_FALLBACK_CEILING_BYTES
-      ) {
-        throw new ExportTooLargeError(
-          estimate_bytes,
-          EXPORT_FALLBACK_CEILING_BYTES
-        );
-      }
-
-      const target = await chooseExportTarget(
+      const sink = await chooseExportTarget(
         exportFilename(exported_at),
         EXPORT_FALLBACK_CEILING_BYTES
       );
       // The user dismissed the save dialog. Not a failure, so nothing is said.
-      if (!target) {
+      if (!sink) {
         outcome = "idle";
         return;
       }
 
       const result = await writeLedgerExport(
-        (after, budget_bytes) => dbClient.ledgerPage(after, budget_bytes),
-        target.sink,
+        (after, budgetBytes) => dbClient.ledgerPage(after, budgetBytes),
+        sink,
         {
           summary,
           exported_at,
-          onProgress: (written) => (rows_written = written),
+          onProgress: (written) => (rowsWritten = written),
         }
       );
 
       outcome = "done";
       message =
-        result.rows_written === result.envelope.row_count
-          ? `Wrote ${result.rows_written.toLocaleString()} datoms to ${exportFilename(exported_at)}.`
-          : `Wrote ${result.rows_written.toLocaleString()} datoms, but the file says ${result.envelope.row_count.toLocaleString()}. The ledger was appended to while it was being written, so export again for a file whose header matches it.`;
-      summary = await dbClient.ledgerSummary();
+        result.rowsWritten === result.envelope.row_count
+          ? `Wrote ${result.rowsWritten.toLocaleString()} datoms to ${exportFilename(exported_at)}.`
+          : `Wrote ${result.rowsWritten.toLocaleString()} datoms, but the file says ${result.envelope.row_count.toLocaleString()}. The ledger was appended to while it was being written, so export again for a file whose header matches it.`;
+      // The figure on screen was read before the write. Refresh it without
+      // awaiting: the export has already succeeded, and a failed re-read must
+      // not turn a written file into a reported failure.
+      dbClient
+        .ledgerSummary()
+        .then((read) => (summary = read))
+        .catch((err) =>
+          console.error("Failed to re-read the ledger summary", err)
+        );
     } catch (err) {
       if (err instanceof ExportTooLargeError) {
         outcome = "refused";
@@ -119,7 +122,10 @@
     Every datom this device holds, written to a file you choose. One JSON object
     per line, the raw log rather than the current state, photos and all.
   </p>
-  <p class="figure">{size_line}</p>
+  <p class="figure">{sizeLine}</p>
+  {#if capLine}
+    <p class="figure">{capLine}</p>
+  {/if}
 
   <div class="actions-row">
     <Button
@@ -132,8 +138,7 @@
       Export Ledger
     </Button>
     {#if outcome === "running"}
-      <span class="progress"
-        >{rows_written.toLocaleString()} datoms written</span
+      <span class="progress">{rowsWritten.toLocaleString()} datoms written</span
       >
     {/if}
   </div>

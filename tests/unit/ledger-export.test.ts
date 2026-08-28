@@ -124,7 +124,7 @@ describe("writing the whole ledger out", () => {
       exported_at: 1_700_000_000_000,
     });
     expect(sink.text().split("\n").filter(Boolean)).toHaveLength(1);
-    expect(result.rows_written).toBe(0);
+    expect(result.rowsWritten).toBe(0);
     expect(sink.closed()).toBe(true);
   });
 
@@ -146,7 +146,7 @@ describe("writing the whole ledger out", () => {
       "habit:3",
       "habit:4",
     ]);
-    expect(result.rows_written).toBe(5);
+    expect(result.rowsWritten).toBe(5);
   });
 
   it("resumes each page after the last row of the one before", async () => {
@@ -175,7 +175,7 @@ describe("writing the whole ledger out", () => {
       exported_at: 1,
     });
     expect(result.envelope.row_count).toBe(1);
-    expect(result.rows_written).toBe(2);
+    expect(result.rowsWritten).toBe(2);
   });
 
   it("aborts the sink and rethrows when a page cannot be read", async () => {

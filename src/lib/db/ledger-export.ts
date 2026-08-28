@@ -24,7 +24,12 @@
  * format and the walk are testable without a Worker, a picker or a disk.
  */
 
-import type { LedgerCursor, LedgerSummary, LedgerRow } from "./db.core";
+import {
+  cursorOf,
+  type LedgerCursor,
+  type LedgerRow,
+  type LedgerSummary,
+} from "./db.core";
 
 /** What line one of the file says the file is. */
 export const LEDGER_EXPORT_ARTIFACT = "inventoria-ledger";
@@ -101,7 +106,7 @@ export function datomLine(row: LedgerRow): string {
  */
 export type LedgerPageReader = (
   after: LedgerCursor | null,
-  budget_bytes: number
+  budgetBytes: number
 ) => Promise<LedgerRow[]>;
 
 /**
@@ -125,9 +130,10 @@ export const EXPORT_PAGE_BUDGET_BYTES = 2 * 1024 * 1024;
 
 export interface LedgerExportOptions {
   summary: LedgerSummary;
+  /** Unix ms stamped into the envelope. Passed in, never read off a clock. */
   exported_at: number;
-  page_budget_bytes?: number;
-  onProgress?: (rows_written: number) => void;
+  pageBudgetBytes?: number;
+  onProgress?: (rowsWritten: number) => void;
 }
 
 export interface LedgerExportResult {
@@ -137,7 +143,7 @@ export interface LedgerExportResult {
    * ledger was appended to while the file was being written, which is worth
    * telling the user about rather than hiding.
    */
-  rows_written: number;
+  rowsWritten: number;
 }
 
 /**
@@ -153,26 +159,19 @@ export async function writeLedgerExport(
   options: LedgerExportOptions
 ): Promise<LedgerExportResult> {
   const envelope = buildExportEnvelope(options.summary, options.exported_at);
-  const budget_bytes = options.page_budget_bytes ?? EXPORT_PAGE_BUDGET_BYTES;
-  let rows_written = 0;
+  const budgetBytes = options.pageBudgetBytes ?? EXPORT_PAGE_BUDGET_BYTES;
+  let rowsWritten = 0;
 
   try {
     await sink.write(envelopeLine(envelope));
     let after: LedgerCursor | null = null;
     for (;;) {
-      const rows = await readPage(after, budget_bytes);
+      const rows = await readPage(after, budgetBytes);
       if (rows.length === 0) break;
       await sink.write(rows.map(datomLine).join(""));
-      rows_written += rows.length;
-      const last = rows[rows.length - 1];
-      after = {
-        entity: last.entity,
-        attribute: last.attribute,
-        hlc_ms: last.hlc_ms,
-        hlc_ctr: last.hlc_ctr,
-        device_id: last.device_id,
-      };
-      options.onProgress?.(rows_written);
+      rowsWritten += rows.length;
+      after = cursorOf(rows[rows.length - 1]);
+      options.onProgress?.(rowsWritten);
     }
   } catch (err) {
     await sink.abort(err);
@@ -180,7 +179,7 @@ export async function writeLedgerExport(
   }
 
   await sink.close();
-  return { envelope, rows_written };
+  return { envelope, rowsWritten };
 }
 
 // ---------------------------------------------------------------------------
@@ -198,20 +197,26 @@ export async function writeLedgerExport(
  */
 export const EXPORT_FALLBACK_CEILING_BYTES = 64 * 1024 * 1024;
 
-/** The refusal, carrying the two numbers that explain it. */
+/**
+ * The refusal, carrying the two numbers that explain it.
+ *
+ * `bytes` is the running total at the moment the sink tripped, so it names where
+ * the ceiling was crossed rather than how large the finished file would have
+ * been. The message says "roughly" and means it.
+ */
 export class ExportTooLargeError extends Error {
   readonly bytes: number;
-  readonly ceiling_bytes: number;
+  readonly ceilingBytes: number;
 
-  constructor(bytes: number, ceiling_bytes: number) {
+  constructor(bytes: number, ceilingBytes: number) {
     super(
       `This browser cannot write a file as it goes, so the export has to be assembled in memory first, ` +
-        `and this ledger is ${describeBytes(bytes)} against a ${describeBytes(ceiling_bytes)} ceiling. ` +
+        `and this one is too big for that: roughly ${describeBytes(bytes)} against a ${describeBytes(ceilingBytes)} ceiling. ` +
         `Nothing was written. Export from a Chromium browser, which can stream straight to disk.`
     );
     this.name = "ExportTooLargeError";
     this.bytes = bytes;
-    this.ceiling_bytes = ceiling_bytes;
+    this.ceilingBytes = ceilingBytes;
   }
 }
 
@@ -219,7 +224,7 @@ const encoder = new TextEncoder();
 
 /**
  * A sink that assembles the file in memory and hands the parts to `deliver` on
- * close, refusing the moment it passes `ceiling_bytes`. The refusal happens
+ * close, refusing the moment it passes `ceilingBytes`. The refusal happens
  * during the walk rather than at the end, so the memory it declined to spend is
  * memory it never spends.
  *
@@ -227,7 +232,7 @@ const encoder = new TextEncoder();
  * browser's business, not this module's.
  */
 export function bufferedSink(
-  ceiling_bytes: number,
+  ceilingBytes: number,
   deliver: (parts: string[]) => void
 ): ExportSink {
   const parts: string[] = [];
@@ -237,8 +242,8 @@ export function bufferedSink(
   return {
     async write(chunk: string) {
       bytes += encoder.encode(chunk).length;
-      if (bytes > ceiling_bytes) {
-        throw new ExportTooLargeError(bytes, ceiling_bytes);
+      if (bytes > ceilingBytes) {
+        throw new ExportTooLargeError(bytes, ceilingBytes);
       }
       parts.push(chunk);
     },
