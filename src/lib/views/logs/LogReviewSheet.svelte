@@ -2,6 +2,7 @@
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import Button from "../../ui/Button.svelte";
   import Badge from "../../ui/Badge.svelte";
+  import Checkbox from "../../ui/Checkbox.svelte";
   import { settingsStore } from "../../stores/settings.store";
   import {
     buildLogExport,
@@ -87,19 +88,20 @@
   {#each channels as channel (channel.name)}
     {@const entries = entriesByChannel.get(channel.name) ?? []}
     <section class="channel">
-      <label class="channel-head">
-        <input
-          type="checkbox"
-          checked={selectedNames.includes(channel.name)}
-          onchange={(e) => toggleChannel(channel.name, e.currentTarget.checked)}
-        />
-        <span class="channel-name">{channel.name}</span>
-        <Badge
-          variant={channel.sensitivity === "personal" ? "warning" : "neutral"}
-          >{channel.sensitivity}</Badge
-        >
-        <span class="count">{entries.length} entries</span>
-      </label>
+      <Checkbox
+        class="channel-head"
+        checked={selectedNames.includes(channel.name)}
+        onCheckedChange={(on) => toggleChannel(channel.name, on)}
+      >
+        <span class="head-row">
+          <span class="channel-name">{channel.name}</span>
+          <Badge
+            variant={channel.sensitivity === "personal" ? "warning" : "neutral"}
+            >{channel.sensitivity}</Badge
+          >
+          <span class="count">{entries.length} entries</span>
+        </span>
+      </Checkbox>
       <p class="reader">{channel.reader}</p>
 
       {#if entries.length === 0}
@@ -162,13 +164,17 @@
     padding-top: var(--space-s);
     margin-top: var(--space-s);
   }
-  .channel-head {
+  /* The row is the shared Checkbox (ADR-0068); its name here is a row of its
+     own — the channel, its sensitivity Badge and the entry count — so the
+     content the primitive is given lays itself out, and only the row's heavier
+     weight is reached via :global. */
+  .channel :global(.channel-head) {
+    font-weight: 800;
+  }
+  .head-row {
     display: flex;
     align-items: center;
     gap: var(--space-2xs);
-    font-weight: 800;
-    text-transform: uppercase;
-    cursor: pointer;
   }
   .channel-name {
     font-size: var(--step-0);
@@ -220,33 +226,5 @@
   .dock {
     display: flex;
     justify-content: flex-end;
-  }
-  /* The house checkbox, as the food settings sheet draws it. */
-  .channel-head input[type="checkbox"] {
-    appearance: none;
-    -webkit-appearance: none;
-    flex: 0 0 auto;
-    display: grid;
-    place-content: center;
-    width: 1.35em;
-    height: 1.35em;
-    margin: 0;
-    border: var(--edge);
-    background: var(--paper);
-    cursor: pointer;
-  }
-  .channel-head input[type="checkbox"]::before {
-    content: "";
-    width: 0.62em;
-    height: 0.62em;
-    background: var(--ink);
-    transform: scale(0);
-  }
-  .channel-head input[type="checkbox"]:checked::before {
-    transform: scale(1);
-  }
-  .channel-head input[type="checkbox"]:focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: 2px;
   }
 </style>

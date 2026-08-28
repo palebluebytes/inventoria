@@ -5,6 +5,7 @@
   } from "../../stores/settings.store";
   import { secretsStore, setSecret } from "../../stores/secrets";
   import BottomSheet from "../../ui/BottomSheet.svelte";
+  import Checkbox from "../../ui/Checkbox.svelte";
   import NutritionTargetEditor from "./NutritionTargetEditor.svelte";
 
   // The food screen's own settings surface (top-right gear on FoodView). Holds
@@ -166,17 +167,13 @@
              Default off. It never submits on its own — it only pre-ticks the
              per-capture checkbox shown in the capture form, which you confirm
              every time. Persists the instant it changes. -->
-        <label class="toggle-label consent-toggle">
-          <input
-            type="checkbox"
-            id="food-off-contribute-toggle"
-            checked={offContribute}
-            onchange={(e) => persistOffContribute(e.currentTarget.checked)}
-          />
-          <span class="toggle-text"
-            >Contribute to Open Food Facts by default</span
-          >
-        </label>
+        <Checkbox
+          id="food-off-contribute-toggle"
+          class="consent-toggle"
+          label="Contribute to Open Food Facts by default"
+          checked={offContribute}
+          onCheckedChange={persistOffContribute}
+        />
         <span class="help-text"
           >Pre-ticks the "share with Open Food Facts" option on the capture form
           when you scan or correct a barcoded product. The option always appears
@@ -300,71 +297,14 @@
     color: var(--text-secondary);
     font-style: italic;
   }
-  .toggle-label {
-    display: flex;
-    align-items: center;
-    gap: 0.65em;
-    font-weight: 700;
-    line-height: 1.4;
-    color: var(--ink);
-    cursor: pointer;
-    user-select: none;
-    text-transform: uppercase;
-  }
-  /* The consent toggle's longer, sentence-case label wraps rather than clips,
-     and the checkbox aligns to the first line. */
-  .consent-toggle {
+  /* The row is the shared Checkbox (ADR-0068). Only this consent row's
+     departure from the house look stays here — a longer, sentence-case label
+     that wraps rather than clips, with the box aligned to its first line —
+     reached via :global as the class rides the primitive's label. */
+  .form-group :global(.consent-toggle) {
     align-items: flex-start;
-    font-size: var(--step-n1);
     text-transform: none;
     line-height: 1.35;
-  }
-  /* The caps sit ~0.08em above the line-box centre (Epilogue's ascent is taller
-     than its cap height), so flex centring alone leaves them floating high.
-     Fallback for engines without text-box-trim: nudge the text down optically. */
-  .toggle-text {
-    position: relative;
-    top: 0.08em;
-  }
-  .consent-toggle .toggle-text {
-    top: 0;
-  }
-  @supports (text-box-trim: trim-both) {
-    .toggle-text {
-      text-box-trim: trim-both;
-      text-box-edge: cap alphabetic;
-      top: 0;
-    }
-  }
-  /* Custom retro checkbox: appearance:none lets the control fill its own box so
-     it centers cleanly against the text, matching the 2px black borders used
-     elsewhere. */
-  .toggle-label input[type="checkbox"] {
-    appearance: none;
-    -webkit-appearance: none;
-    flex: 0 0 auto;
-    display: grid;
-    place-content: center;
-    width: 1.35em;
-    height: 1.35em;
-    margin: 0;
-    border: var(--edge);
-    background: var(--paper);
-    cursor: pointer;
-  }
-  .toggle-label input[type="checkbox"]::before {
-    content: "";
-    width: 0.62em;
-    height: 0.62em;
-    background: var(--ink);
-    transform: scale(0);
-  }
-  .toggle-label input[type="checkbox"]:checked::before {
-    transform: scale(1);
-  }
-  .toggle-label input[type="checkbox"]:focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: 2px;
   }
   .mt-4 {
     margin-top: var(--space-m);

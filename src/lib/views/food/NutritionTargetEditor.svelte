@@ -34,6 +34,7 @@
     defaultNutrientTargets,
   } from "../../food/nutrition-targets";
   import { onDestroy } from "svelte";
+  import Checkbox from "../../ui/Checkbox.svelte";
   import NutrientCard from "./NutrientCard.svelte";
   import NutrientCardGrid from "./NutrientCardGrid.svelte";
   import NutrientGroupHead from "./NutrientGroupHead.svelte";
@@ -263,8 +264,8 @@
     persistNutritionDisplay();
   }
 
-  async function toggleRoundNutrition() {
-    round_nutrition = !round_nutrition;
+  async function toggleRoundNutrition(checked: boolean) {
+    round_nutrition = checked;
     persistNutritionDisplay();
   }
 
@@ -541,15 +542,13 @@
   </div>
 
   <div class="round-toggle mt-4">
-    <label class="toggle-label">
-      <input
-        type="checkbox"
-        id="round-nutrition-toggle"
-        checked={round_nutrition}
-        onchange={toggleRoundNutrition}
-      />
-      <span class="toggle-text">Round calories to whole numbers</span>
-    </label>
+    <Checkbox
+      id="round-nutrition-toggle"
+      class="round-toggle-row"
+      label="Round calories to whole numbers"
+      checked={round_nutrition}
+      onCheckedChange={toggleRoundNutrition}
+    />
     <span class="help-text"
       >Show calorie figures as whole numbers. Nutrient amounts always keep their
       decimals, and stored values keep full precision either way.</span
@@ -799,77 +798,27 @@
   }
 
   /* Whole-number toggle: the label + its help text stacked, with a container
-     context so the shared .toggle-label font sizing resolves against this block
-     rather than the viewport. */
+     context so the row's font ramp resolves against this block rather than the
+     viewport. */
   .round-toggle {
     container-type: inline-size;
     display: flex;
     flex-direction: column;
     gap: var(--space-3xs);
   }
-  .toggle-label {
-    display: flex;
-    align-items: center;
-    /* em-based so the checkbox, gap and text scale together as one unit. */
-    gap: 0.65em;
-    /* Keep the whole label on ONE line: the caps text never wraps, and the font
-       shrinks with the container so it always fits. `min(step-n1, X·cqi)` caps at
-       the normal size on a wide container and rides X·cqi down on a narrow one.
-       X = 100 / row-width-in-em; the "ROUND TO WHOLE NUMBERS" row measures
-       ≈ 15.3em (checkbox + gap + caps) — with a little headroom for the checkbox's
-       sub-pixel growth at small sizes, 6cqi keeps it flush to one line at any
-       width, shrinking only once the container is too narrow for the capped size. */
+  /* The row is the shared Checkbox (ADR-0068); only this label's measured font
+     ramp and its no-wrap stay here, reached via :global as the class rides the
+     primitive's label. Keep the whole label on ONE line: the caps text never
+     wraps, and the font shrinks with the container so it always fits.
+     `min(step-n1, X·cqi)` caps at the normal size on a wide container and rides
+     X·cqi down on a narrow one. X = 100 / row-width-in-em; this row was
+     measured at ≈ 15.3em (box + gap + caps) — with a little
+     headroom for the box's sub-pixel growth at small sizes, 6cqi keeps it flush
+     to one line at any width, shrinking only once the container is too narrow
+     for the capped size. */
+  .round-toggle :global(.round-toggle-row) {
     font-size: min(var(--step-n1), 6cqi);
-    font-weight: 700;
-    line-height: 1.4;
-    color: var(--ink);
-    cursor: pointer;
-    user-select: none;
-    text-transform: uppercase;
     white-space: nowrap;
-  }
-  /* The caps sit ~0.08em above the line-box centre; nudge them down optically
-     where text-box-trim isn't available. */
-  .toggle-text {
-    position: relative;
-    top: 0.08em;
-  }
-  @supports (text-box-trim: trim-both) {
-    .toggle-text {
-      text-box-trim: trim-both;
-      text-box-edge: cap alphabetic;
-      top: 0;
-    }
-  }
-  /* Custom retro checkbox for the round toggle: appearance:none lets the control
-     fill its own box so it centres cleanly, matching the 2px black borders used
-     across Settings. (Nutrient cards toggle via the whole card, no visible box.) */
-  .toggle-label input[type="checkbox"] {
-    appearance: none;
-    -webkit-appearance: none;
-    flex: 0 0 auto;
-    display: grid;
-    place-content: center;
-    width: 1.35em;
-    height: 1.35em;
-    margin: 0;
-    border: var(--edge);
-    background: var(--paper);
-    cursor: pointer;
-  }
-  .toggle-label input[type="checkbox"]::before {
-    content: "";
-    width: 0.62em;
-    height: 0.62em;
-    background: var(--ink);
-    transform: scale(0);
-  }
-  .toggle-label input[type="checkbox"]:checked::before {
-    transform: scale(1);
-  }
-  .toggle-label input[type="checkbox"]:focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: 2px;
   }
 
   .mt-2 {

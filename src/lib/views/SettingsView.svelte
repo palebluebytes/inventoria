@@ -23,6 +23,7 @@
   import Button from "../ui/Button.svelte";
   import Alert from "../ui/Alert.svelte";
   import Badge from "../ui/Badge.svelte";
+  import Checkbox from "../ui/Checkbox.svelte";
 
   let { dbReady }: { dbReady: boolean } = $props();
 
@@ -110,8 +111,7 @@
     }
   });
 
-  function toggleDevMode(e: Event) {
-    const checked = (e.target as HTMLInputElement).checked;
+  function toggleDevMode(checked: boolean) {
     testState.enabled = checked;
     if (!checked) {
       testState.stage = "none";
@@ -303,15 +303,13 @@
 <Card class="mt-4">
   <h2>Developer Options</h2>
   <div class="dev-toggle mt-4">
-    <label class="toggle-label">
-      <input
-        type="checkbox"
-        id="dev-mode-toggle"
-        checked={testState.enabled}
-        onchange={toggleDevMode}
-      />
-      <span class="toggle-text">Enable OPFS Persistence Test</span>
-    </label>
+    <Checkbox
+      id="dev-mode-toggle"
+      class="dev-toggle-row"
+      label="Enable OPFS Persistence Test"
+      checked={testState.enabled}
+      onCheckedChange={toggleDevMode}
+    />
   </div>
 
   <div hidden={!testState.enabled} class="mt-4 border-top">
@@ -552,71 +550,14 @@
   .dev-toggle {
     container-type: inline-size;
   }
-  .toggle-label {
-    display: flex;
-    align-items: center;
-    /* em-based so the checkbox, gap and text scale together as one unit. */
-    gap: 0.65em;
-    /* Full size when the card is wide; shrink with the container so the whole
-       row stays on one line on narrow screens. Everything on the row is
-       em-proportional, so a single cqi ramp keeps it on one line — 5.3cqi was
-       measured against this fixed label text (row ≈ 18.9em wide). */
+  /* The row is the shared Checkbox (ADR-0068); only this label's measured font
+     ramp stays here, reached via :global as the class rides the primitive's
+     label. Full size when the card is wide, shrinking with the container so the
+     whole row stays on one line on narrow screens. Everything on the row is
+     em-proportional, so a single cqi ramp keeps it on one line — 5.3cqi was
+     measured against this fixed label text (row ≈ 18.9em wide). */
+  .dev-toggle :global(.dev-toggle-row) {
     font-size: min(var(--step-n1), 5.3cqi);
-    font-weight: 700;
-    line-height: 1.4;
-    color: var(--ink);
-    cursor: pointer;
-    user-select: none;
-    text-transform: uppercase;
-  }
-  /* The caps sit ~0.08em above the line-box centre (Epilogue's ascent is taller
-     than its cap height), so flex centring alone leaves them floating high.
-     Fallback for engines without text-box-trim: nudge the text down optically. */
-  .toggle-text {
-    position: relative;
-    top: 0.08em;
-  }
-  /* Preferred: trim the text box to the cap height so it hugs the glyphs. The
-     box then *is* the caps, so flex centring aligns it exactly against the
-     checkbox at every font size — no magic nudge, symmetric top and bottom. */
-  @supports (text-box-trim: trim-both) {
-    .toggle-text {
-      text-box-trim: trim-both;
-      text-box-edge: cap alphabetic;
-      top: 0;
-    }
-  }
-  /* Custom retro checkbox: a native checkbox forced to 1.25rem only enlarges its
-     hit box, leaving the ~13px glyph top-left inside it, which reads as
-     misaligned with the label. appearance:none lets the control fill its own box
-     so it centers cleanly against the text, and matches the 2px black borders
-     used elsewhere on this page. */
-  .toggle-label input[type="checkbox"] {
-    appearance: none;
-    -webkit-appearance: none;
-    flex: 0 0 auto;
-    display: grid;
-    place-content: center;
-    width: 1.35em;
-    height: 1.35em;
-    margin: 0;
-    border: var(--edge);
-    background: var(--paper);
-    cursor: pointer;
-  }
-  .toggle-label input[type="checkbox"]::before {
-    content: "";
-    width: 0.62em;
-    height: 0.62em;
-    background: var(--ink);
-    transform: scale(0);
-  }
-  .toggle-label input[type="checkbox"]:checked::before {
-    transform: scale(1);
-  }
-  .toggle-label input[type="checkbox"]:focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: 2px;
   }
   .border-top {
     border-top: var(--edge);

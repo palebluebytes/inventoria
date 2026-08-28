@@ -48,7 +48,13 @@
 >
   {#if toggle}
     <!-- Visually hidden, but a real (focusable, announced) checkbox — the <label>
-         above makes the whole card its click target. -->
+         above makes the whole card its click target.
+
+         NOT the shared ui/Checkbox (ADR-0068): that primitive renders its own
+         <label> around a visible box and requires a name beside it, and this
+         card has neither — the card IS the label, the card's fill IS the checked
+         state, and the box is invisible. A primitive that could render nameless
+         and invisible would grow a second card with no accessible name. -->
     <input
       type="checkbox"
       class="card-toggle"

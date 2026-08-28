@@ -284,6 +284,14 @@ item clears the selection. Wraps rather than forcing equal widths. Use it wherev
 filter may be turned off again. See ADR-0040.
 _Avoid_: Chip group, filter chips, multi-select
 
+**Checkbox**:
+The one checkbox (`ui/Checkbox.svelte`): a native `<input type="checkbox">` in the
+`<label>` that names it, wearing the house skin. Every tick, consent box and
+recording switch in the app is this component — the platform already supplies the
+control, so bits-ui has nothing to add here. A name is not optional, and the row's
+typography is the caller's `class`. See ADR-0068.
+_Avoid_: Toggle, tick box, a second checkbox skin
+
 **Badge**:
 A display-only status or category label (`ui/Badge.svelte`). Its colour comes from
 the shared `categoryBadgeVariant(category)` helper, never from a re-declared inline

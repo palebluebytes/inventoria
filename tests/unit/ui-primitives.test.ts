@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { render } from "svelte/server";
+import { createRawSnippet } from "svelte";
 import Button from "../../src/lib/ui/Button.svelte";
 import Card from "../../src/lib/ui/Card.svelte";
 import Badge from "../../src/lib/ui/Badge.svelte";
 import ToggleGroup from "../../src/lib/ui/ToggleGroup.svelte";
+import Checkbox from "../../src/lib/ui/Checkbox.svelte";
 
 // These render the primitives through Svelte's SSR path (no DOM needed) and
 // assert on the emitted HTML. They pin the three things #77 makes contractual:
@@ -160,5 +162,87 @@ describe("ToggleGroup", () => {
     expect(body).toContain("Filter by tag");
     expect(body).toMatch(/id="tg-[^"]+"/);
     expect(body).toMatch(/aria-labelledby="tg-[^"]+"/);
+  });
+});
+
+describe("Checkbox", () => {
+  it("wraps a native checkbox in the <label> that names it", () => {
+    const { body } = render(Checkbox, { props: { label: "Recording" } });
+    // The label wrapper is always rendered, so a checkbox with no accessible
+    // name is not expressible (ADR-0068).
+    expect(body).toContain("<label");
+    expect(body).toContain('type="checkbox"');
+    expect(body).toContain("Recording");
+  });
+
+  it("prefers children over the label prop when both are given", () => {
+    const { body } = render(Checkbox, {
+      props: {
+        label: "the prop",
+        children: createRawSnippet(() => ({
+          render: () => "<span>the snippet</span>",
+        })),
+      } as Record<string, unknown>,
+    });
+    expect(body).toContain("the snippet");
+    expect(body).not.toContain("the prop");
+  });
+
+  it("reaches the input with checked and disabled", () => {
+    const { body } = render(Checkbox, {
+      props: { label: "Recording", checked: true, disabled: true },
+    });
+    expect(body).toMatch(/<input[^>]*\schecked\b/);
+    expect(body).toMatch(/<input[^>]*\sdisabled\b/);
+  });
+
+  it("leaves the input unchecked and enabled by default", () => {
+    const { body } = render(Checkbox, { props: { label: "Recording" } });
+    expect(body).not.toMatch(/<input[^>]*\schecked\b/);
+    expect(body).not.toMatch(/<input[^>]*\sdisabled\b/);
+  });
+
+  it("spreads ...rest a11y attributes onto the input, not the label", () => {
+    const { body } = render(Checkbox, {
+      props: {
+        label: "Recording",
+        id: "dev-mode-toggle",
+        "aria-describedby": "why",
+        "data-testid": "recording",
+      } as Record<string, unknown>,
+    });
+    // id and ...rest land on the input so `page.locator("#id").check()` and
+    // every aria/data hook address the control itself.
+    expect(body).toMatch(/<input[^>]*id="dev-mode-toggle"/);
+    expect(body).toMatch(/<input[^>]*aria-describedby="why"/);
+    expect(body).toMatch(/<input[^>]*data-testid="recording"/);
+  });
+
+  it("keeps the caller's class on the label row beside the base class", () => {
+    const { body } = render(Checkbox, {
+      props: { label: "Recording", class: "consent-toggle" },
+    });
+    expect(body).toMatch(/<label[^>]*class="checkbox[^"]*consent-toggle/);
+  });
+
+  it("keeps ...rest off the row entirely — class is the only channel to it", () => {
+    const { body } = render(Checkbox, {
+      props: {
+        label: "Recording",
+        class: "row",
+        title: "Records this channel",
+        "data-testid": "recording",
+      } as Record<string, unknown>,
+    });
+    const labelStart = body.indexOf("<label");
+    const openingLabel = body.slice(
+      labelStart,
+      body.indexOf(">", labelStart) + 1
+    );
+    // The scope class rides along; what matters is that both the base and the
+    // caller's class are on the row and nothing from ...rest is.
+    expect(openingLabel).toContain('class="checkbox row');
+    expect(openingLabel).not.toContain("title=");
+    expect(openingLabel).not.toContain("data-testid=");
   });
 });

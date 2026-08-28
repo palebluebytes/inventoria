@@ -2,6 +2,7 @@
   import Card from "../../ui/Card.svelte";
   import Button from "../../ui/Button.svelte";
   import Badge from "../../ui/Badge.svelte";
+  import Checkbox from "../../ui/Checkbox.svelte";
   import LogReviewSheet from "./LogReviewSheet.svelte";
   import {
     settingsStore,
@@ -94,15 +95,13 @@
   </p>
 
   <div class="form-group">
-    <label class="toggle-label consent-toggle">
-      <input
-        type="checkbox"
-        id="log-export-toggle"
-        checked={$settingsStore.log_export}
-        onchange={(e) => persistExportConsent(e.currentTarget.checked)}
-      />
-      <span class="toggle-text">Allow exporting local logs</span>
-    </label>
+    <Checkbox
+      id="log-export-toggle"
+      class="consent-toggle"
+      label="Allow exporting local logs"
+      checked={$settingsStore.log_export}
+      onCheckedChange={persistExportConsent}
+    />
     <span class="help-text"
       >Off by default. It enables the export button; you still choose which
       channels go into the file and read them first.</span
@@ -121,14 +120,11 @@
       </div>
       <p class="reader">{channel.reader}</p>
       <div class="channel-actions">
-        <label class="toggle-label">
-          <input
-            type="checkbox"
-            checked={recording}
-            onchange={(e) => toggleRecording(channel, e.currentTarget.checked)}
-          />
-          <span class="toggle-text">Recording</span>
-        </label>
+        <Checkbox
+          label="Recording"
+          checked={recording}
+          onCheckedChange={(on) => toggleRecording(channel, on)}
+        />
         <Button
           variant="danger"
           size="sm"
@@ -242,49 +238,13 @@
   .mt-4 {
     margin-top: var(--space-m);
   }
-  .toggle-label {
-    display: flex;
-    align-items: center;
-    gap: 0.65em;
-    font-weight: 700;
-    line-height: 1.4;
-    color: var(--ink);
-    cursor: pointer;
-    user-select: none;
-    text-transform: uppercase;
-  }
-  .consent-toggle {
+  /* The rows are the shared Checkbox (ADR-0068). Only this consent row's
+     departure from the house look stays here — a sentence-case label that wraps
+     rather than clips, with the box aligned to its first line — reached via
+     :global as the class rides the primitive's label. */
+  .form-group :global(.consent-toggle) {
     align-items: flex-start;
-    font-size: var(--step-n1);
     text-transform: none;
     line-height: 1.35;
-  }
-  /* The house checkbox, as the food settings sheet draws it. */
-  .toggle-label input[type="checkbox"] {
-    appearance: none;
-    -webkit-appearance: none;
-    flex: 0 0 auto;
-    display: grid;
-    place-content: center;
-    width: 1.35em;
-    height: 1.35em;
-    margin: 0;
-    border: var(--edge);
-    background: var(--paper);
-    cursor: pointer;
-  }
-  .toggle-label input[type="checkbox"]::before {
-    content: "";
-    width: 0.62em;
-    height: 0.62em;
-    background: var(--ink);
-    transform: scale(0);
-  }
-  .toggle-label input[type="checkbox"]:checked::before {
-    transform: scale(1);
-  }
-  .toggle-label input[type="checkbox"]:focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: 2px;
   }
 </style>

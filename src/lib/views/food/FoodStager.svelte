@@ -82,6 +82,7 @@
   import { Tabs, Combobox } from "bits-ui";
   import Alert from "../../ui/Alert.svelte";
   import Button from "../../ui/Button.svelte";
+  import Checkbox from "../../ui/Checkbox.svelte";
   import Input from "../../ui/Input.svelte";
   import Segmented from "../../ui/Segmented.svelte";
   import LabelPhotoReader from "./LabelPhotoReader.svelte";
@@ -2159,17 +2160,12 @@
                           >optional · barcoded products</span
                         >
                       </div>
-                      <label class="cf-contrib-consent">
-                        <input
-                          type="checkbox"
-                          data-testid="off-contribute-consent"
-                          bind:checked={contributeChecked}
-                        />
-                        <span
-                          >Share this product's structured data with Open Food
-                          Facts under your OFF login. No photos are sent.</span
-                        >
-                      </label>
+                      <Checkbox
+                        class="cf-contrib-consent"
+                        data-testid="off-contribute-consent"
+                        bind:checked={contributeChecked}
+                        label="Share this product's structured data with Open Food Facts under your OFF login. No photos are sent."
+                      />
                       <Button
                         variant="primary"
                         class="cf-contrib-btn"
@@ -2933,20 +2929,17 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
-  .cf-contrib-consent {
-    display: flex;
+  /* The row is the shared Checkbox (ADR-0068) — this consent box is the site
+     that never got the house skin, and now has it. Only its departure stays
+     here: a sentence-case label that wraps, with the box aligned to its first
+     line, reached via :global as the class rides the primitive's label. */
+  .cf-contrib :global(.cf-contrib-consent) {
     align-items: flex-start;
-    gap: var(--space-2xs);
     font-size: 0.82rem;
+    font-weight: normal;
+    text-transform: none;
     line-height: 1.35;
     color: var(--text-primary);
-    cursor: pointer;
-  }
-  .cf-contrib-consent input {
-    flex: 0 0 auto;
-    width: 1.15rem;
-    height: 1.15rem;
-    margin-top: 0.1rem;
   }
   /* The frame, fill, disabled and press states are the shared Button (primary)
      now; only its full-width layout in the contribution card stays here (reached
