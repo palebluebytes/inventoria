@@ -34,6 +34,10 @@ _Avoid_: Dump, snapshot, backup file (for the mechanism), sync
 The first line of a Ledger export, and the only line that is not a datom. It carries the file format's `schema_version`, the `exported_at` moment, the originating `device_id` and the `row_count` the Ledger held when the write began. A reader refuses an unfamiliar file on this line alone, before touching the rest. See ADR-0064 §2.
 _Avoid_: Header, manifest, metadata block
 
+**Ledger import**:
+A Ledger export read back in, appended to whatever this device already holds. It **merges**: every datom in the file is added, nothing already present is removed or changed, and the same file imported twice adds nothing the second time, because the primary key spans the whole hybrid logical clock stamp. Making the file the only truth is `Wipe Database` and then an import, which stay two deliberate steps. The file is read twice, once to check every line and once to write it, so a damaged file is refused before any row is written. See ADR-0067.
+_Avoid_: Restore, load, sync, merge conflict (there are none: the clock decides)
+
 **Persistent storage**:
 The browser's undertaking not to evict this origin's data to reclaim disk space, asked for once per session through `navigator.storage.persist()` and reported in Settings. Storage without it is _best-effort_, the standard's own word: the Ledger may be cleared with no warning and no action by the user. The state belongs to one browser profile rather than to the person using the app, so it is never a datom, and it is not a backup, because clearing site data, `Wipe Database` and a lost device each take the Ledger whatever the browser granted. See ADR-0065.
 _Avoid_: Durable storage, backup, permanent; and "persistence" for what the Developer Options OPFS survival test proves, which is survival across a page reload rather than exemption from eviction
