@@ -1,6 +1,7 @@
 # 5. Cloudflare Workers PWA Deployment Flow
 
 **Status:** Accepted  
+**Amended by:** [ADR-0070](0070-the-proxy-is-part-of-the-site-it-serves.md) §1 (the hosting layer is `[assets]` plus a `main` script, not the assets binding alone; the COOP/COEP decision below is untouched)  
 **Implemented:** `wrangler.toml`, `worker/`, `vite-plugin-pwa`
 
 We have configured a personal deployment pipeline utilizing Cloudflare Workers static asset serving paired with a Progressive Web App (PWA) "Prompt for Update" strategy.

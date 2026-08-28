@@ -1,6 +1,7 @@
 # 7. Serverless Proxy and Metadata Fallback for Web Scraping
 
 **Status:** Accepted  
+**Amended by:** [ADR-0070](0070-the-proxy-is-part-of-the-site-it-serves.md) §1 (the proxy stops being a separate deployment and becomes the site's own Worker), and §3's claim that `workerd` cannot run under NixOS is corrected there  
 **Implemented:** `worker/src/index.ts`, `src/lib/ingestion/`
 
 We have implemented a serverless proxy pipeline on Cloudflare Workers and a client-side Open Graph metadata fallback parser to securely ingest product data from complex e-commerce websites like Amazon.
