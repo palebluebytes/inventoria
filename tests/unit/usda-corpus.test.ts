@@ -75,6 +75,18 @@ const descriptionsFor = (query: string): string[] =>
   searchIndexRows(corpus, query).hits.map(({ row }) => row.description);
 
 /**
+ * The same answer, read by identity rather than by name.
+ *
+ * An ordering pinned over descriptions is pinned to the names a generation
+ * happened to leave on the rows, and ADR-0062 §2 has just renamed five of the
+ * milks. A rename erases the evidence for a measurement stated over a
+ * description (ADR-0056's Consequences), so an order this arc exists to produce
+ * is held to the numbers USDA published, which no naming rule can move.
+ */
+const idsFor = (query: string): number[] =>
+  searchIndexRows(corpus, query).hits.map(({ row }) => row.fdcId);
+
+/**
  * Every row a phrase retrieves, keyed the way the search keys it: as the best of
  * ALL the row's names, its own and any the twin merge discarded (#137), with the
  * row's own two keys spread on. A restatement over descriptions alone measures a
@@ -1201,6 +1213,100 @@ describe("searchIndexRows", () => {
       "Milk, whole, 3.7% milkfat",
       "Milk, buttermilk, fluid, whole",
     ]);
+  });
+
+  it("pins the seventeen rows `milk` returns, in the order it returns them", () => {
+    // #178, on the `aust beef` / `tri beef` precedent: the answer this whole arc
+    // was built to produce is written down, so it cannot drift silently. The
+    // test above asks what the set holds; this one asks what a person SEES, and
+    // no single rule owns that. ADR-0061 removed seventy-four rows and ADR-0062
+    // §1 stopped nineteen mentions retrieving — neither alone reads as an
+    // answer, and the order is what the pairing produced.
+    //
+    // Nine cow-and-other-animal milks, four plant milks USDA files under their
+    // own names, a coconut and a rice milk reached through a shelf label, and
+    // the two milkfish ADR-0062 §4 declines to chase.
+    expect(idsFor("milk")).toEqual([
+      170882, // Milk, sheep, fluid
+      171266, // Milk, whole, 3.7% milkfat
+      171278, // Milk, goat, fluid
+      171280, // Milk, indian buffalo, fluid
+      171302, // Milk, evaporated, 2% fat
+      172225, // Milk, buttermilk, fluid, whole
+      173441, // Milk, fluid, 1% fat
+      172205, // Milk, reduced fat, fluid, 2% milkfat
+      173432, // Milk, nonfat, fluid (fat free or skim)
+      1999630, // Soy milk, unsweetened, plain, shelf stable
+      1999631, // Almond milk, unsweetened, plain, shelf stable
+      2257045, // Almond milk, unsweetened, plain, refrigerated
+      2257046, // Oat milk, unsweetened, plain, refrigerated
+      170172, // Nuts, coconut milk, raw (liquid expressed …)
+      171942, // Beverages, rice milk, unsweetened
+      173675, // Fish, milkfish, raw
+      171995, // Fish, milkfish, cooked, dry heat
+    ]);
+  });
+
+  it("leads `milk` with sheep milk, which is the decision and not a defect", () => {
+    // Pinned so the next reader does not "fix" it. ADR-0062 §4 designed a
+    // species key that would put cow's milk here, measured it, and refused it:
+    // `Milk, sheep`, `Milk, goat` and `Milk, indian buffalo` name an animal
+    // where cow's milk does not, which is a real convention — but no species
+    // roster exists anywhere in this codebase and these rows carry no
+    // `scientificName`, so the only implementable form is a hand-list of animal
+    // words. That is the name-shaped rule ADR-0055 §7 and #143 have refused
+    // three times, and here it would be bought for one position in one query.
+    // The alternative derivation, "a row stating a fat level outranks one that
+    // does not", separates the same rows and is reverse-engineered from the
+    // answer it was asked to produce.
+    //
+    // So a change that moves whole cow's milk to the top is proposing the fourth
+    // refusal of a name-shaped rule, and owes ADR-0062 §4 an argument before it
+    // edits this expectation. Whole milk is the row directly beneath it either
+    // way, which is what makes the cost one position rather than an answer.
+    expect(descriptionsFor("milk").slice(0, 2)).toEqual([
+      "Milk, sheep, fluid",
+      "Milk, whole, 3.7% milkfat",
+    ]);
+  });
+
+  it("leads `yogurt` with the six plain yogurts, and nothing else is one", () => {
+    // ADR-0061 §5: twenty rows leave under `Yogurt` and six survive — plain and
+    // Greek plain, each at whole, low fat and nonfat, because Greek and a fat
+    // level are types where a fruit is a flavour. Before the drops this query
+    // led with `Yogurt, fruit variety, nonfat` in a 26-way tie, which is the
+    // miss #143's gold set recorded and the drops closed without a ranking key.
+    expect(idsFor("yogurt").slice(0, 6)).toEqual([
+      2259793, // Yogurt, plain, whole milk
+      2259794, // Yogurt, Greek, plain, whole milk
+      170886, // Yogurt, plain, low fat
+      170903, // Yogurt, Greek, plain, lowfat
+      330137, // Yogurt, Greek, plain, nonfat
+      2647437, // Yogurt, plain, nonfat
+    ]);
+    // The three beneath them are not yogurts, and neither record is the one to
+    // remove them. ADR-0061 §5 adjudicated the `Yogurt` head and these are filed
+    // elsewhere; ADR-0062 §1 never looked at them either, because each holds the
+    // typed word inside its own name part rather than past it.
+    expect(descriptionsFor("yogurt").slice(6)).toEqual([
+      "Tofu yogurt",
+      "Margarine-like spread with yogurt, 70% fat, stick, with salt",
+      "Margarine-like spread with yogurt, approximately 40% fat, tub, with salt",
+    ]);
+  });
+
+  it("answers a one-word `soymilk` with the one soy milk that ships", () => {
+    // ADR-0061 §5 dropped all twelve `Soymilk` rows and kept none of them: the
+    // plain soy milk the corpus holds is the Foundation row filed under `Soy
+    // milk`, which carries the richer panel. The spelling people type therefore
+    // stopped matching anything, and §5's own instruction is the fix — `soymilk`
+    // is a hand-written vocabulary key expanding to `soy milk` (#177).
+    //
+    // Pinned here by identity beside `milk` and `yogurt`, because the vocabulary
+    // suite asks whether the key holds its recorded row and this asks what the
+    // search returns: one row, not the twelve-row ladder that used to answer.
+    expect(idsFor("soymilk")).toEqual([1999630]);
+    expect(idsFor("soy milk")).toEqual([1999630]);
   });
 
   it("keeps a word past a name where no row answers it better", () => {
