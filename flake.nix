@@ -123,6 +123,14 @@
               ]);
 
             shellHook = playwrightEnv + ''
+              # `wrangler dev` runs the real workerd, which finds no CA bundle
+              # on NixOS and fails every outbound HTTPS fetch with "unable to
+              # get local issuer certificate". That surfaces as an opaque 500
+              # from /api/proxy naming nothing about TLS, so it costs an hour
+              # to diagnose twice. nixpkgs' bundle rather than /etc/ssl/certs,
+              # so a non-NixOS host gets the same thing.
+              export SSL_CERT_FILE="''${SSL_CERT_FILE:-${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt}"
+              export NODE_EXTRA_CA_CERTS="''${NODE_EXTRA_CA_CERTS:-$SSL_CERT_FILE}"
 
               echo "=== Inventoria Dev Environment ==="
               echo "Node:   $(node --version)"
