@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-28  
-**Implemented:** #180 `4b147a6` (the request and the readings), `5a089e1` (the Settings section), `39442ce` (one reader of the estimate)
+**Implemented:** #180 `4b147a6` (the request and the readings), `5a089e1` (the Settings section), `39442ce` (one reader of the estimate), `4c37e27` (review fixes, including §2's split between the memoised request and the fresh reading)
 
 ## Context
 
