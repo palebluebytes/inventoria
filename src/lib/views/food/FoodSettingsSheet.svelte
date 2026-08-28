@@ -51,17 +51,15 @@
   }
 
   // The consent toggle is the one non-secret here, so it rides the ledger. Persist
-  // it on change, preserving every other datom saveSettings writes by reading its
-  // current value off the store — the scraper proxy (owned by the global Settings
-  // tab) and the Nutrition Display selections (owned by NutritionTargetEditor) —
-  // so toggling consent never clobbers a setting this sheet doesn't own.
+  // it on change, reading the scraper proxy (owned by the global Settings tab)
+  // through so toggling consent never clobbers it. The Nutrition Display
+  // selections used to need reading through as well and no longer do: they are
+  // view preferences now (ADR-0061), written by their own setters.
   async function persistOffContribute(next: boolean) {
     offContribute = next;
     try {
       await saveSettings({
         scraper_proxy_url: $settingsStore.scraper_proxy_url,
-        visible_nutrients: $settingsStore.visible_nutrients,
-        round_nutrition: $settingsStore.round_nutrition,
         off_contribute: next,
       });
     } catch (err) {

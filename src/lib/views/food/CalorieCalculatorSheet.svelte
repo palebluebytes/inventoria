@@ -16,10 +16,8 @@
     formatNutrientValue,
   } from "../../food/nutrient-display";
   import { roundFoodDisplay } from "../../food/nutrition";
-  import {
-    calorieDisplayDecimals,
-    type FoodProfile,
-  } from "../../stores/settings.store";
+  import { type FoodProfile } from "../../stores/settings.store";
+  import { calorieDisplayDecimals } from "../../stores/view-prefs";
 
   // The personalized calorie/macro calculator (ADR-0033 §1/§4, ticket #45): a
   // throwaway helper that turns body metrics into a suggested energy + macro set.

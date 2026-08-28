@@ -4,8 +4,6 @@ import { dbClient } from "../db/db.client";
 import { ingestEntity } from "../ingestion/ingest";
 import { parseDatomValue } from "../db/datom-fold";
 import { HLC_ORDER_ASC } from "../db/hlc";
-import { DEFAULT_VISIBLE_NUTRIENTS } from "../food/nutrient-display";
-import { FOOD_DISPLAY_DECIMALS } from "../food/nutrition";
 import {
   REACH_TOWARD_KEYS,
   LIMIT_KEYS,
@@ -56,28 +54,6 @@ export interface FoodProfile {
 
 export interface SettingsState {
   scraper_proxy_url: string;
-  /**
-   * The nutrients the dashboard summary + staged-food pills show (ticket #29),
-   * a list of {@link NutritionBreakdown} keys. Unlike the string keys above this
-   * is a JSON-encoded array, so it is NOT a `SETTINGS_STRING_ATTR`: it decodes
-   * through `parseDatomValue` back to an array. Absent → the Protein/Fat/Carbs/
-   * Fibre default, so a brand-new user still sees a Fibre meter.
-   */
-  visible_nutrients: string[];
-  /**
-   * Whether **calorie** figures are displayed rounded to whole numbers instead of
-   * the {@link FOOD_DISPLAY_DECIMALS}-place precision. Scoped to kcal: a nutrient
-   * amount (grams/mg/µg) always shows at the full display precision either way,
-   * because dropping a gram figure's decimals costs real information where
-   * dropping a kcal figure's does not. Display-only: the frozen snapshot always
-   * keeps full precision, so this never changes stored history — only how the
-   * calories read on screen (dashboard ring, staged pills, the calculator, AND
-   * the target editor's own baked/override energy value).
-   * Default **on**: absent → `true`, and only an explicit stored `false` turns it
-   * off. A JSON boolean, so like `visible_nutrients` it is NOT a
-   * `SETTINGS_STRING_ATTR`.
-   */
-  round_nutrition: boolean;
   /**
    * User overrides for the baked daily nutrition targets (ADR-0031 §2, #40): a
    * partial `{ breakdown_key: number }` map filtered to the reach-toward key set
@@ -145,17 +121,6 @@ export interface SettingsState {
    * for the same two reasons: the ledger is undeletable and it syncs.
    */
   log_export: boolean;
-}
-
-/**
- * Reads the visible-nutrient list off its datom, tolerating anything malformed —
- * a non-array (older/garbage value) or an array with non-string entries falls
- * back to the default so the display layer always gets a clean `string[]`.
- */
-function parseVisibleNutrients(rawValue: string): string[] {
-  const parsed = parseDatomValue("settings/food/visible_nutrients", rawValue);
-  if (!Array.isArray(parsed)) return DEFAULT_VISIBLE_NUTRIENTS;
-  return parsed.filter((k): k is string => typeof k === "string");
 }
 
 /**
@@ -247,11 +212,6 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
   const settings: SettingsState = {
     scraper_proxy_url:
       (import.meta.env?.VITE_SCRAPER_PROXY_URL as string) ?? "",
-    // Unset → the Protein/Fat/Carbs/Fibre default (ticket #29).
-    visible_nutrients: DEFAULT_VISIBLE_NUTRIENTS,
-    // Unset → whole-number display on (the default); only an explicit stored
-    // `false` turns it back to exact 2-dp.
-    round_nutrition: true,
     // Unset → no overrides; every target resolves to its baked default.
     food_targets: {},
     // Unset → no overrides; every limit resolves to its baked cap.
@@ -268,20 +228,6 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
   };
 
   for (const d of $datoms) {
-    // visible_nutrients is a JSON array, not an opaque string — decode it to a
-    // list rather than String()-coercing it (which would flatten to "a,b").
-    if (d.attribute === "settings/food/visible_nutrients") {
-      settings.visible_nutrients = parseVisibleNutrients(d.value);
-      continue;
-    }
-    // round_nutrition is a JSON boolean, but the DEFAULT is on — so only a
-    // literal `false` turns it off; a stored `true` or any malformed/legacy value
-    // resolves to on, matching the unset default.
-    if (d.attribute === "settings/food/round_nutrition") {
-      settings.round_nutrition =
-        parseDatomValue("settings/food/round_nutrition", d.value) !== false;
-      continue;
-    }
     // food_targets is a JSON override map, decoded and filtered to the
     // reach-toward key set — a separate datom from the two above (ADR-0031 §2).
     if (d.attribute === "settings/food/targets") {
@@ -382,13 +328,6 @@ export async function saveSettings(
 ): Promise<void> {
   await appendSettings({
     "settings/scraper_proxy_url": state.scraper_proxy_url,
-    // A list value — stored JSON-encoded like every datom, read back as an
-    // array. Default when a caller omits it (e.g. a pre-#29 save).
-    "settings/food/visible_nutrients":
-      state.visible_nutrients ?? DEFAULT_VISIBLE_NUTRIENTS,
-    // Boolean value; default on when a caller omits it (whole-number display
-    // is the shipped default now).
-    "settings/food/round_nutrition": state.round_nutrition ?? true,
     // OFF-contribution consent master toggle (ADR-0034 §8); default off.
     "settings/off_contribute": state.off_contribute ?? false,
   });
@@ -438,38 +377,24 @@ export async function saveFoodLimits(
  * Persists the whole result of the personalized calculator (ADR-0033 §4) as one
  * atomic append — the frozen `calculated_targets` default layer, the `targets`
  * override map (with the four personalized keys cleared so the fresh default
- * shows through), the inert pre-fill `profile`, and — only when auto-tracking
- * added a macro — the `visible_nutrients` list. Each is still its own datom, but
- * they commit or roll back together, so a mid-write failure can never leave the
- * user with new defaults over stale overrides (Coding Standards §5). Passing
- * `visible_nutrients: undefined` omits that datom entirely (nothing to track).
+ * shows through), and the inert pre-fill `profile`. Each is still its own datom,
+ * but they commit or roll back together, so a mid-write failure can never leave
+ * the user with new defaults over stale overrides (Coding Standards §5).
+ *
+ * The meter list auto-tracking may add a macro to is NOT part of this append any
+ * more: it is a view preference now (ADR-0061) and the caller writes it through
+ * `setVisibleNutrients`. What the transaction protects is the defaults-versus-
+ * overrides pair, and that is intact; the worst a half-applied plan can now cost
+ * is a meter row shown or not shown.
  */
 export async function saveCalculatorPlan(plan: {
   calculated_targets: Partial<Record<string, number>>;
   targets: Partial<Record<string, number>>;
   profile: FoodProfile;
-  visible_nutrients?: string[];
 }): Promise<void> {
-  const attributes: Record<string, unknown> = {
+  await appendSettings({
     "settings/food/calculated_targets": plan.calculated_targets,
     "settings/food/targets": plan.targets,
     "settings/food/profile": plan.profile,
-  };
-  if (plan.visible_nutrients) {
-    attributes["settings/food/visible_nutrients"] = plan.visible_nutrients;
-  }
-  await appendSettings(attributes);
+  });
 }
-
-/**
- * The display precision **calorie** figures obey, resolved from the user's
- * {@link SettingsState.round_nutrition} choice: `0` places when whole-number
- * display is on, otherwise {@link FOOD_DISPLAY_DECIMALS}. Views pass this into
- * `roundFoodDisplay` / the `calorieDecimals` slot of the nutrient-display
- * builders, so the round-vs-exact logic lives here once rather than in every
- * view. Nutrient amounts take no precision argument at all — `formatNutrientValue`
- * fixes theirs — so this store can only ever reach a kcal number.
- */
-export const calorieDisplayDecimals = derived(settingsStore, ($s) =>
-  $s.round_nutrition ? 0 : FOOD_DISPLAY_DECIMALS
-);

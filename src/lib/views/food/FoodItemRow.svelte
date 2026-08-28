@@ -2,7 +2,7 @@
   import type { Snippet } from "svelte";
   import { quantityLabel } from "../../food/recipe-ingredient";
   import { roundFoodDisplay, type AmountUnit } from "../../food/nutrition";
-  import { calorieDisplayDecimals } from "../../stores/settings.store";
+  import { calorieDisplayDecimals } from "../../stores/view-prefs";
 
   // One food line, shared by the dashboard's logged-food list and the
   // recipe/instantiation ingredient list so the two read identically — modelled

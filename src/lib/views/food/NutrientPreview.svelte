@@ -5,9 +5,9 @@
     buildNutrientBreakdown,
   } from "../../food/nutrient-display";
   import {
-    settingsStore,
+    visibleNutrients,
     calorieDisplayDecimals,
-  } from "../../stores/settings.store";
+  } from "../../stores/view-prefs";
   import NutrientBreakdown from "./NutrientBreakdown.svelte";
 
   // How a set of derived nutrition figures is shown, wherever they come from —
@@ -35,7 +35,7 @@
   let pills = $derived(
     buildNutrientPills(
       breakdown,
-      $settingsStore.visible_nutrients,
+      $visibleNutrients,
       $calorieDisplayDecimals,
       true
     )

@@ -68,15 +68,14 @@
       // The TMDB key is a secret — straight to localStorage, never a datom
       // (ADR-0034 §8), trimmed like any pasted credential.
       setSecret("tmdb_api_key", tmdbKey.trim());
-      // Only the non-secret proxy URL rides the ledger here. Preserve every
-      // other datom saveSettings writes by reading its current value off the
-      // store — the Nutrition Display selections and the OFF-contribution
-      // consent toggle are owned by the Food settings sheet now, so read them
-      // through rather than clobbering them from this screen.
+      // Only the non-secret proxy URL rides the ledger here. The
+      // OFF-contribution consent is the one other datom this writer touches, so
+      // it is read through rather than clobbered from a screen that does not own
+      // it. The Nutrition Display selections used to need the same treatment and
+      // no longer do — they are view preferences now (ADR-0061) and never pass
+      // through `saveSettings` at all.
       await saveSettings({
         scraper_proxy_url: scraperProxy.trim(),
-        visible_nutrients: $settingsStore.visible_nutrients,
-        round_nutrition: $settingsStore.round_nutrition,
         off_contribute: $settingsStore.off_contribute,
       });
       saveSuccess = true;

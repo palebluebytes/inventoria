@@ -44,7 +44,7 @@
     deriveRecipeNutrition,
     sanitizeYield,
   } from "../../food/recipe-nutrition";
-  import { calorieDisplayDecimals } from "../../stores/settings.store";
+  import { calorieDisplayDecimals } from "../../stores/view-prefs";
   import type { ManualEntry } from "../../food/provenance";
   import { parseDatomValue } from "../../db/datom-fold";
   import type {

@@ -20,7 +20,7 @@
   import type { EntityPayload } from "../../ingestion/ingest";
   import { getLocalFoodTwin } from "../../stores/calorie.store";
   import { settingsStore } from "../../stores/settings.store";
-  import { calorieDisplayDecimals } from "../../stores/settings.store";
+  import { calorieDisplayDecimals } from "../../stores/view-prefs";
   import { secretsStore } from "../../stores/secrets";
   import {
     amountDefaults,

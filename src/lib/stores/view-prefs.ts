@@ -1,32 +1,40 @@
-import { writable } from "svelte/store";
+import { writable, derived, type Readable } from "svelte/store";
+import { DEFAULT_VISIBLE_NUTRIENTS } from "../food/nutrient-display";
+import { FOOD_DISPLAY_DECIMALS } from "../food/nutrition";
 
 /**
- * View preferences the **first paint** depends on, held in `localStorage`.
+ * View preferences: how this device draws the app. They live in `localStorage`,
+ * not in the EAVT ledger (ADR-0061).
  *
- * This is a third reason to keep something out of the append-only EAVT ledger,
- * distinct from the two already recorded. A secret must not live there because
- * the ledger is undeletable and it syncs (ADR-0034 §8); a log record must not
- * because redaction is a deletion and the cap removes entries (ADR-0054 §4).
- * This one is about *when* a value can be read rather than what it is.
+ * The line the ADR draws is **whether a setting's past values mean anything**.
+ * A nutrition target does: "in March I was reaching toward 2,400 kcal" is a fact
+ * about the user, and the ledger is a record of facts. A consent does, twice
+ * over — what was agreed, and when. Neither of those is true of the nutrients a
+ * meter row happens to show, the number of decimal places a kcal figure reads
+ * at, or whether a panel is folded. "The panel was shut on Tuesday" is not
+ * history; it is noise appended forever to an immutable log.
  *
- * Every ledger-backed store is asynchronous by construction: `createQueryStore`
- * holds an empty array until its first `dbClient.query` resolves, and that query
- * waits on the worker spawning, SQLite WASM loading and OPFS opening. On a cold
- * start that is seconds, and for all of them a settings read returns the *unset
- * default*. A preference that only changes how a number formats can absorb
- * that — the numbers are not there yet either. A preference that decides whether
- * a whole block of the page is shown cannot: the page renders the default,
- * visibly wrong, until the ledger catches up.
+ * The second half of the argument is timing, and it is what made this concrete
+ * rather than tidy. Every ledger-backed store is asynchronous by construction:
+ * `createQueryStore` holds an empty array until its first `dbClient.query`
+ * resolves, and that query waits on the worker spawning, SQLite WASM loading and
+ * OPFS opening. Until then a settings read returns the *unset default*. For a
+ * value the first paint depends on — which meters exist, whether a block of the
+ * page is shown — that means seconds of a visibly wrong screen before the ledger
+ * catches up. `localStorage` is synchronous, so a value read here is right in
+ * the first frame.
  *
- * `localStorage` is synchronous, so a value read here is correct in the first
- * frame. The cost is that these do not sync across devices and are not part of
- * history, which is the right trade for view state that has no history worth
- * keeping.
+ * What stays in the ledger, and why, is in ADR-0061. The short version: targets,
+ * limits, the calculator's frozen plan and profile, and the two consents.
  */
 
 // Namespaced like the secrets module, so a preference cannot collide with other
 // app state (e.g. `inventoria_test_state`).
-const LS_KEY_NUTRITION_PANEL_OPEN = "inventoria_pref_nutrition_panel_open";
+const LS_KEYS = {
+  nutrition_panel_open: "inventoria_pref_nutrition_panel_open",
+  visible_nutrients: "inventoria_pref_visible_nutrients",
+  round_nutrition: "inventoria_pref_round_nutrition",
+} as const;
 
 // `localStorage` is absent under the Node unit runner (and can throw in a
 // privacy-locked browser), so every access is guarded — a missing store reads as
@@ -50,25 +58,90 @@ function safeSet(lsKey: string, value: string): void {
 }
 
 /**
- * Whether the dashboard's nutrition panel is unfolded. Unset reads as open, and
- * only a stored `"false"` shuts it — the same absent-means-on shape
- * `settings/food/round_nutrition` uses, so an existing user meets the panel as
- * they left it and a new one meets it open.
+ * Both booleans here default **on** when absent, and only a stored `"false"`
+ * turns one off — the shape their datoms used, kept so an upgrade meets the user
+ * where they were rather than flipping a default under them.
  */
-function readNutritionPanelOpen(): boolean {
-  return safeGet(LS_KEY_NUTRITION_PANEL_OPEN) !== "false";
+function readBoolPref(lsKey: string): boolean {
+  return safeGet(lsKey) !== "false";
 }
 
-const nutritionPanel = writable<boolean>(readNutritionPanelOpen());
+function readVisibleNutrients(): string[] {
+  const raw = safeGet(LS_KEYS.visible_nutrients);
+  if (raw === null) return DEFAULT_VISIBLE_NUTRIENTS;
+  try {
+    const parsed = JSON.parse(raw);
+    // An explicit empty array is honoured ("show only calories"); anything that
+    // is not a list of strings is treated as absent rather than trusted.
+    if (Array.isArray(parsed) && parsed.every((k) => typeof k === "string")) {
+      return parsed;
+    }
+  } catch {
+    /* malformed — fall through to the default */
+  }
+  return DEFAULT_VISIBLE_NUTRIENTS;
+}
+
+const panelOpen = writable<boolean>(readBoolPref(LS_KEYS.nutrition_panel_open));
+const roundNutrition = writable<boolean>(readBoolPref(LS_KEYS.round_nutrition));
+const visible = writable<string[]>(readVisibleNutrients());
 
 /** Reactive fold state for the dashboard's nutrition panel. */
-export const nutritionPanelOpen = { subscribe: nutritionPanel.subscribe };
+export const nutritionPanelOpen: Readable<boolean> = {
+  subscribe: panelOpen.subscribe,
+};
+
+/**
+ * The nutrients the dashboard meters and the staged-food pills show, a list of
+ * `NutritionBreakdown` keys. Absent → the Protein/Fat/Carbs/Fibre default, so a
+ * brand-new user still sees a Fibre meter; an explicit empty array is honoured
+ * as "show only calories".
+ */
+export const visibleNutrients: Readable<string[]> = {
+  subscribe: visible.subscribe,
+};
+
+/**
+ * Whether **calorie** figures read rounded to whole numbers. Scoped to kcal: a
+ * nutrient amount (grams/mg/µg) always shows at the full display precision
+ * either way, because dropping a gram figure's decimals costs real information
+ * where dropping a kcal figure's does not. Display-only — the frozen snapshot
+ * keeps full precision, so this never changes stored history.
+ */
+export const roundNutritionPref: Readable<boolean> = {
+  subscribe: roundNutrition.subscribe,
+};
+
+/**
+ * The decimal places a **calorie** figure is displayed at, resolved from
+ * {@link roundNutritionPref}: `0` in whole-number mode, else
+ * {@link FOOD_DISPLAY_DECIMALS}. Every surface that prints kcal reads this
+ * rather than the raw toggle, so the two can never disagree.
+ */
+export const calorieDisplayDecimals: Readable<number> = derived(
+  roundNutrition,
+  ($round) => ($round ? 0 : FOOD_DISPLAY_DECIMALS)
+);
 
 /**
  * Records the panel's fold. Appends **no datom**: this is view state whose only
  * job is to be correct before the ledger is awake.
  */
 export function setNutritionPanelOpen(open: boolean): void {
-  safeSet(LS_KEY_NUTRITION_PANEL_OPEN, String(open));
-  nutritionPanel.set(open);
+  safeSet(LS_KEYS.nutrition_panel_open, String(open));
+  panelOpen.set(open);
+}
+
+/** Records the meter selection. Each writer touches only its own key, so saving
+ *  one preference can never clobber another — the reason the datom writers were
+ *  split too (ADR-0031 §2). */
+export function setVisibleNutrients(keys: string[]): void {
+  safeSet(LS_KEYS.visible_nutrients, JSON.stringify(keys));
+  visible.set([...keys]);
+}
+
+/** Records the whole-number calorie display toggle. */
+export function setRoundNutrition(round: boolean): void {
+  safeSet(LS_KEYS.round_nutrition, String(round));
+  roundNutrition.set(round);
 }

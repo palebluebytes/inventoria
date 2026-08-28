@@ -24,13 +24,12 @@
     resolveNutrientLimits,
     defaultNutrientTargets,
   } from "../../food/nutrition-targets";
+  import { settingsStore } from "../../stores/settings.store";
   import {
-    settingsStore,
-    calorieDisplayDecimals,
-  } from "../../stores/settings.store";
-  import {
+    visibleNutrients,
     nutritionPanelOpen,
     setNutritionPanelOpen,
+    calorieDisplayDecimals,
   } from "../../stores/view-prefs";
   import { parseLoggedQuantity } from "../../food/recipe-ingredient";
   import Modal from "../../ui/Modal.svelte";
@@ -142,7 +141,7 @@
   let meters = $derived(
     buildNutrientMeters(
       dayTotals,
-      $settingsStore.visible_nutrients,
+      $visibleNutrients,
       resolvedTargets,
       $calorieDisplayDecimals
     )
@@ -173,7 +172,7 @@
   let dayRda = $derived(
     buildDayRdaView(dayTotals, resolvedTargets, {
       calorieDecimals: $calorieDisplayDecimals,
-      selection: $settingsStore.visible_nutrients,
+      selection: $visibleNutrients,
       limits: resolvedLimits,
     })
   );
@@ -318,7 +317,7 @@
       {:else}
         {@const mealPills = buildNutrientPills(
           totalNutrition(groupedMeals[meal_type]),
-          macroNutrients($settingsStore.visible_nutrients),
+          macroNutrients($visibleNutrients),
           $calorieDisplayDecimals,
           true
         )}

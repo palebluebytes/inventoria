@@ -5,9 +5,16 @@
     saveFoodTargets,
     saveFoodLimits,
     saveCalculatorPlan,
-    calorieDisplayDecimals,
     type FoodProfile,
   } from "../../stores/settings.store";
+  import {
+    calorieDisplayDecimals,
+    visibleNutrients,
+    roundNutritionPref,
+    setVisibleNutrients,
+    setRoundNutrition,
+  } from "../../stores/view-prefs";
+  import { get } from "svelte/store";
   import type { EnergyMacros } from "../../food/personalized-energy-macros";
   import { roundFoodDisplay } from "../../food/nutrition";
   import {
@@ -54,10 +61,9 @@
   // Visible-nutrient selection (ticket #29). Each toggle persists immediately,
   // re-writing the already-saved API keys from the store so an unsaved edit in
   // the credentials form is never clobbered. Calories are always-on via the ring.
-  let visible_nutrients = $state<string[]>([]);
+  let visible_nutrients = $state<string[]>([...get(visibleNutrients)]);
   // Whether calories read rounded to whole numbers (display-only, ticket #29).
-  // Default on now — seeded from the store, which also defaults on.
-  let round_nutrition = $state(true);
+  let round_nutrition = $state(get(roundNutritionPref));
   // Per-nutrient target overrides (ticket #41, ADR-0031 §3): mirrors the
   // `settings/food/targets` blob — a partial map keyed by breakdown key in the
   // baked map's canonical unit (grams for mass, kcal for `energy`). Absent → the
@@ -76,11 +82,11 @@
   // metrics" is applied — so an absent key here means "no personalized default,
   // use the baked reference" (see `defaultTargets` / `placeholderFor`).
   let food_calculated_targets = $state<Partial<Record<string, number>>>({});
+  // The two display preferences read from `localStorage` (ADR-0061), so unlike
+  // the target blobs below they are correct at once and need no seeding effect.
   let initialized = $state(false);
   $effect(() => {
     if (!initialized && $settingsStore) {
-      visible_nutrients = [...$settingsStore.visible_nutrients];
-      round_nutrition = $settingsStore.round_nutrition;
       food_targets = { ...$settingsStore.food_targets };
       food_limits = { ...$settingsStore.food_limits };
       food_calculated_targets = { ...$settingsStore.food_calculated_targets };
@@ -253,33 +259,21 @@
     visible_nutrients = visible_nutrients.includes(key)
       ? visible_nutrients.filter((k) => k !== key)
       : [...visible_nutrients, key];
-    await persistNutritionDisplay();
+    persistNutritionDisplay();
   }
 
   async function toggleRoundNutrition() {
     round_nutrition = !round_nutrition;
-    await persistNutritionDisplay();
+    persistNutritionDisplay();
   }
 
-  // Persist the visibility/round datoms, carrying the current scraper proxy URL
-  // through untouched (an unsaved edit in the settings form is never clobbered)
-  // — the target overrides ride their own writer, so they're untouched here too.
-  // Secrets live in localStorage now (ADR-0034 §8), so they're not part of this
-  // ledger write at all.
-  async function persistNutritionDisplay() {
-    try {
-      await saveSettings({
-        scraper_proxy_url: $settingsStore.scraper_proxy_url,
-        visible_nutrients,
-        round_nutrition,
-        // Preserve the OFF-contribution consent toggle — it defaults to `off`
-        // when omitted, so read the current value through rather than silently
-        // resetting it whenever a nutrient's visibility or rounding changes.
-        off_contribute: $settingsStore.off_contribute,
-      });
-    } catch (err) {
-      console.error("Failed to save nutrition display settings", err);
-    }
+  // Both are view preferences (ADR-0061), so each goes straight to its own
+  // synchronous setter. No ledger write, and nothing to read through: this used
+  // to carry the scraper proxy and the OFF consent along just to avoid clobbering
+  // them, and that whole hazard is gone with the datom.
+  function persistNutritionDisplay() {
+    setVisibleNutrients(visible_nutrients);
+    setRoundNutrition(round_nutrition);
   }
 
   // The personalized calorie/macro calculator (ADR-0033 §4, ticket #45): an action
@@ -338,13 +332,16 @@
     );
     if (toTrack.length > 0)
       visible_nutrients = [...visible_nutrients, ...toTrack];
+    // The meter list is no longer part of the plan's atomic append — it is a
+    // preference now, not a datom. What the transaction protects is the
+    // defaults-versus-overrides pair, which is intact; the worst a half-applied
+    // plan can cost is a meter row shown or not shown.
+    if (toTrack.length > 0) setVisibleNutrients(visible_nutrients);
     try {
       await saveCalculatorPlan({
         calculated_targets: food_calculated_targets,
         targets: food_targets,
         profile,
-        // Only write the visibility datom when auto-track actually added a macro.
-        visible_nutrients: toTrack.length > 0 ? visible_nutrients : undefined,
       });
     } catch (err) {
       console.error("Failed to apply calculator result", err);

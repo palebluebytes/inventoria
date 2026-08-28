@@ -222,6 +222,13 @@ Application settings.
 Note that the food-related settings keys carry a second path segment, so the full
 attribute is `settings/food/targets`, not `food/targets`.
 
+Not every setting belongs here. A setting is a datom only if its **past values
+mean something**. A target you were reaching toward in March is a fact about you,
+and a consent is a fact about what you agreed to and when. How this device draws
+the app is not: it lives in `localStorage`, and
+[ADR-0061](adr/0061-a-setting-is-a-datom-only-if-its-past-matters.md) is the test
+to apply before adding an attribute below.
+
 - `settings/scraper_proxy_url`.
 - `settings/tmdb_api_key`, `settings/usda_api_key`: both retired. The TMDB key moved
   to `localStorage` (ADR-0034 §8); the USDA key is gone entirely with the FoodData
@@ -234,9 +241,10 @@ attribute is `settings/food/targets`, not `food/targets`.
   ([ADR-0054](adr/0054-one-local-log-facility-and-no-channel-without-a-reader.md) §4).
   The one ledger-side fact about the log facility: the records themselves are
   `localStorage`, because redaction there is a deletion and the cap removes entries.
-- `settings/food/visible_nutrients`: the dashboard nutrient selection.
-- `settings/food/round_nutrition`: whole-number **calorie** display toggle (nutrient
-  amounts always show at the fixed display precision).
+- `settings/food/visible_nutrients`, `settings/food/round_nutrition`: both retired.
+  They are view preferences, so they moved to `localStorage`
+  ([ADR-0061](adr/0061-a-setting-is-a-datom-only-if-its-past-matters.md)) alongside the
+  nutrition panel's fold. Neither attribute is read.
 - `settings/food/targets`: a blob override map of daily nutrition targets, in canonical
   units, layered over the baked reference set
   ([ADR-0031](adr/0031-baked-overridable-nutrition-targets.md)).

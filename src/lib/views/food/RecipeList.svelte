@@ -17,7 +17,7 @@
     type NutritionBreakdown,
   } from "../../food/nutrition";
   import { parseDatomValue } from "../../db/datom-fold";
-  import { calorieDisplayDecimals } from "../../stores/settings.store";
+  import { calorieDisplayDecimals } from "../../stores/view-prefs";
 
   // The saved Recipe Twins, as a list of pickable rows. Two surfaces browse the
   // same recipes for different reasons — the log sheet's Recipe tab, where

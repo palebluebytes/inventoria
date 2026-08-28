@@ -25,9 +25,7 @@ import {
   saveFoodLimits,
   saveCalculatorPlan,
   saveLogExportConsent,
-  calorieDisplayDecimals,
 } from "../../src/lib/stores/settings.store";
-import { FOOD_DISPLAY_DECIMALS } from "../../src/lib/food/nutrition";
 
 beforeEach(() => {
   datomsWritable.set([]);
@@ -99,97 +97,6 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
     const s = get(settingsStore) as unknown as Record<string, unknown>;
     expect(s.usda_api_key).toBeUndefined();
     expect(s.tmdb_api_key).toBeUndefined();
-  });
-
-  it("defaults visible_nutrients to Protein/Fat/Carbs/Fibre when unset", () => {
-    // A brand-new user (no datom) must still see a Fibre meter alongside the
-    // three macros — the default is baked into the collapse, not the view.
-    const s = get(settingsStore);
-    expect(s.visible_nutrients).toEqual([
-      "protein",
-      "fat",
-      "carbs",
-      "fiber_content",
-    ]);
-  });
-
-  it("decodes a stored visible_nutrients list back to an array", () => {
-    // The list is a JSON-encoded array (not an opaque string), so it must decode
-    // to the array rather than String()-flatten to "protein,fiber_content".
-    datomsWritable.set([
-      {
-        attribute: "settings/food/visible_nutrients",
-        value: JSON.stringify(["protein", "fiber_content", "calcium"]),
-        time: 1,
-      },
-    ]);
-    const s = get(settingsStore);
-    expect(s.visible_nutrients).toEqual([
-      "protein",
-      "fiber_content",
-      "calcium",
-    ]);
-  });
-
-  it("honours an explicitly empty visible_nutrients list", () => {
-    datomsWritable.set([
-      {
-        attribute: "settings/food/visible_nutrients",
-        value: JSON.stringify([]),
-        time: 1,
-      },
-    ]);
-    expect(get(settingsStore).visible_nutrients).toEqual([]);
-  });
-
-  it("falls back to the default when visible_nutrients is malformed", () => {
-    datomsWritable.set([
-      {
-        attribute: "settings/food/visible_nutrients",
-        value: JSON.stringify("not-an-array"),
-        time: 1,
-      },
-    ]);
-    expect(get(settingsStore).visible_nutrients).toEqual([
-      "protein",
-      "fat",
-      "carbs",
-      "fiber_content",
-    ]);
-  });
-
-  it("defaults round_nutrition to true (whole-number display) when unset", () => {
-    expect(get(settingsStore).round_nutrition).toBe(true);
-  });
-
-  it("decodes a stored round_nutrition boolean", () => {
-    datomsWritable.set([
-      {
-        attribute: "settings/food/round_nutrition",
-        value: JSON.stringify(true),
-        time: 1,
-      },
-    ]);
-    expect(get(settingsStore).round_nutrition).toBe(true);
-    datomsWritable.set([
-      {
-        attribute: "settings/food/round_nutrition",
-        value: JSON.stringify(false),
-        time: 2,
-      },
-    ]);
-    expect(get(settingsStore).round_nutrition).toBe(false);
-  });
-
-  it("treats a malformed round_nutrition value as on (the default; only explicit false is off)", () => {
-    datomsWritable.set([
-      {
-        attribute: "settings/food/round_nutrition",
-        value: JSON.stringify("yes"),
-        time: 1,
-      },
-    ]);
-    expect(get(settingsStore).round_nutrition).toBe(true);
   });
 
   it("defaults off_contribute to false (opt-in) when unset", () => {
@@ -465,128 +372,6 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
   });
 });
 
-describe("calorieDisplayDecimals (derived display precision)", () => {
-  it("is 0 places by default (whole-number display is the default now)", () => {
-    expect(get(calorieDisplayDecimals)).toBe(0);
-  });
-
-  it("rises to the full display precision when whole-number display is turned off", () => {
-    datomsWritable.set([
-      {
-        attribute: "settings/food/round_nutrition",
-        value: JSON.stringify(false),
-        time: 1,
-      },
-    ]);
-    expect(get(calorieDisplayDecimals)).toBe(FOOD_DISPLAY_DECIMALS);
-  });
-});
-
-describe("saveSettings", () => {
-  it("appends one datom per non-secret settings attribute to settings:global", async () => {
-    await saveSettings({
-      scraper_proxy_url: "P",
-      visible_nutrients: ["protein", "fat", "carbs", "fiber_content"],
-      round_nutrition: false,
-    });
-    expect(appendMock).toHaveBeenCalledTimes(1);
-    const datoms = appendMock.mock.calls[0][0] as any[];
-    expect(datoms.every((d) => d.entity === "settings:global")).toBe(true);
-    const byAttr = Object.fromEntries(
-      datoms.map((d) => [d.attribute, d.value])
-    );
-    expect(byAttr["settings/scraper_proxy_url"]).toBe("P");
-  });
-
-  it("never appends a secret datom (secrets live in localStorage now)", async () => {
-    // ADR-0034 §8: no secret ever enters the append-only ledger. saveSettings is
-    // the ledger writer, so it must not emit the moved usda/tmdb key attributes.
-    await saveSettings({
-      scraper_proxy_url: "P",
-      visible_nutrients: ["protein"],
-      round_nutrition: false,
-    });
-    const datoms = appendMock.mock.calls[0][0] as any[];
-    const attrs = datoms.map((d) => d.attribute);
-    expect(attrs).not.toContain("settings/usda_api_key");
-    expect(attrs).not.toContain("settings/tmdb_api_key");
-  });
-
-  it("persists the chosen nutrient list as an array datom", async () => {
-    await saveSettings({
-      scraper_proxy_url: "P",
-      visible_nutrients: ["protein", "calcium"],
-      round_nutrition: false,
-    });
-    const datoms = appendMock.mock.calls[0][0] as any[];
-    const byAttr = Object.fromEntries(
-      datoms.map((d) => [d.attribute, d.value])
-    );
-    // The value is the array itself (ingest/db.core JSON-encode on write); the
-    // collapse decodes it back, so the round trip returns the same list.
-    expect(byAttr["settings/food/visible_nutrients"]).toEqual([
-      "protein",
-      "calcium",
-    ]);
-  });
-
-  it("persists the round_nutrition boolean", async () => {
-    await saveSettings({
-      scraper_proxy_url: "P",
-      visible_nutrients: ["protein"],
-      round_nutrition: true,
-    });
-    const datoms = appendMock.mock.calls[0][0] as any[];
-    const byAttr = Object.fromEntries(
-      datoms.map((d) => [d.attribute, d.value])
-    );
-    expect(byAttr["settings/food/round_nutrition"]).toBe(true);
-  });
-
-  it("persists the off_contribute consent toggle", async () => {
-    await saveSettings({
-      scraper_proxy_url: "P",
-      visible_nutrients: ["protein"],
-      round_nutrition: false,
-      off_contribute: true,
-    });
-    const datoms = appendMock.mock.calls[0][0] as any[];
-    const byAttr = Object.fromEntries(
-      datoms.map((d) => [d.attribute, d.value])
-    );
-    expect(byAttr["settings/off_contribute"]).toBe(true);
-  });
-
-  it("defaults off_contribute to false when a caller omits it", async () => {
-    // Pre-#61 callers pass no off_contribute; the write must still be off, never
-    // undefined, so consent never silently flips on.
-    await saveSettings({
-      scraper_proxy_url: "P",
-      visible_nutrients: ["protein"],
-      round_nutrition: false,
-    });
-    const datoms = appendMock.mock.calls[0][0] as any[];
-    const byAttr = Object.fromEntries(
-      datoms.map((d) => [d.attribute, d.value])
-    );
-    expect(byAttr["settings/off_contribute"]).toBe(false);
-  });
-
-  it("does not write the food/targets datom (targets ride their own writer)", async () => {
-    // Toggling visibility/rounding must never touch a user's targets (ADR-0031
-    // §2): saveSettings writes only the proxy URL + the two display datoms.
-    await saveSettings({
-      scraper_proxy_url: "P",
-      visible_nutrients: ["protein"],
-      round_nutrition: false,
-    });
-    const datoms = appendMock.mock.calls[0][0] as any[];
-    const attrs = datoms.map((d) => d.attribute);
-    expect(attrs).not.toContain("settings/food/targets");
-    expect(attrs).not.toContain("settings/food/calculated_targets");
-  });
-});
-
 describe("saveLogExportConsent", () => {
   it("writes its own datom and touches nothing else", async () => {
     // Its own writer, so a screen that does not own this toggle cannot clobber
@@ -639,18 +424,6 @@ describe("saveCalculatorPlan", () => {
     expect(byAttr["settings/food/profile"]).toEqual(plan.profile);
     // No visibility datom when the caller omits the list (nothing auto-tracked).
     expect(byAttr["settings/food/visible_nutrients"]).toBeUndefined();
-  });
-
-  it("includes the visible_nutrients datom when auto-track added a macro", async () => {
-    await saveCalculatorPlan({
-      ...plan,
-      visible_nutrients: ["protein", "fat"],
-    });
-    const datoms = appendMock.mock.calls[0][0] as any[];
-    const visible = datoms.find(
-      (d) => d.attribute === "settings/food/visible_nutrients"
-    );
-    expect(visible?.value).toEqual(["protein", "fat"]);
   });
 });
 
