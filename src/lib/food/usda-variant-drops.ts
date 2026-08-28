@@ -407,7 +407,7 @@ const ADJUDICATED_VARIANT_GROUPS: readonly AdjudicatedVariantGroup[] = [
     ],
   },
   {
-    why: "Buttermilk is kept at one fat level, `Milk, buttermilk, fluid, whole`. These two are the same cultured drink at 2% and at 1%, one of them USDA's SR Legacy record and the other the Foundation row that answers to `Milk, buttermilk, fluid, cultured, lowfat`, and neither names an addition for the fortification rule to read.",
+    why: "Buttermilk is kept at one fat level, `Milk, buttermilk, fluid, whole`. These two are the same cultured drink at 2% and at 1%, one of them USDA's SR Legacy record and the other the Foundation row that answers to `Milk, buttermilk, fluid, cultured, lowfat`, and neither names an addition for the fortification rule to read. ADR-0061 §5 does not name them: its Milk bucket says `fifteen fortification duplicates` where the rule reaches thirteen, and the two counts the record states over the whole corpus — 4,238 rows, and ADR-0062's thirty-five for a `milk` search — hold only if these two are in that bucket. So the label is loose and the arithmetic is not, and this is the reading that satisfies both. A reader reversing it should reverse the counts with it.",
     rows: [
       [167697, "Milk, buttermilk, fluid, cultured, reduced fat"],
       [2259792, "Buttermilk, low fat"],
