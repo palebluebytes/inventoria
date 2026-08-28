@@ -175,10 +175,15 @@ export default defineConfig({
         ],
         // Fontsource ships every subset it has, and the browser only fetches
         // the ones a rendered character needs. Precaching is the exception:
-        // it pulls everything up front, so this app would install ~120KB of
-        // Cyrillic and Greek it never draws. They stay in the bundle and stay
-        // fetchable; they just do not ride along on the offline install.
-        globIgnores: ["**/*-{cyrillic,cyrillic-ext,greek,greek-ext}-*.woff2"],
+        // it pulls everything up front, so this app would install ~190KB of
+        // Cyrillic, Greek and Vietnamese it never draws. They stay in the
+        // bundle and stay fetchable; they just do not ride along on the offline
+        // install. Vietnamese joined the list on 2026-08-28 — it belonged here
+        // from the start and was simply missed, measured at 66KB across six
+        // files in the precache manifest.
+        globIgnores: [
+          "**/*-{cyrillic,cyrillic-ext,greek,greek-ext,vietnamese}-*.woff2",
+        ],
         runtimeCaching: [
           {
             urlPattern: ({ request }) => request.destination === "image",
