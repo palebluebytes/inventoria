@@ -275,7 +275,7 @@ describe("what the fallback buys, against the bars set before it was built", () 
       (group.members ?? []).every((m) => retrieves(corpus, m.query))
     );
     expect(closed.length).toBeGreaterThanOrEqual(200);
-    // Nine hundred-odd searches over 4,312 rows, so the default 5 s timeout is
+    // Nine hundred-odd searches over 4,238 rows, so the default 5 s timeout is
     // a coin-toss under a loaded machine rather than a signal about the code.
   }, 30_000);
 

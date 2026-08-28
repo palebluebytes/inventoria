@@ -13,7 +13,7 @@
  * This module owns the derivation. `usda-bundle.mjs` calls it, and calls it AFTER
  * the corpus is final, because both of ADR-0049 §3\'s filters ask what the
  * FINISHED corpus retrieves: a group whose members all agree cannot change an
- * answer, and "all agree" is a fact about the 4,312 rows that survived ADR-0048
+ * answer, and "all agree" is a fact about the 4,238 rows that survived ADR-0048
  * §5\'s drops and the ADR-0045 §2 merge, not about the archives they came from.
  *
  * Two properties are load-bearing, and both are the bundle\'s own.
@@ -42,7 +42,7 @@ import { join } from "node:path";
  * The share of the corpus above which a target phrase is not a synonym.
  *
  * MEASURED, not chosen. ADR-0049 §3 names three cases the guard has to catch —
- * `salt` matches 427 of the 4,312 rows, `whole` 216, `beans` 115 — and
+ * `salt` matches 427 of the 4,238 rows, `whole` 209, `beans` 115 — and
  * `wholemeal -> [whole, whole grain]` is the entry that shows why: expanding to
  * a word 217 unrelated descriptions happen to contain answers with a page of
  * arbitrary rows rather than with wholemeal bread.
@@ -91,7 +91,7 @@ export function readTaxonomyGroups(taxonomy) {
  * retrieves nothing, mapped to the phrases in its group that do.
  *
  * `countMatches` is a parameter rather than a corpus, so the derivation is
- * asserted against a handful of stated retrieval counts instead of against 4,312
+ * asserted against a handful of stated retrieval counts instead of against 4,238
  * rows — and so the one impure, expensive step stays in one place.
  *
  * The steps, in this order:
@@ -365,7 +365,7 @@ export function buildLocalVocabularySection(entries) {
  * `leads` is a parameter rather than a corpus, the arrangement
  * {@link deriveVocabulary} uses for `countMatches` and for the same two reasons:
  * the admissions are asserted against a handful of stated answers instead of
- * 4,312 rows, and the one impure, expensive step stays in
+ * 4,238 rows, and the one impure, expensive step stays in
  * {@link leadingRowReader}.
  *
  * The ceiling comes in with the entries because it is recorded beside them, in
@@ -440,7 +440,7 @@ export function assertLocalVocabularyHolds(
  * derivation needs "nothing" against "something" and deliberately does not rank.
  *
  * The names are read ONCE, off the finished index, and the vocabulary is swapped
- * on the corpus per question. Rebuilding the corpus per call would re-read 4,312
+ * on the corpus per question. Rebuilding the corpus per call would re-read 4,238
  * descriptions to change one field.
  *
  * @param {object} index the finished search index, as it is about to be written

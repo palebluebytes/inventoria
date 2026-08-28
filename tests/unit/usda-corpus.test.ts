@@ -27,6 +27,7 @@ import {
   isPreparedProduct,
   isProcessedProduct,
 } from "../../src/lib/food/usda-food-kind";
+import { resolveVariantDrops } from "../../src/lib/food/usda-variant-drops";
 import {
   compareRelevance,
   compileReferenceFoodQuery,
@@ -42,7 +43,7 @@ import type { EntityPayload } from "../../src/lib/ingestion/ingest";
 
 // The committed artifact itself is the fixture (ADR-0047 §3). Search is only
 // keyless and offline if it answers from THIS file, so the ADR-0042 ordering
-// cases are asserted over the 4,312 rows the app actually ships rather than
+// cases are asserted over the 4,238 rows the app actually ships rather than
 // over a hand-built stand-in that could agree with the code and not the data.
 const index: SearchIndex = JSON.parse(
   readFileSync("public/usda/search-index.json", "utf8")
@@ -180,14 +181,14 @@ describe("the bundled search index", () => {
     // ADR-0055 §6. A tripwire on the predicate's reach: the flag is baked, so a
     // change to `plainSiblingsOf` that nobody meant shows up as a count here
     // rather than as a silently reordered search months later.
-    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(136);
+    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(131);
     // Omitted rather than emitted false, like every other absent field.
     expect(index.foods.filter((row) => row.plain_sibling === false)).toEqual(
       []
     );
   });
 
-  it("holds 758 rows whose head phrase is a shelf label, under 18 labels", () => {
+  it("holds 720 rows whose head phrase is a shelf label, under 18 labels", () => {
     // ADR-0042's #154 Amendment, tripwired the way ADR-0055 §3 tripwired
     // `plainSibling`: the roster is hand-written, so a head phrase added or
     // misspelled shows up as a count here rather than as a quietly reordered
@@ -195,7 +196,7 @@ describe("the bundled search index", () => {
     const shelved = index.foods.filter(
       (row) => readReferenceFoodName(row.description).shelfLength > 0
     );
-    expect(shelved.length).toBe(758);
+    expect(shelved.length).toBe(720);
     const labels = new Set(
       shelved.map((row) => qualifiersOf(row.description)[0])
     );
@@ -210,7 +211,7 @@ describe("the bundled search index", () => {
 
   it("counts the rows each whole-qualifier modifier reaches, and the ones it must not", () => {
     // Why `light` and `cooking` are read as a whole comma-part rather than as a
-    // word: as words they reach 49 and 7 rows, and most of those are not a
+    // word: as words they reach 46 and 7 rows, and most of those are not a
     // modified anything.
     const withPart = (part: string) =>
       index.foods.filter((row) => qualifiersOf(row.description).includes(part));
@@ -223,7 +224,7 @@ describe("the bundled search index", () => {
     // a second mechanism exists at all. If the words stopped being dangerous,
     // `MODIFIED_PART` would have no reason to be a separate list.
     expect([withWord("light").length, withPart("light").length]).toEqual([
-      49, 15,
+      46, 12,
     ]);
     expect([withWord("cooking").length, withPart("cooking").length]).toEqual([
       7, 1,
@@ -232,6 +233,7 @@ describe("the bundled search index", () => {
     // as a word: both rows it reaches are a drink with the alcohol taken out.
     expect(withWord("non-alcoholic").length).toBe(2);
     // The 34 rows the word `light` would have taken and the qualifier does not.
+    // Three of the fifteen went with ADR-0061's light soymilks.
     // Chicken light meat is not a reduced-fat chicken, and a mushroom exposed
     // to ultraviolet light is not a light mushroom.
     for (const description of [
@@ -247,7 +249,7 @@ describe("the bundled search index", () => {
   });
 
   it("is the surviving reference foods, and says which archives it came from", () => {
-    expect(index.foods.length).toBe(4312);
+    expect(index.foods.length).toBe(4238);
     expect(index.generated_from.map((a) => a.dataset)).toEqual([
       "Foundation Foods",
       "SR Legacy",
@@ -390,6 +392,23 @@ describe("the bundled search index", () => {
     expect(rejected.map((row) => row.description)).toEqual([]);
   });
 
+  it("holds no variant of a food it already keeps", () => {
+    // The same tripwire for ADR-0061's three rules, which cannot join the five
+    // above because they read a row's SIBLINGS rather than its own words. Asked
+    // of the finished corpus the answer must be empty: a head phrase that still
+    // keeps a plain row beside a flavoured one, a fluid beside a powder, or an
+    // unfortified milk beside four fortifications is a regeneration that did not
+    // run — or a mirror refresh that put one back.
+    expect([
+      ...resolveVariantDrops(
+        index.foods.map((row) => ({
+          fdcId: row.fdcId,
+          description: row.description,
+        }))
+      ),
+    ]).toEqual([]);
+  });
+
   it("still offers the base foods the dropped rows were standing in front of", () => {
     // The other half of #131 and #133: a drop is only correct because a generic
     // equivalent stayed. Assert the survivors by name, so a future tightening
@@ -397,9 +416,16 @@ describe("the bundled search index", () => {
     // here rather than quietly emptying an aisle.
     const descriptions = index.foods.map((row) => row.description);
     for (const kept of [
-      // #131's brand leaks
+      // #131's brand leaks. `Soymilk, original and vanilla, unfortified` stood
+      // here as the generic soymilk that had to outlive sixteen "Vitasoy USA …"
+      // rows, and ADR-0061 §5 has since taken it — a DIFFERENT rule with a
+      // different claim, that USDA's twelve soymilks are variants of one soy
+      // milk the corpus keeps under the Foundation row below. The pin moves to
+      // that row rather than being deleted, because #131's half of the argument
+      // still has to hold: the brand rule is only correct because a generic soy
+      // milk stayed.
       "Tofu, raw, firm, prepared with calcium sulfate",
-      "Soymilk, original and vanilla, unfortified",
+      "Soy milk, unsweetened, plain, shelf stable",
       "Oil, canola",
       "Cream, whipped, cream topping, pressurized",
       // the Beverages rows a "drop every beverage" rule would have cost
@@ -810,7 +836,9 @@ describe("searchIndexRows", () => {
     // fails here — it was 120 before the two #138 rules added their pair each,
     // 122 before #144's filters took 76 rows and the words only they carried,
     // 112 before #157 took thirteen more, and 108 before ADR-0056's rename took
-    // "classes" out of every name that carried it. The one merge #144 cost is
+    // "classes" out of every name that carried it, and 105 before ADR-0061's
+    // seventy-four drops took six more with the milks, yogurts and soymilks
+    // that carried them. The one merge #144 cost is
     // "cakes"/"cake": the corpus carried "cakes" in exactly one description,
     // `Shortening, special purpose for cakes and frostings`, and a filter drop
     // takes a merge with it the same way it takes a word.
@@ -818,7 +846,7 @@ describe("searchIndexRows", () => {
     // exactly the blanket "-ves" shape; the table below is what catches that,
     // by pinning "olives" to the singular it still has to answer.
     const merged = new Set(words.map(stemOf));
-    expect(words.length - merged.size).toBe(105);
+    expect(words.length - merged.size).toBe(99);
 
     expect(touched.map((w) => [w, stemOf(w), sharing(w)])).toEqual([
       ["additives", "additive", []],
@@ -914,10 +942,19 @@ describe("searchIndexRows", () => {
       .filter((c) => c.should_lead)
       .filter((c) => descriptionsFor(c.head)[0] === c.should_lead)
       .map((c) => c.head);
-    // Seven: #143's own five, plus `almond milk`, whose two rows its note calls
+    // Eight: #143's own five, plus `almond milk`, whose two rows its note calls
     // peers, plus `veal`, which #162's `wholeness` key reached. ADR-0055's keys
     // neither added to this nor took from it — they reach a different class,
     // which is the measurement that amendment reports.
+    //
+    // `yogurt` is ADR-0061's, and it is a GAIN rather than a key: #143 recorded
+    // a 26-way tie led by `Yogurt, fruit variety, nonfat`, and dropping the
+    // nineteen flavoured tubs leaves the plain whole-milk one the gold set
+    // designated. `milk` is still a miss and cannot stop being one — the row
+    // #143 designated for it, `Milk, whole, 3.25% milkfat, with added vitamin
+    // D`, is one of the two 3.25% rows ADR-0061 §5 drops in favour of the 3.7%
+    // one. That is a disagreement with a pre-registration, recorded the way
+    // #162's was (ADR-0062 §4) rather than edited out of the artifact.
     //
     // `beef` is NOT here and is not expected to be. #143 designated
     // `Beef, grass-fed, ground, raw` for it, unratified, and #162 lands on the
@@ -935,6 +972,7 @@ describe("searchIndexRows", () => {
       "tempeh",
       "vanilla extract",
       "veal",
+      "yogurt",
     ]);
   });
 
@@ -1006,11 +1044,19 @@ describe("searchIndexRows", () => {
     // And the one this roster nearly cost. With `cheese` and `milk` left out —
     // which the membership test does not license, since a cheddar is a
     // different cheese exactly as a salmon is a different fish — every
-    // `Beverages, chocolate …` powder outranked chocolate milk, because only
-    // the powder's shelf label was discounted. Pinned as the reason the roster
+    // `Beverages, chocolate …` powder outranked `Milk, chocolate, fluid,
+    // commercial, whole, with added vitamin A and vitamin D`, because only the
+    // powder's shelf label was discounted. Pinned as the reason the roster
     // follows its own rule rather than stopping where the wins were.
+    //
+    // ADR-0061 §5 has since dropped every chocolate milk, so the row that made
+    // the case is gone and a powder leads `chocolate` after all. The pin moves
+    // to what leads now rather than being deleted: a drop erases the evidence
+    // for a measurement stated over a description exactly as a rename does
+    // (ADR-0056's Consequences), and the roster rule it was defending has not
+    // changed.
     expect(descriptionsFor("chocolate")[0]).toBe(
-      "Milk, chocolate, fluid, commercial, whole, with added vitamin A and vitamin D"
+      "Beverages, chocolate powder, no sugar added"
     );
   });
 
@@ -1540,7 +1586,7 @@ describe("searchIndexRows", () => {
     }
   });
 
-  it("puts 369 more rows first by their own name, and takes none away", () => {
+  it("puts 365 more rows first by their own name, and takes none away", () => {
     // ADR-0042's #136 Amendment measured 356 rows that are not first when
     // searched by their own full description, 337 of them tied on every key.
     // #124's amendment predicted its key would break none of those, and that
@@ -1552,7 +1598,7 @@ describe("searchIndexRows", () => {
     // Pinned as the two counts rather than the one, because a later key could
     // improve the total while quietly costing a row that leads today. Nothing
     // regressed here: 184 rows gained the lead and none lost it.
-    // 4,312 queries over 4,312 rows, so the winner is taken in one pass rather
+    // 4,238 queries over 4,238 rows, so the winner is taken in one pass rather
     // than by sorting each result list — the sort costs seconds, the scan does
     // not, and only the leading row is being asked about. Each query is ordered
     // twice: once under the shipped keys, and once under the four that preceded
@@ -1607,14 +1653,16 @@ describe("searchIndexRows", () => {
     // stops carrying `New Zealand, imported`, `variety meats and by-products`
     // or `all grades` is searched by a shorter name, and the rivals that used to
     // account for it no longer do. Most of that is `all grades`, which alone
-    // takes five words off 255 rows.
+    // takes five words off 255 rows. ADR-0061's seventy-four drops then took
+    // four of the gained rows and three of the not-first ones out of the corpus
+    // with the milks and yogurts that carried them — 365 and 130.
     // `lost` is the invariant and is still zero: no key and no corpus change has
     // ever taken the lead from a row that already held it. The baseline this
     // diffs against is the pre-#124 order, so all three keys are being measured
     // here at once.
     expect({ notFirst, gained, lost }).toEqual({
-      notFirst: 133,
-      gained: 369,
+      notFirst: 130,
+      gained: 365,
       lost: 0,
     });
   }, 30_000);
@@ -1808,11 +1856,14 @@ describe("the twin merge's discarded names, as search aliases", () => {
   it("carries an alias only where USDA held a second name for the food", () => {
     const aliased = index.foods.filter((food) => food.also);
 
-    // 80, not #137's 87: an alias exists because a merge discarded a name, so
+    // 79, not #137's 87: an alias exists because a merge discarded a name, so
     // the eight pairs ADR-0051 refuses to merge mint none — each ships under its
     // own name instead. Seven of the eight were aliased here before the split;
     // the eighth's merged row never survived the filters (`Orange juice, raw`).
-    expect(aliased).toHaveLength(80);
+    // The eightieth left with ADR-0061's drops: `Buttermilk, low fat` answered
+    // to `Milk, buttermilk, fluid, cultured, lowfat`, and both the row and the
+    // name it carried are gone.
+    expect(aliased).toHaveLength(79);
     // Never the row's own name back to it, and never a name it already reads as.
     for (const food of aliased)
       expect(food.also).not.toContain(food.description);
@@ -1957,7 +2008,7 @@ describe("storedPanelFor", () => {
   it("rebuilds every row's macros exactly, across the whole corpus", () => {
     // The two artifacts are generated from one merged record, so a row's macros
     // and the store's amounts are the same numbers twice. Assert it over all
-    // 4,312 rather than on one food: a generator change that filled one artifact
+    // 4,238 rather than on one food: a generator change that filled one artifact
     // and not the other would otherwise ship silently.
     const disagreeing = index.foods.filter((row) => {
       const panel = storedPanelFor(store, row.fdcId);

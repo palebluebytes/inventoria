@@ -2,7 +2,7 @@
  * ADR-0042's reference-food ranking: how a free-text query orders the foods it
  * reaches. Its own module because it outlives its first caller — the FDC search
  * API built it, and the bundled corpus (ADR-0047) is what runs it now, over
- * 4,312 rows per keystroke rather than over one page of API results.
+ * 4,238 rows per keystroke rather than over one page of API results.
  *
  * Most of the ordering reads a NAME. Two keys read the ROW instead (ADR-0055),
  * and the section at the bottom of this file is theirs: whether a plainer twin
@@ -81,8 +81,10 @@ const MODIFIED_PART = new Set(["light", "cooking"]);
  * assumed: adding `oil` moves exactly one lead, `safflower` from
  * `Seeds, safflower seed kernels, dried` to `Oil, safflower`.
  *
- * Reaches 760 rows, pinned as a tripwire in `usda-corpus.test.ts` the way
- * ADR-0055 §3 pinned `plainSibling`'s 128 (#131: an unmeasured guard is a hole).
+ * Reaches 720 rows, pinned as a tripwire in `usda-corpus.test.ts` the way
+ * ADR-0055 §3 pinned `plainSibling`'s 131 (#131: an unmeasured guard is a hole).
+ * Thirty-eight left with ADR-0061's drops — thirty-two under `milk`, which is
+ * one of the eighteen labels, and six milk drinks under `beverages`.
  */
 const SHELF_LABEL_HEAD = new Set([
   "alcoholic beverage",
@@ -176,7 +178,7 @@ const COMPOSITE_OF_CUTS = /\bcomposite of\b/i;
  * as a string, with the query-independent half of the score already settled.
  *
  * Separated from the description because the corpus a keystroke ranks is now the
- * whole 4,312-row Search index (ADR-0047 §4). Re-splitting every description on
+ * whole 4,238-row Search index (ADR-0047 §4). Re-splitting every description on
  * every keystroke measured 17 ms; splitting each once and comparing the words
  * costs 1.4 ms, and the split does not depend on what was typed.
  */
@@ -846,7 +848,7 @@ export interface RowRank {
  * - **A row is never its own sibling.** A strict prefix has strictly fewer
  *   parts, so a name cannot be a prefix of itself however it is spelled.
  *
- * Reaches 127 of the 4,312 shipped rows under 78 parents, the largest two being
+ * Reaches 131 of the 4,238 shipped rows under 77 parents, the largest two being
  * the 15 red and 13 white varietal wines that sent #134's author looking for a
  * drop rule.
  */
