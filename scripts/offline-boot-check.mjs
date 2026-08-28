@@ -289,6 +289,13 @@ function installBrowser(serve) {
   globalThis.window = globalThis;
   globalThis.self = globalThis;
 
+  // The boot guard listens for an uncaught shell error on `window` before the
+  // app graph evaluates, so the stub needs the listener pair the real thing
+  // has. Nothing here fires them: this arm asserts the app reaches mount, and
+  // reaching mount is precisely the case where the guard never acts.
+  globalThis.addEventListener = noop;
+  globalThis.removeEventListener = noop;
+
   globalThis.__reachedMount = false;
   globalThis.document = {
     documentElement: el(),

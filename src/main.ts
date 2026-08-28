@@ -1,3 +1,7 @@
+// FIRST, and deliberately: importing this installs the boot guard, so it is
+// listening before the App graph below evaluates. A shell that cannot start
+// otherwise has no way to replace itself — see src/lib/boot-recovery.ts.
+import { markMounted } from "./boot-guard";
 import { mount } from "svelte";
 // Before app.css, so the @font-face rules are registered before the rules that
 // reference the families. Upright and italic for each: the italic files are
@@ -27,5 +31,8 @@ if (typeof crossOriginIsolated !== "undefined" && !crossOriginIsolated) {
 const app = mount(App, {
   target: document.getElementById("app")!,
 });
+
+// The shell is up: stand the guard down before its grace period expires.
+markMounted();
 
 export default app;
