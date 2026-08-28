@@ -344,6 +344,11 @@ function qualifierPass(corpus) {
         .map((food) => food.description)
     );
 
+    // Deliberately without ADR-0062 §1's retrieval filter, and without a row's
+    // other names: this pass is #124's pre-registration, and what it reports is
+    // the difference between two orderings that both existed then. Everything
+    // asking what the search does TODAY goes through `scoreAll` in
+    // `usda-ranking-corpus.mjs`, which carries the filter.
     const rank = compileReferenceFoodQuery(query);
     const scored = corpus
       .map((food) => ({

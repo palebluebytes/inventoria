@@ -30,7 +30,7 @@ import {
   compileReferenceFoodQuery,
   compareRelevance,
   readRowRank,
-  retrievedByName,
+  withoutStrayMentions,
 } from "../src/lib/food/reference-food-ranking.ts";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -85,7 +85,9 @@ export function scoreAll(corpus, query) {
         .reduce((best, key) => (compareRelevance(key, best) < 0 ? key : best)),
     }))
     .filter(({ key }) => key.tier > 0);
-  return retrievedByName(scored).sort((a, b) => compareRelevance(a.key, b.key));
+  return withoutStrayMentions(scored).sort((a, b) =>
+    compareRelevance(a.key, b.key)
+  );
 }
 
 /**
