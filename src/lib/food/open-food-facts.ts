@@ -261,11 +261,60 @@ export function offPackUnitFromTwin(
   return offProductFromTwin(attributes)?.product_quantity_unit;
 }
 
+/**
+ * Thrown when Open Food Facts answered, and its answer was that it holds no
+ * product under this barcode. The one error the Scan tab is allowed to read as
+ * an invitation to type the pack in by hand.
+ */
 export class ProductNotFoundError extends Error {
   constructor(barcode: string) {
     super(`Product not found for barcode: ${barcode}`);
     this.name = "ProductNotFoundError";
   }
+}
+
+/**
+ * Thrown when Open Food Facts did not answer at all — see
+ * {@link serviceDidNotAnswer} for exactly which statuses mean that (#204).
+ *
+ * This exists because the two errors lead opposite ways and only one of them is
+ * recoverable. {@link ProductNotFoundError} opens the missing-barcode capture
+ * form, which saves a hand-typed food under the same `gtin:` key the lookup
+ * uses — so a twin written during a thirty-second outage permanently redirects
+ * that barcode away from OFF, which is never asked for it again. The service
+ * being busy asks for nothing but another attempt.
+ *
+ * It is the same distinction the food-search path keeps between
+ * `NoReferenceFoodError` and a plain `Error` (ADR-0053 §3): a fault is not an
+ * empty result.
+ *
+ * The status rides along so a caller can weigh a rate limit differently from a
+ * gateway error without re-reading the message.
+ */
+export class OffUnreachableError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`Open Food Facts did not answer (HTTP ${status})`);
+    this.name = "OffUnreachableError";
+    this.status = status;
+  }
+}
+
+/**
+ * Whether an HTTP status means OFF failed to answer rather than answered.
+ *
+ * Two families, both of them OFF's own side of the wire and both routine for a
+ * free public API: `429` from its rate limiter, and any `5xx`. What they share
+ * is that they clear on their own, seconds later, with no user action — which is
+ * what makes the honest response a retry rather than a capture form.
+ *
+ * Deliberately not "every non-404": a `400` or a `403` is a fault we cannot name
+ * and have no reason to think a retry fixes, so it stays a plain `Error` and
+ * reaches the generic error banner.
+ */
+function serviceDidNotAnswer(status: number): boolean {
+  return status === 429 || status >= 500;
 }
 
 // ---------------------------------------------------------------------------
@@ -461,14 +510,27 @@ const OFF_BASE = "https://world.openfoodfacts.org/api/v3/product";
  * Fetches product data from the Open Food Facts API for a given barcode and
  * returns it as an EntityPayload.
  *
- * @throws ProductNotFoundError when the product is not in the OFF database.
+ * A non-2xx has three meanings, not one (#204). A transport-level rejection is a
+ * fourth and is left alone: nothing was asked, so an offline scan propagates as
+ * whatever `fetch` threw and is not reported as a delisting either.
+ *
+ * @throws ProductNotFoundError when OFF holds no product under this barcode.
+ * @throws OffUnreachableError when OFF did not answer (429, 5xx).
+ * @throws Error for any other non-2xx, which names neither.
  */
 export async function lookupBarcode(barcode: string): Promise<OffPayload> {
   const res = await fetch(`${OFF_BASE}/${barcode}.json`);
 
-  // v3 returns HTTP 404 for unknown barcodes (empty body), catch it first
   if (!res.ok) {
-    throw new ProductNotFoundError(barcode);
+    if (serviceDidNotAnswer(res.status)) {
+      throw new OffUnreachableError(res.status);
+    }
+    // v3 returns HTTP 404 for an unknown barcode (empty body). Only that status
+    // says the product is absent; the rest is a fault with no name.
+    if (res.status === 404) {
+      throw new ProductNotFoundError(barcode);
+    }
+    throw new Error(`Open Food Facts returned HTTP ${res.status}`);
   }
 
   const data: OFFProduct = await res.json();

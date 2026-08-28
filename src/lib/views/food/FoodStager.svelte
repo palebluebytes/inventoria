@@ -6,6 +6,7 @@
     offReferenceImagesFromTwin,
     offPackUnitFromTwin,
     ProductNotFoundError,
+    OffUnreachableError,
     type OffPayload,
     type OffSubmitResult,
   } from "../../food/open-food-facts";
@@ -228,7 +229,11 @@
   let query = $state("");
   let barcode = $state("");
 
-  let status = $state<"idle" | "loading" | "error">("idle");
+  // "unreachable" is a scan-only fourth state, not a flavour of "error" (#204):
+  // Open Food Facts being busy is the one failure here that clears by itself, so
+  // it earns copy that says so and a control that tries again, where "error"
+  // states a fault the user can only read.
+  let status = $state<"idle" | "loading" | "error" | "unreachable">("idle");
   let error = $state("");
   let results = $state<FoodResult[]>([]);
   // The query the last search came back empty for, or null while it did not. An
@@ -462,6 +467,13 @@
       "Couldn’t read the barcode. Enter the label details here; add the digits below if you can read them.",
     edit: "Editing this entry — adjust anything from the label and save to update it.",
   };
+
+  // What a scan says when Open Food Facts did not answer (#204). It has to name
+  // the service and say the barcode is not the problem, because the sentence it
+  // replaces — CAPTURE_COPY.missing — said the opposite and sent the user off to
+  // type in a pack OFF already holds.
+  const OFF_UNREACHABLE_COPY =
+    "Couldn’t reach Open Food Facts — the service is busy or down, not missing this barcode. Try again in a moment.";
 
   // Route one of the doors into the Custom form: set the reason banner, keep the
   // barcode (already in `barcode` state), and prefill from a partial OFF payload
@@ -1250,6 +1262,11 @@
       // reason copy, instead of the old dead-end "not found" message.
       if (e instanceof ProductNotFoundError) {
         openCaptureForm("missing");
+      } else if (e instanceof OffUnreachableError) {
+        // NOT the missing door (#204). A capture made here saves under this same
+        // `gtin:` key and the local twin then short-circuits every later lookup,
+        // so an outage would permanently redirect the barcode away from OFF.
+        status = "unreachable";
       } else {
         status = "error";
         error = e.message ?? String(e);
@@ -2193,7 +2210,24 @@
                 </div>
               {/if}
 
-              {#if status === "error"}
+              {#if status === "unreachable"}
+                <!-- The third answer a scan can get (#204). Not the missing door,
+                   which would invite a hand-typed pack, and not the error banner,
+                   which offers nothing to do — the service was busy, so the copy
+                   says so and the only control is another attempt. -->
+                <div class="mt" data-testid="off-unreachable">
+                  <Alert variant="warning">
+                    <p>{OFF_UNREACHABLE_COPY}</p>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      class="off-retry"
+                      data-testid="off-retry"
+                      onclick={handleBarcodeLookup}>Try again</Button
+                    >
+                  </Alert>
+                </div>
+              {:else if status === "error"}
                 <div class="mt"><Alert variant="error">{error}</Alert></div>
               {/if}
             </div>
@@ -2410,6 +2444,12 @@
   }
   .mt {
     margin-top: var(--space-s);
+  }
+  /* The retry beside the unreachable message (#204). Only its spacing under the
+     sentence lives here; the frame is the shared Button's. `:global` for the
+     same reason `.escape` needs it — the class rides a child component. */
+  .mt :global(.off-retry) {
+    margin-top: var(--space-xs);
   }
 
   .staged {

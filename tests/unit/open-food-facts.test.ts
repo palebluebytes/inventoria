@@ -3,6 +3,7 @@ import {
   mapOffProductToPayload,
   lookupBarcode,
   ProductNotFoundError,
+  OffUnreachableError,
   submitToOpenFoodFacts,
   buildOffWriteBody,
   offWriteHost,
@@ -572,6 +573,62 @@ describe("lookupBarcode", () => {
     const payload = await lookupBarcode("737628064502");
     expect(payload.entity).toBe("gtin:737628064502");
     expect(payload.attributes["food/name"]).toBe("Test Food");
+  });
+
+  // ---- the full status matrix (#204) --------------------------------------
+  // Only the 404 above was ever pinned, and the branch that answered it answered
+  // every other non-2xx identically — so a rate limit or a gateway error reached
+  // the Scan tab as a delisting and invited a hand-typed capture under the same
+  // `gtin:` key. Each status below is asserted for what it is AND for what it is
+  // not, because conflation is the defect and only the negative catches it.
+
+  /** OFF answering with a failing HTTP status and no product body. */
+  function offFailsWith(status: number) {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status,
+      json: async () => ({}),
+    } as Response);
+  }
+
+  it.each([429, 500, 502, 503, 504])(
+    "reads HTTP %i as Open Food Facts not answering, not as a missing product",
+    async (status) => {
+      offFailsWith(status);
+      await expect(lookupBarcode("737628064502")).rejects.toBeInstanceOf(
+        OffUnreachableError
+      );
+      await expect(lookupBarcode("737628064502")).rejects.not.toBeInstanceOf(
+        ProductNotFoundError
+      );
+      // The status rides along so a retry can weigh a rate limit differently
+      // from a gateway error without re-parsing a message.
+      await expect(lookupBarcode("737628064502")).rejects.toMatchObject({
+        status,
+      });
+    }
+  );
+
+  it.each([400, 403])(
+    "reads HTTP %i as neither a delisting nor an outage",
+    async (status) => {
+      offFailsWith(status);
+      await expect(lookupBarcode("737628064502")).rejects.not.toBeInstanceOf(
+        ProductNotFoundError
+      );
+      await expect(lookupBarcode("737628064502")).rejects.not.toBeInstanceOf(
+        OffUnreachableError
+      );
+      await expect(lookupBarcode("737628064502")).rejects.toThrow(Error);
+    }
+  );
+
+  it("lets a transport-level rejection through untouched", async () => {
+    // An offline scan is not a delisting either, and it is not OFF failing to
+    // answer — nothing was asked. The caller sees the fetch's own rejection.
+    const offline = new TypeError("Failed to fetch");
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(offline);
+    await expect(lookupBarcode("737628064502")).rejects.toBe(offline);
   });
 });
 

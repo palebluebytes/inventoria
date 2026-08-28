@@ -72,9 +72,16 @@ export function countIngredients(text) {
  * The product body of an OFF response, or the fact that there is not one.
  *
  * The gone-ness rules mirror `lookupBarcode` in `src/lib/food/open-food-facts.ts`
- * exactly — HTTP 404, v3's string `"failure"`, v2's integer `0` — because a check
- * that disagreed with the app would report a product the app still finds, or
- * miss one it has already stopped finding.
+ * on the three shapes that mean gone — HTTP 404, v3's string `"failure"`, v2's
+ * integer `0` — because a check that disagreed with the app would report a
+ * product the app still finds, or miss one it has already stopped finding.
+ *
+ * They no longer agree on the rest. Since #204 the app reads a 429 or a 5xx as
+ * OFF failing to answer and reports it as a delisting nowhere, while the line
+ * below still folds every non-200 into "gone" — so this check can name a curated
+ * record delisted on the strength of an outage. #205 settles which of the two
+ * vocabularies is right and makes the parity test cover the whole matrix; until
+ * it does, read a `HTTP 5xx` finding here as "ask again", not as a delisting.
  */
 export function productFromResponse(status, body) {
   if (status === 404) return { found: false, reason: "OFF returned 404" };
