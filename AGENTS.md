@@ -14,7 +14,8 @@ checks against, and this file deliberately does not restate it.
 - **Package manager:** `pnpm` exclusively, inside the Nix shell, with `pnpm dlx`
   for one-off Node binaries. Never `npm`, `yarn`, or `bun`.
 - **Verification:** a change is verified when `pnpm check`, `pnpm test:unit`, and
-  `pnpm lint:css` are clean. `pnpm check` already chains the docs check.
+  `pnpm lint:css` are clean. `pnpm check` already chains the docs check and
+  the worker-closure check.
 - **The offline gate runs at build time, not in that roster.** `pnpm build`
   chains `scripts/offline-boot-check.mjs`, which fails the build if the app
   cannot reach `mount(App)` with the network off (#125). It needs a `dist/`,
