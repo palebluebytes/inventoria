@@ -17,11 +17,13 @@
   import { clearRetiredSecrets } from "./lib/stores/secrets";
   import { ensurePersistentStorage } from "./lib/storage/persistent-storage";
 
-  // Dev/e2e-only UI-primitive harness: `?demo=bottomsheet` swaps the whole app
-  // for a component demo, so a Playwright spec can drive the primitive in
-  // isolation without a real screen mounting it (issue #17). Gated on
-  // `import.meta.env.DEV` and dynamically imported, so the harness is dead-code
-  // eliminated from the production build — it never ships.
+  // Dev/e2e-only harnesses: `?demo=<name>` swaps the whole app for a throwaway
+  // page. `bottomsheet` is a UI-primitive demo, so a Playwright spec can drive
+  // the primitive in isolation without a real screen mounting it (issue #17);
+  // `p2p198` is the peer-to-peer transport probe (#198), which needs the whole
+  // viewport and a camera and has no business inside a tab. Both are gated on
+  // `import.meta.env.DEV` and dynamically imported, so they are dead-code
+  // eliminated from the production build — they never ship.
   const demo =
     import.meta.env.DEV && typeof window !== "undefined"
       ? new URLSearchParams(window.location.search).get("demo")
@@ -92,6 +94,11 @@
   {#await import("./lib/ui/BottomSheetDemo.svelte") then mod}
     {@const BottomSheetDemo = mod.default}
     <BottomSheetDemo />
+  {/await}
+{:else if demo === "p2p198"}
+  {#await import("./lib/p2p-probe/P2pProbe.svelte") then mod}
+    {@const P2pProbe = mod.default}
+    <P2pProbe />
   {/await}
 {:else}
   <div class="app">

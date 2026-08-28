@@ -1,0 +1,115 @@
+# #198 probe — two phones on a table, no server: does a meal cross?
+
+**Throwaway.** Dev-only, dead-code eliminated from the production build, kept as
+a primary source for [#198](https://github.com/palebluebytes/inventoria/issues/198)
+rather than as anything to build on. It writes nothing to the ledger and reads
+nothing from it.
+
+[#194](https://github.com/palebluebytes/inventoria/issues/194) established what
+the platform _claims_ — no STUN server is required, host candidates need no
+infrastructure, iOS Safari has carried data channels since 2017, and mDNS
+obfuscation is universal and standardised nowhere. It could not establish
+whether an exchange actually completes between two phones on a given network.
+That is this.
+
+## Running it
+
+Two phones need HTTPS: camera access and `RTCPeerConnection` are both
+secure-context only, so `http://<lan-ip>:5173` is not an option on either
+platform.
+
+```sh
+pnpm proto:198
+# in another shell
+nix shell nixpkgs#cloudflared -c cloudflared tunnel --url http://localhost:5173
+```
+
+Open the printed `https://<something>.trycloudflare.com/?demo=p2p198` on both
+devices. The page arrives over the internet; nothing the probe measures does.
+
+**For the no-internet run:** load the page on both phones first, then put both
+into Airplane mode and switch Wi-Fi back on (or join one phone to the other's
+hotspot). Leave the tabs open — there is no service worker on this route, so a
+reload with no internet loses the page.
+
+## What it builds, measured before any phone was involved
+
+The probe rebuilds #199's meals in the browser from the bundled USDA corpus,
+through the app's own mappers, with #197's narrowing applied. Run against the
+committed artifacts it lands within a few percent of #199, slightly dear because
+it uses the widest corpus rows throughout where #199 mixed in packaged goods
+(which #197's narrowing made the cheaper twin):
+
+| meal                       | entities | datoms | raw       | deflated | #199 said | symbols @2900 B | symbols @1200 B |
+| -------------------------- | -------- | ------ | --------- | -------- | --------- | --------------- | --------------- |
+| a normal meal              | 8        | 40     | 14.5 KiB  | 2.2 KiB  | 13.0      | **1**           | 2               |
+| a cooked dinner            | 22       | 104    | 42.0 KiB  | 5.2 KiB  | 34.9      | 2               | 5               |
+| a Christmas dinner         | 66       | 309    | 118.8 KiB | 13.0 KiB | 114.6     | 5               | 12              |
+| an implausibly large feast | 132      | 612    | 232.1 KiB | 24.5 KiB | 224.0     | 9               | **22**          |
+
+The two symbol columns are the whole QR question. At the standard's v40-L
+capacity every meal fits inside Structured Append's 16-symbol ceiling. At a
+symbol size a phone camera will actually read across a table, the feast does
+not — and Denso Wave's own "271 bytes or so" figure would put even a normal meal
+at 9 symbols. Which of those two columns is real is what the hardware run
+decides, and it is why the slider exists.
+
+## The two paths, cheapest first
+
+1. **QR only.** A real narrowed closure, raw-DEFLATE'd, split across a chain of
+   symbols with our own 14-byte frame header, read back through the camera.
+   Whether a normal meal fits one symbol is now an arithmetic question
+   ([#199](https://github.com/palebluebytes/inventoria/issues/199) says 2.5 KiB
+   gzipped against 2,953 bytes at v40-L) but whether that symbol _scans off a
+   phone screen_ is not — Denso Wave's own FAQ puts a phone camera at "271 bytes
+   or so". Hence the bytes-per-symbol slider.
+2. **QR-signalled WebRTC.** Offer QR on the sender, answer QR on the recipient,
+   a data channel between them, and `iceServers: []` — the empty default RFC
+   8445 §5.1.1.2 permits. Both devices must show and both must read; #194 §4.4
+   proved a one-way code can never connect, and #199 §8 adopted that as a stated
+   property rather than a fallback.
+
+## What it measures that #194 could only predict
+
+- **The real SDP sizes.** #194 §4.2's table was reconstructed line by line from
+  each engine's serializer and carries its own "Reconstruction caveat". The
+  probe captures the browser's own offer, the compact field-extracted record,
+  and both deflated, side by side.
+- **What ICE actually gathered**, including the RFC 8828 §7 diagnostic: no host
+  candidates at all means a policy suppressed them and the LAN path was gone
+  before the exchange started.
+- **The selected candidate pair** from `getStats()` — the difference between "it
+  worked" and knowing how.
+- **Whether binary bytes survive a QR round trip**, which #194 §4.3 reasoned
+  about but never ran. `base64` is a switch beside it.
+- **Whether the compact SDP rebuild is accepted by a real browser.** `full` is
+  the switch beside it, so a rebuild that Chrome rejects fails the encoding
+  rather than the probe.
+
+## The ordering hypothesis, which #194 does not state
+
+All three engines switch mDNS obfuscation off for a document once camera
+permission is granted (#194 §5.2), and §5.3 says the fatal case is symmetric:
+both sides obfuscating, neither able to resolve. **A QR flow grants camera
+permission by construction.** So the order of camera-grant and candidate
+gathering decides whether the peer is handed a `<uuid>.local` name or a real IP —
+which is exactly the variable behind Google's "mDNS succeeded about half the
+time". The `open the camera before gathering` checkbox runs both orderings so
+the difference is measured rather than argued.
+
+Note the asymmetry the flow creates on its own: the sender gathers before it
+ever needs a camera, while the recipient must scan the offer first and therefore
+gathers with obfuscation already off. #194 §5.3's peer-reflexive rescue predicts
+that is enough. The probe reports whether it was.
+
+## What is worth keeping
+
+The page is throwaway. Under it:
+
+- `qr-chain.ts` — framing and reassembly, pure, order-independent,
+  duplicate-tolerant.
+- `sdp-compact.ts` — the field extraction, the canonical rebuild, and the
+  candidate census.
+- `probe-payload.ts` — #197's narrowing and the reference-closure walk,
+  expressed as code for the first time.
+- `probe-log.ts` — the timeline and the report that pastes into the ticket.
