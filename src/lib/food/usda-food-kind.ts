@@ -7,6 +7,12 @@
 // a factory input — and every "yes" drops the record before it reaches the
 // corpus.
 //
+// A sixth judgement lives next door in `usda-variant-drops.ts` and is a
+// different shape: ADR-0061 asks not what a record IS but what it is a VARIANT
+// of, which is a question about a row's SIBLINGS rather than about its own
+// words. The split is #146's, for #146's reason — the two move for different
+// reasons, and together they crossed the thousand-line wall.
+//
 // They live apart from `usda-fdc.ts` because they change for a different reason
 // (#146). That module adapts one record of somebody else's serialisation into
 // this app's shapes, and moves when USDA's serialisation or the panel does —

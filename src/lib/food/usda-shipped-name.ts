@@ -195,6 +195,45 @@ const withoutCatalogueText = (description: string): string => {
   return text;
 };
 
+/**
+ * One name adjudicated by reading: the `fdcId`, the description USDA published,
+ * the name the corpus ships it under, and why.
+ *
+ * Both names are carried for the reason `SupersededRecord` carries its two —
+ * they are what the verdict was reached by READING — and the published one is
+ * checked at generation, so a mirror refresh that rewrites it stops the build
+ * rather than renaming a row nobody re-read.
+ */
+export type AdjudicatedName = readonly [
+  fdcId: number,
+  published: string,
+  shipped: string,
+  why: string,
+];
+
+/**
+ * The names no rule reaches, adjudicated one row at a time (ADR-0061 §5).
+ *
+ * **One.** Everything else in this module is positional and general: a roster
+ * phrase occupying a whole comma-part comes out wherever it sits. This is the
+ * other kind of thing entirely — a judgement that USDA's word for a food is not
+ * the food's name — and it is a written list precisely because no property of
+ * the string says so. If it grows past a handful, the question is whether a rule
+ * was missed, and that is a measurement rather than another entry.
+ *
+ * Applied by `scripts/usda-bundle.mjs` BEFORE {@link resolveShippedNames}, so
+ * the collision key, the origin tiebreak and the designation pass all read the
+ * name the corpus will actually ship.
+ */
+export const ADJUDICATED_NAMES: readonly AdjudicatedName[] = [
+  [
+    171266,
+    "Milk, producer, fluid, 3.7% milkfat",
+    "Milk, whole, 3.7% milkfat",
+    "`producer` is USDA's word for raw bulk-tank milk before standardisation — the supply chain rather than the food — and this is the row ADR-0061 §5 keeps as full-fat cow's milk, both 3.25% rows having gone. 3.7% is nearer the UK compositional figure than 3.25%, and a shopper looking for whole milk types `whole`. The rename is safe only because those two rows leave: under the corpus that preceded ADR-0061 it would have collided with `Milk, whole, 3.25% milkfat`, which is the order ADR-0062 §3 calls load-bearing.",
+  ],
+];
+
 /** Why a row left the corpus when the rename ran. */
 export type NameDropReason =
   | "collision"

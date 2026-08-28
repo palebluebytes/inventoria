@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { importersOf } from "./support/importers";
 import {
+  ADJUDICATED_NAMES,
   ORIGIN_QUALIFIERS,
   carriesOriginQualifier,
   resolveShippedNames,
@@ -420,6 +421,36 @@ describe("the roster", () => {
       "imported",
       "new zealand",
     ]);
+  });
+});
+
+describe("ADJUDICATED_NAMES — the names no rule reaches (ADR-0061 §5)", () => {
+  it("holds one entry, and states the name it was read against", () => {
+    // One, and the count is the assertion: everything else in this module is a
+    // positional rule that fires wherever a roster phrase occupies a whole
+    // qualifier part. A hand list growing past a handful would mean a rule was
+    // missed, which is a measurement rather than another entry.
+    expect(ADJUDICATED_NAMES).toEqual([
+      [
+        171266,
+        "Milk, producer, fluid, 3.7% milkfat",
+        "Milk, whole, 3.7% milkfat",
+        expect.stringContaining("producer"),
+      ],
+    ]);
+  });
+
+  it("renames into a name no other row already answers to", () => {
+    // The condition ADR-0062 §3 calls load-bearing, checked here over the two
+    // rows that made it matter: under the corpus that preceded ADR-0061 this
+    // rename would have collided with `Milk, whole, 3.25% milkfat`, and both of
+    // those rows are dropped precisely so it does not.
+    const { renamed, dropped } = resolveShippedNames([
+      { fdcId: 171266, description: "Milk, whole, 3.7% milkfat" },
+      { fdcId: 172225, description: "Milk, buttermilk, fluid, whole" },
+    ]);
+    expect([...renamed]).toEqual([]);
+    expect([...dropped]).toEqual([]);
   });
 });
 
