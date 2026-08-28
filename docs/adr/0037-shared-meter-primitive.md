@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-04  
-**Amended by:** ADR-0061 (the display settings this record kept in the ledger moved out of it)  
+**Amended by:** ADR-0063 (the display settings this record kept in the ledger moved out of it)  
 **Implemented:** `ui/Meter.svelte`; `MacroMeters`, `DailyDashboard` RDA cells
 
 ## Context
@@ -161,7 +161,7 @@ seconds of a panel the user had shut sitting open on screen, not a frame.
 - **`round_nutrition` and `visible_nutrients` stay where they are.** They change
   how a number formats, and the numbers are not there during boot either, so
   they can absorb the wait. A preference that decides whether a block of the page
-  exists cannot. _(Overturned by ADR-0061: `visible_nutrients` decides which
+  exists cannot. _(Overturned by ADR-0063: `visible_nutrients` decides which
   meters exist, so it has the same defect, and the line was drawn in the wrong
   place. Both moved.)_
 - **The trade is sync and history**, and both are worth nothing here: a fold is

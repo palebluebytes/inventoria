@@ -5,7 +5,7 @@ import { FOOD_DISPLAY_DECIMALS } from "../food/nutrition";
 /**
  * Device settings: everything that belongs to this device rather than to the
  * user's history. They live in `localStorage`, not in the EAVT ledger
- * (ADR-0061).
+ * (ADR-0063).
  *
  * Two families sit here, and they fail the ledger's test for the same reason.
  * **View preferences** are how this device draws the app: which nutrients a
@@ -32,7 +32,7 @@ import { FOOD_DISPLAY_DECIMALS } from "../food/nutrition";
  * catches up. `localStorage` is synchronous, so a value read here is right in
  * the first frame.
  *
- * What stays in the ledger, and why, is in ADR-0061. The short version: targets,
+ * What stays in the ledger, and why, is in ADR-0063. The short version: targets,
  * limits, the calculator's frozen plan and profile, and the two consents.
  *
  * Secrets keep their own module (`stores/secrets.ts`). They are also per-device

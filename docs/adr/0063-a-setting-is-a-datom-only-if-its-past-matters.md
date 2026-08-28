@@ -1,4 +1,4 @@
-# ADR 0061: A setting is a datom only if its past values matter
+# ADR 0063: A setting is a datom only if its past values matter
 
 **Status:** Accepted  
 **Date:** 2026-08-28  

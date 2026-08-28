@@ -226,13 +226,13 @@ Not every setting belongs here. A setting is a datom only if its **past values
 mean something**. A target you were reaching toward in March is a fact about you,
 and a consent is a fact about what you agreed to and when. How this device draws
 the app is not: it lives in `localStorage`, and
-[ADR-0061](adr/0061-a-setting-is-a-datom-only-if-its-past-matters.md) is the test
+[ADR-0063](adr/0063-a-setting-is-a-datom-only-if-its-past-matters.md) is the test
 to apply before adding an attribute below.
 
 - `settings/scraper_proxy_url`: retired. The proxy a browser routes an HTML scrape
   through is configuration for one device, not a fact with a history, so it moved to
   `localStorage` with the view preferences
-  ([ADR-0061](adr/0061-a-setting-is-a-datom-only-if-its-past-matters.md)). The
+  ([ADR-0063](adr/0063-a-setting-is-a-datom-only-if-its-past-matters.md)). The
   attribute is not read.
 - `settings/tmdb_api_key`, `settings/usda_api_key`: both retired. The TMDB key moved
   to `localStorage` (ADR-0034 §8); the USDA key is gone entirely with the FoodData
@@ -247,7 +247,7 @@ to apply before adding an attribute below.
   `localStorage`, because redaction there is a deletion and the cap removes entries.
 - `settings/food/visible_nutrients`, `settings/food/round_nutrition`: both retired.
   They are view preferences, so they moved to `localStorage`
-  ([ADR-0061](adr/0061-a-setting-is-a-datom-only-if-its-past-matters.md)) alongside the
+  ([ADR-0063](adr/0063-a-setting-is-a-datom-only-if-its-past-matters.md)) alongside the
   nutrition panel's fold. Neither attribute is read.
 - `settings/food/targets`: a blob override map of daily nutrition targets, in canonical
   units, layered over the baked reference set

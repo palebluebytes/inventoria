@@ -57,7 +57,7 @@
   // it is now the only datom this sheet writes, through a writer that touches
   // nothing else. It used to carry the scraper proxy and the Nutrition Display
   // selections along just so toggling consent could not clobber them; both are
-  // device settings now (ADR-0061), so that hazard is gone rather than handled.
+  // device settings now (ADR-0063), so that hazard is gone rather than handled.
   async function persistOffContribute(next: boolean) {
     offContribute = next;
     try {

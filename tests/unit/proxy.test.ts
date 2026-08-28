@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Use vi.hoisted to declare and initialize the store before vi.mock executes.
-// The proxy URL is a device setting (ADR-0061), so the fetcher reads it from
+// The proxy URL is a device setting (ADR-0063), so the fetcher reads it from
 // `device-settings` rather than the ledger-backed settings store.
 const { mockProxyUrl } = vi.hoisted(() => {
   const { writable } = require("svelte/store");

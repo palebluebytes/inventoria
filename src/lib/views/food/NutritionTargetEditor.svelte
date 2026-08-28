@@ -55,7 +55,7 @@
   // inside it. Owns its own slice of settings so the parent Settings screen stays
   // thin (CODING_STANDARDS §4). Visibility and the targets keep their own writers
   // and are no longer even the same kind of thing — one is a device setting, the
-  // other a datom (ADR-0061) — but they are not strictly independent: setting a
+  // other a datom (ADR-0063) — but they are not strictly independent: setting a
   // positive custom target auto-tracks the nutrient (customising implies "show it").
 
   // Visible-nutrient selection (ticket #29), a device setting read synchronously,
@@ -84,7 +84,7 @@
   let food_calculated_targets = $state<Partial<Record<string, number>>>({});
   // Only the three target blobs need seeding from the ledger, and only they can
   // arrive late. The two display preferences above are read synchronously at
-  // construction (ADR-0061), so they never pass through here.
+  // construction (ADR-0063), so they never pass through here.
   let initialized = $state(false);
   $effect(() => {
     if (!initialized && $settingsStore) {
@@ -268,7 +268,7 @@
     persistNutritionDisplay();
   }
 
-  // Both are view preferences (ADR-0061), so each goes straight to its own
+  // Both are view preferences (ADR-0063), so each goes straight to its own
   // synchronous setter. No ledger write, and nothing to read through: this used
   // to carry the scraper proxy and the OFF consent along just to avoid clobbering
   // them, and that whole hazard is gone with the datom.

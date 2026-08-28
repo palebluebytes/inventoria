@@ -41,7 +41,7 @@
 
   // Local state variables for forms. Both fields on this screen are per-device
   // `localStorage` now: the TMDB key as a secret (ADR-0034 §8) and the scraper
-  // proxy as a device setting (ADR-0061). Neither waits on the ledger, so both
+  // proxy as a device setting (ADR-0063). Neither waits on the ledger, so both
   // seed at construction rather than from an effect. The food-specific settings
   // (USDA/OFF credentials, contribution consent, nutrition targets) live on the
   // Food screen's own settings sheet, not here.
@@ -62,7 +62,7 @@
       // The TMDB key is a secret — straight to localStorage, never a datom
       // (ADR-0034 §8), trimmed like any pasted credential.
       setSecret("tmdb_api_key", tmdbKey.trim());
-      // The proxy is a device setting now (ADR-0061), so this screen writes no
+      // The proxy is a device setting now (ADR-0063), so this screen writes no
       // datom at all: nothing here rides the ledger, and there is nothing left to
       // read through to avoid clobbering it.
       setScraperProxyUrl(scraperProxy.trim());

@@ -367,7 +367,7 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
 describe("saveLogExportConsent", () => {
   it("writes its own datom and touches nothing else", async () => {
     // Its own writer, so a screen that does not own this toggle cannot clobber
-    // it. Every settings writer in the module now has that shape (ADR-0061).
+    // it. Every settings writer in the module now has that shape (ADR-0063).
     await saveLogExportConsent(true);
     const datoms = appendMock.mock.calls[0][0] as {
       entity: string;

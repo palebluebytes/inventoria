@@ -38,7 +38,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("device settings (ADR-0061: localStorage, not the ledger)", () => {
+describe("device settings (ADR-0063: localStorage, not the ledger)", () => {
   it("reads its values at import, with no ledger and no await", async () => {
     // The defining property. Nothing here is asynchronous, so a caller reading
     // these during its first render gets the stored value rather than a default

@@ -19,7 +19,7 @@ import type {
 // `localStorage` because a credential must not sit in an undeletable, syncing log
 // (ADR-0034 §8, see stores/secrets.ts). Device settings — the display preferences
 // and the scraper proxy — went there because their past values mean nothing and
-// the first paint cannot wait for a worker to boot (ADR-0061, see
+// the first paint cannot wait for a worker to boot (ADR-0063, see
 // stores/device-settings.ts). No migration for either (pre-release); the old
 // datoms are simply never read again.
 //
@@ -305,7 +305,7 @@ async function appendSettings(
  * attributes at once — which meant every screen touching one of them had to read
  * the others through so as not to clobber them, and all three carried a comment
  * saying so. With the display preferences and the scraper proxy moved to
- * `stores/device-settings.ts` (ADR-0061), one attribute is left, and the hazard
+ * `stores/device-settings.ts` (ADR-0063), one attribute is left, and the hazard
  * goes with the bundle: each remaining setting now has a writer that touches only
  * itself, exactly as ADR-0031 §2 required of the targets.
  */
@@ -361,7 +361,7 @@ export async function saveFoodLimits(
  * the user with new defaults over stale overrides (Coding Standards §5).
  *
  * The meter list auto-tracking may add a macro to is NOT part of this append any
- * more: it is a view preference now (ADR-0061) and the caller writes it through
+ * more: it is a view preference now (ADR-0063) and the caller writes it through
  * `setVisibleNutrients`. What the transaction protects is the defaults-versus-
  * overrides pair, and that is intact; the worst a half-applied plan can now cost
  * is a meter row shown or not shown.
