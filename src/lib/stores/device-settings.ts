@@ -97,19 +97,33 @@ function readVisibleNutrients(): string[] {
 }
 
 /**
+ * The proxy this app serves itself, at the path its own Worker answers
+ * (ADR-0070). It is the default rather than a suggestion in `.env.example`
+ * because it is correct in both environments without anyone configuring it:
+ * `vite.config.ts` serves `/api/proxy` in development and the deployed Worker
+ * serves it in production. Being same-origin, it also satisfies the app's
+ * `COEP: require-corp` without a cross-origin resource policy, which is the
+ * reason proxied images render at all.
+ */
+const BUILT_IN_PROXY_URL = "/api/proxy?url=";
+
+/**
  * The CORS proxy a browser routes an HTML scrape through, as a URL prefix the
- * target is appended to. Unset falls back to `VITE_SCRAPER_PROXY_URL`, so a dev
- * with a `.env` gets a working proxy without typing one in — the same
- * env-fallback shape the secrets module uses, and the reason this reads through
- * a function rather than straight off the key.
+ * target is appended to. Three layers, most specific first.
  *
- * A stored empty string counts as set: an explicit clear overrides the env var,
- * exactly as a blank datom used to.
+ * A stored value wins, including a stored empty string: an explicit clear
+ * counts as set and means "no proxy", exactly as a blank datom used to.
+ * `VITE_SCRAPER_PROXY_URL` comes next, so a dev can point a build at some other
+ * proxy without touching code — the same env-fallback shape the secrets module
+ * uses, and the reason this reads through a function rather than straight off
+ * the key. Failing both, the app uses its own.
  */
 function readScraperProxyUrl(): string {
   const stored = safeGet(LS_KEYS.scraper_proxy_url);
   if (stored !== null) return stored;
-  return (import.meta.env?.VITE_SCRAPER_PROXY_URL as string) ?? "";
+  return (
+    (import.meta.env?.VITE_SCRAPER_PROXY_URL as string) ?? BUILT_IN_PROXY_URL
+  );
 }
 
 const panelOpen = writable<boolean>(readBoolPref(LS_KEYS.nutrition_panel_open));

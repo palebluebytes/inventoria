@@ -170,6 +170,18 @@ describe("device settings (ADR-0063: localStorage, not the ledger)", () => {
       );
     });
 
+    it("falls back to the app's own proxy when neither is set", async () => {
+      // The third layer, and the one that makes a fresh install work: the app
+      // serves /api/proxy itself in both environments (ADR-0070), so an
+      // unconfigured device gets a working scrape rather than the fetcher's
+      // "not configured" throw.
+      const ls = makeFakeLocalStorage();
+      vi.stubGlobal("localStorage", ls);
+      vi.stubEnv("VITE_SCRAPER_PROXY_URL", undefined as unknown as string);
+
+      expect(get((await loadPrefs()).scraperProxyUrl)).toBe("/api/proxy?url=");
+    });
+
     it("lets an explicit clear override the env fallback", async () => {
       // A stored empty string counts as SET, exactly as a blank datom used to:
       // clearing the field must mean "no proxy", not "fall back to the env var".
