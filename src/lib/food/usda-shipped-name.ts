@@ -616,9 +616,10 @@ export function resolveShippedNames(
     stripFortificationQualifier(shippedName(row));
   const claimants = new Map<string, Set<number>>();
   const claim = (name: string, fdcId: number) => {
-    const holders = claimants.get(stemmedName(name));
+    const key = stemmedName(name);
+    const holders = claimants.get(key);
     if (holders) holders.add(fdcId);
-    else claimants.set(stemmedName(name), new Set([fdcId]));
+    else claimants.set(key, new Set([fdcId]));
   };
   for (const row of standing) {
     claim(shippedName(row), row.fdcId);
