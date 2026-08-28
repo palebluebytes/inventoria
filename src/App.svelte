@@ -15,6 +15,7 @@
   // views stay static.
   import { warmUsdaCorpus } from "./lib/food/usda-corpus";
   import { clearRetiredSecrets } from "./lib/stores/secrets";
+  import { ensurePersistentStorage } from "./lib/storage/persistent-storage";
 
   // Dev/e2e-only UI-primitive harness: `?demo=bottomsheet` swaps the whole app
   // for a component demo, so a Playwright spec can drive the primitive in
@@ -52,6 +53,11 @@
     // than at module scope so it runs on a real load of the app, and beside the
     // warm because both are the same kind of startup errand.
     clearRetiredSecrets();
+    // Ask the browser to keep the ledger rather than leaving it evictable
+    // (ADR-0065). Not awaited: the answer changes nothing about the load, and
+    // the request is memoised, so the Settings readout reaches this same
+    // decision instead of asking a second time.
+    void ensurePersistentStorage();
     try {
       await initPromise;
       dbReady = true;
