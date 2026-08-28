@@ -146,6 +146,12 @@ export function applyVariantDrops(survivors, app) {
  * leaving them in the other would quietly make `new zealand` searchable again
  * the first time a refresh produced such a twin.
  *
+ * The fortification strip does NOT run over aliases, and that is not the same
+ * asymmetry. Whether it may run at all is a question about the whole corpus
+ * (ADR-0062 §3), which a one-name-at-a-time pass here cannot answer — so the
+ * aliases go INTO `resolveShippedNames` as names that can block a rename, and
+ * come out unchanged. The words stay searchable either way: six rows keep them.
+ *
  * @param {Survivor[]} survivors
  * @param {AppModule} app
  */
@@ -170,6 +176,9 @@ export function applyShippedNames(survivors, app) {
       // Only read to settle a designation collision, where provenance may not
       // choose and completeness can (ADR-0056's Amendment).
       panelFields: s.food.foodNutrients.length,
+      // Read only by ADR-0062 §3's freedom check, which has to ask about every
+      // name a row answers to rather than only its description.
+      also: s.also,
     }))
   );
   const kept = [];

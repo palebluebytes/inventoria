@@ -550,6 +550,40 @@ describe("resolveShippedNames — a fortification rename that would collide", ()
     expect([...dropped]).toEqual([]);
   });
 
+  it("counts an alias as a name the corpus already answers to", () => {
+    // `bestNameKey` ranks a query against an alias exactly as against a
+    // description, so a rename into a name a twin merge discarded would put two
+    // rows under one name just as surely — and ADR-0056 §3 makes the same
+    // argument in the other direction when it renames the aliases too. Nothing
+    // in the shipped corpus is in this position; the guard is here so the first
+    // refresh that produces one is refused rather than shipped.
+    const { renamed, dropped } = resolveShippedNames([
+      { fdcId: 1, description: "Milk, invented, with added vitamin D" },
+      {
+        fdcId: 2,
+        description: "Milk, something else",
+        also: ["Milk, invented"],
+      },
+    ]);
+    expect([...renamed]).toEqual([]);
+    expect([...dropped]).toEqual([]);
+  });
+
+  it("reads an alias as it will ship, not as the archive wrote it", () => {
+    // The alias goes through the origin strip before it reaches the corpus, so
+    // comparing against the archived text would compare against a string
+    // nothing answers to — and would let this rename through.
+    const { renamed } = resolveShippedNames([
+      { fdcId: 1, description: "Lamb, invented, with added vitamin D" },
+      {
+        fdcId: 2,
+        description: "Lamb, something else",
+        also: ["Lamb, New Zealand, imported, invented"],
+      },
+    ]);
+    expect([...renamed]).toEqual([]);
+  });
+
   it("reads the name the earlier rules left, not the one USDA published", () => {
     // Order is load-bearing (ADR-0062 §3). The aisle label comes off first, and
     // it is the SHORTENED name the freedom check is asked about — here it

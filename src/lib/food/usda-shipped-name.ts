@@ -120,6 +120,13 @@ export const CATALOGUE_QUALIFIERS: ReadonlySet<string> = new Set([
  * removed only where the name it leaves is free (ADR-0062 §3), so unlike
  * `new zealand` these words do NOT leave the corpus: six margarine rows keep
  * them. See {@link stripFortificationQualifier} and {@link resolveShippedNames}.
+ *
+ * Not `usda-variant-drops.ts`'s `FORTIFICATION_PART`, which DOES reach
+ * `fortified` and is not a contradiction: that predicate asks which rows are
+ * fortifications of one food so ADR-0061 §4 can keep one rung of the ladder,
+ * and over-reaching there groups two rows that a later rule then chooses
+ * between. This roster REWRITES a name, where over-reaching files two foods
+ * under one and nothing downstream can tell.
  */
 export const FORTIFICATION_QUALIFIERS: ReadonlySet<string> = new Set([
   "with added vitamin a and vitamin d",
@@ -293,6 +300,18 @@ export interface ShippedNameRow {
    * record, which is the only kind of claim ADR-0055 §1 admits.
    */
   panelFields?: number;
+  /**
+   * The other names this row answers to: the descriptions the twin merge
+   * discarded (ADR-0050 §4).
+   *
+   * Read only by the fortification freedom check, and it has to be: an alias is
+   * a name in every sense that matters here, because `bestNameKey` ranks a
+   * query against it exactly as against a description. A guard that asked only
+   * about descriptions would call a name free while a second row still answered
+   * to it — which is the same argument ADR-0056 §3 makes when it renames the
+   * aliases along with the descriptions.
+   */
+  also?: readonly string[];
 }
 
 /** What the rename decided about a whole corpus. */
@@ -312,8 +331,54 @@ export interface ShippedNameVerdict {
    * blocked look identical from outside. A rule whose reach nobody measured is
    * a hole nobody can see (ADR-0056 §5).
    */
-  fortification: { stripped: number; refused: number };
+  fortification: FortificationTally;
 }
+
+/** How far the fortification strip reached, and how far it was refused. */
+export interface FortificationTally {
+  /** Rows whose name lost the phrase. */
+  stripped: number;
+  /** Rows that kept it, because another row already answered to the shorter name. */
+  refused: number;
+}
+
+/** One qualifier part, twice: as a roster is asked, and as USDA typed it. */
+interface NamedPart {
+  /** Lowercased and whitespace-collapsed, which is the form a roster holds. */
+  lookup: string;
+  /** USDA's own text, trimmed and nothing more. */
+  text: string;
+}
+
+/**
+ * A description's qualifier parts, each paired with the text it was written as.
+ *
+ * The pairing is the invariant both strips below rest on, and it is stated once
+ * here rather than re-derived at each of them: {@link qualifiersOf} and the
+ * split beside it drop a part on exactly the same condition — empty once
+ * trimmed — so the two lists are aligned by construction and an index means the
+ * same part in both.
+ *
+ * Both halves are needed and neither will do alone. A roster lookup has to ask
+ * the normalised form, because USDA ships `Game meat , bison, ground, raw` with
+ * a space before its comma and 59 rows turn on that. A name being REWRITTEN has
+ * to be rebuilt from the original, because rejoining `qualifiersOf`'s output
+ * would ship `beef, wagyu, …` in place of USDA's casing.
+ */
+const namedParts = (description: string): NamedPart[] => {
+  // Asked of the ONE qualifier splitter, so "is this part an origin" is decided
+  // by the same boundaries and the same whitespace collapse the ranking uses. A
+  // second spelling here would be a second answer, free to drift silently.
+  const lookups = qualifiersOf(description);
+  const originals = description
+    .split(",")
+    .filter((part) => part.trim() !== "")
+    .map((part) => part.trim());
+  return lookups.map((lookup, index) => ({
+    lookup,
+    text: originals[index],
+  }));
+};
 
 /**
  * A description with its commercial origin qualifiers removed.
@@ -332,25 +397,18 @@ export interface ShippedNameVerdict {
  * A name carrying no origin part is returned BYTE-FOR-BYTE, not merely
  * equivalent: {@link qualifiersOf} collapses whitespace and lowercases, and a
  * row that is not being renamed must not have USDA's own text quietly rewritten
- * by passing through a splitter. The kept parts are read off the original
- * string for the same reason — rejoining `qualifiersOf`'s output would ship
- * `beef, wagyu, …`.
+ * by passing through a splitter. The kept parts are read off USDA's own text
+ * for the same reason, which is what {@link namedParts} is.
  */
 export function stripNonNamingQualifiers(description: string): string {
-  // Asked of the ONE qualifier splitter, so "is this part an origin" is decided
-  // by the same boundaries and the same whitespace collapse the ranking uses. A
-  // second spelling here would be a second answer, free to drift silently.
-  const parts = qualifiersOf(description);
-  // Aligned with `parts` by construction: both drop a part only when it is
-  // empty once trimmed.
-  const original = description.split(",").filter((part) => part.trim() !== "");
+  const parts = namedParts(description);
   const keep = parts.map(
-    (part, index) => index === 0 || !STRIPPED_QUALIFIERS.has(part)
+    ({ lookup }, index) => index === 0 || !STRIPPED_QUALIFIERS.has(lookup)
   );
   if (keep.every(Boolean)) return description;
-  return original
+  return parts
     .filter((_, index) => keep[index])
-    .map((part) => part.trim())
+    .map(({ text }) => text)
     .join(", ");
 }
 
@@ -386,22 +444,19 @@ const GLOSSED_PART = /^(.*?)\s*(\([^()]*\))$/;
  * applies this to anything.
  */
 export function stripFortificationQualifier(description: string): string {
-  // The ONE qualifier splitter, for the reason `stripNonNamingQualifiers` says.
-  const parts = qualifiersOf(description);
-  const original = description.split(",").filter((part) => part.trim() !== "");
   const kept: string[] = [];
   let stripped = false;
-  parts.forEach((part, index) => {
-    const glossed = part.match(GLOSSED_PART);
-    const phrase = glossed ? glossed[1] : part;
+  namedParts(description).forEach(({ lookup, text }, index) => {
+    const glossed = lookup.match(GLOSSED_PART);
+    const phrase = glossed ? glossed[1] : lookup;
     if (index === 0 || !FORTIFICATION_QUALIFIERS.has(phrase)) {
-      kept.push(original[index].trim());
+      kept.push(text);
       return;
     }
     stripped = true;
-    // Read off the ORIGINAL text, never the lowercased part, so USDA's casing
-    // survives a gloss the same way it survives a kept qualifier.
-    const gloss = original[index].trim().match(GLOSSED_PART);
+    // Matched again against USDA's OWN text, never the lowercased lookup, so a
+    // gloss keeps its casing the way a kept qualifier does.
+    const gloss = text.match(GLOSSED_PART);
     if (gloss) kept[kept.length - 1] += ` ${gloss[2]}`;
   });
   return stripped ? kept.join(", ") : description;
@@ -451,23 +506,35 @@ const foodIdentity = (description: string): string => {
 };
 
 /**
- * The name a collision is judged on: every word, stemmed, IN ORDER.
+ * A name as every collision in this module is judged on it: every word,
+ * stemmed, IN ORDER.
  *
  * Stems rather than the literal string, because USDA writes the plain organ
  * `kidneys` and its import `kidney`. Those differ as text, but {@link stemOf}
  * drops the trailing `s` and the search already treats them as one word — so
  * shipping both would put two rows a single letter apart side by side, which is
- * the duplicate this guard exists to prevent.
+ * the duplicate every guard below exists to prevent.
  *
  * In order, and never sorted. A sorted word set is a multiset, and two names
  * built from the same words in different arrangements are not the same name:
  * `Nuts, mixed nuts, oil roasted, without peanuts, with salt added` and
  * `…, with peanuts, without salt added` collide under a sort and are opposite
  * foods.
+ *
+ * All three collision rules ask THIS, so "are these two rows one name" has one
+ * answer: the origin tiebreak, the designation pass and the fortification
+ * freedom check cannot come apart on what counts as a duplicate.
  */
 const stemmedName = (name: string): string =>
   wordsOf(name).map(stemOf).join(" ");
 
+/**
+ * The key USDA's own description is grouped by, before any rename has run.
+ *
+ * The origin rule's entry point, and the one place the strip is applied inside
+ * the key rather than before it: rule 1 is asked of archived text, where the
+ * later rules are asked of names this module has already settled.
+ */
 const collisionKey = (description: string): string =>
   stemmedName(stripNonNamingQualifiers(description));
 
@@ -479,9 +546,9 @@ const collisionKey = (description: string): string =>
  * name — so it runs at generation time beside `plainSiblingsOf`, for the reason
  * ADR-0055 §6 gives.
  *
- * Three rules, in order, and the order is load-bearing: rule 3 asks whether a
- * name is free, which is a question about the corpus rules 1 and 2 have already
- * finished with.
+ * Four rules, in the order the body numbers them, and the order is load-bearing:
+ * rule 4 asks whether a name is FREE, which is a question about the corpus the
+ * three before it have already finished with.
  *
  * 1. **Collision.** Where two names come out the same, the row that carried an
  *    ORIGIN loses and the other wins. Note what the tiebreak asks: not "was this
@@ -498,7 +565,11 @@ const collisionKey = (description: string): string =>
  *    several-fold with nothing on screen to explain why. Simplicity is
  *    preferred to complete coverage here, deliberately and at a cost ADR-0056
  *    §5 states.
- * 3. **Fortification, only into a free name.** A
+ * 3. **Designation collision.** The population tag comes off every name, and
+ *    where that leaves two rows with one name the FULLER PANEL stays. Settled on
+ *    the record rather than on whose food it is, for the reason
+ *    {@link DESIGNATION_TAGS} gives (ADR-0056's Amendment).
+ * 4. **Fortification, only into a free name.** A
  *    {@link FORTIFICATION_QUALIFIERS} phrase comes off a name only where no
  *    other surviving row already answers to what is left. Nothing is dropped on
  *    this ground — where the name is taken, the row simply keeps the one it has
@@ -593,7 +664,7 @@ export function resolveShippedNames(
   // 4. The fortification phrase leaves a name, but only where the name it
   //    leaves is FREE (ADR-0062 §3).
   //
-  //    The point where this record departs from §4 above. There, a rename that
+  //    The point where ADR-0062 departs from ADR-0056 §4. There, a rename that
   //    made two names identical was settled by dropping the row that carried an
   //    origin; here there is no origin to break the tie and nothing else about
   //    these rows may, so the rename is simply not made. An ugly name is
@@ -601,19 +672,16 @@ export function resolveShippedNames(
   //    `with salt, with added vitamin D` for exactly that reason, and no rule
   //    ever deletes a row on this ground.
   //
-  //    A name is free when no OTHER surviving row could answer to it, and
-  //    "could" is the load-bearing word: a candidate whose own proposal is
+  //    A name is free when no OTHER surviving row could answer to it, and both
+  //    words are load-bearing. **Could**: a candidate whose own proposal is
   //    refused keeps the name it has, so it still holds that name against
-  //    everyone else. Counting only proposed names would let two candidates
-  //    both step aside for each other and collide anyway.
+  //    everyone else, and counting only proposed names would let two candidates
+  //    step aside into each other. **Answer to**: an alias is a name too, since
+  //    `bestNameKey` ranks a query against it exactly as against a description.
   //
   //    Asked of the rows still standing after the designation pass, not of
   //    `survivors` above, which was read before it took its six.
   const standing = rows.filter((row) => !dropped.has(row.fdcId));
-  const shippedName = (row: ShippedNameRow) =>
-    renamed.get(row.fdcId) ?? row.description;
-  const proposalOf = (row: ShippedNameRow) =>
-    stripFortificationQualifier(shippedName(row));
   const claimants = new Map<string, Set<number>>();
   const claim = (name: string, fdcId: number) => {
     const key = stemmedName(name);
@@ -621,19 +689,26 @@ export function resolveShippedNames(
     if (holders) holders.add(fdcId);
     else claimants.set(key, new Set([fdcId]));
   };
+  const proposals = new Map<number, string>();
   for (const row of standing) {
-    claim(shippedName(row), row.fdcId);
-    claim(proposalOf(row), row.fdcId);
+    const shipped = renamed.get(row.fdcId) ?? row.description;
+    const proposed = stripFortificationQualifier(shipped);
+    if (proposed !== shipped) proposals.set(row.fdcId, proposed);
+    claim(shipped, row.fdcId);
+    claim(proposed, row.fdcId);
+    // The alias as it will SHIP, not as the archive wrote it: ADR-0056 takes
+    // the origin words out of both kinds of name, so a check reading the raw
+    // alias would compare against a string nothing answers to.
+    for (const alias of row.also ?? [])
+      claim(stripNonNamingQualifiers(alias), row.fdcId);
   }
-  const fortification = { stripped: 0, refused: 0 };
-  for (const row of standing) {
-    const proposed = proposalOf(row);
-    if (proposed === shippedName(row)) continue;
+  const fortification: FortificationTally = { stripped: 0, refused: 0 };
+  for (const [fdcId, proposed] of proposals) {
     if (claimants.get(stemmedName(proposed))?.size !== 1) {
       fortification.refused++;
       continue;
     }
-    renamed.set(row.fdcId, proposed);
+    renamed.set(fdcId, proposed);
     fortification.stripped++;
   }
 
