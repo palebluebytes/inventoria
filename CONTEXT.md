@@ -26,6 +26,14 @@ _Avoid_: View, read model, materialized view, query result
 The immutable, original payload retrieved from an external API or scraper at the moment of ingestion, stored as a JSON blob alongside its extraction metadata (timestamp, source URI, adapter version). Ensures that future schema evolutions (e.g. EU DPP legislation updates) can remap historical data without network loss.
 _Avoid_: Raw data, API response, backup payload
 
+**Ledger export**:
+Every row of the Ledger written to a file the user chooses, as NDJSON: one datom per line, raw rather than projected, superseded facts and base64 photos included. It is ledger-only, so the `localStorage` side-cars (the secrets and the Log facility) are not in it. See ADR-0064.
+_Avoid_: Dump, snapshot, backup file (for the mechanism), sync
+
+**Export envelope**:
+The first line of a Ledger export, and the only line that is not a datom. It carries the file format's `schema_version`, the `exported_at` moment, the originating `device_id` and the `row_count` the Ledger held when the write began. A reader refuses an unfamiliar file on this line alone, before touching the rest. See ADR-0064 §2.
+_Avoid_: Header, manifest, metadata block
+
 ### Digital Twins
 
 **Digital Twin**:
