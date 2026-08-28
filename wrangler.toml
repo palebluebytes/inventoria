@@ -9,8 +9,14 @@ compatibility_date = "2026-08-25"
 [assets]
 directory = "dist"
 
+# `enabled` here is the switch for observability as a whole; the per-signal
+# blocks below say which signals are actually wanted. This used to read
+# `enabled = false` under blocks that turned logs on, which left the outcome
+# resting on which of the two the server lets win — a question wrangler does
+# not answer, since it forwards both values untouched. Logs on and traces off
+# is what the sub-blocks already asked for; now the top says so too.
 [observability]
-enabled = false
+enabled = true
 head_sampling_rate = 1
 
 [observability.logs]
@@ -19,7 +25,7 @@ head_sampling_rate = 1
 persist = true
 invocation_logs = true
 
+# `persist` and `head_sampling_rate` went with the disable: they only ever
+# described how to record traces that are not being recorded.
 [observability.traces]
 enabled = false
-persist = true
-head_sampling_rate = 1
