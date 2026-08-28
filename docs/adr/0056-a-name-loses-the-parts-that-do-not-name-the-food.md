@@ -2,6 +2,7 @@
 
 **Status:** Accepted  
 **Amended by:** the Amendment below, which takes the designation tag off the name too, and corrects Context's count of those tags  
+**Amended by:** [ADR-0062](0062-a-foods-own-name-is-what-retrieves-it.md) §2 and §3, which add the fortification phrases to §1's roster and refuse a rename that would collide instead of dropping the collided row  
 **Date:** 2026-08-25  
 **Implemented:** `src/lib/food/usda-shipped-name.ts`, applied by `scripts/usda-bundle.mjs`; Search index `schema_version` 5 to 6
 
