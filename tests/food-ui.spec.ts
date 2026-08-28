@@ -1008,7 +1008,12 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // Attach a photo (optional attribute of the custom entry). It has to be a
     // real PNG: the capture helper decodes what it is given so it can bound the
     // size (ADR-0066), and a byte string labelled image/png is refused.
-    await page.setInputFiles(".hidden-file-input", {
+    //
+    // Addressed by test id, not by `.hidden-file-input`: that class is the
+    // visually-hidden style shared by every file input in the app, and
+    // App.svelte keeps SettingsView mounted on every tab, so the ledger
+    // importer's input is always in the DOM alongside this one.
+    await page.setInputFiles('[data-testid="manual-photo-input"]', {
       name: "salad.png",
       mimeType: "image/png",
       buffer: ORANGE_64_PNG,
@@ -1127,12 +1132,14 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.locator("#custom-cal").fill("823");
 
     // A label can span several faces (panel on one, barcode on another) — attach
-    // three ordered shots in one pick; the input takes `multiple` (§5).
+    // three ordered shots in one pick; the input takes `multiple` (§5). By test
+    // id rather than `.hidden-file-input`, which is shared app-wide (see the
+    // custom-food-with-a-photo test above).
     const front = RED_64_PNG;
     const middle = GREEN_64_PNG;
     const back = BLUE_64_PNG;
     const frontUrl = `data:image/png;base64,${front.toString("base64")}`;
-    await page.setInputFiles(".hidden-file-input", [
+    await page.setInputFiles('[data-testid="label-photo-input"]', [
       { name: "front.png", mimeType: "image/png", buffer: front },
       { name: "middle.png", mimeType: "image/png", buffer: middle },
       { name: "back.png", mimeType: "image/png", buffer: back },

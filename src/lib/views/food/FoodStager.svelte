@@ -1898,6 +1898,7 @@
                         capture="environment"
                         multiple
                         class="hidden-file-input"
+                        data-testid="label-photo-input"
                         bind:this={fileInput}
                         onchange={handleFileChange}
                       />

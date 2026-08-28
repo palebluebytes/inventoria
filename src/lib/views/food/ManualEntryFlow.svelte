@@ -289,6 +289,7 @@
       accept="image/*"
       capture="environment"
       class="hidden-file-input"
+      data-testid="manual-photo-input"
       bind:this={fileInput}
       onchange={handleFile}
     />
