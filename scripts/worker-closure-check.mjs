@@ -7,12 +7,17 @@
  * short import away: the Worker already reaches back into `src/lib/ingestion/`
  * to share the SSRF guard and response policy with the Vite dev proxy, and one
  * more `import` from there into a store or a view would pull the app's browser
- * half along with it. Nothing in the roster would notice. `pnpm check`
- * typechecks the Worker against Node's lib, not workerd's, and a build that
- * bundles a `window` reference is perfectly valid TypeScript — it fails when a
- * scrape hits production.
+ * half along with it.
  *
- * So this pins the closure instead of the symptom. The Worker may import from
+ * `tsconfig.worker.json` catches the loud half of that: it types the Worker
+ * against workerd's lib, so an imported `window` or `localStorage` is a
+ * compile error. What it cannot catch is app code that happens to be
+ * DOM-free. A pure module full of nutrition arithmetic typechecks perfectly
+ * against workerd and still has no business being bundled to the edge, and
+ * once one is in, the next import is judged against a boundary that has
+ * already moved.
+ *
+ * So this pins the closure rather than the symptom. The Worker may import from
  * its own directory and from the ingestion modules it deliberately shares; a
  * module from anywhere else is the error, whether or not it happens to touch
  * the DOM today.
@@ -38,7 +43,7 @@ const ALLOWED_PREFIXES = ["worker/src/", "src/lib/ingestion/"];
 function listClosure() {
   const out = execFileSync(
     "node_modules/.bin/tsc",
-    ["--noEmit", "-p", "worker/tsconfig.json", "--listFiles"],
+    ["--noEmit", "-p", "tsconfig.worker.json", "--listFiles"],
     { cwd: repoRoot, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 }
   );
   return out.split("\n").filter(Boolean);

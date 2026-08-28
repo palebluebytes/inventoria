@@ -1,11 +1,32 @@
 {
+  // The fourth project: the Cloudflare Worker behind `/api/proxy`.
+  //
+  // It is the only code here that runs under workerd rather than a browser or
+  // Node, so it is the only one typed against `@cloudflare/workers-types` with
+  // a bare ES2022 lib and no DOM. That is the point of it having its own
+  // project at all: `tsconfig.tests.json` also reaches the Worker, but against
+  // Node's lib, which admits globals workerd does not have and would let a
+  // `Buffer` or a `process.env` through to the edge.
+  //
+  // It sat at `worker/tsconfig.json` and no script ran it until 2026-08-28, so
+  // that wrong-runtime check was the only one the Worker got.
+  //
+  // `include` is the Worker's own directory and nothing else. The modules it
+  // shares with the Vite dev proxy arrive transitively, which is what makes
+  // `scripts/worker-closure-check.mjs` meaningful — it reads the closure this
+  // project resolves. Naming `src/lib/ingestion/` here instead would drag in
+  // the app-only modules beside them and typecheck browser code against a
+  // runtime that has no browser.
   "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.worker.tsbuildinfo",
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "lib": ["ES2022"],
     "strict": true,
     "skipLibCheck": true,
+    "noEmit": true,
     "types": ["@cloudflare/workers-types"]
-  }
+  },
+  "include": ["worker/**/*.ts"]
 }

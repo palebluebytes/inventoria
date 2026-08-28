@@ -10,7 +10,7 @@
     "check:offline": "node scripts/offline-boot-check.mjs",
     "preview": "vite preview",
     "deploy": "pnpm run build && wrangler deploy",
-    "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json && tsc -p tsconfig.tests.json && node scripts/worker-closure-check.mjs && node scripts/docs-check.mjs",
+    "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json && tsc -p tsconfig.tests.json && tsc -p tsconfig.worker.json && node scripts/worker-closure-check.mjs && node scripts/docs-check.mjs",
     "check:worker": "node scripts/worker-closure-check.mjs",
     "docs:check": "node scripts/docs-check.mjs",
     "lint:css": "stylelint \"src/**/*.{css,svelte}\"",
