@@ -1,5 +1,10 @@
 name = "inventoria"
-compatibility_date = "2024-04-05"
+# The ceiling is the bundled runtime's own date: wrangler 4.126.0 ships
+# workerd 1.20260825.1, and workerd's version *is* the newest compatibility
+# date it understands. Raising this past that date breaks `wrangler dev`
+# locally even though the deployed runtime would accept it, so the two move
+# together — bump wrangler, then bump this to match.
+compatibility_date = "2026-08-25"
 
 [assets]
 directory = "dist"

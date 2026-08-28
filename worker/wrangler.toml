@@ -1,3 +1,6 @@
 name = "inventoria-proxy"
 main = "src/index.ts"
-compatibility_date = "2024-05-29"
+# This project pins its own wrangler (^3.57.1, resolved 3.114.17) separately
+# from the root, so its ceiling is that toolchain's workerd 1.20250718.0 —
+# not the root's 2026-08-25. Bumping past it needs wrangler 4 here first.
+compatibility_date = "2025-07-18"
