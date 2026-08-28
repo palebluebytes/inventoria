@@ -268,6 +268,25 @@ describe("retrievalCounter — the shipped search, asked how much a phrase reach
 
     expect(withAlias("millet")).toBe(1);
   });
+
+  it("counts a row the typed word only MENTIONS, which a search would discard", () => {
+    // Deliberate, and #177 measured it. The app drops
+    // `Cheese, mozzarella, whole milk` under `milk` (ADR-0062 §1), and this
+    // still counts it, because the two filters this feeds want the wider
+    // number: the effect filter cannot tell the difference — a cut whose bar
+    // comes from a row it always keeps can never empty a set — and the stopword
+    // guard asks how many descriptions merely CONTAIN a word, which is what
+    // makes it a word rather than a synonym.
+    const mentions = retrievalCounter(
+      [
+        { description: "Milk, whole, 3.7% milkfat" },
+        { description: "Cheese, mozzarella, whole milk" },
+      ],
+      ranking
+    );
+
+    expect(mentions("milk")).toBe(2);
+  });
 });
 
 // ---------------------------------------------------------------------------

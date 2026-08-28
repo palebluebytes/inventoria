@@ -122,6 +122,14 @@ export const VARIANT_DROP_EXPORTS = [
  * the artifact because deriving it at load costs 24 ms against the 18.5 ms the
  * whole corpus load costs, and baking a value means the generator and the search
  * have to agree about it exactly.
+ *
+ * ADR-0062 §1's `withoutStrayMentions` is deliberately NOT here, and #177
+ * measured why. The derivation asks two questions of a phrase and the rule
+ * answers neither: it cannot change whether a phrase retrieves ANYTHING, since
+ * the bar it filters against is set by a row it always keeps, and asked of the
+ * stopword guard's breadth it puts `whole` at five rows — four turkeys and a
+ * milk — which readmits the `wholemeal -> [whole, whole grain]` entry ADR-0049
+ * names as the reason the guard exists.
  */
 export const RANKING_EXPORTS = [
   "readReferenceFoodName",

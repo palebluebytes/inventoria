@@ -242,7 +242,7 @@ export function describeVocabulary(vocabulary) {
 }
 
 /**
- * How many rows a phrase retrieves, memoised, asked the way a keystroke asks it.
+ * How many rows a phrase reaches, memoised, asked the way a keystroke asks it.
  *
  * The two filters ask the same question of thousands of phrases and of the same
  * phrase from several groups, so the names are read once and the answers are
@@ -255,6 +255,29 @@ export function describeVocabulary(vocabulary) {
  * counter that modelled descriptions alone would measure a corpus the app no
  * longer searches, and both of ADR-0049 §3's filters are stated over what the
  * finished corpus retrieves.
+ *
+ * **It counts the rows a phrase SCORES, and ADR-0062 §1's cut is deliberately
+ * not applied.** Since #176 the app also discards a row whose every typed token
+ * landed past the food's own name, where some row answers on a strictly higher
+ * rung — so this is a wider count than a search returns, and #177 measured both
+ * of the questions above against the narrower one before leaving it out:
+ *
+ *   EFFECT FILTER   the cut CANNOT change the answer. `withoutStrayMentions`
+ *                   sets its bar from a row that is `named`, and a `named` row
+ *                   always clears it, so a non-empty set can never come back
+ *                   empty (pinned in `reference-food-ranking.test.ts`). "Does
+ *                   this phrase retrieve anything?" is the same question either
+ *                   way, which is why teaching the derivation the rule prunes
+ *                   no key at all — the regeneration that tried it ADDED two.
+ *   STOPWORD GUARD  the cut makes it measure the wrong thing. The guard asks
+ *                   whether a target is a word unrelated descriptions merely
+ *                   CONTAIN, and the cut narrows which of those a search
+ *                   returns without making the word any more of a synonym:
+ *                   under it `whole` reaches five rows rather than 209, and
+ *                   `wholemeal -> [whole, whole grain]` — the entry
+ *                   {@link VOCABULARY_TARGET_SHARE} names as the reason the
+ *                   guard exists — is readmitted and leads with
+ *                   `Turkey from whole, light meat, …`.
  *
  * @param {{ description: string, also?: string[] }[]} rows
  * @param {{ readReferenceFoodName: (description: string) => object, compileReferenceFoodQuery: (query: string) => (name: object) => { tier: number } }} app

@@ -688,6 +688,31 @@ describe("withoutStrayMentions", () => {
       "Fish, anchovy, european, raw",
     ]);
   });
+
+  it("never empties a set it was given rows in, whatever the rungs", () => {
+    // The corollary of the case above, and the one another module depends on:
+    // the bar is the best rung a NAMED row reached, and a named row always
+    // clears it, so a non-empty set survives however the rungs fall.
+    //
+    // `scripts/usda-vocabulary.mjs` rests on this. Its counter deliberately does
+    // NOT apply this rule, on the ground that "does this phrase retrieve
+    // anything?" — ADR-0049 §3's effect filter — has the same answer either way.
+    // If this ever goes red, that argument is gone with it and the derivation
+    // starts minting keys that expand to nothing.
+    for (const rows of [
+      scored([["Cheese, mozzarella, whole milk", 20, false]]),
+      scored([
+        ["Milk, whole, 3.7% milkfat", 50, true],
+        ["Cheese, mozzarella, whole milk", 20, false],
+      ]),
+      scored([
+        ["Spices, chili powder", 20, true],
+        ["Peppers, hot chili, red, raw", 20, false],
+      ]),
+      scored([["Fish, milkfish, cooked, dry heat", 10, true]]),
+    ])
+      expect(withoutStrayMentions(rows).length).toBeGreaterThan(0);
+  });
 });
 
 // ADR-0055 §3 and §5: two keys that read a ROW rather than a name. The corpus
