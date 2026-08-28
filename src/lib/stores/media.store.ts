@@ -1,8 +1,18 @@
 import { createProjectionStore } from "./datoms.store";
 import { dbClient, type Datom } from "../db/db.client";
 import { ingestEntity, type EntityPayload } from "../ingestion/ingest";
+import { ingestionRegistry } from "../ingestion/registry";
 import type { EnrichedMedia } from "../media/state";
 import { logWatchEvent, logReadEvent } from "../media/engagement";
+
+// Imported for their side effect: each adapter module calls
+// `ingestionRegistry.register` at module scope, so importing it is what puts it
+// in the map `enrichMediaTwin` resolves against. These used to be `await
+// import()` inside that function, which read as code splitting but never was —
+// MediaIngestModal already imports all three statically, so Rolldown emitted
+// [INEFFECTIVE_DYNAMIC_IMPORT] and kept them in the entry chunk regardless.
+import "../media/open-library";
+import "../media/tmdb";
 
 // Reactive store providing fully-enriched media twins from the worker
 export const mediaLibraryStore = createProjectionStore<EnrichedMedia[]>(
@@ -85,18 +95,8 @@ export async function updateMediaStatus(
 /**
  * Enriches an existing media twin with details from the API (if missing).
  */
-export async function enrichMediaTwin(
-  id: string,
-  type: "movie" | "tv" | "book"
-): Promise<void> {
+export async function enrichMediaTwin(id: string): Promise<void> {
   const now = Date.now();
-  if (type === "book") {
-    await import("../media/open-library");
-  } else {
-    await import("../media/tmdb");
-  }
-
-  const { ingestionRegistry } = await import("../ingestion/registry");
   const payload = await ingestionRegistry.resolve(id);
 
   // Construct datoms for missing or enriched attributes:

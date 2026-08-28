@@ -43,7 +43,7 @@
       !isEnriching
     ) {
       isEnriching = true;
-      enrichMediaTwin(media.id, "book")
+      enrichMediaTwin(media.id)
         .catch((err) => {
           console.error("Failed to enrich book details:", err);
         })
