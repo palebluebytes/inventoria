@@ -2,6 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-28  
+**Amended by:** ADR-0065 §4 (the origin-wide size figure moves off the export screen to the Storage section above it)  
 **Implemented:** #105 `3a4065a` (the paged read), `e2f7e17` (the format and the walk), `c55c0c4` (the Settings surface), `e622c5b` (the summary/envelope naming split), `0ceb2a8` (review fixes, including §6's ruling that the ceiling is measured on bytes written)
 
 ## Context
