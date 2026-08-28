@@ -132,6 +132,35 @@ describe("DBClient RPC layer", () => {
     await expect(p).resolves.toEqual([]);
   });
 
+  it("asks the worker for the ledger manifest", async () => {
+    const c = await makeInitialized();
+    const p = c.ledgerManifest();
+    expect(getWorker().posted[1].type).toBe("ledger_manifest");
+    getWorker().respond(getWorker().lastId, {
+      status: "ok",
+      data: { row_count: 3, device_id: "device_a" },
+    });
+    await expect(p).resolves.toEqual({ row_count: 3, device_id: "device_a" });
+  });
+
+  it("sends the cursor and the byte budget with a ledger page request", async () => {
+    const c = await makeInitialized();
+    const after = {
+      entity: "habit:1",
+      attribute: "habit/name",
+      hlc_ms: 5,
+      hlc_ctr: 0,
+      device_id: "device_a",
+    };
+    const p = c.ledgerPage(after, 2048);
+    expect(getWorker().posted[1]).toMatchObject({
+      type: "ledger_page",
+      payload: { after, budget_bytes: 2048 },
+    });
+    getWorker().respond(getWorker().lastId, { status: "ok", data: [] });
+    await expect(p).resolves.toEqual([]);
+  });
+
   it("terminate clears the worker and rejects subsequent calls", async () => {
     const c = await makeInitialized();
     const inst = getWorker();

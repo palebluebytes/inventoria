@@ -1,7 +1,13 @@
 import DBWorker from "./db.worker?worker";
-import type { Datom, StoredDatom } from "./db.core";
+import type {
+  Datom,
+  LedgerCursor,
+  LedgerManifest,
+  LedgerRow,
+  StoredDatom,
+} from "./db.core";
 
-export type { Datom, StoredDatom };
+export type { Datom, LedgerCursor, LedgerManifest, LedgerRow, StoredDatom };
 
 export type InvalidationListener = (attributes: string[]) => void;
 
@@ -106,6 +112,29 @@ export class DBClient {
     return () => {
       this.invalidationListeners.delete(listener);
     };
+  }
+
+  /**
+   * What the ledger says about itself: how many rows it holds and which device
+   * it belongs to. The two facts an export envelope carries.
+   */
+  async ledgerManifest(): Promise<LedgerManifest> {
+    return this.send<LedgerManifest>("ledger_manifest", {});
+  }
+
+  /**
+   * The next rows of the ledger after `after`, bounded by `budget_bytes` of
+   * value, or an empty array once the walk is finished.
+   *
+   * This is the export's read seam. SQLite stays in the worker and the table
+   * never crosses the boundary whole: a ledger carrying full-resolution label
+   * photos is far larger than a message the main thread can hold.
+   */
+  async ledgerPage(
+    after: LedgerCursor | null,
+    budget_bytes: number
+  ): Promise<LedgerRow[]> {
+    return this.send<LedgerRow[]>("ledger_page", { after, budget_bytes });
   }
 
   /**

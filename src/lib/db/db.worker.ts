@@ -2,9 +2,11 @@ import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
 import { projections } from "./projections";
 import {
   appendDatoms,
+  countDatoms,
   ensureLedgerSchema,
   getOrCreateDeviceId,
   readHlcHighWater,
+  readLedgerPage,
   resetLedgerSchema,
   execRows,
   type LedgerDb,
@@ -13,6 +15,9 @@ import { createHlc, type Hlc } from "./hlc";
 
 let db: LedgerDb | null = null;
 let hlc: Hlc | null = null;
+// Kept from init so a manifest read does not have to re-derive it: the id is
+// stable for the life of the database file.
+let device_id: string | null = null;
 let initialized = false;
 
 // Gate that opens once `init` has finished (whether it succeeded or threw).
@@ -72,7 +77,7 @@ self.onmessage = async (event: MessageEvent) => {
       // Ensure the ledger exists on the HLC schema (migrating a legacy
       // database in place), then seed the clock from its high-water mark so
       // stamps stay monotonic across restarts (ADR-0020).
-      const device_id = getOrCreateDeviceId(db);
+      device_id = getOrCreateDeviceId(db);
       ensureLedgerSchema(db, device_id);
       hlc = createHlc(device_id, { seed: readHlcHighWater(db) });
 
@@ -125,6 +130,27 @@ self.onmessage = async (event: MessageEvent) => {
       self.postMessage({
         type: "broadcast_invalidation",
         payload: { attributes },
+      });
+    } else if (type === "ledger_manifest") {
+      if (!db || !device_id) {
+        throw new Error("Database not initialized. Please call 'init' first.");
+      }
+      self.postMessage({
+        id,
+        status: "ok",
+        data: { row_count: countDatoms(db), device_id },
+      });
+    } else if (type === "ledger_page") {
+      if (!db) {
+        throw new Error("Database not initialized. Please call 'init' first.");
+      }
+      // The export's read seam. Rows leave a page at a time, bounded by bytes,
+      // so a ledger full of label photos never crosses the boundary whole.
+      const { after, budget_bytes } = payload;
+      self.postMessage({
+        id,
+        status: "ok",
+        data: readLedgerPage(db, after ?? null, budget_bytes),
       });
     } else if (type === "clear") {
       if (!db) {
