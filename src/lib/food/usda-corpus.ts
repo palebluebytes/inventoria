@@ -18,6 +18,7 @@ import {
   compareRelevance,
   readReferenceFoodName,
   readRowRank,
+  retrievedByName,
   stemOf,
   wordsOf,
   type ReferenceFoodName,
@@ -423,10 +424,13 @@ function bestNameKey(
  * phrase comes back with the row because it is also what NAMES the row: it is
  * the one of the k phrases this food actually answered.
  *
- * There is no filter step. The reference-food filters ran once at generation
- * time and the index holds only their 4,238 survivors (ADR-0047 §4, widened by
- * ADR-0048 §5), so re-running them per keystroke would be work over a corpus
- * that cannot fail them.
+ * The reference-food filters are NOT among the steps: they ran once at
+ * generation time and the index holds only their 4,238 survivors (ADR-0047 §4,
+ * widened by ADR-0048 §5), so re-running them per keystroke would be work over a
+ * corpus that cannot fail them. The one filter here is about the QUERY rather
+ * than the row — a row the typed words reach only past the food's own name, in
+ * a set where some row answers on a higher rung, is not an answer (ADR-0062 §1).
+ * It runs before the sort because it is cheaper to drop a row than to order it.
  */
 function rankAgainst(
   foods: SearchableFood[],
@@ -446,7 +450,7 @@ function rankAgainst(
     }
     if (best) scored.push({ row: food.row, phrase: bestPhrase, key: best });
   }
-  return scored
+  return retrievedByName(scored)
     .sort((a, b) => compareRelevance(a.key, b.key))
     .slice(0, SEARCH_RESULT_LIMIT)
     .map(({ row, phrase }) => ({ row, phrase }));

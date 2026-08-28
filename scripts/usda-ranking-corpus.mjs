@@ -30,6 +30,7 @@ import {
   compileReferenceFoodQuery,
   compareRelevance,
   readRowRank,
+  retrievedByName,
 } from "../src/lib/food/reference-food-ranking.ts";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -63,27 +64,28 @@ export const buildCorpus = (index) =>
 /**
  * Every row that answers a query, scored and ordered, with no window applied:
  * `searchIndexRows` restated over the plain-JSON row shape. Deliberately the
- * same three steps in the same order — score, drop tier 0, sort — so a
+ * same four steps in the same order — score, drop tier 0, drop the rows the
+ * typed words reached only past the food's own name (ADR-0062 §1), sort — so a
  * divergence here is a bug rather than a finding. A row scores as the BEST of
- * its names, which is the fourth thing that has to match and the reason `names`
+ * its names, which is the fifth thing that has to match and the reason `names`
  * is a list.
  *
- * The fifth is that a scored name carries its ROW's keys too, the way
+ * The sixth is that a scored name carries its ROW's keys too, the way
  * `bestNameKey` spreads them: a restatement that drops them does not rank worse,
  * it ranks differently and quietly, for the `NaN`-is-falsy reason
  * {@link buildCorpus} gives.
  */
 export function scoreAll(corpus, query) {
   const rank = compileReferenceFoodQuery(query);
-  return corpus
+  const scored = corpus
     .map((food) => ({
       description: food.description,
       key: food.names
         .map((name) => ({ ...rank(name), ...food.rank }))
         .reduce((best, key) => (compareRelevance(key, best) < 0 ? key : best)),
     }))
-    .filter(({ key }) => key.tier > 0)
-    .sort((a, b) => compareRelevance(a.key, b.key));
+    .filter(({ key }) => key.tier > 0);
+  return retrievedByName(scored).sort((a, b) => compareRelevance(a.key, b.key));
 }
 
 /**

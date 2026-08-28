@@ -35,6 +35,7 @@ import {
   qualifiersOf,
   readReferenceFoodName,
   readRowRank,
+  retrievedByName,
   stemOf,
   type RelevanceKey,
 } from "../../src/lib/food/reference-food-ranking";
@@ -1150,6 +1151,100 @@ describe("searchIndexRows", () => {
     );
   });
 
+  it("answers a bare `milk` with milks, and with nothing a milk went into", () => {
+    // ADR-0062 §1. Twelve cheeses, seven yogurts, a mashed potato and a coffee
+    // substitute answered `milk` on a qualifier naming what they are MADE OF,
+    // and ADR-0061's drops promoted every one of them onto the first screen —
+    // the corpus got smaller and the answer got worse. The food's own name is
+    // the part the shelf label leads to, so `Nuts, coconut milk` is a milk and
+    // `Cheese, mozzarella, whole milk` is a cheese.
+    const milk = descriptionsFor("milk");
+    expect(milk).toHaveLength(17);
+    expect(milk.filter((d) => /^(Cheese|Yogurt|Potatoes)/.test(d))).toEqual([]);
+    // The two the rule must not touch, and the reason it reads the part rather
+    // than the head: both are filed under a shelf label, exactly as the cheeses
+    // are, and both name a milk in the part that label leads to.
+    expect(milk).toContain(
+      "Nuts, coconut milk, raw (liquid expressed from grated meat and water)"
+    );
+    expect(milk).toContain("Beverages, rice milk, unsweetened");
+    // The two milkfish stay, which is ADR-0062 §4 declining to stop `milk`
+    // prefix-matching `milkfish` — the branch that also serves `grape` to
+    // grapefruit. They are NAMED milkfish, so this rule never looked at them.
+    expect(milk).toContain("Fish, milkfish, raw");
+    // And every row it drops still answers the word that names IT.
+    expect(descriptionsFor("mozzarella")[0]).toBe(
+      "Cheese, mozzarella, whole milk"
+    );
+    // A typed `whole milk` is the same rule over two tokens, and the reach is
+    // stated rather than assumed: eleven of the thirteen rows it used to return
+    // were a food some whole milk went into, and both survivors are milk.
+    expect(descriptionsFor("whole milk")).toEqual([
+      "Milk, whole, 3.7% milkfat",
+      "Milk, buttermilk, fluid, whole",
+    ]);
+  });
+
+  it("keeps a word past a name where no row answers it better", () => {
+    // ADR-0062 §1's gate, and the three foods it is the difference between
+    // keeping and losing. Ungated, the rule takes every chili pepper out of
+    // `chili`, every butternut squash out of `butternut` and every swiss chard
+    // out of `swiss`, because in each the typed word is one food's qualifier and
+    // another food's own name — at the SAME rung, so neither answers better.
+    expect(descriptionsFor("chili")[0]).toBe("Peppers, hot chili, red, raw");
+    expect(descriptionsFor("chili")).toContain("Spices, chili powder");
+    expect(descriptionsFor("butternut")[0]).toBe(
+      "Squash, winter, butternut, raw"
+    );
+    expect(descriptionsFor("butternut")).toContain("Nuts, butternuts, dried");
+    expect(descriptionsFor("swiss")[0]).toBe("Chard, swiss, raw");
+    expect(descriptionsFor("swiss")).toContain("Cheese, swiss");
+    // The lead is safe by construction rather than by measurement: it holds the
+    // best rung in the set, so it clears any bar the set can produce. `ancho`
+    // is the case that shows it — the pepper is a qualifier match, and the
+    // anchovy that survives every gate is a bare prefix one, a rung below.
+    expect(descriptionsFor("ancho")[0]).toBe("Peppers, ancho, dried");
+  });
+
+  it("counts what the name-part rule reaches, and what it must not", () => {
+    // ADR-0062 §1's table, re-measured over today's corpus — the record states
+    // 25 rows for `milk` against the 18 that ship and 1,432 for `raw` against
+    // 1,444 — and the tripwire on what the rule touches (#131: an unmeasured
+    // guard is a hole). Retrieved before the rule, then after it.
+    //
+    // `raw` and `cooked` are the pair that needs the gate: no food is NAMED raw,
+    // so the bar stays at 0, every row clears it, and an ungated cut would empty
+    // both queries outright.
+    const retrieved = (query: string) => {
+      const rank = compileReferenceFoodQuery(query);
+      const scored = corpus.foods
+        .map((food) => ({
+          key: [food.name, ...food.also]
+            .map((name) => ({ ...rank(name), ...food.rank }))
+            .reduce((best, key) =>
+              compareRelevance(key, best) < 0 ? key : best
+            ),
+        }))
+        .filter(({ key }) => key.tier > 0);
+      return [scored.length, retrievedByName(scored).length];
+    };
+    expect(
+      Object.fromEntries(
+        ["milk", "raw", "cooked", "salt", "water", "oil"].map((query) => [
+          query,
+          retrieved(query),
+        ])
+      )
+    ).toEqual({
+      milk: [35, 17],
+      raw: [1444, 1444],
+      cooked: [1578, 1578],
+      salt: [427, 1],
+      water: [62, 12],
+      oil: [112, 70],
+    });
+  });
+
   it("answers a bare drink name with something drinkable", () => {
     // The second half of #154, and a different shape from the first: seven wine
     // rows tie on every key here, so this is not a ranking win but the removal
@@ -1627,13 +1722,14 @@ describe("searchIndexRows", () => {
     );
   });
 
-  it("changes only the order a query returns, never the set", () => {
-    // #124's hard invariant, and what decouples it from the vocabulary work in
-    // #139/#140, which fires on whether a query retrieves anything at all. The
-    // new key is consulted only after retrieval has already admitted a row, so
-    // the retrieved SET is a function of `tier > 0` alone — asserted here by
-    // scoring every row against a spread of queries and checking that the
-    // admitted set is exactly the set the tiers admit, independent of order.
+  it("returns the rows the keys admit, and no ordering key removes one", () => {
+    // #124's hard invariant, as ADR-0062 §1 leaves it. It used to read "the
+    // retrieved SET is a function of `tier > 0` alone"; retrieval now asks a
+    // second question of the same keys — did the typed words reach the food's
+    // own name, where some row answered on a better rung — so the set is a
+    // function of `tier` and `named`, and of nothing else. What it still
+    // decouples is retrieval from ORDER, which is what the vocabulary work in
+    // #139/#140 rests on: no ranking key can add or remove a row.
     for (const query of [
       "olive oil",
       "cheddar cheese",
@@ -1644,16 +1740,29 @@ describe("searchIndexRows", () => {
       "b",
     ]) {
       const rank = compileReferenceFoodQuery(query);
-      const admitted = corpus.foods.filter((food) => rank(food.name).tier > 0);
+      // Scored the way the search scores it: as the best of ALL the row's names,
+      // its own and any the twin merge discarded (#137). A restatement over
+      // descriptions alone measures a corpus the app no longer searches.
+      const scored = corpus.foods
+        .map((food) => ({
+          food,
+          key: [food.name, ...food.also]
+            .map((name) => ({ ...rank(name), ...food.rank }))
+            .reduce((best, key) =>
+              compareRelevance(key, best) < 0 ? key : best
+            ),
+        }))
+        .filter(({ key }) => key.tier > 0);
+      const admitted = retrievedByName(scored);
       const returned = new Set(
         searchIndexRows(corpus, query).hits.map(({ row }) => row.description)
       );
       // Every returned row was admitted, and the cap is the only thing that
       // ever removes one.
       for (const description of returned)
-        expect(admitted.some((f) => f.row.description === description)).toBe(
-          true
-        );
+        expect(
+          admitted.some(({ food }) => food.row.description === description)
+        ).toBe(true);
       expect(returned.size).toBe(
         Math.min(admitted.length, SEARCH_RESULT_LIMIT)
       );
