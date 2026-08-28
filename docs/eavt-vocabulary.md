@@ -229,7 +229,11 @@ the app is not: it lives in `localStorage`, and
 [ADR-0061](adr/0061-a-setting-is-a-datom-only-if-its-past-matters.md) is the test
 to apply before adding an attribute below.
 
-- `settings/scraper_proxy_url`.
+- `settings/scraper_proxy_url`: retired. The proxy a browser routes an HTML scrape
+  through is configuration for one device, not a fact with a history, so it moved to
+  `localStorage` with the view preferences
+  ([ADR-0061](adr/0061-a-setting-is-a-datom-only-if-its-past-matters.md)). The
+  attribute is not read.
 - `settings/tmdb_api_key`, `settings/usda_api_key`: both retired. The TMDB key moved
   to `localStorage` (ADR-0034 §8); the USDA key is gone entirely with the FoodData
   Central API behind it

@@ -12,7 +12,7 @@
     PrimaryLabelContext,
   } from "../../food/food-staging";
   import { roundFoodDisplay } from "../../food/nutrition";
-  import { calorieDisplayDecimals } from "../../stores/view-prefs";
+  import { calorieDisplayDecimals } from "../../stores/device-settings";
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import FoodStager from "./FoodStager.svelte";
 

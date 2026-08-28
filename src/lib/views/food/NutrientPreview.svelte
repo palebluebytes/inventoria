@@ -7,7 +7,7 @@
   import {
     visibleNutrients,
     calorieDisplayDecimals,
-  } from "../../stores/view-prefs";
+  } from "../../stores/device-settings";
   import NutrientBreakdown from "./NutrientBreakdown.svelte";
 
   // How a set of derived nutrition figures is shown, wherever they come from —

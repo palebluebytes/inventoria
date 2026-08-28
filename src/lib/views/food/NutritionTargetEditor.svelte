@@ -1,7 +1,6 @@
 <script lang="ts">
   import {
     settingsStore,
-    saveSettings,
     saveFoodTargets,
     saveFoodLimits,
     saveCalculatorPlan,
@@ -13,7 +12,7 @@
     roundNutritionPref,
     setVisibleNutrients,
     setRoundNutrition,
-  } from "../../stores/view-prefs";
+  } from "../../stores/device-settings";
   import { get } from "svelte/store";
   import type { EnergyMacros } from "../../food/personalized-energy-macros";
   import { roundFoodDisplay } from "../../food/nutrition";
@@ -54,13 +53,14 @@
   // for. Shares the modal's card layout and grouping (ticket #42) — the whole card
   // is the visibility toggle (no separate control) and the allowance is edited
   // inside it. Owns its own slice of settings so the parent Settings screen stays
-  // thin (CODING_STANDARDS §4). Visibility and the targets stay two datoms with
-  // their own writers, but they are no longer strictly independent: setting a
+  // thin (CODING_STANDARDS §4). Visibility and the targets keep their own writers
+  // and are no longer even the same kind of thing — one is a device setting, the
+  // other a datom (ADR-0061) — but they are not strictly independent: setting a
   // positive custom target auto-tracks the nutrient (customising implies "show it").
 
-  // Visible-nutrient selection (ticket #29). Each toggle persists immediately,
-  // re-writing the already-saved API keys from the store so an unsaved edit in
-  // the credentials form is never clobbered. Calories are always-on via the ring.
+  // Visible-nutrient selection (ticket #29), a device setting read synchronously,
+  // so each toggle persists through its own setter with nothing to clobber.
+  // Calories are always shown and are not selectable.
   let visible_nutrients = $state<string[]>([...get(visibleNutrients)]);
   // Whether calories read rounded to whole numbers (display-only, ticket #29).
   let round_nutrition = $state(get(roundNutritionPref));
@@ -82,8 +82,9 @@
   // metrics" is applied — so an absent key here means "no personalized default,
   // use the baked reference" (see `defaultTargets` / `placeholderFor`).
   let food_calculated_targets = $state<Partial<Record<string, number>>>({});
-  // The two display preferences read from `localStorage` (ADR-0061), so unlike
-  // the target blobs below they are correct at once and need no seeding effect.
+  // Only the three target blobs need seeding from the ledger, and only they can
+  // arrive late. The two display preferences above are read synchronously at
+  // construction (ADR-0061), so they never pass through here.
   let initialized = $state(false);
   $effect(() => {
     if (!initialized && $settingsStore) {

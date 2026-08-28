@@ -1,17 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Use vi.hoisted to declare and initialize mockSettings before vi.mock executes
-const { mockSettings } = vi.hoisted(() => {
+// Use vi.hoisted to declare and initialize the store before vi.mock executes.
+// The proxy URL is a device setting (ADR-0061), so the fetcher reads it from
+// `device-settings` rather than the ledger-backed settings store.
+const { mockProxyUrl } = vi.hoisted(() => {
   const { writable } = require("svelte/store");
-  return {
-    mockSettings: writable({
-      scraper_proxy_url: "",
-    }),
-  };
+  return { mockProxyUrl: writable("") };
 });
 
-vi.mock("../../src/lib/stores/settings.store", () => ({
-  settingsStore: mockSettings,
+vi.mock("../../src/lib/stores/device-settings", () => ({
+  scraperProxyUrl: mockProxyUrl,
 }));
 
 import { fetchHtml, getProxyImageUrl } from "../../src/lib/ingestion/fetcher";
@@ -79,16 +77,12 @@ describe("fetchHtml Proxy Error handling", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     // Default to a configured proxy url for fetchHtml success/error path testing
-    mockSettings.set({
-      scraper_proxy_url: "https://my-proxy.com/?url=",
-    });
+    mockProxyUrl.set("https://my-proxy.com/?url=");
   });
 
   it("throws configuration error if proxy is empty in browser", async () => {
     // Set proxy URL to empty
-    mockSettings.set({
-      scraper_proxy_url: "",
-    });
+    mockProxyUrl.set("");
 
     // Mock window to simulate browser environment
     vi.stubGlobal("window", {});
@@ -148,9 +142,7 @@ describe("getProxyImageUrl utility", () => {
   });
 
   it("prefixes cross-origin URLs with the scraper proxy URL if configured", () => {
-    mockSettings.set({
-      scraper_proxy_url: "https://my-custom-proxy.com/?u=",
-    });
+    mockProxyUrl.set("https://my-custom-proxy.com/?u=");
 
     expect(getProxyImageUrl("https://example.com/img.jpg")).toBe(
       `https://my-custom-proxy.com/?u=${encodeURIComponent("https://example.com/img.jpg")}`
@@ -158,9 +150,7 @@ describe("getProxyImageUrl utility", () => {
   });
 
   it("returns raw cross-origin URLs as-is if no proxy is configured", () => {
-    mockSettings.set({
-      scraper_proxy_url: "",
-    });
+    mockProxyUrl.set("");
 
     expect(getProxyImageUrl("https://example.com/img.jpg")).toBe(
       "https://example.com/img.jpg"

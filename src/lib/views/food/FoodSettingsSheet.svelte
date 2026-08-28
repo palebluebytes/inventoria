@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { settingsStore, saveSettings } from "../../stores/settings.store";
+  import {
+    settingsStore,
+    saveOffContribute,
+  } from "../../stores/settings.store";
   import { secretsStore, setSecret } from "../../stores/secrets";
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import NutritionTargetEditor from "./NutritionTargetEditor.svelte";
@@ -50,18 +53,15 @@
     setSecret("off_password", offPassword);
   }
 
-  // The consent toggle is the one non-secret here, so it rides the ledger. Persist
-  // it on change, reading the scraper proxy (owned by the global Settings tab)
-  // through so toggling consent never clobbers it. The Nutrition Display
-  // selections used to need reading through as well and no longer do: they are
-  // view preferences now (ADR-0061), written by their own setters.
+  // The consent toggle is the one non-secret here, so it rides the ledger — and
+  // it is now the only datom this sheet writes, through a writer that touches
+  // nothing else. It used to carry the scraper proxy and the Nutrition Display
+  // selections along just so toggling consent could not clobber them; both are
+  // device settings now (ADR-0061), so that hazard is gone rather than handled.
   async function persistOffContribute(next: boolean) {
     offContribute = next;
     try {
-      await saveSettings({
-        scraper_proxy_url: $settingsStore.scraper_proxy_url,
-        off_contribute: next,
-      });
+      await saveOffContribute(next);
     } catch (err) {
       console.error("Failed to save OFF-contribution consent", err);
     }

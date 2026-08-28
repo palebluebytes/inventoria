@@ -5,7 +5,7 @@
     quantityLabel,
     parseLoggedQuantity,
   } from "../../food/recipe-ingredient";
-  import { calorieDisplayDecimals } from "../../stores/view-prefs";
+  import { calorieDisplayDecimals } from "../../stores/device-settings";
   import { dayLabel, type PastMeal } from "../../food/past-meals";
   import { wayInTitle } from "../../food/ways-in";
   import type { MealType } from "../../food/meal-type";

@@ -26,17 +26,19 @@ function makeFakeLocalStorage() {
 // stubbing the global it will read.
 async function loadPrefs() {
   vi.resetModules();
-  return import("../../src/lib/stores/view-prefs");
+  return import("../../src/lib/stores/device-settings");
 }
 
 beforeEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
-describe("view preferences (ADR-0061: localStorage, not the ledger)", () => {
+describe("device settings (ADR-0061: localStorage, not the ledger)", () => {
   it("reads its values at import, with no ledger and no await", async () => {
     // The defining property. Nothing here is asynchronous, so a caller reading
     // these during its first render gets the stored value rather than a default
@@ -150,6 +152,43 @@ describe("view preferences (ADR-0061: localStorage, not the ledger)", () => {
         "inventoria_pref_round_nutrition",
         "inventoria_pref_visible_nutrients",
       ]);
+    });
+  });
+
+  describe("the scraper proxy URL", () => {
+    it("reads the stored value, and an env fallback when unset", async () => {
+      const ls = makeFakeLocalStorage();
+      vi.stubGlobal("localStorage", ls);
+      vi.stubEnv("VITE_SCRAPER_PROXY_URL", "https://env-proxy/?url=");
+      expect(get((await loadPrefs()).scraperProxyUrl)).toBe(
+        "https://env-proxy/?url="
+      );
+
+      ls.store.set("inventoria_device_scraper_proxy_url", "https://mine/?url=");
+      expect(get((await loadPrefs()).scraperProxyUrl)).toBe(
+        "https://mine/?url="
+      );
+    });
+
+    it("lets an explicit clear override the env fallback", async () => {
+      // A stored empty string counts as SET, exactly as a blank datom used to:
+      // clearing the field must mean "no proxy", not "fall back to the env var".
+      const ls = makeFakeLocalStorage();
+      ls.store.set("inventoria_device_scraper_proxy_url", "");
+      vi.stubGlobal("localStorage", ls);
+      vi.stubEnv("VITE_SCRAPER_PROXY_URL", "https://env-proxy/?url=");
+      expect(get((await loadPrefs()).scraperProxyUrl)).toBe("");
+    });
+
+    it("round-trips a value through its setter", async () => {
+      const ls = makeFakeLocalStorage();
+      vi.stubGlobal("localStorage", ls);
+      const prefs = await loadPrefs();
+      prefs.setScraperProxyUrl("https://p/?url=");
+      expect(get(prefs.scraperProxyUrl)).toBe("https://p/?url=");
+      expect(ls.store.get("inventoria_device_scraper_proxy_url")).toBe(
+        "https://p/?url="
+      );
     });
   });
 

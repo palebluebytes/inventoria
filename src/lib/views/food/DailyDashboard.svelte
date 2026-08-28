@@ -30,7 +30,7 @@
     nutritionPanelOpen,
     setNutritionPanelOpen,
     calorieDisplayDecimals,
-  } from "../../stores/view-prefs";
+  } from "../../stores/device-settings";
   import { parseLoggedQuantity } from "../../food/recipe-ingredient";
   import Modal from "../../ui/Modal.svelte";
   import Meter from "../../ui/Meter.svelte";
@@ -156,7 +156,7 @@
   // FIRST PAINT depends on it: every ledger store waits on the worker, the WASM
   // and OPFS, and until that resolves a settings read returns the unset default —
   // which showed the panel open for seconds before folding it. See
-  // `stores/view-prefs.ts` for why that makes this a different kind of value
+  // `stores/device-settings.ts` for why that makes this a different kind of value
   // from `round_nutrition`, which sits beside it in the ledger quite happily.
   // Stable id so the header's toggle can point `aria-controls` at the body it
   // opens. localhost/PWA is always a secure context, so randomUUID exists.

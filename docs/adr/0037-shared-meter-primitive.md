@@ -150,7 +150,7 @@ waits on the worker spawning, SQLite WASM loading and OPFS opening. Until it
 does, a settings read returns the _unset default_. On a cold start that is
 seconds of a panel the user had shut sitting open on screen, not a frame.
 
-- **`localStorage` holds it** (`stores/view-prefs.ts`), read synchronously, so
+- **`localStorage` holds it** (`stores/device-settings.ts`), read synchronously, so
   the first frame is already correct. Absent still reads as open, so nothing
   changes for a user who never touched it.
 - **This is a third reason to leave the ledger, and it is about _when_ a value

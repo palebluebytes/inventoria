@@ -33,11 +33,6 @@ beforeEach(() => {
 });
 
 describe("settingsStore (latest-datom-wins collapse)", () => {
-  it("exposes the non-secret scraper proxy key as a string when empty", () => {
-    const s = get(settingsStore);
-    expect(typeof s.scraper_proxy_url).toBe("string");
-  });
-
   it("no longer exposes the moved secret keys (they live in localStorage now)", () => {
     // Secrets left the ledger for localStorage (ADR-0034 §8); the settings store
     // must not carry usda/tmdb keys on its shape at all.
@@ -49,33 +44,31 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
   it("collapses datoms to the latest value per attribute", () => {
     datomsWritable.set([
       {
-        attribute: "settings/scraper_proxy_url",
-        value: "https://old/?url=",
+        attribute: "settings/food/targets",
+        value: JSON.stringify({ calcium: 1.5 }),
         time: 1,
       },
       {
-        attribute: "settings/scraper_proxy_url",
-        value: "https://p/?url=",
+        attribute: "settings/food/targets",
+        value: JSON.stringify({ calcium: 2.5 }),
         time: 3,
       },
     ]);
-    const s = get(settingsStore);
-    expect(s.scraper_proxy_url).toBe("https://p/?url=");
+    expect(get(settingsStore).food_targets).toEqual({ calcium: 2.5 });
   });
 
   it("strips the JSON encoding the ledger stores values with", () => {
     // db.core persists every value as JSON.stringify(value), so the raw column
-    // holds a quote-wrapped string. The store must decode it, or the proxy URL
-    // is read back with literal quotes.
+    // holds an encoded value rather than the value. A boolean is the sharpest
+    // case: undecoded, the string "false" is truthy and the toggle reads as on.
     datomsWritable.set([
       {
-        attribute: "settings/scraper_proxy_url",
-        value: JSON.stringify("/api/proxy?url="),
+        attribute: "settings/off_contribute",
+        value: JSON.stringify(false),
         time: 2,
       },
     ]);
-    const s = get(settingsStore);
-    expect(s.scraper_proxy_url).toBe("/api/proxy?url=");
+    expect(get(settingsStore).off_contribute).toBe(false);
   });
 
   it("ignores an abandoned secret datom, never surfacing it on the state", () => {
@@ -355,20 +348,20 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
   it("reflects reactive updates to the underlying datoms", () => {
     datomsWritable.set([
       {
-        attribute: "settings/scraper_proxy_url",
-        value: "https://k1/?url=",
+        attribute: "settings/food/limits",
+        value: JSON.stringify({ sodium_content: 2.3 }),
         time: 1,
       },
     ]);
-    expect(get(settingsStore).scraper_proxy_url).toBe("https://k1/?url=");
+    expect(get(settingsStore).food_limits).toEqual({ sodium_content: 2.3 });
     datomsWritable.set([
       {
-        attribute: "settings/scraper_proxy_url",
-        value: "https://k2/?url=",
+        attribute: "settings/food/limits",
+        value: JSON.stringify({ sodium_content: 1.5 }),
         time: 2,
       },
     ]);
-    expect(get(settingsStore).scraper_proxy_url).toBe("https://k2/?url=");
+    expect(get(settingsStore).food_limits).toEqual({ sodium_content: 1.5 });
   });
 });
 

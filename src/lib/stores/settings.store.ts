@@ -15,16 +15,18 @@ import type {
   EnergyGoal,
 } from "../food/personalized-energy-macros";
 
-// Settings values are opaque strings. They're stored JSON-encoded (db.core
-// wraps every value in JSON.stringify), so read them back through the shared
-// parser to strip the encoding — treating them as string attributes so a
-// numeric-looking value can't coerce to a number.
+// Two families have left this store, and neither is coming back. Secrets went to
+// `localStorage` because a credential must not sit in an undeletable, syncing log
+// (ADR-0034 §8, see stores/secrets.ts). Device settings — the display preferences
+// and the scraper proxy — went there because their past values mean nothing and
+// the first paint cannot wait for a worker to boot (ADR-0061, see
+// stores/device-settings.ts). No migration for either (pre-release); the old
+// datoms are simply never read again.
 //
-// Secrets are no longer here: `settings/usda_api_key` / `settings/tmdb_api_key`
-// moved to `localStorage` (ADR-0034 §8, see stores/secrets.ts) — a secret must
-// not live in the append-only, synced ledger. No migration (pre-release); the
-// old datoms are simply never read again.
-const SETTINGS_STRING_ATTRS = ["settings/scraper_proxy_url"];
+// What remains is what the ledger is for: the user's nutrition targets and what
+// they consented to. Every value here is now a blob or a boolean, so there is no
+// string attribute left to strip a JSON encoding from by hand — each branch below
+// decodes through `parseDatomValue`.
 
 // Reactive raw query store for settings datoms
 export const settingsDatomsStore = createQueryStore<{
@@ -53,7 +55,6 @@ export interface FoodProfile {
 }
 
 export interface SettingsState {
-  scraper_proxy_url: string;
   /**
    * User overrides for the baked daily nutrition targets (ADR-0031 §2, #40): a
    * partial `{ breakdown_key: number }` map filtered to the reach-toward key set
@@ -210,8 +211,6 @@ function parseFoodProfile(rawValue: string): FoodProfile | null {
 // Derived store to collapse datoms to latest values and inject fallbacks
 export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
   const settings: SettingsState = {
-    scraper_proxy_url:
-      (import.meta.env?.VITE_SCRAPER_PROXY_URL as string) ?? "",
     // Unset → no overrides; every target resolves to its baked default.
     food_targets: {},
     // Unset → no overrides; every limit resolves to its baked cap.
@@ -279,11 +278,6 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
         parseDatomValue("settings/log_export", d.value) === true;
       continue;
     }
-    if (d.attribute === "settings/scraper_proxy_url") {
-      settings.scraper_proxy_url = String(
-        parseDatomValue(d.attribute, d.value, SETTINGS_STRING_ATTRS)
-      );
-    }
   }
 
   return settings;
@@ -303,44 +297,29 @@ async function appendSettings(
 }
 
 // Writes the scraper proxy URL, the two Nutrition Display datoms, and the
-// OFF-contribution consent toggle; the food-targets and food-limits overrides
-// are separate datoms written independently via saveFoodTargets / saveFoodLimits
-// (ADR-0031 §2/§3, ADR-0032 §2), so toggling visibility or rounding never touches
-// a user's targets or limits and vice versa. Secrets (USDA/TMDB keys, OFF creds)
-// do NOT pass through here — they go to localStorage via stores/secrets.ts
-// (ADR-0034 §8).
-export async function saveSettings(
-  state: Omit<
-    SettingsState,
-    | "food_targets"
-    | "food_limits"
-    | "food_calculated_targets"
-    | "food_profile"
-    | "off_contribute"
-    // The log-export consent rides `saveLogExportConsent`, so a screen that does
-    // not own it cannot clobber it back to off (ADR-0054 §4).
-    | "log_export"
-  > & {
-    // The OFF-contribution consent toggle is optional so pre-#61 callers (and the
-    // store tests) still type-check; omitted → off, the opt-in default.
-    off_contribute?: boolean;
-  }
-): Promise<void> {
-  await appendSettings({
-    "settings/scraper_proxy_url": state.scraper_proxy_url,
-    // OFF-contribution consent master toggle (ADR-0034 §8); default off.
-    "settings/off_contribute": state.off_contribute ?? false,
-  });
+/**
+ * Persists the OFF-contribution consent as its own datom `settings/off_contribute`
+ * (ADR-0034 §8, model C).
+ *
+ * This used to be `saveSettings`, a writer that carried several unrelated
+ * attributes at once — which meant every screen touching one of them had to read
+ * the others through so as not to clobber them, and all three carried a comment
+ * saying so. With the display preferences and the scraper proxy moved to
+ * `stores/device-settings.ts` (ADR-0061), one attribute is left, and the hazard
+ * goes with the bundle: each remaining setting now has a writer that touches only
+ * itself, exactly as ADR-0031 §2 required of the targets.
+ */
+export async function saveOffContribute(enabled: boolean): Promise<void> {
+  await appendSettings({ "settings/off_contribute": enabled });
 }
 
 /**
  * Persists the local-log export consent as its own datom `settings/log_export`
  * (ADR-0054 §4), independent of every other settings write.
  *
- * Its own writer rather than a field on {@link saveSettings} for the reason
- * ADR-0031 §2 gives about the targets: a screen that does not own this toggle
- * must not have to remember to read it through, and three screens already call
- * `saveSettings` for settings of their own.
+ * Its own writer for the reason ADR-0031 §2 gives about the targets: a screen
+ * that does not own this toggle must not have to remember to read it through.
+ * Every settings writer in this module now has that shape.
  */
 export async function saveLogExportConsent(enabled: boolean): Promise<void> {
   await appendSettings({ "settings/log_export": enabled });

@@ -1,10 +1,10 @@
 import { get } from "svelte/store";
-import { settingsStore } from "../stores/settings.store";
+import { scraperProxyUrl } from "../stores/device-settings";
 
 // Read the proxy URL on demand instead of holding a module-level subscription
 // that is never cleaned up.
 function activeProxyUrl(): string {
-  return get(settingsStore).scraper_proxy_url;
+  return get(scraperProxyUrl);
 }
 
 /**

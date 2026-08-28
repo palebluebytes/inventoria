@@ -3,7 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-08-28  
 **Amends:** ADR-0037 (the amendment that kept the display settings in the ledger)  
-**Implemented:** `stores/view-prefs.ts`; `settings.store.ts`, `NutritionTargetEditor`, `FoodSettingsSheet`, `SettingsView`
+**Implemented:** `stores/device-settings.ts`; `settings.store.ts`, `NutritionTargetEditor`, `FoodSettingsSheet`, `SettingsView`, `ingestion/fetcher.ts`
 
 ## Context
 
@@ -54,9 +54,10 @@ to a setting that does not exist yet.
   are.
 - **Only the current value matters → `localStorage`.** Which nutrients a meter row
   shows, how many decimal places a kcal figure reads at, and whether a panel is
-  folded are properties of the view, not of the user. They move to
-  `stores/view-prefs.ts`: `visible_nutrients`, `round_nutrition`, and the panel
-  fold.
+  folded are properties of the view, not of the user. So is the scraper proxy a
+  browser must route an HTML fetch through: it is configuration for one device.
+  They move to `stores/device-settings.ts`: `visible_nutrients`,
+  `round_nutrition`, the panel fold, and `scraper_proxy_url`.
 - **The timing follows from the meaning, and confirms it.** A preference that only
   matters now is exactly the kind the first paint needs now, and `localStorage` is
   synchronous. The two halves of the rule agree on every value tested against
@@ -80,10 +81,12 @@ to a setting that does not exist yet.
 
 - The nutrition panel, the meter selection and the calorie precision are correct
   in the first frame. Nothing renders a default it then has to correct.
-- `saveSettings` now writes two attributes rather than four, and the read-through
-  dance disappears from all three screens that performed it. `SettingsView` and
-  `FoodSettingsSheet` still read the one datom they do not own — the consent —
-  through their save; that is a genuinely shared writer, not an accident.
+- `saveSettings` is gone. It bundled four unrelated attributes, which is why all
+  three screens touching one of them had to read the others through; one attribute
+  is left, so it becomes `saveOffContribute`, and every settings writer in the
+  module now touches only itself. `SettingsView` writes no datom at all.
+- `SETTINGS_STRING_ATTRS` is gone with it: every value the ledger still holds is a
+  blob or a boolean, so nothing needs a string decoded by hand.
 - `saveCalculatorPlan` loses `visible_nutrients` from its atomic append. What that
   transaction protects is the defaults-versus-overrides pair (ADR-0033 §4), which
   is intact. The worst a half-applied plan can now cost is a meter row shown or
@@ -95,5 +98,7 @@ to a setting that does not exist yet.
   switch.
 - `docs/eavt-vocabulary.md` states the test in its settings preamble, so the next
   person adding a setting is asked the question before they add an attribute.
-- These three no longer sync between devices and are absent in a private window.
-  For view state that is the right trade, and it is the price the rule names.
+- These four no longer sync between devices and are absent in a private window.
+  For view state and one device's proxy that is the right trade, and it is the
+  price the rule names. The proxy keeps its `VITE_SCRAPER_PROXY_URL` fallback, so a
+  dev with a `.env` is unaffected either way.

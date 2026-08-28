@@ -1,6 +1,10 @@
 <script lang="ts">
-  import { settingsStore, saveSettings } from "../stores/settings.store";
+  import {
+    setScraperProxyUrl,
+    scraperProxyUrl,
+  } from "../stores/device-settings";
   import { secretsStore, setSecret } from "../stores/secrets";
+  import { get } from "svelte/store";
   import { createQueryStore } from "../stores/datoms.store";
   import { dbClient } from "../db/db.client";
   import { HLC_ORDER_DESC } from "../db/hlc";
@@ -35,29 +39,19 @@
     }
   }
 
-  // Local state variables for forms. The TMDB key is a secret (localStorage,
-  // ADR-0034 §8); the scraper proxy URL is a non-secret datom. The food-specific
-  // settings (USDA/OFF credentials, contribution consent, nutrition targets) now
-  // live on the Food screen's own settings sheet, not here.
-  let tmdbKey = $state("");
-  let scraperProxy = $state("");
+  // Local state variables for forms. Both fields on this screen are per-device
+  // `localStorage` now: the TMDB key as a secret (ADR-0034 §8) and the scraper
+  // proxy as a device setting (ADR-0061). Neither waits on the ledger, so both
+  // seed at construction rather than from an effect. The food-specific settings
+  // (USDA/OFF credentials, contribution consent, nutrition targets) live on the
+  // Food screen's own settings sheet, not here.
+  let tmdbKey = $state(get(secretsStore).tmdb_api_key);
+  let scraperProxy = $state(get(scraperProxyUrl));
 
   let showTmdb = $state(false);
 
   let isSaving = $state(false);
   let saveSuccess = $state(false);
-
-  // Initialize form state once the stores load. The TMDB key seeds from the
-  // localStorage-backed secrets store; the scraper proxy from the settings
-  // ledger.
-  let initialized = $state(false);
-  $effect(() => {
-    if (!initialized && $settingsStore) {
-      tmdbKey = $secretsStore.tmdb_api_key;
-      scraperProxy = $settingsStore.scraper_proxy_url;
-      initialized = true;
-    }
-  });
 
   // Save handler
   async function handleSave(e: Event) {
@@ -68,16 +62,10 @@
       // The TMDB key is a secret — straight to localStorage, never a datom
       // (ADR-0034 §8), trimmed like any pasted credential.
       setSecret("tmdb_api_key", tmdbKey.trim());
-      // Only the non-secret proxy URL rides the ledger here. The
-      // OFF-contribution consent is the one other datom this writer touches, so
-      // it is read through rather than clobbered from a screen that does not own
-      // it. The Nutrition Display selections used to need the same treatment and
-      // no longer do — they are view preferences now (ADR-0061) and never pass
-      // through `saveSettings` at all.
-      await saveSettings({
-        scraper_proxy_url: scraperProxy.trim(),
-        off_contribute: $settingsStore.off_contribute,
-      });
+      // The proxy is a device setting now (ADR-0061), so this screen writes no
+      // datom at all: nothing here rides the ledger, and there is nothing left to
+      // read through to avoid clobbering it.
+      setScraperProxyUrl(scraperProxy.trim());
       saveSuccess = true;
       setTimeout(() => {
         saveSuccess = false;

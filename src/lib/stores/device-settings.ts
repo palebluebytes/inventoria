@@ -3,8 +3,16 @@ import { DEFAULT_VISIBLE_NUTRIENTS } from "../food/nutrient-display";
 import { FOOD_DISPLAY_DECIMALS } from "../food/nutrition";
 
 /**
- * View preferences: how this device draws the app. They live in `localStorage`,
- * not in the EAVT ledger (ADR-0061).
+ * Device settings: everything that belongs to this device rather than to the
+ * user's history. They live in `localStorage`, not in the EAVT ledger
+ * (ADR-0061).
+ *
+ * Two families sit here, and they fail the ledger's test for the same reason.
+ * **View preferences** are how this device draws the app: which nutrients a
+ * meter row shows, how many decimals a kcal figure reads at, whether a panel is
+ * folded. **Device configuration** is what this device needs in order to reach
+ * the outside world: the scraper proxy a browser must route an HTML fetch
+ * through.
  *
  * The line the ADR draws is **whether a setting's past values mean anything**.
  * A nutrition target does: "in March I was reaching toward 2,400 kcal" is a fact
@@ -26,6 +34,11 @@ import { FOOD_DISPLAY_DECIMALS } from "../food/nutrition";
  *
  * What stays in the ledger, and why, is in ADR-0061. The short version: targets,
  * limits, the calculator's frozen plan and profile, and the two consents.
+ *
+ * Secrets keep their own module (`stores/secrets.ts`). They are also per-device
+ * `localStorage`, but for their own reason — a credential must not sit in an
+ * undeletable, syncing log (ADR-0034 §8) — and they carry env fallbacks and a
+ * retirement sweep that nothing here needs.
  */
 
 // Namespaced like the secrets module, so a preference cannot collide with other
@@ -34,6 +47,7 @@ const LS_KEYS = {
   nutrition_panel_open: "inventoria_pref_nutrition_panel_open",
   visible_nutrients: "inventoria_pref_visible_nutrients",
   round_nutrition: "inventoria_pref_round_nutrition",
+  scraper_proxy_url: "inventoria_device_scraper_proxy_url",
 } as const;
 
 // `localStorage` is absent under the Node unit runner (and can throw in a
@@ -82,7 +96,24 @@ function readVisibleNutrients(): string[] {
   return DEFAULT_VISIBLE_NUTRIENTS;
 }
 
+/**
+ * The CORS proxy a browser routes an HTML scrape through, as a URL prefix the
+ * target is appended to. Unset falls back to `VITE_SCRAPER_PROXY_URL`, so a dev
+ * with a `.env` gets a working proxy without typing one in — the same
+ * env-fallback shape the secrets module uses, and the reason this reads through
+ * a function rather than straight off the key.
+ *
+ * A stored empty string counts as set: an explicit clear overrides the env var,
+ * exactly as a blank datom used to.
+ */
+function readScraperProxyUrl(): string {
+  const stored = safeGet(LS_KEYS.scraper_proxy_url);
+  if (stored !== null) return stored;
+  return (import.meta.env?.VITE_SCRAPER_PROXY_URL as string) ?? "";
+}
+
 const panelOpen = writable<boolean>(readBoolPref(LS_KEYS.nutrition_panel_open));
+const scraperProxy = writable<string>(readScraperProxyUrl());
 const roundNutrition = writable<boolean>(readBoolPref(LS_KEYS.round_nutrition));
 const visible = writable<string[]>(readVisibleNutrients());
 
@@ -144,4 +175,15 @@ export function setVisibleNutrients(keys: string[]): void {
 export function setRoundNutrition(round: boolean): void {
   safeSet(LS_KEYS.round_nutrition, String(round));
   roundNutrition.set(round);
+}
+
+/** The scraper proxy URL prefix (localStorage, else the env fallback, else ""). */
+export const scraperProxyUrl: Readable<string> = {
+  subscribe: scraperProxy.subscribe,
+};
+
+/** Records the scraper proxy URL for this device. */
+export function setScraperProxyUrl(url: string): void {
+  safeSet(LS_KEYS.scraper_proxy_url, url);
+  scraperProxy.set(url);
 }
