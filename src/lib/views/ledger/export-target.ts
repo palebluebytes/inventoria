@@ -44,31 +44,6 @@ export function exportFilename(exported_at: number): string {
 }
 
 /**
- * Roughly how many bytes this origin is using, or `null` where the browser will
- * not say. It covers everything the origin stores, the cached USDA bundle
- * included, so it over-states the ledger rather than under-stating it, and the
- * screen that shows it says so. It is never used to refuse an export for that
- * reason: the ceiling is enforced on the bytes actually written.
- */
-export async function estimateStoredBytes(): Promise<number | null> {
-  if (
-    typeof navigator === "undefined" ||
-    !("storage" in navigator) ||
-    typeof navigator.storage.estimate !== "function"
-  ) {
-    return null;
-  }
-  try {
-    const estimate = await navigator.storage.estimate();
-    return typeof estimate.usage === "number" ? estimate.usage : null;
-  } catch {
-    // A privacy-locked or insecure context refuses outright. No estimate is a
-    // missing figure, not a failed export.
-    return null;
-  }
-}
-
-/**
  * Opens the browser's save dialog and returns somewhere to write, or `null`
  * when the user dismissed it. Must be called from the click that asked for the
  * export: the picker requires a user gesture.

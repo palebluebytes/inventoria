@@ -16,40 +16,38 @@
   import {
     canStreamToFile,
     chooseExportTarget,
-    estimateStoredBytes,
     exportFilename,
   } from "./export-target";
 
   let { dbReady }: { dbReady: boolean } = $props();
 
   let summary = $state<LedgerSummary | null>(null);
-  let estimateBytes = $state<number | null>(null);
   let outcome = $state<"idle" | "running" | "done" | "refused" | "failed">(
     "idle"
   );
   let message = $state("");
   let rowsWritten = $state(0);
 
-  // Read once the worker is up. Both are snapshots rather than stores: the
-  // figures describe the moment before an export, and nothing here should churn
-  // as the ledger grows underneath it.
+  // Read once the worker is up. A snapshot rather than a store: the figure
+  // describes the moment before an export, and nothing here should churn as the
+  // ledger grows underneath it.
   $effect(() => {
     if (!dbReady) return;
     dbClient
       .ledgerSummary()
       .then((read) => (summary = read))
       .catch((err) => console.error("Failed to read the ledger summary", err));
-    estimateStoredBytes().then((bytes) => (estimateBytes = bytes));
   });
 
-  let sizeLine = $derived.by(() => {
-    if (!summary) return "Reading the ledger.";
-    const datoms = `${summary.row_count.toLocaleString()} datoms, superseded facts included`;
-    if (estimateBytes === null) {
-      return `${datoms}. This browser will not estimate the size.`;
-    }
-    return `${datoms}. This site is using about ${describeBytes(estimateBytes)} of storage in total, which is the ledger plus everything else cached for it.`;
-  });
+  // The count is the one figure that is about the ledger. How many bytes this
+  // origin holds is the Storage section's to report, because `estimate()`
+  // answers for the whole origin and this screen would be read as answering for
+  // the file it is about to write.
+  let sizeLine = $derived(
+    summary
+      ? `${summary.row_count.toLocaleString()} datoms, superseded facts included.`
+      : "Reading the ledger."
+  );
 
   // Said before the export rather than discovered during it. The estimate above
   // covers the whole origin, so it cannot decide whether this ledger fits; the
