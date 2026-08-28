@@ -3,7 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-08-28  
 **Amends:** [ADR-0064](0064-the-ledger-leaves-as-raw-datoms-one-json-object-per-line.md) (its Scope defers the read side to this record, and its Consequences say the arc is unfinished until this lands)  
-**Implemented:** #182 `c7c072f` (the reader and its refusals), `052dfc6` (the write path), `4c17166` (the worker seam), `00501ac` (the Settings surface)
+**Implemented:** #182 `c7c072f` (the reader and its refusals), `052dfc6` (the write path), `4c17166` (the worker seam), `00501ac` (the Settings surface), `edd70e1` (review fixes, including §4's split refusals and §5's caveat reaching the screen)
 
 ## Context
 
