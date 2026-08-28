@@ -19,9 +19,12 @@
  *  - the record is no longer SINGLE-INGREDIENT, which retroactively fails
  *    ADR-0046 §2's second admission.
  *
- * A fourth, `unreachable`, covers a request that never landed. It is not drift,
- * but a run that could not reach OFF has not established anything, and reporting
- * "nothing moved" would be worse than reporting nothing at all.
+ * A fourth, `unreachable`, covers an entry OFF never answered for — a request
+ * that did not land, or one it turned away with a 429, a 5xx or a status this
+ * check cannot explain. It is not drift and it is not evidence of any: reporting
+ * "nothing moved" would be worse than reporting nothing at all, and reporting it
+ * as GONE (which this did until #205) is worse still, because it spends a
+ * human's review pass re-vetting a record that never changed.
  *
  * Nothing here ever rewrites a snapshot. Pulling the new values in silently is
  * precisely what §4 declined to do, and a changed panel needs §2's consensus
@@ -69,29 +72,78 @@ export function countIngredients(text) {
 }
 
 /**
- * The product body of an OFF response, or the fact that there is not one.
+ * Whether an HTTP status means OFF failed to answer rather than answered.
  *
- * The gone-ness rules mirror `lookupBarcode` in `src/lib/food/open-food-facts.ts`
- * on the three shapes that mean gone — HTTP 404, v3's string `"failure"`, v2's
- * integer `0` — because a check that disagreed with the app would report a
- * product the app still finds, or miss one it has already stopped finding.
+ * Restates `serviceDidNotAnswer` in `src/lib/food/open-food-facts.ts` word for
+ * word — `429` from OFF's rate limiter, and any `5xx` — and by hand, because
+ * this check runs on a bare GitHub runner where the app's module cannot be
+ * imported.
  *
- * They no longer agree on the rest. Since #204 the app reads a 429 or a 5xx as
- * OFF failing to answer and reports it as a delisting nowhere, while the line
- * below still folds every non-200 into "gone" — so this check can name a curated
- * record delisted on the strength of an outage. #205 settles which of the two
- * vocabularies is right and makes the parity test cover the whole matrix; until
- * it does, read a `HTTP 5xx` finding here as "ask again", not as a delisting.
+ * `tests/unit/curated-drift.test.ts` holds the two copies against one written-out
+ * list of statuses, so narrowing either one fails the same rows. It cannot catch
+ * a status ADDED to the app's copy and not to this one; nothing can, short of the
+ * import that runner forbids. What it does guarantee is the consequence that
+ * matters — a status this reads as unreachable is never reported as a delisting.
+ */
+function serviceDidNotAnswer(status) {
+  return status === 429 || status >= 500;
+}
+
+/**
+ * What one OFF response says about a pinned record.
+ *
+ * The kinds are the finding kinds, deliberately: two of the three go straight
+ * out as the finding they name, and a second word for one concept would only
+ * invite the two vocabularies to part company.
+ *
+ * @typedef {{ kind: "product", product: Record<string, unknown> }
+ *   | { kind: "delisted" | "unreachable", reason: string }} RecordRead
+ */
+
+/**
+ * Which of those three one OFF response is: the product, the reason the record
+ * is no longer listed, or the reason this run learned nothing about it.
+ *
+ * The `delisted` rules mirror `lookupBarcode` in
+ * `src/lib/food/open-food-facts.ts` on the three shapes that mean gone — HTTP
+ * 404, v3's string `"failure"`, v2's integer `0` — because a check that
+ * disagreed with the app would report a product the app still finds, or miss one
+ * it has already stopped finding.
+ *
+ * The third answer exists because the second used to swallow it (#205). Every
+ * non-200 folded into gone, so a 502 in the quarterly run named a curated
+ * stand-in delisted and sent a human back through ADR-0046 §2's four admissions
+ * against a record nothing had happened to. A status is only evidence about the
+ * food when OFF answered about the food.
+ *
+ * The app splits the statuses this returns `unreachable` for into two, keeping a
+ * `400` or a `403` as a fault with no name (#204), and that divergence is
+ * deliberate. There the branches end in two different things to offer a user —
+ * a capture form, or a retry — so a fault that earns neither needs its own way
+ * out. Here they end in two different things to ask a reviewer, and an
+ * unexplained refusal asks the same one an outage does: do not re-vet, the
+ * record was never read. It still says which it was, because a 403 run after run
+ * is OFF turning this caller away and a 502 run after run is not.
+ *
+ * @returns {RecordRead}
  */
 export function productFromResponse(status, body) {
-  if (status === 404) return { found: false, reason: "OFF returned 404" };
+  if (serviceDidNotAnswer(status))
+    return {
+      kind: "unreachable",
+      reason: `OFF did not answer (HTTP ${status})`,
+    };
+  if (status === 404) return { kind: "delisted", reason: "OFF returned 404" };
   if (status !== 200)
-    return { found: false, reason: `OFF returned HTTP ${status}` };
+    return {
+      kind: "unreachable",
+      reason: `OFF refused the request (HTTP ${status})`,
+    };
   if (!body || body.status === "failure" || body.status === 0)
-    return { found: false, reason: "OFF reports no such product" };
+    return { kind: "delisted", reason: "OFF reports no such product" };
   if (!body.product)
-    return { found: false, reason: "OFF returned no product body" };
-  return { found: true, product: body.product };
+    return { kind: "delisted", reason: "OFF returned no product body" };
+  return { kind: "product", product: body.product };
 }
 
 /** True when a value has moved further than {@link DRIFT_EPSILON} allows. */
@@ -237,7 +289,15 @@ export async function checkStandIns(entries, { fetchProduct, pause = sleep }) {
     }
 
     const read = productFromResponse(response.status, response.body);
-    if (!read.found) {
+    if (read.kind === "unreachable") {
+      // Not a `delisted` finding, and the difference is the whole of #205: a
+      // request OFF never answered says nothing about the record behind it. The
+      // line's own label and the report's closing advice say so; the message
+      // only has to name the status, which is all that was learned.
+      result.findings.push({ kind: "unreachable", message: read.reason });
+      continue;
+    }
+    if (read.kind === "delisted") {
       result.findings.push({
         kind: "delisted",
         message: `${read.reason} — the stand-in still answers searches from its snapshot`,
@@ -256,6 +316,22 @@ export function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Whether a finding asks a human to re-vet the entry against ADR-0046 §2, as
+ * opposed to asking for the run to be repeated.
+ *
+ * The one line every reader of this report has to draw (#205), and drawn once
+ * here because two callers draw it: the closing advice below, and the exit
+ * summary in `curated-snapshot-check.mjs`. `unreachable` is the whole of the
+ * far side — OFF said nothing about the record, so nothing about the record is
+ * in question.
+ *
+ * @param {Finding} finding
+ */
+export function needsReVetting(finding) {
+  return finding.kind !== "unreachable";
+}
+
 /** What each kind of finding means to whoever reads the report. */
 const KIND_LABEL = {
   delisted: "GONE",
@@ -269,7 +345,12 @@ const KIND_LABEL = {
  * `ok` for a clean one, and the findings indented under a failing one.
  *
  * It closes by saying what the job did NOT do, because the report is the only
- * place a reader learns that nothing was rewritten for them.
+ * place a reader learns that nothing was rewritten for them — and it closes with
+ * one paragraph per kind of answer the run actually produced, because a reader
+ * has two different jobs and needs to know which lines carry which (#205). A
+ * finding about a record OFF served asks for a re-vet; a line saying OFF was
+ * never heard from asks for another run, and asking for a re-vet on the strength
+ * of one would spend the review attention ADR-0046 §4 is banking on.
  */
 export function formatReport(results) {
   const lines = [];
@@ -283,13 +364,25 @@ export function formatReport(results) {
     for (const finding of result.findings)
       lines.push(`      ${KIND_LABEL[finding.kind]}  ${finding.message}`);
   }
-  if (results.some((result) => result.findings.length > 0))
+
+  const findings = results.flatMap((result) => result.findings);
+  if (findings.some(needsReVetting))
     lines.push(
       "",
       "Nothing above has been rewritten. A moved panel is a prompt to re-vet the",
       "entry against ADR-0046 §2 — the absence, the single ingredient, the",
       "cross-product consensus, the independent check — and to update the snapshot",
       "and its `captured` date by hand once it still holds, or to drop the entry."
+    );
+  if (findings.some((finding) => !needsReVetting(finding)))
+    lines.push(
+      "",
+      "An UNCHECKED line is not a finding about the food. Open Food Facts served",
+      "no record for that entry — it was busy, down, or turned the request away —",
+      "so the run established nothing either way, and that snapshot has been",
+      "neither confirmed nor contradicted. Start the check again; if the same",
+      "status comes back run after run, it is the check that needs looking at,",
+      "not the stand-in."
     );
   return lines.join("\n");
 }

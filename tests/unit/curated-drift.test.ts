@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import {
   lookupBarcode,
   ProductNotFoundError,
+  OffUnreachableError,
 } from "../../src/lib/food/open-food-facts";
 // A plain-Node ops script, deliberately outside the app's tsconfig: the
 // staleness check runs on a bare GitHub runner with no install step.
@@ -13,6 +14,7 @@ import {
   driftFindings,
   checkStandIns,
   formatReport,
+  needsReVetting,
 } from "../../scripts/curated-drift.mjs";
 
 // The drift rules behind the quarterly curated-snapshot check (#117). ADR-0046
@@ -20,8 +22,9 @@ import {
 // silent staleness as the cost, on the grounds that a snapshot which drifts is
 // "wrong slowly and visibly at review" — which only holds while something looks.
 // This is the something. What it must tell apart is what these tests fix: a
-// panel that moved, a product that is gone, and a record that stopped being the
-// single-ingredient one ADR-0046 §2 admitted.
+// panel that moved, a product that is gone, a record that stopped being the
+// single-ingredient one ADR-0046 §2 admitted — and, since #205, an entry the run
+// never managed to read, which is evidence of none of the three.
 
 /**
  * The product half of an OFF record, trimmed to the fields the drift rules
@@ -117,29 +120,90 @@ describe("countIngredients", () => {
   });
 });
 
+/**
+ * The reason a read gives for not handing over a product. A guard rather than a
+ * cast, because the two answers that carry one are exactly the two that are not
+ * the product, and reaching for the field is how a caller says which it expects.
+ */
+const reasonFor = (status: number): string => {
+  const read = productFromResponse(status, null);
+  if (read.kind === "product")
+    throw new Error(`expected no product for HTTP ${status}`);
+  return read.reason;
+};
+
 describe("productFromResponse — is the pinned record still there?", () => {
-  it("reads a successful v3 response as found", () => {
+  it("reads a successful v3 response as the product", () => {
     const read = productFromResponse(200, unchanged());
-    expect(read.found).toBe(true);
-    expect(read.product?.product_name).toBe("Cacao Nibs");
+    if (read.kind !== "product")
+      throw new Error(`expected the product, got ${read.kind}`);
+    expect(read.product.product_name).toBe("Cacao Nibs");
   });
 
   it("reads a 404 as gone", () => {
-    expect(productFromResponse(404, null).found).toBe(false);
+    expect(productFromResponse(404, null).kind).toBe("delisted");
   });
 
   it("reads v3's string failure status as gone", () => {
-    expect(productFromResponse(200, { status: "failure" }).found).toBe(false);
+    expect(productFromResponse(200, { status: "failure" }).kind).toBe(
+      "delisted"
+    );
   });
 
   it("reads v2's integer failure status as gone", () => {
     // The app's own lookup handles both; a check that disagreed with it would
     // report drift the app never sees, or miss what the app would.
-    expect(productFromResponse(200, { status: 0 }).found).toBe(false);
+    expect(productFromResponse(200, { status: 0 }).kind).toBe("delisted");
   });
 
   it("reads a success with no product body as gone", () => {
-    expect(productFromResponse(200, { status: "success" }).found).toBe(false);
+    expect(productFromResponse(200, { status: "success" }).kind).toBe(
+      "delisted"
+    );
+  });
+
+  it.each([429, 500, 502, 503, 504])(
+    "reads HTTP %i as OFF failing to answer, never as gone",
+    (status) => {
+      // The defect this ticket fixes (#205): every non-200 used to fold into
+      // "gone", so an outage during the quarterly run named a stand-in
+      // delisted. Asserted for what it is NOT as well, because conflation is
+      // the defect and only the negative catches it coming back.
+      const read = productFromResponse(status, null);
+      expect(read.kind).toBe("unreachable");
+      expect(read.kind).not.toBe("delisted");
+    }
+  );
+
+  it.each([400, 403])(
+    "reads HTTP %i as an entry it did not read, not as a delisting",
+    (status) => {
+      // The app gives this class a third name — a plain `Error`, neither the
+      // missing door nor an outage (#204) — because its two branches lead to
+      // two different things to offer a user. This check's branches lead to two
+      // different things to ask a REVIEWER, and a refused request asks the same
+      // one a 502 does: do not re-vet the food, nothing about it was read.
+      const read = productFromResponse(status, null);
+      expect(read.kind).toBe("unreachable");
+      expect(read.kind).not.toBe("delisted");
+    }
+  );
+});
+
+describe("needsReVetting — which findings are about the food", () => {
+  // The line both readers of a run draw: `formatReport`'s closing advice, and
+  // the exit summary in `curated-snapshot-check.mjs`, which is not otherwise
+  // exercised. Every kind is named here so a fifth one cannot be added without
+  // someone deciding which side of the line it falls on.
+  it.each(["panel", "ingredients", "delisted"] as const)(
+    "sends a %s finding to a human to re-vet",
+    (kind) => {
+      expect(needsReVetting({ kind, message: "x" })).toBe(true);
+    }
+  );
+
+  it("does not, for an entry the run never read", () => {
+    expect(needsReVetting({ kind: "unreachable", message: "x" })).toBe(false);
   });
 });
 
@@ -302,6 +366,32 @@ describe("checkStandIns — the run across every pinned entry", () => {
     expect(result.findings[0].kind).toBe("delisted");
   });
 
+  it.each([429, 502])(
+    "reports HTTP %i as unchecked, and never as a delisting",
+    async (status) => {
+      // A stand-in that OFF was too busy to serve has not been shown to have
+      // moved OR to have held still, and a `delisted` finding here would send a
+      // human to re-run ADR-0046 §2's four admissions against a record nothing
+      // happened to.
+      const { fetchProduct } = fetcherFor({
+        "5400706613279": { status, body: null },
+      });
+      const [result] = await checkStandIns([entry()], { fetchProduct });
+      expect(result.findings).toHaveLength(1);
+      expect(result.findings[0].kind).toBe("unreachable");
+      expect(result.findings[0].message).toContain(String(status));
+    }
+  );
+
+  it("still reports a 404 as a delisting, and says the snapshot answers on", async () => {
+    const { fetchProduct } = fetcherFor({
+      "5400706613279": { status: 404, body: null },
+    });
+    const [result] = await checkStandIns([entry()], { fetchProduct });
+    expect(result.findings[0].kind).toBe("delisted");
+    expect(result.findings[0].message).toContain("snapshot");
+  });
+
   it("reports a request that failed rather than passing the entry", async () => {
     // A check that cannot reach OFF has not established that the snapshot is
     // sound; reporting "nothing has moved" would be a lie the quarterly cadence
@@ -390,13 +480,65 @@ describe("formatReport", () => {
     // reader learns what to do next.
     expect(report([{ kind: "panel", message: "x" }])).toMatch(/re-vet/i);
   });
+
+  it("does not ask for a re-vet on the strength of an entry it never read", () => {
+    // The whole point of #205: an unreachable entry is not evidence about the
+    // food. The closing advice has to say "run it again", and must not say the
+    // thing that sends a human back through ADR-0046 §2's admissions.
+    const text = report([
+      { kind: "unreachable", message: "OFF did not answer (HTTP 502)" },
+    ]);
+    expect(text).toContain("UNCHECKED");
+    expect(text).toMatch(/again/i);
+    expect(text).not.toMatch(/re-vet/i);
+  });
+
+  it("says both things when a run has something read and something not", () => {
+    const text = report([
+      { kind: "panel", message: "fat_100g: 55 pinned, 58 on OFF today" },
+      { kind: "unreachable", message: "OFF did not answer (HTTP 502)" },
+    ]);
+    expect(text).toMatch(/re-vet/i);
+    expect(text).toMatch(/again/i);
+  });
+
+  it("labels a delisting and an unreachable entry differently", () => {
+    // The two used to print the same word for a reader, because the same
+    // finding kind carried both.
+    expect(report([{ kind: "delisted", message: "x" }])).toContain("GONE");
+    expect(report([{ kind: "unreachable", message: "x" }])).not.toContain(
+      "GONE"
+    );
+  });
 });
 
-describe("the check and the app agree on what 'gone' means", () => {
-  // `productFromResponse` restates `lookupBarcode`'s gone-ness rules, because
-  // the check runs where the app's module cannot be imported. Nothing but this
-  // test keeps the two in step, and a disagreement is invisible either way: the
-  // check would report a delisting the app never sees, or miss one it does.
+describe("the check and the app agree on what an OFF answer means", () => {
+  // `productFromResponse` restates `lookupBarcode`'s rules by hand, because the
+  // check runs on a bare GitHub runner where the app's module cannot be
+  // imported. Nothing but this test keeps the two in step, and a disagreement is
+  // invisible either way: the check would report a delisting the app never sees,
+  // or miss one it does.
+  //
+  // It covers the WHOLE matrix, not just the shapes that mean gone (#205). The
+  // three gone shapes were all it listed, and the two sides drifted apart in the
+  // gap: #204 taught the app that a 429 or a 5xx is OFF failing to answer, while
+  // the check went on folding every non-200 into gone, and this lock could not
+  // see it. Every row below asserts what a status is AND what it is not, because
+  // the defect on both sides was conflation, and only the negative catches it.
+  //
+  // What it cannot catch is a status ADDED to one side's rules and not the
+  // other's, since both sides are read against the list written here. Every row
+  // is therefore a status either side has to keep answering for, and the run of
+  // them is what an edit to either copy has to survive.
+
+  /** OFF answering with a failing status and no product body. */
+  const offFailsWith = (status: number) =>
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status,
+      json: async () => ({}),
+    } as Response);
+
   const goneShapes: [string, number, unknown][] = [
     ["a 404", 404, null],
     ["v3's string failure", 200, { status: "failure" }],
@@ -412,8 +554,60 @@ describe("the check and the app agree on what 'gone' means", () => {
     await expect(lookupBarcode("5400706613279")).rejects.toBeInstanceOf(
       ProductNotFoundError
     );
-    expect(productFromResponse(status, body).found).toBe(false);
+    expect(productFromResponse(status, body).kind).toBe("delisted");
   });
+
+  it.each([429, 500, 502, 503, 504])(
+    "both read HTTP %i as OFF failing to answer, and neither as gone",
+    async (status) => {
+      offFailsWith(status);
+      await expect(lookupBarcode("5400706613279")).rejects.toBeInstanceOf(
+        OffUnreachableError
+      );
+      await expect(lookupBarcode("5400706613279")).rejects.not.toBeInstanceOf(
+        ProductNotFoundError
+      );
+      const read = productFromResponse(status, null);
+      expect(read.kind).toBe("unreachable");
+      expect(read.kind).not.toBe("delisted");
+      // The check's own copy of `serviceDidNotAnswer` decides only the wording
+      // of a reason it shares a kind with the row below, so the wording is what
+      // pins it. Without this, that copy could be narrowed — or deleted — with
+      // every other assertion in this file still green.
+      expect(reasonFor(status)).toContain("did not answer");
+    }
+  );
+
+  it.each([400, 403])(
+    "neither reads HTTP %i as gone, and the two name it differently on purpose",
+    async (status) => {
+      offFailsWith(status);
+      // The app has a third answer for this class and the check has two, which
+      // is a deliberate divergence rather than drift. The app's two branches end
+      // in two things to OFFER A USER — a capture form, or a retry — and a fault
+      // it cannot name earns neither, so it gets a plain `Error` and the generic
+      // banner. The check's two branches end in two things to ASK A REVIEWER,
+      // and there a refused request asks exactly what a 502 asks: do not re-vet
+      // this food, the run never read it.
+      //
+      // What the two sides must agree on is the negative, and that is what this
+      // row locks: a status neither can explain is never evidence of a delisting.
+      await expect(lookupBarcode("5400706613279")).rejects.not.toBeInstanceOf(
+        ProductNotFoundError
+      );
+      await expect(lookupBarcode("5400706613279")).rejects.not.toBeInstanceOf(
+        OffUnreachableError
+      );
+      const read = productFromResponse(status, null);
+      expect(read.kind).not.toBe("delisted");
+      expect(read.kind).toBe("unreachable");
+      // Same kind as an outage, different sentence — a 403 arriving run after
+      // run is OFF turning this caller away, which is worth a reader being able
+      // to see. The two wordings are asserted apart so the statuses that pick
+      // between them stay where the app put them.
+      expect(reasonFor(status)).toContain("refused");
+    }
+  );
 
   it("both read a real product as present", async () => {
     const body = { code: "5400706613279", status: "success", product: {} };
@@ -423,7 +617,7 @@ describe("the check and the app agree on what 'gone' means", () => {
       json: async () => body,
     } as Response);
     await expect(lookupBarcode("5400706613279")).resolves.toBeTruthy();
-    expect(productFromResponse(200, body).found).toBe(true);
+    expect(productFromResponse(200, body).kind).toBe("product");
   });
 });
 

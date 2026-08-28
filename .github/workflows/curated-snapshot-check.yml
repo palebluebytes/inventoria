@@ -42,8 +42,8 @@ jobs:
       # thing that does not mirror usda-mirror-check: that job runs a `.mjs`,
       # while this one imports a `.ts` module directly, which needs a Node with
       # unflagged type stripping (24 has it). A runner rolling back to an older
-      # default would crash the import, and a crash here files an issue claiming
-      # a record has moved when nothing has.
+      # default would crash the import, and a crash here files an issue against
+      # a table nothing has happened to.
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -64,14 +64,19 @@ jobs:
             echo "$output"
             echo "REPORT"
           } >> "$GITHUB_OUTPUT"
-          echo "drifted=$([ $status -eq 0 ] && echo false || echo true)" >> "$GITHUB_OUTPUT"
+          echo "unclean=$([ $status -eq 0 ] && echo false || echo true)" >> "$GITHUB_OUTPUT"
           exit 0
 
       # One open issue at a time. A quarterly job that filed a fresh issue every
       # run would bury the first report under duplicates while the re-vetting is
       # still outstanding.
-      - name: File an issue when a pinned record has moved
-        if: steps.check.outputs.drifted == 'true'
+      #
+      # The issue says only that the run was not clean; the report inside it says
+      # which kind of not-clean. A title asserting a move would be wrong for every
+      # UNCHECKED run — Open Food Facts being down is not a record changing — and
+      # the title is what a reader meets before anything can correct it (#205).
+      - name: File an issue when the check does not come back clean
+        if: steps.check.outputs.unclean == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           REPORT: ${{ steps.check.outputs.report }}
@@ -85,7 +90,7 @@ jobs:
           # between them.
           {
             cat <<'INTRO'
-          The quarterly check found that a barcode pinned in `src/lib/food/curated-stand-ins.ts` no longer matches the snapshot beside it.
+          The quarterly check did not confirm every barcode pinned in `src/lib/food/curated-stand-ins.ts` against the snapshot beside it. The report says which entries moved, and which Open Food Facts never answered for.
 
           ```
           INTRO
@@ -95,7 +100,7 @@ jobs:
 
           Re-vetting means re-running ADR-0046 §2 for the entry — the absence proven across the complete archives, the single-ingredient text, the cross-product consensus, the independent corroboration — and then either updating the `snapshot` and its `captured` date by hand, pinning a different record that still clears the bar, or dropping the entry. `GONE` is the case with no snapshot to update: the product behind the stand-in has been delisted while search keeps answering from it.
 
-          An `UNCHECKED` line means the run never reached OFF, and a block that is a stack trace rather than a report means the check itself failed. Either way the table is unchanged and it is the check that needs a look.
+          An `UNCHECKED` line is not one of those. It means Open Food Facts served no record for that entry — the request failed, or came back a 429, a 5xx, or a status the check cannot explain — so the run established nothing about the record either way, and it asks for another run rather than a re-vet. A block that is a stack trace rather than a report means the check itself failed. Either way the table is unchanged.
           OUTRO
           } > issue-body.md
 
@@ -104,7 +109,7 @@ jobs:
             echo "Issue #$existing is already open; adding a comment instead."
             {
               cat <<HEAD
-          Still drifted as of $(date -u +%Y-%m-%d):
+          Still not clean as of $(date -u +%Y-%m-%d):
 
           \`\`\`
           HEAD
@@ -117,6 +122,6 @@ jobs:
             exit 0
           fi
           gh issue create \
-            --title "A curated stand-in's pinned OFF record has moved" \
+            --title "The curated stand-in check did not come back clean" \
             --label curated-snapshot \
             --body-file issue-body.md
