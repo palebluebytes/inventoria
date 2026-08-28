@@ -8,12 +8,16 @@ import { readFileSync } from "node:fs";
 import {
   APP_EXPORTS,
   FOOD_KIND_EXPORTS,
+  VARIANT_DROP_EXPORTS,
   TWIN_LEDGER_EXPORTS,
 } from "../../scripts/usda-app-module.mjs";
 // @ts-ignore
 import {
   BUNDLE_DATASETS,
   buildCorpus,
+  applyVariantDrops,
+  applyShippedNames,
+  assertAdjudicatedVariantsShip,
   assertTwinNamesRetrieve,
   bundleArchives,
   groupByIdentity,
@@ -37,6 +41,11 @@ import {
   readReferenceFoodName,
 } from "../../src/lib/food/reference-food-ranking";
 import { reportsNoEnergy } from "../../src/lib/food/nutrition";
+import {
+  ADJUDICATED_NAMES,
+  resolveShippedNames,
+  stripNonNamingQualifiers,
+} from "../../src/lib/food/usda-shipped-name";
 import {
   TWIN_LEDGER,
   SPLIT_TWIN_NDB_NUMBERS,
@@ -62,6 +71,10 @@ import {
   isPreparedProduct,
   isProcessedProduct,
 } from "../../src/lib/food/usda-food-kind";
+import {
+  resolveVariantDrops,
+  ADJUDICATED_VARIANTS,
+} from "../../src/lib/food/usda-variant-drops";
 
 // The generation step behind ADR-0047: USDA's bulk archives reduced to the two
 // artifacts the app ships. What matters here is that the bundled row is exactly
@@ -75,6 +88,8 @@ const app = {
   isPreparedProduct,
   isDryBasisRecord,
   isManufacturingInput,
+  resolveVariantDrops,
+  ADJUDICATED_VARIANTS,
   fdcReportsNoEnergy,
   fdcIdentityKey,
   resolveFdcGroup,
@@ -118,13 +133,15 @@ describe("what the generator borrows, and what it never restates", () => {
     // The roster lives in `usda-app-module.mjs`; what this pins is that the
     // generator's own stub uses all of it and nothing else, so a call site added
     // here without a roster entry fails rather than reaching a bare undefined.
-    // Three rosters, because the twin ledger (ADR-0051) and the five food-kind
-    // judgements (#146) are each reached through the same seam from a module of
-    // their own — all three are borrowed, none is restated.
+    // Four rosters, because the twin ledger (ADR-0051), the food-kind
+    // judgements (#146) and ADR-0061's variant rules are each reached through
+    // the same seam from a module of their own — all four are borrowed, none is
+    // restated.
     expect(
       [
         ...APP_EXPORTS,
         ...FOOD_KIND_EXPORTS,
+        ...VARIANT_DROP_EXPORTS,
         ...TWIN_LEDGER_EXPORTS,
         ...BUNDLE_RANKING_EXPORTS,
       ].sort()
@@ -917,6 +934,109 @@ describe("assertTwinNamesRetrieve — no archived name left unanswerable", () =>
 
   it("says nothing about an identity every filter dropped", () => {
     expect(assertTwinNamesRetrieve(groups, [], ranking)).toBe(0);
+  });
+});
+
+describe("applyVariantDrops — ADR-0061's variants of a food the corpus keeps", () => {
+  const survivor = (fdcId: number, description: string) => ({
+    food: { fdcId, description, foodNutrients: [] },
+    merged_from: [],
+    foodPortions: [],
+  });
+  // A head phrase read row by row, in miniature: a plain milk, a flavoured one,
+  // a powder and a second fortification of the plain one.
+  const milk = [
+    survivor(171266, "Milk, producer, fluid, 3.7% milkfat"),
+    survivor(
+      170879,
+      "Milk, chocolate, fluid, commercial, whole, with added vitamin A and vitamin D"
+    ),
+    survivor(173454, "Milk, dry, whole, without added vitamin D"),
+    survivor(
+      172205,
+      "Milk, reduced fat, fluid, 2% milkfat, without added vitamin A and vitamin D"
+    ),
+    survivor(
+      746778,
+      "Milk, reduced fat, fluid, 2% milkfat, with added vitamin A and vitamin D"
+    ),
+    survivor(170875, "Milk, low sodium, fluid"),
+  ];
+
+  it("takes each rule's own casualties, and counts them apart", () => {
+    const applied = applyVariantDrops(milk, app);
+    expect(
+      applied.survivors.map((s: { food: { fdcId: number } }) => s.food.fdcId)
+    ).toEqual([171266, 172205]);
+    expect(applied.variant_dropped).toEqual({
+      flavoured_variant: 1,
+      dehydrated_form: 1,
+      fortification_duplicate: 1,
+      adjudicated_variant: 1,
+    });
+  });
+
+  it("refuses a corpus that has moved past a written verdict", () => {
+    // The whole risk of a hand list, and the same failure `assertSupersededSurvive`
+    // guards from the other side: a mirror refresh rewrites the description the
+    // verdict was reached by reading, and nothing notices.
+    //
+    // Handed a one-entry roster the way `assertTwinNamesRetrieve`'s tests hand
+    // it a one-entry ledger — the check reads the roster off the app module, so
+    // narrowing it is how a test asks about one row instead of thirty.
+    const one = {
+      ...app,
+      ADJUDICATED_VARIANTS: [[170875, "Milk, low sodium, fluid"]],
+    };
+    expect(() =>
+      assertAdjudicatedVariantsShip(
+        [survivor(170875, "Milk, low sodium, fluid, reformulated")],
+        one
+      )
+    ).toThrow(/reached by reading the other name/);
+    expect(() => assertAdjudicatedVariantsShip([], one)).toThrow(
+      /no longer holds it/
+    );
+    expect(
+      assertAdjudicatedVariantsShip(
+        [survivor(170875, "Milk, low sodium, fluid")],
+        one
+      )
+    ).toBe(1);
+  });
+});
+
+describe("applyShippedNames — the hand-adjudicated names (ADR-0061 §5)", () => {
+  const survivor = (fdcId: number, description: string) => ({
+    food: { fdcId, description, foodNutrients: [] },
+    merged_from: [],
+    foodPortions: [],
+  });
+  const named = {
+    ...app,
+    resolveShippedNames,
+    stripNonNamingQualifiers,
+    ADJUDICATED_NAMES,
+  };
+
+  it("ships the milk under the name a reader was given, not USDA's", () => {
+    const applied = applyShippedNames(
+      [survivor(171266, "Milk, producer, fluid, 3.7% milkfat")],
+      named
+    );
+    expect(applied.survivors[0].food.description).toBe(
+      "Milk, whole, 3.7% milkfat"
+    );
+    expect(applied.adjudicated).toBe(1);
+  });
+
+  it("refuses a corpus that has moved past the published name", () => {
+    expect(() =>
+      applyShippedNames(
+        [survivor(171266, "Milk, producer, fluid, 3.7 percent milkfat")],
+        named
+      )
+    ).toThrow(/reached by reading the other name/);
   });
 });
 

@@ -5,6 +5,7 @@ import { describe, it, expect } from "vitest";
 import {
   APP_EXPORTS,
   FOOD_KIND_EXPORTS,
+  VARIANT_DROP_EXPORTS,
   RANKING_EXPORTS,
   VOCABULARY_EXPORTS,
   CORPUS_EXPORTS,
@@ -12,6 +13,7 @@ import {
 } from "../../scripts/usda-app-module.mjs";
 import * as usdaFdc from "../../src/lib/food/usda-fdc";
 import * as foodKind from "../../src/lib/food/usda-food-kind";
+import * as variantDrops from "../../src/lib/food/usda-variant-drops";
 import * as ranking from "../../src/lib/food/reference-food-ranking";
 import {
   DENIED_VOCABULARY_TAGS,
@@ -41,6 +43,18 @@ describe("the app seam — the scripts borrow the app instead of copying it", ()
       );
   });
 
+  it("names the variant rule and the hand list behind it", () => {
+    // ADR-0061's own module. One corpus-wide judgement, and one roster checked
+    // the way `VOCABULARY_EXPORTS` checks its own two below, because a list is
+    // not a function and a `typeof` sweep would wave it through.
+    expect(VARIANT_DROP_EXPORTS).toEqual([
+      "resolveVariantDrops",
+      "ADJUDICATED_VARIANTS",
+    ]);
+    expect(typeof variantDrops.resolveVariantDrops).toBe("function");
+    expect(Array.isArray(variantDrops.ADJUDICATED_VARIANTS)).toBe(true);
+  });
+
   it("names only real exports of the ranking", () => {
     for (const name of RANKING_EXPORTS)
       expect(typeof (ranking as Record<string, unknown>)[name]).toBe(
@@ -68,7 +82,7 @@ describe("the app seam — the scripts borrow the app instead of copying it", ()
   });
 
   it("borrows each name from exactly one module", () => {
-    // Six rosters composed into one bundle: a name in two of them would make
+    // Seven rosters composed into one bundle: a name in two of them would make
     // whichever module the entry re-exports last silently win. That is the
     // failure the #146 split could have introduced — a filter left behind in
     // `APP_EXPORTS` as well as named in the new one would still load, and would
@@ -76,6 +90,7 @@ describe("the app seam — the scripts borrow the app instead of copying it", ()
     const all = [
       ...APP_EXPORTS,
       ...FOOD_KIND_EXPORTS,
+      ...VARIANT_DROP_EXPORTS,
       ...RANKING_EXPORTS,
       ...VOCABULARY_EXPORTS,
       ...CORPUS_EXPORTS,

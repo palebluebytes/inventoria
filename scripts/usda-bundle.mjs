@@ -143,6 +143,9 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {(foodCategory: string | undefined, description: string) => boolean} isPreparedProduct
  * @property {(description: string) => boolean} isDryBasisRecord
  * @property {(description: string) => boolean} isManufacturingInput
+ * @property {(rows: { fdcId: number, description: string }[]) => ReadonlyMap<number, string>} resolveVariantDrops
+ * @property {readonly [number, string, string][]} ADJUDICATED_VARIANTS
+ * @property {readonly [number, string, string, string][]} ADJUDICATED_NAMES
  * @property {(food: BundleFood) => boolean} fdcReportsNoEnergy
  * @property {(food: BundleFood, splitNdbNumbers: ReadonlySet<number>) => string | number} fdcIdentityKey
  * @property {(group: BundleFood[]) => { food: BundleFood, merged_from: MergedSource[] }} resolveFdcGroup
@@ -411,6 +414,79 @@ export function buildCorpus(groups, app) {
 }
 
 /**
+ * Refuses a corpus that no longer holds a hand-adjudicated row under the
+ * description it was adjudicated by (ADR-0061 §5).
+ *
+ * The whole risk of a written drop list, in the shape {@link
+ * assertSupersededSurvive} guards from the other side: the entry names one row
+ * to remove, and a filter change or a mirror refresh can rewrite or remove it
+ * without touching the entry. Either way the verdict is about words nobody has
+ * read, and a generation that stops beats an artifact that quietly ships a
+ * different food.
+ *
+ * @param {Survivor[]} survivors
+ * @param {AppModule} app
+ */
+export function assertAdjudicatedVariantsShip(survivors, app) {
+  const shipped = new Map(
+    survivors.map((survivor) => [
+      survivor.food.fdcId,
+      survivor.food.description,
+    ])
+  );
+  for (const [fdcId, description] of app.ADJUDICATED_VARIANTS) {
+    const found = shipped.get(fdcId);
+    if (found === description) continue;
+    throw new Error(
+      `ADR-0061 §5 drops ${fdcId} as "${description}", and the corpus ` +
+        (found === undefined
+          ? "no longer holds it. A drop list that outlives its row is a verdict about nothing"
+          : `holds it as "${found}". The verdict was reached by reading the other name`) +
+        "; re-read the row in src/lib/food/usda-food-kind.ts."
+    );
+  }
+  return app.ADJUDICATED_VARIANTS.length;
+}
+
+/**
+ * The corpus with ADR-0061's variants of a food it already keeps taken out.
+ *
+ * Its own pass, after {@link buildCorpus} rather than inside it, because the
+ * three rules ask about a head phrase's SURVIVING rows — whether it still keeps
+ * a plain form, a fluid one, an unfortified one. Asked of the archives they
+ * would read verdicts about records the filters had already dropped.
+ *
+ * `variant_dropped` counts each rule's own casualties in the order
+ * `resolveVariantDrops` asks them, so the four tallies partition the drops
+ * rather than double-counting the rows two rules agree on.
+ *
+ * @param {Survivor[]} survivors
+ * @param {AppModule} app
+ */
+export function applyVariantDrops(survivors, app) {
+  const drops = app.resolveVariantDrops(
+    survivors.map((survivor) => ({
+      fdcId: survivor.food.fdcId,
+      description: survivor.food.description,
+    }))
+  );
+
+  const variant_dropped = {
+    flavoured_variant: 0,
+    dehydrated_form: 0,
+    fortification_duplicate: 0,
+    adjudicated_variant: 0,
+  };
+  const kept = [];
+  for (const survivor of survivors) {
+    const reason = drops.get(survivor.food.fdcId);
+    if (reason === undefined) kept.push(survivor);
+    else variant_dropped[reason]++;
+  }
+  return { survivors: kept, variant_dropped };
+}
+
+/**
  * The corpus with USDA's commercial origin qualifiers taken out of its names,
  * and the rows whose name that left already taken (ADR-0056).
  *
@@ -429,7 +505,30 @@ export function buildCorpus(groups, app) {
  * leaving them in the other would quietly make `new zealand` searchable again
  * the first time a refresh produced such a twin.
  */
-export function applyShippedNames(survivors, app) {
+export function applyShippedNames(input, app) {
+  // The hand-adjudicated names first, so every rule below reads the name the
+  // corpus will actually ship (ADR-0061 §5). They are checked against USDA's
+  // published spelling here rather than trusted, for the reason every other
+  // written list in this file is.
+  const survivors = input.map((survivor) => {
+    const entry = app.ADJUDICATED_NAMES.find(
+      ([fdcId]) => fdcId === survivor.food.fdcId
+    );
+    if (!entry) return survivor;
+    const [fdcId, published, shipped] = entry;
+    if (survivor.food.description !== published)
+      throw new Error(
+        `ADR-0061 §5 renames ${fdcId} from "${published}", and the corpus ` +
+          `holds it as "${survivor.food.description}". The verdict was reached ` +
+          "by reading the other name; re-read the row in " +
+          "src/lib/food/usda-shipped-name.ts."
+      );
+    return { ...survivor, food: { ...survivor.food, description: shipped } };
+  });
+  const adjudicated = app.ADJUDICATED_NAMES.filter(([fdcId]) =>
+    survivors.some((survivor) => survivor.food.fdcId === fdcId)
+  ).length;
+
   const { renamed, dropped } = app.resolveShippedNames(
     survivors.map((s) => ({
       fdcId: s.food.fdcId,
@@ -464,7 +563,12 @@ export function applyShippedNames(survivors, app) {
     designation_collision: 0,
   };
   for (const reason of dropped.values()) origin_dropped[reason]++;
-  return { survivors: kept, renamed: renamed.size, origin_dropped };
+  return {
+    survivors: kept,
+    renamed: renamed.size,
+    adjudicated,
+    origin_dropped,
+  };
 }
 
 /**
@@ -788,19 +892,32 @@ async function main() {
   );
   const groups = groupByIdentity(entries, app);
   const {
-    survivors: filtered,
+    survivors: reference_foods,
     dropped,
     twinned,
     twinned_survivors,
     identities,
   } = buildCorpus(groups, app);
+  // The drops come before both name rules, which ADR-0062 §3 calls load-bearing:
+  // four of the five collisions the fortification strip would cause are milk
+  // pairs ADR-0061 has already resolved by dropping one side.
+  const adjudicated_variants = assertAdjudicatedVariantsShip(
+    reference_foods,
+    app
+  );
+  const { survivors: filtered, variant_dropped } = applyVariantDrops(
+    reference_foods,
+    app
+  );
   // Asked of USDA's own names, so it has to come before the rename (ADR-0056 §4).
   const twinNames = assertTwinNamesRetrieve(groups, filtered, app);
   const superseded = assertSupersededSurvive(filtered, app);
-  const { survivors, renamed, origin_dropped } = applyShippedNames(
-    filtered,
-    app
-  );
+  const {
+    survivors,
+    renamed,
+    adjudicated: adjudicated_names,
+    origin_dropped,
+  } = applyShippedNames(filtered, app);
 
   // After the corpus, never before: both of ADR-0049 §3's filters ask what the
   // FINISHED corpus retrieves, so a group's members are compared against the
@@ -848,10 +965,21 @@ async function main() {
       `${dropped.no_energy} reporting no energy, ` +
       `${dropped.superseded} superseded dropped)`
   );
+  // ADR-0061's four tallies, reported beside the seven above them because they
+  // are the same kind of claim and the same kind of hole when nobody measures
+  // them. They partition, so the four sum to the rows the record removes.
+  console.log(
+    `  ${reference_foods.length - filtered.length} then leave as a variant of ` +
+      `a food the corpus keeps (${variant_dropped.flavoured_variant} flavoured, ` +
+      `${variant_dropped.dehydrated_form} dehydrated, ` +
+      `${variant_dropped.fortification_duplicate} fortification duplicates, ` +
+      `${variant_dropped.adjudicated_variant} of ${adjudicated_variants} adjudicated by hand)`
+  );
   // Reported rather than assumed, for the reason every other tally here is:
   // a rule whose reach nobody measured is a hole nobody can see (ADR-0056 §5).
   console.log(
-    `  ${renamed} lose a commercial origin or a cataloguing qualifier from ` +
+    `  ${adjudicated_names} ship under a name adjudicated by reading; ` +
+      `${renamed} lose a commercial origin or a cataloguing qualifier from ` +
       `their name; ${origin_dropped.collision} then collide with a row that named no ` +
       `origin, ${origin_dropped.preparation_sibling} follow as other ` +
       `preparations of the same food, and ${origin_dropped.designation_collision} ` +

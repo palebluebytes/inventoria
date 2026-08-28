@@ -20,6 +20,13 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const APP_MODULE = join(ROOT, "src", "lib", "food", "usda-fdc.ts");
 const FOOD_KIND_MODULE = join(ROOT, "src", "lib", "food", "usda-food-kind.ts");
+const VARIANT_DROP_MODULE = join(
+  ROOT,
+  "src",
+  "lib",
+  "food",
+  "usda-variant-drops.ts"
+);
 const RANKING_MODULE = join(
   ROOT,
   "src",
@@ -87,6 +94,21 @@ export const FOOD_KIND_EXPORTS = [
 ];
 
 /**
+ * The sixth judgement, from the module next door (ADR-0061).
+ *
+ * Its own roster because it is its own module and moves for its own reason: the
+ * five above ask what a record IS and take one description, `resolveVariantDrops`
+ * asks what a row is a VARIANT of and takes the whole corpus, because whether a
+ * head phrase still keeps a plain form is not a fact about any one name.
+ * `ADJUDICATED_VARIANTS` is the hand list behind it, borrowed so the generator
+ * can refuse a corpus that has moved past a written verdict.
+ */
+export const VARIANT_DROP_EXPORTS = [
+  "resolveVariantDrops",
+  "ADJUDICATED_VARIANTS",
+];
+
+/**
  * The ranking, borrowed for the same reason the filters are (ADR-0049 §2).
  *
  * The vocabulary is built by asking, thousands of times, "does this phrase
@@ -146,6 +168,7 @@ export const CORPUS_EXPORTS = ["buildSearchCorpus", "searchIndexRows"];
 export const SHIPPED_NAME_EXPORTS = [
   "resolveShippedNames",
   "stripNonNamingQualifiers",
+  "ADJUDICATED_NAMES",
 ];
 
 /**
@@ -178,6 +201,7 @@ export const TWIN_LEDGER_EXPORTS = [
 const BORROWED = [
   [APP_MODULE, APP_EXPORTS],
   [FOOD_KIND_MODULE, FOOD_KIND_EXPORTS],
+  [VARIANT_DROP_MODULE, VARIANT_DROP_EXPORTS],
   [RANKING_MODULE, RANKING_EXPORTS],
   [VOCABULARY_MODULE, VOCABULARY_EXPORTS],
   [CORPUS_MODULE, CORPUS_EXPORTS],
