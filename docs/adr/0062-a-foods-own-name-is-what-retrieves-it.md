@@ -105,6 +105,17 @@ The word `fortified` is deliberately **not** on the roster. `protein fortified`
 names a different food — 3.95 g of protein against 3.30 in the same milk — and a
 roster that reached it would file two foods under one name.
 
+**A trailing gloss is not a second part, and stays.** ADR-0056 §2's positional
+rule asks for a whole comma-delimited part, and one of the five milks below is
+not written that way: USDA types
+`Milk, nonfat, fluid, without added vitamin A and vitamin D (fat free or skim)`
+with no comma before its bracket, so its own punctuation makes the phrase and
+the gloss one part. The phrase is removed from within the part and the gloss
+joins the part before it, because the bracket glosses the FOOD rather than the
+fortification. Stated here because the count in §3 needs it: without this clause
+the strip reaches four milks, not five, and `skim` leaves the corpus along with
+the vocabulary key that expands to it.
+
 ### 3. A rename that would collide is not made
 
 New safety condition, and the point at which this record departs from ADR-0056 §4.
@@ -153,6 +164,17 @@ with added vitamin D`. §3 prefers an ugly name to a merged food.
 - **`Milk, nonfat, fluid (fat free or skim)` keeps its parenthetical**, which is
   what leaves the vocabulary key `skimmed milk` working: it expands to `skim milk`,
   and `skim` is still a word in that name.
+- **Three rows gain a `plain_sibling` flag, and one of them is a food §2 calls
+  different.** `Cheese, pasteurized process, American` and its `food` sibling
+  stop naming a fortification, and a shorter name makes a qualifier-prefix
+  relation that did not exist: the `low fat` and `vitamin D fortified` rows
+  filed beneath them are now varietals of a plain form. ADR-0055 §3 then demotes
+  them on a tie. That is the same effect ADR-0056's Consequences record, but it
+  is worth saying plainly here, because §2 refuses to put `fortified` on the
+  roster on the ground that it names a different food and the ranking has just
+  been told the two are a plain form and its varietal. The measured cost is a
+  demotion rather than a merge: both rows still ship, under their own names and
+  their own panels.
 - **The `Beverages` qualifier defect the code comment names is now half-closed.**
   §1 discards a tea filed under `Beverages` when the typed word sits past its name,
   but a row whose name part happens to contain the word still answers. The comment
