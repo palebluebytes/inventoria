@@ -1,7 +1,9 @@
 # ADR 0062: A food's own name is what retrieves it
 
 **Status:** Accepted  
-**Date:** 2026-08-28
+**Date:** 2026-08-28  
+**Amended by:** the #176 Amendment below, which gates §1's cut on a row answering the query on a strictly higher rung, and re-measures §1's table over the corpus that ships  
+**Implemented:** #176 `0ba9bb5`, `82328d4`, `1f5d82c`, `ded43e6` — §1 as `ReferenceFoodName.nameLength`, `NameKey.named` and `withoutStrayMentions` in `src/lib/food/reference-food-ranking.ts`, asked of each expanded phrase by `rankAgainst` in `src/lib/food/usda-corpus.ts`; #175 `d1c6637`, `b915de3`, `c9918c2`, `98dcadc` — §2's roster as `FORTIFICATION_QUALIFIERS` and §3's condition as the collision check beside it, both in `src/lib/food/usda-shipped-name.ts` and applied by `scripts/usda-adjudication.mjs`; Search index `schema_version` 7 to 8. The seventeen-row answer §1's Consequences claim is pinned by #178 `4f23964` in `tests/unit/usda-corpus.test.ts`
 
 This record amends [ADR-0042](0042-usda-search-reference-foods.md) §5, whose
 retrieval test admits a row on any word of its description, and

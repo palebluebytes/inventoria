@@ -2,7 +2,8 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-28  
-**Amended by:** the #177 Amendment below, which measures §6's four keys and finds three of them alive
+**Amended by:** the #177 Amendment below, which measures §6's four keys and finds three of them alive  
+**Implemented:** #174 `91e5e79`, `ea25d71`, `029c8d4` — §2, §3 and §4 as `isFlavouredVariant`, `isDehydratedForm` and `isFortificationDuplicate` in `src/lib/food/usda-variant-drops.ts`, §5's row-by-row verdicts as its `ADJUDICATED_VARIANTS`, and the 3.7% rename as `ADJUDICATED_NAMES` in `src/lib/food/usda-shipped-name.ts`, all applied by `scripts/usda-adjudication.mjs`; Search index `schema_version` 6 to 7. §6 by #177 `c62384a` — `soymilk -> soy milk` in `LOCAL_VOCABULARY`, `src/lib/food/food-vocabulary.ts`. The answer all of it was for is pinned by #178 `4f23964` in `tests/unit/usda-corpus.test.ts`
 
 This record amends [ADR-0055](0055-who-eats-a-food-ranks-it-and-never-drops-it.md)
 §1, which as written forbids most of the seventy-four drops below, and §7, whose
