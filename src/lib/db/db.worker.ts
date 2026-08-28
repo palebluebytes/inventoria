@@ -15,7 +15,7 @@ import { createHlc, type Hlc } from "./hlc";
 
 let db: LedgerDb | null = null;
 let hlc: Hlc | null = null;
-// Kept from init so a manifest read does not have to re-derive it: the id is
+// Kept from init so a summary read does not have to re-derive it: the id is
 // stable for the life of the database file.
 let device_id: string | null = null;
 let initialized = false;
@@ -131,7 +131,7 @@ self.onmessage = async (event: MessageEvent) => {
         type: "broadcast_invalidation",
         payload: { attributes },
       });
-    } else if (type === "ledger_manifest") {
+    } else if (type === "ledger_summary") {
       if (!db || !device_id) {
         throw new Error("Database not initialized. Please call 'init' first.");
       }

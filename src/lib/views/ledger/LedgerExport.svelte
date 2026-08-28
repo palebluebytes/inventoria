@@ -6,7 +6,7 @@
   import Button from "../../ui/Button.svelte";
   import Alert from "../../ui/Alert.svelte";
   import { dbClient } from "../../db/db.client";
-  import type { LedgerManifest } from "../../db/db.core";
+  import type { LedgerSummary } from "../../db/db.core";
   import {
     describeBytes,
     ExportTooLargeError,
@@ -22,7 +22,7 @@
 
   let { dbReady }: { dbReady: boolean } = $props();
 
-  let manifest = $state<LedgerManifest | null>(null);
+  let summary = $state<LedgerSummary | null>(null);
   let estimate_bytes = $state<number | null>(null);
   let outcome = $state<"idle" | "running" | "done" | "refused" | "failed">(
     "idle"
@@ -36,15 +36,15 @@
   $effect(() => {
     if (!dbReady) return;
     dbClient
-      .ledgerManifest()
-      .then((read) => (manifest = read))
-      .catch((err) => console.error("Failed to read the ledger manifest", err));
+      .ledgerSummary()
+      .then((read) => (summary = read))
+      .catch((err) => console.error("Failed to read the ledger summary", err));
     estimateStoredBytes().then((bytes) => (estimate_bytes = bytes));
   });
 
   let size_line = $derived.by(() => {
-    if (!manifest) return "Reading the ledger.";
-    const datoms = `${manifest.row_count.toLocaleString()} datoms, superseded facts included`;
+    if (!summary) return "Reading the ledger.";
+    const datoms = `${summary.row_count.toLocaleString()} datoms, superseded facts included`;
     if (estimate_bytes === null) {
       return `${datoms}. This browser will not estimate the size.`;
     }
@@ -52,7 +52,7 @@
   });
 
   async function runExport() {
-    if (!manifest) return;
+    if (!summary) return;
     outcome = "running";
     message = "";
     rows_written = 0;
@@ -88,7 +88,7 @@
         (after, budget_bytes) => dbClient.ledgerPage(after, budget_bytes),
         target.sink,
         {
-          manifest,
+          summary,
           exported_at,
           onProgress: (written) => (rows_written = written),
         }
@@ -99,7 +99,7 @@
         result.rows_written === result.envelope.row_count
           ? `Wrote ${result.rows_written.toLocaleString()} datoms to ${exportFilename(exported_at)}.`
           : `Wrote ${result.rows_written.toLocaleString()} datoms, but the file says ${result.envelope.row_count.toLocaleString()}. The ledger was appended to while it was being written, so export again for a file whose header matches it.`;
-      manifest = await dbClient.ledgerManifest();
+      summary = await dbClient.ledgerSummary();
     } catch (err) {
       if (err instanceof ExportTooLargeError) {
         outcome = "refused";
@@ -126,7 +126,7 @@
       id="export-ledger-btn"
       variant="secondary"
       onclick={runExport}
-      disabled={!dbReady || !manifest || outcome === "running"}
+      disabled={!dbReady || !summary || outcome === "running"}
       loading={outcome === "running"}
     >
       Export Ledger

@@ -45,7 +45,7 @@ export interface LedgerRow extends LedgerCursor {
 }
 
 /** What the ledger says about itself: the two facts an export header needs. */
-export interface LedgerManifest {
+export interface LedgerSummary {
   row_count: number;
   device_id: string;
 }

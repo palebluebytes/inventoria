@@ -24,7 +24,7 @@
  * format and the walk are testable without a Worker, a picker or a disk.
  */
 
-import type { LedgerCursor, LedgerManifest, LedgerRow } from "./db.core";
+import type { LedgerCursor, LedgerSummary, LedgerRow } from "./db.core";
 
 /** What line one of the file says the file is. */
 export const LEDGER_EXPORT_ARTIFACT = "inventoria-ledger";
@@ -57,15 +57,15 @@ export interface LedgerExportEnvelope {
 }
 
 export function buildExportEnvelope(
-  manifest: LedgerManifest,
+  summary: LedgerSummary,
   exported_at: number
 ): LedgerExportEnvelope {
   return {
     artifact: LEDGER_EXPORT_ARTIFACT,
     schema_version: LEDGER_EXPORT_SCHEMA_VERSION,
     exported_at,
-    device_id: manifest.device_id,
-    row_count: manifest.row_count,
+    device_id: summary.device_id,
+    row_count: summary.row_count,
   };
 }
 
@@ -124,7 +124,7 @@ export interface ExportSink {
 export const EXPORT_PAGE_BUDGET_BYTES = 2 * 1024 * 1024;
 
 export interface LedgerExportOptions {
-  manifest: LedgerManifest;
+  summary: LedgerSummary;
   exported_at: number;
   page_budget_bytes?: number;
   onProgress?: (rows_written: number) => void;
@@ -152,7 +152,7 @@ export async function writeLedgerExport(
   sink: ExportSink,
   options: LedgerExportOptions
 ): Promise<LedgerExportResult> {
-  const envelope = buildExportEnvelope(options.manifest, options.exported_at);
+  const envelope = buildExportEnvelope(options.summary, options.exported_at);
   const budget_bytes = options.page_budget_bytes ?? EXPORT_PAGE_BUDGET_BYTES;
   let rows_written = 0;
 

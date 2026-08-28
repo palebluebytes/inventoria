@@ -132,10 +132,10 @@ describe("DBClient RPC layer", () => {
     await expect(p).resolves.toEqual([]);
   });
 
-  it("asks the worker for the ledger manifest", async () => {
+  it("asks the worker for the ledger summary", async () => {
     const c = await makeInitialized();
-    const p = c.ledgerManifest();
-    expect(getWorker().posted[1].type).toBe("ledger_manifest");
+    const p = c.ledgerSummary();
+    expect(getWorker().posted[1].type).toBe("ledger_summary");
     getWorker().respond(getWorker().lastId, {
       status: "ok",
       data: { row_count: 3, device_id: "device_a" },

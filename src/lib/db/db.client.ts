@@ -2,12 +2,12 @@ import DBWorker from "./db.worker?worker";
 import type {
   Datom,
   LedgerCursor,
-  LedgerManifest,
+  LedgerSummary,
   LedgerRow,
   StoredDatom,
 } from "./db.core";
 
-export type { Datom, LedgerCursor, LedgerManifest, LedgerRow, StoredDatom };
+export type { Datom, LedgerCursor, LedgerSummary, LedgerRow, StoredDatom };
 
 export type InvalidationListener = (attributes: string[]) => void;
 
@@ -118,8 +118,8 @@ export class DBClient {
    * What the ledger says about itself: how many rows it holds and which device
    * it belongs to. The two facts an export envelope carries.
    */
-  async ledgerManifest(): Promise<LedgerManifest> {
-    return this.send<LedgerManifest>("ledger_manifest", {});
+  async ledgerSummary(): Promise<LedgerSummary> {
+    return this.send<LedgerSummary>("ledger_summary", {});
   }
 
   /**
