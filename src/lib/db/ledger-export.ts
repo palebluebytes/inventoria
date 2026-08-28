@@ -1,0 +1,272 @@
+/**
+ * The ledger's way out (ADR-0064): every datom written to a file the user
+ * chooses, one line at a time.
+ *
+ * The artifact is **raw datoms, not projected state**. Every row, every column,
+ * superseded facts included. A projection is the current answer; the ledger is
+ * the history that produced it, and a backup of the answer cannot restore the
+ * history. That is also why nothing here parses `value`: the column travels as
+ * the stored TEXT, so what is written back is what was read.
+ *
+ * The format is **NDJSON** with a metadata envelope on line one. It streams
+ * without a closing bracket, greps as plain text, and a truncated write costs
+ * the last line rather than the whole file. The envelope carries
+ * {@link LEDGER_EXPORT_SCHEMA_VERSION} so a reader can refuse a file it does not
+ * understand after one line, before touching hundreds of megabytes of base64.
+ *
+ * Nothing outside `datoms` is in it. API credentials and the ADR-0053 search log
+ * both live in `localStorage` by deliberate decision, and the search log's
+ * absence is structural rather than filtered: it is not in the table, so there
+ * is nothing here to exclude.
+ *
+ * This module is pure. Both seams it needs are injected — {@link LedgerPageReader}
+ * for where rows come from, {@link ExportSink} for where lines go — so the
+ * format and the walk are testable without a Worker, a picker or a disk.
+ */
+
+import type { LedgerCursor, LedgerManifest, LedgerRow } from "./db.core";
+
+/** What line one of the file says the file is. */
+export const LEDGER_EXPORT_ARTIFACT = "inventoria-ledger";
+
+/**
+ * The file format's version, not the database's.
+ *
+ * It moves when a reader written against the previous version would misread a
+ * newer file: a renamed or dropped column, a changed meaning for one, a
+ * different line grammar. Adding a field an old reader can ignore does not move
+ * it. The ledger's own schema has already migrated once, when ADR-0020 replaced
+ * the primary key, so a restore has to be able to tell what it is holding.
+ */
+export const LEDGER_EXPORT_SCHEMA_VERSION = 1;
+
+/** Line one of an export: what this file is, and how much of it to expect. */
+export interface LedgerExportEnvelope {
+  artifact: typeof LEDGER_EXPORT_ARTIFACT;
+  schema_version: number;
+  /** Unix ms at which the write began. */
+  exported_at: number;
+  /** The device whose ledger this is, from the `meta` table. */
+  device_id: string;
+  /**
+   * Rows the ledger held when the write began. A count taken at the start
+   * cannot promise the count at the end, so a reader treats it as what to
+   * expect rather than as an integrity check.
+   */
+  row_count: number;
+}
+
+export function buildExportEnvelope(
+  manifest: LedgerManifest,
+  exported_at: number
+): LedgerExportEnvelope {
+  return {
+    artifact: LEDGER_EXPORT_ARTIFACT,
+    schema_version: LEDGER_EXPORT_SCHEMA_VERSION,
+    exported_at,
+    device_id: manifest.device_id,
+    row_count: manifest.row_count,
+  };
+}
+
+export function envelopeLine(envelope: LedgerExportEnvelope): string {
+  return `${JSON.stringify(envelope)}\n`;
+}
+
+/**
+ * One datom as one line. The keys are written in the table's column order, and
+ * `value` goes out as the stored TEXT rather than as re-serialised JSON, so the
+ * column round-trips byte for byte. `JSON.stringify` escapes any newline inside
+ * a value, which is what keeps one datom to one line.
+ */
+export function datomLine(row: LedgerRow): string {
+  return `${JSON.stringify({
+    entity: row.entity,
+    attribute: row.attribute,
+    value: row.value,
+    time: row.time,
+    hlc_ms: row.hlc_ms,
+    hlc_ctr: row.hlc_ctr,
+    device_id: row.device_id,
+  })}\n`;
+}
+
+// ---------------------------------------------------------------------------
+// The two seams
+// ---------------------------------------------------------------------------
+
+/**
+ * Where rows come from: the worker's paged read, or a fake in a test. Returns
+ * an empty array once the walk is finished.
+ */
+export type LedgerPageReader = (
+  after: LedgerCursor | null,
+  budget_bytes: number
+) => Promise<LedgerRow[]>;
+
+/**
+ * Where lines go. Deliberately narrower than `WritableStream`: the buffered
+ * fallback is not a stream and should not have to pretend to be one.
+ */
+export interface ExportSink {
+  write(chunk: string): Promise<void>;
+  /** Commits the file. Called once, and only after every line is written. */
+  close(): Promise<void>;
+  /** Gives up on the file, leaving nothing behind. */
+  abort(reason: unknown): Promise<void>;
+}
+
+/**
+ * Bytes of datom value fetched in one page. Small enough that the main thread
+ * never holds more than a couple of label photos at a time, large enough that a
+ * ledger of small facts does not cost a round trip per handful of rows.
+ */
+export const EXPORT_PAGE_BUDGET_BYTES = 2 * 1024 * 1024;
+
+export interface LedgerExportOptions {
+  manifest: LedgerManifest;
+  exported_at: number;
+  page_budget_bytes?: number;
+  onProgress?: (rows_written: number) => void;
+}
+
+export interface LedgerExportResult {
+  envelope: LedgerExportEnvelope;
+  /**
+   * Rows actually written. It differs from `envelope.row_count` only if the
+   * ledger was appended to while the file was being written, which is worth
+   * telling the user about rather than hiding.
+   */
+  rows_written: number;
+}
+
+/**
+ * Walks the whole ledger into `sink`, envelope first.
+ *
+ * The walk never holds more than one page, so the file may be far larger than
+ * memory. Any failure aborts the sink before rethrowing, so a half-written
+ * export is never left looking like a whole one.
+ */
+export async function writeLedgerExport(
+  readPage: LedgerPageReader,
+  sink: ExportSink,
+  options: LedgerExportOptions
+): Promise<LedgerExportResult> {
+  const envelope = buildExportEnvelope(options.manifest, options.exported_at);
+  const budget_bytes = options.page_budget_bytes ?? EXPORT_PAGE_BUDGET_BYTES;
+  let rows_written = 0;
+
+  try {
+    await sink.write(envelopeLine(envelope));
+    let after: LedgerCursor | null = null;
+    for (;;) {
+      const rows = await readPage(after, budget_bytes);
+      if (rows.length === 0) break;
+      await sink.write(rows.map(datomLine).join(""));
+      rows_written += rows.length;
+      const last = rows[rows.length - 1];
+      after = {
+        entity: last.entity,
+        attribute: last.attribute,
+        hlc_ms: last.hlc_ms,
+        hlc_ctr: last.hlc_ctr,
+        device_id: last.device_id,
+      };
+      options.onProgress?.(rows_written);
+    }
+  } catch (err) {
+    await sink.abort(err);
+    throw err;
+  }
+
+  await sink.close();
+  return { envelope, rows_written };
+}
+
+// ---------------------------------------------------------------------------
+// The in-memory fallback and its ceiling
+// ---------------------------------------------------------------------------
+
+/**
+ * The most a buffered export may assemble in memory.
+ *
+ * Where the File System Access API is missing there is no streaming write, so
+ * the whole file has to exist as JavaScript strings before it can become a
+ * `Blob`, and the peak cost is several times the file's own size. 64 MiB is
+ * comfortably survivable; a ledger of label photos is not, and a tab that dies
+ * partway through an export is worse than one that says it cannot do it.
+ */
+export const EXPORT_FALLBACK_CEILING_BYTES = 64 * 1024 * 1024;
+
+/** The refusal, carrying the two numbers that explain it. */
+export class ExportTooLargeError extends Error {
+  readonly bytes: number;
+  readonly ceiling_bytes: number;
+
+  constructor(bytes: number, ceiling_bytes: number) {
+    super(
+      `This browser cannot write a file as it goes, so the export has to be assembled in memory first, ` +
+        `and this ledger is ${describeBytes(bytes)} against a ${describeBytes(ceiling_bytes)} ceiling. ` +
+        `Nothing was written. Export from a Chromium browser, which can stream straight to disk.`
+    );
+    this.name = "ExportTooLargeError";
+    this.bytes = bytes;
+    this.ceiling_bytes = ceiling_bytes;
+  }
+}
+
+const encoder = new TextEncoder();
+
+/**
+ * A sink that assembles the file in memory and hands the parts to `deliver` on
+ * close, refusing the moment it passes `ceiling_bytes`. The refusal happens
+ * during the walk rather than at the end, so the memory it declined to spend is
+ * memory it never spends.
+ *
+ * `deliver` is injected because building a `Blob` and clicking an anchor is the
+ * browser's business, not this module's.
+ */
+export function bufferedSink(
+  ceiling_bytes: number,
+  deliver: (parts: string[]) => void
+): ExportSink {
+  const parts: string[] = [];
+  let bytes = 0;
+  let abandoned = false;
+
+  return {
+    async write(chunk: string) {
+      bytes += encoder.encode(chunk).length;
+      if (bytes > ceiling_bytes) {
+        throw new ExportTooLargeError(bytes, ceiling_bytes);
+      }
+      parts.push(chunk);
+    },
+    async close() {
+      if (abandoned) return;
+      deliver(parts);
+    },
+    async abort() {
+      abandoned = true;
+      parts.length = 0;
+    },
+  };
+}
+
+/**
+ * A byte count as a person reads it, in the decimal units a file manager shows.
+ * One decimal place below ten, none above, because the figure is an estimate
+ * and more digits would claim a precision it does not have.
+ */
+export function describeBytes(bytes: number): string {
+  const units = ["bytes", "KB", "MB", "GB"];
+  let scaled = bytes;
+  let unit = 0;
+  while (scaled >= 1000 && unit < units.length - 1) {
+    scaled /= 1000;
+    unit += 1;
+  }
+  if (unit === 0) return `${Math.round(scaled)} bytes`;
+  const figure = scaled < 10 ? scaled.toFixed(1) : String(Math.round(scaled));
+  return `${figure} ${units[unit]}`;
+}
