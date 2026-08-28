@@ -18,7 +18,7 @@
  * testable without a Worker, a picker or a disk.
  */
 
-import type { LedgerRow } from "./db.core";
+import { isLedgerInteger, type LedgerRow } from "./db.core";
 import {
   LEDGER_EXPORT_ARTIFACT,
   LEDGER_EXPORT_SCHEMA_VERSION,
@@ -118,13 +118,19 @@ export function readImportEnvelope(line: string): LedgerExportEnvelope {
     );
   }
 
+  const reads = `This app reads version ${IMPORT_SUPPORTED_SCHEMA_VERSIONS.join(" or ")}.`;
   const schema_version = raw.schema_version;
-  if (
-    typeof schema_version !== "number" ||
-    !IMPORT_SUPPORTED_SCHEMA_VERSIONS.includes(schema_version)
-  ) {
+  // Two refusals rather than one. A file that names a version this reader does
+  // not have is not necessarily a newer file, and saying so would be a guess in
+  // the one place the format exists to stop the reader guessing.
+  if (typeof schema_version !== "number") {
     throw new LedgerImportRefusedError(
-      `this file is version ${JSON.stringify(schema_version)}, and this app reads version ${IMPORT_SUPPORTED_SCHEMA_VERSIONS.join(" or ")}. It was written by a newer build than this one, so importing it would mean guessing at what changed.`
+      `line one does not say which version of the format this file is. ${reads}`
+    );
+  }
+  if (!IMPORT_SUPPORTED_SCHEMA_VERSIONS.includes(schema_version)) {
+    throw new LedgerImportRefusedError(
+      `this file is version ${schema_version}. ${reads} Importing it would mean guessing at what the two versions differ on.`
     );
   }
 
@@ -174,7 +180,7 @@ function requireInteger(
   lineNumber: number
 ): number {
   const value = raw[field];
-  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+  if (!isLedgerInteger(value)) {
     throw new LedgerImportRefusedError(
       `"${field}" is not a whole number of at least zero.`,
       lineNumber
@@ -205,19 +211,22 @@ export type LedgerRowWriter = (
 ) => Promise<number>;
 
 /**
- * Characters of one datom line held before a batch is sent. It bounds the
- * message the main thread posts to the worker, the same job
- * `EXPORT_PAGE_BUDGET_BYTES` does in the other direction, and for the same
- * reason: one label photo outweighs a thousand ordinary datoms. Characters
- * rather than bytes because the count is a bound, not an accounting.
+ * Characters of datom line held before a batch is sent. It bounds the message
+ * the main thread posts to the worker, the same job `EXPORT_PAGE_BUDGET_BYTES`
+ * does in the other direction and for the same reason: one label photo
+ * outweighs a thousand ordinary datoms.
+ *
+ * Characters, not bytes, because the string is what is measured and the figure
+ * is a bound rather than an accounting. Base64 photo values are ASCII, so for
+ * the lines that make a file large the two counts are the same number.
  */
-export const IMPORT_BATCH_BUDGET_BYTES = 2 * 1024 * 1024;
+export const IMPORT_BATCH_BUDGET_CHARS = 2 * 1024 * 1024;
 
 /** Which of the two passes is running, for a screen that says so. */
 export type LedgerImportPhase = "checking" | "importing";
 
 export interface LedgerImportOptions {
-  batchBudgetBytes?: number;
+  batchBudgetChars?: number;
   onProgress?: (phase: LedgerImportPhase, rowsSeen: number) => void;
 }
 
@@ -252,7 +261,7 @@ export async function importLedger(
   options: LedgerImportOptions = {}
 ): Promise<LedgerImportResult> {
   const envelope = await checkImportFile(open, options.onProgress);
-  const budget = options.batchBudgetBytes ?? IMPORT_BATCH_BUDGET_BYTES;
+  const budget = options.batchBudgetChars ?? IMPORT_BATCH_BUDGET_CHARS;
 
   let batch: LedgerRow[] = [];
   let held = 0;
@@ -264,6 +273,10 @@ export async function importLedger(
     batch = [];
     held = 0;
   };
+
+  // Said before the first line is read, so a screen watching the phase moves off
+  // "checking" the moment the check is done rather than at the first flush.
+  options.onProgress?.("importing", 0);
 
   let seenEnvelope = false;
   for await (const line of linesOf(open())) {

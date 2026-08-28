@@ -23,6 +23,8 @@
   >("idle");
   let message = $state("");
   let rowsSeen = $state(0);
+  // Read in the catch, where `outcome` has already been overwritten.
+  let failedWhileWriting = false;
 
   let busy = $derived(outcome === "checking" || outcome === "importing");
 
@@ -39,6 +41,7 @@
     outcome = "checking";
     message = "";
     rowsSeen = 0;
+    failedWhileWriting = false;
 
     try {
       const result = await importLedger(
@@ -46,7 +49,8 @@
         (rows, final) => dbClient.ledgerImport(rows, final),
         {
           onProgress: (phase: LedgerImportPhase, seen: number) => {
-            outcome = phase === "checking" ? "checking" : "importing";
+            outcome = phase;
+            failedWhileWriting = phase === "importing";
             rowsSeen = seen;
           },
         }
@@ -66,8 +70,18 @@
         outcome = "refused";
         message = `${err.message} Nothing was imported.`;
       } else {
+        // Only the writing pass can leave anything behind, and it is the phase
+        // the screen is on when it fails. The count is exact rather than an
+        // estimate: a batch commits whole or rolls back, and the progress figure
+        // moves only once a batch has committed. Saying it matters, because
+        // running the same file again finishes the job without duplicating any
+        // of the rows that did land.
+        const written =
+          failedWhileWriting && rowsSeen > 0
+            ? ` ${rowsSeen.toLocaleString()} datoms had already been written and are in the ledger. Importing the same file again finishes it, and adds nothing that is already here.`
+            : " Nothing was written.";
         outcome = "failed";
-        message = err instanceof Error ? err.message : String(err);
+        message = `${err instanceof Error ? err.message : String(err)}${written}`;
         console.error("Ledger import failed", err);
       }
     }
@@ -101,7 +115,8 @@
   </p>
   <p class="figure">
     The file is read twice, once to check every line and once to write it, so a
-    file that is damaged is refused before anything is written.
+    damaged file is refused before anything is written. If the writing itself is
+    interrupted, importing the same file again finishes it.
   </p>
 
   <div class="actions-row">

@@ -54,8 +54,21 @@ describe("the envelope on line one", () => {
       row_count: 0,
     });
     expect(() => readImportEnvelope(future)).toThrow(
-      /file is version 2, and this app reads version 1/
+      /this file is version 2\. This app reads version 1\./
     );
+  });
+
+  it("refuses a file that does not say its version, without guessing why", () => {
+    const nameless = JSON.stringify({
+      artifact: "inventoria-ledger",
+      exported_at: 1,
+      device_id: "device_a",
+      row_count: 0,
+    });
+    expect(() => readImportEnvelope(nameless)).toThrow(
+      /does not say which version/
+    );
+    expect(() => readImportEnvelope(nameless)).not.toThrow(/newer/);
   });
 
   it("refuses a first line that is not JSON at all", () => {
@@ -253,7 +266,7 @@ describe("importing a file the export wrote", () => {
     const file = fileOf(exported(rows));
     const writer = recordingWriter();
 
-    await importLedger(file.open, writer.write, { batchBudgetBytes: 1 });
+    await importLedger(file.open, writer.write, { batchBudgetChars: 1 });
 
     expect(writer.batches.map((b) => b.rows.length)).toEqual([1, 1, 1, 0]);
     expect(writer.batches.map((b) => b.final)).toEqual([

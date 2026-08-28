@@ -35,6 +35,12 @@ export function fileChunks(file: File): ImportChunkSource {
       const tail = decoder.decode();
       if (tail.length > 0) yield tail;
     } finally {
+      // A pass that is abandoned part way leaves the stream open and locked, so
+      // cancelling is what actually closes it. On the path that read to the end
+      // the stream is already closed and this resolves at once. A failure to
+      // cancel is swallowed deliberately: it must not replace the error that
+      // caused the pass to stop.
+      await reader.cancel().catch(() => {});
       reader.releaseLock();
     }
   };

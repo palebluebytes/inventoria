@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createHlc, compareHlc } from "../../src/lib/db/hlc";
+import { createHlc, compareHlc, compareHlcMark } from "../../src/lib/db/hlc";
 
 describe("hybrid logical clock (ADR-0020)", () => {
   it("tracks wall time and resets the counter when it advances", () => {
@@ -58,5 +58,20 @@ describe("hybrid logical clock (ADR-0020)", () => {
     expect(compareHlc(b, c)).toBeLessThan(0);
     expect(compareHlc(c, d)).toBeLessThan(0);
     expect(compareHlc(a, a)).toBe(0);
+  });
+
+  it("compareHlcMark orders marks alone, calling two devices' stamps equal", () => {
+    expect(
+      compareHlcMark({ hlc_ms: 10, hlc_ctr: 0 }, { hlc_ms: 11, hlc_ctr: 0 })
+    ).toBeLessThan(0);
+    expect(
+      compareHlcMark({ hlc_ms: 10, hlc_ctr: 1 }, { hlc_ms: 10, hlc_ctr: 0 })
+    ).toBeGreaterThan(0);
+    expect(
+      compareHlcMark(
+        { hlc_ms: 10, hlc_ctr: 0, device_id: "a" },
+        { hlc_ms: 10, hlc_ctr: 0, device_id: "z" }
+      )
+    ).toBe(0);
   });
 });

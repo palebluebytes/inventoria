@@ -153,6 +153,21 @@ describe("appending rows that arrived with their own stamps", () => {
     expect(countDatoms(db)).toBe(0);
   });
 
+  it("refuses a stamp the reader would have refused, so the two agree", () => {
+    const bent = {
+      entity: "habit:9",
+      attribute: "habit/name",
+      value: '"Stretch"',
+      time: 40,
+      hlc_ms: -1,
+      hlc_ctr: 0,
+      device_id: "device_b",
+    };
+
+    expect(() => importLedgerRows(db, [bent])).toThrow();
+    expect(countDatoms(db)).toBe(0);
+  });
+
   it("writes nothing and reports nothing for an empty batch", () => {
     expect(importLedgerRows(db, [])).toEqual({ rowsAdded: 0, highWater: null });
   });

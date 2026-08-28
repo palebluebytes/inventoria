@@ -11,7 +11,7 @@
  * an event); ordering and the primary key are the HLC's job.
  */
 
-import type { Hlc, HlcKey, HlcMark } from "./hlc";
+import { compareHlcMark, type Hlc, type HlcKey, type HlcMark } from "./hlc";
 
 export interface Datom {
   entity: string;
@@ -317,6 +317,16 @@ export function readLedgerPage(
   return execRows<LedgerRow>(db, pageSql(LEDGER_COLUMNS), [...bind, taken]);
 }
 
+/**
+ * Whether a value can stand in one of `datoms`' integer columns. All four of
+ * them (`time` and the three stamp parts) are whole, non-negative and inside
+ * the safe range, and one predicate is what keeps the worker's boundary check
+ * from disagreeing with the import reader's (`ledger-import.ts`).
+ */
+export function isLedgerInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
 /** What one batch of imported rows did, and how far it moves the clock. */
 export interface LedgerImportOutcome {
   /** Rows the table did not already hold, key for key. */
@@ -357,7 +367,7 @@ export function importLedgerRows(
   if (rows.length === 0) return { rowsAdded: 0, highWater: null };
 
   const before = totalChanges(db);
-  let highWater: HlcMark = { hlc_ms: -1, hlc_ctr: -1 };
+  let highWater: HlcMark | null = null;
 
   db.exec("BEGIN TRANSACTION;");
   try {
@@ -370,9 +380,9 @@ export function importLedgerRows(
           !row.entity ||
           !row.attribute ||
           typeof row.value !== "string" ||
-          !Number.isFinite(row.time) ||
-          !Number.isFinite(row.hlc_ms) ||
-          !Number.isFinite(row.hlc_ctr) ||
+          !isLedgerInteger(row.time) ||
+          !isLedgerInteger(row.hlc_ms) ||
+          !isLedgerInteger(row.hlc_ctr) ||
           !row.device_id
         ) {
           throw new Error(`Invalid ledger row: ${JSON.stringify(row.entity)}`);
@@ -388,10 +398,7 @@ export function importLedgerRows(
         ]);
         stmt.step();
         stmt.reset();
-        if (
-          row.hlc_ms > highWater.hlc_ms ||
-          (row.hlc_ms === highWater.hlc_ms && row.hlc_ctr > highWater.hlc_ctr)
-        ) {
+        if (highWater === null || compareHlcMark(row, highWater) > 0) {
           highWater = { hlc_ms: row.hlc_ms, hlc_ctr: row.hlc_ctr };
         }
       }

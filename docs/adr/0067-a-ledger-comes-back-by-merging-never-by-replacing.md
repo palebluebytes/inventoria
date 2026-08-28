@@ -80,6 +80,11 @@ either is unfamiliar, naming both the file's version and the versions it reads.
 That is what ADR-0064 §2 put those two fields at the front for: the refusal
 costs one line of a file that may run to hundreds of megabytes.
 
+A file that names no version and a file that names an unknown one get separate
+refusals, and neither says the file is newer. An unknown version number is not
+evidence of a newer build, and asserting it would be a guess in the one place
+the format exists to stop the reader guessing.
+
 The supported versions are a list rather than a single number, because a reader
 may legitimately understand more than one. Today the list holds one entry.
 
@@ -104,6 +109,11 @@ append and the same row twice is the same row, so re-running the import
 completes it. Claiming a transaction across a two-pass read of a
 user-picked file would be a lie, and this clause exists so the next reader does
 not go looking for one.
+
+The screen says both halves. A failure during the writing pass names how many
+datoms did land and says that importing the same file again finishes it, since
+a caveat that only lives in this record is a caveat the person holding the
+half-written ledger never sees.
 
 A file truncated exactly on a line boundary is valid NDJSON and imports. The
 envelope's `row_count` will not match, and the screen says so, but ADR-0064 §2

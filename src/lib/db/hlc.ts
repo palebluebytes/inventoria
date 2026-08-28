@@ -82,11 +82,19 @@ export function createHlc(device_id: string, opts: HlcOptions = {}): Hlc {
   };
 }
 
+/**
+ * Order over clock marks alone: physical ms, then counter. It is what a caller
+ * wants when it is looking for a high-water mark rather than sorting rows,
+ * since the device tiebreak says nothing about how far the clock has moved.
+ */
+export function compareHlcMark(a: HlcMark, b: HlcMark): number {
+  return a.hlc_ms - b.hlc_ms || a.hlc_ctr - b.hlc_ctr;
+}
+
 /** Total order over HLC-stamped rows: physical ms, then counter, then device id. */
 export function compareHlc(a: HlcKey, b: HlcKey): number {
   return (
-    a.hlc_ms - b.hlc_ms ||
-    a.hlc_ctr - b.hlc_ctr ||
+    compareHlcMark(a, b) ||
     (a.device_id < b.device_id ? -1 : a.device_id > b.device_id ? 1 : 0)
   );
 }
