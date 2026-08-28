@@ -1,6 +1,29 @@
 /// <reference types="node" />
 import { test, expect } from "@playwright/test";
 
+// Four real 64x64 PNGs, one per colour, for the specs that attach a photo.
+// They have to decode: every capture surface bounds a photo's size on the way
+// in (ADR-0066), which means decoding it, and a byte string labelled image/png
+// is refused as the malformed image it is. At 64 px they are far inside the
+// bound, so what gets stored is these exact bytes and the specs can still
+// assert a data URL built from them.
+const RED_64_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAQMAAACQp+OdAAAABlBMVEX/AAD///9BHTQRAAAAD0lEQVQoz2NgGAWjgHwAAAJAAAGMxat3AAAAAElFTkSuQmCC",
+  "base64"
+);
+const GREEN_64_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAQMAAACQp+OdAAAABlBMVEUAgAD///8UPy9PAAAAD0lEQVQoz2NgGAWjgHwAAAJAAAGMxat3AAAAAElFTkSuQmCC",
+  "base64"
+);
+const BLUE_64_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAQMAAACQp+OdAAAABlBMVEUAAP////973JksAAAAD0lEQVQoz2NgGAWjgHwAAAJAAAGMxat3AAAAAElFTkSuQmCC",
+  "base64"
+);
+const ORANGE_64_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAQMAAACQp+OdAAAABlBMVEX/pQD////52iT3AAAAD0lEQVQoz2NgGAWjgHwAAAJAAAGMxat3AAAAAElFTkSuQmCC",
+  "base64"
+);
+
 test.describe("Calorie Tracker & Food Logging UI", () => {
   test.beforeEach(async ({ page }) => {
     // Capture page console messages
@@ -982,11 +1005,13 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.locator("#custom-cal").fill("300");
     await page.locator("#custom-name").fill("Avocado Salad");
 
-    // Attach a photo (optional attribute of the custom entry).
+    // Attach a photo (optional attribute of the custom entry). It has to be a
+    // real PNG: the capture helper decodes what it is given so it can bound the
+    // size (ADR-0066), and a byte string labelled image/png is refused.
     await page.setInputFiles(".hidden-file-input", {
       name: "salad.png",
       mimeType: "image/png",
-      buffer: Buffer.from("dummy-image-data-base64"),
+      buffer: ORANGE_64_PNG,
     });
     await expect(page.locator(".mini-thumb")).toBeVisible();
 
@@ -1103,9 +1128,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // A label can span several faces (panel on one, barcode on another) — attach
     // three ordered shots in one pick; the input takes `multiple` (§5).
-    const front = Buffer.from("front-face-photo");
-    const middle = Buffer.from("middle-photo");
-    const back = Buffer.from("back-face-photo");
+    const front = RED_64_PNG;
+    const middle = GREEN_64_PNG;
+    const back = BLUE_64_PNG;
     const frontUrl = `data:image/png;base64,${front.toString("base64")}`;
     await page.setInputFiles(".hidden-file-input", [
       { name: "front.png", mimeType: "image/png", buffer: front },
