@@ -101,6 +101,17 @@ describe("asking the browser to keep this origin's storage", () => {
     await expect(ensurePersistentStorage()).resolves.toBe("unknown");
   });
 
+  it("stands by what the browser already said when the request itself throws", async () => {
+    stubStorageManager({
+      persisted: vi.fn().mockResolvedValue(false),
+      persist: vi.fn().mockRejectedValue(new DOMException("denied")),
+    });
+
+    const { ensurePersistentStorage } = await loadStorage();
+
+    await expect(ensurePersistentStorage()).resolves.toBe("best-effort");
+  });
+
   it("reports unknown when the browser refuses to answer at all", async () => {
     stubStorageManager({
       persisted: vi.fn().mockRejectedValue(new DOMException("denied")),
@@ -110,6 +121,33 @@ describe("asking the browser to keep this origin's storage", () => {
     const { ensurePersistentStorage } = await loadStorage();
 
     await expect(ensurePersistentStorage()).resolves.toBe("unknown");
+  });
+});
+
+describe("reading the state back without asking for anything", () => {
+  it("sees a grant that arrived after this session's request was refused", async () => {
+    // Chromium can grant persistence on its own as a site is used more, so the
+    // memoised request's answer goes stale while the page is still open.
+    const persisted = vi
+      .fn()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValue(true);
+    const persist = vi.fn().mockResolvedValue(false);
+    stubStorageManager({ persisted, persist });
+
+    const { ensurePersistentStorage, readPersistenceState } =
+      await loadStorage();
+
+    await expect(ensurePersistentStorage()).resolves.toBe("best-effort");
+    await expect(readPersistenceState()).resolves.toBe("persisted");
+    // The reading is a read. Nothing was requested a second time.
+    expect(persist).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports unknown where the browser has no StorageManager", async () => {
+    vi.stubGlobal("navigator", { userAgent: "a browser from 2015" });
+    const { readPersistenceState } = await loadStorage();
+    await expect(readPersistenceState()).resolves.toBe("unknown");
   });
 });
 

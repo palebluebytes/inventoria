@@ -22,38 +22,56 @@
  */
 export type PersistenceState = "persisted" | "best-effort" | "unknown";
 
+/** The one request this session makes, held so it is never made twice. */
+let request: Promise<PersistenceState> | null = null;
+
 /**
  * Asks the browser to keep this origin's storage, and answers what it decided.
  *
  * Memoised at module scope, which is what makes the request fire at most once
- * per session: every later caller, the Settings readout included, awaits the
- * same promise rather than asking again. `persisted()` is consulted first, so a
- * grant that is already in place is never re-requested.
+ * per session: a second caller awaits the same promise rather than asking
+ * again. {@link readPersistenceState} is consulted first, so a grant already in
+ * place is never re-requested.
  *
  * It never rejects. A browser that will not answer leaves the app in exactly the
  * state it was already in, which is not a failure worth propagating into a
  * screen.
  */
 export function ensurePersistentStorage(): Promise<PersistenceState> {
-  asked ??= askTheBrowser();
-  return asked;
+  request ??= askTheBrowser();
+  return request;
 }
 
-let asked: Promise<PersistenceState> | null = null;
-
 async function askTheBrowser(): Promise<PersistenceState> {
+  const current = await readPersistenceState();
+  // Already granted, or a browser that says nothing. Neither is worth a request.
+  if (current !== "best-effort") return current;
+
   const manager = storageManager();
   // Half a StorageManager is a real browser: Safari shipped `estimate()` years
-  // before `persist()`, and the DOM types declare all three as present.
-  if (
-    typeof manager?.persisted !== "function" ||
-    typeof manager.persist !== "function"
-  ) {
-    return "unknown";
-  }
+  // before `persist()`, and the DOM types declare all three as present. Here the
+  // browser has already answered `persisted()`, so its answer stands whether or
+  // not the request can be made at all.
+  if (typeof manager?.persist !== "function") return current;
   try {
-    if (await manager.persisted()) return "persisted";
-    return (await manager.persist()) ? "persisted" : "best-effort";
+    return (await manager.persist()) ? "persisted" : current;
+  } catch {
+    return current;
+  }
+}
+
+/**
+ * What the browser says about this origin's storage right now, without asking it
+ * for anything. `persisted()` is a read, so this is safe to call whenever a
+ * screen wants the current answer rather than the one a request settled on:
+ * Chromium can grant persistence on its own as a site is used more, and a badge
+ * that reports a refusal from ten minutes ago is reporting the wrong thing.
+ */
+export async function readPersistenceState(): Promise<PersistenceState> {
+  const manager = storageManager();
+  if (typeof manager?.persisted !== "function") return "unknown";
+  try {
+    return (await manager.persisted()) ? "persisted" : "best-effort";
   } catch {
     // An insecure or privacy-locked context can throw instead of answering.
     // That is the same position as having no StorageManager at all: nothing was

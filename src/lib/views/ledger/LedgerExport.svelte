@@ -8,11 +8,11 @@
   import { dbClient } from "../../db/db.client";
   import type { LedgerSummary } from "../../db/db.core";
   import {
-    describeBytes,
     ExportTooLargeError,
     EXPORT_FALLBACK_CEILING_BYTES,
     writeLedgerExport,
   } from "../../db/ledger-export";
+  import { describeBytes } from "../../storage/describe-bytes";
   import {
     canStreamToFile,
     chooseExportTarget,
@@ -49,10 +49,10 @@
       : "Reading the ledger."
   );
 
-  // Said before the export rather than discovered during it. The estimate above
-  // covers the whole origin, so it cannot decide whether this ledger fits; the
-  // ceiling is enforced on the bytes actually written, and this line is what
-  // warns that there is one.
+  // Said before the export rather than discovered during it. The origin figure
+  // the Storage section reports cannot decide whether this ledger fits, since it
+  // covers the whole origin; the ceiling is enforced on the bytes actually
+  // written, and this line is what warns that there is one.
   let capLine = $derived(
     canStreamToFile()
       ? ""

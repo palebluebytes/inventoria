@@ -45,8 +45,15 @@ again for something already granted is the shape that turns into a prompt on
 every load in a browser that prompts.
 
 The promise is memoised at module scope. That is what enforces "at most once per
-session": the startup errand and the Settings readout await the same promise
-rather than each making a request, and a page load is the session boundary.
+session": a second caller awaits the same promise rather than making a second
+request, and a page load is the session boundary.
+
+The **request** is memoised; the **reading** is not. `persisted()` asks for
+nothing, so Settings waits for the startup request to settle and then reads the
+current state rather than reporting the answer that request happened to get.
+Chromium grants persistence on its own as a site is used more, which is the
+behaviour §3 leans on, and a badge still showing a refusal from ten minutes ago
+would be reporting the wrong thing.
 
 ### 3. A denial is reported and then left alone
 

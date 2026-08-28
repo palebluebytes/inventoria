@@ -8,9 +8,10 @@
   // The request happens once at startup, and a browser that refused is stating a
   // policy rather than waiting to be asked again.
   import Badge from "../../ui/Badge.svelte";
-  import { describeBytes } from "../../db/ledger-export";
+  import { describeBytes } from "../../storage/describe-bytes";
   import {
     ensurePersistentStorage,
+    readPersistenceState,
     readStorageEstimate,
     type PersistenceState,
     type StorageEstimateReading,
@@ -22,9 +23,14 @@
   let estimate = $state<StorageEstimateReading | null>(null);
 
   $effect(() => {
-    // The same memoised answer the startup errand asked for, so opening Settings
-    // is not a second request.
-    ensurePersistentStorage().then((state) => (persistence = state));
+    // Wait for the startup request to have settled, then report what the browser
+    // says now. Opening Settings is never a second request: the first call is the
+    // memoised one, and the second is a read. The two differ where a browser
+    // granted persistence on its own after refusing at load, which Chromium does
+    // as a site is used more, and where that happens the badge should say so.
+    ensurePersistentStorage()
+      .then(() => readPersistenceState())
+      .then((state) => (persistence = state));
     readStorageEstimate().then((reading) => (estimate = reading));
   });
 

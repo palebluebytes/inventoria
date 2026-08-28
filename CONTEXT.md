@@ -36,7 +36,7 @@ _Avoid_: Header, manifest, metadata block
 
 **Persistent storage**:
 The browser's undertaking not to evict this origin's data to reclaim disk space, asked for once per session through `navigator.storage.persist()` and reported in Settings. Storage without it is _best-effort_, the standard's own word: the Ledger may be cleared with no warning and no action by the user. The state belongs to one browser profile rather than to the person using the app, so it is never a datom, and it is not a backup, because clearing site data, `Wipe Database` and a lost device each take the Ledger whatever the browser granted. See ADR-0065.
-_Avoid_: Persistence (which is what the OPFS survival test proves, a weaker claim), durable storage, backup, permanent
+_Avoid_: Durable storage, backup, permanent; and "persistence" for what the Developer Options OPFS survival test proves, which is survival across a page reload rather than exemption from eviction
 
 ### Digital Twins
 
