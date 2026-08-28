@@ -1,0 +1,28 @@
+{
+  // The third project: the test suite, the ops scripts' PUBLIC SHAPES, and the
+  // Cloudflare worker. `tsconfig.app.json` covers `src/` and `tsconfig.node.json`
+  // covers the Vite config, which between them left every file under `tests/`
+  // unchecked — 52 type errors had accumulated there unseen, including a
+  // comparator silently ranking on eight keys where the test said ten.
+  //
+  // `checkJs` is off on purpose. The `scripts/*.mjs` generators are plain Node,
+  // deliberately outside the app's tsconfig (AGENTS.md §1), and this project
+  // reads their JSDoc so a test can be held to the shape a script declares —
+  // without also typechecking the script bodies, which is a different decision
+  // and a much larger one.
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tests.tsbuildinfo",
+    "types": ["svelte", "vite/client", "node"],
+    "allowJs": true,
+    "checkJs": false
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.js",
+    "src/**/*.svelte",
+    "tests/**/*.ts",
+    "scripts/**/*.mjs",
+    "worker/**/*.ts"
+  ]
+}

@@ -9,7 +9,7 @@
     "check:offline": "node scripts/offline-boot-check.mjs",
     "preview": "vite preview",
     "deploy": "pnpm run build && wrangler deploy",
-    "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json && node scripts/docs-check.mjs",
+    "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json && tsc -p tsconfig.tests.json && node scripts/docs-check.mjs",
     "docs:check": "node scripts/docs-check.mjs",
     "lint:css": "stylelint \"src/**/*.{css,svelte}\"",
     "test:unit": "vitest run tests/unit",
