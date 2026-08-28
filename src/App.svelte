@@ -7,8 +7,12 @@
   import AgendaView from "./lib/views/AgendaView.svelte";
   import SettingsView from "./lib/views/SettingsView.svelte";
   import ItemsView from "./lib/views/ItemsView.svelte";
-  import NotesView from "./lib/views/NotesView.svelte";
   import ReloadPrompt from "./lib/ui/ReloadPrompt.svelte";
+  // Notes is the only view whose CRDT (loro) carries a multi-megabyte WASM
+  // payload. Importing it dynamically keeps that payload out of the entry chunk,
+  // so a failure anywhere under Notes degrades Notes alone instead of stopping
+  // the ledger, food logging and habits from mounting at all (#125). The other
+  // views stay static.
   import { warmUsdaCorpus } from "./lib/food/usda-corpus";
   import { clearRetiredSecrets } from "./lib/stores/secrets";
 
@@ -105,7 +109,10 @@
       {/if}
 
       {#if activeTab === "notes"}
-        <NotesView {dbReady} />
+        {#await import("./lib/views/NotesView.svelte") then mod}
+          {@const NotesView = mod.default}
+          <NotesView {dbReady} />
+        {/await}
       {/if}
 
       <!-- Settings — always rendered so Playwright can find the harness elements -->

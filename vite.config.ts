@@ -92,12 +92,30 @@ const localScraperProxyPlugin = () => ({
   },
 });
 
-// loro-crdt's `exports` map sends the `development` condition to its `bundler`
-// build, which uses an ESM-WebAssembly import that Vite's dev server can't load.
-// Its `browser` build instead loads the WASM via `new URL(..., import.meta.url)`
-// (handled natively by Vite in both dev and build), so we point the app at it.
-// Unit tests run under Node (no XMLHttpRequest), so we leave them on the default
-// `node` build by skipping the alias when Vitest is driving the config.
+// loro-crdt ships four browser-ish entries and only one of them can start
+// offline. Measured against a production build, not read off the docs (#125):
+//
+//   browser  — loads its WASM with a *synchronous* XMLHttpRequest. Chrome
+//              dispatches no service worker `fetch` event for a sync XHR, so the
+//              request goes straight to the network and precaching cannot serve
+//              it. Offline, it throws during module evaluation.
+//   bundler  — fails the production build outright: Rolldown cannot load its
+//              bare `import * as wasm from "./loro_wasm_bg.wasm"`
+//              ([UNLOADABLE_DEPENDENCY]). This is a *build* limitation, not the
+//              dev-server one an earlier version of this comment claimed.
+//   web      — builds, then ships a broken app. Its default `__wbg_init` must be
+//              awaited and nothing awaits it, so the whole loader tree-shakes
+//              away; the emitted .wasm ends up referenced only by sw.js.
+//   base64   — inlines the WASM bytes into the JS and instantiates them
+//              synchronously, so there is no request to intercept and
+//              `new LoroDoc()` keeps working without an await. The only entry
+//              that both builds and starts offline.
+//
+// The payload rides in the lazily-imported Notes chunk (see App.svelte), so it
+// stays off the critical path and out of the entry chunk.
+//
+// Unit tests run under Node, so we leave them on the default `node` build by
+// skipping the alias when Vitest is driving the config.
 const isVitest = !!process.env.VITEST;
 
 // https://vite.dev/config/
@@ -198,12 +216,14 @@ export default defineConfig({
     },
   },
   resolve: {
-    alias: isVitest ? {} : { "loro-crdt": "loro-crdt/browser" },
+    alias: isVitest ? {} : { "loro-crdt": "loro-crdt/base64" },
   },
   optimizeDeps: {
-    // Both are WASM-backed and self-load their binaries; let Vite serve them
-    // as-is instead of pre-bundling, which would mangle the WASM URL resolution.
-    exclude: ["@sqlite.org/sqlite-wasm", "loro-crdt/browser"],
+    // SQLite is WASM-backed and self-loads its binary from a URL; let Vite serve
+    // it as-is instead of pre-bundling, which would mangle that URL resolution.
+    // loro-crdt needs no such protection on the `base64` entry — its bytes are
+    // inlined, so there is no WASM URL to mangle.
+    exclude: ["@sqlite.org/sqlite-wasm"],
   },
   // @ts-ignore
   test: {
