@@ -18,7 +18,7 @@ import {
   compareRelevance,
   readReferenceFoodName,
   readRowRank,
-  retrievedByName,
+  withoutStrayMentions,
   stemOf,
   wordsOf,
   type ReferenceFoodName,
@@ -430,27 +430,38 @@ function bestNameKey(
  * corpus that cannot fail them. The one filter here is about the QUERY rather
  * than the row — a row the typed words reach only past the food's own name, in
  * a set where some row answers on a higher rung, is not an answer (ADR-0062 §1).
- * It runs before the sort because it is cheaper to drop a row than to order it.
+ *
+ * That filter runs PER PHRASE, and the difference only shows where a vocabulary
+ * key expands to several. A phrase is a query, so the rung another phrase
+ * reached is not evidence about this one: over the 155 multi-phrase keys the map
+ * ships, one bar across the union drops 21 keys' rows that a phrase of their own
+ * names — `cacao butter` loses `Oil, cocoa butter` to a cocoa powder — and hands
+ * `mandarine` a tangerine where a mandarin answers. Per phrase it keeps
+ * everything the union keeps, and those rows besides.
  */
 function rankAgainst(
   foods: SearchableFood[],
   phrases: string[]
 ): { row: UsdaIndexRow; phrase: string }[] {
-  const ranks = phrases.map(compileReferenceFoodQuery);
-  const scored: { row: UsdaIndexRow; phrase: string; key: RelevanceKey }[] = [];
-  for (const food of foods) {
-    let best: RelevanceKey | undefined;
-    let bestPhrase = "";
-    for (let i = 0; i < ranks.length; i++) {
-      const key = bestNameKey(ranks[i], food);
-      if (key.tier > 0 && (!best || compareRelevance(key, best) < 0)) {
-        best = key;
-        bestPhrase = phrases[i];
-      }
+  const kept = new Map<
+    UsdaIndexRow,
+    { row: UsdaIndexRow; phrase: string; key: RelevanceKey }
+  >();
+  for (const phrase of phrases) {
+    const rank = compileReferenceFoodQuery(phrase);
+    const scored: { row: UsdaIndexRow; phrase: string; key: RelevanceKey }[] =
+      [];
+    for (const food of foods) {
+      const key = bestNameKey(rank, food);
+      if (key.tier > 0) scored.push({ row: food.row, phrase, key });
     }
-    if (best) scored.push({ row: food.row, phrase: bestPhrase, key: best });
+    for (const hit of withoutStrayMentions(scored)) {
+      const held = kept.get(hit.row);
+      if (!held || compareRelevance(hit.key, held.key) < 0)
+        kept.set(hit.row, hit);
+    }
   }
-  return retrievedByName(scored)
+  return [...kept.values()]
     .sort((a, b) => compareRelevance(a.key, b.key))
     .slice(0, SEARCH_RESULT_LIMIT)
     .map(({ row, phrase }) => ({ row, phrase }));

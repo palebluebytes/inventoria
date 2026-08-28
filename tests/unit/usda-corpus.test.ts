@@ -35,7 +35,7 @@ import {
   qualifiersOf,
   readReferenceFoodName,
   readRowRank,
-  retrievedByName,
+  withoutStrayMentions,
   stemOf,
   type RelevanceKey,
 } from "../../src/lib/food/reference-food-ranking";
@@ -73,6 +73,24 @@ const NZ_IMPORT_BEEF_157: readonly number[] = [
 const corpus = buildSearchCorpus(index);
 const descriptionsFor = (query: string): string[] =>
   searchIndexRows(corpus, query).hits.map(({ row }) => row.description);
+
+/**
+ * Every row a phrase retrieves, keyed the way the search keys it: as the best of
+ * ALL the row's names, its own and any the twin merge discarded (#137), with the
+ * row's own two keys spread on. A restatement over descriptions alone measures a
+ * corpus the app no longer searches.
+ */
+const scoredFor = (phrase: string) => {
+  const rank = compileReferenceFoodQuery(phrase);
+  return corpus.foods
+    .map((food) => ({
+      food,
+      key: [food.name, ...food.also]
+        .map((name) => ({ ...rank(name), ...food.rank }))
+        .reduce((best, key) => (compareRelevance(key, best) < 0 ? key : best)),
+    }))
+    .filter(({ key }) => key.tier > 0);
+};
 
 describe("the bundled search index", () => {
   it("carries no commercial origin qualifier, in a description or an alias", () => {
@@ -1216,17 +1234,8 @@ describe("searchIndexRows", () => {
     // so the bar stays at 0, every row clears it, and an ungated cut would empty
     // both queries outright.
     const retrieved = (query: string) => {
-      const rank = compileReferenceFoodQuery(query);
-      const scored = corpus.foods
-        .map((food) => ({
-          key: [food.name, ...food.also]
-            .map((name) => ({ ...rank(name), ...food.rank }))
-            .reduce((best, key) =>
-              compareRelevance(key, best) < 0 ? key : best
-            ),
-        }))
-        .filter(({ key }) => key.tier > 0);
-      return [scored.length, retrievedByName(scored).length];
+      const scored = scoredFor(query);
+      return [scored.length, withoutStrayMentions(scored).length];
     };
     expect(
       Object.fromEntries(
@@ -1385,6 +1394,21 @@ describe("searchIndexRows", () => {
       expect([query, phrases.length]).not.toEqual([query, 1]);
       expect([query, hits[0]?.row.description]).toEqual([query, expected]);
     }
+  });
+
+  it("asks the name-part rule of each expanded phrase, not of the union", () => {
+    // ADR-0062 §1 over the one path that scores a query as several phrases. A
+    // phrase is a query, so the rung ANOTHER phrase reached is not evidence
+    // about this one — and one bar over the union says otherwise. `cacao butter`
+    // expands to `cocoa butter` and `cocoa fat`; the second names a cocoa powder
+    // outright, which under a shared bar would take the cocoa butter the first
+    // phrase reaches out of the answer, since USDA files it under `Oil`.
+    expect(descriptionsFor("cacao butter")).toContain("Oil, cocoa butter");
+    // And the lead it costs: `mandarine` expands to phrases that reach both a
+    // tangerine and a mandarin, and the mandarin is the row a shared bar drops.
+    expect(descriptionsFor("mandarine")[0]).toBe(
+      "Mandarin, seedless, peeled, raw"
+    );
   });
 
   it("lets an alias account for a row, where a sibling flag must not", () => {
@@ -1739,21 +1763,7 @@ describe("searchIndexRows", () => {
       "raw beef",
       "b",
     ]) {
-      const rank = compileReferenceFoodQuery(query);
-      // Scored the way the search scores it: as the best of ALL the row's names,
-      // its own and any the twin merge discarded (#137). A restatement over
-      // descriptions alone measures a corpus the app no longer searches.
-      const scored = corpus.foods
-        .map((food) => ({
-          food,
-          key: [food.name, ...food.also]
-            .map((name) => ({ ...rank(name), ...food.rank }))
-            .reduce((best, key) =>
-              compareRelevance(key, best) < 0 ? key : best
-            ),
-        }))
-        .filter(({ key }) => key.tier > 0);
-      const admitted = retrievedByName(scored);
+      const admitted = withoutStrayMentions(scoredFor(query));
       const returned = new Set(
         searchIndexRows(corpus, query).hits.map(({ row }) => row.description)
       );
