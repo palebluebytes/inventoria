@@ -1,4 +1,7 @@
+# Mirrors the root's list. wrangler's bundler and runtime both need their
+# postinstall to run, or `wrangler deploy` has no workerd to check the
+# compatibility date against. These were left as pnpm's literal
+# "set this to true or false" placeholder text until 2026-08-28.
 allowBuilds:
-  esbuild: set this to true or false
-  sharp: set this to true or false
-  workerd: set this to true or false
+  esbuild: true
+  workerd: true
