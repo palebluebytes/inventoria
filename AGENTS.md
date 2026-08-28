@@ -15,6 +15,12 @@ checks against, and this file deliberately does not restate it.
   for one-off Node binaries. Never `npm`, `yarn`, or `bun`.
 - **Verification:** a change is verified when `pnpm check`, `pnpm test:unit`, and
   `pnpm lint:css` are clean. `pnpm check` already chains the docs check.
+- **The offline gate runs at build time, not in that roster.** `pnpm build`
+  chains `scripts/offline-boot-check.mjs`, which fails the build if the app
+  cannot reach `mount(App)` with the network off (#125). It needs a `dist/`,
+  which is why it is not in the roster above; run it alone against an existing
+  one with `pnpm check:offline`. If it reports that the check itself needs
+  updating, its browser stubs have fallen behind the app and the build is fine.
 - **Browser automation:** drive the app through the Chrome MCP browser tools
   (`mcp__claude-in-chrome__*`) only when the user explicitly asks for it.
   Otherwise describe any manual in-app check for the user to run themselves
