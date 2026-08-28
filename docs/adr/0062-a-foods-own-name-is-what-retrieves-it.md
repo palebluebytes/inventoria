@@ -183,3 +183,81 @@ with added vitamin D`. §3 prefers an ugly name to a merged food.
   description.** ADR-0056's Consequences already record this exposure; the nine
   renames here extend it, and every count in this record is stated over the corpus
   at the commit preceding the change.
+
+## Amendment (2026-08-28, #176): the sweep, and the gate the cut needed
+
+§1 shipped, and not in the form written above. The sweep its Consequences
+require was run twice — over the 3,857 corpus head phrases and head words
+`sweepQueries` produces, and over every one of the 4,733 words the shipped
+descriptions contain — and the rule as stated fails the bar it set itself.
+
+### What the bare rule costs
+
+Discarding on the every-token reading alone moves **20 leads** and takes
+**15,350 rows** off **526** of the 3,857 queries. Most of the moved leads are
+washes on words nobody types (`species`, `dry`, `based`), and three are the loss
+ADR-0055 §2 forbids outright, because the discarded row is unreachable rather
+than demoted:
+
+| query       | today                        | under the bare rule     |
+| ----------- | ---------------------------- | ----------------------- |
+| `chili`     | Peppers, hot chili, red, raw | Spices, chili powder    |
+| `butternut` | Squash, winter, butternut    | Nuts, butternuts, dried |
+| `swiss`     | Chard, swiss, raw            | Cheese, swiss           |
+
+The wider query set adds `ancho` (an anchovy answering for a chile), `roma` (a
+romano for a tomato) and `yellow` (a yellowtail for one). Every case is the same
+shape: a word USDA writes as one food's qualifier is another food's own name,
+which is #124's whole class arriving from the other side.
+
+### The reserved fallback is refused on measurement
+
+The Consequences reserve demotion to a new lowest tier. Measured, it buys
+nothing: the milks already outrank the cheeses under `milk`, so a demotion
+leaves that answer **byte for byte what it is today** — the eighteen rows stay
+on the screen — while still moving the same 20 leads, two of them onto the wrong
+food. It pays the cost of the rule and delivers none of it. Placed above `tier`
+rather than below it, it moves 42 instead, which is what ADR-0042's #159
+Amendment already forbids.
+
+### The gate that ships
+
+A row is discarded when every typed token matched only past its name part **and
+some retrieved row answers the query on a strictly higher `tier` rung.** The bar
+is the best rung any name reached, which makes the safe property structural in
+ADR-0049 §1's sense rather than disciplinary:
+
+- A query no name part answers leaves the bar at 0 and every row clears it, so
+  `raw` keeps its rows and `cooked` keeps its.
+- **The lead can never be discarded.** The leading row holds the highest rung in
+  the set, so it clears any bar that set can produce.
+- A word that names one food and qualifies another at the SAME rung keeps both,
+  which is what leaves `chili`, `butternut`, `swiss` and `ancho` exactly as they
+  were.
+
+Measured over both query sets: **0 leads moved, 0 queries emptied**, and the 29
+adjudicated cases in `docs/research/143-gold-set.json` unchanged. `milk` returns
+**seventeen rows, fifteen of them milk** and two of them the milkfish §4 declines
+to chase, which is what §1's Consequences claim.
+
+### Corrections to the table in §1
+
+Measured over the corpus as ADR-0061's drops and §2's renames left it, rather
+than at the commit those counts were taken: `milk` is **18** rows and not 25, and
+`raw` is **1,444** and not 1,432. `cooked` at 1,578, `salt` at 426, `water` at 50
+and `oil` at 42 all hold. After the gate, `salt` returns table salt alone, `water`
+12 rows and `oil` 70.
+
+### What it costs, stated
+
+445 of the 3,857 queries return fewer rows, 14,264 rows in total. A typed `pot`
+returns 44 rows rather than 91, and a typed `whole milk` two rather than
+thirteen. Every dropped row still answers the words that name it: the mozzarella
+leads `mozzarella`, and the pot roast answers `pot roast`.
+
+### Where it lives
+
+`retrievedByName` in `reference-food-ranking.ts`, applied in `rankAgainst`
+before the sort. `named` rides on `NameKey` because it is the same reading of the
+same tokens the ranking already does, and `compareRelevance` deliberately does
+not read it: §1 decides what is retrieved and nothing about the order.

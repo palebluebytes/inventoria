@@ -20,7 +20,7 @@
 **Amended by:** the #155 Amendment below, which adds a seventh name key asking whether the query accounts for the whole name, and separates the tie ADR-0055's #151 Amendment left open  
 **Amended by:** the #162 Amendment below, which adds an eighth name key asking how much of its food a row is a record of, and revises the #158 Amendment's precondition on it  
 **Amended by:** [ADR-0056](0056-a-name-loses-the-parts-that-do-not-name-the-food.md) (§3's principle covered which records ship and how they rank, but never what they are CALLED; a shipped description now loses the qualifier parts that do not name the food)  
-**Amended by:** [ADR-0062](0062-a-foods-own-name-is-what-retrieves-it.md) §1, which narrows §5's retrieval test: a row is discarded when every typed token matched only in a qualifier beyond the food's own name part  
+**Amended by:** [ADR-0062](0062-a-foods-own-name-is-what-retrieves-it.md) §1, which narrows §5's retrieval test: a row is discarded when every typed token matched only in a qualifier beyond the food's own name part, and some retrieved row answers on a higher tier rung  
 **Implemented:** `dabb1fe`, `082ad31`, `fcb3b60`, `1365343`; `src/lib/food/food-search.ts`, and since `aa6c53b` the filter roster §3 describes is `src/lib/food/usda-food-kind.ts` rather than `src/lib/food/usda-fdc.ts` (see the Note below)
 
 ## Context
