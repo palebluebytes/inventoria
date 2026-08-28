@@ -20,7 +20,6 @@ vi.mock("../../src/lib/db/db.client", () => ({
 
 import {
   settingsStore,
-  saveSettings,
   saveFoodTargets,
   saveFoodLimits,
   saveCalculatorPlan,
@@ -368,7 +367,7 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
 describe("saveLogExportConsent", () => {
   it("writes its own datom and touches nothing else", async () => {
     // Its own writer, so a screen that does not own this toggle cannot clobber
-    // it — three screens already call saveSettings for settings of their own.
+    // it. Every settings writer in the module now has that shape (ADR-0061).
     await saveLogExportConsent(true);
     const datoms = appendMock.mock.calls[0][0] as {
       entity: string;
