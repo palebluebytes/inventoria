@@ -5,6 +5,7 @@ import {
   compareRelevance,
   plainSiblingsOf,
   readRowRank,
+  retrievedByName,
 } from "../../src/lib/food/reference-food-ranking";
 import type { RelevanceKey } from "../../src/lib/food/reference-food-ranking";
 
@@ -116,6 +117,26 @@ describe("readReferenceFoodName", () => {
     // A label with nothing after it is the food's whole name, so there is no
     // shelf to discount — the row would otherwise have no name at all.
     expect(readReferenceFoodName("Spices").shelfLength).toBe(0);
+  });
+
+  it("reads the food's own name as the part the shelf label leads to", () => {
+    // ADR-0062 §1. The name part is the head phrase, or the qualifier straight
+    // after it where the head is a shelf label — which is the distinction the
+    // head phrase itself cannot draw, since `Cheese` and `Nuts` are the same
+    // kind of head. `Nuts, coconut milk` names a milk and
+    // `Cheese, mozzarella, whole milk` names a cheese.
+    expect(readReferenceFoodName("Nuts, coconut milk, raw").nameLength).toBe(3);
+    expect(
+      readReferenceFoodName("Cheese, mozzarella, whole milk").nameLength
+    ).toBe(2);
+    // No shelf label: the head phrase is the whole of the food's own name.
+    expect(readReferenceFoodName("Grapes, red, seedless, raw").nameLength).toBe(
+      1
+    );
+    expect(readReferenceFoodName("Soy milk, unsweetened").nameLength).toBe(2);
+    // A label with nothing after it is the food's whole name, exactly as
+    // `shelfLength` reads it.
+    expect(readReferenceFoodName("Spices").nameLength).toBe(1);
   });
 
   it("reads a shelf label through the spacing USDA actually wrote", () => {
@@ -297,6 +318,51 @@ describe("compileReferenceFoodQuery", () => {
     expect(rank("wine", "Alcoholic beverage, wine, table, red").tier).toBe(20);
   });
 
+  it("says whether the query reached the food's own name at all", () => {
+    // ADR-0062 §1. `Cheese, mozzarella, whole milk` matches `milk` as a whole
+    // word, in a part naming what the cheese is MADE OF — where `Nuts, coconut
+    // milk` and `Beverages, rice milk` are milks, because the food's own name
+    // is the part the shelf label leads to.
+    expect(rank("milk", "Cheese, mozzarella, whole milk").named).toBe(0);
+    expect(rank("milk", "Yogurt, plain, whole milk").named).toBe(0);
+    expect(rank("milk", "Nuts, coconut milk, raw").named).toBe(1);
+    expect(rank("milk", "Beverages, rice milk, unsweetened").named).toBe(1);
+    // A word matched in the shelf label is not matched past the name either, so
+    // every cheese still answers to `cheese`.
+    expect(rank("cheese", "Cheese, mozzarella, whole milk").named).toBe(1);
+  });
+
+  it("asks EVERY typed token, so one word on the name keeps the row", () => {
+    // The whole safety argument, and the case that fixes the reading: a
+    // per-token rule would demote the row `vocabulary_local` sends
+    // `natural yoghurt` to, and a hand entry is admitted only where the search
+    // leads with the row it recorded (ADR-0049 §4).
+    expect(
+      rank("yogurt plain whole milk", "Yogurt, plain, whole milk").named
+    ).toBe(1);
+    expect(rank("whole milk", "Milk, whole, 3.7% milkfat").named).toBe(1);
+  });
+
+  it("leaves the tier alone where a word lands past the food's name", () => {
+    // ADR-0062 §1 decides what is RETRIEVED and changes no rung: `milk` is a
+    // whole word in that cheese and stays a whole-word match, exactly as it is
+    // in a coconut milk. What separates them is the field, and what reads the
+    // field is `retrievedByName` rather than the order.
+    const cheese = rank("milk", "Cheese, mozzarella, whole milk");
+    const coconut = rank("milk", "Nuts, coconut milk, raw");
+    expect([cheese.tier, cheese.named]).toEqual([20, 0]);
+    expect([coconut.tier, coconut.named]).toEqual([20, 1]);
+  });
+
+  it("scores 0 for every candidate where the query names no food at all", () => {
+    // What the gate in `retrievedByName` rests on: no row is NAMED `raw`, so
+    // nothing about a bare `raw` distinguishes one row from another here and the
+    // rule has nothing to fire on. An ungated cut would empty the query.
+    expect(rank("raw", "Bananas, raw").named).toBe(0);
+    expect(rank("raw", "Beef, ground, raw").named).toBe(0);
+    expect(rank("cooked", "Spinach, cooked, boiled, drained").named).toBe(0);
+  });
+
   it("takes the FIRST word answering a token, by stem or by prefix", () => {
     // Either branch of the retrieval test can be the one that answers, so both
     // count — and whichever answers first is the index.
@@ -432,6 +498,7 @@ describe("compareRelevance", () => {
     // #143 until ADR-0055.
     const key = (over: Partial<RelevanceKey>): RelevanceKey => ({
       tier: 20,
+      named: 1,
       raw: 1,
       head: -1,
       accounted: 1,
@@ -451,6 +518,7 @@ describe("compareRelevance", () => {
       beats(
         {
           tier: 40,
+          named: 0,
           raw: 0,
           head: -9,
           accounted: 0,
@@ -463,6 +531,10 @@ describe("compareRelevance", () => {
         { tier: 20 }
       )
     ).toBeLessThan(0);
+    // …and `named` is not one of them: ADR-0062 §1 decides retrieval, so two
+    // keys differing only there tie, and `retrievedByName` is where the field is
+    // read. As a sorting key it moved 20 leads for nothing.
+    expect(beats({ named: 1 }, { named: 0 })).toBe(0);
     expect(
       beats(
         {
@@ -538,6 +610,80 @@ describe("compareRelevance", () => {
     // …and `designated` last, the weakest signal there is.
     expect(beats({ designated: 1 }, { designated: 0 })).toBeLessThan(0);
     expect(beats({}, {})).toBe(0);
+  });
+});
+
+describe("retrievedByName", () => {
+  // ADR-0062 §1 over a whole result set: which rows a query keeps. The corpus
+  // answers it changes are asserted in `usda-corpus.test.ts`; these pin the rule.
+  const scored = (rows: [string, number, number][]) =>
+    rows.map(([description, tier, named]) => ({
+      description,
+      key: { ...NO_KEY, tier, named },
+    }));
+  const NO_KEY = {
+    tier: 0,
+    named: 0,
+    raw: 0,
+    head: 0,
+    accounted: 0,
+    position: 0,
+    plain: 0,
+    wholeness: 0,
+    simplicity: 0,
+  };
+
+  it("drops a row the query reaches only past the food's own name", () => {
+    const kept = retrievedByName(
+      scored([
+        ["Milk, whole, 3.7% milkfat", 50, 1],
+        ["Nuts, coconut milk, raw", 20, 1],
+        ["Cheese, mozzarella, whole milk", 20, 0],
+      ])
+    );
+    expect(kept.map((r) => r.description)).toEqual([
+      "Milk, whole, 3.7% milkfat",
+      "Nuts, coconut milk, raw",
+    ]);
+  });
+
+  it("keeps everything where no row names the food, so `raw` is untouched", () => {
+    // The gate, and the case an ungated rule empties: the bar is the best rung
+    // any name reached, and with nothing named it is 0, which every row clears.
+    const rows = scored([
+      ["Bananas, raw", 20, 0],
+      ["Beef, ground, raw", 20, 0],
+    ]);
+    expect(retrievedByName(rows)).toEqual(rows);
+  });
+
+  it("keeps a row the naming row does not answer better", () => {
+    // `chili` names a spice and qualifies a pepper, both at the whole-word rung,
+    // so the bar ties and the peppers stay. Ungated, this is the query where the
+    // rule takes every chili pepper out of the only word that reaches it.
+    const kept = retrievedByName(
+      scored([
+        ["Spices, chili powder", 20, 1],
+        ["Peppers, hot chili, red, raw", 20, 0],
+      ])
+    );
+    expect(kept).toHaveLength(2);
+  });
+
+  it("can never drop the row that leads, whatever the set", () => {
+    // Structural, not measured: the leading row holds the highest rung in the
+    // set, so it clears any bar the set can produce. A cut that could take the
+    // lead is the one ADR-0055 §2 refuses.
+    const kept = retrievedByName(
+      scored([
+        ["Peppers, ancho, dried", 20, 0],
+        ["Fish, anchovy, european, raw", 10, 1],
+      ])
+    );
+    expect(kept.map((r) => r.description)).toEqual([
+      "Peppers, ancho, dried",
+      "Fish, anchovy, european, raw",
+    ]);
   });
 });
 

@@ -204,10 +204,28 @@ export interface ReferenceFoodName {
    * Read by the two keys that ask WHERE a word sits, `position` and `accounted`,
    * and deliberately by nothing else: `headLength` and `headChars` still cover
    * the whole head phrase, so the tier a name reaches is exactly what it was
-   * (#154). A tea filed under `Beverages` is still a qualifier match, which is
-   * a separate defect and a separate ticket.
+   * (#154). A tea filed under `Beverages` is still a qualifier match — the tier
+   * gap that buries it is #153's and untouched here — but a row the typed word
+   * reaches only PAST its name no longer answers ahead of one the word names,
+   * which is the half of that defect {@link NameKey.named} closes (ADR-0062 §1).
    */
   shelfLength: number;
+  /**
+   * How many leading words are the food's OWN NAME: the head phrase, or the head
+   * phrase plus the qualifier straight after it where the head is a shelf label.
+   * `Nuts, coconut milk, raw` is 3 and `Cheese, mozzarella, whole milk` is 2.
+   *
+   * The distinction ADR-0062 §1 turns on, and it is deliberately not the head
+   * phrase: {@link SHELF_LABEL_HEAD} files `cheese`, `nuts`, `fish`, `beverages`
+   * and `milk` together, so a rule reading the head cannot tell a coconut milk
+   * from a cheese made with milk. Which PART the word sits in can.
+   *
+   * A count rather than a range, and it starts at 0 rather than at
+   * `shelfLength`, because a word matched IN the shelf label has not been
+   * matched past the food's name either — `cheese` names every `Cheese, …` row
+   * exactly as it always did.
+   */
+  nameLength: number;
   /** 1 for a raw food, 0 otherwise — the base-ingredient preference. */
   raw: number;
   /** Raw simplicity: "Bananas, raw" (3) over "Bananas, overripe, raw" (2). */
@@ -344,6 +362,11 @@ export function readReferenceFoodName(description: string): ReferenceFoodName {
   // it IS the name, so a lone "Spices" keeps its head rather than losing it.
   const shelfLength =
     parts.length > 1 && SHELF_LABEL_HEAD.has(parts[0]) ? head.length : 0;
+  // Where the food's own name ENDS (ADR-0062 §1). Past a shelf label the name is
+  // the qualifier the label leads to — `Nuts, coconut milk` names a milk — and
+  // `shelfLength` is only ever set where that qualifier exists.
+  const nameLength =
+    shelfLength > 0 ? shelfLength + wordsOf(parts[1]).length : head.length;
   // Base-ingredient preference: someone searching a food wants the raw base
   // form, so raw ("… raw" anywhere in the name) outranks every processed form.
   const raw = /\braw\b/.test(lower) ? 1 : 0;
@@ -378,6 +401,7 @@ export function readReferenceFoodName(description: string): ReferenceFoodName {
     headLength: head.length,
     headChars: head.reduce((n, w) => n + w.length, 0),
     shelfLength,
+    nameLength,
     raw,
     simplicity,
     plain,
@@ -389,6 +413,12 @@ export function readReferenceFoodName(description: string): ReferenceFoodName {
  * How well one name answers a query, as the ordered keys the ranking sorts on.
  * Larger is better in every field, and each is only consulted when the one
  * before it ties.
+ *
+ * With one field that is not a sorting key at all: `named` decides what a query
+ * RETRIEVES rather than how the results order (ADR-0062 §1). It rides here
+ * because it is the same reading of the same name against the same tokens, and
+ * because a second pass asking it would be free to disagree with this one about
+ * what a token matched (#131). See {@link retrievedByName}.
  */
 export interface NameKey {
   /**
@@ -420,6 +450,34 @@ export interface NameKey {
    * rather than summing them, so a tier is never traded against a later key.
    */
   tier: number;
+  /**
+   * Whether the query reached the food's OWN NAME: 1 when some typed token
+   * matched within {@link ReferenceFoodName.nameLength}, 0 when every one of
+   * them matched only in a part beyond it.
+   *
+   * ADR-0062 §1, and it is the reason `milk` reads as an answer. USDA writes an
+   * ingredient where a qualifier goes, so `Cheese, mozzarella, whole milk`
+   * matches `milk` as a whole word in a part that names what the cheese is MADE
+   * OF; twelve cheeses, seven yogurts, a mashed potato and a coffee substitute
+   * reached a bare `milk` that way, and ADR-0061's drops promoted every one of
+   * them onto the first screen.
+   *
+   * EVERY typed token, not any, and that is the whole safety argument. Under the
+   * vocabulary phrase `yogurt plain whole milk`, `yogurt` and `plain` land on
+   * the name, so `Yogurt, plain, whole milk` keeps its place — which it has to,
+   * because `vocabulary_local` ships `natural yoghurt` pointing at that row and
+   * a hand entry is admitted only where the search leads with the row it
+   * recorded (ADR-0049 §4).
+   *
+   * A field of this shape and not a sorting key: what it decides is whether the
+   * row is RETRIEVED, and {@link retrievedByName} is where that is decided,
+   * because the answer needs the whole result set and one name cannot see it.
+   * As an ordering key instead it was measured at 20 moved leads and two of them
+   * are a cost — `chili` from a pepper to a spice, `butternut` from a squash to
+   * a nut — bought for nothing, since the milks already outranked the cheeses
+   * and only removing them clears the screen.
+   */
+  named: number;
   /** The name's raw-ness, carried through so one comparison reads one key. */
   raw: number;
   /** How completely the query fills the head phrase; negative chars-to-go. */
@@ -580,6 +638,7 @@ export interface RelevanceKey extends NameKey, RowRank {}
 /** A name that does not answer the query at all — every later key is moot. */
 const NO_MATCH: NameKey = {
   tier: 0,
+  named: 0,
   raw: 0,
   head: 0,
   accounted: 0,
@@ -605,6 +664,12 @@ const HEAD_UNMATCHED = -1e6;
  * last, because it is the weakest signal available and, measured over every
  * corpus head phrase and head word, placing it last rather than immediately
  * after `position` changes the same two leads and no others.
+ *
+ * {@link NameKey.named} is deliberately absent: it decides what a query
+ * RETRIEVES (ADR-0062 §1) and nothing about the order of what it retrieved.
+ * Measured as a key it moves 20 leads from under `tier` and 42 from above it,
+ * against nothing at all as a filter — and two of the 20 are a cost, `chili`
+ * handed from a pepper to a spice and `butternut` from a squash to a nut.
  */
 export function compareRelevance(a: RelevanceKey, b: RelevanceKey): number {
   return (
@@ -619,6 +684,46 @@ export function compareRelevance(a: RelevanceKey, b: RelevanceKey): number {
     b.simplicity - a.simplicity ||
     b.designated - a.designated
   );
+}
+
+/**
+ * The scored rows a query keeps: ADR-0062 §1's rule, applied to a whole result
+ * set because that is the only place it can be applied safely.
+ *
+ * A row whose every typed token landed past the food's own name is dropped —
+ * `Cheese, mozzarella, whole milk` under `milk` — but only where some row
+ * answers the query on a STRICTLY HIGHER rung of {@link NameKey.tier}. That
+ * second condition is the gate §1 asks for, and it is structural rather than
+ * disciplinary: the bar is the best rung any name reached, so the rule cannot
+ * fire in either case that would break it.
+ *
+ * - A query no name answers leaves the bar at 0, every row clears it and the
+ *   set is untouched: `raw` keeps its 1,444 rows and `cooked` its 1,578, where
+ *   an ungated cut empties both outright.
+ * - **The lead can never be dropped.** The best row holds the highest rung
+ *   there is, so it clears any bar the set can produce. Measured over 3,857
+ *   corpus head phrases and head words and over every one of the 4,733 words the
+ *   corpus contains: 0 leads moved, 0 queries emptied.
+ *
+ * That gate is also what keeps a word that names one food and qualifies another
+ * answering with both. `chili` names a spice at rung 20 and qualifies a pepper
+ * at rung 20, so the bar ties and the peppers stay; `milk` names nine milks at
+ * rung 50, so the thirteen cheeses at rung 20 go. Ungated, the same rule takes
+ * every chili pepper, every butternut squash and every ancho chile out of the
+ * only query that names them, which is the loss ADR-0062 §1 was swept for.
+ *
+ * Generic over the row shape rather than taking `RelevanceKey[]`, because the
+ * caller has to keep whatever it hangs on the key — the row and the phrase that
+ * reached it — and a filter has no business knowing what those are.
+ */
+export function retrievedByName<T extends { key: NameKey }>(
+  scored: readonly T[]
+): T[] {
+  const bar = scored.reduce(
+    (rung, { key }) => (key.named === 1 ? Math.max(rung, key.tier) : rung),
+    0
+  );
+  return scored.filter(({ key }) => key.named === 1 || key.tier >= bar);
 }
 
 /**
@@ -661,6 +766,7 @@ export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
     headLength,
     headChars,
     shelfLength,
+    nameLength,
     raw,
     simplicity,
     plain,
@@ -713,9 +819,16 @@ export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
     // stem-matches some word, so under either branch the loop below always
     // finds one. A sentinel here would mean retrieval had broken.
     let position = 0;
+    let named = 0;
     for (let t = 0; t < tokens.length; t++) {
       for (let i = 0; i < words.length; i++) {
         if (stems[i] === tokenStems[t] || words[i].startsWith(tokens[t])) {
+          // Whether this token reached the food's own name (ADR-0062 §1). The
+          // FIRST answering word settles it: a token whose earliest match is
+          // past the name has no earlier one, by definition of earliest. Asked
+          // here rather than in a pass of its own so the two questions cannot
+          // disagree about what a token matched (#131).
+          if (i < nameLength) named = 1;
           // Measured from where the food's own name starts, so a drink is not
           // charged for the aisle USDA walks down first (#154). A token that
           // landed IN the shelf label costs 0, which needs no special case and
@@ -753,6 +866,7 @@ export function compileReferenceFoodQuery(query: string): ReferenceFoodQuery {
 
     return {
       tier,
+      named,
       raw,
       // Within a tier, prefer the head whose length the query most nearly fills:
       // for "grap" this floats "Grapes, …" (2 characters to go) above
