@@ -27,7 +27,9 @@ export const MAX_PHOTO_EDGE = 1600;
  * bytes that were read. A photo already inside the bound is left exactly as it
  * came, so a small upload is never re-encoded and never loses anything.
  */
-export type PhotoReduction = { kind: "keep" } | ({ kind: "scale" } & PixelSize);
+export type PhotoReduction =
+  | { kind: "keep" }
+  | { kind: "scale"; target: PixelSize };
 
 /**
  * The pure half of the reduction: what size does this source size imply?
@@ -37,17 +39,16 @@ export type PhotoReduction = { kind: "keep" } | ({ kind: "scale" } & PixelSize);
  * ratio, so the aspect ratio survives. Rounding is toward the nearest pixel; a
  * canvas cannot draw a fractional one.
  */
-export function planPhotoReduction(
-  source: PixelSize,
-  maxEdge: number = MAX_PHOTO_EDGE
-): PhotoReduction {
+export function planPhotoReduction(source: PixelSize): PhotoReduction {
   const longest = Math.max(source.width, source.height);
-  if (longest <= maxEdge) return { kind: "keep" };
-  const ratio = maxEdge / longest;
+  if (longest <= MAX_PHOTO_EDGE) return { kind: "keep" };
+  const ratio = MAX_PHOTO_EDGE / longest;
   return {
     kind: "scale",
-    width: Math.round(source.width * ratio),
-    height: Math.round(source.height * ratio),
+    target: {
+      width: Math.round(source.width * ratio),
+      height: Math.round(source.height * ratio),
+    },
   };
 }
 
@@ -92,17 +93,13 @@ const PHOTO_MIME = "image/jpeg";
  */
 export async function reduceCapturedPhoto(
   dataUrl: string,
-  surface: PhotoSurface | null,
-  maxEdge: number = MAX_PHOTO_EDGE
+  surface: PhotoSurface | null
 ): Promise<string> {
   if (!surface) return dataUrl;
   const photo = await surface.decode(dataUrl);
-  const plan = planPhotoReduction(photo, maxEdge);
+  const plan = planPhotoReduction(photo);
   if (plan.kind === "keep") return dataUrl;
-  return photo.redraw(
-    { width: plan.width, height: plan.height },
-    PHOTO_QUALITY
-  );
+  return photo.redraw(plan.target, PHOTO_QUALITY);
 }
 
 /**
@@ -146,6 +143,10 @@ function browserPhotoSurface(): PhotoSurface | null {
               canvas.height = target.height;
               const context = canvas.getContext("2d");
               if (!context) throw new Error("no drawing context");
+              // The default is "low", and this is a downscale of six times or
+              // more, where cheap sampling drops whole rows of pixels and takes
+              // the thin strokes of small print with them.
+              context.imageSmoothingQuality = "high";
               // JPEG carries no alpha, and a canvas starts out transparent, so
               // the clear parts of a PNG would encode as black. Lay a white
               // ground first — paper, which is what a label is photographed on.

@@ -38,16 +38,14 @@ describe("planning a captured photo's reduction", () => {
     // A 12 MP phone photo, 4:3 landscape.
     expect(planPhotoReduction({ width: 4032, height: 3024 })).toEqual({
       kind: "scale",
-      width: 1600,
-      height: 1200,
+      target: { width: 1600, height: 1200 },
     });
   });
 
   it("bounds the long edge whichever edge that is", () => {
     expect(planPhotoReduction({ width: 3024, height: 4032 })).toEqual({
       kind: "scale",
-      width: 1200,
-      height: 1600,
+      target: { width: 1200, height: 1600 },
     });
   });
 

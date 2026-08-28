@@ -87,6 +87,12 @@ small print is made of. Anthropic's own image guidance (verified 2026-08-28)
 warns that heavy compression makes text hard to read and that repeated
 compression passes compound it, which is the same failure this is avoiding.
 
+The canvas is also told `imageSmoothingQuality = "high"`, whose default is
+`"low"`. At a downscale of six times or more, cheap sampling discards whole rows
+of source pixels rather than averaging them, and the rows it discards are the
+thin strokes that small print is drawn with. It is the cheapest lever there is
+on the legibility this record is trying to protect.
+
 ### 3. A photo already inside the bound is stored exactly as it was read
 
 No canvas round trip, no re-encode, nothing lost. A small upload is left alone
@@ -110,6 +116,12 @@ Downscaling means decoding, and a malformed image fails to decode. That
 rejection travels the same path the old read failure did, so all three call
 sites keep the "couldn't read that image" message they already show, and nothing
 half-reduced is ever stored.
+
+This widens what is refused, and deliberately. A file the browser cannot decode
+now fails at capture, where before it was stored and failed later, silently, as
+an `<img>` that never drew. Anything an `Image` cannot decode is something no
+display surface in this app could ever have shown, so refusing it at the door is
+the more honest of the two failures.
 
 ### 6. The decision is separated from the canvas so it can be tested
 
