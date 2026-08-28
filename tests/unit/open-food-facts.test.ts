@@ -17,6 +17,11 @@ import {
 import { getSecret } from "../../src/lib/stores/secrets";
 import type { NutritionInfo, Portion } from "../../src/lib/food/nutrition";
 import nutellaProduct from "./support/fixtures/off-nutella.json";
+import {
+  offFailingWith,
+  offHoldingTestFood,
+  TEST_BARCODE,
+} from "./support/off-responses";
 
 // The contribution seam reads the user's OFF login from localStorage (#60) via
 // getSecret; under the node unit runner there is no localStorage, so mock the
@@ -508,22 +513,14 @@ describe("lookupBarcode", () => {
   });
 
   it("calls the correct Open Food Facts API URL", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        code: "737628064502",
-        status: "success",
-        product: {
-          product_name: "Test Food",
-          nutriments: { "energy-kcal_100g": 100, proteins_100g: 5 },
-        },
-      }),
-    } as Response);
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(offHoldingTestFood());
 
-    await lookupBarcode("737628064502");
+    await lookupBarcode(TEST_BARCODE);
 
     expect(fetchSpy).toHaveBeenCalledWith(
-      "https://world.openfoodfacts.org/api/v3/product/737628064502.json"
+      `https://world.openfoodfacts.org/api/v3/product/${TEST_BARCODE}.json`
     );
   });
 
@@ -546,11 +543,7 @@ describe("lookupBarcode", () => {
   });
 
   it("throws ProductNotFoundError on HTTP 404 (unknown barcode)", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: false,
-      status: 404,
-      json: async () => ({}),
-    } as Response);
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(offFailingWith(404));
 
     await expect(lookupBarcode("9999999")).rejects.toThrow(
       ProductNotFoundError
@@ -558,20 +551,10 @@ describe("lookupBarcode", () => {
   });
 
   it("returns a valid EntityPayload on success", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        code: "737628064502",
-        status: "success",
-        product: {
-          product_name: "Test Food",
-          nutriments: { "energy-kcal_100g": 100, proteins_100g: 5 },
-        },
-      }),
-    } as Response);
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(offHoldingTestFood());
 
-    const payload = await lookupBarcode("737628064502");
-    expect(payload.entity).toBe("gtin:737628064502");
+    const payload = await lookupBarcode(TEST_BARCODE);
+    expect(payload.entity).toBe(`gtin:${TEST_BARCODE}`);
     expect(payload.attributes["food/name"]).toBe("Test Food");
   });
 
@@ -582,13 +565,9 @@ describe("lookupBarcode", () => {
   // `gtin:` key. Each status below is asserted for what it is AND for what it is
   // not, because conflation is the defect and only the negative catches it.
 
-  /** OFF answering with a failing HTTP status and no product body. */
+  /** Make every fetch answer with a failing HTTP status and no product body. */
   function offFailsWith(status: number) {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: false,
-      status,
-      json: async () => ({}),
-    } as Response);
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(offFailingWith(status));
   }
 
   it.each([429, 500, 502, 503, 504])(

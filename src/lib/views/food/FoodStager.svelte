@@ -1,6 +1,5 @@
 <script lang="ts">
   import {
-    lookupBarcode,
     submitToOpenFoodFacts,
     parseCategoryList,
     offReferenceImagesFromTwin,
@@ -10,6 +9,7 @@
     type OffPayload,
     type OffSubmitResult,
   } from "../../food/open-food-facts";
+  import { lookupBarcodeWithRetry } from "../../food/off-retry";
   import {
     searchUsdaFoods,
     mapPayloadToFoodResult,
@@ -1239,7 +1239,12 @@
         status = "idle";
         return;
       }
-      const off = await lookupBarcode(code);
+      // Retried once on the way (#206), so an Open Food Facts hiccup never
+      // reaches the sheet at all: the camera is already stopped and `status` is
+      // already "loading", so the second ask happens inside the wait the user is
+      // already in rather than after an error they then have to dismiss. Only a
+      // failure that survives it lands in the `unreachable` branch below.
+      const off = await lookupBarcodeWithRetry(code);
       staged = mapPayloadToFoodResult(off);
       amount = openingAmount(off);
       status = "idle";
