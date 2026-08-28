@@ -259,6 +259,41 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     );
   });
 
+  // The panel's fold is a stored preference, so it has to survive the dashboard
+  // being torn down and rebuilt. `?mem=1` is wiped by a real reload, so the proof
+  // is the ledger round-trip: fold it, leave the screen, come back, and the
+  // remounted dashboard reads `false` back out of the datom rather than
+  // defaulting itself open.
+  test("the nutrition panel remembers being folded shut", async ({ page }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+
+    const bars = page.locator(".aggregates-body");
+    const toggle = page.getByRole("button", { name: "Nutrition", exact: true });
+    await expect(bars).toBeVisible();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+    await toggle.click();
+    await expect(bars).toBeHidden();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+    // Leave the food screen entirely and come back: a fresh DailyDashboard.
+    await page.locator(".nav-item", { hasText: "Media" }).click();
+    await expect(page.locator(".aggregates-body")).toHaveCount(0);
+    await page.locator(".nav-item", { hasText: "Food" }).click();
+
+    await expect(
+      page.getByRole("button", { name: "Nutrition", exact: true })
+    ).toHaveAttribute("aria-expanded", "false");
+    await expect(page.locator(".aggregates-body")).toBeHidden();
+
+    // And unfolding it again is remembered the same way.
+    await page.getByRole("button", { name: "Nutrition", exact: true }).click();
+    await page.locator(".nav-item", { hasText: "Media" }).click();
+    await page.locator(".nav-item", { hasText: "Food" }).click();
+    await expect(page.locator(".aggregates-body")).toBeVisible();
+  });
+
   test("the Today button appears off-today and snaps the strip back", async ({
     page,
   }) => {

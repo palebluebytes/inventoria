@@ -104,3 +104,34 @@ The `.calories-num` / `.calories-sub` hooks the ring published are gone. The
 day-total assertions in `food-ui.spec.ts` read `.macro-item.calories .macro-now`
 instead, and `visual-catalog.spec.ts` drops the `.ring-container` mask that
 existed only to hide the arc cap's antialiasing.
+
+## Amendment (2026-08-28): the panel's fold is a stored preference
+
+The amendment above called the aggregates fold "component state, not a setting
+— it is a 'not now', and it opens fresh each visit." That was wrong about what
+the fold means to a user. Someone who keeps the bars shut wants them shut, and
+reopening them on every load makes the control something to re-apply rather
+than something to set.
+
+- **`settings/food/nutrition_panel_open` records it**, absent → open, only a
+  stored `false` shutting it: the same shape `settings/food/round_nutrition`
+  uses, and registered in `docs/eavt-vocabulary.md` beside it.
+- **It rides the ledger, not `localStorage`.** The two things that leave the
+  ledger do so because it is undeletable and it syncs — a secret must not be in
+  it (ADR-0034 §8) and a log record has to be redactable and capped (ADR-0054
+  §4). A display preference is neither, so it goes where the other display
+  preferences already are.
+- **Its own writer, `saveNutritionPanelOpen`.** ADR-0031 §2's rule: the settings
+  screen does not own this fold, and saving a nutrient selection must not
+  reopen a panel the user shut.
+- **The view follows the store until the user taps it**, rather than seeding
+  from it on mount. Seeding races: the settings query resolves asynchronously,
+  so a mount-time read lands on the unset default and never corrects when the
+  real datom arrives — the panel would reopen on every load whatever was
+  stored. After a tap the local choice wins, so the panel flips under the finger
+  while the write catches up.
+
+The cost is a frame: the bars render open on first paint and fold once the
+datoms resolve. That is what every other ledger-backed preference on this
+screen already does, and the alternative is synchronous storage this value does
+not otherwise justify.

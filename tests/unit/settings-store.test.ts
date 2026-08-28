@@ -192,6 +192,40 @@ describe("settingsStore (latest-datom-wins collapse)", () => {
     expect(get(settingsStore).round_nutrition).toBe(true);
   });
 
+  it("defaults nutrition_panel_open to true (unfolded) when unset", () => {
+    expect(get(settingsStore).nutrition_panel_open).toBe(true);
+  });
+
+  it("decodes a stored nutrition_panel_open boolean", () => {
+    datomsWritable.set([
+      {
+        attribute: "settings/food/nutrition_panel_open",
+        value: JSON.stringify(false),
+        time: 1,
+      },
+    ]);
+    expect(get(settingsStore).nutrition_panel_open).toBe(false);
+    datomsWritable.set([
+      {
+        attribute: "settings/food/nutrition_panel_open",
+        value: JSON.stringify(true),
+        time: 2,
+      },
+    ]);
+    expect(get(settingsStore).nutrition_panel_open).toBe(true);
+  });
+
+  it("treats a malformed nutrition_panel_open value as open (only explicit false shuts it)", () => {
+    datomsWritable.set([
+      {
+        attribute: "settings/food/nutrition_panel_open",
+        value: JSON.stringify("shut"),
+        time: 1,
+      },
+    ]);
+    expect(get(settingsStore).nutrition_panel_open).toBe(true);
+  });
+
   it("defaults off_contribute to false (opt-in) when unset", () => {
     // No datom → OFF contribution consent stays off (ADR-0034 §8, model C).
     expect(get(settingsStore).off_contribute).toBe(false);

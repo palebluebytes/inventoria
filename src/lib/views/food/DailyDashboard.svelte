@@ -27,6 +27,7 @@
   import {
     settingsStore,
     calorieDisplayDecimals,
+    saveNutritionPanelOpen,
   } from "../../stores/settings.store";
   import { parseLoggedQuantity } from "../../food/recipe-ingredient";
   import Modal from "../../ui/Modal.svelte";
@@ -146,9 +147,28 @@
 
   // Whether the meter block is open. The bars are the page's tallest block and
   // the meals below them are what a user comes back to during the day, so the
-  // whole set folds away behind its header. Component state, not a setting: it
-  // is a "get this out of my way for now", and it opens fresh each visit.
-  let metersOpen = $state(true);
+  // whole set folds away behind its header.
+  //
+  // The fold is a stored preference, not view state: it survives a refresh and
+  // an app restart, so a user who keeps the bars shut is not reopening them
+  // every visit.
+  //
+  // It FOLLOWS the store until the user touches it, rather than being seeded
+  // from it once on mount. Seeding would race: the settings query resolves
+  // asynchronously, so a mount-time read lands on the unset default (open) and
+  // would then never correct itself when the real datom arrives — the panel
+  // would reopen on every load no matter what was stored. Once tapped, the local
+  // choice wins so the panel flips under the finger while the ledger write
+  // catches up behind it.
+  let metersChoice = $state<boolean | null>(null);
+  let metersOpen = $derived(
+    metersChoice ?? $settingsStore.nutrition_panel_open
+  );
+
+  function toggleMeters() {
+    metersChoice = !metersOpen;
+    void saveNutritionPanelOpen(metersChoice);
+  }
   // Stable id so the header's toggle can point `aria-controls` at the body it
   // opens. localhost/PWA is always a secure context, so randomUUID exists.
   const metersId = `day-meters-${crypto.randomUUID()}`;
@@ -243,7 +263,7 @@
       class="aggregates-toggle"
       aria-expanded={metersOpen}
       aria-controls={metersId}
-      onclick={() => (metersOpen = !metersOpen)}
+      onclick={toggleMeters}
     >
       <span class="aggregates-caret" aria-hidden="true"
         >{metersOpen ? "▾" : "▸"}</span
