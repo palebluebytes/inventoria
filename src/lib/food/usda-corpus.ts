@@ -184,8 +184,9 @@ export interface NutrientStore {
 /**
  * How many ranked rows one search hands to the results list. This is the page
  * size FDC's search defaulted to, kept because it is the list's ceiling and not
- * the corpus's: a bare "b" matches 2,999 rows, and rendering an option per row
- * would cost far more than the search itself.
+ * the corpus's: a bare "b" still hands back 1,424 rows once ADR-0062 §1 has
+ * taken the mentions out of them, and rendering an option per row would cost far
+ * more than the search itself.
  */
 export const SEARCH_RESULT_LIMIT = 50;
 
@@ -392,7 +393,7 @@ export interface IndexSearch extends SearchedPhrases {
  * also why the ranking gains no tier, key or clause for aliases: an alias is a
  * name, scored by the same scorer as every other name.
  *
- * The loop is skipped entirely for the 4,266 rows that have no alias, so a
+ * The loop is skipped entirely for the 4,159 rows that have no alias, so a
  * keystroke pays for this only where USDA held two names for one food.
  *
  * The row's own two keys (ADR-0055 §5) join each name's key here, which is the

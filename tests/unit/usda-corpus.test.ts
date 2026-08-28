@@ -377,6 +377,22 @@ describe("the bundled search index", () => {
     ]);
   });
 
+  it("holds the two figures `usda-corpus.ts` argues from to their real values", () => {
+    // #178's sweep found both of these stale, silently, and neither had a
+    // tripwire — the #131 lesson arriving as prose rather than as a guard. Each
+    // is a number a doc comment reasons FROM, so a reader who trusts it reasons
+    // from a corpus that no longer exists.
+    //
+    // What the alias loop is skipped for, which is the whole reason
+    // `bestNameKey` costs nothing on most rows.
+    expect(index.foods.filter((row) => !(row.also ?? []).length).length).toBe(
+      4159
+    );
+    // And what `SEARCH_RESULT_LIMIT` is a ceiling ON. Measured after ADR-0062
+    // §1, because that is the set the list would have to render.
+    expect(withoutStrayMentions(scoredFor("b")).length).toBe(1424);
+  });
+
   // ── ADR-0048's invariant, over the artifact itself ────────────────────────
   // Locked here rather than in the generator because a mirror refresh is the
   // way it would come back: the filters run at generation, and a refresh that
