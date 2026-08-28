@@ -4,6 +4,7 @@ import {
   appendDatoms,
   ensureLedgerSchema,
   getOrCreateDeviceId,
+  importLedgerRows,
   readHlcHighWater,
   readLedgerPage,
   readLedgerSummary,
@@ -152,6 +153,30 @@ self.onmessage = async (event: MessageEvent) => {
         status: "ok",
         data: readLedgerPage(db, after ?? null, budgetBytes),
       });
+    } else if (type === "ledger_import") {
+      if (!db || !hlc) {
+        throw new Error("Database not initialized. Please call 'init' first.");
+      }
+      // The import's write seam. Rows arrive already stamped and are appended
+      // with their stamps intact, so the same file imported twice is the same
+      // ledger (ADR-0067).
+      const { rows, final } = payload;
+      const outcome = importLedgerRows(db, rows);
+      // A stamp issued elsewhere has to move this device's clock, or a write
+      // made straight after an import could order before the facts it brought
+      // in. This is exactly what ADR-0020 gave `update` to do.
+      if (outcome.highWater) hlc.update(outcome.highWater);
+      self.postMessage({ id, status: "ok", data: outcome.rowsAdded });
+
+      // Once, at the end. Every ledger-backed store re-reads on a broadcast,
+      // and an import is many batches, so announcing each one would re-run
+      // every projection in the app a few hundred times.
+      if (final) {
+        self.postMessage({
+          type: "broadcast_invalidation",
+          payload: { attributes: [] },
+        });
+      }
     } else if (type === "clear") {
       if (!db) {
         throw new Error("Database not initialized. Please call 'init' first.");

@@ -161,6 +161,28 @@ describe("DBClient RPC layer", () => {
     await expect(p).resolves.toEqual([]);
   });
 
+  it("sends an import batch and says whether it finishes the import", async () => {
+    const c = await makeInitialized();
+    const rows = [
+      {
+        entity: "habit:1",
+        attribute: "habit/name",
+        value: '"Meditate"',
+        time: 1_000,
+        hlc_ms: 1_000,
+        hlc_ctr: 0,
+        device_id: "device_a",
+      },
+    ];
+    const p = c.ledgerImport(rows, true);
+    expect(getWorker().posted[1]).toMatchObject({
+      type: "ledger_import",
+      payload: { rows, final: true },
+    });
+    getWorker().respond(getWorker().lastId, { status: "ok", data: 1 });
+    await expect(p).resolves.toBe(1);
+  });
+
   it("terminate clears the worker and rejects subsequent calls", async () => {
     const c = await makeInitialized();
     const inst = getWorker();

@@ -138,6 +138,20 @@ export class DBClient {
   }
 
   /**
+   * Appends one batch of imported rows, returning how many of them were new.
+   *
+   * This is the import's write seam, and the mirror of `ledgerPage`: the file
+   * is read on the main thread and crosses into the worker a batch at a time,
+   * because an export carrying full-resolution photos is far larger than a
+   * message. `final` marks the batch that finishes the import, which is what
+   * makes the worker tell every projection to re-read once rather than once per
+   * batch.
+   */
+  async ledgerImport(rows: LedgerRow[], final: boolean): Promise<number> {
+    return this.send<number>("ledger_import", { rows, final });
+  }
+
+  /**
    * Clears all data from the ledger by dropping and recreating the datoms table.
    */
   async clear(): Promise<void> {
