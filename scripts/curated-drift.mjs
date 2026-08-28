@@ -132,6 +132,14 @@ function valueFindings(name, pinnedValue, currentValue) {
 }
 
 /**
+ * One thing that has moved, and what kind of thing it is. The four kinds are
+ * the whole vocabulary: a panel value, the ingredients text, a product OFF no
+ * longer lists, and a request that never reached OFF at all.
+ *
+ * @typedef {{ kind: "panel" | "ingredients" | "delisted" | "unreachable", message: string }} Finding
+ */
+
+/**
  * Everything that has moved between the pinned snapshot's product and the one
  * OFF serves today, as `{ kind, message }` findings.
  *
@@ -142,6 +150,7 @@ function valueFindings(name, pinnedValue, currentValue) {
  * flagging it every quarter would bury the findings that mean something.
  */
 export function driftFindings(snapshotProduct, currentProduct) {
+  /** @type {Finding[]} */
   const findings = [];
   const pinned = snapshotProduct.nutriments ?? {};
   const current = currentProduct.nutriments ?? {};
@@ -204,6 +213,7 @@ export async function checkStandIns(entries, { fetchProduct, pause = sleep }) {
       food: entry.food,
       code,
       captured: entry.captured,
+      /** @type {Finding[]} */
       findings: [],
     };
     results.push(result);

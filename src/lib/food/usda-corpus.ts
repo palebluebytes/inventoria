@@ -484,9 +484,15 @@ function rankAgainst(
  * structural rather than disciplinary. It is also why the ranking gains no key,
  * no tier and no clause for the vocabulary — there is never a literal match
  * present for an expanded one to rank against.
+ *
+ * Takes the two fields it reads rather than a whole {@link SearchCorpus}, which
+ * also carries the `schema_version` only #149's log asks for. That is not
+ * tidiness: `usda-vocabulary.mjs` swaps the vocabulary on a fixed set of foods
+ * per question and hands this exactly `{ foods, vocabulary }`, so a whole-corpus
+ * parameter would be describing a caller that does not exist.
  */
 export function searchIndexRows(
-  corpus: SearchCorpus,
+  corpus: Pick<SearchCorpus, "foods" | "vocabulary">,
   query: string
 ): IndexSearch {
   if (!query.trim()) return { phrases: [], hits: [] };

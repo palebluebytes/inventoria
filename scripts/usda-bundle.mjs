@@ -118,11 +118,19 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * of this mirror deliberately: this script writes the corpus, and a field it can
  * never fill has no shape to state.
  *
+ * The app's own `Portion` (`src/lib/food/nutrition.ts`), restated here because
+ * this script is outside the app's tsconfig — so `grams` is OPTIONAL and there
+ * is a `millilitres` beside it, ADR-0060 §6's exactly-one-of pair. USDA's
+ * `foodPortions` are weights and every one of the shipped portions carries
+ * grams, but the shape is the app's and a narrower copy here made
+ * `mapFdcPortions` fail to typecheck against the function it actually is.
+ *
  * @typedef {object} Portion
  * @property {string} label   Human-readable measure, e.g. "1 cup, sliced".
  * @property {number} amount  How many of `unit` this portion is.
  * @property {string} unit    The unit the measure is expressed in.
- * @property {number} grams   What the portion weighs.
+ * @property {number} [grams] What the portion weighs. Absent on a volume portion.
+ * @property {number} [millilitres] What it measures. Absent on a weight portion.
  */
 
 /**
@@ -153,8 +161,8 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {(description: string) => boolean} isDryBasisRecord
  * @property {(description: string) => boolean} isManufacturingInput
  * @property {(rows: { fdcId: number, description: string }[]) => ReadonlyMap<number, string>} resolveVariantDrops
- * @property {readonly [fdcId: number, description: string, why: string][]} ADJUDICATED_VARIANTS
- * @property {readonly [fdcId: number, published: string, shipped: string, why: string][]} ADJUDICATED_NAMES
+ * @property {readonly (readonly [fdcId: number, description: string, why: string])[]} ADJUDICATED_VARIANTS
+ * @property {readonly (readonly [fdcId: number, published: string, shipped: string, why: string])[]} ADJUDICATED_NAMES
  * @property {(food: BundleFood) => boolean} fdcReportsNoEnergy
  * @property {(food: BundleFood, splitNdbNumbers: ReadonlySet<number>) => string | number} fdcIdentityKey
  * @property {(group: BundleFood[]) => { food: BundleFood, merged_from: MergedSource[] }} resolveFdcGroup
@@ -162,6 +170,7 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {(descriptions: string[], surviving: string) => string[]} twinSearchAliases
  * @property {(food: BundleFood, merged_from: MergedSource[]) => { attributes: Record<string, any> }} mapFdcFoodToPayload
  * @property {(portions: Survivor["foodPortions"]) => Portion[]} mapFdcPortions
+ * @property {(descriptions: readonly string[]) => boolean[]} plainSiblingsOf
  * @property {(description: string) => object} readReferenceFoodName
  * @property {(query: string) => (name: object) => { tier: number }} compileReferenceFoodQuery
  * @property {readonly string[]} DENIED_VOCABULARY_TAGS
@@ -173,7 +182,7 @@ export const BUNDLE_DATASETS = ["Foundation Foods", "SR Legacy"];
  * @property {(description: string) => string} stripNonNamingQualifiers
  * @property {readonly TwinLedgerEntry[]} TWIN_LEDGER
  * @property {ReadonlySet<number>} SPLIT_TWIN_NDB_NUMBERS
- * @property {readonly [number, string, string, string][]} SUPERSEDED_RECORDS
+ * @property {readonly (readonly [number, string, string, string])[]} SUPERSEDED_RECORDS
  * @property {ReadonlySet<number>} SUPERSEDED_FDC_IDS
  */
 
@@ -621,7 +630,14 @@ export function assertTwinNamesRetrieve(groups, survivors, app) {
  * Survey release and the restatement silently stopped matching, so every one of
  * its 5,432 records was reported as a corpus casualty (#137).
  *
- * @param {{ archives: { dataset: string }[] }} manifest
+ * Generic over the entry rather than typed to `{ dataset }`, because it only
+ * READS the dataset name but hands the entry back WHOLE — and its callers go on
+ * to read `file`, `release` and `digest` off what they get. Constraining rather
+ * than narrowing is what lets it ask for one field without swallowing the rest.
+ *
+ * @template {{ dataset: string }} Archive
+ * @param {{ archives: Archive[] }} manifest
+ * @returns {Archive[]}
  */
 export function bundleArchives(manifest) {
   return BUNDLE_DATASETS.map((dataset) => {

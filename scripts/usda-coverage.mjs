@@ -84,7 +84,14 @@ export function reportsField(food, ids) {
   );
 }
 
-/** Running presence counts for one dataset: `{ records, present }`. */
+/**
+ * Running presence counts for one dataset: `{ records, present }`.
+ *
+ * Asks for the two fields it reads rather than for a whole `PANEL_ROWS` entry,
+ * which also carries the `field` name only the report prints.
+ *
+ * @param {readonly { label: string, ids: number[] }[]} [rows]
+ */
 export function createCoverageTally(rows = PANEL_ROWS) {
   const present = Object.fromEntries(rows.map((row) => [row.label, 0]));
   let records = 0;
@@ -171,6 +178,7 @@ export function panelEntries(food) {
     nutrients.find(
       (n) => n.nutrient?.id === id && typeof n.amount === "number"
     );
+  /** @type {Record<string, { amount: number, unit: string }>} */
   const entries = {};
   for (const { key, ids, sum } of BUNDLE_PANEL) {
     const found = ids.map(find).filter((n) => n !== undefined);

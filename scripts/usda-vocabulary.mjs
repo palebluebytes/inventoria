@@ -279,8 +279,15 @@ export function describeVocabulary(vocabulary) {
  *                   guard exists — is readmitted and leads with
  *                   `Turkey from whole, light meat, …`.
  *
+ * The name is threaded from one app function to the other and never read here,
+ * so it is a type variable rather than `object`. Spelling it `object` claims the
+ * query accepts ANY object, which the real `compileReferenceFoodQuery` does not
+ * — it wants a `ReferenceFoodName` — and the app module then fails to satisfy
+ * its own generator's stated shape.
+ *
+ * @template Name
  * @param {{ description: string, also?: string[] }[]} rows
- * @param {{ readReferenceFoodName: (description: string) => object, compileReferenceFoodQuery: (query: string) => (name: object) => { tier: number } }} app
+ * @param {{ readReferenceFoodName: (description: string) => Name, compileReferenceFoodQuery: (query: string) => (name: Name) => { tier: number } }} app
  */
 export function retrievalCounter(rows, app) {
   const namesPerRow = rows.map((row) =>
@@ -346,7 +353,7 @@ export function buildVocabularySection(expansions, pinned) {
  * hold an entry to, and shipping them would put a paragraph per entry in a file
  * every user downloads to say something no reader of it can act on.
  *
- * @param {{ key: string, targets: readonly string[] }[]} entries
+ * @param {readonly { key: string, targets: readonly string[] }[]} entries
  */
 export function buildLocalVocabularySection(entries) {
   /** @type {Record<string, string[]>} */
@@ -395,7 +402,7 @@ export function buildLocalVocabularySection(entries) {
  * `food-vocabulary.ts`, where the human adding a ninth reads it. A generator
  * that owned the number would let the list and its limit drift apart.
  *
- * @param {{ key: string, targets: readonly string[], landsOn: string, why: string }[]} entries
+ * @param {readonly { key: string, targets: readonly string[], landsOn: string, why: string }[]} entries
  * @param {{ derived: Record<string, string[]>, leads: (query: string, vocabulary: Record<string, string[]>) => string | null, ceiling: number }} options
  */
 export function assertLocalVocabularyHolds(
@@ -466,8 +473,15 @@ export function assertLocalVocabularyHolds(
  * on the corpus per question. Rebuilding the corpus per call would re-read 4,238
  * descriptions to change one field.
  *
+ * Generic over the food and the corpus for {@link retrievalCounter}'s reason:
+ * both are threaded straight from one app function into the other and never
+ * read here, and naming them `object` asserts that `searchIndexRows` accepts
+ * any object at all.
+ *
+ * @template Food
+ * @template {{ foods: Food[], vocabulary: Record<string, string[]> }} Corpus
  * @param {object} index the finished search index, as it is about to be written
- * @param {{ buildSearchCorpus: (index: object) => { foods: object[] }, searchIndexRows: (corpus: object, query: string) => { hits: { row: { description: string } }[] } }} app
+ * @param {{ buildSearchCorpus: (index: any) => { foods: Food[] }, searchIndexRows: (corpus: Corpus, query: string) => { hits: { row: { description: string } }[] } }} app
  */
 export function leadingRowReader(index, app) {
   const { foods } = app.buildSearchCorpus(index);

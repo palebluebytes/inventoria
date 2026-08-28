@@ -42,11 +42,16 @@ export class ResponseTooLargeError extends Error {}
  * memory regardless of whether the upstream sent an honest content-length — a
  * chunked/length-omitted body cannot be trusted, so we must measure while
  * reading rather than buffering the whole thing first.
+ *
+ * The buffer is spelled `ArrayBuffer` rather than left at the default
+ * `ArrayBufferLike`, because everything returned here is allocated here and so
+ * is never shared-backed. Without that, the bytes cannot be handed to a
+ * `Response`: `BodyInit` refuses a view that might sit on a `SharedArrayBuffer`.
  */
 export async function readCapped(
   response: Response,
   max: number
-): Promise<Uint8Array> {
+): Promise<Uint8Array<ArrayBuffer>> {
   const reader = response.body?.getReader();
   if (!reader) return new Uint8Array(0);
 
@@ -74,7 +79,7 @@ export async function readCapped(
 
 /** The rendered result of applying the proxy policy to an upstream response. */
 export type ProxyPayload =
-  | { kind: "image"; mime: string; body: Uint8Array }
+  | { kind: "image"; mime: string; body: Uint8Array<ArrayBuffer> }
   | { kind: "html"; html: string }
   | { kind: "error"; status: number; message: string };
 
