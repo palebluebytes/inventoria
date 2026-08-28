@@ -177,11 +177,101 @@ describe("the bundled search index", () => {
     ]);
   });
 
+  it("ships the nine fortification renames under the names they were measured at", () => {
+    // ADR-0062 §2, pinned BY `fdcId`. A rename erases the evidence for a
+    // measurement stated over a description (ADR-0056's Consequences), so the
+    // count of "rows that lost the phrase" cannot be re-taken from the artifact
+    // afterwards — the phrase is precisely what is gone. Nine, and which nine.
+    const byId = new Map(
+      index.foods.map((row) => [row.fdcId, row.description])
+    );
+    expect(
+      [
+        171039, 171278, 171290, 171291, 171302, 171434, 172205, 173432, 173441,
+      ].map((fdcId) => [fdcId, byId.get(fdcId)])
+    ).toEqual([
+      [
+        171039,
+        "Margarine-like vegetable-oil spread, stick/tub/bottle, 60% fat",
+      ],
+      [171278, "Milk, goat, fluid"],
+      [171290, "Cheese, pasteurized process, American"],
+      [171291, "Cheese food, pasteurized process, American"],
+      [171302, "Milk, evaporated, 2% fat"],
+      [
+        171434,
+        "Margarine-like, vegetable oil spread, approximately 37% fat, unspecified oils, with salt",
+      ],
+      [172205, "Milk, reduced fat, fluid, 2% milkfat"],
+      // The parenthetical survives, and it has to: USDA wrote no comma before
+      // it, so a part-exact strip would have taken the gloss with the phrase.
+      // `skim` is a word ADR-0049's `skimmed milk` key expands to, and this is
+      // the only row in the corpus that carries it.
+      [173432, "Milk, nonfat, fluid (fat free or skim)"],
+      [173441, "Milk, fluid, 1% fat"],
+    ]);
+  });
+
+  it("still answers `skim milk` with the skimmed milk", () => {
+    // What the gloss buys, asked of the search rather than of the string.
+    // ADR-0049's `skimmed milk` key expands to `skim milk`, and the only row in
+    // the corpus carrying `skim` as a word is the one whose parenthetical the
+    // fortification strip had to step around.
+    expect(descriptionsFor("skim milk")[0]).toBe(
+      "Milk, nonfat, fluid (fat free or skim)"
+    );
+  });
+
+  it("leaves six margarines wearing a name nobody would choose", () => {
+    // The price ADR-0062 §3 pays on purpose. Each of these has a twin USDA
+    // published without the phrase, so the strip would file two spreads under
+    // one name — and unlike ADR-0056 §4 there is no origin here to say which
+    // one should lose, so neither is renamed and neither is dropped.
+    const byId = new Map(
+      index.foods.map((row) => [row.fdcId, row.description])
+    );
+    for (const [refused, twin] of [
+      [171038, 173582],
+      [171040, 173585],
+      [171041, 172350],
+      [171435, 172346],
+      [171436, 172347],
+      [171437, 172348],
+    ] as const) {
+      expect([refused, byId.get(refused)]).toEqual([
+        refused,
+        `${byId.get(twin)}, with added vitamin D`,
+      ]);
+    }
+  });
+
+  it("keeps `fortified` on the rows whose food it names", () => {
+    // ADR-0062 §2 keeps the word off the roster because it names a DIFFERENT
+    // food: the two processed cheeses renamed above are 371 and 330 kcal, and
+    // the `vitamin D fortified` rows beside them 366 and 330 on a different
+    // panel. A roster that reached the word would file each pair under one name.
+    const byId = new Map(
+      index.foods.map((row) => [row.fdcId, row.description])
+    );
+    expect([171252, 171289, 325198, 173455].map((id) => byId.get(id))).toEqual([
+      "Cheese food, pasteurized process, American, vitamin D fortified",
+      "Cheese product, pasteurized process, American, vitamin D fortified",
+      "Cheese, pasteurized process, American, vitamin D fortified",
+      "Cheese product, pasteurized process, American, reduced fat, fortified with vitamin D",
+    ]);
+  });
+
   it("carries the plain-sibling flag the ranking cannot derive at load", () => {
     // ADR-0055 §6. A tripwire on the predicate's reach: the flag is baked, so a
     // change to `plainSiblingsOf` that nobody meant shows up as a count here
     // rather than as a silently reordered search months later.
-    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(131);
+    //
+    // 131 to 134 on ADR-0062 §2, which is a rename rather than a key: shortening
+    // a name makes a qualifier-prefix relation that did not exist. `Cheese,
+    // pasteurized process, American` and its `food` sibling stop naming a
+    // fortification and become the plain form of the `low fat` and
+    // `vitamin D fortified` rows filed beneath them.
+    expect(index.foods.filter((row) => row.plain_sibling).length).toBe(134);
     // Omitted rather than emitted false, like every other absent field.
     expect(index.foods.filter((row) => row.plain_sibling === false)).toEqual(
       []
@@ -1655,14 +1745,21 @@ describe("searchIndexRows", () => {
     // account for it no longer do. Most of that is `all grades`, which alone
     // takes five words off 255 rows. ADR-0061's seventy-four drops then took
     // four of the gained rows and three of the not-first ones out of the corpus
-    // with the milks and yogurts that carried them — 365 and 130.
+    // with the milks and yogurts that carried them — 365 and 130. ADR-0062 §2's
+    // fortification strip then moved two more into gained and none into
+    // not-first — 367 and 130. All nine renamed rows still lead their own
+    // description; what moved is WHICH keys they need to. `Cheese, pasteurized
+    // process, American` and its `food` sibling led under both orderings while
+    // they carried `without added vitamin D`, and a shorter name leaves rivals
+    // the baseline four keys cannot separate them from, so the position key is
+    // now what recovers the lead. The other seven were already in that position.
     // `lost` is the invariant and is still zero: no key and no corpus change has
     // ever taken the lead from a row that already held it. The baseline this
     // diffs against is the pre-#124 order, so all three keys are being measured
     // here at once.
     expect({ notFirst, gained, lost }).toEqual({
       notFirst: 130,
-      gained: 365,
+      gained: 367,
       lost: 0,
     });
   }, 30_000);

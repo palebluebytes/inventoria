@@ -39,11 +39,14 @@ import { brotliCompressSync, constants, gzipSync } from "node:zlib";
  * either and is the same kind of bump for the same kind of reader: seventy-four
  * rows left the corpus and one milk was renamed (ADR-0061), so an empty-search
  * flag ADR-0053 captured under 6 was measured against a corpus that still held
- * chocolate milk. Both files carry the version because both are generated
- * together from one corpus, and a pair that disagreed about their version would
- * be the bug the number exists to catch.
+ * chocolate milk. 8 is the third of those value-only bumps: nine rows lost the
+ * fortification phrase USDA wrote into their names (ADR-0062 §2), so a capture
+ * made under 7 recorded five milks, two spreads and two processed cheeses under
+ * names the corpus no longer ships. Both files carry the version because both
+ * are generated together from one corpus, and a pair that disagreed about their
+ * version would be the bug the number exists to catch.
  */
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 /**
  * The panel fields a search result row renders, which is the whole of what the
