@@ -9,6 +9,7 @@
 **Amended by:** the #142 Amendment below, which corrects the three figures Consequences quotes for the substitutable subset, retires the `natural yoghurt` example it argues from, and replaces "unmeasured" with a measurement  
 **Amended by:** the #152 Amendment below, which re-derives the map over a corpus two rows smaller and reports that nothing moved  
 **Amended by:** the Amendment below, which brackets the alias the #140 Amendment appends, and refuses the obvious alternative  
+**Amended by:** the #177 Amendment below, which adds an eighth hand-written entry that is not a British name, and reports the map unmoved  
 **Implemented:** #139 `4a01dd1`, `5868a7f`, `efadfad` (the map); #140 (the fallback that reads it); #141 (the hand-written section)
 
 This record amends [ADR-0045](0045-usda-stays-the-base-food-composition-authority.md)

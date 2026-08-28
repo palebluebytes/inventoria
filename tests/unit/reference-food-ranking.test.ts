@@ -689,30 +689,45 @@ describe("withoutStrayMentions", () => {
     ]);
   });
 
-  it("never empties a set it was given rows in, whatever the rungs", () => {
-    // The corollary of the case above, and the one another module depends on:
-    // the bar is the best rung a NAMED row reached, and a named row always
-    // clears it, so a non-empty set survives however the rungs fall.
-    //
-    // `scripts/usda-vocabulary.mjs` rests on this. Its counter deliberately does
-    // NOT apply this rule, on the ground that "does this phrase retrieve
-    // anything?" — ADR-0049 §3's effect filter — has the same answer either way.
-    // If this ever goes red, that argument is gone with it and the derivation
-    // starts minting keys that expand to nothing.
-    for (const rows of [
-      scored([["Cheese, mozzarella, whole milk", 20, false]]),
-      scored([
+  // The corollary of the case above, and the one another module depends on: the
+  // bar is the best rung a NAMED row reached, and a named row always clears it,
+  // so a non-empty set survives however the rungs fall.
+  //
+  // `scripts/usda-vocabulary.mjs` rests on this. Its counter deliberately does
+  // NOT apply this rule, on the ground that "does this phrase retrieve
+  // anything?" — ADR-0049 §3's effect filter — has the same answer either way.
+  // If any case here goes red, that argument is gone with it and the derivation
+  // starts minting keys that expand to nothing.
+  it.each([
+    ["nothing named, one row", [["Cheese, mozzarella, whole milk", 20, false]]],
+    [
+      "nothing named, several rows",
+      [
+        ["Bananas, raw", 20, false],
+        ["Beef, ground, raw", 20, false],
+      ],
+    ],
+    [
+      "a named row far above an unnamed one",
+      [
         ["Milk, whole, 3.7% milkfat", 50, true],
         ["Cheese, mozzarella, whole milk", 20, false],
-      ]),
-      scored([
-        ["Spices, chili powder", 20, true],
-        ["Peppers, hot chili, red, raw", 20, false],
-      ]),
-      scored([["Fish, milkfish, cooked, dry heat", 10, true]]),
-    ])
-      expect(withoutStrayMentions(rows).length).toBeGreaterThan(0);
-  });
+      ],
+    ],
+    [
+      "the named row on the LOWEST rung in the set",
+      [
+        ["Peppers, ancho, dried", 20, false],
+        ["Fish, anchovy, european, raw", 10, true],
+      ],
+    ],
+    ["one named row alone", [["Fish, milkfish, cooked, dry heat", 10, true]]],
+  ] as [string, [string, number, boolean][]][])(
+    "never empties a set: %s",
+    (_case, rows) => {
+      expect(withoutStrayMentions(scored(rows)).length).toBeGreaterThan(0);
+    }
+  );
 });
 
 // ADR-0055 §3 and §5: two keys that read a ROW rather than a name. The corpus

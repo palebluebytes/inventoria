@@ -1,7 +1,8 @@
 # ADR 0061: A milk search returns milks
 
 **Status:** Accepted  
-**Date:** 2026-08-28
+**Date:** 2026-08-28  
+**Amended by:** the #177 Amendment below, which measures §6's four keys and finds three of them alive
 
 This record amends [ADR-0055](0055-who-eats-a-food-ranks-it-and-never-drops-it.md)
 §1, which as written forbids most of the seventy-four drops below, and §7, whose

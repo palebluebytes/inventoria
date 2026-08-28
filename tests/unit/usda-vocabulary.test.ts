@@ -270,13 +270,10 @@ describe("retrievalCounter — the shipped search, asked how much a phrase reach
   });
 
   it("counts a row the typed word only MENTIONS, which a search would discard", () => {
-    // Deliberate, and #177 measured it. The app drops
-    // `Cheese, mozzarella, whole milk` under `milk` (ADR-0062 §1), and this
-    // still counts it, because the two filters this feeds want the wider
-    // number: the effect filter cannot tell the difference — a cut whose bar
-    // comes from a row it always keeps can never empty a set — and the stopword
-    // guard asks how many descriptions merely CONTAIN a word, which is what
-    // makes it a word rather than a synonym.
+    // Deliberate: the app drops `Cheese, mozzarella, whole milk` under `milk`
+    // (ADR-0062 §1) and this still counts it. The reasoning is beside the
+    // function, in `scripts/usda-vocabulary.mjs`; what it rests on is pinned in
+    // `reference-food-ranking.test.ts`.
     const mentions = retrievalCounter(
       [
         { description: "Milk, whole, 3.7% milkfat" },
@@ -606,6 +603,15 @@ describe("the committed vocabulary", () => {
       expect(LOCAL_VOCABULARY.length).toBeLessThanOrEqual(
         LOCAL_VOCABULARY_CEILING
       );
+    });
+
+    it("is the eight entries its own prose and CONTEXT.md both count", () => {
+      // The number is written down in three places a reader meets separately —
+      // the module header, the `LOCAL_VOCABULARY` doc, and the Vocabulary map
+      // entry in CONTEXT.md — and it is the kind of number that goes stale
+      // silently. A ninth entry is meant to be a deliberate act, so it fails
+      // here and the author updates the prose in the same change (#177).
+      expect(LOCAL_VOCABULARY).toHaveLength(8);
     });
 
     it("is reached by the generator alone, never by the app", () => {

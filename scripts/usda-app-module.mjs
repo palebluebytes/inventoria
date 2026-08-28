@@ -123,13 +123,10 @@ export const VARIANT_DROP_EXPORTS = [
  * whole corpus load costs, and baking a value means the generator and the search
  * have to agree about it exactly.
  *
- * ADR-0062 §1's `withoutStrayMentions` is deliberately NOT here, and #177
- * measured why. The derivation asks two questions of a phrase and the rule
- * answers neither: it cannot change whether a phrase retrieves ANYTHING, since
- * the bar it filters against is set by a row it always keeps, and asked of the
- * stopword guard's breadth it puts `whole` at five rows — four turkeys and a
- * milk — which readmits the `wholemeal -> [whole, whole grain]` entry ADR-0049
- * names as the reason the guard exists.
+ * ADR-0062 §1's `withoutStrayMentions` is deliberately NOT here. #177 measured
+ * borrowing it and found it answers neither question the derivation asks;
+ * `retrievalCounter` in `usda-vocabulary.mjs` carries that reasoning, beside the
+ * count it decides.
  */
 export const RANKING_EXPORTS = [
   "readReferenceFoodName",
