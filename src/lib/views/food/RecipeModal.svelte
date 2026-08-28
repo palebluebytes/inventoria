@@ -4,12 +4,11 @@
   import CommitButton from "./CommitButton.svelte";
   import RecipeBuilder from "./RecipeBuilder.svelte";
 
-  // Standalone sheet wrapper around {@link RecipeBuilder}, for the two flows that
-  // open fresh from the dashboard: Consolidate (build a recipe from selected
-  // foods) and Create (the screen header's own recipe button, which writes the
-  // template and logs nothing). The log-sheet Recipe tab embeds the same
-  // component directly for New / Edit, so those reuse the log sheet's own header
-  // + dock (LogFoodSheet).
+  // Standalone sheet wrapper around {@link RecipeBuilder}, for the flow that opens
+  // fresh from the dashboard (Consolidate: build a recipe from selected foods).
+  // The log-sheet Recipe tab embeds the same component directly for New / Edit,
+  // and the recipe library (RecipeLibrarySheet) does for Create / Edit, so those
+  // reuse their own host's header + dock.
   let {
     meal_type,
     selectedDate,
@@ -22,7 +21,7 @@
     selectedDate: Date;
     onClose: () => void;
     /** Which verb this surface performs. Default: consolidate. */
-    mode?: "consolidate" | "define" | "create" | "edit";
+    mode?: "consolidate" | "define" | "edit";
     /** The Recipe Twin being amended (edit mode only; getLocalFoodTwin shape). */
     template?: { entity: string; attributes: Record<string, any> } | null;
     /** Foods selected on the dashboard, seeded as ingredients (carry event_id). */
@@ -32,7 +31,7 @@
   let heading = $derived(
     mode === "edit"
       ? "Edit recipe"
-      : mode === "define" || mode === "create"
+      : mode === "define"
         ? "New recipe"
         : "Build recipe"
   );

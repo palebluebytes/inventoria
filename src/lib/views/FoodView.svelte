@@ -44,6 +44,7 @@
   import PastMealSheet from "./food/PastMealSheet.svelte";
   import LogFoodSheet from "./food/LogFoodSheet.svelte";
   import RecipeModal from "./food/RecipeModal.svelte";
+  import RecipeLibrarySheet from "./food/RecipeLibrarySheet.svelte";
   import InstantiationSheet from "./food/InstantiationSheet.svelte";
   import IngredientAmountSheet from "./food/IngredientAmountSheet.svelte";
   import NovaExplainerSheet from "./food/NovaExplainerSheet.svelte";
@@ -113,14 +114,15 @@
   // Consumption-event ids selected (long-press) for building a recipe.
   let selected_ids = $state<Set<string>>(new Set());
   let recipeOpen = $state(false);
+  // The recipe library (the header's recipe button): browse every saved recipe,
+  // open one to read or amend, or write a new one. Nothing on it logs.
+  let recipeLibraryOpen = $state(false);
   let recipe_meal_type = $state<MealType>("dinner");
   let recipe_seed = $state<RecipeIngredient[]>([]);
   // Which verb the recipe builder performs (ADR-0022): consolidate (build from
-  // selected foods), define (new template, logged onto the day), create (new
-  // template, nothing logged), or edit (amend a template).
-  let recipe_mode = $state<"consolidate" | "define" | "create" | "edit">(
-    "consolidate"
-  );
+  // selected foods), define (new template, logged onto the day), or edit (amend
+  // a template). `create` is reached only through the recipe library sheet.
+  let recipe_mode = $state<"consolidate" | "define" | "edit">("consolidate");
   let recipe_template = $state<{
     entity: string;
     attributes: Record<string, any>;
@@ -343,7 +345,7 @@
   // Open the recipe builder in one verb. The (mode, template, seed) triple is set
   // together here so the three never drift apart; closeRecipe is its inverse.
   function openRecipe(
-    mode: "consolidate" | "define" | "create" | "edit",
+    mode: "consolidate" | "define" | "edit",
     template: { entity: string; attributes: Record<string, any> } | null,
     seed: RecipeIngredient[] = []
   ) {
@@ -576,19 +578,18 @@
         </svg>
       </button>
       <!-- Recipes have only ever been reachable through a meal: pick breakfast,
-         open its Recipe tab, then "New recipe" — and that path LOGS a serving
-         onto the day (ADR-0022 as amended), because you were logging a meal when
-         you built it. This button is the standing place to write one down
-         instead. It is reached from the screen header, so there is no meal it
-         could honestly log into, and the `create` verb saves the template alone.
-         The mark is the meal header's own recipe pot, so the same thing looks
-         the same in both places. -->
+           open its Recipe tab, then a recipe. That browser logs what you pick,
+           because you were logging a meal when you opened it, and it is the only
+           way to reach a saved recipe at all. This is the standing place for
+           them instead — read one, amend one, or write one down — and nothing on
+           it can put food on a day. The mark is the meal header's own recipe
+           pot, so the same thing looks the same in both places. -->
       <button
         type="button"
         class="header-icon-btn"
-        id="food-new-recipe-btn"
-        aria-label="Create a recipe"
-        onclick={() => openRecipe("create", null)}
+        id="food-recipes-btn"
+        aria-label="Recipes"
+        onclick={() => (recipeLibraryOpen = true)}
       >
         <WayInIcon kind="recipe" />
       </button>
@@ -776,6 +777,16 @@
      (USDA/OFF credentials, contribution consent, nutrition targets). -->
 {#if settingsOpen}
   <FoodSettingsSheet onClose={() => (settingsOpen = false)} />
+{/if}
+
+<!-- Recipe library — the header's recipe button. Browses every saved recipe and
+     opens one to review or amend; its "New recipe" writes a template only. No
+     path through it logs, which is what separates it from the meal browsers. -->
+{#if recipeLibraryOpen}
+  <RecipeLibrarySheet
+    {selectedDate}
+    onClose={() => (recipeLibraryOpen = false)}
+  />
 {/if}
 
 <!-- Recipe builder — Consolidate (seeded from selected foods), Define (empty new

@@ -268,3 +268,27 @@ write to a meal the user never named.
   "Save recipe", so the button says what it will and will not do.
 - No storage or model change: same `{ ref, amount, unit }` references, same
   template write. Only the mode union and the save path's log guard move.
+
+## Amendment (2026-08-28): the header button opens a library, not the builder
+
+The amendment above put `create` behind the food screen's recipe button. That
+made writing a recipe down its own act, but it left reading one still trapped
+inside a meal: the only way to reach a saved recipe was to open a meal's Recipe
+tab, where picking it logs it. A recipe you wanted to look at cost you a
+logged serving, or a retraction.
+
+The button now opens a **library** rather than the builder directly.
+
+- **The list is the same list.** `RecipeList` holds the browse rows and their
+  derived per-serving figures once; the log sheet's Recipe tab and the library
+  both render it and each says what a pick means. In a meal, picking
+  instantiates. In the library, picking opens the recipe.
+- **Review and edit are one screen, and that screen is `edit`.** This ADR's
+  third verb already seeds the builder from a template's current ingredients,
+  saves back to the same twin, and logs nothing. Opening a recipe to read it and
+  opening it to change it therefore need no new verb.
+- **Nothing on the library can log.** `create` and `edit` are the only verbs it
+  offers, and neither writes a Consumption Event. That is the property that
+  separates it from the meal browsers, not the surface it happens to be on.
+- **`create` keeps its meaning**, reached now through the library's "＋ New
+  recipe" instead of the header button itself.

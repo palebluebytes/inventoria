@@ -259,11 +259,10 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     );
   });
 
-  // The panel's fold is a stored preference, so it has to survive the dashboard
-  // being torn down and rebuilt. `?mem=1` is wiped by a real reload, so the proof
-  // is the ledger round-trip: fold it, leave the screen, come back, and the
-  // remounted dashboard reads `false` back out of the datom rather than
-  // defaulting itself open.
+  // The fold has to survive a real refresh, which is what it is for. It can be
+  // asserted directly now that it lives in `localStorage`: `?mem=1` wipes the
+  // in-memory ledger on reload but leaves localStorage alone, so the reload below
+  // is the genuine article rather than a stand-in for one.
   test("the nutrition panel remembers being folded shut", async ({ page }) => {
     await page.goto("/?mem=1");
     await waitForDbReady(page);
@@ -287,10 +286,19 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     ).toHaveAttribute("aria-expanded", "false");
     await expect(page.locator(".aggregates-body")).toBeHidden();
 
+    // And across a real refresh. The assertion is deliberately made BEFORE
+    // waiting for the database: the fold must be right in the first frame, not
+    // once the ledger wakes up, which is the whole reason it does not live there.
+    await page.reload();
+    await expect(
+      page.getByRole("button", { name: "Nutrition", exact: true })
+    ).toHaveAttribute("aria-expanded", "false");
+    await expect(page.locator(".aggregates-body")).toBeHidden();
+
     // And unfolding it again is remembered the same way.
+    await waitForDbReady(page);
     await page.getByRole("button", { name: "Nutrition", exact: true }).click();
-    await page.locator(".nav-item", { hasText: "Media" }).click();
-    await page.locator(".nav-item", { hasText: "Food" }).click();
+    await page.reload();
     await expect(page.locator(".aggregates-body")).toBeVisible();
   });
 
@@ -1667,7 +1675,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     ).toBeVisible();
   });
 
-  test("the header's recipe button writes a template and logs nothing", async ({
+  test("the recipe library writes a template and logs nothing", async ({
     page,
   }) => {
     await page.goto("/?mem=1");
@@ -1678,17 +1686,30 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       "0 kcal"
     );
 
-    // The standing place to write a recipe down: reached from the screen
-    // header, without first picking a meal.
-    await page.getByRole("button", { name: "Create a recipe" }).click();
+    // The standing place for recipes: reached from the screen header, without
+    // first picking a meal. It opens on the list, empty to begin with.
+    await page.getByRole("button", { name: "Recipes", exact: true }).click();
+    await expect(page.locator(".recipe-library")).toContainText(
+      "No saved recipes yet"
+    );
+
+    await page.locator("#library-new-recipe-btn").click();
     await expect(page.locator("#recipe-name")).toHaveValue("");
     await page.locator("#recipe-name").fill("Pantry Bowl");
     await addSearchedIngredient(page, "oats", "Mock Oats", "50");
     await addSearchedIngredient(page, "banana", "Mock Banana", "150");
 
     // The CTA says which verb this is: no meal was chosen, so nothing is logged.
-    await expect(page.locator("#save-recipe-btn")).toContainText("Save recipe");
-    await page.locator("#save-recipe-btn").click();
+    await expect(page.locator("#library-save-recipe-btn")).toContainText(
+      "Save recipe"
+    );
+    await page.locator("#library-save-recipe-btn").click();
+
+    // Saving returns to the library, which now lists what was just written.
+    await expect(
+      page.locator(".recipe-pick", { hasText: "Pantry Bowl" })
+    ).toBeVisible();
+    await page.locator(".recipe-library .close-btn").click();
 
     // The day is untouched — this is the whole point of the verb. No meal
     // gained a serving and the running total never moved off zero.
@@ -1706,6 +1727,46 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(
       page.locator(".recipe-pick", { hasText: "Pantry Bowl" })
     ).toBeVisible();
+  });
+
+  test("the recipe library opens a saved recipe to review and amend", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    // A recipe logged onto the day from the dashboard, so there is one to review
+    // and a logged instantiation to prove the edit leaves history alone.
+    await buildDinnerCombo(page);
+    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
+      "323 kcal"
+    );
+
+    // Picking it in the library opens it for review — seeded from the template,
+    // saving back to it, and NOT logging: the CTA is Edit's, not "Log".
+    await page.getByRole("button", { name: "Recipes", exact: true }).click();
+    await page.locator(".recipe-pick", { hasText: "Dinner Combo" }).click();
+    await expect(page.locator("#recipe-name")).toHaveValue("Dinner Combo");
+    await expect(page.locator("#library-save-recipe-btn")).toContainText(
+      "Save changes"
+    );
+    await expect(
+      page.locator('[data-testid="recipe-figures"] .nutrient-calories strong')
+    ).toContainText("323 kcal");
+
+    await page.locator("#recipe-name").fill("Dinner Combo v2");
+    await page.locator("#library-save-recipe-btn").click();
+
+    // Back on the list under its new name, and the day never moved: reviewing a
+    // recipe is not logging one.
+    await expect(
+      page.locator(".recipe-pick", { hasText: "Dinner Combo v2" })
+    ).toBeVisible();
+    await page.locator(".recipe-library .close-btn").click();
+    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
+      "323 kcal"
+    );
   });
 
   test("edits a template so future instantiations re-seed while past ones stay frozen", async ({
