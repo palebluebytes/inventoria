@@ -27,8 +27,11 @@
   import {
     settingsStore,
     calorieDisplayDecimals,
-    saveNutritionPanelOpen,
   } from "../../stores/settings.store";
+  import {
+    nutritionPanelOpen,
+    setNutritionPanelOpen,
+  } from "../../stores/view-prefs";
   import { parseLoggedQuantity } from "../../food/recipe-ingredient";
   import Modal from "../../ui/Modal.svelte";
   import Meter from "../../ui/Meter.svelte";
@@ -149,26 +152,13 @@
   // the meals below them are what a user comes back to during the day, so the
   // whole set folds away behind its header.
   //
-  // The fold is a stored preference, not view state: it survives a refresh and
-  // an app restart, so a user who keeps the bars shut is not reopening them
-  // every visit.
-  //
-  // It FOLLOWS the store until the user touches it, rather than being seeded
-  // from it once on mount. Seeding would race: the settings query resolves
-  // asynchronously, so a mount-time read lands on the unset default (open) and
-  // would then never correct itself when the real datom arrives — the panel
-  // would reopen on every load no matter what was stored. Once tapped, the local
-  // choice wins so the panel flips under the finger while the ledger write
-  // catches up behind it.
-  let metersChoice = $state<boolean | null>(null);
-  let metersOpen = $derived(
-    metersChoice ?? $settingsStore.nutrition_panel_open
-  );
-
-  function toggleMeters() {
-    metersChoice = !metersOpen;
-    void saveNutritionPanelOpen(metersChoice);
-  }
+  // The fold persists, so a user who keeps the bars shut is not reopening them
+  // every visit. It reads from `localStorage` rather than the ledger because the
+  // FIRST PAINT depends on it: every ledger store waits on the worker, the WASM
+  // and OPFS, and until that resolves a settings read returns the unset default —
+  // which showed the panel open for seconds before folding it. See
+  // `stores/view-prefs.ts` for why that makes this a different kind of value
+  // from `round_nutrition`, which sits beside it in the ledger quite happily.
   // Stable id so the header's toggle can point `aria-controls` at the body it
   // opens. localhost/PWA is always a secure context, so randomUUID exists.
   const metersId = `day-meters-${crypto.randomUUID()}`;
@@ -261,12 +251,12 @@
     <button
       type="button"
       class="aggregates-toggle"
-      aria-expanded={metersOpen}
+      aria-expanded={$nutritionPanelOpen}
       aria-controls={metersId}
-      onclick={toggleMeters}
+      onclick={() => setNutritionPanelOpen(!$nutritionPanelOpen)}
     >
       <span class="aggregates-caret" aria-hidden="true"
-        >{metersOpen ? "▾" : "▸"}</span
+        >{$nutritionPanelOpen ? "▾" : "▸"}</span
       >
       <span class="aggregates-title">Nutrition</span>
     </button>
@@ -278,7 +268,7 @@
       onclick={() => (showFullDay = true)}>Full day</Button
     >
   </div>
-  <div id={metersId} class="aggregates-body" hidden={!metersOpen}>
+  <div id={metersId} class="aggregates-body" hidden={!$nutritionPanelOpen}>
     <MacroMeters {meters} />
   </div>
 </section>

@@ -237,9 +237,6 @@ attribute is `settings/food/targets`, not `food/targets`.
 - `settings/food/visible_nutrients`: the dashboard nutrient selection.
 - `settings/food/round_nutrition`: whole-number **calorie** display toggle (nutrient
   amounts always show at the fixed display precision).
-- `settings/food/nutrition_panel_open`: whether the dashboard's calorie/macro bars are
-  unfolded. Absent → open; only a stored `false` shuts them. A fold that persists is a
-  preference, so it rides the ledger like the two above rather than `localStorage`.
 - `settings/food/targets`: a blob override map of daily nutrition targets, in canonical
   units, layered over the baked reference set
   ([ADR-0031](adr/0031-baked-overridable-nutrition-targets.md)).

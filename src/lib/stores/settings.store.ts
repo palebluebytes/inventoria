@@ -79,19 +79,6 @@ export interface SettingsState {
    */
   round_nutrition: boolean;
   /**
-   * Whether the dashboard's nutrition panel — the calorie/macro bars under the
-   * date — is unfolded. Default **on**: absent → `true`, and only an explicit
-   * stored `false` keeps it shut, the same shape as {@link round_nutrition}.
-   *
-   * A fold is usually view state, and this one started that way. It persists
-   * because the user asked it to survive a refresh and an app restart, which is
-   * the whole difference between "not now" and a preference. It rides the
-   * ledger rather than `localStorage` for the ordinary reason: it is neither a
-   * secret nor a record that has to be deletable (ADR-0034 §8 / ADR-0054 §4 are
-   * the two exceptions, and this is neither).
-   */
-  nutrition_panel_open: boolean;
-  /**
    * User overrides for the baked daily nutrition targets (ADR-0031 §2, #40): a
    * partial `{ breakdown_key: number }` map filtered to the reach-toward key set
    * ({@link REACH_TOWARD_KEYS}), each value in the **same canonical unit as the
@@ -265,8 +252,6 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
     // Unset → whole-number display on (the default); only an explicit stored
     // `false` turns it back to exact 2-dp.
     round_nutrition: true,
-    // Unset → the nutrition panel is unfolded; only an explicit `false` shuts it.
-    nutrition_panel_open: true,
     // Unset → no overrides; every target resolves to its baked default.
     food_targets: {},
     // Unset → no overrides; every limit resolves to its baked cap.
@@ -295,15 +280,6 @@ export const settingsStore = derived(settingsDatomsStore, ($datoms) => {
     if (d.attribute === "settings/food/round_nutrition") {
       settings.round_nutrition =
         parseDatomValue("settings/food/round_nutrition", d.value) !== false;
-      continue;
-    }
-    // The nutrition panel's fold, read exactly like round_nutrition: a stored
-    // `false` shuts it, and anything else (including malformed) leaves it open,
-    // matching the unset default.
-    if (d.attribute === "settings/food/nutrition_panel_open") {
-      settings.nutrition_panel_open =
-        parseDatomValue("settings/food/nutrition_panel_open", d.value) !==
-        false;
       continue;
     }
     // food_targets is a JSON override map, decoded and filtered to the
@@ -398,9 +374,6 @@ export async function saveSettings(
     // The log-export consent rides `saveLogExportConsent`, so a screen that does
     // not own it cannot clobber it back to off (ADR-0054 §4).
     | "log_export"
-    // Same rule for the dashboard's panel fold: the settings screen does not own
-    // it, and saving a nutrient selection must not reopen a panel the user shut.
-    | "nutrition_panel_open"
   > & {
     // The OFF-contribution consent toggle is optional so pre-#61 callers (and the
     // store tests) still type-check; omitted → off, the opt-in default.
@@ -432,18 +405,6 @@ export async function saveSettings(
  */
 export async function saveLogExportConsent(enabled: boolean): Promise<void> {
   await appendSettings({ "settings/log_export": enabled });
-}
-
-/**
- * Persists whether the dashboard's nutrition panel is unfolded, as its own datom
- * `settings/food/nutrition_panel_open`.
- *
- * Its own writer for {@link saveLogExportConsent}'s reason: the dashboard owns
- * this fold and nothing else does, so no other screen has to read it through a
- * `saveSettings` call to avoid reopening a panel the user shut.
- */
-export async function saveNutritionPanelOpen(open: boolean): Promise<void> {
-  await appendSettings({ "settings/food/nutrition_panel_open": open });
 }
 
 /**

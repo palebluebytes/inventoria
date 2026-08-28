@@ -135,3 +135,34 @@ The cost is a frame: the bars render open on first paint and fold once the
 datoms resolve. That is what every other ledger-backed preference on this
 screen already does, and the alternative is synchronous storage this value does
 not otherwise justify.
+
+## Amendment (2026-08-28): the fold is `localStorage`, because first paint waits for nothing
+
+The amendment above put the fold in the ledger beside `round_nutrition` and
+closed by saying the cost was "a frame: the bars render open on first paint and
+fold once the datoms resolve". That was wrong by orders of magnitude, and it was
+wrong about the kind of value this is.
+
+Every ledger-backed store is asynchronous by construction. `createQueryStore`
+holds an empty array until its first `dbClient.query` resolves, and that query
+waits on the worker spawning, SQLite WASM loading and OPFS opening. Until it
+does, a settings read returns the _unset default_. On a cold start that is
+seconds of a panel the user had shut sitting open on screen, not a frame.
+
+- **`localStorage` holds it** (`stores/view-prefs.ts`), read synchronously, so
+  the first frame is already correct. Absent still reads as open, so nothing
+  changes for a user who never touched it.
+- **This is a third reason to leave the ledger, and it is about _when_ a value
+  can be read** rather than what it is. ADR-0034 §8 keeps secrets out because the
+  ledger is undeletable and syncs; ADR-0054 §4 keeps log records out because
+  redaction is a deletion. Neither applies to a fold. What applies is that the
+  first paint depends on it.
+- **`round_nutrition` and `visible_nutrients` stay where they are.** They change
+  how a number formats, and the numbers are not there during boot either, so
+  they can absorb the wait. A preference that decides whether a block of the page
+  exists cannot.
+- **The trade is sync and history**, and both are worth nothing here: a fold is
+  view state, and appending a datom per toggle was polluting the ledger with it.
+
+`settings/food/nutrition_panel_open` is therefore withdrawn before it ever
+shipped, and its entry leaves `docs/eavt-vocabulary.md`.
