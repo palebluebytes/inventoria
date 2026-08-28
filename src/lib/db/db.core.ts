@@ -317,6 +317,108 @@ export function readLedgerPage(
   return execRows<LedgerRow>(db, pageSql(LEDGER_COLUMNS), [...bind, taken]);
 }
 
+/** What one batch of imported rows did, and how far it moves the clock. */
+export interface LedgerImportOutcome {
+  /** Rows the table did not already hold, key for key. */
+  rowsAdded: number;
+  /**
+   * The greatest stamp the batch carried, or `null` for an empty batch. The
+   * caller feeds it to `Hlc.update` so a local write made after an import
+   * orders after the facts the import brought in (ADR-0020).
+   */
+  highWater: HlcMark | null;
+}
+
+/**
+ * Appends rows that arrived with their own HLC stamps, in a single transaction
+ * (ADR-0067). This is the import's write path, and it differs from
+ * `appendDatoms` in exactly two ways.
+ *
+ * It **keeps the stamp the row came with** rather than issuing a new one. The
+ * stamp is the row's identity, and re-stamping it would turn a re-import into a
+ * second copy of every fact.
+ *
+ * It uses `INSERT OR IGNORE`, which is what makes an import idempotent. The
+ * primary key spans entity, attribute and the whole stamp including the
+ * originating device, so a row already present is the same row, and skipping it
+ * is a no-op rather than a lost write. That is an append that decided not to
+ * append, not an overwrite: nothing in `datoms` is ever changed or removed, so
+ * the §1.1 red line stands. `appendDatoms` keeps its plain `INSERT` for the
+ * opposite reason, since a collision there means the clock issued a stamp twice
+ * and has to be heard about.
+ */
+export function importLedgerRows(
+  db: LedgerDb,
+  rows: LedgerRow[]
+): LedgerImportOutcome {
+  if (!Array.isArray(rows)) {
+    throw new Error("Payload 'rows' must be an array");
+  }
+  if (rows.length === 0) return { rowsAdded: 0, highWater: null };
+
+  const before = totalChanges(db);
+  let highWater: HlcMark = { hlc_ms: -1, hlc_ctr: -1 };
+
+  db.exec("BEGIN TRANSACTION;");
+  try {
+    const stmt = db.prepare(
+      `INSERT OR IGNORE INTO datoms (${LEDGER_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?);`
+    );
+    try {
+      for (const row of rows) {
+        if (
+          !row.entity ||
+          !row.attribute ||
+          typeof row.value !== "string" ||
+          !Number.isFinite(row.time) ||
+          !Number.isFinite(row.hlc_ms) ||
+          !Number.isFinite(row.hlc_ctr) ||
+          !row.device_id
+        ) {
+          throw new Error(`Invalid ledger row: ${JSON.stringify(row.entity)}`);
+        }
+        stmt.bind([
+          row.entity,
+          row.attribute,
+          row.value,
+          row.time,
+          row.hlc_ms,
+          row.hlc_ctr,
+          row.device_id,
+        ]);
+        stmt.step();
+        stmt.reset();
+        if (
+          row.hlc_ms > highWater.hlc_ms ||
+          (row.hlc_ms === highWater.hlc_ms && row.hlc_ctr > highWater.hlc_ctr)
+        ) {
+          highWater = { hlc_ms: row.hlc_ms, hlc_ctr: row.hlc_ctr };
+        }
+      }
+    } finally {
+      stmt.finalize();
+    }
+    db.exec("COMMIT;");
+  } catch (err) {
+    db.exec("ROLLBACK;");
+    throw err;
+  }
+
+  return { rowsAdded: totalChanges(db) - before, highWater };
+}
+
+/**
+ * Rows this connection has actually written since it opened. It is what counts
+ * the additions: a conflicting `INSERT OR IGNORE` writes no row and so moves
+ * this counter by nothing, which is exactly the distinction the screen reports.
+ */
+function totalChanges(db: LedgerDb): number {
+  return execRows<{ changed: number }>(
+    db,
+    "SELECT total_changes() AS changed;"
+  )[0].changed;
+}
+
 /**
  * Appends datoms in a single transaction and returns the unique attributes
  * touched (for invalidation). Each datom is stamped with the next HLC tick, so
