@@ -5,16 +5,20 @@ import { qualifiersOf, stemOf, wordsOf } from "./reference-food-ranking";
 // (ADR-0056)
 // ---------------------------------------------------------------------------
 //
-// USDA writes two kinds of thing where a food's name belongs. Where an imported
-// carcass came from — `Lamb, New Zealand, imported, loin chop, separable lean
-// and fat, raw` — and its own trade category — `Beef, variety meats and
-// by-products, liver, raw`. Nobody searching for lunch types either, and both
-// push the cut a person IS looking for past the width of a result row. This
-// module takes them out.
+// USDA writes three kinds of thing where a food's name belongs. Where an
+// imported carcass came from — `Lamb, New Zealand, imported, loin chop,
+// separable lean and fat, raw`; its own trade category — `Beef, variety meats
+// and by-products, liver, raw`; and what was added to it after it was made —
+// `Milk, fluid, 1% fat, without added vitamin A and vitamin D`. Nobody searching
+// for lunch types any of them, and all three push the cut a person IS looking
+// for past the width of a result row. This module takes them out.
 //
-// Two rosters, because they are the same KIND of thing but do different work.
-// Both are stripped; only an origin decides who loses when two names come out
-// the same, since only an origin was telling one row from the other.
+// Three rosters, because they are the same KIND of thing but do different work.
+// The first two are stripped unconditionally, and only an origin decides who
+// loses when two names come out the same, since only an origin was telling one
+// row from the other. The third is stripped only into a name no other row
+// already answers to (ADR-0062 §3), because there is no origin here to break a
+// tie and an ugly name beats two foods filed under one.
 //
 // It is the first rule in this project that REWRITES what USDA wrote rather
 // than filtering or ranking it, which is why it is its own record and its own
@@ -86,6 +90,42 @@ export const CATALOGUE_QUALIFIERS: ReadonlySet<string> = new Set([
   "variety meats and by-products",
   "all grades",
   "all classes",
+]);
+
+/**
+ * What was added to a food after it was made, as USDA writes it where a name
+ * belongs: `Milk, fluid, 1% fat, without added vitamin A and vitamin D`
+ * (ADR-0062 §2).
+ *
+ * Nobody types six words of statutory fortification to find a pint of milk, and
+ * both halves of each pair say the same thing about the food — that it is milk
+ * of that fat level. The phrase eats the width of a result row and tells no two
+ * milks apart.
+ *
+ * **Both polarities, deliberately.** Stripping only `with added …` would leave
+ * the `without` rows carrying a phrase whose whole meaning is the contrast with
+ * a row that no longer states it, which reads as a warning rather than a fact.
+ *
+ * **`fortified` is deliberately absent**, in either of USDA's spellings
+ * (`vitamin D fortified`, `fortified with vitamin D`) and in the wider
+ * `protein fortified` and `calcium-fortified`. It names a DIFFERENT food:
+ * `Milk, reduced fat, fluid, 2% milkfat, protein fortified, with added vitamin A
+ * and vitamin D` carried 3.95 g of protein against the plain 2% row's 3.30, and
+ * a roster reaching it would file two foods under one name. `Cheese,
+ * pasteurized process, American` is the case still in the corpus — 371 kcal and
+ * 18.1 g of protein on the row this roster renames, 366 and 18.0 on the
+ * `vitamin D fortified` row beside it.
+ *
+ * **Unlike the two rosters above, this one is applied conditionally.** It is
+ * removed only where the name it leaves is free (ADR-0062 §3), so unlike
+ * `new zealand` these words do NOT leave the corpus: six margarine rows keep
+ * them. See {@link stripFortificationQualifier} and {@link resolveShippedNames}.
+ */
+export const FORTIFICATION_QUALIFIERS: ReadonlySet<string> = new Set([
+  "with added vitamin a and vitamin d",
+  "without added vitamin a and vitamin d",
+  "with added vitamin d",
+  "without added vitamin d",
 ]);
 
 /**
@@ -261,6 +301,18 @@ export interface ShippedNameVerdict {
   renamed: ReadonlyMap<number, string>;
   /** Rows that leave, and which rule took them. */
   dropped: ReadonlyMap<number, NameDropReason>;
+  /**
+   * How the fortification strip went: names it freed, and names it refused
+   * because another row already answered to them (ADR-0062 §3).
+   *
+   * Counted because the refusals are otherwise INVISIBLE. Every other rule here
+   * reports itself by what it changed — a rename in `renamed`, a drop in
+   * `dropped` — but a refused rename leaves the corpus byte-for-byte as it was,
+   * so a roster entry that reached nothing and a roster entry the whole corpus
+   * blocked look identical from outside. A rule whose reach nobody measured is
+   * a hole nobody can see (ADR-0056 §5).
+   */
+  fortification: { stripped: number; refused: number };
 }
 
 /**
@@ -300,6 +352,59 @@ export function stripNonNamingQualifiers(description: string): string {
     .filter((_, index) => keep[index])
     .map((part) => part.trim())
     .join(", ");
+}
+
+/**
+ * A qualifier part read as a phrase and the parenthetical gloss trailing it, if
+ * it carries one.
+ *
+ * One row needs this and the roster below is why it is worth having:
+ * `Milk, nonfat, fluid, without added vitamin A and vitamin D (fat free or
+ * skim)` is written with no comma before its bracket, so USDA's own punctuation
+ * makes the fortification phrase and the gloss ONE part. A part-exact rule
+ * misses it, and missing it is not neutral — that gloss is the food's own name,
+ * and `skim` inside it is the word ADR-0049's `skimmed milk` vocabulary key
+ * expands to.
+ */
+const GLOSSED_PART = /^(.*?)\s*(\([^()]*\))$/;
+
+/**
+ * A description with its fortification qualifier removed, or unchanged if it
+ * carries none (ADR-0062 §2).
+ *
+ * Positional on ADR-0056 §2's terms — a whole comma-delimited part, never the
+ * head phrase — and byte-for-byte unchanged where nothing matches, for the
+ * reason {@link stripNonNamingQualifiers} gives.
+ *
+ * A gloss left behind by the strip joins the part BEFORE it rather than
+ * standing as a part of its own, because USDA wrote no comma there: the bracket
+ * glosses the food, not the fortification, and `Milk, nonfat, fluid (fat free or
+ * skim)` is the name it is a gloss on.
+ *
+ * Whether the result may actually be shipped is not a fact about the string —
+ * see {@link resolveShippedNames}, which asks whether the name is free before it
+ * applies this to anything.
+ */
+export function stripFortificationQualifier(description: string): string {
+  // The ONE qualifier splitter, for the reason `stripNonNamingQualifiers` says.
+  const parts = qualifiersOf(description);
+  const original = description.split(",").filter((part) => part.trim() !== "");
+  const kept: string[] = [];
+  let stripped = false;
+  parts.forEach((part, index) => {
+    const glossed = part.match(GLOSSED_PART);
+    const phrase = glossed ? glossed[1] : part;
+    if (index === 0 || !FORTIFICATION_QUALIFIERS.has(phrase)) {
+      kept.push(original[index].trim());
+      return;
+    }
+    stripped = true;
+    // Read off the ORIGINAL text, never the lowercased part, so USDA's casing
+    // survives a gloss the same way it survives a kept qualifier.
+    const gloss = original[index].trim().match(GLOSSED_PART);
+    if (gloss) kept[kept.length - 1] += ` ${gloss[2]}`;
+  });
+  return stripped ? kept.join(", ") : description;
 }
 
 /**
@@ -360,8 +465,11 @@ const foodIdentity = (description: string): string => {
  * `…, with peanuts, without salt added` collide under a sort and are opposite
  * foods.
  */
+const stemmedName = (name: string): string =>
+  wordsOf(name).map(stemOf).join(" ");
+
 const collisionKey = (description: string): string =>
-  wordsOf(stripNonNamingQualifiers(description)).map(stemOf).join(" ");
+  stemmedName(stripNonNamingQualifiers(description));
 
 /**
  * What the rename does to a whole corpus: which rows get a new name, and which
@@ -371,7 +479,9 @@ const collisionKey = (description: string): string =>
  * name — so it runs at generation time beside `plainSiblingsOf`, for the reason
  * ADR-0055 §6 gives.
  *
- * Two rules, in order:
+ * Three rules, in order, and the order is load-bearing: rule 3 asks whether a
+ * name is free, which is a question about the corpus rules 1 and 2 have already
+ * finished with.
  *
  * 1. **Collision.** Where two names come out the same, the row that carried an
  *    ORIGIN loses and the other wins. Note what the tiebreak asks: not "was this
@@ -388,6 +498,13 @@ const collisionKey = (description: string): string =>
  *    several-fold with nothing on screen to explain why. Simplicity is
  *    preferred to complete coverage here, deliberately and at a cost ADR-0056
  *    §5 states.
+ * 3. **Fortification, only into a free name.** A
+ *    {@link FORTIFICATION_QUALIFIERS} phrase comes off a name only where no
+ *    other surviving row already answers to what is left. Nothing is dropped on
+ *    this ground — where the name is taken, the row simply keeps the one it has
+ *    (ADR-0062 §3). Rules 1 and 2 have no counterpart here because there is no
+ *    origin to break the tie, and a fortification phrase distinguishes nothing
+ *    that would let one row lose to another.
  *
  * An origin-qualified row no plain row contests keeps its new name and stays —
  * which is what leaves New Zealand tripe in the corpus, and is the same line
@@ -449,7 +566,7 @@ export function resolveShippedNames(
     stripDesignationTag(renamed.get(row.fdcId) ?? row.description);
   const byUntagged = new Map<string, ShippedNameRow[]>();
   for (const row of survivors) {
-    const key = wordsOf(nameOf(row)).map(stemOf).join(" ");
+    const key = stemmedName(nameOf(row));
     const group = byUntagged.get(key);
     if (group) group.push(row);
     else byUntagged.set(key, [row]);
@@ -473,5 +590,51 @@ export function resolveShippedNames(
   }
   for (const fdcId of dropped.keys()) renamed.delete(fdcId);
 
-  return { renamed, dropped };
+  // 4. The fortification phrase leaves a name, but only where the name it
+  //    leaves is FREE (ADR-0062 §3).
+  //
+  //    The point where this record departs from §4 above. There, a rename that
+  //    made two names identical was settled by dropping the row that carried an
+  //    origin; here there is no origin to break the tie and nothing else about
+  //    these rows may, so the rename is simply not made. An ugly name is
+  //    preferred to two foods filed under one — six margarine rows keep
+  //    `with salt, with added vitamin D` for exactly that reason, and no rule
+  //    ever deletes a row on this ground.
+  //
+  //    A name is free when no OTHER surviving row could answer to it, and
+  //    "could" is the load-bearing word: a candidate whose own proposal is
+  //    refused keeps the name it has, so it still holds that name against
+  //    everyone else. Counting only proposed names would let two candidates
+  //    both step aside for each other and collide anyway.
+  //
+  //    Asked of the rows still standing after the designation pass, not of
+  //    `survivors` above, which was read before it took its six.
+  const standing = rows.filter((row) => !dropped.has(row.fdcId));
+  const shippedName = (row: ShippedNameRow) =>
+    renamed.get(row.fdcId) ?? row.description;
+  const proposalOf = (row: ShippedNameRow) =>
+    stripFortificationQualifier(shippedName(row));
+  const claimants = new Map<string, Set<number>>();
+  const claim = (name: string, fdcId: number) => {
+    const holders = claimants.get(stemmedName(name));
+    if (holders) holders.add(fdcId);
+    else claimants.set(stemmedName(name), new Set([fdcId]));
+  };
+  for (const row of standing) {
+    claim(shippedName(row), row.fdcId);
+    claim(proposalOf(row), row.fdcId);
+  }
+  const fortification = { stripped: 0, refused: 0 };
+  for (const row of standing) {
+    const proposed = proposalOf(row);
+    if (proposed === shippedName(row)) continue;
+    if (claimants.get(stemmedName(proposed))?.size !== 1) {
+      fortification.refused++;
+      continue;
+    }
+    renamed.set(row.fdcId, proposed);
+    fortification.stripped++;
+  }
+
+  return { renamed, dropped, fortification };
 }

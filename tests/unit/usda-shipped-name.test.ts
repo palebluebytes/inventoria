@@ -2,10 +2,12 @@ import { describe, it, expect } from "vitest";
 import { importersOf } from "./support/importers";
 import {
   ADJUDICATED_NAMES,
+  FORTIFICATION_QUALIFIERS,
   ORIGIN_QUALIFIERS,
   carriesOriginQualifier,
   resolveShippedNames,
   stripDesignationTag,
+  stripFortificationQualifier,
   stripNonNamingQualifiers,
 } from "../../src/lib/food/usda-shipped-name";
 
@@ -181,6 +183,78 @@ describe("stripDesignationTag", () => {
       "Salsify, (vegetable oyster), raw",
     ])
       expect([kept, stripDesignationTag(kept)]).toEqual([kept, kept]);
+  });
+});
+
+describe("stripFortificationQualifier", () => {
+  it("removes a fortification part in either polarity", () => {
+    // Both halves say the same thing about the food — that it is milk of that
+    // fat level — and stripping only the `with` half would leave the others
+    // carrying a phrase whose whole meaning is the contrast with a row that no
+    // longer states it.
+    expect(
+      stripFortificationQualifier("Milk, goat, fluid, with added vitamin D")
+    ).toBe("Milk, goat, fluid");
+    expect(
+      stripFortificationQualifier(
+        "Milk, evaporated, 2% fat, with added vitamin A and vitamin D"
+      )
+    ).toBe("Milk, evaporated, 2% fat");
+    expect(
+      stripFortificationQualifier(
+        "Milk, fluid, 1% fat, without added vitamin A and vitamin D"
+      )
+    ).toBe("Milk, fluid, 1% fat");
+    expect(
+      stripFortificationQualifier(
+        "Cheese, pasteurized process, American, without added vitamin D"
+      )
+    ).toBe("Cheese, pasteurized process, American");
+  });
+
+  it("keeps a gloss USDA wrote without a comma, on the part before it", () => {
+    // The one row whose fortification phrase is not a part of its own: USDA
+    // types no comma before the bracket, so the phrase and the gloss are ONE
+    // part. Losing the gloss would take `skim` out of the corpus, and
+    // ADR-0049's `skimmed milk` key expands to exactly that word.
+    expect(
+      stripFortificationQualifier(
+        "Milk, nonfat, fluid, without added vitamin A and vitamin D (fat free or skim)"
+      )
+    ).toBe("Milk, nonfat, fluid (fat free or skim)");
+  });
+
+  it("never reads `fortified` as a fortification phrase", () => {
+    // ADR-0062 §2 keeps the word off the roster in all four spellings USDA
+    // uses, because it names a DIFFERENT food. The protein-fortified 2% milk
+    // carried 3.95 g of protein against the plain row's 3.30, and the cheese
+    // still in the corpus is 371 kcal against the fortified row's 366.
+    for (const description of [
+      "Cheese, pasteurized process, American, vitamin D fortified",
+      "Cheese product, pasteurized process, American, reduced fat, fortified with vitamin D",
+      "Milk, reduced fat, fluid, 2% milkfat, protein fortified, with added vitamin A and vitamin D",
+      "Wheat flour, white, all-purpose, enriched, calcium-fortified",
+      "Peanut butter, smooth, vitamin and mineral fortified",
+    ]) {
+      expect([
+        description,
+        stripFortificationQualifier(description).includes("fortified"),
+      ]).toEqual([description, true]);
+    }
+  });
+
+  it("returns a name with nothing to strip byte-for-byte unchanged", () => {
+    for (const description of [
+      "Milk, whole, 3.7% milkfat",
+      "Game meat , bison, ground, raw",
+      "Beverages, Cocoa mix, low calorie, powder, with added calcium, phosphorus, aspartame, without added sodium or vitamin A",
+      "Applesauce, unsweetened, with added vitamin C",
+    ]) {
+      expect([description, stripFortificationQualifier(description)]).toEqual([
+        description,
+        description,
+      ]);
+    }
   });
 });
 
@@ -400,6 +474,100 @@ describe("resolveShippedNames", () => {
   });
 });
 
+describe("resolveShippedNames — a fortification rename that would collide", () => {
+  // The margarine aisle, where USDA publishes the same spread twice: once
+  // saying it has added vitamin D, once saying nothing. Plus the two rows the
+  // strip reaches cleanly, so the same corpus shows both sides of the rule.
+  const rows = [
+    {
+      fdcId: 171435,
+      description:
+        "Margarine, regular, 80% fat, composite, stick, with salt, with added vitamin D",
+    },
+    {
+      fdcId: 172346,
+      description: "Margarine, regular, 80% fat, composite, stick, with salt",
+    },
+    {
+      fdcId: 171040,
+      description:
+        "Margarine, regular, 80% fat, composite, stick, without salt, with added vitamin D",
+    },
+    {
+      fdcId: 173585,
+      description:
+        "Margarine, regular, 80% fat, composite, stick, without salt",
+    },
+    {
+      fdcId: 171434,
+      description:
+        "Margarine-like, vegetable oil spread, approximately 37% fat, unspecified oils, with salt, with added vitamin D",
+    },
+    { fdcId: 171278, description: "Milk, goat, fluid, with added vitamin D" },
+  ];
+
+  it("leaves both rows of a contested pair exactly as USDA wrote them", () => {
+    // An ugly name is the price of not merging two foods, and it is a price
+    // ADR-0062 §3 pays deliberately: unlike ADR-0056 §4 there is no origin here
+    // to say which row should lose, so neither does.
+    const { renamed, dropped } = resolveShippedNames(rows);
+    for (const fdcId of [171435, 172346, 171040, 173585]) {
+      expect([fdcId, renamed.get(fdcId), dropped.get(fdcId)]).toEqual([
+        fdcId,
+        undefined,
+        undefined,
+      ]);
+    }
+  });
+
+  it("never drops a row on this ground", () => {
+    // The whole of how this rule differs from the origin collision above.
+    expect([...resolveShippedNames(rows).dropped]).toEqual([]);
+  });
+
+  it("still renames a row whose stripped name nothing else claims", () => {
+    const { renamed } = resolveShippedNames(rows);
+    expect(renamed.get(171278)).toBe("Milk, goat, fluid");
+    expect(renamed.get(171434)).toBe(
+      "Margarine-like, vegetable oil spread, approximately 37% fat, unspecified oils, with salt"
+    );
+  });
+
+  it("refuses two candidates that would step aside into each other's name", () => {
+    // Neither of these rows exists in the corpus, and the case is here for what
+    // it proves about the rule rather than about USDA: a candidate whose own
+    // proposal is refused keeps the name it has, so it still holds that name
+    // against everyone else. A guard counting only PROPOSED names would let
+    // both of these through and collide anyway.
+    const { renamed, dropped } = resolveShippedNames([
+      { fdcId: 1, description: "Milk, invented, with added vitamin D" },
+      {
+        fdcId: 2,
+        description: "Milk, invented, without added vitamin A and vitamin D",
+      },
+    ]);
+    expect([...renamed]).toEqual([]);
+    expect([...dropped]).toEqual([]);
+  });
+
+  it("reads the name the earlier rules left, not the one USDA published", () => {
+    // Order is load-bearing (ADR-0062 §3). The aisle label comes off first, and
+    // it is the SHORTENED name the freedom check is asked about — here it
+    // collides, and would not have if the question had been put to USDA's
+    // original text.
+    const { renamed, dropped } = resolveShippedNames([
+      {
+        fdcId: 1,
+        description:
+          "Beef, variety meats and by-products, liver, with added vitamin D",
+      },
+      { fdcId: 2, description: "Beef, liver" },
+    ]);
+    expect(renamed.get(1)).toBe("Beef, liver, with added vitamin D");
+    expect([...dropped]).toEqual([]);
+  });
+});
+
 describe("the roster", () => {
   it("keeps a food's own `all` out of the catalogue roster", () => {
     // `withoutCatalogueText` compares phrases, not words. Filtering the WORDS
@@ -420,6 +588,18 @@ describe("the roster", () => {
       "australian",
       "imported",
       "new zealand",
+    ]);
+  });
+
+  it("holds the four fortification phrases and no form of `fortified`", () => {
+    // ADR-0062 §2. The four are two claims in both polarities; `fortified` is
+    // absent because it names a different food, and the roster is asserted
+    // whole so a fifth entry cannot arrive without a record saying why.
+    expect([...FORTIFICATION_QUALIFIERS].sort()).toEqual([
+      "with added vitamin a and vitamin d",
+      "with added vitamin d",
+      "without added vitamin a and vitamin d",
+      "without added vitamin d",
     ]);
   });
 });
