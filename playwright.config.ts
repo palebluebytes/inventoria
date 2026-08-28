@@ -2,7 +2,11 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests",
-  testIgnore: ["**/unit/**"],
+  // Unit tests belong to Vitest. offline-boot.spec.ts belongs to
+  // playwright.offline.config.ts: it needs a production build behind a service
+  // worker, and `pnpm dev` registers no worker, so collecting it here would fail
+  // it for the wrong reason (#125).
+  testIgnore: ["**/unit/**", "**/offline-boot.spec.ts"],
   // Tests are independent by construction, so they may run concurrently: every
   // spec but persistence.spec.ts loads `?mem=1`, which forces a fresh in-memory
   // database per page (see db.client.ts), and Playwright hands each test its own

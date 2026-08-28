@@ -89,6 +89,14 @@ jobs:
         if: ${{ !inputs.update-snapshots }}
         run: nix develop .#ci --command pnpm test:e2e
 
+      # A separate config and its own production build (see
+      # playwright.offline.config.ts). It guards a cold offline start, which the
+      # main suite structurally cannot: that one runs `pnpm dev`, which registers
+      # no service worker.
+      - name: Run the offline-boot spec
+        if: ${{ !inputs.update-snapshots }}
+        run: nix develop .#ci --command pnpm test:e2e:offline
+
       # `playwright` directly rather than through `pnpm test:e2e`, so the flag
       # reaches Playwright rather than pnpm. Bare `--update-snapshots` presets to
       # `changed`: it rewrites the baselines that differ and leaves the rest.

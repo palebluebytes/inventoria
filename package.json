@@ -17,6 +17,7 @@
     "usda:coverage": "node scripts/usda-coverage.mjs",
     "curated:check": "node scripts/curated-snapshot-check.mjs",
     "test:e2e": "playwright test",
+    "test:e2e:offline": "playwright test --config playwright.offline.config.ts",
     "prepare": "husky",
     "usda:ranking-audit": "node scripts/usda-ranking-audit.mjs",
     "usda:ranking-ties": "node scripts/usda-ranking-ties.mjs"
