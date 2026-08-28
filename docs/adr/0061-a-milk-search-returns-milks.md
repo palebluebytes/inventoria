@@ -226,3 +226,94 @@ vocabulary keys, and the phrases they expand to — `skim milk`, `1% fat milk`,
 - **A drop rule's reach must be pinned as the population it LEFT.** Every count
   here is stated over the 4,312-row corpus at the commit that precedes the change,
   because after it lands the evidence for these numbers is gone.
+
+## Amendment (2026-08-28, #177): §6's keys are not dead, and why the prune found nothing
+
+§6 says the derived vocabulary ships keys pointing at rows this record removes,
+and that they are pruned at generation. Measured over the 4,238 rows that ship,
+**one half of that is already true and the other half is false**, and both
+halves are recorded here because §6 as written would send the next reader
+looking for a prune that has nothing to do.
+
+### The prune that had already happened
+
+Nothing had to be built for it. ADR-0049 §3's effect filter keeps a synonym
+group only where a member retrieves and a member does not, and the map is
+derived from the FINISHED corpus, so a target that loses its last row takes its
+keys with it in the same regeneration that drops the rows. `skimmed milk powder`
+and `skimmed cow's milk powder` left with #174, because `nonfat dry milk` went
+to zero. That is the mechanism §6 asks for, working before it was asked.
+
+### The keys §6 names, measured
+
+`milk powder`, `whole milk powder` and `dry milk` all still retrieve, so no key
+above them is dead:
+
+| phrase              | rows | what it leads with                                               |
+| ------------------- | ---- | ---------------------------------------------------------------- |
+| `milk powder`       | 4    | `Beverages, Eggnog-flavor mix, powder, prepared with whole milk` |
+| `whole milk powder` | 4    | the same four                                                    |
+| `dry milk`          | 1    | `Fish, milkfish, cooked, dry heat`                               |
+| `nonfat dry milk`   | 0    | —                                                                |
+
+So `powdered milk` returns five rows, and `dried whole milk`, `dry whole milk`,
+`powdered whole milk`, `whole dry milk` and `whole powdered milk` return four
+each. §6 was written expecting [ADR-0062](0062-a-foods-own-name-is-what-retrieves-it.md)
+§1 in its original unconditional form, under which the four beverage mixes are
+stray mentions and go. #176 shipped it **gated** — the cut fires only where some
+row answers on a strictly higher rung — and under `milk powder` no row answers
+in its own name at all, so the bar sits at 0 and every mention clears it.
+
+The rows themselves are §5's blind spot rather than a retrieval defect. §5 drops
+six rows filed under `Beverages` that name themselves a milk drink and all six
+are chocolate; an eggnog mix, a carob mix, a strawberry mix and a cereal-grain
+coffee substitute, each `prepared with whole milk`, are not. `Beverages` is the
+head §5 says plainly was never looked at, and the Consequences call that a
+precedent trap. Removing them is a corpus decision that wants the head
+adjudicated row by row first, which is what §1's guard requires and this record
+does not do.
+
+**Nothing is re-pointed, and that part of §6 stands.** `chocolate milk`,
+`milkshake` and `dried milk` return **0 rows** and are recorded by
+[ADR-0053](0053-an-empty-food-search-is-recorded-locally-and-leaves-only-by-hand.md)'s
+local log. `milk powder` is the one of §6's four that does not, and it is worse
+than empty rather than better: it answers with a drink mix, which is the failure
+§5 refuses for `chocolate milk` in exactly these words.
+
+### Teaching the derivation ADR-0062 §1 was tried, and refused on measurement
+
+The obvious reading of §6 is that the derivation measures a wider retrieval than
+the app performs, and that closing the gap is what prunes the keys. It was built
+and regenerated, and it prunes nothing:
+
+- **The effect filter cannot see the rule.** `withoutStrayMentions` takes its bar
+  from a row that is `named`, and a `named` row always clears it, so a non-empty
+  result can never come back empty. "Does this phrase retrieve anything?" has the
+  same answer with the rule and without it, whatever the corpus. The regeneration
+  that applied it **added two keys and removed none** (444 to 446).
+- **The stopword guard is made worse by it.** The guard asks how many rows merely
+  CONTAIN a target, which is what makes a word a word rather than a synonym. Under
+  the rule `whole` falls from 209 rows to five — four turkeys and a milk — and
+  `wholemeal -> [whole, whole grain]`, the entry ADR-0049 §3 names as the reason
+  the guard exists, is readmitted and leads with
+  `Turkey from whole, light meat, meat only, with added solution, raw`.
+
+The counter therefore keeps counting mentions, and says so. The invariance the
+first bullet rests on is pinned as a test on `withoutStrayMentions` rather than
+left as an argument in a comment.
+
+### One key the drops did add
+
+`milk` now reaches 35 rows on the guard's count, under its 47-row limit, so the
+OFF group behind `milk ingredients -> milk` survives the guard for the first
+time. It is a label phrase rather than one of §6's four, and answering it with
+seventeen milks is right, so it is admitted — but it is worth naming, because it
+is the first time this corpus has let a key point at bare `milk` and §6's
+prohibition is on softening a DEAD phrase, not on the word.
+
+### What shipped
+
+`soymilk -> soy milk`, §5's own instruction, as the eighth entry in
+`vocabulary_local` ([ADR-0049](0049-a-derived-vocabulary-for-food-search.md) §4).
+It leads with `Soy milk, unsweetened, plain, shelf stable` and is held to that by
+the generation, like the seven before it.

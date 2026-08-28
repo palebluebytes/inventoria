@@ -801,3 +801,30 @@ and still frozen into a logged event, for the reasons that record gives.
   who searched a word deserves to see that word wherever the food turns up, not
   only in the results list. If that reason is ever revisited, this is the change
   that follows.
+
+## Amendment (2026-08-28, #177): an eighth hand-written entry, and it is not British
+
+The #141 Amendment above wrote seven entries and framed the section as regional
+synonyms. [ADR-0061](0061-a-milk-search-returns-milks.md) §5 adds an eighth that
+is not one: **`soymilk -> soy milk`**, leading with
+`Soy milk, unsweetened, plain, shelf stable`.
+
+The reason is the shape a hand list is right for rather than the nationality of
+the words in it. USDA spelled it `Soymilk` on twelve rows and ADR-0061 dropped
+every one of them — four chocolate, four all-flavours averages and four
+`original and vanilla` — leaving one plain soy milk under Foundation's two-word
+spelling. The one-word form did not stop being what people type when the rows
+carrying it left, and OFF's taxonomy, asked, does not group the two spellings.
+
+It is admitted against the same four admissions as the seven, three of them
+re-measured at every generation, and it takes the roster to **eight of twenty**.
+The ceiling is unmoved: it is not a cap to raise.
+
+`vocabulary_off` is unchanged at 444 keys over 329 targets. §3's stopword guard
+still drops the same seven targets — `salt` 427 of the 4,238 rows, `whole` 209,
+`beans` 115, `bean` 115, `nut` 87, `nuts` 83, `corn` 67 — with `cream` at 44 the
+widest kept, and #177 measured what happens if the guard is asked ADR-0062 §1's
+question instead of the mention count it was written for. The answer is that
+`whole` falls to five rows and `wholemeal` is readmitted, which is the entry §3
+names as the reason the guard exists; ADR-0061's #177 Amendment carries the
+measurement.
