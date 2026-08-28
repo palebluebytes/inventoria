@@ -12,7 +12,12 @@
   } from "../stores/calorie.store";
   import { scaleAmount, type ScaleOp } from "../food/scale-amount";
   import { asMealType, type MealType } from "../food/meal-type";
-  import type { WayIn } from "../food/ways-in";
+  import {
+    WAYS_IN,
+    wayInTitle,
+    wayInLegend,
+    type WayIn,
+  } from "../food/ways-in";
   import {
     pastMealsFor,
     partitionCopyable,
@@ -520,6 +525,61 @@
   }
 </script>
 
+<!-- The header marks are defined once and rendered twice: in the buttons
+     themselves, and in the legend the ⓘ unfolds. Drawing the legend from the
+     same snippet is what keeps the two from drifting apart, which is the whole
+     point of a legend. -->
+{#snippet todayMark()}
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <rect x="3" y="5" width="18" height="16"></rect>
+    <line x1="3" y1="10" x2="21" y2="10"></line>
+    <line x1="8" y1="3" x2="8" y2="7"></line>
+    <line x1="16" y1="3" x2="16" y2="7"></line>
+    <circle cx="12" cy="15.5" r="1.75" fill="currentColor"></circle>
+  </svg>
+{/snippet}
+
+{#snippet infoMark()}
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <circle cx="12" cy="12" r="10"></circle>
+    <line x1="12" y1="16" x2="12" y2="12"></line>
+    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+  </svg>
+{/snippet}
+
+{#snippet settingsMark()}
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <circle cx="12" cy="12" r="3"></circle>
+    <path
+      d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+    ></path>
+  </svg>
+{/snippet}
+
 <header class="page-header">
   <!-- Title and icons are one row of their own, so they share a centre line
        whether or not the blurb below is unfolded. The blurb is a sibling of that
@@ -538,21 +598,7 @@
           aria-label="Today"
           onclick={() => (selectedDate = new Date())}
         >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <rect x="3" y="5" width="18" height="16"></rect>
-            <line x1="3" y1="10" x2="21" y2="10"></line>
-            <line x1="8" y1="3" x2="8" y2="7"></line>
-            <line x1="16" y1="3" x2="16" y2="7"></line>
-            <circle cx="12" cy="15.5" r="1.75" fill="currentColor"></circle>
-          </svg>
+          {@render todayMark()}
         </button>
       {/if}
       <button
@@ -563,19 +609,7 @@
         aria-label="About the food screen"
         onclick={() => (aboutOpen = !aboutOpen)}
       >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="12" y1="16" x2="12" y2="12"></line>
-          <line x1="12" y1="8" x2="12.01" y2="8"></line>
-        </svg>
+        {@render infoMark()}
       </button>
       <!-- Recipes have only ever been reachable through a meal: pick breakfast,
            open its Recipe tab, then a recipe. That browser logs what you pick,
@@ -600,27 +634,77 @@
         aria-label="Food settings"
         onclick={() => (settingsOpen = true)}
       >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <circle cx="12" cy="12" r="3"></circle>
-          <path
-            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
-          ></path>
-        </svg>
+        {@render settingsMark()}
       </button>
     </div>
   </div>
-  <p id={aboutId} class="page-about" hidden={!aboutOpen}>
-    Track your daily nutritional intake, build custom recipes, and log food
-    photos locally.
-  </p>
+  <div id={aboutId} class="page-about" hidden={!aboutOpen}>
+    <p class="page-about-blurb">
+      Track your daily nutritional intake, build custom recipes, and log food
+      photos locally.
+    </p>
+    <!-- What the marks beside the title mean. The row for Today is listed even
+         while the button is not on screen, and says so itself: a legend that
+         changed shape with the header would leave a reader who meets the
+         calendar for the first time with nothing to look it up in. Each mark is
+         `aria-hidden`; the name beside it is what a screen reader announces. -->
+    <p class="legend-head">Beside the title</p>
+    <dl class="legend">
+      <div class="legend-row">
+        <dt>
+          <span class="legend-mark">{@render todayMark()}</span>
+          Today
+        </dt>
+        <dd>
+          Returns to today, and appears only while you are looking at another
+          day.
+        </dd>
+      </div>
+      <div class="legend-row">
+        <dt>
+          <span class="legend-mark">{@render infoMark()}</span>
+          About
+        </dt>
+        <dd>Unfolds this panel.</dd>
+      </div>
+      <div class="legend-row">
+        <dt>
+          <span class="legend-mark"><WayInIcon kind="recipe" /></span>
+          Recipes
+        </dt>
+        <dd>
+          Opens the recipe library, to read a recipe, amend one, or write one
+          down. Nothing on it puts food on a day.
+        </dd>
+      </div>
+      <div class="legend-row">
+        <dt>
+          <span class="legend-mark">{@render settingsMark()}</span>
+          Food settings
+        </dt>
+        <dd>
+          Nutrition targets and what the day's totals show, and the Open Food
+          Facts account used for scanning.
+        </dd>
+      </div>
+    </dl>
+    <!-- The ways into a meal, drawn from WAYS_IN rather than listed again here,
+         so the legend keeps the header's roster and its left-to-right order by
+         construction. A sixth way in would appear here without anyone
+         remembering to add it. -->
+    <p class="legend-head">In a meal's header</p>
+    <dl class="legend">
+      {#each WAYS_IN as kind (kind)}
+        <div class="legend-row">
+          <dt>
+            <span class="legend-mark"><WayInIcon {kind} /></span>
+            {wayInTitle(kind)}
+          </dt>
+          <dd>{wayInLegend(kind)}</dd>
+        </div>
+      {/each}
+    </dl>
+  </div>
 </header>
 
 <!-- Main Dashboard -->
@@ -834,6 +918,63 @@
      with the box. */
   .page-about[hidden] {
     display: none;
+  }
+  .page-about-blurb {
+    margin: 0;
+  }
+  /* The legend. A `dl` because that is what it is — a mark and what the mark
+     means — with each pair boxed in its own row so the grid can put the mark in
+     a column of its own and let the wrapped description hang under its name
+     rather than under the icon. */
+  .legend {
+    margin: var(--space-2xs) 0 0;
+    display: grid;
+    gap: var(--space-2xs);
+    font-size: var(--step-n1);
+  }
+  /* Names the surface the marks below it belong to. The header's four and a
+     meal's five are two different vocabularies that happen to share the recipe
+     pot, so running them together as one list would say they are one set. */
+  .legend-head {
+    margin: var(--space-xs) 0 0;
+    padding-top: var(--space-xs);
+    border-top: var(--edge-thin);
+    font-size: var(--step-n2);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .legend-row {
+    display: grid;
+    grid-template-columns: 1.5rem 1fr;
+    align-items: baseline;
+    column-gap: var(--space-2xs);
+  }
+  .legend dt {
+    display: contents;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .legend dd {
+    grid-column: 2;
+    margin: 0;
+    color: var(--text-secondary);
+  }
+  /* The mark sits on the text baseline rather than the line box, so a one-line
+     name and a mark of a different height still read as one row. */
+  .legend-mark {
+    grid-column: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    color: var(--ink);
+  }
+  .legend-mark svg,
+  .legend-mark :global(.entry-icon) {
+    width: 1.15rem;
+    height: 1.15rem;
   }
   .header-actions {
     flex: 0 0 auto;

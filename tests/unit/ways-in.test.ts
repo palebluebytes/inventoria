@@ -3,6 +3,7 @@ import {
   WAYS_IN,
   wayInLabel,
   wayInTitle,
+  wayInLegend,
   type WayIn,
 } from "../../src/lib/food/ways-in";
 import { MEAL_TYPES } from "../../src/lib/food/meal-type";
@@ -102,5 +103,42 @@ describe("wayInTitle", () => {
         expect(wayInTitle(kind as WayIn)).not.toContain(meal);
         expect(wayInLabel(kind as WayIn, meal)).toContain(meal);
       }
+  });
+});
+
+// The third gloss, for the legend the food screen's ⓘ unfolds. It is read by
+// someone deciding whether to tap at all, so it says what the door leads to
+// rather than naming the door.
+describe("wayInLegend", () => {
+  it("glosses every way in", () => {
+    for (const kind of WAYS_IN) {
+      const gloss = wayInLegend(kind as WayIn);
+      expect(gloss.length).toBeGreaterThan(0);
+      expect(gloss).not.toMatch(/undefined/);
+    }
+  });
+
+  // Same reason as wayInTitle: the legend is written once for a header that
+  // repeats per meal, so naming one meal would be wrong for the other three.
+  it("names no meal", () => {
+    for (const kind of WAYS_IN)
+      for (const meal of MEAL_TYPES)
+        expect(wayInLegend(kind as WayIn)).not.toContain(meal);
+  });
+
+  // A legend that merely restated the title would earn nothing over rendering
+  // the title twice.
+  it("says more than the title it sits beside", () => {
+    for (const kind of WAYS_IN) {
+      const gloss = wayInLegend(kind as WayIn);
+      expect(gloss).not.toBe(wayInTitle(kind as WayIn));
+      expect(gloss.length).toBeGreaterThan(wayInTitle(kind as WayIn).length);
+    }
+  });
+
+  // The two that come and go say so, because a reader who cannot find the mark
+  // on screen is exactly the reader who opened the legend.
+  it("says where the past-meal control is when it is absent", () => {
+    expect(wayInLegend("past")).toMatch(/appears only/i);
   });
 });

@@ -74,3 +74,33 @@ export function wayInTitle(kind: WayIn): string {
       return "Ingredient search";
   }
 }
+
+/**
+ * What a way in DOES, for the legend the food screen's ⓘ unfolds.
+ *
+ * A third gloss rather than a reuse of the other two, because a legend answers
+ * a different question. {@link wayInLabel} names a control so it can identify
+ * itself among four identical siblings, and {@link wayInTitle} names the sheet
+ * once you are already inside it; both assume you have decided to tap. A legend
+ * is read by someone who has NOT, and who wants to know what the mark means
+ * before spending a tap on it — so these say what the door leads to, and where
+ * the ones that come and go are.
+ *
+ * The meal is absent for {@link wayInTitle}'s reason: a legend is written once
+ * for a header that repeats per meal, so naming one meal would be wrong for the
+ * other three.
+ */
+export function wayInLegend(kind: WayIn): string {
+  switch (kind) {
+    case "past":
+      return "Copies a meal you have eaten before onto this day. It appears only once that meal has a past to copy.";
+    case "custom":
+      return "Writes a food down yourself: a quick calorie figure, a dish off a menu, or a photo of the plate.";
+    case "recipe":
+      return "Logs a serving of a recipe you have saved.";
+    case "scan":
+      return "Reads a barcode, by camera or from a photo of one.";
+    case "search":
+      return "Looks a food up in the bundled tables.";
+  }
+}
