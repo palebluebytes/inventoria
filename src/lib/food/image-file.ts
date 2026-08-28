@@ -2,7 +2,8 @@
  * Reads an image File into a base64 data URL — the one shared helper behind every
  * food-capture surface that stashes a photo on a twin (the label form's multi-shot
  * reader, the desktop barcode upload, and the manual-entry mini-forms). Rejects if
- * the read fails, so callers can surface a "couldn't read that image" message.
+ * the read or the decode fails, so callers can surface a "couldn't read that
+ * image" message rather than store something broken.
  *
  * A photo is bounded on its way through (ADR-0066): what the camera produced is
  * far more resolution than a label needs, and the ledger is append-only, so an
