@@ -17,6 +17,7 @@
 
   import Card from "../ui/Card.svelte";
   import LedgerExport from "./ledger/LedgerExport.svelte";
+  import LedgerImport from "./ledger/LedgerImport.svelte";
   import StorageStatus from "./storage/StorageStatus.svelte";
   import LogSettingsSection from "./logs/LogSettingsSection.svelte";
   import Button from "../ui/Button.svelte";
@@ -293,6 +294,8 @@
   <StorageStatus />
 
   <LedgerExport {dbReady} />
+
+  <LedgerImport {dbReady} />
 </Card>
 
 <LogSettingsSection />
