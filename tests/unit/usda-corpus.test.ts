@@ -1280,9 +1280,14 @@ describe("searchIndexRows", () => {
     // refusal of a name-shaped rule, and owes ADR-0062 §4 an argument before it
     // edits this expectation. Whole milk is the row directly beneath it either
     // way, which is what makes the cost one position rather than an answer.
-    expect(descriptionsFor("milk").slice(0, 2)).toEqual([
-      "Milk, sheep, fluid",
-      "Milk, whole, 3.7% milkfat",
+    //
+    // By identity like the pin above it, and here the reason is sharper than
+    // convention: 171266 is the row `ADJUDICATED_NAMES` renamed, so a pin on its
+    // description would break on a naming change for a reason that has nothing
+    // to do with which milk leads.
+    expect(idsFor("milk").slice(0, 2)).toEqual([
+      170882, // Milk, sheep, fluid
+      171266, // Milk, whole, 3.7% milkfat
     ]);
   });
 
@@ -1304,10 +1309,28 @@ describe("searchIndexRows", () => {
     // remove them. ADR-0061 §5 adjudicated the `Yogurt` head and these are filed
     // elsewhere; ADR-0062 §1 never looked at them either, because each holds the
     // typed word inside its own name part rather than past it.
-    expect(descriptionsFor("yogurt").slice(6)).toEqual([
-      "Tofu yogurt",
-      "Margarine-like spread with yogurt, 70% fat, stick, with salt",
-      "Margarine-like spread with yogurt, approximately 40% fat, tub, with salt",
+    expect(idsFor("yogurt").slice(6)).toEqual([
+      167722, // Tofu yogurt
+      172352, // Margarine-like spread with yogurt, 70% fat, stick, with salt
+      173586, // Margarine-like spread with yogurt, approximately 40% fat, tub, …
+    ]);
+    // The claim the comment above makes, asked rather than restated (#131): the
+    // typed word is inside each row's name part, which is the whole of why
+    // ADR-0062 §1 leaves them. The two margarines are the sharper case — they
+    // are a spread rather than a yogurt, and the rule still keeps them, because
+    // §1 reads WHERE the word sits and not what the food is.
+    //
+    // Stated as one array rather than a loop of assertions: a filter that
+    // matched nothing would run an empty loop and pass, which is the shape of
+    // self-assertion that can never fail.
+    expect(
+      scoredFor("yogurt")
+        .filter(({ food }) => !/^Yogurt,/.test(food.row.description))
+        .map(({ food, key }) => [food.row.fdcId, key.named])
+    ).toEqual([
+      [167722, true],
+      [172352, true],
+      [173586, true],
     ]);
   });
 

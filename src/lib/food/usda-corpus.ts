@@ -187,6 +187,9 @@ export interface NutrientStore {
  * the corpus's: a bare "b" still hands back 1,424 rows once ADR-0062 §1 has
  * taken the mentions out of them, and rendering an option per row would cost far
  * more than the search itself.
+ *
+ * That figure is pinned in `usda-corpus.test.ts`, because the one it replaced
+ * rotted through four regenerations with nothing to catch it.
  */
 export const SEARCH_RESULT_LIMIT = 50;
 
@@ -394,7 +397,8 @@ export interface IndexSearch extends SearchedPhrases {
  * name, scored by the same scorer as every other name.
  *
  * The loop is skipped entirely for the 4,159 rows that have no alias, so a
- * keystroke pays for this only where USDA held two names for one food.
+ * keystroke pays for this only where USDA held two names for one food. Pinned in
+ * `usda-corpus.test.ts` beside the search limit's figure, for the same reason.
  *
  * The row's own two keys (ADR-0055 §5) join each name's key here, which is the
  * ONE place a finished `RelevanceKey` is built: `rank` scores a name and returns
