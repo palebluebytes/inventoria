@@ -1,6 +1,9 @@
 name = "inventoria-proxy"
 main = "src/index.ts"
-# This project pins its own wrangler (^3.57.1, resolved 3.114.17) separately
-# from the root, so its ceiling is that toolchain's workerd 1.20250718.0 —
-# not the root's 2026-08-25. Bumping past it needs wrangler 4 here first.
-compatibility_date = "2025-07-18"
+# Held level with the root's date rather than pushed to this project's own
+# ceiling. The two keep separate lockfiles, so they drift a wrangler patch
+# apart on any given install (4.126.0 root, 4.127.0 here) and their workerds
+# with them — 2026-08-25 against 2026-08-26. Pinning both to the lower of the
+# two means one date describes the whole deploy, and neither `wrangler dev`
+# refuses it.
+compatibility_date = "2026-08-25"
