@@ -15,14 +15,17 @@ import {
 import {
   BUNDLE_DATASETS,
   buildCorpus,
-  applyVariantDrops,
-  applyShippedNames,
-  assertAdjudicatedVariantsShip,
   assertTwinNamesRetrieve,
   bundleArchives,
   groupByIdentity,
   projectArchiveFood,
 } from "../../scripts/usda-bundle.mjs";
+// @ts-ignore
+import {
+  applyShippedNames,
+  applyVariantDrops,
+  assertAdjudicatedVariantsShip,
+} from "../../scripts/usda-adjudication.mjs";
 // @ts-ignore
 import {
   ROW_MACRO_KEYS,
@@ -934,109 +937,6 @@ describe("assertTwinNamesRetrieve — no archived name left unanswerable", () =>
 
   it("says nothing about an identity every filter dropped", () => {
     expect(assertTwinNamesRetrieve(groups, [], ranking)).toBe(0);
-  });
-});
-
-describe("applyVariantDrops — ADR-0061's variants of a food the corpus keeps", () => {
-  const survivor = (fdcId: number, description: string) => ({
-    food: { fdcId, description, foodNutrients: [] },
-    merged_from: [],
-    foodPortions: [],
-  });
-  // A head phrase read row by row, in miniature: a plain milk, a flavoured one,
-  // a powder and a second fortification of the plain one.
-  const milk = [
-    survivor(171266, "Milk, producer, fluid, 3.7% milkfat"),
-    survivor(
-      170879,
-      "Milk, chocolate, fluid, commercial, whole, with added vitamin A and vitamin D"
-    ),
-    survivor(173454, "Milk, dry, whole, without added vitamin D"),
-    survivor(
-      172205,
-      "Milk, reduced fat, fluid, 2% milkfat, without added vitamin A and vitamin D"
-    ),
-    survivor(
-      746778,
-      "Milk, reduced fat, fluid, 2% milkfat, with added vitamin A and vitamin D"
-    ),
-    survivor(170875, "Milk, low sodium, fluid"),
-  ];
-
-  it("takes each rule's own casualties, and counts them apart", () => {
-    const applied = applyVariantDrops(milk, app);
-    expect(
-      applied.survivors.map((s: { food: { fdcId: number } }) => s.food.fdcId)
-    ).toEqual([171266, 172205]);
-    expect(applied.variant_dropped).toEqual({
-      flavoured_variant: 1,
-      dehydrated_form: 1,
-      fortification_duplicate: 1,
-      adjudicated_variant: 1,
-    });
-  });
-
-  it("refuses a corpus that has moved past a written verdict", () => {
-    // The whole risk of a hand list, and the same failure `assertSupersededSurvive`
-    // guards from the other side: a mirror refresh rewrites the description the
-    // verdict was reached by reading, and nothing notices.
-    //
-    // Handed a one-entry roster the way `assertTwinNamesRetrieve`'s tests hand
-    // it a one-entry ledger — the check reads the roster off the app module, so
-    // narrowing it is how a test asks about one row instead of thirty.
-    const one = {
-      ...app,
-      ADJUDICATED_VARIANTS: [[170875, "Milk, low sodium, fluid"]],
-    };
-    expect(() =>
-      assertAdjudicatedVariantsShip(
-        [survivor(170875, "Milk, low sodium, fluid, reformulated")],
-        one
-      )
-    ).toThrow(/reached by reading the other name/);
-    expect(() => assertAdjudicatedVariantsShip([], one)).toThrow(
-      /no longer holds it/
-    );
-    expect(
-      assertAdjudicatedVariantsShip(
-        [survivor(170875, "Milk, low sodium, fluid")],
-        one
-      )
-    ).toBe(1);
-  });
-});
-
-describe("applyShippedNames — the hand-adjudicated names (ADR-0061 §5)", () => {
-  const survivor = (fdcId: number, description: string) => ({
-    food: { fdcId, description, foodNutrients: [] },
-    merged_from: [],
-    foodPortions: [],
-  });
-  const named = {
-    ...app,
-    resolveShippedNames,
-    stripNonNamingQualifiers,
-    ADJUDICATED_NAMES,
-  };
-
-  it("ships the milk under the name a reader was given, not USDA's", () => {
-    const applied = applyShippedNames(
-      [survivor(171266, "Milk, producer, fluid, 3.7% milkfat")],
-      named
-    );
-    expect(applied.survivors[0].food.description).toBe(
-      "Milk, whole, 3.7% milkfat"
-    );
-    expect(applied.adjudicated).toBe(1);
-  });
-
-  it("refuses a corpus that has moved past the published name", () => {
-    expect(() =>
-      applyShippedNames(
-        [survivor(171266, "Milk, producer, fluid, 3.7 percent milkfat")],
-        named
-      )
-    ).toThrow(/reached by reading the other name/);
   });
 });
 

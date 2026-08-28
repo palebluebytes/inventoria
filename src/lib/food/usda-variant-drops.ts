@@ -25,7 +25,13 @@
 //
 // Each rule takes the descriptions that share its row's head phrase, because
 // every one of them is a question about SIBLINGS: does the head keep a plain
-// row, a fluid one, a fortification-free one. That is the corpus-wide shape
+// row, a fluid one, a fortification-free one. Each also asks guard 1 for
+// itself rather than leaving it to the caller, because each is called on its
+// own — by `resolveVariantDrops` below, and by a test asking what a rule does
+// under `Cheese` — and a predicate that answered `true` for an unread head
+// while being safe only inside one loop would be a trap.
+//
+// That is the corpus-wide shape
 // `plainSiblingsOf` and `resolveShippedNames` already have, and it is why these
 // three are a module of their own rather than a sixth entry in the food-kind
 // roster: they move when a head phrase is READ, where that file moves when
@@ -137,9 +143,10 @@ export function isFlavouredVariant(
   siblings: readonly string[]
 ): boolean {
   if (!ADJUDICATED_HEADS.has(headPhrase(description))) return false;
-  const plainRows = siblings.map(flavoursOf);
+  const siblingFlavours = siblings.map(flavoursOf);
   for (const word of flavoursOf(description)) {
-    const plain = plainRows.filter((carried) =>
+    // Plain FOR THIS WORD: the head's rows that carry no roster word besides it.
+    const plain = siblingFlavours.filter((carried) =>
       [...carried].every((other) => other === word)
     );
     if (plain.some((carried) => !carried.has(word))) return true;
