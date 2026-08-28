@@ -61,6 +61,10 @@ test.describe("Reactive store — live updates without page reload", () => {
 
     const eventEntity = await page.evaluate(async () => {
       const client = (window as any).dbClient;
+      // A browser-resolved specifier: Vite serves the module at this URL, and
+      // the path is relative to the dev server rather than to this file, so
+      // TypeScript is right that it cannot resolve it and wrong that it matters.
+      // @ts-expect-error resolved by the dev server, not by tsc
       const { logExecution } = await import("/src/lib/habits/habits.ts");
       const datoms = logExecution(
         "habit:swing_01",

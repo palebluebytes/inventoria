@@ -23,8 +23,30 @@ import {
 // panel that moved, a product that is gone, and a record that stopped being the
 // single-ingredient one ADR-0046 §2 admitted.
 
+/**
+ * The product half of an OFF record, trimmed to the fields the drift rules
+ * read. `nutriments` is spelled rather than left to `Record<string, unknown>`,
+ * because the fixtures below spread it to move one value.
+ */
+interface OffProduct extends Record<string, unknown> {
+  nutriments: Record<string, unknown>;
+}
+
 /** A pinned entry, trimmed to the fields the drift rules read. */
-const entry = (overrides: Record<string, unknown> = {}) => ({
+interface CuratedEntry {
+  food: string;
+  captured: string;
+  snapshot: {
+    code: string;
+    status: string;
+    product: OffProduct;
+  };
+}
+
+// `overrides` is a partial of what `entry` builds rather than a bag of
+// unknowns: a `Record<string, unknown>` spread widens `snapshot` itself to
+// `unknown`, so the fixtures below could no longer read their own product.
+const entry = (overrides: Partial<CuratedEntry> = {}): CuratedEntry => ({
   food: "cacao nibs",
   captured: "2026-08-18",
   snapshot: {
@@ -46,7 +68,7 @@ const entry = (overrides: Record<string, unknown> = {}) => ({
 });
 
 /** The product half of an OFF response, as the fetcher hands it over. */
-const fetched = (product: Record<string, unknown>) => ({
+const fetched = (product: OffProduct) => ({
   code: "5400706613279",
   status: "success",
   product,

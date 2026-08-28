@@ -320,7 +320,15 @@ const nutrient = (id: number, amount: number) => ({
 });
 const bulkFood = (
   description: string,
-  nutrients: { nutrient: { id: number }; amount: number }[],
+  // `foodNutrientDerivation` is optional and USDA's own: it says whether a
+  // value was measured, calculated or imputed, and `energyProfile` reads it.
+  // Absent from `nutrient()` because most cases do not care, spelled here
+  // because a food that cannot carry one cannot exercise the branch.
+  nutrients: {
+    nutrient: { id: number };
+    amount: number;
+    foodNutrientDerivation?: { code: string };
+  }[],
   factors?: {
     proteinValue: number;
     fatValue: number;

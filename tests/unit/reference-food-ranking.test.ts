@@ -507,6 +507,7 @@ describe("compareRelevance", () => {
       position: -1,
       plainSibling: 1,
       plain: 1,
+      wholeness: 1,
       simplicity: 3,
       designated: 1,
       ...over,
@@ -527,6 +528,7 @@ describe("compareRelevance", () => {
           position: -9,
           plainSibling: 0,
           plain: 0,
+          wholeness: 0,
           simplicity: 0,
           designated: 0,
         },
@@ -546,6 +548,7 @@ describe("compareRelevance", () => {
           position: -9,
           plainSibling: 0,
           plain: 0,
+          wholeness: 0,
           simplicity: 0,
           designated: 0,
         },
@@ -560,6 +563,7 @@ describe("compareRelevance", () => {
           position: -9,
           plainSibling: 0,
           plain: 0,
+          wholeness: 0,
           simplicity: 0,
           designated: 0,
         },
@@ -577,6 +581,7 @@ describe("compareRelevance", () => {
           position: -9,
           plainSibling: 0,
           plain: 0,
+          wholeness: 0,
           simplicity: 0,
           designated: 0,
         },
@@ -589,6 +594,7 @@ describe("compareRelevance", () => {
           position: -1,
           plainSibling: 0,
           plain: 0,
+          wholeness: 0,
           simplicity: 0,
           designated: 0,
         },
@@ -599,12 +605,26 @@ describe("compareRelevance", () => {
     // `plain`'s question of the corpus rather than of the name.
     expect(
       beats(
-        { plainSibling: 1, plain: 0, simplicity: 0, designated: 0 },
+        {
+          plainSibling: 1,
+          plain: 0,
+          wholeness: 0,
+          simplicity: 0,
+          designated: 0,
+        },
         { plainSibling: 0 }
       )
     ).toBeLessThan(0);
     expect(
-      beats({ plain: 1, simplicity: 0, designated: 0 }, { plain: 0 })
+      beats(
+        { plain: 1, wholeness: 0, simplicity: 0, designated: 0 },
+        { plain: 0 }
+      )
+    ).toBeLessThan(0);
+    // ADR-0042's #162 Amendment: a separated fat never leads, so `wholeness`
+    // outranks `simplicity` — the trimmings carry the simpler name.
+    expect(
+      beats({ wholeness: 1, simplicity: 0, designated: 0 }, { wholeness: 0 })
     ).toBeLessThan(0);
     expect(
       beats({ simplicity: 3, designated: 0 }, { simplicity: 2 })

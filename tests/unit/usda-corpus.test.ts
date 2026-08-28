@@ -1964,7 +1964,12 @@ describe("searchIndexRows", () => {
       let best = "";
       let bestKey: RelevanceKey | null = null;
       for (const other of corpus.foods) {
-        const key = rank(other.name);
+        // The row's own two keys join the name's, exactly as `bestNameKey`
+        // joins them in the app. Scoring a name alone leaves `plainSibling`
+        // and `designated` undefined, and `compareRelevance` reads the two
+        // subtractions as NaN and falls through both — so the ordering this
+        // test calls "the shipped keys" would silently be eight of the ten.
+        const key: RelevanceKey = { ...rank(other.name), ...other.rank };
         if (key.tier === 0) continue;
         if (bestKey === null || compare(key, bestKey) < 0) {
           best = other.row.description;

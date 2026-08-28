@@ -11,7 +11,10 @@ test("OPFS Persistence Test survival across page reload", async ({ page }) => {
   page.on("worker", (worker) => {
     console.log("WORKER CREATED:", worker.url());
     worker.on("console", (msg) => console.log("WORKER LOG:", msg.text()));
-    worker.on("pageerror", (err) => console.log("WORKER ERROR:", err.message));
+    // No worker-level error listener: Playwright's `Worker` emits `close` and
+    // `console` only, so the `pageerror` handler that used to sit here had
+    // never once fired. A worker's uncaught errors surface on the PAGE, which
+    // the `pageerror` listener above already logs.
   });
 
   // Navigate to root

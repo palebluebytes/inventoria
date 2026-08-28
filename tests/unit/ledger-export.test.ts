@@ -10,6 +10,7 @@ import {
   LEDGER_EXPORT_SCHEMA_VERSION,
   writeLedgerExport,
   type ExportSink,
+  type LedgerPageReader,
 } from "../../src/lib/db/ledger-export";
 
 const row = (over: Partial<LedgerRow> = {}): LedgerRow => ({
@@ -49,7 +50,10 @@ function recordingSink(): ExportSink & {
 }
 
 /** Serves `rows` a page at a time, the way the worker's paged read does. */
-function pagesOf(rows: LedgerRow[], per_page = 2) {
+// Typed as the real seam even though it pages on a count rather than the byte
+// budget: the budget is the caller's business, and a helper with a narrower
+// signature cannot stand in for the reader `writeLedgerExport` actually calls.
+function pagesOf(rows: LedgerRow[], per_page = 2): LedgerPageReader {
   const keyOf = (r: LedgerCursor) =>
     [r.entity, r.attribute, r.hlc_ms, r.hlc_ctr, r.device_id].join(" ");
   return async (after: LedgerCursor | null) => {

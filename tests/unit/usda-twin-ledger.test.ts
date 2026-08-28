@@ -16,6 +16,8 @@ import {
   assertTwinLedgerCovers,
   groupByIdentity,
 } from "../../scripts/usda-bundle.mjs";
+// @ts-ignore
+import type { AppModule } from "../../scripts/usda-bundle.mjs";
 import { TWIN_LEDGER_EXPORTS } from "../../scripts/usda-app-module.mjs";
 
 // The adjudication behind every verdict here is `docs/research/145-twin-ledger.json`,
@@ -235,7 +237,13 @@ describe("assertTwinLedgerCovers — the census fails in both directions", () =>
         },
       },
     ];
-    const stub = { ...app, fdcIdentityKey };
+    // Partial, like `app` above: `groupByIdentity` reads the identity key and
+    // the split set and nothing else. `satisfies` still checks both against the
+    // real exports.
+    const stub = {
+      ...app,
+      fdcIdentityKey,
+    } satisfies Partial<AppModule> as unknown as AppModule;
 
     expect(groupByIdentity(entries, stub, new Set()).size).toBe(1);
     expect(groupByIdentity(entries, stub, SPLIT_TWIN_NDB_NUMBERS).size).toBe(2);

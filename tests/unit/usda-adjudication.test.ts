@@ -7,6 +7,8 @@ import {
   applyVariantDrops,
   assertAdjudicatedVariantsShip,
 } from "../../scripts/usda-adjudication.mjs";
+// @ts-ignore
+import type { AppModule, Survivor } from "../../scripts/usda-bundle.mjs";
 import {
   ADJUDICATED_NAMES,
   resolveShippedNames,
@@ -22,17 +24,30 @@ import {
 // corpus row, because a verdict reached by reading invented words was reached by
 // reading nothing.
 
-/** The app's own rosters, in the shape the passes read them through. */
+/**
+ * The app's own rosters, in the shape the passes read them through.
+ *
+ * Partial on purpose — the two adjudication passes read these five and nothing
+ * else. `satisfies` keeps each one checked against the real export, so a
+ * renamed roster or a changed signature still fails here.
+ */
 const app = {
   resolveVariantDrops,
   ADJUDICATED_VARIANTS,
   resolveShippedNames,
   stripNonNamingQualifiers,
   ADJUDICATED_NAMES,
-};
+} satisfies Partial<AppModule> as unknown as AppModule;
 
-const survivor = (fdcId: number, description: string) => ({
-  food: { fdcId, description, foodNutrients: [] },
+/**
+ * One survivor, as `applyVariantDrops` receives them.
+ *
+ * `dataType` is spelled even though no pass reads it: a real survivor has been
+ * through `projectArchiveFood`, which always sets it, and a fixture that could
+ * not exist is a fixture that proves nothing.
+ */
+const survivor = (fdcId: number, description: string): Survivor => ({
+  food: { fdcId, description, dataType: "SR Legacy", foodNutrients: [] },
   merged_from: [],
   foodPortions: [],
 });
@@ -81,8 +96,12 @@ describe("applyVariantDrops — ADR-0061's variants of a food the corpus keeps",
     // narrowing it is how a test asks about one row instead of thirty.
     const one = {
       ...app,
-      ADJUDICATED_VARIANTS: [[170875, "Milk, low sodium, fluid"]],
-    };
+      // A whole entry, `why` and all: the roster's third element IS the written
+      // verdict, and a fixture missing it is not the thing being guarded.
+      ADJUDICATED_VARIANTS: [
+        [170875, "Milk, low sodium, fluid", "a fixture, not a shipped verdict"],
+      ],
+    } as unknown as AppModule;
     expect(() =>
       assertAdjudicatedVariantsShip(
         [survivor(170875, "Milk, low sodium, fluid, reformulated")],

@@ -158,7 +158,7 @@ describe("deriveVocabulary — a phrase that retrieves nothing, mapped to ones t
     // The same target survives a big corpus and fails a small one, which is what
     // makes the threshold survive a refresh.
     const group = [{ tag: "en:whole", members: ["wholemeal", "whole"] }];
-    const rows = { whole: 40 };
+    const rows: Record<string, number> = { whole: 40 };
     const at = (corpusSize: number) =>
       deriveVocabulary(group, {
         denied: [],

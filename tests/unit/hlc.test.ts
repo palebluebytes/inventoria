@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { createHlc, compareHlc, compareHlcMark } from "../../src/lib/db/hlc";
+import {
+  createHlc,
+  compareHlc,
+  compareHlcMark,
+  type HlcKey,
+} from "../../src/lib/db/hlc";
 
 describe("hybrid logical clock (ADR-0020)", () => {
   it("tracks wall time and resets the counter when it advances", () => {
@@ -67,11 +72,15 @@ describe("hybrid logical clock (ADR-0020)", () => {
     expect(
       compareHlcMark({ hlc_ms: 10, hlc_ctr: 1 }, { hlc_ms: 10, hlc_ctr: 0 })
     ).toBeGreaterThan(0);
-    expect(
-      compareHlcMark(
-        { hlc_ms: 10, hlc_ctr: 0, device_id: "a" },
-        { hlc_ms: 10, hlc_ctr: 0, device_id: "z" }
-      )
-    ).toBe(0);
+    // Through `HlcKey`, which is what a caller actually holds: a stamp carries
+    // a device, and the point of this case is that the comparison does not read
+    // it. Passing bare literals would make the excess `device_id` an error and
+    // lose the only case that says so.
+    const stampedBy = (device_id: string): HlcKey => ({
+      hlc_ms: 10,
+      hlc_ctr: 0,
+      device_id,
+    });
+    expect(compareHlcMark(stampedBy("a"), stampedBy("z"))).toBe(0);
   });
 });

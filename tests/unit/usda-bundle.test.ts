@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
+// @ts-ignore
+import type { AppModule } from "../../scripts/usda-bundle.mjs";
 // A plain-Node ops script, deliberately outside the app's tsconfig: it reads the
 // mirrored archives with Node built-ins only, like the backup and coverage
 // scripts beside it.
@@ -84,7 +86,18 @@ import {
 // the row a live search would have produced, and that regenerating the same
 // corpus is a no-op diff.
 
-/** The app's own logic, in the shape `usda-bundle.mjs` loads it through esbuild. */
+/**
+ * The app's own logic, in the shape `usda-bundle.mjs` loads it through esbuild.
+ *
+ * Deliberately PARTIAL: these are the exports the functions under test actually
+ * reach for, and the rest of `AppModule` is the vocabulary's and the artifacts',
+ * which never reaches them. `satisfies Partial<AppModule>` rather than a bare
+ * cast so every key here is still checked against the real shape — a renamed
+ * export or a changed signature is a type error, which a cast alone would eat.
+ * The widening cast after it only says "the rest is not needed here"; it cannot
+ * hide a wrong entry, because `satisfies` has already read them all. Not
+ * `fromPartial`, whose deep partial rewrites the readonly tuple rosters.
+ */
 const app = {
   isBrandSpecific,
   isProcessedProduct,
@@ -105,7 +118,7 @@ const app = {
   SUPERSEDED_RECORDS,
   SUPERSEDED_FDC_IDS,
   plainSiblingsOf,
-};
+} satisfies Partial<AppModule> as unknown as AppModule;
 
 /**
  * The one ranking export the ROWS are built from (ADR-0055 §6). The rest of
