@@ -34,6 +34,7 @@
   import { parseLoggedQuantity } from "../../food/recipe-ingredient";
   import Modal from "../../ui/Modal.svelte";
   import Meter from "../../ui/Meter.svelte";
+  import Skeleton from "../../ui/Skeleton.svelte";
   import Button from "../../ui/Button.svelte";
   import FoodItemRow from "./FoodItemRow.svelte";
   import MacroMeters from "./MacroMeters.svelte";
@@ -106,6 +107,15 @@
 
   // Selected day's consumption, narrowed from the global projection on the main thread
   let dayItems = $derived(consumptionForDay($consumptionStore, selectedDate));
+
+  // Whether the day on screen is a day we have actually read. The projection's
+  // placeholder is `[]`, which is the same value as a day with nothing logged, so
+  // without this the screen spends the database's whole boot saying "No breakfast
+  // logged yet" — a false statement, not a missing spinner. `failed` counts as
+  // known: there is nothing more coming, and an empty day is then the truthful
+  // reading of what we have.
+  const consumptionStatus = consumptionStore.status;
+  let dayKnown = $derived($consumptionStatus !== "pending");
 
   // The resolved daily targets both surfaces read: the default set — the cited
   // baked reference (energy + macros + fibre + the twelve micronutrients) with the
@@ -267,8 +277,15 @@
       onclick={() => (showFullDay = true)}>Full day</Button
     >
   </div>
-  <div id={metersId} class="aggregates-body" hidden={!$nutritionPanelOpen}>
-    <MacroMeters {meters} />
+  <div
+    id={metersId}
+    class="aggregates-body"
+    hidden={!$nutritionPanelOpen}
+    aria-busy={!dayKnown}
+  >
+    <!-- The rows are drawn either way; unknown withholds their figures rather
+         than printing a "0 kcal" nobody has read. -->
+    <MacroMeters {meters} loading={!dayKnown} />
   </div>
 </section>
 
@@ -310,7 +327,14 @@
         <p class="meal-note" role="status">{copyNote.text}</p>
       {/if}
 
-      {#if groupedMeals[meal_type].length === 0}
+      {#if !dayKnown}
+        <!-- Not "no breakfast" — we have not read the day yet. One row's worth of
+             placeholder, which is also the height an empty meal's message takes,
+             so neither outcome moves the meals below it. -->
+        <div class="meal-skeleton" aria-busy="true">
+          <Skeleton height="var(--step-n2)" width="60%" />
+        </div>
+      {:else if groupedMeals[meal_type].length === 0}
         <div class="empty-meal">
           <p>No {meal_type} logged yet.</p>
         </div>
@@ -447,7 +471,13 @@
           >
         </header>
         <div class="day-rda-body">
-          {#if !hasLoggedFood}
+          {#if !dayKnown}
+            <!-- The same distinction the dashboard draws: an unread day is not an
+                 empty one, and this modal must not claim it is either. -->
+            <div class="rda-empty" data-testid="rda-loading" aria-busy="true">
+              <p class="rda-empty-title">Reading your day…</p>
+            </div>
+          {:else if !hasLoggedFood}
             <!-- Nothing logged: the reach-toward sections would be a wall of "no
                  data", so show a plain empty state instead. -->
             <div class="rda-empty" data-testid="rda-empty">
@@ -811,17 +841,28 @@
   }
   /* Four meals a day means up to four of these, so an empty one says its piece
      in as little height as it can get away with. */
-  .empty-meal {
+  .empty-meal,
+  .meal-skeleton {
     padding: var(--space-xs);
+  }
+  @media (min-width: 768px) {
+    .empty-meal,
+    .meal-skeleton {
+      padding: var(--space-m);
+    }
+  }
+  .empty-meal {
     text-align: center;
     background: var(--paper);
     border: 1px dashed var(--ink);
     border-radius: var(--radius);
   }
-  @media (min-width: 768px) {
-    .empty-meal {
-      padding: var(--space-m);
-    }
+  /* No dashed frame on the placeholder: the box says "nothing here", and we do
+     not yet know that. It carries the same padding so the two resolve to the
+     same height. */
+  .meal-skeleton {
+    display: flex;
+    justify-content: center;
   }
   .empty-meal p {
     color: var(--text-muted);

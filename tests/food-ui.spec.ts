@@ -259,6 +259,58 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     );
   });
 
+  // The skeleton is normally on screen for the length of the database's boot,
+  // which is too brief to catch reliably. Stalling the SQLite WASM fetch holds
+  // that state open, so what is asserted is the real one the user sees rather
+  // than a simulated one.
+  test("shows a skeleton while the day is unread, never an empty day", async ({
+    page,
+  }) => {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    // Only SQLite's own module: the page pulls other WebAssembly (loro, zxing)
+    // that the app shell needs in order to render at all.
+    await page.route("**/sqlite3.wasm", async (route) => {
+      await held;
+      await route.continue();
+    });
+
+    // `commit` rather than the default `load`: the held WASM request is part of
+    // the page's load, so waiting for it would deadlock the navigation itself.
+    await page.goto("/?mem=1", { waitUntil: "commit" });
+
+    // The day is unread, so the meals must not claim to be empty and the bars
+    // must not show figures nobody has read.
+    const breakfast = page.locator(
+      '.meal-section:has(.meal-title:text-is("BREAKFAST"))'
+    );
+    await expect(breakfast.locator(".meal-skeleton")).toBeVisible();
+    await expect(breakfast).not.toContainText("No breakfast logged yet");
+    await expect(page.locator(".aggregates-body")).toHaveAttribute(
+      "aria-busy",
+      "true"
+    );
+    // The rows are drawn (that is what holds the layout), but no figure in them
+    // is: a "0 kcal" here would be a number nobody has read.
+    await expect(page.locator(".macro-item.calories")).toBeVisible();
+    await expect(page.locator(".macro-now")).toHaveCount(0);
+
+    // Let the database finish booting: the same regions resolve to the real day.
+    release();
+    await waitForDbReady(page);
+    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
+      "0 kcal"
+    );
+    await expect(breakfast).toContainText("No breakfast logged yet");
+    await expect(breakfast.locator(".meal-skeleton")).toHaveCount(0);
+    await expect(page.locator(".aggregates-body")).toHaveAttribute(
+      "aria-busy",
+      "false"
+    );
+  });
+
   // The fold has to survive a real refresh, which is what it is for. It can be
   // asserted directly now that it lives in `localStorage`: `?mem=1` wipes the
   // in-memory ledger on reload but leaves localStorage alone, so the reload below
