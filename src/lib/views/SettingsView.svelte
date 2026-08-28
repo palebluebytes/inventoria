@@ -16,6 +16,7 @@
   } from "../db/db.test-harness";
 
   import Card from "../ui/Card.svelte";
+  import LedgerExport from "./ledger/LedgerExport.svelte";
   import LogSettingsSection from "./logs/LogSettingsSection.svelte";
   import Button from "../ui/Button.svelte";
   import Alert from "../ui/Alert.svelte";
@@ -287,6 +288,8 @@
       {/if}
     </div>
   {/if}
+
+  <LedgerExport {dbReady} />
 </Card>
 
 <LogSettingsSection />
