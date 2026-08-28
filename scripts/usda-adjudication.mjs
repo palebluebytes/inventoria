@@ -163,7 +163,7 @@ export function applyShippedNames(survivors, app) {
     return { ...survivor, food: { ...survivor.food, description: entry[2] } };
   });
 
-  const { renamed, dropped } = app.resolveShippedNames(
+  const { renamed, dropped, fortification } = app.resolveShippedNames(
     named.map((s) => ({
       fdcId: s.food.fdcId,
       description: s.food.description,
@@ -202,5 +202,6 @@ export function applyShippedNames(survivors, app) {
     renamed: renamed.size,
     adjudicated,
     origin_dropped,
+    fortification,
   };
 }

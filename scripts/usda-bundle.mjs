@@ -768,6 +768,7 @@ async function main() {
     renamed,
     adjudicated: adjudicated_names,
     origin_dropped,
+    fortification,
   } = applyShippedNames(filtered, app);
 
   // After the corpus, never before: both of ADR-0049 §3's filters ask what the
@@ -830,11 +831,21 @@ async function main() {
   // a rule whose reach nobody measured is a hole nobody can see (ADR-0056 §5).
   console.log(
     `  ${adjudicated_names} ship under a name adjudicated by reading; ` +
-      `${renamed} lose a commercial origin or a cataloguing qualifier from ` +
-      `their name; ${origin_dropped.collision} then collide with a row that named no ` +
-      `origin, ${origin_dropped.preparation_sibling} follow as other ` +
-      `preparations of the same food, and ${origin_dropped.designation_collision} ` +
-      "lose a designation collision to a fuller panel"
+      `${renamed} lose a commercial origin, a cataloguing qualifier or a ` +
+      `fortification phrase from their name; ${origin_dropped.collision} then ` +
+      `collide with a row that named no origin, ` +
+      `${origin_dropped.preparation_sibling} follow as other preparations of ` +
+      `the same food, and ${origin_dropped.designation_collision} lose a ` +
+      "designation collision to a fuller panel"
+  );
+  // Its own line because it is the one rule here that reports nothing by
+  // changing something: a refused rename leaves the corpus exactly as it was,
+  // so an entry the whole corpus blocked and an entry that reached nothing look
+  // identical from outside (ADR-0062 §3).
+  console.log(
+    `  ${fortification.stripped} of them lose the fortification phrase, and ` +
+      `${fortification.refused} keep it because another row already answers ` +
+      "to the name it would leave"
   );
   const aliased = index.foods.filter((row) => row.also);
   const aliasBytes = aliased.reduce(
