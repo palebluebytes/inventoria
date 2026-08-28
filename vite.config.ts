@@ -208,6 +208,13 @@ export default defineConfig({
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Embedder-Policy": "require-corp",
     },
+    // `pnpm proto:198` sets PROTO_TUNNEL, because the #198 probe has to reach
+    // two phones and both a camera and `RTCPeerConnection` are secure-context
+    // only — so the dev server is fronted by an HTTPS tunnel whose hostname is
+    // minted per run and cannot be listed ahead of time. Vite's Host-header
+    // check would reject it. Nothing but that script sets the variable, so the
+    // DNS-rebinding protection stays on for an ordinary `pnpm dev`.
+    allowedHosts: process.env.PROTO_TUNNEL ? true : undefined,
     watch: {
       // Exclude the Nix flake inputs directory — it contains the entire
       // Nixpkgs tree and quickly exhausts the inotify watch limit.
