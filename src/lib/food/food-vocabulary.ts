@@ -243,12 +243,19 @@ export const DENIED_VOCABULARY_TAGS: readonly string[] = [
 // the typed word is answered from outside the corpus rather than redirected
 // inside it.
 //
+// `soymilk` is the eighth and is not a regionalism at all (ADR-0061 §5). USDA
+// used to spell it that way itself, on twelve `Soymilk, …` rows; every one of
+// them is a flavour, an all-flavours average or a vanilla default, so ADR-0061
+// dropped the lot and left one plain soy milk under Foundation's two-word
+// spelling. The word did not stop being what people type when the rows carrying
+// it left, which is what a vocabulary key is for.
+//
 // A hand list is the WRONG shape at the scale of the 236 misses ADR-0049 rejects
 // it for, and the reason there is not length: nobody would have written the right
 // 236, because the derived classes (spacing, word order, possessives, diacritics,
-// loanwords) are ones a hand list would not have thought to enumerate. Seven
-// regional synonyms, each individually verified, is the shape a hand list IS
-// right for — and OFF's file, having been asked, does not know them.
+// loanwords) are ones a hand list would not have thought to enumerate. Eight
+// names, each individually verified, is the shape a hand list IS right for — and
+// OFF's file, having been asked, does not know them.
 //
 // It is a second SECTION rather than eight more keys in the derived one, because
 // the derived map is a substantial extraction from OFF and therefore an ODbL
@@ -303,8 +310,8 @@ export interface LocalVocabularyEntry {
 export const LOCAL_VOCABULARY_CEILING = 20;
 
 /**
- * The seven everyday British food names OFF's taxonomy does not carry, and USDA
- * does (#141).
+ * The eight everyday food names OFF's taxonomy does not carry, and USDA does —
+ * seven British regionalisms (#141) and one spelling (ADR-0061 §5, #177).
  *
  * Ordered by key, as the derived map is, so an addition diffs as one entry.
  */
@@ -351,5 +358,11 @@ export const LOCAL_VOCABULARY: readonly LocalVocabularyEntry[] = [
     targets: ["oats rolled"],
     landsOn: "Oats, whole grain, rolled, old fashioned",
     why: "The British name for the rolled oats porridge is made from; `oatmeal` names the cooked dish here and the raw grain there.",
+  },
+  {
+    key: "soymilk",
+    targets: ["soy milk"],
+    landsOn: "Soy milk, unsweetened, plain, shelf stable",
+    why: "The one-word spelling of soy milk, which is how the cartons and USDA's own dropped rows both write it; the single plain soy milk the corpus keeps is a Foundation row spelled with a space.",
   },
 ];
