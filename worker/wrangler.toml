@@ -1,9 +1,0 @@
-name = "inventoria-proxy"
-main = "src/index.ts"
-# Held level with the root's date rather than pushed to this project's own
-# ceiling. The two keep separate lockfiles, so they drift a wrangler patch
-# apart on any given install (4.126.0 root, 4.127.0 here) and their workerds
-# with them — 2026-08-25 against 2026-08-26. Pinning both to the lower of the
-# two means one date describes the whole deploy, and neither `wrangler dev`
-# refuses it.
-compatibility_date = "2026-08-25"

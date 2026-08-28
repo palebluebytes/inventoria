@@ -1,4 +1,18 @@
 name = "inventoria"
+
+# The proxy runs as part of this Worker rather than beside it. It was its own
+# `inventoria-proxy` deployment with its own toolchain until 2026-08-28, and
+# nothing was routing to it — `.env.example` has always pointed the app at a
+# same-origin `/api/proxy`, which an assets-only Worker had no way to answer.
+# Same origin also means the scraped bytes come back under the app's own COEP,
+# with no cross-origin resource policy to satisfy.
+#
+# The platform serves a matching static asset without invoking this at all
+# (`run_worker_first` defaults off), so the script only sees `/api/proxy` and
+# whatever matched no asset. No `binding` here on purpose: the Worker never
+# needs to fetch an asset itself.
+main = "worker/src/index.ts"
+
 # The ceiling is the bundled runtime's own date: wrangler 4.126.0 ships
 # workerd 1.20260825.1, and workerd's version *is* the newest compatibility
 # date it understands. Raising this past that date breaks `wrangler dev`

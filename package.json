@@ -25,6 +25,7 @@
     "usda:ranking-ties": "node scripts/usda-ranking-ties.mjs"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260826.1",
     "@playwright/test": "^1.59.1",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@total-typescript/shoehorn": "^0.1.2",

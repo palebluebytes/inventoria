@@ -11,6 +11,15 @@ import {
 
 const FETCH_TIMEOUT_MS = 20_000;
 
+// The one path this Worker answers, matching the `/api/proxy` the Vite dev
+// middleware serves so a scrape reaches the same URL in both environments.
+//
+// Everything else on this origin is a static asset, and the platform serves
+// those before the Worker is invoked at all (`run_worker_first` defaults off).
+// A request arriving here on any other path therefore matched no asset either,
+// which makes it a 404 rather than a proxy request missing its `url`.
+const PROXY_PATH = "/api/proxy";
+
 function errorResponse(message: string, status: number): Response {
   return new Response(message, {
     status,
@@ -24,6 +33,12 @@ function errorResponse(message: string, status: number): Response {
 
 export default {
   async fetch(request: Request): Promise<Response> {
+    const { pathname, searchParams } = new URL(request.url);
+
+    if (pathname !== PROXY_PATH) {
+      return errorResponse("Not found", 404);
+    }
+
     // Handle CORS preflight
     if (request.method === "OPTIONS") {
       return new Response(null, {
@@ -32,7 +47,7 @@ export default {
       });
     }
 
-    const urlString = new URL(request.url).searchParams.get("url");
+    const urlString = searchParams.get("url");
     if (!urlString) {
       return errorResponse("Missing target URL", 400);
     }
