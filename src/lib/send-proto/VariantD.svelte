@@ -352,14 +352,23 @@
 </div>
 
 <style>
+  /* bits-ui portals the overlay and the card to <body> as siblings, so a card
+     pins itself above the overlay's 998 and positions itself — the same shape
+     `.day-nutrition-modal` uses. Without this the panel renders UNDER the dim
+     and reads as a grey overlay with nothing on it. */
   .panel {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1001;
     display: flex;
     flex-direction: column;
     max-height: 85vh;
-    background: var(--bg-surface);
+    background: var(--paper);
     border: var(--edge);
     box-shadow: var(--shadow-3);
-    width: min(94vw, 34rem);
+    width: min(92vw, 30rem);
   }
   .panel-head {
     display: flex;
@@ -498,7 +507,9 @@
   .doors-rig {
     position: fixed;
     left: 50%;
-    bottom: 5.5rem;
+    /* Clear of both the switcher and the "added to your breakfast" note, which
+       share the foot of the screen. */
+    bottom: 8.5rem;
     transform: translateX(-50%);
     z-index: 450;
     display: flex;

@@ -807,7 +807,9 @@
   mealActionsExtra={protoMealActions}
   mealFooterExtra={protoMealFooter}
   mealTotalAction={protoVariant === "D"
-    ? (meal_type) => (proto.mealPanel = { meal_type, date: selectedDate })
+    ? (meal_type) => {
+        proto.mealPanel = { meal_type, date: selectedDate };
+      }
     : undefined}
 />
 
