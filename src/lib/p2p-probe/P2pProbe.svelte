@@ -200,6 +200,21 @@
 
   let scanAttempts = $state(0);
 
+  // A pasted code is text, so the deflated record is base64'd. #194 §4.3 shows
+  // base64 is the wrong choice INSIDE a QR symbol; in a messenger it is the only
+  // choice, and #199 §2 already accepted a 22-character floor for a pasted code.
+  const bytesToBase64 = (b: Uint8Array): string => {
+    let out = "";
+    for (let i = 0; i < b.length; i++) out += String.fromCharCode(b[i]);
+    return btoa(out);
+  };
+  const base64ToBytes = (text: string): Uint8Array => {
+    const raw = atob(text.trim());
+    const out = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  };
+
   // ── Path 1: QR only ──────────────────────────────────────────────────────
 
   let frames = $state<Uint8Array[]>([]);
@@ -341,6 +356,29 @@
   /** Compact carries #194 §4.2's extracted fields; full carries the browser's own SDP. */
   let signalling = $state<"compact" | "full">("compact");
 
+  /**
+   * How the description reaches the other device.
+   *
+   * #199 §2 made scan AND paste both first-class addressing modes, and they are
+   * not equivalent here. Scanning opens a camera, and camera permission
+   * switches mDNS obfuscation off in all three engines (#194 §5.2) — so a
+   * scanned exchange hands both devices real IPs as a side effect of how the
+   * code travelled. Pasting grants nothing, so both sides keep their
+   * `<uuid>.local` names, which is precisely the symmetric case #194 §5.3 calls
+   * fatal: neither can resolve the other, and with no STUN there is nothing to
+   * fall back to.
+   *
+   * A scan-only probe cannot reach that case at all, because the answerer must
+   * scan the offer before it can gather. Paste mode is the only way to test the
+   * failure a shipped design would actually hit.
+   */
+  let addressing = $state<"scan" | "paste">("scan");
+
+  /** The local description as a pasteable code, and the peer's as pasted in. */
+  let outgoingCode = $state("");
+  let incomingCode = $state("");
+  let codeCopied = $state(false);
+
   let pc: RTCPeerConnection | null = null;
   let channel: RTCDataChannel | null = null;
   let census = $state<CandidateCensus | null>(null);
@@ -456,6 +494,15 @@
     log.fact("SDP deflated bytes", sdpSizes.rawDeflated);
     log.fact("compact record bytes", sdpSizes.compact);
     log.fact("compact deflated bytes", sdpSizes.compactDeflated);
+    log.fact("addressing", addressing);
+    outgoingCode = bytesToBase64(bytes);
+    if (addressing === "paste") {
+      symbols = [];
+      frames = [];
+      log.fact(`${label} code characters`, outgoingCode.length);
+      mark(`${label} ready to paste`, `${outgoingCode.length} characters`);
+      return;
+    }
     frames = toFrames(bytes, symbolBytes, Math.floor(Math.random() * 0xffff));
     const rendered = [];
     for (const f of frames)
@@ -468,6 +515,20 @@
   }
 
   /** Reads a description back off the camera, whichever encoding it was sent in. */
+  /** Turns a carried description back into an SDP, whichever way it travelled. */
+  async function applyDescription(
+    label: string,
+    bytes: Uint8Array,
+    onSdp: (sdp: string) => void
+  ) {
+    const text = new TextDecoder().decode(await inflate(bytes));
+    const sdp = text.startsWith("{")
+      ? expandSdp(JSON.parse(text), label === "offer" ? "offer" : "answer")
+      : text;
+    mark(`${label} read`, `${bytes.length} B`);
+    onSdp(sdp);
+  }
+
   function scanDescription(label: string, onSdp: (sdp: string) => void) {
     const local = new Reassembler();
     mark(`scanning for ${label}`);
@@ -481,14 +542,7 @@
         missing: local.missing(),
       };
       if (result.kind !== "complete") return false;
-      void (async () => {
-        const text = new TextDecoder().decode(await inflate(result.payload));
-        const sdp = text.startsWith("{")
-          ? expandSdp(JSON.parse(text), label === "offer" ? "offer" : "answer")
-          : text;
-        mark(`${label} read`, `${result.payload.length} B`);
-        onSdp(sdp);
-      })();
+      void applyDescription(label, result.payload, onSdp);
       return true;
     });
   }
@@ -499,8 +553,12 @@
     begin("offer: start");
     stopCamera();
     cameraGranted = false;
-    // The ordering under test — see `warmCameraFirst`.
-    if (warmCameraFirst && !(await startCamera())) return;
+    incomingCode = "";
+    // The ordering under test — see `warmCameraFirst`. In paste mode there is
+    // no camera at any point, which is the whole reason paste mode exists: it
+    // is the only way this probe reaches the symmetric-obfuscation case.
+    if (addressing === "scan" && warmCameraFirst && !(await startCamera()))
+      return;
     const connection = newConnection();
     channel = connection.createDataChannel("meal", { ordered: true });
     channel.binaryType = "arraybuffer";
@@ -517,15 +575,27 @@
     await showDescription(connection.localDescription!.sdp, "offer");
   }
 
+  const takeAnswer = async (sdp: string) => {
+    await pc!.setRemoteDescription({ type: "answer", sdp });
+    mark("answer applied");
+    stopCycling();
+  };
+
   async function rtcScanAnswer() {
     if (!pc) return;
     mark("scanning the answer");
     if (!(await startCamera())) return;
-    scanDescription("answer", async (sdp) => {
-      await pc!.setRemoteDescription({ type: "answer", sdp });
-      mark("answer applied");
-      stopCycling();
-    });
+    scanDescription("answer", takeAnswer);
+  }
+
+  async function rtcPasteAnswer() {
+    if (!pc || !incomingCode.trim()) return;
+    mark("pasting the answer");
+    try {
+      await applyDescription("answer", base64ToBytes(incomingCode), takeAnswer);
+    } catch (e: any) {
+      failure = `that answer code will not decode: ${e?.message ?? e}`;
+    }
   }
 
   const CHUNK = 16 * 1024;
@@ -564,7 +634,11 @@
     cameraGranted = false;
     transferred = 0;
     verdict = "";
-    if (!(await startCamera())) return;
+    incomingCode = "";
+    // Paste mode opens no camera, so this side gathers with mDNS obfuscation
+    // still ON — which, together with the offerer doing the same, is the
+    // symmetric case #194 §5.3 calls fatal.
+    if (addressing === "scan" && !(await startCamera())) return;
     const connection = newConnection();
     const parts: Uint8Array[] = [];
     let want = 0;
@@ -594,14 +668,29 @@
         }
       };
     };
-    scanDescription("offer", async (sdp) => {
+    takeOffer = async (sdp: string) => {
       await connection.setRemoteDescription({ type: "offer", sdp });
       mark("offer applied");
       await connection.setLocalDescription(await connection.createAnswer());
       await gatheringComplete(connection);
       mark("gathering complete");
       await showDescription(connection.localDescription!.sdp, "answer");
-    });
+    };
+    if (addressing === "scan") scanDescription("offer", takeOffer);
+    else mark("waiting for a pasted offer");
+  }
+
+  /** Set by `rtcAnswer`, so a pasted offer reaches the same handler a scan does. */
+  let takeOffer: ((sdp: string) => Promise<void>) | null = null;
+
+  async function rtcPasteOffer() {
+    if (!takeOffer || !incomingCode.trim()) return;
+    mark("pasting the offer");
+    try {
+      await applyDescription("offer", base64ToBytes(incomingCode), takeOffer);
+    } catch (e: any) {
+      failure = `that offer code will not decode: ${e?.message ?? e}`;
+    }
   }
 
   // ── Report ───────────────────────────────────────────────────────────────
@@ -726,6 +815,18 @@
       </div>
       <div class="row">
         <button
+          class:on={addressing === "scan"}
+          onclick={() => (addressing = "scan")}
+          >scan the code <small>camera, mDNS off</small></button
+        >
+        <button
+          class:on={addressing === "paste"}
+          onclick={() => (addressing = "paste")}
+          >paste the code <small>no camera, mDNS ON</small></button
+        >
+      </div>
+      <div class="row">
+        <button
           class:on={signalling === "compact"}
           onclick={() => (signalling = "compact")}
           >compact SDP <small>#194 §4.2 fields</small></button
@@ -837,7 +938,13 @@
           connectivity check on the peer's password and RFC 5763 §5 needs the
           peer's fingerprint, so a one-way code can never connect.
         </p>
-        <button class="go" onclick={rtcScanAnswer}>Scan the answer</button>
+        {#if addressing === "scan"}
+          <button class="go" onclick={rtcScanAnswer}>Scan the answer</button>
+        {:else}
+          <button class="go" onclick={rtcPasteAnswer}
+            >Apply the pasted answer</button
+          >
+        {/if}
       </section>
     {/if}
 
@@ -857,6 +964,37 @@
             {scanAttempts} reads, nothing of ours yet
           {/if}
         </p>
+      </section>
+    {/if}
+
+    {#if addressing === "paste" && (path === "rtc-offer" || path === "rtc-answer")}
+      <section>
+        <h2>The code</h2>
+        {#if outgoingCode}
+          <p class="hint">Send this to the other device however you like.</p>
+          <textarea readonly rows="3" value={outgoingCode}></textarea>
+          <button
+            onclick={async () => {
+              await navigator.clipboard.writeText(outgoingCode);
+              codeCopied = true;
+              setTimeout(() => (codeCopied = false), 2000);
+            }}
+            >{codeCopied
+              ? "copied"
+              : `copy ${outgoingCode.length} characters`}</button
+          >
+        {/if}
+        <p class="hint">Paste the other device's code here.</p>
+        <textarea
+          bind:value={incomingCode}
+          rows="3"
+          placeholder="paste the code"
+        ></textarea>
+        {#if path === "rtc-answer"}
+          <button class="go" onclick={rtcPasteOffer}
+            >Apply the pasted offer</button
+          >
+        {/if}
       </section>
     {/if}
 

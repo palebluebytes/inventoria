@@ -102,6 +102,20 @@ ever needs a camera, while the recipient must scan the offer first and therefore
 gathers with obfuscation already off. #194 §5.3's peer-reflexive rescue predicts
 that is enough. The probe reports whether it was.
 
+## Scan or paste, and why the difference is not cosmetic
+
+#199 §2 made scan and paste both first-class addressing modes. They are not
+equivalent to ICE. **Scanning opens a camera, and camera permission switches
+mDNS obfuscation off in all three engines** (#194 §5.2), so a scanned exchange
+hands both devices real IPs as a side effect of how the code travelled.
+**Pasting grants nothing**, so both sides keep their `<uuid>.local` names — which
+is exactly the symmetric case #194 §5.3 calls fatal: neither can resolve the
+other, and with no STUN there is nothing to fall back to.
+
+A scan-only probe cannot reach that case at all, because the answerer has to
+scan the offer before it can gather. Paste mode is the only way to test the
+failure a shipped design would actually hit, which is why it is here.
+
 ## What is worth keeping
 
 The page is throwaway. Under it:
