@@ -175,3 +175,12 @@ asked for. It looks like a notification and structurally cannot be one.
 
 All of it is commented `PROTOTYPE (#201)`. The winner gets rewritten properly
 when it folds; the variants stay here, on the branch, as the primary source.
+
+**Two things landed outside the prototype that are NOT throwaway.**
+`src/lib/views/food/NutritionPanel.svelte` and `NutritionPanelCell.svelte` are a
+straight extraction of the full-day modal's shell and cell, which the shipped
+day panel now renders through. They exist because variant D had to be identical
+to the day panel rather than a copy of it, and they are a real deduplication
+whichever variant wins — so they stay even if D loses. Every class name and
+`data-testid` in the day panel survived the move unchanged, which is what keeps
+`tests/food-ui.spec.ts` and the visual catalogue pointing at the same things.

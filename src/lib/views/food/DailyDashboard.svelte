@@ -17,7 +17,6 @@
     SECTION_MACROS,
     SECTION_MICROS,
     SECTION_LIMITS,
-    type DayRdaRow,
   } from "../../food/nutrient-display";
   import {
     resolveNutrientTargets,
@@ -34,15 +33,15 @@
   } from "../../stores/device-settings";
   import { parseLoggedQuantity } from "../../food/recipe-ingredient";
   import Modal from "../../ui/Modal.svelte";
-  import Meter from "../../ui/Meter.svelte";
   import Skeleton from "../../ui/Skeleton.svelte";
   import Button from "../../ui/Button.svelte";
   import FoodItemRow from "./FoodItemRow.svelte";
   import MacroMeters from "./MacroMeters.svelte";
   import WeekStrip from "./WeekStrip.svelte";
-  import NutrientCard from "./NutrientCard.svelte";
   import NutrientCardGrid from "./NutrientCardGrid.svelte";
   import NutrientGroupHead from "./NutrientGroupHead.svelte";
+  import NutritionPanel from "./NutritionPanel.svelte";
+  import NutritionPanelCell from "./NutritionPanelCell.svelte";
   import { longpress } from "../../actions/longpress";
   import WayInIcon from "./WayInIcon.svelte";
   // PROTOTYPE (#201) — two optional injection points for the send/receive
@@ -491,121 +490,86 @@
   {/each}
 </div>
 
-<!-- One targeted RDA cell (Variant C): a shared NutrientCard whose body is the
-     `value / target` figure and a fill bar. Absent nutrients read `— / target`;
-     an over-target nutrient fills full and tints amber. -->
-{#snippet rdaCell(row: DayRdaRow)}
-  <NutrientCard label={row.label} rowKey={row.key}>
-    {#snippet children()}
-      <span class="rda-cell-vt" class:over={row.over} class:absent={row.absent}
-        >{row.value} <span class="rda-cell-target">/ {row.target}</span></span
-      >
-      <Meter
-        fill={row.fill}
-        over={row.over}
-        valueText={`${row.value} of ${row.target}`}
-      />
-    {/snippet}
-  </NutrientCard>
-{/snippet}
-
 <!-- Full day nutrition Modal: opened by tapping the aggregates. The full
      RDA-vs-target picture (ticket #42) — a Biggest-gaps ranking strip, then every
      reach-toward nutrient against its target (absent ones as `— / target`), then
      the untargeted nutrients the day carried. Independent of visible_nutrients. -->
 {#if showFullDay}
-  <Modal onClose={() => (showFullDay = false)} title="Full day nutrition">
-    {#snippet children({ props, close })}
-      <div
-        {...props}
-        class="day-nutrition-modal"
-        data-testid="day-nutrient-breakdown"
-      >
-        <header class="day-nutrition-header">
-          <h3>Full day nutrition</h3>
-          <button
-            type="button"
-            class="day-nutrition-close"
-            aria-label="Close"
-            onclick={close}>&times;</button
-          >
-        </header>
-        <div class="day-rda-body">
-          {#if !dayKnown}
-            <!-- The same distinction the dashboard draws: an unread day is not an
+  <NutritionPanel
+    title="Full day nutrition"
+    testId="day-nutrient-breakdown"
+    onClose={() => (showFullDay = false)}
+  >
+    {#snippet body()}
+      {#if !dayKnown}
+        <!-- The same distinction the dashboard draws: an unread day is not an
                  empty one, and this modal must not claim it is either. -->
-            <div class="rda-empty" data-testid="rda-loading" aria-busy="true">
-              <p class="rda-empty-title">Reading your day…</p>
-            </div>
-          {:else if !hasLoggedFood}
-            <!-- Nothing logged: the reach-toward sections would be a wall of "no
-                 data", so show a plain empty state instead. -->
-            <div class="rda-empty" data-testid="rda-empty">
-              <p class="rda-empty-title">No food added yet</p>
-              <p class="rda-empty-hint">
-                Log a meal to see your day against target.
-              </p>
-            </div>
-          {:else}
-            {#if dayRda.gaps.length > 0}
-              <NutrientGroupHead label="Biggest gaps" />
-              <div class="rda-gaps" data-testid="rda-gaps">
-                {#each dayRda.gaps as gap (gap.key)}
-                  <span class="rda-chip nutrient-{gap.key}">
-                    {gap.label}
-                    <span class="rda-chip-pct"
-                      >{gap.percent === null
-                        ? "no data"
-                        : `${gap.percent}%`}</span
-                    >
-                  </span>
-                {/each}
-              </div>
-            {/if}
-
-            <NutrientGroupHead label={SECTION_MACROS} />
-            <NutrientCardGrid>
-              {#each dayRda.macros as row (row.key)}
-                {@render rdaCell(row)}
-              {/each}
-            </NutrientCardGrid>
-
-            {#if dayRda.micros.length > 0}
-              <NutrientGroupHead label={SECTION_MICROS} />
-              <NutrientCardGrid>
-                {#each dayRda.micros as row (row.key)}
-                  {@render rdaCell(row)}
-                {/each}
-              </NutrientCardGrid>
-            {/if}
-
-            <!-- Stay-under limits (ADR-0032): the same rdaCell, filling toward the
-                 cap and tinting amber once over. Only limits the day carried show. -->
-            {#if dayRda.limits.length > 0}
-              <NutrientGroupHead label={SECTION_LIMITS} />
-              <NutrientCardGrid>
-                {#each dayRda.limits as row (row.key)}
-                  {@render rdaCell(row)}
-                {/each}
-              </NutrientCardGrid>
-            {/if}
-
-            {#if dayRda.untracked.length > 0}
-              <NutrientGroupHead
-                label="Not tracked ({dayRda.untracked.length})"
-              />
-              {#each dayRda.untracked as row (row.key)}
-                <div class="rda-untracked-row nutrient-{row.key}">
-                  <span class="rda-untracked-label">{row.label}</span>
-                  <span class="rda-untracked-value">{row.value}</span>
-                </div>
-              {/each}
-            {/if}
-          {/if}
+        <div class="rda-empty" data-testid="rda-loading" aria-busy="true">
+          <p class="rda-empty-title">Reading your day…</p>
         </div>
-      </div>
+      {:else if !hasLoggedFood}
+        <!-- Nothing logged: the reach-toward sections would be a wall of "no
+                 data", so show a plain empty state instead. -->
+        <div class="rda-empty" data-testid="rda-empty">
+          <p class="rda-empty-title">No food added yet</p>
+          <p class="rda-empty-hint">
+            Log a meal to see your day against target.
+          </p>
+        </div>
+      {:else}
+        {#if dayRda.gaps.length > 0}
+          <NutrientGroupHead label="Biggest gaps" />
+          <div class="rda-gaps" data-testid="rda-gaps">
+            {#each dayRda.gaps as gap (gap.key)}
+              <span class="rda-chip nutrient-{gap.key}">
+                {gap.label}
+                <span class="rda-chip-pct"
+                  >{gap.percent === null ? "no data" : `${gap.percent}%`}</span
+                >
+              </span>
+            {/each}
+          </div>
+        {/if}
+
+        <NutrientGroupHead label={SECTION_MACROS} />
+        <NutrientCardGrid>
+          {#each dayRda.macros as row (row.key)}
+            <NutritionPanelCell {row} />
+          {/each}
+        </NutrientCardGrid>
+
+        {#if dayRda.micros.length > 0}
+          <NutrientGroupHead label={SECTION_MICROS} />
+          <NutrientCardGrid>
+            {#each dayRda.micros as row (row.key)}
+              <NutritionPanelCell {row} />
+            {/each}
+          </NutrientCardGrid>
+        {/if}
+
+        <!-- Stay-under limits (ADR-0032): the same rdaCell, filling toward the
+                 cap and tinting amber once over. Only limits the day carried show. -->
+        {#if dayRda.limits.length > 0}
+          <NutrientGroupHead label={SECTION_LIMITS} />
+          <NutrientCardGrid>
+            {#each dayRda.limits as row (row.key)}
+              <NutritionPanelCell {row} />
+            {/each}
+          </NutrientCardGrid>
+        {/if}
+
+        {#if dayRda.untracked.length > 0}
+          <NutrientGroupHead label="Not tracked ({dayRda.untracked.length})" />
+          {#each dayRda.untracked as row (row.key)}
+            <div class="rda-untracked-row nutrient-{row.key}">
+              <span class="rda-untracked-label">{row.label}</span>
+              <span class="rda-untracked-value">{row.value}</span>
+            </div>
+          {/each}
+        {/if}
+      {/if}
     {/snippet}
-  </Modal>
+  </NutritionPanel>
 {/if}
 
 <!-- Photo preview Modal -->
@@ -710,53 +674,6 @@
     display: none;
   }
 
-  /* Full day nutrition modal */
-  .day-nutrition-modal {
-    position: fixed;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 1001;
-    width: min(92vw, 26rem);
-    max-height: 85vh;
-    display: flex;
-    flex-direction: column;
-    background: var(--food-surface-bg, var(--paper));
-    border: var(--edge);
-    box-shadow: var(--shadow-3);
-  }
-  .day-nutrition-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-s);
-    padding: var(--space-xs) var(--space-m);
-    border-bottom: 1px solid var(--border, var(--ink));
-  }
-  .day-nutrition-header h3 {
-    font-size: var(--step-n1);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-primary);
-  }
-  .day-nutrition-close {
-    flex-shrink: 0;
-    background: none;
-    border: none;
-    font-size: 1.75rem;
-    line-height: 1;
-    cursor: pointer;
-    color: var(--text-primary);
-  }
-  /* Full-day RDA-vs-target body (#42): scrolls under the fixed header, its
-     sections headed by the shared NutrientGroupHead — Biggest gaps / Energy &
-     macros / Vitamins & minerals / Not tracked. */
-  .day-rda-body {
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-  }
   /* Untouched-day empty state: a plain centred message in place of the sections. */
   .rda-empty {
     padding: var(--space-xl) var(--space-m);
@@ -795,28 +712,6 @@
   .rda-chip-pct {
     font-variant-numeric: tabular-nums;
     color: var(--rda-over);
-  }
-
-  /* The RDA cell body — a `value / target` figure above a fill bar — that the
-     shared NutrientCard tiles into a NutrientCardGrid. Over-target tints amber; an
-     absent nutrient (`— / target`) dims the value. */
-  .rda-cell-vt {
-    font-size: var(--step-n1);
-    font-weight: 800;
-    color: var(--text-primary);
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-  }
-  .rda-cell-vt.over {
-    color: var(--rda-over);
-  }
-  .rda-cell-vt.absent {
-    color: var(--text-muted);
-  }
-  .rda-cell-target {
-    font-size: var(--step-n3);
-    font-weight: 500;
-    color: var(--text-muted);
   }
 
   /* Not tracked: plain value, no bar — the untargeted nutrients the day carried. */

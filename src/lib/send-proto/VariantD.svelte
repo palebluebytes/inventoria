@@ -18,12 +18,12 @@
   // Its refusal call: the same as A's — one line — because with no inbox there
   // is no list to explain a missing row in, and the refusal is read by someone
   // standing in front of the person who sent it.
-  import Modal from "../ui/Modal.svelte";
   import Button from "../ui/Button.svelte";
-  import Meter from "../ui/Meter.svelte";
-  import NutrientCard from "../views/food/NutrientCard.svelte";
+  import NutritionPanel from "../views/food/NutritionPanel.svelte";
+  import NutritionPanelCell from "../views/food/NutritionPanelCell.svelte";
   import NutrientCardGrid from "../views/food/NutrientCardGrid.svelte";
   import NutrientGroupHead from "../views/food/NutrientGroupHead.svelte";
+  import WayOutIcon from "./WayOutIcon.svelte";
   import QrBlock from "./QrBlock.svelte";
   import MealBrief from "./MealBrief.svelte";
   import { formatDate } from "./proto-date";
@@ -34,12 +34,10 @@
     buildDayRdaView,
     SECTION_MACROS,
     SECTION_MICROS,
-    SECTION_LIMITS,
     type DayRdaRow,
   } from "../food/nutrient-display";
   import {
     resolveNutrientTargets,
-    resolveNutrientLimits,
     defaultNutrientTargets,
   } from "../food/nutrition-targets";
   import { settingsStore } from "../stores/settings.store";
@@ -67,13 +65,27 @@
       defaultNutrientTargets($settingsStore.food_calculated_targets)
     )
   );
-  let limits = $derived(resolveNutrientLimits($settingsStore.food_limits));
   let rda = $derived(
     buildDayRdaView(mealTotals, targets, {
       calorieDecimals: $calorieDisplayDecimals,
-      limits,
     })
   );
+
+  /**
+   * A row worth a cell.
+   *
+   * The day panel prints every reach-toward nutrient, absent ones as `—`,
+   * because a day is a thing you are trying to fill and a gap is the news. A
+   * meal is not trying to fill anything: it either contains a nutrient or it
+   * does not, and forty cards reading `0 µg` say only that most foods are not
+   * most nutrients. `parseFloat` catches both cases — `—` is NaN, "0 µg" is 0.
+   */
+  const carried = (row: DayRdaRow) => {
+    const n = parseFloat(row.value);
+    return Number.isFinite(n) && n !== 0;
+  };
+  let macros = $derived(rda.macros.filter(carried));
+  let micros = $derived(rda.micros.filter(carried));
 
   let mealKcal = $derived(
     Math.round(mealItems.reduce((n, i) => n + (Number(i.calories) || 0), 0))
@@ -95,198 +107,143 @@
   }
 </script>
 
-<!-- One cell, lifted from the day panel's own so the two surfaces read as the
-     same thing at two scales. -->
-{#snippet rdaCell(row: DayRdaRow)}
-  <NutrientCard label={row.label} rowKey={row.key}>
-    {#snippet children()}
-      <span class="cell-vt" class:over={row.over} class:absent={row.absent}>
-        {row.value} <span class="cell-target">/ {row.target}</span>
-      </span>
-      <Meter
-        fill={row.fill}
-        over={row.over}
-        valueText={`${row.value} of ${row.target}`}
-      />
-    {/snippet}
-  </NutrientCard>
-{/snippet}
-
 <!-- ── THE MEAL, IN FULL — and the way out inside it ─────────────────────── -->
 {#if proto.mealPanel}
   {@const panel = proto.mealPanel}
-  <Modal onClose={closePanel} title="{panel.meal_type} nutrition">
-    {#snippet children({ props, close })}
-      <div {...props} class="panel">
-        <header class="panel-head">
-          <h3>{panel.meal_type}</h3>
-          <button
-            type="button"
-            class="panel-close"
-            aria-label="Close"
-            onclick={close}>&times;</button
-          >
-        </header>
-
-        <div class="panel-body">
-          {#if proto.send}
-            {@const s = proto.send}
-            <!-- The panel does not open a second surface to hand the meal over.
-                 It turns into the code, and back again. One place, two faces. -->
-            {#if s.phase === "showing"}
-              <div class="centre">
-                <QrBlock link={s.code.link} size="min(70vw, 15rem)" />
-                <p class="say">Let them scan this.</p>
-                <div class="linkrow">
-                  <code class="link">{s.code.link}</code>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onclick={() => copyLink(s.code.link)}
-                  >
-                    {copied ? "Copied" : "Copy"}
-                  </Button>
-                </div>
-                <p class="fine">
-                  The link carries the key that opens the meal. It works once.
-                </p>
-                <p class="waiting" role="status">Waiting for them…</p>
-              </div>
-            {:else}
-              <div class="centre outcome" class:ok={s.phase === "delivered"}>
-                <p class="big">
-                  {#if s.phase === "delivered"}They have it.
-                  {:else if s.phase === "inbox-full"}They cannot take it now.
-                  {:else if s.phase === "relay-down"}No route to them.
-                  {:else}They could not read it.{/if}
-                </p>
-                <p class="fine">
-                  {#if s.phase === "delivered"}
-                    What they do with it is theirs. Inventoria will not tell
-                    you.
-                  {:else if s.phase === "inbox-full"}
-                    Their device is already holding as many as it will hold.
-                    Nothing was lost.
-                  {:else if s.phase === "relay-down"}
-                    Nothing left this device. Hand it over as a file instead.
-                  {:else}
-                    {ONE_LINE} The code is spent.
-                  {/if}
-                </p>
-              </div>
-            {/if}
-          {:else}
-            <p class="caption">
-              This {panel.meal_type} on {formatDate(panel.date)}, against your
-              daily targets.
-            </p>
-
-            {#if mealItems.length === 0}
-              <p class="caption">Nothing logged.</p>
-            {:else}
-              <!-- No Biggest-gaps strip, deliberately. The day panel ranks what
-                   the DAY is short of; one meal is short of nearly everything by
-                   construction, so the same strip here would say nothing every
-                   time. The rest is the day panel's structure unchanged. -->
-              <NutrientGroupHead label={SECTION_MACROS} />
-              <NutrientCardGrid>
-                {#each rda.macros as row (row.key)}
-                  {@render rdaCell(row)}
-                {/each}
-              </NutrientCardGrid>
-
-              {#if rda.micros.length > 0}
-                <NutrientGroupHead label={SECTION_MICROS} />
-                <NutrientCardGrid>
-                  {#each rda.micros as row (row.key)}
-                    {@render rdaCell(row)}
-                  {/each}
-                </NutrientCardGrid>
-              {/if}
-
-              {#if rda.limits.length > 0}
-                <NutrientGroupHead label={SECTION_LIMITS} />
-                <NutrientCardGrid>
-                  {#each rda.limits as row (row.key)}
-                    {@render rdaCell(row)}
-                  {/each}
-                </NutrientCardGrid>
-              {/if}
-
-              {#if rda.untracked.length > 0}
-                <NutrientGroupHead
-                  label="Not tracked ({rda.untracked.length})"
-                />
-                {#each rda.untracked as row (row.key)}
-                  <div class="untracked nutrient-{row.key}">
-                    <span>{row.label}</span>
-                    <span class="untracked-value">{row.value}</span>
-                  </div>
-                {/each}
-              {/if}
-            {/if}
-          {/if}
-        </div>
-
-        <div class="panel-dock">
-          {#if !proto.send}
-            <Button
-              variant="primary"
-              disabled={mealItems.length === 0}
-              onclick={() =>
-                proto.startSend(
-                  panel.meal_type,
-                  formatDate(panel.date),
-                  mealItems.length,
-                  mealKcal
-                )}
-            >
-              Hand this {panel.meal_type} over
-            </Button>
-          {:else if proto.send.phase === "showing"}
-            <Button variant="ghost" onclick={() => proto.closeSend()}>
-              Back to the numbers
-            </Button>
-          {:else if proto.send.phase === "delivered"}
-            <Button variant="primary" onclick={close}>Done</Button>
-          {:else}
-            <Button variant="ghost" onclick={() => proto.closeSend()}>
-              Back to the numbers
-            </Button>
-            <Button variant="primary" onclick={() => proto.sendAgain()}>
-              Send again
-            </Button>
-          {/if}
-        </div>
-      </div>
+  <NutritionPanel
+    title={panel.meal_type}
+    testId="meal-nutrient-breakdown"
+    onClose={closePanel}
+  >
+    <!-- The way out sits beside the meal's name, because it is a control on the
+         SUBJECT of the panel rather than on the panel. There is no footer: a
+         dock under the sections would make handing the meal over the panel's
+         purpose, and the panel's purpose is the meal. -->
+    {#snippet actions()}
+      {#if proto.send}
+        <button
+          type="button"
+          class="head-btn"
+          aria-label="Back to the numbers"
+          onclick={() => proto.closeSend()}>‹</button
+        >
+      {:else}
+        <button
+          type="button"
+          class="head-btn"
+          aria-label="Hand this {panel.meal_type} over"
+          disabled={mealItems.length === 0}
+          onclick={() =>
+            proto.startSend(
+              panel.meal_type,
+              formatDate(panel.date),
+              mealItems.length,
+              mealKcal
+            )}
+        >
+          <WayOutIcon kind="send" />
+        </button>
+      {/if}
     {/snippet}
-  </Modal>
+
+    {#snippet body()}
+      {#if proto.send}
+        {@const s = proto.send}
+        <!-- The panel does not open a second surface to hand the meal over. It
+             turns into the code, and back again. One place, two faces. -->
+        <div class="inset centre">
+          {#if s.phase === "showing"}
+            <QrBlock link={s.code.link} size="min(70vw, 15rem)" />
+            <p class="say">Let them scan this.</p>
+            <div class="linkrow">
+              <code class="link">{s.code.link}</code>
+              <Button
+                variant="secondary"
+                size="sm"
+                onclick={() => copyLink(s.code.link)}
+              >
+                {copied ? "Copied" : "Copy"}
+              </Button>
+            </div>
+            <p class="fine">
+              The link carries the key that opens the meal. It works once.
+            </p>
+            <p class="waiting" role="status">Waiting for them…</p>
+          {:else}
+            <div class="outcome" class:ok={s.phase === "delivered"}>
+              <p class="big">
+                {#if s.phase === "delivered"}They have it.
+                {:else if s.phase === "inbox-full"}They cannot take it now.
+                {:else if s.phase === "relay-down"}No route to them.
+                {:else}They could not read it.{/if}
+              </p>
+            </div>
+            <p class="fine">
+              {#if s.phase === "delivered"}
+                What they do with it is theirs. Inventoria will not tell you.
+              {:else if s.phase === "inbox-full"}
+                Their device is already holding as many as it will hold. Nothing
+                was lost.
+              {:else if s.phase === "relay-down"}
+                Nothing left this device. Hand it over as a file instead.
+              {:else}
+                {ONE_LINE} The code is spent.
+              {/if}
+            </p>
+            {#if s.phase !== "delivered"}
+              <button
+                type="button"
+                class="again"
+                onclick={() => proto.sendAgain()}>Send again</button
+              >
+            {/if}
+          {/if}
+        </div>
+      {:else if mealItems.length === 0}
+        <p class="inset fine">Nothing logged.</p>
+      {:else}
+        <!-- The day panel's sections, minus the three that are about a day
+             rather than a meal. No Biggest gaps: it ranks what the DAY is short
+             of, and one meal is short of nearly everything by construction. No
+             Limits and no Not tracked: both are readings of a whole day against
+             a cap. And no targets or bars — see NutritionPanelCell. -->
+        <NutrientGroupHead label={SECTION_MACROS} />
+        <NutrientCardGrid>
+          {#each macros as row (row.key)}
+            <NutritionPanelCell {row} showTarget={false} />
+          {/each}
+        </NutrientCardGrid>
+
+        {#if micros.length > 0}
+          <NutrientGroupHead label={SECTION_MICROS} />
+          <NutrientCardGrid>
+            {#each micros as row (row.key)}
+              <NutritionPanelCell {row} showTarget={false} />
+            {/each}
+          </NutrientCardGrid>
+        {/if}
+      {/if}
+    {/snippet}
+  </NutritionPanel>
 {/if}
 
 <!-- ── A MEAL ARRIVING, WITH NOTHING IN FRONT OF IT ──────────────────────── -->
 {#if proto.arriving}
   {@const p = proto.arriving}
-  <Modal onClose={() => (proto.arriving = null)} title="A meal was sent to you">
-    {#snippet children({ props, close })}
-      <div {...props} class="panel">
-        <header class="panel-head">
-          <h3>A {p.meal_type}</h3>
-          <button
-            type="button"
-            class="panel-close"
-            aria-label="Close"
-            onclick={close}>&times;</button
-          >
-        </header>
-        <div class="panel-body">
-          <p class="caption">They logged this on {p.senderDay}.</p>
-          <MealBrief payload={p} />
-          <p class="fine">
-            Adding it logs this as your {p.meal_type}, today, at these amounts.
-            The recipe comes with it and joins your recipes.
-          </p>
-        </div>
-        <div class="panel-dock">
+  <NutritionPanel
+    title="A {p.meal_type} was sent to you"
+    testId="meal-arriving"
+    onClose={() => (proto.arriving = null)}
+  >
+    {#snippet body({ close })}
+      <div class="inset">
+        <p class="fine">They logged this on {p.senderDay}.</p>
+        <MealBrief payload={p} />
+        <p class="fine">
+          Adding it logs this as your {p.meal_type}, today, at these amounts.
+          The recipe comes with it and joins your recipes.
+        </p>
+        <div class="dock">
           <Button variant="ghost" onclick={close}>Not now</Button>
           <Button
             variant="primary"
@@ -297,39 +254,39 @@
         </div>
       </div>
     {/snippet}
-  </Modal>
+  </NutritionPanel>
 {/if}
 
 <!-- A refusal, read by someone standing in front of the person who sent it. -->
 {#if proto.receivePhase === "refused"}
-  <Modal onClose={() => proto.closeReceive()} title="That was refused">
-    {#snippet children({ props, close })}
-      <div {...props} class="panel">
-        <div class="panel-body centre outcome">
+  <NutritionPanel title="That was refused" onClose={() => proto.closeReceive()}>
+    {#snippet body({ close })}
+      <div class="inset centre">
+        <div class="outcome">
           <p class="big">
             {proto.receiveRefusal?.id === "seal"
               ? proto.receiveRefusal.plain
               : ONE_LINE}
           </p>
-          <p class="fine">Nothing was added to your day.</p>
-          <button
-            type="button"
-            class="cause-toggle"
-            aria-expanded={showCause}
-            onclick={() => (showCause = !showCause)}
-          >
-            {showCause ? "Hide" : "Show"} why
-          </button>
-          {#if showCause}
-            <p class="cause">{proto.receiveRefusal?.cause}</p>
-          {/if}
         </div>
-        <div class="panel-dock">
+        <p class="fine">Nothing was added to your day.</p>
+        <button
+          type="button"
+          class="again"
+          aria-expanded={showCause}
+          onclick={() => (showCause = !showCause)}
+        >
+          {showCause ? "Hide" : "Show"} why
+        </button>
+        {#if showCause}
+          <p class="cause">{proto.receiveRefusal?.cause}</p>
+        {/if}
+        <div class="dock">
           <Button variant="primary" onclick={close}>Close</Button>
         </div>
       </div>
     {/snippet}
-  </Modal>
+  </NutritionPanel>
 {/if}
 
 <!-- The rig's two doors in, since D has none of its own by design. -->
@@ -352,89 +309,10 @@
 </div>
 
 <style>
-  /* bits-ui portals the overlay and the card to <body> as siblings, so a card
-     pins itself above the overlay's 998 and positions itself — the same shape
-     `.day-nutrition-modal` uses. Without this the panel renders UNDER the dim
-     and reads as a grey overlay with nothing on it. */
-  .panel {
-    position: fixed;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 1001;
-    display: flex;
-    flex-direction: column;
-    max-height: 85vh;
-    background: var(--paper);
-    border: var(--edge);
-    box-shadow: var(--shadow-3);
-    width: min(92vw, 30rem);
-  }
-  .panel-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-2xs);
-    padding: var(--space-xs) var(--space-s);
-    border-bottom: var(--edge);
-  }
-  .panel-head h3 {
-    margin: 0;
-    font-size: var(--step-0);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-  .panel-close {
-    background: none;
-    border: 0;
-    font-size: var(--step-1);
-    line-height: 1;
-    cursor: pointer;
-  }
-  .panel-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: var(--space-xs) var(--space-s);
-  }
-  .panel-dock {
-    display: flex;
-    gap: var(--space-2xs);
-    justify-content: flex-end;
-    padding: var(--space-xs) var(--space-s);
-    border-top: var(--edge);
-  }
-  .caption {
-    margin: 0 0 var(--space-xs);
-    font-size: var(--step-n2);
-    color: var(--text-secondary);
-    text-transform: none;
-  }
-  .cell-vt {
-    font-family: var(--font-mono);
-    font-size: var(--step-n1);
-    font-weight: 700;
-  }
-  .cell-vt.absent {
-    color: var(--text-muted);
-  }
-  .cell-vt.over {
-    color: var(--rda-over);
-  }
-  .cell-target {
-    font-weight: 400;
-    font-size: var(--step-n3);
-    color: var(--text-muted);
-  }
-  .untracked {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--space-2xs);
-    padding: var(--space-3xs) 0;
-    border-bottom: var(--edge-thin);
-    font-size: var(--step-n2);
-  }
-  .untracked-value {
-    font-family: var(--font-mono);
+  /* The shared panel's body carries no padding, so a section that is prose
+     rather than a card grid insets itself. */
+  .inset {
+    padding: var(--space-xs) var(--space-m) var(--space-s);
   }
   .centre {
     display: flex;
@@ -442,6 +320,23 @@
     align-items: center;
     gap: var(--space-2xs);
     text-align: center;
+  }
+  /* A header control on the panel's subject, sized to sit beside the close. */
+  .head-btn {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    background: none;
+    border: var(--edge-thin);
+    color: var(--text-primary);
+    font-size: var(--step-0);
+    line-height: 1;
+    cursor: pointer;
+  }
+  .head-btn[disabled] {
+    opacity: 0.35;
+    cursor: default;
   }
   .say {
     margin: 0;
@@ -466,16 +361,16 @@
     white-space: nowrap;
   }
   .fine {
-    margin: 0;
+    margin: var(--space-2xs) 0 0;
     font-size: var(--step-n2);
     color: var(--text-secondary);
   }
   .waiting {
-    margin: 0;
+    margin: var(--space-2xs) 0 0;
     color: var(--text-muted);
   }
   .outcome {
-    padding: var(--space-s) 0;
+    padding: var(--space-s) 0 0;
   }
   .big {
     margin: 0;
@@ -488,7 +383,8 @@
   .outcome.ok .big {
     background: var(--green-bg);
   }
-  .cause-toggle {
+  .again {
+    margin-top: var(--space-2xs);
     background: none;
     border: 0;
     padding: 0;
@@ -499,10 +395,16 @@
     cursor: pointer;
   }
   .cause {
-    margin: 0;
+    margin: var(--space-3xs) 0 0;
     font-family: var(--font-mono);
     font-size: var(--step-n3);
     color: var(--text-muted);
+  }
+  .dock {
+    display: flex;
+    gap: var(--space-2xs);
+    justify-content: flex-end;
+    margin-top: var(--space-s);
   }
   .doors-rig {
     position: fixed;

@@ -1,0 +1,109 @@
+<script lang="ts">
+  import type { Snippet } from "svelte";
+  import Modal from "../../ui/Modal.svelte";
+
+  // The nutrition panel shell — the fixed card, its header, and the scrolling
+  // body its sections stack in. Extracted from `DailyDashboard`'s full-day modal
+  // so a second surface at another scale (one meal rather than the day) is
+  // literally the same panel rather than a copy that drifts.
+  //
+  // The body has NO padding of its own: `NutrientGroupHead` is a band that spans
+  // its container edge to edge, and a padded body would inset every band by the
+  // width of the padding. Sections that want an inset carry it themselves.
+  //
+  // `actions` is an optional slot in the header, ahead of the close button, for
+  // a control that belongs to the panel's subject rather than to the panel.
+  let {
+    title,
+    testId = undefined,
+    onClose,
+    actions = undefined,
+    body,
+  }: {
+    /** Names the panel: the header's heading and the dialog's accessible name. */
+    title: string;
+    /** `data-testid` on the card, for the specs that address one panel. */
+    testId?: string;
+    onClose?: () => void;
+    actions?: Snippet;
+    body: Snippet<[{ close: () => void }]>;
+  } = $props();
+</script>
+
+<Modal {onClose} {title}>
+  {#snippet children({ props, close })}
+    <div {...props} class="day-nutrition-modal" data-testid={testId}>
+      <header class="day-nutrition-header">
+        <h3>{title}</h3>
+        <div class="day-nutrition-actions">
+          {@render actions?.()}
+          <button
+            type="button"
+            class="day-nutrition-close"
+            aria-label="Close"
+            onclick={close}>&times;</button
+          >
+        </div>
+      </header>
+      <div class="day-rda-body">
+        {@render body({ close })}
+      </div>
+    </div>
+  {/snippet}
+</Modal>
+
+<style>
+  .day-nutrition-modal {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1001;
+    width: min(92vw, 26rem);
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--food-surface-bg, var(--paper));
+    border: var(--edge);
+    box-shadow: var(--shadow-3);
+  }
+  .day-nutrition-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-s);
+    padding: var(--space-xs) var(--space-m);
+    border-bottom: 1px solid var(--border, var(--ink));
+  }
+  .day-nutrition-header h3 {
+    font-size: var(--step-n1);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-primary);
+  }
+  /* One group so the close button keeps the row's right edge whether or not a
+     subject control sits beside it. */
+  .day-nutrition-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2xs);
+    flex-shrink: 0;
+  }
+  .day-nutrition-close {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    font-size: 1.75rem;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--text-primary);
+  }
+  /* Scrolls under the fixed header, its sections headed by the shared
+     NutrientGroupHead. */
+  .day-rda-body {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+</style>
