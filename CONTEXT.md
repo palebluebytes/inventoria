@@ -241,11 +241,26 @@ _Avoid_: Telemetry, analytics, tracking, the logger (`console.*` is not this)
 
 **Log channel**:
 A named stream inside the Log facility, declaring its `name`, `reader`, `cap` and
-`sensitivity` (`personal` or `technical`). It may not exist without a **reader**
-naming a real consumer and the decision that consumer will take; "it might be useful
-later" is not a reader, and a channel whose question has been answered is removed
-rather than left running. Declaring one registers it. See ADR-0054 §2.
+`sensitivity` (`personal` or `technical`). It may not exist without a **reader**, and
+there are two kinds. A **question channel** names an open ticket and the decision that
+ticket cannot take without the reading, points at a pre-registered bar, and is removed
+once its question is answered; `search` is one. A **standing channel** does not end and
+has no bar, so its reader names instead a **view in the app that displays it** — a
+channel nobody can look at may not exist — and it is `technical`, never `personal`,
+because a record that never ends must not be a record of what somebody was thinking
+about eating. "It might be useful later" is a reader of neither kind. Declaring one
+registers it. See ADR-0054 §2 and its Amendment of 2026-08-29.
 _Avoid_: Log level, severity, category, stream
+
+**Log counter**:
+A named whole number a standing Log channel keeps beside its entries: it only ever
+increases, is never shed, and is not subject to the `cap`. Counters exist because the
+capped entry ring silently forgets its own denominator, so a rate computed from
+retained entries is the rate of the last 200 of them wearing a lifetime label. A
+counter is always a running total of a field the entries already record, never a new
+fact, and it is cleared only when the channel is. See ADR-0054's Amendment of
+2026-08-29.
+_Avoid_: Metric, gauge, statistic, tally
 
 **Search session**:
 One visit to the food search: it opens when the search field first goes non-empty and

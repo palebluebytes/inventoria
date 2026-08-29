@@ -3,6 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-08-23  
 **Amends:** [ADR-0053](0053-an-empty-food-search-is-recorded-locally-and-leaves-only-by-hand.md) — its §3 record becomes the first channel of the facility decided here, rather than a store of its own
+**Amended by:** the Amendment below, which splits §2 into two kinds of channel so that a standing one may exist, and adds lifetime counters beside the capped ring
 **Implemented:** #149 `cd77667` (the facility, its caps and its budget), `b990903` (the per-channel review, redaction and export), `b9460df` (the recording switch's key, off the channel keyspace)
 
 ## Context
@@ -163,3 +164,113 @@ a habit of collecting.
 this record pre-registers nothing, because it decides a shape rather than a
 question. A facility whose only channel never clears its bar was still the right
 shape to put that channel in, and would still have been overhead.
+
+## Amendment (2026-08-29): §2 admits a standing channel, and the ring gains counters
+
+§2 permits exactly one kind of channel: one that answers a question and is then
+removed. That was the right rule for a facility with one channel and one blocked
+ticket behind it, and it is too narrow for what the facility is now being asked
+for — a view of what Open Food Facts does for this device that does not end.
+
+This record predicted the argument and refused it in advance: _"§2 will be argued
+with. Someone will want a channel for something plainly useful with no reader yet.
+The answer is that the channel waits for the ticket that reads it."_ That answer is
+kept for question channels, and it is not extended to cover a case it was not
+written about. What follows is a decision, not a discovery that §2 was wrong.
+
+### The principle §2 was actually protecting
+
+§2 reads as "no channel without a named reader". What it protects is narrower and
+more durable: **no collection without consumption.** A record nobody consumes is a
+data collection habit, and the ticket-plus-bar construction is one way to prove
+consumption, not the only one.
+
+A channel that never ends cannot prove consumption with a ticket, because tickets
+close. It proves it with a **surface**: something in the app that displays the
+channel to the person whose device holds it.
+
+### The rule
+
+There are two kinds of channel, and every channel declares which it is.
+
+**A question channel** is §2 unchanged. Its `reader` names an open ticket and the
+decision that ticket cannot take without the reading, it points at a pre-registered
+bar, and **it is removed when its question is answered.** `search` is one.
+
+**A standing channel** does not end and has no bar. In place of a ticket its
+`reader` names **a surface in the app that displays it**, and the rule is the
+mirror of §2's: **a channel nobody can look at may not exist.** A standing channel
+declared without a view, or whose view is later removed, is itself removed.
+
+**A standing channel is `technical`, never `personal`.** This is the load-bearing
+restriction and it is not a stylistic preference. A question channel's `personal`
+data is bounded in time because the channel dies when its question is answered; a
+standing channel's never does, so a `personal` standing channel is a permanent
+record of what somebody was thinking about eating. Nothing on this device needs one.
+A standing channel that finds it wants a `personal` field wants to be a question
+channel instead.
+
+### Why a surface is a real cost and not a formality
+
+The guard §2 provides is that a channel is expensive enough to be argued for. That
+survives: a standing channel has to earn a view somebody designed, in a surface a
+user will actually open, and a view is more work than the channel. Sprawl shows up
+as a review screen nobody can read rather than as a declaration nobody notices,
+which is the failure mode that gets fixed because it is visible.
+
+The cheap alternative was rejected: a standing channel that appears in the export
+but has no view of its own would satisfy the letter of "somebody can look at it"
+while restoring exactly the silent-declaration cost §2 was built to stop.
+
+### The ring cannot report a rate, so the facility gains counters
+
+§3's cap drops the oldest entry, which is correct for a question channel — the
+question is answered from recent evidence and the channel then goes away. It is
+wrong for a standing view of a rate. A capped ring silently forgets its own
+denominator, so "the failure rate since I started using this" computed from 200
+retained entries is the failure rate of the last 200 sessions wearing a lifetime
+label, and it drifts without anything looking wrong.
+
+**A channel may therefore declare counters beside its entries: named integers that
+only ever increase, are never shed, and are not subject to the cap.** They are
+written in the same append the entry is, cleared only by the channel's own clear,
+and exported with it.
+
+Three constraints, because a counter is the one part of this facility that is
+permanent:
+
+- **A counter counts occurrences of a value the channel already records.** It is a
+  running total of a field, never a new fact, so nothing can be counted that the
+  reviewable entries do not also say while they last.
+- **A counter is a whole number and nothing else.** No identifiers, no timestamps
+  beyond the channel's own, no sums of anything a user typed.
+- **Counters are shed last and cleared together.** §3's budget sheds entries; if
+  shedding every entry is not enough, the channel is over budget and the counters
+  still stand, because a few integers are not what filled 256 KB.
+
+### What this costs
+
+**The facility now has a permanent part.** Everything before this was capped,
+shed, redactable and mortal, and that uniformity was worth something: "delete the
+entry" was the whole answer to any question about what the app remembers. It no
+longer is. Clearing the channel remains the answer, and it is one action further
+away than deleting a row.
+
+**Two kinds of channel is a distinction someone will get wrong.** The likeliest
+mistake is a standing channel declared for something that is really a question,
+because standing has no bar to pre-register and is therefore easier. The bar was
+never the point of a question channel — a threshold chosen after the numbers
+arrive is a rationalisation — so the check to apply is not "does this have a
+surface" but "would this be removed if the question behind it were answered". If
+it would, it is a question channel and it needs its bar.
+
+**A surface can rot.** A view can stay in the code and stop being reachable, or
+stay reachable and stop being read, and neither is detectable from the declaration.
+This is a weaker guarantee than an open ticket, which at least somebody closes.
+It is accepted as the price of a channel that does not end.
+
+**`personal` standing channels are foreclosed, including ones that would be
+useful.** A standing view of which foods a person searches for is exactly the thing
+ADR-0053 refused off-device and this now refuses on-device as well, for a smaller
+reason: not that it would leak, but that it would accumulate without end on a
+device holding an eating history. That is a real capability given up.
