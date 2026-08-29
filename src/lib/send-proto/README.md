@@ -99,7 +99,12 @@ logged rows to send it, at the foot of the day to receive one.
 **Its refusal call: every refusal in its own words.** If the app knows why it
 said no, it says why.
 
-### D — in the meal's own numbers
+### D — in the meal's own numbers — **chosen**
+
+**Two ways in, both already on the screen**: the meal's **name** (BREAKFAST,
+LUNCH, DINNER, SNACK) and the **line of figures** under its rows. The name is
+the one that always works — an empty meal has no subtotal line at all, so the
+figures cannot be the only door.
 
 The meal already ends in a line of figures that does nothing. Tap it and you get
 the meal in full — the same surface the day's aggregates open, one scale down —

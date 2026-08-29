@@ -63,7 +63,7 @@
     onRemoveItem,
     mealActionsExtra,
     mealFooterExtra,
-    mealTotalAction,
+    mealPanelAction,
   }: {
     dbReady: boolean;
     selectedDate: Date;
@@ -83,8 +83,9 @@
     mealActionsExtra?: Snippet<[MealType, number, number]>;
     /** PROTOTYPE (#201) — rendered under a meal's logged rows. */
     mealFooterExtra?: Snippet<[MealType, number, number]>;
-    /** PROTOTYPE (#201) — when set, the meal's subtotal line becomes a control. */
-    mealTotalAction?: (meal_type: MealType) => void;
+    /** PROTOTYPE (#201) — when set, the meal's name AND its subtotal line both
+     *  open the meal's own nutrition panel. */
+    mealPanelAction?: (meal_type: MealType) => void;
   } = $props();
 
   // Long-press a logged item to start selecting; while a selection is active,
@@ -312,7 +313,29 @@
   {#each meal_types as meal_type}
     <div class="meal-section">
       <div class="meal-section-header">
-        <h3 class="meal-title">{meal_type.toUpperCase()}</h3>
+        <!-- PROTOTYPE (#201) — the meal's name is the other way into its
+             panel. A button INSIDE the heading rather than a heading that is a
+             button: the row is still the meal's h3 to anything reading the
+             page's outline, and only the words are the control. It stays
+             reachable on an empty meal, where the subtotal line does not exist
+             at all and the name is the only way in.
+
+             The whole heading is branched rather than its contents, so the
+             shipped element is byte-for-byte what it always was — the e2e
+             `.meal-title:text-is("BREAKFAST")` selector matches an h3 with no
+             whitespace in it. -->
+        {#if mealPanelAction}
+          <h3 class="meal-title">
+            <button
+              type="button"
+              class="meal-title-btn"
+              onclick={() => mealPanelAction(meal_type)}
+              >{meal_type.toUpperCase()}</button
+            >
+          </h3>
+        {:else}
+          <h3 class="meal-title">{meal_type.toUpperCase()}</h3>
+        {/if}
         <!-- Every way into this meal is its own control, in line with the meal
              name, and there is no `+` (ADR-0059 §1). All five are secondary:
              with the `+` gone there is no primary action left to protect, and
@@ -448,13 +471,13 @@
         <!-- PROTOTYPE (#201) — variant D makes this line the way into the
              meal's own figures. Without the prop it is the inert div it has
              always been. -->
-        {#if mealTotalAction}
+        {#if mealPanelAction}
           <button
             type="button"
             class="meal-total meal-total-btn"
             data-testid="meal-total-{meal_type}"
             aria-label="{meal_type} nutrition"
-            onclick={() => mealTotalAction(meal_type)}
+            onclick={() => mealPanelAction(meal_type)}
           >
             {#each mealPills as pill (pill.key)}
               <span class="meal-total-item nutrient-{pill.key}">
@@ -768,6 +791,21 @@
     font-weight: 700;
     letter-spacing: 0.05em;
     color: var(--text-primary);
+  }
+  /* PROTOTYPE (#201) — inherits every one of the heading's own type properties
+     so the words do not move when they become a control. */
+  .meal-title-btn {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+  .meal-title-btn:hover {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
   }
   /* Icon-only actions — the meal header names the meal, so each just reads as
      its own verb. The frame, hover-invert, press-flush and focus ring are the
