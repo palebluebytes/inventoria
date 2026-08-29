@@ -1103,6 +1103,86 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(lunchSection).toContainText("180 kcal");
   });
 
+  test("holds a busy Open Food Facts open for a retry, never the missing door (#204, #206)", async ({
+    page,
+  }) => {
+    // The other half of the split the test above proves. A code OFF genuinely
+    // lacks opens the Read-along form; an outage must NOT, and the cost of
+    // conflating them is permanent rather than annoying: a capture made here
+    // saves under this same `gtin:` key, and `getLocalFoodTwin` then
+    // short-circuits every later lookup of it — so one hand-typed pack accepted
+    // during a thirty-second blip redirects that barcode away from OFF for good.
+    const BUSY_CODE = "0000000000024";
+    let asked = 0;
+    let offIsBusy = true;
+    // Registered after the beforeEach catch-all for `*.json`, so it wins for this
+    // barcode: Playwright matches routes in reverse registration order.
+    await page.route(`**/api/v3/product/${BUSY_CODE}.json`, async (route) => {
+      asked += 1;
+      if (offIsBusy) {
+        // 503 stands in for the whole `serviceDidNotAnswer` family (429 and 5xx);
+        // the unit matrix pins the family, this pins where the family lands.
+        await route.fulfill({ status: 503, body: "" });
+        return;
+      }
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          code: BUSY_CODE,
+          status: "success",
+          product: {
+            product_name: "Mock Oat Milk",
+            nutriments: {
+              "energy-kcal_100g": 45,
+              proteins_100g: 1,
+              fat_100g: 1.5,
+              carbohydrates_100g: 6.7,
+            },
+          },
+        }),
+      });
+    });
+
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+
+    await page
+      .getByRole("button", { name: "Scan a barcode for lunch" })
+      .click();
+    await page.locator("#barcode-input").fill(BUSY_CODE);
+    await page.locator("#barcode-input").press("Enter");
+
+    // The scan's third answer: it names the service, so the copy cannot be read
+    // as a claim about the barcode, and its one control is another attempt.
+    const unreachable = page.locator('[data-testid="off-unreachable"]');
+    await expect(unreachable).toContainText("Open Food Facts");
+    await expect(page.locator('[data-testid="off-retry"]')).toBeVisible();
+
+    // The assertion the test exists for. `capture-reason` is the Read-along
+    // form's banner and every door into that form sets it, so its absence is the
+    // form's absence — the invitation was never made.
+    await expect(page.locator('[data-testid="capture-reason"]')).toHaveCount(0);
+
+    // Two asks reached OFF, not one: #206's retry ran inside the single loading
+    // state above, which is why a blip that clears is invisible rather than a
+    // banner the user has to dismiss. This is the only end-to-end proof the retry
+    // is wired into the scan at all — the policy itself is unit-tested on an
+    // injected clock. Settled by here: the state above is terminal, so both
+    // attempts are already spent.
+    //
+    // If this ever reads 1 on CI, suspect the runner rather than the wiring:
+    // `RETRY_DEADLINE_MS` skips the second ask when the first took over 1600 ms,
+    // and the route above is fulfilled locally in a handful of them.
+    expect(asked).toBe(2);
+
+    // Try again re-runs the same lookup, so a service that has recovered stages
+    // the product the outage was hiding, on the barcode still in the input.
+    offIsBusy = false;
+    await page.locator('[data-testid="off-retry"]').click();
+    await expect(page.locator(".staged")).toContainText("Mock Oat Milk");
+    await expect(unreachable).toHaveCount(0);
+  });
+
   test("captures multiple label photos, reads across them, removes one, and mirrors the first (#58)", async ({
     page,
   }) => {
