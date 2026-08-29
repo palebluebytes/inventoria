@@ -66,6 +66,9 @@
     background: var(--food-surface-bg, var(--paper));
     border: var(--edge);
     box-shadow: var(--shadow-3);
+    /* Clip to the padding box: the sections inside are full-bleed bands, and a
+       band's own rule must never be able to paint across the frame. */
+    overflow: hidden;
   }
   .day-nutrition-header {
     display: flex;
@@ -73,7 +76,12 @@
     justify-content: space-between;
     gap: var(--space-s);
     padding: var(--space-xs) var(--space-m);
-    border-bottom: 1px solid var(--border, var(--ink));
+    /* The frame's own edge token rather than the pale `--border`. This division
+       is part of the frame, and a section band can sit directly under it — a
+       NutrientGroupHead is a tinted full-bleed band, so a pale rule above a
+       tinted band reads as one grey smudge meeting the black frame rather than
+       as two edges. ADR-0038's vocabulary says a frame division is ink. */
+    border-bottom: var(--edge-thin);
   }
   .day-nutrition-header h3 {
     font-size: var(--step-n1);

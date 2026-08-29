@@ -120,14 +120,11 @@
          dock under the sections would make handing the meal over the panel's
          purpose, and the panel's purpose is the meal. -->
     {#snippet actions()}
-      {#if proto.send}
-        <button
-          type="button"
-          class="head-btn"
-          aria-label="Back to the numbers"
-          onclick={() => proto.closeSend()}>‹</button
-        >
-      {:else}
+      <!-- Only before the send. Once a code is minted there is no "back to the
+           numbers": the code is live, the other person is being handed it, and
+           an affordance that looks like undo would be one. Closing the panel is
+           the only way out, and it is the honest one. -->
+      {#if !proto.send}
         <button
           type="button"
           class="head-btn"
@@ -321,18 +318,25 @@
     gap: var(--space-2xs);
     text-align: center;
   }
-  /* A header control on the panel's subject, sized to sit beside the close. */
+  /* A header control on the panel's subject, sized to sit beside the close —
+     and unframed like it, since the close button next to it wears no box
+     either and two header controls should read as one row of marks. */
   .head-btn {
     display: grid;
     place-items: center;
     width: 2rem;
     height: 2rem;
     background: none;
-    border: var(--edge-thin);
+    border: 0;
+    padding: 0;
     color: var(--text-primary);
-    font-size: var(--step-0);
     line-height: 1;
     cursor: pointer;
+  }
+  /* Sized against the close button beside it, which sits at 1.75rem. */
+  .head-btn :global(svg) {
+    width: 1.35rem;
+    height: 1.35rem;
   }
   .head-btn[disabled] {
     opacity: 0.35;
