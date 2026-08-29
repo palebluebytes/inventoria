@@ -108,10 +108,22 @@
     color: var(--text-primary);
   }
   /* Scrolls under the fixed header, its sections headed by the shared
-     NutrientGroupHead. */
+     NutrientGroupHead.
+     
+     The scrollbar is hidden rather than styled. A classic desktop scrollbar
+     takes width from this box but not from the header above it, so the header's
+     rule reaches the frame and every band beneath it stops a scrollbar short —
+     a pale strip down the right side that reads as a broken frame, worst at the
+     top corner where the two meet. The panel is a phone surface where
+     scrollbars overlay and cost nothing, and it still scrolls by wheel, touch,
+     keyboard and drag with no bar drawn. */
   .day-rda-body {
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .day-rda-body::-webkit-scrollbar {
+    display: none;
   }
 </style>
