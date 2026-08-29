@@ -44,7 +44,8 @@
   >
     {#if s.phase === "showing"}
       <p class="lead">
-        {s.rows} foods · {s.calories} kcal · {s.day}
+        {s.rows}
+        {s.rows === 1 ? "food" : "foods"} · {s.calories} kcal · {s.day}
       </p>
       <div class="centre">
         <QrBlock link={s.code.link} size="16rem" />
@@ -251,7 +252,7 @@
     backLabel="Back"
     onClose={() => (proto.reading = null)}
   >
-    <p class="lead">Logged on their {p.senderDay}.</p>
+    <p class="lead">They logged this on {p.senderDay}.</p>
     <MealBrief payload={p} />
     <p class="fine">
       Accepting logs this as your {p.meal_type}, today, at these amounts. The

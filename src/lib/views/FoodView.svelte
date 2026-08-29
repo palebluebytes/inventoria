@@ -23,7 +23,6 @@
     partitionCopyable,
     copyTally,
     dayKeyOf,
-    dayLabel,
     type PastMeal,
     type CopyNote,
   } from "../food/past-meals";
@@ -66,6 +65,7 @@
   // dynamically imported. Delete all of it when #201 folds.
   import { proto, readVariant } from "../send-proto/proto-state.svelte";
   import WayOutIcon from "../send-proto/WayOutIcon.svelte";
+  import { formatDate } from "../send-proto/proto-date";
   import Button from "../ui/Button.svelte";
 
   const protoVariant = readVariant();
@@ -771,7 +771,7 @@
       aria-label="Hand this {meal_type} over"
       title="Hand this {meal_type} over"
       onclick={() =>
-        proto.startSend(meal_type, dayLabel(selectedDate), rows, kcal)}
+        proto.startSend(meal_type, formatDate(selectedDate), rows, kcal)}
     >
       <WayOutIcon kind="send" />
     </Button>
@@ -786,7 +786,7 @@
       type="button"
       class="proto-line"
       onclick={() =>
-        proto.startSend(meal_type, dayLabel(selectedDate), rows, kcal)}
+        proto.startSend(meal_type, formatDate(selectedDate), rows, kcal)}
     >
       Hand this {meal_type} over →
     </button>

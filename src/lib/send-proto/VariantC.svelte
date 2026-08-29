@@ -18,7 +18,8 @@
   import { sum } from "./proto-fixture";
   import { proto, INBOX_DEPTH, REFUSALS } from "./proto-state.svelte";
   import { consumptionStore } from "../stores/calorie.store";
-  import { pastMealsFor, dayLabel } from "../food/past-meals";
+  import { pastMealsFor } from "../food/past-meals";
+  import { formatDate } from "./proto-date";
   import { MEAL_TYPES } from "../food/meal-type";
 
   let copied = $state(false);
@@ -65,7 +66,7 @@
       <div class="pane">
         <p class="kicker">Sent to you</p>
         <h2 class="title">A {p.meal_type}</h2>
-        <p class="sub">They logged it on their {p.senderDay}.</p>
+        <p class="sub">They logged it on {p.senderDay}.</p>
         <MealBrief payload={p} />
         <p class="sub">
           Add it and it becomes your {p.meal_type}, today, at these amounts.
@@ -96,13 +97,13 @@
                 onclick={() =>
                   proto.startSend(
                     meal.meal_type,
-                    dayLabel(meal.date),
+                    formatDate(meal.date),
                     meal.items.length,
                     Math.round(meal.calories)
                   )}
               >
                 <span class="row-when">
-                  {dayLabel(meal.date)} · {meal.meal_type}
+                  {formatDate(meal.date)} · {meal.meal_type}
                 </span>
                 <span class="row-kcal">{Math.round(meal.calories)} kcal</span>
               </button>

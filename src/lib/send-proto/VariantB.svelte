@@ -25,7 +25,8 @@
     REFUSALS,
   } from "./proto-state.svelte";
   import { consumptionStore } from "../stores/calorie.store";
-  import { pastMealsFor, dayLabel } from "../food/past-meals";
+  import { pastMealsFor } from "../food/past-meals";
+  import { formatDate } from "./proto-date";
   import { MEAL_TYPES } from "../food/meal-type";
 
   /** Which door of the handover sheet is open, if any. */
@@ -136,14 +137,14 @@
                   onclick={() =>
                     proto.startSend(
                       meal.meal_type,
-                      dayLabel(meal.date),
+                      formatDate(meal.date),
                       meal.items.length,
                       Math.round(meal.calories)
                     )}
                 >
                   <span class="pick-head">
                     <span class="pick-when">
-                      {dayLabel(meal.date)} · {meal.meal_type}
+                      {formatDate(meal.date)} · {meal.meal_type}
                     </span>
                     <span class="pick-kcal">
                       {Math.round(meal.calories)} kcal
@@ -307,7 +308,7 @@
     onBack={() => (proto.reading = null)}
     onClose={() => (proto.reading = null)}
   >
-    <p class="lead">They logged this on their {p.senderDay}.</p>
+    <p class="lead">They logged this on {p.senderDay}.</p>
     <MealBrief payload={p} />
     <p class="fine">
       This becomes your {p.meal_type}, today, at these amounts — yours to edit

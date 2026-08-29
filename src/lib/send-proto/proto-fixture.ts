@@ -28,13 +28,17 @@ export interface ProtoRow {
   photoStripped?: boolean;
 }
 
+import { formatDate } from "./proto-date";
+
 export interface ProtoPayload {
   id: string;
   /** What the sender called the meal on their day. The recipient's own Meal
    *  Type is what it lands in (#197 §2.2). */
   meal_type: "breakfast" | "lunch" | "dinner" | "snack";
   /** The sender's date, shown so the recipient knows what they are looking at.
-   *  It is NOT what the meal lands on — accept re-mints onto their clock. */
+   *  It is NOT what the meal lands on — accept re-mints onto their clock, which
+   *  is exactly why it is a written date rather than "Sunday": across two
+   *  devices, a weekday names nothing. */
   senderDay: string;
   rows: ProtoRow[];
   /** Frozen at send: the recipient sees the sender's numbers, not a recompute. */
@@ -51,7 +55,7 @@ export const sum = (rows: ProtoRow[]) =>
 export const SUNDAY_DINNER: ProtoPayload = {
   id: "p1",
   meal_type: "dinner",
-  senderDay: "Sunday 4 January",
+  senderDay: formatDate(new Date(2026, 0, 4)),
   rows: [
     {
       name: "Chicken, broilers or fryers, thigh, roasted",
@@ -77,7 +81,7 @@ export const SUNDAY_DINNER: ProtoPayload = {
 export const A_BREAKFAST: ProtoPayload = {
   id: "p2",
   meal_type: "breakfast",
-  senderDay: "Monday 5 January",
+  senderDay: formatDate(new Date(2026, 0, 5)),
   rows: [
     { name: "Oats, rolled, dry", amount: "60 g", calories: 233 },
     { name: "Milk, whole, 3.25% milkfat", amount: "200 ml", calories: 122 },
@@ -92,7 +96,7 @@ export const A_BREAKFAST: ProtoPayload = {
 export const A_LUNCH: ProtoPayload = {
   id: "p3",
   meal_type: "lunch",
-  senderDay: "Monday 5 January",
+  senderDay: formatDate(new Date(2026, 0, 5)),
   rows: [
     {
       name: "Soup of the day, from the deli counter",
