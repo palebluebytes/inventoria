@@ -92,6 +92,95 @@ const localScraperProxyPlugin = () => ({
   },
 });
 
+// ---------------------------------------------------------------------------
+// #198 probe rendezvous — THROWAWAY, dev server only, never in a build
+// ---------------------------------------------------------------------------
+
+/**
+ * The smallest thing that lets one scan carry a meal.
+ *
+ * #194 §4.4 proves a session needs a bidirectional exchange: ICE keys a check on
+ * the peer's password and DTLS on the peer's fingerprint, and no shared seed
+ * derives a certificate. #199 §8 recorded that as "both devices must show and
+ * both must read" — true under §4's no-server premise, where a human was the
+ * only channel there was. A rendezvous separates the two claims: the exchange
+ * stays bidirectional, and only one leg stays human.
+ *
+ * What this holds is a room's two session descriptions, in memory, for the
+ * seconds a live handshake takes. It never sees the payload, which crosses the
+ * data channel encrypted under a key that rides in the QR and therefore never
+ * reaches here — which is how #199 §9's no-MITM clause is satisfied in the
+ * direction the QR cannot cover on its own. And it stores nothing after the
+ * process exits, so #199 §4's "exactly two places, never three" holds: the meal
+ * is never one of the things kept.
+ */
+interface ProbeRoom {
+  offer?: string;
+  answer?: string;
+  at: number;
+}
+const probeRooms = new Map<string, ProbeRoom>();
+/** A room is a handshake, not a mailbox. Anything older than this is swept. */
+const PROBE_ROOM_TTL_MS = 5 * 60 * 1000;
+
+const handleProbeRendezvous = async (req: any, res: any, next: any) => {
+  const url = new URL(
+    req.url || "",
+    `http://${req.headers.host || "localhost"}`
+  );
+  if (!url.pathname.startsWith("/__probe198/")) {
+    next();
+    return;
+  }
+
+  const now = Date.now();
+  for (const [id, room] of probeRooms)
+    if (now - room.at > PROBE_ROOM_TTL_MS) probeRooms.delete(id);
+
+  const id = url.searchParams.get("room") ?? "";
+  const slot = url.pathname.endsWith("/answer") ? "answer" : "offer";
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", "no-store");
+
+  if (!id) {
+    res.statusCode = 400;
+    res.end("missing room");
+    return;
+  }
+
+  if (req.method === "PUT") {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) chunks.push(chunk as Buffer);
+    const body = Buffer.concat(chunks).toString("utf8");
+    const room = probeRooms.get(id) ?? { at: now };
+    room[slot] = body;
+    room.at = now;
+    probeRooms.set(id, room);
+    res.statusCode = 204;
+    res.end();
+    return;
+  }
+
+  const value = probeRooms.get(id)?.[slot];
+  if (!value) {
+    res.statusCode = 404;
+    res.end("not yet");
+    return;
+  }
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.statusCode = 200;
+  res.end(value);
+};
+
+const probeRendezvousPlugin = () => ({
+  name: "probe198-rendezvous",
+  // configureServer ONLY. There is deliberately no configurePreviewServer and
+  // no build hook: this must be unreachable outside `pnpm dev`/`pnpm proto:198`.
+  configureServer(server: any) {
+    server.middlewares.use(handleProbeRendezvous);
+  },
+});
+
 // loro-crdt ships four browser-ish entries and only one of them can start
 // offline. Measured against a production build, not read off the docs (#125):
 //
@@ -123,6 +212,7 @@ export default defineConfig({
   plugins: [
     localScraperProxyPlugin(),
     svelte(),
+    probeRendezvousPlugin(),
     VitePWA({
       registerType: "prompt",
       manifest: {

@@ -44,8 +44,25 @@
     type CandidateCensus,
   } from "./sdp-compact";
   import { ProbeLog } from "./probe-log";
+  import {
+    mintCode,
+    encodeScanCode,
+    decodeScanCode,
+    put,
+    poll,
+    seal,
+    open as unseal,
+    type ScanCode,
+  } from "./one-scan";
 
-  type Path = "menu" | "qr-send" | "qr-receive" | "rtc-offer" | "rtc-answer";
+  type Path =
+    | "menu"
+    | "qr-send"
+    | "qr-receive"
+    | "rtc-offer"
+    | "rtc-answer"
+    | "one-send"
+    | "one-take";
 
   let path = $state<Path>("menu");
   let note = $state("");
@@ -174,7 +191,15 @@
   }
 
   /** Runs `onBytes` for every symbol decoded, until `stopCamera` or a stop signal. */
-  function scanLoop(onBytes: (bytes: Uint8Array) => boolean | void) {
+  function scanLoop(
+    onBytes: (bytes: Uint8Array) => boolean | void,
+    // The one-scan code is ASCII and is always written as raw bytes, so it must
+    // be read as raw bytes whatever the payload toggle happens to say. Leaving
+    // it on the global would make the code unreadable whenever base64 was picked
+    // for the QR-only path, and it would fail silently, since a code that will
+    // not decode is indistinguishable from a symbol that is not ours.
+    as: QrEncoding = encoding
+  ) {
     scanning = true;
     let busy = false;
     scanTimer = window.setInterval(async () => {
@@ -183,7 +208,7 @@
       try {
         const frame = grab();
         if (!frame) return;
-        for (const bytes of await readSymbols(frame, encoding)) {
+        for (const bytes of await readSymbols(frame, as)) {
           scanAttempts += 1;
           if (onBytes(bytes) === true) {
             stopCamera();
@@ -709,6 +734,199 @@
     }
   }
 
+  // ── Path 3: one scan, with a rendezvous ──────────────────────────────────
+
+  let scanCode = $state<ScanCode | null>(null);
+
+  /** The fingerprint the QR promised, against the one the fetched SDP carries. */
+  let fingerprintVerdict = $state("");
+
+  /**
+   * The sending half: gather, post the offer, show ONE code, then wait.
+   *
+   * Nothing about this is displayed twice. The code is minted before the offer
+   * is posted because the fingerprint has to be inside it, and the fingerprint
+   * is only knowable once `setLocalDescription` has run.
+   */
+  async function oneScanSend() {
+    if (!payload) return;
+    begin("one-scan send: start");
+    stopCamera();
+    cameraGranted = false;
+    scanCode = null;
+    fingerprintVerdict = "";
+    const connection = newConnection();
+    channel = connection.createDataChannel("meal", { ordered: true });
+    channel.binaryType = "arraybuffer";
+    channel.onopen = () => {
+      mark("data channel open");
+      void sendSealedPayload();
+    };
+    mark("creating offer");
+    await connection.setLocalDescription(await connection.createOffer());
+    await gatheringComplete(connection);
+    mark("gathering complete");
+    const sdp = connection.localDescription!.sdp;
+    const compact = compactSdp(sdp);
+    describe(sdp);
+    scanCode = mintCode(compact.fingerprint);
+    log.fact("one-scan code characters", encodeScanCode(scanCode).length);
+    await put(scanCode.room, "offer", JSON.stringify(compact));
+    mark("offer posted to rendezvous", `room ${scanCode.room}`);
+    await showOneScanSymbol(encodeScanCode(scanCode));
+    // The return leg, which used to be a human holding up a second code.
+    mark("waiting for the answer");
+    const answerJson = await poll(scanCode.room, "answer");
+    mark("answer collected", `${answerJson.length} B, no second scan`);
+    await connection.setRemoteDescription({
+      type: "answer",
+      sdp: expandSdp(JSON.parse(answerJson), "answer"),
+    });
+    mark("answer applied");
+  }
+
+  async function showOneScanSymbol(text: string) {
+    const bytes = new TextEncoder().encode(text);
+    const rendered = await renderSymbol(bytes, ecLevel, "binary");
+    symbols = [rendered.svg];
+    frames = [bytes];
+    symbolPixels = rendered.version;
+    cursor = 0;
+    log.fact("one-scan symbol modules", symbolPixels);
+    mark(
+      "code shown",
+      `${bytes.length} B, ${symbolPixels} modules, one symbol`
+    );
+  }
+
+  /** The receiving half: scan once, and everything after it is automatic. */
+  async function oneScanTake() {
+    begin("one-scan take: start");
+    stopCamera();
+    cameraGranted = false;
+    transferred = 0;
+    verdict = "";
+    fingerprintVerdict = "";
+    if (!(await startCamera())) return;
+    mark("scanning the code");
+    scanLoop((bytes) => {
+      let code: ScanCode;
+      try {
+        code = decodeScanCode(new TextDecoder().decode(bytes));
+      } catch {
+        return false;
+      }
+      scanCode = code;
+      mark("code read", `room ${code.room}`);
+      void completeOneScan(code);
+      return true;
+    }, "binary");
+  }
+
+  async function completeOneScan(code: ScanCode) {
+    try {
+      const offerJson = await poll(code.room, "offer", 30_000);
+      mark("offer fetched from rendezvous", `${offerJson.length} B`);
+      const compact = JSON.parse(offerJson);
+
+      // #199 §9's no-MITM clause, enforced. The fingerprint came through the
+      // camera; the SDP came through the rendezvous. If they disagree, the
+      // rendezvous is substituting and the send stops here.
+      if (compact.fingerprint !== code.fingerprint) {
+        fingerprintVerdict =
+          "FINGERPRINT MISMATCH — the rendezvous substituted the offer";
+        failure = fingerprintVerdict;
+        mark("refused", fingerprintVerdict);
+        return;
+      }
+      fingerprintVerdict = "fingerprint matches the scanned code";
+      mark("fingerprint verified");
+
+      const connection = newConnection();
+      const parts: Uint8Array[] = [];
+      let want = 0;
+      connection.ondatachannel = (ev) => {
+        const ch = ev.channel;
+        ch.binaryType = "arraybuffer";
+        mark("data channel offered");
+        ch.onmessage = (m) => {
+          if (typeof m.data === "string") {
+            want = JSON.parse(m.data).bytes;
+            expectedBytes = want;
+            mark("incoming", `${want} B announced, sealed`);
+            return;
+          }
+          parts.push(new Uint8Array(m.data));
+          transferred = parts.reduce((n, p) => n + p.length, 0);
+          if (want > 0 && transferred >= want) {
+            const all = new Uint8Array(transferred);
+            let at = 0;
+            for (const p of parts) {
+              all.set(p, at);
+              at += p.length;
+            }
+            mark("transfer complete", `${transferred} B sealed`);
+            void unsealAndSettle(all, code);
+          }
+        };
+      };
+      await connection.setRemoteDescription({
+        type: "offer",
+        sdp: expandSdp(compact, "offer"),
+      });
+      mark("offer applied");
+      await connection.setLocalDescription(await connection.createAnswer());
+      await gatheringComplete(connection);
+      mark("gathering complete");
+      const mine = compactSdp(connection.localDescription!.sdp);
+      describe(connection.localDescription!.sdp);
+      await put(code.room, "answer", JSON.stringify(mine));
+      mark("answer posted", "no second code shown");
+    } catch (e: any) {
+      failure = `one-scan failed: ${e?.message ?? e}`;
+      mark("failed", failure);
+    }
+  }
+
+  /** Decrypts under the key that rode in the QR, then checks what landed. */
+  async function unsealAndSettle(sealed: Uint8Array, code: ScanCode) {
+    try {
+      const bytes = await unseal(code.key, sealed);
+      log.fact("sealed bytes", sealed.length);
+      log.fact("plaintext bytes", bytes.length);
+      mark("unsealed", `${sealed.length} -> ${bytes.length} B`);
+      await settle(bytes, true);
+    } catch (e: any) {
+      verdict = `SEALED PAYLOAD WOULD NOT OPEN: ${e?.message ?? e}`;
+      mark("verdict", verdict);
+    }
+  }
+
+  async function sendSealedPayload() {
+    if (!channel || !payload || !scanCode) return;
+    const plain = await deflate(new TextEncoder().encode(payload.ndjson));
+    const bytes = await seal(scanCode.key, plain);
+    expectedBytes = bytes.length;
+    channel.send(JSON.stringify({ bytes: bytes.length }));
+    mark("sending sealed", `${plain.length} -> ${bytes.length} B`);
+    log.fact("payload sealed bytes", bytes.length);
+    channel.bufferedAmountLowThreshold = CHUNK * 4;
+    let at = 0;
+    while (at < bytes.length) {
+      if (channel.bufferedAmount > CHUNK * 8) {
+        await new Promise<void>((r) =>
+          channel!.addEventListener("bufferedamountlow", () => r(), {
+            once: true,
+          })
+        );
+      }
+      channel.send(bytes.subarray(at, at + CHUNK) as unknown as ArrayBuffer);
+      at += CHUNK;
+      transferred = at;
+    }
+    mark("sent", `${bytes.length} B sealed`);
+  }
+
   // ── Report ───────────────────────────────────────────────────────────────
 
   let copied = $state(false);
@@ -896,6 +1114,25 @@
           class="go"
           disabled={!payload}
           onclick={() => {
+            path = "one-send";
+            void oneScanSend();
+          }}
+        >
+          One scan — send <small>rendezvous, sealed, no second code</small>
+        </button>
+        <button
+          class="go"
+          onclick={() => {
+            path = "one-take";
+            void oneScanTake();
+          }}
+        >
+          One scan — receive
+        </button>
+        <button
+          class="go"
+          disabled={!payload}
+          onclick={() => {
             path = "rtc-offer";
             void rtcOffer();
           }}
@@ -916,7 +1153,7 @@
   {:else}
     <button class="back" onclick={home}>&larr; back</button>
 
-    {#if path === "qr-send" || path === "rtc-offer" || path === "rtc-answer"}
+    {#if path === "qr-send" || path === "rtc-offer" || path === "rtc-answer" || path === "one-send"}
       {#if symbols.length > 0}
         <section class="stage">
           <div class="symbol">
@@ -1010,6 +1247,36 @@
           <button class="go" onclick={rtcPasteOffer}
             >Apply the pasted offer</button
           >
+        {/if}
+      </section>
+    {/if}
+
+    {#if path === "one-send" || path === "one-take"}
+      <section>
+        <h2>One scan</h2>
+        <p class="hint">
+          The code carries a room, the sender's DTLS fingerprint and a 256-bit
+          payload key. The fingerprint comes through the camera so the
+          rendezvous cannot substitute one (#199 §9); the key never reaches the
+          rendezvous at all, so a substitution in the other direction holds
+          ciphertext only.
+        </p>
+        {#if scanCode}
+          <dl class="facts">
+            <dt>room</dt>
+            <dd>{scanCode.room}</dd>
+            <dt>fingerprint</dt>
+            <dd>{scanCode.fingerprint.slice(0, 16)}…</dd>
+          </dl>
+        {/if}
+        {#if fingerprintVerdict}
+          <p
+            class={fingerprintVerdict.startsWith("FINGERPRINT MISMATCH")
+              ? "bad"
+              : "good"}
+          >
+            {fingerprintVerdict}
+          </p>
         {/if}
       </section>
     {/if}

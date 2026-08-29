@@ -121,6 +121,33 @@ ever needs a camera, while the recipient must scan the offer first and therefore
 gathers with obfuscation already off. #194 §5.3's peer-reflexive rescue predicts
 that is enough. The probe reports whether it was.
 
+## One scan, with a rendezvous
+
+The third path, and the one a user would actually want: **the recipient scans
+once and nothing else happens by hand.**
+
+#194 §4.4 proves a session needs a _bidirectional exchange_ — ICE keys a check
+on the peer's password, DTLS on the peer's fingerprint, and no shared seed
+derives a certificate. #199 §8 wrote that up as "both devices must show and both
+must read, in every mode", which was true under §4's no-server premise where a
+human was the only channel there was. A rendezvous separates the two claims: the
+exchange stays bidirectional, and only one leg stays human.
+
+The QR carries three things and totals **100 characters** — smaller than the
+two-QR handshake's 395 bytes:
+
+| field                         | what it is for                                                                                                                                                                                                                           |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| room                          | where the rendezvous is holding the offer                                                                                                                                                                                                |
+| the sender's DTLS fingerprint | #199 §9's no-MITM clause: it reaches the peer through the camera, never through the rendezvous, so a substituted offer is detectable                                                                                                     |
+| a 256-bit AES-GCM key         | the direction the fingerprint cannot cover — the sender gets the _recipient's_ fingerprint from the rendezvous and cannot check it, so a hostile rendezvous could pose as the recipient and would hold ciphertext for a key it never saw |
+
+The rendezvous is `probeRendezvousPlugin` in `vite.config.ts` — two routes, a
+`Map`, a five-minute sweep, `configureServer` only so it cannot reach a build.
+It holds two session descriptions for the seconds a handshake takes and never
+the meal, so #199 §4's "exactly two places, never three" survives and the code's
+life is still bounded by the sender waiting.
+
 ## Scan or paste, and why the difference is not cosmetic
 
 #199 §2 made scan and paste both first-class addressing modes. They are not
