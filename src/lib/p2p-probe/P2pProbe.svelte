@@ -233,6 +233,22 @@
       const seqId = Math.floor(Math.random() * 0xffff);
       frames = toFrames(bytes, symbolBytes, seqId);
       mark("chunked", `${frames.length} symbols of <=${symbolBytes} B`);
+      // A chain is not a design. Handing someone a meal cannot mean holding a
+      // cycling slideshow steady while they film it, so one symbol is the whole
+      // budget for the QR-only path — and at 2,939 usable bytes that buys about
+      // four foods. Everything larger is the data channel's job, which is why
+      // the handshake stays one symbol no matter how big the meal is.
+      if (frames.length > 1) {
+        failure =
+          `${frames.length} symbols. The QR-only path is one symbol or nothing: ` +
+          `${bytes.length} B deflated against a ${symbolBytes - FRAME_HEADER_BYTES} B body. ` +
+          `Send this meal over the data channel instead — its handshake is one symbol at any size.`;
+        log.fact("refused: symbols needed", frames.length);
+        mark("refused", failure);
+        frames = [];
+        symbols = [];
+        return;
+      }
       log.fact("symbols in chain", frames.length);
       log.fact("bytes per symbol", symbolBytes);
       log.fact("QR encoding", encoding);

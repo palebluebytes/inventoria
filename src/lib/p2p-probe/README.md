@@ -47,12 +47,31 @@ it uses the widest corpus rows throughout where #199 mixed in packaged goods
 | a Christmas dinner         | 66       | 309    | 118.8 KiB | 13.0 KiB | 114.6     | 5               | 12              |
 | an implausibly large feast | 132      | 612    | 232.1 KiB | 24.5 KiB | 224.0     | 9               | **22**          |
 
-The two symbol columns are the whole QR question. At the standard's v40-L
-capacity every meal fits inside Structured Append's 16-symbol ceiling. At a
-symbol size a phone camera will actually read across a table, the feast does
-not — and Denso Wave's own "271 bytes or so" figure would put even a normal meal
-at 9 symbols. Which of those two columns is real is what the hardware run
-decides, and it is why the slider exists.
+Both symbol columns turned out to be beside the point. **The rule is one symbol
+or nothing** — a chain is a cycling slideshow the sender has to hold steady while
+the recipient films it, which is not handing someone a meal. So the QR-only
+path's entire budget is a single symbol, and the question is what fits in one.
+
+Measured against the widest corpus rows, deflated, with #197's narrowing:
+
+| foods | dishes | entities | datoms | raw    | deflated  | fits v40-L (2,939 B) | fits v35-L (2,292 B) |
+| ----- | ------ | -------- | ------ | ------ | --------- | -------------------- | -------------------- |
+| 1     | 0      | 2        | 10     | 4,192  | 995       | yes                  | yes                  |
+| 2     | 0      | 4        | 20     | 7,845  | 1,459     | yes                  | yes                  |
+| 3     | 0      | 6        | 30     | 11,205 | 1,850     | yes                  | yes                  |
+| **4** | 0      | 8        | 40     | 14,805 | **2,239** | **yes**              | **yes**              |
+| 5     | 0      | 10       | 49     | 18,214 | 2,674     | yes                  | no                   |
+| 6     | 0      | 12       | 58     | 21,620 | 3,083     | no                   | no                   |
+| 4     | 1      | 10       | 50     | 19,464 | 2,939     | exactly              | no                   |
+
+**Four foods.** That is the whole of what a QR can hand over on its own, and it
+is the four-food meal the probe proved on hardware at version 35. v40-L would
+buy a fifth, but v35 is the version two phones were actually observed reading.
+
+The consequence is the design: **QR carries the handshake, the data channel
+carries the meal.** The handshake is 395 B one way and 334 B the other whatever
+the meal weighs, so it is always one symbol — the uniform case, not the lucky
+one.
 
 ## The two paths, cheapest first
 
