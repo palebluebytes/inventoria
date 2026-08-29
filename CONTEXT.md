@@ -206,6 +206,10 @@ _Avoid_: Repeat (that word means recurrence _scheduling_ in this app — `EventR
 One of the five ways to put something in a meal, each a control in that meal's section header: copy a **Past meal**, enter one yourself, log a recipe, scan a barcode, search (ADR-0059). There is no `+` — it never named an action, it opened a sheet that then asked which of these you meant, so it was a lobby rather than a door. Each way in opens its own single-purpose sheet carrying no method dock, since the header already chose. Every control's own name states its meal, because the header repeats for all four and four identical names on one screen cannot be told apart; the sheet's title drops it again, because by then the meal is settled by the tap that opened it. A way in whose sheet could only disappoint is absent rather than disabled — the past-meal control appears only once that meal has history.
 _Avoid_: Entry / meal entry (this app spends _entry_ on a manually entered food, ADR-0035), add button, plus button, Door (ADR-0034 already uses that for the four routes into the label form), Method (that is a **FoodStager** staging tab, which is what a way in replaces)
 
+**Way out**:
+The one control that hands a logged meal to another person: it sits beside the meal's name inside that meal's nutrition panel, and it is the mirror of a **Way in** rather than a sixth control in the meal header, which gains nothing. The panel is reached by tapping the meal's name, which always works, or its subtotal line, which an empty meal does not have. The panel then _turns into_ the **Send code** and back: it opens no second surface, and once a code is minted there is no back button, because the code is live and an affordance that looked like undo would be one. It is **absent** on iOS, where sending is out of scope, on the same precedent that makes a disappointing way in absent rather than disabled. See ADR-0074 §1 and §3.
+_Avoid_: Share, export (that is the **Ledger export**), send button, handover, way in (it is deliberately not one)
+
 **Engagement Event**:
 A logged instance of watching a movie/show or reading a book, recorded as a timestamped action in the ledger (`WatchAction` or `ReadAction`) linking to a media Digital Twin. All media engagements share one closed status enum: `saved`, `started`, `progress`, `completed`.
 _Avoid_: Consumption event (when referring to media), activity log
@@ -213,6 +217,40 @@ _Avoid_: Consumption event (when referring to media), activity log
 **Acquisition Event**:
 A logged instance representing the ownership state of a physical Digital Twin, recorded as a timestamped action in the ledger with a status of either `owned` or `wanted`.
 _Avoid_: Ownership event, item status, inventory log
+
+### Sending and syncing
+
+**Meal send**:
+One person handing one **Past meal** to another. It is synchronous: both people are present at the same moment, the meal exists in exactly two places and never a third, and nothing is stored anywhere in between. What crosses is a **Meal payload**; what lands, on acceptance, is a re-minted **Consumption Event** on the recipient's own clock, in their Meal Type. The sender learns delivery and **never** acceptance, so declining is never socially visible. Unsupported on iOS in both directions. See ADR-0072, ADR-0073 and ADR-0074.
+_Avoid_: Share, sync (that is your own devices, and it is a different session model), transfer, send meal, meal sharing
+
+**Send code**:
+The single-use secret that addresses one Meal send: a room id and a fresh 256-bit AES-GCM key, about 100 characters, never fewer than 128 bits and never spoken aloud. One shape with two carriers, a QR in the same room and a **link** everywhere else (`/#r=…&k=…`, the secret in the fragment so it reaches no server). It dies on one successful delivery, on any refusal, on the sender cancelling, or after five minutes, and there is no retry on a spent one. Because a send is synchronous, a pasted code is already dead by the time it is scrollback. See ADR-0072 §3 to §6.
+_Avoid_: Pairing secret (that is the own-device one, and it is remembered rather than per-send), password, invite, room id (which is half of it), wormhole code
+
+**Meal payload**:
+What crosses the wire in a Meal send: the **winning** datoms of one Past meal's reference closure, in the **Ledger export**'s NDJSON grammar but under its own `artifact` (`inventoria-meal`), its own `schema_version`, and an envelope declaring which `event:consume_` ids are the closure's roots. It omits exactly three attributes, `twin/raw_provenance`, `food/label_photos` and `food/photo_base64`, and carries every other one verbatim. It is never a Ledger export and the two readers refuse each other by name, because two formats whose merge rules differ must not share one. Bounded at 1 MiB of **decoded** bytes, counted as they decode. See ADR-0073.
+_Avoid_: Meal export, meal file, share payload, ledger export, closure (bare)
+
+**Receiving surface**:
+The screen a Meal send lands on: the meal itself, with nothing in front of it, reached by opening a link or by pointing the **Scan** way in at a Send code, which reads a meal code as well as a barcode. It **is** the hold. A payload lives in memory for the life of this view and nowhere else, so **leaving is declining**, by any route and without being asked. There is no inbox, no standing receive control and no count badge: nothing listens for a send it was not asked for, so a badge could only ever be non-zero after a receive you started yourself, which makes it an affordance that lies. See ADR-0073 §10 and ADR-0074 §4 to §6.
+_Avoid_: Inbox (there is none; the word survives only in the map that named it), receive screen, pending meals, notification, tray
+
+**Arrival mark**:
+The one attribute (`food/arrival`) recording that a food reached this device because somebody sent you a meal. It is the third sibling of `food/label_capture` and `food/manual_entry`, so it records _how this food came to be here_ and never _who sent it_. It is **display-only**: it changes what `foodSourceView` says and nothing else, because re-minting exists precisely to make the meal theirs. It is never written for a datom from one of your own devices. See ADR-0073 §11.
+_Avoid_: Received flag, sender, shared-by, origin (that is the food's source), provenance (that is `twin/raw_provenance`)
+
+**Relay**:
+The Durable Object on the site's own Worker that holds at most two WebSockets for one room and forwards sealed frames it structurally cannot open. It may learn that two devices met, when and how much crossed; it holds **nothing that outlives a room**, and it runs with the script's invocation logs off. It is the one **operationally conditional** part of Inventoria: if running it stops being tenable, the send is removed and the Ledger export remains. See ADR-0072 §1 and §9 to §12.
+_Avoid_: Server, rendezvous (there is none, deliberately), signalling server, sync server (nothing stores datoms), STUN, TURN
+
+**Paired Device**:
+One of your own devices, remembered as `{ device_id, a name you typed, a 256-bit pairing secret }` in `localStorage` and **never** as a datom, because a revocation cannot live in an append-only log that the revoked device also writes to. Pairing is symmetric and pairwise: there is no main device, no hub and no revocation authority, and deleting a pairing on either side severs it completely with no message. Silence is the revocation signal, because a message can be suppressed. See ADR-0075 §3, §4 and §12.
+_Avoid_: Trusted device, linked device, primary device, hub, account
+
+**Version vector**:
+What two **Paired Devices** exchange to converge: the greatest `(hlc_ms, hlc_ctr)` per originating `device_id`, read straight off `datoms` rather than stored anywhere. It is queried, not kept, so it can never fall out of step with the ledger; a first sync is just its empty case, and resuming a dropped socket costs nothing. A single scalar clock watermark is **wrong** rather than coarse, because a peer can hand you a row stamped below your maximum and a scalar filter would drop it silently. See ADR-0075 §6.
+_Avoid_: High-water mark (it is per-device, not one number), sync cursor, import log (ADR-0067 §2 refuses one), last-synced timestamp
 
 ### Notes and checklists
 

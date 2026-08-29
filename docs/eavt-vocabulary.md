@@ -65,6 +65,13 @@ scope their reads by these prefixes.
 | `event:occur_`   | An **Occurrence Event**  |
 | `event:acquire_` | An **Acquisition Event** |
 
+A Consumption Event minted by accepting a meal somebody sent you keeps the same
+`event:consume_` prefix, and its local part is **derived** rather than random: it is a
+digest of the payload's declared closure root, so accepting the same meal twice writes it
+once and `INSERT OR IGNORE` absorbs the second. No new prefix, and nothing about the sender
+is encoded in it. See
+[ADR-0073](adr/0073-a-sent-meal-is-a-narrowed-closure-that-lands-re-minted.md) §5.
+
 ## Attribute namespaces
 
 An attribute key begins with a namespace naming the family of facts it belongs to.
@@ -116,6 +123,18 @@ basis, fields }`). It is a sibling of `twin/raw_provenance`, never a second one,
 - `ingredients`: a single descriptive free-text string on a manual `food:custom_` menu
   dish (allergens, memory). Distinct from Open Food Facts' `ingredients_text` and from a
   recipe's structured `recipe/ingredients`, and it never computes calories (ADR-0035 §4).
+- `arrival`: the user-origin provenance envelope written when a food reaches this device
+  because somebody sent you a meal (`{ adapter: "send", adapter_version, received_at }`),
+  the third sibling of `label_capture` and `manual_entry`. It records **how this food came
+  to be here and never who sent it**: no sender identity exists anywhere in the ledger, the
+  envelope or the wire. It is written on accept, alongside a re-minted Consumption Event,
+  and it is **display-only**. `foodSourceView` reads it, and without it a received
+  `food:custom_` twin would fall through that function's last branch and claim the
+  recipient hand-authored it. It never gates reuse, never hides a food from Recent or
+  search, and is never written when a datom arrives from one of your **own** devices
+  ([ADR-0073](adr/0073-a-sent-meal-is-a-narrowed-closure-that-lands-re-minted.md) §11,
+  [ADR-0075](adr/0075-your-own-devices-converge-on-a-version-vector-read-off-the-ledger.md)
+  §13).
 
 Note that `nutrition/info`, `twin/brand`, and `portions` may be user-written on a
 `gtin:` twin as a label correction, not only OFF-sourced (ADR-0034 §6). `twin/brand`
