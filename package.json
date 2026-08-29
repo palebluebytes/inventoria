@@ -20,6 +20,7 @@
     "usda:coverage": "node scripts/usda-coverage.mjs",
     "curated:check": "node scripts/curated-snapshot-check.mjs",
     "proto:198": "PROTO_TUNNEL=1 vite --host",
+    "proto:201": "PROTO_TUNNEL=1 vite --host",
     "test:e2e": "playwright test",
     "test:e2e:offline": "playwright test --config playwright.offline.config.ts",
     "prepare": "husky || true",
