@@ -271,6 +271,17 @@ the session and never the search, because the field runs on a 120 ms debounce an
 typed phrase fires about eleven of them. See ADR-0053 §2.
 _Avoid_: Search event, query log, keystroke, empty search (for the session itself)
 
+**Scan session**:
+One visit to the barcode path: it opens when a lookup starts and settles when the
+user stages a food, opens a capture door, or leaves the scan without doing either.
+It leaves **one** entry in the scan Log channel, holding what Open Food Facts
+answered, whether the retry ran, and which of the four capture doors the user then
+opened. The unit is the session and never the lookup, because the fact it exists to
+record is a _sequence_ — an outcome, and then what the user did about it — and a
+sequence split across two entries would have to be rejoined by the barcode, which
+the channel is forbidden to carry. See ADR-0071 §2.
+_Avoid_: Scan event, lookup log, barcode log, scan (for the session itself)
+
 ### Interface primitives
 
 These ADRs establish this vocabulary and forbid alternatives to it. The `_Avoid_` lines
