@@ -2,6 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-28  
+**Amended by:** [ADR-0072](0072-a-meal-crosses-through-a-relay-that-cannot-read-it.md) §9 (the one-Worker shape carries the send relay as well as the proxy, and the script's `invocation_logs` are turned off, which the proxy pays for)  
 **Implemented:** `wrangler.toml`, `worker/src/index.ts`, `tsconfig.worker.json`, `scripts/worker-closure-check.mjs`, `src/lib/stores/device-settings.ts`
 
 ## Context

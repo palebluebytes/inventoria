@@ -1,6 +1,8 @@
 # ADR 0020: Order Datoms by a Conflict-Free Logical Clock, Not a Bare Wall-Clock Key
 
 **Status:** Accepted  
+**Amended by:** [ADR-0075](0075-your-own-devices-converge-on-a-version-vector-read-off-the-ledger.md) §8 (advance-on-receive gets the live peer this record was built for, and this record's "not yet wired to any sync transport" is corrected: it has run on every ledger import since ADR-0067)  
+**Amended by:** [ADR-0073](0073-a-sent-meal-is-a-narrowed-closure-that-lands-re-minted.md) §7 (advance-on-receive is deliberately **not** called against another person's payload, which is restamped instead)  
 **Implemented:** 2026-07-06, `0568955`, `src/lib/db/hlc.ts`
 
 ## Context

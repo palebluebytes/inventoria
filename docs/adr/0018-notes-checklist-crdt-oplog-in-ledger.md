@@ -1,6 +1,7 @@
 # ADR 0018: Notes & Checklist as a CRDT Op-Log in the Ledger
 
 **Status:** Accepted  
+**Amended by:** [ADR-0075](0075-your-own-devices-converge-on-a-version-vector-read-off-the-ledger.md) §9 (the sync channel this record refused to add a second of now exists; the op-log rides it with no second channel, and the promise is measured rather than assumed)  
 **Implemented:** `loro-crdt`; `src/lib/notes/loro-doc.ts`
 
 ## Context

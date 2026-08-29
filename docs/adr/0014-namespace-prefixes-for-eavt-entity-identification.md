@@ -1,6 +1,7 @@
 # 14. Namespace Prefixes for EAVT Entity Identification
 
 **Status:** Accepted  
+**Amended by:** [ADR-0073](0073-a-sent-meal-is-a-narrowed-closure-that-lands-re-minted.md) §5 (the sync this record was written for arrives, and a received meal's `event:consume_` id is **derived** from the payload's declared root rather than minted at random, so accepting the same meal twice writes it once)  
 **Implemented:** `gtin:` / `fdc:` / `tmdb:` and the rest; the live registry is [docs/eavt-vocabulary.md](../eavt-vocabulary.md)
 
 Date: 2026-06-22

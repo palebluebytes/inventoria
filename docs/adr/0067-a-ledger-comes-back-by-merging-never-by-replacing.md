@@ -3,6 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-08-28  
 **Amends:** [ADR-0064](0064-the-ledger-leaves-as-raw-datoms-one-json-object-per-line.md) (its Scope defers the read side to this record, and its Consequences say the arc is unfinished until this lands)  
+**Amended by:** [ADR-0073](0073-a-sent-meal-is-a-narrowed-closure-that-lands-re-minted.md) §7 and §8 (§2's kept stamps and §3's advance-on-receive do **not** transfer to a payload from another person, and §5's two-pass read is one pass for a payload bounded in memory; the peer-to-peer case this record's Scope deferred to #179 lands in ADR-0072 to ADR-0075)  
 **Implemented:** #182 `c7c072f` (the reader and its refusals), `052dfc6` (the write path), `4c17166` (the worker seam), `00501ac` (the Settings surface), `edd70e1` (review fixes, including §4's split refusals and §5's caveat reaching the screen)
 
 ## Context

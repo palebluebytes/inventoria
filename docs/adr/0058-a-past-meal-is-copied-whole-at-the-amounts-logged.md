@@ -2,6 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-26  
+**Amended by:** [ADR-0073](0073-a-sent-meal-is-a-narrowed-closure-that-lands-re-minted.md) §5 (this copy **is** the receive path for a meal another person sends, with an injectable event id in front of it rather than `logFoodConsumption`'s random one)  
 **Implemented:** [#167](https://github.com/palebluebytes/inventoria/issues/167); `66b03e8` (the read and the copy), `627f8d6` (the header and the sheets), `92b163c` (review fixes); `src/lib/food/past-meals.ts` (the narrowing, the copyable partition and the tally), `src/lib/stores/calorie.store.ts` (`copyPastMeal`), `src/lib/views/food/PastMealSheet.svelte` (the picker)
 
 ## Context
