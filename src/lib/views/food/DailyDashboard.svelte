@@ -64,6 +64,7 @@
     onRemoveItem,
     mealActionsExtra,
     mealFooterExtra,
+    mealTotalAction,
   }: {
     dbReady: boolean;
     selectedDate: Date;
@@ -83,6 +84,8 @@
     mealActionsExtra?: Snippet<[MealType, number, number]>;
     /** PROTOTYPE (#201) — rendered under a meal's logged rows. */
     mealFooterExtra?: Snippet<[MealType, number, number]>;
+    /** PROTOTYPE (#201) — when set, the meal's subtotal line becomes a control. */
+    mealTotalAction?: (meal_type: MealType) => void;
   } = $props();
 
   // Long-press a logged item to start selecting; while a selection is active,
@@ -443,15 +446,36 @@
              not a running tally), summed over only this meal's items. Empty
              macros are dropped (hideEmpty) — a "0 g" or absent "–" adds no
              information, and a calories-only meal reads as just its kcal. -->
-        <div class="meal-total" data-testid="meal-total-{meal_type}">
-          {#each mealPills as pill (pill.key)}
-            <span class="meal-total-item nutrient-{pill.key}">
-              {#if pill.key !== "calories"}<span class="meal-total-label"
-                  >{nutrientShortLabel(pill.key)}</span
-                >{/if}<span class="meal-total-value">{pill.value}</span>
-            </span>
-          {/each}
-        </div>
+        <!-- PROTOTYPE (#201) — variant D makes this line the way into the
+             meal's own figures. Without the prop it is the inert div it has
+             always been. -->
+        {#if mealTotalAction}
+          <button
+            type="button"
+            class="meal-total meal-total-btn"
+            data-testid="meal-total-{meal_type}"
+            aria-label="{meal_type} nutrition"
+            onclick={() => mealTotalAction(meal_type)}
+          >
+            {#each mealPills as pill (pill.key)}
+              <span class="meal-total-item nutrient-{pill.key}">
+                {#if pill.key !== "calories"}<span class="meal-total-label"
+                    >{nutrientShortLabel(pill.key)}</span
+                  >{/if}<span class="meal-total-value">{pill.value}</span>
+              </span>
+            {/each}
+          </button>
+        {:else}
+          <div class="meal-total" data-testid="meal-total-{meal_type}">
+            {#each mealPills as pill (pill.key)}
+              <span class="meal-total-item nutrient-{pill.key}">
+                {#if pill.key !== "calories"}<span class="meal-total-label"
+                    >{nutrientShortLabel(pill.key)}</span
+                  >{/if}<span class="meal-total-value">{pill.value}</span>
+              </span>
+            {/each}
+          </div>
+        {/if}
       {/if}
       {@render mealFooterExtra?.(
         meal_type,
@@ -864,6 +888,20 @@
     align-items: center;
     gap: var(--space-2xs);
   }
+  /* PROTOTYPE (#201) — the button form of the subtotal line. Same box, so the
+     shipped look does not move; only the affordance is added. */
+  .meal-total-btn {
+    width: 100%;
+    background: none;
+    border: 0;
+    font: inherit;
+    cursor: pointer;
+    text-align: inherit;
+  }
+  .meal-total-btn:hover .meal-total-value {
+    text-decoration: underline;
+  }
+
   .meal-section-header :global(.way-in) {
     flex-shrink: 0;
     width: 2rem;

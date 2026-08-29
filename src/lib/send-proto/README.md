@@ -24,6 +24,7 @@ pnpm dev
 #   http://localhost:5173/?variant=A
 #   http://localhost:5173/?variant=B
 #   http://localhost:5173/?variant=C
+#   http://localhost:5173/?variant=D
 ```
 
 `←` and `→` cycle the variants; the pink bar at the foot is the rig, not the
@@ -59,7 +60,7 @@ this ticket to size the on-screen symbol for a 101-character version 5 code read
 in 931 ms, and a mock at the wrong density would answer that wrongly. Point a
 phone at it and it resolves to the link.
 
-## The three variants
+## The four variants
 
 They disagree about **structure**, not decoration: where the affordance lives,
 what kind of surface it opens, and how many different sentences a refusal gets.
@@ -97,6 +98,37 @@ logged rows to send it, at the foot of the day to receive one.
 
 **Its refusal call: every refusal in its own words.** If the app knows why it
 said no, it says why.
+
+### D — in the meal's own numbers
+
+The meal already ends in a line of figures that does nothing. Tap it and you get
+the meal in full — the same surface the day's aggregates open, one scale down —
+and that is where handing it over lives, because that screen already _is_ "this
+meal, entire", and sending is the act of giving someone this meal entire. The
+panel does not open a second surface to do it: it turns into the code, and back
+again. Nothing is added to the meal header or the page header.
+
+**Receiving has no door at all.** No inbox, no control, no count. A meal reaches
+you two ways and only two: you open a link, or you point the barcode scanner you
+already have at their code and it turns out not to be a barcode. Both land you
+on the meal itself, deciding, with nothing in front of it. The rig supplies both
+doors, since D has none of its own by design.
+
+**Its refusal call: one line**, like A — with no inbox there is no list to
+explain a missing row in, and the refusal is read by someone standing in front of
+the person who sent it.
+
+**The tension D exposes, which the ADR has to settle.** #199 §13 holds three
+payloads and #197 §5 refuses a fourth rather than evicting one — but with no
+inbox surface, an abandoned accept has nowhere to be reached from. Either the
+hold is transient (declined on abandon, which contradicts both), or something
+has to show it, which is an inbox by another name. D is what makes that visible;
+it does not resolve it.
+
+**And the observation that produced D.** A count badge on a receive control —
+A's, and C's `(n)` — can only ever be non-zero _after_ a receive the user started
+themselves, because #199 §5 forbids a device listening for a send it was not
+asked for. It looks like a notification and structurally cannot be one.
 
 ## What every variant is holding to, because it was already decided
 

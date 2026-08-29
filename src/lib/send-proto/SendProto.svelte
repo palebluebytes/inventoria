@@ -6,6 +6,7 @@
   import VariantA from "./VariantA.svelte";
   import VariantB from "./VariantB.svelte";
   import VariantC from "./VariantC.svelte";
+  import VariantD from "./VariantD.svelte";
   import ProtoSwitcher from "./ProtoSwitcher.svelte";
   import { proto, type Variant } from "./proto-state.svelte";
 
@@ -16,8 +17,10 @@
   <VariantA />
 {:else if variant === "B"}
   <VariantB />
-{:else}
+{:else if variant === "C"}
   <VariantC />
+{:else}
+  <VariantD />
 {/if}
 
 <!-- What accept looks like from the food screen. Shared by all three, because

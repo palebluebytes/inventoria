@@ -806,6 +806,9 @@
   onRemoveItem={removeItem}
   mealActionsExtra={protoMealActions}
   mealFooterExtra={protoMealFooter}
+  mealTotalAction={protoVariant === "D"
+    ? (meal_type) => (proto.mealPanel = { meal_type, date: selectedDate })
+    : undefined}
 />
 
 <!-- PROTOTYPE (#201) — variant C's other half: receiving is not a control in a

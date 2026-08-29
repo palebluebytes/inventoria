@@ -15,13 +15,14 @@
 
 import { INCOMING, type ProtoPayload } from "./proto-fixture";
 
-export type Variant = "A" | "B" | "C";
-export const VARIANTS: Variant[] = ["A", "B", "C"];
+export type Variant = "A" | "B" | "C" | "D";
+export const VARIANTS: Variant[] = ["A", "B", "C", "D"];
 
 export const VARIANT_NAME: Record<Variant, string> = {
   A: "A — A way out in the header",
   B: "B — One handover, two doors",
   C: "C — The exchange takes the screen",
+  D: "D — In the meal's own numbers",
 };
 
 /** The inbox depth (#199 §13). Ceiling × depth must fit the localStorage budget. */
@@ -195,6 +196,28 @@ export class Proto {
   // ── the sending half ────────────────────────────────────────────────────
   send = $state<SendSession | null>(null);
 
+  /**
+   * Variant D: which meal's figures are expanded, and from which day.
+   *
+   * The control that opens it is the meal's own subtotal line inside the real
+   * dashboard; the panel is rendered by the prototype. The date travels with it
+   * because the panel recomputes from the ledger rather than being handed a
+   * total, so it needs to know which day it is reading.
+   */
+  mealPanel = $state<{ meal_type: string; date: Date } | null>(null);
+
+  /**
+   * Variant D: a payload that has just arrived and is being decided ON, with no
+   * inbox behind it.
+   *
+   * A held payload and a held payload you are looking at are the same thing
+   * when there is no list to go back to — which is the whole of what D changes
+   * about receiving, and the tension it exposes: #199 §13 still says three are
+   * held and #197 §5 still says a fourth is refused rather than evicting one,
+   * so an abandoned accept goes somewhere D draws no way back to.
+   */
+  arriving = $state<ProtoPayload | null>(null);
+
   // ── the receiving half ──────────────────────────────────────────────────
   inbox = $state<ProtoPayload[]>([]);
   receivePhase = $state<ReceivePhase | null>(null);
@@ -339,6 +362,23 @@ export class Proto {
     this.reading = null;
   }
 
+  /**
+   * Variant D: a meal arrives with no inbox in front of it — because a link was
+   * opened, or because the barcode scanner was pointed at a code and found a
+   * meal rather than a barcode. Either way you are looking at it, now.
+   */
+  arrive(which = 0) {
+    this.arriving = INCOMING[which % INCOMING.length];
+  }
+
+  acceptArriving(meal_type: string) {
+    const p = this.arriving;
+    if (!p) return;
+    this.arriving = null;
+    this.landed = { payload: p, meal_type };
+    this.#after(6000, () => (this.landed = null));
+  }
+
   /** Rig: fill the inbox so the full case is one tap away. */
   fillInbox() {
     this.inbox = INCOMING.slice(0, INBOX_DEPTH).map((p, i) => ({
@@ -355,6 +395,8 @@ export class Proto {
     this.receiveRefusal = null;
     this.reading = null;
     this.landed = null;
+    this.mealPanel = null;
+    this.arriving = null;
   }
 }
 
