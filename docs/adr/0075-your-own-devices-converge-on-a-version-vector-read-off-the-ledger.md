@@ -227,6 +227,15 @@ reordered, replayed or dropped without the seal failing. That yields incremental
 driving one invalidation broadcast at the end — and makes §6's resume genuinely cheap: a
 dropped socket costs the chunk in flight, not the sync.
 
+**What does not cross is everything that is not a datom**, and that exclusion is
+structural rather than a rule anyone has to remember: the payload is the `datoms` table,
+so the `localStorage` side-cars stay behind — the secrets, the **Paired Device** list
+itself (§3), and
+[ADR-0053](0053-an-empty-food-search-is-recorded-locally-and-leaves-only-by-hand.md)'s
+local search log, which #179 asked to have carried forward explicitly. A later design that
+moves per-device state **into** the ledger has to revisit that, because the exclusion would
+stop being structural the moment it did.
+
 §6 confines the whole cost to the **first** sync, which is the answer to whether compaction
 becomes a prerequisite. It does not.
 
