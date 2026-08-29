@@ -59,6 +59,12 @@
   };
   const begin = (stage: string) => {
     failure = "";
+    // reset() before start(): `start` clears the timeline but NOT the facts, so
+    // without this a run inherits the previous one's facts and a QR-only report
+    // comes out carrying candidate counts and SDP sizes from an earlier WebRTC
+    // attempt on the same page load. The first run of this probe did exactly
+    // that, and the stale facts read as if the QR path had gathered candidates.
+    log.reset();
     log.start(stage);
     timeline = log.timeline();
   };
@@ -105,11 +111,29 @@
   // ── Camera ───────────────────────────────────────────────────────────────
 
   let video = $state<HTMLVideoElement | null>(null);
-  let stream: MediaStream | null = null;
+  let stream = $state<MediaStream | null>(null);
   let scanning = $state(false);
   let cameraGranted = $state(false);
   let scanTimer: number | null = null;
   let frameCanvas: HTMLCanvasElement | null = null;
+
+  /**
+   * Attaches whichever stream is live to whichever `<video>` is mounted.
+   *
+   * This is an effect rather than a line inside `startCamera` because the two
+   * events are genuinely independent: `warmCameraFirst` grants the camera
+   * BEFORE the offer QR is on screen, and on that path the `<video>` element
+   * does not exist yet, so an assignment at grant time lands on null and the
+   * stream is never displayed or decoded. The first run of this probe lost a
+   * whole WebRTC attempt to exactly that — the camera was on, the preview was
+   * blank, and the answer could never be read.
+   */
+  $effect(() => {
+    if (video && stream && video.srcObject !== stream) {
+      video.srcObject = stream;
+      void video.play().catch(() => {});
+    }
+  });
 
   async function startCamera(): Promise<boolean> {
     if (stream) return true;
@@ -120,10 +144,6 @@
       });
       cameraGranted = true;
       mark("camera granted");
-      if (video) {
-        video.srcObject = stream;
-        await video.play();
-      }
       return true;
     } catch (e: any) {
       failure = `camera refused: ${e?.name ?? e}`;
@@ -499,6 +519,7 @@
 
   async function rtcScanAnswer() {
     if (!pc) return;
+    mark("scanning the answer");
     if (!(await startCamera())) return;
     scanDescription("answer", async (sdp) => {
       await pc!.setRemoteDescription({ type: "answer", sdp });
@@ -820,12 +841,14 @@
       </section>
     {/if}
 
-    {#if scanning || path === "qr-receive" || path === "rtc-answer" || (path === "rtc-offer" && scanning)}
+    {#if stream}
       <section class="stage">
         <!-- svelte-ignore a11y_media_has_caption -->
         <video bind:this={video} playsinline muted autoplay></video>
         <p class="counter">
-          {#if received.total > 0}
+          {#if !scanning}
+            camera live, not decoding yet
+          {:else if received.total > 0}
             {received.have} / {received.total} symbols · {scanAttempts} reads
             {#if received.missing.length > 0 && received.missing.length < 40}
               · missing {received.missing.join(", ")}
