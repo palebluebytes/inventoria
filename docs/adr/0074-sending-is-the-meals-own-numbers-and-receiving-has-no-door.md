@@ -325,3 +325,45 @@ panel's scrollbar is hidden so its bands reach the frame.
 **A receive link that half-opens must never read as a retry.** §8's read-once-then-clean
 rule is the whole of that guarantee, and it is the one place where a routing detail is
 load-bearing on a security property rather than on convenience.
+
+## Amendment (2026-08-30): §10's detection premise is refuted, and the boundary is under review
+
+**The app will always be installed on iOS.** That is a deployment assumption rather than
+an API, and it was not available when §10 was written. It refutes the argument that made
+the boundary total, so §10 must not be implemented as written until
+[Does an always-installed iOS change the boundary?](https://github.com/palebluebytes/inventoria/issues/255)
+closes.
+
+**What is refuted.** §10 rests on detection being impossible: a first-time Safari user is
+also empty, the browse-then-install path leaves a stale and non-empty Safari jar, and no
+API reports that an install exists. But the page **can** always know one thing — that *it*
+is not the installed copy, from `navigator.standalone` and `display-mode`. Hold the
+assumption above and those two facts compose: **a receive page in an iOS Safari tab knows
+with certainty both that it is in the wrong jar and that a reachable installed copy
+exists.** That is the fact §10 said nothing could supply.
+
+**What that revives.** §12.5 and §12.6 refused **paste** and **a QR image through a
+messenger** *with the platform rather than on their merits*, and both were recorded that
+way precisely so this moment would not read as an oversight. Both cross the storage
+partition: the clipboard is not partitioned, and the iOS Scan way in is already a photo
+picker. So the shape now available is not partial support but a **complete remote path
+that hands the code to a door that already exists** — the Safari page refusing to accept
+the meal itself and passing the code to the installed app instead.
+
+**What is not refuted, and must not be quietly dropped:**
+
+- The link still cannot reach an installed app's Ledger. WebKit **181849** and **318623**
+  are unchanged, and the direct-landing shape stays dead.
+- §12.4's *no detection-based partial support* was refused on the signal not existing.
+  The signal exists now, so that refusal needs **re-arguing rather than reversing** — the
+  original objection was that a fork continuing on "no" keeps a broken case alive, and an
+  assumption that iOS is always installed is not the same thing as an API that says so.
+- §10's own reasoning that **partial support on a platform nobody here can test is worse
+  than no support** is untouched, and [#209](https://github.com/palebluebytes/inventoria/issues/209)
+  still records that nobody here can test it. Anything this reopens inherits that.
+- The **one working receive case named in §10 disappears** under the same assumption:
+  *not installed, via link, one jar* never happens if the app is always installed. The
+  assumption cuts both ways, and the ticket must price both.
+
+**Status of the boundary until then:** stated, not withdrawn. [#237](https://github.com/palebluebytes/inventoria/issues/237)
+is blocked so that nothing is built against a premise this record now knows to be false.
