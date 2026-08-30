@@ -51,3 +51,6 @@ test-results/
 
 # USDA bulk-archive backup working copy (scripts/usda-backup.mjs)
 .usda-backup/
+
+# `wrangler dev`'s local state, including the relay's local Durable Object
+.wrangler/

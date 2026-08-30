@@ -23,6 +23,23 @@ compatibility_date = "2026-08-25"
 [assets]
 directory = "dist"
 
+# The relay (ADR-0072). It is another route on this script rather than its own
+# Worker, deliberately: a second Worker means a second dashboard-configured
+# build that nothing in this repo records, which is exactly the failure
+# ADR-0070 was written to end. Same origin is also worth something here, since
+# the receive link and the socket then share the app's origin.
+#
+# SQLite-backed because that is the only storage class a new Durable Object
+# gets; the room uses it for the hibernation attachments and the five-minute
+# sweep alarm and for nothing else, and clears both when the room closes.
+[[durable_objects.bindings]]
+name = "RELAY"
+class_name = "Relay"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Relay"]
+
 # `enabled` here is the switch for observability as a whole; the per-signal
 # blocks below say which signals are actually wanted. This used to read
 # `enabled = false` under blocks that turned logs on, which left the outcome
@@ -37,7 +54,26 @@ head_sampling_rate = 1
 enabled = true
 head_sampling_rate = 1
 persist = true
-invocation_logs = true
+
+# Off since the relay landed, and the proxy pays for it (ADR-0072 §9).
+#
+# An invocation log is an automatic per-request record, and for the relay each
+# one would say that two devices met, when, and from where — precisely the
+# persistent, learnable thing ADR-0072 §8 forbids and §12 keeps the room's own
+# storage empty to avoid. Observability is configured per *script*, not per
+# route, and a Durable Object is defined in the script, so there is no separate
+# switch to turn: the whole script goes quiet or none of it does.
+#
+# `enabled = true` above stays, so `console.log` still works for the proxy; it
+# is only the automatic record that goes. `scripts/worker-closure-check.mjs`
+# holds the other half, failing the build if the relay itself reaches for the
+# console.
+#
+# Cloudflare's docs do not say whether an invocation log carries the client IP.
+# This posture makes the question moot, which is the argument for it under
+# uncertainty — and anyone proposing to switch this back on has to answer that
+# question first.
+invocation_logs = false
 
 # `persist` and `head_sampling_rate` went with the disable: they only ever
 # described how to record traces that are not being recorded.

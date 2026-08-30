@@ -244,6 +244,10 @@ _Avoid_: Received flag, sender, shared-by, origin (that is the food's source), p
 The Durable Object on the site's own Worker that holds at most two WebSockets for one room and forwards sealed frames it structurally cannot open. It may learn that two devices met, when and how much crossed; it holds **nothing that outlives a room**, and it runs with the script's invocation logs off. It is the one **operationally conditional** part of Inventoria: if running it stops being tenable, the send is removed and the Ledger export remains. See ADR-0072 §1 and §9 to §12.
 _Avoid_: Server, rendezvous (there is none, deliberately), signalling server, sync server (nothing stores datoms), STUN, TURN
 
+**Peer word**:
+The one thing the Relay ever says, sent to both parties the moment a room holds two sockets. It exists because a party cannot speak before the other arrives — nothing is stored in between, so a frame sent alone has nowhere to go — and the peer's single frame is already spent on the delivery acknowledgement, so the readiness signal cannot come from them. The discipline that keeps it unambiguous is a register: **the relay originates text and the parties send binary**, and a party's text frame is refused rather than dropped. It is not a **Send code**, carries nothing about either device, and never crosses a room boundary.
+_Avoid_: Handshake, hello, ready message, signalling (there is no rendezvous), presence (nothing is subscribed to)
+
 **Paired Device**:
 One of your own devices, remembered as `{ device_id, a name you typed, a 256-bit pairing secret }` in `localStorage` and **never** as a datom, because a revocation cannot live in an append-only log that the revoked device also writes to. Pairing is symmetric and pairwise: there is no main device, no hub and no revocation authority, and deleting a pairing on either side severs it completely with no message. Silence is the revocation signal, because a message can be suppressed. See ADR-0075 §3, §4 and §12.
 _Avoid_: Trusted device, linked device, primary device, hub, account
