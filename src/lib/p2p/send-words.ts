@@ -1,13 +1,9 @@
 /**
  * What the sender is told when a send ends (ADR-0074 §6).
  *
- * **One line, with the technical cause behind a "show why".** Three wordings
- * were built and compared — one line, four groups, and every ending in its own
- * words — and one line won, because this screen is read by somebody standing in
- * front of the person they were sending to. What they need is that it did not
- * work, not which of ADR-0073 §8's seven clauses fired. The cause is kept
- * rather than dropped, because the person who eventually reports a real fault
- * is the same person, one disclosure later.
+ * The one-line-plus-disclosure shape, and why it is that shape, is in
+ * `ending-words.ts`, which the receive surface's own words share. This module
+ * is the sender's half of it.
  *
  * **The seal keeps its own sentence.** "Someone else answered" is different
  * news from "this is malformed", and flattening the two would tell a person a
@@ -20,6 +16,7 @@
  * acceptance would make declining socially visible.
  */
 
+import { endingCause, type EndingWords } from "./ending-words";
 import { SendFailedError, type SendFailure } from "./meal-send";
 import { SealRefusedError } from "./sealed-frame";
 import { SendCodeSpentError } from "./send-code";
@@ -35,15 +32,9 @@ export type SendEnding =
   | "spent"
   | "unknown";
 
-/** One ending, in the words the panel prints. */
-export interface SendWords {
+/** One ending, in the words the send panel prints. */
+export interface SendWords extends EndingWords {
   ending: SendEnding;
-  /** The one line, in the app's voice. One sentence, and no diagnostics. */
-  line: string;
-  /** What it means for the meal, under the line. */
-  detail: string;
-  /** The technical reading, behind the "show why". Null when nothing is wrong. */
-  cause: string | null;
   /**
    * Whether drawing another code could plausibly work.
    *
@@ -63,10 +54,6 @@ export const MEAL_DELIVERED: SendWords = {
   cause: null,
   retry: false,
 };
-
-/** The technical reading, from whatever was actually thrown. */
-const causeOf = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error);
 
 const FAILURE_WORDS: Record<
   SendFailure,
@@ -112,7 +99,7 @@ const FAILURE_WORDS: Record<
  * guess printed as a fact.
  */
 export function sendEndingWords(error: unknown): SendWords {
-  const cause = causeOf(error);
+  const cause = endingCause(error);
 
   if (error instanceof SendFailedError) {
     return { ending: error.failure, cause, ...FAILURE_WORDS[error.failure] };
