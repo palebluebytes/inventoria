@@ -10,34 +10,12 @@ import {
 } from "../../src/lib/p2p/meal-payload";
 import { LEDGER_EXPORT_ARTIFACT } from "../../src/lib/db/ledger-export";
 import type { LedgerRow } from "../../src/lib/db/db.core";
+import { row } from "./support/ledger-rows";
 import {
   LARGE_MEAL_FOODS,
   LARGE_MEAL_RECIPES,
   synthesiseLargeMeal,
 } from "./support/large-meal";
-
-/**
- * A stored row. `value` is the TEXT the ledger holds — `JSON.stringify` of the
- * value — because that is what the wire carries verbatim (ADR-0064 §1).
- */
-function row(
-  entity: string,
-  attribute: string,
-  value: unknown,
-  stamp: Partial<
-    Pick<LedgerRow, "time" | "hlc_ms" | "hlc_ctr" | "device_id">
-  > = {}
-): LedgerRow {
-  return {
-    entity,
-    attribute,
-    value: JSON.stringify(value),
-    time: stamp.time ?? 1_700_000_000_000,
-    hlc_ms: stamp.hlc_ms ?? 1_700_000_000_000,
-    hlc_ctr: stamp.hlc_ctr ?? 0,
-    device_id: stamp.device_id ?? "dev_sender",
-  };
-}
 
 /** The read seam over a fixed ledger, remembering what it was asked for. */
 function ledgerOf(rows: LedgerRow[]) {
