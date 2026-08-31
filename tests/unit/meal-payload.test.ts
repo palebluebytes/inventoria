@@ -1,8 +1,12 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
 import {
+  MEAL_ATTRIBUTE_NAMESPACES,
   MEAL_PAYLOAD_ARTIFACT,
   MEAL_PAYLOAD_CEILING_BYTES,
   MEAL_PAYLOAD_SCHEMA_VERSION,
+  MEAL_ROOT_PREFIX,
+  MEAL_TWIN_PREFIXES,
   OMITTED_ATTRIBUTES,
   buildMealPayload,
   referencesOf,
@@ -370,5 +374,67 @@ describe("the ceiling", () => {
     expect(new TextEncoder().encode(ndjson).length).toBeLessThan(
       MEAL_PAYLOAD_CEILING_BYTES
     );
+  });
+});
+
+/**
+ * What a meal may carry is two allow-lists, and both fail closed (ADR-0076 §5):
+ * a food twin kind or a namespace added to the registry and not to them stops
+ * honest meals crossing, and the symptom shows up on somebody else's device.
+ *
+ * So the registry's own tables are **partitioned** against them, never merely
+ * sampled. Everything the registry lists is either something a meal carries or
+ * something named below as deliberately excluded, and a prefix in neither fails
+ * this — which puts the decision on whoever coins it, at the moment they do.
+ */
+describe("the registry a meal's two allow-lists are read against", () => {
+  const registry = readFileSync("docs/eavt-vocabulary.md", "utf8");
+
+  /** Every backticked id in the first column of the table under a heading. */
+  function prefixesUnder(heading: string): string[] {
+    const body = registry.split(`### ${heading}\n`)[1].split("\n#")[0];
+    return body
+      .split("\n")
+      .filter((line) => line.startsWith("| `"))
+      .flatMap((line) =>
+        [...line.split("|")[1].matchAll(/`([^`]+)`/g)].map((m) => m[1])
+      );
+  }
+
+  /** Twins a meal deliberately never reaches: none of them is food. */
+  const NOT_FOOD = ["tmdb:movie_", "tmdb:tv_", "isbn:", "twin:"];
+
+  /**
+   * Namespaces a meal deliberately never carries. `twin/` and `media/` are the
+   * two that made ADR-0076 necessary: their projections scope by attribute
+   * alone, so either would be read off a food twin.
+   */
+  const NOT_A_MEALS_BUSINESS = [
+    "media/",
+    "twin/",
+    "habit/",
+    "cal_event/",
+    "settings/",
+    "notes/",
+  ];
+
+  it("accounts for every Digital Twin the registry lists", () => {
+    expect(prefixesUnder("Digital Twins").sort()).toEqual(
+      [...MEAL_TWIN_PREFIXES, ...NOT_FOOD].sort()
+    );
+  });
+
+  it("accounts for every attribute namespace the registry lists", () => {
+    const declared = [...registry.matchAll(/^### `([a-z_]+\/)`$/gm)].map(
+      (m) => m[1]
+    );
+
+    expect(declared.sort()).toEqual(
+      [...MEAL_ATTRIBUTE_NAMESPACES, ...NOT_A_MEALS_BUSINESS].sort()
+    );
+  });
+
+  it("reads the closure's root prefix off the registry's own event list", () => {
+    expect(prefixesUnder("Events")).toContain(MEAL_ROOT_PREFIX);
   });
 });
