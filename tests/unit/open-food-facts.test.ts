@@ -10,6 +10,8 @@ import {
   parseCategoryList,
   offReferenceImagesFromTwin,
   offPackUnitFromTwin,
+  offPackQuantityFromTwin,
+  packSizeUnit,
   fetchCategorySuggestions,
   isEnglishCategory,
   type OFFProduct,
@@ -809,11 +811,12 @@ describe("buildOffWriteBody", () => {
     expect(body.get("nutriment_energy-kcal")).toBeNull();
   });
 
-  it("reads an absent pack unit as grams, so a millilitre basis is suppressed", () => {
+  it("reads an absent pack unit as grams, so a millilitre basis with NO pack size is suppressed", () => {
     // OFF could parse no `quantity` from these — the eight-in-a-hundred ADR-0052
     // named. Its "100" then resolves to grams, so our 100 ml would be a mislabel;
     // a brand-new product OFF has no record of at all lands here for the same
-    // reason, having no base unit to resolve against yet.
+    // reason, having no base unit to resolve against yet. Supplying the pack size
+    // is what lifts this — see the block below.
     const suppressed = buildOffWriteBody(
       "333",
       { name: "Smoothie", nutrition: { serving_size: "100 ml", calories: 50 } },
@@ -829,6 +832,103 @@ describe("buildOffWriteBody", () => {
     );
     expect(posted.get("nutrition_data_per")).toBe("100g");
     expect(posted.get("nutriment_energy-kcal")).toBe("50");
+  });
+
+  it("reads the unit OFF will parse out of a typed pack size", () => {
+    // Our reading of ProductOpener's own quantity parse, which is what decides
+    // whether a contribution's numbers are unambiguous. Volume in any of the
+    // units a packet prints resolves to `ml`; anything with no parseable unit
+    // resolves to nothing, so it settles nothing and withholds nothing.
+    for (const [text, want] of [
+      ["50 ml", "ml"],
+      ["330ml", "ml"],
+      ["1 L", "ml"],
+      ["75 cl", "ml"],
+      ["500 g", "g"],
+      ["1 gram", "g"],
+      ["43.1 gram", "g"],
+      ["1,5 kg", "g"],
+      ["", undefined],
+      ["family size", undefined],
+      ["6 pack", undefined],
+    ] as const) {
+      expect([text, packSizeUnit(text)]).toEqual([text, want]);
+    }
+  });
+
+  it("posts the pack size, which settles the basis and keeps the numbers", () => {
+    // The reported case, measured end to end. The 50 ml oil is a product OFF
+    // holds `quantity: ""` for, so before this its per-100-ml correction posted
+    // a name and a brand and nothing else — the contributor's numbers were
+    // dropped precisely because the fact that would have justified them was
+    // missing. `quantity` is writable on this endpoint (it sits in
+    // ProductOpener's own `@app_fields`), and it is what OFF parses
+    // `product_quantity_unit` out of, so posting it settles what our `100`
+    // counts and the nutriments go with it.
+    const body = buildOffWriteBody(
+      "8436578483808",
+      {
+        name: "Olive Oil",
+        packSize: "50 ml",
+        nutrition: { serving_size: "100 ml", calories: 810, fat_content: 91.6 },
+      },
+      { user_id: "t", password: "p" }
+    );
+    expect(body.get("quantity")).toBe("50 ml");
+    // Still OFF's own enum value — there is no `100ml` to post (ADR-0052 §1).
+    // What changed is that OFF now has the unit to resolve that 100 against.
+    expect(body.get("nutrition_data_per")).toBe("100g");
+    expect(body.get("nutriment_energy-kcal")).toBe("810");
+    expect(body.get("nutriment_fat")).toBe("91.6");
+  });
+
+  it("judges the dispute against the pack size being POSTED, not the stale one", () => {
+    // OFF holds this product in grams; the user is correcting exactly that. The
+    // old reading compared against OFF's `g` and withheld the numbers, which
+    // punished the correction for the error it was fixing.
+    const body = buildOffWriteBody(
+      "444",
+      {
+        name: "Cordial",
+        packQuantityUnit: "g",
+        packSize: "500 ml",
+        nutrition: { serving_size: "100 ml", calories: 30 },
+      },
+      { user_id: "t", password: "p" }
+    );
+    expect(body.get("quantity")).toBe("500 ml");
+    expect(body.get("nutriment_energy-kcal")).toBe("30");
+  });
+
+  it("still withholds when the pack size CONTRADICTS the basis", () => {
+    // Not a missing fact but a disagreeing one: a per-100-ml panel declared over
+    // a pack sized in grams. ADR-0060 §8's principle is untouched — the pack
+    // size lifts the suppression by ANSWERING the question, never by silencing
+    // it. The name and the pack size still post; only the numbers stay home.
+    const body = buildOffWriteBody(
+      "555",
+      {
+        name: "Oil",
+        packSize: "500 g",
+        nutrition: { serving_size: "100 ml", calories: 810 },
+      },
+      { user_id: "t", password: "p" }
+    );
+    expect(body.get("quantity")).toBe("500 g");
+    expect(body.get("nutrition_data_per")).toBeNull();
+    expect(body.get("nutriment_energy-kcal")).toBeNull();
+  });
+
+  it("omits quantity entirely when no pack size was given", () => {
+    // Suppressed-when-empty, like `ingredients_text`: an untouched field must
+    // never wipe a size OFF already holds.
+    const body = buildOffWriteBody(
+      "666",
+      { name: "Biscuit", nutrition: { serving_size: "100 g", calories: 50 } },
+      { user_id: "t", password: "p" }
+    );
+    expect(body.get("quantity")).toBeNull();
+    expect(body.get("nutriment_energy-kcal")).toBe("50");
   });
 
   it("leaves a per-serving basis alone — its unit is spelled out, not resolved", () => {
@@ -1129,6 +1229,37 @@ describe("offReferenceImagesFromTwin", () => {
         twin({ code: "1", product: { product_quantity_unit: "ml" } })
       )
     ).toBe("ml");
+  });
+
+  it("recovers the pack MAGNITUDE from the same provenance, already parsed by OFF", () => {
+    // OFF publishes the pair split — `product_quantity` beside
+    // `product_quantity_unit` — so nothing re-parses the free-text `quantity`.
+    expect(
+      offPackQuantityFromTwin(
+        twin({ code: "1", product: { product_quantity: 330 } })
+      )
+    ).toBe(330);
+    // OFF sometimes types it as a string; it is still a magnitude.
+    expect(
+      offPackQuantityFromTwin(
+        twin({ code: "1", product: { product_quantity: "43.1" } })
+      )
+    ).toBe(43.1);
+    // A product nobody has sized — the reported oil — carries none, and zero is
+    // not a pack size. Both read as absent so the field opens empty.
+    expect(
+      offPackQuantityFromTwin(twin({ code: "1", product: {} }))
+    ).toBeUndefined();
+    expect(
+      offPackQuantityFromTwin(
+        twin({ code: "1", product: { product_quantity: 0 } })
+      )
+    ).toBeUndefined();
+    expect(
+      offPackQuantityFromTwin(
+        twin({ code: "1", product: { product_quantity: "family size" } })
+      )
+    ).toBeUndefined();
   });
 
   it("reports no pack unit when OFF parsed no quantity, or the twin is not OFF's", () => {

@@ -154,6 +154,19 @@ export interface OFFProduct {
      * not parse a quantity from, which keeps the per-100 g default.
      */
     product_quantity_unit?: string;
+    /**
+     * The pack size exactly as a contributor typed it — "330 ml", "1 gram", or
+     * the empty string. It is the WRITABLE field (ProductOpener's `@app_fields`),
+     * and the one a product like the reported 50 ml oil is simply missing.
+     */
+    quantity?: string;
+    /**
+     * The magnitude OFF parsed out of {@link quantity} — 330 for "330 ml". Read
+     * this rather than re-parsing the text: OFF has already done it, and its
+     * parse is the one that decides {@link product_quantity_unit} and therefore
+     * what the `100` in a per-100 panel counts.
+     */
+    product_quantity?: number | string;
     // Record-level source signals (ADR-0030 §4). All optional; a missing field
     // is omitted from the payload rather than emitted as empty/null.
     brands?: string;
@@ -259,6 +272,46 @@ export function offPackUnitFromTwin(
   attributes: Record<string, unknown> | undefined
 ): string | undefined {
   return offProductFromTwin(attributes)?.product_quantity_unit;
+}
+
+/**
+ * The pack's magnitude as OFF parsed it — 330 for a "330 ml" bottle — read back
+ * off the twin's raw provenance so the capture form opens on what OFF already
+ * has rather than on a blank. Its UNIT is {@link offPackUnitFromTwin}: OFF
+ * publishes the pair already split, so nothing here re-parses the text.
+ *
+ * Absent, unparseable and non-positive all come back `undefined`. A product
+ * nobody has sized carries `quantity: ""` and no magnitude at all, which is the
+ * reported oil's case, and zero is not a pack size.
+ */
+export function offPackQuantityFromTwin(
+  attributes: Record<string, unknown> | undefined
+): number | undefined {
+  const raw = offProductFromTwin(attributes)?.product_quantity;
+  const n = typeof raw === "string" ? Number(raw) : raw;
+  return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+/**
+ * The unit a typed pack size names — "50 ml" ⇒ `ml`, "43.1 gram" ⇒ `g`, an
+ * unrecognised or unitless string ⇒ undefined. This is our reading of what OFF
+ * will parse out of the same text; it exists so a contribution can be judged
+ * against the pack size it is ABOUT to post rather than the one OFF holds now.
+ */
+export function packSizeUnit(packSize: string | undefined): string | undefined {
+  const m =
+    /(\d[\d.,]*)\s*(ml|millilitres?|milliliters?|cl|l|litres?|liters?|g|gr|gram(?:me)?s?|kg|oz)\b/i.exec(
+      packSize ?? ""
+    );
+  if (!m) return undefined;
+  const unit = m[2].toLowerCase();
+  if (
+    /^(ml|millilitre|milliliter|millilitres|milliliters|cl|l|litre|liter|litres|liters)$/.test(
+      unit
+    )
+  )
+    return "ml";
+  return "g";
 }
 
 /**
@@ -728,6 +781,15 @@ export interface OffContribution {
    */
   packQuantityUnit?: string;
   /**
+   * The pack size the user confirmed on the form — "50 ml", "330 ml", "500 g".
+   * Posted as OFF's own writable `quantity` field, which is what OFF parses
+   * {@link packQuantityUnit} out of, so sending it SETTLES what the `100` in our
+   * per-100 panel counts instead of leaving OFF to resolve it against a field it
+   * may not have. That is the whole reason the nutriments used to be withheld
+   * (ADR-0060 §8), and supplying this is what stops them being withheld.
+   */
+  packSize?: string;
+  /**
    * The confirmed panel: grams (kcal for energy), `serving_size` its basis. Only
    * the keys the user actually supplied are present — an absent key is simply not
    * posted (absent ≠ 0), so a partial panel never writes phantom zeroes to OFF.
@@ -804,10 +866,27 @@ export function buildOffWriteBody(
   // Letting a `100 ml` panel fall through to `serving` would be worse still: it
   // would declare the whole nutriment set as one serving of "100 ml".
   //
+  // The pack size, when the user gave one. `quantity` is writable on this very
+  // endpoint — it sits in ProductOpener's own `@app_fields` beside product_name
+  // and brands — and it is the field OFF parses `product_quantity_unit` out of.
+  // Posting it is therefore how a per-100 ml panel says so: not by an enum value
+  // that does not exist, but by telling OFF what the pack is measured in.
+  const packSize = contribution.packSize?.trim();
+  if (packSize) body.set("quantity", packSize);
+
   // That `100g` is only right while OFF's resolution lands on the unit we
-  // actually measured in, which is what {@link basisUnitDisputed} checks — and
-  // when it doesn't, the whole nutriment set stays home (ADR-0060 §8).
-  if (!basisUnitDisputed(n.serving_size, contribution.packQuantityUnit)) {
+  // actually measured in, which is what {@link basisUnitDisputed} checks. It is
+  // asked of the pack size we are POSTING, not the one OFF holds now: sending
+  // "50 ml" beside a per-100-ml panel leaves nothing to disagree about, which is
+  // exactly how a product OFF has no quantity for stops costing the contributor
+  // their numbers (ADR-0060 §8, as amended).
+  if (
+    !contributionWithholdsNutriments(
+      n.serving_size,
+      packSize,
+      contribution.packQuantityUnit
+    )
+  ) {
     const per100 = isPer100Basis(n.serving_size);
     body.set("nutrition_data_per", per100 ? "100g" : "serving");
     if (!per100 && n.serving_size) body.set("serving_size", n.serving_size);
@@ -850,6 +929,28 @@ export function buildOffWriteBody(
  * disagree with. (A serving is always stamped in grams today; a volume serving
  * basis is the gap ADR-0060 leaves open, not one this guard can close.)
  */
+/**
+ * Would a contribution keep its nutriments to itself (ADR-0060 §8)? The form
+ * asks this to say so BEFORE the user sends, and {@link buildOffWriteBody} asks
+ * it to decide — one reader, so the warning and the behaviour cannot drift into
+ * disagreeing about the same product.
+ *
+ * The unit weighed is the one this contribution is ABOUT to establish: the pack
+ * size being posted where there is one, and only otherwise the unit OFF holds
+ * now. Stating the pack size is therefore how a per-100-ml panel becomes
+ * postable at all, since OFF has no `100ml` basis value to send.
+ */
+export function contributionWithholdsNutriments(
+  serving_size: string | undefined,
+  packSize: string | undefined,
+  packQuantityUnit: string | undefined
+): boolean {
+  return basisUnitDisputed(
+    serving_size,
+    packSizeUnit(packSize) ?? packQuantityUnit
+  );
+}
+
 function basisUnitDisputed(
   serving_size: string | undefined,
   packQuantityUnit: string | undefined

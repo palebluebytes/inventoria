@@ -1066,13 +1066,21 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       page.locator(".cf-group", { hasText: "Vitamins" })
     ).toBeVisible();
 
-    // All three bases are offered on a fresh capture (ADR-0060 §7). The 100 ml
-    // cell used to appear only on a form seeded from a drink OFF already
-    // published by volume, which left a bottle printing "per 100 ml" no way to
-    // say so — and this door, having no OFF record at all, never seeded one.
+    // A capture is read against one of TWO bases, both of them measured: 100 g,
+    // or the 100 ml a bottle prints (ADR-0060 §7, as amended). The 100 ml cell
+    // used to appear only on a form seeded from a drink OFF already published by
+    // volume, which left a bottle printing "per 100 ml" no way to say so — and
+    // this door, having no OFF record at all, never seeded one.
+    //
+    // `serving` is not among them and no longer exists: a capture saved against
+    // it named no unit, so the food could not afterwards be edited by amount.
+    // Nothing OFF publishes needs it — it computes a per-100 figure for every
+    // product, and the serving it does publish arrives as a portion chip.
     const basis = page.locator('[data-testid="cf-basis"]');
-    await expect(basis.locator("[data-value]")).toHaveCount(3);
+    await expect(basis.locator("[data-value]")).toHaveCount(2);
     await expect(basis.locator('[data-value="per_100ml"]')).toBeVisible();
+    await expect(basis.locator('[data-value="per_serving"]')).toHaveCount(0);
+    await expect(page.locator("#cf-serving-grams")).toHaveCount(0);
 
     // Fast path plus one micro: name + calories, then Iron typed in mg (grams are
     // stored via the parseNutrientEntry round-trip, §3). Protein/fat/carbs and
@@ -1096,10 +1104,15 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     await page.locator("#log-food-btn").click();
 
-    // The captured food logs into the meal exactly like any other (§6).
+    // The captured food logs into the meal exactly like any other (§6), and the
+    // receipt names the basis the panel was read at rather than a bare
+    // "1 serving": the 180 kcal frozen beside it ARE the per-100 g figures, and
+    // a quantity naming no unit is one `resolveAmountEdit` has no divisor for —
+    // which is what left a captured food re-opening this whole form when the
+    // user only wanted to change how much of it they ate.
     const lunchSection = page.locator(".meal-section", { hasText: "LUNCH" });
     await expect(lunchSection).toContainText("Homemade Dal");
-    await expect(lunchSection).toContainText("1 serving");
+    await expect(lunchSection).toContainText("100g");
     await expect(lunchSection).toContainText("180 kcal");
   });
 
@@ -1365,6 +1378,235 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.locator('[data-testid="origin-badge"]')).toHaveText(
       "✏️ edited from label"
     );
+  });
+
+  // A capture read against a per-100 basis stays amount-editable afterwards.
+  //
+  // Reported against a 50 ml bottle of La Chinata olive oil: scan it, take the
+  // found-but-poor door, set "Values per" to 100 ml, save — and tapping the food
+  // re-opened the whole label form asking for every nutrient again, when all the
+  // user wanted was to say how much of it they had. Two halves, and either one
+  // alone reproduced it (measured, #59 follow-up):
+  //
+  //   • the commit wrote a flat "1 serving" for every capture, though the macros
+  //     it froze alongside are the panel's per-100 figures;
+  //   • `resolveAmountEdit` could only rescue a "1 serving" log by finding a
+  //     GRAM serving weight, and `servingSizeGrams` returns null for "100 g" by
+  //     construction and for every volume — so a per-100 panel's own divisor,
+  //     sitting right there on `serving_size`, was never asked for.
+  //
+  // The basis toggle is NOT what triggers it: per 100 g reproduced identically.
+  // It is pinned here on 100 ml because that is the shape the report arrived in
+  // and the one no gram-shaped reader can serve (ADR-0060 §2: nothing converts).
+  test("keeps a per-100 label capture amount-editable, in its own unit", async ({
+    page,
+  }) => {
+    const OIL_CODE = "8436578483808";
+    await page.route(`**/api/v3/product/${OIL_CODE}.json`, async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          code: OIL_CODE,
+          status: "success",
+          // The real OFF record, trimmed to what the mapper reads: a 6-character
+          // name over 0.375 completeness is what trips `isPoorFoodTwin`, and it
+          // publishes no serving and no portions — so there is no gram weight
+          // anywhere for the old reader to fall back on.
+          product: {
+            product_name: "Aceite",
+            brands: "La Chinata",
+            completeness: 0.375,
+            nutrition_data_per: "100g",
+            nutriments: {
+              "energy-kcal_100g": 884,
+              proteins_100g: 0,
+              fat_100g: 100,
+              carbohydrates_100g: 0,
+            },
+          },
+        }),
+      });
+    });
+
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+
+    await page
+      .getByRole("button", { name: "Scan a barcode for lunch" })
+      .click();
+    await page.locator("#barcode-input").fill(OIL_CODE);
+    await page.locator("#barcode-input").press("Enter");
+
+    await expect(page.locator('[data-testid="poor-nudge"]')).toBeVisible();
+    await page.locator('[data-testid="poor-nudge-improve"]').click();
+    await expect(page.locator('[data-testid="capture-reason"]')).toBeVisible();
+
+    // An oil is sold by volume, so the label is read per 100 ml (ADR-0060 §7).
+    // Nothing converts on the way (§2) and nothing is cleared either: OFF's
+    // prefilled per-100-g figures are typed over with the ml ones the label
+    // prints, which is what this form is for.
+    await page
+      .locator('[data-testid="cf-basis"] [data-value="per_100ml"]')
+      .click();
+    await page.locator("#custom-cal").fill("810");
+    await page.locator("#custom-fat").fill("91.6");
+    await page.locator("#custom-name").fill("Olive Oil");
+    await page.locator("#log-food-btn").click();
+
+    // The receipt names the basis it was read at, in the panel's own unit — not
+    // a weight the oil was never measured in, and not a unitless "1 serving".
+    const lunch = page.locator(".meal-section", { hasText: "LUNCH" });
+    await expect(lunch).toContainText("Olive Oil");
+    await expect(lunch).toContainText("100ml");
+
+    // Tapping it offers the amount, and ONLY the amount: the label form the
+    // capture was made on does not come back.
+    await lunch.locator(".meal-item-card", { hasText: "Olive Oil" }).click();
+    const sheet = page.locator(".amount-sheet");
+    await expect(sheet).toBeVisible();
+    await expect(page.locator('[data-testid="capture-reason"]')).toHaveCount(0);
+    await expect(sheet.getByLabel("Amount in millilitres")).toHaveValue("100");
+
+    // And it scales by the basis it was read at: half the bottle, half of 810.
+    await sheet.getByLabel("Amount in millilitres").fill("50");
+    await sheet.locator("#amount-done-btn").click();
+    await expect(sheet).toBeHidden();
+    await expect(lunch).toContainText("50ml");
+    await expect(lunch).toContainText("405 kcal");
+  });
+
+  // The pack size, which is why the reported bottle went wrong in the first
+  // place. Open Food Facts holds `quantity: ""` for it — nothing in the record
+  // knows it is 50 ml — so the mapper falls back to grams and the form opens on
+  // G. Stating it is what lets a per-100-ml reading be contributed rather than
+  // withheld: OFF has no `100ml` basis to post and resolves its own `100`
+  // against the unit it parses out of `quantity` (ADR-0060's 2026-08-31
+  // Amendment).
+  test("takes the pack size, seeded from Open Food Facts when it has one", async ({
+    page,
+  }) => {
+    const SIZED = "0000000000051";
+    await page.route(`**/api/v3/product/${SIZED}.json`, async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          code: SIZED,
+          status: "success",
+          product: {
+            product_name: "Fizzy",
+            completeness: 0.375,
+            quantity: "330 ml",
+            product_quantity: 330,
+            product_quantity_unit: "ml",
+            nutriments: {
+              "energy-kcal_100g": 42,
+              proteins_100g: 0,
+              fat_100g: 0,
+              carbohydrates_100g: 10.6,
+            },
+          },
+        }),
+      });
+    });
+
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await page
+      .getByRole("button", { name: "Scan a barcode for lunch" })
+      .click();
+    await page.locator("#barcode-input").fill(SIZED);
+    await page.locator("#barcode-input").press("Enter");
+    await page.locator('[data-testid="poor-nudge-improve"]').click();
+
+    // A pack OFF sizes in ml arrives with its magnitude filled and its unit
+    // already selected — OFF publishes the pair split, so neither is typed. The
+    // panel is not asked a second time: one unit, stated beside the magnitude,
+    // and the line below says what the figures therefore mean. That is Open Food
+    // Facts' own model — it has no per-panel unit, and resolves its `100`
+    // against `product_quantity_unit`.
+    const basis = page.locator('[data-testid="cf-basis"]');
+    await expect(page.locator("#cf-pack-size")).toHaveValue("330");
+    await expect(basis.locator('[data-value="per_100ml"]')).toHaveAttribute(
+      "data-state",
+      "checked"
+    );
+    await expect(
+      page.locator('[data-testid="cf-basis-derived"]')
+    ).toContainText("Values per 100 ml");
+    await expect(page.locator('[data-testid="cf-pack-hint"]')).toHaveCount(0);
+
+    // OFF only SEEDS it. The person holding the packet can always overrule —
+    // hiding the control whenever OFF had an opinion left a wrong record with
+    // no way to be corrected by the one reader who could see it was wrong.
+    await basis.locator('[data-value="per_100g"]').click();
+    await expect(
+      page.locator('[data-testid="cf-basis-derived"]')
+    ).toContainText("Values per 100 g");
+  });
+
+  test("takes the unit from the user when nothing has sized the pack", async ({
+    page,
+  }) => {
+    const OIL = "0000000000061";
+    await page.route(`**/api/v3/product/${OIL}.json`, async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          code: OIL,
+          status: "success",
+          // The reported record: no `quantity` at all.
+          product: {
+            product_name: "Aceite",
+            completeness: 0.375,
+            nutriments: { "energy-kcal_100g": 884, fat_100g: 100 },
+          },
+        }),
+      });
+    });
+
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await page
+      .getByRole("button", { name: "Scan a barcode for lunch" })
+      .click();
+    await page.locator("#barcode-input").fill(OIL);
+    await page.locator("#barcode-input").press("Enter");
+    await page.locator('[data-testid="poor-nudge-improve"]').click();
+
+    // OFF holds no quantity for this one, so it seeds nothing: the magnitude
+    // opens empty and the unit falls to grams, which is what OFF's own `100`
+    // resolves to in the absence of a pack unit.
+    const basis = page.locator('[data-testid="cf-basis"]');
+    await expect(page.locator("#cf-pack-size")).toHaveValue("");
+    await expect(basis.locator('[data-value="per_100g"]')).toHaveAttribute(
+      "data-state",
+      "checked"
+    );
+    await expect(page.locator('[data-testid="cf-pack-hint"]')).toHaveCount(0);
+
+    // Declaring ml over a pack nothing has sized is precisely the case whose
+    // numbers used to be dropped in silence. Now it says what would fix it.
+    await basis.locator('[data-value="per_100ml"]').click();
+    await expect(
+      page.locator('[data-testid="cf-basis-derived"]')
+    ).toContainText("Values per 100 ml");
+    await expect(page.locator('[data-testid="cf-pack-hint"]')).toContainText(
+      "pack size in ml"
+    );
+
+    // Giving the magnitude answers it: 50 in the unit already settled, which is
+    // what the contribution posts, so nothing is left to disagree with.
+    await page.locator("#cf-pack-size").fill("50");
+    await expect(page.locator('[data-testid="cf-pack-hint"]')).toHaveCount(0);
+
+    // It is never a gate: the panel saves either way, and the hint is only ever
+    // about what a contribution can carry.
+    await page.locator("#custom-name").fill("Olive Oil");
+    await page.locator("#custom-cal").fill("810");
+    await page.locator("#log-food-btn").click();
+    await expect(
+      page.locator(".meal-section", { hasText: "LUNCH" })
+    ).toContainText("Olive Oil");
   });
 
   // Select two logged foods and start building a recipe from them.

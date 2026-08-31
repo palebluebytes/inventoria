@@ -201,6 +201,9 @@ The read-along form's toggle becomes three-way — `100 g` / `100 ml` / `serving
 retiring ADR-0052 §5's "never offered, only inverted" clause. A user transcribing a
 per-100 ml label can now say so.
 
+> Amended by the [2026-08-30 Amendment](#amendment-2026-08-30-7s-toggle-offers-two-bases-and-serving-is-deleted):
+> the toggle offers two bases, and `serving` is removed from `Basis`.
+
 `ai-autofill.ts`'s `NutritionBasis` is **deleted** and the module imports `Basis` from
 `label-form.ts`. They were always one concept, the duplicate had been provably wrong
 since #148 shipped, and `FoodStager.svelte:612` already assigns one into the other's
@@ -332,3 +335,210 @@ than being discovered in the code:
 Neither is a correction of §8's rule. Both are that rule meeting a case §8 did not
 enumerate, and both fail in the direction §8 chose: a contribution withheld rather
 than a basis mislabelled.
+
+## Amendment (2026-08-30): §7's toggle offers two bases, and `serving` is deleted
+
+§7 made the capture form's toggle three-way and retired ADR-0052 §5's "never
+offered, only inverted" clause. It retired by one cell too many. The `serving`
+cell is **removed**, and `Basis` narrows to `per_100g | per_100ml` — not hidden,
+not inverted-only, gone: `resolveServingSize` becomes total over the two,
+`invertServingSize` returns a `Basis` rather than a basis-plus-weight pair, and
+`LabelPanelInput.servingGrams` and the `g / serving` field it fed are deleted
+with it.
+
+The reason is §1's own, read forward one step. A per-100 panel names its divisor,
+so a food captured against one is entered, logged and re-edited in millilitres or
+grams. A panel read against a serving of unstated weight names none, and the
+`"1 serving"` receipt that followed is a quantity `resolveAmountEdit` has nothing
+to scale — so the food could not afterwards be edited by amount at all. Tapping
+it re-opened the whole capture form, asking for every nutrient again, when the
+only thing the user wanted to change was how much of it they had eaten. A basis
+the form offers is a basis a person will pick, and this one cost them the amount
+screen.
+
+What §7 argued for `100 ml` does not carry across. That cell was withheld while a
+real situation demanded it: a bottle printing "per 100 ml" could be transcribed
+only as a weight it was never measured in, which is the conversion §2 forbids.
+No situation demands `serving` in the same way, and Open Food Facts is the
+evidence — measured on four products, 2026-08-30:
+
+| product                    | `quantity` | `product_quantity_unit` | `nutrition_data_per` | `serving_size`       |
+| -------------------------- | ---------- | ----------------------- | -------------------- | -------------------- |
+| Aceite (La Chinata, 50 ml) | `""`       | absent                  | `100g`               | absent               |
+| Coca-Cola 330 ml           | `330 ml`   | `ml`                    | `100g`               | `1 portion (330 ml)` |
+| Nutella                    | `""`       | absent                  | `100g`               | absent               |
+| Twix glacé                 | `1 gram`   | `g`                     | `100g`               | `43.1 gram`          |
+
+Three readings, and each answers a different question this record left open.
+
+**OFF always has a per-100 figure.** `energy-kcal_100g` is populated on all four,
+including where a serving exists: OFF computes the per-100 column itself whatever
+`nutrition_data_per` says. So no scanned product ever needs a serving basis to be
+read, which is what makes the cell removable rather than merely unpopular.
+
+**`nutrition_data_per` cannot answer g-versus-ml, and the table shows why.** It
+reads `100g` on the 330 ml Coca-Cola. Its enum is `serving | 100g` and holds no
+`100ml` at all, which is exactly why ADR-0052 §1 reads `product_quantity_unit`
+instead — `ml` on the Coke, `g` on the Twix.
+
+**A pack OFF holds no `quantity` for falls back to grams, and that is a real
+gap, not a bug in this decision.** The oil is sold in 50 ml and OFF's `quantity`
+is the empty string, so `offPanelBasis` sees no unit and stamps `100 g`. The user
+who reported this was switching the toggle to `100 ml` to correct OFF's missing
+data. The two-cell toggle is what lets them, and it is the whole reason the
+`100 ml` cell §7 added must stay.
+
+**The serving OFF does publish is not lost.** It arrives as a `food/portions`
+entry through `offPortions` — 330 ml on the Coke, 43.1 g on the Twix — carried in
+whichever of §6's sibling fields its `serving_quantity_unit` names. A serving is
+a portion, offered as a one-tap chip on the amount screen; it was never the thing
+a basis had to express.
+
+**The cost, stated plainly, and the compatibility that is not kept.** A label
+printing only "Amount per serving" — the US Nutrition Facts panel — can no longer
+be transcribed as what it says. It is entered per 100 g, which for such a label
+means doing arithmetic the form used to accept on the user's behalf. And a twin
+already in the ledger whose panel is `N g` or `1 serving` now inverts onto this
+form as per 100 g, so re-saving one **relabels its figures**. Only the
+manual-entry writers still mint those panels (`saveCustomFood`,
+`saveManualFood`), and their twins re-open on their own mini-form rather than
+here — nothing routes a per-serving panel to this form. Accepted deliberately
+rather than guarded: an entry whose amount nobody can correct is the worse
+failure, and a guard for a path nothing takes is a guard that rots.
+
+## Amendment (2026-08-31): the basis toggle asks for the unit, and changing it touches nothing
+
+**It asks one question, not two.** The toggle reads `Values per 100` over cells
+`g` and `ml`, not `Values per` over `100 g` and `100 ml`. There was only ever one
+basis here — per 100 of the product's own unit — and the magnitude was never in
+question; presenting two whole bases invited reading them as alternatives when
+the only variable is which unit the 100 counts.
+
+**Changing it does nothing to the figures.** Not converting them (§2 forbids it),
+and not clearing them either. This is written down because the opposite was built
+first, twice, and both versions were wrong.
+
+The case for clearing looked strong and was measured: the found-but-poor door
+prefills Open Food Facts' panel, and for the reported product that panel is
+884 kcal with 100 g of fat, stated per 100 g. Move the toggle to `ml` and both
+numbers stay — which asserts a panel no liquid can have, since 100 g of fat does
+not fit in 100 ml of an oil weighing about 0.92 g per ml.
+
+Clearing them was still the wrong remedy, and the reason is what this form IS.
+The read-along form is a transcription surface: it lays every row out in the
+label's own order, it has a per-row "not on label" control, and the door that
+prefills it exists precisely to make the user read each row against the packet in
+their hand. On such a surface the figures and the basis are on screen together
+and the person is looking at both. A prefilled figure is a starting point offered
+to a reader, not a claim the app is making on its own account.
+
+The first version cleared every figure and was reported the same day, from a real
+ten-row transcription destroyed by one tap. The second cleared only the rows a
+source had supplied and the user had not yet touched — narrower, defensible, and
+still a surprise arriving in the middle of typing, still spending the user's
+attention on a distinction they did not draw. A form whose whole premise is that
+the user reads every row does not also need to police what they read.
+
+So the remaining exposure is a bad prefilled figure carried across a basis
+change, and it is accepted: it is an instance of the general problem that a poor
+Open Food Facts record can be saved unimproved, which the nudge already addresses
+in the one way this app addresses it — by showing the user the record and asking
+them to check it. It is not a property of the toggle, and it is not fixed by
+making the toggle destructive.
+
+## Amendment (2026-08-31): the pack size is captured and contributed, and §8 stops costing anybody their numbers
+
+§8 withholds a contribution's whole nutriment set when the pack's unit and the
+basis we measured against disagree, and the 2026-08-26 Amendment widened that to
+an ABSENT pack unit — reasoning that a product Open Food Facts holds no
+`quantity` for gives its `100` nothing to resolve against, so a per-100-ml panel
+would post figures OFF reads as per 100 g.
+
+That reasoning is still right. The remedy was not: it treated a **missing fact**
+as if it were a **disagreement**, and made the contributor pay for it. Measured on
+the reported product, whose OFF record carries `quantity: ""`, a per-100-ml
+correction posted this and nothing more:
+
+```
+code
+product_name
+add_brands
+```
+
+Four nutriments dropped in silence, and the same person tapping `g` instead
+would have had all four posted. Nothing on screen said so.
+
+**`quantity` is writable, on the endpoint we already post to.** It sits in
+ProductOpener's own `@app_fields` in `cgi/product_jqm_multilingual.pl`, beside
+`product_name` and `brands` — read from the source, not inferred. And it is
+precisely the field OFF parses `product_quantity_unit` out of. So the missing
+fact is one we can supply:
+
+- The capture form takes a **pack size** — "50 ml", "330 ml", "500 g" — seeded
+  from OFF's own `quantity` when it holds one, so the common case asks for
+  nothing.
+- `buildOffWriteBody` posts it as `quantity`, suppressed-when-empty like
+  `ingredients_text`, so an untouched field never wipes a size OFF already has.
+- §8's question is then asked of the pack size **being posted**, not the one OFF
+  holds now. Sending `quantity: "50 ml"` beside a per-100-ml panel leaves nothing
+  to disagree about, and all four nutriments go.
+
+This does not weaken §8, and the distinction is the point. A pack size the user
+states **answers** the question §8 asks; it never silences it. A per-100-ml panel
+declared over a pack sized `500 g` is a real contradiction, not a gap, and its
+numbers still stay home — the name and the pack size post, the figures do not.
+The principle §8 rests on, that writing a wrong basis into a public database is
+worse than a wrong number on our own panel, is untouched: what changed is that
+the case which used to fail it is now a case we can settle.
+
+**Two things it buys beyond the contribution.** The pack size is real data OFF is
+missing, and its absence is why the reported bottle opens on grams for every
+person who scans it — a correction that could not name the size could not stop
+that happening again. And the form now says what would fix it, in place of the
+silence: declaring `ml` against a pack nothing can size shows a line offering the
+pack size, worded as what it is. It is never a gate. The panel saves either way;
+the prompt is only ever about what a contribution can carry.
+
+## Amendment (2026-08-31): one unit control, beside the pack's magnitude, always the user's
+
+The amendment above left the unit stated in two places — once on the pack size
+and once on the `Values per 100` toggle — which could disagree, and whose
+disagreement was the very thing that withheld a contribution's numbers. Asking
+one question twice and then warning about the answers is not a design.
+
+**There is one control, and it sits with the pack's magnitude.** `Pack size`
+takes a bare number, and the `g` / `ml` cells sit immediately to its right. The
+unit is one fact about the pack, not a second question about the panel, so it is
+asked where the pack is described; a line below states the consequence — `Values
+per 100 ml.` — rather than asking again. This is Open Food Facts' own model taken
+seriously rather than mirrored in shape: OFF has no per-panel unit at all, and
+resolves its `100` against the `product_quantity_unit` it parses out of
+`quantity`.
+
+**The magnitude is a number, and OFF's own parse supplies both parts.** OFF
+publishes the pair already split — `product_quantity: 330` beside
+`product_quantity_unit: "ml"` — so nothing re-parses its free-text `quantity`,
+and the person supplies at most a number. `offPackQuantityFromTwin` reads the
+magnitude; the unit arrives through `invertServingSize` on the basis the mapper
+already stamped from that same field.
+
+**Open Food Facts seeds the unit and never overrules it.** An intermediate build
+hid the control whenever OFF held a pack unit, on the reasoning that the record
+had already answered. That is wrong in the case that matters most: a record can
+be wrong or absent, and the one person able to tell is the one holding the packet,
+who was left with no way to say so. Seeding is the whole of OFF's authority here.
+
+**§8's question becomes unaskable once a magnitude is given**, because the
+`quantity` posted is spelled in the very unit the basis was declared in.
+`contributionWithholdsNutriments` is one exported reader shared by
+`buildOffWriteBody` and the form's own warning, so what the form promises and
+what the writer does cannot drift; the warning it drives now speaks only for a
+pack whose magnitude is still blank.
+
+**Two ideas rejected on the way.** Mirroring `nutrition_data_per` outright — a
+`serving | per 100` toggle beside the pack — was rejected because it brings back
+the per-serving basis this record deleted on 2026-08-30, and a serving stated in
+millilitres (OFF's `serving_quantity_unit` is `g` or `ml`) reaches
+`servingSizeGrams`, whose regex requires grams, so it returns null and the food
+is not amount-editable: the original defect, restored. Deriving the unit from the
+record with no control at all was rejected above.

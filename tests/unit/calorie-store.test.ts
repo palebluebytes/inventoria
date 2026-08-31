@@ -24,10 +24,10 @@ import {
 } from "../../src/lib/food/consumption-state";
 import type { ReferenceIngredient } from "../../src/lib/food/recipe-nutrition";
 import {
+  basisUnit,
+  parseBasisQuantity,
   roundFood,
   scaleNutrition,
-  servingSizeGrams,
-  servingSizePortion,
 } from "../../src/lib/food/nutrition";
 import { buildLabelPanel } from "../../src/lib/food/label-form";
 import { parseLoggedQuantity } from "../../src/lib/food/recipe-ingredient";
@@ -1430,12 +1430,18 @@ describe("store action → computeConsumption round-trip (Seam 2)", () => {
   });
 });
 
-// Regression: after the OFF update flow (saveLabelFood on a gtin: twin, logged
-// "1 serving"), tapping the food used to reopen the full updater seeded ONLY from
-// the event's four frozen macros — dropping the 30 g serving and the rest of the
-// panel. The fix routes such a food to the shared amount screen, rebuilt from the
-// TWIN. This proves everything that screen needs is recoverable from the twin.
-describe("label-food edit is lossless (serving + panel survive on the twin)", () => {
+// Regression: after the OFF update flow (saveLabelFood on a gtin: twin), tapping
+// the food used to reopen the full updater seeded ONLY from the event's four
+// frozen macros — dropping the basis and the rest of the panel. The fix routes
+// such a food to the shared amount screen, rebuilt from the TWIN. This proves
+// everything that screen needs is recoverable from the twin.
+//
+// The capture is per 100 ml here because that is now the shape the form writes:
+// its toggle offers only the two per-100 bases (ADR-0060's 2026-08-30
+// Amendment), so a captured panel always names the divisor the amount screen
+// scales by. `servingSizeGrams` / `servingSizePortion`, which the per-serving
+// version of this test also exercised, are covered directly in nutrition.test.ts.
+describe("label-food edit is lossless (basis + panel survive on the twin)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.restoreAllMocks();
@@ -1449,13 +1455,13 @@ describe("label-food edit is lossless (serving + panel survive on the twin)", ()
       value: JSON.stringify(d.value),
     }));
 
-  it("recovers the corrected name, the 30 g serving chip and the full panel", async () => {
+  it("recovers the corrected name, the millilitre basis and the full panel", async () => {
     const appended: any[] = [];
     vi.spyOn(dbClient, "append").mockImplementation(async (d: any) => {
       appended.push(...d);
     });
 
-    // The user set name "Peanut Butter" and serving "1 serving = 30 g".
+    // The user set name "Peanut Butter" and read the label per 100 ml.
     const panel = buildLabelPanel({
       values: {
         calories: "190",
@@ -1463,8 +1469,7 @@ describe("label-food edit is lossless (serving + panel survive on the twin)", ()
         fat_content: "16",
         carbohydrate_content: "6",
       },
-      basis: "per_serving",
-      servingGrams: "30",
+      basis: "per_100ml",
       skipped: new Set(),
     }).nutrition;
 
@@ -1487,14 +1492,14 @@ describe("label-food edit is lossless (serving + panel survive on the twin)", ()
       labelPhotos: [],
       labelCapture: buildLabelCapture({
         method: "manual",
-        basis: "1 serving",
+        basis: "100 ml",
         fields: ["name", "nutriments"],
       }),
       entityId: gtin,
     });
     await logFoodConsumption(
       twinId,
-      "1 serving",
+      "100ml",
       "snack",
       190,
       7,
@@ -1503,11 +1508,14 @@ describe("label-food edit is lossless (serving + panel survive on the twin)", ()
       new Date("2026-08-01T12:00:00")
     );
 
-    // The dashboard's view of the logged food: a serving-unit event named right.
+    // The dashboard's view of the logged food: a millilitre event named right.
     const ev = computeConsumption(asLedger(appended)).find(
       (e) => e.target === gtin
     )!;
-    expect(parseLoggedQuantity(ev.quantity!).unit).toBe("serving");
+    expect(parseLoggedQuantity(ev.quantity!)).toEqual({
+      amount: 100,
+      unit: "ml",
+    });
     expect(ev.foodName).toBe("Peanut Butter");
 
     // editItem re-loads the twin to build the amount screen — the fix. Everything
@@ -1516,11 +1524,10 @@ describe("label-food edit is lossless (serving + panel survive on the twin)", ()
     const twin = await getLocalFoodTwin(gtin);
     const twinPanel = twin.attributes["nutrition/info"] as NutritionInfo;
 
-    // The 30 g serving drives both the amount routing and the surfaced chip.
-    expect(servingSizeGrams(twinPanel.serving_size)).toBe(30);
-    expect(servingSizePortion(twinPanel)).toEqual([
-      { label: "1 serving", amount: 1, unit: "serving", grams: 30 },
-    ]);
+    // The basis drives the amount routing: the unit the screen enters in, and
+    // the divisor it scales by — neither of them recoverable from the event.
+    expect(basisUnit(twinPanel.serving_size)).toBe("ml");
+    expect(parseBasisQuantity(twinPanel.serving_size)).toBe(100);
     // The corrected name won the fold; the full panel is intact (not 4 macros only).
     expect(twin.attributes["food/name"]).toBe("Peanut Butter");
     expect(twinPanel.calories).toBe(190);

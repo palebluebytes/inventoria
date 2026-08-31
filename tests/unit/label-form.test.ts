@@ -8,6 +8,7 @@ import {
   splitPortionRows,
   ALL_FIELDS,
 } from "../../src/lib/food/label-form";
+import { parseBasisQuantity } from "../../src/lib/food/nutrition";
 import type { Portion } from "../../src/lib/food/nutrition";
 import { formatNutrientValue } from "../../src/lib/food/nutrient-display";
 
@@ -23,50 +24,38 @@ function blankValues(): Record<string, string> {
 
 describe("invertServingSize (serving_size → basis, the inverse)", () => {
   it("round-trips every basis resolveServingSize can emit", () => {
-    for (const [basis, servingGrams] of [
-      ["per_100g", ""],
-      ["per_100ml", ""],
-      ["per_serving", "45"],
-      ["per_serving", ""],
-    ] as const) {
-      expect(
-        invertServingSize(resolveServingSize(basis, servingGrams))
-      ).toEqual({ basis, servingGrams });
+    for (const basis of ["per_100g", "per_100ml"] as const) {
+      expect(invertServingSize(resolveServingSize(basis))).toBe(basis);
     }
   });
 
-  it("reads a basis it has no field for as a weightless serving", () => {
-    expect(invertServingSize(undefined)).toEqual({
-      basis: "per_serving",
-      servingGrams: "",
-    });
-    expect(invertServingSize("1 portion (330 ml)")).toEqual({
-      basis: "per_serving",
-      servingGrams: "",
-    });
+  it("reads a basis it has no cell for as per 100 g", () => {
+    // Only the manual-entry writers still mint these, and their twins re-open
+    // on their own mini-form rather than here (ADR-0060's 2026-08-30
+    // Amendment). Nothing routes one to this form, so the fallback is a total
+    // function's last arm rather than a case the UI can reach.
+    expect(invertServingSize(undefined)).toBe("per_100g");
+    expect(invertServingSize("1 serving")).toBe("per_100g");
+    expect(invertServingSize("30 g")).toBe("per_100g");
+    expect(invertServingSize("1 portion (330 ml)")).toBe("per_100g");
   });
 });
 
 describe("resolveServingSize (basis → serving_size, §3)", () => {
   it("per-100 g resolves to the canonical '100 g'", () => {
-    expect(resolveServingSize("per_100g", "")).toBe("100 g");
-    // The serving-grams field is ignored when the basis is per-100 g.
-    expect(resolveServingSize("per_100g", "45")).toBe("100 g");
+    expect(resolveServingSize("per_100g")).toBe("100 g");
   });
 
   it("per-100 ml resolves to '100 ml', the basis OFF published (#148)", () => {
-    // Only ever inverted back out of a drink twin, never chosen from scratch:
-    // correcting a drink must not restamp its volume basis as a weight.
-    expect(resolveServingSize("per_100ml", "")).toBe("100 ml");
-    expect(resolveServingSize("per_100ml", "45")).toBe("100 ml");
+    expect(resolveServingSize("per_100ml")).toBe("100 ml");
   });
 
-  it("per-serving resolves to 'N g' with a weight, else bare '1 serving'", () => {
-    expect(resolveServingSize("per_serving", "45")).toBe("45 g");
-    expect(resolveServingSize("per_serving", "")).toBe("1 serving");
-    // A non-positive / non-numeric weight is not a gram basis.
-    expect(resolveServingSize("per_serving", "0")).toBe("1 serving");
-    expect(resolveServingSize("per_serving", "abc")).toBe("1 serving");
+  it("emits only bases that name a divisor", () => {
+    // The whole point of dropping the per-serving cell: every panel this form
+    // writes can be scaled, so the food it captures stays editable by amount.
+    for (const basis of ["per_100g", "per_100ml"] as const) {
+      expect(parseBasisQuantity(resolveServingSize(basis))).toBe(100);
+    }
   });
 });
 
@@ -81,7 +70,6 @@ describe("buildLabelPanel (typed rows → stored grams panel)", () => {
     const { nutrition, filledKeys } = buildLabelPanel({
       values,
       basis: "per_100g",
-      servingGrams: "",
       skipped: new Set(),
     });
 
@@ -113,7 +101,6 @@ describe("buildLabelPanel (typed rows → stored grams panel)", () => {
     const { nutrition, filledKeys } = buildLabelPanel({
       values,
       basis: "per_100g",
-      servingGrams: "",
       skipped: new Set(),
     });
 
@@ -133,7 +120,6 @@ describe("buildLabelPanel (typed rows → stored grams panel)", () => {
     const { nutrition } = buildLabelPanel({
       values,
       basis: "per_100g",
-      servingGrams: "",
       skipped: new Set(),
     });
 
@@ -149,7 +135,6 @@ describe("buildLabelPanel (typed rows → stored grams panel)", () => {
     const { nutrition, filledKeys } = buildLabelPanel({
       values,
       basis: "per_100g",
-      servingGrams: "",
       skipped: new Set(["sugar_content"]),
     });
 
@@ -157,18 +142,17 @@ describe("buildLabelPanel (typed rows → stored grams panel)", () => {
     expect(filledKeys).toEqual(["calories"]);
   });
 
-  it("resolves a per-serving basis onto the panel's serving_size", () => {
+  it("resolves a millilitre basis onto the panel's serving_size", () => {
     const values = blankValues();
     values.calories = "180";
 
     const { nutrition } = buildLabelPanel({
       values,
-      basis: "per_serving",
-      servingGrams: "30",
+      basis: "per_100ml",
       skipped: new Set(),
     });
 
-    expect(nutrition.serving_size).toBe("30 g");
+    expect(nutrition.serving_size).toBe("100 ml");
   });
 });
 

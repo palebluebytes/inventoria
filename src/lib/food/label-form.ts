@@ -21,30 +21,37 @@ import {
   type NutrientUnit,
 } from "./nutrient-display";
 import {
-  isPer100Basis,
   portionMeasure,
-  servingSizeGrams,
   PER_100G,
   PER_100ML,
-  PER_SERVING,
   type NutritionInfo,
   type Portion,
 } from "./nutrition";
 
 /**
  * The basis a label printed its values against — the #52 form's toggle, which
- * offers all three (ADR-0060 §7).
+ * offers both (ADR-0060 §7, as amended 2026-08-30).
  *
  * `per_100ml` was for a while inverted-only, reachable solely by re-opening a
  * twin OFF had already published per 100 ml (ADR-0052 §5, #148). That left a UK
  * bottle printing "per 100 ml" with no way to say so, so the toggle now offers
  * it outright.
  *
+ * There is deliberately no per-serving member. Both of these name a divisor, so
+ * a food captured against either is entered, logged and re-edited by amount; a
+ * serving of unstated weight names none, and the `"1 serving"` receipt that
+ * followed was a quantity nothing could scale — which is what left a captured
+ * food re-opening the whole form when the user only wanted to change how much
+ * they ate. Open Food Facts never needs the third: it publishes a per-100 figure
+ * for every product, computing `*_100g` even where `nutrition_data_per` says
+ * `serving`, and the serving it DOES publish arrives as a `food/portions` chip
+ * (ADR-0060 §6) rather than as a basis.
+ *
  * It is also the app's ONE basis type: `ai-autofill.ts` reads it from here
  * rather than keeping a narrower copy of its own, which the next basis value
  * would leave wrong exactly as `per_100ml` already had.
  */
-export type Basis = "per_100g" | "per_100ml" | "per_serving";
+export type Basis = "per_100g" | "per_100ml";
 /** A row is typed in kcal (energy) or a nutrient mass unit; grams are stored. */
 export type FieldUnit = "kcal" | NutrientUnit;
 
@@ -167,26 +174,15 @@ export function toGrams(display: string, unit: FieldUnit): number | undefined {
 /**
  * The #52 basis toggle resolved to the panel's `serving_size` string (ADR-0034
  * §3): `100 g` when the label prints per 100 g, `100 ml` when it prints per 100
- * ml (whether the user said so or a drink arrived carrying the basis OFF
- * published it against), else `N g` when a serving weight was given, or the bare
- * `1 serving` when it was not.
+ * ml — whether the user said so, or a drink arrived carrying the basis OFF
+ * published it against.
  *
- * A serving is stamped in grams unconditionally, so a "1 bottle = 330 ml" basis
- * still has nowhere to go: that is the volume SERVING basis ADR-0060 leaves
- * open, and it wants `serving_size` properly typed rather than a third literal.
+ * Total over {@link Basis}, and it emits nothing else: a panel this form writes
+ * always names a divisor, which is what keeps the food it captures editable by
+ * amount afterwards.
  */
-export function resolveServingSize(basis: Basis, servingGrams: string): string {
-  if (basis === "per_100g") return PER_100G;
-  if (basis === "per_100ml") return PER_100ML;
-  const n = Number(servingGrams.trim());
-  return Number.isFinite(n) && n > 0 ? `${n} g` : PER_SERVING;
-}
-
-/** How a stored panel's basis reads back onto the form's two controls. */
-export interface InvertedBasis {
-  basis: Basis;
-  /** What the serving-weight field shows; empty for a per-100 basis. */
-  servingGrams: string;
+export function resolveServingSize(basis: Basis): string {
+  return basis === "per_100ml" ? PER_100ML : PER_100G;
 }
 
 /**
@@ -195,25 +191,15 @@ export interface InvertedBasis {
  * stored with rather than a guess. Lives beside the forward mapping so the two
  * cannot drift, and round-trips every basis that mapping can emit.
  *
- * The weight comes from {@link servingSizeGrams}, which requires an explicit gram
- * unit. A bare `parseFloat` finds a `1` in "1 serving" and in OFF's "1 portion
- * (330 ml)", so re-opening a whole-serving panel used to offer a serving weight of
- * one gram — and saving it would have written that back as the panel's basis.
+ * A panel this form cannot express — a `N g` or `1 serving` basis, which only
+ * the manual-entry writers (`saveCustomFood`, `saveManualFood`) still produce,
+ * and which their own twins re-open away from this form — reads back as per
+ * 100 g. Those twins' figures are per serving, so re-saving one HERE would
+ * relabel them; that is accepted rather than hidden, and it is why nothing
+ * routes a per-serving panel to this form.
  */
-export function invertServingSize(
-  serving_size: string | undefined
-): InvertedBasis {
-  if (isPer100Basis(serving_size)) {
-    return {
-      basis: serving_size === PER_100ML ? "per_100ml" : "per_100g",
-      servingGrams: "",
-    };
-  }
-  const grams = serving_size ? servingSizeGrams(serving_size) : null;
-  return {
-    basis: "per_serving",
-    servingGrams: grams == null ? "" : String(grams),
-  };
+export function invertServingSize(serving_size: string | undefined): Basis {
+  return serving_size === PER_100ML ? "per_100ml" : "per_100g";
 }
 
 export interface LabelPanelInput {
@@ -221,8 +207,6 @@ export interface LabelPanelInput {
   values: Record<string, string>;
   /** The label's basis, resolved onto `serving_size`. */
   basis: Basis;
-  /** Grams one serving weighs — only read when `basis` is per_serving. */
-  servingGrams: string;
   /** Keys the user marked "∅ not on label" — force-omitted even if typed. */
   skipped: Set<string>;
 }
@@ -244,7 +228,7 @@ export interface BuiltLabelPanel {
  */
 export function buildLabelPanel(input: LabelPanelInput): BuiltLabelPanel {
   const nutrition: NutritionInfo = {
-    serving_size: resolveServingSize(input.basis, input.servingGrams),
+    serving_size: resolveServingSize(input.basis),
   };
   const filledKeys: string[] = [];
   for (const f of ALL_FIELDS) {

@@ -34,6 +34,7 @@
   import {
     basisUnit,
     isMeasuredUnit,
+    isPer100Basis,
     parseBasisQuantity,
     scaleNutrition,
     roundFoodDisplay,
@@ -442,10 +443,31 @@
         // Correcting a food's panel must not silently change how much of it was
         // eaten. An entry logged against a panel basis is therefore re-logged at
         // the SAME amount with its macros re-derived from the corrected twin —
-        // the amount editor's own path — instead of collapsing to the
-        // "1 serving" the custom form otherwise writes. (`target` follows the
-        // save: an enrich returns the same twin, a mint a new one.)
+        // the amount editor's own path — instead of collapsing to the fresh
+        // capture's own quantity below. (`target` follows the save: an enrich
+        // returns the same twin, a mint a new one.)
         const logged = edit ? parseLoggedQuantity(edit.quantity) : null;
+        // A label capture read against a per-100 basis was MEASURED, and the
+        // macros frozen just below are that basis's own figures — so the receipt
+        // names the basis it was read at ("100g" / "100ml", ADR-0060 §1) rather
+        // than the bare "1 serving" every custom entry used to write. The unit
+        // is what makes the entry amount-editable afterwards: a quantity naming
+        // none leaves `resolveAmountEdit` no divisor, and the food re-opened the
+        // whole label form when the user only wanted to change how much of it
+        // they ate. The capture form can no longer write anything else: its
+        // toggle offers the two per-100 bases and nothing more. The other two
+        // writers are genuinely per-serving — both `saveCustomFood` and
+        // `saveManualFood` set the panel's basis to PER_SERVING — so they keep
+        // "1 serving", which is what the fallback arm below is still for.
+        const captureBasis = choice.manualEntry
+          ? undefined
+          : choice.nutrition?.serving_size;
+        const capturedQuantity = isPer100Basis(captureBasis)
+          ? quantityLabel(
+              parseBasisQuantity(captureBasis),
+              basisUnit(captureBasis)
+            )
+          : "1 serving";
         if (edit && logged != null && isMeasuredUnit(logged.unit)) {
           await changeLoggedFoodAmount(
             { ...edit, target: twinId },
@@ -454,7 +476,7 @@
         } else {
           const newId = await logFoodConsumption(
             twinId,
-            "1 serving",
+            capturedQuantity,
             meal_type,
             choice.calories,
             macrosOnly ? choice.protein : undefined,

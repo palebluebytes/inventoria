@@ -34,6 +34,8 @@
   import {
     dedupePortions,
     isMeasuredUnit,
+    isPer100Basis,
+    parseBasisQuantity,
     portionMeasure,
     servingSizeGrams,
     servingSizePortion,
@@ -311,6 +313,15 @@
     // through to the full sheet.
     let openAmount: number | null = null;
     if (isMeasuredUnit(unit)) openAmount = amount;
+    // A per-100 panel names its own divisor, so a "1 serving" entry against one
+    // stands at one basis unit — 100 g, or 100 ml for a drink. `servingGrams`
+    // can never find it: `servingSizeGrams` returns null for "100 g" by
+    // construction and for every volume, which is what left a label capture
+    // re-opening the whole form instead of its amount. Read ahead of the
+    // serving-weight branch: this is what the entry's frozen macros were scaled
+    // by, where a household portion is only a guess at what was eaten.
+    else if (panel != null && isPer100Basis(panel.serving_size))
+      openAmount = parseBasisQuantity(panel.serving_size) * amount;
     else if (panel != null && servingGrams != null)
       openAmount = servingGrams * amount;
 

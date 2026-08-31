@@ -4,7 +4,7 @@
 **Date:** 2026-08-01  
 **Amended by:** ADR-0035 §1 and §2 (the Custom tab becomes an intent chooser)  
 **Amended by:** [ADR-0052](0052-a-drinks-panel-is-carried-per-100-ml.md) §5 (§3's basis toggle resolves a per-100 ml value it never offers)  
-**Amended by:** [ADR-0060](0060-an-amount-is-entered-in-its-panels-unit.md) §7 (§3's basis toggle becomes three-way and offers per-100 ml directly)  
+**Amended by:** [ADR-0060](0060-an-amount-is-entered-in-its-panels-unit.md) §7 and its 2026-08-30 Amendment (§3's basis toggle offers per-100 ml directly, and drops `serving` along with its serving-weight field)  
 **Amended by:** [ADR-0066](0066-a-captured-photo-is-bounded-before-it-becomes-a-datom.md) §1 (§5 keeps every shot of the set; each one is bounded to 1600 px)  
 **Implemented:** #56 `a4be6a9`, #57 `a7e3e8f`, #58 `f3404f2`, #59 `dfd7b64`, #60 `20f0f76`, #61 `5311e71`, #67 `08c361f`, #84 `324050f`
 

@@ -4,6 +4,9 @@
     parseCategoryList,
     offReferenceImagesFromTwin,
     offPackUnitFromTwin,
+    offPackQuantityFromTwin,
+    packSizeUnit,
+    contributionWithholdsNutriments,
     ProductNotFoundError,
     OffUnreachableError,
     type OffPayload,
@@ -42,6 +45,7 @@
     ALL_FIELDS,
     buildLabelPanel,
     invertServingSize,
+    resolveServingSize,
     splitPortionRows,
     toDisplay,
     type FieldDef,
@@ -350,19 +354,33 @@
   // ingredients text, NOT `food/ingredients` (the ADR-0035 menu-descriptor).
   let customIngredients = $state("");
   let customBasis = $state<Basis>("per_100g");
-  // All three bases, offered unconditionally (ADR-0060 §7). The per-100 ml cell
-  // used to appear only when the form had been seeded from a twin OFF already
-  // published per 100 ml (#148), which meant a UK bottle printing "per 100 ml"
-  // could only be transcribed as grams or weighed — the whole of #127's second
-  // situation. A constant, not a derivation: what the toggle offers no longer
-  // depends on what it was opened with.
+  // The two bases a label is read against, offered unconditionally (ADR-0060 §7,
+  // as amended). Both are MEASURED, which is what keeps the captured food
+  // editable by amount afterwards: a per-100 panel names its own divisor, where
+  // a bare "1 serving" names none — and a receipt naming none re-opened this
+  // whole form when the user only wanted to say how much they ate.
+  //
+  // Nothing a scan reaches needs a third. Open Food Facts publishes a per-100
+  // figure for every product — it computes `*_100g` even where
+  // `nutrition_data_per` says `serving` — and the serving it does publish
+  // arrives as a `food/portions` chip rather than as a basis (ADR-0060 §6). The
+  // g-versus-ml question is answered by `product_quantity_unit`, not by
+  // `nutrition_data_per`, whose enum holds no `100ml` at all (ADR-0052 §1).
   const basisOptions: { value: Basis; label: string }[] = [
-    { value: "per_100g", label: "100 g" },
-    { value: "per_100ml", label: "100 ml" },
-    { value: "per_serving", label: "serving" },
+    { value: "per_100g", label: "g" },
+    { value: "per_100ml", label: "ml" },
   ];
-  // Grams one serving weighs — only meaningful when the basis is per_serving.
-  let customServingGrams = $state("");
+  // How much is in the pack — 50, 330, 500 — as a bare magnitude. Its UNIT is
+  // never typed beside it: OFF publishes the pair already split
+  // (`product_quantity` / `product_quantity_unit`), so the number is the only
+  // part a person supplies and the unit comes from the record, or from the
+  // toggle below when the record has none.
+  //
+  // It exists for two jobs: it is real data OFF is missing — the reported bottle
+  // is 50 ml and nothing in its record knows — and it is what stops a per-100-ml
+  // contribution silently losing its numbers, since OFF has no `100ml` basis
+  // value and resolves its own `100` against the pack (ADR-0060 §8).
+  let customPackQuantity = $state("");
   // Per-field typed strings keyed by NutritionInfo field; "" ⇒ absent (not 0).
   let customValues = $state<Record<string, string>>({});
   let customPortions = $state<PortionRow[]>([]);
@@ -422,6 +440,49 @@
   // would read our per-100 figures in the unit we measured them in (ADR-0060
   // §8). Undefined for a barcode OFF has no record of, which reads as grams.
   let offPackUnit = $state<string | undefined>(undefined);
+  // What the pack — and therefore the panel — is measured in. It is ONE control
+  // and it is always the user's: Open Food Facts seeds it (through
+  // `invertServingSize`, which reads the basis the mapper stamped from
+  // `product_quantity_unit`) and never overrules. An earlier build hid the
+  // control whenever OFF had an opinion, which left a record like the reported
+  // oil — sized in nothing, panelled in grams — with no way to be corrected by
+  // the one person holding the bottle.
+  // The basis the panel is actually built and contributed against. **The pack
+  // decides it whenever the pack says anything**: a 330 ml bottle's per-100
+  // figures are per 100 ml and there is nothing to ask, which is Open Food
+  // Facts' own model — it has no per-panel unit at all, and resolves its `100`
+  // against `product_quantity_unit`. Asking the same question twice was the
+  // muddle: the two controls could disagree, and the disagreement was what
+  // silently withheld a contribution's numbers.
+  //
+  // `customBasis` is only consulted where the pack CANNOT answer — a product
+  // nobody has sized, which is exactly the reported bottle's situation and the
+  // one case the toggle still appears for.
+  // The one unit in play, read three ways so they cannot disagree: it sits
+  // beside the pack's magnitude, it is the panel's basis, and it is the unit the
+  // contributed `quantity` is spelled in.
+  let effectiveUnit = $derived<"g" | "ml">(
+    customBasis === "per_100ml" ? "ml" : "g"
+  );
+  // The pack size as OFF's own writable `quantity` field wants it: magnitude and
+  // unit rejoined. Absent when no magnitude was given, so an untouched field
+  // never overwrites a size OFF already holds.
+  let packSizeForOff = $derived(
+    customPackQuantity.trim()
+      ? `${customPackQuantity.trim()} ${effectiveUnit}`
+      : ""
+  );
+
+  // Whether a contribution would keep its numbers to itself, asked of the same
+  // reader that decides it (ADR-0060 §8). Unreachable while a pack size names a
+  // unit — the basis is that unit — so it speaks only for an unsized pack.
+  let contributionLosesNumbers = $derived(
+    contributionWithholdsNutriments(
+      resolveServingSize(customBasis),
+      packSizeForOff,
+      offPackUnit
+    )
+  );
   // Open the read-only OFF reference reader on this index; null = closed.
   let refReaderIndex = $state<number | null>(null);
   // The OFF payload carried into the form by the found-but-poor door, so the host
@@ -516,7 +577,7 @@
     applyAutofill(emptyAutofillResult());
     customCategories = [];
     customIngredients = "";
-    customServingGrams = "";
+    customPackQuantity = "";
     customPortions = [];
     carriedPortions = [];
     skipped = new Set();
@@ -547,8 +608,7 @@
     const info = attrs[NUTRITION_INFO_ATTR] as NutritionInfo | undefined;
     // An OFF panel is per 100 of the pack's own base unit — grams, or millilitres
     // for a drink (#148). The form matches whichever the mapper stamped.
-    ({ basis: customBasis, servingGrams: customServingGrams } =
-      invertServingSize(info?.serving_size));
+    customBasis = invertServingSize(info?.serving_size);
     const values: Record<string, string> = {};
     for (const f of ALL_FIELDS) {
       const grams = info?.[f.key];
@@ -564,6 +624,9 @@
     // off — never merged into the user's capture set, never saved.
     offRefPhotos = payload.referenceImages ?? [];
     offPackUnit = offPackUnitFromTwin(payload.attributes);
+    customPackQuantity = String(
+      offPackQuantityFromTwin(payload.attributes) ?? ""
+    );
   }
 
   // Re-open the label form on a twin (the staged card's origin badge §7, and the
@@ -606,8 +669,7 @@
     const info = attrs[NUTRITION_INFO_ATTR] as NutritionInfo | undefined;
     // Invert the stored `serving_size` back onto the #52 basis toggle, through the
     // same mapping that resolved it on save.
-    ({ basis: customBasis, servingGrams: customServingGrams } =
-      invertServingSize(info?.serving_size));
+    customBasis = invertServingSize(info?.serving_size);
     const values: Record<string, string> = {};
     for (const f of ALL_FIELDS) {
       const grams = info?.[f.key];
@@ -629,6 +691,7 @@
     // never carries, so the one surface for reading the label off went blank.
     offRefPhotos = offReferenceImagesFromTwin(attrs);
     offPackUnit = offPackUnitFromTwin(attrs);
+    customPackQuantity = String(offPackQuantityFromTwin(attrs) ?? "");
     staged = null;
   }
 
@@ -694,7 +757,6 @@
     buildLabelPanel({
       values: customValues,
       basis: customBasis,
-      servingGrams: customServingGrams,
       skipped,
     })
   );
@@ -773,6 +835,9 @@
         // The pack's own unit, so a per-100 panel measured in the other one
         // keeps its numbers to itself rather than mislabelling OFF (ADR-0060 §8).
         packQuantityUnit: offPackUnit,
+        // The pack size settles what our per-100 counts, so the nutriments go
+        // with it instead of staying home (ADR-0060 §8, as amended).
+        packSize: packSizeForOff || undefined,
         nutrition: builtPanel.nutrition,
       });
     } finally {
@@ -1999,26 +2064,46 @@
                   </div>
 
                   <div class="cf-basis">
-                    <Segmented
-                      label="Values per"
-                      options={basisOptions}
-                      bind:value={customBasis}
-                      testid="cf-basis"
-                    />
-                    {#if customBasis === "per_serving"}
-                      <!-- A serving weight resolves the panel's serving_size to `N g`; left
-                 blank it stays the bare `1 serving` (§3). -->
-                      <label class="cf-serving">
-                        <input
-                          id="cf-serving-grams"
-                          type="text"
-                          inputmode="decimal"
-                          placeholder="g"
-                          aria-label="Grams per serving"
-                          bind:value={customServingGrams}
+                    <label class="cf-pack">
+                      <span>Pack size</span>
+                      <input
+                        id="cf-pack-size"
+                        type="text"
+                        inputmode="decimal"
+                        placeholder="50"
+                        aria-label="Pack size in {effectiveUnit}"
+                        data-testid="cf-pack-size"
+                        bind:value={customPackQuantity}
+                      />
+                      <!-- The unit sits WITH the magnitude, because it is one
+                      fact about the pack rather than a second question about the
+                      panel. Its visible label is hidden: "Pack size" to the left
+                      already names the pair, and the group keeps it as its
+                      accessible name. -->
+                      <span class="cf-pack-unit">
+                        <Segmented
+                          label="Pack size unit"
+                          options={basisOptions}
+                          bind:value={customBasis}
+                          testid="cf-basis"
                         />
-                        <span>g / serving</span>
-                      </label>
+                      </span>
+                    </label>
+                    <!-- What the figures below therefore mean. Stated rather
+                    than asked a second time. -->
+                    <p class="cf-basis-derived" data-testid="cf-basis-derived">
+                      Values per {resolveServingSize(customBasis)}.
+                    </p>
+                    {#if contributionLosesNumbers}
+                      <!-- Not a validation error: the panel is saved either way,
+                      and this is only about what a contribution can say. OFF has
+                      no per-100-ml basis to post — it resolves its own `100`
+                      against the pack — so without a millilitre pack size the
+                      numbers would be withheld rather than mislabelled. -->
+                      <p class="cf-pack-hint" data-testid="cf-pack-hint">
+                        Give the pack size in ml (like “50 ml”) and these values
+                        can go back to Open Food Facts too.
+                      </p>
                     {/if}
                   </div>
 
@@ -2778,19 +2863,43 @@
     gap: var(--space-xs);
     margin-bottom: var(--space-m);
   }
-  .cf-serving {
+  .cf-pack {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    font-size: 0.78rem;
-    color: var(--text-muted);
   }
-  .cf-serving input {
-    width: 4.5rem;
+  /* Reads as one of the transcription rows below it, because that is what it is:
+     a value off the packet. It matched the muted hint text instead, which sized
+     it out of the form it belongs to. */
+  .cf-pack > span {
+    font-size: 0.92rem;
+    font-weight: 700;
+  }
+  .cf-pack input {
+    width: 5rem;
     text-align: right;
     min-height: 40px;
   }
-
+  /* The unit picker rides beside the magnitude rather than filling the row, and
+     drops its own heading — the field's "Pack size" already names the pair. */
+  .cf-pack-unit {
+    display: inline-block;
+    width: 8.5rem;
+  }
+  .cf-pack-unit :global(.segmented-label) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .cf-basis-derived,
+  .cf-pack-hint {
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
   .cf-group {
     margin-bottom: var(--space-m);
   }

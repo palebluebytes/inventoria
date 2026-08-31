@@ -427,11 +427,15 @@ export function servingSizeGrams(serving_size: string): number | null {
 
 /**
  * Synthesises the food's own serving as a picker portion — "1 serving" resolving
- * to the grams its `serving_size` names — so a label-captured food (basis
- * `per_serving`, e.g. `serving_size: "30 g"`) surfaces its serving as a chip on
- * the amount screen just like a source's household portions do. Returns an empty
- * list (never a zero-gram portion) for a per-100 g food or a weightless
- * "1 serving" panel, so the caller can concatenate it unconditionally.
+ * to the grams its `serving_size` names — so a food whose panel is a weighed
+ * serving (`serving_size: "30 g"`) surfaces it as a chip on the amount screen
+ * just like a source's household portions do. Returns an empty list (never a
+ * zero-gram portion) for a per-100 food or a weightless "1 serving" panel, so
+ * the caller can concatenate it unconditionally.
+ *
+ * The label form no longer writes such a panel — its toggle offers only the two
+ * per-100 bases (ADR-0060's 2026-08-30 Amendment) — so what this reads today is
+ * a twin already in the ledger, and any future source that publishes one.
  */
 export function servingSizePortion(info: NutritionInfo | undefined): Portion[] {
   const grams = info ? servingSizeGrams(info.serving_size) : null;
