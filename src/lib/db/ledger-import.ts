@@ -43,11 +43,18 @@ export const IMPORT_SUPPORTED_SCHEMA_VERSIONS: readonly number[] = [
  */
 export class LedgerImportRefusedError extends Error {
   readonly lineNumber: number | null;
+  /**
+   * The complaint without the line prefix `message` adds. The meal payload
+   * reader borrows this class's grammar checks and re-raises them as its own
+   * refusal (ADR-0073 §8.3), which needs the reason back out unprefixed.
+   */
+  readonly reason: string;
 
   constructor(reason: string, lineNumber: number | null = null) {
     super(lineNumber === null ? reason : `Line ${lineNumber}: ${reason}`);
     this.name = "LedgerImportRefusedError";
     this.lineNumber = lineNumber;
+    this.reason = reason;
   }
 }
 

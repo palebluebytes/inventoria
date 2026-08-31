@@ -83,6 +83,16 @@ export const OMITTED_ATTRIBUTES: readonly string[] = [
   "food/photo_base64",
 ];
 
+/**
+ * What a closure root is: a Consumption Event id, carrying ADR-0014's prefix.
+ *
+ * It sits with the format rather than with the reader because it is part of
+ * what the envelope's `roots` *means*. A reader that took the roots on trust
+ * would let a payload declare `settings:global` a root and then pass a closure
+ * check computed from it, which is the whole of ADR-0073 §8.5's security.
+ */
+export const MEAL_ROOT_PREFIX = "event:consume_";
+
 /** Line one of a meal payload: what it is, and what its closure was walked from. */
 export interface MealPayloadEnvelope extends NdjsonEnvelope {
   artifact: typeof MEAL_PAYLOAD_ARTIFACT;
