@@ -40,7 +40,6 @@
 import { ingestEntity } from "../ingestion/ingest";
 import { dbClient } from "../db/db.client";
 import type { Datom, LedgerRow } from "../db/db.core";
-import { computeConsumption } from "../food/consumption-state";
 import type { ConsumptionEvent } from "../food/consumption-state";
 import { partitionCopyable } from "../food/past-meals";
 import { buildArrival, FOOD_ARRIVAL_ATTR } from "../food/provenance";
@@ -51,6 +50,7 @@ import {
 } from "../food/usda-corpus";
 import { copyPastMeal } from "../stores/calorie.store";
 import { MEAL_ROOT_PREFIX, winningRows } from "./meal-payload";
+import { receivedMealEvents } from "./received-meal";
 import type { ReceivedMealPayload } from "./meal-reader";
 
 /**
@@ -224,9 +224,10 @@ export async function acceptMealPayload(
   // exactly as a locally logged one is. Its twins are in the same stream, which
   // is what resolves each event's display name — and `partitionCopyable` drops
   // an event that has none, rather than logging an Unknown Food.
-  const events = computeConsumption(rows).filter((event) =>
-    reminted.has(event.id)
-  );
+  //
+  // The fold is shared with the receiving surface rather than repeated here:
+  // what the person was shown and what this lands must be the same meal.
+  const events = receivedMealEvents(rows, payload.roots);
   const fresh = events.filter((event) => !held.has(reminted.get(event.id)!));
   const { copied } = await seams.logMeal(
     partitionCopyable(fresh).copyable,

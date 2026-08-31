@@ -55,7 +55,13 @@ export function dayKeyOf(date: Date | number): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
-function midnight(date: Date): Date {
+/**
+ * The local midnight of a day, which is what a {@link PastMeal} carries: a meal
+ * is a thing that happened on a day, not at an instant, and two meals on one
+ * day have to compare equal. Exported for the receiving surface, which builds a
+ * `PastMeal` out of a payload rather than out of a projection.
+ */
+export function midnight(date: Date): Date {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
   return d;
