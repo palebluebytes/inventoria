@@ -276,7 +276,22 @@ async function enterRoom(
   // socket is redialled rather than ending the send. The first attempt is
   // immediate, because a socket that dropped is usually replaceable at once;
   // the pause is between retries, and the deadline is what ends them.
+  let rejoining = false;
   const rejoin = async () => {
+    // One loop at a time. A rejoin's own failed dial reports an abnormal close
+    // like any other, which lands back here — so without this each failure
+    // would leave behind a second loop dialling the same room, and the room's
+    // five minutes would be spent doubling rather than reconnecting.
+    if (rejoining) return;
+    rejoining = true;
+    try {
+      await keepDialling();
+    } finally {
+      rejoining = false;
+    }
+  };
+
+  const keepDialling = async () => {
     while (!left && link === null) {
       try {
         const rejoined = await dial(code.room, handlers);
@@ -300,6 +315,12 @@ async function enterRoom(
   try {
     link = await dial(code.room, handlers);
   } catch (error) {
+    // The session is over before it began, and saying so is what stops the
+    // rejoin: a browser reports an upgrade that never opened as an error AND
+    // an abnormal close, so `handlers.closed` has very likely already started
+    // one. Nothing would end it — the deadline is being cleared on the next
+    // line, and `leave` is only reachable through the room this never returns.
+    left = true;
     clearTimeout(deadline);
     signal?.removeEventListener("abort", cancelled);
     throw new SendFailedError(

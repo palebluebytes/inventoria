@@ -50,6 +50,7 @@ import {
 import { openSealedFrame } from "../../src/lib/p2p/sealed-frame";
 import {
   DELIVERED_WORD,
+  REJOIN_PAUSE_MS,
   SendFailedError,
   receiveMealPayload,
   sendMealPayload,
@@ -417,6 +418,59 @@ describe("what burns a code", () => {
     // still good — an unreachable relay is not one of §6's four conditions.
     expect((await failure(sending)).failure).toBe("unavailable");
     expect(isSendCodeSpent(code)).toBe(false);
+  });
+
+  it("stops dialling once the first dial has failed, rather than forever", async () => {
+    const code = mintSendCode();
+    let dials = 0;
+
+    const sending = sendMealPayload(code, await aMeal(), {
+      // What a browser does with an upgrade that never opened: it rejects, and
+      // then reports an abnormal close in a later task. §6 says a lost
+      // transport is not a use of the code, so a close mid-session is
+      // rejoined — but this session has no middle, and the deadline that would
+      // have bounded a rejoin is cleared with the failure.
+      dial: async (_room, handlers) => {
+        dials += 1;
+        setTimeout(() => handlers.closed(ABNORMAL_CLOSE), 0);
+        throw new Error("no route to the relay");
+      },
+    });
+
+    expect((await failure(sending)).failure).toBe("unavailable");
+    await new Promise((wake) => setTimeout(wake, REJOIN_PAUSE_MS * 2));
+    expect(dials).toBe(1);
+  });
+
+  it("rejoins at one loop's pace, however many closes it is told about", async () => {
+    const code = mintSendCode();
+    const relay = localRelay();
+    let dials = 0;
+
+    // The room answers once and then never again, reporting an abnormal close
+    // on every attempt. Each of those lands where a rejoin is started, so an
+    // unguarded loop would leave a second behind on every failure and dial in
+    // doubling numbers rather than once a second.
+    const dial: RelayDial = async (roomId, handlers) => {
+      dials += 1;
+      if (dials > 1) {
+        setTimeout(() => handlers.closed(ABNORMAL_CLOSE), 0);
+        throw new Error("the relay went away");
+      }
+      const link = await relay.dial(roomId, handlers);
+      setTimeout(() => handlers.closed(ABNORMAL_CLOSE), 0);
+      return link;
+    };
+
+    const receiving = receiveMealPayload(code, {
+      dial,
+      lifetimeMs: REJOIN_PAUSE_MS * 3,
+    });
+
+    expect((await failure(receiving)).failure).toBe("expired");
+    // Three pauses, so a loop that runs once gets a handful of attempts. A
+    // doubling one passes fifty before the deadline.
+    expect(dials).toBeLessThan(10);
   });
 });
 
