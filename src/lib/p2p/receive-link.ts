@@ -33,14 +33,21 @@
 
 import { readSendCode, type SendCode } from "./send-code";
 
-/** What the URL the app started on turned out to be carrying. */
-export type ReceiveLink =
-  /** An ordinary boot. Nothing was read and nothing was rewritten. */
-  | { kind: "none" }
+/**
+ * What opens the receiving surface — and the whole of what can, because §4
+ * gives receiving no door of its own. Both of its two ways in produce one of
+ * these: a link read at boot, and the Scan way in pointed at a code.
+ */
+export type ReceiveOpening =
   /** A meal is being handed over, and the code that opens it. */
   | { kind: "code"; code: SendCode }
   /** A code that is a code and is broken — a truncated paste, a mangled link. */
   | { kind: "broken"; reason: string };
+
+/** What the URL the app started on turned out to be carrying. */
+export type ReceiveLink =
+  /** An ordinary boot. Nothing was read and nothing was rewritten. */
+  { kind: "none" } | ReceiveOpening;
 
 /** What reading a link needs from the page it is being read on. */
 export interface ReceiveLinkSeams {

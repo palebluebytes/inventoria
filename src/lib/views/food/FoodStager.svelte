@@ -102,6 +102,8 @@
   import type { NovaVerdict } from "../../food/nova-verdict";
   import type { DietaryVerdict } from "../../food/off-signals";
   import type { FoodSourceKind } from "../../food/food-source";
+  import { readScannedCode } from "../../p2p/scanned-code";
+  import type { SendCode } from "../../p2p/send-code";
 
   // The shared food-staging surface behind both the direct-log sheet and the
   // add-ingredient sheet (issue #16). It owns the Search / Scan / Custom method
@@ -189,6 +191,18 @@
      *  back button drives it and the method switcher hides (the sub-state owns the
      *  screen, like a staged food). Null at the tab's top level. */
     tabBack = undefined,
+    /**
+     * Hands a scanned **Send code** up to the host (ADR-0074 §4): the Scan way
+     * in reads a meal code as well as a barcode, and a meal is the host's to
+     * open, not the stager's — nothing here stages, logs or holds one.
+     *
+     * Absent on a host where a meal is not a thing that can be received. The
+     * ADR names the Scan **way in**, which is the meal header's control, so the
+     * log sheet passes this and the add-ingredient sheet does not: a recipe is
+     * being built there, and a meal is not an ingredient. Without it a meal
+     * code is reported as a code this scanner has no use for, which is true.
+     */
+    onMealCode = undefined,
   }: {
     onChoose: (choice: FoodChoice) => ChooseOutcome | Promise<ChooseOutcome>;
     primaryLabel: (ctx: PrimaryLabelContext) => string;
@@ -210,6 +224,7 @@
     tabContent?: import("svelte").Snippet<[string]>;
     tabDock?: import("svelte").Snippet<[string]>;
     tabBack?: () => void;
+    onMealCode?: (code: SendCode) => void;
   } = $props();
 
   type BaseMethod = "search" | "scan" | "custom";
@@ -1079,6 +1094,7 @@
       videoEl.play();
       scanning = true;
       scanError = "";
+      scanRejected = "";
       scanStalled = false;
       // Let the camera settle before detection begins (see CAMERA_WARMUP_MS). The
       // stall + zxing-fallback clocks start with the scan loop, not the camera, so
@@ -1125,14 +1141,56 @@
       const code = await decodeBarcode(videoEl);
       // Re-check `scanning` after the await: the native loop may have won during
       // the decode, in which case it already stopped the camera and looked up.
-      if (code && scanning) {
-        barcode = code;
-        stopCamera();
-        await handleBarcodeLookup();
-      }
+      if (code && scanning) await tookScannedCode(code);
     } finally {
       fallbackBusy = false;
     }
+  }
+
+  // What the scanner just read, which is no longer always a barcode
+  // (ADR-0074 §4). A message here is NOT `scanError`: that one means the camera
+  // itself is unusable and swaps the whole tab for the upload dropzone, and a
+  // QR that turned out to be a menu is not a broken camera. This says so over a
+  // live preview and lets the loop carry on, so pointing at the right thing is
+  // the whole of the recovery.
+  let scanRejected = $state("");
+
+  /**
+   * Routes one decode: a barcode to the lookup it has always had, a **Send
+   * code** up to the host, and anything else to a line over the preview.
+   *
+   * The camera stops only on the two that lead somewhere. A rejected code keeps
+   * scanning, because the same frame is still in view and the person's next act
+   * is to move the phone.
+   */
+  async function tookScannedCode(raw: string) {
+    const read = readScannedCode(raw);
+
+    if (read.kind === "barcode") {
+      scanRejected = "";
+      barcode = read.digits;
+      stopCamera();
+      await handleBarcodeLookup();
+      return;
+    }
+
+    if (read.kind === "meal" && onMealCode) {
+      scanRejected = "";
+      stopCamera();
+      onMealCode(read.code);
+      return;
+    }
+
+    scanRejected = rejectionLine(read.kind);
+  }
+
+  /** Why a decode went nowhere, in one line — ADR-0074 §6's shape. */
+  function rejectionLine(kind: "meal" | "broken" | "neither"): string {
+    if (kind === "meal")
+      return "That is a meal somebody is handing over. Scan it from a meal instead.";
+    if (kind === "broken")
+      return "That meal code is damaged. Ask them to show you a new one.";
+    return "That is a code, but it is neither a barcode nor a meal.";
   }
 
   function stopCamera() {
@@ -1171,10 +1229,10 @@
       try {
         const codes = await detector.detect(videoEl);
         if (codes.length > 0) {
-          barcode = codes[0].rawValue;
-          stopCamera();
-          await handleBarcodeLookup();
-          return;
+          await tookScannedCode(codes[0].rawValue);
+          // A code the stager could not use leaves the loop running, so the
+          // preview stays live while the person moves the phone.
+          if (!scanning) return;
         }
       } catch {
         // ignore per-frame detection errors
@@ -1205,9 +1263,23 @@
     try {
       const code = await decodeBarcodeFromImage(file);
       if (code) {
-        barcode = code;
+        const read = readScannedCode(code);
         decoding = false;
-        await handleBarcodeLookup();
+        if (read.kind === "barcode") {
+          barcode = read.digits;
+          await handleBarcodeLookup();
+          return;
+        }
+        // A screenshot of somebody's Send code reads here exactly as the camera
+        // reads their screen (ADR-0074 §4), which is the same door.
+        if (read.kind === "meal" && onMealCode) {
+          onMealCode(read.code);
+          return;
+        }
+        // Not the unreadable door: the photo carried a code and it was read.
+        // Offering "enter the label details" for a menu QR would be an escape
+        // from a problem the person does not have.
+        uploadError = rejectionLine(read.kind);
         return;
       }
       // No barcode in the photo — let the user type it or go straight to the form.
@@ -1808,6 +1880,12 @@
                     ></video>
                     <div class="reticle"></div>
                   </div>
+                  <!-- A code that read but went nowhere. Under the preview
+                       rather than instead of it: the camera is fine, and the
+                       next act is to point it somewhere else. -->
+                  {#if scanRejected}
+                    <Alert variant="warning">{scanRejected}</Alert>
+                  {/if}
                   <p class="hint">
                     Point the camera at a barcode, or type the number below. No
                     result? <button

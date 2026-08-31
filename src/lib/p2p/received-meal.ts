@@ -21,7 +21,12 @@ import {
   type ConsumptionEvent,
 } from "../food/consumption-state";
 import { asMealType } from "../food/meal-type";
-import { midnight, partitionCopyable, type PastMeal } from "../food/past-meals";
+import {
+  midnight,
+  partitionCopyable,
+  type CopyableEvent,
+  type PastMeal,
+} from "../food/past-meals";
 import { winningRows } from "./meal-payload";
 import type { ReceivedMealPayload } from "./meal-reader";
 
@@ -43,6 +48,18 @@ export function receivedMealEvents(
 }
 
 /**
+ * One received meal: a Past meal whose every food accept can reproduce.
+ *
+ * The narrowing is the type saying what {@link readReceivedMeal} promises — the
+ * surface shows exactly what accept can land — so a caller reads a food's name
+ * and its calories without a guard, and without the guard drifting from the one
+ * `partitionCopyable` already applied.
+ */
+export interface ReceivedMeal extends PastMeal {
+  items: CopyableEvent[];
+}
+
+/**
  * One payload as one meal, or `null` when it carries no meal at all.
  *
  * `null` is the narrower case that survives all seven of ADR-0073 §8's
@@ -61,7 +78,7 @@ export function receivedMealEvents(
  */
 export function readReceivedMeal(
   payload: ReceivedMealPayload
-): PastMeal | null {
+): ReceivedMeal | null {
   const events = receivedMealEvents(
     winningRows(payload.rows),
     payload.roots

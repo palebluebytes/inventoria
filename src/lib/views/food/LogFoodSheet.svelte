@@ -55,6 +55,8 @@
     PrimaryLabelContext,
   } from "../../food/food-staging";
 
+  import type { SendCode } from "../../p2p/send-code";
+
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import FoodStager from "./FoodStager.svelte";
   import CommitButton from "./CommitButton.svelte";
@@ -83,6 +85,7 @@
     editLabel = false,
     initialMethod = undefined,
     wayIn = undefined,
+    onMealCode,
   }: {
     dbReady: boolean;
     meal_type: MealType;
@@ -119,6 +122,14 @@
      * ask for the same thing twice.
      */
     editLabel?: boolean;
+    /**
+     * Somebody's meal, scanned instead of a barcode (ADR-0074 §4). The Scan way
+     * in reads a meal code as well as a barcode, and this sheet is where that
+     * way in lands, so this is the one host that passes it down to the stager.
+     * Handling it is the food screen's: this sheet logs into one meal, and a
+     * received meal is not staged, chosen or logged here at all.
+     */
+    onMealCode: (code: SendCode) => void;
   } = $props();
 
   // Four of the five ways into a meal are stager methods under the same id, so
@@ -516,6 +527,7 @@
     bind:staged
     bind:canGoBack
     bind:goBack
+    {onMealCode}
     {seed}
     initialMethod={openOn}
     allowPhoto

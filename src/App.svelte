@@ -16,6 +16,7 @@
   import { warmUsdaCorpus } from "./lib/food/usda-corpus";
   import { clearRetiredSecrets } from "./lib/stores/secrets";
   import { ensurePersistentStorage } from "./lib/storage/persistent-storage";
+  import { takeReceiveLink, type ReceiveOpening } from "./lib/p2p/receive-link";
 
   // Dev/e2e-only harnesses: `?demo=<name>` swaps the whole app for a throwaway
   // page. `bottomsheet` is a UI-primitive demo, so a Playwright spec can drive
@@ -28,6 +29,24 @@
     import.meta.env.DEV && typeof window !== "undefined"
       ? new URLSearchParams(window.location.search).get("demo")
       : null;
+
+  // ── A meal, arriving by link ─────────────────────────────────────────────
+  //
+  // Receiving has no door of its own (ADR-0074 §4), so this is not a route and
+  // there is nothing to navigate to. A receive link is `/#r=…&k=…` — the secret
+  // in the fragment, so it reaches no server — and it is read here because the
+  // URL belongs to the app rather than to any one screen. What it opens belongs
+  // to the food screen, which is where a meal is.
+  //
+  // §9's rule is what this shape is bought with: **the receive page is served
+  // by the asset router, never by the Worker script.** `GET /receive` on the
+  // live site falls through to the script, which answers without the
+  // `cross-origin-*` headers `_headers` puts on an asset — no cross-origin
+  // isolation, no `SharedArrayBuffer`, and an in-memory database. `/` is a
+  // precached asset served 200, and the whole hole is avoided by never leaving
+  // it. Do not give receive an HTML entry of its own: the #125 offline gate
+  // hardcodes `dist/index.html` and would never see one.
+  let receiveLink = $state<ReceiveOpening | null>(null);
 
   // ── DB init ──────────────────────────────────────────────────────────────
   let dbReady = $state(false);
@@ -60,6 +79,12 @@
     // the request is memoised, so the Settings readout reaches this same
     // decision instead of asking a second time.
     void ensurePersistentStorage();
+    // Before the ledger, not after it. ADR-0073 §10 measured the cold-boot
+    // window out of existence on the strength of SQLite being entirely OFF the
+    // mount path: waiting in the room needs a WebSocket and `crypto.subtle`,
+    // not OPFS, so a meal can arrive and be shown while the database is still
+    // opening — and a database that never opens must not swallow the link.
+    readReceiveLink();
     try {
       await initPromise;
       dbReady = true;
@@ -68,7 +93,9 @@
       if (typeof window !== "undefined") {
         const params = new URLSearchParams(window.location.search);
         const sharedUrl = params.get("url") || params.get("text") || "";
-        if (sharedUrl) {
+        // A link somebody opened to be handed a meal outranks it: the share
+        // target is a thing you sent yourself, and this is a person waiting.
+        if (sharedUrl && !receiveLink) {
           activeTab = "items";
         }
       }
@@ -76,6 +103,36 @@
       dbError = e.message ?? String(e);
     }
   });
+
+  /**
+   * Takes the code off the URL, once (ADR-0074 §8).
+   *
+   * **After mount and inside a `try`**, both forced rather than chosen.
+   * ADR-0069's boot guard reads a throw during module evaluation as "this shell
+   * cannot start" and wipes the service worker and every cache, so a malformed
+   * fragment must not be able to reach it. The `try` is real work rather than
+   * ceremony: `takeReceiveLink` deliberately lets a refused `replaceState` out,
+   * because a code still sitting in the address bar is a code a reload could
+   * spend a second time, and an ordinary boot is the safe reading of that.
+   *
+   * The read is what cleans the URL, so a reload is never a retry.
+   */
+  function readReceiveLink() {
+    if (typeof window === "undefined") return;
+    try {
+      const link = takeReceiveLink({
+        href: window.location.href,
+        clean: (url) => window.history.replaceState(null, "", url),
+      });
+      if (link.kind === "none") return;
+      receiveLink = link;
+      // A meal is food, and the receiving surface is the food screen's.
+      activeTab = "food";
+    } catch {
+      // An ordinary boot, which is the safe reading of a URL that could not be
+      // cleaned. The sender is still standing there and mints another code.
+    }
+  }
 
   // ── Navigation ───────────────────────────────────────────────────────────
   type Tab = "food" | "agenda" | "media" | "items" | "notes" | "settings";
@@ -106,7 +163,11 @@
 
     <main class="main">
       {#if activeTab === "food"}
-        <FoodView {dbReady} />
+        <FoodView
+          {dbReady}
+          {receiveLink}
+          onReceiveClose={() => (receiveLink = null)}
+        />
       {/if}
 
       {#if activeTab === "media"}

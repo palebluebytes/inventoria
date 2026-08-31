@@ -32,6 +32,7 @@ import { SendCodeSpentError } from "./send-code";
 export type ReceiveEnding =
   | "landed"
   | "nothing"
+  | "broken"
   | SendFailure
   | "seal"
   | "unreadable"
@@ -58,6 +59,24 @@ export const MEAL_HAS_NOTHING: ReceiveWords = {
   detail: "It arrived whole and carries nothing that can go in your day.",
   cause: null,
 };
+
+/**
+ * A code that never named a room: a truncated paste, a link a messenger
+ * shortened, a QR read at an angle that dropped half of it.
+ *
+ * It is separated from every other refusal because nothing was attempted — no
+ * room was joined, so the sender's code is still live and still theirs. Telling
+ * somebody their meal failed when it was never asked for would send them back
+ * to a sender who has nothing to fix.
+ */
+export function mealCodeBrokenWords(reason: string): ReceiveWords {
+  return {
+    ending: "broken",
+    line: "This code is damaged.",
+    detail: "Nothing was asked for. Their code is still good: ask them again.",
+    cause: reason,
+  };
+}
 
 const FAILURE_WORDS: Record<SendFailure, Omit<EndingWords, "cause">> = {
   unavailable: {

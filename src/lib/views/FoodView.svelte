@@ -73,8 +73,54 @@
 
   import Card from "../ui/Card.svelte";
   import Badge from "../ui/Badge.svelte";
+  import ReceivedMealPanel from "./food/ReceivedMealPanel.svelte";
+  import type { SendCode } from "../p2p/send-code";
+  import type { ReceiveOpening } from "../p2p/receive-link";
 
-  let { dbReady }: { dbReady: boolean } = $props();
+  let {
+    dbReady,
+    receiveLink = null,
+    onReceiveClose,
+  }: {
+    dbReady: boolean;
+    /**
+     * What a receive link turned out to be, read once at boot (ADR-0074 §8).
+     * `App.svelte` owns that read because the URL is the app's rather than this
+     * screen's; the surface it opens is here, because a meal is food.
+     */
+    receiveLink?: ReceiveOpening | null;
+    /** Clears that link, so leaving the surface cannot re-open it. */
+    onReceiveClose: () => void;
+  } = $props();
+
+  // ── Receiving a meal ─────────────────────────────────────────────────────
+  //
+  // Receiving has no door of its own (ADR-0074 §4): no inbox, no standing
+  // control, no count badge. A meal reaches you two ways and only two — a link
+  // you opened, and the Scan way in turning out to be pointed at a meal — and
+  // both land you on the meal itself, deciding, with nothing in front of it.
+  //
+  // The code a scan found, held only until the surface it opens is left.
+  let scanned_code = $state<SendCode | null>(null);
+  let receiving = $derived<ReceiveOpening | null>(
+    receiveLink ?? (scanned_code ? { kind: "code", code: scanned_code } : null)
+  );
+
+  /**
+   * Leaving the receiving surface, which is the whole of declining
+   * (ADR-0073 §10). Both sources are cleared, because a code that outlived its
+   * surface would re-open it, and the payload it opened is already gone.
+   */
+  function leaveReceiving() {
+    scanned_code = null;
+    onReceiveClose();
+  }
+
+  /** A meal code the Scan way in read. The sheet it was scanned from closes. */
+  function takeMealCode(code: SendCode) {
+    closeSheet();
+    scanned_code = code;
+  }
 
   // The food screen's own settings sheet (top-right gear) — food-specific
   // settings (USDA/OFF credentials, contribution consent, nutrition targets)
@@ -868,7 +914,16 @@
     editLabel={edit_label}
     wayIn={way_in ?? undefined}
     onClose={closeSheet}
+    onMealCode={takeMealCode}
   />
+{/if}
+
+<!-- The receiving surface (ADR-0074 §4, ADR-0073 §10): the meal itself, with
+     nothing in front of it, and the hold for the payload behind it. Leaving is
+     declining, by any route — including a tab change, which unmounts this whole
+     screen under it. -->
+{#if receiving}
+  <ReceivedMealPanel opening={receiving} {dbReady} onLeave={leaveReceiving} />
 {/if}
 
 <!-- The past-meal picker (ADR-0058). Reached from its own header control, so
