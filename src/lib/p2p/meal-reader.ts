@@ -20,6 +20,13 @@
  * skips entities the recipient *already holds*, so anything unfamiliar would
  * land unseen. Everything else here is grammar; that one is the security.
  *
+ * Reachability alone is not enough for it, and §8 does not say so. The edges
+ * are the payload's own assertions and the projections do not all scope by
+ * entity, so the closure is bounded three ways rather than one: the roots are
+ * Consumption Events, what they reach are food twins, and what those carry is
+ * in a meal's own attribute namespaces. All three are the same argument, and
+ * dropping any one of them reopens the hole the other two were closing.
+ *
  * This module is pure and has no transport in it. What the payload *becomes*
  * when it lands is the accept path's.
  */
@@ -36,6 +43,7 @@ import {
   MEAL_PAYLOAD_ARTIFACT,
   MEAL_PAYLOAD_CEILING_BYTES,
   MEAL_PAYLOAD_SCHEMA_VERSION,
+  MEAL_ATTRIBUTE_NAMESPACES,
   MEAL_ROOT_PREFIX,
   MEAL_TWIN_PREFIXES,
   MEAL_WIRE_COMPRESSION,
@@ -201,6 +209,20 @@ export function readMealPayload(ndjson: string): ReceivedMealPayload {
     if (OMITTED_ATTRIBUTES.includes(row.attribute)) {
       throw new MealPayloadRefusedError(
         `"${row.attribute}" is not an attribute a meal carries.`,
+        line.lineNumber
+      );
+    }
+    // The namespace above (7), closing the same species of gap the entity kinds
+    // close below. An unknown attribute inside one of these is still accepted:
+    // what is refused is a whole domain a meal has no business carrying, and a
+    // projection that scopes by attribute rather than by entity would read.
+    if (
+      !MEAL_ATTRIBUTE_NAMESPACES.some((namespace) =>
+        row.attribute.startsWith(namespace)
+      )
+    ) {
+      throw new MealPayloadRefusedError(
+        `"${row.attribute}" belongs to no namespace a meal carries, and a meal carries its events, its foods, their nutrition and their recipes.`,
         line.lineNumber
       );
     }

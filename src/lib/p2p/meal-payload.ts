@@ -115,6 +115,31 @@ export const MEAL_TWIN_PREFIXES: readonly string[] = [
 ];
 
 /**
+ * The attribute namespaces a meal's facts live in.
+ *
+ * This is **not** the per-attribute allow-list ADR-0073 §8 refuses. That one
+ * mirrors `docs/eavt-vocabulary.md` and grows every release; this is the
+ * namespace above it, a closed set of ten that grows only when a whole tracked
+ * domain is added — which `docs/how-to-add-a-tracked-domain.md` already gates.
+ * §8's clause survives where it was actually arguing: an unknown attribute
+ * *inside* one of these still crosses, unread and unrefused.
+ *
+ * It exists because §8's justification for that clause is false as written. "An
+ * unknown attribute can only ride an entity the closure reaches, so it is a
+ * fact about a food, harmless if unread" assumes every projection scopes its
+ * read by entity. Two do not: the Media and Acquisition projections scope by
+ * attribute alone (`src/lib/db/projections.ts`), so `twin/name` riding a
+ * perfectly legitimate `fdc:` twin lands in a library of physical items the
+ * recipient never acquired.
+ */
+export const MEAL_ATTRIBUTE_NAMESPACES: readonly string[] = [
+  "event/",
+  "food/",
+  "nutrition/",
+  "recipe/",
+];
+
+/**
  * How the wire compresses a payload. Raw DEFLATE rather than gzip, because
  * gzip's header and trailer are 18 bytes bought for nothing here (#194 §4.3).
  *

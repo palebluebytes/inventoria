@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   MEAL_PAYLOAD_ARTIFACT,
   MEAL_PAYLOAD_SCHEMA_VERSION,
+  MEAL_ATTRIBUTE_NAMESPACES,
   MEAL_ROOT_PREFIX,
   MEAL_TWIN_PREFIXES,
   MEAL_WIRE_COMPRESSION,
@@ -249,26 +250,27 @@ describe("the closure roots the envelope declares", () => {
 // ---------------------------------------------------------------------------
 
 describe("an entity reachable from no declared root", () => {
+  // Every rider here carries an attribute a meal legitimately carries, so the
+  // entity's *kind* is what refuses it. A rider with a foreign attribute too
+  // would be caught a check earlier, and would leave this one untested.
   const ridingAlong = (rider: ReturnType<typeof row>) =>
     refusal(payloadOf(["event:consume_a"], [...oneFoodMeal(), rider]));
 
   it("refuses settings riding along inside a meal", () => {
     expect(
-      ridingAlong(
-        row("settings:global", "settings/food/targets", { calories: 1 })
-      ).message
+      ridingAlong(row("settings:global", "food/name", "Not a food")).message
     ).toContain("settings:global");
   });
 
   it("refuses a habit riding along inside a meal", () => {
     expect(
-      ridingAlong(row("habit:water", "habit/name", "Water")).message
+      ridingAlong(row("habit:water", "food/name", "Not a food")).message
     ).toContain("habit:water");
   });
 
   it("refuses a notes op riding along inside a meal", () => {
     expect(
-      ridingAlong(row("notes:op_1", "notes/op", { kind: "put" })).message
+      ridingAlong(row("notes:op_1", "food/name", "Not a food")).message
     ).toContain("notes:op_1");
   });
 
@@ -283,7 +285,7 @@ describe("an entity reachable from no declared root", () => {
       ["event:consume_a"],
       [
         row("event:consume_a", "event/target", "settings:global"),
-        row("settings:global", "settings/food/targets", { calories: 1 }),
+        row("settings:global", "food/name", "Not a food"),
       ]
     );
 
@@ -299,7 +301,7 @@ describe("an entity reachable from no declared root", () => {
           ingredients: [{ ref: "habit:water" }],
         }),
         row("recipe:soup", "recipe/name", "Kale soup"),
-        row("habit:water", "habit/name", "Water"),
+        row("habit:water", "food/name", "Not a food"),
       ]
     );
 
@@ -312,7 +314,7 @@ describe("an entity reachable from no declared root", () => {
       [
         row("event:consume_a", "event/target", "recipe:soup"),
         row("recipe:soup", "recipe/ingredients", [{ ref: "notes:op_1" }]),
-        row("notes:op_1", "notes/op", { kind: "put" }),
+        row("notes:op_1", "food/name", "Not a food"),
       ]
     );
 
@@ -457,11 +459,52 @@ describe("an attribute a meal never carries", () => {
 });
 
 // ---------------------------------------------------------------------------
+// The namespace above the three forbidden attributes
+// ---------------------------------------------------------------------------
+
+describe("an attribute from a domain a meal has no business carrying", () => {
+  const onALegitimateTwin = (attribute: string) =>
+    refusal(
+      payloadOf(
+        ["event:consume_a"],
+        [...oneFoodMeal(), row("fdc:1", attribute, "whatever it holds")]
+      )
+    );
+
+  // The Acquisition and Media projections scope by attribute alone, so these
+  // two ride a properly reachable food twin straight into a library of things
+  // the recipient never acquired or watched.
+  it("refuses a physical-item attribute the Acquisition projection would read", () => {
+    expect(onALegitimateTwin("twin/name").message).toContain("twin/name");
+  });
+
+  it("refuses a media attribute the Media projection would read", () => {
+    expect(onALegitimateTwin("media/title").message).toContain("media/title");
+  });
+
+  it("refuses a habit attribute", () => {
+    expect(onALegitimateTwin("habit/name").message).toContain("habit/name");
+  });
+
+  it.each([...MEAL_ATTRIBUTE_NAMESPACES])(
+    "carries %sattributes, which are a meal's own",
+    (namespace) => {
+      const payload = payloadOf(
+        ["event:consume_a"],
+        [...oneFoodMeal(), row("fdc:1", `${namespace}something`, "a value")]
+      );
+
+      expect(readMealPayload(payload).rows).toHaveLength(4);
+    }
+  );
+});
+
+// ---------------------------------------------------------------------------
 // The one thing that looks like a refusal and is not
 // ---------------------------------------------------------------------------
 
 describe("an unknown attribute", () => {
-  it("is accepted, because reachability already contains the threat", async () => {
+  it("inside a namespace a meal carries, is accepted rather than refused", async () => {
     const rows = [
       ...oneFoodMeal(),
       row("fdc:1", "food/invented_by_a_later_release", { anything: true }),
