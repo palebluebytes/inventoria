@@ -41,6 +41,7 @@
   // is still standing there and mints another code.
   let {
     opening,
+    selectedDate,
     dbReady,
     onLeave,
   }: {
@@ -51,6 +52,8 @@
      * broken app rather than as a broken code.
      */
     opening: ReceiveOpening;
+    /** The day the food screen is showing, which is where the meal lands. */
+    selectedDate: Date;
     dbReady: boolean;
     /** Unmounts this surface, which is the whole of declining. */
     onLeave: () => void;
@@ -107,13 +110,15 @@
 
   /**
    * Keeps the meal: re-logged on this device's clock, into the meal it was sent
-   * as, on today (ADR-0073 §5 and §7).
+   * as, on the day the food screen is showing (ADR-0073 §5 and §7).
    *
-   * **Today rather than the day the food screen happens to be parked on.** The
-   * two doors would otherwise disagree — a link opens the app with no day
-   * chosen at all — and a meal that arrived now landing on a day the person was
-   * browsing is a write they did not ask for. The panel says which day before
-   * they tap, so nothing is a surprise.
+   * **The day is the food screen's, exactly as it is for every other way into a
+   * meal.** A received meal is `copyPastMeal` with a wire in front of it (§5),
+   * and that copy lands on the day being viewed; a receive that overrode it
+   * with "today" would be the one door in the app that ignores the week strip.
+   * A link opened cold is not an exception — the food screen starts on today,
+   * so the cold case reaches the same day by the ordinary rule rather than by a
+   * special one.
    */
   async function keep() {
     const held = payload;
@@ -121,7 +126,11 @@
     if (!held || !kept || keeping) return;
     keeping = true;
     try {
-      const landed = await acceptMealPayload(held, kept.meal_type, new Date());
+      const landed = await acceptMealPayload(
+        held,
+        kept.meal_type,
+        selectedDate
+      );
       ended = mealLandedWords(landed, kept.meal_type);
     } catch (failure) {
       ended = receiveEndingWords(failure);
@@ -176,9 +185,14 @@
         >
           {keeping ? "Adding…" : `Add to my ${meal.meal_type}`}
         </Button>
+        <!-- Which day it lands on, before the tap rather than after it. A
+             written date rather than "Today" for §7's reason, which holds with
+             more force here than on the sending screen: the person who sent it
+             is standing next to you looking at it, and "Today" is a claim about
+             whose day. -->
         <p class="fine">
-          It goes in today, on your own clock. Leave and it is gone: nothing of
-          theirs is kept unless you keep it.
+          It goes in {writeDate(selectedDate)}, on your own clock. Leave and it
+          is gone: nothing of theirs is kept unless you keep it.
         </p>
       {:else}
         <p class="waiting" role="status">Waiting for their meal…</p>

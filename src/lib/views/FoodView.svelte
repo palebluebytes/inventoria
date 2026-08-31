@@ -923,7 +923,12 @@
      declining, by any route — including a tab change, which unmounts this whole
      screen under it. -->
 {#if receiving}
-  <ReceivedMealPanel opening={receiving} {dbReady} onLeave={leaveReceiving} />
+  <ReceivedMealPanel
+    opening={receiving}
+    {selectedDate}
+    {dbReady}
+    onLeave={leaveReceiving}
+  />
 {/if}
 
 <!-- The past-meal picker (ADR-0058). Reached from its own header control, so
