@@ -46,10 +46,21 @@ export const LEDGER_EXPORT_ARTIFACT = "inventoria-ledger";
  */
 export const LEDGER_EXPORT_SCHEMA_VERSION = 1;
 
-/** Line one of an export: what this file is, and how much of it to expect. */
-export interface LedgerExportEnvelope {
-  artifact: typeof LEDGER_EXPORT_ARTIFACT;
+/**
+ * What line one of any NDJSON artifact this app writes says: which format it is
+ * and which version of it. ADR-0064 §2 put both at the front so a reader can
+ * refuse an unfamiliar file after one line, and ADR-0073 §4 gives the format a
+ * sibling — a Meal payload shares this grammar and shares no merge rule, which
+ * is exactly why the two must not share an `artifact`.
+ */
+export interface NdjsonEnvelope {
+  artifact: string;
   schema_version: number;
+}
+
+/** Line one of an export: what this file is, and how much of it to expect. */
+export interface LedgerExportEnvelope extends NdjsonEnvelope {
+  artifact: typeof LEDGER_EXPORT_ARTIFACT;
   /** Unix ms at which the write began. */
   exported_at: number;
   /** The device whose ledger this is, from the `meta` table. */
@@ -75,7 +86,7 @@ export function buildExportEnvelope(
   };
 }
 
-export function envelopeLine(envelope: LedgerExportEnvelope): string {
+export function envelopeLine(envelope: NdjsonEnvelope): string {
   return `${JSON.stringify(envelope)}\n`;
 }
 
