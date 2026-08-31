@@ -137,6 +137,17 @@
   // ── Navigation ───────────────────────────────────────────────────────────
   type Tab = "food" | "agenda" | "media" | "items" | "notes" | "settings";
   let activeTab = $state<Tab>("food");
+
+  // Wandering to another Tab is leaving, and leaving is declining (ADR-0073
+  // §10). Unmounting the food screen already destroys the payload and the
+  // socket; without this the *code* would outlive them, and coming back would
+  // re-open the surface and rejoin the room on a code that is single-use. The
+  // §10 clause this discharges is that the runtime cannot tell a deliberate
+  // exit from a wander, so they must not behave differently — and the scan
+  // door's code, which lives inside the food screen, already dies here.
+  $effect(() => {
+    if (activeTab !== "food") receiveLink = null;
+  });
 </script>
 
 <svelte:head>

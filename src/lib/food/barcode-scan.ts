@@ -18,13 +18,25 @@
 // when zxing initialises on first use.
 import zxingReaderWasmUrl from "zxing-wasm/reader/zxing_reader.wasm?url";
 
-// The retail linear symbologies a food barcode uses, plus QR — the same set the
-// live `BarcodeDetector` scanner requests in FoodStager, so both paths decode
-// alike. QR is here because the Scan way in reads a meal code as well as a
-// barcode (ADR-0074 §4): a Send code's second carrier is a QR, and a photo of
-// one — a screenshot somebody was sent — must read the same as the camera does.
-// `readScannedCode` is what decides which of the two a decode turned out to be.
-const FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e", "qr_code"] as const;
+// The retail linear symbologies a food barcode uses, plus QR.
+//
+// EXPORTED because the live camera in FoodStager asks the platform's own
+// `BarcodeDetector` for the same list, and the two paths have to decode alike:
+// a phone reads through the native detector and a dropped photo reads through
+// this ponyfill, and a format in one list and not the other is a code that
+// scans on the desktop and not on the phone. It is one list so it cannot drift.
+//
+// QR is here because the Scan way in reads a meal code as well as a barcode
+// (ADR-0074 §4): a Send code's second carrier is a QR, whether it is on the
+// other person's screen or in a screenshot they sent. `readScannedCode` is what
+// decides which of the two a decode turned out to be.
+export const SCAN_FORMATS = [
+  "ean_13",
+  "ean_8",
+  "upc_a",
+  "upc_e",
+  "qr_code",
+] as const;
 
 // The ponyfill detector is built once, lazily, and reused; the promise doubles
 // as the in-flight guard so concurrent uploads share a single wasm init.
@@ -43,7 +55,7 @@ function getDetector() {
               path.endsWith(".wasm") ? zxingReaderWasmUrl : prefix + path,
           },
         });
-        return new BarcodeDetector({ formats: [...FORMATS] });
+        return new BarcodeDetector({ formats: [...SCAN_FORMATS] });
       }
     );
   }

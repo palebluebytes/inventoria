@@ -57,6 +57,7 @@
     type ManualEntryKind,
   } from "../../food/provenance";
   import {
+    SCAN_FORMATS,
     decodeBarcode,
     decodeBarcodeFromImage,
   } from "../../food/barcode-scan";
@@ -1085,7 +1086,8 @@
         return;
       }
       detector = new (window as any).BarcodeDetector({
-        formats: ["ean_13", "ean_8", "upc_a", "upc_e"],
+        // The ponyfill's list, so the camera and a dropped photo decode alike.
+        formats: [...SCAN_FORMATS],
       });
       stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment" },
