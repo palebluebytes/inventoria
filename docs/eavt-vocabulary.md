@@ -33,8 +33,14 @@ including indexes, is in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Entity prefixes
 
-An entity id begins with a prefix naming what kind of thing it is. **Projections**
-scope their reads by these prefixes.
+An entity id begins with a prefix naming what kind of thing it is. Most **Projections**
+scope their reads by these prefixes; two scope by attribute namespace instead, because
+their entities are heterogeneously named.
+
+Anything scoped by a **Facet**, such as a scoped wipe or a scoped export, scopes by entity
+and never by attribute namespace, because `twin/` and `event/` are each written by several
+Tracked Domains ([ADR-0076](adr/0076-a-facet-is-an-installable-face-onto-one-jar.md) §4).
+Which prefixes a Facet owns is declared in the Facet registry, not restated here.
 
 ### Digital Twins
 
@@ -71,6 +77,16 @@ digest of the payload's declared closure root, so accepting the same meal twice 
 once and `INSERT OR IGNORE` absorbs the second. No new prefix, and nothing about the sender
 is encoded in it. See
 [ADR-0073](adr/0073-a-sent-meal-is-a-narrowed-closure-that-lands-re-minted.md) §5.
+
+### Op-logs
+
+| Prefix   | Identifies                                                          |
+| -------- | ------------------------------------------------------------------- |
+| `notes:` | The **Note** and **Checklist** CRDT op-log, one entity: `notes:doc` |
+
+The only prefix with a fixed, single entity behind it, and the only domain with no
+**Projection**: its op-log is read by a direct SELECT
+([ADR-0018](adr/0018-notes-checklist-crdt-oplog-in-ledger.md)).
 
 ## Attribute namespaces
 
@@ -171,7 +187,11 @@ Media Digital Twins.
 
 ### `twin/`
 
-Physical item twins.
+Physical item twins, **and not those alone**. `raw_provenance` is attached by the
+ingestion registry to every twin it mints, and `brand` is written by Open Food Facts food
+twins, so a read scoped to `twin/%` sees food as well as physical items. That is harmless
+for a fold and wrong for anything that acts on the rows
+([ADR-0076](adr/0076-a-facet-is-an-installable-face-onto-one-jar.md) §4).
 
 - `name`, `brand`, `image`, `note`, `description`, `tags`, `source_url`.
 - `raw_provenance`: the **Provenance** blob. Where two records from one source were

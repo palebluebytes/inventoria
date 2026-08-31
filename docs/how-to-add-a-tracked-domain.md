@@ -1,8 +1,10 @@
 # How to add a new tracked domain
 
-A tracked domain is a kind of thing the app records: food, media, physical items,
-habits, calendar events. Adding one touches six layers in a fixed order. This is the
-route; `CODING_STANDARDS.md` §2 is the rule it follows, and the acquisition domain
+A tracked domain is a kind of thing the app records. [CONTEXT.md](../CONTEXT.md)
+carries the term and the roster, six of them, and this file is the route for
+adding a seventh. The roster is deliberately not restated here, so there is one place
+for it to go stale. Adding a domain touches six layers in a fixed order; this is the
+route, `CODING_STANDARDS.md` §2 is the rule it follows, and the acquisition domain
 (`src/lib/acquisition/`, four small files) is the smallest complete example to read
 alongside.
 
@@ -22,6 +24,11 @@ change later, because they end up in the ledger and the ledger is append-only.
    seeded from.
 3. Everything the ledger touches is **snake_case**, from the attribute key through to
    the Svelte store property. `widget/serial_number`, never `serialNumber`.
+4. Decide which **Facet** the domain joins. The default is the root Inventoria Facet,
+   and a new domain takes it. Giving a domain a Facet of its own, with its own
+   manifest, name, icon and install, is a separate decision that takes an ADR
+   ([ADR-0076](adr/0076-a-facet-is-an-installable-face-onto-one-jar.md) §3), not a
+   step in this route.
 
 Prefixes are stable identity. `gtin:` means "keyed by barcode" forever, so a twin
 minted under one prefix cannot be re-keyed under another without minting a new
@@ -94,6 +101,13 @@ WIDGET_LIBRARY: {
 Scope by **entity prefix** when the entities are homogeneously named, and by
 **attribute namespace** when they are not. Food does the latter because its twins
 span `fdc:`, `gtin:`, `food:custom_`, and `recipe:`.
+
+Attribute scoping is a **read** convenience and nothing more. `twin/` and `event/` are
+each written by several domains, so a projection scoped by one of them reads rows it
+does not own: `ACQUISITION_LIBRARY` sees every food twin's `twin/raw_provenance`. That
+is harmless for a fold, which ignores what it does not recognise, and wrong for anything
+that acts on the rows: a Facet-scoped operation scopes by entity prefix instead
+([ADR-0076](adr/0076-a-facet-is-an-installable-face-onto-one-jar.md) §4).
 
 Nothing else changes in the worker. `db.worker.ts` is a thin dispatcher over this
 map and stays that way
