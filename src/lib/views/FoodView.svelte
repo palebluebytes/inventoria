@@ -101,9 +101,9 @@
   // both land you on the meal itself, deciding, with nothing in front of it.
   //
   // The code a scan found, held only until the surface it opens is left.
-  let scanned_code = $state<SendCode | null>(null);
+  let scannedCode = $state<SendCode | null>(null);
   let receiving = $derived<ReceiveOpening | null>(
-    receiveLink ?? (scanned_code ? { kind: "code", code: scanned_code } : null)
+    receiveLink ?? (scannedCode ? { kind: "code", code: scannedCode } : null)
   );
 
   /**
@@ -112,14 +112,14 @@
    * surface would re-open it, and the payload it opened is already gone.
    */
   function leaveReceiving() {
-    scanned_code = null;
+    scannedCode = null;
     onReceiveClose();
   }
 
   /** A meal code the Scan way in read. The sheet it was scanned from closes. */
   function takeMealCode(code: SendCode) {
     closeSheet();
-    scanned_code = code;
+    scannedCode = code;
   }
 
   // The food screen's own settings sheet (top-right gear) — food-specific

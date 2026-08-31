@@ -18,6 +18,7 @@
  * would make declining socially visible.
  */
 
+import type { MealType } from "../food/meal-type";
 import { endingCause, type EndingWords } from "./ending-words";
 import type { AcceptedMeal } from "./meal-accept";
 import { SendFailedError, type SendFailure } from "./meal-send";
@@ -175,7 +176,7 @@ const foods = (count: number): string =>
  */
 export function mealLandedWords(
   landed: AcceptedMeal,
-  meal_type: string
+  meal_type: MealType
 ): ReceiveWords {
   const detail =
     landed.lost > 0

@@ -13,6 +13,7 @@
   import NutritionPanelCell from "./NutritionPanelCell.svelte";
   import NutrientCardGrid from "./NutrientCardGrid.svelte";
   import NutrientGroupHead from "./NutrientGroupHead.svelte";
+  import EndingLine from "./EndingLine.svelte";
   import SendCodeSymbol from "./SendCodeSymbol.svelte";
   import WayOutIcon from "./WayOutIcon.svelte";
   import { buildMealPayload } from "../../p2p/meal-payload";
@@ -74,7 +75,6 @@
   let handing = $state(false);
   let code = $state<SendCode | null>(null);
   let ended = $state<SendWords | null>(null);
-  let showCause = $state(false);
   let copied = $state<"yes" | "no" | null>(null);
 
   /** Live while a send is: closing the panel aborts it, which burns the code. */
@@ -92,7 +92,6 @@
     handing = true;
     code = null;
     ended = null;
-    showCause = false;
     copied = null;
     try {
       // The roots are this meal's own Consumption Events; everything else in
@@ -223,24 +222,8 @@
           {/if}
         {:else}
           <!-- One line, in the app's voice, with the technical cause behind a
-               "show why" (§6). -->
-          <div class="outcome" class:ok={ended.ending === "delivered"}>
-            <p class="big" role="status">{ended.line}</p>
-          </div>
-          <p class="fine">{ended.detail}</p>
-          {#if ended.cause}
-            <button
-              type="button"
-              class="plain"
-              aria-expanded={showCause}
-              onclick={() => (showCause = !showCause)}
-            >
-              {showCause ? "Hide" : "Show"} why
-            </button>
-            {#if showCause}
-              <p class="cause">{ended.cause}</p>
-            {/if}
-          {/if}
+               "show why" (§6) — the shape both ends of a send print. -->
+          <EndingLine words={ended} ok={ended.ending === "delivered"} />
           {#if ended.retry}
             <button type="button" class="plain" onclick={handOver}>
               Send again
@@ -343,20 +326,6 @@
     margin: var(--space-2xs) 0 0;
     color: var(--text-muted);
   }
-  .outcome {
-    padding: var(--space-s) 0 0;
-  }
-  .big {
-    margin: 0;
-    font-size: var(--step-1);
-    font-weight: 700;
-    line-height: 1.15;
-    background: var(--amber-bg);
-    padding: 0 var(--space-3xs);
-  }
-  .outcome.ok .big {
-    background: var(--green-bg);
-  }
   .plain {
     margin-top: var(--space-2xs);
     background: none;
@@ -367,11 +336,5 @@
     color: var(--text-secondary);
     text-decoration: underline;
     cursor: pointer;
-  }
-  .cause {
-    margin: var(--space-3xs) 0 0;
-    font-family: var(--font-mono);
-    font-size: var(--step-n3);
-    color: var(--text-muted);
   }
 </style>

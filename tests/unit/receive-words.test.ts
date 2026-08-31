@@ -9,6 +9,7 @@
 import { describe, it, expect } from "vitest";
 import {
   MEAL_HAS_NOTHING,
+  mealCodeBrokenWords,
   mealLandedWords,
   receiveEndingWords,
   type ReceiveWords,
@@ -62,6 +63,16 @@ describe("receiveEndingWords", () => {
 
   it("says a spent code is spent rather than that the meal failed", () => {
     expect(receiveEndingWords(new SendCodeSpentError()).ending).toBe("spent");
+  });
+
+  it("says a code that never named a room is still the sender's to reuse", () => {
+    const broken = mealCodeBrokenWords("this code is missing half of itself.");
+
+    expect(broken.ending).toBe("broken");
+    // Nothing was attempted, so nothing of theirs was spent — which is the one
+    // thing that separates this from every other refusal.
+    expect(broken.detail).toMatch(/still good/);
+    expect(broken.cause).toBe("this code is missing half of itself.");
   });
 
   it("does not guess when it does not know", () => {

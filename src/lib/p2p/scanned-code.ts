@@ -31,9 +31,9 @@ export type ScannedCode =
   /** A Send code: somebody is handing over a meal (ADR-0072 §3). */
   | { kind: "meal"; code: SendCode }
   /** A meal code that is broken — a truncated link, a mangled key. */
-  | { kind: "broken"; reason: string }
+  | { kind: "broken" }
   /** A code this app has no use for, which is not the same as a broken one. */
-  | { kind: "neither"; reason: string };
+  | { kind: "neither" };
 
 /**
  * The lengths the four retail symbologies the scanner asks for actually decode
@@ -49,16 +49,14 @@ export function readScannedCode(raw: string): ScannedCode {
   try {
     const code = readSendCode(scanned);
     if (code !== null) return { kind: "meal", code };
-  } catch (broken) {
-    return {
-      kind: "broken",
-      reason: broken instanceof Error ? broken.message : String(broken),
-    };
+  } catch {
+    // Why it is broken is not carried, because the surface this answers to is a
+    // live camera preview and there is no disclosure on one to put a cause
+    // behind. The refusal it prints is one line, which is what ADR-0074 §6 asks
+    // for, and the recovery is to point the phone at something else.
+    return { kind: "broken" };
   }
 
   if (BARCODE_DIGITS.test(scanned)) return { kind: "barcode", digits: scanned };
-  return {
-    kind: "neither",
-    reason: "that is a code, but it is neither a barcode nor a meal.",
-  };
+  return { kind: "neither" };
 }

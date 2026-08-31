@@ -17,6 +17,7 @@
   import { formatCalories } from "../../food/nutrient-display";
   import { calorieDisplayDecimals } from "../../stores/device-settings";
   import Button from "../../ui/Button.svelte";
+  import EndingLine from "./EndingLine.svelte";
   import NutritionPanel from "./NutritionPanel.svelte";
 
   // The **Receiving surface**: the meal itself, with nothing in front of it
@@ -61,7 +62,6 @@
   let meal = $state<ReceivedMeal | null>(null);
   /** How this ended — a refusal, or the meal landing. Null while it is live. */
   let ended = $state<ReceiveWords | null>(null);
-  let showCause = $state(false);
   /** True while the accept path is writing, so the offer cannot be taken twice. */
   let keeping = $state(false);
 
@@ -142,24 +142,8 @@
     <div class="inset centre" data-testid="received-meal-body">
       {#if ended}
         <!-- One line, in the app's voice, with the technical cause behind a
-             "show why" (ADR-0074 §6). -->
-        <div class="outcome" class:ok={ended.ending === "landed"}>
-          <p class="big" role="status">{ended.line}</p>
-        </div>
-        <p class="fine">{ended.detail}</p>
-        {#if ended.cause}
-          <button
-            type="button"
-            class="plain"
-            aria-expanded={showCause}
-            onclick={() => (showCause = !showCause)}
-          >
-            {showCause ? "Hide" : "Show"} why
-          </button>
-          {#if showCause}
-            <p class="cause">{ended.cause}</p>
-          {/if}
-        {/if}
+             "show why" (ADR-0074 §6) — the shape both ends of a send print. -->
+        <EndingLine words={ended} ok={ended.ending === "landed"} />
         <Button variant="secondary" size="sm" onclick={onLeave}>Done</Button>
       {:else if meal}
         <!-- What is being handed over. It writes a date rather than "Today" or
@@ -258,37 +242,6 @@
   }
   .waiting {
     margin: var(--space-s) 0 0;
-    color: var(--text-muted);
-  }
-  .outcome {
-    padding: var(--space-s) 0 0;
-  }
-  .big {
-    margin: 0;
-    font-size: var(--step-1);
-    font-weight: 700;
-    line-height: 1.15;
-    background: var(--amber-bg);
-    padding: 0 var(--space-3xs);
-  }
-  .outcome.ok .big {
-    background: var(--green-bg);
-  }
-  .plain {
-    margin-top: var(--space-2xs);
-    background: none;
-    border: 0;
-    padding: 0;
-    font: inherit;
-    font-size: var(--step-n2);
-    color: var(--text-secondary);
-    text-decoration: underline;
-    cursor: pointer;
-  }
-  .cause {
-    margin: var(--space-3xs) 0 0;
-    font-family: var(--font-mono);
-    font-size: var(--step-n3);
     color: var(--text-muted);
   }
 </style>
