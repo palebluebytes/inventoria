@@ -5,6 +5,8 @@ import {
   buildManualEntry,
   manualEntryIsReusable,
   MANUAL_ENTRY_ADAPTER_VERSION,
+  buildArrival,
+  ARRIVAL_ADAPTER_VERSION,
 } from "../../src/lib/food/provenance";
 
 // The label-capture envelope (ADR-0034 §7) is a PURE, deterministic, clock-free
@@ -113,5 +115,36 @@ describe("manualEntryIsReusable (the single Recent/Search rule)", () => {
   it("treats a quick estimate and a plate estimate as one-offs", () => {
     expect(manualEntryIsReusable("quick_estimate")).toBe(false);
     expect(manualEntryIsReusable("plate_estimate")).toBe(false);
+  });
+});
+
+// The third sibling (ADR-0073 §11): the mark a food carries because somebody
+// sent you a meal. Unlike the two above it is NOT clock-free — the datom's own
+// `time` is the accept, and the food itself is older than this device can know —
+// but the clock is still a PARAMETER, so one accept stamps every food of the
+// meal with the one moment it arrived.
+describe("buildArrival (food/arrival, ADR-0073 §11)", () => {
+  it("stamps the send adapter, its version and the moment it arrived", () => {
+    expect(buildArrival(1_756_600_000_000)).toEqual({
+      adapter: "send",
+      adapter_version: ARRIVAL_ADAPTER_VERSION,
+      received_at: 1_756_600_000_000,
+    });
+  });
+
+  it("records how the food came to be here and never who sent it", () => {
+    // Sender identity exists nowhere: not in the ledger, not in the envelope,
+    // not in the receiving view. The envelope is three fields and that is all.
+    expect(Object.keys(buildArrival(1_756_600_000_000)).sort()).toEqual([
+      "adapter",
+      "adapter_version",
+      "received_at",
+    ]);
+  });
+
+  it("is deterministic — the same moment builds the same envelope", () => {
+    expect(buildArrival(1_756_600_000_000)).toEqual(
+      buildArrival(1_756_600_000_000)
+    );
   });
 });

@@ -62,6 +62,10 @@
       title: "One of your recipes",
       body: "Built from one of your saved recipes — its nutrition is summed from the ingredients you listed and divided across the yield, so it's only as accurate as those ingredients and portions.",
     },
+    arrival: {
+      title: "A meal somebody sent you",
+      body: "This food arrived with a meal you accepted, and these are the numbers the person who sent it had. The record behind them did not come with it — no source response and no label photo cross — so treat it as their entry rather than something you can check here. It is yours now, and it behaves like any other food you have logged.",
+    },
   };
 
   let copy = $derived(COPY[kind]);

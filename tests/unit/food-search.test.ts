@@ -9,7 +9,11 @@ import {
 } from "../../src/lib/food/food-search";
 import { searchUsdaCorpus } from "../../src/lib/food/usda-corpus";
 import type { NutritionInfo } from "../../src/lib/food/nutrition";
-import { buildManualEntry } from "../../src/lib/food/provenance";
+import {
+  buildArrival,
+  buildManualEntry,
+  FOOD_ARRIVAL_ATTR,
+} from "../../src/lib/food/provenance";
 
 // The poor-quality predicate (ADR-0034 §1) is the ONE place the label-capture
 // effort decides a scanned twin is "poor" enough to nudge. Pure, so assert its
@@ -167,6 +171,17 @@ describe("isCatalogueFood", () => {
 
   it("drops a whole-serving food with no manual-entry (label capture / legacy custom)", () => {
     expect(isCatalogueFood({ "twin/brand": "Acme" }, "serving")).toBe(false);
+  });
+
+  // ADR-0073 §11: the arrival mark is display-only. Reusability is inherited
+  // from the sender's own classification, because this rule keys off
+  // `food/manual_entry.kind` and nothing else — so a received menu dish is as
+  // reusable as one you entered, and a received quick estimate is as one-off.
+  it("ignores the arrival mark, which decides nothing about reuse", () => {
+    const received = { [FOOD_ARRIVAL_ATTR]: buildArrival(1_756_600_000_000) };
+    expect(isCatalogueFood({ ...menu, ...received }, "serving")).toBe(true);
+    expect(isCatalogueFood({ ...quick, ...received }, "serving")).toBe(false);
+    expect(isCatalogueFood(received, "g")).toBe(true);
   });
 });
 

@@ -223,3 +223,58 @@ export function buildManualEntry(args: {
 export function manualEntryIsReusable(kind: ManualEntryKind): boolean {
   return kind === "menu";
 }
+
+// ---------------------------------------------------------------------------
+// Arrival provenance (food/arrival)
+// ---------------------------------------------------------------------------
+//
+// A food that reached this device because somebody sent you a meal is neither
+// ingested (`twin/raw_provenance`), read off a label (`food/label_capture`) nor
+// hand-entered (`food/manual_entry`), so a THIRD sibling records its origin
+// (ADR-0073 §11). A received meal lands re-minted on the recipient's own clock
+// with no foreign `device_id`, which erases the free provenance mark a foreign
+// stamp would have left — so it is written explicitly instead.
+//
+// It records how this food came to be here and NEVER who sent it: no sender
+// identity exists in the ledger, the envelope or the wire. And it is
+// display-only — `foodSourceView` reads it, and nothing else does. It never
+// gates reuse, never hides a food from Recent or search, and is never written
+// for a datom from one of your own devices (ADR-0075 §13).
+
+/** The EAVT attribute holding the arrival mark. */
+export const FOOD_ARRIVAL_ATTR = "food/arrival";
+
+/** Bumped when the arrival envelope's shape or semantics change. */
+export const ARRIVAL_ADAPTER_VERSION = 1;
+
+/**
+ * The provenance envelope stored under `food/arrival` — the third sibling of
+ * {@link LabelCapture} and {@link ManualEntry} (ADR-0073 §11).
+ *
+ * Unlike those two it is NOT clock-free. Theirs takes its basis from the
+ * datom's own `time`, which is the moment the user did the thing the envelope
+ * records; here the datom's `time` is the accept and the food itself is older
+ * than this device has any way of knowing, so the one instant worth stating is
+ * the arrival and it is stated rather than inferred.
+ */
+export interface Arrival {
+  /** Always "send" — the capture surface, paralleling {@link ManualEntry}. */
+  adapter: "send";
+  /** Envelope version, bumped with {@link ARRIVAL_ADAPTER_VERSION}. */
+  adapter_version: number;
+  /** When the meal carrying this food was accepted, in Unix ms. */
+  received_at: number;
+}
+
+/**
+ * Builds the `food/arrival` envelope. Pure and deterministic — the clock is a
+ * parameter rather than a `Date.now()` inside, so the accept path stamps every
+ * food of one meal with the one moment it arrived (`CODING_STANDARDS.md` §6).
+ */
+export function buildArrival(received_at: number): Arrival {
+  return {
+    adapter: "send",
+    adapter_version: ARRIVAL_ADAPTER_VERSION,
+    received_at,
+  };
+}
