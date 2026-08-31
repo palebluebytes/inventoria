@@ -161,3 +161,80 @@ Four things resisted primary sourcing and should not be treated as established:
 
 All four are measurable on one iPhone in an afternoon and none is answerable by reading. If the map
 wants this shape, that measurement is the next step — a prototype, not more research.
+
+## Addendum: does any of this get better on Android?
+
+Asked after the note was written, and worth answering here rather than separately, because the
+comparison is what shows which walls are **platform policy** and which are **spec-level and
+therefore everywhere**.
+
+### The decisive wall does not move, and it is not iOS's
+
+**A Service Worker cannot spawn a dedicated worker.** `Worker` is simply not defined in
+`ServiceWorkerGlobalScope` — `ReferenceError: Worker is not defined`. It is an acknowledged gap with
+open issues against both specs
+([w3c/ServiceWorker#1529](https://github.com/w3c/ServiceWorker/issues/1529),
+[whatwg/html#8362](https://github.com/whatwg/html/issues/8362)), unimplemented in **every** engine.
+
+That closes the only escape hatch from §3a. If a Service Worker could spawn a dedicated worker it
+could obtain a sync access handle and open the ledger, and the whole picture would change on both
+platforms. It cannot, anywhere. **The Service Worker cannot converge the ledger on Android either,
+and this is the wall that decides the answer.**
+
+`createSyncAccessHandle`'s Dedicated-Web-Worker-only rule and `localStorage`'s absence from workers
+are likewise specification facts, not WebKit choices. **Three of the four walls are identical on
+Android.**
+
+### What does get better
+
+**Silent push: weaker, not gone.** Chrome requires `userVisibleOnly: true` at subscribe time for web
+content (extensions gained `false` in Chrome 121; that does not extend to web apps). But enforcement
+differs in kind from WebKit's: Chrome tolerates a budget of pushes that display nothing and
+substitutes its own generic _"This site has been updated in the background"_ notification when the
+budget is exhausted, rather than revoking the subscription. **Unreliable rather than forbidden** —
+and unreliability is a poor foundation, since the failure mode is a confusing notification we did
+not write.
+
+**Periodic Background Sync genuinely works, and this is the real difference.** Per
+[Chrome's documentation](https://developer.chrome.com/docs/capabilities/periodic-background-sync):
+it requires an **installed** PWA launched as a distinct application, it fires **with no notification
+at all**, and — the limits — Chrome decides the frequency from a **site engagement score**, and _"a
+`periodicsync` event won't be fired at all unless the engagement score is greater than zero"_.
+`minInterval` is a request, not a guarantee; the documented example asks for a day.
+
+So Android has a path with **zero user-visible cost**: `periodicsync` fires silently, the worker
+fetches any waiting deposit and stashes it in IndexedDB, and the page imports it on next open. **The
+mailbox drains itself.**
+
+### But it still is not a server, for a different reason
+
+Periodic Background Sync **cannot be triggered remotely.** It is a poll on Chrome's schedule, gated
+on engagement, plausibly a day apart. The laptop cannot cause it to happen. So Android replaces
+_deliver to the phone, once, noisily_ with _the phone checks in, silently, eventually_ — better on
+cost, worse on latency, and **on-demand on neither**.
+
+### One trap specific to the Android path
+
+§3b's sidestep — _put the deposit's address in the push payload so the worker never needs the
+pairing secret_ — **does not exist under Periodic Background Sync**, because nothing is delivered:
+the worker wakes on a timer and must work out for itself where to look. That requires the pairing
+secret, which is in `localStorage`, which a worker cannot read.
+
+**On Android the `localStorage` → IndexedDB move is not an optimisation, it is a precondition.**
+ADR-0075 §3 is the thing standing between this project and the one platform path that costs the user
+nothing.
+
+### Summary
+
+|                         | iOS (installed)                                                | Android (installed)                                                                               |
+| ----------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Unattended wake         | push only, **notification mandatory** (stated WebKit position) | push (silent on a budget, generic fallback notification) **and** Periodic Background Sync, silent |
+| Remotely triggerable    | yes, per push                                                  | **no** — Periodic Background Sync is a poll on Chrome's schedule                                  |
+| Latency                 | immediate, at the cost of an interruption                      | up to Chrome's chosen interval, free                                                              |
+| Worker → ledger         | **blocked**                                                    | **blocked, identically** — spec, not platform                                                     |
+| Worker → pairing secret | blocked; sidestep via push payload                             | **blocked, no sidestep** — §3 becomes a precondition                                              |
+
+**The phone cannot be the server on either platform.** Android is materially cheaper for the courier
+step and cannot be commanded; iOS can be commanded and charges a notification each time. Whether that
+divergence is worth designing for depends on which devices are actually in play — a question this note
+cannot answer.
