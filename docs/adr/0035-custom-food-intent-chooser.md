@@ -232,3 +232,33 @@ dashboard must treat an omitted macro on an event as _not counted_, never as 0.
   not the mock.
 - **Reusable quick-estimate / plate entries in Recent.** Rejected — a vague
   estimate is not a catalogue food; only the named menu dish is reusable.
+
+## Amendment (2026-08-31): a label capture is a catalogue food, because it is now a measured log
+
+Decision 6's rule is untouched and so is the code implementing it. What changed
+is which side of that rule a label capture falls on, and two claims made around
+it are now wrong.
+
+`isCatalogueFood` admits any **measured** log and asks about the intent `kind`
+only for a whole-serving one. A label capture used to be logged `"1 serving"`,
+so it met the second clause and was excluded; since the fix in ADR-0060's
+2026-08-31 Amendments it is logged against its panel's own basis — `100g`,
+`100ml` — and meets the first, like any other scanned food. Measured: a scanned
+oil captured through the found-but-poor door now appears in that meal's Recent
+list as `Per 100 ml: 884 kcal`.
+
+That is the right outcome rather than a side effect to be undone. A scanned
+packaged product IS the reusable thing a catalogue is for, and Decision 6's own
+first clause already said so — "searched/scanned foods, unchanged". The reason a
+capture was excluded was never a judgement about captures; it was that a
+unit-less receipt could not be scaled, so the entry re-opened the whole label
+form instead of an amount. That defect is what the amendment fixed.
+
+**Two corrections follow.** The Consequences entry above says falling back to the
+label form when editing a manual entry would "drop the dish from the catalogue" —
+it would not, and has not since that fix. The instruction stands on a stronger
+reason: a manual entry's calories are a whole-serving figure and the label form
+writes a per-100 basis, so the fallback would restate "300 kcal for this dish" as
+300 kcal per 100 g, besides stripping `food/manual_entry` and the intent's own
+fields. And `isCatalogueFood`'s own doc listed a label capture among the
+whole-serving logs it excludes; it no longer is one.

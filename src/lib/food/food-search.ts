@@ -112,9 +112,15 @@ export function isPoorFoodTwin(input: {
  * - A **measured** log — grams or millilitres — always qualifies
  *   (searched/scanned foods, unchanged).
  * - A **whole-serving** log qualifies **only** when it is a reusable `menu`
- *   manual entry. A `quick_estimate` / `plate_estimate` one-off, a legacy custom,
- *   and a label capture all stay out — they re-open via the edit path, never as a
- *   catalogue food. The decision keys off `food/manual_entry.kind` alone.
+ *   manual entry. A `quick_estimate` / `plate_estimate` one-off and a legacy
+ *   custom stay out — they re-open via the edit path, never as a catalogue food.
+ *   The decision keys off `food/manual_entry.kind` alone.
+ *
+ * A label capture is no longer among the whole-serving logs, and so no longer
+ * stays out: it is recorded against its panel's own basis — "100g", "100ml" —
+ * and qualifies on the first clause like any other scanned food (ADR-0060's
+ * 2026-08-31 Amendments; ADR-0035's own amendment records the change). The rule
+ * here is untouched; what changed is which side of it a capture falls on.
  */
 export function isCatalogueFood(
   attributes: Record<string, unknown>,

@@ -129,8 +129,15 @@ export type ChooseOutcome = { ok: boolean; message?: string };
  * edit path): the intent `kind` and the fields the mini-form owns, read back off
  * the food twin (`food/name`, `nutrition/info.calories`, `twin/brand`,
  * `food/ingredients`, the photo). Re-opening the intent's OWN mini-form — not the
- * label form — is what keeps the re-saved twin a manual entry (so a menu dish
- * stays in Recent), rather than degrading it to a label capture.
+ * label form — is what keeps the re-saved twin a manual entry rather than
+ * degrading it to a label capture.
+ *
+ * Catalogue membership used to be the argument for that and no longer is: a
+ * label capture is now a measured log and would stay in Recent either way. The
+ * argument is the panel. A manual entry's calories are a WHOLE-SERVING figure,
+ * and the label form writes a per-100 basis — so falling back to it would
+ * restate "300 kcal for this dish" as 300 kcal per 100 g, besides stripping
+ * `food/manual_entry` and the intent's own fields.
  */
 export interface ManualEntrySeed {
   /** Which intent minted the edited twin — decides which mini-form re-opens. */
