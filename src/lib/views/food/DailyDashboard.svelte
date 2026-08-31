@@ -27,6 +27,7 @@
   import { settingsStore } from "../../stores/settings.store";
   import {
     visibleNutrients,
+    caloriesTracked,
     nutritionPanelOpen,
     setNutritionPanelOpen,
     calorieDisplayDecimals,
@@ -147,13 +148,16 @@
   // Turn the user's selection (default Protein/Fat/Carbs/Fibre) + the day totals
   // + the targets into the meter view models the summary renders. Calories lead
   // that list as one more bar — the builder adds them, filling toward the
-  // resolved `energy` target, in the same shape as every other nutrient.
+  // resolved `energy` target, in the same shape as every other nutrient — and
+  // are put away like one, through their own preference (see `caloriesTracked`
+  // for why it is not a member of the selection list).
   let meters = $derived(
     buildNutrientMeters(
       dayTotals,
       $visibleNutrients,
       resolvedTargets,
-      $calorieDisplayDecimals
+      $calorieDisplayDecimals,
+      $caloriesTracked
     )
   );
 

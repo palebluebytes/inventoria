@@ -278,9 +278,14 @@ export interface NutrientMeter {
  *
  * Calories lead the list as an ordinary meter, exactly as they lead
  * {@link buildNutrientPills}: the same label/value/fill/target shape, filling
- * toward the resolved `energy` target in kcal. They are not selectable (there is
- * no calories entry in {@link NUTRIENT_CATALOGUE}), which is the only sense in
- * which they differ — on the bar itself they are one nutrient among the rest.
+ * toward the resolved `energy` target in kcal.
+ *
+ * `showCalories` is how that bar is put away. It is a separate argument rather
+ * than a `calories` entry in `selection`, because `selection` is a stored list
+ * and every one already written predates the choice: reading membership would
+ * have read every existing user as "calories off". There is likewise no calories
+ * entry in {@link NUTRIENT_CATALOGUE}, so a stray one in `selection` is ignored
+ * by `selectedNutrients` and cannot produce the bar twice.
  *
  * `calorieDecimals` is the whole-number display setting and reaches the leading
  * Calories meter alone; every nutrient meter formats at the fixed precision
@@ -290,7 +295,8 @@ export function buildNutrientMeters(
   breakdown: NutritionBreakdown,
   selection: string[] | undefined,
   targets: Partial<Record<string, number>> = {},
-  calorieDecimals: number = FOOD_DISPLAY_DECIMALS
+  calorieDecimals: number = FOOD_DISPLAY_DECIMALS,
+  showCalories: boolean = true
 ): NutrientMeter[] {
   const kcal = totalFor(breakdown, "calories");
   const calories: NutrientMeter = {
@@ -317,7 +323,7 @@ export function buildNutrientMeters(
     }
     return meter;
   });
-  return [calories, ...nutrients];
+  return showCalories ? [calories, ...nutrients] : nutrients;
 }
 
 /**

@@ -11,6 +11,8 @@
     visibleNutrients,
     roundNutritionPref,
     setVisibleNutrients,
+    caloriesTracked,
+    setCaloriesTracked,
     setRoundNutrition,
   } from "../../stores/device-settings";
   import { get } from "svelte/store";
@@ -61,8 +63,11 @@
 
   // Visible-nutrient selection (ticket #29), a device setting read synchronously,
   // so each toggle persists through its own setter with nothing to clobber.
-  // Calories are always shown and are not selectable.
+  // Calories carry their own preference rather than a place in this list: every
+  // list already stored predates the choice, so membership would read as "off"
+  // for everyone (see `caloriesTracked`).
   let visible_nutrients = $state<string[]>([...get(visibleNutrients)]);
+  let calories_tracked = $state(get(caloriesTracked));
   // Whether calories read rounded to whole numbers (display-only, ticket #29).
   let round_nutrition = $state(get(roundNutritionPref));
   // Per-nutrient target overrides (ticket #41, ADR-0031 §3): mirrors the
@@ -105,7 +110,11 @@
   );
 
   // Whether a nutrient is shown as a dashboard meter (the whole-card toggle).
-  const isTracked = (key: string): boolean => visible_nutrients.includes(key);
+  // Calories answer from their own preference; every other key from the list.
+  const isTracked = (key: string): boolean =>
+    key === ENERGY_TARGET_KEY
+      ? calories_tracked
+      : visible_nutrients.includes(key);
 
   // The baked/calculated default or an override as the plain number the user sees
   // in the card's display unit — the input's placeholder / value. `energy` is in
@@ -148,7 +157,8 @@
   // canonical grams/kcal via #40's parseNutrientEntry (non-numeric reads as 0 =
   // opt-out). Setting a POSITIVE custom target also tracks the nutrient — adds its
   // dashboard meter — since customising something means you want to see it (the
-  // `0` opt-out and Calories never track this way). The value auto-saves on a
+  // `0` opt-out never tracks this way). Calories included: they are toggleable
+  // now, so setting a calorie goal turns their bar back on like any other. The value auto-saves on a
   // short debounce so nothing needs a blur; a blur/enter ({@link commitTarget})
   // flushes it at once.
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
@@ -163,13 +173,12 @@
       food_targets[key] = parsed;
     }
     food_targets = { ...food_targets };
-    if (
-      typeof parsed === "number" &&
-      parsed > 0 &&
-      key !== ENERGY_TARGET_KEY &&
-      !visible_nutrients.includes(key)
-    ) {
-      visible_nutrients = [...visible_nutrients, key];
+    if (typeof parsed === "number" && parsed > 0 && !isTracked(key)) {
+      // Calories keep their own preference, so auto-tracking has to take the
+      // same fork the toggle does — pushing `energy` into the meter list would
+      // set a key nothing reads.
+      if (key === ENERGY_TARGET_KEY) calories_tracked = true;
+      else visible_nutrients = [...visible_nutrients, key];
       visibilityDirty = true;
     }
     scheduleSave();
@@ -258,9 +267,13 @@
   }
 
   async function toggleNutrient(key: string) {
-    visible_nutrients = visible_nutrients.includes(key)
-      ? visible_nutrients.filter((k) => k !== key)
-      : [...visible_nutrients, key];
+    if (key === ENERGY_TARGET_KEY) {
+      calories_tracked = !calories_tracked;
+    } else {
+      visible_nutrients = visible_nutrients.includes(key)
+        ? visible_nutrients.filter((k) => k !== key)
+        : [...visible_nutrients, key];
+    }
     persistNutritionDisplay();
   }
 
@@ -275,6 +288,7 @@
   // them, and that whole hazard is gone with the datom.
   function persistNutritionDisplay() {
     setVisibleNutrients(visible_nutrients);
+    setCaloriesTracked(calories_tracked);
     setRoundNutrition(round_nutrition);
   }
 
@@ -311,7 +325,8 @@
   // field (↺) returns to the computed figure, not the generic baked reference. So
   // we also CLEAR any explicit override on those four keys, letting the fresh
   // default show through as the greyed placeholder. The three macros are still
-  // auto-tracked so their meters appear (Calories is always-on), and the inert
+  // auto-tracked so their meters appear (Calories through its own preference,
+  // which is why the fork below exists), and the inert
   // pre-fill profile is saved for the next open. All of it — defaults, cleared
   // overrides, auto-track, profile — is one atomic append (`saveCalculatorPlan`,
   // Coding Standards §5): a mid-write failure can never strand new defaults over
@@ -334,11 +349,17 @@
     );
     if (toTrack.length > 0)
       visible_nutrients = [...visible_nutrients, ...toTrack];
+    // The plan sets an energy target, so it turns the calorie bar back on by the
+    // same rule `editTarget` follows: a target you just chose is one you want to
+    // see. `CALCULATED_MACRO_KEYS` covers the four macros only — energy has never
+    // been in it, because the bar used to be unconditional.
+    const trackCalories = !calories_tracked;
+    if (trackCalories) calories_tracked = true;
     // The meter list is no longer part of the plan's atomic append — it is a
     // preference now, not a datom. What the transaction protects is the
     // defaults-versus-overrides pair, which is intact; the worst a half-applied
     // plan can cost is a meter row shown or not shown.
-    if (toTrack.length > 0) setVisibleNutrients(visible_nutrients);
+    if (toTrack.length > 0 || trackCalories) persistNutritionDisplay();
     try {
       await saveCalculatorPlan({
         calculated_targets: food_calculated_targets,
@@ -494,7 +515,7 @@
       {/snippet}
     </NutrientGroupHead>
     <NutrientCardGrid>
-      {@render card(ENERGY_TARGET_KEY, "Calories", "kcal", false)}
+      {@render card(ENERGY_TARGET_KEY, "Calories", "kcal", true)}
       {#each MACRO_DESCRIPTORS as n (n.key)}
         {@render card(n.key, n.label, n.unit, true)}
       {/each}

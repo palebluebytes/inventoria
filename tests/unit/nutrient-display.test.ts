@@ -222,6 +222,33 @@ describe("buildNutrientMeters", () => {
     fiber_content: 8,
   };
 
+  it("leads with calories, and puts that bar away on request", () => {
+    // Calories used to be prepended unconditionally, so somebody tracking
+    // protein alone had a calorie bar they could not remove. `showCalories` is a
+    // separate argument rather than a `calories` entry in the selection: every
+    // selection already stored predates the choice, and reading membership would
+    // have read all of them as "off".
+    const shown = buildNutrientMeters(total, ["protein"], {}, 2, true);
+    expect(shown.map((m) => m.key)).toEqual(["calories", "protein"]);
+    const hidden = buildNutrientMeters(total, ["protein"], {}, 2, false);
+    expect(hidden.map((m) => m.key)).toEqual(["protein"]);
+    // Defaulting to shown is what keeps every existing caller unchanged.
+    expect(buildNutrientMeters(total, ["protein"]).map((m) => m.key)).toEqual([
+      "calories",
+      "protein",
+    ]);
+    // Hiding the bar hides only the bar — the day's other meters are untouched,
+    // and a selection naming nothing leaves an empty list rather than a stray.
+    expect(buildNutrientMeters(total, [], {}, 2, false)).toEqual([]);
+    // A stray "calories" in the selection cannot produce the bar twice: there is
+    // no such entry in the catalogue, so `selectedNutrients` drops it.
+    expect(
+      buildNutrientMeters(total, ["calories", "protein"], {}, 2, true).map(
+        (m) => m.key
+      )
+    ).toEqual(["calories", "protein"]);
+  });
+
   it("gives a targeted macro a fill and formatted target", () => {
     const [, protein] = buildNutrientMeters(total, ["protein"], {
       protein: 130,

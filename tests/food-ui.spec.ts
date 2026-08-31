@@ -425,9 +425,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // already chose, so a sheet reached from it does one thing.
     await expect(page.locator(".method")).toHaveCount(0);
 
-    // Staging uses the numeric+slider amount control (ADR-0023): a real slider
-    // (role="slider", from bits-ui) alongside the typed field. Set 150 g and log.
-    await expect(page.getByRole("slider")).toBeVisible();
+    // Staging uses the numeric amount control (ADR-0023): a typed field, with
+    // the ÷ / × keys the number pad omits. Set 150 g and log.
+    await expect(page.getByRole("button", { name: "Divide" })).toBeVisible();
     await page.getByLabel("Amount in grams").fill("150");
     await page.locator("#log-food-btn").click();
 
@@ -613,6 +613,39 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(calcium).toContainText("/ 1300 mg");
     await expect(calcium.locator(".meter-fill")).toHaveCount(1);
     await expect(calcium.locator('[data-meter-state="empty"]')).toHaveCount(0);
+  });
+
+  test("calories are a trackable macro, toggleable like any other", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await logUsdaFood(page, "breakfast", "banana", "Mock Banana", "100");
+
+    // On by default, and every existing install stays that way: the preference
+    // is its own key, not a member of the stored nutrient selection, so a
+    // selection written before this existed cannot read as "calories off".
+    const calories = page.locator(".macro-item.calories");
+    await expect(calories).toContainText("89 kcal");
+
+    // The Calories card is now a visibility toggle like the macros beside it.
+    // It had none: the bar was prepended unconditionally, so somebody tracking
+    // protein alone could not put it away.
+    await openFoodSettings(page);
+    const caloriesToggle = page.locator('input[data-nutrient="energy"]');
+    await expect(caloriesToggle).toBeChecked();
+    await caloriesToggle.uncheck();
+    await closeFoodSettings(page);
+
+    // The bar goes; the macro meters it led are untouched.
+    await expect(calories).toHaveCount(0);
+    await expect(page.locator(".macro-item.protein")).toBeVisible();
+
+    // And it comes back.
+    await openFoodSettings(page);
+    await page.locator('input[data-nutrient="energy"]').check();
+    await closeFoodSettings(page);
+    await expect(calories).toContainText("89 kcal");
   });
 
   // Seam 3 (ticket #41): the Nutrition Display card's per-row target editor.
@@ -896,11 +929,10 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.locator("#food-search-input").fill("oats");
     await page.locator(".result-item", { hasText: "Mock Oats" }).click();
 
-    // No preset chips; the gram field + slider are the whole control, as today.
+    // No preset chips; the gram field is the whole control, as today.
     await expect(page.locator('[data-testid="portion-presets"]')).toHaveCount(
       0
     );
-    await expect(page.getByRole("slider")).toBeVisible();
     await expect(page.getByLabel("Amount in grams")).toHaveValue("100");
   });
 
@@ -974,7 +1006,6 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       .click();
     const sheet = page.locator(".amount-sheet");
     await expect(sheet.getByLabel("Amount in grams")).toHaveValue("150");
-    await expect(sheet.getByRole("slider")).toBeVisible();
 
     // Change the amount and confirm; the entry is replaced (append-only, not
     // duplicated) with macros re-derived from the twin at the new amount.
@@ -990,6 +1021,20 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
       "267 kcal"
     );
+
+    // A fractional amount survives the round trip. It did not while a slider sat
+    // beside the field: the slider stepped in whole units and wrote its own
+    // position back through `onValueChange`, so a typed 12.34 was re-reported as
+    // 12 and the entry logged a number the user had not asked for. The slider is
+    // gone; `roundFood` holds three decimal places and the field is the only
+    // writer.
+    await breakfast
+      .locator(".meal-item-card", { hasText: "Mock Banana" })
+      .click();
+    await sheet.getByLabel("Amount in grams").fill("12.34");
+    await sheet.locator("#amount-done-btn").click();
+    await expect(sheet).toBeHidden();
+    await expect(breakfast).toContainText("12.34g");
   });
 
   test("logs a custom food with macros and a photo", async ({ page }) => {
@@ -1773,12 +1818,12 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(oatsQty).toHaveText("50g");
     await expect(oatsRow).toContainText("189.5 kcal");
 
-    // Tapping the row opens the numeric+slider picker for this ingredient;
+    // Tapping the row opens the numeric picker for this ingredient;
     // setting 100 g re-derives this row AND the totals. Oats per-100g is 379
     // kcal, so 100 g → 379. Banana unchanged at 133.5.
     await oatsRow.click();
     await expect(
-      page.locator(".amount-sheet").getByRole("slider")
+      page.locator(".amount-sheet").getByLabel(/^Amount in/)
     ).toBeVisible();
     await page
       .locator(".amount-sheet")
@@ -1851,10 +1896,10 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       .click();
 
     // The staged card shows the quantity control: a numeric field + a real
-    // slider (role="slider", from bits-ui) + preset chips. Default 100 g of
+    // numeric field + preset chips. Default 100 g of
     // Black Urad Dal (341 kcal/100 g) → the confirm button reflects 341 kcal.
     const confirm = addSheet.locator("#add-ingredient-confirm");
-    await expect(addSheet.getByRole("slider")).toBeVisible();
+    await expect(addSheet.getByLabel(/^Amount in/)).toBeVisible();
     await expect(confirm).toHaveText("Add 341 kcal");
 
     // Typing an exact amount flows straight through (no step snapping): 50 → 170.5.

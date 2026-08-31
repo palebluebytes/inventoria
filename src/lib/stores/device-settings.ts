@@ -47,6 +47,7 @@ const LS_KEYS = {
   nutrition_panel_open: "inventoria_pref_nutrition_panel_open",
   visible_nutrients: "inventoria_pref_visible_nutrients",
   round_nutrition: "inventoria_pref_round_nutrition",
+  calories_tracked: "inventoria_pref_calories_tracked",
   scraper_proxy_url: "inventoria_device_scraper_proxy_url",
 } as const;
 
@@ -129,6 +130,9 @@ function readScraperProxyUrl(): string {
 const panelOpen = writable<boolean>(readBoolPref(LS_KEYS.nutrition_panel_open));
 const scraperProxy = writable<string>(readScraperProxyUrl());
 const roundNutrition = writable<boolean>(readBoolPref(LS_KEYS.round_nutrition));
+const caloriesTrackedPref = writable<boolean>(
+  readBoolPref(LS_KEYS.calories_tracked)
+);
 const visible = writable<string[]>(readVisibleNutrients());
 
 /** Reactive fold state for the dashboard's nutrition panel. */
@@ -158,6 +162,23 @@ export const roundNutritionPref: Readable<boolean> = {
 };
 
 /**
+ * Whether the **calorie** meter is one of the day's tracked bars. Calories used
+ * to be unconditional — `buildNutrientMeters` prepended the bar whatever the
+ * selection said, and the Calories card in the target editor had no toggle —
+ * which left someone tracking protein alone with a bar they could not put away.
+ *
+ * It is a preference of its own rather than a member of {@link
+ * visibleNutrients}, and deliberately: that list is already stored, and every
+ * existing one predates this and holds no `calories` entry. Reading membership
+ * would have read every one of them as "calories off" and silently taken the bar
+ * away from everybody. A separate key defaults to on and cannot be confused with
+ * a list that never mentioned it.
+ */
+export const caloriesTracked: Readable<boolean> = {
+  subscribe: caloriesTrackedPref.subscribe,
+};
+
+/**
  * The decimal places a **calorie** figure is displayed at, resolved from
  * {@link roundNutritionPref}: `0` in whole-number mode, else
  * {@link FOOD_DISPLAY_DECIMALS}. Every surface that prints kcal reads this
@@ -180,6 +201,11 @@ export function setNutritionPanelOpen(open: boolean): void {
 /** Records the meter selection. Each writer touches only its own key, so saving
  *  one preference can never clobber another — the reason the datom writers were
  *  split too (ADR-0031 §2). */
+export function setCaloriesTracked(tracked: boolean): void {
+  caloriesTrackedPref.set(tracked);
+  safeSet(LS_KEYS.calories_tracked, String(tracked));
+}
+
 export function setVisibleNutrients(keys: string[]): void {
   safeSet(LS_KEYS.visible_nutrients, JSON.stringify(keys));
   visible.set([...keys]);
