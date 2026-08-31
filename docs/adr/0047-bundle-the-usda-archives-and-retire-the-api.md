@@ -8,6 +8,7 @@
 **Amended by:** ADR-0042's #144 amendment (§4's filter roster gains a sixth member; the corpus fell from 4,429 rows to 4,353)  
 **Amended by:** [ADR-0051](0051-a-shared-ndb-number-is-not-proof-of-one-food.md) (eight refused merges become two rows each; the corpus rose from 4,353 rows to 4,360)  
 **Amended by:** ADR-0042's #152 amendment (§4's brand-filter tally again; the corpus fell from 4,360 rows to 4,358)  
+**Amended by:** [ADR-0077](0077-a-facet-precaches-its-own-weight.md) §4 (§11's precache promise binds the Food Facet alone; the root keeps the search index and drops the nutrient store and the scanner)  
 **Implemented:** #111 `a8a36e3`, #113 `4d02063`, #114 `37e7d67`, #115 `c0a99a1`
 
 This record revises five earlier ones. It amends
