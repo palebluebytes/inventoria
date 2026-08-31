@@ -12,6 +12,7 @@ import {
   macroNutrients,
   buildNutrientBreakdown,
   buildDayRdaView,
+  buildMealRdaView,
   nutrientShortLabel,
   ABSENT_NUTRIENT,
 } from "../../src/lib/food/nutrient-display";
@@ -902,5 +903,100 @@ describe("buildNutrientBreakdown", () => {
       "carbs",
       "calcium",
     ]);
+  });
+});
+
+describe("buildMealRdaView", () => {
+  const baked = resolveNutrientTargets({});
+
+  // One meal rather than a day: three macros, one micro it carries, one micro
+  // it measured as a genuine zero, and a limit nutrient. Everything else was
+  // never reported.
+  const meal: NutritionBreakdown = {
+    calories: 412,
+    protein: 21,
+    fat: 14,
+    carbs: 48,
+    calcium: 0.31,
+    vitamin_d: 0, // measured, and zero
+    sodium_content: 0.62, // a limit nutrient, no target
+    unsaturated_fat_content: 5, // no target and no limit: the day's Not tracked
+  };
+
+  it("carries only the nutrients the meal has, in the day panel's order", () => {
+    const view = buildMealRdaView(meal, baked);
+    expect(view.macros.map((r) => r.key)).toEqual([
+      "calories",
+      "protein",
+      "fat",
+      "carbs",
+    ]);
+    expect(view.micros.map((r) => r.key)).toEqual(["calcium"]);
+  });
+
+  it("drops a nutrient the meal never carried, rather than printing it as —", () => {
+    const day = buildDayRdaView(meal, baked);
+    expect(day.micros.map((r) => r.key)).toContain("vitamin_e");
+    expect(day.micros.find((r) => r.key === "vitamin_e")!.value).toBe(
+      ABSENT_NUTRIENT
+    );
+    // Forty cards reading "—" say only that most foods are not most nutrients.
+    expect(
+      buildMealRdaView(meal, baked).micros.map((r) => r.key)
+    ).not.toContain("vitamin_e");
+  });
+
+  it("drops a nutrient measured at zero too, for the same reason", () => {
+    expect(
+      buildMealRdaView(meal, baked).micros.map((r) => r.key)
+    ).not.toContain("vitamin_d");
+  });
+
+  it("drops a nutrient that rounds to zero in its own display unit", () => {
+    // 0.004 µg of vitamin D reads "0 µg", which is a card that says nothing.
+    const trace: NutritionBreakdown = { ...meal, vitamin_d: 0.000000004 };
+    const view = buildMealRdaView(trace, baked);
+    expect(view.micros.map((r) => r.key)).not.toContain("vitamin_d");
+    // A carried micronutrient at a genuinely readable amount stays.
+    expect(view.micros.map((r) => r.key)).toContain("calcium");
+  });
+
+  it("keeps a fibre-free meal's fibre card out, but a fibre-carrying meal's in", () => {
+    const withFibre = buildMealRdaView({ ...meal, fiber_content: 6 }, baked);
+    expect(withFibre.macros.map((r) => r.key)).toContain("fiber_content");
+    expect(
+      buildMealRdaView(meal, baked).macros.map((r) => r.key)
+    ).not.toContain("fiber_content");
+  });
+
+  it("carries no whole-day reading: no gaps, no limits, no not-tracked", () => {
+    // Every one of the five omissions is the same argument — these are readings
+    // of a day, and a meal is short of nearly everything by construction.
+    const day = buildDayRdaView(meal, baked, {
+      limits: resolveNutrientLimits({}),
+    });
+    expect(day.gaps.length).toBeGreaterThan(0);
+    expect(day.limits.length).toBeGreaterThan(0);
+    expect(day.untracked.length).toBeGreaterThan(0);
+    const view = buildMealRdaView(meal, baked);
+    expect(Object.keys(view)).toEqual(["macros", "micros"]);
+    // The nutrients those sections held do not resurface in the two that stay.
+    const keys = [...view.macros, ...view.micros].map((r) => r.key);
+    expect(keys).not.toContain("sodium_content");
+    expect(keys).not.toContain("unsaturated_fat_content");
+  });
+
+  it("honours the calorie display precision the device is set to", () => {
+    const odd = { ...meal, calories: 412.55 };
+    expect(buildMealRdaView(odd, baked).macros[0].value).toBe("412.55 kcal");
+    expect(
+      buildMealRdaView(odd, baked, { calorieDecimals: 0 }).macros[0].value
+    ).toBe("413 kcal");
+  });
+
+  it("has nothing at all to show for a meal with no rows in it", () => {
+    const view = buildMealRdaView({} as NutritionBreakdown, baked);
+    expect(view.macros).toEqual([]);
+    expect(view.micros).toEqual([]);
   });
 });

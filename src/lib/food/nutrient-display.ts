@@ -712,6 +712,60 @@ export function buildDayRdaView(
   return { gaps, macros, micros, limits: limitRows, untracked };
 }
 
+/**
+ * One meal's own figures: the day panel's two card sections, and nothing else
+ * (ADR-0074 §2).
+ */
+export interface MealRdaView {
+  macros: DayRdaRow[];
+  micros: DayRdaRow[];
+}
+
+/**
+ * A row worth a card on **one meal's** panel.
+ *
+ * The day panel prints every reach-toward nutrient, absent ones as
+ * {@link ABSENT_NUTRIENT}, because a day is a thing you are trying to fill and a
+ * gap is the news. A meal is not trying to fill anything: it either contains a
+ * nutrient or it does not, and forty cards reading `0 µg` say only that most
+ * foods are not most nutrients. Both cases are read off the row's own formatted
+ * `value`, so a card is dropped on exactly what it would have shown — `—` parses
+ * as NaN, `0 µg` as 0.
+ */
+const carriedByMeal = (row: DayRdaRow): boolean => {
+  const shown = parseFloat(row.value);
+  return Number.isFinite(shown) && shown !== 0;
+};
+
+/**
+ * Builds one meal's panel from the same fold the day's panel reads (ADR-0074
+ * §2), minus five readings that are about a day rather than about a meal.
+ *
+ * **Every omission is the same argument.** *Targets and fill bars* would have a
+ * meal filling toward a daily figure, and a meal falling short of a day is not a
+ * shortfall — that axis is `showTarget` on the shared cell rather than anything
+ * here. *Biggest gaps* ranks what the day is short of, and one meal is short of
+ * nearly everything by construction. *Limits* and *Not tracked* are both whole-day
+ * readings against a cap. And every nutrient the meal does not carry goes, per
+ * {@link carriedByMeal}.
+ *
+ * What the meal does **not** decide is which nutrients have a card at all: the
+ * reach-toward set and the user's opt-outs still choose that, exactly as they do
+ * for the day, so a nutrient whose target is opted out to `0` has no card on
+ * either surface.
+ */
+export function buildMealRdaView(
+  breakdown: NutritionBreakdown,
+  targets: Partial<Record<string, number>>,
+  opts: { calorieDecimals?: number } = {}
+): MealRdaView {
+  const day = buildDayRdaView(breakdown, targets, opts);
+  return {
+    macros: day.macros.filter(carriedByMeal),
+    micros: day.micros.filter(carriedByMeal),
+  };
+}
+
 /** One staged-food / preview pill: a labelled formatted value, no target. */
 export interface NutrientPill {
   key: string;

@@ -99,7 +99,14 @@ logged rows to send it, at the foot of the day to receive one.
 **Its refusal call: every refusal in its own words.** If the app knows why it
 said no, it says why.
 
-### D — in the meal's own numbers — **chosen**
+### D — in the meal's own numbers — **chosen, and now shipped**
+
+**D's own copy of the panel no longer opens.** The design it recorded is built
+for real in `views/food/MealNutritionPanel.svelte` (#235), against the real
+relay and the real payload, so the dashboard's meal name and subtotal line lead
+there rather than here. `VariantD.svelte` stays as the primary source until
+[#239](https://github.com/palebluebytes/inventoria/issues/239) removes the whole
+directory; only its two rig doors and its receive faces still run.
 
 **Two ways in, both already on the screen**: the meal's **name** (BREAKFAST,
 LUNCH, DINNER, SNACK) and the **line of figures** under its rows. The name is
@@ -175,7 +182,9 @@ asked for. It looks like a notification and structurally cannot be one.
 - `src/lib/views/FoodView.svelte` — the `?variant=` read, the header controls,
   two snippets, the host mount, and a block of `.proto-*` styles.
 - `src/lib/views/food/DailyDashboard.svelte` — two optional `Snippet` props,
-  `mealActionsExtra` and `mealFooterExtra`, undefined in the shipped app.
+  `mealActionsExtra` and `mealFooterExtra`, undefined in the shipped app. (A
+  third, `mealPanelAction`, is gone: the meal's name and subtotal line now open
+  the shipped panel unconditionally.)
 - `package.json` — `proto:201`.
 
 All of it is commented `PROTOTYPE (#201)`. The winner gets rewritten properly

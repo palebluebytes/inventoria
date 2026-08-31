@@ -307,7 +307,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // The day is unread, so the meals must not claim to be empty and the bars
     // must not show figures nobody has read.
     const breakfast = page.locator(
-      '.meal-section:has(.meal-title:text-is("BREAKFAST"))'
+      '.meal-section:has(.meal-title-btn:text-is("BREAKFAST"))'
     );
     await expect(breakfast.locator(".meal-skeleton")).toBeVisible();
     await expect(breakfast).not.toContainText("No breakfast logged yet");
@@ -1662,7 +1662,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // Scope by the exact meal title, not a substring — recipe names can contain
     // a meal word (e.g. "Dinner Combo") and would otherwise match other sections.
     const dinnerSection = page.locator(
-      '.meal-section:has(.meal-title:text-is("DINNER"))'
+      '.meal-section:has(.meal-title-btn:text-is("DINNER"))'
     );
     await longPress(
       page,
@@ -2008,7 +2008,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.locator("#log-recipe-btn").click();
 
     const breakfastSection = page.locator(
-      '.meal-section:has(.meal-title:text-is("BREAKFAST"))'
+      '.meal-section:has(.meal-title-btn:text-is("BREAKFAST"))'
     );
     await expect(breakfastSection).toContainText("Dinner Combo");
     await expect(breakfastSection).toContainText("512.5 kcal");
@@ -2116,7 +2116,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       "323 kcal"
     );
     await expect(
-      page.locator('.meal-section:has(.meal-title:text-is("BREAKFAST"))')
+      page.locator('.meal-section:has(.meal-title-btn:text-is("BREAKFAST"))')
     ).toContainText("Scratch Bowl");
 
     // And the template now exists in the browser, ready to instantiate again later.
@@ -2169,7 +2169,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     );
     for (const meal of ["BREAKFAST", "LUNCH", "DINNER", "SNACK"]) {
       await expect(
-        page.locator(`.meal-section:has(.meal-title:text-is("${meal}"))`)
+        page.locator(`.meal-section:has(.meal-title-btn:text-is("${meal}"))`)
       ).not.toContainText("Pantry Bowl");
     }
 
@@ -2279,7 +2279,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.locator("#log-recipe-btn").click();
 
     const breakfastSection = page.locator(
-      '.meal-section:has(.meal-title:text-is("BREAKFAST"))'
+      '.meal-section:has(.meal-title-btn:text-is("BREAKFAST"))'
     );
     await expect(breakfastSection).toContainText("512.5 kcal");
     // Frozen past (323) + freshly-seeded future (512.5) = 835.5.
@@ -2355,5 +2355,144 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // It stays a single visual line and never wraps, whatever the width.
     const lines = await total.evaluate((el) => el.getClientRects().length);
     expect(lines).toBe(1);
+  });
+
+  // ── The meal's own panel, and the way out of it (ADR-0074 §1 to §3) ──────
+
+  test("opens the meal's own panel from its name and from its figures", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+    await logUsdaFood(page, "breakfast", "banana", "Mock Banana", "100");
+
+    const panel = page.locator('[data-testid="meal-nutrient-breakdown"]');
+    await expect(panel).toHaveCount(0);
+
+    // The name is the door that always works.
+    await page.locator('.meal-title-btn:text-is("BREAKFAST")').click();
+    await expect(panel).toBeVisible();
+    await expect(panel.locator(".day-nutrition-header h3")).toHaveText(
+      "BREAKFAST"
+    );
+    await panel.locator(".day-nutrition-close").click();
+    await expect(panel).toHaveCount(0);
+
+    // The line of figures under the meal's rows is the same door.
+    await page.locator('[data-testid="meal-total-breakfast"]').click();
+    await expect(panel).toBeVisible();
+
+    // And the meal header still carries its five ways in and no sixth
+    // (ADR-0059 is untouched): the two controls above were already on screen.
+    const breakfast = page.locator(
+      '.meal-section:has(.meal-title-btn:text-is("BREAKFAST"))'
+    );
+    await expect(breakfast.locator(".meal-actions .way-in")).toHaveCount(5);
+  });
+
+  test("the meal's panel shows what the meal carries, and no reading of a day", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+    // One banana: macros, 5 mg calcium and 0.26 mg iron, and nothing else.
+    await logUsdaFood(page, "breakfast", "banana", "Mock Banana", "100");
+
+    await page.locator('.meal-title-btn:text-is("BREAKFAST")').click();
+    const panel = page.locator('[data-testid="meal-nutrient-breakdown"]');
+    await expect(panel).toBeVisible();
+
+    // The meal's own figures, with no target beside them and no bar under
+    // them: a bar filling toward a DAILY figure would read as a meal falling
+    // short of a day, which is not a shortfall.
+    await expect(panel.locator(".nutrient-calories")).toContainText("89 kcal");
+    await expect(panel.locator(".nutrient-calcium")).toContainText("5 mg");
+    await expect(panel.locator(".nutrient-iron")).toContainText("0.26 mg");
+    await expect(panel).not.toContainText("2000 kcal");
+    await expect(panel.locator(".rda-cell-target")).toHaveCount(0);
+    await expect(panel.locator(".meter-track")).toHaveCount(0);
+
+    // A nutrient the meal does not carry has no card at all — the day panel
+    // prints those as `—` because a day is a thing you are filling.
+    await expect(panel.locator(".nutrient-vitamin_e")).toHaveCount(0);
+
+    // And none of the four sections that read a whole day.
+    await expect(panel).not.toContainText("Biggest gaps");
+    await expect(panel).not.toContainText("Limits");
+    await expect(panel).not.toContainText("Not tracked");
+
+    // The day's own panel still carries every one of them.
+    await panel.locator(".day-nutrition-close").click();
+    await page.getByRole("button", { name: "Show full day nutrition" }).click();
+    const day = page.locator('[data-testid="day-nutrient-breakdown"]');
+    await expect(day.locator(".nutrient-vitamin_e")).toBeVisible();
+    await expect(day).toContainText("Biggest gaps");
+  });
+
+  test("an empty meal still opens its panel, with the way out unusable", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    // No subtotal line exists on an empty meal, which is why the name is the
+    // door that always works.
+    await expect(
+      page.locator('[data-testid="meal-total-breakfast"]')
+    ).toHaveCount(0);
+    await page.locator('.meal-title-btn:text-is("BREAKFAST")').click();
+
+    const panel = page.locator('[data-testid="meal-nutrient-breakdown"]');
+    await expect(panel).toBeVisible();
+    await expect(panel).toContainText("Nothing logged.");
+    // Absent, not disabled (ADR-0059 §4): a control that could only disappoint
+    // is one a person tries again every month.
+    await expect(panel.locator('[data-testid="meal-way-out"]')).toHaveCount(0);
+  });
+
+  test("the panel turns into a real code, and there is no way back to the numbers", async ({
+    page,
+  }) => {
+    // Hold the relay socket open without answering. `pnpm dev` serves no relay,
+    // so an un-held send fails on the dial and the code face is gone before it
+    // can be read — and what this test is about is the code face. Nothing is
+    // ever sent through this route: a session that stays in "waiting for them"
+    // is exactly the state the sender is meant to sit in.
+    await page.routeWebSocket(/\/api\/relay/, () => {});
+
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+    await logUsdaFood(page, "breakfast", "banana", "Mock Banana", "100");
+
+    await page.locator('[data-testid="meal-total-breakfast"]').click();
+    const panel = page.locator('[data-testid="meal-nutrient-breakdown"]');
+    const wayOut = panel.locator('[data-testid="meal-way-out"]');
+    await wayOut.click();
+
+    // The panel does not open a second surface: it turns into the code.
+    const send = panel.locator('[data-testid="meal-send"]');
+    await expect(send).toBeVisible();
+    await expect(panel.locator(".nutrient-card")).toHaveCount(0);
+    // A date rather than "Today", because a second person is looking at this.
+    await expect(send).toContainText(/\d{2}\/\d{2}\/\d{4}/);
+
+    // A real symbol of a real code, and the same code as the link beside it —
+    // one code shape with two carriers (ADR-0072 §7).
+    await expect(
+      send.locator('[data-testid="send-code-symbol"] svg')
+    ).toBeVisible();
+    await expect(send.locator("code.link")).toHaveText(/#r=[\w-]+&k=[\w-]{43}/);
+    await expect(send).toContainText("Waiting for them…");
+
+    // Once a code is minted there is no back button: the code is live, and an
+    // affordance that looked like undo would be one. Closing is the only way
+    // out, and closing cancels.
+    await expect(wayOut).toHaveCount(0);
+    await panel.locator(".day-nutrition-close").click();
+    await expect(panel).toHaveCount(0);
   });
 });

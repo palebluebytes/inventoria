@@ -44,6 +44,7 @@
   import NutritionPanelCell from "./NutritionPanelCell.svelte";
   import { longpress } from "../../actions/longpress";
   import WayInIcon from "./WayInIcon.svelte";
+  import MealNutritionPanel from "./MealNutritionPanel.svelte";
   // PROTOTYPE (#201) — two optional injection points for the send/receive
   // variants. Both are undefined in the shipped app, so nothing renders and
   // nothing changes; they exist so a prototype can put a control in the real
@@ -63,7 +64,6 @@
     onRemoveItem,
     mealActionsExtra,
     mealFooterExtra,
-    mealPanelAction,
   }: {
     dbReady: boolean;
     selectedDate: Date;
@@ -83,9 +83,6 @@
     mealActionsExtra?: Snippet<[MealType, number, number]>;
     /** PROTOTYPE (#201) — rendered under a meal's logged rows. */
     mealFooterExtra?: Snippet<[MealType, number, number]>;
-    /** PROTOTYPE (#201) — when set, the meal's name AND its subtotal line both
-     *  open the meal's own nutrition panel. */
-    mealPanelAction?: (meal_type: MealType) => void;
   } = $props();
 
   // Long-press a logged item to start selecting; while a selection is active,
@@ -214,6 +211,12 @@
   let hasLoggedFood = $derived(dayItems.length > 0);
   let showFullDay = $state(false);
 
+  // Which meal's own panel is open (ADR-0074 §1), reached from the meal's name
+  // or from its subtotal line. It holds the meal type rather than the rows, so
+  // the panel re-reads the day it is looking at: logging into a meal while its
+  // panel is open must not leave the panel showing a total that has moved on.
+  let mealPanel = $state<MealType | null>(null);
+
   function formatDateHeader(date: Date): string {
     return date.toLocaleDateString("en-US", {
       weekday: "long",
@@ -313,29 +316,23 @@
   {#each meal_types as meal_type}
     <div class="meal-section">
       <div class="meal-section-header">
-        <!-- PROTOTYPE (#201) — the meal's name is the other way into its
-             panel. A button INSIDE the heading rather than a heading that is a
-             button: the row is still the meal's h3 to anything reading the
-             page's outline, and only the words are the control. It stays
-             reachable on an empty meal, where the subtotal line does not exist
-             at all and the name is the only way in.
+        <!-- The meal's name is the way into its own nutrition panel, and the
+             one that always works: an empty meal has no subtotal line at all
+             (ADR-0074 §1). A button INSIDE the heading rather than a heading
+             that is a button, so the row is still the meal's h3 to anything
+             reading the page's outline and only the words are the control.
 
-             The whole heading is branched rather than its contents, so the
-             shipped element is byte-for-byte what it always was — the e2e
-             `.meal-title:text-is("BREAKFAST")` selector matches an h3 with no
-             whitespace in it. -->
-        {#if mealPanelAction}
-          <h3 class="meal-title">
-            <button
-              type="button"
-              class="meal-title-btn"
-              onclick={() => mealPanelAction(meal_type)}
-              >{meal_type.toUpperCase()}</button
-            >
-          </h3>
-        {:else}
-          <h3 class="meal-title">{meal_type.toUpperCase()}</h3>
-        {/if}
+             It is not a sixth way in. ADR-0059's header is untouched: this
+             control was already on the screen as inert text. -->
+        <h3 class="meal-title">
+          <button
+            type="button"
+            class="meal-title-btn"
+            aria-haspopup="dialog"
+            onclick={() => (mealPanel = meal_type)}
+            >{meal_type.toUpperCase()}</button
+          >
+        </h3>
         <!-- Every way into this meal is its own control, in line with the meal
              name, and there is no `+` (ADR-0059 §1). All five are secondary:
              with the `+` gone there is no primary action left to protect, and
@@ -468,36 +465,26 @@
              not a running tally), summed over only this meal's items. Empty
              macros are dropped (hideEmpty) — a "0 g" or absent "–" adds no
              information, and a calories-only meal reads as just its kcal. -->
-        <!-- PROTOTYPE (#201) — variant D makes this line the way into the
-             meal's own figures. Without the prop it is the inert div it has
-             always been. -->
-        {#if mealPanelAction}
-          <button
-            type="button"
-            class="meal-total meal-total-btn"
-            data-testid="meal-total-{meal_type}"
-            aria-label="{meal_type} nutrition"
-            onclick={() => mealPanelAction(meal_type)}
-          >
-            {#each mealPills as pill (pill.key)}
-              <span class="meal-total-item nutrient-{pill.key}">
-                {#if pill.key !== "calories"}<span class="meal-total-label"
-                    >{nutrientShortLabel(pill.key)}</span
-                  >{/if}<span class="meal-total-value">{pill.value}</span>
-              </span>
-            {/each}
-          </button>
-        {:else}
-          <div class="meal-total" data-testid="meal-total-{meal_type}">
-            {#each mealPills as pill (pill.key)}
-              <span class="meal-total-item nutrient-{pill.key}">
-                {#if pill.key !== "calories"}<span class="meal-total-label"
-                    >{nutrientShortLabel(pill.key)}</span
-                  >{/if}<span class="meal-total-value">{pill.value}</span>
-              </span>
-            {/each}
-          </div>
-        {/if}
+        <!-- The other way into the meal's own figures (ADR-0074 §1): the line
+             of figures a meal already ends in, which did nothing. It is the
+             convenience rather than the door — a meal with no rows never
+             renders it, which is why the name is the one that always works. -->
+        <button
+          type="button"
+          class="meal-total meal-total-btn"
+          data-testid="meal-total-{meal_type}"
+          aria-haspopup="dialog"
+          aria-label="{meal_type} nutrition"
+          onclick={() => (mealPanel = meal_type)}
+        >
+          {#each mealPills as pill (pill.key)}
+            <span class="meal-total-item nutrient-{pill.key}">
+              {#if pill.key !== "calories"}<span class="meal-total-label"
+                  >{nutrientShortLabel(pill.key)}</span
+                >{/if}<span class="meal-total-value">{pill.value}</span>
+            </span>
+          {/each}
+        </button>
       {/if}
       {@render mealFooterExtra?.(
         meal_type,
@@ -593,6 +580,20 @@
       {/if}
     {/snippet}
   </NutritionPanel>
+{/if}
+
+<!-- One meal, entire — and the way out of it (ADR-0074 §1 to §3). The same
+     panel the day's aggregates open, one scale down: same shell, same cells,
+     minus the five readings that are about a day rather than a meal. -->
+{#if mealPanel}
+  <MealNutritionPanel
+    meal_type={mealPanel}
+    date={selectedDate}
+    items={groupedMeals[mealPanel]}
+    targets={resolvedTargets}
+    calorieDecimals={$calorieDisplayDecimals}
+    onClose={() => (mealPanel = null)}
+  />
 {/if}
 
 <!-- Photo preview Modal -->
@@ -792,8 +793,8 @@
     letter-spacing: 0.05em;
     color: var(--text-primary);
   }
-  /* PROTOTYPE (#201) — inherits every one of the heading's own type properties
-     so the words do not move when they become a control. */
+  /* Inherits every one of the heading's own type properties, so the words do
+     not move by becoming a control. */
   .meal-title-btn {
     background: none;
     border: 0;
@@ -821,12 +822,15 @@
     align-items: center;
     gap: var(--space-2xs);
   }
-  /* PROTOTYPE (#201) — the button form of the subtotal line. Same box, so the
-     shipped look does not move; only the affordance is added. */
+  /* The button form of the subtotal line: the same box it has always been, so
+     only the affordance is added and the tally does not move. */
   .meal-total-btn {
     width: 100%;
     background: none;
     border: 0;
+    /* A button's own padding, not the tally's: the box has to resolve to the
+       div this used to be, or the line moves by becoming a control. */
+    padding: 0;
     font: inherit;
     cursor: pointer;
     text-align: inherit;
