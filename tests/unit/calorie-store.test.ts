@@ -32,6 +32,7 @@ import {
 import { buildLabelPanel } from "../../src/lib/food/label-form";
 import { parseLoggedQuantity } from "../../src/lib/food/recipe-ingredient";
 import { asStored } from "./support/stored";
+import type { Datom } from "../../src/lib/db/db.core";
 
 vi.mock("../../src/lib/db/db.client", () => {
   return {
@@ -1708,5 +1709,29 @@ describe("copyPastMeal (ADR-0058)", () => {
   it("reports a clean run so the caller can stay silent", async () => {
     const result = await copyPastMeal([logged()], "breakfast", new Date());
     expect(result).toEqual({ copied: 1, lost: 0 });
+  });
+
+  // ADR-0073 §5, amending ADR-0058: receiving a meal IS this copy, with a wire
+  // in front of it and the event id derived from the payload rather than minted
+  // fresh — so a meal accepted twice cannot land twice.
+  it("logs under an injected id when one is supplied", async () => {
+    await copyPastMeal(
+      [logged({ id: "event:consume_src" })],
+      "breakfast",
+      new Date(),
+      (item) => `event:consume_derived_from_${item.id}`
+    );
+    const datoms: Datom[] = appendMock.mock.calls[0][0];
+    expect(new Set(datoms.map((d) => d.entity))).toEqual(
+      new Set(["event:consume_derived_from_event:consume_src"])
+    );
+  });
+
+  it("mints its own id when none is supplied, so no two copies collide", async () => {
+    await copyPastMeal([logged(), logged()], "breakfast", new Date());
+    const idOf = (call: number): string =>
+      appendMock.mock.calls[call][0][0].entity;
+    expect(idOf(0)).toMatch(/^event:consume_/);
+    expect(idOf(0)).not.toBe(idOf(1));
   });
 });

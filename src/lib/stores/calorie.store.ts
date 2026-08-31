@@ -95,6 +95,12 @@ export function consumptionForDay(
  * is left OUT of `event/metrics` entirely — the daily macro meters treat it as
  * not-counted (never coerced to 0), moving only the calorie ring. Every other
  * caller passes real numbers and is unchanged.
+ *
+ * `entityId` is the id the event is logged under. Every caller but one omits it
+ * and gets the fresh random mint below, which is right for an occasion the user
+ * is recording now. The receive path supplies one instead, derived from the
+ * payload it is accepting, so that accepting the same meal twice cannot log it
+ * twice (ADR-0073 §5).
  */
 export async function logFoodConsumption(
   targetEntity: string,
@@ -106,7 +112,8 @@ export async function logFoodConsumption(
   carbs: number | undefined,
   selectedDate: Date,
   instantiation?: Instantiation,
-  breakdown?: NutritionBreakdown
+  breakdown?: NutritionBreakdown,
+  entityId?: string
 ) {
   // Use selected date's time, but keep current hour/minute/second so events don't all cluster at 00:00
   const now = new Date();
@@ -119,7 +126,9 @@ export async function logFoodConsumption(
   );
   const timestamp = eventDate.getTime();
 
-  const entityId = `event:consume_${Math.random().toString(36).substring(2, 9)}_${timestamp}`;
+  const entity =
+    entityId ??
+    `event:consume_${Math.random().toString(36).substring(2, 9)}_${timestamp}`;
 
   // `calories` is always frozen; each of the three headline macros is frozen only
   // when supplied (a manual-entry intent omits them, ADR-0035 §7 — absent ≠ 0).
@@ -145,7 +154,7 @@ export async function logFoodConsumption(
   };
   if (instantiation) attributes["event/instantiation"] = instantiation;
 
-  const datoms = ingestEntity({ entity: entityId, attributes });
+  const datoms = ingestEntity({ entity, attributes });
 
   // Inject manually since ingestEntity maps all values. Note time is injected inside dbClient.append
   // but datoms array has .time field which dbClient uses.
@@ -154,7 +163,7 @@ export async function logFoodConsumption(
   }
 
   await dbClient.append(datoms);
-  return entityId;
+  return entity;
 }
 
 /**
@@ -175,11 +184,19 @@ export async function logFoodConsumption(
  *
  * `partitionCopyable` has already removed what cannot be reproduced, so `lost`
  * here counts only appends that actually threw.
+ *
+ * `mintEventId` is the receive path's one seam into this operation (ADR-0073 §5,
+ * amending ADR-0058). Accepting a sent meal **is** this copy with a wire in
+ * front of it — the same re-log of frozen fields into the recipient's own meal
+ * on their own clock — differing only in that the id is derived from the payload
+ * rather than minted fresh, so a meal accepted twice cannot land twice. Omitted,
+ * every copy mints its own.
  */
 export async function copyPastMeal(
   items: ConsumptionEvent[],
   meal_type: string,
-  selectedDate: Date
+  selectedDate: Date,
+  mintEventId?: (item: ConsumptionEvent) => string
 ): Promise<{ copied: number; lost: number }> {
   let copied = 0;
   let lost = 0;
@@ -195,7 +212,8 @@ export async function copyPastMeal(
         item.carbs,
         selectedDate,
         item.instantiation,
-        item.metrics
+        item.metrics,
+        mintEventId?.(item)
       );
       copied += 1;
     } catch (e) {
