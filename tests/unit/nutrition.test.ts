@@ -676,13 +676,13 @@ describe("measuredUnitName", () => {
 
 describe("amountDefaults", () => {
   it("opens a weighed food at 100 g on a 500 g slider", () => {
-    expect(amountDefaults("g")).toEqual({ amount: 100, sliderMax: 500 });
+    expect(amountDefaults("g")).toEqual({ amount: 100 });
   });
 
   it("opens a drink at a glass, topping out below a litre", () => {
     // 100 ml is half a glass and 500 ml stops short of a carton, so the same
     // two numbers read wrong on a volume basis (ADR-0060 §3).
-    expect(amountDefaults("ml")).toEqual({ amount: 250, sliderMax: 1000 });
+    expect(amountDefaults("ml")).toEqual({ amount: 250 });
   });
 });
 

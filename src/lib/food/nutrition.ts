@@ -549,29 +549,24 @@ export function measuredUnitName(unit: MeasuredUnit): string {
   return unit === "ml" ? "millilitres" : "grams";
 }
 
-/** Where an amount control opens, and where its slider stops (ADR-0060 §3). */
+/** Where an amount control opens (ADR-0060 §3). */
 export interface AmountDefaults {
   /** The amount a freshly staged food is entered at. */
   amount: number;
-  /** The top of the slider's skim range; a typed amount may exceed it. */
-  sliderMax: number;
 }
 
 /**
  * The amount control's starting point, which follows the unit it is entered in.
- * 100 g over a 500 g slider is the weighed food's range as it always was; a
- * drink opens at a glass and stops below a litre, because 100 ml is half a glass
- * and a 500 ml ceiling would put a carton out of the slider's reach.
+ * 100 g is the weighed food's opening as it always was; a drink opens at a
+ * glass, because 100 ml is half of one.
  *
- * Held here rather than as literals on the control so the two numbers that
- * belong to a unit are named together, and so the staging screen (which seeds
- * the amount) and the control (which draws the slider) cannot pick different
- * ones.
+ * It carried a `sliderMax` beside the opening amount until the amount control's
+ * slider was removed: the slider's whole-unit step wrote its own position back
+ * over a typed value, so 12.34 became 12. Nothing bounds the range now — the
+ * field's own `HARD_MAX` is the only ceiling — so the two numbers are one.
  */
 export function amountDefaults(unit: MeasuredUnit): AmountDefaults {
-  return unit === "ml"
-    ? { amount: 250, sliderMax: 1000 }
-    : { amount: 100, sliderMax: 500 };
+  return { amount: unit === "ml" ? 250 : 100 };
 }
 
 /**

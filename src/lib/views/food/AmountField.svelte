@@ -1,13 +1,11 @@
 <script lang="ts">
   import { tick } from "svelte";
-  import { Slider } from "bits-ui";
   import Button from "../../ui/Button.svelte";
   import {
     evaluateAmount,
     AMOUNT_EXPRESSION_CHARS,
   } from "../../food/amount-expression";
   import {
-    amountDefaults,
     measuredUnitName,
     roundFood,
     portionPresets,
@@ -16,14 +14,12 @@
     type Portion,
   } from "../../food/nutrition";
 
-  // The app's one amount control: a boxed field (the primary, precise entry —
-  // you can type a plain number *or* a little sum like `65 / 2` and the field logs
-  // the result) and a slider that skims the common range.
-  // The slider is a coarse accelerator only: typed values may exceed its max,
-  // in which case the thumb pins at the end while `amount` keeps the exact number.
+  // The app's one amount control: a boxed field — you type a plain number *or* a
+  // little sum like `65 / 2` and the field logs the result — with the ÷ / × keys
+  // the number pad omits.
   // When the food carries household portions (ADR-0030, ticket #27) they render
-  // as a chip row below the slider: tapping "1 medium — 118 g" fills the resolved
-  // amount. A portion-less food shows just the field and slider. Only the
+  // as a chip row below: tapping "1 medium — 118 g" fills the resolved amount.
+  // A portion-less food shows just the field. Only the
   // portions stated in THIS field's unit become chips — a 330 ml can offers its
   // "1 can" back (ADR-0060 §6), and a gram serving on a millilitre food offers
   // nothing, because filling it in would convert by pretending not to.
@@ -46,10 +42,9 @@
     portions?: Portion[];
   } = $props();
 
-  // The unit's own spellings and range, resolved in one place so the label, the
-  // aria-label, the box suffix and the slider's scale cannot name four things.
+  // The unit's own spelling, resolved in one place so the label, the aria-label
+  // and the box suffix cannot name three things.
   let unitName = $derived(measuredUnitName(unit));
-  let sliderMax = $derived(amountDefaults(unit).sliderMax);
 
   // The chip view-models are derived once from the raw portions by the food
   // domain helper; the .svelte file holds no portion mapping of its own.
@@ -99,8 +94,8 @@
     el.setSelectionRange(caret, caret);
   }
 
-  // Keep only characters a sum can be built from; evaluate live so the slider
-  // and any macro preview track a complete expression as it's typed. While the
+  // Keep only characters a sum can be built from; evaluate live so any macro
+  // preview tracks a complete expression as it's typed. While the
   // field is mid-expression (`65 /`) or otherwise not yet a number, `evaluateAmount`
   // returns null and `amount` simply holds its last good value — never clobbered.
   function onInput(e: Event & { currentTarget: HTMLInputElement }) {
@@ -118,15 +113,11 @@
     amount = clamp(result ?? amount);
     raw = String(amount);
   }
-
-  // The slider skims a 1..sliderMax range (a zero amount is meaningless); the field
-  // still holds the exact typed number, so a typed 0 just pins the thumb at 1.
-  let sliderValue = $derived(Math.min(Math.max(amount, 1), sliderMax));
 </script>
 
 <div class="af">
   <!-- Amount box: the unit-naming label inline-left, the value right-aligned.
-       One bordered card; the ÷ / × sum keys ride the slider row below
+       One bordered card; the ÷ / × sum keys ride the row below
        (ADR-0043 §2 relayout). -->
   <div class="af-row">
     <span class="af-label">Amount ({unitName})</span>
@@ -153,29 +144,18 @@
     </label>
   </div>
 
-  <!-- Slider skims the amount, with the ÷ / × keys as the right-most elements.
-       The keys insert "/" and "*" (what the parser reads) at the caret;
+  <!-- The ÷ / × keys insert "/" and "*" (what the parser reads) at the caret;
        `pointerdown` is prevented so tapping one never blurs the field
-       mid-expression. -->
+       mid-expression.
+
+       There was a slider skimming the amount here, and it is gone. It carried a
+       whole-unit step and wrote its position back through `onValueChange`, so a
+       typed 12.34 was re-reported as 12 and the field silently lost what the
+       user had entered — the number they typed being overruled by a control they
+       had not touched. Typing is the primary way an amount is entered and the
+       sums the two keys below build are the secondary one; neither needs a
+       coarse skim beside them. -->
   <div class="ops">
-    <Slider.Root
-      type="single"
-      value={sliderValue}
-      onValueChange={(v) => (amount = v)}
-      min={1}
-      max={sliderMax}
-      step={1}
-      thumbPositioning="exact"
-      class="af-slider"
-    >
-      {#snippet children({ thumbItems })}
-        <span class="af-rail"></span>
-        <Slider.Range class="af-range" />
-        {#each thumbItems as { index } (index)}
-          <Slider.Thumb {index} class="af-thumb" />
-        {/each}
-      {/snippet}
-    </Slider.Root>
     <button
       type="button"
       class="op"
@@ -190,9 +170,6 @@
       onpointerdown={(e) => e.preventDefault()}
       onclick={() => insertOp("*")}>×</button
     >
-    <!-- The 0 / max scale sits in the slider's grid column only, so its ends line
-         up with the track rather than the ÷ / × keys. -->
-    <div class="scale"><span>1</span><span>{sliderMax} {unit}</span></div>
   </div>
 
   {#if portionOptions.length > 0}
@@ -270,21 +247,18 @@
     font-weight: 700;
   }
 
-  /* Slider, the ÷ / × keys, and the 0/max scale on a grid: the slider + scale share
-     the 1fr first column (scale on the second row), the keys sit in the two auto
-     columns on the first row. This keeps the scale's ends aligned with the track,
-     not the keys (the number pad omits operators, so ÷ / × live here). */
+  /* The ÷ / × keys, which the number pad omits. They sat in two auto columns
+     beside a slider; with the slider gone they are the whole row. */
   .ops {
-    display: grid;
-    grid-template-columns: 1fr auto auto;
+    display: flex;
+    justify-content: flex-end;
     align-items: center;
-    column-gap: var(--space-2xs);
+    gap: var(--space-2xs);
     width: 100%;
   }
   .op {
-    grid-row: 1;
-    align-self: stretch;
     width: 2.6rem;
+    min-height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -308,76 +282,6 @@
     outline-offset: 3px;
   }
 
-  /* bits-ui renders these elements itself, so target them with :global. */
-  :global(.af-slider) {
-    grid-column: 1;
-    grid-row: 1;
-    position: relative;
-    display: flex;
-    align-items: center;
-    min-width: 0;
-    height: 44px;
-    touch-action: none;
-    /* `thumbPositioning="exact"` runs the thumb centre to the rail ends (so the
-       value tracks exactly and the fill is truly empty at 0); the thumb then
-       overflows half its 30px width past each end. This 15px gutter gives that
-       overflow room, so it never clips at the left or collides with the ÷ key. */
-    margin-inline: 15px;
-  }
-  :global(.af-rail) {
-    position: absolute;
-    top: 50%;
-    left: 0;
-    right: 0;
-    height: 12px;
-    transform: translateY(-50%);
-    background: var(--bg-surface);
-    border: var(--edge-thick);
-  }
-  /* No border on the fill — the rail already frames the track, and a border here
-     would show as a sliver at 0 (zero-width but still stroked). bits-ui sets both
-     `left` and `right` on the range, so `margin-inline-start` nudges the fill in
-     past the rail's 3px left border (else the fill would paint over it). The 6px
-     height matches the rail's inner height, so the top/bottom borders show. */
-  :global(.af-range) {
-    position: absolute;
-    top: 50%;
-    height: 6px;
-    margin-inline-start: 3px;
-    transform: translateY(-50%);
-    background: var(--green-bg);
-  }
-  :global(.af-thumb) {
-    position: absolute;
-    top: 50%;
-    width: 30px;
-    height: 30px;
-    /* Vertical centring only — bits-ui already sets `translate: -50% 0` on the
-       thumb to centre it horizontally on the value. A `transform: translateX(-50%)`
-       here would stack with that and shift the thumb a whole extra half-width left
-       (off the rail end at 0, short of it at max). */
-    transform: translateY(-50%);
-    background: var(--bg-surface);
-    border: var(--edge-thick);
-    border-radius: 50%;
-    cursor: grab;
-  }
-  :global(.af-thumb:focus-visible) {
-    outline: var(--edge-thick);
-    outline-offset: 3px;
-  }
-  .scale {
-    grid-column: 1;
-    grid-row: 2;
-    display: flex;
-    justify-content: space-between;
-    /* Match the slider's 15px thumb gutter so 0 / max sit under the rail ends. */
-    margin-inline: 15px;
-    margin-top: -8px;
-    font-size: var(--step-n2);
-    font-weight: 700;
-    color: var(--text-secondary);
-  }
   /* Portion chips wrap (a food can offer several measures, and each label is
      wider than a gram number). */
   .portions {
