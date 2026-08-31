@@ -93,6 +93,38 @@ export const OMITTED_ATTRIBUTES: readonly string[] = [
  */
 export const MEAL_ROOT_PREFIX = "event:consume_";
 
+/**
+ * What the closure may contain besides its roots: the food Digital Twins a
+ * meal's events point at (ADR-0073 §5, which enumerates exactly these — the
+ * derived `fdc:` and `gtin:`, and the minted `food:custom_` and `recipe:` that
+ * cross verbatim). The media and item twins are not food and no meal reaches
+ * them.
+ *
+ * This is **not** the hand-maintained allow-list ADR-0073 §8 refuses. That one
+ * is about attributes, which grow open-endedly with every release; entity
+ * prefixes are ADR-0014's small fixed registry, and the reachability refusal
+ * cannot do its work without knowing what a closure is allowed to reach. It
+ * fails closed: a new kind of food twin has to be added here before a meal
+ * carrying one will cross.
+ */
+export const MEAL_TWIN_PREFIXES: readonly string[] = [
+  "fdc:",
+  "gtin:",
+  "food:custom_",
+  "recipe:",
+];
+
+/**
+ * How the wire compresses a payload. Raw DEFLATE rather than gzip, because
+ * gzip's header and trailer are 18 bytes bought for nothing here (#194 §4.3).
+ *
+ * Like the ceiling above, it is not applied here: compressing is the
+ * transport's and undoing it is the reader's. It sits with the format because
+ * it is what the two sides have to agree on, and agreeing is easier from one
+ * declaration than from two.
+ */
+export const MEAL_WIRE_COMPRESSION = "deflate-raw";
+
 /** Line one of a meal payload: what it is, and what its closure was walked from. */
 export interface MealPayloadEnvelope extends NdjsonEnvelope {
   artifact: typeof MEAL_PAYLOAD_ARTIFACT;

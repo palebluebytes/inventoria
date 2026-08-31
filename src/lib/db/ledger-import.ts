@@ -58,7 +58,12 @@ export class LedgerImportRefusedError extends Error {
   }
 }
 
-function parseJsonObject(
+/**
+ * A line parsed as the JSON object every NDJSON row and envelope has to be.
+ * Exported because the Meal payload reader borrows this grammar rather than
+ * restating it, and re-raises what it throws as its own refusal.
+ */
+export function parseNdjsonObject(
   line: string,
   lineNumber: number | null
 ): Record<string, unknown> {
@@ -74,8 +79,8 @@ function parseJsonObject(
   return parsed as Record<string, unknown>;
 }
 
-/** One line of the file, and where in the file it sat. */
-export interface ImportLine {
+/** One line of an NDJSON artifact, and where in it the line sat. */
+export interface NdjsonLine {
   text: string;
   /** 1-based, counting blank lines, so it matches `sed -n 'Np'`. */
   lineNumber: number;
@@ -93,7 +98,7 @@ export interface ImportLine {
  */
 export async function* linesOf(
   chunks: AsyncIterable<string>
-): AsyncGenerator<ImportLine> {
+): AsyncGenerator<NdjsonLine> {
   let pending = "";
   let lineNumber = 0;
   for await (const chunk of chunks) {
@@ -117,7 +122,7 @@ export async function* linesOf(
  * line to reject.
  */
 export function readImportEnvelope(line: string): LedgerExportEnvelope {
-  const raw = parseJsonObject(line, 1);
+  const raw = parseNdjsonObject(line, 1);
 
   if (raw.artifact !== LEDGER_EXPORT_ARTIFACT) {
     throw new LedgerImportRefusedError(
@@ -160,7 +165,7 @@ export function readImportEnvelope(line: string): LedgerExportEnvelope {
  * and a value that will not parse is a row every projection would choke on.
  */
 export function readDatomLine(line: string, lineNumber: number): LedgerRow {
-  const raw = parseJsonObject(line, lineNumber);
+  const raw = parseNdjsonObject(line, lineNumber);
   const value = requireString(raw, "value", lineNumber);
   try {
     JSON.parse(value);

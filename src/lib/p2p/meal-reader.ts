@@ -26,12 +26,19 @@
 
 import { describeBytes } from "../storage/describe-bytes";
 import type { LedgerRow } from "../db/db.core";
-import { LedgerImportRefusedError, readDatomLine } from "../db/ledger-import";
+import {
+  LedgerImportRefusedError,
+  parseNdjsonObject,
+  readDatomLine,
+  type NdjsonLine,
+} from "../db/ledger-import";
 import {
   MEAL_PAYLOAD_ARTIFACT,
   MEAL_PAYLOAD_CEILING_BYTES,
   MEAL_PAYLOAD_SCHEMA_VERSION,
   MEAL_ROOT_PREFIX,
+  MEAL_TWIN_PREFIXES,
+  MEAL_WIRE_COMPRESSION,
   OMITTED_ATTRIBUTES,
   referencesOf,
   type MealPayloadEnvelope,
@@ -47,20 +54,17 @@ export const MEAL_PAYLOAD_SUPPORTED_SCHEMA_VERSIONS: readonly number[] = [
 ];
 
 /**
- * How the wire compresses a payload. Raw DEFLATE rather than gzip, because
- * gzip's header and trailer are 18 bytes bought for nothing here — #194 §4.3
- * measured it. The sender's half lives with the transport; this constant is
- * what the two sides agree on.
- */
-export const MEAL_WIRE_COMPRESSION = "deflate-raw";
-
-/**
  * Why a payload was refused, in the technical wording ADR-0074 §6 puts behind a
  * "show why" disclosure. The screen says one line; this says which clause fired.
  *
  * `lineNumber` is 1-based and counts the envelope as line one, matching
  * {@link LedgerImportRefusedError}. It is `null` when the complaint is about the
  * payload as a whole rather than about one of its lines.
+ *
+ * It is deliberately **not** a subclass of that one and shares no base with it.
+ * The two formats' grammar is shared, by the functions this reader borrows;
+ * their refusals are not, because a caller that could catch one and get the
+ * other is exactly the conflation ADR-0073 §4 exists to stop.
  */
 export class MealPayloadRefusedError extends Error {
   readonly lineNumber: number | null;
@@ -191,7 +195,7 @@ export function readMealPayload(ndjson: string): ReceivedMealPayload {
   const references: PayloadReference[] = [];
 
   for (const line of lines.slice(1)) {
-    const row = readPayloadRow(line);
+    const row = asMealRefusal(() => readDatomLine(line.text, line.lineNumber));
     // (7) Refused rather than silently dropped: a recipient quietly given less
     // than was sent cannot tell.
     if (OMITTED_ATTRIBUTES.includes(row.attribute)) {
@@ -238,8 +242,24 @@ export function readMealPayload(ndjson: string): ReceivedMealPayload {
 
   // (5) The clause doing the security work: the closure is recomputed from the
   // roots, and everything outside it is refused.
+  //
+  // Reachability alone is not the whole of it. The edges are the payload's own
+  // assertions, so a hostile sender who points `event/target` at
+  // `settings:global` makes it reachable and smuggles it in through the very
+  // check meant to stop it. A meal's closure is two kinds of entity and no
+  // others — its declared Consumption Events, and the food twins they point at
+  // — so both halves are checked.
   const reached = reachableFrom(roots, references);
+  const declared = new Set(roots);
   for (const entity of carried) {
+    if (
+      !declared.has(entity) &&
+      !MEAL_TWIN_PREFIXES.some((prefix) => entity.startsWith(prefix))
+    ) {
+      throw new MealPayloadRefusedError(
+        `"${entity}" is not a food, and a meal carries its Consumption Events and the foods they point at.`
+      );
+    }
     if (!reached.has(entity)) {
       throw new MealPayloadRefusedError(
         `"${entity}" is reachable from no declared root, so it is not part of this meal.`
@@ -255,7 +275,7 @@ export function readMealPayload(ndjson: string): ReceivedMealPayload {
  * from. This is the whole gate for an unfamiliar payload — one line decides it.
  */
 function readMealEnvelope(line: string): MealPayloadEnvelope {
-  const raw = parsePayloadObject(line, 1);
+  const raw = asMealRefusal(() => parseNdjsonObject(line, 1));
 
   // (1) A separate message from (2), and neither claims the payload is newer:
   // saying so would be a guess in the one place the format exists to stop the
@@ -301,24 +321,28 @@ function readRoots(raw: unknown): string[] {
       "line one declares no closure roots, so this is a bag of datoms rather than a meal."
     );
   }
+  const roots: string[] = [];
   for (const root of raw) {
     if (typeof root !== "string" || !root.startsWith(MEAL_ROOT_PREFIX)) {
       throw new MealPayloadRefusedError(
         `line one declares ${JSON.stringify(root)} as a closure root, and a meal's roots are Consumption Events.`
       );
     }
+    roots.push(root);
   }
-  return raw as string[];
+  return roots;
 }
 
 /**
- * (3) One datom line, in the ledger reader's own grammar — the same checks, by
- * the same function, so the two NDJSON formats cannot drift apart on what a
- * well-formed row is. Only the refusal is this format's.
+ * (3) The ledger reader's own grammar, run under this format's refusal.
+ *
+ * The checks are the same checks by the same functions, so the two NDJSON
+ * formats cannot drift apart on what a well-formed row is; only the refusal is
+ * this format's, which is the whole of what this adapter does.
  */
-function readPayloadRow(line: PayloadLine): LedgerRow {
+function asMealRefusal<T>(borrowed: () => T): T {
   try {
-    return readDatomLine(line.text, line.lineNumber);
+    return borrowed();
   } catch (err) {
     if (err instanceof LedgerImportRefusedError) {
       throw new MealPayloadRefusedError(err.reason, err.lineNumber);
@@ -355,13 +379,6 @@ function reachableFrom(
   return reached;
 }
 
-/** One line of the payload, and where in it the line sat. */
-interface PayloadLine {
-  text: string;
-  /** 1-based, counting blank lines, so it matches `sed -n 'Np'`. */
-  lineNumber: number;
-}
-
 /**
  * The payload's lines, blank ones passed over but still counted so a refusal
  * names the line a person would find.
@@ -370,25 +387,9 @@ interface PayloadLine {
  * across boundaries a disk put there, and a payload is one string that arrived
  * whole.
  */
-function meaningfulLines(ndjson: string): PayloadLine[] {
+function meaningfulLines(ndjson: string): NdjsonLine[] {
   return ndjson
     .split("\n")
     .map((text, index) => ({ text: text.trim(), lineNumber: index + 1 }))
     .filter((line) => line.text.length > 0);
-}
-
-function parsePayloadObject(
-  line: string,
-  lineNumber: number
-): Record<string, unknown> {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(line);
-  } catch {
-    throw new MealPayloadRefusedError("not valid JSON.", lineNumber);
-  }
-  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new MealPayloadRefusedError("not a JSON object.", lineNumber);
-  }
-  return parsed as Record<string, unknown>;
 }

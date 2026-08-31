@@ -3,13 +3,14 @@ import {
   MEAL_PAYLOAD_ARTIFACT,
   MEAL_PAYLOAD_SCHEMA_VERSION,
   MEAL_ROOT_PREFIX,
+  MEAL_TWIN_PREFIXES,
+  MEAL_WIRE_COMPRESSION,
   OMITTED_ATTRIBUTES,
   buildMealPayload,
   mealPayloadEnvelope,
 } from "../../src/lib/p2p/meal-payload";
 import {
   MEAL_PAYLOAD_SUPPORTED_SCHEMA_VERSIONS,
-  MEAL_WIRE_COMPRESSION,
   MealPayloadRefusedError,
   MealPayloadTooLargeError,
   decodeMealPayload,
@@ -276,6 +277,63 @@ describe("an entity reachable from no declared root", () => {
       ridingAlong(row("fdc:99", "food/name", "A food nobody ate")).message
     ).toContain("fdc:99");
   });
+
+  it("refuses settings a reference reaches, which reachability alone would admit", () => {
+    const payload = payloadOf(
+      ["event:consume_a"],
+      [
+        row("event:consume_a", "event/target", "settings:global"),
+        row("settings:global", "settings/food/targets", { calories: 1 }),
+      ]
+    );
+
+    expect(refusal(payload).message).toContain("settings:global");
+  });
+
+  it("refuses a habit an instantiation ingredient reaches", () => {
+    const payload = payloadOf(
+      ["event:consume_a"],
+      [
+        row("event:consume_a", "event/instantiation", {
+          based_on: "recipe:soup",
+          ingredients: [{ ref: "habit:water" }],
+        }),
+        row("recipe:soup", "recipe/name", "Kale soup"),
+        row("habit:water", "habit/name", "Water"),
+      ]
+    );
+
+    expect(refusal(payload).message).toContain("habit:water");
+  });
+
+  it("refuses a notes op a recipe ingredient reaches", () => {
+    const payload = payloadOf(
+      ["event:consume_a"],
+      [
+        row("event:consume_a", "event/target", "recipe:soup"),
+        row("recipe:soup", "recipe/ingredients", [{ ref: "notes:op_1" }]),
+        row("notes:op_1", "notes/op", { kind: "put" }),
+      ]
+    );
+
+    expect(refusal(payload).message).toContain("notes:op_1");
+  });
+
+  it.each([...MEAL_TWIN_PREFIXES])(
+    "accepts a %s twin the meal points at",
+    (prefix) => {
+      const twin = `${prefix}1`;
+      const payload = payloadOf(
+        ["event:consume_a"],
+        [
+          row("event:consume_a", "event/target", twin),
+          row(twin, "food/name", "Something eaten"),
+        ]
+      );
+
+      expect(readMealPayload(payload).rows).toHaveLength(2);
+    }
+  );
 
   it("accepts everything the roots do reach, through a recipe and its rows", async () => {
     const rows = [
