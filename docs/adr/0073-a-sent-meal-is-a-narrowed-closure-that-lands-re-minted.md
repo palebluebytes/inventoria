@@ -5,7 +5,8 @@
 **Amends:** [ADR-0067](0067-a-ledger-comes-back-by-merging-never-by-replacing.md) (§2's kept stamps and §3's advance-on-receive do **not** transfer to a payload from another person, and its Scope's deferral to #179 lands here)  
 **Amends:** [ADR-0064](0064-the-ledger-leaves-as-raw-datoms-one-json-object-per-line.md) (§2's `artifact` gains a sibling format, `inventoria-meal`, which shares the NDJSON grammar and shares no merge rule)  
 **Amends:** [ADR-0014](0014-namespace-prefixes-for-eavt-entity-identification.md) (deterministic ids are finally used for the purpose that record states, and §5 adds a derived `event:consume_` id)  
-**Amends:** [ADR-0058](0058-a-past-meal-is-copied-whole-at-the-amounts-logged.md) (its copy **is** the receive path, with an injectable event id in front of it)
+**Amends:** [ADR-0058](0058-a-past-meal-is-copied-whole-at-the-amounts-logged.md) (its copy **is** the receive path, with an injectable event id in front of it)  
+**Amended by:** [ADR-0076](0076-a-meals-closure-is-bounded-by-kind-not-by-reachability-alone.md) (§8.4 and §8.5 are enforced by entity kind, not by reach alone; §8 gains an eighth refusal on attribute namespace; and §8's premise that an unknown attribute rides unread is corrected, since two projections scope by attribute)
 
 ## Context
 
@@ -43,7 +44,7 @@ Three facts forced the narrowing, measured over the app's own mappers on real so
   one QR symbol without it. Id-only buys nothing and costs a bundle-version coupling — the
   milk simplification (ADR-0061/0062) removed 74 corpus rows, so an id minted before a
   release need not resolve after it, and ADR-0051's twin fusion means a row can change
-  *meaning* between vintages.
+  _meaning_ between vintages.
 - **Send ids plus a diff of the sender's edits.** Refused with the above: it optimises a
   payload that is already free, and it would have read the alias-widened `food/name` a
   vocabulary search produces as a spurious user correction.
@@ -95,7 +96,7 @@ capture act** — evidence that these numbers came off that label — not a prop
 food. The recipient did not take it and cannot audit it against anything. Provenance is
 the same kind of thing, plus §3's rebuild.
 
-`food/label_capture` and `food/manual_entry` are the same *kind* of record and **cross
+`food/label_capture` and `food/manual_entry` are the same _kind_ of record and **cross
 anyway**, because **the omission list being short and enumerable is worth more than the
 principle being pure**. Three named attributes is a rule a reader can check and this record
 can state in a sentence; "everything recording the sender's act" is a principle every
@@ -141,7 +142,7 @@ A meal payload's line one is an envelope carrying:
   differ must not share a name. The ledger reader refuses a meal by name; the meal reader
   refuses a ledger by name.
 - **its own `schema_version`**, moving independently of the export format's and read
-  against a supported *list*, following ADR-0067 §4.
+  against a supported _list_, following ADR-0067 §4.
 - **the closure `roots`**: which `event:consume_` ids constitute the meal. Without them a
   reader cannot tell a closure from an arbitrary bag of datoms, and §8.5 is not
   expressible.
@@ -150,7 +151,7 @@ It carries **no `device_id` and no row count**. Sender identity exists nowhere a
 (§11), and §9 counts bytes rather than believing a declaration.
 
 Map decision 6 survives: same NDJSON grammar, same verbatim rows, different envelope and
-different rules. A *shape* shared, not a format merged.
+different rules. A _shape_ shared, not a format merged.
 
 ### 5. The Consumption Event is re-minted from a deterministic id; every twin crosses with its id intact
 
@@ -158,7 +159,7 @@ different rules. A *shape* shared, not a format merged.
 untouched. Receiving is that operation **with a wire in front of it**, so there is **no
 closure rewrite at all** and every reference inside the payload still resolves.
 
-The event is re-minted because it is a claim about *the recipient* eating: their clock,
+The event is re-minted because it is a claim about _the recipient_ eating: their clock,
 their day, their Meal Type. The twins are not claims about anyone; they are shared
 descriptions of food, which is the whole reason ADR-0014 made ids deterministic.
 
@@ -199,7 +200,7 @@ have. One `SELECT 1 FROM datoms WHERE entity = ?`.
 Projections read in ascending HLC order and take the last, so a plain merge means **the
 sender's numbers overwrite the recipient's own corrections** whenever the sender's stamp is
 greater — and `hlc_ms` is wall-clock-seeded, so a sender with a fast phone wins. The user
-accepted *a meal*. "Nothing writes unseen" holds at attribute granularity or it does not
+accepted _a meal_. "Nothing writes unseen" holds at attribute granularity or it does not
 hold at all.
 
 **This rule is exactly wrong between one person's own devices**, where the whole point is
@@ -209,10 +210,10 @@ that a later fact wins. ADR-0075 §7 inverts it.
 
 ADR-0067 §2 calls import "the one write path that keeps a stamp it did not issue" and §3
 advances the local clock to the greatest stamp carried. **Neither transfers here.** §2's
-justification is that a re-imported row *is the same row*; a received twin is a fact this
+justification is that a re-imported row _is the same row_; a received twin is a fact this
 device is learning for the first time.
 
-§3 is the deciding one. Keeping foreign stamps *requires* advancing the clock to them, so
+§3 is the deciding one. Keeping foreign stamps _requires_ advancing the clock to them, so
 **a sender whose phone is set to 2030 permanently drags the recipient's clock forward** —
 every subsequent local write stamps at 2030, from accepting one meal. With your own file
 that is self-inflicted; from another person it is not, and bounding it is strictly worse
@@ -234,7 +235,7 @@ Accept re-checks nothing; only §6's skip rule is evaluated then, against the le
 stands.
 
 **One pass, not two.** ADR-0067 §5 reads a file twice to promise all-or-nothing over
-something too large for memory. A payload is single-digit KB, arrives over a wire *into*
+something too large for memory. A payload is single-digit KB, arrives over a wire _into_
 memory, and is bounded by §9, so checking everything before writing anything is free.
 Stated explicitly because the next reader will go looking for the second pass.
 
@@ -246,7 +247,7 @@ Stated explicitly because the next reader will go looking for the second pass.
 4. **The envelope declares a root the lines do not carry, or declares none.**
 5. **An entity is not reachable from the declared roots.** This is the clause doing the
    security work. Without it a "meal" can carry `settings/food/targets`, a `habit:` or a
-   `notes/op`, and §6 only skips entities the recipient *already holds*, so anything
+   `notes/op`, and §6 only skips entities the recipient _already holds_, so anything
    unfamiliar would land unseen. The reader recomputes the closure from the roots and
    refuses everything outside it.
 6. **A reference does not resolve inside the payload** — `event/target`,
@@ -257,7 +258,7 @@ Stated explicitly because the next reader will go looking for the second pass.
 7. **One of §2's three forbidden attributes is present.** Refused rather than silently
    dropped: a recipient quietly given less than was sent cannot tell.
 
-**An unknown *attribute* is explicitly not a refusal.** (5) already contains the threat: an
+**An unknown _attribute_ is explicitly not a refusal.** (5) already contains the threat: an
 unknown attribute can only ride an entity the closure reaches, so it is a fact about a
 food, harmless if unread. Refusing it would need a hand-maintained allow-list mirroring
 `docs/eavt-vocabulary.md`, and ADR-0014's own amendment records what keeping a growing list
@@ -274,7 +275,7 @@ matters more than the number:
 
 An earlier figure of 256 KiB was justified as "~40x the measured worst case". It is
 **2.2x**: the arithmetic was never at fault, it inherited a 6 KB figure from a corpus that
-varied the *kind* of food and never the *number*, so nobody had priced a big meal. A
+varied the _kind_ of food and never the _number_, so nobody had priced a big meal. A
 60-food feast is 87% of 256 KiB and a 120-food payload exceeds it, and **nothing caps the
 foods in a meal**.
 
@@ -299,7 +300,7 @@ A payload that arrives, passes §8 and is then neither accepted nor discarded is
 no `localStorage`, no OPFS file, no second table, no expiry timer, no sweep.
 
 The argument is not simplicity. **ADR-0072 §5 already bought the recovery**: a send is
-synchronous, so both people are present at the moment of delivery *by definition*. If the
+synchronous, so both people are present at the moment of delivery _by definition_. If the
 hold evaporates seconds later the sender is still there, and minting another code is the
 same step-down the design uses for every other failure. A store exists to survive the
 absence of the person who sent the thing, and that absence cannot occur while the loss is
@@ -313,7 +314,7 @@ Four clauses follow, and each is a rule rather than a detail:
   fires nothing. Two behaviours the runtime cannot distinguish is a fiction that would be
   written down here and then not be true.
 - **The boundary is the receiving surface, not the tab.** This app has no router, so a
-  payload held in a component *could* survive wandering to another Tab and back. It does
+  payload held in a component _could_ survive wandering to another Tab and back. It does
   not: **leaving is declining**, by any route. The alternative rebuilds the reader problem
   at smaller scale — an invisible meal whose survival depends on whether a reload happened
   is a rule the user cannot see, predict or be told.
@@ -343,7 +344,7 @@ five-minute room, boot is orders of magnitude inside budget.
 
 §7 erased the free provenance mark, so it is written explicitly. **One attribute,
 `food/arrival`**, in the same family as `food/manual_entry` and `food/label_capture`: a
-record of *how this food came to be here*, never *who sent it*. Registered in
+record of _how this food came to be here_, never _who sent it_. Registered in
 `docs/eavt-vocabulary.md` alongside its siblings. "Arrived by send" is a capture method,
 not an authorship claim, and no author or owner concept enters the ledger.
 
