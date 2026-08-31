@@ -1,13 +1,14 @@
 /**
  * The Relay's five bounds (ADR-0072 §11), plus what it is allowed to hold (§12).
  *
- * The room is exercised against fake sockets and a fake `DurableObjectState`
- * rather than against workerd. That is deliberate and it is what shaped the
- * module: everything the room decides is decided from `getWebSockets()`, a
- * per-socket attachment and an alarm, so a fake that answers those three
- * questions exercises the real decisions. The one thing it cannot reach is the
- * 101 upgrade response itself, which Node's `Response` refuses to construct —
- * so `fetch` is kept to the two refusals and one call to `join`.
+ * The room is exercised against the fake sockets and fake `DurableObjectState`
+ * in `support/relay-room.ts`, rather than against workerd. That is deliberate
+ * and it is what shaped the module: everything the room decides is decided from
+ * `getWebSockets()`, a per-socket attachment and an alarm, so a fake that
+ * answers those three questions exercises the real decisions. The one thing it
+ * cannot reach is the 101 upgrade response itself, which Node's `Response`
+ * refuses to construct — so `fetch` is kept to the two refusals and one call to
+ * `join`.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
@@ -23,80 +24,9 @@ import {
   CLOSE_SECOND_FRAME,
   CLOSE_NOT_OPAQUE,
   CLOSE_NO_PEER,
-  type RelaySocket,
-  type RelayRoomState,
-  type SocketAttachment,
 } from "../../worker/src/relay";
 import { findConsoleCalls } from "../../scripts/worker-closure-check.mjs";
-
-interface FakeSocket extends RelaySocket {
-  /** Everything the relay sent this socket, in order. */
-  readonly received: (ArrayBuffer | string)[];
-  /** The first close, since a socket closes once. */
-  closedWith: { code?: number; reason?: string } | null;
-}
-
-function fakeSocket(): FakeSocket {
-  let attachment: SocketAttachment | null = null;
-  const socket: FakeSocket = {
-    received: [],
-    closedWith: null,
-    send: (message) => {
-      socket.received.push(message);
-    },
-    close: (code, reason) => {
-      socket.closedWith ??= { code, reason };
-    },
-    serializeAttachment: (value) => {
-      attachment = value;
-    },
-    deserializeAttachment: () => attachment,
-  };
-  return socket;
-}
-
-interface FakeRoom {
-  /** Every socket the relay has taken in, the closed ones included. */
-  readonly accepted: FakeSocket[];
-  readonly held: Map<string, number>;
-  alarmAt: number | null;
-  cleared: boolean;
-  state: RelayRoomState;
-}
-
-function fakeRoom(): FakeRoom {
-  const room: FakeRoom = {
-    accepted: [],
-    held: new Map(),
-    alarmAt: null,
-    cleared: false,
-    state: {
-      getWebSockets: () => room.accepted.filter((s) => s.closedWith === null),
-      // A socket the platform hands back is one of ours by construction.
-      acceptWebSocket: (ws) => {
-        room.accepted.push(ws as FakeSocket);
-      },
-      storage: {
-        get: async (key) => room.held.get(key),
-        put: async (key, value) => {
-          room.held.set(key, value);
-        },
-        getAlarm: async () => room.alarmAt,
-        setAlarm: async (at) => {
-          room.alarmAt = at;
-        },
-        deleteAlarm: async () => {
-          room.alarmAt = null;
-        },
-        deleteAll: async () => {
-          room.held.clear();
-          room.cleared = true;
-        },
-      },
-    },
-  };
-  return room;
-}
+import { fakeRoom, fakeSocket } from "./support/relay-room";
 
 /** A room with both parties present and told so, which is where a send starts. */
 async function occupiedRoom() {
