@@ -18,6 +18,10 @@ _Avoid_: Row (a stored fact is never a row — **Row** names the list-line UI pr
 The append-only, immutable database table (`datoms`) containing the full chronological sequence of all datoms. Current state is derived by querying this historical log.
 _Avoid_: Relational database, mutable table, state table
 
+**Jar**:
+Everything the browser keeps for this origin: the OPFS database file (`/inventoria.db`) holding the Ledger, and the `localStorage` side-cars beside it (the secrets and the Log facility). One jar per origin, shared by every Facet — two scopes on one origin read and write the same Ledger, which is what lets the root Inventoria show food the Food Facet logged. A separate origin would be a second jar, and the two halves could then be reunited only by pointing device convergence across origins rather than across devices. Not a synonym for Ledger: the storage grant and the side-cars are jar-wide and are not ledger rows. See ADR-0076.
+_Avoid_: Database (ambiguous between the file and the `datoms` table), storage, the DB, site data
+
 **Projection**:
 A derived, read-only view of current state, produced by folding the Ledger's datoms forward through a pure function. A Projection takes no runtime parameters: it returns the full enriched set for one kind of entity, and any date, slot, or range narrowing is applied afterward by the UI. It is the only way the application reads state; the Ledger is never queried for "current" rows directly.
 _Avoid_: View, read model, materialized view, query result
@@ -338,6 +342,16 @@ record is a _sequence_ — an outcome, and then what the user did about it — a
 sequence split across two entries would have to be rejoined by the barcode, which
 the channel is forbidden to carry. See ADR-0071 §2.
 _Avoid_: Scan event, lookup log, barcode log, scan (for the session itself)
+
+### Facets
+
+**Tracked Domain**:
+A kind of thing the app records, carrying its own entity prefixes, its own attributes and its own fold. There are six: food, media, physical items, habits, calendar events, and notes and checklists. Notes is the one that keeps no Projection — it is a Loro CRDT op-log under the single entity `notes:doc`, read by a direct SELECT (ADR-0018) — and that is an exception to be aware of rather than a route to copy. [docs/how-to-add-a-tracked-domain.md](docs/how-to-add-a-tracked-domain.md) is the route for adding one; this entry is the roster, and the route points here rather than restating it.
+_Avoid_: Domain (bare — "domain timestamp" and "domain logic" already use the word for other things), area, feature, vertical, tab
+
+**Facet**:
+A named, icon-bearing face onto the Jar that can be installed on its own, carrying its own manifest, name, icon, scope and start URL. Installability is what makes it one: a face nobody can install is a tab, and calling it a Facet buys nothing. A Facet is composed of a whole number of Tracked Domains, never a fraction of one, and it owns those domains' **entities** and never their attribute namespaces — `twin/` and `event/` are written by several domains at once, so anything scoped by an attribute reaches rows a Facet does not own. Facets overlap rather than partition: Inventoria holds every domain, including the ones another Facet also holds. Today the app ships one, **Inventoria**; the roster, each entry's status and how a Facet declares itself are ADR-0076's. Settings is a screen of the root Facet, not a screen every Facet carries.
+_Avoid_: App (which already means Inventoria-the-PWA), Edition (which implies the same content repackaged, not different content), Surface, Tab (a Facet contains tabs), View (which is a Svelte component), Module, Sub-app
 
 ### Interface primitives
 
