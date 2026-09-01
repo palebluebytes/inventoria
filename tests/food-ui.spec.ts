@@ -1837,6 +1837,13 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.locator('[data-testid="scale-apply"]').click();
     await expect(oats).toContainText("100g");
     await expect(oats.locator(".is-preview")).toHaveCount(0);
+
+    // Applying ENDS the Selection (ADR-0088's Amendment of 2026-09-02): every
+    // event picked was retracted and replaced, so carrying the successors
+    // forward would leave a Selection of foods nobody chose. The row washing
+    // back to paper is the acknowledgement that the write happened.
+    await expect(page.locator(".selbar")).toHaveCount(0);
+    await expect(oats.locator(".select-check.on")).toHaveCount(0);
   });
 
   test("the count opens the Selection's panel, where the way out is", async ({

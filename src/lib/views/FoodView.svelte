@@ -663,7 +663,6 @@
     // Snapshot: each append re-derives the projection under us.
     const items = selectedItems;
     const resolved = scalables;
-    const next = new Set(selected_ids);
     let scaled = 0;
     let skipped = 0;
     let failed = 0;
@@ -685,11 +684,18 @@
             skipped++;
             continue;
           }
-          // The rescaled food is a NEW Consumption Event; keep it selected in
-          // the retracted one's place so the Selection survives the operation.
-          next.delete(item.id);
-          next.add(newId);
           scaled++;
+          // **The row lets go the moment its own write lands** (ADR-0088's
+          // Amendment of 2026-09-02). Dropped rather than re-pointed at the new
+          // id: the event picked out was retracted, so carrying its successor
+          // forward would leave a Selection of things nobody chose.
+          //
+          // Inside the loop on purpose. Each food is its own awaited round trip,
+          // so releasing here rides the cascade the writes already produce —
+          // rows wash back to paper one after another, in the order written.
+          const remaining = new Set(selected_ids);
+          remaining.delete(item.id);
+          setSelection(remaining);
         } catch (e) {
           console.error("scaling a logged food failed", e);
           failed++;
@@ -699,7 +705,9 @@
       scaling = false;
     }
     closeScale();
-    setSelection(next);
+    // A food the run could not write was never released above, because nothing
+    // was written to it. The Selection still ends empty.
+    setSelection(new Set());
     // Silent on success (§2): a change you can watch does not need narrating.
     if (skipped + failed > 0) {
       const parts = [`${scaled} scaled`];

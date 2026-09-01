@@ -254,3 +254,44 @@ figure too wide to show should say.
 **Selection state stays in `FoodView.svelte`.** It is component state, not a store,
 and this record does not move it. Four verbs now read it, and if a fifth caller
 appears outside that component the seam to cut is the Selection itself.
+
+## Amendment (2026-09-02): a scaled row lets go as its own write lands
+
+**§10 is wrong about Scale, and §5 gains the acknowledgement it was missing.**
+
+§10 said a verb that leaves the foods in the day keeps them selected, and named
+Scale as one that does. Two things were wrong with that.
+
+**The Selection it kept was of foods nobody picked.** A scale is a
+retract-and-replace: every event in the Selection is retracted and a new one
+minted. Re-pointing the Selection at the successors — which the pre-ADR code did
+deliberately, commenting that this was how "the Selection survives the
+operation" — leaves you holding a set of events that did not exist when you
+chose. Surviving was the wrong goal.
+
+**Applying looked exactly like cancelling.** Both dropped every Provisional
+figure and left plain rows, and only the numbers differed. A write across every
+selected food had no acknowledgement at all, while an abandoned preview had the
+same one.
+
+So the rule in §10 is narrowed: **a verb that only re-files or copies the foods
+keeps the Selection; a verb that rewrites or consumes them ends it.** Move keeps
+it, because the events are the same events. The hand-off keeps it, because it
+writes nothing here. Scale and Build recipe end it.
+
+Scale ends it **per row, as that row's own write lands**, rather than all at once
+when the run finishes. That is not a stagger anyone added: each food is its own
+awaited round trip, and because the live preview is keyed by the _old_ event ids,
+a food's row already drops its mark alone the moment its id changes. Releasing
+the row there rides the cascade the writes were producing anyway.
+
+**The acknowledgement is the release, not a beat before it.** The row's highlight
+washes back to paper over one house-duration transition (0.15s, `--ease-snap`),
+and paper is where a deselected row already sits — so there is nothing to flash
+back from and no second state to wait through. It lives on `.food-item` rather
+than behind a flag, because a row has no way to be deselected-and-not-written: a
+cancelled preview leaves its rows selected, so the transition only ever runs when
+something happened.
+
+A food the run could not write is never released this way, because nothing was
+written to it. The Selection still ends empty when the run finishes.

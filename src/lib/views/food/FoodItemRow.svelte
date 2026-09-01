@@ -110,6 +110,27 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* ADR-0088's Amendment of 2026-09-02: a scaled row lets go of the Selection
+     the moment its own write lands, and the highlight washing off IS that
+     acknowledgement rather than a separate beat after it. Paper is where a
+     deselected row already sits, so there is nothing to flash back from.
+
+     On the base rather than behind a `written` flag, because the row has no way
+     to be deselected-and-not-written: a cancelled preview leaves the row
+     selected, so this transition only ever runs when something happened. At the
+     house motion duration (ADR-0003 §4) — sharp, no float, no overshoot. */
+  :global(.food-item) {
+    transition:
+      background-color 0.15s var(--ease-snap),
+      box-shadow 0.15s var(--ease-snap);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(.food-item) {
+      transition: none;
+    }
+  }
+
   /* ADR-0088 §6: the Provisional figure. The mark's BOX is permanent and only
      its colours switch, so toggling a preview moves nothing; the negative
      inline margin cancels the horizontal padding so the text sits where it
