@@ -5,17 +5,18 @@
   import Checkbox from "../../ui/Checkbox.svelte";
   import LogReviewSheet from "./LogReviewSheet.svelte";
   import {
-    logExportEnabled,
-    setLogExportEnabled,
+    logExportEnabledFor,
+    setLogExportEnabledFor,
   } from "../../stores/device-settings";
   import {
     channelEntryCount,
+    channelsOfFacet,
     clearChannel,
     isChannelRecording,
-    registeredChannels,
     setChannelRecording,
     type LogChannel,
   } from "../../logs/log-facility";
+  import type { FacetId } from "../../facets/registry";
   import type { VocabularyBarReading } from "../../logs/search-log";
   import {
     readSearchChannelBar,
@@ -32,11 +33,48 @@
   // declared and registered in the same act — so this screen reaches it through
   // the one reading that is about that channel rather than about the facility,
   // and lists whatever else the registry holds generically.
-  const channels = registeredChannels();
+  //
+  // **One card, rendered once per Facet** (ADR-0080 §2). The Facet is the whole
+  // of what changes between the two: which channels are listed, which key the
+  // export switch writes, and what a review can carry out. Everything else is
+  // the same machinery, which is why this takes an id and not a list — the
+  // registry supplies identity and nothing here records what a Facet carries
+  // (ADR-0080 §8).
+  //
+  // `elevated` is the one thing the Facet id does NOT decide, because it is not
+  // about the Facet: it says the caller drew this card inside a BottomSheet, so
+  // the review this card opens has to float above that sheet rather than land
+  // on the same layer. The root draws it on a screen and Rations settings draws
+  // it in a sheet, which is why the caller says so rather than the id implying
+  // it — a third surface could do either.
+  let { facetId, elevated = false }: { facetId: FacetId; elevated?: boolean } =
+    $props();
+
+  // Read once, on purpose: which Facet a card belongs to is fixed by the surface
+  // that drew it — `root` on Settings, `food` on Rations settings — and neither
+  // call site can hand this component a different one while it is mounted.
+  //
+  // Its own channels only, derived from the domains the Facet already declares.
+  // The root holds all six, so its card stays jar-wide.
+  // svelte-ignore state_referenced_locally
+  const channels = channelsOfFacet(facetId);
+  // This Facet's own export door (ADR-0080 §5). The root's switch no longer
+  // speaks for food's channel: a Rations user has one of these on a surface
+  // they can actually reach, which is what ADR-0078 §7 makes necessary.
+  // svelte-ignore state_referenced_locally
+  const exportEnabled = logExportEnabledFor(facetId);
 
   // Bumped by any action that changes what is stored, so the counts and the bar
   // are re-read rather than trusted from a snapshot.
   let revision = $state(0);
+
+  // The #142 readout is the root's row and nobody else's (ADR-0080 §2), and §6
+  // deletes it outright — #303 is that deletion. Both reads are guarded on the
+  // Facet rather than only the markup: `recomputeSearchChannelBar` fetches the
+  // USDA corpus, and paying for it to draw nothing would be the cost of a
+  // readout Rations does not have.
+  // svelte-ignore state_referenced_locally
+  const showsSearchBar = facetId === "root";
 
   // One derivation for everything read out of storage, keyed on `revision`:
   // these are plain reads rather than reactive stores, so a write has to say so.
@@ -51,7 +89,7 @@
       // What the channel says about #142 (ADR-0053 §7, as amended): two counts
       // rather than a rate over a window, because the app is not in use yet and
       // a calendar with no start decides nothing.
-      bar: readSearchChannelBar(),
+      bar: showsSearchBar ? readSearchChannelBar() : null,
     };
   });
   // The same bar re-read against the vocabulary as it stands now (§4). Async,
@@ -60,6 +98,7 @@
   let barToday = $state<VocabularyBarReading | null>(null);
   $effect(() => {
     void revision;
+    if (!showsSearchBar) return;
     recomputeSearchChannelBar()
       .then((reading) => (barToday = reading))
       .catch(() => (barToday = null));
@@ -81,7 +120,7 @@
   // agreement, and the agreement is the review sheet you read before exporting
   // (ADR-0086 §2).
   function persistExportEnabled(next: boolean) {
-    setLogExportEnabled(next);
+    setLogExportEnabledFor(facetId, next);
   }
 </script>
 
@@ -98,7 +137,7 @@
       id="log-export-toggle"
       class="opt-in-toggle"
       label="Allow exporting local logs"
-      checked={$logExportEnabled}
+      checked={$exportEnabled}
       onCheckedChange={persistExportEnabled}
     />
     <span class="help-text"
@@ -134,22 +173,29 @@
     </section>
   {/each}
 
-  <section class="channel">
-    <h3>What the search log says about #142</h3>
-    <p class="reader">
-      {stored.bar.mid_phrase} of {stored.bar.settled_empty} settled empty searches
-      carried a vocabulary word inside a longer phrase. Six of them build the per-token
-      tier; forty settled empty searches with fewer than six close it as a settled
-      no.
-    </p>
-    <p class="verdict">Verdict: {stored.bar.verdict}</p>
-    {#if barToday}
+  <!-- ADR-0080 §2 gives this row to the root and nothing to Rations, and §6
+       deletes it outright: a verdict about a corpus decision is a maintainer
+       reading a ticket over the user's shoulder, on the screen of an app they
+       installed to log lunch. #303 is the deletion; until it lands the readout
+       stays where it already was and goes nowhere new. -->
+  {#if stored.bar}
+    {@const bar = stored.bar}
+    <section class="channel">
+      <h3>What the search log says about #142</h3>
       <p class="reader">
-        Against today's vocabulary, which re-derives on every corpus change: {barToday.mid_phrase}
-        of {barToday.settled_empty} — {barToday.verdict}.
+        {bar.mid_phrase} of {bar.settled_empty} settled empty searches carried a vocabulary
+        word inside a longer phrase. Six of them build the per-token tier; forty settled
+        empty searches with fewer than six close it as a settled no.
       </p>
-    {/if}
-  </section>
+      <p class="verdict">Verdict: {bar.verdict}</p>
+      {#if barToday}
+        <p class="reader">
+          Against today's vocabulary, which re-derives on every corpus change: {barToday.mid_phrase}
+          of {barToday.settled_empty} — {barToday.verdict}.
+        </p>
+      {/if}
+    </section>
+  {/if}
 
   <div class="actions-row mt-4">
     <Button variant="secondary" onclick={() => (reviewing = true)}>
@@ -160,6 +206,8 @@
 
 {#if reviewing}
   <LogReviewSheet
+    {facetId}
+    {elevated}
     onClose={() => {
       reviewing = false;
       revision += 1;

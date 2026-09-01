@@ -3,14 +3,15 @@
   import Button from "../../ui/Button.svelte";
   import Badge from "../../ui/Badge.svelte";
   import Checkbox from "../../ui/Checkbox.svelte";
-  import { logExportEnabled } from "../../stores/device-settings";
+  import { logExportEnabledFor } from "../../stores/device-settings";
   import {
     buildLogExport,
+    channelsOfFacet,
     deleteChannelEntry,
     readChannel,
-    registeredChannels,
     type LogChannel,
   } from "../../logs/log-facility";
+  import type { FacetId } from "../../facets/registry";
 
   // The review ADR-0054 §4 makes the condition of an export: the exact payload,
   // shown before anything is written, with `personal` channels marked and each
@@ -21,9 +22,27 @@
   // Redaction happens here too, and it is a DELETION from the channel rather
   // than an exclusion from one export: two states would mean this screen shows
   // something other than what exists.
-  let { onClose }: { onClose: () => void } = $props();
+  //
+  // The review is **this Facet's**, both halves of it: it offers the channels
+  // the Facet's own domains write, and its door is the Facet's own opt-in
+  // (ADR-0080 §2, §5). Rations reviewing the root's channels would be a Facet
+  // exporting records of acts it did not perform.
+  //
+  // `elevated` raises this sheet over a sheet it was opened from — Rations
+  // settings is one, the root's Settings screen is not — so its backdrop dims
+  // the parent card instead of landing beside it on the same layer.
+  let {
+    facetId,
+    elevated = false,
+    onClose,
+  }: { facetId: FacetId; elevated?: boolean; onClose: () => void } = $props();
 
-  const channels = registeredChannels();
+  // Read once, like the card that opened this: the review belongs to whichever
+  // Facet's Local Logs card is behind it, and that cannot change mid-sheet.
+  // svelte-ignore state_referenced_locally
+  const channels = channelsOfFacet(facetId);
+  // svelte-ignore state_referenced_locally
+  const exportEnabled = logExportEnabledFor(facetId);
   // Stamped once, and used for BOTH the preview and the file, so what the review
   // showed is byte for byte what leaves. It dates the export to the moment it
   // was reviewed, which is the moment that matters here.
@@ -79,7 +98,7 @@
   }
 </script>
 
-<BottomSheet isOpen title="Review Local Logs" {onClose}>
+<BottomSheet isOpen title="Review Local Logs" {elevated} {onClose}>
   <p class="lead">
     Nothing here has been sent anywhere. Choose the channels you want to hand
     over, read what they hold, and the export writes exactly that to a file.
@@ -130,16 +149,20 @@
     </section>
   {/if}
 
-  {#if !$logExportEnabled}
+  {#if !$exportEnabled}
+    <!-- Names the card rather than the screen it sits on: the same card is the
+         root's Settings tab and Rations settings, and each Facet's switch opens
+         only its own door (ADR-0080 §5). -->
     <p class="empty">
-      Turn on "Allow exporting local logs" in Settings to enable the export.
+      Turn on "Allow exporting local logs" in the Local Logs card to enable the
+      export.
     </p>
   {/if}
 
   {#snippet footer()}
     <div class="dock">
       <Button
-        disabled={!$logExportEnabled || selected.length === 0}
+        disabled={!$exportEnabled || selected.length === 0}
         onclick={exportSelected}
       >
         Export {selected.length} channel{selected.length === 1 ? "" : "s"}

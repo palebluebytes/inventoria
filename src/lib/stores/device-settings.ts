@@ -1,4 +1,5 @@
-import { writable, derived, type Readable } from "svelte/store";
+import { writable, derived, type Readable, type Writable } from "svelte/store";
+import type { FacetId } from "../facets/registry";
 import { DEFAULT_VISIBLE_NUTRIENTS } from "../food/nutrient-display";
 import { FOOD_DISPLAY_DECIMALS } from "../food/nutrition";
 import {
@@ -61,11 +62,10 @@ const LS_KEYS = {
   food_limits: "inventoria_pref_food_limits",
   food_calculated_targets: "inventoria_pref_food_calculated_targets",
   food_profile: "inventoria_pref_food_profile",
-  // The two opt-ins that were `consent:` entities until ADR-0086 §2. Food's
-  // carries the `food_` segment ADR-0079 §2's scoped wipe matches on; the log
-  // one is the root's and deliberately does not.
+  // The contribution default, a `consent:` entity until ADR-0086 §2. It carries
+  // the `food_` segment ADR-0079 §2's scoped wipe matches on. The log-export
+  // doors are one per Facet and keep their own table below.
   food_off_contribute: "inventoria_pref_food_off_contribute",
-  log_export: "inventoria_pref_log_export",
 } as const;
 
 // `localStorage` is absent under the Node unit runner (and can throw in a
@@ -247,7 +247,7 @@ export function setRoundNutrition(round: boolean): void {
 }
 
 // ---------------------------------------------------------------------------
-// The two opt-ins (ADR-0086 §2)
+// The opt-ins (ADR-0086 §2)
 //
 // These were `consent:food_off_contribute` and `consent:log_export`, datoms on
 // their own entities under ADR-0085 §2. Neither recorded an act. Each only
@@ -256,17 +256,22 @@ export function setRoundNutrition(round: boolean): void {
 // the log review sheet, which still displays the exact payload and takes the
 // channels one at a time. A default for a checkbox is configuration.
 //
-// Both default **off** and stay opt-in. Nothing about moving stores changes that
-// or is allowed to: the ledger read collapsed to `true` only on a literal
-// `true`, and {@link readOptIn} keeps the same one-way failure.
+// Every one of them defaults **off** and stays opt-in. Nothing about moving
+// stores changes that or is allowed to: the ledger read collapsed to `true`
+// only on a literal `true`, and {@link readOptIn} keeps the same one-way
+// failure.
 //
 // The cost is ADR-0085's, taken again knowingly: an opt-in set on your phone
 // does not reach your laptop, and a jar-wide wipe of `localStorage` clears it.
 // Both are the safe direction — the user is asked again.
+//
+// The contribution default is **one** across the app, because it governs an act
+// on the world and contributing to Open Food Facts is the same act whichever
+// screen offers it (ADR-0085 §4). The log-export opt-in is one **per Facet**,
+// because it governs a door; its table is below.
 // ---------------------------------------------------------------------------
 
 const offContribute = writable<boolean>(readOptIn(LS_KEYS.food_off_contribute));
-const logExport = writable<boolean>(readOptIn(LS_KEYS.log_export));
 
 /**
  * Whether the per-capture "contribute this back to Open Food Facts" checkbox is
@@ -278,17 +283,6 @@ export const offContributeDefault: Readable<boolean> = {
   subscribe: offContribute.subscribe,
 };
 
-/**
- * Whether the local-log export is offered at all (ADR-0054 §4). **Not** the
- * consent to export: the review sheet still shows the exact payload and the
- * channels are chosen individually there, because bundling a `personal` channel
- * with a `technical` one behind one yes is a consent surface that does not mean
- * what it appears to.
- */
-export const logExportEnabled: Readable<boolean> = {
-  subscribe: logExport.subscribe,
-};
-
 /** Records the OFF-contribution default. Its own writer, so a screen that does
  *  not own it cannot clobber it (ADR-0031 §2). */
 export function setOffContributeDefault(enabled: boolean): void {
@@ -296,11 +290,65 @@ export function setOffContributeDefault(enabled: boolean): void {
   offContribute.set(enabled);
 }
 
-/** Records whether the log export is offered. The root's; it never speaks for a
- *  Facet's own door (ADR-0080 §5). */
-export function setLogExportEnabled(enabled: boolean): void {
-  safeSet(LS_KEYS.log_export, String(enabled));
-  logExport.set(enabled);
+// ---------------------------------------------------------------------------
+// The log-export doors, one per Facet (ADR-0080 §5)
+//
+// A log-export opt-in governs an **egress door**, and each Facet has its own —
+// which is clause (b) of ADR-0080 §1 exactly: Rations writes the only channel
+// there is, so Rations governs its egress. Until this existed the root's switch
+// gated food's channel from a screen ADR-0078 §7 leaves a Rations user no way
+// to reach, so it was permanently off there with no surface saying why.
+//
+// **The two names are pinned by ADR-0085 §4, not derived from the Facet id**,
+// and the asymmetry is the record's own: the root's is unqualified because it
+// belongs to no Tracked Domain — the log facility is machinery, not a tracked
+// area of anyone's life — while Rations' is named for the *domain* that
+// registers the channel, which is also what puts it under the
+// `inventoria_pref_food_` namespace ADR-0079 §2's scoped wipe takes.
+//
+// A table rather than two exported pairs, so the Local Logs card is one
+// component taking a Facet id rather than a component taking a store and a
+// setter from each call site. It records where a value lives and nothing about
+// which controls a Facet carries — the thing ADR-0080 §8 keeps out of the
+// registry — and a third Facet is a compile error here until someone names its
+// door.
+// ---------------------------------------------------------------------------
+
+/** One Facet's export opt-in: the key it persists under, and its live value. */
+interface LogExportDoor {
+  readonly key: string;
+  readonly enabled: Writable<boolean>;
+}
+
+function logExportDoor(key: string): LogExportDoor {
+  return { key, enabled: writable<boolean>(readOptIn(key)) };
+}
+
+const LOG_EXPORT_DOORS = {
+  root: logExportDoor("inventoria_pref_log_export"),
+  food: logExportDoor("inventoria_pref_food_log_export"),
+} as const satisfies Record<FacetId, LogExportDoor>;
+
+/**
+ * Whether one Facet's local-log export is offered at all (ADR-0054 §4).
+ * **Not** the consent to export: the review sheet still shows the exact payload
+ * and the channels are chosen individually there, because bundling a `personal`
+ * channel with a `technical` one behind one yes is a consent surface that does
+ * not mean what it appears to.
+ */
+export function logExportEnabledFor(facetId: FacetId): Readable<boolean> {
+  return { subscribe: LOG_EXPORT_DOORS[facetId].enabled.subscribe };
+}
+
+/** Records whether one Facet's log export is offered. Its own key, so no
+ *  Facet's switch can ever speak for another's door (ADR-0080 §5). */
+export function setLogExportEnabledFor(
+  facetId: FacetId,
+  enabled: boolean
+): void {
+  const door = LOG_EXPORT_DOORS[facetId];
+  safeSet(door.key, String(enabled));
+  door.enabled.set(enabled);
 }
 
 /** The scraper proxy URL prefix (localStorage, else the env fallback, else ""). */

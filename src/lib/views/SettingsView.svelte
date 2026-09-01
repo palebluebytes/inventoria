@@ -298,7 +298,10 @@
   <LedgerImport {dbReady} />
 </Card>
 
-<LogSettingsSection />
+<!-- The jar-wide card: the root holds all six Tracked Domains, so it lists every
+     channel and its Review and Export is jar-wide (ADR-0080 §2). Its switch is
+     the root's own door and no longer the only one food's channel has. -->
+<LogSettingsSection facetId="root" />
 
 <Card class="mt-4">
   <h2>Developer Options</h2>

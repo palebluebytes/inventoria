@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { get } from "svelte/store";
 import { DEFAULT_VISIBLE_NUTRIENTS } from "../../src/lib/food/nutrient-display";
 import { FOOD_DISPLAY_DECIMALS } from "../../src/lib/food/nutrition";
+import { storagePrefixesOf } from "../../src/lib/facets/registry";
 
 // The same in-memory localStorage the secrets suite uses, so the Node unit
 // runner (which has none) exercises the real read/write path. `.store` lets a
@@ -378,18 +379,20 @@ describe("device settings (ADR-0085: a setting is never a datom)", () => {
   // `consent:log_export`, datoms on their own entities, until it was noticed
   // that neither records an act — each only seeds a control that is shown and
   // answered again every time.
-  describe("the two opt-ins (ADR-0086 §2: a default is not a consent)", () => {
+  describe("the opt-ins (ADR-0086 §2: a default is not a consent)", () => {
     const OFF = "inventoria_pref_food_off_contribute";
-    const LOG = "inventoria_pref_log_export";
+    const ROOT_LOG = "inventoria_pref_log_export";
+    const FOOD_LOG = "inventoria_pref_food_log_export";
 
-    it("defaults both to off when nothing is stored", async () => {
+    it("defaults all of them to off when nothing is stored", async () => {
       vi.stubGlobal("localStorage", makeFakeLocalStorage());
       const prefs = await loadPrefs();
       expect(get(prefs.offContributeDefault)).toBe(false);
-      expect(get(prefs.logExportEnabled)).toBe(false);
+      expect(get(prefs.logExportEnabledFor("root"))).toBe(false);
+      expect(get(prefs.logExportEnabledFor("food"))).toBe(false);
     });
 
-    it("defaults both to off when there is no localStorage at all", async () => {
+    it("defaults them to off when there is no localStorage at all", async () => {
       // A privacy-locked browser reads every key as absent. These must fail
       // closed there, which is the one direction the read is allowed to be
       // wrong in: an opt-in that defaulted on would offer a submission nobody
@@ -398,58 +401,102 @@ describe("device settings (ADR-0085: a setting is never a datom)", () => {
       vi.stubGlobal("localStorage", undefined);
       const prefs = await loadPrefs();
       expect(get(prefs.offContributeDefault)).toBe(false);
-      expect(get(prefs.logExportEnabled)).toBe(false);
+      expect(get(prefs.logExportEnabledFor("root"))).toBe(false);
+      expect(get(prefs.logExportEnabledFor("food"))).toBe(false);
     });
 
     it('turns on only for a literal "true", never for another truthy value', async () => {
       const ls = makeFakeLocalStorage();
       ls.store.set(OFF, "1");
-      ls.store.set(LOG, "yes");
+      ls.store.set(ROOT_LOG, "yes");
+      ls.store.set(FOOD_LOG, "1");
       vi.stubGlobal("localStorage", ls);
       const prefs = await loadPrefs();
       expect(get(prefs.offContributeDefault)).toBe(false);
-      expect(get(prefs.logExportEnabled)).toBe(false);
+      expect(get(prefs.logExportEnabledFor("root"))).toBe(false);
+      expect(get(prefs.logExportEnabledFor("food"))).toBe(false);
     });
 
     it("reads a stored grant at import, with no ledger and no await", async () => {
       const ls = makeFakeLocalStorage();
       ls.store.set(OFF, "true");
-      ls.store.set(LOG, "true");
+      ls.store.set(ROOT_LOG, "true");
+      ls.store.set(FOOD_LOG, "true");
       vi.stubGlobal("localStorage", ls);
       const prefs = await loadPrefs();
       expect(get(prefs.offContributeDefault)).toBe(true);
-      expect(get(prefs.logExportEnabled)).toBe(true);
+      expect(get(prefs.logExportEnabledFor("root"))).toBe(true);
+      expect(get(prefs.logExportEnabledFor("food"))).toBe(true);
     });
 
-    it("keeps the two on separate keys, so neither writer speaks for the other", async () => {
+    it("keeps the contribution default off the log keys, so neither writer speaks for the other", async () => {
       const ls = makeFakeLocalStorage();
       vi.stubGlobal("localStorage", ls);
       const prefs = await loadPrefs();
 
       prefs.setOffContributeDefault(true);
       expect(get(prefs.offContributeDefault)).toBe(true);
-      expect(get(prefs.logExportEnabled)).toBe(false);
+      expect(get(prefs.logExportEnabledFor("root"))).toBe(false);
       expect(ls.store.get(OFF)).toBe("true");
-      expect(ls.store.get(LOG)).toBeUndefined();
+      expect(ls.store.get(ROOT_LOG)).toBeUndefined();
 
-      prefs.setLogExportEnabled(true);
+      prefs.setLogExportEnabledFor("root", true);
       prefs.setOffContributeDefault(false);
       expect(get(prefs.offContributeDefault)).toBe(false);
-      expect(get(prefs.logExportEnabled)).toBe(true);
+      expect(get(prefs.logExportEnabledFor("root"))).toBe(true);
     });
 
-    it("gives food's key the `food_` segment the scoped wipe matches on", async () => {
+    // ADR-0080 §5: one export opt-in per Facet, because it governs an egress
+    // door and each Facet has its own. Until this shipped, the root's switch
+    // gated food's only channel from a screen a Rations user cannot reach.
+    it("gives each Facet its own log-export door, on its own key", async () => {
+      const ls = makeFakeLocalStorage();
+      vi.stubGlobal("localStorage", ls);
+      const prefs = await loadPrefs();
+
+      prefs.setLogExportEnabledFor("food", true);
+      expect(get(prefs.logExportEnabledFor("food"))).toBe(true);
+      expect(get(prefs.logExportEnabledFor("root"))).toBe(false);
+      expect(ls.store.get(FOOD_LOG)).toBe("true");
+      expect(ls.store.get(ROOT_LOG)).toBeUndefined();
+
+      prefs.setLogExportEnabledFor("root", true);
+      prefs.setLogExportEnabledFor("food", false);
+      expect(get(prefs.logExportEnabledFor("root"))).toBe(true);
+      expect(get(prefs.logExportEnabledFor("food"))).toBe(false);
+    });
+
+    it("names the two doors as ADR-0085 §4 named them, and no third way", async () => {
+      // The root's is unqualified because it belongs to no Tracked Domain — the
+      // log facility is machinery, not a tracked area of anyone's life — and
+      // Rations' is named for the domain that registers the only channel there
+      // is. Both names are pinned by that record, so they are asserted rather
+      // than derived from the Facet id.
+      const ls = makeFakeLocalStorage();
+      vi.stubGlobal("localStorage", ls);
+      const prefs = await loadPrefs();
+      prefs.setLogExportEnabledFor("root", true);
+      prefs.setLogExportEnabledFor("food", true);
+      expect([...ls.store.keys()].sort()).toEqual([FOOD_LOG, ROOT_LOG].sort());
+    });
+
+    it("gives every key a Facet-scoped wipe can find its owner for", async () => {
       // ADR-0079 §2 takes every `localStorage` record under the Facet's own
-      // namespaces. The log one is the root's and deliberately carries no
-      // `food_`, so a food wipe leaves it alone.
+      // namespaces, so which prefix a key falls under decides who clears it.
+      // Food's two carry the `food_` segment; the root's log door does not, so
+      // a food wipe leaves it alone.
       const ls = makeFakeLocalStorage();
       vi.stubGlobal("localStorage", ls);
       const prefs = await loadPrefs();
       prefs.setOffContributeDefault(true);
-      prefs.setLogExportEnabled(true);
-      expect([...ls.store.keys()].filter((k) => k.includes("_food_"))).toEqual([
-        OFF,
-      ]);
+      prefs.setLogExportEnabledFor("root", true);
+      prefs.setLogExportEnabledFor("food", true);
+
+      const foodOwned = storagePrefixesOf("food");
+      const takenByAFoodWipe = [...ls.store.keys()]
+        .filter((key) => foodOwned.some((prefix) => key.startsWith(prefix)))
+        .sort();
+      expect(takenByAFoodWipe).toEqual([FOOD_LOG, OFF].sort());
     });
   });
 });
