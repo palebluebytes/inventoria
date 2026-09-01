@@ -1,7 +1,8 @@
 # ADR 0076: A Facet is an installable face onto one jar, and Inventoria is the first one
 
 **Status:** Accepted  
-**Date:** 2026-08-31
+**Date:** 2026-08-31  
+**Amended by:** [ADR-0080](0080-a-facet-carries-a-jar-wide-control-only-where-losing-it-loses-data.md) §1, §3 and §4 (§5's "cannot function without" phrase is replaced by a two-clause test; "narrowed to its own scope" does not hold for an import; a setting lives beside what it configures rather than with its Facet)
 
 ## Context
 
@@ -185,3 +186,25 @@ follow-ups: the five-domain roster in the how-to; the missing `notes:` entry pre
 [eavt-vocabulary.md](../eavt-vocabulary.md); that file's claim that projections scope their
 reads by entity prefix, which two of five do not; and the word _jar_, used throughout the
 parent map and defined nowhere.
+
+## Amendment (2026-09-01): §5 cited two instances of its rule, and one had already dissolved
+
+§5 named the TMDB API key and the scraper proxy URL as the two settings sitting in the root
+Settings screen that belong to a Facet and must move to it. The TMDB key is one. **The
+scraper proxy was not, and had not been since [ADR-0070](0070-the-proxy-is-part-of-the-site-it-serves.md).**
+
+That record made the proxy part of the site it serves, and `stores/device-settings.ts:109`
+has carried `BUILT_IN_PROXY_URL = "/api/proxy?url="` as the working default ever since, with
+`:117` letting a dev override it through `VITE_SCRAPER_PROXY_URL`. The Settings field
+overrides a default that already works, for a reader who does not exist. It configures no
+user-facing thing and therefore belongs to no domain and no Facet.
+
+[ADR-0080](0080-a-facet-carries-a-jar-wide-control-only-where-losing-it-loses-data.md) §4
+deletes the field rather than moving it, and rereads §5's rule as being about the thing
+configured rather than about the Facet — under the literal reading, both cited settings
+belong to root domains, so their Facet is the root, Settings is the root's screen, and the
+rule moves nothing.
+
+The clause is corrected here rather than in place because the decision text is a record of
+what was decided on 2026-08-31, and this is evidence that one of its two worked examples was
+false when written.
