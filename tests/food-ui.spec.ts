@@ -1751,6 +1751,125 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     return dinnerSection;
   }
 
+  // ── The Selection bar's other verbs (ADR-0088) ────────────────────────────
+  //
+  // These live here rather than in a spec of their own because the long-press
+  // and food-logging helpers above are what raise a Selection at all.
+
+  /** Two dinner foods picked out, and the section they are in. */
+  async function selectTwo(page: import("@playwright/test").Page) {
+    await logUsdaFood(page, "dinner", "oats", "Mock Oats", "50");
+    await logUsdaFood(page, "dinner", "banana", "Mock Banana", "150");
+
+    const dinnerSection = page.locator(
+      '.meal-section:has(.meal-title-btn:text-is("DINNER"))'
+    );
+    await longPress(
+      page,
+      dinnerSection.locator(".meal-item-card", { hasText: "Mock Oats" })
+    );
+    await dinnerSection
+      .locator(".meal-item-card", { hasText: "Mock Banana" })
+      .click();
+    await expect(page.locator(".selbar")).toContainText("2 selected");
+    return dinnerSection;
+  }
+
+  test("moves the selected foods to another meal, keeping them selected", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    const dinnerSection = await selectTwo(page);
+
+    await page.locator('[data-testid="selection-move"]').click();
+    await page.locator('[data-testid="move-to-breakfast"]').click();
+
+    const breakfast = page.locator(
+      '.meal-section:has(.meal-title-btn:text-is("BREAKFAST"))'
+    );
+    await expect(breakfast).toContainText("Mock Oats");
+    await expect(breakfast).toContainText("Mock Banana");
+    await expect(dinnerSection).not.toContainText("Mock Oats");
+
+    // A move appends one datom and mints no ids, so the Selection survives it —
+    // which is what shows you where the foods went (ADR-0088 §8).
+    await expect(page.locator(".selbar")).toContainText("2 selected");
+  });
+
+  test("previews a scale on the rows before it writes anything", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    const dinnerSection = await selectTwo(page);
+    const oats = dinnerSection.locator(".meal-item-card", {
+      hasText: "Mock Oats",
+    });
+    await expect(oats).toContainText("50g");
+
+    await page.locator('[data-testid="selection-scale"]').click();
+    // Nothing is previewed until an operator is chosen.
+    await expect(oats.locator(".is-preview")).toHaveCount(0);
+
+    await page
+      .locator('[data-testid="scale-op"] [data-value="multiply"]')
+      .click();
+    await expect(oats).toContainText("100g");
+    await expect(oats.locator(".fi-qty.is-preview")).toBeVisible();
+
+    // Tapping the active operator again clears it — the preview is cancelled by
+    // ToggleGroup's own deselect, with no control of its own.
+    await page
+      .locator('[data-testid="scale-op"] [data-value="multiply"]')
+      .click();
+    await expect(oats).toContainText("50g");
+    await expect(oats.locator(".is-preview")).toHaveCount(0);
+
+    // Nothing was written by any of that.
+    await page
+      .locator('[data-testid="scale-op"] [data-value="multiply"]')
+      .click();
+    await page.locator('[data-testid="scale-apply"]').click();
+    await expect(oats).toContainText("100g");
+    await expect(oats.locator(".is-preview")).toHaveCount(0);
+  });
+
+  test("the count opens the Selection's panel, where the way out is", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    await selectTwo(page);
+    await page.locator('[data-testid="selection-count"]').click();
+
+    // The third scale of the same control (ADR-0074 §3 as ADR-0088 §9 widened
+    // it): a meal's, the day's, and an arbitrary Selection's.
+    const panel = page.locator('[data-testid="selection-nutrient-breakdown"]');
+    await expect(panel).toBeVisible();
+    await expect(panel).toContainText("2 SELECTED");
+    await expect(
+      panel.locator('[data-testid="selection-way-out"]')
+    ).toBeVisible();
+  });
+
+  test("the ✕ leaves the Selection", async ({ page }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    await selectTwo(page);
+    await page.locator('[data-testid="selection-dismiss"]').click();
+
+    await expect(page.locator(".selbar")).toHaveCount(0);
+  });
+
   test("builds a recipe that replaces the selected foods", async ({ page }) => {
     await page.goto("/?mem=1");
     await waitForDbReady(page);

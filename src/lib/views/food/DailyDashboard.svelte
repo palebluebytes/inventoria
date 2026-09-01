@@ -47,7 +47,7 @@
   import { longpress } from "../../actions/longpress";
   import type { ScalePreview } from "../../food/scale-amount";
   import WayInIcon from "./WayInIcon.svelte";
-  import MealNutritionPanel from "./MealNutritionPanel.svelte";
+  import LoggedFoodsPanel from "./LoggedFoodsPanel.svelte";
 
   let {
     dbReady,
@@ -617,8 +617,11 @@
      panel the day's aggregates open, one scale down: same shell, same cells,
      minus the five readings that are about a day rather than a meal. -->
 {#if mealPanel}
-  <MealNutritionPanel
-    meal_type={mealPanel}
+  <LoggedFoodsPanel
+    title={mealPanel.toUpperCase()}
+    subject="this {mealPanel}"
+    testId="meal-nutrient-breakdown"
+    wayOutTestId="meal-way-out"
     date={selectedDate}
     items={groupedMeals[mealPanel]}
     targets={resolvedTargets}
@@ -650,7 +653,7 @@
 <style>
   /* A header control on the panel's subject, sized to sit beside the close and
      unframed like it, so two header controls read as one row of marks. The same
-     square `MealNutritionPanel` gives a meal's way out; the two are the same
+     square `LoggedFoodsPanel` gives a meal's way out; the two are the same
      control at two scales and must not drift apart. */
   .way-out {
     display: grid;

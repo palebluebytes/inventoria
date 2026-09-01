@@ -73,6 +73,13 @@
   import SelectionBar from "./food/SelectionBar.svelte";
   import ScaleTier from "./food/ScaleTier.svelte";
   import MoveMealSheet from "./food/MoveMealSheet.svelte";
+  import LoggedFoodsPanel from "./food/LoggedFoodsPanel.svelte";
+  import {
+    resolveNutrientTargets,
+    defaultNutrientTargets,
+  } from "../food/nutrition-targets";
+  import { settingsStore } from "../stores/settings.store";
+  import { calorieDisplayDecimals } from "../stores/device-settings";
 
   import Card from "../ui/Card.svelte";
   import Badge from "../ui/Badge.svelte";
@@ -252,6 +259,14 @@
 
   let dayItems = $derived(consumptionForDay($consumptionStore, selectedDate));
   let selectedItems = $derived(dayItems.filter((i) => selected_ids.has(i.id)));
+  // Read only to decide which cards the Selection's panel draws, exactly as the
+  // dashboard reads them for a meal's.
+  let resolvedTargets = $derived(
+    resolveNutrientTargets(
+      $settingsStore.food_targets,
+      defaultNutrientTargets($settingsStore.food_calculated_targets)
+    )
+  );
 
   /**
    * A header control was tapped (ADR-0059 §1). Four of the five ways in are
@@ -1098,6 +1113,26 @@
 
 <!-- The Selection bar (ADR-0088). Raised by a long-press; it owns the foot of
      the screen while it is live, which is what makes a Selection a mode. -->
+<!-- The Selection's own nutrition panel (ADR-0088 §9): what the count opens,
+     and where the Way out sits. The same control as a meal's and the full
+     day's, at a third scale — which is the whole cost of handing over a few
+     picked foods, since the payload already takes an arbitrary root list. -->
+{#if selection_panel_open && selectedItems.length > 0}
+  <LoggedFoodsPanel
+    title="{selected_ids.size} SELECTED"
+    subject={selectedItems.length === 1
+      ? "this food"
+      : `these ${selectedItems.length} foods`}
+    testId="selection-nutrient-breakdown"
+    wayOutTestId="selection-way-out"
+    date={selectedDate}
+    items={selectedItems}
+    targets={resolvedTargets}
+    calorieDecimals={$calorieDisplayDecimals}
+    onClose={() => (selection_panel_open = false)}
+  />
+{/if}
+
 {#if move_open}
   <MoveMealSheet
     count={selected_ids.size}

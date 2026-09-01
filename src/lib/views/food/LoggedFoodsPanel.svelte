@@ -1,5 +1,4 @@
 <script lang="ts">
-  import type { MealType } from "../../food/meal-type";
   import type { ConsumptionEvent } from "../../stores/calorie.store";
   import { totalNutrition } from "../../food/consumption-state";
   import {
@@ -15,29 +14,47 @@
   import SendFace from "./SendFace.svelte";
   import WayOutIcon from "./WayOutIcon.svelte";
 
-  // One meal, entire — and the way out of it (ADR-0074 §1, §2 and §3).
+  // A set of logged foods, entire — and the way out of it (ADR-0074 §1, §2 and
+  // §3, as ADR-0088 §9 widened them).
   //
-  // **This is the Full-day panel one scale down, not a lookalike**: the same
-  // `NutritionPanel` shell and the same `NutritionPanelCell`, reached from two
-  // controls that were already on the screen doing nothing — the meal's name
-  // and its subtotal line. The meal header keeps its five ways in and gains no
-  // sixth.
+  // **This is the Full-day panel at another scale, not a lookalike**: the same
+  // `NutritionPanel` shell and the same `NutritionPanelCell`. It serves a meal,
+  // reached from two controls that were already on the screen doing nothing —
+  // the meal's name and its subtotal line — and a **Selection**, reached by
+  // tapping the count on the Selection bar. Which set it holds is the caller's
+  // business; the panel only ever knows "these foods, entire".
+  //
+  // That is why it takes a `title` rather than a `meal_type`: the third scale
+  // has no meal, and a component named for one of its callers would have to lie
+  // to serve the others. The meal header still keeps its five ways in and gains
+  // no sixth.
   //
   // **The panel turns into the code and back.** It opens no second surface to
-  // hand the meal over, because this screen already IS "this meal, entire", and
-  // sending is the act of giving somebody this meal entire.
+  // hand the foods over, because this screen already IS "these foods, entire",
+  // and sending is the act of giving somebody them.
   let {
-    meal_type,
+    title,
+    subject,
+    testId,
+    wayOutTestId,
     date,
     items,
     targets,
     calorieDecimals,
     onClose,
   }: {
-    meal_type: MealType;
-    /** The day the meal was logged on — what the way out writes (§7). */
+    /** The panel's heading — a meal's name, or how many foods were picked. */
+    title: string;
+    /** What the way out is handing over, as it reads in a sentence: "this
+     *  breakfast", "these 3 foods". */
+    subject: string;
+    /** The panel's own test hook. A shipped contract at the meal scale. */
+    testId: string;
+    /** The way out's test hook, likewise. */
+    wayOutTestId: string;
+    /** The day these foods were logged on — what the way out writes (§7). */
     date: Date;
-    /** This meal's logged rows, already narrowed to it by the dashboard. */
+    /** The rows, already narrowed by the caller. */
     items: ConsumptionEvent[];
     /** The resolved daily targets, read only to decide which cards exist. */
     targets: Partial<Record<string, number>>;
@@ -51,9 +68,9 @@
   // ── The way out ─────────────────────────────────────────────────────────
   //
   // Two states worth designing and no third: showing a code and waiting, then
-  // done. Gathering the meal takes a measured 155 ms and the wait after it is a
+  // done. Gathering a meal takes a measured 155 ms and the wait after it is a
   // human, so there is no intermediate to animate — and no progress bar that
-  // depends on meal size, because the code does not grow with the meal.
+  // depends on how much was picked, because the code does not grow with it.
   //
   // **The session is `SendFace`'s, and it is the whole of that component's
   // life.** Mounting it starts the send and unmounting it cancels, so this
@@ -63,12 +80,8 @@
   let handing = $state(false);
 </script>
 
-<NutritionPanel
-  title={meal_type.toUpperCase()}
-  testId="meal-nutrient-breakdown"
-  {onClose}
->
-  <!-- The way out sits beside the meal's name, because it is a control on the
+<NutritionPanel {title} {testId} {onClose}>
+  <!-- The way out sits beside the panel's name, because it is a control on the
        SUBJECT of the panel rather than on the panel. There is no footer: a dock
        under the sections would make handing the meal over the panel's purpose,
        and the panel's purpose is the meal. -->
@@ -77,16 +90,16 @@
          the numbers: the code is live and the other person is being handed it,
          so an affordance that looked like undo would be one.
 
-         Absent rather than disabled on a meal with nothing in it, on ADR-0059
+         Absent rather than disabled on a set with nothing in it, on ADR-0059
          §4's rule that any control which can be dead on arrival is hidden —
          the same precedent the iOS boundary leans on. -->
     {#if !handing && items.length > 0}
       <button
         type="button"
         class="way-out"
-        data-testid="meal-way-out"
-        aria-label="Hand this {meal_type} to someone"
-        title="Hand this {meal_type} to someone"
+        data-testid={wayOutTestId}
+        aria-label="Hand {subject} to someone"
+        title="Hand {subject} to someone"
         onclick={() => (handing = true)}
       >
         <WayOutIcon />
