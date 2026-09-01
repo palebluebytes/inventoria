@@ -426,3 +426,28 @@ needed" has the answer _always_, by design. And "a session description does not 
 what it carries" is a true property that **did not decide this**, because the relay moots
 session descriptions entirely; it is recorded so a later reader does not mistake it for
 the ratio.
+
+## Amendment (2026-09-01): the #198 prototype this record cites no longer exists
+
+[#239](https://github.com/palebluebytes/inventoria/issues/239) deleted
+`src/lib/p2p-probe/` once every part of it that carries into v1 had been ported. Two
+pointers above went stale with it, and neither is edited in place.
+
+**The Context's "Research notes:" list** names `src/lib/p2p-probe/` alongside three
+files under `docs/research/`. The three files are still there; the prototype is not.
+Its findings are in [#198](https://github.com/palebluebytes/inventoria/issues/198) and
+in this record, which is where a reader should now go.
+
+**The Consequences' deferred-enhancement paragraph** is the one that could actually
+mislead. It says what defers with the offline same-room enhancement is
+`sdp-compact.ts`, the candidate census and the trickle handling — which reads as
+though that code is parked somewhere, waiting. It is not: it was deleted with the
+rest, because a prototype kept for an enhancement nobody has scheduled is a prototype
+that rots. **The deferred work restarts from this record and from #198's measurements,
+not from a branch.** What defers is the design, and the design is written down.
+
+The ported half is untouched by any of this and is named here so the amendment is a
+complete account: the QR writer is `src/lib/p2p/qr-symbol.ts`, the reader is
+`src/lib/food/barcode-scan.ts`, the code shape is `src/lib/p2p/send-code.ts`, the
+seal is `src/lib/p2p/sealed-frame.ts`, and the room model became the Relay's own wire
+contract in `src/lib/p2p/relay-wire.ts` — a rendezvous being the thing §8 refused.

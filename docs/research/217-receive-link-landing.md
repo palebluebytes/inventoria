@@ -189,6 +189,8 @@ From `grep -rn "location.search\|location.hash\|URLSearchParams\|searchParams\|w
 
 **`location.hash` is read nowhere in the app.** The Web Share Target is the only precedent for "something arrived in the URL", and its manifest `action` is `"/"` — the app has never used a second path for anything.
 
+> **Two rows of this table are stale.** `?demo=p2p198` and `?variant=` were both deleted on 2026-09-01, and the "Ships?" column was wrong about the second of them even on the day it was written. See the [#239 Correction](#12-correction-2026-09-01-239) below. The four remaining rows still hold, and so does the conclusion the table was drawn for.
+
 ### 6.3 The recommendation: a fragment read at boot on `/`, not a `/receive` route
 
 **A query/fragment read at boot, on `/`, the way the Share Target already does it.** Not a route. The reasons are not aesthetic:
@@ -391,3 +393,64 @@ ADR-0069's guard fires on any uncaught `error` or `unhandledrejection` from the 
 **Unsourced.** Whether `SFSafariViewController` shares cookies and website data with Safari on current iOS (§3.5). Apple's current documentation states isolation from the _host app_ and says nothing about Safari. It does not change any conclusion in this note, because Safari is not the Home Screen app's jar either way (§4).
 
 **Out of scope and deliberately not answered.** What the app should _do_ when it detects it is running in the wrong partition — an empty ledger and an unfamiliar `device_id` are detectable, so a refusal is constructible — but that is a design call for #203 and #201's voice rules, not a research finding.
+
+---
+
+## 12. Correction (2026-09-01, #239)
+
+One row of §6.2's table was wrong when it was written, and two of them are now stale.
+Nothing above is edited: §6.2 is a measurement of the tree as it stood on 2026-08-29,
+and a measurement that gets quietly rewritten to match a later tree is no longer
+evidence of anything.
+
+### 12.1 `?variant=` did not, in fact, ship as "No"
+
+The table's "Ships?" column says of `src/lib/send-proto/proto-state.svelte.ts:409`:
+**"No — `import.meta.env.DEV`, and branch-local to the #201 prototype"**. The gate was
+real and the reasoning was the prototype's own README's, which said the same thing.
+Both were wrong, and the build says so.
+
+`src/lib/views/FoodView.svelte` imported the prototype's state module, its icon and
+its date helper **statically**. Only the surface host was a dynamic import. A static
+import is in the module graph whatever guards the value it exports, so the chunk was
+emitted and shipped: `SendProto-*.js` at 38,373 bytes and `SendProto-*.css` at 12,788
+bytes, in a production build, on every deploy from #201 landing until #239.
+
+**The transferable lesson is about the method, not the prototype.** "Dead-code
+eliminated" was read off the source — a `DEV` gate plus a dynamic import — rather than
+off the build. Rolldown's chunk list is the only thing that can answer that question,
+and it takes one `pnpm build` to ask. §9.2's byte table in this same note _was_
+measured against `dist`, which is why it is still sound.
+
+### 12.2 Both rows now describe nothing
+
+[#239](https://github.com/palebluebytes/inventoria/issues/239) deleted
+`src/lib/p2p-probe/` and `src/lib/send-proto/`. `?demo=p2p198` and `?variant=` resolve
+to nothing, and `proto-state.svelte.ts` does not exist. §6.2's table now reads, for
+the app as it stands:
+
+| Site                                         | Reads                                                             | Ships?                 |
+| -------------------------------------------- | ----------------------------------------------------------------- | ---------------------- |
+| `src/App.svelte`                             | `?demo=` (`bottomsheet` only)                                     | **No** — `DEV`-gated   |
+| `src/App.svelte`                             | `?url=` / `?text=` — the Web Share Target                         | Yes                    |
+| `src/App.svelte`                             | `#r=…&k=…` — the Send code, through `p2p/receive-link.ts`         | Yes                    |
+| `src/lib/views/items/ItemImportPanel.svelte` | the same share params, then `replaceState` to `location.pathname` | Yes                    |
+| `src/lib/db/db.client.ts`                    | `?mem=1`, the e2e in-memory escape hatch                          | Yes (inert unless set) |
+| `src/lib/food/open-food-facts.ts`            | builds a `URLSearchParams` body — not a URL read                  | —                      |
+
+**The one remaining "No" is checked against the build this time**, per §12.1: after
+#239 the production `dist/` emits no `BottomSheetDemo` chunk at all, and the component
+is named nowhere outside its own `{#await import(...)}`. Read off `dist`, not off the
+gate.
+
+**The line numbers are gone deliberately.** §6.2 cited four of these to the line, and
+two had drifted within days of being written — `ItemImportPanel`'s `replaceState` from
+30 to 31, open-food-facts' body from 699 to 762, neither for a reason a reader of this
+note would care about. A line number is the first part of a code citation to rot and
+the least of what the citation is for.
+
+**And `location.hash` is no longer read nowhere.** §6.2's closing sentence was true on
+2026-08-29 and is the one claim in this note that its own recommendation was always
+going to falsify: `src/lib/p2p/receive-link.ts` now reads the fragment at boot on `/`,
+which is exactly what §6.3 recommended. That is the recommendation landing, not a
+defect.
