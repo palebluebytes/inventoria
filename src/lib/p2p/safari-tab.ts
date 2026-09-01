@@ -62,12 +62,22 @@ export interface PlatformSignals {
  * browser on iOS is WebKit, so Chrome and Firefox on an iPhone are the same
  * case and need no handling of their own.
  *
- * **When it is unsure it answers yes.** A signal that cannot be read is the
- * device this test cannot see, and that is the one it must not wave through.
+ * **When it is unsure it answers yes**, and "unsure" is *no readable platform
+ * string* rather than a getter that threw. `navigator.platform` is deprecated
+ * and a user-agent reduction that dropped it or emptied it would otherwise send
+ * every device down the ordinary path — writing the meal into Safari's jar on
+ * the one device that cannot keep it, which is the failure §5 prices and the
+ * quiet direction ADR-0074 §11 refuses to fail in.
+ *
+ * The cost of answering yes when it should not have is a page telling somebody
+ * to open an app they may already be in, and the code it shows still pastes
+ * into Scan on every platform. That is loud and it is recoverable, which is why
+ * it is the side to be wrong on.
  */
 export function isWebKitOnIos(signals: PlatformSignals): boolean {
   try {
-    const platform = signals.platform ?? "";
+    const platform = signals.platform;
+    if (typeof platform !== "string" || platform === "") return true;
     if (/iPhone|iPod/.test(platform)) return true;
     return platform === "MacIntel" && (signals.maxTouchPoints ?? 0) > 1;
   } catch {

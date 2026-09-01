@@ -13,6 +13,7 @@
  * the whole design rests on: **both fail closed toward handing over.**
  */
 import { describe, it, expect } from "vitest";
+import { importersOf } from "./support/importers";
 import {
   isIosSafariTab,
   isTheInstalledCopy,
@@ -71,8 +72,15 @@ describe("is this WebKit on iOS", () => {
     expect(isWebKitOnIos(hostileSignals())).toBe(true);
   });
 
-  it("answers no on an absent platform, which is not a device it cannot see", () => {
-    expect(isWebKitOnIos({})).toBe(false);
+  it("answers yes on an absent platform, which is the same not-knowing", () => {
+    // `navigator.platform` is deprecated, and a user-agent reduction that
+    // dropped it would otherwise send every device down the ordinary path and
+    // write the meal into Safari's jar on the one device that cannot keep it.
+    expect(isWebKitOnIos({})).toBe(true);
+  });
+
+  it("answers yes on an empty platform, which reads the same as an absent one", () => {
+    expect(isWebKitOnIos({ platform: "", maxTouchPoints: 0 })).toBe(true);
   });
 });
 
@@ -129,5 +137,20 @@ describe("handing the code over takes both, and receiving normally takes either"
 
   it("hands over when nothing can be read, which is the safe direction", () => {
     expect(isIosSafariTab(hostileSignals())).toBe(true);
+  });
+});
+
+describe("nothing on the send path reads any of this (ADR-0082 §3)", () => {
+  it("is imported by the receive path alone", () => {
+    // Sending is platform-neutral: an iOS sender mints a code, opens a socket,
+    // seals and posts, and every one of those works the same everywhere. §10
+    // removed the way out on iOS only to avoid supporting a platform in some of
+    // its cases and not others, and §3 puts it back **unconditionally** — so
+    // the correct implementation of the send half is no platform branch at all.
+    //
+    // An import, not a mention: ADR-0082 §3's argument is quoted in comments on
+    // the send path, and a substring grep would read that as a dependency and
+    // be satisfied by deleting the sentence doing the documenting.
+    expect(importersOf("safari-tab")).toEqual(["src/App.svelte"]);
   });
 });
