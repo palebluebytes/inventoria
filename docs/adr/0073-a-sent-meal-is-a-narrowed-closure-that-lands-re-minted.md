@@ -6,7 +6,7 @@
 **Amends:** [ADR-0064](0064-the-ledger-leaves-as-raw-datoms-one-json-object-per-line.md) (§2's `artifact` gains a sibling format, `inventoria-meal`, which shares the NDJSON grammar and shares no merge rule)  
 **Amends:** [ADR-0014](0014-namespace-prefixes-for-eavt-entity-identification.md) (deterministic ids are finally used for the purpose that record states, and §5 adds a derived `event:consume_` id)  
 **Amends:** [ADR-0058](0058-a-past-meal-is-copied-whole-at-the-amounts-logged.md) (its copy **is** the receive path, with an injectable event id in front of it)  
-**Amended by:** [ADR-0076](0076-a-meals-closure-is-bounded-by-kind-not-by-reachability-alone.md) (§8.4 and §8.5 are enforced by entity kind, not by reach alone; §8 gains an eighth refusal on attribute namespace; and §8's premise that an unknown attribute rides unread is corrected, since two projections scope by attribute)
+**Amended by:** [ADR-0079](0079-a-meals-closure-is-bounded-by-kind-not-by-reachability-alone.md) (§8.4 and §8.5 are enforced by entity kind, not by reach alone; §8 gains an eighth refusal on attribute namespace; and §8's premise that an unknown attribute rides unread is corrected, since two projections scope by attribute)
 
 ## Context
 
