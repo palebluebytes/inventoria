@@ -9,11 +9,12 @@
 
 This record amends [ADR-0074](0074-sending-is-the-meals-own-numbers-and-receiving-has-no-door.md)
 and amends [ADR-0072](0072-a-meal-crosses-through-a-relay-that-cannot-read-it.md).
-Both declarations are here in the body rather than only in the header above,
-because [#261](https://github.com/palebluebytes/inventoria/issues/261) established
-that `docs:check` reads an ADR's body for the declaration and its header for the
-backlink, so a header-only `Amends:` passes the gate with nothing linked from the
-other end.
+The trailer above names what moved in each; the sections below argue it. Either
+placement creates the backlink obligation `docs:check` enforces, which is why both
+records name this one in their own headers. A header-only declaration went
+unchecked until [#261](https://github.com/palebluebytes/inventoria/issues/261),
+fixed while this record was being written, and the duplication here predates the
+fix rather than working around it.
 
 ADR-0074 §10 put iPhone and iPad out of scope for person-to-person sending in both
 directions, and its 2026-08-30 Amendment recorded that the argument which made the
