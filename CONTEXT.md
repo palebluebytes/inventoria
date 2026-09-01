@@ -42,6 +42,14 @@ _Avoid_: Header, manifest, metadata block
 A Ledger export read back in, appended to whatever this device already holds. It **merges**: every datom in the file is added, nothing already present is removed or changed, and the same file imported twice adds nothing the second time, because the primary key spans the whole hybrid logical clock stamp. Making the file the only truth is `Wipe Database` and then an import, which stay two deliberate steps. The file is read twice, once to check every line and once to write it, so a damaged file is refused before any row is written. See ADR-0067.
 _Avoid_: Restore, load, sync, merge conflict (there are none: the clock decides)
 
+**Setting**:
+How the app is configured, as opposed to a fact about the world you tracked. Never a datom: every setting lives in `localStorage` through `src/lib/stores/device-settings.ts`, whatever its past values would read like in a sentence, so a nutrition target is a setting and so is a folded panel. That makes every setting per-device, unsynced, and absent from the Ledger export, which is a cost ADR-0085 §5 states rather than leaves to be found. A **Consent** is not a setting.
+_Avoid_: Preference and configuration as separate categories (they are the same category now), option, ledger setting
+
+**Consent**:
+A recorded act: at a moment you can name, the user agreed to something they can state. The same category as a logged meal, not the same category as a folded panel, which is why it stays in the Ledger while every Setting leaves. Each gets its own entity under `consent:`, singly owned, carrying one attribute (`consent/granted`) whose absence means not granted; what was agreed is the entity, and when is the datom's own stamp. A consent governing an act on the world is one consent; a consent governing an egress door is one per Facet, because each Facet has its own door. See ADR-0085 §2 and §3.
+_Avoid_: Consent setting, permission (which is the browser's word for a prompt), opt-in flag, toggle
+
 **Persistent storage**:
 The browser's undertaking not to evict this origin's data to reclaim disk space, asked for once per session through `navigator.storage.persist()` and reported in Settings. Storage without it is _best-effort_, the standard's own word: the Ledger may be cleared with no warning and no action by the user. The state belongs to one browser profile rather than to the person using the app, so it is never a datom, and it is not a backup, because clearing site data, `Wipe Database` and a lost device each take the Ledger whatever the browser granted. See ADR-0065.
 _Avoid_: Durable storage, backup, permanent; and "persistence" for what the Developer Options OPFS survival test proves, which is survival across a page reload rather than exemption from eviction

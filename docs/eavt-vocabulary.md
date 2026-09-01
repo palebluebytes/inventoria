@@ -78,6 +78,24 @@ once and `INSERT OR IGNORE` absorbs the second. No new prefix, and nothing about
 is encoded in it. See
 [ADR-0073](adr/0073-a-sent-meal-is-a-narrowed-closure-that-lands-re-minted.md) §5.
 
+### Consents
+
+| Prefix               | Identifies                                | Owner          |
+| -------------------- | ----------------------------------------- | -------------- |
+| `consent:food_`      | A consent belonging to the food domain    | food (Rations) |
+| `consent:log_export` | The root Facet's local-log export consent | root           |
+
+Two entities exist today: `consent:food_off_contribute` and `consent:log_export`. A
+third, `consent:food_log_export`, is decided and not yet written, because Rations has
+no settings surface to carry it until the split ships
+([ADR-0080](adr/0080-a-facet-carries-a-jar-wide-control-only-where-losing-it-loses-data.md) §5).
+
+The two prefixes are deliberately disjoint, so a prefix-scoped read can never take
+the other Facet's row, and `consent:` bare is owned by nobody and must never be
+scoped by. `consent:log_export` is the one prefix here that belongs to no **Tracked
+Domain**: the log facility is machinery rather than a tracked area of anyone's life,
+so the root Facet owns it directly.
+
 ### Op-logs
 
 | Prefix   | Identifies                                                          |
@@ -254,54 +272,24 @@ carrying `event/type: "AcquisitionAction"`, `event/target` pointing at the twin,
 `event/status` of `wanted` or `owned`. The fold lives in
 `src/lib/acquisition/state.ts`, which is a module path, not an attribute prefix.
 
-### `settings/`
+### `consent/`
 
-Application settings.
+What the user agreed to, and when. One attribute, on one entity per consent.
 
-Note that the food-related settings keys carry a second path segment, so the full
-attribute is `settings/food/targets`, not `food/targets`.
+- `consent/granted`: a boolean. Absent means not granted, so a consent never given
+  and one withdrawn read the same to the code that gates on them and differ in the
+  ledger. What was agreed is the entity; when is the datom's own stamp.
 
-Not every setting belongs here. A setting is a datom only if its **past values
-mean something**. A target you were reaching toward in March is a fact about you,
-and a consent is a fact about what you agreed to and when. How this device draws
-the app is not: it lives in `localStorage`, and
-[ADR-0063](adr/0063-a-setting-is-a-datom-only-if-its-past-matters.md) is the test
-to apply before adding an attribute below.
-
-- `settings/scraper_proxy_url`: retired. The proxy a browser routes an HTML scrape
-  through is configuration for one device, not a fact with a history, so it moved to
-  `localStorage` with the view preferences
-  ([ADR-0063](adr/0063-a-setting-is-a-datom-only-if-its-past-matters.md)). The
-  attribute is not read.
-- `settings/tmdb_api_key`, `settings/usda_api_key`: both retired. The TMDB key moved
-  to `localStorage` (ADR-0034 §8); the USDA key is gone entirely with the FoodData
-  Central API behind it
-  ([ADR-0047](adr/0047-bundle-the-usda-archives-and-retire-the-api.md) §1). Neither
-  attribute is read.
-- `settings/off_contribute`: the model-C consent toggle for contributing back to Open
-  Food Facts (ADR-0034 §8).
-- `settings/log_export`: the master consent toggle for exporting the local logs
-  ([ADR-0054](adr/0054-one-local-log-facility-and-no-channel-without-a-reader.md) §4).
-  The one ledger-side fact about the log facility: the records themselves are
-  `localStorage`, because redaction there is a deletion and the cap removes entries.
-- `settings/food/visible_nutrients`, `settings/food/round_nutrition`: both retired.
-  They are view preferences, so they moved to `localStorage`
-  ([ADR-0063](adr/0063-a-setting-is-a-datom-only-if-its-past-matters.md)) alongside the
-  nutrition panel's fold. Neither attribute is read.
-- `settings/food/targets`: a blob override map of daily nutrition targets, in canonical
-  units, layered over the baked reference set
-  ([ADR-0031](adr/0031-baked-overridable-nutrition-targets.md)).
-- `settings/food/limits`: a blob override map of daily stay-under nutrient limits, in
-  canonical units, layered over the baked reference set
-  ([ADR-0032](adr/0032-baked-overridable-nutrient-limits.md)).
-- `settings/food/profile`: an inert blob of the personalized calorie/macro helper's last
-  inputs (`{ sex, age, height_cm, weight_kg, activity, goal }`). Read only to pre-fill
-  the calculator form; it drives nothing live
-  ([ADR-0033](adr/0033-personalized-energy-and-macro-helper.md)).
-- `settings/food/calculated_targets`: a blob of the calorie/macro helper's last-applied
-  `{ energy, protein, fat, carbs }` set, in canonical units. This is the frozen
-  _default_ layer between the baked reference and `settings/food/targets`, so a cleared
-  override reverts to the computed figure (ADR-0033 Amendment).
+There is **no `settings/` namespace**, and its former attributes are not read. A
+setting is never a datom: the ledger records facts about the world you tracked, and
+how the app is configured is not one of them. Every setting lives in `localStorage`
+through `src/lib/stores/device-settings.ts`, per
+[ADR-0085](adr/0085-a-setting-is-never-a-datom-and-a-consent-is-not-a-setting.md),
+which retired `settings/off_contribute`, `settings/log_export`,
+`settings/food/targets`, `settings/food/limits`, `settings/food/profile` and
+`settings/food/calculated_targets` along with the `settings:global` entity they all
+sat on. A consent is not a setting: it is a recorded act, which is why it is the one
+survivor.
 
 ### `notes/`
 

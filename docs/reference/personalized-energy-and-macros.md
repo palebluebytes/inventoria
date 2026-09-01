@@ -3,7 +3,7 @@
 **Purpose:** primary-source basis for Inventoria's optional **calorie/macro helper** — the
 Settings calculator that turns a user's body metrics (biological sex, age, height, weight)
 plus an activity level and a goal into a suggested daily **energy** target and **protein /
-fat / carbohydrate** gram targets, which it writes into the `settings/food/targets` override
+fat / carbohydrate** gram targets, which it writes into the food-targets override
 blob (ADR-0033). Unlike the app's _baked_ reach-toward targets (`active-adult-macros.md`,
 `fda-daily-values.md`), which are a single generic 2,000-kcal profile, these numbers are
 **computed per person**. This file records the three formulae the helper composes — a resting
@@ -228,7 +228,7 @@ correct behaviour a flat %-split could not produce.
 
 Two pure functions beside the baked-target module, unit-test-reachable, transcribed from the steps
 above. Inputs metric; energy kcal; macros grams — the override blob's canonical units, so the result
-drops straight into `settings/food/targets`.
+drops straight into the food targets.
 
 ```ts
 // Personalized energy/macro helper (ADR-0033).

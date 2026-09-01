@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-07-30  
-**Amended by:** ADR-0032 (the deferred stay-under half), ADR-0033 (a frozen personalized default layer)  
+**Amended by:** ADR-0032 (the deferred stay-under half), ADR-0033 (a frozen personalized default layer), ADR-0085 §1 (§2's blob datom is no longer a datom)  
 **Implemented:** #41 (`65b1dac`, `25151a5`), #42 (`8c1993e`); `src/lib/food/nutrition-targets.ts`
 
 ## Context

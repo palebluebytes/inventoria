@@ -2,6 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-07-31  
+**Amended by:** ADR-0085 §1 (the limits blob is a device setting, not a datom)  
 **Implemented:** #43 (`600a602`, `792e28b`, `755e664`, `496f484`, `f20625d`)
 
 ## Context

@@ -1,6 +1,6 @@
 # ADR 0063: A setting is a datom only if its past values matter
 
-**Status:** Accepted  
+**Status:** Superseded by ADR-0085  
 **Date:** 2026-08-28  
 **Amends:** ADR-0037 (the amendment that kept the display settings in the ledger)  
 **Implemented:** `stores/device-settings.ts`; `settings.store.ts`, `NutritionTargetEditor`, `FoodSettingsSheet`, `SettingsView`, `ingestion/fetcher.ts`

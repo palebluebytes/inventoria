@@ -2,6 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-07-31  
+**Amended by:** ADR-0085 §1 and §5 (the calculated-targets and profile blobs leave the ledger, and the plan's atomic append with them)  
 **Implemented:** `src/lib/food/personalized-energy-macros.ts`, `CalorieCalculatorSheet.svelte`; see the amendment below
 
 ## Amendment (2026-07-31): calculated targets are a frozen default layer
