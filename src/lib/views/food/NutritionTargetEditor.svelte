@@ -1,12 +1,5 @@
 <script lang="ts">
   import {
-    settingsStore,
-    saveFoodTargets,
-    saveFoodLimits,
-    saveCalculatorPlan,
-    type FoodProfile,
-  } from "../../stores/settings.store";
-  import {
     calorieDisplayDecimals,
     visibleNutrients,
     roundNutritionPref,
@@ -14,6 +7,14 @@
     caloriesTracked,
     setCaloriesTracked,
     setRoundNutrition,
+    foodTargets,
+    foodLimits,
+    foodCalculatedTargets,
+    foodProfile,
+    setFoodTargets,
+    setFoodLimits,
+    applyCalculatorPlan,
+    type FoodProfile,
   } from "../../stores/device-settings";
   import { get } from "svelte/store";
   import type { EnergyMacros } from "../../food/personalized-energy-macros";
@@ -56,10 +57,10 @@
   // for. Shares the modal's card layout and grouping (ticket #42) — the whole card
   // is the visibility toggle (no separate control) and the allowance is edited
   // inside it. Owns its own slice of settings so the parent Settings screen stays
-  // thin (CODING_STANDARDS §4). Visibility and the targets keep their own writers
-  // and are no longer even the same kind of thing — one is a device setting, the
-  // other a datom (ADR-0063) — but they are not strictly independent: setting a
-  // positive custom target auto-tracks the nutrient (customising implies "show it").
+  // thin (CODING_STANDARDS §4). Every value on this screen is a device setting
+  // (ADR-0085 §1) and each keeps its own writer, but they are not strictly
+  // independent: setting a positive custom target auto-tracks the nutrient
+  // (customising implies "show it").
 
   // Visible-nutrient selection (ticket #29), a device setting read synchronously,
   // so each toggle persists through its own setter with nothing to clobber.
@@ -70,36 +71,31 @@
   let calories_tracked = $state(get(caloriesTracked));
   // Whether calories read rounded to whole numbers (display-only, ticket #29).
   let round_nutrition = $state(get(roundNutritionPref));
-  // Per-nutrient target overrides (ticket #41, ADR-0031 §3): mirrors the
-  // `settings/food/targets` blob — a partial map keyed by breakdown key in the
-  // baked map's canonical unit (grams for mass, kcal for `energy`). Absent → the
-  // baked default (placeholder); `> 0` → an override (shown as the input value);
-  // `0` → an opt-out ("hidden" hint).
-  let food_targets = $state<Partial<Record<string, number>>>({});
-  // Per-nutrient limit overrides (ticket #43, ADR-0032 §3): the stay-under twin of
-  // `food_targets`, mirroring the `settings/food/limits` blob. Absent → the baked
-  // cap (placeholder); `> 0` → an override; `0` → an opt-out ("no limit" hint).
-  // Written independently via saveFoodLimits — a limit has no dashboard meter, so
-  // this never touches `visible_nutrients`.
-  let food_limits = $state<Partial<Record<string, number>>>({});
-  // The calculator's frozen result (ADR-0033 Amendment): the DEFAULT layer
-  // for energy + the three macros, mirroring `settings/food/calculated_targets`.
-  // Not edited by an input — only replaced wholesale when "Calculate from body
-  // metrics" is applied — so an absent key here means "no personalized default,
-  // use the baked reference" (see `defaultTargets` / `placeholderFor`).
-  let food_calculated_targets = $state<Partial<Record<string, number>>>({});
-  // Only the three target blobs need seeding from the ledger, and only they can
-  // arrive late. The two display preferences above are read synchronously at
-  // construction (ADR-0063), so they never pass through here.
-  let initialized = $state(false);
-  $effect(() => {
-    if (!initialized && $settingsStore) {
-      food_targets = { ...$settingsStore.food_targets };
-      food_limits = { ...$settingsStore.food_limits };
-      food_calculated_targets = { ...$settingsStore.food_calculated_targets };
-      initialized = true;
-    }
+  // Per-nutrient target overrides (ticket #41, ADR-0031 §3): a partial map keyed
+  // by breakdown key in the baked map's canonical unit (grams for mass, kcal for
+  // `energy`). Absent → the baked default (placeholder); `> 0` → an override
+  // (shown as the input value); `0` → an opt-out ("hidden" hint).
+  let food_targets = $state<Partial<Record<string, number>>>({
+    ...get(foodTargets),
   });
+  // Per-nutrient limit overrides (ticket #43, ADR-0032 §3): the stay-under twin of
+  // `food_targets`. Absent → the baked cap (placeholder); `> 0` → an override;
+  // `0` → an opt-out ("no limit" hint). Written independently via setFoodLimits —
+  // a limit has no dashboard meter, so this never touches `visible_nutrients`.
+  let food_limits = $state<Partial<Record<string, number>>>({
+    ...get(foodLimits),
+  });
+  // The calculator's frozen result (ADR-0033 Amendment): the DEFAULT layer for
+  // energy + the three macros. Not edited by an input — only replaced wholesale
+  // when "Calculate from body metrics" is applied — so an absent key here means
+  // "no personalized default, use the baked reference" (see `defaultTargets` /
+  // `placeholderFor`).
+  let food_calculated_targets = $state<Partial<Record<string, number>>>({
+    ...get(foodCalculatedTargets),
+  });
+  // Every value on this screen is read synchronously at construction now
+  // (ADR-0085 §1). The three target blobs used to arrive late off the ledger and
+  // were seeded from an effect, which is a race this no longer has to run.
 
   // The resolved default each reach-toward target reverts to: the baked reference
   // with the calculator's frozen energy/macro set layered on top (ADR-0033 §4).
@@ -191,7 +187,7 @@
   // or navigating away — always persists the allowance and any auto-track.
   function flushSave() {
     clearTimeout(saveTimer);
-    void persistFoodTargets();
+    persistFoodTargets();
     if (visibilityDirty) {
       visibilityDirty = false;
       void persistNutritionDisplay();
@@ -207,20 +203,16 @@
 
   // Clear a single override back to its resolved default — the baked reference,
   // or the calculator's frozen figure once the helper has run (the ↺ control).
-  async function resetTarget(key: string) {
+  function resetTarget(key: string) {
     delete food_targets[key];
     food_targets = { ...food_targets };
-    await persistFoodTargets();
+    persistFoodTargets();
   }
 
-  // Persist the whole override map as the `settings/food/targets` datom —
-  // independent of the visibility/round datoms (ADR-0031 §2/§3).
-  async function persistFoodTargets() {
-    try {
-      await saveFoodTargets(food_targets);
-    } catch (err) {
-      console.error("Failed to save food targets", err);
-    }
+  // Persist the whole override map under its own key, independent of the
+  // visibility and rounding preferences (ADR-0031 §2/§3).
+  function persistFoodTargets() {
+    setFoodTargets(food_targets);
   }
 
   // Edit a limit as the user types — the stay-under twin of editTarget, but with
@@ -245,25 +237,21 @@
   }
   function flushLimitSave() {
     clearTimeout(limitSaveTimer);
-    void persistFoodLimits();
+    persistFoodLimits();
   }
   function commitLimit() {
     flushLimitSave();
   }
   // Clear a single limit override back to its baked cap (the ↺ control).
-  async function resetLimit(key: string) {
+  function resetLimit(key: string) {
     delete food_limits[key];
     food_limits = { ...food_limits };
-    await persistFoodLimits();
+    persistFoodLimits();
   }
-  // Persist the whole limit override map as the `settings/food/limits` datom,
-  // independent of the targets/visibility/round datoms (ADR-0032 §2/§3).
-  async function persistFoodLimits() {
-    try {
-      await saveFoodLimits(food_limits);
-    } catch (err) {
-      console.error("Failed to save food limits", err);
-    }
+  // Persist the whole limit override map under its own key, independent of the
+  // targets and the display preferences (ADR-0032 §2/§3).
+  function persistFoodLimits() {
+    setFoodLimits(food_limits);
   }
 
   async function toggleNutrient(key: string) {
@@ -327,14 +315,11 @@
   // default show through as the greyed placeholder. The three macros are still
   // auto-tracked so their meters appear (Calories through its own preference,
   // which is why the fork below exists), and the inert
-  // pre-fill profile is saved for the next open. All of it — defaults, cleared
-  // overrides, auto-track, profile — is one atomic append (`saveCalculatorPlan`,
-  // Coding Standards §5): a mid-write failure can never strand new defaults over
-  // stale overrides.
-  async function applyCalculatorResult(
-    targets: EnergyMacros,
-    profile: FoodProfile
-  ) {
+  // pre-fill profile is saved for the next open. Defaults, cleared overrides and
+  // profile go through one call (`applyCalculatorPlan`) so they stay a plan
+  // rather than three unrelated edits; they are no longer one atomic append,
+  // because they are no longer datoms (ADR-0085 §5).
+  function applyCalculatorResult(targets: EnergyMacros, profile: FoodProfile) {
     food_calculated_targets = {
       [ENERGY_TARGET_KEY]: targets.energy,
       protein: targets.protein,
@@ -355,20 +340,12 @@
     // been in it, because the bar used to be unconditional.
     const trackCalories = !calories_tracked;
     if (trackCalories) calories_tracked = true;
-    // The meter list is no longer part of the plan's atomic append — it is a
-    // preference now, not a datom. What the transaction protects is the
-    // defaults-versus-overrides pair, which is intact; the worst a half-applied
-    // plan can cost is a meter row shown or not shown.
     if (toTrack.length > 0 || trackCalories) persistNutritionDisplay();
-    try {
-      await saveCalculatorPlan({
-        calculated_targets: food_calculated_targets,
-        targets: food_targets,
-        profile,
-      });
-    } catch (err) {
-      console.error("Failed to apply calculator result", err);
-    }
+    applyCalculatorPlan({
+      calculated_targets: food_calculated_targets,
+      targets: food_targets,
+      profile,
+    });
   }
 </script>
 
@@ -428,7 +405,7 @@
 <!-- A stay-under limit card (ticket #43, ADR-0032 §3): the same shared NutrientCard
      and allowance idiom as above, but a plain toggle-less card (like Calories) —
      a limit has no dashboard meter, so there is no visibility to flip. The body
-     edits the `settings/food/limits` cap; `0` flags an inline "no limit" hint. -->
+     edits the stay-under cap; `0` flags an inline "no limit" hint. -->
 {#snippet limitCard(key: string, label: string, unit: TargetUnit)}
   <NutrientCard {label} rowKey={key}>
     {#snippet children()}
@@ -581,7 +558,7 @@
      time; onClose unmounts it (the slide-out animation runs first). -->
 {#if showCalculator}
   <CalorieCalculatorSheet
-    profile={$settingsStore.food_profile}
+    profile={$foodProfile}
     onApply={applyCalculatorResult}
     onClose={() => (showCalculator = false)}
   />

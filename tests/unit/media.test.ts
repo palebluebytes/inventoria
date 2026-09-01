@@ -15,7 +15,7 @@ import { computeMediaLibraryState } from "../../src/lib/media/state";
 import { asStored } from "./support/stored";
 
 // tmdb.ts reads its key through the localStorage-backed secrets accessor now
-// (ADR-0034 §8), not the settings store — stub it so searches get a live key.
+// (ADR-0034 §8), not the ledger — stub it so searches get a live key.
 vi.mock("../../src/lib/stores/secrets", () => ({
   getSecret: (key: string) => (key === "tmdb_api_key" ? "test-key" : ""),
 }));

@@ -127,7 +127,7 @@ export const NUTRIENT_CATALOGUE: NutrientDescriptor[] = [
 /**
  * The default visible-nutrient selection when the user has set none: the three
  * macros plus fibre, so a brand-new user sees a Fibre meter beside Protein/Fat/
- * Carbs (ticket #29). The settings store injects this when its datom is absent.
+ * Carbs (ticket #29). The device settings inject this when the key is absent.
  */
 export const DEFAULT_VISIBLE_NUTRIENTS: string[] = [
   "protein",
@@ -175,7 +175,7 @@ export function selectedNutrients(
  * never returns NaN.
  *
  * Precision is fixed here on purpose: the whole-number display setting
- * (`settings/food/round_nutrition`) governs **calories only**, so a nutrient
+ * (`roundNutritionPref`) governs **calories only**, so a nutrient
  * amount reads the same either way. A gram figure is small enough that dropping
  * its decimals would cost real information (0.6 g of fibre reading "1 g"),
  * whereas a kcal figure is not — see {@link formatCalories}.
@@ -224,7 +224,7 @@ export function parseNutrientEntry(
 /**
  * Formats a calories total, always shown in kcal — the always-on headline, and
  * the *only* figure the whole-number display setting moves: callers pass `0`
- * when `settings/food/round_nutrition` is on. Nutrient amounts keep their fixed
+ * when `roundNutritionPref` is on. Nutrient amounts keep their fixed
  * precision regardless ({@link formatNutrientValue}).
  */
 export function formatCalories(

@@ -181,7 +181,7 @@ export const BAKED_NUTRIENT_LIMITS_G: Record<string, number> = {
 
 /**
  * The stay-under key set — the only keys a limit (baked or override) may carry.
- * Used to filter a stored `settings/food/limits` override blob down to the four
+ * Used to filter a stored limits override blob down to the four
  * limit nutrients, exactly as {@link REACH_TOWARD_KEYS} filters the targets blob.
  */
 export const LIMIT_KEYS: ReadonlySet<string> = new Set(

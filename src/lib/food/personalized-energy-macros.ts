@@ -11,7 +11,7 @@
  *
  * The result is `{ energy, protein, fat, carbs, fiber_content }` in the override
  * blob's canonical units — **kcal** for energy, **grams** for the rest (ADR-0031 §2)
- * — so it drops straight into a `settings/food/targets` write. Values are returned
+ * — so it drops straight into a food-targets write. Values are returned
  * **unrounded**: the stored targets keep exact precision and rounding is a
  * display-only concern (`round_nutrition`, ticket #29), so no rounding happens here.
  *
@@ -52,7 +52,7 @@ export interface EnergyMacrosInput {
 }
 
 /**
- * The helper's result — the five keys it writes into `settings/food/targets`:
+ * The helper's result — the five keys it writes into the food targets:
  * `energy` (kcal), `protein` / `fat` / `carbs` / `fiber_content` (grams). One
  * named shape so the module, the calculator sheet's `onApply`, and the editor's
  * apply path can't drift apart (Coding Standards §3.1).
@@ -138,7 +138,7 @@ export function mifflinStJeorBmr(
 /**
  * Composes BMR → TDEE → goal-adjusted energy (floored at BMR) → protein-anchored
  * macros → energy-scaled fibre, returning the five keys the helper writes into
- * `settings/food/targets`: `energy` (kcal), `protein` / `fat` / `carbs` /
+ * the food targets: `energy` (kcal), `protein` / `fat` / `carbs` /
  * `fiber_content` (grams). Pure and unit-test-reachable. Reference:
  * docs/reference/personalized-energy-and-macros.md, "The composed formula".
  *

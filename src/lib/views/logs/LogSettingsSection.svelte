@@ -5,9 +5,9 @@
   import Checkbox from "../../ui/Checkbox.svelte";
   import LogReviewSheet from "./LogReviewSheet.svelte";
   import {
-    settingsStore,
+    consentStore,
     saveLogExportConsent,
-  } from "../../stores/settings.store";
+  } from "../../stores/consent.store";
   import {
     channelEntryCount,
     clearChannel,
@@ -99,7 +99,7 @@
       id="log-export-toggle"
       class="consent-toggle"
       label="Allow exporting local logs"
-      checked={$settingsStore.log_export}
+      checked={$consentStore.log_export}
       onCheckedChange={persistExportConsent}
     />
     <span class="help-text"

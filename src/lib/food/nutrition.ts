@@ -159,7 +159,7 @@ export const roundFood = (n: number): number => roundTo(n, FOOD_DECIMALS);
  * Rounds to the display precision. View layer only — using it on a value you
  * then store would silently drop precision. Defaults to {@link
  * FOOD_DISPLAY_DECIMALS}; callers pass `0` when the user has opted into
- * whole-number nutrition display (`settings/food/round_nutrition`), so the same fold
+ * whole-number nutrition display (`roundNutritionPref`), so the same fold
  * drives both modes and storage precision is untouched.
  */
 export const roundFoodDisplay = (

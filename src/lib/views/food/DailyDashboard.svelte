@@ -23,7 +23,11 @@
     resolveNutrientLimits,
     defaultNutrientTargets,
   } from "../../food/nutrition-targets";
-  import { settingsStore } from "../../stores/settings.store";
+  import {
+    foodTargets,
+    foodLimits,
+    foodCalculatedTargets,
+  } from "../../stores/device-settings";
   import {
     visibleNutrients,
     caloriesTracked,
@@ -140,17 +144,15 @@
   // micronutrient fills against its FDA Daily Value instead of an empty track.
   let resolvedTargets = $derived(
     resolveNutrientTargets(
-      $settingsStore.food_targets,
-      defaultNutrientTargets($settingsStore.food_calculated_targets)
+      $foodTargets,
+      defaultNutrientTargets($foodCalculatedTargets)
     )
   );
 
   // The resolved stay-under limits (ADR-0032): the baked caps layered with the
-  // user's `settings/food/limits` overrides, fed to the modal builder so its
+  // user's stay-under overrides, fed to the modal builder so its
   // Limits section fills each carried limit toward its cap (amber once over).
-  let resolvedLimits = $derived(
-    resolveNutrientLimits($settingsStore.food_limits)
-  );
+  let resolvedLimits = $derived(resolveNutrientLimits($foodLimits));
 
   // The full day breakdown for ANY nutrient, summed from each event's frozen
   // metrics (#28's totalNutrition) — the single source the meters read from, so

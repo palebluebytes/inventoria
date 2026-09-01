@@ -16,15 +16,17 @@
     formatNutrientValue,
   } from "../../food/nutrient-display";
   import { roundFoodDisplay } from "../../food/nutrition";
-  import { type FoodProfile } from "../../stores/settings.store";
-  import { calorieDisplayDecimals } from "../../stores/device-settings";
+  import {
+    calorieDisplayDecimals,
+    type FoodProfile,
+  } from "../../stores/device-settings";
 
   // The personalized calorie/macro calculator (ADR-0033 §1/§4, ticket #45): a
   // throwaway helper that turns body metrics into a suggested energy + macro set.
   // It is a *pure form* — it computes a live preview via the #44 module and hands
   // the accepted numbers back through {@link onApply}; the editor owns the
   // persistence (overwrite four target keys, auto-track the macros) so this sheet
-  // never touches the ledger except to save its own inert pre-fill profile.
+  // stores nothing itself.
   let {
     profile = null,
     onApply,
@@ -35,9 +37,9 @@
     /**
      * Called on Apply with the accepted targets (already rounded to the display
      * precision the preview showed) and the profile to persist. The editor stores
-     * the four keys as the new *default* layer (`settings/food/calculated_targets`)
-     * and clears any override on them, auto-tracks the macros, and writes the
-     * profile — this sheet stays persistence-free beyond that call.
+     * the four keys as the new *default* layer and clears any override on them,
+     * auto-tracks the macros, and writes the profile — this sheet stays
+     * persistence-free beyond that call.
      */
     onApply: (targets: EnergyMacros, profile: FoodProfile) => void;
     /** Forwarded to BottomSheet so the parent unmounts on any close. */

@@ -138,7 +138,7 @@ describe("formatNutrientValue", () => {
     expect(formatCalories(133.5)).toBe("133.5 kcal");
   });
 
-  it("rounds CALORIES to whole numbers when decimals=0 (settings/food/round_nutrition)", () => {
+  it("rounds CALORIES to whole numbers when decimals=0 (roundNutritionPref)", () => {
     // The whole-number display mode passes 0 places; the exact default keeps 2.
     expect(formatCalories(133.5, 0)).toBe("134 kcal");
   });

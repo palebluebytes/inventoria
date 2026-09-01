@@ -1,8 +1,5 @@
 <script lang="ts">
-  import {
-    settingsStore,
-    saveOffContribute,
-  } from "../../stores/settings.store";
+  import { consentStore, saveOffContribute } from "../../stores/consent.store";
   import { secretsStore, setSecret } from "../../stores/secrets";
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import Checkbox from "../../ui/Checkbox.svelte";
@@ -23,7 +20,8 @@
   let { onClose }: { onClose: () => void } = $props();
 
   // Local form state. The OFF login is a secret (localStorage, ADR-0034 §8); the
-  // contribution toggle is a non-secret settings datom.
+  // contribution toggle is a consent, so it is a datom on its own entity
+  // (ADR-0085 §2).
   let offUserId = $state("");
   let offPassword = $state("");
   // OFF-contribution consent MASTER toggle (ADR-0034 §8, model C). Default off;
@@ -33,13 +31,13 @@
   let showOffPassword = $state(false);
 
   // Seed the form once the stores load. Secrets come from the localStorage-backed
-  // secrets store; the consent toggle from the settings ledger.
+  // secrets store; the consent toggle from the ledger.
   let initialized = $state(false);
   $effect(() => {
-    if (!initialized && $settingsStore) {
+    if (!initialized && $consentStore) {
       offUserId = $secretsStore.off_user_id;
       offPassword = $secretsStore.off_password;
-      offContribute = $settingsStore.off_contribute;
+      offContribute = $consentStore.off_contribute;
       initialized = true;
     }
   });
@@ -54,11 +52,11 @@
     setSecret("off_password", offPassword);
   }
 
-  // The consent toggle is the one non-secret here, so it rides the ledger — and
-  // it is now the only datom this sheet writes, through a writer that touches
-  // nothing else. It used to carry the scraper proxy and the Nutrition Display
-  // selections along just so toggling consent could not clobber them; both are
-  // device settings now (ADR-0063), so that hazard is gone rather than handled.
+  // The consent is the one thing here that rides the ledger, and it is the only
+  // datom this sheet writes. It used to carry the scraper proxy and the Nutrition
+  // Display selections along just so toggling consent could not clobber them;
+  // every setting is a device setting now (ADR-0085 §1), so that hazard is gone
+  // rather than handled.
   async function persistOffContribute(next: boolean) {
     offContribute = next;
     try {

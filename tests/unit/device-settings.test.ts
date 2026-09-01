@@ -38,7 +38,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("device settings (ADR-0063: localStorage, not the ledger)", () => {
+describe("device settings (ADR-0085: a setting is never a datom)", () => {
   it("reads its values at import, with no ledger and no await", async () => {
     // The defining property. Nothing here is asynchronous, so a caller reading
     // these during its first render gets the stored value rather than a default
@@ -218,6 +218,159 @@ describe("device settings (ADR-0063: localStorage, not the ledger)", () => {
       expect(get(prefs.calorieDisplayDecimals)).toBe(FOOD_DISPLAY_DECIMALS);
       prefs.setRoundNutrition(true);
       expect(get(prefs.calorieDisplayDecimals)).toBe(0);
+    });
+  });
+
+  describe("the food targets (ADR-0085 §5: moved out of the ledger)", () => {
+    const KEYS = {
+      targets: "inventoria_pref_food_targets",
+      limits: "inventoria_pref_food_limits",
+      calculated: "inventoria_pref_food_calculated_targets",
+      profile: "inventoria_pref_food_profile",
+    };
+    const PROFILE = {
+      sex: "female" as const,
+      age: 35,
+      height_cm: 170,
+      weight_kg: 70,
+      activity: "active" as const,
+      goal: "maintain" as const,
+    };
+
+    it("reads all four at import, with no ledger and no await", async () => {
+      // The defining property, and the one the editor's seeding $effect existed
+      // to work around: these are right in the first frame now.
+      const ls = makeFakeLocalStorage();
+      ls.store.set(KEYS.targets, JSON.stringify({ protein: 160 }));
+      ls.store.set(KEYS.limits, JSON.stringify({ sodium_content: 1.5 }));
+      ls.store.set(KEYS.calculated, JSON.stringify({ energy: 2200 }));
+      ls.store.set(KEYS.profile, JSON.stringify(PROFILE));
+      vi.stubGlobal("localStorage", ls);
+
+      const prefs = await loadPrefs();
+      expect(get(prefs.foodTargets)).toEqual({ protein: 160 });
+      expect(get(prefs.foodLimits)).toEqual({ sodium_content: 1.5 });
+      expect(get(prefs.foodCalculatedTargets)).toEqual({ energy: 2200 });
+      expect(get(prefs.foodProfile)).toEqual(PROFILE);
+    });
+
+    it("defaults to no overrides and no profile when nothing is stored", async () => {
+      vi.stubGlobal("localStorage", makeFakeLocalStorage());
+      const prefs = await loadPrefs();
+      expect(get(prefs.foodTargets)).toEqual({});
+      expect(get(prefs.foodLimits)).toEqual({});
+      expect(get(prefs.foodCalculatedTargets)).toEqual({});
+      expect(get(prefs.foodProfile)).toBeNull();
+    });
+
+    it("filters targets to reach-toward keys and finite numbers", async () => {
+      // A stray limit key or a non-numeric value must never reach the resolver.
+      const ls = makeFakeLocalStorage();
+      ls.store.set(
+        KEYS.targets,
+        JSON.stringify({
+          protein: 160,
+          sodium_content: 100, // a limit nutrient, not targetable
+          calcium: "lots", // non-numeric
+        })
+      );
+      vi.stubGlobal("localStorage", ls);
+      expect(get((await loadPrefs()).foodTargets)).toEqual({ protein: 160 });
+    });
+
+    it("filters limits to limit keys and finite numbers", async () => {
+      const ls = makeFakeLocalStorage();
+      ls.store.set(
+        KEYS.limits,
+        JSON.stringify({
+          sodium_content: 1.5,
+          protein: 160, // reach-toward, not a limit
+          saturated_fat_content: "lots",
+        })
+      );
+      vi.stubGlobal("localStorage", ls);
+      expect(get((await loadPrefs()).foodLimits)).toEqual({
+        sodium_content: 1.5,
+      });
+    });
+
+    it("filters the calculated set to the personalizable keys", async () => {
+      const ls = makeFakeLocalStorage();
+      ls.store.set(
+        KEYS.calculated,
+        JSON.stringify({
+          energy: 2200,
+          protein: 130,
+          fiber_content: 40, // energy-scaled, kept
+          calcium: 1.5, // a micronutrient
+          sodium_content: 1.5, // a limit
+          fat: "lots",
+        })
+      );
+      vi.stubGlobal("localStorage", ls);
+      expect(get((await loadPrefs()).foodCalculatedTargets)).toEqual({
+        energy: 2200,
+        protein: 130,
+        fiber_content: 40,
+      });
+    });
+
+    it("tolerates a malformed blob in each of the four", async () => {
+      const ls = makeFakeLocalStorage();
+      ls.store.set(KEYS.targets, "not json at all");
+      ls.store.set(KEYS.limits, JSON.stringify("not-an-object"));
+      ls.store.set(KEYS.calculated, JSON.stringify([1, 2, 3]));
+      ls.store.set(KEYS.profile, JSON.stringify({ sex: "unknown", age: 35 }));
+      vi.stubGlobal("localStorage", ls);
+      const prefs = await loadPrefs();
+      expect(get(prefs.foodTargets)).toEqual({});
+      expect(get(prefs.foodLimits)).toEqual({});
+      expect(get(prefs.foodCalculatedTargets)).toEqual({});
+      expect(get(prefs.foodProfile)).toBeNull();
+    });
+
+    it("reads a profile back all-or-nothing, never half-seeded", async () => {
+      // A form pre-filled from a half-valid body profile is worse than a blank
+      // one, so one bad field discards the lot (ADR-0033 §2).
+      const ls = makeFakeLocalStorage();
+      ls.store.set(
+        KEYS.profile,
+        JSON.stringify({ ...PROFILE, weight_kg: "heavy" })
+      );
+      vi.stubGlobal("localStorage", ls);
+      expect(get((await loadPrefs()).foodProfile)).toBeNull();
+    });
+
+    it("keeps targets and limits on separate keys, so neither clobbers the other", async () => {
+      const ls = makeFakeLocalStorage();
+      vi.stubGlobal("localStorage", ls);
+      const prefs = await loadPrefs();
+      prefs.setFoodTargets({ protein: 160 });
+      prefs.setFoodLimits({ sodium_content: 1.5 });
+      expect(get(prefs.foodTargets)).toEqual({ protein: 160 });
+      expect(get(prefs.foodLimits)).toEqual({ sodium_content: 1.5 });
+      expect(ls.store.get(KEYS.targets)).toBe(JSON.stringify({ protein: 160 }));
+      expect(ls.store.get(KEYS.limits)).toBe(
+        JSON.stringify({ sodium_content: 1.5 })
+      );
+    });
+
+    it("applies a calculator plan to all three keys at once", async () => {
+      const ls = makeFakeLocalStorage();
+      vi.stubGlobal("localStorage", ls);
+      const prefs = await loadPrefs();
+      prefs.applyCalculatorPlan({
+        calculated_targets: { energy: 2143.75, protein: 112 },
+        targets: { calcium: 1200 },
+        profile: PROFILE,
+      });
+      expect(get(prefs.foodCalculatedTargets)).toEqual({
+        energy: 2143.75,
+        protein: 112,
+      });
+      expect(get(prefs.foodTargets)).toEqual({ calcium: 1200 });
+      expect(get(prefs.foodProfile)).toEqual(PROFILE);
+      expect(ls.store.get(KEYS.limits)).toBeUndefined();
     });
   });
 });

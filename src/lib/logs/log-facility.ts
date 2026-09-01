@@ -139,10 +139,11 @@ const LS_PREFIX = "inventoria_log_";
 // only ever compares a channel against another channel, so the two would
 // silently delete each other's records.
 //
-// Not a `settings/` datom either: the entries it governs are per-device and
-// unsynced, and a switch that syncs would silence an instrument on a device its
-// owner has never seen. The one ledger-side preference is the export consent
-// toggle, which is about disclosure rather than about this device (ADR-0053 §1).
+// Not a datom either, and would not be one even if settings still could be
+// (ADR-0085 §1): the entries it governs are per-device and unsynced, and a switch
+// that syncs would silence an instrument on a device its owner has never seen.
+// The one ledger-side fact about this facility is the export consent, which is a
+// recorded act about disclosure rather than a setting about this device.
 const LS_PAUSED_KEY = "inventoria_logs_paused";
 
 // `localStorage` is absent under the Node unit runner and can throw outright in
