@@ -23,7 +23,7 @@
   } from "../../food/food-search";
   import type { EntityPayload } from "../../ingestion/ingest";
   import { getLocalFoodTwin } from "../../stores/calorie.store";
-  import { consentStore } from "../../stores/consent.store";
+  import { offContributeDefault } from "../../stores/device-settings";
   import { calorieDisplayDecimals } from "../../stores/device-settings";
   import { secretsStore } from "../../stores/secrets";
   import {
@@ -858,14 +858,16 @@
     method === "custom" && !!barcode.trim() && hasOffLogin
   );
   // Model-C consent: the per-capture checkbox is ALWAYS shown before a submit and
-  // must be ticked every time; the master consent only SEEDS its default.
-  // Seed once each time the offer (re)appears, so a later consent tick doesn't
-  // silently re-check a box the user cleared.
+  // must be ticked every time. **This tick is the consent** — the settings switch
+  // it is seeded from is a default and nothing more, which is why that one is a
+  // device setting rather than a datom (ADR-0086 §2).
+  // Seed once each time the offer (re)appears, so flipping the default later
+  // doesn't silently re-check a box the user cleared.
   let contributeChecked = $state(false);
   let contributeSeeded = false;
   $effect(() => {
     if (contributeOffered && !contributeSeeded) {
-      contributeChecked = $consentStore.off_contribute;
+      contributeChecked = $offContributeDefault;
       contributeSeeded = true;
     } else if (!contributeOffered) {
       contributeSeeded = false;

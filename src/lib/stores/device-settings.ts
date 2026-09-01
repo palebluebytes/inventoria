@@ -33,9 +33,13 @@ import type {
  * depends on is wrong on screen for the whole of boot. `localStorage` is
  * synchronous, so a value read here is right in the first frame.
  *
- * What is still a datom is what actually happened: a logged meal, and a consent
- * (`stores/consent.store.ts`). A consent is a recorded act, not configuration,
- * which is ADR-0085 §2 forcing a distinction the word "setting" was blurring.
+ * What is still a datom is what actually happened: a logged meal, an engagement,
+ * an acquisition. ADR-0085 §2 exempted two **consents** from that rule as
+ * recorded acts; ADR-0086 §2 found that neither is one. Both only ever seeded a
+ * checkbox that is shown and ticked again every time — the per-capture box in the
+ * Custom form, and the per-payload review sheet — so what the ledger held was a
+ * default, which is configuration by §1's own test. They live here now, and the
+ * `consent:` entity prefix is gone.
  *
  * Secrets keep their own module (`stores/secrets.ts`). They are also per-device
  * `localStorage`, but for their own reason — a credential must not sit in an
@@ -57,6 +61,11 @@ const LS_KEYS = {
   food_limits: "inventoria_pref_food_limits",
   food_calculated_targets: "inventoria_pref_food_calculated_targets",
   food_profile: "inventoria_pref_food_profile",
+  // The two opt-ins that were `consent:` entities until ADR-0086 §2. Food's
+  // carries the `food_` segment ADR-0079 §2's scoped wipe matches on; the log
+  // one is the root's and deliberately does not.
+  food_off_contribute: "inventoria_pref_food_off_contribute",
+  log_export: "inventoria_pref_log_export",
 } as const;
 
 // `localStorage` is absent under the Node unit runner (and can throw in a
@@ -87,6 +96,18 @@ function safeSet(lsKey: string, value: string): void {
  */
 function readBoolPref(lsKey: string): boolean {
   return safeGet(lsKey) !== "false";
+}
+
+/**
+ * The mirror of {@link readBoolPref} for the two opt-ins: absent means **off**,
+ * and only a stored `"true"` turns one on. Kept separate rather than
+ * parameterised, because which way a boolean fails when its store is missing is
+ * the whole safety property here — a privacy-locked browser reads every key as
+ * absent, and an opt-in that defaulted on there would offer a submission nobody
+ * agreed to.
+ */
+function readOptIn(lsKey: string): boolean {
+  return safeGet(lsKey) === "true";
 }
 
 function readVisibleNutrients(): string[] {
@@ -223,6 +244,63 @@ export function setVisibleNutrients(keys: string[]): void {
 export function setRoundNutrition(round: boolean): void {
   safeSet(LS_KEYS.round_nutrition, String(round));
   roundNutrition.set(round);
+}
+
+// ---------------------------------------------------------------------------
+// The two opt-ins (ADR-0086 §2)
+//
+// These were `consent:food_off_contribute` and `consent:log_export`, datoms on
+// their own entities under ADR-0085 §2. Neither recorded an act. Each only
+// SEEDS a control that is shown again every time and must be answered again
+// every time — the per-capture contribution checkbox (ADR-0034 §8, model C) and
+// the log review sheet, which still displays the exact payload and takes the
+// channels one at a time. A default for a checkbox is configuration.
+//
+// Both default **off** and stay opt-in. Nothing about moving stores changes that
+// or is allowed to: the ledger read collapsed to `true` only on a literal
+// `true`, and {@link readOptIn} keeps the same one-way failure.
+//
+// The cost is ADR-0085's, taken again knowingly: an opt-in set on your phone
+// does not reach your laptop, and a jar-wide wipe of `localStorage` clears it.
+// Both are the safe direction — the user is asked again.
+// ---------------------------------------------------------------------------
+
+const offContribute = writable<boolean>(readOptIn(LS_KEYS.food_off_contribute));
+const logExport = writable<boolean>(readOptIn(LS_KEYS.log_export));
+
+/**
+ * Whether the per-capture "contribute this back to Open Food Facts" checkbox is
+ * offered pre-ticked (ADR-0034 §8, model C). **Not** the consent to submit: the
+ * checkbox is always shown before a submit and must be ticked every time, and
+ * that tick is the whole of the agreement.
+ */
+export const offContributeDefault: Readable<boolean> = {
+  subscribe: offContribute.subscribe,
+};
+
+/**
+ * Whether the local-log export is offered at all (ADR-0054 §4). **Not** the
+ * consent to export: the review sheet still shows the exact payload and the
+ * channels are chosen individually there, because bundling a `personal` channel
+ * with a `technical` one behind one yes is a consent surface that does not mean
+ * what it appears to.
+ */
+export const logExportEnabled: Readable<boolean> = {
+  subscribe: logExport.subscribe,
+};
+
+/** Records the OFF-contribution default. Its own writer, so a screen that does
+ *  not own it cannot clobber it (ADR-0031 §2). */
+export function setOffContributeDefault(enabled: boolean): void {
+  safeSet(LS_KEYS.food_off_contribute, String(enabled));
+  offContribute.set(enabled);
+}
+
+/** Records whether the log export is offered. The root's; it never speaks for a
+ *  Facet's own door (ADR-0080 §5). */
+export function setLogExportEnabled(enabled: boolean): void {
+  safeSet(LS_KEYS.log_export, String(enabled));
+  logExport.set(enabled);
 }
 
 /** The scraper proxy URL prefix (localStorage, else the env fallback, else ""). */

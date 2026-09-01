@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { consentStore, saveOffContribute } from "../../stores/consent.store";
+  import {
+    offContributeDefault,
+    setOffContributeDefault,
+  } from "../../stores/device-settings";
   import { secretsStore, setSecret } from "../../stores/secrets";
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import Checkbox from "../../ui/Checkbox.svelte";
@@ -7,7 +10,7 @@
 
   // The food screen's own settings surface (top-right gear on FoodView). Holds
   // just the food-relevant settings — the Open Food Facts login, the
-  // OFF-contribution consent toggle, and the nutrition-target editor — that
+  // OFF-contribution default, and the nutrition-target editor — that
   // moved off the global Settings tab so food config lives with the food. The
   // TMDB key, scraper proxy, ledger and dev options stay on Settings.
   //
@@ -19,25 +22,27 @@
   // below already auto-saves. So the sheet is dismissed, never "submitted".
   let { onClose }: { onClose: () => void } = $props();
 
-  // Local form state. The OFF login is a secret (localStorage, ADR-0034 §8); the
-  // contribution toggle is a consent, so it is a datom on its own entity
-  // (ADR-0085 §2).
+  // Local form state. Both are per-device `localStorage`: the OFF login is a
+  // secret (ADR-0034 §8), and the contribution toggle is a setting, because it
+  // seeds a checkbox rather than recording an agreement (ADR-0086 §2).
   let offUserId = $state("");
   let offPassword = $state("");
-  // OFF-contribution consent MASTER toggle (ADR-0034 §8, model C). Default off;
-  // it only seeds the per-capture checkbox in the capture form, never submits.
+  // OFF-contribution default (ADR-0034 §8, model C). Off unless set; it only
+  // seeds the per-capture checkbox in the capture form, and never submits.
   let offContribute = $state(false);
 
   let showOffPassword = $state(false);
 
-  // Seed the form once the stores load. Secrets come from the localStorage-backed
-  // secrets store; the consent toggle from the ledger.
+  // Seed the form once. Both stores are `localStorage`-backed and therefore
+  // right in the first frame — the guard that waited on a ledger read is gone
+  // with the datom (ADR-0086 §2), and the seed runs once so typing into a field
+  // is never overwritten by its own store.
   let initialized = $state(false);
   $effect(() => {
-    if (!initialized && $consentStore) {
+    if (!initialized) {
       offUserId = $secretsStore.off_user_id;
       offPassword = $secretsStore.off_password;
-      offContribute = $consentStore.off_contribute;
+      offContribute = $offContributeDefault;
       initialized = true;
     }
   });
@@ -52,18 +57,13 @@
     setSecret("off_password", offPassword);
   }
 
-  // The consent is the one thing here that rides the ledger, and it is the only
-  // datom this sheet writes. It used to carry the scraper proxy and the Nutrition
-  // Display selections along just so toggling consent could not clobber them;
-  // every setting is a device setting now (ADR-0085 §1), so that hazard is gone
-  // rather than handled.
-  async function persistOffContribute(next: boolean) {
+  // This sheet now writes **no datom at all**. It used to write one, and used to
+  // carry the scraper proxy and the Nutrition Display selections along just so
+  // toggling it could not clobber them; every setting is a device setting now
+  // (ADR-0085 §1, ADR-0086 §2), so that hazard is gone rather than handled.
+  function persistOffContribute(next: boolean) {
     offContribute = next;
-    try {
-      await saveOffContribute(next);
-    } catch (err) {
-      console.error("Failed to save OFF-contribution consent", err);
-    }
+    setOffContributeDefault(next);
   }
 </script>
 
@@ -161,13 +161,15 @@
       </div>
 
       <div class="form-group">
-        <!-- OFF-contribution consent MASTER toggle (ADR-0034 §8, model C).
-             Default off. It never submits on its own — it only pre-ticks the
-             per-capture checkbox shown in the capture form, which you confirm
-             every time. Persists the instant it changes. -->
+        <!-- OFF-contribution default (ADR-0034 §8, model C). Off unless set.
+             It never submits on its own — it only pre-ticks the per-capture
+             checkbox shown in the capture form, which you confirm every time.
+             That per-capture tick is the agreement; this is its default, which
+             is why it is a setting and not a datom (ADR-0086 §2). Persists the
+             instant it changes. -->
         <Checkbox
           id="food-off-contribute-toggle"
-          class="consent-toggle"
+          class="opt-in-toggle"
           label="Contribute to Open Food Facts by default"
           checked={offContribute}
           onCheckedChange={persistOffContribute}
@@ -295,11 +297,11 @@
     color: var(--text-secondary);
     font-style: italic;
   }
-  /* The row is the shared Checkbox (ADR-0068). Only this consent row's
+  /* The row is the shared Checkbox (ADR-0068). Only this opt-in row's
      departure from the house look stays here — a longer, sentence-case label
      that wraps rather than clips, with the box aligned to its first line —
      reached via :global as the class rides the primitive's label. */
-  .form-group :global(.consent-toggle) {
+  .form-group :global(.opt-in-toggle) {
     align-items: flex-start;
     text-transform: none;
     line-height: 1.35;

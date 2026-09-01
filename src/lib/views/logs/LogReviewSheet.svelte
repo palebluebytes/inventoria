@@ -3,7 +3,7 @@
   import Button from "../../ui/Button.svelte";
   import Badge from "../../ui/Badge.svelte";
   import Checkbox from "../../ui/Checkbox.svelte";
-  import { consentStore } from "../../stores/consent.store";
+  import { logExportEnabled } from "../../stores/device-settings";
   import {
     buildLogExport,
     deleteChannelEntry,
@@ -130,7 +130,7 @@
     </section>
   {/if}
 
-  {#if !$consentStore.log_export}
+  {#if !$logExportEnabled}
     <p class="empty">
       Turn on "Allow exporting local logs" in Settings to enable the export.
     </p>
@@ -139,7 +139,7 @@
   {#snippet footer()}
     <div class="dock">
       <Button
-        disabled={!$consentStore.log_export || selected.length === 0}
+        disabled={!$logExportEnabled || selected.length === 0}
         onclick={exportSelected}
       >
         Export {selected.length} channel{selected.length === 1 ? "" : "s"}

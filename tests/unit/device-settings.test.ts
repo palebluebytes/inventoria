@@ -373,4 +373,83 @@ describe("device settings (ADR-0085: a setting is never a datom)", () => {
       expect(ls.store.get(KEYS.limits)).toBeUndefined();
     });
   });
+
+  // ADR-0086 §2: these two were `consent:food_off_contribute` and
+  // `consent:log_export`, datoms on their own entities, until it was noticed
+  // that neither records an act — each only seeds a control that is shown and
+  // answered again every time.
+  describe("the two opt-ins (ADR-0086 §2: a default is not a consent)", () => {
+    const OFF = "inventoria_pref_food_off_contribute";
+    const LOG = "inventoria_pref_log_export";
+
+    it("defaults both to off when nothing is stored", async () => {
+      vi.stubGlobal("localStorage", makeFakeLocalStorage());
+      const prefs = await loadPrefs();
+      expect(get(prefs.offContributeDefault)).toBe(false);
+      expect(get(prefs.logExportEnabled)).toBe(false);
+    });
+
+    it("defaults both to off when there is no localStorage at all", async () => {
+      // A privacy-locked browser reads every key as absent. These must fail
+      // closed there, which is the one direction the read is allowed to be
+      // wrong in: an opt-in that defaulted on would offer a submission nobody
+      // agreed to. This is why they do not share `readBoolPref`, which defaults
+      // its booleans **on**.
+      vi.stubGlobal("localStorage", undefined);
+      const prefs = await loadPrefs();
+      expect(get(prefs.offContributeDefault)).toBe(false);
+      expect(get(prefs.logExportEnabled)).toBe(false);
+    });
+
+    it('turns on only for a literal "true", never for another truthy value', async () => {
+      const ls = makeFakeLocalStorage();
+      ls.store.set(OFF, "1");
+      ls.store.set(LOG, "yes");
+      vi.stubGlobal("localStorage", ls);
+      const prefs = await loadPrefs();
+      expect(get(prefs.offContributeDefault)).toBe(false);
+      expect(get(prefs.logExportEnabled)).toBe(false);
+    });
+
+    it("reads a stored grant at import, with no ledger and no await", async () => {
+      const ls = makeFakeLocalStorage();
+      ls.store.set(OFF, "true");
+      ls.store.set(LOG, "true");
+      vi.stubGlobal("localStorage", ls);
+      const prefs = await loadPrefs();
+      expect(get(prefs.offContributeDefault)).toBe(true);
+      expect(get(prefs.logExportEnabled)).toBe(true);
+    });
+
+    it("keeps the two on separate keys, so neither writer speaks for the other", async () => {
+      const ls = makeFakeLocalStorage();
+      vi.stubGlobal("localStorage", ls);
+      const prefs = await loadPrefs();
+
+      prefs.setOffContributeDefault(true);
+      expect(get(prefs.offContributeDefault)).toBe(true);
+      expect(get(prefs.logExportEnabled)).toBe(false);
+      expect(ls.store.get(OFF)).toBe("true");
+      expect(ls.store.get(LOG)).toBeUndefined();
+
+      prefs.setLogExportEnabled(true);
+      prefs.setOffContributeDefault(false);
+      expect(get(prefs.offContributeDefault)).toBe(false);
+      expect(get(prefs.logExportEnabled)).toBe(true);
+    });
+
+    it("gives food's key the `food_` segment the scoped wipe matches on", async () => {
+      // ADR-0079 §2 takes every `localStorage` record under the Facet's own
+      // namespaces. The log one is the root's and deliberately carries no
+      // `food_`, so a food wipe leaves it alone.
+      const ls = makeFakeLocalStorage();
+      vi.stubGlobal("localStorage", ls);
+      const prefs = await loadPrefs();
+      prefs.setOffContributeDefault(true);
+      prefs.setLogExportEnabled(true);
+      expect([...ls.store.keys()].filter((k) => k.includes("_food_"))).toEqual([
+        OFF,
+      ]);
+    });
+  });
 });

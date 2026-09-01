@@ -3,7 +3,8 @@
 **Status:** Accepted  
 **Date:** 2026-09-01  
 **Amended by:** [ADR-0083](0083-a-gate-that-names-one-entry-point-proves-one-facet.md) §4 (§8's heading overreaches its own argument: the registry already holds a build half, and the rule is that it carries no field re-recording a conclusion whose reason is discarded)  
-**Amended by:** [ADR-0084](0084-a-hand-off-belongs-to-the-facet-that-owns-what-it-carries.md) §6 (§9's reasoning reached _pairing_ and its conclusion wrote _p2p_: meal send and receive belong to Rations under that record's §1, and only own-device convergence stays root-only)
+**Amended by:** [ADR-0084](0084-a-hand-off-belongs-to-the-facet-that-owns-what-it-carries.md) §6 (§9's reasoning reached _pairing_ and its conclusion wrote _p2p_: meal send and receive belong to Rations under that record's §1, and only own-device convergence stays root-only)  
+**Amended by:** [ADR-0086](0086-an-entity-has-exactly-one-owner-and-the-owner-is-a-tracked-domain.md) §2 (§5's "two log-export consents, not one" dissolves into two device settings: neither entity recorded an act, so there is no consent to count per Facet)
 
 ## Context
 

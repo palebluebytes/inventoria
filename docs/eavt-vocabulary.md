@@ -120,24 +120,6 @@ once and `INSERT OR IGNORE` absorbs the second. No new prefix, and nothing about
 is encoded in it. See
 [ADR-0073](adr/0073-a-sent-meal-is-a-narrowed-closure-that-lands-re-minted.md) §5.
 
-### Consents
-
-| Prefix               | Identifies                                | Owner          |
-| -------------------- | ----------------------------------------- | -------------- |
-| `consent:food_`      | A consent belonging to the food domain    | food (Rations) |
-| `consent:log_export` | The root Facet's local-log export consent | root           |
-
-Two entities exist today: `consent:food_off_contribute` and `consent:log_export`. A
-third, `consent:food_log_export`, is decided and not yet written, because Rations has
-no settings surface to carry it until the split ships
-([ADR-0080](adr/0080-a-facet-carries-a-jar-wide-control-only-where-losing-it-loses-data.md) §5).
-
-The two prefixes are deliberately disjoint, so a prefix-scoped read can never take
-the other Facet's row, and `consent:` bare is owned by nobody and must never be
-scoped by. `consent:log_export` is the one prefix here that belongs to no **Tracked
-Domain**: the log facility is machinery rather than a tracked area of anyone's life,
-so the root Facet owns it directly.
-
 ### Op-logs
 
 | Prefix   | Identifies                                                          |
@@ -314,24 +296,24 @@ carrying `event/type: "AcquisitionAction"`, `event/target` pointing at the twin,
 `event/status` of `wanted` or `owned`. The fold lives in
 `src/lib/acquisition/state.ts`, which is a module path, not an attribute prefix.
 
-### `consent/`
+### There is no `settings/` and no `consent/`
 
-What the user agreed to, and when. One attribute, on one entity per consent.
-
-- `consent/granted`: a boolean. Absent means not granted, so a consent never given
-  and one withdrawn read the same to the code that gates on them and differ in the
-  ledger. What was agreed is the entity; when is the datom's own stamp.
-
-There is **no `settings/` namespace**, and its former attributes are not read. A
-setting is never a datom: the ledger records facts about the world you tracked, and
-how the app is configured is not one of them. Every setting lives in `localStorage`
-through `src/lib/stores/device-settings.ts`, per
-[ADR-0085](adr/0085-a-setting-is-never-a-datom-and-a-consent-is-not-a-setting.md),
-which retired `settings/off_contribute`, `settings/log_export`,
+Neither namespace exists, and no attribute of either is read. A setting is never a
+datom: the ledger records facts about the world you tracked, and how the app is
+configured is not one of them. Every setting lives in `localStorage` through
+`src/lib/stores/device-settings.ts`, per
+[ADR-0085](adr/0085-a-setting-is-never-a-datom-and-a-consent-is-not-a-setting.md).
+That record retired `settings/off_contribute`, `settings/log_export`,
 `settings/food/targets`, `settings/food/limits`, `settings/food/profile` and
-`settings/food/calculated_targets` along with the `settings:global` entity they all
-sat on. A consent is not a setting: it is a recorded act, which is why it is the one
-survivor.
+`settings/food/calculated_targets`, along with the `settings:global` entity they all
+sat on.
+
+`consent/granted` and the `consent:` entity prefix went one record later, under
+[ADR-0086](adr/0086-an-entity-has-exactly-one-owner-and-the-owner-is-a-tracked-domain.md) §2.
+ADR-0085 §2 had kept two consents in the ledger as recorded acts, and neither was
+one. Each only seeded a checkbox that is shown and answered again every time, so
+what the ledger held was a default. The agreement is the per-capture tick and the
+reviewed export payload, and neither of those is recorded anywhere.
 
 ### `notes/`
 

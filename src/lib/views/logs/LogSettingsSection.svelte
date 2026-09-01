@@ -5,9 +5,9 @@
   import Checkbox from "../../ui/Checkbox.svelte";
   import LogReviewSheet from "./LogReviewSheet.svelte";
   import {
-    consentStore,
-    saveLogExportConsent,
-  } from "../../stores/consent.store";
+    logExportEnabled,
+    setLogExportEnabled,
+  } from "../../stores/device-settings";
   import {
     channelEntryCount,
     clearChannel,
@@ -23,8 +23,8 @@
   } from "../../logs/search-log";
 
   // The controls ADR-0053 §1 names — the entry count, a switch that stops the
-  // recording, and an action that clears the log — plus ADR-0054 §4's master
-  // export consent. Control and discoverability come from these; they do not
+  // recording, and an action that clears the log — plus ADR-0054 §4's export
+  // switch. Control and discoverability come from these; they do not
   // come from making the instrument opt-in, because a recorder gated behind a
   // toggle that defaults to off measures nothing.
   //
@@ -77,12 +77,11 @@
     revision += 1;
   }
 
-  async function persistExportConsent(next: boolean) {
-    try {
-      await saveLogExportConsent(next);
-    } catch (err) {
-      console.error("Failed to save the log-export consent toggle", err);
-    }
+  // A device setting, not a datom: it enables a door rather than recording an
+  // agreement, and the agreement is the review sheet you read before exporting
+  // (ADR-0086 §2).
+  function persistExportEnabled(next: boolean) {
+    setLogExportEnabled(next);
   }
 </script>
 
@@ -97,10 +96,10 @@
   <div class="form-group">
     <Checkbox
       id="log-export-toggle"
-      class="consent-toggle"
+      class="opt-in-toggle"
       label="Allow exporting local logs"
-      checked={$consentStore.log_export}
-      onCheckedChange={persistExportConsent}
+      checked={$logExportEnabled}
+      onCheckedChange={persistExportEnabled}
     />
     <span class="help-text"
       >Off by default. It enables the export button; you still choose which
@@ -238,11 +237,11 @@
   .mt-4 {
     margin-top: var(--space-m);
   }
-  /* The rows are the shared Checkbox (ADR-0068). Only this consent row's
+  /* The rows are the shared Checkbox (ADR-0068). Only this opt-in row's
      departure from the house look stays here — a sentence-case label that wraps
      rather than clips, with the box aligned to its first line — reached via
      :global as the class rides the primitive's label. */
-  .form-group :global(.consent-toggle) {
+  .form-group :global(.opt-in-toggle) {
     align-items: flex-start;
     text-transform: none;
     line-height: 1.35;

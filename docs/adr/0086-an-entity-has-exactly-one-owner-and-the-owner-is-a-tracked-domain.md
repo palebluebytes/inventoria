@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-01  
-**Amends:** [ADR-0014](0014-namespace-prefixes-for-eavt-entity-identification.md) (the scraper's prefix roster collapses to one, and identity aliasing changes from a hazard to a deliberate product), [ADR-0076](0076-a-facet-is-an-installable-face-onto-one-jar.md) §4 (ownership is named at the Tracked Domain and a Facet's set is derived), [ADR-0085](0085-a-setting-is-never-a-datom-and-a-consent-is-not-a-setting.md) §2 and §3 (the two consents are defaults, not acts, so they leave the ledger with every other setting)
+**Amends:** [ADR-0014](0014-namespace-prefixes-for-eavt-entity-identification.md) (the scraper's prefix roster collapses to one, and identity aliasing changes from a hazard to a deliberate product), [ADR-0076](0076-a-facet-is-an-installable-face-onto-one-jar.md) §4 (ownership is named at the Tracked Domain and a Facet's set is derived), [ADR-0085](0085-a-setting-is-never-a-datom-and-a-consent-is-not-a-setting.md) §2 and §3 (the two consents are defaults, not acts, so they leave the ledger with every other setting), [ADR-0080](0080-a-facet-carries-a-jar-wide-control-only-where-losing-it-loses-data.md) §5 (its per-Facet consent count dissolves with them)
 
 ## Context
 
