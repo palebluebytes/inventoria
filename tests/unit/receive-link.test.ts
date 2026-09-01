@@ -8,8 +8,10 @@
  */
 import { describe, it, expect } from "vitest";
 import {
+  takeCodeHandover,
   takeReceiveLink,
   type ReceiveLink,
+  type ReceiveOpening,
 } from "../../src/lib/p2p/receive-link";
 import {
   mintSendCode,
@@ -96,5 +98,65 @@ describe("the clean is what makes the read safe to keep", () => {
         },
       })
     ).toThrow("replaceState refused");
+  });
+});
+
+describe("the same link, on a page that will not open it (ADR-0082 §2)", () => {
+  /** A boot on `href` in an iOS Safari tab, which hands the code over. */
+  function handOver(href: string): {
+    read: ReceiveOpening | null;
+    cleaned: string[];
+  } {
+    const cleaned: string[] = [];
+    const read = takeCodeHandover({ href, clean: (url) => cleaned.push(url) });
+    return { read, cleaned };
+  }
+
+  it("reads the code, so the page has something to show", () => {
+    const code = mintSendCode();
+
+    expect(handOver(sendCodeLink(code, ORIGIN)).read).toEqual({
+      kind: "code",
+      code,
+    });
+  });
+
+  it("cleans the URL anyway, on the rule rather than on a branch in it", () => {
+    // ADR-0082 §9: nothing is retried here, but the address bar is still where
+    // a secret gets screenshotted, enters history and renders in the tab
+    // switcher — and §8 is not a rule to grow an exception in.
+    expect(handOver(sendCodeLink(mintSendCode(), ORIGIN)).cleaned).toEqual([
+      "/",
+    ]);
+  });
+
+  it("says there is nothing to hand over on an ordinary boot", () => {
+    expect(handOver(`${ORIGIN}/`).read).toBeNull();
+    expect(handOver(`${ORIGIN}/`).cleaned).toEqual([]);
+  });
+
+  it("hands a broken code over as broken, refused where it was read", () => {
+    const { read, cleaned } = handOver(`${ORIGIN}/#r=a-room&k=AAAA`);
+
+    expect(read?.kind).toBe("broken");
+    expect(cleaned).toEqual(["/"]);
+  });
+
+  it("still shows the code when the browser refused to clean the URL", () => {
+    // The one thing that differs from `takeReceiveLink`, and it is not a
+    // preference: a refused `replaceState` is fatal there because a reload
+    // could spend the code a second time, and this page spends nothing. The
+    // code is already in the address bar; refusing to show it as well helps
+    // nobody.
+    const code = mintSendCode();
+
+    expect(
+      takeCodeHandover({
+        href: sendCodeLink(code, ORIGIN),
+        clean: () => {
+          throw new Error("replaceState refused");
+        },
+      })
+    ).toEqual({ kind: "code", code });
   });
 });

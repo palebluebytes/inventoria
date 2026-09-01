@@ -16,7 +16,13 @@
   import { warmUsdaCorpus } from "./lib/food/usda-corpus";
   import { clearRetiredSecrets } from "./lib/stores/secrets";
   import { ensurePersistentStorage } from "./lib/storage/persistent-storage";
-  import { takeReceiveLink, type ReceiveOpening } from "./lib/p2p/receive-link";
+  import {
+    takeCodeHandover,
+    takeReceiveLink,
+    type ReceiveOpening,
+  } from "./lib/p2p/receive-link";
+  import { isIosSafariTab } from "./lib/p2p/safari-tab";
+  import CodeHandover from "./lib/views/food/CodeHandover.svelte";
 
   // A dev/e2e-only harness: `?demo=bottomsheet` swaps the whole app for a
   // UI-primitive demo, so a Playwright spec can drive the primitive in
@@ -46,6 +52,37 @@
   // hardcodes `dist/index.html` and would never see one.
   let receiveLink = $state<ReceiveOpening | null>(null);
 
+  // ── The one case that never opens the ledger ─────────────────────────────
+  //
+  // **A Safari tab on iOS never accepts a meal. It shows the code and says
+  // where to put it** (ADR-0082 §2). The link cannot reach the installed app's
+  // Ledger, so the page does not try: it hands the code to a door that already
+  // exists, and mounts `CodeHandover` instead of the app.
+  //
+  // **This is read here, above the `init` below, and that ordering is §8.**
+  //
+  // > The page must not ask the browser to durably keep a jar it is in the
+  // > middle of telling you is not yours.
+  //
+  // Both of §6's tests are synchronous property reads, so the gate is
+  // affordable, and skipping is safe because this page mounts no view that
+  // subscribes to a ledger store — which is the invariant the synchronous
+  // kick-off below exists to protect. **Nothing else moves.** The comment on
+  // that line explains what its ordering buys, and #125's offline gate and
+  // ADR-0069's recovery are both tuned to it.
+  //
+  // The read is total: `isIosSafariTab` swallows a signal that throws, and
+  // `takeCodeHandover` swallows a `replaceState` the browser refused (ADR-0082
+  // §9), so nothing here can reach ADR-0069's boot guard.
+  const handover: ReceiveOpening | null =
+    typeof window !== "undefined" && isIosSafariTab(window.navigator)
+      ? takeCodeHandover({
+          href: window.location.href,
+          clean: (url) => window.history.replaceState(null, "", url),
+        })
+      : null;
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
+
   // ── DB init ──────────────────────────────────────────────────────────────
   let dbReady = $state(false);
   let dbError = $state("");
@@ -59,9 +96,15 @@
   // before its first await, so store queries that fire during the initial render
   // are queued behind that init message (the worker processes messages in order)
   // instead of racing an unset worker and rejecting with "not initialized".
-  const initPromise = dbClient.init("/inventoria.db");
+  const initPromise = handover ? null : dbClient.init("/inventoria.db");
 
   onMount(async () => {
+    // A page that is handing the code over opens nothing and asks for nothing
+    // (ADR-0082 §8): no database, no persistence request, no corpus fetch and
+    // no second reading of a URL it has already taken the code off. Every
+    // errand below is an errand on behalf of a jar this page is telling you is
+    // not yours.
+    if (handover) return;
     // Food is the app's first screen and its search reads the bundled corpus, so
     // warm both artifacts here rather than on the first keystroke: the Search
     // index straight away (~30 ms to fetch, parse and read into words), the
@@ -156,7 +199,14 @@
   />
 </svelte:head>
 
-{#if demo === "bottomsheet"}
+{#if handover}
+  <!-- ADR-0082 §2. Not a route and not a service-worker change (§11.3): the
+       same fragment on the same `/`, answered by a different page. The app's
+       own shell is deliberately absent — no Sidebar, no views — because §8's
+       skipped `init` is only safe while nothing here subscribes to a ledger
+       store. -->
+  <CodeHandover opening={handover} {origin} />
+{:else if demo === "bottomsheet"}
   {#await import("./lib/ui/BottomSheetDemo.svelte") then mod}
     {@const BottomSheetDemo = mod.default}
     <BottomSheetDemo />

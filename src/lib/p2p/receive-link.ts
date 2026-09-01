@@ -29,6 +29,12 @@
  *     module-scope throw as "this shell cannot start" and wipes the service
  *     worker and every cache. The caller owns that `try`; see below for the one
  *     thing this module deliberately lets through it.
+ *
+ * **There are two readings of the same link**, and the second is why the read
+ * is factored out of the take. {@link takeReceiveLink} is the ordinary one, on
+ * a page that is about to join a room. {@link takeCodeHandover} is ADR-0082
+ * §2's: an iOS Safari tab cannot reach the installed app's Ledger, so it reads
+ * the code only to show it, joins nothing, and spends nothing.
  */
 
 import { readSendCode, type SendCode } from "./send-code";
@@ -85,24 +91,73 @@ export function takeReceiveLink({
   href,
   clean,
 }: ReceiveLinkSeams): ReceiveLink {
-  let read: ReceiveLink;
+  const read = readLink(href);
+  if (read.kind === "none") return read;
+  clean(cleanUrl(href));
+  return read;
+}
+
+/**
+ * The same code, read on a page that will not open it: an iOS Safari tab, which
+ * cannot reach the installed app's Ledger and so hands the code over instead
+ * (ADR-0082 §2). `null` means there was no code here to hand over.
+ *
+ * **It is a separate function rather than a flag on {@link takeReceiveLink}**,
+ * because one thing genuinely differs and it is not a preference: a refused
+ * `clean` is fatal there and is not here. ADR-0074 §8's rule is stated with one
+ * reason — a reload must not read as a retry — and ADR-0082 §9 records that the
+ * reason does not reach this page, which joins no room and spends no code. What
+ * is left of the rule here is that the address bar is where a secret gets
+ * screenshotted, enters history and renders in the tab switcher, and a
+ * `replaceState` the browser refused is not made better by also refusing to
+ * show the person the code they came for.
+ *
+ * **It cleans anyway**, on that residue rather than on an exception to §8:
+ * ADR-0074's own Consequences call §8 the one place a routing detail is
+ * load-bearing on a security property, and that is not a rule to grow a branch
+ * in. A reload that loses the code costs one tap, because the link is still
+ * sitting in the messenger it arrived in.
+ *
+ * **The caller must have run ADR-0082 §6's tests first.** This module knows
+ * nothing about platforms on purpose; `safari-tab.ts` owns that question, and
+ * this owns the URL.
+ */
+export function takeCodeHandover({
+  href,
+  clean,
+}: ReceiveLinkSeams): ReceiveOpening | null {
+  const read = readLink(href);
+  if (read.kind === "none") return null;
+  try {
+    clean(cleanUrl(href));
+  } catch {
+    // See above: hygiene rather than retry-protection, so a browser that
+    // refused it takes nothing else down with it.
+  }
+  return read;
+}
+
+/**
+ * What the URL is carrying, without touching it. Deliberately not exported: a
+ * caller that could read without cleaning on the ordinary path would be a
+ * caller that could make a reload into a retry.
+ */
+function readLink(href: string): ReceiveLink {
   try {
     const code = readSendCode(href);
     if (code === null) return { kind: "none" };
-    read = { kind: "code", code };
+    return { kind: "code", code };
   } catch (broken) {
     // Every refusal `readSendCode` raises is a `SendCodeError` about the shape
     // of the code, and there is nothing else here that can throw. It is caught
     // by class rather than by name because a boot path that re-raises reaches
     // ADR-0069's guard, and "the fragment was malformed" is not "this shell
     // cannot start".
-    read = {
+    return {
       kind: "broken",
       reason: broken instanceof Error ? broken.message : String(broken),
     };
   }
-  clean(cleanUrl(href));
-  return read;
 }
 
 /** The same address with the fragment gone: the path and whatever it queried. */
