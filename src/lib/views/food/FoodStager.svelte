@@ -599,8 +599,12 @@
   // what the user can still do on the screen they are standing on — log the
   // four figures the search row already gave them, or type the digits off the
   // pack. Only the root reaches either: Rations precaches both artifacts.
+  //
+  // Both say "below" because both are: the line sits above the amount field and
+  // the macro grid on the staged card, and above the barcode field on the
+  // dropzone. Checked in the browser, where the first draft said "above".
   const PANEL_OFFLINE_RECOVERY =
-    "Log now and this records the four figures above.";
+    "Log now and this records the four figures below.";
   const READER_OFFLINE_RECOVERY = "Type the number below instead.";
 
   // Route one of the doors into the Custom form: set the reason banner, keep the
