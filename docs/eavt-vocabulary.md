@@ -115,9 +115,11 @@ and nothing mints it.
 A Consumption Event minted by accepting a meal somebody sent you keeps the same
 `event:consume_` prefix, and its local part is **derived** rather than random: it is a
 digest of the payload's declared closure root, so accepting the same meal twice writes it
-once and `INSERT OR IGNORE` absorbs the second. No new prefix, and nothing about the sender
-is encoded in it. See
-[ADR-0073](adr/0073-a-sent-meal-is-a-narrowed-closure-that-lands-re-minted.md) §5.
+once. What absorbs the second accept is an explicit check before the write, with the fold by
+entity as its backstop, rather than the `INSERT OR IGNORE` that record named. No new prefix,
+and nothing about the sender is encoded in it. See
+[ADR-0073](adr/0073-a-sent-meal-is-a-narrowed-closure-that-lands-re-minted.md) §5 and its
+amendment.
 
 ### Op-logs
 

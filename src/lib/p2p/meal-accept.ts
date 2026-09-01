@@ -220,7 +220,9 @@ export async function acceptMealPayload(
   //
   // Asking it of the events is what makes a second accept absorb (§5), and it is
   // asked HERE rather than left to the insert. ADR-0073 §5 says "`INSERT OR
-  // IGNORE` absorbs it", and that mechanism cannot fire on this path: §7
+  // IGNORE` absorbs it", and that mechanism cannot fire on this path (that
+  // record now carries the correction as a foot amendment, so a reader who
+  // starts from the ADR rather than from here learns it too): §7
   // restamps every row on the local clock, so the primary key — which spans the
   // whole stamp — differs on the second accept, and `appendDatoms` deliberately
   // keeps a plain `INSERT` so a genuine duplicate stamp is heard about rather

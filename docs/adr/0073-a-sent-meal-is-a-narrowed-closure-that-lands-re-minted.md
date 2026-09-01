@@ -433,3 +433,37 @@ opening a fifth meal on the recipient's day.
 a meal does. What the recipient is told changes only in wording: _added to your lunch_ for
 one meal, _added to your day_ for several, because listing four Meal Types at somebody
 looking at their own day says less than the word does.
+
+## Amendment (2026-09-01): §5 credits a mechanism that cannot fire
+
+§5 says the derived event id means "a second accept produces the same entity id, `INSERT OR
+IGNORE` absorbs it, and no ordering can duplicate anything". **The middle clause is false, and
+it was false when it was written.** The conclusion either side of it holds.
+
+`appendDatoms` uses a plain `INSERT` (`src/lib/db/db.core.ts`), and deliberately: a genuine
+duplicate stamp should be heard about rather than swallowed. `INSERT OR IGNORE` appears in this
+codebase on the Ledger **import** path only, where it is what makes an import idempotent, and
+that is a different path with a different reason.
+
+Even routed through that statement it would still not fire. §7 restamps every row on the
+recipient's own clock, and the primary key is `(entity, attribute, hlc_ms, hlc_ctr, device_id)`,
+so the second accept's rows differ from the first's in the stamp and conflict with nothing to be
+ignored.
+
+Two mechanisms do the work the clause was given credit for, and the second is a backstop for the
+first:
+
+- **An explicit check before any write.** `meal-accept.ts` asks one `heldEntities` question of
+  the payload's twins and of the re-minted event ids **together**, and drops what is already
+  held. This is where a second accept is absorbed.
+- **The fold.** Projections fold by entity, so even two accepts racing past that check write one
+  entity and the day shows one meal.
+
+So what the skip saves is the redundant rows, not the meal, and the derived id still does the
+whole of the work §5 gives it. Only the sentence explaining how was wrong.
+`tests/unit/meal-accept.test.ts` pins the behaviour ("absorbs a second accept of the same
+payload"), which is why the defect survived: the promise was kept and the reason for it was not.
+
+**Naming note.** The attribute this record calls `twin/raw_provenance` is now `provenance/raw`.
+The old namespace was renamed because no Tracked Domain owned it, which is a change to the
+vocabulary and not to anything decided here.
