@@ -117,6 +117,24 @@
   --shadow-2: 3px 3px 0 1px var(--ink);
   --shadow-3: 7px 7px 0 1px var(--ink);
 
+  /* ── Motion ──────────────────────────────────────────────────────────────
+     ADR-0003 §4 rules motion here: a sharp, immediate transform, never a soft
+     float. So no spring and no overshoot — a mark that overshoots reads as a
+     thing that wobbled, and this frame does not wobble.
+
+     `--ease-snap` is the curve Button, Card, Input, Alert, WeekStrip, Sidebar
+     and FoodStager already press on — the same literal written out nine times —
+     named here so the tenth site does not copy it again. `--turn-mark` is the
+     whole declaration rather than its parts, because a mark that turns is ONE
+     gesture: a caret and a chevron that both open should not be a duration and
+     a curve that agree by coincidence. Its 0.15s sits between the Button's
+     press (0.1s) and the Card's lift (0.2s). The region below a disclosure
+     appears at once — it is a `hidden` attribute, not a height animation — so
+     the mark has to finish about as fast, or it reads as trailing behind the
+     thing it opened. */
+  --ease-snap: cubic-bezier(0.4, 0, 0.2, 1);
+  --turn-mark: transform 0.15s var(--ease-snap);
+
   /* ── Font ──────────────────────────────────────────────────────────────── */
   font-family:
     "Epilogue Variable",
@@ -129,6 +147,16 @@
   background: var(--bg-base);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Someone who asks for less motion gets the state change and not the gesture.
+   Redefining the token is the whole opt-out: `transition: none` reaches every
+   site that turns a mark, and a site added later inherits it without knowing
+   this block exists. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --turn-mark: none;
+  }
 }
 
 /* ── Reset ───────────────────────────────────────────────────────────────── */

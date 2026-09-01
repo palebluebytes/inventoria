@@ -485,6 +485,9 @@
     height: 1em;
     flex-shrink: 0;
     font-size: var(--step-n1);
+    /* The same turn as the day dashboard's caret, from the one token (app.css),
+       so two disclosures opening never open at two speeds. */
+    transition: var(--turn-mark);
   }
   .chev.is-open {
     transform: rotate(90deg);

@@ -734,9 +734,14 @@
     flex-shrink: 0;
     font-size: var(--step-n1);
     color: var(--text-secondary);
+    /* The shared turn (app.css), which is `none` under prefers-reduced-motion.
+       Turning is only possible because the mark is drawn: two swapped glyphs
+       have nothing to interpolate between. */
+    transition: var(--turn-mark);
   }
   /* The ink is symmetric about the centre of the box, so a quarter turn is the
-     open mark and the row's geometry does not change with it. */
+     open mark, the row's geometry does not change with it, and the rotation has
+     no apparent centre to drift from. */
   .aggregates-caret.is-open {
     transform: rotate(90deg);
   }
