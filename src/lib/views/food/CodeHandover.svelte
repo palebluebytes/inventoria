@@ -98,6 +98,13 @@
       {copied ? "Copied" : "Copy the code"}
     </Button>
 
+    <!-- **A third line the record does not list, and it is a failure line
+         rather than a third sentence.** §2 enumerates the code, a control that
+         copies it, and two sentences; this appears only when the one control on
+         the page did nothing, which is the case ADR-0074 §6 governs everywhere
+         else in the flow. Without it the button is a silent dead end, and the
+         recovery it names is already built into the markup: the code selects in
+         one gesture. -->
     {#if copyFailed}
       <p class="fine">
         Copying did not work here. Select the code above and copy it by hand.

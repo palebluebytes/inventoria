@@ -104,10 +104,19 @@ export function takeReceiveLink({
  *
  * **It is a separate function rather than a flag on {@link takeReceiveLink}**,
  * because one thing genuinely differs and it is not a preference: a refused
- * `clean` is fatal there and is not here. ADR-0074 §8's rule is stated with one
- * reason — a reload must not read as a retry — and ADR-0082 §9 records that the
- * reason does not reach this page, which joins no room and spends no code. What
- * is left of the rule here is that the address bar is where a secret gets
+ * `clean` is fatal there and is not here.
+ *
+ * **That difference is forced twice over, and neither reason is §9 growing an
+ * exception.** ADR-0074 §8's rule is stated with one reason, that a reload must
+ * not read as a retry, and ADR-0082 §9 records that the reason does not reach
+ * this page, which joins no room and spends no code — so the thing propagating
+ * would protect is not here to protect. And ADR-0082 §8 puts this read **above**
+ * `dbClient.init`, which is above every `onMount` and therefore above the `try`
+ * that catches the ordinary path: a throw from here reaches ADR-0069's boot
+ * guard, which reads it as "this shell cannot start" and wipes the service
+ * worker and every cache. A refused `replaceState` is not that.
+ *
+ * What is left of the rule here is that the address bar is where a secret gets
  * screenshotted, enters history and renders in the tab switcher, and a
  * `replaceState` the browser refused is not made better by also refusing to
  * show the person the code they came for.

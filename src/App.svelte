@@ -81,7 +81,10 @@
           clean: (url) => window.history.replaceState(null, "", url),
         })
       : null;
-  const origin = typeof window === "undefined" ? "" : window.location.origin;
+  // Only the handover page reads this, and `handover` is non-null only when
+  // there was a `window` to read it from — so the empty string is unreachable
+  // rather than a fallback anything renders.
+  const origin = handover === null ? "" : window.location.origin;
 
   // ── DB init ──────────────────────────────────────────────────────────────
   let dbReady = $state(false);
