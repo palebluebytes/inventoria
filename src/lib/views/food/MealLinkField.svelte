@@ -50,10 +50,9 @@
     const link = readPastedLink(e.currentTarget.value);
     if (link.kind === "meal") {
       refused = "";
-      // The field is emptied before the surface opens: it holds a live
-      // single-use secret, and the code has left for somewhere that owns it.
-      pasted = "";
-      e.currentTarget.value = "";
+      // Nothing clears the field: handing the code up closes the sheet this
+      // lives in, so it unmounts with the code still in it and comes back
+      // empty. A clear here would be tidying something that is already gone.
       onMealCode(link.code);
       return;
     }

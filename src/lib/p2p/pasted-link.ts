@@ -49,9 +49,8 @@ export type PastedLink =
  *
  * It borrows {@link readScannedCode} rather than calling `readSendCode`
  * directly, because a pasted string and a decoded one are the same question
- * asked of the same shapes — and because the barcode case is worth telling
- * apart here, where somebody who pasted a product number has done something
- * specific rather than something meaningless.
+ * asked of the same shapes, and one rule covering both is what keeps the two
+ * carriers from drifting apart.
  *
  * The refusals are one line each, which is ADR-0074 §6's shape. There is no
  * "show why" behind them: unlike a code that was carried across a wire, what
@@ -67,9 +66,18 @@ export function readPastedLink(raw: string): PastedLink {
   return { kind: "refused", line: refusalLine(read.kind) };
 }
 
+/**
+ * Two lines, because two things went wrong and they send a person to different
+ * places: a damaged code means the sender has to mint another, and everything
+ * else means what is in the field was never a meal link.
+ *
+ * `FoodStager`'s `rejectionLine` is the same shape for the camera and it is
+ * deliberately not shared. The two are read in different rooms — one over a
+ * live preview by somebody holding a phone at somebody else's screen, the other
+ * under a field by somebody who has just pasted — so the words differ, and a
+ * single function serving both would have to say something true of neither.
+ */
 function refusalLine(kind: "barcode" | "broken" | "neither"): string {
-  if (kind === "barcode")
-    return "That is a product barcode. Paste the whole meal link instead.";
   if (kind === "broken")
     return "That meal link is damaged. Ask them to send you a new one.";
   return "That is not a meal link. Paste the whole link they sent you.";
