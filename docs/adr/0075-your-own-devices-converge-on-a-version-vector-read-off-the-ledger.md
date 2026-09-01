@@ -99,8 +99,8 @@ Two arguments, and the second is specific to this design:
   the next sync from the other**: the deletion is not a fact the ledger can represent, and
   the pairing datom would simply come back. This is a sharper form of
   [ADR-0063](0063-a-setting-is-a-datom-only-if-its-past-matters.md)'s test than that record
-  had to consider — not *do its past values matter* but *would keeping its past make the
-  present unrepresentable*.
+  had to consider — not _do its past values matter_ but _would keeping its past make the
+  present unrepresentable_.
 
 **The stored secret is never itself a wire key.** §5 derives both the room id and the
 session key per session, so what sits on disk is a seed rather than a credential in use.
@@ -142,7 +142,7 @@ than a hunt.
 **This is the finding that pays for this record, and it belongs to this half alone.**
 
 ADR-0072 mints a room per send, so the operator sees room `X` light up, two sockets, a few
-KB, gone — then room `Y`, unconnected to `X`. That is *unlinkable meetings* made real. Derive
+KB, gone — then room `Y`, unconnected to `X`. That is _unlinkable meetings_ made real. Derive
 this half's room from a **remembered** secret and the obvious construction —
 `roomId = hash(secret)` — produces a **constant for the life of the pairing**: the same
 string, twice a day, for years.
@@ -150,7 +150,7 @@ string, twice a day, for years.
 That constant is a persistent pseudonymous handle. The relay necessarily sees IP addresses,
 and under a fixed room id those addresses **join up** — home, office, café, hotel — all filed
 under one key, together with when you use the app, how often, and when you stopped. The seal
-means the operator never learns *what* crossed; a stable id lets them join up **every occasion
+means the operator never learns _what_ crossed; a stable id lets them join up **every occasion
 on which anything crossed**, which is the protection that actually mattered.
 
 **In one sentence: a stable room id is a join key.** With rotation, correlating your sessions
@@ -159,13 +159,13 @@ BY` — the protocol has done the work and put the answer in a column.
 
 **This is a different breach from the configuration one ADR-0072 §9 fixes.** Turning
 invocation logs off cannot help here, because Cloudflare still routes on the id and the
-Durable Object's *identity is* the id. **The two are separate, both are required, and neither
+Durable Object's _identity is_ the id. **The two are separate, both are required, and neither
 substitutes for the other** — a reader who finds only the logging decision would reasonably
 conclude the clause was met. And it is the same trust the design has already declined to
 extend: having refused transport TLS as a confidentiality control because the operator would
 hold plaintext (ADR-0072 §2), this declines to trust the same operator with the index.
 
-**The decision:** *a stable secret must not produce a stable observable.* **Both the room id
+**The decision:** _a stable secret must not produce a stable observable._ **Both the room id
 and the session key are derived per session from the pairing secret and a rotating epoch** —
 `KDF(secret, epoch)` — which both devices compute independently with no exchange and no extra
 round trip. A joiner also tries the adjacent epochs to absorb clock skew, and the failure mode
@@ -188,10 +188,10 @@ the greatest `(hlc_ms, hlc_ctr)` **per originating device**, read straight off `
 exact statement of what this device holds from that device. Each side sends its vector; each
 side sends back everything above the other's. **Nothing is missed**, and there is no second
 table, no import log and no content hash to fall out of step with the ledger, because the
-vector *is* a read of the ledger.
+vector _is_ a read of the ledger.
 
 **A single scalar HLC watermark is wrong, not merely coarse.** A peer can hand you a row
-stamped *below* your maximum — from a third device, or from a device whose wall clock was
+stamped _below_ your maximum — from a third device, or from a device whose wall clock was
 behind — and a scalar filter would silently drop it. The bug would be invisible and permanent.
 
 **It adds no assumption the ledger does not already make.** The vector's correctness rests on
@@ -280,14 +280,14 @@ crosses the wire once and never again. Nothing here promotes compaction to a pre
 
 **Nothing is shown per attribute, and the reason is that nothing is destroyed.** The ledger is
 append-only, so the losing value is still a row, still queryable, permanently. That is
-materially different from a system that overwrites, and it makes the honest answer *the
-disagreement is recorded, and surfacing it is a history feature this record does not own*. The
+materially different from a system that overwrites, and it makes the honest answer _the
+disagreement is recorded, and surfacing it is a history feature this record does not own_. The
 sync surface reports what `importLedgerRows` already returns — rows added — and nothing more.
 
 **One sharp edge, named rather than left to be discovered.** Two edits made before any sync
 have no causal relationship, so latest-wins falls through to ADR-0020's `device_id` tiebreak:
 **deterministic, identical on both devices, and arbitrary from the user's point of view.**
-Advance-on-receive prevents this only *after* the two clocks have met; it cannot order writes
+Advance-on-receive prevents this only _after_ the two clocks have met; it cannot order writes
 that never saw each other.
 
 ### 11. Steady state shows nothing; a first sync shows progress

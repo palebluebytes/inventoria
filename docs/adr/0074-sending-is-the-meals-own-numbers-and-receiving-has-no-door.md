@@ -62,7 +62,7 @@ surfaces. That extraction has already landed (`312011d`) and is not throwaway.
 
 Every omission is the same argument — **these are readings of a day, not of a meal**:
 
-- **Targets and fill bars.** A bar filling toward a *daily* figure would read as a meal
+- **Targets and fill bars.** A bar filling toward a _daily_ figure would read as a meal
   falling short of a day, which is not a shortfall. `showTarget` is the single axis
   separating the two callers of the shared cell.
 - **Biggest gaps** ranks what the day is short of, and one meal is short of nearly
@@ -123,8 +123,8 @@ is no list to explain a missing row in, and the refusal is read by someone stand
 front of the person who sent it, who needs to know it did not work rather than which of
 ADR-0073 §8's seven clauses fired.
 
-**The seal refusal is the exception and keeps its own sentence** — *"This did not come from
-the code you scanned"* — because "someone else answered" is different news from "this is
+**The seal refusal is the exception and keeps its own sentence** — _"This did not come from
+the code you scanned"_ — because "someone else answered" is different news from "this is
 malformed".
 
 ### 7. The way out writes a date, never a weekday
@@ -203,11 +203,11 @@ Not a limitation to record and work around: a **scope boundary**. iPhone and iPa
 send control and no working receive, and the app **refuses rather than degrades**.
 
 **Why the link cannot be made to land.** A Home Screen web app's storage is a different jar
-from Safari's *by Apple's stated design* (WebKit Bugzilla **181849**, NEW since 2018: *"Home
-Screen apps are created as isolated entities without shared state with the browser"*), and
+from Safari's _by Apple's stated design_ (WebKit Bugzilla **181849**, NEW since 2018: _"Home
+Screen apps are created as isolated entities without shared state with the browser"_), and
 link capturing does not exist in WebKit at all (WebKit Bugzilla **318623**, NEW, filed
 2026-07-05), with no manifest member — `launch_handler`, `handle_links`, `capture_links`,
-`url_handlers` — shipped on any *mobile* browser. So an iOS receive link boots a **second
+`url_handlers` — shipped on any _mobile_ browser. So an iOS receive link boots a **second
 install with an empty ledger**, a fresh `device_id` and an HLC from zero, and the app
 renders, accepts, re-mints, writes the arrival mark, and puts the meal somewhere the Home
 Screen icon can never reach. iOS 26's undocumented `webapp://` scheme worked in the June
@@ -224,7 +224,7 @@ loses data quietly.
 
 **Why detection cannot rescue the narrower boundary.** A refusal keyed on the wrong-jar
 case is not constructible: a genuine first-time iOS user in Safari also has an empty
-Ledger, and the common install path — browse in Safari, *then* Add to Home Screen — leaves
+Ledger, and the common install path — browse in Safari, _then_ Add to Home Screen — leaves
 Safari's jar holding a **stale, non-empty** Ledger, so the heuristic fails in the dangerous
 direction. No API reports that an install exists. The failure is loud when the Ledger was
 built inside the Home Screen app and **silent** for the stale jar, and it is the silent
@@ -233,7 +233,7 @@ sub-case that carries the harm.
 **What the two sides do:**
 
 - **Send: the control is absent.** `CONTEXT.md`'s **Way in** entry carries the precedent —
-  *a way in whose sheet could only disappoint is absent rather than disabled* — and this is
+  _a way in whose sheet could only disappoint is absent rather than disabled_ — and this is
   its mirror. An iPhone user never sees the way out of the meal's panel and never learns
   the feature exists. A control that exists only to refuse is a control a person tries
   again every month.
@@ -248,12 +248,12 @@ sub-case that carries the harm.
 **The Ledger export is not offered on the iOS receive surface.** Offering it would teach a
 person a five-step workaround for a feature just declared unsupported, on the surface where
 they were told no. A refusal that proposes a way round is not a refusal. **ADR-0072 §14's
-inline export on the *sender's* failure surface is untouched** — that is a different screen,
+inline export on the _sender's_ failure surface is untouched** — that is a different screen,
 on a different device, for a failure the sender cannot diagnose, and an Android sender whose
 iOS recipient refuses will time out at five minutes and be offered the export, correctly.
 This paragraph is the boundary between the two rules and they must not be merged.
 
-**The sender learns nothing new.** Platform is a property of the *recipient's* device, and
+**The sender learns nothing new.** Platform is a property of the _recipient's_ device, and
 a sender-side hint would require learning it — precisely what ADR-0072 §7 was built not to
 do. The recipient's device closes the hole at the only end that holds the facts, so
 "delivered" stays honest: a refusing receiver never joins the room, so **no send into an
@@ -279,8 +279,8 @@ with a feature test that does not exist.
 1. **No inbox screen, no standing receive control, no count badge.** §5.
 2. **No back button on a minted code.** §3.
 3. **No `/receive` route**, and no service-worker change. §8, §9.
-4. **No human-asked fork on iOS.** A receive page asking *"is Inventoria on your Home
-   Screen?"* would have got the one fact no API gives, at one tap. Refused because it makes
+4. **No human-asked fork on iOS.** A receive page asking _"is Inventoria on your Home
+   Screen?"_ would have got the one fact no API gives, at one tap. Refused because it makes
    the app carry a question about a platform it does not support, and because a fork that
    continues on "no" keeps two of the four cases alive and re-creates the partial support
    §10 rejected.
@@ -305,7 +305,7 @@ survive.** "iOS is the floor platform" is still true of the app; it is **no long
 person-to-person sending**, and a later reader must not assume the premise carried through
 to the last record. Three things would reopen the boundary — WebKit 181849 moving off NEW
 with Home Screen apps sharing Safari's storage, WebKit 318623 shipping link capturing that
-reaches Home Screen apps, or an iPhone becoming available to test with *and* a deliberate
+reaches Home Screen apps, or an iPhone becoming available to test with _and_ a deliberate
 redrawing to the intersection case. None is a reason to leave a hook in the code now.
 
 **The scanner is now the only same-room door**, which raises the stakes on what it can
@@ -336,14 +336,14 @@ closes.
 
 **What is refuted.** §10 rests on detection being impossible: a first-time Safari user is
 also empty, the browse-then-install path leaves a stale and non-empty Safari jar, and no
-API reports that an install exists. But the page **can** always know one thing — that *it*
+API reports that an install exists. But the page **can** always know one thing — that _it_
 is not the installed copy, from `navigator.standalone` and `display-mode`. Hold the
 assumption above and those two facts compose: **a receive page in an iOS Safari tab knows
 with certainty both that it is in the wrong jar and that a reachable installed copy
 exists.** That is the fact §10 said nothing could supply.
 
 **What that revives.** §12.5 and §12.6 refused **paste** and **a QR image through a
-messenger** *with the platform rather than on their merits*, and both were recorded that
+messenger** _with the platform rather than on their merits_, and both were recorded that
 way precisely so this moment would not read as an oversight. Both cross the storage
 partition: the clipboard is not partitioned, and the iOS Scan way in is already a photo
 picker. So the shape now available is not partial support but a **complete remote path
@@ -354,7 +354,7 @@ the meal itself and passing the code to the installed app instead.
 
 - The link still cannot reach an installed app's Ledger. WebKit **181849** and **318623**
   are unchanged, and the direct-landing shape stays dead.
-- §12.4's *no detection-based partial support* was refused on the signal not existing.
+- §12.4's _no detection-based partial support_ was refused on the signal not existing.
   The signal exists now, so that refusal needs **re-arguing rather than reversing** — the
   original objection was that a fork continuing on "no" keeps a broken case alive, and an
   assumption that iOS is always installed is not the same thing as an API that says so.
@@ -362,7 +362,7 @@ the meal itself and passing the code to the installed app instead.
   than no support** is untouched, and [#209](https://github.com/palebluebytes/inventoria/issues/209)
   still records that nobody here can test it. Anything this reopens inherits that.
 - The **one working receive case named in §10 disappears** under the same assumption:
-  *not installed, via link, one jar* never happens if the app is always installed. The
+  _not installed, via link, one jar_ never happens if the app is always installed. The
   assumption cuts both ways, and the ticket must price both.
 
 **Status of the boundary until then:** stated, not withdrawn. [#237](https://github.com/palebluebytes/inventoria/issues/237)

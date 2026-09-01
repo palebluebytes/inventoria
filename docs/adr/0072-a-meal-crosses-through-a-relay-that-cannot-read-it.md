@@ -38,7 +38,7 @@ mistake for the reason.
   phones: one symbol carries **four foods**, and one symbol is the rule, because a
   multi-symbol chain is a slideshow the sender holds steady while the recipient films
   it. A path that works silently at four foods and refuses at five is worse than no
-  path, and the cliff moves with *where the recipient's foods came from*. Refused.
+  path, and the cliff moves with _where the recipient's foods came from_. Refused.
 - **Two-QR WebRTC with `iceServers: []`.** The only option that needs **no server at
   all**, measured at 122 ms from the second code landing to the payload delivered,
   host-to-host on LAN addresses. Deferred as a named future enhancement, not refused;
@@ -117,17 +117,17 @@ same code carried a four-food meal and a 60-food, 232 KiB feast.
 
 **Four omissions, all deliberate, recorded so a later reader does not "fix" them: no
 attempt ceiling, no rate limit, no expiry policy beyond §6's deadline, and no detection
-requirement.** Every one of those is machinery for making a *small* secret safe. Guessing
+requirement.** Every one of those is machinery for making a _small_ secret safe. Guessing
 128 bits is not a threat model, it is arithmetic. #195's enforcement stack is the price of
 borrowing magic wormhole's code shape; this design does not borrow it.
 
 ### 4. Scan and paste are the addressing modes. Speaking a code aloud is refused.
 
-| Mode | Entropy a human tolerates | What it drags in |
-| --- | --- | --- |
-| **Scan** (a QR on the other person's screen) | 128+ bits | nothing |
-| **Paste** (a link through a messenger the two people already share) | 128+ bits | nothing |
-| **Speak** ("four-purple-sausages") | ~16 to 32 bits | #195's entire enforcement stack |
+| Mode                                                                | Entropy a human tolerates | What it drags in                |
+| ------------------------------------------------------------------- | ------------------------- | ------------------------------- |
+| **Scan** (a QR on the other person's screen)                        | 128+ bits                 | nothing                         |
+| **Paste** (a link through a messenger the two people already share) | 128+ bits                 | nothing                         |
+| **Speak** ("four-purple-sausages")                                  | ~16 to 32 bits            | #195's entire enforcement stack |
 
 The mode that decides the bar is the weakest one, so there is no weakest one. **There is
 no read-it-out-over-the-phone flow, and no typed-code entry field, ever.** The remote case
@@ -152,7 +152,7 @@ never three**: no store-and-forward, no queue, no parked bundle, at any layer.
 
 **Synchrony makes the code's lifetime self-limiting.** The code is alive exactly while the
 sender is waiting, so a pasted code sitting in a messenger's scrollback is already dead by
-the time it *is* scrollback. That is the strongest available answer to paste durability,
+the time it _is_ scrollback. That is the strongest available answer to paste durability,
 and it costs no expiry policy to obtain.
 
 There is **no background listener, no push, no persistent address, nothing reachable while
@@ -222,7 +222,7 @@ route on that same script, and **the price is `invocation_logs = false` on the w
 script, which the proxy pays.**
 
 Workers observability is configured **per script, not per route**, and a Durable Object is
-defined *in* the script, so it inherits the script's posture with no separate switch. The
+defined _in_ the script, so it inherits the script's posture with no separate switch. The
 lever is `invocation_logs = false`, which drops the automatic per-request record while
 leaving `console.log` working. The reason belongs in a comment beside the flag in
 `wrangler.toml`, which already carries its reasoning inline.
@@ -350,15 +350,15 @@ So the design is not judged against a bar it never claimed:
 export inline** — a button on the failure surface, not a hint to go and find Settings.
 ADR-0064's exporter and ADR-0067's reader already exist, and the difference between a
 named step-down and a dead end is one button. (ADR-0074 §10 states the one place this is
-*not* offered, and why.)
+_not_ offered, and why.)
 
 The two rejected fallbacks, with reasons. The **two-QR zero-server path** is a good
 enhancement and a bad fallback: it is reachable only in the same room, which does not
 correlate with the relay being down. **QR-only** is refused for the same reason as in the
 Context — a size cliff the user cannot see.
 
-**The withdrawal clause.** *If operating the relay stops being tenable, the send is
-removed and the file export remains. That is a documented outcome, not a failure.* This is
+**The withdrawal clause.** _If operating the relay stops being tenable, the send is
+removed and the file export remains. That is a documented outcome, not a failure._ This is
 the only place the record can say that one feature of Inventoria is **operationally
 conditional in a way nothing else is**. Every other part of the app survives the
 maintainer losing interest — it is a local-first PWA over a ledger on the user's own
@@ -398,7 +398,7 @@ Cloudflare's published figures rather than a measurement, and labelled as such: 
 WebSocket connection costs one request, incoming messages are discounted 20:1 and outgoing
 messages are free, so a send is about 2 billable requests against 100,000/day — roughly
 50,000 sends. Duration bills at 128 MB, so 13,000 GB-s/day is about 101,500
-object-seconds/day; at ten *active* seconds per send under hibernation that is roughly
+object-seconds/day; at ten _active_ seconds per send under hibernation that is roughly
 **10,000 sends a day**. For a personal food tracker the threshold will never fire. Writing
 it down is cheap precisely because of that: it converts "the free plan is obviously
 enough" from an assumption into a number a future reader can check. **If either limit is
@@ -422,7 +422,7 @@ enhancement** rather than with v1, and ADR-0074 §10 has since made them moot by
 iOS out of scope. It wakes if somebody wants a send that works with no internet at all.
 
 **Two prior findings are retired rather than answered.** "How often is a relay actually
-needed" has the answer *always*, by design. And "a session description does not grow with
+needed" has the answer _always_, by design. And "a session description does not grow with
 what it carries" is a true property that **did not decide this**, because the relay moots
 session descriptions entirely; it is recorded so a later reader does not mistake it for
 the ratio.
