@@ -321,9 +321,20 @@
               data-section={s.key}
               aria-controls={bodyId(s.key)}
             >
-              <span class="chev"
-                >{openSections.includes(s.key) ? "▾" : "▸"}</span
+              <!-- A drawn mark, not a glyph: `▸`/`▾` fall outside every
+                   unicode-range Epilogue is served in, so both were left to
+                   whatever fallback the device had. One shape rotated also
+                   keeps the title from shifting sideways when it opens. Same
+                   mark as the day dashboard's; the primitive in #316 takes
+                   both copies. -->
+              <svg
+                class="chev"
+                class:is-open={openSections.includes(s.key)}
+                viewBox="0 0 24 24"
+                aria-hidden="true"
               >
+                <path d="M7 6 L17 12 L7 18 Z" fill="currentColor"></path>
+              </svg>
               <span class="sec-title">{s.label}</span>
               {#if s.filled()}<span class="dot" title="has content"></span>{/if}
             </Accordion.Trigger>
@@ -470,14 +481,33 @@
     outline-offset: -2px;
   }
   .chev {
+    width: 1em;
+    height: 1em;
+    flex-shrink: 0;
     font-size: var(--step-n1);
-    width: 1rem;
   }
+  .chev.is-open {
+    transform: rotate(90deg);
+  }
+  /* Epilogue's caps sit 0.091em above the centre of their own box (its ascent
+     is 0.79em against a 0.7375em cap height), so flex centring — which aligns
+     boxes — leaves an all-caps label high against the mark beside it. Trim the
+     box to the cap-height/baseline block where that is supported, and nudge by
+     the measured offset where it is not. Same repair as ui/Checkbox.svelte. */
   .sec-title {
+    position: relative;
+    top: 0.09em;
     font-weight: 700;
     text-transform: uppercase;
     font-size: var(--step-n1);
     flex: 1;
+  }
+  @supports (text-box-trim: trim-both) {
+    .sec-title {
+      text-box-trim: trim-both;
+      text-box-edge: cap alphabetic;
+      top: 0;
+    }
   }
   .dot {
     width: 9px;

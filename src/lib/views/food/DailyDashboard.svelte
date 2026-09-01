@@ -286,9 +286,17 @@
       aria-controls={metersId}
       onclick={() => setNutritionPanelOpen(!$nutritionPanelOpen)}
     >
-      <span class="aggregates-caret" aria-hidden="true"
-        >{$nutritionPanelOpen ? "▾" : "▸"}</span
+      <!-- One shape rotated rather than two glyphs swapped, so the word beside
+           it cannot shift sideways when the open mark is a different width from
+           the closed one. -->
+      <svg
+        class="aggregates-caret"
+        class:is-open={$nutritionPanelOpen}
+        viewBox="0 0 24 24"
+        aria-hidden="true"
       >
+        <path d="M7 6 L17 12 L7 18 Z" fill="currentColor"></path>
+      </svg>
       <span class="aggregates-title">Nutrition</span>
     </button>
     <Button
@@ -712,17 +720,56 @@
     outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
+  /* A drawn mark rather than a glyph. `▸` and `▾` (U+25B8/U+25BE) fall outside
+     every unicode-range Epilogue is served in, so neither was ever OUR mark:
+     both were drawn by whatever fallback the platform happened to have, at that
+     font's size, width and height above the baseline. That is what sat the
+     closed triangle about 3px below the centre of the word beside it, and it
+     sits somewhere else again on every other device. A square box of our own
+     geometry, blockified as a flex item, centres against the title exactly.
+     Sized in `em` off the title's own step so the mark tracks the type ramp. */
   .aggregates-caret {
+    width: 1em;
+    height: 1em;
+    flex-shrink: 0;
     font-size: var(--step-n1);
-    line-height: 1;
     color: var(--text-secondary);
   }
+  /* The ink is symmetric about the centre of the box, so a quarter turn is the
+     open mark and the row's geometry does not change with it. */
+  .aggregates-caret.is-open {
+    transform: rotate(90deg);
+  }
+  /* Tight to the em, as the panel header's title is (#304). That sets the row's
+     height; it does NOT centre the letters, because leading is added
+     symmetrically above and below and so never moves ink relative to its own
+     box. What moves the ink is the font: measured off the bundled
+     `epilogue-latin-wght-normal.woff2`, Epilogue's ascent is 0.79em against a
+     0.7375em cap height and a 0.235em descent, so the caps of an all-caps
+     string sit 0.091em ABOVE the centre of their box at every line-height. Flex
+     centring aligns boxes, so the mark beside them landed ~1.5px low at this
+     step. Fallback for engines without text-box-trim: nudge the text down by
+     that measured offset, the same repair as ui/Checkbox.svelte's label. */
   .aggregates-title {
+    position: relative;
+    top: 0.09em;
     font-size: var(--step-n1);
+    line-height: 1;
     font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
     color: var(--text-primary);
+  }
+  /* Preferred: trim the box to the cap-height/baseline block so the box IS the
+     letters. Flex centring then centres what the eye sees, at every step, with
+     no magic number. Chromium and Safari honour this; anywhere else the nudge
+     above stands in. */
+  @supports (text-box-trim: trim-both) {
+    .aggregates-title {
+      text-box-trim: trim-both;
+      text-box-edge: cap alphabetic;
+      top: 0;
+    }
   }
   /* `hidden` collapses the body; the attribute is what the toggle's
      aria-expanded describes, so the bars leave the accessibility tree with it. */
