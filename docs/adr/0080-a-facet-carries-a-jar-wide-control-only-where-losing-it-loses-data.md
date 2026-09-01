@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-01  
-**Amended by:** [ADR-0081](0081-a-gate-that-names-one-entry-point-proves-one-facet.md) §4 (§8's heading overreaches its own argument: the registry already holds a build half, and the rule is that it carries no field re-recording a conclusion whose reason is discarded)
+**Amended by:** [ADR-0083](0083-a-gate-that-names-one-entry-point-proves-one-facet.md) §4 (§8's heading overreaches its own argument: the registry already holds a build half, and the rule is that it carries no field re-recording a conclusion whose reason is discarded)
 
 ## Context
 
@@ -317,7 +317,7 @@ field that **re-records a conclusion reached by argument while throwing the reas
 per-Facet list of settings blocks is one, and it is still refused for exactly the reason given
 here.
 
-[ADR-0081](0081-a-gate-that-names-one-entry-point-proves-one-facet.md) §4 states the rule in
+[ADR-0083](0083-a-gate-that-names-one-entry-point-proves-one-facet.md) §4 states the rule in
 that form and applies it to two new fields: a per-Facet precache byte band, which passes
 because a measurement is not a conclusion from argument, and a per-Facet list of view modules,
 which **fails** — ADR-0078 §2 already fixes one screen per Tracked Domain, so writing the
@@ -328,4 +328,4 @@ already declares.
 The heading is corrected here rather than rewritten in place, because the decision text is a
 record of what was decided on 2026-09-01 and this is evidence that its own summary line was
 broader than the reasoning under it. §8's refusal of a settings-block table is unaffected, and
-ADR-0081 §10 declines the check it offered.
+ADR-0083 §10 declines the check it offered.

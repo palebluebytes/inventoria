@@ -1,4 +1,4 @@
-# ADR 0081: A gate that names one entry point proves one Facet, so every gate reads the roster
+# ADR 0083: A gate that names one entry point proves one Facet, so every gate reads the roster
 
 **Status:** Accepted  
 **Date:** 2026-09-01
