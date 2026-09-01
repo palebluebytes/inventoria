@@ -208,7 +208,7 @@ _Avoid_: Entry / meal entry (this app spends _entry_ on a manually entered food,
 
 **Way out**:
 The one control that hands a logged meal to another person: it sits beside the meal's name inside that meal's nutrition panel, and it is the mirror of a **Way in** rather than a sixth control in the meal header, which gains nothing. The panel is reached by tapping the meal's name, which always works, or its subtotal line, which an empty meal does not have. The panel then _turns into_ the **Send code** and back: it opens no second surface, and once a code is minted there is no back button, because the code is live and an affordance that looked like undo would be one. It is present on every platform, iOS included: nothing about sending touches the storage partition, and it was hidden there only to avoid supporting a platform in some of its cases and not others. See ADR-0074 §1 and §3, and ADR-0082 §3.
-_Avoid_: Share, export (that is the **Ledger export**), send button, handover, way in (it is deliberately not one)
+_Avoid_: Share, export (that is the **Ledger export**), send button, handover (that is the **Code handover**, which is the recipient's page and not this control), way in (it is deliberately not one)
 
 **Engagement Event**:
 A logged instance of watching a movie/show or reading a book, recorded as a timestamped action in the ledger (`WatchAction` or `ReadAction`) linking to a media Digital Twin. All media engagements share one closed status enum: `saved`, `started`, `progress`, `completed`.
@@ -235,6 +235,10 @@ _Avoid_: Meal export, meal file, share payload, ledger export, closure (bare)
 **Receiving surface**:
 The screen a Meal send lands on: the meal itself, with nothing in front of it, reached by opening a link or by pointing the **Scan** way in at a Send code, which reads a meal code as well as a barcode. It **is** the hold. A payload lives in memory for the life of this view and nowhere else, so **leaving is declining**, by any route and without being asked. There is no inbox, no standing receive control and no count badge: nothing listens for a send it was not asked for, so a badge could only ever be non-zero after a receive you started yourself, which makes it an affordance that lies. See ADR-0073 §10 and ADR-0074 §4 to §6.
 _Avoid_: Inbox (there is none; the word survives only in the map that named it), receive screen, pending meals, notification, tray
+
+**Code handover**:
+What an iOS Safari tab shows in place of the **Receiving surface**: the **Send code** as its whole link, a control that copies it, and two sentences, which are open Inventoria and paste this into **Scan**, and, if you have not installed it yet, add it to the Home Screen first and come back. It is **one page with one wording and no branch**, because the page can always know it is not the installed copy and can never know whether an installed copy exists. It joins no room, opens no ledger, asks for no persistence, and cleans the URL anyway. The name it tells you to open follows whichever Facet holds the meal. See ADR-0082 §2, §5, §6, §8 and §9.
+_Avoid_: Fallback page, iOS receive screen, install prompt (it prompts nothing and detects nothing), receiving surface (this is what stands in for one), handover (bare, on the sender's side that is the **Way out**)
 
 **Arrival mark**:
 The one attribute (`food/arrival`) recording that a food reached this device because somebody sent you a meal. It is the third sibling of `food/label_capture` and `food/manual_entry`, so it records _how this food came to be here_ and never _who sent it_. It is **display-only**: it changes what `foodSourceView` says and nothing else, because re-minting exists precisely to make the meal theirs. It is never written for a datom from one of your own devices. See ADR-0073 §11.
