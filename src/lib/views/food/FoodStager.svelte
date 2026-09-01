@@ -105,6 +105,7 @@
   import type { FoodSourceKind } from "../../food/food-source";
   import { readScannedCode } from "../../p2p/scanned-code";
   import type { SendCode } from "../../p2p/send-code";
+  import MealLinkField from "./MealLinkField.svelte";
 
   // The shared food-staging surface behind both the direct-log sheet and the
   // add-ingredient sheet (issue #16). It owns the Search / Scan / Custom method
@@ -1186,6 +1187,20 @@
     scanRejected = rejectionLine(read.kind);
   }
 
+  /**
+   * A Send code that arrived by paste rather than through the lens
+   * (ADR-0082 §13).
+   *
+   * It stops the camera for the reason a decoded meal code does: the surface it
+   * opens replaces this one, and a live preview left running behind it holds
+   * the device's camera for a screen nobody is looking at.
+   */
+  function takePastedMealCode(code: SendCode) {
+    scanRejected = "";
+    stopCamera();
+    onMealCode?.(code);
+  }
+
   /** Why a decode went nowhere, in one line — ADR-0074 §6's shape. */
   function rejectionLine(kind: "meal" | "broken" | "neither"): string {
     if (kind === "meal")
@@ -1977,6 +1992,17 @@
                       ✏️ Enter the label details instead
                     </Button>
                   {/if}
+                {/if}
+                {#if onMealCode}
+                  <!-- The third way a Send code reaches this door (ADR-0082
+                       §13): a link somebody pasted, beside the camera and the
+                       photo. Under both branches rather than inside either,
+                       because it is the same field whether this platform has a
+                       live scanner or a dropzone — and it is present on every
+                       platform, not iOS alone. Gated on the host wanting meal
+                       codes at all, so an ingredient picker does not offer a
+                       field that goes nowhere. -->
+                  <MealLinkField onMealCode={takePastedMealCode} />
                 {/if}
               {:else if showManualFlow}
                 <!-- Custom = the ADR-0035 intent chooser + its three mini-forms (quick

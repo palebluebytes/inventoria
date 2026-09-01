@@ -7,6 +7,7 @@
     disabled = false,
     inputmode = undefined,
     onkeydown,
+    oninput,
     class: className = "",
   }: {
     value?: string;
@@ -25,6 +26,11 @@
       | "decimal"
       | "search";
     onkeydown?: (e: KeyboardEvent) => void;
+    /**
+     * Every way text lands in the field, which a `onkeydown` cannot see: a
+     * paste from the platform's own menu fires no key event at all.
+     */
+    oninput?: (e: Event & { currentTarget: HTMLInputElement }) => void;
     class?: string;
   } = $props();
 </script>
@@ -38,6 +44,7 @@
     bind:value
     {disabled}
     {onkeydown}
+    {oninput}
     class="input"
   />
 </div>
