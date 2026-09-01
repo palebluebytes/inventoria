@@ -45,12 +45,6 @@
   import { longpress } from "../../actions/longpress";
   import WayInIcon from "./WayInIcon.svelte";
   import MealNutritionPanel from "./MealNutritionPanel.svelte";
-  // PROTOTYPE (#201) — two optional injection points for the send/receive
-  // variants. Both are undefined in the shipped app, so nothing renders and
-  // nothing changes; they exist so a prototype can put a control in the real
-  // meal header and a line under real logged rows instead of in a vacuum.
-  // Delete both when #201 folds.
-  import type { Snippet } from "svelte";
 
   let {
     dbReady,
@@ -62,8 +56,6 @@
     onTapItem,
     onEditItem,
     onRemoveItem,
-    mealActionsExtra,
-    mealFooterExtra,
   }: {
     dbReady: boolean;
     selectedDate: Date;
@@ -79,10 +71,6 @@
     onEditItem: (item: ConsumptionEvent) => void;
     /** The card's ✕ removes the logged entry (append-only retraction). */
     onRemoveItem: (id: string) => void;
-    /** PROTOTYPE (#201) — rendered at the end of a meal's way-in row. */
-    mealActionsExtra?: Snippet<[MealType, number, number]>;
-    /** PROTOTYPE (#201) — rendered under a meal's logged rows. */
-    mealFooterExtra?: Snippet<[MealType, number, number]>;
   } = $props();
 
   // Long-press a logged item to start selecting; while a selection is active,
@@ -356,16 +344,6 @@
               </Button>
             {/if}
           {/each}
-          {@render mealActionsExtra?.(
-            meal_type,
-            groupedMeals[meal_type].length,
-            Math.round(
-              groupedMeals[meal_type].reduce(
-                (n, i) => n + (Number(i.calories) || 0),
-                0
-              )
-            )
-          )}
         </div>
       </div>
 
@@ -486,16 +464,6 @@
           {/each}
         </button>
       {/if}
-      {@render mealFooterExtra?.(
-        meal_type,
-        groupedMeals[meal_type].length,
-        Math.round(
-          groupedMeals[meal_type].reduce(
-            (n, i) => n + (Number(i.calories) || 0),
-            0
-          )
-        )
-      )}
     </div>
   {/each}
 </div>

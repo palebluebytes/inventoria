@@ -58,17 +58,6 @@
   import SourceExplainerSheet from "./food/SourceExplainerSheet.svelte";
   import DietaryExplainerSheet from "./food/DietaryExplainerSheet.svelte";
   import FoodSettingsSheet from "./food/FoodSettingsSheet.svelte";
-  // PROTOTYPE (#201) — the send/receive variants. `?variant=A|B|C` on the food
-  // screen, dev only; null in the shipped app, where every block below that
-  // reads it renders nothing. The state module is small enough to import
-  // statically; the surfaces are not (they pull the QR writer), so the host is
-  // dynamically imported. Delete all of it when #201 folds.
-  import { proto, readVariant } from "../send-proto/proto-state.svelte";
-  import WayOutIcon from "../send-proto/WayOutIcon.svelte";
-  import { formatDate } from "../send-proto/proto-date";
-  import Button from "../ui/Button.svelte";
-
-  const protoVariant = readVariant();
   import ScaleControl from "./food/ScaleControl.svelte";
 
   import Card from "../ui/Card.svelte";
@@ -695,34 +684,6 @@
       >
         <WayInIcon kind="recipe" />
       </button>
-      <!-- PROTOTYPE (#201). A: the inbox is a standing control, because a meal
-           arriving belongs to no one meal. B: one handover control owns both
-           directions. C: nothing here at all. -->
-      {#if protoVariant === "A"}
-        <button
-          type="button"
-          class="header-icon-btn proto-inbox"
-          aria-label="Meals sent to you"
-          onclick={() => (proto.uiOpen = "inbox")}
-        >
-          <WayOutIcon kind="inbox" />
-          {#if proto.inbox.length}
-            <span class="proto-count">{proto.inbox.length}</span>
-          {/if}
-        </button>
-      {:else if protoVariant === "B"}
-        <button
-          type="button"
-          class="header-icon-btn proto-inbox"
-          aria-label="Handover"
-          onclick={() => (proto.uiOpen = "handover")}
-        >
-          <WayOutIcon kind="handover" />
-          {#if proto.inbox.length}
-            <span class="proto-count">{proto.inbox.length}</span>
-          {/if}
-        </button>
-      {/if}
       <button
         type="button"
         class="header-icon-btn"
@@ -803,42 +764,6 @@
   </div>
 </header>
 
-<!-- PROTOTYPE (#201) — variant A puts a way OUT in the meal header, set apart
-     from the five ways in by a rule because it is the only one that takes
-     something away rather than adding it. Absent when the meal is empty, on
-     ADR-0059 §4's rule: a control that could not work is hidden, not disabled. -->
-{#snippet protoMealActions(meal_type: MealType, rows: number, kcal: number)}
-  {#if protoVariant === "A" && rows > 0}
-    <span class="proto-rule" aria-hidden="true"></span>
-    <Button
-      variant="secondary"
-      size="sm"
-      class="way-in"
-      aria-label="Hand this {meal_type} over"
-      title="Hand this {meal_type} over"
-      onclick={() =>
-        proto.startSend(meal_type, formatDate(selectedDate), rows, kcal)}
-    >
-      <WayOutIcon kind="send" />
-    </Button>
-  {/if}
-{/snippet}
-
-<!-- PROTOTYPE (#201) — variant C has no icon anywhere. The affordance is a line
-     of text in the flow of the meal, under what is actually in it. -->
-{#snippet protoMealFooter(meal_type: MealType, rows: number, kcal: number)}
-  {#if protoVariant === "C" && rows > 0}
-    <button
-      type="button"
-      class="proto-line"
-      onclick={() =>
-        proto.startSend(meal_type, formatDate(selectedDate), rows, kcal)}
-    >
-      Hand this {meal_type} over →
-    </button>
-  {/if}
-{/snippet}
-
 <!-- Main Dashboard -->
 <DailyDashboard
   {dbReady}
@@ -850,30 +775,7 @@
   onTapItem={tapItem}
   onEditItem={editItem}
   onRemoveItem={removeItem}
-  mealActionsExtra={protoMealActions}
-  mealFooterExtra={protoMealFooter}
 />
-
-<!-- PROTOTYPE (#201) — variant C's other half: receiving is not a control in a
-     header, it is a line at the foot of the day. -->
-{#if protoVariant === "C"}
-  <p class="proto-foot">
-    <button
-      type="button"
-      class="proto-line"
-      onclick={() => (proto.uiOpen = "receive")}
-    >
-      Meals sent to you{proto.inbox.length ? ` (${proto.inbox.length})` : ""} →
-    </button>
-  </p>
-{/if}
-
-{#if protoVariant}
-  {#await import("../send-proto/SendProto.svelte") then mod}
-    {@const SendProto = mod.default}
-    <SendProto variant={protoVariant} />
-  {/await}
-{/if}
 
 <!-- Secondary: Saved Digital Twins Ledger.
      Hidden for now — presenting the saved twins is a later task. Kept behind
@@ -1323,54 +1225,5 @@
     to {
       transform: translateY(0);
     }
-  }
-
-  /* ── PROTOTYPE (#201) — delete with the rest when it folds ────────────── */
-  .proto-inbox {
-    position: relative;
-  }
-  .proto-count {
-    position: absolute;
-    top: -0.25rem;
-    right: -0.25rem;
-    min-width: 1.1rem;
-    height: 1.1rem;
-    padding: 0 0.2rem;
-    display: grid;
-    place-items: center;
-    background: var(--ink);
-    color: var(--paper);
-    border: var(--edge-thin);
-    font-family: var(--font-mono);
-    font-size: var(--step-n4);
-    line-height: 1;
-  }
-  /* The rule that sets the way OUT apart from the five ways in. */
-  .proto-rule {
-    align-self: stretch;
-    width: 2px;
-    background: var(--border);
-    margin: 0 var(--space-3xs);
-  }
-  .proto-line {
-    background: none;
-    border: 0;
-    padding: var(--space-3xs) 0;
-    font: inherit;
-    font-size: var(--step-n2);
-    color: var(--text-secondary);
-    text-decoration: underline;
-    text-underline-offset: 0.2em;
-    cursor: pointer;
-    text-transform: none;
-  }
-  .proto-line:hover {
-    color: var(--text-primary);
-  }
-  .proto-foot {
-    margin: var(--space-m) 0 var(--space-2xl);
-    padding-top: var(--space-2xs);
-    border-top: var(--edge-thin);
-    text-align: right;
   }
 </style>

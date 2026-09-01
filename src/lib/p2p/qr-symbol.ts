@@ -19,10 +19,12 @@
  * length, off a lit screen, and spending capacity on redundancy would buy a
  * denser symbol for a case that does not arise.
  *
- * Ported from the #198 probe's `qr-codec.ts`, narrowed on the way: the probe
- * carried arbitrary binary and had a byte-mode/base64 switch to find out which
- * survived a round trip. A code is a URL, so it is written as text, and the
- * probe's reader half stays where it is until the Scan way in needs it.
+ * Ported from the #198 probe's `qr-codec.ts` (retired by #239), narrowed on the
+ * way: the probe carried arbitrary binary and had a byte-mode/base64 switch to
+ * find out which survived a round trip. A code is a URL, so it is written as
+ * text. Only the writer half came here — the Scan way in reads a code through
+ * `src/lib/food/barcode-scan.ts`, which already had a reader and gained `QR` as
+ * a format rather than a second decoder being stood up beside it.
  */
 
 import zxingWriterWasmUrl from "zxing-wasm/writer/zxing_writer.wasm?url";

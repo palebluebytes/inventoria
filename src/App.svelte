@@ -18,13 +18,11 @@
   import { ensurePersistentStorage } from "./lib/storage/persistent-storage";
   import { takeReceiveLink, type ReceiveOpening } from "./lib/p2p/receive-link";
 
-  // Dev/e2e-only harnesses: `?demo=<name>` swaps the whole app for a throwaway
-  // page. `bottomsheet` is a UI-primitive demo, so a Playwright spec can drive
-  // the primitive in isolation without a real screen mounting it (issue #17);
-  // `p2p198` is the peer-to-peer transport probe (#198), which needs the whole
-  // viewport and a camera and has no business inside a tab. Both are gated on
-  // `import.meta.env.DEV` and dynamically imported, so they are dead-code
-  // eliminated from the production build — they never ship.
+  // A dev/e2e-only harness: `?demo=bottomsheet` swaps the whole app for a
+  // UI-primitive demo, so a Playwright spec can drive the primitive in
+  // isolation without a real screen mounting it (issue #17). It is gated on
+  // `import.meta.env.DEV` and dynamically imported, so it is dead-code
+  // eliminated from the production build — it never ships.
   const demo =
     import.meta.env.DEV && typeof window !== "undefined"
       ? new URLSearchParams(window.location.search).get("demo")
@@ -162,11 +160,6 @@
   {#await import("./lib/ui/BottomSheetDemo.svelte") then mod}
     {@const BottomSheetDemo = mod.default}
     <BottomSheetDemo />
-  {/await}
-{:else if demo === "p2p198"}
-  {#await import("./lib/p2p-probe/P2pProbe.svelte") then mod}
-    {@const P2pProbe = mod.default}
-    <P2pProbe />
   {/await}
 {:else}
   <div class="app">
