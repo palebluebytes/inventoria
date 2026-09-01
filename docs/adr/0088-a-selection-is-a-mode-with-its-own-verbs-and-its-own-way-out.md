@@ -2,7 +2,8 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-02  
-**Amends:** [ADR-0074](0074-sending-is-the-meals-own-numbers-and-receiving-has-no-door.md) (§3's "the same control at two scales" becomes three: an arbitrary selection of logged foods gains a nutrition panel, and the Way out sits in it)
+**Amends:** [ADR-0074](0074-sending-is-the-meals-own-numbers-and-receiving-has-no-door.md) (§3's "the same control at two scales" becomes three: an arbitrary selection of logged foods gains a nutrition panel, and the Way out sits in it)  
+**Implemented:** #321, #322 `ed47e35` (`SelectionBar.svelte`, `ScaleTier.svelte`, `SelectionVerbIcon.svelte`, the Provisional figure in `FoodItemRow.svelte`), #323 `569c482` (`moveLoggedFoodsToMeal`, `MoveMealSheet.svelte`), #324 `faa7221` (`MealNutritionPanel` becomes `LoggedFoodsPanel`)
 
 ## Context
 
