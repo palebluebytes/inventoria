@@ -65,9 +65,20 @@ const ok = (m) => console.log(`  ok  ${m}`);
 
 // ── corpus ───────────────────────────────────────────────────────────────────
 
-const tracked = execFileSync("git", ["ls-files", "*.md"], { encoding: "utf8" })
-  .split("\n")
-  .filter(Boolean)
+// Tracked **and** untracked-but-not-ignored. A new record is a file before it is
+// a commit, and a gate that only sees `git ls-files` passes an unstaged ADR by not
+// knowing it exists — which is silence at exactly the moment somebody is writing
+// the thing the checks are for. `--exclude-standard` keeps `.gitignore` honoured,
+// so `node_modules` and `dist` stay out.
+const gitMd = (...args) =>
+  execFileSync("git", ["ls-files", ...args, "*.md"], { encoding: "utf8" })
+    .split("\n")
+    .filter(Boolean);
+
+const tracked = [
+  ...new Set([...gitMd(), ...gitMd("--others", "--exclude-standard")]),
+]
+  .sort()
   .filter((f) => !EXCLUDED.some((re) => re.test(f)));
 
 const read = (f) => readFileSync(f, "utf8");
@@ -192,12 +203,31 @@ if (!badStatus) ok(`all ${adrs.size} ADR statuses use the closed vocabulary`);
 // one who would otherwise implement a design that was explicitly overturned.
 
 const pairs = new Set();
+const claim = (n, t) => {
+  const m = Number(t);
+  if (m !== n && adrs.has(m)) pairs.add(`${Math.min(n, m)}:${Math.max(n, m)}`);
+};
 for (const [n, adr] of adrs) {
-  for (const [, t] of adr.body.matchAll(RELATION_RE)) {
-    const m = Number(t);
-    if (m !== n && adrs.has(m))
-      pairs.add(`${Math.min(n, m)}:${Math.max(n, m)}`);
+  // The header declares too, and only through `**Amends:**` (#261).
+  //
+  // The convention `docs/adr/README.md` documents is a header trailer, and that
+  // block is exactly what `body` excludes — so scanning the body alone meant a
+  // record declaring its relationship the documented way created no obligation,
+  // and the gate reported `ok` for a backlink that was not there.
+  //
+  // **`**Amended by:**` is not read here, and that is the whole subtlety.** It is
+  // the backlink rather than a declaration, so reading it would at best re-derive
+  // a pair already satisfied by construction, and at worst invent one: ADR-0049's
+  // trailer names *the #144 Amendment below* as the amending record and mentions
+  // ADR-0042 only in a subordinate clause, as the corpus whose own #144 amendment
+  // left rows behind. The loose prose regex reads that as "0049 amends 0042",
+  // which is false. Hence the narrow, anchored grammar: the line must *begin* with
+  // the trailer, and only its first ADR reference is the target.
+  for (const line of adr.header.split("\n")) {
+    const m = line.match(/^\*\*Amends:\*\*[^\n]*?ADR[-\s]?(\d{3,4})/i);
+    if (m) claim(n, m[1]);
   }
+  for (const [, t] of adr.body.matchAll(RELATION_RE)) claim(n, t);
 }
 let badBacklinks = 0;
 for (const pair of [...pairs].sort()) {
