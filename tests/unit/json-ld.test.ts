@@ -3,6 +3,64 @@ import { extractJsonLd } from "../../src/lib/ingestion/json-ld";
 import { fetchHtml } from "../../src/lib/ingestion/fetcher";
 
 describe("extractJsonLd - Mock tests", () => {
+  // ADR-0086 §3. The scraper used to pick its entity prefix from whatever the
+  // page happened to carry, which is how `gtin:` came to be co-owned with food
+  // and `isbn:` with media. It mints `twin:` now, whatever the page says.
+  it("mints twin: and nothing else, whatever identifier the page carries", () => {
+    const page = (body: string) =>
+      `<script type="application/ld+json">{"@context":"https://schema.org","@type":"Product","name":"X",${body}}</script>`;
+    const pages = [
+      page('"@id":"did:dpp:eu:1"'),
+      page('"@id":"gs1:01/1"'),
+      page('"gtin13":"1234567890123"'),
+      page('"isbn":"9780201379624"'),
+      page('"sku":"S-1"'),
+      page('"mpn":"M-1"'),
+      page('"name":"no ids"'),
+    ];
+    for (const html of pages) {
+      const product = extractJsonLd(html, "https://shop.example/p/1");
+      expect(product!.entityId.startsWith("twin:")).toBe(true);
+    }
+    // And with no page URL either, which is the one non-deterministic case.
+    expect(extractJsonLd(page('"name":"x"'))!.entityId).toMatch(/^twin:temp_/);
+  });
+
+  // ADR-0014's whole decision: two offline devices scraping the same page must
+  // independently construct the same id. "Always mint twin:" would have repealed
+  // it, because the only twin: site in the app carries a clock/random suffix.
+  it("stays deterministic for every identifier it can read", () => {
+    const cases: [string, string][] = [
+      ['"gtin13":"1234567890123"', "twin:gtin_1234567890123"],
+      ['"isbn":"9780201379624"', "twin:isbn_9780201379624"],
+      ['"sku":"S-1"', "twin:sku_S-1"],
+      ['"@id":"did:dpp:eu:1"', "twin:dpp_did:dpp:eu:1"],
+    ];
+    for (const [body, expected] of cases) {
+      const html = `<script type="application/ld+json">{"@type":"Product","name":"X",${body}}</script>`;
+      expect(extractJsonLd(html, "https://a.example/x")!.entityId).toBe(
+        expected
+      );
+      // A different URL, the same product: still the same entity.
+      expect(extractJsonLd(html, "https://b.example/y")!.entityId).toBe(
+        expected
+      );
+    }
+  });
+
+  // A scraped grocery page and a scanned barcode are now two entities, and a
+  // scraped book and its Open Library twin are two as well (ADR-0086 §4). The
+  // point of the split is that neither can reach the other's prefix.
+  it("cannot mint a food or a media entity from a barcode or an ISBN", () => {
+    const barcoded = `<script type="application/ld+json">{"@type":"Product","name":"Tinned Tomatoes","gtin13":"3017620422003"}</script>`;
+    const book = `<script type="application/ld+json">{"@type":"Product","name":"Design Patterns","isbn":"9780201379624"}</script>`;
+    for (const html of [barcoded, book]) {
+      const id = extractJsonLd(html, "https://shop.example/p")!.entityId;
+      expect(id.startsWith("gtin:")).toBe(false);
+      expect(id.startsWith("isbn:")).toBe(false);
+    }
+  });
+
   it("extracts a product with a DID", () => {
     const html = `
       <html>
@@ -27,7 +85,11 @@ describe("extractJsonLd - Mock tests", () => {
 
     const product = extractJsonLd(html);
     expect(product).not.toBeNull();
-    expect(product!.entityId).toBe("did:dpp:eu:123456789");
+    expect(product!.entityId).toBe("twin:dpp_did:dpp:eu:123456789");
+    expect(product!.identifier).toEqual({
+      kind: "dpp",
+      value: "did:dpp:eu:123456789",
+    });
     expect(product!.name).toBe("Sustainable T-Shirt");
     expect(product!.image).toBe("https://example.com/shirt.jpg");
     expect(product!.brand).toBe("EcoBrand");
@@ -49,7 +111,7 @@ describe("extractJsonLd - Mock tests", () => {
 
     const product = extractJsonLd(html);
     expect(product).not.toBeNull();
-    expect(product!.entityId).toBe("gs1:01/09780201379624/21/123");
+    expect(product!.entityId).toBe("twin:dpp_gs1:01/09780201379624/21/123");
     expect(product!.name).toBe("Design Patterns Book");
     expect(product!.image).toBe("https://example.com/cover.jpg");
   });
@@ -69,7 +131,11 @@ describe("extractJsonLd - Mock tests", () => {
 
     const product = extractJsonLd(html);
     expect(product).not.toBeNull();
-    expect(product!.entityId).toBe("gtin:1234567890123");
+    expect(product!.entityId).toBe("twin:gtin_1234567890123");
+    expect(product!.identifier).toEqual({
+      kind: "gtin",
+      value: "1234567890123",
+    });
   });
 
   it("uses SKU if GTIN is missing", () => {
@@ -86,7 +152,7 @@ describe("extractJsonLd - Mock tests", () => {
 
     const product = extractJsonLd(html);
     expect(product).not.toBeNull();
-    expect(product!.entityId).toBe("sku:SKU-999");
+    expect(product!.entityId).toBe("twin:sku_SKU-999");
   });
 
   it("uses URL fallback if all identifiers are missing", () => {
@@ -102,7 +168,8 @@ describe("extractJsonLd - Mock tests", () => {
 
     const product = extractJsonLd(html, "https://my-store.com/products/no-ids");
     expect(product).not.toBeNull();
-    expect(product!.entityId).toMatch(/^url:/);
+    expect(product!.entityId).toMatch(/^twin:url_/);
+    expect(product!.identifier).toBeUndefined();
   });
 
   it("handles @graph arrays in JSON-LD", () => {
@@ -128,7 +195,7 @@ describe("extractJsonLd - Mock tests", () => {
     const product = extractJsonLd(html);
     expect(product).not.toBeNull();
     expect(product!.name).toBe("Graph Product");
-    expect(product!.entityId).toBe("sku:GRAPH-123");
+    expect(product!.entityId).toBe("twin:sku_GRAPH-123");
   });
 
   it("falls back to Open Graph/Meta tags if no JSON-LD is present", () => {
@@ -149,7 +216,7 @@ describe("extractJsonLd - Mock tests", () => {
     expect(product!.image).toBe("https://example.com/og-image.jpg");
     expect(product!.description).toBe("Open Graph Description");
     expect(product!.brand).toBe("OG Brand");
-    expect(product!.entityId).toBe("url:92z9lq");
+    expect(product!.entityId).toBe("twin:url_92z9lq");
   });
 
   it("extracts Amazon-specific landing image and title fallback", () => {
@@ -172,7 +239,7 @@ describe("extractJsonLd - Mock tests", () => {
       "https://m.media-amazon.com/images/I/image_high.jpg"
     );
     expect(product!.description).toBe("Product Description");
-    expect(product!.entityId).toBe("asin:B0GY7PR6NK");
+    expect(product!.entityId).toBe("twin:asin_B0GY7PR6NK");
   });
 
   it("extracts ASINs from different Amazon URL formats", () => {
@@ -188,7 +255,7 @@ describe("extractJsonLd - Mock tests", () => {
     for (const url of formats) {
       const product = extractJsonLd(html, url);
       expect(product).not.toBeNull();
-      expect(product!.entityId).toBe("asin:B0GY7PR6NK");
+      expect(product!.entityId).toBe("twin:asin_B0GY7PR6NK");
     }
   });
 
