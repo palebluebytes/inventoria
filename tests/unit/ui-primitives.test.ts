@@ -6,11 +6,13 @@ import Card from "../../src/lib/ui/Card.svelte";
 import Badge from "../../src/lib/ui/Badge.svelte";
 import ToggleGroup from "../../src/lib/ui/ToggleGroup.svelte";
 import Checkbox from "../../src/lib/ui/Checkbox.svelte";
+import Row from "../../src/lib/ui/Row.svelte";
 
 // These render the primitives through Svelte's SSR path (no DOM needed) and
 // assert on the emitted HTML. They pin the three things #77 makes contractual:
 // the size/variant class axes, the polymorphic Card element choice, and the
-// `...rest` a11y passthrough on both primitives.
+// `...rest` a11y passthrough on both primitives — and, since #319, Row's own
+// element choice, which is read off the row's contents rather than a flag.
 
 describe("Button", () => {
   it("emits variant and size classes (defaults: primary / md)", () => {
@@ -244,5 +246,125 @@ describe("Checkbox", () => {
     expect(openingLabel).toContain('class="checkbox row');
     expect(openingLabel).not.toContain("title=");
     expect(openingLabel).not.toContain("data-testid=");
+  });
+});
+
+describe("Row", () => {
+  const props = { title: "Quick estimate", subtitle: "Log a figure, fast" };
+  const mark = (glyph: string) =>
+    createRawSnippet(() => ({ render: () => `<span>${glyph}</span>` }));
+
+  it("stacks the title over a muted subtitle", () => {
+    const { body } = render(Row, { props });
+    expect(body).toMatch(/class="[^"]*\brow-title\b[^"]*">Quick estimate</);
+    expect(body).toMatch(
+      /class="[^"]*\brow-subtitle\b[^"]*">Log a figure, fast</
+    );
+  });
+
+  it("drops the subtitle line entirely when there is none", () => {
+    const { body } = render(Row, { props: { title: "Quick estimate" } });
+    expect(body).toContain("row-title");
+    expect(body).not.toContain("row-subtitle");
+  });
+
+  it("renders a native <button> when it is clickable and holds no corner", () => {
+    const { body } = render(Row, { props: { ...props, onclick: () => {} } });
+    expect(body).toMatch(/<button[^>]*class="row[ "]/);
+    expect(body).toContain('type="button"');
+    expect(body).not.toContain('role="button"');
+  });
+
+  it("falls back to a div role=button when it also draws a remove ✕", () => {
+    // HTML forbids a button inside a button, and the ✕ is a real one.
+    const { body } = render(Row, {
+      props: { ...props, onclick: () => {}, onRemove: () => {} },
+    });
+    expect(body).toMatch(/<div[^>]*role="button"[^>]*tabindex="0"/);
+    expect(body).not.toMatch(/<button[^>]*class="row[ "]/);
+  });
+
+  it("falls back to a div role=button when it holds corner content", () => {
+    const { body } = render(Row, {
+      props: { ...props, onclick: () => {}, corner: mark("✓") },
+    } as Parameters<typeof render>[1]);
+    expect(body).toMatch(/<div[^>]*role="button"/);
+    expect(body).not.toMatch(/<button[^>]*class="row[ "]/);
+  });
+
+  it("is a plain inert div with no tap handler at all", () => {
+    const { body } = render(Row, { props });
+    expect(body).toMatch(/<div[^>]*class="row[ "]/);
+    expect(body).not.toContain('role="button"');
+    expect(body).not.toContain("tabindex");
+    expect(body).not.toContain("clickable");
+  });
+
+  it("names its own remove ✕ after the row it removes", () => {
+    const { body } = render(Row, { props: { ...props, onRemove: () => {} } });
+    expect(body).toMatch(
+      /<button[^>]*class="[^"]*\brow-remove\b[^"]*"[^>]*aria-label="Remove Quick estimate"/
+    );
+  });
+
+  it("gives the corner to `corner` when both it and a remove are passed", () => {
+    const { body } = render(Row, {
+      props: { ...props, onRemove: () => {}, corner: mark("✓") },
+    } as Parameters<typeof render>[1]);
+    expect(body).toContain("row-corner");
+    expect(body).toContain("✓");
+    expect(body).not.toContain("row-remove");
+  });
+
+  it("places the lead ahead of the text and the trailing mark after it", () => {
+    const { body } = render(Row, {
+      props: { ...props, lead: mark("⚡"), trailing: mark("›") },
+    } as Parameters<typeof render>[1]);
+    expect(body.indexOf("⚡")).toBeLessThan(body.indexOf("row-title"));
+    expect(body.indexOf("›")).toBeGreaterThan(body.indexOf("row-subtitle"));
+  });
+
+  it("marks the selected row", () => {
+    const { body } = render(Row, { props: { ...props, selected: true } });
+    expect(body).toMatch(/class="[^"]*\bselected\b/);
+  });
+
+  it("keeps the caller's class on the root beside the base class", () => {
+    const { body } = render(Row, { props: { ...props, class: "intent" } });
+    expect(body).toMatch(/class="row intent/);
+  });
+
+  it("lets a caller name the parts its own DOM contract already names", () => {
+    const { body } = render(Row, {
+      props: {
+        ...props,
+        onRemove: () => {},
+        titleClass: "fi-name",
+        subtitleClass: "fi-qty",
+        removeClass: "fi-remove",
+      },
+    });
+    expect(body).toMatch(/class="row-title fi-name/);
+    expect(body).toMatch(/class="row-subtitle fi-qty/);
+    expect(body).toMatch(/class="row-remove fi-remove/);
+  });
+
+  it("spreads ...rest a11y attributes onto both element modes", () => {
+    const asButton = render(Row, {
+      props: {
+        ...props,
+        onclick: () => {},
+        "data-testid": "intent-menu",
+      } as Record<string, unknown>,
+    });
+    expect(asButton.body).toMatch(/<button[^>]*data-testid="intent-menu"/);
+
+    const asDiv = render(Row, {
+      props: { ...props, "data-testid": "logged-food" } as Record<
+        string,
+        unknown
+      >,
+    });
+    expect(asDiv.body).toMatch(/<div[^>]*data-testid="logged-food"/);
   });
 });

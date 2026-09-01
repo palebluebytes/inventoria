@@ -381,6 +381,16 @@ The canonical container frame primitive (`ui/Card.svelte`), carrying the ADR-003
 edge and elevation tokens. See ADR-0039.
 _Avoid_: Panel, box, tile, surface
 
+**Row**:
+The one horizontal list line (`ui/Row.svelte`): an optional lead mark, a title over
+a muted subtitle, a trailing mark, and an optional corner. It is Card's flat sibling
+— thin edge, no radius, no shadow, no press-flush — and it picks its own element:
+a native `<button>` when it is clickable and holds no corner, a `div role="button"`
+otherwise, because HTML forbids the remove ✕ inside a button. A chooser tile is a
+Row, not a Card; the food line (`views/food/FoodItemRow.svelte`) is a Row wearing
+food formatting.
+_Avoid_: List item, tile, ListRow, a second row component
+
 **Meter**:
 The shared proportional-readout primitive (`ui/Meter.svelte`) behind the nutrition
 bars, the dashboard RDA cells, and the calorie ring. See ADR-0037.
