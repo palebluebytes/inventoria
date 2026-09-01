@@ -2365,6 +2365,12 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.goto("/?mem=1");
     await waitForDbReady(page);
     await setupApiKeys(page);
+    // A breakfast a week back before today's, so the header shows all five
+    // ways in: `past` is absent rather than disabled when there is no past
+    // meal to copy (ADR-0059 §7), and the count below is about the roster.
+    await page.getByRole("button", { name: "Previous Week" }).click();
+    await logUsdaFood(page, "breakfast", "banana", "Mock Banana", "100");
+    await page.getByRole("button", { name: "Today", exact: true }).click();
     await logUsdaFood(page, "breakfast", "banana", "Mock Banana", "100");
 
     const panel = page.locator('[data-testid="meal-nutrient-breakdown"]');
