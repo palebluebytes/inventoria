@@ -183,14 +183,18 @@ describe("device settings (ADR-0085: a setting is never a datom)", () => {
       expect(get((await loadPrefs()).scraperProxyUrl)).toBe("/api/proxy?url=");
     });
 
-    it("lets an explicit clear override the env fallback", async () => {
-      // A stored empty string counts as SET, exactly as a blank datom used to:
-      // clearing the field must mean "no proxy", not "fall back to the env var".
+    it("falls through a stored empty string, which no longer counts as set", async () => {
+      // It used to mean "no proxy", the way a blank datom did, and that was
+      // right while a field could both say it and take it back. ADR-0080 §4
+      // deleted the field, so a device holding one would have every scrape dead
+      // for good with nothing on any screen saying why.
       const ls = makeFakeLocalStorage();
       ls.store.set("inventoria_device_scraper_proxy_url", "");
       vi.stubGlobal("localStorage", ls);
       vi.stubEnv("VITE_SCRAPER_PROXY_URL", "https://env-proxy/?url=");
-      expect(get((await loadPrefs()).scraperProxyUrl)).toBe("");
+      expect(get((await loadPrefs()).scraperProxyUrl)).toBe(
+        "https://env-proxy/?url="
+      );
     });
 
     it("has no setter, because the field that wrote it was deleted", async () => {

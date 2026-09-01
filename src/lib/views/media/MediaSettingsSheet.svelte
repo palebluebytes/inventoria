@@ -1,6 +1,7 @@
 <script lang="ts">
   import { secretsStore, setSecret } from "../../stores/secrets";
   import { get } from "svelte/store";
+  import { onDestroy } from "svelte";
   import BottomSheet from "../../ui/BottomSheet.svelte";
 
   // **Media settings** (ADR-0080 §4): a setting lives beside the thing it
@@ -39,6 +40,14 @@
   function persistTmdbKey() {
     setSecret("tmdb_api_key", tmdbKey.trim());
   }
+
+  // And again on the way out, because blur is not guaranteed to have happened.
+  // This sheet is dismissed by Escape and by a click on the backdrop as well as
+  // by its close button, and removing a focused input from the document does
+  // not reliably fire `blur` — so without this a key typed and then dismissed
+  // with Escape would be lost with no Save button to have pressed. Writing the
+  // same value twice costs a `localStorage` write and nothing else.
+  onDestroy(persistTmdbKey);
 </script>
 
 <BottomSheet isOpen title="Media settings" {onClose}>

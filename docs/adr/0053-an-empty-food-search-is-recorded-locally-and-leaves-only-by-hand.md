@@ -6,7 +6,7 @@
 **Amended by:** [ADR-0054](0054-one-local-log-facility-and-no-channel-without-a-reader.md), which makes §3's record the first channel of a shared local log facility rather than a store of its own
 **Amended by:** the second Amendment below, which replaces §7's rate-over-a-window with two self-triggering counts, since the app is not yet in use and a window presumes a user
 **Amended by:** [ADR-0064](0064-the-ledger-leaves-as-raw-datoms-one-json-object-per-line.md) §4, which retires §6's clause on the ledger export: the log never became a ledger namespace, so the exclusion needed no code
-**Implemented:** #149 `f955c40` (the channel, the session and the bar), `c31b3df` (the rescue signal the outcome needs), `b990903` (the count, the recording switch and the clear), `b9460df` (§7 evaluated on the write, §4's re-read wired to a reader)
+**Implemented:** #149 `f955c40` (the channel, the session and the bar), `c31b3df` (the rescue signal the outcome needs), `b990903` (the count, the recording switch and the clear), `b9460df` (§7 evaluated on the write, §4's re-read wired to a reader). [#303](https://github.com/palebluebytes/inventoria/issues/303) then withdrew that last clause under ADR-0080 §6: the readout it fed is gone, so nothing in the app evaluates the bar and §7's counts are read off an exported channel instead. The recording, the cap and the export are untouched.
 
 ## Context
 

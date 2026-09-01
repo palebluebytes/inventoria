@@ -18,11 +18,11 @@ export async function fetchHtml(url: string): Promise<string> {
     const proxyUrl = activeProxyUrl();
     if (!proxyUrl) {
       // The app serves its own proxy and `device-settings.ts` returns it by
-      // default (ADR-0070), so this only fires where a build or a stored value
-      // explicitly cleared it. It used to say "Please set it in Settings",
-      // pointing at a field about a value that had had a working default ever
-      // since — the exact bug ADR-0070 was written about. ADR-0080 §4 deleted
-      // the field, and this sentence went with it.
+      // default (ADR-0070), so the only way here is a build whose
+      // `VITE_SCRAPER_PROXY_URL` is set to nothing. This used to name a
+      // Settings field instead, about a value that had had a working default
+      // since ADR-0070 — the exact bug that record was written about, and
+      // ADR-0080 §4 deleted the field it named.
       throw new Error("This build has no scraper proxy, so it cannot fetch.");
     }
     targetUrl = `${proxyUrl}${encodeURIComponent(url)}`;

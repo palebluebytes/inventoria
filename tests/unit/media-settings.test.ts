@@ -49,6 +49,13 @@ describe("the surface the Media gear opens (ADR-0080 §4)", () => {
     expect(SHEET).toMatch(/onblur=\{persistTmdbKey\}/);
     expect(SHEET).not.toMatch(/type="submit"/);
   });
+
+  it("persists again on the way out, because blur is not guaranteed", () => {
+    // Escape and a backdrop click both dismiss this sheet, and removing a
+    // focused input from the document does not reliably fire `blur` — so a key
+    // typed and then dismissed that way would be lost with nothing to press.
+    expect(SHEET).toMatch(/onDestroy\(persistTmdbKey\)/);
+  });
 });
 
 describe("what the root Settings screen gave up (ADR-0080 §2)", () => {

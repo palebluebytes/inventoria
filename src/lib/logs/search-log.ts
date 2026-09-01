@@ -404,19 +404,12 @@ export async function recordSearchSession(
 }
 
 // ---------------------------------------------------------------------------
-// The bar (ADR-0053 §7, as amended) is NOT here
+// ADR-0053 §7's bar is not computed here, and that is deliberate
 // ---------------------------------------------------------------------------
 //
-// It used to be: a pure fold over the channel that counted settled empty
-// sessions and mid-phrase ones, the two thresholds beside it, and a second
-// reading recomputed against the vocabulary as it stands now. All of it existed
-// to feed one readout on the Settings screen, and ADR-0080 §6 deleted that
-// readout — a permanent readout of a question that has an ending is how the #41
-// comments in `NutrientCard.svelte` went stale.
-//
-// **The channel is untouched.** Every entry still carries the query, whether the
-// session settled, its outcome and the vocabulary keys it was flagged against at
-// capture time, so #142's verdict is a fold anyone can run over an exported file.
-// Moving either threshold is still an amendment to ADR-0053 and not an edit
-// here; the record holds them, which is where they were pinned in the first
-// place.
+// ADR-0080 §6 deleted the Settings readout that was its only reader, so the
+// counts are folded over an exported channel by the person who cares. The entry
+// carries everything that fold needs — the query, whether the session settled,
+// its outcome, and the vocabulary keys it was flagged against at capture time.
+// The thresholds stay pinned in ADR-0053, which is where a change to one
+// belongs.

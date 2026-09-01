@@ -149,22 +149,26 @@ const BUILT_IN_PROXY_URL = "/api/proxy?url=";
  * The CORS proxy a browser routes an HTML scrape through, as a URL prefix the
  * target is appended to. Three layers, most specific first.
  *
- * A stored value wins, including a stored empty string: an explicit clear
- * counts as set and means "no proxy", exactly as a blank datom used to.
- * `VITE_SCRAPER_PROXY_URL` comes next, so a dev can point a build at some other
- * proxy without touching code — the same env-fallback shape the secrets module
- * uses, and the reason this reads through a function rather than straight off
- * the key. Failing both, the app uses its own.
+ * A stored value wins. `VITE_SCRAPER_PROXY_URL` comes next, so a dev can point a
+ * build at some other proxy without touching code — the same env-fallback shape
+ * the secrets module uses, and the reason this reads through a function rather
+ * than straight off the key. Failing both, the app uses its own.
  *
  * **Nothing in the app writes the first layer any more.** ADR-0080 §4 deleted
  * the Settings field that did: the app has served its own proxy since ADR-0070,
  * so the field overrode a working default for a reader who did not exist. The
- * layer is still read, because a device that was given a value keeps honouring
- * it, and the live override is now the env var.
+ * layer is still read, because a device that was given a proxy keeps using it.
+ *
+ * **A stored empty string no longer counts as set**, and that changed with the
+ * field. It used to mean "no proxy", the way a blank datom did, because the
+ * field could say it and could take it back. It can do neither now, so
+ * honouring it would hold a device to a choice it can no longer revise and
+ * leave every scrape dead with nothing on any screen saying why. An empty
+ * stored value falls through to the default that works.
  */
 function readScraperProxyUrl(): string {
   const stored = safeGet(LS_KEYS.scraper_proxy_url);
-  if (stored !== null) return stored;
+  if (stored) return stored;
   return (
     (import.meta.env?.VITE_SCRAPER_PROXY_URL as string) ?? BUILT_IN_PROXY_URL
   );
