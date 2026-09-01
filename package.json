@@ -6,6 +6,7 @@
   "packageManager": "pnpm@11.1.2",
   "scripts": {
     "dev": "vite",
+    "dev:relay": "mkdir -p dist && wrangler dev --port 8787 --ip 127.0.0.1",
     "build": "vite build && node scripts/offline-boot-check.mjs",
     "check:offline": "node scripts/offline-boot-check.mjs",
     "preview": "vite preview",

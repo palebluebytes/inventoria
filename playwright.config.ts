@@ -53,11 +53,36 @@ export default defineConfig({
       use: { ...devices["Pixel 5"] },
     },
   ],
-  webServer: {
-    command: "pnpm dev",
-    url: "http://localhost:5173",
-    reuseExistingServer: !process.env.CI,
-    stdout: "ignore",
-    stderr: "pipe",
-  },
+  // Two processes, because the relay is the real one (#298). `pnpm dev` serves
+  // the app and proxies `/api/relay` to the second (see vite.config.ts), so the
+  // socket a spec opens leaves from the app's own origin and is answered by the
+  // actual Durable Object under workerd — not by a stand-in the suite would then
+  // be testing instead.
+  webServer: [
+    {
+      command: "pnpm dev",
+      url: "http://localhost:5173",
+      reuseExistingServer: !process.env.CI,
+      stdout: "ignore",
+      stderr: "pipe",
+    },
+    {
+      command: "pnpm dev:relay",
+      // The route rather than the port: `/api/relay` with no room answers 400
+      // "Missing room id", and Playwright reads anything under 404 as up. So
+      // this waits for the Worker to be *routing*, which is the thing a socket
+      // needs, rather than for a socket to be accepted somewhere on 8787.
+      url: "http://127.0.0.1:8787/api/relay",
+      // Locally this adopts whatever already holds 8787, which on a machine
+      // running several worktrees can be a peer's Worker rather than this
+      // tree's. That is the same bargain the dev server above strikes on 5173;
+      // check what is on the port before trusting a red run.
+      reuseExistingServer: !process.env.CI,
+      // workerd is downloaded with wrangler but still cold-starts a runtime; the
+      // default 60s is thin on a runner already building the Vite dev server.
+      timeout: 120_000,
+      stdout: "ignore",
+      stderr: "pipe",
+    },
+  ],
 });

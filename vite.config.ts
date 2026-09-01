@@ -82,6 +82,17 @@ const handleProxyRequest = async (req: any, res: any, next: any) => {
   next();
 };
 
+/**
+ * Where `pnpm dev:relay` binds its `wrangler dev`.
+ *
+ * Three files write this port and all three have to agree: the `dev:relay`
+ * script in `package.json` binds it, this carries the upgrade to it, and
+ * `playwright.config.ts` waits on it. Nothing can import across those three, so
+ * the number is repeated rather than shared, and IPv4 is named on both ends
+ * because `wrangler dev --ip 127.0.0.1` does not answer on `::1`.
+ */
+const RELAY_DEV_TARGET = "ws://127.0.0.1:8787";
+
 const localScraperProxyPlugin = () => ({
   name: "local-scraper-proxy",
   configureServer(server: any) {
@@ -204,6 +215,29 @@ export default defineConfig({
     }),
   ],
   server: {
+    // The relay is **proxied to a real `wrangler dev`, never re-implemented
+    // here** (#298). The middleware above stands in for the Worker's
+    // `/api/proxy` by importing that route's own guards, which works because a
+    // scrape is a pure function of a URL. A room is not: it is a Durable Object
+    // holding two sockets, counting frames and burning itself after two, and a
+    // second implementation of it would be the thing a test then proved rather
+    // than the one that ships.
+    //
+    // Same origin is a requirement and not a convenience. `openRelaySocket`
+    // builds its URL from `location.href` (ADR-0072 §9: app, link and socket
+    // are one origin, so there is no allowlist to write, maintain and get
+    // wrong), so the socket has to leave from the port the app is served on —
+    // pointing a test straight at :8787 would be testing a different app.
+    //
+    // **`pnpm dev` still starts one process.** ADR-0070 keeps the middleware
+    // above on the ground that a dev server should not require a second one,
+    // and that is untouched: the relay's process is started by whoever wants a
+    // relay (`pnpm dev:relay`, which `playwright.config.ts` runs for the
+    // suite). Without one, this entry refuses the upgrade, which is the same
+    // absent relay a send behind `pnpm dev` has always met.
+    proxy: {
+      "/api/relay": { target: RELAY_DEV_TARGET, ws: true },
+    },
     headers: {
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Embedder-Policy": "require-corp",

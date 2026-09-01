@@ -124,6 +124,12 @@ pnpm install
 pnpm dev         # vite dev server on :5173
 ```
 
+`pnpm dev` is one process and stays one. Handing a meal to another device needs a
+second one: `pnpm dev:relay`, a `wrangler dev` on :8787 that the dev server
+proxies `/api/relay` to, so the socket is answered by the real Durable Object
+rather than by a stand-in. Everything else works without it, and a send without
+it reports that there is no route.
+
 The checks, in the order you will reach for them:
 
 ```bash
