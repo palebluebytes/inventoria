@@ -175,12 +175,23 @@ link suppression; and a router — §1 and §2 together mean Rations has no navi
 all, so introducing one is a decision that has to overturn this record rather than arrive as
 a refactor.
 
-**What was never verified.** Whether a browser hands `/food/` off to an installed Rations
-when §4's link opens it, or renders it in the tab. Android WebAPK intent capture and desktop
-link capturing both exist and neither is controlled from here. It is benign in both readings
-— hand-off is the outcome §4 wants, and a tab is where the install offer belongs — so no
-decision in this record depends on it. It becomes an acceptance-criterion observation for the
-implementation ticket, not a blocker.
+**What was never verified, and where that has since gone wrong.** Whether a browser hands
+`/food/` off to an installed Rations when §4's link opens it, or renders it in the tab.
+Android WebAPK intent capture and desktop link capturing both exist and neither is controlled
+from here. This record originally called that benign in both readings. **On iOS it is not**,
+and the research commissioned below found why: Apple states that links _outside_ a Home Screen
+web app's scope open in Safari View Controller, and links _within_ it stay in the web app
+(WWDC23, quoted in `docs/research/286-ios-home-screen-storage-jar.md` §7). Rations' scope sits
+inside the root's, so §4's link is an **in-scope** link, and the platform rule points at the
+outcome §4 exists to refuse: navigating in place, into a Facet with no door back, with
+`target="_blank"` possibly buying nothing. Whether it does is untested — it is probed by
+[#287](https://github.com/palebluebytes/inventoria/issues/287), which also reads the jar from
+inside a Safari View Controller, a thing no public source establishes.
+
+§4's reasoning is untouched by this: `beforeinstallprompt` still binds to the current
+document, so the root still cannot offer a Rations install, and the exit still belongs in a
+browser. What is in doubt is whether iOS lets that exit happen at all, which is a mechanism
+question for the implementation ticket rather than a decision to retake here.
 
 **What this record does not know about, and should.** The map's foundation is _one origin,
 one jar_. On iOS a Home Screen web app's storage is separated from Safari's; whether two Home
@@ -188,8 +199,14 @@ Screen apps from the same origin are also separated from **each other** is unest
 if they are, installing both Inventoria and Rations yields two ledgers on that platform —
 defeating map decision 2, which refused separate origins precisely to avoid a second jar, by
 platform rather than by choice. Commissioned as
-[#286](https://github.com/palebluebytes/inventoria/issues/286). It is not this record's
-question and nothing here changes on either answer.
+[#286](https://github.com/palebluebytes/inventoria/issues/286), **now answered: unbacked
+rather than refuted.** Inside a WebKit website data store the storage key is the origin and
+nothing else — no manifest, no `scope`, no `start_url`, no `id` reaches the storage layer, and
+OPFS sits in the same per-origin bucket as its siblings — but whether iOS gives each web clip
+its own data store is closed source. The evidence leans toward one shared jar and does not
+prove it. [#287](https://github.com/palebluebytes/inventoria/issues/287) is the device probe
+that closes it. Nothing in this record changes on either answer; map decision 2 and
+[#274](https://github.com/palebluebytes/inventoria/issues/274) are the exposures.
 
 **A correction to the parent map.** Its decision 9 is written symmetrically — "a Facet never
 links out of itself" — and §3 shows it can only ever bind Rations. The map's wording stands
