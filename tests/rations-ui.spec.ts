@@ -48,11 +48,12 @@ test.describe("Rations, the food Facet's own entry point", () => {
     // `SettingsView` being absent from the Rations build is **not** asserted by
     // `pnpm check:facets`: it is the jar-wide surface, which no domain owns, and
     // whether a block of it belongs inside a Facet is the judgement ADR-0083 §10
-    // declined to gate. What is observable is this — the gear opens the food
-    // settings and there is no other door.
+    // declined to gate. What is observable is this — the gear opens Rations
+    // settings, titled off the registry (ADR-0080 §7), and there is no other
+    // door.
     await page.locator("#food-settings-btn").click();
     await expect(
-      page.getByRole("heading", { name: "Food Settings" })
+      page.getByRole("heading", { name: "Rations settings" })
     ).toBeVisible();
   });
 

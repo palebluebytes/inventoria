@@ -136,9 +136,10 @@
     scannedCode = code;
   }
 
-  // The food screen's own settings sheet (top-right gear) — food-specific
-  // settings (USDA/OFF credentials, contribution consent, nutrition targets)
-  // that moved off the global Settings tab so they live with the food.
+  // Rations settings (top-right gear) — the Facet's one named, full-height
+  // surface (ADR-0080 §7). It carries the food config that moved off the global
+  // Settings tab before Facets existed, and now Rations' own Local Logs card
+  // too, because ADR-0078 §7 leaves a food-only user no route to root Settings.
   let settingsOpen = $state(false);
 
   // The standing blurb under the title is orientation for a first visit and
@@ -960,7 +961,7 @@
         type="button"
         class="header-icon-btn"
         id="food-settings-btn"
-        aria-label="Food settings"
+        aria-label="Rations settings"
         onclick={() => (settingsOpen = true)}
       >
         {@render settingsMark()}
@@ -1009,11 +1010,11 @@
       <div class="legend-row">
         <dt>
           <span class="legend-mark">{@render settingsMark()}</span>
-          Food settings
+          Rations settings
         </dt>
         <dd>
-          Nutrition targets and what the day's totals show, and the Open Food
-          Facts account used for scanning.
+          Nutrition targets and what the day's totals show, the Open Food Facts
+          account used for scanning, and the local logs this app keeps.
         </dd>
       </div>
     </dl>
@@ -1246,8 +1247,9 @@
   </SelectionBar>
 {/if}
 
-<!-- Food settings — the top-right gear opens the food-specific settings sheet
-     (USDA/OFF credentials, contribution consent, nutrition targets). -->
+<!-- Rations settings — the top-right gear opens the Facet's one named,
+     full-height settings surface (ADR-0080 §7): the OFF login, the contribution
+     default, the nutrition targets, and Rations' own Local Logs card. -->
 {#if settingsOpen}
   <FoodSettingsSheet onClose={() => (settingsOpen = false)} />
 {/if}

@@ -172,20 +172,21 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     );
   }
 
-  // Open the food screen's own settings sheet (the top-right gear) — home now to
-  // the USDA/OFF credentials, contribution consent, and the nutrition-target
-  // editor that used to live on the global Settings tab.
+  // Open Rations settings (the top-right gear) — the Facet's one named,
+  // full-height surface (ADR-0080 §7): the OFF credentials, the contribution
+  // default, the nutrition-target editor that used to live on the global
+  // Settings tab, and Rations' own Local Logs card.
   async function openFoodSettings(page: import("@playwright/test").Page) {
     await page.locator("#food-settings-btn").click();
     await expect(
-      page.getByRole("heading", { name: "Food Settings" })
+      page.getByRole("heading", { name: "Rations settings" })
     ).toBeVisible();
   }
 
   async function closeFoodSettings(page: import("@playwright/test").Page) {
     await page.locator(".bottom-sheet-content .close-btn").first().click();
     await expect(
-      page.getByRole("heading", { name: "Food Settings" })
+      page.getByRole("heading", { name: "Rations settings" })
     ).toBeHidden();
   }
 
@@ -2583,7 +2584,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       page.locator(".macro-name", { hasText: "Calcium" })
     ).toHaveCount(0);
 
-    // Turn Calcium ON and Fibre OFF in the Food settings sheet.
+    // Turn Calcium ON and Fibre OFF in the Rations settings surface.
     await openFoodSettings(page);
     await page.locator('input[data-nutrient="calcium"]').check();
     await page.locator('input[data-nutrient="fiber_content"]').uncheck();

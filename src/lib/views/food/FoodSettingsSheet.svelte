@@ -7,12 +7,29 @@
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import Checkbox from "../../ui/Checkbox.svelte";
   import NutritionTargetEditor from "./NutritionTargetEditor.svelte";
+  import LogSettingsSection from "../logs/LogSettingsSection.svelte";
+  import { facetOf } from "../../facets/registry";
 
-  // The food screen's own settings surface (top-right gear on FoodView). Holds
-  // just the food-relevant settings — the Open Food Facts login, the
-  // OFF-contribution default, and the nutrition-target editor — that
-  // moved off the global Settings tab so food config lives with the food. The
-  // TMDB key, scraper proxy, ledger and dev options stay on Settings.
+  // **Rations settings** (ADR-0080 §7): the one named, full-height surface the
+  // food screen's gear opens, from either entry point.
+  //
+  // It was the food screen's own sheet of food config — the Open Food Facts
+  // login, the OFF-contribution default and the nutrition-target editor, moved
+  // off the global Settings tab before Facets existed. ADR-0080 makes it the
+  // whole of what a food-only user can do to their own data: ADR-0078 §7 leaves
+  // Rations no route to root Settings and no escape hatch is coming, so
+  // anything a standalone Rations user needs is here or nowhere.
+  //
+  // That is the threshold ADR-0076 §5 said would come, and it was not a count of
+  // blocks — it was the arrival of a destructive action and a run that reports
+  // progress for minutes, loose in a container the user dismisses by swiping.
+  // Hence the pinned height rather than one that swings with its content.
+  //
+  // **The title is read off the registry** (ADR-0080 §7, §8), so a second Facet
+  // gets its own without a second decision. It is qualified rather than plain
+  // "Settings" because the same surface opens from the root's Food tab, one tab
+  // away from the root's own Settings screen — which is the collision ADR-0076
+  // §5's ban was written for, and one string is correct in both contexts.
   //
   // USDA needs nothing here: the base-food corpus is bundled, so there is no key
   // to enter and no quota to explain (ADR-0047 §1/§9).
@@ -21,6 +38,11 @@
   // secret on blur, the toggle on change), matching how the nutrition editor
   // below already auto-saves. So the sheet is dismissed, never "submitted".
   let { onClose }: { onClose: () => void } = $props();
+
+  // The Facet whose settings these are — always Rations, whichever entry point
+  // is drawing the screen. Read off the registry rather than typed, so the name
+  // a home screen installs under and the name this title says cannot come apart.
+  const title = `${facetOf("food").name} settings`;
 
   // Local form state. Both are per-device `localStorage`: the OFF login is a
   // secret (ADR-0034 §8), and the contribution toggle is a setting, because it
@@ -107,7 +129,7 @@
   </button>
 {/snippet}
 
-<BottomSheet isOpen title="Food Settings" {onClose}>
+<BottomSheet isOpen {title} fillHeight {onClose}>
   <!-- Nutrition Display leads the sheet, borderless and full-bleed: the negative
        inline margins cancel the sheet body's padding so the editor spans the
        full width, edge to edge. -->
@@ -183,6 +205,14 @@
       </div>
     </div>
   </section>
+
+  <!-- Local logs, Rations' own (ADR-0080 §2). The same card the root draws,
+       narrowed to the channels food's domain writes and switched by Rations'
+       own export door — clause (b) of ADR-0080 §1: Rations writes the only
+       channel there is, so Rations governs its egress. Until this surface
+       existed that switch lived on a screen ADR-0078 §7 gives a Rations user no
+       way to reach, so it was off forever with nothing saying why. -->
+  <LogSettingsSection facetId="food" elevated />
 </BottomSheet>
 
 <style>
