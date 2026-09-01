@@ -50,9 +50,11 @@ export interface SendWords extends EndingWords {
    * **True on the two endings the record names, and nowhere else.** §14 is the
    * relay out of reach: nothing crossed, the code was never spent, and the
    * difference between a named step-down and a dead end is one button. ADR-0074
-   * §10 adds the room that ran out its five minutes, which is where an Android
-   * sender lands when an iOS recipient refuses — *"will time out at five
-   * minutes and be offered the export, correctly"*.
+   * §10 adds the room that ran out its five minutes, which is where a sender
+   * lands when the other end never completes — *"will time out at five minutes
+   * and be offered the export, correctly"*. That reads the same under
+   * ADR-0082 §2, where an iOS recipient on a remote link is handed the code
+   * rather than the meal and may simply not carry it across.
    *
    * Everything else is false for a reason rather than by default. A refusal and
    * a wrong-key answer are about the meal and about who was in the room; a
@@ -64,9 +66,14 @@ export interface SendWords extends EndingWords {
    * ending nobody recognises may well be the ledger read that failed, so
    * offering a file of that same ledger would be a guess printed as an answer.
    *
-   * This is the **sender's** surface only. ADR-0074 §10 refuses the same button
-   * on the iOS receive surface, because a refusal that proposes a way round is
-   * not a refusal, and the two rules must not be merged.
+   * This is the **sender's** surface only, and the rule that refuses the same
+   * button on the iOS receive surface is a different rule that must not be
+   * merged with it. Its conclusion stands and its reason has moved: ADR-0074
+   * §10 refused it because a refusal that proposes a way round is not a
+   * refusal, and ADR-0082 §11.8 refuses it because that page refuses nothing
+   * and already has a working path, so a second route offered beside it would
+   * read as doubt about the first. This one is a different screen, on a
+   * different device, for a failure the sender cannot diagnose.
    */
   stepDown: boolean;
 }
