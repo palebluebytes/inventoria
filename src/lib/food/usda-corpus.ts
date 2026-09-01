@@ -714,9 +714,19 @@ const NUTRIENT_STORE_URL = "/usda/nutrient-store.json";
 
 async function fetchArtifact<T>(url: string): Promise<T> {
   const res = await fetch(url);
-  // Both artifacts are precached at install (ADR-0047 §11), so a miss here is a
-  // broken build or a broken service worker rather than an offline user. Say
-  // which file, because the two fail for the same reasons and read alike.
+  // **In Rations, a miss is a broken build or a broken service worker rather
+  // than an offline user.** That Facet precaches all three USDA artifacts and
+  // owes ADR-0047 §11's promise whole (ADR-0077 §4).
+  //
+  // **In the root it is routinely an offline user**, and this comment used to
+  // say otherwise. ADR-0077 §5 takes the Nutrient store out of Inventoria's
+  // precache — it is read when a food is staged, seconds after launch, where
+  // the search index is what the user is looking at before they do anything —
+  // so a cold offline root reaches this with no network and nothing cached.
+  // #307 is what makes that path say it needs a network instead of surfacing
+  // the message below.
+  //
+  // Say which file, because the two fail for the same reasons and read alike.
   if (!res.ok) throw new Error(`Failed to load ${url} (${res.status}).`);
   return (await res.json()) as T;
 }
