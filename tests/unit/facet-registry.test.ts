@@ -7,8 +7,15 @@ import {
   entityPrefixesOf,
   facetOf,
   type FacetId,
+  nestedFacetsOf,
   ownerOfEntity,
+  ownerOfViewModule,
+  PRECACHE_BAND,
+  precacheBandOf,
+  screenOf,
+  screensOf,
   storagePrefixesOf,
+  VIEWS_ROOT,
 } from "../../src/lib/facets/registry";
 import { isDeclaredEntity, mintEntity } from "../../src/lib/facets/entity-id";
 
@@ -179,5 +186,101 @@ describe("what a Facet says about its entry point (ADR-0076 §6)", () => {
       });
       expect(rest.every((i) => i.src !== path)).toBe(true);
     }
+  });
+});
+
+// #309. What the build-time gates read off this registry (ADR-0083 §4). The
+// rules that consume these live in `src/lib/facets/checks.ts` and are tested
+// beside it; what is here is the registry keeping its own promises, including
+// the one its header makes about never naming a file that is not there.
+describe("what the Facet gates read off the registry (ADR-0083 §4)", () => {
+  const path = (relative: string) =>
+    new URL(`../../${relative}`, import.meta.url);
+
+  it("owns only paths that are there, for every Tracked Domain", () => {
+    // The same rule as the icons above, and the registry header's own: a path to
+    // a file that is not there is the lie this module refuses. A screen declared
+    // at a module that has moved fails the containment check as a *missing*
+    // screen, which reads as a broken build rather than as a stale registry.
+    for (const domain of TRACKED_DOMAINS) {
+      for (const owned of domain.views) {
+        expect({
+          owned,
+          exists: existsSync(fileURLToPath(path(owned))),
+        }).toEqual({ owned, exists: true });
+      }
+      expect(screenOf(domain)).toBe(domain.views[0]);
+      expect(screenOf(domain).startsWith(VIEWS_ROOT)).toBe(true);
+      expect(screenOf(domain).endsWith("/")).toBe(false);
+    }
+  });
+
+  it("counts two domains sharing one screen once", () => {
+    // The root has six tabs and six domains and they are not the same six:
+    // habits and calendar events both draw through AgendaView. A gate that
+    // expected one screen per domain would never be satisfiable.
+    expect(screensOf("root")).toEqual([
+      "src/lib/views/AgendaView.svelte",
+      "src/lib/views/FoodView.svelte",
+      "src/lib/views/ItemsView.svelte",
+      "src/lib/views/MediaView.svelte",
+      "src/lib/views/NotesView.svelte",
+    ]);
+    expect(screensOf("food")).toEqual(["src/lib/views/FoodView.svelte"]);
+    expect(screensOf("nothing-on-the-roster")).toEqual([]);
+  });
+
+  it("owns a screen's components as well as its screen", () => {
+    // The half that makes ADR-0078 §8's claim worth checking: the six screens
+    // are six of the ninety modules under src/lib/views/, so an ItemCard reached
+    // from a food component is the crossing one file below a screen.
+    expect(ownerOfViewModule("src/lib/views/items/ItemCard.svelte")?.id).toBe(
+      "items"
+    );
+    expect(ownerOfViewModule("src/lib/views/FoodView.svelte")?.id).toBe("food");
+    // Only habits owns `views/habits/`, though calendar shares the screen: a
+    // shared directory would be two owners for one path.
+    expect(
+      ownerOfViewModule("src/lib/views/habits/HabitsSection.svelte")?.id
+    ).toBe("habits");
+  });
+
+  it("leaves the jar-wide surface unowned, on purpose", () => {
+    // `SettingsView` and the blocks under it are nobody's domain screen, and
+    // which Facet carries one is the judgement ADR-0083 §10 declined to gate.
+    // The containment check counts these rather than passing them in silence.
+    // Real modules, all of them — `HabitsView.svelte` included, which is named
+    // by nothing in `src/` and is in neither build.
+    for (const unowned of [
+      "src/lib/views/SettingsView.svelte",
+      "src/lib/views/ledger/LedgerExport.svelte",
+      "src/lib/views/logs/LogReviewSheet.svelte",
+      "src/lib/views/storage/StorageStatus.svelte",
+      "src/lib/views/HabitsView.svelte",
+    ]) {
+      expect({
+        unowned,
+        owner: ownerOfViewModule(unowned),
+        exists: existsSync(fileURLToPath(path(unowned))),
+      }).toEqual({ unowned, owner: null, exists: true });
+    }
+  });
+
+  it("derives a Facet's band from the one figure it declares", () => {
+    for (const facet of FACETS) {
+      const { floor, ceiling } = precacheBandOf(facet);
+      expect(floor).toBeLessThan(facet.precacheBytes);
+      expect(ceiling).toBeGreaterThan(facet.precacheBytes);
+      expect(ceiling - facet.precacheBytes).toBe(
+        Math.round(facet.precacheBytes * PRECACHE_BAND)
+      );
+    }
+  });
+
+  it("knows which Facet has another inside its scope", () => {
+    // The asymmetry every nesting consequence turns on, and the reason neither
+    // the cleanup rule nor the navigation denylist is written against `root`.
+    expect(nestedFacetsOf("root").map((f) => f.id)).toEqual(["food"]);
+    expect(nestedFacetsOf("food")).toEqual([]);
   });
 });

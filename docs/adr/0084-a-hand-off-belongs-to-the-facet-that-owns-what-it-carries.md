@@ -1,7 +1,8 @@
 # ADR 0084: A hand-off belongs to the Facet that owns what it carries
 
 **Status:** Accepted  
-**Date:** 2026-09-01
+**Date:** 2026-09-01  
+**Implemented:** §8 by [#309](https://github.com/palebluebytes/inventoria/issues/309) — `checkShareTargets` in `src/lib/facets/checks.ts`, over the manifests the roster enumerates and with no registry field added.
 
 ## Context
 

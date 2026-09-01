@@ -4,10 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "packageManager": "pnpm@11.1.2",
+  "engines": {
+    "node": ">=22.18"
+  },
   "scripts": {
     "dev": "vite",
     "dev:relay": "mkdir -p dist && wrangler dev --port 8787 --ip 127.0.0.1",
-    "build": "vite build && node scripts/offline-boot-check.mjs",
+    "build": "vite build && node scripts/facet-checks.mjs && node scripts/offline-boot-check.mjs",
+    "check:facets": "node scripts/facet-checks.mjs",
     "check:offline": "node scripts/offline-boot-check.mjs",
     "preview": "vite preview",
     "deploy": "pnpm run build && wrangler deploy",

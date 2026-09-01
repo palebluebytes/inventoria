@@ -23,12 +23,30 @@ checks against, and this file deliberately does not restate it.
   `pnpm check:entities` fails a construction anywhere else. Adding an entity
   prefix means editing the registry and `docs/eavt-vocabulary.md` in the same
   change.
-- **The offline gate runs at build time, not in that roster.** `pnpm build`
-  chains `scripts/offline-boot-check.mjs`, which fails the build if the app
-  cannot reach `mount(App)` with the network off (#125). It needs a `dist/`,
-  which is why it is not in the roster above; run it alone against an existing
-  one with `pnpm check:offline`. If it reports that the check itself needs
-  updating, its browser stubs have fallen behind the app and the build is fine.
+- **The roster proves the code; the build proves the Facets.** Five claims need
+  a `dist/` and are therefore not in the roster above. `pnpm build` chains both
+  gates that carry them, and each also runs alone against an existing build
+  (`docs/adr/0083-a-gate-that-names-one-entry-point-proves-one-facet.md`):
+  - `pnpm check:facets` (`scripts/facet-checks.mjs`) carries four, one Facet at
+    a time: its precache weighs what `src/lib/facets/registry.ts` declares
+    within ±5%, every view module its built entry reaches belongs to a Tracked
+    Domain it holds and every one of those domains' screens is reached, its
+    service worker cleans up outdated caches only where nothing nests inside its
+    scope, and at most one rostered manifest declares a `share_target`.
+  - `pnpm check:offline` (`scripts/offline-boot-check.mjs`) carries the fifth: a
+    Facet must reach `mount()` with the network off (#125). It runs both its
+    arms **once per Facet**, because the two precache manifests are different
+    sets and proving one boots offline says nothing about the other. If it
+    reports that the check itself needs updating, its browser stubs have fallen
+    behind the app and the build is fine.
+
+  So a green roster and a push means CI is proving the Facet split, not you. Both
+  gates enumerate the Facets from the registry and neither names a file under
+  `dist/`; a third Facet costs one registry entry and no edit to either. They
+  import the app's TypeScript directly, so `pnpm build` needs Node's unflagged
+  type stripping and `module.registerHooks` — `package.json` `engines` states the
+  floor and `.node-version` pins the hosted builder, which has no Nix shell.
+
 - **Browser automation:** drive the app through the Chrome MCP browser tools
   (`mcp__claude-in-chrome__*`) only when the user explicitly asks for it.
   Otherwise describe any manual in-app check for the user to run themselves

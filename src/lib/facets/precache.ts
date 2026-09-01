@@ -72,6 +72,17 @@ export interface FacetBundle {
   readonly facet: string;
   /** The entry HTML, relative to the output directory. */
   readonly entry: string;
+  /**
+   * The chunk that entry HTML compiled to, relative to the output directory.
+   *
+   * Recorded rather than re-derived because it is the one thing the offline gate
+   * used to go looking for in the emitted HTML with a regex — a pattern that
+   * fails by *not matching*, which is how a gate reports "could not find the
+   * entry chunk" for a build that is fine (#301) or, one entry point later,
+   * reports an app that starts offline while the other cannot start at all.
+   * Here it is the bundler's own fact.
+   */
+  readonly entryChunk: string;
   /** Emitted chunks and stylesheets, transitively reachable from that entry. */
   readonly files: readonly ReachedFile[];
   /** Source modules inside those chunks, sorted and deduplicated. */
@@ -196,6 +207,7 @@ export function bundleFor(
   return {
     facet: facet.id,
     entry,
+    entryChunk: root.file,
     files,
     modules: [...modules].sort(),
     bytes: files.reduce((sum, f) => sum + f.bytes, 0),

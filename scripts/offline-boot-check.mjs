@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * Cold-offline-start check. Runs with `pnpm check:offline`; also chained onto
- * `pnpm build`, which is the only moment there is a dist/ to check.
+ * Cold-offline-start check, once per Facet. Runs with `pnpm check:offline`; also
+ * chained onto `pnpm build`, which is the only moment there is a dist/ to check.
  *
  * The invariant: with the network off and a healthy service worker, evaluating
- * the entry chunk must reach `mount(App)`. Issue #125 shipped a build where it
- * did not — loro-crdt's `browser` entry fetched its WASM with a synchronous
+ * a Facet's entry chunk must reach `mount(App)`. Issue #125 shipped a build where
+ * it did not — loro-crdt's `browser` entry fetched its WASM with a synchronous
  * XMLHttpRequest, Chrome dispatches no service worker `fetch` event for one, and
  * the throw landed during module evaluation. `#app` stayed empty and every
  * screen was unreachable, not just the one that needed the CRDT.
@@ -16,28 +16,59 @@
  * This is the same question asked in about a second, with no browser, so a build
  * that cannot start offline never reaches a deploy.
  *
+ * ONCE PER FACET, AND THE ROSTER SAYS WHICH (ADR-0083 §1, §2)
+ *
+ * This script named one entry point four times — `dist/index.html` twice,
+ * `dist/sw.js`, and an entry-chunk regex that fails by *not matching* rather
+ * than by not finding a file. With `/food/` in the build it would have reported
+ * that the app starts offline while Rations could not start at all, silently,
+ * which is precisely the #125 mechanism it was written to stop.
+ *
+ * So the Facets are enumerated from `src/lib/facets/registry.ts` and every path
+ * is derived from a Facet's own scope. **One entry cannot stand for the other**:
+ * ADR-0077 §2 makes the two precache manifests genuinely different sets —
+ * Rations precaches `nutrient-store.json` and `zxing_reader.wasm` and the root
+ * does not — so proving one boots offline says nothing about the other. Measured
+ * at ~2.4s for one Facet's two arms against a 15.5s build, which is what prices
+ * the wall-clock worry away.
+ *
+ * The entry chunk comes off the build's own metadata artifact
+ * (`.facets/bundle-metadata.json`, ADR-0083 §6) rather than out of the emitted
+ * HTML: it is the bundler's fact about which chunk an entry compiled to, where
+ * the regex was a guess about a filename. The precache is still read from that
+ * Facet's own `sw.js`, because that file is what the browser reads and a
+ * manifest this script derived for itself would be a model of the install
+ * rather than the install.
+ *
  * HOW IT WORKS
  *
  * A stubbed browser, then `import()` of the real built entry chunk, with the
  * request layer modelling what a cold offline install actually has:
  *
- *   - dist/sw.js's precache manifest is the source of truth for what is cached.
+ *   - that Facet's precache manifest is the source of truth for what is cached.
  *     A request for anything outside it fails, exactly as it would offline.
  *   - `fetch` and *asynchronous* XMLHttpRequest are served from that manifest,
  *     because a service worker intercepts them.
  *   - *Synchronous* XMLHttpRequest always fails. Chrome dispatches no `fetch`
  *     event for one, so precaching cannot help it — the #125 mechanism.
  *
- * TWO ARMS, so the check can tell you which thing is broken. The online arm
- * serves everything and must reach mount; if it does not, this script's browser
- * stubs have fallen behind the app (a Svelte upgrade reaching for a new DOM
- * global, say) and the check needs updating rather than the app. Only when the
- * online arm passes and the offline arm fails is the app genuinely broken.
+ * TWO ARMS PER FACET, so the check can tell you which thing is broken. The
+ * online arm serves everything and must reach mount; if it does not, this
+ * script's browser stubs have fallen behind the app (a Svelte upgrade reaching
+ * for a new DOM global, say) and the check needs updating rather than the app.
+ * Only when the online arm passes and the offline arm fails is the app genuinely
+ * broken.
+ *
+ * Both arms **per Facet**, never one shared online arm: a Facet's entry is a
+ * different module graph, so the globals it reaches for at module scope are
+ * discovered separately, and sharing the root's stub set would report a
+ * Rations-specific stub gap as *the food app cannot start offline*. That false
+ * alarm is how a gate gets switched off.
  *
  * Failures *inside* mount are where the stubs run out and are not interesting to
  * either arm — both hit the same wall, and reaching mount is the whole question.
  *
- * Exit 0 pass, 1 the app cannot start offline, 2 this check needs updating.
+ * Exit 0 pass, 1 a Facet cannot start offline, 2 this check needs updating.
  */
 
 import { readFileSync, existsSync } from "node:fs";
@@ -54,25 +85,18 @@ const RESULT = "__OFFLINE_BOOT_RESULT__";
 
 if (process.env.__OFFLINE_BOOT_CHILD) {
   const online = process.env.__OFFLINE_BOOT_ONLINE === "1";
-
-  // The chunk is found by its `type="module"` tag rather than by its name.
-  // `assets/index-*.js` was that name only while there was one HTML entry: the
-  // second one gave `build.rolldownOptions.input` named keys, so each entry
-  // chunk is now named after its Facet and the root's is `assets/root-*.js`.
-  // The old regex would have failed by *not matching* — reporting "could not
-  // find the entry chunk" for a build that was fine (#301). This still names
-  // `dist/index.html`, which is the larger half of the same defect and is
-  // #309's: ADR-0083 §1 has this script enumerate the Facets from the registry
-  // and run both arms once per entry, so **Rations' offline boot is unproven
-  // until then**.
-  const entry = readFileSync(join(DIST, "index.html"), "utf8").match(
-    /<script[^>]+type="module"[^>]+src="\/?(assets\/[^"]+\.js)"/
-  )?.[1];
-  if (!entry) fail("could not find the entry chunk in dist/index.html");
+  // Which Facet, which chunk, which service worker: all three decided by the
+  // driver off the roster and the build metadata, so nothing in the probe knows
+  // a filename (ADR-0083 §1).
+  const facetName = process.env.__OFFLINE_BOOT_FACET;
+  const entry = process.env.__OFFLINE_BOOT_ENTRY;
+  const swPath = process.env.__OFFLINE_BOOT_SW;
 
   // Workbox writes the manifest into sw.js as `{url:"…",revision:"…"}` records.
   // Reading it rather than listing dist/ keeps this honest: a file present on
-  // disk but absent from the manifest is not on a cold offline install.
+  // disk but absent from the manifest is not on a cold offline install. And it
+  // is **this Facet's** sw.js: the two manifests are different sets, so the
+  // root's would report Rations booting offline on files Rations never cached.
   //
   // The leading slash comes off, so these keys are dist-relative like
   // `manifestKey`'s below. Every precache URL is absolute since #306 — workbox
@@ -82,10 +106,12 @@ if (process.env.__OFFLINE_BOOT_CHILD) {
   // cannot start offline.
   const precache = new Set(
     [
-      ...readFileSync(join(DIST, "sw.js"), "utf8").matchAll(/url:"([^"]*)"/g),
+      ...readFileSync(join(DIST, swPath), "utf8").matchAll(/url:"([^"]*)"/g),
     ].map((m) => m[1].replace(/^\/+/, ""))
   );
-  if (precache.size === 0) fail("no precache manifest found in dist/sw.js");
+  if (precache.size === 0) {
+    fail(`no precache manifest found in ${swPath} (the ${facetName} Facet)`);
+  }
 
   /**
    * Reduce anything the bundle asks for to a key the manifest would use.
@@ -161,17 +187,51 @@ if (process.env.__OFFLINE_BOOT_CHILD) {
 }
 
 // ─── the driver ────────────────────────────────────────────────────────────
+//
+// Below the probe, and reached only by the parent: a child process returns
+// before here, so it never pays for the roster or the metadata artifact — and
+// there are two child processes per arm per Facet.
 
-if (!existsSync(join(DIST, "index.html")) || !existsSync(join(DIST, "sw.js"))) {
-  console.error(
-    "offline-boot-check: no dist/ to check. Run `pnpm build` first, or use\n" +
-      "`pnpm check:offline`, which builds."
-  );
-  process.exit(2);
-}
+const { FACETS, inScope, readBuildMetadata, stopper } =
+  await import("./facet-build.mjs");
+
+const cannotRun = stopper("offline-boot-check");
+const { bundleOf } = readBuildMetadata(cannotRun);
+
+/**
+ * What one Facet's arms need, all of it derived rather than named.
+ *
+ * The service worker sits inside the scope it claims — `vite.config.ts` derives
+ * its filename the same way — and the entry chunk is the bundler's own record of
+ * which chunk that Facet's entry HTML compiled to.
+ */
+const targetOf = (facet) => {
+  const bundle = bundleOf(facet);
+  if (!bundle?.entryChunk) {
+    cannotRun(
+      `the build recorded no entry chunk for the ${facet.name} Facet.\n` +
+        "  Either it is not in this build or the metadata artifact is stale;\n" +
+        "  `pnpm build` writes dist/ and the artifact together."
+    );
+  }
+  const sw = inScope(facet, "sw.js");
+  for (const [path, what] of [
+    [bundle.entryChunk, "entry chunk"],
+    [sw, "service worker"],
+  ]) {
+    if (!existsSync(join(DIST, path))) {
+      cannotRun(
+        `the ${facet.name} Facet has no ${what} at dist/${path}.\n` +
+          "  The metadata artifact is from a different build than dist/ is;\n" +
+          "  re-run `pnpm build`."
+      );
+    }
+  }
+  return { entry: bundle.entryChunk, sw };
+};
 
 /** Run one arm, stubbing whatever browser global it dies on until it settles. */
-const runArm = (online) => {
+const runArm = (facet, target, online) => {
   const stubs = [];
   for (let round = 0; round <= 40; round++) {
     const child = spawnSync(
@@ -184,6 +244,9 @@ const runArm = (online) => {
           __OFFLINE_BOOT_CHILD: "1",
           __OFFLINE_BOOT_ONLINE: online ? "1" : "0",
           __OFFLINE_BOOT_STUBS: stubs.join(","),
+          __OFFLINE_BOOT_FACET: facet.name,
+          __OFFLINE_BOOT_ENTRY: target.entry,
+          __OFFLINE_BOOT_SW: target.sw,
         },
       }
     );
@@ -206,61 +269,81 @@ const runArm = (online) => {
   return { fatal: "gave up stubbing browser globals after 40 rounds" };
 };
 
-const onlineArm = runArm(true);
-const offlineArm = runArm(false);
+/**
+ * Prove one Facet, and report in that Facet's name.
+ *
+ * A message saying "the app does not start offline" when it means Rations sends
+ * the reader to the wrong build (ADR-0083 §1), and the online arm is what keeps
+ * "this check needs updating" separable from "this Facet is broken" — separately
+ * per Facet, because the two entries are different module graphs and reach for
+ * different globals at module scope.
+ */
+const proveFacet = (facet) => {
+  const target = targetOf(facet);
+  const onlineArm = runArm(facet, target, true);
+  const offlineArm = runArm(facet, target, false);
 
-const needsUpdating = (arm, label) => {
-  if (arm.fatal) {
-    console.error(
-      `offline-boot-check: the ${label} arm could not run.\n${arm.fatal}`
+  for (const [arm, label] of [
+    [onlineArm, "online"],
+    [offlineArm, "offline"],
+  ]) {
+    if (arm.fatal) {
+      cannotRun(
+        `the ${facet.name} Facet's ${label} arm could not run.\n${arm.fatal}`
+      );
+    }
+  }
+
+  if (!onlineArm.reachedMount) {
+    cannotRun(
+      `this check needs updating, not the ${facet.name} Facet.\n` +
+        "  Its online arm did not reach mount() either, so the failure is in\n" +
+        "  this script's browser stubs rather than in the build.\n" +
+        `  It stopped at: ${onlineArm.error ?? "(no error)"}`
     );
-    return true;
   }
-  return false;
+
+  if (!offlineArm.reachedMount) {
+    console.error(
+      `offline-boot-check: FAIL — the ${facet.name} Facet does not start with ` +
+        "the network off.\n" +
+        `  Evaluating ${target.entry} threw before mount() ran, so #app stays ` +
+        `empty\n  at ${facet.scope} and every screen there is unreachable, ` +
+        "not just the one that\n  needed whatever failed.\n" +
+        `  It stopped at: ${offlineArm.error ?? "(no error)"}`
+    );
+    for (const request of offlineArm.requests.filter((r) => !r.served)) {
+      console.error(
+        `  unserved request: ${request.url}\n    ${request.reason}`
+      );
+    }
+    console.error(
+      "\n  Whatever the pre-mount graph reaches for has to be either precached\n" +
+        "  and requested asynchronously, inlined into the bundle, or moved\n" +
+        "  behind a dynamic import so it is not on the critical path. Note that\n" +
+        `  the ${facet.name} Facet's **own** service worker (dist/${target.sw})\n` +
+        "  is what has to precache it: the manifests are different sets, so the\n" +
+        "  other Facet having the file is not this one having it. See #125."
+    );
+    return false;
+  }
+
+  const served = offlineArm.requests.length;
+  console.log(
+    `  ok  ${facet.name} starts offline (${target.entry}, ` +
+      `${offlineArm.precacheSize} precached URLs, ` +
+      `${served} pre-mount request${served === 1 ? "" : "s"})`
+  );
+  return true;
 };
-if (
-  needsUpdating(onlineArm, "online") ||
-  needsUpdating(offlineArm, "offline")
-) {
-  process.exit(2);
-}
 
-if (!onlineArm.reachedMount) {
-  console.error(
-    "offline-boot-check: this check needs updating, not the app.\n" +
-      "  The online arm did not reach mount() either, so the failure is in this\n" +
-      "  script's browser stubs rather than in the build.\n" +
-      `  It stopped at: ${onlineArm.error ?? "(no error)"}`
-  );
-  process.exit(2);
+// Every Facet on the roster, and the number two appears nowhere: a third costs
+// one registry entry and no edit here (ADR-0083 §1).
+let broken = 0;
+for (const facet of FACETS) {
+  if (!proveFacet(facet)) broken++;
 }
-
-if (!offlineArm.reachedMount) {
-  const blame = offlineArm.requests.filter((r) => !r.served);
-  console.error(
-    "offline-boot-check: FAIL — the app does not start with the network off.\n" +
-      `  Evaluating ${offlineArm.entry} threw before mount(App) ran, so #app\n` +
-      "  stays empty and every screen is unreachable, not just the one that\n" +
-      "  needed whatever failed.\n" +
-      `  It stopped at: ${offlineArm.error ?? "(no error)"}`
-  );
-  for (const r of blame) {
-    console.error(`  unserved request: ${r.url}\n    ${r.reason}`);
-  }
-  console.error(
-    "\n  Whatever the pre-mount graph reaches for has to be either precached and\n" +
-      "  requested asynchronously, inlined into the bundle, or moved behind a\n" +
-      "  dynamic import so it is not on the critical path. See issue #125."
-  );
-  process.exit(1);
-}
-
-const served = offlineArm.requests.length;
-console.log(
-  `  ok  the app starts offline (${offlineArm.entry}, ` +
-    `${offlineArm.precacheSize} precached URLs, ` +
-    `${served} pre-mount request${served === 1 ? "" : "s"})`
-);
+if (broken > 0) process.exit(1);
 
 // ─── the stubbed browser ───────────────────────────────────────────────────
 

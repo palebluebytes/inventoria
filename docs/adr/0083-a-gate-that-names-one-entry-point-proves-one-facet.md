@@ -1,7 +1,8 @@
 # ADR 0083: A gate that names one entry point proves one Facet, so every gate reads the roster
 
 **Status:** Accepted  
-**Date:** 2026-09-01
+**Date:** 2026-09-01  
+**Implemented:** [#309](https://github.com/palebluebytes/inventoria/issues/309) — `pnpm check:facets` carries §3, §5, §7 and ADR-0084 §8 as rules in `src/lib/facets/checks.ts` driven by `scripts/facet-checks.mjs`; `scripts/offline-boot-check.mjs` runs §2's two arms once per Facet and names no entry point; §4's view declarations hang off each Tracked Domain in `src/lib/facets/registry.ts` and §8's list is in `AGENTS.md` §1. What was built differs from what is written above in three places, recorded at this record's foot.
 
 ## Context
 
@@ -340,3 +341,71 @@ fixed here, except the last: `offline-boot-check.mjs`'s entry-chunk regex
 since it fails by not matching rather than by not finding a file; ADR-0080 §8's heading
 overreaches its own argument and is corrected there by §4 above; and `docs-check.mjs`'s
 tracked-only corpus, which §11 fixes in this change because it is live on `main` today.
+
+## Implementation notes (2026-09-01, #309)
+
+Three places where what was built is not quite what was written, recorded here
+rather than left in a commit message.
+
+**§3's band is one number per Facet and one width for the roster.** The record has
+each Facet declare "a floor and a ceiling"; the registry declares a measured
+`precacheBytes` and `PRECACHE_BAND` derives both edges from it at ±5%. The
+argument for the shape is the record's own: the width is a single judgement about
+how much movement is ordinary, not a fact about either Facet, and written out
+twice it is two numbers that can disagree. What a reviewer has to re-measure —
+the figure the band is centred on — is where §4 asks for it, beside the
+declarations whose editing moves it.
+
+**§5's equality is split in two, because only one half is enumerable.** The
+record asks for equality over "the set of modules under `src/lib/views/`
+reachable from a Facet's built entry". The registry can enumerate a domain's
+_screen_; it cannot enumerate the fifty modules that screen is built from. So
+the check is two claims over one population:
+
+- **No crossing**, over every module under `src/lib/views/` the built entry
+  reaches — 90 for the root, 50 for Rations. Each is looked up against the
+  domain that owns it, and a module owned by a domain the Facet does not hold is
+  the failure ADR-0078 §8 names. This is the half that had to be got right: a
+  population of screens alone is six of ninety modules, so an `ItemCard` reached
+  from a food component would have passed green, and that is the same crossing
+  one file below a screen.
+- **No missing screen**, over the screens the declared domains imply. A Rations
+  build whose food screen tree-shook away is caught by nothing else and ships as
+  an installed app that opens on nothing.
+
+So §4's registry field is a domain's whole share of `src/lib/views/` — its screen
+first, then the directory its components live in — rather than one path.
+
+**What no domain owns is counted, not passed.** `SettingsView.svelte` and the
+ledger, log and storage blocks under it are the jar-wide surface, and which Facet
+should carry a block of it is ADR-0080 §1's judgement, which §10 declined to gate
+because a check that half-checks a judgement reads as covered. Those modules are
+therefore outside the crossing claim — and the passing message prints how many of
+them it did not judge (10 for the root, 0 for Rations), so the size of the gap is
+on the screen rather than in this record alone.
+
+Three facts the build surfaced while §4 was being written down. The root has six
+tabs and six Tracked Domains and they are not the same six: **habits and calendar
+events share `AgendaView`**, so six domains imply five screens — and only habits
+owns `views/habits/`, because a shared directory would be two owners for one
+path. And `src/lib/views/HabitsView.svelte` is named by nothing — no import, no
+test, no registry entry — so it is in neither build and no domain claims it.
+
+**§9's spec carries no screenshot.** The record mentions two baselines landing in
+the new spec's own snapshot directory. `tests/rations-ui.spec.ts` asserts the four
+things §9 enumerates and takes no screenshot: `AGENTS.md` §1 keeps Playwright out
+of the local loop, so a baseline cannot be captured in the change that adds the
+assertion, and committing one would commit a spec that is red until someone
+dispatches `e2e.yml` with `update-snapshots`. A visual baseline for the Rations
+shell is worth having; it is a separate change, because capturing it is a
+workflow dispatch rather than a code edit.
+
+**Two things the ticket did not ask for and this change carries anyway.** Both
+gates import the app's TypeScript registry directly, which raises `pnpm build`'s
+Node floor to unflagged type stripping and `module.registerHooks` — so
+`package.json` `engines` states it and `.node-version` pins the hosted builder,
+which has no Nix shell and was previously running a `pnpm build` that needed
+neither. And `vite.config.ts`'s `nestedScopesOf` now reads `nestedFacetsOf` off
+the registry rather than repeating its predicate, because §7's gate asserts the
+option that predicate sets and two copies of it would let the gate and the config
+agree about different things.

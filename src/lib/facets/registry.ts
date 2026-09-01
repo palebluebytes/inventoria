@@ -55,6 +55,49 @@ export interface TrackedDomain {
    * medium is incidental (ADR-0079 §2).
    */
   readonly storagePrefixes: readonly string[];
+  /**
+   * The part of `src/lib/views/` this domain owns, **its screen first**.
+   *
+   * The lead entry is the screen ADR-0078 §2 fixes one of per domain. Later
+   * entries end in `/` and are directories: a screen's own components, which are
+   * as much this domain's as the screen is. Same convention as {@link
+   * Facet.icons}, where the lead is the mark the Facet installs under.
+   *
+   * **Attached to the domain rather than to the Facet** (ADR-0083 §4). A Facet
+   * already declares its domains, so a per-Facet list of views would re-record
+   * ADR-0078 §1's conclusion with its reason thrown away — the one thing
+   * ADR-0080 §8's surviving rule forbids this registry. `pnpm check:facets`
+   * derives both halves of its containment claim from here: every view module a
+   * Facet's built entry reaches belongs to a domain it declares, and every
+   * declared domain's screen is reached (ADR-0083 §5).
+   *
+   * **The directories are why the claim is worth making.** ADR-0078 §8's claim
+   * is that the built Rations entry contains no root-only *view module*, and
+   * the six screens are six of the 90 modules under `src/lib/views/`. A
+   * population of screens alone passes an `ItemCard` imported into a food
+   * component, which is the same crossing one file down.
+   *
+   * Which module belongs to which domain is a **fact about the codebase**, not a
+   * decision anyone argued, which is what makes it declarable at all. Three
+   * facts here read oddly and are written down rather than left to surprise the
+   * next reader:
+   *
+   *   - **Habits and Calendar events share `AgendaView`.** The root has six tabs
+   *     and six domains and they are not the same six: agenda draws both. Only
+   *     habits owns `views/habits/`, because a shared directory would be two
+   *     owners for one path and the point of ownership is that there is one.
+   *   - **`src/lib/views/HabitsView.svelte` is named by nothing**, here or in
+   *     `src/`. It is reachable from neither entry point, so it is in neither
+   *     build and no domain claims it.
+   *   - **`SettingsView.svelte`, `views/ledger/`, `views/logs/` and
+   *     `views/storage/` are claimed by nobody**, and that is deliberate rather
+   *     than an omission. They are the jar-wide surface, and which Facet should
+   *     carry a block of it is ADR-0080 §1's judgement — which ADR-0083 §10
+   *     declined to gate, because a check that half-checks a judgement reads as
+   *     covered. The containment check counts what it did not judge and prints
+   *     the number, so the gap stays visible.
+   */
+  readonly views: readonly string[];
 }
 
 export const TRACKED_DOMAINS = [
@@ -78,6 +121,7 @@ export const TRACKED_DOMAINS = [
       "inventoria_pref_calories_tracked",
       "inventoria_pref_nutrition_panel_open",
     ],
+    views: ["src/lib/views/FoodView.svelte", "src/lib/views/food/"],
   },
   {
     id: "media",
@@ -90,6 +134,7 @@ export const TRACKED_DOMAINS = [
       "event:engage_",
     ],
     storagePrefixes: [],
+    views: ["src/lib/views/MediaView.svelte", "src/lib/views/media/"],
   },
   {
     id: "items",
@@ -111,24 +156,28 @@ export const TRACKED_DOMAINS = [
       "event:acquire_",
     ],
     storagePrefixes: ["inventoria_device_scraper_proxy_url"],
+    views: ["src/lib/views/ItemsView.svelte", "src/lib/views/items/"],
   },
   {
     id: "habits",
     name: "Habits",
     entityPrefixes: ["habit:", "event:execute_"],
     storagePrefixes: [],
+    views: ["src/lib/views/AgendaView.svelte", "src/lib/views/habits/"],
   },
   {
     id: "calendar",
     name: "Calendar events",
     entityPrefixes: ["cal_event:", "event:occur_"],
     storagePrefixes: [],
+    views: ["src/lib/views/AgendaView.svelte"],
   },
   {
     id: "notes",
     name: "Notes and checklists",
     entityPrefixes: ["notes:"],
     storagePrefixes: [],
+    views: ["src/lib/views/NotesView.svelte", "src/lib/views/notes/"],
   },
 ] as const satisfies readonly TrackedDomain[];
 
@@ -251,6 +300,28 @@ export interface Facet {
    */
   readonly precache: readonly string[];
   /**
+   * What that precache weighed when it was last measured, in bytes: the centre
+   * of the band `pnpm check:facets` holds it inside (ADR-0083 §3).
+   *
+   * **A band, never a ceiling.** A ceiling catches the regression the `precache`
+   * declaration above exists to prevent — a hand-written entry re-inflating a
+   * Facet — and passes a manifest that has *collapsed*. The derived half failing
+   * open ships a Facet that installs and then cannot work, and the offline gate
+   * cannot see it: `usda/nutrient-store.json` is read seconds after `mount()`,
+   * so a manifest that dropped it boots perfectly and then finds no food. A
+   * floor is the only thing looking at that.
+   *
+   * It sits **here**, beside the declarations whose editing moves it, because a
+   * measured byte range is not a conclusion reached by argument — which is the
+   * one thing ADR-0080 §8's surviving rule keeps out of this registry. A
+   * reviewer changing one is looking at the other.
+   *
+   * There is deliberately **no `--update` flag**. Moving these numbers is a
+   * reviewable diff in the same commit as whatever moved them, because 450 KB of
+   * precache is always a decision.
+   */
+  readonly precacheBytes: number;
+  /**
    * Whether it exists as a thing you can install. **Installability is
    * definitional** (ADR-0076 §1), so an entry point alone does not flip this:
    * Rations had a screen of its own from #301 and became `built` at #305, which
@@ -329,6 +400,7 @@ export const FACETS = [
       // build — `src/lib/food/bundled-artifact.ts`.
       "usda/search-index.json",
     ],
+    precacheBytes: 9_343_729,
     status: "built",
   },
   {
@@ -382,6 +454,7 @@ export const FACETS = [
       "food/icons/rations-*.png",
       "food/icons/CREDITS.txt",
     ],
+    precacheBytes: 9_977_711,
     // Installability is definitional (ADR-0076 §1) and #305 is where Rations
     // gets a manifest of its own, so this is the ticket that flips it.
     status: "built",
@@ -445,24 +518,134 @@ export function ownerOfEntity(entity: string): TrackedDomain | null {
 }
 
 /**
- * The entity prefixes a Facet owns: the union of its domains'. **Derived, never
- * stored** — ADR-0080 §8's surviving rule is that the registry carries no field
- * re-recording a conclusion whose reason is discarded, and a stored copy of this
- * would drift the first time a domain gains a prefix.
+ * The Tracked Domains a Facet holds, or none if nothing on the roster is that
+ * Facet.
+ *
+ * Everything a Facet owns is the union of what its domains own — its entity
+ * prefixes, its `localStorage` prefixes, its screens — so this is the one lookup
+ * all of them go through. **Derived, never stored**: ADR-0080 §8's surviving
+ * rule is that the registry carries no field re-recording a conclusion whose
+ * reason is discarded, and a stored copy of any of these would drift the first
+ * time a domain gained a prefix.
  */
-export function entityPrefixesOf(facetId: string): string[] {
+export function domainsOf(facetId: string): TrackedDomain[] {
   const facet = FACETS.find((f) => f.id === facetId);
   if (!facet) return [];
   return TRACKED_DOMAINS.filter((d) =>
     (facet.domains as readonly string[]).includes(d.id)
-  ).flatMap((d) => [...d.entityPrefixes]);
+  );
+}
+
+/** The entity prefixes a Facet owns: the union of its domains'. */
+export function entityPrefixesOf(facetId: string): string[] {
+  return domainsOf(facetId).flatMap((d) => [...d.entityPrefixes]);
 }
 
 /** The `localStorage` prefixes a Facet owns. Derived the same way, same reason. */
 export function storagePrefixesOf(facetId: string): string[] {
+  return domainsOf(facetId).flatMap((d) => [...d.storagePrefixes]);
+}
+
+/**
+ * How far either side of {@link Facet.precacheBytes} a build may land before
+ * `pnpm check:facets` fails it (ADR-0083 §3).
+ *
+ * **±5%**, which is about 450 KB at the 8–9 MiB the two Facets sit at. Measured
+ * drift over a day of ordinary commits is 0.14%, so the band has roughly thirty
+ * times the slack real movement needs while a 4 MB regression clears it by an
+ * order of magnitude.
+ *
+ * One width for every Facet rather than a floor and a ceiling written out per
+ * entry: the width is a single judgement about how much movement is ordinary,
+ * not a fact about either Facet, and stating it twice is how the two come apart.
+ * ADR-0083 §3 phrases it as each Facet declaring both edges; what each Facet
+ * declares is the number a reviewer has to re-measure, and the edges are read
+ * off it here.
+ *
+ * The weak joint is this number. A dependency bump can legitimately move more
+ * than 450 KB — a font family, a WASM upgrade — and the response is to move the
+ * Facet's measured figure in the same commit as the change that moved it.
+ */
+export const PRECACHE_BAND = 0.05;
+
+/** The byte range a Facet's precache must land in. Derived, never declared. */
+export function precacheBandOf(facet: Facet): {
+  floor: number;
+  ceiling: number;
+} {
+  return {
+    floor: Math.round(facet.precacheBytes * (1 - PRECACHE_BAND)),
+    ceiling: Math.round(facet.precacheBytes * (1 + PRECACHE_BAND)),
+  };
+}
+
+/**
+ * Where every screen and its components live, so a module outside it is not the
+ * containment check's business at all.
+ */
+export const VIEWS_ROOT = "src/lib/views/";
+
+/** A domain's screen: the lead entry of what it owns under {@link VIEWS_ROOT}. */
+export function screenOf(domain: TrackedDomain): string {
+  return domain.views[0];
+}
+
+/**
+ * The domain that owns a view module, or `null` if nobody does.
+ *
+ * A declaration ending in `/` is a directory and matches by prefix; anything
+ * else is one module and matches exactly. Longest match wins, the same rule
+ * {@link ownerOfEntity} follows and for the same reason: it is the one that
+ * survives a nesting nobody has yet had cause to reject.
+ *
+ * `null` is a real answer rather than a failure. `SettingsView` and the ledger,
+ * log and storage blocks under it are the jar-wide surface, and which Facet
+ * carries one is a judgement ADR-0083 §10 declined to gate. The containment
+ * check counts them rather than passing them in silence.
+ */
+export function ownerOfViewModule(module: string): TrackedDomain | null {
+  let best: TrackedDomain | null = null;
+  let bestLength = 0;
+  for (const domain of TRACKED_DOMAINS) {
+    for (const owned of domain.views) {
+      const matches = owned.endsWith("/")
+        ? module.startsWith(owned)
+        : module === owned;
+      if (matches && owned.length > bestLength) {
+        best = domain;
+        bestLength = owned.length;
+      }
+    }
+  }
+  return best;
+}
+
+/**
+ * The screens a Facet's declared domains imply: what its built entry must reach,
+ * all of them (ADR-0083 §5).
+ *
+ * Two domains may name one screen — habits and calendar events both draw through
+ * `AgendaView` — so this deduplicates, and a Facet with six domains can imply
+ * five screens.
+ */
+export function screensOf(facetId: string): string[] {
+  return [...new Set(domainsOf(facetId).map(screenOf))].sort();
+}
+
+/**
+ * The Facets whose scope sits inside this one's, which is the asymmetry every
+ * nesting consequence turns on (ADR-0077 §1).
+ *
+ * A Facet with something nested inside it may not clean up outdated caches —
+ * workbox filters cache names with a substring test, so the root would delete
+ * the whole Rations install on every activation — and it needs a navigation
+ * fallback denylist. Both are read off this rather than written down against
+ * `root`, so a third Facet costs no edit (ADR-0083 §1).
+ */
+export function nestedFacetsOf(facetId: string): Facet[] {
   const facet = FACETS.find((f) => f.id === facetId);
   if (!facet) return [];
-  return TRACKED_DOMAINS.filter((d) =>
-    (facet.domains as readonly string[]).includes(d.id)
-  ).flatMap((d) => [...d.storagePrefixes]);
+  return FACETS.filter(
+    (f) => f.id !== facet.id && f.scope.startsWith(facet.scope)
+  );
 }

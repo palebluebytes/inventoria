@@ -12,7 +12,12 @@ import {
 } from "./src/lib/ingestion/proxy-policy";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, relative, resolve, sep } from "node:path";
-import { FACETS, facetOf, type Facet } from "./src/lib/facets/registry";
+import {
+  FACETS,
+  facetOf,
+  nestedFacetsOf,
+  type Facet,
+} from "./src/lib/facets/registry";
 import {
   facetForPath,
   manifestFor,
@@ -187,9 +192,7 @@ const FACET_ENTRIES = Object.fromEntries(
  * `/food/` — and a third Facet costs no edit here (ADR-0083 §1).
  */
 const nestedScopesOf = (facet: Facet) =>
-  FACETS.filter(
-    (f) => f.id !== facet.id && f.scope.startsWith(facet.scope)
-  ).map((f) => new RegExp(`^${f.scope}`));
+  nestedFacetsOf(facet.id).map((f) => new RegExp(`^${f.scope}`));
 
 /**
  * Per-Facet build metadata, filled in as the build runs and written out at the
