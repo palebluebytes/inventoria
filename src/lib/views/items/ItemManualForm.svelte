@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { mintEntity } from "../../facets/entity-id";
   import { saveAcquisitionTwin } from "../../stores/acquisition.store";
   import Card from "../../ui/Card.svelte";
   import Button from "../../ui/Button.svelte";
@@ -27,7 +28,10 @@
     if (!manualName.trim()) return;
 
     try {
-      const entityId = `twin:manual_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+      const entityId = mintEntity(
+        "twin:manual_",
+        `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+      );
       const parsedTags = manualTags
         .split(",")
         .map((t) => t.trim())

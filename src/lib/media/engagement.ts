@@ -1,4 +1,5 @@
 import { ingestEntity } from "../ingestion/ingest";
+import { mintEntity } from "../facets/entity-id";
 import type { Datom } from "../db/db.client";
 
 export function logWatchEvent(
@@ -12,7 +13,10 @@ export function logWatchEvent(
   } = {},
   now: number = Date.now()
 ): Datom[] {
-  const eventId = `event:engage_${now}_${Math.random().toString(36).slice(2, 9)}`;
+  const eventId = mintEntity(
+    "event:engage_",
+    `${now}_${Math.random().toString(36).slice(2, 9)}`
+  );
   const attributes: Record<string, string | number> = {
     "event/type": "WatchAction",
     "event/target": targetId,
@@ -42,7 +46,10 @@ export function logReadEvent(
   opts: { pages_read?: number } = {},
   now: number = Date.now()
 ): Datom[] {
-  const eventId = `event:engage_${now}_${Math.random().toString(36).slice(2, 9)}`;
+  const eventId = mintEntity(
+    "event:engage_",
+    `${now}_${Math.random().toString(36).slice(2, 9)}`
+  );
   const attributes: Record<string, string | number> = {
     "event/type": "ReadAction",
     "event/target": targetId,

@@ -40,7 +40,10 @@ their entities are heterogeneously named.
 Anything scoped by a **Facet**, such as a scoped wipe or a scoped export, scopes by entity
 and never by attribute namespace, because `provenance/` and `event/` are each written by
 several Tracked Domains ([ADR-0076](adr/0076-a-facet-is-an-installable-face-onto-one-jar.md) §4).
-Which prefixes a Facet owns is declared in the Facet registry, not restated here.
+Which prefixes a **Tracked Domain** owns is declared in `src/lib/facets/registry.ts`,
+and a Facet's set is the union of its domains'. That file is canonical for the code and
+this page is canonical for the reader; `pnpm check:entities` is what keeps them honest,
+and what keeps both honest about `src/`.
 
 ### Digital Twins
 

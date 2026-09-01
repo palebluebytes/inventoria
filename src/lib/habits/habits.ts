@@ -1,4 +1,5 @@
 import { ingestEntity, type EntityPayload } from "../ingestion/ingest";
+import { mintEntity } from "../facets/entity-id";
 import type { Datom } from "../db/db.client";
 import { isScheduleRuleActive } from "../recurrence/rules";
 import type { ScheduleRule, DayOfWeek } from "../recurrence/rules";
@@ -47,7 +48,10 @@ export function logExecution(
   target_id?: string,
   now: number = Date.now()
 ): Datom[] {
-  const eventId = `event:execute_${now}_${Math.random().toString(36).slice(2, 9)}`;
+  const eventId = mintEntity(
+    "event:execute_",
+    `${now}_${Math.random().toString(36).slice(2, 9)}`
+  );
 
   const datoms: Datom[] = [
     {

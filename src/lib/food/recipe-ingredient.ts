@@ -1,4 +1,5 @@
 import type { FoodResult } from "./food-search";
+import { mintEntity } from "../facets/entity-id";
 import type { EntityPayload } from "../ingestion/ingest";
 import {
   basisUnit,
@@ -308,7 +309,10 @@ export function customIngredient(
   fat: number,
   carbs: number
 ): RecipeIngredient {
-  const entity = `food:custom_${Math.random().toString(36).substring(2, 9)}`;
+  const entity = mintEntity(
+    "food:custom_",
+    Math.random().toString(36).substring(2, 9)
+  );
   const nutrition = nutritionFromMacros(
     { calories, protein, fat, carbs },
     PER_SERVING

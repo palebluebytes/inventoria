@@ -1,3 +1,6 @@
+import { mintEntity } from "../facets/entity-id";
+import type { EntityPrefix } from "../facets/registry";
+
 /**
  * The identifiers a scraped page may carry. They are **attributes of an item**,
  * never its identity: a GTIN is the identity of the packaged food it was printed
@@ -38,8 +41,18 @@ export interface ScrapedProduct {
  * `twin:temp_` is the one non-deterministic case, exactly as `url:temp_` was: a
  * page with no identifier and no URL has nothing to be deterministic about.
  */
-function itemEntity(kind: ItemIdentifierKind | "url" | "temp", value: string) {
-  return `twin:${kind}_${value}`;
+const ITEM_ENTITY_PREFIX = {
+  gtin: "twin:gtin_",
+  isbn: "twin:isbn_",
+  sku: "twin:sku_",
+  asin: "twin:asin_",
+  dpp: "twin:dpp_",
+  url: "twin:url_",
+  temp: "twin:temp_",
+} as const satisfies Record<string, EntityPrefix>;
+
+function itemEntity(kind: keyof typeof ITEM_ENTITY_PREFIX, value: string) {
+  return mintEntity(ITEM_ENTITY_PREFIX[kind], value);
 }
 
 /**

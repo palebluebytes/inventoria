@@ -1,4 +1,5 @@
 import { dbClient, type Datom } from "../db/db.client";
+import { mintEntity } from "../facets/entity-id";
 import { ingestEntity } from "../ingestion/ingest";
 import {
   logExecution as rawLogExecution,
@@ -35,7 +36,7 @@ function createHabitsStore() {
     ) {
       const now = Date.now();
       const slug = name.trim().toLowerCase().replace(/\s+/g, "_");
-      const entityId = `habit:${slug}_${now}`;
+      const entityId = mintEntity("habit:", `${slug}_${now}`);
 
       const payload = {
         entity: entityId,
@@ -76,7 +77,7 @@ function createHabitsStore() {
 
       // 2. Create the new blueprint
       const slug = name.trim().toLowerCase().replace(/\s+/g, "_");
-      const newEntityId = `habit:${slug}_${now}`;
+      const newEntityId = mintEntity("habit:", `${slug}_${now}`);
 
       const payload = {
         entity: newEntityId,

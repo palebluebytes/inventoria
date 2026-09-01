@@ -1,3 +1,5 @@
+import { mintEntity } from "../facets/entity-id";
+
 /**
  * Notes & Checklist store: bridges the Loro CRDT document to Svelte 5 `$state`
  * and persists it into the append-only EAVT ledger as an op-log (see ADR-0018).
@@ -34,7 +36,10 @@ import {
 } from "../notes/loro-doc";
 import type { VersionVector } from "loro-crdt";
 
-const DOC_ENTITY = "notes:doc";
+// The only prefix with a fixed, single entity behind it. It still routes
+// through the chokepoint, so the registry accounts for it like any other
+// (ADR-0086 §7).
+const DOC_ENTITY = mintEntity("notes:", "doc");
 const OP_ATTRIBUTE = "notes/op";
 const PERSIST_DEBOUNCE_MS = 400;
 

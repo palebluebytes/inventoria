@@ -1,4 +1,5 @@
 import type { EntityPayload } from "../ingestion/ingest";
+import { mintEntity } from "../facets/entity-id";
 import { mapOffProductToPayload } from "./open-food-facts";
 import { CURATED_STAND_INS, type CuratedStandIn } from "./curated-stand-ins";
 // Reaching a stand-in reads a query the way ADR-0042 §1 reads one — same words,
@@ -114,7 +115,7 @@ export function curatedStandInFor(
 ): CuratedStandIn | undefined {
   if (!entity) return undefined;
   return CURATED_STAND_INS.find(
-    (entry) => `gtin:${entry.snapshot.code}` === entity
+    (entry) => mintEntity("gtin:", entry.snapshot.code) === entity
   );
 }
 

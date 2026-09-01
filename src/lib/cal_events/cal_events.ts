@@ -1,4 +1,5 @@
 import type { Datom } from "../db/db.client";
+import { mintEntity } from "../facets/entity-id";
 import { ingestEntity } from "../ingestion/ingest";
 import { isScheduleRuleActive } from "../recurrence/rules";
 import type { ScheduleRule } from "../recurrence/rules";
@@ -229,7 +230,10 @@ export function logOccurrence(
   slotId?: string,
   now: number = Date.now()
 ): Datom[] {
-  const eventId = `event:occur_${now}_${Math.random().toString(36).slice(2, 9)}`;
+  const eventId = mintEntity(
+    "event:occur_",
+    `${now}_${Math.random().toString(36).slice(2, 9)}`
+  );
   const datoms: Datom[] = [
     {
       entity: eventId,

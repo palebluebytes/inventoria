@@ -1,4 +1,5 @@
 // ---------------------------------------------------------------------------
+import { mintEntity } from "../facets/entity-id";
 // The USDA FoodData Central adapter
 // ---------------------------------------------------------------------------
 //
@@ -433,7 +434,7 @@ export function mapFdcFoodToPayload(
     attributes["food/scientific_name"] = food.scientificName;
 
   return {
-    entity: `fdc:${food.fdcId}`,
+    entity: mintEntity("fdc:", food.fdcId),
     attributes: {
       ...attributes,
       // Keep the untouched FDC entry as immutable Provenance so any nutrient not

@@ -1,4 +1,5 @@
 import type { EntityPayload } from "../ingestion/ingest";
+import { mintEntity } from "../facets/entity-id";
 import {
   PER_100G,
   NUTRITION_INFO_ATTR,
@@ -577,7 +578,7 @@ export function mapIndexRowToPayload(
     raw_data: row,
     merged_from: row.merged_from,
   });
-  return { entity: `fdc:${row.fdcId}`, attributes };
+  return { entity: mintEntity("fdc:", row.fdcId), attributes };
 }
 
 // ---------------------------------------------------------------------------

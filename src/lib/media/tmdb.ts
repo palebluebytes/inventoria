@@ -1,4 +1,5 @@
 import type { EntityPayload } from "../ingestion/ingest";
+import { mintEntity } from "../facets/entity-id";
 import {
   ingestionRegistry,
   type IngestionAdapter,
@@ -36,7 +37,7 @@ export function mapTmdbMovieToPayload(movie: TmdbMovie): EntityPayload {
     : "";
 
   return {
-    entity: `tmdb:movie:${movie.id}`,
+    entity: mintEntity("tmdb:movie:", movie.id),
     attributes: {
       "media/title": movie.title,
       "media/director": director,
@@ -67,7 +68,7 @@ export function mapTmdbTvToPayload(tv: TmdbTv): EntityPayload {
     : "";
 
   return {
-    entity: `tmdb:tv:${tv.id}`,
+    entity: mintEntity("tmdb:tv:", tv.id),
     attributes: {
       "media/title": tv.name,
       "media/director": director, // Maps TV creator(s) to media/director

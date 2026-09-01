@@ -1,4 +1,5 @@
 import type { EntityPayload } from "../ingestion/ingest";
+import { mintEntity } from "../facets/entity-id";
 import {
   ingestionRegistry,
   type IngestionAdapter,
@@ -23,7 +24,7 @@ export function mapOpenLibraryBookToPayload(
 ): EntityPayload {
   const isbn = book.isbn && book.isbn.length > 0 ? book.isbn[0] : null;
   const olid = book.key.replace(/^\/(works|books)\//, "");
-  const entity = isbn ? `isbn:${isbn}` : `olid:${olid}`;
+  const entity = isbn ? mintEntity("isbn:", isbn) : mintEntity("olid:", olid);
 
   const author =
     book.author_name && book.author_name.length > 0

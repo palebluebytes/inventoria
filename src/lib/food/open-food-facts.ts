@@ -1,4 +1,5 @@
 import type { EntityPayload } from "../ingestion/ingest";
+import { mintEntity } from "../facets/entity-id";
 import {
   isPer100Basis,
   PER_100G,
@@ -531,7 +532,7 @@ export function mapOffProductToPayload(product: OFFProduct): OffPayload {
   if (portions.length > 0) attributes[FOOD_PORTIONS_ATTR] = portions;
 
   return {
-    entity: `gtin:${product.code}`,
+    entity: mintEntity("gtin:", product.code),
     // Read-through (never a datom, see {@link OffPayload}): only OFF's numeric
     // completeness rides along, so the poor-quality predicate can corroborate a
     // short generic name without a network re-fetch.

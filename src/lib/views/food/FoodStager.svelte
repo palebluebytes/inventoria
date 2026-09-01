@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { mintEntity } from "../../facets/entity-id";
   import {
     submitToOpenFoodFacts,
     parseCategoryList,
@@ -1426,7 +1427,7 @@
     error = "";
     nudge = false;
     try {
-      const local = await getLocalFoodTwin(`gtin:${code}`);
+      const local = await getLocalFoodTwin(mintEntity("gtin:", code));
       // A local twin never nudges — a prior capture already superseded the poor
       // OFF data (latest-wins) — so it stages and returns. Only a freshly
       // looked-up OFF twin (typed `OffPayload`, so `completeness` is in reach)

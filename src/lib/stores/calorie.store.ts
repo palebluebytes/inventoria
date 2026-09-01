@@ -1,4 +1,5 @@
 import { dbClient } from "../db/db.client";
+import { mintEntity } from "../facets/entity-id";
 import { ingestEntity } from "../ingestion/ingest";
 import { HLC_ORDER_ASC, HLC_ORDER_DESC } from "../db/hlc";
 import { createProjectionStore, createQueryStore } from "./datoms.store";
@@ -145,7 +146,10 @@ function consumptionDatoms(
 
   const entity =
     entityId ??
-    `event:consume_${Math.random().toString(36).substring(2, 9)}_${timestamp}`;
+    mintEntity(
+      "event:consume_",
+      `${Math.random().toString(36).substring(2, 9)}_${timestamp}`
+    );
 
   // `calories` is always frozen; each of the three headline macros is frozen only
   // when supplied (a manual-entry intent omits them, ADR-0035 §7 — absent ≠ 0).
@@ -325,7 +329,10 @@ export async function saveCustomFood(
   const timestamp = Date.now();
   const entityId =
     customEntityId ||
-    `food:custom_${Math.random().toString(36).substring(2, 9)}_${timestamp}`;
+    mintEntity(
+      "food:custom_",
+      `${Math.random().toString(36).substring(2, 9)}_${timestamp}`
+    );
 
   // Custom foods are entered as absolute totals for one serving, so the panel's
   // basis is "1 serving" rather than 100 g (ADR-0021).
@@ -416,7 +423,10 @@ export async function saveLabelFood(input: LabelFoodInput): Promise<string> {
   const timestamp = Date.now();
   const entityId =
     input.entityId ||
-    `food:custom_${Math.random().toString(36).substring(2, 9)}_${timestamp}`;
+    mintEntity(
+      "food:custom_",
+      `${Math.random().toString(36).substring(2, 9)}_${timestamp}`
+    );
 
   const attributes: Record<string, unknown> = {
     "food/name": input.name,
@@ -475,7 +485,10 @@ export interface ManualFoodInput {
  */
 export async function saveManualFood(input: ManualFoodInput): Promise<string> {
   const timestamp = Date.now();
-  const entityId = `food:custom_${Math.random().toString(36).substring(2, 9)}_${timestamp}`;
+  const entityId = mintEntity(
+    "food:custom_",
+    `${Math.random().toString(36).substring(2, 9)}_${timestamp}`
+  );
 
   // Calories-only panel against a whole-serving basis (ADR-0021): only `calories`
   // is set, so macros stay absent (not 0) on the twin, matching the event freeze.
@@ -541,7 +554,10 @@ export async function saveRecipe(
   const isEdit = entity !== undefined;
   const entityId =
     entity ??
-    `recipe:${Math.random().toString(36).substring(2, 9)}_${Date.now()}`;
+    mintEntity(
+      "recipe:",
+      `${Math.random().toString(36).substring(2, 9)}_${Date.now()}`
+    );
 
   const attributes: Record<string, any> = {
     "recipe/name": input.name,

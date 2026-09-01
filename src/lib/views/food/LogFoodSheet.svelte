@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { mintEntity } from "../../facets/entity-id";
   import { dbClient } from "../../db/db.client";
   import {
     mapPayloadToFoodResult,
@@ -435,7 +436,9 @@
             // a fresh capture keys off the barcode as before (gtin enrich vs mint).
             entityId:
               choice.editEntityId ??
-              (choice.barcode ? `gtin:${choice.barcode}` : undefined),
+              (choice.barcode
+                ? mintEntity("gtin:", choice.barcode)
+                : undefined),
           });
         } else {
           twinId = await saveCustomFood(

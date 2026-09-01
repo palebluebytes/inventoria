@@ -1,4 +1,5 @@
 import { derived, type Readable } from "svelte/store";
+import { mintEntity } from "../facets/entity-id";
 import { dbClient } from "../db/db.client";
 import {
   ingestCalEvent,
@@ -51,7 +52,7 @@ function createCalEventsStore() {
         .toLowerCase()
         .replace(/\s+/g, "_")
         .replace(/[^a-z0-9_]/g, "");
-      const entityId = `cal_event:${slug}_${now}`;
+      const entityId = mintEntity("cal_event:", `${slug}_${now}`);
       const full: CalEventBlueprint = {
         ...blueprint,
         entity: entityId,
