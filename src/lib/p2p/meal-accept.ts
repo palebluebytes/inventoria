@@ -1,3 +1,5 @@
+import { mintEntity } from "../facets/entity-id";
+import type { EntityPrefix } from "../facets/registry";
 /**
  * What a received Meal payload becomes when the recipient accepts it
  * (ADR-0073 §3, §5, §6, §7 and §11).
@@ -74,7 +76,7 @@ const ARRIVAL_MARKED_PREFIXES: readonly string[] = [
 ];
 
 /** The prefix of a twin whose provenance the bundled corpus can rebuild (§3). */
-const USDA_PREFIX = "fdc:";
+const USDA_PREFIX: EntityPrefix = "fdc:";
 
 /** What one accept did, counted against what the payload declared. */
 export interface AcceptedMeal {
@@ -169,7 +171,7 @@ export async function receivedEventId(root: string): Promise<string> {
   );
   const half = new Uint8Array(digest).subarray(0, 16);
   const hex = [...half].map((b) => b.toString(16).padStart(2, "0")).join("");
-  return `${MEAL_ROOT_PREFIX}${hex}`;
+  return mintEntity(MEAL_ROOT_PREFIX, hex);
 }
 
 /**
@@ -303,7 +305,7 @@ async function landingDatoms(
       attributes[row.attribute] = JSON.parse(row.value);
     }
     const provenance = rebuilt.get(entity);
-    if (provenance) attributes["twin/raw_provenance"] = provenance;
+    if (provenance) attributes["provenance/raw"] = provenance;
     if (ARRIVAL_MARKED_PREFIXES.some((prefix) => entity.startsWith(prefix))) {
       attributes[FOOD_ARRIVAL_ATTR] = buildArrival(received_at);
     }
@@ -317,7 +319,7 @@ async function landingDatoms(
 }
 
 /**
- * The `twin/raw_provenance` the recipient can rebuild for itself (ADR-0073 §3).
+ * The `provenance/raw` the recipient can rebuild for itself (ADR-0073 §3).
  *
  * Only `fdc:`, and only from the bundle already loaded for search:
  * `mapIndexRowToPayload` regenerates the identical blob deterministically,
@@ -346,17 +348,17 @@ async function rebuiltProvenance(
   }
 
   const rows = new Map(
-    corpus.foods.map((food) => [`${USDA_PREFIX}${food.row.fdcId}`, food.row])
+    corpus.foods.map((food) => [
+      mintEntity(USDA_PREFIX, food.row.fdcId),
+      food.row,
+    ])
   );
   for (const entity of wanted) {
     const row = rows.get(entity);
     if (!row) continue;
     // The alias-widened name a vocabulary search produces is a display name, so
     // the mapper is asked without one: the blob is the row's, not the query's.
-    rebuilt.set(
-      entity,
-      mapIndexRowToPayload(row).attributes["twin/raw_provenance"]
-    );
+    rebuilt.set(entity, mapIndexRowToPayload(row).attributes["provenance/raw"]);
   }
   return rebuilt;
 }

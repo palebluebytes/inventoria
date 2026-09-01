@@ -155,7 +155,7 @@ describe("exactly three attributes are omitted", () => {
   it("omits provenance and both photo attributes", async () => {
     const rows = [
       ...oneFoodMeal(),
-      row("fdc:1", "twin/raw_provenance", { adapter: "usda" }),
+      row("fdc:1", "provenance/raw", { adapter: "usda" }),
       row("fdc:1", "food/label_photos", ["data:image/jpeg;base64,AAAA"]),
       row("fdc:1", "food/photo_base64", "data:image/jpeg;base64,BBBB"),
     ];
@@ -170,7 +170,7 @@ describe("exactly three attributes are omitted", () => {
       "nutrition/info",
     ]);
     expect([...OMITTED_ATTRIBUTES]).toEqual([
-      "twin/raw_provenance",
+      "provenance/raw",
       "food/label_photos",
       "food/photo_base64",
     ]);
@@ -402,19 +402,26 @@ describe("the registry a meal's two allow-lists are read against", () => {
   }
 
   /** Twins a meal deliberately never reaches: none of them is food. */
-  const NOT_FOOD = ["tmdb:movie_", "tmdb:tv_", "isbn:", "twin:"];
+  // `tmdb:movie:` and `tmdb:tv:` end in a colon and `olid:` exists: this list
+  // predated #291's repair of the registry table, and was green only because
+  // the table was wrong in the same two places.
+  const NOT_FOOD = ["tmdb:movie:", "tmdb:tv:", "isbn:", "olid:", "twin:"];
 
   /**
-   * Namespaces a meal deliberately never carries. `twin/` and `media/` are the
-   * two that made ADR-0081 necessary: their projections scope by attribute
-   * alone, so either would be read off a food twin.
+   * Namespaces a meal deliberately never carries. `media/` is the one that
+   * still makes ADR-0081 necessary: its projection folds a twin by attribute
+   * alone, so `media/title` would be read off a food twin. `twin/` was the
+   * other, and ADR-0086 §5 both renamed it (`item/`, `provenance/`) and scoped
+   * that projection by entity, so the hazard is gone and the refusal is kept.
+   *
+   * `settings/` is not here because it no longer exists anywhere (ADR-0085).
    */
   const NOT_A_MEALS_BUSINESS = [
     "media/",
-    "twin/",
+    "item/",
+    "provenance/",
     "habit/",
     "cal_event/",
-    "settings/",
     "notes/",
   ];
 

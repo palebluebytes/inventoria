@@ -430,9 +430,9 @@ describe("rebuilding what was left off the wire (ADR-0073 §3)", () => {
 
     // The identical blob the search path would have written, from the same
     // mapper over the same row — offline, and with no network.
-    expect(
-      landedAttributes(appended, "fdc:1001")["twin/raw_provenance"]
-    ).toEqual(mapIndexRowToPayload(KALE).attributes["twin/raw_provenance"]);
+    expect(landedAttributes(appended, "fdc:1001")["provenance/raw"]).toEqual(
+      mapIndexRowToPayload(KALE).attributes["provenance/raw"]
+    );
   });
 
   it("lands the food without provenance when the corpus has no such row", async () => {
@@ -442,7 +442,7 @@ describe("rebuilding what was left off the wire (ADR-0073 §3)", () => {
     // A different corpus vintage is a silent degradation, never a refusal: the
     // NOVA badge reads "not rated", which is the neutral answer.
     const landed = landedAttributes(appended, "fdc:1001");
-    expect(landed["twin/raw_provenance"]).toBeUndefined();
+    expect(landed["provenance/raw"]).toBeUndefined();
     expect(landed["food/name"]).toBe("Kale, raw");
     expect(result.logged).toBe(1);
   });
@@ -451,7 +451,7 @@ describe("rebuilding what was left off the wire (ADR-0073 §3)", () => {
     const { seams, appended } = seamsOver([], new Error("offline"));
     const result = await acceptMealPayload(oneFoodMeal(), VIEWED_DAY, seams);
     expect(
-      landedAttributes(appended, "fdc:1001")["twin/raw_provenance"]
+      landedAttributes(appended, "fdc:1001")["provenance/raw"]
     ).toBeUndefined();
     expect(result.logged).toBe(1);
   });
@@ -472,7 +472,7 @@ describe("rebuilding what was left off the wire (ADR-0073 §3)", () => {
 
     // Re-fetching it would tell OFF's servers which barcodes you were sent.
     expect(
-      landedAttributes(appended, "gtin:5000159407236")["twin/raw_provenance"]
+      landedAttributes(appended, "gtin:5000159407236")["provenance/raw"]
     ).toBeUndefined();
   });
 });

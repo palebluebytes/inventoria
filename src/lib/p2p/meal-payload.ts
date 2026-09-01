@@ -1,3 +1,4 @@
+import type { EntityPrefix } from "../facets/registry";
 /**
  * One Past meal, narrowed for the wire (ADR-0073).
  *
@@ -71,14 +72,14 @@ export const MEAL_PAYLOAD_CEILING_BYTES = 1024 * 1024;
 /**
  * The three attributes that never cross to another person (ADR-0073 §2).
  *
- * `twin/raw_provenance` is 39.8% of a measured ledger and the recipient can
+ * `provenance/raw` is 39.8% of a measured ledger and the recipient can
  * rebuild the `fdc:` half of it from the bundle it already holds; the two photo
  * attributes are 55.6%, and a label photo is a record of the sender's capture
  * act rather than a property of the food. **The list is exhaustive and short on
  * purpose.** Everything else crosses.
  */
 export const OMITTED_ATTRIBUTES: readonly string[] = [
-  "twin/raw_provenance",
+  "provenance/raw",
   "food/label_photos",
   "food/photo_base64",
 ];
@@ -91,7 +92,7 @@ export const OMITTED_ATTRIBUTES: readonly string[] = [
  * would let a payload declare `settings:global` a root and then pass a closure
  * check computed from it, which is the whole of ADR-0073 §8.5's security.
  */
-export const MEAL_ROOT_PREFIX = "event:consume_";
+export const MEAL_ROOT_PREFIX: EntityPrefix = "event:consume_";
 
 /**
  * What the closure may contain besides its roots: the food Digital Twins a
@@ -127,10 +128,16 @@ export const MEAL_TWIN_PREFIXES: readonly string[] = [
  * It exists because §8's justification for that clause is false as written. "An
  * unknown attribute can only ride an entity the closure reaches, so it is a
  * fact about a food, harmless if unread" assumes every projection scopes its
- * read by entity. Two do not: the Media and Acquisition projections scope by
- * attribute alone (`src/lib/db/projections.ts`), so `twin/name` riding a
- * perfectly legitimate `fdc:` twin lands in a library of physical items the
- * recipient never acquired.
+ * read by entity. Not every one does: the Media projection still folds a twin
+ * by `media/%` alone (`src/lib/db/projections.ts`), so `media/title` riding a
+ * perfectly legitimate `fdc:` twin lands in a library the recipient never
+ * added to.
+ *
+ * The Acquisition half of that argument is **gone**, and the list is kept
+ * anyway. ADR-0086 §5 scoped that projection by entity, because the namespace
+ * it read was `twin/` and no domain owned it (#280). One projection is enough
+ * to justify the list, and a payload check that depends on which projections
+ * happen to be entity-scoped this month is the wrong shape regardless.
  */
 export const MEAL_ATTRIBUTE_NAMESPACES: readonly string[] = [
   "event/",

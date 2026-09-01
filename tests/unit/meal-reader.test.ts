@@ -475,7 +475,7 @@ describe("an attribute from a domain a meal has no business carrying", () => {
   // two ride a properly reachable food twin straight into a library of things
   // the recipient never acquired or watched.
   it("refuses a physical-item attribute the Acquisition projection would read", () => {
-    expect(onALegitimateTwin("twin/name").message).toContain("twin/name");
+    expect(onALegitimateTwin("item/name").message).toContain("item/name");
   });
 
   it("refuses a media attribute the Media projection would read", () => {

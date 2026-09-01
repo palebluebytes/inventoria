@@ -19,6 +19,9 @@
  *      is legal and expected (`twin:gtin_` inside `twin:`); cross-owner nesting
  *      is the defect, and an equality check misses every instance of it.
  *   2. Nothing outside the chokepoint constructs an entity id.
+ *   2b. No constant holds a bare prefix untyped. Check 2 reads the text before a
+ *      template's first interpolation, so a prefix held in a variable is
+ *      invisible to it — the p2p arc had two, and both passed in silence.
  *   3. Every declared prefix is actually mintable, so the roster does not
  *      accumulate prefixes no code has used since 2026-06. That is not
  *      hypothetical: ADR-0014's 2026-08 amendment declared three live prefixes
@@ -135,6 +138,44 @@ if (!strays) {
   ok(
     `no entity id is constructed outside ${CHOKEPOINT} (${sources.length} files)`
   );
+}
+
+// ── 2b. no constant holds a bare prefix, which hides a mint from check 2 ─────
+
+/**
+ * Check 2 reads the literal text before a template's first interpolation, so it
+ * cannot see `` `${MEAL_ROOT_PREFIX}${hex}` `` — the prefix is a variable and the
+ * head is empty. That is not hypothetical: the p2p arc had two of these
+ * (`MEAL_ROOT_PREFIX`, `USDA_PREFIX`) and both passed check 2 in silence.
+ *
+ * Rather than teach the scan to resolve constants, forbid the shape. A constant
+ * initialised to a bare declared prefix must be **typed** `EntityPrefix`, which
+ * makes `mintEntity` accept it and makes an undeclared value a compile error —
+ * so the type carries the guarantee and this only has to insist the type is
+ * there. A prefix named in a call (`entity.startsWith("isbn:")`) or in SQL is
+ * untouched, because neither is a declaration.
+ */
+const BARE_PREFIX_CONST =
+  /(?:const|let|var)\s+(\w+)\s*(?::\s*([^=\n]+?)\s*)?=\s*"([^"]+)"/g;
+
+let untyped = 0;
+for (const [path, text] of sources) {
+  if (path === CHOKEPOINT || path === REGISTRY) continue;
+  for (const match of text.matchAll(BARE_PREFIX_CONST)) {
+    const [, name, type, value] = match;
+    if (!ENTITY_PREFIXES.includes(value)) continue;
+    if (type && type.trim() === "EntityPrefix") continue;
+    const line = text.slice(0, match.index).split("\n").length;
+    untyped++;
+    fail(
+      `${path}:${line} holds the entity prefix "${value}" in \`${name}\` without typing it ` +
+        `EntityPrefix, so anything built from it is invisible to the check above. ` +
+        `Annotate it and build ids with mintEntity().`
+    );
+  }
+}
+if (!untyped) {
+  ok("every constant holding an entity prefix is typed EntityPrefix");
 }
 
 // ── 3. every declared prefix is minted somewhere ─────────────────────────────

@@ -123,7 +123,7 @@ describe("foodSourceView — origin from the entity id", () => {
       entity: "fdc:167512",
       attributes: {
         "food/name": "Kale, raw",
-        "twin/raw_provenance": {
+        "provenance/raw": {
           adapter: "fdc",
           adapter_version: "1",
           source_uri: "https://fdc.nal.usda.gov/food-details/167512",
