@@ -346,7 +346,7 @@ _Avoid_: Scan event, lookup log, barcode log, scan (for the session itself)
 ### Facets
 
 **Tracked Domain**:
-A kind of thing the app records, carrying its own entity prefixes, its own attributes and its own fold. There are six: food, media, physical items, habits, calendar events, and notes and checklists. Notes is the one that keeps no Projection — it is a Loro CRDT op-log under the single entity `notes:doc`, read by a direct SELECT (ADR-0018) — and that is an exception to be aware of rather than a route to copy. [docs/how-to-add-a-tracked-domain.md](docs/how-to-add-a-tracked-domain.md) is the route for adding one; this entry is the roster, and the route points here rather than restating it.
+A kind of thing the app records, carrying its own entity prefixes, its own attributes, its own fold and its own screen — one domain is one screen, never a fraction of one or two of them (ADR-0078 §2), which is what lets a Facet's screens be worked out from the domains it holds rather than listed again beside them (ADR-0081 §4). There are six: food, media, physical items, habits, calendar events, and notes and checklists. Notes is the one that keeps no Projection — it is a Loro CRDT op-log under the single entity `notes:doc`, read by a direct SELECT (ADR-0018) — and that is an exception to be aware of rather than a route to copy. [docs/how-to-add-a-tracked-domain.md](docs/how-to-add-a-tracked-domain.md) is the route for adding one; this entry is the roster, and the route points here rather than restating it.
 _Avoid_: Domain (bare — "domain timestamp" and "domain logic" already use the word for other things), area, feature, vertical, tab
 
 **Facet**:

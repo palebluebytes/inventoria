@@ -1,7 +1,8 @@
 # ADR 0080: A Facet carries a jar-wide control only where losing it loses data, or where the Facet's own act made the thing
 
 **Status:** Accepted  
-**Date:** 2026-09-01
+**Date:** 2026-09-01  
+**Amended by:** [ADR-0081](0081-a-gate-that-names-one-entry-point-proves-one-facet.md) §4 (§8's heading overreaches its own argument: the registry already holds a build half, and the rule is that it carries no field re-recording a conclusion whose reason is discarded)
 
 ## Context
 
@@ -302,3 +303,29 @@ working default since ADR-0070; `NutrientCard.svelte:4`, `NutrientCardGrid.svelt
 live second surface, which it has not been since the target editor moved to
 `FoodSettingsSheet`; and `ensurePersistentStorage()` is called only from the root's
 `App.svelte:60`, so a second entry point silently never asks.
+
+## Amendment (2026-09-01): §8's heading claims more than §8's argument
+
+§8 is titled "The split is hand-wired, and the registry supplies identity only". The second
+half was already false when it was written. [ADR-0077](0077-a-facet-precaches-its-own-weight.md)
+§2 puts each Facet's **static asset declarations** in the same registry and calls it "the
+build half of that registry earning its keep" — one commit earlier on the same branch. The
+registry has never supplied identity only.
+
+The argument §8 actually makes is narrower and stands untouched: the registry must not gain a
+field that **re-records a conclusion reached by argument while throwing the reason away**. A
+per-Facet list of settings blocks is one, and it is still refused for exactly the reason given
+here.
+
+[ADR-0081](0081-a-gate-that-names-one-entry-point-proves-one-facet.md) §4 states the rule in
+that form and applies it to two new fields: a per-Facet precache byte band, which passes
+because a measurement is not a conclusion from argument, and a per-Facet list of view modules,
+which **fails** — ADR-0078 §2 already fixes one screen per Tracked Domain, so writing the
+views out per Facet re-records ADR-0078 §1's conclusion. The view module is attached to the
+Tracked Domain instead, and a Facet's expected screens are computed from the domains it
+already declares.
+
+The heading is corrected here rather than rewritten in place, because the decision text is a
+record of what was decided on 2026-09-01 and this is evidence that its own summary line was
+broader than the reasoning under it. §8's refusal of a settings-block table is unaffected, and
+ADR-0081 §10 declines the check it offered.
