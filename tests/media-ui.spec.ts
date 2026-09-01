@@ -66,6 +66,23 @@ test("Media Library UI - search, save, and log engagement for books and movies",
     });
   });
 
+  // The cover the mock above implies. This spec compares no pixels, so an
+  // unmocked fetch costs it correctness nowhere — but it is still a live hop to
+  // Open Library on every run of a suite that otherwise leaves the machine
+  // nowhere, and it is the same unmocked request that made the visual catalog's
+  // media dashboard depend on the network. Stubbed here for the same reason,
+  // allow-origin header included: MediaCard requests the poster anonymously.
+  await page.route("**/covers.openlibrary.org/**", async (route) => {
+    await route.fulfill({
+      contentType: "image/gif",
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: Buffer.from(
+        "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+        "base64"
+      ),
+    });
+  });
+
   // Go to page
   await page.goto("/?mem=1");
 

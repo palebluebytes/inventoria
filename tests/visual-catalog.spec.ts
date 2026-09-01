@@ -188,6 +188,26 @@ test.describe("Visual Catalog Generator", () => {
         body: transparentPixel,
       });
     });
+    // The book cover the Open Library mock above implies: `cover_i: 12345`
+    // becomes `covers.openlibrary.org/b/id/12345-L.jpg` (open-library.ts), which
+    // was the one image request in this file still leaving the machine. Whether
+    // it arrived before the shot decided what the media dashboard looked like —
+    // the poster box is `background: var(--ink)` under the image, so a pending
+    // fetch photographs as a black block and a finished one as somebody's real
+    // cover art. The baseline held the black block; a runner with a faster hop
+    // to Open Library photographed the cover and disagreed with it.
+    //
+    // MediaCard sets `crossorigin="anonymous"` on the poster, so the fulfilled
+    // response needs the allow-origin header or the browser rejects it, `onerror`
+    // fires, and the card falls back to its striped placeholder — a third
+    // rendering, no more stable than the two it replaces.
+    await page.route("**/covers.openlibrary.org/**", async (route) => {
+      await route.fulfill({
+        contentType: "image/gif",
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: transparentPixel,
+      });
+    });
   });
 
   async function setupApiKeys(page: import("@playwright/test").Page) {
