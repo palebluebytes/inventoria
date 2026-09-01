@@ -1,4 +1,4 @@
-# ADR 0080: A Safari tab on iOS never accepts a meal, it hands the code to the app it is not
+# ADR 0082: A Safari tab on iOS never accepts a meal, it hands the code to the app it is not
 
 **Status:** Accepted  
 **Date:** 2026-09-01  
@@ -50,7 +50,7 @@ This record covers the iOS boundary and what replaces it, the addressing mode th
 comes back with it, and the two tests that decide which path a page takes. It does not
 reopen the wire (ADR-0072 §§1 to 3, 5 to 15), the payload
 ([ADR-0073](0073-a-sent-meal-is-a-narrowed-closure-that-lands-re-minted.md),
-[ADR-0079](0079-a-meals-closure-is-bounded-by-kind-not-by-reachability-alone.md)), or
+[ADR-0081](0081-a-meals-closure-is-bounded-by-kind-not-by-reachability-alone.md)), or
 the surfaces ADR-0074 §§1 to 9 settle.
 
 **The own-device half is untouched, and this is said because it will otherwise be
@@ -421,11 +421,21 @@ persistence request, opens no socket, and cleans the URL. What only a device can
 that `navigator.standalone` reports `true` inside a web clip, which every rule here now
 rests on and which is an inference from a preference default rather than a measurement.
 
-**The p2p arc's records are 0072 to 0075 and 0079 to 0080.** The former 0076 of this arc
-is now [ADR-0079](0079-a-meals-closure-is-bounded-by-kind-not-by-reachability-alone.md),
-because the Facet arc's ADR-0076 is already cited by its own 0077 and 0078 while this
-arc's was cited once. 0076 to 0078 are absent from this branch and will arrive with that
-arc. The README's no-gaps rule describes a merged history rather than a branch mid-flight.
+**The p2p arc's records are 0072 to 0075 and 0081 to 0082, and the number was wrong
+twice before it was right.** The arc originally ran 0072 to 0076. The Facet arc had also
+taken 0076, so this one moved to 0079 and 0080; its head branch then turned out to hold
+0079 and 0080 as well, so it moved again to 0081 and 0082. The Facet arc keeps **0076 to
+0080** and merges first, and 0076 to 0080 are absent from this branch until it does. The
+README's no-gaps rule describes a merged history rather than a branch mid-flight.
+
+**The lesson is not "check harder".** Sequential numbering assigns a shared name from a
+value that only exists once everything has merged, so on a repo with several arcs open at
+once every unmerged record is holding a number provisionally, whatever its author
+believed. Checking which numbers were free was done, and was correct at the moment it was
+run, and was stale within hours. Two things follow, and the second is the one that helps:
+the record's number is settled by whoever merges **last**, and `docs:check` now refuses
+two records that share a number, because `adrs` is keyed by that number and a collision
+used to make one of the two vanish from every check in silence.
 
 **Nothing here is built yet.** #255 produced a decision and these records.
 [#237](https://github.com/palebluebytes/inventoria/issues/237) is rewritten rather than

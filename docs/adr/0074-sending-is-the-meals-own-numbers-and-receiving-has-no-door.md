@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-29  
-**Amended by:** [ADR-0080](0080-a-safari-tab-on-ios-hands-the-code-to-the-app-it-is-not.md) (§10's boundary shrinks from the whole platform to one case, §11 gains a second test, §12.4 dissolves, §12.5 is revived, §12.6 is refused on its own merits, and §12.8 keeps its conclusion with a new reason)
+**Amended by:** [ADR-0082](0082-a-safari-tab-on-ios-hands-the-code-to-the-app-it-is-not.md) (§10's boundary shrinks from the whole platform to one case, §11 gains a second test, §12.4 dissolves, §12.5 is revived, §12.6 is refused on its own merits, and §12.8 keeps its conclusion with a new reason)
 
 ## Context
 
@@ -376,7 +376,7 @@ The 2026-08-30 Amendment above put §10 under review and blocked
 built against a premise this record knew to be false. That review is
 [#255](https://github.com/palebluebytes/inventoria/issues/255), it has closed, and its
 answer is
-[ADR-0080](0080-a-safari-tab-on-ios-hands-the-code-to-the-app-it-is-not.md).
+[ADR-0082](0082-a-safari-tab-on-ios-hands-the-code-to-the-app-it-is-not.md).
 
 **§10 is not withdrawn. It shrinks.** What survives is one case: a remote link arriving
 in an iOS Safari tab. Sending returns unconditionally, the same-room case returns, and
@@ -386,12 +386,12 @@ instead of accepting the meal itself. iPhone and iPad are in scope.
 **What this record got right and keeps.** The link still cannot reach an installed app's
 Ledger, and WebKit **181849** and **318623** are unchanged. _Nothing on the receive path
 may touch the relay before the platform test has run_ survives its boundary and now has
-a companion about OPFS. §11's sniff is unchanged and still fails closed, and ADR-0080 §6
+a companion about OPFS. §11's sniff is unchanged and still fails closed, and ADR-0082 §6
 adds a second test that fails closed in the same direction.
 
 **What is corrected rather than shrunk.** The sentence that **no send into an iOS device
-ever reports delivery** is false under ADR-0080 §3, and is struck. §12.4's refusal of a
-human-asked fork is neither reversed nor re-argued: ADR-0080 §5 removes the fork, so
+ever reports delivery** is false under ADR-0082 §3, and is struck. §12.4's refusal of a
+human-asked fork is neither reversed nor re-argued: ADR-0082 §5 removes the fork, so
 there is nothing left to refuse. §12.5's paste door is revived, on the merits it was
 never refused on. §12.6's QR image through a messenger stays refused, now because it
 moves a same-room mode into the remote row rather than because the platform is out.
@@ -405,6 +405,6 @@ carries no iOS clause and never did, and none of this reaches it.
 
 **Still true, and now the binding constraint:** nobody here has an iOS device. §10's
 reasoning that partial support on a platform nobody can test is worse than no support is
-untouched, and ADR-0080 answers it by being safe while unverified rather than by
-claiming verification. What is unverified is named in ADR-0080 §7, §10 and its
+untouched, and ADR-0082 answers it by being safe while unverified rather than by
+claiming verification. What is unverified is named in ADR-0082 §7, §10 and its
 Consequences rather than assumed away.

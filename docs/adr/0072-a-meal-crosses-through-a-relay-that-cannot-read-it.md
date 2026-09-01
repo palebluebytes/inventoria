@@ -3,7 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-08-29  
 **Amends:** [ADR-0070](0070-the-proxy-is-part-of-the-site-it-serves.md) (its one-Worker shape now carries the relay as well as the proxy, and §9 turns the script's invocation logs off, which the proxy pays for)  
-**Amended by:** [ADR-0080](0080-a-safari-tab-on-ios-hands-the-code-to-the-app-it-is-not.md) (§4's "no typed-code entry field, ever" is narrowed to the argument that produced it, and Paste returns as an addressing mode)
+**Amended by:** [ADR-0082](0082-a-safari-tab-on-ios-hands-the-code-to-the-app-it-is-not.md) (§4's "no typed-code entry field, ever" is narrowed to the argument that produced it, and Paste returns as an addressing mode)
 
 ## Context
 
@@ -465,11 +465,11 @@ That last clause reaches past its own paragraph. The same section's table lists
 §4 endorses paste and forbids the only surface paste can land on. The contradiction
 went unnoticed while the link was the sole remote carrier and no field existed.
 
-[ADR-0080](0080-a-safari-tab-on-ios-hands-the-code-to-the-app-it-is-not.md) §12
+[ADR-0082](0082-a-safari-tab-on-ios-hands-the-code-to-the-app-it-is-not.md) §12
 narrows it to what §4 actually argued: **no code a human is expected to reproduce.**
 Not spoken, not read out over a phone, not transcribed from another screen. The bar
 stays on the code's content rather than on how the characters arrived, because that
-is the only form of the rule a browser can enforce. ADR-0080 §13 says where the field
+is the only form of the rule a browser can enforce. ADR-0082 §13 says where the field
 lives.
 
 **The refusal of a spoken code is untouched**, and so is everything else in §4:

@@ -378,7 +378,7 @@ describe("the ceiling", () => {
 });
 
 /**
- * What a meal may carry is two allow-lists, and both fail closed (ADR-0079 §5):
+ * What a meal may carry is two allow-lists, and both fail closed (ADR-0081 §5):
  * a food twin kind or a namespace added to the registry and not to them stops
  * honest meals crossing, and the symptom shows up on somebody else's device.
  *
@@ -406,7 +406,7 @@ describe("the registry a meal's two allow-lists are read against", () => {
 
   /**
    * Namespaces a meal deliberately never carries. `twin/` and `media/` are the
-   * two that made ADR-0079 necessary: their projections scope by attribute
+   * two that made ADR-0081 necessary: their projections scope by attribute
    * alone, so either would be read off a food twin.
    */
   const NOT_A_MEALS_BUSINESS = [

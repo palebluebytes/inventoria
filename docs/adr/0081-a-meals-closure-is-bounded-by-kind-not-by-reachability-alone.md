@@ -1,4 +1,4 @@
-# ADR 0079: A meal's closure is bounded by kind, because reachability is computed from the sender's own claims
+# ADR 0081: A meal's closure is bounded by kind, because reachability is computed from the sender's own claims
 
 **Status:** Accepted  
 **Date:** 2026-08-31  
