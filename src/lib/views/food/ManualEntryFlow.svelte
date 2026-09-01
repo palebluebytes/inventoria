@@ -6,7 +6,7 @@
   import { emptyPlateEstimate } from "../../food/plate-estimator";
   import { readImageAsDataUrl } from "../../food/image-file";
   import type { FoodChoice, ManualEntrySeed } from "../../food/food-staging";
-  import Card from "../../ui/Card.svelte";
+  import Row from "../../ui/Row.svelte";
 
   // The Custom tab's intent chooser and its three purpose-built mini-forms
   // (ADR-0035), plus the fourth tile that opens the ADR-0034 label form
@@ -298,24 +298,23 @@
        own door (ADR-0087 §2, reversing ADR-0035 §1's closing sentence). -->
   <div class="chooser" data-testid="manual-intent-chooser">
     {#each TILES as opt (opt.kind)}
-      <!-- An interactive framed tile → the polymorphic Card renders a native
-           <button> with the brutalist frame, press-flush and keyboard path (the
-           #78 migration onto ADR-0039). The row layout lives on an inner span so
-           it doesn't fight Card's own block button. -->
-      <Card
-        class="intent"
+      <!-- The shared row (#319), not a Card: a tile here sits a screen away
+           from the food rows this sheet logs into, and wearing Card's frame at
+           twice their height made one chooser read as two different controls.
+           Clickable with no corner, so Row renders it as a native <button>. -->
+      <Row
         data-testid={`intent-${opt.kind}`}
+        title={opt.title}
+        subtitle={opt.blurb}
         onclick={() => openTile(opt.kind)}
       >
-        <span class="intent-inner">
+        {#snippet lead()}
           <span class="intent-ico" aria-hidden="true">{opt.icon}</span>
-          <span class="intent-text">
-            <span class="intent-title">{opt.title}</span>
-            <span class="intent-blurb">{opt.blurb}</span>
-          </span>
+        {/snippet}
+        {#snippet trailing()}
           <span class="intent-go" aria-hidden="true">›</span>
-        </span>
-      </Card>
+        {/snippet}
+      </Row>
     {/each}
   </div>
 {:else}
@@ -426,35 +425,16 @@
     flex-direction: column;
     gap: var(--space-s);
   }
-  /* The intent tile's frame (edge, radius, shadow, press-flush, focus ring) is
-     now the shared Card (ADR-0039); only its inner row layout stays here. */
-  .intent-inner {
-    display: flex;
-    align-items: center;
-    gap: var(--space-s);
-    min-height: 40px;
-    text-align: left;
-  }
+  /* The tile's frame, layout and typography are the shared Row (#319); what
+     stays here are its own two marks. The icon is the only thing telling four
+     otherwise identical rows apart at a glance, so it survives the shrink from
+     the tile's --step-3 down to the row's scale. */
   .intent-ico {
-    font-size: var(--step-3);
+    font-size: var(--step-1);
     line-height: 1;
     flex-shrink: 0;
   }
-  .intent-text {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-width: 0;
-    gap: var(--space-3xs);
-  }
-  .intent-title {
-    font-weight: 800;
-    font-size: var(--step-0);
-  }
-  .intent-blurb {
-    font-size: var(--step-n2);
-    color: var(--text-secondary);
-  }
+  /* Centred, unlike a food row's kcal: a tile has no corner ✕ to clear. */
   .intent-go {
     font-size: var(--step-2);
     font-weight: 800;

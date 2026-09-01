@@ -1881,6 +1881,12 @@
                       {#each comboItems as item (item.entity)}
                         <Combobox.Item value={item.entity} label={item.name}>
                           {#snippet child({ props: optProps, highlighted })}
+                            <!-- The known third caller of `ui/Row`, deliberately
+                            left alone (#319): bits-ui's `child` snippet spreads
+                            `role="option"` props onto this root, so adopting it
+                            would force the primitive to support arbitrary prop
+                            spreading and a third element mode, over a row that
+                            answers to bits-ui's a11y contract rather than ours. -->
                             <div
                               class="result-item"
                               class:hl={highlighted}
