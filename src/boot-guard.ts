@@ -41,16 +41,44 @@ const { markMounted } = installBootGuard({
 
   // Both halves matter: unregistering stops the old worker answering fetches,
   // and deleting the caches stops the next load being served the same broken
-  // shell out of the precache. The runtime image cache goes too, which is a
-  // cheap price for a shell that will not start.
+  // shell out of the precache.
+  //
+  // **The registration serving this page, and only that one** (#306). There is
+  // a service worker per Facet scope now (ADR-0077 §1), so on a device with both
+  // installed, `getRegistrations()` and a bare `caches.keys()` had a failed
+  // Rations boot unregister Inventoria and delete its 8.9 MB offline install —
+  // the same harm ADR-0077 §1 turns `cleanupOutdatedCaches` off to prevent,
+  // arriving by a second route.
+  //
+  // Which registration that is comes from **asking the browser**, not from
+  // reading the URL: the argument-less `getRegistration()` resolves by longest
+  // scope prefix against this document, the same rule that decided which worker
+  // is serving the page. Nothing here works out which Facet it is, which matters
+  // because this module is imported before any entry names one (ADR-0076 §6).
+  //
+  // On a device with Inventoria and not Rations, a failed `/food/` boot still
+  // drops the root's registration — and that is right rather than a hole in the
+  // narrowing, because with no Rations registration the root's is the only thing
+  // that could be serving the broken shell.
   dropServiceWorker: async () => {
     try {
-      const registrations =
-        (await navigator.serviceWorker?.getRegistrations()) ?? [];
-      await Promise.all(registrations.map((r) => r.unregister()));
+      const registration = await navigator.serviceWorker?.getRegistration();
+      if (!registration) return;
+      await registration.unregister();
       if (typeof caches !== "undefined") {
         const keys = await caches.keys();
-        await Promise.all(keys.map((key) => caches.delete(key)));
+        // `endsWith` rather than `includes`, which is the bug workbox's own
+        // `deleteOutdatedCaches` has: the root's scope is a *substring* of a
+        // nested Facet's cache name, so a containment test run from the root
+        // takes the child's precache with it. A cache name ends with the scope
+        // it belongs to and with no other. The shared `external-image-cache`
+        // matches neither and stays, which costs nothing — a CacheFirst cache
+        // re-fetches on miss, and no image ever stopped a shell mounting.
+        await Promise.all(
+          keys
+            .filter((key) => key.endsWith(registration.scope))
+            .map((key) => caches.delete(key))
+        );
       }
     } catch {
       // The reload is worth attempting whatever happened here.
