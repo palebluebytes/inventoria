@@ -353,6 +353,10 @@ _Avoid_: Domain (bare — "domain timestamp" and "domain logic" already use the 
 A named, icon-bearing face onto the Jar that can be installed on its own, carrying its own manifest, name, icon, scope and start URL. Installability is what makes it one: a face nobody can install is a tab, and calling it a Facet buys nothing. A Facet is composed of a whole number of Tracked Domains, never a fraction of one, and it owns those domains' **entities** and never their attribute namespaces — `twin/` and `event/` are written by several domains at once, so anything scoped by an attribute reaches rows a Facet does not own. Facets overlap rather than partition: Inventoria holds every domain, including the ones another Facet also holds. Today the app ships one, **Inventoria**; the roster, each entry's status and how a Facet declares itself are ADR-0076's. Settings is a screen of the root Facet, not a screen every Facet carries.
 _Avoid_: App (which already means Inventoria-the-PWA), Edition (which implies the same content repackaged, not different content), Surface, Tab (a Facet contains tabs), View (which is a Svelte component), Module, Sub-app
 
+**Hand-off**:
+An arrival or a departure that crosses the app's boundary carrying a thing — a shared URL, a receive link, a scanned code — as distinct from a navigation, which carries nothing and is what ADR-0078 §1 makes unexpressible inside a Facet. A hand-off belongs to the Facet that owns the entities it carries or would mint, and one spanning more than one Facet has no owner and is offered by neither (ADR-0084 §1, §2). There are two: `?url=` at the root, and the p2p receive link at Rations.
+_Avoid_: Route, deep link, intent, entry point (which names the URL, not what arrives at it)
+
 ### Interface primitives
 
 These ADRs establish this vocabulary and forbid alternatives to it. The `_Avoid_` lines

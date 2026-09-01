@@ -1,7 +1,8 @@
 # ADR 0078: A Facet contains no way out, and the root's way in is a browser tab
 
 **Status:** Accepted  
-**Date:** 2026-08-31
+**Date:** 2026-08-31  
+**Amended by:** [ADR-0084](0084-a-hand-off-belongs-to-the-facet-that-owns-what-it-carries.md) (§6's count of the entry points is corrected at this record's foot; §6's exclusivity itself stands unrevised)
 
 ## Context
 
@@ -211,3 +212,26 @@ that closes it. Nothing in this record changes on either answer; map decision 2 
 **A correction to the parent map.** Its decision 9 is written symmetrically — "a Facet never
 links out of itself" — and §3 shows it can only ever bind Rations. The map's wording stands
 as the intent; this record is where its reach is fixed.
+
+## Amendment (2026-09-01): §6 counted two entry points where there is one
+
+§6 says _"today there are two — the Web Share Target (`App.svelte:70`) and `ItemImportPanel`'s
+`?url=`."_ **Those are one entry point with two readers.**
+
+The root manifest declares `share_target` with `action: "/"`, `method: "GET"` and the params
+`title`/`text`/`url` (`vite.config.ts:142`). A share therefore navigates to `/?url=…`, and
+`App.svelte:68` and `ItemImportPanel.svelte:22` then read _the same_ `window.location.search`
+for _the same_ two params in _the same_ fallback order — `url` first, `text` second. The
+share sheet is what produces the URL; it is not a second URL. Typing or pasting the same
+query string reaches both readers identically.
+
+The real inventory is two, and the second one moves.
+[ADR-0084](0084-a-hand-off-belongs-to-the-facet-that-owns-what-it-carries.md) §5 mints the
+p2p receive link at `/food/` rather than `/`, so the pair is **`/?url=` at the root** and
+**the receive fragment at Rations**.
+
+The count is corrected here rather than in place because the map had been sizing #278 by
+counting entry points, and §6's own sentence — _a URL entry point belongs to exactly one
+Facet, and neither forwards_ — is unaffected and stands. ADR-0084 §1 supplies the ownership
+test §6 deferred, and its §2 adds the case §6 did not reach: a hand-off spanning more than
+one Facet has no owner at all.
