@@ -209,3 +209,22 @@ rule moves nothing.
 The clause is corrected here rather than in place because the decision text is a record of
 what was decided on 2026-08-31, and this is evidence that one of its two worked examples was
 false when written.
+
+## Amendment (2026-09-01): §2's roster is now two built, and the status column is spent
+
+§2's table records `food` as _decided by #271_, with the status `decided, not built`. Both
+cells have since been filled in and neither is corrected in place, because the table is a
+record of what was true on 2026-08-31.
+
+The Facet is called **Rations** ([#271](https://github.com/palebluebytes/inventoria/issues/271)),
+it has an entry point at `/food/` ([#301](https://github.com/palebluebytes/inventoria/issues/301)),
+an icon it is allowed to ship ([#302](https://github.com/palebluebytes/inventoria/issues/302)),
+and as of [#305](https://github.com/palebluebytes/inventoria/issues/305) a manifest of its own.
+**§1 makes that last one the definitional step**: a face nobody can install is a tab, so
+Rations became built when it became installable, not when it got a screen.
+
+That leaves the status column carrying `built` twice, and the roster it belongs to is
+`src/lib/facets/registry.ts` rather than this table. The Consequences below say this record
+carries the roster with its status; **it does not any more**, and the registry is what the
+build reads. A third entry's status is a fact about that entry, recorded where a Facet is
+declared, and this table stays as it was written.

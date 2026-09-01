@@ -2,8 +2,8 @@
   import type { Facet } from "../facets/registry";
 
   /**
-   * The root's way in to another Facet: **the single sanctioned exit**
-   * (ADR-0078 §4).
+   * The root's link to another Facet: **the single sanctioned exit**
+   * (ADR-0078 §4), and the record's own word for it.
    *
    * It is a link and not an install button because `beforeinstallprompt` fires
    * for the *current document's* manifest. There is no API by which a page at
@@ -28,7 +28,7 @@
 <!-- Every word of it is the Facet's own, so nothing here can advertise a name
      or a promise the roster has stopped making. The one sentence that is this
      component's rather than the Facet's is the label ADR-0078 §4 requires. -->
-<p class="facet-door">
+<p class="facet-exit">
   <a href={facet.startUrl} target="_blank" rel="noopener">
     Open {facet.name}
   </a>
@@ -38,7 +38,7 @@
 </p>
 
 <style>
-  .facet-door {
+  .facet-exit {
     display: flex;
     flex-direction: column;
     gap: var(--space-3xs);

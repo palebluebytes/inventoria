@@ -211,9 +211,9 @@ export interface Facet {
    * Whether it exists as a thing you can install. **Installability is
    * definitional** (ADR-0076 §1), so an entry point alone does not flip this:
    * Rations had a screen of its own from #301 and became `built` at #305, which
-   * is where it got a manifest. Both are `built` today, so nothing reads this
-   * yet — it is here because the word the roster uses for a Facet that has been
-   * decided and not built is the thing a third entry will need.
+   * is where it got a manifest. ADR-0076 §2's own table carried this column
+   * until then; the amendment at that record's foot hands it here, so a third
+   * entry can be decided in an ADR and declared here before it is built.
    */
   readonly status: "built" | "decided";
 }

@@ -8,7 +8,7 @@
   import SettingsView from "./lib/views/SettingsView.svelte";
   import ItemsView from "./lib/views/ItemsView.svelte";
   import ReloadPrompt from "./lib/ui/ReloadPrompt.svelte";
-  import FacetDoor from "./lib/layout/FacetDoor.svelte";
+  import FacetExit from "./lib/layout/FacetExit.svelte";
   // Notes is the only view whose CRDT (loro) carries a multi-megabyte WASM
   // payload. Importing it dynamically keeps that payload out of the entry chunk,
   // so a failure anywhere under Notes degrades Notes alone instead of stopping
@@ -239,7 +239,7 @@
              reopen ADR-0077 §5, which kept `usda/search-index.json` in the
              root's precache precisely because food is the root's landing
              screen. -->
-        <FacetDoor facet={rations} />
+        <FacetExit facet={rations} />
       {/if}
 
       {#if activeTab === "media"}

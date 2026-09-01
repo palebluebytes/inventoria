@@ -80,9 +80,10 @@ export function manifestUrlOf(facet: Facet): string {
  *
  * The same rule a service worker's registration follows, and for the same
  * reason: `/food/index.html` is inside `/food/` and inside `/`, and only one of
- * those is the page's own. Returns `undefined` for a path no Facet claims,
- * which the root's `/` scope makes unreachable today and will not the day a
- * build emits something that is not a Facet's entry.
+ * those is the page's own. A path no Facet claims gets `undefined` rather than
+ * the root — the root's `/` scope claims every entry point there is today, and
+ * the day a build emits an HTML that is not one, offering it as an installable
+ * app would be the defect.
  */
 export function facetForPath(path: string): Facet | undefined {
   return [...FACETS]

@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { VitePWA } from "vite-plugin-pwa";
 // SSRF guard, redirect re-validation, and the post-fetch response policy (size
@@ -10,7 +10,7 @@ import {
   HTML_CSP,
   readProxyPayload,
 } from "./src/lib/ingestion/proxy-policy";
-import { FACETS, facetOf } from "./src/lib/facets/registry";
+import { FACETS, facetOf, type Facet } from "./src/lib/facets/registry";
 import {
   facetForPath,
   manifestFor,
@@ -138,15 +138,7 @@ const isVitest = !!process.env.VITEST;
 
 const ROOT_FACET = facetOf("root");
 
-/**
- * The root's manifest, as `VitePWA` will take it.
- *
- * The one departure from {@link manifestFor}'s output is `icons`, copied into a
- * mutable array: the roster is `readonly` all the way down so nothing can edit
- * a Facet at runtime, and the plugin's own `ManifestOptions` types the member
- * as mutable. The copy is the seam between the two rather than a loosening of
- * either.
- */
+/** The root's manifest, built from the roster like every other Facet's. */
 const ROOT_MANIFEST = manifestFor(ROOT_FACET);
 
 /** Every Facet the root is not, which is the one asymmetry ADR-0078 §3 turns on. */
@@ -184,17 +176,9 @@ const FOREIGN_SCOPES = FOREIGN_FACETS.map((f) => new RegExp(`^${f.scope}`));
 /**
  * Give every Facet's page its own manifest, and only its own.
  *
- * `VitePWA`'s `transformIndexHtml` is **entry-blind**: one plugin instance
- * injects its one `<link rel="manifest">` into every HTML entry in the build
- * (measured, docs/research/269-two-installable-apps-one-origin.md §2). Left
- * alone, `/food/` advertises an installable *Inventoria* whose `start_url` is
- * `/` — an unlabelled door out of Rations into the other Facet, which is
- * exactly what ADR-0078 §4 routes through a labelled `target="_blank"` in the
- * other direction and refuses in this one.
- *
- * #302 could only take that link off, because Rations had no manifest to put in
- * its place. #305 writes one, so this is now the rewrite that record promised.
- * Three jobs, and they are three because the plugin does none of them:
+ * Three jobs, and they are three because `VitePWA` does none of them —
+ * `src/lib/facets/manifest.ts` carries why, which is one measurement rather
+ * than four retellings of it:
  *
  *   - **emit** every foreign Facet's manifest into the build, from the registry;
  *   - **serve** it in dev, where there is no build to emit into;
@@ -204,21 +188,20 @@ const FOREIGN_SCOPES = FOREIGN_FACETS.map((f) => new RegExp(`^${f.scope}`));
  * file at `/manifest.webmanifest`, built from the same {@link manifestFor} so
  * the two cannot say different things about the same roster.
  */
-const facetManifests = () => {
-  const bodyOf = (facet: (typeof FACETS)[number]) =>
-    JSON.stringify(manifestFor(facet), null, 2);
+const facetManifests = (): Plugin => {
+  const bodyOf = (facet: Facet) => JSON.stringify(manifestFor(facet), null, 2);
 
   return {
     name: "facet-manifests",
     // `enforce` *and* `order`, because VitePWA's build plugin carries both and a
     // plugin with only the second still runs before it. Among equally-enforced
     // plugins the array position decides, which is why this sits after VitePWA.
-    enforce: "post" as const,
-    configureServer(server: any) {
+    enforce: "post",
+    configureServer(server) {
       const routes = new Map(
         FOREIGN_FACETS.map((f) => [manifestUrlOf(f), bodyOf(f)])
       );
-      server.middlewares.use((req: any, res: any, next: any) => {
+      server.middlewares.use((req, res, next) => {
         const body = routes.get((req.url || "").split("?")[0]);
         if (!body) return next();
         res.setHeader("Content-Type", "application/manifest+json");
@@ -229,7 +212,7 @@ const facetManifests = () => {
       for (const facet of FOREIGN_FACETS) {
         // A leading slash would be an absolute path on disk; the emitted name
         // is relative to `dist/`, which is what `/food/` means once served.
-        (this as any).emitFile({
+        this.emitFile({
           type: "asset",
           fileName: manifestUrlOf(facet).replace(/^\//, ""),
           source: bodyOf(facet),
@@ -237,8 +220,12 @@ const facetManifests = () => {
       }
     },
     transformIndexHtml: {
-      order: "post" as const,
-      handler(html: string, ctx: { path: string }) {
+      order: "post",
+      handler(html, ctx) {
+        // A page no Facet claims gets no manifest, which is not a dead branch:
+        // the root's scope is `/` so every entry point is claimed today, and
+        // the day a build emits an HTML that is not one — a demo page, an error
+        // page — offering it as an installable app would be the defect.
         const facet = facetForPath(ctx.path);
         return facet ? withOwnManifestLink(html, facet) : html;
       },

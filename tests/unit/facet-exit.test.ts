@@ -11,11 +11,11 @@
  */
 import { describe, it, expect } from "vitest";
 import { render } from "svelte/server";
-import FacetDoor from "../../src/lib/layout/FacetDoor.svelte";
+import FacetExit from "../../src/lib/layout/FacetExit.svelte";
 import { facetOf } from "../../src/lib/facets/registry";
 
 const door = (id: "root" | "food") =>
-  render(FacetDoor, { props: { facet: facetOf(id) } }).body;
+  render(FacetExit, { props: { facet: facetOf(id) } }).body;
 
 describe("the door the root offers Rations through", () => {
   it("opens the Facet's own start URL in a tab of its own", () => {

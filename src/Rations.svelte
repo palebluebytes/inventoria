@@ -60,10 +60,9 @@
 
 <svelte:head>
   <title>{facet.name}</title>
-  <meta
-    name="description"
-    content="Log what you eat against an immutable append-only ledger that stays on your device."
-  />
+  <!-- The Facet's own sentence, which its manifest also carries (#305). Read
+       rather than repeated, so the two cannot come apart. -->
+  <meta name="description" content={facet.description} />
 </svelte:head>
 
 <div class="rations">

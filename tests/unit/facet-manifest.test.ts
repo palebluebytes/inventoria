@@ -9,12 +9,10 @@ import {
   withOwnManifestLink,
 } from "../../src/lib/facets/manifest";
 
-// #305. The manifest is hand-written rather than plugin-generated because
-// `VitePWA`'s `transformIndexHtml` is entry-blind and injects one instance's
-// link into every entry (docs/research/269-two-installable-apps-one-origin.md
-// §2 and §4). What that buys has to be checked here, because a manifest is only
-// read by a browser at install time and nothing else in the gate roster opens
-// one.
+// #305. Why the manifest is hand-written rather than plugin-generated is in
+// `src/lib/facets/manifest.ts`; what it has to *say* is here, because a manifest
+// is only read by a browser at install time and nothing else in the gate roster
+// opens one.
 
 describe("what a Facet's manifest says (ADR-0076 §1)", () => {
   it("reads Rations' identity off the registry rather than repeating it", () => {
