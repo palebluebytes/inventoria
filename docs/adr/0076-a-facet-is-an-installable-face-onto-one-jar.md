@@ -2,7 +2,8 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-31  
-**Amended by:** [ADR-0080](0080-a-facet-carries-a-jar-wide-control-only-where-losing-it-loses-data.md) §1, §3 and §4 (§5's "cannot function without" phrase is replaced by a two-clause test; "narrowed to its own scope" does not hold for an import; a setting lives beside what it configures rather than with its Facet)
+**Amended by:** [ADR-0080](0080-a-facet-carries-a-jar-wide-control-only-where-losing-it-loses-data.md) §1, §3 and §4 (§5's "cannot function without" phrase is replaced by a two-clause test; "narrowed to its own scope" does not hold for an import; a setting lives beside what it configures rather than with its Facet)  
+**Amended by:** [ADR-0086](0086-an-entity-has-exactly-one-owner-and-the-owner-is-a-tracked-domain.md) §1 (§4's ownership is named at the **Tracked Domain**, and a Facet's prefix set is derived from the domains it holds rather than declared beside them)
 
 ## Context
 

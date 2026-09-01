@@ -3,7 +3,8 @@
 **Status:** Accepted  
 **Date:** 2026-09-01  
 **Amends:** ADR-0031 §2, ADR-0032 §2, ADR-0033 §2/§4 (the blob datoms those records put on `settings:global`), ADR-0054 §4 (the export consent is a consent, not a setting)  
-**Implemented:** #288 — `stores/device-settings.ts`, `stores/consent.store.ts`, `NutritionTargetEditor`, `DailyDashboard`, `FoodSettingsSheet`, `FoodStager`, `LogSettingsSection`, `LogReviewSheet`
+**Implemented:** #288 — `stores/device-settings.ts`, `stores/consent.store.ts`, `NutritionTargetEditor`, `DailyDashboard`, `FoodSettingsSheet`, `FoodStager`, `LogSettingsSection`, `LogReviewSheet`  
+**Amended by:** [ADR-0086](0086-an-entity-has-exactly-one-owner-and-the-owner-is-a-tracked-domain.md) §2 (§1 stands; §2 and §3 fall, because both consent entities record a **default for a checkbox** rather than an act, so the `consent:` prefix is deleted and the toggles leave the ledger with every other setting)
 
 ## Context
 

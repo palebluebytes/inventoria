@@ -2,6 +2,7 @@
 
 **Status:** Accepted  
 **Amended by:** [ADR-0073](0073-a-sent-meal-is-a-narrowed-closure-that-lands-re-minted.md) §5 (the sync this record was written for arrives, and a received meal's `event:consume_` id is **derived** from the payload's declared root rather than minted at random, so accepting the same meal twice writes it once)  
+**Amended by:** [ADR-0086](0086-an-entity-has-exactly-one-owner-and-the-owner-is-a-tracked-domain.md) §3 and §4 (the scraper stops choosing its prefix from the scraped page and always mints `twin:`, retiring `sku:`, `asin:`, `url:`, `url:temp_`, `did:` and `gs1:`; identity aliasing across `isbn:` becomes a deliberate product rather than the hazard this record's Consequences named)  
 **Implemented:** `gtin:` / `fdc:` / `tmdb:` and the rest; the live registry is [docs/eavt-vocabulary.md](../eavt-vocabulary.md)
 
 Date: 2026-06-22
