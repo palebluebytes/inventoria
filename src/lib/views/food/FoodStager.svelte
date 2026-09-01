@@ -63,6 +63,10 @@
     decodeBarcodeFromImage,
   } from "../../food/barcode-scan";
   import {
+    ArtifactUnreachableError,
+    needsNetworkLine,
+  } from "../../food/bundled-artifact";
+  import {
     emptyAutofillResult,
     type AIAutofillResult,
   } from "../../food/ai-autofill";
@@ -312,6 +316,16 @@
   let completingPanel = $derived(
     completingEntity !== null && staged?.entity === completingEntity
   );
+  // The staged food whose panel could not be read for want of a network, and
+  // the line that says so (#307). Keyed by entity for the reason above it: the
+  // message belongs to one card, and staging another food or backing out of
+  // this one ends it by definition rather than by a reset somebody remembered.
+  let unreachablePanel = $state<{ entity: string; line: string } | null>(null);
+  let panelNeedsNetwork = $derived(
+    unreachablePanel && staged?.entity === unreachablePanel.entity
+      ? unreachablePanel.line
+      : null
+  );
 
   // Stage a chosen food, deepening a SEARCHED USDA food's four-macro row into
   // its full panel from the bundled Nutrient store (ADR-0047 §2). No key, no
@@ -336,15 +350,28 @@
     amount = openingAmount(item.payload);
     if (!searched) return;
     completingEntity = item.entity;
+    unreachablePanel = null;
     try {
       const completed = await completeStagedPanel(item.payload);
       // Only apply if this food is still the staged one — a fast user may have
       // gone back or staged another before the store resolved.
       if (staged?.entity === item.entity)
         staged = mapPayloadToFoodResult(completed);
-    } catch {
-      // Degrade to the row's four macros: a broken artifact costs the panel's
-      // depth, never the user's ability to log the food.
+    } catch (e) {
+      // Degrade to the row's four macros either way: a missing artifact costs
+      // the panel's depth, never the user's ability to log the food.
+      //
+      // In the ROOT that is routine rather than broken — ADR-0077 §5 takes the
+      // Nutrient store out of Inventoria's precache — so a Facet that could not
+      // reach it says so, once, on the card whose panel is missing. Logging
+      // silently on four figures where the user saw a full panel last time is
+      // the thing this replaces, and a log freezes what it was given for ever
+      // (ADR-0022). Rations precaches the store and never gets here (§4).
+      if (e instanceof ArtifactUnreachableError)
+        unreachablePanel = {
+          entity: item.entity,
+          line: needsNetworkLine(e, PANEL_OFFLINE_RECOVERY),
+        };
     } finally {
       if (completingEntity === item.entity) completingEntity = null;
     }
@@ -566,6 +593,15 @@
   // type in a pack OFF already holds.
   const OFF_UNREACHABLE_COPY =
     "Couldn’t reach Open Food Facts — the service is busy or down, not missing this barcode. Try again in a moment.";
+
+  // The recovery halves of the two "needs a network" lines (#307). The claim
+  // itself is `needsNetworkLine`'s, said once for both paths; what differs is
+  // what the user can still do on the screen they are standing on — log the
+  // four figures the search row already gave them, or type the digits off the
+  // pack. Only the root reaches either: Rations precaches both artifacts.
+  const PANEL_OFFLINE_RECOVERY =
+    "Log now and this records the four figures above.";
+  const READER_OFFLINE_RECOVERY = "Type the number below instead.";
 
   // Route one of the doors into the Custom form: set the reason banner, keep the
   // barcode (already in `barcode` state), and prefill from a partial OFF payload
@@ -1185,14 +1221,29 @@
     // video isn't ready; the next tick retries.
     if (!scanning || !videoEl || fallbackBusy || videoEl.readyState < 2) return;
     fallbackBusy = true;
+    let code: string | null = null;
     try {
-      const code = await decodeBarcode(videoEl);
-      // Re-check `scanning` after the await: the native loop may have won during
-      // the decode, in which case it already stopped the camera and looked up.
-      if (code && scanning) await tookScannedCode(code);
+      // Only the decode is guarded, so what the catch below blames is the only
+      // thing that can have gone wrong: `tookScannedCode` handles its own
+      // lookup failures and must not be read as a reader that would not load.
+      code = await decodeBarcode(videoEl);
+    } catch {
+      // The reader could not load, which on the root is the un-precached wasm
+      // with no network (ADR-0077 §5). Say nothing and stop asking: this device
+      // has a native detector, it is scanning with it, and a second opinion
+      // nobody can get is not a failure the user has to read — where the upload
+      // path, whose only decoder this is, does say so. Left unhandled this was
+      // a rejection every 1.2 s for as long as the camera stayed open.
+      if (fallbackTimer) {
+        clearInterval(fallbackTimer);
+        fallbackTimer = null;
+      }
     } finally {
       fallbackBusy = false;
     }
+    // Re-check `scanning` after the await: the native loop may have won during
+    // the decode, in which case it already stopped the camera and looked up.
+    if (code && scanning) await tookScannedCode(code);
   }
 
   // What the scanner just read, which is no longer always a barcode
@@ -1322,8 +1373,23 @@
       uploadError = "Couldn’t read that image file.";
       return;
     }
+    let code: string | null;
     try {
-      const code = await decodeBarcodeFromImage(file);
+      code = await decodeBarcodeFromImage(file);
+    } catch (e) {
+      // Only the decode is in here, so this is the reader and not the lookup it
+      // leads to. On the root a reader that could not load is the un-precached
+      // wasm with no network (#307, ADR-0077 §5); anything else is the file the
+      // browser would not turn into a bitmap, which reads like the one the
+      // data-URL step above already refuses.
+      decoding = false;
+      uploadError =
+        e instanceof ArtifactUnreachableError
+          ? needsNetworkLine(e, READER_OFFLINE_RECOVERY)
+          : "Couldn’t read that image file.";
+      return;
+    }
+    try {
       if (code) {
         const read = readScannedCode(code);
         decoding = false;
@@ -1348,9 +1414,6 @@
       uploadNoCode = true;
       uploadError =
         "Couldn’t read a barcode in that photo. Type the number below, or enter the label details.";
-    } catch {
-      uploadError =
-        "The barcode reader couldn’t load. Type the number below instead.";
     } finally {
       decoding = false;
     }
@@ -1834,6 +1897,19 @@
                           data-testid="completing-panel"
                         >
                           Reading the full nutrition panel…
+                        </p>
+                      {/if}
+                      {#if panelNeedsNetwork}
+                        <!-- The panel could not be read and this Facet does not
+                        keep the Nutrient store (ADR-0077 §5). The Log button
+                        stays live: the row's four macros are still a food the
+                        user can log, and the line says that is what they get. -->
+                        <p
+                          class="hint"
+                          role="status"
+                          data-testid="panel-needs-network"
+                        >
+                          {panelNeedsNetwork}
                         </p>
                       {/if}
                       {#if nudge}
