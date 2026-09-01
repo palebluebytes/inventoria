@@ -2514,15 +2514,24 @@ describe("completeStagedPanel", () => {
 
 // ── Loading the artifacts ───────────────────────────────────────────────────
 
+// Both loads memoise per module instance, so every test below starts from a
+// fresh registry. `bundled-artifact` is re-imported through the SAME reset, or
+// the class the corpus throws and the class the test names are two classes.
+async function freshLoaders() {
+  vi.resetModules();
+  return {
+    ...(await import("../../src/lib/food/usda-corpus")),
+    ...(await import("../../src/lib/food/bundled-artifact")),
+  };
+}
+
 describe("loadNutrientStore", () => {
   it("retries after a failed load instead of caching the failure", async () => {
     // The store is warmed at startup, where the likeliest failure is a service
     // worker that has not taken control yet. A cached rejection would then stage
     // every food of the session on four macros — silently, and permanently once
     // logged (ADR-0022).
-    vi.resetModules();
-    const { loadNutrientStore } =
-      await import("../../src/lib/food/usda-corpus");
+    const { loadNutrientStore } = await freshLoaders();
     const fetches = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({ ok: false, status: 503 } as Response)
@@ -2533,6 +2542,63 @@ describe("loadNutrientStore", () => {
     // ...and the load that succeeded IS memoised: one parse per session.
     await loadNutrientStore();
     expect(fetches).toHaveBeenCalledTimes(2);
+    vi.restoreAllMocks();
+  });
+
+  it("reports an unanswered fetch as an artifact the Facet could not reach", async () => {
+    // The root does not precache the Nutrient store (ADR-0077 §5), so a cold
+    // offline Inventoria asks for a file nothing will answer for. That is an
+    // offline user, and #307 is what lets the staging path say so instead of
+    // surfacing a fetch error under a comment claiming the build is broken.
+    const { loadNutrientStore, ArtifactUnreachableError } =
+      await freshLoaders();
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(
+      new TypeError("Failed to fetch")
+    );
+
+    const failure = await loadNutrientStore().catch((e) => e);
+    expect(failure).toBeInstanceOf(ArtifactUnreachableError);
+    expect(failure.subject).toBe("The full nutrition panel");
+    expect(failure.url).toBe("/usda/nutrient-store.json");
+    vi.restoreAllMocks();
+  });
+
+  it("leaves a served response that is not ok as the fault it is", async () => {
+    // Something answered, so the file is on the origin and its status is worth
+    // reading: a 404 here is a build that dropped an artifact, which is what the
+    // comment on `fetchArtifact` used to claim EVERY miss was. Saying "needs a
+    // network" for this one would send the next reader looking for a router.
+    const { loadNutrientStore, ArtifactUnreachableError } =
+      await freshLoaders();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 404,
+    } as Response);
+
+    const failure = await loadNutrientStore().catch((e) => e);
+    expect(failure).not.toBeInstanceOf(ArtifactUnreachableError);
+    expect(failure.message).toContain("/usda/nutrient-store.json");
+    expect(failure.message).toContain("404");
+    vi.restoreAllMocks();
+  });
+});
+
+describe("loadSearchCorpus", () => {
+  it("reports an unanswered fetch the same way, naming its own artifact", async () => {
+    // BOTH artifacts go through the one fetch, so neither can drift into a
+    // different account of the same failure. The root does precache this one,
+    // so reaching here is a broken service worker rather than a routine offline
+    // load — which is why the sentence a screen shows is the caller's decision
+    // and not this module's.
+    const { loadSearchCorpus, ArtifactUnreachableError } = await freshLoaders();
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(
+      new TypeError("Failed to fetch")
+    );
+
+    const failure = await loadSearchCorpus().catch((e) => e);
+    expect(failure).toBeInstanceOf(ArtifactUnreachableError);
+    expect(failure.subject).toBe("The food search");
+    expect(failure.url).toBe("/usda/search-index.json");
     vi.restoreAllMocks();
   });
 });

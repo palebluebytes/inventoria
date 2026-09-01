@@ -17,6 +17,7 @@
 // this does NOT pull the wasm binary into the bundle; the browser fetches it
 // when zxing initialises on first use.
 import zxingReaderWasmUrl from "zxing-wasm/reader/zxing_reader.wasm?url";
+import { ArtifactUnreachableError } from "./bundled-artifact";
 
 // The retail linear symbologies a food barcode uses, plus QR.
 //
@@ -44,21 +45,59 @@ let detectorPromise: Promise<{
   detect(source: ImageBitmapSource): Promise<{ rawValue: string }[]>;
 }> | null = null;
 
+/**
+ * The ponyfill detector, with its wasm already instantiated.
+ *
+ * **The module is prepared here rather than left to the first `detect()`**, and
+ * that is the whole of #307 on this path. zxing instantiates lazily, so a wasm
+ * that could not be fetched used to surface inside `detect()`, where it is
+ * indistinguishable from a frame that carried no barcode — and the root does
+ * not precache this wasm (ADR-0077 §5), so a cold offline Inventoria hit that
+ * every time and told the user their photo was unreadable. Preparing it up
+ * front costs nothing (the first decode paid for it anyway) and puts the
+ * failure where it can be named.
+ *
+ * A SUCCESS is what is memoised, for the reason `loadNutrientStore` gives: a
+ * cached rejection would answer every scan for the rest of the session, and the
+ * likeliest cause here is one that clears by itself.
+ */
 function getDetector() {
-  if (!detectorPromise) {
-    detectorPromise = import("barcode-detector/pure").then(
-      ({ BarcodeDetector, prepareZXingModule }) => {
-        // Point zxing at our self-hosted wasm instead of the CDN default.
-        prepareZXingModule({
-          overrides: {
-            locateFile: (path: string, prefix: string) =>
-              path.endsWith(".wasm") ? zxingReaderWasmUrl : prefix + path,
-          },
-        });
-        return new BarcodeDetector({ formats: [...SCAN_FORMATS] });
-      }
+  detectorPromise ??= (async () => {
+    const { BarcodeDetector, prepareZXingModule, purgeZXingModule } =
+      await import("barcode-detector/pure");
+    try {
+      // Point zxing at our self-hosted wasm instead of the CDN default, and
+      // fetch it now rather than on the first frame.
+      await prepareZXingModule({
+        overrides: {
+          locateFile: (path: string, prefix: string) =>
+            path.endsWith(".wasm") ? zxingReaderWasmUrl : prefix + path,
+        },
+        fireImmediately: true,
+      });
+    } catch (cause) {
+      // zxing caches the module promise as well, keyed on the overrides object,
+      // so forgetting ours below is not enough on its own: purge its rejected
+      // one, or the retry is handed the same failure without a fetch.
+      purgeZXingModule();
+      throw cause;
+    }
+    return new BarcodeDetector({ formats: [...SCAN_FORMATS] });
+  })().catch((cause) => {
+    detectorPromise = null;
+    // The wasm is what this names, and it is the only file here that can go
+    // missing: the ponyfill chunk is in the derived code half of BOTH Facets'
+    // precache (ADR-0077 §2), so an offline load gets the chunk and fails on
+    // the wasm the root gave up (§5). Unlike the USDA artifacts there is no
+    // status to read either way — zxing owns that fetch — so a build that
+    // dropped the file is reported as needing a network too, which is a corner
+    // this path cannot tell apart and does not pretend to.
+    throw new ArtifactUnreachableError(
+      "The barcode reader",
+      zxingReaderWasmUrl,
+      cause
     );
-  }
+  });
   return detectorPromise;
 }
 
@@ -68,7 +107,8 @@ function getDetector() {
  * by the desktop upload path (a decoded still) and as the live camera's fallback
  * (a video frame, when the native detector keeps missing). A `detect()` that
  * throws on an unreadable frame is a non-decode, not an error, so it maps to
- * `null`; only a genuine wasm-load failure rejects, so the caller can surface it.
+ * `null`; only a reader that could not load rejects, and it rejects as an
+ * `ArtifactUnreachableError` so the caller can say the network is why (#307).
  */
 export async function decodeBarcode(
   source: ImageBitmapSource

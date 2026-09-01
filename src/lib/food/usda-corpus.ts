@@ -7,6 +7,7 @@ import {
   type NutritionInfo,
   type Portion,
 } from "./nutrition";
+import { ArtifactUnreachableError } from "./bundled-artifact";
 import { buildRawProvenance, type MergedSource } from "./provenance";
 import {
   ADAPTER_VERSION,
@@ -712,21 +713,34 @@ export async function searchUsdaCorpus(
 const SEARCH_INDEX_URL = "/usda/search-index.json";
 const NUTRIENT_STORE_URL = "/usda/nutrient-store.json";
 
-async function fetchArtifact<T>(url: string): Promise<T> {
-  const res = await fetch(url);
-  // **In Rations, a miss is a broken build or a broken service worker rather
-  // than an offline user.** That Facet precaches all three USDA artifacts and
-  // owes ADR-0047 §11's promise whole (ADR-0077 §4).
-  //
-  // **In the root it is routinely an offline user**, and this comment used to
-  // say otherwise. ADR-0077 §5 takes the Nutrient store out of Inventoria's
-  // precache — it is read when a food is staged, seconds after launch, where
-  // the search index is what the user is looking at before they do anything —
-  // so a cold offline root reaches this with no network and nothing cached.
-  // #307 is what makes that path say it needs a network instead of surfacing
-  // the message below.
-  //
-  // Say which file, because the two fail for the same reasons and read alike.
+/**
+ * Fetches one bundled artifact, keeping the two ways it can fail apart.
+ *
+ * **Nothing answered at all** is an offline user (#307). ADR-0077 §5 takes the
+ * Nutrient store out of Inventoria's precache — it is read when a food is
+ * staged, seconds after launch, where the Search index is what the user is
+ * looking at before they do anything — so a cold offline root reaches this with
+ * no network and nothing cached, and the caller is handed something it can turn
+ * into a sentence naming the network.
+ *
+ * **A response that is not `ok`** is the other one: the file is on the origin,
+ * something served it, and its status is worth reading. That stays the plain
+ * error naming the file that this has always thrown. **In Rations both are a
+ * broken build or a broken service worker rather than an offline user** — that
+ * Facet precaches all three USDA artifacts and owes ADR-0047 §11's promise
+ * whole (ADR-0077 §4) — which is why the user-facing half of this is the
+ * caller's and not decided here.
+ *
+ * Say which file either way, because the two artifacts fail for the same
+ * reasons and read alike.
+ */
+async function fetchArtifact<T>(subject: string, url: string): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch (cause) {
+    throw new ArtifactUnreachableError(subject, url, cause);
+  }
   if (!res.ok) throw new Error(`Failed to load ${url} (${res.status}).`);
   return (await res.json()) as T;
 }
@@ -744,7 +758,10 @@ let loadedNutrients: Promise<NutrientStore> | null = null;
  * rejection would answer every search for the rest of the session.
  */
 export function loadSearchCorpus(): Promise<SearchCorpus> {
-  loadedCorpus ??= fetchArtifact<SearchIndex>(SEARCH_INDEX_URL)
+  loadedCorpus ??= fetchArtifact<SearchIndex>(
+    "The food search",
+    SEARCH_INDEX_URL
+  )
     .then(buildSearchCorpus)
     .catch((error) => {
       loadedCorpus = null;
@@ -760,15 +777,16 @@ export function loadSearchCorpus(): Promise<SearchCorpus> {
  * (see {@link warmUsdaCorpus}) so the first one usually pays nothing either.
  */
 export function loadNutrientStore(): Promise<NutrientStore> {
-  loadedNutrients ??= fetchArtifact<NutrientStore>(NUTRIENT_STORE_URL).catch(
-    (error) => {
-      // Forgotten on failure, for the reason {@link loadSearchCorpus} gives —
-      // and here a cached rejection would quietly stage every food of the
-      // session on four macros rather than on its panel.
-      loadedNutrients = null;
-      throw error;
-    }
-  );
+  loadedNutrients ??= fetchArtifact<NutrientStore>(
+    "The full nutrition panel",
+    NUTRIENT_STORE_URL
+  ).catch((error) => {
+    // Forgotten on failure, for the reason {@link loadSearchCorpus} gives —
+    // and here a cached rejection would quietly stage every food of the
+    // session on four macros rather than on its panel.
+    loadedNutrients = null;
+    throw error;
+  });
   return loadedNutrients;
 }
 
