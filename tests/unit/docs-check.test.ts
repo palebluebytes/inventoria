@@ -133,6 +133,41 @@ describe("the backlink gate reads header trailers (#261)", () => {
   });
 });
 
+describe("one number names one record", () => {
+  it("fails when two records claim the same number, and names both", () => {
+    // The failure this replaces was silent. `adrs` is a Map keyed by the number
+    // in the filename, so the second file overwrote the first and the loser sat
+    // outside every check with nothing said. Two arcs really did both reach 0076,
+    // then both reach 0079 and 0080, and the merge would have dropped a record.
+    write("docs/adr/0079-one-arcs-record.md", adr(79, "One arc's record"));
+    write(
+      "docs/adr/0079-another-arcs-record.md",
+      adr(79, "Another arc's record")
+    );
+
+    const { code, out } = run();
+
+    expect(code).toBe(1);
+    expect(out).toContain("ADR-0079 is claimed by two records");
+    // Both, because a message naming one of them cannot be acted on.
+    expect(out).toContain("0079-one-arcs-record.md");
+    expect(out).toContain("0079-another-arcs-record.md");
+  });
+
+  it("passes when every number is unique", () => {
+    write("docs/adr/0079-one-arcs-record.md", adr(79, "One arc's record"));
+    write(
+      "docs/adr/0081-another-arcs-record.md",
+      adr(81, "Another arc's record")
+    );
+
+    const { code, out } = run();
+
+    expect(code).toBe(0);
+    expect(out).toContain("every ADR number names exactly one record");
+  });
+});
+
 describe("the corpus includes records that are not committed yet (#261)", () => {
   it("sees an ADR that has never been git added", () => {
     // `git ls-files` alone passed an unstaged record by not knowing it existed,

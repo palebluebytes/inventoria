@@ -163,9 +163,19 @@ if (!badLinks)
 // ── the ADR corpus ───────────────────────────────────────────────────────────
 
 const adrs = new Map();
+// Two records that share a number: one of them used to disappear.
+//
+// `adrs` is keyed by the number in the filename, so a second `0079-*.md` simply
+// overwrote the first, and the loser then sat outside every check below with
+// nothing said about it. That is not hypothetical: parallel unmerged arcs assign
+// numbers from what is free *today*, and two arcs both reached 0076, then both
+// reached 0079 and 0080. A collision must be loud at the merge that creates it,
+// because it is the merge that has both records in one tree for the first time.
+const duplicates = new Map();
 for (const file of tracked.filter((f) => /^docs\/adr\/\d{4}-.*\.md$/.test(f))) {
   const text = read(file);
   const n = Number(file.slice("docs/adr/".length, "docs/adr/".length + 4));
+  if (adrs.has(n)) duplicates.set(n, [adrs.get(n).file, file]);
   const m = text.match(/\*\*Status:\*\*[\s\S]*?(?=\n\s*\n)/);
   adrs.set(n, {
     file,
@@ -174,6 +184,16 @@ for (const file of tracked.filter((f) => /^docs\/adr\/\d{4}-.*\.md$/.test(f))) {
     statusLine: text.split("\n").find((l) => l.startsWith("**Status:**")) ?? "",
   });
 }
+
+// ── STRUCTURAL 1b: one record per number ─────────────────────────────────────
+
+for (const [n, files] of [...duplicates].sort((a, b) => a[0] - b[0])) {
+  fail(
+    `docs/adr: ADR-${String(n).padStart(4, "0")} is claimed by two records, and ` +
+      `only the second is checked at all:\n      ${files.join("\n      ")}`
+  );
+}
+if (!duplicates.size) ok(`every ADR number names exactly one record`);
 
 // ── STRUCTURAL 2: status uses the closed vocabulary ──────────────────────────
 
