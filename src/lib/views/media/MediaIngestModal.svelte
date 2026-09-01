@@ -125,8 +125,8 @@
       {#if initialType !== "book" && !$secretsStore.tmdb_api_key}
         <div class="mt-4">
           <Alert variant="warning">
-            TMDB API key is not configured. Please set your key in Settings to
-            search and ingest Movie/TV twins.
+            TMDB API key is not configured. Set your key with the gear on the
+            Media screen to search and ingest Movie/TV twins.
           </Alert>
         </div>
       {/if}

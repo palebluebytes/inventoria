@@ -193,15 +193,14 @@ describe("device settings (ADR-0085: a setting is never a datom)", () => {
       expect(get((await loadPrefs()).scraperProxyUrl)).toBe("");
     });
 
-    it("round-trips a value through its setter", async () => {
-      const ls = makeFakeLocalStorage();
-      vi.stubGlobal("localStorage", ls);
-      const prefs = await loadPrefs();
-      prefs.setScraperProxyUrl("https://p/?url=");
-      expect(get(prefs.scraperProxyUrl)).toBe("https://p/?url=");
-      expect(ls.store.get("inventoria_device_scraper_proxy_url")).toBe(
-        "https://p/?url="
-      );
+    it("has no setter, because the field that wrote it was deleted", async () => {
+      // ADR-0080 §4: the app has served its own proxy since ADR-0070, so the
+      // Settings field overrode a working default for a reader who did not
+      // exist. It is the one setting in this module that is read and never set,
+      // and a new writer would be a new decision rather than an oversight
+      // corrected.
+      vi.stubGlobal("localStorage", makeFakeLocalStorage());
+      expect(await loadPrefs()).not.toHaveProperty("setScraperProxyUrl");
     });
   });
 

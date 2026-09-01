@@ -80,15 +80,19 @@ describe("fetchHtml Proxy Error handling", () => {
     mockProxyUrl.set("https://my-proxy.com/?url=");
   });
 
-  it("throws configuration error if proxy is empty in browser", async () => {
-    // Set proxy URL to empty
+  it("throws without pointing at a Settings field when the proxy is empty", async () => {
+    // The app serves its own proxy by default (ADR-0070), so an empty value is
+    // a build or a device that cleared it — not something a user can fix on a
+    // screen. The old message said "Please set it in Settings" about a field
+    // ADR-0080 §4 deleted, and about a value that had worked by default ever
+    // since ADR-0070.
     mockProxyUrl.set("");
 
     // Mock window to simulate browser environment
     vi.stubGlobal("window", {});
 
     await expect(fetchHtml("https://example.com/blocked")).rejects.toThrow(
-      "Scraper proxy URL is not configured. Please set it in Settings."
+      "This build has no scraper proxy, so it cannot fetch."
     );
 
     vi.unstubAllGlobals();

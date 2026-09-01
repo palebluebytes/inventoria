@@ -191,17 +191,12 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   }
 
   async function setupApiKeys(page: import("@playwright/test").Page) {
-    // TMDB + scraper stay on the global Settings tab…
-    await page.locator(".nav-item", { hasText: "Settings" }).click();
-    await page.locator("#tmdb-api-key").fill("test-tmdb-key");
-    await page.locator("#scraper-proxy-url").fill("/api/proxy?url=");
-    await page
-      .locator("button[type='submit']", { hasText: "Save Settings" })
-      .click();
-    await expect(page.locator(".saved-badge")).toBeVisible();
-    // …while the Food screen's own settings sheet is where whole-number rounding
-    // is turned OFF: it defaults ON, but the logging/recipe tests below assert
-    // the projection's exact 2-dp math (e.g. 89 × 1.5 = 133.5), which is a
+    // Nothing on the Settings tab any more. The TMDB key moved to the Media
+    // screen's gear and is nothing to do with food, and the scraper proxy field
+    // was deleted rather than moved (ADR-0080 §4). What is left is the Food
+    // screen's own settings sheet, where whole-number rounding is turned OFF:
+    // it defaults ON, but the logging/recipe tests below assert the
+    // projection's exact 2-dp math (e.g. 89 × 1.5 = 133.5), which is a
     // computation check, not a display-preference one. Rounding itself is
     // covered by the unit tests. USDA needs nothing here — its corpus is
     // bundled, so there is no key to enter (ADR-0047 §1).

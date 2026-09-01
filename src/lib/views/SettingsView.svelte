@@ -1,10 +1,4 @@
 <script lang="ts">
-  import {
-    setScraperProxyUrl,
-    scraperProxyUrl,
-  } from "../stores/device-settings";
-  import { secretsStore, setSecret } from "../stores/secrets";
-  import { get } from "svelte/store";
   import { createQueryStore } from "../stores/datoms.store";
   import { dbClient } from "../db/db.client";
   import { HLC_ORDER_DESC } from "../db/hlc";
@@ -43,43 +37,16 @@
     }
   }
 
-  // Local state variables for forms. Both fields on this screen are per-device
-  // `localStorage` now: the TMDB key as a secret (ADR-0034 §8) and the scraper
-  // proxy as a device setting (ADR-0063). Neither waits on the ledger, so both
-  // seed at construction rather than from an effect. The food-specific settings
-  // (USDA/OFF credentials, contribution consent, nutrition targets) live on the
-  // Food screen's own settings sheet, not here.
-  let tmdbKey = $state(get(secretsStore).tmdb_api_key);
-  let scraperProxy = $state(get(scraperProxyUrl));
-
-  let showTmdb = $state(false);
-
-  let isSaving = $state(false);
-  let saveSuccess = $state(false);
-
-  // Save handler
-  async function handleSave(e: Event) {
-    e.preventDefault();
-    isSaving = true;
-    saveSuccess = false;
-    try {
-      // The TMDB key is a secret — straight to localStorage, never a datom
-      // (ADR-0034 §8), trimmed like any pasted credential.
-      setSecret("tmdb_api_key", tmdbKey.trim());
-      // The proxy is a device setting now (ADR-0063), so this screen writes no
-      // datom at all: nothing here rides the ledger, and there is nothing left to
-      // read through to avoid clobbering it.
-      setScraperProxyUrl(scraperProxy.trim());
-      saveSuccess = true;
-      setTimeout(() => {
-        saveSuccess = false;
-      }, 3000);
-    } catch (err) {
-      console.error("Failed to save settings", err);
-    } finally {
-      isSaving = false;
-    }
-  }
+  // **This screen carries no credentials and no form** (ADR-0080 §2, §4). A
+  // setting lives beside the thing it configures: the TMDB key went to the
+  // Media screen's own gear, the food credentials and targets have been on
+  // Rations settings since before Facets existed, and the scraper proxy was
+  // deleted rather than moved — `device-settings.ts` has carried a working
+  // default since ADR-0070, so the field overrode a default that already works.
+  // With both gone the API Credentials card had nothing left in it and
+  // dissolved. What is left here is what fails ADR-0080 §1's two clauses and is
+  // therefore the root's: inspection, the jar-wide ledger controls, and the
+  // developer tests.
 
   // Raw ledger view toggling
   let showLedger = $state(false);
@@ -142,103 +109,12 @@
   }
 </script>
 
-{#snippet revealToggle(revealed: boolean, toggle: () => void, label: string)}
-  <button
-    type="button"
-    class="reveal-toggle"
-    aria-label={label}
-    aria-pressed={revealed}
-    onclick={toggle}
-  >
-    {#if revealed}
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-        ><path
-          d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
-        ></path><line x1="1" y1="1" x2="23" y2="23"></line></svg
-      >
-    {:else}
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-        ><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle
-          cx="12"
-          cy="12"
-          r="3"
-        ></circle></svg
-      >
-    {/if}
-  </button>
-{/snippet}
-
 <header class="page-header">
   <h1>Settings</h1>
-  <p>
-    Manage secure API credentials, database ledger, local logs, and developer
-    tests.
-  </p>
+  <p>Manage the database ledger, local logs, and developer tests.</p>
 </header>
 
 <Card>
-  <h2>API Credentials</h2>
-  <form onsubmit={handleSave} class="settings-form mt-4">
-    <div class="form-group">
-      <label for="tmdb-api-key">TMDB API Key</label>
-      <div class="input-wrapper">
-        <input
-          id="tmdb-api-key"
-          type={showTmdb ? "text" : "password"}
-          bind:value={tmdbKey}
-          placeholder="TMDB API key..."
-          class="retro-input has-reveal"
-        />
-        {@render revealToggle(
-          showTmdb,
-          () => (showTmdb = !showTmdb),
-          showTmdb ? "Hide TMDB API key" : "Show TMDB API key"
-        )}
-      </div>
-      <span class="help-text"
-        >Used for importing movie and TV digital twins.</span
-      >
-    </div>
-
-    <div class="form-group">
-      <label for="scraper-proxy-url">Scraper Proxy URL</label>
-      <input
-        id="scraper-proxy-url"
-        type="text"
-        bind:value={scraperProxy}
-        placeholder="https://your-cf-worker.workers.dev/?url="
-        class="retro-input full-width"
-      />
-      <span class="help-text"
-        >Your custom Cloudflare CORS scraping proxy. If empty, scraping is
-        disabled.</span
-      >
-    </div>
-
-    <div class="actions-row mt-4">
-      <Button type="submit" loading={isSaving}>Save Settings</Button>
-      {#if saveSuccess}
-        <Badge variant="success" class="saved-badge">SETTINGS SAVED</Badge>
-      {/if}
-    </div>
-  </form>
-</Card>
-
-<Card class="mt-4">
   <div class="card-header">
     <h2>Database Ledger</h2>
     <div class="header-actions">
@@ -387,101 +263,6 @@
   p {
     color: var(--text-secondary);
     font-size: var(--step-n1);
-  }
-  .settings-form {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-m);
-  }
-  .form-group {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3xs);
-  }
-  .form-group label {
-    font-weight: 700;
-    font-size: var(--step-n1);
-    text-transform: uppercase;
-  }
-  .input-wrapper {
-    position: relative;
-    display: flex;
-  }
-  .input-wrapper input {
-    flex: 1;
-    /* Allow the input to shrink below its intrinsic (monospace placeholder)
-       width so it never overflows the card. */
-    min-width: 0;
-  }
-  /* Leave room for the reveal toggle so masked text never runs under it. */
-  .retro-input.has-reveal {
-    padding-right: 2.75rem;
-  }
-  .reveal-toggle {
-    position: absolute;
-    top: 0;
-    right: 0;
-    height: 100%;
-    width: 2.75rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: none;
-    background: transparent;
-    color: var(--ink);
-    cursor: pointer;
-  }
-  .reveal-toggle svg {
-    width: 1.25rem;
-    height: 1.25rem;
-  }
-  .reveal-toggle:hover {
-    color: var(--text-secondary);
-  }
-  .reveal-toggle:focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: -2px;
-  }
-  /* Only the input flips to a black background on focus, so flip the icon to
-     white just for that case. Scoped to the input (not :focus-within) so that
-     focusing the toggle button itself — e.g. clicking it — keeps the icon dark
-     and visible on the still-white input. */
-  .input-wrapper:has(.retro-input:focus) .reveal-toggle {
-    color: var(--paper);
-  }
-  .input-wrapper:has(.retro-input:focus) .reveal-toggle:hover {
-    color: var(--text-muted);
-  }
-  .retro-input {
-    border: var(--edge);
-    padding: var(--space-s);
-    font-size: var(--step-0);
-    font-family: var(--font-mono);
-    font-weight: 700;
-    border-radius: var(--radius);
-    background: var(--paper);
-    box-shadow: inset 2px 2px 0 var(--border);
-    transition: all 0.1s step-end;
-  }
-  .retro-input:focus {
-    outline: none;
-    background: var(--ink);
-    color: var(--paper);
-    box-shadow: none;
-  }
-  .full-width {
-    width: 100%;
-  }
-  .help-text {
-    font-size: var(--step-n2);
-    color: var(--text-secondary);
-    font-style: italic;
-  }
-  .actions-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-m);
   }
   .card-header {
     display: flex;

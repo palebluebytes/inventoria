@@ -211,16 +211,20 @@ test.describe("Visual Catalog Generator", () => {
   });
 
   async function setupApiKeys(page: import("@playwright/test").Page) {
-    // TMDB + scraper live on the global Settings tab.
-    await page.locator(".nav-item", { hasText: "Settings" }).click();
-    await page.locator("#tmdb-api-key").fill("test-tmdb-key");
-    await page.locator("#scraper-proxy-url").fill("/api/proxy?url=");
-    await page
-      .locator("button[type='submit']", { hasText: "Save Settings" })
-      .click();
-    await expect(page.locator(".saved-badge")).toBeVisible();
-    // USDA needs nothing beside them: its corpus is bundled, so food search has
-    // no key to be given (ADR-0047 §1).
+    // The TMDB key lives on the Media screen's own gear (ADR-0080 §4), and it
+    // is the only key left to give: the scraper proxy field was deleted rather
+    // than moved, and USDA's corpus is bundled so food search has no key to be
+    // given (ADR-0047 §1).
+    await page.locator(".nav-item", { hasText: "Media" }).click();
+    await page.locator("#media-settings-btn").click();
+    const tmdbField = page.locator("#tmdb-api-key");
+    await tmdbField.fill("test-tmdb-key");
+    // The sheet has no Save button: the field persists the moment it is left.
+    await tmdbField.blur();
+    await page.locator(".bottom-sheet-content .close-btn").first().click();
+    await expect(
+      page.getByRole("heading", { name: "Media settings" })
+    ).toBeHidden();
   }
 
   async function resetDatabase(page: import("@playwright/test").Page) {

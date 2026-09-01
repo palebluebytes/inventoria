@@ -17,9 +17,13 @@ export async function fetchHtml(url: string): Promise<string> {
   if (isBrowser) {
     const proxyUrl = activeProxyUrl();
     if (!proxyUrl) {
-      throw new Error(
-        "Scraper proxy URL is not configured. Please set it in Settings."
-      );
+      // The app serves its own proxy and `device-settings.ts` returns it by
+      // default (ADR-0070), so this only fires where a build or a stored value
+      // explicitly cleared it. It used to say "Please set it in Settings",
+      // pointing at a field about a value that had had a working default ever
+      // since — the exact bug ADR-0070 was written about. ADR-0080 §4 deleted
+      // the field, and this sentence went with it.
+      throw new Error("This build has no scraper proxy, so it cannot fetch.");
     }
     targetUrl = `${proxyUrl}${encodeURIComponent(url)}`;
   }

@@ -1,4 +1,10 @@
-import { writable, derived, type Readable, type Writable } from "svelte/store";
+import {
+  writable,
+  readable,
+  derived,
+  type Readable,
+  type Writable,
+} from "svelte/store";
 import type { FacetId } from "../facets/registry";
 import { DEFAULT_VISIBLE_NUTRIENTS } from "../food/nutrient-display";
 import { FOOD_DISPLAY_DECIMALS } from "../food/nutrition";
@@ -48,7 +54,9 @@ import type {
  * retirement sweep that nothing here needs.
  *
  * **Each setting keeps its own key and its own setter** (ADR-0031 §2's rule): a
- * screen that does not own a value must not be able to overwrite it.
+ * screen that does not own a value must not be able to overwrite it. The
+ * scraper proxy is the one exception and it is a deletion rather than a gap —
+ * ADR-0080 §4 removed the field that wrote it, so it is read and never set.
  */
 // Namespaced like the secrets module, so a preference cannot collide with other
 // app state (e.g. `inventoria_test_state`).
@@ -147,6 +155,12 @@ const BUILT_IN_PROXY_URL = "/api/proxy?url=";
  * proxy without touching code — the same env-fallback shape the secrets module
  * uses, and the reason this reads through a function rather than straight off
  * the key. Failing both, the app uses its own.
+ *
+ * **Nothing in the app writes the first layer any more.** ADR-0080 §4 deleted
+ * the Settings field that did: the app has served its own proxy since ADR-0070,
+ * so the field overrode a working default for a reader who did not exist. The
+ * layer is still read, because a device that was given a value keeps honouring
+ * it, and the live override is now the env var.
  */
 function readScraperProxyUrl(): string {
   const stored = safeGet(LS_KEYS.scraper_proxy_url);
@@ -157,7 +171,6 @@ function readScraperProxyUrl(): string {
 }
 
 const panelOpen = writable<boolean>(readBoolPref(LS_KEYS.nutrition_panel_open));
-const scraperProxy = writable<string>(readScraperProxyUrl());
 const roundNutrition = writable<boolean>(readBoolPref(LS_KEYS.round_nutrition));
 const caloriesTrackedPref = writable<boolean>(
   readBoolPref(LS_KEYS.calories_tracked)
@@ -351,16 +364,15 @@ export function setLogExportEnabledFor(
   door.enabled.set(enabled);
 }
 
-/** The scraper proxy URL prefix (localStorage, else the env fallback, else ""). */
-export const scraperProxyUrl: Readable<string> = {
-  subscribe: scraperProxy.subscribe,
-};
-
-/** Records the scraper proxy URL for this device. */
-export function setScraperProxyUrl(url: string): void {
-  safeSet(LS_KEYS.scraper_proxy_url, url);
-  scraperProxy.set(url);
-}
+/**
+ * The scraper proxy URL prefix (localStorage, else the env fallback, else the
+ * app's own). Read once at module load and never written — it is the one
+ * setting here with no setter, because ADR-0080 §4 deleted the field that wrote
+ * it rather than moving it.
+ */
+export const scraperProxyUrl: Readable<string> = readable(
+  readScraperProxyUrl()
+);
 
 // ---------------------------------------------------------------------------
 // The food targets (ADR-0085 §5)

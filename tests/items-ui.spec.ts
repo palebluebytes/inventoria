@@ -59,14 +59,10 @@ test("Physical Digital Twins UI - manual create, scrape, status toggling, and we
     { timeout: 10000 }
   );
 
-  // Switch to Settings tab and set credentials.
-  await page.locator(".nav-item", { hasText: "Settings" }).click();
-  await page.locator("#tmdb-api-key").fill("test-tmdb-key");
-  await page.locator("#scraper-proxy-url").fill("/api/proxy?url=");
-  await page
-    .locator("button[type='submit']", { hasText: "Save Settings" })
-    .click();
-  await expect(page.locator(".saved-badge")).toBeVisible();
+  // Nothing to configure first. The scraper proxy this screen fetches through
+  // is the app's own and always has a working value (ADR-0070); the Settings
+  // field that used to override it was deleted at ADR-0080 §4, and the TMDB key
+  // beside it moved to the Media screen and is no business of this one.
 
   // Click on the Items tab in Sidebar
   await page.locator(".nav-item", { hasText: "Items" }).click();

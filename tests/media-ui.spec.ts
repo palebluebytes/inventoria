@@ -95,17 +95,21 @@ test("Media Library UI - search, save, and log engagement for books and movies",
     { timeout: 10000 }
   );
 
-  // Switch to Settings tab and set credentials.
-  await page.locator(".nav-item", { hasText: "Settings" }).click();
-  await page.locator("#tmdb-api-key").fill("test-tmdb-key");
-  await page.locator("#scraper-proxy-url").fill("/api/proxy?url=");
-  await page
-    .locator("button[type='submit']", { hasText: "Save Settings" })
-    .click();
-  await expect(page.locator(".saved-badge")).toBeVisible();
-
-  // Click on the Media tab in Sidebar
+  // The TMDB key lives on the Media screen's own gear (ADR-0080 §4): a setting
+  // sits beside the thing it configures, and the app's Settings tab has no
+  // credentials on it at all now. The scraper proxy needs nothing here — the
+  // app has served its own since ADR-0070 and the field that overrode it was
+  // deleted with the card.
   await page.locator(".nav-item", { hasText: "Media" }).click();
+  await page.locator("#media-settings-btn").click();
+  const tmdbField = page.locator("#tmdb-api-key");
+  await tmdbField.fill("test-tmdb-key");
+  // The sheet has no Save button: the field persists the moment it is left.
+  await tmdbField.blur();
+  await page.locator(".bottom-sheet-content .close-btn").first().click();
+  await expect(
+    page.getByRole("heading", { name: "Media settings" })
+  ).toBeHidden();
 
   // Click on "+" button in the Saved column
   await page
