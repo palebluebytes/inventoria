@@ -24,12 +24,25 @@ export interface Projection {
 }
 
 export const projections: Record<string, Projection> = {
+  // Media twins are heterogeneously named (tmdb:movie:, tmdb:tv:, isbn:, olid:)
+  // so the twin arm is attribute-scoped, which is safe because `media/` has one
+  // writer. The event arm is entity-scoped: it used to take the whole of
+  // `event/%` and fold away everything that was not a WatchAction, which read
+  // every consume, execute, occur and acquire row to do it.
   MEDIA_LIBRARY: {
-    sql: inHlcOrder("attribute LIKE 'media/%' OR attribute LIKE 'event/%'"),
+    sql: inHlcOrder("attribute LIKE 'media/%' OR entity LIKE 'event:engage_%'"),
     compute: computeMediaLibraryState,
   },
+  // Entity-scoped on both arms (ADR-0086 §5). This selected `attribute LIKE
+  // 'twin/%'`, and `twin/` is the shell every ingested entity gets — so every
+  // food twin was promoted to an acquisition and shown in the Items tab as a
+  // nameless "wanted" item (#280). Renaming the attributes alone would have
+  // fixed that by accident and left the structure armed for the next domain to
+  // write a descriptor, so the predicate names the entities instead. ADR-0076 §4
+  // forbids scoping a Facet-scoped operation by an attribute namespace, and
+  // ADR-0079 §1 made this projection a prerequisite of the scoped wipe.
   ACQUISITION_LIBRARY: {
-    sql: inHlcOrder("attribute LIKE 'twin/%' OR attribute LIKE 'event/%'"),
+    sql: inHlcOrder("entity LIKE 'twin:%' OR entity LIKE 'event:acquire_%'"),
     compute: computeAcquisitionState,
   },
   HABITS_LINEAGES: {

@@ -170,7 +170,7 @@ describe("isCatalogueFood", () => {
   });
 
   it("drops a whole-serving food with no manual-entry (label capture / legacy custom)", () => {
-    expect(isCatalogueFood({ "twin/brand": "Acme" }, "serving")).toBe(false);
+    expect(isCatalogueFood({ "food/brand": "Acme" }, "serving")).toBe(false);
   });
 
   // ADR-0073 §11: the arrival mark is display-only. Reusability is inherited

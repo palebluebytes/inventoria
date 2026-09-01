@@ -68,7 +68,7 @@ export interface CuratedStandIn {
    * The OFF v3 response, trimmed to the fields {@link OFFProduct} declares. It is
    * fed to the same mapper a live lookup uses, so the twin is comparable with a
    * scanned one and every derived reading — NOVA, allergens, dietary tags — works
-   * with no special case. `twin/raw_provenance` therefore holds this trimmed
+   * with no special case. `provenance/raw` therefore holds this trimmed
    * capture verbatim, which is what the mapper received.
    */
   snapshot: OFFProduct;

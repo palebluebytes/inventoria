@@ -114,7 +114,7 @@ _Avoid_: Prepared dish, meal, dish, recipe (a Recipe Twin is the app's own compo
 
 **Brand-specific food**:
 A food record naming a specific commercial brand (OCEAN SPRAY, GERBER, Grape-Nuts). Brand-specific foods belong to the barcode path (scan the product against Open Food Facts, ADR-0034) and are always dropped from the USDA reference-food search, even when the query names the brand. See ADR-0042.
-_Avoid_: Branded product (when the `twin/brand` attribute is meant), product
+_Avoid_: Branded product (when the `food/brand` or `item/brand` attribute is meant), product
 
 **Plain twin**:
 The shorter of two Reference foods whose names differ only by trailing qualifiers — `Alcoholic beverage, wine, table, white` beside `…, table, white, Riesling`, or `Oil, corn` beside `Oil, corn, peanut, and olive`. A food with a plain twin in the corpus ranks below it, so the varietal, the sharp sliced form and the salad-or-cooking grade all sort under the plain row rather than in front of it. A ranking key, never a filter: nothing is dropped for having a plain twin, and the flag is baked into the Search index because deciding it needs every description at once. See ADR-0055.
@@ -294,8 +294,8 @@ A single user-authored entry in a Checklist, carrying a label and a checked/unch
 _Avoid_: To-Do, Task, habit, completion
 
 **Note**:
-A free-form, user-authored entry with a title and a text body, where the body merges concurrent edits from multiple devices without conflict. Distinct from the `twin/note` annotation attribute on a Digital Twin, which is a single field rather than a standalone entity.
-_Avoid_: twin/note (the Twin annotation field), memo, comment
+A free-form, user-authored entry with a title and a text body, where the body merges concurrent edits from multiple devices without conflict. Distinct from the `item/note` annotation attribute on a physical item Digital Twin, which is a single field rather than a standalone entity.
+_Avoid_: item/note (the Twin annotation field), memo, comment
 
 ### Local logs
 
@@ -358,7 +358,7 @@ A kind of thing the app records, carrying its own entity prefixes, its own attri
 _Avoid_: Domain (bare — "domain timestamp" and "domain logic" already use the word for other things), area, feature, vertical, tab
 
 **Facet**:
-A named, icon-bearing face onto the Jar that can be installed on its own, carrying its own manifest, name, icon, scope and start URL. Installability is what makes it one: a face nobody can install is a tab, and calling it a Facet buys nothing. A Facet is composed of a whole number of Tracked Domains, never a fraction of one, and it owns those domains' **entities** and never their attribute namespaces — `twin/` and `event/` are written by several domains at once, so anything scoped by an attribute reaches rows a Facet does not own. Facets overlap rather than partition: Inventoria holds every domain, including the ones another Facet also holds. Today the app ships one, **Inventoria**; the roster, each entry's status and how a Facet declares itself are ADR-0076's. Settings is a screen of the root Facet, not a screen every Facet carries.
+A named, icon-bearing face onto the Jar that can be installed on its own, carrying its own manifest, name, icon, scope and start URL. Installability is what makes it one: a face nobody can install is a tab, and calling it a Facet buys nothing. A Facet is composed of a whole number of Tracked Domains, never a fraction of one, and it owns those domains' **entities** and never their attribute namespaces — `provenance/` and `event/` are written by several domains at once, so anything scoped by an attribute reaches rows a Facet does not own. Facets overlap rather than partition: Inventoria holds every domain, including the ones another Facet also holds. Today the app ships one, **Inventoria**; the roster, each entry's status and how a Facet declares itself are ADR-0076's. Settings is a screen of the root Facet, not a screen every Facet carries.
 _Avoid_: App (which already means Inventoria-the-PWA), Edition (which implies the same content repackaged, not different content), Surface, Tab (a Facet contains tabs), View (which is a Svelte component), Module, Sub-app
 
 **Hand-off**:

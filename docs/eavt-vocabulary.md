@@ -38,27 +38,22 @@ scope their reads by these prefixes; two scope by attribute namespace instead, b
 their entities are heterogeneously named.
 
 Anything scoped by a **Facet**, such as a scoped wipe or a scoped export, scopes by entity
-and never by attribute namespace, because `twin/` and `event/` are each written by several
-Tracked Domains ([ADR-0076](adr/0076-a-facet-is-an-installable-face-onto-one-jar.md) §4).
+and never by attribute namespace, because `provenance/` and `event/` are each written by
+several Tracked Domains ([ADR-0076](adr/0076-a-facet-is-an-installable-face-onto-one-jar.md) §4).
 Which prefixes a Facet owns is declared in the Facet registry, not restated here.
 
 ### Digital Twins
 
-| Prefix                    | Identifies                                                       | Seeded from                                   |
-| ------------------------- | ---------------------------------------------------------------- | --------------------------------------------- |
-| `gtin:`                   | A food **Digital Twin** keyed by barcode                         | Open Food Facts, a label capture, the scraper |
-| `fdc:`                    | A food Digital Twin keyed by food id                             | USDA FoodData Central                         |
-| `food:custom_`            | A custom or photo-based food Digital Twin                        | Authored locally                              |
-| `recipe:`                 | A composed recipe Digital Twin referencing ingredient twins      | Authored locally                              |
-| `tmdb:movie:`, `tmdb:tv:` | A film or series media Digital Twin                              | TMDB                                          |
-| `isbn:`                   | A book media Digital Twin keyed by ISBN                          | Open Library, the scraper                     |
-| `olid:`                   | A book media Digital Twin with no ISBN, keyed by Open Library id | Open Library                                  |
-| `twin:`                   | A physical item Digital Twin, such as an instrument              | Authored locally                              |
-| `sku:`                    | A scraped item twin keyed by the page's stock or part number     | The scraper                                   |
-| `asin:`                   | A scraped item twin keyed by an Amazon id read from the page URL | The scraper                                   |
-| `url:`                    | A scraped item twin with no identifier, keyed by a URL hash      | The scraper                                   |
-| `url:temp_`               | A scraped item twin with no identifier and no page URL           | The scraper                                   |
-| `did:`, `gs1:`            | A scraped item twin carrying a Digital Product Passport id       | The scraper, **verbatim**                     |
+| Prefix                    | Identifies                                                       | Seeded from                       |
+| ------------------------- | ---------------------------------------------------------------- | --------------------------------- |
+| `gtin:`                   | A food **Digital Twin** keyed by barcode                         | Open Food Facts, a label capture  |
+| `fdc:`                    | A food Digital Twin keyed by food id                             | USDA FoodData Central             |
+| `food:custom_`            | A custom or photo-based food Digital Twin                        | Authored locally                  |
+| `recipe:`                 | A composed recipe Digital Twin referencing ingredient twins      | Authored locally                  |
+| `tmdb:movie:`, `tmdb:tv:` | A film or series media Digital Twin                              | TMDB                              |
+| `isbn:`                   | A book media Digital Twin keyed by ISBN                          | Open Library                      |
+| `olid:`                   | A book media Digital Twin with no ISBN, keyed by Open Library id | Open Library                      |
+| `twin:`                   | A physical item Digital Twin, such as an instrument              | Authored locally, and the scraper |
 
 _The scraper_ is `ingestion/json-ld.ts`, which reads a product page's JSON-LD.
 
@@ -68,27 +63,28 @@ registry matches an id against `scheme + ":"` for the schemes `tmdb:movie` and
 `tmdb:tv` (`ingestion/registry.ts`). A `did:` id can carry further colons of its own,
 so a second colon is not a TMDB tell.
 
-Hand-authored item twins carry a further segment, `twin:manual_`, minted at
-`views/items/ItemManualForm.svelte`. Nothing else mints a `twin:` id today, so a
-prefix-scoped read of `twin:` and one of `twin:manual_` return the same rows. The
-same containment holds between `url:` and `url:temp_`: a read scoped to `url:` takes
-both.
+#### Every `twin:` carries a second segment naming where it came from
 
-#### The scraper's prefix is chosen by the page, not by the app
+A hand-authored item is `twin:manual_`, minted at
+`views/items/ItemManualForm.svelte`. The scraper mints the other seven, one per
+identifier the page carried: `twin:gtin_`, `twin:isbn_`, `twin:sku_`, `twin:asin_`,
+`twin:dpp_`, `twin:url_` for a page identified only by its address, and
+`twin:temp_` for one with no identifier and no address. **Prefixes are compared by
+containment, never by equality**: a read scoped to `twin:` takes all eight, which is
+correct because all eight are the physical-item domain's
+([ADR-0086](adr/0086-an-entity-has-exactly-one-owner-and-the-owner-is-a-tracked-domain.md) §8).
 
-The scraper is the one minting site that does not know which prefix it will use until
-it has read the document. It takes the first identifier the page supplies, preferring
-a Digital Product Passport id, then a barcode, then an ISBN, then a stock or part
-number, then an Amazon id, and falling back to a hash of the page URL. A page with no
-`Product` object at all can only reach the last three.
+The scraper reads a product page and does not know which identifier it will find
+until it has. It used to pick its **entity prefix** that way too, which made it the
+one minting site whose identity was decided by an external document: it minted
+`gtin:` and collided with food, and `isbn:` and collided with media, and for a `did:`
+or `gs1:` `@id` it took the entity id from the page whole, so this table could
+declare a prefix and never bound what followed it. ADR-0086 §3 ended all three. The
+identifier is now the suffix and is written as an `item/` attribute besides, so
+nothing is lost and determinism is kept.
 
-Two consequences worth naming rather than rediscovering. **The roster cannot be
-complete by construction here**: a `did:` or `gs1:` id is taken from the page whole,
-so this page can declare the prefix and can never bound what follows it. And **the
-scraper is why several prefixes have more than one minting site**, which is the
-entity co-ownership [#289](https://github.com/palebluebytes/inventoria/issues/289) is
-open against. `gtin:` has three: Open Food Facts, the scraper, and a label capture
-keyed on a scanned barcode (`views/food/LogFoodSheet.svelte` into
+`gtin:` still has two minting sites and they are both food's: Open Food Facts, and a
+label capture keyed on a scanned barcode (`views/food/LogFoodSheet.svelte` into
 `saveLabelFood`).
 
 There is **no `settings:` prefix**. It was the `settings:global` entity, retired with
@@ -146,7 +142,7 @@ Food Digital Twins.
 aubergine`, because several independent readers show a food's name and only one of them
   goes through the search mapper
   ([ADR-0049](adr/0049-a-derived-vocabulary-for-food-search.md), the #140 Amendment).
-  The source's untouched description stays in `twin/raw_provenance.raw_data`, which is
+  The source's untouched description stays in `provenance/raw.raw_data`, which is
   what any reader deciding something ABOUT the food (rather than showing it) must read.
   `deriveNovaVerdict` does, and declines to judge a payload carrying no such record.
 - `ingredients_text`: Open Food Facts' raw ingredients string, distinct from a recipe's
@@ -170,7 +166,7 @@ aubergine`, because several independent readers show a food's name and only one 
   ([ADR-0034](adr/0034-label-photo-food-capture.md) §5).
 - `label_capture`: the user-origin provenance envelope written when a food is captured
   from its label (`{ adapter: "label", adapter_version, method: "manual" | "ai-confirmed",
-basis, fields }`). It is a sibling of `twin/raw_provenance`, never a second one, so a
+basis, fields }`). It is a sibling of `provenance/raw`, never a second one, so a
   found-but-poor `gtin:` twin enriched in place keeps both origins auditable
   (ADR-0034 §7).
 - `manual_entry`: the user-origin provenance envelope for the Custom chooser's three
@@ -194,8 +190,8 @@ basis, fields }`). It is a sibling of `twin/raw_provenance`, never a second one,
   [ADR-0075](adr/0075-your-own-devices-converge-on-a-version-vector-read-off-the-ledger.md)
   §13).
 
-Note that `nutrition/info`, `twin/brand`, and `portions` may be user-written on a
-`gtin:` twin as a label correction, not only OFF-sourced (ADR-0034 §6). `twin/brand`
+Note that `nutrition/info`, `food/brand`, and `portions` may be user-written on a
+`gtin:` twin as a label correction, not only OFF-sourced (ADR-0034 §6). `food/brand`
 may also be user-written as a menu dish's "Place" on a `food:custom_` twin
 (ADR-0035 §4).
 
@@ -227,18 +223,36 @@ Media Digital Twins.
 - `title`, `director` or `author`, `release_date`, `poster_url`, `blurb`, `subject`,
   `first_publish_year`.
 
-### `twin/`
+### `item/`
 
-Physical item twins, **and not those alone**. `raw_provenance` is attached by the
-ingestion registry to every twin it mints, and `brand` is written by Open Food Facts food
-twins, so a read scoped to `twin/%` sees food as well as physical items. That is harmless
-for a fold and wrong for anything that acts on the rows
-([ADR-0076](adr/0076-a-facet-is-an-installable-face-onto-one-jar.md) §4).
+Physical item twins, and those alone. It was `twin/` until
+[ADR-0086](adr/0086-an-entity-has-exactly-one-owner-and-the-owner-is-a-tracked-domain.md) §5.
 
 - `name`, `brand`, `image`, `note`, `description`, `tags`, `source_url`.
-- `raw_provenance`: the **Provenance** blob. Where two records from one source were
-  merged to complete a panel, it also names the record that filled the gaps and the
-  fields it supplied (`merged_from`, [ADR-0045](adr/0045-usda-stays-the-base-food-composition-authority.md) §4).
+- `gtin`, `isbn`, `sku`, `asin`, `dpp`: whichever identifier the scraped page carried.
+  These are things an item **has**. A GTIN is the identity of the packaged food it was
+  printed for, and an item merely bears one, which is why the scraper mints `twin:` and
+  writes the barcode here.
+
+The old name was never a domain namespace. It was the generic descriptive shell any
+ingested entity got, named after the first domain that used it, so a read scoped to
+`twin/%` saw food as well as physical items. `ACQUISITION_LIBRARY` was scoped that way,
+which listed every logged food in the Items tab as a nameless _wanted_ item (#280). The
+spelling is very plausibly why: `twin:` is an entity prefix physical items own outright
+and `twin/` was an attribute namespace nobody owned, one character apart, with opposite
+scoping rules.
+
+### `provenance/`
+
+Where an ingested record came from, for every domain. It is deliberately owned by nobody,
+because it names the ingestion machinery rather than a domain, and nothing may scope by it
+([ADR-0076](adr/0076-a-facet-is-an-installable-face-onto-one-jar.md) §4).
+
+- `raw`: the **Provenance** blob, attached by the ingestion registry to every twin it
+  mints. Where two records from one source were merged to complete a panel, it also names
+  the record that filled the gaps and the fields it supplied (`merged_from`,
+  [ADR-0045](adr/0045-usda-stays-the-base-food-composition-authority.md) §4). It was
+  `provenance/raw` until ADR-0086 §5.
 
 ### `habit/`
 

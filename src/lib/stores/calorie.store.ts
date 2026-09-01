@@ -406,7 +406,7 @@ export interface LabelFoodInput {
  * PLAIN append — no delete, no read-modify-write: the ledger is append-only and
  * `getLocalFoodTwin` folds latest-wins, so the corrected `food/name` +
  * `nutrition/info` supersede a found-but-poor OFF twin's values on the next read
- * while its `twin/raw_provenance` survives beside the new `food/label_capture`.
+ * while its `provenance/raw` survives beside the new `food/label_capture`.
  *
  * The panel is written exactly as given (absent ≠ 0). `food/photo_base64` mirrors
  * `labelPhotos[0]` so every existing singular-photo display surface is unchanged
@@ -425,7 +425,7 @@ export async function saveLabelFood(input: LabelFoodInput): Promise<string> {
     "nutrition/info": input.nutrition,
     "food/label_capture": input.labelCapture,
   };
-  if (input.brand) attributes["twin/brand"] = input.brand;
+  if (input.brand) attributes["food/brand"] = input.brand;
   if (input.category) attributes["food/category"] = input.category;
   // Canonical OFF ingredients (ADR-0043 §5) — appended only when non-empty, so an
   // untouched read-along field never writes a blank. NOT `food/ingredients`.
@@ -449,7 +449,7 @@ export interface ManualFoodInput {
   name: string;
   /** The one number every intent carries; stored calories-only, no macros. */
   calories: number;
-  /** Menu "Place" → `twin/brand`; absent for quick estimate / plate. */
+  /** Menu "Place" → `food/brand`; absent for quick estimate / plate. */
   brand?: string;
   /**
    * Free-text ingredients → `food/ingredients` — descriptive only, NEVER computes
@@ -468,7 +468,7 @@ export interface ManualFoodInput {
  * never a barcoded `gtin:` product (the inline `Date.now()`/`Math.random()` is the
  * intended impurity source). The panel is **calories-only**: macros are absent,
  * never 0 (ADR-0035 §7), so the twin is honest about carrying no protein/fat/carbs.
- * The `menu` intent additionally writes `twin/brand` (Place) and `food/ingredients`
+ * The `menu` intent additionally writes `food/brand` (Place) and `food/ingredients`
  * (descriptive free text, never a calorie source). A photo, when present, is
  * stored under `food/label_photos` with the singular `food/photo_base64` mirror so
  * every existing display surface reads it (ADR-0034 §5). Returns the minted id.
@@ -488,7 +488,7 @@ export async function saveManualFood(input: ManualFoodInput): Promise<string> {
     "nutrition/info": nutrition,
     "food/manual_entry": input.manualEntry,
   };
-  if (input.brand?.trim()) attributes["twin/brand"] = input.brand.trim();
+  if (input.brand?.trim()) attributes["food/brand"] = input.brand.trim();
   if (input.ingredients?.trim()) {
     attributes["food/ingredients"] = input.ingredients.trim();
   }

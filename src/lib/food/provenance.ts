@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Food-twin Provenance (twin/raw_provenance)
+// Food-twin Provenance (provenance/raw)
 // ---------------------------------------------------------------------------
 //
 // Every food Digital Twin ingested from a reputable source (USDA FoodData
@@ -11,7 +11,7 @@
 
 /**
  * The extraction-metadata envelope stored as one atomic, immutable Datom value
- * under `twin/raw_provenance`: the untouched source object plus enough metadata
+ * under `provenance/raw`: the untouched source object plus enough metadata
  * to remap it losslessly later.
  *
  * There is deliberately NO captured-at field. The ledger stamps each Datom's
@@ -55,7 +55,7 @@ export interface MergedSource {
 }
 
 /**
- * Builds the `twin/raw_provenance` envelope. Pure and deterministic — no clock,
+ * Builds the `provenance/raw` envelope. Pure and deterministic — no clock,
  * no I/O — so it composes into the pure adapter Mappers.
  */
 export function buildRawProvenance<RawT>(args: {
@@ -83,10 +83,10 @@ export function buildRawProvenance<RawT>(args: {
 //
 // When a user captures a food from its label photo, the origin of what they
 // typed is recorded under a DISTINCT `food/label_capture` attribute — never the
-// `twin/raw_provenance` above (ADR-0034 §7). The two are siblings: a
+// `provenance/raw` above (ADR-0034 §7). The two are siblings: a
 // found-but-poor `gtin:` twin enriched in place holds BOTH an OFF
-// `twin/raw_provenance` blob and a user `food/label_capture` datom, so its dual
-// origin stays auditable and a second `twin/raw_provenance` would latest-wins
+// `provenance/raw` blob and a user `food/label_capture` datom, so its dual
+// origin stays auditable and a second `provenance/raw` would latest-wins
 // clobber the OFF response.
 //
 // Photos are REFERENCED, not duplicated here: they live once in
@@ -155,7 +155,7 @@ export function buildLabelCapture(args: {
 //
 // The three eating-out / estimation intents behind the Custom tab's chooser —
 // quick estimate, from a menu, from a plate photo (ADR-0035) — are neither
-// ingested (`twin/raw_provenance`) nor label reads (`food/label_capture`), so a
+// ingested (`provenance/raw`) nor label reads (`food/label_capture`), so a
 // DISTINCT `food/manual_entry` sibling records their origin. Its `kind`
 // discriminator is the single source of truth for reusability: a `menu` dish is
 // a catalogue food (Recent/Search), a `quick_estimate` / `plate_estimate` is a

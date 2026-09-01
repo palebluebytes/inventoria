@@ -37,12 +37,12 @@
         {
           entity: entityId,
           attributes: {
-            "twin/name": manualName.trim(),
-            "twin/image": manualImage.trim(),
-            "twin/description": manualDescription.trim(),
-            "twin/brand": manualBrand.trim(),
-            "twin/tags": parsedTags,
-            "twin/note": manualNote.trim(),
+            "item/name": manualName.trim(),
+            "item/image": manualImage.trim(),
+            "item/description": manualDescription.trim(),
+            "item/brand": manualBrand.trim(),
+            "item/tags": parsedTags,
+            "item/note": manualNote.trim(),
           },
         },
         manualStatus

@@ -188,7 +188,7 @@ describe("the vocabulary fallback in the search", () => {
     const [hit] = searchIndexRows(corpus, "aubergine").hits;
     const payload = mapIndexRowToPayload(hit.row, hit.alias);
     const provenance = payload.attributes[
-      "twin/raw_provenance"
+      "provenance/raw"
     ] as RawProvenance<UsdaIndexRow>;
     expect(provenance.raw_data.description).toBe("Eggplant, raw");
   });

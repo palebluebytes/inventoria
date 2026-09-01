@@ -129,7 +129,7 @@ describe("mapOffProductToPayload", () => {
 
   it("maps brands to twin/brand and categories to food/category (ADR-0030)", () => {
     const attrs = mapOffProductToPayload(nutella).attributes;
-    expect(attrs["twin/brand"]).toBe("Nutella, Ferrero, Yum yum");
+    expect(attrs["food/brand"]).toBe("Nutella, Ferrero, Yum yum");
     expect(attrs["food/category"]).toBe(
       "Breakfasts, Spreads, Sweet spreads, Hazelnut spreads, Chocolate spreads, Cocoa and hazelnuts spreads"
     );
@@ -291,7 +291,7 @@ describe("mapOffProductToPayload", () => {
     };
     const attrs = mapOffProductToPayload(product).attributes;
     expect(attrs).not.toHaveProperty("food/assessment");
-    expect(attrs).not.toHaveProperty("twin/brand");
+    expect(attrs).not.toHaveProperty("food/brand");
     expect(attrs).not.toHaveProperty("food/category");
     expect(attrs).not.toHaveProperty("food/ingredients_text");
   });
@@ -482,19 +482,17 @@ describe("mapOffProductToPayload", () => {
     ]);
   });
 
-  it("stores the raw source response as twin/raw_provenance (ADR-0016)", () => {
+  it("stores the raw source response as provenance/raw (ADR-0016)", () => {
     // Provenance keeps the untouched OFF response — every nutriment, not just
     // the eight panel fields — so nutrients absent from the panel today can be
     // backfilled later with no network re-fetch. raw_data is the verbatim
     // fixture (the full response, including code/status/product).
-    const prov =
-      mapOffProductToPayload(nutella).attributes["twin/raw_provenance"];
+    const prov = mapOffProductToPayload(nutella).attributes["provenance/raw"];
     expect(prov.raw_data).toEqual(nutella);
   });
 
   it("wraps provenance in an extraction-metadata envelope", () => {
-    const prov =
-      mapOffProductToPayload(nutella).attributes["twin/raw_provenance"];
+    const prov = mapOffProductToPayload(nutella).attributes["provenance/raw"];
     expect(prov.source_uri).toBe(
       "https://world.openfoodfacts.org/api/v3/product/3017620422003.json"
     );
@@ -1182,7 +1180,7 @@ describe("offReferenceImagesFromTwin", () => {
   // A saved twin has no live `referenceImages` (they are a read-through, never a
   // datom), so the label shots have to come back out of the stored OFF response.
   const twin = (raw: unknown) => ({
-    "twin/raw_provenance": {
+    "provenance/raw": {
       adapter: "off",
       adapter_version: "9",
       source_uri: "https://world.openfoodfacts.org/api/v0/product/123.json",
@@ -1214,7 +1212,7 @@ describe("offReferenceImagesFromTwin", () => {
   it("returns empty for a twin from another source, or none at all", () => {
     expect(
       offReferenceImagesFromTwin({
-        "twin/raw_provenance": { adapter: "fdc", raw_data: {} },
+        "provenance/raw": { adapter: "fdc", raw_data: {} },
       })
     ).toEqual([]);
     expect(offReferenceImagesFromTwin({ "food/name": "X" })).toEqual([]);
@@ -1270,7 +1268,7 @@ describe("offReferenceImagesFromTwin", () => {
     ).toBeUndefined();
     expect(
       offPackUnitFromTwin({
-        "twin/raw_provenance": { adapter: "fdc", raw_data: {} },
+        "provenance/raw": { adapter: "fdc", raw_data: {} },
       })
     ).toBeUndefined();
     expect(offPackUnitFromTwin(undefined)).toBeUndefined();

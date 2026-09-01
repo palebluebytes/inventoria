@@ -10,7 +10,7 @@ import {
 } from "../../src/lib/food/provenance";
 
 // The label-capture envelope (ADR-0034 §7) is a PURE, deterministic, clock-free
-// value — a sibling of twin/raw_provenance. These assert exactly that: fixed
+// value — a sibling of provenance/raw. These assert exactly that: fixed
 // input → fixed output, no clock, and no photo base64 ever embedded (photos live
 // once in food/label_photos[]).
 describe("buildLabelCapture (food/label_capture, ADR-0034 §7)", () => {

@@ -42,7 +42,7 @@ class Registry {
     const payload = matchedAdapter.map(raw);
 
     // Attach immutable provenance metadata
-    payload.attributes["twin/raw_provenance"] = JSON.stringify({
+    payload.attributes["provenance/raw"] = JSON.stringify({
       timestamp: Date.now(),
       adapter: matchedAdapter.scheme,
       raw_data: raw,

@@ -41,7 +41,7 @@ describe("foodSourceView — origin from the entity id", () => {
       entity: "food:custom_a1b2c3",
       attributes: {
         "food/name": "X",
-        "twin/raw_provenance": {
+        "provenance/raw": {
           adapter: "off",
           adapter_version: "1",
           source_uri: "https://world.openfoodfacts.org/api/v2/product/123",
@@ -61,7 +61,7 @@ describe("foodSourceView — origin from the entity id", () => {
     const usda: EntityPayload = {
       entity: "whatever",
       attributes: {
-        "twin/raw_provenance": {
+        "provenance/raw": {
           adapter: "fdc",
           adapter_version: "1",
           source_uri: "https://api.nal.usda.gov/fdc/v1/food/167512",
@@ -76,7 +76,7 @@ describe("foodSourceView — origin from the entity id", () => {
     const odd: EntityPayload = {
       entity: "gtin:5000159407236",
       attributes: {
-        "twin/raw_provenance": { adapter: "somewhere-else" },
+        "provenance/raw": { adapter: "somewhere-else" },
       },
     };
     expect(foodSourceView(odd).kind).toBe("off");

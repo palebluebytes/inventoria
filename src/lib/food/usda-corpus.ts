@@ -543,7 +543,7 @@ export function searchIndexRows(
  * Brackets keep the whole key, which is never misleading, and stop it scanning
  * as another qualifier.
  *
- * `twin/raw_provenance.raw_data` keeps USDA's untouched row, so the widened name
+ * `provenance/raw.raw_data` keeps USDA's untouched row, so the widened name
  * never masquerades as USDA's own (ADR-0045 §4) — and `deriveNovaVerdict` reads
  * the description back out of it rather than off this name, because nineteen
  * vocabulary keys carry one of its deny-substrings. Anything else deciding
@@ -570,7 +570,7 @@ export function mapIndexRowToPayload(
   // untouched record would cost 25x the bytes to buy nothing. `source_uri` still
   // names the canonical record, and `merged_from` still names the SR Legacy twin
   // whose values the panel borrowed (ADR-0045 §4).
-  attributes["twin/raw_provenance"] = buildRawProvenance({
+  attributes["provenance/raw"] = buildRawProvenance({
     adapter: "fdc",
     adapter_version: ADAPTER_VERSION,
     source_uri: `${FDC_FOOD_BASE}/${row.fdcId}`,
@@ -638,7 +638,7 @@ export function storedPanelFor(
  * macros (ADR-0022), so a food logged on the row's four fields would carry four
  * fields for ever — which is the reason ADR-0047 rejected keeping the API for
  * detail hydration rather than a reason to repeat it here. Nothing else about
- * the payload moves: identity, portions and `twin/raw_provenance` are the row's
+ * the payload moves: identity, portions and `provenance/raw` are the row's
  * (§7), and only the panel's depth changes.
  *
  * `load` is a parameter for the same reason search's is: the panel is asserted

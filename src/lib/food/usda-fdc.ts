@@ -35,19 +35,19 @@ import { wordsOf } from "./reference-food-ranking";
 // v6: emits the food-identity scalars food/category (foodCategory) and
 //     food/scientific_name (scientificName) captured at search-map time (ADR-0030).
 // v7: hydrateFdcFood maps the /food/{id} detail record's foodPortions[] ->
-//     food/portions and refreshes twin/raw_provenance with the fuller record
+//     food/portions and refreshes provenance/raw with the fuller record
 //     (ADR-0030 §5). The search dataset stays Foundation + SR Legacy; its
 //     filtering, ranking and query-weighting are ADR-0042.
 // v8: when Foundation and SR Legacy carry the same ndbNumber, search MERGES the
 //     pair fill-only instead of discarding the SR Legacy twin (ADR-0045 §2):
 //     Foundation stays the base record and the twin supplies only the panel
 //     fields it does not carry. Borrowed values are named in
-//     twin/raw_provenance.merged_from (§4).
+//     provenance/raw.merged_from (§4).
 // v9: staging reads the bundled artifacts and never the API (ADR-0047). The
 //     `/food/{fdcId}` detail fetch is gone with hydrateFdcFood and
 //     mapFdcDetailToPayload: portions ride on the generated row (§6), the panel
 //     is rebuilt from the Nutrient store through buildNutritionPanel (§2), and
-//     twin/raw_provenance carries that row rather than an untouched API record
+//     provenance/raw carries that row rather than an untouched API record
 //     (§7). toGrams also folds the archives' "µg" onto the API's "UG".
 // Exported so `usda-corpus.ts` stamps a bundled row with the SAME adapter
 // identity: a Search index row is this adapter's output, generated ahead of time
@@ -439,7 +439,7 @@ export function mapFdcFoodToPayload(
       // Keep the untouched FDC entry as immutable Provenance so any nutrient not
       // in the panel (the full micronutrient list) can be backfilled later with
       // no network re-fetch (ADR-0016).
-      "twin/raw_provenance": buildRawProvenance({
+      "provenance/raw": buildRawProvenance({
         adapter: "fdc",
         adapter_version: ADAPTER_VERSION,
         source_uri: `${FDC_FOOD_BASE}/${food.fdcId}`,

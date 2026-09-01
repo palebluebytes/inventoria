@@ -18,7 +18,7 @@
   //
   //   ⚡ quick estimate — calories fast; name defaults to the meal; photo optional;
   //      one-off (excluded from Recent/Search).
-  //   📋 from a menu     — name + calories required; Place → twin/brand, Ingredients
+  //   📋 from a menu     — name + calories required; Place → food/brand, Ingredients
   //      → food/ingredients (descriptive only), photo optional; reusable.
   //   🍽️ from a photo    — capture a plate photo, then a BLANK menu-style form with
   //      the photo attached; the PlateEstimator seam is wired but v1 uses its empty

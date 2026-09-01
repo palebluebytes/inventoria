@@ -52,13 +52,13 @@ export async function updateAcquisitionMetadata(
   const datoms: Datom[] = [
     {
       entity: targetId,
-      attribute: "twin/tags",
+      attribute: "item/tags",
       value: tags,
       time: now,
     },
     {
       entity: targetId,
-      attribute: "twin/note",
+      attribute: "item/note",
       value: note,
       time: now,
     },

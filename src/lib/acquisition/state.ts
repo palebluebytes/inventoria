@@ -2,13 +2,21 @@ import type { StoredDatom } from "../db/db.client";
 import { groupByEntity } from "../db/datom-fold";
 import { compareHlc } from "../db/hlc";
 
+/**
+ * The descriptors a physical item twin carries. These were `twin/*` until
+ * ADR-0086 §5: `twin/` was never a domain namespace but the generic descriptive
+ * shell any ingested entity got, named after the first domain to use it, while
+ * `twin:` was an entity prefix physical items own outright. One character apart,
+ * opposite scoping rules, which is very plausibly how the projection below came
+ * to be scoped by the attribute in the first place (#280).
+ */
 const ACQUISITION_STRING_ATTRIBUTES = [
-  "twin/name",
-  "twin/image",
-  "twin/description",
-  "twin/brand",
-  "twin/source_url",
-  "twin/note",
+  "item/name",
+  "item/image",
+  "item/description",
+  "item/brand",
+  "item/source_url",
+  "item/note",
 ];
 
 export interface EnrichedAcquisition {
@@ -29,7 +37,7 @@ export function computeAcquisitionState(
 ): EnrichedAcquisition[] {
   const { twins: twinGroups, events: eventGroups } = groupByEntity(
     datoms,
-    "twin/",
+    "item/",
     ACQUISITION_STRING_ATTRIBUTES
   );
 

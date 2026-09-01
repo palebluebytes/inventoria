@@ -136,7 +136,7 @@ const USDA_EGG_HEAD = /^eggs?,/i;
  */
 function usdaDescriptionOf(food: EntityPayload): string | undefined {
   if (!food.entity.startsWith("fdc:")) return undefined;
-  const provenance = food.attributes["twin/raw_provenance"] as
+  const provenance = food.attributes["provenance/raw"] as
     | RawProvenance<{ description: string }>
     | undefined;
   return provenance?.raw_data.description;

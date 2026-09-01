@@ -41,25 +41,25 @@ describe("computeAcquisitionState", () => {
       // Twin: Sustainable T-Shirt
       {
         entity: "gtin:1234567890123",
-        attribute: "twin/name",
+        attribute: "item/name",
         value: "Sustainable T-Shirt",
         time: 1000,
       },
       {
         entity: "gtin:1234567890123",
-        attribute: "twin/image",
+        attribute: "item/image",
         value: "image-url",
         time: 1000,
       },
       {
         entity: "gtin:1234567890123",
-        attribute: "twin/description",
+        attribute: "item/description",
         value: "Made from organic cotton.",
         time: 1000,
       },
       {
         entity: "gtin:1234567890123",
-        attribute: "twin/brand",
+        attribute: "item/brand",
         value: "EcoBrand",
         time: 1000,
       },
@@ -145,7 +145,7 @@ describe("computeAcquisitionState", () => {
     const datoms = [
       {
         entity: "gtin:skew",
-        attribute: "twin/name",
+        attribute: "item/name",
         value: "Skewed",
         time: 1,
         hlc_ms: 1,
@@ -164,19 +164,19 @@ describe("computeAcquisitionState", () => {
     const datoms = [
       {
         entity: "gtin:9999",
-        attribute: "twin/name",
+        attribute: "item/name",
         value: "Eco Notebook",
         time: 1000,
       },
       {
         entity: "gtin:9999",
-        attribute: "twin/tags",
+        attribute: "item/tags",
         value: JSON.stringify(["stationery", "paper"]),
         time: 1000,
       },
       {
         entity: "gtin:9999",
-        attribute: "twin/note",
+        attribute: "item/note",
         value: "First note draft.",
         time: 1000,
       },
@@ -202,13 +202,13 @@ describe("computeAcquisitionState", () => {
       // Later metadata updates
       {
         entity: "gtin:9999",
-        attribute: "twin/tags",
+        attribute: "item/tags",
         value: JSON.stringify(["stationery", "recycled", "office"]),
         time: 2000,
       },
       {
         entity: "gtin:9999",
-        attribute: "twin/note",
+        attribute: "item/note",
         value: "Updated note context.",
         time: 2500,
       },

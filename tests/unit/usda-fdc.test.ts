@@ -176,7 +176,7 @@ describe("mapFdcFoodToPayload", () => {
     const attrs = mapFdcFoodToPayload(banana).attributes;
     expect(attrs).not.toHaveProperty("food/assessment");
     expect(attrs).not.toHaveProperty("food/ingredients_text");
-    expect(attrs).not.toHaveProperty("twin/brand");
+    expect(attrs).not.toHaveProperty("food/brand");
   });
 
   it("omits every macro when the food carries no nutrients", () => {
@@ -265,16 +265,16 @@ describe("mapFdcFoodToPayload", () => {
     expect(n.calories).toBe(89);
   });
 
-  it("stores the raw source response as twin/raw_provenance (ADR-0016)", () => {
+  it("stores the raw source response as provenance/raw (ADR-0016)", () => {
     // Provenance keeps the untouched FDC food so any nutrient not surfaced in
     // the panel today (the full micronutrient list) can be backfilled later
     // with no network re-fetch. raw_data is the verbatim fixture object.
-    const prov = mapFdcFoodToPayload(banana).attributes["twin/raw_provenance"];
+    const prov = mapFdcFoodToPayload(banana).attributes["provenance/raw"];
     expect(prov.raw_data).toEqual(banana);
   });
 
   it("wraps provenance in an extraction-metadata envelope", () => {
-    const prov = mapFdcFoodToPayload(banana).attributes["twin/raw_provenance"];
+    const prov = mapFdcFoodToPayload(banana).attributes["provenance/raw"];
     expect(prov.source_uri).toBe(
       "https://api.nal.usda.gov/fdc/v1/food/1105073"
     );
@@ -392,7 +392,7 @@ describe("resolveFdcGroup", () => {
   });
 
   it("names the twin and the borrowed fields in provenance", () => {
-    const provenance = stage(blueberryGroup).attributes["twin/raw_provenance"];
+    const provenance = stage(blueberryGroup).attributes["provenance/raw"];
 
     expect(provenance.raw_data.fdcId).toBe(2346411);
     expect(provenance.merged_from).toHaveLength(1);
@@ -415,9 +415,7 @@ describe("resolveFdcGroup", () => {
 
   it("leaves an unmerged food's provenance exactly as it was", () => {
     // A food with no twin carries no merged_from key at all — not an empty one.
-    const provenance = stage([blueberryGroup[0]]).attributes[
-      "twin/raw_provenance"
-    ];
+    const provenance = stage([blueberryGroup[0]]).attributes["provenance/raw"];
 
     expect(provenance).not.toHaveProperty("merged_from");
     expect(provenance.adapter_version).toBe("9");

@@ -16,7 +16,7 @@ import { getSecret } from "../stores/secrets";
 // v3: panel gains the twelve Nutrition-Facts micronutrients (ADR-0030), read
 //     from the `*_100g` nutriments (OFF already reports these in grams).
 // v4: emits food/category (categories), food/ingredients_text (ingredients_text),
-//     twin/brand (brands) and the OFF-only food/assessment blob (ADR-0030 §4).
+//     food/brand (brands) and the OFF-only food/assessment blob (ADR-0030 §4).
 // v5: emits a single food/portions entry from serving_quantity/serving_size
 //     when the product carries serving data (ADR-0030 §2/§5).
 // v6: assessment gains OFF's NOVA evidence trail — nova_group_debug (the marker
@@ -226,7 +226,7 @@ function offReferenceImages(p: OFFProduct["product"]): string[] {
  * The untouched OFF product behind a SAVED twin, or `undefined` for a twin from
  * any other source.
  *
- * The mapper keeps the whole response as `twin/raw_provenance` precisely so a
+ * The mapper keeps the whole response as `provenance/raw` precisely so a
  * field it did not lift into an attribute can still be read without a network
  * re-fetch (ADR-0016). Both readers below want a different such field, so the
  * unwrapping — and the adapter check that makes the cast honest — lives here
@@ -235,7 +235,7 @@ function offReferenceImages(p: OFFProduct["product"]): string[] {
 function offProductFromTwin(
   attributes: Record<string, unknown> | undefined
 ): OFFProduct["product"] | undefined {
-  const provenance = attributes?.["twin/raw_provenance"] as
+  const provenance = attributes?.["provenance/raw"] as
     | RawProvenance<OFFProduct>
     | undefined;
   if (provenance?.adapter !== "off") return undefined;
@@ -490,7 +490,7 @@ export function mapOffProductToPayload(product: OFFProduct): OffPayload {
   };
   // Record-level source signals (ADR-0030 §4). Each is emitted only when the
   // product carries it, so a missing field is omitted (never empty/null).
-  if (p.brands) attributes["twin/brand"] = p.brands;
+  if (p.brands) attributes["food/brand"] = p.brands;
   if (p.categories) attributes["food/category"] = p.categories;
   if (p.ingredients_text)
     attributes["food/ingredients_text"] = p.ingredients_text;
@@ -543,7 +543,7 @@ export function mapOffProductToPayload(product: OFFProduct): OffPayload {
       // Keep the untouched OFF response as immutable Provenance so nutriments
       // beyond the eight panel fields can be backfilled later with no network
       // re-fetch (ADR-0016).
-      "twin/raw_provenance": buildRawProvenance({
+      "provenance/raw": buildRawProvenance({
         adapter: "off",
         adapter_version: ADAPTER_VERSION,
         source_uri: `${OFF_BASE}/${product.code}.json`,

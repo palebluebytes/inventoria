@@ -419,7 +419,7 @@ describe("saveLabelFood (ADR-0034 §6)", () => {
     const twin = await getLocalFoodTwin(id);
 
     expect(twin.attributes["food/name"]).toBe("Homemade Granola");
-    expect(twin.attributes["twin/brand"]).toBe("Acme");
+    expect(twin.attributes["food/brand"]).toBe("Acme");
     expect(twin.attributes["food/category"]).toBe("en:granolas");
     // Canonical OFF ingredients (ADR-0043 §5) — NOT `food/ingredients`.
     expect(twin.attributes["food/ingredients_text"]).toBe(
@@ -459,7 +459,7 @@ describe("saveLabelFood (ADR-0034 §6)", () => {
         value: JSON.stringify({ serving_size: "100 g", calories: 800 }),
       },
       {
-        attribute: "twin/raw_provenance",
+        attribute: "provenance/raw",
         value: JSON.stringify(offProvenance),
       },
     ];
@@ -501,7 +501,7 @@ describe("saveLabelFood (ADR-0034 §6)", () => {
     expect(twin.attributes["food/name"]).toBe("Extra Virgin Olive Oil");
     expect(twin.attributes["nutrition/info"]).toEqual(corrected);
     // OFF's provenance is NOT clobbered — the sibling attributes coexist.
-    expect(twin.attributes["twin/raw_provenance"]).toEqual(offProvenance);
+    expect(twin.attributes["provenance/raw"]).toEqual(offProvenance);
     expect(twin.attributes["food/label_capture"]).toEqual(capture);
   });
 

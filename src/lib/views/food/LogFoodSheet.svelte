@@ -315,7 +315,7 @@
                 : e.calories != null
                   ? String(e.calories)
                   : "",
-            place: (attrs["twin/brand"] as string) ?? "",
+            place: (attrs["food/brand"] as string) ?? "",
             ingredients: (attrs["food/ingredients"] as string) ?? "",
             photo_base64:
               (attrs["food/photo_base64"] as string) ?? e.photoBase64 ?? null,
@@ -408,7 +408,7 @@
           });
         } else if (choice.nutrition && choice.labelCapture) {
           // Found-but-poor door (ADR-0034 §6/§7): ingest the OFF record FIRST so
-          // its `twin/raw_provenance` lands in the ledger, then let saveLabelFood
+          // its `provenance/raw` lands in the ledger, then let saveLabelFood
           // append the correction over the same `gtin:` entity. Append-only +
           // latest-wins means the corrected name/panel supersede the poor OFF
           // values on the next read while OFF's provenance survives beside the new

@@ -147,7 +147,7 @@ describe.each(MAPPED)("the mapped payload for $query", (entry) => {
   });
 
   it("keeps the OFF record as provenance, so the source tag reads OFF", () => {
-    const provenance = payload.attributes["twin/raw_provenance"] as {
+    const provenance = payload.attributes["provenance/raw"] as {
       adapter: string;
       source_uri: string;
     };

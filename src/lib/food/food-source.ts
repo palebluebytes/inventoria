@@ -14,7 +14,7 @@ import {
  *
  * Three readings, in order:
  *
- *  1. An ingested record — `twin/raw_provenance` — is the strongest evidence a
+ *  1. An ingested record — `provenance/raw` — is the strongest evidence a
  *     twin can carry, and it SURVIVES a user's later label correction (the
  *     enrich append adds `food/label_capture` beside it, ADR-0034 §6/§7). So an
  *     edited OFF product still reads OFF: the user corrected that record, they
@@ -77,7 +77,7 @@ const SOURCE_PRESENTATION: Record<
   arrival: { label: "Received", icon: "↓" },
 };
 
-// Ingest adapter → origin, for the `twin/raw_provenance` reading. A `recipe:`
+// Ingest adapter → origin, for the `provenance/raw` reading. A `recipe:`
 // twin is composed, never ingested, so it has no adapter of its own.
 const ADAPTER_SOURCES: Readonly<Record<string, FoodSourceKind>> = {
   off: "off",
@@ -101,7 +101,7 @@ const ADAPTER_SOURCES: Readonly<Record<string, FoodSourceKind>> = {
  * vouch for.
  */
 export function foodSourceView(food: EntityPayload): FoodSourceView {
-  const provenance = food.attributes?.["twin/raw_provenance"] as
+  const provenance = food.attributes?.["provenance/raw"] as
     | RawProvenance
     | undefined;
   const ingested = provenance?.adapter

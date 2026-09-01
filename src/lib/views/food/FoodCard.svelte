@@ -78,7 +78,7 @@
   let origin = $derived.by<null | "edited" | "your">(() => {
     const attrs = payload.attributes;
     if (!attrs?.["food/label_capture"]) return null;
-    return attrs["twin/raw_provenance"] ? "edited" : "your";
+    return attrs["provenance/raw"] ? "edited" : "your";
   });
 
   // Where the food's data came from (ADR-0043 §2) — always present, so the tag
@@ -104,7 +104,7 @@
       : 0
   );
   let brand = $derived<string | undefined>(
-    payload.attributes?.["twin/brand"] as string | undefined
+    payload.attributes?.["food/brand"] as string | undefined
   );
   // Allergens (ADR-0043 §3): present-only, silent when OFF carries none.
   let allergen = $derived(deriveAllergenVerdict(payload));

@@ -2262,11 +2262,11 @@ describe("mapIndexRowToPayload", () => {
     ).not.toHaveProperty("food/scientific_name");
   });
 
-  it("keeps twin/raw_provenance present, naming the canonical USDA URI", () => {
+  it("keeps provenance/raw present, naming the canonical USDA URI", () => {
     // Its presence is load-bearing: the origin badge reads the envelope's
     // adapter and FoodCard reads that the blob is there (ADR-0047 §7).
     const provenance = mapIndexRowToPayload(rowFor(BANANA)).attributes[
-      "twin/raw_provenance"
+      "provenance/raw"
     ] as RawProvenance<UsdaIndexRow>;
     expect(provenance.adapter).toBe("fdc");
     expect(provenance.source_uri).toBe(
@@ -2281,7 +2281,7 @@ describe("mapIndexRowToPayload", () => {
     const merged = index.foods.find((f) => f.merged_from);
     expect(merged).toBeDefined();
     const provenance = mapIndexRowToPayload(merged!).attributes[
-      "twin/raw_provenance"
+      "provenance/raw"
     ] as RawProvenance<UsdaIndexRow>;
     expect(provenance.merged_from?.[0].filled_fields.length).toBeGreaterThan(0);
   });
@@ -2289,7 +2289,7 @@ describe("mapIndexRowToPayload", () => {
   it("omits merged_from entirely for a food that merged nothing", () => {
     const unmerged = index.foods.find((f) => !f.merged_from);
     const provenance = mapIndexRowToPayload(unmerged!).attributes[
-      "twin/raw_provenance"
+      "provenance/raw"
     ] as RawProvenance<UsdaIndexRow>;
     expect(provenance).not.toHaveProperty("merged_from");
   });
@@ -2465,7 +2465,7 @@ describe("completeStagedPanel", () => {
   });
 
   it("leaves identity, portions and provenance exactly as the row wrote them", async () => {
-    // Only the panel deepens. `twin/raw_provenance` stays present and stays the
+    // Only the panel deepens. `provenance/raw` stays present and stays the
     // generated row (ADR-0047 §7) — the origin badge reads its adapter and
     // FoodCard reads that it is there.
     const before = mapIndexRowToPayload(rowFor(BANANA));
@@ -2476,7 +2476,7 @@ describe("completeStagedPanel", () => {
       before.attributes[FOOD_PORTIONS_ATTR]
     );
     const provenance = after.attributes[
-      "twin/raw_provenance"
+      "provenance/raw"
     ] as RawProvenance<UsdaIndexRow>;
     expect(provenance.raw_data.fdcId).toBe(1105314);
     expect(provenance.merged_from?.[0].source_uri).toContain("173944");

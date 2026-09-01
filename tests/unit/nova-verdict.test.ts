@@ -27,7 +27,7 @@ function offFoodWithAssessment(assessment: FoodAssessment): EntityPayload {
 /**
  * A USDA FDC food twin, minted through the corpus mapper rather than hand-built,
  * so the twin under test carries what a real one carries — `food/name`, the
- * optional `food/category`, and the `twin/raw_provenance` blob holding USDA's
+ * optional `food/category`, and the `provenance/raw` blob holding USDA's
  * untouched row (ADR-0047 §7).
  *
  * The provenance is not decoration here. The inference reads its `description`

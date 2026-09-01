@@ -48,21 +48,23 @@
         );
       }
 
-      // Add to database
+      // Add to database. The entity is always `twin:` (ADR-0086 §3); whatever
+      // identifier the page carried is an attribute of the item, because a GTIN
+      // is the identity of the packaged food it was printed for and not of the
+      // thing you are thinking of buying.
       const entityId = scraped.entityId;
-      await saveAcquisitionTwin(
-        {
-          entity: entityId,
-          attributes: {
-            "twin/name": scraped.name,
-            "twin/image": scraped.image,
-            "twin/description": scraped.description,
-            "twin/brand": scraped.brand,
-            "twin/source_url": shareUrl,
-          },
-        },
-        "wanted"
-      ); // Defaults to wanted for shared/scraped items
+      const attributes: Record<string, unknown> = {
+        "item/name": scraped.name,
+        "item/image": scraped.image,
+        "item/description": scraped.description,
+        "item/brand": scraped.brand,
+        "item/source_url": shareUrl,
+      };
+      if (scraped.identifier) {
+        attributes[`item/${scraped.identifier.kind}`] =
+          scraped.identifier.value;
+      }
+      await saveAcquisitionTwin({ entity: entityId, attributes }, "wanted"); // Defaults to wanted for shared/scraped items
 
       scrapeSuccess = `Successfully imported "${scraped.name}"!`;
       shareUrl = "";

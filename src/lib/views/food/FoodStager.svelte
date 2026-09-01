@@ -505,7 +505,7 @@
   // Open the read-only OFF reference reader on this index; null = closed.
   let refReaderIndex = $state<number | null>(null);
   // The OFF payload carried into the form by the found-but-poor door, so the host
-  // ingests it beside the correction — its `twin/raw_provenance` survives and the
+  // ingests it beside the correction — its `provenance/raw` survives and the
   // enriched `gtin:` twin is genuinely dual-origin (ADR-0034 §6/§7). Null for the
   // missing/unreadable/manual doors, which have no OFF record to preserve.
   let captureOffPayload = $state<EntityPayload | null>(null);
@@ -652,7 +652,7 @@
     const attrs = payload.attributes;
     const name = (attrs["food/name"] as string | undefined) ?? "";
     customName = name === "Unknown" ? "" : name;
-    customBrand = (attrs["twin/brand"] as string | undefined) ?? "";
+    customBrand = (attrs["food/brand"] as string | undefined) ?? "";
     // OFF already read the taxonomy into food/category (a comma list) — split it
     // into discrete chips so enriching a poor twin (and any OFF contribution)
     // forwards the identity it already has (#84).
@@ -718,7 +718,7 @@
     // than making them delete it, exactly as the found-but-poor door does.
     const twinName = (attrs["food/name"] as string | undefined) ?? "";
     customName = twinName === "Unknown" ? "" : twinName;
-    customBrand = (attrs["twin/brand"] as string | undefined) ?? "";
+    customBrand = (attrs["food/brand"] as string | undefined) ?? "";
     customCategories = parseCategoryList(
       attrs["food/category"] as string | undefined
     );

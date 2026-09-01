@@ -127,7 +127,7 @@ export type ChooseOutcome = { ok: boolean; message?: string };
 /**
  * The one-time pre-population an edited manual-entry log hands the stager (ADR-0035
  * edit path): the intent `kind` and the fields the mini-form owns, read back off
- * the food twin (`food/name`, `nutrition/info.calories`, `twin/brand`,
+ * the food twin (`food/name`, `nutrition/info.calories`, `food/brand`,
  * `food/ingredients`, the photo). Re-opening the intent's OWN mini-form — not the
  * label form — is what keeps the re-saved twin a manual entry rather than
  * degrading it to a label capture.
@@ -146,7 +146,7 @@ export interface ManualEntrySeed {
   name: string;
   /** Calories as a string (the mini-form's field type). */
   calories: string;
-  /** Menu "Place" (`twin/brand`); empty for quick/plate. */
+  /** Menu "Place" (`food/brand`); empty for quick/plate. */
   place: string;
   /** Free-text ingredients (`food/ingredients`); empty when none. */
   ingredients: string;
