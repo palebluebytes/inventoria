@@ -54,3 +54,7 @@ test-results/
 
 # `wrangler dev`'s local state, including the relay's local Durable Object
 .wrangler/
+
+# The build's own record of what each Facet reaches and precaches
+# (ADR-0083 §6). Outside dist/ because that directory is served whole.
+/.facets/

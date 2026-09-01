@@ -1,33 +1,39 @@
 <script lang="ts">
-  // @ts-expect-error - virtual module provided by vite-plugin-pwa
-  import { useRegisterSW } from "virtual:pwa-register/svelte";
+  // The update prompt, one per Facet (ADR-0077 §8). It takes the Facet it is
+  // standing in rather than reaching for a virtual module;
+  // `src/lib/facets/service-worker.ts` is where that measurement lives.
+  import { untrack } from "svelte";
+  import { registerFacetServiceWorker } from "../facets/service-worker";
+  import type { Facet } from "../facets/registry";
   import Button from "./Button.svelte";
 
-  const { needRefresh, updateServiceWorker } = useRegisterSW({
-    onRegistered(r: any) {
-      console.log("SW Registered");
-    },
-    onRegisterError(error: any) {
-      console.log("SW registration error", error);
-    },
-  });
+  let { facet }: { facet: Facet } = $props();
 
-  function close() {
-    $needRefresh = false;
-  }
+  let needRefresh = $state(false);
+
+  // Read once, and `untrack` says so rather than leaving a warning to be
+  // ignored: which Facet a shell is mounted under is a build-time constant
+  // (ADR-0076 §6), so there is no later value for this to have missed.
+  const registration = untrack(() =>
+    registerFacetServiceWorker(facet, () => {
+      needRefresh = true;
+    })
+  );
 </script>
 
-{#if $needRefresh}
+{#if needRefresh}
   <div class="reload-prompt" role="alert">
     <div class="message">
       <strong>New update available!</strong>
       <span>Reload to get the latest version.</span>
     </div>
     <div class="actions">
-      <Button variant="primary" onclick={() => updateServiceWorker(true)}>
+      <Button variant="primary" onclick={() => registration.update()}>
         Reload
       </Button>
-      <Button variant="secondary" onclick={close}>Dismiss</Button>
+      <Button variant="secondary" onclick={() => (needRefresh = false)}>
+        Dismiss
+      </Button>
     </div>
   </div>
 {/if}

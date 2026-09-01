@@ -73,10 +73,17 @@ if (process.env.__OFFLINE_BOOT_CHILD) {
   // Workbox writes the manifest into sw.js as `{url:"…",revision:"…"}` records.
   // Reading it rather than listing dist/ keeps this honest: a file present on
   // disk but absent from the manifest is not on a cold offline install.
+  //
+  // The leading slash comes off, so these keys are dist-relative like
+  // `manifestKey`'s below. Every precache URL is absolute since #306 — workbox
+  // resolves one against its own service worker's location, so `/food/sw.js`
+  // would read `assets/x.js` as `/food/assets/x.js` — and a comparison against
+  // relative request keys would silently match nothing and report an app that
+  // cannot start offline.
   const precache = new Set(
     [
       ...readFileSync(join(DIST, "sw.js"), "utf8").matchAll(/url:"([^"]*)"/g),
-    ].map((m) => m[1])
+    ].map((m) => m[1].replace(/^\/+/, ""))
   );
   if (precache.size === 0) fail("no precache manifest found in dist/sw.js");
 

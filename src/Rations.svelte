@@ -5,6 +5,7 @@
   import type { Facet } from "./lib/facets/registry";
   import Badge from "./lib/ui/Badge.svelte";
   import FoodView from "./lib/views/FoodView.svelte";
+  import ReloadPrompt from "./lib/ui/ReloadPrompt.svelte";
 
   /**
    * Which Facet this is, handed in by the entry point that mounted this shell
@@ -84,6 +85,13 @@
          inside FoodView. -->
     <FoodView {dbReady} onReceiveClose={() => {}} />
   </main>
+
+  <!-- Rations registers its own service worker and prompts its own clients. One
+       deploy therefore prompts twice on a device with both Facets installed,
+       which is accepted rather than mitigated: they are two installs with two
+       precaches, and a single prompt updating both would claim an authority the
+       registration model does not grant (ADR-0077 §8). -->
+  <ReloadPrompt {facet} />
 </div>
 
 <style>

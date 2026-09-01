@@ -267,7 +267,7 @@
       </div>
     </main>
 
-    <ReloadPrompt />
+    <ReloadPrompt {facet} />
   </div>
 {/if}
 
