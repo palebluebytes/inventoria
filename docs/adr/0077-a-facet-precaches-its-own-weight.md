@@ -1,7 +1,8 @@
 # ADR 0077: A Facet precaches its own weight, and the root gives up offline food data to pay for it
 
 **Status:** Accepted  
-**Date:** 2026-08-31
+**Date:** 2026-08-31  
+**Implemented:** [#306](https://github.com/palebluebytes/inventoria/issues/306) — `src/lib/facets/precache.ts` derives each Facet's code half, the roster's `precache` field declares the rest, and `vite.config.ts` builds one `VitePWA` instance per Facet. The measured figures are in §1 and §5; the ones this record predicted are kept beside them.
 
 ## Context
 
@@ -61,10 +62,19 @@ registration and `/` to the root's, unambiguously; `Clients.claim()` re-runs the
 and skips clients that do not resolve to the calling registration, so the two can never
 fight over a page.
 
-This is decision 10 answered as its goal rather than its fallback. Rations installs at
-**9,179,816 B (8.75 MiB)** against today's **13,723,556 B (13.09 MiB)**, a 33% saving —
+This is decision 10 answered as its goal rather than its fallback. Rations was priced at
+**9,179,816 B (8.75 MiB)** against a **13,723,556 B (13.09 MiB)** baseline, a 33% saving —
 and to within 7% that saving is one thing: `NotesView-*.js`, 4,233,270 B of base64-inlined
 Loro WASM the food app has no use for.
+
+**Built, #306 measured 9,975,828 B (9.51 MiB) against a 14,539,436 B (13.87 MiB) baseline
+— a 31.4% saving.** Both ends moved and the shape held. The prediction came off the #269
+research prototype rather than off this repo at a named commit, and the baseline it was
+taken against is not the one #306 built from; what lies between them is a stretch of the
+arc rather than a single addition, and it is recorded as unattributed rather than guessed
+at. The figure a later gate should hold still is the measured one, which matters because
+[ADR-0083](0083-a-gate-that-names-one-entry-point-proves-one-facet.md) §3 sets a band at
+±5% and every number this record predicted falls outside it.
 
 The cost is that **installing both Facets costs more than installing everything does
 today**. That is accepted rather than mitigated. The driver for the split is identity, not
@@ -99,6 +109,13 @@ Facet's entry HTML out of the bundle, and supplied as explicit manifest entries 
 than left to a directory glob. A hand-maintained `globIgnores` denylist is refused: it
 rots on every new view, silently re-inflating a Facet's precache with every gate green,
 and the thing this record exists to defend is a number.
+
+**As built, the set is that one and the mechanism is not.** #306 widens each instance's
+glob to `**/*` so it decides nothing, and applies the derived set as an allowlist in a
+`manifestTransforms` step. What the glob still buys is a revision for every file, which
+explicit entries would have had to compute over `dist/` by hand. The refusal above is
+untouched — an allowlist derived from the entry cannot rot on a new view — and the
+departure is recorded here rather than left to a commit message.
 
 The static half — `usda/`, `fonts/`, the Rations icon set — is copied verbatim from
 `public/` and appears in no module graph. It is **declared**, per Facet, in the ADR-0076 §6
@@ -148,10 +165,15 @@ anything — dropping it means a cold offline Inventoria opens on a search box t
 finds nothing, which reads as "no such food" rather than "no data yet". 1,715,082 B is what
 an honest landing screen costs and it is the cheapest of the three.
 
-The root install becomes **8,642,402 B (8.24 MiB)** — 13,723,556 − 4,015,520 − 1,065,634 —
-a 37% saving that keeps every tab. That figure is arithmetic over measured file sizes, not
-a build; the measured food-less root, which the map's decision 3 forbids, was 6,550,071 B
-(6.25 MiB). Both Facets installed come to **17,822,218 B (17.00 MiB)**.
+The root install was predicted at **8,642,402 B (8.24 MiB)** — 13,723,556 − 4,015,520 −
+1,065,634 — a 37% saving that keeps every tab. That figure is arithmetic over measured file
+sizes, not a build; the measured food-less root, which the map's decision 3 forbids, was
+6,550,071 B (6.25 MiB). Both Facets installed were predicted at **17,822,218 B (17.00 MiB)**.
+
+**Built, #306 measured the root at 9,341,846 B (8.91 MiB), a 35.7% saving, and both
+installed at 19,317,674 B (18.42 MiB).** The arithmetic above missed one thing besides the
+baseline: a derived manifest also takes Rations' shell, manifest and icons out of the root,
+which a subtraction from a glob that included them could not see.
 
 **In the root, a staging or scan attempt that fails for want of an un-precached artifact
 must say it needs a network, once, and not surface a fetch error.** Both paths already fail
@@ -165,13 +187,19 @@ at all.
 
 ### 6. A Facet's scope is not served by another Facet's service worker
 
-`dist/food/index.html` sits in the root's precache, because the root globs everything — but
 §1's denylist sends `/food/` navigations to the network, so on a device with Inventoria and
 not Rations, a `/food/` link is dead offline. That is correct and deliberate. Serving
 Rations' shell from the root registration would produce a Rations app running on the root's
 precache, updating on the root's prompt and wiping with the root's cache — un-buying the
 scope hygiene §1 pays for. `/food/` is Rations' scope; a device without Rations does not
 have it.
+
+This clause used to open by granting that `dist/food/index.html` sits in the root's precache
+"because the root globs everything". §2 of this same record is what stopped that being true,
+and [#306](https://github.com/palebluebytes/inventoria/issues/306) measured it: the root's
+manifest is derived from its own entry, so Rations' shell, manifest and icons are not in it
+at all. The conclusion is unchanged and now reached twice over — the file is not precached
+_and_ the denylist would not serve it.
 
 ### 7. The runtime image cache is shared; the precaches are not
 
@@ -200,10 +228,13 @@ the other stayed stale is worse than being asked twice.
 
 ## Consequences
 
-**What it costs, plainly.** Rations 8.75 MiB, the root 8.24 MiB, both 17.00 MiB against
-13.09 MiB for everything today. The root's saving is the larger one, which is easy to lose
-sight of in a ticket named after the food app. The 1.76 MiB duplication floor has no remedy
-short of a single service worker, which is §1's rejected fallback.
+**What it costs, plainly.** Predicted: Rations 8.75 MiB, the root 8.24 MiB, both 17.00 MiB
+against 13.09 MiB for everything. **Measured by #306: Rations 9.51 MiB, the root 8.91 MiB,
+both 18.42 MiB against 13.87 MiB.** The root's saving is the larger one, which is easy to
+lose sight of in a ticket named after the food app. The duplication has no remedy short of a
+single service worker, which is §1's rejected fallback — and it is 4,783,558 B rather than
+the 1.76 MiB floor named above, because that floor was a food-less root and this one keeps
+the search index and the QR writer that both Facets read.
 
 **What the root gives up.** Keyless offline food _staging_ and offline barcode scanning on a
 cold install. Search survives. This is a narrowing of a shipped promise and it is declared
