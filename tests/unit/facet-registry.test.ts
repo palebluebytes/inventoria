@@ -1,9 +1,12 @@
 import { describe, it, expect } from "vitest";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import {
   FACETS,
   TRACKED_DOMAINS,
   entityPrefixesOf,
   facetOf,
+  type FacetId,
   ownerOfEntity,
   storagePrefixesOf,
 } from "../../src/lib/facets/registry";
@@ -152,11 +155,23 @@ describe("what a Facet says about its entry point (ADR-0076 §6)", () => {
     expect(facetOf("food").startUrl).toBe("/food/");
   });
 
-  it("leaves Rations' icon absent rather than stubbed", () => {
-    // The root's is a file that exists. Rations' is #302's to mint, and a path
-    // to a file that is not there would be exactly the lie this module's header
-    // refuses — so the field is absent until it is true.
-    expect(facetOf("root").icon).toBe("/favicon.svg");
-    expect(facetOf("food").icon).toBeUndefined();
+  it("names an icon for both Facets, and both are files in the build", () => {
+    // The field was absent for Rations until #302 minted one, because a path to
+    // a file that is not there is the lie this module's header refuses. The
+    // guard against it coming back is not "is it set" but "is it there", so the
+    // assertion resolves the URL against `public/` rather than reading the
+    // registry twice over.
+    const icons: [FacetId, string][] = [
+      ["root", "/favicon.svg"],
+      ["food", "/food/icons/rations-512.png"],
+    ];
+    for (const [id, path] of icons) {
+      expect(facetOf(id).icon).toBe(path);
+      const served = new URL(`../../public${path}`, import.meta.url);
+      expect({ path, served: existsSync(fileURLToPath(served)) }).toEqual({
+        path,
+        served: true,
+      });
+    }
   });
 });

@@ -9,12 +9,13 @@
  * `start_url` were **absent rather than stubbed**, to arrive with the entry
  * point that makes them true.
  *
- * #301 built that entry point, so scope, name and start URL are here. **The icon
- * is not**, and it is the same refusal one field over: #302 is what mints an
- * icon Rations may ship, and a path to a file that is not in the build would be
- * the lie this module was written to avoid. The field is optional for exactly as
- * long as that is true — #305 needs an icon for both Facets' manifests and is
- * the change that makes it required.
+ * #301 built that entry point, so scope, name and start URL are here, and #302
+ * minted an icon Rations is allowed to ship, so the icon is here too. Both
+ * arrived the same way: the field was **absent rather than stubbed** until a
+ * file it could name was in the build, because a path to a file that is not
+ * there would be the lie this module was written to avoid. The field stays
+ * optional only because nothing yet forces every Facet to have one — #305 needs
+ * an icon for both Facets' manifests and is the change that makes it required.
  *
  * **The owner is a Tracked Domain** (ADR-0086 §1). It cannot be a Facet: ADR-0076
  * §3 has Facets overlap rather than partition, and the root holds all six
@@ -154,8 +155,22 @@ export interface Facet {
    */
   readonly startUrl: string;
   /**
-   * The icon it installs under, where there is one the app may ship. Absent for
-   * Rations until #302, per this module's header.
+   * The icon it installs under: **one** URL, the Facet's `any`-purpose mark.
+   * Not "the largest" — two of Rations' files are 512 and the root's is a
+   * sizeless SVG, so size is the wrong discriminator and purpose is the right
+   * one.
+   *
+   * A manifest wants a list, and this is deliberately not one. Rations' other
+   * sizes are derived from the same drawing and sit beside this file
+   * (`docs/icon-provenance.md`); which of them a manifest enumerates, at what
+   * `sizes` and with what `purpose`, is #305's to decide, and a list here would
+   * be that decision made early in the wrong file. Who owns the drawing is what
+   * this field is for.
+   *
+   * It is **not yet the declaration ADR-0077 §2 asks for**, which names "the
+   * Rations icon set" among the static assets a Facet declares per Facet so its
+   * own service worker can precache them. One URL is what #305 needs; #306 is
+   * what turns it into the set.
    */
   readonly icon?: string;
   readonly domains: readonly string[];
@@ -183,6 +198,7 @@ export const FACETS = [
     name: "Rations",
     scope: "/food/",
     startUrl: "/food/",
+    icon: "/food/icons/rations-512.png",
     domains: ["food"],
     status: "decided",
   },

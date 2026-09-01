@@ -51,6 +51,7 @@ touch what you are about to change; do not read all of them by default.
 | Add or change a ledger attribute or entity prefix              | `docs/eavt-vocabulary.md` — the canonical registry; update it in the same change                 |
 | Add a whole new tracked domain                                 | `docs/how-to-add-a-tracked-domain.md`                                                            |
 | Add or change a Facet, or ask which Facet something belongs to | `docs/adr/0076-a-facet-is-an-installable-face-onto-one-jar.md` — what a Facet is, and the roster |
+| Ship, replace, or re-derive an app icon                        | `docs/icon-provenance.md` — who made each one, under what licence, and how it was cut            |
 | Argue about the storage model                                  | `docs/append-only-ledger.md`                                                                     |
 | Work an issue                                                  | `docs/agents/issue-tracker.md` — this repo's `gh` conventions                                    |
 

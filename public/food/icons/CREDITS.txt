@@ -1,0 +1,18 @@
+Rations icon
+============
+
+"anchovy tin" by Michael Senkow, from the Noun Project.
+    https://thenounproject.com/icon/anchovy-tin-7864233/
+
+Licensed under the Creative Commons Attribution License (CC BY 3.0).
+    https://creativecommons.org/licenses/by/3.0/
+
+Changes: the black line art was scaled and centred on an opaque white ground,
+and re-rendered at 512, 192, 180 and 32 pixels square, plus a maskable variant
+with the art re-laid inside Android's safe circle. No line was redrawn.
+
+CC BY 3.0 clause 4(a) asks that the author, the title, the source and the
+licence travel with every copy of the work, and that a derivative say it is
+one. This file is that notice, and it ships to /food/icons/CREDITS.txt beside the
+images it describes -- the same route public/fonts/OFL.txt takes for the
+typeface. docs/icon-provenance.md carries the full derivation.

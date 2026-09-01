@@ -177,8 +177,8 @@ const FOREIGN_SCOPES = FOREIGN_FACETS.map((f) => new RegExp(`^${f.scope}`));
  *
  * So a foreign page carries **no** manifest until it carries its own. #305 is
  * what hand-writes one per Facet and turns this into a rewrite rather than a
- * removal; until then no manifest is the honest state, because Rations has no
- * icon (#302) and nothing to install under.
+ * removal; until then no manifest is the honest state. Rations has had an icon
+ * of its own since #302, so what is left to write is the manifest itself.
  */
 const oneManifestPerFacet = () => ({
   name: "one-manifest-per-facet",
@@ -247,8 +247,14 @@ export default defineConfig({
         // leave a cold offline install with no food data at all. An app whose
         // case rests on keyless offline search must not need a network for its
         // first search (ADR-0047 §11).
+        // …and `txt`: two of the assets above carry a licence that asks its
+        // notice to travel with every copy of the work — CC BY 3.0 clause 4(a)
+        // for the Rations icon, OFL 1.1 clause 2 for Epilogue. An offline
+        // install *is* a copy, so precaching `/food/icons/rations-*.png` and
+        // the font subsets while leaving `CREDITS.txt` and `OFL.txt` on the
+        // network would distribute the works without their notices. 8 KiB.
         globPatterns: [
-          "**/*.{js,css,html,svg,png,ico,wasm,webmanifest,woff2,json}",
+          "**/*.{js,css,html,svg,png,ico,wasm,webmanifest,woff2,json,txt}",
         ],
         // Fontsource ships every subset it has, and the browser only fetches
         // the ones a rendered character needs. Precaching is the exception:

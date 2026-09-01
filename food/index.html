@@ -2,12 +2,21 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- Inventoria's mark, because Rations has no icon of its own until #302.
-         This page carries no manifest and so installs nothing: #305 is what
-         hand-writes Rations one, and the root's — which VitePWA injects into
-         every entry — is taken back off here by `oneManifestPerFacet` in
+    <!-- Rations' own mark (#302), not Inventoria's: this page installs under
+         it, and the two Facets are not the same app. It is a raster because the
+         drawing is one, and it is opaque because the drawing is black line art
+         that vanishes on a dark composite — docs/icon-provenance.md measures
+         both. This page still carries no manifest and so installs nothing: #305
+         is what hand-writes Rations one, and the root's — which VitePWA injects
+         into every entry — is taken back off here by `oneManifestPerFacet` in
          vite.config.ts, because it would offer an install of the other Facet. -->
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/food/icons/rations-32.png"
+    />
+    <link rel="apple-touch-icon" href="/food/icons/rations-180.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- Replaced on mount from the Facet registry, like the root's. Still
          reading this is the symptom the offline spec looks for. -->
