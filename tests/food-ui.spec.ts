@@ -1074,6 +1074,79 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(lunchSection.locator(".meal-item-thumb")).toBeVisible();
   });
 
+  test("opens the label form from the chooser's fourth tile and offers the food in that meal's Recent (#318)", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+
+    // ADR-0087's motivating case: a packaged food with a complete printed panel
+    // and no barcode anywhere on screen (a webshop granola). Before this door
+    // the app could not record it at all — Scan needs a code to start from, and
+    // the three ADR-0035 intents are calories-only.
+    await page.getByRole("button", { name: "Enter a lunch yourself" }).click();
+
+    const chooser = page.getByTestId("manual-intent-chooser");
+    await expect(chooser).toBeVisible();
+
+    // Four tiles, and the panel is LAST: the list reads fastest-to-slowest and
+    // twenty typed numbers is still the slowest thing on it (ADR-0087 §2).
+    const tiles = chooser.getByRole("button");
+    await expect(tiles).toHaveCount(4);
+    await expect(tiles.first()).toContainText("Quick estimate");
+    await expect(tiles.last()).toContainText("From a nutrition panel");
+
+    await page.getByTestId("intent-panel").click();
+
+    // The ADR-0034 label form verbatim, not a trimmed macros-only fork: the
+    // micronutrient group the three mini-forms have no room for is right there,
+    // which is where this granola's calcium, magnesium and iron go.
+    await expect(
+      page.locator(".cf-group", { hasText: "Vitamins" })
+    ).toBeVisible();
+
+    // Chosen, not landed on (ADR-0087 §4). No reason banner, and therefore no
+    // "Barcode digits" field — that input lives inside the banner, so dropping
+    // one drops the other, and the save mints `food:custom_` rather than keying
+    // `gtin:` off a code nobody typed.
+    await expect(page.getByTestId("capture-reason")).toHaveCount(0);
+    await expect(page.getByLabel("Barcode digits")).toHaveCount(0);
+
+    await page.locator("#custom-name").fill("Granola Tahin");
+    await page.locator("#custom-cal").fill("480");
+    await page.locator("#cf-iron").fill("3.1");
+
+    // Header-back returns to the chooser, and the draft survives the trip: the
+    // mini-forms blank on every switch so a menu's Place cannot haunt a later
+    // quick estimate, but this form has no sibling to bleed into and is twenty
+    // typed numbers long (ADR-0087 §5).
+    await page.locator(".bottom-sheet-header .back-btn").click();
+    await expect(chooser).toBeVisible();
+    await page.getByTestId("intent-panel").click();
+    await expect(page.locator("#custom-name")).toHaveValue("Granola Tahin");
+    await expect(page.locator("#cf-iron")).toHaveValue("3.1");
+
+    await page.locator("#log-food-btn").click();
+
+    // It logs like any other capture: against the panel's own per-100 basis, not
+    // a unit-less "1 serving" (ADR-0060 as amended).
+    const lunchSection = page.locator(".meal-section", { hasText: "LUNCH" });
+    await expect(lunchSection).toContainText("Granola Tahin");
+    await expect(lunchSection).toContainText("100g");
+    await expect(lunchSection).toContainText("480 kcal");
+
+    // What reuse actually is (ADR-0087 §6): a measured log passes
+    // `isCatalogueFood` on its first clause, so the twin is offered in THIS
+    // meal's Recent while the search box is empty. It is deliberately not
+    // asserted to be findable by typing — the app has no local-twin search, and
+    // that is #320.
+    await page.getByRole("button", { name: "Search for a lunch food" }).click();
+    await expect(page.getByRole("heading", { name: "Recent" })).toBeVisible();
+    await expect(
+      page.locator(".result-item", { hasText: "Granola Tahin" })
+    ).toBeVisible();
+  });
+
   test("captures a full-panel custom food from the Read-along form (#57)", async ({
     page,
   }) => {
