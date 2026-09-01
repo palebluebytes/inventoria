@@ -1599,13 +1599,22 @@ describe("copyPastMeal (ADR-0058)", () => {
   // §10 — a copied entry takes now's clock on the day being viewed, not the
   // day it was originally eaten.
   it("stamps the viewed day, not the source day", async () => {
-    const viewed = new Date("2026-08-26T00:00:00");
-    await copyPastMeal([logged()], "breakfast", viewed);
-    const when = new Date(appendMock.mock.calls[0][0][0].time);
-    expect(when.getFullYear()).toBe(2026);
-    expect(when.getMonth()).toBe(7);
-    expect(when.getDate()).toBe(26);
-    expect(when.getHours()).not.toBe(8); // not the source's 08:14
+    // The clock is pinned because the stamp's time of day IS now's, so an
+    // assertion that it differs from the source's 08:14 holds only while the
+    // suite happens not to be run between 08:00 and 09:00.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-01T14:32:00"));
+    try {
+      const viewed = new Date("2026-08-26T00:00:00");
+      await copyPastMeal([logged()], "breakfast", viewed);
+      const when = new Date(appendMock.mock.calls[0][0][0].time);
+      expect(when.getFullYear()).toBe(2026);
+      expect(when.getMonth()).toBe(7);
+      expect(when.getDate()).toBe(26);
+      expect(when.getHours()).toBe(14); // now's clock, not the source's 08:14
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   // §4 — a past breakfast copied into breakfast, never into another meal.
