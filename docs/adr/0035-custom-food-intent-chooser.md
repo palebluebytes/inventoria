@@ -2,6 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-03  
+**Amended by:** [ADR-0087](0087-a-hand-typed-panel-is-a-door-of-its-own.md) (§1's closing sentence is reversed: the label form IS an option in this chooser, as its fourth and last tile)  
 **Implemented:** `17382f7`, `915a732`, `c696190`, `f7f3054`; `ManualEntryFlow.svelte`
 
 ## Context
