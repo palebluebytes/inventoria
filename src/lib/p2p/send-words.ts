@@ -44,6 +44,31 @@ export interface SendWords extends EndingWords {
    * rule is about the meal, not about the code's arithmetic.
    */
   retry: boolean;
+  /**
+   * Whether this ending offers the Ledger export inline (ADR-0072 §14).
+   *
+   * **True on the two endings the record names, and nowhere else.** §14 is the
+   * relay out of reach: nothing crossed, the code was never spent, and the
+   * difference between a named step-down and a dead end is one button. ADR-0074
+   * §10 adds the room that ran out its five minutes, which is where an Android
+   * sender lands when an iOS recipient refuses — *"will time out at five
+   * minutes and be offered the export, correctly"*.
+   *
+   * Everything else is false for a reason rather than by default. A refusal and
+   * a wrong-key answer are about the meal and about who was in the room; a
+   * spent code has already done its job; a send the sender called off did not
+   * fail. `closed` is the nearest miss and still false: the Relay ending a room
+   * under one of its own bounds (§11) is a shape being refused rather than the
+   * route being out of reach, no record names it, and widening §14 by a third
+   * ending is an argument to make in an ADR rather than in a boolean. An
+   * ending nobody recognises may well be the ledger read that failed, so
+   * offering a file of that same ledger would be a guess printed as an answer.
+   *
+   * This is the **sender's** surface only. ADR-0074 §10 refuses the same button
+   * on the iOS receive surface, because a refusal that proposes a way round is
+   * not a refusal, and the two rules must not be merged.
+   */
+  stepDown: boolean;
 }
 
 /** The one ending that is not a failure. */
@@ -53,21 +78,24 @@ export const MEAL_DELIVERED: SendWords = {
   detail: "What they do with it is theirs. Inventoria will not tell you.",
   cause: null,
   retry: false,
+  stepDown: false,
 };
 
 const FAILURE_WORDS: Record<
   SendFailure,
-  Pick<SendWords, "line" | "detail" | "retry">
+  Pick<SendWords, "line" | "detail" | "retry" | "stepDown">
 > = {
   unavailable: {
     line: "No route to them.",
     detail: "Nothing left this device, and this code was never spent.",
     retry: true,
+    stepDown: true,
   },
   expired: {
     line: "Nobody took this in five minutes.",
     detail: "Nothing crossed. A new code starts the five minutes again.",
     retry: true,
+    stepDown: true,
   },
   // The panel closes on the way to this one — closing a live code is what
   // cancels it — so these words are the ending's rather than a screen's. They
@@ -77,16 +105,19 @@ const FAILURE_WORDS: Record<
     line: "You called this off.",
     detail: "Nothing crossed, and this code is spent.",
     retry: true,
+    stepDown: false,
   },
   refused: {
     line: "They could not read it.",
     detail: "Nothing was added to their day, and this code is spent.",
     retry: false,
+    stepDown: false,
   },
   closed: {
     line: "That did not finish.",
     detail: "Nothing crossed. Another code opens another room.",
     retry: true,
+    stepDown: false,
   },
 };
 
@@ -114,6 +145,7 @@ export function sendEndingWords(error: unknown): SendWords {
       // Whoever answered under the wrong key is still in that room, and a new
       // code says nothing about who scans it next.
       retry: false,
+      stepDown: false,
     };
   }
 
@@ -124,6 +156,7 @@ export function sendEndingWords(error: unknown): SendWords {
       detail: "A code does one job, and this one has done it.",
       cause,
       retry: false,
+      stepDown: false,
     };
   }
 
@@ -133,5 +166,6 @@ export function sendEndingWords(error: unknown): SendWords {
     detail: "Nothing left this device.",
     cause,
     retry: true,
+    stepDown: false,
   };
 }
