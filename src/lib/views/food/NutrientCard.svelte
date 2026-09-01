@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
 
-  // The one nutrient card both the full-day RDA modal (#42) and the Settings
+  // The one nutrient card both the full-day RDA modal (#42) and the nutrition
   // target editor (#41) render, so the two surfaces are literally the same
   // component — a labelled tile (label on top, body below) that tiles into a
   // {@link NutrientCardGrid}. The body differs by surface (the modal shows a

@@ -2,11 +2,11 @@
   import type { Snippet } from "svelte";
 
   // The section heading above a {@link NutrientCardGrid} — shared by the full-day
-  // RDA modal (#42) and the Settings target editor (#41) so the two surfaces head
+  // RDA modal (#42) and the nutrition target editor (#41) so the two surfaces head
   // their groups identically (Energy & macros / Vitamins & minerals / …). A
   // tinted band with a strong bottom rule, spanning its container edge-to-edge.
   //
-  // `info` is an OPTIONAL trailing slot (ADR-0033 §5, #46): the Settings editor
+  // `info` is an OPTIONAL trailing slot (ADR-0033 §5, #46): the target editor
   // passes a "Why these defaults?" ⓘ button here; the RDA modal passes nothing and
   // stays a clean day-vs-target readout — a single left-aligned label as before.
   let { label, info }: { label: string; info?: Snippet } = $props();
