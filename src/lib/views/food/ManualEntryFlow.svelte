@@ -9,11 +9,12 @@
   import Card from "../../ui/Card.svelte";
 
   // The Custom tab's intent chooser and its three purpose-built mini-forms
-  // (ADR-0035). The label form is NOT reached here — it stays on the barcode
-  // doors. Each intent is calories-only (no macros); on Save this builds the
-  // widened custom {@link FoodChoice} carrying a `food/manual_entry` envelope and
-  // hands it to the host through {@link onCommit}, which routes it to
-  // `saveManualFood` + a calories-only Consumption Event.
+  // (ADR-0035), plus the fourth tile that opens the ADR-0034 label form
+  // (ADR-0087). Each of the three intents is calories-only (no macros); on Save
+  // this builds the widened custom {@link FoodChoice} carrying a
+  // `food/manual_entry` envelope and hands it to the host through
+  // {@link onCommit}, which routes it to `saveManualFood` + a calories-only
+  // Consumption Event.
   //
   //   ⚡ quick estimate — calories fast; name defaults to the meal; photo optional;
   //      one-off (excluded from Recent/Search).
@@ -22,6 +23,9 @@
   //   🍽️ from a photo    — capture a plate photo, then a BLANK menu-style form with
   //      the photo attached; the PlateEstimator seam is wired but v1 uses its empty
   //      variant (no model, no fabricated numbers); one-off.
+  //   🏷️ from a nutrition panel — NOT an intent and nothing here renders it: the
+  //      tile hands back through {@link onOpenPanel} and the host swaps in its own
+  //      label form (ADR-0087 §2).
   let {
     /** Allows attaching a photo (the direct-log flow only). */
     allowPhoto = false,
@@ -43,6 +47,14 @@
     /** Commits the built choice; the host maps it to a save + log. */
     onCommit,
     /**
+     * Opens the host's ADR-0034 label form from the chooser's fourth tile
+     * (ADR-0087 §2). It is a callback rather than a fourth intent because that
+     * form writes `food/label_capture`, not `food/manual_entry` — nothing in
+     * this component builds, seeds or saves it, so it can only be the host's to
+     * show. Required: the only host that renders this chooser offers the tile.
+     */
+    onOpenPanel,
+    /**
      * The commit button lives in the host's shared dock (so a manual entry's CTA
      * is pinned at the bottom like every other flow, not scrolled inline). These
      * three bindables surface what the dock needs: which mini-form is open (null =
@@ -63,14 +75,27 @@
     calId?: string;
     seed?: ManualEntrySeed | null;
     onCommit: (choice: FoodChoice) => void | Promise<void>;
+    onOpenPanel: () => void;
     activeIntent?: ManualEntryKind | null;
     requestSave?: () => void;
     saveReady?: boolean;
     requestBack?: () => void;
   } = $props();
 
-  const INTENTS: {
-    kind: ManualEntryKind;
+  // What a chooser tile is, which is wider than what an intent is. Three tiles
+  // are `ManualEntryKind`s and build that envelope on Save; the fourth is the
+  // label-form door (ADR-0087 §3), which writes `food/label_capture` and so has
+  // no kind of its own. The widening stops here — `activeIntent`, the seed and
+  // the envelope all stay `ManualEntryKind`, so nothing downstream of this list
+  // learns about a door that never writes one.
+  //
+  // Hence `TILES` rather than the `INTENTS` this list used to be: three quarters
+  // of it are intents. The `intent-` test ids are deliberately NOT renamed with
+  // it — they are the selectors the e2e suite already addresses these tiles by.
+  type TileKind = ManualEntryKind | "panel";
+
+  const TILES: {
+    kind: TileKind;
     icon: string;
     title: string;
     blurb: string;
@@ -92,6 +117,14 @@
       icon: "🍽️",
       title: "From a photo",
       blurb: "Snap the plate, fill in the details",
+    },
+    // Last: the list reads fastest-to-slowest and twenty typed nutrient rows is
+    // the slowest thing here (ADR-0087 §2).
+    {
+      kind: "panel",
+      icon: "🏷️",
+      title: "From a nutrition panel",
+      blurb: "Type in the figures, from a pack or a shop page",
     },
   ];
 
@@ -130,6 +163,15 @@
     ingredients = seed.ingredients;
     photo = seed.photo_base64;
   });
+
+  // A tile tap: the panel door is the host's form, the other three are ours.
+  function openTile(kind: TileKind) {
+    if (kind === "panel") {
+      onOpenPanel();
+      return;
+    }
+    choose(kind);
+  }
 
   function choose(kind: ManualEntryKind) {
     reset();
@@ -252,10 +294,10 @@
 {/snippet}
 
 {#if intent === null}
-  <!-- The chooser: three eating-out / estimation intents. The label form is not
-       an option here (ADR-0035 §1) — it lives on the barcode doors. -->
+  <!-- The chooser: three eating-out / estimation intents, then the label form's
+       own door (ADR-0087 §2, reversing ADR-0035 §1's closing sentence). -->
   <div class="chooser" data-testid="manual-intent-chooser">
-    {#each INTENTS as opt (opt.kind)}
+    {#each TILES as opt (opt.kind)}
       <!-- An interactive framed tile → the polymorphic Card renders a native
            <button> with the brutalist frame, press-flush and keyboard path (the
            #78 migration onto ADR-0039). The row layout lives on an inner span so
@@ -263,7 +305,7 @@
       <Card
         class="intent"
         data-testid={`intent-${opt.kind}`}
-        onclick={() => choose(opt.kind)}
+        onclick={() => openTile(opt.kind)}
       >
         <span class="intent-inner">
           <span class="intent-ico" aria-hidden="true">{opt.icon}</span>

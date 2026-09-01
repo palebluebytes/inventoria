@@ -423,11 +423,13 @@
   // Open the full-screen reader on this index; null = closed.
   let readerIndex = $state<number | null>(null);
 
-  // ── The four label-capture doors (ADR-0034 §1) ─────────────────────────────
-  // The Custom form is reached four ways: a 404 (missing), a poor-quality OFF
-  // twin (found-but-poor), an undecodable barcode (unreadable), and the plain
-  // manual tab (always-on). The first three set a reason banner and carry the
-  // barcode/partial payload in; the manual tab is a fresh empty form. `barcode`
+  // ── The label-capture doors (ADR-0034 §1) ──────────────────────────────────
+  // The Custom form is reached five ways: a 404 (missing), a poor-quality OFF
+  // twin (found-but-poor), an undecodable barcode (unreadable), the plain manual
+  // tab (always-on, on a host that did not opt into the ADR-0035 chooser), and
+  // that chooser's own panel tile (`panelDoor`, ADR-0087). The first three set a
+  // reason banner and carry the barcode/partial payload in; the other two are a
+  // fresh empty form. `barcode`
   // (already declared above) is the single key source: whatever code reached the
   // form keys the save (`gtin:` enrich vs `food:custom_` mint, §6), so the doors
   // just keep or clear it.
@@ -516,6 +518,17 @@
   // the same door for the same food keeps what the user typed rather than
   // re-prefilling over it — backing out to check the card is not "discard".
   let captureDraftKey = $state<string | null>(null);
+  // The panel door (ADR-0087): the intent chooser's fourth tile opens the SAME
+  // label form, so on a host running the chooser this is what says which of the
+  // two Custom surfaces is showing. It is a flag rather than a fifth
+  // `CaptureReason` because every reason states why a SCAN landed here and
+  // renders a banner saying so; this door was chosen, has nothing to explain,
+  // and leaves alone the method tabs a scan door hides.
+  //
+  // True only while the Custom tab is showing that form: `switchMethod` clears it
+  // on any method change, and each barcode/edit door clears it as it seizes the
+  // form. So it needs no guards of its own to drive the back button.
+  let panelDoor = $state(false);
   // Unreadable door: the scanner elevates a "photograph the label" escape after a
   // persistent failure. A tunable threshold (~10 s), not a hard requirement (#48).
   const UNREADABLE_ELEVATE_MS = 10_000;
@@ -573,6 +586,9 @@
     nudge = false;
     captureReason = reason;
     captureCompleteness = completeness;
+    // A scan door owns the form it opens: whatever the chooser's panel tile left
+    // behind, this is now a barcode capture with a banner and no tabs.
+    panelDoor = false;
     // A scan door is a fresh capture, never an in-place edit of an existing twin.
     editEntityId = null;
     // Only the found-but-poor door preserves an OFF record beside the correction.
@@ -587,6 +603,31 @@
     // rides in as the label photo, so a desktop capture arrives with its photo
     // attached exactly as a phone capture would (both reset labelPhotos above).
     if (uploadedPhoto) labelPhotos = [uploadedPhoto];
+  }
+
+  // The chooser's fourth tile (ADR-0087 §2): the same label form, opened by
+  // choice rather than by a scan. No reason banner and therefore no barcode
+  // field, so the save mints `food:custom_` and never keys `gtin:` (§4) — the
+  // pack in your hand has a barcode and the Scan tab is one tap away.
+  //
+  // Keyed like the scan doors are, on a `manual:` key naming no food, so backing
+  // out to the chooser and returning keeps twenty typed numbers. What ends the
+  // draft is leaving the sheet: the log sheet is mounted behind an `{#if}` and
+  // takes this whole component with it, so the next visit starts blank. A tap on
+  // the Custom tab clears the key too, for a host that shows the tabs.
+  function openPanelForm() {
+    const draftKey = "manual:";
+    const returningToDraft = captureDraftKey === draftKey;
+    captureDraftKey = draftKey;
+    status = "idle";
+    error = "";
+    // Nothing carried in: no OFF record, no twin to enrich, no code to key on.
+    captureOffPayload = null;
+    captureReturn = null;
+    editEntityId = null;
+    barcode = "";
+    if (!returningToDraft) resetCustomForm();
+    panelDoor = true;
   }
 
   // Blank every custom-form field back to a fresh empty read-along form.
@@ -666,6 +707,7 @@
     nudge = false;
     captureReason = "edit";
     captureCompleteness = undefined;
+    panelDoor = false;
     // The twin already IS the record — nothing to preserve beside it (unlike poor).
     captureOffPayload = null;
     editEntityId = entity;
@@ -1481,6 +1523,11 @@
   function switchMethod(m: string) {
     staged = null;
     method = m;
+    // Any method switch leaves the panel door: it is one of the Custom tab's two
+    // surfaces (ADR-0087), so it cannot outlive the tab. Cleared here rather than
+    // in the `m === "custom"` block below, so this is the only place a tab change
+    // has to remember it and `panelDoor` alone can drive the back button.
+    panelDoor = false;
     error = "";
     emptySearch = null;
     status = "idle";
@@ -1626,7 +1673,8 @@
   let manualSeed = $derived(seed?.kind === "manual" ? seed : null);
   // The Custom tab shows ManualEntryFlow (the chooser + mini-forms, or a seeded
   // mini-form) rather than the label form when: no barcode door routed here (a
-  // set `captureReason` always wins → the label form, ADR-0035 §2) AND either the
+  // set `captureReason` always wins → the label form, ADR-0035 §2), the chooser's
+  // own panel tile has not opened that same form (ADR-0087 §2), AND either the
   // host opted into fresh manual intents (and isn't in a locked edit) OR an edit
   // seeded a manual entry. ManualEntryFlow owns its Save, so the shared dock's
   // primary + kcal summary drop for it.
@@ -1634,6 +1682,7 @@
     method === "custom" &&
       !staged &&
       captureReason === null &&
+      !panelDoor &&
       (manualSeed != null || (manualIntents && !lockMethods))
   );
   // The custom form carries its own name field in its identity-card header, so
@@ -1667,6 +1716,11 @@
       // A capture form offers back when there is somewhere to go: the card it
       // was opened from, or (for a barcode door) the scan view behind it.
       (captureReason !== null && (captureReturn !== null || !lockMethods)) ||
+      // The panel door goes back to the chooser it was picked from. Same
+      // destination as a mini-form's, but it cannot ride `manualCanBack`, which
+      // reads state inside a ManualEntryFlow that is unmounted while this form
+      // is open.
+      panelDoor ||
       manualCanBack ||
       (isExtra(method) && !!tabBack)
   );
@@ -1698,6 +1752,12 @@
         return;
       }
       method = "scan";
+      return;
+    }
+    if (panelDoor) {
+      // Back to the chooser, keeping `captureDraftKey` so re-entering the tile
+      // restores what was typed rather than blanking twenty fields.
+      panelDoor = false;
       return;
     }
     if (manualCanBack) {
@@ -2007,8 +2067,8 @@
               {:else if showManualFlow}
                 <!-- Custom = the ADR-0035 intent chooser + its three mini-forms (quick
            estimate / from a menu / from a photo), or a seeded mini-form in edit
-           mode. The label form is NOT here — it stays on the barcode doors (a set
-           captureReason routes to it below). -->
+           mode. The chooser's fourth tile leaves for the label form below rather
+           than rendering one here (ADR-0087 §2), as a set captureReason does. -->
                 <ManualEntryFlow
                   {allowPhoto}
                   {mealName}
@@ -2018,6 +2078,7 @@
                   nameId={ids.customName}
                   calId={ids.customCal}
                   onCommit={commit}
+                  onOpenPanel={openPanelForm}
                   bind:activeIntent={manualActiveIntent}
                   bind:requestSave={manualRequestSave}
                   bind:saveReady={manualSaveReady}
@@ -2025,8 +2086,9 @@
                 />
               {:else}
                 <!-- Custom = the #52 "Read-along" full-panel form (ADR-0034 §2–§4), reached
-           via the barcode doors (missing / poor / unreadable), or the always-on
-           manual tab when the host did not opt into ADR-0035 intents. Name +
+           via the barcode doors (missing / poor / unreadable), the chooser's own
+           panel tile (ADR-0087), or the always-on manual tab when the host did
+           not opt into ADR-0035 intents. Name +
            brand in a sticky identity card, then every panel row grouped Macros ·
            fats/fibre/sugar/salt · vitamins & minerals · portions, transcribed
            top-to-bottom. Macros lead so the fast path stays name + calories →

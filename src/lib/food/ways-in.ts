@@ -95,7 +95,7 @@ export function wayInLegend(kind: WayIn): string {
     case "past":
       return "Copies a meal you have eaten before onto this day. It appears only once that meal has a past to copy.";
     case "custom":
-      return "Writes a food down yourself: a quick calorie figure, a dish off a menu, or a photo of the plate.";
+      return "Writes a food down yourself: a quick calorie figure, a dish off a menu, a photo of the plate, or a pack's nutrition panel typed in.";
     case "recipe":
       return "Logs a serving of a recipe you have saved.";
     case "scan":
