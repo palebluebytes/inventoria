@@ -309,8 +309,12 @@ the device except through a file the user exports after reading it. See ADR-0054
 _Avoid_: Telemetry, analytics, tracking, the logger (`console.*` is not this)
 
 **Log channel**:
-A named stream inside the Log facility, declaring its `name`, `reader`, `cap` and
-`sensitivity` (`personal` or `technical`). It may not exist without a **reader**, and
+A named stream inside the Log facility, declaring its `name`, the Tracked Domain
+whose act writes it, its `reader`, its `cap` and its `sensitivity` (`personal` or
+`technical`). The owning domain is what a Facet's Local Logs card is derived from —
+a Facet carries the channels it authors and only those (ADR-0080 §1's clause (b)),
+and the owner is a domain rather than a Facet because the root holds every domain
+(ADR-0086 §1). It may not exist without a **reader**, and
 there are two kinds. A **question channel** names an open ticket and the decision that
 ticket cannot take without the reading, points at a pre-registered bar, and is removed
 once its question is answered; `search` is one. A **standing channel** does not end and

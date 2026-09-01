@@ -31,6 +31,8 @@
  * structurally true.
  */
 
+import { domainsOf, type TrackedDomainId } from "../facets/registry";
+
 /**
  * Whether a channel's records are about the person using the app or about the
  * app itself. Shown in the export review, where `personal` channels are marked,
@@ -46,6 +48,15 @@ export type ChannelSensitivity = "personal" | "technical";
 export interface LogChannel<E> {
   /** The `localStorage` key suffix and the label in the review UI. */
   readonly name: string;
+  /**
+   * The Tracked Domain whose act writes this channel — clause (b) of ADR-0080
+   * §1, which is why a Facet carries the channels it authors and only those.
+   *
+   * A **domain** rather than a Facet, because ADR-0086 §1 leaves no other kind
+   * of owner: the root holds all six domains, so under Facet-ownership every
+   * channel would have two owners. {@link channelsOfFacet} derives the rest.
+   */
+  readonly domain: TrackedDomainId;
   /** Who reads this, and the question it decides (§2). */
   readonly reader: string;
   /** Maximum entries retained, oldest dropped. */
@@ -72,6 +83,7 @@ interface ChannelNeedsANamedReader {
 /** What a channel declares, before the reader guard is layered over it. */
 interface ChannelFields<E> {
   name: string;
+  domain: TrackedDomainId;
   reader: string;
   cap: number;
   sensitivity: ChannelSensitivity;
@@ -107,7 +119,7 @@ export function defineChannel<E, R extends string>(
   // The one cast in the module, and it is the guard's own boundary: the
   // declared type exists to reject a blank `reader` at the call site, and the
   // body below only ever reads the plain fields underneath it.
-  const { name, reader, cap, sensitivity, parse } =
+  const { name, domain, reader, cap, sensitivity, parse } =
     declaration as unknown as ChannelFields<E>;
   if (reader.trim() === "")
     throw new Error(
@@ -117,7 +129,14 @@ export function defineChannel<E, R extends string>(
     throw new Error(`Log channel "${name}" needs a cap of at least one entry.`);
   if (channels.has(name))
     throw new Error(`Log channel "${name}" is already registered.`);
-  const channel: LogChannel<E> = { name, reader, cap, sensitivity, parse };
+  const channel: LogChannel<E> = {
+    name,
+    domain,
+    reader,
+    cap,
+    sensitivity,
+    parse,
+  };
   channels.set(name, channel as LogChannel<unknown>);
   return channel;
 }
@@ -125,6 +144,24 @@ export function defineChannel<E, R extends string>(
 /** Every channel declared so far, in declaration order. */
 export function registeredChannels(): LogChannel<unknown>[] {
   return [...channels.values()];
+}
+
+/**
+ * The channels one Facet carries: those written by a domain it holds, in
+ * declaration order (ADR-0080 §2).
+ *
+ * **Derived, never declared.** A Facet already names its domains and a channel
+ * already names the domain that writes it, so the Local Logs card is one
+ * component parameterised by Facet id rather than a list per Facet — the shape
+ * ADR-0080 §8 requires of every part of this split. The root holds all six
+ * domains, so it gets every channel and the card there stays jar-wide.
+ *
+ * A Facet nobody has heard of holds no domains and therefore no channels, which
+ * is {@link domainsOf}'s own answer carried through rather than a second one.
+ */
+export function channelsOfFacet(facetId: string): LogChannel<unknown>[] {
+  const owned = new Set(domainsOf(facetId).map((d) => d.id));
+  return registeredChannels().filter((channel) => owned.has(channel.domain));
 }
 
 // ---------------------------------------------------------------------------

@@ -374,6 +374,10 @@ function parseSearchLogEntry(raw: unknown): SearchLogEntry | null {
  */
 export const SEARCH_CHANNEL = defineChannel({
   name: "search",
+  // Food's, and the only registered channel in the app — the measurement
+  // ADR-0080 made while deciding that the jar-wide Local Logs card is generic
+  // machinery whose entire content belongs to Rations.
+  domain: "food",
   reader:
     "#142 and #123; decides whether a per-token vocabulary tier is built, at the bar in ADR-0053 §7.",
   cap: 200,

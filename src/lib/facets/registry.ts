@@ -489,6 +489,14 @@ export function facetOf(id: FacetId): Facet {
 export const ENTITY_PREFIXES = TRACKED_DOMAINS.flatMap((d) => d.entityPrefixes);
 
 /**
+ * The id of a Tracked Domain on the roster. A literal union rather than
+ * `string`, so anything declaring which domain it belongs to — a log channel
+ * naming the domain whose act writes it (ADR-0080 §2) — names one that exists,
+ * or does not compile.
+ */
+export type TrackedDomainId = (typeof TRACKED_DOMAINS)[number]["id"];
+
+/**
  * A prefix the app is allowed to mint. The union is what makes an undeclared
  * prefix a **compile** error rather than something the gate has to catch, which
  * is the half of ADR-0086 §7 that costs nothing to run.

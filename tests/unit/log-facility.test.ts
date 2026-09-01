@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
+import type { TrackedDomainId } from "../../src/lib/facets/registry";
 
 /**
  * The local log facility (ADR-0054): channels, their caps, the shared byte
@@ -52,9 +53,15 @@ const parseNote = (raw: unknown): Note | null => {
   return typeof text === "string" ? { text } : null;
 };
 
-function declareNotes(facility: Facility, name: string, cap = 3) {
+function declareNotes(
+  facility: Facility,
+  name: string,
+  cap = 3,
+  domain: TrackedDomainId = "food"
+) {
   return facility.defineChannel({
     name,
+    domain,
     reader: "the tests below; decides whether the facility works.",
     cap,
     sensitivity: "technical",
@@ -82,6 +89,7 @@ describe("declaring a channel", () => {
     expect(() =>
       facility.defineChannel({
         name: "unread",
+        domain: "food",
         reader: "   ",
         cap: 10,
         sensitivity: "technical",
@@ -361,6 +369,36 @@ describe("the export payload", () => {
         },
       ],
     });
+  });
+});
+
+describe("who owns a channel (ADR-0080 §2)", () => {
+  // A channel is carried by the Facet whose act writes it — clause (b) of
+  // ADR-0080 §1 — and the owner it names is a Tracked Domain, because that is
+  // the only owner ADR-0086 §1 leaves. A Facet's channels are then DERIVED from
+  // the domains it already declares, so a Facet's card is not a second list.
+  it("gives a Facet the channels of the domains it holds, and no others", async () => {
+    const facility = await loadFacility();
+    const groceries = declareNotes(facility, "groceries", 3, "food");
+    const shelves = declareNotes(facility, "shelves", 3, "items");
+
+    expect(facility.channelsOfFacet("food")).toEqual([groceries]);
+    expect(facility.channelsOfFacet("root")).toEqual([groceries, shelves]);
+  });
+
+  it("gives a Facet nobody has heard of nothing at all", async () => {
+    const facility = await loadFacility();
+    declareNotes(facility, "groceries", 3, "food");
+    expect(facility.channelsOfFacet("cellar")).toEqual([]);
+  });
+
+  it("names the search channel's owner as the domain that writes it", async () => {
+    // ADR-0080's measured fact: there is exactly one registered channel in the
+    // app and it is food's. The whole of the jar-wide Local Logs card's current
+    // content therefore belongs to Rations.
+    vi.resetModules();
+    const { SEARCH_CHANNEL } = await import("../../src/lib/logs/search-log");
+    expect(SEARCH_CHANNEL.domain).toBe("food");
   });
 });
 
