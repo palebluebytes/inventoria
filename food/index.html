@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Inventoria's mark, because Rations has no icon of its own until #302.
+         This page carries no manifest and so installs nothing: #305 is what
+         hand-writes Rations one, and the root's — which VitePWA injects into
+         every entry — is taken back off here by `oneManifestPerFacet` in
+         vite.config.ts, because it would offer an install of the other Facet. -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Replaced on mount from the Facet registry, like the root's. Still
+         reading this is the symptom the offline spec looks for. -->
+    <title>temp-init</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/food-main.ts"></script>
+  </body>
+</html>

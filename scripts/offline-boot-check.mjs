@@ -55,8 +55,18 @@ const RESULT = "__OFFLINE_BOOT_RESULT__";
 if (process.env.__OFFLINE_BOOT_CHILD) {
   const online = process.env.__OFFLINE_BOOT_ONLINE === "1";
 
+  // The chunk is found by its `type="module"` tag rather than by its name.
+  // `assets/index-*.js` was that name only while there was one HTML entry: the
+  // second one gave `build.rolldownOptions.input` named keys, so each entry
+  // chunk is now named after its Facet and the root's is `assets/root-*.js`.
+  // The old regex would have failed by *not matching* — reporting "could not
+  // find the entry chunk" for a build that was fine (#301). This still names
+  // `dist/index.html`, which is the larger half of the same defect and is
+  // #309's: ADR-0083 §1 has this script enumerate the Facets from the registry
+  // and run both arms once per entry, so **Rations' offline boot is unproven
+  // until then**.
   const entry = readFileSync(join(DIST, "index.html"), "utf8").match(
-    /src="\/?(assets\/index-[^"]+\.js)"/
+    /<script[^>]+type="module"[^>]+src="\/?(assets\/[^"]+\.js)"/
   )?.[1];
   if (!entry) fail("could not find the entry chunk in dist/index.html");
 
@@ -308,9 +318,9 @@ function installBrowser(serve) {
     createDocumentFragment: el,
     querySelector: () => el(),
     querySelectorAll: () => [],
-    // main.ts ends with mount(App, { target: document.getElementById("app") }),
-    // and that id is looked up exactly once in the whole entry chunk, so the
-    // lookup is a precise marker for "evaluation got as far as mounting".
+    // Every entry ends in mountFacet(), whose one `getElementById("app")` is
+    // looked up exactly once in the whole graph, so the lookup is a precise
+    // marker for "evaluation got as far as mounting".
     getElementById: (id) => {
       if (id === "app") globalThis.__reachedMount = true;
       return el();

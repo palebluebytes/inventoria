@@ -10,6 +10,7 @@ import {
   HTML_CSP,
   readProxyPayload,
 } from "./src/lib/ingestion/proxy-policy";
+import { FACETS, facetOf } from "./src/lib/facets/registry";
 
 const handleProxyRequest = async (req: any, res: any, next: any) => {
   const urlObj = new URL(
@@ -129,6 +130,71 @@ const localScraperProxyPlugin = () => ({
 // skipping the alias when Vitest is driving the config.
 const isVitest = !!process.env.VITEST;
 
+const ROOT_FACET = facetOf("root");
+
+/** Every Facet the root is not, which is the one asymmetry ADR-0078 §3 turns on. */
+const FOREIGN_FACETS = FACETS.filter((f) => f.id !== ROOT_FACET.id);
+
+/**
+ * One HTML entry point per Facet, keyed by Facet id and read off the roster
+ * rather than listed here (ADR-0076 §6, ADR-0083 §1).
+ *
+ * The path is **derived from the Facet's scope**, which is what keeps the two
+ * from disagreeing: a Facet whose pages are declared to live under `/food/` and
+ * whose HTML sat somewhere else would install a scope it cannot serve. Rolldown
+ * emits each one at the path implied by its location relative to the project
+ * root, so `food/index.html` becomes `dist/food/index.html` with no copy step
+ * (measured in docs/research/269-two-installable-apps-one-origin.md §1).
+ */
+const FACET_ENTRIES = Object.fromEntries(
+  FACETS.map((facet) => [
+    facet.id,
+    `${facet.scope.replace(/^\//, "")}index.html`,
+  ])
+);
+
+/**
+ * The scopes the root's service worker must not answer for.
+ *
+ * Without this the root's `navigateFallback` serves `index.html` for `/food/` —
+ * the precache holds `/food/index.html`, which a bare `/food/` navigation does
+ * not match — so an installed root would quietly show Inventoria at Rations'
+ * URL. ADR-0077 gives each Facet its own service worker in #306; this is the
+ * half of it the root needs the moment a second scope exists.
+ */
+const FOREIGN_SCOPES = FOREIGN_FACETS.map((f) => new RegExp(`^${f.scope}`));
+
+/**
+ * Take the root's manifest link back off every other Facet's page.
+ *
+ * `VitePWA`'s `transformIndexHtml` is **entry-blind**: one plugin instance
+ * injects its one `<link rel="manifest">` into every HTML entry in the build
+ * (measured, docs/research/269-two-installable-apps-one-origin.md §2). Left
+ * alone, `/food/` advertises an installable *Inventoria* whose `start_url` is
+ * `/` — an unlabelled door out of Rations into the other Facet, which is
+ * exactly what ADR-0078 §4 routes through a labelled `target="_blank"` in the
+ * other direction and refuses in this one.
+ *
+ * So a foreign page carries **no** manifest until it carries its own. #305 is
+ * what hand-writes one per Facet and turns this into a rewrite rather than a
+ * removal; until then no manifest is the honest state, because Rations has no
+ * icon (#302) and nothing to install under.
+ */
+const oneManifestPerFacet = () => ({
+  name: "one-manifest-per-facet",
+  // `enforce` *and* `order`, because VitePWA's build plugin carries both and a
+  // plugin with only the second still runs before it. Among equally-enforced
+  // plugins the array position decides, which is why this sits after VitePWA.
+  enforce: "post" as const,
+  transformIndexHtml: {
+    order: "post" as const,
+    handler(html: string, ctx: { path: string }) {
+      const foreign = FOREIGN_FACETS.some((f) => ctx.path.startsWith(f.scope));
+      return foreign ? html.replace(/<link rel="manifest"[^>]*>/g, "") : html;
+    },
+  },
+});
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
@@ -195,6 +261,7 @@ export default defineConfig({
         globIgnores: [
           "**/*-{cyrillic,cyrillic-ext,greek,greek-ext,vietnamese}-*.woff2",
         ],
+        navigateFallbackDenylist: FOREIGN_SCOPES,
         runtimeCaching: [
           {
             urlPattern: ({ request }) => request.destination === "image",
@@ -213,6 +280,8 @@ export default defineConfig({
         ],
       },
     }),
+    // After VitePWA, so its injected manifest link is there to take back off.
+    oneManifestPerFacet(),
   ],
   server: {
     // The relay is **proxied to a real `wrangler dev`, never re-implemented
@@ -253,6 +322,12 @@ export default defineConfig({
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Embedder-Policy": "require-corp",
     },
+  },
+  build: {
+    // `rolldownOptions` rather than `rollupOptions`: Vite 8 still accepts the
+    // latter but its own types mark it `@deprecated Use rolldownOptions
+    // instead` and type it as `RolldownOptions` anyway.
+    rolldownOptions: { input: FACET_ENTRIES },
   },
   resolve: {
     alias: isVitest ? {} : { "loro-crdt": "loro-crdt/base64" },

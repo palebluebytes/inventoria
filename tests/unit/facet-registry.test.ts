@@ -3,6 +3,7 @@ import {
   FACETS,
   TRACKED_DOMAINS,
   entityPrefixesOf,
+  facetOf,
   ownerOfEntity,
   storagePrefixesOf,
 } from "../../src/lib/facets/registry";
@@ -118,5 +119,44 @@ describe("mintEntity (ADR-0086 §7)", () => {
         expect(ownerOfEntity(mintEntity(prefix, "1"))?.id).toBe(domain.id);
       }
     }
+  });
+});
+
+// The half ADR-0076 §6 declared and deliberately did not write, because "an
+// entry pointing at an entry point that has not been built would be a lie in
+// code". #301 builds Rations' entry point, so scope, name and start URL become
+// true and are asserted here.
+describe("what a Facet says about its entry point (ADR-0076 §6)", () => {
+  it("gives every Facet a scope that contains its own start URL", () => {
+    for (const facet of FACETS) {
+      expect([facet.id, facet.startUrl.startsWith(facet.scope)]).toEqual([
+        facet.id,
+        true,
+      ]);
+    }
+  });
+
+  it("puts Rations inside the root, which is why only one of them can eject a user", () => {
+    // ADR-0078 §3. `/food/` is inside `/`, so the root links to Rations without
+    // leaving its own scope — the asymmetry of the no-way-out rule falls out of
+    // the scopes rather than being written down as an exception.
+    const root = facetOf("root");
+    const rations = facetOf("food");
+    expect(rations.scope.startsWith(root.scope)).toBe(true);
+    expect(root.scope.startsWith(rations.scope)).toBe(false);
+  });
+
+  it("names Rations, so its entry point reads its title off the registry", () => {
+    expect(facetOf("food").name).toBe("Rations");
+    expect(facetOf("food").scope).toBe("/food/");
+    expect(facetOf("food").startUrl).toBe("/food/");
+  });
+
+  it("leaves Rations' icon absent rather than stubbed", () => {
+    // The root's is a file that exists. Rations' is #302's to mint, and a path
+    // to a file that is not there would be exactly the lie this module's header
+    // refuses — so the field is absent until it is true.
+    expect(facetOf("root").icon).toBe("/favicon.svg");
+    expect(facetOf("food").icon).toBeUndefined();
   });
 });

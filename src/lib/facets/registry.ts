@@ -5,9 +5,16 @@
  * entry pointing at an entry point that has not been built would be a lie in
  * code". That refusal is narrow and it is about entry points. Who owns `gtin:`
  * is true today, checkable today, and ADR-0079 §3 derives a delete button's
- * predicate from it — so ownership is written now, and scope, name, icon and
- * `start_url` are **absent rather than stubbed**. They arrive with the entry
+ * predicate from it — so ownership was written first, and scope, name, icon and
+ * `start_url` were **absent rather than stubbed**, to arrive with the entry
  * point that makes them true.
+ *
+ * #301 built that entry point, so scope, name and start URL are here. **The icon
+ * is not**, and it is the same refusal one field over: #302 is what mints an
+ * icon Rations may ship, and a path to a file that is not in the build would be
+ * the lie this module was written to avoid. The field is optional for exactly as
+ * long as that is true — #305 needs an icon for both Facets' manifests and is
+ * the change that makes it required.
  *
  * **The owner is a Tracked Domain** (ADR-0086 §1). It cannot be a Facet: ADR-0076
  * §3 has Facets overlap rather than partition, and the root holds all six
@@ -129,8 +136,35 @@ export const TRACKED_DOMAINS = [
  */
 export interface Facet {
   readonly id: string;
+  /** What it is called on a home screen. Never the id, which is build vocabulary. */
   readonly name: string;
+  /**
+   * The URL prefix this Facet's pages live under: its manifest's `scope` and
+   * its service worker's (ADR-0077 §1). Every Facet's scope contains its own
+   * start URL, and the root's contains every other Facet's — which is why the
+   * root may link to Rations without leaving itself while the reverse would
+   * eject a user into a browser (ADR-0078 §3).
+   */
+  readonly scope: string;
+  /**
+   * Where an install opens. The manifest member is spelled `start_url`, and it
+   * is spelled `startUrl` here on purpose: snake_case in this codebase means a
+   * ledger field (CODING_STANDARDS §1.3), a Facet is never written to a datom
+   * (ADR-0076 §2), and the one rename happens where the manifest is built.
+   */
+  readonly startUrl: string;
+  /**
+   * The icon it installs under, where there is one the app may ship. Absent for
+   * Rations until #302, per this module's header.
+   */
+  readonly icon?: string;
   readonly domains: readonly string[];
+  /**
+   * Whether it exists as a thing you can install. **Installability is
+   * definitional** (ADR-0076 §1), so an entry point alone does not flip this:
+   * Rations has had a screen of its own since #301 and becomes `built` when
+   * #305 gives it a manifest.
+   */
   readonly status: "built" | "decided";
 }
 
@@ -138,10 +172,20 @@ export const FACETS = [
   {
     id: "root",
     name: "Inventoria",
+    scope: "/",
+    startUrl: "/",
+    icon: "/favicon.svg",
     domains: ["food", "media", "items", "habits", "calendar", "notes"],
     status: "built",
   },
-  { id: "food", name: "Rations", domains: ["food"], status: "decided" },
+  {
+    id: "food",
+    name: "Rations",
+    scope: "/food/",
+    startUrl: "/food/",
+    domains: ["food"],
+    status: "decided",
+  },
 ] as const satisfies readonly Facet[];
 
 /**
