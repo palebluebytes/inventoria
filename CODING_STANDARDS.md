@@ -38,6 +38,12 @@ violates one does not merge.
 - The only sanctioned table-level destructive operations are `resetLedgerSchema`
   (the user-initiated `clear`) and the one-shot ADR-0020 migration. Both live in
   `src/lib/db/db.core.ts`; do not add others.
+- **A `VACUUM` is not a third.** `vacuumLedger` rewrites the whole file, in the
+  same module, and is still not one of these: it hands back the pages a
+  sanctioned deletion has already freed, reading every surviving row and writing
+  it back, so no argument of it can lose a datom. ADR-0079 §4 requires it — a
+  wipe that reclaims nothing is a promise the storage card on the same screen
+  disproves.
 
 ### 1.2 SQLite runs only in the worker
 

@@ -1,7 +1,8 @@
 # ADR 0079: A Facet-scoped wipe is the third sanctioned deletion, and exclusive ownership is what makes it safe
 
 **Status:** Accepted  
-**Date:** 2026-09-01
+**Date:** 2026-09-01  
+**Implemented:** §4's jar-wide half only, #290 — `vacuumLedger` in `src/lib/db/db.core.ts`, its own worker operation, attempted after the `clear` commits. The scoped wipe §1-§3 and §5-§7 design is [#311](https://github.com/palebluebytes/inventoria/issues/311) and is not built.
 
 ## Context
 
@@ -262,3 +263,51 @@ reuse the acquisition vocabulary: "owned" for a tin of tomatoes means it is in t
 and it is then consumed, a state Items has no word for because a guitar is never used up.
 Acquisition status is a two-state latch on a durable object; a pantry is a quantity that
 depletes. Reusing one for the other would be the next `twin/`.
+
+## Amendment (2026-09-02): §4 named the wrong resource, and pointed the risk at the wrong wipe
+
+§4's conclusion stands, and the measurement below strengthens it: the `VACUUM` is
+best-effort and separate from the delete. What is false is the reason given beneath it.
+
+> And it rewrites the file whole and needs the headroom to do it — which means the wipe
+> most likely to fail is the one performed by a user who has run out of space, and
+> coupling them would make the app **refuse the part that helps** because the
+> optimisation is impossible.
+
+Measured while building [#290](https://github.com/palebluebytes/inventoria/issues/290),
+against the sqlite-wasm build the app actually ships:
+
+```
+COMPILE OPTIONS:      MAX_MMAP_SIZE=0, TEMP_STORE=2, THREADSAFE=0
+PRAGMA auto_vacuum  = 0        page_size = 8192
+2000 rows of 4 KB   → page_count 1002
+after DROP+create   → page_count 1002, freelist_count 1000
+after VACUUM        → page_count    2, freelist_count    0
+```
+
+`TEMP_STORE=2` is _memory_, and `PRAGMA temp_store = 0` means "use the compile-time
+default", so nothing the app can set moves it. **`VACUUM` stages its rewrite in RAM, not
+on disk.** The resource it needs is memory proportional to the **surviving live set**,
+not free disk proportional to the whole file.
+
+That relocates the risk. After the jar-wide wipe the live set is empty and the staged
+database is two pages, so the wipe §4 named as the likely failure is the one that can
+barely fail at all. The exposure belongs to the Facet-scoped wipe, whose survivors are
+everything that is not food.
+
+**How large that is belongs to
+[#311](https://github.com/palebluebytes/inventoria/issues/311) to measure, and is not
+this record's to guess.** The scoped wipe does not exist yet, and the figure that matters
+is the size of a real jar's surviving non-food live set on a real device. A correction
+that invents a number it cannot take repeats the mistake it is correcting.
+
+The Consequences entry "**The `VACUUM` can fail for the user who most needs it**" is false
+in the same way and is corrected the same way. It can fail for a user holding a large
+_surviving_ set, which is not the user who filled the jar with food and then asked for the
+space back.
+
+The jar-wide half of §4 has shipped with #290: `vacuumLedger` in `src/lib/db/db.core.ts`,
+reached by a worker operation of its own, attempted after the `clear` has committed.
+`CODING_STANDARDS.md` §1.1 and `AGENTS.md` §3 each now say in a clause that a `VACUUM` is
+not a third sanctioned destructive operation, so the whole-file rewrite landing inside the
+module those two sentences fence is not argued twice.

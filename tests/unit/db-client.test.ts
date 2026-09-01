@@ -183,6 +183,34 @@ describe("DBClient RPC layer", () => {
     await expect(p).resolves.toBe(1);
   });
 
+  it("asks the worker to vacuum, separately from a clear", async () => {
+    const c = await makeInitialized();
+    const cleared = c.clear();
+    expect(getWorker().posted[1]).toMatchObject({ type: "clear", payload: {} });
+    getWorker().respond(getWorker().lastId, { status: "ok" });
+    await expect(cleared).resolves.toBeUndefined();
+
+    // Two messages, not one (#290): the Facet-scoped wipe reclaims after a
+    // different delete, so the reclaim is never folded into this one.
+    const p = c.vacuum();
+    expect(getWorker().posted[2]).toMatchObject({
+      type: "vacuum",
+      payload: {},
+    });
+    getWorker().respond(getWorker().lastId, { status: "ok" });
+    await expect(p).resolves.toBeUndefined();
+  });
+
+  it("rejects when the vacuum fails, rather than reporting a second shape", async () => {
+    const c = await makeInitialized();
+    const p = c.vacuum();
+    getWorker().respond(getWorker().lastId, {
+      status: "error",
+      error: "database or disk is full",
+    });
+    await expect(p).rejects.toThrow("database or disk is full");
+  });
+
   it("terminate clears the worker and rejects subsequent calls", async () => {
     const c = await makeInitialized();
     const inst = getWorker();

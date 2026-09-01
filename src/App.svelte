@@ -261,9 +261,13 @@
         {/await}
       {/if}
 
-      <!-- Settings — always rendered so Playwright can find the harness elements -->
+      <!-- Settings — always rendered so Playwright can find the harness elements.
+           That is also why it is handed the active-tab signal rather than
+           reading a mount: it mounts once per page load and never again, so
+           anything on it that must be fresh when it is looked at has to be told
+           when it is being looked at (#290). -->
       <div hidden={activeTab !== "settings"}>
-        <SettingsView {dbReady} />
+        <SettingsView {dbReady} shown={activeTab === "settings"} />
       </div>
     </main>
 

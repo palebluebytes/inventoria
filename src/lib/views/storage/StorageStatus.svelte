@@ -17,17 +17,41 @@
     type StorageEstimateReading,
   } from "../../storage/persistent-storage";
 
-  // Snapshots rather than stores. Both describe the moment the screen opened,
-  // and neither should churn while it is being read.
+  /**
+   * Whether the screen this sits on is the one being looked at — threaded from
+   * the root's active tab, through Settings ([#290](https://github.com/palebluebytes/inventoria/issues/290)).
+   *
+   * A prop rather than a mount, because the Settings screen is rendered under
+   * every tab and merely hidden, so it mounts once per page load and never
+   * again. A mount-time effect read at app startup and never afterwards: the
+   * figure below was frozen from the moment the *app* opened, which is why
+   * wiping the database left it unmoved on the very screen the button sits on.
+   *
+   * ADR-0065 §2 already reasoned that the request is memoised and the reading
+   * is not, so that a badge cannot report a refusal from ten minutes ago. That
+   * split was real per mount, and a screen that never unmounts defeated it.
+   *
+   * Not the worker's invalidation broadcast: every append broadcasts, and this
+   * readout must not churn while it is being read.
+   */
+  let { shown }: { shown: boolean } = $props();
+
+  // Snapshots rather than stores. Both describe the moment the screen was last
+  // opened, and neither should churn while it is being read.
   let persistence = $state<PersistenceState>("unknown");
   let estimate = $state<StorageEstimateReading | null>(null);
 
   $effect(() => {
+    if (!shown) return;
     // Wait for the startup request to have settled, then report what the browser
     // says now. Opening Settings is never a second request: the first call is the
     // memoised one, and the second is a read. The two differ where a browser
     // granted persistence on its own after refusing at load, which Chromium does
     // as a site is used more, and where that happens the badge should say so.
+    //
+    // The whole reading re-runs on every return to the screen, request included:
+    // re-running a memoised promise costs nothing, and the estimate is the half
+    // that a wipe, an import or a corpus download all move.
     ensurePersistentStorage()
       .then(() => readPersistenceState())
       .then((state) => (persistence = state));

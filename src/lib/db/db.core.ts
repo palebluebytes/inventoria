@@ -130,6 +130,30 @@ export function resetLedgerSchema(db: LedgerDb): void {
   createLedgerSchema(db);
 }
 
+/**
+ * Rewrites the database file so the pages a sanctioned deletion freed are
+ * returned to the browser instead of sitting on the freelist (ADR-0079 §4,
+ * [#290](https://github.com/palebluebytes/inventoria/issues/290)).
+ *
+ * **This is not a third destructive operation** and `CODING_STANDARDS.md` §1.1
+ * says so explicitly. `VACUUM` reads every surviving row and writes it back; it
+ * takes nothing a deletion has not already taken, and there is no argument of
+ * it that could lose a datom.
+ *
+ * It is deliberately its own function rather than a tail on `resetLedgerSchema`,
+ * because a Facet-scoped wipe needs the same step after a different delete
+ * ([#311](https://github.com/palebluebytes/inventoria/issues/311)) and one
+ * shared operation is what stops the two wipes drifting apart.
+ *
+ * `VACUUM` cannot run inside a transaction, so "both or neither" is not
+ * expressible: the caller commits its delete first and attempts this after. A
+ * failure here throws, and what makes the step best-effort is that the caller
+ * declines to care — the rows are gone either way.
+ */
+export function vacuumLedger(db: LedgerDb): void {
+  db.exec("VACUUM;");
+}
+
 /** True when a datoms table exists but predates the ADR-0020 HLC columns. */
 function needsHlcMigration(db: LedgerDb): boolean {
   const cols = execRows<{ name: string }>(db, "PRAGMA table_info(datoms);");

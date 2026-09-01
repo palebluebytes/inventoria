@@ -159,6 +159,23 @@ export class DBClient {
   }
 
   /**
+   * Returns the pages a deletion freed to the browser, by rewriting the
+   * database file (ADR-0079 §4, #290). A `clear` alone leaves them on SQLite's
+   * freelist, where they are reusable by this app and invisible to everyone
+   * else — including the storage figure on the screen the wipe lives on.
+   *
+   * Its own operation rather than part of `clear`; `vacuumLedger` in
+   * `db.core.ts` carries the argument for why.
+   *
+   * It rejects like every other message when the vacuum fails. Nothing here
+   * makes it best-effort; a caller that has already committed its delete makes
+   * it so by declining to fail on it.
+   */
+  async vacuum(): Promise<void> {
+    return this.send<void>("vacuum", {});
+  }
+
+  /**
    * Sends a typed message to the worker and returns a Promise.
    */
   private send<T>(type: string, payload: any): Promise<T> {

@@ -19,22 +19,54 @@
   import Badge from "../ui/Badge.svelte";
   import Checkbox from "../ui/Checkbox.svelte";
 
-  let { dbReady }: { dbReady: boolean } = $props();
+  let {
+    dbReady,
+    shown,
+  }: {
+    dbReady: boolean;
+    /**
+     * Whether this screen is the one being looked at. This screen is rendered
+     * under every tab and merely hidden, so it mounts once per page load and
+     * nothing here can use a mount to mean "opened" — see `StorageStatus`,
+     * which is why the prop exists (#290).
+     */
+    shown: boolean;
+  } = $props();
 
   async function wipeDatabase() {
     if (
-      confirm(
+      !confirm(
         "Are you sure you want to completely wipe the database? This cannot be undone."
       )
     ) {
-      try {
-        await dbClient.clear();
-        alert("Database wiped successfully!");
-      } catch (err) {
-        console.error(err);
-        alert("Failed to wipe database");
-      }
+      return;
     }
+    try {
+      await dbClient.clear();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to wipe database");
+      return;
+    }
+    // The delete has committed; the reclaim is attempted after it and is
+    // best-effort (ADR-0079 §4). `VACUUM` cannot run inside a transaction, so
+    // "both or neither" is not expressible — a vacuum that fails leaves the
+    // rows gone and the storage figure above unmoved, and the message has to be
+    // able to say exactly that. The emptiness is unconditional because it is
+    // true either way; only the space is conditional, because only the space
+    // can fail.
+    let reclaimed = true;
+    try {
+      await dbClient.vacuum();
+    } catch (err) {
+      console.error(err);
+      reclaimed = false;
+    }
+    alert(
+      reclaimed
+        ? "The ledger is empty, and the space it was using has been reclaimed."
+        : "The ledger is empty. The space it was using could not be reclaimed, so the storage figure may not have changed."
+    );
   }
 
   // **This screen carries no credentials and no form** (ADR-0080 §2, §4). A
@@ -167,7 +199,7 @@
     </div>
   {/if}
 
-  <StorageStatus />
+  <StorageStatus {shown} />
 
   <LedgerExport {dbReady} />
 

@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-28  
-**Implemented:** #180 `4b147a6` (the request and the readings), `5a089e1` (the Settings section), `39442ce` (one reader of the estimate), `4c37e27` (review fixes, including §2's split between the memoised request and the fresh reading)
+**Implemented:** #180 `4b147a6` (the request and the readings), `5a089e1` (the Settings section), `39442ce` (one reader of the estimate), `4c37e27` (review fixes, including §2's split between the memoised request and the fresh reading); #290 `src/lib/views/storage/StorageStatus.svelte` (correction: §2's split was real **per mount**, and the Settings screen is never unmounted, so the reading described the moment the _app_ opened rather than the moment the screen did — it now re-reads on the root's active-tab signal). The decision is unamended; it was the implementation that missed it.
 
 ## Context
 

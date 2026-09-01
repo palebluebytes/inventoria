@@ -94,7 +94,9 @@ context and that one is not. If you change one, change both.
   clock stamp (ADR-0020), not because of its `time` value. Two sanctioned
   destructive operations already exist — `resetLedgerSchema` (the user-initiated
   `clear`) and the one-shot ADR-0020 migration, both in `src/lib/db/db.core.ts`.
-  Do not add others.
+  Do not add others. **A `VACUUM` is not a third**: `vacuumLedger` lives in that
+  same module and rewrites the whole file, but it only hands back pages a
+  sanctioned deletion already freed, and it can lose nothing (ADR-0079 §4).
 - **Thread Isolation:** All SQLite execution must occur inside a dedicated Web
   Worker. The main thread only receives read-only views or emits append actions.
 - **Naming Casing:** Always use snake_case for EAVT ledger attributes and

@@ -9,6 +9,7 @@ import {
   readLedgerPage,
   readLedgerSummary,
   resetLedgerSchema,
+  vacuumLedger,
   execRows,
   type LedgerDb,
 } from "./db.core";
@@ -187,6 +188,15 @@ self.onmessage = async (event: MessageEvent) => {
         type: "broadcast_invalidation",
         payload: { attributes: [] },
       });
+    } else if (type === "vacuum") {
+      if (!db) {
+        throw new Error("Database not initialized. Please call 'init' first.");
+      }
+      // Its own operation rather than a tail on `clear` — `vacuumLedger` says
+      // why. Nothing is invalidated here: a vacuum rewrites the file and
+      // changes no fact, so no projection has a different answer afterwards.
+      vacuumLedger(db);
+      self.postMessage({ id, status: "ok" });
     } else {
       throw new Error(`Unsupported message type: ${type}`);
     }

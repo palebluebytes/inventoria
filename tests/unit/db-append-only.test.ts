@@ -3,7 +3,9 @@ import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
 import {
   appendDatoms,
   createLedgerSchema,
+  execRows,
   resetLedgerSchema,
+  vacuumLedger,
   type Datom,
   type LedgerDb,
 } from "../../src/lib/db/db.core";
@@ -139,6 +141,58 @@ describe("ledger append-only invariant", () => {
     expect(rows()).toHaveLength(2);
 
     resetLedgerSchema(db);
+    expect(rows()).toHaveLength(0);
+  });
+});
+
+// A single-value PRAGMA read, through the ledger core's own row reader. Both
+// `page_count` and `freelist_count` come back as a one-column row named after
+// the pragma, which is why the value is taken positionally.
+function pragma(name: string): number {
+  const [row] = execRows<Record<string, number>>(db, `PRAGMA ${name};`);
+  return Number(Object.values(row)[0]);
+}
+
+describe("a wipe reclaims the pages it freed", () => {
+  // #290: `resetLedgerSchema` alone returns pages to the freelist and never
+  // shrinks the database, so the storage figure beside the Wipe Database button
+  // does not move. ADR-0079 §4 binds a wipe to reclaiming space; this is the
+  // step that keeps it, measured against the real engine the app ships rather
+  // than against the mocked RPC layer.
+  it("frees nothing until vacuumed, then collapses to the empty schema", () => {
+    const empty = pragma("page_count");
+
+    // Photos are the heaviest thing the ledger holds (ADR-0066), so the filler
+    // is sized like one rather than like a name: the defect is invisible at a
+    // few pages.
+    const filler = "x".repeat(4096);
+    appendDatoms(
+      db,
+      Array.from({ length: 500 }, (_, i) =>
+        datom({ entity: `habit/${i}`, value: filler })
+      ),
+      clock
+    );
+    const grown = pragma("page_count");
+    expect(grown).toBeGreaterThan(empty);
+
+    resetLedgerSchema(db);
+    expect(rows()).toHaveLength(0);
+    // The rows are gone and the space is not: this is the bug, asserted so a
+    // future `PRAGMA auto_vacuum` cannot quietly make the vacuum below a no-op
+    // that still passes.
+    expect(pragma("page_count")).toBe(grown);
+    expect(pragma("freelist_count")).toBeGreaterThan(0);
+
+    vacuumLedger(db);
+    expect(pragma("page_count")).toBe(empty);
+    expect(pragma("freelist_count")).toBe(0);
+  });
+
+  it("is safe on an already-empty ledger", () => {
+    const empty = pragma("page_count");
+    vacuumLedger(db);
+    expect(pragma("page_count")).toBe(empty);
     expect(rows()).toHaveLength(0);
   });
 });
