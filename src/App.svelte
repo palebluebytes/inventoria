@@ -8,13 +8,14 @@
   import SettingsView from "./lib/views/SettingsView.svelte";
   import ItemsView from "./lib/views/ItemsView.svelte";
   import ReloadPrompt from "./lib/ui/ReloadPrompt.svelte";
+  import FacetDoor from "./lib/layout/FacetDoor.svelte";
   // Notes is the only view whose CRDT (loro) carries a multi-megabyte WASM
   // payload. Importing it dynamically keeps that payload out of the entry chunk,
   // so a failure anywhere under Notes degrades Notes alone instead of stopping
   // the ledger, food logging and habits from mounting at all (#125). The other
   // views stay static.
   import { runStartupErrands } from "./lib/facets/startup";
-  import type { Facet } from "./lib/facets/registry";
+  import { facetOf, type Facet } from "./lib/facets/registry";
   import {
     takeCodeHandover,
     takeReceiveLink,
@@ -188,6 +189,17 @@
   $effect(() => {
     if (activeTab !== "food") receiveLink = null;
   });
+
+  /**
+   * The other Facet, named here only so the root can offer it (ADR-0078 §4).
+   *
+   * This is data and not a screen, which is the whole of why it is allowed:
+   * ADR-0078 §1 binds what an entry point *mounts*, and reading the roster
+   * pulls no food-only module into this bundle. The link's target and label
+   * both come off the registry, so the root cannot advertise a name Rations has
+   * stopped answering to.
+   */
+  const rations = facetOf("food");
 </script>
 
 <svelte:head>
@@ -221,6 +233,13 @@
           {receiveLink}
           onReceiveClose={() => (receiveLink = null)}
         />
+        <!-- Under the screen rather than in the header, because ADR-0078 §4
+             keeps the Food tab otherwise unchanged: same screen, same
+             components, no pointer. Turning the tab itself into one would
+             reopen ADR-0077 §5, which kept `usda/search-index.json` in the
+             root's precache precisely because food is the root's landing
+             screen. -->
+        <FacetDoor facet={rations} />
       {/if}
 
       {#if activeTab === "media"}
