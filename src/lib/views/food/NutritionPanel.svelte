@@ -75,7 +75,11 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--space-s);
-    padding: var(--space-xs) var(--space-m);
+    /* The inline padding is `--space-s` rather than `--space-m` so the title
+       starts on the same vertical as the section labels below it: a
+       `NutrientGroupHead` is a full-bleed band inset by `--space-s`, and a
+       header inset further made the panel read as two left edges. */
+    padding: var(--space-xs) var(--space-s);
     /* The frame's own edge token rather than the pale `--border`. This division
        is part of the frame, and a section band can sit directly under it — a
        NutrientGroupHead is a tinted full-bleed band, so a pale rule above a
@@ -85,6 +89,11 @@
   }
   .day-nutrition-header h3 {
     font-size: var(--step-n1);
+    /* Tight to the em, because `align-items: center` centres BOXES and the
+       inherited 1.5 leading made this box taller than its ink. The title is
+       all caps with no descenders, so the leading sat entirely under the text
+       and pushed it visibly above the centre line the close button sits on. */
+    line-height: 1;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -98,10 +107,18 @@
     gap: var(--space-2xs);
     flex-shrink: 0;
   }
+  /* A square the glyph is centred in, rather than a glyph that sets its own
+     box. Same 2rem square as the way out beside it, so two header controls
+     read as one row of marks and a control added later inherits the size. */
   .day-nutrition-close {
+    display: grid;
+    place-items: center;
     flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
     background: none;
     border: none;
+    padding: 0;
     font-size: 1.75rem;
     line-height: 1;
     cursor: pointer;
