@@ -10,9 +10,10 @@ import { test, expect } from "@playwright/test";
 // proves the read and the clean; only a browser proves that the app wires them
 // to a page that has actually mounted.
 //
-// The relay is not running behind `pnpm dev`, so the surface either waits or
-// reports that there was no route. Both are the surface being open, which is
-// what is under test — nothing here asserts a meal crossing.
+// Nothing here asserts a meal crossing: the surface waits in a room nobody
+// else joins, which is the surface being open and is what is under test. A
+// meal crossing a real room is `meal-relay.spec.ts`'s, since #298 put a real
+// relay behind `pnpm dev`.
 
 /** A fresh room per run, so two projects never wait in the same one. */
 const room = () =>

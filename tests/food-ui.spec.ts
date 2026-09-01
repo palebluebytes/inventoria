@@ -2456,11 +2456,13 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
   test("the panel turns into a real code, and there is no way back to the numbers", async ({
     page,
   }) => {
-    // Hold the relay socket open without answering. `pnpm dev` serves no relay,
-    // so an un-held send fails on the dial and the code face is gone before it
-    // can be read — and what this test is about is the code face. Nothing is
-    // ever sent through this route: a session that stays in "waiting for them"
-    // is exactly the state the sender is meant to sit in.
+    // Hold the relay socket open without answering, so the send never leaves
+    // the page. What this test is about is the code face, and a session that
+    // stays in "waiting for them" is exactly the state the sender is meant to
+    // sit in. Since #298 there IS a real relay behind `pnpm dev`, which makes
+    // the interception the point rather than a stand-in for an absent one: a
+    // send with nobody at the other end would otherwise sit in a real room for
+    // the whole of its five minutes.
     await page.routeWebSocket(/\/api\/relay/, () => {});
 
     await page.goto("/?mem=1");
