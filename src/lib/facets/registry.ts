@@ -13,9 +13,10 @@
  * minted an icon Rations is allowed to ship, so the icon is here too. Both
  * arrived the same way: the field was **absent rather than stubbed** until a
  * file it could name was in the build, because a path to a file that is not
- * there would be the lie this module was written to avoid. The field stays
- * optional only because nothing yet forces every Facet to have one — #305 needs
- * an icon for both Facets' manifests and is the change that makes it required.
+ * there would be the lie this module was written to avoid. #305 wrote both
+ * Facets a manifest off these fields, which is what made the icon required
+ * rather than optional and brought the three that describe an install —
+ * `description`, `themeColor`, `backgroundColor` — in beside it.
  *
  * **The owner is a Tracked Domain** (ADR-0086 §1). It cannot be a Facet: ADR-0076
  * §3 has Facets overlap rather than partition, and the root holds all six
@@ -132,6 +133,21 @@ export const TRACKED_DOMAINS = [
 ] as const satisfies readonly TrackedDomain[];
 
 /**
+ * One entry in a manifest's `icons`, in the member names the manifest spec
+ * gives them. snake_case would be wrong here and camelCase would be wrong in a
+ * datom: these are somebody else's field names, written the way the reader of
+ * the file expects to find them (CODING_STANDARDS §1.3 governs the ledger, and
+ * a manifest is not one).
+ */
+export interface ManifestIcon {
+  readonly src: string;
+  readonly sizes: string;
+  readonly type: string;
+  /** Absent means `any`, which is the spec's own default. */
+  readonly purpose?: "maskable";
+}
+
+/**
  * A named, icon-bearing face onto the Jar that can be installed on its own. The
  * roster is two and the root is one of them (ADR-0076 §2).
  */
@@ -155,30 +171,49 @@ export interface Facet {
    */
   readonly startUrl: string;
   /**
-   * The icon it installs under: **one** URL, the Facet's `any`-purpose mark.
-   * Not "the largest" — two of Rations' files are 512 and the root's is a
-   * sizeless SVG, so size is the wrong discriminator and purpose is the right
-   * one.
+   * What it says about itself on a home screen, verbatim in its manifest.
    *
-   * A manifest wants a list, and this is deliberately not one. Rations' other
-   * sizes are derived from the same drawing and sit beside this file
-   * (`docs/icon-provenance.md`); which of them a manifest enumerates, at what
-   * `sizes` and with what `purpose`, is #305's to decide, and a list here would
-   * be that decision made early in the wrong file. Who owns the drawing is what
-   * this field is for.
-   *
-   * It is **not yet the declaration ADR-0077 §2 asks for**, which names "the
-   * Rations icon set" among the static assets a Facet declares per Facet so its
-   * own service worker can precache them. One URL is what #305 needs; #306 is
-   * what turns it into the set.
+   * These four are here rather than in `src/lib/facets/manifest.ts` for the
+   * same reason `name` and `startUrl` are: they are facts about a Facet, and
+   * the builder is a shape. Nothing else in the app reads them — a Facet's
+   * manifest is the only consumer — which is why they arrived with #305 and not
+   * before.
    */
-  readonly icon?: string;
+  readonly description: string;
+  /** The colour the OS tints its chrome with while the install is open. */
+  readonly themeColor: string;
+  /** What a splash screen paints behind the icon before the app draws. */
+  readonly backgroundColor: string;
+  /**
+   * The icons its manifest enumerates, `any`-purpose mark first.
+   *
+   * #302 left this one URL on purpose: which files a manifest enumerates, at
+   * what `sizes` and with what `purpose`, was **#305's to decide**, and a list
+   * written before that decision would have been the decision made early. #305
+   * decides, and it decides here, because the build is what reads it.
+   *
+   * The list is the *manifest's*, not the Facet's whole set. `rations-32.png`
+   * and `rations-180.png` are a tab favicon and an `apple-touch-icon`, declared
+   * by `food/index.html` with `<link>` because that is where a browser looks
+   * for them; a manifest that also listed them would be claiming they are
+   * install icons. Nor is it yet the declaration ADR-0077 §2 asks for, which
+   * names "the Rations icon set" among the static assets a Facet declares so
+   * its own service worker can precache them: that set is the five files and is
+   * #306's.
+   *
+   * Every entry sits **inside the Facet's own scope**, which is not a style
+   * rule — a service worker scoped to `/food/` cannot precache a URL above it
+   * (`docs/icon-provenance.md`).
+   */
+  readonly icons: readonly ManifestIcon[];
   readonly domains: readonly string[];
   /**
    * Whether it exists as a thing you can install. **Installability is
    * definitional** (ADR-0076 §1), so an entry point alone does not flip this:
-   * Rations has had a screen of its own since #301 and becomes `built` when
-   * #305 gives it a manifest.
+   * Rations had a screen of its own from #301 and became `built` at #305, which
+   * is where it got a manifest. Both are `built` today, so nothing reads this
+   * yet — it is here because the word the roster uses for a Facet that has been
+   * decided and not built is the thing a third entry will need.
    */
   readonly status: "built" | "decided";
 }
@@ -189,7 +224,15 @@ export const FACETS = [
     name: "Inventoria",
     scope: "/",
     startUrl: "/",
-    icon: "/favicon.svg",
+    description: "Local-first item and habit tracking",
+    themeColor: "#863bff",
+    backgroundColor: "#000000",
+    // One file, and `sizes` says two because an SVG is every size. The mark's
+    // own provenance is unrecorded and `docs/icon-provenance.md` says so
+    // rather than implying a clearance; #302's subject was Rations.
+    icons: [
+      { src: "/favicon.svg", sizes: "192x192 512x512", type: "image/svg+xml" },
+    ],
     domains: ["food", "media", "items", "habits", "calendar", "notes"],
     status: "built",
   },
@@ -198,9 +241,38 @@ export const FACETS = [
     name: "Rations",
     scope: "/food/",
     startUrl: "/food/",
-    icon: "/food/icons/rations-512.png",
+    description:
+      "Log what you eat against an immutable append-only ledger that stays on your device.",
+    // Ink on paper, the app's own frame (ADR-0038), rather than the root's
+    // purple on black. The background is the one that has to match something:
+    // an installed icon is composited onto it, and the Rations drawing carries
+    // its own opaque white ground (`docs/icon-provenance.md`), so paper is the
+    // colour that makes the splash seamless and black is the one that would
+    // draw a white card in the middle of a dark screen.
+    themeColor: "#000000",
+    backgroundColor: "#ffffff",
+    icons: [
+      {
+        src: "/food/icons/rations-512.png",
+        sizes: "512x512",
+        type: "image/png",
+      },
+      {
+        src: "/food/icons/rations-192.png",
+        sizes: "192x192",
+        type: "image/png",
+      },
+      {
+        src: "/food/icons/rations-maskable-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable",
+      },
+    ],
     domains: ["food"],
-    status: "decided",
+    // Installability is definitional (ADR-0076 §1) and #305 is where Rations
+    // gets a manifest of its own, so this is the ticket that flips it.
+    status: "built",
   },
 ] as const satisfies readonly Facet[];
 

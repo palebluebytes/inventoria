@@ -79,9 +79,10 @@ The source is 19.8% ink and 80.2% nothing, and every inked pixel is black. On a
 black ground it is not a dim icon or a hard-to-read icon. It is one uniform
 black square — the whole image collapses to a single colour. So **the Rations
 icon carries its own ground**: white paper, opaque, no alpha channel anywhere in
-the shipped set. Nothing composites through it, which makes it immune to whatever
-`background_color` [#305](https://github.com/palebluebytes/inventoria/issues/305)
-eventually writes into Rations' manifest rather than dependent on it.
+the shipped set. Nothing composites through it, which makes it immune to the
+`background_color` in Rations' manifest rather than dependent on it. That colour
+is now `#ffffff` (see below), so the two agree; the point of this paragraph is
+that they did not have to.
 
 Black ink on white paper is also the app's own frame (`--ink` and `--paper` in
 `src/app.css`, ADR-0038), so the ground is the design system's rather than a
@@ -177,18 +178,35 @@ its own mark over the network. The directory shares a name with the repo-root
 `food/` that holds the entry HTML; they are different things that land in the
 same place, `dist/food/`.
 
-## What is not settled here
+## What the manifest takes, and what it leaves
 
-[#305](https://github.com/palebluebytes/inventoria/issues/305) writes Rations'
-manifest and is where these files become `icons` entries with `sizes`, `type`
-and `purpose`. It is also where `background_color` is chosen for Rations; the
-set above does not depend on the answer, but paper rather than the root's black
-is the one that matches.
+[#305](https://github.com/palebluebytes/inventoria/issues/305) wrote Rations'
+manifest and settled which of these files it enumerates. **Three of the five**,
+in `src/lib/facets/registry.ts`, which is where the build reads them:
+
+| File                       | `sizes`   | `purpose`  |
+| -------------------------- | --------- | ---------- |
+| `rations-512.png`          | `512x512` | — (`any`)  |
+| `rations-192.png`          | `192x192` | — (`any`)  |
+| `rations-maskable-512.png` | `512x512` | `maskable` |
+
+The other two are declared by `food/index.html` with `<link>` instead, because
+that is where a browser looks for them: `rations-180.png` is the
+`apple-touch-icon` and `rations-32.png` is the tab favicon. A manifest that
+listed them as `icons` would be claiming they are install marks, and neither is.
+
+**`background_color` is `#ffffff` and `theme_color` is `#000000`** — `--paper`
+and `--ink`, the app's own frame (ADR-0038), rather than the root's purple on
+black. The background is the one that had to be chosen carefully, because an
+installed icon is composited onto it: the drawing carries its own opaque white
+ground, so paper makes the splash seamless where black would draw a white card
+in the middle of a dark screen. The section above measures why the drawing has
+that ground in the first place, and it holds whichever colour is picked.
 
 [#306](https://github.com/palebluebytes/inventoria/issues/306) is the other
-consumer. ADR-0077 §2 says the static half of a precache — "`usda/`, `fonts/`,
-the Rations icon set" — is **declared per Facet in the registry**, and the
-registry today carries one icon URL rather than a set. That is enough for a
-manifest and not enough for a per-Facet precache; the set exists, and saying so
-in the place the build reads is #306's. Until then the root's single service
-worker precaches all five files, which is 106 KB the root does not use.
+consumer, and it is still open. ADR-0077 §2 says the static half of a precache —
+"`usda/`, `fonts/`, the Rations icon set" — is **declared per Facet in the
+registry**, and the list above is the manifest's three rather than the set's
+five. A per-Facet precache needs all five, so saying so in the place the build
+reads is #306's. Until then the root's single service worker precaches all five,
+which is 106 KB the root does not use.

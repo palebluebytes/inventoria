@@ -98,10 +98,12 @@ describe("the Facet registry (ADR-0076 §6, ADR-0086 §1)", () => {
     );
   });
 
-  it("keeps the roster at two, with one built", () => {
+  it("keeps the roster at two, both built", () => {
+    // Installability is definitional (ADR-0076 §1), so Rations became `built`
+    // when #305 gave it a manifest — not when #301 gave it a screen.
     expect(FACETS.map((f) => f.id)).toEqual(["root", "food"]);
     expect(FACETS.filter((f) => f.status === "built").map((f) => f.id)).toEqual(
-      ["root"]
+      ["root", "food"]
     );
   });
 });
@@ -155,23 +157,27 @@ describe("what a Facet says about its entry point (ADR-0076 §6)", () => {
     expect(facetOf("food").startUrl).toBe("/food/");
   });
 
-  it("names an icon for both Facets, and both are files in the build", () => {
+  it("leads each Facet's icons with the mark it installs under", () => {
     // The field was absent for Rations until #302 minted one, because a path to
-    // a file that is not there is the lie this module's header refuses. The
-    // guard against it coming back is not "is it set" but "is it there", so the
-    // assertion resolves the URL against `public/` rather than reading the
-    // registry twice over.
-    const icons: [FacetId, string][] = [
+    // a file that is not there is the lie this module's header refuses. It
+    // became a list in #305, which is the ticket that had to decide what a
+    // manifest enumerates; the `any`-purpose mark still leads it, and every
+    // entry being a real file is asserted in facet-manifest.test.ts against the
+    // manifest that names them.
+    const marks: [FacetId, string][] = [
       ["root", "/favicon.svg"],
       ["food", "/food/icons/rations-512.png"],
     ];
-    for (const [id, path] of icons) {
-      expect(facetOf(id).icon).toBe(path);
+    for (const [id, path] of marks) {
+      const [lead, ...rest] = facetOf(id).icons;
+      expect(lead.src).toBe(path);
+      expect(lead.purpose).toBeUndefined();
       const served = new URL(`../../public${path}`, import.meta.url);
       expect({ path, served: existsSync(fileURLToPath(served)) }).toEqual({
         path,
         served: true,
       });
+      expect(rest.every((i) => i.src !== path)).toBe(true);
     }
   });
 });

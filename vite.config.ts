@@ -11,6 +11,12 @@ import {
   readProxyPayload,
 } from "./src/lib/ingestion/proxy-policy";
 import { FACETS, facetOf } from "./src/lib/facets/registry";
+import {
+  facetForPath,
+  manifestFor,
+  manifestUrlOf,
+  withOwnManifestLink,
+} from "./src/lib/facets/manifest";
 
 const handleProxyRequest = async (req: any, res: any, next: any) => {
   const urlObj = new URL(
@@ -132,6 +138,17 @@ const isVitest = !!process.env.VITEST;
 
 const ROOT_FACET = facetOf("root");
 
+/**
+ * The root's manifest, as `VitePWA` will take it.
+ *
+ * The one departure from {@link manifestFor}'s output is `icons`, copied into a
+ * mutable array: the roster is `readonly` all the way down so nothing can edit
+ * a Facet at runtime, and the plugin's own `ManifestOptions` types the member
+ * as mutable. The copy is the seam between the two rather than a loosening of
+ * either.
+ */
+const ROOT_MANIFEST = manifestFor(ROOT_FACET);
+
 /** Every Facet the root is not, which is the one asymmetry ADR-0078 §3 turns on. */
 const FOREIGN_FACETS = FACETS.filter((f) => f.id !== ROOT_FACET.id);
 
@@ -165,7 +182,7 @@ const FACET_ENTRIES = Object.fromEntries(
 const FOREIGN_SCOPES = FOREIGN_FACETS.map((f) => new RegExp(`^${f.scope}`));
 
 /**
- * Take the root's manifest link back off every other Facet's page.
+ * Give every Facet's page its own manifest, and only its own.
  *
  * `VitePWA`'s `transformIndexHtml` is **entry-blind**: one plugin instance
  * injects its one `<link rel="manifest">` into every HTML entry in the build
@@ -175,25 +192,59 @@ const FOREIGN_SCOPES = FOREIGN_FACETS.map((f) => new RegExp(`^${f.scope}`));
  * exactly what ADR-0078 §4 routes through a labelled `target="_blank"` in the
  * other direction and refuses in this one.
  *
- * So a foreign page carries **no** manifest until it carries its own. #305 is
- * what hand-writes one per Facet and turns this into a rewrite rather than a
- * removal; until then no manifest is the honest state. Rations has had an icon
- * of its own since #302, so what is left to write is the manifest itself.
+ * #302 could only take that link off, because Rations had no manifest to put in
+ * its place. #305 writes one, so this is now the rewrite that record promised.
+ * Three jobs, and they are three because the plugin does none of them:
+ *
+ *   - **emit** every foreign Facet's manifest into the build, from the registry;
+ *   - **serve** it in dev, where there is no build to emit into;
+ *   - **link** each page to its own, replacing whatever VitePWA injected.
+ *
+ * Only foreign Facets are emitted and served: the root's is `VitePWA`'s own
+ * file at `/manifest.webmanifest`, built from the same {@link manifestFor} so
+ * the two cannot say different things about the same roster.
  */
-const oneManifestPerFacet = () => ({
-  name: "one-manifest-per-facet",
-  // `enforce` *and* `order`, because VitePWA's build plugin carries both and a
-  // plugin with only the second still runs before it. Among equally-enforced
-  // plugins the array position decides, which is why this sits after VitePWA.
-  enforce: "post" as const,
-  transformIndexHtml: {
-    order: "post" as const,
-    handler(html: string, ctx: { path: string }) {
-      const foreign = FOREIGN_FACETS.some((f) => ctx.path.startsWith(f.scope));
-      return foreign ? html.replace(/<link rel="manifest"[^>]*>/g, "") : html;
+const facetManifests = () => {
+  const bodyOf = (facet: (typeof FACETS)[number]) =>
+    JSON.stringify(manifestFor(facet), null, 2);
+
+  return {
+    name: "facet-manifests",
+    // `enforce` *and* `order`, because VitePWA's build plugin carries both and a
+    // plugin with only the second still runs before it. Among equally-enforced
+    // plugins the array position decides, which is why this sits after VitePWA.
+    enforce: "post" as const,
+    configureServer(server: any) {
+      const routes = new Map(
+        FOREIGN_FACETS.map((f) => [manifestUrlOf(f), bodyOf(f)])
+      );
+      server.middlewares.use((req: any, res: any, next: any) => {
+        const body = routes.get((req.url || "").split("?")[0]);
+        if (!body) return next();
+        res.setHeader("Content-Type", "application/manifest+json");
+        res.end(body);
+      });
     },
-  },
-});
+    generateBundle() {
+      for (const facet of FOREIGN_FACETS) {
+        // A leading slash would be an absolute path on disk; the emitted name
+        // is relative to `dist/`, which is what `/food/` means once served.
+        (this as any).emitFile({
+          type: "asset",
+          fileName: manifestUrlOf(facet).replace(/^\//, ""),
+          source: bodyOf(facet),
+        });
+      }
+    },
+    transformIndexHtml: {
+      order: "post" as const,
+      handler(html: string, ctx: { path: string }) {
+        const facet = facetForPath(ctx.path);
+        return facet ? withOwnManifestLink(html, facet) : html;
+      },
+    },
+  };
+};
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -202,22 +253,22 @@ export default defineConfig({
     svelte(),
     VitePWA({
       registerType: "prompt",
+      // The root's identity comes off the same roster and through the same
+      // builder as Rations' (#305), so the two manifests cannot describe the
+      // same registry differently. What is added here rather than there is the
+      // share target: it is a **hand-off**, and who owns one is ADR-0084 §1's
+      // question rather than a fact about what a Facet is called. The root owns
+      // this one because what it carries is a URL to a physical item, and
+      // Rations' hand-off is a fragment rather than a share target (ADR-0084
+      // §5) — so a `shareTarget` field on the roster would have exactly one
+      // filled entry and would invite the other Facet to fill it, which the
+      // spec forbids anyway: an action outside the manifest's own scope is
+      // dropped (docs/research/269-two-installable-apps-one-origin.md §5).
       manifest: {
-        name: "Inventoria",
-        short_name: "Inventoria",
-        description: "Local-first item and habit tracking",
-        theme_color: "#863bff",
-        background_color: "#000000",
-        display: "standalone",
-        icons: [
-          {
-            src: "favicon.svg",
-            sizes: "192x192 512x512",
-            type: "image/svg+xml",
-          },
-        ],
+        ...ROOT_MANIFEST,
+        icons: [...ROOT_MANIFEST.icons],
         share_target: {
-          action: "/",
+          action: ROOT_FACET.startUrl,
           method: "GET",
           enctype: "application/x-www-form-urlencoded",
           params: {
@@ -286,8 +337,8 @@ export default defineConfig({
         ],
       },
     }),
-    // After VitePWA, so its injected manifest link is there to take back off.
-    oneManifestPerFacet(),
+    // After VitePWA, so its injected manifest link is there to replace.
+    facetManifests(),
   ],
   server: {
     // The relay is **proxied to a real `wrangler dev`, never re-implemented

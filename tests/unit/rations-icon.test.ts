@@ -23,7 +23,10 @@ const ICON = (name: string) =>
  * 192 and 512 are the pair a web app manifest is expected to carry, `maskable`
  * is Android's own crop (ADR-0077 ships per-Facet installs), 180 is the
  * `apple-touch-icon` iOS uses for a Home Screen clip, and 32 is the browser tab.
- * #305 is what turns this into a manifest; here it is only what must exist.
+ * #305 turned three of the five into `icons` entries; here it is only what
+ * must exist, which is the wider set — the 180 and the 32 are `<link>`s in
+ * `food/index.html` rather than manifest members, because that is where a
+ * browser looks for them.
  */
 const ROSTER = [
   { file: "rations-512.png", size: 512 },
