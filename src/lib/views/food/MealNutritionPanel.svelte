@@ -8,29 +8,12 @@
     SECTION_MACROS,
     SECTION_MICROS,
   } from "../../food/nutrient-display";
-  import Button from "../../ui/Button.svelte";
   import NutritionPanel from "./NutritionPanel.svelte";
   import NutritionPanelCell from "./NutritionPanelCell.svelte";
   import NutrientCardGrid from "./NutrientCardGrid.svelte";
   import NutrientGroupHead from "./NutrientGroupHead.svelte";
-  import EndingLine from "./EndingLine.svelte";
-  import SendCodeSymbol from "./SendCodeSymbol.svelte";
+  import SendFace from "./SendFace.svelte";
   import WayOutIcon from "./WayOutIcon.svelte";
-  import { buildMealPayload } from "../../p2p/meal-payload";
-  import { ledgerEntityRows } from "../../p2p/ledger-rows";
-  import { sendMealPayload } from "../../p2p/meal-send";
-  import {
-    burnSendCode,
-    mintSendCode,
-    sendCodeLink,
-    type SendCode,
-  } from "../../p2p/send-code";
-  import { writeDate } from "../../p2p/send-date";
-  import {
-    MEAL_DELIVERED,
-    sendEndingWords,
-    type SendWords,
-  } from "../../p2p/send-words";
 
   // One meal, entire — and the way out of it (ADR-0074 §1, §2 and §3).
   //
@@ -71,88 +54,19 @@
   // done. Gathering the meal takes a measured 155 ms and the wait after it is a
   // human, so there is no intermediate to animate — and no progress bar that
   // depends on meal size, because the code does not grow with the meal.
+  //
+  // **The session is `SendFace`'s, and it is the whole of that component's
+  // life.** Mounting it starts the send and unmounting it cancels, so this
+  // panel keeps one flag and no lifecycle: closing, Escape, the backdrop and a
+  // Tab change all end the session by unmounting the surface it lives on.
   /** Whether the panel has turned into the code. The figures are gone from here. */
   let handing = $state(false);
-  let code = $state<SendCode | null>(null);
-  let ended = $state<SendWords | null>(null);
-  let copied = $state<"yes" | "no" | null>(null);
-
-  /** Live while a send is: closing the panel aborts it, which burns the code. */
-  let session: AbortController | null = null;
-
-  let link = $derived(code ? sendCodeLink(code, location.origin) : null);
-
-  async function handOver() {
-    // A send at a time. Nothing on screen can start a second one while one is
-    // live — the way out is gone and "Send again" only exists once a session
-    // has ended — so this is the invariant stated rather than a case handled.
-    endSession();
-    const pulled = new AbortController();
-    session = pulled;
-    handing = true;
-    code = null;
-    ended = null;
-    copied = null;
-    try {
-      // The roots are this meal's own Consumption Events; everything else in
-      // the payload is reached by walking what they point at.
-      const payload = await buildMealPayload(
-        items.map((item) => item.id),
-        ledgerEntityRows
-      );
-      // The code is drawn once there is a meal to hand over, and not before.
-      // The measured shape is gather, then the code, then a human: a symbol on
-      // screen while the ledger is still being read is a live secret standing
-      // in for work that may yet fail.
-      const drawn = mintSendCode();
-      code = drawn;
-      await sendMealPayload(drawn, payload, { signal: pulled.signal });
-      ended = MEAL_DELIVERED;
-    } catch (failure) {
-      ended = sendEndingWords(failure);
-    }
-  }
-
-  /**
-   * Closing cancels, and cancelling burns the code (ADR-0072 §6.3).
-   *
-   * The session burns it too, once it is far enough in to see the cancellation
-   * — but a code drawn and shown while the socket was still being dialled can
-   * come back as an unreachable relay, which is deliberately not a burn there.
-   * It must not outlive the screen that showed it, so this end says so itself.
-   */
-  function endSession() {
-    session?.abort();
-    session = null;
-    if (code) burnSendCode(code);
-  }
-
-  // Every route out of the panel ends the session, including the ones the panel
-  // does not draw: Escape, the backdrop, and a tab change that unmounts it.
-  $effect(() => () => endSession());
-
-  function closePanel() {
-    endSession();
-    onClose();
-  }
-
-  async function copyLink(carrier: string) {
-    try {
-      await navigator.clipboard.writeText(carrier);
-      copied = "yes";
-    } catch {
-      // Refused permission, or no clipboard at all. The link is on screen
-      // either way, so this says so rather than claiming a copy that did not
-      // happen.
-      copied = "no";
-    }
-  }
 </script>
 
 <NutritionPanel
   title={meal_type.toUpperCase()}
   testId="meal-nutrient-breakdown"
-  onClose={closePanel}
+  {onClose}
 >
   <!-- The way out sits beside the meal's name, because it is a control on the
        SUBJECT of the panel rather than on the panel. There is no footer: a dock
@@ -173,7 +87,7 @@
         data-testid="meal-way-out"
         aria-label="Hand this {meal_type} to someone"
         title="Hand this {meal_type} to someone"
-        onclick={handOver}
+        onclick={() => (handing = true)}
       >
         <WayOutIcon />
       </button>
@@ -182,55 +96,13 @@
 
   {#snippet body()}
     {#if handing}
-      <div class="inset centre" data-testid="meal-send">
-        <!-- What is being handed over, once the figures have gone. It writes a
-             date rather than "Today" or "Tuesday" (§7): a second person is
-             looking at this screen, and a weekday names nothing across two
-             devices while "Today" is a claim about whose day. -->
-        <p class="kicker">
-          {items.length}
-          {items.length === 1 ? "food" : "foods"} · {formatCalories(
-            totals.calories,
-            calorieDecimals
-          )} · {writeDate(date)}
-        </p>
-
-        {#if !ended}
-          <!-- The symbol's own placeholder stands in while the meal is read,
-               which is the whole of the 155 ms before a code exists. -->
-          <SendCodeSymbol {link} />
-          {#if link}
-            <p class="say">Let them scan this.</p>
-            <div class="linkrow">
-              <code class="link">{link}</code>
-              <Button
-                variant="secondary"
-                size="sm"
-                onclick={() => copyLink(link)}
-              >
-                {copied === "yes"
-                  ? "Copied"
-                  : copied === "no"
-                    ? "Cannot copy"
-                    : "Copy"}
-              </Button>
-            </div>
-            <p class="fine">
-              The link carries the key that opens the meal. It works once.
-            </p>
-            <p class="waiting" role="status">Waiting for them…</p>
-          {/if}
-        {:else}
-          <!-- One line, in the app's voice, with the technical cause behind a
-               "show why" (§6) — the shape both ends of a send print. -->
-          <EndingLine words={ended} ok={ended.ending === "delivered"} />
-          {#if ended.retry}
-            <button type="button" class="plain" onclick={handOver}>
-              Send again
-            </button>
-          {/if}
-        {/if}
-      </div>
+      <SendFace
+        roots={items.map((item) => item.id)}
+        foods={items.length}
+        calories={totals.calories}
+        {date}
+        {calorieDecimals}
+      />
     {:else if items.length === 0}
       <p class="inset fine">Nothing logged.</p>
     {:else}
@@ -263,13 +135,6 @@
   .inset {
     padding: var(--space-xs) var(--space-m) var(--space-s);
   }
-  .centre {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-2xs);
-    text-align: center;
-  }
   /* A header control on the panel's subject, sized to sit beside the close —
      and unframed like it, since the close button next to it wears no box either
      and two header controls should read as one row of marks. */
@@ -290,51 +155,9 @@
     width: 1.35rem;
     height: 1.35rem;
   }
-  .kicker {
-    margin: 0 0 var(--space-2xs);
-    font-size: var(--step-n2);
-    color: var(--text-secondary);
-  }
-  .say {
-    margin: 0;
-    font-weight: 700;
-  }
-  .linkrow {
-    display: flex;
-    gap: var(--space-2xs);
-    align-items: center;
-    width: 100%;
-  }
-  .link {
-    flex: 1;
-    min-width: 0;
-    font-family: var(--font-mono);
-    font-size: var(--step-n3);
-    background: var(--bg-input);
-    border: var(--edge-thin);
-    padding: var(--space-3xs) var(--space-2xs);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
   .fine {
     margin: var(--space-2xs) 0 0;
     font-size: var(--step-n2);
     color: var(--text-secondary);
-  }
-  .waiting {
-    margin: var(--space-2xs) 0 0;
-    color: var(--text-muted);
-  }
-  .plain {
-    margin-top: var(--space-2xs);
-    background: none;
-    border: 0;
-    padding: 0;
-    font: inherit;
-    font-size: var(--step-n2);
-    color: var(--text-secondary);
-    text-decoration: underline;
-    cursor: pointer;
   }
 </style>

@@ -32,7 +32,19 @@ import { test, expect, type Page } from "@playwright/test";
 // `openRelaySocket`'s `wss:` arm, since a dev server is `http:` — what is
 // covered is the swap happening at all, on the arm this origin has.
 
-/** One food, so a meal has something in it and the arithmetic is the suite's. */
+/** Two foods, so a day can hold two meals and the arithmetic stays the suite's. */
+const MOCK_OATS = {
+  fdcId: 1102706,
+  description: "Mock Oats",
+  dataType: "Foundation",
+  macros: {
+    calories: 379,
+    protein_content: 13.1,
+    fat_content: 6.5,
+    carbohydrate_content: 67.7,
+  },
+};
+
 const MOCK_BANANA = {
   fdcId: 171705,
   description: "Mock Banana",
@@ -73,7 +85,7 @@ async function serveUsdaCorpus(page: Page) {
           source: "Inventoria, hand-written",
           expansions: {},
         },
-        foods: [MOCK_BANANA],
+        foods: [MOCK_BANANA, MOCK_OATS],
       }),
     });
   });
@@ -93,6 +105,7 @@ async function serveUsdaCorpus(page: Page) {
         },
         foods: {
           171705: { 1003: 1.1, 1004: 0.3, 1005: 22.8, 1008: 89 },
+          1102706: { 1003: 13.1, 1004: 6.5, 1005: 67.7, 1008: 379 },
         },
       }),
     });
@@ -108,13 +121,13 @@ async function waitForDbReady(page: Page) {
   );
 }
 
-/** Logs one Mock Banana into a meal on the day the week strip is showing. */
-async function logMockBanana(page: Page, meal_type: string) {
+/** Logs 100g of a mock food into a meal on the day the week strip is showing. */
+async function logMockFood(page: Page, meal_type: string, food: string) {
   await page
     .getByRole("button", { name: `Search for a ${meal_type} food` })
     .click();
-  await page.locator("#food-search-input").fill("banana");
-  await page.locator(".result-item", { hasText: "Mock Banana" }).click();
+  await page.locator("#food-search-input").fill(food.replace("Mock ", ""));
+  await page.locator(".result-item", { hasText: food }).click();
   await page.getByLabel("Amount in grams").fill("100");
   await page.locator("#log-food-btn").click();
 }
@@ -210,7 +223,7 @@ test.describe("a meal crossing a real relay", () => {
       await sender.goto("/?mem=1");
       await waitForDbReady(sender);
       await sender.getByRole("button", { name: "Previous Week" }).click();
-      await logMockBanana(sender, "breakfast");
+      await logMockFood(sender, "breakfast", "Mock Banana");
 
       const senderPanel = sender.locator(
         '[data-testid="meal-nutrient-breakdown"]'
@@ -295,6 +308,79 @@ test.describe("a meal crossing a real relay", () => {
       expect(senderEvents).toHaveLength(1);
       expect(recipientEvents).toHaveLength(1);
       expect(recipientEvents[0]).not.toBe(senderEvents[0]);
+    } finally {
+      await senderContext.close();
+      await recipientContext.close();
+    }
+  });
+
+  test("hands over a whole day, and each meal lands in its own", async ({
+    browser,
+  }) => {
+    const options = projectContextOptions();
+    const senderContext = await browser.newContext(options);
+    const recipientContext = await browser.newContext(options);
+
+    try {
+      // Two meals a week back, so the day that arrives is unmistakably not the
+      // recipient's own and the two meals are unmistakably two.
+      const sender = await senderContext.newPage();
+      await serveUsdaCorpus(sender);
+      await sender.goto("/?mem=1");
+      await waitForDbReady(sender);
+      await sender.getByRole("button", { name: "Previous Week" }).click();
+      await logMockFood(sender, "breakfast", "Mock Banana");
+      await logMockFood(sender, "dinner", "Mock Oats");
+
+      // The day's own way out, on the full-day panel rather than a meal's
+      // (ADR-0074 §1, amended). It is the same control at the larger scale.
+      await sender
+        .getByRole("button", { name: "Show full day nutrition" })
+        .click();
+      const dayPanel = sender.locator('[data-testid="day-nutrient-breakdown"]');
+      await expect(dayPanel).toBeVisible();
+      await dayPanel.locator('[data-testid="day-way-out"]').click();
+
+      const mealSend = dayPanel.locator('[data-testid="meal-send"]');
+      await expect(mealSend).toContainText("Waiting for them…");
+      // Both meals are in it: two foods, and the day's total.
+      await expect(mealSend).toContainText("2 foods");
+      const link = await mealSend.locator("code.link").innerText();
+
+      // ── The recipient ────────────────────────────────────────────────────
+      const recipient = await recipientContext.newPage();
+      await serveUsdaCorpus(recipient);
+      await recipient.goto(`/?mem=1${link.slice(link.indexOf("#"))}`);
+
+      const offered = recipient.getByTestId("received-meal");
+      await expect(offered).toBeVisible();
+      await expect(offered).toContainText("Mock Banana", { timeout: 30_000 });
+
+      // A day is offered as a day: both meals named, and one button that does
+      // not claim a meal type.
+      await expect(offered).toContainText("Mock Oats");
+      await expect(offered).toContainText("BREAKFAST");
+      await expect(offered).toContainText("DINNER");
+      await expect(offered.getByTestId("received-meal-keep")).toHaveText(
+        "Add to my day"
+      );
+      await expect(mealSend).toContainText("They have it.");
+
+      await offered.getByTestId("received-meal-keep").click();
+      await expect(offered).toContainText("2 foods added to your day.");
+
+      // ADR-0073 §5, amended: each one in the meal it was eaten at, on the
+      // recipient's own day rather than the sender's.
+      await offered.getByRole("button", { name: "Done" }).click();
+      await expect(offered).toHaveCount(0);
+      const breakfast = recipient.locator(".meal-section", {
+        hasText: "BREAKFAST",
+      });
+      const dinner = recipient.locator(".meal-section", { hasText: "DINNER" });
+      await expect(breakfast).toContainText("Mock Banana");
+      await expect(breakfast).not.toContainText("Mock Oats");
+      await expect(dinner).toContainText("Mock Oats");
+      await expect(dinner).not.toContainText("Mock Banana");
     } finally {
       await senderContext.close();
       await recipientContext.close();

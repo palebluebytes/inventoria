@@ -18,6 +18,7 @@ import { SendFailedError, type SendFailure } from "../../src/lib/p2p/meal-send";
 import { MealPayloadTooLargeError } from "../../src/lib/p2p/meal-reader";
 import { SealRefusedError } from "../../src/lib/p2p/sealed-frame";
 import { SendCodeSpentError } from "../../src/lib/p2p/send-code";
+import type { MealType } from "../../src/lib/food/meal-type";
 
 const FAILURES: SendFailure[] = [
   "unavailable",
@@ -100,31 +101,52 @@ describe("what one accept did", () => {
     logged: 0,
     absorbed: 0,
     lost: 0,
+    meal_types: [] as MealType[],
     landed: 0,
     skipped: 0,
   };
 
+  /** One meal was offered and it landed in one meal type — the common case. */
+  const intoLunch = { ...landed, meal_types: ["lunch" as MealType] };
+
   it("counts what went into the meal, and names the meal", () => {
-    const words = mealLandedWords({ ...landed, logged: 3 }, "lunch");
+    const words = mealLandedWords({ ...intoLunch, logged: 3 }, 1);
 
     expect(words.ending).toBe("landed");
     expect(words.line).toBe("3 foods added to your lunch.");
   });
 
   it("counts one food as one food", () => {
-    expect(mealLandedWords({ ...landed, logged: 1 }, "dinner").line).toBe(
-      "1 food added to your dinner."
+    expect(
+      mealLandedWords({ ...landed, logged: 1, meal_types: ["dinner"] }, 1).line
+    ).toBe("1 food added to your dinner.");
+  });
+
+  it("says a day went into the day, rather than naming four meals at somebody", () => {
+    const words = mealLandedWords(
+      { ...landed, logged: 6, meal_types: ["breakfast", "lunch", "dinner"] },
+      3
     );
+
+    expect(words.line).toBe("6 foods added to your day.");
   });
 
   it("says a meal accepted twice landed once, rather than saying nothing", () => {
-    const words = mealLandedWords({ ...landed, absorbed: 2 }, "lunch");
+    // Nothing landed, so there are no meal types to read: what was OFFERED is
+    // the only thing that can word this one.
+    const words = mealLandedWords({ ...landed, absorbed: 2 }, 1);
 
     expect(words.line).toBe("You already had this meal.");
   });
 
+  it("says a day accepted twice was already a day", () => {
+    const words = mealLandedWords({ ...landed, absorbed: 5 }, 3);
+
+    expect(words.line).toBe("You already had this day.");
+  });
+
   it("reports what could not be reproduced rather than rounding it away", () => {
-    const words = mealLandedWords({ ...landed, logged: 2, lost: 1 }, "lunch");
+    const words = mealLandedWords({ ...intoLunch, logged: 2, lost: 1 }, 1);
 
     expect(words.line).toBe("2 foods added to your lunch.");
     expect(words.detail).toMatch(/1 food could not be reproduced/);

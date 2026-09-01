@@ -428,3 +428,24 @@ not a refusal — is unaffected by a change made on the other device.
 
 What this amendment does **not** touch: §10's scope boundary itself, which ADR-0082 already
 revisited, and the rule that the sender learns nothing about the recipient's platform.
+
+## Amendment (2026-09-01, #308): the full day's panel has a way out too
+
+§1 says sending lives inside the meal's own nutrition panel. It lives inside the **full-day
+panel** as well, on the same argument rather than on a new one: §1's case is that the panel
+already IS "this meal, entire" and that handing it over is a control on the panel's subject,
+and the day panel is the same shell whose subject is the day.
+
+Everything §1 through §3 says about the control holds at both scales. It sits beside the
+panel's name rather than in a footer, it is absent rather than disabled when there is
+nothing to hand over, and **the panel turns into the code** rather than opening a second
+surface. The code face is now one component both panels mount, so the two cannot drift:
+mounting it starts the send and unmounting it cancels, which is what the meal panel's
+teardown did by hand.
+
+**The receiving surface follows.** It shows one meal as it always did, and a day as the
+meals it carries under their own names, with one button. ADR-0073's amendment of the same
+date is where the rule that gets each of them into the right Meal Type lives.
+
+§4's _"receiving has no door of its own"_ is untouched, and so is §7's written date: a day
+crossing two devices needs it more than a meal did, not less.

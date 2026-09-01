@@ -401,3 +401,35 @@ than re-deriving one against a memory bound nobody has measured; §10 removes th
 
 **Nothing here reaches the own-device half**, which pays `twin/raw_provenance` and the
 photos in full. That is deliberate and is ADR-0075's to defend.
+
+## Amendment (2026-09-01, #308): a payload carries meals, and each lands in its own Meal Type
+
+§5's re-mint is unchanged in every respect but one: **the Meal Type is read off each event
+rather than chosen once for the payload.** The clock and the day are still the recipient's,
+and the event id is still derived from the declared root.
+
+**What changed underneath it is the sender, not the wire.** §10's reading of the surface
+carried an assumption stated in code as _"a payload's events are one meal by construction —
+the sender hands over a meal panel, which is one meal entire."_ That was true while the way
+out was a meal's alone. The full-day panel has one now (ADR-0074's amendment of the same
+date), so a payload can carry a breakfast and a dinner, and the old rule would have filed
+the dinner under the recipient's breakfast.
+
+**Nothing about the payload format changes.** The rows are the events' own datoms, so each
+one already carries its `event/meal_type`; the accept path was discarding it in favour of an
+argument. Reading it is a narrowing of what was always on the wire, which is why no
+`schema_version` moves and an older payload is read correctly by a newer reader.
+
+The single-meal case is not a special case. One meal's events share one Meal Type, so they
+group into one and land exactly as they did before — the branch is in the data rather than
+in the code. `acceptMealPayload` therefore **loses its `meal_type` parameter** rather than
+defaulting it: a caller that could pass one could pass a wrong one.
+
+A Meal Type off another device's ledger is still narrowed through `asMealType`, and its
+fallback is load-bearing here for a second reason: a junk value joins the snacks rather than
+opening a fifth meal on the recipient's day.
+
+**§6's skip is untouched and still per entity**, so a day accepted twice absorbs exactly as
+a meal does. What the recipient is told changes only in wording: _added to your lunch_ for
+one meal, _added to your day_ for several, because listing four Meal Types at somebody
+looking at their own day says less than the word does.

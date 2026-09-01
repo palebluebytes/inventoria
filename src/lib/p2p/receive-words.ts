@@ -18,7 +18,6 @@
  * would make declining socially visible.
  */
 
-import type { MealType } from "../food/meal-type";
 import { endingCause, type EndingWords } from "./ending-words";
 import type { AcceptedMeal } from "./meal-accept";
 import { SendFailedError, type SendFailure } from "./meal-send";
@@ -173,10 +172,16 @@ const foods = (count: number): string =>
  * `lost` is reported and never rounded away. It is a Consumption Event the
  * payload carried too little of to reproduce, and quietly landing a shorter
  * meal than arrived is the failure ADR-0073 §8.7 refuses on the wire.
+ *
+ * **Two counts, because they answer different questions.** `landed.meal_types`
+ * is where the food actually went, and it names one meal or says "your day";
+ * `offered` is how many meals the person was looking at when they tapped, which
+ * is the only thing that can word the absorbed sentence — nothing landed in
+ * that case, so there are no meal types to read.
  */
 export function mealLandedWords(
   landed: AcceptedMeal,
-  meal_type: MealType
+  offered: number
 ): ReceiveWords {
   const detail =
     landed.lost > 0
@@ -186,15 +191,25 @@ export function mealLandedWords(
   if (landed.logged === 0 && landed.absorbed > 0) {
     return {
       ending: "landed",
-      line: "You already had this meal.",
+      line:
+        offered === 1
+          ? "You already had this meal."
+          : "You already had this day.",
       detail: "It was accepted before, so nothing was added twice.",
       cause: null,
     };
   }
 
+  // One meal is named; a day is not, because listing four meal types in a
+  // sentence tells somebody looking at their own day nothing they cannot see.
+  const where =
+    landed.meal_types.length === 1
+      ? `your ${landed.meal_types[0]}`
+      : "your day";
+
   return {
     ending: "landed",
-    line: `${foods(landed.logged)} added to your ${meal_type}.`,
+    line: `${foods(landed.logged)} added to ${where}.`,
     detail,
     cause: null,
   };

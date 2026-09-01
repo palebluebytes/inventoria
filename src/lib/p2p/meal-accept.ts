@@ -11,11 +11,17 @@
  *
  *   1. **The meal is re-logged, not merged in** (§5). Receiving is
  *      `copyPastMeal` with a wire in front of it: the same re-log of frozen
- *      fields into the meal and day the recipient chose, differing only in that
- *      the event id is derived from the payload's declared root rather than
- *      minted fresh. There is **no closure rewrite at all** — `event/target`
- *      carries through untouched, and every reference in the payload still
- *      resolves, because the twins cross with their own ids.
+ *      fields into the day the recipient chose, differing only in that the
+ *      event id is derived from the payload's declared root rather than minted
+ *      fresh. There is **no closure rewrite at all** — `event/target` carries
+ *      through untouched, and every reference in the payload still resolves,
+ *      because the twins cross with their own ids.
+ *
+ *      **Each event lands in its own Meal Type**, read off the event rather
+ *      than chosen by the caller (§5, amended 2026-09-01). A payload can carry
+ *      a whole day now that the full-day panel has a way out, and one meal type
+ *      taken off the front of it would put a dinner in somebody's breakfast.
+ *      One meal is the case where every event agrees, so it needs no branch.
  *   2. **An entity the recipient already holds is skipped whole** (§6). Not
  *      merged, not latest-wins: projections take the last row in logical-clock
  *      order, so merging would let a sender's numbers overwrite the recipient's
@@ -41,7 +47,7 @@ import { ingestEntity } from "../ingestion/ingest";
 import { dbClient } from "../db/db.client";
 import type { Datom, LedgerRow } from "../db/db.core";
 import type { ConsumptionEvent } from "../food/consumption-state";
-import { partitionCopyable } from "../food/past-meals";
+import type { MealType } from "../food/meal-type";
 import { buildArrival, FOOD_ARRIVAL_ATTR } from "../food/provenance";
 import {
   loadSearchCorpus,
@@ -50,7 +56,7 @@ import {
 } from "../food/usda-corpus";
 import { copyPastMeal } from "../stores/calorie.store";
 import { MEAL_ROOT_PREFIX, winningRows } from "./meal-payload";
-import { receivedMealEvents } from "./received-meal";
+import { mealsByType, receivedMealEvents } from "./received-meal";
 import type { ReceivedMealPayload } from "./meal-reader";
 
 /**
@@ -85,6 +91,14 @@ export interface AcceptedMeal {
    * carried too little of to reproduce, or one whose append threw.
    */
   lost: number;
+  /**
+   * The Meal Types this landed in, in the order the day was eaten.
+   *
+   * What the recipient is told reads this rather than the caller's argument,
+   * because there is no longer a caller's argument: several means a day was
+   * handed over and "added to your breakfast" would be false.
+   */
+  meal_types: MealType[];
   /** Food twins and recipes this meal landed. */
   landed: number;
   /** Twins skipped whole because the recipient already held them (§6). */
@@ -159,8 +173,9 @@ export async function receivedEventId(root: string): Promise<string> {
 }
 
 /**
- * Lands a received meal: its twins as datoms on this device's clock, then its
- * Consumption Events re-logged into `meal_type` on `selectedDate`.
+ * Lands a received payload: its twins as datoms on this device's clock, then
+ * its Consumption Events re-logged on `selectedDate`, each into the Meal Type
+ * its own event carries.
  *
  * The twins go first and in one batch, so a meal's foods land together or not at
  * all and no event is ever logged against a twin that failed to arrive. The
@@ -170,7 +185,6 @@ export async function receivedEventId(root: string): Promise<string> {
  */
 export async function acceptMealPayload(
   payload: ReceivedMealPayload,
-  meal_type: string,
   selectedDate: Date,
   seams: MealAcceptSeams = LEDGER_SEAMS
 ): Promise<AcceptedMeal> {
@@ -229,12 +243,28 @@ export async function acceptMealPayload(
   // what the person was shown and what this lands must be the same meal.
   const events = receivedMealEvents(rows, payload.roots);
   const fresh = events.filter((event) => !held.has(reminted.get(event.id)!));
-  const { copied } = await seams.logMeal(
-    partitionCopyable(fresh).copyable,
-    meal_type,
-    selectedDate,
-    (item) => reminted.get(item.id)!
-  );
+
+  // One call per Meal Type rather than one for the payload. `logMeal` is
+  // `copyPastMeal`, which takes the meal a copy lands in, so a day is as many
+  // copies as it has meals — and a single meal is one group, which is the same
+  // one call it always was.
+  //
+  // Sequential on purpose. Each call appends, and ADR-0058 §11's contract is
+  // that one failed append leaves the rest of the meal accepted; running the
+  // groups concurrently would interleave those appends for no gain a person
+  // could perceive, on a path whose whole cost is already the wire.
+  let copied = 0;
+  const meal_types: MealType[] = [];
+  for (const [meal_type, items] of mealsByType(fresh)) {
+    meal_types.push(meal_type);
+    const landed = await seams.logMeal(
+      items,
+      meal_type,
+      selectedDate,
+      (item) => reminted.get(item.id)!
+    );
+    copied += landed.copied;
+  }
 
   const absorbed = events.length - fresh.length;
   return {
@@ -244,6 +274,7 @@ export async function acceptMealPayload(
     // a root the payload carried nothing usable for is reported rather than
     // quietly disappearing between the two.
     lost: payload.roots.length - absorbed - copied,
+    meal_types,
     landed: landing.length,
     skipped: twins.size - landing.length,
   };

@@ -41,6 +41,8 @@
   import NutrientCardGrid from "./NutrientCardGrid.svelte";
   import NutrientGroupHead from "./NutrientGroupHead.svelte";
   import NutritionPanel from "./NutritionPanel.svelte";
+  import SendFace from "./SendFace.svelte";
+  import WayOutIcon from "./WayOutIcon.svelte";
   import NutritionPanelCell from "./NutritionPanelCell.svelte";
   import { longpress } from "../../actions/longpress";
   import WayInIcon from "./WayInIcon.svelte";
@@ -197,6 +199,16 @@
   // Gate on real logged items: an empty day shows a plain "no food added" state
   // instead, and only fills the sections once something is logged.
   let hasLoggedFood = $derived(dayItems.length > 0);
+
+  // The day's way out (ADR-0074 §1, amended 2026-09-01). The full-day panel is
+  // a meal's panel one scale up and it hands over the same way: the panel turns
+  // into the code, and `SendFace` is literally the same component rather than a
+  // second copy of a live secret's lifecycle.
+  //
+  // What crosses is every Consumption Event on the day, and each one lands in
+  // the Meal Type it carries — so a day arrives as a day rather than as one
+  // enormous breakfast (ADR-0073 §5, amended the same day).
+  let handingDay = $state(false);
   let showFullDay = $state(false);
 
   // Which meal's own panel is open (ADR-0074 §1), reached from the meal's name
@@ -476,10 +488,41 @@
   <NutritionPanel
     title="Full day nutrition"
     testId="day-nutrient-breakdown"
-    onClose={() => (showFullDay = false)}
+    onClose={() => {
+      showFullDay = false;
+      handingDay = false;
+    }}
   >
+    <!-- Beside the panel's name, because it is a control on the SUBJECT of the
+         panel rather than on the panel — the same place, the same square and
+         the same icon as a meal's. Absent while handing, and absent on a day
+         with nothing in it, on ADR-0059 §4's rule that a control which can be
+         dead on arrival is hidden rather than disabled. -->
+    {#snippet actions()}
+      {#if !handingDay && dayKnown && hasLoggedFood}
+        <button
+          type="button"
+          class="way-out"
+          data-testid="day-way-out"
+          aria-label="Hand this day to someone"
+          title="Hand this day to someone"
+          onclick={() => (handingDay = true)}
+        >
+          <WayOutIcon />
+        </button>
+      {/if}
+    {/snippet}
+
     {#snippet body()}
-      {#if !dayKnown}
+      {#if handingDay}
+        <SendFace
+          roots={dayItems.map((item) => item.id)}
+          foods={dayItems.length}
+          calories={dayTotals.calories}
+          date={selectedDate}
+          calorieDecimals={$calorieDisplayDecimals}
+        />
+      {:else if !dayKnown}
         <!-- The same distinction the dashboard draws: an unread day is not an
                  empty one, and this modal must not claim it is either. -->
         <div class="rda-empty" data-testid="rda-loading" aria-busy="true">
@@ -585,6 +628,27 @@
 {/if}
 
 <style>
+  /* A header control on the panel's subject, sized to sit beside the close and
+     unframed like it, so two header controls read as one row of marks. The same
+     square `MealNutritionPanel` gives a meal's way out; the two are the same
+     control at two scales and must not drift apart. */
+  .way-out {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--text-primary);
+    line-height: 1;
+    cursor: pointer;
+  }
+  .way-out :global(svg) {
+    width: 1.35rem;
+    height: 1.35rem;
+  }
+
   /* The strip shows the day number; this line is what carries the month. It
      rides tight against the strip on a phone and opens up on a wide screen.
      (It used to carry an `mt-4` class this component never defined, so its only

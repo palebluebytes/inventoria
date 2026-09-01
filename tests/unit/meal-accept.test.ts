@@ -95,6 +95,26 @@ function oneFoodMeal(): ReceivedMealPayload {
   );
 }
 
+/** One food eaten at a named meal and a named moment, as five rows. */
+const BREAKFAST_AT = 1_700_000_001_000;
+const DINNER_AT = 1_700_000_009_000;
+
+function eaten(
+  entity: string,
+  meal_type: string,
+  quantity: string,
+  calories: number,
+  time: number
+): LedgerRow[] {
+  return [
+    row(entity, "event/type", "ConsumeAction", { time }),
+    row(entity, "event/target", "fdc:1001", { time }),
+    row(entity, "event/quantity", quantity, { time }),
+    row(entity, "event/meal_type", meal_type, { time }),
+    row(entity, "event/metrics", { calories }, { time }),
+  ];
+}
+
 /** The seams, remembering what the accept path asked each of them to do. */
 function seamsOver(
   held: string[] = [],
@@ -179,29 +199,69 @@ describe("the re-minted event id (ADR-0073 §5)", () => {
     }));
 
     const first = seamsOver();
-    await acceptMealPayload(oneFoodMeal(), "dinner", VIEWED_DAY, first.seams);
+    await acceptMealPayload(oneFoodMeal(), VIEWED_DAY, first.seams);
     const second = seamsOver();
-    await acceptMealPayload(resent, "dinner", VIEWED_DAY, second.seams);
+    await acceptMealPayload(resent, VIEWED_DAY, second.seams);
 
     expect(second.logged[0].ids).toEqual(first.logged[0].ids);
   });
 });
 
 describe("accepting a meal", () => {
-  it("logs the meal into the recipient's own meal and day", async () => {
+  it("logs the meal into the meal type it carries, on the recipient's own day", async () => {
     const { seams, logged } = seamsOver();
-    await acceptMealPayload(oneFoodMeal(), "dinner", VIEWED_DAY, seams);
+    const landed = await acceptMealPayload(oneFoodMeal(), VIEWED_DAY, seams);
 
     expect(logged).toHaveLength(1);
-    // The sender logged this at lunch; the recipient is accepting into dinner.
-    expect(logged[0].meal_type).toBe("dinner");
+    // The sender logged this at lunch, and it lands at lunch: the meal type is
+    // the event's own rather than the caller's, which is what lets a whole day
+    // arrive as a day (ADR-0073 §5, amended 2026-09-01). The DAY is still the
+    // recipient's, and that half is unchanged.
+    expect(logged[0].meal_type).toBe("lunch");
     expect(logged[0].selectedDate).toBe(VIEWED_DAY);
     expect(logged[0].items.map((i) => i.target)).toEqual(["fdc:1001"]);
+    expect(landed.meal_types).toEqual(["lunch"]);
+  });
+
+  it("lands a day in as many meals as it carries, in the order it was eaten", async () => {
+    const { seams, logged } = seamsOver();
+    const landed = await acceptMealPayload(
+      payloadOf(
+        [
+          // Dinner first on the wire, and later on the clock: the grouping is
+          // the day's order, not the payload's.
+          ...eaten("event:consume_d", "dinner", "120g", 42, DINNER_AT),
+          ...eaten("event:consume_b", "breakfast", "90g", 32, BREAKFAST_AT),
+          row("fdc:1001", "food/name", "Kale, raw"),
+          row("fdc:1001", "nutrition/info", {
+            serving_size: "100 g",
+            calories: 35,
+          }),
+        ],
+        ["event:consume_d", "event:consume_b"]
+      ),
+      VIEWED_DAY,
+      seams
+    );
+
+    // One call per meal rather than one for the payload, and breakfast first
+    // because that is the order the day was eaten in.
+    expect(logged.map((call) => call.meal_type)).toEqual([
+      "breakfast",
+      "dinner",
+    ]);
+    expect(logged.map((call) => call.items.length)).toEqual([1, 1]);
+    expect(landed.meal_types).toEqual(["breakfast", "dinner"]);
+    expect(landed.logged).toBe(2);
+    // Every one of them lands on the day the recipient is looking at.
+    expect(new Set(logged.map((call) => call.selectedDate))).toEqual(
+      new Set([VIEWED_DAY])
+    );
   });
 
   it("re-mints the event from the declared root and rewrites no reference", async () => {
     const { seams, logged } = seamsOver();
-    await acceptMealPayload(oneFoodMeal(), "dinner", VIEWED_DAY, seams);
+    await acceptMealPayload(oneFoodMeal(), VIEWED_DAY, seams);
 
     expect(logged[0].ids).toEqual([await receivedEventId("event:consume_src")]);
     expect(logged[0].items[0].target).toBe("fdc:1001");
@@ -225,7 +285,7 @@ describe("accepting a meal", () => {
       ["event:consume_src"]
     );
     const { seams, appended } = seamsOver();
-    await acceptMealPayload(meal, "dinner", VIEWED_DAY, seams);
+    await acceptMealPayload(meal, VIEWED_DAY, seams);
 
     const landed = landedAttributes(appended, "food:custom_x1y2");
     expect(landed["food/name"]).toBe("Nan's apple cake");
@@ -245,7 +305,7 @@ describe("accepting a meal", () => {
     );
     meal.roots.push("event:consume_two");
     const { seams, appended } = seamsOver();
-    await acceptMealPayload(meal, "dinner", VIEWED_DAY, seams);
+    await acceptMealPayload(meal, VIEWED_DAY, seams);
 
     // One append, so a meal's foods land or none of them do.
     expect(appended).toHaveLength(1);
@@ -269,7 +329,7 @@ describe("accepting a meal", () => {
       })
     );
     const { seams, appended } = seamsOver();
-    await acceptMealPayload(meal, "dinner", VIEWED_DAY, seams);
+    await acceptMealPayload(meal, VIEWED_DAY, seams);
 
     expect(landedAttributes(appended, "fdc:1001")["food/name"]).toBe(
       "Kale, corrected"
@@ -278,16 +338,13 @@ describe("accepting a meal", () => {
 
   it("counts what it did", async () => {
     const { seams } = seamsOver();
-    const result = await acceptMealPayload(
-      oneFoodMeal(),
-      "dinner",
-      VIEWED_DAY,
-      seams
-    );
+    const result = await acceptMealPayload(oneFoodMeal(), VIEWED_DAY, seams);
     expect(result).toEqual({
       logged: 1,
       absorbed: 0,
       lost: 0,
+      // Where it went, so the words can name one meal or say "your day".
+      meal_types: ["lunch"],
       landed: 1,
       skipped: 0,
     });
@@ -297,12 +354,7 @@ describe("accepting a meal", () => {
 describe("what the recipient already holds (ADR-0073 §6)", () => {
   it("skips a held twin whole and logs against the one they have", async () => {
     const { seams, appended, logged } = seamsOver(["fdc:1001"]);
-    const result = await acceptMealPayload(
-      oneFoodMeal(),
-      "dinner",
-      VIEWED_DAY,
-      seams
-    );
+    const result = await acceptMealPayload(oneFoodMeal(), VIEWED_DAY, seams);
 
     expect(appended).toEqual([]);
     expect(result.skipped).toBe(1);
@@ -314,7 +366,7 @@ describe("what the recipient already holds (ADR-0073 §6)", () => {
   it("never rewrites a held twin's numbers with the sender's", async () => {
     const meal = oneFoodMeal();
     const { seams, appended } = seamsOver(["fdc:1001"]);
-    await acceptMealPayload(meal, "dinner", VIEWED_DAY, seams);
+    await acceptMealPayload(meal, VIEWED_DAY, seams);
     // Not merged, not latest-wins: every line the payload carried for that
     // entity is discarded, so a correction the recipient made survives.
     expect(landedAttributes(appended, "fdc:1001")).toEqual({});
@@ -322,7 +374,7 @@ describe("what the recipient already holds (ADR-0073 §6)", () => {
 
   it("absorbs a second accept of the same payload", async () => {
     const first = seamsOver();
-    await acceptMealPayload(oneFoodMeal(), "dinner", VIEWED_DAY, first.seams);
+    await acceptMealPayload(oneFoodMeal(), VIEWED_DAY, first.seams);
 
     // The ledger now holds the twin and the re-minted event, which is exactly
     // what the derived id buys: the second accept has nothing left to write.
@@ -332,7 +384,6 @@ describe("what the recipient already holds (ADR-0073 §6)", () => {
     ]);
     const result = await acceptMealPayload(
       oneFoodMeal(),
-      "dinner",
       VIEWED_DAY,
       second.seams
     );
@@ -341,6 +392,9 @@ describe("what the recipient already holds (ADR-0073 §6)", () => {
       logged: 0,
       absorbed: 1,
       lost: 0,
+      // Nothing was written, so there is no meal to name — which is why the
+      // absorbed sentence is worded from what was OFFERED rather than from this.
+      meal_types: [],
       landed: 0,
       skipped: 1,
     });
@@ -352,7 +406,7 @@ describe("what the recipient already holds (ADR-0073 §6)", () => {
 describe("the recipient's own clock (ADR-0073 §7)", () => {
   it("carries no stamp of the sender's into the ledger", async () => {
     const { seams, appended } = seamsOver();
-    await acceptMealPayload(oneFoodMeal(), "dinner", VIEWED_DAY, seams);
+    await acceptMealPayload(oneFoodMeal(), VIEWED_DAY, seams);
 
     for (const datom of appended.flat()) {
       // A `Datom` is the append path's write shape and has no stamp columns at
@@ -372,7 +426,7 @@ describe("the recipient's own clock (ADR-0073 §7)", () => {
 describe("rebuilding what was left off the wire (ADR-0073 §3)", () => {
   it("rebuilds an fdc: twin's provenance from the bundle it already holds", async () => {
     const { seams, appended } = seamsOver();
-    await acceptMealPayload(oneFoodMeal(), "dinner", VIEWED_DAY, seams);
+    await acceptMealPayload(oneFoodMeal(), VIEWED_DAY, seams);
 
     // The identical blob the search path would have written, from the same
     // mapper over the same row — offline, and with no network.
@@ -383,12 +437,7 @@ describe("rebuilding what was left off the wire (ADR-0073 §3)", () => {
 
   it("lands the food without provenance when the corpus has no such row", async () => {
     const { seams, appended } = seamsOver([], corpusOf([]));
-    const result = await acceptMealPayload(
-      oneFoodMeal(),
-      "dinner",
-      VIEWED_DAY,
-      seams
-    );
+    const result = await acceptMealPayload(oneFoodMeal(), VIEWED_DAY, seams);
 
     // A different corpus vintage is a silent degradation, never a refusal: the
     // NOVA badge reads "not rated", which is the neutral answer.
@@ -400,12 +449,7 @@ describe("rebuilding what was left off the wire (ADR-0073 §3)", () => {
 
   it("lands the food when the bundle cannot be read at all", async () => {
     const { seams, appended } = seamsOver([], new Error("offline"));
-    const result = await acceptMealPayload(
-      oneFoodMeal(),
-      "dinner",
-      VIEWED_DAY,
-      seams
-    );
+    const result = await acceptMealPayload(oneFoodMeal(), VIEWED_DAY, seams);
     expect(
       landedAttributes(appended, "fdc:1001")["twin/raw_provenance"]
     ).toBeUndefined();
@@ -424,7 +468,7 @@ describe("rebuilding what was left off the wire (ADR-0073 §3)", () => {
       ["event:consume_src"]
     );
     const { seams, appended } = seamsOver();
-    await acceptMealPayload(meal, "dinner", VIEWED_DAY, seams);
+    await acceptMealPayload(meal, VIEWED_DAY, seams);
 
     // Re-fetching it would tell OFF's servers which barcodes you were sent.
     expect(
@@ -436,7 +480,7 @@ describe("rebuilding what was left off the wire (ADR-0073 §3)", () => {
 describe("the arrival mark (ADR-0073 §11)", () => {
   it("marks every food the meal landed", async () => {
     const { seams, appended } = seamsOver();
-    await acceptMealPayload(oneFoodMeal(), "dinner", VIEWED_DAY, seams);
+    await acceptMealPayload(oneFoodMeal(), VIEWED_DAY, seams);
 
     expect(landedAttributes(appended, "fdc:1001")[FOOD_ARRIVAL_ATTR]).toEqual({
       adapter: "send",
@@ -447,7 +491,7 @@ describe("the arrival mark (ADR-0073 §11)", () => {
 
   it("does not mark a food the recipient already held", async () => {
     const { seams, appended } = seamsOver(["fdc:1001"]);
-    await acceptMealPayload(oneFoodMeal(), "dinner", VIEWED_DAY, seams);
+    await acceptMealPayload(oneFoodMeal(), VIEWED_DAY, seams);
     // Their own food is not a received one; the meal simply logs against it.
     expect(appended.flat()).toEqual([]);
   });
@@ -470,7 +514,7 @@ describe("the arrival mark (ADR-0073 §11)", () => {
       ["event:consume_src"]
     );
     const { seams, appended } = seamsOver();
-    await acceptMealPayload(meal, "dinner", VIEWED_DAY, seams);
+    await acceptMealPayload(meal, VIEWED_DAY, seams);
 
     const landed = landedAttributes(appended, "recipe:bolognese");
     expect(landed["recipe/name"]).toBe("Beef bolognese");
