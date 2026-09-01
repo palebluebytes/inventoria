@@ -79,7 +79,7 @@ describe("a food line", () => {
           render: () => "<span>✓</span>",
         })),
       },
-    } as Parameters<typeof render>[1]);
+    } as Record<string, unknown>);
 
     expect(body).toContain("✓");
     expect(body).not.toContain("fi-remove");

@@ -19,9 +19,10 @@
   // (the dashboard's photo thumb) also passes the ✕ that keeps it a div.
   //
   // `...rest` is the a11y/semantics escape hatch (`aria-*`, `data-*`), NOT a
-  // styling channel — same contract as Button and Card. The HTML `title`
-  // attribute is deliberately not reachable through it: `title` here is the
-  // row's own heading, which is the word every call site wants.
+  // styling channel — same contract as Button and Card, and the named `class`
+  // props below are the only way to reach a part. The HTML `title` attribute is
+  // deliberately not reachable through `...rest`: `title` here is the row's own
+  // heading, which is the word every call site wants.
   let {
     title,
     subtitle = "",
@@ -69,6 +70,9 @@
 
 {#snippet body()}
   {@render lead?.()}
+  <!-- A span, not a div: one body serves both element modes, and a <button>
+       may only hold phrasing content. `display: flex` makes it a column
+       regardless. -->
   <span class="row-text">
     <span class="row-title {titleClass}">{title}</span>
     {#if subtitle}
@@ -93,7 +97,13 @@
 {/snippet}
 
 {#if asButton}
-  <button {...rest} type="button" class="row clickable {className}" {onclick}>
+  <button
+    {...rest}
+    type="button"
+    class="row clickable {className}"
+    class:selected
+    {onclick}
+  >
     {@render body()}
   </button>
 {:else}
@@ -142,8 +152,10 @@
     touch-action: manipulation;
   }
   /* The one unified brutalist focus ring, shared with Button and Card
-     (ADR-0039) — both element modes reach it. */
-  .row.clickable:focus-visible {
+     (ADR-0039). It is scoped to the native-button mode because the div mode is
+     the food line, whose rendered output #319 may not change: that row keeps
+     the browser's own ring, as it has since it shipped. */
+  button.row:focus-visible {
     outline: 2px solid var(--ink);
     outline-offset: 2px;
   }

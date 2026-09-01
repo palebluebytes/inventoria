@@ -287,7 +287,7 @@ describe("Row", () => {
   it("falls back to a div role=button when it holds corner content", () => {
     const { body } = render(Row, {
       props: { ...props, onclick: () => {}, corner: mark("✓") },
-    } as Parameters<typeof render>[1]);
+    } as Record<string, unknown>);
     expect(body).toMatch(/<div[^>]*role="button"/);
     expect(body).not.toMatch(/<button[^>]*class="row[ "]/);
   });
@@ -310,7 +310,7 @@ describe("Row", () => {
   it("gives the corner to `corner` when both it and a remove are passed", () => {
     const { body } = render(Row, {
       props: { ...props, onRemove: () => {}, corner: mark("✓") },
-    } as Parameters<typeof render>[1]);
+    } as Record<string, unknown>);
     expect(body).toContain("row-corner");
     expect(body).toContain("✓");
     expect(body).not.toContain("row-remove");
@@ -319,14 +319,19 @@ describe("Row", () => {
   it("places the lead ahead of the text and the trailing mark after it", () => {
     const { body } = render(Row, {
       props: { ...props, lead: mark("⚡"), trailing: mark("›") },
-    } as Parameters<typeof render>[1]);
+    } as Record<string, unknown>);
     expect(body.indexOf("⚡")).toBeLessThan(body.indexOf("row-title"));
     expect(body.indexOf("›")).toBeGreaterThan(body.indexOf("row-subtitle"));
   });
 
-  it("marks the selected row", () => {
-    const { body } = render(Row, { props: { ...props, selected: true } });
-    expect(body).toMatch(/class="[^"]*\bselected\b/);
+  it("marks the selected row in either element mode", () => {
+    const asDiv = render(Row, { props: { ...props, selected: true } });
+    expect(asDiv.body).toMatch(/<div[^>]*class="[^"]*\bselected\b/);
+
+    const asButton = render(Row, {
+      props: { ...props, selected: true, onclick: () => {} },
+    });
+    expect(asButton.body).toMatch(/<button[^>]*class="[^"]*\bselected\b/);
   });
 
   it("keeps the caller's class on the root beside the base class", () => {

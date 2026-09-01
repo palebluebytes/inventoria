@@ -12,7 +12,7 @@ have caused confusion, which are not stylistic preferences but names to stop usi
 
 **Datom**:
 The atomic unit of storage representing a single fact, consisting of an entity ID, an attribute, a value, a domain timestamp, and a hybrid logical clock stamp that gives it a deterministic total order (ADR-0020). Reads fold in clock order, not timestamp order. The full column list is in `docs/eavt-vocabulary.md`.
-_Avoid_: Row, record, database entry
+_Avoid_: Row (a stored fact is never a row — **Row** names the list-line UI primitive), record, database entry
 
 **Ledger**:
 The append-only, immutable database table (`datoms`) containing the full chronological sequence of all datoms. Current state is derived by querying this historical log.
@@ -388,7 +388,9 @@ a muted subtitle, a trailing mark, and an optional corner. It is Card's flat sib
 a native `<button>` when it is clickable and holds no corner, a `div role="button"`
 otherwise, because HTML forbids the remove ✕ inside a button. A chooser tile is a
 Row, not a Card; the food line (`views/food/FoodItemRow.svelte`) is a Row wearing
-food formatting.
+food formatting. It is a screen line and never a stored fact — that is a **Datom**.
+It carries the ADR-0038 frame tokens and ADR-0039's `class`-only styling channel;
+the two element modes are #319's own rule and have no ADR of their own.
 _Avoid_: List item, tile, ListRow, a second row component
 
 **Meter**:
