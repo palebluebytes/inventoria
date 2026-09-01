@@ -1,10 +1,11 @@
 import { stemOf, wordsOf } from "../food/reference-food-ranking";
 import { loadSearchCorpus, type SearchCorpus } from "../food/usda-corpus";
-import { appendToChannel, defineChannel, readChannel } from "./log-facility";
+import { appendToChannel, defineChannel } from "./log-facility";
 
 /**
  * The search channel (ADR-0053): what a reference-food search that found nothing
- * leaves behind, and the bar that reading feeds.
+ * leaves behind. The bar it feeds is read off an export, not in the app — see
+ * the note at the foot of this module.
  *
  * Three open questions want the same fact and none of them can get it. #142 asks
  * whether anyone types a vocabulary synonym INSIDE a longer phrase; its sweep
@@ -134,27 +135,6 @@ export function flagVocabulary(
     }
   }
   return { mid_phrase, schema_version };
-}
-
-/**
- * The same entries with their flags recomputed against the CURRENT map, leaving
- * the stored capture-time flags untouched.
- *
- * The vocabulary re-derives from the corpus on every filter change — #142 alone
- * was re-sized four times — and #134 and #137 are both open and both move the
- * corpus. Keeping both readings is what makes a session that would have been
- * flagged then and would not be now visible as a finding about churn rather than
- * invisible as a discrepancy (ADR-0053 §4).
- */
-export function withCurrentVocabulary(
-  entries: readonly SearchLogEntry[],
-  vocabulary: Record<string, string[]>,
-  schema_version: number
-): SearchLogEntry[] {
-  return entries.map((entry) => ({
-    ...entry,
-    vocabulary: flagVocabulary(entry.query, vocabulary, schema_version),
-  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -386,18 +366,17 @@ export const SEARCH_CHANNEL = defineChannel({
 });
 
 /**
- * Records a finished session, if it has anything to say, and returns what the
- * bar reads once it is in — `null` for a session that left no entry.
+ * Records a finished session, if it has anything to say.
  *
- * The bar is evaluated **on the write**, which is what "each trigger fires
- * itself" means (ADR-0053 §7, as amended): the counts need no window, no review
- * date and nobody to remember a day six weeks ago. Nothing is pushed at the user
- * on the strength of it, and that is deliberate — ADR-0053's Consequences accept
- * that the Settings surface is the only affordance, "because the alternative is
- * a nagging surface built for an audience of one".
+ * It used to return what ADR-0053 §7's bar read once the entry was in, because
+ * a Settings readout drew that verdict. ADR-0080 §6 deleted the readout, and
+ * with it the last reader of a bar computed in the app: the counts are derived
+ * from the exported channel by the person who cares, whenever they care. So
+ * this records and says nothing, and its one caller was already ignoring what
+ * it said.
  *
- * Never throws and never blocks: the promise exists so a reader can have the
- * reading, not so a caller can wait for it.
+ * Never throws and never blocks: the promise exists so a caller can ignore it,
+ * not so it can wait.
  *
  * The early return matters: a session that found its food every time must not
  * reach for the corpus, because a user who never searched would pay a fetch for
@@ -406,9 +385,8 @@ export const SEARCH_CHANNEL = defineChannel({
 export async function recordSearchSession(
   session: SearchSession,
   load: () => Promise<SearchCorpus> = loadSearchCorpus
-): Promise<VocabularyBarReading | null> {
-  if (session.empty_query === null && session.rescued_query === null)
-    return null;
+): Promise<void> {
+  if (session.empty_query === null && session.rescued_query === null) return;
   try {
     const corpus = await load();
     const entry = closeSearchSession(session, {
@@ -417,95 +395,28 @@ export async function recordSearchSession(
       vocabulary: corpus.vocabulary,
       schema_version: corpus.schema_version,
     });
-    if (!entry) return null;
+    if (!entry) return;
     appendToChannel(SEARCH_CHANNEL, entry);
-    return readSearchChannelBar();
   } catch {
     // The corpus is precached, so a failure here is a broken install — and a
     // broken install must not also break the search that just answered.
-    return null;
   }
 }
 
 // ---------------------------------------------------------------------------
-// The bar (ADR-0053 §7, as amended)
+// The bar (ADR-0053 §7, as amended) is NOT here
 // ---------------------------------------------------------------------------
-
-/** #142 builds once this many mid-phrase sessions have been recorded. */
-export const BUILD_AT_MID_PHRASE = 6;
-/** #142 closes as a settled no at this many settled empty sessions. */
-export const CLOSE_AT_SETTLED_EMPTY = 40;
-
-/** What the channel currently says about #142. */
-export interface VocabularyBarReading {
-  /** The denominator: settled sessions whose empty result the user saw. */
-  settled_empty: number;
-  /** Those of them whose empty query carried a mid-phrase vocabulary key. */
-  mid_phrase: number;
-  verdict: "build" | "close" | "undecided";
-}
-
-/**
- * Reads the bar. Pure, and evaluated on every write, so each trigger fires
- * itself: there is no window and no review date, because the app is not yet in
- * use and a calendar with no start would send #142 back to the sweep's reach
- * number the moment the instrument was built.
- *
- * **A `rescued_by_vocabulary` session is excluded from the denominator.** The
- * fallback answered, the user never saw "No food found", so no guess was forced
- * and no retry was saved; those sessions price ADR-0049's shipped fallback
- * instead, which is a different question in the same channel.
- *
- * Moving either number is an amendment to ADR-0053, not an edit here.
- */
-export function readVocabularyBar(
-  entries: readonly SearchLogEntry[]
-): VocabularyBarReading {
-  const counted = entries.filter(
-    (entry) => entry.settled && entry.outcome.kind !== "rescued_by_vocabulary"
-  );
-  const mid_phrase = counted.filter(
-    (entry) => entry.vocabulary.mid_phrase.length > 0
-  ).length;
-  return {
-    settled_empty: counted.length,
-    mid_phrase,
-    verdict:
-      mid_phrase >= BUILD_AT_MID_PHRASE
-        ? "build"
-        : counted.length >= CLOSE_AT_SETTLED_EMPTY
-          ? "close"
-          : "undecided",
-  };
-}
-
-/**
- * The bar over the flags each session was captured with. Synchronous, because
- * the entries carry everything it needs.
- */
-export function readSearchChannelBar(): VocabularyBarReading {
-  return readVocabularyBar(readChannel(SEARCH_CHANNEL));
-}
-
-/**
- * The same bar, re-read against the Vocabulary map **as it stands now**
- * (ADR-0053 §4). The corpus has to be loaded for that, so this one is async; it
- * is the same memoised artifact the search itself reads, warmed at startup.
- *
- * Both readings are shown, and neither replaces the other. A session that would
- * have been flagged under the map it was captured against and would not be under
- * today's is a finding about churn — the vocabulary re-derives on every corpus
- * change — rather than a discrepancy to reconcile away.
- */
-export async function recomputeSearchChannelBar(
-  load: () => Promise<SearchCorpus> = loadSearchCorpus
-): Promise<VocabularyBarReading> {
-  const corpus = await load();
-  return readVocabularyBar(
-    withCurrentVocabulary(
-      readChannel(SEARCH_CHANNEL),
-      corpus.vocabulary,
-      corpus.schema_version
-    )
-  );
-}
+//
+// It used to be: a pure fold over the channel that counted settled empty
+// sessions and mid-phrase ones, the two thresholds beside it, and a second
+// reading recomputed against the vocabulary as it stands now. All of it existed
+// to feed one readout on the Settings screen, and ADR-0080 §6 deleted that
+// readout — a permanent readout of a question that has an ending is how the #41
+// comments in `NutrientCard.svelte` went stale.
+//
+// **The channel is untouched.** Every entry still carries the query, whether the
+// session settled, its outcome and the vocabulary keys it was flagged against at
+// capture time, so #142's verdict is a fold anyone can run over an exported file.
+// Moving either threshold is still an amendment to ADR-0053 and not an edit
+// here; the record holds them, which is where they were pinned in the first
+// place.

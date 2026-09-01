@@ -17,11 +17,11 @@
     type LogChannel,
   } from "../../logs/log-facility";
   import type { FacetId } from "../../facets/registry";
-  import type { VocabularyBarReading } from "../../logs/search-log";
-  import {
-    readSearchChannelBar,
-    recomputeSearchChannelBar,
-  } from "../../logs/search-log";
+  // Imported for its side effect: a channel is declared and registered in the
+  // same act, so reaching the search channel's module is what puts it in the
+  // registry this card lists. Nothing is read out of it here — ADR-0080 §6
+  // deleted the one readout that was.
+  import "../../logs/search-log";
 
   // The controls ADR-0053 §1 names — the entry count, a switch that stops the
   // recording, and an action that clears the log — plus ADR-0054 §4's export
@@ -29,10 +29,8 @@
   // come from making the instrument opt-in, because a recorder gated behind a
   // toggle that defaults to off measures nothing.
   //
-  // Importing the search channel's module is what REGISTERS it — a channel is
-  // declared and registered in the same act — so this screen reaches it through
-  // the one reading that is about that channel rather than about the facility,
-  // and lists whatever else the registry holds generically.
+  // What it lists comes from the facility's registry, generically, and never
+  // from a list held here.
   //
   // **One card, rendered once per Facet** (ADR-0080 §2). The Facet is the whole
   // of what changes between the two: which channels are listed, which key the
@@ -64,44 +62,27 @@
   // svelte-ignore state_referenced_locally
   const exportEnabled = logExportEnabledFor(facetId);
 
-  // Bumped by any action that changes what is stored, so the counts and the bar
-  // are re-read rather than trusted from a snapshot.
+  // Bumped by any action that changes what is stored, so the counts are re-read
+  // rather than trusted from a snapshot.
   let revision = $state(0);
 
-  // The #142 readout is the root's row and nobody else's (ADR-0080 §2), and §6
-  // deletes it outright — #303 is that deletion. Both reads are guarded on the
-  // Facet rather than only the markup: `recomputeSearchChannelBar` fetches the
-  // USDA corpus, and paying for it to draw nothing would be the cost of a
-  // readout Rations does not have.
-  // svelte-ignore state_referenced_locally
-  const showsSearchBar = facetId === "root";
-
-  // One derivation for everything read out of storage, keyed on `revision`:
-  // these are plain reads rather than reactive stores, so a write has to say so.
+  // One derivation for the rows, keyed on `revision`: these are plain reads
+  // rather than reactive stores, so a write has to say so.
+  //
+  // **A channel's row says what is held, never what it has decided.** This card
+  // used to end with a verdict on #142 read off the search channel; ADR-0080 §6
+  // deleted it, because a permanent readout of a question that has an ending is
+  // how the #41 comments went stale, and because it put a maintainer reading a
+  // ticket over the shoulder of someone who installed an app to log lunch. The
+  // recording and the export are untouched, and the verdict is derivable from
+  // the exported file by the person who cares, whenever they care.
   let stored = $derived.by(() => {
     void revision;
-    return {
-      rows: channels.map((channel) => ({
-        channel,
-        entries: channelEntryCount(channel),
-        recording: isChannelRecording(channel),
-      })),
-      // What the channel says about #142 (ADR-0053 §7, as amended): two counts
-      // rather than a rate over a window, because the app is not in use yet and
-      // a calendar with no start decides nothing.
-      bar: showsSearchBar ? readSearchChannelBar() : null,
-    };
-  });
-  // The same bar re-read against the vocabulary as it stands now (§4). Async,
-  // because it needs the corpus; null until it arrives, and null for good if the
-  // artifact will not load, which costs this panel a line and nothing else.
-  let barToday = $state<VocabularyBarReading | null>(null);
-  $effect(() => {
-    void revision;
-    if (!showsSearchBar) return;
-    recomputeSearchChannelBar()
-      .then((reading) => (barToday = reading))
-      .catch(() => (barToday = null));
+    return channels.map((channel) => ({
+      channel,
+      entries: channelEntryCount(channel),
+      recording: isChannelRecording(channel),
+    }));
   });
 
   let reviewing = $state(false);
@@ -146,7 +127,7 @@
     >
   </div>
 
-  {#each stored.rows as { channel, entries, recording } (channel.name)}
+  {#each stored as { channel, entries, recording } (channel.name)}
     <section class="channel">
       <div class="channel-head">
         <span class="channel-name">{channel.name}</span>
@@ -172,30 +153,6 @@
       </div>
     </section>
   {/each}
-
-  <!-- ADR-0080 §2 gives this row to the root and nothing to Rations, and §6
-       deletes it outright: a verdict about a corpus decision is a maintainer
-       reading a ticket over the user's shoulder, on the screen of an app they
-       installed to log lunch. #303 is the deletion; until it lands the readout
-       stays where it already was and goes nowhere new. -->
-  {#if stored.bar}
-    {@const bar = stored.bar}
-    <section class="channel">
-      <h3>What the search log says about #142</h3>
-      <p class="reader">
-        {bar.mid_phrase} of {bar.settled_empty} settled empty searches carried a vocabulary
-        word inside a longer phrase. Six of them build the per-token tier; forty settled
-        empty searches with fewer than six close it as a settled no.
-      </p>
-      <p class="verdict">Verdict: {bar.verdict}</p>
-      {#if barToday}
-        <p class="reader">
-          Against today's vocabulary, which re-derives on every corpus change: {barToday.mid_phrase}
-          of {barToday.settled_empty} — {barToday.verdict}.
-        </p>
-      {/if}
-    </section>
-  {/if}
 
   <div class="actions-row mt-4">
     <Button variant="secondary" onclick={() => (reviewing = true)}>
@@ -223,11 +180,6 @@
     text-transform: uppercase;
     margin: 0;
   }
-  h3 {
-    font-size: var(--step-n1);
-    text-transform: uppercase;
-    margin: 0 0 var(--space-2xs);
-  }
   .lead,
   .reader,
   .help-text {
@@ -239,11 +191,6 @@
   .help-text {
     font-size: var(--step-n2);
     font-style: italic;
-  }
-  .verdict {
-    font-weight: 800;
-    text-transform: uppercase;
-    margin: var(--space-2xs) 0 0;
   }
   .form-group {
     display: flex;

@@ -63,17 +63,21 @@ describe("the Local Logs card, once per Facet (ADR-0080 §2)", () => {
     expect(root.body).toContain(">search<");
   });
 
-  it("keeps the #142 readout on the root and out of Rations", () => {
-    // §2 gives that row to the root and nothing to Rations, and §6 deletes it
-    // outright (#303). A verdict about a corpus decision is a maintainer
-    // reading a ticket over the user's shoulder.
+  it("carries the #142 readout on neither, the channel on both", () => {
+    // §2 gave that row to the root and nothing to Rations; §6 then deleted it
+    // outright (#303), because a verdict about a corpus decision is a
+    // maintainer reading a ticket over the user's shoulder — and a permanent
+    // readout of a question that has an ending is how the #41 comments went
+    // stale.
     const rations = render(LogSettingsSection, { props: { facetId: "food" } });
     const root = render(LogSettingsSection, { props: { facetId: "root" } });
     const heading = "What the search log says about #142";
-    expect(root.body).toContain(heading);
+    expect(root.body).not.toContain(heading);
     expect(rations.body).not.toContain(heading);
     // The channel's own `reader` names #142 too, and that stays in both: it is
-    // what the channel is for, not a readout of where the question stands.
+    // what the channel is for, not a readout of where the question stands. The
+    // recording and the export are what §6 kept.
     expect(rations.body).toContain("#142 and #123;");
+    expect(root.body).toContain("#142 and #123;");
   });
 });

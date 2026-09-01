@@ -1,23 +1,23 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
-  BUILD_AT_MID_PHRASE,
-  CLOSE_AT_SETTLED_EMPTY,
   beginSearchSession,
   closeSearchSession,
   flagVocabulary,
-  readVocabularyBar,
   searchFoundFood,
   searchFoundNothing,
   typedIntoSession,
-  withCurrentVocabulary,
-  type SearchLogEntry,
   type SearchSession,
 } from "../../src/lib/logs/search-log";
 
 /**
- * The search channel (ADR-0053), and the bar it feeds. Everything but the write
- * itself is pure: one entry per settled session, the mid-phrase flags, and the
- * two counts that decide #142.
+ * The search channel (ADR-0053). Everything but the write itself is pure: one
+ * entry per settled session, and the mid-phrase flags it is captured with.
+ *
+ * **The bar those flags feed is not asserted here, because it is not in the
+ * app.** ADR-0080 §6 deleted the readout that computed it and the fold under
+ * it; #142's verdict is now a fold over an exported file, run by the person who
+ * cares. What is still asserted is that the entries carry everything that fold
+ * needs.
  */
 
 // A stand-in Vocabulary map with one key of each shape the flags distinguish:
@@ -189,101 +189,6 @@ describe("one entry per session, never one per search (ADR-0053 §2)", () => {
   });
 });
 
-describe("the bar the log feeds (ADR-0053 §7, as amended)", () => {
-  const entry = (
-    over: Partial<SearchLogEntry> & { mid_phrase?: boolean } = {}
-  ): SearchLogEntry => ({
-    query: "wombok",
-    outcome: { kind: "nothing" },
-    settled: true,
-    vocabulary: {
-      mid_phrase: over.mid_phrase
-        ? [{ key: "aubergine", bucket: "single_token_value" as const }]
-        : [],
-      schema_version: SCHEMA_VERSION,
-    },
-    at: 0,
-    ...over,
-  });
-  const many = (count: number, over?: Parameters<typeof entry>[0]) =>
-    Array.from({ length: count }, () => entry(over));
-
-  it("counts settled empty sessions, and the corrections among them", () => {
-    const reading = readVocabularyBar([
-      entry(),
-      entry({
-        outcome: { kind: "resolved_after_correction", corrected_by: "x" },
-      }),
-      entry({ settled: false }),
-    ]);
-    expect(reading.settled_empty).toBe(2);
-  });
-
-  it("excludes a rescued session — no guess was forced", () => {
-    const reading = readVocabularyBar([
-      entry({ outcome: { kind: "rescued_by_vocabulary" } }),
-      entry(),
-    ]);
-    expect(reading.settled_empty).toBe(1);
-  });
-
-  it("stays undecided at five mid-phrase sessions and builds at six", () => {
-    expect(readVocabularyBar(many(5, { mid_phrase: true })).verdict).toBe(
-      "undecided"
-    );
-    expect(readVocabularyBar(many(6, { mid_phrase: true })).verdict).toBe(
-      "build"
-    );
-    expect(BUILD_AT_MID_PHRASE).toBe(6);
-  });
-
-  it("stays undecided at 39 settled empty sessions and closes at 40", () => {
-    expect(readVocabularyBar(many(39)).verdict).toBe("undecided");
-    expect(readVocabularyBar(many(40)).verdict).toBe("close");
-    expect(CLOSE_AT_SETTLED_EMPTY).toBe(40);
-  });
-
-  it("builds rather than closes when both counts are met", () => {
-    const reading = readVocabularyBar([
-      ...many(34),
-      ...many(6, { mid_phrase: true }),
-    ]);
-    expect(reading).toEqual({
-      settled_empty: 40,
-      mid_phrase: 6,
-      verdict: "build",
-    });
-  });
-
-  it("counts mid-phrase only inside the denominator", () => {
-    // An unsettled session and a rescued one are both outside it, so neither
-    // can carry the build trigger over its line on its own.
-    const reading = readVocabularyBar([
-      entry({ mid_phrase: true, settled: false }),
-      entry({ mid_phrase: true, outcome: { kind: "rescued_by_vocabulary" } }),
-    ]);
-    expect(reading).toEqual({
-      settled_empty: 0,
-      mid_phrase: 0,
-      verdict: "undecided",
-    });
-  });
-
-  it("re-reads the flags against the current map, keeping what was captured", () => {
-    // The vocabulary re-derives on every corpus change (#134 and #137 are both
-    // open and both move it), so a session that would have been flagged then
-    // and would not be now is a finding about churn, not a discrepancy.
-    const captured = entry({ query: "raw aubergine", mid_phrase: true });
-    const [recomputed] = withCurrentVocabulary([captured], {}, 9);
-
-    expect(recomputed.vocabulary).toEqual({
-      mid_phrase: [],
-      schema_version: 9,
-    });
-    expect(captured.vocabulary.mid_phrase).toHaveLength(1);
-  });
-});
-
 // ── The channel, and the write ──────────────────────────────────────────────
 
 interface FakeLocalStorage {
@@ -356,42 +261,6 @@ describe("the search channel", () => {
 });
 
 describe("recording a finished session", () => {
-  it("evaluates the bar on the write, so each trigger fires itself", async () => {
-    vi.stubGlobal("localStorage", makeFakeLocalStorage());
-    const log = await loadSearchLog();
-
-    let session = log.beginSearchSession();
-    session = log.typedIntoSession(session, "raw aubergine");
-    session = log.searchFoundNothing(session, "raw aubergine");
-
-    // The reading comes back from the write itself rather than waiting for
-    // someone to open Settings (ADR-0053 §7, as amended).
-    expect(await log.recordSearchSession(session, corpusOf)).toEqual({
-      settled_empty: 1,
-      mid_phrase: 1,
-      verdict: "undecided",
-    });
-  });
-
-  it("re-reads the bar against the vocabulary as it stands now", async () => {
-    vi.stubGlobal("localStorage", makeFakeLocalStorage());
-    const log = await loadSearchLog();
-
-    let session = log.beginSearchSession();
-    session = log.typedIntoSession(session, "raw aubergine");
-    session = log.searchFoundNothing(session, "raw aubergine");
-    await log.recordSearchSession(session, corpusOf);
-
-    // Captured against a map that had the key; re-read against one that has
-    // dropped it, which is the churn finding ADR-0053 §4 exists to surface.
-    expect(log.readSearchChannelBar().mid_phrase).toBe(1);
-    expect(
-      await log.recomputeSearchChannelBar(() =>
-        Promise.resolve({ foods: [], vocabulary: {}, schema_version: 9 })
-      )
-    ).toEqual({ settled_empty: 1, mid_phrase: 0, verdict: "undecided" });
-  });
-
   it("appends one entry through the facility", async () => {
     vi.stubGlobal("localStorage", makeFakeLocalStorage());
     const log = await loadSearchLog();
@@ -422,7 +291,7 @@ describe("recording a finished session", () => {
     let session = log.beginSearchSession();
     session = log.typedIntoSession(session, "banana");
     session = log.searchFoundFood(session, "banana", false);
-    expect(await log.recordSearchSession(session, load)).toBeNull();
+    await log.recordSearchSession(session, load);
 
     // A user who finds their food must not trigger a fetch of an artifact the
     // search never needed.
@@ -443,7 +312,7 @@ describe("recording a finished session", () => {
           new Error("Failed to load /usda/search-index.json (404).")
         )
       )
-    ).resolves.toBeNull();
+    ).resolves.toBeUndefined();
 
     expect(facility.readChannel(log.SEARCH_CHANNEL)).toEqual([]);
   });
