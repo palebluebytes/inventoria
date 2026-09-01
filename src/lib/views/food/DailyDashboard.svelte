@@ -45,6 +45,7 @@
   import WayOutIcon from "./WayOutIcon.svelte";
   import NutritionPanelCell from "./NutritionPanelCell.svelte";
   import { longpress } from "../../actions/longpress";
+  import type { ScalePreview } from "../../food/scale-amount";
   import WayInIcon from "./WayInIcon.svelte";
   import MealNutritionPanel from "./MealNutritionPanel.svelte";
 
@@ -58,6 +59,8 @@
     onTapItem,
     onEditItem,
     onRemoveItem,
+    scalePreview,
+    scaleNotes,
   }: {
     dbReady: boolean;
     selectedDate: Date;
@@ -73,6 +76,13 @@
     onEditItem: (item: ConsumptionEvent) => void;
     /** The card's ✕ removes the logged entry (append-only retraction). */
     onRemoveItem: (id: string) => void;
+    /** What each food WOULD read at while a Scale preview is live, keyed by
+     *  Consumption Event id (ADR-0088 §5). The list is the preview surface;
+     *  nothing copies it into the control. */
+    scalePreview?: Map<string, ScalePreview>;
+    /** A word for a food the live preview cannot touch, keyed the same way —
+     *  said in place and before the fact, never reported afterwards (§7). */
+    scaleNotes?: Map<string, string>;
   } = $props();
 
   // Long-press a logged item to start selecting; while a selection is active,
@@ -426,6 +436,8 @@
                 unit={qty.unit}
                 calories={Number(item.calories) || 0}
                 selected={isSelected}
+                preview={scalePreview?.get(item.id)}
+                note={scaleNotes?.get(item.id) ?? ""}
                 onRemove={() => onRemoveItem(item.id)}
                 corner={selectionActive ? selectCheck : undefined}
               >

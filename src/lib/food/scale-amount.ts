@@ -12,10 +12,26 @@
  */
 
 import { evaluateAmount } from "./amount-expression";
-import { roundFood } from "./nutrition";
+import { roundFood, type AmountUnit } from "./nutrition";
 
 /** Which way a factor is applied to an amount. */
 export type ScaleOp = "multiply" | "divide";
+
+/**
+ * What one food would read at if a live Scale preview were applied (ADR-0088
+ * §5) — the amount, the unit it would be *logged* in, and the kcal figure
+ * derived from its panel at that amount.
+ *
+ * The unit is carried rather than assumed because it is not always the unit the
+ * row reads now: a weightless "1 serving" entry against a per-100 panel is
+ * written back as a measurement, so the preview has to say so before the write
+ * rather than surprise the reader after it.
+ */
+export interface ScalePreview {
+  amount: number;
+  unit: AmountUnit;
+  calories: number;
+}
 
 /** What the factor field starts at — halving and doubling are the common cases. */
 export const DEFAULT_SCALE_FACTOR = "2";

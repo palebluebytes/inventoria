@@ -93,3 +93,63 @@ describe("a food line", () => {
     expect(body).toMatch(/class="[^"]*\bselected\b/);
   });
 });
+
+describe("a food line under a live Scale preview (ADR-0088 §6)", () => {
+  const doubled = { amount: 200, unit: "g" as const, calories: 778 };
+
+  it("states what the food WOULD read at, not what is stored", () => {
+    const { body } = render(FoodItemRow, {
+      props: { ...oats, preview: doubled },
+    });
+
+    expect(body).toMatch(/class="[^"]*\bfi-qty\b[^"]*">200g/);
+    expect(body).toMatch(/class="[^"]*\bfi-cals\b[^"]*">778 kcal/);
+    expect(body).not.toContain("100g");
+    expect(body).not.toContain("389 kcal");
+  });
+
+  it("wears the Provisional figure mark on both figures", () => {
+    const { body } = render(FoodItemRow, {
+      props: { ...oats, preview: doubled },
+    });
+
+    // What is projected may never be read as what is stored.
+    expect(body).toMatch(/class="[^"]*\bfi-qty\b[^"]*\bis-preview\b/);
+    expect(body).toMatch(/class="[^"]*\bfi-cals\b[^"]*\bis-preview\b/);
+  });
+
+  it("wears nothing when no preview is live", () => {
+    const { body } = render(FoodItemRow, { props: oats });
+
+    expect(body).not.toContain("is-preview");
+  });
+
+  it("states the unit the food would be LOGGED in, which may change", () => {
+    // A weightless entry against a per-100 panel is written back as a
+    // measurement, so the preview says so before the write rather than
+    // surprising the reader after it.
+    const { body } = render(FoodItemRow, {
+      props: {
+        ...oats,
+        amount: 1,
+        unit: "serving" as const,
+        preview: { amount: 200, unit: "g" as const, calories: 778 },
+      },
+    });
+
+    expect(body).toMatch(/class="[^"]*\bfi-qty\b[^"]*">200g/);
+  });
+
+  it("says in place when a food cannot be scaled, on the quantity line", () => {
+    // On the subtitle rather than a line of its own: a row may not change
+    // height between previewing and not.
+    const { body } = render(FoodItemRow, {
+      props: { ...oats, note: "no weight to scale" },
+    });
+
+    expect(body).toMatch(
+      /class="[^"]*\bfi-qty\b[^"]*">100g · no weight to scale</
+    );
+    expect(body).not.toContain("is-preview");
+  });
+});

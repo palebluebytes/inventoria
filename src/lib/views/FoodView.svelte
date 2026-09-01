@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { createQueryStore } from "../stores/datoms.store";
   import { HLC_ORDER_DESC } from "../db/hlc";
   import {
@@ -10,7 +11,13 @@
     copyPastMeal,
     type ConsumptionEvent,
   } from "../stores/calorie.store";
-  import { scaleAmount, type ScaleOp } from "../food/scale-amount";
+  import {
+    scaleAmount,
+    parseScaleFactor,
+    DEFAULT_SCALE_FACTOR,
+    type ScaleOp,
+    type ScalePreview,
+  } from "../food/scale-amount";
   import { asMealType, type MealType } from "../food/meal-type";
   import {
     WAYS_IN,
@@ -32,6 +39,7 @@
     type RecipeIngredient,
   } from "../food/recipe-ingredient";
   import {
+    basisUnit,
     dedupePortions,
     isMeasuredUnit,
     isPer100Basis,
@@ -39,9 +47,12 @@
     portionMeasure,
     servingSizeGrams,
     servingSizePortion,
+    roundFood,
+    type AmountUnit,
     type NutritionInfo,
     type Portion,
   } from "../food/nutrition";
+  import { deriveIngredientMacros } from "../food/recipe-nutrition";
   import type { NovaVerdict } from "../food/nova-verdict";
   import type { DietaryVerdict } from "../food/off-signals";
   import type { EntityPayload } from "../ingestion/ingest";
@@ -58,7 +69,8 @@
   import SourceExplainerSheet from "./food/SourceExplainerSheet.svelte";
   import DietaryExplainerSheet from "./food/DietaryExplainerSheet.svelte";
   import FoodSettingsSheet from "./food/FoodSettingsSheet.svelte";
-  import ScaleControl from "./food/ScaleControl.svelte";
+  import SelectionBar from "./food/SelectionBar.svelte";
+  import ScaleTier from "./food/ScaleTier.svelte";
 
   import Card from "../ui/Card.svelte";
   import Badge from "../ui/Badge.svelte";
@@ -145,7 +157,7 @@
   // stager method: every method there picks a food, this picks a meal.
   let past_meal_type = $state<MealType | null>(null);
   // The line a partial copy left behind (§11). It carries the day it is about,
-  // so it CANNOT be shown beside another one — `scale_note`'s rule, that a note
+  // so it CANNOT be shown beside another one — `status_note`'s rule, that a note
   // never outlives what it described, made structural rather than swept up
   // afterwards. That also settles the race: a copy resolving after the user has
   // paged away attaches its note to the day it actually wrote to, and the view
@@ -164,8 +176,14 @@
   // sheet opens straight on the label form instead of the food's card, since the
   // user has already said which screen they want.
   let edit_label = $state(false);
-  // Consumption-event ids selected (long-press) for building a recipe.
+  // The Selection: the Consumption Events a long-press picked out (ADR-0088
+  // §1). Not meal-scoped — it may span the day's meals — but day-scoped.
   let selected_ids = $state<Set<string>>(new Set());
+  // The meal picker the `move` verb opens (§8).
+  let move_open = $state(false);
+  // The Selection's own nutrition panel, which the count opens and in which the
+  // Way out sits — the third scale of that control (§9).
+  let selection_panel_open = $state(false);
   let recipeOpen = $state(false);
   // The recipe library (the header's recipe button): browse every saved recipe,
   // open one to read or amend, or write a new one. Nothing on it logs.
@@ -423,7 +441,16 @@
   }
 
   // Remove a logged food (append-only retraction; the projection hides it).
+  // A retracted food leaves the Selection with it (ADR-0088 §4): the count may
+  // never name a food that is no longer on screen. Done here rather than by
+  // pruning against `dayItems`, which would race the projection and drop the
+  // ids a scale has just minted.
   function removeItem(id: string) {
+    if (selected_ids.has(id)) {
+      const next = new Set(selected_ids);
+      next.delete(id);
+      setSelection(next);
+    }
     void retractConsumptionEvent(id);
   }
 
@@ -435,11 +462,12 @@
     edit_label = false;
   }
 
-  // Every change of selection goes through here, so the scale bar's note can
-  // never outlive the selection it described.
+  // Every change of selection goes through here, so the bar's one status line
+  // can never outlive the selection it described (ADR-0088 §2).
   function setSelection(next: Set<string>) {
     selected_ids = next;
-    scale_note = "";
+    status_note = "";
+    if (next.size === 0) closeScale();
   }
 
   function longPress(id: string) {
@@ -460,54 +488,188 @@
     setSelection(new Set());
   }
 
-  // Bulk ×/÷ over the selection. Guarded against a second tap landing mid-flight
-  // (each food is a read-then-append round trip), and reported on when some of
-  // the selection couldn't move.
+  // ── A Selection is a mode (ADR-0088 §3) ───────────────────────────────────
+  //
+  // The bar covers the tab bar, so the ordinary way off this screen is gone
+  // while a Selection is live. Back therefore has to mean "leave the
+  // Selection": one history entry is pushed when the mode opens and popped
+  // when it closes, so back only leaves Food once nothing is selected.
+  //
+  // Deliberately a plain `let`: this is bookkeeping ABOUT the effect, and
+  // making it reactive would re-run the effect that writes it.
+  let selection_pushed = false;
+
+  $effect(() => {
+    const active = selected_ids.size > 0;
+    untrack(() => {
+      if (active && !selection_pushed) {
+        selection_pushed = true;
+        history.pushState({ inventoriaSelection: true }, "");
+      } else if (!active && selection_pushed) {
+        // Ours is the top entry — nothing else in this app pushes one.
+        selection_pushed = false;
+        history.back();
+      }
+    });
+  });
+
+  function onPopState() {
+    if (selected_ids.size === 0) return;
+    // The entry is already gone; clearing must not pop a second time.
+    selection_pushed = false;
+    clearSelection();
+  }
+
+  function onKeyDown(e: KeyboardEvent) {
+    if (e.key !== "Escape" || selected_ids.size === 0) return;
+    // A surface stacked over the bar owns Escape first.
+    if (recipeOpen || move_open || selection_panel_open) return;
+    clearSelection();
+  }
+
+  // A Selection belongs to one day (ADR-0088 §4). Only `selectedDate` is
+  // tracked here: pruning against `dayItems` instead would race the projection,
+  // which has not yet caught up with the ids a scale just minted.
+  let selected_day_key = "";
+  $effect(() => {
+    const key = dayKeyOf(selectedDate);
+    untrack(() => {
+      if (selected_day_key === key) return;
+      selected_day_key = key;
+      if (selected_ids.size > 0) clearSelection();
+    });
+  });
+
+  // ── Scale (ADR-0088 §5 to §7) ─────────────────────────────────────────────
+  //
+  // The tier is a fixed-height expansion of the bar rather than a sheet,
+  // because the rows behind it ARE the preview and a sheet would dim them.
+  let scale_open = $state(false);
+  let scale_factor = $state(DEFAULT_SCALE_FACTOR);
+  let scale_op = $state<"" | ScaleOp>("");
+  // Guarded against a second tap landing mid-flight: each food is a
+  // read-then-append round trip.
   let scaling = $state(false);
-  let scale_note = $state("");
+  // The bar's one status line, shared by every verb and silent on success.
+  let status_note = $state("");
+
+  /** One selected food resolved to what a scale would actually act on. */
+  interface Scalable {
+    amount: number;
+    unit: AmountUnit;
+    panel: NutritionInfo;
+    ref: string;
+  }
+  let scalables = $state<Map<string, Scalable>>(new Map());
 
   /**
-   * Rescales every selected food by the factor, append-only: each one is
-   * re-logged at its scaled amount and the original retracted, so the day's
-   * nutrition re-derives from the twins rather than being edited in place — the
-   * same path the amount picker's Done takes, applied across the selection.
-   *
-   * Two kinds of logged food carry no amount to scale: a weightless
-   * "1 serving" custom entry (a quick calorie estimate has no weight to double)
-   * and a Recipe Instantiation, which is corrected on its own editor so its
-   * frozen per-ingredient snapshot stays coherent (ADR-0022). Both are left
-   * exactly as they were and counted, so the bar can say so rather than
-   * appearing to have done nothing.
+   * Resolves the whole Selection BEFORE the tier draws anything (§7). What
+   * cannot be scaled — a Recipe Instantiation, whose frozen per-ingredient
+   * snapshot is corrected on its own editor (ADR-0022), and a weightless
+   * "1 serving" entry, which has no weight to double — is then said in place on
+   * the row rather than apologised for once the run is over.
    */
-  async function scaleSelected(factor: number, op: ScaleOp) {
+  async function resolveScalables(): Promise<Map<string, Scalable>> {
+    const next = new Map<string, Scalable>();
+    for (const item of selectedItems) {
+      if (item.instantiation || !item.target) continue;
+      const resolved = await resolveAmountEdit(item);
+      if (!resolved?.panel) continue;
+      next.set(item.id, {
+        amount: resolved.amount,
+        unit: basisUnit(resolved.panel.serving_size),
+        panel: resolved.panel,
+        ref: item.target,
+      });
+    }
+    return next;
+  }
+
+  async function toggleScale() {
+    if (scale_open) return closeScale();
+    scale_open = true;
+    status_note = "";
+    scalables = await resolveScalables();
+  }
+
+  function closeScale() {
+    scale_open = false;
+    scale_op = "";
+    scalables = new Map();
+  }
+
+  /**
+   * What each food WOULD read at, derived through the SAME function the write
+   * uses, so the preview cannot disagree with what lands. A ratio against the
+   * already-rounded logged figure would round twice and drift by a hair, which
+   * on a real ledger write is not a rounding difference but a lie.
+   */
+  let scalePreview = $derived.by(() => {
+    if (!scale_open || scale_op === "") return undefined;
+    const factor = parseScaleFactor(scale_factor);
+    if (factor === null) return undefined;
+    const preview = new Map<string, ScalePreview>();
+    for (const [id, food] of scalables) {
+      const amount = scaleAmount(food.amount, factor, scale_op);
+      const macros = deriveIngredientMacros(
+        { ref: food.ref, amount, unit: food.unit },
+        () => food.panel
+      );
+      preview.set(id, {
+        amount,
+        unit: food.unit,
+        calories: roundFood(macros.calories),
+      });
+    }
+    return preview;
+  });
+
+  /** Said as soon as the tier opens, not once an operator is chosen. */
+  let scaleNotes = $derived.by(() => {
+    if (!scale_open) return undefined;
+    const notes = new Map<string, string>();
+    for (const item of selectedItems) {
+      if (!scalables.has(item.id)) notes.set(item.id, "no weight to scale");
+    }
+    return notes;
+  });
+
+  /**
+   * Applies the factor, append-only: each food is re-logged at its scaled
+   * amount and the original retracted, so the day's nutrition re-derives from
+   * the twins rather than being edited in place — the same path the amount
+   * picker's Done takes, across the Selection.
+   */
+  async function applyScale(factor: number, op: ScaleOp) {
     if (scaling) return;
     scaling = true;
     // Snapshot: each append re-derives the projection under us.
     const items = selectedItems;
+    const resolved = scalables;
     const next = new Set(selected_ids);
     let scaled = 0;
     let skipped = 0;
     let failed = 0;
     try {
       for (const item of items) {
-        // Per food, so one failed append leaves the rest of the selection
+        const food = resolved.get(item.id);
+        if (!food) {
+          skipped++;
+          continue;
+        }
+        // Per food, so one failed append leaves the rest of the Selection
         // scalable instead of aborting the run half-applied.
         try {
-          const scalable = item.instantiation
-            ? null
-            : await resolveAmountEdit(item);
-          const newId = scalable
-            ? await changeLoggedFoodAmount(
-                item,
-                scaleAmount(scalable.amount, factor, op)
-              )
-            : null;
+          const newId = await changeLoggedFoodAmount(
+            item,
+            scaleAmount(food.amount, factor, op)
+          );
           if (!newId) {
             skipped++;
             continue;
           }
           // The rescaled food is a NEW Consumption Event; keep it selected in
-          // the retracted one's place so the selection survives the operation.
+          // the retracted one's place so the Selection survives the operation.
           next.delete(item.id);
           next.add(newId);
           scaled++;
@@ -519,11 +681,15 @@
     } finally {
       scaling = false;
     }
+    closeScale();
     setSelection(next);
-    const parts = [`${scaled} scaled`];
-    if (skipped > 0) parts.push(`${skipped} with no weight to scale`);
-    if (failed > 0) parts.push(`${failed} failed`);
-    if (skipped + failed > 0) scale_note = parts.join(" · ");
+    // Silent on success (§2): a change you can watch does not need narrating.
+    if (skipped + failed > 0) {
+      const parts = [`${scaled} scaled`];
+      if (skipped > 0) parts.push(`${skipped} with no weight to scale`);
+      if (failed > 0) parts.push(`${failed} failed`);
+      status_note = parts.join(" · ");
+    }
   }
 
   // Turn selected consumption events into recipe ingredients carrying each
@@ -581,6 +747,11 @@
     clearSelection();
   }
 </script>
+
+<!-- Escape and the platform back gesture both leave a Selection (ADR-0088 §3).
+     The bar covers the tab bar, so back has to mean the nearest thing there is:
+     it leaves the Selection first and Food only once nothing is selected. -->
+<svelte:window onpopstate={onPopState} onkeydown={onKeyDown} />
 
 <!-- The header marks are defined once and rendered twice: in the buttons
      themselves, and in the legend the ⓘ unfolds. Drawing the legend from the
@@ -775,6 +946,8 @@
   onTapItem={tapItem}
   onEditItem={editItem}
   onRemoveItem={removeItem}
+  {scalePreview}
+  {scaleNotes}
 />
 
 <!-- Secondary: Saved Digital Twins Ledger.
@@ -907,25 +1080,30 @@
   />
 {/if}
 
-<!-- Selection action bar — only when foods are selected (long-press) -->
+<!-- The Selection bar (ADR-0088). Raised by a long-press; it owns the foot of
+     the screen while it is live, which is what makes a Selection a mode. -->
 {#if selected_ids.size > 0}
-  <div class="selbar">
-    <span class="selcount">{selected_ids.size} selected</span>
-    <!-- Rescale the whole selection: ×2 for a second helping, ÷2 when the
-         portion was half what was logged. -->
-    <ScaleControl
-      target="the selected foods"
-      onScale={scaleSelected}
-      disabled={scaling}
-    />
-    {#if scale_note}
-      <span class="selnote" role="status">{scale_note}</span>
-    {/if}
-    <button class="selclear" onclick={clearSelection}>Clear</button>
-    <button class="selbuild" id="build-recipe-btn" onclick={buildRecipe}
-      >🍲 Build recipe</button
-    >
-  </div>
+  <SelectionBar
+    count={selected_ids.size}
+    note={status_note}
+    scaleOpen={scale_open}
+    onDismiss={clearSelection}
+    onCount={() => (selection_panel_open = true)}
+    onScale={toggleScale}
+    onMove={() => (move_open = true)}
+    onRecipe={buildRecipe}
+  >
+    {#snippet tier()}
+      {#if scale_open}
+        <ScaleTier
+          bind:factor={scale_factor}
+          bind:op={scale_op}
+          busy={scaling}
+          onApply={applyScale}
+        />
+      {/if}
+    {/snippet}
+  </SelectionBar>
 {/if}
 
 <!-- Food settings — the top-right gear opens the food-specific settings sheet
@@ -1161,49 +1339,6 @@
     color: var(--text-muted);
     text-align: center;
     padding: var(--space-xl) 0;
-  }
-
-  /* Selection action bar */
-  .selbar {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 900;
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: var(--space-2xs) var(--space-s);
-    padding: var(--space-s);
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-s));
-    background: var(--ink);
-    color: var(--paper);
-    animation: slideUp 0.2s ease-out;
-  }
-  .selcount {
-    font-weight: 700;
-  }
-  /* The scale control pushes the bar past a phone's width, so it wraps rather
-     than overflowing; Clear/Build stay together on the trailing line. */
-  .selnote {
-    font-size: var(--step-n2);
-  }
-  .selclear {
-    margin-left: auto;
-    background: none;
-    border: 1px solid var(--paper);
-    color: var(--paper);
-    padding: var(--space-2xs) var(--space-s);
-    cursor: pointer;
-  }
-  .selbuild {
-    background: var(--green-bg);
-    color: var(--ink);
-    border: none;
-    padding: var(--space-xs) var(--space-s);
-    font-weight: 700;
-    cursor: pointer;
-    min-height: 48px;
   }
 
   :global(.mt-6) {
