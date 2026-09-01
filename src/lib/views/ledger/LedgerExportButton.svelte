@@ -1,10 +1,11 @@
 <script lang="ts">
   // The Ledger's way out, as one control (ADR-0064).
   //
-  // Two screens offer it and neither owns it: the Database Ledger section in
-  // Settings, and the failure surface of a Meal send that could not reach the
-  // Relay (ADR-0072 §14). Sharing the control rather than the intention is what
-  // makes "it produces the same file `Settings → Export Ledger` does" a fact.
+  // One screen offers it and does not own it: the Database Ledger section in
+  // Settings. A Meal send's failure surface offered it too until ADR-0072's
+  // 2026-09-01 amendment (#300) withdrew that inline export. Sharing the
+  // control rather than the intention is what makes "it produces the same file
+  // `Settings → Export Ledger` does" a fact, and that stays worth having.
   //
   // It owns the ledger read as well as the click, because the two are one
   // thing: the count goes into the export envelope and it has to be taken

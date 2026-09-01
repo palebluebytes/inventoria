@@ -2,9 +2,13 @@
   // The ledger's way out, inside the Database Ledger section that already holds
   // the raw view and the wipe (ADR-0064).
   //
-  // The button is `LedgerExportButton`, shared with the failure surface of a
-  // Meal send (ADR-0072 §14), and it carries the ledger read and the ceiling
-  // warning with it. What is this section's is the count: the figure is on
+  // The button is `LedgerExportButton`, and it carries the ledger read and the
+  // ceiling warning with it. It is this screen's only caller: it was shared
+  // with a Meal send's failure surface until ADR-0072's 2026-09-01 amendment
+  // (#300) withdrew that inline export, and the separate file is kept because
+  // the read and the warning are worth their own module either way.
+  //
+  // What is this section's is the count: the figure is on
   // screen before anything is written, because this file often runs to hundreds
   // of megabytes and a save dialog is a poor place to find that out.
   import type { LedgerSummary } from "../../db/db.core";

@@ -2,12 +2,12 @@
  * One run of the Ledger export: the save dialog, the walk, and the sentence
  * that reports how it went (ADR-0064).
  *
- * It sits outside every screen that offers the export because there are now
- * two of them — the Database Ledger section in Settings, and the failure
- * surface of a Meal send that could not reach the Relay (ADR-0072 §14). "The
- * button produces the same file `Settings → Export Ledger` does" is a claim
- * about one piece of code rather than a promise about two, and this module is
- * that one piece.
+ * It sits outside the screen that offers the export rather than inside it. Two
+ * screens offered it until ADR-0072's 2026-09-01 amendment withdrew the inline
+ * export from a Meal send's failure surface, leaving the Database Ledger
+ * section in Settings; the split is kept because "the button produces the same
+ * file `Settings → Export Ledger` does" is a claim about one piece of code, and
+ * a second caller is what it exists to survive.
  *
  * Both seams are injected — {@link LedgerPageReader} for where rows come from,
  * {@link ExportTargetChooser} for where the file goes — so the outcome and its

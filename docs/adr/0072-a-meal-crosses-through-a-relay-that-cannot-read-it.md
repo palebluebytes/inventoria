@@ -475,3 +475,30 @@ lives.
 **The refusal of a spoken code is untouched**, and so is everything else in §4:
 the entropy table, the two addressing modes, and the disclosure asymmetry between a
 QR and a link through a messenger.
+
+## Amendment (2026-09-01, #300): the inline Ledger export is withdrawn, and the withdrawal clause is not
+
+§14's first paragraph is reversed. **No ending offers the Ledger export inline.** The
+failure surface prints its one line, `Show why`, and `Send again` where the ending allows
+one, and stops there.
+
+_"The difference between a named step-down and a dead end is one button"_ was true about
+the button and wrong about what it was pointing at. The paragraph that shipped had to
+disclaim itself in its own last sentence — _"That is the whole Ledger, not this meal"_ —
+and a step-down that must say it is offering something else is proposing a second act
+rather than a smaller version of the one that failed. It also sat on `unavailable`, which
+is the relay being out of reach and is usually transient, two lines under the `Send again`
+that is the actual remedy.
+
+**The withdrawal clause in §14's second half is untouched and remains the record's.** _If
+operating the relay stops being tenable, the send is removed and the file export remains._
+That clause is about this feature being operationally conditional in a way nothing else in
+the app is, and it never depended on the button: the export lives in Settings, where it
+always did, and ADR-0064's exporter and ADR-0067's reader are unaffected.
+
+The two rejected fallbacks in §14 — the two-QR zero-server path and QR-only — stay rejected
+on their own reasons, which were never about the export.
+
+`SendWords.stepDown` is gone rather than left `false` on every ending, so the map of
+endings no longer carries a question nothing asks. ADR-0074 §10's paragraph about this
+export is corrected in that record's own amendment.

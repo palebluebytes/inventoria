@@ -34,9 +34,10 @@
   //
   // **No Ledger export here** (§11.8) and **no countdown** (§11.12). The export
   // is refused because the surface has a working path, and a second route
-  // offered beside a working one reads as doubt about the first — ADR-0072
-  // §14's inline export on the *sender's* failure surface is a different screen
-  // for a different failure and is untouched. The countdown is not
+  // offered beside a working one reads as doubt about the first. That reason is
+  // this page's own and still holds: the sender's failure surface no longer
+  // offers one either (ADR-0072's 2026-09-01 amendment), so §11.8 is now true
+  // of every surface rather than of this one. The countdown is not
   // constructible anyway: the code carries a room and a key and no timestamp,
   // so this page cannot know when the room opened.
   let {

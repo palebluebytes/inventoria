@@ -408,3 +408,23 @@ reasoning that partial support on a platform nobody can test is worse than no su
 untouched, and ADR-0082 answers it by being safe while unverified rather than by
 claiming verification. What is unverified is named in ADR-0082 §7, §10 and its
 Consequences rather than assumed away.
+
+## Amendment (2026-09-01, #300): §10's sentences about the sender's inline export are false
+
+§10 draws the boundary between two rules about the Ledger export and says of the sender's
+side: _"ADR-0072 §14's inline export on the sender's failure surface is untouched — that is
+a different screen, on a different device, for a failure the sender cannot diagnose, and an
+Android sender whose iOS recipient refuses will time out at five minutes and be offered the
+export, correctly."_
+
+**Both halves are now false.** ADR-0072's own amendment of the same date withdraws that
+inline export, so there is no longer a sender-side export to be untouched, and a sender
+whose five minutes run out is offered `Send again` and nothing else.
+
+**§12.8 keeps its conclusion and needs no further edit.** There is no Ledger export on the
+iOS receive surface, which is what it asked for; it is now true of every surface rather
+than of that one, and the reason recorded for it — a refusal that proposes a way round is
+not a refusal — is unaffected by a change made on the other device.
+
+What this amendment does **not** touch: §10's scope boundary itself, which ADR-0082 already
+revisited, and the rule that the sender learns nothing about the recipient's platform.

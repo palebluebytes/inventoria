@@ -87,34 +87,6 @@ describe("sendEndingWords", () => {
     expect(words("closed").retry).toBe(true);
   });
 
-  it("steps down to the file on the two endings the record names", () => {
-    // ADR-0072 §14: an unreachable relay offers the Ledger export inline.
-    expect(words("unavailable").stepDown).toBe(true);
-    // ADR-0074 §10: an Android sender whose iOS recipient refuses times out at
-    // five minutes and is offered the export there, correctly.
-    expect(words("expired").stepDown).toBe(true);
-  });
-
-  it("keeps the step-down off every other ending, each for its own reason", () => {
-    // The meal is implicated rather than the route, and a file of the whole
-    // ledger is no answer to a payload the other device could not read.
-    expect(words("refused").stepDown).toBe(false);
-    // The sender chose to stop. Nothing failed, so nothing steps down.
-    expect(words("cancelled").stepDown).toBe(false);
-    // The nearest miss: the relay refused a shape rather than being out of
-    // reach, and no record widens §14 this far.
-    expect(words("closed").stepDown).toBe(false);
-    // Somebody else answered: the route worked, and it reached the wrong room.
-    expect(sendEndingWords(new SealRefusedError()).stepDown).toBe(false);
-    expect(sendEndingWords(new SendCodeSpentError()).stepDown).toBe(false);
-    expect(MEAL_DELIVERED.stepDown).toBe(false);
-    // Gathering the meal from the ledger can fail too, and offering a file of
-    // that same ledger would be a guess printed as an answer.
-    expect(sendEndingWords(new Error("the database went away")).stepDown).toBe(
-      false
-    );
-  });
-
   it("reads a spent code as an ending of its own rather than a stray error", () => {
     const said = sendEndingWords(new SendCodeSpentError());
     expect(said.ending).toBe("spent");

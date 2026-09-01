@@ -16,7 +16,6 @@
   import EndingLine from "./EndingLine.svelte";
   import SendCodeSymbol from "./SendCodeSymbol.svelte";
   import WayOutIcon from "./WayOutIcon.svelte";
-  import LedgerExportButton from "../ledger/LedgerExportButton.svelte";
   import { buildMealPayload } from "../../p2p/meal-payload";
   import { ledgerEntityRows } from "../../p2p/ledger-rows";
   import { sendMealPayload } from "../../p2p/meal-send";
@@ -230,22 +229,6 @@
               Send again
             </button>
           {/if}
-          <!-- The named step-down (ADR-0072 §14). The same button and the same
-               file as `Settings → Export Ledger` — the whole Ledger rather than
-               this meal, which is what the line above it says. It reads the
-               ledger the moment it mounts, which is the moment the send failed,
-               so the count is already there when the button is pressed. A dead
-               end and a step-down differ by one button. -->
-          {#if ended.stepDown}
-            <div class="stepdown" data-testid="send-step-down">
-              <p class="fine">
-                The file still works. A Ledger export writes every datom this
-                device holds to a file you can hand over however you like. That
-                is the whole Ledger, not this meal.
-              </p>
-              <LedgerExportButton size="sm" />
-            </div>
-          {/if}
         {/if}
       </div>
     {:else if items.length === 0}
@@ -342,16 +325,6 @@
   .waiting {
     margin: var(--space-2xs) 0 0;
     color: var(--text-muted);
-  }
-  /* The step-down reads as a second thought under the ending, not as a second
-     offer beside it, so it is separated and left-aligned against the centred
-     column above it. */
-  .stepdown {
-    width: 100%;
-    margin-top: var(--space-s);
-    padding-top: var(--space-s);
-    border-top: var(--edge-thin);
-    text-align: left;
   }
   .plain {
     margin-top: var(--space-2xs);

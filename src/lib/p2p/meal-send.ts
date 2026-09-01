@@ -52,8 +52,8 @@
  * it is *not* is a different condition.
  *
  * Two things are deliberately not burns. **An unreachable Relay** is not one —
- * nothing crossed, so nothing was spent, and the surface steps down to the
- * Ledger export instead (§14). Neither is **a recipient who gives up waiting**:
+ * nothing crossed, so nothing was spent, and the surface offers another code
+ * rather than ending anything. Neither is **a recipient who gives up waiting**:
  * §6.3 names the sender cancelling, and the meal has not arrived, so the code
  * is still the live thing the sender is holding a screen open for.
  */
@@ -103,7 +103,7 @@ const fromUtf8 = new TextDecoder();
 
 /** Why a session ended without a meal crossing. */
 export type SendFailure =
-  /** The Relay could not be reached. §14: the surface offers the file export. */
+  /** The Relay could not be reached, and nothing crossed. The code is unspent. */
   | "unavailable"
   /** The room's five minutes ran out (§6.4). */
   | "expired"
