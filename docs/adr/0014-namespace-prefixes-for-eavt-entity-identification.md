@@ -47,3 +47,26 @@ drift: by 2026-08 this ADR was missing `fdc:`, `food:custom_`, `recipe:`,
 
 The live registry is now [docs/eavt-vocabulary.md](../eavt-vocabulary.md), which
 also records what each prefix is seeded from. Add new prefixes there, not here.
+
+## Amendment (2026-09-01): the 2026-08-14 list of dead prefixes was wrong
+
+The amendment above named four prefixes as ones "the shipped code does not use", and
+**three of the four were live when it was written**: `asin:`, `sku:` and `url:<hash>`
+are all minted by `ingestion/json-ld.ts`, and `git log -S` dates the `asin:` and
+`sku:` call sites to 2026-06-03, ten weeks earlier. Only `openlibrary:` was genuinely
+dead, and even that is half true, because the code mints `olid:` for the same thing.
+The fourth item on #291's own list, `settings:`, went the other way: it was real when
+that ticket was filed and no longer exists.
+
+This matters because the registry it handed off to was built from that list. The
+`sku:`, `asin:` and `url:` prefixes were therefore absent from
+[docs/eavt-vocabulary.md](../eavt-vocabulary.md) from the day it became canonical,
+not through later drift, and `did:`, `gs1:` and `olid:` were never in either
+document. #291 found the gap and repaired the registry; this note records that the
+gap was created here, by a correction that was not checked against the code it
+described.
+
+The lesson is the one #289 proposes a gate for: **a prefix list is checkable against
+`src/` and must be checked**, because a list of what the code does not do is exactly
+the claim nobody re-reads. Until that gate exists the registry stays hand-maintained,
+so this is a repair rather than a fix.

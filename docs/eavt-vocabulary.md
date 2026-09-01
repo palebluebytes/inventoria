@@ -44,15 +44,57 @@ Which prefixes a Facet owns is declared in the Facet registry, not restated here
 
 ### Digital Twins
 
-| Prefix                    | Identifies                                                  | Seeded from           |
-| ------------------------- | ----------------------------------------------------------- | --------------------- |
-| `gtin:`                   | A food **Digital Twin** keyed by barcode                    | Open Food Facts       |
-| `fdc:`                    | A food Digital Twin keyed by food id                        | USDA FoodData Central |
-| `food:custom_`            | A custom or photo-based food Digital Twin                   | Authored locally      |
-| `recipe:`                 | A composed recipe Digital Twin referencing ingredient twins | Authored locally      |
-| `tmdb:movie_`, `tmdb:tv_` | A film or series media Digital Twin                         | TMDB                  |
-| `isbn:`                   | A book media Digital Twin                                   | Open Library          |
-| `twin:`                   | A physical item Digital Twin, such as an instrument         | Authored locally      |
+| Prefix                    | Identifies                                                       | Seeded from                                   |
+| ------------------------- | ---------------------------------------------------------------- | --------------------------------------------- |
+| `gtin:`                   | A food **Digital Twin** keyed by barcode                         | Open Food Facts, a label capture, the scraper |
+| `fdc:`                    | A food Digital Twin keyed by food id                             | USDA FoodData Central                         |
+| `food:custom_`            | A custom or photo-based food Digital Twin                        | Authored locally                              |
+| `recipe:`                 | A composed recipe Digital Twin referencing ingredient twins      | Authored locally                              |
+| `tmdb:movie:`, `tmdb:tv:` | A film or series media Digital Twin                              | TMDB                                          |
+| `isbn:`                   | A book media Digital Twin keyed by ISBN                          | Open Library, the scraper                     |
+| `olid:`                   | A book media Digital Twin with no ISBN, keyed by Open Library id | Open Library                                  |
+| `twin:`                   | A physical item Digital Twin, such as an instrument              | Authored locally                              |
+| `sku:`                    | A scraped item twin keyed by the page's stock or part number     | The scraper                                   |
+| `asin:`                   | A scraped item twin keyed by an Amazon id read from the page URL | The scraper                                   |
+| `url:`                    | A scraped item twin with no identifier, keyed by a URL hash      | The scraper                                   |
+| `url:temp_`               | A scraped item twin with no identifier and no page URL           | The scraper                                   |
+| `did:`, `gs1:`            | A scraped item twin carrying a Digital Product Passport id       | The scraper, **verbatim**                     |
+
+_The scraper_ is `ingestion/json-ld.ts`, which reads a product page's JSON-LD.
+
+The TMDB prefixes end in a **colon**, not an `_`: `tmdb:movie:550`. A table written
+with an `_` describes no row that exists, and no reader would find one: the ingestion
+registry matches an id against `scheme + ":"` for the schemes `tmdb:movie` and
+`tmdb:tv` (`ingestion/registry.ts`). A `did:` id can carry further colons of its own,
+so a second colon is not a TMDB tell.
+
+Hand-authored item twins carry a further segment, `twin:manual_`, minted at
+`views/items/ItemManualForm.svelte`. Nothing else mints a `twin:` id today, so a
+prefix-scoped read of `twin:` and one of `twin:manual_` return the same rows. The
+same containment holds between `url:` and `url:temp_`: a read scoped to `url:` takes
+both.
+
+#### The scraper's prefix is chosen by the page, not by the app
+
+The scraper is the one minting site that does not know which prefix it will use until
+it has read the document. It takes the first identifier the page supplies, preferring
+a Digital Product Passport id, then a barcode, then an ISBN, then a stock or part
+number, then an Amazon id, and falling back to a hash of the page URL. A page with no
+`Product` object at all can only reach the last three.
+
+Two consequences worth naming rather than rediscovering. **The roster cannot be
+complete by construction here**: a `did:` or `gs1:` id is taken from the page whole,
+so this page can declare the prefix and can never bound what follows it. And **the
+scraper is why several prefixes have more than one minting site**, which is the
+entity co-ownership [#289](https://github.com/palebluebytes/inventoria/issues/289) is
+open against. `gtin:` has three: Open Food Facts, the scraper, and a label capture
+keyed on a scanned barcode (`views/food/LogFoodSheet.svelte` into
+`saveLabelFood`).
+
+There is **no `settings:` prefix**. It was the `settings:global` entity, retired with
+the whole `settings/` namespace when a setting stopped being a datom
+([ADR-0085](adr/0085-a-setting-is-never-a-datom-and-a-consent-is-not-a-setting.md)),
+and nothing mints it.
 
 ### Blueprints
 
