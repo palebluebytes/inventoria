@@ -16,6 +16,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render } from "svelte/server";
 import App from "../../src/App.svelte";
+import { facetOf } from "../../src/lib/facets/registry";
 import CodeHandover from "../../src/lib/views/food/CodeHandover.svelte";
 import {
   mintSendCode,
@@ -143,7 +144,7 @@ describe("the boot order the handover needs (ADR-0082 §8)", () => {
 
     let body = "";
     try {
-      body = render(App, { props: {} }).body;
+      body = render(App, { props: { facet: facetOf("root") } }).body;
     } catch {
       // See above: the shell wanted a store this test has no ledger for, and
       // the branch had already been taken by then.

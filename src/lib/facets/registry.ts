@@ -144,6 +144,30 @@ export const FACETS = [
   { id: "food", name: "Rations", domains: ["food"], status: "decided" },
 ] as const satisfies readonly Facet[];
 
+/**
+ * The id of a Facet on the roster. A literal union rather than `string`, so an
+ * entry point naming a Facet that does not exist is a compile error and
+ * {@link facetOf} is total.
+ */
+export type FacetId = (typeof FACETS)[number]["id"];
+
+/**
+ * The Facet an entry point is. **This is how a Facet's runtime identity is a
+ * build-time constant** (ADR-0076 §6): each entry module names its own Facet as
+ * a literal, and nothing anywhere reads `location.pathname` to decide. That is
+ * not tidiness — a path check would make every Facet's screens reachable from
+ * every entry, the bundler would keep them all, and #272's entire saving (4.23
+ * MB of it `NotesView`) would go with it.
+ */
+export function facetOf(id: FacetId): Facet {
+  const facet = FACETS.find((f) => f.id === id);
+  // Unreachable while `id` is typed: the union is the roster's own ids. It is a
+  // throw rather than a `!` so the day someone widens the parameter, the
+  // failure says what happened.
+  if (!facet) throw new Error(`no Facet '${id}' on the roster`);
+  return facet;
+}
+
 /** Every entity prefix any domain owns. Flat, and in no meaningful order. */
 export const ENTITY_PREFIXES = TRACKED_DOMAINS.flatMap((d) => d.entityPrefixes);
 

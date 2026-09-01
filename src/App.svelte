@@ -13,9 +13,8 @@
   // so a failure anywhere under Notes degrades Notes alone instead of stopping
   // the ledger, food logging and habits from mounting at all (#125). The other
   // views stay static.
-  import { warmUsdaCorpus } from "./lib/food/usda-corpus";
-  import { clearRetiredSecrets } from "./lib/stores/secrets";
-  import { ensurePersistentStorage } from "./lib/storage/persistent-storage";
+  import { runStartupErrands } from "./lib/facets/startup";
+  import type { Facet } from "./lib/facets/registry";
   import {
     takeCodeHandover,
     takeReceiveLink,
@@ -23,6 +22,14 @@
   } from "./lib/p2p/receive-link";
   import { isIosSafariTab } from "./lib/p2p/safari-tab";
   import CodeHandover from "./lib/views/food/CodeHandover.svelte";
+
+  /**
+   * Which Facet this is, handed in by the entry point that mounted it
+   * (ADR-0076 §6). Every shell takes it, so the root reads its own name off the
+   * registry rather than repeating it, and neither shell is ever tempted to
+   * work out which Facet it is from a URL.
+   */
+  let { facet }: { facet: Facet } = $props();
 
   // A dev/e2e-only harness: `?demo=bottomsheet` swaps the whole app for a
   // UI-primitive demo, so a Playwright spec can drive the primitive in
@@ -108,21 +115,10 @@
     // errand below is an errand on behalf of a jar this page is telling you is
     // not yours.
     if (handover) return;
-    // Food is the app's first screen and its search reads the bundled corpus, so
-    // warm both artifacts here rather than on the first keystroke: the Search
-    // index straight away (~30 ms to fetch, parse and read into words), the
-    // Nutrient store at idle (~100 ms to parse, and nothing reads it until a
-    // food is staged) — ADR-0047 §2.
-    warmUsdaCorpus();
-    // Take the retired USDA API key off the device (ADR-0047 §1). Here rather
-    // than at module scope so it runs on a real load of the app, and beside the
-    // warm because both are the same kind of startup errand.
-    clearRetiredSecrets();
-    // Ask the browser to keep the ledger rather than leaving it evictable
-    // (ADR-0065). Not awaited: the answer changes nothing about the load, and
-    // the request is memoised, so the Settings readout reaches this same
-    // decision instead of asking a second time.
-    void ensurePersistentStorage();
+    // Every entry point's errands, in one list so a second one cannot miss one
+    // (#301). Here rather than at module scope so they run on a real load of the
+    // app, and after the `handover` return above for the same reason.
+    runStartupErrands();
     // Before the ledger, not after it. ADR-0073 §10 measured the cold-boot
     // window out of existence on the strength of SQLite being entirely OFF the
     // mount path: waiting in the room needs a WebSocket and `crypto.subtle`,
@@ -195,7 +191,7 @@
 </script>
 
 <svelte:head>
-  <title>Inventoria — Local-first Ledger</title>
+  <title>{facet.name} — Local-first Ledger</title>
   <meta
     name="description"
     content="Track food twins and habits with an immutable append-only ledger powered by SQLite WASM and OPFS."
