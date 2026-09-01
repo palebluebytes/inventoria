@@ -12,6 +12,7 @@ import {
   retractConsumptionEvent,
   type ConsumptionEvent,
   changeLoggedFoodAmount,
+  moveLoggedFoodsToMeal,
   consumptionForDay,
   copyPastMeal,
 } from "../../src/lib/stores/calorie.store";
@@ -1742,5 +1743,102 @@ describe("copyPastMeal (ADR-0058)", () => {
       appendMock.mock.calls[call][0][0].entity;
     expect(idOf(0)).toMatch(/^event:consume_/);
     expect(idOf(0)).not.toBe(idOf(1));
+  });
+});
+
+describe("moveLoggedFoodsToMeal", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.restoreAllMocks();
+  });
+
+  const banana = {
+    id: "event:consume_banana",
+    target: "fdc:banana",
+    quantity: "100g",
+    meal_type: "snack",
+    calories: 89,
+    time: new Date("2026-05-31T08:00:00").getTime(),
+  } as ConsumptionEvent;
+
+  it("appends ONE datom onto the event that is moving, and nothing else", async () => {
+    // Not the re-log-and-retract every other edit here performs: a move
+    // corrects a fact about one event and re-derives no numbers (ADR-0088 §8).
+    const append = vi.spyOn(dbClient, "append").mockResolvedValue(undefined);
+
+    const { moved, failed } = await moveLoggedFoodsToMeal(
+      [banana],
+      "breakfast"
+    );
+
+    expect(moved).toBe(1);
+    expect(failed).toBe(0);
+    expect(append).toHaveBeenCalledTimes(1);
+
+    const datoms = append.mock.calls[0][0];
+    expect(datoms).toHaveLength(1);
+    expect(datoms[0].entity).toBe("event:consume_banana");
+    expect(datoms[0].attribute).toBe("event/meal_type");
+    expect(datoms[0].value).toBe("breakfast");
+  });
+
+  it("writes no retraction, so the event keeps its id and its history", async () => {
+    const append = vi.spyOn(dbClient, "append").mockResolvedValue(undefined);
+
+    await moveLoggedFoodsToMeal([banana], "lunch");
+
+    const written = append.mock.calls.flatMap((call) => call[0]);
+    expect(written.map((d) => d.attribute)).not.toContain("event/status");
+    expect(written.map((d) => d.attribute)).not.toContain("event/replaced_by");
+    // Nothing is re-derived: no quantity, no metrics, no target.
+    expect(written.map((d) => d.attribute)).not.toContain("event/quantity");
+    expect(written.map((d) => d.attribute)).not.toContain("event/metrics");
+  });
+
+  it("moves a Selection spanning several meals into one", async () => {
+    const append = vi.spyOn(dbClient, "append").mockResolvedValue(undefined);
+
+    const { moved } = await moveLoggedFoodsToMeal(
+      [
+        banana,
+        { ...banana, id: "event:consume_coffee", meal_type: "dinner" },
+      ] as ConsumptionEvent[],
+      "breakfast"
+    );
+
+    expect(moved).toBe(2);
+    expect(append).toHaveBeenCalledTimes(2);
+    expect(append.mock.calls.flatMap((c) => c[0]).map((d) => d.value)).toEqual([
+      "breakfast",
+      "breakfast",
+    ]);
+  });
+
+  it("writes nothing for a food already at that meal", async () => {
+    // An append that changes nothing is still a row, and the ledger syncs.
+    const append = vi.spyOn(dbClient, "append").mockResolvedValue(undefined);
+
+    const { moved, failed } = await moveLoggedFoodsToMeal([banana], "snack");
+
+    expect(moved).toBe(1);
+    expect(failed).toBe(0);
+    expect(append).not.toHaveBeenCalled();
+  });
+
+  it("leaves the rest moved when one append fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const append = vi
+      .spyOn(dbClient, "append")
+      .mockRejectedValueOnce(new Error("nope"))
+      .mockResolvedValue(undefined);
+
+    const { moved, failed } = await moveLoggedFoodsToMeal(
+      [banana, { ...banana, id: "event:consume_two" }] as ConsumptionEvent[],
+      "lunch"
+    );
+
+    expect(failed).toBe(1);
+    expect(moved).toBe(1);
+    expect(append).toHaveBeenCalledTimes(2);
   });
 });

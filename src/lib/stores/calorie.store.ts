@@ -579,6 +579,54 @@ export async function retractConsumptionEvent(
 }
 
 /**
+ * Moves logged foods to another meal of the same day by appending **one new
+ * `event/meal_type` datom onto each existing Consumption Event** (ADR-0088 §8).
+ * Latest-wins does the rest.
+ *
+ * It is deliberately NOT the re-log-and-retract every other edit in this module
+ * performs. Re-logging would assert that you un-ate that banana at breakfast and
+ * ate a different one at lunch, leaving two bananas in the history with one
+ * retracted; a move corrects a fact about one event and re-derives no numbers,
+ * so the event keeps its id, its `event/time`, its metrics, its photo, its
+ * provenance and its arrival mark. `retractConsumptionEvent` above is the
+ * precedent: a Consumption Event may gain an attribute after the fact.
+ *
+ * Because no id changes, a caller holding the old ids — the Selection — needs
+ * nothing back. Appends are per event, so one failure leaves the rest moved
+ * rather than aborting half-applied; the count of those that failed is what
+ * comes back, since every Consumption Event carries a `meal_type` and there is
+ * no "nothing to move" case the way there is nothing to scale.
+ */
+export async function moveLoggedFoodsToMeal(
+  events: ConsumptionEvent[],
+  meal_type: string
+): Promise<{ moved: number; failed: number }> {
+  let moved = 0;
+  let failed = 0;
+  for (const event of events) {
+    // A food already at that meal is skipped rather than restamped: an append
+    // that changes nothing is still a row, and the ledger syncs.
+    if (event.meal_type === meal_type) {
+      moved++;
+      continue;
+    }
+    try {
+      await dbClient.append(
+        ingestEntity({
+          entity: event.id,
+          attributes: { "event/meal_type": meal_type },
+        })
+      );
+      moved++;
+    } catch (e) {
+      console.error("moving a logged food failed", e);
+      failed++;
+    }
+  }
+  return { moved, failed };
+}
+
+/**
  * Changes a plain logged food's measured amount, append-only: re-derives its
  * macros from the food twin's `nutrition/info` panel at the new amount (the
  * ADR-0021 formula, the same one the recipe rows use), logs a fresh Consumption

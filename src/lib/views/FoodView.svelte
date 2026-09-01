@@ -8,6 +8,7 @@
     getLocalFoodTwin,
     retractConsumptionEvent,
     changeLoggedFoodAmount,
+    moveLoggedFoodsToMeal,
     copyPastMeal,
     type ConsumptionEvent,
   } from "../stores/calorie.store";
@@ -71,6 +72,7 @@
   import FoodSettingsSheet from "./food/FoodSettingsSheet.svelte";
   import SelectionBar from "./food/SelectionBar.svelte";
   import ScaleTier from "./food/ScaleTier.svelte";
+  import MoveMealSheet from "./food/MoveMealSheet.svelte";
 
   import Card from "../ui/Card.svelte";
   import Badge from "../ui/Badge.svelte";
@@ -692,6 +694,20 @@
     }
   }
 
+  /**
+   * Moves the Selection to another meal of the same day (ADR-0088 §8). One new
+   * `event/meal_type` datom per food and nothing else, so every id survives and
+   * the Selection stays exactly as it was — which is what lets you see where
+   * the foods went.
+   */
+  async function moveSelected(meal_type: MealType) {
+    const items = selectedItems;
+    move_open = false;
+    const { failed } = await moveLoggedFoodsToMeal(items, meal_type);
+    // Silent on success: the foods visibly relocate, which needs no narrating.
+    status_note = failed > 0 ? `${failed} could not move` : "";
+  }
+
   // Turn selected consumption events into recipe ingredients carrying each
   // event's id, so the recipe builder can retract the ones that remain as
   // ingredients. Each seed references its ORIGINAL food twin with the logged
@@ -1082,6 +1098,14 @@
 
 <!-- The Selection bar (ADR-0088). Raised by a long-press; it owns the foot of
      the screen while it is live, which is what makes a Selection a mode. -->
+{#if move_open}
+  <MoveMealSheet
+    count={selected_ids.size}
+    onMove={moveSelected}
+    onClose={() => (move_open = false)}
+  />
+{/if}
+
 {#if selected_ids.size > 0}
   <SelectionBar
     count={selected_ids.size}
