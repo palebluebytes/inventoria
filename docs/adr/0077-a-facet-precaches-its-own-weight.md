@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-31  
-**Implemented:** [#306](https://github.com/palebluebytes/inventoria/issues/306) — `src/lib/facets/precache.ts` derives each Facet's code half, the roster's `precache` field declares the rest, and `vite.config.ts` builds one `VitePWA` instance per Facet. The measured figures are in §1 and §5; the ones this record predicted are kept beside them.
+**Implemented:** [#306](https://github.com/palebluebytes/inventoria/issues/306) — `src/lib/facets/precache.ts` derives each Facet's code half, the roster's `precache` field declares the rest, and `vite.config.ts` builds one `VitePWA` instance per Facet. The measured figures are in §1 and §5; the ones this record predicted are kept beside them. §5's other half is [#307](https://github.com/palebluebytes/inventoria/issues/307) — `src/lib/food/bundled-artifact.ts` carries the one sentence and the error that earns it, thrown by `fetchArtifact` in `src/lib/food/usda-corpus.ts` and by `getDetector` in `src/lib/food/barcode-scan.ts`, and shown on the staged card and the upload dropzone by `src/lib/views/food/FoodStager.svelte`.
 
 ## Context
 
@@ -184,6 +184,35 @@ than an offline user". After this record that is routinely false in the root, an
 comment is corrected in the same change as the config: the next person to debug it reads the
 comment before the ADR. Rations, precaching all three, must not be able to reach that state
 at all.
+
+**Built, [#307](https://github.com/palebluebytes/inventoria/issues/307) found that neither
+path surfaced a fetch error, which is worse than this clause assumed.** The message quoted
+above exists but nothing showed it. `FoodStager.stageFood` caught the rejection and kept the
+search row's four macros in silence, so a cold offline root staged a food that looked
+complete and logged four figures for ever (ADR-0022). Scanning was worse than silent: zxing
+instantiates its WASM inside the first `detect()`, and `decodeBarcode` maps a throwing
+`detect()` to `null` because a frame with no barcode in it throws the same way — so a reader
+that had never run was reported as a photograph the user should take again. The fix on that
+path is to fetch the WASM before the first frame rather than inside it, which is what gives
+the two failures separate names.
+
+A transport failure and a served non-`ok` response are separated rather than treated alike.
+Nothing answering is this clause's offline user; a `404` is a build that dropped an artifact,
+and it keeps the error naming the file, because a message about a network would send the next
+reader looking for a router. **The reader path cannot make that separation and does not
+pretend to**: zxing owns the WASM fetch, so there is no status to read, and a build that
+dropped the file reports a network. The corner is disclosed at the throw rather than papered
+over, and what bounds it is that the ponyfill chunk is in both Facets' derived code half, so
+the only file that can be missing there is the one the root gave up.
+
+**Only the two paths that dead-end say it.** The live camera stays silent: it exists only
+where the platform ships `BarcodeDetector`, so that device has a working decoder and the
+zxing second opinion is an extra, not the reader — a line about the network over a preview
+that is scanning would be false. That path stops retrying instead of saying anything, where
+before it raised an unhandled rejection every 1.2 s for as long as the camera was open.
+Nothing is lost by the silence: a barcode still has to be looked up in Open Food Facts, which
+is a network call in either Facet, so an offline scan cannot complete on a phone whatever
+this record precaches.
 
 ### 6. A Facet's scope is not served by another Facet's service worker
 

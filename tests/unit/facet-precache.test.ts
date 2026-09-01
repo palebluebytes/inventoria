@@ -181,8 +181,9 @@ describe("what a Facet declares (ADR-0077 §3)", () => {
       ])
     );
     // The root keeps the landing screen's artifact and gives up the two that
-    // are read in answer to an action (ADR-0077 §5). #307 is what makes those
-    // two say they need a network.
+    // are read in answer to an action (ADR-0077 §5). This roster is the whole of
+    // why Rations never shows #307's "needs a network" line: it holds the files,
+    // so neither path ever fetches one.
     expect(facetOf("root").precache).not.toContain(
       "assets/zxing_reader-*.wasm"
     );

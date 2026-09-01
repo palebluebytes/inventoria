@@ -324,9 +324,9 @@ export const FACETS = [
       // the user is looking at before they do anything, and a cold offline
       // install that opened on a search box finding nothing would read as "no
       // such food" rather than "no data yet". The Nutrient store and the scanner
-      // are read several seconds later, in answer to an action, and #307 is what
-      // makes those two say they need a network rather than fail like a broken
-      // build.
+      // are read several seconds later, in answer to an action, and #307 is why
+      // those two now say they need a network instead of failing like a broken
+      // build — `src/lib/food/bundled-artifact.ts`.
       "usda/search-index.json",
     ],
     status: "built",
@@ -371,8 +371,8 @@ export const FACETS = [
       // whose case rests on keyless offline search must not need a network for
       // its first search" — was written when there was one app; there are two
       // now and only one of them has a case that rests on offline food. So
-      // Rations owes all three artifacts whole, and must not be able to reach
-      // the state #307 gives the root.
+      // Rations owes all three artifacts whole, and never reaches the state
+      // #307 built for the root: it has the files, so nothing fetches them.
       "usda/search-index.json",
       "usda/nutrient-store.json",
       "assets/zxing_reader-*.wasm",
