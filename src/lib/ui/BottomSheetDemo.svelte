@@ -9,6 +9,13 @@
   let parentOpen = $state(false);
   let sheetOpen = $state(false);
 
+  // The primitive has two height models below 768px and they are different
+  // claims: an ordinary sheet is anchored to the band's bottom edge and capped
+  // at its height, a `fillHeight` one pins `top` *and* `height` to the band
+  // (ADR-0089 §5). The surface #326 broke was the second kind, so the demo can
+  // raise either and the keyboard invariants (#333) run over both.
+  let fillHeight = $state(false);
+
   // Footer interactions. If the sheet were click-through (the bug the primitive
   // now absorbs), tapping these over the parent dialog would do nothing — so the
   // counters double as the interactivity assertion.
@@ -42,8 +49,19 @@
           This is a bits-ui dialog. Raising the sheet over it puts
           <code>pointer-events: none</code> on the body — the sheet must stay live.
         </p>
-        <button id="demo-open-sheet" onclick={() => (sheetOpen = true)}
-          >Raise bottom sheet</button
+        <button
+          id="demo-open-sheet"
+          onclick={() => {
+            fillHeight = false;
+            sheetOpen = true;
+          }}>Raise bottom sheet</button
+        >
+        <button
+          id="demo-open-fill-sheet"
+          onclick={() => {
+            fillHeight = true;
+            sheetOpen = true;
+          }}>Raise full-height sheet</button
         >
         <!-- Sits under where the sheet renders; a click-through would hit it. -->
         <button
@@ -57,7 +75,7 @@
   </Modal>
 {/if}
 
-<BottomSheet bind:isOpen={sheetOpen} title="Docked sheet">
+<BottomSheet bind:isOpen={sheetOpen} {fillHeight} title="Docked sheet">
   <ul class="body-list">
     {#each rows as row (row)}
       <li>{row}</li>
@@ -70,10 +88,14 @@
          real dock is a search input above the method switcher (FoodStager's
          `.dock-input`), and the keyboard invariants (#333) assert against a
          field rather than against a button standing in for one. -->
-    <label class="dock-input">
-      <span class="sr-only">Search</span>
-      <input id="demo-dock-field" type="text" placeholder="Search" />
-    </label>
+    <div class="dock-input">
+      <input
+        id="demo-dock-field"
+        type="text"
+        placeholder="Search"
+        aria-label="Search"
+      />
+    </div>
     <div class="switcher">
       {#each methods as m}
         <button
@@ -135,18 +157,11 @@
     background: var(--paper);
     color: var(--ink);
     padding: var(--space-2xs);
-    /* 16px floor: under it, iOS Safari zooms the page on focus, which is a
-       second way this screen leaves the edge (ADR-0089 §8). */
+    /* Sized here rather than inherited, so the harness's own field is never the
+       variable in a geometry measurement. It is deliberately not `ui/Input`:
+       every control in this file is hand-rolled for the same reason. */
     font-size: 1rem;
     min-height: var(--tap-min);
-  }
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
   }
   .switcher {
     display: flex;
