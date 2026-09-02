@@ -1,4 +1,16 @@
 <script lang="ts">
+  // **"Your data" on Rations settings** (ADR-0080 §7): the four blocks a
+  // food-only user has to work with, in one group — the Facet-scoped export,
+  // the un-narrowed Ledger import, the Facet-scoped wipe, and the persistence
+  // badge. ADR-0078 §7 leaves a standalone Rations user no route to root
+  // Settings, so what is not here is nowhere.
+  //
+  // The heading is **"Your data"** and not "Your food data" (#335). It was the
+  // narrower sentence while the block held only food-scoped controls; two of the
+  // four are jar-wide, so the narrower heading would now be a claim about the
+  // import that ADR-0080 §3 explicitly refuses. The delete button keeps its own
+  // wording, which is ADR-0079 §5's and is about food alone.
+  //
   // **Delete all my food data, with an export beside it** (ADR-0079 §5, §6).
   //
   // It is called "Delete all my food data" and never "Wipe Rations": in a
@@ -33,6 +45,12 @@
   import Button from "../../ui/Button.svelte";
   import Modal from "../../ui/Modal.svelte";
   import LedgerExportButton from "../ledger/LedgerExportButton.svelte";
+  import LedgerImport from "../ledger/LedgerImport.svelte";
+  import PersistenceBadge from "../storage/PersistenceBadge.svelte";
+  import {
+    refreshPersistenceState,
+    type PersistenceState,
+  } from "../../storage/persistent-storage";
   import { dbClient } from "../../db/db.client";
   import type { EntityCensus } from "../../db/db.core";
   import type { FacetId } from "../../facets/registry";
@@ -48,6 +66,9 @@
   // root opens this same sheet from the Food tab's gear, and a wipe scoped to
   // food is the same act on both surfaces (§6).
   const FACET: FacetId = "food";
+
+  /** Whether the worker is up, which is what the import needs to be told. */
+  let { dbReady }: { dbReady: boolean } = $props();
 
   let census = $state<EntityCensus | null>(null);
   let unreadable = $state(false);
@@ -134,6 +155,22 @@
     }
   }
 
+  // **What the browser has agreed to keep** (ADR-0065), which is the one place
+  // the app says data may be evicted and therefore follows the Facet (ADR-0080
+  // §2, clause (a)). The usage figure beside it at the root does not: it is
+  // per-origin, so here it would report the root's bytes, the bundled corpus
+  // included, as this user's meals.
+  //
+  // Read on mount, with no `shown` prop. The root's Settings screen needs one
+  // because it is rendered under every tab and merely hidden, so a mount there
+  // means "the app opened" (#290). This is a bottom sheet: it is created when
+  // the gear is pressed and destroyed when it is dismissed, so a mount is the
+  // opening, and the prop would be a constant `true`.
+  let persistence = $state<PersistenceState>("unknown");
+  $effect(() => {
+    refreshPersistenceState().then((state) => (persistence = state));
+  });
+
   // A reload, not a re-render, and it is the point rather than a shortcut. Every
   // settings store in `stores/device-settings.ts` is seeded from `localStorage`
   // at import and held in memory for the life of the page — deliberately, so a
@@ -146,7 +183,7 @@
 </script>
 
 <section class="food-data">
-  <h2>Your food data</h2>
+  <h2>Your data</h2>
   <p class="lead">
     Everything you have logged, kept on this device. Take a copy before you
     delete it — nothing here can be undone afterwards.
@@ -170,6 +207,27 @@
     label="Export my food data"
     {scope}
   />
+
+  <!-- **The import, un-narrowed** (ADR-0080 §3). The same control the root
+       offers, reading the same file in the same grammar the export above
+       writes: it merges, it takes foreign rows and all, and it filters nothing
+       on ownership. An import cannot be narrowed to a scope — a file is
+       whatever the user hands it, so filtering would destroy rows the user is
+       holding in their hand and refusing would make a whole-Jar backup
+       unrestorable from the app that most needs restoring.
+
+       The residue, said out loud below rather than hidden: rows this screen can
+       neither show nor wipe can arrive through it. They came from the user's
+       own export, and the root removes them if it is ever installed. -->
+  <LedgerImport {dbReady} id="food-import-ledger-btn" />
+  <p class="figure import-note">
+    A file holds whatever was in it when it was written. If yours was taken from
+    the whole app rather than from here, importing it puts all of it back —
+    including anything from parts of the app this screen does not show, which it
+    can neither list nor delete. The delete above takes food and nothing else,
+    so on this screen an imported file is added to what is here rather than made
+    the only truth.
+  </p>
 
   <div class="danger-row">
     <Button
@@ -200,6 +258,14 @@
       {/if}
     </div>
   {/if}
+
+  <!-- Last, because it is the sentence the controls above follow from rather
+       than a control of its own: what the browser has agreed to keep is the
+       reason to hold a copy at all. Below the delete and its outcome, so
+       nothing comes between a button and the report of what it did. -->
+  <div class="persistence">
+    <PersistenceBadge {persistence} id="food-storage-persistence" />
+  </div>
 </section>
 
 {#if confirming && plan}
@@ -299,6 +365,16 @@
   }
   .danger-row {
     margin-top: var(--space-s);
+  }
+  /* The import's own paragraph, tucked under the block it qualifies rather than
+     spaced off as a new one. */
+  .import-note {
+    margin-top: var(--space-xs);
+  }
+  .persistence {
+    border-top: var(--edge);
+    padding-top: var(--space-s);
+    margin-top: var(--space-m);
   }
   .result {
     margin-top: var(--space-s);

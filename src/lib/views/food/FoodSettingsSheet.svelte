@@ -38,7 +38,16 @@
   // There is no Save button: every field persists the moment it changes (a
   // secret on blur, the toggle on change), matching how the nutrition editor
   // below already auto-saves. So the sheet is dismissed, never "submitted".
-  let { onClose }: { onClose: () => void } = $props();
+  let {
+    onClose,
+    /**
+     * Whether the worker is up, threaded from whichever shell mounted the food
+     * screen. The Ledger import in "Your data" is the only control here that
+     * needs it: everything else on this sheet is `localStorage`, and the
+     * export's own readiness comes from the census it already reads.
+     */
+    dbReady,
+  }: { onClose: () => void; dbReady: boolean } = $props();
 
   // The Facet whose settings these are — always Rations, whichever entry point
   // is drawing the screen. Read off the registry rather than typed, so the name
@@ -207,7 +216,9 @@
     </div>
   </section>
 
-  <!-- The Facet-scoped export and wipe (ADR-0079 §6). It sits below the two
+  <!-- **"Your data"** (ADR-0080 §7): the Facet-scoped export and wipe (ADR-0079
+       §6), the un-narrowed Ledger import and the persistence badge (#335). It
+       sits below the two
        sections that configure food and above the log card, because it is the
        one control here that takes something away rather than setting it: the
        destructive action ADR-0080 §7 named as the reason this sheet has a
@@ -217,7 +228,7 @@
        which is this same sheet — never a root inventory of Facets with a wipe
        button each, which is the launcher ADR-0076 refuses and would need a
        second enumeration of Facets. -->
-  <FoodDataSection />
+  <FoodDataSection {dbReady} />
 
   <!-- Local logs, Rations' own (ADR-0080 §2). The same card the root draws,
        narrowed to the channels food's domain writes and switched by Rations'

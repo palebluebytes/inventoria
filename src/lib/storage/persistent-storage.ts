@@ -81,6 +81,35 @@ export async function readPersistenceState(): Promise<PersistenceState> {
 }
 
 /**
+ * What the browser says now, after the one request this session makes has
+ * settled.
+ *
+ * The two halves in the order every reader wants them: the request is memoised,
+ * so awaiting it again asks the browser nothing, and the read afterwards is
+ * what makes a badge report a grant Chromium made on its own after refusing at
+ * load rather than the answer it gave then (ADR-0065 §2). Both surfaces that
+ * report the state call this, so neither can get the order wrong.
+ */
+export function refreshPersistenceState(): Promise<PersistenceState> {
+  return ensurePersistentStorage().then(() => readPersistenceState());
+}
+
+/**
+ * Whether the browser has actually decided, which is the only case a reader has
+ * anything to report.
+ *
+ * The rule lives here rather than in either screen: `unknown` is this module's
+ * third case, invented for a browser that was never asked, and a screen that
+ * re-derived "nothing to say" from it would be a second copy of a decision this
+ * module owns.
+ */
+export function isDecided(
+  state: PersistenceState
+): state is "persisted" | "best-effort" {
+  return state !== "unknown";
+}
+
+/**
  * What the browser says this origin is using, and how much it is allowed. Both
  * figures are optional in the Storage standard, so either can be absent while
  * the other is present.

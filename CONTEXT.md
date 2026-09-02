@@ -51,7 +51,7 @@ An answer given at the point of the act it authorises, and nowhere else: the per
 _Avoid_: Consent datom, consent entity, master consent, permission (which is the browser's word for a prompt); and calling the settings switch a consent
 
 **Persistent storage**:
-The browser's undertaking not to evict this origin's data to reclaim disk space, asked for once per session through `navigator.storage.persist()` and reported in Settings. Storage without it is _best-effort_, the standard's own word: the Ledger may be cleared with no warning and no action by the user. The state belongs to one browser profile rather than to the person using the app, so it is never a datom, and it is not a backup, because clearing site data, `Wipe Database` and a lost device each take the Ledger whatever the browser granted. See ADR-0065.
+The browser's undertaking not to evict this origin's data to reclaim disk space, asked for once per session through `navigator.storage.persist()` and reported in Settings and on Rations settings, the badge being the one place either app says the Ledger may be evicted (ADR-0080 §2). Storage without it is _best-effort_, the standard's own word: the Ledger may be cleared with no warning and no action by the user. The state belongs to one browser profile rather than to the person using the app, so it is never a datom, and it is not a backup, because clearing site data, `Wipe Database` and a lost device each take the Ledger whatever the browser granted. See ADR-0065.
 _Avoid_: Durable storage, backup, permanent; and "persistence" for what the Developer Options OPFS survival test proves, which is survival across a page reload rather than exemption from eviction
 
 ### Digital Twins

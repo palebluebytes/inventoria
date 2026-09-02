@@ -249,6 +249,10 @@ describe("what the Facet gates read off the registry (ADR-0083 §4)", () => {
     // `SettingsView` and the blocks under it are nobody's domain screen, and
     // which Facet carries one is the judgement ADR-0083 §10 declined to gate.
     // The containment check counts these rather than passing them in silence.
+    // Unowned is not unused, and `PersistenceBadge` is the case that shows it:
+    // ADR-0080 §2 marks it for both Facets, so both builds reach it, and it is
+    // still nobody's domain because a browser's undertaking about the Jar is
+    // not food's fact or media's.
     // Real modules, all of them — `HabitsView.svelte` included, which is named
     // by nothing in `src/` and is in neither build.
     for (const unowned of [
@@ -256,6 +260,7 @@ describe("what the Facet gates read off the registry (ADR-0083 §4)", () => {
       "src/lib/views/ledger/LedgerExport.svelte",
       "src/lib/views/logs/LogReviewSheet.svelte",
       "src/lib/views/storage/StorageStatus.svelte",
+      "src/lib/views/storage/PersistenceBadge.svelte",
       "src/lib/views/HabitsView.svelte",
     ]) {
       expect({

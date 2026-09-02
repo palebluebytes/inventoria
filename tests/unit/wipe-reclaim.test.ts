@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readCode } from "./support/source";
 
 /**
  * The wiring behind #290, claimed structurally.
@@ -18,17 +18,12 @@ import { readFileSync } from "node:fs";
  * satisfy a claim about code.
  */
 
-const source = (path: string) =>
-  readFileSync(new URL(`../../${path}`, import.meta.url), "utf8")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/^[ \t]*\/\/.*$/gm, "")
-    .replace(/<!--[\s\S]*?-->/g, "");
-
-const APP = source("src/App.svelte");
-const SETTINGS = source("src/lib/views/SettingsView.svelte");
-const STORAGE = source("src/lib/views/storage/StorageStatus.svelte");
-const CORE = source("src/lib/db/db.core.ts");
-const WORKER = source("src/lib/db/db.worker.ts");
+const APP = readCode("src/App.svelte");
+const SETTINGS = readCode("src/lib/views/SettingsView.svelte");
+const STORAGE = readCode("src/lib/views/storage/StorageStatus.svelte");
+const STORAGE_MODULE = readCode("src/lib/storage/persistent-storage.ts");
+const CORE = readCode("src/lib/db/db.core.ts");
+const WORKER = readCode("src/lib/db/db.worker.ts");
 
 const handler = SETTINGS.slice(
   SETTINGS.indexOf("async function wipeDatabase"),
@@ -112,10 +107,18 @@ describe("the storage readout is told when its screen is looked at", () => {
     );
     // Both halves are in the one reading: ADR-0065 §2 wants the reading fresh,
     // and the request it waits on is memoised so re-running it asks the browser
-    // nothing.
+    // nothing. The request now sits inside `refreshPersistenceState`, which is
+    // where Rations' own badge reaches it too (#335), so the claim follows it
+    // into `storage/persistent-storage.ts` rather than being dropped.
     const read = STORAGE.slice(STORAGE.indexOf("export function read()"));
-    expect(read).toMatch(/ensurePersistentStorage\(\)/);
+    expect(read).toMatch(/refreshPersistenceState\(\)/);
     expect(read).toMatch(/readStorageEstimate\(\)/);
+    const refresh = STORAGE_MODULE.slice(
+      STORAGE_MODULE.indexOf("export function refreshPersistenceState")
+    );
+    expect(refresh.slice(0, refresh.indexOf("}"))).toMatch(
+      /ensurePersistentStorage\(\)[\s.]*then\(\(\) => readPersistenceState\(\)\)/
+    );
   });
 
   it("can also be asked directly, because a wipe never changes that prop", () => {

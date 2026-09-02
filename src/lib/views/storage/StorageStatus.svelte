@@ -4,15 +4,18 @@
   // "is this safe here?", which is the question the wipe and the export below it
   // both follow from.
   //
-  // A readout and nothing else: no prompt, no retry button, no blocked screen.
-  // The request happens once at startup, and a browser that refused is stating a
-  // policy rather than waiting to be asked again.
-  import Badge from "../../ui/Badge.svelte";
+  // **The root's card, and only the root's** (ADR-0080 §2). The badge below is
+  // shared with Rations; the usage figure is not, because `estimate()` is
+  // per-origin and would report the root's bytes as food's on a surface that
+  // shows nothing but food. The reading of both halves is here, because the
+  // thing this screen has to work around — a Settings screen that mounts once
+  // per page load — is this screen's and not the badge's (#290).
+  import PersistenceBadge from "./PersistenceBadge.svelte";
   import { describeBytes } from "../../storage/describe-bytes";
   import {
-    ensurePersistentStorage,
-    readPersistenceState,
+    isDecided,
     readStorageEstimate,
+    refreshPersistenceState,
     type PersistenceState,
     type StorageEstimateReading,
   } from "../../storage/persistent-storage";
@@ -71,33 +74,13 @@
    * or a corpus download all move.
    */
   export function read() {
-    ensurePersistentStorage()
-      .then(() => readPersistenceState())
-      .then((state) => (persistence = state));
+    refreshPersistenceState().then((state) => (persistence = state));
     readStorageEstimate().then((reading) => (estimate = reading));
   }
 
   $effect(() => {
     if (!shown) return;
     read();
-  });
-
-  let durability = $derived.by(() => {
-    if (persistence === "persisted") {
-      return {
-        label: "Persistent",
-        variant: "success" as const,
-        line: "This browser has marked this site's storage as persistent, so it will not be cleared to reclaim disk space.",
-      };
-    }
-    if (persistence === "best-effort") {
-      return {
-        label: "Best effort",
-        variant: "warning" as const,
-        line: "This browser did not grant persistent storage, so it may clear this site's data when the device runs short of space. Nothing needs doing about it here; the browser decides, and it may decide differently once the site has been used more.",
-      };
-    }
-    return null;
   });
 
   // Both figures are optional in the Storage standard, so each combination gets
@@ -122,19 +105,12 @@
   });
 </script>
 
-{#if durability || sizeLine}
+{#if isDecided(persistence) || sizeLine}
   <section class="storage-status">
-    <div class="heading">
-      <h3>Storage</h3>
-      {#if durability}
-        <Badge id="storage-persistence" variant={durability.variant}>
-          {durability.label}
-        </Badge>
-      {/if}
-    </div>
-    {#if durability}
-      <p class="figure">{durability.line}</p>
-    {/if}
+    <!-- The badge and its sentence, which Rations draws too (ADR-0080 §2). The
+         reading stays here, because #290's `shown` is this screen's problem and
+         not the component's. -->
+    <PersistenceBadge {persistence} />
     {#if sizeLine}
       <p class="figure">{sizeLine}</p>
     {/if}
@@ -150,18 +126,6 @@
     border-top: var(--edge);
     padding-top: var(--space-s);
     margin-top: var(--space-m);
-  }
-  .heading {
-    display: flex;
-    align-items: center;
-    gap: var(--space-s);
-  }
-  h3 {
-    font-size: var(--step-n1);
-    font-weight: 800;
-    text-transform: uppercase;
-    color: var(--ink);
-    margin: 0;
   }
   .figure {
     font-size: var(--step-n2);

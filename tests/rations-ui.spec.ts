@@ -57,6 +57,32 @@ test.describe("Rations, the food Facet's own entry point", () => {
     ).toBeVisible();
   });
 
+  test("Your data offers the way back in, not just the way out (#335)", async ({
+    page,
+  }) => {
+    // ADR-0080 §2 carries the Ledger import into Rations whole and §3 argues
+    // why: an export with no import is a file format rather than a restore
+    // path, and ADR-0078 §7 gives this user no route to the root's copy of it.
+    // The badge beside it is the only place the app says data may be evicted;
+    // the per-origin usage figure stays at the root, where it is not a claim
+    // about food.
+    //
+    // This is the wiring half. That the import is *un-narrowed* is pinned in
+    // `tests/unit/rations-settings.test.ts`, and what it does with a whole-Jar
+    // file in `tests/unit/db-ledger-import.test.ts`.
+    await page.locator("#food-settings-btn").click();
+    await expect(
+      page.getByRole("heading", { name: "Your data", exact: true })
+    ).toBeVisible();
+    await expect(page.locator("#food-import-ledger-btn")).toBeVisible();
+    await expect(page.locator("#food-storage-persistence")).toBeVisible();
+    // The delete keeps ADR-0079 §5's wording, which is about food alone even
+    // though the group over it no longer is.
+    await expect(page.locator("#delete-food-data-btn")).toHaveText(
+      "Delete all my food data"
+    );
+  });
+
   test("no anchor leaves the Facet", async ({ page }) => {
     // ADR-0078 §1: a Facet's entry mounts its own screens and nothing else, so a
     // link out of `/food/` is unexpressible rather than forbidden. This asserts

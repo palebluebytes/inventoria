@@ -19,6 +19,7 @@ import {
   type ExportSink,
 } from "../../src/lib/db/ledger-export";
 import { importLedger } from "../../src/lib/db/ledger-import";
+import { domainsOf, TRACKED_DOMAINS } from "../../src/lib/facets/registry";
 
 // The import is the one write path that keeps a stamp it did not issue, and the
 // dedupe it relies on is the table's own primary key. Neither survives being
@@ -227,6 +228,49 @@ describe("a ledger exported and read back", () => {
     expect(again.rowsAdded).toBe(0);
     expect(again.rowsAlreadyPresent).toBe(2);
     expect(readAll(landed)).toEqual(readAll(db));
+  });
+});
+
+describe("a whole-Jar file restored from Rations (ADR-0080 §3)", () => {
+  it("lands every row, including the domains that Facet does not hold", async () => {
+    // The case the import is carried into Rations *for* (#335): a user whose
+    // only app is Rations, restoring a file that was taken from the whole Jar.
+    // An import cannot be narrowed to a scope — a file is whatever the user
+    // hands it — so the rows of domains Rations neither shows nor wipes have to
+    // arrive too. One entity per tracked domain, read off the registry rather
+    // than hand-listed, so a seventh domain is covered the day it is declared.
+    const held = new Set(domainsOf("food").map((d) => d.id));
+    const seeded = TRACKED_DOMAINS.map((d) => ({
+      domain: d.id,
+      entity: `${d.entityPrefixes[0]}whole`,
+    }));
+    appendDatoms(
+      db,
+      seeded.map((s) =>
+        datom({ entity: s.entity, attribute: "twin/name", value: s.entity })
+      ),
+      clock
+    );
+    const foreign = seeded.filter((s) => !held.has(s.domain));
+    // The premise of the whole test: there is something in the file Rations
+    // does not own. Asserted rather than assumed, because a roster change could
+    // quietly make this a test of nothing.
+    expect(foreign.length).toBeGreaterThan(0);
+
+    const file = await exportToString(db);
+    const landed = freshDb();
+    const result = await importLedger(
+      () => oneChunk(file),
+      async (rows) => importLedgerRows(landed, rows).rowsAdded
+    );
+
+    expect(result.rowsAdded).toBe(seeded.length);
+    // Row for row, foreign rows and all: nothing was filtered, dropped or
+    // refused on ownership.
+    expect(readAll(landed)).toEqual(readAll(db));
+    expect(readAll(landed).map((r) => r.entity)).toEqual(
+      expect.arrayContaining(foreign.map((f) => f.entity))
+    );
   });
 });
 

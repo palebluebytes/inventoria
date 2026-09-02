@@ -1254,7 +1254,7 @@
      full-height settings surface (ADR-0080 §7): the OFF login, the contribution
      default, the nutrition targets, and Rations' own Local Logs card. -->
 {#if settingsOpen}
-  <FoodSettingsSheet onClose={() => (settingsOpen = false)} />
+  <FoodSettingsSheet {dbReady} onClose={() => (settingsOpen = false)} />
 {/if}
 
 <!-- Recipe library — the header's recipe button. Browses every saved recipe and

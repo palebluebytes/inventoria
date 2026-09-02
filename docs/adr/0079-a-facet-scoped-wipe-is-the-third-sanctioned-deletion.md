@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-01  
-**Implemented:** whole. §4's jar-wide half at #290 — `vacuumLedger` in `src/lib/db/db.core.ts`, its own worker operation, attempted after the `clear` commits, with the storage figure on the same screen re-read once it returns. The scoped wipe at [#311](https://github.com/palebluebytes/inventoria/issues/311) — `deleteDatomsByEntityPrefix` in the same module, the predicate derived in `src/lib/facets/facet-wipe.ts`, the control and its export in `src/lib/views/food/FoodDataSection.svelte` on Rations settings. §8 is open by construction and stays open.
+**Implemented:** whole. §4's jar-wide half at #290 — `vacuumLedger` in `src/lib/db/db.core.ts`, its own worker operation, attempted after the `clear` commits, with the storage figure on the same screen re-read once it returns. The scoped wipe at [#311](https://github.com/palebluebytes/inventoria/issues/311) — `deleteDatomsByEntityPrefix` in the same module, the predicate derived in `src/lib/facets/facet-wipe.ts`, the control and its export in `src/lib/views/food/FoodDataSection.svelte` on Rations settings. §6's round trip closes at [#335](https://github.com/palebluebytes/inventoria/issues/335), which puts the un-narrowed Import beside that export under ADR-0080 §3. §8 is open by construction and stays open.
 
 ## Context
 
@@ -396,13 +396,23 @@ fold reads them, and the confirmation was corrected so it does not claim
 otherwise: where no domain holds surviving rows it now says how many stay and
 stops, instead of asserting that none of them are food's.
 
-**The export is restorable and there is no route to restore it from Rations.**
+**The export is restorable and there was no route to restore it from Rations.**
 The scoped export writes the same `inventoria-ledger` artifact at the same
 schema version, carrying a `scope` field an older reader ignores, so the
-whole-ledger Import reads it back row for row. That Import is on root Settings,
-which ADR-0078 §7 gives a standalone Rations user no way to reach. The export is
-still the safety control §6 requires — a copy the user holds, on a device they
-control, in a format that restores — but the round trip is only closed for
-someone who can reach the root. Naming that is better than a control that
-implies otherwise, and closing it is a Rations-side import, which is a decision
-about a second surface rather than a defect in this one.
+whole-ledger Import reads it back row for row. That Import was on root Settings
+alone, which ADR-0078 §7 gives a standalone Rations user no way to reach. The
+export was still the safety control §6 requires — a copy the user holds, on a
+device they control, in a format that restores — but the round trip was only
+closed for someone who could reach the root.
+
+**Corrected 2026-09-02 ([#335](https://github.com/palebluebytes/inventoria/issues/335)):
+that last sentence was wrong when it was written, and the gap is now closed.**
+It said closing the gap was "a Rations-side import, which is a decision about a
+second surface rather than a defect in this one". It was not a decision waiting
+to be taken: [ADR-0080](0080-a-facet-carries-a-jar-wide-control-only-where-losing-it-loses-data.md)
+§2 had already carried the import into Rations and §3 had already argued it at
+length, so what this note found was an **unbuilt clause** and not an open
+question. The sentence was written without checking that record. #335 built it —
+the ordinary `LedgerImport`, un-narrowed, on Rations settings — so §6's pairing
+is a copy that can be redeemed on the surface that holds the delete, rather than
+half a safety control.

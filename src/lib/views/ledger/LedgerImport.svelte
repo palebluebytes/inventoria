@@ -5,6 +5,16 @@
   // It merges. Facts the file does not carry stay where they are, so importing
   // a week-old backup does not eat this week. Making the file the only truth is
   // Wipe Database and then this, which stays two deliberate steps.
+  //
+  // **Two surfaces draw it, and neither narrows it** (ADR-0080 §3). Rations
+  // carries this same control because an export with no import is a file format
+  // rather than a restore path, and it carries it *whole*: a file is whatever
+  // the user hands it, so the import takes foreign rows and all rather than
+  // filtering on ownership. Nothing here knows which Facet it is on — the id is
+  // a prop only because both can be in one page's DOM at once, and the copy is
+  // the root's throughout: the paragraph naming Wipe Database is `CONTEXT.md`'s
+  // sentence about this control, and a Facet that cannot reach that button says
+  // so in its own words rather than editing the shared one.
   import Button from "../../ui/Button.svelte";
   import Alert from "../../ui/Alert.svelte";
   import { dbClient } from "../../db/db.client";
@@ -15,7 +25,19 @@
   } from "../../db/ledger-import";
   import { fileChunks, LEDGER_IMPORT_ACCEPT } from "./import-source";
 
-  let { dbReady }: { dbReady: boolean } = $props();
+  let {
+    dbReady,
+    /**
+     * The button's DOM id. A default because the root's is the original, and a
+     * prop because the root renders Settings under every tab while the food
+     * gear's sheet is open, so both imports can be live at once and one id on
+     * two elements is an ambiguous selector rather than a duplicate that shows.
+     */
+    id = "import-ledger-btn",
+  }: {
+    dbReady: boolean;
+    id?: string;
+  } = $props();
 
   let fileInput = $state<HTMLInputElement | null>(null);
   let outcome = $state<
@@ -128,7 +150,7 @@
       onchange={handleFileChange}
     />
     <Button
-      id="import-ledger-btn"
+      {id}
       variant="secondary"
       onclick={() => fileInput?.click()}
       disabled={!dbReady || busy}

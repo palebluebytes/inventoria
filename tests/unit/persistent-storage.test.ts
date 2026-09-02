@@ -196,3 +196,48 @@ describe("reading how much storage this origin has", () => {
     await expect(readStorageEstimate()).resolves.toBeNull();
   });
 });
+
+describe("the reading both badges take (#335)", () => {
+  it("waits for this session's request, then reports what the browser says now", async () => {
+    // The order is the point: a grant Chromium made on its own after refusing
+    // at load is what a badge must show, and a reader that skipped the request
+    // would report a refusal from ten minutes ago instead.
+    const persisted = vi
+      .fn()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValue(true);
+    const persist = vi.fn().mockResolvedValue(false);
+    stubStorageManager({ persisted, persist });
+
+    const { refreshPersistenceState } = await loadStorage();
+
+    await expect(refreshPersistenceState()).resolves.toBe("persisted");
+    expect(persist).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks the browser once however many surfaces report the state", async () => {
+    // Two surfaces draw the badge now — root Settings and Rations settings —
+    // and on the root both can be mounted at once. The request is memoised, so
+    // the second reader is a read and not a second request.
+    const persisted = vi.fn().mockResolvedValue(false);
+    const persist = vi.fn().mockResolvedValue(false);
+    stubStorageManager({ persisted, persist });
+
+    const { refreshPersistenceState } = await loadStorage();
+
+    await refreshPersistenceState();
+    await refreshPersistenceState();
+
+    expect(persist).toHaveBeenCalledTimes(1);
+  });
+
+  it("says the browser has decided only where it has answered", async () => {
+    // `unknown` is this module's own third case, for a browser that was never
+    // asked. It is what makes a badge render nothing rather than guess.
+    const { isDecided } = await loadStorage();
+
+    expect(isDecided("persisted")).toBe(true);
+    expect(isDecided("best-effort")).toBe(true);
+    expect(isDecided("unknown")).toBe(false);
+  });
+});
