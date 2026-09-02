@@ -9,17 +9,22 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
  * have opened the same OPFS ledger, never asked the browser to keep it, and
  * looked entirely healthy until the device ran short of disk (ADR-0065).
  *
- * The corpus warm and the retired-secret sweep are stubbed rather than run.
- * Neither has a browser to reach here, and neither is what this file is about.
+ * The corpus warm, the retired-secret sweep and the visible band are stubbed
+ * rather than run. None has a browser to reach here, and none is what this file
+ * is about — the band's own geometry is `viewport-inset.test.ts`'s.
  */
 const warmUsdaCorpus = vi.fn();
 const clearRetiredSecrets = vi.fn();
+const startViewportInset = vi.fn(() => () => {});
 
 vi.mock("../../src/lib/food/usda-corpus", () => ({
   warmUsdaCorpus: () => warmUsdaCorpus(),
 }));
 vi.mock("../../src/lib/stores/secrets", () => ({
   clearRetiredSecrets: () => clearRetiredSecrets(),
+}));
+vi.mock("../../src/lib/ui/viewport-inset", () => ({
+  startViewportInset: () => startViewportInset(),
 }));
 
 /**
@@ -36,6 +41,7 @@ beforeEach(() => {
   vi.unstubAllGlobals();
   warmUsdaCorpus.mockClear();
   clearRetiredSecrets.mockClear();
+  startViewportInset.mockClear();
 });
 
 afterEach(() => {
@@ -64,6 +70,7 @@ describe("an entry point's startup errands (ADR-0065, #301)", () => {
 
     expect(warmUsdaCorpus).toHaveBeenCalledTimes(1);
     expect(clearRetiredSecrets).toHaveBeenCalledTimes(1);
+    expect(startViewportInset).toHaveBeenCalledTimes(1);
   });
 
   it("returns rather than throwing where the browser answers nothing", async () => {

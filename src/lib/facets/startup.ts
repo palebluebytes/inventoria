@@ -9,6 +9,13 @@
  * OPFS ledger and silently never asked the browser to keep it (ADR-0065). A
  * shared list is the only shape in which a third entry point cannot miss one.
  *
+ * One member is the **document's** rather than the Jar's: the visible band
+ * (ADR-0089 §1). It is here because it has the same shape of failure — two
+ * shells publish it or a phone's sheets run under the keyboard on whichever one
+ * forgot — and because it must run *below* ADR-0069's boot guard rather than in
+ * `mountFacet` above it, where a throw would be read as "this shell cannot
+ * start" and wipe the service worker and every cache over a layout measurement.
+ *
  * Two things are deliberately **not** here. The receive link and the iOS code
  * handover are the root's, because both are about a URL that arrives at `/`
  * (ADR-0074 §8, ADR-0082 §2) and a Facet does not forward a hand-off aimed at
@@ -20,6 +27,7 @@
 import { warmUsdaCorpus } from "../food/usda-corpus";
 import { clearRetiredSecrets } from "../stores/secrets";
 import { ensurePersistentStorage } from "../storage/persistent-storage";
+import { startViewportInset } from "../ui/viewport-inset";
 
 /**
  * Run them. Called from `onMount`, after the ledger has been kicked off and
@@ -45,4 +53,8 @@ export function runStartupErrands(): void {
   // request is memoised, so the Settings readout reaches this same decision
   // instead of asking a second time.
   void ensurePersistentStorage();
+  // Publish the visible band (ADR-0089 §1). The disposer is dropped on purpose:
+  // the band belongs to the document and dies with it, and `startViewportInset`
+  // is idempotent, so there is nothing for a second call to leak.
+  startViewportInset();
 }
