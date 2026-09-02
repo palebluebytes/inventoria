@@ -65,6 +65,15 @@
   </ul>
 
   {#snippet footer({ close })}
+    <!-- A docked text field, because that is the shape ADR-0089 §8 guarantees:
+         "the header and the dock's field are always visible". The food sheets'
+         real dock is a search input above the method switcher (FoodStager's
+         `.dock-input`), and the keyboard invariants (#333) assert against a
+         field rather than against a button standing in for one. -->
+    <label class="dock-input">
+      <span class="sr-only">Search</span>
+      <input id="demo-dock-field" type="text" placeholder="Search" />
+    </label>
     <div class="switcher">
       {#each methods as m}
         <button
@@ -115,6 +124,29 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-xs);
+  }
+  .dock-input {
+    display: block;
+    margin-bottom: var(--space-2xs);
+  }
+  .dock-input input {
+    width: 100%;
+    border: var(--edge);
+    background: var(--paper);
+    color: var(--ink);
+    padding: var(--space-2xs);
+    /* 16px floor: under it, iOS Safari zooms the page on focus, which is a
+       second way this screen leaves the edge (ADR-0089 §8). */
+    font-size: 1rem;
+    min-height: var(--tap-min);
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
   .switcher {
     display: flex;
