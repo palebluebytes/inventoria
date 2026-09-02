@@ -2,7 +2,8 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-01  
-**Implemented:** §8 by [#309](https://github.com/palebluebytes/inventoria/issues/309) — `checkShareTargets` in `src/lib/facets/checks.ts`, over the manifests the roster enumerates and with no registry field added.
+**Amends:** [ADR-0074](0074-sending-is-the-meals-own-numbers-and-receiving-has-no-door.md) (§8's link moves from `/` to `/food/` and the root's reader is deleted; §9's asset-router rule survives the move and is now carried by Rations' own entry)  
+**Implemented:** §8 by [#309](https://github.com/palebluebytes/inventoria/issues/309) — `checkShareTargets` in `src/lib/facets/checks.ts`, over the manifests the roster enumerates and with no registry field added. §5 and §6 by [#313](https://github.com/palebluebytes/inventoria/issues/313) — `sendCodeLink` in `src/lib/p2p/send-code.ts` mints against the roster's `/food/`, and both readings of the link move to `src/Rations.svelte` while `src/App.svelte`'s are deleted.
 
 ## Context
 

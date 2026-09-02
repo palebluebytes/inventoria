@@ -3,7 +3,8 @@
 **Status:** Accepted  
 **Date:** 2026-08-29  
 **Amended by:** [ADR-0082](0082-a-safari-tab-on-ios-hands-the-code-to-the-app-it-is-not.md) (§10's boundary shrinks from the whole platform to one case, §11 gains a second test, §12.4 dissolves, §12.5 is revived, §12.6 is refused on its own merits, and §12.8 keeps its conclusion with a new reason)  
-**Amended by:** [ADR-0088](0088-a-selection-is-a-mode-with-its-own-verbs-and-its-own-way-out.md) (§3's "the same control at two scales" becomes three: an arbitrary selection of logged foods gains a nutrition panel and the Way out sits in it)
+**Amended by:** [ADR-0088](0088-a-selection-is-a-mode-with-its-own-verbs-and-its-own-way-out.md) (§3's "the same control at two scales" becomes three: an arbitrary selection of logged foods gains a nutrition panel and the Way out sits in it)  
+**Amended by:** [ADR-0084](0084-a-hand-off-belongs-to-the-facet-that-owns-what-it-carries.md) (§8's link moves from `/` to `/food/` and the root's reader is deleted; §9's asset-router rule survives the move and is now carried by Rations' own entry)
 
 ## Context
 

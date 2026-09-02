@@ -248,7 +248,7 @@ One person handing a **Past meal** to another, or a whole day's worth of them. I
 _Avoid_: Share, sync (that is your own devices, and it is a different session model), transfer, send meal, meal sharing
 
 **Send code**:
-The single-use secret that addresses one Meal send: a room id and a fresh 256-bit AES-GCM key, about 100 characters, never fewer than 128 bits and never spoken aloud. One shape with two carriers, a QR in the same room and a **link** everywhere else (`/#r=…&k=…`, the secret in the fragment so it reaches no server). It dies on one successful delivery, on any refusal, on the sender cancelling, or after five minutes, and there is no retry on a spent one. Because a send is synchronous, a pasted code is already dead by the time it is scrollback. See ADR-0072 §3 to §6.
+The single-use secret that addresses one Meal send: a room id and a fresh 256-bit AES-GCM key, about 100 characters, never fewer than 128 bits and never spoken aloud. One shape with two carriers, a QR in the same room and a **link** everywhere else (`/food/#r=…&k=…`, the secret in the fragment so it reaches no server, minted at Rations because a meal is Rations' — ADR-0084 §5). It dies on one successful delivery, on any refusal, on the sender cancelling, or after five minutes, and there is no retry on a spent one. Because a send is synchronous, a pasted code is already dead by the time it is scrollback. See ADR-0072 §3 to §6.
 _Avoid_: Pairing secret (that is the own-device one, and it is remembered rather than per-send), password, invite, room id (which is half of it), wormhole code
 
 **Meal payload**:
