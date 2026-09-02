@@ -15,7 +15,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { render } from "svelte/server";
-import { readFileSync } from "node:fs";
+import { styleOf } from "./support/stylesheet";
 import SelectionBar from "../../src/lib/views/food/SelectionBar.svelte";
 
 const noop = () => {};
@@ -144,12 +144,7 @@ describe("the Selection bar", () => {
  */
 describe("the bar's verb marks", () => {
   const drawnSize = (component: string) => {
-    const source = readFileSync(
-      `src/lib/views/food/${component}.svelte`,
-      "utf8"
-    );
-    const style = source.slice(source.indexOf("<style>"));
-    const css = style.replace(/\/\*[\s\S]*?\*\//g, "");
+    const css = styleOf(`src/lib/views/food/${component}.svelte`);
     const width = css.match(/width:\s*([^;]+);/)?.[1];
     const height = css.match(/height:\s*([^;]+);/)?.[1];
     expect(width).toBeDefined();
