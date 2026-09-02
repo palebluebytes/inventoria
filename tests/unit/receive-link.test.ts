@@ -2,6 +2,11 @@
  * The receive link, read once at boot and then taken off the URL
  * (ADR-0074 §8).
  *
+ * The link mints at `/food/` now that a meal is Rations' hand-off (ADR-0084
+ * §5), which is why the cleaned URLs below are that path. This module reads
+ * whatever it is handed and knows nothing about Facets, so the path is only
+ * ever the one the link arrived on.
+ *
  * The two behaviours §8 calls forced rather than chosen are the two properties
  * under test: the code is read exactly once, and a reload cannot be a retry
  * because there is nothing left on the URL to read.
@@ -39,7 +44,8 @@ describe("a link is a code, and the code leaves the URL with it", () => {
   it("takes the fragment off the URL, so a reload is not a second use", () => {
     const { cleaned } = boot(sendCodeLink(mintSendCode(), ORIGIN));
 
-    expect(cleaned).toEqual(["/"]);
+    // The path the link arrived on, kept: only the fragment is taken.
+    expect(cleaned).toEqual(["/food/"]);
   });
 
   it("reads nothing the second time, because the first read cleaned it", () => {
@@ -51,35 +57,35 @@ describe("a link is a code, and the code leaves the URL with it", () => {
     });
   });
 
-  it("keeps the query, which is where the Share Target's own read lives", () => {
+  it("keeps the query, and takes only the fragment it read", () => {
     const fragment = sendCodeFragment(mintSendCode());
-    const { read, cleaned } = boot(`${ORIGIN}/?text=something#${fragment}`);
+    const { read, cleaned } = boot(`${ORIGIN}/food/?mem=1#${fragment}`);
 
     expect(read.kind).toBe("code");
-    expect(cleaned).toEqual(["/?text=something"]);
+    expect(cleaned).toEqual(["/food/?mem=1"]);
   });
 });
 
 describe("an ordinary boot is not a receive", () => {
   it("says there is no code on a plain load", () => {
-    expect(boot(`${ORIGIN}/`).read).toEqual({ kind: "none" });
+    expect(boot(`${ORIGIN}/food/`).read).toEqual({ kind: "none" });
   });
 
   it("leaves a URL it found no code on alone", () => {
-    expect(boot(`${ORIGIN}/#somebody-elses-anchor`).cleaned).toEqual([]);
+    expect(boot(`${ORIGIN}/food/#somebody-elses-anchor`).cleaned).toEqual([]);
   });
 });
 
 describe("a code that is a code and is broken", () => {
   it("says so rather than passing for an ordinary boot", () => {
-    const { read } = boot(`${ORIGIN}/#r=a-room&k=AAAA`);
+    const { read } = boot(`${ORIGIN}/food/#r=a-room&k=AAAA`);
 
     expect(read.kind).toBe("broken");
     expect(read.kind === "broken" && read.reason).toMatch(/not 32/);
   });
 
   it("cleans the URL anyway: it was read, so it must not be read again", () => {
-    expect(boot(`${ORIGIN}/#r=a-room`).cleaned).toEqual(["/"]);
+    expect(boot(`${ORIGIN}/food/#r=a-room`).cleaned).toEqual(["/food/"]);
   });
 });
 
@@ -89,7 +95,7 @@ describe("the clean is what makes the read safe to keep", () => {
 
     // A `replaceState` the browser refuses leaves a live secret in the address
     // bar, so the read fails rather than proceeding with a URL a reload would
-    // read again. `App.svelte`'s try is what catches this.
+    // read again. `Rations.svelte`'s try is what catches this.
     expect(() =>
       takeReceiveLink({
         href: link,
@@ -126,20 +132,20 @@ describe("the same link, on a page that will not open it (ADR-0082 §2)", () => 
     // a secret gets screenshotted, enters history and renders in the tab
     // switcher — and §8 is not a rule to grow an exception in.
     expect(handOver(sendCodeLink(mintSendCode(), ORIGIN)).cleaned).toEqual([
-      "/",
+      "/food/",
     ]);
   });
 
   it("says there is nothing to hand over on an ordinary boot", () => {
-    expect(handOver(`${ORIGIN}/`).read).toBeNull();
-    expect(handOver(`${ORIGIN}/`).cleaned).toEqual([]);
+    expect(handOver(`${ORIGIN}/food/`).read).toBeNull();
+    expect(handOver(`${ORIGIN}/food/`).cleaned).toEqual([]);
   });
 
   it("hands a broken code over as broken, refused where it was read", () => {
-    const { read, cleaned } = handOver(`${ORIGIN}/#r=a-room&k=AAAA`);
+    const { read, cleaned } = handOver(`${ORIGIN}/food/#r=a-room&k=AAAA`);
 
     expect(read?.kind).toBe("broken");
-    expect(cleaned).toEqual(["/"]);
+    expect(cleaned).toEqual(["/food/"]);
   });
 
   it("still shows the code when the browser refused to clean the URL", () => {

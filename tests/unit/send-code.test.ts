@@ -18,6 +18,7 @@ import {
   sendCodeFragment,
   sendCodeLink,
 } from "../../src/lib/p2p/send-code";
+import { facetOf } from "../../src/lib/facets/registry";
 import {
   SEAL_NONCE_BYTES,
   SealRefusedError,
@@ -67,9 +68,36 @@ describe("one code shape, two carriers", () => {
   it("puts the whole secret in the fragment, so it reaches no server", () => {
     const link = new URL(sendCodeLink(mintSendCode(), ORIGIN));
 
-    expect(link.pathname).toBe("/");
     expect(link.search).toBe("");
     expect(link.hash).toMatch(/^#r=[\w-]+&k=[\w-]+$/);
+  });
+
+  it("mints at Rations, because a meal is Rations' (ADR-0084 §5)", () => {
+    // Read off the roster rather than written out, so the link cannot point at
+    // a path Rations has stopped answering to. It is `/food/` today.
+    const rations = facetOf("food");
+
+    expect(new URL(sendCodeLink(mintSendCode(), ORIGIN)).pathname).toBe(
+      rations.startUrl
+    );
+    expect(rations.startUrl).toBe("/food/");
+  });
+
+  it("mints where only one of the two installs can be ejected", () => {
+    // The second of ADR-0084 §5's two converging arguments, and the one that
+    // says what the choice costs each Facet. Prefix matching is
+    // one-directional (ADR-0078 §3), so the two directions do not cost the
+    // same, and it is the **asymmetry** that is the claim: containment in the
+    // root's scope holds of every path, since that scope is `/`.
+    const path = new URL(sendCodeLink(mintSendCode(), ORIGIN)).pathname;
+
+    // A root-only install opens this inside its own window.
+    expect(path.startsWith(facetOf("root").scope)).toBe(true);
+    // Had it minted at the root instead, a Rations-only install would have
+    // opened a browser tab: `/` is not inside `/food/`.
+    expect(facetOf("root").startUrl.startsWith(facetOf("food").scope)).toBe(
+      false
+    );
   });
 
   it("stays the size a version 5 symbol reads, whatever the meal weighs", () => {
@@ -81,7 +109,7 @@ describe("one code shape, two carriers", () => {
     // could reach — the same code carried a four-food meal and a 60-food feast.
     expect(sendCodeFragment(code).length).toBe(60);
     expect(sendCodeLink(code, ORIGIN)).toBe(
-      `${ORIGIN}/#${sendCodeFragment(code)}`
+      `${ORIGIN}/food/#${sendCodeFragment(code)}`
     );
   });
 

@@ -248,3 +248,24 @@ export class DBClient {
 }
 
 export const dbClient = new DBClient();
+
+declare global {
+  interface Window {
+    /**
+     * The ledger client, hung here by each Facet's shell.
+     *
+     * **It is a test seam and it is declared rather than cast.** Playwright
+     * reads it for two claims no other surface exposes: that a shell reached
+     * `init` at all (`tests/reactive-store.spec.ts`), and that the iOS handover
+     * page did **not** (ADR-0082 §8, `tests/receive-link.spec.ts`) — and an
+     * assertion about an absence can only tell "no worker" from "no hook" if
+     * the hook is there in both cases.
+     *
+     * Both shells used to write it through an `as any`, which
+     * `CODING_STANDARDS.md` §3.2 calls debt to tighten rather than copy. The
+     * augmentation belongs here because this module owns the value being
+     * declared.
+     */
+    dbClient?: DBClient;
+  }
+}

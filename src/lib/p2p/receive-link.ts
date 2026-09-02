@@ -1,22 +1,31 @@
 /**
- * The receive link, read once at boot on `/` and taken off the URL with the
- * same act (ADR-0074 §8).
+ * The receive link, read once at boot on `/food/` and taken off the URL with
+ * the same act (ADR-0074 §8, ADR-0084 §5).
  *
  * The link is the Send code's second carrier, because two people in different
  * cities cannot show each other a screen. Its shape is
- * `https://<origin>/#r=<room>&k=<key>` — the secret in the **fragment**, so it
- * reaches no server by construction — and the QR encodes the same link, so
- * there is one code shape with two carriers rather than two shapes.
+ * `https://<origin>/food/#r=<room>&k=<key>` — the secret in the **fragment**,
+ * so it reaches no server by construction — and the QR encodes the same link,
+ * so there is one code shape with two carriers rather than two shapes.
  *
- * **It is read at boot on `/`, not on a `/receive` route.** This app has no
- * router, and §9 has a harder reason than that one: `GET /receive` on the live
- * site falls through to the Worker script, which answers without the
- * `cross-origin-*` headers `_headers` puts on an asset — so a Worker-served
- * receive page loses cross-origin isolation, loses `SharedArrayBuffer`, fails
- * `sqlite3_vfs_find("opfs")` and runs on an **in-memory database**. Nothing in
- * the Playwright suite would catch it, because `vite`'s `appType: 'spa'` falls
- * back to `index.html` in both `pnpm dev` and `pnpm preview`. The
- * fragment-on-`/` shape avoids the whole hole at no config cost.
+ * **It is read at Rations' entry, and the root reads no receive link at all.**
+ * A meal is `event:consume_*` and food twins, so the hand-off is Rations'
+ * (ADR-0084 §1, §5), and a second reader at `/` would be one arrival with two
+ * doors. Where the link is *minted* is `send-code.ts`'s; this module reads
+ * whatever URL it is handed, and knows nothing about which Facet it is running
+ * in.
+ *
+ * **And it is read at boot, never on a `/receive` route.** This app has no
+ * router, and §9 has a harder reason than that one:
+ * `GET /receive` on the live site falls through to the Worker script, which
+ * answers without the `cross-origin-*` headers `_headers` puts on an asset — so
+ * a Worker-served receive page loses cross-origin isolation, loses
+ * `SharedArrayBuffer`, fails `sqlite3_vfs_find("opfs")` and runs on an
+ * **in-memory database**. Nothing in the Playwright suite would catch it,
+ * because `vite`'s `appType: 'spa'` falls back to `index.html` in both
+ * `pnpm dev` and `pnpm preview`. That is why the move to `/food/` waited on
+ * #312's real request: `/food/index.html` is Rations' own entry and is served
+ * as an asset, so the hole §9 avoided stays avoided.
  *
  * Two behaviours §8 calls **forced rather than chosen**, and this module is
  * where both live:

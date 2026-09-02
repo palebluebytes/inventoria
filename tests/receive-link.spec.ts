@@ -2,7 +2,12 @@
 import { test, expect } from "@playwright/test";
 
 // Receiving has no door of its own (ADR-0074 §4): the link IS the door, and it
-// is a fragment read at boot on `/` rather than a route.
+// is a fragment read at boot on `/food/` rather than a route.
+//
+// **It is `/food/` rather than `/` because a meal is Rations'** (ADR-0084 §5):
+// a hand-off belongs to the Facet that owns the entities it carries, and the
+// root reads no receive link at all now. `tests/unit/root-reads-no-link.test.ts`
+// holds that deletion; what is here is the arrival working where it lands.
 //
 // The property no unit test can reach is the one this spec exists for: the read
 // happens on a real load of the real app, and **the URL is clean afterwards, so
@@ -26,7 +31,7 @@ const KEY = Buffer.alloc(32, 7).toString("base64url");
 
 test.describe("a receive link", () => {
   test("lands on the meal, and takes itself off the URL", async ({ page }) => {
-    await page.goto(`/?mem=1#r=${room()}&k=${KEY}`);
+    await page.goto(`/food/?mem=1#r=${room()}&k=${KEY}`);
 
     await expect(page.getByTestId("received-meal")).toBeVisible();
     // The whole secret was in the fragment; the fragment is gone.
@@ -36,12 +41,12 @@ test.describe("a receive link", () => {
   });
 
   test("is not read a second time by a reload", async ({ page }) => {
-    await page.goto(`/?mem=1#r=${room()}&k=${KEY}`);
+    await page.goto(`/food/?mem=1#r=${room()}&k=${KEY}`);
     await expect(page.getByTestId("received-meal")).toBeVisible();
 
     await page.reload();
 
-    await expect(page.locator(".app")).toBeVisible();
+    await expect(page.locator(".rations")).toBeVisible();
     await expect(page.getByTestId("received-meal")).toHaveCount(0);
   });
 
@@ -50,7 +55,7 @@ test.describe("a receive link", () => {
   }) => {
     // A key that is not 256 bits is not a Send code at all — the width IS the
     // bar — so this never reaches the relay and the answer is deterministic.
-    await page.goto(`/?mem=1#r=${room()}&k=AAAA`);
+    await page.goto(`/food/?mem=1#r=${room()}&k=AAAA`);
 
     await expect(page.getByTestId("received-meal")).toBeVisible();
     await expect(page.getByText("This code is damaged.")).toBeVisible();
@@ -59,9 +64,9 @@ test.describe("a receive link", () => {
   test("an ordinary boot opens no receiving surface at all", async ({
     page,
   }) => {
-    await page.goto("/?mem=1");
+    await page.goto("/food/?mem=1");
 
-    await expect(page.locator(".app")).toBeVisible();
+    await expect(page.locator(".rations")).toBeVisible();
     await expect(page.getByTestId("received-meal")).toHaveCount(0);
   });
 });
@@ -110,7 +115,7 @@ const watchForbiddenErrands = `
 
 /**
  * What `watchForbiddenErrands` leaves on the page for a test to read back, plus
- * the client `App.svelte` puts there for the e2e suite. None of it exists on a
+ * the client each Facet's shell puts there for the e2e suite. None of it exists on a
  * `Window` type, which is why the reads below name this shape.
  */
 interface WatchedWindow {
@@ -128,7 +133,7 @@ test.describe("a receive link in an iOS Safari tab", () => {
     page,
   }) => {
     const code = `#r=${room()}&k=${KEY}`;
-    await page.goto(`/?mem=1${code}`);
+    await page.goto(`/food/?mem=1${code}`);
 
     await expect(page.getByTestId("code-handover")).toBeVisible();
     // The Receiving surface is the one thing this page must not be.
@@ -137,12 +142,12 @@ test.describe("a receive link in an iOS Safari tab", () => {
     // the other end takes (ADR-0082 §12).
     await expect(page.getByTestId("handover-code")).toContainText(`k=${KEY}`);
     await expect(
-      page.getByText("Open Inventoria and paste this into Scan.")
+      page.getByText("Open Rations and paste this into Scan.")
     ).toBeVisible();
   });
 
   test("joins no room and asks for no persistence", async ({ page }) => {
-    await page.goto(`/?mem=1#r=${room()}&k=${KEY}`);
+    await page.goto(`/food/?mem=1#r=${room()}&k=${KEY}`);
     await expect(page.getByTestId("code-handover")).toBeVisible();
 
     // Nothing on the receive path may touch the relay before the platform test
@@ -163,7 +168,7 @@ test.describe("a receive link in an iOS Safari tab", () => {
   });
 
   test("opens no database, and cleans the URL anyway", async ({ page }) => {
-    await page.goto(`/?mem=1#r=${room()}&k=${KEY}`);
+    await page.goto(`/food/?mem=1#r=${room()}&k=${KEY}`);
     await expect(page.getByTestId("code-handover")).toBeVisible();
 
     // §8's boot-order change: `dbClient.init` is skipped ahead of the tests, so
@@ -182,7 +187,7 @@ test.describe("a receive link in an iOS Safari tab", () => {
   test("refuses a damaged code where it was read, before anyone carries it", async ({
     page,
   }) => {
-    await page.goto(`/?mem=1#r=${room()}&k=AAAA`);
+    await page.goto(`/food/?mem=1#r=${room()}&k=AAAA`);
 
     await expect(page.getByTestId("code-handover")).toBeVisible();
     await expect(page.getByText("This code is damaged.")).toBeVisible();
@@ -192,9 +197,9 @@ test.describe("a receive link in an iOS Safari tab", () => {
     page,
   }) => {
     // The gate is a receive link *and* the platform, never the platform alone.
-    await page.goto("/?mem=1");
+    await page.goto("/food/?mem=1");
 
-    await expect(page.locator(".app")).toBeVisible();
+    await expect(page.locator(".rations")).toBeVisible();
     await expect(page.getByTestId("code-handover")).toHaveCount(0);
   });
 });

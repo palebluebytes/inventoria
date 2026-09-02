@@ -102,8 +102,13 @@
     dbReady: boolean;
     /**
      * What a receive link turned out to be, read once at boot (ADR-0074 §8).
-     * `App.svelte` owns that read because the URL is the app's rather than this
-     * screen's; the surface it opens is here, because a meal is food.
+     * `Rations.svelte` owns that read because the URL is the shell's rather
+     * than this screen's; the surface it opens is here, because a meal is food.
+     *
+     * **Only Rations ever hands one down** (ADR-0084 §5): a meal is Rations'
+     * hand-off, so the link mints at `/food/` and the root reads none. The
+     * default is what the root mounts this with, and the Scan way in below is
+     * the only source it has.
      */
     receiveLink?: ReceiveOpening | null;
     /** Clears that link, so leaving the surface cannot re-open it. */

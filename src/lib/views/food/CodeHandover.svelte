@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ReceiveOpening } from "../../p2p/receive-link";
+  import { facetOf } from "../../facets/registry";
   import { sendCodeLink } from "../../p2p/send-code";
   import { mealCodeBrokenWords } from "../../p2p/receive-words";
   import Button from "../../ui/Button.svelte";
@@ -26,7 +27,7 @@
   //     burn one of ADR-0072 §11.1's two and fail the send for a reason the
   //     sender cannot see. That is why this component imports no transport.
   //   - **It opens no Ledger and asks for no persistence** (§8). That one is
-  //     the caller's — `App.svelte` skips `dbClient.init` ahead of mounting
+  //     the caller's — `Rations.svelte` skips `dbClient.init` ahead of mounting
   //     this, because the page must not ask the browser to durably keep a jar
   //     it is in the middle of telling you is not yours.
   //   - **The URL is cleaned** (§9), which `takeCodeHandover` did before this
@@ -62,6 +63,27 @@
   const link = $derived(
     opening.kind === "code" ? sendCodeLink(opening.code, origin) : null
   );
+
+  /**
+   * The app the second sentence names, and it is **Rations** (ADR-0082 §14).
+   *
+   * §14 wrote the destination as Inventoria "because that is what exists
+   * today", and stated the rule that outlives it: **the name follows the Facet
+   * that holds the meal.** ADR-0084 §3 makes that Rations, and ADR-0084 §5 puts
+   * this page inside it, so this is that one-line change rather than a second
+   * decision.
+   *
+   * Read off the roster rather than written out, for the reason the link is:
+   * the name a person is told to look for on their Home Screen is the name
+   * Rations installs under, and two copies of it would come apart.
+   *
+   * **A root install answers the link too**, since `/food/` is inside `/` by
+   * prefix (ADR-0078 §3) — so this sentence names one app where two would do.
+   * That is §5's rule holding rather than a gap: the page never establishes
+   * what is installed, because nothing exposes it, and naming the Facet that
+   * owns the meal is the only answer available that is not a guess.
+   */
+  const rations = facetOf("food");
 
   let copied = $state(false);
   let copyFailed = $state(false);
@@ -115,8 +137,9 @@
     <!-- The two sentences, and there are exactly two. The first is what to do;
          the second is addressed to somebody this page has not identified and
          may not be talking to at all. The app is named rather than called "the
-         app", and the name follows whichever Facet holds the meal (§14). -->
-    <p class="say">Open Inventoria and paste this into Scan.</p>
+         app", and the name follows whichever Facet holds the meal (§14) — see
+         above for why that is now Rations. -->
+    <p class="say">Open {rations.name} and paste this into Scan.</p>
     <p class="say">
       If you have not installed it yet, add it to the Home Screen first and come
       back.

@@ -151,6 +151,11 @@ describe("nothing on the send path reads any of this (ADR-0082 §3)", () => {
     // An import, not a mention: ADR-0082 §3's argument is quoted in comments on
     // the send path, and a substring grep would read that as a dependency and
     // be satisfied by deleting the sentence doing the documenting.
-    expect(importersOf("safari-tab")).toEqual(["src/App.svelte"]);
+    //
+    // **The one importer is Rations' shell, not the root's** (ADR-0084 §5): a
+    // meal is Rations' hand-off, so both readings of the link live on the page
+    // it lands on and the root has neither. The list being exactly one is what
+    // says the root's reader was deleted rather than left unreachable.
+    expect(importersOf("safari-tab")).toEqual(["src/Rations.svelte"]);
   });
 });

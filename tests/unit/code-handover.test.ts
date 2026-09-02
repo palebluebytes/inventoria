@@ -15,9 +15,10 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render } from "svelte/server";
-import App from "../../src/App.svelte";
+import Rations from "../../src/Rations.svelte";
 import { facetOf } from "../../src/lib/facets/registry";
 import CodeHandover from "../../src/lib/views/food/CodeHandover.svelte";
+import { bootShell } from "./support/shell-boot";
 import {
   mintSendCode,
   sendCodeLink,
@@ -75,8 +76,14 @@ describe("the page a Safari tab on iOS shows instead of the meal", () => {
     // §5: one wording, no branch, no question. The second sentence is for
     // somebody who may not exist, which is why it costs nothing when it is
     // unnecessary — the page cannot tell, and nothing will ever let it.
+    //
+    // The app it names is **Rations**, which is §14's rule rather than a new
+    // wording: the name follows the Facet that holds the meal, and ADR-0084 §3
+    // makes that Rations. It is read off the roster here for the same reason it
+    // is read there.
     const said = shown.replace(/\s+/g, " ");
-    expect(said).toContain("Open Inventoria and paste this into Scan.");
+    expect(facetOf("food").name).toBe("Rations");
+    expect(said).toContain("Open Rations and paste this into Scan.");
     expect(said).toContain(
       "If you have not installed it yet, add it to the Home Screen first and come back."
     );
@@ -111,45 +118,22 @@ describe("the page a Safari tab on iOS shows instead of the meal", () => {
 
 describe("the boot order the handover needs (ADR-0082 §8)", () => {
   /**
-   * Boots the app on `href` under a stubbed `navigator`, and reports what the
-   * shell did about the ledger and the address bar.
+   * Boots Rations on `href`, and reports what it did about the ledger and the
+   * address bar.
    *
-   * **A render that throws is caught and the counts are still read**, because
-   * everything under test here happens at component initialisation, before the
-   * first element: `dbClient.init` on one branch and `takeCodeHandover` on the
-   * other. The app's *ordinary* shell mounts views that subscribe to ledger
-   * stores, and there is no ledger here for them to read — which is the same
-   * fact ADR-0082 §8 leans on from the other side, that the handover page is
-   * safe to skip `init` for precisely because it mounts none of them.
+   * **Rations rather than the root**, because the link mints at `/food/` and is
+   * read there and nowhere else (ADR-0084 §5). What holds the root's deletion
+   * is `tests/unit/root-reads-no-link.test.ts`, asking the same harness the
+   * same question of the other shell.
    */
   function boot(
     href: string,
     navigator: Record<string, unknown>
   ): { body: string; inits: number; cleaned: string[] } {
-    const cleaned: string[] = [];
-    const url = new URL(href);
-    const location = {
-      href,
-      origin: url.origin,
-      search: url.search,
-      hash: url.hash,
+    return {
+      ...bootShell(Rations, "food", href, navigator),
+      inits: init.mock.calls.length,
     };
-    vi.stubGlobal("window", {
-      navigator,
-      location,
-      history: {
-        replaceState: (_s: unknown, _t: string, u: string) => cleaned.push(u),
-      },
-    });
-
-    let body = "";
-    try {
-      body = render(App, { props: { facet: facetOf("root") } }).body;
-    } catch {
-      // See above: the shell wanted a store this test has no ledger for, and
-      // the branch had already been taken by then.
-    }
-    return { body, inits: init.mock.calls.length, cleaned };
   }
 
   const IOS_TAB = { platform: "iPhone", maxTouchPoints: 5, standalone: false };
@@ -180,19 +164,19 @@ describe("the boot order the handover needs (ADR-0082 §8)", () => {
   it("renders the handover page in place of the app's own shell", () => {
     const { body } = boot(sendCodeLink(mintSendCode(), ORIGIN), IOS_TAB);
 
-    // No Sidebar and no views — skipping `init` is only safe while nothing
-    // here subscribes to a ledger store. The Receiving surface in particular
-    // is absent, which is what "it joins no room" comes to on this page: the
+    // No food screen — skipping `init` is only safe while nothing here
+    // subscribes to a ledger store. The Receiving surface in particular is
+    // absent, which is what "it joins no room" comes to on this page: the
     // socket is opened by that surface and by nothing else.
     expect(body).toContain('data-testid="code-handover"');
     expect(body).not.toContain('data-testid="received-meal"');
-    expect(body).not.toContain('class="app"');
+    expect(body).not.toContain('class="rations"');
   });
 
   it("cleans the URL, on the rule rather than on a branch in it", () => {
     const { cleaned } = boot(sendCodeLink(mintSendCode(), ORIGIN), IOS_TAB);
 
-    expect(cleaned).toEqual(["/"]);
+    expect(cleaned).toEqual(["/food/"]);
   });
 
   it("opens the database inside the installed copy, which can open the meal", () => {
@@ -205,7 +189,7 @@ describe("the boot order the handover needs (ADR-0082 §8)", () => {
     // The gate is a receive link *and* the platform, never the platform alone:
     // an iPhone browsing the site is an ordinary boot, and skipping `init`
     // there would take the whole app down on one device.
-    expect(boot(`${ORIGIN}/`, IOS_TAB).inits).toBe(1);
+    expect(boot(`${ORIGIN}/food/`, IOS_TAB).inits).toBe(1);
   });
 
   it("opens the database off iOS, which never takes this path at all", () => {

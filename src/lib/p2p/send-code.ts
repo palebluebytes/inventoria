@@ -34,6 +34,8 @@
  * `meal-send.ts`.
  */
 
+import { facetOf } from "../facets/registry";
+
 /**
  * The room id's width. Nine bytes rather than a round eight so it renders as
  * twelve base64url characters with nothing to pad, and because an address is
@@ -122,12 +124,35 @@ export function sendCodeFragment(code: SendCode): string {
 }
 
 /**
- * The code's carrier: `https://<origin>/#r=<room>&k=<key>` (ADR-0074 §8).
+ * The code's carrier: `https://<origin>/food/#r=<room>&k=<key>` (ADR-0074 §8,
+ * ADR-0084 §5).
  *
  * **The secret is in the fragment, never a query parameter**, so it reaches no
  * server by construction — RFC 9110 §7.1 excludes a fragment from the target
  * URI. The QR encodes this same link, so there is one code shape with two
  * carriers rather than two shapes.
+ *
+ * **It mints at Rations' scope rather than the root's**, and the two arguments
+ * ADR-0084 §5 gives converge without either restating the other. By
+ * **ownership**: a meal is `event:consume_*` and food twins, which belong to
+ * Rations, and a hand-off belongs to the Facet that owns what it carries. By
+ * **scope**: prefix matching is one-directional (ADR-0078 §3), so `/food/`
+ * opened by someone who installed only the root is still inside their scope and
+ * lands, while `/` opened by someone who installed only Rations is outside
+ * theirs and opens a browser tab. The two directions do not cost the same.
+ *
+ * ADR-0074 §9's reason for `/` survives the move intact and is now #312's:
+ * `public/_headers` is `/*`, so an **asset-served** `/food/` inherits
+ * `Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy` and keeps
+ * `SharedArrayBuffer`. A `/food/` that fell through to the Worker script
+ * instead would answer without them and drop the app onto an in-memory
+ * database, which is why the move waited on a real request rather than on a
+ * local run — `vite`'s `appType: 'spa'` falls back to `index.html` in both
+ * `pnpm dev` and `pnpm preview` and would show nothing.
+ *
+ * **The path is read off the roster, never written out here**, for the reason
+ * the root reads Rations' name off it to offer the install: a literal would let
+ * this mint a link to a path Rations has stopped answering to.
  *
  * The link is the only carrier that leaves a trace: a messenger learns that two
  * people exchanged something at a time. The code is dead by then (§5), but that
@@ -135,7 +160,8 @@ export function sendCodeFragment(code: SendCode): string {
  * app's.
  */
 export function sendCodeLink(code: SendCode, origin: string): string {
-  return `${new URL("/", origin).href}#${sendCodeFragment(code)}`;
+  const rations = facetOf("food");
+  return `${new URL(rations.startUrl, origin).href}#${sendCodeFragment(code)}`;
 }
 
 /**

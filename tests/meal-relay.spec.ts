@@ -250,9 +250,15 @@ test.describe("a meal crossing a real relay", () => {
       // The fragment carries the whole code (ADR-0074 §8), and `?mem=1` is
       // this suite's own fresh in-memory ledger — a second device, not a
       // second tab on the first one's data.
+      //
+      // **The path comes off the link rather than being written here**, which
+      // is the point as much as a convenience: a meal is Rations' hand-off, so
+      // the link mints at `/food/` (ADR-0084 §5), and a recipient who opened
+      // somewhere else would be testing a door the sender never pointed at.
+      const arriving = new URL(link);
       const recipient = await recipientContext.newPage();
       await serveUsdaCorpus(recipient);
-      await recipient.goto(`/?mem=1${link.slice(link.indexOf("#"))}`);
+      await recipient.goto(`${arriving.pathname}?mem=1${arriving.hash}`);
 
       const offered = recipient.getByTestId("received-meal");
       await expect(offered).toBeVisible();
@@ -348,9 +354,10 @@ test.describe("a meal crossing a real relay", () => {
       const link = await mealSend.locator("code.link").innerText();
 
       // ── The recipient ────────────────────────────────────────────────────
+      const arriving = new URL(link);
       const recipient = await recipientContext.newPage();
       await serveUsdaCorpus(recipient);
-      await recipient.goto(`/?mem=1${link.slice(link.indexOf("#"))}`);
+      await recipient.goto(`${arriving.pathname}?mem=1${arriving.hash}`);
 
       const offered = recipient.getByTestId("received-meal");
       await expect(offered).toBeVisible();

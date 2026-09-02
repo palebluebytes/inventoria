@@ -16,13 +16,6 @@
   // views stay static.
   import { runStartupErrands } from "./lib/facets/startup";
   import { facetOf, type Facet } from "./lib/facets/registry";
-  import {
-    takeCodeHandover,
-    takeReceiveLink,
-    type ReceiveOpening,
-  } from "./lib/p2p/receive-link";
-  import { isIosSafariTab } from "./lib/p2p/safari-tab";
-  import CodeHandover from "./lib/views/food/CodeHandover.svelte";
 
   /**
    * Which Facet this is, handed in by the entry point that mounted it
@@ -42,64 +35,34 @@
       ? new URLSearchParams(window.location.search).get("demo")
       : null;
 
-  // ── A meal, arriving by link ─────────────────────────────────────────────
+  // ── No meal arrives here ─────────────────────────────────────────────────
   //
-  // Receiving has no door of its own (ADR-0074 §4), so this is not a route and
-  // there is nothing to navigate to. A receive link is `/#r=…&k=…` — the secret
-  // in the fragment, so it reaches no server — and it is read here because the
-  // URL belongs to the app rather than to any one screen. What it opens belongs
-  // to the food screen, which is where a meal is.
+  // **The root reads no receive link, and there is no fallback reader**
+  // (ADR-0084 §5). A meal is `event:consume_*` and food twins, which Rations
+  // owns, and a hand-off belongs to the Facet that owns what it carries — so
+  // the link mints at `/food/` and is read by `src/Rations.svelte`, along with
+  // ADR-0082 §2's iOS handover reading of the same fragment.
   //
-  // §9's rule is what this shape is bought with: **the receive page is served
-  // by the asset router, never by the Worker script.** `GET /receive` on the
-  // live site falls through to the script, which answers without the
-  // `cross-origin-*` headers `_headers` puts on an asset — no cross-origin
-  // isolation, no `SharedArrayBuffer`, and an in-memory database. `/` is a
-  // precached asset served 200, and the whole hole is avoided by never leaving
-  // it. Do not give receive an HTML entry of its own: the #125 offline gate
-  // hardcodes `dist/index.html` and would never see one.
-  let receiveLink = $state<ReceiveOpening | null>(null);
-
-  // ── The one case that never opens the ledger ─────────────────────────────
+  // **A second reader kept here would be one arrival with two doors**, which is
+  // the inverse of §2's rule about a hand-off with no owner, and it could not be
+  // decided per-recipient in any case: ADR-0072 §7 stops the sender learning
+  // anything about the recipient's device, including their install roster. A
+  // root-only install still lands the link, because `/food/` is inside `/` by
+  // prefix (ADR-0078 §3) — it opens Rations' entry inside the same app window
+  // and Back returns.
   //
-  // **A Safari tab on iOS never accepts a meal. It shows the code and says
-  // where to put it** (ADR-0082 §2). The link cannot reach the installed app's
-  // Ledger, so the page does not try: it hands the code to a door that already
-  // exists, and mounts `CodeHandover` instead of the app.
-  //
-  // **This is read here, above the `init` below, and that ordering is §8.**
-  //
-  // > The page must not ask the browser to durably keep a jar it is in the
-  // > middle of telling you is not yours.
-  //
-  // Both of §6's tests are synchronous property reads, so the gate is
-  // affordable, and skipping is safe because this page mounts no view that
-  // subscribes to a ledger store — which is the invariant the synchronous
-  // kick-off below exists to protect. **Nothing else moves.** The comment on
-  // that line explains what its ordering buys, and #125's offline gate and
-  // ADR-0069's recovery are both tuned to it.
-  //
-  // The read is total: `isIosSafariTab` swallows a signal that throws, and
-  // `takeCodeHandover` swallows a `replaceState` the browser refused (ADR-0082
-  // §9), so nothing here can reach ADR-0069's boot guard.
-  const handover: ReceiveOpening | null =
-    typeof window !== "undefined" && isIosSafariTab(window.navigator)
-      ? takeCodeHandover({
-          href: window.location.href,
-          clean: (url) => window.history.replaceState(null, "", url),
-        })
-      : null;
-  // Only the handover page reads this, and `handover` is non-null only when
-  // there was a `window` to read it from — so the empty string is unreachable
-  // rather than a fallback anything renders.
-  const origin = handover === null ? "" : window.location.origin;
+  // What the root does still read off its URL is `?url=`, the Web Share
+  // Target's, which mints an acquisition twin and is the root's under the same
+  // rule (ADR-0084 §3, §4).
 
   // ── DB init ──────────────────────────────────────────────────────────────
   let dbReady = $state(false);
   let dbError = $state("");
 
+  // The ledger client, hung on `window` for the e2e suite. `db.client.ts`
+  // declares the property, so this needs no cast (CODING_STANDARDS §3.2).
   if (typeof window !== "undefined") {
-    (window as any).dbClient = dbClient;
+    window.dbClient = dbClient;
   }
 
   // Kick off worker creation synchronously, before any child view subscribes to
@@ -107,25 +70,13 @@
   // before its first await, so store queries that fire during the initial render
   // are queued behind that init message (the worker processes messages in order)
   // instead of racing an unset worker and rejecting with "not initialized".
-  const initPromise = handover ? null : dbClient.init("/inventoria.db");
+  const initPromise = dbClient.init("/inventoria.db");
 
   onMount(async () => {
-    // A page that is handing the code over opens nothing and asks for nothing
-    // (ADR-0082 §8): no database, no persistence request, no corpus fetch and
-    // no second reading of a URL it has already taken the code off. Every
-    // errand below is an errand on behalf of a jar this page is telling you is
-    // not yours.
-    if (handover) return;
     // Every entry point's errands, in one list so a second one cannot miss one
-    // (#301). Here rather than at module scope so they run on a real load of the
-    // app, and after the `handover` return above for the same reason.
+    // (#301). Here rather than at module scope so they run on a real load of
+    // the app.
     runStartupErrands();
-    // Before the ledger, not after it. ADR-0073 §10 measured the cold-boot
-    // window out of existence on the strength of SQLite being entirely OFF the
-    // mount path: waiting in the room needs a WebSocket and `crypto.subtle`,
-    // not OPFS, so a meal can arrive and be shown while the database is still
-    // opening — and a database that never opens must not swallow the link.
-    readReceiveLink();
     try {
       await initPromise;
       dbReady = true;
@@ -134,9 +85,7 @@
       if (typeof window !== "undefined") {
         const params = new URLSearchParams(window.location.search);
         const sharedUrl = params.get("url") || params.get("text") || "";
-        // A link somebody opened to be handed a meal outranks it: the share
-        // target is a thing you sent yourself, and this is a person waiting.
-        if (sharedUrl && !receiveLink) {
+        if (sharedUrl) {
           activeTab = "items";
         }
       }
@@ -145,50 +94,9 @@
     }
   });
 
-  /**
-   * Takes the code off the URL, once (ADR-0074 §8).
-   *
-   * **After mount and inside a `try`**, both forced rather than chosen.
-   * ADR-0069's boot guard reads a throw during module evaluation as "this shell
-   * cannot start" and wipes the service worker and every cache, so a malformed
-   * fragment must not be able to reach it. The `try` is real work rather than
-   * ceremony: `takeReceiveLink` deliberately lets a refused `replaceState` out,
-   * because a code still sitting in the address bar is a code a reload could
-   * spend a second time, and an ordinary boot is the safe reading of that.
-   *
-   * The read is what cleans the URL, so a reload is never a retry.
-   */
-  function readReceiveLink() {
-    if (typeof window === "undefined") return;
-    try {
-      const link = takeReceiveLink({
-        href: window.location.href,
-        clean: (url) => window.history.replaceState(null, "", url),
-      });
-      if (link.kind === "none") return;
-      receiveLink = link;
-      // A meal is food, and the receiving surface is the food screen's.
-      activeTab = "food";
-    } catch {
-      // An ordinary boot, which is the safe reading of a URL that could not be
-      // cleaned. The sender is still standing there and mints another code.
-    }
-  }
-
   // ── Navigation ───────────────────────────────────────────────────────────
   type Tab = "food" | "agenda" | "media" | "items" | "notes" | "settings";
   let activeTab = $state<Tab>("food");
-
-  // Wandering to another Tab is leaving, and leaving is declining (ADR-0073
-  // §10). Unmounting the food screen already destroys the payload and the
-  // socket; without this the *code* would outlive them, and coming back would
-  // re-open the surface and rejoin the room on a code that is single-use. The
-  // §10 clause this discharges is that the runtime cannot tell a deliberate
-  // exit from a wander, so they must not behave differently — and the scan
-  // door's code, which lives inside the food screen, already dies here.
-  $effect(() => {
-    if (activeTab !== "food") receiveLink = null;
-  });
 
   /**
    * The other Facet, named here only so the root can offer it (ADR-0078 §4).
@@ -210,14 +118,7 @@
   />
 </svelte:head>
 
-{#if handover}
-  <!-- ADR-0082 §2. Not a route and not a service-worker change (§11.3): the
-       same fragment on the same `/`, answered by a different page. The app's
-       own shell is deliberately absent — no Sidebar, no views — because §8's
-       skipped `init` is only safe while nothing here subscribes to a ledger
-       store. -->
-  <CodeHandover opening={handover} {origin} />
-{:else if demo === "bottomsheet"}
+{#if demo === "bottomsheet"}
   {#await import("./lib/ui/BottomSheetDemo.svelte") then mod}
     {@const BottomSheetDemo = mod.default}
     <BottomSheetDemo />
@@ -228,11 +129,11 @@
 
     <main class="main">
       {#if activeTab === "food"}
-        <FoodView
-          {dbReady}
-          {receiveLink}
-          onReceiveClose={() => (receiveLink = null)}
-        />
+        <!-- No `receiveLink`: a meal arrives at Rations and nowhere else
+             (ADR-0084 §5), so there is none for this shell to hand down. The
+             Scan way in still reads a meal code, and FoodView owns that one
+             end to end. -->
+        <FoodView {dbReady} onReceiveClose={() => {}} />
         <!-- Under the screen rather than in the header, because ADR-0078 §4
              keeps the Food tab otherwise unchanged: same screen, same
              components, no pointer. Turning the tab itself into one would
