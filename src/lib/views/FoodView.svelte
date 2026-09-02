@@ -82,8 +82,11 @@
     resolveNutrientTargets,
     defaultNutrientTargets,
   } from "../food/nutrition-targets";
-  import { settingsStore } from "../stores/settings.store";
-  import { calorieDisplayDecimals } from "../stores/device-settings";
+  import {
+    calorieDisplayDecimals,
+    foodTargets,
+    foodCalculatedTargets,
+  } from "../stores/device-settings";
 
   import Card from "../ui/Card.svelte";
   import Badge from "../ui/Badge.svelte";
@@ -272,8 +275,8 @@
   // dashboard reads them for a meal's.
   let resolvedTargets = $derived(
     resolveNutrientTargets(
-      $settingsStore.food_targets,
-      defaultNutrientTargets($settingsStore.food_calculated_targets)
+      $foodTargets,
+      defaultNutrientTargets($foodCalculatedTargets)
     )
   );
 
