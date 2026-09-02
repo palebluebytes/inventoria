@@ -103,6 +103,23 @@ export function consumptionForDay(
  * twice (ADR-0073 §5).
  */
 export async function logFoodConsumption(
+  ...args: Parameters<typeof consumptionDatoms>
+): Promise<string> {
+  const { entity, datoms } = consumptionDatoms(...args);
+  await dbClient.append(datoms);
+  return entity;
+}
+
+/**
+ * The datoms one Consumption Event is made of, minted but not yet appended.
+ *
+ * Split out of `logFoodConsumption` so a caller writing SEVERAL events can put
+ * them all in one append (see `scaleLoggedFoods`). Appending per event costs a
+ * worker round trip and a full re-projection each, and a retract-and-replace
+ * split across two appends is briefly visible as BOTH the old food and its
+ * replacement — the day grows a row, then loses it again.
+ */
+function consumptionDatoms(
   targetEntity: string,
   quantity: string,
   meal_type: string,
@@ -162,8 +179,77 @@ export async function logFoodConsumption(
     datom.time = timestamp;
   }
 
+  return { entity, datoms };
+}
+
+/** One logged food, already resolved to what a scale will act on. */
+export interface ScaleChange {
+  /** The event being replaced. Its meal, its day and its id come from here. */
+  event: ConsumptionEvent;
+  /** The scaled amount, in `unit`. */
+  amount: number;
+  unit: AmountUnit;
+  /** The target twin's panel, read when the Scale tier opened. */
+  panel: NutritionInfo;
+  /** The food twin the replacement points at. */
+  ref: string;
+}
+
+/**
+ * Scales several logged foods in **one append** (ADR-0088 §5).
+ *
+ * `changeLoggedFoodAmount` below is the single-food version and re-reads the
+ * twin each time. Across a Selection that read is pure waste: the Scale tier
+ * already resolved every panel before it drew, which is what the live preview
+ * is derived from, so the caller hands them back rather than making the worker
+ * find them again. What is left is arithmetic, and the whole run becomes one
+ * round trip instead of three per food.
+ *
+ * The single append is what makes the change land as one event rather than a
+ * cascade: every row takes its new figure and lets go of its mark in the same
+ * frame, and no intermediate state is ever projected — not a day holding an old
+ * food beside its replacement, and not a half-scaled Selection.
+ */
+export async function scaleLoggedFoods(
+  changes: ScaleChange[]
+): Promise<number> {
+  if (changes.length === 0) return 0;
+
+  const datoms: ReturnType<typeof ingestEntity> = [];
+  for (const change of changes) {
+    const breakdown = deriveIngredientMacros(
+      { ref: change.ref, amount: change.amount, unit: change.unit },
+      () => change.panel
+    );
+    const replacement = consumptionDatoms(
+      change.ref,
+      quantityLabel(change.amount, change.unit),
+      change.event.meal_type ?? "snack",
+      roundFood(breakdown.calories),
+      roundFood(breakdown.protein),
+      roundFood(breakdown.fat),
+      roundFood(breakdown.carbs),
+      new Date(change.event.time),
+      undefined,
+      breakdown
+    );
+    datoms.push(...replacement.datoms);
+    // The same retraction `retractConsumptionEvent` writes, inlined so it rides
+    // the one append. `event/replaced_by` is also what keeps the row where it
+    // is: the projection hands a replacement its predecessor's place.
+    datoms.push(
+      ...ingestEntity({
+        entity: change.event.id,
+        attributes: {
+          "event/status": "retracted",
+          "event/replaced_by": replacement.entity,
+        },
+      })
+    );
+  }
+
   await dbClient.append(datoms);
-  return entity;
+  return changes.length;
 }
 
 /**

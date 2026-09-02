@@ -12,6 +12,7 @@ import {
   retractConsumptionEvent,
   type ConsumptionEvent,
   changeLoggedFoodAmount,
+  scaleLoggedFoods,
   moveLoggedFoodsToMeal,
   consumptionForDay,
   copyPastMeal,
@@ -740,6 +741,153 @@ describe("changeLoggedFoodAmount", () => {
     expect(mockAppend).not.toHaveBeenCalled();
     // null, not a fabricated id: the food was left exactly as it was.
     expect(newId).toBeNull();
+  });
+});
+
+describe("scaleLoggedFoods (ADR-0088 §5)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.restoreAllMocks();
+  });
+
+  const OATS_PANEL: NutritionInfo = {
+    serving_size: "100 g",
+    calories: 379,
+    protein_content: 13.1,
+    fat_content: 6.5,
+    carbohydrate_content: 67.7,
+  };
+  const MILK_PANEL: NutritionInfo = {
+    serving_size: "100 ml",
+    calories: 42,
+    protein_content: 3.4,
+    fat_content: 1,
+    carbohydrate_content: 5,
+  };
+
+  const event = (id: string, meal: string, at: string) =>
+    ({
+      id,
+      target: `fdc:${id}`,
+      quantity: "50g",
+      meal_type: meal,
+      time: new Date(at).getTime(),
+    }) as any;
+
+  const twoFoods = () => [
+    {
+      event: event("oats", "breakfast", "2026-05-31T08:00:00"),
+      amount: 100,
+      unit: "g" as const,
+      panel: OATS_PANEL,
+      ref: "fdc:oats",
+    },
+    {
+      event: event("milk", "lunch", "2026-05-31T13:00:00"),
+      amount: 200,
+      unit: "ml" as const,
+      panel: MILK_PANEL,
+      ref: "fdc:milk",
+    },
+  ];
+
+  it("writes the whole run in ONE append", async () => {
+    // The point of the function. Appending per food costs a worker round trip
+    // and a full re-projection each, so the rows wash out one at a time; in one
+    // append every row takes its new figure in the same frame.
+    const mockAppend = vi
+      .spyOn(dbClient, "append")
+      .mockResolvedValue(undefined);
+
+    const scaled = await scaleLoggedFoods(twoFoods());
+
+    expect(mockAppend).toHaveBeenCalledTimes(1);
+    expect(scaled).toBe(2);
+  });
+
+  it("never asks the worker to find a panel it was handed", async () => {
+    // The Scale tier resolved every panel before it drew — that is what the
+    // live preview derives from — so the write re-reads nothing.
+    const mockQuery = vi.spyOn(dbClient, "query");
+    vi.spyOn(dbClient, "append").mockResolvedValue(undefined);
+
+    await scaleLoggedFoods(twoFoods());
+
+    expect(mockQuery).not.toHaveBeenCalled();
+  });
+
+  it("pairs each replacement with the retraction that points at it", async () => {
+    const mockAppend = vi
+      .spyOn(dbClient, "append")
+      .mockResolvedValue(undefined);
+
+    await scaleLoggedFoods(twoFoods());
+
+    const datoms = mockAppend.mock.calls[0][0];
+    for (const old of ["oats", "milk"]) {
+      const status = datoms.find(
+        (d) => d.entity === old && d.attribute === "event/status"
+      );
+      const link = datoms.find(
+        (d) => d.entity === old && d.attribute === "event/replaced_by"
+      );
+      expect(status?.value).toBe("retracted");
+      // The successor is in the same batch, and is a real new event.
+      expect(
+        datoms.some(
+          (d) => d.entity === link?.value && d.attribute === "event/type"
+        )
+      ).toBe(true);
+    }
+  });
+
+  it("re-derives each food at its own amount, unit and meal", async () => {
+    const mockAppend = vi
+      .spyOn(dbClient, "append")
+      .mockResolvedValue(undefined);
+
+    await scaleLoggedFoods(twoFoods());
+
+    const datoms = mockAppend.mock.calls[0][0];
+    const replacementFor = (ref: string) => {
+      const target = datoms.find(
+        (d) => d.attribute === "event/target" && d.value === ref
+      );
+      return datoms.filter((d) => d.entity === target?.entity);
+    };
+
+    const oats = replacementFor("fdc:oats");
+    expect(oats.find((d) => d.attribute === "event/quantity")?.value).toBe(
+      "100g"
+    );
+    expect(oats.find((d) => d.attribute === "event/meal_type")?.value).toBe(
+      "breakfast"
+    );
+    // 100 g of a 379 kcal/100 g food.
+    expect(
+      oats.find((d) => d.attribute === "event/metrics")?.value
+    ).toMatchObject({ calories: 379, protein: 13.1 });
+
+    // A drink keeps its panel's own unit rather than becoming a weight (ADR-0060).
+    const milk = replacementFor("fdc:milk");
+    expect(milk.find((d) => d.attribute === "event/quantity")?.value).toBe(
+      "200ml"
+    );
+    expect(milk.find((d) => d.attribute === "event/meal_type")?.value).toBe(
+      "lunch"
+    );
+    expect(
+      milk.find((d) => d.attribute === "event/metrics")?.value
+    ).toMatchObject({ calories: 84 });
+  });
+
+  it("writes nothing at all when there is nothing to scale", async () => {
+    const mockAppend = vi
+      .spyOn(dbClient, "append")
+      .mockResolvedValue(undefined);
+
+    expect(await scaleLoggedFoods([])).toBe(0);
+    expect(mockAppend).not.toHaveBeenCalled();
   });
 });
 

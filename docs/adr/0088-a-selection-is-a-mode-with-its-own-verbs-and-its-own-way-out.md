@@ -279,12 +279,6 @@ keeps the Selection; a verb that rewrites or consumes them ends it.** Move keeps
 it, because the events are the same events. The hand-off keeps it, because it
 writes nothing here. Scale and Build recipe end it.
 
-Scale ends it **per row, as that row's own write lands**, rather than all at once
-when the run finishes. That is not a stagger anyone added: each food is its own
-awaited round trip, and because the live preview is keyed by the _old_ event ids,
-a food's row already drops its mark alone the moment its id changes. Releasing
-the row there rides the cascade the writes were producing anyway.
-
 **The acknowledgement is the release, not a beat before it.** The row's highlight
 washes back to paper over one house-duration transition (0.15s, `--ease-snap`),
 and paper is where a deselected row already sits — so there is nothing to flash
@@ -293,8 +287,31 @@ than behind a flag, because a row has no way to be deselected-and-not-written: a
 cancelled preview leaves its rows selected, so the transition only ever runs when
 something happened.
 
-A food the run could not write is never released this way, because nothing was
-written to it. The Selection still ends empty when the run finishes.
+### The run is one write, so it is one gesture
+
+First built as a loop, releasing each row as its own write landed. That read as a
+cascade, and the cascade was too slow to be an acknowledgement: per food it cost
+three worker round trips and two full re-projections, so a Selection of five took
+five visible beats to let go. The stagger was never designed — it was the shape
+of the round trips showing through.
+
+Nothing in the run needs the worker until the write. The Scale tier resolves
+every panel before it draws, because that is what the live preview derives from,
+so the caller already holds what the write needs; `changeLoggedFoodAmount` was
+reading each twin a second time. What is left is arithmetic, and the whole
+Selection collapses into **one append**: one projection, one frame, every row
+taking its new figure and letting go of its mark together.
+
+Two things fall out of the single append beyond speed. No intermediate state is
+ever projected — a retract-and-replace split across two appends briefly shows the
+day holding both the old food and its replacement, growing a row and then losing
+it again. And there is no half-applied run to report: the write is all of them or
+none, so a failure means nothing was written rather than some unknown prefix.
+
+What is still per food is the **skip**. A Recipe Instantiation or a weightless
+entry never enters the run, and was already saying so on its own row from the
+moment the tier opened — which is where that belongs, rather than in an apology
+once the run is over.
 
 ### And the row has to stay where it is
 

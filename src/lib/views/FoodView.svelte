@@ -8,6 +8,8 @@
     getLocalFoodTwin,
     retractConsumptionEvent,
     changeLoggedFoodAmount,
+    scaleLoggedFoods,
+    type ScaleChange,
     moveLoggedFoodsToMeal,
     copyPastMeal,
     type ConsumptionEvent,
@@ -656,57 +658,55 @@
    * amount and the original retracted, so the day's nutrition re-derives from
    * the twins rather than being edited in place — the same path the amount
    * picker's Done takes, across the Selection.
+   *
+   * The whole run is **one append**. Nothing here needs the worker until the
+   * write: `scalables` already holds every panel, resolved before the tier
+   * drew, so the arithmetic is the same the live preview is doing. What lands
+   * is therefore one projection, one frame — every row takes its new figure and
+   * lets go of its mark together, instead of washing out one at a time behind a
+   * round trip each.
    */
   async function applyScale(factor: number, op: ScaleOp) {
     if (scaling) return;
     scaling = true;
-    // Snapshot: each append re-derives the projection under us.
     const items = selectedItems;
     const resolved = scalables;
-    let scaled = 0;
+    const changes: ScaleChange[] = [];
     let skipped = 0;
+    for (const item of items) {
+      const food = resolved.get(item.id);
+      // Already said in place on the row, since the tier opened: a Recipe
+      // Instantiation or a weightless entry has no weight to scale.
+      if (!food) {
+        skipped++;
+        continue;
+      }
+      changes.push({
+        event: item,
+        amount: scaleAmount(food.amount, factor, op),
+        unit: food.unit,
+        panel: food.panel,
+        ref: food.ref,
+      });
+    }
+
+    let scaled = 0;
     let failed = 0;
     try {
-      for (const item of items) {
-        const food = resolved.get(item.id);
-        if (!food) {
-          skipped++;
-          continue;
-        }
-        // Per food, so one failed append leaves the rest of the Selection
-        // scalable instead of aborting the run half-applied.
-        try {
-          const newId = await changeLoggedFoodAmount(
-            item,
-            scaleAmount(food.amount, factor, op)
-          );
-          if (!newId) {
-            skipped++;
-            continue;
-          }
-          scaled++;
-          // **The row lets go the moment its own write lands** (ADR-0088's
-          // Amendment of 2026-09-02). Dropped rather than re-pointed at the new
-          // id: the event picked out was retracted, so carrying its successor
-          // forward would leave a Selection of things nobody chose.
-          //
-          // Inside the loop on purpose. Each food is its own awaited round trip,
-          // so releasing here rides the cascade the writes already produce —
-          // rows wash back to paper one after another, in the order written.
-          const remaining = new Set(selected_ids);
-          remaining.delete(item.id);
-          setSelection(remaining);
-        } catch (e) {
-          console.error("scaling a logged food failed", e);
-          failed++;
-        }
-      }
+      scaled = await scaleLoggedFoods(changes);
+    } catch (e) {
+      // One append, so it is all of them or none — there is no half-applied run
+      // to report, and nothing was written.
+      console.error("scaling the selection failed", e);
+      failed = changes.length;
     } finally {
       scaling = false;
     }
     closeScale();
-    // A food the run could not write was never released above, because nothing
-    // was written to it. The Selection still ends empty.
+    // **The Selection ends with the write** (ADR-0088's Amendment of
+    // 2026-09-02). Cleared rather than re-pointed at the new ids: the events
+    // picked out were retracted, so carrying their successors forward would
+    // leave a Selection of things nobody chose.
     setSelection(new Set());
     // Silent on success (§2): a change you can watch does not need narrating.
     if (skipped + failed > 0) {
