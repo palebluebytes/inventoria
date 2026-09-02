@@ -35,18 +35,19 @@
   import LedgerExportButton from "../ledger/LedgerExportButton.svelte";
   import { dbClient } from "../../db/db.client";
   import type { EntityCensus } from "../../db/db.core";
+  import type { FacetId } from "../../facets/registry";
   import {
     domainCensusGroups,
     facetStorageKeys,
     planFacetWipe,
-    wipeFacetStorage,
+    runFacetWipe,
     type FacetWipePlan,
   } from "../../facets/facet-wipe";
 
   // The Facet these controls belong to. Rations, from either entry point: the
   // root opens this same sheet from the Food tab's gear, and a wipe scoped to
   // food is the same act on both surfaces (§6).
-  const FACET = "food" as const;
+  const FACET: FacetId = "food";
 
   let census = $state<EntityCensus | null>(null);
   let unreadable = $state(false);
@@ -80,9 +81,11 @@
       });
   }
 
-  // The plan is re-derived rather than cached: the storage keys are counted off
-  // the store each time, so a preference written since the sheet opened is in
-  // the figure the confirmation shows.
+  // Derived off the census, so the storage keys are recounted every time the
+  // ledger says something changed. `localStorage` is not a signal and a
+  // preference written since the last census will not have moved this on its
+  // own — which is why the figure is a count of records the wipe *will* find
+  // rather than a promise about the instant it is read.
   let plan = $derived<FacetWipePlan | null>(
     census ? planFacetWipe(FACET, census, facetStorageKeys(FACET)) : null
   );
@@ -102,9 +105,7 @@
       return "There is nothing else in this database.";
     const named = plan.stayingDomains.map((d) => d.name);
     const rows = `${plan.datomsStaying.toLocaleString()} datoms stay`;
-    return named.length === 0
-      ? `${rows}, and none of them are food's.`
-      : `${rows}: ${listOf(named)}.`;
+    return named.length === 0 ? `${rows}.` : `${rows}: ${listOf(named)}.`;
   });
 
   /** `a`, `a and b`, `a, b and c` — the app's own voice, not `Intl`'s. */
@@ -113,48 +114,20 @@
     return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
   }
 
+  // The run itself is `facets/facet-wipe.ts`'s, not this screen's — the ordering
+  // of the three effects and the sentence that reports them are the parts worth
+  // testing, and neither needs a Worker to exercise. Same split as
+  // `views/ledger/export-run.ts`, and for the same reason.
   async function wipe() {
     if (!plan || running) return;
     running = true;
     try {
-      // The ledger first: it holds the substance, and a failure here has to
-      // leave everything standing rather than half of it.
-      const rowsDeleted = await dbClient.facetWipe(plan.entityPrefixes);
-      const keysRemoved = wipeFacetStorage(FACET);
-
-      // The delete has committed; the reclaim is attempted after it and is
-      // best-effort (ADR-0079 §4). `VACUUM` cannot run inside a transaction, so
-      // "both or neither" is not expressible — and here, unlike the jar-wide
-      // wipe, the survivors are everything that is not food, which is the live
-      // set the rewrite is staged against. A vacuum that fails leaves the rows
-      // gone and the space merely reusable rather than handed back, and the
-      // sentence has to be able to say exactly that.
-      let reclaimed = true;
-      try {
-        await dbClient.vacuum();
-      } catch (err) {
-        console.error(err);
-        reclaimed = false;
-      }
-
-      outcome = {
-        ok: true,
-        message:
-          `Deleted ${rowsDeleted.toLocaleString()} datoms and ${keysRemoved.toLocaleString()} local settings. ` +
-          (reclaimed
-            ? "The space they were using has been handed back."
-            : "The space they were using could not be handed back, so it is reusable by this app rather than free."),
-      };
-      confirming = false;
-    } catch (err) {
-      console.error(err);
-      outcome = {
-        ok: false,
-        message:
-          err instanceof Error
-            ? `Nothing was deleted: ${err.message}`
-            : "Nothing was deleted.",
-      };
+      const ended = await runFacetWipe(FACET, plan.entityPrefixes, {
+        deleteDatoms: (prefixes) => dbClient.facetWipe(prefixes),
+        reclaimSpace: () => dbClient.vacuum(),
+      });
+      if (ended.kind === "failed") console.error(ended.error);
+      outcome = { ok: ended.kind === "wiped", message: ended.message };
       confirming = false;
     } finally {
       running = false;
@@ -256,7 +229,7 @@
           <li>
             <strong>{plan.storageGoing.toLocaleString()} local settings</strong>
             go: your nutrition targets and limits, your display preferences, and the
-            search log this device keeps.
+            search log this device keeps. An export does not carry these.
           </li>
           <li>{staysLine}</li>
           <li>

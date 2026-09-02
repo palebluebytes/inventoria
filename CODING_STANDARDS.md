@@ -37,8 +37,11 @@ violates one does not merge.
   `src/lib/habits/habits.ts`), never by removing the original.
 - The only sanctioned table-level destructive operations are `resetLedgerSchema`
   (the user-initiated `clear`), the one-shot ADR-0020 migration, and
-  `deleteDatomsByEntityPrefix` — the Facet-scoped wipe behind "Delete all my
-  food data". All three live in `src/lib/db/db.core.ts`; do not add others.
+  `deleteDatomsByEntityPrefix` — the **ledger half** of the Facet-scoped wipe
+  behind "Delete all my food data". All three live in `src/lib/db/db.core.ts`;
+  do not add others. That wipe's other half takes the Facet's `localStorage`
+  records and is `src/lib/facets/facet-wipe.ts`'s, which is where its predicate
+  is derived from the registry rather than authored (ADR-0079 §2, §3).
 - **A partial deletion is sanctioned only where its rows are closed under
   reference** (ADR-0079 §1). The first two exceptions are safe because they are
   total: afterwards no fold can produce a wrong answer, because there is nothing

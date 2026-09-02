@@ -20,6 +20,7 @@ import {
   domainCensusGroups,
   facetStorageKeys,
   planFacetWipe,
+  runFacetWipe,
   wipeFacetStorage,
 } from "../../src/lib/facets/facet-wipe";
 
@@ -302,5 +303,95 @@ describe("the wipe's plan", () => {
   it("takes the whole of the Facet's registered prefix set", () => {
     const plan = planFacetWipe("food", census({ food: 1 }), []);
     expect(plan.entityPrefixes).toEqual(entityPrefixesOf("food"));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// One run
+// ---------------------------------------------------------------------------
+
+describe("one run of the wipe", () => {
+  beforeEach(async () => {
+    vi.stubGlobal(
+      "localStorage",
+      makeFakeLocalStorage({ ...OTHER_KEYS, ...FOOD_KEYS })
+    );
+    // Registered here as well as above, so these cases hold when this describe
+    // is the only one that runs: `FOOD_KEYS` counts the channel's key, and the
+    // channel is in the registry only because some module imported it.
+    await import("../../src/lib/logs/search-log");
+  });
+
+  const seams = (over: Partial<Parameters<typeof runFacetWipe>[2]> = {}) => ({
+    deleteDatoms: async () => 120,
+    reclaimSpace: async () => {},
+    ...over,
+  });
+
+  it("deletes, takes the keys, reclaims, and reports all three", async () => {
+    const ended = await runFacetWipe("food", ["fdc:"], seams());
+
+    expect(ended.kind).toBe("wiped");
+    if (ended.kind !== "wiped") return;
+    expect(ended.datomsDeleted).toBe(120);
+    expect(ended.storageRemoved).toBe(Object.keys(FOOD_KEYS).length);
+    expect(ended.reclaimed).toBe(true);
+    expect(ended.message).toContain("handed back");
+  });
+
+  // The reclaim is best-effort and separate from the delete (ADR-0079 §4). The
+  // rows are gone either way, and the sentence must not claim the space back.
+  it("keeps the rows gone when the reclaim fails, and says the space is not free", async () => {
+    const ended = await runFacetWipe(
+      "food",
+      ["fdc:"],
+      seams({
+        reclaimSpace: async () => {
+          throw new Error("database or disk is full");
+        },
+      })
+    );
+
+    expect(ended.kind).toBe("wiped");
+    if (ended.kind !== "wiped") return;
+    expect(ended.reclaimed).toBe(false);
+    expect(ended.message).toContain("could not be handed back");
+  });
+
+  // The ledger goes first because it holds the substance: a failure there has
+  // to leave the keys standing too, since they have no transaction to roll back.
+  it("takes no key at all when the ledger delete fails", async () => {
+    const ended = await runFacetWipe(
+      "food",
+      ["fdc:"],
+      seams({
+        deleteDatoms: async () => {
+          throw new Error("worker is gone");
+        },
+      })
+    );
+
+    expect(ended.kind).toBe("failed");
+    expect(ended.message).toContain("Nothing was deleted");
+    expect([...(localStorage as any).store.keys()].sort()).toEqual(
+      [...Object.keys(OTHER_KEYS), ...Object.keys(FOOD_KEYS)].sort()
+    );
+  });
+
+  it("does not attempt a reclaim after a delete that failed", async () => {
+    let reclaims = 0;
+    await runFacetWipe(
+      "food",
+      ["fdc:"],
+      seams({
+        deleteDatoms: async () => {
+          throw new Error("worker is gone");
+        },
+        reclaimSpace: async () => {
+          reclaims += 1;
+        },
+      })
+    );
+    expect(reclaims).toBe(0);
   });
 });

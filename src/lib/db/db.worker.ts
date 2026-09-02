@@ -154,7 +154,7 @@ self.onmessage = async (event: MessageEvent) => {
       }
       // What the scoped wipe's confirmation counts against (ADR-0079 §5): rows
       // per group and rows overall, in one pass rather than a round trip each.
-      const { groups } = payload;
+      const { groups } = payload ?? {};
       self.postMessage({
         id,
         status: "ok",
@@ -168,7 +168,7 @@ self.onmessage = async (event: MessageEvent) => {
       // derived from the registry and are never assembled here — the worker is
       // thin orchestration, and a predicate built in two places is the drift
       // ADR-0079 §3 forbids.
-      const { entityPrefixes } = payload;
+      const { entityPrefixes } = payload ?? {};
       const rowsDeleted = deleteDatomsByEntityPrefix(db, entityPrefixes);
       self.postMessage({ id, status: "ok", data: rowsDeleted });
       // Every projection re-reads: a scoped wipe changes the answer for the

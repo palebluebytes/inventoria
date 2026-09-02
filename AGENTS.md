@@ -94,8 +94,10 @@ context and that one is not. If you change one, change both.
   clock stamp (ADR-0020), not because of its `time` value. Three sanctioned
   destructive operations exist, all in `src/lib/db/db.core.ts` —
   `resetLedgerSchema` (the user-initiated `clear`), the one-shot ADR-0020
-  migration, and `deleteDatomsByEntityPrefix`, the Facet-scoped wipe behind
-  "Delete all my food data" (ADR-0079 §1). Do not add others. The third came
+  migration, and `deleteDatomsByEntityPrefix`, the **ledger half** of the
+  Facet-scoped wipe behind "Delete all my food data" (ADR-0079 §1). The other
+  half is `localStorage` and is `src/lib/facets/facet-wipe.ts`'s, because
+  ownership is the rule and the storage medium is incidental (§2). Do not add others. The third came
   with a condition the first two did not need, and a fourth is held to it: the
   rows a partial deletion takes must be **closed under reference**, so nothing
   surviving points at anything removed. A deletion that cannot show closure is

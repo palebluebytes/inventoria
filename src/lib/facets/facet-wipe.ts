@@ -159,3 +159,93 @@ export function planFacetWipe(
     storageGoing: storageKeys.length,
   };
 }
+
+// ---------------------------------------------------------------------------
+// One run of the wipe
+// ---------------------------------------------------------------------------
+
+/**
+ * Where a run's two effects go. Injected rather than imported, the arrangement
+ * `views/ledger/export-run.ts` already uses for the export: the ordering below
+ * and the sentence it produces are the parts worth testing, and neither should
+ * need a Worker to exercise.
+ */
+export interface FacetWipeSeams {
+  /** Removes the rows and answers how many went. `dbClient.facetWipe`. */
+  deleteDatoms: (entityPrefixes: readonly string[]) => Promise<number>;
+  /** Hands the freed pages back. `dbClient.vacuum`, and allowed to reject. */
+  reclaimSpace: () => Promise<void>;
+}
+
+/** How a run ended, in the words the screen prints. */
+export type FacetWipeOutcome =
+  | {
+      kind: "wiped";
+      datomsDeleted: number;
+      storageRemoved: number;
+      /** Whether the `VACUUM` succeeded. The rows are gone either way. */
+      reclaimed: boolean;
+      message: string;
+    }
+  | { kind: "failed"; message: string; error: unknown };
+
+/**
+ * Deletes, then takes the keys, then attempts the reclaim, and says what
+ * happened.
+ *
+ * **The order is the argument.** The ledger goes first because it holds the
+ * substance, so a failure there leaves everything standing rather than half of
+ * it — including the `localStorage` records, which have no transaction to roll
+ * back and would otherwise be gone with the datoms still there.
+ *
+ * **The reclaim is best-effort and separate from the delete** (ADR-0079 §4).
+ * `VACUUM` cannot run inside a transaction, so "both or neither" is not
+ * expressible in SQLite; the delete commits and the reclaim is attempted after
+ * it. Here, unlike the jar-wide wipe, the survivors are everything that is not
+ * this Facet's, and that surviving live set is what the rewrite is staged
+ * against — so this is the wipe the amendment at ADR-0079's foot relocated the
+ * exposure to. A reclaim that fails leaves the rows gone and the space merely
+ * reusable, and the sentence says exactly that rather than claiming the space
+ * back.
+ */
+export async function runFacetWipe(
+  facetId: FacetId,
+  entityPrefixes: readonly string[],
+  seams: FacetWipeSeams
+): Promise<FacetWipeOutcome> {
+  let datomsDeleted: number;
+  try {
+    datomsDeleted = await seams.deleteDatoms(entityPrefixes);
+  } catch (error) {
+    return {
+      kind: "failed",
+      message:
+        error instanceof Error
+          ? `Nothing was deleted: ${error.message}`
+          : "Nothing was deleted.",
+      error,
+    };
+  }
+
+  const storageRemoved = wipeFacetStorage(facetId);
+
+  let reclaimed = true;
+  try {
+    await seams.reclaimSpace();
+  } catch (error) {
+    console.error("The wipe could not reclaim the space it freed", error);
+    reclaimed = false;
+  }
+
+  return {
+    kind: "wiped",
+    datomsDeleted,
+    storageRemoved,
+    reclaimed,
+    message:
+      `Deleted ${datomsDeleted.toLocaleString()} datoms and ${storageRemoved.toLocaleString()} local settings. ` +
+      (reclaimed
+        ? "The space they were using has been handed back."
+        : "The space they were using could not be handed back, so it is reusable by this app rather than free."),
+  };
+}

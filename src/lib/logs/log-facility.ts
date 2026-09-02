@@ -228,11 +228,9 @@ export function channelStorageKey(channel: LogChannel<unknown>): string {
   return `${LS_PREFIX}${channel.name}`;
 }
 
-const keyOf = channelStorageKey;
-
 /** The raw stored records of one channel, unparsed. `[]` for anything else. */
 function storedRecords(channel: LogChannel<unknown>): unknown[] {
-  const raw = safeGet(keyOf(channel));
+  const raw = safeGet(channelStorageKey(channel));
   if (raw === null) return [];
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -243,8 +241,8 @@ function storedRecords(channel: LogChannel<unknown>): unknown[] {
 }
 
 function writeRecords(channel: LogChannel<unknown>, records: unknown[]): void {
-  if (records.length === 0) safeRemove(keyOf(channel));
-  else safeSet(keyOf(channel), JSON.stringify(records));
+  if (records.length === 0) safeRemove(channelStorageKey(channel));
+  else safeSet(channelStorageKey(channel), JSON.stringify(records));
 }
 
 /**
@@ -311,7 +309,7 @@ export function deleteChannelEntry<E>(
 
 /** Empties a channel, removing its key outright. */
 export function clearChannel(channel: LogChannel<unknown>): void {
-  safeRemove(keyOf(channel));
+  safeRemove(channelStorageKey(channel));
 }
 
 // ---------------------------------------------------------------------------

@@ -363,6 +363,39 @@ reads distinguishes "the space has been handed back" from "the space could not
 be handed back, so it is reusable by this app rather than free". The exposure is
 real, it is now visible when it fires, and the number stays untaken.
 
+**The export covers one of the wipe's two halves, and the screen says so rather
+than implying otherwise.** §2 has the wipe take datoms **and** `localStorage`
+records; §6's export is a walk over `datoms` and carries no settings, so a user
+who does what the control says — take a copy, then delete — still loses their
+nutrition targets, limits, profile, visible-nutrient selection and rounding
+preference for good. Widening the file was considered and refused twice over.
+The settings would need a second line kind in the NDJSON, and the file is only a
+safety control because the existing Import restores it row for row; a line
+Import has never seen buys a fuller backup at the cost of the property that
+makes it a backup. And the search log is a harder no: it leaves the device only
+through the export door [ADR-0054](0054-one-local-log-facility-and-no-channel-without-a-reader.md) §4 gates on a
+review the user reads first, so folding it into a one-click file would route
+around that consent to make a delete look safer. What shipped instead is the
+`count and name, never imply` ethic of §5 applied to the export: the section and
+the confirmation both say what the file holds and what it does not. Carrying the
+settings properly is a settings-export decision and belongs to whoever takes it.
+
+**Pre-ADR-0085 `settings:global` datoms survive this wipe, and cannot be reached
+by it.** [ADR-0085](0085-a-setting-is-never-a-datom-and-a-consent-is-not-a-setting.md)
+§7 chose no migration: the old rows are "abandoned and never read again". They
+carry `settings/food/targets`, `settings/food/limits`, `settings/food/profile`
+and `settings/food/calculated_targets`, which is food's content by any reading,
+so on an upgraded jar this wipe leaves food data standing and counts it among
+what stays. It is not fixable here and the reason is the mechanism working. §3
+derives the predicate from the registry; `settings:` is not in the registry and
+cannot be added, because `pnpm check:entities` requires every declared prefix to
+have a minting site and nothing has minted one since ADR-0085. Reaching those
+rows would mean a hand-written prefix — the exact drift §3 exists to forbid — or
+a fourth deletion with no closure argument behind it. The rows are inert, no
+fold reads them, and the confirmation was corrected so it does not claim
+otherwise: where no domain holds surviving rows it now says how many stay and
+stops, instead of asserting that none of them are food's.
+
 **The export is restorable and there is no route to restore it from Rations.**
 The scoped export writes the same `inventoria-ledger` artifact at the same
 schema version, carrying a `scope` field an older reader ignores, so the
