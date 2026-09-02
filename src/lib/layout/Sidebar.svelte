@@ -93,7 +93,8 @@
     background: transparent;
     color: var(--text-secondary);
     cursor: pointer;
-    font-size: 0.65rem;
+    /* The literal here was a hand-copy of this token's own value. */
+    font-size: var(--step-n3);
     font-weight: 600;
     text-align: center;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
