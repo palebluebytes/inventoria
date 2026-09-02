@@ -195,6 +195,11 @@
     flex-direction: column;
     background: var(--ink);
     color: var(--paper);
+    /* The reader covers the screen, so it owns the bottom inset for everything
+       inside it — and it has to be here rather than on `.lpr-actions`, which is
+       absent when the reader is read-only. It was reserved in both places until
+       `viewport-fit=cover` made the value real, at which point a device with a
+       home indicator would have got the gap twice (ADR-0089 §2). */
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   .lpr-bar {
@@ -280,8 +285,8 @@
   .lpr-actions {
     display: flex;
     gap: var(--space-2xs);
-    padding: var(--space-2xs) var(--space-s)
-      calc(env(safe-area-inset-bottom, 0px) + var(--space-s));
+    /* No inset here: `.lpr` above reserves it once for the whole surface. */
+    padding: var(--space-2xs) var(--space-s) var(--space-s);
   }
   .lpr-btn {
     flex: 1;

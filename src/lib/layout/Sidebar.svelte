@@ -56,6 +56,13 @@
     display: flex;
     flex-direction: column;
     padding: 0;
+    /* The nav is the sixth full-bleed surface and the only one that never asked
+       for its inset (ADR-0089 §2). It reaches the bottom edge in both shapes —
+       the tab bar here, the rail's footer badge above 768px — so both reserve
+       it, and `viewport-fit=cover` is what makes the value non-zero at all. A
+       longhand rather than a fourth value in the shorthand above, because the
+       shorthand is what the wide rule replaces. */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     position: sticky;
     bottom: 0;
     z-index: 100;
@@ -139,6 +146,7 @@
       border-right: var(--edge);
       position: static;
       padding: var(--space-m) 0;
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-m));
     }
     .logo {
       display: flex;

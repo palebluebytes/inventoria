@@ -18,7 +18,13 @@
       href="/food/icons/rations-32.png"
     />
     <link rel="apple-touch-icon" href="/food/icons/rations-180.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Same pair of decisions as the root's `index.html`, for the same
+         reasons: `viewport-fit=cover` so `env(safe-area-inset-*)` is real, and
+         no `interactive-widget` (ADR-0089 §1–2). -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <!-- Replaced on mount from the Facet registry, like the root's. Still
          reading this is the symptom the offline spec looks for. -->
     <title>temp-init</title>

@@ -3,7 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- `viewport-fit=cover` is what makes `env(safe-area-inset-*)` non-zero:
+         without it the layout viewport stops at the safe area and every inset
+         is zero by definition, which is why the six rules already in the tree
+         had never once fired (#325, ADR-0089 §2). Both Facets' pages carry it,
+         because a surface that paints full-bleed is responsible for its own
+         insets from here on and the food screen is in both builds.
+
+         `interactive-widget` is deliberately absent here and in
+         `food/index.html`, and a later reader will want to add
+         `resizes-content`. ADR-0089 §1 is the argument against it; the band is
+         published in JavaScript instead, by `src/lib/ui/viewport-inset.ts`. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <title>temp-init</title>
   </head>
   <body>
