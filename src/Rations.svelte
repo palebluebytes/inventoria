@@ -225,6 +225,12 @@
     flex-direction: column;
     height: 100svh;
     background: var(--bg-base);
+    /* All four, unlike the root's `.app`, which hands the bottom to its nav
+       (ADR-0089 §2). Rations has no nav — that is ADR-0078 §1 — so nothing
+       stands between this box and the home indicator, and the food screen's
+       last row would sit under it. */
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+      env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
   }
 
   .main {

@@ -315,7 +315,15 @@
   }
 
   /* Pinned dock: sits below the body, never scrolls. Mirrors the hand-rolled
-     `.dock` / `.foot` chrome the food sheets used before folding onto this. */
+     `.dock` / `.foot` chrome the food sheets used before folding onto this.
+
+     It carries the sheet's whole bottom inset, which `viewport-fit=cover` made
+     real (ADR-0089 §2), and it is the only place that can: it is the last child
+     of a `position: fixed; bottom: 0` box. **A sheet passing no footer
+     therefore reserves nothing**, and its body's last row sits under the home
+     indicator. Left for §5, which replaces this box's height model outright;
+     reserving it on the body instead would double the gap for every sheet that
+     does have a dock. */
   .bottom-sheet-footer {
     flex-shrink: 0;
     border-top: var(--edge);

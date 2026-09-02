@@ -181,7 +181,19 @@
     display: flex;
     flex-direction: column-reverse;
     height: 100svh;
+    /* `100svh` and no `var(--vv-h)`: the shell is not a consumer of the visible
+       band (ADR-0089 §4). The nav is not something you use while typing, and
+       making it chase the keyboard means it competes with every focused field
+       on the page for space. Do not "fix" this. */
     background: var(--bg-base);
+    /* Three of the four safe areas, because `viewport-fit=cover` moved the
+       layout viewport's origin under the notch and this box starts at its top
+       corner (ADR-0089 §2). The fourth is the nav's: it is the thing at the
+       foot of the screen and reserves the home indicator itself, so reserving
+       it here too would double the gap. */
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
   }
 
   .main {

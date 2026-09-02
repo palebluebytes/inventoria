@@ -11,12 +11,9 @@
  * and the sheet's header — title, handle, and the way out — leaves the top of
  * the screen.
  *
- * The cheap fix, `interactive-widget=resizes-content`, is refused and the record
- * says why at length: WebKit has never shipped it and iOS is the floor platform,
- * so it would mean two platforms with genuinely different geometry decided by an
- * un-feature-detectable meta key; and no CDP command on the pinned Chromium can
- * make `visualViewport.height` diverge from `innerHeight`, so CI could never see
- * it work. **Do not add `interactive-widget` to either `index.html`.**
+ * **Do not add `interactive-widget` to either `index.html`.** The one-key fix,
+ * `resizes-content`, was refused on the floor platform and on testability;
+ * ADR-0089 §1 carries the argument and is the place to reopen it.
  *
  * Three properties on `:root`, rather than a height inside `BottomSheet`, so any
  * surface pinned over the page is a *consumer of one rule* instead of a special
@@ -46,8 +43,10 @@ let stop: (() => void) | null = null;
  * both shells are server-rendered under a stubbed `window` in the unit tier, so
  * this must survive being reached there.
  *
- * Returns a disposer, so a caller with a lifecycle can hand it to `onMount`. The
- * app never does: the band outlives every screen and dies with the document.
+ * **There is one band, and one disposer.** A second caller is handed the first
+ * caller's, so calling it stops publishing for everybody — which is why the app
+ * drops it rather than tying it to a screen's lifecycle. The band belongs to the
+ * document and dies with it. The disposer exists so a test can undo a start.
  */
 export function startViewportInset(): () => void {
   if (typeof window === "undefined" || typeof document === "undefined") {

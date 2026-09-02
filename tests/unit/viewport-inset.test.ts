@@ -16,12 +16,14 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 
 type Listener = () => void;
 
-/** A `visualViewport` that can be driven, and counted. */
-function fakeBand(height: number) {
+/**
+ * An event target that can be driven, and whose listeners can be counted — the
+ * counting is how "the disposer really unsubscribed" is asserted rather than
+ * inferred from a silent republish.
+ */
+function fakeEventTarget() {
   const listeners = new Map<string, Set<Listener>>();
   return {
-    height,
-    offsetTop: 0,
     addEventListener(type: string, fn: Listener) {
       if (!listeners.has(type)) listeners.set(type, new Set());
       listeners.get(type)!.add(fn);
@@ -36,6 +38,11 @@ function fakeBand(height: number) {
       return listeners.get(type)?.size ?? 0;
     },
   };
+}
+
+/** A `visualViewport`: an event target that also reports a band. */
+function fakeBand(height: number) {
+  return { ...fakeEventTarget(), height, offsetTop: 0 };
 }
 
 /** The `<html>` element's style declaration, remembered rather than applied. */
@@ -57,24 +64,7 @@ function fakeWindow(
   innerHeight: number,
   visualViewport: ReturnType<typeof fakeBand> | undefined
 ) {
-  const listeners = new Map<string, Set<Listener>>();
-  return {
-    innerHeight,
-    visualViewport,
-    addEventListener(type: string, fn: Listener) {
-      if (!listeners.has(type)) listeners.set(type, new Set());
-      listeners.get(type)!.add(fn);
-    },
-    removeEventListener(type: string, fn: Listener) {
-      listeners.get(type)?.delete(fn);
-    },
-    emit(type: string) {
-      for (const fn of listeners.get(type) ?? []) fn();
-    },
-    listening(type: string) {
-      return listeners.get(type)?.size ?? 0;
-    },
-  };
+  return { ...fakeEventTarget(), innerHeight, visualViewport };
 }
 
 /** A phone with the keyboard down: the band is the whole layout viewport. */

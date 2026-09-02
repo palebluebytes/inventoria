@@ -41,8 +41,11 @@
 <style>
   .reload-prompt {
     position: fixed;
-    right: 1rem;
-    bottom: 1rem;
+    /* Pinned to the viewport, so it sits outside the shell's padding and pays
+       for its own insets (ADR-0089 §2). 1rem alone put the toast's lower edge
+       inside the home indicator's band. */
+    right: calc(env(safe-area-inset-right, 0px) + 1rem);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
     background: var(--bg-surface, var(--paper));
     color: var(--text-primary, var(--ink));
     border: var(--edge);
