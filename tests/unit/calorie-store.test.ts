@@ -2038,7 +2038,10 @@ describe("moveLoggedFoodsToMeal", () => {
     expect(written.map((d) => d.attribute)).not.toContain("event/metrics");
   });
 
-  it("moves a Selection spanning several meals into one", async () => {
+  it("moves a Selection spanning several meals into one, in ONE append", async () => {
+    // One append, so the meal sections redraw once and every food arrives
+    // together. Per food it was a round trip and a full re-projection each,
+    // which showed as the foods relocating one at a time.
     const append = vi.spyOn(dbClient, "append").mockResolvedValue(undefined);
 
     const { moved } = await moveLoggedFoodsToMeal(
@@ -2050,11 +2053,13 @@ describe("moveLoggedFoodsToMeal", () => {
     );
 
     expect(moved).toBe(2);
-    expect(append).toHaveBeenCalledTimes(2);
-    expect(append.mock.calls.flatMap((c) => c[0]).map((d) => d.value)).toEqual([
-      "breakfast",
-      "breakfast",
+    expect(append).toHaveBeenCalledTimes(1);
+    const datoms = append.mock.calls[0][0];
+    expect(datoms.map((d) => d.entity)).toEqual([
+      "event:consume_banana",
+      "event:consume_coffee",
     ]);
+    expect(datoms.map((d) => d.value)).toEqual(["breakfast", "breakfast"]);
   });
 
   it("writes nothing for a food already at that meal", async () => {
@@ -2068,20 +2073,40 @@ describe("moveLoggedFoodsToMeal", () => {
     expect(append).not.toHaveBeenCalled();
   });
 
-  it("leaves the rest moved when one append fails", async () => {
+  it("moves none of them when the append fails", async () => {
+    // All-or-nothing, which is what one append means. The per-food isolation
+    // this replaced only ever covered a failing `append` — a ledger-level fault,
+    // not a fact about one banana — and never said WHICH food failed, so no
+    // caller could act on the distinction.
     vi.spyOn(console, "error").mockImplementation(() => {});
     const append = vi
       .spyOn(dbClient, "append")
-      .mockRejectedValueOnce(new Error("nope"))
-      .mockResolvedValue(undefined);
+      .mockRejectedValue(new Error("nope"));
 
     const { moved, failed } = await moveLoggedFoodsToMeal(
       [banana, { ...banana, id: "event:consume_two" }] as ConsumptionEvent[],
       "lunch"
     );
 
-    expect(failed).toBe(1);
+    expect(moved).toBe(0);
+    expect(failed).toBe(2);
+    expect(append).toHaveBeenCalledTimes(1);
+  });
+
+  it("counts a food already at the destination as moved, even if the write fails", async () => {
+    // It was never part of the write, so a failed append says nothing about it.
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(dbClient, "append").mockRejectedValue(new Error("nope"));
+
+    const { moved, failed } = await moveLoggedFoodsToMeal(
+      [
+        banana,
+        { ...banana, id: "event:consume_two", meal_type: "lunch" },
+      ] as ConsumptionEvent[],
+      "lunch"
+    );
+
     expect(moved).toBe(1);
-    expect(append).toHaveBeenCalledTimes(2);
+    expect(failed).toBe(1);
   });
 });

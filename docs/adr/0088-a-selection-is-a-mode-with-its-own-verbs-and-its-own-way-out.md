@@ -406,3 +406,23 @@ makes the panel usable as what it otherwise is: a look at what you picked.
 
 Build recipe is unchanged and still clears at the moment the builder opens rather
 than when it saves, so the recipe that lands is never itself selected.
+
+## Amendment (2026-09-02): a move of several foods is one append
+
+§8's title still holds — a move is one datom per food, and not a supersession —
+but a move of N foods is now **one append**, not N.
+
+The reasoning is the first Amendment's, applied to the other writing verb.
+Appending per food costs a worker round trip and a full re-projection each, so
+the foods relocated one at a time and the meal sections redrew once per food. In
+one append they arrive together and the sections redraw once. Nothing about the
+datoms changes: still one `event/meal_type` per event, still no id minted, still
+latest-wins doing the rest.
+
+The write becomes all-or-nothing, replacing a per-food isolation the function
+used to advertise. That isolation only ever covered a failing `append` — a
+ledger-level fault rather than a fact about one banana — and the count it
+returned never said _which_ food failed, so no caller could act on the
+distinction. The genuine per-food case survives untouched, because it is not a
+failure: a food already at the destination is decided before the write and is
+reported as moved even when the append fails, since it was never part of it.

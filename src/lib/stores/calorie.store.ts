@@ -678,38 +678,49 @@ export async function retractConsumptionEvent(
  * precedent: a Consumption Event may gain an attribute after the fact.
  *
  * Because no id changes, a caller holding the old ids — the Selection — needs
- * nothing back. Appends are per event, so one failure leaves the rest moved
- * rather than aborting half-applied; the count of those that failed is what
- * comes back, since every Consumption Event carries a `meal_type` and there is
- * no "nothing to move" case the way there is nothing to scale.
+ * nothing back.
+ *
+ * **One append for the whole move**, on `scaleLoggedFoods`'s reasoning above.
+ * Appending per food costs a worker round trip and a full re-projection each, so
+ * the foods relocate one at a time — a stagger nobody designed, just the round
+ * trips showing through. In one append the meal sections redraw once and every
+ * food arrives together.
+ *
+ * That makes the write all-or-nothing, replacing a per-food isolation this
+ * function used to advertise. Nothing is lost: the isolation only ever covered a
+ * failing `append`, which is a ledger-level fault rather than a fact about one
+ * banana, and a caller told "3 moved, 1 failed" could not act on it anyway — it
+ * was never told WHICH. The genuine per-food case survives, because it is not a
+ * failure: a food already at the destination is decided here, before the write.
  */
 export async function moveLoggedFoodsToMeal(
   events: ConsumptionEvent[],
   meal_type: string
 ): Promise<{ moved: number; failed: number }> {
-  let moved = 0;
-  let failed = 0;
-  for (const event of events) {
-    // A food already at that meal is skipped rather than restamped: an append
-    // that changes nothing is still a row, and the ledger syncs.
-    if (event.meal_type === meal_type) {
-      moved++;
-      continue;
-    }
-    try {
-      await dbClient.append(
-        ingestEntity({
-          entity: event.id,
-          attributes: { "event/meal_type": meal_type },
-        })
-      );
-      moved++;
-    } catch (e) {
-      console.error("moving a logged food failed", e);
-      failed++;
-    }
+  // A food already at that meal is skipped rather than restamped: an append
+  // that changes nothing is still a row, and the ledger syncs.
+  const settled = events.filter(
+    (event) => event.meal_type === meal_type
+  ).length;
+  const moving = events.filter((event) => event.meal_type !== meal_type);
+  if (moving.length === 0) return { moved: settled, failed: 0 };
+
+  const datoms = moving.flatMap((event) =>
+    ingestEntity({
+      entity: event.id,
+      attributes: { "event/meal_type": meal_type },
+    })
+  );
+
+  try {
+    await dbClient.append(datoms);
+  } catch (e) {
+    console.error("moving the selection failed", e);
+    // Nothing was written, so only the foods that were already there are at the
+    // destination — they were never part of the write.
+    return { moved: settled, failed: moving.length };
   }
-  return { moved, failed };
+  return { moved: settled + moving.length, failed: 0 };
 }
 
 /**
