@@ -368,9 +368,8 @@ pasted code is neither a boot URL nor something a camera saw, so it needs somewh
 a barcode, and on iOS it is already a picker rather than a camera. This keeps ADR-0074
 §4's claim literally true: receiving still has **no door of its own**, it borrows one.
 
-**On every platform, not iOS alone.** ADR-0078's reasoning about one behaviour
-installed or in a tab applies (that record arrives with the Facet arc and is not on this
-branch yet, so it is named rather than linked): a platform conditional is
+**On every platform, not iOS alone.** [ADR-0078](0078-a-facet-contains-no-way-out.md)'s
+reasoning about one behaviour installed or in a tab applies: a platform conditional is
 two behaviours to build, test and explain, and what it would save is a text field. It
 also restores ADR-0072 §4's table to what it always said. On Android the link already
 lands in the installed app, so the field is redundant there; redundant is not a reason
