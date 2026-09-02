@@ -389,14 +389,46 @@ already exists as one of these.
 
 **BottomSheet**:
 The one sheet primitive (`ui/BottomSheet.svelte`). Every sheet in the app is this
-component, including the docked-footer and over-dialog variants. See ADR-0027 and
-ADR-0028.
+component, including the docked-footer and over-dialog variants. On a phone it is
+also the _only_ overlay shape: a centred card is this primitive above 768px, never a
+hand-rolled `translate(-50%, -50%)`. See ADR-0027, ADR-0028 and ADR-0089.
 _Avoid_: Drawer, panel, tray, modal (when a sheet is meant), a second sheet component
 
 **Modal**:
 The centred dialog primitive (`ui/Modal.svelte`), distinct from BottomSheet by
 position rather than by behaviour. See ADR-0027.
 _Avoid_: Dialog, popup, overlay
+
+**Visible band**:
+The part of the page a person can actually see right now, published by
+`ui/viewport-inset.ts` as `--vv-h`, `--vv-top` and `--vv-bottom`. Not a component: a
+measurement, and the only honest one when a software keyboard is up — every viewport
+unit (`vh`, `svh`, `dvh`, `lvh`) was measured inert in that state. A surface pinned
+over the page sizes itself against the band; the shell does not. See ADR-0089.
+_Avoid_: Viewport (when the band is meant), visual viewport (as a layout measure),
+keyboard height, safe height
+
+**Dock**:
+The pinned region at the foot of a sheet, below its scrolling body — a field, a
+primary action, or both (`BottomSheet`'s `footer`, `FoodStager`'s `.dock`). It never
+scrolls, and with a keyboard raised the header and the dock's field are the two
+things guaranteed on screen. A control that cannot act does not hold space in it.
+See ADR-0027 §Decision and ADR-0089 §8.
+_Avoid_: Footer, action bar, toolbar, sticky bar
+
+**Best match**:
+The mark on the top-ranked row of a _ranked_ list: the row inverts, and the two
+below it carry a stepping left edge. It says which one won and never carries a
+number. It may not appear over a list that has not ranked anything — Recent is a
+chronology, and crowning its newest entry is a claim it does not make. See ADR-0090.
+_Avoid_: Top hit, first result, selected, highlighted (that is the other mark)
+
+**Highlight**:
+The moving mark that says where the arrow keys are, drawn as a ring. A separate
+channel from **Best match** because it answers a different question: what won does
+not move, where you are does. Decoupled from bits-ui's automatic first-candidate
+highlight, which used to supply both and meant neither. See ADR-0090 §3.
+_Avoid_: Selected, active, focused row, best match
 
 **Segmented**:
 A single-choice control whose selection must persist once made: mode switches, sex
