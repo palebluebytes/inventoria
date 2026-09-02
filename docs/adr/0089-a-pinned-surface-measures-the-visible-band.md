@@ -3,7 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-09-02  
 **Amends:** ADR-0027 §Decision (the sheet's height model and its over-dialog layering)  
-**Implemented:** §1-§4 by #327 — `ui/viewport-inset.ts`, `facets/startup.ts`, `app.css`, both `index.html`, `layout/Sidebar.svelte`. §5 and §8's scroll-chaining rule by #328 — `ui/BottomSheet.svelte`, `views/food/FoodStager.svelte`. §9 by #333 — `tests/support/virtual-keyboard.ts`, `tests/keyboard-invariants.spec.ts`. §6, §7 and §8's other two rules are still only the prototype on `prototype/326-search-ui`
+**Implemented:** §1-§4 by #327 — `ui/viewport-inset.ts`, `facets/startup.ts`, `app.css`, both `index.html`, `layout/Sidebar.svelte`. §5 and §8's scroll-chaining rule by #328 — `ui/BottomSheet.svelte`, `views/food/FoodStager.svelte`. §9 by #333 — `tests/support/virtual-keyboard.ts`, `tests/keyboard-invariants.spec.ts`. §8's other two rules by #332 — `views/food/FoodStager.svelte`, `views/food/CommitButton.svelte`, and the 16px floor swept across 12 components. §6 and §7 are still only the prototype on `prototype/326-search-ui`
 
 ## Context
 
