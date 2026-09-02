@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readSource } from "./support/source";
 
 /**
  * Media settings (#303): the affordance ADR-0080 §4 commissioned when it put a
@@ -16,12 +16,9 @@ import { readFileSync } from "node:fs";
  * works the field.
  */
 
-const source = (path: string) =>
-  readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
-
-const SHEET = source("src/lib/views/media/MediaSettingsSheet.svelte");
-const VIEW = source("src/lib/views/MediaView.svelte");
-const SETTINGS = source("src/lib/views/SettingsView.svelte");
+const SHEET = readSource("src/lib/views/media/MediaSettingsSheet.svelte");
+const VIEW = readSource("src/lib/views/MediaView.svelte");
+const SETTINGS = readSource("src/lib/views/SettingsView.svelte");
 
 describe("the surface the Media gear opens (ADR-0080 §4)", () => {
   it("is opened by a gear on the Media header", () => {
