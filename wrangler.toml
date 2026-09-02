@@ -1,5 +1,38 @@
 name = "inventoria"
 
+# **Which origin the app is** (#294, decided on #276 §4.3). This is the single
+# most consequential deploy setting in the repo, because an origin decides the
+# OPFS jar: move it and every installed copy must be re-installed, and its
+# ledger does not follow. It sits here rather than in the dashboard for exactly
+# that reason — the build command and env vars are dashboard configuration and
+# do not determine the jar, this does, and dashboard-only settings have already
+# cost one retraction (ADR-0070).
+#
+# `inventoria.palebluebytes.space` rather than a `workers.dev` hostname because
+# the #267 map's driver is identity, "the thing you would link someone to". The
+# zone is already Cloudflare's and already carries a sibling project at
+# `push.palebluebytes.space`, so the convention is joined rather than invented.
+#
+# Rations' vanity host is a **sibling**, `rations.palebluebytes.space`, never a
+# subdomain of this one: a TLS wildcard matches one label and stops, so
+# `*.palebluebytes.space` covers the sibling while `rations.inventoria.…` would
+# need Advanced Certificate Manager. It is a zone Single Redirect rule rather
+# than a route here, which keeps the vanity host out of `worker/src/index.ts`,
+# whose 404 arm is already load-bearing for "matched no asset" (#312).
+routes = [{ pattern = "inventoria.palebluebytes.space", custom_domain = true }]
+
+# Off in the **same change** that adds the custom domain above, never after it.
+# Left on, the app is served on two origins at once, permanently: two OPFS jars,
+# two installable copies, and an existing install silently keeping a ledger the
+# new origin cannot see. That is the outcome #267's decision 2 refused, arrived
+# at by nobody choosing it.
+#
+# Off rather than redirected. A redirect needs the Worker to keep answering on
+# the old hostname, which keeps the second origin alive in order to serve it.
+#
+# Whoever turns this back on for a quick preview URL is turning that on too.
+workers_dev = false
+
 # The proxy runs as part of this Worker rather than beside it. It was its own
 # `inventoria-proxy` deployment with its own toolchain until 2026-08-28, and
 # nothing was routing to it — `.env.example` has always pointed the app at a
