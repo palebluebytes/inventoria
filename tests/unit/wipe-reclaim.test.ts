@@ -30,6 +30,11 @@ const STORAGE = source("src/lib/views/storage/StorageStatus.svelte");
 const CORE = source("src/lib/db/db.core.ts");
 const WORKER = source("src/lib/db/db.worker.ts");
 
+const handler = SETTINGS.slice(
+  SETTINGS.indexOf("async function wipeDatabase"),
+  SETTINGS.indexOf("let showLedger")
+);
+
 describe("the reclaim is its own operation (ADR-0079 §4)", () => {
   it("is a ledger-core function beside the reset, not a tail on it", () => {
     expect(CORE).toMatch(/export function vacuumLedger\(db: LedgerDb\): void/);
@@ -55,11 +60,6 @@ describe("the reclaim is its own operation (ADR-0079 §4)", () => {
 });
 
 describe("the wipe attempts the reclaim and reports what happened", () => {
-  const handler = SETTINGS.slice(
-    SETTINGS.indexOf("async function wipeDatabase"),
-    SETTINGS.indexOf("let showLedger")
-  );
-
   it("commits the delete first, then attempts the vacuum", () => {
     expect(handler.indexOf("dbClient.clear()")).toBeGreaterThan(-1);
     expect(handler.indexOf("dbClient.vacuum()")).toBeGreaterThan(
@@ -107,12 +107,24 @@ describe("the storage readout is told when its screen is looked at", () => {
     expect(STORAGE).toMatch(
       /let \{ shown \}: \{ shown: boolean \} = \$props\(\)/
     );
-    expect(STORAGE).toMatch(/\$effect\(\(\) => \{\s*if \(!shown\) return;/);
-    // Both halves re-run: ADR-0065 §2 wants the reading fresh, and the request
-    // it waits on is memoised so re-running it asks the browser nothing.
-    const effect = STORAGE.slice(STORAGE.indexOf("if (!shown) return;"));
-    expect(effect).toMatch(/ensurePersistentStorage\(\)/);
-    expect(effect).toMatch(/readStorageEstimate\(\)/);
+    expect(STORAGE.replace(/\s+/g, " ")).toMatch(
+      /\$effect\(\(\) => \{ if \(!shown\) return; read\(\); \}\)/
+    );
+    // Both halves are in the one reading: ADR-0065 §2 wants the reading fresh,
+    // and the request it waits on is memoised so re-running it asks the browser
+    // nothing.
+    const read = STORAGE.slice(STORAGE.indexOf("export function read()"));
+    expect(read).toMatch(/ensurePersistentStorage\(\)/);
+    expect(read).toMatch(/readStorageEstimate\(\)/);
+  });
+
+  it("can also be asked directly, because a wipe never changes that prop", () => {
+    // The button is on this same card, so `shown` is `true` before the wipe and
+    // `true` after it, and the effect above never re-runs. Without this the
+    // ticket's own case — wipe, dismiss, look at the figure — stays frozen.
+    expect(STORAGE).toMatch(/export function read\(\)/);
+    expect(SETTINGS).toMatch(/<StorageStatus[^>]*bind:this=\{storage\}/);
+    expect(handler).toMatch(/storage\?\.read\(\)/);
   });
 
   it("is not driven by the worker's invalidation broadcast", () => {

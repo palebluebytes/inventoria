@@ -31,8 +31,8 @@
    * is not, so that a badge cannot report a refusal from ten minutes ago. That
    * split was real per mount, and a screen that never unmounts defeated it.
    *
-   * Not the worker's invalidation broadcast: every append broadcasts, and this
-   * readout must not churn while it is being read.
+   * It is not the only way in: a wipe happens while this is already `true`, so
+   * `read` below is exported for the screen to call directly.
    */
   let { shown }: { shown: boolean } = $props();
 
@@ -41,21 +41,45 @@
   let persistence = $state<PersistenceState>("unknown");
   let estimate = $state<StorageEstimateReading | null>(null);
 
-  $effect(() => {
-    if (!shown) return;
-    // Wait for the startup request to have settled, then report what the browser
-    // says now. Opening Settings is never a second request: the first call is the
-    // memoised one, and the second is a read. The two differ where a browser
-    // granted persistence on its own after refusing at load, which Chromium does
-    // as a site is used more, and where that happens the badge should say so.
-    //
-    // The whole reading re-runs on every return to the screen, request included:
-    // re-running a memoised promise costs nothing, and the estimate is the half
-    // that a wipe, an import or a corpus download all move.
+  /**
+   * Takes the reading, and is exported so the screen can ask for it again
+   * ([#290](https://github.com/palebluebytes/inventoria/issues/290)).
+   *
+   * The prop above answers "is this being looked at", which is the wrong
+   * question during a wipe: the button is on this card, so `shown` is already
+   * `true` and stays `true` throughout, nothing re-runs, and the figure would
+   * sit frozen with the person still standing in front of it. Settings reaches
+   * this by `bind:this` after the wipe has finished — one caller, after one
+   * operation known to move the number.
+   *
+   * Deliberately not the worker's invalidation broadcast: every append
+   * broadcasts, and this readout must not churn while it is being read.
+   *
+   * A fresh reading is attempted, not promised. Quota accounting is not
+   * required to be synchronous with the change behind it, so a browser may
+   * still answer with the old figure — which is what the estimate is at any
+   * other moment too.
+   *
+   * Wait for the startup request to have settled, then report what the browser
+   * says now. Opening Settings is never a second request: the first call is the
+   * memoised one, and the second is a read. The two differ where a browser
+   * granted persistence on its own after refusing at load, which Chromium does
+   * as a site is used more, and where that happens the badge should say so.
+   *
+   * Both halves re-run every time, request included: re-running a memoised
+   * promise costs nothing, and the estimate is the half that a wipe, an import
+   * or a corpus download all move.
+   */
+  export function read() {
     ensurePersistentStorage()
       .then(() => readPersistenceState())
       .then((state) => (persistence = state));
     readStorageEstimate().then((reading) => (estimate = reading));
+  }
+
+  $effect(() => {
+    if (!shown) return;
+    read();
   });
 
   let durability = $derived.by(() => {

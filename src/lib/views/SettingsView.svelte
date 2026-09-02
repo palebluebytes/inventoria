@@ -33,6 +33,14 @@
     shown: boolean;
   } = $props();
 
+  /**
+   * The storage readout below, so the wipe can tell it to take a fresh reading
+   * (#290). It normally re-reads when this screen becomes the one being looked
+   * at, and a wipe is the case that defeats: the button is on that same card,
+   * so the screen is already being looked at and nothing about it changes.
+   */
+  let storage = $state<ReturnType<typeof StorageStatus> | undefined>(undefined);
+
   async function wipeDatabase() {
     if (
       !confirm(
@@ -62,6 +70,12 @@
       console.error(err);
       reclaimed = false;
     }
+    // Asked before the alert rather than after it: `alert` blocks, so either
+    // way the new figure lands when it is dismissed, and asking first leaves
+    // the browser the length of the dialogue to answer in. Quota accounting is
+    // not promised to keep step with the file behind it, so that is worth
+    // having.
+    storage?.read();
     alert(
       reclaimed
         ? "The ledger is empty, and the space it was using has been reclaimed."
@@ -199,7 +213,7 @@
     </div>
   {/if}
 
-  <StorageStatus {shown} />
+  <StorageStatus bind:this={storage} {shown} />
 
   <LedgerExport {dbReady} />
 

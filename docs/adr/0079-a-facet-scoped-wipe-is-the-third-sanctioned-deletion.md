@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-01  
-**Implemented:** §4's jar-wide half only, #290 — `vacuumLedger` in `src/lib/db/db.core.ts`, its own worker operation, attempted after the `clear` commits. The scoped wipe §1-§3 and §5-§7 design is [#311](https://github.com/palebluebytes/inventoria/issues/311) and is not built.
+**Implemented:** §4's jar-wide half only, #290 — `vacuumLedger` in `src/lib/db/db.core.ts`, its own worker operation, attempted after the `clear` commits, with the storage figure on the same screen re-read once it returns. The scoped wipe §1-§3 and §5-§7 design is [#311](https://github.com/palebluebytes/inventoria/issues/311) and is not built.
 
 ## Context
 
