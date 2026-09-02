@@ -260,12 +260,24 @@ export function countDatoms(db: LedgerDb): number {
   return rows[0].row_count;
 }
 
-/** What the ledger says about itself, for the export envelope to carry. */
+/**
+ * What the ledger says about itself, for the export envelope to carry.
+ *
+ * `entityPrefixes` narrows the count to the rows a Facet owns, which is what a
+ * Facet-scoped export's envelope has to say (ADR-0079 §6). Omitted, it is the
+ * whole table — the count the jar-wide export has always carried.
+ */
 export function readLedgerSummary(
   db: LedgerDb,
-  device_id: string
+  device_id: string,
+  entityPrefixes?: readonly string[]
 ): LedgerSummary {
-  return { row_count: countDatoms(db), device_id };
+  return {
+    row_count: entityPrefixes
+      ? countDatomsByEntityPrefix(db, entityPrefixes)
+      : countDatoms(db),
+    device_id,
+  };
 }
 
 /** The position a paged read resumes from, taken off the row it stopped at. */
@@ -302,18 +314,30 @@ const LEDGER_PAGE_MAX_ROWS = 256;
 export function readLedgerPage(
   db: LedgerDb,
   after: LedgerCursor | null,
-  budgetBytes: number
+  budgetBytes: number,
+  entityPrefixes?: readonly string[]
 ): LedgerRow[] {
-  const where = after ? `WHERE (${LEDGER_KEY}) > (?, ?, ?, ?, ?) ` : "";
-  const bind = after
-    ? [
-        after.entity,
-        after.attribute,
-        after.hlc_ms,
-        after.hlc_ctr,
-        after.device_id,
-      ]
-    : [];
+  // Narrowing the walk is what makes a Facet-scoped export the same code as the
+  // jar-wide one (ADR-0079 §6): the cursor, the budget and the byte probe are
+  // unchanged, and only the rows the walk is allowed to see differ.
+  const clauses: string[] = [];
+  const bind: unknown[] = [];
+  if (after) {
+    clauses.push(`(${LEDGER_KEY}) > (?, ?, ?, ?, ?)`);
+    bind.push(
+      after.entity,
+      after.attribute,
+      after.hlc_ms,
+      after.hlc_ctr,
+      after.device_id
+    );
+  }
+  if (entityPrefixes) {
+    const match = entityPrefixMatch(entityPrefixes);
+    clauses.push(`(${match.where})`);
+    bind.push(...match.bind);
+  }
+  const where = clauses.length ? `WHERE ${clauses.join(" AND ")} ` : "";
   // The probe and the fetch must walk the same rows in the same order, so they
   // share one query shape and differ only in what they select.
   const pageSql = (select: string) =>
@@ -503,4 +527,108 @@ export function appendDatoms(
   }
 
   return Array.from(new Set(datoms.map((d) => d.attribute)));
+}
+
+// ---------------------------------------------------------------------------
+// The Facet-scoped wipe
+// ---------------------------------------------------------------------------
+
+/**
+ * The `WHERE` matching every row whose entity starts with one of `prefixes`,
+ * and the values to bind under it.
+ *
+ * `substr(entity, 1, n) = prefix` rather than `LIKE prefix || '%'`, because
+ * `LIKE` reads `_` as a single-character wildcard and two of food's five
+ * prefixes end in one: `food:custom_` would take `food:customer_1` and
+ * `event:consume_` would take `event:consumed_1`. The count would agree with
+ * the delete, so nothing would look wrong.
+ *
+ * An empty prefix list matches nothing rather than everything. The one caller
+ * that can pass one is a Facet holding no domains, and "wipe a Facet nobody has
+ * heard of" must not mean "wipe the jar".
+ */
+function entityPrefixMatch(prefixes: readonly string[]): {
+  where: string;
+  bind: unknown[];
+} {
+  if (prefixes.length === 0) return { where: "0", bind: [] };
+  return {
+    where: prefixes.map(() => "substr(entity, 1, ?) = ?").join(" OR "),
+    bind: prefixes.flatMap((p) => [p.length, p]),
+  };
+}
+
+/** How many rows carry one of these entity prefixes. */
+export function countDatomsByEntityPrefix(
+  db: LedgerDb,
+  prefixes: readonly string[]
+): number {
+  const { where, bind } = entityPrefixMatch(prefixes);
+  return execRows<{ row_count: number }>(
+    db,
+    `SELECT count(*) AS row_count FROM datoms WHERE ${where};`,
+    bind
+  )[0].row_count;
+}
+
+/** One question an {@link EntityCensus} answers: a name, and the rows under it. */
+export interface EntityCensusGroup {
+  id: string;
+  prefixes: readonly string[];
+}
+
+/** What the ledger holds, in total and per group. Groups may overlap; none do. */
+export interface EntityCensus {
+  total: number;
+  counts: Record<string, number>;
+}
+
+/**
+ * Rows per group and rows overall, in one pass of the worker rather than one
+ * round trip per group.
+ *
+ * The total is the whole table, not the sum of the groups: the difference is
+ * the rows no group claims, and a confirmation that promised "everything else
+ * stays" while quietly not counting some of it would be the wrong way round.
+ */
+export function censusByEntityPrefix(
+  db: LedgerDb,
+  groups: readonly EntityCensusGroup[]
+): EntityCensus {
+  const counts: Record<string, number> = {};
+  for (const group of groups) {
+    counts[group.id] = countDatomsByEntityPrefix(db, group.prefixes);
+  }
+  return { total: countDatoms(db), counts };
+}
+
+/**
+ * Removes every row whose entity carries one of `prefixes`, and answers how
+ * many went. **The third sanctioned destructive operation** (ADR-0079 §1),
+ * beside `resetLedgerSchema` and the one-shot ADR-0020 migration, and the only
+ * one of the three that is partial.
+ *
+ * It is sanctioned on a condition the other two did not need: the rows it takes
+ * are **closed under reference**, so nothing surviving points at anything it
+ * removed. That is a property of the caller's prefix set, not of this function,
+ * and ADR-0079 §1 is where Rations' is shown to hold. A Facet that cannot show
+ * it does not get a wipe, and this function is not the place that can tell.
+ *
+ * It mutates no state. Deletion is what the red line forbids because a fact
+ * changing value silently is not a fact; this retires whole entities, which is
+ * `resetLedgerSchema`'s act narrowed to one Facet's rows.
+ *
+ * The count is taken under the same predicate rather than read off `changes()`,
+ * so the number the user was shown and the number of rows that went are the
+ * same expression evaluated twice.
+ */
+export function deleteDatomsByEntityPrefix(
+  db: LedgerDb,
+  prefixes: readonly string[]
+): number {
+  const going = countDatomsByEntityPrefix(db, prefixes);
+  if (going === 0) return 0;
+  const { where, bind } = entityPrefixMatch(prefixes);
+  execWrite(db, `DELETE FROM datoms WHERE ${where};`, bind);
+  return going;
 }

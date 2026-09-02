@@ -91,10 +91,15 @@ context and that one is not. If you change one, change both.
 - **Immutability First:** The database is an append-only ledger. NEVER generate
   `UPDATE` or `DELETE` against `datoms`. State shifts are managed solely by
   appending a newer datom, which wins because it carries a later hybrid logical
-  clock stamp (ADR-0020), not because of its `time` value. Two sanctioned
-  destructive operations already exist — `resetLedgerSchema` (the user-initiated
-  `clear`) and the one-shot ADR-0020 migration, both in `src/lib/db/db.core.ts`.
-  Do not add others. **A `VACUUM` is not a third**: `vacuumLedger` lives in that
+  clock stamp (ADR-0020), not because of its `time` value. Three sanctioned
+  destructive operations exist, all in `src/lib/db/db.core.ts` —
+  `resetLedgerSchema` (the user-initiated `clear`), the one-shot ADR-0020
+  migration, and `deleteDatomsByEntityPrefix`, the Facet-scoped wipe behind
+  "Delete all my food data" (ADR-0079 §1). Do not add others. The third came
+  with a condition the first two did not need, and a fourth is held to it: the
+  rows a partial deletion takes must be **closed under reference**, so nothing
+  surviving points at anything removed. A deletion that cannot show closure is
+  refused. **A `VACUUM` is not one of the three**: `vacuumLedger` lives in that
   same module and rewrites the whole file, but it only hands back pages a
   sanctioned deletion already freed, and it can lose nothing (ADR-0079 §4).
 - **Thread Isolation:** All SQLite execution must occur inside a dedicated Web

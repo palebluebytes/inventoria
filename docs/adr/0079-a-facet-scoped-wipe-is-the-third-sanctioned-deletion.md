@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-01  
-**Implemented:** §4's jar-wide half only, #290 — `vacuumLedger` in `src/lib/db/db.core.ts`, its own worker operation, attempted after the `clear` commits, with the storage figure on the same screen re-read once it returns. The scoped wipe §1-§3 and §5-§7 design is [#311](https://github.com/palebluebytes/inventoria/issues/311) and is not built.
+**Implemented:** whole. §4's jar-wide half at #290 — `vacuumLedger` in `src/lib/db/db.core.ts`, its own worker operation, attempted after the `clear` commits, with the storage figure on the same screen re-read once it returns. The scoped wipe at [#311](https://github.com/palebluebytes/inventoria/issues/311) — `deleteDatomsByEntityPrefix` in the same module, the predicate derived in `src/lib/facets/facet-wipe.ts`, the control and its export in `src/lib/views/food/FoodDataSection.svelte` on Rations settings. §8 is open by construction and stays open.
 
 ## Context
 
@@ -311,3 +311,65 @@ reached by a worker operation of its own, attempted after the `clear` has commit
 `CODING_STANDARDS.md` §1.1 and `AGENTS.md` §3 each now say in a clause that a `VACUUM` is
 not a third sanctioned destructive operation, so the whole-file rewrite landing inside the
 module those two sentences fence is not argued twice.
+
+## Implementation note (2026-09-02): what #311 built, and the two figures it could not take
+
+The wipe is `deleteDatomsByEntityPrefix` in `src/lib/db/db.core.ts`, beside the
+two sanctioned deletions it joins; `AGENTS.md` §3 and `CODING_STANDARDS.md` §1.1
+both name it and both carry §1's closure condition, so a fourth deletion meets
+the bar before it is written rather than after. The predicate is derived in
+`src/lib/facets/facet-wipe.ts` and authored nowhere.
+
+Three things the design did not anticipate are worth recording.
+
+**A prefix ending in `_` is a wildcard to `LIKE`.** Two of food's five do:
+`food:custom_` and `event:consume_`. Written the obvious way, the wipe would
+have taken `food:customer_1` and `event:consumed_1` as well, and the count shown
+to the user would have agreed with it, because both halves would have been
+wrong in the same direction. The predicate is `substr(entity, 1, n) = prefix`
+for that reason, and `facet-wipe.test.ts` pins it with entities built to be
+caught by the wildcard and by nothing else.
+
+**§2's derivation from the registry alone is incomplete, and the gap is a log
+channel.** A channel's `localStorage` key follows its **name** —
+`inventoria_log_search` — while §2 derives keys from the domain's declared
+`storagePrefixes`, none of which that key is under. A wipe deriving from the
+registry alone would have left food's search records behind while reporting that
+it had deleted all food data. The fix keeps the rule and widens the derivation:
+a channel already declares the domain that writes it (ADR-0080 §1), so the key
+set is the declared prefixes **plus** the keys of the Facet's own channels, and
+`channelStorageKey` is exported from the facility for it. Nothing is written
+down twice.
+
+**The wipe needs a reload, and it is the settings design working rather than
+failing.** Every store in `stores/device-settings.ts` is seeded from
+`localStorage` at import and held for the life of the page, deliberately, so a
+target the first paint depends on is right in the first frame (ADR-0085). The
+wipe removes those keys underneath the running page, and the only thing that
+makes the snapshots agree with the jar again is a new first frame. The control
+says so and offers the reload rather than reloading out from under a user who
+has just been told what happened.
+
+**The two figures this record asked #311 for were not taken, and inventing them
+is what the amendment above forbids.**
+
+The 2026-09-02 amendment relocated §4's `VACUUM` risk to the scoped wipe and
+said the figure that matters is "the size of a real jar's surviving non-food
+live set on a real device". That is a measurement of somebody's jar, and this
+branch has no such jar: a synthetic corpus would measure the corpus. What was
+built instead is the reporting the amendment implies — the vacuum is attempted
+after the delete has committed, a failure is caught, and the sentence the user
+reads distinguishes "the space has been handed back" from "the space could not
+be handed back, so it is reusable by this app rather than free". The exposure is
+real, it is now visible when it fires, and the number stays untaken.
+
+**The export is restorable and there is no route to restore it from Rations.**
+The scoped export writes the same `inventoria-ledger` artifact at the same
+schema version, carrying a `scope` field an older reader ignores, so the
+whole-ledger Import reads it back row for row. That Import is on root Settings,
+which ADR-0078 §7 gives a standalone Rations user no way to reach. The export is
+still the safety control §6 requires — a copy the user holds, on a device they
+control, in a format that restores — but the round trip is only closed for
+someone who can reach the root. Naming that is better than a control that
+implies otherwise, and closing it is a Rations-side import, which is a decision
+about a second surface rather than a defect in this one.

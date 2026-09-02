@@ -161,6 +161,35 @@ describe("DBClient RPC layer", () => {
     await expect(p).resolves.toEqual([]);
   });
 
+  // A Facet-scoped export walks the same pages narrowed to the rows the Facet
+  // owns (ADR-0079 §6), and its count comes back off the same predicate.
+  it("carries a Facet's prefixes into both the page walk and the summary", async () => {
+    const c = await makeInitialized();
+    const entityPrefixes = ["fdc:", "gtin:"];
+
+    const page = c.ledgerPage(null, 2048, entityPrefixes);
+    expect(getWorker().posted[1]).toMatchObject({
+      type: "ledger_page",
+      payload: { budgetBytes: 2048, entityPrefixes },
+    });
+    getWorker().respond(getWorker().lastId, { status: "ok", data: [] });
+    await expect(page).resolves.toEqual([]);
+
+    const summary = c.ledgerSummary(entityPrefixes);
+    expect(getWorker().posted[2]).toMatchObject({
+      type: "ledger_summary",
+      payload: { entityPrefixes },
+    });
+    getWorker().respond(getWorker().lastId, {
+      status: "ok",
+      data: { row_count: 2, device_id: "device_a" },
+    });
+    await expect(summary).resolves.toEqual({
+      row_count: 2,
+      device_id: "device_a",
+    });
+  });
+
   it("sends an import batch and says whether it finishes the import", async () => {
     const c = await makeInitialized();
     const rows = [
@@ -181,6 +210,34 @@ describe("DBClient RPC layer", () => {
     });
     getWorker().respond(getWorker().lastId, { status: "ok", data: 1 });
     await expect(p).resolves.toBe(1);
+  });
+
+  it("censuses the ledger by group in one message", async () => {
+    const c = await makeInitialized();
+    const groups = [{ id: "food", prefixes: ["fdc:"] }];
+    const p = c.entityCensus(groups);
+    expect(getWorker().posted[1]).toMatchObject({
+      type: "entity_census",
+      payload: { groups },
+    });
+    getWorker().respond(getWorker().lastId, {
+      status: "ok",
+      data: { total: 9, counts: { food: 4 } },
+    });
+    await expect(p).resolves.toEqual({ total: 9, counts: { food: 4 } });
+  });
+
+  // The third sanctioned deletion (ADR-0079 §1). The prefixes arrive derived
+  // from the registry; the client assembles nothing.
+  it("sends one Facet's prefixes to the wipe, and reports the rows that went", async () => {
+    const c = await makeInitialized();
+    const p = c.facetWipe(["fdc:", "gtin:"]);
+    expect(getWorker().posted[1]).toMatchObject({
+      type: "facet_wipe",
+      payload: { entityPrefixes: ["fdc:", "gtin:"] },
+    });
+    getWorker().respond(getWorker().lastId, { status: "ok", data: 120 });
+    await expect(p).resolves.toBe(120);
   });
 
   it("asks the worker to vacuum, separately from a clear", async () => {

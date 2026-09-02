@@ -111,6 +111,28 @@ describe("runLedgerExport", () => {
     ]);
   });
 
+  // A Facet-scoped run (ADR-0079 §6). The scope names the file and rides in the
+  // envelope; it does not narrow the walk, which is the caller's `readPage`, so
+  // there is one place a predicate can be got wrong rather than two.
+  it("names the Facet in the file and in the envelope when it is scoped", async () => {
+    const target = recordingTarget();
+    const outcome = await runLedgerExport({
+      summary: summaryOf(1),
+      exported_at: EXPORTED_AT,
+      scope: { facet_id: "food", entity_prefixes: ["fdc:"] },
+      readPage: onePage([row({ entity: "fdc:171705" })]),
+      chooseTarget: target.chooseTarget,
+    });
+
+    expect(target.asked[0].filename).toBe("inventoria-food-2026-08-14.ndjson");
+    expect(JSON.parse(target.text().split("\n")[0])).toMatchObject({
+      artifact: "inventoria-ledger",
+      scope: { facet_id: "food", entity_prefixes: ["fdc:"] },
+    });
+    if (outcome.kind !== "written") throw new Error(outcome.kind);
+    expect(outcome.message).toContain("inventoria-food-2026-08-14.ndjson");
+  });
+
   it("reads a dismissed save dialog as neither a write nor a failure", async () => {
     const outcome = await runLedgerExport({
       summary: summaryOf(1),

@@ -215,9 +215,20 @@ function safeRemove(key: string): void {
   }
 }
 
-function keyOf(channel: LogChannel<unknown>): string {
+/**
+ * The `localStorage` key one channel's records live under.
+ *
+ * Exported because a Facet-scoped wipe has to take its own channels' records
+ * and cannot work the key out from the registry: the key follows the channel's
+ * **name**, and a channel names its domain rather than being named after it
+ * (ADR-0079 §2, `facets/facet-wipe.ts`). Everything else about the keyspace
+ * stays private to this module.
+ */
+export function channelStorageKey(channel: LogChannel<unknown>): string {
   return `${LS_PREFIX}${channel.name}`;
 }
+
+const keyOf = channelStorageKey;
 
 /** The raw stored records of one channel, unparsed. `[]` for anything else. */
 function storedRecords(channel: LogChannel<unknown>): unknown[] {

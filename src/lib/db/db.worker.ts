@@ -2,6 +2,8 @@ import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
 import { projections } from "./projections";
 import {
   appendDatoms,
+  censusByEntityPrefix,
+  deleteDatomsByEntityPrefix,
   ensureLedgerSchema,
   getOrCreateDeviceId,
   importLedgerRows,
@@ -137,10 +139,44 @@ self.onmessage = async (event: MessageEvent) => {
       if (!db || !device_id) {
         throw new Error("Database not initialized. Please call 'init' first.");
       }
+      // `entityPrefixes` narrows the count to one Facet's rows, which is what a
+      // Facet-scoped export's envelope carries (ADR-0079 §6). Absent, it is the
+      // whole ledger, as it always was.
+      const { entityPrefixes } = payload ?? {};
       self.postMessage({
         id,
         status: "ok",
-        data: readLedgerSummary(db, device_id),
+        data: readLedgerSummary(db, device_id, entityPrefixes),
+      });
+    } else if (type === "entity_census") {
+      if (!db) {
+        throw new Error("Database not initialized. Please call 'init' first.");
+      }
+      // What the scoped wipe's confirmation counts against (ADR-0079 §5): rows
+      // per group and rows overall, in one pass rather than a round trip each.
+      const { groups } = payload;
+      self.postMessage({
+        id,
+        status: "ok",
+        data: censusByEntityPrefix(db, groups),
+      });
+    } else if (type === "facet_wipe") {
+      if (!db) {
+        throw new Error("Database not initialized. Please call 'init' first.");
+      }
+      // The third sanctioned deletion (ADR-0079 §1). The prefixes arrive
+      // derived from the registry and are never assembled here — the worker is
+      // thin orchestration, and a predicate built in two places is the drift
+      // ADR-0079 §3 forbids.
+      const { entityPrefixes } = payload;
+      const rowsDeleted = deleteDatomsByEntityPrefix(db, entityPrefixes);
+      self.postMessage({ id, status: "ok", data: rowsDeleted });
+      // Every projection re-reads: a scoped wipe changes the answer for the
+      // Facet's own screens, and an empty attribute list is how `clear` already
+      // says "everything".
+      self.postMessage({
+        type: "broadcast_invalidation",
+        payload: { attributes: [] },
       });
     } else if (type === "ledger_page") {
       if (!db) {
@@ -148,11 +184,11 @@ self.onmessage = async (event: MessageEvent) => {
       }
       // The export's read seam. Rows leave a page at a time, bounded by bytes,
       // so a ledger full of label photos never crosses the boundary whole.
-      const { after, budgetBytes } = payload;
+      const { after, budgetBytes, entityPrefixes } = payload;
       self.postMessage({
         id,
         status: "ok",
-        data: readLedgerPage(db, after ?? null, budgetBytes),
+        data: readLedgerPage(db, after ?? null, budgetBytes, entityPrefixes),
       });
     } else if (type === "ledger_import") {
       if (!db || !hlc) {

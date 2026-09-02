@@ -58,6 +58,20 @@ export interface NdjsonEnvelope {
   schema_version: number;
 }
 
+/**
+ * Which Facet's rows an export holds, when it holds one Facet's rather than the
+ * whole ledger (ADR-0079 §6).
+ *
+ * Written into the envelope in snake_case because these fields are read back
+ * off a file, and out of a file is where the ledger's own casing rule applies
+ * (CODING_STANDARDS §1.3): `entity_prefixes` sits beside `device_id` and
+ * `row_count` and is read by the same eye.
+ */
+export interface LedgerExportScope {
+  facet_id: string;
+  entity_prefixes: readonly string[];
+}
+
 /** Line one of an export: what this file is, and how much of it to expect. */
 export interface LedgerExportEnvelope extends NdjsonEnvelope {
   artifact: typeof LEDGER_EXPORT_ARTIFACT;
@@ -71,11 +85,24 @@ export interface LedgerExportEnvelope extends NdjsonEnvelope {
    * expect rather than as an integrity check.
    */
   row_count: number;
+  /**
+   * Present only on a Facet-scoped export, naming what it holds and by which
+   * predicate.
+   *
+   * **The `artifact` is unchanged and the version does not move.** A scoped
+   * export is a subset of the same rows in the same grammar, so the existing
+   * import restores it without knowing this field exists — which is the whole
+   * of what makes the export a safety control rather than a souvenir. Adding a
+   * field an old reader can ignore is explicitly not a version-moving change;
+   * see {@link LEDGER_EXPORT_SCHEMA_VERSION}.
+   */
+  scope?: LedgerExportScope;
 }
 
 export function buildExportEnvelope(
   summary: LedgerSummary,
-  exported_at: number
+  exported_at: number,
+  scope?: LedgerExportScope
 ): LedgerExportEnvelope {
   return {
     artifact: LEDGER_EXPORT_ARTIFACT,
@@ -83,6 +110,7 @@ export function buildExportEnvelope(
     exported_at,
     device_id: summary.device_id,
     row_count: summary.row_count,
+    ...(scope ? { scope } : {}),
   };
 }
 
@@ -144,6 +172,13 @@ export interface LedgerExportOptions {
   summary: LedgerSummary;
   /** Unix ms stamped into the envelope. Passed in, never read off a clock. */
   exported_at: number;
+  /**
+   * The Facet this file holds, if it holds one. It is recorded in the envelope
+   * and nothing more: **narrowing the walk is the caller's**, in the
+   * {@link LedgerPageReader} it supplies, so there is exactly one place the
+   * predicate can be got wrong rather than two that can disagree.
+   */
+  scope?: LedgerExportScope;
   pageBudgetBytes?: number;
   onProgress?: (rowsWritten: number) => void;
 }
@@ -170,7 +205,11 @@ export async function writeLedgerExport(
   sink: ExportSink,
   options: LedgerExportOptions
 ): Promise<LedgerExportResult> {
-  const envelope = buildExportEnvelope(options.summary, options.exported_at);
+  const envelope = buildExportEnvelope(
+    options.summary,
+    options.exported_at,
+    options.scope
+  );
   const budgetBytes = options.pageBudgetBytes ?? EXPORT_PAGE_BUDGET_BYTES;
   let rowsWritten = 0;
 

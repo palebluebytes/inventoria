@@ -1,13 +1,23 @@
 import DBWorker from "./db.worker?worker";
 import type {
   Datom,
+  EntityCensus,
+  EntityCensusGroup,
   LedgerCursor,
   LedgerSummary,
   LedgerRow,
   StoredDatom,
 } from "./db.core";
 
-export type { Datom, LedgerCursor, LedgerSummary, LedgerRow, StoredDatom };
+export type {
+  Datom,
+  EntityCensus,
+  EntityCensusGroup,
+  LedgerCursor,
+  LedgerSummary,
+  LedgerRow,
+  StoredDatom,
+};
 
 export type InvalidationListener = (attributes: string[]) => void;
 
@@ -118,8 +128,37 @@ export class DBClient {
    * What the ledger says about itself: how many rows it holds and which device
    * it belongs to. The two facts an export envelope carries.
    */
-  async ledgerSummary(): Promise<LedgerSummary> {
-    return this.send<LedgerSummary>("ledger_summary", {});
+  async ledgerSummary(
+    entityPrefixes?: readonly string[]
+  ): Promise<LedgerSummary> {
+    return this.send<LedgerSummary>("ledger_summary", { entityPrefixes });
+  }
+
+  /**
+   * Rows per group and rows overall, which is what a Facet-scoped wipe's
+   * confirmation counts against (ADR-0079 §5). One message rather than one per
+   * group, so the figures the user reads are all taken at the same instant.
+   */
+  async entityCensus(
+    groups: readonly EntityCensusGroup[]
+  ): Promise<EntityCensus> {
+    return this.send<EntityCensus>("entity_census", { groups });
+  }
+
+  /**
+   * Removes every row whose entity carries one of `entityPrefixes`, and answers
+   * how many went: the Facet-scoped wipe, and the third sanctioned destructive
+   * operation (ADR-0079 §1).
+   *
+   * The prefixes are the caller's, derived from the registry by
+   * `facets/facet-wipe.ts`. Nothing here knows what a Facet is, which is what
+   * keeps the predicate in the one place that can be checked against ownership.
+   *
+   * The `localStorage` half is not this method's and cannot be: a worker has no
+   * `localStorage` to take.
+   */
+  async facetWipe(entityPrefixes: readonly string[]): Promise<number> {
+    return this.send<number>("facet_wipe", { entityPrefixes });
   }
 
   /**
@@ -132,9 +171,14 @@ export class DBClient {
    */
   async ledgerPage(
     after: LedgerCursor | null,
-    budgetBytes: number
+    budgetBytes: number,
+    entityPrefixes?: readonly string[]
   ): Promise<LedgerRow[]> {
-    return this.send<LedgerRow[]>("ledger_page", { after, budgetBytes });
+    return this.send<LedgerRow[]>("ledger_page", {
+      after,
+      budgetBytes,
+      entityPrefixes,
+    });
   }
 
   /**

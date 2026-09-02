@@ -21,6 +21,7 @@ import {
   EXPORT_FALLBACK_CEILING_BYTES,
   writeLedgerExport,
   type ExportSink,
+  type LedgerExportScope,
   type LedgerPageReader,
 } from "../../db/ledger-export";
 import { exportFilename } from "./export-target";
@@ -52,6 +53,12 @@ export interface LedgerExportRun {
   summary: LedgerSummary;
   /** Unix ms stamped into the envelope and into the filename. Never a clock read here. */
   exported_at: number;
+  /**
+   * The Facet this run is exporting, if it is exporting one (ADR-0079 §6). It
+   * names the file and rides in the envelope; **it does not narrow the walk** —
+   * `readPage` arrives already scoped, so the predicate has one home.
+   */
+  scope?: LedgerExportScope;
   readPage: LedgerPageReader;
   chooseTarget: ExportTargetChooser;
   onProgress?: (rowsWritten: number) => void;
@@ -60,7 +67,7 @@ export interface LedgerExportRun {
 export async function runLedgerExport(
   run: LedgerExportRun
 ): Promise<LedgerExportOutcome> {
-  const filename = exportFilename(run.exported_at);
+  const filename = exportFilename(run.exported_at, run.scope?.facet_id);
 
   try {
     const sink = await run.chooseTarget(
@@ -72,6 +79,7 @@ export async function runLedgerExport(
     const result = await writeLedgerExport(run.readPage, sink, {
       summary: run.summary,
       exported_at: run.exported_at,
+      scope: run.scope,
       onProgress: run.onProgress,
     });
 

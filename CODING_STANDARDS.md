@@ -36,9 +36,20 @@ violates one does not merge.
   undone by appending an `uncompleted` datom (see `getActiveExecutions` in
   `src/lib/habits/habits.ts`), never by removing the original.
 - The only sanctioned table-level destructive operations are `resetLedgerSchema`
-  (the user-initiated `clear`) and the one-shot ADR-0020 migration. Both live in
-  `src/lib/db/db.core.ts`; do not add others.
-- **A `VACUUM` is not a third.** `vacuumLedger` rewrites the whole file, in the
+  (the user-initiated `clear`), the one-shot ADR-0020 migration, and
+  `deleteDatomsByEntityPrefix` — the Facet-scoped wipe behind "Delete all my
+  food data". All three live in `src/lib/db/db.core.ts`; do not add others.
+- **A partial deletion is sanctioned only where its rows are closed under
+  reference** (ADR-0079 §1). The first two exceptions are safe because they are
+  total: afterwards no fold can produce a wrong answer, because there is nothing
+  left to fold. `deleteDatomsByEntityPrefix` is not total, so it can leave rows
+  pointing at rows that are gone, and the condition is what stops it. Rations
+  satisfies it — every food reference edge stays inside food's own entities, and
+  nothing outside food points into food. A future Facet that cannot show the
+  same does not get a wipe. Closure is a property of the **ledger**, not of the
+  screens: `ACQUISITION_LIBRARY` had to stop promoting food twins (#280) before
+  this could ship, even though no datom referenced one.
+- **A `VACUUM` is not a fourth.** `vacuumLedger` rewrites the whole file, in the
   same module, and is still not one of these: it hands back the pages a
   sanctioned deletion has already freed, reading every surviving row and writing
   it back, so no argument of it can lose a datom. ADR-0079 §4 requires it — a

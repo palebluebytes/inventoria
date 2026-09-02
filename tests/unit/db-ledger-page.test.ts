@@ -13,6 +13,7 @@ import {
   type LedgerRow,
 } from "../../src/lib/db/db.core";
 import { createHlc, type Hlc } from "../../src/lib/db/hlc";
+import { entityPrefixesOf } from "../../src/lib/facets/registry";
 
 // The paged read is what carries the ledger out of the worker one bounded
 // chunk at a time, so it is tested against the real sqlite-wasm build rather
@@ -44,11 +45,14 @@ const datom = (over: Partial<Datom> = {}): Datom => ({
 });
 
 /** Walks every page the way an export does, and returns the rows in order. */
-function readAll(budgetBytes: number): LedgerRow[] {
+function readAll(
+  budgetBytes: number,
+  entityPrefixes?: readonly string[]
+): LedgerRow[] {
   const all: LedgerRow[] = [];
   let after: LedgerCursor | null = null;
   for (let guard = 0; guard < 1_000; guard++) {
-    const page = readLedgerPage(db, after, budgetBytes);
+    const page = readLedgerPage(db, after, budgetBytes, entityPrefixes);
     if (page.length === 0) return all;
     all.push(...page);
     after = cursorOf(page[page.length - 1]);
@@ -142,5 +146,54 @@ describe("reading the ledger a page at a time", () => {
       bind: ["habit:2", "habit/name", '"B"', 5, 5, 0, "device_a"],
     });
     expect(readAll(1).map((r) => r.entity)).toEqual(["habit:1", "habit:2"]);
+  });
+});
+
+// A Facet-scoped export walks the same pages through the same cursor and sees
+// only the rows the Facet owns (ADR-0079 §6). It is the export's half of the
+// scoped wipe: the file has to be a copy of what the delete is about to take,
+// or the pairing that makes the delete defensible is a coincidence.
+describe("reading one Facet's rows a page at a time", () => {
+  const jar = () => {
+    append([
+      datom({ entity: "fdc:171705", attribute: "twin/name", value: "Oats" }),
+      datom({ entity: "gtin:5000", attribute: "twin/name", value: "Beans" }),
+      datom({ entity: "habit:1", attribute: "habit/name", value: "Walk" }),
+      datom({
+        entity: "twin:manual_1",
+        attribute: "twin/name",
+        value: "Chair",
+      }),
+    ]);
+  };
+
+  it("returns only the rows under the prefixes it was given", () => {
+    jar();
+    expect(
+      readAll(1_024, entityPrefixesOf("food")).map((r) => r.entity)
+    ).toEqual(["fdc:171705", "gtin:5000"]);
+  });
+
+  it("reaches every scoped row across pages when the budget forces a split", () => {
+    jar();
+    // One row per page, so the cursor and the prefix filter have to hold
+    // together across the resume rather than only on the first page.
+    expect(readAll(1, entityPrefixesOf("food")).map((r) => r.entity)).toEqual([
+      "fdc:171705",
+      "gtin:5000",
+    ]);
+  });
+
+  it("counts the same rows in the summary the envelope carries", () => {
+    jar();
+    expect(
+      readLedgerSummary(db, "device_a", entityPrefixesOf("food")).row_count
+    ).toBe(2);
+    expect(readLedgerSummary(db, "device_a").row_count).toBe(4);
+  });
+
+  it("reads the whole ledger when it is given no prefixes at all", () => {
+    jar();
+    expect(readAll(1_024).length).toBe(4);
   });
 });

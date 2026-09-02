@@ -7,6 +7,7 @@
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import Checkbox from "../../ui/Checkbox.svelte";
   import NutritionTargetEditor from "./NutritionTargetEditor.svelte";
+  import FoodDataSection from "./FoodDataSection.svelte";
   import LogSettingsSection from "../logs/LogSettingsSection.svelte";
   import { facetOf } from "../../facets/registry";
 
@@ -205,6 +206,18 @@
       </div>
     </div>
   </section>
+
+  <!-- The Facet-scoped export and wipe (ADR-0079 §6). It sits below the two
+       sections that configure food and above the log card, because it is the
+       one control here that takes something away rather than setting it: the
+       destructive action ADR-0080 §7 named as the reason this sheet has a
+       pinned height instead of one that swings with its content.
+
+       It appears here and at the root wherever food's screens already appear,
+       which is this same sheet — never a root inventory of Facets with a wipe
+       button each, which is the launcher ADR-0076 refuses and would need a
+       second enumeration of Facets. -->
+  <FoodDataSection />
 
   <!-- Local logs, Rations' own (ADR-0080 §2). The same card the root draws,
        narrowed to the channels food's domain writes and switched by Rations'

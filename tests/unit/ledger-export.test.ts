@@ -79,6 +79,32 @@ describe("the export envelope", () => {
     });
   });
 
+  // A Facet-scoped export is the same artifact at the same version, carrying a
+  // subset of the same rows (ADR-0079 §6). That is what lets the ordinary
+  // Import restore it, which is the whole of what makes an export beside a
+  // delete a safety control rather than a keepsake.
+  it("keeps the artifact and the version when it holds one Facet's rows", () => {
+    const envelope = buildExportEnvelope(
+      { row_count: 12, device_id: "device_a" },
+      1_700_000_000_000,
+      { facet_id: "food", entity_prefixes: ["fdc:", "gtin:"] }
+    );
+    expect(envelope.artifact).toBe(LEDGER_EXPORT_ARTIFACT);
+    expect(envelope.schema_version).toBe(LEDGER_EXPORT_SCHEMA_VERSION);
+    expect(envelope.scope).toEqual({
+      facet_id: "food",
+      entity_prefixes: ["fdc:", "gtin:"],
+    });
+  });
+
+  it("says nothing about a scope when it holds the whole ledger", () => {
+    const envelope = buildExportEnvelope(
+      { row_count: 12, device_id: "device_a" },
+      1
+    );
+    expect("scope" in envelope).toBe(false);
+  });
+
   it("is one line, so an importer can refuse on it before reading anything else", () => {
     const line = envelopeLine(
       buildExportEnvelope({ row_count: 0, device_id: "device_a" }, 1)

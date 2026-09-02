@@ -37,10 +37,19 @@ export function canStreamToFile(): boolean {
   return typeof window !== "undefined" && "showSaveFilePicker" in window;
 }
 
-/** The name the save dialog opens with, and the fallback download's filename. */
-export function exportFilename(exported_at: number): string {
+/**
+ * The name the save dialog opens with, and the fallback download's filename.
+ *
+ * A Facet-scoped export says which Facet in the name — `inventoria-food-…`
+ * rather than `inventoria-ledger-…` — because the two files have the same
+ * grammar and the same extension and only one of them is a whole backup. The id
+ * is the Facet's own (`food`), not its installed name: a filename is read next
+ * to other filenames, where "rations" would be a word nobody else on the disk
+ * uses.
+ */
+export function exportFilename(exported_at: number, facetId?: string): string {
   const day = new Date(exported_at).toISOString().slice(0, 10);
-  return `inventoria-ledger-${day}.ndjson`;
+  return `inventoria-${facetId ?? "ledger"}-${day}.ndjson`;
 }
 
 /**

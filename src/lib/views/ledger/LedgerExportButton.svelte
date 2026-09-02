@@ -20,7 +20,10 @@
   import Alert from "../../ui/Alert.svelte";
   import { dbClient } from "../../db/db.client";
   import type { LedgerSummary } from "../../db/db.core";
-  import { EXPORT_FALLBACK_CEILING_BYTES } from "../../db/ledger-export";
+  import {
+    EXPORT_FALLBACK_CEILING_BYTES,
+    type LedgerExportScope,
+  } from "../../db/ledger-export";
   import { describeBytes } from "../../storage/describe-bytes";
   import { canStreamToFile, chooseExportTarget } from "./export-target";
   import { runLedgerExport, type LedgerExportOutcome } from "./export-run";
@@ -32,11 +35,26 @@
     size = "md",
     /** For a screen that prints the count itself. Called on every fresh read. */
     onSummary,
+    /**
+     * One Facet's rows instead of the whole ledger (ADR-0079 §6). It narrows
+     * the count, the walk and the filename together, so the figure the button
+     * shows, the figure the envelope carries and the rows in the file are one
+     * predicate applied three times rather than three that can disagree.
+     *
+     * The file is the same artifact in the same grammar, so the ordinary Import
+     * restores it — which is what makes this a safety control beside a delete
+     * and not a keepsake.
+     */
+    scope,
+    /** What the button says. A scoped export is not "the Ledger". */
+    label = "Export Ledger",
   }: {
     ready?: boolean;
     id?: string;
     size?: "sm" | "md";
     onSummary?: (summary: LedgerSummary) => void;
+    scope?: LedgerExportScope;
+    label?: string;
   } = $props();
 
   let summary = $state<LedgerSummary | null>(null);
@@ -53,7 +71,7 @@
 
   function readSummary() {
     dbClient
-      .ledgerSummary()
+      .ledgerSummary(scope?.entity_prefixes)
       .then((read) => {
         summary = read;
         unreadable = false;
@@ -98,8 +116,9 @@
       const ended = await runLedgerExport({
         summary,
         exported_at: Date.now(),
+        scope,
         readPage: (after, budgetBytes) =>
-          dbClient.ledgerPage(after, budgetBytes),
+          dbClient.ledgerPage(after, budgetBytes, scope?.entity_prefixes),
         chooseTarget: chooseExportTarget,
         onProgress: (written) => (rowsWritten = written),
       });
@@ -131,7 +150,7 @@
     disabled={!summary || running}
     loading={running}
   >
-    Export Ledger
+    {label}
   </Button>
   {#if running}
     <span class="progress">{rowsWritten.toLocaleString()} datoms written</span>
