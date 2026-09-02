@@ -1,6 +1,7 @@
 # ADR 0027: Grow BottomSheet into the one sheet primitive — docked footer + over-dialog
 
 **Status:** Accepted  
+**Amended by:** ADR-0089 §5, §6, §7 (the sheet measures the visible band and is full height on a phone; the deferred fold-on of the hand-rolled cards becomes a rule; a phone sheet over a sheet replaces rather than stacks, so `elevated` and the 1800/1801 layer become desktop-only)  
 **Implemented:** `ui/BottomSheet.svelte`, `ui/Modal.svelte`
 
 ## Context
