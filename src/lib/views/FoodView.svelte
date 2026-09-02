@@ -1155,7 +1155,7 @@
     note={status_note}
     scaleOpen={scale_open}
     onDismiss={clearSelection}
-    onCount={() => (selection_panel_open = true)}
+    onHandOff={() => (selection_panel_open = true)}
     onScale={toggleScale}
     onMove={() => (move_open = true)}
     onRecipe={buildRecipe}

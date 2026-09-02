@@ -1854,7 +1854,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await setupApiKeys(page);
 
     await selectTwo(page);
-    await page.locator('[data-testid="selection-count"]').click();
+    await page.locator('[data-testid="selection-hand-off"]').click();
 
     // The third scale of the same control (ADR-0074 §3 as ADR-0088 §9 widened
     // it): a meal's, the day's, and an arbitrary Selection's.

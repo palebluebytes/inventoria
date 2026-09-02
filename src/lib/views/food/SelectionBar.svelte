@@ -1,51 +1,62 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import WayInIcon from "./WayInIcon.svelte";
+  import WayOutIcon from "./WayOutIcon.svelte";
   import SelectionVerbIcon from "./SelectionVerbIcon.svelte";
 
   // The Selection bar (ADR-0088 §2): the strip a long-press raises at the foot
-  // of the Food screen. `✕ · N selected › · [scale][move][recipe]`.
+  // of the Food screen. `✕ · [scale][move][hand off][recipe]`.
   //
   // Three rules here are load-bearing rather than stylistic:
   //
-  //   The ✕ leads. It is first in flow order, so neither a long count nor a
-  //   status line can wrap the only exit off the bar — which matters because
-  //   the bar deliberately covers the tab bar and IS the way out of the mode.
+  //   The ✕ leads. It is first in flow order, so neither a verb nor a status
+  //   line can wrap the only exit off the bar — which matters because the bar
+  //   deliberately covers the tab bar and IS the way out of the mode.
   //
-  //   The count is a control, not a label. It opens the Selection's nutrition
-  //   panel, where the Way out lives, which is why the bar carries no share
-  //   verb of its own (§9).
+  //   The bar says nothing. It carried an `N selected ›` control, which was
+  //   both the count and the door to the Selection's panel; the rows already
+  //   say which foods are picked, and a bar of verbs does not need to restate
+  //   it. The door it was became a verb of its own — see the Amendment to §9.
   //
   //   The verbs are drawn marks, not words. Labelled verbs were measured and
   //   do not fit at 360px, where the space scale bottoms out. Recipe is
-  //   `WayInIcon kind="recipe"` verbatim, which retired the 🍲 the bar carried.
+  //   `WayInIcon kind="recipe"` verbatim, which retired the 🍲 the bar carried,
+  //   and the hand-off is `WayOutIcon` verbatim for the same reason: a
+  //   Selection's Way out is the day's Way out at a third scale (ADR-0084).
   //
   // `tier` is the Scale expansion (§5). It renders above the main row so the ✕
-  // and the count stay on screen while it is open.
+  // and the verbs stay on screen while it is open.
   let {
     count,
     note = "",
     scaleOpen = false,
     onDismiss,
-    onCount,
+    onHandOff,
     onScale,
     onMove,
     onRecipe,
     tier,
   }: {
-    /** How many foods are selected. The bar is not rendered at zero. */
+    /**
+     * How many foods are selected. The bar is not rendered at zero, and never
+     * draws this — it is what the verbs name themselves by, so a screen reader
+     * still hears the size of what it is about to act on.
+     */
     count: number;
     /** The one status line every verb shares. Empty on success (§2). */
     note?: string;
     /** Whether the Scale tier is open, so its verb can show as active. */
     scaleOpen?: boolean;
     onDismiss: () => void;
-    onCount: () => void;
+    onHandOff: () => void;
     onScale: () => void;
     onMove: () => void;
     onRecipe: () => void;
     tier?: Snippet;
   } = $props();
+
+  // The same phrasing the move sheet uses, so the two never disagree.
+  const subject = $derived(count === 1 ? "this food" : `these ${count} foods`);
 </script>
 
 <div class="selbar">
@@ -60,16 +71,6 @@
       onclick={onDismiss}>✕</button
     >
 
-    <button
-      type="button"
-      class="sb-count"
-      data-testid="selection-count"
-      aria-haspopup="dialog"
-      aria-label="Show what these {count} foods add up to"
-      onclick={onCount}
-      >{count} selected<span class="chev" aria-hidden="true">›</span></button
-    >
-
     <span class="sb-verbs">
       <button
         type="button"
@@ -77,15 +78,26 @@
         class:active={scaleOpen}
         data-testid="selection-scale"
         aria-pressed={scaleOpen}
-        aria-label="Scale these foods"
+        aria-label="Scale {subject}"
         onclick={onScale}><SelectionVerbIcon kind="scale" /></button
       >
       <button
         type="button"
         class="sb-verb"
         data-testid="selection-move"
-        aria-label="Move these foods to another meal"
+        aria-label="Move {subject} to another meal"
         onclick={onMove}><SelectionVerbIcon kind="move" /></button
+      >
+      <!-- Opens the Selection's panel, where the Way out and what these foods
+           add up to both live. It replaced the `N selected ›` control that used
+           to be the only door to it. -->
+      <button
+        type="button"
+        class="sb-verb"
+        data-testid="selection-hand-off"
+        aria-haspopup="dialog"
+        aria-label="Hand over {subject}"
+        onclick={onHandOff}><WayOutIcon /></button
       >
       <!-- The id is a shipped DOM contract: the recipe e2e locates it. -->
       <button
@@ -93,7 +105,7 @@
         class="sb-verb primary"
         id="build-recipe-btn"
         data-testid="selection-recipe"
-        aria-label="Build a recipe from these foods"
+        aria-label="Build a recipe from {subject}"
         onclick={onRecipe}><WayInIcon kind="recipe" /></button
       >
     </span>
@@ -146,29 +158,6 @@
     font-size: var(--step-1);
     line-height: 1;
     cursor: pointer;
-  }
-
-  .sb-count {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-3xs);
-    min-height: 2.75rem;
-    padding: var(--space-3xs) 0;
-    background: none;
-    border: none;
-    /* The one mark saying this is a door and not a caption. */
-    border-bottom: 2px solid var(--paper);
-    color: var(--paper);
-    font-family: inherit;
-    font-size: var(--step-n1);
-    font-weight: 700;
-    white-space: nowrap;
-    cursor: pointer;
-  }
-
-  .chev {
-    font-size: var(--step-n2);
   }
 
   .sb-verbs {

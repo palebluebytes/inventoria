@@ -333,3 +333,32 @@ correction in the domain is append-only, so the amount picker's Done and Build
 recipe were dropping rows to the bottom in the same way, and both are fixed by
 the same change. Recorded here because this is where it was found. A day nobody
 has corrected reads exactly as it did before.
+
+## Amendment (2026-09-02): the bar says nothing, and the hand-off is a verb
+
+§2's shape becomes `✕ · [scale][move][hand off][recipe]`, and §9's "the count is
+its door" is withdrawn.
+
+**The `N selected ›` control is removed.** It was doing two jobs and neither
+survived scrutiny once the bar was in front of someone. As a count it restated
+what the rows already say: a selected row carries a `✓` corner, so the tally was
+a second telling of a fact the screen was already showing, in the one place with
+the least room for it. As a door it was unmarked — an underline and a chevron are
+what a link looks like, not what a nutrition panel looks like — so the Selection's
+Way out was reached through the least legible control on the bar.
+
+**The door it was becomes a verb.** `WayOutIcon` joins the row of marks and opens
+the same panel, which keeps everything §9 built: the panel still holds what the
+foods add up to, the Way out still sits in its `actions` slot, and the payload
+work remains none. §9's _"there is no share verb on the Selection bar"_ is
+therefore reversed on its surface but not in its substance — the verb is a door to
+the panel, not a one-tap route to a code, so handing over a Selection still costs
+the same two taps as handing over a meal or a day.
+
+Four marks and a `✕` measure 220px of the 360px floor before gaps, so the
+labelled-verb finding that shaped §2 is untouched.
+
+**The count still exists; it is simply never drawn.** The verbs name themselves by
+it — _Scale these 3 foods_, _Hand over this food_ — so a screen reader hears the
+size of what it is about to act on, which the old markup only ever said once, in a
+control a reader had to reach before the verbs made sense.
