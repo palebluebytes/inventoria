@@ -441,3 +441,25 @@ used to make one of the two vanish from every check in silence.
 [#237](https://github.com/palebluebytes/inventoria/issues/237) is rewritten rather than
 unblocked: its send half is deleted by §3, its receive half is inverted by §2, and its
 platform-sniff module survives verbatim with a different consequence hanging off it.
+
+## Amendment (2026-09-02, #295): both arcs have merged, and the numbering note is spent
+
+The Consequences paragraph on numbering describes a tree in which the Facet arc had not
+landed. It has. `main` now carries 0072 to 0088 with no gap, so **"0076 to 0080 are
+absent from this branch until it does" is false as written**, and "the Facet arc keeps
+0076 to 0080 and merges first" is a fact about history rather than a plan. The paragraph
+is left in place because what it was written for is unaffected: the arc did move twice,
+the record's number is settled by whoever merges **last**, and `docs:check` refuses two
+records that share a number.
+
+**§13's ADR-0078 reference is a link now.** It was a bare name because the record it
+points at sat on an unmerged branch, and a parenthetical said so. Both are gone:
+[ADR-0078](0078-a-facet-contains-no-way-out.md) is now a relative link like every other
+sibling reference, and the parenthetical was false the moment the file arrived. That is
+also the first point at which any gate can see the reference, since the relative-link
+walk only follows `](...)` and a bare name is invisible to it. The argument §13 takes
+from that record is unchanged.
+
+**"Nothing here is built yet" no longer holds either**, and the header already says so:
+the `Implemented:` trailer names #292 and its six commits. It is recorded here so the
+Consequences section is not read as current, and no section is edited for it.
