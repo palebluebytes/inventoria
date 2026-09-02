@@ -18,6 +18,7 @@ import { describe, it, expect } from "vitest";
 import { render } from "svelte/server";
 import FoodStager from "../../src/lib/views/food/FoodStager.svelte";
 import type { FoodResult } from "../../src/lib/food/food-search";
+import { styleOf, rulesOf, decl, type Rule } from "./support/stylesheet";
 
 const oats: FoodResult = {
   entity: "food:usda_mock_oats",
@@ -100,5 +101,56 @@ describe("the dock's field", () => {
     // ADR-0089 §8: the header and the dock's field are what stay on screen.
     // Dropping the button beside it must not take the search box with it.
     expect(dock({ initialMethod: "search" })).toContain(`id="${ids.search}"`);
+  });
+});
+
+/**
+ * The commit button's own height, read out of its `<style>` block. A rendered
+ * pixel height is beyond the unit tier — the values are `clamp()`s against a
+ * viewport width — so what is pinned here is which measures the button names,
+ * and at which width it names them.
+ *
+ * `--space-xs` + `--step-0` + a 3px edge either side lands it near 51px on a
+ * phone, against the ~64px `--space-s` + `--step-1` + a 60px floor was giving:
+ * a whole result row of the scarcest space on the screen, for a one-word button.
+ */
+describe("the commit button is sized for a phone", () => {
+  const RULES = rulesOf(styleOf("src/lib/views/food/CommitButton.svelte"));
+  const EVERY_WIDTH = null;
+  const WIDE = "@media (min-width: 768px)";
+
+  function rule(at: string | null): Rule {
+    const found = RULES.filter(
+      (r) => r.at === at && r.selectors.includes(".commit")
+    );
+    expect(found).toHaveLength(1);
+    return found[0];
+  }
+
+  it("writes the phone as the base rule, not as an override", () => {
+    const base = rule(EVERY_WIDTH);
+
+    expect(decl(base, "padding")).toBe("var(--space-xs)");
+    expect(decl(base, "font-size")).toBe("var(--step-0)");
+  });
+
+  it("floors at a touch target rather than above one", () => {
+    // The floor is what a finger needs, which is `--tap-min`. 60px was a
+    // guess sitting 12px above it, and the button clears the floor anyway.
+    expect(decl(rule(EVERY_WIDTH), "min-height")).toBe("var(--tap-min)");
+  });
+
+  it("gives the full size back above 768px — one design that widens", () => {
+    const wide = rule(WIDE);
+
+    expect(decl(wide, "padding")).toBe("var(--space-s)");
+    expect(decl(wide, "font-size")).toBe("var(--step-1)");
+    expect(decl(wide, "min-height")).toBe("60px");
+  });
+
+  it("carries no max-width media query — the breakpoint only ever widens", () => {
+    // A `max-width` rule would mean the phone is the exception again, which is
+    // the shape ADR-0089 §5 turned around.
+    expect(RULES.map((r) => r.at).filter(Boolean)).toEqual([WIDE]);
   });
 });
