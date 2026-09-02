@@ -295,3 +295,24 @@ something happened.
 
 A food the run could not write is never released this way, because nothing was
 written to it. The Selection still ends empty when the run finishes.
+
+### And the row has to stay where it is
+
+None of the above is legible if the row moves, and it did. The consumption
+projection listed events in arrival order — the order their first datom reached
+the ledger — so a replacement, minted at the moment you press Apply, sorted last
+and dropped to the bottom of its meal. Scaling three foods reordered the list
+under the very transition meant to acknowledge them, and because the meal list is
+unkeyed, the flash landed on whichever rows had shifted into those positions
+rather than on the foods that were written.
+
+The fold now hands a replacement **the place its predecessor held**, following
+the `event/replaced_by` link that `retractConsumptionEvent` was already writing.
+Where several events collapse into one, the successor takes the earliest of their
+places.
+
+This is not a Selection rule and does not belong to this record alone: every
+correction in the domain is append-only, so the amount picker's Done and Build
+recipe were dropping rows to the bottom in the same way, and both are fixed by
+the same change. Recorded here because this is where it was found. A day nobody
+has corrected reads exactly as it did before.

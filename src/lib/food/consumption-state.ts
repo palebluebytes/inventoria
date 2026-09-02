@@ -66,7 +66,39 @@ export function computeConsumption(datoms: StoredDatom[]): ConsumptionEvent[] {
     "recipe/",
   ]);
 
-  const events: ConsumptionEvent[] = Array.from(eventGroups.values())
+  const groups = Array.from(eventGroups.values());
+
+  // Where each event sits in the day. Arrival order by default — the ledger
+  // hands the fold its datoms in HLC order, so this is the order things were
+  // logged in.
+  //
+  // **A re-logged event inherits the place its predecessor held.** Every
+  // correction in this domain is append-only: the amount picker's Done, a
+  // Selection scale (ADR-0088 §5), turning foods into a recipe. Each retracts
+  // the old event and appends a new one, so the *same* food comes back under a
+  // new id whose first datom is the newest in the ledger. On arrival order
+  // alone it would jump to the bottom of its meal the moment you corrected it,
+  // which reads as the food being re-added rather than adjusted. The forward
+  // link `retractConsumptionEvent` already writes — `event/replaced_by` — is
+  // enough to hand the successor the slot.
+  //
+  // One pass suffices, and the walk cannot run away: the fold sees a
+  // predecessor before its successor (the successor is minted later, so its
+  // first datom is later), so by the time a link is read the predecessor's own
+  // slot is already final. Where several events collapse into one — the foods
+  // that become a recipe all point at it — the successor takes the EARLIEST of
+  // their slots, landing where the first ingredient sat rather than the last.
+  const slotOf = new Map<string, number>();
+  groups.forEach((g, i) => slotOf.set(g.id, i));
+  for (const g of groups) {
+    const successor = (g.fields as Record<string, any>).replaced_by;
+    if (typeof successor !== "string") continue;
+    const slot = slotOf.get(g.id) as number;
+    const held = slotOf.get(successor);
+    if (held === undefined || slot < held) slotOf.set(successor, slot);
+  }
+
+  const events: ConsumptionEvent[] = groups
     .map((g) => {
       const f = g.fields as Record<string, any>;
       const event: ConsumptionEvent = { id: g.id, time: g.firstTime, ...f };
@@ -79,8 +111,12 @@ export function computeConsumption(datoms: StoredDatom[]): ConsumptionEvent[] {
       return event;
     })
     // Retracted events (e.g. foods replaced by a recipe) are hidden but never
-    // deleted — the ledger keeps their datoms.
-    .filter((e) => e.status !== "retracted");
+    // deleted — the ledger keeps their datoms. Read after the slots are worked
+    // out, not before: a retracted event is what carries the link forward.
+    .filter((e) => e.status !== "retracted")
+    .sort(
+      (a, b) => (slotOf.get(a.id) as number) - (slotOf.get(b.id) as number)
+    );
 
   // Enrich each event with its target twin's display fields.
   for (const event of events) {

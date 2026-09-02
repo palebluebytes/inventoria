@@ -795,6 +795,101 @@ describe("computeConsumption", () => {
     expect(events.map((e) => e.id)).toEqual(["event:consume_a"]);
   });
 
+  // A correction is append-only: the old event is retracted and a NEW one
+  // appended, so the "same" food arrives last in the ledger. Without the
+  // `event/replaced_by` link the fold would drop it to the bottom of its meal,
+  // and correcting a food would look like re-adding it.
+  describe("a re-logged event holds the place its predecessor held", () => {
+    const t = 1717070000000;
+    // Two datoms is what makes a group; the first one's time fixes its slot.
+    const logged = (id: string, at: number) => [
+      {
+        entity: id,
+        attribute: "event/type",
+        value: s("ConsumeAction"),
+        time: at,
+      },
+      { entity: id, attribute: "event/meal_type", value: s("lunch"), time: at },
+    ];
+    const replaced = (id: string, by: string, at: number) => [
+      {
+        entity: id,
+        attribute: "event/status",
+        value: s("retracted"),
+        time: at,
+      },
+      { entity: id, attribute: "event/replaced_by", value: s(by), time: at },
+    ];
+
+    it("keeps a scaled food between the two it was logged between", () => {
+      const datoms = [
+        ...logged("event:a", t),
+        ...logged("event:b", t + 1),
+        ...logged("event:c", t + 2),
+        // b is scaled: the replacement is minted now, newest in the ledger.
+        ...logged("event:b2", t + 10),
+        ...replaced("event:b", "event:b2", t + 11),
+      ];
+
+      const events = computeConsumption(asStored(datoms));
+
+      expect(events.map((e) => e.id)).toEqual([
+        "event:a",
+        "event:b2",
+        "event:c",
+      ]);
+    });
+
+    it("follows a chain of corrections back to the first place", () => {
+      const datoms = [
+        ...logged("event:a", t),
+        ...logged("event:b", t + 1),
+        ...logged("event:a2", t + 10),
+        ...replaced("event:a", "event:a2", t + 11),
+        // Corrected a second time — scaled, then scaled again.
+        ...logged("event:a3", t + 20),
+        ...replaced("event:a2", "event:a3", t + 21),
+      ];
+
+      const events = computeConsumption(asStored(datoms));
+
+      expect(events.map((e) => e.id)).toEqual(["event:a3", "event:b"]);
+    });
+
+    it("lands a recipe where the FIRST food it swallowed sat", () => {
+      // Several events collapse into one, so several slots claim it. The
+      // earliest wins: the recipe appears where you started building it.
+      const datoms = [
+        ...logged("event:a", t),
+        ...logged("event:b", t + 1),
+        ...logged("event:c", t + 2),
+        ...logged("event:recipe", t + 10),
+        ...replaced("event:a", "event:recipe", t + 11),
+        ...replaced("event:c", "event:recipe", t + 12),
+      ];
+
+      const events = computeConsumption(asStored(datoms));
+
+      expect(events.map((e) => e.id)).toEqual(["event:recipe", "event:b"]);
+    });
+
+    it("leaves an untouched day in the order it was logged", () => {
+      const datoms = [
+        ...logged("event:a", t),
+        ...logged("event:b", t + 1),
+        ...logged("event:c", t + 2),
+      ];
+
+      const events = computeConsumption(asStored(datoms));
+
+      expect(events.map((e) => e.id)).toEqual([
+        "event:a",
+        "event:b",
+        "event:c",
+      ]);
+    });
+  });
+
   it("groups events, unpacks the metrics blob, and joins the food twin", () => {
     const t = 1717070000000;
     const datoms = [
