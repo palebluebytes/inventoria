@@ -82,3 +82,32 @@ then searched-in by gram hits it.
   whole-serving seed re-added by gram — is unit-tested; the sheet plumbing is
   trivial and typechecked). If a same-twin unit clash ever becomes common, revisit
   a `serving_size`-based conversion instead of the block.
+
+## Amendment (2026-09-02): the day is a second way into the list, and it never obeyed this
+
+The rule above was written for the **Add ingredient** sheet, and `addOrMergeIngredient`
+was applied there alone. Seeding the builder from a Selection of logged foods
+(ADR-0088 §2) mapped one ingredient per event straight into the list, so picking
+the same food twice — two logs of the same oats — produced two rows with one
+entity and threw `each_key_duplicate` at render, taking the whole builder down
+before it drew. Exactly the failure this record diagnosed, reached by the door it
+did not look at.
+
+**The seed folds through the same helper.** One row per twin holds for both ways
+in, and the Context above already says why the alternative does not: the list is
+entity-keyed end to end, and per-line ids would have to reach every resolver.
+
+Two things the merge rule needed before it could carry a seed:
+
+- **A row stands for several logged events.** `event_id` becomes `event_ids`, and
+  a fold unions them. The merge built its result by spreading the existing row,
+  which kept the first event's id and dropped the incoming's — so a recipe built
+  from two logs of one food retracted one of them and left the other in the day
+  beside the recipe that had already swallowed it. That is a worse defect than
+  the crash, and it was silent.
+- **A refused fold still has to produce a row.** The Add sheet reports
+  `unit_mismatch` by staying open and saying so; a seed has no sheet and no one
+  to tell. The row becomes a custom ingredient instead — a fresh twin, its own
+  id, its logged macros — which is what a food with no resolvable panel already
+  became on that path. The only loss is the link to the shared twin, and the
+  alternative is dropping a food the user picked.

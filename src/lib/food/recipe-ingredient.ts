@@ -23,9 +23,15 @@ import type { ReferenceIngredient } from "./recipe-nutrition";
  * `amount` already imply, and would rot the moment `amount` becomes editable.
  * The builder derives them per row via {@link deriveRecipeNutrition} over the
  * real panel — the single-source-of-truth rule #8 applied to the recipe total,
- * pushed down to each row. `event_id` is set when the ingredient was seeded from
- * a logged consumption event on the dashboard — on save, such events are
+ * pushed down to each row. `event_ids` are set when the ingredient was seeded
+ * from logged consumption events on the dashboard — on save, such events are
  * retracted (replaced by the recipe) if they remain.
+ *
+ * It is a LIST because one row can stand for several logged events: ADR-0024's
+ * one-row-per-twin rule means two separate logs of the same food fold into one
+ * ingredient, and both of them have to be retracted when the recipe replaces
+ * them. Carrying a single id here left the second food sitting in the day
+ * beside the recipe that had already swallowed it.
  */
 export interface RecipeIngredient {
   entity: string;
@@ -44,8 +50,8 @@ export interface RecipeIngredient {
   unit: AmountUnit;
   /** Food-twin payload, ingested when the recipe is saved. */
   payload: EntityPayload;
-  /** Source consumption-event id, if this ingredient came from the day. */
-  event_id?: string;
+  /** Source consumption-event ids, if this ingredient came from the day. */
+  event_ids?: string[];
 }
 
 /**
@@ -270,10 +276,28 @@ export function addOrMergeIngredient(
   const merged = {
     ...existing,
     amount: coerceAmount(existing.amount) + coerceAmount(incoming.amount),
+    // Both rows' provenance survives the fold. Spreading `existing` alone kept
+    // the first row's ids and dropped the incoming's, so a merged seed left the
+    // second logged food un-retracted — the recipe replaced one of the two
+    // foods it was built from and the other stayed in the day.
+    ...eventIds(existing, incoming),
   };
   const next = [...ingredients];
   next[i] = merged;
   return { ok: true, ingredients: next };
+}
+
+/**
+ * The union of two rows' source events, or nothing at all when neither came
+ * from the day. Returned as a partial so a row with no provenance does not gain
+ * an empty `event_ids` it never had.
+ */
+function eventIds(
+  existing: RecipeIngredient,
+  incoming: RecipeIngredient
+): { event_ids?: string[] } {
+  const ids = [...(existing.event_ids ?? []), ...(incoming.event_ids ?? [])];
+  return ids.length > 0 ? { event_ids: [...new Set(ids)] } : {};
 }
 
 /** Builds a manual (custom) ingredient with a synthesized food twin. */

@@ -24,7 +24,7 @@
     mode?: "consolidate" | "define" | "edit";
     /** The Recipe Twin being amended (edit mode only; getLocalFoodTwin shape). */
     template?: { entity: string; attributes: Record<string, any> } | null;
-    /** Foods selected on the dashboard, seeded as ingredients (carry event_id). */
+    /** Foods selected on the dashboard, seeded as ingredients (carry event_ids). */
     initialIngredients?: RecipeIngredient[];
   } = $props();
 

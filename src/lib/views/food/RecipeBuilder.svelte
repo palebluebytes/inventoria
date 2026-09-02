@@ -50,7 +50,7 @@
     mode?: "consolidate" | "define" | "create" | "edit";
     /** The Recipe Twin being amended (edit mode only; getLocalFoodTwin shape). */
     template?: { entity: string; attributes: Record<string, any> } | null;
-    /** Foods selected on the dashboard, seeded as ingredients (carry event_id). */
+    /** Foods selected on the dashboard, seeded as ingredients (carry event_ids). */
     initialIngredients?: RecipeIngredient[];
     /** Called once the recipe is saved (and logged for consolidate/define). */
     onCommitted: () => void;
@@ -229,10 +229,14 @@
         // Replace (consolidate only): retract the selection events that remain as
         // ingredients. Define builds from scratch, so it has no seeded event_ids
         // and nothing to retract — the guard keeps its fresh foods untouched.
+        //
+        // A row can carry SEVERAL events: two logs of the same food fold into
+        // one ingredient (ADR-0024), and the recipe replaces both of them.
         if (mode === "consolidate") {
           for (const ing of ingredients) {
-            if (ing.event_id)
-              await retractConsumptionEvent(ing.event_id, recipeId);
+            for (const event_id of ing.event_ids ?? []) {
+              await retractConsumptionEvent(event_id, recipeId);
+            }
           }
         }
       }

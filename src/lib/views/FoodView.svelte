@@ -37,7 +37,9 @@
     type CopyNote,
   } from "../food/past-meals";
   import {
+    addOrMergeIngredient,
     customIngredient,
+    panelFromIngredients,
     parseLoggedQuantity,
     type RecipeIngredient,
   } from "../food/recipe-ingredient";
@@ -743,7 +745,7 @@
   // corrupt the real twin. Then open the seeded builder.
   async function buildRecipe() {
     const items = selectedItems;
-    const seed = await Promise.all(
+    const resolved = await Promise.all(
       items.map(async (it) => {
         const target = it.target || it.id;
         const name = it.foodName || "Food";
@@ -763,7 +765,7 @@
             amount,
             unit,
             payload: twin,
-            event_id: it.id,
+            event_ids: [it.id],
           };
         }
         // Fallback: no resolvable panel on the real twin — capture the logged
@@ -777,10 +779,47 @@
         );
         return {
           ...ing,
-          event_id: it.id,
+          event_ids: [it.id],
         };
       })
     );
+
+    // **Folded, not listed.** A Selection may hold the same food twice — two
+    // logs of the same oats — and the ingredient list is entity-keyed end to
+    // end (ADR-0024), so seeding a row per event throws a duplicate key and
+    // takes the whole builder down with it. The seed goes through the same
+    // helper the Add sheet uses, so the day's way in obeys the rule the
+    // catalogue's way in already did: one row per twin, amounts summed, and
+    // both source events carried so both are retracted on save.
+    const seed: RecipeIngredient[] = [];
+    for (const ing of resolved) {
+      const addition = addOrMergeIngredient(seed, ing);
+      if (addition.ok) {
+        seed.splice(0, seed.length, ...addition.ingredients);
+        continue;
+      }
+      // Refused only for a unit mismatch: the same twin logged under two bases,
+      // which a corrected panel can leave behind (ADR-0060). There is no sheet
+      // to hold open and report to here, so the row becomes a custom ingredient
+      // — a fresh twin, its own id, no collision — which is exactly what a food
+      // with no resolvable panel already does above. Its macros are the logged
+      // ones, so nothing is lost but the link to the shared twin.
+      const macros = deriveIngredientMacros(
+        { ref: ing.entity, amount: ing.amount, unit: ing.unit },
+        (ref) => panelFromIngredients([ing], ref)
+      );
+      seed.push({
+        ...customIngredient(
+          ing.name,
+          Math.round(macros.calories),
+          macros.protein ?? 0,
+          macros.fat ?? 0,
+          macros.carbs ?? 0
+        ),
+        event_ids: ing.event_ids,
+      });
+    }
+
     recipe_meal_type = asMealType(items[0]?.meal_type, "dinner");
     openRecipe("consolidate", null, seed);
     clearSelection();

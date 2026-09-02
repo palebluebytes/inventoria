@@ -166,6 +166,63 @@ describe("addOrMergeIngredient", () => {
     expect(result.ingredients[1]).toBe(BANANA);
   });
 
+  // A row seeded from the day stands for the logged events behind it, and on
+  // save the recipe retracts every one of them. A fold therefore has to union
+  // the provenance: spreading the existing row alone kept the first event and
+  // dropped the second, so the recipe replaced one of the two foods it was
+  // built from and the other stayed in the day.
+  it("carries BOTH rows' source events through a fold", () => {
+    const first: RecipeIngredient = { ...OATS, event_ids: ["event:a"] };
+    const second: RecipeIngredient = {
+      ...OATS,
+      amount: 30,
+      event_ids: ["event:b"],
+    };
+
+    const result = addOrMergeIngredient([first], second);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.ingredients[0].event_ids).toEqual(["event:a", "event:b"]);
+    expect(result.ingredients[0].amount).toBe(80);
+  });
+
+  it("keeps the day's events when a catalogue add folds into a seeded row", () => {
+    // Adding from the catalogue brings no provenance; the seeded row's must not
+    // be wiped by the incoming row's absence of one.
+    const seeded: RecipeIngredient = { ...OATS, event_ids: ["event:a"] };
+
+    const result = addOrMergeIngredient([seeded], { ...OATS, amount: 30 });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.ingredients[0].event_ids).toEqual(["event:a"]);
+  });
+
+  it("leaves a row with no provenance without an empty event list", () => {
+    // `event_ids: []` and absent are not the same claim; only the second says
+    // this ingredient never came from a logged food.
+    const result = addOrMergeIngredient([OATS], { ...OATS, amount: 30 });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect("event_ids" in result.ingredients[0]).toBe(false);
+  });
+
+  it("never retracts the same event twice through repeated folds", () => {
+    const seeded: RecipeIngredient = { ...OATS, event_ids: ["event:a"] };
+
+    const result = addOrMergeIngredient([seeded], {
+      ...OATS,
+      amount: 30,
+      event_ids: ["event:a"],
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.ingredients[0].event_ids).toEqual(["event:a"]);
+  });
+
   it("coerces a transiently non-numeric existing amount before summing", () => {
     // The inline editor leaves `amount` briefly null while retyping; a merge
     // must still land on a clean number.

@@ -1741,11 +1741,11 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
       page,
       dinnerSection.locator(".meal-item-card", { hasText: "Mock Oats" })
     );
-    await expect(page.locator(".selbar")).toContainText("1 selected");
+    await expect(dinnerSection.locator(".select-check.on")).toHaveCount(1);
     await dinnerSection
       .locator(".meal-item-card", { hasText: "Mock Banana" })
       .click();
-    await expect(page.locator(".selbar")).toContainText("2 selected");
+    await expect(dinnerSection.locator(".select-check.on")).toHaveCount(2);
 
     await page.locator("#build-recipe-btn").click();
     return dinnerSection;
@@ -1771,7 +1771,9 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await dinnerSection
       .locator(".meal-item-card", { hasText: "Mock Banana" })
       .click();
-    await expect(page.locator(".selbar")).toContainText("2 selected");
+    // The bar writes no count, so the ticked rows are what say how many are
+    // picked — which is the reason the count was dropped from the bar.
+    await expect(dinnerSection.locator(".select-check.on")).toHaveCount(2);
     return dinnerSection;
   }
 
@@ -1796,7 +1798,8 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // A move appends one datom and mints no ids, so the Selection survives it —
     // which is what shows you where the foods went (ADR-0088 §8).
-    await expect(page.locator(".selbar")).toContainText("2 selected");
+    await expect(page.locator(".selbar")).toBeVisible();
+    await expect(breakfast.locator(".select-check.on")).toHaveCount(2);
   });
 
   test("previews a scale on the rows before it writes anything", async ({
@@ -1898,6 +1901,51 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // Only the recipe is counted now.
     await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
       "323 kcal"
+    );
+  });
+
+  // Two logs of the SAME food in one Selection. The ingredient list is
+  // entity-keyed end to end (ADR-0024), so a row per event threw
+  // `each_key_duplicate` and took the whole builder down before it drew.
+  test("folds two logs of one food into a single ingredient", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    await logUsdaFood(page, "dinner", "oats", "Mock Oats", "50"); // 189.5 kcal
+    await logUsdaFood(page, "dinner", "oats", "Mock Oats", "30"); // 113.7 kcal
+
+    const dinnerSection = page.locator(
+      '.meal-section:has(.meal-title-btn:text-is("DINNER"))'
+    );
+    const oatsRows = dinnerSection.locator(".meal-item-card", {
+      hasText: "Mock Oats",
+    });
+    await expect(oatsRows).toHaveCount(2);
+
+    await longPress(page, oatsRows.first());
+    await oatsRows.nth(1).click();
+    await expect(dinnerSection.locator(".select-check.on")).toHaveCount(2);
+
+    await page.locator("#build-recipe-btn").click();
+
+    // One row, not two, carrying the summed 80 g.
+    await expect(page.locator(".recipe-ingredient")).toHaveCount(1);
+    await expect(
+      page.locator('[data-testid="recipe-figures"] .nutrient-calories strong')
+    ).toContainText("303.2 kcal");
+
+    await page.locator("#recipe-name").fill("Double Oats");
+    await page.locator("#save-recipe-btn").click();
+
+    // BOTH source events are retracted, not just the first: the merged row
+    // carries every event behind it.
+    await expect(dinnerSection).toContainText("Double Oats");
+    await expect(dinnerSection.locator(".meal-item-card")).toHaveCount(1);
+    await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
+      "303.2 kcal"
     );
   });
 
