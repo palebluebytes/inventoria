@@ -15,6 +15,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { render } from "svelte/server";
+import { readFileSync } from "node:fs";
 import SelectionBar from "../../src/lib/views/food/SelectionBar.svelte";
 
 const noop = () => {};
@@ -129,5 +130,40 @@ describe("the Selection bar", () => {
     expect(shut).toMatch(
       /data-testid="selection-scale"[^>]*aria-pressed="false"/
     );
+  });
+});
+
+/**
+ * The bar draws its four verbs from three different components, each carrying
+ * its own size. They sit in one row, so a mark drawn larger than its neighbours
+ * reads as two verbs weighted above the other two — which is what shipped when
+ * the hand-off joined a pair that had been alone.
+ *
+ * Read out of the `<style>` block only, and with CSS comments stripped, so a
+ * sentence mentioning a size cannot satisfy or break this.
+ */
+describe("the bar's verb marks", () => {
+  const drawnSize = (component: string) => {
+    const source = readFileSync(
+      `src/lib/views/food/${component}.svelte`,
+      "utf8"
+    );
+    const style = source.slice(source.indexOf("<style>"));
+    const css = style.replace(/\/\*[\s\S]*?\*\//g, "");
+    const width = css.match(/width:\s*([^;]+);/)?.[1];
+    const height = css.match(/height:\s*([^;]+);/)?.[1];
+    expect(width).toBeDefined();
+    expect(height).toBe(width);
+    return width;
+  };
+
+  it("draws every mark at one size", () => {
+    const sizes = [
+      drawnSize("SelectionVerbIcon"),
+      drawnSize("WayInIcon"),
+      drawnSize("WayOutIcon"),
+    ];
+
+    expect(new Set(sizes).size).toBe(1);
   });
 });

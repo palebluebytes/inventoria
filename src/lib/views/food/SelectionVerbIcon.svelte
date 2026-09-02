@@ -1,9 +1,13 @@
 <script lang="ts">
   // The two marks the Selection bar draws that no other surface has (ADR-0088
   // §2). They follow `WayInIcon`'s spec exactly — a 24×24 box, `currentColor`,
-  // a 2.25 square-capped stroke, no fill — because the bar sits directly under
-  // the meal headers those marks live in and the two rows must read as one
-  // vocabulary.
+  // a 2.25 square-capped stroke, no fill, drawn at 1.1rem — because the bar
+  // sits directly under the meal headers those marks live in and the two rows
+  // must read as one vocabulary.
+  //
+  // The size is part of the spec, not a detail: these two sit in a row beside
+  // `WayOutIcon` and `WayInIcon kind="recipe"`, so drawing them any larger
+  // reads as two marks weighted above the other two rather than four verbs.
   //
   // Recipe is deliberately NOT here: it is `WayInIcon kind="recipe"`, reused
   // verbatim, which is what retired the 🍲 the bar used to carry.
@@ -36,8 +40,8 @@
 
 <style>
   .verb-icon {
-    width: 1.3rem;
-    height: 1.3rem;
+    width: 1.1rem;
+    height: 1.1rem;
     stroke: currentColor;
     stroke-width: 2.25;
     stroke-linecap: square;
