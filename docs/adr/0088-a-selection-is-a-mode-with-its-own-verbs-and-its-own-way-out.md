@@ -362,3 +362,47 @@ labelled-verb finding that shaped §2 is untouched.
 it — _Scale these 3 foods_, _Hand over this food_ — so a screen reader hears the
 size of what it is about to act on, which the old markup only ever said once, in a
 control a reader had to reach before the verbs made sense.
+
+## Amendment (2026-09-02): a finished verb ends the Selection, whatever it did
+
+§10 is replaced. It said a verb that leaves the foods in the day keeps them
+selected and only one that consumes them clears it, which put Move and the
+hand-off on one side and Build recipe on the other. The first Amendment above
+narrowed that to "re-files or copies keeps it, rewrites or consumes ends it" and
+moved Scale across. Both readings were wrong about what the Selection is for.
+
+**A Selection is the subject of a verb, and a verb that has run has no subject
+left.** Whether the foods survive the verb is a fact about the foods, not about
+the mode; keeping them picked because a move happened to mint no ids offers a
+second act on a set the user has already spent. So every verb ends it:
+
+| Verb         | Ends the Selection                          |
+| ------------ | ------------------------------------------- |
+| Scale        | when the append lands                       |
+| Move         | when the last food is re-filed              |
+| Hand off     | when the panel closes, if a code was minted |
+| Build recipe | when the builder opens, as it always did    |
+
+Three details the rule does not read off its own statement:
+
+**A failure is not a finish.** Scale writes in one append, so a throw wrote
+nothing and every id is still live: the whole Selection survives and can be tried
+again. A move mints no ids either, so a partial failure keeps all of it. What a
+run merely _skipped_ is different — a food with no weight to scale was never
+acted on, so it alone stays picked while its neighbours let go, which is a better
+answer than the note it used to get, because it points at itself.
+
+**The bar is the only place a note can live**, and an empty Selection unmounts
+it. That is not a reason to hold a Selection open, but it is why the two rules
+above have to agree: every case that has something to report is also a case that
+leaves something picked.
+
+**The hand-off ends on close, not on the press.** The Selection's panel is
+mounted behind a non-empty Selection, so clearing at the moment the Way out is
+pressed would unmount the panel — and `SendFace`'s mount _is_ the send session
+(ADR-0074 §3), so the code would die as it was minted. Closing a panel without
+handing over is not an action on the foods and keeps the Selection, which also
+makes the panel usable as what it otherwise is: a look at what you picked.
+
+Build recipe is unchanged and still clears at the moment the builder opens rather
+than when it saves, so the recipe that lands is never itself selected.

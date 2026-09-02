@@ -1777,7 +1777,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     return dinnerSection;
   }
 
-  test("moves the selected foods to another meal, keeping them selected", async ({
+  test("moves the selected foods to another meal, and lets them go", async ({
     page,
   }) => {
     await page.goto("/?mem=1");
@@ -1796,10 +1796,10 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(breakfast).toContainText("Mock Banana");
     await expect(dinnerSection).not.toContainText("Mock Oats");
 
-    // A move appends one datom and mints no ids, so the Selection survives it —
-    // which is what shows you where the foods went (ADR-0088 §8).
-    await expect(page.locator(".selbar")).toBeVisible();
-    await expect(breakfast.locator(".select-check.on")).toHaveCount(2);
+    // A finished verb ends the mode. The move mints no ids, so it COULD have
+    // held the Selection — it does not, because the verb is done.
+    await expect(page.locator(".selbar")).toHaveCount(0);
+    await expect(breakfast.locator(".select-check.on")).toHaveCount(0);
   });
 
   test("previews a scale on the rows before it writes anything", async ({
@@ -1867,6 +1867,35 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(
       panel.locator('[data-testid="selection-way-out"]')
     ).toBeVisible();
+
+    // Handing over is a verb like the others, so it ends the mode — but only
+    // once the panel is closed. Clearing at the moment the code is minted would
+    // unmount the panel and kill the send session with it.
+    await panel.locator('[data-testid="selection-way-out"]').click();
+    await expect(panel).toBeVisible();
+    await panel.locator(".day-nutrition-close").click();
+
+    await expect(page.locator(".selbar")).toHaveCount(0);
+    await expect(page.locator(".select-check.on")).toHaveCount(0);
+  });
+
+  test("a panel closed without handing over keeps the Selection", async ({
+    page,
+  }) => {
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    const dinnerSection = await selectTwo(page);
+    await page.locator('[data-testid="selection-hand-off"]').click();
+    await page
+      .locator('[data-testid="selection-nutrient-breakdown"]')
+      .locator(".day-nutrition-close")
+      .click();
+
+    // Looking at what the foods add up to is not an action on them.
+    await expect(page.locator(".selbar")).toBeVisible();
+    await expect(dinnerSection.locator(".select-check.on")).toHaveCount(2);
   });
 
   test("the ✕ leaves the Selection", async ({ page }) => {

@@ -197,6 +197,10 @@
   // The Selection's own nutrition panel, which the count opens and in which the
   // Way out sits — the third scale of that control (§9).
   let selection_panel_open = $state(false);
+  // Whether the panel above turned into a Send code before it was closed. A
+  // hand-off is the one verb with no completion of its own — nothing comes back
+  // from a send — so this is what says the action happened.
+  let selection_handed = $state(false);
   let recipeOpen = $state(false);
   // The recipe library (the header's recipe button): browse every saved recipe,
   // open one to read or amend, or write a new one. Nothing on it logs.
@@ -705,11 +709,22 @@
       scaling = false;
     }
     closeScale();
-    // **The Selection ends with the write** (ADR-0088's Amendment of
-    // 2026-09-02). Cleared rather than re-pointed at the new ids: the events
-    // picked out were retracted, so carrying their successors forward would
-    // leave a Selection of things nobody chose.
-    setSelection(new Set());
+    // **A finished verb ends the mode; what it did not finish stays picked.**
+    // Cleared rather than re-pointed at the new ids: the events chosen were
+    // retracted, so carrying their successors forward would leave a Selection
+    // of things nobody chose. What is left behind is what the run never wrote —
+    // which is also what keeps the bar on screen to carry the note below, since
+    // an empty Selection unmounts it.
+    setSelection(
+      new Set(
+        (failed > 0
+          ? // One append, so a throw wrote nothing at all: every id is still
+            // live and the whole run can be tried again.
+            items
+          : items.filter((it) => !resolved.has(it.id))
+        ).map((it) => it.id)
+      )
+    );
     // Silent on success (§2): a change you can watch does not need narrating.
     if (skipped + failed > 0) {
       const parts = [`${scaled} scaled`];
@@ -721,16 +736,24 @@
 
   /**
    * Moves the Selection to another meal of the same day (ADR-0088 §8). One new
-   * `event/meal_type` datom per food and nothing else, so every id survives and
-   * the Selection stays exactly as it was — which is what lets you see where
-   * the foods went.
+   * `event/meal_type` datom per food and nothing else, so every id survives —
+   * but the Selection still ends, because the move is done.
    */
   async function moveSelected(meal_type: MealType) {
     const items = selectedItems;
     move_open = false;
     const { failed } = await moveLoggedFoodsToMeal(items, meal_type);
+    // A finished verb ends the mode, whatever it did to the foods. A failure is
+    // not a finish: a move mints no ids, so every food is still exactly where
+    // the Selection left it and the whole thing can be tried again — and the
+    // Selection has to survive for the note to have a bar to sit on.
+    if (failed > 0) {
+      status_note = `${failed} could not move`;
+      return;
+    }
     // Silent on success: the foods visibly relocate, which needs no narrating.
-    status_note = failed > 0 ? `${failed} could not move` : "";
+    status_note = "";
+    clearSelection();
   }
 
   // Turn selected consumption events into recipe ingredients carrying each
@@ -1176,7 +1199,18 @@
     items={selectedItems}
     targets={resolvedTargets}
     calorieDecimals={$calorieDisplayDecimals}
-    onClose={() => (selection_panel_open = false)}
+    onHandOff={() => (selection_handed = true)}
+    onClose={() => {
+      selection_panel_open = false;
+      // **Deliberately on close, not on the hand-off itself.** This panel is
+      // mounted behind `selectedItems.length > 0`, so clearing while it is open
+      // would unmount it — and with it the `SendFace` whose mount IS the send
+      // session (ADR-0074 §3). The code would die the instant it was minted.
+      if (selection_handed) {
+        selection_handed = false;
+        clearSelection();
+      }
+    }}
   />
 {/if}
 

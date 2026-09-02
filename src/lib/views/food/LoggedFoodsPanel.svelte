@@ -42,6 +42,7 @@
     targets,
     calorieDecimals,
     onClose,
+    onHandOff,
   }: {
     /** The panel's heading — a meal's name, or how many foods were picked. */
     title: string;
@@ -60,6 +61,13 @@
     targets: Partial<Record<string, number>>;
     calorieDecimals: number;
     onClose: () => void;
+    /**
+     * Fired once, when the Way out is pressed and this panel turns into the
+     * code. The caller cannot watch for it any other way: a send has no
+     * completion of its own — the session is this component's life — so this is
+     * the only moment anything outside knows a hand-off happened.
+     */
+    onHandOff?: () => void;
   } = $props();
 
   let totals = $derived(totalNutrition(items));
@@ -100,7 +108,10 @@
         data-testid={wayOutTestId}
         aria-label="Hand {subject} to someone"
         title="Hand {subject} to someone"
-        onclick={() => (handing = true)}
+        onclick={() => {
+          handing = true;
+          onHandOff?.();
+        }}
       >
         <WayOutIcon />
       </button>
