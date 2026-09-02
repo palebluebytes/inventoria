@@ -2769,6 +2769,10 @@
   .stage {
     flex: 1;
     overflow-y: auto;
+    /* A flush body hands its scroll region here, so this is where the sheet's
+       scroll-chaining rule lands; `ui/BottomSheet.svelte`'s own body carries
+       the argument (ADR-0089 §8). */
+    overscroll-behavior: contain;
     /* This screen must never scroll sideways: content wraps/shrinks to fit, so
        clip any residual horizontal overflow rather than growing a scrollbar.
        Nested strips that scroll on purpose (.cf-off-ref-strip) keep their own. */

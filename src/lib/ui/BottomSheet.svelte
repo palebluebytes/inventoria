@@ -143,10 +143,21 @@
      which a nested sheet would otherwise inherit, leaving its buttons visually
      present but click-through. Absorbing both here means callers get correct
      over-dialog behaviour for free — the food sheets fold onto this rather than
-     re-deriving the fix (ADR-0027, ADR-0028). */
+     re-deriving the fix (ADR-0027, ADR-0028).
+
+     The box is the visible band, at every width and never a viewport unit: the
+     bottom edge is the band's, and the cap is the band's height (ADR-0089 §5).
+     `85vh` was keyboard-blind by construction — measured, every viewport unit
+     is inert under `resizes-visual`, so `vh == svh == dvh == lvh` at all sizes.
+
+     One consequence is worth naming rather than discovering: the cap used to be
+     85vh, so a sheet with more content than that used to leave a strip of
+     backdrop above it and now does not, on a desktop as much as on a phone.
+     That strip is the peek, and §5 prices it at nothing — the only thing it
+     bought is dismiss-by-tapping-outside, which the close button provides. */
   .bottom-sheet-content {
     position: fixed;
-    bottom: 0;
+    bottom: var(--vv-bottom);
     left: 50%;
     transform: translateX(-50%);
     z-index: 1701;
@@ -157,7 +168,7 @@
     box-shadow: 0 -8px 0 var(--ink);
     width: 100%;
     max-width: 600px;
-    max-height: 85vh;
+    max-height: var(--vv-h);
     display: flex;
     flex-direction: column;
     /* `backwards` commits the `from` keyframe before the first paint, so the
@@ -177,12 +188,46 @@
      changes on every staging switch (empty search → results → staged food →
      custom form), and left to size to content the whole sheet would grow and
      shrink under the user. `fill` asks for the same pin on its own, for a sheet
-     that keeps the default body: the tallest state already reaches 85vh, and
+     that keeps the default body: the tallest state already reached the cap, and
      the body's own `flex: 1; overflow-y: auto` absorbs the difference either
-     way. */
+     way.
+
+     These two flags are also the app's proxy for "holds a text field", so on a
+     phone they are the sheets that go **full height** — no peek. Three of the
+     four carry one (both flush sheets search; the food-settings sheet edits
+     names); the past-meal picker does not, and is carried along, which costs it
+     nothing it had. The peek is precisely the fraction a keyboard eats, and the
+     only thing it ever bought is dismiss-by-tapping-outside, which the close
+     button already provides (ADR-0089 §5).
+
+     `top` plus an explicit `height`, deliberately **not** `top` plus `bottom`.
+     Stretching between the two edges makes the box depend on the layout
+     viewport's height as well as the band's, so any error in that number
+     reappears as a gap; a pinned top edge and a height depend on the band alone
+     and structurally cannot. The inherited `bottom` above is over-constrained
+     here and correctly ignored — which holds because the vertical margins are
+     not `auto`, guaranteed by `app.css`'s reset; with `auto` margins the box
+     would centre in the leftover space and `top` would stop naming the band's
+     top edge. The inherited `max-height` is lifted so the height is the
+     height. */
   .bottom-sheet-content.flush,
   .bottom-sheet-content.fill {
-    height: 85vh;
+    top: var(--vv-top);
+    height: var(--vv-h);
+    max-height: none;
+  }
+
+  /* Above the breakpoint the peek returns: there is room for it, and a pointer
+     has no software keyboard to hide behind. One design that widens, not a
+     second design — a width difference may buy more room, never a different
+     shape (ADR-0089 §5). */
+  @media (min-width: 768px) {
+    .bottom-sheet-content.flush,
+    .bottom-sheet-content.fill {
+      top: auto;
+      height: 85vh;
+      max-height: 85vh;
+    }
   }
 
   .bottom-sheet-handle-bar {
@@ -302,6 +347,11 @@
   .bottom-sheet-body {
     flex: 1;
     overflow-y: auto;
+    /* A full-height sheet scrolled to the end of its list would otherwise chain
+       the scroll into the page behind it — which is invisible under the sheet,
+       and so reads as the sheet fighting the finger (ADR-0089 §8). The flush
+       body hands its scroll to a child, which carries the same rule itself. */
+    overscroll-behavior: contain;
     padding: var(--space-m);
   }
 
@@ -319,11 +369,17 @@
 
      It carries the sheet's whole bottom inset, which `viewport-fit=cover` made
      real (ADR-0089 §2), and it is the only place that can: it is the last child
-     of a `position: fixed; bottom: 0` box. **A sheet passing no footer
+     of a box pinned to the band's bottom edge. **A sheet passing no footer
      therefore reserves nothing**, and its body's last row sits under the home
-     indicator. Left for §5, which replaces this box's height model outright;
-     reserving it on the body instead would double the gap for every sheet that
-     does have a dock. */
+     indicator; reserving it on the body instead would double the gap for every
+     sheet that does have a dock. §5 was expected to settle this by replacing
+     the height model, and did not: the model moved from `bottom: 0` to
+     `bottom: var(--vv-bottom)`, which is the same edge whenever no keyboard is
+     up, so the gap under a sheet with no dock is untouched and belongs to
+     #325's safe-area sweep. The inset is also over-reserved *while* a keyboard
+     is up, when the sheet's bottom edge sits above the home indicator entirely
+     — a home indicator's worth of dead dock, bounded and cosmetic, and not
+     worth an unratified `max()` here. */
   .bottom-sheet-footer {
     flex-shrink: 0;
     border-top: var(--edge);

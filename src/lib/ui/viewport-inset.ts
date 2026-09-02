@@ -6,10 +6,11 @@
  * shrinks only the **visual** viewport, so the layout viewport — and with it
  * every `vh`, `svh`, `dvh` and `lvh` unit, all four measured inert in that state
  * — keeps naming a box that is now partly behind the keyboard. That is the whole
- * of #326: `BottomSheet` is `bottom: 0; max-height: 85vh`, so it stays its full
- * height, the browser scrolls the visual viewport to reveal the focused field,
- * and the sheet's header — title, handle, and the way out — leaves the top of
- * the screen.
+ * of #326: `BottomSheet` was `bottom: 0; max-height: 85vh`, so it stayed its
+ * full height, the browser scrolled the visual viewport to reveal the focused
+ * field, and the sheet's header — title, handle, and the way out — left the top
+ * of the screen. Since #328 that sheet is a consumer of the three properties
+ * below instead.
  *
  * **Do not add `interactive-widget` to either `index.html`.** The one-key fix,
  * `resizes-content`, was refused on the floor platform and on testability;
