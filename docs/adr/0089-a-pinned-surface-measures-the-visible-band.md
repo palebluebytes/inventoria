@@ -3,7 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-09-02  
 **Amends:** ADR-0027 §Decision (the sheet's height model and its over-dialog layering)  
-**Implemented:** prototype on `prototype/326-search-ui`; `ui/viewport-inset.ts`, `ui/BottomSheet.svelte`, `index.html`, `app.css`
+**Implemented:** §1-§4 by #327 — `ui/viewport-inset.ts`, `facets/startup.ts`, `app.css`, both `index.html`, `layout/Sidebar.svelte`. §5-§8 are still only the prototype on `prototype/326-search-ui`
 
 ## Context
 
