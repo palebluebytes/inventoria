@@ -362,7 +362,7 @@
     border: var(--edge);
     padding: var(--space-xs);
     font-family: var(--font-mono);
-    font-size: var(--step-n1);
+    font-size: var(--step-0);
     text-transform: uppercase;
     outline: none;
     border-radius: var(--radius);

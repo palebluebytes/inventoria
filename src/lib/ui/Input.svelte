@@ -63,7 +63,7 @@
     border-radius: var(--radius);
     padding: var(--space-2xs) var(--space-s);
     color: var(--text-primary);
-    font-size: var(--step-n1);
+    font-size: var(--step-0);
     outline: none;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     font-family: inherit;

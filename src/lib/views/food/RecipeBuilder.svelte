@@ -444,7 +444,7 @@
     width: 100%;
     border: var(--edge);
     padding: var(--space-xs);
-    font-size: var(--step-n1);
+    font-size: var(--step-0);
     font-family: inherit;
     resize: vertical;
   }
@@ -588,7 +588,7 @@
     border: var(--edge);
     padding: var(--space-2xs) var(--space-xs);
     font-family: inherit;
-    font-size: var(--step-n1);
+    font-size: var(--step-0);
     min-width: 0;
   }
   .srm {

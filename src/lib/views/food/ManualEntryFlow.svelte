@@ -493,7 +493,6 @@
     font-weight: 700;
   }
   .mini-ingredients {
-    font-size: var(--step-n1);
     resize: vertical;
   }
   .plate-cta {

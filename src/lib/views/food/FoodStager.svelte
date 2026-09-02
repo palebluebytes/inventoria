@@ -3058,14 +3058,18 @@
     flex-direction: column;
     gap: var(--space-3xs);
   }
+  /* Both identity fields sit at the base size, because a field under 16px zooms
+     iOS Safari on focus (ADR-0089 §8). That leaves the name and its subline the
+     same size and the weight to separate them, which is the price of the rule:
+     16px is a floor, so a hierarchy below it has nowhere to go. */
   .cf-title {
-    font-size: 1.05rem;
+    font-size: var(--step-0);
     font-weight: 700;
     min-height: 44px;
   }
   /* The stacked secondary identity inputs under the name (brand, category). */
   .cf-subline {
-    font-size: 0.9rem;
+    font-size: var(--step-0);
     min-height: 38px;
   }
   /* Fixed-width thumb; height stretches to the two stacked inputs (idrow is
@@ -3430,7 +3434,7 @@
     border-radius: var(--radius);
     padding: var(--space-2xs) var(--space-s);
     color: var(--text-primary);
-    font-size: var(--step-n1);
+    font-size: var(--step-0);
     font-family: inherit;
     outline: none;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);

@@ -358,7 +358,7 @@
     border: var(--edge-thin);
     padding: var(--space-2xs) var(--space-s);
     font-family: inherit;
-    font-size: var(--step-n1);
+    font-size: var(--step-0);
     color: var(--text-primary);
     outline: none;
     resize: none;
@@ -374,7 +374,7 @@
     border: var(--edge-thin);
     padding: var(--space-2xs) var(--space-s);
     font-family: inherit;
-    font-size: var(--step-n1);
+    font-size: var(--step-0);
     color: var(--text-primary);
     outline: none;
     border-radius: var(--radius);

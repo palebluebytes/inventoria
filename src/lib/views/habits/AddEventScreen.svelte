@@ -482,7 +482,7 @@
   /* Description */
   .desc-textarea {
     font-family: var(--font-mono);
-    font-size: var(--step-n1);
+    font-size: var(--step-0);
     color: var(--text-primary);
     background: var(--bg-input);
     border: var(--edge);

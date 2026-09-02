@@ -405,7 +405,7 @@
 
   .input-inline-cat {
     font-family: var(--font-mono);
-    font-size: var(--step-n2);
+    font-size: var(--step-0);
     padding: var(--space-3xs) var(--space-2xs);
     border: var(--edge);
     outline: none;
@@ -470,7 +470,7 @@
     border: var(--edge);
     padding: var(--space-xs);
     font-family: var(--font-mono);
-    font-size: var(--step-n1);
+    font-size: var(--step-0);
     text-transform: uppercase;
     outline: none;
     background: var(--bg-surface);

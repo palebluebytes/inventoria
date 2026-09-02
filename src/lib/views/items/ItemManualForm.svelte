@@ -185,7 +185,7 @@
     padding: 10px;
     border: var(--edge);
     border-radius: var(--radius);
-    font-size: var(--step-n1);
+    font-size: var(--step-0);
     background: var(--paper);
     font-family: inherit;
     font-weight: 500;
@@ -200,7 +200,7 @@
     padding: 10px;
     border: var(--edge);
     border-radius: var(--radius);
-    font-size: var(--step-n1);
+    font-size: var(--step-0);
     font-family: inherit;
     resize: vertical;
   }

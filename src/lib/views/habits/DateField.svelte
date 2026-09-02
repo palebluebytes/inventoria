@@ -104,7 +104,7 @@
 
   .time-input {
     font-family: var(--font-mono);
-    font-size: var(--step-n1);
+    font-size: var(--step-0);
     font-weight: 700;
     color: var(--text-primary);
     background: var(--bg-input);
