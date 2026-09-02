@@ -1758,7 +1758,15 @@
   // The custom form carries its own name field in its identity-card header, so
   // the shared dock input is dropped for it (Search/Scan still use it).
   let showInput = $derived(!staged && !isExtra(method) && method !== "custom");
-  let showPrimary = $derived(!isExtra(method) && !showManualFlow);
+  // A control that cannot act does not hold space in the dock (ADR-0089 §8).
+  // Searching with nothing staged is the one place where the commit button is
+  // structurally dead: every disjunct of `canPrimary` that could be true there
+  // needs a staged food, so it was always disabled — roughly 85px of the
+  // scarcest space on the screen saying nothing, and with a keyboard raised it
+  // is taken from the result list. It returns the moment a food is staged.
+  let showPrimary = $derived(
+    !isExtra(method) && !showManualFlow && !(method === "search" && !staged)
+  );
 
   // The manual flow (ManualEntryFlow) owns its save logic but hands its commit
   // button to the shared dock, so a manual entry's CTA is pinned at the bottom
