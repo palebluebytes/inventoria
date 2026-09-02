@@ -262,9 +262,24 @@ test.describe("Visual Catalog Generator", () => {
         .sidebar {
           position: static !important;
         }
+        /* Un-pin the sheet so a full-page capture contains all of it: a
+           position:fixed box is rendered once, at the top of the image,
+           whatever the page's height. (No backticks in this block -- it is a
+           template literal.)
+
+           #333 asked for "height: auto !important" to come out of here, on the
+           grounds that it insulates this shot from the height model ADR-0089 S5
+           changed. The line was in fact INERT and is gone as dead CSS:
+           .add-habit-sheet is a plain sheet, and .bottom-sheet-content declares
+           no height at all -- only .flush / .fill do. What actually insulates
+           the shot is position:absolute and max-height:none, and those are
+           exactly what a full-page capture of the whole screen needs. The two
+           requirements genuinely conflict, so this shot is not the witness: the
+           twelve element screenshots of .bottom-sheet-content below are, and
+           tests/keyboard-invariants.spec.ts carries the geometry the pixels
+           cannot. */
         .add-habit-sheet {
           position: absolute !important;
-          height: auto !important;
           max-height: none !important;
           min-height: 100% !important;
           overflow-y: visible !important;

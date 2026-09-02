@@ -42,6 +42,17 @@ describe("a sheet's box is the visible band", () => {
     expect(decl(base, "max-height")).toBe("var(--vv-h)");
   });
 
+  it("leaves an ordinary sheet's height to its content — only the cap is the band's", () => {
+    // Load-bearing beyond the record. `tests/visual-catalog.spec.ts` un-pins
+    // `.add-habit-sheet` for its full-page capture and lifts `max-height`; it
+    // used to lift `height` too, which was dead CSS precisely because this rule
+    // sets none, and #333 removed it. A `height` appearing here would make that
+    // shot silently insensitive to the height model again.
+    expect(
+      decl(rule(".bottom-sheet-content", EVERY_WIDTH), "height")
+    ).toBeUndefined();
+  });
+
   it("names no viewport unit on a phone — every one is inert under a keyboard", () => {
     const phone = RULES.filter((r) => r.at === EVERY_WIDTH);
     const units = phone.flatMap((r) =>
