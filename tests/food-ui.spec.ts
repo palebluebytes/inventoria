@@ -437,6 +437,17 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.locator(".macro-item.calories .macro-now")).toHaveText(
       "133.5 kcal"
     );
+
+    // Staging the same food again opens on the amount it was logged at, not on
+    // the 100 g a food with no history gets. Reached by searching rather than
+    // off the Recent list, because the rule belongs to staging a food and not to
+    // the door it was staged from.
+    await page
+      .getByRole("button", { name: "Search for a breakfast food" })
+      .click();
+    await page.locator("#food-search-input").fill("banana");
+    await page.locator(".result-item", { hasText: "Mock Banana" }).click();
+    await expect(page.getByLabel("Amount in grams")).toHaveValue("150");
   });
 
   test("copies a past meal wholesale into the day being viewed (ADR-0058)", async ({

@@ -1,6 +1,6 @@
 import type { ConsumptionEvent } from "./consumption-state";
 import { parseLoggedQuantity } from "./recipe-ingredient";
-import type { AmountUnit } from "./nutrition";
+import type { AmountUnit, MeasuredUnit } from "./nutrition";
 import type { MealType } from "./meal-type";
 
 /**
@@ -13,10 +13,11 @@ import type { MealType } from "./meal-type";
  * already on screen. A default is judged on being right, not on being complete;
  * nothing is lost by narrowing it, because search sits beside it.
  *
- * This module is the candidate walk alone. The catalogue rule
- * (`isCatalogueFood`, ADR-0035 §6) and the twelve-slot cap both live downstream
- * in the caller, because both need the food twin, and fetching twins is I/O this
- * fold must not do (`CODING_STANDARDS.md` §2.1).
+ * This module is the folds over that history which the log sheet's defaults are
+ * built from — which foods a meal offers, and the amount each one opens at. The
+ * catalogue rule (`isCatalogueFood`, ADR-0035 §6) and the twelve-slot cap both
+ * live downstream in the caller, because both need the food twin, and fetching
+ * twins is I/O these folds must not do (`CODING_STANDARDS.md` §2.1).
  */
 
 /**
@@ -67,6 +68,54 @@ export function recentCandidatesForMeal(
   }
 
   return candidates;
+}
+
+/**
+ * The amount this food was last logged at, in `unit`, or null where there is
+ * nothing to open on.
+ *
+ * A food is nearly always eaten in the same amount — a 40 g bowl of oats stays
+ * a 40 g bowl — so the amount control opens on what the user last chose for
+ * this food rather than on the unit's generic default (`amountDefaults`). The
+ * caller falls back to that default on null, which keeps the two rules in one
+ * readable line at the call site instead of a default buried in here.
+ *
+ * **The unit must match, and a mismatch is null rather than a number.** ADR-0060
+ * §1/§2 is that nothing converts: a drink logged at `330ml` cannot seed a field
+ * entered in grams, and a whole-serving log ("1 serving", ADR-0035 §6) names no
+ * measurement at all. Both come back null and take the default, which is the
+ * only honest answer — the alternative is a field pre-filled with a number
+ * measured against something else.
+ *
+ * Unscoped by meal, unlike {@link recentCandidatesForMeal} above. That walk is
+ * scoped because a meal's *offer* is about what belongs at breakfast; this is
+ * about how much of one food a person eats, which the clock does not change.
+ * The same 40 g of oats is 40 g whenever it is logged.
+ *
+ * A single pass for the newest match rather than a sorted copy: only one event
+ * is wanted here, where the sibling walk needs the whole history in order. Two
+ * events for one food can share a timestamp — copying a past meal that holds
+ * the same food twice appends them together (ADR-0058) — and then either is
+ * equally "the last time", so array order settles it and nothing is lost.
+ *
+ * Retraction needs no filter here: the projection this reads has already
+ * dropped retracted events (`consumption-state.ts`), so an amount the user
+ * undid is not in the history to be remembered.
+ */
+export function rememberedAmount(
+  events: readonly ConsumptionEvent[],
+  target: string,
+  unit: MeasuredUnit
+): number | null {
+  let newest: ConsumptionEvent | null = null;
+  for (const event of events) {
+    if (event.target !== target) continue;
+    if (newest === null || event.time > newest.time) newest = event;
+  }
+  if (newest === null) return null;
+
+  const logged = parseLoggedQuantity(newest.quantity);
+  return logged.unit === unit ? logged.amount : null;
 }
 
 /**

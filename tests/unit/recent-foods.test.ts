@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   recentCandidatesForMeal,
   emptyMealDefaultHint,
+  rememberedAmount,
   type RecentCandidate,
 } from "../../src/lib/food/recent-foods";
 import type { ConsumptionEvent } from "../../src/lib/food/consumption-state";
@@ -196,6 +197,71 @@ describe("recentCandidatesForMeal", () => {
     recentCandidatesForMeal(events, "breakfast");
 
     expect(events.map((e) => e.id)).toEqual(order);
+  });
+});
+
+describe("rememberedAmount", () => {
+  it("answers the amount this food was last logged at", () => {
+    const events = [
+      ate("food:oats", "breakfast", "40g"),
+      ate("food:oats", "breakfast", "55g"),
+    ];
+
+    expect(rememberedAmount(events, "food:oats", "g")).toBe(55);
+  });
+
+  it("reads the newest by time, not by position in the array", () => {
+    // The consumption projection sorts by its own slot order, not by the clock
+    // (`consumption-state.ts`), so the store's array is not a timeline. A walk
+    // that trusted position would answer 40 here.
+    const older = { ...ate("food:oats", "breakfast", "55g"), time: 9_000 };
+    const newer = { ...ate("food:oats", "breakfast", "40g"), time: 8_000 };
+
+    expect(rememberedAmount([newer, older], "food:oats", "g")).toBe(55);
+  });
+
+  it("is null for a food with nothing behind it, which takes the default", () => {
+    const events = [ate("food:oats", "breakfast", "40g")];
+
+    expect(rememberedAmount(events, "food:banana", "g")).toBeNull();
+    expect(rememberedAmount([], "food:oats", "g")).toBeNull();
+  });
+
+  it("refuses to seed a gram field from a millilitre log, and the reverse", () => {
+    // ADR-0060 §1/§2: nothing converts. 330 is a true amount and the wrong one,
+    // and a control opened on it would be pre-filled with a number measured
+    // against something the food is not entered in.
+    const events = [ate("food:cola", "dinner", "330ml")];
+
+    expect(rememberedAmount(events, "food:cola", "ml")).toBe(330);
+    expect(rememberedAmount(events, "food:cola", "g")).toBeNull();
+  });
+
+  it("refuses a whole-serving log, which names no measurement at all", () => {
+    // `parseLoggedQuantity` reads anything unmeasured as one serving (ADR-0035
+    // §6), so the 1 that comes back is a count and not a gram.
+    const events = [ate("food:soup", "lunch", "1 serving")];
+
+    expect(rememberedAmount(events, "food:soup", "g")).toBeNull();
+    expect(rememberedAmount(events, "food:soup", "ml")).toBeNull();
+  });
+
+  it("remembers across meals, where the Recent walk beside it does not", () => {
+    // The two folds scope differently on purpose: what a meal OFFERS is about
+    // breakfast, but how much of one food a person eats is not — the same 40 g
+    // of oats is 40 g whenever it is logged.
+    const events = [ate("food:oats", "breakfast", "40g")];
+
+    expect(targets(recentCandidatesForMeal(events, "dinner"))).toEqual([]);
+    expect(rememberedAmount(events, "food:oats", "g")).toBe(40);
+  });
+
+  it("keeps the amount's stored precision, having parsed rather than rounded", () => {
+    // A typed sum (`65 / 2`) reaches the ledger as its computed value, and the
+    // control it re-opens must hold what the user actually logged.
+    const events = [ate("food:cream", "dinner", "32.5g")];
+
+    expect(rememberedAmount(events, "food:cream", "g")).toBe(32.5);
   });
 });
 

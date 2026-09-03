@@ -29,6 +29,7 @@
   import {
     recentCandidatesForMeal,
     emptyMealDefaultHint,
+    rememberedAmount,
   } from "../../food/recent-foods";
   import type { MealType } from "../../food/meal-type";
   import { wayInTitle, type WayIn } from "../../food/ways-in";
@@ -41,6 +42,7 @@
     roundFoodDisplay,
     type NutritionInfo,
     type NutritionBreakdown,
+    type MeasuredUnit,
   } from "../../food/nutrition";
   import {
     deriveRecipeNutrition,
@@ -189,6 +191,18 @@
       cancelled = true;
     };
   });
+
+  // What a staged food's amount control opens at: the amount this food was last
+  // logged at, in the unit the stager is about to enter. Passed as a reader
+  // rather than as a table because the stager asks about ONE food, at the moment
+  // it is staged — a map would be the whole history precomputed against the
+  // chance that one entry of it gets used.
+  //
+  // Not `$derived`, and it does not need to be: it reads the store at call time,
+  // inside a tap handler, so it always answers from the current history rather
+  // than from whatever a derived last settled on.
+  const lastAmountFor = (entity: string, unit: MeasuredUnit) =>
+    rememberedAmount($consumptionStore, entity, unit);
 
   // Edit mode hides Recent entirely (it locks onto one food's amount), so it
   // gets no line either — an empty list there is the point, not a shortfall.
@@ -540,6 +554,7 @@
     methodDock={false}
     recent={showsMealDefault ? recent : []}
     {recentEmptyHint}
+    {lastAmountFor}
     primaryDisabled={!dbReady}
     ids={{
       search: "food-search-input",

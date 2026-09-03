@@ -38,6 +38,7 @@
     NUTRITION_INFO_ATTR,
     type Portion,
     type NutritionInfo,
+    type MeasuredUnit,
   } from "../../food/nutrition";
   import {
     CORE,
@@ -170,6 +171,17 @@
      *  default) keeps the silence, which is right for a host that has no Recent
      *  concept at all. */
     recentEmptyHint = "",
+    /**
+     * The amount this food was last logged at, in `unit`, or null where there is
+     * none to reuse. Host-supplied for the same reason `recent` is: the history
+     * belongs to the host's surface, and this stager holds no store of its own.
+     *
+     * The default answers null for every food, which is a host with no history
+     * to read rather than a food with nothing behind it — `AddIngredientSheet`
+     * builds a recipe, where an amount is a proportion of a dish and not a
+     * record of what somebody ate. Both cases fall back to `amountDefaults`.
+     */
+    lastAmountFor = () => null,
     /** DOM ids for each host's e2e selectors. */
     ids,
     /** The staged food, exposed so the host header's back button can clear it
@@ -223,6 +235,7 @@
     extraTabs?: StagerExtraTab[];
     recent?: FoodResult[];
     recentEmptyHint?: string;
+    lastAmountFor?: (entity: string, unit: MeasuredUnit) => number | null;
     ids: StagerIds;
     staged?: FoodResult | null;
     canGoBack?: boolean;
@@ -276,15 +289,30 @@
   // nothing converts between the two (ADR-0060 §1/§2).
   let amount = $state(100);
 
-  // Where the control opens for a freshly staged food, which follows that unit:
-  // 100 g for anything weighed, a 250 ml glass for a drink. Read off the
-  // payload rather than off `stagedInfo`, so it never depends on the order a
-  // derived happens to settle in relative to the assignment beside it.
+  // Where the control opens for a freshly staged food: the amount this food was
+  // last logged at, and only failing that the unit's generic default — 100 g
+  // for anything weighed, a 250 ml glass for a drink. A food is nearly always
+  // eaten in the same amount, so the second-best answer is the one the user
+  // already gave; the default is what a food with no history gets.
+  //
+  // Both halves follow the unit off the payload being staged — a USDA row is
+  // per 100 g by construction, an Open Food Facts twin carries whatever basis it
+  // was published under (ADR-0052) — and `rememberedAmount` answers null rather
+  // than a number when what it found was measured in the other unit or logged
+  // as a whole serving. Nothing converts (ADR-0060 §1/§2), so a food met in one
+  // unit and remembered in another opens on the default: refusing is the only
+  // honest answer, and the amount is one field away from being typed.
+  //
+  // Read off the payload rather than off `stagedInfo`, so it never depends on
+  // the order a derived happens to settle in relative to the assignment beside
+  // it. The edit path never comes through here: it opens on the logged amount
+  // its seed carries, which is that event's own figure and not a memory of one.
   function openingAmount(payload: EntityPayload): number {
     const info = payload.attributes[NUTRITION_INFO_ATTR] as
       | NutritionInfo
       | undefined;
-    return amountDefaults(basisUnit(info?.serving_size)).amount;
+    const unit = basisUnit(info?.serving_size);
+    return lastAmountFor(payload.entity, unit) ?? amountDefaults(unit).amount;
   }
 
   // The staged food's full nutrition panel (per its serving basis). Handed to
