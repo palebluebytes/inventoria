@@ -8,12 +8,15 @@
     // Renamed to `body` so it isn't shadowed by Modal's own `children` snippet.
     children: body,
     footer,
+    headerActions,
     onClose,
     class: className = "",
+    testId = undefined,
     onBack,
     backLabel = "Back",
     flushBody = false,
     fillHeight = false,
+    centred = false,
     elevated = false,
     animate = true,
   }: {
@@ -28,6 +31,19 @@
      */
     footer?: Snippet<[{ close: () => void }]>;
     /**
+     * Optional control in the header, to the left of the close button — for a
+     * control on the sheet's **subject** rather than on the sheet, which is the
+     * nutrition panel's way out of a meal or a day (ADR-0074 §1).
+     *
+     * One icon control, the size of the close button beside it: passing this
+     * widens both side rails by one slot so the title stays dead-centre, and
+     * the header cannot measure what it is given. **Pass it only when a control
+     * will render** — a snippet holding a conditional renders nothing and
+     * leaves the rails wide, which shifts the title off centre for the one
+     * state that was supposed to look the same.
+     */
+    headerActions?: Snippet;
+    /**
      * Called whenever the sheet closes (Escape, backdrop, or a close button).
      * Forwarded to Modal so a conditionally-mounted caller can unmount on close
      * without re-encoding the "onClose from bound `open`" quirk itself.
@@ -35,6 +51,12 @@
     onClose?: () => void;
     /** Extra class on the sheet content, so a caller can tag/scope its sheet. */
     class?: string;
+    /**
+     * `data-testid` on the sheet's card. A spec that scopes into one surface —
+     * `getByTestId("received-meal")` and then the rows inside it — needs a
+     * handle on the box the body renders in, and the card is that box.
+     */
+    testId?: string;
     /**
      * Optional leading control in the header. When set, a back "‹" button is
      * rendered to the left of the title and calls this on click — the food
@@ -63,6 +85,18 @@
      * say so: the default body already flexes and scrolls.
      */
     fillHeight?: boolean;
+    /**
+     * Above 768px, sit centred in the viewport instead of anchored to the
+     * bottom edge — the one expression of "a centred card" in the app
+     * (ADR-0089 §6). **On a phone it does nothing**, which is the whole point:
+     * there is one overlay shape there and it is the sheet, so the seven
+     * surfaces that used to hand-roll `translate(-50%, -50%)` set this and
+     * inherit the band's geometry unchanged (#329).
+     *
+     * It moves the box; it does not resize it. Whether a sheet sizes to its
+     * content is still `fillHeight`/`flushBody`'s answer, at either width.
+     */
+    centred?: boolean;
     /**
      * Raise this sheet a layer above another sheet it is opened over. A default
      * sheet sits at 1700/1701 (backdrop/content); an elevated one at 1800/1801,
@@ -102,23 +136,28 @@
       class="bottom-sheet-content {className}"
       class:flush={flushBody}
       class:fill={fillHeight}
+      class:centred
       class:no-anim={!animate}
       style:z-index={elevated ? 1801 : null}
+      data-testid={testId}
     >
       <div class="bottom-sheet-handle-bar">
         <div class="drag-handle"></div>
       </div>
 
-      <div class="bottom-sheet-header">
+      <div class="bottom-sheet-header" class:acting={headerActions}>
         {#if onBack}
           <button class="back-btn" onclick={onBack} aria-label={backLabel}
             ><span class="glyph" aria-hidden="true">‹</span></button
           >
         {/if}
         <h2>{title}</h2>
-        <button class="close-btn" onclick={close} aria-label="Close"
-          ><span class="glyph" aria-hidden="true">&times;</span></button
-        >
+        <div class="bottom-sheet-header-end">
+          {@render headerActions?.()}
+          <button class="close-btn" onclick={close} aria-label="Close"
+            ><span class="glyph" aria-hidden="true">&times;</span></button
+          >
+        </div>
       </div>
 
       <div class="bottom-sheet-body" class:flush={flushBody}>
@@ -228,6 +267,32 @@
       height: 85vh;
       max-height: 85vh;
     }
+
+    /* The app's one centred card (ADR-0089 §6). It is written here, once, under
+       the breakpoint, because on a phone there is a single overlay shape and it
+       is the sheet — seven surfaces used to re-derive this box outside the
+       primitive at 85-90vh, four of them around a text field, which is the
+       worst geometry available with a keyboard raised (#329).
+
+       It moves the box and closes its frame; it never sets a height. Whether a
+       sheet sizes to its content is `flush`/`fill`'s answer at both widths, and
+       this rule sitting after theirs is what lets it retake `top` from them
+       without a third selector. The cap is restated so a card that names
+       neither flag still keeps a margin of backdrop around it, which is what
+       the peek is on a bottom-anchored sheet.
+
+       The bottom border and the drop shadow come back: the base sheet drops
+       both because its bottom edge is off the screen, and paints an ink bar
+       above its top edge instead. A card has four edges on screen. */
+    .bottom-sheet-content.centred {
+      top: 50%;
+      bottom: auto;
+      transform: translate(-50%, -50%);
+      max-height: 85vh;
+      border-bottom: var(--edge-thick);
+      box-shadow: var(--shadow-3);
+      animation-name: popIn;
+    }
   }
 
   .bottom-sheet-handle-bar {
@@ -250,7 +315,13 @@
      because a flow has no back affordance. */
   .bottom-sheet-header {
     display: grid;
-    grid-template-columns: 2.5rem 1fr 2.5rem;
+    /* One slot per side, widened to two when the caller passes `headerActions`
+       — both rails together, because the title is centred by the pair being
+       equal and not by either one's width. The header cannot measure what it
+       is handed, so this is a declared slot count rather than a fit; the prop's
+       doc carries the other half of that contract. */
+    --rail: 2.5rem;
+    grid-template-columns: var(--rail) 1fr var(--rail);
     align-items: center;
     /* Query container for the title below. Safe to contain: the header's inline
        size comes from the sheet (width:100%, max 600px), never from its own
@@ -323,9 +394,18 @@
     transform: translateY(-0.081em);
   }
 
-  .close-btn {
+  /* The trailing group: a subject control, then the way out. The close keeps
+     the row's right edge whether or not something sits beside it. */
+  .bottom-sheet-header-end {
     grid-column: 3;
     justify-self: end;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2xs);
+  }
+
+  .bottom-sheet-header.acting {
+    --rail: 5rem;
   }
 
   .close-btn:hover {
@@ -398,6 +478,22 @@
     }
     to {
       transform: translateX(-50%) translateY(0);
+    }
+  }
+
+  /* A centred card cannot slide up from an edge it is nowhere near, and the
+     slide's keyframes name `translateX(-50%)` besides, which would undo the
+     vertical half of the centring for the length of the animation. Only the
+     name is overridden above, so the duration, easing and `backwards` fill stay
+     the sheet's. */
+  @keyframes popIn {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
     }
   }
 </style>
