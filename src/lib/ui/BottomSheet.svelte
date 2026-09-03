@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import Modal from "./Modal.svelte";
+  import { enterBackStop, leaveBackStop, topSheet } from "./back-stack";
 
   let {
     isOpen = $bindable(false),
@@ -121,6 +122,30 @@
   // a layer so it clears another sheet it is opened over (its content z is the
   // inline override below — the CSS 1701 base stays the single source).
   let overlayZ = $derived(elevated ? 1800 : 1700);
+
+  // An open sheet is a Back stop (ADR-0089 §7): the gesture every phone has
+  // closes this sheet instead of leaving the app, and where a sheet was opened
+  // over a sheet it returns to the one beneath. Keyed on `isOpen` rather than on
+  // mount, because both call patterns exist — a sheet mounted only while open,
+  // and one mounted permanently with its state bound.
+  let stopId = $state(0);
+  $effect(() => {
+    if (!isOpen) return;
+    const id = enterBackStop("sheet", () => (isOpen = false));
+    stopId = id;
+    return () => {
+      stopId = 0;
+      leaveBackStop(id);
+    };
+  });
+
+  // On a phone the sheet above this one has replaced it (§7). It is **hidden,
+  // never unmounted**: a replaced sheet keeps its scroll position, its fields
+  // and its children's state, and returning to it is supposed to be returning to
+  // the thing you left. What "replaced" means at each width is the stylesheet's
+  // — this is width-blind, and above 768px both sheets are on screen with a dim
+  // between them, which is the arrangement §7 leaves alone.
+  let beneath = $derived(stopId !== 0 && $topSheet !== stopId);
 </script>
 
 <Modal
@@ -130,6 +155,7 @@
   overlayBlur="blur(2px)"
   {overlayZ}
   overlayEnter={animate}
+  {beneath}
   {title}
 >
   {#snippet children({ props, close })}
@@ -139,6 +165,7 @@
       class:flush={flushBody}
       class:fill={fillHeight}
       class:centred
+      class:beneath={!!beneath}
       class:no-anim={!animate}
       style:z-index={elevated ? 1801 : null}
       data-testid={testId}
@@ -224,6 +251,28 @@
     animation: none;
   }
 
+  /* On a phone, a sheet opened over a sheet REPLACES it (ADR-0089 §7). Two
+     full-height surfaces cannot show a dim between them, so the one beneath is
+     expressing nothing and is taken off the screen. `elevated` and its
+     1800/1801 layer keep their meaning above the breakpoint, where a dim
+     between two cards is visible, and nothing here removes them — but note they
+     were never what clears a *dialog*: the default 1700/1701 already sits above
+     the 1600 a bits-ui card renders at, so `elevated` has only ever been about a
+     sheet over a sheet. The over-dialog `pointer-events` fix is a separate rule
+     above and stays at every width, because one open dialog is enough to put
+     `pointer-events: none` on the body.
+
+     `display: none` rather than an unmount, and rather than `visibility`: it
+     takes the replaced sheet out of the focus order and the accessibility tree
+     the way the surface above it deserves, while the sheet itself — its scroll
+     position, its half-filled fields, its children's state — is still there to
+     come back to. Which sheet is on top is the one thing CSS cannot answer, so
+     the class arrives from `ui/back-stack.ts`; what it MEANS at each width is
+     written here, mobile-first, so the breakpoint stays out of the script. */
+  .bottom-sheet-content.beneath {
+    display: none;
+  }
+
   /* Pinned height, for a sheet whose content height swings but whose shape
      should not. A flush-body sheet always wants this — FoodStager's height
      changes on every staging switch (empty search → results → staged food →
@@ -263,6 +312,12 @@
      second design — a width difference may buy more room, never a different
      shape (ADR-0089 §5). */
   @media (min-width: 768px) {
+    /* Above the breakpoint nothing is replaced: there is room for a card over a
+       card and a dim between them to say so (§7). */
+    .bottom-sheet-content.beneath {
+      display: flex;
+    }
+
     .bottom-sheet-content.flush,
     .bottom-sheet-content.fill {
       top: auto;

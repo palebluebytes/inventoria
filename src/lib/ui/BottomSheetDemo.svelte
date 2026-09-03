@@ -3,11 +3,18 @@
   import BottomSheet from "./BottomSheet.svelte";
 
   // A dev/e2e-only harness (mounted via `?demo=bottomsheet`) that exercises the
-  // two shapes issue #17 added to BottomSheet: a docked footer alongside the
-  // scrollable body, and a sheet raised over a parent bits-ui dialog. It logs
-  // nothing and touches no ledger — it only proves the primitive's new surface.
+  // two shapes issue #17 added to BottomSheet — a docked footer alongside the
+  // scrollable body, and a sheet raised over a parent bits-ui dialog — and, since
+  // #330, a sheet raised over another sheet. It logs nothing and touches no
+  // ledger: it only proves the primitive's own surface, which is why the claims
+  // about stacking and about Back are asked of this file rather than of a screen
+  // whose sheets are three taps and a projection away.
   let parentOpen = $state(false);
   let sheetOpen = $state(false);
+  // A sheet raised over a *sheet*, which is a different claim from the sheet
+  // over a bits-ui dialog above: on a phone the one beneath is replaced rather
+  // than stacked, and Back is what returns to it (ADR-0089 §7, #330).
+  let secondOpen = $state(false);
 
   // The primitive has two height models below 768px and they are different
   // claims: an ordinary sheet is anchored to the band's bottom edge and capped
@@ -76,6 +83,9 @@
 {/if}
 
 <BottomSheet bind:isOpen={sheetOpen} {fillHeight} title="Docked sheet">
+  <button id="demo-open-second" onclick={() => (secondOpen = true)}
+    >Raise a second sheet</button
+  >
   <ul class="body-list">
     {#each rows as row (row)}
       <li>{row}</li>
@@ -114,6 +124,21 @@
       >Primary action (count: {primaryCount})</button
     >
     <button id="demo-sheet-close" class="ghost" onclick={close}>Close</button>
+  {/snippet}
+</BottomSheet>
+
+<!-- `elevated` because that is what a sheet over a sheet has always passed; §7
+     leaves it alone and retires only what it *expresses* on a phone, where the
+     sheet beneath is not on the screen to be stacked over. -->
+<BottomSheet
+  bind:isOpen={secondOpen}
+  title="Second sheet"
+  class="second-sheet"
+  elevated
+>
+  <p id="demo-second-body">The sheet that replaced the one beneath it.</p>
+  {#snippet footer({ close })}
+    <button id="demo-second-close" class="ghost" onclick={close}>Close</button>
   {/snippet}
 </BottomSheet>
 

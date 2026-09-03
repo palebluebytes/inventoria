@@ -11,7 +11,7 @@ import {
 } from "./support/stylesheet";
 
 /**
- * A sheet's geometry, read out of its `<style>` block (ADR-0089 §5, §8).
+ * A sheet's geometry, read out of its `<style>` block (ADR-0089 §5, §7, §8).
  *
  * These are source-level assertions on purpose. What the record decides is a
  * *height model* — which properties a pinned box is allowed to name — and that
@@ -173,6 +173,51 @@ describe("a centred card is this primitive above 768px (§6)", () => {
     const wide = rule(centredWide, WIDE);
     expect(decl(wide, "border-bottom")).toBe("var(--edge-thick)");
     expect(decl(wide, "box-shadow")).toBe("var(--shadow-3)");
+  });
+});
+
+/**
+ * §7: on a phone, a sheet opened over a sheet REPLACES it.
+ *
+ * Which sheet is on top is the one question CSS cannot answer, so the class
+ * arrives from `ui/back-stack.ts` (`tests/unit/back-stack.test.ts` is where the
+ * ordering and the Back gesture are proved). What is read here is the other
+ * half: the class is width-blind, and the stylesheet is what decides that below
+ * 768px it means gone and above it means nothing at all.
+ */
+describe("a sheet over a sheet replaces it on a phone (§7)", () => {
+  const beneath = ".bottom-sheet-content.beneath";
+  const OVERLAY = "src/lib/ui/Modal.svelte";
+
+  it("takes the replaced sheet off the screen", () => {
+    expect(decl(rule(beneath, EVERY_WIDTH), "display")).toBe("none");
+  });
+
+  it("takes its backdrop with it — two dims read as a depth §7 says is not there", () => {
+    // The backdrop belongs to Modal, which renders it, so the rule has to live
+    // there: a scoped selector in this file can never match an element another
+    // component emitted, which is the bug that left the dimmer unrendered once
+    // already.
+    expect(
+      decl(ruleOf(OVERLAY, ".modal-overlay.beneath", EVERY_WIDTH), "display")
+    ).toBe("none");
+  });
+
+  it("replaces nothing above 768px, where a dim between two cards is visible", () => {
+    expect(decl(rule(beneath, WIDE), "display")).toBe("flex");
+    expect(
+      decl(ruleOf(OVERLAY, ".modal-overlay.beneath", WIDE), "display")
+    ).toBe("block");
+  });
+
+  it("keeps the breakpoint out of the script", () => {
+    // The width is the stylesheet's business at every other point in this
+    // record, and a JavaScript copy of 768 would be a second source for the one
+    // number. The primitive is handed a fact — a sheet is above this one — and
+    // never asked how wide the screen is.
+    for (const file of [SHEET_FILE, OVERLAY]) {
+      expect(readFileSync(file, "utf8")).not.toMatch(/matchMedia/);
+    }
   });
 });
 

@@ -89,6 +89,7 @@
   } from "../stores/device-settings";
 
   import Card from "../ui/Card.svelte";
+  import { enterBackStop, leaveBackStop } from "../ui/back-stack";
   import Badge from "../ui/Badge.svelte";
   import ReceivedMealPanel from "./food/ReceivedMealPanel.svelte";
   import type { SendCode } from "../p2p/send-code";
@@ -526,33 +527,31 @@
   //
   // The bar covers the tab bar, so the ordinary way off this screen is gone
   // while a Selection is live. Back therefore has to mean "leave the
-  // Selection": one history entry is pushed when the mode opens and popped
-  // when it closes, so back only leaves Food once nothing is selected.
+  // Selection", and back only leaves Food once nothing is selected.
+  //
+  // The history entry that buys that is `ui/back-stack.ts`'s, not this file's
+  // (#330). It used to be pushed here, under a comment reading "ours is the top
+  // entry — nothing else in this app pushes one", and ADR-0089 §7 made that
+  // false: every open sheet pushes one now, including the ones this bar's own
+  // verbs open. Two owners of the top entry cannot both be right — one Back
+  // would have closed the sheet *and* cleared the Selection — so a Selection is
+  // a stop on the one stack, and the ordering is the order things opened in.
   //
   // Deliberately a plain `let`: this is bookkeeping ABOUT the effect, and
   // making it reactive would re-run the effect that writes it.
-  let selection_pushed = false;
+  let selection_stop = 0;
 
   $effect(() => {
     const active = selected_ids.size > 0;
     untrack(() => {
-      if (active && !selection_pushed) {
-        selection_pushed = true;
-        history.pushState({ inventoriaSelection: true }, "");
-      } else if (!active && selection_pushed) {
-        // Ours is the top entry — nothing else in this app pushes one.
-        selection_pushed = false;
-        history.back();
+      if (active && !selection_stop) {
+        selection_stop = enterBackStop("mode", clearSelection);
+      } else if (!active && selection_stop) {
+        leaveBackStop(selection_stop);
+        selection_stop = 0;
       }
     });
   });
-
-  function onPopState() {
-    if (selected_ids.size === 0) return;
-    // The entry is already gone; clearing must not pop a second time.
-    selection_pushed = false;
-    clearSelection();
-  }
 
   function onKeyDown(e: KeyboardEvent) {
     if (e.key !== "Escape" || selected_ids.size === 0) return;
@@ -858,10 +857,12 @@
   }
 </script>
 
-<!-- Escape and the platform back gesture both leave a Selection (ADR-0088 §3).
-     The bar covers the tab bar, so back has to mean the nearest thing there is:
-     it leaves the Selection first and Food only once nothing is selected. -->
-<svelte:window onpopstate={onPopState} onkeydown={onKeyDown} />
+<!-- Escape leaves a Selection (ADR-0088 §3). The bar covers the tab bar, so the
+     platform back gesture has to mean the nearest thing there is, and it leaves
+     the Selection first and Food only once nothing is selected — through the
+     Back stack above, which is the one owner of that gesture, not through a
+     handler here. -->
+<svelte:window onkeydown={onKeyDown} />
 
 <!-- The header marks are defined once and rendered twice: in the buttons
      themselves, and in the legend the ⓘ unfolds. Drawing the legend from the

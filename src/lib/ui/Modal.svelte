@@ -10,6 +10,7 @@
     overlayBlur = "blur(8px)",
     overlayZ = 998,
     overlayEnter = false,
+    beneath = false,
     children,
   }: {
     /** Bind for externally-controlled sheets; defaults open (parent mounts to show). */
@@ -35,6 +36,15 @@
      * default; sheets that slide up set it so dim and card enter together.
      */
     overlayEnter?: boolean;
+    /**
+     * Another dialog is open above this one. On a phone that dialog has replaced
+     * this one (ADR-0089 §7), so the backdrop painted here has nothing left to
+     * dim and is not shown: two stacked dims read as depth, which is the one
+     * thing §7 says there is none of. Above 768px it is shown as before — the
+     * width is the stylesheet's business, not the caller's, so this prop is the
+     * same fact at every size.
+     */
+    beneath?: boolean;
     /** Renders the dialog card. Spread `props` onto your card element and call
         `close()` from close/cancel buttons. */
     children: Snippet<[{ props: Record<string, unknown>; close: () => void }]>;
@@ -57,6 +67,7 @@
           {...props}
           class="modal-overlay"
           class:enter={overlayEnter}
+          class:beneath
           style:background={overlayBg}
           style:backdrop-filter={overlayBlur}
           style:z-index={overlayZ}
@@ -91,6 +102,20 @@
      for dialogs that don't animate in. */
   .modal-overlay.enter {
     animation: overlayFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+
+  /* The backdrop of a replaced dialog (ADR-0089 §7). Written mobile-first, like
+     the sheet's own geometry: the phone is the base rule and the breakpoint is
+     the override, because below it the surface above covers this one entirely
+     and a second dim only deepens the first. */
+  .modal-overlay.beneath {
+    display: none;
+  }
+
+  @media (min-width: 768px) {
+    .modal-overlay.beneath {
+      display: block;
+    }
   }
 
   @keyframes overlayFadeIn {
