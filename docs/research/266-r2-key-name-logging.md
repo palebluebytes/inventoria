@@ -95,11 +95,11 @@ The configuration example on that page fixes its position in the tree:
 
 ```jsonc
 {
-	"observability": {
-		"logs": {
-			"invocation_logs": false
-		}
-	}
+  "observability": {
+    "logs": {
+      "invocation_logs": false,
+    },
+  },
 }
 ```
 
@@ -218,12 +218,12 @@ nothing. There is no account-wide or default-on variant.
 
 ```json
 {
-	"account": "string",
-	"action": "string",
-	"bucket": "string",
-	"object": { "key": "string", "size": "number", "eTag": "string" },
-	"eventTime": "string",
-	"copySource": { "bucket": "string", "object": "string" }
+  "account": "string",
+  "action": "string",
+  "bucket": "string",
+  "object": { "key": "string", "size": "number", "eTag": "string" },
+  "eventTime": "string",
+  "copySource": { "bucket": "string", "object": "string" }
 }
 ```
 
@@ -404,14 +404,14 @@ The field tables are unchanged from #283 §1.1.
 **`r2OperationsAdaptiveGroups`** — "This dataset consists of the operations taken on a bucket within
 an account":
 
-| Field                | Documented as                                                          |
-| -------------------- | ---------------------------------------------------------------------- |
-| `actionType`         | "The name of the operation performed."                                 |
+| Field                | Documented as                                                              |
+| -------------------- | -------------------------------------------------------------------------- |
+| `actionType`         | "The name of the operation performed."                                     |
 | `actionStatus`       | "The status of the operation. Can be success, userError, or internalError" |
-| `bucketName`         | "The bucket this operation was performed on if applicable."            |
-| `objectName`         | **"The object this operation was performed on if applicable."**        |
-| `responseStatusCode` | "The http status code returned by this operation."                     |
-| `datetime`           | "The time of the request."                                             |
+| `bucketName`         | "The bucket this operation was performed on if applicable."                |
+| `objectName`         | **"The object this operation was performed on if applicable."**            |
+| `responseStatusCode` | "The http status code returned by this operation."                         |
+| `datetime`           | "The time of the request."                                                 |
 
 **`r2StorageAdaptiveGroups`** — "This dataset consists of the storage of a bucket within an account":
 `bucketName`, `payloadSize`, `metadataSize`, `objectCount`, `uploadCount`, `datetime`.
@@ -444,13 +444,13 @@ turns on this question. It is a question about the size of one exposure, not abo
 
 ### 5.3 The other three, confirmed
 
-| #283's claim                                                                                    | Re-verified                                                                                                                                              |
-| ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The account Logpush dataset list has no R2 dataset                                              | **Holds.** All 31 datasets re-read; §3.2 lists them.                                                                                                     |
-| Workers Logs is on by default                                                                   | **Holds**, verbatim: "All newly created Workers will come with the observability setting enabled by default."                                            |
-| `invocation_logs` is documented against a stored record, not live observation                   | **Holds.** Real-time logs "does not store Workers Logs", the tail object carries `event.request.url`, headers and `cf`, and no page relates the setting to it. |
-| Event notifications are opt-in and carry `object.key`                                           | **Holds**, and gained `LifecycleDeletion` and `copySource` — §2.                                                                                          |
-| Audit logs are configuration-only, 18 months                                                    | **Holds**, and is now stated by Cloudflare in terms for R2 rather than inferred — §3.1.                                                                   |
+| #283's claim                                                                  | Re-verified                                                                                                                                                    |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The account Logpush dataset list has no R2 dataset                            | **Holds.** All 31 datasets re-read; §3.2 lists them.                                                                                                           |
+| Workers Logs is on by default                                                 | **Holds**, verbatim: "All newly created Workers will come with the observability setting enabled by default."                                                  |
+| `invocation_logs` is documented against a stored record, not live observation | **Holds.** Real-time logs "does not store Workers Logs", the tail object carries `event.request.url`, headers and `cf`, and no page relates the setting to it. |
+| Event notifications are opt-in and carry `object.key`                         | **Holds**, and gained `LifecycleDeletion` and `copySource` — §2.                                                                                               |
+| Audit logs are configuration-only, 18 months                                  | **Holds**, and is now stated by Cloudflare in terms for R2 rather than inferred — §3.1.                                                                        |
 
 **One correction of emphasis, not of fact.** #283 §1.3 filed event notifications, Logpush and R2 Data
 Catalog together as "opt-in, and therefore genuinely absent". That grouping is right but it is
@@ -458,3 +458,79 @@ missing its largest member: **Workers Traces belongs in it and was not on the li
 only one of the four that records the object key from _inside_ our own Worker rather than from an
 external client. #283 §6's ceiling list should be read as having an eleventh item that is currently
 zero, and §1.3 of this note says under what conditions it stops being zero.
+
+---
+
+## 6. Every pipeline that can carry an R2 key, in one table
+
+| Pipeline                                                | Carries the key?                                 | On?                                          | Off switch                                   | Retention                  |
+| ------------------------------------------------------- | ------------------------------------------------ | -------------------------------------------- | -------------------------------------------- | -------------------------- |
+| **`r2OperationsAdaptiveGroups`** (R2 GraphQL analytics) | **Yes — `objectName`**                           | **Yes, unconditionally**                     | **None documented**                          | **31 days (query window)** |
+| Workers Traces, R2 binding span                         | **Yes — `cloudflare.r2.request.key`**            | No — opt-in                                  | `observability.traces.enabled = false` ✓ set | 3 d Free / 7 d Paid        |
+| R2 event notifications                                  | **Yes — `object.key`**, plus `copySource`        | No — opt-in per bucket                       | Do not create a rule ✓                       | The Queue's, not R2's      |
+| Zone `http_requests` Logpush                            | **Yes — as `ClientRequestURI`**, with `ClientIP` | No — needs a **public** bucket **and** a job | Keep the bucket binding-only ✓               | The job's destination      |
+| Workers Logs / invocation log                           | No — no binding field exists                     | Disabled anyway (§9)                         | `invocation_logs = false` ✓ set              | 3 d Free / 7 d Paid        |
+| `workers_trace_events` Logpush                          | No — no binding, subrequest or URL field         | No — opt-in                                  | Do not create a job ✓                        | The job's destination      |
+| Account audit logs                                      | No — `GetObject`/`PutObject` excluded in terms   | Yes                                          | n/a                                          | 18 months                  |
+| The bucket itself, via `list()`                         | Yes, by definition                               | Yes                                          | n/a — it is the store                        | Until deleted (#283 §1.4)  |
+
+**Read down the "On?" column: exactly one row is both on and unswitchable, and it is the first.**
+Four of the five key-carrying pipelines are closed, and three of those four are closed by a line in
+`wrangler.toml` or by a bucket setting we hold — which is to say, by something a future change can
+silently open.
+
+## 7. What follows
+
+1. **The destination ADR must state the exposure rather than claim a no-record posture.** The
+   sentence it is allowed is: _R2 records the object key of every operation in its own analytics
+   dataset, readable for 31 days by anyone with account access, with no setting that turns it off._
+   The sentence it is **not** allowed is anything of the form "no record of the address exists",
+   which is what ADR-0072 §12's voice would otherwise supply by habit.
+2. **Do not cite ADR-0072 §9 for R2 keys.** §9 is a Workers control over a record that never
+   contained a binding call. Citing it here is not merely imprecise; it would make the destination
+   ADR claim protection from a switch that protects nothing on this axis. If §9 is amended, the
+   amendment should say so in one clause.
+3. **Give the traces flag a record.** `[observability.traces] enabled = false` is currently the only
+   thing standing between the relay and a per-key Workers-side log, it predates the relay by three
+   months, no ADR mentions it, and Cloudflare has announced an intention to make tracing follow
+   `observability.enabled` — which this repo sets to `true`. It should be named in the destination
+   ADR beside `invocation_logs`, with the same "anyone proposing to switch this back on has to answer
+   first" clause §9 already carries, and it is a candidate for
+   `scripts/worker-closure-check.mjs`, which already pins the Worker's posture structurally.
+4. **State the two refusals that are currently accidents: no event notifications on the deposit
+   bucket, and the bucket is never public.** Each is a one-line decision that closes a key-carrying
+   pipeline, and neither is written down anywhere.
+5. **The 31-day window is now a parameter [#252](https://github.com/palebluebytes/inventoria/issues/252)
+   has to argue against.** #250's rotation defeats an operator who does not join across epochs. The
+   analytics dataset joins for them, for 31 days, for free. So the rotation's benefit is not "the
+   operator cannot link two epochs" but "the operator cannot link two epochs **more than 31 days
+   apart** without having decided in advance to keep the rows" — and an epoch materially shorter than
+   31 days buys much less than #250 priced it at, because every epoch inside the window is joinable
+   by `objectName` and `datetime` regardless. That is the single most load-bearing consequence in
+   this note.
+6. **It does not kill the store.** The operator learns the sequence of addresses, not what they
+   contain, and #283 §4.3's list of what the seal still protects is untouched. The correct posture is
+   the one #250 used: say it plainly, and let the destination ADR spend the guard knowingly.
+
+## What is not verified
+
+- **Whether a Worker R2 binding call appears in `r2OperationsAdaptiveGroups`.** Inherited from #283
+  as unverified and re-checked here; Cloudflare states nothing about access paths. Planned against on
+  the unfavourable reading. §5.2.
+- **Whether `invocation_logs = false` suppresses the live tail.** #283's open item, unchanged. It
+  concerns the invocation's request URL rather than an R2 key, so it does not bear on this note's
+  verdict.
+- **Which value wins when `[observability] enabled = true` and `[observability.traces] enabled =
+false` disagree**, if Cloudflare's announced change lands. `wrangler.toml`'s own comment records
+  that wrangler forwards both untouched and that Cloudflare does not answer the precedence question.
+  Checkable by experiment on a deployed Worker; nobody has run it.
+- **Whether the R2 analytics rows are deleted at 31 days or merely become unqueryable.** The docs say
+  "can be queried (and are retained) for the past 31 days", which is a read window; no Cloudflare page
+  states a deletion. §4.
+- **Cloudflare's internal retention of anything.** No number is published for R2 by any first-party
+  source. Recorded as the answer, per #266. §4.
+- **The `datetime` bucketing of either R2 dataset**, which decides how finely `objectName` rows can be
+  ordered in time. Not published; #283 §1.1 left it at "at least daily, upper bound unstated" and
+  nothing found here improves on that.
+- **Whether free operations (`DeleteObject`) produce an `objectName` row.** Not stated, and it decides
+  whether a collection is as visible as a deposit. #283's assumption that they do is kept.
