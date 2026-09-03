@@ -43,7 +43,7 @@
   // smaller, and the wipe removes less than the user feared and never more.
   import Alert from "../../ui/Alert.svelte";
   import Button from "../../ui/Button.svelte";
-  import Modal from "../../ui/Modal.svelte";
+  import BottomSheet from "../../ui/BottomSheet.svelte";
   import LedgerExportButton from "../ledger/LedgerExportButton.svelte";
   import LedgerImport from "../ledger/LedgerImport.svelte";
   import PersistenceBadge from "../storage/PersistenceBadge.svelte";
@@ -269,66 +269,63 @@
 </section>
 
 {#if confirming && plan}
-  <!-- Above the sheet that opened it: `BottomSheet` sits at 1700/1701, so a
-       confirmation on the default dialog layer would open behind the surface
-       the button is on. Same arrangement `LogReviewSheet`'s `elevated` uses,
-       stated here rather than borrowed, because this is a Modal and not a
-       sheet. -->
-  <Modal
+  <!-- `elevated`, because it opens over the settings sheet the button is on:
+       an ordinary sheet sits at 1700/1701 and this one has to clear that card
+       and dim it (ADR-0027). It is the same arrangement `LogReviewSheet` uses,
+       and it is now the same word — this was a hand-rolled 1801 card beside a
+       Modal backdrop raised to 1800, which is what `elevated` says (#329). -->
+  <BottomSheet
+    isOpen
+    title="Delete all my food data?"
     onClose={() => (confirming = false)}
-    title="Delete all my food data"
-    overlayZ={1800}
+    elevated
+    centred
   >
-    {#snippet children({ props, close })}
-      <div {...props} class="confirm-card">
-        <h3>Delete all my food data?</h3>
+    <!-- It counts against the ledger rather than reciting policy (§5). The
+           wipe computes its own row set, so the figures are free, and a
+           confirmation that reports on *your* data is the difference between
+           one that is read and one that is clicked through. -->
+    <ul class="ledger-figures">
+      <li>
+        <strong>{plan.datomsGoing.toLocaleString()} datoms</strong> go: every food,
+        recipe and meal you have logged.
+      </li>
+      <li>
+        <strong>{plan.storageGoing.toLocaleString()} local settings</strong>
+        go: your nutrition targets and limits, your display preferences, and the search
+        log this device keeps. An export does not carry these.
+      </li>
+      <li>{staysLine}</li>
+      <li>
+        Your Open Food Facts login and this device's identity are not touched.
+      </li>
+    </ul>
 
-        <!-- It counts against the ledger rather than reciting policy (§5). The
-             wipe computes its own row set, so the figures are free, and a
-             confirmation that reports on *your* data is the difference between
-             one that is read and one that is clicked through. -->
-        <ul class="ledger-figures">
-          <li>
-            <strong>{plan.datomsGoing.toLocaleString()} datoms</strong> go: every
-            food, recipe and meal you have logged.
-          </li>
-          <li>
-            <strong>{plan.storageGoing.toLocaleString()} local settings</strong>
-            go: your nutrition targets and limits, your display preferences, and the
-            search log this device keeps. An export does not carry these.
-          </li>
-          <li>{staysLine}</li>
-          <li>
-            Your Open Food Facts login and this device's identity are not
-            touched.
-          </li>
-        </ul>
+    <p class="warn">This cannot be undone.</p>
 
-        <p class="warn">This cannot be undone.</p>
-
-        <div class="confirm-actions">
-          <Button
-            variant="secondary"
-            size="sm"
-            onclick={close}
-            disabled={running}
-          >
-            Cancel
-          </Button>
-          <Button
-            id="confirm-delete-food-data-btn"
-            variant="danger"
-            size="sm"
-            loading={running}
-            disabled={running}
-            onclick={wipe}
-          >
-            Delete everything
-          </Button>
-        </div>
+    {#snippet footer({ close }: { close: () => void })}
+      <div class="confirm-actions">
+        <Button
+          variant="secondary"
+          size="sm"
+          onclick={close}
+          disabled={running}
+        >
+          Cancel
+        </Button>
+        <Button
+          id="confirm-delete-food-data-btn"
+          variant="danger"
+          size="sm"
+          loading={running}
+          disabled={running}
+          onclick={wipe}
+        >
+          Delete everything
+        </Button>
       </div>
     {/snippet}
-  </Modal>
+  </BottomSheet>
 {/if}
 
 <style>
@@ -340,13 +337,6 @@
   }
   h2 {
     font-size: var(--step-1);
-    font-weight: 800;
-    color: var(--ink);
-    text-transform: uppercase;
-    margin: 0;
-  }
-  h3 {
-    font-size: var(--step-0);
     font-weight: 800;
     color: var(--ink);
     text-transform: uppercase;
@@ -391,25 +381,9 @@
     color: var(--text-secondary);
     font-style: italic;
   }
-  /* One above this Modal's own backdrop, which the caller raised to 1800 so it
-     covers the sheet underneath. */
-  .confirm-card {
-    position: fixed;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 1801;
-    background: var(--paper);
-    border: var(--edge-thick);
-    box-shadow: var(--shadow-3);
-    width: calc(100% - 2 * var(--space-s));
-    max-width: 32rem;
-    max-height: 85vh;
-    overflow-y: auto;
-    padding: var(--space-m);
-  }
+  /* No top margin: the sheet's body pads itself, and this is its first row. */
   .ledger-figures {
-    margin: var(--space-s) 0 0;
+    margin: 0;
     padding-left: var(--space-m);
     display: flex;
     flex-direction: column;
@@ -424,12 +398,12 @@
     text-transform: uppercase;
     color: var(--ink);
   }
+  /* In the dock now, which owns its own inset, so no margin of its own. */
   .confirm-actions {
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-end;
     gap: var(--space-xs);
-    margin-top: var(--space-m);
   }
 
   @keyframes fadeIn {
