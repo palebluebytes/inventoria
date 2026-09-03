@@ -296,6 +296,14 @@
       max-height: 85vh;
       border-bottom: var(--edge-thick);
       box-shadow: var(--shadow-3);
+    }
+
+    /* Its own rule, and its own `:not()`, for a cascade reason rather than a
+       design one: `.no-anim` sets `animation: none` at every width and is
+       written above this block, so an `animation-name` here at equal
+       specificity would win on source order and re-animate a sheet that asked
+       not to be animated. */
+    .bottom-sheet-content.centred:not(.no-anim) {
       animation-name: popIn;
     }
   }

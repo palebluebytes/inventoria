@@ -157,6 +157,15 @@ describe("a centred card is this primitive above 768px (§6)", () => {
     expect(decl(wide, "max-height")).toBe("85vh");
   });
 
+  it("swaps the slide for a pop, without overriding an opt-out", () => {
+    // `.no-anim` sets `animation: none` at every width and is written above the
+    // breakpoint block, so an `animation-name` at equal specificity would win
+    // on source order and re-animate a sheet that asked not to be.
+    const anim = rule(`${centredWide}:not(.no-anim)`, WIDE);
+    expect(decl(anim, "animation-name")).toBe("popIn");
+    expect(decl(rule(centredWide, WIDE), "animation-name")).toBeUndefined();
+  });
+
   it("closes the frame a bottom-anchored sheet leaves open", () => {
     // The base sheet drops its bottom border and paints an ink bar above its
     // top edge, because its bottom edge is off-screen. A centred card has four
