@@ -21,7 +21,8 @@
  * Its one soft spot is that last inheritance, and it errs the safe way. A
  * browser that hands a text input `line-height: normal` instead makes the field
  * *smaller*, never larger, so a shortfall found here is a shortfall in any
- * browser — which is what lets #336 be filed off arithmetic.
+ * browser — which is what let #336 be filed off arithmetic, and what makes a
+ * declared floor the only fix that holds in every browser.
  */
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
@@ -82,10 +83,28 @@ const fontSizePx = (rule: Rule) =>
 const lineBoxPx = (rule: Rule) =>
   fontSizePx(rule) * Number(decl(rule, "line-height") ?? ROOT_LINE_HEIGHT);
 
+/**
+ * The height a rule builds out of its own declarations, for the single-line
+ * shape: two edges, its vertical padding twice, and the one line box its type
+ * step draws. The nav item is not this shape — it stacks two line boxes and a
+ * gap — so it does its arithmetic inline and this speaks for the rest.
+ */
+const builtHeightPx = (rule: Rule) =>
+  2 * borderPx(rule) + 2 * paddingYPx(rule) + lineBoxPx(rule);
+
 /** What a control declares as its floor, or null where it declares none. */
 function declaredFloorPx(rule: Rule): number | null {
   const floor = decl(rule, "min-height");
   return floor === undefined ? null : lengthPx(floor);
+}
+
+/** What a control actually stands: the taller of what it draws and its floor. */
+function heightPx(rule: Rule): number {
+  const drawn = builtHeightPx(rule);
+  const floor = declaredFloorPx(rule);
+  // Not `?? 0`: a rule with no floor is one whose drawn height is the whole
+  // answer, which is a different fact from a floor of zero.
+  return floor === null ? drawn : Math.max(drawn, floor);
 }
 
 const round = (n: number) => Math.round(n * 10) / 10;
@@ -100,6 +119,20 @@ describe("the floor itself", () => {
     // satisfies both rather than passing one guideline and failing the other.
     expect(TAP_MIN).toBe(48);
     expect(APP).not.toMatch(/--tap-min:\s*clamp/);
+  });
+
+  it("is compared against a border-box, which is the reset's and not a guess", () => {
+    // The premise under every figure in this file, and the one thing here that
+    // no control declares for itself. A height built up as border + padding +
+    // line boxes is only the same box as a `min-height` under `border-box`;
+    // under `content-box` a floor of 48 draws a 68px field, and the arithmetic
+    // below would go on reporting 48. The reset is what makes the two
+    // comparable, so it is read rather than assumed.
+    const reset = appSheet().filter(
+      (r) => r.at === null && r.selectors.includes("*")
+    );
+
+    expect(reset.map((r) => decl(r, "box-sizing"))).toContain("border-box");
   });
 });
 
@@ -196,39 +229,81 @@ describe("the dock's controls", () => {
 
   it("gives the commit button 51px, over a floor of `--tap-min` itself", () => {
     const commit = ruleOf("src/lib/views/food/CommitButton.svelte", ".commit");
-    const height =
-      2 * borderPx(commit) + 2 * paddingYPx(commit) + lineBoxPx(commit);
 
     expect(declaredFloorPx(commit)).toBe(TAP_MIN);
-    expect(round(height)).toBe(51);
-    expect(height).toBeGreaterThanOrEqual(TAP_MIN);
+    expect(round(builtHeightPx(commit))).toBe(51);
+    expect(builtHeightPx(commit)).toBeGreaterThanOrEqual(TAP_MIN);
   });
 
   /**
-   * The one that falls short, and the reason #332 §4 says to measure rather
-   * than redesign: it is the shared field skin, worn far beyond the dock, so
-   * the smallest honest fix is a change to every text field in the app. #336
-   * carries it.
+   * The pair #332 §4 measured and left, and #336 floored. They wear one skin —
+   * `.cb-input`'s comment says so outright — and it is worn far beyond the
+   * dock, which is why the fix is a floor and not more padding. That route is
+   * priced below rather than asserted in prose: the next step up on the space
+   * scale overshoots, and ADR-0089 §3 keeps the space scale and the
+   * measurements apart precisely so that nothing in between exists to pick.
+   *
+   * The floor also retires this file's one soft spot, for these two boxes. The
+   * model above assumes a field inherits `line-height: 1.5`; a browser handing
+   * it `line-height: normal` draws a shorter line box, and so a shorter field.
+   * A declared floor lands on 48 under either reading, which is more than the
+   * arithmetic alone could promise.
+   *
+   * It is only these two, and the tree around them is not level. Swept at the
+   * commit that floored them — every `input`, `textarea` and `select` skin in
+   * `src/lib`, 47 rules — twelve still stand under the floor, five declaring
+   * none and seven declaring one that is itself under it. The nearest is the
+   * skin's own further wearer, `views/habits/HabitDetailView.svelte`'s
+   * `.input-number-brutal`, at the same 47px and sharing its rule with a
+   * `.select-brutal`. None of the twelve is the dock's and none was measured by
+   * #332, so they are left: this file's scope is the nav, the dock and the
+   * operator keys, and a floor swept across the app is its own ticket for the
+   * same reason #336 was.
    */
-  it("leaves both text fields at 47px, just under the floor (#336)", () => {
+  it("floors both text fields at `--tap-min`, a pixel over what the skin draws (#336)", () => {
     const fields = {
       "the search field": ruleOf(STAGER, ".cb-input"),
       "the barcode field": ruleOf("src/lib/ui/Input.svelte", ".input"),
     };
 
-    const measured = Object.fromEntries(
+    const boxes = Object.fromEntries(
       Object.entries(fields).map(([name, rule]) => [
         name,
-        round(2 * borderPx(rule) + 2 * paddingYPx(rule) + lineBoxPx(rule)),
+        {
+          drawn: round(builtHeightPx(rule)),
+          floor: declaredFloorPx(rule),
+          // `box-sizing: border-box` is the reset's, universally — asserted at
+          // the top of this file — so a floor and the built-up height are the
+          // same box, and the taller of the two is what stands.
+          height: round(heightPx(rule)),
+        },
       ])
     );
 
-    expect(measured).toEqual({
-      "the search field": 47,
-      "the barcode field": 47,
+    expect(boxes).toEqual({
+      "the search field": { drawn: 47, floor: TAP_MIN, height: 48 },
+      "the barcode field": { drawn: 47, floor: TAP_MIN, height: 48 },
     });
-    for (const rule of Object.values(fields)) {
-      expect(declaredFloorPx(rule)).toBeNull();
+    for (const box of Object.values(boxes)) {
+      expect(box.height).toBeGreaterThanOrEqual(TAP_MIN);
     }
+  });
+
+  it("could not have got there on the space scale, which is why it is a floor", () => {
+    // The route #336 laid out beside this one, priced rather than asserted:
+    // more vertical padding. `--space-2xs` is what the skin carries and comes
+    // to 47; the next step up is `--space-xs` and it lands 8px over, so the
+    // scale has nothing that reaches 48. ADR-0089 §3 is why — the space scale
+    // is a design system and 48 is a measurement of a finger, and the two are
+    // deliberately not the same list. Kept here because a figure that lives
+    // only in a comment drifts, and this one carries the whole argument for
+    // `min-height` over `padding`.
+    const skin = ruleOf("src/lib/ui/Input.svelte", ".input");
+    const onNextStepUp =
+      2 * borderPx(skin) + 2 * tokenPx("--space-xs") + lineBoxPx(skin);
+
+    expect(paddingYPx(skin)).toBe(tokenPx("--space-2xs"));
+    expect(round(onNextStepUp)).toBe(56);
+    expect(onNextStepUp).toBeGreaterThan(TAP_MIN);
   });
 });

@@ -58,6 +58,16 @@
 
   .input {
     width: 100%;
+    /* The floor is what a finger needs, and not what the padding happens to
+       add up to. Everything else in this rule comes to 47px — `--space-2xs`
+       above and below a `--step-0` line box, inside a `--edge-thin` — one pixel
+       under `--tap-min` (#336, off #332 §4's measurement). Reaching 48 through
+       the space scale instead would need a value between `--space-2xs` and
+       `--space-xs`, and ADR-0089 §3 holds the space scale and the measurements
+       apart precisely so that none exists: the next step up overshoots to 56px.
+       `tests/unit/tap-targets.test.ts` re-derives all three numbers on every
+       run, the 56 included, so the route not taken cannot drift either. */
+    min-height: var(--tap-min);
     background: transparent;
     border: var(--edge-thin);
     border-radius: var(--radius);

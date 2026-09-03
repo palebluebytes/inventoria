@@ -3529,6 +3529,10 @@
   .cb-input {
     width: 100%;
     box-sizing: border-box;
+    /* Floored by the same arithmetic as ui/Input's `.input`, which this
+       mirrors: the skin draws 47px on its own, a pixel under `--tap-min`
+       (#336). The reasoning is written out there. */
+    min-height: var(--tap-min);
     background: transparent;
     border: var(--edge-thin);
     border-radius: var(--radius);
