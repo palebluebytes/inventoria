@@ -274,233 +274,251 @@
   let previewPhoto = $state<string | null>(null);
 </script>
 
-<!-- Week Strip date selector -->
-<WeekStrip bind:selectedDate />
+<!-- ── The day ────────────────────────────────────────────────────────────
+     The day screen, and the element the two-region grid is written on
+     (ADR-0091 §3). The grid is scoped to this box rather than to the shell for
+     a reason the prototype found by getting it wrong: written on `.main` it
+     outlived the screen it was drawn for, and a page — which carries no grid
+     area — auto-placed into the timeline's column with the rail sitting empty
+     beside it. A page is not the day, so it cannot inherit the day's shape.
 
-<!-- Header Info -->
-<div class="dashboard-header">
-  <h2>{formatDateHeader(selectedDate)}</h2>
-</div>
+     The overlays below stay outside it. They are pinned boxes rather than
+     regions of a screen, and a grid should never have to know that one of its
+     children took itself out of flow. -->
+<div class="day">
+  <!-- Week Strip date selector. In a box of its own because a grid places its
+       children, and this child is another component's root: the box is this
+       screen's handle on where the strip goes, rather than this screen reaching
+       into `WeekStrip`'s class names to say it. -->
+  <div class="day-strip">
+    <WeekStrip bind:selectedDate />
+  </div>
 
-<!-- The day's totals: one bar per nutrient, Calories first among equals. Its
-     header carries both controls — the disclosure that folds the bars away, and
-     the way into the full day RDA-vs-target modal (ticket #42), which used to be
-     an unlabelled tap on the whole block. The modal control stays in the header
-     so it is still reachable with the bars collapsed, and it keeps its old
-     accessible name. Always openable: an untouched day opens to a plain "no food
-     added" state rather than nothing. -->
-<section class="aggregates">
-  <div class="aggregates-head">
-    <button
-      type="button"
-      class="aggregates-toggle"
-      aria-expanded={$nutritionPanelOpen}
-      aria-controls={metersId}
-      onclick={() => setNutritionPanelOpen(!$nutritionPanelOpen)}
-    >
-      <!-- One shape rotated rather than two glyphs swapped, so the word beside
-           it cannot shift sideways when the open mark is a different width from
-           the closed one. -->
-      <svg
-        class="aggregates-caret"
-        class:is-open={$nutritionPanelOpen}
-        viewBox="0 0 24 24"
-        aria-hidden="true"
+  <!-- Header Info -->
+  <div class="dashboard-header">
+    <h2>{formatDateHeader(selectedDate)}</h2>
+  </div>
+
+  <!-- The day's totals: one bar per nutrient, Calories first among equals. Its
+       header carries both controls — the disclosure that folds the bars away, and
+       the way into the full day RDA-vs-target modal (ticket #42), which used to be
+       an unlabelled tap on the whole block. The modal control stays in the header
+       so it is still reachable with the bars collapsed, and it keeps its old
+       accessible name. Always openable: an untouched day opens to a plain "no food
+       added" state rather than nothing. -->
+  <section class="aggregates">
+    <div class="aggregates-head">
+      <button
+        type="button"
+        class="aggregates-toggle"
+        aria-expanded={$nutritionPanelOpen}
+        aria-controls={metersId}
+        onclick={() => setNutritionPanelOpen(!$nutritionPanelOpen)}
       >
-        <path d="M7 6 L17 12 L7 18 Z" fill="currentColor"></path>
-      </svg>
-      <span class="aggregates-title">Nutrition</span>
-    </button>
-    <Button
-      variant="secondary"
-      size="sm"
-      aria-haspopup="dialog"
-      aria-label="Show full day nutrition"
-      onclick={() => (showFullDay = true)}>Full day</Button
+        <!-- One shape rotated rather than two glyphs swapped, so the word beside
+             it cannot shift sideways when the open mark is a different width from
+             the closed one. -->
+        <svg
+          class="aggregates-caret"
+          class:is-open={$nutritionPanelOpen}
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path d="M7 6 L17 12 L7 18 Z" fill="currentColor"></path>
+        </svg>
+        <span class="aggregates-title">Nutrition</span>
+      </button>
+      <Button
+        variant="secondary"
+        size="sm"
+        aria-haspopup="dialog"
+        aria-label="Show full day nutrition"
+        onclick={() => (showFullDay = true)}>Full day</Button
+      >
+    </div>
+    <div
+      id={metersId}
+      class="aggregates-body"
+      hidden={!$nutritionPanelOpen}
+      aria-busy={!dayKnown}
     >
-  </div>
-  <div
-    id={metersId}
-    class="aggregates-body"
-    hidden={!$nutritionPanelOpen}
-    aria-busy={!dayKnown}
-  >
-    <!-- The rows are drawn either way; unknown withholds their figures rather
-         than printing a "0 kcal" nobody has read. -->
-    <MacroMeters {meters} loading={!dayKnown} />
-  </div>
-</section>
+      <!-- The rows are drawn either way; unknown withholds their figures rather
+           than printing a "0 kcal" nobody has read. -->
+      <MacroMeters {meters} loading={!dayKnown} />
+    </div>
+  </section>
 
-<!-- Timeline & Logged Meals -->
-<div class="timeline mt-6">
-  {#each meal_types as meal_type}
-    <div class="meal-section">
-      <div class="meal-section-header">
-        <!-- The meal's name is the way into its own nutrition panel, and the
-             one that always works: an empty meal has no subtotal line at all
-             (ADR-0074 §1). A button INSIDE the heading rather than a heading
-             that is a button, so the row is still the meal's h3 to anything
-             reading the page's outline and only the words are the control.
+  <!-- Timeline & Logged Meals -->
+  <div class="timeline mt-6">
+    {#each meal_types as meal_type}
+      <div class="meal-section">
+        <div class="meal-section-header">
+          <!-- The meal's name is the way into its own nutrition panel, and the
+               one that always works: an empty meal has no subtotal line at all
+               (ADR-0074 §1). A button INSIDE the heading rather than a heading
+               that is a button, so the row is still the meal's h3 to anything
+               reading the page's outline and only the words are the control.
 
-             It is not a sixth way in. ADR-0059's header is untouched: this
-             control was already on the screen as inert text. -->
-        <h3 class="meal-title">
+               It is not a sixth way in. ADR-0059's header is untouched: this
+               control was already on the screen as inert text. -->
+          <h3 class="meal-title">
+            <button
+              type="button"
+              class="meal-title-btn"
+              aria-haspopup="dialog"
+              onclick={() => (mealPanel = meal_type)}
+              >{meal_type.toUpperCase()}</button
+            >
+          </h3>
+          <!-- Every way into this meal is its own control, in line with the meal
+               name, and there is no `+` (ADR-0059 §1). All five are secondary:
+               with the `+` gone there is no primary action left to protect, and
+               electing one of the five would be a claim nothing supports (§3).
+               The past-meal control is absent, not disabled, until the meal has
+               history (§4) — and since it leads the row, the row shortens from
+               the meal name's end. -->
+          <div class="meal-actions">
+            {#each WAYS_IN as kind (kind)}
+              {#if kind !== "past" || mealHasPast[meal_type]}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  class="way-in"
+                  disabled={!dbReady}
+                  aria-label={wayInLabel(kind, meal_type)}
+                  title={wayInLabel(kind, meal_type)}
+                  onclick={() => onEnterMeal(meal_type, kind)}
+                >
+                  <WayInIcon {kind} />
+                </Button>
+              {/if}
+            {/each}
+          </div>
+        </div>
+
+        {#if copyNote && copyNote.meal_type === meal_type}
+          <!-- ADR-0058 §11: a clean copy says nothing, so this exists only when
+               something went wrong. -->
+          <p class="meal-note" role="status">{copyNote.text}</p>
+        {/if}
+
+        {#if !dayKnown}
+          <!-- Not "no breakfast" — we have not read the day yet. One row's worth of
+               placeholder, which is also the height an empty meal's message takes,
+               so neither outcome moves the meals below it. -->
+          <div class="meal-skeleton" aria-busy="true">
+            <Skeleton height="var(--step-n2)" width="60%" />
+          </div>
+        {:else if groupedMeals[meal_type].length === 0}
+          <div class="empty-meal">
+            <p>No {meal_type} logged yet.</p>
+          </div>
+        {:else}
+          {@const mealPills = buildNutrientPills(
+            totalNutrition(groupedMeals[meal_type]),
+            macroNutrients($visibleNutrients),
+            $calorieDisplayDecimals,
+            true
+          )}
+          <div class="meal-items-list">
+            {#each groupedMeals[meal_type] as item}
+              {@const isSelected = selectedIds.has(item.id)}
+              {@const qty = parseLoggedQuantity(item.quantity)}
+              <!-- While a selection is active the check takes the remove ✕'s
+                   corner: the whole card is the tap target then, so the ✕ has no
+                   role, and the check reads where the eye already looks. -->
+              {#snippet selectCheck()}
+                <span
+                  class="select-check"
+                  class:on={isSelected}
+                  aria-hidden="true">{isSelected ? "✓" : ""}</span
+                >
+              {/snippet}
+              <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+              <div
+                class="meal-item-card"
+                class:selectable={selectionActive}
+                class:selected={isSelected}
+                use:longpress={{ onlongpress: () => onCardLongPress(item.id) }}
+                onpointerdown={onCardPointerDown}
+                onclick={() => onCardClick(item)}
+                onkeydown={(e) =>
+                  selectionActive &&
+                  (e.key === "Enter" || e.key === " ") &&
+                  onTapItem(item.id)}
+                role={selectionActive ? "button" : undefined}
+                tabindex={selectionActive ? 0 : undefined}
+              >
+                <FoodItemRow
+                  logged
+                  name={item.foodName || "Unknown Food"}
+                  amount={qty.amount}
+                  unit={qty.unit}
+                  calories={Number(item.calories) || 0}
+                  selected={isSelected}
+                  preview={scalePreview?.get(item.id)}
+                  note={scaleNotes?.get(item.id) ?? ""}
+                  onRemove={() => onRemoveItem(item.id)}
+                  corner={selectionActive ? selectCheck : undefined}
+                >
+                  {#snippet lead()}
+                    {#if item.photoBase64}
+                      <button
+                        type="button"
+                        class="meal-item-thumb-btn"
+                        aria-label="View {item.foodName} photo"
+                        onpointerdown={(e) => e.stopPropagation()}
+                        onclick={(e) => {
+                          e.stopPropagation();
+                          if (suppressNextClick) {
+                            suppressNextClick = false;
+                            return;
+                          }
+                          if (selectionActive) onTapItem(item.id);
+                          else previewPhoto = item.photoBase64;
+                        }}
+                      >
+                        <img
+                          src={item.photoBase64}
+                          alt={item.foodName}
+                          class="meal-item-thumb"
+                        />
+                      </button>
+                    {/if}
+                  {/snippet}
+                </FoodItemRow>
+              </div>
+            {/each}
+          </div>
+          <!-- Subtle one-line subtotal for the section: Calories + just the macros
+               the user tracks (micronutrients belong on the full-day RDA surface,
+               not a running tally), summed over only this meal's items. Empty
+               macros are dropped (hideEmpty) — a "0 g" or absent "–" adds no
+               information, and a calories-only meal reads as just its kcal. -->
+          <!-- The other way into the meal's own figures (ADR-0074 §1): the line
+               of figures a meal already ends in, which did nothing. It is the
+               convenience rather than the door — a meal with no rows never
+               renders it, which is why the name is the one that always works. -->
           <button
             type="button"
-            class="meal-title-btn"
+            class="meal-total meal-total-btn"
+            data-testid="meal-total-{meal_type}"
             aria-haspopup="dialog"
+            aria-label="{meal_type} nutrition"
             onclick={() => (mealPanel = meal_type)}
-            >{meal_type.toUpperCase()}</button
           >
-        </h3>
-        <!-- Every way into this meal is its own control, in line with the meal
-             name, and there is no `+` (ADR-0059 §1). All five are secondary:
-             with the `+` gone there is no primary action left to protect, and
-             electing one of the five would be a claim nothing supports (§3).
-             The past-meal control is absent, not disabled, until the meal has
-             history (§4) — and since it leads the row, the row shortens from
-             the meal name's end. -->
-        <div class="meal-actions">
-          {#each WAYS_IN as kind (kind)}
-            {#if kind !== "past" || mealHasPast[meal_type]}
-              <Button
-                variant="secondary"
-                size="sm"
-                class="way-in"
-                disabled={!dbReady}
-                aria-label={wayInLabel(kind, meal_type)}
-                title={wayInLabel(kind, meal_type)}
-                onclick={() => onEnterMeal(meal_type, kind)}
-              >
-                <WayInIcon {kind} />
-              </Button>
-            {/if}
-          {/each}
-        </div>
+            {#each mealPills as pill (pill.key)}
+              <span class="meal-total-item nutrient-{pill.key}">
+                {#if pill.key !== "calories"}<span class="meal-total-label"
+                    >{nutrientShortLabel(pill.key)}</span
+                  >{/if}<span class="meal-total-value">{pill.value}</span>
+              </span>
+            {/each}
+          </button>
+        {/if}
       </div>
-
-      {#if copyNote && copyNote.meal_type === meal_type}
-        <!-- ADR-0058 §11: a clean copy says nothing, so this exists only when
-             something went wrong. -->
-        <p class="meal-note" role="status">{copyNote.text}</p>
-      {/if}
-
-      {#if !dayKnown}
-        <!-- Not "no breakfast" — we have not read the day yet. One row's worth of
-             placeholder, which is also the height an empty meal's message takes,
-             so neither outcome moves the meals below it. -->
-        <div class="meal-skeleton" aria-busy="true">
-          <Skeleton height="var(--step-n2)" width="60%" />
-        </div>
-      {:else if groupedMeals[meal_type].length === 0}
-        <div class="empty-meal">
-          <p>No {meal_type} logged yet.</p>
-        </div>
-      {:else}
-        {@const mealPills = buildNutrientPills(
-          totalNutrition(groupedMeals[meal_type]),
-          macroNutrients($visibleNutrients),
-          $calorieDisplayDecimals,
-          true
-        )}
-        <div class="meal-items-list">
-          {#each groupedMeals[meal_type] as item}
-            {@const isSelected = selectedIds.has(item.id)}
-            {@const qty = parseLoggedQuantity(item.quantity)}
-            <!-- While a selection is active the check takes the remove ✕'s
-                 corner: the whole card is the tap target then, so the ✕ has no
-                 role, and the check reads where the eye already looks. -->
-            {#snippet selectCheck()}
-              <span
-                class="select-check"
-                class:on={isSelected}
-                aria-hidden="true">{isSelected ? "✓" : ""}</span
-              >
-            {/snippet}
-            <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-            <div
-              class="meal-item-card"
-              class:selectable={selectionActive}
-              class:selected={isSelected}
-              use:longpress={{ onlongpress: () => onCardLongPress(item.id) }}
-              onpointerdown={onCardPointerDown}
-              onclick={() => onCardClick(item)}
-              onkeydown={(e) =>
-                selectionActive &&
-                (e.key === "Enter" || e.key === " ") &&
-                onTapItem(item.id)}
-              role={selectionActive ? "button" : undefined}
-              tabindex={selectionActive ? 0 : undefined}
-            >
-              <FoodItemRow
-                logged
-                name={item.foodName || "Unknown Food"}
-                amount={qty.amount}
-                unit={qty.unit}
-                calories={Number(item.calories) || 0}
-                selected={isSelected}
-                preview={scalePreview?.get(item.id)}
-                note={scaleNotes?.get(item.id) ?? ""}
-                onRemove={() => onRemoveItem(item.id)}
-                corner={selectionActive ? selectCheck : undefined}
-              >
-                {#snippet lead()}
-                  {#if item.photoBase64}
-                    <button
-                      type="button"
-                      class="meal-item-thumb-btn"
-                      aria-label="View {item.foodName} photo"
-                      onpointerdown={(e) => e.stopPropagation()}
-                      onclick={(e) => {
-                        e.stopPropagation();
-                        if (suppressNextClick) {
-                          suppressNextClick = false;
-                          return;
-                        }
-                        if (selectionActive) onTapItem(item.id);
-                        else previewPhoto = item.photoBase64;
-                      }}
-                    >
-                      <img
-                        src={item.photoBase64}
-                        alt={item.foodName}
-                        class="meal-item-thumb"
-                      />
-                    </button>
-                  {/if}
-                {/snippet}
-              </FoodItemRow>
-            </div>
-          {/each}
-        </div>
-        <!-- Subtle one-line subtotal for the section: Calories + just the macros
-             the user tracks (micronutrients belong on the full-day RDA surface,
-             not a running tally), summed over only this meal's items. Empty
-             macros are dropped (hideEmpty) — a "0 g" or absent "–" adds no
-             information, and a calories-only meal reads as just its kcal. -->
-        <!-- The other way into the meal's own figures (ADR-0074 §1): the line
-             of figures a meal already ends in, which did nothing. It is the
-             convenience rather than the door — a meal with no rows never
-             renders it, which is why the name is the one that always works. -->
-        <button
-          type="button"
-          class="meal-total meal-total-btn"
-          data-testid="meal-total-{meal_type}"
-          aria-haspopup="dialog"
-          aria-label="{meal_type} nutrition"
-          onclick={() => (mealPanel = meal_type)}
-        >
-          {#each mealPills as pill (pill.key)}
-            <span class="meal-total-item nutrient-{pill.key}">
-              {#if pill.key !== "calories"}<span class="meal-total-label"
-                  >{nutrientShortLabel(pill.key)}</span
-                >{/if}<span class="meal-total-value">{pill.value}</span>
-            </span>
-          {/each}
-        </button>
-      {/if}
-    </div>
-  {/each}
+    {/each}
+  </div>
 </div>
 
 <!-- Full day nutrition Modal: opened by tapping the aggregates. The full
@@ -1101,6 +1119,76 @@
   @media (min-width: 768px) {
     :global(.mt-6) {
       margin-top: var(--space-l);
+    }
+  }
+  /* ── The day's two regions ───────────────────────────────────────────────
+     Above the shell breakpoint the day is a meal timeline holding the reading
+     edge and a rail of the day's numbers beside it (ADR-0091 §2). Below it —
+     which is every phone, and every window narrower than a desktop — `.day` is
+     a plain block and this whole section does not exist. The base rules are the
+     phone's; the query is the override.
+
+     **`:global(.rations)` is the Facet, and it is load-bearing.** The root
+     renders this same component in its Food tab, behind a sidebar and inside
+     the same shell rule, and ADR-0091 gives the root that rule and nothing
+     else: a rail there would be a third column beside a navigation column, and
+     a root screen composition this work explicitly left out (#337 decision 8).
+     One foreign class name, naming the shell whose shape this is, rather than
+     the alternative of threading a prop through `FoodView` to say the same
+     thing in two more files.
+
+     The rail is NOT pinned, and that is decided rather than deferred
+     (ADR-0091 §4). Its blocks are siblings of the timeline, not children of a
+     rail element, so there is no unit to pin: pinning them separately either
+     overlaps them or needs the block above as a constant. A rail that should be
+     pinned is a rail that needs a real element, and that is the trigger for
+     reopening it. */
+  @media (min-width: 1180px) {
+    :global(.rations) .day {
+      display: grid;
+      /* The rail is a fixed column and the timeline takes the slack, because
+         the rail holds meters whose width is set by what they say and the
+         timeline holds prose-width rows. `minmax(0, 1fr)` rather than `1fr` so
+         a long food name shrinks the track instead of pushing the rail off. */
+      grid-template-columns: minmax(0, 1fr) var(--rail);
+      grid-template-areas:
+        "strip strip"
+        "banner banner"
+        "meals numbers";
+      /* The rail sits at the top of its column; the timeline is as tall as the
+         day is. Without it the two stretch to each other and the meters float
+         in the middle of a column of air. */
+      align-items: start;
+      column-gap: var(--space-l);
+      /* The rows do the vertical rhythm here, so nothing in the grid has to
+         know how tall its neighbour is — which is why the three blocks below
+         give up the top margins they carry in the single column. In flow those
+         margins ARE the rhythm; side by side they would start the two columns
+         on different lines. */
+      row-gap: var(--space-m);
+    }
+
+    /* The strip is a ruler and it navigates rather than reports, so it keeps
+       the full measure above both columns (#337 decision 3). */
+    :global(.rations) .day > .day-strip {
+      grid-area: strip;
+    }
+
+    :global(.rations) .day > .dashboard-header {
+      grid-area: banner;
+      margin-top: 0;
+    }
+
+    :global(.rations) .day > .timeline {
+      grid-area: meals;
+      /* `.mt-6` is the gap under the meters, which is what the timeline used to
+         follow. Side by side, the two columns start on the same line. */
+      margin-top: 0;
+    }
+
+    :global(.rations) .day > .aggregates {
+      grid-area: numbers;
+      margin-top: 0;
     }
   }
 </style>

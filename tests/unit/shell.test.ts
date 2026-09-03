@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
 import {
   appSheet,
   decl,
@@ -97,5 +98,56 @@ describe("one shell rule, written once and shared by both Facets", () => {
       );
       expect(own).toEqual([]);
     }
+  });
+});
+
+describe("the two regions are the day's shape, not the shell's", () => {
+  it("puts the grid on the day screen, inside Rations' shell only", () => {
+    // Scoped twice over, and each scope answers a different failure. `.day` is
+    // the day screen's own element, so a page (#345) cannot inherit the grid by
+    // standing where the day stood. `:global(.rations)` is the Facet: the root
+    // renders this same component in its Food tab behind a sidebar, and gets
+    // the shell rule and nothing else (ADR-0091, Consequences).
+    const day = ruleOf(DAY, ":global(.rations) .day", SHELL);
+    expect(decl(day, "display")).toBe("grid");
+    // The timeline holds the reading edge and the rail is beside it, so the
+    // rail's own width is the second track and the timeline takes the slack.
+    // `minmax(0, 1fr)` rather than `1fr` so a long food name shrinks that track
+    // instead of pushing the rail off the screen.
+    expect(decl(day, "grid-template-columns")).toBe(
+      "minmax(0, 1fr) var(--rail)"
+    );
+  });
+
+  it("holds the shell's class name and the day's selector together", () => {
+    // The one thing `:global()` gives up: `.rations` is minted in another file,
+    // so the compiler will not tell anyone who renames it that a grid stopped
+    // applying. Nothing about the day would look wrong — it would just be one
+    // column again, at every width, with a green suite. So the shell's class is
+    // read here rather than assumed.
+    expect(readFileSync(RATIONS_SHELL, "utf8")).toContain('class="rations"');
+  });
+
+  it("is one column at every width below the shell breakpoint", () => {
+    // The mobile-first floor: `.day` is a plain block wrapper, and the grid is
+    // the override. Anything unconditional here would reach a phone.
+    const unconditional = rulesOf(styleOf(DAY)).filter(
+      (r) => r.at === null && r.selectors.includes(":global(.rations) .day")
+    );
+    expect(unconditional).toEqual([]);
+  });
+
+  it("puts the timeline in the left region, holding the reading edge", () => {
+    const timeline = ruleOf(DAY, ":global(.rations) .day > .timeline", SHELL);
+    expect(decl(timeline, "grid-area")).toBe("meals");
+  });
+
+  it("does not pin the rail", () => {
+    // ADR-0091 §4, decided rather than deferred: the rail's blocks are siblings
+    // of the timeline, so there is no unit to pin. A `sticky` here would be
+    // pinning them separately, which either overlaps them or needs the block
+    // above as a constant. The trigger for reopening it is a real rail element.
+    const wide = rulesOf(styleOf(DAY)).filter((r) => r.at === SHELL);
+    expect(wide.map((r) => decl(r, "position")).filter(Boolean)).toEqual([]);
   });
 });
