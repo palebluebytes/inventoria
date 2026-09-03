@@ -3,7 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-09-02  
 **Amends:** ADR-0027 §Decision (the sheet's height model and its over-dialog layering)  
-**Implemented:** §1-§4 by #327 — `ui/viewport-inset.ts`, `facets/startup.ts`, `app.css`, both `index.html`, `layout/Sidebar.svelte`. §5 and §8's scroll-chaining rule by #328 — `ui/BottomSheet.svelte`, `views/food/FoodStager.svelte`. §9 by #333 — `tests/support/virtual-keyboard.ts`, `tests/keyboard-invariants.spec.ts`. §8's other two rules by #332 — `views/food/FoodStager.svelte`, `views/food/CommitButton.svelte`, and the 16px floor swept across 12 components. §1's consumer with no dialog around it by #331 — `views/food/SelectionBar.svelte`, one declaration. §6 by #329 — `ui/BottomSheet.svelte`'s `centred`, and the six surfaces that folded onto it: `views/food/NutritionPanel.svelte` (three consumers), `views/items/ItemEditModal.svelte`, `views/media/MediaIngestModal.svelte`, `views/media/MediaEngagementModal.svelte`, `views/food/DailyDashboard.svelte`'s photo preview and `views/food/FoodDataSection.svelte`'s wipe confirmation; see the Amendment below for the roster this record got wrong. §7 is still only the prototype on `prototype/326-search-ui`
+**Implemented:** §1-§4 by #327 — `ui/viewport-inset.ts`, `facets/startup.ts`, `app.css`, both `index.html`, `layout/Sidebar.svelte`. §5 and §8's scroll-chaining rule by #328 — `ui/BottomSheet.svelte`, `views/food/FoodStager.svelte`. §9 by #333 — `tests/support/virtual-keyboard.ts`, `tests/keyboard-invariants.spec.ts`. §8's other two rules by #332 — `views/food/FoodStager.svelte`, `views/food/CommitButton.svelte`, and the 16px floor swept across 12 components. §1's consumer with no dialog around it by #331 — `views/food/SelectionBar.svelte`, one declaration. §6 by #329 — `ui/BottomSheet.svelte`'s `centred`, and the six surfaces that folded onto it: `views/food/NutritionPanel.svelte` (three consumers), `views/items/ItemEditModal.svelte`, `views/media/MediaIngestModal.svelte`, `views/media/MediaEngagementModal.svelte`, `views/food/DailyDashboard.svelte`'s photo preview and `views/food/FoodDataSection.svelte`'s wipe confirmation; see the Amendment below for the roster this record got wrong. §7 by #330 — `ui/back-stack.ts`, `ui/BottomSheet.svelte`, `ui/Modal.svelte`, `views/FoodView.svelte`, and the second sheet `ui/BottomSheetDemo.svelte` raises for it
 
 ## Context
 
@@ -171,3 +171,49 @@ settings sheet, so it folded onto `elevated`, which §7 retires on a phone. It w
 already stacking that way by hand at 1800/1801, so this is the same behaviour under
 the primitive's word rather than a new consumer of a shape §7 refuses — but it is one
 more call site for §7 to reckon with.
+
+## Amendment (2026-09-03): what §7 turned out to need, and where Back stops
+
+§7 shipped as #330. Four things around it were absent from the record rather than
+wrong in it, and one Consequence above needs a fact it does not carry.
+
+- **Back is a single resource, and this record was not the first claim on it.**
+  §7 gives every open sheet a history entry, and
+  [ADR-0088](0088-a-selection-is-a-mode-with-its-own-verbs-and-its-own-way-out.md)
+  §3 had already given one to a live Selection — under a comment in
+  `FoodView.svelte` reading "ours is the top entry, nothing else in this app
+  pushes one", which §7 falsifies. The two could not be built beside each other:
+  a Selection's own verbs open sheets, so one Back would have closed the sheet
+  **and** cleared the Selection, and left the Selection's entry behind for the
+  next one. So there is one stack, `ui/back-stack.ts`, and a Selection is a stop
+  on it beside the sheets. The ordering is the order things opened in, which is
+  the only ordering a person could predict.
+
+- **Back closes a sheet at every width; only the replacement is the phone's.**
+  §7 reads as one rule and is two. A dim between two cards is a width question
+  and the record settles it. Whether Back leaves the app with a dialog open is
+  not: a desktop browser has the same button, and the answer that is right on a
+  phone is not wrong on a laptop. One code path, for the reason §1 gives for
+  refusing `interactive-widget`.
+
+- **A replaced sheet is hidden, not unmounted.** "Replaces" describes what a
+  person sees, and unmounting would also throw away what they left there — a
+  scroll position, a half-filled field, a child component's state. The sheet
+  beneath is `display: none`, which takes it out of the focus order and the
+  accessibility tree without taking it out of the document.
+
+- **A `Modal` that is not a sheet is not a stop, and Back still leaves the app
+  with one open.** The stack knows sheets, because §7 is written about sheets.
+  Two surfaces are outside it: `views/food/LabelPhotoReader.svelte`, the one
+  screen `Modal` carries directly, and `ui/BottomSheetDemo.svelte`'s stand-in
+  dialog. Naming the gap rather than widening the rule under it: making every
+  dialog a stop is a decision about `Modal`, and the record that reaches it
+  should say so out loud.
+
+- **For whoever takes the `elevated` decision this record flags.** Two
+  measurements it does not have. The default layer, 1700/1701, is already above
+  the 1600 a bits-ui dialog card renders at, so `elevated` has never been what
+  clears a dialog — it has only ever been a sheet over a sheet. And on a phone it
+  now expresses nothing whatever, because the sheet it would be raised over is
+  not on the screen. Above 768px it is still the only thing that puts a dim
+  between two cards.

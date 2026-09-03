@@ -397,7 +397,9 @@ component, including the docked-footer and over-dialog variants. On a phone it i
 also the _only_ overlay shape: a centred card is this primitive above 768px — its
 `centred` prop, which does nothing at all below that width — and never a hand-rolled
 `translate(-50%, -50%)`. Six surfaces re-derived that box until #329 folded them on.
-See ADR-0027, ADR-0028 and ADR-0089 §6.
+A sheet opened over a sheet _replaces_ it there rather than stacking on it, and is a
+Back stop while it is open.
+See ADR-0027, ADR-0028 and ADR-0089 §6, §7.
 _Avoid_: Drawer, panel, tray, modal (when a sheet is meant), a second sheet component
 
 **Modal**:
@@ -411,6 +413,17 @@ BottomSheet; reach for this only when a surface needs a dialog's machinery aroun
 something that is not a sheet.
 See ADR-0027 and ADR-0089 §6.
 _Avoid_: Dialog, popup, overlay, centred card (which is BottomSheet's `centred`)
+
+**Back stop**:
+Something the platform's Back gesture dismisses instead of leaving the app — an open
+sheet, or a mode that has taken the ordinary way off a screen away, which today is a
+live Selection covering the tab bar. They form one stack (`ui/back-stack.ts`), one
+history entry each, dismissed topmost-first, because Back is a single resource and
+two owners of the top entry cannot both be right. A dialog that is not a sheet is
+not one of these yet, and Back still leaves the app with `LabelPhotoReader` open.
+See ADR-0089 §7 and ADR-0088 §3.
+_Avoid_: History entry, route, back handler, dismissable, back button (which is the
+sheet header's `onBack`, a different control)
 
 **Visible band**:
 The part of the page a person can actually see right now, published by
