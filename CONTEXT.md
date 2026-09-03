@@ -305,58 +305,89 @@ _Avoid_: item/note (the Twin annotation field), memo, comment
 
 **Log facility**:
 The one module (`src/lib/logs/log-facility.ts`) that owns local diagnostic and
-instrumentation records: their storage, their caps, their redaction and the
-hand-export they leave by. Records are `localStorage` JSON under one namespaced key
+instrumentation records: their storage, their caps, their shedding, their redaction and
+the hand-export they leave by. Records are `localStorage` JSON under one namespaced key
 per Log channel, never datoms, because redaction has to delete and the ledger is
-append-only and syncs. It has no transport of any kind, so nothing it holds can leave
-the device except through a file the user exports after reading it. See ADR-0054.
+append-only and syncs. It records **completely** and gates only on a Log level, and the
+whole of its protection sits at the export: it has no transport of any kind, so nothing
+it holds can leave the device except through a file the user exports after reading it,
+and the payload that leaves is the payload that was reviewed. See ADR-0092.
 _Avoid_: Telemetry, analytics, tracking, the logger (`console.*` is not this)
 
 **Log channel**:
-A named stream inside the Log facility, declaring its `name`, the Tracked Domain
-whose act writes it, its `reader`, its `cap` and its `sensitivity` (`personal` or
-`technical`). The owning domain is what a Facet's Local Logs card is derived from —
-a Facet carries the channels it authors and only those (ADR-0080 §1's clause (b)),
-and the owner is a domain rather than a Facet because the root holds every domain
-(ADR-0086 §1). It may not exist without a **reader**, and
-there are two kinds. A **question channel** names an open ticket and the decision that
-ticket cannot take without the reading, points at a pre-registered bar, and is removed
-once its question is answered; `search` is one. A **standing channel** does not end and
-has no bar, so its reader names instead a **view in the app that displays it** — a
-channel nobody can look at may not exist — and it is `technical`, never `personal`,
-because a record that never ends must not be a record of what somebody was thinking
-about eating. "It might be useful later" is a reader of neither kind. Declaring one
-registers it. See ADR-0054 §2 and its Amendment of 2026-08-29.
-_Avoid_: Log level, severity, category, stream
+A named stream inside the Log facility, declaring its `name`, the Tracked Domain whose
+act writes it (or `null` where the app itself is the author and no domain owns it), its
+`purpose`, its `cap`, its optional counters and its `parse`. The owning domain is what a
+Facet's Local Logs card is derived from — a Facet carries the channels it authors and
+only those (ADR-0080 §1's clause (b)), and the owner is a domain rather than a Facet
+because the root holds every domain (ADR-0086 §1). A channel is a **namespace and a
+consent unit**, never a gate: it owns the storage key, the recording switch and the
+export selection, while what is captured is decided by the Log level and the dial. Three
+exist: `search`, `scan` and `app`. It carries no severity, no sensitivity and no kind,
+and it is not removed when a question it was cut for is answered. See ADR-0092 §1 and §2.
+_Avoid_: Kind, sensitivity, category, severity, stream
+
+**Log level**:
+The severity carried by every record in the Log facility, on OpenTelemetry's
+`SeverityNumber` scale, at four anchors: **ERROR 17** (the app failed at something the
+user asked for), **WARN 13** (a dependency failed or the app degraded and the user may
+not have noticed), **INFO 9** (something the user did, which completed) and **DEBUG 5**
+(the app's internal trace, and any field whose only reader is a person reproducing a
+bug). It is the severity of what happened, never the importance of the record. It rides
+on the record's envelope beside the version rather than inside the entry, so the facility
+can shed and filter a record its channel cannot parse. A field carries one too, decided
+at capture by a facility predicate the channel's own builder calls. See ADR-0092 §3 and
+§5.
+_Avoid_: Priority, importance, verbosity (that is the dial), trace level, log kind
+
+**The dial**:
+The single facility-wide threshold on the Log level that decides what is captured, at
+three positions: **Errors & warnings** (≥ 13), **Normal** (≥ 9, the default) and
+**Noisy** (≥ 5). It is a threshold on a continuous scale rather than three categories, so
+a position includes everything more severe automatically. It is a **budget** device and
+never a privacy one, it lives in `localStorage` beside the pause and never in a
+`settings/` datom, and it is not an off switch — that is the per-channel recording pause.
+One dial for the whole facility is a deliberate departure from every framework surveyed,
+which resolve a dial per logger; those arbitrate no shared ceiling and this one governs
+256 KiB split three ways. Turn it down and you keep the rate, you lose the detail. See
+ADR-0092 §4.
+_Avoid_: Log level (that is the field), verbosity setting, debug mode, switch
 
 **Log counter**:
-A named whole number a standing Log channel keeps beside its entries: it only ever
-increases, is never shed, and is not subject to the `cap`. Counters exist because the
-capped entry ring silently forgets its own denominator, so a rate computed from
-retained entries is the rate of the last 200 of them wearing a lifetime label. A
-counter is always a running total of a field the entries already record, never a new
-fact, and it is cleared only when the channel is. See ADR-0054's Amendment of
-2026-08-29.
+A named whole number a Log channel keeps beside its entries, under its own storage key:
+it only ever increases, is never shed, and is not subject to the `cap`. Counters exist
+because the capped entry ring silently forgets its own denominator, so a rate computed
+from retained entries is the rate of the last 200 of them wearing a lifetime label — and
+a rate is therefore read from a counter and never from the ring. A counter is always a
+running total of a field the entries already record, never a new fact. **The dial does
+not gate a counter and the pause does**, so a counter and its entries can disagree for
+two reasons: a redaction that did not decrement, and a record the dial suppressed after
+it was tallied. Cleared only when the channel is, and taken by a Facet-scoped wipe. See
+ADR-0092 §9.
 _Avoid_: Metric, gauge, statistic, tally
 
 **Search session**:
 One visit to the food search: it opens when the search field first goes non-empty and
-ends when the user abandons it, clears it, or stages a food. It leaves **one** entry
-in the search Log channel, and only if it ever reached an empty result, holding the
-last query that returned nothing plus the correction that answered it. The unit is
-the session and never the search, because the field runs on a 120 ms debounce and one
-typed phrase fires about eleven of them. See ADR-0053 §2.
+ends when the user abandons it, clears it, or stages a food. It leaves **one** entry in
+the search Log channel — **every session, not only the ones that reached an empty
+result** — holding the final query, the outcome, and at the `Noisy` dial position the
+sequence of debounced fires on the way there. A fire records a prefix length and a result
+count rather than the query text again. The unit is the session and never the search,
+because the field runs on a 120 ms debounce and one typed phrase fires about eleven of
+them. Recording the successes too is what first gives ADR-0053 §7's bar a denominator.
+See ADR-0053 §2 and its Amendment of 2026-09-03.
 _Avoid_: Search event, query log, keystroke, empty search (for the session itself)
 
 **Scan session**:
-One visit to the barcode path: it opens when a lookup starts and settles when the
-user stages a food, opens a capture door, or leaves the scan without doing either.
-It leaves **one** entry in the scan Log channel, holding what Open Food Facts
-answered, whether the retry ran, and which of the four capture doors the user then
-opened. The unit is the session and never the lookup, because the fact it exists to
-record is a _sequence_ — an outcome, and then what the user did about it — and a
-sequence split across two entries would have to be rejoined by the barcode, which
-the channel is forbidden to carry. See ADR-0071 §2.
+One visit to the barcode path: it opens when a lookup starts and settles when the user
+stages a food, opens a capture door, or leaves the scan without doing either. It leaves
+**one** entry in the scan Log channel, holding what Open Food Facts answered, whether the
+retry ran, and which of the four capture doors the user then opened. The unit is the
+session and never the lookup, because the fact it exists to record is a _sequence_ — an
+outcome, and then what the user did about it — and a sequence split across two entries
+would have to be rejoined by the barcode, which the channel is forbidden to carry. See
+ADR-0071 §2, and its Amendment of 2026-09-03 for why that prohibition is a purpose
+argument rather than a sensitivity marking.
 _Avoid_: Scan event, lookup log, barcode log, scan (for the session itself)
 
 ### Facets

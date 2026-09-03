@@ -1,8 +1,9 @@
 # ADR 0054: One local log facility, and no channel without a named reader
 
-**Status:** Accepted  
+**Status:** Superseded by ADR-0092  
 **Date:** 2026-08-23  
 **Amends:** [ADR-0053](0053-an-empty-food-search-is-recorded-locally-and-leaves-only-by-hand.md) — its §3 record becomes the first channel of the facility decided here, rather than a store of its own
+**Superseded by:** [ADR-0092](0092-a-local-log-records-completely-at-a-level-and-the-export-is-the-protection.md), which reverses §1's *channels rather than levels* and §2's *no channel without a named reader and a question*, and carries this record's storage rule, budget, counters and no-transport property forward  
 **Amended by:** ADR-0085 §2 (§4's export consent is a recorded consent on its own entity, not a setting), and the Amendment below, which splits §2 into two kinds of channel so that a standing one may exist, and adds lifetime counters beside the capped ring
 **Implemented:** #149 `cd77667` (the facility, its caps and its budget), `b990903` (the per-channel review, redaction and export), `b9460df` (the recording switch's key, off the channel keyspace)
 
