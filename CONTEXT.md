@@ -466,6 +466,20 @@ element and that is the trigger to reopen it. See ADR-0091 §2 and §4.
 _Avoid_: Sidebar (the root's navigation is a Sidebar and this navigates nothing),
 aside, panel, right column
 
+**Month calendar**:
+The rail's top block (`views/food/MonthCalendar.svelte`), and the week strip
+(`views/food/WeekStrip.svelte`) one scale up rather than a second date control —
+exactly one of the two is on screen at any width, and the day screen owns the
+swap so neither component asks how wide the window is. It **marks the days that have food on them**, which is
+the whole of why it earns the room: a month grid without the marks is only a date
+picker, and the strip is already a good one in less space. A day with food carries
+a bar, not a dot, since `--radius` is 0; today and the selected day are two
+different marks, because both can be true at once. The marks read a pure fold of
+day keys (`food/logged-days.ts`) that converts through local calendar fields and
+never an ISO string. See ADR-0091 §1 and §2.
+_Avoid_: Date picker, datepicker, mini calendar, month view, Agenda (which is the
+Calendar domain's screen)
+
 **Page**:
 A whole-screen surface Rations shows instead of the day, above the shell
 breakpoint only: Settings, Recipes, Reports. The header's icons are its navigation
