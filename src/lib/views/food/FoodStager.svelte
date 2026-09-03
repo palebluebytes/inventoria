@@ -22,10 +22,10 @@
     NO_FOOD_FOUND,
     type FoodResult,
   } from "../../food/food-search";
+  import { searchList } from "../../food/search-list";
   import type { EntityPayload } from "../../ingestion/ingest";
   import { getLocalFoodTwin } from "../../stores/calorie.store";
   import { offContributeDefault } from "../../stores/device-settings";
-  import { calorieDisplayDecimals } from "../../stores/device-settings";
   import { secretsStore } from "../../stores/secrets";
   import {
     amountDefaults,
@@ -33,7 +33,6 @@
     parseBasisQuantity,
     portionLabelIsBareWeight,
     reportsNoEnergy,
-    roundFoodDisplay,
     FOOD_PORTIONS_ATTR,
     NUTRITION_INFO_ATTR,
     type Portion,
@@ -1114,9 +1113,56 @@
   // without a prior interaction (a popover would stay hidden until focus/typing);
   // Escape-to-dismiss therefore doesn't apply — there is no overlay to close, the
   // listbox is a permanent inline region.
-  let comboItems = $derived<FoodResult[]>(
-    query.trim().length === 0 ? recent : results
-  );
+  // Which KIND of list is on screen, which is the distinction this view had
+  // never drawn (ADR-0090). The searched branch is a ten-key relevance sort;
+  // the Recent branch is `b.time - a.time`, a chronology that claims no order
+  // at all — and the two rendered identically, down to a first row painted as
+  // if it had won something. Everything that differs between them reads this
+  // one derived, rather than restating the query test four times over.
+  let ranked = $derived(query.trim().length > 0);
+  let comboItems = $derived<FoodResult[]>(ranked ? results : recent);
+  let listboxOpen = $derived(method === "search" && !staged);
+  let list = $derived(searchList(comboItems, ranked));
+
+  // The stage is this sheet's scroll container, held so a new query can put the
+  // list back at its best match (ADR-0090 §7). Without it you scroll three rows
+  // down, type one more letter, and the ranking reorders beneath a viewport
+  // parked in the middle of it — where, with a keyboard raised and two or three
+  // rows visible, the new winner is off screen and never seen.
+  let stageEl = $state<HTMLDivElement | null>(null);
+  $effect(() => {
+    query;
+    const el = stageEl;
+    if (!el) return;
+    // After the rows the new query produced have been written, not before.
+    queueMicrotask(() => (el.scrollTop = 0));
+  });
+
+  // Whether the keyboard highlight is worth drawing (ADR-0090 §3). bits-ui
+  // force-sets `highlighted` to the first candidate when the listbox opens and
+  // again on every keystroke, so the ring it drives would otherwise sit on row
+  // one permanently and say "you are here" to someone who has not moved — the
+  // same conflation of "what won" with "where you are" that the inverted first
+  // row was. So the ring is painted only once an arrow key has actually moved
+  // it. bits keeps its own state either way, which is what leaves Enter still
+  // taking the best match on an untouched list.
+  const HIGHLIGHT_KEYS = [
+    "ArrowDown",
+    "ArrowUp",
+    "PageDown",
+    "PageUp",
+    "Home",
+    "End",
+  ];
+  let keyboardNav = $state(false);
+  $effect(() => {
+    // A listbox that has just opened has not been navigated. Without this, a
+    // ring left behind by an arrow key would come back with the list when a
+    // staged food is unstaged, over a row nobody moved to this time.
+    listboxOpen;
+    keyboardNav = false;
+  });
+
   // `entity` is the option value. Selection is controlled and reset to "" after
   // each pick, so choosing the same food again after unstaging ("Change food")
   // re-fires onValueChange (bits skips a no-op value change).
@@ -1128,7 +1174,7 @@
     // Which list the option came off decides whether its panel is deepened, and
     // the query is what chose that list: the results are bundled rows, the
     // recent list is ledger twins.
-    if (item) stageFood(item, query.trim().length > 0);
+    if (item) stageFood(item, ranked);
   }
 
   // ── Camera barcode scanning ────────────────────────────────────────────────
@@ -1900,14 +1946,14 @@
        searching so the inline listbox shows the recent/results list up front. -->
       <Combobox.Root
         type="single"
-        open={method === "search" && !staged}
+        open={listboxOpen}
         value={comboValue}
         onValueChange={selectFromCombobox}
       >
         <!-- Staging / results area -->
         <Tabs.Content value={method}>
           {#snippet child({ props: stageProps })}
-            <div class="stage" {...stageProps}>
+            <div class="stage" bind:this={stageEl} {...stageProps}>
               {#if staged}
                 <div class="staged">
                   <!-- The staged food IS the food card the edit-amount sheet
@@ -1991,14 +2037,22 @@
                    each option is a role=option skinned via its `child` snippet. -->
                 {#if comboItems.length > 0}
                   <h3 class="results-head">
-                    {query.trim().length === 0 ? "Recent" : "Results"}
+                    {ranked ? "Results" : "Recent"}
                   </h3>
                 {/if}
                 <Combobox.ContentStatic forceMount>
                   {#snippet child({ props })}
+                    <!-- Rank reads downward from the top and nothing is reversed
+                       (ADR-0090 §1): the sequence IS the claim, so a `*-reverse`
+                       would be reordering the ranking away from the DOM order
+                       every reader of it — the keyboard, the screen reader,
+                       bits-ui's own `querySelectorAll` — is given. -->
                     <div class="results-list" {...props}>
-                      {#each comboItems as item (item.entity)}
-                        <Combobox.Item value={item.entity} label={item.name}>
+                      {#each list as row (row.food.entity)}
+                        <Combobox.Item
+                          value={row.food.entity}
+                          label={row.food.name}
+                        >
                           {#snippet child({ props: optProps, highlighted })}
                             <!-- The known third caller of `ui/Row`, deliberately
                             left alone (#319): bits-ui's `child` snippet spreads
@@ -2006,39 +2060,40 @@
                             this root, so adopting it would force a third element
                             mode on the primitive, over a row that answers to
                             bits-ui's a11y contract rather than ours. -->
+                            <!-- Two marks on two channels (ADR-0090 §2, §3),
+                            where there was one doing both jobs badly. `best` and
+                            `data-rank` are STRUCTURAL — they say what won the
+                            ranking, they never move, and they are absent from an
+                            unranked list because `rank` is null there. `hl` is
+                            bits-ui's moving highlight, now a ring that says
+                            where the arrow keys have got to, and drawn only once
+                            they have actually been used. -->
                             <div
                               class="result-item"
-                              class:hl={highlighted}
+                              class:hl={highlighted && keyboardNav}
+                              class:best={row.rank === 0}
+                              data-rank={row.rank}
                               {...optProps}
                             >
-                              <div class="result-details">
-                                <span class="result-name">
-                                  {item.name}
-                                  {#if curatedStandInFor(item.entity)}
-                                    <!-- A curated stand-in is a specific product
-                                    answering for a base food no reference table
-                                    carries (ADR-0046 §5). Marked here so it is
-                                    visible BEFORE selection; the full disclosure
-                                    is in the source explainer on the staged card,
-                                    since a role=option cannot hold a button. -->
-                                    <span class="stand-in-tag">stand-in</span>
-                                  {/if}
-                                </span>
-                                <span class="result-macros">
-                                  <!-- The row says what its figure is PER: a
-                                  Recent row can hold a drink OFF publishes per
-                                  100 ml or a label-corrected serving, not only
-                                  the per-100 g reference foods search returns
-                                  (#148). -->
-                                  Per {item.basis}: {roundFoodDisplay(
-                                    item.calories,
-                                    $calorieDisplayDecimals
-                                  )} kcal | P: {roundFoodDisplay(item.protein)}g
-                                  | F: {roundFoodDisplay(item.fat)}g | C: {roundFoodDisplay(
-                                    item.carbs
-                                  )}g
-                                </span>
-                              </div>
+                              <!-- Name-only (ADR-0090 §6). The macros line cost
+                              ~18px of a ~69px row, which at this density is the
+                              difference between two visible rows and three. Its
+                              price is stated in the record and it is real: it is
+                              what tells near-duplicate USDA names apart, and the
+                              graded variant — macros on the winner alone — is
+                              the first thing to try if that bites. -->
+                              <span class="result-name">
+                                {row.food.name}
+                                {#if curatedStandInFor(row.food.entity)}
+                                  <!-- A curated stand-in is a specific product
+                                  answering for a base food no reference table
+                                  carries (ADR-0046 §5). Marked here so it is
+                                  visible BEFORE selection; the full disclosure
+                                  is in the source explainer on the staged card,
+                                  since a role=option cannot hold a button. -->
+                                  <span class="stand-in-tag">stand-in</span>
+                                {/if}
+                              </span>
                               <span class="select-arrow" aria-hidden="true"
                                 >→</span
                               >
@@ -2049,7 +2104,7 @@
                     </div>
                   {/snippet}
                 </Combobox.ContentStatic>
-                {#if recentEmptyHint && query.trim().length === 0}
+                {#if recentEmptyHint && !ranked}
                   <!-- This meal's default came back empty (ADR-0057 §5). Kept
                      distinct from the no-matches hint below, which answers a
                      query: this one answers the absence of one. -->
@@ -2652,6 +2707,15 @@
                       {@const bitsOnInput = props.oninput as
                         | ((e: Event) => void)
                         | undefined}
+                      <!-- Its keydown is read out the same way, for the other
+                         half of the highlight split (ADR-0090 §3): bits moves
+                         the highlight on arrow keys, and this is where we learn
+                         that an arrow key is what moved it, so the ring can be
+                         drawn for a person who is navigating and for nobody
+                         else. -->
+                      {@const bitsOnKeydown = props.onkeydown as
+                        | ((e: KeyboardEvent) => void)
+                        | undefined}
                       <!-- A phone capitalises the first word and offers
                          corrections; food names are not prose, and USDA matches
                          them literally, so both are turned off here rather than
@@ -2669,6 +2733,14 @@
                         oninput={(e) => {
                           bitsOnInput?.(e);
                           query = e.currentTarget.value;
+                          // A new query is a new ranking, so wherever the
+                          // arrow keys had got to is nowhere now.
+                          keyboardNav = false;
+                        }}
+                        onkeydown={(e) => {
+                          if (HIGHLIGHT_KEYS.includes(e.key))
+                            keyboardNav = true;
+                          bitsOnKeydown?.(e);
                         }}
                       />
                     {/snippet}
@@ -3485,8 +3557,8 @@
 
   /* The listbox half of the combobox (ported from the retired FoodResultsList).
      ContentStatic's root and each option are our own elements via `child`, so
-     these stay scoped. The keyboard highlight (bits' data-highlighted, mirrored
-     to .hl) inverts to black-on-white, matching Segmented's selected cell. */
+     these stay scoped. Rank and the keyboard highlight are two channels here
+     and were one until ADR-0090 — see the marks below the row. */
   .results-head {
     font-size: var(--step-n1);
     font-weight: 600;
@@ -3497,12 +3569,34 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-2xs);
+
+    /* The rendering cost of the whole ranking, now that the whole ranking is
+       rendered. A name-only row measures ~51px (ADR-0090 §6), which is the
+       estimate the browser lays an unrendered row out at until it has drawn one
+       — a component naming its own measurement, the way `HabitHeatmap` names
+       its cell, since no space-scale step means "one row of this list". */
+    --result-row-est: 51px;
   }
   .result-item {
     width: 100%;
-    background: var(--food-surface-bg, var(--paper));
-    border: var(--food-surface-border, var(--edge-thin));
-    border-radius: var(--food-item-radius, var(--radius));
+    /* Off-screen rows skip layout and paint until they are scrolled near
+       (ADR-0090's 2026-09-03 Amendment). This is the only form of laziness the
+       list can take: bits-ui collects its candidates with `querySelectorAll`,
+       so a row held out of the DOM would be a row ArrowDown, `End` and Enter
+       cannot reach — which is the same "you cannot get there" the display cap
+       was withdrawn for. Every row stays in the DOM and in the a11y tree; only
+       the drawing is deferred. */
+    content-visibility: auto;
+    contain-intrinsic-size: auto var(--result-row-est);
+    /* Written out rather than reached through `--food-surface-bg`,
+       `--food-surface-border` and `--food-item-radius`, which were consumed
+       across the food views and declared nowhere in the repo: every one of
+       those `var()`s had always resolved to its fallback, so the fallback was
+       the real value and the token was decoration. The rank edge below steps
+       down from this border, and it needs something honest to step from. */
+    background: var(--paper);
+    border: var(--edge-thin);
+    border-radius: var(--radius);
     padding: var(--space-xs) var(--space-s);
     text-align: left;
     display: flex;
@@ -3512,16 +3606,39 @@
     transition: background 0.2s;
   }
   .result-item:hover {
-    background: var(--food-surface-hover, var(--bg-input));
+    background: var(--bg-input);
   }
-  .result-item.hl {
+
+  /* ── Rank, on its own channel (ADR-0090 §2) ────────────────────────────────
+     The winner inverts because it WON, not because bits-ui parked the Enter
+     target on it, and `best` is set only where something ranked. Below it the
+     runners-up carry a stepping left edge built from the three edge tokens that
+     already exist, so the shape of the ranking is visible without a number.
+     The staircase ends at the third row, which is where the list stops making a
+     claim worth reading and the resting `--edge-thin` takes over.
+
+     Declared after `:hover` deliberately: the two are the same specificity, and
+     a finger resting on the best match must not un-crown it. */
+  .result-item.best {
     background: var(--ink);
     color: var(--paper);
   }
-  .result-details {
-    display: flex;
-    flex-direction: column;
+  .result-item[data-rank="1"] {
+    border-left: var(--edge-thick);
   }
+  .result-item[data-rank="2"] {
+    border-left: var(--edge);
+  }
+
+  /* The keyboard highlight, no longer borrowing that inversion (§3). A ring
+     moves with the arrow keys; the rank marks do not move at all. One mark
+     cannot answer both "what won" and "where you are", and it was answering
+     the second while looking like the first. */
+  .result-item.hl {
+    outline: var(--edge);
+    outline-offset: var(--space-3xs);
+  }
+
   .result-name {
     font-size: var(--step-n1);
     font-weight: 600;
@@ -3541,19 +3658,11 @@
     color: var(--ink);
     background: var(--highlight-bg);
   }
-  .result-macros {
-    font-size: var(--step-n3);
-    color: var(--text-muted);
-    margin-top: var(--space-3xs);
-  }
-  .result-item.hl .result-macros {
-    color: var(--paper);
-  }
   .select-arrow {
     color: var(--text-muted);
     font-size: var(--step-0);
   }
-  .result-item.hl .select-arrow {
+  .result-item.best .select-arrow {
     color: var(--paper);
   }
   .in-spinner {

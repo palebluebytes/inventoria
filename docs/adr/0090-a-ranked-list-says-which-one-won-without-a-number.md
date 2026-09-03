@@ -2,7 +2,8 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-02  
-**Implemented:** prototype on `prototype/326-search-ui`; `views/food/FoodStager.svelte`
+**Amended by:** the Amendment below, which withdraws §5 and the Consequence that followed it  
+**Implemented:** #334 — `food/search-list.ts` (§4's gate and §5's cap), `views/food/FoodStager.svelte` (the two marks, the name-only row, the scroll reset, and the highlight decoupled from bits-ui's first candidate. §5 shipped in that ticket and was withdrawn in it — see the Amendment). The prototype the variants were compared on is `prototype/326-search-ui`, and the graded density §6 records as the first thing to try is still only there
 
 ## Context
 
@@ -63,6 +64,13 @@ A display cap, distinct from the search's own ceiling. Baymard's autocomplete re
 
 The overflow line renders at the ranking's weak end, below the list.
 
+> **Withdrawn (2026-09-03, #334):** this section shipped and was taken out again in the
+> same ticket. Baymard's count governs an autocomplete dropdown that has a results page
+> behind it, and this list has none — so the cap made the weak end of a ranking
+> unreachable rather than merely far, which no precedent in the research note does.
+> The whole ranking is rendered, drawn lazily, and scrolled. See the
+> [Amendment](#amendment-2026-09-03-334-5-is-withdrawn-the-list-is-long-and-lazy-not-short).
+
 ### 6. Rows are name-only
 
 The macros line is dropped. It cost roughly 18px per row — measured, a full row is ~69px against ~51px without it — which at this density is the difference between two visible rows and three, and it buys more visible rows than any reordering could.
@@ -85,6 +93,64 @@ Any change to the query resets the list's scroll to the top. Without it, three r
 
 **Six rows can hide a good match that ranks seventh.** The overflow line is the mitigation and it is weak — it says how many are hidden, not what they are. If this bites, the answer is better ranking, not a longer list, since a longer list is what §5 exists to prevent.
 
+> **Withdrawn with §5 (2026-09-03, #334).** This consequence was accepted at the time and
+> should not have been: "it says how many are hidden, not what they are" is a description
+> of a list you cannot reach the rest of. See the [Amendment](#amendment-2026-09-03-334-5-is-withdrawn-the-list-is-long-and-lazy-not-short).
+
 **What this forecloses.** The inverted list is answered rather than merely untried, and the research note records what would reopen it: evidence that a phone user with the keyboard raised scans **upward from the field**. No study addresses it, and the note explains why that gap is structural. Reopening it is a measurement on a device, not an argument.
 
 **Unestablished, and recorded as such rather than assumed.** Whether Slack, Discord, WhatsApp or iMessage invert their @-mention popups — all four are closed. What Safari on iOS does to suggestion order with a bottom address bar; no Apple source states it, and it is the one gap that could still produce a mainstream touch precedent.
+
+## Amendment (2026-09-03, #334): §5 is withdrawn — the list is long and lazy, not short
+
+§5 shipped and was taken out again before the branch merged. The cap rendered six rows
+and counted the rest; every row past the sixth left the DOM. What follows is why that was
+wrong, and it is a correction to this record rather than to the code that implemented it.
+
+**Baymard's number does not transfer, because their list is not this list.** The quoted
+finding is about **e-commerce autocomplete suggestions** — a dropdown of query shortcuts
+sitting in front of a full search results page. Capping it costs nothing there: whatever
+the dropdown omits, Enter still reaches. This list has no page behind it. It _is_ the
+destination, so a row not rendered is a food that cannot be reached at all. §5 carried
+the 4–8 band across that gap without noticing it was there, and
+[the research note](../research/326-mobile-search-conventions.md) §4.4 makes the mismatch
+visible in its own wording: the count governs "the number of autocomplete **suggestions**
+displayed". The same section already marks Baymard's _ordering_ research `unverified`
+(it is behind their paywall) and refuses to combine their keyboard-squeeze figures into a
+with-keyboard row count, calling that composite "an inference, not their finding". The
+count deserved the same scepticism and did not get it.
+
+**Every precedent that settled §1 keeps its weak end reachable by scrolling.** The survey
+was read for ordering and it answers this too: Firefox for Android's suggestion list is a
+`LazyColumn` that `scrollToItem(0)`s on refresh, Chrome iOS is a `UITableView` that
+scrolls to the top on open, and macOS Spotlight documents the far end in as many words —
+_"Scroll to the bottom of the results, then click Search in Finder."_ Not one of them
+truncates. §5 was the only clause in this record with no precedent behind it, and the
+note that supplied the other clauses' precedents contradicts it.
+
+**§2 had already solved what §5 was for.** The cap was argued from a ranking too long to
+perceive. But the staircase ends at the third row by design, so what a reader must
+perceive is over within three rows, and whether six or fifty follow changes nothing about
+seeing which one won. The marks made the cap redundant, and the record did not notice
+because §5 was written from a different premise than §2.
+
+**What ships instead.** Every candidate is rendered, in rank order, and the weak end is
+reached by scrolling. The overflow line goes with the cap that produced it — with nothing
+hidden there is no count to print. The cost §5 was trying to buy back is paid by
+`content-visibility: auto` on the row: off-screen rows skip layout and paint, and stay in
+the DOM. That distinction is the whole point. bits-ui collects its candidates with
+`querySelectorAll`, so a row withheld from the DOM is one `ArrowDown`, `End` and `Enter`
+cannot reach — which is the same unreachability the cap was withdrawn for, reintroduced
+one layer down. Laziness is allowed to defer drawing a row. It is not allowed to remove
+one.
+
+**This supersedes the Recent carve-out** this Amendment first carried. That argument —
+that §5's cap should not reach a chronology, because a cut Recent row has no path back
+with no local-twin search (#320) — was right about reachability and wrong about scope: the
+same objection applies to the ranked list, which is why the cap is gone from both rather
+than gated to one. `searchList` no longer caps anything, so the two lists differ in
+exactly one thing, which is §4's rank gate.
+
+**What would reopen it.** A measurement, not an argument: a phone showing that fifty
+lazily-drawn rows cost real scroll or frame time in this sheet. The number to beat is
+`SEARCH_RESULT_LIMIT`, which is 50, and the row is now name-only at ~51px.

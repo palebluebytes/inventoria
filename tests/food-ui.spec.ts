@@ -450,6 +450,45 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.getByLabel("Amount in grams")).toHaveValue("150");
   });
 
+  test("crowns the best match, and crowns nothing in Recent (ADR-0090)", async ({
+    page,
+  }) => {
+    // The unit tier reaches the Recent half of this server-side, but not the
+    // searched half: the results are internal async state with no prop behind
+    // them. So the mark that says "this one won" is proved here, in the one
+    // place both lists are real.
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    await setupApiKeys(page);
+
+    // Log a food, so this meal has a Recent to offer.
+    await logUsdaFood(page, "breakfast", "banana", "Mock Banana", "150");
+
+    await page
+      .getByRole("button", { name: "Search for a breakfast food" })
+      .click();
+
+    // An empty field shows the meal's Recent, which is `b.time - a.time` — a
+    // chronology, with no best match to crown (ADR-0090 §4). The defect the
+    // record was written against is exactly this row carrying the mark, because
+    // bits-ui force-sets its highlight to the first candidate on open.
+    await expect(page.getByRole("heading", { name: "Recent" })).toBeVisible();
+    await expect(
+      page.locator(".result-item", { hasText: "Mock Banana" })
+    ).toBeVisible();
+    await expect(page.locator(".result-item.best")).toHaveCount(0);
+    await expect(page.locator(".result-item[data-rank]")).toHaveCount(0);
+
+    // A query ranks, and the winner inverts (§2). The mark is structural — it
+    // is on the row that won, and it does not move with the arrow keys.
+    await page.locator("#food-search-input").fill("banana");
+    await expect(page.getByRole("heading", { name: "Results" })).toBeVisible();
+    await expect(page.locator(".result-item.best")).toHaveCount(1);
+    await expect(page.locator(".result-item.best")).toContainText(
+      "Mock Banana"
+    );
+  });
+
   test("copies a past meal wholesale into the day being viewed (ADR-0058)", async ({
     page,
   }) => {
