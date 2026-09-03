@@ -6,11 +6,24 @@
   import { calorieDisplayDecimals } from "../../stores/device-settings";
 
   // One food line, shared by the dashboard's logged-food list and the
-  // recipe/instantiation ingredient list so the two read identically. Since
-  // #319 the row itself — the lead/title/subtitle/trailing layout, the corner,
-  // the selection highlight and the keyboard path — is the shared `ui/Row`
-  // primitive, and what is left here is the food formatting: the app's one
-  // quantity phrase as the subtitle, and the kcal figure as the trailing mark.
+  // recipe/instantiation ingredient list. Since #319 the row itself — the
+  // lead/title/subtitle/trailing layout, the corner, the selection highlight
+  // and the keyboard path — is the shared `ui/Row` primitive, and what is left
+  // here is the food formatting: the app's one quantity phrase, and the figure
+  // each surface is read for.
+  //
+  // **The two surfaces put that figure in different places**, because a mark
+  // beside the title is a column taken from the title:
+  //
+  //  • A `logged` row is the dashboard's. Its name runs the full width of the
+  //    card and the AMOUNT is the figure, alone on the line below — the amount
+  //    is what its reader is checking and what the row's own controls change
+  //    (the picker, and Scale). A logged food's kcal is not stated here at all:
+  //    it is in the meal's subtotal under the list, in the day's meters, and in
+  //    the picker that opens on a tap, and reserving a column for it on every
+  //    row cost the name enough width to wrap a food's name in two.
+  //  • A recipe ingredient row is read for its derived kcal, so it keeps the
+  //    older shape: quantity under the name, kcal on the right.
   //
   // Tapping the row opens the amount picker (via `onclick`); the dashboard
   // instead lets its own wrapper handle the tap, so it passes no `onclick`
@@ -22,6 +35,7 @@
     amount,
     unit,
     calories,
+    logged = false,
     onRemove,
     onclick,
     lead,
@@ -35,6 +49,10 @@
     amount: number;
     unit: AmountUnit;
     calories: number;
+    /** The dashboard's shape: a full-width name over the amount, and no kcal.
+     *  Omitted, the row is a recipe ingredient — quantity under the name, the
+     *  derived kcal on the right. */
+    logged?: boolean;
     onRemove?: () => void;
     /** Whole-row tap (opens the amount picker). Omit to make the row inert —
      *  the dashboard's wrapper owns the tap; a locked serving row passes none. */
@@ -50,8 +68,9 @@
      *  Provisional figure mark; absent, the row shows what is stored. */
     preview?: { amount: number; unit: AmountUnit; calories: number };
     /** A word about this row appended to its quantity — "no weight to scale"
-     *  for a food a preview cannot touch. It rides the subtitle rather than a
-     *  line of its own, because a row may not change height (ADR-0088 §6). */
+     *  for a food a preview cannot touch. It rides the quantity line rather
+     *  than a line of its own, because a row may not change height
+     *  (ADR-0088 §6). */
     note?: string;
     class?: string;
   } = $props();
@@ -73,9 +92,9 @@
 
 <!-- `food-item` and the `fi-*` part classes are this row's shipped DOM
      contract: the recipe-list e2e locates the name, the quantity and the ✕ by
-     them, so the move onto the primitive keeps them where they were. -->
+     them, and the quantity is `fi-qty` on both shapes. -->
 <Row
-  class="food-item {extraClass}"
+  class="food-item {logged ? 'fi-logged' : ''} {extraClass}"
   title={name}
   subtitle={qtyLabel}
   titleClass="fi-name"
@@ -88,9 +107,11 @@
   {selected}
 >
   {#snippet trailing()}
-    <span class="fi-cals" class:is-preview={!!preview}
-      >{roundFoodDisplay(shownCalories, $calorieDisplayDecimals)} kcal</span
-    >
+    {#if !logged}
+      <span class="fi-cals" class:is-preview={!!preview}
+        >{roundFoodDisplay(shownCalories, $calorieDisplayDecimals)} kcal</span
+      >
+    {/if}
   {/snippet}
 </Row>
 
@@ -102,12 +123,57 @@
     font-size: var(--step-n1);
     font-weight: 700;
     color: var(--text-primary);
-    /* ADR-0088 §6.3: reserve the column. A scaled figure gains digits (97 →
-       48.5) and would otherwise widen this, squeeze the name column and
+    /* ADR-0088 §6.3: reserve the column. A scaled figure gains digits (389 →
+       778.5) and would otherwise widen this, squeeze the name column and
        rewrap the food's name — a vertical jump while previewing. */
     min-width: 5.4em;
     text-align: right;
     font-variant-numeric: tabular-nums;
+  }
+
+  /* A logged row is a name over its amount, and the two are set apart rather
+     than set alike: the name is the row's subject, the amount is a reading of
+     it. Same left edge, one step down the scale, the secondary ink — a figure
+     under a heading, not a second heading. Bold and tabular because it IS the
+     row's figure, and because a column of them reads down the list. */
+  :global(.food-item.fi-logged .row-subtitle) {
+    font-size: var(--step-n2);
+    font-weight: 700;
+    color: var(--text-secondary);
+    /* Clear of the corner mark, so a long "1 serving · no weight to scale"
+       truncates before it reaches the ✕ rather than running under it. */
+    max-width: calc(100% - 1.5rem);
+  }
+
+  /* Two lines that belong to each other: at the body's own leading a wrapped
+     name drifts apart from the amount under it, and the pair stops reading as
+     one block. The name also clears the corner ✕ — the ✕ box, plus its inset,
+     less the row's own padding it already overhangs. A row with no ✕
+     over-reserves by that much and nothing moves, which is cheaper than a
+     second class to say so. */
+  :global(.food-item.fi-logged .row-title) {
+    line-height: 1.25;
+    padding-right: calc(1.5rem + var(--space-3xs) - var(--space-s));
+  }
+
+  /* A list line, not a poster: two short lines inside the frame's full padding
+     left the card mostly air, with the ✕ alone in the band above the name. The
+     side padding stays — the frame's left edge and the text's are the alignment
+     the whole list is read down. */
+  :global(.food-item.fi-logged) {
+    padding: var(--space-xs) var(--space-s);
+  }
+
+  /* The ✕ is an action on the row, not a figure in it. In full ink it was the
+     heaviest mark on a card whose subject is the food's name, and it sits in
+     the corner where nothing else competes for the eye. It takes its ink back
+     on hover, when it is the thing being reached for. */
+  :global(.food-item.fi-logged .fi-remove) {
+    color: var(--text-muted);
+  }
+
+  :global(.food-item.fi-logged .fi-remove:hover) {
+    color: var(--text-primary);
   }
 
   /* ADR-0088's Amendment of 2026-09-02: a scaled row lets go of the Selection

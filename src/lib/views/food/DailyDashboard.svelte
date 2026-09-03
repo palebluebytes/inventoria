@@ -433,6 +433,7 @@
               tabindex={selectionActive ? 0 : undefined}
             >
               <FoodItemRow
+                logged
                 name={item.foodName || "Unknown Food"}
                 amount={qty.amount}
                 unit={qty.unit}

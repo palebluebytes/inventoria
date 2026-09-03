@@ -6,6 +6,11 @@
  * picker) and addressed by class from the e2e suite (`.fi-name`, `.fi-qty`,
  * `.fi-remove`). Both are contracts the primitive underneath it may not change,
  * so they are asserted here rather than left to a screenshot in CI.
+ *
+ * The row has two shapes, chosen by `logged`, and both are pinned here: a recipe
+ * ingredient reads quantity-under-name with its kcal on the right, and a logged
+ * food reads as a full-width name over its amount, with no kcal at all.
+ * `.fi-qty` names the quantity in either one.
  */
 import { describe, it, expect } from "vitest";
 import { render } from "svelte/server";
@@ -21,6 +26,7 @@ const oats = {
 
 describe("a food line", () => {
   it("reads as a name over its quantity, with the kcal on the right", () => {
+    // The recipe list's shape, kept: a row handed no macros is an ingredient.
     const { body } = render(FoodItemRow, { props: oats });
 
     expect(body).toMatch(/class="[^"]*\bfi-name\b[^"]*">Mock Oats</);
@@ -91,6 +97,73 @@ describe("a food line", () => {
     });
 
     expect(body).toMatch(/class="[^"]*\bselected\b/);
+  });
+});
+
+describe("a logged food line, which is the dashboard's", () => {
+  const banana = {
+    name: "Bananas, ripe and slightly ripe, raw",
+    amount: 50,
+    unit: "g" as const,
+    calories: 44,
+    logged: true,
+  };
+
+  it("reads as a name over its amount, and states no kcal", () => {
+    // The kcal figure is in the meal's subtotal, the day's meters and the
+    // picker; a column reserved for it on every row cost the name its width.
+    const { body } = render(FoodItemRow, { props: banana });
+
+    expect(body).toMatch(/class="[^"]*\bfi-name\b[^"]*">Bananas, ripe/);
+    expect(body).toMatch(/class="[^"]*\bfi-qty\b[^"]*">50g</);
+    expect(body).not.toContain("kcal");
+    expect(body).not.toContain("fi-cals");
+  });
+
+  it("names the shape on the row, which is what the CSS keys on", () => {
+    const { body } = render(FoodItemRow, { props: banana });
+
+    const start = body.indexOf("<div");
+    expect(body.slice(start, body.indexOf(">", start) + 1)).toContain(
+      "fi-logged"
+    );
+  });
+
+  it("leaves a recipe row's shape alone", () => {
+    const { body } = render(FoodItemRow, {
+      props: { ...banana, logged: false },
+    });
+
+    expect(body).toMatch(/class="[^"]*\bfi-cals\b[^"]*">44 kcal</);
+    expect(body).not.toContain("fi-logged");
+  });
+
+  it("still wears the Provisional mark on the amount under a preview", () => {
+    const { body } = render(FoodItemRow, {
+      props: {
+        ...banana,
+        preview: { amount: 100, unit: "g" as const, calories: 89 },
+      },
+    });
+
+    expect(body).toMatch(
+      /class="[^"]*\bfi-qty\b[^"]*\bis-preview\b[^"]*">100g</
+    );
+    expect(body).not.toContain("50g");
+    // Nothing else on the row can wear it: there is no second figure.
+    expect(body.match(/is-preview/g)).toHaveLength(1);
+  });
+
+  it("keeps the skip note on the amount line", () => {
+    // A row may not change height between previewing and not, so the note rides
+    // the line that is already there.
+    const { body } = render(FoodItemRow, {
+      props: { ...banana, note: "no weight to scale" },
+    });
+
+    expect(body).toMatch(
+      /class="[^"]*\bfi-qty\b[^"]*">50g · no weight to scale</
+    );
   });
 });
 

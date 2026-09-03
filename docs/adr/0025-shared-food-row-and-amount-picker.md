@@ -69,3 +69,45 @@ remain editable. Recipe instantiations keep their own correction editor
   gram food → picker → amount + total update; recipe rows edit through the picker).
 - **Deferred:** editing a whole-serving amount (needs a serving-count model that
   scales frozen macros), and a `valuetext` announcement (carried from ADR-0023).
+
+## Amendment (2026-09-03): a logged food's name has the full width, and its amount is its figure
+
+The decision above gives `FoodItemRow` one shape — "name · muted quantity
+subtitle · kcal" — and rests on it: both surfaces render through the component,
+"so they are identical by construction". The dashboard's row no longer reads that
+way, and the two surfaces are no longer identical.
+
+**A logged food is a full-width name over its amount, and states no kcal.** A
+mark beside the title is a column taken from the title: the kcal figure reserved
+5.4em of every row, and a long food name — "Bananas, ripe and slightly ripe,
+raw" — wrapped into two lines against that column while it stood empty below.
+The amount moves down onto the line the quantity already occupied, set like the
+figure it now is (right of the line, the kcal figure's weight and size), and
+nothing is reserved beside the name.
+
+Losing the kcal figure from the row is the point rather than a cost of the move.
+The number a logged row is read for is its amount — it is what the row's own
+controls change, the picker (this ADR) and Scale (ADR-0088 §5) both write one —
+and a food's calories are already stated three other places the same screen
+reaches: the meal's subtotal under the list, the day's meters above it, and the
+picker a tap opens.
+
+A recipe ingredient row is read for its derived kcal, so it keeps the older
+shape, and keeps ADR-0088 §6.3's reserved column with it: there, a previewed
+figure that gains digits still has a name column beside it to squeeze. The shape
+is chosen by the `logged` prop, and the parts keep their names — `.fi-qty` is the
+quantity on both — so the `.fi-name` / `.fi-qty` / `.fi-remove` contract the e2e
+suite locates is unchanged. The name is now the part that has to clear the corner
+✕, since it is the part that reaches the corner.
+
+**The amount is set as a reading of the name, not as a second heading.** It
+shares the name's left edge, one step down the scale in the secondary ink, bold
+and tabular because it is still the row's figure and because a column of them is
+read down the list. Right-aligned on a line of its own it had left the card
+occupied only on a diagonal — a figure in one empty band, the ✕ alone in the
+other — and set at the name's own size and ink the two competed for a row that
+has one subject. The card also lost a step of vertical padding (a list line, not
+a poster) and gained a tighter leading on the name, so a wrapped name and the
+amount under it read as one block; the ✕ is drawn in the muted ink and takes its
+full ink back on hover, since it is an action on the row rather than a figure in
+it.
