@@ -120,12 +120,18 @@ rather than rewritten so the original record stands.
 
 - **There were six cards, not seven, and the two counts in this record are both
   wrong.** Run at the commit that accepted this record (`2609491`, 2026-09-02 21:10),
-  `git grep "translate(-50%, *-50%)" -- src/lib` returns six distinct pinned cards:
-  `views/food/NutritionPanel.svelte`, `views/items/ItemEditModal.svelte`,
+  `git grep "translate(-50%, *-50%)" -- src/lib` matches seven files, and one of the
+  seven is not a card: `views/food/FoodStager.svelte`'s barcode reticle centres itself
+  `position: absolute` inside the camera viewport, so it is decoration on a fixed-size
+  box rather than a pinned surface, and no keyboard can move it. The other six are the
+  cards: `views/food/NutritionPanel.svelte`, `views/items/ItemEditModal.svelte`,
   `views/media/MediaIngestModal.svelte`, `views/media/MediaEngagementModal.svelte`,
   `views/food/DailyDashboard.svelte`'s photo preview, and
   `views/food/FoodDataSection.svelte`'s wipe confirmation. Three of the six hold a
-  field, not the four the Context claims. #329's table reached seven rows a different
+  field, not the four the Context claims. The reticle is why the sweep in
+  `tests/unit/sheet-geometry.test.ts` keys on `position: fixed` **and** the centring
+  together rather than on the transform alone: the transform alone cannot tell a
+  pinned card from a mark drawn inside one box. #329's table reached seven rows a different
   way: it dropped the wipe confirmation, which had landed six hours before this record
   was written and was in the `grep` all along, and it added two rows that are not
   hand-rolled centred cards — `views/food/LabelPhotoReader.svelte`, which the ticket
