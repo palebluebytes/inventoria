@@ -2,7 +2,8 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-03  
-**Amends:** [ADR-0089](0089-a-pinned-surface-measures-the-visible-band.md) §5 (narrows what "one design that widens" protects), [ADR-0078](0078-a-facet-contains-no-way-out.md) §1 (one Tracked Domain stopped implying one screen)
+**Amends:** [ADR-0089](0089-a-pinned-surface-measures-the-visible-band.md) §5 (narrows what "one design that widens" protects), [ADR-0078](0078-a-facet-contains-no-way-out.md) §1 (one Tracked Domain stopped implying one screen)  
+**Implemented:** §1 by #347 — the Amendment on ADR-0089 itself, since what §1 changes is another record rather than any code. §2, §3 and §4 by #342 — `app.css` (the one shared `.main`, centred and capped, and the three measures `--measure-solo`, `--measure` and `--rail`), `App.svelte` and `Rations.svelte` (each losing its copy of a rule that was duplicated character for character), `views/food/DailyDashboard.svelte` (the `.day` element the two-region grid is written on, scoped to `.rations` so the root's Food tab does not grow a rail, and the room under the last meal moved onto the timeline), `tests/unit/shell.test.ts` (§4 is a decided absence, so the unpinned rail is asserted rather than drawn). §5's `inline` surface by #341 — `ui/BottomSheet.svelte`, `views/food/FoodSettingsSheet.svelte`, `views/food/RecipeLibrarySheet.svelte` — and the `Rations.svelte` comment §5 makes false by #347; the pages themselves are #345. §8's roster and gate by #343 — `lib/ui/breakpoints.ts`, `tests/unit/breakpoints.test.ts` — and its seven deletions by #342 — `views/FoodView.svelte` ×1, `views/food/DailyDashboard.svelte` ×5, `views/food/CommitButton.svelte` ×1. An eighth of the same shape survives in `app.css`'s `.main` gutter, because #342 enumerated the seven it was deleting and did not name it; both that file and `shell.test.ts` say so rather than calling it a shape rule. §6 and §7 are unbuilt — a report is #346
 
 ## Context
 
