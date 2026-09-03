@@ -30,11 +30,16 @@
 </button>
 
 <style>
-  /* Written mobile-first: this is the phone, and 768px is the override.
-     A one-word button was ~64px — a whole result row of the scarcest space on
-     the screen, taken from the only region ADR-0089 §8 lets give any up. The
-     smaller pair lands it near 51px, still clear of `--tap-min`, which is the
-     floor a finger sets and so the only honest `min-height` here. */
+  /* One size at every width. A one-word button was ~64px — a whole result row
+     of the scarcest space on the screen, taken from the only region ADR-0089 §8
+     lets give any up. The smaller pair lands it near 51px, still clear of
+     `--tap-min`, which is the floor a finger sets and so the only honest
+     `min-height` here.
+
+     It used to grow back at 768px, which was a step onto a scale that is
+     already fluid rather than a change of shape (ADR-0091 §8). Nothing about
+     this button is different on a wide screen: it is the same control doing the
+     same thing, and `--step-0` is already bigger there than it is on a phone. */
   .commit {
     width: 100%;
     background: var(--green-bg);
@@ -51,15 +56,6 @@
        fullwidth glyph like "＋" would otherwise inflate `normal` line-height and
        make the Recipe tab's button taller than the others, shifting the dock. */
     line-height: 1;
-  }
-  /* Above 768px the room is there and the keyboard does not eat the screen, so
-     the button returns to its full size. One design that widens (ADR-0089 §5). */
-  @media (min-width: 768px) {
-    .commit {
-      padding: var(--space-s);
-      font-size: var(--step-1);
-      min-height: 60px;
-    }
   }
   .commit:active:not(:disabled) {
     transform: scale(0.98);

@@ -121,7 +121,6 @@ describe("the dock's field", () => {
 describe("the commit button is sized for a phone", () => {
   const BUTTON = "src/lib/views/food/CommitButton.svelte";
   const EVERY_WIDTH = null;
-  const WIDE = "@media (min-width: 768px)";
 
   const rule = (at: string | null) => ruleOf(BUTTON, ".commit", at);
 
@@ -138,18 +137,21 @@ describe("the commit button is sized for a phone", () => {
     expect(decl(rule(EVERY_WIDTH), "min-height")).toBe("var(--tap-min)");
   });
 
-  it("gives the full size back above 768px — one design that widens", () => {
-    const wide = rule(WIDE);
-
-    expect(decl(wide, "padding")).toBe("var(--space-s)");
-    expect(decl(wide, "font-size")).toBe("var(--step-1)");
-    expect(decl(wide, "min-height")).toBe("60px");
-  });
-
-  it("carries no max-width media query — the breakpoint only ever widens", () => {
-    // A `max-width` rule would mean the phone is the exception again, which is
-    // the shape ADR-0089 §5 turned around.
+  it("is one size at every width — no width media query of either kind", () => {
+    // Two decisions, and one assertion now carries both. It used to give the
+    // full size back at 768px, and #342 deleted that with six others like it: a
+    // media query that steps a `clamp()` token up to a larger one is the Utopia
+    // scale being distrusted, and the scale already grows `--step-0` and
+    // `--space-xs` on a wider screen (ADR-0091 §8). Nothing about this button is
+    // a different shape up there — it is the same control doing the same thing,
+    // one column wide.
+    //
+    // The older claim survives inside it: a `max-width` rule would mean the
+    // phone is the exception again, which is the shape ADR-0089 §5 turned
+    // around. No width rule of either kind says that more strongly than the
+    // pair of tests this replaces, one of which could only ever have proved
+    // that a lookup helper throws.
     const ats = rulesOf(styleOf(BUTTON)).map((r) => r.at);
-    expect(ats.filter(Boolean)).toEqual([WIDE]);
+    expect(ats.filter(Boolean)).toEqual([]);
   });
 });

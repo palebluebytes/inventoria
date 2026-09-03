@@ -703,26 +703,12 @@
     font-weight: 700;
     color: var(--text-primary);
   }
-  @media (min-width: 768px) {
-    .dashboard-header {
-      margin-top: var(--space-xs);
-    }
-    .dashboard-header h2 {
-      font-size: var(--step-1);
-    }
-  }
 
   .aggregates {
     display: flex;
     flex-direction: column;
     gap: var(--space-2xs);
     margin-top: var(--space-xs);
-  }
-  @media (min-width: 768px) {
-    .aggregates {
-      gap: var(--space-xs);
-      margin-top: var(--space-m);
-    }
   }
   /* Same rule as a meal's header — a titled row with its controls on the right,
      underlined — so the totals read as one more section of the day. */
@@ -894,11 +880,6 @@
        noticed, not where it applies. */
     padding-bottom: var(--space-2xl);
   }
-  @media (min-width: 768px) {
-    .timeline {
-      gap: var(--space-l);
-    }
-  }
   .meal-section {
     display: flex;
     flex-direction: column;
@@ -983,12 +964,6 @@
   .empty-meal,
   .meal-skeleton {
     padding: var(--space-xs);
-  }
-  @media (min-width: 768px) {
-    .empty-meal,
-    .meal-skeleton {
-      padding: var(--space-m);
-    }
   }
   .empty-meal {
     text-align: center;
@@ -1116,11 +1091,7 @@
   :global(.mt-6) {
     margin-top: var(--space-m);
   }
-  @media (min-width: 768px) {
-    :global(.mt-6) {
-      margin-top: var(--space-l);
-    }
-  }
+
   /* ── The day's two regions ───────────────────────────────────────────────
      Above the shell breakpoint the day is a meal timeline holding the reading
      edge and a rail of the day's numbers beside it (ADR-0091 §2). Below it —

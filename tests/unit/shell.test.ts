@@ -151,3 +151,40 @@ describe("the two regions are the day's shape, not the shell's", () => {
     expect(wide.map((r) => decl(r, "position")).filter(Boolean)).toEqual([]);
   });
 });
+
+describe("a media query means the shape changes here", () => {
+  /** Every rule in `file` under a `min-width: 768px` query. */
+  const bumps = (file: string) =>
+    rulesOf(styleOf(file))
+      .filter((r) => r.at === WIDE)
+      .map((r) => r.selectors.join(", "));
+
+  it("deletes the seven step changes onto a scale that is already fluid", () => {
+    // A media query that steps a `clamp()` token up to a larger one is the
+    // Utopia scale being distrusted (ADR-0091 §8). No element changed position,
+    // column count or role in any of the seven.
+    expect(bumps("src/lib/views/FoodView.svelte")).toEqual([]);
+    expect(bumps("src/lib/views/food/CommitButton.svelte")).toEqual([]);
+    expect(bumps(DAY)).toEqual([]);
+  });
+
+  it("keeps the ones the roster of seven did not name", () => {
+    // Named positively so the sweep above cannot pass by deleting everything.
+    //
+    // The first of the three is the honest one to look at: #342 kept the `.main`
+    // block calling it a real shape rule, and what is left inside it after the
+    // cap became unconditional is a padding step — `--space-m`/`--space-s` to
+    // `--space-l`/`--space-xl`, both fluid tokens. By this section's own test
+    // that is an eighth bump wearing the word "gutter", and it survives because
+    // the roster of seven was enumerated and this was not on it, not because it
+    // passes. Deleting it changes the desktop inset of every screen in both
+    // Facets, which is a decision somebody should make on purpose.
+    expect(
+      appSheet().filter((r) => r.at === WIDE && r.selectors.includes(".main"))
+    ).toHaveLength(1);
+    expect(bumps("src/lib/ui/BottomSheet.svelte").length).toBeGreaterThan(0);
+    expect(bumps("src/lib/views/food/WeekStrip.svelte")).toContain(
+      ".day-label-narrow"
+    );
+  });
+});

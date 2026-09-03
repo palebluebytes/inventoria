@@ -1307,12 +1307,6 @@
     justify-content: space-between;
     gap: var(--space-s);
   }
-  @media (min-width: 768px) {
-    .page-header {
-      margin-bottom: var(--space-m);
-      padding-bottom: var(--space-s);
-    }
-  }
   /* The blurb, folded away by default behind the header's ⓘ. `hidden` is what
      the toggle's aria-expanded describes, so it leaves the accessibility tree
      with the box. */

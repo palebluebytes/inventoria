@@ -52,7 +52,14 @@ describe("the breakpoint roster is closed", () => {
   it("finds the width queries at all — a sweep that matches nothing proves nothing", () => {
     // Without this, a regex that quietly stopped matching would turn every
     // assertion below into a vacuous pass over an empty list.
-    expect(widthQueries.length).toBeGreaterThanOrEqual(19);
+    //
+    // Fourteen, down from nineteen: #342 deleted the seven step changes onto
+    // the fluid scale and folded the two shells' duplicated `.main` blocks into
+    // one, then added the shell breakpoint in two places. The number is a floor
+    // under the sweep rather than a budget — it moves when the app's shapes do,
+    // and what keeps it honest is that lowering it is an edit somebody has to
+    // justify.
+    expect(widthQueries.length).toBeGreaterThanOrEqual(14);
   });
 
   it("uses no width that is not on the roster", () => {
