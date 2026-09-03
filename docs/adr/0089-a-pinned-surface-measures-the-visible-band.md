@@ -187,7 +187,12 @@ wrong in it, and one Consequence above needs a fact it does not carry.
   **and** cleared the Selection, and left the Selection's entry behind for the
   next one. So there is one stack, `ui/back-stack.ts`, and a Selection is a stop
   on it beside the sheets. The ordering is the order things opened in, which is
-  the only ordering a person could predict.
+  the only ordering a person could predict. **This is not an `Amends:` of that
+  record and neither header links to the other**: ADR-0088 §3's decision is
+  untouched, three exits and back leaving Food only once nothing is selected.
+  What moved is where the entry is pushed, which is an implementation detail of
+  that decision and a falsified comment in `FoodView.svelte`, not a revision of
+  it.
 
 - **Back closes a sheet at every width; only the replacement is the phone's.**
   §7 reads as one rule and is two. A dim between two cards is a width question

@@ -544,9 +544,9 @@
   $effect(() => {
     const active = selected_ids.size > 0;
     untrack(() => {
-      if (active && !selection_stop) {
+      if (active && selection_stop === 0) {
         selection_stop = enterBackStop("mode", clearSelection);
-      } else if (!active && selection_stop) {
+      } else if (!active && selection_stop !== 0) {
         leaveBackStop(selection_stop);
         selection_stop = 0;
       }

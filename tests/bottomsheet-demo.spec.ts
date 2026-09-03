@@ -137,6 +137,24 @@ test.describe("BottomSheet primitive — a sheet raised over a sheet", () => {
     await expect(page.locator(".parent-card")).toBeVisible();
   });
 
+  test("Escape closes the top sheet only, and spends its entry too", async ({
+    page,
+  }) => {
+    // The ticket asked for this to be checked rather than assumed: bits-ui owns
+    // Escape, and with two dialogs open it decides on its own which one hears
+    // it. Both halves are the claim — one sheet closes, not both, and the entry
+    // that sheet pushed goes with it, so Back is not left doing nothing.
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".second-sheet")).toHaveCount(0);
+    await expect(page.locator("#demo-open-second")).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".bottom-sheet-content")).toHaveCount(0);
+
+    await page.goBack();
+    await expect(page).toHaveURL(/back=probe/);
+  });
+
   test("a sheet closed by its own control spends the entry it pushed", async ({
     page,
   }) => {

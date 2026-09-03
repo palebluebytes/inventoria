@@ -82,6 +82,12 @@ export interface BackStack {
  * A stack bound to the document's history. There is one, exported below; this
  * exists so a test can drive a fresh one rather than reach into the shared one's
  * bookkeeping, which is precisely the state a second test would inherit.
+ *
+ * It reaches `window` rather than taking it as a parameter, following
+ * `ui/viewport-inset.ts` next door: what these two do IS talk to the document,
+ * so a port would be a second name for the same object and the test would end up
+ * asserting against the port instead of against a history. The seam that matters
+ * for a singleton is a fresh instance, which is this.
  */
 export function createBackStack(): BackStack {
   const stops: BackStop[] = [];
@@ -91,8 +97,8 @@ export function createBackStack(): BackStack {
   let lastId = 0;
   /** History entries this stack has pushed — always the topmost ones. */
   let owned = 0;
-  /** Navigations this stack asked for, whose `popstate` is therefore not a Back. */
-  let selfPops = 0;
+  /** A Back this stack asked for is in flight; its `popstate` is not a Back. */
+  let unwinding = false;
   let listening = false;
   let scheduled = false;
 
@@ -103,9 +109,11 @@ export function createBackStack(): BackStack {
   };
 
   const onPop = () => {
-    // Our own `go(-n)` coming back. One `popstate` per call, whatever `n` was.
-    if (selfPops > 0) {
-      selfPops -= 1;
+    // The Back this stack asked for, arriving. Reconciling was held off while it
+    // was in flight, so pick it up again now that the history has settled.
+    if (unwinding) {
+      unwinding = false;
+      settle();
       return;
     }
     // Nothing of ours is on top of the history, so this Back belongs to whatever
@@ -122,15 +130,21 @@ export function createBackStack(): BackStack {
   const reconcile = () => {
     scheduled = false;
     if (typeof window === "undefined") return;
+    // A Back of ours is still in flight. A `pushState` issued now races a
+    // traversal the browser has queued but not run, and which of the two wins is
+    // not ours to decide; the pop that ends it schedules this again.
+    if (unwinding) return;
     while (owned < stops.length) {
       owned += 1;
       window.history.pushState({ inventoriaBackStop: true }, "");
     }
     if (owned > stops.length) {
-      const spent = owned - stops.length;
-      owned = stops.length;
-      selfPops += 1;
-      window.history.go(-spent);
+      // One entry per pass, deliberately, even when several stops left at once:
+      // a single `back()` produces exactly one `popstate`, so nothing here has
+      // to assume how many a multi-entry traversal would produce.
+      owned -= 1;
+      unwinding = true;
+      window.history.back();
     }
   };
 

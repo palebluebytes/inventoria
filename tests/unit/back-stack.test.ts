@@ -37,9 +37,12 @@ function fakeBrowser() {
       pushState() {
         depth += 1;
       },
-      go(delta: number) {
+      // A traversal the app asked for. The browser runs it as a task and the
+      // `popstate` lands afterwards, which is why the fake owes one rather than
+      // calling straight back into the stack.
+      back() {
         gone += 1;
-        depth = Math.max(0, depth + delta);
+        depth = Math.max(0, depth - 1);
         owed += 1;
       },
     },
@@ -124,6 +127,51 @@ describe("a Back stop owns exactly one history entry", () => {
 
     expect(browser.depth()).toBe(1);
     expect(browser.navigations()).toBe(0);
+  });
+
+  it("pushes nothing while a Back of its own is still in flight", async () => {
+    // The replacement that does NOT land in one flush: a sheet closes, and what
+    // its `onClose` sets is what mounts the next one. Pushing an entry while the
+    // browser has a traversal queued and unrun is a race the browser resolves,
+    // and the stack would be counting an entry that may not survive it.
+    const { browser, stack, enter } = harness();
+    const first = enter("sheet", "log");
+    await settled();
+
+    stack.leave(first);
+    await settled();
+    expect(browser.navigations()).toBe(1);
+
+    enter("sheet", "recipe");
+    await settled();
+    expect(browser.depth()).toBe(0);
+
+    // The pop that ends the traversal is what lets the next entry be pushed.
+    browser.deliver();
+    await settled();
+    expect(browser.depth()).toBe(1);
+    expect(browser.navigations()).toBe(1);
+  });
+
+  it("gives back one entry per pass when several stops leave at once", async () => {
+    // A Selection whose verb opened a sheet, both ending on the same action.
+    // One `back()` per pass, so nothing has to assume how many `popstate` events
+    // a multi-entry traversal produces.
+    const { browser, stack, enter } = harness();
+    const mode = enter("mode", "selection");
+    const sheet = enter("sheet", "move-meal");
+    await settled();
+    expect(browser.depth()).toBe(2);
+
+    stack.leave(sheet);
+    stack.leave(mode);
+    await settled();
+    expect(browser.depth()).toBe(1);
+
+    browser.deliver();
+    await settled();
+    expect(browser.depth()).toBe(0);
+    expect(browser.navigations()).toBe(2);
   });
 
   it("is listening before it has pushed anything", async () => {
