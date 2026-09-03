@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { styleOf, rulesOf, decl, ruleOf } from "./support/stylesheet";
+import {
+  styleOf,
+  rulesOf,
+  decl,
+  ruleOf,
+  bandFallbacksIn,
+  viewportUnitsIn,
+} from "./support/stylesheet";
 
 /**
  * A sheet's geometry, read out of its `<style>` block (ADR-0089 §5, §8).
@@ -50,18 +57,17 @@ describe("a sheet's box is the visible band", () => {
   });
 
   it("names no viewport unit on a phone — every one is inert under a keyboard", () => {
-    const phone = RULES.filter((r) => r.at === EVERY_WIDTH);
-    const units = phone.flatMap((r) =>
-      [...r.body.matchAll(/\d+(?:\.\d+)?(vh|svh|dvh|lvh)\b/g)].map(
-        (m) => `${r.selectors.join(", ")}: ${m[0]}`
-      )
+    // Only the phone's rules: above 768px the peek returns and `85vh` is the
+    // shape, so a blanket sweep here would fail on the design rather than on a
+    // defect.
+    expect(viewportUnitsIn(RULES.filter((r) => r.at === EVERY_WIDTH))).toEqual(
+      []
     );
-    expect(units).toEqual([]);
   });
 
   it("writes the band bare, with no fallback of its own (§3)", () => {
     expect(SHEET).toMatch(/var\(--vv-/);
-    expect(SHEET).not.toMatch(/var\(\s*--vv-[a-z]+\s*,/);
+    expect(bandFallbacksIn(SHEET)).toEqual([]);
   });
 });
 

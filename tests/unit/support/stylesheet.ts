@@ -122,3 +122,38 @@ export function tokenPx(name: string): number {
   if (flat) return Number(flat[1]);
   throw new Error(`${name} is neither a clamp() nor a px in app.css`);
 }
+
+/**
+ * Every `--vv-*` reference in `css` that carries a fallback of its own.
+ *
+ * ADR-0089 §3: `app.css` declares all three properties and the runtime writes
+ * over them as inline properties on `<html>`, which beat a `:root` rule — so
+ * those declarations **are** the pre-keyboard defaults and a call site adding a
+ * second guess is a fourth answer to one number. Before the record there were
+ * `var(--vv-h, 85vh)`, `var(--vv-top, auto)` and `var(--vv-bottom, 0px)` in
+ * three files, none of them agreeing.
+ *
+ * Returns the offending `var(…)` openings rather than a boolean, so a failure
+ * quotes what to delete. Shared because the rule is the *mechanism's*, not any
+ * one consumer's, and the roster of consumers grows with §6.
+ */
+export function bandFallbacksIn(css: string): string[] {
+  return [...css.matchAll(/var\(\s*--vv-[a-z]+\s*,[^)]*\)/g)].map((m) => m[0]);
+}
+
+/**
+ * Every viewport unit named by one of `rules`, tagged with the selector naming
+ * it — `.selbar: 85vh` rather than `85vh`, because the fix is to that rule.
+ *
+ * Measured under `resizes-visual`, `vh`, `svh`, `dvh` and `lvh` all report the
+ * same number at every size and none of them moves when a keyboard opens
+ * (ADR-0089 Context). A pinned box that names one is keyboard-blind by
+ * construction, whichever of the four it picked.
+ */
+export function viewportUnitsIn(rules: Rule[]): string[] {
+  return rules.flatMap((r) =>
+    [...r.body.matchAll(/\d+(?:\.\d+)?(?:vh|svh|dvh|lvh)\b/g)].map(
+      (m) => `${r.selectors.join(", ")}: ${m[0]}`
+    )
+  );
+}

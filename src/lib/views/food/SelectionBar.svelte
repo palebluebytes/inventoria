@@ -121,7 +121,22 @@
     position: fixed;
     left: 0;
     right: 0;
-    bottom: 0;
+    /* The band's bottom edge, not the layout viewport's (ADR-0089 §1). The bar
+       holds a text field — `ScaleTier`'s factor — inside a `position: fixed`
+       box with no dialog anywhere around it, so focusing that field raises a
+       keyboard directly underneath the bar the field lives in. This one
+       declaration is the whole of it, which is the point: the three properties
+       sit on `:root` precisely so a surface with no sheet around it consumes
+       the same rule instead of deriving a geometry of its own.
+
+       **One declaration, where §5's bottom-anchored sheet writes two.** The
+       missing half is `max-height: var(--vv-h)`, and it would be inert here: a
+       cap only buys anything for a box with a scrolling region to give up, and
+       this bar has none — two rows of controls that must all stay hittable.
+       Capping it would clip the verbs rather than scroll them, which is worse
+       than the overflow it prevents. The over-reserved safe-area padding below
+       is `BottomSheet`'s dock argument verbatim, and settled there. */
+    bottom: var(--vv-bottom);
     /* Above the Sidebar's 100: a Selection is a mode and owns the foot of the
        screen while it is live (ADR-0088 §3). */
     z-index: 900;

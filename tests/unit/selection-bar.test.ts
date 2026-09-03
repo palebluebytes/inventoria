@@ -15,7 +15,14 @@
  */
 import { describe, it, expect } from "vitest";
 import { render } from "svelte/server";
-import { styleOf } from "./support/stylesheet";
+import {
+  styleOf,
+  rulesOf,
+  decl,
+  ruleOf,
+  bandFallbacksIn,
+  viewportUnitsIn,
+} from "./support/stylesheet";
 import SelectionBar from "../../src/lib/views/food/SelectionBar.svelte";
 
 const noop = () => {};
@@ -160,5 +167,55 @@ describe("the bar's verb marks", () => {
     ];
 
     expect(new Set(sizes).size).toBe(1);
+  });
+});
+
+/**
+ * The bar's geometry (ADR-0089 §1, #331).
+ *
+ * The bar was `position: fixed; bottom: 0` until #331, with an
+ * `inputmode="decimal"` field rendered **inside it** by `ScaleTier` and no
+ * dialog anywhere around it. Focusing that field raised a keyboard directly
+ * underneath the bar the field lives in — arguably the app's worst keyboard
+ * case, and one the sheet work could not reach. It is why the record puts the
+ * three properties on `:root` rather than inside `BottomSheet`: a surface with
+ * no sheet around it has to be a *consumer of the same rule*, not a special
+ * case.
+ *
+ * Source-level, and for the reason `sheet-geometry.test.ts` gives: what is
+ * decided is which properties a pinned box may name, which is a property of the
+ * CSS and not of any rendered pixel. Comments are stripped before every match.
+ */
+describe("the bar rides the visible band", () => {
+  const FILE = "src/lib/views/food/SelectionBar.svelte";
+
+  it("anchors to the band's bottom edge, not the layout viewport's", () => {
+    const bar = ruleOf(FILE, ".selbar");
+
+    expect(decl(bar, "position")).toBe("fixed");
+    expect(decl(bar, "bottom")).toBe("var(--vv-bottom)");
+  });
+
+  it("says it once, at every width", () => {
+    // #331's own claim: this is one rule, or the mechanism is in the wrong
+    // place. A second `bottom` — under a breakpoint, on the tier, anywhere —
+    // means the bar has started deriving a geometry instead of consuming one,
+    // and the failure names the selector that added it.
+    const anchors = rulesOf(styleOf(FILE))
+      .filter((r) => decl(r, "bottom") !== undefined)
+      .map((r) => `${r.at ?? "every width"} — ${r.selectors.join(", ")}`);
+
+    expect(anchors).toEqual(["every width — .selbar"]);
+  });
+
+  it("writes the band bare, with no fallback of its own (§3)", () => {
+    const css = styleOf(FILE);
+
+    expect(css).toMatch(/var\(--vv-/);
+    expect(bandFallbacksIn(css)).toEqual([]);
+  });
+
+  it("names no viewport unit — every one is inert under a keyboard", () => {
+    expect(viewportUnitsIn(rulesOf(styleOf(FILE)))).toEqual([]);
   });
 });
