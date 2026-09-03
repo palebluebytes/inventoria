@@ -292,12 +292,14 @@
      way.
 
      These two flags are also the app's proxy for "holds a text field", so on a
-     phone they are the sheets that go **full height** — no peek. Three of the
-     four carry one (both flush sheets search; the food-settings sheet edits
-     names); the past-meal picker does not, and is carried along, which costs it
-     nothing it had. The peek is precisely the fraction a keyboard eats, and the
-     only thing it ever bought is dismiss-by-tapping-outside, which the close
-     button already provides (ADR-0089 §5).
+     phone they are the sheets that go **full height** — no peek. Most of them
+     hold one: the flush sheets search, the food-settings sheet edits names, the
+     amount sheet takes a number. The ones that do not — the past-meal picker,
+     the nutrition panel — are carried along, which costs them nothing they had.
+     The peek is precisely the fraction a keyboard eats, and the only thing it
+     ever bought is dismiss-by-tapping-outside, which the close button already
+     provides (ADR-0089 §5). No count here: the roster grows, and a tally of it
+     written into the primitive is a fact about the day it was written.
 
      `top` plus an explicit `height`, deliberately **not** `top` plus `bottom`.
      Stretching between the two edges makes the box depend on the layout

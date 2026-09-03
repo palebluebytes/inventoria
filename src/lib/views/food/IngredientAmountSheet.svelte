@@ -12,7 +12,7 @@
   import FoodCard from "./FoodCard.svelte";
   import CommitButton from "./CommitButton.svelte";
 
-  // Edits a single food line's amount in a small sheet raised over the
+  // Edits a single food line's amount in a sheet raised over the
   // recipe/instantiation dialog or the dashboard. The same picker serves both:
   // it edits a working copy and reports the chosen amount once on Done, so the
   // caller commits it its own way — a recipe mutates the ingredient in memory,
@@ -92,8 +92,26 @@
 <!-- The header carries the VERB, not the food: it is one nowrap line that
      ellipsises, and a food name ("Bananas, ripe and…") is exactly what that
      truncates. The name belongs in the card, where it can wrap and be read in
-     full — under the same top-right tag corner the staged card uses. -->
-<BottomSheet isOpen title="Edit amount" class="amount-sheet" elevated {onClose}>
+     full — under the same top-right tag corner the staged card uses.
+
+     `fillHeight`, on both halves of ADR-0089 §5's rule. It holds a text field —
+     the amount — and a sheet sized to its content puts that field wherever the
+     card happens to end, which is the geometry a raised keyboard is worst
+     against. And its height is a fact about the food rather than about the
+     edit: a food with two portion chips and a nutrition panel makes a tall
+     sheet, one with neither makes a short one, and the same verb should not be
+     a different shape per row. It is the staging screen's card under a
+     different header, and that screen is `flushBody` — pinned by the same rule.
+     No `centred`: neither sibling takes it, so above 768px this stays the
+     bottom-anchored 85vh card they are. -->
+<BottomSheet
+  isOpen
+  title="Edit amount"
+  class="amount-sheet"
+  fillHeight
+  elevated
+  {onClose}
+>
   <FoodCard
     {payload}
     {name}
