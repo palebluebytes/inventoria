@@ -77,7 +77,7 @@
     flex-direction: column;
     gap: var(--space-2xs);
     padding: var(--space-xs) var(--space-s);
-    background: var(--food-surface-bg, var(--paper));
+    background: var(--paper);
   }
   .nutrient-card.toggleable {
     cursor: pointer;

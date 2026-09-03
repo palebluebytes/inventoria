@@ -63,7 +63,7 @@
     max-height: 85vh;
     display: flex;
     flex-direction: column;
-    background: var(--food-surface-bg, var(--paper));
+    background: var(--paper);
     border: var(--edge);
     box-shadow: var(--shadow-3);
     /* Clip to the padding box: the sections inside are full-bleed bands, and a

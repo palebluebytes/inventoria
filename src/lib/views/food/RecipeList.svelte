@@ -155,9 +155,9 @@
      reads as the same surface as the search results the user just came from. */
   .recipe-pick {
     width: 100%;
-    background: var(--food-surface-bg, var(--paper));
-    border: var(--food-surface-border, var(--edge-thin));
-    border-radius: var(--food-item-radius, var(--radius));
+    background: var(--paper);
+    border: var(--edge-thin);
+    border-radius: var(--radius);
     padding: var(--space-xs) var(--space-s);
     /* `.result-item` is a <div> and inherits the page line-height (1.5); this
        row is a <button>, which UA-resets to `line-height: normal` and shrinks
@@ -173,7 +173,7 @@
     transition: background 0.2s;
   }
   .recipe-pick:hover {
-    background: var(--food-surface-hover, var(--bg-input));
+    background: var(--bg-input);
   }
   .recipe-details {
     display: flex;

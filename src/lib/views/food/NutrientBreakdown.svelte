@@ -34,7 +34,7 @@
 <style>
   .breakdown {
     border: 1px solid var(--border, var(--ink));
-    background: var(--food-surface-bg, var(--paper));
+    background: var(--paper);
   }
   summary {
     cursor: pointer;

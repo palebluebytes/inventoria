@@ -831,7 +831,7 @@
     font-weight: 700;
     padding: var(--space-3xs) var(--space-2xs);
     border: 1.5px solid var(--border, var(--ink));
-    background: var(--food-surface-bg, var(--paper));
+    background: var(--paper);
     white-space: nowrap;
   }
   .rda-chip-pct {
