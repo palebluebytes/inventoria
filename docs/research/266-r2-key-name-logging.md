@@ -319,3 +319,72 @@ Three conditions gate that, and all three are ours to hold:
 deposit bucket is reached by binding only and is never made public — not because a public bucket
 would be insecure (the deposits are sealed) but because publishing it moves the key from a 31-day
 aggregated analytics dataset into a row that can be joined to a client IP.
+
+---
+
+## 4. What Cloudflare retains internally: they do not say, and #266 asked for that to be the answer
+
+#266's instruction was explicit — "If they do not say, record that as the answer — an unstated
+retention is not an absent one." Four first-party sources were checked, and none of them states an
+internal retention period for R2 operations.
+
+**The privacy policy states no number for anything but the DNS resolver.** Cloudflare's
+[Privacy Policy](https://www.cloudflare.com/privacypolicy/) §11 is the retention section:
+
+> We store your personal information for a period of time that is consistent with the business
+> purposes set forth in Section 3 of this policy or as long as needed to fulfill and comply with
+> legal obligations.
+
+The only figure anywhere in it is for the 1.1.1.1 resolver — "the bulk of the limited
+non-personally identifiable query data is only stored for 25 hours" — which is a different product
+and cannot be read across. §6 of the same policy puts data handled for customers outside the policy's
+own schedule: "Cloudflare processes data on behalf of its Customers pursuant to their data processing
+instructions." **That is a pointer to the DPA, not a retention period**, and it means the policy is
+structurally incapable of answering this question for an R2 bucket.
+
+**The legal-process page states a limit with no number.** The
+[law enforcement page](https://www.cloudflare.com/trust-hub/law-enforcement/):
+
+> Cloudflare rarely has data responsive to court orders seeking transactional data related to a
+> customer's website, such as logs of the IP addresses visiting a customer's website or the dates
+
+> we retain such data (if at all) for only a limited amount of time
+
+**"(if at all)" is doing the work in that sentence, and it is a hedge rather than a commitment.** The
+same page's other well-known line — Cloudflare "is not generally a hosting provider … and does not
+have customer content … in the traditional sense" — is a statement about the CDN business and is
+**false about an R2 bucket we chose to fill**. #283 §5 already made that point about the deposits;
+it applies to the key names identically.
+
+**The only Cloudflare figure with a number attached is thirteen years old and about a different
+product.** [What Cloudflare Logs](https://blog.cloudflare.com/what-cloudflare-logs/), published
+**2013-04-23**, is the source of the "4 hours" figure that circulates:
+
+> For most customers, we discard access logs within 4 hours of them being recorded.
+
+> By default, we store logs for these customers for 3 days.
+
+> Error logs sent to core are currently kept for 1 week then discarded.
+
+**Do not cite this for R2.** It predates R2 by eight years, it describes CDN edge access logs, and
+nothing on the page claims to be a policy that binds later products. It is recorded here only so
+that the next reader who finds "Cloudflare keeps logs for 4 hours" knows exactly what that sentence
+was about.
+
+**The R2 documentation itself is silent.** The
+[Metrics and analytics](https://developers.cloudflare.com/r2/platform/metrics-analytics/) page's only
+retention statement is the customer-facing one — "Metrics can be queried (and are retained) for the
+past 31 days" — and **"can be queried for" is not "are deleted after"**. The page says how long we
+can read; it does not say how long Cloudflare holds. That distinction is the whole of this section.
+
+**So the answer to #266's fourth residual gap, stated as the ticket asked:**
+
+> **Cloudflare publishes no internal retention period for R2 operations data. The 31-day figure is a
+> query window, not a deletion guarantee. An unstated retention is not an absent one, and the
+> destination ADR must not write a sentence whose truth depends on Cloudflare having deleted
+> anything.**
+
+This is not establishable from outside by any amount of further reading, which is what #281 said when
+it handed the question on. The reason it is worth the words anyway is that it converts an open
+question into a **closed** one: it is not that we have failed to find the number, it is that no
+number exists to find, and further research on this point is not warranted.
