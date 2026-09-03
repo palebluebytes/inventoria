@@ -16,9 +16,10 @@
  */
 import { describe, it, expect } from "vitest";
 import { render } from "svelte/server";
+import type { ComponentProps } from "svelte";
 import FoodStager from "../../src/lib/views/food/FoodStager.svelte";
 import type { FoodResult } from "../../src/lib/food/food-search";
-import { styleOf, rulesOf, decl, type Rule } from "./support/stylesheet";
+import { rulesOf, styleOf, decl, ruleOf } from "./support/stylesheet";
 
 const oats: FoodResult = {
   entity: "food:usda_mock_oats",
@@ -43,8 +44,12 @@ const oats: FoodResult = {
   },
 };
 
-/** The two ids the host hands down that this file asks about. */
-const ids = {
+/**
+ * The DOM ids a host hands the stager. All eight are required, and three of
+ * them are what this file looks for in the rendered dock: the search field, the
+ * barcode field, and the commit button.
+ */
+const ids: StagerProps["ids"] = {
   search: "stager-search",
   barcode: "stager-barcode",
   primary: "stager-primary",
@@ -55,17 +60,16 @@ const ids = {
   customCarb: "stager-carb",
 };
 
-function dock(props: {
-  initialMethod?: string;
-  staged?: FoodResult | null;
-}): string {
+type StagerProps = ComponentProps<typeof FoodStager>;
+
+function dock(props: Partial<StagerProps>): string {
   return render(FoodStager, {
     props: {
       ids,
       onChoose: () => ({ ok: true }),
       primaryLabel: () => "Log",
       ...props,
-    } as never,
+    },
   }).body;
 }
 
@@ -115,17 +119,11 @@ describe("the dock's field", () => {
  * a whole result row of the scarcest space on the screen, for a one-word button.
  */
 describe("the commit button is sized for a phone", () => {
-  const RULES = rulesOf(styleOf("src/lib/views/food/CommitButton.svelte"));
+  const BUTTON = "src/lib/views/food/CommitButton.svelte";
   const EVERY_WIDTH = null;
   const WIDE = "@media (min-width: 768px)";
 
-  function rule(at: string | null): Rule {
-    const found = RULES.filter(
-      (r) => r.at === at && r.selectors.includes(".commit")
-    );
-    expect(found).toHaveLength(1);
-    return found[0];
-  }
+  const rule = (at: string | null) => ruleOf(BUTTON, ".commit", at);
 
   it("writes the phone as the base rule, not as an override", () => {
     const base = rule(EVERY_WIDTH);
@@ -151,6 +149,7 @@ describe("the commit button is sized for a phone", () => {
   it("carries no max-width media query — the breakpoint only ever widens", () => {
     // A `max-width` rule would mean the phone is the exception again, which is
     // the shape ADR-0089 §5 turned around.
-    expect(RULES.map((r) => r.at).filter(Boolean)).toEqual([WIDE]);
+    const ats = rulesOf(styleOf(BUTTON)).map((r) => r.at);
+    expect(ats.filter(Boolean)).toEqual([WIDE]);
   });
 });

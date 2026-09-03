@@ -71,3 +71,54 @@ export function decl(rule: Rule, prop: string): string | undefined {
   const at = rule.body.match(new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*([^;]+)`));
   return at?.[1].trim();
 }
+
+/**
+ * The one rule in `file` whose selector list contains exactly `selector`, under
+ * the at-rule `at` — `null` for "in none", which is the unconditional rule and,
+ * in a mobile-first sheet, the phone's.
+ *
+ * It throws rather than returning nothing on either miss: a renamed selector
+ * would otherwise pass every assertion about it silently, which is the failure
+ * mode a source-level test is most exposed to.
+ */
+export function ruleOf(
+  file: string,
+  selector: string,
+  at: string | null = null
+): Rule {
+  const found = rulesOf(styleOf(file)).filter(
+    (r) => r.at === at && r.selectors.includes(selector)
+  );
+  if (found.length !== 1) {
+    throw new Error(
+      `${file} has ${found.length} rules for "${selector}"` +
+        `${at === null ? "" : ` under ${at}`}, expected exactly 1`
+    );
+  }
+  return found[0];
+}
+
+/**
+ * `src/app.css`, comments stripped and flattened the same way a component's
+ * `<style>` block is. It is where the token scales and the measurements are
+ * declared, so anything resolving a `var()` starts here.
+ */
+export function appSheet(): Rule[] {
+  return rulesOf(
+    readFileSync("src/app.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "")
+  );
+}
+
+/**
+ * A token's value in px: a fluid one at its `clamp()` floor — what it is at and
+ * below the scale's narrowest width, so the tightest a phone ever draws it —
+ * and a flat one (`--tap-min`, `--hairline`) at what it says.
+ */
+export function tokenPx(name: string): number {
+  const app = readFileSync("src/app.css", "utf8");
+  const fluid = app.match(new RegExp(`${name}:\\s*clamp\\(\\s*([\\d.]+)rem`));
+  if (fluid) return Number(fluid[1]) * 16;
+  const flat = app.match(new RegExp(`${name}:\\s*([\\d.]+)px`));
+  if (flat) return Number(flat[1]);
+  throw new Error(`${name} is neither a clamp() nor a px in app.css`);
+}

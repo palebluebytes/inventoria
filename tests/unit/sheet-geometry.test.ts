@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { styleOf, rulesOf, decl, type Rule } from "./support/stylesheet";
+import { styleOf, rulesOf, decl, ruleOf } from "./support/stylesheet";
 
 /**
  * A sheet's geometry, read out of its `<style>` block (ADR-0089 §5, §8).
@@ -14,17 +14,13 @@ import { styleOf, rulesOf, decl, type Rule } from "./support/stylesheet";
  * `bottom` cannot satisfy or break a rule here.
  */
 
-const SHEET = styleOf("src/lib/ui/BottomSheet.svelte");
+const SHEET_FILE = "src/lib/ui/BottomSheet.svelte";
+const SHEET = styleOf(SHEET_FILE);
 const RULES = rulesOf(SHEET);
 
-/** The one rule whose selector list contains exactly this selector. */
-function rule(selector: string, at: string | null = null): Rule {
-  const found = RULES.filter(
-    (r) => r.at === at && r.selectors.includes(selector)
-  );
-  expect(found).toHaveLength(1);
-  return found[0];
-}
+/** The one rule in the sheet whose selector list contains exactly this one. */
+const rule = (selector: string, at: string | null = null) =>
+  ruleOf(SHEET_FILE, selector, at);
 
 /**
  * `at === null` is "in no at-rule" — a declaration that applies at every width,

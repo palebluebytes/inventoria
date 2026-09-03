@@ -25,49 +25,34 @@
  */
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
-import { styleOf, rulesOf, decl, type Rule } from "./support/stylesheet";
+import {
+  appSheet,
+  decl,
+  ruleOf,
+  tokenPx,
+  type Rule,
+} from "./support/stylesheet";
 
 const APP = readFileSync("src/app.css", "utf8");
 
-/**
- * A token in px: a fluid one at its `clamp()` floor — the value at and below
- * the scale's narrowest width, so the tightest a phone ever draws it — and a
- * flat one (`--tap-min`) at what it says.
- */
-function tokenPx(name: string): number {
-  const fluid = APP.match(new RegExp(`${name}:\\s*clamp\\(\\s*([\\d.]+)rem`));
-  if (fluid) return Number(fluid[1]) * 16;
-  const flat = APP.match(new RegExp(`${name}:\\s*([\\d.]+)px`));
-  if (flat) return Number(flat[1]);
-  throw new Error(`${name} is neither a clamp() nor a px in app.css`);
-}
-
-/** An `--edge*` token's width, in px. They are full shorthands, ink baked in. */
+/** An `--edge*` token's width, in px. They are full shorthands, ink baked in,
+ *  so the width is read off the front rather than through `tokenPx`. */
 function edgePx(name: string): number {
-  const width = APP.match(new RegExp(`${name}:\\s*(\\d+)px`));
-  if (!width) throw new Error(`${name} is not an edge token in app.css`);
+  const width = APP.match(new RegExp(`${name}:\\s*([\\d.]+)px solid`));
+  if (!width) throw new Error(`${name} is not an edge shorthand in app.css`);
   return Number(width[1]);
 }
 
-const TAP_MIN = Number(APP.match(/--tap-min:\s*(\d+)px/)![1]);
+const TAP_MIN = tokenPx("--tap-min");
 
 /** The document's own line-height, which every control below inherits. */
 const ROOT_LINE_HEIGHT = Number(
-  rulesOf(APP.replace(/\/\*[\s\S]*?\*\//g, ""))
+  appSheet()
     .filter((r) => r.at === null && r.selectors.includes(":root"))
     .map((r) => decl(r, "line-height"))
     .filter(Boolean)
     .pop()
 );
-
-/** The one unconditional rule for `selector` in `file`. */
-function ruleFor(file: string, selector: string): Rule {
-  const found = rulesOf(styleOf(file)).filter(
-    (r) => r.at === null && r.selectors.includes(selector)
-  );
-  expect(found, `${selector} in ${file}`).toHaveLength(1);
-  return found[0];
-}
 
 /** A length as written — a token, a raw px, or `none` — in px. */
 function lengthPx(value: string): number {
@@ -118,10 +103,24 @@ describe("the floor itself", () => {
 });
 
 describe("the six nav items", () => {
-  // One measurement covers all six: every item is the same `.nav-item` box at
-  // `flex: 1`, differing only in its glyph and its word.
-  const item = ruleFor(SIDEBAR, ".nav-item");
-  const icon = ruleFor(SIDEBAR, ".nav-item .icon");
+  const item = ruleOf(SIDEBAR, ".nav-item");
+  const icon = ruleOf(SIDEBAR, ".nav-item .icon");
+
+  it("is six, each drawn from the one `.nav-item` box", () => {
+    // What lets one measurement stand for all six: the nav is a loop over one
+    // list, emitting one class, and every item is `flex: 1`. A seventh tab, or
+    // a tab given a box of its own, would make the figure below a claim about
+    // only some of them — so the shape of the loop is asserted, not assumed.
+    const markup = readFileSync(SIDEBAR, "utf8").replace(
+      /<style>[\s\S]*?<\/style>/,
+      ""
+    );
+    const tabs = markup.match(/\{\s*id:\s*"[a-z]+"/g) ?? [];
+
+    expect(tabs).toHaveLength(6);
+    expect(markup.match(/class="nav-item/g)).toHaveLength(1);
+    expect(decl(item, "flex")).toBe("1");
+  });
 
   it("stands 68.4px tall, comfortably over the floor", () => {
     const label = fontSizePx(item);
@@ -145,14 +144,14 @@ describe("the six nav items", () => {
 
 describe("the dock's controls", () => {
   it("gives the method tabs 52px, declared outright", () => {
-    const tab = ruleFor(STAGER, ".dock :global(.methods .method)");
+    const tab = ruleOf(STAGER, ".dock :global(.methods .method)");
 
     expect(declaredFloorPx(tab)).toBe(52);
     expect(declaredFloorPx(tab)!).toBeGreaterThanOrEqual(TAP_MIN);
   });
 
   it("gives the commit button 51px, over a floor of `--tap-min` itself", () => {
-    const commit = ruleFor("src/lib/views/food/CommitButton.svelte", ".commit");
+    const commit = ruleOf("src/lib/views/food/CommitButton.svelte", ".commit");
     const height =
       2 * borderPx(commit) + 2 * paddingYPx(commit) + lineBoxPx(commit);
 
@@ -169,8 +168,8 @@ describe("the dock's controls", () => {
    */
   it("leaves both text fields at 47px, just under the floor (#336)", () => {
     const fields = {
-      "the search field": ruleFor(STAGER, ".cb-input"),
-      "the barcode field": ruleFor("src/lib/ui/Input.svelte", ".input"),
+      "the search field": ruleOf(STAGER, ".cb-input"),
+      "the barcode field": ruleOf("src/lib/ui/Input.svelte", ".input"),
     };
 
     const measured = Object.fromEntries(

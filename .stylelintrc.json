@@ -30,8 +30,8 @@
       "box-shadow": [
         "/^(?:inset\\s+)?-?[\\d.]+(?:px|rem|em|%)?\\s+-?[\\d.]+(?:px|rem|em|%)?\\s+(?!0(?:px|rem|em)?\\b)[\\d.]+(?:px|rem|em)\\b/i"
       ],
-      "/^(margin|padding|gap|row-gap|column-gap)(-top|-right|-bottom|-left)?$/": [
-        "/^(?!.*env\\()[\\s\\S]*\\d(?:\\.\\d+)?px/"
+      "/^((margin|padding)(-(top|right|bottom|left|block|inline)(-(start|end))?)?|(row-|column-)?gap)$/": [
+        "/(?<![\\d.])-?(?:[1-9]\\d*(?:\\.\\d+)?|0?\\.\\d*[1-9]\\d*)px/"
       ]
     },
     "declaration-property-value-allowed-list": {

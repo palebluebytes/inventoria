@@ -254,12 +254,14 @@ centralising it, and a simpler model to a cleverer mechanism.
   pages written to be read start to finish. `pnpm docs:check` runs that last part
   alone when you want a faster loop.
 - **`lint:css` keeps the scales and the measurements apart** (ADR-0089 §3). A
-  raw px in `padding`, `margin` or `gap` fails: rhythm comes from the fluid space
-  scale, and a px is a measurement, which belongs either in `src/app.css` with
+  non-zero px anywhere in `padding`, `margin` or `gap` fails — every longhand,
+  physical and logical, and inside a `calc()` too. Rhythm comes from the fluid
+  space scale; a px is a measurement, and belongs either in `src/app.css` with
   the others (`--tap-min`, `--hairline`) or on a component that names its own —
   see `HabitHeatmap`'s `--cell`/`--seam`, a drawing whose numbers no scale can
-  express. A value carrying `env()` is exempt: a safe-area inset is a measurement
-  too, and its `0px` fallback is not a spacing decision.
+  express. **Zero is always allowed**, which is what carries the safe-area
+  insets: every `env(…, 0px)` fallback passes without the rule needing to know
+  what `env()` is.
 
 ---
 
