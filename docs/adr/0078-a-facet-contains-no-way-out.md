@@ -2,7 +2,8 @@
 
 **Status:** Accepted  
 **Date:** 2026-08-31  
-**Amended by:** [ADR-0084](0084-a-hand-off-belongs-to-the-facet-that-owns-what-it-carries.md) (§6's count of the entry points is corrected at this record's foot; §6's exclusivity itself stands unrevised)
+**Amended by:** [ADR-0084](0084-a-hand-off-belongs-to-the-facet-that-owns-what-it-carries.md) (§6's count of the entry points is corrected at this record's foot; §6's exclusivity itself stands unrevised)  
+**Amended by:** [ADR-0091](0091-rations-widens-into-two-regions-and-grows-pages.md) §5 (one Tracked Domain stopped implying one screen; the no-way-_out_ rule is untouched)
 
 ## Context
 

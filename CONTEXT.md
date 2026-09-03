@@ -442,6 +442,33 @@ things guaranteed on screen. A control that cannot act does not hold space in it
 See ADR-0027 §Decision and ADR-0089 §8.
 _Avoid_: Footer, action bar, toolbar, sticky bar
 
+**Rail**:
+The second region Rations' shell opens above the shell breakpoint, to the right of
+the meal timeline, holding the day's numbers — a month calendar over the Nutrition
+accordion. It is reference material beside the subject, which is why it takes the
+right and the timeline keeps the reading edge. It is deliberately **not pinned**:
+pinning wants the rail held as one unit and its blocks are siblings of the
+timeline rather than children of a rail, so a pinned rail is a rail with a real
+element and that is the trigger to reopen it. See ADR-0091 §2 and §4.
+_Avoid_: Sidebar (the root's navigation is a Sidebar and this navigates nothing),
+aside, panel, right column
+
+**Page**:
+A whole-screen surface Rations shows instead of the day, above the shell
+breakpoint only: Settings, Recipes, Reports. The header's icons are its navigation
+and the title is the way back. A page **reuses the sheet it replaces** through
+`BottomSheet`'s `inline` rather than restating it, so a control cannot drift
+between the two. Below the breakpoint there are no pages and the same icons open
+sheets. See ADR-0091 §5.
+_Avoid_: Route (nothing navigates and there is no router), tab, view, screen
+
+**Report**:
+A reading of the ledger over a period, computed when its page renders and stored
+nowhere. **A report is never a datom** — it is a question asked of the facts, so it
+cannot fall out of step with them and needs no attribute of its own. A day with
+nothing logged is absent from one rather than plotted as a zero. See ADR-0091 §6.
+_Avoid_: Summary, stat, analytics, insight, dashboard (that word is the day's)
+
 **Best match**:
 The mark on the top-ranked row of a _ranked_ list: the row inverts, and the two
 below it carry a stepping left edge. It says which one won and never carries a

@@ -3,6 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-09-02  
 **Amends:** ADR-0027 §Decision (the sheet's height model and its over-dialog layering)  
+**Amended by:** [ADR-0091](0091-rations-widens-into-two-regions-and-grows-pages.md) §1 (what §5 protects narrows from shape to vocabulary)  
 **Implemented:** §1-§4 by #327 — `ui/viewport-inset.ts`, `facets/startup.ts`, `app.css`, both `index.html`, `layout/Sidebar.svelte`. §5 and §8's scroll-chaining rule by #328 — `ui/BottomSheet.svelte`, `views/food/FoodStager.svelte`. §9 by #333 — `tests/support/virtual-keyboard.ts`, `tests/keyboard-invariants.spec.ts`. §8's other two rules by #332 — `views/food/FoodStager.svelte`, `views/food/CommitButton.svelte`, and the 16px floor swept across 12 components. §1's consumer with no dialog around it by #331 — `views/food/SelectionBar.svelte`, one declaration. §6 by #329 — `ui/BottomSheet.svelte`'s `centred`, and the six surfaces that folded onto it: `views/food/NutritionPanel.svelte` (three consumers), `views/items/ItemEditModal.svelte`, `views/media/MediaIngestModal.svelte`, `views/media/MediaEngagementModal.svelte`, `views/food/DailyDashboard.svelte`'s photo preview and `views/food/FoodDataSection.svelte`'s wipe confirmation; see the Amendment below for the roster this record got wrong. §7 by #330 — `ui/back-stack.ts`, `ui/BottomSheet.svelte`, `ui/Modal.svelte`, `views/FoodView.svelte`, and the second sheet `ui/BottomSheetDemo.svelte` raises for it. §3's floor reached by the shared field skin by #336 — `ui/Input.svelte`'s `.input` and `views/food/FoodStager.svelte`'s `.cb-input`, one declaration each; #332 §4 measured both at 47px and filed rather than widening
 
 ## Context
@@ -247,3 +248,29 @@ is handed, and a snippet holding its own conditional is still forbidden. What th
 failure now costs is smaller and differently shaped — with no `onBack` the rails stay
 equal and the title stays put, and what is left is a hole where the header promised a
 control.
+
+## Amendment (2026-09-03): §5 protects the vocabulary, not the arrangement
+
+§5 says a width difference "may buy more room, never a different shape". Read
+literally it forbids the only thing a wide screen genuinely offers — showing side
+by side what a phone must stack — and Rations' desktop shell needed exactly that
+([#337](https://github.com/palebluebytes/inventoria/issues/337)).
+
+The argument under §5 is kept: do not grow a second design to maintain. What it
+protects narrows, in ADR-0091 §1:
+
+> One information architecture, one set of parts, one way in per action. Width
+> may re-arrange and un-stack the same parts. It may never add a part, remove a
+> part, or give an action a second door.
+
+A month calendar where a phone shows a week strip passes — the same part,
+presented differently. A second door to logging a food would not.
+
+**§5's own sentence about the peek is now false in one Facet, and this is where
+that is said.** "Above the breakpoint the peek returns" described a
+bottom-anchored sheet leaving a strip of backdrop above its top edge. There is no
+bottom-anchored sheet above 768px any more: [#340](https://github.com/palebluebytes/inventoria/issues/340)
+made every sheet a centred card there and deleted the peek with the shape that
+produced it. In Rations above 1180px there is no sheet at all on the day screen,
+because Settings and Recipes are pages. A reader opening Rations on a laptop and
+consulting §5 will find it describing a surface that is not on the screen.

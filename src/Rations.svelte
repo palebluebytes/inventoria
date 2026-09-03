@@ -25,10 +25,17 @@
   // ── The whole of Rations' chrome ──────────────────────────────────────────
   //
   // There is no Sidebar and no tab bar, and that is the decision rather than an
-  // omission (ADR-0078 §1–2). Rations is one Tracked Domain, so it is one
-  // screen, and a cross-Facet link is not forbidden here — it is
+  // omission (ADR-0078 §1–2). A cross-Facet link is not forbidden here — it is
   // **unexpressible**, because the screen it would point at is not in this
   // build. The chrome is the food screen itself and the gear it already carries.
+  //
+  // **One Tracked Domain no longer means one screen** (ADR-0091 §5). Above the
+  // shell breakpoint Rations has pages — Settings, Recipes and Reports — and the
+  // header's icons are navigation rather than sheet openers. That amends
+  // ADR-0078 §1 and nothing else: every page is Rations' own, so the no-way-*out*
+  // rule this file is built on is untouched, and a link to a screen outside this
+  // build is still unexpressible. Below the breakpoint there are no pages and the
+  // icons open sheets, which is the shape this comment used to describe wholesale.
   //
   // Nothing tests `display-mode` (ADR-0078 §5): a visitor in a browser tab and a
   // visitor in an install get the same app, because two behaviours would be two
