@@ -201,3 +201,50 @@ For completeness in this section, because it is what §9's switch is repeatedly 
 account" — has `objectName`, "The object this operation was performed on if applicable.", retained
 31 days. §5.1 re-verifies it in full. **It is an R2 dataset, not a Workers one**, and no Cloudflare
 page connects any Workers observability setting to it.
+
+---
+
+## 2. R2 event notifications: the full key, opt-in, and off
+
+[Event notifications](https://developers.cloudflare.com/r2/buckets/event-notifications/) are the
+loudest key-carrying surface R2 has, and the reason they do not matter here is that nobody has turned
+them on.
+
+**They are opt-in per bucket.** The page's instructions are to "Enable event notifications via
+Dashboard" or "Enable event notifications via Wrangler"; a bucket with no notification rule emits
+nothing. There is no account-wide or default-on variant.
+
+**When on, they carry the key in full.** The documented message body:
+
+```json
+{
+	"account": "string",
+	"action": "string",
+	"bucket": "string",
+	"object": { "key": "string", "size": "number", "eTag": "string" },
+	"eventTime": "string",
+	"copySource": { "bucket": "string", "object": "string" }
+}
+```
+
+`object.key` is the object name; `object.size` and `object.eTag` are documented as present for
+creation events; `copySource` is "only present for events triggered by `CopyObject`" and carries a
+**second** key.
+
+**Two details worth pinning that go beyond "do not enable it".**
+
+- **The trigger set includes lifecycle deletion.** The documented event types are `object-create`
+  (`PutObject`, `CopyObject`, `CompleteMultipartUpload`) and `object-delete` (`DeleteObject`,
+  **`LifecycleDeletion`**). So a notification rule would write down not only every deposit and every
+  collection but every _expiry_ — which is to say, every address that was minted and never collected,
+  the one event no other pipeline announces. That is the exact population #283 §4.5 is trying to
+  bound, handed over by key.
+- **The destination is a Queue, and a Queue is a store.** "Send messages to your queue when data in
+  your R2 bucket changes." Enabling notifications does not merely emit; it deposits the key into a
+  second Cloudflare product with its own retention and its own consumers. A key that reaches a Queue
+  has left the 31-day window and entered somebody else's.
+
+**Recording this as absent is worth as much as recording the analytics as present.** The correct
+posture is not "we have not got round to it": it is a decision, and the destination ADR should say
+that R2 event notifications are refused for this bucket, so that a future maintainer wiring up a
+delivery receipt or a metrics counter meets a record rather than an empty field.
