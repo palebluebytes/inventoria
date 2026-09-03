@@ -111,3 +111,8 @@ a poster) and gained a tighter leading on the name, so a wrapped name and the
 amount under it read as one block; the ✕ is drawn in the muted ink and takes its
 full ink back on hover, since it is an action on the row rather than a figure in
 it.
+
+**The meal subtotal's labels are no longer set in capitals.** `PROT 1.41 g` was
+the only place in the app that shouted a nutrient's name; the compact labels are
+short enough to read as labels without it, and the tracking that caps needed went
+with them.

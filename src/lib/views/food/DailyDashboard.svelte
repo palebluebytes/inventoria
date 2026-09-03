@@ -1025,10 +1025,10 @@
     gap: 0.25em;
     white-space: nowrap;
   }
-  .meal-total-label {
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
+  /* `.meal-total-label` carries no rule of its own on purpose: the label is
+     written in the case `nutrientShortLabel` writes it in, and the tracking
+     that came with setting it in caps went with them. It stays a span because
+     the gap above is what separates it from its value. */
   /* The card is now a bare interactive wrapper — the bordered row visual and
      its selected highlight live in the shared FoodItemRow. */
   .meal-item-card.selectable {
