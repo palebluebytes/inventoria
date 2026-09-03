@@ -137,7 +137,7 @@
      would with no mark, and the fill bleeds into the row's own padding. */
   .fi-cals,
   :global(.food-item .fi-qty) {
-    padding: 1px var(--space-3xs);
+    padding: var(--hairline) var(--space-3xs);
     margin: 0 calc(var(--space-3xs) * -1);
   }
 

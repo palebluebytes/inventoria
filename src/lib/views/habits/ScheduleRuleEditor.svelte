@@ -296,7 +296,7 @@
     display: flex;
     border: var(--edge);
     background: var(--ink);
-    gap: 2px;
+    gap: var(--space-3xs);
   }
 
   .segment-btn {

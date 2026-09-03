@@ -111,6 +111,16 @@
      passing one guideline and failing the other (ADR-0089 §3). */
   --tap-min: 48px;
 
+  /* The width of a drawn line, for the places where a line is drawn by
+     something other than a border: a grid whose `gap` shows its own background
+     through as a rule, the negative margin of the visually-hidden recipe, the
+     inset that keeps a mark's box off the text it wraps. It is `--edge-thin`'s
+     1px as a bare length, and it is a measurement for the same reason
+     `--tap-min` is: a hairline is as thin as a screen can draw, which no scale
+     against the viewport can express. Rhythm is the space scale's; this is not
+     rhythm, and `--space-3xs` (4.5px) would draw a band instead of a line. */
+  --hairline: 1px;
+
   /* ── The visible band ──────────────────────────────────────────────────────
      The part of the page a person can actually see right now. Declared here
      with the other tokens and *overwritten at runtime* by

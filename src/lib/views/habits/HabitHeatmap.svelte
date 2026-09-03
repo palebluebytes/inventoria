@@ -100,6 +100,20 @@
 </Card>
 
 <style>
+  /* The heatmap is a pixel diagram, not a piece of the page's rhythm: seven
+     fixed rows of a fixed cell, a fixed seam between them, and a label column
+     inset to line its first and last word up with them. Those three numbers are
+     named here so they read as one drawing and move together, and because the
+     space scale has no step to express them with — `--space-3xs` is 4.5px and
+     would more than double the seam. Same separation as `--tap-min`'s
+     (ADR-0089 §3), scoped to the one drawing that owns it — and to the legend
+     beside it, which draws the same cell at the same size to name its colours. */
+  .heatmap-container,
+  .heatmap-legend {
+    --cell: 12px;
+    --seam: 2px;
+    --label-inset: 4px;
+  }
   .heatmap-container {
     display: flex;
     gap: var(--space-2xs);
@@ -113,21 +127,21 @@
     justify-content: space-between;
     font-size: 10px;
     color: var(--text-muted);
-    padding-top: 4px;
-    padding-bottom: 4px;
+    padding-top: var(--label-inset);
+    padding-bottom: var(--label-inset);
     height: 98px;
     user-select: none;
   }
   .heatmap-grid {
     display: grid;
-    grid-template-rows: repeat(7, 12px);
+    grid-template-rows: repeat(7, var(--cell));
     grid-auto-flow: column;
-    grid-auto-columns: 12px;
-    gap: 2px;
+    grid-auto-columns: var(--cell);
+    gap: var(--seam);
   }
   .heatmap-cell {
-    width: 12px;
-    height: 12px;
+    width: var(--cell);
+    height: var(--cell);
     background-color: var(--bg-input);
     border: 1px solid var(--border);
     transition: all 0.2s;

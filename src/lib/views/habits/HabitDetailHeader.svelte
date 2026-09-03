@@ -57,7 +57,7 @@
   }
   .instrument-code {
     background: var(--bg-input);
-    padding: 2px 6px;
+    padding: var(--space-3xs) var(--space-2xs);
     font-family: var(--font-mono);
     font-size: 0.9em;
   }

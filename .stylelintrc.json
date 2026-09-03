@@ -29,6 +29,9 @@
       ],
       "box-shadow": [
         "/^(?:inset\\s+)?-?[\\d.]+(?:px|rem|em|%)?\\s+-?[\\d.]+(?:px|rem|em|%)?\\s+(?!0(?:px|rem|em)?\\b)[\\d.]+(?:px|rem|em)\\b/i"
+      ],
+      "/^(margin|padding|gap|row-gap|column-gap)(-top|-right|-bottom|-left)?$/": [
+        "/^(?!.*env\\()[\\s\\S]*\\d(?:\\.\\d+)?px/"
       ]
     },
     "declaration-property-value-allowed-list": {

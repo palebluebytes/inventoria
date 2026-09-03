@@ -94,7 +94,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
+    gap: var(--space-3xs);
     padding: var(--space-xs) 0;
     border: none;
     background: transparent;

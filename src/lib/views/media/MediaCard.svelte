@@ -176,7 +176,7 @@
     padding: var(--space-s);
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--space-3xs);
     flex: 1;
   }
 
@@ -184,7 +184,7 @@
     align-self: flex-start;
     font-family: var(--font-mono);
     font-size: 0.7rem !important;
-    padding: 2px 6px !important;
+    padding: var(--space-3xs) var(--space-2xs) !important;
     background: var(--ink) !important;
     color: var(--paper) !important;
     border-radius: var(--radius) !important;
@@ -213,7 +213,7 @@
     color: var(--ink);
     margin: 0;
     border: var(--edge-thin);
-    padding: 0 4px;
+    padding: 0 var(--space-3xs);
     display: inline-block;
     align-self: flex-start;
   }
@@ -224,9 +224,9 @@
     font-weight: 700;
     background: var(--ink);
     color: var(--paper);
-    padding: 4px 8px;
+    padding: var(--space-3xs) var(--space-2xs);
     border: var(--edge);
-    margin-top: 8px;
+    margin-top: var(--space-2xs);
     display: inline-block;
     align-self: flex-start;
     text-transform: uppercase;
@@ -235,14 +235,14 @@
   .rating-display {
     color: var(--ink);
     font-size: 0.8rem;
-    margin-top: 4px;
+    margin-top: var(--space-3xs);
   }
 
   .card-review {
     font-size: var(--step-n3);
     font-style: italic;
     color: var(--text-muted);
-    margin: 4px 0 0 0;
+    margin: var(--space-3xs) 0 0 0;
     overflow-wrap: break-word;
   }
 

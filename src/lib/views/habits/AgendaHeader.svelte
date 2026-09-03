@@ -91,7 +91,7 @@
     font-size: var(--step-n2);
     font-weight: 700;
     color: var(--text-muted);
-    margin-top: 4px;
+    margin-top: var(--space-3xs);
   }
 
   @keyframes fadeIn {

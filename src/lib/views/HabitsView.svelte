@@ -383,7 +383,7 @@
     font-size: var(--step-n2);
     font-weight: 700;
     color: var(--text-secondary);
-    margin-top: 4px;
+    margin-top: var(--space-3xs);
   }
 
   .agenda-container {

@@ -351,7 +351,7 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 6px;
+    gap: var(--space-3xs);
   }
 
   .banner-info h3 {
@@ -385,7 +385,7 @@
   .form-group {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--space-2xs);
   }
 
   .form-group label {
@@ -395,7 +395,7 @@
     text-transform: uppercase;
     background: var(--ink);
     color: var(--paper);
-    padding: 2px 6px;
+    padding: var(--space-3xs) var(--space-2xs);
     align-self: flex-start;
   }
 

@@ -270,7 +270,7 @@
   .lpr-dots {
     display: flex;
     justify-content: center;
-    gap: 6px;
+    gap: var(--space-3xs);
     padding: var(--space-2xs) 0;
   }
   .lpr-dot {

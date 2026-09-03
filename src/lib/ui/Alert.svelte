@@ -96,7 +96,7 @@
     flex-shrink: 0;
     width: 1.25rem;
     height: 1.25rem;
-    margin-top: 2px;
+    margin-top: var(--space-3xs);
   }
 
   .content {

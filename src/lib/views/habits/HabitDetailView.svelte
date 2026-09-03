@@ -339,7 +339,7 @@
     color: var(--text-primary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    margin-bottom: -4px;
+    margin-bottom: calc(var(--space-3xs) * -1);
   }
   .row-group {
     display: flex;

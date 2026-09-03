@@ -106,7 +106,7 @@
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
-    padding: 1px 4px;
+    padding: var(--hairline) var(--space-3xs);
     border: var(--edge-thin);
   }
   .badge-difficulty.easy {
@@ -125,14 +125,14 @@
     font-size: 10px;
     background: var(--ink);
     color: var(--paper);
-    padding: 1px 4px;
+    padding: var(--hairline) var(--space-3xs);
     font-weight: 500;
   }
   .badge-status {
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
-    padding: 1px 4px;
+    padding: var(--hairline) var(--space-3xs);
     border: var(--edge-thin);
   }
   .badge-status.completed {
@@ -148,7 +148,7 @@
     font-weight: 600;
     background: var(--bg-input);
     border: var(--edge-thin);
-    padding: 1px 4px;
+    padding: var(--hairline) var(--space-3xs);
   }
   .timeline-note {
     font-size: var(--step-n1);

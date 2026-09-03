@@ -201,7 +201,7 @@
     font-weight: 700;
     color: var(--text-secondary);
     background: var(--paper);
-    gap: 2px;
+    gap: var(--space-3xs);
     min-height: 48px;
   }
 

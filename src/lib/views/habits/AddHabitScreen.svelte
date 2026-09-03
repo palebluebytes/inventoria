@@ -521,7 +521,7 @@
     font-size: var(--step-n3);
     opacity: 0.7;
     background: var(--bg-input);
-    padding: 2px 4px;
+    padding: var(--space-3xs) var(--space-2xs);
     border: var(--edge-thin);
   }
 

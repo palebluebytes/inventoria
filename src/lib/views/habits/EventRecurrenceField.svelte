@@ -102,7 +102,7 @@
   {/if}
 
   {#if recurType === "monthly"}
-    <div class="seg-control seg-grid" style="margin-top: 2px;">
+    <div class="seg-control seg-grid" style="margin-top: var(--space-3xs);">
       <button
         class="seg-btn"
         class:active={monthlyMode === "fixed"}
@@ -241,7 +241,7 @@
   .seg-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 2px;
+    gap: var(--space-3xs);
     background: var(--ink);
     border: var(--edge);
   }

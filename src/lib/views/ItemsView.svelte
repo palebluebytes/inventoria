@@ -234,7 +234,7 @@
   .view-tabs {
     display: flex;
     border-bottom: var(--edge);
-    gap: 2px;
+    gap: var(--space-3xs);
   }
   .view-tab-btn {
     padding: var(--space-s) var(--space-m);

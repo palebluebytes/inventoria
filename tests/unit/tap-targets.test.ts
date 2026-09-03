@@ -123,7 +123,7 @@ describe("the six nav items", () => {
   const item = ruleFor(SIDEBAR, ".nav-item");
   const icon = ruleFor(SIDEBAR, ".nav-item .icon");
 
-  it("stands 67.9px tall, comfortably over the floor", () => {
+  it("stands 68.4px tall, comfortably over the floor", () => {
     const label = fontSizePx(item);
     // `1.4em` against the item's own type step, not against the root's.
     const glyph = label * Number(decl(icon, "font-size")!.replace("em", ""));
@@ -134,7 +134,7 @@ describe("the six nav items", () => {
       lengthPx(decl(item, "gap")!) +
       label * ROOT_LINE_HEIGHT;
 
-    expect(round(height)).toBe(67.9);
+    expect(round(height)).toBe(68.4);
     expect(height).toBeGreaterThanOrEqual(TAP_MIN);
   });
 

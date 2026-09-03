@@ -340,7 +340,7 @@
     font-weight: 700;
     color: var(--ink);
     background: var(--border);
-    padding: 2px 6px;
+    padding: var(--space-3xs) var(--space-2xs);
     border-radius: var(--radius);
     letter-spacing: 0.05em;
   }

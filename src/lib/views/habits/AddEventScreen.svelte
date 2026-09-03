@@ -204,7 +204,7 @@
         <div style="display: flex; align-items: center; gap: var(--space-s);">
           <button
             type="button"
-            style="display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; background: none; border: none; cursor: pointer; color: var(--text-primary); padding: 0;"
+            style="display: flex; align-items: center; gap: var(--space-3xs); font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; background: none; border: none; cursor: pointer; color: var(--text-primary); padding: 0;"
             onclick={() => {
               timed = !timed;
               endError = null;
@@ -438,7 +438,7 @@
     font-size: var(--step-n1);
     font-weight: 900;
     flex-shrink: 0;
-    margin-top: 2px;
+    margin-top: var(--space-3xs);
   }
   .checkbox.checked {
     background: var(--ink);
@@ -448,7 +448,7 @@
   .toggle-text {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--space-3xs);
   }
 
   .toggle-label {

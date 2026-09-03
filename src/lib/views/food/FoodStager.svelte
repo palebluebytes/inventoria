@@ -3091,7 +3091,7 @@
     right: 3px;
     bottom: 3px;
     min-width: 20px;
-    padding: 0 5px;
+    padding: 0 var(--space-3xs);
     border-radius: var(--radius);
     background: var(--ink);
     color: var(--paper);
@@ -3111,7 +3111,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
+    gap: var(--space-3xs);
     border-style: dashed;
     font-size: 1.2rem;
     color: var(--text-secondary);
@@ -3503,7 +3503,7 @@
      a role=option — so it reads as a tag, not a control. */
   .stand-in-tag {
     margin-left: var(--space-2xs);
-    padding: 0 4px;
+    padding: 0 var(--space-3xs);
     border: var(--edge-thin);
     font-size: var(--step-n3);
     font-weight: 700;
@@ -3516,7 +3516,7 @@
   .result-macros {
     font-size: var(--step-n3);
     color: var(--text-muted);
-    margin-top: 2px;
+    margin-top: var(--space-3xs);
   }
   .result-item.hl .result-macros {
     color: var(--paper);
@@ -3562,7 +3562,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
+    gap: var(--space-3xs);
     background: var(--paper);
     border: var(--edge);
     padding: var(--space-2xs) 0;

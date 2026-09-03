@@ -211,7 +211,7 @@
   }
   .source-link-btn {
     display: inline-block;
-    padding: 4px 8px;
+    padding: var(--space-3xs) var(--space-2xs);
     border: var(--edge-thin);
     background: var(--bg-input);
     font-size: var(--step-n2);
@@ -266,7 +266,7 @@
   .item-tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: var(--space-3xs);
     margin-top: var(--space-xs);
   }
 
@@ -275,7 +275,7 @@
     margin-top: var(--space-s);
     background: var(--highlight-bg); /* Soft retro yellow post-it */
     border: var(--edge);
-    padding: 8px var(--space-xs);
+    padding: var(--space-2xs) var(--space-xs);
     box-shadow: var(--shadow-1);
     color: var(--ink);
   }
@@ -284,7 +284,7 @@
     font-weight: 700;
     text-transform: uppercase;
     display: block;
-    margin-bottom: 2px;
+    margin-bottom: var(--space-3xs);
   }
   .note-text {
     font-size: var(--step-n1);

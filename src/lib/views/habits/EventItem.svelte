@@ -219,7 +219,7 @@
     font-weight: 400;
     font-size: var(--step-n1);
     color: var(--text-secondary);
-    margin-left: 4px;
+    margin-left: var(--space-3xs);
   }
 
   /* Meta / badges */
@@ -236,7 +236,7 @@
     font-weight: 700;
     background: var(--ink);
     color: var(--green-bg);
-    padding: 2px 6px;
+    padding: var(--space-3xs) var(--space-2xs);
     letter-spacing: 0.05em;
   }
 
@@ -245,7 +245,7 @@
     font-weight: 700;
     background: var(--ink);
     color: var(--red-bg);
-    padding: 2px 6px;
+    padding: var(--space-3xs) var(--space-2xs);
     letter-spacing: 0.05em;
   }
 
@@ -254,7 +254,7 @@
     font-weight: 700;
     background: var(--ink);
     color: var(--paper);
-    padding: 2px 6px;
+    padding: var(--space-3xs) var(--space-2xs);
     letter-spacing: 0.05em;
   }
 
@@ -263,7 +263,7 @@
     font-weight: 700;
     color: var(--text-secondary);
     border: 1px solid var(--text-muted);
-    padding: 2px 6px;
+    padding: var(--space-3xs) var(--space-2xs);
     border-radius: var(--radius);
   }
 
@@ -272,7 +272,7 @@
     font-weight: 700;
     background: var(--ink);
     color: var(--paper);
-    padding: 2px 6px;
+    padding: var(--space-3xs) var(--space-2xs);
     border-radius: var(--radius);
     letter-spacing: 0.05em;
   }

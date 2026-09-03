@@ -42,7 +42,7 @@
     color: var(--text-secondary);
     text-transform: uppercase;
     font-weight: 500;
-    margin-top: 2px;
+    margin-top: var(--space-3xs);
   }
   :global(.mt-4) {
     margin-top: var(--space-m);

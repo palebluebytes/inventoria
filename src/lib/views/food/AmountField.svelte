@@ -226,7 +226,7 @@
     margin-left: auto;
     display: flex;
     align-items: baseline;
-    gap: 4px;
+    gap: var(--space-3xs);
     cursor: text;
   }
   .num {

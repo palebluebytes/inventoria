@@ -170,7 +170,7 @@
   .form-group {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--space-3xs);
   }
   .form-group label {
     font-size: var(--step-n2);
@@ -182,7 +182,7 @@
   }
   .custom-select {
     width: 100%;
-    padding: 10px;
+    padding: var(--space-2xs);
     border: var(--edge);
     border-radius: var(--radius);
     font-size: var(--step-0);
@@ -197,7 +197,7 @@
   textarea {
     width: 100%;
     min-height: 80px;
-    padding: 10px;
+    padding: var(--space-2xs);
     border: var(--edge);
     border-radius: var(--radius);
     font-size: var(--step-0);

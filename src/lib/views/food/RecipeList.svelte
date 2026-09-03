@@ -187,7 +187,7 @@
   .recipe-pick-macros {
     font-size: var(--step-n3);
     color: var(--text-muted);
-    margin-top: 2px;
+    margin-top: var(--space-3xs);
   }
   .recipe-pick-go {
     color: var(--text-muted);
