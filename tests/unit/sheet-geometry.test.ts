@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import {
   styleOf,
   rulesOf,
@@ -36,6 +38,9 @@ const rule = (selector: string, at: string | null = null) =>
  */
 const EVERY_WIDTH = null;
 const WIDE = "@media (min-width: 768px)";
+
+/** §6's one centring expression, written where the sheet writes it. */
+const centredWide = ".bottom-sheet-content.centred";
 
 describe("a sheet's box is the visible band", () => {
   it("anchors an ordinary sheet to the band's bottom edge, capped at its height", () => {
@@ -117,5 +122,114 @@ describe("a sheet's scroll region does not chain into the page (§8)", () => {
     expect(stage).toHaveLength(1);
     expect(decl(stage[0], "overflow-y")).toBe("auto");
     expect(decl(stage[0], "overscroll-behavior")).toBe("contain");
+  });
+});
+
+/**
+ * §6: on a phone there is one overlay shape, and it is the sheet.
+ *
+ * The seven hand-rolled cards (#329) folded onto this primitive, so "centred"
+ * is now one expression **inside** it, behind the breakpoint, rather than seven
+ * copies of `translate(-50%, -50%)` outside it. The first two assertions read
+ * the expression; the sweep below is what keeps an eighth copy from appearing.
+ */
+describe("a centred card is this primitive above 768px (§6)", () => {
+  it("is nothing at all on a phone — a centred sheet is a sheet", () => {
+    // The class exists only under the breakpoint. A rule for it at every width
+    // would be a second shape on the platform §6 gives one shape.
+    expect(
+      RULES.filter(
+        (r) => r.at === EVERY_WIDTH && r.selectors.includes(centredWide)
+      )
+    ).toEqual([]);
+  });
+
+  it("moves the box above 768px and sizes the card to its content", () => {
+    const wide = rule(centredWide, WIDE);
+    expect(decl(wide, "top")).toBe("50%");
+    expect(decl(wide, "bottom")).toBe("auto");
+    expect(decl(wide, "transform")).toBe("translate(-50%, -50%)");
+    // It takes the height back from `flush`/`fill`, whose full-height claim is
+    // about a phone's keyboard (§5) and not about a wide screen: a card sizes
+    // to its content, capped so it keeps a margin of backdrop the way the peek
+    // does. All seven of the folded cards capped themselves; none pinned.
+    expect(decl(wide, "height")).toBe("auto");
+    expect(decl(wide, "max-height")).toBe("85vh");
+  });
+
+  it("closes the frame a bottom-anchored sheet leaves open", () => {
+    // The base sheet drops its bottom border and paints an ink bar above its
+    // top edge, because its bottom edge is off-screen. A centred card has four
+    // edges on screen and needs all four drawn.
+    const wide = rule(centredWide, WIDE);
+    expect(decl(wide, "border-bottom")).toBe("var(--edge-thick)");
+    expect(decl(wide, "box-shadow")).toBe("var(--shadow-3)");
+  });
+});
+
+/**
+ * Every `position: fixed` box outside the primitive, and why each is not a
+ * card. #329 folded the seven; these two stay, and the ticket asked for the
+ * second to be decided out loud rather than left silently behind:
+ *
+ *   `SelectionBar` is a bar, not an overlay — ADR-0089 §1's consumer with no
+ *   dialog around it at all, pinned to the band's bottom edge (#331);
+ *
+ *   `LabelPhotoReader` is `inset: 0` full-bleed and was never a centred card.
+ *   It holds no field, so no keyboard can open under it, and the shape a
+ *   full-height sheet resolves to on a phone is the shape it already has. What
+ *   folding would change is only the wide screen, where a photo reader wants
+ *   the screen rather than a 600px card. Out of scope, on purpose.
+ */
+const PINNED_OUTSIDE_THE_PRIMITIVE = [
+  "src/lib/views/food/LabelPhotoReader.svelte",
+  "src/lib/views/food/SelectionBar.svelte",
+];
+
+describe("no surface hand-rolls a centred card (§6)", () => {
+  const svelteFiles = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory()
+        ? svelteFiles(join(dir, e.name))
+        : e.name.endsWith(".svelte")
+          ? [join(dir, e.name)]
+          : []
+    );
+
+  /** Files whose `<style>` block pins a box to the viewport, and how. A
+   *  component with no `<style>` block at all styles nothing and so pins
+   *  nothing; `styleOf` throws on one rather than returning "". */
+  const pinned = svelteFiles("src/lib")
+    .filter((file) => readFileSync(file, "utf8").includes("<style>"))
+    .map((file) => ({
+      file,
+      rules: rulesOf(styleOf(file)).filter(
+        (r) => decl(r, "position") === "fixed"
+      ),
+    }))
+    .filter((f) => f.rules.length > 0);
+
+  it("leaves the centring expression in one file", () => {
+    const centring = pinned.flatMap(({ file, rules }) =>
+      rules
+        .filter((r) => /translate\(\s*-50%,\s*-50%\s*\)/.test(r.body))
+        .map((r) => `${file}: ${r.selectors.join(", ")}`)
+    );
+    expect(centring).toEqual([]);
+
+    // ...and that file is the primitive, under the breakpoint, where §6 puts
+    // it. Asserted here rather than trusted, so an empty sweep can never be an
+    // empty sweep because the expression went missing too.
+    expect(decl(rule(centredWide, WIDE), "transform")).toBe(
+      "translate(-50%, -50%)"
+    );
+  });
+
+  it("names every pinned surface that is not the primitive", () => {
+    const outside = pinned
+      .map((f) => f.file)
+      .filter((f) => !f.startsWith("src/lib/ui/"))
+      .sort();
+    expect(outside).toEqual(PINNED_OUTSIDE_THE_PRIMITIVE);
   });
 });

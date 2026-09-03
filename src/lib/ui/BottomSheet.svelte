@@ -93,8 +93,10 @@
      * surfaces that used to hand-roll `translate(-50%, -50%)` set this and
      * inherit the band's geometry unchanged (#329).
      *
-     * It moves the box; it does not resize it. Whether a sheet sizes to its
-     * content is still `fillHeight`/`flushBody`'s answer, at either width.
+     * A centred card sizes to its content, capped at 85vh. `fillHeight` and
+     * `flushBody` still own the phone's height, where their full-height claim
+     * is about a keyboard; on a wide screen there is none, and a short form
+     * pinned to 85vh is a column of empty paper.
      */
     centred?: boolean;
     /**
@@ -274,12 +276,14 @@
        primitive at 85-90vh, four of them around a text field, which is the
        worst geometry available with a keyboard raised (#329).
 
-       It moves the box and closes its frame; it never sets a height. Whether a
-       sheet sizes to its content is `flush`/`fill`'s answer at both widths, and
-       this rule sitting after theirs is what lets it retake `top` from them
-       without a third selector. The cap is restated so a card that names
-       neither flag still keeps a margin of backdrop around it, which is what
-       the peek is on a bottom-anchored sheet.
+       A centred card sizes to its content, capped at 85vh. It takes the height
+       back from `flush`/`fill` rather than leaving it to them, because those
+       two are the *phone's* proxy for "holds a text field" (§5) and their
+       full-height claim is a claim about a keyboard. There is no keyboard here,
+       and a three-field form pinned to 85vh in the middle of a wide screen is a
+       column of empty paper — which is why all seven of these cards capped
+       themselves and none of them pinned. This rule sitting after theirs is
+       what lets it retake `top` and `height` without a third selector.
 
        The bottom border and the drop shadow come back: the base sheet drops
        both because its bottom edge is off the screen, and paints an ink bar
@@ -288,6 +292,7 @@
       top: 50%;
       bottom: auto;
       transform: translate(-50%, -50%);
+      height: auto;
       max-height: 85vh;
       border-bottom: var(--edge-thick);
       box-shadow: var(--shadow-3);
