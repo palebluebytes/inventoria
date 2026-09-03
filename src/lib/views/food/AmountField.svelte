@@ -306,10 +306,16 @@
     gap: var(--space-2xs);
     margin-left: auto;
   }
+  /* Square, and floored on both axes by `--tap-min` rather than by a width
+     picked to look right beside a glyph: the keys used to be 41.6 × 40px, which
+     is under the floor on both counts, and a sum key is pure touch — there is
+     no keyboard route to it and nothing else on the row to hit by mistake if
+     you miss. A floor rather than a fixed size, so the box can only ever grow
+     to whatever the glyph and the border need. */
   .op {
     flex: none;
-    width: 2.6rem;
-    min-height: 40px;
+    min-width: var(--tap-min);
+    min-height: var(--tap-min);
     display: flex;
     align-items: center;
     justify-content: center;

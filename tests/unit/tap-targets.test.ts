@@ -1,6 +1,6 @@
 /**
- * The nav's six items and the food dock's controls, measured against
- * `--tap-min` (#332 §4, ADR-0089 §3).
+ * The nav's six items, the food dock's controls and the amount field's operator
+ * keys, measured against `--tap-min` (#332 §4, ADR-0089 §3).
  *
  * A measurement, not a guard: #332 is explicit that anything falling short here
  * gets a ticket rather than a fix inside it. What makes this worth writing down
@@ -92,6 +92,7 @@ const round = (n: number) => Math.round(n * 10) / 10;
 
 const SIDEBAR = "src/lib/layout/Sidebar.svelte";
 const STAGER = "src/lib/views/food/FoodStager.svelte";
+const AMOUNT_FIELD = "src/lib/views/food/AmountField.svelte";
 
 describe("the floor itself", () => {
   it("is 48px, and is not fluid", () => {
@@ -139,6 +140,49 @@ describe("the six nav items", () => {
 
   it("reaches that height without declaring a floor, on padding alone", () => {
     expect(declaredFloorPx(item)).toBeNull();
+  });
+});
+
+describe("the amount field's four operator keys", () => {
+  const key = ruleOf(AMOUNT_FIELD, ".op");
+
+  it("is four, each drawn from the one `.op` box", () => {
+    // The same thing the nav's first case establishes, for the same reason: the
+    // keys are a loop over one roster emitting one class, so one measurement
+    // speaks for all four. A fifth key, or one given a box of its own, would
+    // make the figure below a claim about only some of them.
+    const markup = readFileSync(AMOUNT_FIELD, "utf8").replace(
+      /<style>[\s\S]*?<\/style>/,
+      ""
+    );
+    const roster =
+      readFileSync(AMOUNT_FIELD, "utf8").match(
+        /glyph: "[^"]+", op: "[^"]+"/g
+      ) ?? [];
+
+    expect(roster).toHaveLength(4);
+    expect(markup.match(/class="op"/g)).toHaveLength(1);
+  });
+
+  it("is floored at `--tap-min` on both axes, which is the whole of its size", () => {
+    // A key carries no padding and no text beyond one glyph, so unlike every
+    // other control here its box is not built up out of declarations — the two
+    // floors ARE its size, and reading them is reading the box. Width matters
+    // as much as height because a key is only as wide as a glyph: floor the
+    // height alone and it stands 48px tall and 26px across.
+    expect(declaredFloorPx(key)).toBe(TAP_MIN);
+    expect(lengthPx(decl(key, "min-width")!)).toBe(TAP_MIN);
+    expect(decl(key, "width")).toBeUndefined();
+  });
+
+  it("cannot be shrunk back under the floor by the row it sits in", () => {
+    // The head row wraps rather than compressing its keys, and `flex: none` is
+    // what makes that the only option available to it: without it a flex item
+    // shrinks before it wraps, and a floor stated in `min-width` would still
+    // hold while `width` collapsed around it — but there is no `width` here to
+    // hold anything, so shrinking would go straight through the glyph.
+    expect(decl(key, "flex")).toBe("none");
+    expect(decl(ruleOf(AMOUNT_FIELD, ".af-head"), "flex-wrap")).toBe("wrap");
   });
 });
 
