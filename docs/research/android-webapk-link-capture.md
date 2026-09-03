@@ -599,3 +599,55 @@ handsets and is moot for the same reason.
 **Out of scope and not answered.** Whether the app should detect that it is running in a tab
 rather than an installed Facet, and say something. That is a design call for whoever picks this
 up, and this note deliberately offers no opinion beyond §5.2's finding that nothing is lost.
+
+---
+
+## Correction (2026-09-03): §4.6 is refuted on the reporting device
+
+**§8 probe 2 was run, and §4.6's inference does not hold for the reported case.** The device
+that saw the symptom has **one** WebAPK covering `/food/`, not two, so `packages.size()` is
+never the reason Chrome declined. Recorded here rather than edited into §4.6, because the
+inference was sound on the source it read and the evidence against it is a measurement.
+
+`chrome://webapks` on the reporting handset, and on the receiving one by the reporter's account:
+
+| field          | value                                                              |
+| -------------- | ------------------------------------------------------------------ |
+| Short name     | Rations                                                            |
+| Package name   | `org.chromium.webapk.a3000e5c641a5d626_v2`                         |
+| Scope          | `https://inventoria.palebluebytes.space/food/`                     |
+| Manifest URL   | `https://inventoria.palebluebytes.space/food/manifest.webmanifest` |
+| Display Mode   | standalone                                                         |
+| Owning Browser | `com.android.chrome`                                               |
+| Update Status  | Succeeded                                                          |
+
+Inventoria is **not** installed on either device. The only other WebAPK present is a different
+project on a different host (`push.palebluebytes.space`), whose scope cannot match `/food/`.
+
+Three things follow.
+
+**The install and the manifest are correct, and are exonerated.** The scope Chrome minted is
+exactly the scope `/food/manifest.webmanifest` declares, the link is inside it, and the update
+succeeded. Nothing in this repo's build is mis-serving.
+
+**The remaining explanation is §3.4 and §4.4, which never depended on the Facet count.** Android
+does not verify WebAPK URL handlers from S, so the intent reaches Chrome; Chrome's trampoline is
+then the only route left, and it needs the WebAPK to be _visible in the resolve query_. If the
+scanner launched Chrome explicitly or as a Custom Tab, `setPackage` excluded a different package
+before that query ran, so `packages` is **empty** and `packages.size() != 1` returns null for the
+opposite reason to the one §4.6 predicted. The guard fails either way; only the arithmetic
+differs.
+
+**§8 probe 5 becomes the decisive one, and probe 2 has retired itself.** Tapping a plain
+`https://inventoria.palebluebytes.space/food/` link from a messaging app now separates the two
+surviving explanations cleanly, with no camera involved and no second install to confound it:
+Rations opening means the trampoline works and the scanner is the whole cause; staying in Chrome
+means the Android door is shut and only §5.3's user-side setting could open it.
+
+**A product answer exists that moots the whole question, and §5.2 already named it.** ADR-0074 §4
+gives receiving two ways in, and the second is the **Scan way in** — Rations' own door, which
+reads a meal code as well as a barcode. A QR scanned _inside the installed app_ never becomes an
+Android intent at all, so none of this note applies to it. The phone's camera is the carrier this
+note is about; the app's own scanner is a different carrier that was built for exactly this and
+cannot fail this way. Whether the send face should say so is a copy question this note does not
+decide.
