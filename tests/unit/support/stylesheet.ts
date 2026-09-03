@@ -86,12 +86,29 @@ export function ruleOf(
   selector: string,
   at: string | null = null
 ): Rule {
-  const found = rulesOf(styleOf(file)).filter(
+  return ruleIn(rulesOf(styleOf(file)), selector, at, file);
+}
+
+/**
+ * The same lookup over rules already read — `appSheet()`'s, or any other
+ * flattened stylesheet — with `where` naming the source for the error message.
+ *
+ * `ruleOf` is this with a component's `<style>` block read for you. A test
+ * asserting about `src/app.css` wants the same "exactly one, or throw" and the
+ * same message, so it reaches for this rather than growing its own copy.
+ */
+export function ruleIn(
+  rules: Rule[],
+  selector: string,
+  at: string | null,
+  where: string
+): Rule {
+  const found = rules.filter(
     (r) => r.at === at && r.selectors.includes(selector)
   );
   if (found.length !== 1) {
     throw new Error(
-      `${file} has ${found.length} rules for "${selector}"` +
+      `${where} has ${found.length} rules for "${selector}"` +
         `${at === null ? "" : ` under ${at}`}, expected exactly 1`
     );
   }
@@ -110,15 +127,30 @@ export function appSheet(): Rule[] {
 }
 
 /**
+ * A token's value as `src/app.css` writes it — `--rail` → `22rem`, `--space-m`
+ * → the whole `clamp(…)`. Read off the `:root` rules rather than the file text,
+ * so a token named inside some other rule's declaration cannot answer for one
+ * that was never declared.
+ */
+export function tokenOf(name: string): string {
+  const value = appSheet()
+    .filter((r) => r.at === null && r.selectors.includes(":root"))
+    .map((r) => decl(r, name))
+    .find(Boolean);
+  if (!value) throw new Error(`${name} is not declared in app.css :root`);
+  return value;
+}
+
+/**
  * A token's value in px: a fluid one at its `clamp()` floor — what it is at and
  * below the scale's narrowest width, so the tightest a phone ever draws it —
  * and a flat one (`--tap-min`, `--hairline`) at what it says.
  */
 export function tokenPx(name: string): number {
-  const app = readFileSync("src/app.css", "utf8");
-  const fluid = app.match(new RegExp(`${name}:\\s*clamp\\(\\s*([\\d.]+)rem`));
+  const value = tokenOf(name);
+  const fluid = value.match(/^clamp\(\s*([\d.]+)rem/);
   if (fluid) return Number(fluid[1]) * 16;
-  const flat = app.match(new RegExp(`${name}:\\s*([\\d.]+)px`));
+  const flat = value.match(/^([\d.]+)px$/);
   if (flat) return Number(flat[1]);
   throw new Error(`${name} is neither a clamp() nor a px in app.css`);
 }

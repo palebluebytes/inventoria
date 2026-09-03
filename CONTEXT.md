@@ -442,6 +442,19 @@ things guaranteed on screen. A control that cannot act does not hold space in it
 See ADR-0027 §Decision and ADR-0089 §8.
 _Avoid_: Footer, action bar, toolbar, sticky bar
 
+**Shell**:
+The box a Facet's screens are drawn into — one centred, capped column that is the
+only thing on the page which scrolls. There are two of them, `App.svelte` and
+`Rations.svelte`, and **one rule**: `.main` in `src/app.css`, shared, because a
+rule copied into both shells is the same defect twice and was. Its width is
+`--measure-solo` (54rem) below the **shell breakpoint** and `--measure` (72rem)
+above it, where Rations spends the extra on a `--rail` (22rem) beside the
+timeline. The shell breakpoint is `breakpoints.ts`'s `shell`, 1180px, and it is
+the second of the app's two shape breakpoints: 768 carries the overlay's shape and
+the root's Sidebar flip, 1180 carries this. See ADR-0091 §2 and §8.
+_Avoid_: Layout, container, wrapper, page (which is the surface inside the shell),
+frame (spent on the brutalist edge/elevation tokens)
+
 **Rail**:
 The second region Rations' shell opens above the shell breakpoint, to the right of
 the meal timeline, holding the day's numbers — a month calendar over the Nutrition

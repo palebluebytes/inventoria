@@ -864,6 +864,17 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-m);
+    /* Room under the last meal, so Snack does not end flush against the bottom
+       of the screen with its empty box half off it.
+
+       On the last child rather than as `padding-bottom` on `.main`, which is
+       the `overflow-y: auto` scroll container: a scroll container's own bottom
+       padding at the end of its scroll range is the one piece of box geometry
+       browsers have historically disagreed about, and a last child's padding is
+       not in dispute anywhere. The argument is about boxes rather than about
+       widths, so this is unconditional — the desktop shell is where it was
+       noticed, not where it applies. */
+    padding-bottom: var(--space-2xl);
   }
   @media (min-width: 768px) {
     .timeline {

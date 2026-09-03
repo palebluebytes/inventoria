@@ -196,21 +196,12 @@
     padding-left: env(safe-area-inset-left, 0px);
   }
 
-  .main {
-    flex: 1;
-    padding: var(--space-m) var(--space-s);
-    width: 100%;
-    overflow-y: auto;
-    position: relative;
-  }
-
+  /* `.main` is not here either — it is one rule in `src/app.css`, shared with
+     Rations' shell (ADR-0091 §2). What stays is the Sidebar's flip, which is
+     this shell's own shape and nobody else's. */
   @media (min-width: 768px) {
     .app {
       flex-direction: row;
-    }
-    .main {
-      padding: var(--space-l) var(--space-xl);
-      max-width: 54rem;
     }
   }
 </style>

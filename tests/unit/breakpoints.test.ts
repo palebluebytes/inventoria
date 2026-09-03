@@ -95,6 +95,10 @@ describe("the app-wide breakpoints are the ones more than one file agrees on", (
     // full-page settings screen renders into an unsplit column.
     expect(atLeast("shell")).toBe(`(min-width: ${BREAKPOINTS.shell}px)`);
     expect(widthQueries.some((q) => q.value === BREAKPOINTS.sheet)).toBe(true);
+    // The shell is drawn as well as decided: the stylesheets split the day into
+    // two regions at this width (#342), and a roster entry no stylesheet uses
+    // would be a number `matchMedia` could drift away from unopposed.
+    expect(widthQueries.some((q) => q.value === BREAKPOINTS.shell)).toBe(true);
   });
 
   it("names no width twice", () => {

@@ -240,18 +240,8 @@
       env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
   }
 
-  .main {
-    flex: 1;
-    padding: var(--space-m) var(--space-s);
-    width: 100%;
-    overflow-y: auto;
-    position: relative;
-  }
-
-  @media (min-width: 768px) {
-    .main {
-      padding: var(--space-l) var(--space-xl);
-      max-width: 54rem;
-    }
-  }
+  /* `.main` is not here. It is one rule in `src/app.css`, shared with the root's
+     shell, because this block used to be duplicated character for character
+     between the two files — including the missing `margin-inline` that left the
+     column hugging the left edge of a wide screen (ADR-0091 §2). */
 </style>

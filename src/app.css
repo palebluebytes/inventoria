@@ -111,6 +111,26 @@
      passing one guideline and failing the other (ADR-0089 §3). */
   --tap-min: 48px;
 
+  /* ── The shell's measures ─────────────────────────────────────────────────
+     How wide the app is allowed to get, and how the width is spent when there
+     is more of it than one column should take (ADR-0091 §2).
+
+     Flat lengths, not `clamp()`s, and that is the point rather than an
+     oversight: the Utopia scales above are generated for 360→1240px and are
+     frozen at their maximum past that, so above 1240 the only thing that can
+     respond to a wider window is the layout. These three are what it responds
+     with. `rem` rather than `px` because a measure is a count of characters per
+     line, which follows the reader's own font size — unlike a breakpoint, which
+     is a fact about the window and is stated in px (`lib/ui/breakpoints.ts`).
+
+     `--rail` is declared beside the two caps rather than in the day screen that
+     draws it, because it is the second of the two things `--measure` is spent
+     on: a rail whose width disagreed with the column it sits in is a gap
+     nobody declared. */
+  --measure-solo: 54rem;
+  --measure: 72rem;
+  --rail: 22rem;
+
   /* The width of a drawn line, for the places where a line is drawn by
      something other than a border: a grid whose `gap` shows its own background
      through as a rule, the negative margin of the visually-hidden recipe, the
@@ -210,4 +230,80 @@ body {
   min-height: 100svh;
   background: var(--bg-base);
   color: var(--text-primary);
+}
+
+/* ── The shell ───────────────────────────────────────────────────────────────
+ * The box every Facet's screens are drawn into: one column, centred, capped,
+ * and the only thing on the page that scrolls (ADR-0091 §2).
+ *
+ * **Here rather than in a component, because there are two shells and one
+ * rule.** `src/App.svelte` and `src/Rations.svelte` each carried this block,
+ * character for character, which is the same defect twice — and it was: the
+ * cap was there with no `margin-inline`, so a 1920px screen drew an ~864px
+ * column hugging the left edge with a thousand pixels of grey beside it. A
+ * third Facet gets the fix by being a Facet rather than by remembering to copy
+ * it. Both entry points import this file (`src/mount-facet.ts`), so a global
+ * rule is a shared one; a component's own `.main` would beat it anyway, since
+ * Svelte scopes that to 0,2,0 against this 0,1,0, which is what keeps "one
+ * rule" honest.
+ *
+ * The cap is unconditional, not an override inside a breakpoint. A cap that
+ * exists only above a width is a cap that is missing everywhere it was not
+ * thought about, and `--measure-solo` is wider than the widths below the first
+ * breakpoint anyway, so writing it once costs a phone nothing.
+ *
+ * There is no `padding-bottom` here on purpose, and nothing should add one:
+ * this is the `overflow-y: auto` box, and a scroll container's own bottom
+ * padding at the end of its scroll range is the one piece of box geometry
+ * browsers have historically disagreed about. Room under the last thing on a
+ * screen goes on that last thing. */
+.main {
+  flex: 1;
+  padding: var(--space-m) var(--space-s);
+  width: 100%;
+  max-width: var(--measure-solo);
+  margin-inline: auto;
+  overflow-y: auto;
+  position: relative;
+}
+
+/* The gutter: a phone spends its width on the content and a desktop can afford
+   to stand the column off the frame. It is what survives of the `768px` block
+   both shells used to carry, now that the cap that shared it is unconditional.
+
+   **Be honest about what this is.** It steps two fluid tokens up to two larger
+   ones, which is the exact shape of the seven bumps ADR-0091 §8 deleted, and
+   calling it a gutter does not change that. It stayed because #342 enumerated
+   the seven it was deleting and this was not among them — its roster named
+   `FoodView` ×1, `DailyDashboard` ×5 and `CommitButton` ×1 — and because
+   deleting it moves the desktop inset of every screen in both Facets, which is
+   a decision to make deliberately rather than as a side effect. */
+@media (min-width: 768px) {
+  .main {
+    padding: var(--space-l) var(--space-xl);
+  }
+}
+
+/* Rations splits into two regions here, so the shell has to hold both of them
+   (ADR-0091 §2). The grid that does the splitting is emphatically NOT here: it
+   belongs to the day screen and is written there (§3). Written on the shell it
+   would outlive the screen it was drawn for, and a page — which carries no grid
+   area — would auto-place into the timeline's column with the rail sitting empty
+   beside it.
+
+   **The root widens here too, and that is chosen rather than inherited.**
+   ADR-0091 §2 gives both Facets one rule with both caps, and the alternative was
+   read and refused: leaving the root at `--measure-solo` would keep its six
+   single-column screens at a reading measure, but it would make the shell rule
+   two rules again in everything but name. At 1280 — where every root baseline is
+   taken — the root's `.main` is about 1080px beside its Sidebar, under this cap,
+   so what the root actually gains up here is the space rather than the centring;
+   the centring shows on a monitor wider than 1152 + the sidebar.
+
+   The number is `lib/ui/breakpoints.ts`'s `shell`, and `tests/unit/breakpoints.test.ts`
+   is what holds this literal and that constant together. */
+@media (min-width: 1180px) {
+  .main {
+    max-width: var(--measure);
+  }
 }
