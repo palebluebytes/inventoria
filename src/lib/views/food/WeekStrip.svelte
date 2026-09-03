@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { spokenDate } from "../../food/past-meals";
+
   // The dashboard's week-strip date selector: a Monday-aligned row of seven day
   // buttons with prev/next-week arrows. Owns its own week math; the selected day
   // is two-way bound so the dashboard reacts to taps here.
@@ -9,6 +11,7 @@
   // screen's header (FoodView), where a conditional control costs no layout: the
   // icon row is right-aligned, so a new icon grows into the empty space beside
   // the title and the icons already there do not move.
+
   let { selectedDate = $bindable(new Date()) }: { selectedDate: Date } =
     $props();
 
@@ -89,11 +92,7 @@
         class:active
         class:is-today={isToday}
         aria-pressed={active}
-        aria-label={day.toLocaleDateString("en-US", {
-          weekday: "long",
-          month: "long",
-          day: "numeric",
-        })}
+        aria-label={spokenDate(day)}
         onclick={() => selectDate(day)}
       >
         <span class="day-label day-label-narrow" aria-hidden="true">

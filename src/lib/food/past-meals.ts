@@ -185,6 +185,27 @@ export function copyTally(copied: number, lost: number): string | null {
 }
 
 /**
+ * "Thursday, September 3" — a date said in full, for a control whose visible
+ * label is too terse to read aloud.
+ *
+ * Both of the food screen's date controls carry it: a week-strip day button
+ * shows one letter and a number, and a month cell shows a number. Neither is
+ * readable, so each hands this to `aria-label` instead — and they hand it the
+ * same string, because they are the same control at two scales (ADR-0091 §1)
+ * and are never on screen together to be compared.
+ *
+ * Distinct from {@link dayLabel}, which says how near a day is ("Yesterday")
+ * and is a picker row's visible date line rather than anything's reading.
+ */
+export function spokenDate(date: Date): string {
+  return date.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+/**
  * "Yesterday" / "Thursday" / "Mon 11 Aug" — near days by name, far ones by
  * date, so a picker row dates itself the way a person would say it.
  *

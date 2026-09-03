@@ -5,6 +5,7 @@
     type ConsumptionEvent,
   } from "../../stores/calorie.store";
   import { hasPastMeal, type CopyNote } from "../../food/past-meals";
+  import { loggedDayKeys } from "../../food/logged-days";
   import { WAYS_IN, wayInLabel, type WayIn } from "../../food/ways-in";
   import { MEAL_TYPES, type MealType } from "../../food/meal-type";
   import { totalNutrition } from "../../food/consumption-state";
@@ -42,6 +43,7 @@
   import FoodItemRow from "./FoodItemRow.svelte";
   import MacroMeters from "./MacroMeters.svelte";
   import WeekStrip from "./WeekStrip.svelte";
+  import MonthCalendar from "./MonthCalendar.svelte";
   import NutrientCardGrid from "./NutrientCardGrid.svelte";
   import NutrientGroupHead from "./NutrientGroupHead.svelte";
   import NutritionPanel from "./NutritionPanel.svelte";
@@ -124,6 +126,14 @@
 
   // Selected day's consumption, narrowed from the global projection on the main thread
   let dayItems = $derived(consumptionForDay($consumptionStore, selectedDate));
+
+  // Which days in the whole history have food on them, for the month calendar's
+  // marks (#344). Read off the same projection the day is narrowed from, and
+  // over ALL of it rather than the visible month: the grid draws a fixed six
+  // weeks, so it always shows days either side of the month it names, and a
+  // window would have to move with the calendar's own paging — which this
+  // screen deliberately does not know about.
+  let loggedDays = $derived(loggedDayKeys($consumptionStore));
 
   // Whether the day on screen is a day we have actually read. The projection's
   // placeholder is `[]`, which is the same value as a day with nothing logged, so
@@ -292,6 +302,16 @@
        into `WeekStrip`'s class names to say it. -->
   <div class="day-strip">
     <WeekStrip bind:selectedDate />
+  </div>
+
+  <!-- The rail's top block, and the strip's counterpart rather than a second
+       date control: exactly one of the two is on screen at any width, and the
+       swap is CSS in this file because it is a fact about the shape of the day
+       rather than anything either component knows (ADR-0091 §1, #344). Its own
+       box for the same reason the strip has one — a grid places its children,
+       and this child is another component's root. -->
+  <div class="day-month">
+    <MonthCalendar bind:selectedDate {loggedDays} />
   </div>
 
   <!-- Header Info -->
@@ -690,8 +710,10 @@
     height: 1.35rem;
   }
 
-  /* The strip shows the day number; this line is what carries the month. It
-     rides tight against the strip on a phone and opens up on a wide screen.
+  /* The strip shows the day number; this line is what carries the month, and
+     that is the whole of why it exists — which is also why it is gone above the
+     shell breakpoint, where the calendar's own title bar carries the month in
+     ink and this would restate it across the column (#344).
      (It used to carry an `mt-4` class this component never defined, so its only
      spacing was whatever the block below it pushed down.) */
   .dashboard-header {
@@ -1092,6 +1114,14 @@
     margin-top: var(--space-m);
   }
 
+  /* The month is the rail's, and the rail does not exist down here — so on a
+     phone, and in the root's Food tab at every width, this block is not drawn
+     at all. Mobile-first: the absence is the base rule and the query below is
+     what reveals it. */
+  .day-month {
+    display: none;
+  }
+
   /* ── The day's two regions ───────────────────────────────────────────────
      Above the shell breakpoint the day is a meal timeline holding the reading
      edge and a rail of the day's numbers beside it (ADR-0091 §2). Below it —
@@ -1122,9 +1152,11 @@
          timeline holds prose-width rows. `minmax(0, 1fr)` rather than `1fr` so
          a long food name shrinks the track instead of pushing the rail off. */
       grid-template-columns: minmax(0, 1fr) var(--rail);
+      /* The timeline runs the height of both rail blocks. The month leads the
+         rail because it is the day's own name and the thing you steer with;
+         the numbers are what the chosen day turned out to be. */
       grid-template-areas:
-        "strip strip"
-        "banner banner"
+        "meals month"
         "meals numbers";
       /* The rail sits at the top of its column; the timeline is as tall as the
          day is. Without it the two stretch to each other and the meters float
@@ -1139,15 +1171,39 @@
       row-gap: var(--space-m);
     }
 
-    /* The strip is a ruler and it navigates rather than reports, so it keeps
-       the full measure above both columns (#337 decision 3). */
-    :global(.rations) .day > .day-strip {
-      grid-area: strip;
+    /* The strip and the banner are the phone's, and up here they are gone.
+       The month calendar IS the week strip one scale up (ADR-0091 §1: the same
+       part presented differently, which is why the swap is allowed at all), and
+       leaving both on would be two date controls on one screen — two answers to
+       one question. The banner goes with it: it restated "Thursday, Sep 3"
+       across the whole column, and the month names the day in ink. Both stay
+       below the breakpoint, where the strip shows a day number with no month
+       anywhere near it.
+
+       **This reverses #337 decision 3**, which kept the strip across the full
+       measure on the grounds that it is a ruler and navigates rather than
+       reports. Both halves of that are still true and are exactly why it loses:
+       a month that marks the days with food on them navigates the same history
+       better, in a column that was going to be there anyway.
+
+       `display: none` rather than an `{#if}`, because which of the two is on
+       screen is a fact about the width and nothing else, and a `matchMedia`
+       read would put the same number in a second place for this stylesheet to
+       drift away from (`lib/ui/breakpoints.ts`). The price is named rather than
+       hidden: every phone builds a month grid it will never show, and folds the
+       history for its marks. That is about forty divs and one pass over the
+       projection, against a screen that already draws a day of meals — cheap
+       enough to buy the swap being unable to disagree with itself. #345 brings
+       a `matchMedia` read for pages, which decide more than their own width;
+       if this ever wants one too, that is where it comes from. */
+    :global(.rations) .day > .day-strip,
+    :global(.rations) .day > .dashboard-header {
+      display: none;
     }
 
-    :global(.rations) .day > .dashboard-header {
-      grid-area: banner;
-      margin-top: 0;
+    :global(.rations) .day > .day-month {
+      display: block;
+      grid-area: month;
     }
 
     :global(.rations) .day > .timeline {
