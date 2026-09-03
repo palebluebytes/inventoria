@@ -182,6 +182,14 @@
 <style>
   /* Full-screen over the log sheet (BottomSheet sits at z 1700–1801), so the
      reader pins above it. Its own opaque backdrop covers the form beneath.
+
+     **This is the one overlay in the app that is not `BottomSheet`, on purpose**
+     (ADR-0089 §6 Amendment, #329). It was never a centred card: it is `inset: 0`
+     full-bleed, it holds no field so no keyboard can open under it, and the
+     shape a full-height sheet resolves to on a phone is the shape it already
+     has. What folding would change is only the wide screen, where a photo
+     reader wants the screen rather than a 600px card.
+
      `pointer-events: auto` is reader-local: Modal portals `.lpr` to end-of-body
      as a sibling of the open LogFoodSheet dialog, which sets `pointer-events:
      none` on <body>; the reader would otherwise inherit it and go click-through.

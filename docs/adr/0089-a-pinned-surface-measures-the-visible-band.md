@@ -3,7 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-09-02  
 **Amends:** ADR-0027 §Decision (the sheet's height model and its over-dialog layering)  
-**Implemented:** §1-§4 by #327 — `ui/viewport-inset.ts`, `facets/startup.ts`, `app.css`, both `index.html`, `layout/Sidebar.svelte`. §5 and §8's scroll-chaining rule by #328 — `ui/BottomSheet.svelte`, `views/food/FoodStager.svelte`. §9 by #333 — `tests/support/virtual-keyboard.ts`, `tests/keyboard-invariants.spec.ts`. §8's other two rules by #332 — `views/food/FoodStager.svelte`, `views/food/CommitButton.svelte`, and the 16px floor swept across 12 components. §1's consumer with no dialog around it by #331 — `views/food/SelectionBar.svelte`, one declaration. §6 and §7 are still only the prototype on `prototype/326-search-ui`
+**Implemented:** §1-§4 by #327 — `ui/viewport-inset.ts`, `facets/startup.ts`, `app.css`, both `index.html`, `layout/Sidebar.svelte`. §5 and §8's scroll-chaining rule by #328 — `ui/BottomSheet.svelte`, `views/food/FoodStager.svelte`. §9 by #333 — `tests/support/virtual-keyboard.ts`, `tests/keyboard-invariants.spec.ts`. §8's other two rules by #332 — `views/food/FoodStager.svelte`, `views/food/CommitButton.svelte`, and the 16px floor swept across 12 components. §1's consumer with no dialog around it by #331 — `views/food/SelectionBar.svelte`, one declaration. §6 by #329 — `ui/BottomSheet.svelte`'s `centred`, and the seven surfaces that folded onto it: `views/food/NutritionPanel.svelte` (three consumers), `views/items/ItemEditModal.svelte`, `views/media/MediaIngestModal.svelte`, `views/media/MediaEngagementModal.svelte`, `views/food/DailyDashboard.svelte`'s photo preview and `views/food/FoodDataSection.svelte`'s wipe confirmation; see the Amendment below for the roster this record got wrong. §7 is still only the prototype on `prototype/326-search-ui`
 
 ## Context
 
@@ -112,3 +112,50 @@ A `visualViewport` **fake**, installed by `context.addInitScript` and driven by 
 **What this forecloses.** Any later "just use `dvh`" is answered: it was measured inert. Any later `interactive-widget` proposal must first say what it does about the floor platform and about CI, because both were the reasons it lost.
 
 **Deferred behind a seam.** Drag-to-dismiss: the grab handle is drawn and does nothing, which is a lie worth fixing, but not while the geometry beneath it is moving. Whether six nav tabs is right for a phone is a separate question; this record only requires the nav to reserve the inset that §2 makes real.
+
+## Amendment (2026-09-03): §6's roster, and what centring turned out to need
+
+§6 shipped whole as #329. Four clauses around it were wrong or absent, corrected here
+rather than rewritten so the original record stands.
+
+- **The seventh card was not the one this record names.** §6 counted seven, and the
+  Context's "Seven more hand-roll `position: fixed; left: 50%; top: 50%; transform:
+translate(-50%, -50%)` cards at 85-90vh" listed `ui/BottomSheetDemo.svelte`'s parent
+  card among them. That card was already `position: fixed; inset: 0` when this record
+  was written — it is a stand-in for a bits-ui dialog, not a card — so the roster's
+  last entry named a surface with nothing to fold. The real seventh is
+  `views/food/FoodDataSection.svelte`'s wipe confirmation, a hand-rolled 1801 card
+  beside a Modal backdrop raised to 1800, which landed on `main` the same day this
+  record was accepted and was therefore invisible to the roster that produced it. The
+  count is right by coincidence; six of the seven names were right.
+- **`views/food/LabelPhotoReader.svelte` is out of scope, and this says so rather
+  than leaving it to the empty `grep`.** It is `inset: 0` full-bleed and was never a
+  centred card. It holds no field, so no keyboard can open under it; the shape a
+  full-height sheet resolves to on a phone is the shape it already has; and what
+  folding would change is only the wide screen, where a photo reader wants the screen
+  rather than a 600px card. `tests/unit/sheet-geometry.test.ts` carries it in a named
+  roster of the pinned surfaces that are not the primitive, so it is a decision a
+  later reader has to overturn rather than one they can drift past.
+- **A centred card takes the height back above 768px.** §6 says only where the box
+  sits, and the first field-bearing card to fold showed that is not enough: `flush`
+  and `fill` pin a sheet to 85vh above the breakpoint, and they are §5's proxy for
+  "holds a text field", so their full-height claim is a claim about a keyboard. There
+  is no keyboard above 768px, and a three-field form pinned to 85vh in the middle of a
+  wide screen is a column of empty paper. All seven of the folded cards capped
+  themselves at 85vh and none of them pinned, so `centred` sizes to content and keeps
+  the cap. The phone's height model is untouched.
+- **The primitive's header needed a slot §6 does not mention.** The nutrition panel's
+  way out sits beside the panel's name, because it is a control on the panel's
+  _subject_ rather than on the panel ([ADR-0074](0074-sending-is-the-meals-own-numbers-and-receiving-has-no-door.md)
+  §1), and the sheet's header was title + close with no room for one. It now takes a
+  `headerActions` snippet in the right rail, and both side rails widen by one slot so
+  the title stays dead-centre. The header cannot measure what it is handed, so the
+  slot count is declared rather than fitted: a caller passes the snippet only when a
+  control will render, and a snippet holding its own conditional is the failure this
+  forbids.
+
+One thing #329 leaves for §7 to unmake: the wipe confirmation opens over the food
+settings sheet, so it folded onto `elevated`, which §7 retires on a phone. It was
+already stacking that way by hand at 1800/1801, so this is the same behaviour under
+the primitive's word rather than a new consumer of a shape §7 refuses — but it is one
+more call site for §7 to reckon with.

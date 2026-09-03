@@ -394,14 +394,21 @@ already exists as one of these.
 **BottomSheet**:
 The one sheet primitive (`ui/BottomSheet.svelte`). Every sheet in the app is this
 component, including the docked-footer and over-dialog variants. On a phone it is
-also the _only_ overlay shape: a centred card is this primitive above 768px, never a
-hand-rolled `translate(-50%, -50%)`. See ADR-0027, ADR-0028 and ADR-0089.
+also the _only_ overlay shape: a centred card is this primitive above 768px — its
+`centred` prop, which does nothing at all below that width — and never a hand-rolled
+`translate(-50%, -50%)`. Six surfaces re-derived that box until #329 folded them on.
+See ADR-0027, ADR-0028 and ADR-0089 §6.
 _Avoid_: Drawer, panel, tray, modal (when a sheet is meant), a second sheet component
 
 **Modal**:
-The centred dialog primitive (`ui/Modal.svelte`), distinct from BottomSheet by
-position rather than by behaviour. See ADR-0027.
-_Avoid_: Dialog, popup, overlay
+The dialog shell every overlay is built on (`ui/Modal.svelte`): the portal, the focus
+trap, the backdrop and its layer, and nothing about where a card sits. It is not a
+peer of BottomSheet and not a second overlay shape — it is what BottomSheet is made
+of, and the only surface that mounts it directly is `LabelPhotoReader`, which is
+full-bleed rather than a card. Reach for BottomSheet; reach for this only when a
+surface needs a dialog's machinery around something that is not a sheet.
+See ADR-0027 and ADR-0089 §6.
+_Avoid_: Dialog, popup, overlay, centred card (which is BottomSheet's `centred`)
 
 **Visible band**:
 The part of the page a person can actually see right now, published by
