@@ -19,6 +19,7 @@
     fillHeight = false,
     elevated = false,
     animate = true,
+    inline = false,
   }: {
     isOpen?: boolean;
     title?: string;
@@ -101,6 +102,20 @@
      */
     elevated?: boolean;
     /**
+     * Render in the page's flow instead of as a dialog: no `Modal`, no
+     * backdrop, no fixed box, no close button. The header and body are the same
+     * ones, so a surface written as a sheet becomes a region of a page without
+     * being rewritten as one.
+     *
+     * This is what lets Rations' desktop pages reuse the sheets they replace
+     * (#337). A caller passes it only where a page exists to hold the surface;
+     * on a phone there is none, so it is never set there and the sheet is a
+     * sheet. **The dialog is not rendered at all rather than hidden**, because
+     * a dialog in the tree still takes focus, still traps it, and still tells a
+     * screen reader it is a dialog.
+     */
+    inline?: boolean;
+    /**
      * Slide the sheet up on open. True for a sheet appearing fresh; false for one
      * that continues an already-open flow (the recipe sub-sheets replace the log
      * sheet in place), so it doesn't re-slide and jar against the in-sheet tab
@@ -122,7 +137,7 @@
   // and one mounted permanently with its state bound.
   let stopId = $state(0);
   $effect(() => {
-    if (!isOpen) return;
+    if (!isOpen || inline) return;
     const id = enterBackStop("sheet", () => (isOpen = false));
     stopId = id;
     return () => {
@@ -140,60 +155,89 @@
   let beneath = $derived(stopId !== 0 && $topSheet !== stopId);
 </script>
 
-<Modal
-  bind:open={isOpen}
-  {onClose}
-  overlayBg="rgba(0, 0, 0, 0.4)"
-  overlayBlur="blur(2px)"
-  {overlayZ}
-  overlayEnter={animate}
-  {beneath}
-  {title}
->
-  {#snippet children({ props, close })}
-    <div
-      {...props}
-      class="bottom-sheet-content {className}"
-      class:flush={flushBody}
-      class:fill={fillHeight}
-      class:beneath={!!beneath}
-      class:no-anim={!animate}
-      style:z-index={elevated ? 1801 : null}
-      data-testid={testId}
-    >
+<!--
+  One surface, two hosts. The header and the body are written once and rendered
+  either inside `Modal` as a dialog or straight into the page's flow, so a
+  screen that promotes a sheet to a page reuses the sheet rather than growing a
+  second copy of it (#337).
+
+  `props` and `close` come from `Modal` in the dialog case; inline there is no
+  dialog to supply them, so the surface gets an empty prop bag and a `close`
+  that does nothing. Nothing inline can call it: the close button is the only
+  caller and it is not rendered.
+-->
+{#snippet surface(props: Record<string, unknown>, close: () => void)}
+  <div
+    {...props}
+    class="bottom-sheet-content {className}"
+    class:flush={flushBody}
+    class:fill={fillHeight}
+    class:beneath={!inline && !!beneath}
+    class:no-anim={!animate}
+    class:inline
+    style:z-index={!inline && elevated ? 1801 : null}
+    data-testid={testId}
+  >
+    <!-- The grab handle is a gesture affordance for a box you can drag off the
+         bottom of a screen. A region of a page is not that box. -->
+    {#if !inline}
       <div class="bottom-sheet-handle-bar">
         <div class="drag-handle"></div>
       </div>
+    {/if}
 
-      <div class="bottom-sheet-header" class:acting={onBack && headerActions}>
-        <div class="bottom-sheet-header-start">
-          {#if onBack}
-            <button class="back-btn" onclick={onBack} aria-label={backLabel}
-              ><span class="glyph" aria-hidden="true">‹</span></button
-            >
-          {/if}
-          {@render headerActions?.()}
-        </div>
-        <h2>{title}</h2>
-        <div class="bottom-sheet-header-end">
+    <div class="bottom-sheet-header" class:acting={onBack && headerActions}>
+      <div class="bottom-sheet-header-start">
+        {#if onBack}
+          <button class="back-btn" onclick={onBack} aria-label={backLabel}
+            ><span class="glyph" aria-hidden="true">‹</span></button
+          >
+        {/if}
+        {@render headerActions?.()}
+      </div>
+      <h2>{title}</h2>
+      <div class="bottom-sheet-header-end">
+        <!-- Nothing to close. A page is left by going somewhere else, and an ✕
+             that unmounted the page would leave the screen with no content and
+             no way back to any. -->
+        {#if !inline}
           <button class="close-btn" onclick={close} aria-label="Close"
             ><span class="glyph" aria-hidden="true">&times;</span></button
           >
-        </div>
+        {/if}
       </div>
-
-      <div class="bottom-sheet-body" class:flush={flushBody}>
-        {@render body?.()}
-      </div>
-
-      {#if footer}
-        <div class="bottom-sheet-footer">
-          {@render footer({ close })}
-        </div>
-      {/if}
     </div>
-  {/snippet}
-</Modal>
+
+    <div class="bottom-sheet-body" class:flush={flushBody}>
+      {@render body?.()}
+    </div>
+
+    {#if footer}
+      <div class="bottom-sheet-footer">
+        {@render footer({ close })}
+      </div>
+    {/if}
+  </div>
+{/snippet}
+
+{#if inline}
+  {@render surface({}, () => {})}
+{:else}
+  <Modal
+    bind:open={isOpen}
+    {onClose}
+    overlayBg="rgba(0, 0, 0, 0.4)"
+    overlayBlur="blur(2px)"
+    {overlayZ}
+    overlayEnter={animate}
+    {beneath}
+    {title}
+  >
+    {#snippet children({ props, close })}
+      {@render surface(props, close)}
+    {/snippet}
+  </Modal>
+{/if}
 
 <style>
   /* The backdrop is owned by Modal; the sheet pins itself one z-index above it.
@@ -361,6 +405,30 @@
     .bottom-sheet-content:not(.no-anim) {
       animation-name: popIn;
     }
+  }
+
+  /* ── Inline: the same surface as a region of a page ──────────────────────
+     Written AFTER the breakpoint block on purpose. `.bottom-sheet-content.inline`
+     and `.bottom-sheet-content.flush` are both specificity 0,2,0, so the only
+     thing that decides between them is source order — this has to come last or a
+     flush sheet would still be pinned to a viewport it is no longer in.
+
+     Everything switched off here is something a dialog needs and a page region
+     does not: it is not pinned, it does not float above anything, it does not
+     arrive from an edge, and its height is the page's business. The frame stays,
+     because the surface is still a card on paper. */
+  .bottom-sheet-content.inline,
+  .bottom-sheet-content.inline.flush,
+  .bottom-sheet-content.inline.fill {
+    position: static;
+    transform: none;
+    width: 100%;
+    max-width: none;
+    height: auto;
+    max-height: none;
+    animation: none;
+    box-shadow: none;
+    border: var(--edge);
   }
 
   .bottom-sheet-handle-bar {

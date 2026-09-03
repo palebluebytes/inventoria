@@ -21,9 +21,11 @@
   let {
     selectedDate,
     onClose,
+    inline = false,
   }: {
     selectedDate: Date;
     onClose: () => void;
+    inline?: boolean;
   } = $props();
 
   type RecipeTwin = { entity: string; attributes: Record<string, any> };
@@ -69,6 +71,7 @@
   {onClose}
   onBack={view.kind === "list" ? undefined : backToList}
   backLabel="Back to recipes"
+  {inline}
 >
   {#if view.kind === "build"}
     <RecipeBuilder

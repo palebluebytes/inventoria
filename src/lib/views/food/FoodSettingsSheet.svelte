@@ -47,7 +47,8 @@
      * export's own readiness comes from the census it already reads.
      */
     dbReady,
-  }: { onClose: () => void; dbReady: boolean } = $props();
+    inline = false,
+  }: { onClose: () => void; dbReady: boolean; inline?: boolean } = $props();
 
   // The Facet whose settings these are — always Rations, whichever entry point
   // is drawing the screen. Read off the registry rather than typed, so the name
@@ -139,7 +140,7 @@
   </button>
 {/snippet}
 
-<BottomSheet isOpen {title} fillHeight {onClose}>
+<BottomSheet isOpen {title} fillHeight {onClose} {inline}>
   <!-- Nutrition Display leads the sheet, borderless and full-bleed: the negative
        inline margins cancel the sheet body's padding so the editor spans the
        full width, edge to edge. -->
