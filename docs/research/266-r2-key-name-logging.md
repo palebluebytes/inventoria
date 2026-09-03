@@ -388,3 +388,73 @@ This is not establishable from outside by any amount of further reading, which i
 it handed the question on. The reason it is worth the words anyway is that it converts an open
 question into a **closed** one: it is not that we have failed to find the number, it is that no
 number exists to find, and further research on this point is not warranted.
+
+---
+
+## 5. #283's claims, re-verified rather than inherited
+
+`docs/adr/README.md` requires re-verification before a claim is extended. Every claim this note leans
+on was re-read from source on **2026-09-03**. All five hold; three gained a detail.
+
+### 5.1 The two R2 datasets, confirmed field by field
+
+Re-read from [Metrics and analytics](https://developers.cloudflare.com/r2/platform/metrics-analytics/).
+The field tables are unchanged from #283 §1.1.
+
+**`r2OperationsAdaptiveGroups`** — "This dataset consists of the operations taken on a bucket within
+an account":
+
+| Field                | Documented as                                                          |
+| -------------------- | ---------------------------------------------------------------------- |
+| `actionType`         | "The name of the operation performed."                                 |
+| `actionStatus`       | "The status of the operation. Can be success, userError, or internalError" |
+| `bucketName`         | "The bucket this operation was performed on if applicable."            |
+| `objectName`         | **"The object this operation was performed on if applicable."**        |
+| `responseStatusCode` | "The http status code returned by this operation."                     |
+| `datetime`           | "The time of the request."                                             |
+
+**`r2StorageAdaptiveGroups`** — "This dataset consists of the storage of a bucket within an account":
+`bucketName`, `payloadSize`, `metadataSize`, `objectCount`, `uploadCount`, `datetime`.
+
+Retention, verbatim: "Metrics can be queried (and are retained) for the past 31 days."
+
+**No off switch, confirmed by absence and by re-reading for it.** The page names no setting, plan
+tier or flag that disables either dataset, and describes the dashboard as a consumer of the same
+data — "The metrics displayed for a bucket in the Cloudflare dashboard are queried from Cloudflare's
+GraphQL Analytics API". There is no off.
+
+### 5.2 The gap #283 left open, still open, and now narrower
+
+#283's "not verified" list carried: _whether a Worker R2 **binding** call appears in
+`r2OperationsAdaptiveGroups`_. **Still not stated anywhere.** The page was re-read specifically for
+it and mentions neither bindings, Workers, the S3 API, nor any access method; the dataset is
+described only as "the operations taken on a bucket", with no access-path qualifier.
+
+The [pricing page](https://developers.cloudflare.com/r2/pricing/) does not close it either. It lists
+`PutObject` and `CopyObject` as Class A, `GetObject` and `HeadObject` as Class B, and `DeleteObject`,
+`DeleteBucket` and `AbortMultipartUpload` as free, without distinguishing access path — its only
+sentence about the binding is about egress, "Egressing directly from R2, including via the Workers
+API", which is about data transfer rather than about operation accounting.
+
+**So #283's inference stands as an inference and this note does not upgrade it.** The unfavourable
+reading is the one to plan against: **assume a binding `put()` writes an `objectName` row.** But the
+distinction now matters less than it did, because §1 established that Workers Logs would not have
+recorded the binding call under any setting, so there is no second pipeline whose presence or absence
+turns on this question. It is a question about the size of one exposure, not about whether it exists.
+
+### 5.3 The other three, confirmed
+
+| #283's claim                                                                                    | Re-verified                                                                                                                                              |
+| ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The account Logpush dataset list has no R2 dataset                                              | **Holds.** All 31 datasets re-read; §3.2 lists them.                                                                                                     |
+| Workers Logs is on by default                                                                   | **Holds**, verbatim: "All newly created Workers will come with the observability setting enabled by default."                                            |
+| `invocation_logs` is documented against a stored record, not live observation                   | **Holds.** Real-time logs "does not store Workers Logs", the tail object carries `event.request.url`, headers and `cf`, and no page relates the setting to it. |
+| Event notifications are opt-in and carry `object.key`                                           | **Holds**, and gained `LifecycleDeletion` and `copySource` — §2.                                                                                          |
+| Audit logs are configuration-only, 18 months                                                    | **Holds**, and is now stated by Cloudflare in terms for R2 rather than inferred — §3.1.                                                                   |
+
+**One correction of emphasis, not of fact.** #283 §1.3 filed event notifications, Logpush and R2 Data
+Catalog together as "opt-in, and therefore genuinely absent". That grouping is right but it is
+missing its largest member: **Workers Traces belongs in it and was not on the list**, and it is the
+only one of the four that records the object key from _inside_ our own Worker rather than from an
+external client. #283 §6's ceiling list should be read as having an eleventh item that is currently
+zero, and §1.3 of this note says under what conditions it stops being zero.
