@@ -3,7 +3,7 @@
   import Button from "../../ui/Button.svelte";
   import Input from "../../ui/Input.svelte";
   import Alert from "../../ui/Alert.svelte";
-  import Modal from "../../ui/Modal.svelte";
+  import BottomSheet from "../../ui/BottomSheet.svelte";
 
   let {
     editingItem = $bindable(),
@@ -16,6 +16,10 @@
   let editTags = $state("");
   let editNote = $state("");
   let editError = $state("");
+
+  // The dock's Save is outside the <form> — it is the sheet's, not the body's —
+  // so it reaches the form by name rather than by containment.
+  const FORM_ID = "edit-item-form";
 
   function closeModal() {
     showEditModal = false;
@@ -52,104 +56,62 @@
   }
 </script>
 
+<!-- A sheet on a phone, a centred card above 768px (ADR-0089 §6, #329). It
+     holds two text fields, which is why it is `fillHeight`: on a phone a sheet
+     with a field in it takes the whole band and gives up the peek, so the
+     keyboard cannot push its header off the top (§5). -->
 {#if showEditModal && editingItem}
-  <Modal
+  <BottomSheet
+    isOpen
+    title="Edit Tags & Note"
     onClose={closeModal}
-    title="✏️ Edit Tags & Note"
-    overlayBg="rgba(0, 0, 0, 0.5)"
-    overlayBlur="blur(4px)"
+    fillHeight
+    centred
   >
-    {#snippet children({ props, close })}
-      <div {...props} class="modal-card">
-        <div class="modal-header">
-          <h2>✏️ Edit Tags & Note</h2>
-          <button class="close-btn" onclick={close}>&times;</button>
-        </div>
+    {#if editError}
+      <Alert variant="error" class="mb-4">{editError}</Alert>
+    {/if}
 
-        {#if editError}
-          <Alert variant="error" class="mb-4">{editError}</Alert>
-        {/if}
+    <form id={FORM_ID} onsubmit={handleEditSubmit} class="form">
+      <div class="form-group">
+        <!-- Not a <label>: there is no control under it to label. The name is
+             what is being edited, not one of the fields editing it. -->
+        <span class="field-name">Item Name</span>
+        <div class="read-only-value">{editingItem.name}</div>
+      </div>
 
-        <form onsubmit={handleEditSubmit} class="form mt-4">
-          <div class="form-group">
-            <label for="edit-item-name">Item Name</label>
-            <div class="read-only-value">{editingItem.name}</div>
-          </div>
+      <div class="form-group">
+        <label for="edit-tags">Tags (comma-separated)</label>
+        <Input
+          id="edit-tags"
+          type="text"
+          bind:value={editTags}
+          placeholder="e.g. tech, home, setup"
+        />
+      </div>
 
-          <div class="form-group">
-            <label for="edit-tags">Tags (comma-separated)</label>
-            <Input
-              id="edit-tags"
-              type="text"
-              bind:value={editTags}
-              placeholder="e.g. tech, home, setup"
-            />
-          </div>
+      <div class="form-group">
+        <label for="edit-note">Note</label>
+        <textarea
+          id="edit-note"
+          bind:value={editNote}
+          placeholder="Write personal notes about this item..."
+          rows="3"
+        ></textarea>
+      </div>
+    </form>
 
-          <div class="form-group">
-            <label for="edit-note">Note</label>
-            <textarea
-              id="edit-note"
-              bind:value={editNote}
-              placeholder="Write personal notes about this item..."
-              rows="3"
-            ></textarea>
-          </div>
-
-          <div class="modal-footer">
-            <Button variant="secondary" type="button" onclick={close}
-              >Cancel</Button
-            >
-            <Button type="submit">Save Changes</Button>
-          </div>
-        </form>
+    {#snippet footer({ close }: { close: () => void })}
+      <div class="dock">
+        <Button variant="secondary" type="button" onclick={close}>Cancel</Button
+        >
+        <Button type="submit" form={FORM_ID}>Save Changes</Button>
       </div>
     {/snippet}
-  </Modal>
+  </BottomSheet>
 {/if}
 
 <style>
-  .modal-card {
-    position: fixed;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 1000;
-    background: var(--bg-surface, var(--paper));
-    border: var(--edge-thick);
-    box-shadow: var(--shadow-3);
-    width: calc(100% - 2 * var(--space-s));
-    max-width: 500px;
-    max-height: 85vh;
-    overflow-y: auto;
-    padding: var(--space-m);
-    animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  }
-  .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: var(--edge);
-    padding-bottom: var(--space-xs);
-    margin-bottom: var(--space-s);
-  }
-  .modal-header h2 {
-    font-size: var(--step-1);
-    font-weight: 700;
-    margin: 0;
-    text-transform: uppercase;
-  }
-  .close-btn {
-    background: none;
-    border: none;
-    color: var(--ink);
-    font-size: 2rem;
-    cursor: pointer;
-    line-height: 1;
-  }
-  .close-btn:hover {
-    transform: scale(1.1);
-  }
   .form {
     display: flex;
     flex-direction: column;
@@ -160,7 +122,8 @@
     flex-direction: column;
     gap: var(--space-3xs);
   }
-  .form-group label {
+  .form-group label,
+  .field-name {
     font-size: var(--step-n2);
     font-weight: 600;
     text-transform: uppercase;
@@ -186,27 +149,12 @@
     outline: none;
     border-color: var(--accent);
   }
-  .modal-footer {
+  .dock {
     display: flex;
     justify-content: flex-end;
     gap: var(--space-s);
-    margin-top: var(--space-m);
-  }
-  .mt-4 {
-    margin-top: var(--space-s);
   }
   :global(.mb-4) {
     margin-bottom: var(--space-s);
-  }
-
-  @keyframes popIn {
-    from {
-      opacity: 0;
-      transform: translate(-50%, -50%) scale(0.9);
-    }
-    to {
-      opacity: 1;
-      transform: translate(-50%, -50%) scale(1);
-    }
   }
 </style>
