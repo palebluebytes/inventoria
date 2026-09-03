@@ -137,6 +137,11 @@
      under a heading, not a second heading. Bold and tabular because it IS the
      row's figure, and because a column of them reads down the list. */
   :global(.food-item.fi-logged .row-subtitle) {
+    /* The name's leading, not the body's: at 1.5 the amount's own half-leading
+       hangs below it, and the card's ink sat 13px under the top edge and 21px
+       above the bottom one (measured on the CI capture). The pair is set solid
+       enough to read as one block, and the block sits level in the frame. */
+    line-height: 1.25;
     font-size: var(--step-n2);
     font-weight: 700;
     color: var(--text-secondary);
