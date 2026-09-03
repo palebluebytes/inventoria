@@ -36,7 +36,7 @@
     calorieDisplayDecimals,
   } from "../../stores/device-settings";
   import { parseLoggedQuantity } from "../../food/recipe-ingredient";
-  import Modal from "../../ui/Modal.svelte";
+  import BottomSheet from "../../ui/BottomSheet.svelte";
   import Skeleton from "../../ui/Skeleton.svelte";
   import Button from "../../ui/Button.svelte";
   import FoodItemRow from "./FoodItemRow.svelte";
@@ -635,24 +635,19 @@
   />
 {/if}
 
-<!-- Photo preview Modal -->
+<!-- The photo, on the one overlay shape a phone has (ADR-0089 §6, #329). It was
+     a centred card at 90vh with the way out floating 40px above its top edge,
+     outside the box; the sheet's header carries that, and the body scrolls on
+     the rare photo taller than the band. -->
 {#if previewPhoto}
-  <Modal
+  <BottomSheet
+    isOpen
+    title="Food log photo"
     onClose={() => (previewPhoto = null)}
-    overlayBg="rgba(0, 0, 0, 0.85)"
-    title="Food log photo preview"
+    centred
   >
-    {#snippet children({ props, close })}
-      <div {...props} class="photo-modal-content">
-        <img
-          src={previewPhoto}
-          alt="Food Log Preview"
-          class="photo-modal-img"
-        />
-        <button class="photo-modal-close" onclick={close}>&times;</button>
-      </div>
-    {/snippet}
-  </Modal>
+    <img src={previewPhoto} alt="Food Log Preview" class="photo-preview" />
+  </BottomSheet>
 {/if}
 
 <style>
@@ -1076,32 +1071,17 @@
     transform: scale(1.05);
   }
 
-  /* Photo Modal */
-  .photo-modal-content {
-    position: fixed;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 1001;
-    max-width: 90vw;
-    max-height: 90vh;
-  }
-  .photo-modal-img {
+  /* The photo, as wide as the sheet's body lets it be and never wider than it
+     is. No cap of its own: the sheet caps itself at the visible band and its
+     body scrolls, which is the one measurement that is honest with a keyboard
+     up (ADR-0089 §3). */
+  .photo-preview {
+    display: block;
     max-width: 100%;
-    max-height: 80vh;
+    height: auto;
+    margin-inline: auto;
     border-radius: var(--radius);
     border: var(--edge);
-    box-shadow: var(--shadow-3);
-  }
-  .photo-modal-close {
-    position: absolute;
-    top: -40px;
-    right: 0;
-    background: none;
-    border: none;
-    color: var(--paper);
-    font-size: 32px;
-    cursor: pointer;
   }
 
   :global(.mt-6) {
