@@ -6,7 +6,7 @@
   import { secretsStore } from "../../stores/secrets";
   import Button from "../../ui/Button.svelte";
   import Alert from "../../ui/Alert.svelte";
-  import Modal from "../../ui/Modal.svelte";
+  import BottomSheet from "../../ui/BottomSheet.svelte";
 
   let {
     onClose,
@@ -109,193 +109,150 @@
   }
 </script>
 
-<Modal
-  {onClose}
-  title="Ingest Digital Twins"
-  overlayBg="rgba(255, 255, 255, 0.95)"
-  overlayBlur="none"
->
-  {#snippet children({ props, close })}
-    <div {...props} class="modal-card">
-      <div class="modal-header">
-        <h2>Ingest Digital Twins</h2>
-        <button class="close-btn" onclick={close}>&times;</button>
-      </div>
+<!-- A sheet on a phone, a centred card above 768px (ADR-0089 §6, #329). It was
+     the worst geometry outside the sheets: a 90vh card holding a search field,
+     with the result list capped at a further 40vh inside it — three viewport
+     units nested, every one of them inert under a raised keyboard.
 
-      {#if initialType !== "book" && !$secretsStore.tmdb_api_key}
-        <div class="mt-4">
-          <Alert variant="warning">
-            TMDB API key is not configured. Set your key with the gear on the
-            Media screen to search and ingest Movie/TV twins.
-          </Alert>
-        </div>
-      {/if}
+     `fillHeight`, because it holds a field: on a phone the sheet takes the
+     whole band and gives up the peek (§5). The field stays at the top of the
+     body rather than moving into the dock. The dock is for a sheet's primary
+     action and for a field the body scrolls under — this list has neither, and
+     a search box above its own results is where the eye starts. -->
+<BottomSheet isOpen title="Ingest Digital Twins" {onClose} fillHeight centred>
+  <div class="ingest">
+    {#if initialType !== "book" && !$secretsStore.tmdb_api_key}
+      <Alert variant="warning">
+        TMDB API key is not configured. Set your key with the gear on the Media
+        screen to search and ingest Movie/TV twins.
+      </Alert>
+    {/if}
 
-      <form
-        class="search-form mt-4"
-        onsubmit={(e) => {
-          e.preventDefault();
-          if (initialType === "book" || $secretsStore.tmdb_api_key) {
-            handleSearch();
-          }
-        }}
+    <form
+      class="search-form"
+      onsubmit={(e) => {
+        e.preventDefault();
+        if (initialType === "book" || $secretsStore.tmdb_api_key) {
+          handleSearch();
+        }
+      }}
+    >
+      <input
+        id="media-search-input"
+        type="text"
+        placeholder="Search title, author or keywords..."
+        bind:value={searchQuery}
+        class="retro-input"
+        disabled={initialType !== "book" && !$secretsStore.tmdb_api_key}
+      />
+      <Button
+        type="submit"
+        loading={isSearching}
+        disabled={initialType !== "book" && !$secretsStore.tmdb_api_key}
+        >Search</Button
       >
-        <input
-          id="media-search-input"
-          type="text"
-          placeholder="Search title, author or keywords..."
-          bind:value={searchQuery}
-          class="retro-input flex-1"
-          disabled={initialType !== "book" && !$secretsStore.tmdb_api_key}
-        />
+    </form>
+
+    {#if initialType === "book"}
+      <div class="v2-actions">
         <Button
-          type="submit"
-          loading={isSearching}
-          disabled={initialType !== "book" && !$secretsStore.tmdb_api_key}
-          >Search</Button
+          variant="secondary"
+          onclick={() =>
+            alert(
+              "V2 Feature: Barcode and Image scanning for books will be available in the next release."
+            )}
         >
-      </form>
-
-      {#if initialType === "book"}
-        <div class="v2-actions">
-          <Button
-            variant="secondary"
-            onclick={() =>
-              alert(
-                "V2 Feature: Barcode and Image scanning for books will be available in the next release."
-              )}
-          >
-            📷 Scan Barcode / Cover (V2)
-          </Button>
-        </div>
-      {/if}
-
-      {#if searchError}
-        <Alert variant="error" class="mt-4 mx-4">{searchError}</Alert>
-      {/if}
-
-      <div class="search-results mt-4">
-        {#if isSearching}
-          <div class="searching-spinner">Searching remote databases...</div>
-        {:else}
-          {#each searchResults as item}
-            <div class="search-result-item">
-              {#if item.poster_url && !item.imageError}
-                <img
-                  src={item.poster_url}
-                  alt={item.title}
-                  class="result-thumbnail"
-                  onerror={() => (item.imageError = true)}
-                  referrerpolicy="no-referrer"
-                  crossorigin="anonymous"
-                />
-              {:else}
-                <div class="result-thumbnail-placeholder">
-                  {item.type === "book" ? "📖" : "🎬"}
-                </div>
-              {/if}
-              <div class="result-info">
-                <span class="result-title">{item.title}</span>
-                <span class="result-creator">
-                  {#if item.type === "book"}
-                    By {item.creator || "Unknown"}
-                  {:else}
-                    Release: {item.release_date || "Unknown"}
-                  {/if}
-                </span>
-              </div>
-              <Button
-                variant="secondary"
-                disabled={savingId !== null}
-                loading={savingId === item.id}
-                onclick={() => handleSaveMedia(item)}
-              >
-                Save
-              </Button>
-            </div>
-          {:else}
-            {#if searchQuery && !isSearching}
-              <p class="no-results">No matches found locally or online.</p>
-            {/if}
-          {/each}
-        {/if}
+          📷 Scan Barcode / Cover (V2)
+        </Button>
       </div>
+    {/if}
+
+    {#if searchError}
+      <Alert variant="error">{searchError}</Alert>
+    {/if}
+
+    <div class="search-results">
+      {#if isSearching}
+        <div class="searching-spinner">Searching remote databases...</div>
+      {:else}
+        {#each searchResults as item}
+          <div class="search-result-item">
+            {#if item.poster_url && !item.imageError}
+              <img
+                src={item.poster_url}
+                alt={item.title}
+                class="result-thumbnail"
+                onerror={() => (item.imageError = true)}
+                referrerpolicy="no-referrer"
+                crossorigin="anonymous"
+              />
+            {:else}
+              <div class="result-thumbnail-placeholder">
+                {item.type === "book" ? "📖" : "🎬"}
+              </div>
+            {/if}
+            <div class="result-info">
+              <span class="result-title">{item.title}</span>
+              <span class="result-creator">
+                {#if item.type === "book"}
+                  By {item.creator || "Unknown"}
+                {:else}
+                  Release: {item.release_date || "Unknown"}
+                {/if}
+              </span>
+            </div>
+            <Button
+              variant="secondary"
+              disabled={savingId !== null}
+              loading={savingId === item.id}
+              onclick={() => handleSaveMedia(item)}
+            >
+              Save
+            </Button>
+          </div>
+        {:else}
+          {#if searchQuery && !isSearching}
+            <p class="no-results">No matches found locally or online.</p>
+          {/if}
+        {/each}
+      {/if}
     </div>
-  {/snippet}
-</Modal>
+  </div>
+</BottomSheet>
 
 <style>
-  .modal-card {
-    position: fixed;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 1001;
-    background: var(--paper);
-    border: var(--edge-thick);
-    width: calc(100% - 2 * var(--space-s));
-    max-width: 600px;
-    max-height: 90vh;
+  /* One column with one gap between its parts. The card this replaced padded
+     each section itself and spaced them with a utility class, which is what a
+     shell with no padding of its own forces; the sheet's body pads, so the
+     stack only has to say how far apart its own rows sit. */
+  .ingest {
     display: flex;
     flex-direction: column;
-    padding: 0;
-    box-shadow: 12px 12px 0 var(--ink);
-    animation: slideUp 0.1s step-end;
-    overflow: hidden;
+    gap: var(--space-s);
   }
 
-  .modal-header {
+  /* The results simply stack: the sheet's body is the scroll region, and the
+     `max-height: 40vh` this list used to carry was a second viewport cap nested
+     inside the card's own (ADR-0089 §5). Its padding goes for the same reason —
+     the body pads itself, and the card's zero-padding shell is gone. */
+  .search-results {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: var(--edge-thick);
-    padding: var(--space-s) var(--space-m);
-    background: var(--ink);
-    color: var(--paper);
-    margin-bottom: 0;
-  }
-
-  .modal-header h2 {
-    font-size: var(--step-1);
-    font-weight: 900;
-    text-transform: uppercase;
-    margin: 0;
-  }
-
-  .close-btn {
-    background: var(--paper);
-    border: var(--edge);
-    width: 40px;
-    height: 40px;
-    font-size: 2rem;
-    cursor: pointer;
-    line-height: 1;
-    color: var(--ink);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.1s step-end;
-  }
-
-  .close-btn:hover {
-    background: var(--border);
-    transform: translate(-2px, -2px);
-    box-shadow: var(--shadow-2);
+    flex-direction: column;
+    gap: var(--space-s);
   }
 
   .search-form {
     display: flex;
     gap: var(--space-s);
-    padding: var(--space-m) var(--space-m) 0;
   }
 
   .v2-actions {
     display: flex;
     justify-content: flex-end;
-    padding: var(--space-s) var(--space-m) 0;
   }
 
   .retro-input {
+    flex: 1;
     border: var(--edge);
     padding: var(--space-s);
     font-size: var(--step-0);
@@ -312,16 +269,6 @@
     background: var(--ink);
     color: var(--paper);
     box-shadow: none;
-  }
-
-  .search-results {
-    flex: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-s);
-    max-height: 40vh;
-    padding: var(--space-s) var(--space-m) var(--space-m);
   }
 
   .search-result-item {
@@ -386,23 +333,5 @@
     font-family: var(--font-mono);
     padding: var(--space-m);
     font-style: italic;
-  }
-
-  .mt-4 {
-    margin-top: var(--space-s);
-  }
-  .flex-1 {
-    flex: 1;
-  }
-
-  @keyframes slideUp {
-    from {
-      opacity: 0;
-      transform: translate(-50%, -50%) translateY(10px);
-    }
-    to {
-      opacity: 1;
-      transform: translate(-50%, -50%);
-    }
   }
 </style>
