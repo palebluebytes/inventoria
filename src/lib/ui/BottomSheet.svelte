@@ -17,7 +17,6 @@
     backLabel = "Back",
     flushBody = false,
     fillHeight = false,
-    centred = false,
     elevated = false,
     animate = true,
   }: {
@@ -94,20 +93,6 @@
      */
     fillHeight?: boolean;
     /**
-     * Above 768px, sit centred in the viewport instead of anchored to the
-     * bottom edge — the one expression of "a centred card" in the app
-     * (ADR-0089 §6). **On a phone it does nothing**, which is the whole point:
-     * there is one overlay shape there and it is the sheet, so the six
-     * surfaces that used to hand-roll `translate(-50%, -50%)` set this and
-     * inherit the band's geometry unchanged (#329).
-     *
-     * A centred card sizes to its content, capped at 85vh. `fillHeight` and
-     * `flushBody` still own the phone's height, where their full-height claim
-     * is about a keyboard; on a wide screen there is none, and a short form
-     * pinned to 85vh is a column of empty paper.
-     */
-    centred?: boolean;
-    /**
      * Raise this sheet a layer above another sheet it is opened over. A default
      * sheet sits at 1700/1701 (backdrop/content); an elevated one at 1800/1801,
      * so its backdrop dims — and its content floats above — a parent sheet's
@@ -171,7 +156,6 @@
       class="bottom-sheet-content {className}"
       class:flush={flushBody}
       class:fill={fillHeight}
-      class:centred
       class:beneath={!!beneath}
       class:no-anim={!animate}
       style:z-index={elevated ? 1801 : null}
@@ -329,33 +313,37 @@
       display: flex;
     }
 
-    .bottom-sheet-content.flush,
-    .bottom-sheet-content.fill {
-      top: auto;
-      height: 85vh;
-      max-height: 85vh;
-    }
+    /* ── Above the breakpoint, EVERY sheet is a centred card ────────────────
+       This used to be `.centred`, an opt-in six surfaces passed (ADR-0089 §6,
+       #329). It is not a prop any more, and losing it is the decision rather
+       than a tidy-up: **rising from the bottom edge is a phone gesture.** A
+       sheet climbs out of the thumb's reach on a phone, where the bottom edge
+       is where the hand is; on a desktop the bottom edge is just the far end of
+       a large screen, and a card that slides up from it is imitating a device
+       that is not there. §6 says there is one overlay shape on a phone and it
+       is the sheet. The same sentence above the breakpoint names a different
+       shape, and there is no third.
 
-    /* The app's one centred card (ADR-0089 §6). It is written here, once, under
-       the breakpoint, because on a phone there is a single overlay shape and it
-       is the sheet — six surfaces used to re-derive this box outside the
-       primitive at 85-90vh, three of them around a text field, which is the
-       worst geometry available with a keyboard raised (#329). The record says
-       seven and four; both counts are measured wrong, see its Amendment.
+       Three selectors, not one, and that is a cascade requirement rather than a
+       style: the base `.flush`/`.fill` rule outside this query pins `top`,
+       `height` and `max-height` at specificity 0,2,0, so a bare
+       `.bottom-sheet-content` at 0,1,0 would lose to it. Naming all three here
+       ties the specificity and wins on source order. It also deletes the old
+       `.flush/.fill { height: 85vh }` override, which existed only to be
+       overridden by the rule below it.
 
-       A centred card sizes to its content, capped at 85vh. It takes the height
-       back from `flush`/`fill` rather than leaving it to them, because those
-       two are the *phone's* proxy for "holds a text field" (§5) and their
-       full-height claim is a claim about a keyboard. There is no keyboard here,
-       and a three-field form pinned to 85vh in the middle of a wide screen is a
-       column of empty paper — which is why all six of these cards capped
-       themselves and none of them pinned. This rule sitting after theirs is
-       what lets it retake `top` and `height` without a third selector.
+       A centred card sizes to its content, capped at 85vh. `flushBody` and
+       `fillHeight` keep owning the phone's height, where their full-height
+       claim is a claim about a keyboard (§5). There is no keyboard here, and a
+       three-field form pinned to 85vh in the middle of a wide screen is a
+       column of empty paper.
 
        The bottom border and the drop shadow come back: the base sheet drops
        both because its bottom edge is off the screen, and paints an ink bar
        above its top edge instead. A card has four edges on screen. */
-    .bottom-sheet-content.centred {
+    .bottom-sheet-content,
+    .bottom-sheet-content.flush,
+    .bottom-sheet-content.fill {
       top: 50%;
       bottom: auto;
       transform: translate(-50%, -50%);
@@ -370,7 +358,7 @@
        written above this block, so an `animation-name` here at equal
        specificity would win on source order and re-animate a sheet that asked
        not to be animated. */
-    .bottom-sheet-content.centred:not(.no-anim) {
+    .bottom-sheet-content:not(.no-anim) {
       animation-name: popIn;
     }
   }

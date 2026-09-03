@@ -645,7 +645,6 @@
     isOpen
     title="Food log photo"
     onClose={() => (previewPhoto = null)}
-    centred
   >
     <img src={previewPhoto} alt="Food Log Preview" class="photo-preview" />
   </BottomSheet>

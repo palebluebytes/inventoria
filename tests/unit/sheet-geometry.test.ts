@@ -40,7 +40,10 @@ const EVERY_WIDTH = null;
 const WIDE = "@media (min-width: 768px)";
 
 /** §6's one centring expression, written where the sheet writes it. */
-const centredWide = ".bottom-sheet-content.centred";
+// Above 768px the centred card is no longer an opt-in class — it is what
+// every sheet is. The rule names all three selectors so it ties specificity
+// with the base `.flush`/`.fill` rule outside the query and wins on order.
+const centredWide = ".bottom-sheet-content";
 
 describe("a sheet's box is the visible band", () => {
   it("anchors an ordinary sheet to the band's bottom edge, capped at its height", () => {
@@ -98,11 +101,19 @@ describe("a sheet holding a text field is full height on a phone", () => {
     ).toBeUndefined();
   });
 
-  it("gives the peek back above 768px — one design that widens", () => {
+  it("is a centred card above 768px, like every other sheet (#337)", () => {
+    // There is no peek any more, and no bottom-anchored shape above the
+    // breakpoint at all. Rising from the bottom edge is a phone gesture: the
+    // edge is where the hand is. On a wide screen it is the far end of a large
+    // screen, and a card climbing out of it imitates a device that is not
+    // there. So the field-bearing shapes are centred with everything else, and
+    // this rule is the same one — named by all three selectors to beat the
+    // base `.flush`/`.fill` pin on source order at equal specificity.
     const wide = rule(".bottom-sheet-content.flush", WIDE);
     expect(wide.selectors).toContain(".bottom-sheet-content.fill");
-    expect(decl(wide, "top")).toBe("auto");
-    expect(decl(wide, "height")).toBe("85vh");
+    expect(wide.selectors).toContain(".bottom-sheet-content");
+    expect(decl(wide, "top")).toBe("50%");
+    expect(decl(wide, "height")).toBe("auto");
     expect(decl(wide, "max-height")).toBe("85vh");
   });
 });
@@ -135,13 +146,15 @@ describe("a sheet's scroll region does not chain into the page (§8)", () => {
  */
 describe("a centred card is this primitive above 768px (§6)", () => {
   it("is nothing at all on a phone — a centred sheet is a sheet", () => {
-    // The class exists only under the breakpoint. A rule for it at every width
-    // would be a second shape on the platform §6 gives one shape.
-    expect(
-      RULES.filter(
-        (r) => r.at === EVERY_WIDTH && r.selectors.includes(centredWide)
-      )
-    ).toEqual([]);
+    // Stated positively now that the centred card is the bare content class
+    // rather than an opt-in: asserting "no rule at every width" would match the
+    // base rule and prove nothing. What §6 actually claims is that the phone's
+    // shape is bottom-anchored, so that is what is read — the band's bottom
+    // edge, and a one-axis transform that centres horizontally only.
+    const phone = rule(centredWide, EVERY_WIDTH);
+    expect(decl(phone, "bottom")).toBe("var(--vv-bottom)");
+    expect(decl(phone, "transform")).toBe("translateX(-50%)");
+    expect(decl(phone, "top")).toBeUndefined();
   });
 
   it("moves the box above 768px and sizes the card to its content", () => {

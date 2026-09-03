@@ -61,13 +61,7 @@
      with a field in it takes the whole band and gives up the peek, so the
      keyboard cannot push its header off the top (§5). -->
 {#if showEditModal && editingItem}
-  <BottomSheet
-    isOpen
-    title="Edit Tags & Note"
-    onClose={closeModal}
-    fillHeight
-    centred
-  >
+  <BottomSheet isOpen title="Edit Tags & Note" onClose={closeModal} fillHeight>
     {#if editError}
       <Alert variant="error" class="mb-4">{editError}</Alert>
     {/if}

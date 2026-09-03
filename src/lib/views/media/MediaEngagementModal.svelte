@@ -78,7 +78,7 @@
      at 200px inside it. `fillHeight`, because it holds those fields: on a phone
      the sheet takes the whole band and gives up the peek (§5), so a keyboard
      cannot push the header off the top. -->
-<BottomSheet isOpen title="Log Engagement Event" {onClose} fillHeight centred>
+<BottomSheet isOpen title="Log Engagement Event" {onClose} fillHeight>
   <div class="engagement">
     <div class="media-details-banner">
       {#if media.poster_url && !imageError}

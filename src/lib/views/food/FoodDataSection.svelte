@@ -279,7 +279,6 @@
     title="Delete all my food data?"
     onClose={() => (confirming = false)}
     elevated
-    centred
   >
     <!-- It counts against the ledger rather than reciting policy (§5). The
            wipe computes its own row set, so the figures are free, and a

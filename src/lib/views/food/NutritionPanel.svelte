@@ -54,7 +54,6 @@
   {onClose}
   headerActions={actions}
   flushBody
-  centred
 >
   <div class="day-rda-body">
     {@render body()}

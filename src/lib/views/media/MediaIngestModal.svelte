@@ -119,7 +119,7 @@
      body rather than moving into the dock. The dock is for a sheet's primary
      action and for a field the body scrolls under — this list has neither, and
      a search box above its own results is where the eye starts. -->
-<BottomSheet isOpen title="Ingest Digital Twins" {onClose} fillHeight centred>
+<BottomSheet isOpen title="Ingest Digital Twins" {onClose} fillHeight>
   <div class="ingest">
     {#if initialType !== "book" && !$secretsStore.tmdb_api_key}
       <Alert variant="warning">
