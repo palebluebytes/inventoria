@@ -169,6 +169,22 @@
     padding: var(--space-xs) var(--space-s);
   }
 
+  /* The corner mark rides the NAME's line rather than the frame's corner. Row
+     insets it a fixed `--space-3xs` from the top, which centred its box 16.6px
+     below the card's inner edge while the name's line centred at 22.9px
+     (measured on the CI capture) — six pixels of float, which is what made it
+     read as unanchored rather than as this row's remove control. The box is
+     centred on the title's line instead: the row's own top padding, plus half
+     that line, less half the 1.5rem box. Every term is a token this row already
+     sets, so the alignment holds as the fluid scale moves.
+
+     The selection check takes the same box, so both move together — a Selection
+     opening may not shift anything (ADR-0088). */
+  :global(.food-item.fi-logged .row-remove),
+  :global(.food-item.fi-logged .row-corner) {
+    top: calc(var(--space-xs) + 0.625 * var(--step-n1) - 0.75rem);
+  }
+
   /* The ✕ is an action on the row, not a figure in it. In full ink it was the
      heaviest mark on a card whose subject is the food's name, and it sits in
      the corner where nothing else competes for the eye. It takes its ink back
