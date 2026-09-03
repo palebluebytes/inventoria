@@ -404,9 +404,11 @@ _Avoid_: Drawer, panel, tray, modal (when a sheet is meant), a second sheet comp
 The dialog shell every overlay is built on (`ui/Modal.svelte`): the portal, the focus
 trap, the backdrop and its layer, and nothing about where a card sits. It is not a
 peer of BottomSheet and not a second overlay shape — it is what BottomSheet is made
-of, and the only surface that mounts it directly is `LabelPhotoReader`, which is
-full-bleed rather than a card. Reach for BottomSheet; reach for this only when a
-surface needs a dialog's machinery around something that is not a sheet.
+of. Three files import it: BottomSheet, `views/food/LabelPhotoReader.svelte` — the
+one screen it carries, full-bleed rather than a card — and `ui/BottomSheetDemo.svelte`,
+where it stands in for a bits-ui dialog the harness raises a sheet over. Reach for
+BottomSheet; reach for this only when a surface needs a dialog's machinery around
+something that is not a sheet.
 See ADR-0027 and ADR-0089 §6.
 _Avoid_: Dialog, popup, overlay, centred card (which is BottomSheet's `centred`)
 
