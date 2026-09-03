@@ -20,8 +20,10 @@
   // pinning a shape that would otherwise change on every open is this panel's
   // as much as the past-meal picker's.
   //
-  // `actions` is an optional slot in the header, ahead of the close button, for
-  // a control that belongs to the panel's subject rather than to the panel.
+  // `actions` is an optional slot in the header's leading rail, opposite the
+  // close button, for a control that belongs to the panel's subject rather than
+  // to the panel. Opposite and not beside: the two glyphs balance the title
+  // between them, one at each end of the header.
   let {
     title,
     testId = undefined,
@@ -35,9 +37,10 @@
     testId?: string;
     onClose?: () => void;
     /**
-     * A control on the panel's subject, beside the way out. Pass it only when
-     * one will render — a snippet holding a conditional leaves the header's
-     * side rails wide and shifts the title off centre. See `BottomSheet`.
+     * A control on the panel's subject, in the header's leading rail opposite
+     * the way out. Pass it only when one will render — a snippet holding a
+     * conditional leaves a hole where the header promised a control. See
+     * `BottomSheet`.
      */
     actions?: Snippet;
     body: Snippet;

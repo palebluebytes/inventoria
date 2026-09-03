@@ -32,16 +32,23 @@
      */
     footer?: Snippet<[{ close: () => void }]>;
     /**
-     * Optional control in the header, to the left of the close button — for a
-     * control on the sheet's **subject** rather than on the sheet, which is the
-     * nutrition panel's way out of a meal or a day (ADR-0074 §1).
+     * Optional control in the header's **leading** rail, opposite the close
+     * button — for a control on the sheet's **subject** rather than on the
+     * sheet, which is the nutrition panel's way out of a meal or a day
+     * (ADR-0074 §1).
      *
-     * One icon control, the size of the close button beside it: passing this
-     * widens both side rails by one slot so the title stays dead-centre, and
-     * the header cannot measure what it is given. **Pass it only when a control
-     * will render** — a snippet holding a conditional renders nothing and
-     * leaves the rails wide, which shifts the title off centre for the one
-     * state that was supposed to look the same.
+     * One icon control, the size of the close button across from it, so the two
+     * balance the title between them. Alone it costs no extra width: it takes
+     * the slot the empty leading rail was already reserving. Passed *with*
+     * `onBack` it sits after the back control and both rails widen by one slot,
+     * because the title is centred by the pair of rails being equal and the
+     * header cannot measure what it is handed.
+     *
+     * **Pass it only when a control will render** — a snippet holding a
+     * conditional renders nothing and leaves a hole where a control was
+     * promised, and with `onBack` also set leaves the rails wide, which shifts
+     * the title off centre for the one state that was supposed to look the
+     * same.
      */
     headerActions?: Snippet;
     /**
@@ -174,15 +181,17 @@
         <div class="drag-handle"></div>
       </div>
 
-      <div class="bottom-sheet-header" class:acting={headerActions}>
-        {#if onBack}
-          <button class="back-btn" onclick={onBack} aria-label={backLabel}
-            ><span class="glyph" aria-hidden="true">‹</span></button
-          >
-        {/if}
+      <div class="bottom-sheet-header" class:acting={onBack && headerActions}>
+        <div class="bottom-sheet-header-start">
+          {#if onBack}
+            <button class="back-btn" onclick={onBack} aria-label={backLabel}
+              ><span class="glyph" aria-hidden="true">‹</span></button
+            >
+          {/if}
+          {@render headerActions?.()}
+        </div>
         <h2>{title}</h2>
         <div class="bottom-sheet-header-end">
-          {@render headerActions?.()}
           <button class="close-btn" onclick={close} aria-label="Close"
             ><span class="glyph" aria-hidden="true">&times;</span></button
           >
@@ -378,17 +387,22 @@
     border: var(--edge-thin);
   }
 
-  /* Three columns — [back] [title] [close] — with equal-width side rails, so the
-     title sits dead-centre whether or not a back button is present. The side
-     rails reserve their width even when empty, so a title never shifts left just
-     because a flow has no back affordance. */
+  /* Three columns — [leading] [title] [close] — with equal-width side rails, so
+     the title sits dead-centre whether or not a leading control is present. The
+     side rails reserve their width even when empty, so a title never shifts left
+     just because a flow has no back affordance.
+
+     The leading rail holds both leading controls: the back "‹" and, after it,
+     whatever `headerActions` renders. A subject control belongs there and not
+     beside the close, because it balances the close — one glyph at each end of
+     the title, which is the shape the header already had. */
   .bottom-sheet-header {
     display: grid;
-    /* One slot per side, widened to two when the caller passes `headerActions`
-       — both rails together, because the title is centred by the pair being
-       equal and not by either one's width. The header cannot measure what it
-       is handed, so this is a declared slot count rather than a fit; the prop's
-       doc carries the other half of that contract. */
+    /* One slot per side, widened to two only when the leading rail holds two —
+       `onBack` *and* `headerActions`. Both rails together, because the title is
+       centred by the pair being equal and not by either one's width. The header
+       cannot measure what it is handed, so this is a declared slot count rather
+       than a fit; the prop's doc carries the other half of that contract. */
     --rail: 2.5rem;
     grid-template-columns: var(--rail) 1fr var(--rail);
     align-items: center;
@@ -463,14 +477,25 @@
     transform: translateY(-0.081em);
   }
 
-  /* The trailing group: a subject control, then the way out. The close keeps
-     the row's right edge whether or not something sits beside it. */
+  /* The two end groups. Leading: the back control, then a subject control, held
+     to the row's left edge; trailing: the way out, held to its right. Each is a
+     flex row so a rail holding two keeps them a gap apart and still starts (or
+     ends) at the frame. */
+  .bottom-sheet-header-start,
   .bottom-sheet-header-end {
-    grid-column: 3;
-    justify-self: end;
     display: flex;
     align-items: center;
     gap: var(--space-2xs);
+  }
+
+  .bottom-sheet-header-start {
+    grid-column: 1;
+    justify-self: start;
+  }
+
+  .bottom-sheet-header-end {
+    grid-column: 3;
+    justify-self: end;
   }
 
   .bottom-sheet-header.acting {
@@ -482,10 +507,9 @@
   }
 
   /* Leading back affordance — mirrors the food sheets' hand-rolled header
-     back control ("‹"). Only rendered when a caller passes `onBack`. */
+     back control ("‹"). Only rendered when a caller passes `onBack`; the
+     leading group above is what puts it against the frame. */
   .back-btn {
-    grid-column: 1;
-    justify-self: start;
     font-weight: 700;
   }
 

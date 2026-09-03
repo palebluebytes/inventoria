@@ -100,8 +100,9 @@
      Absent rather than disabled on a set with nothing in it, on ADR-0059 §4's
      rule that any control which can be dead on arrival is hidden — the same
      precedent the iOS boundary leans on. The condition is on the snippet
-     rather than inside it, because the header reserves a slot for whatever it
-     is handed and a snippet that renders nothing would shift the title. -->
+     rather than inside it, because the header's contract is that a snippet it
+     is handed renders a control: one passing nothing leaves the leading rail
+     holding a hole where the header said one would be. -->
 {#snippet mealWayOut()}
   <button
     type="button"
@@ -180,7 +181,8 @@
     line-height: 1;
     cursor: pointer;
   }
-  /* Sized against the close button beside it, which sits at 1.75rem. */
+  /* Sized against the close button it balances across the title, which sits at
+     1.75rem. */
   .way-out :global(svg) {
     width: 1.35rem;
     height: 1.35rem;

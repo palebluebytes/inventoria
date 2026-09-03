@@ -222,3 +222,28 @@ wrong in it, and one Consequence above needs a fact it does not carry.
   now expresses nothing whatever, because the sheet it would be raised over is
   not on the screen. Above 768px it is still the only thing that puts a dim
   between two cards.
+
+## Amendment (2026-09-03): the subject control sits opposite the way out
+
+The Consequence above puts `headerActions` in the **right** rail, beside the close
+button, and widens both rails by one slot to keep the title centred. Built and looked
+at, that is wrong twice over.
+
+- **Two glyphs in one rail and none in the other is not a centred title, it is a
+  centred title with a lopsided frame.** The header's shape is a name between two
+  marks — the back "‹" and the "×" have always sat one at each end. A subject control
+  crowded against the way out reads as a second way out, and leaves the left rail
+  reserving 5rem of nothing. The slot moves to the **leading** rail, opposite the
+  close, where the two controls balance the title between them.
+
+- **Alone, it costs no width at all.** The empty leading rail was already reserving a
+  slot for the back button, so a sheet passing only `headerActions` fills it and both
+  rails stay at one slot. The widening survives for the case that actually needs it —
+  `onBack` _and_ `headerActions`, two controls in the leading rail — and is keyed on
+  both being present rather than on the snippet alone.
+
+The declared-slot-count contract is unchanged: the header still cannot measure what it
+is handed, and a snippet holding its own conditional is still forbidden. What that
+failure now costs is smaller and differently shaped — with no `onBack` the rails stay
+equal and the title stays put, and what is left is a hole where the header promised a
+control.
