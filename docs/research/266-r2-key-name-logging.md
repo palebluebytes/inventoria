@@ -248,3 +248,74 @@ creation events; `copySource` is "only present for events triggered by `CopyObje
 posture is not "we have not got round to it": it is a decision, and the destination ADR should say
 that R2 event notifications are refused for this bucket, so that a future maintainer wiring up a
 delivery receipt or a metrics counter meets a record rather than an empty field.
+
+---
+
+## 3. Audit logs, and Logpush: two pipelines that carry no key at all
+
+### 3.1 Audit logs are management-plane, and Cloudflare says so about R2 by name
+
+#283 §1.3 reasoned this from the general audit-log page's wording. It does not have to be reasoned:
+R2 has its own [Audit logs](https://developers.cloudflare.com/r2/platform/audit-logs/) page, and it
+states the exclusion in terms.
+
+> Logs for data access operations, such as `GetObject` and `PutObject`, are not included in audit
+> logs.
+
+The complete list of R2 actions that _are_ logged is bucket-level configuration and nothing else:
+`CreateBucket`, `DeleteBucket`, `AddCustomDomain`, `RemoveCustomDomain`, `ChangeBucketVisibility`,
+`PutBucketStorageClass`, `PutBucketLifecycleConfiguration`, `DeleteBucketLifecycleConfiguration`,
+`PutBucketCors`, `DeleteBucketCors`.
+
+**So the answer to #266's third residual gap is: bucket-level operations only, no object keys, and
+this is stated rather than inferred.** Retention is the longest on this page —
+[audit logs](https://developers.cloudflare.com/fundamentals/account/account-security/review-audit-logs/):
+"Audit Logs are retained for 18 months before being deleted." Audit Logs v2 is now the current
+version, reachable at
+[`/fundamentals/account/account-security/audit-logs/`](https://developers.cloudflare.com/fundamentals/account/account-security/audit-logs/),
+and is also available as the `audit_logs_v2` account-scoped Logpush dataset; the 18-month figure and
+the management-plane scope are unchanged by the version bump.
+
+**Three things follow, and the third is the one worth carrying.**
+
+1. No object key ever enters an 18-month record. Good.
+2. Enabling event notifications, changing a lifecycle rule, or making the bucket public are all
+   configuration changes and therefore _are_ recorded for 18 months. A change to the disposal policy
+   leaves a permanent trace, which is a property the destination ADR can lean on rather than one it
+   has to defend against.
+3. **`ChangeBucketVisibility` is in that list, and it is the pivot.** Which is §3.2.
+
+### 3.2 Logpush has no R2 dataset — but a _public_ bucket routes keys into a zone dataset
+
+The [account-scoped dataset list](https://developers.cloudflare.com/logs/logpush/logpush-job/datasets/account/)
+was re-read in full on 2026-09-03. The 31 datasets it names are: Access requests, Account Abuse
+Protection Events, Audit Logs, Audit Logs V2, Browser Isolation User Actions, CASB Findings, Device
+posture results, DEX Application Tests, DEX Device State Events, DLP Forensic Copies, DNS Firewall
+Logs, Email Security Alerts, Email Security Post-Delivery Events, Firewall events, Gateway DNS,
+Gateway HTTP, Gateway Network, IPSec Logs, Magic BGP Logs, Magic IDS Detections, Magic Network
+Monitoring Flow Logs, MCP Portal Logs, Network Analytics Logs, Sinkhole HTTP Logs, SSH Logs,
+Turnstile Events, WARP Config Changes, WARP Toggle Changes, WebSocket Analytics, Workers Trace
+Events, Zero Trust Network Session Logs. **No R2 dataset.** #283's finding, and #281's before it,
+confirmed against the current page: there is no S3-style server access log for R2 to switch off,
+because there is none to switch on.
+
+**But the R2 audit-log page names the substitute in the same breath as the exclusion**, and it is a
+route to a key that neither #281 nor #283 recorded: for a bucket exposed on a custom domain, the
+advice is to "use the HTTP requests Logpush dataset to log HTTP requests made to public R2 buckets".
+The zone-scoped [`http_requests`](https://developers.cloudflare.com/logs/logpush/logpush-job/datasets/zone/http_requests/)
+dataset carries `ClientRequestURI` — "URI requested by the client, which includes the full path and
+query string of the requested URL" — `ClientRequestPath`, and `ClientIP`. **For a public bucket, the
+object key is the URL path, so the key and the client IP land in the same row.**
+
+Three conditions gate that, and all three are ours to hold:
+
+- The bucket must be **public** — either a custom domain or the `r2.dev` subdomain. A binding-only
+  bucket has no zone in front of it and therefore no `http_requests` rows.
+- A **Logpush job must be created**, which is opt-in per zone.
+- Making the bucket public is `ChangeBucketVisibility`, which §3.1 says is audit-logged for 18
+  months.
+
+**So this is not a live exposure; it is a trip-wire.** The destination ADR should state that the
+deposit bucket is reached by binding only and is never made public — not because a public bucket
+would be insecure (the deposits are sealed) but because publishing it moves the key from a 31-day
+aggregated analytics dataset into a row that can be joined to a client IP.
