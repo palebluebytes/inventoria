@@ -88,36 +88,42 @@
   let handing = $state(false);
 </script>
 
-<NutritionPanel {title} {testId} {onClose}>
-  <!-- The way out sits beside the panel's name, because it is a control on the
-       SUBJECT of the panel rather than on the panel. There is no footer: a dock
-       under the sections would make handing the meal over the panel's purpose,
-       and the panel's purpose is the meal. -->
-  {#snippet actions()}
-    <!-- Only before the send. Once a code is minted there is no way back to
-         the numbers: the code is live and the other person is being handed it,
-         so an affordance that looked like undo would be one.
+<!-- The way out sits beside the panel's name, because it is a control on the
+     SUBJECT of the panel rather than on the panel. There is no dock: one under
+     the sections would make handing the meal over the panel's purpose, and the
+     panel's purpose is the meal.
 
-         Absent rather than disabled on a set with nothing in it, on ADR-0059
-         §4's rule that any control which can be dead on arrival is hidden —
-         the same precedent the iOS boundary leans on. -->
-    {#if !handing && items.length > 0}
-      <button
-        type="button"
-        class="way-out"
-        data-testid={wayOutTestId}
-        aria-label="Hand {subject} to someone"
-        title="Hand {subject} to someone"
-        onclick={() => {
-          handing = true;
-          onHandOff?.();
-        }}
-      >
-        <WayOutIcon />
-      </button>
-    {/if}
-  {/snippet}
+     Only before the send. Once a code is minted there is no way back to the
+     numbers: the code is live and the other person is being handed it, so an
+     affordance that looked like undo would be one.
 
+     Absent rather than disabled on a set with nothing in it, on ADR-0059 §4's
+     rule that any control which can be dead on arrival is hidden — the same
+     precedent the iOS boundary leans on. The condition is on the snippet
+     rather than inside it, because the header reserves a slot for whatever it
+     is handed and a snippet that renders nothing would shift the title. -->
+{#snippet mealWayOut()}
+  <button
+    type="button"
+    class="way-out"
+    data-testid={wayOutTestId}
+    aria-label="Hand {subject} to someone"
+    title="Hand {subject} to someone"
+    onclick={() => {
+      handing = true;
+      onHandOff?.();
+    }}
+  >
+    <WayOutIcon />
+  </button>
+{/snippet}
+
+<NutritionPanel
+  {title}
+  {testId}
+  {onClose}
+  actions={!handing && items.length > 0 ? mealWayOut : undefined}
+>
   {#snippet body()}
     {#if handing}
       <SendFace

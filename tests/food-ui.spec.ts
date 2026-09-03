@@ -1919,7 +1919,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // unmount the panel and kill the send session with it.
     await panel.locator('[data-testid="selection-way-out"]').click();
     await expect(panel).toBeVisible();
-    await panel.locator(".day-nutrition-close").click();
+    await panel.locator(".close-btn").click();
 
     await expect(page.locator(".selbar")).toHaveCount(0);
     await expect(page.locator(".select-check.on")).toHaveCount(0);
@@ -1936,7 +1936,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await page.locator('[data-testid="selection-hand-off"]').click();
     await page
       .locator('[data-testid="selection-nutrient-breakdown"]')
-      .locator(".day-nutrition-close")
+      .locator(".close-btn")
       .click();
 
     // Looking at what the foods add up to is not an action on them.
@@ -2701,10 +2701,10 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // The name is the door that always works.
     await page.locator('.meal-title-btn:text-is("BREAKFAST")').click();
     await expect(panel).toBeVisible();
-    await expect(panel.locator(".day-nutrition-header h3")).toHaveText(
+    await expect(panel.locator(".bottom-sheet-header h2")).toHaveText(
       "BREAKFAST"
     );
-    await panel.locator(".day-nutrition-close").click();
+    await panel.locator(".close-btn").click();
     await expect(panel).toHaveCount(0);
 
     // The line of figures under the meal's rows is the same door.
@@ -2752,7 +2752,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(panel).not.toContainText("Not tracked");
 
     // The day's own panel still carries every one of them.
-    await panel.locator(".day-nutrition-close").click();
+    await panel.locator(".close-btn").click();
     await page.getByRole("button", { name: "Show full day nutrition" }).click();
     const day = page.locator('[data-testid="day-nutrient-breakdown"]');
     await expect(day.locator(".nutrient-vitamin_e")).toBeVisible();
@@ -2822,7 +2822,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     // affordance that looked like undo would be one. Closing is the only way
     // out, and closing cancels.
     await expect(wayOut).toHaveCount(0);
-    await panel.locator(".day-nutrition-close").click();
+    await panel.locator(".close-btn").click();
     await expect(panel).toHaveCount(0);
   });
 });

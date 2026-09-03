@@ -1,15 +1,24 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import Modal from "../../ui/Modal.svelte";
+  import BottomSheet from "../../ui/BottomSheet.svelte";
 
-  // The nutrition panel shell — the fixed card, its header, and the scrolling
-  // body its sections stack in. Extracted from `DailyDashboard`'s full-day modal
-  // so a second surface at another scale (one meal rather than the day) is
-  // literally the same panel rather than a copy that drifts.
+  // The nutrition panel — the sheet, its header, and the scrolling body its
+  // sections stack in. Extracted from `DailyDashboard`'s full-day modal so a
+  // second surface at another scale (one meal rather than the day) is literally
+  // the same panel rather than a copy that drifts.
   //
-  // The body has NO padding of its own: `NutrientGroupHead` is a band that spans
-  // its container edge to edge, and a padded body would inset every band by the
-  // width of the padding. Sections that want an inset carry it themselves.
+  // It is `BottomSheet` and not a card of its own (ADR-0089 §6, #329): a sheet
+  // on a phone, centred above 768px, which is where it used to hand-roll
+  // `translate(-50%, -50%)` at 85vh with a keyboard-blind cap.
+  //
+  // `flushBody`, so the body it renders is its own. The sections inside are
+  // full-bleed bands — `NutrientGroupHead` spans its container edge to edge —
+  // and the sheet's default body would inset every one of them by its padding.
+  // Taking the body also takes the scroll, which `.day-rda-body` carries below.
+  // On a phone that makes the panel full height, and it should be: what it
+  // holds is a list whose length is the user's history, and §5's argument for
+  // pinning a shape that would otherwise change on every open is this panel's
+  // as much as the past-meal picker's.
   //
   // `actions` is an optional slot in the header, ahead of the close button, for
   // a control that belongs to the panel's subject rather than to the panel.
@@ -25,107 +34,32 @@
     /** `data-testid` on the card, for the specs that address one panel. */
     testId?: string;
     onClose?: () => void;
+    /**
+     * A control on the panel's subject, beside the way out. Pass it only when
+     * one will render — a snippet holding a conditional leaves the header's
+     * side rails wide and shifts the title off centre. See `BottomSheet`.
+     */
     actions?: Snippet;
-    body: Snippet<[{ close: () => void }]>;
+    body: Snippet;
   } = $props();
 </script>
 
-<Modal {onClose} {title}>
-  {#snippet children({ props, close })}
-    <div {...props} class="day-nutrition-modal" data-testid={testId}>
-      <header class="day-nutrition-header">
-        <h3>{title}</h3>
-        <div class="day-nutrition-actions">
-          {@render actions?.()}
-          <button
-            type="button"
-            class="day-nutrition-close"
-            aria-label="Close"
-            onclick={close}>&times;</button
-          >
-        </div>
-      </header>
-      <div class="day-rda-body">
-        {@render body({ close })}
-      </div>
-    </div>
-  {/snippet}
-</Modal>
+<BottomSheet
+  isOpen
+  {title}
+  {testId}
+  {onClose}
+  headerActions={actions}
+  flushBody
+  centred
+>
+  <div class="day-rda-body">
+    {@render body()}
+  </div>
+</BottomSheet>
 
 <style>
-  .day-nutrition-modal {
-    position: fixed;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 1001;
-    width: min(92vw, 26rem);
-    max-height: 85vh;
-    display: flex;
-    flex-direction: column;
-    background: var(--paper);
-    border: var(--edge);
-    box-shadow: var(--shadow-3);
-    /* Clip to the padding box: the sections inside are full-bleed bands, and a
-       band's own rule must never be able to paint across the frame. */
-    overflow: hidden;
-  }
-  .day-nutrition-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-s);
-    /* The inline padding is `--space-s` rather than `--space-m` so the title
-       starts on the same vertical as the section labels below it: a
-       `NutrientGroupHead` is a full-bleed band inset by `--space-s`, and a
-       header inset further made the panel read as two left edges. */
-    padding: var(--space-xs) var(--space-s);
-    /* The frame's own edge token rather than the pale `--border`. This division
-       is part of the frame, and a section band can sit directly under it — a
-       NutrientGroupHead is a tinted full-bleed band, so a pale rule above a
-       tinted band reads as one grey smudge meeting the black frame rather than
-       as two edges. ADR-0038's vocabulary says a frame division is ink. */
-    border-bottom: var(--edge-thin);
-  }
-  .day-nutrition-header h3 {
-    font-size: var(--step-n1);
-    /* Tight to the em, because `align-items: center` centres BOXES and the
-       inherited 1.5 leading made this box taller than its ink. The title is
-       all caps with no descenders, so the leading sat entirely under the text
-       and pushed it visibly above the centre line the close button sits on. */
-    line-height: 1;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-primary);
-  }
-  /* One group so the close button keeps the row's right edge whether or not a
-     subject control sits beside it. */
-  .day-nutrition-actions {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2xs);
-    flex-shrink: 0;
-  }
-  /* A square the glyph is centred in, rather than a glyph that sets its own
-     box. Same 2rem square as the way out beside it, so two header controls
-     read as one row of marks and a control added later inherits the size. */
-  .day-nutrition-close {
-    display: grid;
-    place-items: center;
-    flex-shrink: 0;
-    width: 2rem;
-    height: 2rem;
-    background: none;
-    border: none;
-    padding: 0;
-    font-size: 1.75rem;
-    line-height: 1;
-    cursor: pointer;
-    color: var(--text-primary);
-  }
-  /* Scrolls under the fixed header, its sections headed by the shared
-     NutrientGroupHead.
+  /* The panel's scroll region, in the flush body the sheet hands over.
      
      The scrollbar is hidden rather than styled. A classic desktop scrollbar
      takes width from this box but not from the header above it, so the header's
@@ -133,11 +67,22 @@
      a pale strip down the right side that reads as a broken frame, worst at the
      top corner where the two meet. The panel is a phone surface where
      scrollbars overlay and cost nothing, and it still scrolls by wheel, touch,
-     keyboard and drag with no bar drawn. */
+     keyboard and drag with no bar drawn.
+
+     `overscroll-behavior` is the flush body's own obligation: the sheet's
+     default body contains its chaining, and a child that takes the scroll takes
+     that with it (ADR-0089 §8).
+
+     `min-height: 0` is what makes `flex: 1` mean "share what is left" rather
+     than "at least my content" — without it a long list makes the panel taller
+     than the sheet instead of scrolling inside it. */
   .day-rda-body {
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+    overscroll-behavior: contain;
     scrollbar-width: none;
   }
   .day-rda-body::-webkit-scrollbar {

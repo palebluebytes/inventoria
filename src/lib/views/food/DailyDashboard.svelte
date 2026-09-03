@@ -507,34 +507,37 @@
      reach-toward nutrient against its target (absent ones as `— / target`), then
      the untargeted nutrients the day carried. Independent of visible_nutrients. -->
 {#if showFullDay}
+  <!-- Beside the panel's name, because it is a control on the SUBJECT of the
+       panel rather than on the panel — the same place, the same square and
+       the same icon as a meal's. Absent while handing, and absent on a day
+       with nothing in it, on ADR-0059 §4's rule that a control which can be
+       dead on arrival is hidden rather than disabled.
+
+       The condition is on the snippet rather than inside it: the header
+       reserves a slot for whatever it is handed, so a snippet that renders
+       nothing would leave the rails wide and the title off centre. -->
+  {#snippet dayWayOut()}
+    <button
+      type="button"
+      class="way-out"
+      data-testid="day-way-out"
+      aria-label="Hand this day to someone"
+      title="Hand this day to someone"
+      onclick={() => (handingDay = true)}
+    >
+      <WayOutIcon />
+    </button>
+  {/snippet}
+
   <NutritionPanel
     title="Full day nutrition"
     testId="day-nutrient-breakdown"
+    actions={!handingDay && dayKnown && hasLoggedFood ? dayWayOut : undefined}
     onClose={() => {
       showFullDay = false;
       handingDay = false;
     }}
   >
-    <!-- Beside the panel's name, because it is a control on the SUBJECT of the
-         panel rather than on the panel — the same place, the same square and
-         the same icon as a meal's. Absent while handing, and absent on a day
-         with nothing in it, on ADR-0059 §4's rule that a control which can be
-         dead on arrival is hidden rather than disabled. -->
-    {#snippet actions()}
-      {#if !handingDay && dayKnown && hasLoggedFood}
-        <button
-          type="button"
-          class="way-out"
-          data-testid="day-way-out"
-          aria-label="Hand this day to someone"
-          title="Hand this day to someone"
-          onclick={() => (handingDay = true)}
-        >
-          <WayOutIcon />
-        </button>
-      {/if}
-    {/snippet}
-
     {#snippet body()}
       {#if handingDay}
         <SendFace
