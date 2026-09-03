@@ -15,8 +15,10 @@
   } from "../../food/nutrition";
 
   // The app's one amount control: a boxed field — you type a plain number *or* a
-  // little sum like `65 / 2` and the field logs the result — with the ÷ / × keys
-  // the number pad omits.
+  // little sum like `65 / 2` and the field logs the result — with the − + × ÷
+  // keys the number pad omits. They ride the head row above the box, opposite
+  // the basis caption, which was empty on its right-hand side and is the one row
+  // in the control that is never about the number itself.
   // When the food carries household portions (ADR-0030, ticket #27) they render
   // as a chip row below: tapping "1 medium — 118 g" fills the resolved amount.
   // A portion-less food shows just the field. Only the
@@ -35,11 +37,16 @@
     amount = $bindable(),
     unit,
     portions = [],
+    caption = null,
   }: {
     amount: number;
     /** The unit this amount is entered in — the food's panel basis unit. */
     unit: MeasuredUnit;
     portions?: Portion[];
+    /** What the panel's figures are measured against ("Per 100 g"), rendered on
+     *  the head row that the sum keys share. Null on a panel-less food, and
+     *  then the keys have that row to themselves. */
+    caption?: string | null;
   } = $props();
 
   // The unit's own spelling, resolved in one place so the label, the aria-label
@@ -59,6 +66,21 @@
     amount = resolvePortionAmount(portions, label, unit) ?? fallback;
   }
 
+  // The four keys, in the order they are drawn. Each pairs the glyph the user
+  // sees with the character the parser reads — `−` (U+2212) and `×` are
+  // typographic marks, not the ASCII `-` and `*` that go into the expression —
+  // and the roster is stated once here so the order lives in one place rather
+  // than in four hand-written buttons. It is the whole of the grammar
+  // `amount-expression.ts` accepts between two numbers (ADR-0023), which is why
+  // there is no fifth: parentheses need a matching pair and a key cannot know
+  // where the other one goes.
+  const OPERATOR_KEYS = [
+    { glyph: "−", op: "-", label: "Subtract" },
+    { glyph: "+", op: "+", label: "Add" },
+    { glyph: "×", op: "*", label: "Multiply" },
+    { glyph: "÷", op: "/", label: "Divide" },
+  ] as const;
+
   const HARD_MAX = 10000;
   // Held to the food precision (`roundFood`) so a typed sum like `65 / 2` keeps
   // its `32.5` instead of being rounded away to a whole gram; a value with no
@@ -74,11 +96,11 @@
     if (!focused) raw = String(amount);
   });
 
-  // The number pad has no operator keys, so the only sum we support (× and ÷)
-  // rides two on-screen keys. Each inserts its operator at the caret, keeps the
-  // field focused (the key's pointerdown is prevented so it never steals focus
-  // and triggers a blur/commit), and re-evaluates live like a keystroke would.
-  async function insertOp(op: "*" | "/") {
+  // The number pad has no operator keys, so the sums we support ride four
+  // on-screen ones. Each inserts its operator at the caret, keeps the field
+  // focused (the key's pointerdown is prevented so it never steals focus and
+  // triggers a blur/commit), and re-evaluates live like a keystroke would.
+  async function insertOp(op: (typeof OPERATOR_KEYS)[number]["op"]) {
     const el = inputEl;
     if (!el) return;
     const start = el.selectionStart ?? raw.length;
@@ -116,9 +138,41 @@
 </script>
 
 <div class="af">
+  <!-- Head row: what the figures are measured against on the left — the amount
+       box below names the unit being typed, not the divisor — and the − + × ÷
+       sum keys on the right, filling a half-row the caption left empty. The row is
+       drawn whenever either half has something to say. -->
+  <div class="af-head">
+    {#if caption}
+      <p class="basis">{caption}</p>
+    {/if}
+
+    <!-- Each key inserts its operator (what the parser reads, not the glyph on
+         the key) at the caret; `pointerdown` is prevented so tapping one never
+         blurs the field mid-expression.
+
+         There was a slider skimming the amount here, and it is gone. It carried
+         a whole-unit step and wrote its position back through `onValueChange`,
+         so a typed 12.34 was re-reported as 12 and the field silently lost what
+         the user had entered — the number they typed being overruled by a
+         control they had not touched. Typing is the primary way an amount is
+         entered and the sums these keys build are the secondary one; neither
+         needs a coarse skim beside them. -->
+    <div class="ops">
+      {#each OPERATOR_KEYS as key (key.op)}
+        <button
+          type="button"
+          class="op"
+          aria-label={key.label}
+          onpointerdown={(e) => e.preventDefault()}
+          onclick={() => insertOp(key.op)}>{key.glyph}</button
+        >
+      {/each}
+    </div>
+  </div>
+
   <!-- Amount box: the unit-naming label inline-left, the value right-aligned.
-       One bordered card; the ÷ / × sum keys ride the row below
-       (ADR-0043 §2 relayout). -->
+       One bordered card (ADR-0043 §2 relayout). -->
   <div class="af-row">
     <span class="af-label">Amount ({unitName})</span>
     <label class="value">
@@ -130,7 +184,7 @@
         autocorrect="off"
         autocapitalize="off"
         spellcheck="false"
-        aria-label="Amount in {unitName} — a number, or a sum with the × and ÷ keys"
+        aria-label="Amount in {unitName} — a number, or a sum with the − + × ÷ keys"
         value={raw}
         oninput={onInput}
         onfocus={(e) => {
@@ -142,34 +196,6 @@
       />
       <span class="unit">{unit}</span>
     </label>
-  </div>
-
-  <!-- The ÷ / × keys insert "/" and "*" (what the parser reads) at the caret;
-       `pointerdown` is prevented so tapping one never blurs the field
-       mid-expression.
-
-       There was a slider skimming the amount here, and it is gone. It carried a
-       whole-unit step and wrote its position back through `onValueChange`, so a
-       typed 12.34 was re-reported as 12 and the field silently lost what the
-       user had entered — the number they typed being overruled by a control they
-       had not touched. Typing is the primary way an amount is entered and the
-       sums the two keys below build are the secondary one; neither needs a
-       coarse skim beside them. -->
-  <div class="ops">
-    <button
-      type="button"
-      class="op"
-      aria-label="Divide"
-      onpointerdown={(e) => e.preventDefault()}
-      onclick={() => insertOp("/")}>÷</button
-    >
-    <button
-      type="button"
-      class="op"
-      aria-label="Multiply"
-      onpointerdown={(e) => e.preventDefault()}
-      onclick={() => insertOp("*")}>×</button
-    >
   </div>
 
   {#if portionOptions.length > 0}
@@ -247,16 +273,41 @@
     font-weight: 700;
   }
 
-  /* The ÷ / × keys, which the number pad omits. They sat in two auto columns
-     beside a slider; with the slider gone they are the whole row. */
-  .ops {
+  /* Head row: caption left, sum keys right. `margin-left: auto` rather than
+     `space-between`, so a caption-less panel still parks the keys on the right
+     instead of stranding them under the label. It wraps because four keys and a
+     long caption ("Per serving (30 g)") can outgrow a narrow phone between
+     them: the keys then drop to a line of their own, still right-aligned, which
+     is the one degradation here that costs nothing — a key that shrank instead
+     would be a smaller tap target on exactly the screen that can least afford
+     one. */
+  .af-head {
     display: flex;
-    justify-content: flex-end;
+    flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-2xs);
+    gap: var(--space-xs);
     width: 100%;
   }
+  /* The basis caption, which used to be a paragraph of its own above the
+     control (FoodAmountPanel) and now shares this row. */
+  .basis {
+    margin: 0;
+    font-size: var(--step-n1);
+    font-weight: 700;
+    color: var(--text-secondary);
+  }
+
+  /* The − + × ÷ keys, which the number pad omits. They sat in two auto columns
+     beside a slider, then owned a whole row of their own; now there are four of
+     them and they share the caption's. */
+  .ops {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2xs);
+    margin-left: auto;
+  }
   .op {
+    flex: none;
     width: 2.6rem;
     min-height: 40px;
     display: flex;

@@ -422,7 +422,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
     await expect(page.locator(".method")).toHaveCount(0);
 
     // Staging uses the numeric amount control (ADR-0023): a typed field, with
-    // the ÷ / × keys the number pad omits. Set 150 g and log.
+    // the − + × ÷ keys the number pad omits. Set 150 g and log.
     await expect(page.getByRole("button", { name: "Divide" })).toBeVisible();
     await page.getByLabel("Amount in grams").fill("150");
     await page.locator("#log-food-btn").click();

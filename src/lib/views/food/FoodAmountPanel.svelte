@@ -10,10 +10,11 @@
   import AmountField from "./AmountField.svelte";
   import NutrientPreview from "./NutrientPreview.svelte";
 
-  // The shared amount-and-preview body of a food: the basis caption ("Per 100 g"
-  // or "Per serving (30 g)"), the AmountField control in the panel's own unit
-  // (with any household portions as chips), a live macro-pill preview, and the
-  // collapsed full-panel breakdown — all scaled to the amount in view. Extracted
+  // The shared amount-and-preview body of a food: the AmountField control in the
+  // panel's own unit — carrying the basis caption ("Per 100 g" or "Per serving
+  // (30 g)") on its head row and any household portions as chips — a live
+  // macro-pill preview, and the collapsed full-panel breakdown, all scaled to
+  // the amount in view. Extracted
   // from the FoodStager staged card so the same screen serves the search/scan
   // staging flow AND the dashboard's edit-amount sheet (IngredientAmountSheet),
   // keeping the two DRY.
@@ -53,13 +54,11 @@
   let breakdown = $derived(scaleNutrition(panel, factor));
 </script>
 
-{#if caption}
-  <!-- What the figures below are measured against, which the amount control
-       above them cannot say: it names the unit being typed, not the divisor. -->
-  <p class="basis">{caption}</p>
-{/if}
-
-<AmountField bind:amount {unit} {portions} />
+<!-- The caption — what the figures are measured against, which the amount box
+     cannot say, since it names the unit being typed and not the divisor — is
+     handed to the control rather than drawn above it: it rides the control's
+     head row, sharing it with the − + × ÷ sum keys. -->
+<AmountField bind:amount {unit} {portions} {caption} />
 
 {#if panel}
   <!-- The shared preview (#97 prototype): the tracked figures as a 2-column grid,
@@ -71,18 +70,6 @@
 {/if}
 
 <style>
-  .basis {
-    margin: var(--space-m) 0 0;
-    font-size: var(--step-n1);
-    font-weight: 700;
-    color: var(--text-secondary);
-  }
-  /* The control carries its own top margin, which is the gap the caption now
-     owns; collapse it to a hairline where the caption leads, so the two read as
-     one block rather than as two stranded rows. */
-  .basis + :global(.af) {
-    margin-top: var(--space-2xs);
-  }
   .preview {
     margin-top: var(--space-m);
   }
