@@ -3,7 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-09-02  
 **Amends:** ADR-0027 §Decision (the sheet's height model and its over-dialog layering)  
-**Implemented:** §1-§4 by #327 — `ui/viewport-inset.ts`, `facets/startup.ts`, `app.css`, both `index.html`, `layout/Sidebar.svelte`. §5 and §8's scroll-chaining rule by #328 — `ui/BottomSheet.svelte`, `views/food/FoodStager.svelte`. §9 by #333 — `tests/support/virtual-keyboard.ts`, `tests/keyboard-invariants.spec.ts`. §8's other two rules by #332 — `views/food/FoodStager.svelte`, `views/food/CommitButton.svelte`, and the 16px floor swept across 12 components. §1's consumer with no dialog around it by #331 — `views/food/SelectionBar.svelte`, one declaration. §6 by #329 — `ui/BottomSheet.svelte`'s `centred`, and the seven surfaces that folded onto it: `views/food/NutritionPanel.svelte` (three consumers), `views/items/ItemEditModal.svelte`, `views/media/MediaIngestModal.svelte`, `views/media/MediaEngagementModal.svelte`, `views/food/DailyDashboard.svelte`'s photo preview and `views/food/FoodDataSection.svelte`'s wipe confirmation; see the Amendment below for the roster this record got wrong. §7 is still only the prototype on `prototype/326-search-ui`
+**Implemented:** §1-§4 by #327 — `ui/viewport-inset.ts`, `facets/startup.ts`, `app.css`, both `index.html`, `layout/Sidebar.svelte`. §5 and §8's scroll-chaining rule by #328 — `ui/BottomSheet.svelte`, `views/food/FoodStager.svelte`. §9 by #333 — `tests/support/virtual-keyboard.ts`, `tests/keyboard-invariants.spec.ts`. §8's other two rules by #332 — `views/food/FoodStager.svelte`, `views/food/CommitButton.svelte`, and the 16px floor swept across 12 components. §1's consumer with no dialog around it by #331 — `views/food/SelectionBar.svelte`, one declaration. §6 by #329 — `ui/BottomSheet.svelte`'s `centred`, and the six surfaces that folded onto it: `views/food/NutritionPanel.svelte` (three consumers), `views/items/ItemEditModal.svelte`, `views/media/MediaIngestModal.svelte`, `views/media/MediaEngagementModal.svelte`, `views/food/DailyDashboard.svelte`'s photo preview and `views/food/FoodDataSection.svelte`'s wipe confirmation; see the Amendment below for the roster this record got wrong. §7 is still only the prototype on `prototype/326-search-ui`
 
 ## Context
 
@@ -118,16 +118,22 @@ A `visualViewport` **fake**, installed by `context.addInitScript` and driven by 
 §6 shipped whole as #329. Four clauses around it were wrong or absent, corrected here
 rather than rewritten so the original record stands.
 
-- **The seventh card was not the one this record names.** §6 counted seven, and the
-  Context's "Seven more hand-roll `position: fixed; left: 50%; top: 50%; transform:
-translate(-50%, -50%)` cards at 85-90vh" listed `ui/BottomSheetDemo.svelte`'s parent
-  card among them. That card was already `position: fixed; inset: 0` when this record
-  was written — it is a stand-in for a bits-ui dialog, not a card — so the roster's
-  last entry named a surface with nothing to fold. The real seventh is
-  `views/food/FoodDataSection.svelte`'s wipe confirmation, a hand-rolled 1801 card
-  beside a Modal backdrop raised to 1800, which landed on `main` the same day this
-  record was accepted and was therefore invisible to the roster that produced it. The
-  count is right by coincidence; six of the seven names were right.
+- **There were six cards, not seven, and the two counts in this record are both
+  wrong.** Run at the commit that accepted this record (`2609491`, 2026-09-02 21:10),
+  `git grep "translate(-50%, *-50%)" -- src/lib` returns six distinct pinned cards:
+  `views/food/NutritionPanel.svelte`, `views/items/ItemEditModal.svelte`,
+  `views/media/MediaIngestModal.svelte`, `views/media/MediaEngagementModal.svelte`,
+  `views/food/DailyDashboard.svelte`'s photo preview, and
+  `views/food/FoodDataSection.svelte`'s wipe confirmation. Three of the six hold a
+  field, not the four the Context claims. #329's table reached seven rows a different
+  way: it dropped the wipe confirmation, which had landed six hours before this record
+  was written and was in the `grep` all along, and it added two rows that are not
+  hand-rolled centred cards — `views/food/LabelPhotoReader.svelte`, which the ticket
+  itself flags as `inset: 0` rather than a card, and `ui/BottomSheetDemo.svelte`'s
+  parent card, which `git log -S"translate(-50%, -50%)"` shows has never in its
+  history carried that transform: it is a stand-in for a bits-ui dialog and was
+  `inset: 0` from the day it was written. So six folded, and #329's commit messages
+  count against the ticket's seven rather than against this figure.
 - **`views/food/LabelPhotoReader.svelte` is out of scope, and this says so rather
   than leaving it to the empty `grep`.** It is `inset: 0` full-bleed and was never a
   centred card. It holds no field, so no keyboard can open under it; the shape a
@@ -141,7 +147,7 @@ translate(-50%, -50%)` cards at 85-90vh" listed `ui/BottomSheetDemo.svelte`'s pa
   and `fill` pin a sheet to 85vh above the breakpoint, and they are §5's proxy for
   "holds a text field", so their full-height claim is a claim about a keyboard. There
   is no keyboard above 768px, and a three-field form pinned to 85vh in the middle of a
-  wide screen is a column of empty paper. All seven of the folded cards capped
+  wide screen is a column of empty paper. All six of the folded cards capped
   themselves at 85vh and none of them pinned, so `centred` sizes to content and keeps
   the cap. The phone's height model is untouched.
 - **The primitive's header needed a slot §6 does not mention.** The nutrition panel's

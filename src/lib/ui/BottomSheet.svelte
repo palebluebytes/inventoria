@@ -89,7 +89,7 @@
      * Above 768px, sit centred in the viewport instead of anchored to the
      * bottom edge — the one expression of "a centred card" in the app
      * (ADR-0089 §6). **On a phone it does nothing**, which is the whole point:
-     * there is one overlay shape there and it is the sheet, so the seven
+     * there is one overlay shape there and it is the sheet, so the six
      * surfaces that used to hand-roll `translate(-50%, -50%)` set this and
      * inherit the band's geometry unchanged (#329).
      *
@@ -272,16 +272,17 @@
 
     /* The app's one centred card (ADR-0089 §6). It is written here, once, under
        the breakpoint, because on a phone there is a single overlay shape and it
-       is the sheet — seven surfaces used to re-derive this box outside the
-       primitive at 85-90vh, four of them around a text field, which is the
-       worst geometry available with a keyboard raised (#329).
+       is the sheet — six surfaces used to re-derive this box outside the
+       primitive at 85-90vh, three of them around a text field, which is the
+       worst geometry available with a keyboard raised (#329). The record says
+       seven and four; both counts are measured wrong, see its Amendment.
 
        A centred card sizes to its content, capped at 85vh. It takes the height
        back from `flush`/`fill` rather than leaving it to them, because those
        two are the *phone's* proxy for "holds a text field" (§5) and their
        full-height claim is a claim about a keyboard. There is no keyboard here,
        and a three-field form pinned to 85vh in the middle of a wide screen is a
-       column of empty paper — which is why all seven of these cards capped
+       column of empty paper — which is why all six of these cards capped
        themselves and none of them pinned. This rule sitting after theirs is
        what lets it retake `top` and `height` without a third selector.
 
