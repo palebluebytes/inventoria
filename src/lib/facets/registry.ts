@@ -400,7 +400,16 @@ export const FACETS = [
       // build — `src/lib/food/bundled-artifact.ts`.
       "usda/search-index.json",
     ],
-    precacheBytes: 9_343_729,
+    // Re-measured at #344, and the delta is **build to build, not against the
+    // figure this line used to hold**: HEAD already weighed 9,363,610 B before
+    // #344 touched anything, so this number also takes up 19,881 B of drift
+    // that #341-#343 and #347 left behind. #344's own cost is +8,502 B (+0.09%).
+    //
+    // The root does not get a rail and never draws the month calendar, but it
+    // renders `DailyDashboard` in its Food tab and therefore builds it — and it
+    // pays only the component, because `habits` already carried
+    // `@internationalized/date` into this bundle (ADR-0091, Consequences).
+    precacheBytes: 9_372_112,
     status: "built",
   },
   {
@@ -456,7 +465,14 @@ export const FACETS = [
       "food/icons/rations-*.png",
       "food/icons/CREDITS.txt",
     ],
-    precacheBytes: 9_977_711,
+    // Re-measured at #344, which put a month calendar in the rail. Build to
+    // build, not against the figure this line used to hold: HEAD already
+    // weighed 10,031,311 B, so this number also takes up 53,600 B of drift from
+    // #341-#343 and #347. #344's own cost is +58,485 B (+57.1 KiB, +0.58%),
+    // against a ±5% band with 387 KB of headroom left.
+    // `@internationalized/date` was new to this bundle, which is where nearly
+    // all of it went (ADR-0091, Consequences).
+    precacheBytes: 10_089_796,
     // Installability is definitional (ADR-0076 §1) and #305 is where Rations
     // gets a manifest of its own, so this is the ticket that flips it.
     status: "built",
