@@ -493,7 +493,12 @@ _Avoid_: Route (nothing navigates and there is no router), tab, view, screen
 A reading of the ledger over a period, computed when its page renders and stored
 nowhere. **A report is never a datom** — it is a question asked of the facts, so it
 cannot fall out of step with them and needs no attribute of its own. A day with
-nothing logged is absent from one rather than plotted as a zero. See ADR-0091 §6.
+nothing logged is absent from one rather than plotted as a zero. There are three
+(`food/reports.ts`): the energy on each day, where that energy came from by the
+Atwater factors, and the foods logged most often, counted by name so one food
+reached three ways is one answer. The **period** is weekly, monthly, yearly or a
+custom range, and the three fixed ones are rolling rather than calendar-aligned.
+Reports is a page or nothing, so a phone never sees one. See ADR-0091 §6 and §7.
 _Avoid_: Summary, stat, analytics, insight, dashboard (that word is the day's)
 
 **Best match**:
