@@ -249,8 +249,11 @@ describe("the dock's controls", () => {
    * A declared floor lands on 48 under either reading, which is more than the
    * arithmetic alone could promise.
    *
-   * It is only these two, and the tree around them is not level. Swept at the
-   * commit that floored them — every `input`, `textarea` and `select` skin in
+   * It is only these two, and the tree around them is not level. That sweep is
+   * now `tests/unit/tap-floor.test.ts`'s, which discovers its own population
+   * and reads the markup as well as the CSS (#338, ADR-0093) — this file's
+   * scope stays the nav, the dock and the operator keys. Swept at the commit
+   * that floored them — every `input`, `textarea` and `select` skin in
    * `src/lib`, 47 rules — twelve still stand under the floor, five declaring
    * none and seven declaring one that is itself under it. The nearest is the
    * skin's own further wearer, `views/habits/HabitDetailView.svelte`'s
