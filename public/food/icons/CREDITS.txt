@@ -7,9 +7,12 @@ Rations icon
 Licensed under the Creative Commons Attribution License (CC BY 3.0).
     https://creativecommons.org/licenses/by/3.0/
 
-Changes: the black line art was scaled and centred on an opaque white ground,
-and re-rendered at 512, 192, 180 and 32 pixels square, plus a maskable variant
-with the art re-laid inside Android's safe circle. No line was redrawn.
+Changes: the black line art was scaled and centred on a white ground, and
+re-rendered at 512, 192, 180 and 32 pixels square, plus a maskable variant with
+the art re-laid inside Android's safe circle. The ground is kept only where the
+drawing encloses it and cleared to transparency outside, except on the 180,
+where it is an opaque disc, and on the maskable, where it fills the canvas. No
+line was redrawn.
 
 CC BY 3.0 clause 4(a) asks that the author, the title, the source and the
 licence travel with every copy of the work, and that a derivative say it is

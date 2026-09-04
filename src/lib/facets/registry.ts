@@ -411,11 +411,13 @@ export const FACETS = [
     description:
       "Log what you eat against an immutable append-only ledger that stays on your device.",
     // Ink on paper, the app's own frame (ADR-0038), rather than the root's
-    // purple on black. The background is the one that has to match something:
-    // an installed icon is composited onto it, and the Rations drawing carries
-    // its own opaque white ground (`docs/icon-provenance.md`), so paper is the
-    // colour that makes the splash seamless and black is the one that would
-    // draw a white card in the middle of a dark screen.
+    // purple on black. The background is the one that has to match something,
+    // and since the icons here clear their ground outside the drawing
+    // (`docs/icon-provenance.md`) it is load-bearing rather than merely
+    // agreeable: an installed icon is composited onto this colour, and it is
+    // what now shows around the tin. Paper is the colour the drawing was made
+    // for, so the splash reads as one surface; black would put a line drawing
+    // meant for paper onto a dark screen.
     themeColor: "#000000",
     backgroundColor: "#ffffff",
     icons: [

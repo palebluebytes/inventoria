@@ -4,9 +4,12 @@
     <meta charset="UTF-8" />
     <!-- Rations' own mark (#302), not Inventoria's: this page installs under
          it, and the two Facets are not the same app. It is a raster because the
-         drawing is one, and it is opaque because the drawing is black line art
-         that vanishes on a dark composite — docs/icon-provenance.md measures
-         both. Neither size is a manifest icon: these two are where a browser
+         drawing is one. The two files differ in what they keep of their ground:
+         the 32 clears everything outside the tin's outline and keeps the paper
+         inside it, so it sits on a tab bar of any colour, and the 180 sits on
+         an opaque white disc instead, because iOS fills a Home Screen clip's
+         transparency with black — docs/icon-provenance.md measures both.
+         Neither size is a manifest icon: these two are where a browser
          looks for a tab favicon and an iOS Home Screen clip, and the three the
          manifest enumerates are in the Facet registry. The manifest link itself
          is not here either: `facetManifests` in vite.config.ts writes it
