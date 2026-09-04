@@ -628,3 +628,229 @@ That is the multiplier on a **single row's** duplication, and it is already insi
 figures above, because each of the `N(N−1)` lanes carries its own full outstanding delta. The
 stored-byte total scales as `N(N−1)` lanes each holding up to one ledger's outstanding remainder; the
 `(N−1)²` number is what a #252 bar sentence needs when it talks about a **datom**, not about bytes.
+
+---
+
+## 5. Which limit binds first, and at how many users
+
+### 5.1 The six dimensions, side by side
+
+At **N = 2, one wake per device per day, an even deposit/collect split** (§2.4, §2.5), per user per
+day: 1 Class A, 1 Class B, 2 Worker invocations, 98 KB live. First syncs are once per device pair
+ever and are counted separately.
+
+| Dimension                     | Free allowance          | Usage/user/day | Users at the ceiling | Source of ceiling |
+| ----------------------------- | ----------------------- | -------------: | -------------------: | ----------------- |
+| **R2 Class A**                | 1,000,000 / month       |              1 |           **33,333** | §1.3              |
+| **Workers requests**          | 100,000 / day           |              2 |           **50,000** | §1.5              |
+| R2 stored bytes, healthy only | 10 GB-month             |        98 KB   |              102,459 | §1.3, §4.3        |
+| R2 Class B                    | 10,000,000 / month      |              1 |              333,333 | §1.3              |
+| DO requests (pairings only)   | 100,000 / day           |   2.75/pairing |   36,364 pairings/day | §3.1             |
+| DO duration (pairings only)   | 13,000 GB-s / day       |  0.019/pairing |  693,333 pairings/day | §3.3             |
+
+At **N = 3, one wake per device per day**, every R2 and Workers figure divides by three: **Class A at
+11,111 users**, Workers at 16,667, healthy stored bytes at 34,153. At three wakes a day instead of
+one, divide again by three.
+
+### 5.2 R2 Class A binds first — and the hinge is the deposit share, not the user count
+
+The general form [computed], with `U` users, `W = N(N−1)w` keys touched per user per day and `d` the
+fraction of wakes that deposit:
+
+```
+Class A ceiling:        U = 1,000,000 / (30 · d · W)
+Class B ceiling:        U = 10,000,000 / (30 · (1−d) · W)
+Workers requests:       U = 100,000 / W
+```
+
+Two crossovers fall straight out and neither depends on `N`, `w` or the user count:
+
+- **R2 Class A binds before Workers requests exactly when `d > 1/3`** [computed]. The Workers free
+  budget is 3× the daily-equivalent Class A budget while Workers sees 1/d times as many calls.
+- **R2 Class A binds before R2 Class B exactly when `d > 1/11`** [computed].
+- **Workers requests always bind before Class B**, at every `d < 1` [computed].
+
+**Under §2.5's alternating 50/50 split, `d = 0.5` and R2 Class A is the binding limit** — at 33,333
+users at N = 2, 11,111 at N = 3, 5,556 at N = 4 [computed].
+
+**But a read-mostly household inverts it.** A tablet that is opened but rarely logged on collects on
+every wake and deposits almost never (#285 §3 permits exactly this: _"A device with nothing to
+deposit may collect on every wake"_). Push `d` below 1/3 and **Workers requests become the binding
+limit instead**, at 50,000 users at N = 2. So the honest sentence for the destination ADR is not "R2
+operations bind first" but **"R2 Class A binds first at any household that writes on more than a
+third of its wakes, and Workers requests bind first below that — the two are within a factor of 1.5
+of each other and no design change moves them apart."**
+
+### 5.3 When stored bytes overtake, and why that makes #252's expiry a cost control
+
+Healthy lanes never bind: 102,459 users at N = 2 (§4.3), three times the Class A ceiling.
+**Abandoned lanes are the whole question**, and the answer is a fraction rather than a count.
+
+Let `f` be the fraction of users with one permanently abandoned device. Per-user peak stored bytes
+[computed] is `(1−f)·(lanes × 2 × 24.4 KB) + f·((N−1) × abandoned lane + remaining lanes × 2 × 24.4 KB)`,
+against a 10 GB-month allowance metered on **daily peak** (§1.3).
+
+| N | Abandoned-lane size                       | `f` at which stored bytes overtakes Class A | Users if **every** user has one |
+| -: | ---------------------------------------- | ------------------------------------------: | ------------------------------: |
+| 2 | 4.88 MB (#256's K = 200 cap)              |                                    **4.2%** |                           2,029 |
+| 2 | 8.89 MB (no cap — whole outstanding ledger) |                                  **2.3%** |                           1,119 |
+| 3 | 4.88 MB per lane, 2 lanes                 |                                    **6.3%** |                           1,005 |
+| 3 | 8.89 MB per lane, 2 lanes                 |                                    **3.4%** |                             556 |
+
+**So the single most consequential number in this note is one nobody has estimated: what fraction of
+users abandon a paired device.** Above about 4% at two devices, the binding limit moves from
+operations to storage, and it moves by a lot — at `f = 20%` the ceiling is 9,400 users against Class
+A's 33,333 [computed].
+
+**Three things follow, and all three are #252's.**
+
+1. **A backstop expiry is a cost control, not only a privacy control.** #256's resolution called it
+   _"a requirement rather than an option"_ on privacy grounds and left the horizon to #252. On the
+   billing side it is what keeps stored bytes off the critical path: a 90-day expiry caps an
+   abandoned lane at 90 × 24.4 KB = **2.2 MB** [computed] and moves the crossover to about 9% of
+   users; a 30-day expiry caps it at **0.73 MB** and moves it to 27%.
+2. **#256's K = 200 is a bound, not a fix.** At one wake a day it caps an abandoned lane at 4.88 MB
+   against a whole ledger's 8.89 MB — a factor of 1.8. K bounds infinity, which is what #256 said it
+   was for; it does not bound the number that matters here.
+3. **A size ceiling on a deposit — #252's open question — would bind this directly**, and it is the
+   only lever that reaches the abandoned lane without a clock. It is not costed here because ADR-0075
+   §13 refused a ceiling and #252 has not decided whether the disk changes that.
+
+### 5.4 Free plan or paid: the two halves fail differently, and that is the finding
+
+**This is where the withdrawal clause has to be careful, because the two products do not behave the
+same way when the allowance runs out.**
+
+**Durable Objects and Workers stop.** Cloudflare states it twice: _"If you exceed any one of the free
+tier limits, further operations of that type will fail with an error"_ [published, §1.1] and _"When a
+Worker exceeds this limit, Cloudflare returns Error 1027"_ [published, §1.5]. Both reset daily at
+00:00 UTC. **This is exactly the shape ADR-0072 §14's clause assumes** — the design cannot be
+silently upgraded, because nothing upgrades silently; it simply breaks, visibly, and comes back
+tomorrow.
+
+**R2 does not stop. R2 bills.** R2 is reached by _"Complete the checkout flow to add an R2
+subscription to your account"_ [published, §1.3], and its free tier is presented as _"included free
+monthly usage"_ against _"You are billed for your usage on a monthly basis"_. **The R2 pricing page
+contains no sentence equivalent to the Durable Objects one.** There is no documented hard stop, no
+Error-1027 analogue, and no daily reset — the allowances are monthly deductions from an invoice.
+
+**So #364's extension of ADR-0072 §14's clause to convergence does not transfer cleanly, and the
+destination ADR has to say so.** ADR-0072 §14 could promise _"the design is reopened rather than
+silently upgraded to a paid plan"_ because on Durable Objects there is no silent upgrade available.
+On R2 there is. The equivalent promise for this half has to be **operational rather than structural**
+— a billing alert, a dashboard check, a stated threshold — because the platform will not enforce it.
+
+### 5.5 What it would cost if the threshold were passed
+
+Method [computed]: §4.2's usage at N = 2, one wake a day, `d = 0.5`, against §1.3's rates and
+§1.5's, with Cloudflare's upward rounding to the next million and the Workers Paid _"minimum charge
+of $5 USD per month for an account"_ [published, §1.5].
+
+| Users     | R2 Class A       | R2 Class B     | R2 storage (healthy) | Workers                            | Total/month |
+| --------- | ---------------- | -------------- | -------------------- | ---------------------------------- | ----------- |
+| 33,333    | 1.0 M — free     | 1.0 M — free   | 3.3 GB — free        | 66,666/day — free                  | **$0.00**   |
+| 50,000    | 1.5 M → $4.50    | 1.5 M — free   | 4.9 GB — free        | 100,000/day — at the free ceiling  | **$4.50**   |
+| 100,000   | 3.0 M → $9.00    | 3.0 M — free   | 9.8 GB — free        | 6 M/month, needs Paid → $5.00 min  | **$14.00**  |
+| 500,000   | 15 M → $63.00    | 15 M → $1.80   | 48.8 GB → $0.58      | 30 M/month → $6.00 + $5.00 min     | **$76.38**  |
+
+**The cliff is not a cliff.** Crossing out of the free tier at ~33,000 users costs $4.50 a month, and
+a user base fifteen times larger costs under $80. **What ADR-0072 §14's clause is actually protecting
+against here is not expense; it is an unbounded and unwatched commitment** — a bill that grows with
+stored bytes nobody is looking at, on a subscription with no hard stop. The relevant risk is §5.3's
+abandoned lanes, not §5.2's operation counts: operations empty overnight, stored bytes accumulate.
+#364's resolution already made that distinction — _"remembering that stored bytes are cumulative
+where compute limits empty overnight"_ — and this is the arithmetic behind it.
+
+**And the relay half never binds at all.** 36,364 first syncs a day (§3.1) is a ceiling on _pairings
+created per day_, not on users, and a pairing happens once per device pair for the life of that
+pairing. A user base of any size that is not adding 36,000 device pairs a day is nowhere near it.
+
+### 5.6 The limits a superlinear fan-out could hit, and why none of them do
+
+- **Objects per bucket: unlimited** [published, §1.6]. #260's `N(N−1)` live objects have no count
+  ceiling. At the largest figure in this note — 500,000 users at N = 3 — that is 3 million live
+  objects, against a documented "Unlimited".
+- **Buckets per account: 1,000,000** [published]. Irrelevant: this design uses one bucket, and a
+  per-user or per-pairing bucket would be both a stable observable (decision 7) and a management
+  operation rate-limited to 50/second.
+- **Object key length: 1,024 bytes** [published]. A derived address is a hash, so this is not close.
+- **Object size: 5 TiB, single-part upload 5 GiB** [published]. A deposit is bounded by §4.3's
+  figures, four orders of magnitude below.
+- **One concurrent write per object name per second** [published], with _"Concurrent writes to the
+  same object name (key) at a higher rate return HTTP 429"_. This design touches one key per wake per
+  lane and never writes the same key twice in a wake, so it cannot hit this — **but it is worth
+  recording, because it is the limit a future "poll again mid-session" repair would hit**, and #364
+  refused that repair on unlinkability grounds. Two independent reasons for the same refusal.
+- **Durable Object storage per account on Free: 5 GB** [published, §1.6], and per object 10 GB.
+  ADR-0072 §12 keeps the relay's storage empty between rooms, so this is nowhere near — but it is the
+  reason §3.5's rows-written dimension is the relay's storage concern rather than a byte one.
+
+---
+
+## 6. The lifecycle floor, re-verified
+
+#283 §1.6 put R2's shortest enforceable expiry at "about 48 hours". Re-read on 2026-09-04 and
+confirmed, from two pages rather than one:
+
+- [`wrangler r2 bucket lifecycle add`](https://developers.cloudflare.com/r2/reference/wrangler-commands/)
+  takes `--expire-days`, documented as _"Number of days after which objects expire"_, and
+  `--expire-date` (`YYYY-MM-DD`). **There is no hours option and no minutes option.**
+- [Object lifecycles](https://developers.cloudflare.com/r2/buckets/object-lifecycles/), "Last updated
+  Apr 21, 2026": _"Objects will typically be removed from a bucket within 24 hours of the
+  `x-amz-expiration` value."_ And on a newly applied rule: _"Most objects will be transitioned within
+  24 hours but may take longer depending on the number of objects in the bucket."_
+
+**One day of granularity plus up to a day of slack: the floor is about 48 hours, and it is a floor on
+enforcement rather than on policy.** The app's own `DELETE` on collection is immediate and free
+(§1.4), so the floor constrains only the **backstop**, which #256 made a requirement and #252 must
+size. Every horizon this map would plausibly want — 30, 60, 90 days — is far above it, so §5.3's
+arithmetic is buildable at any of them.
+
+**One caveat the destination ADR should carry.** The second quotation says a newly applied rule may
+take longer than 24 hours _"depending on the number of objects in the bucket"_, with no bound given.
+So the disposal path #252 needs for a withdrawal — apply a rule, wait for the bucket to empty — has a
+published typical and no published maximum.
+
+---
+
+## 7. What this does not establish
+
+**Nothing here was measured against a deployed bucket.** Every figure is either quoted from a
+Cloudflare page or computed from one plus an assumption in §2. #256's resolution already lists two
+facts _"settleable only by a deployed bucket"_; this note adds three more below.
+
+**Five things Cloudflare does not say, listed so nobody later reads a silence as an answer.**
+
+1. **Whether a refused conditional `PUT` is billed as a Class A operation.** §1.4 gives the three
+   things that bound the guess and none settles it. The conservative reading is used throughout, and
+   §4.1 shows the verdict does not turn on it.
+2. **Whether a `GetObject` that finds nothing is billed as a Class B operation.** The only documented
+   not-charged case is HTTP 401 [published, §1.3]. A miss is a 404, is not carved out, and is treated
+   here as billed. If it is in fact free, every Class B figure falls and the Class-A-binds-first
+   verdict strengthens.
+3. **Whether `WebSocket.serializeAttachment` is billed as a Durable Object storage row.** It is
+   documented separately from the Storage API, is not named among the metered operations, and is
+   capped at 16,384 bytes [published, §1.2]. Treated here as free. If it is metered, §3.5's
+   rows-written figures rise by one row per attachment write — `worker/src/relay.ts:270` writes one
+   per frame, which would put attachments in exactly the same trap as the frame counter.
+4. **Whether a Durable Object is billed for wall-clock while a large frame is arriving**, before the
+   `webSocketMessage` handler fires. §3.3 assumes it is not, on the strength of _"actively executing
+   JavaScript"_. If receiving a multi-megabyte frame keeps the object out of hibernation for the
+   duration of the transfer, §3.3's worst-case row applies instead and duration becomes the binding
+   dimension for first syncs. **This is the single assumption in the note whose failure would change a
+   verdict, and it is measurable on a deployed relay in one afternoon.**
+5. **Whether R2's free tier is per account or per bucket.** The page says _"You can use the following
+   amount of storage and operations each month for free"_ without qualifying the scope. Assumed per
+   account, which is the conservative reading.
+
+**Four things about the app that are assumptions and not measurements**, all isolated in §2 and all
+capable of being replaced by a real export: the ledger composition (§2.1), the chunk size (§2.2), the
+six control frames (§2.3), and the wake rate (§2.4). #196 §6 says what would settle the first: _"Run
+`Settings → Export Ledger` and the measuring script reports it directly."_ **No such export has been
+run for this note**, so §2.1's three ledgers are a rate card in #196's and #199's sense — plausible
+shapes, not a census.
+
+**And the number that matters most is not a Cloudflare figure at all.** §5.3's crossover turns on
+what fraction of users abandon a paired device, and nothing in this repo, this arc or Cloudflare's
+documentation has anything to say about it. A grilling session that wants to spend §5.3 has to pick
+that fraction, and should pick it explicitly rather than let it arrive as a default.
