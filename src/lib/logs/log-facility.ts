@@ -1128,6 +1128,29 @@ export interface LogExport {
    */
   schema_version: typeof LOG_EXPORT_SCHEMA_VERSION;
   exported_at: number;
+  /**
+   * The dial position in force when Export was pressed (§10).
+   *
+   * **Disclosure, never a filter.** At *Errors & warnings* a log looks like a
+   * quiet app rather than a filtered one, and a reader could conclude "nothing
+   * happened" when the truth is "nothing was recorded". This is the failure
+   * `counters_since` was invented for — a number without its epoch is a
+   * dishonest label — applied to the entries instead of the counters. It also
+   * completes §9: counters run regardless of the dial and entries do not, so
+   * the position is precisely what explains the gap between the complete rate
+   * and the filtered detail, and a reader holding both can tell quiet from
+   * filtered.
+   *
+   * **One value for the file, not one per record.** Records older than the last
+   * move of the dial were captured under a different position; per-record
+   * disclosure was rejected as bytes on every record answering a question
+   * nobody asks, when the record's own `lvl` already says what it is.
+   *
+   * Typed to the three positions rather than to `SeverityNumber`, which is
+   * ADR-0092 §10's sketch of it: ERROR is not a position the dial can sit at,
+   * and a wider type here would say it is.
+   */
+  dial: DialPosition;
   channels: ExportedChannel[];
 }
 
@@ -1158,6 +1181,12 @@ export function buildLogExport(
     artifact: "inventoria-local-log",
     schema_version: LOG_EXPORT_SCHEMA_VERSION,
     exported_at,
+    // Read here rather than taken as a parameter, unlike `exported_at`. There
+    // is no instant a caller could not legitimately choose, and there is
+    // exactly one dial position in force — a caller that could pass another
+    // could label a file with a position nothing in it was captured under,
+    // which is the one thing this field exists to rule out.
+    dial: dialPosition(),
     channels: selected.map((channel) => {
       const { entries, unreadable } = partitionChannel(channel);
       // `exported_at` is the epoch a never-minted counter set takes, so the

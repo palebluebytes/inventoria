@@ -981,6 +981,7 @@ describe("the export payload", () => {
       artifact: "inventoria-local-log",
       schema_version: 1,
       exported_at: 1700000000000,
+      dial: 9,
       channels: [
         {
           name: "chosen",
@@ -1017,6 +1018,50 @@ describe("the export payload", () => {
       entries: [{ text: "current" }],
     });
     expect(JSON.stringify(payload)).not.toContain("last year's shape");
+  });
+
+  it("discloses the dial in force when it was built (ADR-0092 §10)", async () => {
+    // Counters run regardless of the dial and entries do not, so the position
+    // is precisely what explains the gap between the complete rate and the
+    // filtered detail. Without it a log taken at *Errors & warnings* reads as a
+    // quiet app rather than a filtered one, and an exported file outlives the
+    // screen that would have said which.
+    vi.stubGlobal("localStorage", makeFakeLocalStorage());
+    const facility = await loadFacility();
+    const channel = declareNotes(facility, "notes");
+    facility.setDialPosition(facility.SEVERITY.WARN);
+
+    expect(facility.buildLogExport([channel], 1700000000000).dial).toBe(13);
+  });
+
+  it("discloses that dial and filters no record on it (§10.1)", async () => {
+    // The withdrawn `min_level` filter, asserted as absent: a record captured
+    // at DEBUG is still in the file after the dial moves up to WARN. Filtering
+    // here would keep `search`'s WARN records — the ones carrying the typed
+    // text — and drop the INFO ones that do not.
+    vi.stubGlobal("localStorage", makeFakeLocalStorage());
+    const facility = await loadFacility();
+    const channel = declareNotes(facility, "notes");
+    facility.setDialPosition(facility.SEVERITY.DEBUG);
+    facility.appendToChannel(
+      channel,
+      { text: "trace" },
+      facility.SEVERITY.DEBUG
+    );
+    facility.appendToChannel(
+      channel,
+      { text: "failed" },
+      facility.SEVERITY.ERROR
+    );
+    facility.setDialPosition(facility.SEVERITY.WARN);
+
+    const payload = facility.buildLogExport([channel], 1700000000000);
+
+    expect(payload.dial).toBe(13);
+    expect(payload.channels[0].entries).toEqual([
+      { text: "trace" },
+      { text: "failed" },
+    ]);
   });
 });
 
