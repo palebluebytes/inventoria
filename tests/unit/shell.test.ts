@@ -101,6 +101,44 @@ describe("one shell rule, written once and shared by both Facets", () => {
   });
 });
 
+describe("Rations' own box, which no picture defends", () => {
+  it("scrolls in `.main` and nowhere else", () => {
+    // The shell is the height box and `.main` is the scroll box. Two scroll
+    // boxes would be a nested scroll a thumb has to guess between — and, on the
+    // camera, a full-page capture of one screenful with the whole day hidden
+    // inside it, which is exactly what `visual-catalog.spec.ts` flattens these
+    // two declarations to avoid (#348). A test that reads the flattening's
+    // premise is what stops the picture from being the only thing holding it.
+    const shell = ruleOf(RATIONS_SHELL, ".rations");
+    expect(decl(shell, "height")).toBe("100svh");
+    expect(decl(shell, "overflow-y")).toBeUndefined();
+    expect(decl(appRule(".main"), "overflow-y")).toBe("auto");
+  });
+
+  it("reserves all four safe areas, where the root reserves three", () => {
+    // ADR-0089 §2 and ADR-0078 §1, which only make sense together. The root
+    // hands the bottom inset to its nav, because the nav is the thing at the
+    // foot of the screen and reserves the home indicator itself. Rations has no
+    // nav — that absence is the whole shape of the Facet — so nothing stands
+    // between this box and the indicator, and the fourth inset is its own.
+    //
+    // Two shells that disagree about one edge is precisely the drift the shared
+    // `.main` rule was written to end, so the disagreement that IS intended is
+    // named here rather than left looking like the one that was not.
+    const rations = decl(ruleOf(RATIONS_SHELL, ".rations"), "padding");
+    for (const side of ["top", "right", "bottom", "left"]) {
+      expect(rations).toContain(`env(safe-area-inset-${side}, 0px)`);
+    }
+
+    const root = ruleOf(APP_SHELL, ".app");
+    expect(decl(root, "padding-top")).toBe("env(safe-area-inset-top, 0px)");
+    expect(decl(root, "padding-right")).toBe("env(safe-area-inset-right, 0px)");
+    expect(decl(root, "padding-left")).toBe("env(safe-area-inset-left, 0px)");
+    expect(decl(root, "padding-bottom")).toBeUndefined();
+    expect(decl(root, "padding")).toBeUndefined();
+  });
+});
+
 describe("the two regions are the day's shape, not the shell's", () => {
   it("puts the grid on the day screen, inside Rations' shell only", () => {
     // Scoped twice over, and each scope answers a different failure. `.day` is
