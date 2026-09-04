@@ -1043,10 +1043,12 @@
   // One entry per search session, never one per debounced search: the search effect
   // below fires roughly eleven times across `raw aubergine`, ten of them
   // keystroke states. The session opens when the field first goes non-empty and
-  // closes when the user clears it, stages a food, or leaves the sheet — and it
-  // only leaves an entry behind if it ever reached an empty result. A plain
-  // `let`, because nothing renders it and an `$state` would make the effect that
-  // updates it depend on itself.
+  // closes when the user clears it, stages a food, or leaves the sheet, and it
+  // leaves an entry behind for EVERY session in which a search settled — the
+  // successes included, which is what first gives ADR-0053 §7's counts a
+  // denominator (its Amendment of 2026-09-03). A plain `let`, because nothing
+  // renders it and an `$state` would make the effect that updates it depend on
+  // itself.
   let searchSession: SearchSession | null = null;
 
   function endSearchSession() {
@@ -1534,11 +1536,10 @@
       lastQuery = query.trim();
       status = "idle";
       if (searchSession)
-        searchSession = searchFoundFood(
-          searchSession,
-          query,
-          search.rescued_by_vocabulary
-        );
+        searchSession = searchFoundFood(searchSession, query, {
+          rescued_by_vocabulary: search.rescued_by_vocabulary,
+          result_count: search.results.length,
+        });
     } catch (e: any) {
       // An empty result is an answer, not a fault (ADR-0047 §10). Cache the
       // query as if it had succeeded: the corpus did answer, and a settled
