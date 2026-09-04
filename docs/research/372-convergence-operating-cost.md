@@ -39,7 +39,7 @@ named.
 
 **The free tier bears convergence for any plausible user base, and the thing that gives way first is
 not what ADR-0072's send arithmetic would predict.** A first sync through the relay is **not** a
-large multiple of a send in billable terms: at a 1 MiB chunk it is **2.65 billable Durable Object
+large multiple of a send in billable terms: at a 1 MiB chunk it is **2.75 billable Durable Object
 requests against a send's 2** [computed], because Cloudflare discounts incoming WebSocket messages
 20:1 and charges nothing for outgoing ones, so #371's unbounded frame count costs almost nothing —
 **the byte ceiling was never what the bill was made of.** Steady state on R2 is the recurring cost
@@ -63,7 +63,7 @@ not "it becomes unaffordable" but "it stops being free, quietly, on a metered su
 **Refuted: that #371's removal of the byte ceiling and frame count is expensive.** The intuition is
 that many frames means many billable messages. Cloudflare applies a **20:1 ratio to incoming
 WebSocket messages** and charges **nothing for outgoing ones** [published, §1.1], so a 136-chunk
-first sync costs 9.0 billable requests and a 9-chunk one costs 2.65 [computed, §3]. The frame count
+first sync costs 9.10 billable requests and a 9-chunk one costs 2.75 [computed, §3]. The frame count
 is the cheapest axis in the design. §3.
 
 **Refuted, as a matter of arithmetic: ADR-0072's own "the free plan binds on duration first."** That
@@ -313,3 +313,318 @@ Object 10 GB**, **maximum Durable Object classes 100 on Free**, and **number of 
 ceiling to hit; a 1,024-byte key length is far above a derived address; and the one-write-per-second
 rule is per key, while this design's keys are distinct per lane per index. §5.5 says why the
 one-per-second rule is nonetheless worth writing down.
+
+---
+
+## 2. What is assumed about the app, isolated so it can be changed
+
+Everything in this section is **[assumed]**. §3 onward uses nothing about the app that is not listed
+here. Each entry gives the value, where it comes from, and which way the answer moves if it is
+wrong.
+
+### 2.1 A ledger's size, from this repo's own formula
+
+[#196](https://github.com/palebluebytes/inventoria/issues/196) §6 refused to publish a whole-ledger
+total and published a formula instead, on the ground that its corpus was of its own choosing:
+
+```
+raw bytes ≈ 2,501·n_fdc + 144,750·n_gtin + 1,376·n_events + 1,165·n_recipes
+          + 411,070·n_custom_with_photo
+```
+
+Three ledgers are priced here. The counts are **[assumed]**; the coefficients are #196's
+measurements.
+
+| Case                                             | `n_fdc` | `n_gtin` | `n_events` | `n_recipes` | photos | Raw       | Sealed wire |
+| ------------------------------------------------ | ------: | -------: | ---------: | ----------: | -----: | --------- | ----------- |
+| **Light** — six months, mostly USDA, no photos   |     100 |       10 |        550 |          10 |      0 | 2.47 MB   | 0.41 MB     |
+| **Typical** — one year, a barcode every few days |     200 |      100 |      1,095 |          30 |     20 | 24.74 MB  | 8.89 MB     |
+| **Heavy** — three years of the same              |     500 |      300 |      3,285 |          90 |     60 | 73.96 MB  | 26.62 MB    |
+
+The **sealed wire** column is **[computed]** from #196 §4's two compression ratios — _"Text datoms
+compress ~6:1; base64 JPEG compresses ~1.34:1"_ — applied separately to the text terms and the
+photo term, since #196 is explicit that _"any argument that assumes compression rescues a photo
+payload is wrong"_. AEAD expansion is a fixed tag per chunk and is ignored: at 16 bytes against a
+chunk measured in hundreds of kilobytes it does not reach the second significant figure.
+
+**Typical is the case every figure below uses unless it says otherwise, and it is 8.89 MB on the
+wire.** This is what ADR-0075 §7's _"tens of megabytes"_ resolves to, and it confirms the two shares
+that ADR-0075 §7 cites: `twin/raw_provenance` is 14.5 MB of the 24.74 MB raw — 58.5% here against
+#196's measured 39.8%, because this ledger has proportionally more `gtin:` twins than #196's corpus —
+and the twenty photos are 8.2 MB, 33.2%.
+
+**Which way it moves the answer.** `n_gtin` dominates, because a `gtin:` twin carries the whole Open
+Food Facts response verbatim at 144,750 bytes. #196 §7 filed that as an ordinary defect. If it is
+ever fixed, every first-sync figure below falls by roughly half and every steady-state stored-byte
+figure with it.
+
+### 2.2 The chunk size — stated, because the frame count falls straight out of it
+
+**Nothing in the record fixes a chunk size.** ADR-0075 §7 requires _"one seal per chunk, with the
+chunk's sequence number bound into the AEAD's additional data"_ and gives no number; #371 removed
+ADR-0072 §11.3's 1 MiB wire ceiling without replacing it; the only published ceiling is Cloudflare's
+**32 MiB received WebSocket message** [published, §1.6].
+
+**The assumption used below is 1 MiB, and every table gives 64 KiB, 256 KiB and 4 MiB beside it** so
+that a reader can see how little turns on it. The message count is
+`ceil(sealed wire bytes / chunk size)` [computed], and 1 MiB is chosen only because it is ADR-0072
+§11.3's retired number and therefore the one a reader will have in mind.
+
+| Sealed wire | 64 KiB chunks | 256 KiB chunks | 1 MiB chunks | 4 MiB chunks |
+| ----------- | ------------: | -------------: | -----------: | -----------: |
+| Light, 0.41 MB   |   7 |   2 |  1 | 1 |
+| **Typical, 8.89 MB** | **136** |  **34** |  **9** | **3** |
+| Heavy, 26.62 MB  | 407 | 102 | 26 | 7 |
+
+### 2.3 Six control frames per pairing session
+
+#371's resolution gives the pairing flow end to end: _"room opens → the relay's readiness signal → A
+sends the sealed pairing secret → both derive both `state₀`s → vectors exchange → chunks both ways →
+closing vector exchange"_. Counting only what a party **sends into** the relay — which is what
+Cloudflare's 20:1 incoming ratio meters — that is the sealed pairing secret, two opening vectors and
+two closing vectors, plus one slack frame: **six** [assumed]. The readiness signal is outgoing from
+the relay and free.
+
+**Which way it moves the answer.** Six against a 9-chunk sync is 40% of the message count and 0.3 of
+a billable request. Doubling it changes no verdict.
+
+### 2.4 One wake per device per day
+
+#256's resolution sizes K = 200 against _"a daily phone and a laptop opened weekly or monthly"_ and
+computes that _"the phone burns roughly 30 unproductive wakes per healthy month"_, i.e. **one wake per
+device per day**. #285 §3 fixes what a wake is: _"One app-open is one wake, however long it stays
+open."_ That is the arc's own model and it is used here **[assumed]**.
+
+**Three per day is given beside it throughout**, as the three-meals-a-day reading someone will
+reasonably prefer. Every R2 figure scales linearly in this number, so a reader who wants ten wakes a
+day divides the user crossovers by ten.
+
+### 2.5 Half the wakes deposit, half collect
+
+#285 §3's invariant is **one key per wake**, and #285 §5 makes a deposit carry _"an acknowledgement
+and a delta, and either may be empty"_. A device with both to do must alternate; a device with
+nothing to deposit collects every wake. **The split assumed is 50/50** [assumed], which is the
+alternating case.
+
+**This assumption is the one that decides which limit binds, and §5.2 gives it both ways.** A
+deposit is Class A ($4.50/M, 1M free); a collect is Class B ($0.36/M, 10M free). A read-mostly tablet
+shifts the mix toward Class B and moves the binding limit off R2 entirely.
+
+### 2.6 A first sync never crosses R2, and a first sync is never resumed through it
+
+#364's guard 1, made absolute: _"the store never holds an object whose base did not cross live"_ —
+an interrupted first sync _"resumes live, both awake, or not at all"_. So R2 never holds a whole
+ledger **as a first sync** [published in the arc's own record, not assumed]. What R2 can come to hold
+is an _outstanding delta_ that has grown without collection, and §4.3 prices that separately, because
+at the limit the two converge in size.
+
+---
+
+## 3. A first sync through the relay, priced
+
+### 3.1 Billable Durable Object requests
+
+Method [computed]: two WebSocket connections at one request each [published, §1.1], plus incoming
+messages — `n` chunks and §2.3's six control frames — at the published 20:1 ratio. Outgoing messages
+are free, so the relay forwarding each chunk to the peer costs nothing.
+
+```
+billable requests per pairing = 2 + (n + 6) / 20
+```
+
+| Chunk size | `n` (typical ledger) | Billable requests | Pairings/day within DO Free's 100,000 |
+| ---------- | -------------------: | ----------------: | ------------------------------------: |
+| 64 KiB     |                  136 |          **9.10** |                                10,989 |
+| 256 KiB    |                   34 |          **4.00** |                                25,000 |
+| **1 MiB**  |                **9** |          **2.75** |                            **36,364** |
+| 4 MiB      |                    3 |          **2.45** |                                40,816 |
+
+**The multiple #372 asked for is between 1.2× and 4.6× a send, not a large one.** ADR-0072's send is
+_"about 2 billable requests"_; a whole first sync at a 1 MiB chunk is 2.75. The 20:1 discount and the
+free outgoing direction between them absorb almost the entire difference between one frame and 142.
+
+**So #371's removal of the frame count is close to free**, and the reason is worth stating plainly
+because it is counter-intuitive: **the relay's bill is dominated by the fixed cost of opening the
+room, not by what crosses it.** A design that made the first sync ten times larger would still cost
+under four billable requests at a 1 MiB chunk.
+
+### 3.2 Bytes moved, and what they cost
+
+**Nothing.** Cloudflare charges no egress on Workers or Durable Objects, and the request tables have
+no byte dimension at all [published, §1.1]. The 8.89 MB crossing the relay is billed only through the
+message count in §3.1. This is the single largest difference between the relay half and the R2 half,
+where stored bytes are metered directly.
+
+### 3.3 Duration
+
+Method [computed]: duration is billed only while the object _"is actively executing JavaScript"_
+[published, §1.1], at 128 MB = 0.125 GB. Cloudflare's own hibernating-WebSocket example uses **10 ms
+of JavaScript per message**, and the relay's per-message work — a bounds check and a `send()` — is
+strictly less than that example's, so 10 ms is a ceiling rather than an estimate.
+
+```
+GB-s per pairing = (n + 6) × 0.010 s × 0.125 GB
+```
+
+| Chunk size | Messages | GB-s per pairing | Pairings/day within 13,000 GB-s |
+| ---------- | -------: | ---------------: | ------------------------------: |
+| 64 KiB     |      142 |           0.1775 |                          73,239 |
+| 256 KiB    |       40 |           0.0500 |                         260,000 |
+| **1 MiB**  |       15 |       **0.0188** |                     **693,333** |
+| 4 MiB      |        9 |           0.0113 |                       1,155,556 |
+
+**Duration does not bind, by one to two orders of magnitude.** At a 1 MiB chunk the relay could carry
+693,000 first syncs a day on duration and only 36,000 on requests.
+
+**The one thing that would invert this, named so it can be checked.** If the relay ever stops being
+hibernation-eligible between chunks — a pending promise, a non-hibernatable `accept()`, an outbound
+connection — Cloudflare's footnote 4 applies and duration is billed for the whole time the socket is
+connected. At ADR-0072 §11.4's five-minute room lifetime that is **37.5 GB-s per pairing**
+[computed], which is **347 pairings a day** and would make duration the binding limit by a wide
+margin. The gap between 693,333 and 347 is entirely the hibernation property, which makes
+`state.acceptWebSocket` — `worker/src/relay.ts:211` — the single most expensive line in the design to
+get wrong.
+
+### 3.4 A correction ADR-0072's Consequences should carry
+
+ADR-0072 states: _"Duration bills at 128 MB, so 13,000 GB-s/day is about 101,500 object-seconds/day;
+at ten active seconds per send under hibernation that is roughly 10,000 sends a day."_ The 101,500
+object-seconds is right [confirmed: 13,000 / 0.125 = 104,000; ADR-0072's 101,500 is within rounding].
+The **ten active seconds** is not a published figure and does not follow from one.
+
+Under hibernation, active means executing JavaScript [published, §1.1]. A send is two connections and
+two frames; at Cloudflare's own 10 ms per message that is **0.04 active seconds**, not ten — a factor
+of 250. Redone [computed]: 0.04 s × 0.125 GB = 0.005 GB-s per send, or **2.6 million sends a day** on
+duration, against **50,000 sends a day** on the 2-requests-per-send figure ADR-0072 computes in the
+same paragraph and then sets aside.
+
+**So the send half binds on requests at roughly 50,000 sends a day, not on duration at 10,000.** The
+headline number is five times better and the named limit is the other one. This does not change any
+decision ADR-0072 took — both figures are far beyond a personal food tracker — but the destination
+ADR inherits this arithmetic, and inheriting it wrong would put the withdrawal clause on the wrong
+dimension.
+
+### 3.5 The dimension nobody has counted: Durable Object rows written
+
+ADR-0072 predates SQLite storage billing [published, §1.2], so its Consequences count two dimensions
+where there are now three. **Free plan: 100,000 rows written per day.**
+
+`worker/src/relay.ts` writes storage in three places: `setAlarm` at `:214` (one row), a
+`storage.get` + `storage.put` of `FRAMES_KEY` **per forwarded frame** at `:256` and `:271`, and
+`deleteAlarm` + `deleteAll` at `:320`–`:321` (deletes count as rows written).
+
+| Shape                                            | Rows written per pairing | Pairings/day within 100,000 |
+| ------------------------------------------------ | -----------------------: | --------------------------: |
+| Per-frame counter retained, 1 MiB chunks         |                       18 |                   **5,556** |
+| Per-frame counter retained, 64 KiB chunks        |                      145 |                     **690** |
+| Counter deleted with the rule it enforced        |                    **3** |                  **33,333** |
+
+**This is the first place in the whole arithmetic where the answer is uncomfortable, and it is
+avoidable.** #371 deleted ADR-0072 §11.2's one-frame-each-way rule. The counter at `:256`/`:271`
+exists only to enforce it. If the counter is deleted with the rule, the relay writes three rows per
+room and rows-written sits beside requests at roughly the same ceiling. If the counter survives the
+rule — as a metric, a debug aid, or by nobody noticing — it turns an unbounded frame count into a
+metered write, and at a small chunk size it becomes **the binding limit by a factor of fifty**.
+
+**The destination ADR should state this as a rule rather than a number**, in ADR-0072 §12's voice:
+_the relay may hold state for the duration of a room, and it may not write per frame._ ADR-0072 §12
+already refused aggregate counters on privacy grounds; this is the same refusal arriving from the
+billing side, which is worth recording because it means the two arguments do not have to be traded
+against each other.
+
+---
+
+## 4. Steady state on R2, priced
+
+### 4.1 The operations, per wake
+
+From #285 §3 and §7: **a wake touches exactly one key per pairing**, and a wake serves all of a
+device's pairings. From #260 §8's table: **deposits — and R2 operations — per wake, per device is
+`N−1`**, and live objects are `N(N−1)`.
+
+What each of the two wake shapes costs, against §1.4's class list:
+
+| Wake shape           | R2 calls                                        | Class A | Class B | Free |
+| -------------------- | ----------------------------------------------- | ------: | ------: | ---: |
+| **Collect**, mail present | `GetObject`, then `DeleteObject` after the final chunk verifies |       0 |       1 |    1 |
+| **Collect**, lane empty   | `GetObject` returning null                      |       0 |       1 |    0 |
+| **Deposit**, first write at an index | `PutObject`                    |       1 |       0 |    0 |
+| **Deposit**, conditional rewrite that succeeds | `PutObject` with `onlyIf` |       1 |       0 |    0 |
+| **Deposit**, conditional rewrite refused | `PutObject` with `onlyIf`, returns `null` | 1 (assumed, §1.4) | 0 | 0 |
+
+**Three things this table settles.**
+
+- **A collection is cheap and its cleanup is free.** `DeleteObject` is on Cloudflare's published free
+  list [published, §1.4], so #285 §4's collect-then-delete and #256 §3's two revocation deletes cost
+  nothing at all. The design's disposal discipline is free to operate, which is a fact worth having
+  in the record next to #252's bar.
+- **A miss costs the same as a hit.** A wake that finds an empty lane still pays one Class B. #364
+  asked _"whether a wake that finds nothing costs anything"_; against the rate card it does, and it
+  costs $0.36 per million.
+- **A refused rewrite adds no operation.** It replaces a `PutObject` that would otherwise have
+  succeeded at the same address in the same wake, so the Class A count per wake is 1 either way and
+  §1.4's unresolved question does not propagate into any figure below.
+
+**One `ListObjects` would change the picture and the design does not make one.** `ListObjects` is
+Class A [published, §1.4], and a collector that listed to find its mail would pay a Class A on every
+wake instead of a Class B — a 12.5× rate difference against a 10× smaller free allowance. #281's
+derived address is therefore a **125× cheaper collect** than the obvious alternative [computed]. That
+is a cost argument for a construction that was chosen entirely on privacy grounds, and the
+destination ADR may as well have it.
+
+### 4.2 Per device per day, and per user per day
+
+Method [computed]: keys touched per user per day is `N × (N−1) × w` where `w` is wakes per device per
+day (§2.4); Class A is that times the deposit share (§2.5, 0.5), Class B the rest; and every R2 call
+is also one Worker invocation, because the browser reaches R2 through the site's Worker.
+
+| N | wakes/device/day | Keys/user/day | Class A/user/day | Class B/user/day | Worker requests/user/day |
+| -: | ---------------: | ------------: | ---------------: | ---------------: | -----------------------: |
+| **2** |            **1** |         **2** |            **1** |            **1** |                    **2** |
+| 2 |                3 |             6 |                3 |                3 |                        6 |
+| **3** |            **1** |         **6** |            **3** |            **3** |                    **6** |
+| 3 |                3 |            18 |                9 |                9 |                       18 |
+| 4 |                1 |            12 |                6 |                6 |                       12 |
+
+**At two devices and one wake each, convergence costs a user two R2 operations a day.** That is the
+whole recurring bill in operations. #260's superlinearity shows as the `N(N−1)` column: going from two
+devices to three **triples** it, and to four **sextuples** it.
+
+### 4.3 Stored bytes
+
+Two regimes, and they differ by two orders of magnitude.
+
+**Healthy.** A lane holds the depositor's outstanding delta, superseded in place, collected within
+about two wakes. From §2.1's typical ledger, a device generates 24.74 MB raw / 8.89 MB sealed per
+year, which is **24.4 KB of sealed wire per device-day** [computed]. Two wakes' worth per lane:
+
+| N | Lanes = `N(N−1)` | Live bytes/user | Users within 10 GB-month |
+| -: | ---------------: | --------------: | -----------------------: |
+| 2 |                2 |           98 KB |                  102,459 |
+| 3 |                6 |          293 KB |                   34,153 |
+
+**Abandoned.** A device that is never opened again leaves its peer depositing into a lane nobody
+collects. #256's resolution bounds it on both axes — _"in size, because after K the depositor stops
+rewriting, so an abandoned object stops growing"_ — at **K = 200 wakes**, which at one wake a day is
+200 days:
+
+```
+abandoned lane ≈ 200 × 24.4 KB = 4.88 MB       [computed]
+```
+
+Behind one abandoned device there are `N−1` such lanes (#260 §8: _"the abandoned-device case is per
+lane, not per household"_), so an abandoned device costs **4.88 MB at N = 2 and 9.76 MB at N = 3**
+[computed].
+
+**And without K, or before it bites, the ceiling is the whole outstanding ledger — 8.89 MB
+[computed]**, since a lane that is never collected accumulates everything the depositor has. The two
+figures are within a factor of two of each other, which is the real finding: **#256's K = 200 caps the
+abandoned lane at roughly half a whole ledger, so it is a bound rather than a fix.** #252's backstop
+expiry is what turns it into a small number, and §5.3 prices the difference.
+
+**The `(N−1)²` multiplier is on rows, not on this figure, and the distinction matters.** #260 §8's
+worst case is _"(N−1)² simultaneous copies of one row across live objects"_ — 4 at N = 3, 9 at N = 4.
+That is the multiplier on a **single row's** duplication, and it is already inside the per-lane
+figures above, because each of the `N(N−1)` lanes carries its own full outstanding delta. The
+stored-byte total scales as `N(N−1)` lanes each holding up to one ledger's outstanding remainder; the
+`(N−1)²` number is what a #252 bar sentence needs when it talks about a **datom**, not about bytes.
