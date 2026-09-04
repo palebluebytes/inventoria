@@ -63,6 +63,16 @@
   .checkbox {
     display: flex;
     align-items: center;
+    /* The `<label>` is the tap target, not the box inside it: the box is 1.35em
+       and the row around it is what a finger lands on (ADR-0093). Without this
+       the row draws 21px — a 20.25px box against a 21px line of `--step-n1` at
+       1.4 — which is the largest shortfall #338 found, in the one place it
+       reaches ten call sites at once.
+
+       There is no size axis here and no dense variant, deliberately. An opt-out
+       from the floor is an opt-out from the finger, and ADR-0089 §3's whole
+       argument is that 48 does not vary with the context it is used in. */
+    min-height: var(--tap-min);
     /* em-based so the box, the gap and the text scale together as one unit. */
     gap: 0.65em;
     font-size: var(--step-n1);

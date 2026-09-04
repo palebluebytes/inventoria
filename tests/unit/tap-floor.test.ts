@@ -444,7 +444,6 @@ const SHORTFALLS: string[] = [
 ];
 
 const UNREADABLE: string[] = [
-  "ui/Checkbox.svelte label.checkbox — height comes from flex children",
   "views/food/AmountField.svelte label.value — height comes from flex children",
   "views/food/FoodStager.svelte label.cf-pack — height comes from flex children",
   "views/food/FoodStager.svelte label.cf-reason-code — height comes from flex children",
