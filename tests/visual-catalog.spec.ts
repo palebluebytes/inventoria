@@ -899,6 +899,26 @@ test.describe("Visual Catalog — the surfaces a meal opens", () => {
     await expect(page.getByTestId("completing-panel")).toHaveCount(0);
   }
 
+  /**
+   * A sheet, photographed as an element.
+   *
+   * **The first column of the image is not the sheet** (#366). The ink border
+   * starts at column 1 — mirrored on the right by columns 391 and 392 — so the
+   * clip carries one pixel of *backdrop* on the left and none on the right.
+   * Over most of its height that column reads `srgb(150)`, which is
+   * `--bg-base` (`#fafafa`) through one `rgba(0, 0, 0, 0.4)` overlay:
+   * 0.6 x 250. The rest of it is the page's own bottom nav, in ink, behind.
+   *
+   * So a sheet capture asserts something about the page behind the sheet as
+   * well as about the sheet, and a change to the backdrop moves the baseline
+   * with the surface under test standing still. That is what `bb65c52`
+   * accepted: `867c14a` (#330, ADR-0089 §7) took a replaced sheet **and its
+   * backdrop** off the screen on a phone, so the two explainers went from being
+   * photographed through two dims to one. Columns 1-392 are byte-identical
+   * across that commit — the sheet's box never moved, which is what the
+   * rebaseline and #339 both read it as. The measurement is on #366; the rule
+   * §7 changed is guarded in `tests/unit/sheet-geometry.test.ts`.
+   */
   async function takeSheetScreenshot(
     page: import("@playwright/test").Page,
     sheet: import("@playwright/test").Locator,
