@@ -448,8 +448,8 @@ The four fields stay. Three things join them:
 
 The channel's `version` moves with the shape, which is the first real use of the envelope
 [#215](https://github.com/palebluebytes/inventoria/issues/215) specified. Records of the
-older shape are kept, unparseable, and shed first. They are never deleted by a reader
-that cannot read them.
+older shape are kept, unparseable, and leave the ring by age like every other record.
+They are never deleted by a reader that cannot read them.
 
 §4 is untouched: flags are still stored as captured and still recomputed at read against
 the current map, and that is exactly why the bar's numerator may not be a write-time
@@ -508,10 +508,21 @@ correction to the record before it is a correction to any code, and whatever exp
 next is pinned by a test that adds a fourth outcome member and asserts the denominator
 does not move.
 
-**The denominator itself is a lifetime counter, not the ring.** ADR-0092 §6.1 leaves the
-capped ring biased towards its own WARN records over a long life, so the count of
-sessions is read from a counter that is never shed. That is ADR-0071 §5's existing rule
-applied here rather than a new one.
+**The denominator is a lifetime counter, not the ring, and the numerator has nothing.**
+ADR-0092 §6 keeps the last 200 records and drops the oldest, so the ring is a recency
+window: a count taken over it is the count of the last 200 sessions wearing a lifetime
+label. The session count is therefore read from a counter that is never shed, which is
+ADR-0071 §5's existing rule applied here rather than a new one.
+
+The **numerator cannot be a counter**, because §4 above requires the vocabulary flags to
+be recomputed at read and a write-time tally would freeze them as of the write. So the
+mid-phrase count is read from entries the ring will eventually drop. A shed order that
+preserved empty sessions was designed and rejected in ADR-0092 §6.1, on the ground that
+it spoils the denominator in exchange, and because a log that keeps its errors while
+discarding the records around them is a log with no story in it. **What replaces it is
+timing:** the bar is folded by a person over an export, and taking that export while the
+sessions are still in the ring is part of the fold. ADR-0080 §6 handed them the fold;
+this hands them the deadline with it.
 
 ### What this costs
 

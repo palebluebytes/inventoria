@@ -62,8 +62,8 @@ denominator rather than its arithmetic.
 and every scan session as well. Across the three channels the levels are 20 ERROR,
 15 DEBUG and one WARN in `app`; two WARN outcomes, three INFO outcomes and a DEBUG
 field in `search`; one ERROR, two WARN and two INFO in `scan`. Severity separates
-those. It also does the two jobs a channel cannot do: it decides **what is captured**
-at a given dial position, and it decides **what sheds first** when a ring is full.
+those. It also does the job a channel cannot do: it decides **what is captured** at a
+given dial position, and therefore what a channel costs at each one.
 
 ADR-0054 §1 posed levels and channels as alternatives. They are not, and #264 found
 no framework that treats them as such: every system read has both a namespace and a
@@ -138,7 +138,7 @@ of current code.
 ### Scope
 
 This record governs what a Log channel declares, where a level sits on a record, what
-gates capture, how records are shed, what bounds the total, and what the export
+gates capture, how records are retained, what bounds the total, and what the export
 carries. It replaces ADR-0054 whole.
 
 **It changes no consent surface's shape.** The model-C export ADR-0034 §8 established
@@ -163,9 +163,9 @@ may not be added unless its `reader` names a real consumer and a decision that c
 will take"*.
 
 A **level** is a whole number on the OpenTelemetry `SeverityNumber` scale, carried by
-every record, and it is the axis that decides three things: whether the record is
-captured at all (§4), which record sheds when a ring is full (§6), and what an export
-may be filtered down to (§10).
+every record, and it is the axis that decides two things: whether the record is
+captured at all (§4), and what an export may be filtered down to (§10). It decides
+**nothing** about retention, which is §6.
 
 A **channel** survives, doing everything except gating. It owns one `localStorage` key,
 it names the Tracked Domain whose act writes it, it declares the prose that says what
@@ -219,27 +219,25 @@ facility-stamped envelope `{ v, entry }` with a per-channel `version`, and that 
 never sees `v`. The level joins it: a stored record is **`{ v, lvl, entry }`**, and
 `parse` never sees `lvl` either.
 
-The decisive argument is #215's own ruling that **an unreadable record is kept**,
-because `parse` is never a deletion authority. §6 sheds by level and §10 filters by
-level, so both must work on a record the channel cannot parse. With `lvl` inside the
-entry, an unreadable record has no level at all, and §6 would have to invent one, treat
-it as immortal, or shed it first — which is
-[#219](https://github.com/palebluebytes/inventoria/issues/219)'s failure mode in a new
-coat. On the envelope, the facility reads a level off a record it cannot read.
+Three reasons, none of which is retention — §6 sheds by age and never reads `lvl`.
 
-Two supports. It transfers #215's stated reason for the wrapper verbatim: an entry shape
-keeps no dependency on the envelope. And it removes a per-append `parse` over the whole
-ring that shedding would otherwise require. The cost is about 10 bytes a record, some
-2 KiB across a full 200-record ring.
+It transfers #215's stated reason for the wrapper verbatim: **an entry shape keeps no
+dependency on the envelope**, which is exactly why `v` sits there and why `parse` is
+written against the channel's own shape and nothing else. §10's export filter reads a
+level off every record it is deciding about **without parsing any of them**, which is
+what lets the filter be applied by the payload builder rather than by each channel. And
+one facility-stamped wrapper carrying both facility-owned fields is simpler than a
+wrapper for one and a convention for the other.
 
-**A record written before `lvl` existed sorts below every real level.** It loses every
-eviction contest and sheds first. It is emphatically **not** deleted on sight: it is
-retained, it still appears in the review if its channel can parse it, and it stays
-redactable and clearable. It simply never wins a tie. That gives §6 a total order over
-every stored record including the ones it cannot read, and it makes #215's *"the ring is
-the migration"* fast rather than a claim nobody can price. Defaulting such a record to
-INFO was rejected — inventing a plausible level makes a pre-redraw record outrank a real
-DEBUG record for no defensible reason.
+*An earlier draft of this record made the decisive argument a retention one — §6 must
+shed a record the channel cannot parse, so the level cannot live inside the entry. §6 no
+longer reads levels, so that argument is gone and the three above are what remain. They
+are enough, and the field does not move.*
+
+**A record written before `lvl` existed simply has no level.** It is retained, it appears
+in the review if its channel can parse it, it stays redactable and clearable, and it
+leaves the ring by age like everything else. Nothing invents a level for it, and nothing
+treats its absence as a reason to shed it first.
 
 #### 3.2 A field's level is a predicate the channel calls, never a map it declares
 
@@ -335,9 +333,9 @@ them and a counter is not a person reproducing a bug.
 
 **Only the four anchors 5, 9, 13 and 17 are used.** No FATAL (21): the closest candidate
 is the in-memory-database fallback, and that is a degradation. Values between anchors
-would change capture not at all, since the dial reads three thresholds, and would only
-refine §6's shed order at the price of a table nobody can hold in their head. **Ties shed
-by age within the level.**
+would change capture not at all, since the dial reads three thresholds, and §6 does not
+read a level at all — so a fifth value would buy a table nobody can hold in their head
+and nothing else.
 
 #### 5.1 `search`
 
@@ -419,66 +417,82 @@ stays out on two grounds, neither of them privacy: **no sourcemaps ship** (there
 production stack is minified frame names, which is the thing it would be wanted for), and
 a stack is 1–3 KB against a record measured in hundreds of bytes.
 
-### 6. Retention sheds by level first, then by age
+### 6. Retention is the last `cap` records, oldest dropped
 
-A ring that drops oldest-first discards an error to keep a boot line. That is what makes
-`Noisy` unsafe to leave switched on, and it is what this section fixes.
+**A channel keeps its most recent `cap` records and nothing else.** One order, by arrival.
+No level is read, no record is refused, and no slot is reserved. This is `capEntries`
+exactly as it ships, and `shedToBudget` keeps its plain oldest-first `shift()`.
 
-**The mechanics read backwards from "a ring", so they are written out rather than
-described.** At a full channel, with `m` the lowest level present among the stored
-records and `L` the incoming record's level:
+**The ring is a recency window and nothing more.** That sentence is the whole of the
+retention model, and everything that needs a stable figure across a long life is carried
+by a counter instead (§9), which is never shed and not subject to the cap.
 
-> **If `L < m`, the incoming record is dropped.** Otherwise the **oldest record at level
-> `m`** is shed and the incoming one stored.
+#### 6.1 A level-ordered ring was designed here, and dropped
 
-A full ring of errors therefore **refuses** a debug record rather than evicting an error
-to hold it. #264 found the same discipline in the wild, arrived at by accident: OTel JS's
-bounded queue drops the **incoming** record at `maxQueueSize`, not the oldest.
+An earlier draft of this record shed the lowest level present first, refused an incoming
+record below that level, and capped the high-severity share at half the ring to stop the
+resulting ratchet. It is recorded here as considered, because it is the obvious thing to
+reach for and somebody will reach for it again.
 
-**Nothing read for #264 sheds by level, and this record states that as novel rather than
-conventional.** Sentry's breadcrumb ring is `slice(-maxCrumbs)` and never reads `level`;
-journald vacuums the oldest files. Level's two named patterns in the wild are *gated
-capture and persistence* (`os_log`, at four scopes) and *level-triggered flush*
-(`MemoryHandler.pushLevel`, logback's `OnErrorEvaluator`). The one system that beats age
-is Android's `logd`, which sheds the noisiest **UID** — a different rule again. None of
-them has a fixed local ceiling with no sink, which is the case this facility is in, so
-the absence is an absence of precedent rather than a refutation.
+It was dropped for one reason, and the reason is what the log is for. **A log is read as
+a sequence.** An ERROR whose surrounding INFO and DEBUG records were evicted to keep it
+is an error with no story, and the story is the thing somebody reproducing a bug came
+for. Level-ordered shedding systematically destroys the context around the record it
+preserves, which inverts the purpose of keeping the record.
 
-**`shedToBudget` has to honour this too.** It reaches for the largest channel and then
-calls a plain oldest-first `shift()`. That function is pure and separately tested, which
-is exactly why nobody would look at it, and left alone it would quietly undo within-
-channel level ordering from the outside. §8 makes it provably unreachable; it still has
-to be correct.
+Two concrete failures made that abstract argument checkable, and both land on the dial
+position the design was supposed to make safe:
 
-#### 6.1 The ceiling, stated on the complement
+- **`Noisy` would delete exactly what `Noisy` is for.** `search`'s DEBUG fire sequence is
+  the keystroke timeline, the single most useful artifact the facility holds, and it is
+  the lowest level in its channel — so it is the **first** thing a level-ordered ring
+  sheds. The channel converges on 200 WARN session records and no timelines.
+- **A full channel would refuse the record you turned the dial up to capture.** Under the
+  refusal rule, `app` holding 100 ERRORs rejects an incoming DEBUG boot line outright. So
+  a person switches to `Noisy` to reproduce a boot problem, and the channel writes
+  nothing at all.
 
-**§6 as stated is a ratchet.** The high-severity count is monotonically non-decreasing,
-so `app` accumulates errors across the install's whole life until, at the cap, `Noisy`
-writes nothing for it ever again, and `search` converges to all-WARN the same way. The
-earlier reading of this mechanism as a **safety** — "entries cannot be lost to shedding
-before there are 200 of them" — is true, and after 200 the loss is not random: it is
-exactly the successes, which is the denominator this whole redraw exists to create.
+**The problem it was invented for had already been solved somewhere else.** The stated
+motive was that a capped ring throws away an error to keep a boot line, and that it
+forgets its own denominator. §9's counters answer the second directly, and they are the
+reason ADR-0071 §5 already says a rate is read from a counter and never from the ring.
+Once the aggregates are carried outside the ring, the ring's only remaining job is recent
+context, and recency is the correct key for a recency window.
 
-A floor reserved for high-severity records was rejected: the app is not in use, so a
-floor is no more priceable than the turnover rate. **The device that works is a ceiling
-on the top, not a floor for it** — and it is stated on the **complement**, because per
-level it starves the lowest once three are present (100 ERROR plus 100 WARN leaves INFO
-nothing, and both `scan` and `app` have three levels):
+**The dial answers the first.** At the default `Normal`, DEBUG is never captured, so a
+boot line cannot displace an error: `app` holds a hundred error-class events and no
+narration at all. The only position where volume can push errors out is `Noisy` — which
+is the position somebody chose, for a session, to see that volume. A capture gate placed
+before the ring does the job a shed order was being asked to do after it, and it does it
+without deleting anybody's context.
 
-> **The records above a channel's lowest present level may not occupy more than half its
-> cap.**
+**#264 found no precedent for level-ordered shedding in any system read**: Sentry's
+breadcrumb ring is `slice(-maxCrumbs)` and never reads `level`, journald vacuums the
+oldest files, and OTel JS drops the incoming record at `maxQueueSize`. The one system
+that beats age is Android's `logd`, which sheds the noisiest UID. That absence was
+originally written down as novelty. It is better read as agreement: every one of those
+systems is read as a sequence too.
 
-One rule regardless of how many levels are in play. The lowest level always has half the
-ring, so `Noisy` always writes. It degrades correctly: with one level present the
-complement is empty and the whole ring is that level.
+#### 6.2 What this costs, and it is not nothing
 
-**At the ceiling, the oldest record at the incoming level sheds.** A ring within the
-ring. It never drops an incoming record on the floor, so the rule stays *what is
-retained* and never *what is refused* — refusal being the one property #264 found
-unprecedented anywhere.
+**ADR-0053 §7's numerator loses the protection it was leaning on.** An earlier reading
+took level-ordered shedding as a safety for #142 — successes at INFO would shed before
+empty sessions at WARN, so no empty session could be lost before there were 200 records.
+Under age, 200 successful searches scroll every empty session out of the ring.
 
-The ratchet is **bounded rather than removed**, which is the right shape: an error
-genuinely should outlive a boot line, up to a point.
+That protection was worth less than it appeared, and this record should not pretend it is
+giving up something clean. A level-ordered ring corrupts the same fraction from the other
+end: the high-severity share only rises, so the ring converges on all-WARN and the rate
+read from it climbs towards 100% whatever the true rate is. Neither rule yields a stable
+sample; they spoil different halves of it.
+
+So the honest position, stated rather than engineered around: **a measurement that needs a
+stable sample must be carried by a counter, or read from an export taken before the ring
+turns over.** #142's denominator is a counter (§9). **Its numerator is neither**, because
+ADR-0053 §4 requires the vocabulary flags to be recomputed at read and a write-time
+counter would freeze them. The bar is therefore folded by a person over an export, and it
+is that person's job to take the export while the sessions are still there. ADR-0080 §6
+already handed them the fold; this hands them the timing with it.
 
 ### 7. Every field is bounded, and a fire stores a prefix length
 
@@ -508,10 +522,12 @@ literal.
 **An `err.message` is truncated at 256 bytes**, which clears every message the 38 real
 call sites produce, so nothing in use is truncated.
 
-**Caps.** `search` keeps 200 and `scan` keeps 200. **`app` takes 100**: under §6.1 half
-the ring is reserved below the top level, and a boot burst is 15 lines, so 50 DEBUG slots
-still hold three boots' narration — which is what somebody debugging a startup problem
-has. `search`'s 200 is load-bearing for ADR-0053 §7's bar; `app`'s is not.
+**Caps.** `search` keeps 200 and `scan` keeps 200. **`app` takes 100.** Its steady state
+is a function of the dial rather than of usage: at the default `Normal` it holds a hundred
+error-class events and no narration at all, and at `Noisy` a boot burst is 15 lines, so
+the ring holds roughly six recent boots — which is what somebody debugging a startup
+problem needs, since the boot they care about is the last one. `search`'s 200 is
+load-bearing for ADR-0053 §7's bar; `app`'s is not.
 
 ### 8. One budget, an invariant, and no partition
 
@@ -607,15 +623,13 @@ count, where the dial is a global setting whose effect on any given counter is i
 The alternative — a counter that keeps running while the channel reads "not recording" —
 makes "stop recording" stop meaning what it says.
 
-**A rate is read from a lifetime counter and never from the ring.** Under §6.1 the ring
-is still biased: with a true empty-rate `p` over `N` sessions, the rate read off entries
-is `pN/200`, reaching 100% at `N = 200/p`. `search` therefore declares a lifetime
-`sessions` counter as its denominator, carried in the export. **This applies a rule the
-facility already holds rather than adding one**: ADR-0071 §5 says of `scan` that "the
-rate is computed from the counters and never from the entries — a rate taken from the
-ring is the rate of the last 200 wearing a lifetime label". A plain session tally freezes
-nothing, so ADR-0053 §4's recompute-at-read, which forbids a frozen **numerator**, is
-untouched.
+**A rate is read from a lifetime counter and never from the ring.** §6 makes the ring a
+recency window, so a rate taken over it is the rate of the last `cap` sessions wearing a
+lifetime label. `search` therefore declares a lifetime `sessions` counter as its
+denominator, carried in the export. **This applies a rule the facility already holds
+rather than adding one**: ADR-0071 §5 says exactly that of `scan`, and §6.2 is why it
+generalises. A plain session tally freezes nothing, so ADR-0053 §4's recompute-at-read,
+which forbids a frozen **numerator**, is untouched.
 
 **Each channel carries one `counters_since`**, exported beside the counters, because a
 number without its epoch is a dishonest label.
@@ -763,9 +777,10 @@ That is exactly the set that ships today; the redraw changes what is compile-che
 leaves the runtime throws alone.
 
 **No default level is inheritable from the declaration.** Severity decides what is
-captured, what sheds first and what the export filters on, and an inheritable default on
-that field means a site that should be ERROR records as INFO because somebody omitted it,
-and the record it should have outlived gets shed in its place. Every framework read for
+captured and what the export filters on, and an inheritable default on that field means a
+site that should be ERROR records as INFO because somebody omitted it — and then vanishes
+at any dial position above `Noisy`, which is the one failure nothing downstream can
+detect. Every framework read for
 #264 names severity at the call site and reserves inheritance for the dial. A channel's
 own module may hold a local constant; that is the module's business, not the
 declaration's.
@@ -825,17 +840,19 @@ channel.
 **One attribute per field is documented, not checked** (§3.2). A field captured at the
 wrong level is a review comment away from being caught and nothing else will catch it.
 
-**Shedding by level has no precedent in any framework read** (§6), so a later author
-finding it strange is finding something real. It is novel because the situation is: a
-fixed local ceiling with no sink, which none of the systems surveyed is in.
+**A level-ordered ring is the obvious thing to reach for, and §6.1 exists so the next
+author finds it already considered.** The short form: a log is read as a sequence, and
+level-ordered shedding deletes the context around the record it saves. The capture gate
+does that job better because it runs before the ring rather than inside it.
 
 **The invariant is a hand-written worst case, so a field nobody thought of is a field it
 does not price** (§8). That is weaker than a runtime assertion, and it is the same
 honestly-accepted weakness this record takes in §3.2. What it buys is failing at the
 commit that breaks the sum rather than on a user's device at a quota error.
 
-**The ratchet is bounded, not removed** (§6.1). A long-lived install still skews towards
-its errors, up to half the ring, and the rate that matters is read from a counter instead.
+**A busy channel forgets fast, and at `Noisy` it forgets faster.** That is the price of a
+ring, it is paid by every system surveyed, and §9's counters are what stand behind it. A
+person who needs a specific stretch of history exports it while it is there.
 
 **The facility has a permanent part**, and that has been true since counters were added.
 Everything else is capped, shed, redactable and mortal; "delete the entry" is no longer
@@ -869,9 +886,16 @@ be an **allow-list**, `nothing` or `resolved_after_correction`, pinned by a test
 adds a fourth outcome member and asserts the denominator does not move. #215's *strict
 discriminants* is the write side of this; this is the read side.
 
+**#142's numerator has no guarantee of surviving the ring** (§6.2), and this record
+accepts that rather than engineering around it. Its denominator is a counter; its
+numerator cannot be one, because ADR-0053 §4 requires the vocabulary flags to be
+recomputed at read. The bar is folded by a person over an export, and taking that export
+before another `cap` sessions arrive is part of the fold. A level-ordered ring would not
+have rescued this — it spoils the denominator instead.
+
 **The `search` entry's `version` moves**, which is the first real use of #215's envelope
-and the mechanism working rather than a conflict. Old records are kept, unparseable,
-shed-first, and never deleted by a reader that cannot read them.
+and the mechanism working rather than a conflict. Old records are kept, unparseable, and
+leave by age with everything else, never deleted by a reader that cannot read them.
 
 **A figure in a decision that cannot be reproduced from any declared shape is an unstated
 decision hiding inside a measurement.** This map priced the search channel wrongly three

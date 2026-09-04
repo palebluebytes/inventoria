@@ -305,7 +305,7 @@ _Avoid_: item/note (the Twin annotation field), memo, comment
 
 **Log facility**:
 The one module (`src/lib/logs/log-facility.ts`) that owns local diagnostic and
-instrumentation records: their storage, their caps, their shedding, their redaction and
+instrumentation records: their storage, their caps, their retention, their redaction and
 the hand-export they leave by. Records are `localStorage` JSON under one namespaced key
 per Log channel, never datoms, because redaction has to delete and the ledger is
 append-only and syncs. It records **completely** and gates only on a Log level, and the
@@ -333,11 +333,14 @@ The severity carried by every record in the Log facility, on OpenTelemetry's
 user asked for), **WARN 13** (a dependency failed or the app degraded and the user may
 not have noticed), **INFO 9** (something the user did, which completed) and **DEBUG 5**
 (the app's internal trace, and any field whose only reader is a person reproducing a
-bug). It is the severity of what happened, never the importance of the record. It rides
-on the record's envelope beside the version rather than inside the entry, so the facility
-can shed and filter a record its channel cannot parse. A field carries one too, decided
-at capture by a facility predicate the channel's own builder calls. See ADR-0092 §3 and
-§5.
+bug). It is the severity of what happened, never the importance of the record. It decides
+**what is captured** at a given dial position and **what an export may be filtered down
+to**, and deliberately **nothing about retention** — the ring keeps its last `cap` records
+by age, because a log is read as a sequence and shedding by level deletes the context
+around the record it saves. It rides on the record's envelope beside the version rather
+than inside the entry, so the export filter can select without parsing. A field carries
+one too, decided at capture by a facility predicate the channel's own builder calls. See
+ADR-0092 §3, §5 and §6.
 _Avoid_: Priority, importance, verbosity (that is the dial), trace level, log kind
 
 **The dial**:
@@ -356,9 +359,9 @@ _Avoid_: Log level (that is the field), verbosity setting, debug mode, switch
 **Log counter**:
 A named whole number a Log channel keeps beside its entries, under its own storage key:
 it only ever increases, is never shed, and is not subject to the `cap`. Counters exist
-because the capped entry ring silently forgets its own denominator, so a rate computed
-from retained entries is the rate of the last 200 of them wearing a lifetime label — and
-a rate is therefore read from a counter and never from the ring. A counter is always a
+because the entry ring is a recency window that silently forgets its own denominator, so
+a rate computed from retained entries is the rate of the last 200 of them wearing a
+lifetime label — and a rate is therefore read from a counter and never from the ring. A counter is always a
 running total of a field the entries already record, never a new fact. **The dial does
 not gate a counter and the pause does**, so a counter and its entries can disagree for
 two reasons: a redaction that did not decrement, and a record the dial suppressed after

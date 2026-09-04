@@ -267,7 +267,9 @@ storage key** rather than beside the entries, because the shed-last promise was 
 code while they shared one. A **Facet-scoped wipe takes that key**. And §5's own
 sentence — *"the rate is computed from the counters and never from the entries"* — turns
 out to be the general rule rather than this channel's local one: ADR-0092 §9 applies it
-to `search` for the same reason.
+to `search` for the same reason, and ADR-0092 §6 is why it generalises: the entry ring
+retains by age alone, in every channel, so it is a recency window and no rate may be
+taken over it.
 
 ### §6's view is no longer what makes the channel legal
 
