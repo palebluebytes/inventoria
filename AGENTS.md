@@ -15,7 +15,7 @@ checks against, and this file deliberately does not restate it.
   for one-off Node binaries. Never `npm`, `yarn`, or `bun`.
 - **Verification:** a change is verified when `pnpm check`, `pnpm test:unit`, and
   `pnpm lint:css` are clean. `pnpm check` already chains the docs check, the
-  worker-closure check and the entity-ownership check.
+  worker-closure check, the log-egress check and the entity-ownership check.
 - **Entity ids are minted in one place.** `src/lib/facets/entity-id.ts` is the
   only module that may build one, and the prefixes it accepts are declared in
   `src/lib/facets/registry.ts`, one owning Tracked Domain each

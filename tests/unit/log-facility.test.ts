@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
+import { findEgressCalls } from "../../scripts/log-egress-check.mjs";
 import type { TrackedDomainId } from "../../src/lib/facets/registry";
+
+/** One of this repo's own modules, read as text for a claim about its source. */
+const readCode = (path: string) =>
+  readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 
 /**
  * The local log facility (ADR-0092): channels, levels, the dial, the caps, the
@@ -1213,21 +1218,82 @@ describe("who owns a channel (ADR-0080 §2)", () => {
   });
 });
 
-describe("no transport, ever (ADR-0054 §5)", () => {
-  it("the facility's source reaches no network API", () => {
-    const source = readFileSync(
-      new URL("../../src/lib/logs/log-facility.ts", import.meta.url),
-      "utf8"
-    );
-    // The rule is about future changes, so it is asserted rather than assumed.
-    for (const forbidden of [
-      "fetch(",
-      "XMLHttpRequest",
-      "sendBeacon",
+// The property itself is `scripts/log-egress-check.mjs`'s, because it is a
+// claim about an import closure the compiler resolves and a test suite has no
+// business spawning tsc. What this file used to assert instead — that
+// `log-facility.ts`'s own text names none of five APIs — could not see the
+// export at all: the egress was in `LogReviewSheet.svelte`, which imports the
+// facility rather than the other way about, and `createObjectURL` was not on
+// the list in any case (#223).
+//
+// What is left here is the gate's matcher, for the reason `relay.test.ts` tests
+// the other one: a matcher that never matches would pass every build silently.
+describe("the egress matcher the no-transport gate is built on", () => {
+  it("finds a network call in a module that makes one", () => {
+    expect(findEgressCalls("const res = await fetch(url);")).toEqual(["fetch"]);
+  });
+
+  it("finds every API on the list, in the order they appear", () => {
+    expect(
+      findEgressCalls(
+        `new WebSocket(u); new EventSource(u); new XMLHttpRequest();
+         navigator.sendBeacon(u, b); URL.createObjectURL(blob);
+         window.showSaveFilePicker(); navigator.share({ files });`
+      )
+    ).toEqual([
       "WebSocket",
       "EventSource",
-      "import(",
-    ])
-      expect(source.includes(forbidden)).toBe(false);
+      "XMLHttpRequest",
+      "sendBeacon",
+      "URL.createObjectURL",
+      "showSaveFilePicker",
+      "navigator.share",
+    ]);
+  });
+
+  it("does not read a comment as a call", () => {
+    // Two real ones from this repo. The sibling gate reads raw text and says
+    // that is the cheap direction to be wrong in, which is true of the relay's
+    // four files and false here: this one scans a closure of modules whose
+    // authors are not writing for it, and `usda-fdc.ts` says "no network
+    // re-fetch (ADR-0016)" in prose.
+    expect(
+      findEgressCalls(`// today can be backfilled later with no network re-fetch
+         /* a WebSocket would be a transport */
+         <!-- and so would navigator.share -->
+         const local = 1;`)
+    ).toEqual([]);
+  });
+
+  it("finds none in the facility as it stands", () => {
+    expect(findEgressCalls(readCode("src/lib/logs/log-facility.ts"))).toEqual(
+      []
+    );
+  });
+
+  it("finds the one the export vehicle is allowed", () => {
+    // The gate fails on an egress module that names nothing, so this is the
+    // case that keeps that arm honest rather than vacuous.
+    expect(
+      findEgressCalls(readCode("src/lib/views/logs/export-target.ts"))
+    ).toEqual(["URL.createObjectURL"]);
+  });
+});
+
+describe("the payload that leaves is the payload that was reviewed", () => {
+  // The other half of the property #213 §5 settled on, and the half
+  // `log-egress-check.mjs` deliberately does not hold: a gate over an import
+  // closure can say where bytes may leave from, never that they are the bytes
+  // on screen. One serialisation, rendered and handed over, is what makes the
+  // reviewed value and the written value one value rather than two.
+  const REVIEW = readCode("src/lib/views/logs/LogReviewSheet.svelte");
+
+  it("serialises the payload exactly once", () => {
+    expect(REVIEW.match(/JSON\.stringify\(payload/g)).toHaveLength(1);
+  });
+
+  it("renders that string and hands the same one to the vehicle", () => {
+    expect(REVIEW).toContain('<pre class="payload">{payloadText}</pre>');
+    expect(REVIEW).toContain("downloadLogExport(payloadText, exported_at)");
   });
 });

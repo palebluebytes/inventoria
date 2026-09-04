@@ -1,0 +1,21 @@
+{
+  // Not a fifth project: a root for a closure.
+  //
+  // `scripts/log-egress-check.mjs` asks `tsc --listFiles` what
+  // `src/lib/logs/` genuinely resolves, and reads every module in the answer
+  // for a network API. `tsconfig.app.json` already typechecks these files as
+  // part of `src/`, so this adds no coverage and is deliberately absent from
+  // `tsconfig.json`'s references — running it there would compile the same
+  // files a second time to learn nothing.
+  //
+  // The rest of the log feature has a root of its own next door
+  // (`tsconfig.logs-views.json`), and the two are separate on purpose: the
+  // export vehicle names an egress API by definition, so a single root holding
+  // both could not tell "the facility reached the vehicle" from "the vehicle is
+  // where it belongs" (#223).
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.logs.tsbuildinfo"
+  },
+  "include": ["src/lib/logs/**/*.ts"]
+}

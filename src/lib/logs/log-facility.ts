@@ -38,9 +38,11 @@
  * review the export is conditional on, is now the **whole** of the protection.
  * No sink, no endpoint, no optional remote mode: the only way a record leaves the
  * device is a file the user exports by hand after reading it.
- * `log-facility.test.ts` asserts that this file names no network API at all,
- * because the distinction ADR-0053 rests on — that a local record is not
- * telemetry — holds only while it is structurally true.
+ * `scripts/log-egress-check.mjs` holds that as a claim about the program rather
+ * than about this file's text — the import closure of `src/lib/logs/` names no
+ * way out of the browser, and the vehicle that does is one named module beside
+ * the screen that calls it — because the distinction ADR-0053 rests on, that a
+ * local record is not telemetry, holds only while it is structurally true.
  *
  * **On its length**, which is past `CODING_STANDARDS.md` §4's thousand lines:
  * about three fifths of it is this commentary, and the code under that is a
