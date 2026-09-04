@@ -61,6 +61,19 @@ export interface LogChannel<E> {
   readonly reader: string;
   /** Maximum entries retained, oldest dropped. */
   readonly cap: number;
+  /**
+   * The version of THIS channel's entry shape, stamped onto every record it
+   * writes and required of every record it reads (#215, #229).
+   *
+   * Per channel, deliberately: no supported-versions list, no range, and no
+   * facility-wide constant — one number for the facility would mean a change to
+   * `search`'s shape invalidating `app`'s records.
+   *
+   * The move-rule is `db/ledger-export.ts`'s, quoted rather than restated: it
+   * moves when a reader written against the previous version would misread a
+   * newer record, and adding a field an old reader can ignore does not move it.
+   */
+  readonly version: number;
   readonly sensitivity: ChannelSensitivity;
   /**
    * Reads one stored record back into the channel's shape, or `null` for
@@ -68,6 +81,11 @@ export interface LogChannel<E> {
    * survives a downgrade, a hand edit and a half-written shape — so a channel
    * owns the parse of its own records, and this is also what infers `E` for
    * every function below.
+   *
+   * It is handed the **entry**, never the envelope around it (§3.1): the
+   * facility owns `v` and the channel owns everything inside. It is also never a
+   * deletion authority — a record it cannot read is kept, disclosed as
+   * unreadable, and removed only by the cap, the shared budget or `Clear`.
    */
   readonly parse: (raw: unknown) => E | null;
 }
@@ -86,6 +104,7 @@ interface ChannelFields<E> {
   domain: TrackedDomainId;
   reader: string;
   cap: number;
+  version: number;
   sensitivity: ChannelSensitivity;
   parse: (raw: unknown) => E | null;
 }
@@ -119,7 +138,7 @@ export function defineChannel<E, R extends string>(
   // The one cast in the module, and it is the guard's own boundary: the
   // declared type exists to reject a blank `reader` at the call site, and the
   // body below only ever reads the plain fields underneath it.
-  const { name, domain, reader, cap, sensitivity, parse } =
+  const { name, domain, reader, cap, version, sensitivity, parse } =
     declaration as unknown as ChannelFields<E>;
   if (reader.trim() === "")
     throw new Error(
@@ -134,6 +153,7 @@ export function defineChannel<E, R extends string>(
     domain,
     reader,
     cap,
+    version,
     sensitivity,
     parse,
   };
@@ -246,22 +266,71 @@ function writeRecords(channel: LogChannel<unknown>, records: unknown[]): void {
 }
 
 /**
- * One channel's entries, oldest first, with anything the channel cannot read
- * dropped. A malformed record is not an error to report: nothing awaits a log,
- * and a reader that threw would take the review screen down with it.
+ * Reads one stored record: the envelope is the facility's, everything inside it
+ * is the channel's.
+ *
+ * A record whose `v` is not this channel's is one **this build cannot read**,
+ * and that is the whole of the rule — no version-0 fallback, no absence rule and
+ * no upcasting (#229). Rewriting a stored record is a write path over data the
+ * code has just admitted it does not understand, so an unreadable record is kept
+ * and skipped instead.
  */
-export function readChannel<E>(channel: LogChannel<E>): E[] {
-  const entries: E[] = [];
-  for (const record of storedRecords(channel)) {
-    const entry = channel.parse(record);
-    if (entry !== null) entries.push(entry);
-  }
-  return entries;
+function readRecord<E>(channel: LogChannel<E>, record: unknown): E | null {
+  if (typeof record !== "object" || record === null) return null;
+  const { v, entry } = record as { v?: unknown; entry?: unknown };
+  if (v !== channel.version) return null;
+  return channel.parse(entry);
 }
 
-/** How many entries a channel currently holds — the count Settings shows. */
+/** What one walk of a channel's store found. */
+export interface ChannelPartition<E> {
+  /** The entries this build can read, oldest first. */
+  entries: E[];
+  /** How many records it could not — a count, never the contents. */
+  unreadable: number;
+}
+
+/**
+ * One channel's store, walked **once**, split into what this build can read and
+ * a count of what it cannot.
+ *
+ * A malformed record is not an error to report: nothing awaits a log, and a
+ * reader that threw would take the review screen down with it. The count is what
+ * stops the review denying that such a record exists — before #229 three
+ * surfaces told the user a channel of unreadable records was empty, showed them
+ * nothing of it, and disabled the one control that could remove it.
+ */
+export function partitionChannel<E>(
+  channel: LogChannel<E>
+): ChannelPartition<E> {
+  const entries: E[] = [];
+  let unreadable = 0;
+  for (const record of storedRecords(channel)) {
+    const entry = readRecord(channel, record);
+    if (entry === null) unreadable += 1;
+    else entries.push(entry);
+  }
+  return { entries, unreadable };
+}
+
+/**
+ * One channel's entries, oldest first, with anything the channel cannot read
+ * dropped.
+ */
+export function readChannel<E>(channel: LogChannel<E>): E[] {
+  return partitionChannel(channel).entries;
+}
+
+/**
+ * How many records a channel currently holds — the count Settings shows, and
+ * what its `Clear` button is enabled on.
+ *
+ * **Raw records, not parsed entries.** An unreadable record occupies a cap slot
+ * and budget bytes exactly like any other, so a parsed count would be the app
+ * denying that something it is storing exists (#229).
+ */
 export function channelEntryCount(channel: LogChannel<unknown>): number {
-  return readChannel(channel).length;
+  return storedRecords(channel).length;
 }
 
 /**
@@ -272,9 +341,12 @@ export function channelEntryCount(channel: LogChannel<unknown>): number {
  */
 export function appendToChannel<E>(channel: LogChannel<E>, entry: E): void {
   if (!isChannelRecording(channel)) return;
+  // The envelope is stamped here and nowhere else, which is what lets a channel
+  // write its own shape and read it back without either half knowing about `v`.
+  const record = { v: channel.version, entry };
   writeRecords(
     channel,
-    capEntries([...storedRecords(channel), entry], channel.cap)
+    capEntries([...storedRecords(channel), record], channel.cap)
   );
   enforceBudget();
 }
@@ -315,7 +387,7 @@ export function deleteChannelEntry<E>(
   const records = storedRecords(channel);
   let readable = -1;
   for (let i = 0; i < records.length; i++) {
-    if (channel.parse(records[i]) === null) continue;
+    if (readRecord(channel, records[i]) === null) continue;
     readable += 1;
     if (readable < index) continue;
     records.splice(i, 1);
@@ -456,15 +528,37 @@ export interface ExportedChannel {
   name: string;
   reader: string;
   sensitivity: ChannelSensitivity;
+  /** The entry-shape version the readable entries below are at. */
+  version: number;
+  /**
+   * How many of this channel's records this build could not read — a count, and
+   * **never the contents** (#229). An older shape may hold exactly the free text
+   * a current one excludes by construction, so the only version of this that
+   * discloses more is the one that shows the record. `version` beside it is what
+   * makes the number interpretable to whoever receives the file.
+   */
+  unreadable: number;
   entries: unknown[];
 }
 
 /** The whole of what a hand-export writes. JSON, and nothing else. */
 export interface LogExport {
   artifact: "inventoria-local-log";
+  /**
+   * The **file format's** version, mirroring line one of the ledger export.
+   * A record's `v` is a different object: one file may carry several channels
+   * at several record versions.
+   */
+  schema_version: typeof LOG_EXPORT_SCHEMA_VERSION;
   exported_at: number;
   channels: ExportedChannel[];
 }
+
+/**
+ * The log export format's version. It moves under `ledger-export.ts`'s rule —
+ * when a reader written against the previous version would misread a newer file.
+ */
+export const LOG_EXPORT_SCHEMA_VERSION = 1;
 
 /**
  * Builds the export payload for the channels the user selected — and only those
@@ -482,12 +576,18 @@ export function buildLogExport(
 ): LogExport {
   return {
     artifact: "inventoria-local-log",
+    schema_version: LOG_EXPORT_SCHEMA_VERSION,
     exported_at,
-    channels: selected.map((channel) => ({
-      name: channel.name,
-      reader: channel.reader,
-      sensitivity: channel.sensitivity,
-      entries: readChannel(channel),
-    })),
+    channels: selected.map((channel) => {
+      const { entries, unreadable } = partitionChannel(channel);
+      return {
+        name: channel.name,
+        reader: channel.reader,
+        sensitivity: channel.sensitivity,
+        version: channel.version,
+        unreadable,
+        entries,
+      };
+    }),
   };
 }

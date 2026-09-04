@@ -51,10 +51,19 @@ import { appendToChannel, defineChannel } from "./log-facility";
  */
 export type VocabularyBucket = "single_token_value" | "multi_token_value";
 
-/** One vocabulary key an empty query contained, and its subset. */
+/**
+ * One vocabulary key an empty query contained, and its subset.
+ *
+ * `bucket` is a **code, not a discriminant** (#215 §5): it decides nothing about
+ * what other fields this record has, so it is narrow where it is written — the
+ * literal union above — and wide where it is stored. A record naming a bucket
+ * this build has not heard of is still a record of a key that was hit, and
+ * costing the whole entry for it would be `parse` acting as a deletion
+ * authority over a field it does not need to understand.
+ */
 export interface VocabularyKeyHit {
   key: string;
-  bucket: VocabularyBucket;
+  bucket: string;
 }
 
 /** What the Vocabulary map had to say about one empty query. */
@@ -126,12 +135,14 @@ export function flagVocabulary(
       const keyWords = wordsOf(key);
       if (keyWords.length !== 1) continue;
       if (!stems.has(stemOf(keyWords[0]))) continue;
-      mid_phrase.push({
-        key,
-        bucket: expansions.every((phrase) => wordsOf(phrase).length === 1)
-          ? "single_token_value"
-          : "multi_token_value",
-      });
+      // Typed to the union at the write boundary, which is where the narrowing
+      // belongs — the field it lands in is a plain string.
+      const bucket: VocabularyBucket = expansions.every(
+        (phrase) => wordsOf(phrase).length === 1
+      )
+        ? "single_token_value"
+        : "multi_token_value";
+      mid_phrase.push({ key, bucket });
     }
   }
   return { mid_phrase, schema_version };
@@ -309,8 +320,7 @@ function parseFlags(raw: unknown): SearchVocabularyFlags | null {
     if (typeof hit !== "object" || hit === null) return null;
     const { key, bucket } = hit as { key?: unknown; bucket?: unknown };
     if (typeof key !== "string") return null;
-    if (bucket !== "single_token_value" && bucket !== "multi_token_value")
-      return null;
+    if (typeof bucket !== "string") return null;
     hits.push({ key, bucket });
   }
   return { mid_phrase: hits, schema_version };
@@ -361,6 +371,11 @@ export const SEARCH_CHANNEL = defineChannel({
   reader:
     "#142 and #123; decides whether a per-token vocabulary tier is built, at the bar in ADR-0053 §7.",
   cap: 200,
+  // The shape below, as it stands. It moves when a reader written against the
+  // previous version would misread a newer record — `ledger-export.ts`'s rule,
+  // per channel because one number for the whole facility would have a change
+  // here invalidate another channel's records.
+  version: 1,
   sensitivity: "personal",
   parse: parseSearchLogEntry,
 });

@@ -57,17 +57,22 @@ function declareNotes(
   facility: Facility,
   name: string,
   cap = 3,
-  domain: TrackedDomainId = "food"
+  domain: TrackedDomainId = "food",
+  version = 1
 ) {
   return facility.defineChannel({
     name,
     domain,
     reader: "the tests below; decides whether the facility works.",
     cap,
+    version,
     sensitivity: "technical",
     parse: parseNote,
   });
 }
+
+/** One record as it is actually stored: the facility's envelope round an entry. */
+const stored = (entry: unknown, v = 1) => ({ v, entry });
 
 beforeEach(() => {
   vi.unstubAllGlobals();
@@ -92,6 +97,7 @@ describe("declaring a channel", () => {
         domain: "food",
         reader: "   ",
         cap: 10,
+        version: 1,
         sensitivity: "technical",
         parse: parseNote,
       })
@@ -159,7 +165,7 @@ describe("storage", () => {
     const channel = declareNotes(facility, "notes");
     ls.store.set(
       "inventoria_log_notes",
-      JSON.stringify([{ text: "kept" }, { wrong: true }])
+      JSON.stringify([stored({ text: "kept" }), stored({ wrong: true })])
     );
 
     expect(facility.readChannel(channel)).toEqual([{ text: "kept" }]);
@@ -295,21 +301,21 @@ describe("redaction", () => {
     ls.store.set(
       "inventoria_log_notes",
       JSON.stringify([
-        { older: "shape" },
-        { text: "keep" },
-        { half: "written" },
-        { text: "redact me" },
+        stored({ text: "older shape" }, 0),
+        stored({ text: "keep" }),
+        stored({ half: "written" }),
+        stored({ text: "redact me" }),
       ])
     );
 
     facility.deleteChannelEntry(channel, 1);
 
     expect(facility.readChannel(channel)).toEqual([{ text: "keep" }]);
-    const stored: unknown[] = JSON.parse(ls.store.get("inventoria_log_notes")!);
-    expect(stored).toEqual([
-      { older: "shape" },
-      { text: "keep" },
-      { half: "written" },
+    const kept: unknown[] = JSON.parse(ls.store.get("inventoria_log_notes")!);
+    expect(kept).toEqual([
+      stored({ text: "older shape" }, 0),
+      stored({ text: "keep" }),
+      stored({ half: "written" }),
     ]);
   });
 
@@ -324,10 +330,10 @@ describe("redaction", () => {
     ls.store.set(
       "inventoria_log_notes",
       JSON.stringify([
-        { unreadable: 1 },
-        { text: "zero" },
-        { unreadable: 2 },
-        { text: "one" },
+        stored({ unreadable: 1 }),
+        stored({ text: "zero" }),
+        stored({ unreadable: 2 }),
+        stored({ text: "one" }),
       ])
     );
 
@@ -343,14 +349,14 @@ describe("redaction", () => {
     const channel = declareNotes(facility, "notes");
     ls.store.set(
       "inventoria_log_notes",
-      JSON.stringify([{ unreadable: 1 }, { text: "only" }])
+      JSON.stringify([stored({ unreadable: 1 }), stored({ text: "only" })])
     );
 
     facility.deleteChannelEntry(channel, -1);
     facility.deleteChannelEntry(channel, 1);
 
-    const stored: unknown[] = JSON.parse(ls.store.get("inventoria_log_notes")!);
-    expect(stored).toEqual([{ unreadable: 1 }, { text: "only" }]);
+    const kept: unknown[] = JSON.parse(ls.store.get("inventoria_log_notes")!);
+    expect(kept).toEqual([stored({ unreadable: 1 }), stored({ text: "only" })]);
   });
 
   it("clears a whole channel", async () => {
@@ -430,16 +436,156 @@ describe("the export payload", () => {
 
     expect(payload).toEqual({
       artifact: "inventoria-local-log",
+      schema_version: 1,
       exported_at: 1700000000000,
       channels: [
         {
           name: "chosen",
           reader: chosen.reader,
           sensitivity: "technical",
+          version: 1,
+          unreadable: 0,
           entries: [{ text: "mine" }],
         },
       ],
     });
+  });
+
+  it("counts what it could not read, and carries none of it (#229)", async () => {
+    // A count, never the contents: an older shape may hold exactly the free
+    // text a current one excludes by construction. `version` is what makes the
+    // count interpretable to whoever receives the file.
+    const ls = makeFakeLocalStorage();
+    vi.stubGlobal("localStorage", ls);
+    const facility = await loadFacility();
+    const channel = declareNotes(facility, "notes", 3, "food", 2);
+    ls.store.set(
+      "inventoria_log_notes",
+      JSON.stringify([
+        stored({ text: "last year's shape" }, 1),
+        stored({ text: "current" }, 2),
+      ])
+    );
+
+    const payload = facility.buildLogExport([channel], 1700000000000);
+
+    expect(payload.channels[0]).toMatchObject({
+      version: 2,
+      unreadable: 1,
+      entries: [{ text: "current" }],
+    });
+    expect(JSON.stringify(payload)).not.toContain("last year's shape");
+  });
+});
+
+describe("the version envelope (#229)", () => {
+  it("stamps the channel's version and hands parse the entry alone", async () => {
+    // `parse` never sees `v`, which is the property #214 §4's facility-owned
+    // diagnostic entry depends on: an entry shape keeps no dependency on the
+    // envelope round it.
+    const ls = makeFakeLocalStorage();
+    vi.stubGlobal("localStorage", ls);
+    const facility = await loadFacility();
+    const seen: unknown[] = [];
+    const channel = facility.defineChannel({
+      name: "notes",
+      domain: "food" as TrackedDomainId,
+      reader: "this test; decides whether parse sees the envelope.",
+      cap: 3,
+      version: 7,
+      sensitivity: "technical",
+      parse: (raw: unknown) => {
+        seen.push(raw);
+        return parseNote(raw);
+      },
+    });
+
+    facility.appendToChannel(channel, { text: "one" });
+    facility.readChannel(channel);
+
+    expect(JSON.parse(ls.store.get("inventoria_log_notes")!)).toEqual([
+      { v: 7, entry: { text: "one" } },
+    ]);
+    expect(seen).toEqual([{ text: "one" }]);
+  });
+
+  it("skips a record at another version, and keeps it", async () => {
+    const ls = makeFakeLocalStorage();
+    vi.stubGlobal("localStorage", ls);
+    const facility = await loadFacility();
+    const channel = declareNotes(facility, "notes", 10, "food", 2);
+    ls.store.set(
+      "inventoria_log_notes",
+      JSON.stringify([stored({ text: "v1" }, 1), { text: "no envelope" }])
+    );
+
+    facility.appendToChannel(channel, { text: "v2" });
+    facility.deleteChannelEntry(channel, 0);
+
+    // The appended entry was the only readable one, so redacting index 0 took
+    // it — and neither unreadable record moved.
+    expect(facility.readChannel(channel)).toEqual([]);
+    expect(JSON.parse(ls.store.get("inventoria_log_notes")!)).toEqual([
+      stored({ text: "v1" }, 1),
+      { text: "no envelope" },
+    ]);
+  });
+
+  it("counts raw records, so a channel of unreadable ones can be cleared", async () => {
+    // `channelEntryCount` feeds `disabled={entries === 0}`, so a parsed count
+    // told the user a channel was empty, showed them nothing of it, and left
+    // them no way to remove what was really there.
+    const ls = makeFakeLocalStorage();
+    vi.stubGlobal("localStorage", ls);
+    const facility = await loadFacility();
+    const channel = declareNotes(facility, "notes", 10, "food", 2);
+    ls.store.set(
+      "inventoria_log_notes",
+      JSON.stringify([stored({ text: "v1" }, 1), stored({ text: "also" }, 1)])
+    );
+
+    expect(facility.channelEntryCount(channel)).toBe(2);
+    expect(facility.readChannel(channel)).toEqual([]);
+  });
+
+  it("parses a golden stored record, envelope and all", async () => {
+    // Without this the stamp never pays for itself, because `version` never
+    // moves. It says nothing about older versions: #215 §6 leaves that optional,
+    // so there is nothing to assert.
+    const ls = makeFakeLocalStorage();
+    vi.stubGlobal("localStorage", ls);
+    const facility = await loadFacility();
+    const channel = declareNotes(facility, "notes");
+    ls.store.set(
+      "inventoria_log_notes",
+      JSON.stringify([{ v: 1, entry: { text: "golden" } }])
+    );
+
+    expect(facility.readChannel(channel)).toEqual([{ text: "golden" }]);
+  });
+
+  it("walks the store once per read", async () => {
+    let reads = 0;
+    const ls = makeFakeLocalStorage();
+    vi.stubGlobal("localStorage", {
+      ...ls,
+      getItem: (k: string) => {
+        reads += 1;
+        return ls.getItem(k);
+      },
+    });
+    const facility = await loadFacility();
+    const channel = declareNotes(facility, "notes");
+    ls.store.set(
+      "inventoria_log_notes",
+      JSON.stringify([stored({ text: "one" })])
+    );
+
+    reads = 0;
+    const partition = facility.partitionChannel(channel);
+
+    expect(partition).toEqual({ entries: [{ text: "one" }], unreadable: 0 });
+    expect(reads).toBe(1);
   });
 });
 

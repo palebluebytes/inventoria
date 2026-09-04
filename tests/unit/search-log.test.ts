@@ -242,6 +242,78 @@ describe("the search channel", () => {
     expect(SEARCH_CHANNEL.reader).toMatch(/#123/);
   });
 
+  it("declares the version its entry shape is at (#229)", async () => {
+    const { SEARCH_CHANNEL } = await loadSearchLog();
+    expect(SEARCH_CHANNEL.version).toBe(1);
+  });
+
+  it("parses a golden stored record, envelope and all (#229)", async () => {
+    // The one thing that makes the stamp pay for itself: without a golden,
+    // `version` never moves, because nothing notices the shape changed.
+    const ls = makeFakeLocalStorage();
+    vi.stubGlobal("localStorage", ls);
+    const log = await loadSearchLog();
+    const facility = await import("../../src/lib/logs/log-facility");
+    ls.store.set(
+      "inventoria_log_search",
+      JSON.stringify([
+        {
+          v: 1,
+          entry: {
+            query: "raw aubergine",
+            outcome: {
+              kind: "resolved_after_correction",
+              corrected_by: "aubergine",
+            },
+            settled: true,
+            vocabulary: {
+              mid_phrase: [{ key: "aubergine", bucket: "single_token_value" }],
+              schema_version: 4,
+            },
+            at: 1700000000000,
+          },
+        },
+      ])
+    );
+
+    expect(facility.readChannel(log.SEARCH_CHANNEL)).toEqual([
+      {
+        query: "raw aubergine",
+        outcome: {
+          kind: "resolved_after_correction",
+          corrected_by: "aubergine",
+        },
+        settled: true,
+        vocabulary: {
+          mid_phrase: [{ key: "aubergine", bucket: "single_token_value" }],
+          schema_version: 4,
+        },
+        at: 1700000000000,
+      },
+    ]);
+  });
+
+  it("keeps a record naming a bucket it has not heard of (#229 §5)", async () => {
+    // `bucket` is a code and decides nothing about the rest of the record, so an
+    // unfamiliar one must not cost the entry. `outcome.kind` is a discriminant —
+    // it decides whether `corrected_by` exists — and stays strict.
+    const { SEARCH_CHANNEL } = await loadSearchLog();
+    const entry = {
+      query: "raw aubergine",
+      outcome: { kind: "nothing" },
+      settled: true,
+      vocabulary: {
+        mid_phrase: [{ key: "aubergine", bucket: "a_bucket_from_next_year" }],
+        schema_version: 4,
+      },
+      at: 1,
+    };
+    expect(SEARCH_CHANNEL.parse(entry)).not.toBeNull();
+    expect(
+      SEARCH_CHANNEL.parse({ ...entry, outcome: { kind: "a_new_outcome" } })
+    ).toBeNull();
+  });
+
   it("refuses a stored record that is not an entry", async () => {
     const { SEARCH_CHANNEL } = await loadSearchLog();
     expect(SEARCH_CHANNEL.parse({ query: 42 })).toBeNull();

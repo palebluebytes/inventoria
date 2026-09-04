@@ -8,7 +8,7 @@
     buildLogExport,
     channelsOfFacet,
     deleteChannelEntry,
-    readChannel,
+    partitionChannel,
     type LogChannel,
   } from "../../logs/log-facility";
   import type { FacetId } from "../../facets/registry";
@@ -58,9 +58,13 @@
   let selected = $derived(
     channels.filter((c) => selectedNames.includes(c.name))
   );
-  let entriesByChannel = $derived.by(() => {
+  // One walk per channel, holding both halves: what this build can read and how
+  // many records it cannot. The second is disclosed rather than hidden (#229) —
+  // a channel holding only unreadable records used to print "Nothing recorded
+  // yet" over records that were really there.
+  let contentsByChannel = $derived.by(() => {
     void revision;
-    return new Map(channels.map((c) => [c.name, readChannel(c)] as const));
+    return new Map(channels.map((c) => [c.name, partitionChannel(c)] as const));
   });
   // The value the file will hold, built by the same function the export calls:
   // the review IS the payload, not a summary of it.
@@ -105,7 +109,9 @@
   </p>
 
   {#each channels as channel (channel.name)}
-    {@const entries = entriesByChannel.get(channel.name) ?? []}
+    {@const contents = contentsByChannel.get(channel.name)}
+    {@const entries = contents?.entries ?? []}
+    {@const unreadable = contents?.unreadable ?? 0}
     <section class="channel">
       <Checkbox
         class="channel-head"
@@ -122,6 +128,16 @@
         </span>
       </Checkbox>
       <p class="reader">{channel.reader}</p>
+
+      {#if unreadable > 0}
+        <!-- Named, never shown: an older shape may hold exactly the free text
+             the current one excludes by construction, so the review discloses
+             that the records exist and Clear is what removes them. -->
+        <p class="empty">
+          {unreadable} record{unreadable === 1 ? "" : "s"} written by another version
+          of this app, which this one cannot read. They are not in the export.
+        </p>
+      {/if}
 
       {#if entries.length === 0}
         <p class="empty">Nothing recorded yet.</p>
