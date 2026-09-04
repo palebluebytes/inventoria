@@ -70,7 +70,16 @@ export function domainCensusGroups(): EntityCensusGroup[] {
 export function facetStorageKeys(facetId: FacetId): string[] {
   const prefixes = storagePrefixesOf(facetId);
   const channelKeys = new Set(
-    channelsOfFacet(facetId).map((channel) => channelStorageKey(channel))
+    channelsOfFacet(facetId)
+      // A **jar-wide** channel is in every Facet's card and every Facet's
+      // export, and in no Facet's wipe (ADR-0092 §13). Both halves are ADR-0080
+      // clause (b) applied to a channel every Facet writes: a Rations user's
+      // OPFS failure is written by Rations' running code, so Rations governs
+      // its disclosure — but this control is ADR-0079 §1's *delete all my food
+      // data*, and the app's own narration is not that. Deletion is
+      // irreversible, so it stays jar-wide while visibility follows the writer.
+      .filter((channel) => channel.domain !== null)
+      .map((channel) => channelStorageKey(channel))
   );
   try {
     if (typeof localStorage === "undefined") return [];

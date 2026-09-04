@@ -1,8 +1,8 @@
 <script lang="ts">
   import Card from "../../ui/Card.svelte";
   import Button from "../../ui/Button.svelte";
-  import Badge from "../../ui/Badge.svelte";
   import Checkbox from "../../ui/Checkbox.svelte";
+  import Segmented from "../../ui/Segmented.svelte";
   import LogReviewSheet from "./LogReviewSheet.svelte";
   import {
     logExportEnabledFor,
@@ -12,8 +12,12 @@
     channelEntryCount,
     channelsOfFacet,
     clearChannel,
+    dialPosition,
+    DIAL_POSITIONS,
     isChannelRecording,
     setChannelRecording,
+    setDialPosition,
+    type DialPosition,
     type LogChannel,
   } from "../../logs/log-facility";
   import type { FacetId } from "../../facets/registry";
@@ -24,8 +28,8 @@
   import "../../logs/search-log";
 
   // The controls ADR-0053 §1 names — the entry count, a switch that stops the
-  // recording, and an action that clears the log — plus ADR-0054 §4's export
-  // switch. Control and discoverability come from these; they do not
+  // recording, and an action that clears the log — plus the export switch and
+  // ADR-0092 §4's dial. Control and discoverability come from these; they do not
   // come from making the instrument opt-in, because a recorder gated behind a
   // toggle that defaults to off measures nothing.
   //
@@ -87,6 +91,34 @@
 
   let reviewing = $state(false);
 
+  // The dial (ADR-0092 §4). **One dial, facility-wide, on a card that renders
+  // once per Facet** — so both cards move the same value, and that is deliberate
+  // twice over. It is the departure from every framework #264 surveyed, which
+  // resolve a dial per logger; none of those arbitrates a shared fixed ceiling,
+  // and asking a user to buy room in one channel by narrowing another is not
+  // something any view can present honestly. And a Rations-only install is a
+  // supported install with no way out (ADR-0078), so its user has to be able to
+  // reach the control that governs what their device records.
+  //
+  // Held as the threshold's decimal string, because that is what a single-choice
+  // control's values are; the facility stores the number.
+  // svelte-ignore state_referenced_locally
+  let dial = $state(String(dialPosition()));
+  const dialOptions = DIAL_POSITIONS.map((position) => ({
+    value: String(position.threshold),
+    label: position.label,
+  }));
+  let dialReads = $derived(
+    DIAL_POSITIONS.find((position) => String(position.threshold) === dial)
+      ?.reads
+  );
+  // Writes only a move. The guard is what keeps the first run — which fires with
+  // the position already in force — from creating the key nobody has touched.
+  $effect(() => {
+    const chosen = Number(dial) as DialPosition;
+    if (chosen !== dialPosition()) setDialPosition(chosen);
+  });
+
   function toggleRecording(channel: LogChannel<unknown>, on: boolean) {
     setChannelRecording(channel, on);
     revision += 1;
@@ -127,17 +159,25 @@
     >
   </div>
 
+  <div class="form-group">
+    <Segmented
+      options={dialOptions}
+      bind:value={dial}
+      label="How much is recorded"
+    />
+    <span class="help-text"
+      >{dialReads} It is not an off switch: each channel's Recording switch below
+      is that.</span
+    >
+  </div>
+
   {#each stored as { channel, entries, recording } (channel.name)}
     <section class="channel">
       <div class="channel-head">
         <span class="channel-name">{channel.name}</span>
-        <Badge
-          variant={channel.sensitivity === "personal" ? "warning" : "neutral"}
-          >{channel.sensitivity}</Badge
-        >
         <span class="count">{entries} entries of {channel.cap}</span>
       </div>
-      <p class="reader">{channel.reader}</p>
+      <p class="purpose">{channel.purpose}</p>
       <div class="channel-actions">
         <Checkbox
           label="Recording"
@@ -181,13 +221,13 @@
     margin: 0;
   }
   .lead,
-  .reader,
+  .purpose,
   .help-text {
     font-size: var(--step-n1);
     color: var(--text-secondary);
     margin: var(--space-2xs) 0 0;
   }
-  .reader,
+  .purpose,
   .help-text {
     font-size: var(--step-n2);
     font-style: italic;

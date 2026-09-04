@@ -253,6 +253,47 @@ describe("the scoped wipe's storage predicate", () => {
   });
 });
 
+describe("a jar-wide channel is in no Facet's wipe (ADR-0092 §13)", () => {
+  it("leaves its key standing, and still shows it in every Facet's card", async () => {
+    // The two filters point opposite ways, deliberately. Visibility and export
+    // follow the writer — a Rations user's OPFS failure is written by Rations'
+    // running code — while deletion is irreversible, so "delete all my food
+    // data" never reaches the app's own narration.
+    vi.resetModules();
+    const facility = await import("../../src/lib/logs/log-facility");
+    await import("../../src/lib/logs/search-log");
+    const wipe = await import("../../src/lib/facets/facet-wipe");
+    facility.defineChannel({
+      name: "narration",
+      domain: null,
+      purpose: "this test; it decides whether a wipe takes a jar-wide channel.",
+      cap: 5,
+      version: 1,
+      parse: (raw: unknown) => raw ?? null,
+    });
+    vi.stubGlobal(
+      "localStorage",
+      makeFakeLocalStorage({
+        ...OTHER_KEYS,
+        ...FOOD_KEYS,
+        inventoria_log_narration: "[]",
+      })
+    );
+
+    for (const facet of ["food", "root"] as const) {
+      expect(wipe.facetStorageKeys(facet)).not.toContain(
+        "inventoria_log_narration"
+      );
+      expect(facility.channelsOfFacet(facet).map((c) => c.name)).toContain(
+        "narration"
+      );
+    }
+    // Food's own channel still goes, so the exclusion is the null domain and
+    // not a wipe that stopped taking log keys.
+    expect(wipe.facetStorageKeys("food")).toContain("inventoria_log_search");
+  });
+});
+
 // ---------------------------------------------------------------------------
 // What the dialog is told
 // ---------------------------------------------------------------------------

@@ -3,11 +3,11 @@ import { readFileSync } from "node:fs";
 import type { TrackedDomainId } from "../../src/lib/facets/registry";
 
 /**
- * The local log facility (ADR-0054): channels, their caps, the shared byte
- * budget, redaction, and the reviewed export. Everything here is asserted
- * against the real `localStorage` read/write path, through a fake store the Node
- * runner can carry — the same arrangement `secrets.test.ts` uses, for the same
- * reason: the guarded accessors ARE the behaviour being tested.
+ * The local log facility (ADR-0092): channels, levels, the dial, the caps, the
+ * shared byte budget, redaction, and the reviewed export. Everything here is
+ * asserted against the real `localStorage` read/write path, through a fake store
+ * the Node runner can carry — the same arrangement `secrets.test.ts` uses, for
+ * the same reason: the guarded accessors ARE the behaviour being tested.
  */
 
 interface FakeLocalStorage {
@@ -57,22 +57,24 @@ function declareNotes(
   facility: Facility,
   name: string,
   cap = 3,
-  domain: TrackedDomainId = "food",
+  domain: TrackedDomainId | null = "food",
   version = 1
 ) {
   return facility.defineChannel({
     name,
     domain,
-    reader: "the tests below; decides whether the facility works.",
+    purpose: "the tests below; they decide whether the facility works.",
     cap,
     version,
-    sensitivity: "technical",
     parse: parseNote,
   });
 }
 
 /** One record as it is actually stored: the facility's envelope round an entry. */
-const stored = (entry: unknown, v = 1) => ({ v, entry });
+const stored = (entry: unknown, v = 1, lvl = 9) => ({ v, lvl, entry });
+
+/** INFO, which every dial position captures. Levels have their own block below. */
+const INFO = 9 as const;
 
 beforeEach(() => {
   vi.unstubAllGlobals();
@@ -89,19 +91,20 @@ describe("declaring a channel", () => {
     expect(facility.registeredChannels()).toEqual([channel]);
   });
 
-  it("refuses a channel whose reader names nobody (ADR-0054 §2)", async () => {
+  it("refuses a channel whose purpose says nothing (ADR-0092 §2)", async () => {
+    // The type catches `""` and a runtime-assembled `string`; it cannot see
+    // through a space, which is why this one throw survives.
     const facility = await loadFacility();
     expect(() =>
       facility.defineChannel({
-        name: "unread",
+        name: "unstated",
         domain: "food",
-        reader: "   ",
+        purpose: "   ",
         cap: 10,
         version: 1,
-        sensitivity: "technical",
         parse: parseNote,
       })
-    ).toThrow(/reader/i);
+    ).toThrow(/purpose/i);
   });
 
   it("refuses a second channel under the same name", async () => {
@@ -123,7 +126,7 @@ describe("storage", () => {
     const facility = await loadFacility();
     const channel = declareNotes(facility, "notes");
 
-    facility.appendToChannel(channel, { text: "one" });
+    facility.appendToChannel(channel, { text: "one" }, INFO);
 
     expect([...ls.store.keys()]).toEqual(["inventoria_log_notes"]);
     expect(facility.readChannel(channel)).toEqual([{ text: "one" }]);
@@ -134,8 +137,8 @@ describe("storage", () => {
     const facility = await loadFacility();
     const channel = declareNotes(facility, "notes");
 
-    facility.appendToChannel(channel, { text: "one" });
-    facility.appendToChannel(channel, { text: "two" });
+    facility.appendToChannel(channel, { text: "one" }, INFO);
+    facility.appendToChannel(channel, { text: "two" }, INFO);
 
     expect(facility.readChannel(channel)).toEqual([
       { text: "one" },
@@ -148,9 +151,9 @@ describe("storage", () => {
     const facility = await loadFacility();
     const channel = declareNotes(facility, "notes", 2);
 
-    facility.appendToChannel(channel, { text: "one" });
-    facility.appendToChannel(channel, { text: "two" });
-    facility.appendToChannel(channel, { text: "three" });
+    facility.appendToChannel(channel, { text: "one" }, INFO);
+    facility.appendToChannel(channel, { text: "two" }, INFO);
+    facility.appendToChannel(channel, { text: "three" }, INFO);
 
     expect(facility.readChannel(channel)).toEqual([
       { text: "two" },
@@ -188,7 +191,7 @@ describe("best-effort writing", () => {
     const channel = declareNotes(facility, "notes");
 
     expect(() =>
-      facility.appendToChannel(channel, { text: "one" })
+      facility.appendToChannel(channel, { text: "one" }, INFO)
     ).not.toThrow();
     expect(facility.readChannel(channel)).toEqual([]);
   });
@@ -204,7 +207,7 @@ describe("best-effort writing", () => {
     const channel = declareNotes(facility, "notes");
 
     expect(() =>
-      facility.appendToChannel(channel, { text: "one" })
+      facility.appendToChannel(channel, { text: "one" }, INFO)
     ).not.toThrow();
     expect(facility.readChannel(channel)).toEqual([]);
   });
@@ -258,10 +261,10 @@ describe("the shared byte budget", () => {
     const facility = await loadFacility();
     const big = declareNotes(facility, "big", 500);
     const small = declareNotes(facility, "small", 500);
-    facility.appendToChannel(small, { text: "small" });
+    facility.appendToChannel(small, { text: "small" }, INFO);
     const bulky = "x".repeat(100_000);
     for (let i = 0; i < 4; i++)
-      facility.appendToChannel(big, { text: `${i}${bulky}` });
+      facility.appendToChannel(big, { text: `${i}${bulky}` }, INFO);
 
     // 4 × 100 KB is over the 256 KiB budget, so the big channel has shed and the
     // small one is untouched.
@@ -278,8 +281,8 @@ describe("redaction", () => {
     vi.stubGlobal("localStorage", ls);
     const facility = await loadFacility();
     const channel = declareNotes(facility, "notes");
-    facility.appendToChannel(channel, { text: "keep" });
-    facility.appendToChannel(channel, { text: "redact me" });
+    facility.appendToChannel(channel, { text: "keep" }, INFO);
+    facility.appendToChannel(channel, { text: "redact me" }, INFO);
 
     facility.deleteChannelEntry(channel, 1);
 
@@ -364,7 +367,7 @@ describe("redaction", () => {
     vi.stubGlobal("localStorage", ls);
     const facility = await loadFacility();
     const channel = declareNotes(facility, "notes");
-    facility.appendToChannel(channel, { text: "one" });
+    facility.appendToChannel(channel, { text: "one" }, INFO);
 
     facility.clearChannel(channel);
 
@@ -380,7 +383,7 @@ describe("the recording switch", () => {
     const channel = declareNotes(facility, "notes");
 
     facility.setChannelRecording(channel, false);
-    facility.appendToChannel(channel, { text: "one" });
+    facility.appendToChannel(channel, { text: "one" }, INFO);
 
     expect(facility.isChannelRecording(channel)).toBe(false);
     expect(facility.readChannel(channel)).toEqual([]);
@@ -393,7 +396,7 @@ describe("the recording switch", () => {
 
     facility.setChannelRecording(channel, false);
     facility.setChannelRecording(channel, true);
-    facility.appendToChannel(channel, { text: "one" });
+    facility.appendToChannel(channel, { text: "one" }, INFO);
 
     expect(facility.readChannel(channel)).toEqual([{ text: "one" }]);
   });
@@ -409,7 +412,7 @@ describe("the recording switch", () => {
 
     facility.setChannelRecording(paused, false);
     facility.setChannelRecording(paused, true);
-    facility.appendToChannel(paused, { text: "one" });
+    facility.appendToChannel(paused, { text: "one" }, INFO);
 
     expect(facility.readChannel(paused)).toEqual([{ text: "one" }]);
     expect([...ls.store.keys()]).toEqual(["inventoria_log_paused"]);
@@ -423,14 +426,191 @@ describe("the recording switch", () => {
   });
 });
 
+describe("levels and the dial (ADR-0092 §4, §5)", () => {
+  it("names four anchors and nothing between them", async () => {
+    const facility = await loadFacility();
+    expect(facility.SEVERITY).toEqual({
+      ERROR: 17,
+      WARN: 13,
+      INFO: 9,
+      DEBUG: 5,
+    });
+  });
+
+  it("offers three positions, the middle one by default", async () => {
+    // ERROR is not a position: no dial setting hides a warning. `Normal` is the
+    // default, so the boot narration and the per-fire sequence are never a
+    // standing cost.
+    vi.stubGlobal("localStorage", makeFakeLocalStorage());
+    const facility = await loadFacility();
+    expect(facility.DIAL_POSITIONS.map((p) => p.threshold)).toEqual([13, 9, 5]);
+    expect(facility.dialPosition()).toBe(9);
+  });
+
+  it("stores the threshold, never one of three category names", async () => {
+    // A position is a threshold on a continuous scale, so it includes everything
+    // more severe for free and widening later moves a number.
+    const ls = makeFakeLocalStorage();
+    vi.stubGlobal("localStorage", ls);
+    const facility = await loadFacility();
+
+    facility.setDialPosition(5);
+
+    expect(ls.store.get("inventoria_logs_level")).toBe("5");
+    expect(facility.dialPosition()).toBe(5);
+  });
+
+  it("keeps its key beside the pause, out of the channel keyspace", async () => {
+    const ls = makeFakeLocalStorage();
+    vi.stubGlobal("localStorage", ls);
+    const facility = await loadFacility();
+    facility.setDialPosition(13);
+    expect([...ls.store.keys()]).toEqual(["inventoria_logs_level"]);
+  });
+
+  it("reads a stored position that is not one of the three as the default", async () => {
+    const ls = makeFakeLocalStorage();
+    vi.stubGlobal("localStorage", ls);
+    ls.store.set("inventoria_logs_level", "17");
+    const facility = await loadFacility();
+    expect(facility.dialPosition()).toBe(9);
+  });
+
+  it("resolves the threshold once and holds it", async () => {
+    // `capturedAt` sits on the search's per-fire path, so a `localStorage` read
+    // per keystroke is exactly what this avoids.
+    let reads = 0;
+    const ls = makeFakeLocalStorage();
+    vi.stubGlobal("localStorage", {
+      ...ls,
+      getItem: (k: string) => {
+        reads += 1;
+        return ls.getItem(k);
+      },
+    });
+    const facility = await loadFacility();
+
+    for (let i = 0; i < 20; i++) facility.capturedAt(9);
+
+    expect(reads).toBe(1);
+  });
+
+  it("captures everything at or above the position, and nothing below", async () => {
+    vi.stubGlobal("localStorage", makeFakeLocalStorage());
+    const facility = await loadFacility();
+
+    facility.setDialPosition(13);
+    expect(
+      ([17, 13, 9, 5] as const).map((l) => facility.capturedAt(l))
+    ).toEqual([true, true, false, false]);
+
+    facility.setDialPosition(5);
+    expect(
+      ([17, 13, 9, 5] as const).map((l) => facility.capturedAt(l))
+    ).toEqual([true, true, true, true]);
+  });
+
+  it("stamps the level on the envelope, where parse never sees it", async () => {
+    const ls = makeFakeLocalStorage();
+    vi.stubGlobal("localStorage", ls);
+    const facility = await loadFacility();
+    const seen: unknown[] = [];
+    const channel = facility.defineChannel({
+      name: "notes",
+      domain: "food" as TrackedDomainId,
+      purpose: "this test; it decides whether parse sees the level.",
+      cap: 3,
+      version: 1,
+      parse: (raw: unknown) => {
+        seen.push(raw);
+        return parseNote(raw);
+      },
+    });
+
+    facility.appendToChannel(channel, { text: "one" }, 17);
+    facility.readChannel(channel);
+
+    expect(JSON.parse(ls.store.get("inventoria_log_notes")!)).toEqual([
+      { v: 1, lvl: 17, entry: { text: "one" } },
+    ]);
+    expect(seen).toEqual([{ text: "one" }]);
+  });
+
+  it("drops a write below the position, and keeps one at it", async () => {
+    vi.stubGlobal("localStorage", makeFakeLocalStorage());
+    const facility = await loadFacility();
+    const channel = declareNotes(facility, "notes");
+
+    facility.setDialPosition(13);
+    facility.appendToChannel(channel, { text: "info" }, 9);
+    facility.appendToChannel(channel, { text: "warn" }, 13);
+
+    expect(facility.readChannel(channel)).toEqual([{ text: "warn" }]);
+  });
+
+  it("reads a record written before the level existed, and invents none", async () => {
+    const ls = makeFakeLocalStorage();
+    vi.stubGlobal("localStorage", ls);
+    const facility = await loadFacility();
+    const channel = declareNotes(facility, "notes");
+    ls.store.set(
+      "inventoria_log_notes",
+      JSON.stringify([{ v: 1, entry: { text: "no level" } }])
+    );
+
+    expect(facility.readChannel(channel)).toEqual([{ text: "no level" }]);
+    // Nothing rewrote it, and nothing treated its absence as a reason to shed it.
+    expect(JSON.parse(ls.store.get("inventoria_log_notes")!)).toEqual([
+      { v: 1, entry: { text: "no level" } },
+    ]);
+  });
+
+  it("sheds by age whatever the levels are (§6)", async () => {
+    // The cap reads no level, refuses no record and reserves no slot: a log is
+    // read as a sequence, and shedding by level deletes the context round the
+    // record it saves.
+    vi.stubGlobal("localStorage", makeFakeLocalStorage());
+    const facility = await loadFacility();
+    const channel = declareNotes(facility, "notes", 2);
+
+    facility.setDialPosition(5);
+    facility.appendToChannel(channel, { text: "old error" }, 17);
+    facility.appendToChannel(channel, { text: "debug" }, 5);
+    facility.appendToChannel(channel, { text: "info" }, 9);
+
+    expect(facility.readChannel(channel)).toEqual([
+      { text: "debug" },
+      { text: "info" },
+    ]);
+  });
+
+  it("is not an off switch, and the pause is not a dial", async () => {
+    // Orthogonal: the dial says how much detail, the pause says whether this
+    // stream at all. Neither position can silence a channel, and no pause
+    // changes what another channel captures.
+    vi.stubGlobal("localStorage", makeFakeLocalStorage());
+    const facility = await loadFacility();
+    const paused = declareNotes(facility, "paused-one");
+    const loud = declareNotes(facility, "loud");
+
+    facility.setDialPosition(5);
+    facility.setChannelRecording(paused, false);
+    facility.appendToChannel(paused, { text: "hushed" }, 17);
+    facility.appendToChannel(loud, { text: "trace" }, 5);
+
+    expect(facility.readChannel(paused)).toEqual([]);
+    expect(facility.readChannel(loud)).toEqual([{ text: "trace" }]);
+  });
+});
+
 describe("the export payload", () => {
   it("carries only the chosen channels, each with what the review showed", async () => {
     vi.stubGlobal("localStorage", makeFakeLocalStorage());
     const facility = await loadFacility();
     const chosen = declareNotes(facility, "chosen");
     const other = declareNotes(facility, "other");
-    facility.appendToChannel(chosen, { text: "mine" });
-    facility.appendToChannel(other, { text: "not mine" });
+    facility.appendToChannel(chosen, { text: "mine" }, INFO);
+    facility.appendToChannel(other, { text: "not mine" }, INFO);
 
     const payload = facility.buildLogExport([chosen], 1700000000000);
 
@@ -441,8 +621,7 @@ describe("the export payload", () => {
       channels: [
         {
           name: "chosen",
-          reader: chosen.reader,
-          sensitivity: "technical",
+          purpose: chosen.purpose,
           version: 1,
           unreadable: 0,
           entries: [{ text: "mine" }],
@@ -490,21 +669,20 @@ describe("the version envelope (#229)", () => {
     const channel = facility.defineChannel({
       name: "notes",
       domain: "food" as TrackedDomainId,
-      reader: "this test; decides whether parse sees the envelope.",
+      purpose: "this test; it decides whether parse sees the envelope.",
       cap: 3,
       version: 7,
-      sensitivity: "technical",
       parse: (raw: unknown) => {
         seen.push(raw);
         return parseNote(raw);
       },
     });
 
-    facility.appendToChannel(channel, { text: "one" });
+    facility.appendToChannel(channel, { text: "one" }, INFO);
     facility.readChannel(channel);
 
     expect(JSON.parse(ls.store.get("inventoria_log_notes")!)).toEqual([
-      { v: 7, entry: { text: "one" } },
+      { v: 7, lvl: 9, entry: { text: "one" } },
     ]);
     expect(seen).toEqual([{ text: "one" }]);
   });
@@ -519,7 +697,7 @@ describe("the version envelope (#229)", () => {
       JSON.stringify([stored({ text: "v1" }, 1), { text: "no envelope" }])
     );
 
-    facility.appendToChannel(channel, { text: "v2" });
+    facility.appendToChannel(channel, { text: "v2" }, INFO);
     facility.deleteChannelEntry(channel, 0);
 
     // The appended entry was the only readable one, so redacting index 0 took
@@ -607,6 +785,21 @@ describe("who owns a channel (ADR-0080 §2)", () => {
     const facility = await loadFacility();
     declareNotes(facility, "groceries", 3, "food");
     expect(facility.channelsOfFacet("cellar")).toEqual([]);
+  });
+
+  it("gives a jar-wide channel to every Facet, the root included (ADR-0092 §13)", async () => {
+    // `channelsOfFacet` builds a Set of domain id strings, so a `null` domain is
+    // in NO Facet's set — the root's included, even though the root holds all
+    // six. Tested as the four surfaces' single source: a channel missing here is
+    // invisible in every card, absent from every export, untouched by every
+    // wipe, and still spending the budget.
+    const facility = await loadFacility();
+    const groceries = declareNotes(facility, "groceries", 3, "food");
+    const app = declareNotes(facility, "app", 3, null);
+
+    expect(facility.channelsOfFacet("root")).toEqual([groceries, app]);
+    expect(facility.channelsOfFacet("food")).toEqual([groceries, app]);
+    expect(facility.channelsOfFacet("cellar")).toEqual([app]);
   });
 
   it("names the search channel's owner as the domain that writes it", async () => {

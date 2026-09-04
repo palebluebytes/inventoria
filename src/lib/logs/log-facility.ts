@@ -1,45 +1,76 @@
 /**
- * The local log facility (ADR-0054): one module owning every local diagnostic
+ * The local log facility (ADR-0092): one module owning every local diagnostic
  * and instrumentation record this app keeps.
  *
- * A **channel** is a named stream with its own shape, its own cap and its own
- * sensitivity. There are no severity levels — levels invite "log everything at
- * debug and filter later", which is right for a server draining to a sink and
- * wrong for a device with a 5 MB quota and a user who may hand the file to
- * someone (§1).
+ * **Every record carries a level, and the level decides exactly one thing:
+ * whether the record is captured at all** (§1, §4). It decides nothing about
+ * retention — §6 keeps the last `cap` records by age, because a log is read as a
+ * sequence and shedding by level deletes the context around the record it saves
+ * — and nothing about disclosure, since §10.1 withdrew the export filter. What a
+ * level buys after capture is that a reader can tell an error from a boot line
+ * without parsing either.
  *
- * **A channel may not exist without a `reader`** naming a real consumer and the
- * decision it will take (§2). That is the whole of the anti-sprawl guard, and it
- * is enforced here rather than asked for in a comment: {@link defineChannel}
- * will not compile with a blank reader and throws on one that is only
- * whitespace. "It might be useful later" is not a reader, and a channel whose
- * question has been answered is removed rather than left running.
+ * A **channel** is a namespace and a consent unit, never a gate. It owns one
+ * `localStorage` key, names the Tracked Domain whose act writes it, declares the
+ * prose that says what it is for, and is the unit the export selection and the
+ * per-channel recording pause are chosen over. ADR-0054 §1's *channels rather
+ * than levels* and §2's *no channel without a reader and an open question* are
+ * both superseded: two of the three channels have no question, and `purpose` is
+ * what the anti-sprawl gate left behind.
  *
  * Records live in `localStorage`, one namespaced key per channel, **never in the
  * ledger** (§3). `src/lib/stores/secrets.ts` states the principle in its own
  * header — "The ledger is undeletable and it syncs" — and this facility needs
- * both properties for the same reasons: §4's redaction is a deletion, the cap
+ * both properties for the same reasons: a redaction is a deletion, the cap
  * removes entries, and nothing here may travel to a second device. The guarded
  * accessors below are that module's, kept here rather than shared because they
  * are the whole of what the two have in common.
  *
- * **There is no transport and there never will be** (§5). No sink, no endpoint,
- * no optional remote mode: the only way a record leaves the device is a file the
- * user exports by hand after reading it. `log-facility.test.ts` asserts that
- * this file names no network API at all, because the distinction ADR-0053 rests
- * on — that a local record is not telemetry — holds only while it is
- * structurally true.
+ * **There is no transport and there never will be** (§11), and that, with the
+ * review the export is conditional on, is now the **whole** of the protection.
+ * No sink, no endpoint, no optional remote mode: the only way a record leaves the
+ * device is a file the user exports by hand after reading it.
+ * `log-facility.test.ts` asserts that this file names no network API at all,
+ * because the distinction ADR-0053 rests on — that a local record is not
+ * telemetry — holds only while it is structurally true.
  */
 
 import { domainsOf, type TrackedDomainId } from "../facets/registry";
 
 /**
- * Whether a channel's records are about the person using the app or about the
- * app itself. Shown in the export review, where `personal` channels are marked,
- * so that agreeing to hand over a technical channel is never also agreeing to
- * hand over what someone searched for (§4).
+ * The four levels, on OpenTelemetry's `SeverityNumber` scale (ADR-0092 §5).
+ *
+ * The rule that assigns them, which is the whole of it:
+ *
+ * > **ERROR (17)** — the app failed at something the user asked for.
+ * > **WARN (13)** — a dependency failed or the app degraded, and the user may
+ * > not have noticed.
+ * > **INFO (9)** — something the user did, which completed.
+ * > **DEBUG (5)** — the app's internal trace, *and any field whose only reader
+ * > is a person reproducing a bug*.
+ *
+ * A record's level is **the severity of what happened, not the importance of the
+ * record**: an empty search is a WARN because the app failed to answer, not
+ * because #142 wants to read it.
+ *
+ * **Four anchors and nothing between them, and no FATAL.** The dial reads three
+ * thresholds and §6 reads no level at all, so a fifth value would change capture
+ * for nothing and buy a table nobody can hold in their head.
+ *
+ * **Ascending, which is not the universal direction.** #264 found winston
+ * descending, Go's `slog` negative and `os_log` not ordinal at all. OTel's is
+ * taken because a numeric threshold is what makes "a position includes anything
+ * more severe" true without a table.
  */
-export type ChannelSensitivity = "personal" | "technical";
+export const SEVERITY = {
+  ERROR: 17,
+  WARN: 13,
+  INFO: 9,
+  DEBUG: 5,
+} as const;
+
+/** One of the four anchors above. Never a bare `number` (§12). */
+export type SeverityNumber = (typeof SEVERITY)[keyof typeof SEVERITY];
 
 /**
  * A registered channel. Constructed only by {@link defineChannel}, which is what
@@ -49,16 +80,36 @@ export interface LogChannel<E> {
   /** The `localStorage` key suffix and the label in the review UI. */
   readonly name: string;
   /**
-   * The Tracked Domain whose act writes this channel — clause (b) of ADR-0080
-   * §1, which is why a Facet carries the channels it authors and only those.
+   * The Tracked Domain whose act writes this channel, or **`null` for a
+   * jar-wide channel** the app itself authors (ADR-0092 §13).
    *
    * A **domain** rather than a Facet, because ADR-0086 §1 leaves no other kind
    * of owner: the root holds all six domains, so under Facet-ownership every
-   * channel would have two owners. {@link channelsOfFacet} derives the rest.
+   * channel would have two owners.
+   *
+   * `null` says the true thing rather than inventing an owner to satisfy a rule
+   * written for something else — boot narration and database errors belong to
+   * none of the six, and picking one arbitrarily would put a database error
+   * behind Rations' export consent. What it then means costs **two** filters
+   * rather than one, and they point opposite ways: {@link channelsOfFacet}
+   * admits such a channel to **every** Facet, because a Rations user's OPFS
+   * failure is written by Rations' running code and Rations governs its
+   * disclosure; `facets/facet-wipe.ts` excludes it from **every** Facet-scoped
+   * wipe, because that control is ADR-0079 §1's *delete all my food data* and
+   * the app's own narration is not that. Deletion is irreversible, so it stays
+   * jar-wide while visibility and export follow the writer.
    */
-  readonly domain: TrackedDomainId;
-  /** Who reads this, and the question it decides (§2). */
-  readonly reader: string;
+  readonly domain: TrackedDomainId | null;
+  /**
+   * What this channel is for, in prose (§2).
+   *
+   * It was `reader`, naming *a consumer and the decision it takes*, which was
+   * ADR-0054 §2's anti-sprawl discipline and is a lie on two of the three
+   * channels. The prose gets **more** load-bearing rather than less: with §11's
+   * classification refused it is the only thing on the review sheet that says
+   * what a channel contains before somebody hands the file over.
+   */
+  readonly purpose: string;
   /** Maximum entries retained, oldest dropped. */
   readonly cap: number;
   /**
@@ -74,7 +125,6 @@ export interface LogChannel<E> {
    * newer record, and adding a field an old reader can ignore does not move it.
    */
   readonly version: number;
-  readonly sensitivity: ChannelSensitivity;
   /**
    * Reads one stored record back into the channel's shape, or `null` for
    * anything it does not recognise. Stored JSON is not a typed boundary — it
@@ -91,34 +141,39 @@ export interface LogChannel<E> {
 }
 
 /**
- * The type a blank `reader` collapses to, so §2 is a compile error rather than a
- * review comment. The brand's name is what the error message says.
+ * The type a blank `purpose` collapses to, so §12's compile-time guard is an
+ * error at the call site rather than a review comment. The brand's name is what
+ * the error message says.
+ *
+ * Compile-time rather than runtime because registration is an import side
+ * effect (#221): a throw at declaration is either a boot crash or a channel that
+ * silently vanishes from the review and the export.
  */
-interface ChannelNeedsANamedReader {
-  readonly __a_channel_needs_a_named_reader: never;
+interface ChannelNeedsAStatedPurpose {
+  readonly __a_channel_needs_a_stated_purpose: never;
 }
 
-/** What a channel declares, before the reader guard is layered over it. */
+/** What a channel declares, before the purpose guard is layered over it. */
 interface ChannelFields<E> {
   name: string;
-  domain: TrackedDomainId;
-  reader: string;
+  domain: TrackedDomainId | null;
+  purpose: string;
   cap: number;
   version: number;
-  sensitivity: ChannelSensitivity;
   parse: (raw: unknown) => E | null;
 }
 
 /**
- * A channel declaration. `reader` is a literal string in code, deliberately: a
- * reader assembled at runtime is a reader nobody wrote down, and the conditional
- * below rejects the widened `string` for that reason as much as it rejects `""`.
+ * A channel declaration. `purpose` is a literal string in code, deliberately: a
+ * purpose assembled at runtime is a purpose nobody wrote down, and the
+ * conditional below rejects the widened `string` for that reason as much as it
+ * rejects `""`.
  */
-type ChannelDeclaration<E, R extends string> = Omit<
+type ChannelDeclaration<E, P extends string> = Omit<
   ChannelFields<E>,
-  "reader"
-> & { reader: R } & ("" extends R
-    ? { reader: ChannelNeedsANamedReader }
+  "purpose"
+> & { purpose: P } & ("" extends P
+    ? { purpose: ChannelNeedsAStatedPurpose }
     : unknown);
 
 const channels = new Map<string, LogChannel<unknown>>();
@@ -127,22 +182,27 @@ const channels = new Map<string, LogChannel<unknown>>();
  * Declares a channel and registers it in the same act, so the review surface
  * finds it without anyone maintaining a second list.
  *
- * Throws on a whitespace-only reader (the type guard above catches the empty
- * literal; it cannot see through a space), on a cap that retains nothing, and on
- * a name already taken — two channels sharing a `localStorage` key would each
- * read the other's records as unparseable and delete them.
+ * **Three runtime throws, and only these three** (§12): a whitespace-only
+ * `purpose` (the type above catches the empty literal and the widened `string`,
+ * but cannot see through a space), a cap that retains nothing, and a name
+ * already taken — two channels sharing a `localStorage` key would each read the
+ * other's records as unreadable and shed them.
+ *
+ * `name` is deliberately **not** a central literal union. That would catch typos
+ * only, duplicates would still need the check below, and it re-introduces the
+ * central registry #221 exists to remove.
  */
-export function defineChannel<E, R extends string>(
-  declaration: ChannelDeclaration<E, R>
+export function defineChannel<E, P extends string>(
+  declaration: ChannelDeclaration<E, P>
 ): LogChannel<E> {
   // The one cast in the module, and it is the guard's own boundary: the
-  // declared type exists to reject a blank `reader` at the call site, and the
+  // declared type exists to reject a blank `purpose` at the call site, and the
   // body below only ever reads the plain fields underneath it.
-  const { name, domain, reader, cap, version, sensitivity, parse } =
+  const { name, domain, purpose, cap, version, parse } =
     declaration as unknown as ChannelFields<E>;
-  if (reader.trim() === "")
+  if (purpose.trim() === "")
     throw new Error(
-      `Log channel "${name}" needs a reader naming who reads it and what it decides (ADR-0054 §2).`
+      `Log channel "${name}" needs a purpose stating what it is for (ADR-0092 §2).`
     );
   if (cap < 1)
     throw new Error(`Log channel "${name}" needs a cap of at least one entry.`);
@@ -151,10 +211,9 @@ export function defineChannel<E, R extends string>(
   const channel: LogChannel<E> = {
     name,
     domain,
-    reader,
+    purpose,
     cap,
     version,
-    sensitivity,
     parse,
   };
   channels.set(name, channel as LogChannel<unknown>);
@@ -167,21 +226,29 @@ export function registeredChannels(): LogChannel<unknown>[] {
 }
 
 /**
- * The channels one Facet carries: those written by a domain it holds, in
- * declaration order (ADR-0080 §2).
+ * The channels one Facet carries: the jar-wide ones plus those written by a
+ * domain it holds, in declaration order (ADR-0080 §2, ADR-0092 §13).
  *
  * **Derived, never declared.** A Facet already names its domains and a channel
  * already names the domain that writes it, so the Local Logs card is one
  * component parameterised by Facet id rather than a list per Facet — the shape
- * ADR-0080 §8 requires of every part of this split. The root holds all six
- * domains, so it gets every channel and the card there stays jar-wide.
+ * ADR-0080 §8 requires of every part of this split.
  *
- * A Facet nobody has heard of holds no domains and therefore no channels, which
- * is {@link domainsOf}'s own answer carried through rather than a second one.
+ * **The `null` test is first, and it is not a convenience.** This builds a `Set`
+ * of domain **id strings**, so a `null` domain is in no Facet's set at all — the
+ * root's included, even though the root holds all six domains. Written as
+ * `owned.has(channel.domain)` alone, a jar-wide channel would be invisible in
+ * every card, absent from every export, untouched by every wipe, and still
+ * spending the budget: a permanent invisible record.
+ *
+ * A Facet nobody has heard of holds no domains, and still gets the jar-wide
+ * channels, because those belong to the app rather than to a roster.
  */
 export function channelsOfFacet(facetId: string): LogChannel<unknown>[] {
   const owned = new Set(domainsOf(facetId).map((d) => d.id));
-  return registeredChannels().filter((channel) => owned.has(channel.domain));
+  return registeredChannels().filter(
+    (channel) => channel.domain === null || owned.has(channel.domain)
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -202,6 +269,16 @@ const LS_PREFIX = "inventoria_log_";
 // The one ledger-side fact about this facility is the export consent, which is a
 // recorded act about disclosure rather than a setting about this device.
 const LS_PAUSED_KEY = "inventoria_logs_paused";
+// The dial's threshold, as one of the three `SeverityNumber`s below.
+//
+// Beside the pause and for the same reasons (ADR-0092 §4): a switch that syncs
+// would silence an instrument on a device its owner has never seen, and a budget
+// dial is per-device by nature. ADR-0085's rule points the same way — this is a
+// device's own state rather than a preference that should travel.
+//
+// Neither key is under any domain's `localStorage` namespace, so a Facet-scoped
+// wipe leaves both standing: they govern the jar's whole facility.
+const LS_DIAL_KEY = "inventoria_logs_level";
 
 // `localStorage` is absent under the Node unit runner and can throw outright in
 // a privacy-locked browser, so every access is guarded — the arrangement
@@ -279,6 +356,10 @@ function readRecord<E>(channel: LogChannel<E>, record: unknown): E | null {
   if (typeof record !== "object" || record === null) return null;
   const { v, entry } = record as { v?: unknown; entry?: unknown };
   if (v !== channel.version) return null;
+  // `lvl` is not read here and is not passed on: `parse` never sees it, exactly
+  // as it never sees `v` (§3.1). A record written before `lvl` existed simply
+  // has no level — it is retained, it appears in the review, it stays redactable,
+  // and it leaves the ring by age like everything else.
   return channel.parse(entry);
 }
 
@@ -334,16 +415,31 @@ export function channelEntryCount(channel: LogChannel<unknown>): number {
 }
 
 /**
- * Appends one entry, applies the channel's cap, and brings the whole log back
- * under {@link LOG_BUDGET_BYTES}. Best-effort and synchronous: it returns
- * nothing, throws nothing, and does nothing at all while the channel's recording
- * is switched off.
+ * Appends one entry **at a level**, applies the channel's cap, and brings the
+ * whole log back under {@link LOG_BUDGET_BYTES}. Best-effort and synchronous: it
+ * returns nothing, throws nothing, and does nothing at all while the channel's
+ * recording is switched off or the dial sits above `level`.
+ *
+ * **`level` is required and has no default** (§12). An inheritable default means
+ * a site that should be ERROR records as INFO because somebody omitted it, and
+ * then vanishes at any dial position above `Noisy` — the one failure nothing
+ * downstream can detect. A channel's own module may hold a local constant; that
+ * is the module's business, not the declaration's.
+ *
+ * **The pause and the dial are orthogonal.** The pause says whether this stream
+ * at all; the dial says how much detail. Neither is the other's off switch.
  */
-export function appendToChannel<E>(channel: LogChannel<E>, entry: E): void {
+export function appendToChannel<E>(
+  channel: LogChannel<E>,
+  entry: E,
+  level: SeverityNumber
+): void {
   if (!isChannelRecording(channel)) return;
+  if (!capturedAt(level)) return;
   // The envelope is stamped here and nowhere else, which is what lets a channel
-  // write its own shape and read it back without either half knowing about `v`.
-  const record = { v: channel.version, entry };
+  // write its own shape and read it back without either half knowing about `v`
+  // or `lvl`. One facility-stamped wrapper carries both facility-owned fields.
+  const record = { v: channel.version, lvl: level, entry };
   writeRecords(
     channel,
     capEntries([...storedRecords(channel), record], channel.cap)
@@ -520,14 +616,133 @@ export function setChannelRecording(
 }
 
 // ---------------------------------------------------------------------------
+// The dial
+// ---------------------------------------------------------------------------
+
+/** A threshold the dial can sit at. ERROR is not one: no position hides a WARN. */
+export type DialPosition =
+  | typeof SEVERITY.WARN
+  | typeof SEVERITY.INFO
+  | typeof SEVERITY.DEBUG;
+
+/** One position, and what sitting at it means. */
+export interface DialOption {
+  threshold: DialPosition;
+  /** What the control calls it. */
+  label: string;
+  /** What it records, in the words the hint under the control uses. */
+  reads: string;
+}
+
+/**
+ * The three positions, most restrictive first (ADR-0092 §4).
+ *
+ * A **threshold on a continuous scale, never three categories**, so a position
+ * includes everything more severe for free and widening later moves a number
+ * rather than migrating records.
+ *
+ * **"Off" is deliberately not a position.** Stopping a stream is the per-channel
+ * recording pause, which is untouched and orthogonal.
+ *
+ * They live here rather than in the card so the control is a rendering of the
+ * facility's own positions and a fourth costs one entry.
+ */
+export const DIAL_POSITIONS: readonly DialOption[] = [
+  {
+    threshold: SEVERITY.WARN,
+    label: "Errors & warnings",
+    reads: "Only what went wrong.",
+  },
+  {
+    threshold: SEVERITY.INFO,
+    label: "Normal",
+    reads: "Every session, and every error.",
+  },
+  {
+    threshold: SEVERITY.DEBUG,
+    label: "Noisy",
+    reads: "Everything, including the app's internal trace.",
+  },
+];
+
+/**
+ * Where the dial sits when nobody has moved it.
+ *
+ * `Normal` rather than `Noisy`: at this position the boot narration and the
+ * per-fire search sequence are never written, so `Noisy` is something switched
+ * on to reproduce a bug rather than a standing cost — which is what makes the
+ * budget arithmetic a worst case somebody chose.
+ */
+export const DEFAULT_DIAL_POSITION: DialPosition = SEVERITY.INFO;
+
+// Resolved once and held, because `capturedAt` sits on the search's per-fire
+// path and a `localStorage` read per keystroke is precisely the thing #264 found
+// every fast implementation avoids — pino goes as far as rebinding a disabled
+// level's method to `noop`. `null` means "not yet read", not "no dial".
+let resolvedDial: DialPosition | null = null;
+
+function isDialPosition(value: unknown): value is DialPosition {
+  return DIAL_POSITIONS.some((position) => position.threshold === value);
+}
+
+/**
+ * The threshold in force. Anything the store cannot be read as one of the three
+ * positions reads as the default, which is the same best-effort rule the rest of
+ * this module keeps: no feature fails because a dial could not be read.
+ */
+export function dialPosition(): DialPosition {
+  if (resolvedDial !== null) return resolvedDial;
+  const raw = safeGet(LS_DIAL_KEY);
+  const stored: unknown = raw === null ? null : Number(raw);
+  resolvedDial = isDialPosition(stored) ? stored : DEFAULT_DIAL_POSITION;
+  return resolvedDial;
+}
+
+/** Moves the dial, and refreshes what {@link dialPosition} hands back. */
+export function setDialPosition(position: DialPosition): void {
+  resolvedDial = position;
+  safeSet(LS_DIAL_KEY, String(position));
+}
+
+/**
+ * Whether something at `level` is being captured right now.
+ *
+ * The facility's one predicate about levels, and the answer to both questions a
+ * builder asks (§3.2): {@link appendToChannel} calls it for a whole record, and
+ * a channel's entry builder calls it for a **field riding inside a record whose
+ * own level is set elsewhere** — `search`'s fire sequence is captured at DEBUG
+ * inside a session record that is usually WARN.
+ *
+ * A field asks through this predicate rather than through a declared
+ * field-to-level map, because such a map would make the facility reach inside an
+ * entry shape per-channel `parse` exists precisely so it never has to, and would
+ * be a second structural description to keep in step with both `parse` and the
+ * builder. It also could not work: a sequence accumulated across a session has
+ * to be decided at session **start**, and a post-hoc filter would accumulate it
+ * all session and then throw it away, paying the cost the gate exists to avoid.
+ *
+ * **The asymmetry to keep in mind:** a record's level is computed at session
+ * end, because the outcome decides it; a field's is decided at session start.
+ * Which fields a channel omits at which position is a property of that channel's
+ * builder, checked by nothing — an honestly-accepted weakness rather than a
+ * checkbox that re-stamping satisfies.
+ */
+export function capturedAt(level: SeverityNumber): boolean {
+  return level >= dialPosition();
+}
+
+// ---------------------------------------------------------------------------
 // Export
 // ---------------------------------------------------------------------------
 
 /** One channel as it appears in a review and in the file that follows it. */
 export interface ExportedChannel {
   name: string;
-  reader: string;
-  sensitivity: ChannelSensitivity;
+  /**
+   * The channel's own prose. With classification refused (§11), it is the only
+   * thing in the payload that says what the entries beside it are.
+   */
+  purpose: string;
   /** The entry-shape version the readable entries below are at. */
   version: number;
   /**
@@ -561,11 +776,14 @@ export interface LogExport {
 export const LOG_EXPORT_SCHEMA_VERSION = 1;
 
 /**
- * Builds the export payload for the channels the user selected — and only those
- * (§4). Export is chosen per channel at export time rather than by one switch
- * over everything, because bundling a `personal` channel with a `technical` one
- * behind a single yes is a consent surface that does not mean what it appears
- * to.
+ * Builds the export payload for the channels the user selected — and only those.
+ *
+ * **Per channel, all or nothing, and that is the only granularity on offer**
+ * (§10). One switch over everything would be a consent surface that does not
+ * mean what it appears to; a level filter beneath it was designed and withdrawn
+ * (§10.1), because `search`'s WARN records are exactly the ones carrying the
+ * text somebody typed, so filtering at ≥ WARN would keep the most sensitive
+ * subset and drop the least.
  *
  * The review renders THIS value, and the file is this value serialised, so what
  * was shown is what leaves.
@@ -582,8 +800,7 @@ export function buildLogExport(
       const { entries, unreadable } = partitionChannel(channel);
       return {
         name: channel.name,
-        reader: channel.reader,
-        sensitivity: channel.sensitivity,
+        purpose: channel.purpose,
         version: channel.version,
         unreadable,
         entries,

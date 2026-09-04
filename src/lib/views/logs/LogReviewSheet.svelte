@@ -1,7 +1,6 @@
 <script lang="ts">
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import Button from "../../ui/Button.svelte";
-  import Badge from "../../ui/Badge.svelte";
   import Checkbox from "../../ui/Checkbox.svelte";
   import { logExportEnabledFor } from "../../stores/device-settings";
   import {
@@ -13,11 +12,17 @@
   } from "../../logs/log-facility";
   import type { FacetId } from "../../facets/registry";
 
-  // The review ADR-0054 §4 makes the condition of an export: the exact payload,
-  // shown before anything is written, with `personal` channels marked and each
-  // channel chosen individually. One switch over everything would be a consent
-  // surface that does not mean what it appears to — agreeing to hand over a
-  // technical channel is not agreeing to hand over what you searched for.
+  // The review the export is conditional on (ADR-0092 §11): the exact payload,
+  // shown before anything is written, each channel chosen individually. One
+  // switch over everything would be a consent surface that does not mean what it
+  // appears to.
+  //
+  // **Nothing marks a channel as sensitive, and nothing replaces the marking.**
+  // ADR-0092 §11 deleted `ChannelSensitivity` rather than renaming it: a badge on
+  // a channel is field classification wearing a different word, and the reading
+  // and the choosing below are the whole of the protection. What a channel holds
+  // is said by its `purpose`, in prose, which is why that field got more
+  // load-bearing rather than less.
   //
   // Redaction happens here too, and it is a DELETION from the channel rather
   // than an exclusion from one export: two states would mean this screen shows
@@ -120,14 +125,10 @@
       >
         <span class="head-row">
           <span class="channel-name">{channel.name}</span>
-          <Badge
-            variant={channel.sensitivity === "personal" ? "warning" : "neutral"}
-            >{channel.sensitivity}</Badge
-          >
           <span class="count">{entries.length} entries</span>
         </span>
       </Checkbox>
-      <p class="reader">{channel.reader}</p>
+      <p class="purpose">{channel.purpose}</p>
 
       {#if unreadable > 0}
         <!-- Named, never shown: an older shape may hold exactly the free text
@@ -189,13 +190,13 @@
 
 <style>
   .lead,
-  .reader,
+  .purpose,
   .empty {
     font-size: var(--step-n1);
     color: var(--text-secondary);
     margin: 0 0 var(--space-s);
   }
-  .reader {
+  .purpose {
     font-style: italic;
   }
   .channel {
@@ -204,9 +205,9 @@
     margin-top: var(--space-s);
   }
   /* The row is the shared Checkbox (ADR-0068); its name here is a row of its
-     own — the channel, its sensitivity Badge and the entry count — so the
-     content the primitive is given lays itself out, and only the row's heavier
-     weight is reached via :global. */
+     own — the channel and its entry count — so the content the primitive is
+     given lays itself out, and only the row's heavier weight is reached via
+     :global. */
   .channel :global(.channel-head) {
     font-weight: 800;
   }

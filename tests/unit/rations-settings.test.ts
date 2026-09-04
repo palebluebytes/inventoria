@@ -87,6 +87,45 @@ describe("the Local Logs card, once per Facet (ADR-0080 §2)", () => {
   });
 });
 
+describe("the dial, and what no longer marks a channel (ADR-0092)", () => {
+  it("draws one dial at three positions on both Facets' cards", () => {
+    // §4's departure from every framework #264 surveyed: one dial, facility
+    // wide, on a card that renders once per Facet. A Rations-only install has no
+    // way out (ADR-0078), so its user has to be able to reach the control that
+    // governs what their device records.
+    const rations = render(LogSettingsSection, { props: { facetId: "food" } });
+    const root = render(LogSettingsSection, { props: { facetId: "root" } });
+    for (const { body } of [rations, root]) {
+      expect(body).toContain("How much is recorded");
+      expect(body).toContain("Errors &amp; warnings");
+      expect(body).toContain(">Normal<");
+      expect(body).toContain(">Noisy<");
+    }
+  });
+
+  it("starts at Normal, and says what that position records", () => {
+    const root = render(LogSettingsSection, { props: { facetId: "root" } });
+    expect(root.body).toMatch(
+      /data-value="9"[^>]*data-state="checked"|data-state="checked"[^>]*data-value="9"/
+    );
+    expect(root.body).toContain("Every session, and every error.");
+    // Not an off switch: that is the per-channel pause, and the hint says so.
+    expect(root.body).toContain("not an off switch");
+  });
+
+  it("marks no channel as sensitive, and puts nothing in the badge's place", () => {
+    // §11 deleted `ChannelSensitivity` rather than replacing it. Any warning
+    // badge is field classification wearing a different word, so the slot stays
+    // empty in both views and the channel's prose is what says what it holds.
+    const card = readCode("src/lib/views/logs/LogSettingsSection.svelte");
+    const review = readCode("src/lib/views/logs/LogReviewSheet.svelte");
+    for (const source of [card, review]) {
+      expect(source).not.toMatch(/sensitivity|personal|technical/);
+      expect(source).not.toContain("<Badge");
+    }
+  });
+});
+
 describe("the group is Your data, and the delete is still food's (#335)", () => {
   it("heads the group with the name ADR-0080 §7 gives it", () => {
     // "Your food data" was right while the block held only food-scoped

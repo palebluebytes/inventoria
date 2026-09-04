@@ -1,6 +1,11 @@
 import { stemOf, wordsOf } from "../food/reference-food-ranking";
 import { loadSearchCorpus, type SearchCorpus } from "../food/usda-corpus";
-import { appendToChannel, defineChannel } from "./log-facility";
+import {
+  appendToChannel,
+  defineChannel,
+  SEVERITY,
+  type SeverityNumber,
+} from "./log-facility";
 
 /**
  * The search channel (ADR-0053): what a reference-food search that found nothing
@@ -356,11 +361,39 @@ function parseSearchLogEntry(raw: unknown): SearchLogEntry | null {
 }
 
 /**
- * ADR-0053's record, as the first channel of the facility (ADR-0054 §1).
+ * What level a finished session is recorded at (ADR-0092 §5.1).
  *
- * `personal`, because a food search is a record of what someone was thinking
- * about eating, and for a health-adjacent app that can imply a condition, a
- * pregnancy or a disorder. The cap is §7's 200 entries.
+ * | Session                               | Level      |
+ * | ------------------------------------- | ---------- |
+ * | `nothing` (settled empty)             | **WARN**   |
+ * | `resolved_after_correction`           | **WARN**   |
+ * | `rescued_by_vocabulary`               | **INFO**   |
+ * | abandoned mid-word (`settled: false`) | **INFO**   |
+ *
+ * An empty result is a WARN because **the app failed to answer**, not because
+ * #142 wants to read it — the level is the severity of what happened, never the
+ * importance of the record. A rescue cost the user nothing, and an abandoned
+ * session never reached a verdict, so neither is a failure to report.
+ *
+ * The consequence worth stating out loud: both bar-eligible outcomes sit at
+ * WARN, which makes ADR-0053 §7's bar **dial-proof by construction** — the three
+ * positions do not differ over the population the bar counts, so it reads the
+ * same at all three.
+ */
+export function searchSessionLevel(entry: SearchLogEntry): SeverityNumber {
+  if (!entry.settled) return SEVERITY.INFO;
+  return entry.outcome.kind === "rescued_by_vocabulary"
+    ? SEVERITY.INFO
+    : SEVERITY.WARN;
+}
+
+/**
+ * ADR-0053's record, as the first channel of the facility (ADR-0092 §1).
+ *
+ * The cap is ADR-0053 §7's 200 entries. It carries **no sensitivity marking**:
+ * ADR-0092 §11 deleted the concept rather than replacing it, because a badge on
+ * a channel is field classification wearing a different word, and the whole of
+ * the protection is the reviewed export.
  */
 export const SEARCH_CHANNEL = defineChannel({
   name: "search",
@@ -368,7 +401,7 @@ export const SEARCH_CHANNEL = defineChannel({
   // ADR-0080 made while deciding that the jar-wide Local Logs card is generic
   // machinery whose entire content belongs to Rations.
   domain: "food",
-  reader:
+  purpose:
     "#142 and #123; decides whether a per-token vocabulary tier is built, at the bar in ADR-0053 §7.",
   cap: 200,
   // The shape below, as it stands. It moves when a reader written against the
@@ -376,7 +409,6 @@ export const SEARCH_CHANNEL = defineChannel({
   // per channel because one number for the whole facility would have a change
   // here invalidate another channel's records.
   version: 1,
-  sensitivity: "personal",
   parse: parseSearchLogEntry,
 });
 
@@ -411,7 +443,7 @@ export async function recordSearchSession(
       schema_version: corpus.schema_version,
     });
     if (!entry) return;
-    appendToChannel(SEARCH_CHANNEL, entry);
+    appendToChannel(SEARCH_CHANNEL, entry, searchSessionLevel(entry));
   } catch {
     // The corpus is precached, so a failure here is a broken install — and a
     // broken install must not also break the search that just answered.

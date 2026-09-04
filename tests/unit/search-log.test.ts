@@ -233,13 +233,19 @@ afterEach(() => {
 });
 
 describe("the search channel", () => {
-  it("declares the reader ADR-0054 §2 requires, and ADR-0053's cap", async () => {
+  it("states the purpose ADR-0092 §2 requires, and ADR-0053's cap", async () => {
     const { SEARCH_CHANNEL } = await loadSearchLog();
     expect(SEARCH_CHANNEL.name).toBe("search");
     expect(SEARCH_CHANNEL.cap).toBe(200);
-    expect(SEARCH_CHANNEL.sensitivity).toBe("personal");
-    expect(SEARCH_CHANNEL.reader).toMatch(/#142/);
-    expect(SEARCH_CHANNEL.reader).toMatch(/#123/);
+    expect(SEARCH_CHANNEL.purpose).toMatch(/#142/);
+    expect(SEARCH_CHANNEL.purpose).toMatch(/#123/);
+  });
+
+  it("carries no sensitivity marking at all (ADR-0092 §11)", async () => {
+    // Deleted rather than renamed: a badge on a channel is field classification
+    // wearing a different word, and the reviewed export is the whole protection.
+    const { SEARCH_CHANNEL } = await loadSearchLog();
+    expect(SEARCH_CHANNEL).not.toHaveProperty("sensitivity");
   });
 
   it("declares the version its entry shape is at (#229)", async () => {
@@ -259,6 +265,7 @@ describe("the search channel", () => {
       JSON.stringify([
         {
           v: 1,
+          lvl: 13,
           entry: {
             query: "raw aubergine",
             outcome: {
@@ -329,6 +336,80 @@ describe("the search channel", () => {
         at: 1,
       })
     ).not.toBeNull();
+  });
+});
+
+describe("what level a session is (ADR-0092 §5.1)", () => {
+  it("puts both bar-eligible outcomes at WARN, and the rest at INFO", async () => {
+    // An empty result is a WARN because the app failed to answer, not because
+    // #142 wants to read it. A rescue cost the user nothing, and a session
+    // abandoned mid-word never reached a verdict.
+    const { searchSessionLevel } = await loadSearchLog();
+    const base = {
+      query: "raw aubergine",
+      settled: true,
+      vocabulary: { mid_phrase: [], schema_version: 4 },
+      at: 1,
+    };
+    expect(searchSessionLevel({ ...base, outcome: { kind: "nothing" } })).toBe(
+      13
+    );
+    expect(
+      searchSessionLevel({
+        ...base,
+        outcome: { kind: "resolved_after_correction", corrected_by: "x" },
+      })
+    ).toBe(13);
+    expect(
+      searchSessionLevel({
+        ...base,
+        outcome: { kind: "rescued_by_vocabulary" },
+      })
+    ).toBe(9);
+    expect(
+      searchSessionLevel({
+        ...base,
+        settled: false,
+        outcome: { kind: "nothing" },
+      })
+    ).toBe(9);
+  });
+
+  it("makes ADR-0053 §7's bar read the same at all three positions", async () => {
+    // Both outcomes the bar counts are WARN, so the positions do not differ over
+    // the population it counts. A consequence of the table rather than a
+    // mechanism, and asserted rather than relied on silently.
+    vi.stubGlobal("localStorage", makeFakeLocalStorage());
+    const log = await loadSearchLog();
+    const facility = await import("../../src/lib/logs/log-facility");
+
+    for (const position of [13, 9, 5] as const) {
+      facility.clearChannel(log.SEARCH_CHANNEL);
+      facility.setDialPosition(position);
+      let session = log.beginSearchSession();
+      session = log.typedIntoSession(session, "wombok");
+      session = log.searchFoundNothing(session, "wombok");
+      await log.recordSearchSession(session, corpusOf);
+      expect(facility.readChannel(log.SEARCH_CHANNEL)).toHaveLength(1);
+    }
+  });
+
+  it("drops a rescue at Errors & warnings, and keeps it at Normal", async () => {
+    vi.stubGlobal("localStorage", makeFakeLocalStorage());
+    const log = await loadSearchLog();
+    const facility = await import("../../src/lib/logs/log-facility");
+
+    let session = log.beginSearchSession();
+    session = log.typedIntoSession(session, "aubergine");
+    session = log.searchFoundFood(session, "aubergine", true);
+
+    facility.setDialPosition(13);
+    await log.recordSearchSession(session, corpusOf);
+    expect(facility.readChannel(log.SEARCH_CHANNEL)).toEqual([]);
+
+    facility.setDialPosition(9);
+    await log.recordSearchSession(session, corpusOf);
+    expect(facility.readChannel(log.SEARCH_CHANNEL)).toHaveLength(1);
   });
 });
 
