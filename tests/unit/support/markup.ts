@@ -30,8 +30,14 @@ export type Element = {
   classes: string[];
   /** The raw attribute text, for the questions classes cannot answer. */
   attrs: string;
+  /** The tag exactly as written, so a closing tag can find what it closes. */
+  raw: string;
   /** Outermost first. */
   ancestors: Element[];
+  /** How many elements sit directly inside this one. A box with any is a box
+   *  whose height comes from them, which is a thing a single-line-box model
+   *  has to decline rather than guess at. */
+  children: number;
 };
 
 /** Elements that never take a closing tag, so they never open a scope. */
@@ -71,7 +77,7 @@ export function elementsOf(path: string): Element[] {
     .replace(/<!--[\s\S]*?-->/g, "");
 
   const all: Element[] = [];
-  const open: (Element & { raw: string })[] = [];
+  const open: Element[] = [];
   let m: RegExpExecArray | null;
   TAG.lastIndex = 0;
   while ((m = TAG.exec(markup))) {
@@ -105,13 +111,15 @@ export function elementsOf(path: string): Element[] {
       .split(/\s+/)
       .filter(Boolean);
 
-    const el: Element & { raw: string } = {
+    const el: Element = {
       raw,
       tag,
       classes,
       attrs,
-      ancestors: open.map(({ raw: _, ...rest }) => rest),
+      ancestors: [...open],
+      children: 0,
     };
+    if (open.length > 0) open[open.length - 1].children++;
     all.push(el);
     if (!selfClose && !VOID.test(lower)) open.push(el);
   }

@@ -137,10 +137,22 @@ function sheetOf(path: string): Rule[] {
   return sheets.get(path)!;
 }
 
-/** `views/food/AmountField.svelte label.value` — short enough to read in a diff. */
-const name = (where: string, el: Element) =>
-  `${where.replace("src/lib/", "").replace("src/", "")} ` +
-  `${el.tag}${el.classes.map((c) => `.${c}`).join("")}`;
+/** `views/food/AmountField.svelte label.value` — short enough to read in a diff,
+ *  and distinct enough that two boxes never share one line. A classless field
+ *  borrows its nearest classed ancestor, because `FoodStager` has three of them
+ *  wearing three different floors and a key of `svelte input` hides two. */
+const name = (where: string, el: Element) => {
+  const self = `${el.tag}${el.classes.map((c) => `.${c}`).join("")}`;
+  const under = [...el.ancestors]
+    .reverse()
+    .find((a) => a.classes.length > 0)
+    ?.classes.map((c) => `.${c}`)
+    .join("");
+  return (
+    `${where.replace("src/lib/", "").replace("src/", "")} ` +
+    (el.classes.length === 0 && under ? `${under} ${self}` : self)
+  );
+};
 
 // ── what a box is ──────────────────────────────────────────────────────────
 
@@ -169,6 +181,23 @@ const invisible = (d: Record<string, string>) => {
 };
 
 function read(el: Element, rules: Rule[]): Reading {
+  // A form control draws its own box whatever it contains — a `<select>`'s
+  // `<option>`s are not laid out inside it — so the container rule below is
+  // about everything else.
+  if (el.children > 0 && !FIELD.test(el.tag)) {
+    // A box holding other elements takes its height from them, and this model
+    // walks one line box. Guessing here is how `CalorieCalculatorSheet`'s
+    // `<label class="field">` — a caption stacked over an input, ~85px tall —
+    // reads as 27. Declining is the honest answer, and a declared floor is what
+    // turns it into a provable one.
+    const declaredHere = Math.max(
+      lengthPx(declarationsOf(rulesFor(rules, el).hits)["min-height"]) ?? 0,
+      lengthPx(declarationsOf(rulesFor(rules, el).hits)["height"]) ?? 0
+    );
+    if (declaredHere >= TAP_MIN)
+      return { kind: "declared", height: declaredHere };
+    return { kind: "unreadable", why: "height comes from its children" };
+  }
   const { hits, undecidable } = rulesFor(rules, el);
   const d = declarationsOf(hits);
 
@@ -182,13 +211,6 @@ function read(el: Element, rules: Rule[]): Reading {
   if (undecidable.length > 0) {
     return { kind: "unreadable", why: `selector "${undecidable[0]}"` };
   }
-  if ((d["display"] ?? "").includes("flex")) {
-    // A flex container's height comes from its children, which this model does
-    // not walk. That is not a pass: it is a box whose floor has to be declared
-    // before anything can be said about it at all.
-    return { kind: "unreadable", why: "height comes from flex children" };
-  }
-
   const border = lengthPx(
     d["border"]?.split(/\s+/)[0] ?? d["border-width"] ?? "none"
   );
@@ -261,24 +283,25 @@ function groupsIn(path: string): { groups: Group[]; proxied: string[] } {
     if (attr(el, "type") === "hidden") continue;
 
     const wrapping = [...el.ancestors].reverse().find((a) => a.tag === "label");
-    if (wrapping) {
-      groups.push({ where: path, primary: wrapping, boxes: [wrapping] });
-      continue;
-    }
-
-    if (invisible(declarationsOf(rulesFor(rules, el).hits))) {
+    const hidden = invisible(declarationsOf(rulesFor(rules, el).hits));
+    if (hidden && !wrapping) {
       proxied.push(name(path, el));
       continue;
     }
 
-    const boxes = [el];
     const id = attr(el, "id");
     const named =
       id === undefined
         ? undefined
         : elements.find((o) => o.tag === "label" && attr(o, "for") === id);
-    if (named) boxes.push(named);
-    groups.push({ where: path, primary: el, boxes });
+
+    // The field leads unless it has no box of its own to lead with, in which
+    // case the label wrapping it is the only thing a finger can aim at.
+    const primary = hidden && wrapping ? wrapping : el;
+    const boxes = [el, wrapping, named].filter(
+      (b): b is Element => b !== undefined
+    );
+    groups.push({ where: path, primary, boxes: [...new Set(boxes)] });
   }
   return { groups, proxied };
 }
@@ -297,21 +320,21 @@ const SWEEP = (() => {
     }
   }
 
-  const verdicts = new Map<string, Reading[]>();
+  const verdicts = new Map<string, { all: Reading[]; primary: Reading }>();
   for (const [key, g] of groups) {
-    verdicts.set(
-      key,
-      g.boxes.map((b) => read(b, sheetOf(g.where)))
-    );
+    verdicts.set(key, {
+      all: g.boxes.map((b) => read(b, sheetOf(g.where))),
+      primary: read(g.primary, sheetOf(g.where)),
+    });
   }
   return { groups, verdicts, proxied: [...new Set(proxied)].sort() };
 })();
 
-/** The best each group manages: a group passes on its largest activating box. */
-const best = (readings: Reading[]) =>
-  readings.find(clears) ??
-  readings.find((r) => r.kind === "unreadable") ??
-  readings[0];
+/** What a group is worth: any one activating box that clears carries it, and
+ *  where none does the field's own reading is what a failure should quote —
+ *  the caption over it is a bonus hit area, never the thing to go and fix. */
+const best = (readings: Reading[], primary: Reading) =>
+  readings.find(clears) ?? primary;
 
 const describeReading = (r: Reading) =>
   r.kind === "drawn"
@@ -322,21 +345,24 @@ const describeReading = (r: Reading) =>
         ? r.why
         : `declares ${r.height}`;
 
+const verdict = (v: { all: Reading[]; primary: Reading }) =>
+  best(v.all, v.primary);
+
 const shortfalls = () =>
   [...SWEEP.verdicts]
-    .filter(([, rs]) => {
-      const b = best(rs);
+    .filter(([, v]) => {
+      const b = verdict(v);
       return b.kind === "drawn"
         ? b.pessimistic < TAP_MIN
         : b.kind === "unstyled";
     })
-    .map(([key, rs]) => `${key} — ${describeReading(best(rs))}`)
+    .map(([key, v]) => `${key} — ${describeReading(verdict(v))}`)
     .sort();
 
 const unreadable = () =>
   [...SWEEP.verdicts]
-    .filter(([, rs]) => best(rs).kind === "unreadable")
-    .map(([key, rs]) => `${key} — ${describeReading(best(rs))}`)
+    .filter(([, v]) => verdict(v).kind === "unreadable")
+    .map(([key, v]) => `${key} — ${describeReading(verdict(v))}`)
     .sort();
 
 // ── the measurement ────────────────────────────────────────────────────────
@@ -423,10 +449,13 @@ const PROXIED: string[] = [
 ];
 
 const SHORTFALLS: string[] = [
+  "views/food/AmountField.svelte input.num — 25.9 (32.4 optimistic)",
   "views/food/CalorieCalculatorSheet.svelte input.num — 43.6 (49 optimistic)",
-  "views/food/CalorieCalculatorSheet.svelte label.field — 27 (27 optimistic)",
   "views/food/CategoryPicker.svelte input.catpick-input — 44 (48.2 optimistic)",
-  "views/food/FoodStager.svelte input — 40 (45 optimistic)",
+  "views/food/FoodStager.svelte .cf-ctl input — 40 (45 optimistic)",
+  "views/food/FoodStager.svelte .cf-pack input — 40 (45 optimistic)",
+  "views/food/FoodStager.svelte .cf-prow input — 39.6 (45 optimistic)",
+  "views/food/FoodStager.svelte .cf-reason-code input — 44 (45 optimistic)",
   "views/food/FoodStager.svelte input.cf-subline — 39.6 (45 optimistic)",
   "views/food/FoodStager.svelte input.cf-title — 44 (45 optimistic)",
   "views/food/IngredientListEditor.svelte input.tin.yield-in — 43.6 (49 optimistic)",
@@ -444,8 +473,5 @@ const SHORTFALLS: string[] = [
 ];
 
 const UNREADABLE: string[] = [
-  "views/food/AmountField.svelte label.value — height comes from flex children",
-  "views/food/FoodStager.svelte label.cf-pack — height comes from flex children",
-  "views/food/FoodStager.svelte label.cf-reason-code — height comes from flex children",
-  "views/food/NutrientCard.svelte label.nutrient-card — height comes from flex children",
+  "views/food/NutrientCard.svelte label.nutrient-card — height comes from its children",
 ];
