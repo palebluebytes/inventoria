@@ -8,9 +8,11 @@ import {
 } from "../../src/lib/ui/breakpoints";
 import {
   PAGES,
+  hasSheetForm,
   iconIdOf,
   pageLabel,
   pageLegend,
+  pagesShownAt,
   watchPageWidth,
 } from "../../src/lib/food/pages";
 
@@ -174,22 +176,23 @@ describe("a page is only shown where a shell has one and the width allows", () =
 
 describe("a page has exactly one control, and it is in the header", () => {
   it("holds the roster the app can actually reach, in the header's order", () => {
-    // Reports is ADR-0091 §6's third page and is not here, because #346 has not
-    // built it. A roster carrying a member with no surface behind it has
-    // stopped describing the app, and every claim below would pass vacuously
-    // for it.
-    //
-    // The order is the order the controls are drawn in, left to right, because
-    // the header and the legend both loop this.
-    expect([...PAGES]).toEqual(["recipes", "settings"]);
+    // All three now have a surface behind them (#346 built Reports). The order
+    // is the order the controls are drawn in, left to right, because the header
+    // and the legend both loop it — and Settings stays last, where it has
+    // always been.
+    expect([...PAGES]).toEqual(["recipes", "reports", "settings"]);
   });
 
   it("draws the controls and the legend from the roster, not from a list", () => {
-    // Written out twice, a third page reaches one of the two and the legend
+    // Written out twice, a fourth page reaches one of the two and the legend
     // starts describing a header it no longer matches — which is the drift the
     // ways in were looped to prevent.
     const view = source(FOOD_VIEW);
-    expect(view.match(/\{#each PAGES as p \(p\)\}/g)).toHaveLength(2);
+    // The width-filtered roster, never `PAGES`: at this width the two disagree
+    // by exactly one member, and looping the raw roster would draw a Reports
+    // control on a phone that has no Reports to open.
+    expect(view.match(/\{#each shownPages as p \(p\)\}/g)).toHaveLength(2);
+    expect(view).not.toContain("{#each PAGES as p (p)}");
     expect(view).toContain("id={iconIdOf(p)}");
     expect(view).toContain("aria-label={pageLabel(p)}");
     expect(view).toContain("<dd>{pageLegend(p)}</dd>");
@@ -209,6 +212,14 @@ describe("a page has exactly one control, and it is in the header", () => {
       expect(view).not.toContain(`aria-label="${pageLabel(page)}"`);
       expect(view).not.toContain(pageLegend(page));
     }
+  });
+
+  it("holds the roster in its header order at every width", () => {
+    // The filtered roster is the header's roster minus what the width cannot
+    // hold, in the same order — never a re-ordering, because the controls do
+    // not move about as a window resizes.
+    expect([...pagesShownAt(true)]).toEqual([...PAGES]);
+    expect([...pagesShownAt(false)]).toEqual(["recipes", "settings"]);
   });
 
   it("reads the settings name off the registry, where its surface does", () => {
@@ -277,6 +288,60 @@ describe("the title is the way back, and the only way off a page", () => {
     const sheet = source(SHEET);
     expect(sheet).toMatch(/\{#if !inline\}[\s\S]*?class="close-btn"/);
     expect(sheet).toContain("if (!isOpen || inline) return;");
+  });
+});
+
+describe("a page with no sheet has no control at a width that only has sheets", () => {
+  it("says which pages have a second shape, and Reports is not one", () => {
+    // ADR-0091 §7, and it is a fact about the *page* rather than about the
+    // width: Settings and Recipes are a sheet below the shell breakpoint and a
+    // page above it, and Reports is a page or nothing. A report is a reading
+    // surface — dense, comparative, about a period rather than a moment — and
+    // no phone form for one has been designed, so ADR-0059 §4 makes the control
+    // absent rather than disabled.
+    expect(PAGES.filter(hasSheetForm)).toEqual(["recipes", "settings"]);
+    expect(hasSheetForm("reports")).toBe(false);
+  });
+
+  it("takes the control away below the breakpoint, and in a shell with no pages", () => {
+    // `canShowPage` is one answer to two questions — "this shell has pages" and
+    // "the window is wide enough" — so the root Facet's Food tab loses the
+    // Reports control at every width, on the same line that loses it on a phone.
+    expect(pagesShownAt(false)).not.toContain("reports");
+    expect(pagesShownAt(true)).toContain("reports");
+  });
+
+  it("keeps the legend describing exactly the marks that are on screen", () => {
+    // Both loops read the filtered roster, so the legend can neither gloss a
+    // mark that is not there nor miss one that is. That property used to be
+    // free — the two rosters were the same list — and stops being free the
+    // moment one page exists at only one width.
+    const view = source(FOOD_VIEW);
+    expect(view.match(/\{#each shownPages as p \(p\)\}/g)).toHaveLength(2);
+    expect(view).toMatch(
+      /let shownPages = \$derived\(pagesShownAt\(canShowPage\)\)/
+    );
+  });
+
+  it("renders the report as a page and gives it no second shape", () => {
+    // The two surfaces that are both a sheet and a page take `inline`; this one
+    // takes nothing, because there is no shape for it to be told to be. A prop
+    // here would be a sheet form claimed in the markup and absent everywhere
+    // else.
+    const view = source(FOOD_VIEW);
+    expect(view.match(/<ReportsPage/g)).toHaveLength(1);
+    expect(view.match(/inline=\{onPage\}/g)).toHaveLength(2);
+    expect(view).not.toMatch(/<ReportsPage[^>]*inline/);
+  });
+
+  it("will not draw it at a width that cannot hold a page", () => {
+    // The header cannot reach that state and the walk-back clears the opening
+    // on a narrowing, so this guard is the two of them agreeing written down
+    // where the surface is. What it costs to leave out is the one screen
+    // ADR-0091 §5 says must not exist: a page on a phone, whose only way off —
+    // the title — is not a control down there.
+    const view = source(FOOD_VIEW);
+    expect(view).toContain('{:else if page === "reports" && onPage}');
   });
 });
 

@@ -29,10 +29,10 @@
     type WayIn,
   } from "../food/ways-in";
   import {
-    PAGES,
     iconIdOf,
     pageLabel,
     pageLegend,
+    pagesShownAt,
     watchPageWidth,
     type Page,
   } from "../food/pages";
@@ -82,6 +82,7 @@
   import SourceExplainerSheet from "./food/SourceExplainerSheet.svelte";
   import DietaryExplainerSheet from "./food/DietaryExplainerSheet.svelte";
   import FoodSettingsSheet from "./food/FoodSettingsSheet.svelte";
+  import ReportsPage from "./food/ReportsPage.svelte";
   import SelectionBar from "./food/SelectionBar.svelte";
   import ScaleTier from "./food/ScaleTier.svelte";
   import MoveMealSheet from "./food/MoveMealSheet.svelte";
@@ -227,6 +228,14 @@
 
   // Whether what is on screen is a page rather than the day.
   let onPage = $derived(canShowPage && page !== null);
+
+  // The pages that have a control at this width, which is the roster the header
+  // and the legend both loop — never `PAGES`. Two of the three keep a control
+  // everywhere, opening a sheet below the breakpoint and a page above it;
+  // Reports has no sheet form and so no control down there at all (ADR-0091
+  // §7), which is `pages.ts`'s fact about a page rather than this screen's about
+  // a width.
+  let shownPages = $derived(pagesShownAt(canShowPage));
 
   // The standing blurb under the title is orientation for a first visit and
   // dead weight on every one after, and on a phone it costs three lines above
@@ -993,14 +1002,38 @@
   </svg>
 {/snippet}
 
-<!-- A page's mark, in the header and in the legend. The two pages' marks are
+{#snippet reportsMark()}
+  <!-- Three bars off a baseline, which is what every reading on the page it
+       opens actually is. Drawn rather than set: 📊 and ▁▄█ are outside every
+       unicode-range Epilogue is served in, so a glyph here would be a
+       substituted face beside two drawn marks (#317). -->
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <line x1="3" y1="21" x2="21" y2="21"></line>
+    <line x1="7" y1="21" x2="7" y2="13"></line>
+    <line x1="12" y1="21" x2="12" y2="6"></line>
+    <line x1="17" y1="21" x2="17" y2="10"></line>
+  </svg>
+{/snippet}
+
+<!-- A page's mark, in the header and in the legend. The three pages' marks are
      different kinds of thing — Recipes wears the meal header's own recipe pot,
-     so the same thing looks the same in both places, and Settings has a drawn
-     gear of its own — so the roster is looped and the mark is chosen here, once,
-     rather than the whole control being written out twice. -->
+     so the same thing looks the same in both places, and Settings and Reports
+     have drawn marks of their own — so the roster is looped and the mark is
+     chosen here, once, rather than the whole control being written out three
+     times. -->
 {#snippet pageMark(of: Page)}
   {#if of === "recipes"}
     <WayInIcon kind="recipe" />
+  {:else if of === "reports"}
+    {@render reportsMark()}
   {:else}
     {@render settingsMark()}
   {/if}
@@ -1070,11 +1103,18 @@
           {@render infoMark()}
         </button>
       {/if}
-      <!-- The two standing controls, drawn from `PAGES` rather than listed
-           again here, so the header keeps the roster and its left-to-right
-           order by construction — the same shape a meal header uses for its
-           ways in. A third page appears here and in the legend below without
-           anyone remembering to add it twice.
+      <!-- The standing controls, drawn from the roster rather than listed again
+           here, so the header keeps its members and their left-to-right order by
+           construction — the same shape a meal header uses for its ways in. A
+           fourth page appears here and in the legend below without anyone
+           remembering to add it twice.
+
+           **The roster is the width's**, not `PAGES`: two of the three open a
+           sheet below the shell breakpoint and a page above it, and Reports has
+           no sheet at all, so its control is simply not here down there
+           (ADR-0091 §7). One control per page at every width it exists at, which
+           is what ADR-0091 §1 protects — Reports is not a part a width removes,
+           it is a way in to something a phone cannot hold.
 
            Above the shell breakpoint they are **navigation**: the icon of the
            page you are on is inverted — ink and paper, which is how this frame
@@ -1086,7 +1126,7 @@
            Each stays a plain click that opens the surface it names, so a page
            keeps exactly one control either side of the breakpoint (ADR-0091 §1)
            and the icon never becomes a toggle — the title is the way back. -->
-      {#each PAGES as p (p)}
+      {#each shownPages as p (p)}
         <button
           type="button"
           class="header-icon-btn"
@@ -1138,7 +1178,7 @@
            that is. Their names are the controls' own accessible names, which is
            what a legend is for: the word a screen reader says and the word the
            panel writes down are one string. -->
-      {#each PAGES as p (p)}
+      {#each shownPages as p (p)}
         <div class="legend-row">
           <dt>
             <span class="legend-mark">{@render pageMark(p)}</span>
@@ -1211,6 +1251,21 @@
     inline={onPage}
     onClose={() => (page = null)}
   />
+{:else if page === "reports" && onPage}
+  <!-- Reports, and the one page with no sheet behind it: it is a page or it is
+       nothing (ADR-0091 §7), so unlike the two above it takes no `inline` and
+       has no second shape to be in.
+
+       `onPage` is the whole of that rule written where the surface is. The
+       header cannot reach this state — Reports has no control below the
+       breakpoint and the walk-back clears the opening on a narrowing — but the
+       cost of the two agreeing and this not is a page-shaped screen on a phone
+       whose title is not a control, which is the one screen ADR-0091 §5 says
+       must not exist.
+
+       It reads the whole projection rather than the day's slice: a report is a
+       question about a period, and the period is its own. -->
+  <ReportsPage events={$consumptionStore} />
 {/if}
 
 <!-- Secondary: Saved Digital Twins Ledger.
