@@ -585,6 +585,7 @@
   }
   .sin {
     flex: 1;
+    min-height: var(--tap-min);
     border: var(--edge);
     padding: var(--space-2xs) var(--space-xs);
     font-family: inherit;

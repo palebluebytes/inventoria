@@ -450,19 +450,12 @@ const PROXIED: string[] = [
 
 const SHORTFALLS: string[] = [
   "views/food/AmountField.svelte input.num — 25.9 (32.4 optimistic)",
-  "views/food/CalorieCalculatorSheet.svelte input.num — 43.6 (49 optimistic)",
-  "views/food/CategoryPicker.svelte input.catpick-input — 44 (48.2 optimistic)",
   "views/food/FoodStager.svelte .cf-ctl input — 40 (45 optimistic)",
   "views/food/FoodStager.svelte .cf-pack input — 40 (45 optimistic)",
   "views/food/FoodStager.svelte .cf-prow input — 39.6 (45 optimistic)",
   "views/food/FoodStager.svelte .cf-reason-code input — 44 (45 optimistic)",
   "views/food/FoodStager.svelte input.cf-subline — 39.6 (45 optimistic)",
   "views/food/FoodStager.svelte input.cf-title — 44 (45 optimistic)",
-  "views/food/IngredientListEditor.svelte input.tin.yield-in — 43.6 (49 optimistic)",
-  "views/food/ManualEntryFlow.svelte input.kcal-input — 44.8 (56 optimistic)",
-  "views/food/NutritionTargetEditor.svelte input.card-target — 34.6 (40 optimistic)",
-  "views/food/RecipeBuilder.svelte input.sin.recipe-step — 43.6 (49 optimistic)",
-  "views/food/ScaleTier.svelte input.sb-factor — 44 (44 optimistic)",
   "views/habits/AddEventScreen.svelte input.hero-input — 37.3 (46.7 optimistic)",
   "views/habits/AddHabitScreen.svelte input.input-inline-cat — 34.6 (40 optimistic)",
   "views/habits/DateField.svelte input.time-input — 43.6 (49 optimistic)",
@@ -472,6 +465,4 @@ const SHORTFALLS: string[] = [
   "views/items/ItemManualForm.svelte select.custom-select — 43.6 (49 optimistic)",
 ];
 
-const UNREADABLE: string[] = [
-  "views/food/NutrientCard.svelte label.nutrient-card — height comes from its children",
-];
+const UNREADABLE: string[] = [];

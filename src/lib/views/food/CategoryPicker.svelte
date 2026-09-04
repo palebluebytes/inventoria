@@ -269,7 +269,7 @@
   }
   .catpick-input {
     width: 100%;
-    min-height: 44px;
+    min-height: var(--tap-min);
     padding: 0.6rem;
     border: 1px dashed var(--ink);
     border-radius: var(--radius);

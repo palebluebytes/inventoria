@@ -73,6 +73,13 @@
 <style>
   .nutrient-card {
     position: relative;
+    /* When `toggle` is set this element IS the checkbox: it renders as the
+       `<label>` around an invisible `.card-toggle`, so the whole card is what a
+       finger lands on (ADR-0093). Its two stacked lines already clear the
+       floor; declaring it is what makes that provable rather than incidental,
+       since a box built out of its children cannot be measured from its own
+       declarations. */
+    min-height: var(--tap-min);
     display: flex;
     flex-direction: column;
     gap: var(--space-2xs);

@@ -104,7 +104,7 @@
   .sb-factor {
     flex-shrink: 0;
     width: 4rem;
-    min-height: 2.75rem;
+    min-height: var(--tap-min);
     padding: 0 var(--space-2xs);
     background: var(--bg-input);
     border: var(--edge);

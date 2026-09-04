@@ -437,6 +437,9 @@
   .num {
     width: 100%;
     min-width: 0;
+    /* The field is the target — its `<label class="field">` wraps the caption
+       too, so the label's box is the pair rather than this one (ADR-0093). */
+    min-height: var(--tap-min);
     padding: var(--space-2xs) var(--space-xs);
     font-family: var(--font-mono);
     font-weight: 700;

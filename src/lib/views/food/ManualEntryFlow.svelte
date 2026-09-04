@@ -463,6 +463,10 @@
   }
   .kcal-input {
     width: 100%;
+    /* `--step-4` draws a tall line, but only under an inherited line-height; a
+       UA's `normal` takes it to 44.8, so the floor is declared rather than
+       assumed (#338). */
+    min-height: var(--tap-min);
     border: none;
     outline: none;
     text-align: center;

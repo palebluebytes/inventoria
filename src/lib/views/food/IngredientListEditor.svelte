@@ -306,6 +306,9 @@
      frame from. */
   .yield-in {
     width: 3.5rem;
+    /* Tighter padding than `.tin`, so the frame it borrows no longer reaches
+       the floor on its own and has to say so. */
+    min-height: var(--tap-min);
     padding: var(--space-2xs);
     text-align: center;
     font-weight: 700;

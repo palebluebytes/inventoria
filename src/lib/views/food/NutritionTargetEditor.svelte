@@ -729,6 +729,7 @@
   .card-target {
     width: 4.25rem;
     min-width: 0;
+    min-height: var(--tap-min);
     /* Snug horizontal padding — the field is only ~4rem wide in a phone column,
        so a wider inset would clip a four/five-figure target's own digits. */
     padding: var(--space-3xs);
