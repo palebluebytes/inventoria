@@ -70,6 +70,24 @@ function declareNotes(
   });
 }
 
+/**
+ * A channel that counts what it records. Its `tally` takes its entry
+ * contextually and returns only declared names, which is the shape §12's two
+ * guards exist to hold.
+ */
+function declareTallied(facility: Facility, name: string, cap = 3) {
+  return facility.defineChannel({
+    name,
+    domain: "food",
+    purpose: "the tests below; they decide whether the counters work.",
+    cap,
+    version: 1,
+    parse: parseNote,
+    counters: ["kept", "lost"],
+    tally: (entry) => (entry.text === "lost" ? ["lost"] : ["kept"]),
+  });
+}
+
 /** One record as it is actually stored: the facility's envelope round an entry. */
 const stored = (entry: unknown, v = 1, lvl = 9) => ({ v, lvl, entry });
 
@@ -600,6 +618,274 @@ describe("levels and the dial (ADR-0092 §4, §5)", () => {
 
     expect(facility.readChannel(paused)).toEqual([]);
     expect(facility.readChannel(loud)).toEqual([{ text: "trace" }]);
+  });
+});
+
+describe("counters (ADR-0092 §9)", () => {
+  // A counter is a running total of a field the entries already record, a whole
+  // number and nothing else, shed last and cleared only with the channel. The
+  // three constraints ADR-0054's Amendment placed on them, carried into §9.
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-04T09:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const MINTED = new Date("2026-09-04T09:00:00.000Z").getTime();
+
+  it("totals the names a tally returns, under a key of its own", async () => {
+    const ls = makeFakeLocalStorage();
+    vi.stubGlobal("localStorage", ls);
+    const facility = await loadFacility();
+    const channel = declareTallied(facility, "notes");
+
+    facility.appendToChannel(channel, { text: "one" }, INFO);
+    facility.appendToChannel(channel, { text: "lost" }, INFO);
+    facility.appendToChannel(channel, { text: "two" }, INFO);
+
+    expect(facility.channelCounters(channel, MINTED)).toEqual({
+      counts: { kept: 2, lost: 1 },
+      since: MINTED,
+    });
+    // Its own key, which is the whole of what makes the shed-last promise true.
+    expect(ls.store.has("inventoria_log_notes_counters")).toBe(true);
+    expect(ls.store.get("inventoria_log_notes")).not.toContain("kept");
+  });
+
+  it("counts every name the tally returns, so one entry may count twice", async () => {
+    vi.stubGlobal("localStorage", makeFakeLocalStorage());
+    const facility = await loadFacility();
+    const channel = facility.defineChannel({
+      name: "twice",
+      domain: "food",
+      purpose: "this test; it decides whether a tally is a list or a set.",
+      cap: 3,
+      version: 1,
+      parse: parseNote,
+      counters: ["kept"],
+      tally: () => ["kept", "kept"],
+    });
+
+    facility.appendToChannel(channel, { text: "one" }, INFO);
+
+    expect(facility.channelCounters(channel, MINTED)?.counts).toEqual({
+      kept: 2,
+    });
+  });
+
+  it("stands after every entry it counted has gone (the shed-last promise)", async () => {
+    // `writeRecords` removes the entries key outright at zero records, so while
+    // the two shared a key the promise was false in code rather than merely
+    // fragile. This is the assertion that shape exists for.
+    const ls = makeFakeLocalStorage();
+    vi.stubGlobal("localStorage", ls);
+    const facility = await loadFacility();
+    const channel = declareTallied(facility, "notes");
+    facility.appendToChannel(channel, { text: "one" }, INFO);
+    facility.appendToChannel(channel, { text: "two" }, INFO);
+
+    facility.deleteChannelEntry(channel, 0);
+    facility.deleteChannelEntry(channel, 0);
+
+    expect(ls.store.has("inventoria_log_notes")).toBe(false);
+    // And the redaction did not decrement either (#214 §8): the count of a
+    // redacted entry survives its redaction, and clearing the channel is what
+    // removes it.
+    expect(facility.channelCounters(channel, MINTED)?.counts).toEqual({
+      kept: 2,
+      lost: 0,
+    });
+  });
+
+  it("survives the shared budget, which never weighs it", async () => {
+    vi.stubGlobal("localStorage", makeFakeLocalStorage());
+    const facility = await loadFacility();
+    const channel = declareTallied(facility, "notes", 500);
+    const bulky = "x".repeat(100_000);
+    for (let i = 0; i < 4; i++)
+      facility.appendToChannel(channel, { text: `${i}${bulky}` }, INFO);
+
+    expect(facility.readChannel(channel).length).toBeLessThan(4);
+    expect(facility.channelCounters(channel, MINTED)?.counts).toEqual({
+      kept: 4,
+      lost: 0,
+    });
+  });
+
+  it("increments even when the dial suppressed the record (§9)", async () => {
+    // The dial is a budget device and a counter is not bytes. Gating counters
+    // would let a global setting silently hole the one number that exists to
+    // survive shedding: turn it down and you keep the rate, you lose the detail.
+    vi.stubGlobal("localStorage", makeFakeLocalStorage());
+    const facility = await loadFacility();
+    const channel = declareTallied(facility, "notes");
+    facility.setDialPosition(facility.SEVERITY.WARN);
+
+    facility.appendToChannel(channel, { text: "one" }, facility.SEVERITY.DEBUG);
+
+    expect(facility.readChannel(channel)).toEqual([]);
+    expect(facility.channelCounters(channel, MINTED)?.counts).toEqual({
+      kept: 1,
+      lost: 0,
+    });
+  });
+
+  it("stops while the channel's recording is paused (§9)", async () => {
+    // The smaller version of the same hole, accepted: pausing is an explicit,
+    // visible, per-channel act, and a counter that kept running while the
+    // channel reads "not recording" would make "stop recording" stop meaning
+    // what it says.
+    vi.stubGlobal("localStorage", makeFakeLocalStorage());
+    const facility = await loadFacility();
+    const channel = declareTallied(facility, "notes");
+    facility.appendToChannel(channel, { text: "one" }, INFO);
+
+    facility.setChannelRecording(channel, false);
+    facility.appendToChannel(channel, { text: "two" }, INFO);
+
+    expect(facility.channelCounters(channel, MINTED)?.counts).toEqual({
+      kept: 1,
+      lost: 0,
+    });
+  });
+
+  it("reads a counter that has never fired as zero, not as absent", async () => {
+    vi.stubGlobal("localStorage", makeFakeLocalStorage());
+    const facility = await loadFacility();
+    const channel = declareTallied(facility, "notes");
+
+    expect(facility.channelCounters(channel, 1700000000000)).toEqual({
+      counts: { kept: 0, lost: 0 },
+      since: 1700000000000,
+    });
+  });
+
+  it("holds nothing at all for a channel that declares none", async () => {
+    vi.stubGlobal("localStorage", makeFakeLocalStorage());
+    const facility = await loadFacility();
+    const channel = declareNotes(facility, "plain");
+    facility.appendToChannel(channel, { text: "one" }, INFO);
+
+    expect(facility.channelCounters(channel, MINTED)).toBeNull();
+  });
+
+  it("keeps the names the declaration carries, and only whole numbers", async () => {
+    // The cardinality bound is an invariant the projection holds rather than a
+    // rule a reviewer applies: a name outside the declared set is not stored, a
+    // value that is not a whole number is not a count, and a declared name the
+    // store has nothing for reads zero.
+    const ls = makeFakeLocalStorage();
+    vi.stubGlobal("localStorage", ls);
+    const facility = await loadFacility();
+    const channel = declareTallied(facility, "notes");
+    ls.store.set(
+      "inventoria_log_notes_counters",
+      JSON.stringify({
+        counts: { kept: 7, lost: 1.5, gone: 99 },
+        since: 1600000000000,
+      })
+    );
+
+    facility.appendToChannel(channel, { text: "one" }, INFO);
+
+    expect(facility.channelCounters(channel, MINTED)).toEqual({
+      counts: { kept: 8, lost: 0 },
+      since: 1600000000000,
+    });
+    expect(ls.store.get("inventoria_log_notes_counters")).not.toContain("gone");
+  });
+
+  it("keeps its epoch across every append, and takes a new one after a clear", async () => {
+    vi.stubGlobal("localStorage", makeFakeLocalStorage());
+    const facility = await loadFacility();
+    const channel = declareTallied(facility, "notes");
+    facility.appendToChannel(channel, { text: "one" }, INFO);
+    vi.setSystemTime(new Date("2026-09-05T09:00:00.000Z"));
+    facility.appendToChannel(channel, { text: "two" }, INFO);
+
+    expect(facility.channelCounters(channel, 0)?.since).toBe(MINTED);
+
+    // Cleared only when the channel is, and the epoch is what makes the zeroes
+    // honest afterwards.
+    const CLEARED = new Date("2026-09-06T09:00:00.000Z").getTime();
+    vi.setSystemTime(new Date(CLEARED));
+    facility.clearChannel(channel);
+    facility.appendToChannel(channel, { text: "three" }, INFO);
+
+    expect(facility.channelCounters(channel, 0)).toEqual({
+      counts: { kept: 1, lost: 0 },
+      since: CLEARED,
+    });
+  });
+
+  it("carries the counters and their epoch into the export, beside the entries", async () => {
+    // A number without its epoch is a dishonest label, and an exported file
+    // outlives the screen that would have explained it.
+    vi.stubGlobal("localStorage", makeFakeLocalStorage());
+    const facility = await loadFacility();
+    const tallied = declareTallied(facility, "notes");
+    const plain = declareNotes(facility, "plain");
+    facility.appendToChannel(tallied, { text: "lost" }, INFO);
+    facility.appendToChannel(plain, { text: "one" }, INFO);
+
+    const payload = facility.buildLogExport([tallied, plain], 1700000000000);
+
+    expect(payload.channels[0]).toMatchObject({
+      name: "notes",
+      entries: [{ text: "lost" }],
+      counters: { kept: 0, lost: 1 },
+      counters_since: MINTED,
+    });
+    // A channel that declares none carries neither field rather than an empty
+    // object somebody has to interpret.
+    expect(payload.channels[1]).not.toHaveProperty("counters");
+    expect(payload.channels[1]).not.toHaveProperty("counters_since");
+  });
+
+  it("declares both halves or neither, and a tally names only what was declared", async () => {
+    // The compile-time guards (§12), asserted where the type checker runs:
+    // `pnpm check` typechecks `tests/`, so an expectation that stops erroring is
+    // a failure here rather than a review comment nobody wrote.
+    const facility = await loadFacility();
+    facility.defineChannel({
+      name: "no-counters",
+      domain: "food",
+      purpose: "this test; it decides whether a lone tally compiles.",
+      cap: 3,
+      version: 1,
+      parse: parseNote,
+      // @ts-expect-error a tally needs the counters it totals
+      tally: () => ["kept"],
+    });
+    facility.defineChannel({
+      name: "no-tally",
+      domain: "food",
+      purpose: "this test; it decides whether lone counters compile.",
+      cap: 3,
+      version: 1,
+      parse: parseNote,
+      // @ts-expect-error counters need the tally that fills them
+      counters: ["kept"],
+    });
+    facility.defineChannel({
+      name: "undeclared",
+      domain: "food",
+      purpose: "this test; it decides whether a tally may invent a name.",
+      cap: 3,
+      version: 1,
+      parse: parseNote,
+      counters: ["kept"],
+      // @ts-expect-error "invented" is not one of the declared counters
+      tally: () => ["invented"],
+    });
+    expect(facility.registeredChannels().map((c) => c.name)).toEqual([
+      "no-counters",
+      "no-tally",
+      "undeclared",
+    ]);
   });
 });
 

@@ -210,6 +210,11 @@ const FOOD_KEYS = {
   // food's `pref` namespace, which is why the derivation reads the facility
   // rather than the registry's prefixes alone.
   inventoria_log_search: "[]",
+  // And its counters, under a key of their own (ADR-0092 §9). A permanent
+  // counter is the part of a Facet's data that most needs to go: no cap, no
+  // shared budget and no redaction would ever have taken it, so this control is
+  // the only thing that does.
+  inventoria_log_search_counters: '{"counts":{},"since":1700000000000}',
 };
 
 afterEach(() => {
@@ -247,7 +252,9 @@ describe("the scoped wipe's storage predicate", () => {
     const prefixes = storagePrefixesOf("food");
     for (const key of facetStorageKeys("food")) {
       const declared = prefixes.some((p) => key.startsWith(p));
-      const channel = key === "inventoria_log_search";
+      const channel =
+        key === "inventoria_log_search" ||
+        key === "inventoria_log_search_counters";
       expect(declared || channel).toBe(true);
     }
   });
@@ -277,6 +284,7 @@ describe("a jar-wide channel is in no Facet's wipe (ADR-0092 §13)", () => {
         ...OTHER_KEYS,
         ...FOOD_KEYS,
         inventoria_log_narration: "[]",
+        inventoria_log_narration_counters: '{"counts":{},"since":1}',
       })
     );
 
@@ -291,6 +299,12 @@ describe("a jar-wide channel is in no Facet's wipe (ADR-0092 §13)", () => {
     // Food's own channel still goes, so the exclusion is the null domain and
     // not a wipe that stopped taking log keys.
     expect(wipe.facetStorageKeys("food")).toContain("inventoria_log_search");
+    // The jar-wide channel's counters stay with its records, for the same
+    // reason: the exclusion is the channel, not one of its two keys.
+    for (const facet of ["food", "root"] as const)
+      expect(wipe.facetStorageKeys(facet)).not.toContain(
+        "inventoria_log_narration_counters"
+      );
   });
 });
 

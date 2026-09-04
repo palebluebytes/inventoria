@@ -18,6 +18,16 @@
  * both superseded: two of the three channels have no question, and `purpose` is
  * what the anti-sprawl gate left behind.
  *
+ * A channel may also declare **counters** (§9): named whole numbers that only
+ * ever increase, live under a key of their own, are never shed, and are cleared
+ * only when the channel is. They exist because a capped ring cannot report a
+ * rate — a total taken over the last `cap` records wears a lifetime label it has
+ * not earned — and they are the facility's one permanent part. The write tallies
+ * **above** the dial's gate and **below** the pause, deliberately: the dial is a
+ * budget device and a counter is not bytes, while pausing is an explicit,
+ * visible, per-channel act, and a counter that kept running while the channel
+ * reads "not recording" would make "stop recording" stop meaning what it says.
+ *
  * Records live in `localStorage`, one namespaced key per channel, **never in the
  * ledger** (§3). `src/lib/stores/secrets.ts` states the principle in its own
  * header — "The ledger is undeletable and it syncs" — and this facility needs
@@ -33,6 +43,17 @@
  * `log-facility.test.ts` asserts that this file names no network API at all,
  * because the distinction ADR-0053 rests on — that a local record is not
  * telemetry — holds only while it is structurally true.
+ *
+ * **On its length**, which is past `CODING_STANDARDS.md` §4's thousand lines:
+ * about three fifths of it is this commentary, and the code under that is a
+ * little over four hundred lines. The seams a split would take run the wrong
+ * way. The dial, the counters and the export all reach the guarded accessors
+ * below, which this header has just explained are deliberately not shared; and
+ * the facility reaches back into the dial from `appendToChannel` and into the
+ * counters from `buildLogExport`. So the decomposition on offer is four modules
+ * with a cycle through two of them, to divide one channel's life across the
+ * files that own its parts — where ADR-0092 §1 puts a channel's whole life in
+ * one place on purpose.
  */
 
 import { domainsOf, type TrackedDomainId } from "../facets/registry";
@@ -126,6 +147,45 @@ export interface LogChannel<E> {
    */
   readonly version: number;
   /**
+   * The counters this channel keeps: named whole numbers that only ever
+   * increase, are never shed, are not subject to the cap, and are cleared only
+   * when the channel is (§9).
+   *
+   * **A declared literal array, not a name space a function invents.** The
+   * cardinality bound is then an invariant the type system holds and the write
+   * path enforces, rather than a rule a reviewer might apply to a
+   * `(entry) => string[]` they cannot see the range of — an unbounded name
+   * space is a cardinality explosion in a 5 MB store. It also makes the export
+   * self-describing: a counter that has never fired reads zero rather than
+   * being silently absent.
+   *
+   * Declared with {@link tally} or not at all, in both directions (§12).
+   */
+  readonly counters?: readonly string[];
+  /**
+   * What one entry adds, as the counter names it contributes to — each
+   * occurrence a separate increment, so an entry may count twice.
+   *
+   * A function over the **whole entry**, which is what admits a counter derived
+   * from a pair of fields (ADR-0071 §5's `unreachable`-then-a-door) without the
+   * facility knowing the shape. It is handed the entry the channel built, never
+   * the envelope, exactly as {@link parse} hands one back.
+   *
+   * **It is a running total of a field the entries already record, and never a
+   * new fact.** A counter that measures something no entry carries is a second
+   * instrument wearing a counter's name, and nothing in the review would show
+   * what it is counting.
+   *
+   * The **declaration** types this over `E` and over the declared counter names;
+   * what is stored erases both, exactly as `purpose: P` narrows at the call site
+   * and is held as a plain `string` here. The erasure is what keeps a channel
+   * usable as a `LogChannel<unknown>` — `E` in a parameter position would make
+   * every erased surface, from the review sheet to the wipe, unable to hold one —
+   * and it costs nothing, because the only caller is {@link appendToChannel},
+   * which has the entry's real type in hand.
+   */
+  readonly tally?: (entry: unknown) => readonly string[];
+  /**
    * Reads one stored record back into the channel's shape, or `null` for
    * anything it does not recognise. Stored JSON is not a typed boundary — it
    * survives a downgrade, a hand edit and a half-written shape — so a channel
@@ -153,15 +213,42 @@ interface ChannelNeedsAStatedPurpose {
   readonly __a_channel_needs_a_stated_purpose: never;
 }
 
-/** What a channel declares, before the purpose guard is layered over it. */
+/**
+ * The type a lone `tally` collapses to, the same device the purpose guard uses
+ * and for the same reason: the brand's name is what the error message says.
+ */
+interface ATallyNeedsTheCountersItTotals {
+  readonly __a_tally_needs_the_counters_it_totals: never;
+}
+
+/** What a channel declares, before the two guards are layered over it. */
 interface ChannelFields<E> {
   name: string;
   domain: TrackedDomainId | null;
   purpose: string;
   cap: number;
   version: number;
+  counters?: readonly string[];
+  tally?: (entry: unknown) => readonly string[];
   parse: (raw: unknown) => E | null;
 }
+
+/**
+ * The counter half of a declaration: **both fields or neither**, and a `tally`
+ * that may name only what `counters` declared (§12).
+ *
+ * A union rather than two optional fields, because that is what makes the
+ * dependency between them a thing the compiler holds. `C` is inferred from the
+ * `counters` array alone — `NoInfer` keeps the tally's own return from widening
+ * it back to `string`, which would give the guard back with the bound removed —
+ * and `entry` is contextually typed from `parse`'s `E` for the same reason.
+ */
+type CounterDeclaration<E, C extends string> =
+  | { counters?: undefined; tally?: ATallyNeedsTheCountersItTotals }
+  | {
+      counters: readonly C[];
+      tally: (entry: NoInfer<E>) => readonly NoInfer<C>[];
+    };
 
 /**
  * A channel declaration. `purpose` is a literal string in code, deliberately: a
@@ -169,12 +256,13 @@ interface ChannelFields<E> {
  * conditional below rejects the widened `string` for that reason as much as it
  * rejects `""`.
  */
-type ChannelDeclaration<E, P extends string> = Omit<
+type ChannelDeclaration<E, P extends string, C extends string> = Omit<
   ChannelFields<E>,
-  "purpose"
+  "purpose" | "counters" | "tally"
 > & { purpose: P } & ("" extends P
     ? { purpose: ChannelNeedsAStatedPurpose }
-    : unknown);
+    : unknown) &
+  CounterDeclaration<E, C>;
 
 const channels = new Map<string, LogChannel<unknown>>();
 
@@ -192,14 +280,14 @@ const channels = new Map<string, LogChannel<unknown>>();
  * only, duplicates would still need the check below, and it re-introduces the
  * central registry #221 exists to remove.
  */
-export function defineChannel<E, P extends string>(
-  declaration: ChannelDeclaration<E, P>
+export function defineChannel<E, P extends string, C extends string = never>(
+  declaration: ChannelDeclaration<E, P, C>
 ): LogChannel<E> {
   // The guard's own boundary: the declared type exists to reject a blank
   // `purpose` at the call site, and the body below only ever reads the plain
   // fields underneath it. The module's other cast is `readRecord`'s, over stored
   // JSON, which is the genuine external boundary of the two.
-  const { name, domain, purpose, cap, version, parse } =
+  const { name, domain, purpose, cap, version, counters, tally, parse } =
     declaration as unknown as ChannelFields<E>;
   if (purpose.trim() === "")
     throw new Error(
@@ -215,6 +303,8 @@ export function defineChannel<E, P extends string>(
     purpose,
     cap,
     version,
+    counters,
+    tally,
     parse,
   };
   channels.set(name, channel as LogChannel<unknown>);
@@ -430,11 +520,19 @@ export function channelEntryCount(channel: LogChannel<unknown>): number {
  * **The pause and the dial are orthogonal.** The pause says whether this stream
  * at all; the dial says how much detail. Neither is the other's off switch.
  *
- * **The order of the two returns is load-bearing for what comes next.** §9's
- * counters are not gated by the dial — a counter is not bytes, and a rate read
- * from a suppressed record's absence would be a rate wearing a lifetime label it
- * has not earned. So the tally #354 adds goes ABOVE the `capturedAt` gate, not
- * beside the write below it.
+ * **It tallies first and gates second, and both halves of that are deliberate**
+ * (§9). The dial does NOT gate a counter: §4's gate is a budget device and a
+ * counter is not bytes but a fixed-width integer that never grows, and counters
+ * exist precisely because a capped ring cannot report a rate — so gating them
+ * would let a global setting silently hole the one number that survives
+ * shedding. Turn the dial down and you keep the rate, you lose the detail.
+ *
+ * **The pause DOES stop a counter**, which is the smaller version of the same
+ * hole and is accepted rather than closed. Pausing is an explicit, visible,
+ * per-channel act shown in Settings beside the count, where the dial is a global
+ * setting whose effect on any one counter is invisible; a counter that kept
+ * running while the channel reads "not recording" would make "stop recording"
+ * stop meaning what it says.
  */
 export function appendToChannel<E>(
   channel: LogChannel<E>,
@@ -442,6 +540,7 @@ export function appendToChannel<E>(
   level: SeverityNumber
 ): void {
   if (!isChannelRecording(channel)) return;
+  tallyEntry(channel, entry);
   if (!capturedAt(level)) return;
   // The envelope is stamped here and nowhere else, which is what lets a channel
   // write its own shape and read it back without either half knowing about `v`
@@ -499,9 +598,170 @@ export function deleteChannelEntry<E>(
   }
 }
 
-/** Empties a channel, removing its key outright. */
+/**
+ * Empties a channel: its records **and its counters**, which is the one act that
+ * takes a counter (§9).
+ *
+ * The two keys go together because a counter is cleared only when the channel
+ * is, and because the epoch below is what makes the zeroes that follow honest —
+ * a set left standing beside emptied records would be a total whose entries
+ * nobody can see, and one re-minted without its records would be a rate over a
+ * window nothing states.
+ */
 export function clearChannel(channel: LogChannel<unknown>): void {
   safeRemove(channelStorageKey(channel));
+  safeRemove(channelCountersStorageKey(channel));
+}
+
+// ---------------------------------------------------------------------------
+// Counters
+// ---------------------------------------------------------------------------
+
+/**
+ * One channel's counters and the epoch they run from.
+ *
+ * `since` is not optional and is never inferred by a reader: a number without
+ * its epoch is a dishonest label, which is the whole reason the stamp exists
+ * (#214 §9). **One per channel**, not one per counter — counters are cleared
+ * together, so per-counter stamps could never diverge.
+ */
+export interface ChannelCounters {
+  counts: Record<string, number>;
+  since: number;
+}
+
+/**
+ * The `localStorage` key one channel's counters live under — **its own**, beside
+ * the records rather than inside them (§9).
+ *
+ * ADR-0054's Amendment promises counters still stand when every entry has been
+ * shed, and that promise is *false in code* while the two share a key:
+ * {@link writeRecords} removes the key outright once the record list empties, so
+ * redacting the last entry took the totals with it. A separate key is the only
+ * shape under which the promise is literally true rather than
+ * true-until-the-ring-empties, and it keeps a few integers out of
+ * {@link serialisedBytes}, which the Amendment already argued.
+ *
+ * Exported for the same reason {@link channelStorageKey} is: a Facet-scoped wipe
+ * takes it, and a permanent counter is the part of a Facet's data that most
+ * needs to go.
+ *
+ * A channel named `<something>_counters` would claim another channel's counter
+ * key, the hazard `LS_PAUSED_KEY` names above. It stays a note rather than a
+ * fourth runtime throw (§12): the suffix is ADR-0092 §9's literal key, no
+ * suffix is unclaimable while names are free strings, and the collision needs
+ * two channels one of which is named after the other.
+ */
+export function channelCountersStorageKey(
+  channel: LogChannel<unknown>
+): string {
+  return `${channelStorageKey(channel)}_counters`;
+}
+
+/**
+ * What the counter key holds, as far as the store can be trusted for it.
+ *
+ * Anything it cannot be read as a counter set at all reads as no set, and the
+ * next tally mints a fresh one — which is not the *kept and disclosed* rule
+ * {@link readRecord} follows, deliberately. A record is content somebody may
+ * want back; a corrupt total is a number nothing can partially trust, and the
+ * epoch moving with it is what keeps the label true afterwards.
+ */
+function storedCounters(
+  channel: LogChannel<unknown>
+): { counts: Record<string, unknown>; since: number } | null {
+  const raw = safeGet(channelCountersStorageKey(channel));
+  if (raw === null) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    const { counts, since } = parsed as { counts?: unknown; since?: unknown };
+    if (typeof since !== "number") return null;
+    if (typeof counts !== "object" || counts === null) return null;
+    return { counts: counts as Record<string, unknown>, since };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The declared counters over whatever the store holds: every declared name, a
+ * whole number each, and nothing else.
+ *
+ * Pure, and the single place both constraints live. **Reads and writes both go
+ * through it**, so the bounded name space is a property of what is stored rather
+ * than only of what is shown: a name a previous build declared and this one does
+ * not is not a counter any more, and leaving it in the store would let a
+ * declaration change grow the very unbounded key space the literal array exists
+ * to prevent. A value that is not a whole count reads zero for the same reason
+ * `parse` refuses a record it does not recognise — a fraction is not a total.
+ */
+function projectCounters(
+  declared: readonly string[],
+  stored: Record<string, unknown>
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const name of declared) {
+    const value = stored[name];
+    counts[name] =
+      typeof value === "number" && Number.isInteger(value) && value >= 0
+        ? value
+        : 0;
+  }
+  return counts;
+}
+
+/**
+ * One channel's counters, or `null` for a channel that declares none.
+ *
+ * `now` is the epoch a set that does not exist yet is minted at, and the caller
+ * supplies it: the export passes the moment it was reviewed, so a file's
+ * `counters_since` is the file's own instant rather than a clock read somewhere
+ * inside the facility.
+ *
+ * **A read mints nothing in the store.** The set is persisted by the first
+ * append that tallies, and the statement stays true either way — before that,
+ * the counts are zero and no event has gone uncounted, so any epoch is
+ * accurate about what is below it.
+ */
+export function channelCounters(
+  channel: LogChannel<unknown>,
+  now: number
+): ChannelCounters | null {
+  if (channel.counters === undefined) return null;
+  const stored = storedCounters(channel);
+  return {
+    counts: projectCounters(channel.counters, stored?.counts ?? {}),
+    since: stored?.since ?? now,
+  };
+}
+
+/**
+ * Adds one entry's contribution to the channel's counters.
+ *
+ * **A name the declaration does not carry is dropped here**, at write time,
+ * rather than stored and filtered later — which is what makes the type-level
+ * bound and the stored key space the same set. Each occurrence the tally returns
+ * is its own increment, so an entry may count twice under one name.
+ *
+ * The epoch is minted from `Date.now()` on the first tally and never moved
+ * again, which is the one clock read on this path. It is not a parameter for the
+ * same reason the entry's own `at` is not: every call site would carry a
+ * `Date.now()` to feed a stamp that is written once in a channel's life, and the
+ * part worth testing — {@link channelCounters} and the projection under it —
+ * takes its instant from the caller already.
+ */
+function tallyEntry(channel: LogChannel<unknown>, entry: unknown): void {
+  const { counters: declared, tally } = channel;
+  if (declared === undefined || tally === undefined) return;
+  const stored = storedCounters(channel);
+  const counts = projectCounters(declared, stored?.counts ?? {});
+  const permitted = new Set<string>(declared);
+  for (const name of tally(entry)) if (permitted.has(name)) counts[name] += 1;
+  safeSet(
+    channelCountersStorageKey(channel),
+    JSON.stringify({ counts, since: stored?.since ?? Date.now() })
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -774,6 +1034,26 @@ export interface ExportedChannel {
    */
   unreadable: number;
   entries: unknown[];
+  /**
+   * The channel's counters, **whole** (§10): they are aggregates over
+   * everything that happened, so no selection or filter applies to them.
+   *
+   * Absent, with the stamp below, on a channel that declares none — rather than
+   * an empty object a reader has to interpret.
+   */
+  counters?: Record<string, number>;
+  /**
+   * The instant the counters above run from. It rides in the payload rather
+   * than only on the review screen, because an exported file outlives the screen
+   * that would have explained it and a number without its epoch is a dishonest
+   * label.
+   *
+   * **It sees neither of the two ways entries and counters can disagree** (§9,
+   * #214 §8): a redaction deletes an entry without decrementing, and the dial
+   * suppresses an entry that was already tallied. Both are deliberate, there is
+   * no reconciliation, and the file carries both numbers for a person to fold.
+   */
+  counters_since?: number;
 }
 
 /** The whole of what a hand-export writes. JSON, and nothing else. */
@@ -818,12 +1098,18 @@ export function buildLogExport(
     exported_at,
     channels: selected.map((channel) => {
       const { entries, unreadable } = partitionChannel(channel);
+      // `exported_at` is the epoch a never-minted counter set takes, so the
+      // review and the file agree on it and neither reads a clock of its own.
+      const counters = channelCounters(channel, exported_at);
       return {
         name: channel.name,
         purpose: channel.purpose,
         version: channel.version,
         unreadable,
         entries,
+        ...(counters === null
+          ? {}
+          : { counters: counters.counts, counters_since: counters.since }),
       };
     }),
   };

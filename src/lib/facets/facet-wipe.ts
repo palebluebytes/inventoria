@@ -29,7 +29,11 @@
  */
 
 import type { EntityCensus, EntityCensusGroup } from "../db/db.core";
-import { channelsOfFacet, channelStorageKey } from "../logs/log-facility";
+import {
+  channelCountersStorageKey,
+  channelsOfFacet,
+  channelStorageKey,
+} from "../logs/log-facility";
 import {
   TRACKED_DOMAINS,
   domainsOf,
@@ -79,7 +83,16 @@ export function facetStorageKeys(facetId: FacetId): string[] {
       // data*, and the app's own narration is not that. Deletion is
       // irreversible, so it stays jar-wide while visibility follows the writer.
       .filter((channel) => channel.domain !== null)
-      .map((channel) => channelStorageKey(channel))
+      // Two keys per channel: its records, and the counters that outlive them
+      // (ADR-0092 §9). A permanent counter is the part of a Facet's data that
+      // most needs to go, and it is the one part no cap, no budget and no
+      // redaction would ever have taken. Derived for both rather than named for
+      // one, because #311 already found once that a key nobody derived is a key
+      // the wipe reports success without taking.
+      .flatMap((channel) => [
+        channelStorageKey(channel),
+        channelCountersStorageKey(channel),
+      ])
   );
   try {
     if (typeof localStorage === "undefined") return [];
