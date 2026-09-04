@@ -1129,7 +1129,9 @@ export interface LogExport {
   schema_version: typeof LOG_EXPORT_SCHEMA_VERSION;
   exported_at: number;
   /**
-   * The dial position in force when Export was pressed (§10).
+   * The dial position this payload was built under (§10) — which on this device
+   * is the position in force when Export was pressed, for the reason the
+   * builder states.
    *
    * **Disclosure, never a filter.** At *Errors & warnings* a log looks like a
    * quiet app rather than a filtered one, and a reader could conclude "nothing
@@ -1183,9 +1185,17 @@ export function buildLogExport(
     exported_at,
     // Read here rather than taken as a parameter, unlike `exported_at`. There
     // is no instant a caller could not legitimately choose, and there is
-    // exactly one dial position in force — a caller that could pass another
-    // could label a file with a position nothing in it was captured under,
-    // which is the one thing this field exists to rule out.
+    // exactly one dial position in force — a parameter would let a caller label
+    // a file with a position nothing in it was captured under, which is the one
+    // thing this field exists to rule out.
+    //
+    // **What that buys is bounded, and the bound is worth saying.** This is the
+    // position at the moment the payload is BUILT, not at the moment a button
+    // was pressed: the review rebuilds it on every selection, and the dial's
+    // control sits behind the open sheet, so on this device the two are one
+    // moment. A second tab that moved the dial meanwhile is the stale case
+    // {@link dialPosition} already names, and the value here is then still the
+    // position this tab's records were actually captured at — the honest one.
     dial: dialPosition(),
     channels: selected.map((channel) => {
       const { entries, unreadable } = partitionChannel(channel);

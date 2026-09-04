@@ -1020,25 +1020,18 @@ describe("the export payload", () => {
     expect(JSON.stringify(payload)).not.toContain("last year's shape");
   });
 
-  it("discloses the dial in force when it was built (ADR-0092 §10)", async () => {
-    // Counters run regardless of the dial and entries do not, so the position
-    // is precisely what explains the gap between the complete rate and the
-    // filtered detail. Without it a log taken at *Errors & warnings* reads as a
+  it("discloses the dial it was built under, and filters nothing on it", async () => {
+    // ADR-0092 §10 and §10.1, in one test because the second claim needs the
+    // first: the position is what explains the gap between the complete rate
+    // and the filtered detail, since counters run regardless of the dial and
+    // entries do not. Without it a log taken at *Errors & warnings* reads as a
     // quiet app rather than a filtered one, and an exported file outlives the
     // screen that would have said which.
-    vi.stubGlobal("localStorage", makeFakeLocalStorage());
-    const facility = await loadFacility();
-    const channel = declareNotes(facility, "notes");
-    facility.setDialPosition(facility.SEVERITY.WARN);
-
-    expect(facility.buildLogExport([channel], 1700000000000).dial).toBe(13);
-  });
-
-  it("discloses that dial and filters no record on it (§10.1)", async () => {
-    // The withdrawn `min_level` filter, asserted as absent: a record captured
-    // at DEBUG is still in the file after the dial moves up to WARN. Filtering
-    // here would keep `search`'s WARN records — the ones carrying the typed
-    // text — and drop the INFO ones that do not.
+    //
+    // The withdrawn `min_level` filter is the other half, asserted as absent: a
+    // record captured at DEBUG is still in the file after the dial moves up to
+    // WARN. Filtering here would keep `search`'s WARN records — the ones
+    // carrying the typed text — and drop the INFO ones that do not.
     vi.stubGlobal("localStorage", makeFakeLocalStorage());
     const facility = await loadFacility();
     const channel = declareNotes(facility, "notes");
