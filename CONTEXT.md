@@ -316,7 +316,9 @@ _Avoid_: Telemetry, analytics, tracking, the logger (`console.*` is not this)
 
 **Log channel**:
 A named stream inside the Log facility, declaring its `name`, the Tracked Domain whose
-act writes it (or `null` where the app itself is the author and no domain owns it), its
+act writes it — or `null` for a **jar-wide** channel, where the app itself is the author
+and no domain owns it, which every Facet then shows and exports and no Facet-scoped wipe
+takes (ADR-0092 §13) — its
 `purpose`, its `cap`, its optional counters and its `parse`. The owning domain is what a
 Facet's Local Logs card is derived from — a Facet carries the channels it authors and
 only those (ADR-0080 §1's clause (b)), and the owner is a domain rather than a Facet
@@ -334,13 +336,14 @@ user asked for), **WARN 13** (a dependency failed or the app degraded and the us
 not have noticed), **INFO 9** (something the user did, which completed) and **DEBUG 5**
 (the app's internal trace, and any field whose only reader is a person reproducing a
 bug). It is the severity of what happened, never the importance of the record. It decides
-**what is captured** at a given dial position and **what an export may be filtered down
-to**, and deliberately **nothing about retention** — the ring keeps its last `cap` records
-by age, because a log is read as a sequence and shedding by level deletes the context
-around the record it saves. It rides on the record's envelope beside the version rather
-than inside the entry, so the export filter can select without parsing. A field carries
-one too, decided at capture by a facility predicate the channel's own builder calls. See
-ADR-0092 §3, §5 and §6.
+exactly one thing — **what is captured** at a given dial position — and deliberately
+nothing about **retention** (the ring keeps its last `cap` records by age, because a log
+is read as a sequence and shedding by level deletes the context around the record it
+saves) and nothing about **disclosure** (the export carries the dial as a label and
+applies no filter). What it buys after capture is that a reader can tell an error from a
+boot line. It rides on the record's envelope beside the version rather than inside the
+entry, so a reader can sort by it without parsing, including records whose channel cannot.
+See ADR-0092 §3, §5, §6 and §10.1.
 _Avoid_: Priority, importance, verbosity (that is the dial), trace level, log kind
 
 **The dial**:

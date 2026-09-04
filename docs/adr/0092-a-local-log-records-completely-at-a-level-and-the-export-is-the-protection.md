@@ -163,9 +163,11 @@ may not be added unless its `reader` names a real consumer and a decision that c
 will take"*.
 
 A **level** is a whole number on the OpenTelemetry `SeverityNumber` scale, carried by
-every record, and it is the axis that decides two things: whether the record is
-captured at all (§4), and what an export may be filtered down to (§10). It decides
-**nothing** about retention, which is §6.
+every record, and it is the axis that decides **one** thing: whether the record is
+captured at all (§4). It decides nothing about retention (§6) and, after §10.1, nothing
+about disclosure either — the export carries the dial as a label and applies no filter.
+What a level buys after capture is that a reader can tell an error from a boot line
+without parsing either.
 
 A **channel** survives, doing everything except gating. It owns one `localStorage` key,
 it names the Tracked Domain whose act writes it, it declares the prose that says what
@@ -223,28 +225,30 @@ Three reasons, none of which is retention — §6 sheds by age and never reads `
 
 It transfers #215's stated reason for the wrapper verbatim: **an entry shape keeps no
 dependency on the envelope**, which is exactly why `v` sits there and why `parse` is
-written against the channel's own shape and nothing else. §10's export filter reads a
-level off every record it is deciding about **without parsing any of them**, which is
-what lets the filter be applied by the payload builder rather than by each channel. And
-one facility-stamped wrapper carrying both facility-owned fields is simpler than a
-wrapper for one and a convention for the other.
+written against the channel's own shape and nothing else. A reader of an exported
+file, or of the review sheet, can sort and scan by level **without parsing any record**,
+including the ones whose channel cannot. And one facility-stamped wrapper carrying both
+facility-owned fields is simpler than a wrapper for one and a convention for the other.
 
-*An earlier draft of this record made the decisive argument a retention one — §6 must
-shed a record the channel cannot parse, so the level cannot live inside the entry. §6 no
-longer reads levels, so that argument is gone and the three above are what remain. They
-are enough, and the field does not move.*
+*Two arguments this field once had are gone: §6 no longer sheds by level, and §10.1
+withdrew the export filter. The three above are what remain, they are enough, and the
+field does not move — but a reader should know it is carried for less than it once was.*
 
 **A record written before `lvl` existed simply has no level.** It is retained, it appears
 in the review if its channel can parse it, it stays redactable and clearable, and it
 leaves the ring by age like everything else. Nothing invents a level for it, and nothing
 treats its absence as a reason to shed it first.
 
-#### 3.2 A field's level is a predicate the channel calls, never a map it declares
+#### 3.2 A channel asks the facility what is being captured; it never declares a field map
 
-Some fields ride inside a record whose own level is set once — the search fire sequence
-is the case that forces this — so a field declares the level at which it is captured.
-That is expressed as **one facility predicate**, `capturedAt(level)` or equivalent, which
-the channel's own entry builder calls. The declaration carries nothing about fields.
+One field in the facility rides inside a record whose own level is set elsewhere:
+`search`'s fire sequence is captured at DEBUG inside a session record that is usually
+WARN. That is expressed as **one facility predicate**, `capturedAt(level)` or equivalent,
+which the channel's own entry builder calls. The declaration carries nothing about fields.
+
+**No general rule is stated about fields carrying levels.** An earlier draft made one, and
+it describes a single call site. The predicate is the whole mechanism; a second field
+wanting the same thing calls it too, and nothing else has to exist first.
 
 A declarative field-to-level map would require the facility to reach inside an entry
 shape it deliberately does not understand; per-channel `parse` exists precisely so that
@@ -261,9 +265,10 @@ whatever the dial says, which defeats the point of a capture gate.
 **end**, because the outcome decides it; a *field's* level is decided at session
 **start**. Both are the builder calling the same predicate at different moments.
 
-**Stated as a cost rather than glossed:** one attribute per field is therefore a
-**documented property of each channel's module, not a machine-checked one**. #214 §13's
-precedent applies — an honestly-accepted weakness written down beats a checkbox that
+**Stated as a cost rather than glossed:** which fields a channel omits at which dial
+position is a property of that channel's builder, checked by nothing. With one such field
+today that is a comment; if it becomes several, it is a comment in several places. #214
+§13's precedent applies — an honestly-accepted weakness written down beats a checkbox that
 re-stamping satisfies.
 
 ### 4. One dial for the whole facility, at three positions
@@ -634,14 +639,13 @@ which forbids a frozen **numerator**, is untouched.
 **Each channel carries one `counters_since`**, exported beside the counters, because a
 number without its epoch is a dishonest label.
 
-### 10. The export discloses the dial, and it filters
+### 10. The export discloses the dial, and does not filter
 
 ```ts
 interface LogExport {
   artifact: "inventoria-local-log";
   exported_at: number;
   dial: SeverityNumber;       // in force when Export was pressed
-  min_level: SeverityNumber;  // the export-time filter
   channels: ExportedChannel[];
 }
 
@@ -649,47 +653,57 @@ interface ExportedChannel {
   name: string;
   purpose: string;
   entries: unknown[];
-  counters?: Record<string, number>;   // unfiltered
+  counters?: Record<string, number>;
   counters_since?: number;
 }
 ```
 
-`sensitivity` is gone from the payload. Export selection stays **per channel**, and the
-per-Facet split ADR-0080 §5 drew over it is untouched.
+`sensitivity` is gone from the payload. **Export selection is per channel, all or nothing,
+and that is the only granularity on offer.** The per-Facet split ADR-0080 §5 drew over it
+is untouched, and §13 adds the jar-wide channels to both Facets' lists.
 
 **The payload carries the dial position in force when Export was pressed.** At *Errors &
 warnings* a log looks like a quiet app rather than a filtered one, and a reader could
-conclude "nothing happened" when the truth is "nothing was recorded". This is exactly the
-failure `counters_since` was invented for — a number without its epoch is a dishonest
-label — applied to the entries instead of the counters, and an exported file outlives the
-screen that would have explained it. It also completes §9: **counters run regardless of
-the dial and entries do not, so the dial position is precisely what explains the gap
-between the complete rate and the filtered detail.** A reader holding both can tell quiet
-from filtered.
+conclude "nothing happened" when the truth is "nothing was recorded". This is the failure
+`counters_since` was invented for — a number without its epoch is a dishonest label —
+applied to the entries instead of the counters, and an exported file outlives the screen
+that would have explained it. It also completes §9: **counters run regardless of the dial
+and entries do not, so the dial position is precisely what explains the gap between the
+complete rate and the filtered detail.** A reader holding both can tell quiet from
+filtered.
 
 *Stated out loud:* the value is the dial **at export time**, and records older than the
 last change to it were captured under a different one. Per-record dial position was
 rejected — bytes on every record to answer a question nobody asks, when the record's own
 `lvl` already says what it is.
 
-**The review sheet offers a minimum level for the export**, one value across all selected
-channels, defaulting to the dial's current position. Without it "the dial gates capture
-and the export filters on it" would be a no-op, since the dial already gated capture.
-This is the one disclosure control that costs nothing to build and is genuinely about
-disclosure rather than budget: *"share the errors, not everything I typed"* is a real
-thing somebody will want, and the only granularity otherwise on offer is per-channel
-all-or-nothing. One value rather than one per channel, for §4's reason: a per-channel
-matrix is not something a consent surface can present honestly.
+#### 10.1 An export-time minimum level was specified, and is withdrawn
 
-**The filter is an argument to the payload builder, never applied afterwards.** The
-review sheet renders the builder's return value, so §11's second clause — *the payload
-that leaves is the payload that was reviewed* — then holds for free. Filtering at the
-dial's *current* position instead was rejected outright: the dial widens and narrows over
-a ring's life, so that would silently drop records the user can see in the review,
-breaking the one clause that is now load-bearing.
+A `min_level` argument was designed to sit beside `dial`, defaulting to it, on the
+justification *"share the errors, not everything I typed."* **That justification is false
+of the channel it was written about**, and the design is withdrawn rather than rebuilt.
 
-**Counters stay unfiltered.** They are aggregates over everything that happened, and
-filtering them would reintroduce the hole §9 closes.
+- **The WARN records are the ones carrying the query.** `search`'s two WARN outcomes are
+  `nothing` and `resolved_after_correction`, and both hold the text the person typed. A
+  filter at ≥ 13 keeps the most sensitive subset and drops the least.
+- **It cannot remove the keystroke timeline at all.** The fire sequence is a *field*
+  captured at DEBUG inside a session record whose own level is WARN (§3.2, §5.1). A filter
+  over records keeps that record whole, sequence included.
+
+What a level filter would actually have done is *share the failures and not the
+successes*, which is a real capability and is the one the **dial's own low position**
+already provides, one step earlier and without a second axis on the consent surface. So
+the export offers no level control, and the second clause of *the dial gates capture, the
+export filters on it* is withdrawn as a no-op rather than given a referent it cannot
+honour.
+
+**Rejected with it:** having the payload builder strip DEBUG-captured fields from records
+it keeps, so the filter would mean what it claimed. That is the facility reaching inside
+an entry shape per-channel `parse` exists precisely so it never has to, and a second
+structural description of every entry to keep in sync — which §3.2 already refuses once.
+
+**Counters are exported whole**, as they always were: they are aggregates over everything
+that happened.
 
 ### 11. No transport the user did not perform, and the payload that leaves is the payload that was reviewed
 
@@ -777,10 +791,9 @@ That is exactly the set that ships today; the redraw changes what is compile-che
 leaves the runtime throws alone.
 
 **No default level is inheritable from the declaration.** Severity decides what is
-captured and what the export filters on, and an inheritable default on that field means a
-site that should be ERROR records as INFO because somebody omitted it — and then vanishes
-at any dial position above `Noisy`, which is the one failure nothing downstream can
-detect. Every framework read for
+captured, and an inheritable default on that field means a site that should be ERROR
+records as INFO because somebody omitted it — and then vanishes at any dial position above
+`Noisy`, which is the one failure nothing downstream can detect. Every framework read for
 #264 names severity at the call site and reserves inheritance for the dial. A channel's
 own module may hold a local constant; that is the module's business, not the
 declaration's.
@@ -789,30 +802,63 @@ declaration's.
 It would only catch typos, duplicates would still need the runtime check, and it
 re-introduces the central registry #221 exists to remove.
 
-### 13. `app` has no domain, and two things block it
+### 13. A jar-wide channel belongs to every Facet, and is wiped by none of them
 
 A channel names the Tracked Domain whose act writes it, which is how a Facet's Local Logs
-card is derived. `app` has no such domain: boot narration, the OPFS fallback and
-`db.core.ts` errors belong to none of `food`, `media`, `items`, `habits`, `calendar` or
-`notes`, and picking one arbitrarily would put database errors behind **Rations'** export
-consent.
+card, its review sheet, its export and its scoped wipe are all derived — `channelsOfFacet`
+is the single source for the four of them. `app` has no such domain: boot narration, the
+OPFS fallback and `db.core.ts` errors belong to none of `food`, `media`, `items`,
+`habits`, `calendar` or `notes`, and picking one arbitrarily would put database errors
+behind **Rations'** export consent.
 
-**The field widens to `TrackedDomainId | null`, where `null` means jar-wide.** The
-derivation already gives the root every channel by way of its holding all six domains; a
-null-domain channel joins that set and never reaches Rations. It says the true thing —
-the app's own narration has no domain — rather than inventing an owner to satisfy a rule
-written for something else. The code's comment reaches for ADR-0086 §1, *an entity has
-exactly one owner and the owner is a Tracked Domain*; a Log channel is not a Ledger
-entity, and that borrowed rule has no answer here.
+**The field widens to `TrackedDomainId | null`, where `null` means jar-wide.** It says the
+true thing — the app's own narration has no domain — rather than inventing an owner to
+satisfy a rule written for something else. The code's comment reaches for ADR-0086 §1,
+*an entity has exactly one owner and the owner is a Tracked Domain*; a Log channel is not
+a Ledger entity, and that borrowed rule has no answer here.
+
+What `null` then means for the four surfaces is **not** what an earlier draft of this
+record claimed, and the correction matters more than the widening:
+
+> **A jar-wide channel appears in every Facet's card and every Facet's export, each behind
+> that Facet's own consent. A Facet-scoped wipe never takes it.**
+
+Both halves are ADR-0080's clause (b) — *the Facet that writes it governs it* — applied to
+a channel that every Facet writes. A Rations user's OPFS failure is written by Rations'
+running code, so Rations governs its disclosure. And a Facet-scoped wipe is
+[ADR-0079](0079-a-facet-scoped-wipe-is-the-third-sanctioned-deletion.md) §1's *delete all
+my food data*, which the app's own narration is not; deletion is irreversible, so that
+control stays jar-wide while visibility and export follow the writer.
+
+Concretely, two filters rather than one: `channelsOfFacet` admits a channel whose `domain`
+is `null` to every Facet, and `facetStorageKeys` excludes exactly those from the wipe.
+
+**Why the earlier draft was wrong, recorded because the claim looked obviously true.** It
+said the root's holding all six domains would give it every channel, so a null-domain
+channel would join the root's set and never reach Rations. `channelsOfFacet` builds a
+`Set` of six domain **id strings** and asks `owned.has(channel.domain)`, so a `null`
+domain is in no Facet's set at all — the root's included. Built as written, `app` would
+have been invisible in every card, absent from every export, untouched by every wipe, and
+still spending the budget: a permanent invisible record, which is the exact thing this
+record's own anti-sprawl argument says cannot happen here.
+
+**And root-only would have been wrong even with the bug fixed.** ADR-0080 §5 rejected
+leaving the log-export consent at the root in these words: it *"ships a facility that
+records a user's searches and can never show them the file."* A Rations-only install is a
+supported install — ADR-0076 makes Rations installable on its own and ADR-0078 gives it no
+way out — so its user cannot open the root to read their own diagnostics. Recording a
+person's database errors where only somebody else can see them is that same rejected
+shape with a different payload.
 
 **Two hard blockers on the `app` channel, and neither is a preference:**
 
-1. **The domain widening above**, which is a change to a type three modules read.
+1. **The domain widening above**, together with the two derivation filters, which is a
+   change to a type and a function that four surfaces read.
 2. **[#227](https://github.com/palebluebytes/inventoria/issues/227).** §5.3 captures
    `err.message`, and `db.core.ts:388` interpolates an entity id that on the scan path is
-   `gtin:<barcode>`. An unfixed #227 therefore puts a barcode into an exported log
-   through the one path ADR-0071 §4's *shape* argument cannot cover. `search` and `scan`
-   are not blocked by it; `app` must not ship before it lands.
+   `gtin:<barcode>`. An unfixed #227 therefore puts a barcode into an exported log through
+   the one path ADR-0071 §4's *shape* argument cannot cover. `search` and `scan` are not
+   blocked by it; `app` must not ship before it lands.
 
 ## Consequences
 
@@ -837,8 +883,8 @@ and there is no in-app reader left to do the reconciling for them: ADR-0080 §6 
 the vocabulary-bar readout, so ADR-0053 §7's bar is folded by a person over an exported
 channel.
 
-**One attribute per field is documented, not checked** (§3.2). A field captured at the
-wrong level is a review comment away from being caught and nothing else will catch it.
+**A field omitted at the wrong dial position is caught by nothing** (§3.2). One channel
+does this today, in one place.
 
 **A level-ordered ring is the obvious thing to reach for, and §6.1 exists so the next
 author finds it already considered.** The short form: a log is read as a sequence, and
@@ -908,6 +954,14 @@ live, and the 38 `console.*` calls become one call site each rather than two. It
 the channel most likely to be exported by somebody who has been asked for it, which is
 what §13's blockers are protecting.
 
-**The export gains a control.** A minimum-level selector on the review sheet is more UI
-than a checkbox list, and it buys the one disclosure granularity below per-channel
-all-or-nothing.
+**The export gains no control, and disclosure stays per channel, all or nothing** (§10.1).
+Somebody will want to hand over the errors without the searches; the answer is to uncheck
+`search`, which is coarser than a level filter and is the only granularity that means what
+it appears to mean. A level filter was specified, found to keep the query text while
+dropping the successes, and withdrawn.
+
+**A jar-wide channel is visible from a Facet that cannot delete it** (§13). Rations shows
+`app`, exports `app`, and can clear it from its own card, but *Delete all my food data*
+leaves it standing — correctly, since it is not food data, and confusingly, since it sits
+in the same card as two channels the wipe does take. The card is where that has to be
+said.
