@@ -400,16 +400,24 @@ export const FACETS = [
       // build — `src/lib/food/bundled-artifact.ts`.
       "usda/search-index.json",
     ],
-    // Re-measured at #344, and the delta is **build to build, not against the
-    // figure this line used to hold**: HEAD already weighed 9,363,610 B before
-    // #344 touched anything, so this number also takes up 19,881 B of drift
-    // that #341-#343 and #347 left behind. #344's own cost is +8,502 B (+0.09%).
+    // Re-measured at #346, and the delta is **build to build, not against the
+    // figure this line used to hold**: HEAD already weighed 9,373,956 B before
+    // #346 touched anything, so this number also takes up 1,844 B of drift that
+    // #345 left behind. #346's own cost is +42,575 B (+41.6 KiB, +0.45%).
     //
-    // The root does not get a rail and never draws the month calendar, but it
-    // renders `DailyDashboard` in its Food tab and therefore builds it — and it
-    // pays only the component, because `habits` already carried
+    // The root has no pages at any width and can never show a report, and it
+    // pays for one anyway: `FoodView` imports `ReportsPage` statically, so the
+    // range picker's calendar is in this bundle whether or not anything mounts
+    // it. That is the shape ADR-0091 §5 chose — one screen, told by its shell
+    // what it may hold — and a dynamic import to dodge the bytes would buy a
+    // loading state on the one Facet that has the surface.
+    //
+    // The same sharing is why the root paid for the rail's month calendar at
+    // #344 (+8,502 B, +0.09%) without ever drawing one: it renders
+    // `DailyDashboard` in its Food tab and therefore builds it, and it paid
+    // only the component, because `habits` already carried
     // `@internationalized/date` into this bundle (ADR-0091, Consequences).
-    precacheBytes: 9_372_112,
+    precacheBytes: 9_416_531,
     status: "built",
   },
   {
@@ -465,14 +473,16 @@ export const FACETS = [
       "food/icons/rations-*.png",
       "food/icons/CREDITS.txt",
     ],
-    // Re-measured at #344, which put a month calendar in the rail. Build to
-    // build, not against the figure this line used to hold: HEAD already
-    // weighed 10,031,311 B, so this number also takes up 53,600 B of drift from
-    // #341-#343 and #347. #344's own cost is +58,485 B (+57.1 KiB, +0.58%),
-    // against a ±5% band with 387 KB of headroom left.
-    // `@internationalized/date` was new to this bundle, which is where nearly
-    // all of it went (ADR-0091, Consequences).
-    precacheBytes: 10_089_796,
+    // Re-measured at #346, which gave Rations its third page. Build to build,
+    // not against the figure this line used to hold: HEAD already weighed
+    // 10,091,653 B, so this number also takes up 1,857 B of drift from #345.
+    // #346's own cost is +85,448 B (+83.4 KiB, +0.85%), against a ±5% band that
+    // is 497 KiB wide either side. Nearly all of it is bits-ui's range picker — the
+    // popover, the range calendar and the two-ended date field — which was new
+    // to this bundle the way `@internationalized/date` was new at #344
+    // (+58,485 B, +0.58%). The three readings themselves are folds over events
+    // the app already had and cost almost nothing.
+    precacheBytes: 10_177_101,
     // Installability is definitional (ADR-0076 §1) and #305 is where Rations
     // gets a manifest of its own, so this is the ticket that flips it.
     status: "built",
