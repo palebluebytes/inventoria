@@ -282,6 +282,77 @@ describe("redaction", () => {
     expect(ls.store.get("inventoria_log_notes")).not.toContain("redact me");
   });
 
+  it("keeps every record the channel cannot read (#219)", async () => {
+    // Redaction used to write `readChannel`'s output back, so removing one row
+    // removed every record the current code could not parse. A channel that
+    // never ends (ADR-0071) is designed to outlive many entry shapes, and the
+    // one screen that redacts is the one somebody reaches for just before
+    // handing the file over.
+    const ls = makeFakeLocalStorage();
+    vi.stubGlobal("localStorage", ls);
+    const facility = await loadFacility();
+    const channel = declareNotes(facility, "notes");
+    ls.store.set(
+      "inventoria_log_notes",
+      JSON.stringify([
+        { older: "shape" },
+        { text: "keep" },
+        { half: "written" },
+        { text: "redact me" },
+      ])
+    );
+
+    facility.deleteChannelEntry(channel, 1);
+
+    expect(facility.readChannel(channel)).toEqual([{ text: "keep" }]);
+    const stored: unknown[] = JSON.parse(ls.store.get("inventoria_log_notes")!);
+    expect(stored).toEqual([
+      { older: "shape" },
+      { text: "keep" },
+      { half: "written" },
+    ]);
+  });
+
+  it("removes the record the caller meant, counting only readable ones", async () => {
+    // The index the review sheet holds is an index into `readChannel`'s order,
+    // and the record to remove lives in the raw list — so the two have to be
+    // mapped onto each other rather than one spliced as if it were the other.
+    const ls = makeFakeLocalStorage();
+    vi.stubGlobal("localStorage", ls);
+    const facility = await loadFacility();
+    const channel = declareNotes(facility, "notes");
+    ls.store.set(
+      "inventoria_log_notes",
+      JSON.stringify([
+        { unreadable: 1 },
+        { text: "zero" },
+        { unreadable: 2 },
+        { text: "one" },
+      ])
+    );
+
+    facility.deleteChannelEntry(channel, 0);
+
+    expect(facility.readChannel(channel)).toEqual([{ text: "one" }]);
+  });
+
+  it("leaves an out-of-range index alone", async () => {
+    const ls = makeFakeLocalStorage();
+    vi.stubGlobal("localStorage", ls);
+    const facility = await loadFacility();
+    const channel = declareNotes(facility, "notes");
+    ls.store.set(
+      "inventoria_log_notes",
+      JSON.stringify([{ unreadable: 1 }, { text: "only" }])
+    );
+
+    facility.deleteChannelEntry(channel, -1);
+    facility.deleteChannelEntry(channel, 1);
+
+    const stored: unknown[] = JSON.parse(ls.store.get("inventoria_log_notes")!);
+    expect(stored).toEqual([{ unreadable: 1 }, { text: "only" }]);
+  });
+
   it("clears a whole channel", async () => {
     const ls = makeFakeLocalStorage();
     vi.stubGlobal("localStorage", ls);

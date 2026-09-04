@@ -296,15 +296,32 @@ export function capEntries<E>(entries: E[], cap: number): E[] {
  * the original sitting there for the next reader. It also keeps the review
  * screen showing exactly what exists, which is the only thing that makes it a
  * consent surface.
+ *
+ * **It takes one record and leaves the rest of the store byte for byte** (#219).
+ * The index the review sheet holds counts PARSED entries, while the record to
+ * remove sits in the raw list, so the walk below maps one onto the other. Its
+ * predecessor spliced `readChannel`'s output and wrote that back, which deleted
+ * every record the current code could not read as a side effect of removing an
+ * unrelated one — silently, in a channel ADR-0071 designs to outlive many entry
+ * shapes, on the one screen somebody reaches for just before handing the file
+ * over. `parse` is not a deletion authority: only the cap, the shared budget and
+ * `Clear` remove a record.
  */
 export function deleteChannelEntry<E>(
   channel: LogChannel<E>,
   index: number
 ): void {
-  const kept = readChannel(channel);
-  if (index < 0 || index >= kept.length) return;
-  kept.splice(index, 1);
-  writeRecords(channel, kept);
+  if (index < 0) return;
+  const records = storedRecords(channel);
+  let readable = -1;
+  for (let i = 0; i < records.length; i++) {
+    if (channel.parse(records[i]) === null) continue;
+    readable += 1;
+    if (readable < index) continue;
+    records.splice(i, 1);
+    writeRecords(channel, records);
+    return;
+  }
 }
 
 /** Empties a channel, removing its key outright. */
