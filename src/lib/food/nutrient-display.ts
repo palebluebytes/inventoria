@@ -153,6 +153,18 @@ export function nutrientShortLabel(key: string): string {
 }
 
 /**
+ * The full label for a nutrient (e.g. `protein` → "Protein"), for a surface with
+ * room for the word — the Reports page's macro bars ask for it. The sibling of
+ * {@link nutrientShortLabel} over the same catalogue, and it exists so a screen
+ * that only needs a name does not have to resolve a whole descriptor or, worse,
+ * write "Carbs" out again beside the entry that already says it. Unknown keys
+ * read as an empty string, exactly as the short label does.
+ */
+export function nutrientLabel(key: string): string {
+  return BY_KEY.get(key)?.label ?? "";
+}
+
+/**
  * Resolves a stored selection (an array of breakdown keys) to catalogue
  * descriptors, preserving the user's order and silently dropping any key that
  * isn't a known nutrient (so stale/garbage data can never crash a view). An
