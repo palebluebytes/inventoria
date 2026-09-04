@@ -1549,10 +1549,12 @@
         emptySearch = { query: query.trim() };
         lastQuery = query.trim();
         status = "idle";
-        // The ONE thing the search log records, and only this: a plain `Error`
-        // is a broken artifact or a broken service worker, and folding one into
-        // "no food found" would count an offline fetch as a vocabulary miss
-        // (ADR-0053 §3).
+        // Only a genuine no-food reaches this call: a plain `Error` is a broken
+        // artifact or a broken service worker, and folding one into "no food
+        // found" would count an offline fetch as a vocabulary miss (ADR-0053
+        // §3). The distinction survives complete recording — a fault still
+        // leaves no fire and no outcome, so it is the one thing that records
+        // nothing at all.
         if (searchSession)
           searchSession = searchFoundNothing(searchSession, query);
         return;

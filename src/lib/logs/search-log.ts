@@ -375,8 +375,8 @@ export function searchFoundNothing(
   };
 }
 
-/** What a search that answered reports back. */
-export interface SearchFoundFood {
+/** What a search that answered reports back to the session. */
+export interface SearchAnswer {
   /**
    * The typed query retrieved nothing and ADR-0049's map answered in its place.
    * The search reports it because nothing downstream can tell.
@@ -397,7 +397,7 @@ export interface SearchFoundFood {
 export function searchFoundFood(
   session: SearchSession,
   query: string,
-  found: SearchFoundFood
+  found: SearchAnswer
 ): SearchSession {
   const answered = query.trim();
   return {
@@ -420,9 +420,16 @@ export interface SearchSessionClose {
   schema_version: number;
 }
 
-/** A string bounded to §7's cap, and whether the bound bit. */
-interface BoundedText {
-  text: string;
+/**
+ * A value bounded to §7's cap, and whether the bound bit.
+ *
+ * One contract for all three things the bound is applied to — the query, an
+ * outcome's correcting text, and a fire — because the `truncated` half is what
+ * `query_truncated` is folded from and a second ad-hoc shape is a half of that
+ * fold nobody wired up.
+ */
+interface Bounded<T> {
+  value: T;
   truncated: boolean;
 }
 
@@ -433,12 +440,12 @@ interface BoundedText {
  * in the file somebody reads and six escaped bytes in the budget, which is the
  * wrong way to spend the last character of a bound that exists for both.
  */
-function boundQuery(text: string): BoundedText {
-  if (text.length <= QUERY_MAX_CHARS) return { text, truncated: false };
+function boundQuery(text: string): Bounded<string> {
+  if (text.length <= QUERY_MAX_CHARS) return { value: text, truncated: false };
   const last = text.charCodeAt(QUERY_MAX_CHARS - 1);
   const cut =
     last >= 0xd800 && last <= 0xdbff ? QUERY_MAX_CHARS - 1 : QUERY_MAX_CHARS;
-  return { text: text.slice(0, cut), truncated: true };
+  return { value: text.slice(0, cut), truncated: true };
 }
 
 /** Which query a finished session is recorded under, and how it ended. */
@@ -493,15 +500,12 @@ function settledSessionOf(session: SearchSession): SettledSession | null {
 }
 
 /** The outcome with its own text bounded — which only one member has. */
-function boundOutcome(outcome: SearchOutcome): {
-  outcome: SearchOutcome;
-  truncated: boolean;
-} {
+function boundOutcome(outcome: SearchOutcome): Bounded<SearchOutcome> {
   if (outcome.kind !== "resolved_after_correction")
-    return { outcome, truncated: false };
+    return { value: outcome, truncated: false };
   const bounded = boundQuery(outcome.corrected_by);
   return {
-    outcome: { kind: outcome.kind, corrected_by: bounded.text },
+    value: { kind: outcome.kind, corrected_by: bounded.value },
     truncated: bounded.truncated,
   };
 }
@@ -518,18 +522,18 @@ function boundOutcome(outcome: SearchOutcome): {
 function encodeFires(
   session: SearchSession,
   recorded: string
-): { sequence: SearchFireSequence | null; truncated: boolean } {
-  if (session.fires === null) return { sequence: null, truncated: false };
+): Bounded<SearchFireSequence | null> {
+  if (session.fires === null) return { value: null, truncated: false };
   let truncated = false;
   const fires = session.fires.map(({ query, n }): SearchFire => {
     const bounded = boundQuery(query);
     truncated ||= bounded.truncated;
-    return recorded.startsWith(bounded.text)
-      ? { l: bounded.text.length, n }
-      : { q: bounded.text, n };
+    return recorded.startsWith(bounded.value)
+      ? { l: bounded.value.length, n }
+      : { q: bounded.value, n };
   });
   return {
-    sequence: { fires, fires_dropped: session.fires_dropped },
+    value: { fires, fires_dropped: session.fires_dropped },
     truncated,
   };
 }
@@ -559,19 +563,19 @@ export function closeSearchSession(
   if (settled === null) return null;
   const query = boundQuery(settled.query);
   const outcome = boundOutcome(settled.outcome);
-  const fires = encodeFires(session, query.text);
+  const fires = encodeFires(session, query.value);
   return {
-    query: query.text,
-    outcome: outcome.outcome,
+    query: query.value,
+    outcome: outcome.value,
     settled: settled.settled,
     query_truncated: query.truncated || outcome.truncated || fires.truncated,
     vocabulary: flagVocabulary(
-      query.text,
+      query.value,
       close.vocabulary,
       close.schema_version
     ),
     at: close.at,
-    ...(fires.sequence === null ? {} : { sequence: fires.sequence }),
+    ...(fires.value === null ? {} : { sequence: fires.value }),
   };
 }
 
@@ -772,6 +776,15 @@ export const SEARCH_CHANNEL = defineChannel({
   // recency window, so a rate taken over 200 retained entries is the rate of the
   // last 200 sessions wearing a lifetime label. One session per entry, which is
   // a running total of what the entries already record rather than a new fact.
+  //
+  // **It counts the sessions this channel RECORDS**, which is narrower than the
+  // sessions that happened, and the gap is stated rather than left for whoever
+  // folds the rate to discover. A visit in which no search ever settled — three
+  // characters typed and the sheet closed, or nothing but faults — never reaches
+  // the write, so it is in no numerator and no denominator either. That is the
+  // right population for every rate this channel can be asked for, because
+  // ADR-0053 §2's unit is a settled session; it is the wrong one for "how often
+  // does somebody open the search", which nothing here answers.
   //
   // The numerator is deliberately NOT a counter beside it: ADR-0053 §4 requires
   // the vocabulary flags to be recomputed at read against the current map, and a

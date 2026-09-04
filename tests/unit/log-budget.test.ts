@@ -68,17 +68,24 @@ import "../../src/lib/logs/search-log";
 
 const encoder = new TextEncoder();
 
-/**
- * The per-record figures ADR-0092 §8.1 tabulates, in bytes.
- *
- * Asserted as a **ceiling** rather than an equality: the shape may get cheaper
- * without anybody rewriting a record, and may not get dearer without one. It is
- * the guard against the code and §8.1's table drifting apart, which is a
- * different failure from busting the budget and shows up long before it.
- */
-const TABULATED_BYTES_PER_RECORD: Record<string, number> = {
-  search: 785,
-};
+/** What this file has to know about one channel to weigh it. */
+interface ChannelBudget {
+  /**
+   * The dearest record the channel's own entry type admits, under the model the
+   * header states. Typed as that entry, which is the whole mechanism: a
+   * sixteenth field does not slip past this, it stops it compiling.
+   */
+  worstCase: () => unknown;
+  /**
+   * The per-record figure ADR-0092 §8.1 tabulates for it, in bytes.
+   *
+   * Asserted as a **ceiling** rather than an equality: the shape may get cheaper
+   * without anybody rewriting a record, and may not get dearer without one. It
+   * is the guard against the code and §8.1's table drifting apart, which is a
+   * different failure from busting the budget and shows up long before it.
+   */
+  tabulated: number;
+}
 
 // ── `search` (ADR-0053, ADR-0092 §5.1) ──────────────────────────────────────
 
@@ -131,26 +138,58 @@ function worstSearchRecord(): SearchLogEntry {
 }
 
 /**
- * One worst-case entry per channel, by channel name.
+ * One budget per channel, by channel name.
  *
- * A map rather than a field on the declaration, so that a channel arriving
- * without one fails this file rather than silently going unpriced.
+ * A map rather than a field on the declaration (ADR-0092 §8), and **one entry
+ * per channel rather than a map per fact**: two maps keyed the same way let a
+ * channel be half-registered, which is a hole in exactly the guard below.
  */
-const WORST_CASE: Record<string, () => unknown> = {
-  search: worstSearchRecord,
+const BUDGETS: Record<string, ChannelBudget> = {
+  search: { worstCase: worstSearchRecord, tabulated: 785 },
 };
 
 /**
- * What one channel's store weighs at its cap, the way `serialisedBytes` weighs
- * it: the whole array, with the envelope on every record and the commas between
- * them.
+ * One channel's budget, or a failure that says what is missing.
+ *
+ * The throw is the point: without it an unpriced channel reads `undefined` and
+ * every comparison against it passes vacuously, which is the sum quietly
+ * covering fewer channels than exist.
+ */
+function budgetOf(channel: LogChannel<unknown>): ChannelBudget {
+  const budget = BUDGETS[channel.name];
+  if (budget === undefined)
+    throw new Error(
+      `Log channel "${channel.name}" has no worst-case record in this file, so ADR-0092 §8's sum does not cover it.`
+    );
+  return budget;
+}
+
+/**
+ * One record at its widest, envelope and all: the envelope is the facility's and
+ * rides on every record (ADR-0092 §3.1), so it is weighed too.
  *
  * `lvl` is ERROR because it is the widest of the four — two digits where DEBUG
  * and INFO are one.
  */
+function worstRecord(channel: LogChannel<unknown>): unknown {
+  return {
+    v: channel.version,
+    lvl: SEVERITY.ERROR,
+    entry: budgetOf(channel).worstCase(),
+  };
+}
+
+function recordBytes(channel: LogChannel<unknown>): number {
+  return encoder.encode(JSON.stringify(worstRecord(channel))).length;
+}
+
+/**
+ * What one channel's store weighs at its cap, the way `serialisedBytes` weighs
+ * it: the whole array, with the commas between the records and the brackets
+ * around them.
+ */
 function channelBytesAtCap(channel: LogChannel<unknown>): number {
-  const build = WORST_CASE[channel.name];
-  const record = { v: channel.version, lvl: SEVERITY.ERROR, entry: build() };
+  const record = worstRecord(channel);
   const records = Array.from({ length: channel.cap }, () => record);
   return encoder.encode(JSON.stringify(records)).length;
 }
@@ -161,29 +200,28 @@ describe("the log facility's budget invariant (ADR-0092 §8)", () => {
     // it: the sum below would still pass, having quietly summed over fewer
     // channels than exist.
     const unpriced = registeredChannels()
-      .filter((channel) => !(channel.name in WORST_CASE))
+      .filter((channel) => !(channel.name in BUDGETS))
       .map((channel) => channel.name);
     expect(unpriced).toEqual([]);
   });
 
   it("holds Σ (cap × maximum record bytes) under the shared budget", () => {
-    const channels = registeredChannels();
-    const total = channels.reduce(
-      (sum, channel) => sum + channelBytesAtCap(channel),
-      0
-    );
+    const spent = registeredChannels().map((channel) => ({
+      name: channel.name,
+      bytes: channelBytesAtCap(channel),
+    }));
+    const total = spent.reduce((sum, channel) => sum + channel.bytes, 0);
 
-    // Reported rather than only asserted: the number is what a person deciding
+    // Reported rather than only asserted: the split is what a person deciding
     // whether a fourth channel fits actually needs.
-    const spent = channels.map(
-      (channel) =>
-        `${channel.name}: ${(channelBytesAtCap(channel) / 1024).toFixed(1)} KiB`
-    );
+    const split = spent
+      .map((c) => `${c.name}: ${(c.bytes / 1024).toFixed(1)} KiB`)
+      .join(", ");
     expect(
       total,
       `Σ over channels is ${(total / 1024).toFixed(1)} KiB of ${
         LOG_BUDGET_BYTES / 1024
-      } KiB — ${spent.join(", ")}. Either a shape grew or a cap did; ADR-0092 §8.1's table moves with it.`
+      } KiB — ${split}. Either a shape grew or a cap did; ADR-0092 §8.1's table moves with it.`
     ).toBeLessThanOrEqual(LOG_BUDGET_BYTES);
   });
 
@@ -191,18 +229,11 @@ describe("the log facility's budget invariant (ADR-0092 §8)", () => {
     // A shape that outgrew the record it is documented by, caught before it
     // reaches the sum above — which is where it becomes a quota failure on
     // somebody's device instead.
-    for (const channel of registeredChannels()) {
-      const one = encoder.encode(
-        JSON.stringify({
-          v: channel.version,
-          lvl: SEVERITY.ERROR,
-          entry: WORST_CASE[channel.name](),
-        })
-      ).length;
-      expect(one, `${channel.name} record`).toBeLessThanOrEqual(
-        TABULATED_BYTES_PER_RECORD[channel.name]
-      );
-    }
+    for (const channel of registeredChannels())
+      expect(
+        recordBytes(channel),
+        `${channel.name} record`
+      ).toBeLessThanOrEqual(budgetOf(channel).tabulated);
   });
 
   it("weighs the cap the channel actually declares", () => {
