@@ -23,10 +23,8 @@
  * only when the channel is. They exist because a capped ring cannot report a
  * rate — a total taken over the last `cap` records wears a lifetime label it has
  * not earned — and they are the facility's one permanent part. The write tallies
- * **above** the dial's gate and **below** the pause, deliberately: the dial is a
- * budget device and a counter is not bytes, while pausing is an explicit,
- * visible, per-channel act, and a counter that kept running while the channel
- * reads "not recording" would make "stop recording" stop meaning what it says.
+ * **above** the dial's gate and **below** the pause; {@link appendToChannel}
+ * carries why each way round.
  *
  * Records live in `localStorage`, one namespaced key per channel, **never in the
  * ledger** (§3). `src/lib/stores/secrets.ts` states the principle in its own
@@ -533,14 +531,21 @@ export function channelEntryCount(channel: LogChannel<unknown>): number {
  * setting whose effect on any one counter is invisible; a counter that kept
  * running while the channel reads "not recording" would make "stop recording"
  * stop meaning what it says.
+ *
+ * `now` is the instant a counter set that does not exist yet is stamped with,
+ * and it is the only clock this module reads. A caller may pass its own; the
+ * default is here rather than at each of the write sites because a stamp written
+ * once in a channel's life is not something a channel's builder should have to
+ * remember to supply.
  */
 export function appendToChannel<E>(
   channel: LogChannel<E>,
   entry: E,
-  level: SeverityNumber
+  level: SeverityNumber,
+  now: number = Date.now()
 ): void {
   if (!isChannelRecording(channel)) return;
-  tallyEntry(channel, entry);
+  tallyEntry(channel, entry, now);
   if (!capturedAt(level)) return;
   // The envelope is stamped here and nowhere else, which is what lets a channel
   // write its own shape and read it back without either half knowing about `v`
@@ -659,29 +664,64 @@ export function channelCountersStorageKey(
 }
 
 /**
+ * The counter key's contents before the declaration is read over them:
+ * {@link ChannelCounters} with both halves still untrusted.
+ */
+interface StoredCounters {
+  counts: Record<string, unknown>;
+  /** `null` for a stamp the store cannot be read for. */
+  since: number | null;
+}
+
+/**
  * What the counter key holds, as far as the store can be trusted for it.
  *
- * Anything it cannot be read as a counter set at all reads as no set, and the
- * next tally mints a fresh one — which is not the *kept and disclosed* rule
- * {@link readRecord} follows, deliberately. A record is content somebody may
- * want back; a corrupt total is a number nothing can partially trust, and the
- * epoch moving with it is what keeps the label true afterwards.
+ * **The two halves degrade separately**, because they fail for different
+ * reasons and one is recoverable: totals whose stamp is unreadable are still
+ * totals, and re-stamping them understates the window they were taken over
+ * rather than overstating the rate. Only a blob that is not an object at all
+ * reads as no set, and then the next tally starts from zero at a new epoch.
+ *
+ * That is not {@link readRecord}'s *kept and disclosed* rule, deliberately: a
+ * record is content somebody may want back and the review has a place to say it
+ * exists, where a total nothing can read is a number with no honest rendering.
  */
-function storedCounters(
-  channel: LogChannel<unknown>
-): { counts: Record<string, unknown>; since: number } | null {
+function storedCounters(channel: LogChannel<unknown>): StoredCounters | null {
   const raw = safeGet(channelCountersStorageKey(channel));
   if (raw === null) return null;
   try {
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== "object" || parsed === null) return null;
     const { counts, since } = parsed as { counts?: unknown; since?: unknown };
-    if (typeof since !== "number") return null;
-    if (typeof counts !== "object" || counts === null) return null;
-    return { counts: counts as Record<string, unknown>, since };
+    return {
+      counts:
+        typeof counts === "object" && counts !== null
+          ? (counts as Record<string, unknown>)
+          : {},
+      since: typeof since === "number" ? since : null,
+    };
   } catch {
     return null;
   }
+}
+
+/**
+ * The declaration's counter half as one value, or `null` for a channel that
+ * keeps none.
+ *
+ * `counters` and `tally` are declared both-or-neither and {@link defineChannel}
+ * is where that is held (§12), but a stored {@link LogChannel} carries them as
+ * two independent optionals — so this is the one place the pairing is
+ * re-established, rather than each reader deciding for itself which of the two
+ * to test.
+ */
+function countersOf(channel: LogChannel<unknown>): {
+  names: readonly string[];
+  tally: (entry: unknown) => readonly string[];
+} | null {
+  const { counters, tally } = channel;
+  if (counters === undefined || tally === undefined) return null;
+  return { names: counters, tally };
 }
 
 /**
@@ -728,10 +768,11 @@ export function channelCounters(
   channel: LogChannel<unknown>,
   now: number
 ): ChannelCounters | null {
-  if (channel.counters === undefined) return null;
+  const declared = countersOf(channel);
+  if (declared === null) return null;
   const stored = storedCounters(channel);
   return {
-    counts: projectCounters(channel.counters, stored?.counts ?? {}),
+    counts: projectCounters(declared.names, stored?.counts ?? {}),
     since: stored?.since ?? now,
   };
 }
@@ -744,23 +785,44 @@ export function channelCounters(
  * bound and the stored key space the same set. Each occurrence the tally returns
  * is its own increment, so an entry may count twice under one name.
  *
- * The epoch is minted from `Date.now()` on the first tally and never moved
- * again, which is the one clock read on this path. It is not a parameter for the
- * same reason the entry's own `at` is not: every call site would carry a
- * `Date.now()` to feed a stamp that is written once in a channel's life, and the
- * part worth testing — {@link channelCounters} and the projection under it —
- * takes its instant from the caller already.
+ * **It writes only when it must**: when a count moved, or when the set does not
+ * exist yet. The second half is what puts the epoch at the channel's first
+ * append rather than at its first *counted* one — a window that starts when
+ * counting started can only understate a rate, where one that starts at the
+ * first hit overstates it — and without that clause a tally contributing
+ * nothing would rewrite the same bytes on every event.
+ *
+ * **The channel's own `tally` is caller code on the write path**, and the one
+ * place this facility runs any. §3's rule is that no feature fails because a log
+ * could not be written, so a tally that throws costs its counters and nothing
+ * else: the record below is still written, and the search that logged it still
+ * returns. {@link parse} is unguarded because a throw there takes down a screen
+ * the user opened deliberately, which is a bug worth seeing.
  */
-function tallyEntry(channel: LogChannel<unknown>, entry: unknown): void {
-  const { counters: declared, tally } = channel;
-  if (declared === undefined || tally === undefined) return;
+function tallyEntry(
+  channel: LogChannel<unknown>,
+  entry: unknown,
+  now: number
+): void {
+  const declared = countersOf(channel);
+  if (declared === null) return;
   const stored = storedCounters(channel);
-  const counts = projectCounters(declared, stored?.counts ?? {});
-  const permitted = new Set<string>(declared);
-  for (const name of tally(entry)) if (permitted.has(name)) counts[name] += 1;
+  const counts = projectCounters(declared.names, stored?.counts ?? {});
+  const permitted = new Set<string>(declared.names);
+  let moved = false;
+  try {
+    for (const name of declared.tally(entry))
+      if (permitted.has(name)) {
+        counts[name] += 1;
+        moved = true;
+      }
+  } catch {
+    return;
+  }
+  if (!moved && stored !== null && stored.since !== null) return;
   safeSet(
     channelCountersStorageKey(channel),
-    JSON.stringify({ counts, since: stored?.since ?? Date.now() })
+    JSON.stringify({ counts, since: stored?.since ?? now })
   );
 }
 

@@ -126,6 +126,29 @@ describe("the dial, and what no longer marks a channel (ADR-0092)", () => {
   });
 });
 
+describe("the review shows the counters, not only the entries (ADR-0092 §9)", () => {
+  // Structural, like the rest of the claims about this sheet: `BottomSheet`
+  // portals and renders nothing through Svelte's SSR path.
+  const REVIEW = readCode("src/lib/views/logs/LogReviewSheet.svelte");
+
+  it("reads them from the facility, on the key the file is built from", () => {
+    // The part a Delete does not reach, on the screen where Delete lives: a
+    // review showing only entries would show less than what exists, on the one
+    // surface whose whole job is to show what exists (#214 §10).
+    expect(REVIEW).toContain("channelCounters");
+    expect(REVIEW).toMatch(/countersByChannel/);
+  });
+
+  it("dates them, and never calls a total a lifetime (#214 §9)", () => {
+    // A number without its epoch is a dishonest label, and after a Clear the
+    // totals start again — so the sheet reads "since 5 September".
+    expect(REVIEW).toMatch(/Counted since/);
+    // `REVIEW` has its comments stripped, so the one place this file says the
+    // forbidden word — explaining why — cannot satisfy the claim about markup.
+    expect(REVIEW).not.toMatch(/lifetime/i);
+  });
+});
+
 describe("the group is Your data, and the delete is still food's (#335)", () => {
   it("heads the group with the name ADR-0080 §7 gives it", () => {
     // "Your food data" was right while the block held only food-scoped

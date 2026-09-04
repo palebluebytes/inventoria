@@ -625,16 +625,12 @@ describe("counters (ADR-0092 §9)", () => {
   // A counter is a running total of a field the entries already record, a whole
   // number and nothing else, shed last and cleared only with the channel. The
   // three constraints ADR-0054's Amendment placed on them, carried into §9.
-  beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-09-04T09:00:00.000Z"));
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  const MINTED = new Date("2026-09-04T09:00:00.000Z").getTime();
+  //
+  // Every append below names the instant it happened at, so the epoch these
+  // assert is the one the caller gave rather than whatever the runner's clock
+  // read: `appendToChannel`'s fourth argument is the facility's only clock seam.
+  const MINTED = 1757062800000;
+  const COUNTERS_KEY = "inventoria_log_notes_counters";
 
   it("totals the names a tally returns, under a key of its own", async () => {
     const ls = makeFakeLocalStorage();
@@ -642,16 +638,16 @@ describe("counters (ADR-0092 §9)", () => {
     const facility = await loadFacility();
     const channel = declareTallied(facility, "notes");
 
-    facility.appendToChannel(channel, { text: "one" }, INFO);
-    facility.appendToChannel(channel, { text: "lost" }, INFO);
-    facility.appendToChannel(channel, { text: "two" }, INFO);
+    facility.appendToChannel(channel, { text: "one" }, INFO, MINTED);
+    facility.appendToChannel(channel, { text: "lost" }, INFO, MINTED);
+    facility.appendToChannel(channel, { text: "two" }, INFO, MINTED);
 
-    expect(facility.channelCounters(channel, MINTED)).toEqual({
+    expect(facility.channelCounters(channel, 0)).toEqual({
       counts: { kept: 2, lost: 1 },
       since: MINTED,
     });
     // Its own key, which is the whole of what makes the shed-last promise true.
-    expect(ls.store.has("inventoria_log_notes_counters")).toBe(true);
+    expect(ls.store.has(COUNTERS_KEY)).toBe(true);
     expect(ls.store.get("inventoria_log_notes")).not.toContain("kept");
   });
 
@@ -669,11 +665,9 @@ describe("counters (ADR-0092 §9)", () => {
       tally: () => ["kept", "kept"],
     });
 
-    facility.appendToChannel(channel, { text: "one" }, INFO);
+    facility.appendToChannel(channel, { text: "one" }, INFO, MINTED);
 
-    expect(facility.channelCounters(channel, MINTED)?.counts).toEqual({
-      kept: 2,
-    });
+    expect(facility.channelCounters(channel, 0)?.counts).toEqual({ kept: 2 });
   });
 
   it("stands after every entry it counted has gone (the shed-last promise)", async () => {
@@ -684,8 +678,8 @@ describe("counters (ADR-0092 §9)", () => {
     vi.stubGlobal("localStorage", ls);
     const facility = await loadFacility();
     const channel = declareTallied(facility, "notes");
-    facility.appendToChannel(channel, { text: "one" }, INFO);
-    facility.appendToChannel(channel, { text: "two" }, INFO);
+    facility.appendToChannel(channel, { text: "one" }, INFO, MINTED);
+    facility.appendToChannel(channel, { text: "two" }, INFO, MINTED);
 
     facility.deleteChannelEntry(channel, 0);
     facility.deleteChannelEntry(channel, 0);
@@ -694,7 +688,7 @@ describe("counters (ADR-0092 §9)", () => {
     // And the redaction did not decrement either (#214 §8): the count of a
     // redacted entry survives its redaction, and clearing the channel is what
     // removes it.
-    expect(facility.channelCounters(channel, MINTED)?.counts).toEqual({
+    expect(facility.channelCounters(channel, 0)?.counts).toEqual({
       kept: 2,
       lost: 0,
     });
@@ -706,10 +700,10 @@ describe("counters (ADR-0092 §9)", () => {
     const channel = declareTallied(facility, "notes", 500);
     const bulky = "x".repeat(100_000);
     for (let i = 0; i < 4; i++)
-      facility.appendToChannel(channel, { text: `${i}${bulky}` }, INFO);
+      facility.appendToChannel(channel, { text: `${i}${bulky}` }, INFO, MINTED);
 
     expect(facility.readChannel(channel).length).toBeLessThan(4);
-    expect(facility.channelCounters(channel, MINTED)?.counts).toEqual({
+    expect(facility.channelCounters(channel, 0)?.counts).toEqual({
       kept: 4,
       lost: 0,
     });
@@ -724,10 +718,15 @@ describe("counters (ADR-0092 §9)", () => {
     const channel = declareTallied(facility, "notes");
     facility.setDialPosition(facility.SEVERITY.WARN);
 
-    facility.appendToChannel(channel, { text: "one" }, facility.SEVERITY.DEBUG);
+    facility.appendToChannel(
+      channel,
+      { text: "one" },
+      facility.SEVERITY.DEBUG,
+      MINTED
+    );
 
     expect(facility.readChannel(channel)).toEqual([]);
-    expect(facility.channelCounters(channel, MINTED)?.counts).toEqual({
+    expect(facility.channelCounters(channel, 0)?.counts).toEqual({
       kept: 1,
       lost: 0,
     });
@@ -741,12 +740,12 @@ describe("counters (ADR-0092 §9)", () => {
     vi.stubGlobal("localStorage", makeFakeLocalStorage());
     const facility = await loadFacility();
     const channel = declareTallied(facility, "notes");
-    facility.appendToChannel(channel, { text: "one" }, INFO);
+    facility.appendToChannel(channel, { text: "one" }, INFO, MINTED);
 
     facility.setChannelRecording(channel, false);
-    facility.appendToChannel(channel, { text: "two" }, INFO);
+    facility.appendToChannel(channel, { text: "two" }, INFO, MINTED);
 
-    expect(facility.channelCounters(channel, MINTED)?.counts).toEqual({
+    expect(facility.channelCounters(channel, 0)?.counts).toEqual({
       kept: 1,
       lost: 0,
     });
@@ -767,7 +766,7 @@ describe("counters (ADR-0092 §9)", () => {
     vi.stubGlobal("localStorage", makeFakeLocalStorage());
     const facility = await loadFacility();
     const channel = declareNotes(facility, "plain");
-    facility.appendToChannel(channel, { text: "one" }, INFO);
+    facility.appendToChannel(channel, { text: "one" }, INFO, MINTED);
 
     expect(facility.channelCounters(channel, MINTED)).toBeNull();
   });
@@ -782,38 +781,116 @@ describe("counters (ADR-0092 §9)", () => {
     const facility = await loadFacility();
     const channel = declareTallied(facility, "notes");
     ls.store.set(
-      "inventoria_log_notes_counters",
+      COUNTERS_KEY,
       JSON.stringify({
         counts: { kept: 7, lost: 1.5, gone: 99 },
         since: 1600000000000,
       })
     );
 
-    facility.appendToChannel(channel, { text: "one" }, INFO);
+    facility.appendToChannel(channel, { text: "one" }, INFO, MINTED);
 
-    expect(facility.channelCounters(channel, MINTED)).toEqual({
+    expect(facility.channelCounters(channel, 0)).toEqual({
       counts: { kept: 8, lost: 0 },
       since: 1600000000000,
     });
-    expect(ls.store.get("inventoria_log_notes_counters")).not.toContain("gone");
+    expect(ls.store.get(COUNTERS_KEY)).not.toContain("gone");
+  });
+
+  it("keeps totals whose stamp it cannot read, and stamps them afresh", async () => {
+    // The two halves fail for different reasons and one of them is recoverable:
+    // totals without a readable epoch are still totals, and re-stamping them
+    // understates the window rather than overstating the rate. Only a blob that
+    // is no counter set at all starts from zero.
+    const ls = makeFakeLocalStorage();
+    vi.stubGlobal("localStorage", ls);
+    const facility = await loadFacility();
+    const channel = declareTallied(facility, "notes");
+    ls.store.set(COUNTERS_KEY, JSON.stringify({ counts: { kept: 7 } }));
+
+    facility.appendToChannel(channel, { text: "one" }, INFO, MINTED);
+
+    expect(facility.channelCounters(channel, 0)).toEqual({
+      counts: { kept: 8, lost: 0 },
+      since: MINTED,
+    });
+  });
+
+  it("leaves the counters alone when a tally throws, and records anyway", async () => {
+    // A channel's own tally is the one piece of caller code this facility runs
+    // on the write path, and §3's rule is that no feature fails because a log
+    // could not be written.
+    const ls = makeFakeLocalStorage();
+    vi.stubGlobal("localStorage", ls);
+    const facility = await loadFacility();
+    const channel = facility.defineChannel({
+      name: "broken",
+      domain: "food",
+      purpose: "this test; it decides whether a broken tally breaks a search.",
+      cap: 3,
+      version: 1,
+      parse: parseNote,
+      counters: ["kept"],
+      tally: (): readonly "kept"[] => {
+        throw new Error("the channel's own bug");
+      },
+    });
+
+    expect(() =>
+      facility.appendToChannel(channel, { text: "one" }, INFO, MINTED)
+    ).not.toThrow();
+    expect(facility.readChannel(channel)).toEqual([{ text: "one" }]);
+    expect(ls.store.has("inventoria_log_broken_counters")).toBe(false);
+  });
+
+  it("writes the counter key only when a count moves or the set is new", async () => {
+    // Otherwise a tally contributing nothing rewrites the same bytes on every
+    // event. The set is still minted by the FIRST append rather than the first
+    // hit, because a window that starts when counting started can only
+    // understate a rate, where one that starts at the first hit overstates it.
+    const writes: string[] = [];
+    vi.stubGlobal(
+      "localStorage",
+      makeFakeLocalStorage((key) => void writes.push(key))
+    );
+    const facility = await loadFacility();
+    const channel = facility.defineChannel({
+      name: "quiet",
+      domain: "food",
+      purpose: "this test; it decides when the counter key is rewritten.",
+      cap: 3,
+      version: 1,
+      parse: parseNote,
+      counters: ["never"],
+      tally: () => [],
+    });
+
+    facility.appendToChannel(channel, { text: "one" }, INFO, MINTED);
+    facility.appendToChannel(channel, { text: "two" }, INFO, MINTED + 1000);
+
+    expect(writes.filter((k) => k === "inventoria_log_quiet_counters")).toEqual(
+      ["inventoria_log_quiet_counters"]
+    );
+    expect(facility.channelCounters(channel, 0)).toEqual({
+      counts: { never: 0 },
+      since: MINTED,
+    });
   });
 
   it("keeps its epoch across every append, and takes a new one after a clear", async () => {
     vi.stubGlobal("localStorage", makeFakeLocalStorage());
     const facility = await loadFacility();
     const channel = declareTallied(facility, "notes");
-    facility.appendToChannel(channel, { text: "one" }, INFO);
-    vi.setSystemTime(new Date("2026-09-05T09:00:00.000Z"));
-    facility.appendToChannel(channel, { text: "two" }, INFO);
+    facility.appendToChannel(channel, { text: "one" }, INFO, MINTED);
+    facility.appendToChannel(channel, { text: "two" }, INFO, MINTED + 86400000);
 
     expect(facility.channelCounters(channel, 0)?.since).toBe(MINTED);
 
     // Cleared only when the channel is, and the epoch is what makes the zeroes
     // honest afterwards.
-    const CLEARED = new Date("2026-09-06T09:00:00.000Z").getTime();
-    vi.setSystemTime(new Date(CLEARED));
+    const CLEARED = MINTED + 172800000;
     facility.clearChannel(channel);
-    facility.appendToChannel(channel, { text: "three" }, INFO);
+    facility.appendToChannel(channel, { text: "three" }, INFO, CLEARED);
 
     expect(facility.channelCounters(channel, 0)).toEqual({
       counts: { kept: 1, lost: 0 },
@@ -828,8 +905,8 @@ describe("counters (ADR-0092 §9)", () => {
     const facility = await loadFacility();
     const tallied = declareTallied(facility, "notes");
     const plain = declareNotes(facility, "plain");
-    facility.appendToChannel(tallied, { text: "lost" }, INFO);
-    facility.appendToChannel(plain, { text: "one" }, INFO);
+    facility.appendToChannel(tallied, { text: "lost" }, INFO, MINTED);
+    facility.appendToChannel(plain, { text: "one" }, INFO, MINTED);
 
     const payload = facility.buildLogExport([tallied, plain], 1700000000000);
 

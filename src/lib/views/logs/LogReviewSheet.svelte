@@ -5,6 +5,7 @@
   import { logExportEnabledFor } from "../../stores/device-settings";
   import {
     buildLogExport,
+    channelCounters,
     channelsOfFacet,
     deleteChannelEntry,
     partitionChannel,
@@ -79,6 +80,27 @@
     void revision;
     return new Map(channels.map((c) => [c.name, partitionChannel(c)] as const));
   });
+  // The counters, read off the same store on the same key, so the screen and
+  // the file below cannot show different totals (ADR-0092 §9). They belong on
+  // THIS screen more than any entry does: they are the part a Delete does not
+  // reach, so a review that showed only entries would be showing less than what
+  // exists on the one surface whose whole job is to show what exists.
+  let countersByChannel = $derived.by(() => {
+    void revision;
+    return new Map(
+      channels.map((c) => [c.name, channelCounters(c, exported_at)] as const)
+    );
+  });
+
+  // "since 5 September", never "lifetime" (#214 §9): after a Clear the totals
+  // start again, and a word implying otherwise would be the screen lying about
+  // a number it can see the epoch of.
+  const sinceLabel = (since: number) =>
+    new Date(since).toLocaleDateString(undefined, {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
   // The value the file will hold, built by the same function the export calls:
   // the review IS the payload, not a summary of it.
   let payload = $derived.by(() => {
@@ -125,6 +147,7 @@
     {@const contents = contentsByChannel.get(channel.name)}
     {@const entries = contents?.entries ?? []}
     {@const unreadable = contents?.unreadable ?? 0}
+    {@const counters = countersByChannel.get(channel.name)}
     <section class="channel">
       <Checkbox
         class="channel-head"
@@ -137,6 +160,21 @@
         </span>
       </Checkbox>
       <p class="purpose">{channel.purpose}</p>
+
+      {#if counters}
+        <p class="counters">
+          <span class="counter-head"
+            >Counted since {sinceLabel(counters.since)}</span
+          >
+          {#each Object.entries(counters.counts) as [name, count] (name)}
+            <span class="counter">{name} <b>{count}</b></span>
+          {/each}
+        </p>
+        <p class="empty">
+          Deleting an entry below does not take its count. These go when you
+          Clear the channel, and they are in the export whole.
+        </p>
+      {/if}
 
       {#if unreadable > 0}
         <!-- Counted, never shown: an older shape may hold exactly the free text
@@ -236,6 +274,23 @@
     margin-left: auto;
     font-size: var(--step-n2);
     color: var(--text-secondary);
+  }
+  .counters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3xs) var(--space-2xs);
+    margin: 0 0 var(--space-3xs);
+    font-size: var(--step-n2);
+  }
+  .counter-head {
+    color: var(--text-secondary);
+    text-transform: uppercase;
+  }
+  .counter {
+    border: var(--edge-thin);
+    border-radius: var(--radius);
+    padding: 0 var(--space-3xs);
+    font-family: var(--font-mono);
   }
   h3 {
     font-size: var(--step-n1);
