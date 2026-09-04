@@ -32,6 +32,20 @@ concurrency:
   group: e2e-${{ github.ref }}
   cancel-in-progress: true
 
+# The job reads the repo and deletes its own stale caches. Nothing else.
+#
+# `actions: write` is what the `purge` block below needs: deleting a cache is a
+# REST call the read-only default token cannot make, so without this the purge
+# fails with "Resource not accessible by integration" in a post step, after the
+# suite has already passed. A green run and a purge that never happened look the
+# same from the outside, which is how one dead 562MB cache sat here since
+# 2026-08-17. The repository default is read (`actions/permissions/workflow`), so
+# the grant has to be written out; naming `contents` alongside it is not optional
+# either, because declaring this key at all drops every scope left out of it.
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   e2e:
     runs-on: ubuntu-latest
