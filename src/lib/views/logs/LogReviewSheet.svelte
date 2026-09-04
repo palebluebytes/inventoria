@@ -12,6 +12,7 @@
     type LogChannel,
   } from "../../logs/log-facility";
   import type { FacetId } from "../../facets/registry";
+  import { downloadLogExport } from "./export-target";
 
   // The review the export is conditional on (ADR-0092 §11): the exact payload,
   // shown before anything is written, each channel chosen individually. One
@@ -107,6 +108,10 @@
     void revision;
     return buildLogExport(selected, exported_at);
   });
+  // Serialised ONCE. This exact string is what the review renders below and
+  // what `downloadLogExport` is handed, so the reviewed bytes and the written
+  // bytes are one value rather than two stringifications that could drift.
+  let payloadText = $derived(JSON.stringify(payload, null, 2));
 
   function toggleChannel(name: string, on: boolean) {
     selectedNames = on
@@ -122,18 +127,13 @@
   // The only way a record leaves this device (ADR-0054 §5): a file, written
   // locally, after the user has read the whole of what it holds. There is no
   // sink, no endpoint and no optional remote mode anywhere in the facility.
+  //
+  // The vehicle is `./export-target`, one named module, and this screen holds
+  // no `Blob` and no anchor of its own — which is what lets
+  // `scripts/log-egress-check.mjs` name the one place bytes may leave and fail
+  // on a second (#213 §2, #223).
   function exportSelected() {
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `inventoria-log-${new Date(exported_at)
-      .toISOString()
-      .slice(0, 10)}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadLogExport(payloadText, exported_at);
   }
 </script>
 
@@ -213,7 +213,7 @@
   {#if selected.length > 0}
     <section class="channel">
       <h3>What the file will hold</h3>
-      <pre class="payload">{JSON.stringify(payload, null, 2)}</pre>
+      <pre class="payload">{payloadText}</pre>
     </section>
   {/if}
 
