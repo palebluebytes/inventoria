@@ -113,10 +113,10 @@ Everything in this section is **[published]**. Nothing here is inferred.
 Source: [Durable Objects pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/),
 page dated "Last updated Aug 25, 2026".
 
-|                       | Workers Free plan | Workers Paid plan                    |
-| --------------------- | ----------------- | ------------------------------------ |
-| Requests              | 100,000 / day     | 1 million / month, + $0.15/million   |
-| Duration              | 13,000 GB-s / day | 400,000 GB-s / month, + $12.50/million GB-s |
+|          | Workers Free plan | Workers Paid plan                           |
+| -------- | ----------------- | ------------------------------------------- |
+| Requests | 100,000 / day     | 1 million / month, + $0.15/million          |
+| Duration | 13,000 GB-s / day | 400,000 GB-s / month, + $12.50/million GB-s |
 
 Requests _"Includes HTTP requests, RPC sessions, WebSocket messages, and alarm invocations"_.
 
@@ -155,11 +155,11 @@ Same page. Cloudflare's notice: _"Storage billing for SQLite-backed Durable Obje
 in January 2026, with a target date of January 7, 2026 (no earlier)."_ ADR-0072 was written before
 that took effect.
 
-| SQLite storage backend | Workers Free plan | Workers Paid plan                            |
-| ---------------------- | ----------------- | -------------------------------------------- |
-| Rows read              | 5 million / day   | First 25 billion / month + $0.001 / million  |
-| Rows written           | 100,000 / day     | First 50 million / month + $1.00 / million   |
-| SQL stored data        | 5 GB (total)      | 5 GB-month, + $0.20 / GB-month               |
+| SQLite storage backend | Workers Free plan | Workers Paid plan                           |
+| ---------------------- | ----------------- | ------------------------------------------- |
+| Rows read              | 5 million / day   | First 25 billion / month + $0.001 / million |
+| Rows written           | 100,000 / day     | First 50 million / month + $1.00 / million  |
+| SQL stored data        | 5 GB (total)      | 5 GB-month, + $0.20 / GB-month              |
 
 Footnotes 2, 3 and 4, verbatim: _"Key-value methods like `get()`, `put()`, `delete()`, or `list()`
 store and query data in a hidden SQLite table and are billed as rows read and rows written."_ / _"Each
@@ -270,9 +270,9 @@ Source: [Workers pricing](https://developers.cloudflare.com/workers/platform/pri
 Aug 28, 2026", and
 [Workers limits](https://developers.cloudflare.com/workers/platform/limits/).
 
-|          | Requests                          | Duration               | CPU time                       |
-| -------- | --------------------------------- | ---------------------- | ------------------------------ |
-| Free     | 100,000 per day                   | No charge for duration | 10 ms of CPU time / invocation |
+|          | Requests                           | Duration               | CPU time                                  |
+| -------- | ---------------------------------- | ---------------------- | ----------------------------------------- |
+| Free     | 100,000 per day                    | No charge for duration | 10 ms of CPU time / invocation            |
 | Standard | 10 million / month, +$0.30/million | No charge or limit     | 30 million CPU ms / month, +$0.02/million |
 
 Failure mode, verbatim: _"Accounts on the Workers Free plan have a daily request limit of 100,000
@@ -293,16 +293,16 @@ a binding call to R2 is a subrequest. One R2 call per invocation is nowhere near
 
 [R2 limits](https://developers.cloudflare.com/r2/platform/limits/), "Last updated Jun 8, 2026":
 
-| Feature                                                 | Limit       |
-| ------------------------------------------------------- | ----------- |
-| Data storage per bucket                                 | Unlimited   |
-| **Number of objects per bucket**                        | **Unlimited** |
-| Maximum number of buckets per account                   | 1,000,000   |
-| Object key length                                       | 1,024 bytes |
-| Object metadata size                                    | 8,192 bytes |
-| Object size                                             | 5 TiB       |
-| Maximum upload size                                     | 5 GiB single-part |
-| **Maximum concurrent writes to the same object name**   | **1 per second** |
+| Feature                                               | Limit             |
+| ----------------------------------------------------- | ----------------- |
+| Data storage per bucket                               | Unlimited         |
+| **Number of objects per bucket**                      | **Unlimited**     |
+| Maximum number of buckets per account                 | 1,000,000         |
+| Object key length                                     | 1,024 bytes       |
+| Object metadata size                                  | 8,192 bytes       |
+| Object size                                           | 5 TiB             |
+| Maximum upload size                                   | 5 GiB single-part |
+| **Maximum concurrent writes to the same object name** | **1 per second**  |
 
 [Durable Objects limits](https://developers.cloudflare.com/durable-objects/platform/limits/), "Last
 updated Jun 1, 2026", for the relay: **WebSocket message size 32 MiB (received only)** — which
@@ -335,11 +335,11 @@ raw bytes ≈ 2,501·n_fdc + 144,750·n_gtin + 1,376·n_events + 1,165·n_recipe
 Three ledgers are priced here. The counts are **[assumed]**; the coefficients are #196's
 measurements.
 
-| Case                                             | `n_fdc` | `n_gtin` | `n_events` | `n_recipes` | photos | Raw       | Sealed wire |
-| ------------------------------------------------ | ------: | -------: | ---------: | ----------: | -----: | --------- | ----------- |
-| **Light** — six months, mostly USDA, no photos   |     100 |       10 |        550 |          10 |      0 | 2.47 MB   | 0.41 MB     |
-| **Typical** — one year, a barcode every few days |     200 |      100 |      1,095 |          30 |     20 | 24.74 MB  | 8.89 MB     |
-| **Heavy** — three years of the same              |     500 |      300 |      3,285 |          90 |     60 | 73.96 MB  | 26.62 MB    |
+| Case                                             | `n_fdc` | `n_gtin` | `n_events` | `n_recipes` | photos | Raw      | Sealed wire |
+| ------------------------------------------------ | ------: | -------: | ---------: | ----------: | -----: | -------- | ----------- |
+| **Light** — six months, mostly USDA, no photos   |     100 |       10 |        550 |          10 |      0 | 2.47 MB  | 0.41 MB     |
+| **Typical** — one year, a barcode every few days |     200 |      100 |      1,095 |          30 |     20 | 24.74 MB | 8.89 MB     |
+| **Heavy** — three years of the same              |     500 |      300 |      3,285 |          90 |     60 | 73.96 MB | 26.62 MB    |
 
 The **sealed wire** column is **[computed]** from #196 §4's two compression ratios — _"Text datoms
 compress ~6:1; base64 JPEG compresses ~1.34:1"_ — applied separately to the text terms and the
@@ -370,11 +370,11 @@ that a reader can see how little turns on it. The message count is
 `ceil(sealed wire bytes / chunk size)` [computed], and 1 MiB is chosen only because it is ADR-0072
 §11.3's retired number and therefore the one a reader will have in mind.
 
-| Sealed wire | 64 KiB chunks | 256 KiB chunks | 1 MiB chunks | 4 MiB chunks |
-| ----------- | ------------: | -------------: | -----------: | -----------: |
-| Light, 0.41 MB   |   7 |   2 |  1 | 1 |
-| **Typical, 8.89 MB** | **136** |  **34** |  **9** | **3** |
-| Heavy, 26.62 MB  | 407 | 102 | 26 | 7 |
+| Sealed wire          | 64 KiB chunks | 256 KiB chunks | 1 MiB chunks | 4 MiB chunks |
+| -------------------- | ------------: | -------------: | -----------: | -----------: |
+| Light, 0.41 MB       |             7 |              2 |            1 |            1 |
+| **Typical, 8.89 MB** |       **136** |         **34** |        **9** |        **3** |
+| Heavy, 26.62 MB      |           407 |            102 |           26 |            7 |
 
 ### 2.3 Six control frames per pairing session
 
@@ -513,11 +513,11 @@ where there are now three. **Free plan: 100,000 rows written per day.**
 `storage.get` + `storage.put` of `FRAMES_KEY` **per forwarded frame** at `:256` and `:271`, and
 `deleteAlarm` + `deleteAll` at `:320`–`:321` (deletes count as rows written).
 
-| Shape                                            | Rows written per pairing | Pairings/day within 100,000 |
-| ------------------------------------------------ | -----------------------: | --------------------------: |
-| Per-frame counter retained, 1 MiB chunks         |                       18 |                   **5,556** |
-| Per-frame counter retained, 64 KiB chunks        |                      145 |                     **690** |
-| Counter deleted with the rule it enforced        |                    **3** |                  **33,333** |
+| Shape                                     | Rows written per pairing | Pairings/day within 100,000 |
+| ----------------------------------------- | -----------------------: | --------------------------: |
+| Per-frame counter retained, 1 MiB chunks  |                       18 |                   **5,556** |
+| Per-frame counter retained, 64 KiB chunks |                      145 |                     **690** |
+| Counter deleted with the rule it enforced |                    **3** |                  **33,333** |
 
 **This is the first place in the whole arithmetic where the answer is uncomfortable, and it is
 avoidable.** #371 deleted ADR-0072 §11.2's one-frame-each-way rule. The counter at `:256`/`:271`
@@ -544,13 +544,13 @@ device's pairings. From #260 §8's table: **deposits — and R2 operations — p
 
 What each of the two wake shapes costs, against §1.4's class list:
 
-| Wake shape           | R2 calls                                        | Class A | Class B | Free |
-| -------------------- | ----------------------------------------------- | ------: | ------: | ---: |
-| **Collect**, mail present | `GetObject`, then `DeleteObject` after the final chunk verifies |       0 |       1 |    1 |
-| **Collect**, lane empty   | `GetObject` returning null                      |       0 |       1 |    0 |
-| **Deposit**, first write at an index | `PutObject`                    |       1 |       0 |    0 |
-| **Deposit**, conditional rewrite that succeeds | `PutObject` with `onlyIf` |       1 |       0 |    0 |
-| **Deposit**, conditional rewrite refused | `PutObject` with `onlyIf`, returns `null` | 1 (assumed, §1.4) | 0 | 0 |
+| Wake shape                                     | R2 calls                                                        |           Class A | Class B | Free |
+| ---------------------------------------------- | --------------------------------------------------------------- | ----------------: | ------: | ---: |
+| **Collect**, mail present                      | `GetObject`, then `DeleteObject` after the final chunk verifies |                 0 |       1 |    1 |
+| **Collect**, lane empty                        | `GetObject` returning null                                      |                 0 |       1 |    0 |
+| **Deposit**, first write at an index           | `PutObject`                                                     |                 1 |       0 |    0 |
+| **Deposit**, conditional rewrite that succeeds | `PutObject` with `onlyIf`                                       |                 1 |       0 |    0 |
+| **Deposit**, conditional rewrite refused       | `PutObject` with `onlyIf`, returns `null`                       | 1 (assumed, §1.4) |       0 |    0 |
 
 **Three things this table settles.**
 
@@ -578,13 +578,13 @@ Method [computed]: keys touched per user per day is `N × (N−1) × w` where `w
 day (§2.4); Class A is that times the deposit share (§2.5, 0.5), Class B the rest; and every R2 call
 is also one Worker invocation, because the browser reaches R2 through the site's Worker.
 
-| N | wakes/device/day | Keys/user/day | Class A/user/day | Class B/user/day | Worker requests/user/day |
-| -: | ---------------: | ------------: | ---------------: | ---------------: | -----------------------: |
+|     N | wakes/device/day | Keys/user/day | Class A/user/day | Class B/user/day | Worker requests/user/day |
+| ----: | ---------------: | ------------: | ---------------: | ---------------: | -----------------------: |
 | **2** |            **1** |         **2** |            **1** |            **1** |                    **2** |
-| 2 |                3 |             6 |                3 |                3 |                        6 |
+|     2 |                3 |             6 |                3 |                3 |                        6 |
 | **3** |            **1** |         **6** |            **3** |            **3** |                    **6** |
-| 3 |                3 |            18 |                9 |                9 |                       18 |
-| 4 |                1 |            12 |                6 |                6 |                       12 |
+|     3 |                3 |            18 |                9 |                9 |                       18 |
+|     4 |                1 |            12 |                6 |                6 |                       12 |
 
 **At two devices and one wake each, convergence costs a user two R2 operations a day.** That is the
 whole recurring bill in operations. #260's superlinearity shows as the `N(N−1)` column: going from two
@@ -598,10 +598,10 @@ Two regimes, and they differ by two orders of magnitude.
 about two wakes. From §2.1's typical ledger, a device generates 24.74 MB raw / 8.89 MB sealed per
 year, which is **24.4 KB of sealed wire per device-day** [computed]. Two wakes' worth per lane:
 
-| N | Lanes = `N(N−1)` | Live bytes/user | Users within 10 GB-month |
-| -: | ---------------: | --------------: | -----------------------: |
-| 2 |                2 |           98 KB |                  102,459 |
-| 3 |                6 |          293 KB |                   34,153 |
+|   N | Lanes = `N(N−1)` | Live bytes/user | Users within 10 GB-month |
+| --: | ---------------: | --------------: | -----------------------: |
+|   2 |                2 |           98 KB |                  102,459 |
+|   3 |                6 |          293 KB |                   34,153 |
 
 **Abandoned.** A device that is never opened again leaves its peer depositing into a lane nobody
 collects. #256's resolution bounds it on both axes — _"in size, because after K the depositor stops
@@ -639,14 +639,14 @@ At **N = 2, one wake per device per day, an even deposit/collect split** (§2.4,
 day: 1 Class A, 1 Class B, 2 Worker invocations, 98 KB live. First syncs are once per device pair
 ever and are counted separately.
 
-| Dimension                     | Free allowance          | Usage/user/day | Users at the ceiling | Source of ceiling |
-| ----------------------------- | ----------------------- | -------------: | -------------------: | ----------------- |
-| **R2 Class A**                | 1,000,000 / month       |              1 |           **33,333** | §1.3              |
-| **Workers requests**          | 100,000 / day           |              2 |           **50,000** | §1.5              |
-| R2 stored bytes, healthy only | 10 GB-month             |        98 KB   |              102,459 | §1.3, §4.3        |
-| R2 Class B                    | 10,000,000 / month      |              1 |              333,333 | §1.3              |
-| DO requests (pairings only)   | 100,000 / day           |   2.75/pairing |   36,364 pairings/day | §3.1             |
-| DO duration (pairings only)   | 13,000 GB-s / day       |  0.019/pairing |  693,333 pairings/day | §3.3             |
+| Dimension                     | Free allowance     | Usage/user/day | Users at the ceiling | Source of ceiling |
+| ----------------------------- | ------------------ | -------------: | -------------------: | ----------------- |
+| **R2 Class A**                | 1,000,000 / month  |              1 |           **33,333** | §1.3              |
+| **Workers requests**          | 100,000 / day      |              2 |           **50,000** | §1.5              |
+| R2 stored bytes, healthy only | 10 GB-month        |          98 KB |              102,459 | §1.3, §4.3        |
+| R2 Class B                    | 10,000,000 / month |              1 |              333,333 | §1.3              |
+| DO requests (pairings only)   | 100,000 / day      |   2.75/pairing |  36,364 pairings/day | §3.1              |
+| DO duration (pairings only)   | 13,000 GB-s / day  |  0.019/pairing | 693,333 pairings/day | §3.3              |
 
 At **N = 3, one wake per device per day**, every R2 and Workers figure divides by three: **Class A at
 11,111 users**, Workers at 16,667, healthy stored bytes at 34,153. At three wakes a day instead of
@@ -690,12 +690,12 @@ Let `f` be the fraction of users with one permanently abandoned device. Per-user
 [computed] is `(1−f)·(lanes × 2 × 24.4 KB) + f·((N−1) × abandoned lane + remaining lanes × 2 × 24.4 KB)`,
 against a 10 GB-month allowance metered on **daily peak** (§1.3).
 
-| N | Abandoned-lane size                       | `f` at which stored bytes overtakes Class A | Users if **every** user has one |
-| -: | ---------------------------------------- | ------------------------------------------: | ------------------------------: |
-| 2 | 4.88 MB (#256's K = 200 cap)              |                                    **4.2%** |                           2,029 |
-| 2 | 8.89 MB (no cap — whole outstanding ledger) |                                  **2.3%** |                           1,119 |
-| 3 | 4.88 MB per lane, 2 lanes                 |                                    **6.3%** |                           1,005 |
-| 3 | 8.89 MB per lane, 2 lanes                 |                                    **3.4%** |                             556 |
+|   N | Abandoned-lane size                         | `f` at which stored bytes overtakes Class A | Users if **every** user has one |
+| --: | ------------------------------------------- | ------------------------------------------: | ------------------------------: |
+|   2 | 4.88 MB (#256's K = 200 cap)                |                                    **4.2%** |                           2,029 |
+|   2 | 8.89 MB (no cap — whole outstanding ledger) |                                    **2.3%** |                           1,119 |
+|   3 | 4.88 MB per lane, 2 lanes                   |                                    **6.3%** |                           1,005 |
+|   3 | 8.89 MB per lane, 2 lanes                   |                                    **3.4%** |                             556 |
 
 **So the single most consequential number in this note is one nobody has estimated: what fraction of
 users abandon a paired device.** Above about 4% at two devices, the binding limit moves from
@@ -707,8 +707,8 @@ A's 33,333 [computed].
 1. **A backstop expiry is a cost control, not only a privacy control.** #256's resolution called it
    _"a requirement rather than an option"_ on privacy grounds and left the horizon to #252. On the
    billing side it is what keeps stored bytes off the critical path: a 90-day expiry caps an
-   abandoned lane at 90 × 24.4 KB = **2.2 MB** [computed] and moves the crossover to about 9% of
-   users; a 30-day expiry caps it at **0.73 MB** and moves it to 27%.
+   abandoned lane at 90 × 24.4 KB = **2.20 MB** [computed] and moves the crossover to **9.4%** of
+   users; a 30-day expiry caps it at **0.73 MB** and moves it to **29.6%**.
 2. **#256's K = 200 is a bound, not a fix.** At one wake a day it caps an abandoned lane at 4.88 MB
    against a whole ledger's 8.89 MB — a factor of 1.8. K bounds infinity, which is what #256 said it
    was for; it does not bound the number that matters here.
@@ -746,12 +746,12 @@ Method [computed]: §4.2's usage at N = 2, one wake a day, `d = 0.5`, against §
 §1.5's, with Cloudflare's upward rounding to the next million and the Workers Paid _"minimum charge
 of $5 USD per month for an account"_ [published, §1.5].
 
-| Users     | R2 Class A       | R2 Class B     | R2 storage (healthy) | Workers                            | Total/month |
-| --------- | ---------------- | -------------- | -------------------- | ---------------------------------- | ----------- |
-| 33,333    | 1.0 M — free     | 1.0 M — free   | 3.3 GB — free        | 66,666/day — free                  | **$0.00**   |
-| 50,000    | 1.5 M → $4.50    | 1.5 M — free   | 4.9 GB — free        | 100,000/day — at the free ceiling  | **$4.50**   |
-| 100,000   | 3.0 M → $9.00    | 3.0 M — free   | 9.8 GB — free        | 6 M/month, needs Paid → $5.00 min  | **$14.00**  |
-| 500,000   | 15 M → $63.00    | 15 M → $1.80   | 48.8 GB → $0.58      | 30 M/month → $6.00 + $5.00 min     | **$76.38**  |
+| Users   | R2 Class A    | R2 Class B   | R2 storage (healthy) | Workers                           | Total/month |
+| ------- | ------------- | ------------ | -------------------- | --------------------------------- | ----------- |
+| 33,333  | 1.0 M — free  | 1.0 M — free | 3.3 GB — free        | 66,666/day — free                 | **$0.00**   |
+| 50,000  | 1.5 M → $4.50 | 1.5 M — free | 4.9 GB — free        | 100,000/day — at the free ceiling | **$4.50**   |
+| 100,000 | 3.0 M → $9.00 | 3.0 M — free | 9.8 GB — free        | 6 M/month, needs Paid → $5.00 min | **$14.00**  |
+| 500,000 | 15 M → $63.00 | 15 M → $1.80 | 48.8 GB → $0.58      | 30 M/month → $6.00 + $5.00 min    | **$76.38**  |
 
 **The cliff is not a cliff.** Crossing out of the free tier at ~33,000 users costs $4.50 a month, and
 a user base fifteen times larger costs under $80. **What ADR-0072 §14's clause is actually protecting
