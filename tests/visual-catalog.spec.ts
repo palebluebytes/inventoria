@@ -1,8 +1,12 @@
 /// <reference types="node" />
 import { test, expect } from "@playwright/test";
+import { PAGES, iconIdOf, pageLabel } from "../src/lib/food/pages";
+import { hasPagesAt, openRationsDay } from "./support/rations";
 
-/** Shared by both catalogues below: nothing is worth capturing until the ledger
- *  has answered, and every screen here reads from it. */
+/** Shared by the two catalogues that photograph the **root** Facet: nothing is
+ *  worth capturing until the ledger has answered, and every screen there reads
+ *  from it. Rations' own catalogue at the bottom of this file reads readiness
+ *  off the day instead, because this badge is in a sidebar it does not have. */
 async function waitForDbReady(page: import("@playwright/test").Page) {
   await page.waitForFunction(
     () => {
@@ -13,6 +17,190 @@ async function waitForDbReady(page: import("@playwright/test").Page) {
   );
 }
 
+/**
+ * The bundled USDA corpus (ADR-0047), served as a fixture.
+ *
+ * Food search reads the committed Search index and staging reads the Nutrient
+ * store, so these two routes pin the one food a catalogue logs. There is no API
+ * to intercept and no key to enter.
+ *
+ * Shared by the dashboard catalogue and by Rations' (#348), which photograph
+ * the same screen in two shells and must therefore log the same breakfast. The
+ * meal catalogue below keeps a fixture of its own on purpose, and says why: it
+ * needs a food this one deliberately does not carry.
+ */
+async function routeUsdaCorpus(page: import("@playwright/test").Page) {
+  await page.route("**/usda/search-index.json", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        artifact: "usda-search-index",
+        schema_version: 2,
+        generated_from: [],
+        // Structurally required since ADR-0049 §4 put the Vocabulary map in
+        // this artifact: `buildSearchCorpus` reads the section, so a fixture
+        // without one throws before a single search runs. Deliberately EMPTY —
+        // these specs are about the food flows, and an expansion here would
+        // make them depend on a retrieval fallback they do not exercise.
+        vocabulary_off: {
+          licence: "ODbL",
+          source: "Open Food Facts",
+          url: "https://static.openfoodfacts.org/data/taxonomies/ingredients.full.json",
+          sha256: "fixture",
+          expansions: {},
+        },
+        vocabulary_local: {
+          source: "Inventoria, hand-written",
+          expansions: {},
+        },
+        foods: [
+          {
+            fdcId: 171705,
+            description: "Mock Banana",
+            dataType: "Foundation",
+            macros: {
+              calories: 89,
+              protein_content: 1.1,
+              fat_content: 0.3,
+              carbohydrate_content: 22.8,
+            },
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.route("**/usda/nutrient-store.json", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        artifact: "usda-nutrient-store",
+        schema_version: 2,
+        generated_from: [],
+        nutrients: {
+          1003: { name: "Protein", unit: "g" },
+          1004: { name: "Total lipid (fat)", unit: "g" },
+          1005: { name: "Carbohydrate, by difference", unit: "g" },
+          1008: { name: "Energy", unit: "kcal" },
+        },
+        foods: {
+          171705: { 1003: 1.1, 1004: 0.3, 1005: 22.8, 1008: 89 },
+        },
+      }),
+    });
+  });
+}
+
+/**
+ * Motion, frozen. A capture can otherwise land mid-transition and flake run to
+ * run — the calorie ring animated its `stroke-dashoffset` from async DB data,
+ * which is what this was written for. The ring is gone; everything else on these
+ * screens that moves is still snapped to its end state.
+ */
+const NO_MOTION = `
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+`;
+
+/**
+ * The root Facet's shell, flattened for a full-page capture: the app box, the
+ * scroll container inside it, and the Sidebar that is pinned beside them.
+ */
+const ROOT_SHELL_FLAT = `
+  .app {
+    height: auto !important;
+    min-height: 100svh !important;
+  }
+  .main {
+    overflow-y: visible !important;
+    height: auto !important;
+  }
+  .sidebar {
+    position: static !important;
+  }
+  /* Un-pin the sheet so a full-page capture contains all of it: a
+     position:fixed box is rendered once, at the top of the image,
+     whatever the page's height. (No backticks in this block -- it is a
+     template literal.)
+
+     #333 asked for "height: auto !important" to come out of here, on the
+     grounds that it insulates this shot from the height model ADR-0089 S5
+     changed. The line was in fact INERT and is gone as dead CSS:
+     .add-habit-sheet is a plain sheet, and .bottom-sheet-content declares
+     no height at all -- only .flush / .fill do. What actually insulates
+     the shot is position:absolute and max-height:none, and those are
+     exactly what a full-page capture of the whole screen needs. The two
+     requirements genuinely conflict, so this shot is not the witness: the
+     twelve element screenshots of .bottom-sheet-content below are, and
+     tests/keyboard-invariants.spec.ts carries the geometry the pixels
+     cannot. */
+  .add-habit-sheet {
+    position: absolute !important;
+    max-height: none !important;
+    min-height: 100% !important;
+    overflow-y: visible !important;
+  }
+  .add-habit-sheet .bottom-sheet-body {
+    overflow-y: visible !important;
+  }
+`;
+
+/**
+ * Rations' shell, flattened the same way (#348).
+ *
+ * Its own selectors rather than the root's: there is no `.sidebar` here and the
+ * outer box is `.rations` (ADR-0078 §1), so reusing the block above would be two
+ * dead rules and one missing one. `.main` is the same shared rule in both
+ * (ADR-0091 §2), and is the scroll box `tests/unit/shell.test.ts` holds it as.
+ */
+const RATIONS_SHELL_FLAT = `
+  /* The shell is one viewport tall with the scroll inside it, which a full-page
+     capture would otherwise photograph as one screenful. Both boxes give that up
+     for the shot. */
+  .rations {
+    height: auto !important;
+    min-height: 100svh !important;
+  }
+  .main {
+    overflow-y: visible !important;
+    height: auto !important;
+  }
+`;
+
+/**
+ * A full-page capture of a whole shell.
+ *
+ * `flatten` is the only thing the two Facets' catalogues do differently, and it
+ * is a parameter rather than a second copy of this function (#348): the freeze
+ * above it, the pixel budget and taking the style tag away afterwards are the
+ * same for both shells and were written twice before.
+ *
+ * `maxDiffPixels` is a bounded budget for antialiasing that lands on different
+ * sub-pixels run-to-run. It was sized for the calorie ring's rounded arc cap
+ * (~2372 px of observed flake); the ring is gone, but the budget is kept for the
+ * rest. Any real content/layout change on a full-page shot dwarfs it, so
+ * structural regressions still fail.
+ */
+async function takeFullPageScreenshot(
+  page: import("@playwright/test").Page,
+  name: string,
+  flatten: string
+) {
+  const styleHandle = await page.addStyleTag({
+    content: `${NO_MOTION}\n${flatten}`,
+  });
+  try {
+    await expect(page).toHaveScreenshot(name, {
+      fullPage: true,
+      maxDiffPixels: 5000,
+    });
+  } finally {
+    await styleHandle.evaluate((el) => (el as Element).remove());
+  }
+}
+
 test.describe("Visual Catalog Generator", () => {
   test.beforeEach(async ({ page }) => {
     // Capture page console logs for debugging
@@ -21,69 +209,7 @@ test.describe("Visual Catalog Generator", () => {
       console.log("PAGE UNCAUGHT ERROR:", err.message)
     );
 
-    // The bundled USDA corpus (ADR-0047), served as a fixture: food search reads
-    // the committed Search index and staging reads the Nutrient store, so these
-    // two routes pin the one food the catalogue logs. There is no API to
-    // intercept and no key to enter.
-    await page.route("**/usda/search-index.json", async (route) => {
-      await route.fulfill({
-        contentType: "application/json",
-        body: JSON.stringify({
-          artifact: "usda-search-index",
-          schema_version: 2,
-          generated_from: [],
-          // Structurally required since ADR-0049 §4 put the Vocabulary map in
-          // this artifact: `buildSearchCorpus` reads the section, so a fixture
-          // without one throws before a single search runs. Deliberately EMPTY —
-          // these specs are about the food flows, and an expansion here would
-          // make them depend on a retrieval fallback they do not exercise.
-          vocabulary_off: {
-            licence: "ODbL",
-            source: "Open Food Facts",
-            url: "https://static.openfoodfacts.org/data/taxonomies/ingredients.full.json",
-            sha256: "fixture",
-            expansions: {},
-          },
-          vocabulary_local: {
-            source: "Inventoria, hand-written",
-            expansions: {},
-          },
-          foods: [
-            {
-              fdcId: 171705,
-              description: "Mock Banana",
-              dataType: "Foundation",
-              macros: {
-                calories: 89,
-                protein_content: 1.1,
-                fat_content: 0.3,
-                carbohydrate_content: 22.8,
-              },
-            },
-          ],
-        }),
-      });
-    });
-
-    await page.route("**/usda/nutrient-store.json", async (route) => {
-      await route.fulfill({
-        contentType: "application/json",
-        body: JSON.stringify({
-          artifact: "usda-nutrient-store",
-          schema_version: 2,
-          generated_from: [],
-          nutrients: {
-            1003: { name: "Protein", unit: "g" },
-            1004: { name: "Total lipid (fat)", unit: "g" },
-            1005: { name: "Carbohydrate, by difference", unit: "g" },
-            1008: { name: "Energy", unit: "kcal" },
-          },
-          foods: {
-            171705: { 1003: 1.1, 1004: 0.3, 1005: 22.8, 1008: 89 },
-          },
-        }),
-      });
-    });
+    await routeUsdaCorpus(page);
 
     // TMDB Search API intercept
     await page.route("**/3/search/movie*", async (route) => {
@@ -237,73 +363,6 @@ test.describe("Visual Catalog Generator", () => {
     await waitForDbReady(page);
   }
 
-  async function takeFullPageScreenshot(
-    page: import("@playwright/test").Page,
-    name: string
-  ) {
-    const styleHandle = await page.addStyleTag({
-      content: `
-        /* Freeze all motion so captures are deterministic. The calorie ring
-           animates its stroke-dashoffset via a CSS transition driven by async
-           DB data; without this the screenshot can land mid-transition and
-           flake run-to-run. Snap every animation/transition to its end state. */
-        *, *::before, *::after {
-          animation: none !important;
-          transition: none !important;
-        }
-        .app {
-          height: auto !important;
-          min-height: 100svh !important;
-        }
-        .main {
-          overflow-y: visible !important;
-          height: auto !important;
-        }
-        .sidebar {
-          position: static !important;
-        }
-        /* Un-pin the sheet so a full-page capture contains all of it: a
-           position:fixed box is rendered once, at the top of the image,
-           whatever the page's height. (No backticks in this block -- it is a
-           template literal.)
-
-           #333 asked for "height: auto !important" to come out of here, on the
-           grounds that it insulates this shot from the height model ADR-0089 S5
-           changed. The line was in fact INERT and is gone as dead CSS:
-           .add-habit-sheet is a plain sheet, and .bottom-sheet-content declares
-           no height at all -- only .flush / .fill do. What actually insulates
-           the shot is position:absolute and max-height:none, and those are
-           exactly what a full-page capture of the whole screen needs. The two
-           requirements genuinely conflict, so this shot is not the witness: the
-           twelve element screenshots of .bottom-sheet-content below are, and
-           tests/keyboard-invariants.spec.ts carries the geometry the pixels
-           cannot. */
-        .add-habit-sheet {
-          position: absolute !important;
-          max-height: none !important;
-          min-height: 100% !important;
-          overflow-y: visible !important;
-        }
-        .add-habit-sheet .bottom-sheet-body {
-          overflow-y: visible !important;
-        }
-      `,
-    });
-    try {
-      await expect(page).toHaveScreenshot(name, {
-        fullPage: true,
-        // A bounded pixel budget for antialiasing that lands on different
-        // sub-pixels run-to-run. It was sized for the calorie ring's rounded arc
-        // cap (~2372 px of observed flake); the ring is gone, but the budget is
-        // kept for the rest. Any real content/layout change on a full-page shot
-        // dwarfs it, so structural regressions still fail.
-        maxDiffPixels: 5000,
-      });
-    } finally {
-      await styleHandle.evaluate((el) => (el as Element).remove());
-    }
-  }
-
   test("generates visual catalog screenshots of all dashboards", async ({
     page,
   }) => {
@@ -355,7 +414,7 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator("#log-food-btn").click();
 
     // Take Food Dashboard Screenshot
-    await takeFullPageScreenshot(page, "food-dashboard.png");
+    await takeFullPageScreenshot(page, "food-dashboard.png", ROOT_SHELL_FLAT);
 
     // 3. Populate Habits Dashboard (Add blueprints & log executions)
     await page.locator(".nav-item", { hasText: "Agenda" }).click();
@@ -368,7 +427,7 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator("#habit-name-input").fill("Read Philosophy");
     await page.locator(".category-chip", { hasText: "MIND" }).click();
     await page.locator(".segment-btn", { hasText: "DAILY" }).click();
-    await takeFullPageScreenshot(page, "add-habit-screen.png");
+    await takeFullPageScreenshot(page, "add-habit-screen.png", ROOT_SHELL_FLAT);
     await page.locator(".btn-submit-brutal").click();
     await expect(page.locator(".add-habit-sheet")).not.toBeVisible();
 
@@ -624,7 +683,7 @@ test.describe("Visual Catalog Generator", () => {
     await expect(read20PagesItem.locator(".reps-pill")).toHaveText("1/3");
 
     // Take Habits Dashboard Screenshot
-    await takeFullPageScreenshot(page, "agenda-dashboard.png");
+    await takeFullPageScreenshot(page, "agenda-dashboard.png", ROOT_SHELL_FLAT);
 
     // 4. Populate Media Dashboard (Add Movie & Book)
     await page.locator(".nav-item", { hasText: "Media" }).click();
@@ -663,7 +722,7 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator(".close-btn").click();
 
     // Take Media Dashboard Screenshot
-    await takeFullPageScreenshot(page, "media-dashboard.png");
+    await takeFullPageScreenshot(page, "media-dashboard.png", ROOT_SHELL_FLAT);
 
     // 5. Populate Items Dashboard (Add Wanted item)
     await page.locator(".nav-item", { hasText: "Items" }).click();
@@ -687,7 +746,7 @@ test.describe("Visual Catalog Generator", () => {
     ).toBeVisible();
 
     // Take Items Dashboard Screenshot
-    await takeFullPageScreenshot(page, "items-dashboard.png");
+    await takeFullPageScreenshot(page, "items-dashboard.png", ROOT_SHELL_FLAT);
 
     // 6. Populate Notes Dashboard (a checklist item & a note)
     await page.locator(".nav-item", { hasText: "Notes" }).click();
@@ -707,11 +766,11 @@ test.describe("Visual Catalog Generator", () => {
     );
 
     // Take Notes Dashboard Screenshot
-    await takeFullPageScreenshot(page, "notes-dashboard.png");
+    await takeFullPageScreenshot(page, "notes-dashboard.png", ROOT_SHELL_FLAT);
 
     // 7. Settings Page Screenshot
     await page.locator(".nav-item", { hasText: "Settings" }).click();
-    await takeFullPageScreenshot(page, "settings-page.png");
+    await takeFullPageScreenshot(page, "settings-page.png", ROOT_SHELL_FLAT);
   });
 });
 
@@ -845,18 +904,10 @@ test.describe("Visual Catalog — the surfaces a meal opens", () => {
     sheet: import("@playwright/test").Locator,
     name: string
   ) {
-    const styleHandle = await page.addStyleTag({
-      content: `
-        /* A sheet slides and fades in, so a capture can land mid-transition and
-           flake run-to-run. Snap it to its end state. The dashboard catalogue
-           freezes motion the same way and then flattens the app shell as well,
-           which an element capture has no need of. */
-        *, *::before, *::after {
-          animation: none !important;
-          transition: none !important;
-        }
-      `,
-    });
+    // A sheet slides and fades in, so a capture can land mid-transition and
+    // flake run-to-run. The same freeze the full-page shots take, and nothing
+    // else: an element capture has no shell to flatten.
+    const styleHandle = await page.addStyleTag({ content: NO_MOTION });
     try {
       await expect(sheet).toHaveScreenshot(name);
     } finally {
@@ -939,5 +990,119 @@ test.describe("Visual Catalog — the surfaces a meal opens", () => {
     const explainer = page.locator(".bottom-sheet-content.nova-explainer");
     await expect(explainer).toBeVisible();
     await takeSheetScreenshot(page, explainer, "food-nova-explainer.png");
+  });
+});
+
+/**
+ * Rations' own shell — the third catalogue, and the first picture of it.
+ *
+ * The two above navigate to `/?mem=1`, which is the **root** Facet: all 26 of
+ * their baselines show the food screen inside the root's shell, with a Sidebar
+ * taking ~200px of the 1280px viewport. Rations renders the same screen at
+ * `/food/` into a shell with no sidebar, the full measure, and two regions above
+ * the shell breakpoint (ADR-0091 §2, §3). Two Facets, two shells, one set of
+ * pictures — and only one of the shells was in it (#348).
+ *
+ * It is a `describe` of its own rather than more legs of the monolith for the
+ * reason the sheet catalogue gives: that test stops at the first image that
+ * differs and leaves every later one unverified. It is also a different Facet at
+ * a different URL, so sharing a run would mean navigating out of the app being
+ * photographed.
+ *
+ * The fixture is the dashboard catalogue's, deliberately: one food, no
+ * portions, no micronutrients. What is being photographed here is the shell, and
+ * a richer food would make these baselines move for reasons that are about a
+ * meal rather than about a shell.
+ */
+test.describe("Visual Catalog — Rations' own shell", () => {
+  test.beforeEach(async ({ page }) => {
+    page.on("pageerror", (err) =>
+      console.log("PAGE UNCAUGHT ERROR:", err.message)
+    );
+
+    await routeUsdaCorpus(page);
+  });
+
+  /**
+   * The app at `/food/`, on a pinned day.
+   *
+   * The clock is fixed for the catalogue's usual reason and for one more that is
+   * this shell's alone: above the shell breakpoint the rail leads with a month
+   * calendar (ADR-0091 §2), which prints a month name, a grid of day numbers and
+   * a mark on today — so a live clock would restale every baseline here nightly
+   * and redraw the whole grid at each month boundary.
+   *
+   * `openRationsDay` is the goto and the readiness wait, shared with the sweep
+   * in `layout-invariants.spec.ts` because both are asking the same question of
+   * the same shell and the answer carries an argument (`support/rations.ts`).
+   */
+  async function openRations(page: import("@playwright/test").Page) {
+    await page.clock.install({ time: new Date("2026-06-05T08:30:00Z") });
+    await openRationsDay(page);
+  }
+
+  /** One breakfast, so the timeline, the rail's numbers and a report all have
+   *  something to be about. The same food and the same amount the root's
+   *  `food-dashboard` shot logs, so the two shells are photographed holding the
+   *  same day. */
+  async function logBreakfast(page: import("@playwright/test").Page) {
+    await page
+      .getByRole("button", { name: "Search for a breakfast food" })
+      .click();
+    await page.locator("#food-search-input").fill("banana");
+    await page.locator(".result-item", { hasText: "Mock Banana" }).click();
+    await page.getByLabel("Amount in grams").fill("150");
+    await page.locator("#log-food-btn").click();
+    await expect(page.locator(".bottom-sheet-content")).toHaveCount(0);
+  }
+
+  test("the day, in the shell Rations actually ships", async ({ page }) => {
+    // Both projects collect this one, and the two pictures are the point: at
+    // 1280 it is the two-region shell — timeline left, month calendar and the
+    // day's numbers in the rail — and on the Pixel 5 it is the single column
+    // with the week strip, which is the same set of parts arranged differently
+    // (ADR-0091 §1).
+    await openRations(page);
+    await logBreakfast(page);
+    await takeFullPageScreenshot(page, "rations-day.png", RATIONS_SHELL_FLAT);
+  });
+
+  test.describe("the pages, which exist above the shell breakpoint", () => {
+    test.beforeEach(({ viewport }) => {
+      // Not `isMobile`: what decides whether a page exists is the width and
+      // nothing else (ADR-0091 §5), and the number is the roster's, which the
+      // stylesheet and `matchMedia` both read. Below it these controls open
+      // sheets, which the catalogue above already photographs at the root.
+      test.skip(
+        !hasPagesAt(viewport),
+        "A page exists only above the shell breakpoint (ADR-0091 §5)."
+      );
+    });
+
+    // One test per page, drawn from the roster rather than three tests written
+    // out: a fourth page is then photographed by the same rule that puts its
+    // control in the header, and cannot be added with no picture of it. They
+    // stay separate tests for the sheet catalogue's reason — one `expect` per
+    // image, so a differing shot does not leave the ones behind it unverified.
+    for (const p of PAGES) {
+      test(`${pageLabel(p)}, whole`, async ({ page }) => {
+        await openRations(page);
+        // Only the report reads the ledger, and an empty one photographs its
+        // own empty state rather than the three readings the page is
+        // (ADR-0091 §6). The other two look the same either way, and paying for
+        // a breakfast on all three would be two minutes of nothing.
+        if (p === "reports") await logBreakfast(page);
+
+        await page.locator(`#${iconIdOf(p)}`).click();
+        await expect(
+          page.getByRole("heading", { name: pageLabel(p) })
+        ).toBeVisible();
+        await takeFullPageScreenshot(
+          page,
+          `rations-${p}-page.png`,
+          RATIONS_SHELL_FLAT
+        );
+      });
+    }
   });
 });
