@@ -70,7 +70,10 @@
     emptyAutofillResult,
     type AIAutofillResult,
   } from "../../food/ai-autofill";
-  import { completeStagedPanel } from "../../food/usda-corpus";
+  import {
+    completeStagedPanel,
+    loadSearchCorpus,
+  } from "../../food/usda-corpus";
   import {
     beginSearchSession,
     recordSearchSession,
@@ -1055,7 +1058,13 @@
     if (!searchSession) return;
     // Never awaited: a log that could not be written must cost the user nothing
     // (ADR-0054 §3).
-    void recordSearchSession(searchSession);
+    //
+    // The corpus loader is handed over from here rather than defaulted inside
+    // the log, so that `src/lib/logs/` reaches no `fetch` at all. This screen
+    // has already loaded the artifact to answer the search, so the read the log
+    // makes is a cache hit; passing the function rather than the corpus keeps it
+    // unread for a session that never searched.
+    void recordSearchSession(searchSession, loadSearchCorpus);
     searchSession = null;
   }
 

@@ -1,5 +1,4 @@
 import { stemOf, wordsOf } from "../food/reference-food-ranking";
-import { loadSearchCorpus, type SearchCorpus } from "../food/usda-corpus";
 import {
   appendToChannel,
   capturedAt,
@@ -421,6 +420,19 @@ export interface SearchSessionClose {
 }
 
 /**
+ * What {@link recordSearchSession} needs of the corpus, named here rather than
+ * imported as `SearchCorpus`.
+ *
+ * A type-only import is still an edge the compiler resolves, so
+ * `import type { SearchCorpus }` would put `usda-corpus.ts` — and the `fetch`
+ * it owns — back inside this directory's import closure for a shape that is two
+ * fields wide. It is the close's own two, minus the clock, so the corpus is
+ * assignable to it and the two cannot drift: a field this needs is a field a
+ * close needs.
+ */
+export type SearchCorpusFacts = Omit<SearchSessionClose, "at">;
+
+/**
  * A value bounded to §7's cap, and whether the bound bit.
  *
  * One contract for all three things the bound is applied to — the query, an
@@ -815,10 +827,19 @@ export const SEARCH_CHANNEL = defineChannel({
  * searched would pay a fetch for an artifact nothing needed. A session that DID
  * search has already loaded the corpus to answer, so the fetch below is a cache
  * read.
+ *
+ * **The loader is a required parameter and has no default**, which is what keeps
+ * `src/lib/logs/` clear of `usda-corpus.ts` and therefore of the `fetch` that
+ * module owns (`scripts/log-egress-check.mjs`). The laziness the paragraph above
+ * argues for is unaffected — a function is passed, not a corpus — and the caller
+ * that hands it over is the screen that already loaded the artifact to answer
+ * the search. A log channel records what a domain hands it; reaching into that
+ * domain's data layer for what it was not given is what put the ledger client
+ * and the whole USDA loader inside this module's import closure.
  */
 export async function recordSearchSession(
   session: SearchSession,
-  load: () => Promise<SearchCorpus> = loadSearchCorpus
+  load: () => Promise<SearchCorpusFacts>
 ): Promise<void> {
   if (
     session.empty_query === null &&
