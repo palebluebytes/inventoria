@@ -172,10 +172,17 @@
   </div>
 
   <!-- Amount box: the unit-naming label inline-left, the value right-aligned.
-       One bordered card (ADR-0043 §2 relayout). -->
-  <div class="af-row">
+       One bordered card (ADR-0043 §2 relayout).
+
+       The row IS the <label>. It was a <div> holding a smaller <label> around
+       just the number, which made the 32px value the tap target while the 54px
+       row around it took nothing — and flooring that inner box would have grown
+       the row to 70px to reach a size the row already had (ADR-0093, #338).
+       Naming the row instead costs one element and no pixels, and the "Amount
+       (g)" text joins the target rather than sitting outside it. -->
+  <label class="af-row">
     <span class="af-label">Amount ({unitName})</span>
-    <label class="value">
+    <span class="value">
       <input
         bind:this={inputEl}
         class="num"
@@ -195,8 +202,8 @@
         onkeydown={(e) => e.key === "Enter" && e.currentTarget.blur()}
       />
       <span class="unit">{unit}</span>
-    </label>
-  </div>
+    </span>
+  </label>
 
   {#if portionOptions.length > 0}
     <!-- Portion chips, taking the control's full width (the NOVA badge that used
@@ -239,6 +246,11 @@
     padding: var(--space-2xs) var(--space-xs);
     border: var(--edge);
     box-shadow: var(--shadow-1);
+    /* Already 54.4px drawn, and declared anyway: a box whose height comes from
+       its children cannot be measured out of its own declarations, so the floor
+       is what makes a true thing provable rather than incidental. */
+    min-height: var(--tap-min);
+    cursor: text;
   }
   .af-row:focus-within {
     outline: var(--edge-thick);
@@ -253,7 +265,6 @@
     display: flex;
     align-items: baseline;
     gap: var(--space-3xs);
-    cursor: text;
   }
   .num {
     width: 5rem;

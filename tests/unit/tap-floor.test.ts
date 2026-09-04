@@ -449,7 +449,6 @@ const PROXIED: string[] = [
 ];
 
 const SHORTFALLS: string[] = [
-  "views/food/AmountField.svelte input.num — 25.9 (32.4 optimistic)",
   "views/food/FoodStager.svelte .cf-ctl input — 40 (45 optimistic)",
   "views/food/FoodStager.svelte .cf-pack input — 40 (45 optimistic)",
   "views/food/FoodStager.svelte .cf-prow input — 39.6 (45 optimistic)",
