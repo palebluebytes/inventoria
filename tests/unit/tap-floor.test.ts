@@ -448,13 +448,6 @@ const PROXIED: string[] = [
   "views/ledger/LedgerImport.svelte input.hidden-file-input",
 ];
 
-const SHORTFALLS: string[] = [
-  "views/food/FoodStager.svelte .cf-ctl input — 40 (45 optimistic)",
-  "views/food/FoodStager.svelte .cf-pack input — 40 (45 optimistic)",
-  "views/food/FoodStager.svelte .cf-prow input — 39.6 (45 optimistic)",
-  "views/food/FoodStager.svelte .cf-reason-code input — 44 (45 optimistic)",
-  "views/food/FoodStager.svelte input.cf-subline — 39.6 (45 optimistic)",
-  "views/food/FoodStager.svelte input.cf-title — 44 (45 optimistic)",
-];
+const SHORTFALLS: string[] = [];
 
 const UNREADABLE: string[] = [];

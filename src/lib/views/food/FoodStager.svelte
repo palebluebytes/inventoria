@@ -3084,7 +3084,6 @@
     text-transform: none;
     letter-spacing: normal;
     font-weight: 400;
-    min-height: 44px;
   }
 
   /* OFF reference-photo strip (§8) — a read-only aid, visually distinct from the
@@ -3165,12 +3164,10 @@
   .cf-title {
     font-size: var(--step-0);
     font-weight: 700;
-    min-height: 44px;
   }
   /* The stacked secondary identity inputs under the name (brand, category). */
   .cf-subline {
     font-size: var(--step-0);
-    min-height: 38px;
   }
   /* Fixed-width thumb; height stretches to the two stacked inputs (idrow is
      align-items: stretch), so the photo is as tall as name + brand together. */
@@ -3251,7 +3248,6 @@
   .cf-pack input {
     width: 5rem;
     text-align: right;
-    min-height: 40px;
   }
   /* The unit picker rides beside the magnitude rather than filling the row, and
      drops its own heading — the field's "Pack size" already names the pair. */
@@ -3320,8 +3316,12 @@
     grid-template-columns: 1fr auto auto;
     align-items: center;
     gap: var(--space-xs);
-    min-height: 48px;
-    padding: 0.25rem 0.4rem;
+    /* The row was already this tall, as a literal that named nothing. Its
+       vertical padding is what made a 48px field push it to 56 across twenty
+       nutrient rows — and the field's own border is the separation from the
+       divider below that the padding was providing. */
+    min-height: var(--tap-min);
+    padding: 0 0.4rem;
     border-bottom: 1px solid var(--border);
     border-radius: var(--radius);
   }
@@ -3337,7 +3337,6 @@
   .cf-ctl input {
     width: 5rem;
     text-align: right;
-    min-height: 40px;
   }
   .cf-unit {
     width: 2.4rem;
@@ -3376,7 +3375,8 @@
     grid-template-columns: 1fr 6rem 40px;
     gap: var(--space-xs);
     align-items: center;
-    padding: 0.25rem 0.4rem;
+    min-height: var(--tap-min);
+    padding: 0 0.4rem;
   }
   /* The read-along ingredients transcription (ADR-0043 §5) — a plain multi-line
      field, full width, same frame chrome as the rest of the form. */
@@ -3421,6 +3421,16 @@
      give this screen a horizontal scroll). */
   .cf input {
     min-width: 0;
+    /* One floor for the whole read-along form, on the skin its fields share
+       rather than on each of them (ADR-0093, #338). Six boxes were under it and
+       five of those declared a floor of their own — 44, 44, 40, 40, 38 — none of
+       which is `--tap-min` and four of which are Apple's 44pt, the guideline
+       ADR-0089 §3 weighed against Material's 48 and rejected by name.
+
+       The form's density was the argued exemption #338 opened with, and it
+       dissolved: `.cf-row` already stands 48px, so the vertical space was
+       already spent and only its padding had to move out of the way. */
+    min-height: var(--tap-min);
     font: inherit;
     background: var(--paper);
     border: 1px solid var(--border);
