@@ -195,9 +195,10 @@ const channels = new Map<string, LogChannel<unknown>>();
 export function defineChannel<E, P extends string>(
   declaration: ChannelDeclaration<E, P>
 ): LogChannel<E> {
-  // The one cast in the module, and it is the guard's own boundary: the
-  // declared type exists to reject a blank `purpose` at the call site, and the
-  // body below only ever reads the plain fields underneath it.
+  // The guard's own boundary: the declared type exists to reject a blank
+  // `purpose` at the call site, and the body below only ever reads the plain
+  // fields underneath it. The module's other cast is `readRecord`'s, over stored
+  // JSON, which is the genuine external boundary of the two.
   const { name, domain, purpose, cap, version, parse } =
     declaration as unknown as ChannelFields<E>;
   if (purpose.trim() === "")
@@ -428,6 +429,12 @@ export function channelEntryCount(channel: LogChannel<unknown>): number {
  *
  * **The pause and the dial are orthogonal.** The pause says whether this stream
  * at all; the dial says how much detail. Neither is the other's off switch.
+ *
+ * **The order of the two returns is load-bearing for what comes next.** §9's
+ * counters are not gated by the dial — a counter is not bytes, and a rate read
+ * from a suppressed record's absence would be a rate wearing a lifetime label it
+ * has not earned. So the tally #354 adds goes ABOVE the `capturedAt` gate, not
+ * beside the write below it.
  */
 export function appendToChannel<E>(
   channel: LogChannel<E>,
@@ -630,7 +637,10 @@ export interface DialOption {
   threshold: DialPosition;
   /** What the control calls it. */
   label: string;
-  /** What it records, in the words the hint under the control uses. */
+  /**
+   * What it records, in the words the hint under the control uses. Named for
+   * ADR-0092 §4's own column: at this position, the log *reads* this.
+   */
   reads: string;
 }
 
@@ -679,6 +689,14 @@ export const DEFAULT_DIAL_POSITION: DialPosition = SEVERITY.INFO;
 // path and a `localStorage` read per keystroke is precisely the thing #264 found
 // every fast implementation avoids — pino goes as far as rebinding a disabled
 // level's method to `noop`. `null` means "not yet read", not "no dial".
+//
+// So this is held where `isChannelRecording` re-reads the store on every call,
+// and the asymmetry is stated rather than left to be discovered: a tab that was
+// already open when another surface moved the dial keeps capturing at the
+// position it resolved. Both surfaces that draw the control are in one document,
+// so {@link setDialPosition} refreshes what they share; a second tab is the
+// uncovered case, and it costs that tab's records their new position until it
+// reloads. Re-reading per fire is the cost this exists to avoid.
 let resolvedDial: DialPosition | null = null;
 
 function isDialPosition(value: unknown): value is DialPosition {
@@ -708,10 +726,12 @@ export function setDialPosition(position: DialPosition): void {
  * Whether something at `level` is being captured right now.
  *
  * The facility's one predicate about levels, and the answer to both questions a
- * builder asks (§3.2): {@link appendToChannel} calls it for a whole record, and
- * a channel's entry builder calls it for a **field riding inside a record whose
- * own level is set elsewhere** — `search`'s fire sequence is captured at DEBUG
- * inside a session record that is usually WARN.
+ * builder asks (§3.2). {@link appendToChannel} calls it for a whole record.
+ * The second caller is a channel's entry builder, for a **field riding inside a
+ * record whose own level is set elsewhere** — `search`'s fire sequence, captured
+ * at DEBUG inside a session record that is usually WARN. There is exactly one
+ * such field and it arrives with #355; the predicate ships now because the level
+ * and the dial it reads are one change.
  *
  * A field asks through this predicate rather than through a declared
  * field-to-level map, because such a map would make the facility reach inside an

@@ -17,7 +17,6 @@
     isChannelRecording,
     setChannelRecording,
     setDialPosition,
-    type DialPosition,
     type LogChannel,
   } from "../../logs/log-facility";
   import type { FacetId } from "../../facets/registry";
@@ -108,15 +107,17 @@
     value: String(position.threshold),
     label: position.label,
   }));
-  let dialReads = $derived(
+  // The position the control is showing, found rather than parsed back: the
+  // facility's own entry carries the threshold AND the words under the control,
+  // so nothing here turns a string into a `DialPosition` by assertion.
+  let chosen = $derived(
     DIAL_POSITIONS.find((position) => String(position.threshold) === dial)
-      ?.reads
   );
   // Writes only a move. The guard is what keeps the first run — which fires with
   // the position already in force — from creating the key nobody has touched.
   $effect(() => {
-    const chosen = Number(dial) as DialPosition;
-    if (chosen !== dialPosition()) setDialPosition(chosen);
+    if (chosen && chosen.threshold !== dialPosition())
+      setDialPosition(chosen.threshold);
   });
 
   function toggleRecording(channel: LogChannel<unknown>, on: boolean) {
@@ -166,7 +167,7 @@
       label="How much is recorded"
     />
     <span class="help-text"
-      >{dialReads} It is not an off switch: each channel's Recording switch below
+      >{chosen?.reads} It is not an off switch: each channel's Recording switch below
       is that.</span
     >
   </div>

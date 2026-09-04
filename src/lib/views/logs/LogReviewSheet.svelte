@@ -67,6 +67,14 @@
   // many records it cannot. The second is disclosed rather than hidden (#229) —
   // a channel holding only unreadable records used to print "Nothing recorded
   // yet" over records that were really there.
+  //
+  // **Why this is not read off `payload` instead**, which #229 §7 assumed it
+  // would be. The payload carries the SELECTED channels, and this screen has to
+  // show every channel before anything is selected — that is what the reading is
+  // for — and has to offer redaction per entry in each. The two are still one
+  // surface in the sense the ticket meant: both numbers come from the same pure
+  // `partitionChannel` over the same store, keyed on the same `revision`, so a
+  // redaction moves them together and neither can drift from the file.
   let contentsByChannel = $derived.by(() => {
     void revision;
     return new Map(channels.map((c) => [c.name, partitionChannel(c)] as const));
@@ -131,12 +139,17 @@
       <p class="purpose">{channel.purpose}</p>
 
       {#if unreadable > 0}
-        <!-- Named, never shown: an older shape may hold exactly the free text
+        <!-- Counted, never shown: an older shape may hold exactly the free text
              the current one excludes by construction, so the review discloses
-             that the records exist and Clear is what removes them. -->
+             that the records exist and Clear is what removes them.
+
+             It does not say WHY they cannot be read. A version this build does
+             not know and a half-written record are indistinguishable here, and
+             naming one of them would be the screen guessing. -->
         <p class="empty">
-          {unreadable} record{unreadable === 1 ? "" : "s"} written by another version
-          of this app, which this one cannot read. They are not in the export.
+          {unreadable} record{unreadable === 1 ? "" : "s"} this version of the app
+          cannot read. They stay until you Clear the channel, and they are not in
+          the export.
         </p>
       {/if}
 
