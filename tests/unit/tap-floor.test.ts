@@ -365,7 +365,7 @@ const unreadable = () =>
     .map(([key, v]) => `${key} — ${describeReading(verdict(v))}`)
     .sort();
 
-// ── the measurement ────────────────────────────────────────────────────────
+// ── the guard ──────────────────────────────────────────────────────────────
 
 describe("the sweep itself", () => {
   it("finds every field in the app, and each one's target", () => {
@@ -397,35 +397,40 @@ describe("the sweep itself", () => {
 
 describe("the floor, swept", () => {
   /**
-   * The measurement #338 opens with, recorded rather than asserted away.
+   * The whole of #338, in one line.
    *
-   * Every entry is a box that takes a tap and stands under `--tap-min`. It is
-   * written down at its true length first so that each fix commit moves a line
-   * out of it and the history shows the tree coming level — the same shape
-   * `tap-targets.test.ts` uses, which opens by calling itself "a measurement,
-   * not a guard". The last commit on #338 turns this into `toEqual([])`.
+   * This began as a measurement — the twenty-one shortfalls recorded at their
+   * true length, so that each fix commit moved one out and the history shows
+   * the tree coming level, which is the shape `tap-targets.test.ts` uses when
+   * it calls itself "a measurement, not a guard". It is a guard now.
    */
-  it("stands at these shortfalls, each one a box #338 has to move", () => {
-    expect(shortfalls()).toEqual(SHORTFALLS);
+  it("leaves no box that takes a tap standing under the floor", () => {
+    expect(
+      shortfalls().filter(
+        (box) => !SHORT_BY_ARGUMENT.some((ok) => box.startsWith(ok))
+      )
+    ).toEqual([]);
   });
 
   /**
-   * Boxes whose height this model cannot derive — so far every one a flex
-   * container taking its height from children the model does not walk.
+   * Boxes whose height this model cannot derive — a container taking its height
+   * from children the model does not walk, or a selector it cannot resolve.
    *
-   * They are **not** passing. A floor declared on the box answers the question
-   * the arithmetic cannot, which is why the fix for every entry here is the
-   * same as the fix for a shortfall, and why this list empties as #338 lands.
+   * These are **not** passing, and the list is empty rather than tolerated. A
+   * declared floor answers the question the arithmetic cannot, which is why the
+   * fix for an entry here was always the same as the fix for a shortfall:
+   * `.nutrient-card` and `.af-row` both clear the floor comfortably and both
+   * now say so, because a true thing that cannot be shown is not yet proved.
    */
-  it("cannot read these boxes, which is a defect and not a pass", () => {
-    expect(unreadable()).toEqual(UNREADABLE);
+  it("has no box it cannot read", () => {
+    expect(unreadable()).toEqual([]);
   });
 
   /**
    * Shortfalls with an argument for standing short. Empty, and meant to stay
    * that way: the one candidate #338 weighed — the read-along form's density,
    * twenty nutrient rows paying 8px each — dissolved on measurement, because
-   * `.cf-row` already stands 48px tall and the space was already spent.
+   * `.cf-row` already stood 48px tall and the space was already spent.
    *
    * It lives here rather than in a CSS comment because `styleOf` strips
    * comments before the sweep reads a rule, so an argument written beside the
@@ -434,6 +439,26 @@ describe("the floor, swept", () => {
    */
   it("sanctions no shortfall at all", () => {
     expect(SHORT_BY_ARGUMENT).toEqual([]);
+  });
+
+  /**
+   * What carries each box, so the guard says something beyond "nothing is
+   * broken". A box passing on arithmetic alone is one whose padding happens to
+   * add up, and the next type-step change moves it; a box passing on a declared
+   * floor holds under both line-height readings and under an edit. The split is
+   * recorded because a drift towards the first column is the failure this file
+   * exists to catch early.
+   */
+  it("carries most of them on a declared floor, not on arithmetic", () => {
+    const how = { declared: 0, drawn: 0 };
+    for (const v of SWEEP.verdicts.values()) {
+      const b = verdict(v);
+      if (b.kind === "declared") how.declared++;
+      else if (b.kind === "drawn") how.drawn++;
+    }
+
+    expect(how).toEqual({ declared: 31, drawn: 19 });
+    expect(how.declared + how.drawn).toBe(SWEEP.groups.size);
   });
 });
 
@@ -448,6 +473,6 @@ const PROXIED: string[] = [
   "views/ledger/LedgerImport.svelte input.hidden-file-input",
 ];
 
-const SHORTFALLS: string[] = [];
-
-const UNREADABLE: string[] = [];
+/** No entry, and no `SHORTFALLS`/`UNREADABLE` roster either: the lists this
+ *  file opened with were the work #338 had to do, and the assertions above name
+ *  the empty set directly now that it is done. */
