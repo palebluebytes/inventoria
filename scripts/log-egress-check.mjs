@@ -38,14 +38,25 @@
  * The closure comes from `tsc --listFiles`, following
  * `scripts/worker-closure-check.mjs`: what the compiler genuinely resolved,
  * rather than what a regex over import statements guesses. It resolves a
- * dynamic `import()` with a literal specifier too, which is why `import(` is
- * not on the symbol list the way it was on the old one — a module pulled in
- * that way is IN the closure and is read like any other.
+ * dynamic `import()` with a literal specifier, so `import(` is off the symbol
+ * list the old assertion carried it on — a module pulled in that way is IN the
+ * closure and is read like any other. A specifier that is NOT a literal is the
+ * case that survives, and it is a different failure: the compiler cannot see
+ * past it, so the closure is incomplete rather than dirty. That is arm 0
+ * below, and it runs over every file all three arms read.
  *
- * What this does not claim: that the file the user gets is well-formed, or that
- * the reviewed bytes and the written bytes are one value. The second half of
- * the property is held by the screen instead, which serialises once and renders
- * and hands over the same string — see `LogReviewSheet.svelte`.
+ * **What this does not claim, and what no closure could.** `tsc` cannot read a
+ * Svelte component, so `LogReviewSheet.svelte` is in no closure here. Arm 3
+ * reads it as text, which catches an egress the component performs itself —
+ * the failure this gate exists because of — and would NOT catch one it reached
+ * through a helper module outside the two directories. Closing that would take
+ * a regex walk over the component's imports, which is the technique this whole
+ * file exists to replace; it is left open and named rather than half-closed.
+ *
+ * Nor does it claim that the reviewed bytes and the written bytes are one
+ * value. That half of the property is held by the screen, which serialises
+ * once and renders and hands over the same string — see `LogReviewSheet.svelte`
+ * and the claim about it in `log-facility.test.ts`.
  */
 import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
@@ -133,6 +144,26 @@ export function findEgressCalls(source) {
 }
 
 /**
+ * A dynamic `import()` whose specifier is not a string literal, which the
+ * compiler cannot resolve and so cannot put in a closure.
+ *
+ * `import("./x")` needs no help: `tsc --listFiles` reports it like any static
+ * edge. `import(name)` is the shape that would let a module reach anything at
+ * all with every arm above still printing `ok`, and it is why the old
+ * assertion's `import(` is not simply dropped when the rest of its symbol list
+ * is superseded.
+ *
+ * Reported as an unknown closure rather than as an egress, because that is what
+ * it is: nothing has been shown to reach the network, and nothing has been
+ * shown not to.
+ */
+export function findOpaqueImports(source) {
+  return [...stripComments(source).matchAll(/\bimport\s*\(\s*(?!["'])/g)].map(
+    () => "import(<not a literal>)"
+  );
+}
+
+/**
  * The repo's own modules in a project's import closure, library declarations
  * and `node_modules` dropped: they are not this app's code and are not what
  * this guards.
@@ -178,10 +209,37 @@ function closureOf(project) {
 
 /** Which of a set of files name an egress API, and which ones they name. */
 function egressIn(files) {
+  return scanFor(files, findEgressCalls);
+}
+
+/**
+ * Arm 0, run over whatever the arm that calls it was about to read: an
+ * unresolvable dynamic import anywhere means the closure under it is a guess.
+ *
+ * It reads the same files rather than a set of its own, so an import the
+ * compiler cannot follow fails the arm whose answer it would have made
+ * meaningless — and says so in those words rather than as an egress.
+ */
+function refuseOpaqueImports(files, subject) {
+  const opaque = scanFor(files, findOpaqueImports);
+  if (opaque.length === 0) return;
+  fail([
+    `\n  ERR ${subject} reaches a dynamic import the compiler cannot resolve:\n`,
+    ...opaque.map(
+      ({ file, calls }) => `      ${file}: ${calls.length} of them`
+    ),
+    ``,
+    `      A specifier that is not a literal string is not in any closure, so`,
+    `      what it pulls in has been neither shown nor ruled out. Name the`,
+    `      module, or this gate is answering a question it cannot see.`,
+  ]);
+}
+
+function scanFor(files, find) {
   return files
     .map((file) => ({
       file,
-      calls: findEgressCalls(readFileSync(resolve(repoRoot, file), "utf8")),
+      calls: find(readFileSync(resolve(repoRoot, file), "utf8")),
     }))
     .filter(({ calls }) => calls.length > 0);
 }
@@ -209,6 +267,8 @@ function checkFacilityIsPure() {
       `      it is gone, in which case ADR-0054 §5 needs revisiting.`,
     ]);
 
+  refuseOpaqueImports(closure, "the log facility's import closure");
+
   const found = egressIn(closure);
   if (found.length > 0)
     fail([
@@ -231,10 +291,15 @@ function checkFacilityIsPure() {
  * Arm 2: the vehicle is exactly one module, it is the named one, and it is
  * really there.
  *
- * Rooted at the screen half rather than at the facility, which is the whole
- * point: this walk runs TOWARDS the export. A helper the vehicle imports from
- * anywhere in the repo is inside this closure and is held to the same rule,
- * which is what arm 3's directory scan cannot see.
+ * Rooted at the screen half rather than at the facility, which is the point of
+ * it: a walk rooted at `log-facility.ts` runs AWAY from the export, and this
+ * one starts at it. **It starts there rather than arriving there** — the module
+ * that calls the vehicle is a Svelte component, which no TypeScript project can
+ * root at — so what this arm buys is everything BELOW the vehicle: a helper it
+ * imports from anywhere in the repo is inside this closure and is held to the
+ * same rule, which is what arm 3's directory scan cannot see. What sits above
+ * the vehicle is arm 3's, as far as text goes, and the header says where that
+ * stops.
  */
 function checkVehicleIsAlone() {
   const closure = closureOf("tsconfig.logs-views.json");
@@ -245,6 +310,8 @@ function checkVehicleIsAlone() {
       `      The one module allowed to get bytes out was renamed, moved or`,
       `      deleted. Move this pin with it, or the gate is watching nothing.`,
     ]);
+
+  refuseOpaqueImports(closure, "the log export's closure");
 
   const found = egressIn(closure);
   const strays = found.filter(({ file }) => file !== VEHICLE);
@@ -292,6 +359,8 @@ function checkNoSecondVehicleInTheFeature() {
         )
       )
   ).sort();
+
+  refuseOpaqueImports(files, "the log feature's own directories");
 
   const strays = egressIn(files).filter(({ file }) => file !== VEHICLE);
   if (strays.length > 0)

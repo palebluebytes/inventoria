@@ -27,6 +27,16 @@
  * string. The placement and this doc-comment's reasoning are mirrored; no code
  * is shared.
  *
+ * **Including `downloadParts`, which is the four lines below almost verbatim**
+ * — and that is the near-duplicate worth naming rather than leaving to be
+ * found. It is private to the ledger's module, so sharing it means exporting it
+ * and importing from `../ledger/export-target`, which would pull that module
+ * into this one's import closure. It names `showSaveFilePicker` and an object
+ * URL of its own, so the gate would then report the log export as having a
+ * second way out — correctly. The fence and the shared helper cannot both hold,
+ * and #213 §6 chose the fence: **share no code.** Four lines of `Blob` and
+ * anchor is what that costs, and the whole of what it costs.
+ *
  * The property this module is the single exception to is asserted by
  * `scripts/log-egress-check.mjs`, which is rooted here as well as at the
  * facility: **no transport the user did not perform, and the payload that
@@ -34,7 +44,9 @@
  */
 
 /**
- * The name the download arrives under.
+ * The name the download arrives under. Not exported: unlike the ledger's, whose
+ * caller needs the name for the picker's `suggestedName`, nothing outside this
+ * module has a use for it.
  *
  * The day, not the instant, and the day of the export rather than of any record
  * in it — this is the moment the file was reviewed and handed over, which is
@@ -45,7 +57,7 @@
  * same grammar and the same extension; a log export is neither of those things
  * and has no sibling to be confused with.
  */
-export function logExportFilename(exported_at: number): string {
+function logExportFilename(exported_at: number): string {
   return `inventoria-log-${new Date(exported_at).toISOString().slice(0, 10)}.json`;
 }
 

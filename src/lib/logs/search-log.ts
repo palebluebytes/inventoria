@@ -412,25 +412,36 @@ export function searchFoundFood(
   };
 }
 
-/** What a close needs beyond the session itself. */
-export interface SearchSessionClose {
-  at: number;
+/**
+ * The Vocabulary map a session is flagged against, and the corpus version that
+ * map came from — the whole of what {@link recordSearchSession} needs of the
+ * corpus, named here rather than imported as `SearchCorpus`.
+ *
+ * **Named rather than imported because a type-only import is still an edge the
+ * compiler resolves.** `import type { SearchCorpus }` would put
+ * `usda-corpus.ts` — and the `fetch` it owns — back inside this directory's
+ * import closure, for a shape two fields wide
+ * (`scripts/log-egress-check.mjs`). The real corpus satisfies it structurally,
+ * so nothing is asserted at the boundary.
+ *
+ * It is not called a *fact*, deliberately: `CONTEXT.md` gives that word to a
+ * datom, and ADR-0092 §3 puts these records in `localStorage` precisely because
+ * they are not one.
+ *
+ * {@link SearchSessionClose} extends it rather than the other way about, so the
+ * dependency runs the way it reads: everything the corpus contributes is
+ * something a close needs, while a future close field that comes from somewhere
+ * else does not silently become something every caller's corpus must supply.
+ */
+export interface VocabularyAtCapture {
   vocabulary: Record<string, string[]>;
   schema_version: number;
 }
 
-/**
- * What {@link recordSearchSession} needs of the corpus, named here rather than
- * imported as `SearchCorpus`.
- *
- * A type-only import is still an edge the compiler resolves, so
- * `import type { SearchCorpus }` would put `usda-corpus.ts` — and the `fetch`
- * it owns — back inside this directory's import closure for a shape that is two
- * fields wide. It is the close's own two, minus the clock, so the corpus is
- * assignable to it and the two cannot drift: a field this needs is a field a
- * close needs.
- */
-export type SearchCorpusFacts = Omit<SearchSessionClose, "at">;
+/** What a close needs beyond the session itself: the above, plus the clock. */
+export interface SearchSessionClose extends VocabularyAtCapture {
+  at: number;
+}
 
 /**
  * A value bounded to §7's cap, and whether the bound bit.
@@ -839,7 +850,7 @@ export const SEARCH_CHANNEL = defineChannel({
  */
 export async function recordSearchSession(
   session: SearchSession,
-  load: () => Promise<SearchCorpusFacts>
+  load: () => Promise<VocabularyAtCapture>
 ): Promise<void> {
   if (
     session.empty_query === null &&

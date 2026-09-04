@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
-import { findEgressCalls } from "../../scripts/log-egress-check.mjs";
+import {
+  findEgressCalls,
+  findOpaqueImports,
+} from "../../scripts/log-egress-check.mjs";
 import type { TrackedDomainId } from "../../src/lib/facets/registry";
 
 /** One of this repo's own modules, read as text for a claim about its source. */
@@ -1278,6 +1281,22 @@ describe("the egress matcher the no-transport gate is built on", () => {
       findEgressCalls(readCode("src/lib/views/logs/export-target.ts"))
     ).toEqual(["URL.createObjectURL"]);
   });
+
+  it("leaves a resolvable dynamic import alone", () => {
+    // `tsc --listFiles` reports this edge like any static one, so the module it
+    // names is already in the closure and read like any other. Forbidding the
+    // shape outright — which the assertion this replaces did — would be
+    // forbidding lazy loading to catch something the closure already sees.
+    expect(findOpaqueImports('await import("./search-log");')).toEqual([]);
+  });
+
+  it("refuses a dynamic import the compiler cannot follow", () => {
+    // The one shape that survives the closure: nothing has been shown to reach
+    // the network, and nothing has been shown not to.
+    expect(findOpaqueImports("await import(whicheverOne);")).toEqual([
+      "import(<not a literal>)",
+    ]);
+  });
 });
 
 describe("the payload that leaves is the payload that was reviewed", () => {
@@ -1286,6 +1305,13 @@ describe("the payload that leaves is the payload that was reviewed", () => {
   // closure can say where bytes may leave from, never that they are the bytes
   // on screen. One serialisation, rendered and handed over, is what makes the
   // reviewed value and the written value one value rather than two.
+  //
+  // **Read as source text, like every other claim about this sheet** —
+  // `rations-settings.test.ts` says why: `BottomSheet` portals, and renders
+  // nothing through Svelte's SSR path, so there is no rendered output to assert
+  // over. The claims below name one binding rather than any markup around it,
+  // so a class rename or a reflow does not break them; renaming `payloadText`
+  // does, which is the point of a pin.
   const REVIEW = readCode("src/lib/views/logs/LogReviewSheet.svelte");
 
   it("serialises the payload exactly once", () => {
@@ -1293,7 +1319,7 @@ describe("the payload that leaves is the payload that was reviewed", () => {
   });
 
   it("renders that string and hands the same one to the vehicle", () => {
-    expect(REVIEW).toContain('<pre class="payload">{payloadText}</pre>');
-    expect(REVIEW).toContain("downloadLogExport(payloadText, exported_at)");
+    expect(REVIEW).toMatch(/<pre[^>]*>\{payloadText\}<\/pre>/);
+    expect(REVIEW).toMatch(/downloadLogExport\(payloadText\b/);
   });
 });
