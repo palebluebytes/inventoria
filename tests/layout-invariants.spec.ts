@@ -1,4 +1,11 @@
 import { test, expect } from "@playwright/test";
+import {
+  PAGES,
+  iconIdOf,
+  pageLabel,
+  pagesShownAt,
+} from "../src/lib/food/pages";
+import { hasPagesAt, openRationsDay } from "./support/rations";
 
 // General CSS/layout guard: sweeps every screen and asserts no visible element
 // escapes the viewport horizontally. This is the generalized version of the
@@ -8,8 +15,29 @@ import { test, expect } from "@playwright/test";
 // mobile viewports the Playwright projects run. Unlike a screenshot baseline it
 // encodes the invariant directly, so it can't be silently frozen with a bug in
 // it.
+//
+// **Both Facets, and one width above either project's** (#348). Until now this
+// file swept the root app alone: `/?mem=1`, six tabs behind a Sidebar, at 1280
+// and at the Pixel 5. Rations renders the same food screen into a different
+// shell — no sidebar, the full measure, and two regions above the shell
+// breakpoint (ADR-0091 §2) — and none of it was ever swept. Nor did anything
+// here run above 1280, which is where the defect ADR-0091 was written about
+// only becomes visible.
 
 const TABS = ["Food", "Media", "Items", "Agenda", "Notes", "Settings"];
+
+/**
+ * The width the defect was reported at (#337): a 1920px monitor, where Rations
+ * drew an ~864px column hugging the left edge with roughly a thousand pixels of
+ * dead grey beside it.
+ *
+ * One wide viewport rather than a third Playwright project. The `chromium`
+ * project's 1280×720 is load-bearing — it is what bounds the shell breakpoint
+ * (ADR-0091 §8), so widening *it* would rebaseline 26 screenshots for no
+ * invariant gained, and a whole project would run every spec in the suite a
+ * third time to answer a question about layout.
+ */
+const WIDE_DESKTOP = { width: 1920, height: 1080 };
 
 async function waitForDbReady(page: import("@playwright/test").Page) {
   await page.waitForFunction(() => {
@@ -73,7 +101,30 @@ async function horizontalOverflowOffenders(
   });
 }
 
-test.describe("Layout invariants — no horizontal overflow", () => {
+/** The sweep itself, over whatever is currently on screen. */
+async function expectNoOverflow(
+  page: import("@playwright/test").Page,
+  surface: string
+) {
+  // Let the view settle (fade-in animation + any async first render).
+  await page.waitForTimeout(250);
+
+  const { vw, offenders } = await horizontalOverflowOffenders(page);
+  expect(
+    offenders,
+    `Elements overflow the ${vw}px viewport on "${surface}":\n` +
+      JSON.stringify(offenders, null, 2)
+  ).toEqual([]);
+}
+
+/**
+ * The root Facet's six tabs.
+ *
+ * A function rather than a `describe` of its own, because the same sweep runs at
+ * two widths and the only difference between the runs is the viewport the
+ * enclosing block declares.
+ */
+function sweepTheRoot() {
   test.beforeEach(async ({ page }) => {
     await page.goto("/?mem=1");
     await waitForDbReady(page);
@@ -82,15 +133,85 @@ test.describe("Layout invariants — no horizontal overflow", () => {
   for (const tab of TABS) {
     test(`${tab} keeps all content within the viewport`, async ({ page }) => {
       await page.locator(".nav-item", { hasText: tab }).click();
-      // Let the view settle (fade-in animation + any async first render).
-      await page.waitForTimeout(250);
-
-      const { vw, offenders } = await horizontalOverflowOffenders(page);
-      expect(
-        offenders,
-        `Elements overflow the ${vw}px viewport on "${tab}":\n` +
-          JSON.stringify(offenders, null, 2)
-      ).toEqual([]);
+      await expectNoOverflow(page, tab);
     });
   }
+}
+
+/** Rations at `/food/`: the day, and every surface its header opens. */
+function sweepRations() {
+  test.beforeEach(async ({ page }) => {
+    // Readiness is the day's, not a badge's, and the wait is shared with the
+    // catalogue that photographs this same screen — including the positive
+    // marker it takes first, without which "no skeleton rows" is also true of a
+    // document Svelte never mounted into and the sweep below finds nothing
+    // because there is nothing there.
+    await openRationsDay(page);
+  });
+
+  test("the day keeps all content within the viewport", async ({ page }) => {
+    await expectNoOverflow(page, "the day");
+  });
+
+  for (const p of PAGES) {
+    test(`${pageLabel(p)} keeps all content within the viewport`, async ({
+      page,
+      viewport,
+    }) => {
+      // Which controls the header offers is a fact about the width, and it is
+      // read off the roster rather than restated here (`lib/food/pages.ts`).
+      // Above the shell breakpoint all three open a page; below it Recipes and
+      // Settings open the same surfaces as sheets and Reports has no control at
+      // all, because it has no sheet form (ADR-0091 §7). So this loop sweeps
+      // both shapes of the two that have two, and skips the one that is not on
+      // screen rather than inventing a way to reach it.
+      const shown = pagesShownAt(hasPagesAt(viewport));
+      test.skip(
+        !shown.includes(p),
+        `${pageLabel(p)} has no control below the shell breakpoint (ADR-0091 §7).`
+      );
+
+      await page.locator(`#${iconIdOf(p)}`).click();
+      // One heading either side of the breakpoint. `inline` renders the same
+      // surface into a page's flow or into a sheet (#341), so this wait is
+      // width-blind without being told about widths.
+      await expect(
+        page.getByRole("heading", { name: pageLabel(p) })
+      ).toBeVisible();
+      await expectNoOverflow(page, pageLabel(p));
+    });
+  }
+}
+
+test.describe("Layout invariants — no horizontal overflow", () => {
+  sweepTheRoot();
+});
+
+test.describe("Layout invariants — Rations' own shell", () => {
+  sweepRations();
+});
+
+test.describe("Layout invariants — a 1920px desktop", () => {
+  test.use({ viewport: WIDE_DESKTOP });
+
+  test.beforeEach(({ isMobile }) => {
+    // The `Mobile Chrome` project would collect these too, and a Pixel 5 with a
+    // 1920px viewport is a device that does not exist: emulation keeps the touch
+    // flags and the mobile user agent, so what it would prove is nothing about
+    // either shape. The width belongs to the desktop project.
+    test.skip(isMobile, "A phone is not 1920px wide.");
+  });
+
+  test.describe("the root Facet", () => {
+    // Both Facets up here, not only the one the ticket was written about. The
+    // `.main` that centres and caps is now **one rule shared by both shells**
+    // (ADR-0091 §2), so the root's six screens were moved by this work as much
+    // as Rations' day was, and 1920 is the first width at which a cap with no
+    // `margin-inline` looks like anything at all.
+    sweepTheRoot();
+  });
+
+  test.describe("Rations", () => {
+    sweepRations();
+  });
 });
