@@ -180,7 +180,43 @@ const invisible = (d: Record<string, string>) => {
   );
 };
 
+/** Every property the reading below depends on — the height model's, and
+ *  `invisible`'s. A conditional rule declaring one of these can move the
+ *  number; a breakpoint that recolours a box cannot, and there are more of the
+ *  second kind in `src/` than the first. */
+const MODELLED = [
+  "min-height",
+  "height",
+  "width",
+  "padding",
+  "padding-block",
+  "padding-top",
+  "padding-bottom",
+  "border",
+  "border-width",
+  "font",
+  "font-size",
+  "line-height",
+  "opacity",
+  "display",
+  "clip-path",
+];
+
 function read(el: Element, rules: Rule[]): Reading {
+  const { hits, undecidable, conditional } = rulesFor(rules, el);
+
+  // A rule under an at-rule is not applied here, so a box one of them can
+  // resize is a box this model has not read — whatever the unconditional rules
+  // add up to, and whatever floor they declare. Declining first is the point:
+  // a conditional rule can take a declared floor away, so answering `declared`
+  // before looking would be the silent pass in its worst form (ADR-0093 §5).
+  const moved = conditional.find((r) =>
+    MODELLED.some((p) => decl(r, p) !== undefined)
+  );
+  if (moved) return { kind: "unreadable", why: `conditional on ${moved.at}` };
+
+  const d = declarationsOf(hits);
+
   // A form control draws its own box whatever it contains — a `<select>`'s
   // `<option>`s are not laid out inside it — so the container rule below is
   // about everything else.
@@ -191,15 +227,13 @@ function read(el: Element, rules: Rule[]): Reading {
     // reads as 27. Declining is the honest answer, and a declared floor is what
     // turns it into a provable one.
     const declaredHere = Math.max(
-      lengthPx(declarationsOf(rulesFor(rules, el).hits)["min-height"]) ?? 0,
-      lengthPx(declarationsOf(rulesFor(rules, el).hits)["height"]) ?? 0
+      lengthPx(d["min-height"]) ?? 0,
+      lengthPx(d["height"]) ?? 0
     );
     if (declaredHere >= TAP_MIN)
       return { kind: "declared", height: declaredHere };
     return { kind: "unreadable", why: "height comes from its children" };
   }
-  const { hits, undecidable } = rulesFor(rules, el);
-  const d = declarationsOf(hits);
 
   const declared = Math.max(
     lengthPx(d["min-height"]) ?? 0,
@@ -364,6 +398,72 @@ const unreadable = () =>
     .filter(([, v]) => verdict(v).kind === "unreadable")
     .map(([key, v]) => `${key} — ${describeReading(verdict(v))}`)
     .sort();
+
+/**
+ * A declaration inside an at-rule is not one this model applies, and until now
+ * it was not one the reader mentioned either: `rulesFor` dropped every rule
+ * with an enclosing at-rule and recorded nothing, so a floor that a breakpoint
+ * took away would have passed here in silence. That is the failure ADR-0093 §5
+ * names — a sweep answering "no" where it means "I cannot tell" — arriving in
+ * the one place §6 says an exemption may never live.
+ *
+ * It is a hole rather than a defect: nine at-rule rules in `src/` touch a
+ * height input and none of them lands on a field. Three land on a nav item, a
+ * button and a calendar day, which is [#361](https://github.com/palebluebytes/inventoria/issues/361)'s
+ * population, so it is one sweep away from being real. It is also the machinery
+ * [#363](https://github.com/palebluebytes/inventoria/issues/363) needs before a
+ * pointer-conditional floor can be honoured **or** refused: today such a floor
+ * would pass unnoticed, which is neither.
+ */
+describe("a conditional declaration is reported, never dropped", () => {
+  const probe = (classes: string[]): Element => ({
+    tag: "input",
+    classes,
+    attrs: "",
+    raw: "",
+    ancestors: [],
+    children: 0,
+  });
+
+  const WIDE = "@media (min-width: 768px)";
+  const withOverride = `.probe { min-height: var(--tap-min); }
+    ${WIDE} { .probe { min-height: 24px; } }`;
+
+  it("hands back the at-rule rules a box matches", () => {
+    const { hits, conditional } = rulesFor(
+      rulesOf(withOverride),
+      probe(["probe"])
+    );
+    expect(hits).toHaveLength(1);
+    expect(conditional.map((r) => r.at)).toEqual([WIDE]);
+  });
+
+  it("stays quiet about an at-rule rule the box does not match", () => {
+    const elsewhere = `${WIDE} { .other { min-height: 24px; } }`;
+    expect(rulesFor(rulesOf(elsewhere), probe(["probe"])).conditional).toEqual(
+      []
+    );
+  });
+
+  it("declines a box whose floor a breakpoint can take away", () => {
+    expect(read(probe(["probe"]), rulesOf(withOverride))).toEqual({
+      kind: "unreadable",
+      why: `conditional on ${WIDE}`,
+    });
+  });
+
+  it("reads a box whose conditional rule says nothing about height", () => {
+    // The nine in `src/` are mostly this, and a box is not unreadable because
+    // a breakpoint recolours it. Only a property the model walks can move the
+    // number, so only those make the reading conditional.
+    const cosmetic = `.probe { min-height: var(--tap-min); }
+      ${WIDE} { .probe { color: red; } }`;
+    expect(read(probe(["probe"]), rulesOf(cosmetic))).toEqual({
+      kind: "declared",
+      height: TAP_MIN,
+    });
+  });
+});
 
 // ── the guard ──────────────────────────────────────────────────────────────
 

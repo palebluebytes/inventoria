@@ -216,34 +216,47 @@ export function matches(selector: string, el: Element): Match {
 }
 
 /**
- * The unconditional rules that land on `el`, in source order, plus whether any
- * rule had to be given up on.
+ * The unconditional rules that land on `el`, in source order, plus the two
+ * ways this reading can fall short of the cascade.
  *
  * `undecidable` is the whole point of the return shape. A caller that ignores
  * it is measuring a box out of the declarations it happened to understand,
  * which is worse than not measuring it: the figure looks derived and is not.
+ *
+ * `conditional` is the same argument for a second kind of not-knowing, and it
+ * used to be a bare `continue`. A rule under an at-rule was dropped and
+ * nothing said so, which meant a floor a breakpoint took away read here as a
+ * floor — the silent pass ADR-0093 §5 exists to refuse, in the one place §6
+ * says an exemption may never live. These rules are handed back rather than
+ * applied because *whether* they apply is a question about a viewport, and this
+ * module reads a file. A caller decides which of them can move the number it is
+ * deriving; what it may not do is not be told.
  */
 export function rulesFor(
   rules: Rule[],
   el: Element
-): { hits: Rule[]; undecidable: string[] } {
+): { hits: Rule[]; undecidable: string[]; conditional: Rule[] } {
   const hits: Rule[] = [];
   const undecidable: string[] = [];
+  const conditional: Rule[] = [];
   for (const rule of rules) {
-    if (rule.at !== null) continue;
     for (const selector of rule.selectors) {
       const hit = matches(selector, el);
       if (hit === null) {
-        undecidable.push(selector);
+        // An unresolvable selector under an at-rule is both things at once. It
+        // counts as conditional, because that is the weaker claim and the one
+        // a caller can act on without knowing the viewport.
+        if (rule.at === null) undecidable.push(selector);
+        else conditional.push(rule);
         break;
       }
       if (hit) {
-        hits.push(rule);
+        (rule.at === null ? hits : conditional).push(rule);
         break;
       }
     }
   }
-  return { hits, undecidable };
+  return { hits, undecidable, conditional };
 }
 
 /** Every declaration the rules land, later winning earlier — a flat reading of

@@ -96,3 +96,35 @@ The list is empty, and the one candidate that was ever proposed for it dissolved
 **bits-ui was weighed for both `Select` and `Checkbox` and declined.** `Select` renders a custom listbox, and on a phone a native `<select>` opens the OS picker — rows already far over the floor, correct with every assistive technology, free — so adopting it would replace a control that satisfies this record with one this record would then have to floor. `Checkbox` renders a `<button role="checkbox">` whose only additions over the platform are `indeterminate` and a group part, both of which `ui/Checkbox` declines by name, and it would have left the box 21px tall regardless. Against ADR-0036's test — does the library supply behaviour the platform withholds — the answer for a select is that the platform supplies more.
 
 **What this forecloses, for now, is a floor that varies.** Every clause above is written as one number for every pointer. #363 will argue the first condition ever attached to it, and §1 to §5 are built to survive that: a condition changes _when_ the floor applies, not which box it binds or how that box is read.
+
+## Amendment (2026-09-04): the guard read only unconditional rules, and said nothing
+
+§5 refuses a silent pass — "a sweep that answers 'no' where it means 'I cannot tell' reports a level tree it never read" — and §6 puts every sanctioned shortfall in `SHORT_BY_ARGUMENT` rather than in a comment, because `styleOf` strips comments and the test would never see one. Both were true of the code and both had a hole underneath them that this record did not name.
+
+`tests/unit/support/markup.ts`'s `rulesFor` opened with `if (rule.at !== null) continue`. Every rule under an at-rule was dropped, and nothing was recorded — not a hit, not an `undecidable` entry, nothing. So a box whose floor a breakpoint took away read here as a box with a floor:
+
+```css
+.probe {
+  min-height: var(--tap-min);
+}
+@media (min-width: 768px) {
+  .probe {
+    min-height: 24px;
+  }
+}
+```
+
+read as `declared: 48`. An exemption written as a media query cost no diff in the guard, which is the one thing §6 says an exemption may never do.
+
+**It was a hole, not a defect.** Nine at-rule rules in `src/` declare a property the model walks, and none of them lands on a field: five in `Sidebar`, one in `BottomSheet`, three in `WeekStrip`. So the sweep's answer was right, and right by luck rather than by reading.
+
+**Three of the nine are a nav item, a button and a calendar day** — `.nav-item`, `.nav-arrow`, `.day-btn` — which is exactly the population [#361](https://github.com/palebluebytes/inventoria/issues/361) widens to. The luck runs out there.
+
+`rulesFor` now returns a third list, `conditional`, holding the at-rule rules a box matches; `read` declines a box where one of them declares a property the reading depends on, and says which at-rule. Two things follow, and both are deliberate:
+
+- **The check runs before the declared-floor short-circuit.** A conditional rule can take a declared floor away, so answering `declared` first would be the silent pass in its worst form.
+- **A conditional rule that says nothing about the box's size is not a refusal.** Most of the nine recolour or re-flow rather than resize, and a breakpoint that changes `flex-direction` moves no number this file reads.
+
+**This is also what [#363](https://github.com/palebluebytes/inventoria/issues/363) needs before it can argue.** That ticket asks whether the guard should learn a pointer condition, on the premise that it "reads rules under their enclosing at-rule already, so it can distinguish a floor inside a pointer query from an unconditional one". It did not, and the practical consequence inverts the ticket's worry: a floor relaxed under `@media (hover: hover) and (pointer: fine)` would have passed here unnoticed, with no entry in `SHORT_BY_ARGUMENT` and no complaint. A condition that cannot be refused cannot be granted either. It is now visible, and refused by default, which is the state a decision can be taken from.
+
+**Not fixed here, and named so it is not mistaken for fixed:** `tests/unit/tap-targets.test.ts` reaches for `ruleOf(SIDEBAR, ".nav-item")`, which asks for the unconditional rule by default and gets it. That is a deliberate ask rather than a silent skip, and it is not wrong today — `.nav-item` above 768px measures about 57px under the pessimistic reading, comfortably over the floor — but it is the same blindness with a different mechanism, and it belongs to whoever widens that file.
