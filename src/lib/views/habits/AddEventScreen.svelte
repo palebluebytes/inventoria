@@ -361,6 +361,9 @@
   }
 
   .hero-input {
+    /* The `Card` around it renders a plain <div> without an `onclick`, so the
+       card's padding takes no tap and this box is the target (ADR-0093). */
+    min-height: var(--tap-min);
     font-family: var(--font-mono);
     font-size: var(--step-3);
     font-weight: 700;

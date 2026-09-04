@@ -456,13 +456,6 @@ const SHORTFALLS: string[] = [
   "views/food/FoodStager.svelte .cf-reason-code input — 44 (45 optimistic)",
   "views/food/FoodStager.svelte input.cf-subline — 39.6 (45 optimistic)",
   "views/food/FoodStager.svelte input.cf-title — 44 (45 optimistic)",
-  "views/habits/AddEventScreen.svelte input.hero-input — 37.3 (46.7 optimistic)",
-  "views/habits/AddHabitScreen.svelte input.input-inline-cat — 34.6 (40 optimistic)",
-  "views/habits/DateField.svelte input.time-input — 43.6 (49 optimistic)",
-  "views/habits/EventRecurrenceField.svelte input.time-input.flex-1 — 43.6 (49 optimistic)",
-  "views/habits/HabitDetailView.svelte input.input-number-brutal — 41.6 (47 optimistic)",
-  "views/habits/HabitDetailView.svelte select.select-brutal — 41.6 (47 optimistic)",
-  "views/items/ItemManualForm.svelte select.custom-select — 43.6 (49 optimistic)",
 ];
 
 const UNREADABLE: string[] = [];

@@ -182,6 +182,9 @@
   }
   .custom-select {
     width: 100%;
+    /* 49px on an inherited line-height and 43.6 under a UA's `normal`: a box
+       that clears the floor by one pixel on an assumption is not clearing it. */
+    min-height: var(--tap-min);
     padding: var(--space-2xs);
     border: var(--edge);
     border-radius: var(--radius);

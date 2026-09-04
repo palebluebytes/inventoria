@@ -404,6 +404,7 @@
   }
 
   .input-inline-cat {
+    min-height: var(--tap-min);
     font-family: var(--font-mono);
     font-size: var(--step-0);
     padding: var(--space-3xs) var(--space-2xs);

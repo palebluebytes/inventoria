@@ -370,6 +370,10 @@
   .select-brutal,
   .input-number-brutal {
     width: 100%;
+    /* This rule is `ui/Input`'s `.input` hand-copied, which is why both wearers
+       draw the same 47px the shared skin did before #336 floored it. The copy
+       is #362's; the floor is not, and cannot wait for it. */
+    min-height: var(--tap-min);
     background: transparent;
     border: var(--edge-thin);
     padding: var(--space-2xs) var(--space-s);

@@ -221,6 +221,7 @@
   }
 
   .time-input {
+    min-height: var(--tap-min);
     font-family: var(--font-mono);
     font-size: var(--step-0);
     font-weight: 700;
