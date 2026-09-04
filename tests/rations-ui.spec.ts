@@ -30,10 +30,16 @@ test.describe("Rations, the food Facet's own entry point", () => {
   test("there is no tab bar, because there is nowhere else to go", async ({
     page,
   }) => {
-    // ADR-0078 §2 as a test rather than only as a build rule. Rations is one
-    // Tracked Domain, so it is one screen, and the sidebar is the only place a
-    // cross-Facet link would ever get authored — six tabs minus five is not a
-    // tab bar.
+    // ADR-0078 §2 as a test rather than only as a build rule. The sidebar is
+    // the only place a cross-Facet link would ever get authored — six tabs
+    // minus five is not a tab bar.
+    //
+    // Rations grew pages above the shell breakpoint (ADR-0091 §5), and this
+    // project's viewport is above it, so "one Tracked Domain, one screen" is no
+    // longer why there is no nav. What ADR-0078 defends is unchanged and is what
+    // is asserted here: every page is Rations' own, so a way *out* stays
+    // unexpressible. Navigation between them is the header's icons, which are
+    // not `.nav-item`s and never leave the Facet.
     await expect(page.locator(".nav-item")).toHaveCount(0);
     await expect(page.locator(".sidebar")).toHaveCount(0);
   });
@@ -42,8 +48,15 @@ test.describe("Rations, the food Facet's own entry point", () => {
     page,
   }) => {
     // The root reaches its Settings tab through `.nav-item`; there is none here.
-    // What a Rations user has instead is the sheet the food screen already
+    // What a Rations user has instead is the surface the food screen already
     // carried (ADR-0078 §2).
+    //
+    // **The surface, not its shape.** This project's viewport is above the shell
+    // breakpoint, so what the gear opens here is the settings *page*; the
+    // `Mobile Chrome` project collects the same test and gets the sheet. That is
+    // the point of ADR-0091 §5 reusing the sheet through `inline` rather than
+    // growing a second copy — the heading below is the same heading, so this
+    // assertion is width-blind without being told about widths at all.
     //
     // `SettingsView` being absent from the Rations build is **not** asserted by
     // `pnpm check:facets`: it is the jar-wide surface, which no domain owns, and

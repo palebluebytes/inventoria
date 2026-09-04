@@ -168,8 +168,10 @@
       });
       if (link.kind === "none") return;
       receiveLink = link;
-      // No tab to switch to: Rations is one screen, and the food screen is
-      // already the one that is mounted.
+      // No tab to switch to, and nothing to navigate: the food screen is
+      // already the one that is mounted, and a page is only ever reached by
+      // pressing for it (ADR-0091 §5), so an arriving link cannot land behind
+      // one.
     } catch {
       // An ordinary boot, which is the safe reading of a URL that could not be
       // cleaned. The sender is still standing there and mints another code.
@@ -209,9 +211,17 @@
            screen is leaving Rations, and the payload, the socket and the code
            all die with the page. The Scan door's own code is cleared inside
            FoodView. -->
+      <!-- `hasPages` is this shell saying what it can hold (ADR-0091 §5). Above
+           the shell breakpoint the food screen shows Settings or Recipes
+           instead of the day, and the header's icons are the navigation between
+           them. The root mounts the same screen in its Food tab and passes
+           nothing, because a page behind a navigation sidebar, one tab away
+           from the root's own Settings, would be a second door to a surface
+           that already has one. -->
       <FoodView
         {dbReady}
         {receiveLink}
+        hasPages
         onReceiveClose={() => (receiveLink = null)}
       />
     </main>

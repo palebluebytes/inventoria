@@ -113,3 +113,48 @@ export const ALL_BREAKPOINTS: readonly number[] = [
 export function atLeast(bp: keyof typeof BREAKPOINTS): string {
   return `(min-width: ${BREAKPOINTS[bp]}px)`;
 }
+
+/**
+ * Reports whether the window is at or above an app-wide breakpoint, now and
+ * whenever it changes, and hands back a disposer.
+ *
+ * **A width is read from JavaScript only where it decides more than its own
+ * layout.** Everything that is purely a shape belongs in a media query, where
+ * the stylesheet is the single source and nothing has to be told twice —
+ * `DailyDashboard` swaps the week strip for the month calendar that way, and
+ * says so. This exists for the one case that cannot: above the shell breakpoint
+ * Rations shows a **page** instead of the day (ADR-0091 §5), and which
+ * component is mounted is not something CSS decides. `display: none` on a page
+ * would leave the day's stores subscribed, its sheets in the tree, and a dialog
+ * announcing itself to a screen reader from behind a screen nobody can see.
+ *
+ * The query comes from {@link atLeast}, so the number is still this file's and a
+ * caller never writes one. That pair — `matchMedia` here, `@media` in the
+ * stylesheet — is what `breakpoints.test.ts` holds together: disagree, and a
+ * full-page settings screen renders into a column that never split.
+ *
+ * `onChange` fires **immediately** with the current answer, so a caller has one
+ * path rather than an initial read and a subscription that can disagree. Without
+ * a `window` (both shells are server-rendered in the unit tier) or without
+ * `matchMedia` (the offline-boot driver stubs a bare one, and the shell harness
+ * stubs none at all) it reports nothing and the caller keeps its initial value —
+ * which must therefore be the narrow one, since a screen that renders the day
+ * and then widens into a page is right, and one that renders a page it cannot
+ * leave is not.
+ */
+export function watchAtLeast(
+  bp: keyof typeof BREAKPOINTS,
+  onChange: (matches: boolean) => void
+): () => void {
+  if (
+    typeof window === "undefined" ||
+    typeof window.matchMedia !== "function"
+  ) {
+    return () => {};
+  }
+  const query = window.matchMedia(atLeast(bp));
+  onChange(query.matches);
+  const report = (event: MediaQueryListEvent) => onChange(event.matches);
+  query.addEventListener("change", report);
+  return () => query.removeEventListener("change", report);
+}

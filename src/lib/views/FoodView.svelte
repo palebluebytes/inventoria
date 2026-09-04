@@ -29,6 +29,14 @@
     type WayIn,
   } from "../food/ways-in";
   import {
+    PAGES,
+    iconIdOf,
+    pageLabel,
+    pageLegend,
+    watchPageWidth,
+    type Page,
+  } from "../food/pages";
+  import {
     pastMealsFor,
     partitionCopyable,
     copyTally,
@@ -99,6 +107,7 @@
     dbReady,
     receiveLink = null,
     onReceiveClose,
+    hasPages = false,
   }: {
     dbReady: boolean;
     /**
@@ -114,6 +123,20 @@
     receiveLink?: ReceiveOpening | null;
     /** Clears that link, so leaving the surface cannot re-open it. */
     onReceiveClose: () => void;
+    /**
+     * Whether the shell that mounted this screen grows **pages** above the
+     * shell breakpoint (ADR-0091 §5). Rations' does; the root's does not, and
+     * gets the shell rule and nothing else.
+     *
+     * **The shell says so, because the pages are the shell's.** This is the same
+     * fact `DailyDashboard` reads as `:global(.rations)` for the rail, and it is
+     * threaded rather than sniffed for the reason that comment names from the
+     * other side: a stylesheet can ask which shell it is inside and JavaScript
+     * cannot. The root renders this whole screen in its Food tab, behind a
+     * navigation sidebar and one tab away from its own Settings screen — a page
+     * there would be a second door to a surface that already has one.
+     */
+    hasPages?: boolean;
   } = $props();
 
   // ── Receiving a meal ─────────────────────────────────────────────────────
@@ -145,11 +168,65 @@
     scannedCode = code;
   }
 
-  // Rations settings (top-right gear) — the Facet's one named, full-height
-  // surface (ADR-0080 §7). It carries the food config that moved off the global
-  // Settings tab before Facets existed, and now Rations' own Local Logs card
-  // too, because ADR-0078 §7 leaves a food-only user no route to root Settings.
-  let settingsOpen = $state(false);
+  // ── Settings and Recipes: one state, two shapes ───────────────────────────
+  //
+  // Which of Rations' pages is open, or null for the day (ADR-0091 §5). The
+  // header's gear opens the Facet's one named, full-height settings surface
+  // (ADR-0080 §7) and its pot opens the recipe library; **what those two
+  // surfaces are** is the only thing the width decides. Above the shell
+  // breakpoint they are pages shown instead of the day, below it they are the
+  // sheets they have always been, and it is the same surface either way —
+  // `BottomSheet`'s `inline` renders the same header and body into the page's
+  // flow rather than growing a second copy (#341).
+  //
+  // **One variable, not two booleans**, and that is what makes the shape legal.
+  // As sheets they could never both be open — a sheet covers the screen and
+  // neither has a door to the other — but as pages the header is standing
+  // navigation, so Recipes is one click away from Settings. Two booleans would
+  // let both be true and draw both pages down the column; a single opening
+  // makes "a page replaces a page" free rather than something an effect has to
+  // keep tidying up.
+  let page = $state<Page | null>(null);
+
+  // Whether a page may be shown at all: this shell has them and the window is
+  // wide enough for one. It starts false and the watcher corrects it, so a
+  // server render and a browser with no `matchMedia` both draw the day — the
+  // safe default in one direction only, since the day widening into a page is
+  // the ordinary path and a page rendered where the title is not a control is a
+  // screen with no way off it.
+  //
+  // This is the one thing a width decides in this tree that a media query
+  // cannot: which component is mounted. Everything else about the width is the
+  // stylesheet's.
+  let canShowPage = $state(false);
+  $effect(() =>
+    watchPageWidth(hasPages, (available) => {
+      canShowPage = available;
+      // **A narrowing window walks the reader back to the day.** Written on the
+      // width report itself rather than as an effect keyed on `canShowPage`,
+      // so it can only fire when the width changes and can never reach in and
+      // close a sheet somebody just opened. In a shell with no pages it is
+      // never called at all, which is `watchPageWidth`'s half of the same rule.
+      //
+      // What cannot survive the narrowing is the page: the title stops being a
+      // control below the breakpoint, so the reader would be on a screen whose
+      // only way off is no longer rendered.
+      //
+      // Letting the page become its own sheet instead was the other candidate
+      // and loses twice: it materialises a surface over the day that nobody
+      // asked for, and a sheet is a Back stop, so a resize would push a history
+      // entry (ADR-0089 §7).
+      //
+      // The other direction is deliberately not symmetrical. A sheet open when
+      // the window widens becomes the page, because widening only *adds* the
+      // way back, and the surface is the same surface — which is the whole
+      // point of #341.
+      if (!available) page = null;
+    })
+  );
+
+  // Whether what is on screen is a page rather than the day.
+  let onPage = $derived(canShowPage && page !== null);
 
   // The standing blurb under the title is orientation for a first visit and
   // dead weight on every one after, and on a phone it costs three lines above
@@ -212,9 +289,6 @@
   // from a send — so this is what says the action happened.
   let selection_handed = $state(false);
   let recipeOpen = $state(false);
-  // The recipe library (the header's recipe button): browse every saved recipe,
-  // open one to read or amend, or write a new one. Nothing on it logs.
-  let recipeLibraryOpen = $state(false);
   let recipe_meal_type = $state<MealType>("dinner");
   let recipe_seed = $state<RecipeIngredient[]>([]);
   // Which verb the recipe builder performs (ADR-0022): consolidate (build from
@@ -919,65 +993,118 @@
   </svg>
 {/snippet}
 
+<!-- A page's mark, in the header and in the legend. The two pages' marks are
+     different kinds of thing — Recipes wears the meal header's own recipe pot,
+     so the same thing looks the same in both places, and Settings has a drawn
+     gear of its own — so the roster is looped and the mark is chosen here, once,
+     rather than the whole control being written out twice. -->
+{#snippet pageMark(of: Page)}
+  {#if of === "recipes"}
+    <WayInIcon kind="recipe" />
+  {:else}
+    {@render settingsMark()}
+  {/if}
+{/snippet}
+
 <header class="page-header">
   <!-- Title and icons are one row of their own, so they share a centre line
        whether or not the blurb below is unfolded. The blurb is a sibling of that
        row rather than a sibling of the title, which is what keeps the icons
        beside the word FOOD instead of drifting to the middle of a paragraph. -->
   <div class="header-bar">
-    <h1>{entityName}</h1>
+    <h1>
+      {#if onPage}
+        <!-- **The title is the way back, and it is the only way off a page**
+             (ADR-0091 §5). The icon that opened this page is a toggle to
+             nowhere on its own: it is navigation now, and clicking the page you
+             are already on goes nowhere, so the word has to carry the return.
+
+             It stays inside the `h1` and inherits its type rather than becoming
+             a control of its own shape, so the word does not move by gaining a
+             job. The hit area is the letters — no padding, because padding here
+             would either shift the title off the row's centre line or grow a
+             target with nothing in it.
+
+             The accessible name adds where it goes and keeps the visible word
+             in front of it: "Food, button" on a settings screen is a
+             destination nobody can guess, and a name that dropped "Food"
+             would no longer be the label anyone can see. -->
+        <button
+          type="button"
+          class="title-back"
+          aria-label="{entityName}, back to the day"
+          onclick={() => (page = null)}>{entityName}</button
+        >
+      {:else}
+        {entityName}
+      {/if}
+    </h1>
     <div class="header-actions">
-      <!-- Leads the row, so the three standing controls keep their places when it
-         comes and goes. A calendar with today's dot on it: the mark says where
-         the tap lands rather than that it is a return. -->
-      {#if !onToday}
+      <!-- Today and About are the **day's** controls, and a page is not the day.
+           Today would move a date on a screen nobody can see, and About unfolds
+           a blurb describing the day's marks. Neither is a part removed by a
+           *width* — the day carries all four at every one of them, which is what
+           ADR-0091 §1 protects — they are simply not this screen's. -->
+      {#if !onPage}
+        <!-- Leads the row, so the three standing controls keep their places when it
+           comes and goes. A calendar with today's dot on it: the mark says where
+           the tap lands rather than that it is a return. -->
+        {#if !onToday}
+          <button
+            type="button"
+            class="header-icon-btn"
+            aria-label="Today"
+            onclick={() => (selectedDate = new Date())}
+          >
+            {@render todayMark()}
+          </button>
+        {/if}
         <button
           type="button"
           class="header-icon-btn"
-          aria-label="Today"
-          onclick={() => (selectedDate = new Date())}
+          aria-expanded={aboutOpen}
+          aria-controls={aboutId}
+          aria-label="About the food screen"
+          onclick={() => (aboutOpen = !aboutOpen)}
         >
-          {@render todayMark()}
+          {@render infoMark()}
         </button>
       {/if}
-      <button
-        type="button"
-        class="header-icon-btn"
-        aria-expanded={aboutOpen}
-        aria-controls={aboutId}
-        aria-label="About the food screen"
-        onclick={() => (aboutOpen = !aboutOpen)}
-      >
-        {@render infoMark()}
-      </button>
-      <!-- Recipes have only ever been reachable through a meal: pick breakfast,
-           open its Recipe tab, then a recipe. That browser logs what you pick,
-           because you were logging a meal when you opened it, and it is the only
-           way to reach a saved recipe at all. This is the standing place for
-           them instead — read one, amend one, or write one down — and nothing on
-           it can put food on a day. The mark is the meal header's own recipe
-           pot, so the same thing looks the same in both places. -->
-      <button
-        type="button"
-        class="header-icon-btn"
-        id="food-recipes-btn"
-        aria-label="Recipes"
-        onclick={() => (recipeLibraryOpen = true)}
-      >
-        <WayInIcon kind="recipe" />
-      </button>
-      <button
-        type="button"
-        class="header-icon-btn"
-        id="food-settings-btn"
-        aria-label="Rations settings"
-        onclick={() => (settingsOpen = true)}
-      >
-        {@render settingsMark()}
-      </button>
+      <!-- The two standing controls, drawn from `PAGES` rather than listed
+           again here, so the header keeps the roster and its left-to-right
+           order by construction — the same shape a meal header uses for its
+           ways in. A third page appears here and in the legend below without
+           anyone remembering to add it twice.
+
+           Above the shell breakpoint they are **navigation**: the icon of the
+           page you are on is inverted — ink and paper, which is how this frame
+           states selection, and the same mark the month calendar's chosen day
+           wears. `aria-current="page"` is what says it to a screen reader; it is
+           absent rather than false everywhere else, including on a phone, where
+           these open sheets and there is no current anything.
+
+           Each stays a plain click that opens the surface it names, so a page
+           keeps exactly one control either side of the breakpoint (ADR-0091 §1)
+           and the icon never becomes a toggle — the title is the way back. -->
+      {#each PAGES as p (p)}
+        <button
+          type="button"
+          class="header-icon-btn"
+          id={iconIdOf(p)}
+          aria-label={pageLabel(p)}
+          aria-current={onPage && page === p ? "page" : undefined}
+          onclick={() => (page = p)}
+        >
+          {@render pageMark(p)}
+        </button>
+      {/each}
     </div>
   </div>
-  <div id={aboutId} class="page-about" hidden={!aboutOpen}>
+  <!-- Folded away on a page as well as when nobody asked for it: the blurb and
+       the legend under it describe the day's marks, and the ⓘ that unfolds them
+       is not on a page to be pressed. The fold state survives the trip, so
+       coming back to the day comes back to the panel you left. -->
+  <div id={aboutId} class="page-about" hidden={!aboutOpen || onPage}>
     <p class="page-about-blurb">
       Track your daily nutritional intake, build custom recipes, and log food
       photos locally.
@@ -1006,26 +1133,20 @@
         </dt>
         <dd>Unfolds this panel.</dd>
       </div>
-      <div class="legend-row">
-        <dt>
-          <span class="legend-mark"><WayInIcon kind="recipe" /></span>
-          Recipes
-        </dt>
-        <dd>
-          Opens the recipe library, to read a recipe, amend one, or write one
-          down. Nothing on it puts food on a day.
-        </dd>
-      </div>
-      <div class="legend-row">
-        <dt>
-          <span class="legend-mark">{@render settingsMark()}</span>
-          Rations settings
-        </dt>
-        <dd>
-          Nutrition targets and what the day's totals show, the Open Food Facts
-          account used for scanning, and the local logs this app keeps.
-        </dd>
-      </div>
+      <!-- The two pages, from the same roster the header's controls come from,
+           so the legend cannot describe a mark that is not there or miss one
+           that is. Their names are the controls' own accessible names, which is
+           what a legend is for: the word a screen reader says and the word the
+           panel writes down are one string. -->
+      {#each PAGES as p (p)}
+        <div class="legend-row">
+          <dt>
+            <span class="legend-mark">{@render pageMark(p)}</span>
+            {pageLabel(p)}
+          </dt>
+          <dd>{pageLegend(p)}</dd>
+        </div>
+      {/each}
     </dl>
     <!-- The ways into a meal, drawn from WAYS_IN rather than listed again here,
          so the legend keeps the header's roster and its left-to-right order by
@@ -1046,20 +1167,51 @@
   </div>
 </header>
 
-<!-- Main Dashboard -->
-<DailyDashboard
-  {dbReady}
-  bind:selectedDate
-  onEnterMeal={enterMeal}
-  copyNote={visible_copy_note}
-  selectedIds={selected_ids}
-  onLongPressItem={longPress}
-  onTapItem={tapItem}
-  onEditItem={editItem}
-  onRemoveItem={removeItem}
-  {scalePreview}
-  {scaleNotes}
-/>
+<!-- Main Dashboard — the day, and what a page is shown *instead of*
+     (ADR-0091 §5). Unmounted rather than hidden: a day left in the tree behind
+     a page keeps its ledger subscriptions live and its own sheets openable by
+     anything that still holds a reference to them. -->
+{#if !onPage}
+  <DailyDashboard
+    {dbReady}
+    bind:selectedDate
+    onEnterMeal={enterMeal}
+    copyNote={visible_copy_note}
+    selectedIds={selected_ids}
+    onLongPressItem={longPress}
+    onTapItem={tapItem}
+    onEditItem={editItem}
+    onRemoveItem={removeItem}
+    {scalePreview}
+    {scaleNotes}
+  />
+{/if}
+
+<!-- Settings and Recipes, and **one call site each** (ADR-0091 §5).
+     `inline` is the whole of the difference: above the shell breakpoint the
+     surface renders into the page's flow, right where the day stood, and below
+     it `Modal` portals the same header and body out as a dialog — so where this
+     sits in the markup decides the page's position and nothing about the
+     sheet's.
+
+     Two call sites, one per shape, was the alternative and is what #341 exists
+     to avoid one level down: the same two props would be written twice and
+     could be changed once. -->
+{#if page === "settings"}
+  <!-- Rations settings: the OFF login, the contribution default, the nutrition
+       targets, Rations' own Local Logs card and its Your data block — the
+       Facet's one named, full-height surface (ADR-0080 §7). -->
+  <FoodSettingsSheet {dbReady} inline={onPage} onClose={() => (page = null)} />
+{:else if page === "recipes"}
+  <!-- The recipe library. Browses every saved recipe and opens one to review or
+       amend; its "New recipe" writes a template only. No path through it logs,
+       which is what separates it from the meal browsers. -->
+  <RecipeLibrarySheet
+    {selectedDate}
+    inline={onPage}
+    onClose={() => (page = null)}
+  />
+{/if}
 
 <!-- Secondary: Saved Digital Twins Ledger.
      Hidden for now — presenting the saved twins is a later task. Kept behind
@@ -1232,7 +1384,16 @@
   />
 {/if}
 
-{#if selected_ids.size > 0}
+<!-- The Selection is the **day's** mode (ADR-0088 §1), so its bar goes where
+     the day goes. On a page there is nothing for its verbs to act on and no
+     backdrop to sit behind — a bar of scale/move/delete floating over a
+     settings screen would be offering to act on rows nobody can see.
+
+     The Selection itself is kept rather than cleared: leaving a screen is not
+     the way out of a mode (§1 gives it its own), and dropping a hand-picked set
+     of rows because somebody opened Recipes would be destroying work as a side
+     effect of navigation. Coming back to the day comes back to the Selection. -->
+{#if selected_ids.size > 0 && !onPage}
   <SelectionBar
     count={selected_ids.size}
     note={status_note}
@@ -1254,23 +1415,6 @@
       {/if}
     {/snippet}
   </SelectionBar>
-{/if}
-
-<!-- Rations settings — the top-right gear opens the Facet's one named,
-     full-height settings surface (ADR-0080 §7): the OFF login, the contribution
-     default, the nutrition targets, and Rations' own Local Logs card. -->
-{#if settingsOpen}
-  <FoodSettingsSheet {dbReady} onClose={() => (settingsOpen = false)} />
-{/if}
-
-<!-- Recipe library — the header's recipe button. Browses every saved recipe and
-     opens one to review or amend; its "New recipe" writes a template only. No
-     path through it logs, which is what separates it from the meal browsers. -->
-{#if recipeLibraryOpen}
-  <RecipeLibrarySheet
-    {selectedDate}
-    onClose={() => (recipeLibraryOpen = false)}
-  />
 {/if}
 
 <!-- Recipe builder — Consolidate (seeded from selected foods), Define (empty new
@@ -1407,6 +1551,21 @@
   .header-icon-btn:hover {
     color: var(--text-secondary);
   }
+  /* The page you are on, inverted — ink and paper, which is how this frame
+     states selection (ADR-0091 §5), and the same mark the month calendar puts
+     on the selected day. It is keyed on `aria-current` rather than on a class,
+     so the thing a screen reader is told and the thing the eye is shown cannot
+     come apart: there is one fact and one place it is written.
+
+     Bare buttons everywhere else, so the ink square is the whole of the
+     difference between "a door" and "where you are". Hover is switched back off
+     on it — a control that greys on hover reads as leaving the state it is
+     showing, and this one goes nowhere. */
+  .header-icon-btn[aria-current="page"],
+  .header-icon-btn[aria-current="page"]:hover {
+    background: var(--ink);
+    color: var(--paper);
+  }
   .header-icon-btn:active {
     transform: scale(0.92);
   }
@@ -1414,7 +1573,12 @@
     outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
-  h1 {
+  /* The title, and the title once it is also the way back. Every type
+     declaration is written for both, because ADR-0091 §5's rule is that the
+     word does not move by becoming a control: a button that picked up the UA's
+     font, its box or its metrics would be a different word in the same place. */
+  h1,
+  .title-back {
     font-size: var(--step-2);
     font-weight: 700;
     color: var(--text-primary);
@@ -1432,6 +1596,34 @@
        anywhere else it is ignored and the title sits as it did before. */
     text-box-trim: trim-both;
     text-box-edge: cap alphabetic;
+  }
+  /* And what it gives up to be one. `font-family` and `line-height` are the two
+     a button does NOT inherit, so they are named; the rest is the UA's button
+     box being taken away, down to the trim above making its box the letters
+     again. A `display: block` child is what lets that trim be the button's own
+     rather than something the `h1` has to apply through it.
+     `text-align: inherit` for a control that fills its line: without it a button
+     centres its label, and the word would move by exactly the slack. */
+  .title-back {
+    display: block;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    font-family: inherit;
+    line-height: inherit;
+    text-align: inherit;
+    cursor: pointer;
+  }
+  /* The hover and the focus ring are the header icons', because the title is a
+     control in the same row and answering the pointer differently would make it
+     read as a different kind of thing. */
+  .title-back:hover {
+    color: var(--text-secondary);
+  }
+  .title-back:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
   }
   h2 {
     font-size: var(--step-0);
