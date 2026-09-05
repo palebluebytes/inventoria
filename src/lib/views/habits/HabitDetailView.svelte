@@ -4,6 +4,7 @@
   import type { ScheduleRule } from "../../habits/habits";
   import Card from "../../ui/Card.svelte";
   import Input from "../../ui/Input.svelte";
+  import Textarea from "../../ui/Textarea.svelte";
   import Button from "../../ui/Button.svelte";
   import Alert from "../../ui/Alert.svelte";
   import HabitDetailHeader from "./HabitDetailHeader.svelte";
@@ -195,12 +196,11 @@
           </div>
 
           <label for="log-note" class="field-label">Qualitative Notes</label>
-          <textarea
+          <Textarea
             id="log-note"
             placeholder="How did it feel? (optional)"
             bind:value={logNote}
-            class="textarea-brutal"
-          ></textarea>
+          />
 
           <div class="row-group">
             <div class="col-group">
@@ -350,22 +350,6 @@
     flex-direction: column;
     gap: var(--space-xs);
     flex: 1;
-  }
-  .textarea-brutal {
-    width: 100%;
-    height: 80px;
-    background: transparent;
-    border: var(--edge-thin);
-    padding: var(--space-2xs) var(--space-s);
-    font-family: inherit;
-    font-size: var(--step-0);
-    color: var(--text-primary);
-    outline: none;
-    resize: none;
-  }
-  .textarea-brutal:focus {
-    background: var(--paper);
-    box-shadow: 0 0 0 1px var(--ink);
   }
   .select-brutal,
   .input-number-brutal {

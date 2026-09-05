@@ -2,6 +2,7 @@
   import { updateAcquisitionMetadata } from "../../stores/acquisition.store";
   import Button from "../../ui/Button.svelte";
   import Input from "../../ui/Input.svelte";
+  import Textarea from "../../ui/Textarea.svelte";
   import Alert from "../../ui/Alert.svelte";
   import BottomSheet from "../../ui/BottomSheet.svelte";
 
@@ -86,12 +87,11 @@
 
       <div class="form-group">
         <label for="edit-note">Note</label>
-        <textarea
+        <Textarea
           id="edit-note"
           bind:value={editNote}
           placeholder="Write personal notes about this item..."
-          rows="3"
-        ></textarea>
+        />
       </div>
     </form>
 
@@ -128,20 +128,6 @@
     border: var(--edge);
     font-weight: 600;
     font-size: var(--step-n1);
-  }
-  textarea {
-    width: 100%;
-    min-height: 80px;
-    padding: var(--space-2xs);
-    border: var(--edge);
-    border-radius: var(--radius);
-    font-size: var(--step-0);
-    font-family: inherit;
-    resize: vertical;
-  }
-  textarea:focus {
-    outline: none;
-    border-color: var(--accent);
   }
   .dock {
     display: flex;

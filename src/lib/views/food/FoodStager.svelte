@@ -95,6 +95,7 @@
   import Button from "../../ui/Button.svelte";
   import Checkbox from "../../ui/Checkbox.svelte";
   import Input from "../../ui/Input.svelte";
+  import Textarea from "../../ui/Textarea.svelte";
   import Segmented from "../../ui/Segmented.svelte";
   import LabelPhotoReader from "./LabelPhotoReader.svelte";
   import CategoryPicker from "./CategoryPicker.svelte";
@@ -2593,13 +2594,11 @@
                         <span class="cf-gh-hint">optional</span>
                       </div>
                     </div>
-                    <textarea
-                      class="cf-ingredients"
+                    <Textarea
                       data-testid="cf-ingredients"
-                      rows="3"
                       placeholder="e.g. Sugar, palm oil, hazelnuts (13%), skimmed milk powder"
                       bind:value={customIngredients}
-                    ></textarea>
+                    />
                   </section>
 
                   {#if contributeOffered}
@@ -3377,18 +3376,6 @@
     align-items: center;
     min-height: var(--tap-min);
     padding: 0 0.4rem;
-  }
-  /* The read-along ingredients transcription (ADR-0043 §5) — a plain multi-line
-     field, full width, same frame chrome as the rest of the form. */
-  .cf-ingredients {
-    width: 100%;
-    padding: 0.5rem;
-    background: var(--paper);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    font: inherit;
-    resize: vertical;
-    min-height: 3.5rem;
   }
   .cf-add {
     margin-top: var(--space-2xs);

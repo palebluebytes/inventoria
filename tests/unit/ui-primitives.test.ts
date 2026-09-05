@@ -1,12 +1,15 @@
 import { describe, it, expect } from "vitest";
 import { render } from "svelte/server";
 import { createRawSnippet } from "svelte";
+import { execFileSync } from "node:child_process";
+import { elementsOf } from "./support/markup";
 import Button from "../../src/lib/ui/Button.svelte";
 import Card from "../../src/lib/ui/Card.svelte";
 import Badge from "../../src/lib/ui/Badge.svelte";
 import ToggleGroup from "../../src/lib/ui/ToggleGroup.svelte";
 import Checkbox from "../../src/lib/ui/Checkbox.svelte";
 import Row from "../../src/lib/ui/Row.svelte";
+import Textarea from "../../src/lib/ui/Textarea.svelte";
 
 // These render the primitives through Svelte's SSR path (no DOM needed) and
 // assert on the emitted HTML. They pin the three things #77 makes contractual:
@@ -371,5 +374,106 @@ describe("Row", () => {
       >,
     });
     expect(asDiv.body).toMatch(/<div[^>]*data-testid="logged-food"/);
+  });
+});
+
+/**
+ * The population `ui/Textarea` was written to close (#374).
+ *
+ * A `<textarea>` is the one element where **every legitimate use of it is the
+ * primitive**: unlike `<button>` — where a nav item, a calendar day and a
+ * toggle cell are correctly not `Button`s — there is no multi-line field in
+ * this app that wants anything other than the house skin and the tap floor.
+ * That is what makes a census the right assertion here and the wrong one
+ * there: the answer is a single name, so it can be written down.
+ *
+ * It is a census rather than an allowlist on purpose. It discovers the tree
+ * instead of naming it, so an eleventh hand-rolled `<textarea>` fails it, and
+ * so does moving or deleting the primitive — both are the list not being the
+ * one entry, and neither can be fixed by adding a line to a roster.
+ */
+describe("the textarea census", () => {
+  const FILES = execFileSync("git", ["ls-files", "src/**/*.svelte"], {
+    encoding: "utf8",
+  })
+    .trim()
+    .split("\n");
+
+  const wearing = FILES.filter((file) =>
+    elementsOf(file).some((el) => el.tag === "textarea")
+  );
+
+  it("reads the whole tree, so an empty sweep cannot pass", () => {
+    expect(FILES.length).toBeGreaterThan(100);
+  });
+
+  it("finds exactly one <textarea> in src/, and it is the primitive", () => {
+    expect(wearing).toEqual(["src/lib/ui/Textarea.svelte"]);
+  });
+});
+
+describe("Textarea", () => {
+  it("renders a native <textarea> wearing the base class", () => {
+    const { body } = render(Textarea, { props: {} });
+    expect(body).toMatch(/<textarea[^>]*class="textarea/);
+  });
+
+  it("draws three rows unless the caller asks for another number", () => {
+    // The height axis is `rows`, the platform's own, and 3 is what eight of
+    // the ten adopting sites were already asking for one way or another.
+    expect(render(Textarea, { props: {} }).body).toMatch(
+      /<textarea[^>]*rows="3"/
+    );
+    expect(render(Textarea, { props: { rows: 2 } }).body).toMatch(
+      /<textarea[^>]*rows="2"/
+    );
+  });
+
+  it("carries the placeholder, id and disabled state onto the control", () => {
+    const { body } = render(Textarea, {
+      props: {
+        id: "log-note",
+        placeholder: "How did it feel?",
+        disabled: true,
+      },
+    });
+    expect(body).toMatch(/<textarea[^>]*id="log-note"/);
+    expect(body).toMatch(/<textarea[^>]*placeholder="How did it feel\?"/);
+    expect(body).toMatch(/<textarea[^>]*\sdisabled\b/);
+  });
+
+  it("leaves the control enabled by default", () => {
+    const { body } = render(Textarea, { props: {} });
+    expect(body).not.toMatch(/<textarea[^>]*\sdisabled\b/);
+  });
+
+  it("renders the bound value as the element's content, not an attribute", () => {
+    const { body } = render(Textarea, { props: { value: "two lines" } });
+    expect(body).toContain(">two lines</textarea>");
+  });
+
+  it("keeps the caller's class alongside the base class", () => {
+    const { body } = render(Textarea, { props: { class: "note-body" } });
+    expect(body).toMatch(/class="textarea note-body/);
+  });
+
+  it("spreads ...rest a11y attributes onto the <textarea>", () => {
+    const { body } = render(Textarea, {
+      props: {
+        "aria-label": "Ingredients",
+        "data-testid": "cf-ingredients",
+        maxlength: 500,
+      } as Record<string, unknown>,
+    });
+    expect(body).toMatch(/<textarea[^>]*aria-label="Ingredients"/);
+    expect(body).toMatch(/<textarea[^>]*data-testid="cf-ingredients"/);
+    expect(body).toMatch(/<textarea[^>]*maxlength="500"/);
+  });
+
+  it("does not let ...rest override the class styling channel", () => {
+    const { body } = render(Textarea, {
+      props: { class: "styled", "aria-label": "x" } as Record<string, unknown>,
+    });
+    expect(body).toMatch(/class="textarea styled/);
   });
 });

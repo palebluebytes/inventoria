@@ -7,6 +7,7 @@
   import { readImageAsDataUrl } from "../../food/image-file";
   import type { FoodChoice, ManualEntrySeed } from "../../food/food-staging";
   import Row from "../../ui/Row.svelte";
+  import Textarea from "../../ui/Textarea.svelte";
 
   // The Custom tab's intent chooser and its three purpose-built mini-forms
   // (ADR-0035), plus the fourth tile that opens the ADR-0034 label form
@@ -382,14 +383,13 @@
         <label class="mini-flabel" for="manual-ingredients"
           >Ingredients — optional</label
         >
-        <textarea
+        <Textarea
           id="manual-ingredients"
-          class="mini-ingredients"
-          rows="2"
+          rows={2}
           placeholder="For memory & allergens — doesn’t change the calories"
           aria-label="Ingredients"
           bind:value={ingredients}
-        ></textarea>
+        />
       {/if}
 
       {#if allowPhoto}
@@ -483,8 +483,7 @@
     font-weight: 700;
     flex-shrink: 0;
   }
-  .mini-name,
-  .mini-ingredients {
+  .mini-name {
     width: 100%;
     box-sizing: border-box;
     border: var(--edge);
@@ -495,9 +494,6 @@
   }
   .mini-name-req {
     font-weight: 700;
-  }
-  .mini-ingredients {
-    resize: vertical;
   }
   .plate-cta {
     display: flex;

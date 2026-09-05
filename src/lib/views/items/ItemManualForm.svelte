@@ -4,6 +4,7 @@
   import Card from "../../ui/Card.svelte";
   import Button from "../../ui/Button.svelte";
   import Input from "../../ui/Input.svelte";
+  import Textarea from "../../ui/Textarea.svelte";
 
   let {
     showManualForm = $bindable(),
@@ -127,20 +128,20 @@
 
     <div class="form-group full-width">
       <label for="manual-desc">Description</label>
-      <textarea
+      <Textarea
         id="manual-desc"
         bind:value={manualDescription}
         placeholder="Details about this twin..."
-      ></textarea>
+      />
     </div>
 
     <div class="form-group full-width">
       <label for="manual-note">Note</label>
-      <textarea
+      <Textarea
         id="manual-note"
         bind:value={manualNote}
         placeholder="Personal notes about this item..."
-      ></textarea>
+      />
     </div>
 
     <div class="form-actions full-width">
@@ -194,20 +195,6 @@
     font-weight: 500;
   }
   .custom-select:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-  textarea {
-    width: 100%;
-    min-height: 80px;
-    padding: var(--space-2xs);
-    border: var(--edge);
-    border-radius: var(--radius);
-    font-size: var(--step-0);
-    font-family: inherit;
-    resize: vertical;
-  }
-  textarea:focus {
     outline: none;
     border-color: var(--accent);
   }

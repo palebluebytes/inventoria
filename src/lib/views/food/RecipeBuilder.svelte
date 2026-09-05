@@ -17,6 +17,7 @@
   import { sanitizeYield } from "../../food/recipe-nutrition";
   import { Accordion } from "bits-ui";
   import Alert from "../../ui/Alert.svelte";
+  import Textarea from "../../ui/Textarea.svelte";
   import IngredientListEditor from "./IngredientListEditor.svelte";
 
   // The Recipe Twin builder/editor body — sheet chrome removed so it can render
@@ -356,12 +357,7 @@
                 bind:value={source}
               />
             {:else if s.key === "notes"}
-              <textarea
-                class="tarea"
-                rows="3"
-                placeholder="Any notes…"
-                bind:value={notes}
-              ></textarea>
+              <Textarea placeholder="Any notes…" bind:value={notes} />
             {:else if s.key === "steps"}
               <ol class="steps">
                 {#each steps as step, i (step.id)}
@@ -440,15 +436,6 @@
     border-width: 3px;
     padding: var(--space-s);
   }
-  .tarea {
-    width: 100%;
-    border: var(--edge);
-    padding: var(--space-xs);
-    font-size: var(--step-0);
-    font-family: inherit;
-    resize: vertical;
-  }
-
   /* bits-ui renders the accordion's Root/Item/Header/Trigger/Content itself, so
      the brutalist skin reaches them with :global, bounded under our own scoped
      .rec-sections wrapper (the .dock :global(.methods) precedent, ADR-0036). */

@@ -534,6 +534,22 @@ control, so bits-ui has nothing to add here. A name is not optional, and the row
 typography is the caller's `class`. See ADR-0068.
 _Avoid_: Toggle, tick box, a second checkbox skin
 
+**Textarea**:
+The one multi-line field (`ui/Textarea.svelte`): a native `<textarea>` wearing the same
+house field skin `ui/Input` draws, because the two stand beside each other in one form
+and a description with a different edge from the name above it is two looks in one box.
+Every multi-line field in the app is this component — the population goes to zero, which
+is what a `<button>`'s never does, so a census in `tests/unit/ui-primitives.test.ts`
+asserts the tree holds exactly one `<textarea>` and it is this file. The platform already
+resizes, participates in a form and carries `maxlength`, so bits-ui has nothing to add.
+Its **height axis is `rows`** and nothing else, defaulting to 3; a field that fills a
+region says so in its `class`, as `NoteEditor` does. It resizes vertically only.
+See ADR-0036, ADR-0068 §1 and ADR-0093.
+_Avoid_: Multi-line input, note field, comment box, a second textarea skin, and the nine
+it replaced — `.textarea-brutal`, `.retro-textarea`, `.desc-textarea`, `.cf-ingredients`,
+`.mini-ingredients`, `.tarea`, `.note-body` as a skin (it is a fill rule now), and the
+bare `textarea` element selectors in `ItemManualForm` and `ItemEditModal`
+
 **Badge**:
 A display-only status or category label (`ui/Badge.svelte`). Its colour comes from
 the shared `categoryBadgeVariant(category)` helper, never from a re-declared inline

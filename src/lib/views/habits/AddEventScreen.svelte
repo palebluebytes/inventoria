@@ -3,6 +3,7 @@
   import { CalendarDate, parseDate } from "@internationalized/date";
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import Card from "../../ui/Card.svelte";
+  import Textarea from "../../ui/Textarea.svelte";
   import DateField from "./DateField.svelte";
   import EventRecurrenceField from "./EventRecurrenceField.svelte";
   import {
@@ -318,12 +319,7 @@
       <span class="field-label"
         >DESCRIPTION <span class="optional">(OPTIONAL)</span></span
       >
-      <textarea
-        class="desc-textarea"
-        placeholder="NOTES..."
-        rows="3"
-        bind:value={description}
-      ></textarea>
+      <Textarea placeholder="NOTES..." bind:value={description} />
     </Card>
   </div>
 
@@ -480,23 +476,6 @@
   .inline-checkbox.checked {
     background: var(--ink);
     color: var(--paper);
-  }
-
-  /* Description */
-  .desc-textarea {
-    font-family: var(--font-mono);
-    font-size: var(--step-0);
-    color: var(--text-primary);
-    background: var(--bg-input);
-    border: var(--edge);
-    padding: var(--space-xs);
-    outline: none;
-    resize: vertical;
-    width: 100%;
-    text-transform: uppercase;
-  }
-  .desc-textarea::placeholder {
-    color: var(--text-muted);
   }
 
   .save-btn {

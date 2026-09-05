@@ -4,6 +4,7 @@
   import { updateMediaStatus, enrichMediaTwin } from "../../stores/media.store";
   import Badge from "../../ui/Badge.svelte";
   import Button from "../../ui/Button.svelte";
+  import Textarea from "../../ui/Textarea.svelte";
   import BottomSheet from "../../ui/BottomSheet.svelte";
 
   let {
@@ -208,13 +209,11 @@
 
       <div class="form-group">
         <label for="event-review">Review / Comments</label>
-        <textarea
+        <Textarea
           id="event-review"
-          rows="3"
           bind:value={formReview}
-          class="retro-textarea"
           placeholder="Add your thoughts..."
-        ></textarea>
+        />
       </div>
     </form>
   </div>
@@ -384,24 +383,6 @@
     outline: none;
     border-color: var(--ink);
     box-shadow: var(--shadow-2);
-  }
-
-  .retro-textarea {
-    border: var(--edge);
-    padding: var(--space-s);
-    font-size: var(--step-0);
-    font-family: var(--font-mono);
-    font-weight: 700;
-    border-radius: var(--radius);
-    resize: vertical;
-    box-shadow: inset 2px 2px 0 var(--border);
-  }
-
-  .retro-textarea:focus {
-    outline: none;
-    background: var(--ink);
-    color: var(--paper);
-    box-shadow: none;
   }
 
   .dock {

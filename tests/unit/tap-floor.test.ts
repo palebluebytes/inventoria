@@ -685,6 +685,12 @@ describe("the floor, swept", () => {
    * floor holds under both line-height readings and under an edit. The split is
    * recorded because a drift towards the first column is the failure this file
    * exists to catch early.
+   *
+   * The total is a population count and moves when the population does. It fell
+   * from 50 to 42 at #374, which converged nine hand-rolled `<textarea>` skins
+   * onto `ui/Textarea`: nine boxes left the sweep and the primitive's one
+   * arrived, and the primitive declares its floor, which is the direction this
+   * assertion wants.
    */
   it("carries most of them on a declared floor, not on arithmetic", () => {
     const how = { declared: 0, drawn: 0 };
@@ -694,7 +700,7 @@ describe("the floor, swept", () => {
       else if (b.kind === "drawn") how.drawn++;
     }
 
-    expect(how).toEqual({ declared: 31, drawn: 19 });
+    expect(how).toEqual({ declared: 27, drawn: 15 });
     expect(how.declared + how.drawn).toBe(SWEEP.groups.size);
   });
 });

@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
   import { notesStore } from "../../stores/notes.store.svelte";
   import type { NoteView } from "../../notes/loro-doc";
+  import Textarea from "../../ui/Textarea.svelte";
 
   // The parent remounts this component via `{#key note.id}`, so local editor
   // state is seeded once per note and never fights the CRDT round-trip. The
@@ -20,13 +21,13 @@
     bind:value={title}
     oninput={() => notesStore.setNoteTitle(note.id, title)}
   />
-  <textarea
+  <Textarea
     class="note-body"
     placeholder="Write a note…"
     data-testid="note-body"
     bind:value={body}
     oninput={() => notesStore.setNoteBody(note.id, body)}
-  ></textarea>
+  />
 </div>
 
 <style>
@@ -44,20 +45,17 @@
     background: var(--paper);
     padding: var(--space-xs) var(--space-s);
   }
-  .note-body {
+  /* The body is the one site whose height is not a row count: it takes what
+     the editor's column leaves it. That is the question `Textarea`'s `rows`
+     deliberately does not answer, so it stays the caller's (#374). Reached
+     through `:global` because the element belongs to the primitive, and
+     anchored on `.note-editor` so it outranks the floor it is raising rather
+     than tying with it. */
+  .note-editor :global(.note-body) {
     flex: 1;
     min-height: 16rem;
-    resize: vertical;
-    border: var(--edge);
-    background: var(--paper);
-    padding: var(--space-s);
-    font-family: inherit;
-    font-size: var(--step-0);
-    line-height: 1.5;
-    box-shadow: var(--shadow-2);
   }
-  .note-title:focus,
-  .note-body:focus {
+  .note-title:focus {
     outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
