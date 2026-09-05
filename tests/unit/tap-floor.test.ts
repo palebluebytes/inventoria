@@ -54,6 +54,7 @@ import {
   declarationsOf,
   elementsOf,
   rulesFor,
+  trackedSvelteFiles,
   type Element,
 } from "./support/markup";
 
@@ -64,11 +65,7 @@ const TAP_MIN = tokenPx("--tap-min");
  *  reading cannot manufacture a shortfall that no browser has. */
 const UA_LINE_HEIGHT = 1.2;
 
-const FILES = execFileSync("git", ["ls-files", "src/**/*.svelte"], {
-  encoding: "utf8",
-})
-  .trim()
-  .split("\n");
+const FILES = trackedSvelteFiles();
 
 const FIELD = /^(input|textarea|select)$/;
 
@@ -608,6 +605,10 @@ describe("the sweep itself", () => {
   it("finds every field in the app, and each one's target", () => {
     // Asserted so that a regex quietly matching nothing — the way a sweep dies
     // — fails here rather than reporting a level tree.
+    // Both root shells included: `src/App.svelte` and `src/Rations.svelte` sit
+    // at the top of `src/`, which the `src/**` glob alone does not reach.
+    expect(FILES).toContain("src/App.svelte");
+    expect(FILES).toContain("src/Rations.svelte");
     expect(FILES.length).toBeGreaterThan(100);
     expect(SWEEP.groups.size).toBeGreaterThan(40);
   });

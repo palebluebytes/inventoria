@@ -1,8 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render } from "svelte/server";
 import { createRawSnippet } from "svelte";
-import { execFileSync } from "node:child_process";
-import { elementsOf } from "./support/markup";
+import { elementsOf, trackedSvelteFiles } from "./support/markup";
 import Button from "../../src/lib/ui/Button.svelte";
 import Card from "../../src/lib/ui/Card.svelte";
 import Badge from "../../src/lib/ui/Badge.svelte";
@@ -393,17 +392,18 @@ describe("Row", () => {
  * one entry, and neither can be fixed by adding a line to a roster.
  */
 describe("the textarea census", () => {
-  const FILES = execFileSync("git", ["ls-files", "src/**/*.svelte"], {
-    encoding: "utf8",
-  })
-    .trim()
-    .split("\n");
+  const FILES = trackedSvelteFiles();
 
   const wearing = FILES.filter((file) =>
     elementsOf(file).some((el) => el.tag === "textarea")
   );
 
   it("reads the whole tree, so an empty sweep cannot pass", () => {
+    // The root shells are the assertion that matters here, not the count: a
+    // sweep globbing `src/**` alone omits both, reports 115 files, looks
+    // exhaustive, and cannot see a bare textarea in either.
+    expect(FILES).toContain("src/App.svelte");
+    expect(FILES).toContain("src/Rations.svelte");
     expect(FILES.length).toBeGreaterThan(100);
   });
 

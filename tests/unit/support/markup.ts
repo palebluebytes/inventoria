@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import type { Rule } from "./stylesheet";
 
@@ -273,4 +274,26 @@ export function declarationsOf(rules: Rule[]): Record<string, string> {
     }
   }
   return out;
+}
+
+/**
+ * Every tracked `.svelte` file under `src/`, for a sweep that discovers its
+ * population rather than naming it.
+ *
+ * **It takes two pathspecs, and the second one is the point.** git resolves a
+ * leading `src/**` against path *segments*, so the recursive glob alone means
+ * "inside a directory under src" and silently omits `src/App.svelte` and
+ * `src/Rations.svelte` — the two Facet root shells, and the two files most of
+ * the app hangs off. A sweep written with that one glob reports 115 files,
+ * looks exhaustive, and cannot see either. `tap-floor.test.ts` already reached
+ * for both forms when it globbed `.css`; this is the same fact about `.svelte`,
+ * in one place so a third caller cannot rediscover it the hard way.
+ */
+export function trackedSvelteFiles(): string[] {
+  return execFileSync("git", ["ls-files", "src/**/*.svelte", "src/*.svelte"], {
+    encoding: "utf8",
+  })
+    .trim()
+    .split("\n")
+    .filter(Boolean);
 }

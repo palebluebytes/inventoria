@@ -21,6 +21,15 @@
   // one site that fills a region rather than declaring a height (`NoteEditor`)
   // says so in its `class`, the way `ui/Input` leaves every layout question.
   //
+  // **What converging dropped, on purpose.** `MediaEngagementModal`'s
+  // `.retro-textarea` had a mono 700 face, an inset shadow and a focus that
+  // inverted the whole box to ink-on-paper; that field now looks like every
+  // other one, while the `.retro-input`s and `.retro-select`s beside it still
+  // do not. That mismatch is temporary and belongs to the `retro-*`
+  // convergence ticket, which #374 names as the owner of the rest of the
+  // family. A caller whose *voice* differs from the house — as opposed to its
+  // chrome — says so in `class` instead; `AddEventScreen` is the one that does.
+  //
   // `...rest` is the a11y/semantics escape hatch (`aria-*`, `data-*`, `name`,
   // `maxlength`, `oninput`), NOT a styling channel — the same contract as
   // Button and Checkbox.
