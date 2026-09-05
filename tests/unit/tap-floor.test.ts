@@ -23,8 +23,9 @@
  * assumes a field inherits `line-height: 1.5`, while a browser handing a form
  * control `line-height: normal` draws a shorter box and so a shorter field. A
  * figure clearing the floor on the first assumption and failing on the second
- * is not a pass — `.custom-select` is 49px optimistic and 43.6 pessimistic — so
- * a box must clear under the pessimistic reading or declare a floor. A declared
+ * is not a pass — the `.custom-select` #378 retired was 49px optimistic and
+ * 43.6 pessimistic — so a box must clear under the pessimistic reading or
+ * declare a floor. A declared
  * floor holds under both, which is the whole argument #336 made for
  * `min-height` over padding.
  *
@@ -712,6 +713,11 @@ describe("the floor, swept", () => {
    * class, and one reading per distinct box is what this file records. No box
    * arrived to replace them — `ui/Input`'s own was already counted, and it is
    * in the `declared` column.
+   *
+   * #378 moved neither column: `ItemManualForm`'s `select.custom-select` left
+   * and `ui/Select`'s own `select.select` arrived in its place, both in the
+   * `declared` column. A one-for-one swap is invisible in these two numbers,
+   * which is why it is written down here rather than inferred from them.
    *
    * All five stood at **61.6px pessimistic (67 optimistic)**, well clear of the
    * floor, so this is not a shortfall being fixed. It is the second thing this

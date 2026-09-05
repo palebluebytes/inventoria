@@ -565,6 +565,24 @@ it replaced — `.textarea-brutal`, `.retro-textarea`, `.desc-textarea`, `.cf-in
 `.mini-ingredients`, `.tarea`, `.note-body` as a skin (it is a fill rule now), and the
 bare `textarea` element selectors in `ItemManualForm` and `ItemEditModal`
 
+**Select**:
+The one select (`ui/Select.svelte`): a native `<select>` wearing the same house field
+skin `ui/Input` and `ui/Textarea` draw, because all three stand beside each other in one
+form. Not a bits-ui listbox — here the platform supplies _more_, not less: a native
+select opens the OS picker, whose rows are full-width and far above `--tap-min`, correct
+with every assistive technology and zero code, so adopting a portalled listbox would
+replace a control that already satisfies ADR-0093 with one this project would then have
+to floor itself. Its **interior is data** — `options: { value, label }[]`, no `children`
+— because a snippet hands the interior back to the call site, which is where the copies
+came from. Its **value is generic**, so a rating binds `number | undefined` without a
+`Number()` at the write site. It takes an `id` and no `label`, as `ui/Input` does, and
+its `class` is the **wrapper's**, not the field's. `appearance: none` removes the UA's
+arrow only — the OS picker still opens — and the mark drawn in its place is knowingly
+the third copy of the shared triangle, which #317 owns. See ADR-0036, ADR-0068 §1 and
+ADR-0093.
+_Avoid_: Dropdown, picker, combobox (that is a search field with a list), a second select
+skin, and the two it is replacing — `.custom-select` (gone) and `.retro-select` (#380)
+
 **Badge**:
 A display-only status or category label (`ui/Badge.svelte`). Its colour comes from
 the shared `categoryBadgeVariant(category)` helper, never from a re-declared inline

@@ -5,6 +5,7 @@
   import Button from "../../ui/Button.svelte";
   import Input from "../../ui/Input.svelte";
   import Textarea from "../../ui/Textarea.svelte";
+  import Select from "../../ui/Select.svelte";
 
   let {
     showManualForm = $bindable(),
@@ -106,14 +107,14 @@
 
     <div class="form-group">
       <label for="manual-status">Initial Status</label>
-      <select
+      <Select
         id="manual-status"
         bind:value={manualStatus}
-        class="custom-select"
-      >
-        <option value="wanted">Wanted</option>
-        <option value="owned">Owned</option>
-      </select>
+        options={[
+          { value: "wanted", label: "Wanted" },
+          { value: "owned", label: "Owned" },
+        ]}
+      />
     </div>
 
     <div class="form-group">
@@ -180,23 +181,6 @@
   }
   .full-width {
     grid-column: span 2;
-  }
-  .custom-select {
-    width: 100%;
-    /* 49px on an inherited line-height and 43.6 under a UA's `normal`: a box
-       that clears the floor by one pixel on an assumption is not clearing it. */
-    min-height: var(--tap-min);
-    padding: var(--space-2xs);
-    border: var(--edge);
-    border-radius: var(--radius);
-    font-size: var(--step-0);
-    background: var(--paper);
-    font-family: inherit;
-    font-weight: 500;
-  }
-  .custom-select:focus {
-    outline: none;
-    border-color: var(--accent);
   }
   .form-actions {
     display: flex;
