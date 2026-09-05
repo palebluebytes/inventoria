@@ -2,6 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-01  
+**Amended by:** [ADR-0096](0096-devices-converge-without-both-being-awake-through-a-store-of-sealed-deltas.md) (§8's debt is discharged by a carried deletion the peer applies to every arriving batch, and the Consequences' claim that a wiped user's food _comes back_ is corrected: the re-supply is partial, nondeterministic and torn)  
 **Implemented:** whole. §4's jar-wide half at #290 — `vacuumLedger` in `src/lib/db/db.core.ts`, its own worker operation, attempted after the `clear` commits, with the storage figure on the same screen re-read once it returns. The scoped wipe at [#311](https://github.com/palebluebytes/inventoria/issues/311) — `deleteDatomsByEntityPrefix` in the same module, the predicate derived in `src/lib/facets/facet-wipe.ts`, the control and its export in `src/lib/views/food/FoodDataSection.svelte` on Rations settings. §6's round trip closes at [#335](https://github.com/palebluebytes/inventoria/issues/335), which puts the un-narrowed Import beside that export under ADR-0080 §3. §8 is open by construction and stays open.
 
 ## Context

@@ -3,7 +3,8 @@
 **Status:** Accepted  
 **Date:** 2026-08-29  
 **Amends:** [ADR-0070](0070-the-proxy-is-part-of-the-site-it-serves.md) (its one-Worker shape now carries the relay as well as the proxy, and §9 turns the script's invocation logs off, which the proxy pays for)  
-**Amended by:** [ADR-0082](0082-a-safari-tab-on-ios-hands-the-code-to-the-app-it-is-not.md) (§4's "no typed-code entry field, ever" is narrowed to the argument that produced it, and Paste returns as an addressing mode)
+**Amended by:** [ADR-0082](0082-a-safari-tab-on-ios-hands-the-code-to-the-app-it-is-not.md) (§4's "no typed-code entry field, ever" is narrowed to the argument that produced it, and Paste returns as an addressing mode)  
+**Amended by:** [ADR-0096](0096-devices-converge-without-both-being-awake-through-a-store-of-sealed-deltas.md) (§5's closing paragraph is withdrawn and its rule transfers to the own-device half in full; §9 may not be cited for R2 keys; §11's bounds go uniform at two sockets and five minutes, and its _nobody builds anything on this pipe_ argument is re-made rather than inherited; §12 is narrowed to the relay and no longer covers the common case; §13 gains three rows; §14's withdrawal clause becomes operational, and its free-plan duration figure is corrected)
 
 ## Context
 

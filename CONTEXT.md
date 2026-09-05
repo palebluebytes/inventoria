@@ -253,7 +253,7 @@ _Avoid_: Share, sync (that is your own devices, and it is a different session mo
 
 **Send code**:
 The single-use secret that addresses one Meal send: a room id and a fresh 256-bit AES-GCM key, about 100 characters, never fewer than 128 bits and never spoken aloud. One shape with two carriers, a QR in the same room and a **link** everywhere else (`/food/#r=…&k=…`, the secret in the fragment so it reaches no server, minted at Rations because a meal is Rations' — ADR-0084 §5). It dies on one successful delivery, on any refusal, on the sender cancelling, or after five minutes, and there is no retry on a spent one. Because a send is synchronous, a pasted code is already dead by the time it is scrollback. See ADR-0072 §3 to §6.
-_Avoid_: Pairing secret (that is the own-device one, and it is remembered rather than per-send), password, invite, room id (which is half of it), wormhole code
+_Avoid_: **Pairing code** (both are per-act; they differ in which Facet mints them and in what they carry — a Send code is Rations' and addresses a meal, a Pairing code is the root's and carries no pairing secret), pairing secret (what a Pairing code exists to avoid carrying), password, invite, room id (which is half of it), wormhole code
 
 **Meal payload**:
 What crosses the wire in a Meal send: the **winning** datoms of one Past meal's reference closure, in the **Ledger export**'s NDJSON grammar but under its own `artifact` (`inventoria-meal`), its own `schema_version`, and an envelope declaring which `event:consume_` ids are the closure's roots. It omits exactly three attributes, `twin/raw_provenance`, `food/label_photos` and `food/photo_base64`, and carries every other one verbatim. It is never a Ledger export and the two readers refuse each other by name, because two formats whose merge rules differ must not share one. Bounded at 1 MiB of **decoded** bytes, counted as they decode. See ADR-0073.
@@ -273,19 +273,43 @@ _Avoid_: Received flag, sender, shared-by, origin (that is the food's source), p
 
 **Relay**:
 The Durable Object on the site's own Worker that holds at most two WebSockets for one room and forwards sealed frames it structurally cannot open. It may learn that two devices met, when and how much crossed; it holds **nothing that outlives a room**, and it runs with the script's invocation logs off. It is the one **operationally conditional** part of Inventoria: if running it stops being tenable, the send is removed and the Ledger export remains. See ADR-0072 §1 and §9 to §12.
-_Avoid_: Server, rendezvous (there is none, deliberately), signalling server, sync server (nothing stores datoms), STUN, TURN
+_Avoid_: Server, rendezvous (there is none, deliberately), signalling server, STUN, TURN, **Store** (the Relay still holds nothing that outlives a room; the thing that retains is a separate noun)
 
 **Peer word**:
 The one thing the Relay ever says, sent to both parties the moment a room holds two sockets. It exists because a party cannot speak before the other arrives — nothing is stored in between, so a frame sent alone has nowhere to go — and the peer's single frame is already spent on the delivery acknowledgement, so the readiness signal cannot come from them. The discipline that keeps it unambiguous is a register: **the relay originates text and the parties send binary**, and a party's text frame is refused rather than dropped. It is not a **Send code**, carries nothing about either device, and never crosses a room boundary.
 _Avoid_: Handshake, hello, ready message, signalling (there is no rendezvous), presence (nothing is subscribed to)
 
 **Paired Device**:
-One of your own devices, remembered as `{ device_id, a name you typed, a 256-bit pairing secret }` in `localStorage` and **never** as a datom, because a revocation cannot live in an append-only log that the revoked device also writes to. Pairing is symmetric and pairwise: there is no main device, no hub and no revocation authority, and deleting a pairing on either side severs it completely with no message. Silence is the revocation signal, because a message can be suppressed. See ADR-0075 §3, §4 and §12.
-_Avoid_: Trusted device, linked device, primary device, hub, account
+One of your own devices, held in `localStorage` and **never** as a datom, because a revocation cannot live in an append-only log that the revoked device also writes to. **The record holds derived, per-lane chain state and never a reusable credential**: nothing in it can regenerate the pairing, only advance it, so a stolen record opens at most one outstanding **Deposit** per **Lane**. No pairing secret is remembered — it is destroyed at the end of **Pairing**. The name is typed **locally, about the peer, after the act**, and a row reads by short `device_id` until it is named. Pairing is symmetric and pairwise: there is no main device, no hub and no revocation authority, and deleting a pairing on either side severs it with no message. Silence is the revocation signal, because a message can be suppressed. The list of them is the **Paired devices** section of the root's Settings (ADR-0084 §6), which is also where the act lives. See ADR-0075 §3, §4 and §12, and ADR-0096 §9.
+_Avoid_: Trusted device, linked device, primary device, hub, account, **Devices screen** (ADR-0075 §4's phrase, retired — the screen never existed and now never will)
 
 **Version vector**:
 What two **Paired Devices** exchange to converge: the greatest `(hlc_ms, hlc_ctr)` per originating `device_id`, read straight off `datoms` rather than stored anywhere. It is queried, not kept, so it can never fall out of step with the ledger; a first sync is just its empty case, and resuming a dropped socket costs nothing. A single scalar clock watermark is **wrong** rather than coarse, because a peer can hand you a row stamped below your maximum and a scalar filter would drop it silently. See ADR-0075 §6.
 _Avoid_: High-water mark (it is per-device, not one number), sync cursor, import log (ADR-0067 §2 refuses one), last-synced timestamp
+
+**Store**:
+The bucket a **Deposit** waits in, so that two **Paired Devices** converge without both being awake. It holds sealed objects at keys nobody can enumerate, none larger than 16 MiB, none older than 30 days; for each **Lane** it holds at most one, its depositor's outstanding delta, until its collector takes it. Unlike the **Relay** it is not met by construction — five clauses, five mechanisms, only one of them the platform's — and it never holds enough to reconstruct a ledger, because a first sync never crosses it. It is the second **operationally conditional** part of Inventoria: if running it stops being tenable, the Deposit is removed and convergence between two devices that are awake together remains. See ADR-0096 §1.
+_Avoid_: Mailbox (it holds one object per Lane, not a queue), inbox, sync server (it stores sealed bytes and never datoms it can read), backup (it offers no recovery), replica, cloud, bucket (that is the implementation)
+
+**Deposit**:
+One sealed object at a **Lane**'s current chain index, carrying an acknowledgement and a delta, **either of which may be empty** — a device with nothing to send still deposits, or its peer's chain stalls. It is rewritten in place at the same index with the full outstanding delta until the peer's acknowledgement arrives, under a conditional write that is **refused rather than recreating a collected object**. A collection is the matching `GET`, then a `DELETE` once the final chunk verifies. See ADR-0096 §3 and §5.
+_Avoid_: Message, upload, push (which is refused outright), packet, delta (bare — that is what a Deposit carries), blob
+
+**Lane**:
+One direction of one pairing; a pairing has two. Its address and its seal key come off one ratchet under different labels, indexed on collections and never on the clock, so an address is fixed by the absence itself and rotates at the first contact afterwards. A **Wake** touches exactly one key per Lane, which is what keeps the operator from joining one exchange to the next. See ADR-0096 §3 and §4.
+_Avoid_: Channel, queue, mailbox, direction (bare), stream
+
+**Wake**:
+One open of the app, however long it stays open. It is the unit convergence is priced in, and the unit the design's promise is stated in — _your data reaches your other device the first time you open the app on each of them; the batch after that needs a second open on each_ — because there is no clock anywhere in this design and a duration would smuggle one back in. **A wake is an open of the root Facet**, so a user who only ever opens Rations never converges. See ADR-0096 §3 and §7.
+_Avoid_: Session (which is the Relay's room), sync, tick, poll, app launch (an already-open app that is reopened is a new wake)
+
+**Pairing**:
+The act that makes two of your own devices **Paired Devices**: a **Pairing code** shown on one and read on the other, then a whole foreground first sync, shown on both sides. It starts from the **Paired devices** section of the root's Settings, which expands in place rather than opening a second surface. **It is not complete until the first sync completes**, and it leaves nothing behind if abandoned — no row exists on either side until then. It is **idempotent and replacing**, keyed by `device_id`, and it promises nothing about _which_ device it will pair, because that is not learned until the act is spent. See ADR-0096 §8.
+_Avoid_: Linking, connecting, adding a device, sync setup, **Devices screen**, Scan (the reader control is **"Read a code"**, because Scan is already Rations' way in and this reader refuses what that one accepts)
+
+**Pairing code**:
+The single-use secret addressing one **Pairing** act: a room id and a fresh 256-bit key, the **Send code**'s shape put to a different job, minted on the **root** where a Send code is minted at Rations. Two carriers, a QR and the bare code pasted, and **never a link** — there is no distance to cross between two devices you are holding, and a URL-shaped QR is a link in the operating system's hands whatever this app calls it, so the code **must not parse as a URL**. Dead when the pairing completes, on cancel, or after five minutes. It **carries no pairing secret**: that is minted inside the sealed room, so a photograph of a spent code is worth nothing. See ADR-0096 §8.
+_Avoid_: **Send code** (that is Rations' and addresses a meal), pairing secret (which no longer crosses in the code), pairing link, invite, QR (that is one of its two carriers)
 
 ### Notes and checklists
 

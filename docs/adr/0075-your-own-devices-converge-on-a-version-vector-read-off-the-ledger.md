@@ -3,7 +3,8 @@
 **Status:** Accepted  
 **Date:** 2026-08-29  
 **Amends:** [ADR-0020](0020-logical-clock-ordering-over-wall-clock-key.md) (§8 gives advance-on-receive the live **peer** its Consequences were waiting for, and corrects that record's claim that the path has no caller at all)  
-**Amends:** [ADR-0018](0018-notes-checklist-crdt-oplog-in-ledger.md) (§9 measures its one-channel promise against a sync transport that now exists, rather than against one that did not)
+**Amends:** [ADR-0018](0018-notes-checklist-crdt-oplog-in-ledger.md) (§9 measures its one-channel promise against a sync transport that now exists, rather than against one that did not)  
+**Amended by:** [ADR-0096](0096-devices-converge-without-both-being-awake-through-a-store-of-sealed-deltas.md) (§1's both-awake requirement is lifted by a store that holds one sealed delta per lane; §2 is replaced wholesale, §3's three fields become a rule, §4's duality sentence and its Devices screen go, §5 loses its room half, §6 loses its unqualified identity claim, §11 gains two states, §13 gains a draining ceiling and survives verbatim, and §14 gains a ninth refusal while §14.6 is spent for deletion alone)
 
 ## Context
 
