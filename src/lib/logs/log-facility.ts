@@ -31,8 +31,10 @@
  * header — "The ledger is undeletable and it syncs" — and this facility needs
  * both properties for the same reasons: a redaction is a deletion, the cap
  * removes entries, and nothing here may travel to a second device. The guarded
- * accessors below are that module's, kept here rather than shared because they
- * are the whole of what the two have in common.
+ * accessors are that module's arrangement, copied rather than shared because
+ * they are the whole of what the two have in common; they live one module down,
+ * in `log-keyspace.ts`, which owns every log key and every read and write under
+ * one. **This module never builds a key and never touches `localStorage`.**
  *
  * **There is no transport and there never will be** (§11), and that, with the
  * review the export is conditional on, is now the **whole** of the protection.
@@ -44,19 +46,33 @@
  * the screen that calls it — because the distinction ADR-0053 rests on, that a
  * local record is not telemetry, holds only while it is structurally true.
  *
- * **On its length**, which is past `CODING_STANDARDS.md` §4's thousand lines:
- * about three fifths of it is this commentary, and the code under that is a
- * little over four hundred lines. The seams a split would take run the wrong
- * way. The dial, the counters and the export all reach the guarded accessors
- * below, which this header has just explained are deliberately not shared; and
- * the facility reaches back into the dial from `appendToChannel` and into the
- * counters from `buildLogExport`. So the decomposition on offer is four modules
- * with a cycle through two of them, to divide one channel's life across the
- * files that own its parts — where ADR-0092 §1 puts a channel's whole life in
- * one place on purpose.
+ * **On its length**, which is still past `CODING_STANDARDS.md` §4's thousand
+ * lines: about three fifths of it is this commentary, and the code under that
+ * is a little under four hundred lines. The seam that came out is the one that
+ * runs the right way — the keyspace is a layer *below* every part of this file,
+ * so `log-keyspace.ts` is a module nothing here has a cycle with and the
+ * dependency points one way (#220). The seams that would divide this file
+ * *across* still run the wrong way: the facility reaches into the dial from
+ * `appendToChannel` and into the counters from `buildLogExport`, so splitting
+ * by feature is three modules with a cycle through two of them, dividing one
+ * channel's life across the files that own its parts — where ADR-0092 §1 puts a
+ * channel's whole life in one place on purpose.
  */
 
 import { domainsOf, type TrackedDomainId } from "../facets/registry";
+import {
+  clearChannelKeys,
+  heldKeys,
+  keyCollision,
+  readCounters,
+  readDialValue,
+  readPausedNames,
+  readRecords,
+  writeCounters,
+  writeDialValue,
+  writePausedNames,
+  writeRecords,
+} from "./log-keyspace";
 
 /**
  * The four levels, on OpenTelemetry's `SeverityNumber` scale (ADR-0092 §5).
@@ -270,11 +286,21 @@ const channels = new Map<string, LogChannel<unknown>>();
  * Declares a channel and registers it in the same act, so the review surface
  * finds it without anyone maintaining a second list.
  *
- * **Three runtime throws, and only these three** (§12): a whitespace-only
+ * **Four runtime throws, and only these four** (§12, and ADR-0092's Amendment
+ * of 2026-09-05, which is where the fourth comes from): a whitespace-only
  * `purpose` (the type above catches the empty literal and the widened `string`,
- * but cannot see through a space), a cap that retains nothing, and a name
- * already taken — two channels sharing a `localStorage` key would each read the
- * other's records as unreadable and shed them.
+ * but cannot see through a space), a cap that retains nothing, a name already
+ * taken, and a name whose **derived keys** are somebody else's.
+ *
+ * The last two are not one check. A duplicate name is about the **registry**:
+ * this `Map` is keyed by name, so the second declaration would silently replace
+ * the first and the review would show one row where two channels are writing.
+ * The keyspace check is about **`localStorage`**, and it is what catches the
+ * pair a name comparison cannot see — `notes_counters` against `notes`, in
+ * either order of arrival, where one channel's records key is the other's
+ * counters key. That case was a comment in `log-keyspace.ts`'s predecessor and
+ * is a guard here, derived from the key list rather than from the collisions
+ * anybody enumerated (#220).
  *
  * `name` is deliberately **not** a central literal union. That would catch typos
  * only, duplicates would still need the check below, and it re-introduces the
@@ -297,6 +323,11 @@ export function defineChannel<E, P extends string, C extends string = never>(
     throw new Error(`Log channel "${name}" needs a cap of at least one entry.`);
   if (channels.has(name))
     throw new Error(`Log channel "${name}" is already registered.`);
+  const collision = keyCollision(name, heldKeys(channels.keys()));
+  if (collision !== null)
+    throw new Error(
+      `Log channel "${name}" would claim the localStorage key "${collision.key}", which belongs to ${collision.heldBy}.`
+    );
   const channel: LogChannel<E> = {
     name,
     domain,
@@ -346,93 +377,6 @@ export function channelsOfFacet(facetId: string): LogChannel<unknown>[] {
 // Storage
 // ---------------------------------------------------------------------------
 
-const LS_PREFIX = "inventoria_log_";
-// The channels whose recording the user has switched off, as one JSON list.
-//
-// Deliberately OUTSIDE the `inventoria_log_<name>` keyspace: a channel named
-// `paused` would otherwise claim this very key, and the duplicate-name guard
-// only ever compares a channel against another channel, so the two would
-// silently delete each other's records.
-//
-// Not a datom either, and would not be one even if settings still could be
-// (ADR-0085 §1): the entries it governs are per-device and unsynced, and a switch
-// that syncs would silence an instrument on a device its owner has never seen.
-// The one ledger-side fact about this facility is the export consent, which is a
-// recorded act about disclosure rather than a setting about this device.
-const LS_PAUSED_KEY = "inventoria_logs_paused";
-// The dial's threshold, as one of the three `SeverityNumber`s below.
-//
-// Beside the pause and for the same reasons (ADR-0092 §4): a switch that syncs
-// would silence an instrument on a device its owner has never seen, and a budget
-// dial is per-device by nature. ADR-0085's rule points the same way — this is a
-// device's own state rather than a preference that should travel.
-//
-// Neither key is under any domain's `localStorage` namespace, so a Facet-scoped
-// wipe leaves both standing: they govern the jar's whole facility.
-const LS_DIAL_KEY = "inventoria_logs_level";
-
-// `localStorage` is absent under the Node unit runner and can throw outright in
-// a privacy-locked browser, so every access is guarded — the arrangement
-// `stores/secrets.ts` uses. A missing store reads empty and writes as a no-op,
-// which is §3's best-effort rule: no feature fails because a log could not be
-// written.
-function safeGet(key: string): string | null {
-  try {
-    if (typeof localStorage === "undefined") return null;
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function safeSet(key: string, value: string): void {
-  try {
-    if (typeof localStorage === "undefined") return;
-    localStorage.setItem(key, value);
-  } catch {
-    /* quota-exceeded / privacy-locked — the record just isn't kept */
-  }
-}
-
-function safeRemove(key: string): void {
-  try {
-    if (typeof localStorage === "undefined") return;
-    localStorage.removeItem(key);
-  } catch {
-    /* privacy-locked — there was nothing readable to clear either */
-  }
-}
-
-/**
- * The `localStorage` key one channel's records live under.
- *
- * Exported because a Facet-scoped wipe has to take its own channels' records
- * and cannot work the key out from the registry: the key follows the channel's
- * **name**, and a channel names its domain rather than being named after it
- * (ADR-0079 §2, `facets/facet-wipe.ts`). Everything else about the keyspace
- * stays private to this module.
- */
-export function channelStorageKey(channel: LogChannel<unknown>): string {
-  return `${LS_PREFIX}${channel.name}`;
-}
-
-/** The raw stored records of one channel, unparsed. `[]` for anything else. */
-function storedRecords(channel: LogChannel<unknown>): unknown[] {
-  const raw = safeGet(channelStorageKey(channel));
-  if (raw === null) return [];
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeRecords(channel: LogChannel<unknown>, records: unknown[]): void {
-  if (records.length === 0) safeRemove(channelStorageKey(channel));
-  else safeSet(channelStorageKey(channel), JSON.stringify(records));
-}
-
 /**
  * Reads one stored record: the envelope is the facility's, everything inside it
  * is the channel's.
@@ -477,7 +421,7 @@ export function partitionChannel<E>(
 ): ChannelPartition<E> {
   const entries: E[] = [];
   let unreadable = 0;
-  for (const record of storedRecords(channel)) {
+  for (const record of readRecords(channel.name)) {
     const entry = readRecord(channel, record);
     if (entry === null) unreadable += 1;
     else entries.push(entry);
@@ -502,7 +446,7 @@ export function readChannel<E>(channel: LogChannel<E>): E[] {
  * denying that something it is storing exists (#229).
  */
 export function channelEntryCount(channel: LogChannel<unknown>): number {
-  return storedRecords(channel).length;
+  return readRecords(channel.name).length;
 }
 
 /**
@@ -554,8 +498,8 @@ export function appendToChannel<E>(
   // or `lvl`. One facility-stamped wrapper carries both facility-owned fields.
   const record = { v: channel.version, lvl: level, entry };
   writeRecords(
-    channel,
-    capEntries([...storedRecords(channel), record], channel.cap)
+    channel.name,
+    capEntries([...readRecords(channel.name), record], channel.cap)
   );
   enforceBudget();
 }
@@ -593,14 +537,14 @@ export function deleteChannelEntry<E>(
   index: number
 ): void {
   if (index < 0) return;
-  const records = storedRecords(channel);
+  const records = readRecords(channel.name);
   let readable = -1;
   for (let i = 0; i < records.length; i++) {
     if (readRecord(channel, records[i]) === null) continue;
     readable += 1;
     if (readable < index) continue;
     records.splice(i, 1);
-    writeRecords(channel, records);
+    writeRecords(channel.name, records);
     return;
   }
 }
@@ -614,10 +558,15 @@ export function deleteChannelEntry<E>(
  * a set left standing beside emptied records would be a total whose entries
  * nobody can see, and one re-minted without its records would be a rate over a
  * window nothing states.
+ *
+ * *Which* keys those are is `log-keyspace.ts`'s, and it takes every key the
+ * channel claims rather than the two it happens to have written — the same
+ * derivation a Facet-scoped wipe uses, so neither can fall behind the other
+ * (#220). What stays here is the act: emptying a channel is something the
+ * facility does, and the keyspace knows only about keys.
  */
 export function clearChannel(channel: LogChannel<unknown>): void {
-  safeRemove(channelStorageKey(channel));
-  safeRemove(channelCountersStorageKey(channel));
+  clearChannelKeys(channel.name);
 }
 
 // ---------------------------------------------------------------------------
@@ -635,76 +584,6 @@ export function clearChannel(channel: LogChannel<unknown>): void {
 export interface ChannelCounters {
   counts: Record<string, number>;
   since: number;
-}
-
-/**
- * The `localStorage` key one channel's counters live under — **its own**, beside
- * the records rather than inside them (§9).
- *
- * ADR-0054's Amendment promises counters still stand when every entry has been
- * shed, and that promise is *false in code* while the two share a key:
- * {@link writeRecords} removes the key outright once the record list empties, so
- * redacting the last entry took the totals with it. A separate key is the only
- * shape under which the promise is literally true rather than
- * true-until-the-ring-empties, and it keeps a few integers out of
- * {@link serialisedBytes}, which the Amendment already argued.
- *
- * Exported for the same reason {@link channelStorageKey} is: a Facet-scoped wipe
- * takes it, and a permanent counter is the part of a Facet's data that most
- * needs to go.
- *
- * A channel named `<something>_counters` would claim another channel's counter
- * key, the hazard `LS_PAUSED_KEY` names above. It stays a note rather than a
- * fourth runtime throw (§12): the suffix is ADR-0092 §9's literal key, no
- * suffix is unclaimable while names are free strings, and the collision needs
- * two channels one of which is named after the other.
- */
-export function channelCountersStorageKey(
-  channel: LogChannel<unknown>
-): string {
-  return `${channelStorageKey(channel)}_counters`;
-}
-
-/**
- * The counter key's contents before the declaration is read over them:
- * {@link ChannelCounters} with both halves still untrusted.
- */
-interface StoredCounters {
-  counts: Record<string, unknown>;
-  /** `null` for a stamp the store cannot be read for. */
-  since: number | null;
-}
-
-/**
- * What the counter key holds, as far as the store can be trusted for it.
- *
- * **The two halves degrade separately**, because they fail for different
- * reasons and one is recoverable: totals whose stamp is unreadable are still
- * totals, and re-stamping them understates the window they were taken over
- * rather than overstating the rate. Only a blob that is not an object at all
- * reads as no set, and then the next tally starts from zero at a new epoch.
- *
- * That is not {@link readRecord}'s *kept and disclosed* rule, deliberately: a
- * record is content somebody may want back and the review has a place to say it
- * exists, where a total nothing can read is a number with no honest rendering.
- */
-function storedCounters(channel: LogChannel<unknown>): StoredCounters | null {
-  const raw = safeGet(channelCountersStorageKey(channel));
-  if (raw === null) return null;
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== "object" || parsed === null) return null;
-    const { counts, since } = parsed as { counts?: unknown; since?: unknown };
-    return {
-      counts:
-        typeof counts === "object" && counts !== null
-          ? (counts as Record<string, unknown>)
-          : {},
-      since: typeof since === "number" ? since : null,
-    };
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -772,7 +651,7 @@ export function channelCounters(
 ): ChannelCounters | null {
   const declared = countersOf(channel);
   if (declared === null) return null;
-  const stored = storedCounters(channel);
+  const stored = readCounters(channel.name);
   return {
     counts: projectCounters(declared.names, stored?.counts ?? {}),
     since: stored?.since ?? now,
@@ -808,7 +687,7 @@ function tallyEntry(
 ): void {
   const declared = countersOf(channel);
   if (declared === null) return;
-  const stored = storedCounters(channel);
+  const stored = readCounters(channel.name);
   const counts = projectCounters(declared.names, stored?.counts ?? {});
   const permitted = new Set<string>(declared.names);
   let moved = false;
@@ -822,10 +701,7 @@ function tallyEntry(
     return;
   }
   if (!moved && stored !== null && stored.since !== null) return;
-  safeSet(
-    channelCountersStorageKey(channel),
-    JSON.stringify({ counts, since: stored?.since ?? now })
-  );
+  writeCounters(channel.name, { counts, since: stored?.since ?? now });
 }
 
 // ---------------------------------------------------------------------------
@@ -901,30 +777,17 @@ function enforceBudget(): void {
   const registered = registeredChannels();
   const before = registered.map((channel) => ({
     name: channel.name,
-    entries: storedRecords(channel),
+    entries: readRecords(channel.name),
   }));
   const after = shedToBudget(before, LOG_BUDGET_BYTES);
   for (let i = 0; i < registered.length; i++)
     if (after[i].entries.length !== before[i].entries.length)
-      writeRecords(registered[i], after[i].entries);
+      writeRecords(registered[i].name, after[i].entries);
 }
 
 // ---------------------------------------------------------------------------
 // The recording switch
 // ---------------------------------------------------------------------------
-
-function pausedChannels(): string[] {
-  const raw = safeGet(LS_PAUSED_KEY);
-  if (raw === null) return [];
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed)
-      ? parsed.filter((n) => typeof n === "string")
-      : [];
-  } catch {
-    return [];
-  }
-}
 
 /**
  * Whether a channel is recording. On by default — ADR-0053 §1's reason, that a
@@ -932,7 +795,7 @@ function pausedChannels(): string[] {
  * the control that makes it stoppable.
  */
 export function isChannelRecording(channel: LogChannel<unknown>): boolean {
-  return !pausedChannels().includes(channel.name);
+  return !readPausedNames().includes(channel.name);
 }
 
 /** Switches one channel's recording on or off. Keeps whatever it already holds. */
@@ -940,10 +803,9 @@ export function setChannelRecording(
   channel: LogChannel<unknown>,
   recording: boolean
 ): void {
-  const paused = pausedChannels().filter((name) => name !== channel.name);
+  const paused = readPausedNames().filter((name) => name !== channel.name);
   if (!recording) paused.push(channel.name);
-  if (paused.length === 0) safeRemove(LS_PAUSED_KEY);
-  else safeSet(LS_PAUSED_KEY, JSON.stringify(paused));
+  writePausedNames(paused);
 }
 
 // ---------------------------------------------------------------------------
@@ -1034,8 +896,7 @@ function isDialPosition(value: unknown): value is DialPosition {
  */
 export function dialPosition(): DialPosition {
   if (resolvedDial !== null) return resolvedDial;
-  const raw = safeGet(LS_DIAL_KEY);
-  const stored: unknown = raw === null ? null : Number(raw);
+  const stored = readDialValue();
   resolvedDial = isDialPosition(stored) ? stored : DEFAULT_DIAL_POSITION;
   return resolvedDial;
 }
@@ -1043,7 +904,7 @@ export function dialPosition(): DialPosition {
 /** Moves the dial, and refreshes what {@link dialPosition} hands back. */
 export function setDialPosition(position: DialPosition): void {
   resolvedDial = position;
-  safeSet(LS_DIAL_KEY, String(position));
+  writeDialValue(position);
 }
 
 /**

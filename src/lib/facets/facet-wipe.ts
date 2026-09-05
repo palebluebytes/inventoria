@@ -29,11 +29,8 @@
  */
 
 import type { EntityCensus, EntityCensusGroup } from "../db/db.core";
-import {
-  channelCountersStorageKey,
-  channelsOfFacet,
-  channelStorageKey,
-} from "../logs/log-facility";
+import { channelsOfFacet } from "../logs/log-facility";
+import { channelKeys } from "../logs/log-keyspace";
 import {
   TRACKED_DOMAINS,
   domainsOf,
@@ -73,7 +70,7 @@ export function domainCensusGroups(): EntityCensusGroup[] {
  */
 export function facetStorageKeys(facetId: FacetId): string[] {
   const prefixes = storagePrefixesOf(facetId);
-  const channelKeys = new Set(
+  const logKeys = new Set(
     channelsOfFacet(facetId)
       // A **jar-wide** channel is in every Facet's card and every Facet's
       // export, and in no Facet's wipe (ADR-0092 §13). Both halves are ADR-0080
@@ -83,16 +80,15 @@ export function facetStorageKeys(facetId: FacetId): string[] {
       // data*, and the app's own narration is not that. Deletion is
       // irreversible, so it stays jar-wide while visibility follows the writer.
       .filter((channel) => channel.domain !== null)
-      // Two keys per channel: its records, and the counters that outlive them
-      // (ADR-0092 §9). A permanent counter is the part of a Facet's data that
-      // most needs to go, and it is the one part no cap, no budget and no
-      // redaction would ever have taken. Derived for both rather than named for
-      // one, because #311 already found once that a key nobody derived is a key
-      // the wipe reports success without taking.
-      .flatMap((channel) => [
-        channelStorageKey(channel),
-        channelCountersStorageKey(channel),
-      ])
+      // Every key the channel claims, asked of the module that builds them
+      // (#220) rather than named here: its records, and the counters that
+      // outlive them (ADR-0092 §9). A permanent counter is the part of a
+      // Facet's data that most needs to go, and it is the one part no cap, no
+      // budget and no redaction would ever have taken. Asked rather than
+      // enumerated, because #311 already found once that a key nobody derived
+      // is a key the wipe reports success without taking — and a fifth key
+      // shape is then this wipe's the day it is added.
+      .flatMap((channel) => channelKeys(channel.name))
   );
   try {
     if (typeof localStorage === "undefined") return [];
@@ -100,7 +96,7 @@ export function facetStorageKeys(facetId: FacetId): string[] {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key === null) continue;
-      if (prefixes.some((p) => key.startsWith(p)) || channelKeys.has(key)) {
+      if (prefixes.some((p) => key.startsWith(p)) || logKeys.has(key)) {
         keys.push(key);
       }
     }

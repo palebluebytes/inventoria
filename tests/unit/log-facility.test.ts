@@ -10,6 +10,12 @@ import {
   freshModuleWithStorage,
   stubNoLocalStorage,
 } from "./support/local-storage";
+import {
+  channelKeys,
+  heldKeys,
+  keyCollision,
+  RESERVED_KEYS,
+} from "../../src/lib/logs/log-keyspace";
 
 /** One of this repo's own modules, read as text for a claim about its source. */
 const readCode = (path: string) =>
@@ -122,6 +128,34 @@ describe("declaring a channel", () => {
     const facility = await freshModule(loadFacility);
     expect(() => declareNotes(facility, "notes", 0)).toThrow(/cap/i);
   });
+
+  it("refuses a channel that would claim another channel's counter key", async () => {
+    // The live half of the hazard `LS_PAUSED_KEY` was renamed for: the counters
+    // suffix is INSIDE the channel keyspace, so `<x>_counters` claims `<x>`'s
+    // counter key and the duplicate-name guard sees two different names.
+    const facility = await freshModule(loadFacility);
+    declareNotes(facility, "notes");
+    expect(() => declareNotes(facility, "notes_counters")).toThrow(
+      /inventoria_log_notes_counters/
+    );
+  });
+
+  it("refuses it the other way round too, whichever arrived first", async () => {
+    // The collision is between two key SETS, so it does not depend on which
+    // channel was declared first — a positional or one-directional test would
+    // pass with half the guard missing.
+    const facility = await freshModule(loadFacility);
+    declareNotes(facility, "notes_counters");
+    expect(() => declareNotes(facility, "notes")).toThrow(
+      /inventoria_log_notes_counters/
+    );
+  });
+
+  it("names the channel the key already belongs to", async () => {
+    const facility = await freshModule(loadFacility);
+    declareNotes(facility, "notes");
+    expect(() => declareNotes(facility, "notes_counters")).toThrow(/"notes"/);
+  });
 });
 
 describe("storage", () => {
@@ -179,6 +213,121 @@ describe("storage", () => {
     ls.store.set("inventoria_log_notes", "{ not json");
 
     expect(facility.readChannel(channel)).toEqual([]);
+  });
+});
+
+describe("the keyspace one module owns (#220)", () => {
+  // Every log `localStorage` key is built in `log-keyspace.ts` and nowhere
+  // else, so the collision guard is derived from the key list rather than from
+  // the collisions anybody enumerated. These are that module's own claims; the
+  // guard's effect on a declaration is in "declaring a channel" above.
+
+  it("names both keys a channel claims, whether or not it has written one", () => {
+    // Claimed, not occupied: a channel that declares no counters still claims
+    // its counters key, because it may declare some tomorrow.
+    expect(channelKeys("notes")).toEqual([
+      "inventoria_log_notes",
+      "inventoria_log_notes_counters",
+    ]);
+  });
+
+  it("holds keys for itself that no channel name can reach", () => {
+    // Exhaustive rather than illustrative. A name that claims key K is either
+    // K minus the prefix or K minus the prefix and the counters suffix, and
+    // both are substrings of K — so trying every substring of every reserved
+    // key tries every name that could possibly collide with one.
+    //
+    // They all miss by the single character between `logs_` and `log_`, which
+    // is why a channel named `paused` works and why the pause key had to be
+    // renamed once already.
+    expect(RESERVED_KEYS.length).toBeGreaterThan(0);
+    for (const { key } of RESERVED_KEYS)
+      for (let from = 0; from < key.length; from++)
+        for (let to = from + 1; to <= key.length; to++)
+          expect(keyCollision(key.slice(from, to), heldKeys([]))).toBeNull();
+  });
+
+  it("refuses a name that would claim a key the facility holds for itself", () => {
+    // Driven through a held key that IS inside the channel keyspace, because
+    // the two real ones sit outside it and no name reaches them. The arm is
+    // exercised rather than merely present.
+    expect(
+      keyCollision("paused", [
+        { key: "inventoria_log_paused", heldBy: "something else" },
+      ])
+    ).toEqual({ key: "inventoria_log_paused", heldBy: "something else" });
+  });
+
+  it("leaves a name whose keys nobody holds alone", () => {
+    expect(keyCollision("notes", heldKeys(["search", "app"]))).toBeNull();
+  });
+
+  it("reads back a jar written in today's stored shape", async () => {
+    // The migration claim: every one of the four shapes is seeded as the
+    // shipped code writes it, and every one is read back through the seam that
+    // replaced the four private functions. Anything that widened the stored
+    // shape would make these records read as malformed and vanish on the next
+    // write.
+    const [facility, ls] = await freshModuleWithStorage(loadFacility, {
+      seed: {
+        inventoria_log_notes: JSON.stringify([
+          stored({ text: "one" }),
+          stored({ text: "two" }, 1, 13),
+        ]),
+        inventoria_log_notes_counters: JSON.stringify({
+          counts: { kept: 7, lost: 2 },
+          since: 1_700_000_000_000,
+        }),
+        inventoria_logs_paused: JSON.stringify(["elsewhere"]),
+        inventoria_logs_level: "13",
+      },
+    });
+    const notes = declareTallied(facility, "notes");
+
+    expect(facility.readChannel(notes)).toEqual([
+      { text: "one" },
+      { text: "two" },
+    ]);
+    expect(facility.channelCounters(notes, 0)).toEqual({
+      counts: { kept: 7, lost: 2 },
+      since: 1_700_000_000_000,
+    });
+    expect(facility.isChannelRecording(notes)).toBe(true);
+    expect(facility.dialPosition()).toBe(13);
+    // Nothing was rewritten by reading it.
+    expect([...ls.store.keys()].sort()).toEqual([
+      "inventoria_log_notes",
+      "inventoria_log_notes_counters",
+      "inventoria_logs_level",
+      "inventoria_logs_paused",
+    ]);
+  });
+
+  it("keeps seeded counters whole while the budget sheds the entries beside them", async () => {
+    // ADR-0092 §9's shed-last promise, over a jar that already held both: the
+    // records key is rewritten by the shed and the counters key is never
+    // weighed, never shed, and never touched.
+    const [facility, ls] = await freshModuleWithStorage(loadFacility, {
+      seed: {
+        inventoria_log_notes_counters: JSON.stringify({
+          counts: { kept: 41, lost: 0 },
+          since: 1_700_000_000_000,
+        }),
+      },
+    });
+    const notes = declareTallied(facility, "notes", 500);
+    const bulky = "x".repeat(100_000);
+    for (let i = 0; i < 4; i++)
+      facility.appendToChannel(notes, { text: `${i}${bulky}` }, INFO);
+
+    expect(facility.readChannel(notes).length).toBeLessThan(4);
+    expect(facility.channelCounters(notes, 0)).toEqual({
+      counts: { kept: 45, lost: 0 },
+      since: 1_700_000_000_000,
+    });
+    expect(
+      JSON.parse(ls.store.get("inventoria_log_notes_counters")!).since
+    ).toBe(1_700_000_000_000);
   });
 });
 
