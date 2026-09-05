@@ -9,11 +9,13 @@ import {
   QUERY_MAX_CHARS,
   type SearchLogEntry,
 } from "../../src/lib/logs/search-log";
+import type { ScanLogEntry } from "../../src/lib/logs/scan-log";
 // A channel registers by import side effect (#221), so `registeredChannels`
 // sees only what has been imported. Every module that declares one belongs in
 // this list, and the roster assertion below is what says so out loud when one is
 // missing.
 import "../../src/lib/logs/search-log";
+import "../../src/lib/logs/scan-log";
 
 /**
  * ADR-0092 §8's invariant, as the unit test that record says it must be:
@@ -137,6 +139,31 @@ function worstSearchRecord(): SearchLogEntry {
   };
 }
 
+// ── `scan` (ADR-0071, ADR-0092 §5.2) ──────────────────────────────────
+
+/**
+ * The dearest `scan` record its own entry type admits: the longest member of
+ * each of the three enums, and a thirteen-digit clock.
+ *
+ * **This channel is the one the sum can be exact about**, because every field
+ * but `at` is a closed vocabulary — there is no string a user can lengthen and
+ * no array anybody can grow, which is exactly the property ADR-0071 §4 was
+ * written for and the reason §8.1's figure for it is a bound rather than a
+ * model. A field added to §3 stops this compiling.
+ *
+ * `settled: true` beside a door is the maximum, not `false`: `false` costs one
+ * byte more, and it cannot co-occur with a door, which costs six.
+ */
+function worstScanRecord(): ScanLogEntry {
+  return {
+    outcome: "unreachable",
+    attempt: "gate_skipped",
+    door: "unreadable",
+    settled: true,
+    at: 1_757_000_000_000,
+  };
+}
+
 /**
  * One budget per channel, by channel name.
  *
@@ -146,6 +173,10 @@ function worstSearchRecord(): SearchLogEntry {
  */
 const BUDGETS: Record<string, ChannelBudget> = {
   search: { worstCase: worstSearchRecord, tabulated: 785 },
+  // 129, not §8.1's 124: that figure was a projection made before the shape
+  // existed, and this is the built record weighed. The Amendment of 2026-09-05
+  // at the foot of ADR-0092 carries the correction and the new total.
+  scan: { worstCase: worstScanRecord, tabulated: 129 },
 };
 
 /**
@@ -242,5 +273,10 @@ describe("the log facility's budget invariant (ADR-0092 §8)", () => {
     // with it.
     const search = registeredChannels().find((c) => c.name === "search");
     expect(search?.cap).toBe(200);
+    // ADR-0071 §5's counters are what carry `scan`'s rates, so its 200 is a
+    // recency window rather than a denominator — but §8.1 prices it at 200 and
+    // the sum moves with whatever the declaration says.
+    const scan = registeredChannels().find((c) => c.name === "scan");
+    expect(scan?.cap).toBe(200);
   });
 });

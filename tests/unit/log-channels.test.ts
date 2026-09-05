@@ -55,6 +55,7 @@ describe("the roster registers every channel by itself", () => {
     // imports nothing at all. Adding a channel is meant to edit this line.
     expect(facility.registeredChannels().map((c) => c.name)).toEqual([
       "search",
+      "scan",
     ]);
   });
 

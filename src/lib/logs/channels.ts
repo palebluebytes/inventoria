@@ -42,9 +42,13 @@ import {
   channelsOfFacet as registeredChannelsOfFacet,
   type LogChannel,
 } from "./log-facility";
+// In the roster's own order, not alphabetically: registration is an import
+// side effect, so these three lines and the array below are one statement made
+// three times, and `log-channels.test.ts` fails the moment they disagree.
 import { SEARCH_CHANNEL } from "./search-log";
+import { SCAN_CHANNEL } from "./scan-log";
 
-export { SEARCH_CHANNEL };
+export { SEARCH_CHANNEL, SCAN_CHANNEL };
 
 /**
  * Every channel, in the order a review and an export present them.
@@ -56,7 +60,10 @@ export { SEARCH_CHANNEL };
  * the other. An order that depends on that is the incidental order #221 is
  * about, one file further along.
  */
-export const LOG_CHANNELS: readonly LogChannel<unknown>[] = [SEARCH_CHANNEL];
+export const LOG_CHANNELS: readonly LogChannel<unknown>[] = [
+  SEARCH_CHANNEL,
+  SCAN_CHANNEL,
+];
 
 /**
  * The channels one Facet carries, in the roster's order.
