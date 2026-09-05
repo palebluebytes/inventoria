@@ -9,6 +9,7 @@
   import NutritionTargetEditor from "./NutritionTargetEditor.svelte";
   import FoodDataSection from "./FoodDataSection.svelte";
   import LogSettingsSection from "../logs/LogSettingsSection.svelte";
+  import ScanReport from "../logs/ScanReport.svelte";
   import { facetOf } from "../../facets/registry";
 
   // **Rations settings** (ADR-0080 §7): the one named, full-height surface the
@@ -229,6 +230,15 @@
        button each, which is the launcher ADR-0076 refuses and would need a
        second enumeration of Facets. -->
   <FoodDataSection {dbReady} />
+
+  <!-- What the barcode scan has been doing (ADR-0071 §6). Rations' surface and
+       not the root's, because the reading belongs to the domain that writes the
+       channel — the same clause (b) that puts the log card's export switch here
+       — and because a standing readout of one Facet's instrument on the jar's
+       own Settings screen is the shape ADR-0080 §6 deleted. It sits directly
+       above the log card the channel is listed in, so its Clear is one card
+       away from the numbers it zeroes. -->
+  <ScanReport />
 
   <!-- Local logs, Rations' own (ADR-0080 §2). The same card the root draws,
        narrowed to the channels food's domain writes and switched by Rations'
