@@ -46,6 +46,7 @@ import {
   storagePrefixesOf,
   type FacetId,
 } from "./registry";
+import { appError } from "../logs/app-log";
 
 /**
  * The census groups the confirmation asks for: one per Tracked Domain.
@@ -258,7 +259,7 @@ export async function runFacetWipe(
   try {
     await seams.reclaimSpace();
   } catch (error) {
-    console.error("The wipe could not reclaim the space it freed", error);
+    appError("The wipe could not reclaim the space it freed", error);
     reclaimed = false;
   }
 

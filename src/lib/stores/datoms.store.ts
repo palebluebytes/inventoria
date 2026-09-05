@@ -1,5 +1,6 @@
 import { readable, writable, type Readable } from "svelte/store";
 import { dbClient } from "../db/db.client";
+import { appError } from "../logs/app-log";
 
 /**
  * How far a ledger store has got with its first load.
@@ -117,6 +118,6 @@ export function createProjectionStore<T>(
   return createLedgerStore<T>(
     () => dbClient.project<T>(pipeline, params),
     initialValue,
-    (err) => console.error(`Projection error for pipeline ${pipeline}:`, err)
+    (err) => appError(`Projection error for pipeline ${pipeline}`, err)
   );
 }

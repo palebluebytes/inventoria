@@ -1,4 +1,10 @@
 import DBWorker from "./db.worker?worker";
+import {
+  storageModeIsDegraded,
+  storageModeMessage,
+  type StorageMode,
+} from "./storage-mode";
+import { appDebug, appWarn } from "../logs/app-log";
 import type {
   Datom,
   EntityCensus,
@@ -35,14 +41,14 @@ export class DBClient {
    * Initializes the SQLite Worker and sets up the OPFS database file.
    */
   async init(dbPath: string = "/inventoria.db"): Promise<void> {
-    console.log("dbClient: init() started for path", dbPath);
+    appDebug(`dbClient: init() started for path ${dbPath}`);
     if (this.initialized) {
-      console.log("dbClient: already initialized");
+      appDebug("dbClient: already initialized");
       return;
     }
 
     // Instantiate worker using Vite's ?worker import syntax
-    console.log("dbClient: instantiating DBWorker...");
+    appDebug("dbClient: instantiating DBWorker...");
     this.worker = new DBWorker();
 
     this.worker.onmessage = (event: MessageEvent) => {
@@ -84,9 +90,25 @@ export class DBClient {
       new URLSearchParams(window.location.search).get("mem") === "1";
 
     // Trigger initialization inside the worker
-    console.log("dbClient: sending init request to worker");
-    await this.send("init", { dbPath, forceMemory });
-    console.log("dbClient: worker finished initialization");
+    appDebug("dbClient: sending init request to worker");
+    const opened = await this.send<{ storage: StorageMode | null }>("init", {
+      dbPath,
+      forceMemory,
+    });
+    appDebug("dbClient: worker finished initialization");
+
+    // The Worker cannot reach the log facility (no `localStorage` there), so
+    // the one fact worth keeping from its eight console lines rides back on the
+    // reply and is recorded here. WARN when the database is in memory, because
+    // nothing recorded survives the tab; DEBUG when it is on OPFS, because
+    // absence of a warning is not evidence that it persisted (ADR-0092 §5.3, as
+    // amended 2026-09-05).
+    const storage = opened?.storage ?? null;
+    if (storage !== null) {
+      const said = `dbClient: ${storageModeMessage(storage)}`;
+      if (storageModeIsDegraded(storage)) appWarn(said);
+      else appDebug(said);
+    }
   }
 
   /**

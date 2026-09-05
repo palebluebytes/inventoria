@@ -25,6 +25,7 @@
     type LedgerImportPhase,
   } from "../../db/ledger-import";
   import { fileChunks, LEDGER_IMPORT_ACCEPT } from "./import-source";
+  import { appError } from "../../logs/app-log";
 
   let {
     dbReady,
@@ -109,7 +110,7 @@
         // serialised datom — a label photo, or a `gtin:` entity id — which is
         // neither readable nor something to put on a screen.
         message = `${describeImportFailure(err)}${written}`;
-        console.error("Ledger import failed", err);
+        appError("Ledger import failed", err);
       }
     }
   }

@@ -35,6 +35,7 @@ import {
   type NoteView,
 } from "../notes/loro-doc";
 import type { VersionVector } from "loro-crdt";
+import { appError } from "../logs/app-log";
 
 // The only prefix with a fixed, single entity behind it. It still routes
 // through the chokepoint, so the registry accounts for it like any other
@@ -74,7 +75,7 @@ class NotesStore {
         importUpdateBase64(this.#doc, base64);
       }
     } catch (err) {
-      console.error("notes: failed to replay op-log", err);
+      appError("notes: failed to replay op-log", err);
     }
 
     this.#persisted_version = this.#doc.oplogVersion();
@@ -166,7 +167,7 @@ class NotesStore {
       // Only advance the watermark once the delta is durably appended.
       this.#persisted_version = this.#doc.oplogVersion();
     } catch (err) {
-      console.error("notes: failed to persist op-log delta", err);
+      appError("notes: failed to persist op-log delta", err);
     }
   }
 }

@@ -16,6 +16,7 @@ import {
   type LedgerDb,
 } from "./db.core";
 import { createHlc, type Hlc } from "./hlc";
+import type { StorageMode } from "./storage-mode";
 
 let db: LedgerDb | null = null;
 let hlc: Hlc | null = null;
@@ -23,6 +24,19 @@ let hlc: Hlc | null = null;
 // stable for the life of the database file.
 let device_id: string | null = null;
 let initialized = false;
+/**
+ * Which store the database opened on, carried back on the init reply.
+ *
+ * This is the one fact worth keeping from this file's eight `console.*` lines,
+ * and it is the one line ADR-0092 §5.3 calls the most consequential in the
+ * whole population: an in-memory database means nothing the user records
+ * survives the tab. None of those lines can reach the log facility — this is a
+ * Worker and the facility is `localStorage` end to end — so the fact crosses
+ * on the reply and `db.client.ts` records it on the main thread. A
+ * worker-to-main logging bridge was refused: it is a second transport for
+ * records, which is a larger thing than one field.
+ */
+let storage: StorageMode | null = null;
 
 // Gate that opens once `init` has finished (whether it succeeded or threw).
 // Non-init messages await it before touching the database. The client posts
@@ -49,7 +63,7 @@ self.onmessage = async (event: MessageEvent) => {
     if (type === "init") {
       if (initialized) {
         console.log("worker: already initialized, responding ok");
-        self.postMessage({ id, status: "ok" });
+        self.postMessage({ id, status: "ok", data: { storage } });
         return;
       }
 
@@ -70,9 +84,11 @@ self.onmessage = async (event: MessageEvent) => {
             ? "worker: forceMemory set — using an in-memory database."
             : "worker: OPFS is not supported in this browser environment. Falling back to in-memory database."
         );
+        storage = forceMemory ? "forced-memory" : "memory";
         db = new (sqlite3 as any).oo1.DB() as LedgerDb;
         console.log("worker: in-memory db opened successfully");
       } else {
+        storage = "opfs";
         console.log("worker: opfs is supported. opening db...");
         db = new (sqlite3 as any).oo1.OpfsDb(dbPath) as LedgerDb;
         console.log("worker: db opened successfully");
@@ -88,7 +104,7 @@ self.onmessage = async (event: MessageEvent) => {
       console.log("worker: table and indices initialized");
       initialized = true;
       console.log("worker: sending status ok response for init");
-      self.postMessage({ id, status: "ok" });
+      self.postMessage({ id, status: "ok", data: { storage } });
       resolveReady();
     } else if (type === "query") {
       if (!db) {

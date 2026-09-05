@@ -26,6 +26,7 @@ import "@fontsource-variable/source-serif-4";
 import "@fontsource-variable/source-serif-4/wght-italic.css";
 import "./app.css";
 import type { Facet } from "./lib/facets/registry";
+import { appWarn } from "./lib/logs/app-log";
 
 /**
  * Mount a Facet's shell into the page its entry point was served as.
@@ -47,7 +48,7 @@ export function mountFacet(facet: Facet, shell: Component<{ facet: Facet }>) {
   // than by the Worker script (#312). Surface a clear warning if the deployed
   // host failed to apply them so the degraded state isn't silent.
   if (typeof crossOriginIsolated !== "undefined" && !crossOriginIsolated) {
-    console.warn(
+    appWarn(
       `[${facet.name}] Not cross-origin isolated: COOP/COEP headers are ` +
         "missing, so SharedArrayBuffer is unavailable and SQLite/OPFS may run " +
         "degraded. Verify the production host serves the headers in " +

@@ -30,6 +30,7 @@ import {
   quantityLabel,
   type RecipeIngredient,
 } from "../food/recipe-ingredient";
+import { appError } from "../logs/app-log";
 
 export type { ConsumptionEvent };
 
@@ -307,7 +308,7 @@ export async function copyPastMeal(
       );
       copied += 1;
     } catch (e) {
-      console.error("copying a logged food failed", e);
+      appError("copying a logged food failed", e);
       lost += 1;
     }
   }
@@ -731,7 +732,7 @@ export async function moveLoggedFoodsToMeal(
   try {
     await dbClient.append(datoms);
   } catch (e) {
-    console.error("moving the selection failed", e);
+    appError("moving the selection failed", e);
     // Nothing was written, so only the foods that were already there are at the
     // destination — they were never part of the write.
     return { moved: settled, failed: moving.length };
