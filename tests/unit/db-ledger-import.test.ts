@@ -169,6 +169,44 @@ describe("appending rows that arrived with their own stamps", () => {
     expect(countDatoms(db)).toBe(0);
   });
 
+  // #227. The refusal used to serialise the row's entity id, which on the scan
+  // path is `gtin:<barcode>` — the identifier ADR-0071 §4 forbids by name — and
+  // the import screen renders a failure's message.
+  it("names the field and the row's place in the batch, and reproduces neither", () => {
+    const photo = `"data:image/jpeg;base64,${"A".repeat(200_000)}"`;
+    const good = {
+      entity: "habit:9",
+      attribute: "habit/name",
+      value: '"Stretch"',
+      time: 40,
+      hlc_ms: 55,
+      hlc_ctr: 3,
+      device_id: "device_b",
+    };
+    const bad = {
+      ...good,
+      entity: "gtin:5000159407236",
+      value: photo,
+      hlc_ms: -1,
+    };
+
+    let said = "";
+    try {
+      importLedgerRows(db, [good, bad]);
+    } catch (err) {
+      said = (err as Error).message;
+    }
+
+    expect(said).toContain("Invalid ledger row");
+    expect(said).toContain('"hlc_ms"');
+    expect(said).toContain("row 2 of the 2");
+    expect(said).not.toContain("gtin:");
+    expect(said).not.toContain("5000159407236");
+    expect(said).not.toContain("base64");
+    expect(said.length).toBeLessThan(200);
+    expect(countDatoms(db)).toBe(0);
+  });
+
   it("writes nothing and reports nothing for an empty batch", () => {
     expect(importLedgerRows(db, [])).toEqual({ rowsAdded: 0, highWater: null });
   });

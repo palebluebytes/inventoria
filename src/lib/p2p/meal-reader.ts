@@ -32,6 +32,7 @@
  */
 
 import { describeBytes } from "../storage/describe-bytes";
+import { describeMarker } from "../db/describe-value";
 import type { LedgerRow } from "../db/db.core";
 import {
   LedgerImportRefusedError,
@@ -304,7 +305,10 @@ function readMealEnvelope(line: string): MealPayloadEnvelope {
   // reader guessing.
   if (raw.artifact !== MEAL_PAYLOAD_ARTIFACT) {
     throw new MealPayloadRefusedError(
-      `this is not an Inventoria meal. Line one says "artifact" is ${JSON.stringify(raw.artifact)}, and a meal says ${JSON.stringify(MEAL_PAYLOAD_ARTIFACT)}.`
+      // Quoted back only while it is marker-sized (#227). This payload came off
+      // the relay from another device, so line one is text of any length, and
+      // the receive door renders this refusal.
+      `this is not an Inventoria meal. Line one says "artifact" is ${describeMarker(raw.artifact)}, and a meal says ${JSON.stringify(MEAL_PAYLOAD_ARTIFACT)}.`
     );
   }
 

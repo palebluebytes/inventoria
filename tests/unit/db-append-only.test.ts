@@ -133,6 +133,37 @@ describe("ledger append-only invariant", () => {
     expect(rows()).toHaveLength(0);
   });
 
+  // #227. The refusal used to `JSON.stringify` the whole datom into its
+  // message, and the import puts a failure's message straight on screen — so a
+  // malformed row rendered a label photo, and a `gtin:` entity id the scan
+  // channel is forbidden to keep (ADR-0071 §4).
+  it("names the field and the datom's place, and reproduces neither the value nor the entity id", () => {
+    const photo = `data:image/jpeg;base64,${"A".repeat(200_000)}`;
+
+    let said = "";
+    try {
+      appendDatoms(
+        db,
+        [
+          datom(),
+          datom({ entity: "gtin:5000159407236", value: photo, time: 0 }),
+        ],
+        clock
+      );
+    } catch (err) {
+      said = (err as Error).message;
+    }
+
+    expect(said).toContain("Invalid datom structure");
+    expect(said).toContain('"time"');
+    expect(said).toContain("datom 2 of the 2");
+    expect(said).not.toContain("gtin:");
+    expect(said).not.toContain("5000159407236");
+    expect(said).not.toContain("base64");
+    expect(said.length).toBeLessThan(200);
+    expect(rows()).toHaveLength(0);
+  });
+
   it("resetLedgerSchema clears all rows", () => {
     wall = 1000;
     appendDatoms(db, [datom()], clock);

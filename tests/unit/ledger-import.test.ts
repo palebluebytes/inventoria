@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
+  describeImportFailure,
+  IMPORT_FAILURE_MAX_CHARS,
   importLedger,
   LedgerImportRefusedError,
   linesOf,
@@ -43,6 +45,32 @@ describe("the envelope on line one", () => {
     expect(() => readImportEnvelope('{"artifact":"something-else"}')).toThrow(
       /not an Inventoria ledger export/
     );
+  });
+
+  // #227. Line one belongs to whatever file the user picked, so its "artifact"
+  // is untrusted text of any length, and the refusal is rendered on the import
+  // screen. A marker is named while it is marker-sized, because naming it is
+  // what tells a meal payload apart from another program's file.
+  it("names a marker-sized artifact so the refusal can be acted on", () => {
+    expect(() => readImportEnvelope('{"artifact":"something-else"}')).toThrow(
+      /"something-else"/
+    );
+  });
+
+  it("describes an artifact too long to be a marker instead of quoting it", () => {
+    const shouting = JSON.stringify({ artifact: "N".repeat(200_000) });
+
+    let said = "";
+    try {
+      readImportEnvelope(shouting);
+    } catch (err) {
+      said = (err as Error).message;
+    }
+
+    expect(said).toContain("not an Inventoria ledger export");
+    expect(said).toContain("text of 200000 characters");
+    expect(said).not.toContain("NNN");
+    expect(said.length).toBeLessThan(200);
   });
 
   it("refuses a schema version it does not recognise, naming both", () => {
@@ -289,5 +317,41 @@ describe("importing a file the export wrote", () => {
 
     expect(result.rowsRead).toBe(3);
     expect(result.envelope.row_count).toBe(1);
+  });
+});
+
+// #227. The import screen used to render `err.message` whole, which is fine for
+// the refusals above — every one of them is built in this module and says
+// nothing a row said — and not fine for everything else that reaches the catch:
+// SQLite, the file picker, the platform. This is the backstop for those.
+describe("the sentence the screen shows when an import fails", () => {
+  it("repeats a short failure as it was written", () => {
+    const said = describeImportFailure(new Error("The disk is full."));
+
+    expect(said).toBe("The disk is full.");
+  });
+
+  it("cuts a failure that goes on, and shows that it was cut", () => {
+    const said = describeImportFailure(new Error("z".repeat(50_000)));
+
+    expect(said.length).toBe(IMPORT_FAILURE_MAX_CHARS + 1);
+    expect(said.endsWith("…")).toBe(true);
+  });
+
+  // A plain object stringifies to "[object Object]", which is already short —
+  // so the thing thrown here is one whose own words are the long ones.
+  it("bounds something thrown that was never an Error", () => {
+    const said = describeImportFailure({
+      toString: () => "y".repeat(50_000),
+    });
+
+    expect(said.length).toBe(IMPORT_FAILURE_MAX_CHARS + 1);
+    expect(said.endsWith("…")).toBe(true);
+  });
+
+  it("says something when the failure said nothing", () => {
+    expect(describeImportFailure(new Error(""))).toBe(
+      "The import failed, and the failure did not say why."
+    );
   });
 });

@@ -68,8 +68,12 @@ export async function runTestStep(): Promise<TestState> {
       const row = rows[0];
       const parsedValue = JSON.parse(row.value);
       if (parsedValue !== state.value) {
+        // Neither side is named (#227). Both are read off `datoms`, and no
+        // throw under `src/lib/db/` puts a datom's value in a message — the
+        // token this compares is a random one the harness minted, so saying
+        // which two differ adds nothing to "they differ".
         throw new Error(
-          `Value mismatch: expected ${state.value}, got ${parsedValue}`
+          "Value mismatch: the datom read back is not the one that was written"
         );
       }
 
