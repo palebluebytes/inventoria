@@ -3,7 +3,7 @@ import { render } from "svelte/server";
 import { createRawSnippet } from "svelte";
 import { readFileSync } from "node:fs";
 import { attr, elementsOf, trackedSvelteFiles } from "./support/markup";
-import { appSheet, rulesOf, styleOf } from "./support/stylesheet";
+import { appSheet, decl, ruleOf, rulesOf, styleOf } from "./support/stylesheet";
 import Button from "../../src/lib/ui/Button.svelte";
 import Card from "../../src/lib/ui/Card.svelte";
 import Badge from "../../src/lib/ui/Badge.svelte";
@@ -12,6 +12,7 @@ import Checkbox from "../../src/lib/ui/Checkbox.svelte";
 import Row from "../../src/lib/ui/Row.svelte";
 import Input from "../../src/lib/ui/Input.svelte";
 import Textarea from "../../src/lib/ui/Textarea.svelte";
+import Select from "../../src/lib/ui/Select.svelte";
 
 // These render the primitives through Svelte's SSR path (no DOM needed) and
 // assert on the emitted HTML. They pin the three things #77 makes contractual:
@@ -482,6 +483,143 @@ describe("the retro-* field family", () => {
 
   it("leaves one `retro-*` rule defined, so nothing is styled by a ghost", () => {
     expect(defined).toEqual([".retro-select"]);
+  });
+});
+
+describe("Select", () => {
+  const STATUS = [
+    { value: "wanted", label: "Wanted" },
+    { value: "owned", label: "Owned" },
+  ];
+
+  it("renders a native <select> wearing the base class, inside its wrapper", () => {
+    const { body } = render(Select, { props: { options: STATUS } });
+    expect(body).toMatch(/<div[^>]*class="select-wrapper/);
+    expect(body).toMatch(/<select[^>]*class="select[\s"]/);
+  });
+
+  it("draws one <option> per entry of the list, in the order given", () => {
+    // The interior is data, not a snippet (#362): a `children` hands the
+    // options back to the call site, which is where the copies came from.
+    const { body } = render(Select, { props: { options: STATUS } });
+    expect(
+      [...body.matchAll(/<option[^>]*>([^<]*)<\/option>/g)].map((m) => m[1])
+    ).toEqual(["Wanted", "Owned"]);
+  });
+
+  it("marks the bound value as the selected option", () => {
+    const { body } = render(Select, {
+      props: { options: STATUS, value: "owned" },
+    });
+    expect(body).toMatch(/<option[^>]*value="owned"[^>]*\sselected/);
+    expect(body).not.toMatch(/<option[^>]*value="wanted"[^>]*\sselected/);
+  });
+
+  it("carries a non-string value through, because the value is generic", () => {
+    // The rating field binds `number | undefined` against a `No Rating`
+    // option. Uncast on purpose: this typechecks only through the generic, so
+    // a regression fails to compile rather than passing the file written to
+    // prove it.
+    const { body } = render(Select, {
+      props: {
+        options: [
+          { value: undefined, label: "No Rating" },
+          { value: 3, label: "3" },
+        ],
+        value: 3,
+      },
+    });
+    expect(body).toMatch(/<option[^>]*value="3"[^>]*\sselected/);
+  });
+
+  it("takes no children, so an interior can only arrive as options", () => {
+    // `children` is `Omit`ed from the spread type as well as absent from the
+    // modelled props, which is the half a reader cannot see in the template.
+    expect(readFileSync("src/lib/ui/Select.svelte", "utf8")).not.toMatch(
+      /@render children/
+    );
+  });
+
+  it("honours id and disabled on the control itself", () => {
+    // `id` is modelled rather than spread because the caller keeps its own
+    // `<label for>` — and because two e2e specs drive `#manual-status`.
+    const { body } = render(Select, {
+      props: { options: STATUS, id: "manual-status", disabled: true },
+    });
+    expect(body).toMatch(/<select[^>]*id="manual-status"/);
+    expect(body).toMatch(/<select[^>]*\sdisabled\b/);
+  });
+
+  it("leaves the control enabled by default", () => {
+    const { body } = render(Select, { props: { options: STATUS } });
+    expect(body).not.toMatch(/<select[^>]*\sdisabled\b/);
+  });
+
+  it("spreads ...rest platform and a11y attributes onto the <select>", () => {
+    const { body } = render(Select, {
+      props: {
+        options: STATUS,
+        name: "status",
+        required: true,
+        "aria-label": "Initial status",
+        "data-testid": "status-select",
+      } as Record<string, unknown>,
+    });
+    expect(body).toMatch(/<select[^>]*name="status"/);
+    expect(body).toMatch(/<select[^>]*\srequired\b/);
+    expect(body).toMatch(/<select[^>]*aria-label="Initial status"/);
+    expect(body).toMatch(/<select[^>]*data-testid="status-select"/);
+  });
+
+  it("keeps ...rest and class on separate elements, and off each other", () => {
+    // Same two-element contract `ui/Input` states at length: `class` is
+    // destructured out by name, so `rest` structurally cannot carry one, and
+    // the division of labour is the checkable part — the caller's class goes
+    // to the **wrapper**, `...rest` to the **field**, and neither crosses. An
+    // a11y attribute landing on the wrapper would be invisible to
+    // `page.locator("#id")` and to a screen reader, and nothing about the
+    // rendered look would say so.
+    const { body } = render(Select, {
+      props: {
+        options: STATUS,
+        class: "status-field",
+        "aria-label": "Status",
+      } as Record<string, unknown>,
+    });
+
+    expect(body).toMatch(/<div[^>]*class="select-wrapper status-field/);
+    expect(body).not.toMatch(/<div[^>]*aria-label/);
+
+    expect(body).toMatch(/<select[^>]*class="select[\s"]/);
+    expect(body).toMatch(/<select[^>]*aria-label="Status"/);
+    expect(body).not.toMatch(/<select[^>]*status-field/);
+  });
+
+  it("draws its own mark, inert to the pointer, over the control", () => {
+    // `appearance: none` removes the UA's arrow, so this primitive owes one.
+    // It is knowingly the third copy of the triangle `DailyDashboard` and
+    // `RecipeBuilder` draw, and #317 owns the extraction — the comment beside
+    // it says so, and this asserts the two facts that make the mark usable:
+    // it is drawn rather than typed, and it cannot swallow a tap.
+    const { body } = render(Select, { props: { options: STATUS } });
+    expect(body).toMatch(/<svg[^>]*class="select-mark[\s"]/);
+    expect(body).toContain("M7 6 L17 12 L7 18 Z");
+
+    expect(
+      decl(ruleOf("src/lib/ui/Select.svelte", ".select"), "appearance")
+    ).toBe("none");
+    expect(
+      decl(ruleOf("src/lib/ui/Select.svelte", ".select-mark"), "pointer-events")
+    ).toBe("none");
+  });
+
+  it("declares the tap floor rather than arriving at it by arithmetic", () => {
+    // The box it replaced built to 49px on an inherited line-height and 43.6
+    // under a UA's `normal` (#338, ADR-0093). A declared floor holds under
+    // both readings.
+    expect(
+      decl(ruleOf("src/lib/ui/Select.svelte", ".select"), "min-height")
+    ).toBe("var(--tap-min)");
   });
 });
 
