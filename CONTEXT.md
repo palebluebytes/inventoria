@@ -305,10 +305,11 @@ _Avoid_: item/note (the Twin annotation field), memo, comment
 
 **Log facility**:
 The one module (`src/lib/logs/log-facility.ts`) that owns local diagnostic and
-instrumentation records: their storage, their caps, their retention, their redaction and
+instrumentation records: their caps, their retention, their redaction and
 the hand-export they leave by. Records are `localStorage` JSON under one namespaced key
 per Log channel, never datoms, because redaction has to delete and the ledger is
-append-only and syncs. It records **completely** and gates only on a Log level, and the
+append-only and syncs. Where those keys are and what they hold is the Log keyspace's,
+one module below it. It records **completely** and gates only on a Log level, and the
 whole of its protection sits at the export: it has no transport of any kind, so nothing
 it holds can leave the device except through a file the user exports after reading it,
 and the payload that leaves is the payload that was reviewed. See ADR-0092.
@@ -371,6 +372,19 @@ two reasons: a redaction that did not decrement, and a record the dial suppresse
 it was tallied. Cleared only when the channel is, and taken by a Facet-scoped wipe. See
 ADR-0092 §9.
 _Avoid_: Metric, gauge, statistic, tally
+
+**Log keyspace**:
+The `localStorage` keys the Log facility writes under, and the one module
+(`src/lib/logs/log-keyspace.ts`) that builds one or reads or writes under one. Four
+shapes: a Log channel's records (`inventoria_log_<name>`) and its Log counters
+(`inventoria_log_<name>_counters`), and the two the facility holds for itself, the
+per-channel recording pause and the dial — both a character outside the channel prefix,
+so no channel name reaches either. A channel **claims** every key its name derives,
+written or not, which is what a declaration is refused against and what a Facet-scoped
+wipe takes; the counters suffix sits inside the channel keyspace, so `<x>_counters`
+claims `<x>`'s counter key and is refused in either order of arrival. See ADR-0092 §9 and
+its Amendment of 2026-09-05.
+_Avoid_: Namespace (that is a Log channel), key prefix, storage schema
 
 **Search session**:
 One visit to the food search: it opens when the search field first goes non-empty and

@@ -2,8 +2,9 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-03  
-**Supersedes:** [ADR-0054](0054-one-local-log-facility-and-no-channel-without-a-reader.md), whose §1 chose channels *rather than* levels and whose §2 forbade a channel without a named reader and an open question  
+**Supersedes:** [ADR-0054](0054-one-local-log-facility-and-no-channel-without-a-reader.md), whose §1 chose channels _rather than_ levels and whose §2 forbade a channel without a named reader and an open question  
 **Amends:** [ADR-0053](0053-an-empty-food-search-is-recorded-locally-and-leaves-only-by-hand.md) §2 and §3 (every session is recorded, and the entry shape gains a level and a fire sequence), and [ADR-0071](0071-a-scan-session-is-recorded-locally-and-carries-no-barcode.md) §4, §5 and §6 (sensitivity is gone, the counters move here, and a view is no longer what makes a channel legal). Both keep their own records; see the Amendment appended to each  
+**Amended by:** the Amendment below, which gives §12 a fourth runtime throw — a channel whose derived `localStorage` keys are somebody else's — now that one module owns the keyspace those keys are built in  
 **Research:** [`docs/research/264-logging-record-and-dial.md`](../research/264-logging-record-and-dial.md), commissioned by [#264](https://github.com/palebluebytes/inventoria/issues/264) and cited throughout, including twice where it cut against the answer taken  
 **Wayfinder:** [#212](https://github.com/palebluebytes/inventoria/issues/212), whose tickets [#213](https://github.com/palebluebytes/inventoria/issues/213), [#214](https://github.com/palebluebytes/inventoria/issues/214), [#215](https://github.com/palebluebytes/inventoria/issues/215), [#262](https://github.com/palebluebytes/inventoria/issues/262), [#263](https://github.com/palebluebytes/inventoria/issues/263), [#264](https://github.com/palebluebytes/inventoria/issues/264) and [#284](https://github.com/palebluebytes/inventoria/issues/284) hold the detail this record gists
 
@@ -74,8 +75,8 @@ that writes it, and it is the unit the export consent is chosen over.
 
 ### Why the capture gate is a budget device and not a privacy one
 
-Levels were refused by ADR-0054 for one concrete reason: they "invite *log everything
-at debug and filter later*, which is the correct design for a server draining to a
+Levels were refused by ADR-0054 for one concrete reason: they "invite _log everything
+at debug and filter later_, which is the correct design for a server draining to a
 sink with a retention policy and the wrong one for a device with a 5 MB quota".
 
 That is exactly the practice adopted here, and it is adopted with the numbers in
@@ -129,7 +130,7 @@ Revisit if the facility leaves `localStorage`, or if a native shell arrives.
 **Privacy-preserving aggregation — DAP, Prio, Poplar, Divvi Up.** Structurally
 inapplicable rather than expensive: they need two or more non-colluding aggregation
 servers and a crowd to hide in. There is no server and there is one device, and at
-n=1 the aggregate *is* the individual.
+n=1 the aggregate _is_ the individual.
 
 **A remote sink, even an optional one.** Rejected permanently, as ADR-0054 §5
 rejected it, and §11 keeps it a rule about future changes rather than a description
@@ -158,9 +159,9 @@ them are hard blockers named in §13.
 ### 1. Every record carries a level; the channel is a namespace, not a gate
 
 This record **supersedes ADR-0054** whole, and the two clauses it reverses by name are
-§1's *"channels rather than levels. There are no severity levels"* and §2's *"a channel
+§1's _"channels rather than levels. There are no severity levels"_ and §2's _"a channel
 may not be added unless its `reader` names a real consumer and a decision that consumer
-will take"*.
+will take"_.
 
 A **level** is a whole number on the OpenTelemetry `SeverityNumber` scale, carried by
 every record, and it is the axis that decides **one** thing: whether the record is
@@ -185,8 +186,8 @@ fires; what changes is that firing it is not the end of the channel's life.
 ```ts
 interface LogChannel<E> {
   readonly name: string;
-  readonly domain: TrackedDomainId | null;         // §13
-  readonly purpose: string;                        // was `reader`
+  readonly domain: TrackedDomainId | null; // §13
+  readonly purpose: string; // was `reader`
   readonly cap: number;
   readonly counters?: readonly string[];
   readonly tally?: (entry: E) => readonly string[];
@@ -203,7 +204,7 @@ it, not because a string says so. This record therefore amends ADR-0071 §4, §5
 and the Amendment appended there says what each of them keeps.
 
 **`reader` is renamed `purpose`, and the field gets more load-bearing rather than
-less.** The word `reader` named *a consumer and the decision it takes*, which is
+less.** The word `reader` named _a consumer and the decision it takes_, which is
 precisely ADR-0054 §2's discipline, and it would be a lie on two of three channels. The
 prose stays, rendered verbatim in both views and carried into the export, because with
 §11's classification refused it is the only thing on the review sheet that says what a
@@ -230,9 +231,9 @@ file, or of the review sheet, can sort and scan by level **without parsing any r
 including the ones whose channel cannot. And one facility-stamped wrapper carrying both
 facility-owned fields is simpler than a wrapper for one and a convention for the other.
 
-*Two arguments this field once had are gone: §6 no longer sheds by level, and §10.1
+_Two arguments this field once had are gone: §6 no longer sheds by level, and §10.1
 withdrew the export filter. The three above are what remain, they are enough, and the
-field does not move — but a reader should know it is carried for less than it once was.*
+field does not move — but a reader should know it is carried for less than it once was._
 
 **A record written before `lvl` existed simply has no level.** It is retained, it appears
 in the review if its channel can parse it, it stays redactable and clearable, and it
@@ -256,13 +257,13 @@ it never has to. It would also be a second, partial structural description of th
 that has to stay in sync with both `parse` and the builder, and #215 already killed one
 duplicate of that kind.
 
-**The concrete killer is `search`.** The fire sequence accumulates *across* a session, so
+**The concrete killer is `search`.** The fire sequence accumulates _across_ a session, so
 include-or-omit is decided at session **start**. A declarative post-hoc filter would
 accumulate the array all session and then discard it, paying the memory and the work
 whatever the dial says, which defeats the point of a capture gate.
 
-**The asymmetry to carry into the build:** a *record's* level is computed at session
-**end**, because the outcome decides it; a *field's* level is decided at session
+**The asymmetry to carry into the build:** a _record's_ level is computed at session
+**end**, because the outcome decides it; a _field's_ level is decided at session
 **start**. Both are the builder calling the same predicate at different moments.
 
 **Stated as a cost rather than glossed:** which fields a channel omits at which dial
@@ -277,11 +278,11 @@ The dial is a **threshold on the continuous `SeverityNumber` scale**, not three
 categories. A position includes everything at or above it, so widening later moves a
 number rather than migrating records.
 
-| Position              | Threshold  | Reads                                                    |
-| --------------------- | ---------- | -------------------------------------------------------- |
-| **Errors & warnings** | ≥ WARN (13) | Only what went wrong                                     |
-| **Normal** (default)  | ≥ INFO (9)  | Every session, and every error                           |
-| **Noisy**             | ≥ DEBUG (5) | Everything, including the app's internal trace           |
+| Position              | Threshold   | Reads                                          |
+| --------------------- | ----------- | ---------------------------------------------- |
+| **Errors & warnings** | ≥ WARN (13) | Only what went wrong                           |
+| **Normal** (default)  | ≥ INFO (9)  | Every session, and every error                 |
+| **Noisy**             | ≥ DEBUG (5) | Everything, including the app's internal trace |
 
 **The default is `Normal`.** At `Normal` the fifteen boot-narration lines and the
 per-fire search sequence are never written, so `Noisy` is something switched on to
@@ -307,7 +308,7 @@ no view can present honestly.
 
 **The dial is not an off switch.** "Off" is deliberately not a position. The per-channel
 recording switch (`setChannelRecording` / `inventoria_logs_paused`) is untouched and
-orthogonal: the dial says *how much detail*, the pause says *whether this stream at all*.
+orthogonal: the dial says _how much detail_, the pause says _whether this stream at all_.
 
 **The dial lives in `localStorage`, beside the pause, and never in a `settings/` datom.**
 `log-facility.ts` already writes the reason — a switch that syncs would silence an
@@ -325,7 +326,7 @@ is the thing to avoid.
 > **ERROR (17)** — the app failed at something the user asked for.
 > **WARN (13)** — a dependency failed or the app degraded, and the user may not have noticed.
 > **INFO (9)** — something the user did, which completed.
-> **DEBUG (5)** — the app's internal trace, *and any field whose only reader is a person reproducing a bug*.
+> **DEBUG (5)** — the app's internal trace, _and any field whose only reader is a person reproducing a bug_.
 
 A record's level is **the severity of what happened, not the importance of the record**.
 An empty search is a WARN because the app failed to answer, not because #142 wants to
@@ -344,17 +345,17 @@ and nothing else.
 
 #### 5.1 `search`
 
-| Session                                | Level        | ≥13 | ≥9 | ≥5 |
-| -------------------------------------- | ------------ | --- | -- | -- |
-| `nothing` (settled empty)              | **WARN 13**  | ✓   | ✓  | ✓  |
-| `resolved_after_correction`            | **WARN 13**  | ✓   | ✓  | ✓  |
-| `rescued_by_vocabulary`                | **INFO 9**   | —   | ✓  | ✓  |
-| found its food                         | **INFO 9**   | —   | ✓  | ✓  |
-| abandoned mid-word (`settled: false`)  | **INFO 9**   | —   | ✓  | ✓  |
-| *the per-fire sequence field*          | **DEBUG 5**  | —   | —  | ✓  |
+| Session                               | Level       | ≥13 | ≥9  | ≥5  |
+| ------------------------------------- | ----------- | --- | --- | --- |
+| `nothing` (settled empty)             | **WARN 13** | ✓   | ✓   | ✓   |
+| `resolved_after_correction`           | **WARN 13** | ✓   | ✓   | ✓   |
+| `rescued_by_vocabulary`               | **INFO 9**  | —   | ✓   | ✓   |
+| found its food                        | **INFO 9**  | —   | ✓   | ✓   |
+| abandoned mid-word (`settled: false`) | **INFO 9**  | —   | ✓   | ✓   |
+| _the per-fire sequence field_         | **DEBUG 5** | —   | —   | ✓   |
 
-The three positions read *only what went wrong* / *every session and its final query* /
-*every session plus the keystroke timeline*.
+The three positions read _only what went wrong_ / _every session and its final query_ /
+_every session plus the keystroke timeline_.
 
 **Both bar-eligible outcomes are at WARN, and that is the reason to have put them
 there.** It makes ADR-0053 §7's bar **dial-proof by construction**: the positions do not
@@ -370,13 +371,13 @@ anything.
 
 #### 5.2 `scan`
 
-| Session                       | Level       |
-| ----------------------------- | ----------- |
-| `refused` (400/403)           | **ERROR 17** |
-| `unreachable`                 | **WARN 13**  |
-| `absent`                      | **WARN 13**  |
-| `found`                       | **INFO 9**   |
-| abandoned (`settled: false`)  | **INFO 9**   |
+| Session                      | Level        |
+| ---------------------------- | ------------ |
+| `refused` (400/403)          | **ERROR 17** |
+| `unreachable`                | **WARN 13**  |
+| `absent`                     | **WARN 13**  |
+| `found`                      | **INFO 9**   |
+| abandoned (`settled: false`) | **INFO 9**   |
 
 The two that are not obvious. **`absent` is WARN, not INFO**, because consistency with
 §5.1 demands it: the reference data does not have what the user asked for and they now
@@ -394,19 +395,19 @@ record assigns levels to it rather than widening it.
 #### 5.3 `app`
 
 One channel named `app`, and **the facility's write also calls the matching `console.*`
-method**. One call site, records *and* devtools output, which is what every framework
+method**. One call site, records _and_ devtools output, which is what every framework
 does — so "which of these survive as records and which stay devtools-only" stops being a
 question. All of them do both.
 
 The census, corrected: **38 real call sites, not the 41 first counted.**
-`db.worker.ts:55-56` are `print:` / `printErr:` *bindings* handed to sqlite, not calls.
+`db.worker.ts:55-56` are `print:` / `printErr:` _bindings_ handed to sqlite, not calls.
 
-| Population                                                                          | Count | Level                  |
-| ----------------------------------------------------------------------------------- | ----- | ---------------------- |
-| `console.error`                                                                     | 20    | **ERROR 17**           |
-| `console.log` — boot narration in `db.client.ts`, `db.worker.ts`, `ReloadPrompt.svelte` | 15  | **DEBUG 5**            |
-| `console.warn` — OPFS unsupported, falling back to an in-memory database             | 1     | **WARN 13**            |
-| `console.info` — `[DEFERRED STUB]` markers                                           | 2     | **not recorded at all** |
+| Population                                                                              | Count | Level                   |
+| --------------------------------------------------------------------------------------- | ----- | ----------------------- |
+| `console.error`                                                                         | 20    | **ERROR 17**            |
+| `console.log` — boot narration in `db.client.ts`, `db.worker.ts`, `ReloadPrompt.svelte` | 15    | **DEBUG 5**             |
+| `console.warn` — OPFS unsupported, falling back to an in-memory database                | 1     | **WARN 13**             |
+| `console.info` — `[DEFERRED STUB]` markers                                              | 2     | **not recorded at all** |
 
 The single `warn` is the most consequential line in the population: it means nothing the
 user records will survive the tab. The two `info` calls (`plate-estimator.ts:65`,
@@ -569,12 +570,12 @@ figure is measured — the declared shape serialised with `JSON.stringify` and w
 `TextEncoder`, the way `serialisedBytes` does it — over the real strings at the 38
 censused call sites. The session counts are estimates, and the cap is used for them.
 
-| Channel                                                        | B/record | KiB       | % of 256 KiB |
-| -------------------------------------------------------------- | -------- | --------- | ------------ |
-| `search`, cap 200, 48-char query, 10 fires kept, `{ l, n }`    | 785      | 153.3     | 60%          |
-| `scan`, cap 200, worst enum combination                        | 124      | 24.2      | 9%           |
-| `app`, cap 100, 256 B message                                  | 364      | 35.5      | 14%          |
-| **Total**                                                      |          | **213.1** | **83%**      |
+| Channel                                                     | B/record | KiB       | % of 256 KiB |
+| ----------------------------------------------------------- | -------- | --------- | ------------ |
+| `search`, cap 200, 48-char query, 10 fires kept, `{ l, n }` | 785      | 153.3     | 60%          |
+| `scan`, cap 200, worst enum combination                     | 124      | 24.2      | 9%           |
+| `app`, cap 100, 256 B message                               | 364      | 35.5      | 14%          |
+| **Total**                                                   |          | **213.1** | **83%**      |
 
 **42.9 KiB of headroom**, which is a fourth channel of `scan`'s size. Realistically — a
 thirteen-character query typed straight through, ordinary error messages — the total is
@@ -600,7 +601,7 @@ counter is a running total of a field the entries already record and never a new
 is a whole number and nothing else, and it is shed last.
 
 **Counters live under their own key, `inventoria_log_<name>_counters`.** The shed-last
-promise is *false in code* while counters share the entries' key, because the write path
+promise is _false in code_ while counters share the entries' key, because the write path
 removes the key outright when the record list empties. A separate key is the only shape
 under which that promise is literally true rather than true-until-the-ring-empties, and
 it keeps counters out of the byte measurement — which is what the Amendment already
@@ -645,7 +646,7 @@ number without its epoch is a dishonest label.
 interface LogExport {
   artifact: "inventoria-local-log";
   exported_at: number;
-  dial: SeverityNumber;       // in force when Export was pressed
+  dial: SeverityNumber; // in force when Export was pressed
   channels: ExportedChannel[];
 }
 
@@ -662,8 +663,8 @@ interface ExportedChannel {
 and that is the only granularity on offer.** The per-Facet split ADR-0080 §5 drew over it
 is untouched, and §13 adds the jar-wide channels to both Facets' lists.
 
-**The payload carries the dial position in force when Export was pressed.** At *Errors &
-warnings* a log looks like a quiet app rather than a filtered one, and a reader could
+**The payload carries the dial position in force when Export was pressed.** At _Errors &
+warnings_ a log looks like a quiet app rather than a filtered one, and a reader could
 conclude "nothing happened" when the truth is "nothing was recorded". This is the failure
 `counters_since` was invented for — a number without its epoch is a dishonest label —
 applied to the entries instead of the counters, and an exported file outlives the screen
@@ -672,7 +673,7 @@ and entries do not, so the dial position is precisely what explains the gap betw
 complete rate and the filtered detail.** A reader holding both can tell quiet from
 filtered.
 
-*Stated out loud:* the value is the dial **at export time**, and records older than the
+_Stated out loud:_ the value is the dial **at export time**, and records older than the
 last change to it were captured under a different one. Per-record dial position was
 rejected — bytes on every record to answer a question nobody asks, when the record's own
 `lvl` already says what it is.
@@ -680,21 +681,21 @@ rejected — bytes on every record to answer a question nobody asks, when the re
 #### 10.1 An export-time minimum level was specified, and is withdrawn
 
 A `min_level` argument was designed to sit beside `dial`, defaulting to it, on the
-justification *"share the errors, not everything I typed."* **That justification is false
+justification _"share the errors, not everything I typed."_ **That justification is false
 of the channel it was written about**, and the design is withdrawn rather than rebuilt.
 
 - **The WARN records are the ones carrying the query.** `search`'s two WARN outcomes are
   `nothing` and `resolved_after_correction`, and both hold the text the person typed. A
   filter at ≥ 13 keeps the most sensitive subset and drops the least.
-- **It cannot remove the keystroke timeline at all.** The fire sequence is a *field*
+- **It cannot remove the keystroke timeline at all.** The fire sequence is a _field_
   captured at DEBUG inside a session record whose own level is WARN (§3.2, §5.1). A filter
   over records keeps that record whole, sequence included.
 
-What a level filter would actually have done is *share the failures and not the
-successes*, which is a real capability and is the one the **dial's own low position**
+What a level filter would actually have done is _share the failures and not the
+successes_, which is a real capability and is the one the **dial's own low position**
 already provides, one step earlier and without a second axis on the consent surface. So
-the export offers no level control, and the second clause of *the dial gates capture, the
-export filters on it* is withdrawn as a no-op rather than given a referent it cannot
+the export offers no level control, and the second clause of _the dial gates capture, the
+export filters on it_ is withdrawn as a no-op rather than given a referent it cannot
 honour.
 
 **Rejected with it:** having the payload builder strip DEBUG-captured fields from records
@@ -721,7 +722,7 @@ they will not.
 - egress lives in **exactly one named module outside it**.
 
 The test that claimed this before was checking one file for `fetch(` and friends, and it
-proved there is no *second* transport rather than no transport. Two things were wrong
+proved there is no _second_ transport rather than no transport. Two things were wrong
 with it. The real egress is the review sheet — a `Blob`, `createObjectURL`, and an anchor
 click — which is a different file, and `createObjectURL` was not on the list anyway. And
 **the closure ran the wrong way**: the sheet imports the facility, not the reverse, so any
@@ -741,8 +742,8 @@ the export is the whole of the protection**, on the ground that if a person deci
 share their logs then what they share is theirs to share.
 
 `ChannelSensitivity` is **deleted, not replaced**, and ADR-0053's sentence justifying it —
-*"a food search is a record of what someone was thinking about eating, and for a
-health-adjacent app that can imply a condition, a pregnancy or a disorder"* — is deleted
+_"a food search is a record of what someone was thinking about eating, and for a
+health-adjacent app that can imply a condition, a pregnancy or a disorder"_ — is deleted
 with it. Leaving that claim standing over a record that ships the query unprotected is
 worse than not making it. **The fields themselves stay:** `query` and `corrected_by` are
 what the vocabulary flags are computed from and what
@@ -814,7 +815,7 @@ behind **Rations'** export consent.
 **The field widens to `TrackedDomainId | null`, where `null` means jar-wide.** It says the
 true thing — the app's own narration has no domain — rather than inventing an owner to
 satisfy a rule written for something else. The code's comment reaches for ADR-0086 §1,
-*an entity has exactly one owner and the owner is a Tracked Domain*; a Log channel is not
+_an entity has exactly one owner and the owner is a Tracked Domain_; a Log channel is not
 a Ledger entity, and that borrowed rule has no answer here.
 
 What `null` then means for the four surfaces is **not** what an earlier draft of this
@@ -823,11 +824,11 @@ record claimed, and the correction matters more than the widening:
 > **A jar-wide channel appears in every Facet's card and every Facet's export, each behind
 > that Facet's own consent. A Facet-scoped wipe never takes it.**
 
-Both halves are ADR-0080's clause (b) — *the Facet that writes it governs it* — applied to
+Both halves are ADR-0080's clause (b) — _the Facet that writes it governs it_ — applied to
 a channel that every Facet writes. A Rations user's OPFS failure is written by Rations'
 running code, so Rations governs its disclosure. And a Facet-scoped wipe is
-[ADR-0079](0079-a-facet-scoped-wipe-is-the-third-sanctioned-deletion.md) §1's *delete all
-my food data*, which the app's own narration is not; deletion is irreversible, so that
+[ADR-0079](0079-a-facet-scoped-wipe-is-the-third-sanctioned-deletion.md) §1's _delete all
+my food data_, which the app's own narration is not; deletion is irreversible, so that
 control stays jar-wide while visibility and export follow the writer.
 
 Concretely, two filters rather than one: `channelsOfFacet` admits a channel whose `domain`
@@ -843,8 +844,8 @@ still spending the budget: a permanent invisible record, which is the exact thin
 record's own anti-sprawl argument says cannot happen here.
 
 **And root-only would have been wrong even with the bug fixed.** ADR-0080 §5 rejected
-leaving the log-export consent at the root in these words: it *"ships a facility that
-records a user's searches and can never show them the file."* A Rations-only install is a
+leaving the log-export consent at the root in these words: it _"ships a facility that
+records a user's searches and can never show them the file."_ A Rations-only install is a
 supported install — ADR-0076 makes Rations installable on its own and ADR-0078 gives it no
 way out — so its user cannot open the root to read their own diagnostics. Recording a
 person's database errors where only somebody else can see them is that same rejected
@@ -857,7 +858,7 @@ shape with a different payload.
 2. **[#227](https://github.com/palebluebytes/inventoria/issues/227).** §5.3 captures
    `err.message`, and `db.core.ts:388` interpolates an entity id that on the scan path is
    `gtin:<barcode>`. An unfixed #227 therefore puts a barcode into an exported log through
-   the one path ADR-0071 §4's *shape* argument cannot cover. `search` and `scan` are not
+   the one path ADR-0071 §4's _shape_ argument cannot cover. `search` and `scan` are not
    blocked by it; `app` must not ship before it lands.
 
 ## Consequences
@@ -916,21 +917,21 @@ review shows the bytes, and the person who presses the button is the person the 
 about.
 
 **#142 gets a denominator it has never had.** Recording only empty sessions made the
-*rate* of empty searches unmeasurable, because successes left no trace. ADR-0053 §7 keeps
+_rate_ of empty searches unmeasurable, because successes left no trace. ADR-0053 §7 keeps
 its numbers unchanged — moving a threshold in the same act that makes it measurable is
 the rationalisation §7 was written to prevent — and gains a note that #142 may
 **re-pre-register before reading it**.
 
 **A filter written as "not X" over a closed union stops being correct the moment the
-union opens.** The bar's numerator was expressed as *settled and not
-`rescued_by_vocabulary`*, which was equivalent only because the outcome union had three
+union opens.** The bar's numerator was expressed as _settled and not
+`rescued_by_vocabulary`_, which was equivalent only because the outcome union had three
 members and no `found`. Complete recording adds one, and that filter would count every
 successful session into the settled-empty denominator, closing #142 as a settled no on a
 population of successes — silently, and in the direction of closing a question. The rule
 survives in ADR-0053 §7's prose and is corrected there. Whatever expresses it next must
 be an **allow-list**, `nothing` or `resolved_after_correction`, pinned by a test that
-adds a fourth outcome member and asserts the denominator does not move. #215's *strict
-discriminants* is the write side of this; this is the read side.
+adds a fourth outcome member and asserts the denominator does not move. #215's _strict
+discriminants_ is the write side of this; this is the read side.
 
 **#142's numerator has no guarantee of surviving the ring** (§6.2), and this record
 accepts that rather than engineering around it. Its denominator is a counter; its
@@ -961,7 +962,70 @@ it appears to mean. A level filter was specified, found to keep the query text w
 dropping the successes, and withdrawn.
 
 **A jar-wide channel is visible from a Facet that cannot delete it** (§13). Rations shows
-`app`, exports `app`, and can clear it from its own card, but *Delete all my food data*
+`app`, exports `app`, and can clear it from its own card, but _Delete all my food data_
 leaves it standing — correctly, since it is not food data, and confusingly, since it sits
 in the same card as two channels the wipe does take. The card is where that has to be
 said.
+
+## Amendment (2026-09-05): one module owns the keyspace, and §12 gains a fourth runtime throw
+
+§12 says "Runtime, and only these three", and the third of them — a duplicate `name` — was
+argued from the `localStorage` key: "two channels sharing a key would each read the other's
+records as unreadable and shed them". That argument covers less than it appears to. A
+channel's name is not its key, it is one input to **two** keys, and a comparison of names
+sees a collision only when the names are equal.
+
+§9 made that live rather than theoretical. `inventoria_log_<name>_counters` sits **inside**
+the channel keyspace, where the pause and the dial sit outside it by the single character
+between `logs_` and `log_`. So a channel named `<x>_counters` claims `<x>`'s counter key,
+the two names are different, and the duplicate-name check passes. The code said so and
+declined to act, on the ground that the suffix is this record's own literal key, that no
+suffix is unclaimable while names are free strings, and that the collision needs two
+channels one of which is named after the other. That is a sound reason not to ship a fourth
+ad-hoc `throw` beside three ad-hoc ones. It is not a reason to have no guard once a seam
+owns the keyspace.
+
+### The seam
+
+`src/lib/logs/log-keyspace.ts` is the only module that builds a log key or reads or writes
+under one. It owns all four shapes, the `_counters` suffix included, and the stored shape
+of each — which was an assumption spread across four private functions, where anything
+widening it would have made every existing record read as malformed and vanish on the next
+write.
+
+The guard falls out of it. `channelKeys(name)` is every key a channel claims, whether or not
+it has written one; `heldKeys` is what the reserved keys and the registered channels already
+hold; `keyCollision` intersects the two sets. Set against set is what makes it symmetric —
+it refuses `notes_counters` after `notes` and `notes` after `notes_counters`, where a check
+written from the collision somebody noticed catches one order and passes the other.
+
+**A fifth key shape is then guarded by the edit that adds it**, and so is a Facet-scoped
+wipe, which asks the same function what a channel claims (ADR-0079 §2). The note this
+replaces had to be re-argued for every future key shape; the guard costs nothing per key.
+
+### The fourth throw, and why it is not the third
+
+A duplicate name and a key collision are different failures and both are kept. A duplicate
+name is about the **registry**: the map is keyed by name, so the second declaration replaces
+the first and the review shows one row where two channels are writing. A key collision is
+about **`localStorage`**, and it is the one a name comparison cannot see.
+
+Registration is still an import side effect, so #221's objection to a runtime throw stands
+in full: this is a boot crash rather than a review comment. It is taken for the same reason
+the other three are — a channel whose keys are somebody else's is a channel that silently
+destroys another channel's records, which is worse than failing to start, and there is no
+compile-time device that could catch it without the central literal union §12 rejects.
+
+### The shed stops pairing channels by array index
+
+Unrelated to the keys and fixed in the same act, because it is the same class of defect.
+`enforceBudget` walked three arrays — the registry, the before-state and the after-state —
+by one index, so any future divergence between them would write one channel's entries to
+another channel's key, silently. `shedToBudget` stays pure and its result is now applied by
+**name**: `channelsThatShed` pairs before against after by name and skips a name the shed
+did not receive, because a shed cannot invent a channel and the conservative answer to a
+divergence is to write nothing.
+
+"Budget shedding only ever walks entries" was a real property of the pure function and an
+implicit assumption of the loop that consumed it. It is now neither implicit nor an
+assumption.
