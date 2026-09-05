@@ -109,10 +109,16 @@ type Field = { file: string; tag: string; classes: string[] };
 /** Every focusable field in the tree, with the classes it wears. */
 function fields(): Field[] {
   return svelteFiles(ROOT).flatMap((file) => {
-    const markup = readFileSync(file, "utf8").replace(
-      /<style>[\s\S]*?<\/style>/g,
-      ""
-    );
+    // The `<style>` block, the `<script>` block and the HTML comments all come
+    // off first, because a field is in none of them and a *mention* of one is
+    // indistinguishable from the thing here: `ui/Textarea`'s docblock says the
+    // word `<textarea>` twice, and each read as a field with no class and no
+    // size — a silent field the sweep would have demanded a `font-size` for.
+    // `support/markup.ts` strips the same three, for the same reason.
+    const markup = readFileSync(file, "utf8")
+      .replace(/<style>[\s\S]*?<\/style>/g, "")
+      .replace(/<script[\s\S]*?<\/script>/g, "")
+      .replace(/<!--[\s\S]*?-->/g, "");
     return [...markup.matchAll(/<(input|textarea|select)\b/g)]
       .map((m) => ({ tag: m[1], text: openingTag(markup, m.index!) }))
       .filter(({ tag, text }) => {
