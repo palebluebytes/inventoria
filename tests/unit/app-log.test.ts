@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { stubLocalStorage } from "./support/local-storage";
+import { countConsoleCalls } from "../../scripts/console-routing-check.mjs";
 import {
   APP_CHANNEL,
   appDebug,
@@ -192,5 +193,35 @@ describe("the channel's declaration", () => {
       entries: [],
       unreadable: 1,
     });
+  });
+});
+
+describe("the console-routing gate's matcher (scripts/console-routing-check.mjs)", () => {
+  // The gate itself walks the tree, so `pnpm check` is where it runs. What a
+  // unit test is for is the matcher underneath it: one that never matched would
+  // pass every build silently, which is the failure the gate exists to prevent
+  // one layer down. This is `log-egress-check.mjs`'s own reasoning, applied to
+  // its sibling.
+  it("counts a call whatever the method and the spacing", () => {
+    expect(
+      countConsoleCalls("console.error(e); console . warn(x); console.log(y);")
+    ).toBe(3);
+  });
+
+  it("counts a binding, because handing the method away is still naming it", () => {
+    // `db.worker.ts` passes `print: console.log` to sqlite. It is not a call,
+    // and it is exactly as unrouted as one.
+    expect(countConsoleCalls("const o = { print: console.log };")).toBe(1);
+  });
+
+  it("does not count the decision being argued in prose", () => {
+    // Half a dozen files argue this in comments, `app-log.ts`'s own header names
+    // `console.*` four times, and a gate that fails on its documentation is a
+    // gate somebody switches off.
+    expect(
+      countConsoleCalls(
+        `// use appError rather than console.error\n/* not console.warn either */\n<!-- nor console.log -->\nappError("x");`
+      )
+    ).toBe(0);
   });
 });
