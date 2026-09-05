@@ -855,6 +855,13 @@ shape with a different payload.
 
 1. **The domain widening above**, together with the two derivation filters, which is a
    change to a type and a function that four surfaces read.
+
+   **Discharged by [#351](https://github.com/palebluebytes/inventoria/issues/351)**:
+   `domain` is `TrackedDomainId | null`, `channelsOfFacet` admits a null domain to every
+   Facet, and `facetStorageKeys` excludes one from every Facet-scoped wipe. A test in
+   `tests/unit/facet-wipe.test.ts` declares a null-domain channel and holds both filters
+   pointing opposite ways, so the mechanism is proven before the first channel uses it.
+
 2. **[#227](https://github.com/palebluebytes/inventoria/issues/227).** §5.3 captures
    `err.message`, and `db.core.ts:388` interpolates an entity id that on the scan path is
    `gtin:<barcode>`. An unfixed #227 therefore puts a barcode into an exported log through
@@ -863,8 +870,11 @@ shape with a different payload.
 
    **Discharged on 2026-09-05**: #227 landed. Both throws now name the failing field and
    the shape of what was there rather than the row, and a test holds every interpolation
-   a message under `src/lib/db/` carries to a per-file allowlist. Blocker 1 stands, and
-   is now the only one.
+   a message under `src/lib/db/` carries to a per-file allowlist.
+
+**Both blockers are now discharged**, so `app` is unblocked on this record's terms.
+[#382](https://github.com/palebluebytes/inventoria/issues/382) is not a third: the entity
+ids it names are rendered on the receive door and reach no channel.
 
 ## Consequences
 
