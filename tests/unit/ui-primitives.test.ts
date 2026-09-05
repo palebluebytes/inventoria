@@ -538,6 +538,32 @@ describe("Input", () => {
     expect(body).toMatch(/<input[^>]*\sdisabled\b/);
   });
 
+  it("keeps ...rest and class on separate elements, and off each other", () => {
+    // The sibling blocks assert this against one element. This primitive draws
+    // two, so the contract is sharper here and worth stating exactly:
+    //
+    //   `class` cannot be overridden by `...rest` at all — it is destructured
+    //   out by name, so `rest` structurally cannot contain one. That is a
+    //   stronger guarantee than the template ordering, which is only the belt
+    //   to its braces.
+    //
+    //   The division of labour is the checkable part: the caller's class goes
+    //   to the **wrapper**, `...rest` goes to the **field**, and neither
+    //   crosses. An a11y attribute landing on the wrapper instead would be
+    //   invisible to `page.locator("#id")` and to a screen reader, and nothing
+    //   about the rendered look would say so.
+    const { body } = render(Input, {
+      props: { class: "search-field", "aria-label": "Search" },
+    });
+
+    expect(body).toMatch(/<div[^>]*class="input-wrapper search-field/);
+    expect(body).not.toMatch(/<div[^>]*aria-label/);
+
+    expect(body).toMatch(/<input[^>]*class="input[\s"]/);
+    expect(body).toMatch(/<input[^>]*aria-label="Search"/);
+    expect(body).not.toMatch(/<input[^>]*search-field/);
+  });
+
   it('takes a number, because a type="number" field hands one back', () => {
     const { body } = render(Input, { props: { type: "number", value: 3 } });
     expect(body).toMatch(/<input[^>]*value="3"/);
