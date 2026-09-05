@@ -1115,3 +1115,160 @@ one row projected from a type nobody had written yet, and it was wrong by 4% in 
 direction §8 warns about — an author's claim about a shape rather than a weighing of one.
 That is the third instance this arc has of exactly that, and the reason §8 refuses a
 `maxRecordBytes` field on the declaration at all.
+
+## Amendment (2026-09-05): the `app` census was wrong in every row, and a third of it cannot reach the facility
+
+[#358](https://github.com/palebluebytes/inventoria/issues/358) opened both of §13's
+blockers as discharged and then found that the population §5.3 describes is not the
+population in the tree. Six corrections follow. The decision — one `app` channel, jar-wide,
+recording and printing at one call site — is unchanged by all of them; what changes is every
+number it was argued with, and one field it does not have.
+
+### The census, recounted
+
+§5.3's table was built from a textual match rather than from call sites, and the correction
+it records was then applied to the wrong number. There are **38 textual `console.` matches
+in `src/`, of which two are the sqlite bindings, so 36 real call sites** — the "41 first
+counted" was never the figure that needed the subtraction. The bindings are at
+`db.worker.ts:58-59`, not 55-56.
+
+| Population      | §5.3 said | Actually | Where the difference is                                                            |
+| --------------- | --------- | -------- | ---------------------------------------------------------------------------------- |
+| `console.error` | 20        | **18**   | one of the 19 matches is the `printErr:` binding                                   |
+| `console.log`   | 15        | **13**   | `ReloadPrompt.svelte` has **no** `console.*` call at all; `db.client` 6 + worker 7 |
+| `console.warn`  | 1         | **3**    | `mount-facet.ts:50` and `facets/service-worker.ts:77` were missed                  |
+| `console.info`  | 2         | 2        | unchanged                                                                          |
+
+**The two missed warns are the correction that costs an argument, not a number.** §5.3 says
+"the single `warn` is the most consequential line in the population" and reasons from its
+singularity. It is not single. `mount-facet.ts:50` fires when COOP/COEP headers are absent,
+so `SharedArrayBuffer` is gone and SQLite runs degraded; `facets/service-worker.ts:77` fires
+when registration fails, so the Facet has no offline. Each says the same class of thing the
+OPFS line says — _the app is running in a shape you did not ask for and cannot see_ — and the
+sentence survives only in the plural.
+
+### A third of the population runs in a Worker and cannot reach the facility
+
+`db.worker.ts` is a real `new Worker()` (`db.client.ts:1`), and this facility is
+`localStorage` end to end. **Its 8 call sites can never call `appendToChannel`** — including
+the OPFS `warn` the paragraph above calls the most consequential line there is. Nothing
+error-class is affected: all 18 `console.error`s are main-window.
+
+A worker-to-main logging bridge was considered and refused. It is a second transport for
+records, which is a larger thing than this channel and would want its own record; and it
+carries a _line of narration_ across a boundary when what is worth keeping is a _fact_.
+
+**So the worker's init reply gains one field, `"opfs" | "memory" | "forced-memory"`, and
+`db.client` records the fact on the main thread.** It is recorded at **DEBUG when `opfs`**
+and **WARN when `memory` or `forced-memory`**, which is §5's severity-of-what-happened rule
+applied without exception: at `Normal` a healthy boot writes nothing and a degraded one
+writes the warning, and at `Noisy` the reader is told affirmatively that the database opened
+on OPFS. Absence is not evidence, and somebody debugging "my food log vanished" is reading
+for exactly this.
+
+The worker's other 7 lines stay console-only. So do the sqlite `print:`/`printErr:` bindings,
+which were never call sites and are sqlite's own output.
+
+### Two of the "boot narration" lines narrate every query
+
+`db.client.ts:50` and `db.worker.ts:40` sit inside `onmessage` handlers. They are not boot
+narration; they fire **once per worker message**, which is once per database query. Recorded,
+they would turn a 100-record ring over roughly every fifty queries so that it never holds a
+boot at all — the opposite of what §7 caps it for — and would put a `localStorage` write on
+the DB message path, which is the cost §4 already refuses for the search fires.
+
+**They join the two `[DEFERRED STUB]` infos as a population that is printed and not
+recorded.** The rule is the same one §5.3 states for the stubs, read once more: a per-message
+trace is what a devtools console is for and what a capped ring is not.
+
+### The field §5.3 does not have
+
+§5.3 captures `err.name` and `err.message` and nothing else. **Six call sites pass a bare
+error and no text of their own** — `AgendaView:149`, `AgendaView:158`, `HabitsView:167`,
+`SettingsView:55`, `SettingsView:70`, and `FoodDataSection:150`'s `ended.error`. A record
+from one of those reads `TypeError: x is not a function` and refuses to say what the user was
+doing, so a reader holding the exported file cannot tell a habit write from a vacuum. That is
+the "unavailable at the moment it matters" this record's own Context opens on, reproduced
+inside the fix.
+
+**The entry is `{ msg, name?, message? }`**, where `msg` is the site's own string **literal**
+and the six bare sites gain one. `msg` may be a template over values from a closed set — a
+Facet name, a pipeline name — and never over a value read out of the ledger, which is the
+#227 discipline stated at the shape rather than left to a reviewer.
+
+**256 B is the right bound for `msg`, and it is nearly exhausted.** `mount-facet.ts:50`'s
+literal weighs **252 bytes** with the longer Facet name in it — four bytes of margin on a
+bound §7 chose for something else.
+
+### `err.name` is unbounded, and without a bound §8's invariant is not computable
+
+§7 bounds `msg` and `message` and says nothing about `name`. A custom error class name is an
+arbitrary-length string, so as written **there is no maximum record for this channel and
+`budgetOf` would be pricing a shape with no ceiling** — the one thing §8's invariant cannot
+survive. **`err.name` is bounded at 64 B.**
+
+### The cap holds at 100, on a different argument
+
+§7 prices the cap as "at `Noisy` a boot burst is 15 lines, so the ring holds roughly six
+recent boots". Every term of that is wrong: 15 was the miscount, two of those lines are
+per-message, seven are in the Worker. **A healthy cold boot emits 5 records** — `db.client`
+38, 45, 87, 89 and the storage-mode line — so 100 buys roughly **twenty** boots.
+
+The cap does not move, because the boot burst was never what priced it. **`app`'s cap is
+priced by its error population**: at the default `Normal` it holds 100 error-class events and
+no narration at all, which is the load-bearing sentence in §7 and is untouched by any of
+this. Lowering the cap to restore "six boots" would shrink the case that matters in order to
+buy back a number nobody needs.
+
+### §8.1's `app` row was projected, and it was wrong the same way `scan`'s was
+
+§8.1 claims "every per-record figure is measured … over the real strings at the 38 censused
+call sites". For `app` that could not have been true: there was no shape to weigh. 364 B was
+a projection of `{ name, message }`, and the built entry carries `msg` as well.
+
+The worst record — the ERROR envelope, `msg` at 256, `name` at 64, `message` at 256, weighed
+with `TextEncoder` the way `serialisedBytes` does it — is **634 bytes**.
+
+| Channel                                                     | B/record | KiB       | % of 256 KiB |
+| ----------------------------------------------------------- | -------- | --------- | ------------ |
+| `search`, cap 200, 48-char query, 10 fires kept, `{ l, n }` | 785      | 153.3     | 60%          |
+| `scan`, cap 200, worst enum combination                     | 129      | 25.2      | 10%          |
+| `app`, cap 100, `msg` 256 B, `name` 64 B, `message` 256 B   | **634**  | **61.9**  | **24%**      |
+| **Total**                                                   |          | **240.4** | **94%**      |
+
+**15.6 KiB of headroom**, and §8.1's sentence about it no longer holds: that is **not** a
+fourth channel of `scan`'s size, it is about six-tenths of one. §8's invariant is satisfied
+and no cap moves, but the budget is now close enough that **a fourth channel is a decision
+about the caps rather than an addition to them**. This is the third figure in this record
+projected from a shape nobody had written, and the second to be wrong in the direction §8
+warns about; the pattern is why §8 refuses `maxRecordBytes` on the declaration at all.
+
+### The gate has no ESLint to live in
+
+"One call site, records and devtools output" decays to a review convention the first time
+somebody types `console.error` out of habit, and **this repo has no ESLint** — no config, no
+`lint` script, no dependency. `pnpm check` is `svelte-check`, four `tsc` projects and four
+`scripts/*-check.mjs` gates.
+
+So the guard is **`scripts/console-routing-check.mjs`**, in the house style of the four it
+joins: a text scan over `src/` with a per-file allowlist, each entry carrying its reason —
+`logs/app-log.ts` because it _is_ the routing, `db/db.worker.ts` because a Worker has no
+`localStorage`, `db.client.ts:50` because it is per-message, and the two stubs. It costs no
+new dependency and it fails the build rather than a reviewer's attention.
+
+### Shelved rather than overlooked
+
+**`app` declares no counters.** §9 requires a counter to total a field the entries already
+record and exists because a capped ring cannot report a rate — which needs a denominator, and
+`app` has no session. The one real candidate is a lifetime `boots` count as the denominator
+for _how often did OPFS fail_, and it is a ticket somebody chooses: it would total a DEBUG
+record, and §9 makes counters ungated by the dial, so it would keep counting boots the ring
+is not keeping. That is the correct behaviour and worth stating before somebody reads it as a
+bug. No bespoke reading card either, per §2.
+
+**The Local Logs card gains one line, derived and not written.** ADR-0079 §1's _delete all my
+food data_ takes `search` and `scan` and leaves `app` standing, which is right and is
+invisible on a card that renders three rows side by side. The note is rendered under any row
+whose `domain` is `null`, from that field — the same field the two filters in §13 read — so
+the screen cannot drift from the behaviour, and a second jar-wide channel inherits it without
+an edit.
