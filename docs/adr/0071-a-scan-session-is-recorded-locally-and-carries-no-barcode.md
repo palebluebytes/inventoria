@@ -311,6 +311,14 @@ on the scan path is `gtin:<barcode>`, and ADR-0092 §5.3 captures `err.message`,
 into an exported log by the one path §4 cannot see. ADR-0092 §13 makes #227 a hard
 blocker on that channel for this reason. This channel is unaffected.
 
+**Closed on 2026-09-05 by [#227](https://github.com/palebluebytes/inventoria/issues/227).**
+No `throw` under `src/lib/db/` interpolates an entity id, a datom or a datom value any
+more: a refusal names the failing field, what that field had to be, and the _shape_ of
+what was there. `tests/unit/db-error-messages.test.ts` holds every interpolation a
+message in that directory carries to a per-file allowlist, so reopening the hole costs a
+reviewer writing down why it is safe. The hole was a property of one directory rather
+than of §4, and it is that directory the allowlist covers.
+
 ## Amendment (2026-09-05): `refused` is the class the app cannot name, and that includes the offline scan
 
 [#207](https://github.com/palebluebytes/inventoria/issues/207) built §3, and one member is

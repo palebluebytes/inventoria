@@ -861,6 +861,11 @@ shape with a different payload.
    the one path ADR-0071 §4's _shape_ argument cannot cover. `search` and `scan` are not
    blocked by it; `app` must not ship before it lands.
 
+   **Discharged on 2026-09-05**: #227 landed. Both throws now name the failing field and
+   the shape of what was there rather than the row, and a test holds every interpolation
+   a message under `src/lib/db/` carries to a per-file allowlist. Blocker 1 stands, and
+   is now the only one.
+
 ## Consequences
 
 **The anti-sprawl guard is gone, and no mechanism replaces it.** This is a loss accepted,
