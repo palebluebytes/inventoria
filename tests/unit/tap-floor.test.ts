@@ -180,14 +180,12 @@ const invisible = (d: Record<string, string>) => {
   );
 };
 
-/** Every property the reading below depends on — the height model's, and
- *  `invisible`'s. A conditional rule declaring one of these can move the
- *  number; a breakpoint that recolours a box cannot, and there are more of the
- *  second kind in `src/` than the first. */
-const MODELLED = [
+/** What a box's height is made of: the inputs to `height = 2 × border + 2 ×
+ *  vertical padding + the line box`. A rule declaring one of these moves the
+ *  number, which is why the pointer rule below keys on this list alone. */
+const HEIGHT_INPUTS = [
   "min-height",
   "height",
-  "width",
   "padding",
   "padding-block",
   "padding-top",
@@ -197,10 +195,25 @@ const MODELLED = [
   "font",
   "font-size",
   "line-height",
+];
+
+/** What decides whether a box is drawn at all — `invisible`'s inputs. Kept
+ *  apart from the list above because the two are asked for different reasons:
+ *  a pointer query that hides a hover-only affordance declares `display` and is
+ *  legitimate (ADR-0094), while one that moves a height is not. */
+const VISIBILITY_INPUTS = [
+  "width",
+  "height",
   "opacity",
   "display",
   "clip-path",
 ];
+
+/** Every property the reading below depends on — both lists, since a
+ *  conditional rule touching either one leaves the reading unread. A breakpoint
+ *  that recolours a box touches neither, and there are more of those in `src/`
+ *  than of the other kind. */
+const MODELLED = [...new Set([...HEIGHT_INPUTS, ...VISIBILITY_INPUTS])];
 
 function read(el: Element, rules: Rule[]): Reading {
   const { hits, undecidable, conditional } = rulesFor(rules, el);
@@ -462,6 +475,130 @@ describe("a conditional declaration is reported, never dropped", () => {
       kind: "declared",
       height: TAP_MIN,
     });
+  });
+});
+
+/**
+ * ADR-0094: a tap floor takes no condition, because no query knows which
+ * pointer is in use.
+ *
+ * [#337](https://github.com/palebluebytes/inventoria/issues/337) decision 10
+ * proposed letting a hit area go under `--tap-min` where `@media (hover: hover)
+ * and (pointer: fine)` "proves there is no finger". It proves no such thing:
+ * `hover` and `pointer` describe the **primary** input mechanism, so a
+ * touchscreen laptop driven from its trackpad matches that query while a finger
+ * is six inches from the glass. `not (any-pointer: coarse)` is the honest form
+ * and answers a different question — whether touch hardware is *attached* — so
+ * the thing a floor actually depends on is unaskable in CSS.
+ *
+ * The rule that follows is therefore about **direction**, not about the pointer
+ * features themselves. A pointer condition may *add* an affordance and may
+ * never *subtract* a floor: a machine wrongly told it cannot hover loses a
+ * lift, and a machine wrongly told it has no finger loses a target. `ui/Card`'s
+ * `@media (hover: hover)` is the sanctioned shape and passes here, because it
+ * declares a `transform` and a `box-shadow` and moves no height.
+ *
+ * **Its population is the whole tree, not this file's fields.** The densest
+ * candidates a relaxation would ever have reached — a nav item, a calendar day,
+ * a toggle cell — are controls rather than fields, which is
+ * [#361](https://github.com/palebluebytes/inventoria/issues/361)'s sweep and not
+ * yet written. Keying this rule on the fields above would leave exactly those
+ * boxes open, so it reads every stylesheet in `src/` and costs nothing extra to
+ * do so.
+ */
+describe("no pointer query moves a height", () => {
+  /** Every stylesheet in the tree as text: a component's `<style>` block, or a
+   *  plain `.css` file whole. A component with no `<style>` contributes "". */
+  const SHEETS = [
+    ...FILES.map((file) => ({
+      file,
+      css: readFileSync(file, "utf8").includes("<style>") ? styleOf(file) : "",
+    })),
+    ...execFileSync("git", ["ls-files", "src/**/*.css", "src/*.css"], {
+      encoding: "utf8",
+    })
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((file) => ({
+        file,
+        css: readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, ""),
+      })),
+  ];
+
+  /** `hover`, `any-hover`, `pointer`, `any-pointer` — the four features that
+   *  describe a pointing device. `prefers-*` and the width features are not
+   *  here: this rule is about the claim "there is no finger", and only these
+   *  four purport to make it. */
+  const POINTER_FEATURE = /\b(?:any-)?(?:hover|pointer)\s*:/;
+
+  /**
+   * Every `@media` block in a sheet, with the body it opens.
+   *
+   * Read off the raw text rather than through `rulesOf`, which flattens a rule
+   * to its *innermost* enclosing at-rule and so loses a pointer query wrapped in
+   * a breakpoint. The scan finds a nested `@media` on its next pass, so both
+   * orders are seen.
+   */
+  function mediaBlocks(css: string): { prelude: string; body: string }[] {
+    const out: { prelude: string; body: string }[] = [];
+    const at = /@media\b/g;
+    let found: RegExpExecArray | null;
+    while ((found = at.exec(css)) !== null) {
+      const open = css.indexOf("{", found.index);
+      if (open === -1) break;
+      let depth = 1;
+      let j = open + 1;
+      while (j < css.length && depth > 0) {
+        if (css[j] === "{") depth++;
+        else if (css[j] === "}") depth--;
+        j++;
+      }
+      out.push({
+        prelude: css.slice(found.index, open).trim().replace(/\s+/g, " "),
+        body: css.slice(open + 1, j - 1),
+      });
+    }
+    return out;
+  }
+
+  const POINTER_QUERIES = SHEETS.flatMap(({ file, css }) =>
+    mediaBlocks(css)
+      .filter((b) => POINTER_FEATURE.test(b.prelude))
+      .map((b) => ({ file, ...b }))
+  );
+
+  it("finds the pointer queries at all — a sweep matching nothing proves nothing", () => {
+    // The rule below asserts an empty list, so without this a regex that
+    // stopped matching would pass it over an empty tree for ever.
+    expect(POINTER_QUERIES.length).toBeGreaterThanOrEqual(1);
+    expect(POINTER_QUERIES.map((q) => q.file)).toContain(
+      "src/lib/ui/Card.svelte"
+    );
+  });
+
+  it("lets a pointer query add an affordance", () => {
+    // The one in the tree, named so this is a statement about the app rather
+    // than about a probe. It lifts a tile on hover and moves no height.
+    const card = POINTER_QUERIES.filter(
+      (q) => q.file === "src/lib/ui/Card.svelte"
+    );
+    expect(card.map((q) => q.prelude)).toEqual(["@media (hover: hover)"]);
+  });
+
+  it("lets no pointer query declare a height input", () => {
+    // The body is read as text, not as rules: a pointer query may hold
+    // declarations directly under CSS nesting or wrap selector blocks, and
+    // over-reading here can only manufacture a failure, never hide one. The
+    // leading character class keeps `line-height` from answering for `height`
+    // and a `--card-height` custom property from answering for either.
+    const offenders = POINTER_QUERIES.flatMap((q) =>
+      HEIGHT_INPUTS.filter((prop) =>
+        new RegExp(`(?:^|[;{}\\s])${prop}\\s*:`).test(q.body)
+      ).map((prop) => `${q.file}: ${q.prelude} declares ${prop}`)
+    );
+
+    expect(offenders).toEqual([]);
   });
 });
 
