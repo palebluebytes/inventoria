@@ -6,6 +6,7 @@
   import { secretsStore, setSecret } from "../../stores/secrets";
   import BottomSheet from "../../ui/BottomSheet.svelte";
   import Checkbox from "../../ui/Checkbox.svelte";
+  import Input from "../../ui/Input.svelte";
   import NutritionTargetEditor from "./NutritionTargetEditor.svelte";
   import FoodDataSection from "./FoodDataSection.svelte";
   import LogSettingsSection from "../logs/LogSettingsSection.svelte";
@@ -153,14 +154,13 @@
     <div class="settings-form mt-4">
       <div class="form-group">
         <label for="food-off-user-id">Open Food Facts Username</label>
-        <input
+        <Input
           id="food-off-user-id"
           type="text"
           autocomplete="username"
           bind:value={offUserId}
           onblur={persistOffUserId}
           placeholder="Your Open Food Facts username..."
-          class="retro-input full-width"
         />
         <span class="help-text"
           >Your Open Food Facts login, used to contribute corrected label data
@@ -170,15 +170,14 @@
 
       <div class="form-group">
         <label for="food-off-password">Open Food Facts Password</label>
-        <div class="input-wrapper">
-          <input
+        <div class="secret-field">
+          <Input
             id="food-off-password"
             type={showOffPassword ? "text" : "password"}
             autocomplete="current-password"
             bind:value={offPassword}
             onblur={persistOffPassword}
             placeholder="Your Open Food Facts password..."
-            class="retro-input has-reveal"
           />
           {@render revealToggle(
             showOffPassword,
@@ -277,18 +276,19 @@
     font-size: var(--step-n1);
     text-transform: uppercase;
   }
-  .input-wrapper {
+  /* Both fields are `ui/Input` (#375). Rations wore a skin invented in the media
+     views and copied here, which is the crossing that ticket was written for;
+     nothing on this sheet says what a field looks like now. This wrapper exists
+     for the reveal toggle alone — it is the box that button is positioned
+     against, and the padding below is the one thing a caller drawing an
+     adornment over a field has to say, reached through `:global` because the
+     field is another component's element. */
+  .secret-field {
     position: relative;
     display: flex;
   }
-  .input-wrapper input {
-    flex: 1;
-    /* Allow the input to shrink below its intrinsic (monospace placeholder)
-       width so it never overflows the sheet. */
-    min-width: 0;
-  }
   /* Leave room for the reveal toggle so masked text never runs under it. */
-  .retro-input.has-reveal {
+  .secret-field :global(input) {
     padding-right: 2.75rem;
   }
   .reveal-toggle {
@@ -297,6 +297,10 @@
     right: 0;
     height: 100%;
     width: 2.75rem;
+    /* Above the field, which is `ui/Input` and carries `z-index: 1` of its own.
+       Without this the button paints and, worse, *takes its clicks* under a
+       transparent field: same document order as before, different stacking. */
+    z-index: 2;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -316,36 +320,6 @@
   .reveal-toggle:focus-visible {
     outline: 2px solid var(--ink);
     outline-offset: -2px;
-  }
-  /* Only the input flips to a black background on focus, so flip the icon to
-     white just for that case. Scoped to the input (not :focus-within) so that
-     focusing the toggle button itself — e.g. clicking it — keeps the icon dark
-     and visible on the still-white input. */
-  .input-wrapper:has(.retro-input:focus) .reveal-toggle {
-    color: var(--paper);
-  }
-  .input-wrapper:has(.retro-input:focus) .reveal-toggle:hover {
-    color: var(--text-muted);
-  }
-  .retro-input {
-    border: var(--edge);
-    padding: var(--space-s);
-    font-size: var(--step-0);
-    font-family: var(--font-mono);
-    font-weight: 700;
-    border-radius: var(--radius);
-    background: var(--paper);
-    box-shadow: inset 2px 2px 0 var(--border);
-    transition: all 0.1s step-end;
-  }
-  .retro-input:focus {
-    outline: none;
-    background: var(--ink);
-    color: var(--paper);
-    box-shadow: none;
-  }
-  .full-width {
-    width: 100%;
   }
   .help-text {
     font-size: var(--step-n2);

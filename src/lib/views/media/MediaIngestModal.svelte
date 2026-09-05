@@ -5,6 +5,7 @@
   import { saveMediaTwin } from "../../stores/media.store";
   import { secretsStore } from "../../stores/secrets";
   import Button from "../../ui/Button.svelte";
+  import Input from "../../ui/Input.svelte";
   import Alert from "../../ui/Alert.svelte";
   import BottomSheet from "../../ui/BottomSheet.svelte";
 
@@ -137,12 +138,12 @@
         }
       }}
     >
-      <input
+      <Input
         id="media-search-input"
         type="text"
         placeholder="Search title, author or keywords..."
         bind:value={searchQuery}
-        class="retro-input"
+        class="search-field"
         disabled={initialType !== "book" && !$secretsStore.tmdb_api_key}
       />
       <Button
@@ -251,24 +252,16 @@
     justify-content: flex-end;
   }
 
-  .retro-input {
+  /* Where the field sits, and nothing about how it looks — the whole of what a
+     caller says to `ui/Input` (#375). `min-width: 0` alongside the `flex: 1`
+     the deleted skin carried: a flex item's automatic minimum is its content's,
+     and a search box is beside a Search button in a sheet narrower than the
+     placeholder it holds. `:global`, because a class handed to a component is a
+     prop rather than markup and this component's scoping hash never reaches
+     it — so it is anchored under `.search-form`, which is markup. */
+  .search-form :global(.search-field) {
     flex: 1;
-    border: var(--edge);
-    padding: var(--space-s);
-    font-size: var(--step-0);
-    font-family: var(--font-mono);
-    font-weight: 700;
-    border-radius: var(--radius);
-    background: var(--paper);
-    box-shadow: inset 2px 2px 0 var(--border);
-    transition: all 0.1s step-end;
-  }
-
-  .retro-input:focus {
-    outline: none;
-    background: var(--ink);
-    color: var(--paper);
-    box-shadow: none;
+    min-width: 0;
   }
 
   .search-result-item {

@@ -4,6 +4,7 @@
   import { updateMediaStatus, enrichMediaTwin } from "../../stores/media.store";
   import Badge from "../../ui/Badge.svelte";
   import Button from "../../ui/Button.svelte";
+  import Input from "../../ui/Input.svelte";
   import Textarea from "../../ui/Textarea.svelte";
   import BottomSheet from "../../ui/BottomSheet.svelte";
 
@@ -158,12 +159,11 @@
       {#if media.type === "book" && (formStatus === "started" || formStatus === "progress")}
         <div class="form-group">
           <label for="event-pages-read">Pages Read (Optional)</label>
-          <input
+          <Input
             id="event-pages-read"
             type="number"
             min="0"
             bind:value={formPagesRead}
-            class="retro-input"
           />
         </div>
       {/if}
@@ -173,22 +173,20 @@
         <div class="flex gap-2">
           <div class="form-group flex-1">
             <label for="event-season">Season</label>
-            <input
+            <Input
               id="event-season"
               type="number"
               min="1"
               bind:value={formSeason}
-              class="retro-input"
             />
           </div>
           <div class="form-group flex-1">
             <label for="event-episode">Episode</label>
-            <input
+            <Input
               id="event-episode"
               type="number"
               min="1"
               bind:value={formEpisode}
-              class="retro-input"
             />
           </div>
         </div>
@@ -347,25 +345,14 @@
     align-self: flex-start;
   }
 
-  .retro-input {
-    border: var(--edge);
-    padding: var(--space-s);
-    font-size: var(--step-0);
-    font-family: var(--font-mono);
-    font-weight: 700;
-    border-radius: var(--radius);
-    background: var(--paper);
-    box-shadow: inset 2px 2px 0 var(--border);
-    transition: all 0.1s step-end;
-  }
-
-  .retro-input:focus {
-    outline: none;
-    background: var(--ink);
-    color: var(--paper);
-    box-shadow: none;
-  }
-
+  /* `.retro-select` is the last of the `retro-*` field family, and #375 left it
+     standing on purpose. Its three `.retro-input` siblings in this form are
+     `ui/Input` now, so the mismatch #362 accepted has inverted rather than
+     closed: the brutalist boxes are the majority and these two selects are the
+     holdout. It is still one look short of consistent, still marking the same
+     call sites, and #380 is still what closes it — a native select in an owned
+     skin is #378's to build, and transcribing one here would be the drift this
+     ticket just deleted, written a fifth time. */
   .retro-select {
     border: var(--edge);
     padding: var(--space-s);

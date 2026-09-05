@@ -1,16 +1,45 @@
 <script lang="ts">
-  let {
-    value = $bindable(""),
-    placeholder = "",
-    type = "text",
-    id = "",
-    disabled = false,
-    inputmode = undefined,
-    onkeydown,
-    oninput,
-    class: className = "",
-  }: {
-    value?: string;
+  import type { HTMLInputAttributes } from "svelte/elements";
+
+  // The one single-line field. `ui/Textarea` is its multi-line twin and wears
+  // the same skin deliberately (#374): the two stand beside each other in the
+  // same forms.
+  //
+  // **`class` is the wrapper's, not the input's.** A caller says where the
+  // field sits — `flex: 1`, a width, a margin — and never what it looks like,
+  // which is the whole of ADR-0038's frame arriving by reference rather than by
+  // transcription. The one exception a caller may need is padding for an
+  // adornment it draws itself over the field (a reveal toggle), and that is
+  // reached with `:global(input)` under the caller's own class, which reads as
+  // the exception it is.
+  //
+  // **It differs from `ui/Textarea` here, and the difference is the wrapper.**
+  // Textarea has no wrapper, so its caller's class lands on the field itself;
+  // this one does, because an adornment drawn over a field needs a box to be
+  // positioned against, and both settings sheets draw one. So a caller styling
+  // `ui/Textarea` reaches the field directly and a caller styling this reaches
+  // the box around it. Neither is a channel for a look — that rule is the same
+  // for both — but a rule written for one will not land on the other.
+  //
+  // **What #375 converged onto this.** Seven fields across four files wore
+  // `.retro-input`: a mono 700 face, an inset shadow and a focus that inverted
+  // the whole box to ink-on-paper. The rule was byte-identical in all four,
+  // differing only by a `flex: 1` in one, which is what made it invisible — a
+  // copy that renders the same everywhere is still four things a fix has to
+  // reach — and it had crossed into Rations, a Facet that never asked for a
+  // look invented in the media views. There was never an ADR behind it. Those
+  // fields look like every other field now.
+  //
+  // `...rest` is the a11y/semantics/platform escape hatch (`aria-*`, `data-*`,
+  // `name`, `autocomplete`, `min`, `max`, `step`, `onblur`), NOT a styling
+  // channel — the same contract as Button, Checkbox and Textarea.
+  type InputProps = {
+    /**
+     * `number` because `bind:value` on a `type="number"` field hands back a
+     * number, and `null` because that is what an emptied one hands back — both
+     * are the platform's, not this component's.
+     */
+    value?: string | number | null;
     placeholder?: string;
     type?: "text" | "password" | "email" | "number";
     id?: string;
@@ -32,11 +61,36 @@
      */
     oninput?: (e: Event & { currentTarget: HTMLInputElement }) => void;
     class?: string;
-  } = $props();
+  } & Omit<
+    HTMLInputAttributes,
+    | "value"
+    | "placeholder"
+    | "type"
+    | "id"
+    | "disabled"
+    | "inputmode"
+    | "onkeydown"
+    | "oninput"
+    | "class"
+  >;
+
+  let {
+    value = $bindable(""),
+    placeholder = "",
+    type = "text",
+    id = "",
+    disabled = false,
+    inputmode = undefined,
+    onkeydown,
+    oninput,
+    class: className = "",
+    ...rest
+  }: InputProps = $props();
 </script>
 
 <div class="input-wrapper {className}">
   <input
+    {...rest}
     {id}
     {type}
     {placeholder}
@@ -58,6 +112,14 @@
 
   .input {
     width: 100%;
+    /* Shrinkable. The field is a flex item of the wrapper above it, and a flex
+       item's automatic minimum is its content's — for an `<input>` that is the
+       intrinsic width its `size` implies, roughly twenty characters, which is
+       wider than a settings sheet on a phone. Both hand-rolled secret fields
+       #375 converged carried this line on their own copy of the field, with a
+       comment saying the same thing; it belongs to the primitive, so the next
+       caller in a narrow column does not have to rediscover it. */
+    min-width: 0;
     /* The floor is what a finger needs, and not what the padding happens to
        add up to. Everything else in this rule comes to 47px — `--space-2xs`
        above and below a `--step-0` line box, inside a `--edge-thin` — one pixel

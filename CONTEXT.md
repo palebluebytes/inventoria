@@ -534,6 +534,21 @@ control, so bits-ui has nothing to add here. A name is not optional, and the row
 typography is the caller's `class`. See ADR-0068.
 _Avoid_: Toggle, tick box, a second checkbox skin
 
+**Input**:
+The one single-line field (`ui/Input.svelte`): a native `<input>` in a wrapper, wearing
+the house field skin, with `--tap-min` declared rather than arrived at by arithmetic.
+Its `class` is the **wrapper's, not the field's** — a caller says where the field sits
+(`flex: 1`, a width) and never what it looks like, and reaches the field itself only to
+pad it for an adornment it draws over the top, through `:global(input)`. `...rest`
+carries the platform and a11y attributes (`autocomplete`, `min`, `onblur`, `aria-*`)
+and is not a styling channel. Unlike Textarea there is **no census**: a checkbox, a file
+picker and a range slider are correctly not this component. See ADR-0038 and ADR-0093.
+_Avoid_: Text field, TextInput, a second field skin, and the family #375 deleted —
+`.retro-input` (four files, byte-identical, no ADR behind it, and worn inside Rations)
+and `.full-width` / `.has-reveal` as skin classes. Note the one asymmetry with Textarea:
+this primitive has a wrapper and Textarea does not, so a caller's class lands on the box
+here and on the field there.
+
 **Textarea**:
 The one multi-line field (`ui/Textarea.svelte`): a native `<textarea>` wearing the same
 house field skin `ui/Input` draws, because the two stand beside each other in one form

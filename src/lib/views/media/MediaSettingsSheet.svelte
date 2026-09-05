@@ -3,6 +3,7 @@
   import { get } from "svelte/store";
   import { onDestroy } from "svelte";
   import BottomSheet from "../../ui/BottomSheet.svelte";
+  import Input from "../../ui/Input.svelte";
 
   // **Media settings** (ADR-0080 §4): a setting lives beside the thing it
   // configures, not with its Facet. The TMDB key is a user credential for a
@@ -54,14 +55,13 @@
   <div class="settings-form">
     <div class="form-group">
       <label for="tmdb-api-key">TMDB API Key</label>
-      <div class="input-wrapper">
-        <input
+      <div class="secret-field">
+        <Input
           id="tmdb-api-key"
           type={showTmdb ? "text" : "password"}
           bind:value={tmdbKey}
           onblur={persistTmdbKey}
           placeholder="TMDB API key..."
-          class="retro-input has-reveal"
         />
         <button
           type="button"
@@ -122,18 +122,17 @@
     font-size: var(--step-n1);
     text-transform: uppercase;
   }
-  .input-wrapper {
+  /* The field is `ui/Input` (#375) and says nothing about its own look. This
+     wrapper exists for the reveal toggle alone: it is the box that button is
+     positioned against, and the padding below is the one thing a caller
+     drawing an adornment over a field has to say — reached through `:global`
+     because the field is another component's element. */
+  .secret-field {
     position: relative;
     display: flex;
   }
-  .input-wrapper input {
-    flex: 1;
-    /* Allow the input to shrink below its intrinsic (monospace placeholder)
-       width so it never overflows the sheet. */
-    min-width: 0;
-  }
   /* Leave room for the reveal toggle so masked text never runs under it. */
-  .retro-input.has-reveal {
+  .secret-field :global(input) {
     padding-right: 2.75rem;
   }
   .reveal-toggle {
@@ -142,6 +141,10 @@
     right: 0;
     height: 100%;
     width: 2.75rem;
+    /* Above the field, which is `ui/Input` and carries `z-index: 1` of its own.
+       Without this the button paints and, worse, *takes its clicks* under a
+       transparent field: same document order as before, different stacking. */
+    z-index: 2;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -161,33 +164,6 @@
   .reveal-toggle:focus-visible {
     outline: 2px solid var(--ink);
     outline-offset: -2px;
-  }
-  /* Only the input flips to a black background on focus, so flip the icon to
-     white just for that case. Scoped to the input (not :focus-within) so that
-     focusing the toggle button itself — e.g. clicking it — keeps the icon dark
-     and visible on the still-white input. */
-  .input-wrapper:has(.retro-input:focus) .reveal-toggle {
-    color: var(--paper);
-  }
-  .input-wrapper:has(.retro-input:focus) .reveal-toggle:hover {
-    color: var(--text-muted);
-  }
-  .retro-input {
-    border: var(--edge);
-    padding: var(--space-s);
-    font-size: var(--step-0);
-    font-family: var(--font-mono);
-    font-weight: 700;
-    border-radius: var(--radius);
-    background: var(--paper);
-    box-shadow: inset 2px 2px 0 var(--border);
-    transition: all 0.1s step-end;
-  }
-  .retro-input:focus {
-    outline: none;
-    background: var(--ink);
-    color: var(--paper);
-    box-shadow: none;
   }
   .help-text {
     font-size: var(--step-n2);
