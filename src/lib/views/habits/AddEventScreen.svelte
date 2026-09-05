@@ -319,7 +319,11 @@
       <span class="field-label"
         >DESCRIPTION <span class="optional">(OPTIONAL)</span></span
       >
-      <Textarea placeholder="NOTES..." bind:value={description} />
+      <Textarea
+        class="desc-voice"
+        placeholder="NOTES..."
+        bind:value={description}
+      />
     </Card>
   </div>
 
@@ -397,6 +401,18 @@
   }
   :global(.card.field-card.error) {
     border-color: var(--red-bg);
+  }
+
+  /* Typography, not a skin: the box is `ui/Textarea`'s now, but this screen
+     speaks in mono caps — the title field above it does (`.hero-input`), the
+     labels do, and the placeholder here is written `NOTES...`. Without this
+     the one field whose text the user actually composes would answer an
+     uppercase prompt in lowercase. CONTEXT.md's Checkbox entry draws the same
+     line: the primitive owns the control, the caller's `class` owns the voice.
+     Anchored so it outranks the primitive's own `font-family: inherit`. */
+  .event-fields :global(.desc-voice) {
+    font-family: var(--font-mono);
+    text-transform: uppercase;
   }
 
   .field-label {
