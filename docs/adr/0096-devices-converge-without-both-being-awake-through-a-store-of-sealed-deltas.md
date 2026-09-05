@@ -80,9 +80,23 @@ Research notes commissioned for this record:
 ### Scope
 
 **A decided design that ends here.** It cuts no implementation tickets, for ADR-0075's
-reason unchanged: implementing it waits on the person-to-person half existing, and cutting
-tickets for a design layered on an unbuilt design is how two plans drift apart. Nothing of
-the convergence half is built — `src/lib/p2p/` is meal send and receive only.
+reason unchanged: **cutting tickets for a design layered on an unbuilt design is how two
+plans drift apart**, and the layer beneath this one is ADR-0075, which is entirely unbuilt.
+`src/lib/p2p/` is meal send and receive only — there is no Paired Device, no pairing act, no
+version vector and no chain anywhere in the tree, and ADR-0075 carries no `Implemented:`
+trailer.
+
+**The blocker is not the transport, and the map's own wording on this is corrected here.**
+[#248](https://github.com/palebluebytes/inventoria/issues/248) was charted saying
+implementation waits on the person-to-person half **existing**, which was true on
+2026-08-30 and false by the time this record was written:
+[#230](https://github.com/palebluebytes/inventoria/issues/230) to
+[#239](https://github.com/palebluebytes/inventoria/issues/239) all closed and the arc
+reached `main` on 2026-09-01, so ADR-0072, ADR-0073 and ADR-0074 are built. **What is
+unbuilt is the record this one amends.** Whoever picks the sleeping-peer half up builds
+ADR-0075 first, and they build it from a shape this record has already moved in nine places
+— §2 wholesale, and §1, §3, §4, §5, §6, §11, §13 and §14 in part. Tickets cut against the
+pre-amendment shape would be wrong on arrival, which is the drift the rule exists to stop.
 
 It covers **own-device convergence only**. Person-to-person sends keep their synchrony,
 where it is load-bearing rather than incidental: it makes the code's lifetime self-limiting
