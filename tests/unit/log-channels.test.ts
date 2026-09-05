@@ -56,6 +56,7 @@ describe("the roster registers every channel by itself", () => {
     expect(facility.registeredChannels().map((c) => c.name)).toEqual([
       "search",
       "scan",
+      "app",
     ]);
   });
 

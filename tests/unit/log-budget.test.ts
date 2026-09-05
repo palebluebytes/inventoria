@@ -10,12 +10,14 @@ import {
   type SearchLogEntry,
 } from "../../src/lib/logs/search-log";
 import type { ScanLogEntry } from "../../src/lib/logs/scan-log";
+import { appLogEntry, type AppLogEntry } from "../../src/lib/logs/app-log";
 // A channel registers by import side effect (#221), so `registeredChannels`
 // sees only what has been imported. Every module that declares one belongs in
 // this list, and the roster assertion below is what says so out loud when one is
 // missing.
 import "../../src/lib/logs/search-log";
 import "../../src/lib/logs/scan-log";
+import "../../src/lib/logs/app-log";
 
 /**
  * ADR-0092 §8's invariant, as the unit test that record says it must be:
@@ -165,6 +167,22 @@ function worstScanRecord(): ScanLogEntry {
 }
 
 /**
+ * The dearest record `AppLogEntry` admits: all three fields present, each at its
+ * bound.
+ *
+ * Built through `appLogEntry` rather than as an object literal, so the bounds
+ * being tested are the ones the write path applies — a truncation that stopped
+ * running would show up here as a record four times the size rather than as
+ * nothing at all. The `err.name` bound is the one ADR-0092 §7 did not have, and
+ * without it this function has no fixed point to return.
+ */
+function worstAppRecord(): AppLogEntry {
+  const err = new Error("g".repeat(256));
+  err.name = "n".repeat(64);
+  return appLogEntry("m".repeat(256), err);
+}
+
+/**
  * One budget per channel, by channel name.
  *
  * A map rather than a field on the declaration (ADR-0092 §8), and **one entry
@@ -177,6 +195,11 @@ const BUDGETS: Record<string, ChannelBudget> = {
   // existed, and this is the built record weighed. The Amendment of 2026-09-05
   // at the foot of ADR-0092 carries the correction and the new total.
   scan: { worstCase: worstScanRecord, tabulated: 129 },
+  // 634, against §8.1's projected 364. That row was the second in this table
+  // projected from a shape nobody had written — §5.3 had no `msg` field — and
+  // the Amendment of 2026-09-05 at the foot of ADR-0092 carries the correction
+  // and the headroom it costs.
+  app: { worstCase: worstAppRecord, tabulated: 634 },
 };
 
 /**

@@ -179,6 +179,19 @@
         <span class="count">{entries} entries of {channel.cap}</span>
       </div>
       <p class="purpose">{channel.purpose}</p>
+      <!--
+        Derived from `domain`, never from a channel name. It is the same field
+        ADR-0092 §13's two filters read, so the sentence cannot drift from the
+        behaviour and a second jar-wide channel inherits it without an edit.
+        Without it, `Delete all my food data` takes two of the three rows on this
+        card and leaves the third standing with nothing saying why.
+      -->
+      {#if channel.domain === null}
+        <p class="jar-wide">
+          The app's own, not one domain's. A Facet-scoped wipe leaves this
+          standing; Clear takes it.
+        </p>
+      {/if}
       <div class="channel-actions">
         <Checkbox
           label="Recording"
@@ -223,15 +236,21 @@
   }
   .lead,
   .purpose,
+  .jar-wide,
   .help-text {
     font-size: var(--step-n1);
     color: var(--text-secondary);
     margin: var(--space-2xs) 0 0;
   }
   .purpose,
+  .jar-wide,
   .help-text {
     font-size: var(--step-n2);
     font-style: italic;
+  }
+  .jar-wide {
+    font-style: normal;
+    font-weight: 700;
   }
   .form-group {
     display: flex;
