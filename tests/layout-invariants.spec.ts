@@ -69,6 +69,56 @@ async function horizontalOverflowOffenders(
       return false;
     };
 
+    /**
+     * Clipped to nothing, which is a fifth way of not being on screen.
+     *
+     * The four tests below — `display`, `visibility`, `opacity`, a zero-area
+     * rect — are an enumeration, and an enumeration is only as good as its last
+     * entry. A screen-reader-only element is none of those four: it is a 1px box
+     * with real geometry, parked off the left edge on purpose, painting nothing
+     * because a clip collapses it. `getBoundingClientRect` cannot see a clip, so
+     * the sweep read one as a layout defect on every surface of both Facets
+     * (#348).
+     *
+     * Both recipes, because both are in the tree. `clip-path: inset(50%)` is
+     * this repo's own — `ManualEntryFlow`'s `.hidden-file-input`, `FoodStager`'s
+     * `.segmented-label`. `clip: rect(0, 0, 0, 0)` is the legacy one bits-ui
+     * ships as `srOnlyStyles`, which its date components insert as
+     * `document.body`'s first child and never remove: mount one calendar and
+     * every screen after it carries the element, which is why one cause failed
+     * 29 tests across three viewports.
+     *
+     * **The tolerance was standing in for this argument, by coincidence.** The
+     * repo's own recipe carries `margin: -1px` and no transform, so it lands at
+     * `left: -1` and clears `TOL` by exactly zero pixels. bits-ui's adds
+     * `transform: translateX(-100%)` to a 1px box and lands at `left: -2` — one
+     * pixel further, and that pixel is the whole difference between a sweep that
+     * had never fired and 29 that did. A hidden element is skipped here because
+     * it is hidden, not because it stopped one pixel short.
+     */
+    const clippedAway = (s: CSSStyleDeclaration) =>
+      /^rect\(0px(?:,\s*0px){3}\)$/.test(s.clip) ||
+      /^inset\((?:50%\s*){1,4}\)$/.test(s.clipPath);
+
+    /**
+     * ...and neither is anything inside one, which is the same rule the
+     * scrollable exemption above already follows.
+     *
+     * Not hypothetical: the announcer's two `role="log"` children carry no clip
+     * of their own and sit at the same `left: -2`. They are empty between
+     * announcements, so the zero-area test catches them today — but `announce()`
+     * holds text in one for 7.5 seconds, and a sweep that ran inside that window
+     * would report a child the exemption above does not cover. Reading the
+     * ancestors is what makes the exemption about the box rather than about the
+     * moment the sweep happened to run.
+     */
+    const hasClippedAncestor = (el: Element) => {
+      for (let p = el.parentElement; p; p = p.parentElement) {
+        if (clippedAway(getComputedStyle(p))) return true;
+      }
+      return false;
+    };
+
     const offenders: {
       tag: string;
       cls: string;
@@ -80,12 +130,17 @@ async function horizontalOverflowOffenders(
       if (
         s.display === "none" ||
         s.visibility === "hidden" ||
-        s.opacity === "0"
+        s.opacity === "0" ||
+        clippedAway(s)
       )
         continue;
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
-      if ((r.right > vw + TOL || r.left < -TOL) && !hasScrollableAncestor(el)) {
+      if (
+        (r.right > vw + TOL || r.left < -TOL) &&
+        !hasScrollableAncestor(el) &&
+        !hasClippedAncestor(el)
+      ) {
         offenders.push({
           tag: el.tagName.toLowerCase(),
           cls:
