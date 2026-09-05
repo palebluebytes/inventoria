@@ -11,7 +11,10 @@
     type OffPayload,
     type OffSubmitResult,
   } from "../../food/open-food-facts";
-  import { lookupBarcodeWithRetry, scanOutcomeOf } from "../../food/off-retry";
+  import {
+    lookupBarcodeWithRetry,
+    scanOutcomeOfFailure,
+  } from "../../food/off-retry";
   import {
     searchUsdaFoods,
     mapPayloadToFoodResult,
@@ -1613,8 +1616,14 @@
   async function handleBarcodeLookup() {
     if (!barcode.trim()) return;
     const code = barcode.trim();
-    // A second lookup is a second session, "Try again" included: the first one
-    // reached no ending, so it is recorded as abandoned before this one opens.
+    // A second lookup is a second session, "Try again" included, and that is a
+    // reading of ADR-0071 §2 worth stating because the other one is available.
+    // §2 opens a session when a lookup starts, and §3's `attempt` is a fact
+    // about ONE ask — single, retried, or the deadline declining a second — so
+    // a session spanning two lookups could not name its own attempt. What Try
+    // again therefore records is two entries, an abandoned outage and whatever
+    // followed, which is also the honest count for "how often does OFF answer":
+    // folding them into one would hide the outage behind the success.
     endScanSession();
     status = "loading";
     error = "";
@@ -1648,7 +1657,13 @@
       });
       // Before the staging below, which is the ending it settles on: an answer
       // OFF gave is an answer whether or not the mapping that follows survives.
-      scanSession = scanAnswered(scanSession, "found");
+      //
+      // Guarded like the catch below, and not because the compiler asks: TypeScript
+      // holds the narrowing from the line above straight through the `await`, so it
+      // does not. A method change during the lookup ends this session — correctly,
+      // as one that never answered — and the answer arriving afterwards must not
+      // resurrect it.
+      if (scanSession) scanSession = scanAnswered(scanSession, "found");
       staged = mapPayloadToFoodResult(off);
       amount = openingAmount(off);
       status = "idle";
@@ -1670,7 +1685,7 @@
       // One taxonomy, read once (#204). The banner below used to branch on the
       // error classes itself; it now branches on the outcome those classes name,
       // so the log and the screen cannot come to disagree about what happened.
-      const outcome = scanOutcomeOf(e);
+      const outcome = scanOutcomeOfFailure(e);
       if (scanSession) scanSession = scanAnswered(scanSession, outcome);
       // Missing door (§1): a 404 opens the Custom form keyed to this barcode with
       // reason copy, instead of the old dead-end "not found" message.

@@ -8,6 +8,7 @@ import {
   scanAnswered,
   scanAttempted,
   scanOpenedDoor,
+  scanEntryLabels,
   scanReport,
   type ScanAttempt,
   type ScanDoor,
@@ -537,6 +538,33 @@ describe("the reading ADR-0071 §6's view renders", () => {
     expect(read.settled.share).toBeNull();
   });
 
+  it("says what one session was, in the words the counters use", () => {
+    // One vocabulary, not two: the list first printed raw enum tokens beside a
+    // counter list that had been given prose precisely so a name could not
+    // drift — and `unreachable` (an outcome) against `unreadable` (a door) is
+    // the pair the counter names are prefixed to keep apart.
+    const entry = closeScanSession(
+      answered("unreachable", "retried", "unreadable"),
+      AT
+    )!;
+    const labels = scanEntryLabels(entry);
+    expect(labels.headline).not.toMatch(/unreachable/);
+    expect(labels.detail).not.toMatch(/unreadable|retried/);
+    expect(labels.detail).toContain("·");
+  });
+
+  it("says nothing extra about the ordinary session", () => {
+    // One ask, no form, finished. A line repeating "Asked once · No form
+    // opened" under every row would bury the sessions that differ.
+    const plain = closeScanSession(answered("found"), AT)!;
+    expect(scanEntryLabels(plain).detail).toBe("");
+  });
+
+  it("says so when the session was simply left", () => {
+    const left = closeScanSession(answered("unreachable"), AT)!;
+    expect(scanEntryLabels(left).detail).toMatch(/left/i);
+  });
+
   it("labels every counter in prose, and never as a cause", () => {
     // ADR-0071's Consequences: a run of `unreachable` says the service did not
     // answer THIS device. Whether OFF was down, the network was, or a captive
@@ -603,7 +631,7 @@ describe("how the scan tab drives the session", () => {
   it("reads the outcome once, from the classifier both branches share", () => {
     // The screen used to branch on the error classes itself. Two branchings over
     // one taxonomy is how a log and the banner beside it come to disagree.
-    expect(stager).toMatch(/const outcome = scanOutcomeOf\(e\)/);
+    expect(stager).toMatch(/const outcome = scanOutcomeOfFailure\(e\)/);
     expect(stager).not.toMatch(/instanceof ProductNotFoundError/);
     expect(stager).not.toMatch(/instanceof OffUnreachableError/);
   });

@@ -426,7 +426,9 @@ export const SCAN_CHANNEL = defineChannel({
   domain: "food",
   purpose:
     "#208, and this device's owner; how often a barcode reaches Open Food Facts and what was captured by hand when it did not.",
-  // ADR-0092 §7's cap for this channel, priced in §8.1's table at 200 × 124 B.
+  // ADR-0092 §7's cap for this channel. §8.1's table priced it at 200 × 124 B
+  // before this shape existed; built and weighed it is 129 B, which that
+  // record's Amendment of 2026-09-05 carries and `log-budget.test.ts` holds.
   cap: 200,
   // The shape above, as it stands. It moves under `ledger-export.ts`'s rule —
   // when a reader written against the previous version would misread a newer
@@ -534,8 +536,56 @@ const SCAN_LABELS: Record<ScanCounter, string> = {
   unreachable_then_door: "Typed in after no answer",
 };
 
+/**
+ * What a caller has in hand when it asks for a reading: the counter set the
+ * facility handed back, which is a plain map of whatever was stored.
+ *
+ * `Partial` rather than a total `Record`, and that is what makes the `?? 0`
+ * below a real branch rather than dead defence: a channel whose counters have
+ * never fired has no key for them yet, and a stored set written by a build with
+ * a different declaration may be missing any of them.
+ */
+export type ScanCounts = Readonly<Partial<Record<ScanCounter, number>>>;
+
+/**
+ * What the record says, in the same words the counters use.
+ *
+ * **One vocabulary, not two.** The recent-sessions list first printed the
+ * entry's raw enum tokens beside a counter list that had been given prose
+ * precisely so a name could not drift — and `unreachable` (an outcome) against
+ * `unreadable` (a door) is the pair {@link SCAN_COUNTERS} is prefixed to keep
+ * apart. Both surfaces now read the same table.
+ *
+ * `detail` is what this session says beyond its outcome, and it is empty for
+ * the ordinary case: one ask, no form, finished. A line that repeated "Asked
+ * once · No form opened" under every row would bury the sessions that differ.
+ */
+export interface ScanEntryLabels {
+  /** The outcome, which every session has. */
+  headline: string;
+  /** Everything else worth saying about it, or `""`. */
+  detail: string;
+}
+
+/** The label a session that reached no ending carries. Not a counter: the
+ *  counter is `settled`, and a screen needs the word for its absence. */
+const LEFT_LABEL = "Left without finishing";
+
+/** {@link ScanEntryLabels} for one entry. */
+export function scanEntryLabels(entry: ScanLogEntry): ScanEntryLabels {
+  const detail: string[] = [];
+  if (entry.attempt !== "single")
+    detail.push(SCAN_LABELS[`attempt_${entry.attempt}`]);
+  if (entry.door !== "none") detail.push(SCAN_LABELS[`door_${entry.door}`]);
+  if (!entry.settled) detail.push(LEFT_LABEL);
+  return {
+    headline: SCAN_LABELS[`outcome_${entry.outcome}`],
+    detail: detail.join(" · "),
+  };
+}
+
 function shareOf(
-  counts: Record<string, number>,
+  counts: ScanCounts,
   name: ScanCounter,
   sessions: number
 ): ScanShare {
@@ -549,7 +599,7 @@ function shareOf(
 }
 
 /** The fold {@link ScanReport} describes. */
-export function scanReport(counts: Record<string, number>): ScanReport {
+export function scanReport(counts: ScanCounts): ScanReport {
   const sessions = SCAN_OUTCOMES.reduce(
     (total, outcome) => total + (counts[`outcome_${outcome}`] ?? 0),
     0

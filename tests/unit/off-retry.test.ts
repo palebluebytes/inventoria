@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   lookupBarcodeWithRetry,
-  scanOutcomeOf,
+  scanOutcomeOfFailure,
 } from "../../src/lib/food/off-retry";
 import {
   ProductNotFoundError,
@@ -248,15 +248,19 @@ describe("lookupBarcodeWithRetry", () => {
   it("names the outcome off #204's error classes, never off a status", async () => {
     // One function decides which class a response is, and this reads that
     // decision rather than re-listing the statuses behind it.
-    expect(scanOutcomeOf(new ProductNotFoundError(TEST_BARCODE))).toBe(
+    expect(scanOutcomeOfFailure(new ProductNotFoundError(TEST_BARCODE))).toBe(
       "absent"
     );
-    expect(scanOutcomeOf(new OffUnreachableError(503))).toBe("unreachable");
-    expect(scanOutcomeOf(new Error("Open Food Facts returned HTTP 403"))).toBe(
+    expect(scanOutcomeOfFailure(new OffUnreachableError(503))).toBe(
+      "unreachable"
+    );
+    expect(
+      scanOutcomeOfFailure(new Error("Open Food Facts returned HTTP 403"))
+    ).toBe("refused");
+    // The offline scan takes the same `else` the Scan tab's own banner takes.
+    expect(scanOutcomeOfFailure(new TypeError("Failed to fetch"))).toBe(
       "refused"
     );
-    // The offline scan takes the same `else` the Scan tab's own banner takes.
-    expect(scanOutcomeOf(new TypeError("Failed to fetch"))).toBe("refused");
   });
 
   it("does not start a second attempt once the first has eaten the deadline", async () => {

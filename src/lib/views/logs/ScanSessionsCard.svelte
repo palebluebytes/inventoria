@@ -1,13 +1,15 @@
 <script lang="ts">
   import Card from "../../ui/Card.svelte";
   import Meter from "../../ui/Meter.svelte";
-  import { channelCounters, readChannel } from "../../logs/log-facility";
+  import Row from "../../ui/Row.svelte";
+  import { channelCounters, partitionChannel } from "../../logs/log-facility";
   // Through the roster, never through the channel's own module: a surface that
   // imports a channel directly is a surface whose answer depends on what it
   // happened to import, which is the defect `logs/channels.ts` exists to remove
   // (#221).
   import { SCAN_CHANNEL } from "../../logs/channels";
-  import { scanReport, type ScanLogEntry } from "../../logs/scan-log";
+  import { scanEntryLabels, scanReport } from "../../logs/scan-log";
+  import { logDateLabel } from "./log-dates";
 
   // ADR-0071 §6's view: how often a barcode scan reaches Open Food Facts, as
   // counts and as proportions, with the recent sessions underneath.
@@ -22,8 +24,8 @@
   //
   // **The rate is read from the counters and never from the entries.** The ring
   // retains by age, so a rate over the 200 records it holds is the rate of the
-  // last 200 scans wearing a lifetime label (ADR-0092 §6, §9). The list below is
-  // for looking at what happened recently; the numbers above it are for how
+  // last 200 lookups wearing a lifetime label (ADR-0092 §6, §9). The list below
+  // is for looking at what happened recently; the numbers above it are for how
   // often.
   //
   // **It does not say why a scan failed, and must not.** A run of no-answers
@@ -31,6 +33,10 @@
   // network was, or a captive portal was in the way is not something this
   // channel records, and the labels are worded so the screen does not imply
   // otherwise (ADR-0071's Consequences).
+  //
+  // Every word on it comes from `scan-log.ts`'s one label table, the recent list
+  // included. A screen that spelled the outcome itself would be a second
+  // vocabulary beside the counters', free to drift from it.
 
   /** How many of the retained sessions the list shows, newest first. */
   const RECENT = 8;
@@ -42,24 +48,18 @@
   // rather than a clock read per row.
   // svelte-ignore state_referenced_locally
   const drawnAt = Date.now();
+  // `?? {}` cannot fire for THIS channel, which declares counters; the `| null`
+  // is the facility's answer for a channel that declares none.
   // svelte-ignore state_referenced_locally
   const counters = channelCounters(SCAN_CHANNEL, drawnAt);
   // svelte-ignore state_referenced_locally
   const report = scanReport(counters?.counts ?? {});
+  // Partitioned rather than read: a record this build cannot parse is one the
+  // list silently drops, and #229's rule is that the count is disclosed rather
+  // than the shortfall left unexplained.
   // svelte-ignore state_referenced_locally
-  const recent: ScanLogEntry[] = readChannel(SCAN_CHANNEL)
-    .slice(-RECENT)
-    .reverse();
-
-  // "since 5 September", never "lifetime": after a Clear the totals start again,
-  // and a word implying otherwise would be the screen lying about a number whose
-  // epoch it can see (#214 §9).
-  const dateLabel = (at: number) =>
-    new Date(at).toLocaleDateString(undefined, {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
+  const contents = partitionChannel(SCAN_CHANNEL);
+  const recent = contents.entries.slice(-RECENT).reverse();
 
   const percent = (share: number | null) =>
     share === null ? "" : `${Math.round(share * 100)}%`;
@@ -75,16 +75,18 @@
     </p>
   {:else}
     <p class="lead">
-      {report.sessions} barcode{report.sessions === 1 ? "" : "s"} looked up since
-      {dateLabel(counters?.since ?? drawnAt)}, on this device. A scan that found
-      the product in the app already is not counted — nothing was asked.
+      {report.sessions} barcode lookup{report.sessions === 1 ? "" : "s"} since {logDateLabel(
+        counters?.since ?? drawnAt
+      )}, on this device. Asking again after no answer is a second lookup and
+      counts as one; a barcode this app already holds is not counted at all,
+      because nothing was asked.
     </p>
 
     <ul class="outcomes">
       {#each report.outcomes as outcome (outcome.name)}
         <li>
           <span class="row-head">
-            <span class="row-label">{outcome.label}</span>
+            <span>{outcome.label}</span>
             <span class="row-count"
               >{outcome.count}<span class="share">{percent(outcome.share)}</span
               ></span
@@ -106,32 +108,38 @@
     </p>
 
     <p class="counters">
-      {#each [...report.attempts, ...report.doors, report.settled, report.unreachable_then_door] as row (row.name)}
+      {#each [...report.attempts, ...report.doors, report.settled, report.unreachable_then_door] as counter (counter.name)}
         <span class="counter"
-          >{row.label} <b>{row.count}</b><i>{percent(row.share)}</i></span
+          >{counter.label} <b>{counter.count}</b><i>{percent(counter.share)}</i
+          ></span
         >
       {/each}
     </p>
 
-    <h3>Recent scans</h3>
-    <ul class="recent">
-      {#each recent as entry, index (index)}
-        <li>
-          <span class="when">{dateLabel(entry.at)}</span>
-          <span class="what"
-            >{entry.outcome}{entry.attempt === "single"
-              ? ""
-              : ` · ${entry.attempt}`}{entry.door === "none"
-              ? ""
-              : ` · ${entry.door}`}{entry.settled ? "" : " · left"}</span
-          >
-        </li>
-      {/each}
-    </ul>
+    <h3>Recent lookups</h3>
+    {#each recent as entry, index (index)}
+      {@const labels = scanEntryLabels(entry)}
+      <Row title={labels.headline} subtitle={labels.detail}>
+        {#snippet trailing()}
+          <span class="when">{logDateLabel(entry.at)}</span>
+        {/snippet}
+      </Row>
+    {/each}
     {#if recent.length < report.sessions}
       <p class="caution">
-        The list keeps the most recent scans only. The totals above count every
-        one.
+        The list keeps the most recent lookups only. The totals above count
+        every one.
+      </p>
+    {/if}
+    {#if contents.unreadable > 0}
+      <!-- Disclosed rather than quietly missing from the list (#229): these
+           records exist, they hold a cap slot, and Clear is what removes them.
+           It does not say WHY they cannot be read — a version this build does
+           not know and a half-written record are indistinguishable here. -->
+      <p class="caution">
+        {contents.unreadable} record{contents.unreadable === 1 ? "" : "s"} this version
+        of the app cannot read, so they are not in the list. The totals above still
+        count them.
       </p>
     {/if}
   {/if}
@@ -204,28 +212,8 @@
     color: var(--text-secondary);
     font-style: normal;
   }
-  .recent {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3xs);
-  }
-  .recent li {
-    display: flex;
-    align-items: baseline;
-    gap: var(--space-2xs);
-    border: var(--edge-thin);
-    border-radius: var(--radius);
-    padding: var(--space-3xs) var(--space-2xs);
-    font-size: var(--step-n2);
-  }
   .when {
+    font-size: var(--step-n2);
     color: var(--text-secondary);
-  }
-  .what {
-    margin-left: auto;
-    font-family: var(--font-mono);
   }
 </style>

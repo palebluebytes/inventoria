@@ -57,6 +57,23 @@ test.describe("Rations, the food Facet's own entry point", () => {
     ).toBeVisible();
   });
 
+  test("the scan's own numbers are on the Facet that writes them (#207)", async ({
+    page,
+  }) => {
+    // ADR-0071 §6's view. It is not what makes the channel legal any more —
+    // ADR-0092 retired that rule — so what this asserts is the placement
+    // decision: the reading of a channel belongs to the domain that writes it,
+    // which is the same clause (b) that puts the log card's export switch here
+    // rather than on the root's Settings screen (ADR-0080 §1).
+    //
+    // The wiring half only. What the card renders from the counters is a pure
+    // fold, held in `tests/unit/scan-log.test.ts`.
+    await page.locator("#food-settings-btn").click();
+    await expect(
+      page.getByRole("heading", { name: "Barcode scans", exact: true })
+    ).toBeVisible();
+  });
+
   test("Your data offers the way back in, not just the way out (#335)", async ({
     page,
   }) => {

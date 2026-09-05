@@ -81,7 +81,10 @@ export interface RetryOptions {
 }
 
 /**
- * What a barcode lookup ended as, in the log's vocabulary (ADR-0071 §3).
+ * What a **failed** barcode lookup ended as, in the log's vocabulary
+ * (ADR-0071 §3). Named for the failure it reads: `found` is the fourth
+ * `ScanOutcome` and this can never return it, because a lookup that found the
+ * product threw nothing to classify.
  *
  * **Read off #204's error classes and never off a status.** `lookupBarcode`
  * decides which class a response is, once, in `serviceDidNotAnswer`; a second
@@ -92,7 +95,7 @@ export interface RetryOptions {
  * Scan tab's own banner takes: a 400, a 403, and a transport-level rejection
  * where nothing was asked at all. `ScanOutcome` documents what that costs.
  */
-export function scanOutcomeOf(failure: unknown): ScanOutcome {
+export function scanOutcomeOfFailure(failure: unknown): ScanOutcome {
   if (failure instanceof ProductNotFoundError) return "absent";
   if (failure instanceof OffUnreachableError) return "unreachable";
   return "refused";

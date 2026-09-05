@@ -310,3 +310,29 @@ on the scan path is `gtin:<barcode>`, and ADR-0092 §5.3 captures `err.message`,
 [#227](https://github.com/palebluebytes/inventoria/issues/227) lands would put a barcode
 into an exported log by the one path §4 cannot see. ADR-0092 §13 makes #227 a hard
 blocker on that channel for this reason. This channel is unaffected.
+
+## Amendment (2026-09-05): `refused` is the class the app cannot name, and that includes the offline scan
+
+[#207](https://github.com/palebluebytes/inventoria/issues/207) built §3, and one member is
+wider in code than §3 describes it. §3 glosses `refused` as "the 400/403 class #204
+deliberately kept out of failed-to-answer". The app reaches that class by one route — an
+error that is neither `ProductNotFoundError` nor `OffUnreachableError` — and a
+**transport-level rejection takes the same route**. An offline scan, where nothing was
+asked at all, is therefore recorded as `refused`.
+
+**The field set does not widen, and this records why.** Splitting the two would be the
+channel inventing a distinction the code it observes does not make: `lookupBarcode` wraps
+only 429 and 5xx, the Scan tab shows one banner for everything else, and #204's taxonomy
+is one function's answer rather than a list this channel may extend. A fifth outcome is a
+change to that taxonomy first and to §3 second.
+
+**What it costs, stated rather than absorbed.**
+[ADR-0092](0092-a-local-log-records-completely-at-a-level-and-the-export-is-the-protection.md)
+§5.2 puts `refused` at ERROR because "an outage is the network's and a 403 is ours", and
+that is the one clause which does not transfer: an offline scan is the network's, and it
+is recorded at ERROR beside a 403. The effect is bounded — the level decides capture and
+nothing else, and at every dial position ERROR is captured — so what is wrong is the
+severity a reader sees on a record, not which records exist or what any counter holds.
+
+Whoever next has a reason to tell the two apart owns both halves: a fifth error class in
+`open-food-facts.ts`, and a fifth `ScanOutcome` with its own row in ADR-0092 §5.2.

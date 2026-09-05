@@ -9,7 +9,7 @@
   import NutritionTargetEditor from "./NutritionTargetEditor.svelte";
   import FoodDataSection from "./FoodDataSection.svelte";
   import LogSettingsSection from "../logs/LogSettingsSection.svelte";
-  import ScanReport from "../logs/ScanReport.svelte";
+  import ScanSessionsCard from "../logs/ScanSessionsCard.svelte";
   import { facetOf } from "../../facets/registry";
 
   // **Rations settings** (ADR-0080 §7): the one named, full-height surface the
@@ -238,7 +238,7 @@
        own Settings screen is the shape ADR-0080 §6 deleted. It sits directly
        above the log card the channel is listed in, so its Clear is one card
        away from the numbers it zeroes. -->
-  <ScanReport />
+  <ScanSessionsCard />
 
   <!-- Local logs, Rations' own (ADR-0080 §2). The same card the root draws,
        narrowed to the channels food's domain writes and switched by Rations'

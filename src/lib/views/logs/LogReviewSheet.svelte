@@ -17,6 +17,9 @@
   import { channelsOfFacet } from "../../logs/channels";
   import type { FacetId } from "../../facets/registry";
   import { downloadLogExport } from "./export-target";
+  // "since 5 September", never "lifetime" (#214 §9), shared with the scan card
+  // rather than copied into it: the argument for the wording is the module's.
+  import { logDateLabel } from "./log-dates";
 
   // The review the export is conditional on (ADR-0092 §11): the exact payload,
   // shown before anything is written, each channel chosen individually. One
@@ -97,15 +100,6 @@
     );
   });
 
-  // "since 5 September", never "lifetime" (#214 §9): after a Clear the totals
-  // start again, and a word implying otherwise would be the screen lying about
-  // a number it can see the epoch of.
-  const sinceLabel = (since: number) =>
-    new Date(since).toLocaleDateString(undefined, {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
   // The value the file will hold, built by the same function the export calls:
   // the review IS the payload, not a summary of it.
   let payload = $derived.by(() => {
@@ -168,7 +162,7 @@
       {#if counters}
         <p class="counters">
           <span class="counter-head"
-            >Counted since {sinceLabel(counters.since)}</span
+            >Counted since {logDateLabel(counters.since)}</span
           >
           {#each Object.entries(counters.counts) as [name, count] (name)}
             <span class="counter">{name} <b>{count}</b></span>
