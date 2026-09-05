@@ -23,6 +23,11 @@ import {
   runFacetWipe,
   wipeFacetStorage,
 } from "../../src/lib/facets/facet-wipe";
+import {
+  freshModule,
+  stubLocalStorage,
+  type FakeLocalStorage,
+} from "./support/local-storage";
 
 // The real sqlite-wasm Node build, as `db-append-only.test.ts` uses it: the
 // claim under test is what one SQL predicate matches, so a fake would be
@@ -174,22 +179,6 @@ describe("the scoped wipe's ledger predicate", () => {
 // The `localStorage` half
 // ---------------------------------------------------------------------------
 
-/** A store with the two members key enumeration needs, which a Map alone lacks. */
-function makeFakeLocalStorage(seed: Record<string, string> = {}) {
-  const store = new Map<string, string>(Object.entries(seed));
-  return {
-    store,
-    get length() {
-      return store.size;
-    },
-    key: (i: number) => [...store.keys()][i] ?? null,
-    getItem: (k: string) => (store.has(k) ? store.get(k)! : null),
-    setItem: (k: string, v: string) => void store.set(k, String(v)),
-    removeItem: (k: string) => void store.delete(k),
-    clear: () => store.clear(),
-  };
-}
-
 /** What stays is the interesting half, so the fake jar holds one of each. */
 const OTHER_KEYS = {
   inventoria_pref_log_export: "true",
@@ -222,11 +211,10 @@ afterEach(() => {
 });
 
 describe("the scoped wipe's storage predicate", () => {
+  let jar: FakeLocalStorage;
+
   beforeEach(async () => {
-    vi.stubGlobal(
-      "localStorage",
-      makeFakeLocalStorage({ ...OTHER_KEYS, ...FOOD_KEYS })
-    );
+    jar = stubLocalStorage({ seed: { ...OTHER_KEYS, ...FOOD_KEYS } });
     // Registering the search channel is what puts its key in food's set.
     await import("../../src/lib/logs/search-log");
   });
@@ -241,7 +229,7 @@ describe("the scoped wipe's storage predicate", () => {
     const removed = wipeFacetStorage("food");
 
     expect(removed).toBe(Object.keys(FOOD_KEYS).length);
-    expect([...(localStorage as any).store.keys()].sort()).toEqual(
+    expect([...jar.store.keys()].sort()).toEqual(
       Object.keys(OTHER_KEYS).sort()
     );
   });
@@ -266,8 +254,9 @@ describe("a jar-wide channel is in no Facet's wipe (ADR-0092 §13)", () => {
     // follow the writer — a Rations user's OPFS failure is written by Rations'
     // running code — while deletion is irreversible, so "delete all my food
     // data" never reaches the app's own narration.
-    vi.resetModules();
-    const facility = await import("../../src/lib/logs/log-facility");
+    const facility = await freshModule(
+      () => import("../../src/lib/logs/log-facility")
+    );
     await import("../../src/lib/logs/search-log");
     const wipe = await import("../../src/lib/facets/facet-wipe");
     facility.defineChannel({
@@ -278,15 +267,14 @@ describe("a jar-wide channel is in no Facet's wipe (ADR-0092 §13)", () => {
       version: 1,
       parse: (raw: unknown) => raw ?? null,
     });
-    vi.stubGlobal(
-      "localStorage",
-      makeFakeLocalStorage({
+    stubLocalStorage({
+      seed: {
         ...OTHER_KEYS,
         ...FOOD_KEYS,
         inventoria_log_narration: "[]",
         inventoria_log_narration_counters: '{"counts":{},"since":1}',
-      })
-    );
+      },
+    });
 
     for (const facet of ["food", "root"] as const) {
       expect(wipe.facetStorageKeys(facet)).not.toContain(
@@ -366,11 +354,10 @@ describe("the wipe's plan", () => {
 // ---------------------------------------------------------------------------
 
 describe("one run of the wipe", () => {
+  let jar: FakeLocalStorage;
+
   beforeEach(async () => {
-    vi.stubGlobal(
-      "localStorage",
-      makeFakeLocalStorage({ ...OTHER_KEYS, ...FOOD_KEYS })
-    );
+    jar = stubLocalStorage({ seed: { ...OTHER_KEYS, ...FOOD_KEYS } });
     // Registered here as well as above, so these cases hold when this describe
     // is the only one that runs: `FOOD_KEYS` counts the channel's key, and the
     // channel is in the registry only because some module imported it.
@@ -428,7 +415,7 @@ describe("one run of the wipe", () => {
 
     expect(ended.kind).toBe("failed");
     expect(ended.message).toContain("Nothing was deleted");
-    expect([...(localStorage as any).store.keys()].sort()).toEqual(
+    expect([...jar.store.keys()].sort()).toEqual(
       [...Object.keys(OTHER_KEYS), ...Object.keys(FOOD_KEYS)].sort()
     );
   });

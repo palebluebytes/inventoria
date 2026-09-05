@@ -8,6 +8,7 @@ import {
   typedIntoSession,
   type SearchSession,
 } from "../../src/lib/logs/search-log";
+import { freshModule, freshModuleWithStorage } from "./support/local-storage";
 
 /**
  * The search channel (ADR-0053). Everything but the write itself is pure: one
@@ -372,31 +373,10 @@ describe("the query is bounded at capture, never on the input (ADR-0092 §7)", (
 
 // ── The channel, and the write ──────────────────────────────────────────────
 
-interface FakeLocalStorage {
-  store: Map<string, string>;
-  getItem(k: string): string | null;
-  setItem(k: string, v: string): void;
-  removeItem(k: string): void;
-}
-
-function makeFakeLocalStorage(): FakeLocalStorage {
-  const store = new Map<string, string>();
-  return {
-    store,
-    getItem: (k) => (store.has(k) ? store.get(k)! : null),
-    setItem: (k, v) => {
-      store.set(k, String(v));
-    },
-    removeItem: (k) => {
-      store.delete(k);
-    },
-  };
-}
-
-async function loadSearchLog() {
-  vi.resetModules();
-  return import("../../src/lib/logs/search-log");
-}
+// The channel registers itself into the facility's module state at import, so
+// every test below takes a fresh copy of the pair; the ones that reach storage
+// take the shared fake jar with it (#222).
+const loadSearchLog = () => import("../../src/lib/logs/search-log");
 
 const corpusOf = () =>
   Promise.resolve({
@@ -415,7 +395,7 @@ afterEach(() => {
 
 describe("the search channel", () => {
   it("states the purpose ADR-0092 §2 requires, and ADR-0053's cap", async () => {
-    const { SEARCH_CHANNEL } = await loadSearchLog();
+    const { SEARCH_CHANNEL } = await freshModule(loadSearchLog);
     expect(SEARCH_CHANNEL.name).toBe("search");
     expect(SEARCH_CHANNEL.cap).toBe(200);
     expect(SEARCH_CHANNEL.purpose).toMatch(/#142/);
@@ -425,21 +405,19 @@ describe("the search channel", () => {
   it("carries no sensitivity marking at all (ADR-0092 §11)", async () => {
     // Deleted rather than renamed: a badge on a channel is field classification
     // wearing a different word, and the reviewed export is the whole protection.
-    const { SEARCH_CHANNEL } = await loadSearchLog();
+    const { SEARCH_CHANNEL } = await freshModule(loadSearchLog);
     expect(SEARCH_CHANNEL).not.toHaveProperty("sensitivity");
   });
 
   it("declares the version its entry shape is at (#229)", async () => {
-    const { SEARCH_CHANNEL } = await loadSearchLog();
+    const { SEARCH_CHANNEL } = await freshModule(loadSearchLog);
     expect(SEARCH_CHANNEL.version).toBe(2);
   });
 
   it("parses a golden stored record, envelope and all (#229)", async () => {
     // The one thing that makes the stamp pay for itself: without a golden,
     // `version` never moves, because nothing notices the shape changed.
-    const ls = makeFakeLocalStorage();
-    vi.stubGlobal("localStorage", ls);
-    const log = await loadSearchLog();
+    const [log, ls] = await freshModuleWithStorage(loadSearchLog);
     const facility = await import("../../src/lib/logs/log-facility");
     ls.store.set(
       "inventoria_log_search",
@@ -503,7 +481,7 @@ describe("the search channel", () => {
     // `bucket` is a code and decides nothing about the rest of the record, so an
     // unfamiliar one must not cost the entry. `outcome.kind` is a discriminant —
     // it decides whether `corrected_by` exists — and stays strict.
-    const { SEARCH_CHANNEL } = await loadSearchLog();
+    const { SEARCH_CHANNEL } = await freshModule(loadSearchLog);
     const entry = {
       query: "raw aubergine",
       outcome: { kind: "nothing" },
@@ -522,7 +500,7 @@ describe("the search channel", () => {
   });
 
   it("refuses a stored record that is not an entry", async () => {
-    const { SEARCH_CHANNEL } = await loadSearchLog();
+    const { SEARCH_CHANNEL } = await freshModule(loadSearchLog);
     expect(SEARCH_CHANNEL.parse({ query: 42 })).toBeNull();
     expect(
       SEARCH_CHANNEL.parse({ query: "x", outcome: { kind: "no" } })
@@ -545,7 +523,7 @@ describe("what level a session is (ADR-0092 §5.1)", () => {
     // An empty result is a WARN because the app failed to answer, not because
     // #142 wants to read it. A rescue cost the user nothing, and a session
     // abandoned mid-word never reached a verdict.
-    const { searchSessionLevel } = await loadSearchLog();
+    const { searchSessionLevel } = await freshModule(loadSearchLog);
     const base = {
       query: "raw aubergine",
       settled: true,
@@ -586,7 +564,8 @@ describe("what level a session is (ADR-0092 §5.1)", () => {
     // is already asserted above; this adds a FIFTH the code has never heard of,
     // which is the only version of the assertion that survives the next one
     // being added.
-    const { isSettledEmptySession, searchSessionLevel } = await loadSearchLog();
+    const { isSettledEmptySession, searchSessionLevel } =
+      await freshModule(loadSearchLog);
     const base = {
       query: "raw aubergine",
       settled: true,
@@ -620,8 +599,7 @@ describe("what level a session is (ADR-0092 §5.1)", () => {
     // Both outcomes the bar counts are WARN, so the positions do not differ over
     // the population it counts. A consequence of the table rather than a
     // mechanism, and asserted rather than relied on silently.
-    vi.stubGlobal("localStorage", makeFakeLocalStorage());
-    const log = await loadSearchLog();
+    const [log] = await freshModuleWithStorage(loadSearchLog);
     const facility = await import("../../src/lib/logs/log-facility");
 
     for (const position of [13, 9, 5] as const) {
@@ -636,8 +614,7 @@ describe("what level a session is (ADR-0092 §5.1)", () => {
   });
 
   it("drops a rescue at Errors & warnings, and keeps it at Normal", async () => {
-    vi.stubGlobal("localStorage", makeFakeLocalStorage());
-    const log = await loadSearchLog();
+    const [log] = await freshModuleWithStorage(loadSearchLog);
     const facility = await import("../../src/lib/logs/log-facility");
 
     let session = log.beginSearchSession();
@@ -656,8 +633,7 @@ describe("what level a session is (ADR-0092 §5.1)", () => {
 
 describe("recording a finished session", () => {
   it("appends one entry through the facility", async () => {
-    vi.stubGlobal("localStorage", makeFakeLocalStorage());
-    const log = await loadSearchLog();
+    const [log] = await freshModuleWithStorage(loadSearchLog);
     const facility = await import("../../src/lib/logs/log-facility");
 
     let session = log.beginSearchSession();
@@ -678,8 +654,7 @@ describe("recording a finished session", () => {
   });
 
   it("never reaches the corpus for a session in which nothing settled", async () => {
-    vi.stubGlobal("localStorage", makeFakeLocalStorage());
-    const log = await loadSearchLog();
+    const [log] = await freshModuleWithStorage(loadSearchLog);
     const load = vi.fn(corpusOf);
 
     // Two characters and then away: the search never fired, so there is nothing
@@ -695,8 +670,7 @@ describe("recording a finished session", () => {
   it("counts every session it records, as §7's lifetime denominator", async () => {
     // The ring is a recency window, so a rate taken over the retained entries is
     // the rate of the last 200 sessions wearing a lifetime label (ADR-0092 §9).
-    vi.stubGlobal("localStorage", makeFakeLocalStorage());
-    const log = await loadSearchLog();
+    const [log] = await freshModuleWithStorage(loadSearchLog);
     const facility = await import("../../src/lib/logs/log-facility");
 
     for (const [query, empty] of [
@@ -721,8 +695,7 @@ describe("recording a finished session", () => {
     // Turn the dial down and you keep the rate, you lose the detail: the write
     // tallies above the gate, because a counter is a fixed-width integer rather
     // than bytes and gating it would hole the one number that survives shedding.
-    vi.stubGlobal("localStorage", makeFakeLocalStorage());
-    const log = await loadSearchLog();
+    const [log] = await freshModuleWithStorage(loadSearchLog);
     const facility = await import("../../src/lib/logs/log-facility");
     facility.setDialPosition(13);
 
@@ -738,8 +711,7 @@ describe("recording a finished session", () => {
   });
 
   it("swallows a corpus that will not load", async () => {
-    vi.stubGlobal("localStorage", makeFakeLocalStorage());
-    const log = await loadSearchLog();
+    const [log] = await freshModuleWithStorage(loadSearchLog);
     const facility = await import("../../src/lib/logs/log-facility");
 
     let session = log.beginSearchSession();
