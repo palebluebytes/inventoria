@@ -64,9 +64,16 @@ test.describe("Media settings — API key reveal toggle", () => {
     const input = page.locator("#tmdb-api-key");
     await input.fill("x".repeat(120));
 
-    const wrapper = input.locator(
-      "xpath=ancestor::div[contains(@class,'input-wrapper')][1]"
-    );
+    // `.secret-field` is the caller's box — the one holding the field *and* the
+    // toggle positioned against it. Named directly rather than by walking to
+    // the nearest `.input-wrapper` ancestor, which since #375 is `ui/Input`'s
+    // own wrapper: an inner box that no longer contains the toggle, so the
+    // xpath still resolved and quietly measured something else.
+    //
+    // Anchored under the open sheet, because Rations settings carries a
+    // `.secret-field` of its own for the OFF password; unanchored, this is a
+    // strict-mode failure waiting for the day both surfaces are mounted.
+    const wrapper = page.locator(".bottom-sheet-content .secret-field");
     const sheet = page.locator(".bottom-sheet-content").first();
 
     const inputBox = await input.boundingBox();

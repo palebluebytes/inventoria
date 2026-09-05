@@ -610,7 +610,12 @@ describe("the sweep itself", () => {
     expect(FILES).toContain("src/App.svelte");
     expect(FILES).toContain("src/Rations.svelte");
     expect(FILES.length).toBeGreaterThan(100);
-    expect(SWEEP.groups.size).toBeGreaterThan(40);
+    // A floor just under the population, not the population — it exists so that
+    // a regex matching nothing fails here, and the split below is what has to
+    // be argued with when the count moves. It follows the count down as the
+    // convergence tickets retire hand-rolled fields (50 at #338, 42 at #374,
+    // 37 at #375), keeping the same two boxes of headroom it was written with.
+    expect(SWEEP.groups.size).toBeGreaterThan(35);
   });
 
   it("has no field styled from app.css, so a component's own sheet is the whole answer", () => {
@@ -692,6 +697,28 @@ describe("the floor, swept", () => {
    * onto `ui/Textarea`: nine boxes left the sweep and the primitive's one
    * arrived, and the primitive declares its floor, which is the direction this
    * assertion wants.
+   *
+   * It fell again from 42 to 37 at #375, and every one of the five was `drawn`,
+   * so the `declared` column did not move at all. Named, because a rebaselined
+   * count that cannot say what left it is a bulk accept:
+   *
+   *   views/food/FoodSettingsSheet.svelte  input.retro-input.full-width
+   *   views/food/FoodSettingsSheet.svelte  input.retro-input.has-reveal
+   *   views/media/MediaEngagementModal.svelte  input.retro-input
+   *   views/media/MediaIngestModal.svelte  input.retro-input
+   *   views/media/MediaSettingsSheet.svelte  input.retro-input.has-reveal
+   *
+   * Five keys for seven fields: three of `MediaEngagementModal`'s wore one
+   * class, and one reading per distinct box is what this file records. No box
+   * arrived to replace them — `ui/Input`'s own was already counted, and it is
+   * in the `declared` column.
+   *
+   * All five stood at **61.6px pessimistic (67 optimistic)**, well clear of the
+   * floor, so this is not a shortfall being fixed. It is the second thing this
+   * split was written to watch: they cleared on arithmetic — `--space-s` above
+   * and below a `--step-0` line box — and a box passing that way is one whose
+   * padding happens to add up. The `--tap-min` those fields stand on now is
+   * declared, and they are visibly shorter for it.
    */
   it("carries most of them on a declared floor, not on arithmetic", () => {
     const how = { declared: 0, drawn: 0 };
@@ -701,7 +728,7 @@ describe("the floor, swept", () => {
       else if (b.kind === "drawn") how.drawn++;
     }
 
-    expect(how).toEqual({ declared: 27, drawn: 15 });
+    expect(how).toEqual({ declared: 27, drawn: 10 });
     expect(how.declared + how.drawn).toBe(SWEEP.groups.size);
   });
 });

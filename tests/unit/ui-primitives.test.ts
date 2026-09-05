@@ -1,13 +1,16 @@
 import { describe, it, expect } from "vitest";
 import { render } from "svelte/server";
 import { createRawSnippet } from "svelte";
-import { elementsOf, trackedSvelteFiles } from "./support/markup";
+import { readFileSync } from "node:fs";
+import { attr, elementsOf, trackedSvelteFiles } from "./support/markup";
+import { appSheet, rulesOf, styleOf } from "./support/stylesheet";
 import Button from "../../src/lib/ui/Button.svelte";
 import Card from "../../src/lib/ui/Card.svelte";
 import Badge from "../../src/lib/ui/Badge.svelte";
 import ToggleGroup from "../../src/lib/ui/ToggleGroup.svelte";
 import Checkbox from "../../src/lib/ui/Checkbox.svelte";
 import Row from "../../src/lib/ui/Row.svelte";
+import Input from "../../src/lib/ui/Input.svelte";
 import Textarea from "../../src/lib/ui/Textarea.svelte";
 
 // These render the primitives through Svelte's SSR path (no DOM needed) and
@@ -409,6 +412,135 @@ describe("the textarea census", () => {
 
   it("finds exactly one <textarea> in src/, and it is the primitive", () => {
     expect(wearing).toEqual(["src/lib/ui/Textarea.svelte"]);
+  });
+});
+
+/**
+ * The `retro-*` field family, which #375 emptied of everything but one member.
+ *
+ * `.retro-input` was **byte-identical in four files** — a mono 700 face, an
+ * inset shadow, and a focus that inverted the box to ink-on-paper — and had no
+ * ADR behind it, unlike the brutalist frame ADR-0038 names. It had also crossed
+ * a Facet boundary: `FoodSettingsSheet` is Rations, wearing a look invented in
+ * the media views. Consistency is what made it hard to see; four copies that
+ * render the same are still four things a fix has to reach.
+ *
+ * Two assertions rather than one, because a class **worn** and a rule
+ * **defined** are separate facts that come apart in both directions — #376 is
+ * the whole ticket for names worn with no rule anywhere. A grep for one of them
+ * proves nothing about the other.
+ *
+ * The roster is not empty and is not meant to be yet. `.retro-select` is the
+ * holdout, and it goes when Media adopts `ui/Select` (#380). Its two entries
+ * here are the mark #362 asked this family to carry: a form that is one look
+ * short of consistent, saying so in a test rather than in a comment nobody
+ * runs. When #380 lands, both lists become `[]` and this block becomes the
+ * census the textarea one above already is.
+ */
+describe("the retro-* field family", () => {
+  const FILES = trackedSvelteFiles();
+
+  const RETRO = /\.retro-[\w-]+/g;
+
+  /** Every `retro-*` class actually on an element, file by file. The `id` is
+   *  carried where there is one, so two sites in the same file are two lines
+   *  rather than the same line twice — a roster that cannot tell a deletion
+   *  from a duplication is not saying much. */
+  const worn = FILES.flatMap((file) =>
+    elementsOf(file).flatMap((el) =>
+      el.classes
+        .filter((c) => c.startsWith("retro-"))
+        .map(
+          (c) =>
+            `${file.replace("src/lib/", "")} ${el.tag}.${c}` +
+            (attr(el, "id") ? ` #${attr(el, "id")}` : "")
+        )
+    )
+  ).sort();
+
+  /** Every `retro-*` class a rule reaches — component sheets and `app.css`
+   *  both, since a global rule is exactly the one a per-file sweep misses. */
+  const defined = [
+    ...new Set(
+      [
+        ...FILES.flatMap((file) =>
+          readFileSync(file, "utf8").includes("<style>")
+            ? rulesOf(styleOf(file)).flatMap((r) => r.selectors)
+            : []
+        ),
+        ...appSheet().flatMap((r) => r.selectors),
+      ].flatMap((sel) => sel.match(RETRO) ?? [])
+    ),
+  ].sort();
+
+  it("leaves one `retro-*` class worn in the whole tree, and #380 takes it", () => {
+    expect(worn).toEqual([
+      "views/media/MediaEngagementModal.svelte select.retro-select #event-rating",
+      "views/media/MediaEngagementModal.svelte select.retro-select #event-status-select",
+    ]);
+  });
+
+  it("leaves one `retro-*` rule defined, so nothing is styled by a ghost", () => {
+    expect(defined).toEqual([".retro-select"]);
+  });
+});
+
+describe("Input", () => {
+  it("renders a native <input> wearing the base class, inside its wrapper", () => {
+    const { body } = render(Input, { props: {} });
+    expect(body).toMatch(/<div[^>]*class="input-wrapper/);
+    expect(body).toMatch(/<input[^>]*class="input[\s"]/);
+  });
+
+  it("puts the caller's class on the wrapper, never on the field", () => {
+    // The layout/skin split #375 turns on: a caller says where the field sits.
+    // `MediaIngestModal` reaches this with `:global(.search-field)`, because a
+    // class handed to a component is a prop and carries no scoping hash.
+    const { body } = render(Input, { props: { class: "search-field" } });
+    expect(body).toMatch(/<div[^>]*class="input-wrapper search-field/);
+    expect(body).toMatch(/<input[^>]*class="input[\s"]/);
+  });
+
+  it("spreads ...rest platform and a11y attributes onto the <input>", () => {
+    // The four call sites #375 converged needed `onblur`, `autocomplete` and
+    // `min` — none of which was a named prop, and all of which are the
+    // platform's rather than this component's.
+    //
+    // Uncast, here and in the number test below, on purpose: these props
+    // typecheck only through the `...rest` spread and the widened `value` that
+    // #375 added, so a regression in either contract fails to compile rather
+    // than passing the file written to prove it.
+    const { body } = render(Input, {
+      props: {
+        type: "number",
+        min: "1",
+        autocomplete: "username",
+        "aria-label": "Season",
+      },
+    });
+    expect(body).toMatch(/<input[^>]*min="1"/);
+    expect(body).toMatch(/<input[^>]*autocomplete="username"/);
+    expect(body).toMatch(/<input[^>]*aria-label="Season"/);
+  });
+
+  it("honours id, placeholder, type and disabled", () => {
+    const { body } = render(Input, {
+      props: {
+        id: "tmdb-api-key",
+        type: "password",
+        placeholder: "TMDB API key...",
+        disabled: true,
+      },
+    });
+    expect(body).toMatch(/<input[^>]*id="tmdb-api-key"/);
+    expect(body).toMatch(/<input[^>]*type="password"/);
+    expect(body).toMatch(/<input[^>]*placeholder="TMDB API key\.\.\."/);
+    expect(body).toMatch(/<input[^>]*\sdisabled\b/);
+  });
+
+  it('takes a number, because a type="number" field hands one back', () => {
+    const { body } = render(Input, { props: { type: "number", value: 3 } });
+    expect(body).toMatch(/<input[^>]*value="3"/);
   });
 });
 
