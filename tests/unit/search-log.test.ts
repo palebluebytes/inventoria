@@ -691,6 +691,50 @@ describe("recording a finished session", () => {
     });
   });
 
+  it("carries an existing jar's records and counters through a new session (#220)", async () => {
+    // The migration claim, on the channel that actually has records to lose:
+    // a jar seeded exactly as the shipped code wrote it — the `{ v, lvl, entry }`
+    // envelope, and a counter set under its own key — is read, appended to and
+    // read back with every seeded record still present and the epoch unmoved.
+    // Anything that widened the stored shape would make these read as malformed
+    // and vanish on the next write.
+    const seeded = {
+      query: "wombok",
+      outcome: { kind: "nothing" as const },
+      settled: true,
+      query_truncated: false,
+      vocabulary: { mid_phrase: [], schema_version: SCHEMA_VERSION },
+      at: 1_700_000_000_000,
+      sequence: { fires: [{ l: 6, n: 0 }], fires_dropped: 0 },
+    };
+    const [log] = await freshModuleWithStorage(loadSearchLog, {
+      seed: {
+        inventoria_log_search: JSON.stringify([
+          { v: 2, lvl: 13, entry: seeded },
+        ]),
+        inventoria_log_search_counters: JSON.stringify({
+          counts: { sessions: 41 },
+          since: 1_699_000_000_000,
+        }),
+      },
+    });
+    const facility = await import("../../src/lib/logs/log-facility");
+
+    let session = log.beginSearchSession();
+    session = log.typedIntoSession(session, "banana");
+    session = log.searchFoundFood(session, "banana", found(3));
+    await log.recordSearchSession(session, corpusOf);
+
+    const entries = facility.readChannel(log.SEARCH_CHANNEL);
+    expect(entries).toHaveLength(2);
+    expect(entries[0]).toEqual(seeded);
+    expect(entries[1].query).toBe("banana");
+    expect(facility.channelCounters(log.SEARCH_CHANNEL, 0)).toEqual({
+      counts: { sessions: 42 },
+      since: 1_699_000_000_000,
+    });
+  });
+
   it("keeps counting at a dial position that captures no record", async () => {
     // Turn the dial down and you keep the rate, you lose the detail: the write
     // tallies above the gate, because a counter is a fixed-width integer rather

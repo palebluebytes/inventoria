@@ -777,6 +777,11 @@ export function shedToBudget(
  * "Budget shedding only ever walks entries" is a real property of
  * {@link shedToBudget}, and this is where it stops being implicit in a loop.
  *
+ * **Exported, and pure, for the reason {@link capEntries} is**: a rule that can
+ * only be exercised through `localStorage` is a rule nobody tests, and the
+ * divergence this guards against is one an order-preserving {@link shedToBudget}
+ * can never be made to produce from outside.
+ *
  * **Fewer entries, not merely different** — which is the same property stated
  * on the other side. A name `before` does not carry, and a count that grew, are
  * both divergences rather than sheds, and the conservative answer to a

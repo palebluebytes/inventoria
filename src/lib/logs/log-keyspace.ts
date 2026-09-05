@@ -27,6 +27,16 @@
  * channels and asks this module what keys they claim (`facets/facet-wipe.ts`,
  * ADR-0079 §2).
  *
+ * **The one deliberate exception, named rather than glossed:**
+ * `facets/facet-wipe.ts` removes log keys itself. It does not *derive* one — it
+ * asks {@link channelKeys} what a channel claims — but the `removeItem` is its
+ * own, because a Facet-scoped wipe enumerates the whole store and takes food's
+ * settings and food's log records in one pass. Splitting that loop so half of
+ * it came back here would buy nothing: the wipe is ADR-0079 §2's sanctioned
+ * deletion and belongs to the module that owns the ownership rule, and the
+ * thing this module exists to concentrate is which keys exist, not who may
+ * delete one.
+ *
  * The guarded accessors below are `stores/secrets.ts`'s arrangement, copied
  * rather than shared: `localStorage` is absent under the Node unit runner and
  * can throw outright in a privacy-locked browser, and ADR-0092 §3's rule is
