@@ -769,20 +769,45 @@ export function shedToBudget(
 }
 
 /**
+ * The channels a shed actually took from, **paired by name**.
+ *
+ * Its predecessor was three arrays walked by one index — the registry, the
+ * before-state and the after-state — so any future divergence between them
+ * would have written one channel's entries to another channel's key, silently.
+ * "Budget shedding only ever walks entries" is a real property of
+ * {@link shedToBudget}, and this is where it stops being implicit in a loop.
+ *
+ * **Fewer entries, not merely different** — which is the same property stated
+ * on the other side. A name `before` does not carry, and a count that grew, are
+ * both divergences rather than sheds, and the conservative answer to a
+ * divergence is to write nothing: a shed cannot invent a channel and cannot
+ * add an entry, so either would be this function writing something it has just
+ * failed to recognise.
+ */
+export function channelsThatShed(
+  before: ChannelContents[],
+  after: ChannelContents[]
+): ChannelContents[] {
+  const held = new Map(before.map((c) => [c.name, c.entries.length]));
+  return after.filter((c) => {
+    const kept = held.get(c.name);
+    return kept !== undefined && c.entries.length < kept;
+  });
+}
+
+/**
  * Brings every registered channel back under the shared budget, rewriting only
  * the ones that actually shed. Runs after each append, which is the only moment
  * the total can grow.
  */
 function enforceBudget(): void {
-  const registered = registeredChannels();
-  const before = registered.map((channel) => ({
+  const before = registeredChannels().map((channel) => ({
     name: channel.name,
     entries: readRecords(channel.name),
   }));
   const after = shedToBudget(before, LOG_BUDGET_BYTES);
-  for (let i = 0; i < registered.length; i++)
-    if (after[i].entries.length !== before[i].entries.length)
-      writeRecords(registered[i].name, after[i].entries);
+  for (const { name, entries } of channelsThatShed(before, after))
+    writeRecords(name, entries);
 }
 
 // ---------------------------------------------------------------------------

@@ -390,6 +390,74 @@ describe("the shared byte budget", () => {
     ]);
   });
 
+  it("pairs a shed result to the registry by name, never by array position", async () => {
+    // The defect this replaced walked three arrays — registry, before, after —
+    // by one index, so any divergence between them wrote one channel's entries
+    // to another channel's key. The result below is deliberately in the wrong
+    // order, which is exactly what an index would get wrong.
+    const facility = await freshModule(loadFacility);
+    const before = [
+      { name: "big", entries: ["a", "b", "c"] },
+      { name: "small", entries: ["d"] },
+    ];
+    const after = [
+      { name: "small", entries: ["d"] },
+      { name: "big", entries: ["c"] },
+    ];
+
+    expect(facility.channelsThatShed(before, after)).toEqual([
+      { name: "big", entries: ["c"] },
+    ]);
+  });
+
+  it("writes nothing for a name the shed invented", async () => {
+    // A shed cannot produce a channel that was not handed to it, so a name only
+    // `after` carries is a divergence — and the conservative answer to one is
+    // to write nothing rather than to mint a key.
+    const facility = await freshModule(loadFacility);
+    expect(
+      facility.channelsThatShed(
+        [{ name: "known", entries: ["a"] }],
+        [{ name: "stranger", entries: [] }]
+      )
+    ).toEqual([]);
+  });
+
+  it("writes nothing for a count that grew, which no shed produces", async () => {
+    const facility = await freshModule(loadFacility);
+    expect(
+      facility.channelsThatShed(
+        [{ name: "known", entries: ["a"] }],
+        [{ name: "known", entries: ["a", "b"] }]
+      )
+    ).toEqual([]);
+  });
+
+  it("does not rewrite a channel the shed left alone", async () => {
+    const facility = await freshModule(loadFacility);
+    const contents = [{ name: "untouched", entries: ["a", "b"] }];
+    expect(facility.channelsThatShed(contents, contents)).toEqual([]);
+  });
+
+  it("sheds the big channel without touching the small one's key", async () => {
+    // The end-to-end half of the pairing: two channels declared in one order,
+    // one of them over the budget, and the small one's key is never rewritten.
+    const writes: string[] = [];
+    const [facility] = await freshModuleWithStorage(loadFacility, {
+      onSet: (key) => void writes.push(key),
+    });
+    const small = declareNotes(facility, "small", 500);
+    const big = declareNotes(facility, "big", 500);
+    facility.appendToChannel(small, { text: "small" }, INFO);
+    const bulky = "x".repeat(100_000);
+    for (let i = 0; i < 4; i++)
+      facility.appendToChannel(big, { text: `${i}${bulky}` }, INFO);
+
+    expect(facility.readChannel(small)).toEqual([{ text: "small" }]);
+    // One write for the small channel's own append, and none after it.
+    expect(writes.filter((k) => k === "inventoria_log_small")).toHaveLength(1);
+  });
+
   it("takes from the largest channel when a write puts the whole log over", async () => {
     const [facility] = await freshModuleWithStorage(loadFacility);
     const big = declareNotes(facility, "big", 500);
