@@ -3,6 +3,7 @@
 **Status:** Accepted  
 **Date:** 2026-08-29  
 **Amended by:** [ADR-0092](0092-a-local-log-records-completely-at-a-level-and-the-export-is-the-protection.md) and the Amendment below, which delete §4's `technical` marking, restate the barcode's absence as a purpose argument, move §5's counters onto the new record, and retire §6's rule that the view is what makes the channel legal  
+**Implemented:** [#207](https://github.com/palebluebytes/inventoria/issues/207) — `src/lib/logs/scan-log.ts` (the channel, the session and its endings, the thirteen counters, the fold §6's view renders), the attempt observer and `scanOutcomeOf` in `src/lib/food/off-retry.ts`, the session wiring in `src/lib/views/food/FoodStager.svelte`, and §6's view as `src/lib/views/logs/ScanReport.svelte` on Rations settings. §4's prohibition is asserted over what lands in the store on every path, not by inspection; §6's rule that the view is what makes the channel legal was already retired by the Amendment below, so the view is here because the owner asked for it.  
 **Depends on:** [ADR-0054](0054-one-local-log-facility-and-no-channel-without-a-reader.md)'s Amendment of 2026-08-29, which admits a standing channel and adds the counters this record relies on
 
 ## Context
@@ -265,7 +266,7 @@ bar keeps its numbers, 5 and 40.
 Three things about where they live have moved. Counters now sit under their **own
 storage key** rather than beside the entries, because the shed-last promise was false in
 code while they shared one. A **Facet-scoped wipe takes that key**. And §5's own
-sentence — *"the rate is computed from the counters and never from the entries"* — turns
+sentence — _"the rate is computed from the counters and never from the entries"_ — turns
 out to be the general rule rather than this channel's local one: ADR-0092 §9 applies it
 to `search` for the same reason, and ADR-0092 §6 is why it generalises: the entry ring
 retains by age alone, in every channel, so it is a recency window and no rate may be

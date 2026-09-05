@@ -1075,3 +1075,28 @@ screens, so no future `"sideEffects": false` can shake the registrations out.
 the registry, that it names exactly the channels expected, that every module in `src/`
 declaring a channel is imported by it, that a Facet's surfaces get the roster's order, that
 an unrostered channel is still shown, and that the other door stays shut.
+
+## Amendment (2026-09-05): `scan`'s per-record figure is 129 B, not §8.1's 124
+
+[#207](https://github.com/palebluebytes/inventoria/issues/207) built the scan channel,
+and `tests/unit/log-budget.test.ts` weighed the record §8.1 could only project. The
+dearest record `ScanLogEntry` admits — the longest member of each of the three enums, a
+thirteen-digit clock, and the ERROR envelope — is **129 bytes**, five more than the table
+says.
+
+| Channel                                                     | B/record | KiB       | % of 256 KiB |
+| ----------------------------------------------------------- | -------- | --------- | ------------ |
+| `search`, cap 200, 48-char query, 10 fires kept, `{ l, n }` | 785      | 153.3     | 60%          |
+| `scan`, cap 200, worst enum combination                     | **129**  | **25.2**  | **10%**      |
+| `app`, cap 100, 256 B message                               | 364      | 35.5      | 14%          |
+| **Total**                                                   |          | **214.0** | **84%**      |
+
+**41.9 KiB of headroom** rather than 42.9, which is still a fourth channel of `scan`'s
+size. §8's invariant is unaffected and the caps do not move.
+
+The correction is recorded rather than made in place because of what it is evidence of.
+Every other figure in §8.1 was **measured** over a shape that existed; this one was the
+one row projected from a type nobody had written yet, and it was wrong by 4% in the
+direction §8 warns about — an author's claim about a shape rather than a weighing of one.
+That is the third instance this arc has of exactly that, and the reason §8 refuses a
+`maxRecordBytes` field on the declaration at all.

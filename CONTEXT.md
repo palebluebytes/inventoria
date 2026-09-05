@@ -401,8 +401,13 @@ _Avoid_: Search event, query log, keystroke, empty search (for the session itsel
 **Scan session**:
 One visit to the barcode path: it opens when a lookup starts and settles when the user
 stages a food, opens a capture door, or leaves the scan without doing either. It leaves
-**one** entry in the scan Log channel, holding what Open Food Facts answered, whether the
-retry ran, and which of the four capture doors the user then opened. The unit is the
+**one** entry in the scan Log channel, holding what Open Food Facts answered (`found`,
+`absent`, `unreachable` or `refused`), how many times the retry asked (`single`,
+`retried` or `gate_skipped`), which of the four capture doors the user then opened, and
+whether it reached one of those endings at all — a session that was simply left says so,
+and is kept out of the two counters #208 reads. A barcode the app already holds is **not**
+a scan session: it short-circuits before Open Food Facts is asked, so there is no outcome
+and no attempt to record. The unit is the
 session and never the lookup, because the fact it exists to record is a _sequence_ — an
 outcome, and then what the user did about it — and a sequence split across two entries
 would have to be rejoined by the barcode, which the channel is forbidden to carry. See
