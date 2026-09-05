@@ -24,9 +24,13 @@
   // component takes no children.
   //
   // **The value is generic.** `value: T`, checked against the call site's own
-  // option list. One adopting site binds `number | undefined` (a rating, with a
-  // `No Rating` option) and the rest bind strings; forcing a `Number()` at a
-  // write site to satisfy a UI primitive would be the tail wagging the dog.
+  // option list. The site here binds a string union, but the generic is not
+  // written for it: `MediaEngagementModal`'s `#event-rating` binds
+  // `number | undefined` against a `No Rating` option and five numbered ones,
+  // and it is queued to adopt this in #380. Forcing a `Number()` at that write
+  // site to satisfy a UI primitive would be the tail wagging the dog, and
+  // widening `value` to `string` afterwards would be a breaking change to
+  // every site adopted before it.
   //
   // **No `label` prop**, matching `ui/Input`: this takes an `id` and the caller
   // keeps its own `<label for>`. A select's box is itself the tap target, so
@@ -39,6 +43,14 @@
   // the field sits (`flex: 1`, a width) and never what it looks like. The
   // wrapper is not optional here, because the mark below is positioned against
   // it.
+  //
+  // **What adopting dropped, on purpose.** `.custom-select` drew a thick
+  // `--edge` on a `--paper` ground at `font-weight: 500`, beside two fields
+  // wearing a thin edge on nothing at the inherited weight. All three of those
+  // go: the skin below is the one `ui/Input` and `ui/Textarea` already draw,
+  // and a status picker that is heavier and more heavily bordered than the
+  // name above it is two looks in one box. Its `:focus` recoloured the border
+  // to `--accent`, which no other field in the app does either.
   //
   // `...rest` is the a11y/semantics/platform escape hatch (`name`, `required`,
   // `form`, `aria-*`, `data-*`), NOT a styling channel — the same contract as
@@ -63,6 +75,14 @@
     HTMLSelectAttributes,
     "value" | "id" | "disabled" | "class" | "children" | "onchange"
   >;
+  // Two names beyond the modelled ones are `Omit`ed, and both are deliberate.
+  // `children` because the interior is the `options` list and nothing else.
+  // `onchange` because this file already binds one: the template spreads
+  // `...rest` before its own handler, so a caller's would be overwritten
+  // without a word. Omitting it turns that silent loss into a compile error,
+  // and points the caller at `onValueChange`, which is the typed version of
+  // what they were reaching for. `ui/Checkbox` omits `onchange` for the same
+  // reason.
 
   let {
     value = $bindable(),
@@ -74,8 +94,22 @@
     ...rest
   }: SelectProps = $props();
 
-  /** The chosen option's own value, read off the list rather than off the
-   *  element — `e.currentTarget.value` is a string whatever `T` is. */
+  /**
+   * The chosen option's own value, read off the list rather than off the
+   * element — `e.currentTarget.value` is a string whatever `T` is, which is
+   * the whole reason this callback exists.
+   *
+   * `selectedIndex` is an index into `options` **because this primitive takes
+   * no children**: the interior it renders is the list, one for one, with no
+   * `<optgroup>` or caller-injected placeholder to shift it. That is the
+   * precondition, and it is enforced by the type rather than assumed here.
+   *
+   * The one index a `<select>` reports that the list does not hold is -1, and
+   * it reports that only with no options at all — which emits no change event.
+   * The narrowing is kept over a `!` so that an interior gaining anything the
+   * list does not describe stops here, rather than handing a caller
+   * `undefined` typed as `T`.
+   */
   function handleChange(e: Event & { currentTarget: HTMLSelectElement }) {
     const chosen = options[e.currentTarget.selectedIndex];
     if (chosen) onValueChange?.(chosen.value);
@@ -91,7 +125,7 @@
     class="select"
     onchange={handleChange}
   >
-    {#each options as option (String(option.value))}
+    {#each options as option}
       <option value={option.value}>{option.label}</option>
     {/each}
   </select>
@@ -106,7 +140,13 @@
 
        Quarter-turned to point down, which is the closed-disclosure reading a
        select's caret carries everywhere. `pointer-events: none` so the mark
-       cannot swallow a tap meant for the control underneath it. -->
+       cannot swallow a tap meant for the control underneath it.
+
+       The other two wearers carry `--turn-mark`, the shared transition, and
+       this one does not: they rotate on a state change and this is turned once
+       and stays there, so a transition here would animate nothing. That makes
+       it the first wearer whose orientation is fixed rather than toggled,
+       which is a constraint on whatever API #317 lands on. -->
   <svg class="select-mark" viewBox="0 0 24 24" aria-hidden="true">
     <path d="M7 6 L17 12 L7 18 Z" fill="currentColor"></path>
   </svg>
