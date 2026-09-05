@@ -1029,3 +1029,49 @@ divergence is to write nothing.
 "Budget shedding only ever walks entries" was a real property of the pure function and an
 implicit assumption of the loop that consumed it. It is now neither implicit nor an
 assumption.
+
+## Amendment (2026-09-05): one module owns the roster, which is not the central registry §12 rejected
+
+§12 rejects a central literal union of channel `name`s and gives three reasons for it. The
+third — that a union "re-introduces the central registry #221 exists to remove" — is wrong
+about #221, and the same sentence appeared in `log-facility.ts` beside the rejection. #221
+is the observation that registration is an import side effect, and what it asks for is a
+central list. `src/lib/logs/channels.ts` is now that list.
+
+The two are different things and the distinction is what makes both decisions right at
+once. A union of **names** declares a channel's name away from the channel, catches typos
+only, and leaves the duplicate check standing; it is still rejected, unchanged. A list of
+**modules** declares nothing about any channel and is the one thing no build can derive:
+which channel modules exist is a fact about intent, and until it was written down the
+answer was whichever modules some screen happened to import.
+
+The first two reasons for the rejection are untouched. So is §1's declaration-and-
+registration-in-one-act, which the roster does not weaken — it fixes the order in which
+those acts run and guarantees they all run.
+
+**Two properties follow, and neither was true before.** A channel whose only importer went
+away no longer vanishes from the Local Logs card, the review sheet and the export while its
+records stay in `localStorage` unreachable and unredactable — the state §11's reviewed
+export exists to make impossible. And the order channels appear in a review and in a file
+somebody hands over is the order the roster states, rather than import order.
+
+The roster is also the door: `channelsOfFacet` is taken from it, and no caller outside
+`src/lib/logs/` takes it from `log-facility.ts` directly. Reading a registry-derived list
+through the module that fills the registry is what makes the answer independent of the
+caller's own imports — which is the whole defect. The Facet-scoped wipe asks the same door,
+for a sharper reason than a screen has: a wipe that missed a channel would report success
+having left records behind (ADR-0079 §2).
+
+**The roster decides order, never membership**, and the two halves are separate on purpose.
+The order is applied where a surface asks, rather than left to the registry's own filling
+order — that order is module evaluation order, which agrees with the roster today and stops
+agreeing the moment somebody reorders one without the other. Membership stays the registry's:
+a registered channel the roster does not name is still returned, last, because a channel in
+the registry is a channel writing records and a surface that cannot show it cannot redact it
+either. Reading the roster at that point is also what keeps its imports reachable from the
+screens, so no future `"sideEffects": false` can shake the registrations out.
+
+`tests/unit/log-channels.test.ts` holds all of it — that importing the roster alone fills
+the registry, that it names exactly the channels expected, that every module in `src/`
+declaring a channel is imported by it, that a Facet's surfaces get the roster's order, that
+an unrostered channel is still shown, and that the other door stays shut.

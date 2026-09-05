@@ -215,8 +215,10 @@ describe("the scoped wipe's storage predicate", () => {
 
   beforeEach(async () => {
     jar = stubLocalStorage({ seed: { ...OTHER_KEYS, ...FOOD_KEYS } });
-    // Registering the search channel is what puts its key in food's set.
-    await import("../../src/lib/logs/search-log");
+    // The roster is what puts food's channel key in the set: a channel is
+    // registered by its module being imported, and `logs/channels.ts` is the
+    // module that imports every one (#221).
+    await import("../../src/lib/logs/channels");
   });
 
   it("names food's declared keys and its own log channel's", () => {
@@ -257,7 +259,7 @@ describe("a jar-wide channel is in no Facet's wipe (ADR-0092 §13)", () => {
     const facility = await freshModule(
       () => import("../../src/lib/logs/log-facility")
     );
-    await import("../../src/lib/logs/search-log");
+    await import("../../src/lib/logs/channels");
     const wipe = await import("../../src/lib/facets/facet-wipe");
     facility.defineChannel({
       name: "narration",
@@ -358,10 +360,10 @@ describe("one run of the wipe", () => {
 
   beforeEach(async () => {
     jar = stubLocalStorage({ seed: { ...OTHER_KEYS, ...FOOD_KEYS } });
-    // Registered here as well as above, so these cases hold when this describe
-    // is the only one that runs: `FOOD_KEYS` counts the channel's key, and the
-    // channel is in the registry only because some module imported it.
-    await import("../../src/lib/logs/search-log");
+    // Taken here as well as above, so these cases hold when this describe is
+    // the only one that runs: `FOOD_KEYS` counts the search channel's key, and
+    // a channel is in the registry only because its module was imported.
+    await import("../../src/lib/logs/channels");
   });
 
   const seams = (over: Partial<Parameters<typeof runFacetWipe>[2]> = {}) => ({

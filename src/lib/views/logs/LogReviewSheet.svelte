@@ -6,11 +6,15 @@
   import {
     buildLogExport,
     channelCounters,
-    channelsOfFacet,
     deleteChannelEntry,
     partitionChannel,
     type LogChannel,
   } from "../../logs/log-facility";
+  // From the roster, for the reason the card that opens this sheet takes it
+  // (ADR-0092's roster amendment) and one of its own: this sheet imported no
+  // channel module at all, so what a review offered — and therefore what an
+  // export could carry — rode on whatever the card had reached.
+  import { channelsOfFacet } from "../../logs/channels";
   import type { FacetId } from "../../facets/registry";
   import { downloadLogExport } from "./export-target";
 

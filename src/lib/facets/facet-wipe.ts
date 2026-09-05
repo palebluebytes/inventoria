@@ -22,6 +22,13 @@
  * it, so this reads that declaration instead of asking anyone to keep a prefix
  * in step with a name.
  *
+ * It asks `logs/channels.ts` rather than the facility itself, for the same
+ * reason the rest of that derivation is not authored: a channel is registered
+ * by its module being imported, so a list read straight out of the facility is
+ * a list of whatever some other module happened to reach (#221). A wipe that
+ * missed a channel would report success having left records behind — the
+ * failure mode this whole file is written against.
+ *
  * The ledger half is `db/db.core.ts`'s: `deleteDatomsByEntityPrefix` is the
  * third sanctioned destructive operation and lives with the other two. This
  * module decides *what* to hand it, and takes the `localStorage` side itself,
@@ -29,7 +36,7 @@
  */
 
 import type { EntityCensus, EntityCensusGroup } from "../db/db.core";
-import { channelsOfFacet } from "../logs/log-facility";
+import { channelsOfFacet } from "../logs/channels";
 import { channelKeys } from "../logs/log-keyspace";
 import {
   TRACKED_DOMAINS,

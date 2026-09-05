@@ -303,8 +303,11 @@ const channels = new Map<string, LogChannel<unknown>>();
  * anybody enumerated (#220).
  *
  * `name` is deliberately **not** a central literal union. That would catch typos
- * only, duplicates would still need the check below, and it re-introduces the
- * central registry #221 exists to remove.
+ * only, duplicates would still need the check below, and it would declare a
+ * channel's name away from the channel. `channels.ts` is a central list of
+ * channel *modules*, which is a different thing and the one a build cannot
+ * derive: it is what guarantees the registry below is full, and it says nothing
+ * about what any channel is called (#221).
  */
 export function defineChannel<E, P extends string, C extends string = never>(
   declaration: ChannelDeclaration<E, P, C>
@@ -342,7 +345,17 @@ export function defineChannel<E, P extends string, C extends string = never>(
   return channel;
 }
 
-/** Every channel declared so far, in declaration order. */
+/**
+ * Every channel declared so far, in declaration order.
+ *
+ * **"Declared so far" is a property of the import graph, not of the app.** This
+ * returns the channels whose modules have been evaluated, so a caller that
+ * reaches it before the roster has been imported gets a short list and no
+ * error. `channels.ts` is what makes the answer complete, and it re-exports
+ * {@link channelsOfFacet} so that no surface has to know this (#221). Inside
+ * this module the ordering is the roster's for the same reason — the registry
+ * is filled by the roster's imports, in the roster's order.
+ */
 export function registeredChannels(): LogChannel<unknown>[] {
   return [...channels.values()];
 }

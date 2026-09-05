@@ -10,7 +10,6 @@
   } from "../../stores/device-settings";
   import {
     channelEntryCount,
-    channelsOfFacet,
     clearChannel,
     dialPosition,
     DIAL_POSITIONS,
@@ -19,12 +18,13 @@
     setDialPosition,
     type LogChannel,
   } from "../../logs/log-facility";
+  // From the roster rather than from the facility, because a registry filled by
+  // import side effect answers with whatever somebody imported — which used to
+  // be this screen's job, by way of a side-effect import of the one channel it
+  // knew about. `logs/channels.ts` carries the argument (ADR-0092's roster
+  // amendment); what changes here is which module is asked.
+  import { channelsOfFacet } from "../../logs/channels";
   import type { FacetId } from "../../facets/registry";
-  // Imported for its side effect: a channel is declared and registered in the
-  // same act, so reaching the search channel's module is what puts it in the
-  // registry this card lists. Nothing is read out of it here — ADR-0080 §6
-  // deleted the one readout that was.
-  import "../../logs/search-log";
 
   // The controls ADR-0053 §1 names — the entry count, a switch that stops the
   // recording, and an action that clears the log — plus the export switch and
