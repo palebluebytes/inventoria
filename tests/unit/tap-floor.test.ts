@@ -447,6 +447,8 @@ describe("a conditional declaration is reported, never dropped", () => {
   const probe = (classes: string[]): Element => ({
     tag: "input",
     classes,
+    dynamicClasses: [],
+    stateClasses: [],
     attrs: "",
     raw: "",
     ancestors: [],

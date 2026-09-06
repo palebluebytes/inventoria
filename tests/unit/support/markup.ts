@@ -26,9 +26,21 @@ export type Element = {
    *  `#` — `<Input>` is `#Input`, never `input`, because it renders a whole
    *  component whose own rules a caller must go and read separately. */
   tag: string;
-  /** Static classes only. An expression inside `class="…"` contributes
-   *  nothing, since its value is not knowable here. */
+  /** Static classes only — the ones this element unconditionally wears. An
+   *  expression inside `class="…"` contributes nothing, since its value is not
+   *  knowable here. */
   classes: string[];
+  /** Class names an expression builds a family of, with the expression sealed:
+   *  `class="badge badge-{variant}"` wears `badge` and *names* `badge-{…}`.
+   *  A fragment like that is not a class — no element ever carries it — so it
+   *  is kept apart rather than being reported as one, which is what a plain
+   *  strip of the braces does. */
+  dynamicClasses: string[];
+  /** `class:name={…}` directives — a class the element wears in one state and
+   *  not in another. Kept out of `classes` because a rule reaching one of these
+   *  reaches a *state*, and a caller asking what unconditionally lands on a box
+   *  must not be handed it. */
+  stateClasses: string[];
   /** The raw attribute text, for the questions classes cannot answer. */
   attrs: string;
   /** The tag exactly as written, so a closing tag can find what it closes. */
@@ -49,6 +61,32 @@ const VOID =
  *  braces nested one deep so `class="a {x ? `b-${y}` : ''}"` survives. */
 const TAG =
   /<(\/?)([a-zA-Z][\w:.-]*)((?:[^<>"'{]|"[^"]*"|'[^']*'|\{(?:[^{}]|\{[^{}]*\})*\})*?)(\/?)>/g;
+
+/** Stands in for one `{…}` while a class list is split into tokens, so a
+ *  literal touching an expression stays glued to it. */
+const SEALED = "\u0000";
+
+/**
+ * The class tokens in one `class` value, with the ones an expression writes
+ * held apart from the ones it does not.
+ *
+ * Splitting on whitespace after simply deleting the braces is what turns
+ * `badge-{variant}` into the class `badge-`, a name no element wears and no
+ * rule declares. Sealing the expression instead keeps the fragment attached, so
+ * the reader can say "this names a family" rather than inventing a member of
+ * it. A token that is *only* an expression names nothing at all and is dropped.
+ */
+function classTokens(value: string): { classes: string[]; dynamic: string[] } {
+  const classes: string[] = [];
+  const dynamic: string[] = [];
+  const sealed = value.replace(/\$?\{(?:[^{}]|\{[^{}]*\})*\}/g, SEALED);
+  for (const token of sealed.split(/\s+/).filter(Boolean)) {
+    if (!token.includes(SEALED)) classes.push(token);
+    else if (token.replaceAll(SEALED, ""))
+      dynamic.push(token.replaceAll(SEALED, "{…}"));
+  }
+  return { classes, dynamic };
+}
 
 /** The value of `attr` as written, or undefined. Quotes stripped; an
  *  expression is returned with its braces, since its text is all there is. */
@@ -104,18 +142,25 @@ export function elementsOf(path: string): Element[] {
           ? `#${raw}`
           : lower;
 
-    const written = attrs.match(/\bclass=("([^"]*)"|'([^']*)')/);
-    const classes = (written?.[2] ?? written?.[3] ?? "")
-      // An expression contributes no knowable class; drop it, keep the literals
-      // around it. Braces nest one deep for a template literal's `${…}`.
-      .replace(/\{(?:[^{}]|\{[^{}]*\})*\}/g, " ")
-      .split(/\s+/)
-      .filter(Boolean);
+    const written = attrs.match(
+      /\bclass=("([^"]*)"|'([^']*)'|(\{(?:[^{}]|\{[^{}]*\})*\}))/
+    );
+    // `class={…}` is an expression all the way down, so only the strings inside
+    // it can name anything; `class="…"` is read as written.
+    const value =
+      written?.[2] ??
+      written?.[3] ??
+      [...(written?.[4] ?? "").matchAll(/`([^`]*)`|"([^"]*)"|'([^']*)'/g)]
+        .map((s) => s[1] ?? s[2] ?? s[3])
+        .join(" ");
+    const { classes, dynamic } = classTokens(value);
 
     const el: Element = {
       raw,
       tag,
       classes,
+      dynamicClasses: dynamic,
+      stateClasses: [...attrs.matchAll(/\bclass:([\w-]+)/g)].map((d) => d[1]),
       attrs,
       ancestors: [...open],
       children: 0,

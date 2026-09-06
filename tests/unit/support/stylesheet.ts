@@ -156,6 +156,46 @@ export function tokenPx(name: string): number {
 }
 
 /**
+ * Every class name a selector in `rules` mentions, at any position in it.
+ *
+ * The question it answers is "does any rule here name `.x`", which is weaker
+ * than "does a rule land on this box" — `.a .x` counts even where no `.a`
+ * encloses the box. That is the right strength for a sweep looking for names
+ * with *no* rule at all: over-crediting a name costs a finding this reader
+ * cannot honestly make, while under-crediting one invents a defect.
+ */
+export function classNamesIn(rules: Rule[]): Set<string> {
+  return new Set(
+    rules.flatMap((r) =>
+      r.selectors.flatMap((s) =>
+        [...s.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)].map((m) => m[1])
+      )
+    )
+  );
+}
+
+/**
+ * The class names in `rules` that a `:global(…)` lets out of the component
+ * declaring them.
+ *
+ * Svelte scopes every other rule to the file it is written in, so this is the
+ * only way one component's `<style>` can reach a box in another — including a
+ * box inside a primitive it hands a `class` to, since that class arrives as a
+ * prop and carries no scoping hash of the caller's.
+ */
+export function globalClassNamesIn(rules: Rule[]): Set<string> {
+  return new Set(
+    rules.flatMap((r) =>
+      r.selectors.flatMap((s) =>
+        [...s.matchAll(/:global\(([^)]*)\)/g)].flatMap((g) =>
+          [...g[1].matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)].map((m) => m[1])
+        )
+      )
+    )
+  );
+}
+
+/**
  * Every `--vv-*` reference in `css` that carries a fallback of its own.
  *
  * ADR-0089 §3: `app.css` declares all three properties and the runtime writes
