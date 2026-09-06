@@ -394,6 +394,9 @@ describe("Row", () => {
  * instead of naming it, so an eleventh hand-rolled `<textarea>` fails it, and
  * so does moving or deleting the primitive — both are the list not being the
  * one entry, and neither can be fixed by adding a line to a roster.
+ *
+ * The rule this is the first instance of is ADR-0095 §3, written at #381 with
+ * the second: the select census below.
  */
 describe("the textarea census", () => {
   const FILES = trackedSvelteFiles();
@@ -413,6 +416,45 @@ describe("the textarea census", () => {
 
   it("finds exactly one <textarea> in src/, and it is the primitive", () => {
     expect(wearing).toEqual(["src/lib/ui/Textarea.svelte"]);
+  });
+});
+
+/**
+ * The population `ui/Select` was written to close (#381), and the second
+ * instance of the rule ADR-0095 states: a look is reached by reference or not
+ * at all, and where every legitimate use of a platform element is the
+ * primitive, a census is what keeps the population at zero.
+ *
+ * `<select>` qualifies for the same reason `<textarea>` does and `<button>`
+ * does not. Read with this file's own markup reader over
+ * `trackedSvelteFiles()` at the arc's base (`a168a437`, 2026-09-05), the app
+ * held 7 selects outside `src/lib/ui/` and 10 textareas, against 111 buttons
+ * and 49 inputs. Seven is a number that can go to zero; 111 is a roster
+ * everybody appends to, and a nav item, a calendar day and a toggle cell are
+ * correctly not `Button`s.
+ *
+ * The seven died in three steps, one screen each: `ItemManualForm`'s
+ * `.custom-select` at #378, `HabitDetailView`'s four `.select-brutal` at #379,
+ * and `MediaEngagementModal`'s two `.retro-select` at #380 — the pair whose
+ * rating binds `number | undefined`, which is why the primitive's value is
+ * generic.
+ *
+ * A census rather than an allowlist, and the difference is not stylistic. An
+ * allowlist naming `ui/Select.svelte` reads the primitive being deleted or
+ * renamed as a pass; this fails on it, because the list is then not the one
+ * entry. It is also the shape ADR-0083 refused for the Facet gates — a gate
+ * reads the roster, never a filename — and deriving a one-entry roster by
+ * parsing `CONTEXT.md` would be the letter of that rule without its point.
+ */
+describe("the select census", () => {
+  const FILES = trackedSvelteFiles();
+
+  const wearing = FILES.filter((file) =>
+    elementsOf(file).some((el) => el.tag === "select")
+  );
+
+  it("finds exactly one <select> in src/, and it is the primitive", () => {
+    expect(wearing).toEqual(["src/lib/ui/Select.svelte"]);
   });
 });
 

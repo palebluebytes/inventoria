@@ -23,11 +23,23 @@
  * assumes a field inherits `line-height: 1.5`, while a browser handing a form
  * control `line-height: normal` draws a shorter box and so a shorter field. A
  * figure clearing the floor on the first assumption and failing on the second
- * is not a pass — the `.custom-select` #378 retired was 49px optimistic and
- * 43.6 pessimistic — so a box must clear under the pessimistic reading or
- * declare a floor. A declared
- * floor holds under both, which is the whole argument #336 made for
- * `min-height` over padding.
+ * is not a pass, so a box must clear under the pessimistic reading or declare a
+ * floor. A declared floor holds under both, which is the whole argument #336
+ * made for `min-height` over padding.
+ *
+ * The example that made the case was `ItemManualForm`'s `.custom-select`, which
+ * drew 49px optimistic and 43.6 pessimistic — level on the assumption and 4.4px
+ * short in fact. It is history now: #378 retired that class and the whole select
+ * population reached zero at #381, so the figures survive here as the shape of
+ * the failure and not as something this sweep still reads.
+ *
+ * A live one, so the argument keeps an example it can point at: `NotesView`'s
+ * `input.item-input` reads **52.6 pessimistic (58 optimistic)**. The two
+ * readings are 5.4px apart and the box stands 4.6px over the floor, so the
+ * spread is wider than the clearance — an optimistic-only model would report
+ * 10px of room on a box that has under 5, and the next padding change to it
+ * would fail a finger while still reading level. That is the whole of why this
+ * file measures twice, in a box that is in the tree today.
  *
  * The model, stated so it can be argued with:
  *
@@ -633,6 +645,22 @@ describe("the sweep itself", () => {
     );
 
     expect(global).toEqual([]);
+  });
+
+  /**
+   * The docblock's live example, pinned so the prose cannot rot the way the
+   * `.custom-select` figures beside it did when that class was deleted. Two
+   * readings 5.4px apart on a box standing 4.6px over the floor: the spread is
+   * wider than the clearance, which is the whole case for measuring twice.
+   *
+   * If this fails, the example moved. Re-read the box and rewrite the docblock
+   * with what it says now; do not relax the assertion, because a docblock
+   * quoting a figure nothing checks is what this file already fixed once.
+   */
+  it("keeps the docblock's live example honest", () => {
+    expect(
+      SWEEP.verdicts.get("views/NotesView.svelte input.item-input")?.primary
+    ).toEqual({ kind: "drawn", optimistic: 58, pessimistic: 52.6 });
   });
 
   it("sets aside the fields that are drawn invisible, whose proxies are #361's", () => {

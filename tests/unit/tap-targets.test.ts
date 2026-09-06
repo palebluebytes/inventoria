@@ -260,7 +260,10 @@ describe("the dock's controls", () => {
    * `.input-number-brutal`, at the same 47px and sharing its rule with a
    * `.select-brutal` — both since retired by #379, which ported that file onto
    * `ui/Input` and `ui/Select` and deleted the copy whole rather than splitting
-   * it. None of the twelve is the dock's and none was measured by
+   * it. Neither class is in the tree now, and neither is any other hand-rolled
+   * select skin: the population reached zero at #381 and a census in
+   * `tests/unit/ui-primitives.test.ts` holds it there (ADR-0095). None of the
+   * twelve is the dock's and none was measured by
    * #332, so they are left: this file's scope is the nav, the dock and the
    * operator keys, and a floor swept across the app is its own ticket for the
    * same reason #336 was.
