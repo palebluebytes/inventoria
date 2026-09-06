@@ -1217,3 +1217,186 @@ is never opened alongside another device never converges_. This record's is smal
 same voice: **at three or more devices, a pairing never made is a route the store cannot supply**, and
 **a device you never open at all still never converges** — because a wake is an app-open and there is
 nothing else.
+
+## Amendment (2026-09-06, #385): a wake stops meaning one sync, and live-first is refused on a measurement
+
+This record was reviewed the day after it was written, against an objection with two halves:
+_if devices are awake next to each other they should auto update_, and _we only need the store
+for sleeping devices_. The second is refused. The first is a real defect and is repaired here,
+by amending §3 rather than by changing the transport.
+
+> **A wake is one app-open, and a session syncs as often as it has reason to: it deposits
+> whenever its delta grows, and it collects on open and then no more than hourly. What carries
+> a sleeping peer is unchanged.**
+
+### The requirement this is checked against
+
+Stated because it was nowhere in this record and every number below answers to it:
+
+> **A user may close any device at any moment, and a device opened later picks up exactly where
+> they left off.**
+
+There is no dependable end-of-session — `pagehide` is unreliable and a large `PUT` will not
+complete inside one — so a deposit fired at _open_ goes out before that session's meals exist.
+Three meals logged at 10:05 and a laptop opened at 14:00 would converge on nothing. §3 half-saw
+this in the phrase _a deposit at the end_ and did not follow it.
+
+### §3 is amended: the wake is unwelded from the sync
+
+A wake stays one app-open, because the **promise** is stated in opens and that is unchanged:
+_your data reaches your other device the first time you open the app on each of them._ What goes
+is the identity between a wake and a single collect-and-deposit.
+
+**Deposit and collect are different problems and only one of them is a cadence.**
+
+- **A deposit is triggered by the delta growing, debounced by seconds, with a best-effort flush
+  on hide.** It costs no unlinkability whatever: the index advances on **collection**, so every
+  rewrite before a collection lands on **the same address**. Depositing at 10:05, 10:12 and 10:19
+  is three writes to one key — it merges no components and spends nothing of §4. It costs three
+  Class A operations, and because the trigger is the ledger growing rather than a clock, the cost
+  is set by how often a person actually logs something. **The residual is named:** a device closed
+  inside the debounce window defers to its next open, which is the existing promise rather than a
+  regression.
+- **A collection is the only real cadence, because a device cannot know its peer deposited without
+  asking.** At open it is unconditional and free, and it is the whole of the requirement above.
+  **A session that stays open collects again no more than hourly**, and skips when nothing has
+  changed locally either. That floor buys exactly one thing — the propped-open tablet refreshing
+  while you log on the phone beside it. It is a **floor rather than a schedule**, so it is a rate
+  limit and not the clock this record refused. _Never_ was coherent and is what §7 shipped; it is
+  rejected because the side-by-side case is the defect this amendment exists for.
+
+**The ground for allowing a second sync at all is that §3's own justification undercut the refusal
+of one.** §3 fixes a wake as one app-open _because_ a collection and a deposit an hour apart _"are
+the same IP and are trivially regrouped"_ — the merge is free and unavoidable, which is what lets
+the definition stand. [#364](https://github.com/palebluebytes/inventoria/issues/364) then refused a
+mid-session sync **on the ground that it merges components**, which is the merge §3 has already
+conceded is free. What genuinely costs something is **continuity**: a lane touched twice a day is
+hard to follow across a change of IP, and one touched every five minutes is trivial to follow by
+contiguity alone. §4's property is a **frequency** property, so a bounded re-sync is affordable and
+only an unbounded one is not.
+
+### §4 keeps its property and loses its reason
+
+_"One key per wake means no session ever touches two steps of one chain"_ is false once a session
+may sync more than once. **The zero scan window survives on a substituted justification:** both
+sides advance on the same acknowledged collection, so the collector never has to guess. The
+property is unchanged; only the argument holding it up is replaced, in the voice §10 uses for
+ADR-0075 §4's expired duality sentence.
+
+### §5 gains the sentence it was missing
+
+§5 says when the **depositor** advances and never says when the collector does. The consistent
+reading, written down so it is not re-derived: **the collector advances on collecting; the
+depositor on receiving the acknowledgement.** Between the two, the depositor rewrites at the old
+index while the collector finds nothing at the new one, and it self-heals only because the
+acknowledgement is **re-asserted in every deposit**, exactly as §6 re-asserts the roster. **A
+collector finding nothing is normal** — this is stated plainly because an implementer will
+otherwise read it as a bug and repair it with the scan window §4 boasts of not needing.
+
+### §7's accepted cost is withdrawn
+
+_"Two devices open side by side converge no faster than one app-open"_ was called the first place
+this arc makes the app visibly worse rather than invisibly different. It is repaired rather than
+accepted, and the sentence goes with it. The rest of §7 stands: convergence still happens on wake,
+and the live room still survives for exactly one job.
+
+### §11 is unchanged, with one clarification
+
+**K is counted in wakes, never in syncs.** A session that polls eight times against an absent peer
+is **one** unproductive wake. Otherwise K = 200 quietly becomes K = 25 and _"about seven months of
+daily use"_ is wrong by an order of magnitude.
+
+### §1 is untouched, in words and in force
+
+Said explicitly because a reader will expect the bar to have moved and will read its stillness as
+an oversight. All five clauses, guard 1, the 30-day backstop and the 16 MiB ceiling bound the
+**absent-peer** path, and nothing here alters that path. The store remains what carries a sleeping
+peer, on exactly the terms §1 sets. Nor does the cost picture move where it binds: stored bytes
+overtake Class A at about 4.2% abandonment, an abandoned lane is untouched by any of this, and the
+extra work falls on healthy lanes that were never the constraint.
+
+### Live-first is refused, and the measurement is the durable half
+
+The proposal was that two open devices converge over a live relay session, leaving the store to
+carry only a genuinely sleeping peer — winning back ADR-0072 §12 for households whose devices are
+often open together. **The prize does not exist.** The relay is not a quieter surface than the
+store; it is the same leak with the same shape, and by one reading a worse one.
+
+- `durableObjectsInvocationsAdaptiveGroups`, `durableObjectsPeriodicGroups` and
+  `durableObjectsSubrequestsAdaptiveGroups` carry **`name`** and **`objectId`** as dimensions,
+  `name` being _"The name the Durable Object was created with"_ — the exact twin of the
+  `objectName` field §15 records on `r2OperationsAdaptiveGroups`.
+- **Our room id is that name.** `worker/src/index.ts:73` routes with
+  `env.RELAY.get(env.RELAY.idFromName(room))` and ADR-0072 §10 has the room id client-minted, so
+  there is no indirection between the two.
+- **There is no off switch.** `[observability]` governs Workers Logs, a separate system with a
+  published 3–7 day retention. Nothing documented disables or shortens the `durableObjects*`
+  datasets — the same posture as R2, an absence of a switch rather than a weak one.
+- **The 20:1 WebSocket discount is billing-only**, and _"does not affect Durable Object metrics and
+  analytics, which reflect actual usage"_. So every incoming frame is its own analytics row
+  carrying the room name at minute resolution, where the store leaves two opaque keys a day. That
+  is a **richer** usage record than the one being escaped.
+- **R2's retention is a published 31 days; the Durable Object datasets' retention is undocumented.**
+  The swap trades a bounded claim for an unbounded one, which is the opposite of what §1 needs.
+
+Neither surface records a client IP against the object. Two further operating facts, recorded
+because they would have bitten a build: a long-lived socket is a fiction — Cloudflare updates the
+runtime _"a few times per week"_ and _"may restart servers, which terminates WebSockets
+connections"_ — and the documented WebSocket **idle timeout has no published duration**, with no
+statement of whether the runtime's automatic pong resets it.
+
+**This puts a hole in a record this one already amends, and it is bigger than this amendment.**
+ADR-0072 §12's _"after five minutes no record anywhere says the room existed"_ is false as shipped,
+§9 cannot be cited for the relay any more than for R2, and this record's narrowing of §12 to the
+relay narrows it to the one place it is now known to be wrong. That is a claim in an Accepted record
+about deployed code, and the meal-send half owns most of it — a **Send code**'s room id is retained
+exactly as a **Pairing code**'s would be. It goes to
+[#386](https://github.com/palebluebytes/inventoria/issues/386) rather than being settled here, and
+§15 is incomplete until it reports.
+
+### Refused with it, so they are not re-proposed as free wins
+
+All of the following were worked out as live-first's machinery and lapse with the verdict.
+
+1. **A room that dies with its participants** rather than on a five-minute clock. Needed because
+   [#371](https://github.com/palebluebytes/inventoria/issues/371) refuses telling the relay which
+   kind of room it is, so an unbounded own-device room makes **every** room unbounded — including
+   the meal room whose synchrony this arc's locked scope kept — and ADR-0072 §11's _nobody builds
+   anything on this pipe_ would have to be re-made a third time. Rejoining a fresh five-minute room
+   instead is priced out at roughly 700 devices against the free tier.
+2. **A completed live session as a mutual acknowledgement**, advancing both chains and deleting the
+   outstanding object. It has a two-generals failure: a lost final frame leaves the lane in the
+   state §5 calls _permanent, unrecoverable desynchronisation_. It was survivable — the room chain
+   would be clock-derived and self-synchronising where the lane chain is event-derived, so a
+   desynchronised pair repairs at its next live meeting — but it is machinery bought for nothing.
+3. **The rotating recurring room** and its returning `root_room`. It **passed** locked decision 7,
+   on [#279](https://github.com/palebluebytes/inventoria/issues/279)'s own precedent that _an
+   identifier that cannot rotate must never enter a retained surface; one that rotates may, and pays
+   an intra-window join_. It is refused on the measurement, **not** on decision 7 — the distinction
+   matters, because a later reader will conclude the room was inadmissible and it was not.
+4. **The clock-skew probe, deleted a second time.** #364 deleted it and #385 expected it back. It
+   need not return even under live-first: with both devices migrating rooms at the epoch boundary
+   they re-join within seconds of each other, and the only unserved case — a fresh join whose clock
+   straddles the boundary — degrades to a deposit and costs one wake.
+5. **Two clocks inside the mechanism**, an epoch for the room and a wait before falling back to a
+   deposit. Live-first could avoid neither, and §3's _there is no clock anywhere in this design_
+   would have had to be narrowed to the promise. It survives intact instead: the debounce and the
+   floor above are rate limits, not schedules.
+6. **N−1 room joins per wake at three or more devices**, forced by pairwise pairing and the relay's
+   two-socket bound — a linear-in-N room cost beside §10's superlinear store volume.
+7. **Evicting the oldest socket when a third arrives.** Under a room that no longer dies on a clock,
+   with no keepalive on an idle socket, a stale socket holds one of two slots forever and locks a
+   pairing out of its own room — a denial of service on the healthiest pairing there is, the same
+   shape as the K defect #364 found. The repair would have narrowed #371's _two sockets and five
+   minutes, and nothing else_.
+8. **Citing cost in live-first's favour.** It is cost-neutral at best and worse in the asymmetric
+   household — a room opened that finds nobody, then the deposit anyway.
+
+**Two things established while testing it, which survive the refusal.** A foreground socket is
+**not** the reachability §14 refused — ADR-0075 §2 sanctioned exactly that, and the refusal is of
+running while **closed**. And **WebRTC is not the transport**, per ADR-0072's first three refusals.
+
+**And the number nobody holds is sizing rather than a gap.** How often two devices in one household
+are open together is not in this repo, this arc or the provider, and it blocks nothing: when devices
+are never open together, this design _is_ the design. The fraction sets the size of a prize, never
+the correctness of a choice — so it sits beside the abandonment fraction, unchased.
