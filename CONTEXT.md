@@ -541,8 +541,9 @@ Its `class` is the **wrapper's, not the field's** — a caller says where the fi
 (`flex: 1`, a width) and never what it looks like, and reaches the field itself only to
 pad it for an adornment it draws over the top, through `:global(input)`. `...rest`
 carries the platform and a11y attributes (`autocomplete`, `min`, `onblur`, `aria-*`)
-and is not a styling channel. Unlike Textarea there is **no census**: a checkbox, a file
-picker and a range slider are correctly not this component. See ADR-0038 and ADR-0093.
+and is not a styling channel. Unlike Textarea and Select there is **no census**: a
+checkbox, a file picker and a range slider are correctly not this component, which is
+the line ADR-0095 §3 draws and the counts behind it. See ADR-0038 and ADR-0093.
 _Avoid_: Text field, TextInput, a second field skin, and the family #375 deleted —
 `.retro-input` (four files, byte-identical, no ADR behind it, and worn inside Rations)
 and `.full-width` / `.has-reveal` as skin classes. `.input-number-brutal` went at #379,
@@ -562,7 +563,8 @@ asserts the tree holds exactly one `<textarea>` and it is this file. The platfor
 resizes, participates in a form and carries `maxlength`, so bits-ui has nothing to add.
 Its **height axis is `rows`** and nothing else, defaulting to 3; a field that fills a
 region says so in its `class`, as `NoteEditor` does. It resizes vertically only.
-See ADR-0036, ADR-0068 §1 and ADR-0093.
+See ADR-0036, ADR-0068 §1, ADR-0093 and ADR-0095 §3, which is the rule the census
+is an instance of.
 _Avoid_: Multi-line input, note field, comment box, a second textarea skin, and the nine
 it replaced — `.textarea-brutal`, `.retro-textarea`, `.desc-textarea`, `.cf-ingredients`,
 `.mini-ingredients`, `.tarea`, `.note-body` as a skin (it is a fill rule now), and the
@@ -581,8 +583,11 @@ came from. Its **value is generic**, so a rating binds `number | undefined` with
 `Number()` at the write site. It takes an `id` and no `label`, as `ui/Input` does, and
 its `class` is the **wrapper's**, not the field's. `appearance: none` removes the UA's
 arrow only — the OS picker still opens — and the mark drawn in its place is knowingly
-the third copy of the shared triangle, which #317 owns. See ADR-0036, ADR-0068 §1 and
-ADR-0093.
+the third copy of the shared triangle, which #317 owns. Its population went 7 to 0
+across #378, #379 and #380, and a census in `tests/unit/ui-primitives.test.ts` holds it
+there — the same guard `ui/Textarea` carries, and for the reason ADR-0095 §3 gives.
+See ADR-0036, ADR-0068 §1, ADR-0093 and ADR-0095, whose worked example is this
+component's bits-ui refusal.
 _Avoid_: Dropdown, picker, combobox (that is a search field with a list), a second select
 skin, and the three it replaced — `.custom-select` (gone at #378), `.select-brutal`
 (gone at #379, four selects on one rule) and `.retro-select` (gone at #380, two selects
