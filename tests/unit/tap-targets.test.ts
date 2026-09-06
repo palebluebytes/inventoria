@@ -258,7 +258,9 @@ describe("the dock's controls", () => {
    * none and seven declaring one that is itself under it. The nearest is the
    * skin's own further wearer, `views/habits/HabitDetailView.svelte`'s
    * `.input-number-brutal`, at the same 47px and sharing its rule with a
-   * `.select-brutal`. None of the twelve is the dock's and none was measured by
+   * `.select-brutal` — both since retired by #379, which ported that file onto
+   * `ui/Input` and `ui/Select` and deleted the copy whole rather than splitting
+   * it. None of the twelve is the dock's and none was measured by
    * #332, so they are left: this file's scope is the nav, the dock and the
    * operator keys, and a floor swept across the app is its own ticket for the
    * same reason #336 was.

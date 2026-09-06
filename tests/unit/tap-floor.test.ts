@@ -615,8 +615,9 @@ describe("the sweep itself", () => {
     // a regex matching nothing fails here, and the split below is what has to
     // be argued with when the count moves. It follows the count down as the
     // convergence tickets retire hand-rolled fields (50 at #338, 42 at #374,
-    // 37 at #375), keeping the same two boxes of headroom it was written with.
-    expect(SWEEP.groups.size).toBeGreaterThan(35);
+    // 37 at #375, 35 at #379), keeping the same two boxes of headroom it was
+    // written with.
+    expect(SWEEP.groups.size).toBeGreaterThan(33);
   });
 
   it("has no field styled from app.css, so a component's own sheet is the whole answer", () => {
@@ -725,6 +726,20 @@ describe("the floor, swept", () => {
    * and below a `--step-0` line box — and a box passing that way is one whose
    * padding happens to add up. The `--tap-min` those fields stand on now is
    * declared, and they are visibly shorter for it.
+   *
+   * It fell again from 37 to 35 at #379, and both boxes were `declared`, so
+   * only that column moved:
+   *
+   *   views/habits/HabitDetailView.svelte  input.input-number-brutal
+   *   views/habits/HabitDetailView.svelte  select.select-brutal
+   *
+   * Two keys for five fields — four selects and one number field sharing one
+   * rule, which was `ui/Input`'s `.input` hand-copied (#362, and the note in
+   * `tap-targets.test.ts` that named this pair as the nearest of the twelve
+   * #336 left standing). Both wearers went together on purpose: porting the
+   * selects alone would have split the rule and kept half the copy. No box
+   * arrived to replace them, because `ui/Input`'s and `ui/Select`'s own were
+   * already counted, both in the `declared` column.
    */
   it("carries most of them on a declared floor, not on arithmetic", () => {
     const how = { declared: 0, drawn: 0 };
@@ -734,7 +749,7 @@ describe("the floor, swept", () => {
       else if (b.kind === "drawn") how.drawn++;
     }
 
-    expect(how).toEqual({ declared: 27, drawn: 10 });
+    expect(how).toEqual({ declared: 25, drawn: 10 });
     expect(how.declared + how.drawn).toBe(SWEEP.groups.size);
   });
 });

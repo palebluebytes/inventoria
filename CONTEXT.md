@@ -545,7 +545,10 @@ and is not a styling channel. Unlike Textarea there is **no census**: a checkbox
 picker and a range slider are correctly not this component. See ADR-0038 and ADR-0093.
 _Avoid_: Text field, TextInput, a second field skin, and the family #375 deleted —
 `.retro-input` (four files, byte-identical, no ADR behind it, and worn inside Rations)
-and `.full-width` / `.has-reveal` as skin classes. Note the one asymmetry with Textarea:
+and `.full-width` / `.has-reveal` as skin classes. `.input-number-brutal` went at #379,
+where it shared one rule with a `.select-brutal` — this skin transcribed, minus the floor
+it gained at #336 — so porting only the selects would have kept half the copy.
+Note the one asymmetry with Textarea:
 this primitive has a wrapper and Textarea does not, so a caller's class lands on the box
 here and on the field there.
 
@@ -581,7 +584,8 @@ arrow only — the OS picker still opens — and the mark drawn in its place is 
 the third copy of the shared triangle, which #317 owns. See ADR-0036, ADR-0068 §1 and
 ADR-0093.
 _Avoid_: Dropdown, picker, combobox (that is a search field with a list), a second select
-skin, and the two it is replacing — `.custom-select` (gone) and `.retro-select` (#380)
+skin, and the three it is replacing — `.custom-select` (gone at #378), `.select-brutal`
+(gone at #379, four selects on one rule) and `.retro-select` (#380)
 
 **Badge**:
 A display-only status or category label (`ui/Badge.svelte`). Its colour comes from

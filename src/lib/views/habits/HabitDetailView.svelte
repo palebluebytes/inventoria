@@ -4,6 +4,7 @@
   import type { ScheduleRule } from "../../habits/habits";
   import Card from "../../ui/Card.svelte";
   import Input from "../../ui/Input.svelte";
+  import Select from "../../ui/Select.svelte";
   import Textarea from "../../ui/Textarea.svelte";
   import Button from "../../ui/Button.svelte";
   import Alert from "../../ui/Alert.svelte";
@@ -164,33 +165,33 @@
             <!-- Logging Status Selector -->
             <div class="col-group">
               <label for="log-status-val" class="field-label">Log Status</label>
-              <select
+              <Select
                 id="log-status-val"
                 bind:value={logStatusValue}
-                class="select-brutal"
-              >
-                <option value="completed">Completed</option>
-                <option value="exempt">Exempt (Sick/Travel/Rest)</option>
-              </select>
+                options={[
+                  { value: "completed", label: "Completed" },
+                  { value: "exempt", label: "Exempt (Sick/Travel/Rest)" },
+                ]}
+              />
             </div>
 
             <!-- Optional Subtarget Selector -->
             {#if lineage.head.schedule_rules?.type === "daily_multiple" && lineage.head.schedule_rules.targets}
               <div class="col-group">
                 <label for="log-target" class="field-label">Target Area</label>
-                <select
+                <Select
                   id="log-target"
                   bind:value={logTargetId}
-                  class="select-brutal"
-                >
-                  <option value="">General / Unspecified</option>
-                  {#each lineage.head.schedule_rules.targets as tgt}
-                    <option value={tgt.id}
-                      >{tgt.id}
-                      {tgt.time_hint ? `(${tgt.time_hint})` : ""}</option
-                    >
-                  {/each}
-                </select>
+                  options={[
+                    { value: "", label: "General / Unspecified" },
+                    ...lineage.head.schedule_rules.targets.map((tgt) => ({
+                      value: tgt.id,
+                      label: tgt.time_hint
+                        ? `${tgt.id} (${tgt.time_hint})`
+                        : tgt.id,
+                    })),
+                  ]}
+                />
               </div>
             {/if}
           </div>
@@ -205,28 +206,27 @@
           <div class="row-group">
             <div class="col-group">
               <label for="log-difficulty" class="field-label">Difficulty</label>
-              <select
+              <Select
                 id="log-difficulty"
                 bind:value={logDifficulty}
-                class="select-brutal"
-              >
-                <option value="easy">Easy</option>
-                <option value="medium">Medium</option>
-                <option value="hard">Hard</option>
-              </select>
+                options={[
+                  { value: "easy", label: "Easy" },
+                  { value: "medium", label: "Medium" },
+                  { value: "hard", label: "Hard" },
+                ]}
+              />
             </div>
 
             <div class="col-group">
               <label for="log-duration" class="field-label"
                 >Duration (mins)</label
               >
-              <input
+              <Input
                 id="log-duration"
                 type="number"
                 min="1"
                 placeholder="Duration"
                 bind:value={logDuration}
-                class="input-number-brutal"
               />
             </div>
           </div>
@@ -264,17 +264,17 @@
           <div class="row-group">
             <div class="col-group">
               <label for="edit-category" class="field-label">Category</label>
-              <select
+              <Select
                 id="edit-category"
                 bind:value={habitCategory}
-                class="select-brutal"
-              >
-                <option value="Fitness">Fitness</option>
-                <option value="Mind">Mind</option>
-                <option value="Productivity">Productivity</option>
-                <option value="Health">Health</option>
-                <option value="Other">Other</option>
-              </select>
+                options={[
+                  { value: "Fitness", label: "Fitness" },
+                  { value: "Mind", label: "Mind" },
+                  { value: "Productivity", label: "Productivity" },
+                  { value: "Health", label: "Health" },
+                  { value: "Other", label: "Other" },
+                ]}
+              />
             </div>
           </div>
 
@@ -350,27 +350,6 @@
     flex-direction: column;
     gap: var(--space-xs);
     flex: 1;
-  }
-  .select-brutal,
-  .input-number-brutal {
-    width: 100%;
-    /* This rule is `ui/Input`'s `.input` hand-copied, which is why both wearers
-       draw the same 47px the shared skin did before #336 floored it. The copy
-       is #362's; the floor is not, and cannot wait for it. */
-    min-height: var(--tap-min);
-    background: transparent;
-    border: var(--edge-thin);
-    padding: var(--space-2xs) var(--space-s);
-    font-family: inherit;
-    font-size: var(--step-0);
-    color: var(--text-primary);
-    outline: none;
-    border-radius: var(--radius);
-  }
-  .select-brutal:focus,
-  .input-number-brutal:focus {
-    background: var(--paper);
-    box-shadow: 0 0 0 1px var(--ink);
   }
   .action-buttons-row {
     display: flex;
