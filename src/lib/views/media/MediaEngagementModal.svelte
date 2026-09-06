@@ -5,6 +5,7 @@
   import Badge from "../../ui/Badge.svelte";
   import Button from "../../ui/Button.svelte";
   import Input from "../../ui/Input.svelte";
+  import Select from "../../ui/Select.svelte";
   import Textarea from "../../ui/Textarea.svelte";
   import BottomSheet from "../../ui/BottomSheet.svelte";
 
@@ -132,6 +133,17 @@
       </div>
     {/if}
 
+    <!-- Every field here is a `ui/*` primitive, and #380 is where that became
+         true: it took the two `.retro-select`s, the last of the `retro-*`
+         family and the last hand-rolled select skin in the app.
+         `tests/unit/ui-primitives.test.ts` keeps the family at zero.
+
+         #380 budgeted for a cost that was never paid — a brutalist select
+         standing over `.retro-input` and `.retro-textarea` siblings, which it
+         argued for shipping rather than deferring #362's census guard. #374
+         and #375 landed first and converged those siblings, so the mismatch
+         never existed. Said here because a reader arriving from the ticket
+         should learn that rather than go looking for it. -->
     <form
       id={FORM_ID}
       onsubmit={(e) => {
@@ -143,16 +155,16 @@
       <!-- Status -->
       <div class="form-group">
         <label for="event-status-select">Status</label>
-        <select
+        <Select
           id="event-status-select"
           bind:value={formStatus}
-          class="retro-select"
-        >
-          <option value="saved">Saved (To watch/read)</option>
-          <option value="started">Started</option>
-          <option value="progress">In Progress</option>
-          <option value="completed">Completed</option>
-        </select>
+          options={[
+            { value: "saved", label: "Saved (To watch/read)" },
+            { value: "started", label: "Started" },
+            { value: "progress", label: "In Progress" },
+            { value: "completed", label: "Completed" },
+          ]}
+        />
       </div>
 
       <!-- Book progress fields -->
@@ -195,14 +207,23 @@
       <!-- Rating & Review -->
       <div class="form-group">
         <label for="event-rating">Rating (1-5)</label>
-        <select id="event-rating" bind:value={formRating} class="retro-select">
-          <option value={undefined}>No Rating</option>
-          <option value={1}>1 - Poor</option>
-          <option value={2}>2 - Fair</option>
-          <option value={3}>3 - Good</option>
-          <option value={4}>4 - Very Good</option>
-          <option value={5}>5 - Outstanding</option>
-        </select>
+        <!-- The field `ui/Select` was made generic for. `formRating` is
+             `number | undefined` and stays that way end to end: `No Rating` is
+             an option whose value *is* `undefined`, not a sentinel string that
+             a `Number()` at this call site would have to undo. If this field
+             ever needs one, the generic has been given up. -->
+        <Select
+          id="event-rating"
+          bind:value={formRating}
+          options={[
+            { value: undefined, label: "No Rating" },
+            { value: 1, label: "1 - Poor" },
+            { value: 2, label: "2 - Fair" },
+            { value: 3, label: "3 - Good" },
+            { value: 4, label: "4 - Very Good" },
+            { value: 5, label: "5 - Outstanding" },
+          ]}
+        />
       </div>
 
       <div class="form-group">
@@ -343,33 +364,6 @@
     color: var(--paper);
     padding: var(--space-3xs) var(--space-2xs);
     align-self: flex-start;
-  }
-
-  /* `.retro-select` is the last of the `retro-*` field family, and #375 left it
-     standing on purpose. Its three `.retro-input` siblings in this form are
-     `ui/Input` now, so the mismatch #362 accepted has inverted rather than
-     closed: the brutalist boxes are the majority and these two selects are the
-     holdout. It is still one look short of consistent, still marking the same
-     call sites, and #380 is still what closes it — a native select in an owned
-     skin is #378's to build, and transcribing one here would be the drift this
-     ticket just deleted, written a fifth time. */
-  .retro-select {
-    border: var(--edge);
-    padding: var(--space-s);
-    font-size: var(--step-0);
-    font-family: var(--font-mono);
-    font-weight: 700;
-    border-radius: var(--radius);
-    background: var(--paper);
-    cursor: pointer;
-    box-shadow: 4px 4px 0 var(--border);
-    transition: all 0.1s step-end;
-  }
-
-  .retro-select:focus {
-    outline: none;
-    border-color: var(--ink);
-    box-shadow: var(--shadow-2);
   }
 
   .dock {

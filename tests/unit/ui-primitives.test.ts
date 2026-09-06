@@ -417,7 +417,9 @@ describe("the textarea census", () => {
 });
 
 /**
- * The `retro-*` field family, which #375 emptied of everything but one member.
+ * The `retro-*` field family, which is now empty. It died in three steps, one
+ * per member: #374 took `.retro-textarea`, #375 took `.retro-input`, and #380
+ * took `.retro-select`, the last one standing.
  *
  * `.retro-input` was **byte-identical in four files** — a mono 700 face, an
  * inset shadow, and a focus that inverted the box to ink-on-paper — and had no
@@ -431,12 +433,12 @@ describe("the textarea census", () => {
  * the whole ticket for names worn with no rule anywhere. A grep for one of them
  * proves nothing about the other.
  *
- * The roster is not empty and is not meant to be yet. `.retro-select` is the
- * holdout, and it goes when Media adopts `ui/Select` (#380). Its two entries
- * here are the mark #362 asked this family to carry: a form that is one look
- * short of consistent, saying so in a test rather than in a comment nobody
- * runs. When #380 lands, both lists become `[]` and this block becomes the
- * census the textarea one above already is.
+ * An empty roster is worth keeping rather than deleting, and for the same
+ * reason the textarea census above is: the name is still in this repo's
+ * history, its ADRs and its comments, so the cheapest way for it to come back
+ * is a hand that reads one of those and copies the class into a new file. This
+ * block is what fails when it does. It is a census now, not a roster — `[]` is
+ * the assertion, not a count on its way down.
  */
 describe("the retro-* field family", () => {
   const FILES = trackedSvelteFiles();
@@ -474,15 +476,12 @@ describe("the retro-* field family", () => {
     ),
   ].sort();
 
-  it("leaves one `retro-*` class worn in the whole tree, and #380 takes it", () => {
-    expect(worn).toEqual([
-      "views/media/MediaEngagementModal.svelte select.retro-select #event-rating",
-      "views/media/MediaEngagementModal.svelte select.retro-select #event-status-select",
-    ]);
+  it("finds no `retro-*` class worn anywhere in the tree", () => {
+    expect(worn).toEqual([]);
   });
 
-  it("leaves one `retro-*` rule defined, so nothing is styled by a ghost", () => {
-    expect(defined).toEqual([".retro-select"]);
+  it("finds no `retro-*` rule defined, so nothing is styled by a ghost", () => {
+    expect(defined).toEqual([]);
   });
 });
 

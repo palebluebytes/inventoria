@@ -23,12 +23,12 @@
   //
   // **What converging dropped, on purpose.** `MediaEngagementModal`'s
   // `.retro-textarea` had a mono 700 face, an inset shadow and a focus that
-  // inverted the whole box to ink-on-paper; that field now looks like every
-  // other one, while the `.retro-input`s and `.retro-select`s beside it still
-  // do not. That mismatch is temporary and belongs to the `retro-*`
-  // convergence ticket, which #374 names as the owner of the rest of the
-  // family. A caller whose *voice* differs from the house — as opposed to its
-  // chrome — says so in `class` instead; `AddEventScreen` is the one that does.
+  // inverted the whole box to ink-on-paper. Adopting this made that field the
+  // only converged one in its form; the mismatch was called temporary here and
+  // it was — `.retro-input` went at #375 and `.retro-select` at #380, so that
+  // form is now one skin throughout and the family is empty. A caller whose
+  // *voice* differs from the house — as opposed to its chrome — says so in
+  // `class` instead; `AddEventScreen` is the one that does.
   //
   // `...rest` is the a11y/semantics escape hatch (`aria-*`, `data-*`, `name`,
   // `maxlength`, `oninput`), NOT a styling channel — the same contract as

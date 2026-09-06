@@ -357,8 +357,12 @@ const SWEEP = (() => {
   for (const file of FILES) {
     const found = groupsIn(file);
     proxied.push(...found.proxied);
-    // One reading per distinct box. Two `<input class="retro-input">` in one
-    // file are one box wearing one rule, and saying so twice adds nothing.
+    // One reading per distinct box. `MediaEngagementModal`'s two
+    // `<select class="retro-select">` were one box wearing one rule, and saying
+    // so twice adds nothing — which is why #380 took two fields out of this
+    // sweep and moved the count by one. Past tense: the `retro-*` family is
+    // extinct, and the example is kept because it is the clearest one this
+    // sweep has produced, not because the class still exists.
     for (const g of found.groups) {
       const key = name(g.where, g.primary);
       if (!groups.has(key)) groups.set(key, g);
@@ -740,6 +744,18 @@ describe("the floor, swept", () => {
    * selects alone would have split the rule and kept half the copy. No box
    * arrived to replace them, because `ui/Input`'s and `ui/Select`'s own were
    * already counted, both in the `declared` column.
+   *
+   * It fell once more, 35 to 34 at #380, and the one box was `drawn`:
+   *
+   *   views/media/MediaEngagementModal.svelte  select.retro-select
+   *
+   * One key for two fields, the last of the `retro-*` family. It stood at
+   * **61.6px pessimistic (67 optimistic)** — the same reading as the five
+   * `.retro-input` boxes above, because it was the same padding on the same
+   * type step, which is what a family of hand-copied skins looks like from
+   * here. Clear of the floor, so this is not a shortfall being fixed; it is a
+   * box that cleared on arithmetic leaving, which is the other thing this split
+   * watches. No box arrived: `ui/Select`'s own has been counted since #378.
    */
   it("carries most of them on a declared floor, not on arithmetic", () => {
     const how = { declared: 0, drawn: 0 };
@@ -749,7 +765,7 @@ describe("the floor, swept", () => {
       else if (b.kind === "drawn") how.drawn++;
     }
 
-    expect(how).toEqual({ declared: 25, drawn: 10 });
+    expect(how).toEqual({ declared: 25, drawn: 9 });
     expect(how.declared + how.drawn).toBe(SWEEP.groups.size);
   });
 });

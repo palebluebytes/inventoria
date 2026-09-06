@@ -584,8 +584,9 @@ arrow only — the OS picker still opens — and the mark drawn in its place is 
 the third copy of the shared triangle, which #317 owns. See ADR-0036, ADR-0068 §1 and
 ADR-0093.
 _Avoid_: Dropdown, picker, combobox (that is a search field with a list), a second select
-skin, and the three it is replacing — `.custom-select` (gone at #378), `.select-brutal`
-(gone at #379, four selects on one rule) and `.retro-select` (#380)
+skin, and the three it replaced — `.custom-select` (gone at #378), `.select-brutal`
+(gone at #379, four selects on one rule) and `.retro-select` (gone at #380, two selects
+including the `number | undefined` rating the generic was written for)
 
 **Badge**:
 A display-only status or category label (`ui/Badge.svelte`). Its colour comes from
