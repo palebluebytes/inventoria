@@ -29,9 +29,10 @@
  *
  * The example that made the case was `ItemManualForm`'s `.custom-select`, which
  * drew 49px optimistic and 43.6 pessimistic — level on the assumption and 4.4px
- * short in fact. It is history now: #378 retired that class and the whole select
- * population reached zero at #381, so the figures survive here as the shape of
- * the failure and not as something this sweep still reads.
+ * short in fact. It is history now: #378 retired that class, the last of the
+ * seven selects went at #380, and #381 wrote the census that holds the
+ * population at zero — so the figures survive here as the shape of the failure
+ * and not as something this sweep still reads.
  *
  * A live one, so the argument keeps an example it can point at: `NotesView`'s
  * `input.item-input` reads **52.6 pessimistic (58 optimistic)**. The two

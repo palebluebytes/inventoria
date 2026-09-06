@@ -420,10 +420,11 @@ describe("the textarea census", () => {
 });
 
 /**
- * The population `ui/Select` was written to close (#381), and the second
- * instance of the rule ADR-0095 states: a look is reached by reference or not
- * at all, and where every legitimate use of a platform element is the
- * primitive, a census is what keeps the population at zero.
+ * The population `ui/Select` was written to close (#378), held at zero by this
+ * census (#381). It is the second instance of the rule ADR-0095 states: a look
+ * is reached by reference or not at all, and where every legitimate use of a
+ * platform element is the primitive, a census is what keeps the population
+ * there once a port has emptied it.
  *
  * `<select>` qualifies for the same reason `<textarea>` does and `<button>`
  * does not. Read with this file's own markup reader over
@@ -445,6 +446,11 @@ describe("the textarea census", () => {
  * entry. It is also the shape ADR-0083 refused for the Facet gates — a gate
  * reads the roster, never a filename — and deriving a one-entry roster by
  * parsing `CONTEXT.md` would be the letter of that rule without its point.
+ *
+ * No second assertion that the sweep reached the whole tree: `FILES` is the
+ * same value the textarea census guards twenty lines above, and asserting it
+ * twice in one file would be a second copy of a check rather than a second
+ * check.
  */
 describe("the select census", () => {
   const FILES = trackedSvelteFiles();

@@ -261,7 +261,7 @@ describe("the dock's controls", () => {
    * `.select-brutal` — both since retired by #379, which ported that file onto
    * `ui/Input` and `ui/Select` and deleted the copy whole rather than splitting
    * it. Neither class is in the tree now, and neither is any other hand-rolled
-   * select skin: the population reached zero at #381 and a census in
+   * select skin: the population reached zero at #380, and #381's census in
    * `tests/unit/ui-primitives.test.ts` holds it there (ADR-0095). None of the
    * twelve is the dock's and none was measured by
    * #332, so they are left: this file's scope is the nav, the dock and the
