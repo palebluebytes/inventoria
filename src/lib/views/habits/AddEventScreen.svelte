@@ -218,7 +218,6 @@
 
           <button
             type="button"
-            class="text-btn"
             style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; background: none; border: none; cursor: pointer; color: var(--text-primary); text-decoration: underline; padding: 0;"
             onclick={() => {
               if (!hasEnd) {

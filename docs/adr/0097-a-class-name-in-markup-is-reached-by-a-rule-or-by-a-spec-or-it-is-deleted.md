@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-06  
-**Implemented:** #376 (`tests/unit/worn-classes.test.ts`, and the 42 sites it emptied)
+**Implemented:** #376 (`tests/unit/worn-classes.test.ts`, and the 43 sites it emptied)
 
 ## Context
 
@@ -10,7 +10,7 @@
 
 [ADR-0095](0095-a-shared-look-is-reached-by-reference-or-it-is-not-shared.md) settled the case where a look is **copied**. This is the same illness one stage later: a look's **name** copied without the look. The two have different signatures and want different guards — a copy produces two rules that drift apart, and a bare name produces a box styled by nothing at all, which drifts from nothing and so is invisible to every check the repo had.
 
-**The count is the finding, and it was not two.** A sweep over `trackedSvelteFiles()` at the arc's base read 118 files wearing 1,368 class names, 890 of them distinct. **42** of those wearings — a file and a name — had no rule reaching them: 32 distinct names across 24 files.
+**The count is the finding, and it was not two.** A sweep over `trackedSvelteFiles()` at the arc's base read 118 files wearing 1,376 class names, 894 of them distinct. **43** of those wearings — a file and a name — had no rule reaching them: 33 distinct names across 24 files.
 
 **Where they came from, mostly.** Commit `9612363` ("clear all remaining warnings") deleted thirteen CSS rules that `svelte-check` reported as unused and said so in its own body: "remove dead CSS rules — utility classes that are inert when passed to `<Card>` … Markup/classes untouched." Following the warning exactly is what produced the disease, because the warning names the rule and never the markup. `.stat-card`'s `display: flex; flex-direction: column` went that day, and the four habit stat cards have drawn their figure and its label side by side ever since — a `margin-top` on an inline `<span>` doing nothing, on a screen nobody looked at again.
 
@@ -18,7 +18,7 @@
 
 **The alternatives that were genuinely live.**
 
-_"Every worn name must have a rule."_ The strongest form, and wrong. Fifteen of the 42 are how the Playwright suite steers: `.db-badge` is what eleven specs wait on for the ledger to come up, `.macro-item.calories .macro-now` is how the dashboard's figures are read. Enforcing a rule for those means moving them to `data-testid`, which is forty-odd spec assertions of churn to swap one unstyled hook for another.
+_"Every worn name must have a rule."_ The strongest form, and wrong. Fifteen names that no rule reaches are how the Playwright suite steers — they are outside the 43 because reach 4 keeps them out, and under this alternative they would join it: `.db-badge` is what eleven specs wait on for the ledger to come up, `.macro-item.calories .macro-now` is how the dashboard's figures are read. Enforcing a rule for those means moving them to `data-testid`, which is forty-odd spec assertions of churn to swap one unstyled hook for another.
 
 _"Report the count and stop."_ Refused for the reason `tests/unit/tap-floor.test.ts`'s docblock gives about its own population: a sweep run once is a number, and a number about markup is stale by the next commit. #376 asked for the decision to be made explicitly, and this is it.
 
@@ -54,8 +54,8 @@ Where a caller has to reach into a primitive, the two forms that work are:
 
 There is no third resolution and no exemption list. Which of the two applies is decided by the box, not by the name:
 
-- **Write the rule** where the name asks for a look the app is visibly missing. Two of the 42 were this: `.stat-card` and `.summary-card`, both restored to the flex column `9612363` took.
-- **Delete the name** where the box already draws correctly, because a parent or a sibling class carries the look. Forty of the 42 were this.
+- **Write the rule** where the name asks for a look the app is visibly missing. Two of the 43 were this: `.stat-card` and `.summary-card`, both restored to the flex column `9612363` took.
+- **Delete the name** where the box already draws correctly, because a parent or a sibling class carries the look. Forty-one of the 43 were this.
 - **Delete the element too, where it exists only to wear the name.** `AddHabitScreen` and `ScheduleRuleEditor` each carried an empty `<span class="custom-checkbox" class:checked={…}></span>` that has never had a rule in its whole history — a checkbox drawn by nothing, in a card whose amber `.active` tint was already showing the state. An element with no content and no rule is not markup.
 
 ### 4. The sweep is a standing guard
@@ -70,7 +70,7 @@ There is no third resolution and no exemption list. Which of the two applies is 
 
 **Two populations of names are outside the reading, and both are printed rather than dropped.** A class an expression builds (`class="badge badge-{variant}"`) names a family, not a class; deleting the braces and splitting manufactures the name `badge-`, which no element wears and no rule declares, and would have this guard convict five primitives on its own arithmetic. `tests/unit/support/markup.ts` now seals the expression instead and hands those back as `dynamicClasses`, and the test asserts the list of five so the blind spot is visible rather than merely absent.
 
-**Deleting forty names shrank the vocabulary the markup reads in.** `<span class="pm-name">` is now `<span>`, and a reader loses a hint about what that span holds. That is accepted: the hint was not free, because every one of those names also read as a promise that a rule existed, and following one of those promises is what cost #376 its first hour.
+**Deleting forty-one names shrank the vocabulary the markup reads in.** `<span class="pm-name">` is now `<span>`, and a reader loses a hint about what that span holds. That is accepted: the hint was not free, because every one of those names also read as a promise that a rule existed, and following one of those promises is what cost #376 its first hour.
 
 **The habit screens change shape, so the visual baselines owe a rebaseline.** `.stat-card` and `.summary-card` were restored, which is a real pixel change on two screens `tests/visual-catalog.spec.ts` captures — the first time either has drawn as designed since June.
 

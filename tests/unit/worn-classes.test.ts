@@ -38,8 +38,8 @@
  * rules Svelte reported as unused and left every class name in the markup, so
  * `.stat-card`'s `flex-direction: column` went and the four stat cards have been
  * drawing their value and label side by side ever since. The first run of this
- * sweep found 42 such wearings — 32 names across 24 files, out of 1,368
- * wearings of 890 names in 118 files — and ADR-0097 records what each was
+ * sweep found 43 such wearings — 33 names across 24 files, out of 1,376
+ * wearings of 894 names in 118 files — and ADR-0097 records what each was
  * resolved to and why the residue is held at zero rather than listed.
  *
  * **This is a standing guard, and it has to be**, for the reason
@@ -130,10 +130,15 @@ function stringLiteralsIn(file: string): string[] {
 /**
  * Reach 4: class names the Playwright suite selects by.
  *
- * Read out of string literals only, and only those without a `/` in them, so an
- * import specifier or a fixture path cannot donate its extension as a class
- * name. `page.locator(".macro-item.calories")` counts; `"./support/rations"`
- * does not.
+ * Read out of string literals only, and out of two narrower parts of those. A
+ * literal with a `/` in it is a path or a URL, not a selector, so an import
+ * specifier cannot donate its extension as a class name. And a template
+ * literal's `${…}` holes are code, not text: leaving them in credited `now`,
+ * `hash` and `pathname` off ordinary property access, and a name this set
+ * credits wrongly is a dead class the sweep then clears.
+ *
+ * `page.locator(".macro-item.calories")` counts; `"./support/rations"` and the
+ * `location.hash` inside a template hole do not.
  */
 const SELECTED_BY_SPECS = new Set(
   execFileSync("git", ["ls-files", "tests/*.spec.ts", "tests/support/*.ts"], {
@@ -143,6 +148,7 @@ const SELECTED_BY_SPECS = new Set(
     .split("\n")
     .filter(Boolean)
     .flatMap(stringLiteralsIn)
+    .map((literal) => literal.replace(/\$\{(?:[^{}]|\{[^{}]*\})*\}/g, " "))
     .filter((literal) => !literal.includes("/"))
     .flatMap((literal) =>
       [...literal.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)].map((m) => m[1])
@@ -174,13 +180,22 @@ function wornIn(file: string): Worn[] {
 
 const WORN = FILES.flatMap(wornIn);
 
+/** Reach 1, read once per file rather than once per wearing. */
+const SCOPED = new Map(
+  [...SHEETS].map(([file, rules]) => [file, classNamesIn(rules)] as const)
+);
+
+/** Whether a scoped rule in the file names it — true even where it cannot land,
+ *  which is the distinction the component-prop trap turns on. */
+const scopedNames = (file: string) => SCOPED.get(file) ?? new Set<string>();
+
 /** Whether any rule anywhere can land on this wearing of the name. */
 function isReached(worn: Worn): boolean {
   if (APP.has(worn.name)) return true;
   if (GLOBAL.has(worn.name)) return true;
   if (SELECTED_BY_SPECS.has(worn.name)) return true;
   if (worn.onComponent) return false;
-  return classNamesIn(SHEETS.get(worn.file) ?? []).has(worn.name);
+  return scopedNames(worn.file).has(worn.name);
 }
 
 describe("class names worn in src/ markup", () => {
@@ -199,6 +214,22 @@ describe("class names worn in src/ markup", () => {
     expect(SELECTED_BY_SPECS.has("db-badge")).toBe(true);
   });
 
+  it("keeps fifteen names alive on reach 4 alone", () => {
+    // What ADR-0097 §1's fourth reach is worth, priced rather than asserted:
+    // the names no rule reaches that a spec steers by. Requiring a rule for
+    // every worn name — the alternative the record refuses — convicts exactly
+    // these, and the figure is pinned because the record quotes it.
+    const specOnly = WORN.filter(
+      (w) =>
+        !APP.has(w.name) &&
+        !GLOBAL.has(w.name) &&
+        !(!w.onComponent && scopedNames(w.file).has(w.name)) &&
+        SELECTED_BY_SPECS.has(w.name)
+    ).map((w) => w.name);
+
+    expect(new Set(specOnly).size).toBe(15);
+  });
+
   it("does not credit a caller's scoped rule to a class it hands a component", () => {
     // The trap in full: a scoped rule and a component tag wearing its name are
     // not a match, and Svelte reports no warning either way.
@@ -208,7 +239,7 @@ describe("class names worn in src/ markup", () => {
       tag: "#Card",
       onComponent: true,
     };
-    expect(classNamesIn(SHEETS.get(card.file) ?? []).has(card.name)).toBe(true);
+    expect(scopedNames(card.file).has(card.name)).toBe(true);
     expect(isReached(card)).toBe(false);
     expect(isReached({ ...card, tag: "button", onComponent: false })).toBe(
       true
@@ -220,7 +251,7 @@ describe("class names worn in src/ markup", () => {
       .map(
         (w) =>
           `${w.file}  .${w.name}  <${w.tag}>` +
-          (w.onComponent && classNamesIn(SHEETS.get(w.file) ?? []).has(w.name)
+          (w.onComponent && scopedNames(w.file).has(w.name)
             ? "  (a scoped rule names it, and cannot reach a component's prop)"
             : "")
       )
@@ -232,10 +263,9 @@ describe("class names worn in src/ markup", () => {
 
   it("keeps the families an expression builds out of the count, and names them", () => {
     // `class="badge badge-{variant}"` names a family, not a class: no element
-    // wears `badge-`, and no rule declares it. Deleting the braces and splitting
-    // manufactures that name, which is a defect the sweep would then report in
-    // nine primitives. They are listed rather than merely dropped, because a
-    // blind spot that nothing prints is one nobody remembers is there.
+    // wears `badge-`, and no rule declares it. They are listed rather than
+    // merely dropped, because a blind spot that nothing prints is one nobody
+    // remembers is there.
     const families = [
       ...new Set(
         FILES.flatMap((file) =>
@@ -252,5 +282,39 @@ describe("class names worn in src/ markup", () => {
       "nutrient-{…}",
     ]);
     expect(WORN.map((w) => w.name)).not.toContain("badge-");
+  });
+
+  it("would convict four of the five families if the braces were merely stripped", () => {
+    // The cost of the reader change, priced rather than asserted. Deleting the
+    // braces and splitting — what `elementsOf` did before #376 — manufactures
+    // one name per family, and four of the five reach no rule. This figure is
+    // pinned because the arc's own lesson (#381) is that a number written into
+    // prose and checked by nothing is the same rot as a dead class name: the
+    // first two attempts at it here said "nine primitives" and "five", and both
+    // were counting something other than what they claimed.
+    const manufactured = [
+      ...new Set(
+        FILES.flatMap((file) =>
+          elementsOf(file).flatMap((el) =>
+            el.dynamicClasses.map((f) => f.replaceAll("{…}", ""))
+          )
+        )
+      ),
+    ].filter(Boolean);
+
+    expect(manufactured.sort()).toEqual([
+      "alert-",
+      "badge-",
+      "btn-",
+      "note-row",
+      "nutrient-",
+    ]);
+
+    // `note-row` is the one that escapes, and only because `NotesView` happens
+    // to declare it `:global` for its own real use.
+    expect(
+      manufactured.filter((n) => !APP.has(n) && !GLOBAL.has(n)).sort()
+    ).toEqual(["alert-", "badge-", "btn-", "nutrient-"]);
+    expect(GLOBAL.has("note-row")).toBe(true);
   });
 });

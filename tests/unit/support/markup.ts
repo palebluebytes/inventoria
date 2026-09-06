@@ -57,10 +57,105 @@ export type Element = {
 const VOID =
   /^(input|br|hr|img|source|track|meta|link|area|base|col|embed|param|wbr)$/;
 
-/** Attribute text, one tag's worth: quoted strings and `{…}` expressions, with
- *  braces nested one deep so `class="a {x ? `b-${y}` : ''}"` survives. */
-const TAG =
-  /<(\/?)([a-zA-Z][\w:.-]*)((?:[^<>"'{]|"[^"]*"|'[^']*'|\{(?:[^{}]|\{[^{}]*\})*\})*?)(\/?)>/g;
+/** One tag, as the walk below reads it. */
+type Tag = {
+  close: boolean;
+  raw: string;
+  attrs: string;
+  selfClose: boolean;
+  /** Where the source continues after `>`. */
+  end: number;
+};
+
+/**
+ * Every tag in `markup`, read by walking rather than by matching.
+ *
+ * A regex has to fix how deep an attribute's braces may nest, and any depth it
+ * fixes is a depth some handler exceeds: at one level, `onclick={() => { … }}`
+ * does not match, and the tag it is written on is not merely read without that
+ * attribute — it is **not seen at all**, along with every class on it. That cost
+ * `<button class="text-btn">` in `AddEventScreen` a finding in [#376]'s first
+ * sweep, and it silently narrowed the population of every other census reading
+ * through here. The walk tracks quote state and brace depth, so nesting is
+ * unbounded and a tag is dropped only where the markup itself is unbalanced.
+ */
+function tagsIn(markup: string): Tag[] {
+  const tags: Tag[] = [];
+  let i = 0;
+  while ((i = markup.indexOf("<", i)) !== -1) {
+    let j = i + 1;
+    const close = markup[j] === "/";
+    if (close) j++;
+    const name = /^[a-zA-Z][\w:.-]*/.exec(markup.slice(j))?.[0];
+    if (!name) {
+      i++;
+      continue;
+    }
+    j += name.length;
+
+    const from = j;
+    let depth = 0;
+    let quote = "";
+    for (; j < markup.length; j++) {
+      const c = markup[j];
+      if (quote) {
+        if (c === quote) quote = "";
+      } else if (c === '"' || c === "'" || c === "`") quote = c;
+      else if (c === "{") depth++;
+      else if (c === "}") depth--;
+      else if (c === ">" && depth === 0) break;
+    }
+    if (j >= markup.length) break; // unbalanced: stop rather than guess
+
+    const attrs = markup.slice(from, j);
+    tags.push({
+      close,
+      raw: name,
+      attrs: attrs.replace(/\/$/, ""),
+      selfClose: attrs.trimEnd().endsWith("/"),
+      end: j + 1,
+    });
+    i = j + 1;
+  }
+  return tags;
+}
+
+/** The `{…}` opening at `at`, brace-balanced and quote-aware, or `""` where it
+ *  never closes. The same argument as `tagsIn`: a fixed nesting depth is a
+ *  wrong answer waiting for a handler that goes one deeper. */
+function expressionAt(text: string, at: number): string {
+  let depth = 0;
+  let quote = "";
+  for (let i = at; i < text.length; i++) {
+    const c = text[i];
+    if (quote) {
+      if (c === quote) quote = "";
+    } else if (c === '"' || c === "'" || c === "`") quote = c;
+    else if (c === "{") depth++;
+    else if (c === "}" && --depth === 0) return text.slice(at, i + 1);
+  }
+  return "";
+}
+
+/**
+ * The `class` value as written: the text between the quotes, or, for
+ * `class={…}`, the string literals inside the expression joined — since those
+ * are the only part of an expression that can name a class.
+ */
+function classValue(attrs: string): string {
+  const found = /\bclass=/.exec(attrs);
+  if (!found) return "";
+  const at = found.index + found[0].length;
+  const opener = attrs[at];
+  if (opener === '"' || opener === "'") {
+    const close = attrs.indexOf(opener, at + 1);
+    return close === -1 ? "" : attrs.slice(at + 1, close);
+  }
+  if (opener !== "{") return "";
+  return [...expressionAt(attrs, at).matchAll(/`([^`]*)`|"([^"]*)"|'([^']*)'/g)]
+    .map((m) => m[1] ?? m[2] ?? m[3])
+    .join(" ");
+}
 
 /** Stands in for one `{…}` while a class list is split into tokens, so a
  *  literal touching an expression stays glued to it. */
@@ -117,10 +212,7 @@ export function elementsOf(path: string): Element[] {
 
   const all: Element[] = [];
   const open: Element[] = [];
-  let m: RegExpExecArray | null;
-  TAG.lastIndex = 0;
-  while ((m = TAG.exec(markup))) {
-    const [, close, raw, attrs, selfClose] = m;
+  for (const { close, raw, attrs, selfClose } of tagsIn(markup)) {
     if (close) {
       for (let i = open.length - 1; i >= 0; i--) {
         if (open[i].raw === raw) {
@@ -142,18 +234,7 @@ export function elementsOf(path: string): Element[] {
           ? `#${raw}`
           : lower;
 
-    const written = attrs.match(
-      /\bclass=("([^"]*)"|'([^']*)'|(\{(?:[^{}]|\{[^{}]*\})*\}))/
-    );
-    // `class={…}` is an expression all the way down, so only the strings inside
-    // it can name anything; `class="…"` is read as written.
-    const value =
-      written?.[2] ??
-      written?.[3] ??
-      [...(written?.[4] ?? "").matchAll(/`([^`]*)`|"([^"]*)"|'([^']*)'/g)]
-        .map((s) => s[1] ?? s[2] ?? s[3])
-        .join(" ");
-    const { classes, dynamic } = classTokens(value);
+    const { classes, dynamic } = classTokens(classValue(attrs));
 
     const el: Element = {
       raw,

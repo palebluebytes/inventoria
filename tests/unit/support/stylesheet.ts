@@ -155,6 +155,13 @@ export function tokenPx(name: string): number {
   throw new Error(`${name} is neither a clamp() nor a px in app.css`);
 }
 
+/** The class names a selector text mentions, in order. One regex, because two
+ *  copies of it are two chances to disagree about what a class name may
+ *  contain. */
+function classNamesOf(selector: string): string[] {
+  return [...selector.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)].map((m) => m[1]);
+}
+
 /**
  * Every class name a selector in `rules` mentions, at any position in it.
  *
@@ -165,13 +172,7 @@ export function tokenPx(name: string): number {
  * cannot honestly make, while under-crediting one invents a defect.
  */
 export function classNamesIn(rules: Rule[]): Set<string> {
-  return new Set(
-    rules.flatMap((r) =>
-      r.selectors.flatMap((s) =>
-        [...s.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)].map((m) => m[1])
-      )
-    )
-  );
+  return new Set(rules.flatMap((r) => r.selectors.flatMap(classNamesOf)));
 }
 
 /**
@@ -186,9 +187,13 @@ export function classNamesIn(rules: Rule[]): Set<string> {
 export function globalClassNamesIn(rules: Rule[]): Set<string> {
   return new Set(
     rules.flatMap((r) =>
-      r.selectors.flatMap((s) =>
-        [...s.matchAll(/:global\(([^)]*)\)/g)].flatMap((g) =>
-          [...g[1].matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)].map((m) => m[1])
+      r.selectors.flatMap((selector) =>
+        // One level of nested parens, so `:global(.a:not(.b))` yields `a` and
+        // `b` rather than nothing. Reading nothing there would report `.a` as a
+        // name no rule reaches, which is the direction `classNamesIn` above
+        // says this reader must not fail in.
+        [...selector.matchAll(/:global\((?:[^()]|\([^()]*\))*\)/g)].flatMap(
+          (g) => classNamesOf(g[0])
         )
       )
     )
