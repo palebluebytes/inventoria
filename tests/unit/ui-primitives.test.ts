@@ -755,6 +755,49 @@ describe("Input", () => {
   });
 });
 
+/**
+ * A field primitive takes an optional value, so its bindable declares no
+ * fallback.
+ *
+ * Svelte refuses `bind:value={undefined}` against a bindable that declares one,
+ * and it refuses it at **mount**, taking the whole screen down rather than the
+ * field. So a fallback does not make an unset value safe; it makes the
+ * primitive unusable for any value that can be unset — a duration nobody typed,
+ * a season a film does not have.
+ *
+ * This has been fixed once already. #380 removed `ui/Select`'s so
+ * `MediaEngagementModal` could bind a `number | undefined` rating. #379 then
+ * moved four optional fields onto `ui/Input` while its `$bindable("")` was
+ * still there, and `HabitDetailView` and `MediaEngagementModal` both threw on
+ * open — caught only when the branch reached CI, because the throw is a runtime
+ * one that `svelte-check` and the SSR tests above cannot see.
+ *
+ * Read off the source rather than a render, because the defect is in the
+ * declaration and a rendered `undefined` looks exactly like a rendered `""`.
+ */
+describe("a field primitive's bindable value", () => {
+  const FIELDS = [
+    "src/lib/ui/Input.svelte",
+    "src/lib/ui/Textarea.svelte",
+    "src/lib/ui/Select.svelte",
+  ];
+
+  it("declares no fallback, in any of the three", () => {
+    const declared = FIELDS.map((file) => {
+      const found = readFileSync(file, "utf8").match(
+        /value\s*=\s*\$bindable\(([^)]*)\)/
+      );
+      return `${file.replace("src/lib/ui/", "")} ${found?.[1] ?? "MISSING"}`;
+    });
+
+    expect(declared).toEqual([
+      "Input.svelte ",
+      "Textarea.svelte ",
+      "Select.svelte ",
+    ]);
+  });
+});
+
 describe("Textarea", () => {
   it("renders a native <textarea> wearing the base class", () => {
     const { body } = render(Textarea, { props: {} });

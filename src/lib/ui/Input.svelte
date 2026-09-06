@@ -75,7 +75,16 @@
   >;
 
   let {
-    value = $bindable(""),
+    /* No fallback, deliberately, and `ui/Select` is why. Svelte refuses
+       `bind:value={undefined}` against a bindable that declares one, so a
+       fallback here makes the primitive unbindable to any optional value — a
+       duration nobody typed, a season a film does not have. #380 had already
+       removed Select's for exactly that; #379 moved four such fields onto this
+       component while the fallback was still here, and every screen carrying
+       one threw at mount. The value is only ever forwarded to the platform
+       control, which renders `undefined` as an empty field, so the fallback was
+       buying nothing. */
+    value = $bindable(),
     placeholder = "",
     type = "text",
     id = "",
