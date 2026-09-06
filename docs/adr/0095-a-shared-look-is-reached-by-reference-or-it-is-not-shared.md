@@ -96,3 +96,15 @@ The discovery is `git ls-files`, shared with `tap-floor.test.ts`, so the populat
 **A shared rule in `src/app.css` stays available and stays second-best.** `.main` is the one, it has the test that makes it safe, and a second one should be argued for on the same terms rather than reached for because a component felt heavy.
 
 **This record declares no relationship to an earlier one.** It applies ADR-0036's and ADR-0068's test in §2 and states a rule neither of them contains; ADR-0093 and this record are about different things, a box's height and a definition's reach, and the ADRs above are cited rather than revised.
+
+## Amendment (2026-09-06): the `<button>` cell of §3's table is 116, not 111
+
+§3 reports 111 `<button>`s outside `src/lib/ui/`. That figure is wrong. It is **116**. The other three rows re-measure exactly as written — `<input>` 49/3, `<textarea>` 10/0, `<select>` 7/0 — as does the 16 inside `ui/`.
+
+The reader was blind, not the count mis-transcribed. `tests/unit/support/markup.ts` matched a tag with a pattern that fixed how deep an attribute's braces may nest, at one level. An `onclick={() => { … }}` goes two, so the pattern did not match the tag carrying it — and an unmatched tag is not read without that attribute, it is **not seen at all**. [#376](https://github.com/palebluebytes/inventoria/issues/376) replaced the pattern with a walk that tracks quote state and brace depth (`5c90950`).
+
+Re-run at this record's own base `a168a437`: the reader as it stood gives 111/16, the reader after the fix gives 116/16. The five are one button each in `AgendaView`, `DailyDashboard` and `AddEventScreen`, and two in `HabitsView`.
+
+**The decision is untouched and §3's argument is strengthened.** The clause turns on `<button>` having no single legitimate answer — a nav item, a calendar day and a toggle cell are correctly not `Button`s — and not on how large the number is. The allowlist §3 refuses is a 116-entry one. Read both prose repetitions of 111, in §3 and in Consequences, as 116.
+
+**What this does change is a claim this record makes about its own provenance.** §3 says the table was read "with `tests/unit/support/markup.ts`'s markup reader over `trackedSvelteFiles()` at the arc's base (`a168a437`)". `trackedSvelteFiles()` did not exist at `a168a437` — it arrives two commits later — and the reader that produced the table could not see a whole class of tag. The paragraph immediately below the table makes precisely this argument against a raw text grep, and then quotes a figure carrying a defect of the same kind. A count is worth what the reader that took it is worth, and naming the reader is not the same as having checked it.
