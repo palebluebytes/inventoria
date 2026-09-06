@@ -157,163 +157,156 @@
 
   <div class="view-columns mt-4">
     <!-- Log new execution -->
-    <div class="view-column">
-      <Card class="shadow-brutal height-full">
-        <h2>Log Completion</h2>
-        <div class="form-group mt-2">
-          <div class="row-group">
-            <!-- Logging Status Selector -->
+    <Card>
+      <h2>Log Completion</h2>
+      <div class="form-group">
+        <div class="row-group">
+          <!-- Logging Status Selector -->
+          <div class="col-group">
+            <label for="log-status-val" class="field-label">Log Status</label>
+            <Select
+              id="log-status-val"
+              bind:value={logStatusValue}
+              options={[
+                { value: "completed", label: "Completed" },
+                { value: "exempt", label: "Exempt (Sick/Travel/Rest)" },
+              ]}
+            />
+          </div>
+
+          <!-- Optional Subtarget Selector -->
+          {#if lineage.head.schedule_rules?.type === "daily_multiple" && lineage.head.schedule_rules.targets}
             <div class="col-group">
-              <label for="log-status-val" class="field-label">Log Status</label>
+              <label for="log-target" class="field-label">Target Area</label>
               <Select
-                id="log-status-val"
-                bind:value={logStatusValue}
+                id="log-target"
+                bind:value={logTargetId}
                 options={[
-                  { value: "completed", label: "Completed" },
-                  { value: "exempt", label: "Exempt (Sick/Travel/Rest)" },
+                  { value: "", label: "General / Unspecified" },
+                  ...lineage.head.schedule_rules.targets.map((tgt) => ({
+                    value: tgt.id,
+                    label: tgt.time_hint
+                      ? `${tgt.id} (${tgt.time_hint})`
+                      : tgt.id,
+                  })),
                 ]}
               />
             </div>
-
-            <!-- Optional Subtarget Selector -->
-            {#if lineage.head.schedule_rules?.type === "daily_multiple" && lineage.head.schedule_rules.targets}
-              <div class="col-group">
-                <label for="log-target" class="field-label">Target Area</label>
-                <Select
-                  id="log-target"
-                  bind:value={logTargetId}
-                  options={[
-                    { value: "", label: "General / Unspecified" },
-                    ...lineage.head.schedule_rules.targets.map((tgt) => ({
-                      value: tgt.id,
-                      label: tgt.time_hint
-                        ? `${tgt.id} (${tgt.time_hint})`
-                        : tgt.id,
-                    })),
-                  ]}
-                />
-              </div>
-            {/if}
-          </div>
-
-          <label for="log-note" class="field-label">Qualitative Notes</label>
-          <Textarea
-            id="log-note"
-            placeholder="How did it feel? (optional)"
-            bind:value={logNote}
-          />
-
-          <div class="row-group">
-            <div class="col-group">
-              <label for="log-difficulty" class="field-label">Difficulty</label>
-              <Select
-                id="log-difficulty"
-                bind:value={logDifficulty}
-                options={[
-                  { value: "easy", label: "Easy" },
-                  { value: "medium", label: "Medium" },
-                  { value: "hard", label: "Hard" },
-                ]}
-              />
-            </div>
-
-            <div class="col-group">
-              <label for="log-duration" class="field-label"
-                >Duration (mins)</label
-              >
-              <Input
-                id="log-duration"
-                type="number"
-                min="1"
-                placeholder="Duration"
-                bind:value={logDuration}
-              />
-            </div>
-          </div>
-
-          <Button
-            onclick={handleLogExecution}
-            disabled={logStatus === "loading"}
-            loading={logStatus === "loading"}
-          >
-            Submit Log
-          </Button>
-
-          {#if logStatus === "success"}
-            <Alert variant="success">Execution event logged successfully!</Alert
-            >
-          {/if}
-          {#if logStatus === "error"}
-            <Alert variant="error">{logError}</Alert>
           {/if}
         </div>
-      </Card>
-    </div>
+
+        <label for="log-note" class="field-label">Qualitative Notes</label>
+        <Textarea
+          id="log-note"
+          placeholder="How did it feel? (optional)"
+          bind:value={logNote}
+        />
+
+        <div class="row-group">
+          <div class="col-group">
+            <label for="log-difficulty" class="field-label">Difficulty</label>
+            <Select
+              id="log-difficulty"
+              bind:value={logDifficulty}
+              options={[
+                { value: "easy", label: "Easy" },
+                { value: "medium", label: "Medium" },
+                { value: "hard", label: "Hard" },
+              ]}
+            />
+          </div>
+
+          <div class="col-group">
+            <label for="log-duration" class="field-label">Duration (mins)</label
+            >
+            <Input
+              id="log-duration"
+              type="number"
+              min="1"
+              placeholder="Duration"
+              bind:value={logDuration}
+            />
+          </div>
+        </div>
+
+        <Button
+          onclick={handleLogExecution}
+          disabled={logStatus === "loading"}
+          loading={logStatus === "loading"}
+        >
+          Submit Log
+        </Button>
+
+        {#if logStatus === "success"}
+          <Alert variant="success">Execution event logged successfully!</Alert>
+        {/if}
+        {#if logStatus === "error"}
+          <Alert variant="error">{logError}</Alert>
+        {/if}
+      </div>
+    </Card>
 
     <!-- Edit blueprint -->
-    <div class="view-column">
-      <Card class="shadow-brutal height-full">
-        <h2>Edit Blueprint</h2>
-        <p class="description-small">
-          Editing chains a new blueprint version to preserve history.
-        </p>
-        <div class="form-group mt-2">
-          <label for="edit-name" class="field-label">Habit Name</label>
-          <Input id="edit-name" placeholder="Name" bind:value={habitName} />
+    <Card>
+      <h2>Edit Blueprint</h2>
+      <p class="description-small">
+        Editing chains a new blueprint version to preserve history.
+      </p>
+      <div class="form-group">
+        <label for="edit-name" class="field-label">Habit Name</label>
+        <Input id="edit-name" placeholder="Name" bind:value={habitName} />
 
-          <div class="row-group">
-            <div class="col-group">
-              <label for="edit-category" class="field-label">Category</label>
-              <Select
-                id="edit-category"
-                bind:value={habitCategory}
-                options={[
-                  { value: "Fitness", label: "Fitness" },
-                  { value: "Mind", label: "Mind" },
-                  { value: "Productivity", label: "Productivity" },
-                  { value: "Health", label: "Health" },
-                  { value: "Other", label: "Other" },
-                ]}
-              />
-            </div>
+        <div class="row-group">
+          <div class="col-group">
+            <label for="edit-category" class="field-label">Category</label>
+            <Select
+              id="edit-category"
+              bind:value={habitCategory}
+              options={[
+                { value: "Fitness", label: "Fitness" },
+                { value: "Mind", label: "Mind" },
+                { value: "Productivity", label: "Productivity" },
+                { value: "Health", label: "Health" },
+                { value: "Other", label: "Other" },
+              ]}
+            />
           </div>
-
-          <!-- Schedule -->
-          <ScheduleRuleEditor bind:value={editScheduleRule} />
-
-          <label for="edit-instrument" class="field-label"
-            >Instrument ID (optional)</label
-          >
-          <Input
-            id="edit-instrument"
-            placeholder="twin:kettlebell_16kg"
-            bind:value={habitInstrument}
-          />
-
-          <div class="action-buttons-row">
-            <Button
-              onclick={handleSaveBlueprint}
-              disabled={saveStatus === "loading"}
-              loading={saveStatus === "loading"}
-            >
-              Update Blueprint
-            </Button>
-            <Button variant="danger" onclick={handleArchive}
-              >Archive Habit</Button
-            >
-          </div>
-
-          {#if saveStatus === "success"}
-            <Alert variant="success"
-              >Blueprint updated! Chain updated in background.</Alert
-            >
-          {/if}
-          {#if saveStatus === "error"}
-            <Alert variant="error">{saveError}</Alert>
-          {/if}
         </div>
-      </Card>
-    </div>
+
+        <!-- Schedule -->
+        <ScheduleRuleEditor bind:value={editScheduleRule} />
+
+        <label for="edit-instrument" class="field-label"
+          >Instrument ID (optional)</label
+        >
+        <Input
+          id="edit-instrument"
+          placeholder="twin:kettlebell_16kg"
+          bind:value={habitInstrument}
+        />
+
+        <div class="action-buttons-row">
+          <Button
+            onclick={handleSaveBlueprint}
+            disabled={saveStatus === "loading"}
+            loading={saveStatus === "loading"}
+          >
+            Update Blueprint
+          </Button>
+          <Button variant="danger" onclick={handleArchive}>Archive Habit</Button
+          >
+        </div>
+
+        {#if saveStatus === "success"}
+          <Alert variant="success"
+            >Blueprint updated! Chain updated in background.</Alert
+          >
+        {/if}
+        {#if saveStatus === "error"}
+          <Alert variant="error">{saveError}</Alert>
+        {/if}
+      </div>
+    </Card>
   </div>
 
   <HabitExecutionTimeline executions={lineage.executions} />

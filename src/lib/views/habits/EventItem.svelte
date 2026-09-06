@@ -79,7 +79,6 @@
   class:is-confirmed={isConfirmed}
   class:is-missed={isMissed}
   class:is-past={isPast && !isConfirmed && !isMissed}
-  class:is-imminent={isImminent}
   onclick={handleClick}
   role={slot.isTracking ? "button" : "presentation"}
   tabindex={slot.isTracking ? 0 : -1}

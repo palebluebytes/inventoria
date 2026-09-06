@@ -529,7 +529,7 @@
           >
             {#each mealPills as pill (pill.key)}
               <span class="meal-total-item nutrient-{pill.key}">
-                {#if pill.key !== "calories"}<span class="meal-total-label"
+                {#if pill.key !== "calories"}<span
                     >{nutrientShortLabel(pill.key)}</span
                   >{/if}<span class="meal-total-value">{pill.value}</span>
               </span>
@@ -1050,10 +1050,10 @@
     gap: 0.25em;
     white-space: nowrap;
   }
-  /* `.meal-total-label` carries no rule of its own on purpose: the label is
-     written in the case `nutrientShortLabel` writes it in, and the tracking
-     that came with setting it in caps went with them. It stays a span because
-     the gap above is what separates it from its value. */
+  /* The label beside each value carries no class: it is written in the case
+     `nutrientShortLabel` writes it in, and the tracking that came with setting
+     it in caps went with them. It stays a span because the `gap` above is what
+     separates it from its value, and a flex item is what that gap acts on. */
   /* The card is now a bare interactive wrapper — the bordered row visual and
      its selected highlight live in the shared FoodItemRow. */
   .meal-item-card.selectable {

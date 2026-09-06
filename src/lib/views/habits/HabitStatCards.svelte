@@ -23,19 +23,19 @@
 </script>
 
 <div class="stats-grid mt-4">
-  <Card class="stat-card shadow-brutal">
+  <Card class="stat-card">
     <span class="stat-value">{Math.round(score * 100)}%</span>
     <span class="stat-label">Habit Strength 💪</span>
   </Card>
-  <Card class="stat-card shadow-brutal">
+  <Card class="stat-card">
     <span class="stat-value">{streak}</span>
     <span class="stat-label">Day Streak 🔥</span>
   </Card>
-  <Card class="stat-card shadow-brutal">
+  <Card class="stat-card">
     <span class="stat-value">{totalCompletions}</span>
     <span class="stat-label">Logged Completions 📈</span>
   </Card>
-  <Card class="stat-card shadow-brutal">
+  <Card class="stat-card">
     <span class="stat-value">{totalExemptions}</span>
     <span class="stat-label">Exemptions ⏳</span>
   </Card>
@@ -46,6 +46,21 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
     gap: var(--space-s);
+  }
+  /* A stat is a figure with its name under it. `:global`, anchored under the
+     grid, because the class rides into Card as a **prop** and so carries no
+     scoping hash of this file's — a plain `.stat-card` here compiles against a
+     hash the card never wears and lands nowhere, which is how the four cards
+     spent from `9612363` to #376 drawing their value and label side by side.
+     The padding stays Card's: a caller re-declaring one would be the copied
+     skin ADR-0095 refuses, and `--card-padding` is the channel if it ever
+     needs to differ. */
+  .stats-grid :global(.stat-card) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
   }
   .stat-value {
     font-size: var(--step-3);

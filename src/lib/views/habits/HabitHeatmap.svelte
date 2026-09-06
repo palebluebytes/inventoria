@@ -52,7 +52,7 @@
   });
 </script>
 
-<Card class="mt-4 shadow-brutal">
+<Card class="mt-4">
   <h2>12-Week Execution Heatmap</h2>
   <div class="heatmap-container">
     <div class="heatmap-labels-y">
@@ -75,7 +75,7 @@
       {/each}
     </div>
   </div>
-  <div class="heatmap-legend mt-2">
+  <div class="heatmap-legend">
     <span class="legend-item"
       ><div class="heatmap-cell legend-cell off"></div>
       Off-day / No Schedule</span

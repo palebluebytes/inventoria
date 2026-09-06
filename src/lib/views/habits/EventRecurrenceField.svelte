@@ -136,7 +136,6 @@
   <!-- Time slots: shown for any point-in-time event without a block end -->
   {#if timed && !hasEnd}
     <div
-      class="time-slots-section"
       style={recurType !== "none"
         ? "border-top: 2px dashed var(--ink); padding-top: var(--space-s); margin-top: var(--space-s);"
         : "padding-top: var(--space-s); margin-top: var(--space-s);"}

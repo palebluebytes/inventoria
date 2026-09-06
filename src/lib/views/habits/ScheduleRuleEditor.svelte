@@ -137,8 +137,7 @@
         class="specific-times-btn {dailyUseSubtargets ? 'active' : ''}"
         onclick={() => (dailyUseSubtargets = !dailyUseSubtargets)}
       >
-        <span class="custom-checkbox" class:checked={dailyUseSubtargets}></span>
-        <span class="toggle-label">SPECIFIC TIMES?</span>
+        <span>SPECIFIC TIMES?</span>
       </Card>
 
       {#if dailyUseSubtargets}
@@ -151,7 +150,7 @@
               <input
                 type="time"
                 bind:value={tgt.time_hint}
-                class="input-brutal small-input time-input"
+                class="small-input time-input"
               />
               <Button
                 variant="danger"

@@ -187,12 +187,7 @@
   }
 </script>
 
-<BottomSheet
-  bind:isOpen={open}
-  {onClose}
-  title="Calorie & macro calculator"
-  class="calorie-calc"
->
+<BottomSheet bind:isOpen={open} {onClose} title="Calorie & macro calculator">
   {#snippet children()}
     <p class="intro">
       Turn your body metrics into a suggested daily energy and macro target.
@@ -295,7 +290,7 @@
 
     <!-- Live preview: calories + the three macro grams, recomputing as fields
          change. Reads as an estimate, not a saved target, until Apply. -->
-    <div class="preview" class:ready={result !== null} data-preview>
+    <div class="preview" data-preview>
       <span class="preview-head">Suggested daily target</span>
       {#if result !== null}
         <div class="preview-cals" data-preview-calories>

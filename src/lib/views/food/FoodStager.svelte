@@ -2472,42 +2472,39 @@
                           >none on label</button
                         >
                       </div>
-                      <div class="cf-list">
-                        {#each sec.fields as f (f.key)}
-                          <div
-                            class="cf-row"
-                            class:skip={skipped.has(f.key)}
-                            class:unverified={prefilled.has(f.key)}
+                      {#each sec.fields as f (f.key)}
+                        <div
+                          class="cf-row"
+                          class:skip={skipped.has(f.key)}
+                          class:unverified={prefilled.has(f.key)}
+                        >
+                          <label
+                            class="cf-lbl"
+                            for={idFor[f.key] ?? `cf-${f.key}`}>{f.label}</label
                           >
-                            <label
-                              class="cf-lbl"
-                              for={idFor[f.key] ?? `cf-${f.key}`}
-                              >{f.label}</label
-                            >
-                            <div class="cf-ctl">
-                              <input
-                                id={idFor[f.key] ?? `cf-${f.key}`}
-                                type="text"
-                                inputmode="decimal"
-                                placeholder={skipped.has(f.key)
-                                  ? "not on label"
-                                  : "0"}
-                                disabled={skipped.has(f.key)}
-                                bind:value={customValues[f.key]}
-                                oninput={() => markReviewed(f.key)}
-                              />
-                              <span class="cf-unit">{f.unit}</span>
-                            </div>
-                            <button
-                              type="button"
-                              class="cf-skip"
-                              aria-pressed={skipped.has(f.key)}
-                              onclick={() => toggleSkip(f.key)}
-                              aria-label={`${f.label} — not on label`}>∅</button
-                            >
+                          <div class="cf-ctl">
+                            <input
+                              id={idFor[f.key] ?? `cf-${f.key}`}
+                              type="text"
+                              inputmode="decimal"
+                              placeholder={skipped.has(f.key)
+                                ? "not on label"
+                                : "0"}
+                              disabled={skipped.has(f.key)}
+                              bind:value={customValues[f.key]}
+                              oninput={() => markReviewed(f.key)}
+                            />
+                            <span class="cf-unit">{f.unit}</span>
                           </div>
-                        {/each}
-                      </div>
+                          <button
+                            type="button"
+                            class="cf-skip"
+                            aria-pressed={skipped.has(f.key)}
+                            onclick={() => toggleSkip(f.key)}
+                            aria-label={`${f.label} — not on label`}>∅</button
+                          >
+                        </div>
+                      {/each}
                     </section>
                   {/each}
 
@@ -2518,54 +2515,52 @@
                         <span class="cf-gh-hint">optional</span>
                       </div>
                     </div>
-                    <div class="cf-list">
-                      {#each customPortions as p, i (i)}
-                        {@const weird = portionLabelIsBareWeight(p.label)}
-                        <div class="cf-prow">
-                          <input
-                            class:cf-in-warn={weird}
-                            placeholder="e.g. 1 slice"
-                            aria-label="Portion label"
-                            aria-invalid={weird}
-                            bind:value={p.label}
-                          />
-                          <input
-                            type="text"
-                            inputmode="decimal"
-                            placeholder="grams"
-                            aria-label="Portion grams"
-                            bind:value={p.grams}
-                          />
-                          <button
-                            type="button"
-                            class="cf-skip"
-                            onclick={() => customPortions.splice(i, 1)}
-                            aria-label="Remove portion">✕</button
-                          >
-                        </div>
-                        {#if weird}
-                          <!-- The label is just a weight, so it only restates the grams
+                    {#each customPortions as p, i (i)}
+                      {@const weird = portionLabelIsBareWeight(p.label)}
+                      <div class="cf-prow">
+                        <input
+                          class:cf-in-warn={weird}
+                          placeholder="e.g. 1 slice"
+                          aria-label="Portion label"
+                          aria-invalid={weird}
+                          bind:value={p.label}
+                        />
+                        <input
+                          type="text"
+                          inputmode="decimal"
+                          placeholder="grams"
+                          aria-label="Portion grams"
+                          bind:value={p.grams}
+                        />
+                        <button
+                          type="button"
+                          class="cf-skip"
+                          onclick={() => customPortions.splice(i, 1)}
+                          aria-label="Remove portion">✕</button
+                        >
+                      </div>
+                      {#if weird}
+                        <!-- The label is just a weight, so it only restates the grams
                      column — nudge a real household unit (mirrors the chip
                      collapse in formatPortionPreset). Non-blocking. -->
-                          <p
-                            class="cf-prow-warn"
-                            data-testid="portion-weight-warning"
-                          >
-                            That's a weight, not a portion name — try a
-                            household unit like “1 slice” or “1 biscuit”.
-                          </p>
-                        {/if}
-                      {/each}
-                      <button
-                        type="button"
-                        class="cf-add"
-                        onclick={() =>
-                          (customPortions = [
-                            ...customPortions,
-                            { label: "", grams: "" },
-                          ])}>＋ add a portion</button
-                      >
-                    </div>
+                        <p
+                          class="cf-prow-warn"
+                          data-testid="portion-weight-warning"
+                        >
+                          That's a weight, not a portion name — try a household
+                          unit like “1 slice” or “1 biscuit”.
+                        </p>
+                      {/if}
+                    {/each}
+                    <button
+                      type="button"
+                      class="cf-add"
+                      onclick={() =>
+                        (customPortions = [
+                          ...customPortions,
+                          { label: "", grams: "" },
+                        ])}>＋ add a portion</button
+                    >
                   </section>
 
                   <!-- Categories (§8, #84): OFF's language-neutral "what this is",

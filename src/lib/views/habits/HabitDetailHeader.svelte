@@ -31,7 +31,7 @@
   }
 </script>
 
-<header class="detail-header mt-2">
+<header>
   <div class="header-title-row">
     <Badge variant={categoryBadgeVariant(category)}>{category}</Badge>
   </div>

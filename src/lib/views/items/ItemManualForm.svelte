@@ -74,7 +74,7 @@
   }
 </script>
 
-<Card class="manual-form mt-4">
+<Card class="mt-4">
   <h2>Add Digital Twin Manually</h2>
   <form onsubmit={handleManualSubmit} class="form-grid">
     <div class="form-group">

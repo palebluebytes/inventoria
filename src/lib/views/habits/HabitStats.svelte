@@ -13,15 +13,15 @@
 </script>
 
 <div class="stats-row mt-4">
-  <Card class="summary-card shadow-brutal">
+  <Card class="summary-card">
     <span class="summary-val">{avgStrength}%</span>
     <span class="summary-lbl">Avg Strength 💪</span>
   </Card>
-  <Card class="summary-card shadow-brutal">
+  <Card class="summary-card">
     <span class="summary-val">{maxStreak}</span>
     <span class="summary-lbl">Best Streak 🔥</span>
   </Card>
-  <Card class="summary-card shadow-brutal">
+  <Card class="summary-card">
     <span class="summary-val">{totalHabitsCount}</span>
     <span class="summary-lbl">Active Habits 📋</span>
   </Card>
@@ -32,6 +32,14 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: var(--space-s);
+  }
+  /* Same shape and the same reason as `.stat-card` in `HabitStatCards`: a
+     figure over its name, reached through `:global` because the class arrives
+     at Card as a prop with no scoping hash of this file's. */
+  .stats-row :global(.summary-card) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
   .summary-val {
     font-size: var(--step-2);

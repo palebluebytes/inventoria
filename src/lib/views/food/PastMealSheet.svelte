@@ -63,7 +63,7 @@
           <span class="pm-foods">
             {#each meal.items as item (item.id)}
               <span class="pm-food">
-                <span class="pm-name">{item.foodName}</span>
+                <span>{item.foodName}</span>
                 <span class="pm-amount">{amountLabel(item.quantity)}</span>
               </span>
             {/each}

@@ -18,12 +18,7 @@
   let open = $state(true);
 </script>
 
-<BottomSheet
-  bind:isOpen={open}
-  {onClose}
-  title={rationale.title}
-  class="target-rationale"
->
+<BottomSheet bind:isOpen={open} {onClose} title={rationale.title}>
   {#snippet children()}
     <p class="lead">{rationale.lead}</p>
 

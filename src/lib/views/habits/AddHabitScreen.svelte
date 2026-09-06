@@ -221,8 +221,7 @@
           if (!use_equipment) clear_equipment();
         }}
       >
-        <span class="custom-checkbox" class:checked={use_equipment}></span>
-        <span class="toggle-label">EQUIPMENT REQUIRED?</span>
+        <span>EQUIPMENT REQUIRED?</span>
       </Card>
 
       {#if use_equipment}
@@ -232,9 +231,7 @@
         >
           {#if selected_equipment_id}
             <div class="selected-equipment-badge">
-              <span class="badge-text"
-                >USING: {selected_equipment_name.toUpperCase()}</span
-              >
+              <span>USING: {selected_equipment_name.toUpperCase()}</span>
               <!-- Left bespoke: a small amber-tinted action nested inside the ink
                    equipment badge chrome. Amber maps to no Button variant, and
                    ADR-0039 folds tone into the four variants rather than a free
@@ -252,7 +249,7 @@
               type="text"
               placeholder="SEARCH PHYSICAL DIGITAL TWINS..."
               bind:value={equipment_search_query}
-              class="input-brutal equipment-search-input"
+              class="equipment-search-input"
             />
             {#if equipment_search_query.trim()}
               <div class="equipment-results">

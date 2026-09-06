@@ -14,7 +14,7 @@
   }
 </script>
 
-<Card class="mt-4 shadow-brutal">
+<Card class="mt-4">
   <h2>Execution & Quality Logs</h2>
   {#if executions.length === 0}
     <p class="empty">No executions logged yet.</p>
@@ -162,9 +162,5 @@
     color: var(--text-muted);
     text-align: center;
     padding: var(--space-xl) 0;
-  }
-  .shadow-brutal {
-    border: var(--edge) !important;
-    box-shadow: 4px 4px 0px 0px var(--ink);
   }
 </style>

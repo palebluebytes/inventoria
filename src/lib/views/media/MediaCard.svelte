@@ -34,7 +34,6 @@
 
 <div
   class="media-card"
-  class:completed={item.status === "completed"}
   role="button"
   tabindex="0"
   onclick={handleCardClick}

@@ -262,7 +262,7 @@
                 </div>
               </div>
               <DateRangePicker.Content sideOffset={4} class="range-pop">
-                <DateRangePicker.Calendar class="range-cal">
+                <DateRangePicker.Calendar>
                   {#snippet children({ months, weekdays })}
                     <DateRangePicker.Header class="range-cal-bar">
                       <DateRangePicker.PrevButton class="range-nav">
@@ -329,7 +329,7 @@
      Bar} rather than four positionals, so the absent case is resolved where the
      row is assembled and never half-resolved here. -->
 {#snippet bar(row: Bar)}
-  <li class="bar">
+  <li>
     <div class="bar-meta">
       <span class="bar-name">{row.name}</span>
       <span class="bar-reading">{row.reading}</span>

@@ -195,7 +195,6 @@
     <!-- Date/Time Selection -->
     <Card class="field-card {endError ? 'error' : ''}">
       <div
-        class="field-header"
         style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: var(--space-s);"
       >
         <span class="field-label" style="margin-bottom: 0;">

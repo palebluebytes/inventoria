@@ -31,7 +31,7 @@
   };
 </script>
 
-<ExplainerSheet title="Dietary labels" class="dietary-explainer" {onClose}>
+<ExplainerSheet title="Dietary labels" {onClose}>
   <ul class="claims">
     {#each tags as tag (tag.tag)}
       <li class="claim">

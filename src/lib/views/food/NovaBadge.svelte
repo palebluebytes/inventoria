@@ -54,7 +54,7 @@
     title={label}
     onclick={onExplain}
   >
-    <span class="word">{view.word}</span>
+    <span>{view.word}</span>
     {#if additivesCount > 0}
       <!-- Additives count (ADR-0043 §2): the ONE round mark in the food UI — a
            deliberate `--radius:0` exception (ADR-0038). E-numbers are named in
@@ -70,7 +70,7 @@
     aria-label={`${label}${additivesPhrase}`}
     title={label}
   >
-    <span class="word">{view.word}</span>
+    <span>{view.word}</span>
     {#if additivesCount > 0}
       <span class="additives-disc" aria-hidden="true">{additivesCount}</span>
     {/if}

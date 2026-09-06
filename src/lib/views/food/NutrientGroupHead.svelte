@@ -13,7 +13,7 @@
 </script>
 
 <div class="nutrient-group-head">
-  <span class="nutrient-group-label">{label}</span>
+  <span>{label}</span>
   {#if info}{@render info()}{/if}
 </div>
 

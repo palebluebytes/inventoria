@@ -76,7 +76,7 @@
   }
 </script>
 
-<Card class="control-panel">
+<Card>
   <h2>Import via E-commerce URL</h2>
   <div class="input-row">
     <Input
@@ -109,7 +109,7 @@
     <Alert variant="success" class="mt-4">{scrapeSuccess}</Alert>
   {/if}
 
-  <div class="manual-trigger-wrapper mt-4">
+  <div class="mt-4">
     <Button
       variant="secondary"
       onclick={() => (showManualForm = !showManualForm)}

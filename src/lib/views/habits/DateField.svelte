@@ -48,7 +48,7 @@
 
   <DatePicker.Portal>
     <DatePicker.Content sideOffset={4} align="start" class="bits-calendar">
-      <DatePicker.Calendar class="bits-calendar-wrapper">
+      <DatePicker.Calendar>
         {#snippet children({ months, weekdays })}
           <DatePicker.Header class="bits-calendar-header">
             <DatePicker.PrevButton class="bits-nav-btn">◀</DatePicker.PrevButton
@@ -58,7 +58,7 @@
             >
           </DatePicker.Header>
           {#each months as month}
-            <DatePicker.Grid class="bits-grid">
+            <DatePicker.Grid>
               <DatePicker.GridHead>
                 <DatePicker.GridRow class="bits-weekdays">
                   {#each weekdays as weekday}
