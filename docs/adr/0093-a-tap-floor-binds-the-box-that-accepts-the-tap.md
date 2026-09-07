@@ -4,6 +4,7 @@
 **Date:** 2026-09-04  
 **Amends:** [ADR-0089](0089-a-pinned-surface-measures-the-visible-band.md) §3 (which box `--tap-min` binds, and the second reading a box is measured under)  
 **Amended by:** [ADR-0094](0094-a-tap-floor-takes-no-condition-because-no-query-knows-which-pointer-is-in-use.md) (Consequences: the floor that varies is foreclosed permanently rather than "for now"; #363 argued the condition and refused it)  
+**Amended by:** [ADR-0098](0098-a-tap-floor-binds-every-control-not-every-field.md) (Scope: the population widens from text fields to every box that takes a tap; §6: the exemption list this record left empty now carries six entries, on two arguments; and the Amendment below, whose refusal now spares a box carrying a declared floor from a breakpoint that only moves padding)  
 **Implemented:** #338 — `tests/unit/support/markup.ts` and `tests/unit/tap-floor.test.ts` (the sweep, `e2c95ad`, corrected at `8c41423`, turned from a measurement into a guard at `e858db3`), `ui/Checkbox.svelte` (`290f0dd`), eight of Rations' fields (`da1dd5f`), six of the root Facet's (`808ff2a`), `views/food/AmountField.svelte`'s row promotion (`ce8d802`) and `views/food/FoodStager.svelte`'s single shared floor (`3152378`)
 
 ## Context
