@@ -204,19 +204,49 @@ const RATIONS_SHELL_FLAT = `
 async function takeFullPageScreenshot(
   page: import("@playwright/test").Page,
   name: string,
-  flatten: string
+  flatten: string,
+  // PROTOTYPE #368. Softness is the CALLER's, not the helper's, and that is the
+  // whole composition answer. This function is shared by all three describes,
+  // and two of them already take one capture per test — where a soft assertion
+  // is semantically wrong: it says "keep going, there is more to check", and
+  // there is nothing after it. Baking `expect.soft` in here would make every
+  // capture in the file soft to buy the monolith one property.
+  { soft = false }: { soft?: boolean } = {}
 ) {
   const styleHandle = await page.addStyleTag({
     content: `${NO_MOTION}\n${flatten}`,
   });
   try {
-    await expect(page).toHaveScreenshot(name, {
+    await (soft ? expect.soft(page) : expect(page)).toHaveScreenshot(name, {
       fullPage: true,
       maxDiffPixels: 5000,
     });
   } finally {
     await styleHandle.evaluate((el) => (el as Element).remove());
   }
+}
+
+/**
+ * PROTOTYPE #368 — the stopwatch, as on `proto/368-split-settings-page`.
+ *
+ * Here it prices something that branch cannot: a SOFT failure. `toHaveScreenshot`
+ * polls until the shot is stable and matches, up to the expect timeout
+ * (5000ms — `expect.js:118`, and nothing in `playwright.config.ts` sets one), so
+ * a capture that genuinely differs costs that whole timeout. Under plain
+ * `expect` exactly one capture pays it and the run stops; under `expect.soft`
+ * every differing capture pays it and the run continues. That difference is a
+ * number, and this prints it.
+ */
+function stopwatch(tag: string) {
+  const start = Date.now();
+  let last = start;
+  return (leg: string) => {
+    const now = Date.now();
+    console.log(
+      `PROTO368 | ${tag} | ${leg} | ${now - last}ms | cumulative ${now - start}ms`
+    );
+    last = now;
+  };
 }
 
 test.describe("Visual Catalog Generator", () => {
@@ -383,11 +413,12 @@ test.describe("Visual Catalog Generator", () => {
 
   test("generates visual catalog screenshots of all dashboards", async ({
     page,
-  }) => {
+  }, testInfo) => {
     // One test drives every dashboard end to end and screenshots each one, so
     // the default 30s budget is too tight — especially under the slower Pixel 5
     // emulation, where it expired mid-run on the Notes tab.
     test.slow();
+    const leg = stopwatch(`monolith-soft/${testInfo.project.name}`);
 
     // Install deterministic clock
     await page.clock.install({ time: new Date("2026-06-05T08:30:00Z") });
@@ -417,9 +448,12 @@ test.describe("Visual Catalog Generator", () => {
       discoveredScreens.push(cleaned);
     }
     expect(discoveredScreens.sort()).toEqual(EXPECTED_SCREENS.sort());
+    leg("boot+nav-census");
 
     await resetDatabase(page);
+    leg("resetDatabase");
     await setupApiKeys(page);
+    leg("setupApiKeys");
 
     // 2. Populate Food Dashboard (Log a Breakfast item via the direct sheet)
     await page.locator(".nav-item", { hasText: "Food" }).click();
@@ -432,7 +466,10 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator("#log-food-btn").click();
 
     // Take Food Dashboard Screenshot
-    await takeFullPageScreenshot(page, "food-dashboard.png", ROOT_SHELL_FLAT);
+    await takeFullPageScreenshot(page, "food-dashboard.png", ROOT_SHELL_FLAT, {
+      soft: true,
+    });
+    leg("capture:food-dashboard");
 
     // 3. Populate Habits Dashboard (Add blueprints & log executions)
     await page.locator(".nav-item", { hasText: "Agenda" }).click();
@@ -445,7 +482,10 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator("#habit-name-input").fill("Read Philosophy");
     await page.locator(".category-chip", { hasText: "MIND" }).click();
     await page.locator(".segment-btn", { hasText: "DAILY" }).click();
-    await takeFullPageScreenshot(page, "add-habit-screen.png", ROOT_SHELL_FLAT);
+    await takeFullPageScreenshot(page, "add-habit-screen.png", ROOT_SHELL_FLAT, {
+      soft: true,
+    });
+    leg("capture:add-habit-screen");
     await page.locator(".btn-submit-brutal").click();
     await expect(page.locator(".add-habit-sheet")).not.toBeVisible();
 
@@ -701,7 +741,10 @@ test.describe("Visual Catalog Generator", () => {
     await expect(read20PagesItem.locator(".reps-pill")).toHaveText("1/3");
 
     // Take Habits Dashboard Screenshot
-    await takeFullPageScreenshot(page, "agenda-dashboard.png", ROOT_SHELL_FLAT);
+    await takeFullPageScreenshot(page, "agenda-dashboard.png", ROOT_SHELL_FLAT, {
+      soft: true,
+    });
+    leg("capture:agenda-dashboard");
 
     // 4. Populate Media Dashboard (Add Movie & Book)
     await page.locator(".nav-item", { hasText: "Media" }).click();
@@ -740,7 +783,10 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator(".close-btn").click();
 
     // Take Media Dashboard Screenshot
-    await takeFullPageScreenshot(page, "media-dashboard.png", ROOT_SHELL_FLAT);
+    await takeFullPageScreenshot(page, "media-dashboard.png", ROOT_SHELL_FLAT, {
+      soft: true,
+    });
+    leg("capture:media-dashboard");
 
     // 5. Populate Items Dashboard (Add Wanted item)
     await page.locator(".nav-item", { hasText: "Items" }).click();
@@ -764,7 +810,10 @@ test.describe("Visual Catalog Generator", () => {
     ).toBeVisible();
 
     // Take Items Dashboard Screenshot
-    await takeFullPageScreenshot(page, "items-dashboard.png", ROOT_SHELL_FLAT);
+    await takeFullPageScreenshot(page, "items-dashboard.png", ROOT_SHELL_FLAT, {
+      soft: true,
+    });
+    leg("capture:items-dashboard");
 
     // 6. Populate Notes Dashboard (a checklist item & a note)
     await page.locator(".nav-item", { hasText: "Notes" }).click();
@@ -784,11 +833,53 @@ test.describe("Visual Catalog Generator", () => {
     );
 
     // Take Notes Dashboard Screenshot
-    await takeFullPageScreenshot(page, "notes-dashboard.png", ROOT_SHELL_FLAT);
+    await takeFullPageScreenshot(page, "notes-dashboard.png", ROOT_SHELL_FLAT, {
+      soft: true,
+    });
+    leg("capture:notes-dashboard");
 
     // 7. Settings Page Screenshot
     await page.locator(".nav-item", { hasText: "Settings" }).click();
+    await takeFullPageScreenshot(page, "settings-page.png", ROOT_SHELL_FLAT, {
+      soft: true,
+    });
+    leg("capture:settings-page");
+  });
+
+  /**
+   * PROTOTYPE #368 — one screen split off, standing beside a SOFT monolith.
+   *
+   * This is the composition question, made concrete. The monolith above now
+   * reports all seven of its captures instead of stopping at the first that
+   * differs; this test takes an eighth capture of `settings-page.png` from a
+   * fixture of its own, with a plain `expect`, and both are in the same file
+   * and the same run.
+   *
+   * They compose because softness became the CALLER's (see the helper's note)
+   * rather than the helper's. Had `expect.soft` gone into
+   * `takeFullPageScreenshot`, this test and the eleven element captures below
+   * would have been made soft too, to buy the monolith one property — which is
+   * what "split-all-or-soft-all" would actually have meant.
+   *
+   * The fixture is `proto/368-split-settings-page`'s, measured there: boot,
+   * `resetDatabase` for the dev-mode toggle, and nothing else.
+   */
+  test("PROTOTYPE #368 — settings-page, split off a soft monolith", async ({
+    page,
+  }, testInfo) => {
+    const leg = stopwatch(`split-settings/${testInfo.project.name}`);
+
+    await page.clock.install({ time: new Date("2026-06-05T08:30:00Z") });
+    await page.goto("/?mem=1");
+    await waitForDbReady(page);
+    leg("boot");
+
+    await resetDatabase(page);
+    leg("resetDatabase");
+
+    await page.locator(".nav-item", { hasText: "Settings" }).click();
     await takeFullPageScreenshot(page, "settings-page.png", ROOT_SHELL_FLAT);
+    leg("capture:settings-page");
   });
 });
 

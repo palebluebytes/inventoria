@@ -119,17 +119,18 @@ jobs:
       # GitHub sets CI=true, which playwright.config.ts already reads: it forbids
       # test.only, retries twice, and starts its own dev server rather than
       # reusing one. No CI-specific flags belong here.
+      # PROTOTYPE BRANCH (#368). The whole catalogue file and nothing else, so
+      # the run says how many of the 31 baselines this branch moved — the
+      # monolith's seven under `expect.soft`, and the other twenty-four from
+      # describes that were already one capture per test. Serial and with no
+      # retries, because the deliverable is one uncontended number per capture.
+      #
+      # `|| true` so a red run still reaches the upload: this branch is red on
+      # purpose. It sits on `wayfinder/337-rations-desktop`, which owes a
+      # rebaseline it has not had, and that is what makes the experiment free.
       - name: Run the Playwright suite
         if: ${{ !inputs.update-snapshots }}
-        run: nix develop .#ci --command pnpm test:e2e
-
-      # A separate config and its own production build (see
-      # playwright.offline.config.ts). It guards a cold offline start, which the
-      # main suite structurally cannot: that one runs `pnpm dev`, which registers
-      # no service worker.
-      - name: Run the offline-boot spec
-        if: ${{ !inputs.update-snapshots }}
-        run: nix develop .#ci --command pnpm test:e2e:offline
+        run: nix develop .#ci --command pnpm test:e2e tests/visual-catalog.spec.ts --workers=1 --retries=0 || true
 
       # `playwright` directly rather than through `pnpm test:e2e`, so the flag
       # reaches Playwright rather than pnpm. Bare `--update-snapshots` presets to
@@ -149,8 +150,10 @@ jobs:
 
       # Traces (trace: on-first-retry) and visual diffs land in test-results/.
       # Without them a red run tells you nothing a local re-run could not.
+      # PROTOTYPE BRANCH (#368): `always()`, because the step above swallows its
+      # exit code and `failure()` would never fire.
       - name: Upload traces and visual diffs
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: playwright-results
