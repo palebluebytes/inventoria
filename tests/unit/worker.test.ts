@@ -40,6 +40,17 @@ function fakeEnv() {
   return { env, rooms, socket };
 }
 
+/**
+ * SHA-256 of two room ids, as hex, from an independent implementation.
+ *
+ * `printf 'Ck9x2p' | sha256sum` — the route's own digest is what is under
+ * test, so the expectation may not come from the route's own code path.
+ */
+const SHA256_OF_CK9X2P =
+  "d350438155e7f6bab8a67c9460ab972934749142461205dab77c76052fc06faf";
+const SHA256_OF_A =
+  "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb";
+
 const proxyRequest = (target: string) =>
   new Request(
     `https://proxy.example/api/proxy?url=${encodeURIComponent(target)}`
@@ -141,7 +152,7 @@ describe("relay routing", () => {
 
     const res = await worker.fetch(relayRequest("?room=Ck9x2p"), env);
 
-    expect(rooms).toEqual(["Ck9x2p"]);
+    expect(rooms).toEqual([SHA256_OF_CK9X2P]);
     expect(res).toBe(socket);
   });
 
@@ -150,6 +161,34 @@ describe("relay routing", () => {
 
     await worker.fetch(relayRequest("?room=a"), env);
 
-    expect(rooms).toEqual(["a"]);
+    expect(rooms).toEqual([SHA256_OF_A]);
+  });
+
+  // ADR-0072's 2026-09-07 Amendment. The platform retains a Durable Object's
+  // *name* in its own analytics, for an undocumented window and behind no
+  // switch we hold, so the name must not be the string that crosses in a code.
+  //
+  // The digests are written out rather than recomputed here on purpose: a test
+  // that hashed the id with the same call the route does would pass whatever
+  // the route hashed, including the id itself.
+  it("names the object by a hash of the room id, never by the room id", async () => {
+    const { env, rooms } = fakeEnv();
+
+    await worker.fetch(relayRequest("?room=Ck9x2p"), env);
+
+    expect(rooms[0]).not.toContain("Ck9x2p");
+    expect(rooms[0]).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  // Both parties derive the same room id and neither knows about this, so the
+  // hash has to be a function of the id alone — a nonce or a clock in it would
+  // put the two sockets in different rooms.
+  it("sends the same room id to the same object every time", async () => {
+    const { env, rooms } = fakeEnv();
+
+    await worker.fetch(relayRequest("?room=Ck9x2p"), env);
+    await worker.fetch(relayRequest("?room=Ck9x2p"), env);
+
+    expect(rooms[0]).toBe(rooms[1]);
   });
 });

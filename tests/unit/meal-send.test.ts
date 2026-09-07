@@ -492,6 +492,10 @@ describe("the wire the client speaks is the relay's own", () => {
     }
   });
 
+  // The client writes the room id into the query and the route decides what
+  // the object is called, which since ADR-0072's 2026-09-07 Amendment are two
+  // different strings. Both halves are read here: the id the client sends is
+  // the one the code carries, and the name the platform is given is not.
   it("addresses the room the code names, through the deployed route", async () => {
     const code = mintSendCode();
     const url = new URL(RELAY_PATH, "https://inventoria.example");
@@ -507,8 +511,15 @@ describe("the wire the client speaks is the relay's own", () => {
       },
     };
 
-    await worker.fetch(new Request(url, { headers: { Upgrade: "ws" } }), env);
+    const request = new Request(url, { headers: { Upgrade: "ws" } });
+    expect(new URL(request.url).searchParams.get(RELAY_ROOM_PARAM)).toBe(
+      code.room
+    );
 
-    expect(rooms).toEqual([code.room]);
+    await worker.fetch(request, env);
+
+    expect(rooms).toHaveLength(1);
+    expect(rooms[0]).not.toBe(code.room);
+    expect(rooms[0]).toMatch(/^[0-9a-f]{64}$/);
   });
 });

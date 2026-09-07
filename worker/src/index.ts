@@ -51,6 +51,51 @@ function errorResponse(message: string, status: number): Response {
 }
 
 /**
+ * What the Durable Object is named, which is deliberately **not** the room id
+ * (ADR-0072's 2026-09-07 Amendment).
+ *
+ * Cloudflare's Durable Object analytics datasets carry `name` — *"the name the
+ * Durable Object was created with"* — as a dimension, at a row per invocation
+ * and for an undocumented retention window. `[observability]` governs Workers
+ * Logs and cannot be cited for these, so there is no switch to turn: naming the
+ * object after the client-minted room id retains the string that crosses in a
+ * Send or Pairing code, and hashing it means the retained value is not that
+ * string.
+ *
+ * **The claim, with its limit in the same sentence:** a leak of the analytics
+ * data alone hands nobody a room id, and a room id obtained elsewhere cannot be
+ * looked up without also holding this code. **It is not a decoupling** — the
+ * function is in our own deployed code, so anyone holding both a room id and
+ * dataset access recomputes the hash. The class it covers is dataset access
+ * *without* code access: a leaked export, an analytics-scoped token, a
+ * screenshot of the metrics tab. Real, and small.
+ *
+ * **Unkeyed, deliberately.** A key would additionally cover someone holding the
+ * repo but not the environment — not the class the retention matters for — at
+ * the price of a secret to manage in a Worker kept stateless and secretless on
+ * purpose, and it would imply a protection it does not deliver.
+ *
+ * **Server-only, so nothing on the wire moves**: both parties already derive
+ * the same room id, and no client knows this happens. The named cost is that a
+ * room's object can no longer be found by its room id when debugging a live
+ * incident.
+ *
+ * The digest-to-hex render is `receivedEventId`'s in `src/lib/p2p/meal-accept.ts`
+ * a second time, and it stays that way: `scripts/worker-closure-check.mjs` pins
+ * what this script may compile in to `worker/src/` and `src/lib/ingestion/`, so
+ * sharing the six lines would mean moving app code to the edge to save them.
+ */
+async function objectName(room: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(room)
+  );
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0")
+  ).join("");
+}
+
+/**
  * Hand a socket to the room its Send code names.
  *
  * ADR-0072 §10: the room id is client-minted, drawn from the same CSPRNG draw
@@ -61,6 +106,9 @@ function errorResponse(message: string, status: number): Response {
  * refused: it would cost a round trip before the sender's code could be drawn,
  * and put a server-chosen identifier into a code three decisions were spent
  * keeping the server out of.
+ *
+ * Accepting any id and then hashing it are the same posture from two sides: the
+ * route learns nothing from the id, and now neither does the platform.
  */
 async function relayRequest(
   request: Request,
@@ -70,7 +118,8 @@ async function relayRequest(
   if (!room) {
     return errorResponse("Missing room id", 400);
   }
-  return env.RELAY.get(env.RELAY.idFromName(room)).fetch(request);
+  const name = await objectName(room);
+  return env.RELAY.get(env.RELAY.idFromName(name)).fetch(request);
 }
 
 export default {

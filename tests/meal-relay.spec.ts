@@ -26,6 +26,11 @@ import { test, expect, type Page } from "@playwright/test";
 // and the socket cap are the shipped numbers, and they are now the only two
 // (ADR-0096 §8); a round trip is synchronous and finishes in a second or two.
 //
+// It also crosses the hash: the route names the Durable Object by a digest of
+// the room id rather than by the id itself (ADR-0072's 2026-09-07 Amendment),
+// and a meal landing here is both sockets having reached the same object
+// through it.
+//
 // What it does not buy: an emulated handset is not a handset. The `Mobile
 // Chrome` project is Pixel 5 emulation inside desktop Chromium, so this says
 // nothing about iOS (#209, #287) or a physical Android phone. Nor does it reach
