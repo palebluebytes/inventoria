@@ -177,11 +177,29 @@ const RATIONS_SHELL_FLAT = `
  * above it, the pixel budget and taking the style tag away afterwards are the
  * same for both shells and were written twice before.
  *
- * `maxDiffPixels` is a bounded budget for antialiasing that lands on different
- * sub-pixels run-to-run. It was sized for the calorie ring's rounded arc cap
- * (~2372 px of observed flake); the ring is gone, but the budget is kept for the
- * rest. Any real content/layout change on a full-page shot dwarfs it, so
- * structural regressions still fail.
+ * **`maxDiffPixels: 5000` is orphaned and is going (#367).** It was sized for the
+ * calorie ring's rounded arc cap (~2372 px of observed flake, `837c141`); the
+ * ring is gone, and "kept for the rest" was never measured. Three things found
+ * while arguing it out, recorded here because the number is still in the code:
+ *
+ * - It is not one budget. 5000 px is 0.089% of `rations-settings-page`
+ *   (1280x4376) and 2.93% of `food-past-meal` desktop (600x284) — a 33x spread
+ *   across the 31 baselines, which is why any surviving budget must be a
+ *   `maxDiffPixelRatio` rather than a count.
+ * - Antialiasing already has a mechanism, and it is not this one.
+ *   `pixelmatch.js:29` sets `includeAA: false` and Playwright never overrides
+ *   it, so an over-threshold pixel is re-tested by the AA detector and dropped
+ *   if either image reads as an edge. The repo cannot turn that off or tune it.
+ * - A budget cannot hide a resize. `comparators.js:69-72` errors on unequal
+ *   dimensions before any budget is read, so only a same-size, in-box change can
+ *   ever be absorbed.
+ *
+ * The colour tolerance that binds *every* capture in this file is
+ * `threshold`, which nothing sets, so it runs at Playwright's `0.2`
+ * (`comparators.js:83`) — wide enough to pass `--green-bg` rendering as
+ * `--amber-bg`. #367 replaces it with a bracketed value in
+ * `playwright.config.ts`; until that lands, do not read a passing shot as a
+ * claim about colour.
  */
 async function takeFullPageScreenshot(
   page: import("@playwright/test").Page,
@@ -918,6 +936,14 @@ test.describe("Visual Catalog — the surfaces a meal opens", () => {
    * across that commit — the sheet's box never moved, which is what the
    * rebaseline and #339 both read it as. The measurement is on #366; the rule
    * §7 changed is guarded in `tests/unit/sheet-geometry.test.ts`.
+   *
+   * **This does not compare exactly** (#367), which is what the absence of
+   * options here looks like but is not. `threshold` defaults to `0.2`
+   * (`comparators.js:83`) and nothing in this repo sets it, so a sheet capture
+   * already tolerates a per-pixel colour drift of ~52 grey levels — wide enough
+   * to pass `--highlight-bg` becoming `--paper`. Only the *count* budget is
+   * absent here, and #367 deletes that one from the full-page helper rather than
+   * adding it here. Both tolerances move to `playwright.config.ts`.
    */
   async function takeSheetScreenshot(
     page: import("@playwright/test").Page,
