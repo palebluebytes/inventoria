@@ -54,7 +54,11 @@ checks against, and this file deliberately does not restate it.
 - **Playwright belongs to CI.** `.github/workflows/e2e.yml` runs the suite on
   every push. Leave `pnpm test:e2e` and `--update-snapshots` out of your local
   loop — including a single targeted spec — unless the user asks for that run by
-  name. Verify with the roster above instead.
+  name. Verify with the roster above instead. What a captured image is allowed to
+  claim — its tolerance, that one test asserts one capture, and what a commit
+  moving a baseline owes — is ADR-0099
+  (`docs/adr/0099-a-capture-asserts-one-screen-at-a-derived-tolerance-and-moving-one-owes-an-account.md`);
+  its §8 is the one you owe something to, and `e2e.yml`'s header is the procedure.
 
 ## 2. Progressive Disclosure (Context Routing)
 

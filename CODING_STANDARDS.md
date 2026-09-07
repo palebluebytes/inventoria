@@ -299,6 +299,13 @@ type(scope): imperative, lowercase subject, no trailing period
   when the commit reaches the default branch, so a pushed feature branch leaves
   the issue open until it merges. Close it by hand when the work is done and the
   merge is not imminent, and say in the closing comment where it shipped.
+- **A commit that moves an image baseline accounts for all of it.** Rebaselining
+  lands alone as `test(visual)`, and its message says how many of the total
+  moved, puts every moved file under a named cause, measures one file per cause
+  rather than attributing it, and treats a new baseline as owing more rather than
+  less. A move nobody can attribute ships only labelled as such and carrying a
+  filed issue number. ADR-0099 §8 carries the rule and why; `.github/workflows/e2e.yml`'s
+  header carries the procedure.
 
 ---
 
@@ -319,3 +326,4 @@ A change is ready when:
 - [ ] Non-obvious decisions captured as/against an ADR; new terms in `CONTEXT.md`.
 - [ ] Conventional-commit messages, one logical change each, each naming its
       issue (`Closes #NN` when it finishes the ticket, `Refs #NN` when it does not).
+- [ ] A moved image baseline carries the account ADR-0099 §8 requires.
