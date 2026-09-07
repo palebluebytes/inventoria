@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { posix } from "node:path";
 import type { Rule } from "./stylesheet";
 
 /**
@@ -51,6 +52,15 @@ export type Element = {
    *  whose height comes from them, which is a thing a single-line-box model
    *  has to decline rather than guess at. */
   children: number;
+  /** Whether the element's content opens a `{#snippet child(…)}`.
+   *
+   *  A bits-ui part given one of these renders **no element of its own**: it
+   *  hands its props to whatever the snippet writes, which is an element the
+   *  reader can already see. So a caller asking "which box does this part draw"
+   *  gets "the one below it", and `MonthCalendar`'s calendar days — every one of
+   *  them a `child` snippet over a plain `<button>` — are read where they are
+   *  drawn rather than twice. */
+  delegates: boolean;
 };
 
 /** Elements that never take a closing tag, so they never open a scope. */
@@ -78,6 +88,15 @@ type Tag = {
  * sweep, and it silently narrowed the population of every other census reading
  * through here. The walk tracks quote state and brace depth, so nesting is
  * unbounded and a tag is dropped only where the markup itself is unbalanced.
+ *
+ * **A comment inside a handler is skipped, and that is not a nicety.** An
+ * apostrophe in prose — "the input's blur" — reads as an opening `'` to a
+ * quote-tracking walk, and nothing closes it: the scan runs off the end of the
+ * file, drops the tag it was reading, and drops **every tag after it** as well.
+ * `CategoryPicker`'s `<li role="option">` and the three elements below it were
+ * invisible to every census in this repository until [#361] found the 44px on a
+ * row nothing was measuring. Comments are skipped only inside an expression
+ * (`depth > 0`), so a `//` in an attribute value stays a pair of slashes.
  */
 function tagsIn(markup: string): Tag[] {
   const tags: Tag[] = [];
@@ -100,6 +119,14 @@ function tagsIn(markup: string): Tag[] {
       const c = markup[j];
       if (quote) {
         if (c === quote) quote = "";
+      } else if (depth > 0 && c === "/" && markup[j + 1] === "/") {
+        const line = markup.indexOf("\n", j);
+        if (line === -1) break;
+        j = line;
+      } else if (depth > 0 && c === "/" && markup[j + 1] === "*") {
+        const close = markup.indexOf("*/", j + 2);
+        if (close === -1) break;
+        j = close + 1;
       } else if (c === '"' || c === "'" || c === "`") quote = c;
       else if (c === "{") depth++;
       else if (c === "}") depth--;
@@ -212,7 +239,7 @@ export function elementsOf(path: string): Element[] {
 
   const all: Element[] = [];
   const open: Element[] = [];
-  for (const { close, raw, attrs, selfClose } of tagsIn(markup)) {
+  for (const { close, raw, attrs, selfClose, end } of tagsIn(markup)) {
     if (close) {
       for (let i = open.length - 1; i >= 0; i--) {
         if (open[i].raw === raw) {
@@ -245,12 +272,23 @@ export function elementsOf(path: string): Element[] {
       attrs,
       ancestors: [...open],
       children: 0,
+      delegates: opensChildSnippet(markup, end),
     };
     if (open.length > 0) open[open.length - 1].children++;
     all.push(el);
     if (!selfClose && !VOID.test(lower)) open.push(el);
   }
   return all;
+}
+
+/**
+ * Whether a `{#snippet child(…)}` is the first thing inside the tag ending at
+ * `from` — the text up to the next tag, or to the end where there is none.
+ */
+function opensChildSnippet(markup: string, from: number): boolean {
+  const next = markup.indexOf("<", from);
+  const inside = markup.slice(from, next === -1 ? markup.length : next);
+  return /^\s*\{#snippet\s+child\b/.test(inside);
 }
 
 /** True, false, or null where the tree cannot say. */
@@ -422,4 +460,54 @@ export function trackedSvelteFiles(): string[] {
     .trim()
     .split("\n")
     .filter(Boolean);
+}
+
+/**
+ * Where a component tag's name is imported from, resolved to a path under
+ * `src/` for a relative import and left as the bare specifier for a package.
+ *
+ * `elementsOf` prefixes a component tag with `#` and stops there, because the
+ * box it draws is in another file. That is the right answer for a reader of one
+ * file and the wrong one for a sweep that has to say whether every tap target in
+ * the app is level: `<Button class="remove-btn" onclick=…>` takes a tap, and
+ * which box it grows is a question about `ui/Button.svelte`. This is the edge
+ * between the two, and it is read off the `import` rather than guessed from the
+ * name — two files in this tree export a `Button`-shaped thing and only the
+ * import says which one a call site reached for.
+ *
+ * A namespaced tag (`DatePicker.Day`) is looked up under its first segment, so
+ * every part of a library's component resolves to that library.
+ */
+export function importedFrom(path: string, tag: string): string | null {
+  const name = tag.replace(/^#/, "").split(".")[0];
+  // Comments first: a prose paragraph in this tree can be long enough to hold
+  // the words `import`, a quote and a `from` between them, and a scanner that
+  // reads one is not merely wrong about that line — it stops looking, and the
+  // real import below it is never found (`LedgerImport` did exactly this).
+  const script = readFileSync(path, "utf8")
+    .match(/<script[^>]*>[\s\S]*?<\/script>/)?.[0]
+    ?.replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/[^\n]*/g, "");
+  if (!script) return null;
+  for (const [, names, from] of script.matchAll(
+    /import\s+([^;]+?)\s+from\s+["']([^"']+)["']/g
+  )) {
+    const bound = names
+      .replace(/[{}]/g, " ")
+      .split(",")
+      .map((n) =>
+        n
+          .trim()
+          .split(/\s+as\s+/)
+          .pop()!
+          .trim()
+      )
+      .filter(Boolean);
+    if (!bound.includes(name)) continue;
+    if (!from.startsWith(".")) return from;
+    // `posix` and not `path`: every path this module hands back is a git
+    // pathspec, which is `/`-separated whatever the platform is.
+    return posix.join(posix.dirname(path), from);
+  }
+  return null;
 }
