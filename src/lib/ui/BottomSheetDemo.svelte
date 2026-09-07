@@ -143,6 +143,12 @@
 </BottomSheet>
 
 <style>
+  /* Every control here is hand-rolled so the harness's own chrome is never the
+     variable in a geometry measurement — which means the tap floor has to be
+     hand-rolled too, once, for the file's bare buttons. */
+  button {
+    min-height: var(--tap-min);
+  }
   .demo {
     padding: var(--space-l);
   }
@@ -200,7 +206,6 @@
     text-transform: uppercase;
     font-weight: 700;
     cursor: pointer;
-    min-height: 44px;
   }
   .method.on {
     background: var(--ink);
@@ -215,7 +220,6 @@
     font-weight: 800;
     text-transform: uppercase;
     cursor: pointer;
-    min-height: 52px;
   }
   .ghost {
     width: 100%;

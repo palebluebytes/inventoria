@@ -84,6 +84,7 @@
     gap: var(--space-2xs);
   }
   .pm-row {
+    min-height: var(--tap-min);
     display: flex;
     flex-direction: column;
     gap: var(--space-3xs);

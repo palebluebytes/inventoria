@@ -151,8 +151,8 @@
     position: absolute;
     top: 8px;
     right: 8px;
-    width: 24px;
-    height: 24px;
+    width: var(--tap-min);
+    height: var(--tap-min);
     background: var(--paper);
     border: var(--edge);
     font-weight: bold;
@@ -210,6 +210,7 @@
     text-transform: uppercase;
   }
   .source-link-btn {
+    min-height: var(--tap-min);
     display: inline-block;
     padding: var(--space-3xs) var(--space-2xs);
     border: var(--edge-thin);

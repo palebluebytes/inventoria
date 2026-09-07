@@ -93,6 +93,14 @@
     gap: var(--space-xs);
   }
   :global(.tg-row .tg) {
+    /* A cell is a control, and drew 28px on its padding alone. Both axes: the
+       cells are words here and marks in `ScaleTier`, and a mark is as wide as
+       one glyph. */
+    min-height: var(--tap-min);
+    min-width: var(--tap-min);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     padding: var(--space-3xs) var(--space-xs);
     border: var(--edge);
     background: var(--paper);

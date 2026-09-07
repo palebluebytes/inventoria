@@ -226,8 +226,9 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
+    /* Was 44 — Apple's figure, which ADR-0089 §3 weighed and rejected. */
+    width: var(--tap-min);
+    height: var(--tap-min);
     background: rgba(255, 255, 255, 0.12);
     border: 0;
     border-radius: var(--radius);
@@ -238,7 +239,13 @@
   .lpr-stage {
     position: relative;
     flex: 1;
-    min-height: 0;
+    /* It was `0` — the flex "you may shrink me" idiom — on a box that takes a
+       tap and a swipe, and the two readings are not the same claim (ADR-0098 §7
+       leaves `min-width: 0` uncharged for exactly that reason). The floor wins
+       here because the stage is the photo: this reader is full-screen, so a
+       stage under 48px is a layout that has already failed, and the shrink this
+       gives up is shrink it would never take. */
+    min-height: var(--tap-min);
     display: flex;
     align-items: center;
     justify-content: center;

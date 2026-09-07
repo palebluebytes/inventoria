@@ -59,6 +59,9 @@
   /* Reset the native <button> so a pressable card is visually identical to a
      static one, then layer the tile interactions on top. */
   .card-pressable {
+    /* Declared rather than derived: the padding above is `var(--card-padding, …)`
+       and a caller may set it to anything, so nothing here can be arithmetic. */
+    min-height: var(--tap-min);
     display: block;
     width: 100%;
     font: inherit;

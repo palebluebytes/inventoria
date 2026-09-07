@@ -530,25 +530,46 @@
   }
   .nudge-reset {
     flex-shrink: 0;
-    width: 1.75rem;
-    height: 1.75rem;
+    /* Mark and target, apart: the 1.75rem square is a ::before and the button's
+       own box carries the floor, so a 28px control gains a 48px target without
+       drawing a 48px square (ADR-0098 §3). `isolation` keeps the pseudo's
+       `z-index: -1` inside the button, behind its glyph. */
+    position: relative;
+    isolation: isolate;
+    min-width: var(--tap-min);
+    min-height: var(--tap-min);
     padding: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: var(--edge);
-    background: var(--paper);
+    border: none;
+    background: none;
     color: var(--ink);
     font-size: var(--step-0);
     line-height: 1;
     cursor: pointer;
   }
-  .nudge-reset:hover:not(:disabled) {
+  .nudge-reset::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    z-index: -1;
+    width: 1.75rem;
+    height: 1.75rem;
+    border: var(--edge);
+    background: var(--paper);
+  }
+  .nudge-reset:hover:not(:disabled)::before {
     background: var(--ink);
+  }
+  .nudge-reset:hover:not(:disabled) {
     color: var(--paper);
   }
-  .nudge-reset:disabled {
+  .nudge-reset:disabled::before {
     border-color: var(--border-subtle, var(--border));
+  }
+  .nudge-reset:disabled {
     color: var(--border-subtle, var(--border));
     cursor: default;
   }

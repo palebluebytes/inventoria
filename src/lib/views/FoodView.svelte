@@ -1498,8 +1498,8 @@
     padding-bottom: var(--space-2xs);
   }
   /* `center` is what puts the title's centre line through the icons: the word
-     and the 2.75rem icon squares are different heights, and top-aligning them
-     left the icons sitting low against it. */
+     and the icon squares are different heights, and top-aligning them left the
+     icons sitting low against it. */
   .header-bar {
     display: flex;
     align-items: center;
@@ -1583,8 +1583,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 2.75rem;
-    height: 2.75rem;
+    /* Was 2.75rem — Apple's 44pt, which ADR-0089 §3 weighed against Material's
+       48 and rejected by name. */
+    width: var(--tap-min);
+    height: var(--tap-min);
     padding: 0;
     border: none;
     background: transparent;
@@ -1660,6 +1662,8 @@
      `text-align: inherit` for a control that fills its line: without it a button
      centres its label, and the word would move by exactly the slack. */
   .title-back {
+    /* A title that is also the way back, so it is a control and floored like one. */
+    min-height: var(--tap-min);
     display: block;
     margin: 0;
     padding: 0;

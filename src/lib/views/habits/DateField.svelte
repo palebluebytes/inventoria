@@ -29,7 +29,9 @@
     <DatePicker.Input class="date-input">
       {#snippet children({ segments })}
         {#each segments as { part, value }}
-          <DatePicker.Segment {part}>{value}</DatePicker.Segment>
+          <DatePicker.Segment {part} class="bits-segment"
+            >{value}</DatePicker.Segment
+          >
         {/each}
       {/snippet}
     </DatePicker.Input>
@@ -156,6 +158,9 @@
     padding: var(--space-xs);
   }
   :global(.bits-trigger) {
+    min-height: var(--tap-min);
+    min-width: var(--tap-min);
+    justify-content: center;
     background: transparent;
     border: none;
     border-left: var(--edge);
@@ -173,6 +178,13 @@
   :global(.bits-nav-btn:hover) {
     background: var(--bg-input);
   }
+  /* Each segment of the date takes its own tap and its own arrow keys, so the
+     floor binds one segment rather than the field around it (ADR-0098 §1). */
+  :global(.bits-segment) {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min);
+  }
   :global(.bits-heading) {
     font-weight: 700;
     text-transform: uppercase;
@@ -180,9 +192,11 @@
   :global(.bits-weekdays) {
     display: flex;
   }
+  /* A `<th>`, not a control — matched to the cell below it so the grid stays
+     square, and not by the tap floor. */
   :global(.bits-weekday-cell) {
-    width: 32px;
-    height: 32px;
+    width: var(--tap-min);
+    height: var(--tap-min);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -192,9 +206,11 @@
   :global(.bits-grid-row) {
     display: flex;
   }
+  /* The cell bounds the day drawn `100%` inside it, so this is the box a finger
+     lands on and the floor binds here (ADR-0093 §1, ADR-0098 §1). */
   :global(.bits-cell) {
-    width: 32px;
-    height: 32px;
+    width: var(--tap-min);
+    height: var(--tap-min);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -203,6 +219,11 @@
   :global(.bits-day) {
     width: 100%;
     height: 100%;
+    /* The cell above already holds it open; declared here because a box sized
+       as a percentage of another is not one this model can derive, and a true
+       thing that cannot be shown is not yet proved (ADR-0093 §5). */
+    min-width: var(--tap-min);
+    min-height: var(--tap-min);
     display: flex;
     align-items: center;
     justify-content: center;

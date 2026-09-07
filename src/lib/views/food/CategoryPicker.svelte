@@ -239,7 +239,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    min-height: 40px;
+    min-height: var(--tap-min);
     padding: 0.2rem 0.2rem 0.2rem 0.6rem;
     border: var(--edge);
     border-radius: var(--radius);
@@ -250,8 +250,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
+    width: var(--tap-min);
+    height: var(--tap-min);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--paper);
@@ -307,7 +307,7 @@
   }
   .catpick-list li {
     padding: 0.55rem 0.6rem;
-    min-height: 44px;
+    min-height: var(--tap-min);
     display: flex;
     align-items: center;
     cursor: pointer;

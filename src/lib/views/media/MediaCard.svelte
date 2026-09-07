@@ -123,6 +123,7 @@
 
 <style>
   .media-card {
+    min-height: var(--tap-min);
     background: var(--paper);
     border: var(--edge);
     display: flex;

@@ -56,6 +56,11 @@
     align-items: center;
     justify-content: center;
     gap: var(--space-2xs);
+    /* The floor a finger sets, on the primitive rather than at the fifty-three
+       call sites (ADR-0098 §2). Every size drew under it on padding alone —
+       `sm` 28px, `md` 40 — and a caller that squares this button off with its
+       own `height` keeps the floor, because `min-height` outranks it. */
+    min-height: var(--tap-min);
     font-family: inherit;
     font-weight: 600;
     cursor: pointer;

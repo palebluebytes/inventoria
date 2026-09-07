@@ -401,6 +401,11 @@
   /* The same cell Segmented draws, and deliberately: two single-choice rows in
      one app should not be two shapes. */
   :global(.reports .period) {
+    /* A tab is a control (ADR-0098 §1); it drew 40px on padding alone. */
+    min-height: var(--tap-min);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     padding: var(--space-2xs) var(--space-s);
     border: var(--edge);
     background: var(--paper);
@@ -469,6 +474,14 @@
     font-size: var(--step-n1);
     font-weight: 700;
   }
+  /* Each segment of the date is separately focusable and separately tapped, so
+     the floor binds one segment and not the field around it (ADR-0098 §1). */
+  :global(.reports .range-segment) {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min);
+  }
+
   :global(.reports .range-segment[data-placeholder]) {
     color: var(--text-secondary);
   }
@@ -483,8 +496,11 @@
     color: var(--text-secondary);
   }
   :global(.reports .range-trigger) {
+    min-height: var(--tap-min);
+    min-width: var(--tap-min);
     display: flex;
     align-items: center;
+    justify-content: center;
     padding: 0 var(--space-xs);
     border: none;
     border-left: var(--edge);
@@ -522,6 +538,11 @@
     text-transform: uppercase;
   }
   :global(.reports .range-nav) {
+    min-height: var(--tap-min);
+    min-width: var(--tap-min);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     padding: 0 var(--space-2xs);
     border: none;
     background: none;
@@ -554,8 +575,9 @@
   :global(.reports .range-day) {
     display: grid;
     place-items: center;
-    width: 2rem;
-    height: 2rem;
+    /* A calendar day is a control, and a square one, so both axes. */
+    width: var(--tap-min);
+    height: var(--tap-min);
     font-size: var(--step-n1);
     cursor: pointer;
   }

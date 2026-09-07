@@ -48,6 +48,15 @@
     font-size: var(--step-n1);
   }
 
+  /* The link is the way out of the Facet and the only control in this block,
+     so it carries the floor (ADR-0098 §1). */
+  .facet-exit a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min);
+    width: fit-content;
+  }
+
   .note {
     color: var(--text-secondary);
     font-size: var(--step-n2);

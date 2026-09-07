@@ -96,8 +96,12 @@
   /* The operators are marks, not words: they carry no uppercase tracking and
      want a square cell big enough to hit. */
   .sb-scale :global(.tg-row .tg) {
-    min-width: 2.75rem;
-    min-height: 2.75rem;
+    /* Both were 2.75rem — Apple's 44pt, on the losing side of ADR-0089 §3, and
+       #361's exhibit: the field four lines below carried the same wrong number
+       and #338 could only see that one. A `:global` rule outranks the
+       primitive's own floor, so restating it here is not redundant. */
+    min-width: var(--tap-min);
+    min-height: var(--tap-min);
     font-size: var(--step-0);
   }
 

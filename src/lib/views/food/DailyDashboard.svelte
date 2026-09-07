@@ -696,8 +696,10 @@
   .way-out {
     display: grid;
     place-items: center;
-    width: 2rem;
-    height: 2rem;
+    /* Square at the floor. The glyph inside is sized by its own rule, so this
+       grows the target and not the mark (ADR-0098 §3). */
+    width: var(--tap-min);
+    height: var(--tap-min);
     background: none;
     border: 0;
     padding: 0;
@@ -745,6 +747,7 @@
   /* The disclosure is the whole title, so the target is the words and not just
      the caret. Bare: the frame belongs to the Button beside it. */
   .aggregates-toggle {
+    min-height: var(--tap-min);
     display: inline-flex;
     align-items: center;
     gap: var(--space-2xs);
@@ -927,6 +930,7 @@
   /* Inherits every one of the heading's own type properties, so the words do
      not move by becoming a control. */
   .meal-title-btn {
+    min-height: var(--tap-min);
     background: none;
     border: 0;
     padding: 0;
@@ -956,6 +960,7 @@
   /* The button form of the subtotal line: the same box it has always been, so
      only the affordance is added and the tally does not move. */
   .meal-total-btn {
+    min-height: var(--tap-min);
     width: 100%;
     background: none;
     border: 0;
@@ -972,8 +977,10 @@
 
   .meal-section-header :global(.way-in) {
     flex-shrink: 0;
-    width: 2rem;
-    height: 2rem;
+    /* A `ui/Button` reshaped from outside, so the floor has to be restated
+       here: a `:global` rule outranks the primitive's own (ADR-0098 §5). */
+    width: var(--tap-min);
+    height: var(--tap-min);
     padding: 0;
   }
   .meal-note {
@@ -1056,6 +1063,12 @@
      separates it from its value, and a flex item is what that gap acts on. */
   /* The card is now a bare interactive wrapper — the bordered row visual and
      its selected highlight live in the shared FoodItemRow. */
+  /* The card wraps a `ui/Row`, which clears the floor on its own — declared
+     because a height inherited from a child is not one this model can walk, and
+     a true thing that cannot be shown is not yet proved (ADR-0093 §5). */
+  .meal-item-card {
+    min-height: var(--tap-min);
+  }
   .meal-item-card.selectable {
     cursor: pointer;
     -webkit-user-select: none;
@@ -1078,6 +1091,7 @@
     color: var(--green-bg);
   }
   .meal-item-thumb-btn {
+    min-height: var(--tap-min);
     display: inline-flex;
     padding: 0;
     border: none;

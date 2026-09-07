@@ -171,8 +171,17 @@ describe("the six nav items", () => {
     expect(height).toBeGreaterThanOrEqual(TAP_MIN);
   });
 
-  it("reaches that height without declaring a floor, on padding alone", () => {
-    expect(declaredFloorPx(item)).toBeNull();
+  it("says so as well as reaching it", () => {
+    // It used to reach 68.4 on padding alone and declare nothing, which #332
+    // recorded as a fact about the box. That is no longer enough: `.nav-item`
+    // is re-padded and re-stepped under `@media (min-width: 768px)`, so its
+    // arithmetic here is the phone's reading and nothing above the breakpoint
+    // could be derived from it at all. The declared floor holds under both,
+    // which is ADR-0093 §4's corollary — a box that already clears the floor
+    // may still need to say so, because a true thing that cannot be shown is
+    // not yet proved — and is what lets `tap-floor.test.ts` read this box
+    // instead of declining it (ADR-0098 §4).
+    expect(declaredFloorPx(item)).toBe(TAP_MIN);
   });
 });
 

@@ -358,6 +358,7 @@
   }
 
   .category-chip {
+    min-height: var(--tap-min);
     font-family: var(--font-mono);
     font-size: var(--step-n2);
     font-weight: 700;
@@ -453,6 +454,7 @@
   }
 
   .clear-equipment-btn {
+    min-height: var(--tap-min);
     background: var(--amber-bg);
     color: var(--ink);
     border: var(--edge);
@@ -492,6 +494,7 @@
   }
 
   .equipment-result-item {
+    min-height: var(--tap-min);
     width: 100%;
     background: none;
     border: none;

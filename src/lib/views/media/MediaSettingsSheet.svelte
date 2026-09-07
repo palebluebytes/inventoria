@@ -131,16 +131,20 @@
     position: relative;
     display: flex;
   }
-  /* Leave room for the reveal toggle so masked text never runs under it. */
+  /* Leave room for the reveal toggle so masked text never runs under it. One
+     token for both, so the gap cannot drift from the button's width. */
   .secret-field :global(input) {
-    padding-right: 2.75rem;
+    padding-right: var(--tap-min);
   }
   .reveal-toggle {
     position: absolute;
     top: 0;
     right: 0;
     height: 100%;
-    width: 2.75rem;
+    /* Was 2.75rem — Apple's 44pt (ADR-0089 §3). The field it sits in carries
+       the floor, so `height: 100%` clears it; the width is this rule's own. */
+    min-height: var(--tap-min);
+    width: var(--tap-min);
     /* Above the field, which is `ui/Input` and carries `z-index: 1` of its own.
        Without this the button paints and, worse, *takes its clicks* under a
        transparent field: same document order as before, different stacking. */

@@ -358,6 +358,8 @@
   }
 
   .nav-arrow {
+    min-height: var(--tap-min);
+    min-width: var(--tap-min);
     background: none;
     border: none;
     font-family: var(--font-mono);
@@ -469,6 +471,7 @@
   }
 
   .context-menu-btn {
+    min-height: var(--tap-min);
     width: 100%;
     display: flex;
     align-items: center;

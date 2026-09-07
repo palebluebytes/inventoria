@@ -37,6 +37,7 @@
     background: var(--paper);
   }
   summary {
+    min-height: var(--tap-min);
     cursor: pointer;
     padding: var(--space-2xs) var(--space-xs);
     font-size: var(--step-n2);

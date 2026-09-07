@@ -101,6 +101,10 @@
     line-height: 1.4;
   }
   .sources a {
+    /* One link per list item, so the link is the row and carries the floor. */
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min);
     color: var(--ink);
     font-weight: 700;
     text-decoration: underline;

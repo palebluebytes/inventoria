@@ -651,7 +651,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 100%;
+    /* `height` fills the cell as `min-height: 100%` did; the floor is the
+       `min-height`, so the box is provable rather than inherited. */
+    height: 100%;
+    min-height: var(--tap-min);
     padding: var(--space-s);
     background: var(--ink);
     border: none;
@@ -684,12 +687,17 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.35rem;
-    height: 1.35rem;
+    /* The ring is drawn by a ::before rather than by this button's own border,
+       so the box can carry the floor without drawing a 48px circle
+       (ADR-0098 §3). `isolation` keeps the pseudo-element's `z-index: -1`
+       inside the button, behind its glyph and in front of nothing else. */
+    position: relative;
+    isolation: isolate;
+    min-width: var(--tap-min);
+    min-height: var(--tap-min);
     padding: 0;
-    border: 2px solid currentColor;
-    border-radius: 50%;
-    background: transparent;
+    border: none;
+    background: none;
     color: inherit;
     font-family: var(--font-serif);
     font-size: var(--step-n1);
@@ -698,8 +706,21 @@
     line-height: 1;
     cursor: pointer;
   }
-  .info-btn:hover {
+  .info-btn::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    z-index: -1;
+    width: 1.35rem;
+    height: 1.35rem;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+  }
+  .info-btn:hover::before {
     background: var(--ink);
+  }
+  .info-btn:hover {
     color: var(--paper);
   }
   .info-btn:focus-visible {
@@ -717,11 +738,15 @@
     top: var(--space-3xs);
     right: var(--space-3xs);
     z-index: 1;
-    background: var(--ink);
     color: var(--paper);
   }
-  .calc-cell .info-btn:hover {
+  .calc-cell .info-btn::before {
+    background: var(--ink);
+  }
+  .calc-cell .info-btn:hover::before {
     background: var(--paper);
+  }
+  .calc-cell .info-btn:hover {
     color: var(--ink);
   }
   /* Compact numeric field — a brutalist box (2px border, inset, black-on-focus)
@@ -772,26 +797,47 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.75rem;
-    height: 1.75rem;
+    /* Mark and target, apart: the 1.75rem square is a ::before and the button's
+       own box carries the floor, so a 28px control gains a 48px target without
+       drawing a 48px square (ADR-0098 §3). `isolation` keeps the pseudo's
+       `z-index: -1` inside the button, behind its glyph. */
+    position: relative;
+    isolation: isolate;
+    min-width: var(--tap-min);
+    min-height: var(--tap-min);
     padding: 0;
-    border: var(--edge);
-    background: var(--paper);
+    border: none;
+    background: none;
     color: var(--ink);
     font-size: var(--step-0);
     line-height: 1;
     cursor: pointer;
   }
-  .card-reset:hover:not(:disabled) {
+  .card-reset::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    z-index: -1;
+    width: 1.75rem;
+    height: 1.75rem;
+    border: var(--edge);
+    background: var(--paper);
+  }
+  .card-reset:hover:not(:disabled)::before {
     background: var(--ink);
+  }
+  .card-reset:hover:not(:disabled) {
     color: var(--paper);
   }
   .card-reset:focus-visible {
     outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
-  .card-reset:disabled {
+  .card-reset:disabled::before {
     border-color: var(--border-subtle, var(--border));
+  }
+  .card-reset:disabled {
     color: var(--border-subtle, var(--border));
     cursor: default;
   }

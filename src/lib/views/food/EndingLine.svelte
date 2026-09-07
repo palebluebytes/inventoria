@@ -63,6 +63,7 @@
     color: var(--text-secondary);
   }
   .plain {
+    min-height: var(--tap-min);
     margin-top: var(--space-2xs);
     background: none;
     border: 0;

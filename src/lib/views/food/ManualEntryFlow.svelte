@@ -496,6 +496,7 @@
     font-weight: 700;
   }
   .plate-cta {
+    min-height: var(--tap-min);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -528,6 +529,7 @@
     border: var(--edge);
   }
   .mini-photo-btn {
+    min-height: var(--tap-min);
     background: var(--paper);
     border: var(--edge);
     padding: var(--space-2xs) var(--space-s);

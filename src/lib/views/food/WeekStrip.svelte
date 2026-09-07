@@ -129,6 +129,8 @@
     width: 100%;
   }
   .nav-arrow {
+    min-height: var(--tap-min);
+    min-width: var(--tap-min);
     background: none;
     border: none;
     color: var(--ink);
@@ -156,6 +158,7 @@
   /* Every day takes an equal share of what is left, so all seven are on screen
      at once and none can be clipped mid-cell at the strip's edge. */
   .day-btn {
+    min-height: var(--tap-min);
     display: flex;
     flex: 1 1 0;
     min-width: 0;

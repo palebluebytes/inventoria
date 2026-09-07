@@ -299,6 +299,7 @@
   }
 
   .segment-btn {
+    min-height: var(--tap-min);
     flex: 1;
     font-family: var(--font-mono);
     font-size: var(--step-n2);
@@ -373,9 +374,11 @@
 
   /* The ✕ slot-delete is a small destructive action → Button (danger, sm); the
      red fill, edge, shadow and press are the primitive's. This keeps only the
-     fixed 44px hit target, reached via the doubled `.btn` class. */
+     square hit target, reached via the doubled `.btn` class — which is why the
+     size is the token and not a number: a `:global` rule outranking the
+     primitive is a rule that can take its floor away (ADR-0098 §5). */
   :global(.btn.delete-subtarget-btn) {
-    width: 44px;
+    width: var(--tap-min);
     padding: 0;
     font-weight: 700;
   }
@@ -413,8 +416,8 @@
   }
 
   .counter-btn {
-    width: 40px;
-    height: 40px;
+    width: var(--tap-min);
+    height: var(--tap-min);
     border: var(--edge);
     background: var(--bg-input);
     font-family: var(--font-mono);

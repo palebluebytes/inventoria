@@ -65,6 +65,8 @@
     color: var(--text-secondary);
   }
   .del-btn {
+    min-height: var(--tap-min);
+    min-width: var(--tap-min);
     background: transparent;
     border: none;
     font-size: 1.4rem;

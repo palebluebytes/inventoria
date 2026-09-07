@@ -1,6 +1,7 @@
 /**
- * Every text field in the app, and the box that actually takes the tap,
- * measured against `--tap-min` (ADR-0093, #338).
+ * Every control in the app, and the box that actually takes the tap, measured
+ * against `--tap-min` (ADR-0093 and #338; widened from fields to controls by
+ * ADR-0098 and #361).
  *
  * `tap-targets.test.ts` measures the nav, the dock and the operator keys, and
  * says in its own docblock that a floor swept across the app is its own ticket.
@@ -9,9 +10,14 @@
  *
  * **It discovers its population rather than naming it.** A hand-written roster
  * is how the first sweep missed `ui/Checkbox` — the largest shortfall in the
- * app — and convicted two controls that were never targets. Every `<input>`,
- * `<textarea>` and `<select>` under `src/` is found here, so a new field is in
- * this measurement the day it is written.
+ * app — and convicted two controls that were never targets. Every box under
+ * `src/` that takes a tap is found here, so a new control is in this
+ * measurement the day it is written.
+ *
+ * That predicate started as three tag names, and *that* was a roster wearing a
+ * regex: it could see `ScaleTier`'s `.sb-factor` and not the toggle cell four
+ * lines above it carrying the same wrong number. A finger does not know which
+ * element it is landing on, so neither does this file (ADR-0098 §1).
  *
  * **It reads the markup, not only the CSS.** ADR-0093: a tap floor binds the
  * box that accepts the tap. `AmountField`'s `.num` is a 32px `<input>` and not
@@ -42,111 +48,45 @@
  * would fail a finger while still reading level. That is the whole of why this
  * file measures twice, in a box that is in the tree today.
  *
- * The model, stated so it can be argued with:
- *
- *   height = 2 × border + 2 × vertical padding + the line box,
- *
- * tokens at their `clamp()` floor — the tightest a phone ever draws them — and
- * the line box being the type step times either the declared line-height, the
- * inherited 1.5 (optimistic), or 1.2 (pessimistic, a UA's `normal`, which
- * applies only where the rule declares none since a declared one is honoured).
+ * **The model itself is `support/tap-floor.ts`.** What takes a tap, and how big
+ * the box it draws is, are statements about CSS and about the platform; the
+ * sweep below is a statement about `src/`. Splitting them is what this
+ * repository does at a thousand lines, and the seam is the honest one: every
+ * assertion here reads `src/` through the model and none of them reaches inside
+ * it.
  */
 import { describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import {
-  appSheet,
-  decl,
-  rulesOf,
-  styleOf,
-  tokenOf,
-  tokenPx,
-  type Rule,
-} from "./support/stylesheet";
+import { appSheet, decl, rulesOf, styleOf } from "./support/stylesheet";
 import {
   attr,
   declarationsOf,
   elementsOf,
+  importedFrom,
   rulesFor,
   trackedSvelteFiles,
   type Element,
 } from "./support/markup";
-
-const TAP_MIN = tokenPx("--tap-min");
-
-/** A UA's `line-height: normal` on a form control, near enough. It only ever
- *  makes a box shorter than the inherited 1.5, so using it as the pessimistic
- *  reading cannot manufacture a shortfall that no browser has. */
-const UA_LINE_HEIGHT = 1.2;
+import {
+  clears,
+  drawsItsOwnBox,
+  FIELD,
+  HEIGHT_INPUTS,
+  invisible,
+  LIBRARY_CHROME,
+  LIBRARY_TARGET,
+  narrowness,
+  partName,
+  read,
+  sheetOf,
+  shortness,
+  takesATap,
+  TAP_MIN,
+  type Reading,
+} from "./support/tap-floor";
 
 const FILES = trackedSvelteFiles();
-
-const FIELD = /^(input|textarea|select)$/;
-
-/** The document's own type step and line-height, inherited by anything whose
- *  own rule declares none. */
-const ROOT = (() => {
-  const root = appSheet().filter(
-    (r) => r.at === null && r.selectors.includes(":root")
-  );
-  const size = root
-    .map((r) => decl(r, "font-size"))
-    .filter(Boolean)
-    .pop()!;
-  const height = root
-    .map((r) => decl(r, "line-height"))
-    .filter(Boolean)
-    .pop()!;
-  return {
-    fontSize: tokenPx(size.match(/--step-[\w-]+/)![0]),
-    lineHeight: Number(height),
-  };
-})();
-
-/** An `--edge*` token's width. They are full shorthands with the ink baked in,
- *  so the width is read off the front rather than through `tokenPx`. */
-function edgePx(name: string): number | null {
-  const width = tokenOf(name).match(/^([\d.]+)px solid/);
-  return width ? Number(width[1]) : null;
-}
-
-/** A length as written — a token, px, rem, `none`, `0` — or null where it is
- *  something this model cannot turn into a number (`100%`, `auto`, `1.2em`). */
-function lengthPx(value: string | undefined): number | null {
-  if (value === undefined) return null;
-  const written = value.trim();
-  if (written === "none" || written === "0") return 0;
-  const token = written.match(/^var\((--[\w-]+)\)$/);
-  if (token) {
-    if (token[1].startsWith("--edge")) return edgePx(token[1]);
-    return /^clamp|^[\d.]+(rem|px)$/.test(tokenOf(token[1]))
-      ? tokenPx(token[1])
-      : null;
-  }
-  const px = written.match(/^([\d.]+)px$/);
-  if (px) return Number(px[1]);
-  const rem = written.match(/^([\d.]+)rem$/);
-  if (rem) return Number(rem[1]) * 16;
-  return null;
-}
-
-const round = (n: number) => Math.round(n * 10) / 10;
-
-/** A component's rules, or none where it has no `<style>` block at all. A field
- *  in such a file is genuinely unstyled, which the reading below already has a
- *  verdict for — so this returns nothing rather than throwing. */
-const sheets = new Map<string, Rule[]>();
-function sheetOf(path: string): Rule[] {
-  if (!sheets.has(path)) {
-    sheets.set(
-      path,
-      readFileSync(path, "utf8").includes("<style>")
-        ? rulesOf(styleOf(path))
-        : []
-    );
-  }
-  return sheets.get(path)!;
-}
 
 /** `views/food/AmountField.svelte label.value` — short enough to read in a diff,
  *  and distinct enough that two boxes never share one line. A classless field
@@ -164,152 +104,6 @@ const name = (where: string, el: Element) => {
     (el.classes.length === 0 && under ? `${under} ${self}` : self)
   );
 };
-
-// ── what a box is ──────────────────────────────────────────────────────────
-
-/** How a box's height is known, in the order the answers are worth having. */
-type Reading =
-  | { kind: "declared"; height: number }
-  | { kind: "drawn"; optimistic: number; pessimistic: number }
-  | { kind: "unstyled" }
-  | { kind: "unreadable"; why: string };
-
-/** Whether a box is drawn at all. An `<input>` at `opacity: 0`, clipped, or
- *  sized to a pixel is a real control with an invisible box, and something
- *  else — a button, a card — is what a finger aims at. Those proxies are
- *  controls rather than fields, so they belong to the sweep in #361 and are
- *  reported here rather than measured. */
-const invisible = (d: Record<string, string>) => {
-  const w = lengthPx(d["width"]);
-  const h = lengthPx(d["height"]);
-  return (
-    d["opacity"] === "0" ||
-    d["display"] === "none" ||
-    /inset\(50%\)/.test(d["clip-path"] ?? "") ||
-    (w !== null && w <= 1) ||
-    (h !== null && h <= 1)
-  );
-};
-
-/** What a box's height is made of: the inputs to `height = 2 × border + 2 ×
- *  vertical padding + the line box`. A rule declaring one of these moves the
- *  number, which is why the pointer rule below keys on this list alone. */
-const HEIGHT_INPUTS = [
-  "min-height",
-  "height",
-  "padding",
-  "padding-block",
-  "padding-top",
-  "padding-bottom",
-  "border",
-  "border-width",
-  "font",
-  "font-size",
-  "line-height",
-];
-
-/** What decides whether a box is drawn at all — `invisible`'s inputs. Kept
- *  apart from the list above because the two are asked for different reasons:
- *  a pointer query that hides a hover-only affordance declares `display` and is
- *  legitimate (ADR-0094), while one that moves a height is not. */
-const VISIBILITY_INPUTS = [
-  "width",
-  "height",
-  "opacity",
-  "display",
-  "clip-path",
-];
-
-/** Every property the reading below depends on — both lists, since a
- *  conditional rule touching either one leaves the reading unread. A breakpoint
- *  that recolours a box touches neither, and there are more of those in `src/`
- *  than of the other kind. */
-const MODELLED = [...new Set([...HEIGHT_INPUTS, ...VISIBILITY_INPUTS])];
-
-function read(el: Element, rules: Rule[]): Reading {
-  const { hits, undecidable, conditional } = rulesFor(rules, el);
-
-  // A rule under an at-rule is not applied here, so a box one of them can
-  // resize is a box this model has not read — whatever the unconditional rules
-  // add up to, and whatever floor they declare. Declining first is the point:
-  // a conditional rule can take a declared floor away, so answering `declared`
-  // before looking would be the silent pass in its worst form (ADR-0093 §5).
-  const moved = conditional.find((r) =>
-    MODELLED.some((p) => decl(r, p) !== undefined)
-  );
-  if (moved) return { kind: "unreadable", why: `conditional on ${moved.at}` };
-
-  const d = declarationsOf(hits);
-
-  // A form control draws its own box whatever it contains — a `<select>`'s
-  // `<option>`s are not laid out inside it — so the container rule below is
-  // about everything else.
-  if (el.children > 0 && !FIELD.test(el.tag)) {
-    // A box holding other elements takes its height from them, and this model
-    // walks one line box. Guessing here is how `CalorieCalculatorSheet`'s
-    // `<label class="field">` — a caption stacked over an input, ~85px tall —
-    // reads as 27. Declining is the honest answer, and a declared floor is what
-    // turns it into a provable one.
-    const declaredHere = Math.max(
-      lengthPx(d["min-height"]) ?? 0,
-      lengthPx(d["height"]) ?? 0
-    );
-    if (declaredHere >= TAP_MIN)
-      return { kind: "declared", height: declaredHere };
-    return { kind: "unreadable", why: "height comes from its children" };
-  }
-
-  const declared = Math.max(
-    lengthPx(d["min-height"]) ?? 0,
-    lengthPx(d["height"]) ?? 0
-  );
-  if (declared >= TAP_MIN) return { kind: "declared", height: declared };
-
-  if (hits.length === 0) return { kind: "unstyled" };
-  if (undecidable.length > 0) {
-    return { kind: "unreadable", why: `selector "${undecidable[0]}"` };
-  }
-  const border = lengthPx(
-    d["border"]?.split(/\s+/)[0] ?? d["border-width"] ?? "none"
-  );
-  const padding = d["padding"]
-    ? lengthPx(d["padding"].split(/\s+(?![^(]*\))/)[0])
-    : lengthPx(d["padding-block"] ?? d["padding-top"] ?? "0");
-  const step = d["font-size"]?.match(/--step-[\w-]+/)?.[0];
-  const fontSize = step
-    ? tokenPx(step)
-    : d["font-size"] === undefined ||
-        d["font-size"] === "inherit" ||
-        d["font"] === "inherit"
-      ? ROOT.fontSize
-      : lengthPx(d["font-size"]);
-  if (border === null) return { kind: "unreadable", why: "border width" };
-  if (padding === null) return { kind: "unreadable", why: "padding" };
-  if (fontSize === null) return { kind: "unreadable", why: "font size" };
-
-  const own = /^[\d.]+$/.test(d["line-height"] ?? "")
-    ? Number(d["line-height"])
-    : null;
-  const optimistic = own ?? ROOT.lineHeight;
-  // A UA's `normal` overrides an *inherited* line-height on a form control and
-  // is overridden in turn by a declared one — so a label, and anything stating
-  // its own, is measured once.
-  const pessimistic =
-    el.tag !== "label" && own === null
-      ? Math.min(optimistic, UA_LINE_HEIGHT)
-      : optimistic;
-
-  const box = (lineHeight: number) =>
-    Math.max(2 * border + 2 * padding + fontSize * lineHeight, declared);
-  return {
-    kind: "drawn",
-    optimistic: round(box(optimistic)),
-    pessimistic: round(box(pessimistic)),
-  };
-}
-
-const clears = (r: Reading) =>
-  r.kind === "declared" || (r.kind === "drawn" && r.pessimistic >= TAP_MIN);
 
 // ── what a target is ───────────────────────────────────────────────────────
 
@@ -330,15 +124,23 @@ const clears = (r: Reading) =>
  */
 type Group = { where: string; primary: Element; boxes: Element[] };
 
-function groupsIn(path: string): { groups: Group[]; proxied: string[] } {
+function groupsIn(path: string): {
+  groups: Group[];
+  proxied: string[];
+  elsewhere: Element[];
+} {
   const elements = elementsOf(path);
   const rules = sheetOf(path);
   const groups: Group[] = [];
   const proxied: string[] = [];
+  const elsewhere: Element[] = [];
 
   for (const el of elements) {
-    if (!FIELD.test(el.tag)) continue;
-    if (attr(el, "type") === "hidden") continue;
+    if (!takesATap(el)) continue;
+    if (!drawsItsOwnBox(el)) {
+      elsewhere.push(el);
+      continue;
+    }
 
     const wrapping = [...el.ancestors].reverse().find((a) => a.tag === "label");
     const hidden = invisible(declarationsOf(rulesFor(rules, el).hits));
@@ -361,15 +163,17 @@ function groupsIn(path: string): { groups: Group[]; proxied: string[] } {
     );
     groups.push({ where: path, primary, boxes: [...new Set(boxes)] });
   }
-  return { groups, proxied };
+  return { groups, proxied, elsewhere };
 }
 
 const SWEEP = (() => {
   const groups = new Map<string, Group>();
   const proxied: string[] = [];
+  const elsewhere: { where: string; el: Element }[] = [];
   for (const file of FILES) {
     const found = groupsIn(file);
     proxied.push(...found.proxied);
+    elsewhere.push(...found.elsewhere.map((el) => ({ where: file, el })));
     // One reading per distinct box. `MediaEngagementModal`'s two
     // `<select class="retro-select">` were one box wearing one rule, and saying
     // so twice adds nothing — which is why #380 took two fields out of this
@@ -382,14 +186,33 @@ const SWEEP = (() => {
     }
   }
 
-  const verdicts = new Map<string, { all: Reading[]; primary: Reading }>();
+  const verdicts = new Map<
+    string,
+    {
+      all: Reading[];
+      primary: Reading;
+      narrow: { prop: string; px: number } | null;
+    }
+  >();
   for (const [key, g] of groups) {
+    // A box wrapping another bounds it, so a group is only narrow where every
+    // box in it is — the same "any one of them carries the group" reading §2
+    // gives height, in the one direction it also holds for width.
+    const widths = g.boxes.map((b) =>
+      narrowness(declarationsOf(rulesFor(sheetOf(g.where), b).hits))
+    );
     verdicts.set(key, {
       all: g.boxes.map((b) => read(b, sheetOf(g.where))),
       primary: read(g.primary, sheetOf(g.where)),
+      narrow: widths.every((w) => w !== null) ? widths[0] : null,
     });
   }
-  return { groups, verdicts, proxied: [...new Set(proxied)].sort() };
+  return {
+    groups,
+    verdicts,
+    elsewhere,
+    proxied: [...new Set(proxied)].sort(),
+  };
 })();
 
 /** What a group is worth: any one activating box that clears carries it, and
@@ -410,6 +233,12 @@ const describeReading = (r: Reading) =>
 const verdict = (v: { all: Reading[]; primary: Reading }) =>
   best(v.all, v.primary);
 
+const tooNarrow = () =>
+  [...SWEEP.verdicts]
+    .filter(([, v]) => v.narrow !== null)
+    .map(([key, v]) => `${key} — ${v.narrow!.prop}: ${v.narrow!.px}`)
+    .sort();
+
 const shortfalls = () =>
   [...SWEEP.verdicts]
     .filter(([, v]) => {
@@ -426,6 +255,22 @@ const unreadable = () =>
     .filter(([, v]) => verdict(v).kind === "unreadable")
     .map(([key, v]) => `${key} — ${describeReading(verdict(v))}`)
     .sort();
+
+/**
+ * A box a sanctioned argument covers, whichever of the three lists it is in.
+ *
+ * An exemption is a decision about the *box*, not about which way this model
+ * happened to fail to clear it — and every entry below is a box that would read
+ * `unreadable` on Monday and `drawn` on Tuesday if someone gave it a border,
+ * which is not a difference an exemption should turn on.
+ *
+ * **The key is matched whole, not as a prefix.** A list entry is the part of a
+ * line before its reading, so `startsWith` would let `button.tag` cover a
+ * `button.tag-total` nobody has argued for — a shortfall arriving at no cost in
+ * this file, which is the one property ADR-0093 §6 exists to guarantee.
+ */
+const sanctioned = (box: string) =>
+  SHORT_BY_ARGUMENT.includes(box.split(" — ")[0]);
 
 /**
  * A declaration inside an at-rule is not one this model applies, and until now
@@ -453,6 +298,7 @@ describe("a conditional declaration is reported, never dropped", () => {
     raw: "",
     ancestors: [],
     children: 0,
+    delegates: false,
   });
 
   const WIDE = "@media (min-width: 768px)";
@@ -619,10 +465,222 @@ describe("no pointer query moves a height", () => {
   });
 });
 
+/**
+ * Where a control's box is drawn is not always where its size is written.
+ *
+ * Svelte scopes a component's rules to that component's own elements, so the
+ * one way a call site can resize a box another file draws is `:global(…)` —
+ * which makes every cross-component reshaping in the app a rule of one shape,
+ * findable without resolving a single import. Three were doing it below the
+ * floor when this clause was written: `ScaleTier` held a `ToggleGroup` cell at
+ * Apple's 44, and `EventRecurrenceField` and `ScheduleRuleEditor` each held a
+ * `ui/Button` at 32 and 44.
+ *
+ * **It reads which classes the rule names, not which file it sits in.** A
+ * `:global` rule sizing an `<svg>` inside a button, a meter's track or a
+ * visually-hidden label is not this sweep's business, and there are more of
+ * those in `src/` than of the other kind — so the rule is convicted only where
+ * some element in the tree wearing its rightmost compound is a control. That
+ * index is the whole tree, because the point of `:global` is that it leaves the
+ * file it is written in.
+ */
+describe("no rule reaches across a component and shrinks a control", () => {
+  /** Every element in the tree that wears at least one class, by class name. */
+  const WEARERS = (() => {
+    const by = new Map<string, Element[]>();
+    for (const file of FILES) {
+      for (const el of elementsOf(file)) {
+        for (const cls of el.classes) {
+          by.set(cls, [...(by.get(cls) ?? []), el]);
+        }
+      }
+    }
+    return by;
+  })();
+
+  /**
+   * The elements a selector's rightmost compound can land on, anywhere.
+   *
+   * **One class of the compound is enough**, and that is the difference between
+   * this and `matches`. A compound crossing a component boundary is *written*
+   * across it: `:global(.btn.remove-btn)` is `ui/Button`'s `.btn` and the call
+   * site's `remove-btn`, and no single element in this tree's markup wears both
+   * — `.btn` arrives from a prop the primitive interpolates. Requiring all of
+   * them is how a first pass at this clause found the two `ToggleGroup` cells
+   * and neither of the reshaped Buttons, which are the loudest cases it exists
+   * for.
+   *
+   * It over-reads, deliberately, and the over-reading is bounded: what the
+   * match decides is only whether the *rule* is about a control, and the size it
+   * is convicted on is read from the rule itself, so the worst it can do is ask
+   * an author not to write a sub-floor size in a `:global` rule that also names
+   * a control's class.
+   */
+  function reaches(selector: string): Element[] {
+    const compound = selector
+      .replace(/:global\(([^)]*)\)/g, "$1")
+      .trim()
+      .split(/[\s>+~]+/)
+      .pop()!;
+    const classes = [...compound.matchAll(/\.([\w-]+)/g)].map((c) => c[1]);
+    if (classes.length === 0) return [];
+    const tag = compound.match(/^[a-zA-Z][\w-]*/)?.[0];
+    return classes
+      .flatMap((c) => WEARERS.get(c) ?? [])
+      .filter((el) => tag === undefined || tag === el.tag);
+  }
+
+  const OFFENDERS = FILES.flatMap((file) =>
+    sheetOf(file)
+      .filter((rule) => rule.selectors.some((s) => s.includes(":global(")))
+      .flatMap((rule) => {
+        // Both axes, read off the rule alone: a `:global` rule is convicted on
+        // what it *declares*, never on what the box it lands on adds up to —
+        // the arithmetic belongs to the box's own file, which has already had
+        // its turn above.
+        const d = declarationsOf([rule]);
+        const shrunk = narrowness(d) ?? shortness(d);
+        if (shrunk === null) return [];
+        const said = `${shrunk.prop}: ${shrunk.px}`;
+        return rule.selectors
+          .filter((s) => s.includes(":global(") && reaches(s).some(takesATap))
+          .map((s) => `${file.replace("src/lib/", "")} ${s} — ${said}`);
+      })
+  ).sort();
+
+  it("finds the cross-component rules at all", () => {
+    // The index is the load-bearing half and an empty one would pass the
+    // assertion below for ever, so the wearers are counted before they are used.
+    expect(WEARERS.size).toBeGreaterThan(500);
+    // The compound this clause was written for, and the one a stricter reading
+    // missed: `.btn` is `ui/Button`'s and `remove-btn` is the call site's.
+    expect(
+      reaches(":global(.btn.remove-btn)")
+        .filter(takesATap)
+        .map((el) => el.tag)
+    ).toContain("#Button");
+  });
+
+  it("leaves none of them holding a control under the floor", () => {
+    expect(OFFENDERS).toEqual([]);
+  });
+});
+
+/**
+ * The two rosters of library parts, held to the tree.
+ *
+ * `LIBRARY_TARGET` and `LIBRARY_CHROME` are the one hand-written list in this
+ * file, and they are hand-written because bits-ui's markup is not in this
+ * repository: nothing under `src/` says a `Calendar.Day` is a `<button>` and a
+ * `Calendar.HeadCell` is a `<th>`. What stops the list rotting the way #338's
+ * roster of fields did is that it must *cover* the tree — a part nobody has
+ * classified fails here rather than being quietly skipped, which is the only
+ * property the discovered population had that a roster normally cannot.
+ */
+describe("every library part is classified", () => {
+  const PARTS = [
+    ...new Set(
+      FILES.flatMap((file) =>
+        elementsOf(file)
+          .map(partName)
+          .filter((p): p is string => p !== null)
+      )
+    ),
+  ].sort();
+
+  it("finds the parts at all", () => {
+    expect(PARTS).toContain("ToggleGroup.Item");
+    expect(PARTS.length).toBeGreaterThan(40);
+  });
+
+  it("puts each one in exactly one roster", () => {
+    expect(
+      PARTS.filter((p) => LIBRARY_TARGET.has(p) === LIBRARY_CHROME.has(p))
+    ).toEqual([]);
+  });
+
+  it("keeps no roster entry the tree has stopped using", () => {
+    // A dead entry is how a roster starts describing an app that has moved on,
+    // and the part it names may have been replaced by one nobody classified.
+    const listed = [...LIBRARY_TARGET, ...LIBRARY_CHROME].sort();
+    expect(listed.filter((p) => !PARTS.includes(p))).toEqual([]);
+  });
+});
+
+/**
+ * A component call site takes a tap and draws no box, so this sweep sends it
+ * away — and that is only honest if the box it *does* draw is one the sweep
+ * measures somewhere else.
+ *
+ * `<Button class="remove-btn" onclick=…>` is a control by every test this file
+ * applies, and asking `EventRecurrenceField`'s stylesheet how tall it stands is
+ * asking the wrong file. The right one is named by the import, so the import is
+ * what this follows: every component that takes a tap must resolve to a file
+ * under `src/` that contributes at least one measured box. Without this the
+ * `elsewhere` bucket would be a place for a control to disappear into.
+ */
+describe("a component that takes a tap draws a box this sweep measures", () => {
+  const MEASURED = new Set([...SWEEP.groups.values()].map((g) => g.where));
+
+  /** Every call site resolved once: which file hands the tap on, to what. */
+  const EDGES = SWEEP.elsewhere.map(({ where, el }) => ({
+    where,
+    tag: el.tag,
+    to: importedFrom(where, el.tag),
+  }));
+
+  /**
+   * Files that draw a measured box, or hand the tap to one that does.
+   *
+   * The hand-off is real and one level of it is not enough: `FoodItemRow` is a
+   * `<Row onclick=…>` and nothing else, so it draws no box of its own and is
+   * still perfectly answerable — `ui/Row.svelte` draws it. A fixpoint rather
+   * than a walk, so a cycle terminates instead of recursing.
+   */
+  const DRAWS = (() => {
+    const reached = new Set(MEASURED);
+    for (let grew = true; grew; ) {
+      grew = false;
+      for (const edge of EDGES) {
+        if (reached.has(edge.where)) continue;
+        if (edge.to !== null && reached.has(edge.to)) {
+          reached.add(edge.where);
+          grew = true;
+        }
+      }
+    }
+    return reached;
+  })();
+
+  const UNRESOLVED = [
+    ...new Set(
+      EDGES.map(({ where, tag, to }) => {
+        if (to === null) return `${where} ${tag} — no import names it`;
+        if (!to.endsWith(".svelte")) {
+          return `${where} ${tag} — comes from ${to}, which is not a component`;
+        }
+        return DRAWS.has(to)
+          ? ""
+          : `${where} ${tag} — ${to} draws no box this sweep reads`;
+      })
+    ),
+  ]
+    .filter(Boolean)
+    .sort();
+
+  it("finds the call sites at all", () => {
+    expect(SWEEP.elsewhere.length).toBeGreaterThan(40);
+  });
+
+  it("resolves every one of them to a file with a measured box", () => {
+    expect(UNRESOLVED).toEqual([]);
+  });
+});
+
 // ── the guard ──────────────────────────────────────────────────────────────
 
 describe("the sweep itself", () => {
-  it("finds every field in the app, and each one's target", () => {
+  it("finds every control in the app, and each one's target", () => {
     // Asserted so that a regex quietly matching nothing — the way a sweep dies
     // — fails here rather than reporting a level tree.
     // Both root shells included: `src/App.svelte` and `src/Rations.svelte` sit
@@ -632,11 +690,31 @@ describe("the sweep itself", () => {
     expect(FILES.length).toBeGreaterThan(100);
     // A floor just under the population, not the population — it exists so that
     // a regex matching nothing fails here, and the split below is what has to
-    // be argued with when the count moves. It follows the count down as the
-    // convergence tickets retire hand-rolled fields (50 at #338, 42 at #374,
-    // 37 at #375, 35 at #379), keeping the same two boxes of headroom it was
-    // written with.
-    expect(SWEEP.groups.size).toBeGreaterThan(33);
+    // be argued with when the count moves. It followed the count *down* through
+    // the convergence tickets that retired hand-rolled fields (50 at #338, 42
+    // at #374, 37 at #375, 35 at #379, 34 at #380) and jumped to 165 at #361,
+    // when the predicate stopped being three tag names: a button, a toggle
+    // cell, a calendar day and a nav item were always in the app and never in
+    // this number.
+    expect(SWEEP.groups.size).toBeGreaterThan(160);
+  });
+
+  /**
+   * The box that proved `elementsOf` was truncating.
+   *
+   * `CategoryPicker`'s suggestion row is a `<li role="option">` whose
+   * `onmousedown` carries a comment reading "the input's blur". The apostrophe
+   * opened a quote the tag walk never closed, so the scan ran off the end of the
+   * file — dropping this element and the three below it from **every** census in
+   * this repository, which is how a 44px option row survived #338, #376 and
+   * #381. It is asserted as a member here rather than as a fixture in
+   * `markup.ts`, because what has to keep working is that the app's own rows are
+   * seen, not that a probe string parses.
+   */
+  it("sees a control whose handler holds an apostrophe", () => {
+    expect([...SWEEP.verdicts.keys()]).toContain(
+      "views/food/CategoryPicker.svelte .catpick-list li"
+    );
   });
 
   it("has no field styled from app.css, so a component's own sheet is the whole answer", () => {
@@ -685,11 +763,21 @@ describe("the floor, swept", () => {
    * it calls itself "a measurement, not a guard". It is a guard now.
    */
   it("leaves no box that takes a tap standing under the floor", () => {
-    expect(
-      shortfalls().filter(
-        (box) => !SHORT_BY_ARGUMENT.some((ok) => box.startsWith(ok))
-      )
-    ).toEqual([]);
+    expect(shortfalls().filter((box) => !sanctioned(box))).toEqual([]);
+  });
+
+  /**
+   * The same floor on the other axis.
+   *
+   * #338 never needed it: a field runs the width of its form, so the only
+   * dimension that could fail a finger was height. An icon control is square,
+   * and a square held at 30, 32, 36, 40 or 44 fails on the axis this file was
+   * not reading — `CategoryPicker`'s chip remove, `EventRecurrenceField`'s day,
+   * `ScheduleRuleEditor`'s counter, `FoodStager`'s skip. `narrowness` says what
+   * counts as a claim about width and what does not.
+   */
+  it("leaves no box that takes a tap narrower than the floor", () => {
+    expect(tooNarrow().filter((box) => !sanctioned(box))).toEqual([]);
   });
 
   /**
@@ -703,7 +791,7 @@ describe("the floor, swept", () => {
    * now say so, because a true thing that cannot be shown is not yet proved.
    */
   it("has no box it cannot read", () => {
-    expect(unreadable()).toEqual([]);
+    expect(unreadable().filter((box) => !sanctioned(box))).toEqual([]);
   });
 
   /**
@@ -717,8 +805,18 @@ describe("the floor, swept", () => {
    * declaration is invisible to the test that would have to honour it. An
    * exemption costs a diff in this file, which is the point.
    */
-  it("sanctions no shortfall at all", () => {
-    expect(SHORT_BY_ARGUMENT).toEqual([]);
+  it("sanctions six shortfalls, and names the two arguments", () => {
+    // The list is asserted whole rather than counted, because an exemption that
+    // can be added without editing this assertion is an exemption that costs no
+    // diff — which is the one thing ADR-0093 §6 says it may never do.
+    expect(SHORT_BY_ARGUMENT).toEqual([
+      "views/food/FoodCard.svelte button.origin-badge",
+      "views/food/FoodCard.svelte button.tag-dietary",
+      "views/food/NovaBadge.svelte button.nova-badge",
+      "views/food/SourceTag.svelte button.tag",
+      "views/food/FoodStager.svelte button.link",
+      "views/items/ItemImportPanel.svelte button.text-btn.ml-2",
+    ]);
   });
 
   /**
@@ -787,21 +885,78 @@ describe("the floor, swept", () => {
    * here. Clear of the floor, so this is not a shortfall being fixed; it is a
    * box that cleared on arithmetic leaving, which is the other thing this split
    * watches. No box arrived: `ui/Select`'s own has been counted since #378.
+   *
+   * Then it went 34 → 165 at #361, and the shape of the split changed with it.
+   * The 131 boxes that arrived are the ones a predicate of three tag names
+   * could never see: the native controls, the library-rendered cells and days,
+   * and the nav. One of them arrived twice over: `CategoryPicker`'s
+   * `<li role="option">` was invisible to `elementsOf` itself until this ticket
+   * fixed the walk that an apostrophe in a handler's comment was truncating. Ninety of them were short, unreadable, or both, and the fix
+   * was the same declaration nearly every time — which is why `declared` now
+   * carries 133 of 165 rather than the 25 of 34 it carried when this file knew
+   * only about fields. `drawn` is the column to watch: every box in it clears
+   * on padding that happens to add up.
+   *
+   * A third column exists now, and it is meant to stay at six. `sanctioned` is
+   * `SHORT_BY_ARGUMENT`'s length by construction, so a seventh entry moves this
+   * assertion as well as that list — two diffs for one exemption, deliberately.
    */
   it("carries most of them on a declared floor, not on arithmetic", () => {
-    const how = { declared: 0, drawn: 0 };
-    for (const v of SWEEP.verdicts.values()) {
+    const how = { declared: 0, drawn: 0, sanctioned: 0 };
+    for (const [key, v] of SWEEP.verdicts) {
       const b = verdict(v);
-      if (b.kind === "declared") how.declared++;
+      if (sanctioned(key)) how.sanctioned++;
+      else if (b.kind === "declared") how.declared++;
       else if (b.kind === "drawn") how.drawn++;
     }
 
-    expect(how).toEqual({ declared: 25, drawn: 9 });
-    expect(how.declared + how.drawn).toBe(SWEEP.groups.size);
+    expect(how).toEqual({ declared: 133, drawn: 26, sanctioned: 6 });
+    // Every box lands in exactly one column. Without this the two figures above
+    // could both be right while a box fell out of the sweep between them.
+    expect(how.declared + how.drawn + how.sanctioned).toBe(SWEEP.groups.size);
   });
 });
 
-const SHORT_BY_ARGUMENT: string[] = [];
+/**
+ * Shortfalls with an argument for standing short.
+ *
+ * #338 left this empty and meant it to stay that way. Widening the population
+ * from fields to controls found two classes of box the floor cannot simply be
+ * applied to, and both arguments are WCAG 2.5.8's own exceptions rather than a
+ * plea — which matters, because "this one is awkward" is what an exemption list
+ * degenerates into if the first entry is allowed to be that.
+ *
+ * **The four badge-marks** (`SourceTag`, `NovaBadge`, and `FoodCard`'s edit
+ * origin and dietary marks) are ~14px tall and sit in one wrapped, right-
+ * aligned cluster on a food card. Flooring them is *possible* — the 9px gap
+ * means four 48px targets would not overlap — and it costs about 34px on every
+ * row of the densest list in the app, to enlarge four controls whose whole job
+ * is to open an explainer. The real defect is upstream and is a naming one:
+ * ADR-0040 says a badge is a status mark and a Button is the control, and these
+ * four are badges wearing an `onclick`. Growing them would harden the mistake
+ * into layout. Filed as #388, which is where a change of role belongs.
+ *
+ * **The two inline links** are `<button>`s laid out *within a line of running
+ * text* — "No result? Add a custom entry." inside a hint paragraph, and "Create
+ * manually instead" after an Alert's message. WCAG 2.5.8 exempts a target whose
+ * size is constrained by the line-height of the non-target text around it, by
+ * name, and for the same reason ADR-0093 §2 refuses to floor a `<label for>`
+ * caption: the fix would be a 48px word in the middle of a sentence, which no
+ * guideline asks for and which reads worse than what it replaced.
+ *
+ * It lives here rather than in a CSS comment because `styleOf` strips comments
+ * before the sweep reads a rule, so an argument written beside the declaration
+ * is invisible to the test that would have to honour it. An exemption costs a
+ * diff in this file, which is the point.
+ */
+const SHORT_BY_ARGUMENT: string[] = [
+  "views/food/FoodCard.svelte button.origin-badge",
+  "views/food/FoodCard.svelte button.tag-dietary",
+  "views/food/NovaBadge.svelte button.nova-badge",
+  "views/food/SourceTag.svelte button.tag",
+  "views/food/FoodStager.svelte button.link",
+  "views/items/ItemImportPanel.svelte button.text-btn.ml-2",
+];
 
 /** Fields drawn invisible behind a visible proxy. All four are the same shape:
  *  a file `<input>` at `opacity: 0` that a `<button>` clicks for it. */

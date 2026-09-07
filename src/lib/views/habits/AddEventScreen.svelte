@@ -204,7 +204,7 @@
         <div style="display: flex; align-items: center; gap: var(--space-s);">
           <button
             type="button"
-            style="display: flex; align-items: center; gap: var(--space-3xs); font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; background: none; border: none; cursor: pointer; color: var(--text-primary); padding: 0;"
+            class="inline-toggle"
             onclick={() => {
               timed = !timed;
               endError = null;
@@ -218,7 +218,7 @@
 
           <button
             type="button"
-            style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; background: none; border: none; cursor: pointer; color: var(--text-primary); text-decoration: underline; padding: 0;"
+            class="inline-link"
             onclick={() => {
               if (!hasEnd) {
                 // Auto-fill end = start + 1 hour
@@ -425,8 +425,34 @@
     color: var(--text-muted);
   }
 
+  /* Both were `style="…"` attributes, which a rule cannot reach and a sweep
+     cannot read. A floor is a declaration, so it has to live where the other
+     declarations are (ADR-0097, and ADR-0098's Consequences). */
+  .inline-toggle,
+  .inline-link {
+    min-height: var(--tap-min);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .inline-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3xs);
+  }
+  .inline-link {
+    text-transform: uppercase;
+    text-decoration: underline;
+  }
+
   /* Toggle row */
   .toggle-row {
+    min-height: var(--tap-min);
     display: flex;
     align-items: flex-start;
     gap: var(--space-s);

@@ -154,6 +154,7 @@
      FoodStager): a flat thin-edge tile — no Card shadow — so the recipe browser
      reads as the same surface as the search results the user just came from. */
   .recipe-pick {
+    min-height: var(--tap-min);
     width: 100%;
     background: var(--paper);
     border: var(--edge-thin);

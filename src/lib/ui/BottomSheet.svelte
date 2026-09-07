@@ -461,7 +461,7 @@
        centred by the pair being equal and not by either one's width. The header
        cannot measure what it is handed, so this is a declared slot count rather
        than a fit; the prop's doc carries the other half of that contract. */
-    --rail: 2.5rem;
+    --rail: var(--tap-min);
     grid-template-columns: var(--rail) 1fr var(--rail);
     align-items: center;
     /* Query container for the title below. Safe to contain: the header's inline
@@ -504,14 +504,19 @@
     text-overflow: ellipsis;
   }
 
-  /* The side glyphs (‹ / ×) are flex-centred in a box the height of the title's
-     line, so their line box's centre lands on the title's centre line. */
+  /* The side glyphs (‹ / ×) are flex-centred in their own box, and the header
+     grid centres that box against the title, so the glyph's line box lands on
+     the title's centre line whatever size the box is. Which is what lets the
+     box be the floor rather than the title's line height (ADR-0098): the rail
+     above is `--tap-min` for the same reason, so a 48px button sits inside its
+     slot instead of overhanging the title. */
   .close-btn,
   .back-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    height: var(--step-1);
+    min-height: var(--tap-min);
+    min-width: var(--tap-min);
     padding: 0;
     background: none;
     border: none;

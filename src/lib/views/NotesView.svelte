@@ -165,6 +165,7 @@
     margin-bottom: var(--space-m);
   }
   .tab-btn {
+    min-height: var(--tap-min);
     flex: 1;
     background: transparent;
     border: none;
@@ -276,6 +277,7 @@
     color: var(--paper);
   }
   .note-row-title {
+    min-height: var(--tap-min);
     flex: 1;
     text-align: left;
     background: transparent;
@@ -290,6 +292,8 @@
     white-space: nowrap;
   }
   .del-btn {
+    min-height: var(--tap-min);
+    min-width: var(--tap-min);
     background: transparent;
     border: none;
     font-size: 1.4rem;

@@ -207,6 +207,7 @@
     color: var(--text-muted);
   }
   .plain {
+    min-height: var(--tap-min);
     margin-top: var(--space-2xs);
     background: none;
     border: 0;

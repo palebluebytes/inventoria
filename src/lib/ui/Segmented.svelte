@@ -94,6 +94,13 @@
     }
   }
   :global(.seg-row .seg) {
+    /* The floor, on the same argument as `ToggleGroup`'s cell: the two differ
+       only in whether a selection may clear, never in what a finger has to
+       hit. */
+    min-height: var(--tap-min);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     padding: var(--space-2xs) var(--space-xs);
     border: var(--edge);
     background: var(--paper);

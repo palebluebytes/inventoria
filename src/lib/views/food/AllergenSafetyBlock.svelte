@@ -175,12 +175,17 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.35rem;
-    height: 1.35rem;
+    /* The ring is drawn by a ::before rather than by this button's own border,
+       so the box can carry the floor without drawing a 48px circle
+       (ADR-0098 §3). `isolation` keeps the pseudo-element's `z-index: -1`
+       inside the button, behind its glyph and in front of nothing else. */
+    position: relative;
+    isolation: isolate;
+    min-width: var(--tap-min);
+    min-height: var(--tap-min);
     padding: 0;
-    border: 2px solid currentColor;
-    border-radius: 50%;
-    background: transparent;
+    border: none;
+    background: none;
     color: var(--ink);
     font-family: var(--font-serif);
     font-size: var(--step-n1);
@@ -189,8 +194,21 @@
     line-height: 1;
     cursor: pointer;
   }
-  .info-btn:hover {
+  .info-btn::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    z-index: -1;
+    width: 1.35rem;
+    height: 1.35rem;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+  }
+  .info-btn:hover::before {
     background: var(--ink);
+  }
+  .info-btn:hover {
     color: var(--paper);
   }
   .info-btn:focus-visible {

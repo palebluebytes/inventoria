@@ -237,6 +237,7 @@
     gap: var(--space-3xs);
   }
   .view-tab-btn {
+    min-height: var(--tap-min);
     padding: var(--space-s) var(--space-m);
     border: var(--edge);
     border-bottom: none;

@@ -158,10 +158,12 @@
 
   .sb-dismiss {
     flex-shrink: 0;
-    width: 2.75rem;
-    height: 2.75rem;
+    /* Was 2.75rem — Apple's 44pt, which ADR-0089 §3 weighed against Material's
+       48 and rejected by name. */
+    width: var(--tap-min);
+    height: var(--tap-min);
     /* Pulled back into the bar's own padding so the mark sits on the margin
-       the rows above use, while keeping a full 44px target. */
+       the rows above use, while keeping a full target. */
     margin-left: calc(var(--space-s) * -1 + var(--space-3xs));
     display: grid;
     place-items: center;
@@ -184,8 +186,10 @@
 
   .sb-verb {
     flex-shrink: 0;
-    width: 2.75rem;
-    height: 2.75rem;
+    /* Was 2.75rem — Apple's 44pt, which ADR-0089 §3 weighed against Material's
+       48 and rejected by name. */
+    width: var(--tap-min);
+    height: var(--tap-min);
     display: grid;
     place-items: center;
     padding: 0;

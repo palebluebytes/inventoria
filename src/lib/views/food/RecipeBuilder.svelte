@@ -536,6 +536,7 @@
     display: block;
   }
   .change {
+    min-height: var(--tap-min);
     position: absolute;
     bottom: var(--space-xs);
     right: var(--space-xs);
@@ -580,6 +581,8 @@
     min-width: 0;
   }
   .srm {
+    min-height: var(--tap-min);
+    min-width: var(--tap-min);
     flex-shrink: 0;
     background: none;
     border: none;
@@ -588,6 +591,7 @@
     cursor: pointer;
   }
   .add-step {
+    min-height: var(--tap-min);
     margin-top: var(--space-2xs);
     background: none;
     border: 2px dashed var(--ink);

@@ -90,6 +90,7 @@
     flex: none;
   }
   .nav-item {
+    min-height: var(--tap-min);
     display: flex;
     flex-direction: column;
     align-items: center;

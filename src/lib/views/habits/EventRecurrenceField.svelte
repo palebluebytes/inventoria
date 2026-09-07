@@ -250,6 +250,7 @@
   }
 
   .seg-btn {
+    min-height: var(--tap-min);
     flex: 1;
     font-family: var(--font-mono);
     font-size: var(--step-n2);
@@ -279,8 +280,8 @@
   }
 
   .day-btn {
-    width: 36px;
-    height: 36px;
+    width: var(--tap-min);
+    height: var(--tap-min);
     border: var(--edge);
     background: var(--bg-input);
     font-family: var(--font-mono);
@@ -316,16 +317,19 @@
   /* The ✕ slot-remove is a small destructive action → Button (danger, sm); the
      red fill, edge, shadow and press are the primitive's (ADR-0039). This keeps
      only the fixed square size and heavier glyph weight, reached via the doubled
-     `.btn` class so they win over Button's sm padding/weight. */
+     `.btn` class so they win over Button's sm padding/weight. Which is exactly
+     why the size is the token: a `:global` rule outranking the primitive is a
+     rule that can take its floor away (ADR-0098 §5). */
   :global(.btn.remove-btn) {
-    width: 32px;
-    height: 32px;
+    width: var(--tap-min);
+    height: var(--tap-min);
     padding: 0;
     flex-shrink: 0;
     font-weight: 900;
   }
 
   .add-slot-btn {
+    min-height: var(--tap-min);
     border: 2px dashed var(--ink);
     background: transparent;
     font-family: var(--font-mono);

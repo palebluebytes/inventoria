@@ -2928,6 +2928,7 @@
     color: var(--text-primary);
   }
   .nudge-go {
+    min-height: var(--tap-min);
     align-self: stretch;
     background: var(--ink);
     color: var(--paper);
@@ -2937,7 +2938,6 @@
     font: inherit;
     font-weight: 700;
     cursor: pointer;
-    min-height: 40px;
   }
   .viewport {
     position: relative;
@@ -3168,6 +3168,10 @@
   .cf-thumb {
     position: relative;
     flex: 0 0 auto;
+    /* A thumbnail that is also the way into the photo, so it is floored like a
+       control; 60px was already over the floor on one axis and unprovable on
+       the other, because the height came from the image inside. */
+    min-height: var(--tap-min);
     width: 60px;
     padding: 0;
     border: 1.5px solid var(--ink);
@@ -3293,6 +3297,7 @@
     white-space: nowrap;
   }
   .cf-skip-all {
+    min-height: var(--tap-min);
     flex: 0 0 auto;
     background: none;
     border: 0;
@@ -3341,8 +3346,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
+    width: var(--tap-min);
+    height: var(--tap-min);
     background: var(--paper);
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -3382,7 +3387,7 @@
     cursor: pointer;
     font: inherit;
     font-weight: 600;
-    min-height: 44px;
+    min-height: var(--tap-min);
   }
   /* A portion label that's just a weight (e.g. "30 g") gets an amber border and
      a hint line — soft, never blocks saving. Matches the found-but-poor nudge. */

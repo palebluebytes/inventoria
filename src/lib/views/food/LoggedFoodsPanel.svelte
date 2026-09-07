@@ -172,8 +172,9 @@
   .way-out {
     display: grid;
     place-items: center;
-    width: 2rem;
-    height: 2rem;
+    /* Square at the floor; the glyph inside keeps its own size. */
+    width: var(--tap-min);
+    height: var(--tap-min);
     background: none;
     border: 0;
     padding: 0;

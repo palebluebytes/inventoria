@@ -192,6 +192,13 @@
     height: 1.5rem;
   }
   .row-remove {
+    /* Square at the floor. The row around it already clears `--tap-min`, so
+       this costs no height at all — only the trailing rail's width. */
+    min-height: var(--tap-min);
+    min-width: var(--tap-min);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     padding: 0;
     background: none;
     border: none;
