@@ -503,3 +503,99 @@ on their own reasons, which were never about the export.
 `SendWords.stepDown` is gone rather than left `false` on every ending, so the map of
 endings no longer carries a question nothing asks. ADR-0074 §10's paragraph about this
 export is corrected in that record's own amendment.
+
+## Amendment (2026-09-07, #386): §12 made a disclosure claim inside a holding rule
+
+§12 closes with a sentence that is half true:
+
+> Under that rule §8's bar is met **by construction rather than by policy**: after five
+> minutes no record anywhere says the room existed, so there is nothing to correlate,
+> subpoena or leak.
+
+The rule holds. **The conclusion is false as shipped**, and the way it is false is worth more
+than the correction.
+
+### What is retained, and it is the room id
+
+Established against Cloudflare's own documentation at
+[#385](https://github.com/palebluebytes/inventoria/issues/385):
+
+- `durableObjectsInvocationsAdaptiveGroups`, `durableObjectsPeriodicGroups` and
+  `durableObjectsSubrequestsAdaptiveGroups` carry **`name`** and **`objectId`** as
+  dimensions, `name` being _"The name the Durable Object was created with"_.
+- **Our room id is that name.** `worker/src/index.ts` routes with
+  `env.RELAY.get(env.RELAY.idFromName(room))` and §10 has the room id client-minted, so
+  there is no indirection between the two.
+- **§9 cannot be cited for it**, and this is the second record to have to say so. The
+  `[observability]` flag governs Workers Logs, a separate system with a published 3–7 day
+  retention. Nothing documented disables or shortens these datasets. ADR-0096 already wrote
+  _§9 may not be cited for R2 at all_; it cannot be cited for the relay either.
+- The dashboard **autocompletes live Durable Object names** out of that data, so the column
+  is demonstrably populated rather than nominally present.
+- **The retention window is undocumented**, where R2's is a published 31 days — so the
+  reading this record must take is _longer_.
+
+### The error is a category error
+
+_"No record anywhere says the room existed"_ is a claim about **disclosure** sitting inside a
+rule about **holding**. It went unnoticed because the arc only learned to separate those a
+record later: [ADR-0096](0096-devices-converge-without-both-being-awake-through-a-store-of-sealed-deltas.md)
+§1 bounds what is held and its §15 bounds what is learned, and §12 predates that split while
+quietly doing both jobs.
+
+> **Any bar phrased as _no record anywhere_ is a disclosure claim, and a disclosure claim
+> about a platform is never met by construction.**
+
+**So §12 splits in two.** Its rule is unchanged and is about the relay's **own storage**:
+_the relay may hold state for the duration of a room; it may hold nothing that outlives one._
+Beside it now sits what the **provider** retains about a room, in the clause-and-mechanism
+shape ADR-0096 §1 had to invent:
+
+| what is retained beyond the room     | held up by                                                         |
+| ------------------------------------ | ------------------------------------------------------------------ |
+| the object name (the hashed room id) | nothing we control — no documented off switch, undocumented window |
+| one invocation row per frame         | nothing we control; the 20:1 WebSocket discount is billing-only    |
+| minute-resolution timing, `coloCode` | nothing we control                                                 |
+| the room's own storage: **empty**    | §12's rule, which is ours and does hold                            |
+
+**The relay's bar therefore ends up the same shape as the store's**, and the honest reading of
+that is uncomfortable: the store's admission was treated across a whole map as the concession
+being paid for, and it is the only surface in this design whose bar was ever written out
+clause by clause.
+
+### The room id stops being the object's name
+
+`idFromName(sha256(room))` rather than `idFromName(room)`. **Server-only** — both parties
+already derive the same room id, so nothing on the wire moves and no client changes.
+
+**The claim, with its limit in the same sentence:** the retained name is not the string that
+crosses in the code, so a leak of the analytics data alone hands nobody a room id, and a room
+id obtained elsewhere cannot be looked up **without also holding the deployed code**.
+
+**It is not a decoupling**, and this record says so because the proposal was first made as
+one. The function sits in our own deployed code, so anyone holding a room id _and_ dataset
+access recomputes the hash — in the subpoena case, one party. The class it actually covers is
+**dataset access without code access**: a leaked export, an analytics-scoped API token, a
+screenshot of the metrics tab. Real, and small.
+
+**Unkeyed, deliberately.** A keyed hash would additionally cover someone holding the repo but
+not the environment — not the class the retention matters for — at the price of a secret to
+manage, a new object to lose on withdrawal, and operational state in a worker kept stateless
+and secretless on purpose. A key would imply a protection it also does not deliver.
+
+**A cost that is not privacy, named rather than discovered later:** a room's object can no
+longer be found by its room id when debugging a live incident.
+
+**Refused: `newUniqueId()` with a stored mapping.** The mapping is state that outlives the
+room, which is the one thing §12 forbids — it fails the rule it was proposed to protect.
+
+### §13 gains a seventh row
+
+7. **The room id is retained by the platform**, as the Durable Object's name, for an
+   undocumented period, at one analytics row per frame. Hashing it means the retained value
+   is not the code's string; it does not hide that a room existed, how long it ran, how many
+   frames crossed, or from which datacenter. This is §13.6's traffic-analysis row made
+   specific, and it is not fixable by any switch we hold.
+
+**This row belongs to the person-to-person half as much as to own-device convergence**, since
+a Send code's room id is retained exactly as a Pairing code's would be.

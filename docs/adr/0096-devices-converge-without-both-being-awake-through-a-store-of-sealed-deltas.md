@@ -1400,3 +1400,39 @@ running while **closed**. And **WebRTC is not the transport**, per ADR-0072's fi
 are open together is not in this repo, this arc or the provider, and it blocks nothing: when devices
 are never open together, this design _is_ the design. The fraction sets the size of a prize, never
 the correctness of a choice — so it sits beside the abandonment fraction, unchased.
+
+## Amendment (2026-09-07, #386): §15 was incomplete — the relay retains an identifier too
+
+Dated and numbered separately from the amendment above rather than folded into it, because
+they are two events a day apart, and folding would make this record claim it knew on the sixth
+what it learned on the seventh.
+
+**§15 lists what the operator can learn and names one retained surface.** There are two.
+[ADR-0072](0072-a-meal-crosses-through-a-relay-that-cannot-read-it.md)'s own amendment carries
+the finding and the repair; what belongs here is the row §15 was missing:
+
+| what any relay session discloses                                                                                            | what this provider additionally retains                                                                                                                                                                                                         |
+| --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| That two endpoints met in a room, when, for how long, and roughly how much crossed. Structural, and not fixable by sealing. | The Durable Object's **`name`** — the room id, hashed from #386 onward — on three always-on datasets with **no documented off switch**, at **one row per frame** (the 20:1 WebSocket discount is billing-only), for an **undocumented** period. |
+
+**Three consequences, and the third is the one to carry.**
+
+- **§9 is spent twice over.** This record already wrote that ADR-0072 §9 may not be cited for
+  R2. It cannot be cited for the relay either, and for the same reason: `[observability]`
+  governs Workers Logs, which is not where these dimensions live.
+- **The store's window is the documented one.** R2 publishes 31 days; the Durable Object
+  datasets publish nothing, so the unfavourable reading is _longer_. The pairing act therefore
+  leaves a mark whose lifetime this record cannot state, where a deposit leaves one whose
+  lifetime it can. That is the reverse of what §15 implied.
+- **§1 is untouched, in words and in force.** Said explicitly because a reader will expect the
+  bar to have moved. §1 bounds **what the store holds**; nothing here is in the bucket. What
+  was wrong was §15's completeness, which is a disclosure claim, and the two are different
+  things — the distinction §12 collapsed and this arc's own §1/§15 split had already fixed.
+
+**The standing invariant survives whole.** _The user's data is sealed whenever it is not on a
+device they own_ holds on both surfaces: sealing is not what failed here, enumeration of the
+metadata around it is. **Two is still the final count.**
+
+**And this strengthens §19's refusal of live-first rather than softening it.** Hashing bounds a
+leak of the dataset; live-first's problem was the **volume** of rows and the **undocumented**
+window, and a hash touches neither.
