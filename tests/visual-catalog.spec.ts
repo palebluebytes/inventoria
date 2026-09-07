@@ -304,13 +304,36 @@ test.describe("Visual Catalog Generator", () => {
     }
   }
 
+  /**
+   * PROTOTYPE #368 — a stopwatch, and the only reason this branch exists.
+   *
+   * The monolith is ONE test, so the `list` reporter can only price the whole
+   * thing. #368 asks for the price of ONE leg of it. Node's clock is real here:
+   * `page.clock.install` fakes the *page's* clock and nothing in this process.
+   *
+   * Prints to stdout, which is where the CI log is, tagged so a `grep PROTO368`
+   * over the run log is the whole measurement.
+   */
+  function stopwatch(tag: string) {
+    const start = Date.now();
+    let last = start;
+    return (leg: string) => {
+      const now = Date.now();
+      console.log(
+        `PROTO368 | ${tag} | ${leg} | ${now - last}ms | cumulative ${now - start}ms`
+      );
+      last = now;
+    };
+  }
+
   test("generates visual catalog screenshots of all dashboards", async ({
     page,
-  }) => {
+  }, testInfo) => {
     // One test drives every dashboard end to end and screenshots each one, so
     // the default 30s budget is too tight — especially under the slower Pixel 5
     // emulation, where it expired mid-run on the Notes tab.
     test.slow();
+    const leg = stopwatch(`monolith/${testInfo.project.name}`);
 
     // Install deterministic clock
     await page.clock.install({ time: new Date("2026-06-05T08:30:00Z") });
@@ -340,9 +363,12 @@ test.describe("Visual Catalog Generator", () => {
       discoveredScreens.push(cleaned);
     }
     expect(discoveredScreens.sort()).toEqual(EXPECTED_SCREENS.sort());
+    leg("boot+nav-census");
 
     await resetDatabase(page);
+    leg("resetDatabase");
     await setupApiKeys(page);
+    leg("setupApiKeys");
 
     // 2. Populate Food Dashboard (Log a Breakfast item via the direct sheet)
     await page.locator(".nav-item", { hasText: "Food" }).click();
@@ -353,9 +379,11 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator(".result-item", { hasText: "Mock Banana" }).click();
     await page.getByLabel("Amount in grams").fill("150");
     await page.locator("#log-food-btn").click();
+    leg("food:seed");
 
     // Take Food Dashboard Screenshot
     await takeFullPageScreenshot(page, "food-dashboard.png");
+    leg("food:capture");
 
     // 3. Populate Habits Dashboard (Add blueprints & log executions)
     await page.locator(".nav-item", { hasText: "Agenda" }).click();
@@ -368,7 +396,9 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator("#habit-name-input").fill("Read Philosophy");
     await page.locator(".category-chip", { hasText: "MIND" }).click();
     await page.locator(".segment-btn", { hasText: "DAILY" }).click();
+    leg("agenda:seed-to-add-habit");
     await takeFullPageScreenshot(page, "add-habit-screen.png");
+    leg("agenda:add-habit-capture");
     await page.locator(".btn-submit-brutal").click();
     await expect(page.locator(".add-habit-sheet")).not.toBeVisible();
 
@@ -623,8 +653,11 @@ test.describe("Visual Catalog Generator", () => {
     await read20PagesItem.click();
     await expect(read20PagesItem.locator(".reps-pill")).toHaveText("1/3");
 
+    leg("agenda:rest-of-seed");
+
     // Take Habits Dashboard Screenshot
     await takeFullPageScreenshot(page, "agenda-dashboard.png");
+    leg("agenda:capture");
 
     // 4. Populate Media Dashboard (Add Movie & Book)
     await page.locator(".nav-item", { hasText: "Media" }).click();
@@ -662,8 +695,11 @@ test.describe("Visual Catalog Generator", () => {
       .click();
     await page.locator(".close-btn").click();
 
+    leg("media:seed");
+
     // Take Media Dashboard Screenshot
     await takeFullPageScreenshot(page, "media-dashboard.png");
+    leg("media:capture");
 
     // 5. Populate Items Dashboard (Add Wanted item)
     await page.locator(".nav-item", { hasText: "Items" }).click();
@@ -686,8 +722,11 @@ test.describe("Visual Catalog Generator", () => {
       page.locator(".alert-success", { hasText: "Successfully imported" })
     ).toBeVisible();
 
+    leg("items:seed");
+
     // Take Items Dashboard Screenshot
     await takeFullPageScreenshot(page, "items-dashboard.png");
+    leg("items:capture");
 
     // 6. Populate Notes Dashboard (a checklist item & a note)
     await page.locator(".nav-item", { hasText: "Notes" }).click();
@@ -706,12 +745,115 @@ test.describe("Visual Catalog Generator", () => {
       "Weekly review: ship the settings reveal toggle."
     );
 
+    leg("notes:seed");
+
     // Take Notes Dashboard Screenshot
     await takeFullPageScreenshot(page, "notes-dashboard.png");
+    leg("notes:capture");
 
     // 7. Settings Page Screenshot
     await page.locator(".nav-item", { hasText: "Settings" }).click();
+    leg("settings:nav");
     await takeFullPageScreenshot(page, "settings-page.png");
+    leg("settings:capture");
+  });
+
+  /**
+   * PROTOTYPE #368 — the same two screens, taken standalone.
+   *
+   * Nested inside this describe on purpose: a real split would live here too,
+   * because the `beforeEach` above is the fixture the seven already share and it
+   * is not the thing #368 is pricing. What is being priced is the LINEAR SEEDING
+   * SCRIPT — whether a screen split off has to re-run the legs before it.
+   *
+   * Both capture the SAME baseline filenames the monolith does, deliberately. A
+   * new name would only prove that a standalone test can take a picture; the
+   * same name asks the question that matters — is the image a standalone fixture
+   * produces the image the monolith produced? A pass is an identity.
+   *
+   * `retries: 0` so a red one is priced once. The reporter prints a duration per
+   * attempt and three attempts would have to be read apart by hand.
+   */
+  test.describe("PROTOTYPE #368 — split off the monolith", () => {
+    test.describe.configure({ retries: 0 });
+
+    /**
+     * `settings-page`, the ticket's candidate.
+     *
+     * The hypothesis this is testing, read off the committed baseline before
+     * anything ran: **the six seeding legs contribute nothing to this image.**
+     * Every figure on the Settings screen that could have carried them reads
+     * zero in the committed PNG — `0 datoms` in Export, `about 0 bytes` in
+     * Storage, and `0 entries` on all three log channels — after a run that
+     * logged a breakfast, seven habits, six events, two media, two items, a
+     * checklist item and a note.
+     *
+     * So the fixture is predicted to be the boot plus ONE of the monolith's
+     * legs: `resetDatabase`, which despite its name resets the OPFS test state
+     * in `localStorage` and — the part that shows — leaves `#dev-mode-toggle`
+     * checked, which is why the baseline has an OPFS Survival Test block.
+     */
+    test("settings-page, standalone", async ({ page }, testInfo) => {
+      const leg = stopwatch(`split-settings/${testInfo.project.name}`);
+
+      await page.clock.install({ time: new Date("2026-06-05T08:30:00Z") });
+      await page.goto("/?mem=1");
+      await waitForDbReady(page);
+      leg("boot");
+
+      await resetDatabase(page);
+      leg("resetDatabase");
+
+      await page.locator(".nav-item", { hasText: "Settings" }).click();
+      leg("settings:nav");
+      await takeFullPageScreenshot(page, "settings-page.png");
+      leg("settings:capture");
+    });
+
+    /**
+     * `notes-dashboard`, the generalisation probe.
+     *
+     * #368 asks whether the fixture "generalises to the other six". Settings
+     * alone cannot answer that: it is the screen with no data of its own, so a
+     * cheap fixture there proves nothing about a screen that has some. Notes is
+     * the cheapest screen that does — one checklist item and one note — and it
+     * is the LAST seeding leg before settings, so if the monolith's script were
+     * genuinely linear (each leg needing the ones before it) this is where that
+     * would show.
+     *
+     * Note what is NOT here: `resetDatabase`, `setupApiKeys`, and the five
+     * seeding legs the monolith runs before Notes. The claim under test is that
+     * a screen's picture depends on its own leg and on nothing else, i.e. that
+     * the script is seven independent seeds concatenated rather than a pipeline.
+     */
+    test("notes-dashboard, standalone", async ({ page }, testInfo) => {
+      const leg = stopwatch(`split-notes/${testInfo.project.name}`);
+
+      await page.clock.install({ time: new Date("2026-06-05T08:30:00Z") });
+      await page.goto("/?mem=1");
+      await waitForDbReady(page);
+      leg("boot");
+
+      await page.locator(".nav-item", { hasText: "Notes" }).click();
+      const checklistInput = page.getByTestId("new-item-input");
+      await checklistInput.fill("Buy groceries");
+      await checklistInput.press("Enter");
+      await expect(
+        page.getByTestId("checklist-item").filter({ hasText: "Buy groceries" })
+      ).toBeVisible();
+
+      await page.locator(".tab-btn", { hasText: "Notes" }).click();
+      await page.locator("button", { hasText: "+ New note" }).click();
+      const noteBody = page.getByTestId("note-body");
+      await noteBody.fill("Weekly review: ship the settings reveal toggle.");
+      await expect(noteBody).toHaveValue(
+        "Weekly review: ship the settings reveal toggle."
+      );
+      leg("notes:seed");
+
+      await takeFullPageScreenshot(page, "notes-dashboard.png");
+      leg("notes:capture");
+    });
   });
 });
 

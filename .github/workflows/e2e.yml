@@ -99,17 +99,26 @@ jobs:
       # GitHub sets CI=true, which playwright.config.ts already reads: it forbids
       # test.only, retries twice, and starts its own dev server rather than
       # reusing one. No CI-specific flags belong here.
+      # PROTOTYPE BRANCH (#368). Narrowed to the one describe being priced, and
+      # the offline step below is deleted, so a dispatch answers the ticket in
+      # minutes instead of running a suite whose other 50 tests are noise on the
+      # two vCPUs the workers share. `--grep` catches the monolith and the two
+      # split tests nested under the same describe title.
+      #
+      # `--workers=1` because the numbers are the deliverable: at the configured
+      # 2 the monolith and the tests split off it would run at the same time on
+      # two vCPUs shared with the Vite dev server, and each would inflate the
+      # other — which is precisely the comparison being made. Serial gives one
+      # uncontended figure per leg; what parallelism would buy is arithmetic on
+      # top of that, not something this run has to demonstrate.
+      #
+      # `--retries=0` so each test is priced once. `|| true` so a red capture
+      # still reaches the upload step: the measurement is the PROTO368 lines on
+      # stdout plus the `-actual.png` a differing test writes, and a failing
+      # screenshot is one of the answers being looked for.
       - name: Run the Playwright suite
         if: ${{ !inputs.update-snapshots }}
-        run: nix develop .#ci --command pnpm test:e2e
-
-      # A separate config and its own production build (see
-      # playwright.offline.config.ts). It guards a cold offline start, which the
-      # main suite structurally cannot: that one runs `pnpm dev`, which registers
-      # no service worker.
-      - name: Run the offline-boot spec
-        if: ${{ !inputs.update-snapshots }}
-        run: nix develop .#ci --command pnpm test:e2e:offline
+        run: nix develop .#ci --command pnpm test:e2e --grep "Visual Catalog Generator" --workers=1 --retries=0 || true
 
       # `playwright` directly rather than through `pnpm test:e2e`, so the flag
       # reaches Playwright rather than pnpm. Bare `--update-snapshots` presets to
@@ -129,8 +138,14 @@ jobs:
 
       # Traces (trace: on-first-retry) and visual diffs land in test-results/.
       # Without them a red run tells you nothing a local re-run could not.
+      #
+      # PROTOTYPE BRANCH (#368): `always()`, not `failure()`. The suite step
+      # above swallows its exit code so the measurement survives a red capture,
+      # which means the job is green whatever happened and `failure()` would
+      # never fire — and the `-actual.png` a differing split test writes here is
+      # the instrument for the fixture question.
       - name: Upload traces and visual diffs
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: playwright-results
