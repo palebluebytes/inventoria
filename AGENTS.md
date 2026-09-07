@@ -15,7 +15,15 @@ checks against, and this file deliberately does not restate it.
   for one-off Node binaries. Never `npm`, `yarn`, or `bun`.
 - **Verification:** a change is verified when `pnpm check`, `pnpm test:unit`, and
   `pnpm lint:css` are clean. `pnpm check` already chains the docs check, the
-  worker-closure check, the log-egress check and the entity-ownership check.
+  worker-closure check, the worker-config check, the log-egress check and the
+  entity-ownership check.
+- **The deployment config is gated, not commented.** `scripts/worker-config-check.mjs`
+  holds `wrangler.toml` and `worker/r2-lifecycle.json` to the claims ADR-0072 §9 and
+  ADR-0096 §15 make in the user's name: no Workers traces, no invocation logs, one R2
+  binding, in the EU, and a 30-day expiry over every prefix. What it cannot reach —
+  object versioning, event notifications, public access — lives on the Cloudflare
+  account, and `docs/how-to-operate-the-store.md` carries each as a command with its
+  verification.
 - **Entity ids are minted in one place.** `src/lib/facets/entity-id.ts` is the
   only module that may build one, and the prefixes it accepts are declared in
   `src/lib/facets/registry.ts`, one owning Tracked Domain each
@@ -74,6 +82,7 @@ touch what you are about to change; do not read all of them by default.
 | Add a whole new tracked domain                                 | `docs/how-to-add-a-tracked-domain.md`                                                            |
 | Add or change a Facet, or ask which Facet something belongs to | `docs/adr/0076-a-facet-is-an-installable-face-onto-one-jar.md` — what a Facet is, and the roster |
 | Ship, replace, or re-derive an app icon                        | `docs/icon-provenance.md` — who made each one, under what licence, and how it was cut            |
+| Touch the store's bucket, or wonder what it costs              | `docs/how-to-operate-the-store.md` — the account-side settings, the threshold, the withdrawal    |
 | Argue about the storage model                                  | `docs/append-only-ledger.md`                                                                     |
 | Work an issue                                                  | `docs/agents/issue-tracker.md` — this repo's `gh` conventions                                    |
 
