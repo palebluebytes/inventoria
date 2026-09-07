@@ -3,7 +3,9 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
   FACETS,
+  type ContentDomainId,
   TRACKED_DOMAINS,
+  type TrackedDomainId,
   entityPrefixesOf,
   facetOf,
   type FacetId,
@@ -34,16 +36,74 @@ describe("the Facet registry (ADR-0076 §6, ADR-0086 §1)", () => {
     );
   });
 
-  it("gives the root every prefix, because Facets overlap rather than partition", () => {
+  it("gives the root every prefix a Facet holds, because Facets overlap rather than partition", () => {
     // ADR-0076 §3. This is also why the owner cannot be a Facet: under
     // Facet-ownership every prefix below would have two owners.
     const root = entityPrefixesOf("root");
     for (const domain of TRACKED_DOMAINS) {
+      if (domain.id === "jar") continue;
       for (const prefix of domain.entityPrefixes) {
         expect(root).toContain(prefix);
       }
     }
     expect(entityPrefixesOf("food").every((p) => root.includes(p))).toBe(true);
+  });
+
+  it("keeps the Jar domain out of every Facet's prefix set, by arithmetic", () => {
+    // ADR-0096 §13, and the one fatal move it exists to prevent: a Facet-scoped
+    // wipe deleting its own record of itself. Nothing subtracts `deletion:`
+    // here — `entityPrefixesOf` is the union of `domainsOf(facetId)`, so a
+    // domain no Facet names is absent from every Facet's predicate without
+    // anything having to remember it. `scripts/entity-ownership-check.mjs`
+    // keeps that premise true; this asserts the consequence.
+    for (const facet of FACETS) {
+      expect([facet.id, entityPrefixesOf(facet.id)]).toEqual([
+        facet.id,
+        expect.not.arrayContaining(["deletion:"]),
+      ]);
+      expect(facet.domains).not.toContain("jar");
+    }
+    // Still owned, and owned by exactly one domain: an unowned prefix is the
+    // defect ADR-0086 was written about, not the goal here.
+    expect(ownerOfEntity("deletion:1757000000000_0_dev_7f3a")?.id).toBe("jar");
+    expect(isDeclaredEntity("deletion:1757000000000_0_dev_7f3a")).toBe(true);
+  });
+
+  it("gives the Jar domain no screen and no localStorage of its own", () => {
+    // The widening ADR-0086 §1's sentence survives: a Tracked Domain need not
+    // have a screen and need not belong to a Facet. Nothing draws a carried
+    // deletion — the peer shows a one-shot notice of a completed act
+    // (ADR-0096 §12) — and a notice is not a domain's screen.
+    const jar = TRACKED_DOMAINS.find((d) => d.id === "jar")!;
+    expect(jar.views).toEqual([]);
+    expect(jar.storagePrefixes).toEqual([]);
+    expect(jar.entityPrefixes).toEqual(["deletion:"]);
+    // It is the only one, which is what makes the biconditional's two halves
+    // both non-vacuous today.
+    expect(
+      TRACKED_DOMAINS.filter((d) => d.views.length === 0).map((d) => d.id)
+    ).toEqual(["jar"]);
+  });
+
+  it("refuses the Jar domain where a Facet-visible owner is wanted", () => {
+    // `ContentDomainId` is the domains some Facet holds, and `@ts-expect-error`
+    // is the assertion: it fails the build if the line below compiles. A log
+    // channel is what it is for. `channelsOfFacet` builds a Set of the domain
+    // ids a Facet holds, so a channel owned by the Jar domain would be in no
+    // card, in no export and in no wipe while still spending the budget, which
+    // is the permanent invisible record ADR-0092 §13's `null` arm prevents.
+    const content: ContentDomainId = "food";
+    // @ts-expect-error the Jar domain is on the roster and in no Facet.
+    const notContent: ContentDomainId = "jar";
+    const anyDomain: TrackedDomainId = "jar";
+
+    // The type is derived from `views`, so the runtime half asserts the shape it
+    // is derived from: exactly the domains with a screen, which the gate's
+    // biconditional makes exactly the domains a Facet holds.
+    expect(
+      TRACKED_DOMAINS.filter((d) => d.views.length > 0).map((d) => d.id)
+    ).toEqual(["food", "media", "items", "habits", "calendar", "notes"]);
+    expect([content, notContent, anyDomain]).toEqual(["food", "jar", "jar"]);
   });
 
   it("names one owner for every entity the app can mint", () => {
@@ -209,6 +269,11 @@ describe("what the Facet gates read off the registry (ADR-0083 §4)", () => {
           exists: existsSync(fileURLToPath(path(owned))),
         }).toEqual({ owned, exists: true });
       }
+      // A domain with no views has no screen to check, and `screenOf` is never
+      // asked for one: it is reached through `screensOf`, which reads
+      // `domainsOf(facetId)`, and no Facet declares the Jar domain
+      // (ADR-0096 §13).
+      if (domain.views.length === 0) continue;
       expect(screenOf(domain)).toBe(domain.views[0]);
       expect(screenOf(domain).startsWith(VIEWS_ROOT)).toBe(true);
       expect(screenOf(domain).endsWith("/")).toBe(false);

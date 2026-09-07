@@ -4,7 +4,7 @@ import {
   findEgressCalls,
   findOpaqueImports,
 } from "../../scripts/log-egress-check.mjs";
-import type { TrackedDomainId } from "../../src/lib/facets/registry";
+import type { ContentDomainId } from "../../src/lib/facets/registry";
 import {
   freshModule,
   freshModuleWithStorage,
@@ -50,7 +50,7 @@ function declareNotes(
   facility: Facility,
   name: string,
   cap = 3,
-  domain: TrackedDomainId | null = "food",
+  domain: ContentDomainId | null = "food",
   version = 1
 ) {
   return facility.defineChannel({
@@ -688,7 +688,7 @@ describe("levels and the dial (ADR-0092 §4, §5)", () => {
     const seen: unknown[] = [];
     const channel = facility.defineChannel({
       name: "notes",
-      domain: "food" as TrackedDomainId,
+      domain: "food" as ContentDomainId,
       purpose: "this test; it decides whether parse sees the level.",
       cap: 3,
       version: 1,
@@ -1191,7 +1191,7 @@ describe("the version envelope (#229)", () => {
     const seen: unknown[] = [];
     const channel = facility.defineChannel({
       name: "notes",
-      domain: "food" as TrackedDomainId,
+      domain: "food" as ContentDomainId,
       purpose: "this test; it decides whether parse sees the envelope.",
       cap: 3,
       version: 7,

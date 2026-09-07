@@ -221,7 +221,7 @@
   <LedgerImport {dbReady} />
 </Card>
 
-<!-- The jar-wide card: the root holds all six Tracked Domains, so it lists every
+<!-- The jar-wide card: the root holds all six content domains, so it lists every
      channel and its Review and Export is jar-wide (ADR-0080 §2). Its switch is
      the root's own door and no longer the only one food's channel has. -->
 <LogSettingsSection facetId="root" />

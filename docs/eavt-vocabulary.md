@@ -41,7 +41,8 @@ Anything scoped by a **Facet**, such as a scoped wipe or a scoped export, scopes
 and never by attribute namespace, because `provenance/` and `event/` are each written by
 several Tracked Domains ([ADR-0076](adr/0076-a-facet-is-an-installable-face-onto-one-jar.md) §4).
 Which prefixes a **Tracked Domain** owns is declared in `src/lib/facets/registry.ts`,
-and a Facet's set is the union of its domains'. That file is canonical for the code and
+and a Facet's set is the union of its domains', so a domain no Facet declares is in no
+Facet's set at all, which is what `deletion:` below turns on. That file is canonical for the code and
 this page is canonical for the reader; `pnpm check:entities` is what keeps them honest,
 and what keeps both honest about `src/`.
 
@@ -130,6 +131,25 @@ amendment.
 The only prefix with a fixed, single entity behind it, and the only domain with no
 **Projection**: its op-log is read by a direct SELECT
 ([ADR-0018](adr/0018-notes-checklist-crdt-oplog-in-ledger.md)).
+
+### The jar's own record
+
+| Prefix      | Identifies                                                                |
+| ----------- | ------------------------------------------------------------------------- |
+| `deletion:` | One **Carried deletion**: a Facet-scoped wipe, as a fact a peer can apply |
+
+The only prefix belonging to a **Tracked Domain** that has no screen and joins no
+**Facet**. That is the whole point of it. A wipe a sleeping peer can carry has to be
+a datom, and a datom inside a Facet's prefix set would be deleted by the very wipe it
+records, so the **Jar domain** owns this one prefix and nothing else
+([ADR-0096](adr/0096-devices-converge-without-both-being-awake-through-a-store-of-sealed-deltas.md) §13).
+It is therefore in no Facet-scoped wipe and in every jar-wide `clear`.
+
+The local part is the act's own datom key, `<hlc_ms>_<hlc_ctr>_<device_id>`, which is
+unique across devices by construction and needs neither a clock read nor a random of
+its own. One entity per wipe and never a singleton: two wipes are two facts with two
+stamps, and one entity under latest-wins would keep only the newer prefix list,
+stranding rows under any prefix that retired between builds.
 
 ## Attribute namespaces
 
@@ -340,3 +360,26 @@ The **Note** and **Checklist** op-log.
 
 - `op`: one CRDT operation delta
   ([ADR-0018](adr/0018-notes-checklist-crdt-oplog-in-ledger.md)).
+
+### `deletion/`
+
+A **Carried deletion**, and the namespace holds one attribute.
+
+- `prefixes`: the entity prefixes the wipe took, derived from the wiping device's
+  registry at the instant of the act and then frozen.
+
+Frozen rather than re-derived, because a re-derivation is evaluated against the
+**peer's** registry and two devices are not on the same build: an older peer would
+delete less, a newer one more, and both would report success. The set a wipe took is a
+fact, and a fact does not get recomputed by whoever reads it. It looks like the second
+hand-written list [ADR-0079](adr/0079-a-facet-scoped-wipe-is-the-third-sanctioned-deletion.md) §3
+forbids and is the opposite of one: that list is authored beside the registry and
+drifts, and this is derived from it, once, and cannot drift because nothing
+re-derives it.
+
+The namespace is `deletion/` and not `wipe/`. `Wipe` is the local control's name, and
+a travelling record named after a button reads as the button rather than as what it
+is. Nothing else joins it: a frozen human label was considered and refuted, because a
+peer that does not recognise a prefix deleted nothing under it, so a name derived from
+`deletion/prefixes` intersected with that peer's own registry says what that peer
+actually did where a frozen phrase would claim rows that are still there.

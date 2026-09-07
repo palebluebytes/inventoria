@@ -56,7 +56,7 @@
   // call site can hand this component a different one while it is mounted.
   //
   // Its own channels only, derived from the domains the Facet already declares.
-  // The root holds all six, so its card stays jar-wide.
+  // The root holds all six content domains, so its card stays jar-wide.
   // svelte-ignore state_referenced_locally
   const channels = channelsOfFacet(facetId);
   // This Facet's own export door (ADR-0080 §5). The root's switch no longer

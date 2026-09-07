@@ -26,6 +26,9 @@
  *      accumulate prefixes no code has used since 2026-06. That is not
  *      hypothetical: ADR-0014's 2026-08 amendment declared three live prefixes
  *      dead and the registry was built from that list.
+ *   4. A domain with views is declared by at least one Facet; a domain with no
+ *      views is declared by none. One biconditional, and it is what makes a
+ *      Tracked Domain outside every Facet safe to have (ADR-0096 §13).
  *
  * FAIL sets a non-zero exit.
  */
@@ -48,7 +51,7 @@ const fail = (m) => {
 };
 const ok = (m) => console.log(`  ok  ${m}`);
 
-const { TRACKED_DOMAINS, ENTITY_PREFIXES } = await import(
+const { TRACKED_DOMAINS, ENTITY_PREFIXES, FACETS } = await import(
   pathToFileURL(join(ROOT, REGISTRY)).href
 );
 
@@ -196,8 +199,29 @@ for (const [path, text] of sources) {
 // carries a second segment naming where it came from. It is the roster's entry
 // for a prefix-scoped read, so it is exempt rather than missing.
 const NEVER_MINTED_BARE = new Set(["twin:"]);
+
+/**
+ * Prefixes declared ahead of the code that mints them, each naming the ticket
+ * that will mint it.
+ *
+ * This is the exemption check 3 exists to make hard, so it is narrow and it is
+ * **loud**: every entry is printed on a passing run, because an entry that
+ * outlives its ticket is exactly the rot ADR-0014's stale list was. A prefactor
+ * is the only thing it is for — a prefix declared so that the ticket which uses
+ * it is about the thing rather than about the registry (#392).
+ */
+const DECLARED_BEFORE_ITS_MINT = new Map([
+  [
+    "deletion:",
+    "#402 mints it, one entity per Facet-scoped wipe (ADR-0096 §13)",
+  ],
+]);
+
 const unminted = [...owners.keys()].filter(
-  (p) => !mintArguments.has(p) && !NEVER_MINTED_BARE.has(p)
+  (p) =>
+    !mintArguments.has(p) &&
+    !NEVER_MINTED_BARE.has(p) &&
+    !DECLARED_BEFORE_ITS_MINT.has(p)
 );
 if (unminted.length) {
   fail(
@@ -206,6 +230,67 @@ if (unminted.length) {
   );
 } else {
   ok(`every declared prefix has a minting site (${mintArguments.size} found)`);
+}
+for (const [prefix, owed] of DECLARED_BEFORE_ITS_MINT) {
+  if (mintArguments.has(prefix)) {
+    fail(
+      `"${prefix}" is minted in src/ now, so its entry in DECLARED_BEFORE_ITS_MINT is spent. ` +
+        `Delete it, or the exemption outlives the ticket that earned it (${owed}).`
+    );
+  } else {
+    ok(`"${prefix}" is declared ahead of its mint: ${owed}`);
+  }
+}
+
+// ── 4. views and Facet membership, as one biconditional ──────────────────────
+
+/**
+ * **A domain with views is declared by at least one Facet; a domain with no
+ * views is declared by none** (ADR-0096 §13).
+ *
+ * Its second half is what stops a Facet ever swallowing the carried deletion,
+ * which is the one fatal move: the Jar domain's `deletion:` must sit outside
+ * every Facet's prefix set, or a Facet-scoped wipe deletes its own record of
+ * itself. `entityPrefixesOf` is the union of `domainsOf(facetId)`, so that
+ * absence is arithmetic rather than policy, and this is what keeps the
+ * arithmetic's premise true.
+ *
+ * Its first half repairs a coverage nobody had asserted. Every domain sat in
+ * the root, so ADR-0083 §5 covered the roster **incidentally**, and a content
+ * domain added next year with a forgotten Facet entry would get no screen, no
+ * install and no failure. It would also make `screenOf` answer `undefined`,
+ * which reaches the containment check as a missing screen rather than as the
+ * registry defect it is.
+ */
+let membershipViolations = 0;
+for (const domain of TRACKED_DOMAINS) {
+  const declaredBy = FACETS.filter((f) => f.domains.includes(domain.id));
+  const hasViews = domain.views.length > 0;
+  if (hasViews && declaredBy.length === 0) {
+    membershipViolations++;
+    fail(
+      `tracked domain "${domain.id}" owns ${domain.views.length} view declaration(s) ` +
+        `but no Facet declares it, so its screen is in no install and nothing would say so.`
+    );
+  }
+  if (!hasViews && declaredBy.length > 0) {
+    membershipViolations++;
+    fail(
+      `tracked domain "${domain.id}" has no screen yet ${declaredBy
+        .map((f) => f.id)
+        .join(
+          ", "
+        )} declares it, so its prefixes are inside a Facet-scoped wipe ` +
+        `(${domain.entityPrefixes.join(", ")}) and the screen check expects a screen it has not got.`
+    );
+  }
+}
+if (!membershipViolations) {
+  const screenless = TRACKED_DOMAINS.filter((d) => d.views.length === 0);
+  ok(
+    `every domain with a screen is in a Facet and every domain without one is in none ` +
+      `(${TRACKED_DOMAINS.length - screenless.length} with, ${screenless.length} without)`
+  );
 }
 
 console.log(

@@ -1,10 +1,10 @@
 # How to add a new tracked domain
 
 A tracked domain is a kind of thing the app records. [CONTEXT.md](../CONTEXT.md)
-carries the term and the roster, six of them, and this file is the route for
-adding a seventh. The roster is deliberately not restated here, so there is one place
-for it to go stale. Adding a domain touches six layers in a fixed order; this is the
-route, `CODING_STANDARDS.md` §2 is the rule it follows, and the acquisition domain
+carries the term and the roster, and this file is the route for adding to it. The
+roster is deliberately not restated here, so there is one place for it to go stale.
+Adding a domain touches six layers in a fixed order; this is the route,
+`CODING_STANDARDS.md` §2 is the rule it follows, and the acquisition domain
 (`src/lib/acquisition/`, four small files) is the smallest complete example to read
 alongside.
 
@@ -33,6 +33,33 @@ change later, because they end up in the ledger and the ledger is append-only.
 Prefixes are stable identity. `gtin:` means "keyed by barcode" forever, so a twin
 minted under one prefix cannot be re-keyed under another without minting a new
 entity.
+
+### A domain that joins no Facet
+
+A domain may join none, and then it has **no screen** and appears in no `domains`
+list in `src/lib/facets/registry.ts`. That is one case rather than a general option,
+and the case is narrow: the thing being recorded is a fact about the jar itself
+rather than a kind of content, and a Facet-scoped act must not be able to reach it.
+The **Jar domain** is the only one, and it exists because a **Carried deletion** must
+survive the wipe it records
+([ADR-0096](adr/0096-devices-converge-without-both-being-awake-through-a-store-of-sealed-deltas.md) §13).
+
+Everything the domain owns follows from the absence, and nothing has to be excluded
+by hand. A Facet's entity prefixes are the union of the domains it declares, so a
+domain no Facet declares is outside every Facet-scoped wipe and every Facet-scoped
+export as arithmetic. `views` is `[]`, and `screensOf` never reaches the domain
+because it reads the same Facet lists.
+
+`pnpm check:entities` holds the two cases apart with a biconditional: **a domain with
+views is declared by at least one Facet, and a domain with no views is declared by
+none.** Both halves fail loudly, so neither an omitted Facet entry on a content
+domain nor a jar-wide domain quietly absorbed into a Facet can reach `main`.
+
+Steps 3 to 7 below may have nothing to do. A jar-wide record is applied where it
+arrives rather than folded into a screen, so it can need no fold, no projection, no
+store and no view, and step 7 tests the fold there is not. Step 1 and step 8 still
+bind: the prefix, the attribute namespace and the terms. Whatever does apply the
+record is still tested, in whatever module owns it.
 
 ## 2. Decide where the data comes from
 

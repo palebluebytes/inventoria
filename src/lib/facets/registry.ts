@@ -19,11 +19,13 @@
  * `description`, `themeColor`, `backgroundColor` — in beside it.
  *
  * **The owner is a Tracked Domain** (ADR-0086 §1). It cannot be a Facet: ADR-0076
- * §3 has Facets overlap rather than partition, and the root holds all six
- * domains, so under Facet-ownership every prefix has two owners and "exactly one
- * owner" is unstatable. A Facet's prefix set is therefore **derived** from the
- * domains it holds, never authored beside them, which is also what keeps a second
- * Facet an application of the mechanism rather than a second list to maintain.
+ * §3 has Facets overlap rather than partition, and the root holds all six content
+ * domains, so under Facet-ownership every content prefix has two owners and
+ * "exactly one owner" is unstatable — while the Jar domain's, which no Facet
+ * holds at all, would have none. A Facet's prefix set is therefore **derived**
+ * from the domains it holds, never authored beside them, which is also what keeps
+ * a second Facet an application of the mechanism rather than a second list to
+ * maintain.
  *
  * `docs/eavt-vocabulary.md` stays canonical for the reader; this is canonical for
  * the code. `scripts/entity-ownership-check.mjs` is what keeps them honest, and
@@ -35,8 +37,17 @@
 
 /**
  * A kind of thing the app records, carrying its own entity prefixes, its own
- * attributes, its own fold and its own screen. The roster is six and lives in
- * `CONTEXT.md`; this adds what each one owns in the jar.
+ * attributes and its own fold. The roster is seven and lives in `CONTEXT.md`;
+ * this adds what each one owns in the jar.
+ *
+ * **Six of the seven also carry a screen and sit in a Facet. The Jar domain
+ * carries neither** (ADR-0096 §13). ADR-0086 §1's sentence — the owner of an
+ * entity prefix is a Tracked Domain, and there is no second kind of owner —
+ * survives word for word; what widened is its subject, because the carried
+ * deletion a wipe hands a peer needs an owner and cannot have one inside any
+ * Facet. `scripts/entity-ownership-check.mjs` holds the two cases apart with a
+ * biconditional: a domain with views is declared by at least one Facet, and a
+ * domain with no views is declared by none.
  */
 export interface TrackedDomain {
   /** Build vocabulary. Never written to a datom (ADR-0076 §2). */
@@ -56,12 +67,15 @@ export interface TrackedDomain {
    */
   readonly storagePrefixes: readonly string[];
   /**
-   * The part of `src/lib/views/` this domain owns, **its screen first**.
+   * The part of `src/lib/views/` this domain owns, **its screen first**, or
+   * empty for a domain that draws nothing.
    *
-   * The lead entry is the screen ADR-0078 §2 fixes one of per domain. Later
-   * entries end in `/` and are directories: a screen's own components, which are
-   * as much this domain's as the screen is. Same convention as {@link
-   * Facet.icons}, where the lead is the mark the Facet installs under.
+   * The lead entry is the screen ADR-0078 §2 fixes one of per domain, which
+   * binds every domain a Facet holds and no others: **empty is the Jar
+   * domain's, and it is the field that says so** (ADR-0096 §13). Later entries
+   * end in `/` and are directories: a screen's own components, which are as much
+   * this domain's as the screen is. Same convention as {@link Facet.icons},
+   * where the lead is the mark the Facet installs under.
    *
    * **Attached to the domain rather than to the Facet** (ADR-0083 §4). A Facet
    * already declares its domains, so a per-Facet list of views would re-record
@@ -178,6 +192,46 @@ export const TRACKED_DOMAINS = [
     entityPrefixes: ["notes:"],
     storagePrefixes: [],
     views: ["src/lib/views/NotesView.svelte", "src/lib/views/notes/"],
+  },
+  {
+    // **The jar's own record of what has been done to it**, which is not the
+    // Jar — that is where things are kept — and is not a seventh kind of
+    // content (ADR-0096 §13). It exists because a Facet-scoped wipe that a peer
+    // can carry has to be a datom, and that datom's owner must sit outside
+    // every Facet's prefix set or a wipe deletes its own record of itself.
+    //
+    // **Its home is arithmetic rather than policy.** `entityPrefixesOf` is the
+    // union of `domainsOf(facetId)`, which filters this roster by the Facet's
+    // own list, so a domain no Facet names is absent from every Facet's wipe
+    // predicate without anything having to remember to exclude it. The same
+    // absence pays the screen problem: `checkViewContainment` compares
+    // `facet.domains` against `screensOf(facet.id)`, and a domain in neither
+    // set leaves that check unchanged rather than excused. `resetLedgerSchema`,
+    // which is the jar-wide `clear`, still takes the rows.
+    //
+    // Named for the class, and the class admits **one** member; a second costs
+    // an amendment to that record.
+    id: "jar",
+    // **The label is what the wipe confirmation prints**, beside "Media",
+    // "Physical items" and "Notes and checklists" in `FoodDataSection`'s
+    // *what stays* line, so it names the rows the way its siblings do. Bare
+    // "Jar" would be wrong twice: `CONTEXT.md` spends that term on the storage,
+    // and a sentence reading "412 datoms stay: Media and Jar" says nothing
+    // about what those rows are. The domain is still the Jar domain; `id` is
+    // where that lives, because ids are build vocabulary and this is not.
+    name: "Deletion records",
+    // The act's own datom key: `deletion:<hlc_ms>_<hlc_ctr>_<device_id>`,
+    // unique across devices by construction and needing neither a clock read
+    // nor a random of its own. Per-act rather than a singleton, because two
+    // wipes are two facts with two stamps and one entity under *a later fact
+    // wins* would keep only the newer prefix list, stranding rows under any
+    // prefix that retired between builds.
+    entityPrefixes: ["deletion:"],
+    storagePrefixes: [],
+    // No screen, which is the widening. Nothing draws a carried deletion: the
+    // peer shows a one-shot notice of a completed act (ADR-0096 §12), and a
+    // notice is not a domain's screen.
+    views: [],
   },
 ] as const satisfies readonly TrackedDomain[];
 
@@ -525,6 +579,30 @@ export const ENTITY_PREFIXES = TRACKED_DOMAINS.flatMap((d) => d.entityPrefixes);
 export type TrackedDomainId = (typeof TRACKED_DOMAINS)[number]["id"];
 
 /**
+ * The id of a **content domain**: a Tracked Domain that records a kind of thing
+ * the user tracks, carries a screen and sits in a Facet. `CONTEXT.md` carries
+ * the term. Today it is the six, and not the Jar domain.
+ *
+ * Derived from `views` rather than from any Facet's list, and the two agree
+ * because `scripts/entity-ownership-check.mjs` holds them to the biconditional:
+ * a domain with views is declared by at least one Facet, and a domain with no
+ * views is declared by none (ADR-0096 §13).
+ *
+ * It exists for anything whose meaning is *the Facets this belongs to*, where
+ * naming a domain no Facet holds is not a narrower answer but an empty one. A
+ * log channel is the case: `channelsOfFacet` builds a `Set` of the domain ids a
+ * Facet holds, so a channel owned by the Jar domain would be in no Facet's card,
+ * in no export and in no wipe, and would still spend the budget — the permanent
+ * invisible record ADR-0092 §13's `null` arm was written to prevent. `null` is
+ * the way to say *jar-wide*, and it is a different statement from naming an
+ * owner nobody can reach.
+ */
+export type ContentDomainId = Extract<
+  (typeof TRACKED_DOMAINS)[number],
+  { views: readonly [unknown, ...unknown[]] }
+>["id"];
+
+/**
  * A prefix the app is allowed to mint. The union is what makes an undeclared
  * prefix a **compile** error rather than something the gate has to catch, which
  * is the half of ADR-0086 §7 that costs nothing to run.
@@ -621,7 +699,17 @@ export function precacheBandOf(facet: Facet): {
  */
 export const VIEWS_ROOT = "src/lib/views/";
 
-/** A domain's screen: the lead entry of what it owns under {@link VIEWS_ROOT}. */
+/**
+ * A domain's screen: the lead entry of what it owns under {@link VIEWS_ROOT}.
+ *
+ * **Only ever asked of a domain some Facet declares**, which is every domain
+ * with views and no others (ADR-0096 §13). The Jar domain owns no view module
+ * and no Facet names it, so `screensOf` never reaches it; a build that put it in
+ * a Facet would yield `[undefined]` here and fail the containment check as a
+ * missing screen, which is why the biconditional in
+ * `scripts/entity-ownership-check.mjs` refuses that arrangement outright rather
+ * than leaving it to be discovered as a broken build.
+ */
 export function screenOf(domain: TrackedDomain): string {
   return domain.views[0];
 }

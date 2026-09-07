@@ -415,6 +415,11 @@ describe("the registry a meal's two allow-lists are read against", () => {
    * that projection by entity, so the hazard is gone and the refusal is kept.
    *
    * `settings/` is not here because it no longer exists anywhere (ADR-0085).
+   *
+   * `deletion/` is the **Jar domain**'s and travels in a convergence deposit
+   * between two replicas of one person's data (ADR-0096 §12), never in a meal
+   * handed to another person. A meal is a narrowed closure of food facts, and a
+   * fact about what its sender deleted is not one of them.
    */
   const NOT_A_MEALS_BUSINESS = [
     "media/",
@@ -423,6 +428,7 @@ describe("the registry a meal's two allow-lists are read against", () => {
     "habit/",
     "cal_event/",
     "notes/",
+    "deletion/",
   ];
 
   it("accounts for every Digital Twin the registry lists", () => {

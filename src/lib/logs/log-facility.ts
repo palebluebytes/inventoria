@@ -59,7 +59,7 @@
  * channel's whole life in one place on purpose.
  */
 
-import { domainsOf, type TrackedDomainId } from "../facets/registry";
+import { domainsOf, type ContentDomainId } from "../facets/registry";
 import {
   clearChannelKeys,
   heldKeys,
@@ -121,8 +121,14 @@ export interface LogChannel<E> {
    * jar-wide channel** the app itself authors (ADR-0092 §13).
    *
    * A **domain** rather than a Facet, because ADR-0086 §1 leaves no other kind
-   * of owner: the root holds all six domains, so under Facet-ownership every
-   * channel would have two owners.
+   * of owner: the root holds all six content domains, so under Facet-ownership
+   * every channel would have two owners.
+   *
+   * A **content domain**, which is why this is `ContentDomainId` and not
+   * `TrackedDomainId`. A channel owned by the Jar domain, which no Facet
+   * declares, would be in no card, no export and no wipe while still spending
+   * the budget, and that is the permanent invisible record the `null` arm below
+   * exists to prevent rather than a second way of writing it.
    *
    * `null` says the true thing rather than inventing an owner to satisfy a rule
    * written for something else — boot narration and database errors belong to
@@ -136,7 +142,7 @@ export interface LogChannel<E> {
    * the app's own narration is not that. Deletion is irreversible, so it stays
    * jar-wide while visibility and export follow the writer.
    */
-  readonly domain: TrackedDomainId | null;
+  readonly domain: ContentDomainId | null;
   /**
    * What this channel is for, in prose (§2).
    *
@@ -240,7 +246,7 @@ interface ATallyNeedsTheCountersItTotals {
 /** What a channel declares, before the two guards are layered over it. */
 interface ChannelFields<E> {
   name: string;
-  domain: TrackedDomainId | null;
+  domain: ContentDomainId | null;
   purpose: string;
   cap: number;
   version: number;
@@ -371,7 +377,7 @@ export function registeredChannels(): LogChannel<unknown>[] {
  *
  * **The `null` test is first, and it is not a convenience.** This builds a `Set`
  * of domain **id strings**, so a `null` domain is in no Facet's set at all — the
- * root's included, even though the root holds all six domains. Written as
+ * root's included, even though the root holds all six content domains. Written as
  * `owned.has(channel.domain)` alone, a jar-wide channel would be invisible in
  * every card, absent from every export, untouched by every wipe, and still
  * spending the budget: a permanent invisible record.
