@@ -6,7 +6,8 @@
 **Amends:** [ADR-0072](0072-a-meal-crosses-through-a-relay-that-cannot-read-it.md) (§5's closing paragraph is withdrawn and its rule transfers here in full; §9 may not be cited for R2; §11's bounds go uniform and its _nobody builds anything on this pipe_ argument is re-made twice; §12 is narrowed to the relay; §13 gains three rows; §14's withdrawal clause becomes operational)  
 **Amends:** [ADR-0079](0079-a-facet-scoped-wipe-is-the-third-sanctioned-deletion.md) (§8's debt is discharged by a carried deletion, and the Consequences' claim that a wiped user's food _comes back_ is corrected: the re-supply is partial, nondeterministic and torn)  
 **Amends:** [ADR-0086](0086-an-entity-has-exactly-one-owner-and-the-owner-is-a-tracked-domain.md) (§1's sentence survives word for word; its subject widens, so a Tracked Domain need not have a screen and need not belong to a Facet)  
-**Amends:** [ADR-0067](0067-a-ledger-comes-back-by-merging-never-by-replacing.md) (§1's two-deliberate-steps argument gains a case it does not know about: an import does not apply held carried deletions)
+**Amends:** [ADR-0067](0067-a-ledger-comes-back-by-merging-never-by-replacing.md) (§1's two-deliberate-steps argument gains a case it does not know about: an import does not apply held carried deletions)  
+**Implemented:** #391 — §8's _the relay's bounds go uniform_ alone, in `worker/src/relay.ts`: ADR-0072 §11.2's frame tally and §11.3's wire ceiling are gone for every room, and the per-frame Durable Object read and write that enforced the first go with it, so a room writes three storage rows however much crosses it (#372 §3.5). Nothing else in this record is built yet
 
 ## Context
 
