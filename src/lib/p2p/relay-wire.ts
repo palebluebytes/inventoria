@@ -13,8 +13,10 @@
  * rather than by a comment.
  *
  * Only what a *client* has to know is here. The Relay's own bounds — the socket
- * cap, the frame tally, the wire-byte backstop — are the Relay's to enforce and
- * a client that duplicated them would be guessing at another party's job.
+ * cap, and the five minutes it keeps its own clock on — are the Relay's to
+ * enforce and a client that duplicated them would be guessing at another
+ * party's job. There were two more until ADR-0096 §8 dropped the frame tally
+ * and the wire-byte backstop for every room.
  */
 
 /** Where the Relay listens, on the app's own origin (ADR-0072 §9). */
@@ -65,8 +67,11 @@ export const ROOM_LIFETIME_MS = 5 * 60 * 1000;
  *
  * It reads one of the refusals by name, and only one. The deadline is a burn
  * condition in its own right (§6.4) and the person waiting is owed those words;
- * the other four are the room refusing a shape, and a client that renamed them
+ * the others are the room refusing a shape, and a client that renamed them
  * would be reporting a defect as patience running out.
+ *
+ * **The range is read, never the list**, which is why two of the Relay's
+ * refusals going in ADR-0096 §8 changed nothing here.
  */
 export const CLOSE_NORMAL = 1000;
 export const FIRST_REFUSAL_CLOSE = 4000;

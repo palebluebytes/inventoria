@@ -113,9 +113,10 @@ export class MealPayloadTooLargeError extends MealPayloadRefusedError {
  *
  * The count is on **decoded** bytes and it is incremental: the stream is read a
  * chunk at a time and cancelled mid-flight, so the memory a bomb asked for is
- * memory that is never spent. The relay's wire-byte backstop (ADR-0072 §11.3)
- * is a different bound with a different job — **this is the one that refuses a
- * meal**, and the two must not be conflated.
+ * memory that is never spent. **This is the one that refuses a meal**, and
+ * since ADR-0096 §8 it is the only one that could: ADR-0072 §11.3's wire-byte
+ * backstop at the relay is withdrawn, so nothing upstream of here counts a
+ * byte.
  *
  * `ceilingBytes` is a parameter so a test can prove the abort without
  * synthesising a megabyte, never so a caller can raise it.

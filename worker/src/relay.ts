@@ -9,9 +9,19 @@
  * seal is the whole binding.
  *
  * Everything this module refuses is a **shape** refusal, since content-based
- * limits are impossible for something that cannot read. The five shapes are
- * numbers rather than "reasonable limits", and each carries its §11 clause
- * below.
+ * limits are impossible for something that cannot read. **The shapes that
+ * bound a room are two — two sockets and five minutes** (ADR-0096 §8), and
+ * they are numbers rather than "reasonable limits". The rest of what this file
+ * refuses is register rather than volume: the parties send binary, the relay
+ * originates text, and a frame with nobody to forward it to has nowhere to go.
+ *
+ * **ADR-0072 §11.2's one frame each way and §11.3's byte ceiling are gone, for
+ * every room.** A pairing first sync is tens of megabytes across many frames,
+ * and the relay may not be told which kind of room it is holding, because
+ * telling it would hand the operator a free classification of a surface three
+ * decisions were spent keeping it out of. **The five-minute clock is the byte
+ * bound now**, and §11's abuse argument is re-made against the wider pipe in
+ * ADR-0096 §8 rather than inherited from here.
  *
  * Nothing here calls the console, and `scripts/worker-closure-check.mjs`
  * enforces that rather than leaving it to review (§9). The script also runs
@@ -26,41 +36,34 @@
  * `tsconfig.worker.json` supplies those types when the Worker is checked, but
  * `tsconfig.tests.json` checks this same file against Node and the DOM, and
  * the two global sets cannot both be loaded — they redeclare `Request`,
- * `Response` and `WebSocket` at each other. Naming the six members the room
+ * `Response` and `WebSocket` at each other. Naming the two members the room
  * actually touches keeps one file honest under both projects, and it is also
  * the seam the unit tests come in through.
+ *
+ * It was four until ADR-0096 §8: a socket carried a hibernation attachment
+ * saying whether it had spent its one frame, and there is no such thing to
+ * remember now.
  */
 export interface RelaySocket {
   send(message: ArrayBuffer | string): void;
   close(code?: number, reason?: string): void;
-  serializeAttachment(value: SocketAttachment): void;
-  deserializeAttachment(): SocketAttachment | null;
-}
-
-/**
- * The only thing a socket remembers: whether it has spent its one frame.
- *
- * It rides in the hibernation attachment, which §12 blesses explicitly — the
- * rule is a lifetime one rather than an API prohibition, and an attachment
- * dies with its socket.
- */
-export interface SocketAttachment {
-  spent: boolean;
 }
 
 /**
  * Just enough of `DurableObjectState` to hold a room.
  *
- * `get` and `put` are typed to the one thing this room ever stores — a count
- * of the frames that have crossed — rather than to the general key-value shape,
- * so widening what the relay remembers has to be a deliberate edit here.
+ * **There is no `get` and no `put`**, and their absence is the enforcement
+ * rather than a tidy-up. A room now holds an alarm and nothing else: the frame
+ * tally went with the rule it enforced, and a Durable Object's storage is
+ * billed in rows written, so a write per frame would turn an unbounded frame
+ * count into a metered one and become the design's binding limit by a factor
+ * of roughly fifty (#372 §3.5). Remembering anything again has to be a
+ * deliberate edit to this interface.
  */
 export interface RelayRoomState {
   getWebSockets(): RelaySocket[];
   acceptWebSocket(ws: RelaySocket): void;
   storage: {
-    get(key: string): Promise<number | undefined>;
-    put(key: string, value: number): Promise<void>;
     getAlarm(): Promise<number | null>;
     setAlarm(scheduledTime: number): Promise<void>;
     deleteAlarm(): Promise<void>;
@@ -100,37 +103,11 @@ declare const Response: {
 export const MAX_SOCKETS_PER_ROOM = 2;
 
 /**
- * §11.2. One payload frame in each direction, which is two frames in all.
+ * §11.4, and now the only other bound. The same five minutes as the sender's
+ * wait ceiling (§6.4) — one clock and one number, not two.
  *
- * It shares a value with the socket cap and not a meaning, so it is its own
- * number: the sockets bound who is in the room, and this bounds how much the
- * room will carry.
- */
-export const FRAMES_PER_ROOM = 2;
-
-/**
- * Where that tally lives for the life of the room.
- *
- * §12 refuses **aggregate** counters — the kind that outlive a room to say
- * something about all of them, and the kind a rate limiter would need. This is
- * the other thing: state for the duration of one room, which is exactly what
- * that section permits, and `deleteAll` takes it with everything else.
- */
-const FRAMES_KEY = "frames";
-
-/**
- * §11.3. A crude backstop on wire bytes, and never the bound that refuses a
- * meal — that one is the recipient's check on **decoded** bytes (ADR-0073 §9),
- * and the two must not be conflated in code or in a message. The wire payload
- * is deflated and then sealed, so it is always smaller than its decoded size
- * and this ceiling can only ever be the more permissive of the two. Its job is
- * to stop somebody streaming a gigabyte through the relay, nothing else.
- */
-export const WIRE_CEILING_BYTES = 1024 * 1024;
-
-/**
- * §11.4. The same five minutes as the sender's wait ceiling (§6.4) — one clock
- * and one number, not two.
+ * Since ADR-0096 §8 it is also the byte bound: nothing counts what crosses, so
+ * how much can cross is however much fits in five minutes.
  */
 export const ROOM_LIFETIME_MS = 5 * 60 * 1000;
 
@@ -140,11 +117,12 @@ export const ROOM_LIFETIME_MS = 5 * 60 * 1000;
  * A party cannot send its payload until the other is present, because §5
  * forbids store-and-forward at any layer: a frame arriving alone has nowhere
  * to go and cannot be parked. Something has to say when to speak, and it
- * cannot be a frame from the peer, since §11.2 spends the peer's one frame on
- * the delivery acknowledgement. So it is the relay's, and the discipline that
- * keeps it unambiguous is the split below: **the relay originates text and the
- * parties send binary.** A party's text frame is therefore refused rather than
- * dropped, since a dropped frame reaches nobody and says so to no one.
+ * cannot be a frame from the peer, for the same reason — a readiness frame
+ * sent into an empty room is exactly the frame that cannot be parked. So it is
+ * the relay's, and the discipline that keeps it unambiguous is the split
+ * below: **the relay originates text and the parties send binary.** A party's
+ * text frame is therefore refused rather than dropped, since a dropped frame
+ * reaches nobody and says so to no one.
  */
 export const PEER_WORD = "peer";
 
@@ -154,9 +132,13 @@ export const CLOSE_NORMAL = 1000;
 // The refusals sit in 4000–4999, the range an application may send. The
 // reserved codes a WebSocket close cannot carry (1004, 1005, 1006, 1015) are
 // close enough to the meanings wanted here to be worth avoiding by policy.
+//
+// **4002 and 4003 are retired, not free.** They were the wire ceiling and the
+// second frame, and both bounds went with ADR-0096 §8. The gap stays a gap: a
+// client reads a 4000-range code as *the room chose to close*, and giving one
+// of these a second meaning would make a session log from before this change
+// say something it never said.
 export const CLOSE_EXPIRED = 4001;
-export const CLOSE_OVER_CEILING = 4002;
-export const CLOSE_SECOND_FRAME = 4003;
 export const CLOSE_NOT_OPAQUE = 4004;
 export const CLOSE_NO_PEER = 4005;
 
@@ -220,6 +202,32 @@ export class Relay {
     }
   }
 
+  /**
+   * Forward one frame to the other party, and count nothing.
+   *
+   * **This method touches no storage, and that is a decision rather than a
+   * consequence.** What was here was a read and a write of the room's frame
+   * tally per frame, enforcing a rule ADR-0096 §8 withdrew; kept as a metric or
+   * a debug aid it would price a first sync at a storage row per chunk.
+   *
+   * Nothing is remembered about a socket either, so a rejoining party arrives
+   * indistinguishable from the one it replaces — which §11 already said it was.
+   *
+   * **A room now always runs its five minutes, and the cost is named here
+   * rather than discovered on a bill.** The tally is what used to close a
+   * finished meal send on its second frame, so a successful send released its
+   * object at once. Nothing replaces it: a room ends on its alarm, or on one of
+   * the two refusals below, and **a party leaving ends nothing** — `webSocketClose`
+   * frees a slot and never reaches `closeRoom`. So a delivered meal now costs
+   * one alarm invocation where it used to fire none, against two storage rows
+   * saved, and an idle room bills no duration because hibernation means no
+   * JavaScript is running in it.
+   *
+   * **Closing the room the moment it empties is refused**, rather than
+   * overlooked: §11 has a dropped party reclaim its slot unidentified, so a
+   * party alone in a room whose socket blipped would come back to find the room
+   * gone.
+   */
   async webSocketMessage(
     ws: RelaySocket,
     message: ArrayBuffer | string
@@ -230,53 +238,17 @@ export class Relay {
       return this.closeRoom(CLOSE_NOT_OPAQUE, "a party's frame is binary");
     }
 
-    // §11.5: over a bound the room closes, and is never truncated. A truncated
-    // payload reaches the recipient as bytes that fail to open with no
-    // explanation, indistinguishable from tampering.
-    if (message.byteLength > WIRE_CEILING_BYTES) {
-      return this.closeRoom(CLOSE_OVER_CEILING, "over the wire ceiling");
-    }
-
-    // §11.2's bound is counted twice, on purpose, because one count alone does
-    // not hold it.
-    //
-    // The attachment is what refuses a *live* socket's second frame, and it is
-    // the precise answer: this party has spent its frame. But an attachment
-    // dies with its socket, and §11 has a dropped party reclaim the free slot
-    // without being identified — so a sender that closes and rejoins arrives
-    // with a clean one, and per-socket counting alone would make the room an
-    // unbounded pipe for its whole five minutes.
-    //
-    // The room's own tally is what closes that. It survives a reconnect
-    // because it belongs to the room rather than to a socket, and it dies with
-    // the room like everything else here. What it cannot do is tell whose
-    // frame each was — that is the identity §11 says the relay does not have
-    // and does not try to acquire — so the honest guarantee is **at most two
-    // frames cross a room**, not one from each named party.
-    const forwarded = (await this.state.storage.get(FRAMES_KEY)) ?? 0;
-    if (forwarded >= FRAMES_PER_ROOM || ws.deserializeAttachment()?.spent) {
-      return this.closeRoom(
-        CLOSE_SECOND_FRAME,
-        "one frame in each direction, and yours is spent"
-      );
-    }
-
-    const room = this.state.getWebSockets();
-    const peer = room.find((other) => other !== ws);
+    // §5 forbids store-and-forward at any layer, so a frame that arrives with
+    // nobody to forward it to cannot be parked. It is refused rather than
+    // dropped, for §11.5's reason rather than under its rule: a dropped frame
+    // reaches nobody and says so to no one, which is the same silence a
+    // truncated payload arrives as.
+    const peer = this.state.getWebSockets().find((other) => other !== ws);
     if (!peer) {
       return this.closeRoom(CLOSE_NO_PEER, "nobody to forward to");
     }
 
-    ws.serializeAttachment({ spent: true });
-    await this.state.storage.put(FRAMES_KEY, forwarded + 1);
     peer.send(message);
-
-    // The reverse direction carries §7's delivery acknowledgement and nothing
-    // else, so once both frames have crossed there is nothing left for the
-    // room to do.
-    if (forwarded + 1 === FRAMES_PER_ROOM) {
-      await this.closeRoom(CLOSE_NORMAL, "delivered");
-    }
   }
 
   /**
@@ -299,9 +271,16 @@ export class Relay {
 
   /**
    * §12: the relay may hold state for the duration of a room, and nothing that
-   * outlives one. Clearing here is what makes §8's bar true by construction
-   * rather than by policy — after this, no record anywhere says the room
-   * existed, so there is nothing to correlate, subpoena or leak.
+   * outlives one. That rule is ours and it holds, and this is where it is kept.
+   *
+   * **What it does not buy is a claim about records anywhere else**, which is
+   * what §12 used to say here and ADR-0072's 2026-09-07 Amendment corrected: the
+   * platform's own Durable Object analytics retain the object's name, one row
+   * per frame, and minute-resolution timing, for an undocumented window and
+   * behind no switch we hold. `worker/src/index.ts` hashes the room id before
+   * naming the object for exactly that reason. A bar phrased as *no record
+   * anywhere* is a disclosure claim, and a disclosure claim about a platform is
+   * never met by construction.
    *
    * `deleteAll` leaves the alarm alone, so the alarm goes separately.
    *

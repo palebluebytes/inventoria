@@ -18,13 +18,13 @@ import { test, expect, type Page } from "@playwright/test";
 // **Every run is in a fresh room, by construction.** The sender's own
 // `mintSendCode` draws the id from the CSPRNG when the way out is tapped, so
 // each run of each project mints its own — which matters, because ADR-0072
-// §11.1 holds at most two sockets per room and §11.2 burns the room after two
-// frames, and `fullyParallel` with two workers would otherwise have a second
-// run fail on a bound rather than on a defect.
+// §11.1 holds at most two sockets per room, and `fullyParallel` with two
+// workers would otherwise have a second run fail on a bound rather than on a
+// defect.
 //
-// **No bound was moved to make this pass.** The room's five minutes (§11.4),
-// the socket cap and the frame tally are the shipped numbers; a round trip is
-// synchronous and finishes in a second or two.
+// **No bound was moved to make this pass.** The room's five minutes (§11.4)
+// and the socket cap are the shipped numbers, and they are now the only two
+// (ADR-0096 §8); a round trip is synchronous and finishes in a second or two.
 //
 // What it does not buy: an emulated handset is not a handset. The `Mobile
 // Chrome` project is Pixel 5 emulation inside desktop Chromium, so this says

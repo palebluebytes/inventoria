@@ -17,8 +17,6 @@ import {
   CLOSE_NORMAL as RELAY_CLOSE_NORMAL,
   CLOSE_EXPIRED as RELAY_CLOSE_EXPIRED,
   CLOSE_NOT_OPAQUE,
-  CLOSE_OVER_CEILING,
-  CLOSE_SECOND_FRAME,
   CLOSE_NO_PEER,
   MAX_SOCKETS_PER_ROOM,
   PEER_WORD as RELAY_PEER_WORD,
@@ -487,8 +485,6 @@ describe("the wire the client speaks is the relay's own", () => {
     // ending, or it would rejoin a room that is gone.
     for (const refusal of [
       RELAY_CLOSE_EXPIRED,
-      CLOSE_OVER_CEILING,
-      CLOSE_SECOND_FRAME,
       CLOSE_NOT_OPAQUE,
       CLOSE_NO_PEER,
     ]) {

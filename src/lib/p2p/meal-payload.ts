@@ -62,10 +62,11 @@ export const MEAL_PAYLOAD_SCHEMA_VERSION = 1;
  * hostile payload and must never be the reason an honest meal cannot be sent."
  *
  * It is not checked here. The bound that refuses a meal is the recipient's, on
- * bytes counted as they decode, and the relay's wire-byte backstop is a
- * different bound again — §9 is explicit that the two must not be conflated. It
- * lives beside the format so the one test that guards it has something to guard
- * against.
+ * bytes counted as they decode, and since ADR-0096 §8 it is the **only** bound
+ * on a meal's size anywhere: the relay's wire-byte backstop went with the rest
+ * of ADR-0072 §11's volume bounds. §9 was already explicit that the two must
+ * not be conflated, and there is now only one to conflate. It lives beside the
+ * format so the one test that guards it has something to guard against.
  */
 export const MEAL_PAYLOAD_CEILING_BYTES = 1024 * 1024;
 

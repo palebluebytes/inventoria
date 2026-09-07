@@ -33,7 +33,8 @@
  * instant delivery completes, so there is no channel left to carry one either.
  *
  * The negative word is not a widening of §11.2's "the delivery acknowledgement
- * and nothing else": it is the same acknowledgement, and without it a refused
+ * and nothing else" — a rule ADR-0096 §8 has since withdrawn, though this was
+ * never outside it: it is the same acknowledgement, and without it a refused
  * send would leave the sender staring at a screen until the room's five minutes
  * ran out, unable to tell a refusal from a recipient who walked away. It
  * carries no reason. The reason is the recipient's to see (ADR-0074 §6), and a
@@ -112,9 +113,10 @@ export type SendFailure =
   /** The other device refused the payload (§6.2, ADR-0073 §8 and §9). */
   | "refused"
   /**
-   * The Relay closed the room under one of its own bounds (§11) — a third
-   * socket, a frame over the wire ceiling, a second frame, a text frame, or a
-   * peer that went away before the payload could be forwarded.
+   * The Relay closed the room under one of its own refusals (§11) — a text
+   * frame, or a peer that went away before the payload could be forwarded. A
+   * third socket is refused before a socket exists to be closed, so it arrives
+   * as `unavailable` instead.
    */
   | "closed";
 
@@ -444,8 +446,10 @@ export async function sendMealPayload(
       const event = await room.next();
 
       if (event.kind === "peer") {
-        // A second peer word is a rejoin, and our one frame is already gone:
-        // sending again would spend the room's tally (§11.2) and close it.
+        // A second peer word is a rejoin, and this send is one frame: sending
+        // again would hand the recipient the same meal twice. The room would
+        // now carry it — ADR-0096 §8 dropped the tally that used to close the
+        // room over it — so the guard is this side's alone.
         if (!sent) {
           room.send(payload);
           sent = true;
