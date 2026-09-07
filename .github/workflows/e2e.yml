@@ -19,7 +19,27 @@ on:
   # Visual baselines belong to the machine that checks them: fonts and rendering
   # differ between this runner and a NixOS workstation, so a snapshot captured
   # locally is not the one CI compares against. Run this workflow by hand with
-  # `update-snapshots` on, then commit the artifact it uploads.
+  # `update-snapshots` on, then:
+  #
+  #   1. Copy the artifact over `tests/*-snapshots/` **wholesale**. Under
+  #      `changed` mode the runner rewrites only the captures that failed, so
+  #      every other file in it is byte-identical to the one already committed.
+  #      Hand-picking re-introduces the "is this failing or merely different?"
+  #      confusion the mode does not have.
+  #   2. Let `git status` name the set. It is exactly the set the suite refused
+  #      — an identity, not an approximation. Untracked means a new baseline;
+  #      modified means one that moved.
+  #   3. Account for all of it in the commit message, which lands alone as
+  #      `test(visual)`. Every moved file goes under a named cause, one file per
+  #      cause is measured rather than attributed, and the message says how many
+  #      of the total moved.
+  #
+  # The artifact's existence is itself evidence: the upload below carries an
+  # implicit `success()`, so a run that reaches the artifact is one where every
+  # capture executed and every file it did not rewrite passed at the configured
+  # tolerance. A rebaseline dispatch is green by construction — the diffs in
+  # `test-results/` upload only `if: failure()`, so step 3's measurement is made
+  # against the committed PNGs, not against anything CI hands back.
   workflow_dispatch:
     inputs:
       update-snapshots:
