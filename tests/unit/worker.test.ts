@@ -24,9 +24,14 @@ function streamingResponse(
  * The bindings the script is deployed with. A proxy request never touches the
  * relay namespace; a relay request never gets past it, since the fake answers
  * every room with the same sentinel and records which one it was asked for.
+ *
+ * The store's bucket is here for the same reason and answers the same way:
+ * this file is about which route a path reaches, and `tests/unit/store.test.ts`
+ * is where the store's own decisions are made.
  */
 function fakeEnv() {
   const rooms: string[] = [];
+  const addresses: string[] = [];
   const socket = new Response("upgraded");
   const env: WorkerEnv = {
     RELAY: {
@@ -36,8 +41,21 @@ function fakeEnv() {
       },
       get: () => ({ fetch: async () => socket }),
     },
+    STORE: {
+      get: async (key) => {
+        addresses.push(key);
+        return null;
+      },
+      put: async (key) => {
+        addresses.push(key);
+        return { etag: "stored" };
+      },
+      delete: async (key) => {
+        addresses.push(key);
+      },
+    },
   };
-  return { env, rooms, socket };
+  return { env, rooms, addresses, socket };
 }
 
 /**
@@ -190,5 +208,38 @@ describe("relay routing", () => {
     await worker.fetch(relayRequest("?room=Ck9x2p"), env);
 
     expect(rooms[0]).toBe(rooms[1]);
+  });
+});
+
+// ADR-0096 §16: the store is a third route on the same script, and the address
+// arrives in the query and is handed on unread. The route decides nothing about
+// it — an unenumerable address is a chain this Worker has never seen, so there
+// is nothing here to interpret and nothing to validate beyond its shape.
+describe("store routing", () => {
+  const storeRequest = (query: string) =>
+    new Request(`https://proxy.example/api/store${query}`);
+
+  it("400s the store path when no address is given", async () => {
+    const res = await worker.fetch(storeRequest(""), fakeEnv().env);
+
+    expect(res.status).toBe(400);
+    expect(await res.text()).toBe("Missing deposit address");
+  });
+
+  it("hands the address to the bucket exactly as it arrived", async () => {
+    const { env, addresses } = fakeEnv();
+    const address = "f".repeat(64);
+
+    await worker.fetch(storeRequest(`?key=${address}`), env);
+
+    expect(addresses).toEqual([address]);
+  });
+
+  it("does not take the relay's room as a store address", async () => {
+    const { env, addresses } = fakeEnv();
+
+    await worker.fetch(storeRequest("?room=Ck9x2p"), env);
+
+    expect(addresses).toEqual([]);
   });
 });

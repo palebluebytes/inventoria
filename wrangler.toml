@@ -73,6 +73,29 @@ class_name = "Relay"
 tag = "v1"
 new_sqlite_classes = ["Relay"]
 
+# The store (ADR-0096 §1). A third route on this same script, for the reason
+# the relay is the second: a separate Worker means a separate
+# dashboard-configured build that nothing in this repo records.
+#
+# **`jurisdiction = "eu"` is a decision rather than a deployment detail**, which
+# is why ADR-0096 §15 states it in the record and not as an implementation note
+# — it is a claim the bar sentence makes about where sealed personal data rests.
+# A jurisdictional bucket is a distinct namespace: every `wrangler r2 bucket`
+# command against it needs `-J eu`, and one run without it addresses a
+# different, empty bucket of the same name.
+#
+# **What is not here, and cannot be.** Three of §1's five clauses live on the
+# bucket rather than in this file, and wrangler has no config key for any of
+# them: the 30-day lifecycle rule (`wrangler r2 bucket lifecycle set`, from
+# `worker/r2-lifecycle.json`), object versioning being off, and the bucket not
+# being public. `docs/how-to-operate-the-store.md` carries all three as
+# commands, with the verification for each, because ADR-0070 already cost this
+# repo one retraction over a setting that lived only in a dashboard.
+[[r2_buckets]]
+binding = "STORE"
+bucket_name = "inventoria-store"
+jurisdiction = "eu"
+
 # `enabled` here is the switch for observability as a whole; the per-signal
 # blocks below say which signals are actually wanted. This used to read
 # `enabled = false` under blocks that turned logs on, which left the outcome

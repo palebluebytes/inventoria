@@ -112,8 +112,14 @@ const handleProxyRequest = async (req: any, res: any, next: any) => {
  * `playwright.config.ts` waits on it. Nothing can import across those three, so
  * the number is repeated rather than shared, and IPv4 is named on both ends
  * because `wrangler dev --ip 127.0.0.1` does not answer on `::1`.
+ *
+ * Two targets off one host, because the same `wrangler dev` process answers
+ * both of the Worker's routes and they are not the same protocol: the relay is
+ * a socket upgrade and the store is plain HTTP.
  */
-const RELAY_DEV_TARGET = "ws://127.0.0.1:8787";
+const WORKER_DEV_HOST = "127.0.0.1:8787";
+const RELAY_DEV_TARGET = `ws://${WORKER_DEV_HOST}`;
+const STORE_DEV_TARGET = `http://${WORKER_DEV_HOST}`;
 
 const localScraperProxyPlugin = () => ({
   name: "local-scraper-proxy",
@@ -608,8 +614,16 @@ export default defineConfig({
     // relay (`pnpm dev:relay`, which `playwright.config.ts` runs for the
     // suite). Without one, this entry refuses the upgrade, which is the same
     // absent relay a send behind `pnpm dev` has always met.
+    //
+    // **The store goes the same way and for the same reasons** (ADR-0096 §16).
+    // A bucket is even less re-implementable here than a room: a stand-in with
+    // a `Map` in it would have no etag, so the conditional rewrite §5's whole
+    // orphan design rests on would be the one thing a test could not reach.
+    // `wrangler dev` simulates R2 locally, so this costs no account and no
+    // network.
     proxy: {
       "/api/relay": { target: RELAY_DEV_TARGET, ws: true },
+      "/api/store": { target: STORE_DEV_TARGET },
     },
     headers: {
       "Cross-Origin-Opener-Policy": "same-origin",

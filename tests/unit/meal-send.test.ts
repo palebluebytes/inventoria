@@ -509,6 +509,13 @@ describe("the wire the client speaks is the relay's own", () => {
         },
         get: () => ({ fetch: async () => new Response("upgraded") }),
       },
+      // A send never reaches the store: ADR-0096 keeps person-to-person
+      // synchronous, and only own-device convergence has a lane.
+      STORE: {
+        get: async () => null,
+        put: async () => ({ etag: "unreachable" }),
+        delete: async () => {},
+      },
     };
 
     const request = new Request(url, { headers: { Upgrade: "ws" } });

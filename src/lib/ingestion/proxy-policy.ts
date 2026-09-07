@@ -34,14 +34,18 @@ export const securityHeaders: Record<string, string> = {
 export const HTML_CSP =
   "default-src 'none'; img-src data: https:; style-src 'unsafe-inline'; frame-ancestors 'none'";
 
-/** Raised by readCapped when a body exceeds MAX_RESPONSE_BYTES mid-stream. */
-export class ResponseTooLargeError extends Error {}
+/** Raised by readCapped when a body exceeds the cap it was given, mid-stream. */
+export class BodyTooLargeError extends Error {}
 
 /**
- * Reads a response body, aborting as soon as it exceeds `max` bytes. This bounds
- * memory regardless of whether the upstream sent an honest content-length — a
+ * Reads a body, aborting as soon as it exceeds `max` bytes. This bounds memory
+ * regardless of whether the sender declared an honest content-length — a
  * chunked/length-omitted body cannot be trusted, so we must measure while
  * reading rather than buffering the whole thing first.
+ *
+ * An HTTP message rather than a `Response`, because the store's route reads an
+ * incoming deposit under exactly this discipline (`worker/src/store.ts`,
+ * ADR-0096 §1). The two directions differ only in who is not to be trusted.
  *
  * The buffer is spelled `ArrayBuffer` rather than left at the default
  * `ArrayBufferLike`, because everything returned here is allocated here and so
@@ -49,10 +53,10 @@ export class ResponseTooLargeError extends Error {}
  * `Response`: `BodyInit` refuses a view that might sit on a `SharedArrayBuffer`.
  */
 export async function readCapped(
-  response: Response,
+  message: Request | Response,
   max: number
 ): Promise<Uint8Array<ArrayBuffer>> {
-  const reader = response.body?.getReader();
+  const reader = message.body?.getReader();
   if (!reader) return new Uint8Array(0);
 
   const chunks: Uint8Array[] = [];
@@ -63,7 +67,7 @@ export async function readCapped(
     total += value.byteLength;
     if (total > max) {
       await reader.cancel();
-      throw new ResponseTooLargeError();
+      throw new BodyTooLargeError();
     }
     chunks.push(value);
   }
@@ -127,7 +131,7 @@ export async function readProxyPayload(
     );
     return { kind: "html", html: cleanHtml(raw) };
   } catch (err) {
-    if (err instanceof ResponseTooLargeError) {
+    if (err instanceof BodyTooLargeError) {
       return {
         kind: "error",
         status: 413,

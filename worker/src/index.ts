@@ -9,6 +9,7 @@ import {
   readProxyPayload,
 } from "../../src/lib/ingestion/proxy-policy";
 import type { RelayNamespace } from "./relay";
+import { storeRequest, type StoreBucket } from "./store";
 
 // The relay is a Durable Object defined in this script, so wrangler needs it
 // exported from the entry module (ADR-0072 §9: one Worker, two routes — a
@@ -34,9 +35,20 @@ const PROXY_PATH = "/api/proxy";
  */
 const RELAY_PATH = "/api/relay";
 
+/**
+ * The store's route, on the same origin for the same reason as the relay's
+ * (ADR-0096 §16): the client speaks our protocol and never names the provider,
+ * so the entire provider surface is `worker/src/store.ts` and this line.
+ *
+ * A pivot is therefore a repoint of this constant and a re-fill of each lane on
+ * its next wake, which is the same cost the backstop expiry already imposes.
+ */
+const STORE_PATH = "/api/store";
+
 /** The bindings this script is deployed with; see `wrangler.toml`. */
 export interface WorkerEnv {
   RELAY: RelayNamespace;
+  STORE: StoreBucket;
 }
 
 function errorResponse(message: string, status: number): Response {
@@ -128,6 +140,16 @@ export default {
 
     if (pathname === RELAY_PATH) {
       return relayRequest(request, env, searchParams.get("room"));
+    }
+
+    // The address arrives in the query and is handed straight on, unread and
+    // unrecorded: it is a ratchet output this Worker has never seen the chain
+    // for (ADR-0096 §4), so there is nothing here to interpret. What the
+    // platform retains about it anyway is §15's, and it has no switch — which
+    // is why `scripts/worker-config-check.mjs` at least keeps the one pipeline
+    // that has a switch, Workers Traces, turned off.
+    if (pathname === STORE_PATH) {
+      return storeRequest(request, env.STORE, searchParams.get("key"));
     }
 
     if (pathname !== PROXY_PATH) {
