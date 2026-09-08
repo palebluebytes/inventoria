@@ -115,20 +115,19 @@ const pixelAt = (image, x, y) => {
  * are 437 and 352.
  */
 const differingPixels = (before, after, size) => {
+  // Reads outside an image as the transparent black the comparator pads with,
+  // rather than as a difference in itself: the pair being compared here has to
+  // be the pair the comparator compared, or the two numbers are not of one
+  // thing and their gap says nothing about the tolerance.
+  const channel = (image, x, y, offset) =>
+    x < image.width && y < image.height
+      ? image.data[(y * image.width + x) * 4 + offset]
+      : 0;
   let differing = 0;
   for (let y = 0; y < size.height; y++) {
     for (let x = 0; x < size.width; x++) {
-      const a = x < before.width && y < before.height;
-      const b = x < after.width && y < after.height;
-      if (a !== b) {
-        differing++;
-        continue;
-      }
-      if (!a) continue;
-      const i = (y * before.width + x) * 4;
-      const j = (y * after.width + x) * 4;
-      for (let channel = 0; channel < 4; channel++) {
-        if (before.data[i + channel] !== after.data[j + channel]) {
+      for (let offset = 0; offset < 4; offset++) {
+        if (channel(before, x, y, offset) !== channel(after, x, y, offset)) {
           differing++;
           break;
         }
@@ -139,6 +138,16 @@ const differingPixels = (before, after, size) => {
 };
 
 /** How many pixels the comparator counted, read off its own message. */
+/**
+ * How many pixels the comparator counted, read off its own message.
+ *
+ * Prose, and therefore the one reading here that can rot quietly on an upgrade.
+ * A wording change would parse as 0, which is why the scan below runs whenever
+ * the comparator returned a verdict at all rather than only when this found a
+ * number: 0 against a diff image full of counted pixels is the disagreement the
+ * check is for, and skipping the scan on 0 would be skipping it precisely when
+ * it fires.
+ */
 const countFrom = (errorMessage) =>
   Number(/(\d+) pixels \(ratio/.exec(errorMessage ?? "")?.[1] ?? 0);
 
@@ -180,8 +189,13 @@ export function measure(beforeBuffer, afterBuffer, options = {}) {
     options: counting,
   };
   measurement.ratio = measurement.count / (before.width * before.height);
-  if (measurement.count === 0) return measurement;
+  // No verdict is the comparator saying nothing differed: the budget knobs are
+  // dropped above, so `maxDiffPixels` is 0 and any counted pixel produces one.
+  if (!verdict) return measurement;
 
+  // Indices by hand rather than through `pixelAt`, which allocates: this walks
+  // every pixel of the diff, and the biggest baseline in the catalogue is 5.6M
+  // of them.
   const diff = PNG.sync.read(verdict.diff);
   const pairs = new Map();
   let seen = 0;
@@ -215,15 +229,19 @@ export function measure(beforeBuffer, afterBuffer, options = {}) {
     }
   }
 
-  // The two readings are of one thing, so a disagreement means pixelmatch has
-  // changed how it draws a counted pixel and every region below it is fiction.
+  // The two readings are of one thing, so a disagreement means either the
+  // message this scraped a count out of or the colour a counted pixel is drawn
+  // in has moved, and every figure below is then fiction.
   if (seen !== measurement.count) {
     throw new Error(
       `The comparator counted ${measurement.count} changed pixels and drew ` +
-        `${seen} of them. playwright-core's diff colours have moved; see ` +
-        `COUNTED in this file.`
+        `${seen} of them. playwright-core's diff message or its diff colours ` +
+        "have moved; see countFrom and COUNTED in this file."
     );
   }
+  // A verdict with nothing counted is a resize and nothing else: the message
+  // carries only its size half, and there is no region to bound.
+  if (seen === 0) return measurement;
 
   measurement.box.width = measurement.box.right - measurement.box.left + 1;
   measurement.box.height = measurement.box.bottom - measurement.box.top + 1;

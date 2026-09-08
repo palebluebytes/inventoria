@@ -1,4 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 // A plain-Node ops script, deliberately outside the app's tsconfig: it drives
 // Playwright's own comparator and is run by hand beside a rebaseline commit.
 // @ts-ignore
@@ -20,6 +25,12 @@ import {
 // comparator's verdict from a reimplementation of it: a colour shift the
 // comparator does not count, the same shift at a threshold that does, and a
 // change sitting under a `maxDiffPixels` the suite would have passed.
+//
+// Reaching the comparator at all means this file reaches two private paths
+// inside `playwright-core`, which is a dependency nothing here declares. That
+// is deliberate and it has a price: a Playwright upgrade that moves either path
+// reddens `pnpm test:unit`, not just the tool. Loud is the whole argument for
+// the deep import, and the local gate is where it lands.
 
 const { PNG } = playwrightModule("lib/utilsBundle");
 
@@ -28,17 +39,23 @@ const paint = (
   width: number,
   height: number,
   base: [number, number, number],
-  over: (x: number, y: number) => [number, number, number] | null = () => null
+  over: (
+    x: number,
+    y: number
+  ) =>
+    | [number, number, number]
+    | [number, number, number, number]
+    | null = () => null
 ): Buffer => {
   const png = new PNG({ width, height });
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const at = (y * width + x) * 4;
-      const [r, g, b] = over(x, y) ?? base;
+      const [r, g, b, a = 255] = over(x, y) ?? base;
       png.data[at] = r;
       png.data[at + 1] = g;
       png.data[at + 2] = b;
-      png.data[at + 3] = 255;
+      png.data[at + 3] = a;
     }
   }
   return PNG.sync.write(png);
@@ -87,6 +104,22 @@ describe("what moved between two baselines", () => {
     expect(m.transitions).toEqual([
       { from: [0, 0, 0, 255], to: [255, 255, 255, 255], count: 6 },
     ]);
+  });
+
+  it("reports a resize whose new rows the padding already matched", () => {
+    // The comparator pads with transparent black, so a capture that grew two
+    // transparent rows differs in size and in nothing else. It still answers
+    // with a verdict — the size half of its message — and there is no region to
+    // bound. Nothing may fall over on the way to saying so.
+    const transparentTail = (_x: number, y: number) =>
+      y >= 6 ? ([0, 0, 0, 0] as [number, number, number, number]) : null;
+    const m = measure(paint(8, 8, BLACK, transparentTail), paint(8, 6, BLACK));
+
+    expect(m.resized).toBe(true);
+    expect(m.count).toBe(0);
+    expect(m.differing).toBe(0);
+    expect(m.identical).toBe(false);
+    expect(m.box).toBeNull();
   });
 
   it("reports both sizes when the screen resized, and reads the pixels the comparator padded", () => {
@@ -211,5 +244,81 @@ describe("the report", () => {
     expect(still).not.toContain("region");
     expect(under).toContain("0 px");
     expect(under).not.toContain("identical");
+  });
+});
+
+describe("the script as a rebaseline actually runs it", () => {
+  // Driven end to end, the way `tests/unit/docs-check.test.ts` drives the docs
+  // gate, because three things only exist in `main`: the one-path form reading
+  // the prior out of git, the tolerance read out of `playwright.config.ts` by a
+  // Node that strips its types, and the exit-2 contract. All three are on the
+  // path a committer takes and none is reachable from the exports above.
+
+  const SCRIPT = fileURLToPath(
+    new URL("../../scripts/baseline-diff.mjs", import.meta.url)
+  );
+  const BASELINE = "shot-chromium-linux.png";
+
+  let repo: string;
+
+  const git = (...args: string[]) =>
+    spawnSync("git", ["-c", "commit.gpgsign=false", ...args], {
+      cwd: repo,
+      encoding: "utf8",
+    });
+
+  const run = (...args: string[]) => {
+    const r = spawnSync(process.execPath, [SCRIPT, ...args], {
+      cwd: repo,
+      encoding: "utf8",
+    });
+    return { code: r.status, out: `${r.stdout}${r.stderr}` };
+  };
+
+  beforeEach(() => {
+    repo = mkdtempSync(join(tmpdir(), "baseline-diff-"));
+    git("init", "-q");
+    git("config", "user.email", "test@example.com");
+    git("config", "user.name", "Test");
+    writeFileSync(join(repo, BASELINE), paint(8, 8, BLACK));
+    git("add", BASELINE);
+    git("commit", "-q", "-m", "the baseline before it moved");
+  });
+
+  afterEach(() => rmSync(repo, { recursive: true, force: true }));
+
+  it("compares the prior in HEAD against the file the artifact left on disk", () => {
+    writeFileSync(join(repo, BASELINE), paint(8, 8, BLACK, blockAt));
+
+    const { code, out } = run(BASELINE);
+
+    expect(code).toBe(0);
+    expect(out).toContain(`HEAD:${BASELINE}`);
+    expect(out).toContain("6 px changed of 64");
+    expect(out).toContain("x 1-2, y 2-4");
+  });
+
+  it("names the tolerance it compared at, read out of playwright.config.ts", () => {
+    const { out } = run(BASELINE);
+
+    expect(out).toContain("comparator pixelmatch");
+    expect(out).toContain("threshold");
+  });
+
+  it("refuses a baseline with no prior, which is a new one and owes more", () => {
+    writeFileSync(join(repo, "new-chromium-linux.png"), paint(8, 8, BLACK));
+
+    const { code, out } = run("new-chromium-linux.png");
+
+    expect(code).toBe(2);
+    expect(out).toContain("not in HEAD");
+    expect(out).toContain("§8 clause 4");
+  });
+
+  it("refuses more paths than it has forms for", () => {
+    const { code, out } = run(BASELINE, BASELINE, BASELINE);
+
+    expect(code).toBe(2);
+    expect(out).toContain("usage:");
   });
 });
