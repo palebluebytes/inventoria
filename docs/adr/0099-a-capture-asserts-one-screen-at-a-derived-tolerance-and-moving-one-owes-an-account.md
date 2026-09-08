@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-07  
-**Implemented:** §8's procedure — `.github/workflows/e2e.yml`'s header (`d7a9ecb`, #369); §7's measurement — `takeSheetScreenshot`'s doc comment in `tests/visual-catalog.spec.ts` (`3c51512`, #366); the pre-landing state of both helpers, recorded in place (`9069dab`, #367)
+**Implemented:** §8's instrument — `scripts/baseline-diff.mjs` (`5e084a0`, #404); §8's procedure — `.github/workflows/e2e.yml`'s header (`d7a9ecb`, #369, extended by `b38b78d`); §7's measurement — `takeSheetScreenshot`'s doc comment in `tests/visual-catalog.spec.ts` (`3c51512`, #366); the pre-landing state of both helpers, recorded in place (`9069dab`, #367)
 
 ## Context
 
@@ -470,3 +470,34 @@ of them at two sizes; everything else in the app is guarded by the invariant spe
 tier, or nothing. Tightening a tolerance narrows the gap between "the picture is
 the same" and "the screen is the same". It does not close it, and this record
 does not claim it does.
+
+## Amendment (2026-09-08): the counts in this record are byte comparisons, and the comparator's are lower
+
+The instrument §8 clause 3 names now exists (`scripts/baseline-diff.mjs`, #404),
+and the first thing it did was disagree with this record.
+
+Pointed at the pair clause 3 holds up as the shape to aim at — `bb65c52`'s
+`food-nova-explainer-Mobile-Chrome-linux.png`, the capture #366 adjudicated — it
+reports **352** changed pixels in rows 0 to 360, ratio 0.00205. The figure this
+record and the #365 map quote is **437**, exactly column 0, all 437 rows, ratio
+0.0025 — §6 calls it a "437-pixel full-height column", and at the tolerance the
+suite runs at it is neither 437 nor full-height.
+
+Both readings are of the same two files and both are right about different
+things. 437 pixels differ **at all**: that is a byte comparison, which is what
+every throwaway script in this map ran. 352 is what `getComparator("image/png")`
+counts at `threshold` 0.2, the other 85 being pixels under that tolerance or
+dropped by the antialiasing detector §2 names. The map never had
+the second number because it never asked the comparator.
+
+**The number an account quotes is the comparator's**, because the account is
+about a file the suite refused and the suite's refusal is the comparator's
+verdict. The tool prints both for exactly this reason: a reader who reproduces a
+measurement by comparing bytes gets the larger figure, and with only one of them
+published there is no way to tell which of the two readings is the wrong one.
+
+What this does not touch is the geometry, which is why clause 3's exemplar
+sentence survives intact. The delta is still column 0 and still a border seam
+moving `srgb(48)` to `srgb(150)` — 330 pixels of it, with a further 22 from
+`srgb(51,52,48)` to the same grey. §3's bracket is unaffected: it is derived from
+YIQ deltas between tokens, not from any count.
