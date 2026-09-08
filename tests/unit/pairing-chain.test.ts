@@ -146,6 +146,29 @@ describe("the address and the seal key come off one chain", () => {
     expect(new Set(four.map(hex)).size).toBe(4);
   });
 
+  it("gets nowhere running the construction forward from an address it holds", async () => {
+    // The operator's only material is addresses. The obvious attempt is to feed
+    // one back in as state and carry on deriving — so it is written out and
+    // checked: neither lane's real seal key comes back, on either label.
+    const state = aSecret();
+    const seen = await deriveLaneKey(lane(state, "a2b"), "addr");
+    const real = await Promise.all([
+      deriveLaneKey(lane(state, "a2b"), "seal"),
+      deriveLaneKey(lane(state, "b2a"), "seal"),
+    ]);
+    const attempts = await Promise.all([
+      deriveLaneKey(lane(seen, "a2b"), "seal"),
+      deriveLaneKey(lane(seen, "b2a"), "seal"),
+      deriveLaneKey(lane(seen, "a2b"), "addr"),
+      deriveLaneKey(lane(seen, "b2a"), "addr"),
+      ratchetLane(lane(seen, "a2b")).then((next) => next.state),
+      ratchetLane(lane(seen, "b2a")).then((next) => next.state),
+    ]);
+    for (const got of attempts) {
+      expect(real.map(hex)).not.toContain(hex(got));
+    }
+  });
+
   it("binds the direction into both, so one lane's labels are not the other's", async () => {
     const state = aSecret();
     for (const purpose of ["addr", "seal"] as const) {
