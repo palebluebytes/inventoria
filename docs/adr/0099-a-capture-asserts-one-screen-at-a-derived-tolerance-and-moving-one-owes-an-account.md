@@ -496,8 +496,37 @@ verdict. The tool prints both for exactly this reason: a reader who reproduces a
 measurement by comparing bytes gets the larger figure, and with only one of them
 published there is no way to tell which of the two readings is the wrong one.
 
-What this does not touch is the geometry, which is why clause 3's exemplar
-sentence survives intact. The delta is still column 0 and still a border seam
-moving `srgb(48)` to `srgb(150)` — 330 pixels of it, with a further 22 from
-`srgb(51,52,48)` to the same grey. §3's bracket is unaffected: it is derived from
-YIQ deltas between tokens, not from any count.
+What this does not touch is the geometry, which is why clause 3 can still hold
+that account up as the shape a sentence should take. The delta is still column 0
+and still `srgb(48)` moving to `srgb(150)` — 330 pixels of it, with a further 22
+from `srgb(51,52,48)` to the same grey. Clause 3 quotes `bb65c52` calling that
+column "an antialiased border seam", and quotes it as a **shape**: §6 is where
+that reading is refuted, and the correction survives this amendment untouched.
+Column 0 is backdrop, the sheet's box never moved, and the seam belongs to
+nothing under test. §3's bracket is unaffected too, being derived from YIQ deltas
+between tokens rather than from any count.
+
+## Amendment (2026-09-08): the import path §3 names is not one playwright-core exports
+
+§3 says its gate "imports `getComparator("image/png")` from
+`playwright-core/lib/server/utils/comparators.js`". Node refuses that specifier:
+playwright-core's `exports` map does not list it, and the failure is
+`ERR_PACKAGE_PATH_NOT_EXPORTED`. #404 hit this building the instrument, which
+needs the same function.
+
+`playwright-core/lib/utils` **is** exported, and re-exports the comparators
+module wholesale (`lib/utils.js:47`), so it is the supported way to the same
+binding. Read §3's sentence as naming the module, not the specifier — and note
+that the module is still the one with no public guarantee, so the argument that
+paragraph makes is untouched: this is a correction to an address, not to a
+decision.
+
+There is a second obstacle at the same joint. `playwright-core` is nobody's
+declared dependency here — `package.json` declares `@playwright/test` — and pnpm
+does not hoist it, so no specifier for it resolves from the repo root. Reaching
+it means walking `@playwright/test` → `playwright` → `playwright-core` with
+`createRequire`, which `scripts/baseline-diff.mjs` does and which #367's gate
+will have to do as well. Declaring `playwright-core` directly is the tempting
+alternative and is refused for the reason §3 already gives about pinning: a
+second version range beside `@playwright/test`'s is a range that can drift out of
+step with the comparator the suite actually runs.
