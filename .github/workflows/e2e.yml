@@ -29,7 +29,13 @@ on:
   #   2. Let `git status` name the set. It is exactly the set the suite refused
   #      — an identity, not an approximation. Untracked means a new baseline;
   #      modified means one that moved.
-  #   3. Account for all of it in the commit message, which lands alone as
+  #   3. Measure with `node scripts/baseline-diff.mjs <path>`, which compares
+  #      the copy in HEAD against the one now on disk and prints the count, the
+  #      ratio, the region and the colours that moved. Its count is the
+  #      comparator's rather than a byte comparison's, and the two differ by
+  #      whatever `threshold` and the antialiasing detector took; the number an
+  #      account quotes is the suite's.
+  #   4. Account for all of it in the commit message, which lands alone as
   #      `test(visual)`. Every moved file goes under a named cause, one file per
   #      cause is measured rather than attributed, and the message says how many
   #      of the total moved.
