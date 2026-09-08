@@ -14,6 +14,7 @@
   import LedgerImport from "./ledger/LedgerImport.svelte";
   import StorageStatus from "./storage/StorageStatus.svelte";
   import LogSettingsSection from "./logs/LogSettingsSection.svelte";
+  import PairedDevicesSection from "./pairing/PairedDevicesSection.svelte";
   import Button from "../ui/Button.svelte";
   import Alert from "../ui/Alert.svelte";
   import Badge from "../ui/Badge.svelte";
@@ -220,6 +221,12 @@
 
   <LedgerImport {dbReady} />
 </Card>
+
+<!-- Your own devices, and the act that pairs one (ADR-0096 §8). It is the
+     root's because a pairing carries the whole jar rather than one Facet's
+     rows, and because ADR-0084 §6 puts the list here — and it expands in place
+     rather than opening the Devices screen ADR-0075 §4 used to name. -->
+<PairedDevicesSection />
 
 <!-- The jar-wide card: the root holds all six content domains, so it lists every
      channel and its Review and Export is jar-wide (ADR-0080 §2). Its switch is

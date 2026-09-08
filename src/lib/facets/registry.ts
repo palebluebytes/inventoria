@@ -418,7 +418,9 @@ const JAR_PRECACHE = [
   // the licence on the network would distribute the faces without their notice.
   "fonts/OFL.txt",
   // The QR writer, which is how a meal leaves a device (ADR-0072 §9). Both
-  // Facets can hand a meal off, so both owe it offline.
+  // Facets can hand a meal off, so both owe it offline. The root draws a
+  // Pairing code with it too (ADR-0096 §8), which needs a relay and therefore a
+  // network — so that second reader is not what puts this here.
   "assets/zxing_writer-*.wasm",
 ] as const;
 
