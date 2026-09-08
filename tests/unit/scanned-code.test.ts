@@ -8,13 +8,14 @@
  */
 import { describe, it, expect } from "vitest";
 import { readScannedCode } from "../../src/lib/p2p/scanned-code";
-import { mintSendCode, sendCodeLink } from "../../src/lib/p2p/send-code";
+import { sendCodeLink } from "../../src/lib/p2p/send-code";
+import { mintRoomCode } from "../../src/lib/p2p/room-code";
 
 const ORIGIN = "https://inventoria.example";
 
 describe("the scanner reads a meal code as well as a barcode", () => {
   it("reads the link the symbol on their screen carries", () => {
-    const code = mintSendCode();
+    const code = mintRoomCode();
 
     expect(readScannedCode(sendCodeLink(code, ORIGIN))).toEqual({
       kind: "meal",
@@ -23,7 +24,7 @@ describe("the scanner reads a meal code as well as a barcode", () => {
   });
 
   it("reads a meal code whatever origin it was minted on", () => {
-    const code = mintSendCode();
+    const code = mintRoomCode();
 
     expect(
       readScannedCode(sendCodeLink(code, "https://elsewhere.test"))

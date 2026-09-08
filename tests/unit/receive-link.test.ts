@@ -18,11 +18,8 @@ import {
   type ReceiveLink,
   type ReceiveOpening,
 } from "../../src/lib/p2p/receive-link";
-import {
-  mintSendCode,
-  sendCodeFragment,
-  sendCodeLink,
-} from "../../src/lib/p2p/send-code";
+import { sendCodeFragment, sendCodeLink } from "../../src/lib/p2p/send-code";
+import { mintRoomCode } from "../../src/lib/p2p/room-code";
 
 const ORIGIN = "https://inventoria.example";
 
@@ -35,21 +32,21 @@ function boot(href: string): { read: ReceiveLink; cleaned: string[] } {
 
 describe("a link is a code, and the code leaves the URL with it", () => {
   it("reads the code the sender's own link carries", () => {
-    const code = mintSendCode();
+    const code = mintRoomCode();
     const { read } = boot(sendCodeLink(code, ORIGIN));
 
     expect(read).toEqual({ kind: "code", code });
   });
 
   it("takes the fragment off the URL, so a reload is not a second use", () => {
-    const { cleaned } = boot(sendCodeLink(mintSendCode(), ORIGIN));
+    const { cleaned } = boot(sendCodeLink(mintRoomCode(), ORIGIN));
 
     // The path the link arrived on, kept: only the fragment is taken.
     expect(cleaned).toEqual(["/food/"]);
   });
 
   it("reads nothing the second time, because the first read cleaned it", () => {
-    const link = sendCodeLink(mintSendCode(), ORIGIN);
+    const link = sendCodeLink(mintRoomCode(), ORIGIN);
     const { cleaned } = boot(link);
 
     expect(boot(new URL(cleaned[0], ORIGIN).href).read).toEqual({
@@ -58,7 +55,7 @@ describe("a link is a code, and the code leaves the URL with it", () => {
   });
 
   it("keeps the query, and takes only the fragment it read", () => {
-    const fragment = sendCodeFragment(mintSendCode());
+    const fragment = sendCodeFragment(mintRoomCode());
     const { read, cleaned } = boot(`${ORIGIN}/food/?mem=1#${fragment}`);
 
     expect(read.kind).toBe("code");
@@ -91,7 +88,7 @@ describe("a code that is a code and is broken", () => {
 
 describe("the clean is what makes the read safe to keep", () => {
   it("hands the code back only once the URL is clean", () => {
-    const link = sendCodeLink(mintSendCode(), ORIGIN);
+    const link = sendCodeLink(mintRoomCode(), ORIGIN);
 
     // A `replaceState` the browser refuses leaves a live secret in the address
     // bar, so the read fails rather than proceeding with a URL a reload would
@@ -119,7 +116,7 @@ describe("the same link, on a page that will not open it (ADR-0082 §2)", () => 
   }
 
   it("reads the code, so the page has something to show", () => {
-    const code = mintSendCode();
+    const code = mintRoomCode();
 
     expect(handOver(sendCodeLink(code, ORIGIN)).read).toEqual({
       kind: "code",
@@ -131,7 +128,7 @@ describe("the same link, on a page that will not open it (ADR-0082 §2)", () => 
     // ADR-0082 §9: nothing is retried here, but the address bar is still where
     // a secret gets screenshotted, enters history and renders in the tab
     // switcher — and §8 is not a rule to grow an exception in.
-    expect(handOver(sendCodeLink(mintSendCode(), ORIGIN)).cleaned).toEqual([
+    expect(handOver(sendCodeLink(mintRoomCode(), ORIGIN)).cleaned).toEqual([
       "/food/",
     ]);
   });
@@ -154,7 +151,7 @@ describe("the same link, on a page that will not open it (ADR-0082 §2)", () => 
     // could spend the code a second time, and this page spends nothing. The
     // code is already in the address bar; refusing to show it as well helps
     // nobody.
-    const code = mintSendCode();
+    const code = mintRoomCode();
 
     expect(
       takeCodeHandover({

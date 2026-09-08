@@ -19,7 +19,7 @@
 import { endingCause, type EndingWords } from "./ending-words";
 import { RoomFailedError, type RoomFailure } from "./relay-room";
 import { SealRefusedError } from "./sealed-frame";
-import { SendCodeSpentError } from "./send-code";
+import { RoomCodeSpentError } from "./room-code";
 
 /**
  * How a send ended: the five ways a session can, plus the seal refusing an
@@ -117,7 +117,7 @@ export function sendEndingWords(error: unknown): SendWords {
     };
   }
 
-  if (error instanceof SendCodeSpentError) {
+  if (error instanceof RoomCodeSpentError) {
     return {
       ending: "spent",
       line: "This code has already been used.",

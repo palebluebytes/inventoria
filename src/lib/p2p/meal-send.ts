@@ -82,12 +82,8 @@ import {
   sealFrame,
   type SealRefusedError,
 } from "./sealed-frame";
-import {
-  burnSendCode,
-  isSendCodeSpent,
-  SendCodeSpentError,
-  type SendCode,
-} from "./send-code";
+import { type SendCode } from "./send-code";
+import { RoomCodeSpentError, burnRoomCode, isRoomCodeSpent } from "./room-code";
 
 const utf8 = new TextEncoder();
 const fromUtf8 = new TextDecoder();
@@ -126,7 +122,7 @@ export const REFUSED_WORD = "refused";
  *
  * Resolving means delivered. Three things can escape instead, and they are
  * different facts rather than degrees of the same one: {@link RoomFailedError}
- * for how a session ended, {@link SendCodeSpentError} for a code that has
+ * for how a session ended, {@link RoomCodeSpentError} for a code that has
  * already done its job, and {@link SealRefusedError} when something in the room
  * answered with a frame this code does not open — which is §3's third clause
  * firing, and not the same thing as a refusal.
@@ -136,7 +132,7 @@ export async function sendMealPayload(
   ndjson: string,
   options: RoomOptions = {}
 ): Promise<void> {
-  if (isSendCodeSpent(code)) throw new SendCodeSpentError();
+  if (isRoomCodeSpent(code)) throw new RoomCodeSpentError();
 
   const payload = await sealFrame(code, await deflateWire(ndjson));
   const room = await enterRoom(code.room, options);
@@ -161,7 +157,7 @@ export async function sendMealPayload(
       if (event.kind === "frame") {
         // A frame in the reverse direction ends the session whatever it says,
         // so the code is spent before it is read.
-        burnSendCode(code);
+        burnRoomCode(code);
         const word = fromUtf8.decode(await openSealedFrame(code, event.bytes));
         if (word !== DELIVERED_WORD) {
           throw new RoomFailedError(
@@ -175,7 +171,7 @@ export async function sendMealPayload(
       // Two of §6's four, plus the room ending under one of the Relay's own
       // bounds — which is not a fifth condition but a session that cannot
       // deliver, on a room id that is spent either way.
-      burnSendCode(code);
+      burnRoomCode(code);
       throw whyRoomEnded(
         event,
         "you cancelled this send, and nothing crossed."
@@ -202,7 +198,7 @@ export async function receiveMealPayload(
   code: SendCode,
   options: RoomOptions = {}
 ): Promise<ReceivedMealPayload> {
-  if (isSendCodeSpent(code)) throw new SendCodeSpentError();
+  if (isRoomCodeSpent(code)) throw new RoomCodeSpentError();
 
   const room = await enterRoom(code.room, options);
 
@@ -228,7 +224,7 @@ export async function receiveMealPayload(
       if (event.kind === "peer") continue;
 
       if (event.kind === "frame") {
-        burnSendCode(code);
+        burnRoomCode(code);
         let payload: ReceivedMealPayload;
         try {
           const wire = await openSealedFrame(code, event.bytes);
@@ -243,7 +239,7 @@ export async function receiveMealPayload(
 
       // Giving up waiting spends nothing: §6.3 is the *sender* cancelling, and
       // a meal that never arrived leaves the sender still holding a live code.
-      if (event.kind !== "cancelled") burnSendCode(code);
+      if (event.kind !== "cancelled") burnRoomCode(code);
       throw whyRoomEnded(event, "you left before the meal arrived.");
     }
   } finally {

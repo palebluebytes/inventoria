@@ -10,17 +10,14 @@ import { describe, it, expect } from "vitest";
 import { render } from "svelte/server";
 import MealLinkField from "../../src/lib/views/food/MealLinkField.svelte";
 import { readPastedLink } from "../../src/lib/p2p/pasted-link";
-import {
-  mintSendCode,
-  sendCodeFragment,
-  sendCodeLink,
-} from "../../src/lib/p2p/send-code";
+import { sendCodeFragment, sendCodeLink } from "../../src/lib/p2p/send-code";
+import { mintRoomCode } from "../../src/lib/p2p/room-code";
 
 const ORIGIN = "https://inventoria.example";
 
 describe("a pasted meal link", () => {
   it("takes the whole link the sender's own screen minted", () => {
-    const code = mintSendCode();
+    const code = mintRoomCode();
 
     expect(readPastedLink(sendCodeLink(code, ORIGIN))).toEqual({
       kind: "meal",
@@ -29,7 +26,7 @@ describe("a pasted meal link", () => {
   });
 
   it("takes it with the whitespace a messenger wrapped around it", () => {
-    const code = mintSendCode();
+    const code = mintRoomCode();
 
     expect(readPastedLink(`  ${sendCodeLink(code, ORIGIN)}\n`)).toEqual({
       kind: "meal",
@@ -38,7 +35,7 @@ describe("a pasted meal link", () => {
   });
 
   it("takes a link from any origin, because the code is what is read", () => {
-    const code = mintSendCode();
+    const code = mintRoomCode();
 
     expect(
       readPastedLink(sendCodeLink(code, "https://rations.example"))
@@ -53,7 +50,7 @@ describe("anything that is not a whole link is refused, in one line", () => {
   });
 
   it("refuses the bare fragment, which is a code without its link", () => {
-    const short = sendCodeFragment(mintSendCode());
+    const short = sendCodeFragment(mintRoomCode());
 
     expect(readPastedLink(short).kind).toBe("refused");
   });

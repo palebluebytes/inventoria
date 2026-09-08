@@ -15,7 +15,7 @@ import { test, expect } from "@playwright/test";
 // business sealing anything. `meal-relay.spec.ts` is the one that crosses a
 // meal.
 //
-// **A fresh room per run**, drawn here rather than by `mintSendCode`, because
+// **A fresh room per run**, drawn here rather than by `mintRoomCode`, because
 // §11.1 holds at most two sockets and `fullyParallel` would otherwise have one
 // run refused on a bound rather than failing on a defect.
 //

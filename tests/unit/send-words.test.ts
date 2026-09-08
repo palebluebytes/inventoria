@@ -18,7 +18,7 @@ import {
   type RoomFailure,
 } from "../../src/lib/p2p/relay-room";
 import { SealRefusedError } from "../../src/lib/p2p/sealed-frame";
-import { SendCodeSpentError } from "../../src/lib/p2p/send-code";
+import { RoomCodeSpentError } from "../../src/lib/p2p/room-code";
 
 const FAILURES: RoomFailure[] = [
   "unavailable",
@@ -91,7 +91,7 @@ describe("sendEndingWords", () => {
   });
 
   it("reads a spent code as an ending of its own rather than a stray error", () => {
-    const said = sendEndingWords(new SendCodeSpentError());
+    const said = sendEndingWords(new RoomCodeSpentError());
     expect(said.ending).toBe("spent");
     expect(said.retry).toBe(false);
   });

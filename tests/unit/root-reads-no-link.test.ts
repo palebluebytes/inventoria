@@ -16,7 +16,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import App from "../../src/App.svelte";
 import { facetOf } from "../../src/lib/facets/registry";
-import { mintSendCode, sendCodeLink } from "../../src/lib/p2p/send-code";
+import { sendCodeLink } from "../../src/lib/p2p/send-code";
+import { mintRoomCode } from "../../src/lib/p2p/room-code";
 import { importersOf } from "./support/importers";
 import { bootShell } from "./support/shell-boot";
 
@@ -63,7 +64,7 @@ const DESKTOP = { platform: "Linux x86_64", maxTouchPoints: 0 };
  * the day either Facet's start URL moved.
  */
 const rootLink = () => {
-  const link = new URL(sendCodeLink(mintSendCode(), ORIGIN));
+  const link = new URL(sendCodeLink(mintRoomCode(), ORIGIN));
   link.pathname = facetOf("root").startUrl;
   return link.href;
 };
@@ -121,7 +122,7 @@ describe("a receive link landing on the root (ADR-0084 §5)", () => {
     // The root cannot be reached at `/food/`, so this is the belt to the
     // braces: whatever fragment arrives, this shell has no reading of it.
     const { body, cleaned } = boot(
-      sendCodeLink(mintSendCode(), ORIGIN),
+      sendCodeLink(mintRoomCode(), ORIGIN),
       IOS_TAB
     );
 

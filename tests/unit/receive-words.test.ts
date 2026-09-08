@@ -20,7 +20,7 @@ import {
 } from "../../src/lib/p2p/relay-room";
 import { MealPayloadTooLargeError } from "../../src/lib/p2p/meal-reader";
 import { SealRefusedError } from "../../src/lib/p2p/sealed-frame";
-import { SendCodeSpentError } from "../../src/lib/p2p/send-code";
+import { RoomCodeSpentError } from "../../src/lib/p2p/room-code";
 import type { MealType } from "../../src/lib/food/meal-type";
 
 const FAILURES: RoomFailure[] = [
@@ -66,7 +66,7 @@ describe("receiveEndingWords", () => {
   });
 
   it("says a spent code is spent rather than that the meal failed", () => {
-    expect(receiveEndingWords(new SendCodeSpentError()).ending).toBe("spent");
+    expect(receiveEndingWords(new RoomCodeSpentError()).ending).toBe("spent");
   });
 
   it("says a code that never named a room is still the sender's to reuse", () => {

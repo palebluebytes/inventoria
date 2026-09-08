@@ -39,12 +39,12 @@ import {
   RELAY_ROOM_PARAM,
   ROOM_LIFETIME_MS,
 } from "../../src/lib/p2p/relay-wire";
+import { type SendCode } from "../../src/lib/p2p/send-code";
 import {
-  isSendCodeSpent,
-  mintSendCode,
-  SendCodeSpentError,
-  type SendCode,
-} from "../../src/lib/p2p/send-code";
+  RoomCodeSpentError,
+  isRoomCodeSpent,
+  mintRoomCode,
+} from "../../src/lib/p2p/room-code";
 import { openSealedFrame } from "../../src/lib/p2p/sealed-frame";
 import {
   DELIVERED_WORD,
@@ -93,7 +93,7 @@ const A_MOMENT_MS = 20;
 describe("a meal crosses, and the relay cannot read it", () => {
   it("lands the meal on the other device", async () => {
     const relay = localRelay();
-    const code = mintSendCode();
+    const code = mintRoomCode();
 
     const receiving = receiveMealPayload(code, { dial: relay.dial });
     await sendMealPayload(code, await aMeal(), { dial: relay.dial });
@@ -110,7 +110,7 @@ describe("a meal crosses, and the relay cannot read it", () => {
 
   it("forwards ciphertext, which only the code opens", async () => {
     const relay = localRelay();
-    const code = mintSendCode();
+    const code = mintRoomCode();
     const ndjson = await aMeal();
 
     const receiving = receiveMealPayload(code, { dial: relay.dial });
@@ -131,7 +131,7 @@ describe("a meal crosses, and the relay cannot read it", () => {
 
   it("crosses in one frame each way, and the reverse one says delivered", async () => {
     const relay = localRelay();
-    const code = mintSendCode();
+    const code = mintRoomCode();
 
     const receiving = receiveMealPayload(code, { dial: relay.dial });
     await sendMealPayload(code, await aMeal(), { dial: relay.dial });
@@ -145,7 +145,7 @@ describe("a meal crosses, and the relay cannot read it", () => {
 
   it("leaves the room closed behind it, rather than reopening one", async () => {
     const relay = localRelay();
-    const code = mintSendCode();
+    const code = mintRoomCode();
 
     const receiving = receiveMealPayload(code, { dial: relay.dial });
     await sendMealPayload(code, await aMeal(), { dial: relay.dial });
@@ -163,24 +163,24 @@ describe("a meal crosses, and the relay cannot read it", () => {
 describe("what burns a code", () => {
   it("burns on one successful delivery, and there is no second send", async () => {
     const relay = localRelay();
-    const code = mintSendCode();
+    const code = mintRoomCode();
 
     const receiving = receiveMealPayload(code, { dial: relay.dial });
     await sendMealPayload(code, await aMeal(), { dial: relay.dial });
     await receiving;
 
-    expect(isSendCodeSpent(code)).toBe(true);
+    expect(isRoomCodeSpent(code)).toBe(true);
     await expect(
       sendMealPayload(code, await aMeal(), { dial: localRelay().dial })
-    ).rejects.toThrow(SendCodeSpentError);
+    ).rejects.toThrow(RoomCodeSpentError);
     await expect(
       receiveMealPayload(code, { dial: localRelay().dial })
-    ).rejects.toThrow(SendCodeSpentError);
+    ).rejects.toThrow(RoomCodeSpentError);
   });
 
   it("burns on a refusal, and tells the sender it did not land", async () => {
     const relay = localRelay();
-    const code = mintSendCode();
+    const code = mintRoomCode();
 
     const receiving = receiveMealPayload(code, { dial: relay.dial });
     const sending = sendMealPayload(code, "not a meal payload\n", {
@@ -193,12 +193,12 @@ describe("what burns a code", () => {
     // would be a hostile peer writing on the sender's screen.
     expect((await failure(sending)).failure).toBe("refused");
     expect((await failure(sending)).message).not.toContain("payload");
-    expect(isSendCodeSpent(code)).toBe(true);
+    expect(isRoomCodeSpent(code)).toBe(true);
   });
 
   it("burns when the sender cancels while waiting", async () => {
     const relay = localRelay();
-    const code = mintSendCode();
+    const code = mintRoomCode();
     const cancelling = new AbortController();
 
     const sending = sendMealPayload(code, await aMeal(), {
@@ -209,13 +209,13 @@ describe("what burns a code", () => {
     cancelling.abort();
 
     expect((await failure(sending)).failure).toBe("cancelled");
-    expect(isSendCodeSpent(code)).toBe(true);
+    expect(isRoomCodeSpent(code)).toBe(true);
     expect(relay.room.state.getWebSockets()).toEqual([]);
   });
 
   it("burns when the sender cancels before the payload is even sealed", async () => {
     const relay = localRelay();
-    const code = mintSendCode();
+    const code = mintRoomCode();
     const cancelling = new AbortController();
     cancelling.abort();
 
@@ -225,12 +225,12 @@ describe("what burns a code", () => {
     });
 
     expect((await failure(sending)).failure).toBe("cancelled");
-    expect(isSendCodeSpent(code)).toBe(true);
+    expect(isRoomCodeSpent(code)).toBe(true);
   });
 
   it("burns when the room's five minutes are up", async () => {
     const relay = localRelay();
-    const code = mintSendCode();
+    const code = mintRoomCode();
 
     // The deadline is a parameter so this test does not wait one out. The
     // number itself is pinned against the relay's below.
@@ -240,12 +240,12 @@ describe("what burns a code", () => {
     });
 
     expect((await failure(sending)).failure).toBe("expired");
-    expect(isSendCodeSpent(code)).toBe(true);
+    expect(isRoomCodeSpent(code)).toBe(true);
   });
 
   it("does not burn when the transport drops and the socket comes back", async () => {
     const relay = localRelay();
-    const code = mintSendCode();
+    const code = mintRoomCode();
 
     const sending = sendMealPayload(code, await aMeal(), { dial: relay.dial });
     await settle();
@@ -254,7 +254,7 @@ describe("what burns a code", () => {
 
     // §6: a reconnect within a live session is not a use of the code, so the
     // sender is still in the room and the code is still good.
-    expect(isSendCodeSpent(code)).toBe(false);
+    expect(isRoomCodeSpent(code)).toBe(false);
     expect(relay.room.state.getWebSockets()).toHaveLength(1);
 
     const receiving = receiveMealPayload(code, { dial: relay.dial });
@@ -265,7 +265,7 @@ describe("what burns a code", () => {
 
   it("burns when the relay's own five minutes run out, without waiting for its own", async () => {
     const relay = localRelay();
-    const code = mintSendCode();
+    const code = mintRoomCode();
 
     // A deadline this side will not reach, so what ends the session is the
     // room's alarm rather than the client's backstop.
@@ -277,12 +277,12 @@ describe("what burns a code", () => {
     await relay.relay.alarm();
 
     expect((await failure(sending)).failure).toBe("expired");
-    expect(isSendCodeSpent(code)).toBe(true);
+    expect(isRoomCodeSpent(code)).toBe(true);
   });
 
   it("burns when the room closes under one of the relay's own bounds", async () => {
     const relay = localRelay();
-    const code = mintSendCode();
+    const code = mintRoomCode();
 
     const sending = sendMealPayload(code, await aMeal(), {
       dial: relay.dial,
@@ -297,12 +297,12 @@ describe("what burns a code", () => {
     const told = await failure(sending);
     expect(told.failure).toBe("closed");
     expect(told.message).toContain(`${CLOSE_NOT_OPAQUE}`);
-    expect(isSendCodeSpent(code)).toBe(true);
+    expect(isRoomCodeSpent(code)).toBe(true);
   });
 
   it("does not burn when a recipient gives up waiting, since nothing arrived", async () => {
     const relay = localRelay();
-    const code = mintSendCode();
+    const code = mintRoomCode();
     const leaving = new AbortController();
 
     const receiving = receiveMealPayload(code, {
@@ -314,11 +314,11 @@ describe("what burns a code", () => {
 
     expect((await failure(receiving)).failure).toBe("cancelled");
     // §6.3 is the sender cancelling. The sender is still holding a live code.
-    expect(isSendCodeSpent(code)).toBe(false);
+    expect(isRoomCodeSpent(code)).toBe(false);
   });
 
   it("does not burn when the relay cannot be reached, since nothing crossed", async () => {
-    const code = mintSendCode();
+    const code = mintRoomCode();
 
     const sending = sendMealPayload(code, await aMeal(), {
       dial: async () => {
@@ -329,11 +329,11 @@ describe("what burns a code", () => {
     // ADR-0072 §14: the surface steps down to the file export, and the code is
     // still good — an unreachable relay is not one of §6's four conditions.
     expect((await failure(sending)).failure).toBe("unavailable");
-    expect(isSendCodeSpent(code)).toBe(false);
+    expect(isRoomCodeSpent(code)).toBe(false);
   });
 
   it("stops dialling once the first dial has failed, rather than forever", async () => {
-    const code = mintSendCode();
+    const code = mintRoomCode();
     let dials = 0;
 
     const sending = sendMealPayload(code, await aMeal(), {
@@ -355,7 +355,7 @@ describe("what burns a code", () => {
   });
 
   it("rejoins at one loop's pace, however many closes it is told about", async () => {
-    const code = mintSendCode();
+    const code = mintRoomCode();
     const relay = localRelay();
     let dials = 0;
 
@@ -411,7 +411,7 @@ describe("the wire the client speaks is the relay's own", () => {
   // different strings. Both halves are read here: the id the client sends is
   // the one the code carries, and the name the platform is given is not.
   it("addresses the room the code names, through the deployed route", async () => {
-    const code = mintSendCode();
+    const code = mintRoomCode();
     const url = new URL(RELAY_PATH, "https://inventoria.example");
     url.searchParams.set(RELAY_ROOM_PARAM, code.room);
     const rooms: string[] = [];

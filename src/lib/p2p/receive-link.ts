@@ -166,7 +166,7 @@ function readLink(href: string): ReceiveLink {
     if (code === null) return { kind: "none" };
     return { kind: "code", code };
   } catch (broken) {
-    // Every refusal `readSendCode` raises is a `SendCodeError` about the shape
+    // Every refusal `readSendCode` raises is a `RoomCodeError` about the shape
     // of the code, and there is nothing else here that can throw. It is caught
     // by class rather than by name because a boot path that re-raises reaches
     // ADR-0069's guard, and "the fragment was malformed" is not "this shell

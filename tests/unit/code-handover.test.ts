@@ -19,11 +19,8 @@ import Rations from "../../src/Rations.svelte";
 import { facetOf } from "../../src/lib/facets/registry";
 import CodeHandover from "../../src/lib/views/food/CodeHandover.svelte";
 import { bootShell } from "./support/shell-boot";
-import {
-  mintSendCode,
-  sendCodeLink,
-  type SendCode,
-} from "../../src/lib/p2p/send-code";
+import { sendCodeLink, type SendCode } from "../../src/lib/p2p/send-code";
+import { mintRoomCode } from "../../src/lib/p2p/room-code";
 
 const ORIGIN = "https://inventoria.example";
 
@@ -58,7 +55,7 @@ describe("the page a Safari tab on iOS shows instead of the meal", () => {
   }
 
   it("shows the code, as the whole link the field on the other end takes", () => {
-    const code = mintSendCode();
+    const code = mintRoomCode();
 
     // Not the bare fragment: ADR-0082 §12 puts the bar on the code's content,
     // and `readSendCode` refuses anything that is not a URL carrying both
@@ -67,11 +64,11 @@ describe("the page a Safari tab on iOS shows instead of the meal", () => {
   });
 
   it("offers a control that copies it", () => {
-    expect(page(mintSendCode())).toContain("Copy the code");
+    expect(page(mintRoomCode())).toContain("Copy the code");
   });
 
   it("says both sentences, to a reader it has not identified", () => {
-    const shown = page(mintSendCode());
+    const shown = page(mintRoomCode());
 
     // §5: one wording, no branch, no question. The second sentence is for
     // somebody who may not exist, which is why it costs nothing when it is
@@ -90,7 +87,7 @@ describe("the page a Safari tab on iOS shows instead of the meal", () => {
   });
 
   it("offers no export beside the working path, and no countdown", () => {
-    const shown = page(mintSendCode());
+    const shown = page(mintRoomCode());
 
     // §11.8: a second route offered beside a working one reads as doubt about
     // the first. §11.12: the code carries a room and a key and no timestamp, so
@@ -158,11 +155,11 @@ describe("the boot order the handover needs (ADR-0082 §8)", () => {
     // `dbClient.init` runs synchronously at component initialisation, ahead of
     // every `onMount`, so the gate has to sit above it. Both of §6's tests are
     // synchronous property reads, which is what makes that affordable.
-    expect(boot(sendCodeLink(mintSendCode(), ORIGIN), IOS_TAB).inits).toBe(0);
+    expect(boot(sendCodeLink(mintRoomCode(), ORIGIN), IOS_TAB).inits).toBe(0);
   });
 
   it("renders the handover page in place of the app's own shell", () => {
-    const { body } = boot(sendCodeLink(mintSendCode(), ORIGIN), IOS_TAB);
+    const { body } = boot(sendCodeLink(mintRoomCode(), ORIGIN), IOS_TAB);
 
     // No food screen — skipping `init` is only safe while nothing here
     // subscribes to a ledger store. The Receiving surface in particular is
@@ -174,14 +171,14 @@ describe("the boot order the handover needs (ADR-0082 §8)", () => {
   });
 
   it("cleans the URL, on the rule rather than on a branch in it", () => {
-    const { cleaned } = boot(sendCodeLink(mintSendCode(), ORIGIN), IOS_TAB);
+    const { cleaned } = boot(sendCodeLink(mintRoomCode(), ORIGIN), IOS_TAB);
 
     expect(cleaned).toEqual(["/food/"]);
   });
 
   it("opens the database inside the installed copy, which can open the meal", () => {
     expect(
-      boot(sendCodeLink(mintSendCode(), ORIGIN), IOS_INSTALLED).inits
+      boot(sendCodeLink(mintRoomCode(), ORIGIN), IOS_INSTALLED).inits
     ).toBe(1);
   });
 
@@ -197,7 +194,7 @@ describe("the boot order the handover needs (ADR-0082 §8)", () => {
     // against the same profile and the same jar, so there is no wrong-jar case
     // there and a handover would be an obstacle built for nothing.
     expect(
-      boot(sendCodeLink(mintSendCode(), ORIGIN), {
+      boot(sendCodeLink(mintRoomCode(), ORIGIN), {
         platform: "Linux armv8l",
         maxTouchPoints: 5,
       }).inits

@@ -16,7 +16,7 @@ import { test, expect, type Page } from "@playwright/test";
 // server would be the thing this proved, rather than the one that ships.
 //
 // **Every run is in a fresh room, by construction.** The sender's own
-// `mintSendCode` draws the id from the CSPRNG when the way out is tapped, so
+// `mintRoomCode` draws the id from the CSPRNG when the way out is tapped, so
 // each run of each project mints its own — which matters, because ADR-0072
 // §11.1 holds at most two sockets per room, and `fullyParallel` with two
 // workers would otherwise have a second run fail on a bound rather than on a

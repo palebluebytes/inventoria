@@ -23,7 +23,7 @@ import type { AcceptedMeal } from "./meal-accept";
 import { RoomFailedError, type RoomFailure } from "./relay-room";
 import { MealPayloadRefusedError } from "./meal-reader";
 import { SealRefusedError } from "./sealed-frame";
-import { SendCodeSpentError } from "./send-code";
+import { RoomCodeSpentError } from "./room-code";
 
 /**
  * How a receive ended: the meal landed, the meal was empty, one of the five
@@ -141,7 +141,7 @@ export function receiveEndingWords(error: unknown): ReceiveWords {
     };
   }
 
-  if (error instanceof SendCodeSpentError) {
+  if (error instanceof RoomCodeSpentError) {
     return {
       ending: "spent",
       line: "This code has already been used.",

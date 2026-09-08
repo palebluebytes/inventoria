@@ -1,5 +1,5 @@
 /**
- * The seal: AES-GCM under the key that rides in the Send code (ADR-0072 §2).
+ * The seal: AES-GCM under the key that rides in the code (ADR-0072 §2).
  *
  * **This is the whole binding, and transport TLS is not a control here.** WSS
  * terminates at Cloudflare, so the operator of the Relay would otherwise hold
@@ -20,7 +20,7 @@
  * never reused — which is the one way GCM breaks.
  */
 
-import { randomBytes, type RandomBytes, type SendCode } from "./send-code";
+import { randomBytes, type RandomBytes, type RoomCode } from "./room-code";
 
 /** The nonce's width: 96 bits, the size AES-GCM is specified for. */
 export const SEAL_NONCE_BYTES = 12;
@@ -50,7 +50,7 @@ const importKey = (key: Uint8Array) =>
 
 /** Seals one frame under a code, with a fresh nonce in front of it. */
 export async function sealFrame(
-  code: SendCode,
+  code: RoomCode,
   plaintext: Uint8Array,
   draw: RandomBytes = randomBytes
 ): Promise<Uint8Array> {
@@ -75,7 +75,7 @@ export async function sealFrame(
  * its parent's `ArrayBufferLike`, which `BufferSource` will not take.
  */
 export async function openSealedFrame(
-  code: SendCode,
+  code: RoomCode,
   frame: Uint8Array
 ): Promise<Uint8Array> {
   if (frame.length <= SEAL_NONCE_BYTES) throw new SealRefusedError();

@@ -7,12 +7,8 @@
   import { buildMealPayload } from "../../p2p/meal-payload";
   import { ledgerEntityRows } from "../../p2p/ledger-rows";
   import { sendMealPayload } from "../../p2p/meal-send";
-  import {
-    burnSendCode,
-    mintSendCode,
-    sendCodeLink,
-    type SendCode,
-  } from "../../p2p/send-code";
+  import { sendCodeLink, type SendCode } from "../../p2p/send-code";
+  import { burnRoomCode, mintRoomCode } from "../../p2p/room-code";
   import { writeDate } from "../../p2p/send-date";
   import {
     MEAL_DELIVERED,
@@ -85,7 +81,7 @@
       // The measured shape is gather, then the code, then a human: a symbol on
       // screen while the ledger is still being read is a live secret standing
       // in for work that may yet fail.
-      const drawn = mintSendCode();
+      const drawn = mintRoomCode();
       code = drawn;
       await sendMealPayload(drawn, payload, { signal: pulled.signal });
       ended = MEAL_DELIVERED;
@@ -97,7 +93,7 @@
   function endSession() {
     session?.abort();
     session = null;
-    if (code) burnSendCode(code);
+    if (code) burnRoomCode(code);
   }
 
   async function copyLink(carrier: string) {
