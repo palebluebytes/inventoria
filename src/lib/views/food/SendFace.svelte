@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import Button from "../../ui/Button.svelte";
-  import EndingLine from "./EndingLine.svelte";
-  import SendCodeSymbol from "./SendCodeSymbol.svelte";
+  import EndingLine from "../EndingLine.svelte";
+  import CodeSymbol from "../CodeSymbol.svelte";
   import { formatCalories } from "../../food/nutrient-display";
   import { buildMealPayload } from "../../p2p/meal-payload";
   import { ledgerEntityRows } from "../../p2p/ledger-rows";
@@ -125,7 +125,7 @@
   {#if !ended}
     <!-- The symbol's own placeholder stands in while the ledger is read, which
          is the whole of the 155 ms before a code exists. -->
-    <SendCodeSymbol {link} />
+    <CodeSymbol text={link} />
     {#if link}
       <p class="say">Let them scan this.</p>
       <div class="linkrow">

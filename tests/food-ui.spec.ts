@@ -2812,9 +2812,7 @@ test.describe("Calorie Tracker & Food Logging UI", () => {
 
     // A real symbol of a real code, and the same code as the link beside it —
     // one code shape with two carriers (ADR-0072 §7).
-    await expect(
-      send.locator('[data-testid="send-code-symbol"] svg')
-    ).toBeVisible();
+    await expect(send.locator('[data-testid="code-symbol"] svg')).toBeVisible();
     await expect(send.locator("code.link")).toHaveText(/#r=[\w-]+&k=[\w-]{43}/);
     await expect(send).toContainText("Waiting for them…");
 

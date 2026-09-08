@@ -1,32 +1,38 @@
 <script lang="ts">
-  import { renderQrSymbol } from "../../p2p/qr-symbol";
+  import { renderQrSymbol } from "../p2p/qr-symbol";
 
-  // The **Send code** as a symbol, for the half of the code's two carriers that
-  // works when both people are in the same room (ADR-0072 §7).
+  // A code as a symbol, for the carrier that works when the two devices are in
+  // the same room (ADR-0072 §7, ADR-0096 §8).
   //
   // A real symbol rather than a picture of one, and sized for the code it
   // actually carries: about 100 characters is a version 5 QR, 37x37 modules,
-  // read in 931 ms on hardware, and it does not grow with the meal. Point a
-  // phone at it and it resolves to the link.
+  // read in 931 ms on hardware, and it does not grow with what is being handed
+  // over. Point a phone at it and it resolves to whatever text was written.
   //
-  // `link` is null while the meal is still being read: the symbol's own
-  // placeholder is what stands in for the gather, so the box does not resize
-  // under the person holding the phone up.
-  let { link }: { link: string | null } = $props();
+  // **It is jar-wide rather than Rations'**, because the two codes with this
+  // carrier are minted on different Facets: a Send code is Rations' and travels
+  // as a link, a Pairing code is the root's and deliberately does not (ADR-0096
+  // §8). What is drawn here is the text either one wrote.
+  //
+  // `text` is null while the caller is still working out what to draw — reading
+  // a meal off the ledger, waiting for a room. The symbol's own placeholder is
+  // what stands in for that, so the box does not resize under the person
+  // holding the phone up.
+  let { text }: { text: string | null } = $props();
 
   let svg = $state("");
   let failed = $state(false);
 
   $effect(() => {
-    const text = link;
-    if (text === null) return;
+    const drawing = text;
+    if (drawing === null) return;
     let live = true;
-    renderQrSymbol(text)
+    renderQrSymbol(drawing)
       .then((drawn) => {
         if (live) svg = drawn;
       })
       .catch(() => {
-        // The code is still live and still carried by the link below the
+        // The code is still live and still carried in writing below the
         // symbol, so a writer that will not load costs the same-room carrier
         // and nothing else.
         if (live) failed = true;
@@ -40,12 +46,12 @@
 <!-- The margin around the symbol is the QR's own quiet zone, which the writer
      adds and a reader needs, rather than padding on this box. Adding both would
      shrink the symbol to buy a gap that is already there. -->
-<div class="qr" data-testid="send-code-symbol">
+<div class="qr" data-testid="code-symbol">
   {#if svg}
     <!-- eslint-disable-next-line svelte/no-at-html-tags -->
     {@html svg}
   {:else if failed}
-    <p class="qr-failed">This code could not be drawn. Send them the link.</p>
+    <p class="qr-failed">This code could not be drawn. Use the text below.</p>
   {:else}
     <div class="qr-wait" aria-hidden="true"></div>
   {/if}

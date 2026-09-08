@@ -1,6 +1,6 @@
 /**
- * The Send code as a symbol somebody can point a camera at (ADR-0072 §7,
- * ADR-0074 §3).
+ * A code as a symbol somebody can point a camera at (ADR-0072 §7, ADR-0074 §3,
+ * ADR-0096 §8).
  *
  * The writer is `zxing-wasm`, which this repo already ships, self-hosted
  * through Vite's `?url` for the same reason `src/lib/food/barcode-scan.ts`
@@ -11,18 +11,20 @@
  * screen being photographed by another, and a vector symbol lands on the
  * device's real pixels instead of being resampled twice.
  *
- * **The symbol is sized for a version 5 code and no denser.** A Send code is a
- * room id and a key — about 100 characters with the origin, and it does not
- * grow with the meal, because there is nothing in a code a payload could reach
- * (ADR-0072 §3). The measured symbol is 37x37 modules, read in 931 ms. Error
- * correction stays at `L` for the same reason: the code is read once, at arm's
- * length, off a lit screen, and spending capacity on redundancy would buy a
- * denser symbol for a case that does not arise.
+ * **The symbol is sized for a version 5 code and no denser.** Both codes with
+ * this carrier are a room id and a key — about 100 characters, and neither
+ * grows with what is being handed over, because there is nothing in a code a
+ * payload could reach (ADR-0072 §3). A Pairing code is shorter still: it drops
+ * the origin and carries a label instead. The measured symbol is 37x37 modules,
+ * read in 931 ms. Error correction stays at `L` for the same reason: the code
+ * is read once, at arm's length, off a lit screen, and spending capacity on
+ * redundancy would buy a denser symbol for a case that does not arise.
  *
  * Ported from the #198 probe's `qr-codec.ts` (retired by #239), narrowed on the
  * way: the probe carried arbitrary binary and had a byte-mode/base64 switch to
- * find out which survived a round trip. A code is a URL, so it is written as
- * text. Only the writer half came here — the Scan way in reads a code through
+ * find out which survived a round trip. Both codes are text — one a URL, one
+ * deliberately not — so both are written as text. Only the writer half came
+ * here — the Scan way in reads a code through
  * `src/lib/food/barcode-scan.ts`, which already had a reader and gained `QR` as
  * a format rather than a second decoder being stood up beside it.
  */
@@ -76,7 +78,7 @@ export function fitToBox(raw: string): string {
   });
 }
 
-/** One Send code link as an SVG QR symbol, sized by whatever box holds it. */
+/** One code as an SVG QR symbol, sized by whatever box holds it. */
 export async function renderQrSymbol(text: string): Promise<string> {
   const { writeBarcode } = await writer();
   const result = await writeBarcode(text, {

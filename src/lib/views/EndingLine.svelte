@@ -1,14 +1,18 @@
 <script lang="ts">
-  import type { EndingWords } from "../../p2p/ending-words";
+  import type { EndingWords } from "../p2p/ending-words";
 
-  // How a Meal send ended, on either side of it (ADR-0074 §6).
+  // How an act in a room ended, whichever end of it you are (ADR-0074 §6).
   //
   // **One line, with the technical cause behind a "show why".** The words are
-  // `send-words.ts`'s on the sender's screen and `receive-words.ts`'s on the
-  // recipient's, and the two say different things on purpose; the shape they
-  // are printed in is one shape, because the argument for it — read by somebody
-  // standing in front of the other person, who needs to know it did not work
-  // rather than which clause fired — is the same argument on both screens.
+  // `send-words.ts`'s on the sender's screen, `receive-words.ts`'s on the
+  // recipient's and `pairing-words.ts`'s on the root's, and the three say
+  // different things on purpose; the shape they are printed in is one shape,
+  // because the argument for it — read by somebody standing in front of the
+  // other device, who needs to know it did not work rather than which clause
+  // fired — is the same argument on every one of them.
+  //
+  // It is jar-wide rather than Rations' for that last reason: pairing is the
+  // root's act (ADR-0096 §8) and prints this same shape.
   //
   // The disclosure is closed on arrival and forgets it was opened, because each
   // of these is mounted for one ending and replaced rather than updated.

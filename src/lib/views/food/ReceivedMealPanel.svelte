@@ -20,7 +20,7 @@
   import { formatCalories } from "../../food/nutrient-display";
   import { calorieDisplayDecimals } from "../../stores/device-settings";
   import Button from "../../ui/Button.svelte";
-  import EndingLine from "./EndingLine.svelte";
+  import EndingLine from "../EndingLine.svelte";
   import NutritionPanel from "./NutritionPanel.svelte";
 
   // The **Receiving surface**: the meal itself, with nothing in front of it

@@ -4,7 +4,7 @@
   import { sendCodeLink } from "../../p2p/send-code";
   import { mealCodeBrokenWords } from "../../p2p/receive-words";
   import Button from "../../ui/Button.svelte";
-  import EndingLine from "./EndingLine.svelte";
+  import EndingLine from "../EndingLine.svelte";
 
   // **A Safari tab on iOS never accepts a meal. It shows the code and says
   // where to put it** (ADR-0082 §2).
