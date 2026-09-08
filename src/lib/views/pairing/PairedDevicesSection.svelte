@@ -99,17 +99,23 @@
   /**
    * §8's cancel: it ends the act and spends the code, wherever it came from.
    *
-   * **A code is burned only where there was an act to end.** The session is
-   * assigned before the dial is awaited, so this still covers the window a code
-   * spends on screen while the socket is being opened — which
-   * `relay-room.ts` deliberately does not treat as a use of the code, and which
-   * must not outlive the card that showed it either.
+   * **It burns whether or not a session is live**, which is `SendFace`'s rule
+   * and for its reason: a code drawn and shown while the socket was still being
+   * dialled comes back as an unreachable relay, which ADR-0072 §6 deliberately
+   * does not treat as a use — and it must not outlive the card that showed it
+   * either. What stops that burning the code it has *just* minted is the order
+   * in {@link begin}, not a guard here.
    */
   function stop() {
-    if (!session) return;
-    session.abort();
+    session?.abort();
     session = null;
     if (code) burnRoomCode(code);
+  }
+
+  /** The same way in again, whichever one this was. */
+  function retry() {
+    if (act === "none") return;
+    begin(act);
   }
 
   function close() {
@@ -147,12 +153,7 @@
     <EndingLine words={ended} ok={ended.ending === "met"} />
     <div class="actions">
       {#if ended.retry}
-        <Button
-          variant="secondary"
-          onclick={() => begin(act === "showing" ? "showing" : "reading")}
-        >
-          Try again
-        </Button>
+        <Button variant="secondary" onclick={retry}>Try again</Button>
       {/if}
       <Button variant="ghost" onclick={close}>Done</Button>
     </div>

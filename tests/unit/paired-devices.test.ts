@@ -7,7 +7,7 @@
  * reach, and both have their own suites — `pairing-act.test.ts` puts two real
  * clients either side of the real Relay.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { render } from "svelte/server";
 import PairedDevicesSection from "../../src/lib/views/pairing/PairedDevicesSection.svelte";
 import ReadPairingCode from "../../src/lib/views/pairing/ReadPairingCode.svelte";
@@ -50,13 +50,36 @@ describe("the code on the screen showing it", () => {
   });
 });
 
-describe("the reader offers the paste carrier wherever it runs", () => {
+describe("the reader offers both carriers, and capability decides only one", () => {
+  interface Detectable {
+    BarcodeDetector?: unknown;
+  }
+  const platform = globalThis as Detectable;
+
+  afterEach(() => {
+    delete platform.BarcodeDetector;
+  });
+
+  const reader = () =>
+    render(ReadPairingCode, { props: { oncode: () => {} } }).body;
+
   it("offers the field with no camera at all", () => {
     // There is no `BarcodeDetector` in this process, as there is none on any
-    // iPhone. Capability decides what is *offered* and never what is chosen, so
-    // the second carrier is here rather than being a fallback for a failure.
-    const { body } = render(ReadPairingCode, { props: { oncode: () => {} } });
+    // iPhone. The paste carrier is a whole carrier rather than a fallback for a
+    // failure, so it is here either way.
+    const body = reader();
     expect(body).toContain("Or paste the code");
     expect(body).not.toContain("<video");
+  });
+
+  it("offers the camera as well where the platform has a detector", () => {
+    platform.BarcodeDetector = class {
+      detect() {
+        return Promise.resolve([]);
+      }
+    };
+    const body = reader();
+    expect(body).toContain("<video");
+    expect(body).toContain("Or paste the code");
   });
 });

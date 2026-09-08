@@ -9,6 +9,12 @@
  * because this person owns **both** ends — there is no second person to be
  * tactful about, and nothing here has to avoid making a decline visible.
  *
+ * **Three parallel maps rather than one shared one**, deliberately. Two of
+ * these endings happen to be worded alike today, and folding them together
+ * would make the *next* rewording of one surface silently reword the other two.
+ * The three ends of these acts are meant to be able to diverge; what is shared
+ * is the shape they print in, which is the thing that must not.
+ *
  * **"No route" and "somebody took the room" are one line, and deliberately.**
  * A browser cannot tell an unreachable Relay from a room already holding two
  * sockets (ADR-0072 §11.1's refused third arrives as a socket that would not

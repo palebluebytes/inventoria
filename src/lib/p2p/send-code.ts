@@ -22,10 +22,16 @@ import {
 /**
  * One send's whole secret.
  *
- * A named type rather than a bare {@link RoomCode} because the vocabulary
- * distinguishes them — `CONTEXT.md` has a Send code addressing a meal at
- * Rations and a Pairing code addressing an act at the root — and a signature
- * saying which one it takes says which act it belongs to.
+ * A named alias rather than a bare {@link RoomCode} because the vocabulary
+ * distinguishes them: `CONTEXT.md` has a Send code addressing a meal at
+ * Rations and a Pairing code addressing an act at the root.
+ *
+ * **It is documentation, not a guard.** The two are structurally identical, so
+ * nothing stops a Pairing code reaching {@link sendCodeLink} — which is the one
+ * mistake worth catching, since ADR-0096 §8 exists to keep that code out of a
+ * link. A brand would catch it and would cost a cast at every mint, and the
+ * population is two call sites in one directory; if a third code shape ever
+ * shares this one, that trade changes.
  */
 export type SendCode = RoomCode;
 

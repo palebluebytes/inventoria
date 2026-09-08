@@ -13,6 +13,7 @@ import { describe, it, expect } from "vitest";
 import {
   PAIRING_CODE_LABEL,
   readPairingCode,
+  readPairingScan,
   writePairingCode,
   type PairingCode,
 } from "../../src/lib/p2p/pairing-code";
@@ -113,5 +114,31 @@ describe("what it refuses, and how the two refusals differ", () => {
     expect(() => readPairingCode(`${PAIRING_CODE_LABEL} ${room}`)).toThrow(
       RoomCodeError
     );
+  });
+});
+
+describe("what a reader does with one decode, camera or paste", () => {
+  it("hands back the code when there is one", () => {
+    const code = mintPairingCode();
+    expect(readPairingScan(writePairingCode(code))).toEqual({
+      kind: "code",
+      code,
+    });
+  });
+
+  it("says neither about everything a camera mostly sees", () => {
+    for (const seen of [
+      "5060335635167",
+      "WIFI:S:cafe;T:WPA;P:hunter2;;",
+      sendCodeLink(mintRoomCode(), "https://example.test"),
+      "",
+    ]) {
+      expect(readPairingScan(seen)).toEqual({ kind: "neither" });
+    }
+  });
+
+  it("says broken only about a code that is labelled and then damaged", () => {
+    const damaged = writePairingCode(mintPairingCode()).slice(0, -4);
+    expect(readPairingScan(damaged)).toEqual({ kind: "broken" });
   });
 });

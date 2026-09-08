@@ -93,7 +93,16 @@ export async function handPairingSecret(
 
     if (event.kind === "peer") {
       const secret = draw(PAIRING_SECRET_BYTES);
-      room.send(await sealFrame(code, secret));
+      try {
+        room.send(await sealFrame(code, secret));
+      } catch (gone) {
+        // A socket that went away mid-session. The secret never left, and it
+        // must not outlive the attempt either: `derivePairingChains` is what
+        // normally consumes it, and it is not going to be reached.
+        secret.fill(0);
+        burnRoomCode(code);
+        throw gone;
+      }
       // The code has done its one job the moment the secret has left.
       burnRoomCode(code);
       return derivePairingChains(secret, "showed");

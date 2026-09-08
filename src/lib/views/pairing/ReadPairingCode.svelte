@@ -3,8 +3,7 @@
   import Button from "../../ui/Button.svelte";
   import Input from "../../ui/Input.svelte";
   import { codeDetector, type CodeDetector } from "../../p2p/code-camera";
-  import { readPairingCode, type PairingCode } from "../../p2p/pairing-code";
-  import { RoomCodeError } from "../../p2p/room-code";
+  import { readPairingScan, type PairingCode } from "../../p2p/pairing-code";
 
   // The other half of the act: reading the code the first device is showing
   // (ADR-0096 §8).
@@ -74,26 +73,23 @@
   }
 
   /**
-   * One decode or one paste, read for what it turned out to be.
+   * One decode or one paste, acted on.
    *
-   * Three answers, and the middle one is why this is not a boolean: a code that
-   * is not a Pairing code at all is what a camera mostly sees and is said
-   * nothing about, while a Pairing code that is broken is worth a line.
+   * The reading itself is `readPairingScan`'s, and only the wording and the
+   * stopping are here. Three answers, and the middle one is why this is not a
+   * boolean: a code that is not a Pairing code at all is what a camera mostly
+   * sees and is said nothing about, while a Pairing code that is broken is
+   * worth a line.
    */
   function took(raw: string): boolean {
-    let code: PairingCode | null;
-    try {
-      code = readPairingCode(raw);
-    } catch (broken) {
-      refused =
-        broken instanceof RoomCodeError
-          ? "That is a pairing code, and it is damaged. Show a new one."
-          : "That could not be read.";
+    const read = readPairingScan(raw);
+    if (read.kind === "broken") {
+      refused = "That is a pairing code, and it is damaged. Show a new one.";
       return false;
     }
-    if (!code) return false;
+    if (read.kind === "neither") return false;
     stopCamera();
-    oncode(code);
+    oncode(read.code);
     return true;
   }
 
@@ -106,6 +102,9 @@
   }
 
   function readTyped() {
+    // Cleared first, so the `||=` below means exactly "took() had nothing more
+    // specific to say" rather than "some earlier frame left a message behind".
+    refused = "";
     if (!took(typed.trim())) {
       refused ||= "That is not a pairing code.";
     }

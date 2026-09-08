@@ -42,8 +42,14 @@
       {copied === "yes" ? "Copied" : copied === "no" ? "Cannot copy" : "Copy"}
     </Button>
   </div>
+  <!-- What it does **not** say is that it carries no secret. It carries the
+       whole of this room's key for five minutes, and §8's remaining attack is
+       exactly *photograph and race inside five minutes* — a line inviting
+       casual photography would be the one thing that makes that easy. What it
+       has stopped carrying is the **pairing** secret, which is a sentence about
+       a spent code and not about this one. -->
   <p class="fine">
-    This is not a link. It carries no secret of its own, and it works once.
+    This is not a link. It works once, and only while this screen is open.
   </p>
 </div>
 

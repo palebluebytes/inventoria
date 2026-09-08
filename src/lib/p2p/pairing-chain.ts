@@ -178,15 +178,13 @@ export async function derivePairingChains(
   const outbound: LaneDirection = role === "showed" ? "a2b" : "b2a";
   const inbound: LaneDirection = role === "showed" ? "b2a" : "a2b";
 
+  // Seeded through {@link ratchetLane} rather than through a second call to
+  // the same KDF, so "the secret is state₋₁" is what the code says and not only
+  // what this comment does — and so a change to the step cannot move `state₁`
+  // while leaving `state₀` behind.
   const chains: PairedChains = {
-    deposit: {
-      direction: outbound,
-      state: await hkdf(secret, stepInfo(outbound)),
-    },
-    collect: {
-      direction: inbound,
-      state: await hkdf(secret, stepInfo(inbound)),
-    },
+    deposit: await ratchetLane({ direction: outbound, state: secret }),
+    collect: await ratchetLane({ direction: inbound, state: secret }),
   };
   secret.fill(0);
   return chains;

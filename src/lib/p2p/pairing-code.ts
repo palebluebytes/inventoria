@@ -35,10 +35,11 @@ import {
 /**
  * One pairing act's whole secret.
  *
- * A named type rather than a bare {@link RoomCode} for the reason `SendCode` is
- * one: the vocabulary distinguishes them, and a signature saying which it takes
- * says which act it belongs to. It is minted by `mintRoomCode`, because the
- * draw is the same draw and a renaming wrapper over it would earn nothing.
+ * A named alias rather than a bare {@link RoomCode} for the reason `SendCode`
+ * is one, and with the same limit: it is documentation and not a guard, since
+ * the two are structurally identical. `send-code.ts` carries the trade. It is
+ * minted by `mintRoomCode`, because the draw is the same draw and a renaming
+ * wrapper over it would earn nothing.
  */
 export type PairingCode = RoomCode;
 
@@ -78,4 +79,35 @@ export function readPairingCode(raw: string): PairingCode | null {
     throw new RoomCodeError("this code is missing half of itself.");
   }
   return { room, key: readRoomKey(key) };
+}
+
+/**
+ * One decode or one paste, read for what the reader should do with it.
+ *
+ * The same three-way shape `scanned-code.ts` gives Rations' Scan way in, and
+ * for the same reason: a live camera sees whatever is in the room, so *this is
+ * not a Pairing code* is the ordinary answer rather than a failure, and only a
+ * code that is labelled and then broken is worth a line. It carries no wording,
+ * because which line a surface prints is that surface's.
+ *
+ * It is here rather than inside the reader component so that the decision can
+ * be tested without a camera: the component is left holding the copy and the
+ * loop, which is all a `.svelte` file should own.
+ */
+export type ReadPairingCode =
+  /** Somebody is showing a Pairing code. */
+  | { kind: "code"; code: PairingCode }
+  /** A Pairing code that is damaged — a truncated paste, a mangled key. */
+  | { kind: "broken" }
+  /** Anything else, which is what a camera mostly sees. */
+  | { kind: "neither" };
+
+export function readPairingScan(raw: string): ReadPairingCode {
+  let code: PairingCode | null;
+  try {
+    code = readPairingCode(raw);
+  } catch {
+    return { kind: "broken" };
+  }
+  return code ? { kind: "code", code } : { kind: "neither" };
 }

@@ -22,7 +22,12 @@ import {
   type PairedChains,
 } from "../../src/lib/p2p/pairing-chain";
 import { writePairingCode } from "../../src/lib/p2p/pairing-code";
-import { enterRoom, RoomFailedError } from "../../src/lib/p2p/relay-room";
+import { PEER_WORD } from "../../src/lib/p2p/relay-wire";
+import {
+  enterRoom,
+  RoomFailedError,
+  type RelayDial,
+} from "../../src/lib/p2p/relay-room";
 import {
   isRoomCodeSpent,
   mintRoomCode,
@@ -117,6 +122,39 @@ describe("the secret is minted inside the room, and both sides derive off it", (
     await expect(handPairingSecret(showRoom, code)).rejects.toThrow(
       RoomCodeSpentError
     );
+  });
+});
+
+describe("the secret outlives nothing, not even a failed hand-over", () => {
+  it("wipes the secret when the socket will not carry it", async () => {
+    const code = mintRoomCode();
+    const drawn: Uint8Array[] = [];
+
+    // A room that says both parties are present and then refuses the frame.
+    // The real shape of this is a socket that went away between the peer word
+    // and the send, which no ordering of two live clients can be held at.
+    const refusing: RelayDial = async (_room, handlers) => {
+      setTimeout(() => handlers.message(PEER_WORD), 0);
+      return {
+        send: () => {
+          throw new Error("the socket went away");
+        },
+        close: () => {},
+      };
+    };
+
+    const room = await enterRoom(code.room, { dial: refusing });
+    const showing = handPairingSecret(room, code, (length) => {
+      const bytes = new Uint8Array(length).map((_, i) => (i * 5 + 1) % 251);
+      drawn.push(bytes);
+      return bytes;
+    });
+
+    await expect(showing).rejects.toThrow();
+    expect(drawn).toHaveLength(1);
+    expect([...drawn[0]]).toEqual(new Array(PAIRING_SECRET_BYTES).fill(0));
+    expect(isRoomCodeSpent(code)).toBe(true);
+    room.leave();
   });
 });
 
