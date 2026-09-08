@@ -17,7 +17,7 @@
  */
 
 import { endingCause, type EndingWords } from "./ending-words";
-import { SendFailedError, type SendFailure } from "./meal-send";
+import { RoomFailedError, type RoomFailure } from "./relay-room";
 import { SealRefusedError } from "./sealed-frame";
 import { SendCodeSpentError } from "./send-code";
 
@@ -27,7 +27,7 @@ import { SendCodeSpentError } from "./send-code";
  */
 export type SendEnding =
   | "delivered"
-  | SendFailure
+  | RoomFailure
   | "seal"
   | "spent"
   | "unknown";
@@ -56,7 +56,7 @@ export const MEAL_DELIVERED: SendWords = {
 };
 
 const FAILURE_WORDS: Record<
-  SendFailure,
+  RoomFailure,
   Pick<SendWords, "line" | "detail" | "retry">
 > = {
   unavailable: {
@@ -101,7 +101,7 @@ const FAILURE_WORDS: Record<
 export function sendEndingWords(error: unknown): SendWords {
   const cause = endingCause(error);
 
-  if (error instanceof SendFailedError) {
+  if (error instanceof RoomFailedError) {
     return { ending: error.failure, cause, ...FAILURE_WORDS[error.failure] };
   }
 

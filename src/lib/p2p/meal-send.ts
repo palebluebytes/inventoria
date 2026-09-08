@@ -45,12 +45,17 @@
  * §6's four conditions, and no fifth: one successful delivery, any refusal, the
  * sender cancelling, and five minutes. **A transport reconnect within a live
  * session is not a use** — the socket is redialled and the code survives, which
- * is why {@link enterRoom} rejoins rather than failing.
+ * is why `relay-room.ts` rejoins rather than failing.
  *
  * "Any refusal" is read as the class rather than as ADR-0073 §8's list alone: a
  * frame that will not open under the code is a refusal at the seal, one step
  * before §8 has a payload to judge, and it ends the session the same way. What
  * it is *not* is a different condition.
+ *
+ * The room itself — the dial, the rejoin, the deadline and the four ways a
+ * session ends — is `relay-room.ts`, because a Pairing act meets in one too
+ * (ADR-0096 §8). What is left here is the Meal send's own protocol: two frames,
+ * and what each of them means.
  *
  * Two things are deliberately not burns. **An unreachable Relay** is not one —
  * nothing crossed, so nothing was spent, and the surface offers another code
@@ -67,13 +72,11 @@ import {
   type ReceivedMealPayload,
 } from "./meal-reader";
 import {
-  PEER_WORD,
-  RELAY_PATH,
-  RELAY_ROOM_PARAM,
-  ROOM_LIFETIME_MS,
-  CLOSE_EXPIRED,
-  relayChoseToClose,
-} from "./relay-wire";
+  enterRoom,
+  RoomFailedError,
+  whyRoomEnded,
+  type RoomOptions,
+} from "./relay-room";
 import {
   openSealedFrame,
   sealFrame,
@@ -86,282 +89,8 @@ import {
   type SendCode,
 } from "./send-code";
 
-/** §7's acknowledgement, and its negative. The whole of the reverse frame. */
-export const DELIVERED_WORD = "delivered";
-export const REFUSED_WORD = "refused";
-
-/**
- * How long a lost socket waits before trying the room again.
- *
- * There is no attempt ceiling and no backoff, because the deadline is already
- * the bound: rejoining stops when the room's five minutes do, and a session
- * that spent all of them reconnecting has failed anyway.
- */
-export const REJOIN_PAUSE_MS = 1000;
-
 const utf8 = new TextEncoder();
 const fromUtf8 = new TextDecoder();
-
-/** Why a session ended without a meal crossing. */
-export type SendFailure =
-  /** The Relay could not be reached, and nothing crossed. The code is unspent. */
-  | "unavailable"
-  /** The room's five minutes ran out (§6.4). */
-  | "expired"
-  /** The sender pulled out (§6.3). */
-  | "cancelled"
-  /** The other device refused the payload (§6.2, ADR-0073 §8 and §9). */
-  | "refused"
-  /**
-   * The Relay closed the room under one of its own refusals (§11) — a text
-   * frame, or a peer that went away before the payload could be forwarded. A
-   * third socket is refused before a socket exists to be closed, so it arrives
-   * as `unavailable` instead.
-   */
-  | "closed";
-
-export class SendFailedError extends Error {
-  readonly failure: SendFailure;
-
-  constructor(failure: SendFailure, reason: string) {
-    super(reason);
-    this.name = "SendFailedError";
-    this.failure = failure;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// The socket, as the session needs it
-// ---------------------------------------------------------------------------
-
-/** What a session does to a room. */
-export interface RelayLink {
-  send(frame: Uint8Array): void;
-  close(): void;
-}
-
-/**
- * What a room does to a session.
- *
- * The handlers are handed to {@link RelayDial} rather than attached to what it
- * returns, so there is no window between a socket opening and somebody
- * listening to it — the Relay's peer word can arrive on the same tick as the
- * upgrade, when the other party is already waiting.
- */
-export interface RelayLinkHandlers {
-  /** Text is the Relay's own register; binary is the peer's one frame. */
-  message(message: ArrayBuffer | string): void;
-  /** With the close code, which says whether the room is gone or the socket. */
-  closed(code?: number): void;
-}
-
-export type RelayDial = (
-  room: string,
-  handlers: RelayLinkHandlers
-) => Promise<RelayLink>;
-
-/** What either half of a Meal send needs from outside itself. */
-export interface MealSendOptions {
-  dial?: RelayDial;
-  /** The sender cancelling (§6.3), or the recipient leaving. */
-  signal?: AbortSignal;
-  /**
-   * The room's five minutes, as a parameter so a test can prove the deadline
-   * without waiting one out — **never so a caller can extend it**. §11.4's one
-   * clock and one number is the default, and the app passes no other.
-   */
-  lifetimeMs?: number;
-}
-
-/**
- * The real socket: same origin as the app and its receive link (§9), so there
- * is no allowlist to write, maintain and get wrong.
- *
- * It rejects only on an upgrade that never opened. A browser cannot see *why*
- * — a Relay that is down and a room already holding two sockets (§11.1's
- * refused third) both arrive as a socket that failed to open — and it does not
- * need to: both mean this send cannot proceed, and both leave the code unspent.
- */
-export const openRelaySocket: RelayDial = (room, handlers) =>
-  new Promise((resolve, reject) => {
-    const url = new URL(RELAY_PATH, location.href);
-    url.protocol = url.protocol === "http:" ? "ws:" : "wss:";
-    url.searchParams.set(RELAY_ROOM_PARAM, room);
-
-    const socket = new WebSocket(url);
-    socket.binaryType = "arraybuffer";
-    socket.onmessage = (event) => handlers.message(event.data);
-    socket.onclose = (event) => handlers.closed(event.code);
-    socket.onerror = () => reject(new Error("the relay socket failed"));
-    socket.onopen = () =>
-      resolve({
-        // The same `BufferSource` boundary the seal crosses: a `Uint8Array`
-        // over an `ArrayBufferLike` is what every producer here hands out.
-        send: (frame) => socket.send(frame as BufferSource),
-        close: () => socket.close(),
-      });
-  });
-
-// ---------------------------------------------------------------------------
-// The room, which survives losing its socket
-// ---------------------------------------------------------------------------
-
-type RoomEvent =
-  | { kind: "peer" }
-  | { kind: "frame"; bytes: Uint8Array }
-  | { kind: "closed"; code?: number }
-  | { kind: "expired" }
-  | { kind: "cancelled" };
-
-interface Room {
-  /** The next thing the room has to say, awaited one at a time. */
-  next(): Promise<RoomEvent>;
-  send(frame: Uint8Array): void;
-  leave(): void;
-}
-
-const pause = (ms: number) => new Promise((wake) => setTimeout(wake, ms));
-
-/**
- * Joins a room and keeps a socket in it until the session leaves or the five
- * minutes are up.
- *
- * The deadline is the client's own, against the same number as the Relay's
- * (`relay-wire.ts` says why a waiting party cannot rely on being told).
- */
-async function enterRoom(
-  code: SendCode,
-  {
-    dial = openRelaySocket,
-    signal,
-    lifetimeMs = ROOM_LIFETIME_MS,
-  }: MealSendOptions
-): Promise<Room> {
-  const queued: RoomEvent[] = [];
-  let waiting: ((event: RoomEvent) => void) | null = null;
-  let link: RelayLink | null = null;
-  let left = false;
-
-  const push = (event: RoomEvent) => {
-    if (left) return;
-    const wake = waiting;
-    waiting = null;
-    if (wake) wake(event);
-    else queued.push(event);
-  };
-
-  const handlers: RelayLinkHandlers = {
-    message: (message) => {
-      if (typeof message === "string") {
-        // The Relay's register. Its one word says both parties are present;
-        // anything else it might ever say is not this version's to interpret.
-        if (message === PEER_WORD) push({ kind: "peer" });
-        return;
-      }
-      push({ kind: "frame", bytes: new Uint8Array(message) });
-    },
-    closed: (closeCode) => {
-      link = null;
-      // A close the Relay chose is the room itself ending, and it ends the
-      // session with it: there is nothing to rejoin, and redialling a spent id
-      // would open a *fresh* five-minute room on the edge after every send.
-      // Anything else — a code no endpoint can send, an abnormal close — is the
-      // transport losing its grip, which §6 says is not a use of the code.
-      if (relayChoseToClose(closeCode))
-        push({ kind: "closed", code: closeCode });
-      else void rejoin();
-    },
-  };
-
-  // §6: a transport reconnect within a live session is not a use of the code.
-  // The room stays ours until one of the four burn conditions fires, so a lost
-  // socket is redialled rather than ending the send. The first attempt is
-  // immediate, because a socket that dropped is usually replaceable at once;
-  // the pause is between retries, and the deadline is what ends them.
-  let rejoining = false;
-  const rejoin = async () => {
-    // One loop at a time. A rejoin's own failed dial reports an abnormal close
-    // like any other, which lands back here — so without this each failure
-    // would leave behind a second loop dialling the same room, and the room's
-    // five minutes would be spent doubling rather than reconnecting.
-    if (rejoining) return;
-    rejoining = true;
-    try {
-      await keepDialling();
-    } finally {
-      rejoining = false;
-    }
-  };
-
-  const keepDialling = async () => {
-    while (!left && link === null) {
-      try {
-        const rejoined = await dial(code.room, handlers);
-        if (left) return rejoined.close();
-        link = rejoined;
-        return;
-      } catch {
-        // Keep trying: the deadline stops this, not a counter.
-      }
-      await pause(REJOIN_PAUSE_MS);
-    }
-  };
-
-  const cancelled = () => push({ kind: "cancelled" });
-  const deadline = setTimeout(() => push({ kind: "expired" }), lifetimeMs);
-  signal?.addEventListener("abort", cancelled);
-  // A send called off while its payload was still being sealed is called off:
-  // a listener attached after the fact would never hear it.
-  if (signal?.aborted) cancelled();
-
-  try {
-    link = await dial(code.room, handlers);
-  } catch (error) {
-    // The session is over before it began, and saying so is what stops the
-    // rejoin: a browser reports an upgrade that never opened as an error AND
-    // an abnormal close, so `handlers.closed` has very likely already started
-    // one. Nothing would end it — the deadline is being cleared on the next
-    // line, and `leave` is only reachable through the room this never returns.
-    left = true;
-    clearTimeout(deadline);
-    signal?.removeEventListener("abort", cancelled);
-    throw new SendFailedError(
-      "unavailable",
-      `the relay could not be reached: ${error instanceof Error ? error.message : error}`
-    );
-  }
-
-  return {
-    next: () => {
-      const held = queued.shift();
-      return held
-        ? Promise.resolve(held)
-        : new Promise<RoomEvent>((resolve) => {
-            waiting = resolve;
-          });
-    },
-    send: (frame) => {
-      if (!link) {
-        throw new SendFailedError(
-          "unavailable",
-          "the relay socket went away mid-session."
-        );
-      }
-      link.send(frame);
-    },
-    leave: () => {
-      left = true;
-      clearTimeout(deadline);
-      signal?.removeEventListener("abort", cancelled);
-      link?.close();
-      link = null;
-    },
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Compression, the browser's own
-// ---------------------------------------------------------------------------
 
 /**
  * Raw DEFLATE, not gzip: gzip's header and trailer are 18 bytes bought for
@@ -380,37 +109,9 @@ async function deflateWire(ndjson: string): Promise<Uint8Array> {
   return new Uint8Array(await new Response(deflated).arrayBuffer());
 }
 
-/**
- * Why a session ended, in the words the surface will need.
- *
- * The Relay's own close is read for exactly one thing: whether it was the
- * deadline. That one is a burn condition in its own right (§6.4) and the person
- * waiting needs to be told their five minutes went; the other four bounds are
- * the room refusing a shape, and flattening them into a fake timeout would
- * report a defect as patience running out.
- *
- * `leaving` is the caller's, because the two halves leave differently: one
- * cancels a send, the other gives up waiting for one.
- */
-function whyItEnded(
-  event: { kind: "closed"; code?: number } | { kind: "expired" | "cancelled" },
-  leaving: string
-): SendFailedError {
-  if (event.kind === "cancelled") {
-    return new SendFailedError("cancelled", leaving);
-  }
-  const closeCode = event.kind === "closed" ? event.code : undefined;
-  if (event.kind === "expired" || closeCode === CLOSE_EXPIRED) {
-    return new SendFailedError(
-      "expired",
-      "this code's five minutes are up, and nothing crossed."
-    );
-  }
-  return new SendFailedError(
-    "closed",
-    `the relay closed this room before the meal crossed (${closeCode}).`
-  );
-}
+/** §7's acknowledgement, and its negative. The whole of the reverse frame. */
+export const DELIVERED_WORD = "delivered";
+export const REFUSED_WORD = "refused";
 
 // ---------------------------------------------------------------------------
 // The two halves of a send
@@ -424,7 +125,7 @@ function whyItEnded(
  * spends compressing are not seconds the other person spends waiting.
  *
  * Resolving means delivered. Three things can escape instead, and they are
- * different facts rather than degrees of the same one: {@link SendFailedError}
+ * different facts rather than degrees of the same one: {@link RoomFailedError}
  * for how a session ended, {@link SendCodeSpentError} for a code that has
  * already done its job, and {@link SealRefusedError} when something in the room
  * answered with a frame this code does not open — which is §3's third clause
@@ -433,12 +134,12 @@ function whyItEnded(
 export async function sendMealPayload(
   code: SendCode,
   ndjson: string,
-  options: MealSendOptions = {}
+  options: RoomOptions = {}
 ): Promise<void> {
   if (isSendCodeSpent(code)) throw new SendCodeSpentError();
 
   const payload = await sealFrame(code, await deflateWire(ndjson));
-  const room = await enterRoom(code, options);
+  const room = await enterRoom(code.room, options);
   let sent = false;
 
   try {
@@ -463,7 +164,7 @@ export async function sendMealPayload(
         burnSendCode(code);
         const word = fromUtf8.decode(await openSealedFrame(code, event.bytes));
         if (word !== DELIVERED_WORD) {
-          throw new SendFailedError(
+          throw new RoomFailedError(
             "refused",
             "the other device refused this meal, so nothing was added to their day."
           );
@@ -475,7 +176,10 @@ export async function sendMealPayload(
       // bounds — which is not a fifth condition but a session that cannot
       // deliver, on a room id that is spent either way.
       burnSendCode(code);
-      throw whyItEnded(event, "you cancelled this send, and nothing crossed.");
+      throw whyRoomEnded(
+        event,
+        "you cancelled this send, and nothing crossed."
+      );
     }
   } finally {
     room.leave();
@@ -496,11 +200,11 @@ export async function sendMealPayload(
  */
 export async function receiveMealPayload(
   code: SendCode,
-  options: MealSendOptions = {}
+  options: RoomOptions = {}
 ): Promise<ReceivedMealPayload> {
   if (isSendCodeSpent(code)) throw new SendCodeSpentError();
 
-  const room = await enterRoom(code, options);
+  const room = await enterRoom(code.room, options);
 
   /**
    * Tells the sender how it went, and never fails doing so: if the room has
@@ -540,7 +244,7 @@ export async function receiveMealPayload(
       // Giving up waiting spends nothing: §6.3 is the *sender* cancelling, and
       // a meal that never arrived leaves the sender still holding a live code.
       if (event.kind !== "cancelled") burnSendCode(code);
-      throw whyItEnded(event, "you left before the meal arrived.");
+      throw whyRoomEnded(event, "you left before the meal arrived.");
     }
   } finally {
     room.leave();

@@ -3,7 +3,8 @@
  *
  * **Against the real Relay, not a stand-in for it.** Two clients sit on either
  * side of the same `Relay` object that ships to the edge, joined through the
- * fake sockets in `support/relay-room.ts`, so what these tests exercise is the
+ * fake sockets `support/local-relay.ts` puts either side of it, so what these
+ * tests exercise is the
  * protocol both halves actually speak: the peer word, one sealed frame each
  * way, the room closing itself after two, and the close codes. A hand-written
  * fake relay would only prove the two clients agree with the fake.
@@ -13,7 +14,6 @@
  */
 import { describe, it, expect } from "vitest";
 import {
-  Relay,
   CLOSE_NORMAL as RELAY_CLOSE_NORMAL,
   CLOSE_EXPIRED as RELAY_CLOSE_EXPIRED,
   CLOSE_NOT_OPAQUE,
@@ -23,7 +23,7 @@ import {
   ROOM_LIFETIME_MS as RELAY_ROOM_LIFETIME_MS,
 } from "../../worker/src/relay";
 import worker, { type WorkerEnv } from "../../worker/src/index";
-import { fakeRoom, fakeSocket, type FakeSocket } from "./support/relay-room";
+import { ABNORMAL_CLOSE, localRelay, settle } from "./support/local-relay";
 import { row } from "./support/ledger-rows";
 import { buildMealPayload } from "../../src/lib/p2p/meal-payload";
 import {
@@ -48,88 +48,14 @@ import {
 import { openSealedFrame } from "../../src/lib/p2p/sealed-frame";
 import {
   DELIVERED_WORD,
-  REJOIN_PAUSE_MS,
-  SendFailedError,
   receiveMealPayload,
   sendMealPayload,
-  type RelayDial,
-  type RelayLinkHandlers,
 } from "../../src/lib/p2p/meal-send";
-
-// ---------------------------------------------------------------------------
-// One Relay, in this process, with two clients allowed to dial it
-// ---------------------------------------------------------------------------
-
-/** The bytes of a frame, copied out of whatever view they arrived in. */
-const asArrayBuffer = (frame: Uint8Array): ArrayBuffer =>
-  frame.buffer.slice(
-    frame.byteOffset,
-    frame.byteOffset + frame.byteLength
-  ) as ArrayBuffer;
-
-/** What a browser reports when a socket goes away without a close frame. */
-const ABNORMAL_CLOSE = 1006;
-
-function localRelay() {
-  const room = fakeRoom();
-  const relay = new Relay(room.state);
-  const joined: { server: FakeSocket; handlers: RelayLinkHandlers }[] = [];
-  /** Every frame the relay forwarded: exactly what crossed it, in order. */
-  const carried: Uint8Array[] = [];
-  /** Anything the room threw while forwarding, which should stay empty. */
-  const failures: unknown[] = [];
-
-  const dial: RelayDial = async (_room, handlers) => {
-    // §11.1: a third socket is refused, never queued, and a browser sees that
-    // as a socket that would not open.
-    if (room.state.getWebSockets().length >= MAX_SOCKETS_PER_ROOM) {
-      throw new Error("the room already holds two sockets");
-    }
-    const server = fakeSocket({
-      sent: (message) => {
-        if (typeof message !== "string") carried.push(new Uint8Array(message));
-        handlers.message(message);
-      },
-      closed: (code) => handlers.closed(code),
-    });
-    joined.push({ server, handlers });
-    await relay.join(server);
-    return {
-      send: (frame) => {
-        void relay
-          .webSocketMessage(server, asArrayBuffer(frame))
-          .catch((error) => failures.push(error));
-      },
-      close: () => {
-        server.close(RELAY_CLOSE_NORMAL, "the party left");
-        void relay
-          .webSocketClose(server)
-          .catch((error) => failures.push(error));
-      },
-    };
-  };
-
-  return {
-    dial,
-    relay,
-    room,
-    carried,
-    failures,
-    joined,
-    /**
-     * The transport losing a socket, which is not a party leaving.
-     *
-     * 1006 is what a browser reports for a connection that went away without a
-     * close frame — the one code an endpoint cannot itself send, and the reason
-     * the client reads the code at all.
-     */
-    drop: (which = joined.length - 1) => {
-      const { server } = joined[which];
-      server.close(ABNORMAL_CLOSE, "the transport dropped it");
-      void relay.webSocketClose(server).catch((error) => failures.push(error));
-    },
-  };
-}
+import {
+  REJOIN_PAUSE_MS,
+  RoomFailedError,
+  type RelayDial,
+} from "../../src/lib/p2p/relay-room";
 
 // ---------------------------------------------------------------------------
 // One meal to send
@@ -149,23 +75,11 @@ const aMeal = () =>
 const wordIn = async (code: SendCode, frame: Uint8Array) =>
   new TextDecoder().decode(await openSealedFrame(code, frame));
 
-/**
- * Lets whatever a session started reach the room before a test looks at it.
- *
- * Several turns rather than one: sealing a payload is real WebCrypto over a
- * real DEFLATE stream, and neither lands in a single tick.
- */
-const settle = async () => {
-  for (let turn = 0; turn < 20; turn++) {
-    await new Promise((done) => setTimeout(done, 1));
-  }
-};
-
-const failure = async (send: Promise<unknown>): Promise<SendFailedError> => {
+const failure = async (send: Promise<unknown>): Promise<RoomFailedError> => {
   try {
     await send;
   } catch (error) {
-    if (error instanceof SendFailedError) return error;
+    if (error instanceof RoomFailedError) return error;
     throw error;
   }
   throw new Error("the send did not fail");

@@ -20,7 +20,7 @@
 
 import { endingCause, type EndingWords } from "./ending-words";
 import type { AcceptedMeal } from "./meal-accept";
-import { SendFailedError, type SendFailure } from "./meal-send";
+import { RoomFailedError, type RoomFailure } from "./relay-room";
 import { MealPayloadRefusedError } from "./meal-reader";
 import { SealRefusedError } from "./sealed-frame";
 import { SendCodeSpentError } from "./send-code";
@@ -33,7 +33,7 @@ export type ReceiveEnding =
   | "landed"
   | "nothing"
   | "broken"
-  | SendFailure
+  | RoomFailure
   | "seal"
   | "unreadable"
   | "spent"
@@ -78,7 +78,7 @@ export function mealCodeBrokenWords(reason: string): ReceiveWords {
   };
 }
 
-const FAILURE_WORDS: Record<SendFailure, Omit<EndingWords, "cause">> = {
+const FAILURE_WORDS: Record<RoomFailure, Omit<EndingWords, "cause">> = {
   unavailable: {
     line: "No route to their meal.",
     detail: "Nothing reached this device. Their code was never spent.",
@@ -116,7 +116,7 @@ const FAILURE_WORDS: Record<SendFailure, Omit<EndingWords, "cause">> = {
 export function receiveEndingWords(error: unknown): ReceiveWords {
   const cause = endingCause(error);
 
-  if (error instanceof SendFailedError) {
+  if (error instanceof RoomFailedError) {
     return { ending: error.failure, cause, ...FAILURE_WORDS[error.failure] };
   }
 

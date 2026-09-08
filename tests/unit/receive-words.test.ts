@@ -14,13 +14,16 @@ import {
   receiveEndingWords,
   type ReceiveWords,
 } from "../../src/lib/p2p/receive-words";
-import { SendFailedError, type SendFailure } from "../../src/lib/p2p/meal-send";
+import {
+  RoomFailedError,
+  type RoomFailure,
+} from "../../src/lib/p2p/relay-room";
 import { MealPayloadTooLargeError } from "../../src/lib/p2p/meal-reader";
 import { SealRefusedError } from "../../src/lib/p2p/sealed-frame";
 import { SendCodeSpentError } from "../../src/lib/p2p/send-code";
 import type { MealType } from "../../src/lib/food/meal-type";
 
-const FAILURES: SendFailure[] = [
+const FAILURES: RoomFailure[] = [
   "unavailable",
   "expired",
   "cancelled",
@@ -28,8 +31,8 @@ const FAILURES: SendFailure[] = [
   "closed",
 ];
 
-const words = (failure: SendFailure): ReceiveWords =>
-  receiveEndingWords(new SendFailedError(failure, `${failure} happened.`));
+const words = (failure: RoomFailure): ReceiveWords =>
+  receiveEndingWords(new RoomFailedError(failure, `${failure} happened.`));
 
 describe("receiveEndingWords", () => {
   it("has words for every way a session can end", () => {
