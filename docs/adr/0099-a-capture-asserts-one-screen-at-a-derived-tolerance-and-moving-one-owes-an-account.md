@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-07  
-**Implemented:** §2, §3 and §4 — `playwright.config.ts`'s `expect` block, `tests/unit/screenshot-tolerance.test.ts` and the deletion of `maxDiffPixels` from `tests/visual-catalog.spec.ts` (#405); §1's split — `tests/visual-catalog.spec.ts` (`3a59656`, #406); §8's instrument — `scripts/baseline-diff.mjs` (`5e084a0`, #404); §8's procedure — `.github/workflows/e2e.yml`'s header (`d7a9ecb`, #369, extended by `b38b78d`); §7's measurement — `takeSheetScreenshot`'s doc comment in `tests/visual-catalog.spec.ts` (`3c51512`, #366); the pre-landing state of both helpers, recorded in place (`9069dab`, #367)
+**Implemented:** §2, §3 and §4 — `playwright.config.ts`'s `expect` block, `tests/unit/screenshot-tolerance.test.ts` and the deletion of `maxDiffPixels` from `tests/visual-catalog.spec.ts` (#405, with §8's first two accounts at `3541a82` and `c4820fb`); §1's split — `tests/visual-catalog.spec.ts` (`3a59656`, #406); §8's instrument — `scripts/baseline-diff.mjs` (`5e084a0`, #404); §8's procedure — `.github/workflows/e2e.yml`'s header (`d7a9ecb`, #369, extended by `b38b78d`); §7's measurement — `takeSheetScreenshot`'s doc comment in `tests/visual-catalog.spec.ts` (`3c51512`, #366); the pre-landing state of both helpers, recorded in place (`9069dab`, #367)
 
 ## Context
 
@@ -560,3 +560,40 @@ Neither correction touches the bracket. `tests/unit/screenshot-tolerance.test.ts
 holds it by asking the installed comparator, and it now also asserts that
 nothing writes `timeout` back into `toHaveScreenshot`, so the address above
 cannot be re-lost the way `maxDiffPixels: 5000`'s basis was.
+
+## Amendment (2026-09-11): the old tolerance was hiding nothing, and the one thing it absorbed was the runner
+
+§3 rests on a bracket derived from token deltas, and the Consequences below ask
+what the tightening would turn up on real screens. #405 ran that experiment:
+three rebaseline dispatches, the second at `0.05` against the first's baselines
+with **nothing under `src/` between them**.
+
+It rewrote **two of thirty-one**, and neither was a regression `0.2` had been
+covering. Both were `settings-page`, whose Storage section reads
+`navigator.storage.estimate()` into a sentence; Chromium sizes that quota from
+the runner's free disk, and four readings across the two runs gave 1.0 GB,
+960 MB, 963 MB and 997 MB. On twenty-nine screens at two viewports the inherited
+tolerance was hiding nothing at all.
+
+So **the amendment route in §3 is not reached**. There is no residual noise to
+size a `maxDiffPixelRatio` against, and §5's refusal of one stands unweakened by
+measurement rather than by assumption. `0.05` is where it lands and the bracket
+never had to move.
+
+What the experiment did find is a defect §7 predicts in general form: a capture
+claims everything inside its clip, and this one was claiming a number the
+browser is free to change. `0.2` made that **worse than a failure** — it
+absorbed the difference on some runs and not others, so
+`settings-page-chromium` passed in the first dispatch and failed in the second
+with nothing between them but a figure Chromium picked, and each rebaseline
+froze whichever reading it happened to catch. The fix is a pin in
+`tests/visual-catalog.spec.ts` rather than a `mask`, because the sentence
+reflows and carries the page below it: on the desktop shot the changed pixels
+run from the text at y 527 to y 2024, where a button's fill ends eight pixels
+lower. §3's "a `mask` over the noisy region" is the right instrument only where
+the noise stays inside the region.
+
+That pin belongs to the same family as `playwright.config.ts`'s `timezoneId` and
+`locale`, and its being absent was the same omission: a host setting the browser
+would otherwise inherit, left unpinned, so the same ledger renders different
+strings on different machines. A third has now been named.
