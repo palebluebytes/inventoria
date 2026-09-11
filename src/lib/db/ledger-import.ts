@@ -149,6 +149,22 @@ export async function* linesOf(
 }
 
 /**
+ * The meaningful lines of an artifact that arrived **whole**, blank ones passed
+ * over but still counted so a refusal names the line a person would find.
+ *
+ * The sibling of {@link linesOf} rather than a copy of it, and the difference
+ * is the carrier: that one rejoins chunks across boundaries a disk put there,
+ * mid-datom, and this one takes a string nothing split. A Meal payload and a
+ * first sync's chunk both arrive whole, out of one sealed frame.
+ */
+export function meaningfulLines(ndjson: string): NdjsonLine[] {
+  return ndjson
+    .split("\n")
+    .map((text, index) => ({ text: text.trim(), lineNumber: index + 1 }))
+    .filter((line) => line.text.length > 0);
+}
+
+/**
  * Line one, checked. This is the whole refusal gate for an unfamiliar file: two
  * fields at the front decide it, so a file of hundreds of megabytes costs one
  * line to reject.

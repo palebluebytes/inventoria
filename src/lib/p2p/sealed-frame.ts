@@ -18,6 +18,16 @@
  * A frame is `nonce ‖ ciphertext ‖ tag`, the nonce being the 96 bits WebCrypto
  * takes. It is fresh per frame and the key is fresh per send, so the pair is
  * never reused — which is the one way GCM breaks.
+ *
+ * **A label binds a frame to its place in a conversation without hiding it**
+ * (ADR-0075 §7). One sealed frame each way needs none: there is nowhere else
+ * for it to go. A first sync is a *stream* of frames under one key, and there
+ * §7 requires the chunk's sequence number bound into the AEAD's additional
+ * data, so that a chunk cannot be reordered, replayed or dropped without the
+ * seal failing. The label is never sent — both ends know what they expect next
+ * and derive it — which is what makes it an assertion about the protocol rather
+ * than a field an attacker can rewrite. ADR-0096 §5 widens what a label carries
+ * on the store's path, where several distinct objects live at one address.
  */
 
 import { randomBytes, type RandomBytes, type RoomCode } from "./room-code";
@@ -48,16 +58,39 @@ const importKey = (key: Uint8Array) =>
     "decrypt",
   ]);
 
+/**
+ * What a seal is bound to beyond the key.
+ *
+ * `label` is the additional data: authenticated, not encrypted, and not sent.
+ * A frame sealed under one label does not open under another, and a frame
+ * sealed under none does not open under one.
+ */
+export interface SealOptions {
+  label?: string;
+  draw?: RandomBytes;
+}
+
+const utf8 = new TextEncoder();
+
+// WebCrypto takes the additional data as a `BufferSource` or not at all, and
+// `undefined` is how "not at all" is spelled — an empty array is a different
+// seal from no additional data, so the two must not be confused here.
+const aeadOf = (nonce: Uint8Array, label: string | undefined) => ({
+  name: "AES-GCM" as const,
+  iv: nonce as BufferSource,
+  additionalData: label === undefined ? undefined : utf8.encode(label),
+});
+
 /** Seals one frame under a code, with a fresh nonce in front of it. */
 export async function sealFrame(
   code: RoomCode,
   plaintext: Uint8Array,
-  draw: RandomBytes = randomBytes
+  { label, draw = randomBytes }: SealOptions = {}
 ): Promise<Uint8Array> {
   const nonce = draw(SEAL_NONCE_BYTES);
   const sealed = new Uint8Array(
     await crypto.subtle.encrypt(
-      { name: "AES-GCM", iv: nonce as BufferSource },
+      aeadOf(nonce, label),
       await importKey(code.key),
       plaintext as BufferSource
     )
@@ -71,18 +104,23 @@ export async function sealFrame(
 /**
  * Opens one frame, or refuses it.
  *
+ * `label` is what the opener *expected* this frame to be, and a mismatch is a
+ * {@link SealRefusedError} like any other: a chunk arriving out of order, twice,
+ * or with one of its siblings missing opens under a label nobody derived.
+ *
  * Both halves are copied out rather than passed as views: a `subarray` keeps
  * its parent's `ArrayBufferLike`, which `BufferSource` will not take.
  */
 export async function openSealedFrame(
   code: RoomCode,
-  frame: Uint8Array
+  frame: Uint8Array,
+  label?: string
 ): Promise<Uint8Array> {
   if (frame.length <= SEAL_NONCE_BYTES) throw new SealRefusedError();
   try {
     return new Uint8Array(
       await crypto.subtle.decrypt(
-        { name: "AES-GCM", iv: frame.slice(0, SEAL_NONCE_BYTES) },
+        aeadOf(frame.slice(0, SEAL_NONCE_BYTES), label),
         await importKey(code.key),
         frame.slice(SEAL_NONCE_BYTES)
       )

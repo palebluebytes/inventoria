@@ -36,9 +36,9 @@ import { describeMarker } from "../db/describe-value";
 import type { LedgerRow } from "../db/db.core";
 import {
   LedgerImportRefusedError,
+  meaningfulLines,
   parseNdjsonObject,
   readDatomLine,
-  type NdjsonLine,
 } from "../db/ledger-import";
 import {
   MEAL_PAYLOAD_ARTIFACT,
@@ -404,19 +404,4 @@ function reachableFrom(
     frontier = next;
   }
   return reached;
-}
-
-/**
- * The payload's lines, blank ones passed over but still counted so a refusal
- * names the line a person would find.
- *
- * It splits rather than reusing the import's `linesOf`: that one rejoins chunks
- * across boundaries a disk put there, and a payload is one string that arrived
- * whole.
- */
-function meaningfulLines(ndjson: string): NdjsonLine[] {
-  return ndjson
-    .split("\n")
-    .map((text, index) => ({ text: text.trim(), lineNumber: index + 1 }))
-    .filter((line) => line.text.length > 0);
 }

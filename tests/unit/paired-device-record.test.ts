@@ -1,0 +1,322 @@
+/**
+ * The Paired Device record: `localStorage`, never a datom (ADR-0096 §9).
+ *
+ * The two claims worth holding a suite for are both negative. **Nothing in the
+ * record can regenerate the pairing, only advance it** — so what is written is
+ * compared against the pairing secret it descends from, rather than merely
+ * described. And it is **never a datom and never in an ADR-0064 export** — so
+ * the write path is run beside a real ledger and the ledger is asked whether
+ * anything landed in it.
+ *
+ * `PairedDevicesSection.svelte` covers what the section draws; this covers what
+ * is kept.
+ */
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { get } from "svelte/store";
+import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
+import {
+  freshModuleWithStorage,
+  stubLocalStorage,
+  stubNoLocalStorage,
+  type FakeLocalStorage,
+} from "./support/local-storage";
+import {
+  countDatoms,
+  createLedgerSchema,
+  readLedgerPage,
+  type LedgerDb,
+} from "../../src/lib/db/db.core";
+import {
+  derivePairingChains,
+  deriveLaneKey,
+  type PairedChains,
+} from "../../src/lib/p2p/pairing-chain";
+import type { VersionVector } from "../../src/lib/db/version-vector";
+
+type Records = typeof import("../../src/lib/stores/paired-devices");
+
+const hex = (bytes: Uint8Array) =>
+  [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+
+const A_VECTOR: VersionVector = { dev_b: { hlc_ms: 12, hlc_ctr: 3 } };
+
+/** A pairing act's chains, from a secret a test can still hold afterwards. */
+async function chainsFrom(fill: number): Promise<PairedChains> {
+  return derivePairingChains(new Uint8Array(32).fill(fill), "showed");
+}
+
+let records: Records;
+let jar: FakeLocalStorage;
+
+beforeEach(async () => {
+  [records, jar] = await freshModuleWithStorage(
+    () => import("../../src/lib/stores/paired-devices")
+  );
+});
+
+afterEach(() => vi.unstubAllGlobals());
+
+describe("a row appears only when a first sync completes", () => {
+  it("holds nothing before one does", () => {
+    expect(records.readPairedDevices()).toEqual([]);
+  });
+
+  it("keeps the peer, both lanes and what the peer said it holds", async () => {
+    const chains = await chainsFrom(7);
+    records.rememberPairedDevice({
+      device_id: "dev_b",
+      chains,
+      peer_vector: A_VECTOR,
+    });
+
+    const [kept] = records.readPairedDevices();
+    expect(kept).toMatchObject({
+      device_id: "dev_b",
+      name: null,
+      deposit: { direction: "a2b", index: 0 },
+      collect: { direction: "b2a", index: 0 },
+      peer_vector: A_VECTOR,
+    });
+  });
+
+  it("stores the lane state a later deposit derives its address and key from", async () => {
+    const chains = await chainsFrom(7);
+    const address = await deriveLaneKey(chains.deposit, "addr");
+    records.rememberPairedDevice({
+      device_id: "dev_b",
+      chains,
+      peer_vector: A_VECTOR,
+    });
+
+    const [kept] = records.readPairedDevices();
+    const back = records.laneChainOf(kept.deposit);
+    expect(hex(await deriveLaneKey(back, "addr"))).toBe(hex(address));
+  });
+});
+
+describe("nothing in the record can regenerate the pairing", () => {
+  // ADR-0075 §3 kept the 256-bit pairing secret, which regenerates both state₀s
+  // and with them every address and every seal key from pairing onward. §9
+  // replaces that with a rule, and this is the rule as an assertion.
+  it("holds no byte of the pairing secret it descends from", async () => {
+    const secret = new Uint8Array(32).fill(7);
+    records.rememberPairedDevice({
+      device_id: "dev_b",
+      chains: await derivePairingChains(secret.slice(), "showed"),
+      peer_vector: A_VECTOR,
+    });
+
+    const written = jar.store.get("inventoria_paired_devices") ?? "";
+    expect(written).not.toContain(btoa(String.fromCharCode(...secret)));
+    // A stolen record is one ratchet step past the secret, so it cannot be run
+    // backwards to state₋₁.
+    const [kept] = records.readPairedDevices();
+    expect(kept.deposit.state).not.toBe(btoa(String.fromCharCode(...secret)));
+  });
+
+  it("holds neither lane's address nor its seal key, only the state they come off", async () => {
+    const chains = await chainsFrom(9);
+    records.rememberPairedDevice({
+      device_id: "dev_b",
+      chains,
+      peer_vector: A_VECTOR,
+    });
+
+    const written = jar.store.get("inventoria_paired_devices") ?? "";
+    for (const purpose of ["addr", "seal"] as const) {
+      for (const lane of [chains.deposit, chains.collect]) {
+        const derived = await deriveLaneKey(lane, purpose);
+        expect(written).not.toContain(btoa(String.fromCharCode(...derived)));
+      }
+    }
+  });
+});
+
+describe("pairing is keyed by device, and pairing again replaces", () => {
+  it("replaces the row for the same device rather than adding one", async () => {
+    const first = await chainsFrom(1);
+    const second = await chainsFrom(2);
+    records.rememberPairedDevice({
+      device_id: "dev_b",
+      chains: first,
+      peer_vector: {},
+    });
+    records.rememberPairedDevice({
+      device_id: "dev_b",
+      chains: second,
+      peer_vector: A_VECTOR,
+    });
+
+    const held = records.readPairedDevices();
+    expect(held).toHaveLength(1);
+    expect(held[0].peer_vector).toEqual(A_VECTOR);
+    expect(held[0].deposit.state).toBe(
+      btoa(String.fromCharCode(...second.deposit.state))
+    );
+  });
+
+  it("keeps a name the user typed, so re-pairing does not ask for it again", async () => {
+    records.rememberPairedDevice({
+      device_id: "dev_b",
+      chains: await chainsFrom(1),
+      peer_vector: {},
+    });
+    records.namePairedDevice("dev_b", "The laptop");
+    records.rememberPairedDevice({
+      device_id: "dev_b",
+      chains: await chainsFrom(2),
+      peer_vector: {},
+    });
+
+    expect(records.readPairedDevices()[0].name).toBe("The laptop");
+  });
+
+  it("keeps a second device beside the first", async () => {
+    records.rememberPairedDevice({
+      device_id: "dev_b",
+      chains: await chainsFrom(1),
+      peer_vector: {},
+    });
+    records.rememberPairedDevice({
+      device_id: "dev_c",
+      chains: await chainsFrom(2),
+      peer_vector: {},
+    });
+
+    expect(records.readPairedDevices().map((d) => d.device_id)).toEqual([
+      "dev_b",
+      "dev_c",
+    ]);
+  });
+
+  it("severs one pairing here, unilaterally, taking nothing else with it", async () => {
+    records.rememberPairedDevice({
+      device_id: "dev_b",
+      chains: await chainsFrom(1),
+      peer_vector: {},
+    });
+    records.rememberPairedDevice({
+      device_id: "dev_c",
+      chains: await chainsFrom(2),
+      peer_vector: {},
+    });
+
+    records.forgetPairedDevice("dev_b");
+
+    expect(records.readPairedDevices().map((d) => d.device_id)).toEqual([
+      "dev_c",
+    ]);
+  });
+});
+
+describe("a name is typed locally, about the peer, after the act", () => {
+  beforeEach(async () => {
+    records.rememberPairedDevice({
+      device_id: "dev_b",
+      chains: await chainsFrom(1),
+      peer_vector: {},
+    });
+  });
+
+  it("takes a name and gives it back", () => {
+    records.namePairedDevice("dev_b", "  The laptop  ");
+    expect(records.readPairedDevices()[0].name).toBe("The laptop");
+  });
+
+  it("reads a cleared name as unnamed rather than as an empty one", () => {
+    records.namePairedDevice("dev_b", "The laptop");
+    records.namePairedDevice("dev_b", "   ");
+    expect(records.readPairedDevices()[0].name).toBeNull();
+  });
+});
+
+describe("the record never reaches the ledger", () => {
+  let db: LedgerDb;
+
+  beforeEach(async () => {
+    const sqlite3 = await (sqlite3InitModule as any)();
+    db = new sqlite3.oo1.DB();
+    createLedgerSchema(db);
+  });
+
+  // Structural rather than a rule anyone has to remember — an export is a walk
+  // of `datoms` — but the claim is worth an assertion, because the cost of it
+  // being false is a secret in an undeletable log that also syncs.
+  it("writes no datom, so nothing of it can leave in an export", async () => {
+    records.rememberPairedDevice({
+      device_id: "dev_b",
+      chains: await chainsFrom(7),
+      peer_vector: A_VECTOR,
+    });
+
+    expect(countDatoms(db)).toBe(0);
+    expect(readLedgerPage(db, null, 1024 * 1024)).toEqual([]);
+    expect([...jar.store.keys()]).toEqual(["inventoria_paired_devices"]);
+  });
+});
+
+describe("the jar is a boundary like any other", () => {
+  it("reads no pairings at all where there is no store", async () => {
+    stubNoLocalStorage();
+    const alone = await import("../../src/lib/stores/paired-devices");
+    expect(alone.readPairedDevices()).toEqual([]);
+  });
+
+  it("reads a record that will not parse as no pairings", async () => {
+    stubLocalStorage({ seed: { inventoria_paired_devices: "{not json" } });
+    expect(records.readPairedDevices()).toEqual([]);
+  });
+
+  it("drops a row that is not a pairing and keeps the ones that are", async () => {
+    records.rememberPairedDevice({
+      device_id: "dev_b",
+      chains: await chainsFrom(1),
+      peer_vector: {},
+    });
+    const kept = records.readPairedDevices();
+    stubLocalStorage({
+      seed: {
+        inventoria_paired_devices: JSON.stringify([
+          { device_id: "dev_c" },
+          null,
+          ...kept,
+        ]),
+      },
+    });
+
+    expect(records.readPairedDevices().map((d) => d.device_id)).toEqual([
+      "dev_b",
+    ]);
+  });
+
+  it("survives a jar that refuses the write, without pretending it landed", async () => {
+    const [refusing] = await freshModuleWithStorage(
+      () => import("../../src/lib/stores/paired-devices"),
+      { refuses: "quota" }
+    );
+    const chains = await chainsFrom(1);
+    expect(() =>
+      refusing.rememberPairedDevice({
+        device_id: "dev_b",
+        chains,
+        peer_vector: {},
+      })
+    ).not.toThrow();
+    // Both the read and the live list say nothing is paired, because nothing
+    // is: a section claiming otherwise would be reporting a write that a
+    // reload will not find.
+    expect(refusing.readPairedDevices()).toEqual([]);
+    expect(get(refusing.pairedDevices)).toEqual([]);
+  });
+
+  it("publishes the completed pairing to the live list", async () => {
+    records.rememberPairedDevice({
+      device_id: "dev_b",
+      chains: await chainsFrom(1),
+      peer_vector: {},
+    });
+    expect(get(records.pairedDevices).map((d) => d.device_id)).toEqual([
+      "dev_b",
+    ]);
+  });
+});
