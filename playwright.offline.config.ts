@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { CAPTURE_EXPECT } from "./playwright.config";
 
 // A second Playwright config for the one spec that needs a production build
 // behind a real service worker (#125). The main suite runs `pnpm dev`, which
@@ -15,6 +16,13 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: "list",
+  // The same block the main suite runs at, imported rather than restated
+  // (ADR-0099 §2). This config matches one spec and that spec takes no picture
+  // today, which is why it declared nothing and why that was invisible: the
+  // silence was a fact about the spec, not a decision about the config. A
+  // capture added here now compares at the derived tolerance instead of at
+  // Playwright's 0.2.
+  expect: CAPTURE_EXPECT,
   // Precaching ~13.5 MB over 37 entries dominates this spec; the default 30s is
   // not enough on a cold runner.
   timeout: 180_000,

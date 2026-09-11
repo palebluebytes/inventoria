@@ -1,5 +1,62 @@
 import { defineConfig, devices } from "@playwright/test";
 
+/**
+ * What a capture is allowed to claim, in one place rather than at the call
+ * sites: "one rule for both helpers" is a claim about this project, and a third
+ * capture helper written next month inherits it without anyone remembering
+ * (ADR-0099 §2).
+ *
+ * Exported because `playwright.offline.config.ts` is a second config over the
+ * same `tests/` directory and declared none of this. That was harmless only
+ * while the one spec it matches took no picture — a fact about today's specs
+ * rather than about the config, and the same silence §2 refuses.
+ * `tests/unit/screenshot-tolerance.test.ts` now reads both.
+ */
+export const CAPTURE_EXPECT = {
+  // The assertion budget the tightened threshold below makes load-bearing.
+  // `expectScreenshot` polls for *stability* — the first iteration against
+  // the baseline, every later one against the previous screenshot — so a
+  // stable-but-moved capture converges in about two screenshots (~0.8s
+  // measured) and fails as a diff; only a page that cannot produce two
+  // consecutive agreeing shots spends this. Tightening `threshold` tightens
+  // that loop, so the number is named rather than inherited.
+  //
+  // It sits at this level rather than inside `toHaveScreenshot` because
+  // Playwright will not read it there: `toMatchSnapshot.js:44-49` lists
+  // `timeout` among `NonConfigProperties` and deletes it from the config
+  // options before merging them, so the key ADR-0099 §3 names is accepted by
+  // nothing and silently does nothing. This is the key the matcher actually
+  // falls back to (`expect.js:123`), and what it replaces is **5000 ms** —
+  // `expect`'s own default, not the 30s test timeout §3 quotes. The price of
+  // naming it here is that it is every auto-retrying matcher's budget, so a
+  // genuinely broken assertion takes 15s to fail rather than 5s; a passing
+  // one costs nothing, and e2e is CI-only (AGENTS.md §1).
+  timeout: 15_000,
+  toHaveScreenshot: {
+    // pixelmatch's per-pixel colour tolerance in YIQ space, which admits a
+    // pixel when its delta exceeds `35215 x threshold^2`. 0.05 is derived,
+    // not picked: `--border` (#e4e4e7) losing itself into `--bg-base`
+    // (#fafafa) — delta 237.4 — must fail, and `--ink` (#000) against
+    // `--text-primary` (#09090b) — delta 43.2 — must pass, which brackets it
+    // at 0.0351 < t < 0.0821. `tests/unit/screenshot-tolerance.test.ts`
+    // holds that bracket by asking the installed comparator, so a later
+    // value may move inside it but nothing can quietly leave it.
+    // Playwright's inherited 0.2 admitted a delta of 1408, wide enough to
+    // pass `--green-bg` rendering as `--amber-bg`.
+    //
+    // The three knobs beside it are refused in writing rather than by
+    // silence: `maxDiffPixels` is deleted and a count can never replace it,
+    // `maxDiffPixelRatio` waits for a measurement that demands one, and
+    // `comparator` stays pixelmatch because the bracket above is expressed
+    // in YIQ delta and would have to be re-derived in ΔE94 to mean anything
+    // (ADR-0099 §4, §5). There is a fifth control this repo cannot reach —
+    // `pixelmatch.js:29` sets `includeAA: false` and Playwright never
+    // overrides it — so an over-threshold pixel is re-tested by the
+    // antialiasing detector and dropped if either image reads as an edge.
+    threshold: 0.05,
+  },
+};
+
 export default defineConfig({
   testDir: "./tests",
   // Unit tests belong to Vitest. offline-boot.spec.ts belongs to
@@ -24,54 +81,7 @@ export default defineConfig({
   // trade — raise this only against measured run times, not by intuition.
   workers: process.env.CI ? 2 : 1,
   reporter: "list",
-  // What a capture is allowed to claim, in one place rather than at the call
-  // sites: "one rule for both helpers" is a claim about this project, and a
-  // third capture helper written next month inherits it here without anyone
-  // remembering (ADR-0099 §2).
-  expect: {
-    // The assertion budget the tightened threshold below makes load-bearing.
-    // `expectScreenshot` polls for *stability* — the first iteration against
-    // the baseline, every later one against the previous screenshot — so a
-    // stable-but-moved capture converges in about two screenshots (~0.8s
-    // measured) and fails as a diff; only a page that cannot produce two
-    // consecutive agreeing shots spends this. Tightening `threshold` tightens
-    // that loop, so the number is named rather than inherited.
-    //
-    // It sits at this level rather than inside `toHaveScreenshot` because
-    // Playwright will not read it there: `toMatchSnapshot.js:44-49` lists
-    // `timeout` among `NonConfigProperties` and deletes it from the config
-    // options before merging them, so the key ADR-0099 §3 names is accepted by
-    // nothing and silently does nothing. This is the key the matcher actually
-    // falls back to (`expect.js:123`), and what it replaces is **5000 ms** —
-    // `expect`'s own default, not the 30s test timeout §3 quotes. The price of
-    // naming it here is that it is every auto-retrying matcher's budget, so a
-    // genuinely broken assertion takes 15s to fail rather than 5s; a passing
-    // one costs nothing, and e2e is CI-only (AGENTS.md §1).
-    timeout: 15_000,
-    toHaveScreenshot: {
-      // pixelmatch's per-pixel colour tolerance in YIQ space, which admits a
-      // pixel when its delta exceeds `35215 x threshold^2`. 0.05 is derived,
-      // not picked: `--border` (#e4e4e7) losing itself into `--bg-base`
-      // (#fafafa) — delta 237.4 — must fail, and `--ink` (#000) against
-      // `--text-primary` (#09090b) — delta 43.2 — must pass, which brackets it
-      // at 0.0351 < t < 0.0821. `tests/unit/screenshot-tolerance.test.ts`
-      // holds that bracket by asking the installed comparator, so a later
-      // value may move inside it but nothing can quietly leave it.
-      // Playwright's inherited 0.2 admitted a delta of 1408, wide enough to
-      // pass `--green-bg` rendering as `--amber-bg`.
-      //
-      // The three knobs beside it are refused in writing rather than by
-      // silence: `maxDiffPixels` is deleted and a count can never replace it,
-      // `maxDiffPixelRatio` waits for a measurement that demands one, and
-      // `comparator` stays pixelmatch because the bracket above is expressed
-      // in YIQ delta and would have to be re-derived in ΔE94 to mean anything
-      // (ADR-0099 §4, §5). There is a fifth control this repo cannot reach —
-      // `pixelmatch.js:29` sets `includeAA: false` and Playwright never
-      // overrides it — so an over-threshold pixel is re-tested by the
-      // antialiasing detector and dropped if either image reads as an edge.
-      threshold: 0.05,
-    },
-  },
+  expect: CAPTURE_EXPECT,
   use: {
     baseURL: "http://localhost:5173",
     trace: "on-first-retry",
