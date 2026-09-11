@@ -1,5 +1,7 @@
-// A plain-Node ops script, deliberately outside the app's tsconfig: it is the
-// one module that knows how to reach inside playwright-core (AGENTS.md §1).
+// A plain-Node ops script, deliberately outside the app's tsconfig and read
+// here for its public shape alone — see `tsconfig.tests.json`'s header for why
+// `checkJs` is off. It is the one module that knows how to reach inside
+// playwright-core.
 // @ts-ignore
 import { playwrightModule } from "../../../scripts/baseline-diff.mjs";
 

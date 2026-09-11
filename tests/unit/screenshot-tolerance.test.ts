@@ -44,17 +44,28 @@ const compare = getComparator("image/png");
  */
 const DECLARED = screenshotOptions(playwrightConfig);
 
-/** Playwright's own default, inherited by anything that declares nothing. */
-const INHERITED = { threshold: 0.2 };
+/**
+ * What this repo compared at before #405, written down rather than read back
+ * out of Playwright.
+ *
+ * It was Playwright's default, and that is how it got here — but the last
+ * `describe` below is a claim about **this number**, not about whatever
+ * Playwright defaults to next. Reading the live default would make that block
+ * keep passing while measuring something else.
+ */
+const WAS_INHERITED: ComparisonOptions = { threshold: 0.2 };
 
 /** Big enough that an interior pixel has all eight neighbours. */
 const BLOCK = 8;
+
+/** The counting knobs a comparison runs at — the two `screenshotOptions` reads. */
+type ComparisonOptions = { threshold?: number; comparator?: string };
 
 /** Does the comparator refuse two solid blocks of these tokens' colours? */
 const refuses = (
   expected: string,
   actual: string,
-  options: object = DECLARED
+  options: ComparisonOptions = DECLARED
 ): boolean =>
   compare(
     paint(BLOCK, BLOCK, tokenRgb(actual)),
@@ -86,10 +97,10 @@ describe("the tolerance the catalogue compares at is declared", () => {
     );
   });
 
-  it("carries no count budget, at the config or anywhere it could hide", () => {
-    // `maxDiffPixels: 5000` meant 33 different things across the 31 baselines
-    // and its measured basis was gone (ADR-0099 §4). A budget that returns is a
-    // `maxDiffPixelRatio` arriving with the measurement that sized it.
+  it("declares no count budget at all", () => {
+    // Only what the config says. `maxDiffPixels: 5000` spent a year at a call
+    // site instead, which is where a count can still hide — nothing here
+    // sweeps for that, and ADR-0099 §4 is the rule that keeps it out.
     const declared = playwrightConfig.expect?.toHaveScreenshot ?? {};
     expect(declared).not.toHaveProperty("maxDiffPixels");
     expect(declared).not.toHaveProperty("maxDiffPixelRatio");
@@ -132,9 +143,9 @@ describe("the tolerance this repo used to inherit", () => {
     // this repo compares exactly": at 0.2 the comparator admits a YIQ delta of
     // 1408, and all four refusals above are under it. A revert to silence is a
     // revert to this row.
-    expect(refuses("--border", "--bg-base", INHERITED)).toBe(false);
-    expect(refuses("--green-bg", "--amber-bg", INHERITED)).toBe(false);
-    expect(refuses("--highlight-bg", "--paper", INHERITED)).toBe(false);
-    expect(refuses("--rda-over", "--red-text", INHERITED)).toBe(false);
+    expect(refuses("--border", "--bg-base", WAS_INHERITED)).toBe(false);
+    expect(refuses("--green-bg", "--amber-bg", WAS_INHERITED)).toBe(false);
+    expect(refuses("--highlight-bg", "--paper", WAS_INHERITED)).toBe(false);
+    expect(refuses("--rda-over", "--red-text", WAS_INHERITED)).toBe(false);
   });
 });
