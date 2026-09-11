@@ -597,3 +597,33 @@ That pin belongs to the same family as `playwright.config.ts`'s `timezoneId` and
 `locale`, and its being absent was the same omission: a host setting the browser
 would otherwise inherit, left unpinned, so the same ledger renders different
 strings on different machines. A third has now been named.
+
+## Amendment (2026-09-11): §8 clause 7 forbids a required field, not a sentence
+
+Two readers split on clause 7 inside a day, which is the evidence that its
+wording and its reason do not say the same thing.
+
+The reason is explicit and narrow: "a field required every time is a field
+copied forward stale". That condemns a `Tolerance:` line dutifully filled in on
+every rebaseline, because a field nobody has to think about is a field nobody
+checks. The wording — "named only when tolerance is the cause" — reads wider,
+and forbids a sentence that explains what a particular run was.
+
+**The reason governs.** A rebaseline may name the tolerance it ran at wherever
+that number is part of _why the run was taken_; it may not carry it as a
+standing field. The case this record did not anticipate is #405's own: a
+rebaseline taken deliberately at an **outgoing** tolerance, whose whole purpose
+is to be the baseline a second run then compares against at a new one. There the
+number is load-bearing for the next commit's measurement, and omitting it makes
+the pair unreadable.
+
+This is a correction that happens to excuse a commit written while working the
+record, so the limit is worth stating plainly. The carve-out is the run's
+tolerance being _argued about_, not merely being true. `3541a82`'s sentence
+qualifies because it says the run is the last at a number nobody chose;
+`c4820fb`'s later self-correction, which called that naming a breach outright,
+was too broad and this supersedes it. A rebaseline whose cause is a component
+change still says nothing about the tolerance, and that is the ordinary case.
+
+Clause 7's text stands as the summary; read "named" as "required", which is what
+its own sentence goes on to say.
