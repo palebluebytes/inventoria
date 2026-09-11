@@ -64,11 +64,21 @@ everything in the bucket, including a blob a stranger wrote, and a clause with a
 it does not cover is the seam §1 rewrote its bar sentence to close.
 
 **Object versioning has to be switched off in the dashboard**, and there is no wrangler
-command for it: R2 → `inventoria-store` → Settings → Object versioning → Disabled.
+command for it: R2 → `inventoria-store` → Settings → Object versioning → Disabled. There
+is no REST route either — `GET /accounts/<id>/r2/buckets/inventoria-store/versioning`
+answers `10015 No route matches this url` where the same shape against `/sippy` succeeds,
+so that is a genuine absence rather than a wrong path, and nobody need go looking again.
 Under versioning, every superseded deposit is retained and **§1's bar sentence becomes
 false with nothing in our code changing** — supersede-in-place is exactly how a lane
 holds one object. This is the sharpest of the account-side settings and the only one
 whose failure is silent.
+
+**The dashboard is an alternative for the lifecycle rule, with one trap.** `lifecycle
+set --file` _replaces_ the rule set, and the dashboard's _Add rule_ appends to it — so a
+bucket provisioned through the UI keeps Cloudflare's own `Default Multipart Abort Rule`
+alongside ours and holds two rules where this repo declares one. Delete the default after
+saving; our rule's one-day abort is stricter than its seven. Nothing is lost, and what is
+gained is that the file and the bucket still describe each other.
 
 **This has to happen before the next `pnpm deploy`.** `wrangler.toml` binds the bucket,
 so a deploy against an account that does not hold it fails outright — noisily, which is
