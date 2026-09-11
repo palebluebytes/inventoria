@@ -381,22 +381,127 @@ test.describe("Visual Catalog Generator", () => {
     await waitForDbReady(page);
   }
 
-  test("generates visual catalog screenshots of all dashboards", async ({
-    page,
-  }) => {
-    // One test drives every dashboard end to end and screenshots each one, so
-    // the default 30s budget is too tight — especially under the slower Pixel 5
-    // emulation, where it expired mid-run on the Notes tab.
-    test.slow();
-
-    // Install deterministic clock
+  /**
+   * The boot each of the seven tests below takes.
+   *
+   * This is the entire price of one capture per test (ADR-0099 §1), and #368
+   * measured it: `settings-page` was 302 ms as a leg of the old monolith and
+   * 1414 ms standalone, the 1112 ms delta being the boot to the millisecond.
+   * The capture itself costs the same either way (264 ms → 246 ms). Seven boots
+   * is ~6 s more serial CPU than one, and at the configured `workers: 2` with
+   * `fullyParallel` the wall-clock floor becomes the agenda test alone — so the
+   * suite gets faster, not slower.
+   */
+  async function boot(page: import("@playwright/test").Page) {
     await page.clock.install({ time: new Date("2026-06-05T08:30:00Z") });
-
-    // 1. Initial Load & Setup
     await page.goto("/?mem=1");
     await waitForDbReady(page);
+  }
 
-    // Verify all registered screens are covered by this visual catalog test
+  /**
+   * One event on the seeded day.
+   *
+   * It was a closure inside the monolith over that test's `page`; only the
+   * agenda test seeds a schedule now, so it takes `page` as a parameter and
+   * sits beside the other seeding helpers rather than inside its one caller.
+   */
+  async function addCalendarEvent(
+    page: import("@playwright/test").Page,
+    payload: {
+      title: string;
+      timed?: boolean;
+      startTime?: string;
+      endTime?: string;
+      tracking?: boolean;
+      timeSlots?: string[];
+    }
+  ) {
+    await page
+      .locator("section:has-text('SCHEDULE')")
+      .locator("button", { hasText: "+ ADD EVENT" })
+      .click();
+    await page.locator(".hero-input").fill(payload.title);
+
+    if (payload.timed === false) {
+      await page
+        .locator(".field-card")
+        .filter({ hasText: "START" })
+        .locator("button:has-text('TIMED')")
+        .click();
+    } else {
+      if (payload.startTime) {
+        await page
+          .locator(".field-card:has-text('START')")
+          .locator("input.time-input")
+          .fill(payload.startTime);
+      }
+      if (payload.endTime) {
+        // Clicking "+ ADD END" auto-fills the end date (= start date) and
+        // an end time of start + 1h. The date field is a bits-ui segmented
+        // control (not a native input), so we only override the end time,
+        // which is the second native time input in the START & END card.
+        await page
+          .locator(".field-card")
+          .filter({ hasText: "START" })
+          .locator("button:has-text('+ ADD END')")
+          .click();
+        await page
+          .locator(".field-card")
+          .filter({ hasText: "START" })
+          .locator("input.time-input")
+          .nth(1)
+          .fill(payload.endTime);
+      }
+      if (payload.timeSlots) {
+        // Fill first time slot into the START input
+        await page
+          .locator(".field-card:has-text('START')")
+          .locator("input.time-input")
+          .fill(payload.timeSlots[0]);
+        // Add remaining slots
+        for (let i = 1; i < payload.timeSlots.length; i++) {
+          await page.locator("button:has-text('+ ADD ANOTHER TIME')").click();
+          await page
+            .locator(".slot-row")
+            .nth(i - 1)
+            .locator("input.time-input")
+            .fill(payload.timeSlots[i]);
+        }
+      }
+    }
+
+    if (payload.tracking !== undefined) {
+      const isChecked = await page
+        .locator(".field-card:has-text('REQUIRES CONFIRMATION') .checkbox")
+        .evaluate((el) => el.classList.contains("checked"));
+      if (isChecked !== payload.tracking) {
+        await page
+          .locator(
+            ".field-card:has-text('REQUIRES CONFIRMATION') button.toggle-row"
+          )
+          .click();
+      }
+    }
+
+    await page.locator(".add-event-sheet .bottom-sheet-header h2").click();
+    await page.locator(".save-btn").click();
+    await expect(page.locator(".add-event-sheet")).not.toBeVisible();
+  }
+
+  /**
+   * The roster guard, which photographs nothing.
+   *
+   * It was the monolith's opening assertion, where it read "all registered
+   * screens are covered by this visual catalog test". There is no longer a
+   * single test that covers them, so it is the *describe* it speaks for, and
+   * putting it back on top of one of the seven would mean a roster failure
+   * masking that screen's capture — the coupling the split exists to remove.
+   */
+  test("the sidebar offers exactly the screens this catalogue photographs", async ({
+    page,
+  }) => {
+    await boot(page);
+
     const EXPECTED_SCREENS = [
       "food",
       "media",
@@ -417,11 +522,13 @@ test.describe("Visual Catalog Generator", () => {
       discoveredScreens.push(cleaned);
     }
     expect(discoveredScreens.sort()).toEqual(EXPECTED_SCREENS.sort());
+  });
 
-    await resetDatabase(page);
-    await setupApiKeys(page);
+  test("the food dashboard, holding a logged breakfast", async ({ page }) => {
+    test.slow();
+    await boot(page);
 
-    // 2. Populate Food Dashboard (Log a Breakfast item via the direct sheet)
+    // Log a breakfast item via the direct sheet.
     await page.locator(".nav-item", { hasText: "Food" }).click();
     await page
       .getByRole("button", { name: "Search for a breakfast food" })
@@ -431,13 +538,17 @@ test.describe("Visual Catalog Generator", () => {
     await page.getByLabel("Amount in grams").fill("150");
     await page.locator("#log-food-btn").click();
 
-    // Take Food Dashboard Screenshot
     await takeFullPageScreenshot(page, "food-dashboard.png", ROOT_SHELL_FLAT);
+  });
 
-    // 3. Populate Habits Dashboard (Add blueprints & log executions)
+  /** The add-habit sheet mid-entry, which is the one capture here that is not a
+   *  dashboard: the monolith took it partway through creating its first habit,
+   *  and this test stops at that point rather than submitting. */
+  test("the add-habit sheet, part-filled", async ({ page }) => {
+    test.slow();
+    await boot(page);
     await page.locator(".nav-item", { hasText: "Agenda" }).click();
 
-    // 3.1. General Daily - Logged (Read Philosophy)
     await page
       .locator("section:has-text('HABITS')")
       .locator("button", { hasText: "+ ADD HABIT" })
@@ -445,11 +556,31 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator("#habit-name-input").fill("Read Philosophy");
     await page.locator(".category-chip", { hasText: "MIND" }).click();
     await page.locator(".segment-btn", { hasText: "DAILY" }).click();
+
     await takeFullPageScreenshot(page, "add-habit-screen.png", ROOT_SHELL_FLAT);
+  });
+
+  test("the agenda dashboard, holding every habit shape and a seeded day", async ({
+    page,
+  }) => {
+    test.slow();
+    await boot(page);
+
+    // Add blueprints & log executions.
+    await page.locator(".nav-item", { hasText: "Agenda" }).click();
+
+    // General Daily - Logged (Read Philosophy)
+    await page
+      .locator("section:has-text('HABITS')")
+      .locator("button", { hasText: "+ ADD HABIT" })
+      .click();
+    await page.locator("#habit-name-input").fill("Read Philosophy");
+    await page.locator(".category-chip", { hasText: "MIND" }).click();
+    await page.locator(".segment-btn", { hasText: "DAILY" }).click();
     await page.locator(".btn-submit-brutal").click();
     await expect(page.locator(".add-habit-sheet")).not.toBeVisible();
 
-    // 3.2. General Daily - Unlogged (Morning Meditation)
+    // General Daily - Unlogged (Morning Meditation)
     await page
       .locator("section:has-text('HABITS')")
       .locator("button", { hasText: "+ ADD HABIT" })
@@ -460,7 +591,7 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator(".btn-submit-brutal").click();
     await expect(page.locator(".add-habit-sheet")).not.toBeVisible();
 
-    // 3.3. Daily with Multiple Reps - Logged 1/3 (Pushups Daily)
+    // Daily with Multiple Reps - Logged 1/3 (Pushups Daily)
     await page
       .locator("section:has-text('HABITS')")
       .locator("button", { hasText: "+ ADD HABIT" })
@@ -481,7 +612,7 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator(".btn-submit-brutal").click();
     await expect(page.locator(".add-habit-sheet")).not.toBeVisible();
 
-    // 3.4. Daily with Specific Subtargets (Hydration Routine)
+    // Daily with Specific Subtargets (Hydration Routine)
     await page
       .locator("section:has-text('HABITS')")
       .locator("button", { hasText: "+ ADD HABIT" })
@@ -499,7 +630,7 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator(".btn-submit-brutal").click();
     await expect(page.locator(".add-habit-sheet")).not.toBeVisible();
 
-    // 3.5. Weekly Days - Active (Gym Workout)
+    // Weekly Days - Active (Gym Workout)
     await page
       .locator("section:has-text('HABITS')")
       .locator("button", { hasText: "+ ADD HABIT" })
@@ -510,7 +641,7 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator(".btn-submit-brutal").click();
     await expect(page.locator(".add-habit-sheet")).not.toBeVisible();
 
-    // 3.6. Weekly Days - OFF Today (Weekend Hike)
+    // Weekly Days - OFF Today (Weekend Hike)
     await page
       .locator("section:has-text('HABITS')")
       .locator("button", { hasText: "+ ADD HABIT" })
@@ -522,7 +653,7 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator(".btn-submit-brutal").click();
     await expect(page.locator(".add-habit-sheet")).not.toBeVisible();
 
-    // 3.7. Weekly Flexible - Logged 1/3 (Read 20 Pages)
+    // Weekly Flexible - Logged 1/3 (Read 20 Pages)
     await page
       .locator("section:has-text('HABITS')")
       .locator("button", { hasText: "+ ADD HABIT" })
@@ -533,128 +664,47 @@ test.describe("Visual Catalog Generator", () => {
     await page.locator(".btn-submit-brutal").click();
     await expect(page.locator(".add-habit-sheet")).not.toBeVisible();
 
-    // Helper to add calendar events
-    async function addCalendarEvent(payload: {
-      title: string;
-      timed?: boolean;
-      startTime?: string;
-      endTime?: string;
-      tracking?: boolean;
-      timeSlots?: string[];
-    }) {
-      await page
-        .locator("section:has-text('SCHEDULE')")
-        .locator("button", { hasText: "+ ADD EVENT" })
-        .click();
-      await page.locator(".hero-input").fill(payload.title);
-
-      if (payload.timed === false) {
-        await page
-          .locator(".field-card")
-          .filter({ hasText: "START" })
-          .locator("button:has-text('TIMED')")
-          .click();
-      } else {
-        if (payload.startTime) {
-          await page
-            .locator(".field-card:has-text('START')")
-            .locator("input.time-input")
-            .fill(payload.startTime);
-        }
-        if (payload.endTime) {
-          // Clicking "+ ADD END" auto-fills the end date (= start date) and
-          // an end time of start + 1h. The date field is a bits-ui segmented
-          // control (not a native input), so we only override the end time,
-          // which is the second native time input in the START & END card.
-          await page
-            .locator(".field-card")
-            .filter({ hasText: "START" })
-            .locator("button:has-text('+ ADD END')")
-            .click();
-          await page
-            .locator(".field-card")
-            .filter({ hasText: "START" })
-            .locator("input.time-input")
-            .nth(1)
-            .fill(payload.endTime);
-        }
-        if (payload.timeSlots) {
-          // Fill first time slot into the START input
-          await page
-            .locator(".field-card:has-text('START')")
-            .locator("input.time-input")
-            .fill(payload.timeSlots[0]);
-          // Add remaining slots
-          for (let i = 1; i < payload.timeSlots.length; i++) {
-            await page.locator("button:has-text('+ ADD ANOTHER TIME')").click();
-            await page
-              .locator(".slot-row")
-              .nth(i - 1)
-              .locator("input.time-input")
-              .fill(payload.timeSlots[i]);
-          }
-        }
-      }
-
-      if (payload.tracking !== undefined) {
-        const isChecked = await page
-          .locator(".field-card:has-text('REQUIRES CONFIRMATION') .checkbox")
-          .evaluate((el) => el.classList.contains("checked"));
-        if (isChecked !== payload.tracking) {
-          await page
-            .locator(
-              ".field-card:has-text('REQUIRES CONFIRMATION') button.toggle-row"
-            )
-            .click();
-        }
-      }
-
-      await page.locator(".add-event-sheet .bottom-sheet-header h2").click();
-      await page.locator(".save-btn").click();
-      await expect(page.locator(".add-event-sheet")).not.toBeVisible();
-    }
-
     // Add overlapping events, block durations, untimed events
-    await addCalendarEvent({
+    await addCalendarEvent(page, {
       title: "Take Medication",
       timed: true,
       tracking: true,
       timeSlots: ["08:00", "20:00"],
     });
-    await addCalendarEvent({
+    await addCalendarEvent(page, {
       title: "Deep Work Session",
       timed: true,
       startTime: "09:00",
       endTime: "12:00",
       tracking: false,
     });
-    await addCalendarEvent({
+    await addCalendarEvent(page, {
       title: "Team Standup",
       timed: true,
       startTime: "09:30",
       endTime: "10:00",
       tracking: false,
     });
-    await addCalendarEvent({
+    await addCalendarEvent(page, {
       title: "Coffee Break",
       timed: true,
       startTime: "10:15",
       tracking: true,
     });
-    await addCalendarEvent({
+    await addCalendarEvent(page, {
       title: "Project Sync",
       timed: true,
       startTime: "11:00",
       endTime: "12:30",
       tracking: false,
     });
-    await addCalendarEvent({
+    await addCalendarEvent(page, {
       title: "Read Book",
       timed: false,
       tracking: true,
     });
 
-    // 3.8. Execute Quick Logs to show progress states
+    // Execute Quick Logs to show progress states
     // Log Take Medication morning target (08:00)
     const medicationMorningTarget = page
       .locator(".schedule-row")
@@ -700,10 +750,17 @@ test.describe("Visual Catalog Generator", () => {
     await read20PagesItem.click();
     await expect(read20PagesItem.locator(".reps-pill")).toHaveText("1/3");
 
-    // Take Habits Dashboard Screenshot
     await takeFullPageScreenshot(page, "agenda-dashboard.png", ROOT_SHELL_FLAT);
+  });
 
-    // 4. Populate Media Dashboard (Add Movie & Book)
+  /** The one screen that wants `setupApiKeys`: without the TMDB key the search
+   *  the seed runs has nothing to send. */
+  test("the media dashboard, holding a started film and a saved book", async ({
+    page,
+  }) => {
+    test.slow();
+    await boot(page);
+    await setupApiKeys(page);
     await page.locator(".nav-item", { hasText: "Media" }).click();
 
     // Add Movie
@@ -739,10 +796,16 @@ test.describe("Visual Catalog Generator", () => {
       .click();
     await page.locator(".close-btn").click();
 
-    // Take Media Dashboard Screenshot
     await takeFullPageScreenshot(page, "media-dashboard.png", ROOT_SHELL_FLAT);
+  });
 
-    // 5. Populate Items Dashboard (Add Wanted item)
+  test("the items dashboard, holding a hand-made twin and a scraped one", async ({
+    page,
+  }) => {
+    test.slow();
+    await boot(page);
+
+    // Add a Wanted item by hand.
     await page.locator(".nav-item", { hasText: "Items" }).click();
     await page.locator("button", { hasText: "Create Manual Entry" }).click();
     await page.locator("#manual-name").fill("Manual Keychron K2");
@@ -763,10 +826,15 @@ test.describe("Visual Catalog Generator", () => {
       page.locator(".alert-success", { hasText: "Successfully imported" })
     ).toBeVisible();
 
-    // Take Items Dashboard Screenshot
     await takeFullPageScreenshot(page, "items-dashboard.png", ROOT_SHELL_FLAT);
+  });
 
-    // 6. Populate Notes Dashboard (a checklist item & a note)
+  test("the notes dashboard, holding a checklist item and a note", async ({
+    page,
+  }) => {
+    test.slow();
+    await boot(page);
+
     await page.locator(".nav-item", { hasText: "Notes" }).click();
     const checklistInput = page.getByTestId("new-item-input");
     await checklistInput.fill("Buy groceries");
@@ -783,10 +851,18 @@ test.describe("Visual Catalog Generator", () => {
       "Weekly review: ship the settings reveal toggle."
     );
 
-    // Take Notes Dashboard Screenshot
     await takeFullPageScreenshot(page, "notes-dashboard.png", ROOT_SHELL_FLAT);
+  });
 
-    // 7. Settings Page Screenshot
+  /** The one screen that wants `resetDatabase`: it leaves `#dev-mode-toggle`
+   *  checked, which is what reveals the OPFS Survival Test block this baseline
+   *  has. The reset itself lands on Settings, and the click below is the
+   *  monolith's, kept so the test says where it is photographing. */
+  test("the settings page, with developer mode revealed", async ({ page }) => {
+    test.slow();
+    await boot(page);
+    await resetDatabase(page);
+
     await page.locator(".nav-item", { hasText: "Settings" }).click();
     await takeFullPageScreenshot(page, "settings-page.png", ROOT_SHELL_FLAT);
   });
@@ -796,17 +872,17 @@ test.describe("Visual Catalog Generator", () => {
  * The surfaces a meal opens — the second half of the catalogue.
  *
  * These are sheets, not screens, so they are catalogued differently on two
- * counts. Each is its OWN test rather than another leg of the monolith above:
- * that one takes its captures with a plain `expect`, so it stops at the first
- * image that differs and leaves every later one unverified — which is exactly
- * how `settings-page` sat stale behind `food-dashboard`. Six more captures on
- * the same thread would deepen that hole; six tests fail independently, and
- * `fullyParallel` runs them at once.
+ * counts. Each is its OWN test, which is now the rule every capture in this
+ * repository is held to (ADR-0099 §1) and was first written down here: a
+ * capture behind a failed one is neither passed nor failed, it is unreported,
+ * which is how `settings-page` sat stale behind `food-dashboard`. Six tests
+ * fail independently, and `fullyParallel` runs them at once.
  *
  * And each captures the SHEET rather than the page. A sheet is a fixed overlay:
  * `fullPage` would photograph the dashboard behind it and make every one of
- * these baselines hostage to a dashboard change, which is the coupling the
- * monolith already suffers from.
+ * these baselines hostage to a dashboard change — a coupling the dashboard
+ * captures above accept because the dashboard is what they are about, and these
+ * have no reason to.
  */
 test.describe("Visual Catalog — the surfaces a meal opens", () => {
   test.beforeEach(async ({ page }) => {
@@ -1049,11 +1125,10 @@ test.describe("Visual Catalog — the surfaces a meal opens", () => {
  * the shell breakpoint (ADR-0091 §2, §3). Two Facets, two shells, one set of
  * pictures — and only one of the shells was in it (#348).
  *
- * It is a `describe` of its own rather than more legs of the monolith for the
- * reason the sheet catalogue gives: that test stops at the first image that
- * differs and leaves every later one unverified. It is also a different Facet at
- * a different URL, so sharing a run would mean navigating out of the app being
- * photographed.
+ * It is a `describe` of its own, and one test per capture inside it, for the
+ * reason the sheet catalogue gives and ADR-0099 §1 states. It is also a
+ * different Facet at a different URL, so sharing a run would mean navigating
+ * out of the app being photographed.
  *
  * The fixture is the dashboard catalogue's, deliberately: one food, no
  * portions, no micronutrients. What is being photographed here is the shell, and
