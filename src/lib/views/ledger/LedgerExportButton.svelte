@@ -119,7 +119,9 @@
         exported_at: Date.now(),
         scope,
         readPage: (after, budgetBytes) =>
-          dbClient.ledgerPage(after, budgetBytes, scope?.entity_prefixes),
+          dbClient.ledgerPage(after, budgetBytes, {
+            entityPrefixes: scope?.entity_prefixes,
+          }),
         chooseTarget: chooseExportTarget,
         onProgress: (written) => (rowsWritten = written),
       });

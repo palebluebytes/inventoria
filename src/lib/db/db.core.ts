@@ -13,6 +13,12 @@
 
 import { describeValue } from "./describe-value";
 import { compareHlcMark, type Hlc, type HlcKey, type HlcMark } from "./hlc";
+import {
+  foldVersionVector,
+  vectorAboveMatch,
+  VERSION_VECTOR_SQL,
+  type VersionVector,
+} from "./version-vector";
 
 export interface Datom {
   entity: string;
@@ -281,6 +287,18 @@ export function readLedgerSummary(
   };
 }
 
+/**
+ * What this ledger holds, per originating device (ADR-0075 §6).
+ *
+ * The whole of the sync watermark, and it is a **read** rather than a record:
+ * nothing is stored, so nothing can fall out of step with the table it
+ * describes. `version-vector.ts` carries the query and the argument for its
+ * shape; this is the seam that runs it where SQLite lives.
+ */
+export function readLedgerVersionVector(db: LedgerDb): VersionVector {
+  return foldVersionVector(execRows<HlcKey>(db, VERSION_VECTOR_SQL));
+}
+
 /** The position a paged read resumes from, taken off the row it stopped at. */
 export function cursorOf(row: LedgerRow): LedgerCursor {
   return {
@@ -300,6 +318,17 @@ export function cursorOf(row: LedgerRow): LedgerCursor {
 const LEDGER_PAGE_MAX_ROWS = 256;
 
 /**
+ * Which rows a paged walk is allowed to see. Both narrowings are optional and
+ * both apply together; absent, the walk is the whole ledger.
+ */
+export interface LedgerPageNarrowing {
+  /** One Facet's rows, for a Facet-scoped export (ADR-0079 §6). */
+  entityPrefixes?: readonly string[];
+  /** Only what a holder of this vector lacks, for a sync (ADR-0075 §6). */
+  above?: VersionVector;
+}
+
+/**
  * The next rows after `after`, in primary-key order, stopping once their values
  * exceed `budgetBytes`. An empty result means the walk is finished.
  *
@@ -316,11 +345,12 @@ export function readLedgerPage(
   db: LedgerDb,
   after: LedgerCursor | null,
   budgetBytes: number,
-  entityPrefixes?: readonly string[]
+  narrowing: LedgerPageNarrowing = {}
 ): LedgerRow[] {
   // Narrowing the walk is what makes a Facet-scoped export the same code as the
-  // jar-wide one (ADR-0079 §6): the cursor, the budget and the byte probe are
-  // unchanged, and only the rows the walk is allowed to see differ.
+  // jar-wide one (ADR-0079 §6), and the sync's delta the same code as both
+  // (ADR-0075 §7): the cursor, the budget and the byte probe are unchanged, and
+  // only the rows the walk is allowed to see differ.
   const clauses: string[] = [];
   const bind: unknown[] = [];
   if (after) {
@@ -333,8 +363,11 @@ export function readLedgerPage(
       after.device_id
     );
   }
-  if (entityPrefixes) {
-    const match = entityPrefixMatch(entityPrefixes);
+  for (const match of [
+    narrowing.entityPrefixes && entityPrefixMatch(narrowing.entityPrefixes),
+    narrowing.above && vectorAboveMatch(narrowing.above),
+  ]) {
+    if (!match) continue;
     clauses.push(`(${match.where})`);
     bind.push(...match.bind);
   }

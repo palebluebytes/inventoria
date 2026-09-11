@@ -167,10 +167,10 @@ describe("DBClient RPC layer", () => {
     const c = await makeInitialized();
     const entityPrefixes = ["fdc:", "gtin:"];
 
-    const page = c.ledgerPage(null, 2048, entityPrefixes);
+    const page = c.ledgerPage(null, 2048, { entityPrefixes });
     expect(getWorker().posted[1]).toMatchObject({
       type: "ledger_page",
-      payload: { budgetBytes: 2048, entityPrefixes },
+      payload: { budgetBytes: 2048, narrowing: { entityPrefixes } },
     });
     getWorker().respond(getWorker().lastId, { status: "ok", data: [] });
     await expect(page).resolves.toEqual([]);

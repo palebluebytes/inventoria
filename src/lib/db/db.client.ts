@@ -10,16 +10,19 @@ import type {
   EntityCensus,
   EntityCensusGroup,
   LedgerCursor,
+  LedgerPageNarrowing,
   LedgerSummary,
   LedgerRow,
   StoredDatom,
 } from "./db.core";
+import type { VersionVector } from "./version-vector";
 
 export type {
   Datom,
   EntityCensus,
   EntityCensusGroup,
   LedgerCursor,
+  LedgerPageNarrowing,
   LedgerSummary,
   LedgerRow,
   StoredDatom,
@@ -194,13 +197,24 @@ export class DBClient {
   async ledgerPage(
     after: LedgerCursor | null,
     budgetBytes: number,
-    entityPrefixes?: readonly string[]
+    narrowing?: LedgerPageNarrowing
   ): Promise<LedgerRow[]> {
     return this.send<LedgerRow[]>("ledger_page", {
       after,
       budgetBytes,
-      entityPrefixes,
+      narrowing,
     });
+  }
+
+  /**
+   * What this ledger holds, per originating device (ADR-0075 §6).
+   *
+   * The sync's whole watermark, and a read rather than a record: a first sync
+   * is simply its empty case, and nothing stored can fall out of step with the
+   * table it describes.
+   */
+  async versionVector(): Promise<VersionVector> {
+    return this.send<VersionVector>("version_vector", {});
   }
 
   /**

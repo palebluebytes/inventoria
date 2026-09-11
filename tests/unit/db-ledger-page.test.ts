@@ -52,7 +52,7 @@ function readAll(
   const all: LedgerRow[] = [];
   let after: LedgerCursor | null = null;
   for (let guard = 0; guard < 1_000; guard++) {
-    const page = readLedgerPage(db, after, budgetBytes, entityPrefixes);
+    const page = readLedgerPage(db, after, budgetBytes, { entityPrefixes });
     if (page.length === 0) return all;
     all.push(...page);
     after = cursorOf(page[page.length - 1]);

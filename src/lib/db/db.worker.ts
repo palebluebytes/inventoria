@@ -9,6 +9,7 @@ import {
   importLedgerRows,
   readHlcHighWater,
   readLedgerPage,
+  readLedgerVersionVector,
   readLedgerSummary,
   resetLedgerSchema,
   vacuumLedger,
@@ -194,17 +195,28 @@ self.onmessage = async (event: MessageEvent) => {
         type: "broadcast_invalidation",
         payload: { attributes: [] },
       });
+    } else if (type === "version_vector") {
+      if (!db) {
+        throw new Error("Database not initialized. Please call 'init' first.");
+      }
+      // The sync's read of itself (ADR-0075 §6). It is queried, never stored,
+      // so there is nothing here to keep in step with `datoms`.
+      self.postMessage({
+        id,
+        status: "ok",
+        data: readLedgerVersionVector(db),
+      });
     } else if (type === "ledger_page") {
       if (!db) {
         throw new Error("Database not initialized. Please call 'init' first.");
       }
       // The export's read seam. Rows leave a page at a time, bounded by bytes,
       // so a ledger full of label photos never crosses the boundary whole.
-      const { after, budgetBytes, entityPrefixes } = payload;
+      const { after, budgetBytes, narrowing } = payload;
       self.postMessage({
         id,
         status: "ok",
-        data: readLedgerPage(db, after ?? null, budgetBytes, entityPrefixes),
+        data: readLedgerPage(db, after ?? null, budgetBytes, narrowing),
       });
     } else if (type === "ledger_import") {
       if (!db || !hlc) {
