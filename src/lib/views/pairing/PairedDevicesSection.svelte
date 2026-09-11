@@ -2,18 +2,31 @@
   import { onMount } from "svelte";
   import Button from "../../ui/Button.svelte";
   import Card from "../../ui/Card.svelte";
+  import Input from "../../ui/Input.svelte";
+  import Row from "../../ui/Row.svelte";
   import EndingLine from "../EndingLine.svelte";
   import ReadPairingCode from "./ReadPairingCode.svelte";
   import ShowPairingCode from "./ShowPairingCode.svelte";
   import { handPairingSecret, takePairingSecret } from "../../p2p/pairing-act";
+  import type { PairedChains } from "../../p2p/pairing-chain";
   import type { PairingCode } from "../../p2p/pairing-code";
   import {
-    DEVICES_MET,
+    DEVICES_PAIRED,
     pairingEndingWords,
+    type PairingReach,
     type PairingWords,
   } from "../../p2p/pairing-words";
   import { enterRoom, type Room } from "../../p2p/relay-room";
   import { burnRoomCode, mintRoomCode } from "../../p2p/room-code";
+  import { runFirstSync, type FirstSyncProgress } from "../../p2p/first-sync";
+  import { appSyncLedger } from "../../p2p/sync-ledger";
+  import {
+    forgetPairedDevice,
+    namePairedDevice,
+    pairedDevices,
+    rememberPairedDevice,
+    type PairedDevice,
+  } from "../../stores/paired-devices";
 
   // **Paired devices**, and the act that makes one (ADR-0096 §8, ADR-0084 §6).
   //
@@ -26,12 +39,18 @@
   // are always here — "Read a code" works from a paste on every platform — and
   // the live camera inside the reader is the only part any device can lack.
   //
-  // **The list is empty and there is no row to draw yet.** A pairing is not
-  // complete until its first sync completes (§2), and #395 is the ticket that
-  // completes one; until then nothing is written down on either side, which is
-  // guard 1 rather than an omission. So this section ends at *the two devices
-  // have met*, and the chains it derived are dropped with the room — an
-  // incomplete pairing deposits nothing and collects nothing.
+  // **A row appears only when a first sync completes**, which is guard 1
+  // (ADR-0096 §2) rather than a rendering rule: *a pairing is not complete
+  // until its first sync completes, and an incomplete pairing deposits nothing
+  // and collects nothing.* So the act runs on past the secret — a vector
+  // exchange, chunks both ways, a closing vector — in the same room, and
+  // {@link rememberPairedDevice} is reached from exactly one line below.
+  //
+  // **The progress is ADR-0075 §11's**, and so is the sentence under it. A
+  // first sync moves tens of megabytes over a foreground-only socket that dies
+  // the moment you switch tabs, and *a silent forty-second transfer that
+  // vanishes when you look away is not silent, it is broken*. Steady state will
+  // show nothing at all; this is the one case that does.
 
   /** Which face is up: nothing, the code being shown, or the reader. */
   let act = $state<"none" | "showing" | "reading">("none");
@@ -40,6 +59,12 @@
 
   /** Live while an act is. Aborting it is §8's cancel, and it burns the code. */
   let session: AbortController | null = null;
+
+  /** Live while rows are crossing, which is the only time anything is shown. */
+  let syncing = $state<FirstSyncProgress | null>(null);
+
+  /** Which device's name is being typed, and what has been typed so far. */
+  let naming = $state<{ device_id: string; name: string } | null>(null);
 
   // Leaving the page ends a live act, the way closing the meal panel ends a
   // send. This card is mounted under every tab and merely hidden, so a tab
@@ -79,21 +104,51 @@
    */
   async function run(
     acting: PairingCode,
-    leg: (room: Room) => Promise<unknown>
+    leg: (room: Room) => Promise<PairedChains>
   ) {
     const pulled = new AbortController();
     session = pulled;
     let room: Room | null = null;
+    // How far the act got, which is what decides whether an ending means
+    // *nobody came* or *the transfer stopped and what crossed is kept*.
+    let reach: PairingReach = "code";
     try {
+      // Read before the room, so the one fact the peer keys its whole record
+      // by is in hand rather than fetched inside the five minutes.
+      const ledger = await appSyncLedger();
       room = await enterRoom(acting.room, { signal: pulled.signal });
-      await leg(room);
-      ended = DEVICES_MET;
+      const chains = await leg(room);
+
+      reach = "sync";
+      syncing = { rows_sent: 0, rows_received: 0 };
+      const converged = await runFirstSync(room, acting, chains, ledger, {
+        onProgress: (progress) => (syncing = progress),
+      });
+
+      // Guard 1's one line: the record is written here and nowhere else.
+      rememberPairedDevice({
+        device_id: converged.device_id,
+        chains,
+        peer_vector: converged.peer_vector,
+      });
+      ended = DEVICES_PAIRED;
     } catch (failure) {
-      ended = pairingEndingWords(failure);
+      ended = pairingEndingWords(failure, reach);
     } finally {
+      syncing = null;
       room?.leave();
       if (session === pulled) session = null;
     }
+  }
+
+  /** A row reads by short `device_id` until somebody names it (§9). */
+  const callSign = (device: PairedDevice) =>
+    device.name ?? device.device_id.slice(0, 8);
+
+  function saveName() {
+    if (!naming) return;
+    namePairedDevice(naming.device_id, naming.name);
+    naming = null;
   }
 
   /**
@@ -134,9 +189,62 @@
   </p>
 
   {#if act === "none"}
-    <!-- No row is drawn because none exists: a pairing writes nothing down on
-         either side until its first sync completes (§2). -->
-    <p class="empty">No devices are paired.</p>
+    <!-- Every row here is a completed first sync. A pairing writes nothing down
+         on either side until one finishes (§2). -->
+    {#if $pairedDevices.length === 0}
+      <p class="empty">No devices are paired.</p>
+    {:else}
+      <ul class="paired">
+        {#each $pairedDevices as device (device.device_id)}
+          <li>
+            {#if naming?.device_id === device.device_id}
+              <div class="rename">
+                <Input
+                  bind:value={naming.name}
+                  placeholder="What do you call this device?"
+                  onkeydown={(e) => e.key === "Enter" && saveName()}
+                />
+                <Button onclick={saveName}>Save</Button>
+                <Button variant="ghost" onclick={() => (naming = null)}>
+                  Cancel
+                </Button>
+              </div>
+            {:else}
+              <Row
+                title={callSign(device)}
+                subtitle={device.name ? device.device_id.slice(0, 8) : ""}
+              >
+                {#snippet trailing()}
+                  <span class="row-actions">
+                    <!-- The name is typed here, about the peer, after the act,
+                         and never sent (§6). -->
+                    <Button
+                      variant="ghost"
+                      onclick={() =>
+                        (naming = {
+                          device_id: device.device_id,
+                          name: device.name ?? "",
+                        })}
+                    >
+                      Rename
+                    </Button>
+                    <!-- ADR-0075 §4 and §12: severing a pairing is unilateral,
+                         needs no coordination, and sends no message — silence is
+                         the only revocation signal that cannot be forged. -->
+                    <Button
+                      variant="ghost"
+                      onclick={() => forgetPairedDevice(device.device_id)}
+                    >
+                      Unpair
+                    </Button>
+                  </span>
+                {/snippet}
+              </Row>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    {/if}
     <div class="actions">
       <Button id="pair-show-btn" onclick={() => begin("showing")}>
         Show a code
@@ -150,12 +258,27 @@
       </Button>
     </div>
   {:else if ended}
-    <EndingLine words={ended} ok={ended.ending === "met"} />
+    <EndingLine words={ended} ok={ended.ending === "paired"} />
     <div class="actions">
       {#if ended.retry}
         <Button variant="secondary" onclick={retry}>Try again</Button>
       {/if}
       <Button variant="ghost" onclick={close}>Done</Button>
+    </div>
+  {:else if syncing}
+    <!-- ADR-0075 §11: a first sync moves tens of megabytes over a socket that
+         dies the moment you switch tabs, so it says so. It is counts rather
+         than a bar, because neither side knows the total until the walk ends
+         and a bar that guessed would be a bar that lies. -->
+    <div class="face" data-testid="first-sync-progress">
+      <p class="waiting" role="status">
+        Swapping what each device was missing…
+      </p>
+      <p class="counts">
+        Sent {syncing.rows_sent} · Received {syncing.rows_received}
+      </p>
+      <p class="stay">Keep this tab open until this finishes.</p>
+      <Button variant="ghost" onclick={close}>Stop</Button>
     </div>
   {:else if act === "showing" && code}
     <div class="face">
@@ -213,5 +336,35 @@
   .waiting {
     margin: 0;
     color: var(--text-muted);
+  }
+  .counts {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+  .stay {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: var(--step-n1);
+    text-align: center;
+  }
+  .paired {
+    list-style: none;
+    margin: var(--space-s) 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2xs);
+  }
+  .row-actions {
+    display: flex;
+    gap: var(--space-2xs);
+  }
+  .rename {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2xs);
   }
 </style>

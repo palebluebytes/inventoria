@@ -28,6 +28,7 @@
  * means.
  */
 
+import { describeMarker } from "./describe-value";
 import { HLC_ORDER_DESC, type HlcKey, type HlcMark } from "./hlc";
 
 /**
@@ -130,9 +131,12 @@ export function readVersionVector(raw: unknown): VersionVector {
     const mark: unknown = Reflect.get(raw, device_id);
     if (!isMark(mark)) {
       throw new VersionVectorRefusedError(
-        // The device id is the peer's own and is the whole of what a reader
-        // needs to find the entry; what it said is not quoted back (#227).
-        `the entry for ${device_id} is not a whole stamp.`
+        // The id is what a reader needs to find the entry, and it is a label
+        // rather than content — `datoms` carries it in every primary key. It is
+        // still quoted back only while it is label-sized, because this one
+        // arrived off a wire and the refusal is rendered (#227). What the entry
+        // *said* is never quoted at all.
+        `the entry for ${describeMarker(device_id)} is not a whole stamp.`
       );
     }
     vector[device_id] = { hlc_ms: mark.hlc_ms, hlc_ctr: mark.hlc_ctr };

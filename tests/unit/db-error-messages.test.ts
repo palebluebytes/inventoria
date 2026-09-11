@@ -123,6 +123,10 @@ const ALLOWED_INTERPOLATIONS: Record<string, Record<string, string>> = {
     pipeline: "a projection's name, from `projections`",
     type: "a worker message type, from `db.client.ts`",
   },
+  "src/lib/db/version-vector.ts": {
+    "describeMarker(device_id)":
+      "the originating device while it is label-sized, its shape when it is not",
+  },
   "src/lib/db/ledger-export.ts": {
     "describeBytes(bytes)": "a size, from the export's own accounting",
     "describeBytes(ceilingBytes)": "this app's own ceiling, a constant",

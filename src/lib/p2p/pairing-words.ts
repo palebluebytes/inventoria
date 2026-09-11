@@ -23,9 +23,17 @@
  * *one device says paired and the other says pairing failed*, and a surface
  * that quietly retried would erase the only signal that attack gives off.
  *
- * **Nothing here says "paired".** A pairing is not complete until its first
- * sync completes (§2), so the good ending below is that the two devices met,
- * which is all that has happened.
+ * **"Paired" is said once and only once.** A pairing is not complete until its
+ * first sync completes (§2), so the good ending below is reachable only from
+ * the far side of that sync and from nowhere else.
+ *
+ * **The room's five endings are worded twice**, because the same ending means
+ * different things before and during the transfer. Five minutes running out
+ * with nobody in the room is *nobody read this code*; five minutes running out
+ * half way through a large ledger is a transfer that stopped, and the rows that
+ * did cross are real data a later attempt skips — ADR-0096 §8's **repeated
+ * pairing is a resume, not a retry**. One map would have to be wrong in one of
+ * those two places, and the wrong one would tell somebody their data was lost.
  */
 
 import { endingCause, type EndingWords } from "./ending-words";
@@ -36,7 +44,7 @@ import { SealRefusedError } from "./sealed-frame";
 
 /** How a pairing act ended. */
 export type PairingEnding =
-  | "met"
+  | "paired"
   | RoomFailure
   | "seal"
   | "unreadable"
@@ -50,20 +58,27 @@ export interface PairingWords extends EndingWords {
   retry: boolean;
 }
 
-/** The one ending that is not a failure, and it is not "paired" either. */
-export const DEVICES_MET: PairingWords = {
-  ending: "met",
-  line: "These two devices have met.",
-  detail:
-    "A pairing is not complete until the first sync, so nothing is paired yet.",
+/** The one ending that is not a failure, and the only place "paired" is said. */
+export const DEVICES_PAIRED: PairingWords = {
+  ending: "paired",
+  line: "These two devices are paired.",
+  detail: "Each one now holds everything the other had.",
   cause: null,
   retry: false,
 };
 
-const FAILURE_WORDS: Record<
-  RoomFailure,
-  Pick<PairingWords, "line" | "detail" | "retry">
-> = {
+/**
+ * How far the act got. It decides which of the two maps below is read, and it
+ * is the surface's to state rather than something an error carries: a socket
+ * that went away reports the same failure whichever side of the transfer it
+ * happened on.
+ */
+export type PairingReach = "code" | "sync";
+
+type FailureWords = Pick<PairingWords, "line" | "detail" | "retry">;
+
+/** Ended before the two devices had swapped anything. */
+const WHILE_WAITING: Record<RoomFailure, FailureWords> = {
   unavailable: {
     line: "That did not reach the other device.",
     detail:
@@ -93,17 +108,62 @@ const FAILURE_WORDS: Record<
 };
 
 /**
+ * Ended part way through the transfer.
+ *
+ * Every one of these says the same two things, because they are the two facts
+ * that matter and neither is obvious: **nothing is paired**, and **what
+ * crossed is kept**. Rows already imported are real data, correctly stamped, so
+ * pairing again picks up where this left off rather than starting over.
+ */
+const WHILE_SYNCING: Record<RoomFailure, FailureWords> = {
+  unavailable: {
+    line: "That connection dropped part way through.",
+    detail:
+      "Nothing is paired. What already crossed is kept, so pairing again picks up from there.",
+    retry: true,
+  },
+  expired: {
+    line: "This ran out of time part way through.",
+    detail:
+      "Five minutes is all a code gets. Nothing is paired, but what crossed is kept, so pairing again picks up from there.",
+    retry: true,
+  },
+  cancelled: {
+    line: "You stopped this part way through.",
+    detail:
+      "Nothing is paired. What already crossed is kept, so pairing again picks up from there.",
+    retry: true,
+  },
+  refused: {
+    line: "The other device would not go on.",
+    detail:
+      "Nothing is paired. What already crossed is kept, so pairing again picks up from there.",
+    retry: true,
+  },
+  closed: {
+    line: "That did not finish.",
+    detail:
+      "Nothing is paired. What already crossed is kept, so pairing again picks up from there.",
+    retry: true,
+  },
+};
+
+/**
  * Reads whatever escaped a pairing act into the words for it.
  *
  * Everything that is not an ending this module knows lands on the unknown line
  * rather than on the nearest known one, for the reason `send-words.ts` gives:
  * calling something else "no route to them" would be a guess printed as a fact.
  */
-export function pairingEndingWords(error: unknown): PairingWords {
+export function pairingEndingWords(
+  error: unknown,
+  reach: PairingReach = "code"
+): PairingWords {
   const cause = endingCause(error);
 
   if (error instanceof RoomFailedError) {
-    return { ending: error.failure, cause, ...FAILURE_WORDS[error.failure] };
+    const words = reach === "sync" ? WHILE_SYNCING : WHILE_WAITING;
+    return { ending: error.failure, cause, ...words[error.failure] };
   }
 
   if (error instanceof SealRefusedError) {

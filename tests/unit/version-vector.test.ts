@@ -211,4 +211,17 @@ describe("a vector that arrived from somewhere else is checked", () => {
       expect(String(refusal)).not.toContain("tomorrow");
     }
   });
+
+  // The id arrives off a wire and the refusal is rendered, so it is quoted back
+  // only while it is label-sized (#227).
+  it("describes an oversized device id rather than echoing it", () => {
+    const shouting = "z".repeat(500);
+    try {
+      readVersionVector({ [shouting]: { hlc_ms: -1, hlc_ctr: 0 } });
+      expect.unreachable("a broken entry was accepted");
+    } catch (refusal) {
+      expect(String(refusal)).not.toContain(shouting);
+      expect(String(refusal)).toContain("500 characters");
+    }
+  });
 });
