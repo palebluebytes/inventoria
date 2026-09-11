@@ -25,6 +25,7 @@
     "test:unit": "vitest run tests/unit",
     "usda:backup": "node scripts/usda-backup.mjs",
     "usda:bundle": "node scripts/usda-bundle.mjs",
+    "usda:consolidation-bar": "node scripts/usda-consolidation-bar.mjs",
     "usda:coverage": "node scripts/usda-coverage.mjs",
     "curated:check": "node scripts/curated-snapshot-check.mjs",
     "test:e2e": "playwright test",
