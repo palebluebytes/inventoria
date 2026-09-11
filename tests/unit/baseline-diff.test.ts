@@ -11,8 +11,8 @@ import {
   measure,
   formatReport,
   screenshotOptions,
-  playwrightModule,
 } from "../../scripts/baseline-diff.mjs";
+import { paint, type Rgb, type Rgba } from "./support/png";
 
 // The instrument ADR-0099 §8 clause 3 needs (#404): a rebaseline dispatch is
 // green by construction, so it hands back the new PNGs and no diff at all, and
@@ -26,43 +26,16 @@ import {
 // comparator does not count, the same shift at a threshold that does, and a
 // change sitting under a `maxDiffPixels` the suite would have passed.
 //
-// Reaching the comparator at all means this file reaches two private paths
-// inside `playwright-core`, which is a dependency nothing here declares. That
-// is deliberate and it has a price: a Playwright upgrade that moves either path
-// reddens `pnpm test:unit`, not just the tool. Loud is the whole argument for
-// the deep import, and the local gate is where it lands.
+// Reaching the comparator at all means two private paths inside
+// `playwright-core`, which is a dependency nothing here declares: `lib/utils`
+// for the comparator, walked by the script under test, and `lib/utilsBundle`
+// for `PNG`, walked by `support/png.ts` on behalf of every caller that paints
+// one. That is deliberate and it has a price: a Playwright upgrade that moves
+// either path reddens `pnpm test:unit`, not just the tool. Loud is the whole
+// argument for the deep import, and the local gate is where it lands.
 
-const { PNG } = playwrightModule("lib/utilsBundle");
-
-/** Paints a solid opaque image, then overwrites whatever `over` returns. */
-const paint = (
-  width: number,
-  height: number,
-  base: [number, number, number],
-  over: (
-    x: number,
-    y: number
-  ) =>
-    | [number, number, number]
-    | [number, number, number, number]
-    | null = () => null
-): Buffer => {
-  const png = new PNG({ width, height });
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const at = (y * width + x) * 4;
-      const [r, g, b, a = 255] = over(x, y) ?? base;
-      png.data[at] = r;
-      png.data[at + 1] = g;
-      png.data[at + 2] = b;
-      png.data[at + 3] = a;
-    }
-  }
-  return PNG.sync.write(png);
-};
-
-const BLACK: [number, number, number] = [0, 0, 0];
-const WHITE: [number, number, number] = [255, 255, 255];
+const BLACK: Rgb = [0, 0, 0];
+const WHITE: Rgb = [255, 255, 255];
 
 /** 8x8 black with a 2x3 white block at x 1-2, y 2-4. */
 const blockAt = (x: number, y: number) =>
@@ -111,8 +84,8 @@ describe("what moved between two baselines", () => {
     // transparent rows differs in size and in nothing else. It still answers
     // with a verdict — the size half of its message — and there is no region to
     // bound. Nothing may fall over on the way to saying so.
-    const transparentTail = (_x: number, y: number) =>
-      y >= 6 ? ([0, 0, 0, 0] as [number, number, number, number]) : null;
+    const transparentTail = (_x: number, y: number): Rgba | null =>
+      y >= 6 ? [0, 0, 0, 0] : null;
     const m = measure(paint(8, 8, BLACK, transparentTail), paint(8, 6, BLACK));
 
     expect(m.resized).toBe(true);

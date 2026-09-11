@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-07  
-**Implemented:** §1's split — `tests/visual-catalog.spec.ts` (`3a59656`, #406); §8's instrument — `scripts/baseline-diff.mjs` (`5e084a0`, #404); §8's procedure — `.github/workflows/e2e.yml`'s header (`d7a9ecb`, #369, extended by `b38b78d`); §7's measurement — `takeSheetScreenshot`'s doc comment in `tests/visual-catalog.spec.ts` (`3c51512`, #366); the pre-landing state of both helpers, recorded in place (`9069dab`, #367)
+**Implemented:** §2, §3 and §4 — `playwright.config.ts`'s `expect` block, `tests/unit/screenshot-tolerance.test.ts` and the deletion of `maxDiffPixels` from `tests/visual-catalog.spec.ts` (#405); §1's split — `tests/visual-catalog.spec.ts` (`3a59656`, #406); §8's instrument — `scripts/baseline-diff.mjs` (`5e084a0`, #404); §8's procedure — `.github/workflows/e2e.yml`'s header (`d7a9ecb`, #369, extended by `b38b78d`); §7's measurement — `takeSheetScreenshot`'s doc comment in `tests/visual-catalog.spec.ts` (`3c51512`, #366); the pre-landing state of both helpers, recorded in place (`9069dab`, #367)
 
 ## Context
 
@@ -530,3 +530,33 @@ will have to do as well. Declaring `playwright-core` directly is the tempting
 alternative and is refused for the reason §3 already gives about pinning: a
 second version range beside `@playwright/test`'s is a range that can drift out of
 step with the comparator the suite actually runs.
+
+## Amendment (2026-09-11): the timeout key §3 names is one Playwright deletes, and the budget it replaces is 5 s
+
+§3 says `timeout: 15_000` is "declared beside the threshold in the same block".
+Playwright reads no such key there. `toMatchSnapshot.js:44-49` lists `timeout`
+among `NonConfigProperties` and **deletes** it from the config options before
+merging them into the call's, so a budget written inside
+`expect.toHaveScreenshot` binds nothing and reports that to nobody.
+TypeScript refuses it too — it is absent from the config's `toHaveScreenshot`
+type — which is the only reason the mistake did not ship silently.
+
+The key that binds is `expect.timeout`, one level up (`expect.js:123`). That is
+where #405 put it, and the move has a price §3 did not weigh: `expect.timeout`
+is the budget for _every_ auto-retrying matcher in the suite, so a genuinely
+broken `toBeVisible` now takes 15 s to fail rather than 5 s. A passing assertion
+costs nothing, and e2e is CI-only, so the trade is cheap — but it is a trade,
+and §2's "they live in the config, not at the call sites" was about the four
+**comparison** knobs, all of which still do.
+
+The second correction is to the number. §3 calls 30 s "the default" this
+replaces. 30 s is the _test_ timeout; the budget `toHaveScreenshot` actually
+inherits is `expect`'s own **5000 ms** (`expect.js:118`). That cuts against §3's
+own reasoning rather than for it: at 5 s a tightened threshold is _more_ exposed
+to a capture that cannot settle, not less, so naming the budget is more
+necessary than the paragraph argued, not a precaution.
+
+Neither correction touches the bracket. `tests/unit/screenshot-tolerance.test.ts`
+holds it by asking the installed comparator, and it now also asserts that
+nothing writes `timeout` back into `toHaveScreenshot`, so the address above
+cannot be re-lost the way `maxDiffPixels: 5000`'s basis was.

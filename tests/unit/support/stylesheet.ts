@@ -155,6 +155,30 @@ export function tokenPx(name: string): number {
   throw new Error(`${name} is neither a clamp() nor a px in app.css`);
 }
 
+/**
+ * A token's value as the channels a PNG stores — `--border` → `[228, 228, 231]`.
+ *
+ * The colour tier's companion to `tokenPx`: ADR-0099 §3's bracket is derived
+ * from YIQ deltas between live tokens, so the gate holding it has to read the
+ * tokens rather than restate the hexes the record quotes.
+ *
+ * Hex only, three or six digits. A token written any other way — `oklch()`, a
+ * `color-mix()`, a `var()` onto another token — throws rather than reading as
+ * some default, because a bracket derived from the wrong colour is a bracket
+ * that passes everything quietly.
+ */
+export function tokenRgb(name: string): [number, number, number] {
+  const value = tokenOf(name);
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(value)?.[1];
+  if (!hex) throw new Error(`${name} is ${value}, which is not a hex colour`);
+  const full =
+    hex.length === 3
+      ? [...hex].map((digit) => `${digit}${digit}`).join("")
+      : hex;
+  const channel = (at: number) => parseInt(full.slice(at, at + 2), 16);
+  return [channel(0), channel(2), channel(4)];
+}
+
 /** The class names a selector text mentions, in order. One regex, because two
  *  copies of it are two chances to disagree about what a class name may
  *  contain. */
