@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-07  
-**Implemented:** §8's instrument — `scripts/baseline-diff.mjs` (`5e084a0`, #404); §8's procedure — `.github/workflows/e2e.yml`'s header (`d7a9ecb`, #369, extended by `b38b78d`); §7's measurement — `takeSheetScreenshot`'s doc comment in `tests/visual-catalog.spec.ts` (`3c51512`, #366); the pre-landing state of both helpers, recorded in place (`9069dab`, #367)
+**Implemented:** §1's split — `tests/visual-catalog.spec.ts` (`3a59656`, #406); §8's instrument — `scripts/baseline-diff.mjs` (`5e084a0`, #404); §8's procedure — `.github/workflows/e2e.yml`'s header (`d7a9ecb`, #369, extended by `b38b78d`); §7's measurement — `takeSheetScreenshot`'s doc comment in `tests/visual-catalog.spec.ts` (`3c51512`, #366); the pre-landing state of both helpers, recorded in place (`9069dab`, #367)
 
 ## Context
 
