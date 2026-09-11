@@ -94,7 +94,7 @@ export function readPairingCode(raw: string): PairingCode | null {
  * be tested without a camera: the component is left holding the copy and the
  * loop, which is all a `.svelte` file should own.
  */
-export type ReadPairingCode =
+export type PairingScan =
   /** Somebody is showing a Pairing code. */
   | { kind: "code"; code: PairingCode }
   /** A Pairing code that is damaged — a truncated paste, a mangled key. */
@@ -102,7 +102,7 @@ export type ReadPairingCode =
   /** Anything else, which is what a camera mostly sees. */
   | { kind: "neither" };
 
-export function readPairingScan(raw: string): ReadPairingCode {
+export function readPairingScan(raw: string): PairingScan {
   let code: PairingCode | null;
   try {
     code = readPairingCode(raw);
