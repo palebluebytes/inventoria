@@ -384,13 +384,9 @@ test.describe("Visual Catalog Generator", () => {
   /**
    * The boot each of the seven tests below takes.
    *
-   * This is the entire price of one capture per test (ADR-0099 §1), and #368
-   * measured it: `settings-page` was 302 ms as a leg of the old monolith and
-   * 1414 ms standalone, the 1112 ms delta being the boot to the millisecond.
-   * The capture itself costs the same either way (264 ms → 246 ms). Seven boots
-   * is ~6 s more serial CPU than one, and at the configured `workers: 2` with
-   * `fullyParallel` the wall-clock floor becomes the agenda test alone — so the
-   * suite gets faster, not slower.
+   * At ~1.1 s it is the entire price of one capture per test, and the capture
+   * itself costs the same either way. ADR-0099 §1 carries #368's measurements
+   * and why the suite comes out faster rather than slower.
    */
   async function boot(page: import("@playwright/test").Page) {
     await page.clock.install({ time: new Date("2026-06-05T08:30:00Z") });
@@ -413,7 +409,7 @@ test.describe("Visual Catalog Generator", () => {
       startTime?: string;
       endTime?: string;
       tracking?: boolean;
-      timeSlots?: string[];
+      subTargets?: string[];
     }
   ) {
     await page
@@ -452,20 +448,20 @@ test.describe("Visual Catalog Generator", () => {
           .nth(1)
           .fill(payload.endTime);
       }
-      if (payload.timeSlots) {
-        // Fill first time slot into the START input
+      if (payload.subTargets) {
+        // The first Sub-Target goes in the START input; the rest each
+        // need a row of their own.
         await page
           .locator(".field-card:has-text('START')")
           .locator("input.time-input")
-          .fill(payload.timeSlots[0]);
-        // Add remaining slots
-        for (let i = 1; i < payload.timeSlots.length; i++) {
+          .fill(payload.subTargets[0]);
+        for (let i = 1; i < payload.subTargets.length; i++) {
           await page.locator("button:has-text('+ ADD ANOTHER TIME')").click();
           await page
             .locator(".slot-row")
             .nth(i - 1)
             .locator("input.time-input")
-            .fill(payload.timeSlots[i]);
+            .fill(payload.subTargets[i]);
         }
       }
     }
@@ -669,7 +665,7 @@ test.describe("Visual Catalog Generator", () => {
       title: "Take Medication",
       timed: true,
       tracking: true,
-      timeSlots: ["08:00", "20:00"],
+      subTargets: ["08:00", "20:00"],
     });
     await addCalendarEvent(page, {
       title: "Deep Work Session",
@@ -761,6 +757,9 @@ test.describe("Visual Catalog Generator", () => {
     test.slow();
     await boot(page);
     await setupApiKeys(page);
+    // `setupApiKeys` happens to leave the app on Media, because that is where
+    // the gear holding the TMDB key lives. Say it rather than inherit it: this
+    // test photographs Media whatever that helper does next.
     await page.locator(".nav-item", { hasText: "Media" }).click();
 
     // Add Movie
