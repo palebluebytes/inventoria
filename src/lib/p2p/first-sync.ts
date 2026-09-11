@@ -62,6 +62,13 @@
  * the sequence number alone leaves: both directions run under one room key, so
  * without it a frame reflected back at its own sender would verify.
  *
+ * **The key is the room's, not the lane's, and that is not an oversight.** The
+ * chains `pairing-act.ts` just derived seal *deposits* — objects left at an
+ * address on a server, which is where ADR-0096 §4's forward secrecy has
+ * something to protect. A live room holds nothing at rest, so its seal is
+ * ADR-0072 §2's, under the key that rode in the code. The lane appears here as
+ * a label because it names a direction, not because a chain state is in use.
+ *
  * ### Three payload rules of ADR-0073 invert here, deliberately
  *
  * **Superseded datoms cross** (or it is not a ledger sync), **photos cross**,
@@ -193,6 +200,12 @@ export async function runFirstSync(
 
   const opened = latch<PeerOpening>();
   const drained = latch<void>();
+  // The third latch is `collect`'s, and it is the one that is easy to miss:
+  // `collect` waits on the room rather than on a latch, and a room whose
+  // session has been left never says another word. Without this, a failure in
+  // `deposit` would leave this task, its closure and any in-flight import
+  // retained for the life of the page.
+  const ended = latch<never>();
   const progress: FirstSyncProgress = { rows_sent: 0, rows_received: 0 };
   const said = () => onProgress?.({ ...progress });
 
@@ -236,16 +249,18 @@ export async function runFirstSync(
   }
 
   /** The peer's lane, read in the order the peer sent it. */
-  async function collect(): Promise<FirstSyncResult> {
+  async function collect(): Promise<PeerClosing> {
     let peer: PeerOpening | null = null;
     let seq = 0;
     let draining = true;
 
     for (;;) {
-      const event = await room.next();
+      const event = await Promise.race([room.next(), ended.waited]);
 
-      // A second peer word is a rejoin. The room survives a lost socket, and a
-      // frame in flight when it went is the chunk this lane re-reads by seal.
+      // A second peer word is a rejoin: the room survives a lost socket and
+      // keeps the session. Nothing is resent — a frame lost with the socket
+      // stalls this lane until the room's five minutes end it, which is the
+      // resume ADR-0096 §8 makes cheap rather than a gap this loop repairs.
       if (event.kind === "peer") continue;
 
       if (event.kind !== "frame") {
@@ -283,20 +298,25 @@ export async function runFirstSync(
         peer_vector: readClosingVector(
           await open(event.bytes, closeLabel(theirs))
         ),
-        ...progress,
       };
     }
   }
 
   try {
-    const [, converged] = await Promise.all([deposit(), collect()]);
-    return converged;
+    const [, peer] = await Promise.all([deposit(), collect()]);
+    // The counts are read where both halves are done rather than where the
+    // peer's close landed. Reading them at the close happens to be correct —
+    // `drained` stops the peer closing until it holds this lane's final chunk,
+    // by which point `rows_sent` is complete — but that is a cross-lane
+    // argument three functions apart, and this needs none of it.
+    return { ...peer, ...progress };
   } catch (failure) {
-    // Whichever half failed, the other is very likely waiting on a latch the
-    // failed half was going to settle. They are told, so `Promise.all` settles
-    // on the real ending rather than hanging on a room nobody is reading.
+    // Whichever half failed, the other is still waiting — `deposit` on one of
+    // the two latches it does not settle itself, `collect` on a room that has
+    // nothing more to say. Both are told, so neither is left behind.
     opened.fail(failure);
     drained.fail(failure);
+    ended.fail(failure);
     throw failure;
   }
 }
@@ -309,6 +329,9 @@ interface PeerOpening {
   device_id: string;
   vector: VersionVector;
 }
+
+/** Who the peer is, and what it held when it closed. The record's two facts. */
+type PeerClosing = Omit<FirstSyncResult, keyof FirstSyncProgress>;
 
 /**
  * ADR-0075 §13 keeps two of ADR-0073 §8's refusals here — a chunk whose seal

@@ -111,41 +111,37 @@ const WHILE_WAITING: Record<RoomFailure, FailureWords> = {
  * Ended part way through the transfer.
  *
  * Every one of these says the same two things, because they are the two facts
- * that matter and neither is obvious: **nothing is paired**, and **what
- * crossed is kept**. Rows already imported are real data, correctly stamped, so
- * pairing again picks up where this left off rather than starting over.
+ * that matter and neither is obvious: **nothing is paired**, and **what crossed
+ * is kept**. Rows already imported are real data, correctly stamped, so pairing
+ * again picks up where this left off rather than starting over. That pair is
+ * one sentence in one place, so a reworded half cannot land on four of these
+ * endings and miss the fifth.
  */
+const KEPT =
+  "Nothing is paired. What already crossed is kept, so pairing again picks up from there.";
+
 const WHILE_SYNCING: Record<RoomFailure, FailureWords> = {
   unavailable: {
     line: "That connection dropped part way through.",
-    detail:
-      "Nothing is paired. What already crossed is kept, so pairing again picks up from there.",
+    detail: KEPT,
     retry: true,
   },
   expired: {
     line: "This ran out of time part way through.",
-    detail:
-      "Five minutes is all a code gets. Nothing is paired, but what crossed is kept, so pairing again picks up from there.",
+    detail: `Five minutes is all a code gets. ${KEPT}`,
     retry: true,
   },
   cancelled: {
     line: "You stopped this part way through.",
-    detail:
-      "Nothing is paired. What already crossed is kept, so pairing again picks up from there.",
+    detail: KEPT,
     retry: true,
   },
   refused: {
     line: "The other device would not go on.",
-    detail:
-      "Nothing is paired. What already crossed is kept, so pairing again picks up from there.",
+    detail: KEPT,
     retry: true,
   },
-  closed: {
-    line: "That did not finish.",
-    detail:
-      "Nothing is paired. What already crossed is kept, so pairing again picks up from there.",
-    retry: true,
-  },
+  closed: { line: "That did not finish.", detail: KEPT, retry: true },
 };
 
 /**

@@ -141,9 +141,17 @@
     }
   }
 
+  /**
+   * How long a `device_id` reads as on a row: enough to tell two of your own
+   * devices apart, and not the whole opaque string.
+   */
+  const SHORT_ID_CHARS = 8;
+
+  const shortId = (device: PairedDevice) =>
+    device.device_id.slice(0, SHORT_ID_CHARS);
+
   /** A row reads by short `device_id` until somebody names it (§9). */
-  const callSign = (device: PairedDevice) =>
-    device.name ?? device.device_id.slice(0, 8);
+  const callSign = (device: PairedDevice) => device.name ?? shortId(device);
 
   function saveName() {
     if (!naming) return;
@@ -212,7 +220,7 @@
             {:else}
               <Row
                 title={callSign(device)}
-                subtitle={device.name ? device.device_id.slice(0, 8) : ""}
+                subtitle={device.name ? shortId(device) : ""}
               >
                 {#snippet trailing()}
                   <span class="row-actions">

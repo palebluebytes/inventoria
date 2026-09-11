@@ -300,6 +300,36 @@ describe("the closing exchange", () => {
   });
 });
 
+describe("what a completed sync reports", () => {
+  // The counts have to survive the lopsided case, where one side sends three
+  // chunks and the other sends one empty one. They do, and the barrier is why:
+  // a peer cannot close until it holds this lane's final chunk.
+  it("counts every row that left, however lopsided the two lanes were", async () => {
+    const a = device("device_a");
+    const b = device("dev_b");
+    hold(a, [
+      row({ attribute: "a/1", value: JSON.stringify("x".repeat(400)) }),
+      row({
+        attribute: "a/2",
+        hlc_ms: 2_000,
+        value: JSON.stringify("y".repeat(400)),
+      }),
+      row({
+        attribute: "a/3",
+        hlc_ms: 3_000,
+        value: JSON.stringify("z".repeat(400)),
+      }),
+    ]);
+
+    // B holds nothing, so B's lane is one empty chunk and closes at once while
+    // A is still on chunk 0 of three.
+    const ended = await converge(a, b, { chunkBudgetBytes: 420 });
+
+    expect(ended.a.rows_sent).toBe(3);
+    expect(ended.b.rows_received).toBe(3);
+  });
+});
+
 describe("progress is shown on both sides", () => {
   it("reports rows as they cross, on the sending and the receiving side", async () => {
     const a = device("device_a");
@@ -404,6 +434,38 @@ describe("an attempt that does not finish", () => {
     const resumed = await converge(a, b);
     expect(rowsOf(b)).toHaveLength(3);
     expect(resumed.a.rows_sent).toBe(3 - kept);
+  });
+
+  // A failure reading the ledger is the act's ending, not a timeout: it escapes
+  // in its own words rather than leaving the person watching the room's five
+  // minutes run out. The retention this also fixes — `collect` waiting forever
+  // on a room the caller has since left — is not observable from out here, so
+  // this pins the half that is.
+  it("ends in the ledger's own words when the ledger will not read", async () => {
+    const a = device("device_a");
+    const b = device("dev_b");
+    const broken = {
+      ...a.ledger,
+      page: async () => {
+        throw new Error("the ledger would not open");
+      },
+    };
+
+    const relay = localRelay();
+    const code = mintRoomCode();
+    const secret = new Uint8Array(32).fill(7);
+    const shown = await derivePairingChains(secret.slice(), "showed");
+    const read = await derivePairingChains(secret.slice(), "read");
+
+    const roomA = await enterRoom(code.room, { dial: relay.dial });
+    const roomB = await enterRoom(code.room, { dial: relay.dial });
+    const failing = runFirstSync(roomA, code, shown, broken);
+    const waiting = runFirstSync(roomB, code, read, b.ledger);
+    waiting.catch(() => {});
+
+    await expect(failing).rejects.toThrow("the ledger would not open");
+    roomA.leave();
+    roomB.leave();
   });
 
   it("ends loudly when the peer sends something this version cannot read", async () => {

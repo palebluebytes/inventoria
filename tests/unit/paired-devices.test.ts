@@ -16,13 +16,26 @@ import ShowPairingCode from "../../src/lib/views/pairing/ShowPairingCode.svelte"
 import { writePairingCode } from "../../src/lib/p2p/pairing-code";
 import { mintRoomCode } from "../../src/lib/p2p/room-code";
 
-/** A jar holding one completed pairing, seeded the way one lands. */
+/**
+ * A jar holding one completed pairing, seeded the way one lands.
+ *
+ * The lane states are a real 32 bytes each, because the record's guard decodes
+ * them: a row whose state is not a chain state is not a pairing.
+ */
 const A_PAIRING = JSON.stringify([
   {
     device_id: "dev_b0c1d2e3f4",
     name: null,
-    deposit: { direction: "a2b", state: "AAAA", index: 0 },
-    collect: { direction: "b2a", state: "BBBB", index: 0 },
+    deposit: {
+      direction: "a2b",
+      state: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      index: 0,
+    },
+    collect: {
+      direction: "b2a",
+      state: "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=",
+      index: 0,
+    },
     peer_vector: {},
   },
 ]);

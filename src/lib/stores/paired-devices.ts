@@ -1,5 +1,5 @@
 import { writable } from "svelte/store";
-import type { VersionVector } from "../db/version-vector";
+import { readVersionVector, type VersionVector } from "../db/version-vector";
 import {
   CHAIN_STATE_BYTES,
   type LaneChain,
@@ -52,6 +52,14 @@ import {
  * (ADR-0096 §8). "Pair a device" must therefore work with no row present, and
  * "Pair again" promises nothing, because `device_id` is not learned until the
  * act is spent.
+ *
+ * **What "losslessly" rests on, stated rather than assumed.** Replacing resets
+ * both indices to zero and overwrites the peer's vector, and that loses nothing
+ * only because the pairing being replaced is a *fresh* one: the act mints a new
+ * secret and a new `state₀`, so the lanes it replaces address nothing any more.
+ * #396 is what makes an index worth something, and whoever builds #400's
+ * two-phase unpair has to take the old lanes' outstanding objects **before**
+ * this overwrites the indices and the etag that reach them.
  */
 
 /** One lane's ratchet, at the index it has reached. */
@@ -120,10 +128,18 @@ const b64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
 const unb64 = (text: string) =>
   Uint8Array.from(atob(text), (character) => character.charCodeAt(0));
 
-const storedLane = (lane: LaneChain, index = 0): StoredLane => ({
+/**
+ * A lane as it is kept, at the index a first sync leaves it: zero.
+ *
+ * It takes no index, because **the index advances on collections** (ADR-0096
+ * §4) and nothing collects until #396. That ticket advances a stored lane; it
+ * does not re-derive one from a pairing act, so a parameter here would be a
+ * hook for a caller that will never exist.
+ */
+const storedLane = (lane: LaneChain): StoredLane => ({
   direction: lane.direction,
   state: b64(lane.state),
-  index,
+  index: 0,
 });
 
 /** A stored lane back as the chain it is, for deriving an address or a key. */
@@ -156,34 +172,64 @@ export function readPairedDevices(): PairedDevice[] {
   }
 }
 
+/**
+ * One row, checked to the standard the two things it holds will be used at.
+ *
+ * **The vector is checked with the ledger's own reader**, not with a shape
+ * test: `readVersionVector` is what every vector off a wire goes through, and a
+ * row that passed a looser test here would bind `undefined` into
+ * `vectorAboveMatch`'s `WHERE` the first time a deposit sized itself against
+ * it. The same argument makes the lane state decode here rather than at
+ * `laneChainOf`, which is reached far from this boundary and by code that has
+ * been told the type is good.
+ */
 function isPairedDevice(row: unknown): row is PairedDevice {
   if (row === null || typeof row !== "object") return false;
-  return (
-    "device_id" in row &&
-    typeof row.device_id === "string" &&
-    row.device_id.length > 0 &&
-    "name" in row &&
-    (row.name === null || typeof row.name === "string") &&
-    "deposit" in row &&
-    isStoredLane(row.deposit) &&
-    "collect" in row &&
-    isStoredLane(row.collect) &&
-    "peer_vector" in row &&
-    row.peer_vector !== null &&
-    typeof row.peer_vector === "object"
-  );
+  if (
+    !(
+      "device_id" in row &&
+      typeof row.device_id === "string" &&
+      row.device_id.length > 0 &&
+      "name" in row &&
+      (row.name === null || typeof row.name === "string") &&
+      "deposit" in row &&
+      isStoredLane(row.deposit) &&
+      "collect" in row &&
+      isStoredLane(row.collect) &&
+      "peer_vector" in row
+    )
+  ) {
+    return false;
+  }
+  try {
+    readVersionVector(row.peer_vector);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function isStoredLane(lane: unknown): lane is StoredLane {
   if (lane === null || typeof lane !== "object") return false;
-  return (
-    "direction" in lane &&
-    (lane.direction === "a2b" || lane.direction === "b2a") &&
-    "state" in lane &&
-    typeof lane.state === "string" &&
-    "index" in lane &&
-    typeof lane.index === "number"
-  );
+  if (
+    !(
+      "direction" in lane &&
+      (lane.direction === "a2b" || lane.direction === "b2a") &&
+      "state" in lane &&
+      typeof lane.state === "string" &&
+      "index" in lane &&
+      typeof lane.index === "number" &&
+      Number.isSafeInteger(lane.index) &&
+      lane.index >= 0
+    )
+  ) {
+    return false;
+  }
+  try {
+    return unb64(lane.state).length === CHAIN_STATE_BYTES;
+  } catch {
+    return false;
+  }
 }
 
 /** The live list, for a Settings section that redraws when one is added. */

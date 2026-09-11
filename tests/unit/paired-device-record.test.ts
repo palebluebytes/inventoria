@@ -267,6 +267,42 @@ describe("the jar is a boundary like any other", () => {
     expect(records.readPairedDevices()).toEqual([]);
   });
 
+  // The jar is checked to the standard the two things it holds will be used
+  // at: a vector goes through the ledger's own reader, and a lane state has to
+  // decode to a chain state. A looser test here would bind `undefined` into a
+  // deposit's `WHERE`, or throw inside `atob` far from this boundary.
+  it.each([
+    ["a vector that is not one", { peer_vector: { dev_c: { hlc_ms: -1 } } }],
+    [
+      "a lane state that is not base64",
+      { deposit: { direction: "a2b", state: "!!!!", index: 0 } },
+    ],
+    [
+      "a lane state of the wrong width",
+      { deposit: { direction: "a2b", state: "AAAA", index: 0 } },
+    ],
+    [
+      "an index that is not a whole count",
+      {
+        collect: { direction: "b2a", state: btoa("\0".repeat(32)), index: -1 },
+      },
+    ],
+  ])("drops a row carrying %s", async (_what, broken) => {
+    records.rememberPairedDevice({
+      device_id: "dev_b",
+      chains: await chainsFrom(1),
+      peer_vector: {},
+    });
+    const [sound] = records.readPairedDevices();
+    stubLocalStorage({
+      seed: {
+        inventoria_paired_devices: JSON.stringify([{ ...sound, ...broken }]),
+      },
+    });
+
+    expect(records.readPairedDevices()).toEqual([]);
+  });
+
   it("drops a row that is not a pairing and keeps the ones that are", async () => {
     records.rememberPairedDevice({
       device_id: "dev_b",
