@@ -220,6 +220,42 @@ async function takeFullPageScreenshot(
   }
 }
 
+/**
+ * The storage figures, pinned to numbers this file chose (#405).
+ *
+ * `playwright.config.ts` already pins `timezoneId` and `locale` for a stated
+ * reason — "the same ledger renders different strings on each machine, so the
+ * visual baselines would never agree". The browser's storage quota is a third
+ * host setting nobody pinned, and `SettingsView`'s Storage section reads it
+ * straight out of `navigator.storage.estimate()` into a sentence: "This site is
+ * using about X of the roughly Y this browser allows it."
+ *
+ * Chromium sizes that quota from the runner's free disk, so it is different on
+ * every run: four readings across #405's two rebaseline dispatches gave 1.0 GB,
+ * 960 MB, 963 MB and 997 MB. And it does not stay in the sentence. On the
+ * desktop shot the changed pixels run from the sentence at y 527 all the way to
+ * y 2024, where the red "Clear" button's fill ends eight pixels lower than it
+ * did. Both `settings-page` baselines were a photograph of the runner rather
+ * than of the screen, and at `threshold` 0.2 that was absorbed intermittently —
+ * which is worse than failing, because it froze whichever reading the last
+ * rebaseline happened to catch.
+ *
+ * Pinned rather than masked, because a mask hides the sentence and not the
+ * reflow under it, and because the screen's job here is to show that section
+ * drawn with real figures in it. 4.6 MB of 1.0 GB is a plausible jar on a
+ * desktop browser and exercises the branch that names both numbers.
+ */
+const STORAGE_ESTIMATE = { usage: 4_600_000, quota: 1_000_000_000 };
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript((estimate) => {
+    // Assigned over the prototype's method rather than replacing
+    // `navigator.storage`, which is a read-only accessor. `persist()` and the
+    // rest of the manager stay the browser's.
+    if (navigator.storage) navigator.storage.estimate = async () => estimate;
+  }, STORAGE_ESTIMATE);
+});
+
 test.describe("Visual Catalog Generator", () => {
   test.beforeEach(async ({ page }) => {
     // Capture page console logs for debugging
